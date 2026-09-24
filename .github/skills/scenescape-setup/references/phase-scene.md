@@ -28,7 +28,11 @@ bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \
   --phase scene
 ```
 
-Reconstruction creates/finalizes the scene named in `deploy-inputs.json`.
+Reconstruction creates/finalizes the scene named in `deploy-inputs.json`. When `mapping` in
+`deploy-inputs.json` is not `reconstruction`, step 11–12 instead creates the scene from the
+recorded `glb_file`/`camera_json` (or skips with instructions to follow
+[scene-map-alternatives.md](./scene-map-alternatives.md) when those aren't both present) — see
+[reconstruction.md](./reconstruction.md).
 
 Reconstruction and tracking verification (step 13 waits up to ~45s for camera subscriptions,
 then up to ~2 minutes for regulated tracks) can take a while; launch asynchronously with

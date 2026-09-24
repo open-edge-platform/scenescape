@@ -109,8 +109,13 @@ class ResolutionSerializerField(serializers.DictField):
 
   def to_internal_value(self, data):
     if isinstance(data, (list, tuple)):
+      if len(data) != 2:
+        raise serializers.ValidationError("resolution must have exactly 2 values: [width, height]")
       return {'width': data[0], 'height': data[1]}
-    return None
+    if isinstance(data, dict):
+      return {'width': data.get('width'), 'height': data.get('height')}
+    raise serializers.ValidationError(
+      "resolution must be [width, height] or {'width': ..., 'height': ...}")
 
 class RegionOccupancyThresholdSerializer(serializers.ModelSerializer):
   sectors = serializers.JSONField()
@@ -333,14 +338,14 @@ class CamSerializer(NonNullSerializer):
 
   def map_resolution_fields(self, validated_data):
     # DRF auto-populates validated_data['cam'] because `resolution` declares
-    # source='cam'; it must be discarded here or Cam.objects.create() blows up
-    # with "unexpected keyword arguments: 'cam'".
-    validated_data.pop('cam', None)
-    resolution = self.initial_data.get('resolution', None)
+    # source='cam'; it's already the {width, height} dict normalized by
+    # ResolutionSerializerField.to_internal_value(), so use it directly instead of
+    # re-indexing initial_data['resolution'], which may be the documented
+    # [width, height] list form and isn't dict-indexable.
+    resolution = validated_data.pop('cam', None)
     if not resolution:
       return
-    extended_data = {'width': resolution['width'], 'height': resolution['height']}
-    validated_data.update(extended_data)
+    validated_data.update({'width': resolution['width'], 'height': resolution['height']})
     return
 
   def map_intrinsics_fields(self, validated_data):
@@ -787,11 +792,25 @@ class SceneSerializer(NonNullSerializer):
           raise serializers.ValidationError(f"Error processing .ply file")
 
       if ext == ".glb":
-        # Only auto-align if a new GLB file was uploaded
-        if instance._original_map != instance.map:
+        # Scene.objects.bulk_create() above never calls Scene.save(), so the
+        # is_new_scene handling there never runs for REST-created scenes; a new
+        # instance's _original_map already equals instance.map (both set from
+        # validated_data in Scene.__init__), so that equality check alone would
+        # skip alignment here too unless creation is treated as always-align.
+        if not is_update or instance._original_map != instance.map:
           instance.autoAlignSceneMap()
         instance.saveThumbnail()
-        Scene.objects.filter(pk=instance.pk).update(thumbnail=instance.thumbnail)
+        # autoAlignSceneMap() only mutates the in-memory instance; rotation/
+        # translation must be persisted explicitly alongside the thumbnail.
+        Scene.objects.filter(pk=instance.pk).update(
+          thumbnail=instance.thumbnail,
+          rotation_x=instance.rotation_x,
+          rotation_y=instance.rotation_y,
+          rotation_z=instance.rotation_z,
+          translation_x=instance.translation_x,
+          translation_y=instance.translation_y,
+          translation_z=instance.translation_z,
+        )
 
     if parent_uid:
       self.link_parent(parent_uid, instance)

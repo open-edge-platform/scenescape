@@ -5,21 +5,46 @@
 Generalizes the ad hoc registration used in references/scene-map-alternatives.md: auto-detects
 the per-camera identifier key (sensor_id/uid/name/id), auto-detects euler vs quaternion rotation,
 accepts explicit --camera-map overrides when the JSON's identifiers don't match deployed
-camera_ids, and cleans up orphaned (scene=None) cameras with a colliding name before creating.
+camera_ids, cleans up orphaned (scene=None) cameras with a colliding name before creating, and is
+safe to re-run: a camera already registered to --scene-uid is updated in place instead of
+re-created.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import ssl
 import sys
 from pathlib import Path
 from typing import Any
 
 import requests
+from requests.adapters import HTTPAdapter
 
 # Keys tried in order to find a camera's identifier inside one entry of the camera.json.
 IDENTIFIER_KEYS = ("sensor_id", "uid", "name", "id")
+
+
+class _CAOnlyAdapter(HTTPAdapter):
+  """Verify the server certificate's chain against our own CA bundle, but skip hostname
+  matching: this script reaches the manager via https://<base-url-host> (e.g. the docker-published
+  'localhost'), while the deployment cert's only SAN is web.scenescape.intel.com. The CA is
+  deployment-local and pinned from disk, so chain trust still defeats a MITM without requiring
+  a hostname match."""
+
+  def __init__(self, ca_cert: str, *args, **kwargs):
+    self._ca_cert = ca_cert
+    super().__init__(*args, **kwargs)
+
+  def init_poolmanager(self, *args, **kwargs):
+    context = ssl.create_default_context(cafile=self._ca_cert)
+    context.check_hostname = False
+    kwargs["ssl_context"] = context
+    # urllib3 also does its own post-handshake hostname match independent of
+    # ssl_context.check_hostname; disable that too or it re-raises the same mismatch.
+    kwargs["assert_hostname"] = False
+    return super().init_poolmanager(*args, **kwargs)
 
 
 def load_cameras(camera_json_path: Path) -> list[dict[str, Any]]:
@@ -99,43 +124,46 @@ def resolution_payload(cam: dict[str, Any]) -> dict[str, int] | None:
   raise ValueError(f"unrecognized resolution format: {resolution!r}")
 
 
-def authenticate(base_url: str, supass_path: Path) -> str:
+def manager_session(base_url: str, ca_cert: Path, supass_path: Path) -> requests.Session:
+  """Authenticated requests.Session verifying TLS against the deployment's own CA bundle
+  (never disables verification: that would let a MITM on the auth request capture the
+  admin password)."""
+  if not ca_cert.is_file():
+    raise FileNotFoundError(f"CA cert not found: {ca_cert}")
+
+  session = requests.Session()
+  session.mount("https://", _CAOnlyAdapter(str(ca_cert)))
+
   supass = supass_path.read_text(encoding="utf-8").strip()
-  resp = requests.post(
+  resp = session.post(
     f"{base_url}/api/v1/auth",
     json={"username": "admin", "password": supass},
-    verify=False,
     timeout=30,
   )
   resp.raise_for_status()
-  return resp.json()["token"]
+  session.headers.update({"Authorization": f"Token {resp.json()['token']}"})
+  return session
 
 
-def delete_orphaned(base_url: str, token: str, camera_id: str) -> None:
+def get_existing_camera(session: requests.Session, base_url: str, camera_id: str) -> dict[str, Any] | None:
+  resp = session.get(f"{base_url}/api/v1/camera/{camera_id}", timeout=30)
+  if resp.status_code != 200:
+    return None
+  return resp.json()
+
+
+def delete_orphaned(session: requests.Session, base_url: str, camera_id: str, existing: dict[str, Any] | None) -> None:
   """Best-effort cleanup: an existing camera with this name but scene=None blocks creation
   with 'orphaned camera with the name ... already exists' (see repo memory notes)."""
-  resp = requests.get(
-    f"{base_url}/api/v1/camera/{camera_id}",
-    headers={"Authorization": f"Token {token}"},
-    verify=False,
-    timeout=30,
-  )
-  if resp.status_code != 200:
+  if existing is None or existing.get("scene") is not None:
     return
-  existing = resp.json()
-  if existing.get("scene") is None:
-    requests.delete(
-      f"{base_url}/api/v1/camera/{camera_id}",
-      headers={"Authorization": f"Token {token}"},
-      verify=False,
-      timeout=30,
-    )
-    print(f"Deleted orphaned camera: {camera_id}")
+  session.delete(f"{base_url}/api/v1/camera/{camera_id}", timeout=30)
+  print(f"Deleted orphaned camera: {camera_id}")
 
 
 def register_cameras(
+  session: requests.Session,
   base_url: str,
-  token: str,
   scene_uid: str,
   cameras: list[dict[str, Any]],
   camera_map: dict[str, str],
@@ -166,16 +194,25 @@ def register_cameras(
     if resolution:
       payload["resolution"] = resolution
 
-    delete_orphaned(base_url, token, camera_id)
+    existing = get_existing_camera(session, base_url, camera_id)
+    delete_orphaned(session, base_url, camera_id, existing)
 
-    resp = requests.post(
-      f"{base_url}/api/v1/camera",
-      headers={"Authorization": f"Token {token}"},
-      json=payload,
-      verify=False,
-      timeout=60,
-    )
-    print(f"Registered {camera_id} (from {identifier}): {resp.status_code}")
+    if existing is not None and existing.get("scene") not in (None, scene_uid):
+      print(f"SKIP {camera_id} (from {identifier}): already registered to a different scene "
+            f"({existing['scene']})", file=sys.stderr)
+      failures += 1
+      continue
+
+    if existing is not None and existing.get("scene") == scene_uid:
+      # Retry-safe: update the camera already registered to this scene instead of
+      # re-POSTing a create, which CamSerializer.validate_name() would reject as a duplicate.
+      resp = session.post(f"{base_url}/api/v1/camera/{camera_id}", json=payload, timeout=60)
+      action = "Updated"
+    else:
+      resp = session.post(f"{base_url}/api/v1/camera", json=payload, timeout=60)
+      action = "Registered"
+
+    print(f"{action} {camera_id} (from {identifier}): {resp.status_code}")
     if resp.status_code >= 400:
       print("  ", resp.text[:500])
       failures += 1
@@ -194,7 +231,10 @@ def register_cameras(
 
 def main() -> None:
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument("--deploy-dir", required=True, type=Path, help="For secrets/supass")
+  parser.add_argument(
+    "--deploy-dir", required=True, type=Path,
+    help="For secrets/supass and secrets/certs/scenescape-ca.pem",
+  )
   parser.add_argument("--scene-uid", required=True)
   parser.add_argument("--camera-json", required=True, type=Path)
   parser.add_argument(
@@ -213,12 +253,13 @@ def main() -> None:
     print(f"ERROR: {supass_path} not found", file=sys.stderr)
     sys.exit(2)
 
+  ca_cert = args.deploy_dir / "secrets" / "certs" / "scenescape-ca.pem"
   cameras = load_cameras(args.camera_json)
   camera_map = parse_camera_map(args.camera_map)
-  token = authenticate(args.base_url, supass_path)
+  session = manager_session(args.base_url, ca_cert, supass_path)
 
   failures = register_cameras(
-    args.base_url, token, args.scene_uid, cameras, camera_map, args.camera_ids,
+    session, args.base_url, args.scene_uid, cameras, camera_map, args.camera_ids,
   )
   sys.exit(1 if failures else 0)
 

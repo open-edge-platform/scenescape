@@ -34,12 +34,13 @@ call it out for the user.
   [reconstruction.md](./reconstruction.md#supplementing-with-a-walk-through-video).
 - **Blueprint image, GLB/PLY mesh, or geospatial map**: this skips automatic camera-pose
   estimation, so the user must calibrate cameras **manually** via the web UI afterward — unless
-  a pre-calibrated `camera_json` file is supplied along with `glb_file`. Confirm if manual
-  calibration is accepted or if `camera_json` is provided, then follow
-  [scene-map-alternatives.md](./scene-map-alternatives.md), which covers running only
+  a pre-calibrated `camera_json` file is supplied along with `glb_file`. When both `glb_file` and
+  `camera_json` are recorded in `deploy-inputs.json`, the orchestrator's step 11–12 automates
+  scene creation and camera registration itself — just deploy normally. Otherwise (blueprint,
+  geospatial, or a `.glb` mesh without `camera_json`), confirm manual calibration is accepted,
+  then follow [scene-map-alternatives.md](./scene-map-alternatives.md), which covers running only
   `--phase bootstrap`/`--phase calibrate`, computing pixels-per-meter for a blueprint, creating
-  the scene via REST, and registering cameras (automatically if `camera_json` is present or
-  manually via Web UI).
+  the scene via REST, and registering cameras (manually via Web UI).
 
 ## Persist before automation
 

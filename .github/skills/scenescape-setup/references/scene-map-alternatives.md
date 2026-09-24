@@ -11,6 +11,12 @@ estimates each camera's pose automatically. Use this reference when the user alr
 floor blueprint image, a 3D `.glb`/`.ply` mesh, or wants to build the scene from a geospatial
 (GPS-based) map instead of auto-reconstruction.
 
+When `deploy-inputs.json` records `mapping=glb` with both `glb_file` and `camera_json`, step
+11–12 (`create_scene_from_map.py` + `register_cameras.py`) automates scene creation and camera
+registration itself — no manual steps are needed, just run the orchestrator normally (or
+`--phase scene`). The manual procedure below is only needed for a blueprint/geospatial map, or a
+`.glb` mesh without a `camera_json`.
+
 ## Caveat: manual calibration vs automated camera.json
 
 Auto-reconstruction estimates camera pose (position + orientation) as a side effect of building
@@ -29,8 +35,9 @@ static blueprint image or GLB file.
 
 ## Running only bootstrap + calibrate (skip auto-reconstruction)
 
-Run the orchestrator through calibration only, then create the scene manually with the steps
-below instead of letting steps 11–13 run automatic reconstruction:
+For a blueprint/geospatial map, or a `.glb` mesh without a `camera_json` (the cases step 11–12
+cannot automate), run the orchestrator through calibration only, then create the scene manually
+with the steps below instead of letting steps 11–13 run:
 
 ```bash
 bash "$SKILL_DIR/scripts/deploy_scenescape.sh" \

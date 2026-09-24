@@ -851,7 +851,10 @@ class Cam(Sensor):
       # This is an update, check if scene has changed
       try:
         original = Cam.objects.get(pk=self.pk)
-        if original.scene_id != self.scene_id:
+        # Scene.id is a UUIDField: original.scene_id comes back as a uuid.UUID while
+        # self.scene_id from a REST update is a plain string, so compare as strings
+        # or every update (not just an actual scene reassignment) looks like a change.
+        if str(original.scene_id) != str(self.scene_id):
           original_scene = original.scene
           # Scene has changed, clear pose-related fields
           self.transforms = []

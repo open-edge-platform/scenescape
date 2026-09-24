@@ -181,6 +181,9 @@ def load_inputs(deploy_dir: Path) -> dict[str, Any]:
       "camera_ids": state["camera_ids"],
       "streams": state["streams"],
       "skill_dir": state.get("skill_dir"),
+      "mapping": state.get("mapping", "reconstruction"),
+      "glb_file": state.get("glb_file"),
+      "camera_json": state.get("camera_json"),
     }
 
   raise FileNotFoundError(
@@ -193,6 +196,9 @@ def inputs_match(saved: dict[str, Any], candidate: dict[str, Any]) -> bool:
     saved.get("scene_name") == candidate.get("scene_name")
     and saved.get("camera_ids") == candidate.get("camera_ids")
     and saved.get("streams") == candidate.get("streams")
+    and saved.get("mapping", "reconstruction") == candidate.get("mapping", "reconstruction")
+    and saved.get("glb_file") == candidate.get("glb_file")
+    and saved.get("camera_json") == candidate.get("camera_json")
   )
 
 
@@ -292,6 +298,9 @@ def main() -> None:
   check.add_argument("--scene-name", required=True)
   check.add_argument("--camera-ids", required=True, nargs="+")
   check.add_argument("--streams", required=True, nargs="+")
+  check.add_argument("--mapping", default="reconstruction")
+  check.add_argument("--glb-file", default=None)
+  check.add_argument("--camera-json", default=None)
 
   args = parser.parse_args()
 
@@ -330,7 +339,10 @@ def main() -> None:
     return
 
   saved = json.loads((args.deploy_dir / INPUTS_FILE).read_text(encoding="utf-8"))
-  candidate = inputs_payload(args.camera_ids, args.streams, args.scene_name)
+  candidate = inputs_payload(
+    args.camera_ids, args.streams, args.scene_name,
+    mapping=args.mapping, glb_file=args.glb_file, camera_json=args.camera_json,
+  )
   if inputs_match(saved, candidate):
     return
   raise SystemExit("inputs differ from deploy-inputs.json; use --fresh to redeploy with new values")
