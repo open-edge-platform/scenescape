@@ -95,8 +95,10 @@ bash <skill-dir>/scripts/deploy_scenescape.sh \
   there is no finite-playback/one-shot mode.
 - During bootstrap, `bootstrap_deploy.py` ffprobes each file and sets
   `controller/tracker-config.json`'s `time_chunking_rate_fps` to the **highest** probed FPS
-  (rounded, minimum 1). That avoids the default `10` Hz tracker rate racing ahead of low-FPS
-  recordings. Override later via [tuning-tracker.md](./tuning-tracker.md) if needed.
+  (rounded, clamped to `[1, 100]` to match the controller's allowed range). That avoids the
+  default `10` Hz tracker rate racing ahead of low-FPS recordings. If some files fail to
+  probe, bootstrap warns and uses the max among successes; if all fail, the default is kept.
+  Override later via [tuning-tracker.md](./tuning-tracker.md) if needed.
 - `--fresh` (or manually deleting `docker-compose.override.yml`) is required to switch a
   deployment from file-based back to live RTSP cameras, since the override file is only
   regenerated (or removed) by `bootstrap_deploy.py` reading the current `deploy-inputs.json`.

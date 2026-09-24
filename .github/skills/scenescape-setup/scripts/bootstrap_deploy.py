@@ -16,6 +16,9 @@ from deploy_inputs import load_inputs
 DLSTREAMER_FOLDERS = ("model-proc-files", "mosquitto", "user_scripts")
 FFMPEG_IMAGE = "linuxserver/ffmpeg:version-8.1-cli"
 MEDIAMTX_IMAGE = "bluenviron/mediamtx:1.18.1"
+# Keep in sync with controller/src/controller/time_chunking.py
+MIN_CHUNKING_RATE_FPS = 1
+MAX_CHUNKING_RATE_FPS = 100
 
 
 def skill_dir_from_arg(value: Path) -> Path:
@@ -191,6 +194,13 @@ def _parse_frame_rate(rate: str) -> float | None:
   return fps if fps > 0 else None
 
 
+def chunk_fps_from_probed_rates(rates: list[float]) -> int:
+  """Map probed file FPS values to a valid time_chunking_rate_fps."""
+  if not rates:
+    raise ValueError("rates must be non-empty")
+  return min(MAX_CHUNKING_RATE_FPS, max(MIN_CHUNKING_RATE_FPS, int(round(max(rates)))))
+
+
 def probe_video_codec(video_path: Path) -> str | None:
   """Return the primary video codec name (e.g. h264), or None if probing fails."""
   codec = _run_ffprobe(video_path, "stream=codec_name")
@@ -233,11 +243,22 @@ def apply_file_source_tracker_defaults(deploy_dir: Path, payload: dict) -> None:
   if payload.get("source_type") != "file":
     return
 
+  video_paths = list(payload.get("video_paths") or [])
   rates: list[float] = []
-  for video_path in payload.get("video_paths") or []:
+  failed: list[str] = []
+  for video_path in video_paths:
     fps = probe_video_fps(Path(video_path))
     if fps is not None:
       rates.append(fps)
+    else:
+      failed.append(str(video_path))
+
+  if failed:
+    print(
+      f"WARN: could not probe FPS for {len(failed)}/{len(video_paths)} video(s): "
+      f"{', '.join(failed)}",
+      file=sys.stderr,
+    )
 
   if not rates:
     print(
@@ -246,15 +267,19 @@ def apply_file_source_tracker_defaults(deploy_dir: Path, payload: dict) -> None:
     )
     return
 
-  chunk_fps = max(1, int(round(max(rates))))
+  probed_max = max(rates)
+  chunk_fps = chunk_fps_from_probed_rates(rates)
   cfg_path = deploy_dir / "controller" / "tracker-config.json"
   cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
   previous = cfg.get("time_chunking_rate_fps")
   cfg["time_chunking_rate_fps"] = chunk_fps
   cfg_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+  clamp_note = ""
+  if int(round(probed_max)) > MAX_CHUNKING_RATE_FPS:
+    clamp_note = f" (clamped to max {MAX_CHUNKING_RATE_FPS})"
   print(
-    f"Set time_chunking_rate_fps={chunk_fps} "
-    f"(was {previous}; probed max file FPS={max(rates):.4g})"
+    f"Set time_chunking_rate_fps={chunk_fps}{clamp_note} "
+    f"(was {previous}; probed max file FPS={probed_max:.4g})"
   )
 
 
