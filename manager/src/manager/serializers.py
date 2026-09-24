@@ -113,7 +113,9 @@ class ResolutionSerializerField(serializers.DictField):
         raise serializers.ValidationError("resolution must have exactly 2 values: [width, height]")
       return {'width': data[0], 'height': data[1]}
     if isinstance(data, dict):
-      return {'width': data.get('width'), 'height': data.get('height')}
+      if not all(key in data and data[key] is not None for key in ('width', 'height')):
+        raise serializers.ValidationError("resolution must include width and height")
+      return {'width': data['width'], 'height': data['height']}
     raise serializers.ValidationError(
       "resolution must be [width, height] or {'width': ..., 'height': ...}")
 
