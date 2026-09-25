@@ -302,7 +302,7 @@ class CamSerializer(NonNullSerializer):
     is_update = instance is not None
     scene_uid = validated_data.pop('scene', None)
     if scene_uid is not None:
-      validated_data['scene_id'] = scene_uid['pk']
+      validated_data['scene_id'] = Scene._meta.pk.to_python(scene_uid['pk'])
 
     validated_data['type'] = "camera"
 
