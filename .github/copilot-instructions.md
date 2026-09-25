@@ -240,7 +240,7 @@ pubsub.publish(topic, json_payload)
 ## File Organization Essentials
 
 - **`Makefile`**: Root orchestrator; includes image build rules, test targets, clean targets
-- **`docker-compose.yml`**: Service composition, networking, volume/secret management (checked-in file, parameterized via `.env` and Makefile-passed env vars)
+- **`docker-compose.yml`**: Generated deployment compose file for service composition, networking, and volume/secret management (created by `make docker-compose.yml` and parameterized via `.env` and Makefile-passed env vars)
 - **`.env`**: Runtime environment (database password, metrics config, COMPOSE_PROJECT_NAME)
 - **`scene_common/src/scene_common/`**: Reusable modules (MQTT, REST, geometry, schema, logging)
 - **`manager/secrets/`**: TLS certificates, auth tokens (never committed; generated per build)
