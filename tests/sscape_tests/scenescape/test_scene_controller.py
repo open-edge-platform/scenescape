@@ -14,8 +14,9 @@ from collections import defaultdict
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
-from controller.scene_controller import SceneController
+from controller.child_scene_controller import ChildSceneController
 from controller.external_source import IdentityClaimRegistry
+from controller.scene_controller import SceneController
 from scene_common.mqtt import PubSub
 
 
@@ -1360,3 +1361,82 @@ class TestSceneControllerRemoteChildParent:
     assert scene is remote_sender
     assert remote_sender.parent is None
 
+
+class TestChildSceneControllerCatalogs:
+  """Catalog callback wiring for remote children (NEX-T21933)."""
+
+  TEST_NAME = "NEX-T21933"
+
+  @staticmethod
+  def _build_child():
+    child = ChildSceneController.__new__(ChildSceneController)
+    child.child_id = 'remote-child-1'
+    child.child_name = 'Remote Child'
+    child.child_link_uid = 'child-link-1'
+    child.child_event_topic = 'event-topic'
+    child.child_scene_topic = 'scene-topic'
+    child.client = MagicMock()
+    child.parent_controller = MagicMock()
+    child.parent_controller.cache_manager.data_source.updateChildScene.return_value = (
+      SimpleNamespace(status_code=200, errors=[]))
+    child._catalog_cache = {
+      'tripwires': {'last_json': None, 'field': 'cached_tripwires', 'type_name': 'Tripwires'},
+      'rois': {'last_json': None, 'field': 'cached_rois', 'type_name': 'Rois'},
+      'sensors': {'last_json': None, 'field': 'cached_sensors', 'type_name': 'Sensors'},
+    }
+    return child
+
+  @pytest.mark.parametrize(
+    'catalog_type,field_name',
+    [
+      ('tripwires', 'cached_tripwires'),
+      ('rois', 'cached_rois'),
+      ('sensors', 'cached_sensors'),
+    ],
+  )
+  def test_enqueue_catalog_uses_catalog_type_when_persisting(self, catalog_type, field_name):
+    """Valid catalogs are persisted to their corresponding child-scene field."""
+    child = self._build_child()
+    catalog = [{'id': f'{catalog_type}-1'}]
+    message = SimpleNamespace(topic='catalog-topic', payload=json.dumps(catalog).encode('utf-8'))
+
+    child.enqueueCatalog(None, None, message, catalog_type)
+
+    callback, queued_message = child.parent_controller.enqueueRemoteCallback.call_args.args
+    assert queued_message is message
+    callback(None, None, message)
+    child.parent_controller.cache_manager.data_source.updateChildScene.assert_called_once_with(
+      'child-link-1', {field_name: catalog})
+
+  def test_subscriptions_bind_each_catalog_type(self):
+    """Each MQTT callback retains its own catalog type instead of the final loop value."""
+    child = self._build_child()
+
+    child.onChildConnect(None, None, None, 0)
+
+    callbacks = {
+      call.args[0]: call.args[1]
+      for call in child.client.addCallback.call_args_list
+      if call.kwargs.get('qos') == 1
+    }
+    expected_topics = {
+      PubSub.formatTopic(PubSub.DATA_CHILD_TRIPWIRES, scene_id=child.child_id): 'tripwires',
+      PubSub.formatTopic(PubSub.DATA_CHILD_ROIS, scene_id=child.child_id): 'rois',
+      PubSub.formatTopic(PubSub.DATA_CHILD_SENSORS, scene_id=child.child_id): 'sensors',
+    }
+
+    assert callbacks.keys() == expected_topics.keys()
+    for topic, catalog_type in expected_topics.items():
+      child.parent_controller.enqueueRemoteCallback.reset_mock()
+      callbacks[topic](None, None, MagicMock())
+      callback = child.parent_controller.enqueueRemoteCallback.call_args.args[0]
+      assert callback.keywords == {'catalog_type': catalog_type}
+
+  def test_invalid_catalog_payload_is_not_persisted(self):
+    """Invalid catalog JSON is rejected without writing stale child data."""
+    child = self._build_child()
+    message = SimpleNamespace(topic='catalog-topic', payload=b'not-json')
+
+    child.handleCatalog(None, None, message, 'tripwires')
+
+    child.parent_controller.cache_manager.data_source.updateChildScene.assert_not_called()
