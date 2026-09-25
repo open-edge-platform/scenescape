@@ -6,6 +6,7 @@
 #include "config_loader.hpp"
 #include "coordinate_transformer.hpp"
 #include "id_map.hpp"
+#include "object_class.hpp"
 #include "time_utils.hpp"
 #include "tracking_types.hpp"
 
@@ -56,11 +57,13 @@ public:
      * @param publish_callback Callback to publish tracking results
      * @param tracking_config Configuration for RobotVision tracker
      * @param cameras Map of camera_id to CameraConfig for coordinate transform
+     * @param object_class Per-category projection settings from Manager assets
+     * @param clock_fn Wall-clock source for track timestamps
      */
     TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
                    PublishCallback publish_callback, const TrackingConfig& tracking_config,
                    const std::unordered_map<std::string, Camera>& cameras,
-                   ClockFn clock_fn = makeSystemClock());
+                   ObjectClassConfig object_class = {}, ClockFn clock_fn = makeSystemClock());
 
     /// Destructor joins worker thread
     ~TrackingWorker();

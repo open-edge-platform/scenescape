@@ -79,6 +79,10 @@ Run `make test-unit-coverage` to verify locally. New code MUST maintain these th
 
 **Publishes**: `scenescape/data/scene/<scene_id>` — Tracked object messages
 
+When `scenes.source=api`, the service also loads Manager `/api/v1/assets` for
+per-category projection (`shift_type`, footprint sizes) used by
+`CoordinateTransformer`. Missing assets soft-falls back to TYPE_1 defaults.
+
 ## Development Workflows
 
 ### Building and Testing

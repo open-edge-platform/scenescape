@@ -28,6 +28,9 @@ protected:
         server_.Get("/api/v1/scenes", [this](const httplib::Request& req, httplib::Response& res) {
             scenes_handler(req, res);
         });
+        server_.Get("/api/v1/assets", [this](const httplib::Request& req, httplib::Response& res) {
+            assets_handler(req, res);
+        });
 
         // Listen on ephemeral port on localhost
         port_ = server_.bind_to_any_port("127.0.0.1");
@@ -60,6 +63,11 @@ protected:
         };
 
     std::function<void(const httplib::Request&, httplib::Response&)> scenes_handler =
+        [](const httplib::Request&, httplib::Response& res) {
+            res.set_content(R"({"results":[]})", "application/json");
+        };
+
+    std::function<void(const httplib::Request&, httplib::Response&)> assets_handler =
         [](const httplib::Request&, httplib::Response& res) {
             res.set_content(R"({"results":[]})", "application/json");
         };
@@ -255,6 +263,38 @@ TEST_F(ManagerRestClientTest, FetchScenesConnectionRefused) {
     }
 
     EXPECT_THROW(client.fetchScenes(), std::runtime_error);
+}
+
+// ===== fetchAssets() =====
+
+TEST_F(ManagerRestClientTest, FetchAssetsWithoutAuthThrows) {
+    ManagerRestClient client(base_url_);
+    EXPECT_THROW(client.fetchAssets(), std::runtime_error);
+}
+
+TEST_F(ManagerRestClientTest, FetchAssetsSuccess) {
+    assets_handler = [](const httplib::Request&, httplib::Response& res) {
+        res.set_content(R"({"results":[{"name":"FW190D","shift_type":2}]})", "application/json");
+    };
+
+    ManagerRestClient client(base_url_);
+    client.authenticate("u", "p");
+    std::string body = client.fetchAssets();
+    EXPECT_NE(body.find("FW190D"), std::string::npos);
+}
+
+TEST_F(ManagerRestClientTest, FetchAssetsPassesAuthHeader) {
+    std::string captured_auth;
+    assets_handler = [&](const httplib::Request& req, httplib::Response& res) {
+        captured_auth = req.get_header_value("Authorization");
+        res.set_content("{}", "application/json");
+    };
+
+    ManagerRestClient client(base_url_);
+    client.authenticate("u", "p");
+    client.fetchAssets();
+
+    EXPECT_EQ(captured_auth, "Token test-token-123");
 }
 
 // ===== URL parsing edge cases (tested through authenticate) =====

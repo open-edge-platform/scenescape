@@ -14,6 +14,7 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_loader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/api_scene_loader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/manager_rest_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/object_class.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/coordinate_transformer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
@@ -54,6 +55,7 @@ add_executable(tracker_tests
     id_map_test.cpp
     api_scene_loader_test.cpp
     manager_rest_client_test.cpp
+    object_class_test.cpp
     telemetry_test.cpp
     metrics_test.cpp
     ${TRACKER_LIB_SOURCES}
