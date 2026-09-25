@@ -20,7 +20,7 @@ from pathlib import Path
 
 # Directories that require C++ extensions not available on the host.
 # Listed as paths relative to this conftest's directory.
-_NATIVE_ONLY_DIRS = {"autocamcalib", "markerless", "robot_vision"}
+_NATIVE_ONLY_DIRS = {"autocamcalib", "robot_vision"}
 
 # Import controller module
 _controller_src = Path(__file__).resolve().parent.parent.parent / "controller" / "src"

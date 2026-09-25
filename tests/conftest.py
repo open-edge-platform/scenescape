@@ -60,6 +60,14 @@ _analytics_src = _REPO_ROOT / "analytics" / "src"
 if str(_analytics_src) not in sys.path:
   sys.path.insert(0, str(_analytics_src))
 
+_autocalibration_src = _REPO_ROOT / "autocalibration" / "src"
+if str(_autocalibration_src) not in sys.path:
+  sys.path.insert(0, str(_autocalibration_src))
+
+_autocalibration_hloc = _REPO_ROOT / "autocalibration" / ".vendor" / "reloc"
+if str(_autocalibration_hloc) not in sys.path:
+  sys.path.insert(0, str(_autocalibration_hloc))
+
 # ---------------------------------------------------------------------------
 # Environmental dependencies (host-only)
 # ---------------------------------------------------------------------------
