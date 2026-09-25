@@ -75,7 +75,7 @@ class ChildSceneController():
       self.client.removeCallback(topic)
       self.client.addCallback(
         topic,
-        lambda client, userdata, msg, ct=catalog_type: self.enqueueCatalog(client, userdata, msg, ct),
+        lambda client, userdata, msg, ct=catalog_type: self.enqueueCatalog(client, userdata, msg),
         qos=1
       )
       log.info(f"Subscribed to {topic}")
