@@ -11,6 +11,7 @@ from tests.ui import UserInterfaceTest
 from tests.ui.browser import By
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -24,11 +25,8 @@ WAIT_SEC = 100
 class Scene3dUserInterfaceTest(UserInterfaceTest):
   BROWSER_WEBGL = True
 
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
-
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
 
     return
 
@@ -150,20 +148,22 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.recordTestResult()
     return
 
+@pytest.mark.test_name("NEX-T10562")
 @common.mock_display
-def test_calibrate_camera_3d_ui_2d_ui(scenescape_env, request, record_xml_attribute):
+def test_calibrate_camera_3d_ui_2d_ui(scenescape_env, request, result_recorder):
   """! Test to calibrate camera in 3D first and calibrate again camera in 2D using April Tag.
   @param    request                 List of test parameters.
-  @param    record_xml_attribute    Function for recording test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Boolean representing whether the test passed or failed.
   """
   log.info("Executing: " + TEST_NAME)
   log.info("Test to calibrate camera in 3D first and calibrate again camera in 2D using April Tag.")
 
-  test = Scene3dUserInterfaceTest(TEST_NAME, request, record_xml_attribute)
+  test = Scene3dUserInterfaceTest(TEST_NAME, request)
   test.checkCalibration3d2dAprilTag()
 
   assert test.exitCode == 0
+  result_recorder.success()
   return test.exitCode
 
 def main():

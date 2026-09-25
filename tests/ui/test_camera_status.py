@@ -7,21 +7,22 @@ from tests.mqtt_helper import mqtt_wait_for_detections
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
   require_password=True, auth="",
 )
 
-def test_camera_status_main(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10416")
+def test_camera_status_main(params, result_recorder):
   """! Checks that the camera streams on the WebUI are updated, reporting success
   if camera 1 and 2 streams are updated, and camera 3 is offline.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10416"
-  record_xml_attribute("name", TEST_NAME)
   cameraNumber = 3
   exit_code = 1
   browser = None
@@ -69,3 +70,4 @@ def test_camera_status_main(params, record_xml_attribute):
       browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
+  result_recorder.success()

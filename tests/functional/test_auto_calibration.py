@@ -90,10 +90,10 @@ EXPECTED_RESULT_4 = {
 }
 
 class AutoCalibration(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute,
+  def __init__(self, testName, request,
                nTags, randomSelect, expected, expectedResult,
                intrinsics=None, repo_root=""):
-    super().__init__(testName, request, recordXMLAttribute)
+    super().__init__(testName, request)
     self.scene_name = "Queuing"
     self.scene_id = self.params['scene_id']
     self.camera_id = "atag-qcam1"
@@ -298,7 +298,7 @@ class AutoCalibration(FunctionalTest):
 def test_auto_calibration(scenescape_env, request, record_xml_attribute, result_recorder,
               test_name, n_tags, random_select,
               expect_status, expected_result, intrinsics, repo_root):
-  test = AutoCalibration(test_name, request, record_xml_attribute,
+  test = AutoCalibration(test_name, request,
              n_tags, random_select, expect_status,
              expected_result, intrinsics=intrinsics, repo_root=repo_root)
   test.runAutoCalibration()

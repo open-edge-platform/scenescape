@@ -8,6 +8,7 @@ from tests.functional.reid_backend import REID_DATABASE, get_reid_profile_module
 from tests.utils.log import get_logger
 
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+import pytest
 log = get_logger(__name__)
 
 SCENESCAPE_SPEC = FuncTestSpec(
@@ -18,8 +19,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = "NEX-T10516"
 
 class ReidSimilaritySearch(BackendFunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.thing_1 = self.generate_random_vector()
     self.thing_2 = self.generate_random_vector()
     self.thing_2_match = self.generate_random_vector()
@@ -118,14 +119,15 @@ class ReidSimilaritySearch(BackendFunctionalTest):
       "There should be only 2 entities returned!"
     return
 
-def test_reid_similarity_search(scenescape_env, request, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10516")
+def test_reid_similarity_search(scenescape_env, request, result_recorder):
   """! Verify similarity search with RE-ID vectors on the configured backend.
   @param    request                 Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the test result.
   @return   exit_code               Indicates test success or failure.
   """
 
-  test = ReidSimilaritySearch(TEST_NAME, request, record_xml_attribute)
+  test = ReidSimilaritySearch(TEST_NAME, request)
   try:
     test.reid_connect()
     test.descriptor_set_reid()
@@ -137,3 +139,4 @@ def test_reid_similarity_search(scenescape_env, request, record_xml_attribute):
     test.recordTestResult()
 
   assert test.exitCode == 0
+  result_recorder.success()

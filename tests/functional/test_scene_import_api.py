@@ -26,8 +26,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = "NEX-T13967"
 
 class SceneImportAPITest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, zipFile, expected, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, zipFile, expected, repo_root):
+    super().__init__(testName, request)
     self.rest = RESTClient(self.params["resturl"], rootcert=self.params["rootcert"])
     assert self.rest.authenticate(self.params["user"], self.params["password"])
 
@@ -275,6 +275,7 @@ class SceneImportAPITest(FunctionalTest):
     log.info("✅ Scene components validated.")
 
 # Parametrized test entry point
+@pytest.mark.test_name("NEX-T13967")
 @pytest.mark.parametrize(
   "zipFile, expected",
   [
@@ -287,15 +288,15 @@ class SceneImportAPITest(FunctionalTest):
     ("Intersection-Demo.zip", "0"),  # SUCCESS
   ],
 )
-def test_scene_import_api(scenescape_env, demo_scene, request, record_xml_attribute, zipFile, expected, repo_root):
-  record_xml_attribute("name", TEST_NAME)
+def test_scene_import_api(scenescape_env, demo_scene, request, result_recorder, zipFile, expected, repo_root):
   test = SceneImportAPITest(
-    TEST_NAME, request, record_xml_attribute, zipFile, expected, repo_root
+    TEST_NAME, request, None, zipFile, expected, repo_root
   )
   exit_code = 1
   try:
     ok = test.runTest()
     exit_code = 0 if ok else 1
     assert ok
+    result_recorder.success()
   finally:
     record_test_result(TEST_NAME, exit_code)

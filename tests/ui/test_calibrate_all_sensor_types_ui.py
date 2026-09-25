@@ -11,6 +11,7 @@ from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 import time
 import re
+import pytest
 
 log = get_logger(__name__)
 
@@ -200,14 +201,14 @@ class TestTriangleSensorCalibration(TestSensorCalibrationBase):
     self.elements["polygon_points"] = sensor_graphic_polygon.get_attribute("points")
     return
 
-def test_sensor_calibration(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10457")
+def test_sensor_calibration(params, result_recorder):
   """! Tests sensor calibration for sensors covering: (1) The entire scene, (2) A circular area, (3) A polygonal area.
   @param    params                  List of test parameters.
-  @param    record_xml_attribute    Function for recording test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Boolean representing whether the test passed or failed.
   """
   TEST_NAME = "NEX-T10457"
-  record_xml_attribute("name", TEST_NAME)
   SENSOR_NAME = "test_sensor"
   SENSOR_ID = SENSOR_NAME
   exit_code = 1
@@ -258,4 +259,5 @@ def test_sensor_calibration(params, record_xml_attribute):
       browser.close()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
+  result_recorder.success()
   return exit_code

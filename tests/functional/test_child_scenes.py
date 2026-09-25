@@ -264,27 +264,29 @@ def publish_data(obj_data, obj_location, client, obj_cat):
     time.sleep(1/FRAME_RATE)
   return
 
+@pytest.mark.test_name("NEX-T10439")
 @pytest.mark.parametrize("translation,rotation,child,parent,obj_cat", test_cases)
-def test_child_scenes(objData, obj_location, record_xml_attribute, \
+def test_child_scenes(objData, obj_location, \
                                              translation, \
                                              rotation, \
                                              child, \
                                              parent, \
                                              obj_cat, \
                                              params, \
-                                             repo_root):
+                                             repo_root, \
+                                             result_recorder):
   """! This function creates and updates the child scene. It also verifies that
   the data received from the parent is correct after applying different transforms based on the test
   cases provided above.
   @param    objData                 Pytest fixture defining object data such as ID, etc.
   @param    obj_location            Pytest fixture defining the objects location.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
   @param    translation             The ranslation of the child scene.
   @param    rotation                The rotation of the child scene.
   @param    parent                  The name of the parent.
   @param    child                   The name of the child.
   @param    obj_cat                 The object category.
   @param    params                  Dict of test parameters.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   global parent_translation,\
@@ -311,7 +313,6 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
   mse = None
 
   TEST_NAME = "NEX-T10439"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   pose = CameraPose(transform, None)
   client = PubSub(params["auth"], None, params["rootcert"],
@@ -363,4 +364,5 @@ def test_child_scenes(objData, obj_location, record_xml_attribute, \
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
+  result_recorder.success()
   return

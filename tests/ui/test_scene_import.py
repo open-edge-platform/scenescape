@@ -47,8 +47,8 @@ SCENE_EXISTS = '3'
 ORPHANED_CAMERA = '4'
 
 class SceneImportTest(UserInterfaceTest):
-  def __init__(self, testName, request, recordXMLAttribute, zipFile, expected, waitTime):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, zipFile, expected, waitTime):
+    super().__init__(testName, request)
     self.sceneName = self.params['scene']
     self.sceneUID = self.params['scene_id']
     self.waitTime = waitTime
@@ -210,9 +210,6 @@ class SceneImportTest(UserInterfaceTest):
       self.validate_scene(child)
 
   def checkForMalfunctions(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
     try:
       waitTopic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id="+")
       assert self.waitForTopic(waitTopic, MAX_CONTROLLER_WAIT), "Video Analytics not ready"
@@ -299,6 +296,7 @@ class SceneImportTest(UserInterfaceTest):
           os.remove(self.zipFile)
     return
 
+@pytest.mark.test_name("NEX-T13051")
 @pytest.mark.parametrize(
   "zipFile, expected, waitTime",
   [
@@ -311,10 +309,11 @@ class SceneImportTest(UserInterfaceTest):
     ("Intersection-Demo.zip", '0', TEST_WAIT_TIME * 6) #Intersection demo
   ]
 )
-def test_scene_import(scenescape_env, request, record_xml_attribute, zipFile, expected, waitTime):
-  test = SceneImportTest(TEST_NAME, request, record_xml_attribute, zipFile, expected, waitTime)
+def test_scene_import(scenescape_env, request, result_recorder, zipFile, expected, waitTime):
+  test = SceneImportTest(TEST_NAME, request, zipFile, expected, waitTime)
   test.checkForMalfunctions()
   assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():

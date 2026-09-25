@@ -64,7 +64,7 @@ IDENTITY_ROTATION = [0, 0, 0, 1]
 
 class ExternalSourceIngest(FunctionalTest):
   def __init__(self, testName, request, repo_root):
-    super().__init__(testName, request, None)
+    super().__init__(testName, request)
     self.repoRoot = repo_root
 
     self.exitCode = 1

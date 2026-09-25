@@ -41,8 +41,8 @@ leftAcross = 0
 tripwirePoints = None
 
 class WillOurShipGo(SceneObjectMqtt):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sceneUID = self.params['scene_id']
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
@@ -147,8 +147,6 @@ class WillOurShipGo(SceneObjectMqtt):
     """
     global message_received
     global rightAcross, leftAcross, tripwirePoints
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
 
     try:
       res = self.prepareScene()
@@ -192,9 +190,11 @@ class WillOurShipGo(SceneObjectMqtt):
       self.recordTestResult()
     return
 
+@pytest.mark.test_name("NEX-T10406")
 @pytest.mark.basic_acceptance
-def test_sensor_region_events(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
+def test_sensor_region_events(scenescape_env, demo_scene, request, result_recorder):
+  test = WillOurShipGo(TEST_NAME, request)
   test.checkForMalfunctions()
   assert test.exitCode == 0
+  result_recorder.success()
   return

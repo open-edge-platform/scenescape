@@ -25,8 +25,8 @@ MAX_ATTEMPTS = 3
 log = get_logger(__name__)
 
 class SceneObjectMqtt(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sceneUID = self.params['scene_id']
     self.roiName = ROI_NAME
     self.frameRate = FRAMES_PER_SECOND
@@ -181,8 +181,6 @@ class SceneObjectMqtt(FunctionalTest):
     self.regionDataTimestampsWhileInside = []
     self.objectEntryTimes = {}  # Track when each object entered region for dwell verification
     self.previousDwellTimes = {}  # Track previous dwell times to verify monotonic increase
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
 
     return
 

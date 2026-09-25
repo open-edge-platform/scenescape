@@ -14,6 +14,7 @@ import uuid
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
+import pytest
 log = get_logger(__name__)
 
 
@@ -25,8 +26,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = 'NEX-T10464'
 
 class TestAPI(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sceneName = self.params['scene']
     self.sceneID = None
     self.allThings = None
@@ -242,11 +243,13 @@ class TestAPI(FunctionalTest):
       self.recordTestResult()
     return
 
-def test_api(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = TestAPI(TEST_NAME, request, record_xml_attribute)
+@pytest.mark.test_name("NEX-T10464")
+def test_api(scenescape_env, demo_scene, request, result_recorder):
+  test = TestAPI(TEST_NAME, request)
   test.sceneName = 'test_scene_1'
   test.verifyThings()
   assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():

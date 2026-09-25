@@ -9,6 +9,7 @@ from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -20,8 +21,8 @@ MAX_CONTROLLER_WAIT = 20 # seconds
 MAX_ATTEMPTS = 3
 
 class OrphanedCameraTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
 
     self.existingSceneUID = self.params['scene_id']
     self.newSceneName = "automated-scene1"
@@ -91,10 +92,12 @@ class OrphanedCameraTest(FunctionalTest):
 
     return
 
-def test_orphaned_cameras(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = OrphanedCameraTest(TEST_NAME, request, record_xml_attribute)
+@pytest.mark.test_name("NEX-T10402")
+def test_orphaned_cameras(scenescape_env, demo_scene, request, result_recorder):
+  test = OrphanedCameraTest(TEST_NAME, request)
   test.verifyOrphanedCameras()
   assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():

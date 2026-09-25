@@ -22,6 +22,7 @@ from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.geometry import Point
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -38,8 +39,8 @@ IMG_H = 480
 ANALYTICS = os.environ.get('ANALYTICS', 'false').lower() == 'true'
 
 class SensorMqttMessageFlowTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sceneUID = self.params['scene_id']
     self.cameraId = "camera1"
 
@@ -573,9 +574,6 @@ class SensorMqttMessageFlowTest(FunctionalTest):
     return
 
   def checkForMalfunctions(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
     try:
       self.prepareScene()
       course = self.plotCourse()
@@ -660,7 +658,9 @@ class SensorMqttMessageFlowTest(FunctionalTest):
       self.recordTestResult()
     return
 
-def test_sensor_mqtt_message_flow(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = SensorMqttMessageFlowTest(TEST_NAME, request, record_xml_attribute)
+@pytest.mark.test_name("NEX-T10456")
+def test_sensor_mqtt_message_flow(scenescape_env, demo_scene, request, result_recorder):
+  test = SensorMqttMessageFlowTest(TEST_NAME, request)
   test.checkForMalfunctions()
   assert test.exitCode == 0
+  result_recorder.success()

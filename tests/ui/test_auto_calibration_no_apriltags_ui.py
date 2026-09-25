@@ -11,6 +11,7 @@ from tests.ui import UserInterfaceTest
 from tests.ui import common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
@@ -18,8 +19,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 class NoAprilTagCalibrationTest(UserInterfaceTest):
-  def __init__(self, testName, request, recordXMLAttribute):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request):
+    super().__init__(testName, request)
     self.sceneName = self.params['scene']
     self.exitCode = 1
     return
@@ -63,22 +64,23 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
     else:
       print("Autocalibration label or button state is incorrect.")
 
+@pytest.mark.test_name("NEX-T10485")
 @common.mock_display
-def test_no_april_tag(request, record_xml_attribute, scenescape_env):
+def test_no_april_tag(request, result_recorder, scenescape_env):
   """! Checks that the ACC displays an appropriate error message and disables the calibration button when no April tags are present in the scene.
   @param    request                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the Zephyr test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10485"
-  record_xml_attribute("name", TEST_NAME)
 
-  test = NoAprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
+  test = NoAprilTagCalibrationTest(TEST_NAME, request)
   test.execute_test()
 
   common.record_test_result(TEST_NAME, test.exitCode)
 
   assert test.exitCode == 0
+  result_recorder.success()
   return test.exitCode
 
 def main():
