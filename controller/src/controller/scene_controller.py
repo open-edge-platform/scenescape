@@ -1,12 +1,14 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import orjson
-import os
 from collections import defaultdict
+import os
+import queue
+import threading
 from types import SimpleNamespace
 
 import ntplib
+import orjson
 
 from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
@@ -141,6 +143,14 @@ class SceneController:
     if self.external_source_bindings:
       log.info("Loaded %s manual external-source bindings for %s publishers",
                EXTERNAL_SOURCE_BINDINGS_ENV_VAR, len(self.external_source_bindings))
+    self._moving_object_queue = queue.Queue(maxsize=1000)
+    self._moving_object_stop = threading.Event()
+    self._moving_object_worker = threading.Thread(
+      target=self._processMovingObjectQueue,
+      name="scene-moving-object-worker",
+      daemon=True,
+    )
+    self._moving_object_worker.start()
     return
 
   def extractTrackerConfigData(self, tracker_config_file):
@@ -239,6 +249,20 @@ class SceneController:
     which point these daemon threads are torn down anyway; this exists for
     graceful cleanup paths (tests, future signal handling).
     """
+    # Remote child loops are the only producers for this queue. Stop them
+    # first so no message is accepted while the worker is being shut down.
+    for child_obj in getattr(self, 'subscribed_children', {}).values():
+      try:
+        child_obj.client.disconnect()
+      except Exception as e:
+        log.warning(f"Failed to disconnect remote child {child_obj.child_id}: {e}")
+      finally:
+        child_obj.loopStop()
+
+    self._moving_object_stop.set()
+    if hasattr(self, '_moving_object_worker') and self._moving_object_worker.is_alive():
+      self._moving_object_worker.join(timeout=5)
+
     self.external_source_pose_cache.stopBackgroundSweep()
     self.identity_claim_registry.stopBackgroundSweep()
     return
@@ -381,8 +405,69 @@ class SceneController:
     with uuid_manager.active_ids_lock:
       values = uuid_manager.active_ids.get(rv_id)
     return bool(values and values[0] is not None)
+
   # Message handling
   def handleMovingObjectMessage(self, client, userdata, message):
+    """Queue every moving-object message for serialized processing.
+
+    Both the parent MQTT loop and remote-child MQTT loops may receive object
+    data. A single worker owns scene/tracker mutation and downstream publishes.
+    """
+    self.enqueueRemoteCallback(self._processMovingObjectMessage, message)
+    return
+
+  def enqueueRemoteCallback(self, callback, message):
+    """Queue a remote MQTT callback with an immutable message snapshot."""
+    queued_message = SimpleNamespace(
+      topic=str(message.topic),
+      payload=bytes(message.payload),
+    )
+    self._enqueueRemoteWork(callback, None, None, queued_message,
+                            f"topic={queued_message.topic}")
+    return
+
+  def enqueueRemoteChildStatus(self, child_id, status):
+    """Publish a remote-child status from the serialized remote work path."""
+    self._enqueueRemoteWork(self._publishRemoteChildStatus, child_id, status,
+                            f"child={child_id} status={status}")
+    return
+
+  def _publishRemoteChildStatus(self, child_id, status):
+    topic = PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS, scene_id=child_id)
+    self.pubsub.publish(topic, status)
+    return
+
+  def _enqueueRemoteWork(self, callback, *args):
+    """Submit bounded remote-child work without blocking its MQTT loop."""
+    description = args[-1]
+    callback_args = args[:-1]
+    if self._moving_object_stop.is_set():
+      return
+    try:
+      self._moving_object_queue.put_nowait((callback, callback_args, description))
+    except queue.Full:
+      log.warning(f"Dropping remote-child work because processing queue is full: {description}")
+    return
+
+  def _processMovingObjectQueue(self):
+    """Process queued remote-child data outside child MQTT loop threads."""
+    while not self._moving_object_stop.is_set():
+      try:
+        callback, callback_args, description = self._moving_object_queue.get(timeout=0.5)
+      except queue.Empty:
+        continue
+
+      try:
+        callback(*callback_args)
+      except Exception as e:
+        log.error(
+          f"Failed to process queued remote-child work ({description}): {e}"
+        )
+      finally:
+        self._moving_object_queue.task_done()
+    return
+
+  def _processMovingObjectMessage(self, client, userdata, message):
 
     topic = PubSub.parseTopic(message.topic)
     jdata = orjson.loads(message.payload.decode('utf-8'))
@@ -669,6 +754,7 @@ class SceneController:
     command = str(message.payload.decode("utf-8"))
     if command == "update":
       try:
+        self.cache_manager.invalidate()
         self.updateSubscriptions()
         self.updateObjectClasses()
         self.updateCameras()
@@ -763,73 +849,232 @@ class SceneController:
     return
 
   def updateSubscriptions(self):
+    """Reconcile local and remote MQTT subscriptions with current configuration."""
     log.debug("UPDATE SUBSCRIPTIONS")
-    self.cache_manager.invalidate()
     if not hasattr(self, 'subscribed'):
       self.subscribed = set()
+    if not hasattr(self, 'subscribed_children'):
+      self.subscribed_children = {}
+
+    previous_children = self.subscribed_children
+    required_children = {}
+    children_to_start = []
+    children_to_stop = []
     need_subscribe = set()
 
-    if not hasattr(self, 'subscribed_children'):
-      self.subscribed_children = dict()
-    need_subscribe_child = dict()
-
     self.scenes = self.cache_manager.allScenes()
-    # Publisher-centric: one wildcard covers configured children and dynamic
-    # agents on scenescape/external/{publisher_id}/{thing_type}.
-    need_subscribe.add((PubSub.formatTopic(PubSub.DATA_EXTERNAL,
-                                          scene_id="+", thing_type="+"),
-                        self.handleMovingObjectMessage))
+
+    # One wildcard covers configured children and dynamic agents on:
+    # scenescape/external/{publisher_id}/{thing_type}
+    need_subscribe.add((
+      PubSub.formatTopic(
+        PubSub.DATA_EXTERNAL,
+        scene_id="+",
+        thing_type="+",
+      ),
+      self.handleMovingObjectMessage,
+    ))
+
+    def connectionConfig(info):
+      """Return fields that require replacing a remote MQTT connection."""
+      return (
+        str(info.get('remote_child_id')),
+        info.get('host_name'),
+        info.get('mqtt_username'),
+        info.get('mqtt_password'),
+      )
 
     for scene in self.scenes:
-      for camera in scene.cameras:
-        need_subscribe.add((PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera),
-                            self.handleMovingObjectMessage))
-      # External publisher-centric ingest is covered by the wildcard subscribe above.
+      for camera_id in scene.cameras:
+        need_subscribe.add((
+          PubSub.formatTopic(
+            PubSub.DATA_CAMERA,
+            camera_id=camera_id,
+          ),
+          self.handleMovingObjectMessage,
+        ))
 
-      if hasattr(scene, 'children'):
-        child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
+      if not hasattr(scene, 'children'):
+        continue
 
-        for info in child_scenes.get('results', []):
-          if info['child_type'] == 'local':
-            self.cache_manager.sceneWithID(info['child']).retrack = info['retrack']
+      child_scenes = self.cache_manager.data_source.getChildScenes(scene.uid)
+      if not child_scenes or 'results' not in child_scenes:
+        log.warning(
+          f"Failed to load child scenes for parent scene {scene.uid}"
+        )
+        continue
 
-            need_subscribe.add((PubSub.formatTopic(PubSub.EVENT, region_type="+",
-                                                  event_type="+",
-                                                  scene_id=info['child'],
-                                                  region_id="+"),
-                                self.republishEvents))
+      for info in child_scenes.get('results', []):
+        if info['child_type'] == 'local':
+          child_scene = self.cache_manager.sceneWithID(info['child'])
+          if child_scene is None:
+            log.warning(
+              f"Local child scene {info['child']} not found "
+              f"for parent scene {scene.uid}"
+            )
+            continue
+
+          child_scene.retrack = info['retrack']
+
+          need_subscribe.add((
+            PubSub.formatTopic(
+              PubSub.EVENT,
+              region_type="+",
+              event_type="+",
+              scene_id=info['child'],
+              region_id="+",
+            ),
+            self.republishEvents,
+          ))
+          continue
+
+        remote_info = self._withRemoteChildParent(info, scene.uid)
+        remote_child_id = str(remote_info['remote_child_id'])
+        existing_child = previous_children.get(remote_child_id)
+
+        existing_config = None
+        if existing_child is not None:
+          existing_config = connectionConfig(existing_child.remote_config)
+
+        required_config = connectionConfig(remote_info)
+
+        if existing_child is not None and existing_config == required_config:
+          # Keep the existing MQTT connection and its network-loop thread.
+          child_obj = existing_child
+
+        # Refresh non-connection metadata without replacing the controller.
+          child_obj.remote_config = dict(remote_info)
+          child_obj.child_name = remote_info['name']
+          child_obj.child_link_uid = remote_info.get('uid')
+
+          log.debug(
+            f"Reusing remote-child controller: "
+            f"child={remote_child_id} controller={id(child_obj)}"
+          )
+        else:
+          # Construction establishes the MQTT socket in the current
+          # ChildSceneController implementation, but callbacks are not processed
+          # until loopStart() is called below.
+          child_obj = ChildSceneController(
+            self.root_cert,
+            remote_info,
+            self,
+          )
+          children_to_start.append(child_obj)
+
+          if existing_child is not None:
+            children_to_stop.append(existing_child)
+            log.info(
+              f"Replacing reconfigured remote child: "
+              f"child={remote_child_id} "
+              f"old_controller={id(existing_child)} "
+              f"new_controller={id(child_obj)}"
+            )
           else:
-            # Remote child payloads may omit parent (or leave it null). The
-            # enclosing scene is the parent by construction of this query.
-            remote_info = self._withRemoteChildParent(info, scene.uid)
-            child_obj = ChildSceneController(self.root_cert, remote_info, self)
-            self.cache_manager.cached_child_transforms_by_uid[remote_info['remote_child_id']] = \
-              Scene.deserialize(remote_info)
-            need_subscribe_child[remote_info['remote_child_id']] = child_obj
-            need_subscribe.add((PubSub.formatTopic(PubSub.SYS_CHILDSCENE_STATUS,
-                                                    scene_id=remote_info['remote_child_id']),
-                                child_obj.publishStatus))
+            log.info(
+              f"Adding remote child: "
+              f"child={remote_child_id} controller={id(child_obj)}"
+            )
 
-    # disconnect old children clients
-    for old_child, cobj in self.subscribed_children.items():
-      if old_child not in need_subscribe_child:
-        self.cache_manager.cached_child_transforms_by_uid.pop(old_child, 'None')
-      cobj.loopStop()
+        required_children[remote_child_id] = child_obj
 
-    # connect to all children
-    for new_child, cobj in need_subscribe_child.items():
-      log.info(f"Connecting to remote child {new_child}")
-      cobj.loopStart()
+        # Keep the remote-child scene descriptor when the connection is retained.
+        # Scene.deserialize() creates a tracker and native threads, so calling it
+        # during every parent-MQTT reconnect leaks resources.
+        descriptor = self.cache_manager.cached_child_transforms_by_uid.get(
+          remote_child_id
+        )
 
-    self.subscribed_children = need_subscribe_child
+        if descriptor is None:
+          # New remote child: create its transform descriptor before its MQTT loop
+          # can invoke callbacks.
+          descriptor = Scene.deserialize(remote_info)
+          self.cache_manager.cached_child_transforms_by_uid[remote_child_id] = \
+            descriptor
+        else:
+          # Existing remote child: refresh transform/configuration in place without
+          # creating another tracker/thread set.
+          descriptor.updateScene(remote_info)
 
-    new = need_subscribe - self.subscribed
-    old = self.subscribed - need_subscribe
-    for topic, callback in old:
+        need_subscribe.add((
+          PubSub.formatTopic(
+            PubSub.SYS_CHILDSCENE_STATUS,
+            scene_id=remote_child_id,
+          ),
+          child_obj.publishStatus,
+        ))
+
+    # Find children which no longer exist in the configuration.
+    removed_child_ids = set(previous_children) - set(required_children)
+    for remote_child_id in removed_child_ids:
+      child_obj = previous_children[remote_child_id]
+      children_to_stop.append(child_obj)
+
+      self.cache_manager.cached_child_transforms_by_uid.pop(
+        remote_child_id,
+        None,
+      )
+
+      log.debug(
+        f"Removing remote child: "
+        f"child={remote_child_id} controller={id(child_obj)}"
+      )
+
+    retained_child_ids = {
+      child_id
+      for child_id in set(previous_children) & set(required_children)
+      if previous_children[child_id] is required_children[child_id]
+    }
+
+    log.debug(
+      f"Remote-child reconciliation: "
+      f"existing={len(previous_children)} "
+      f"required={len(required_children)} "
+      f"retained={len(retained_child_ids)} "
+      f"starting={len(children_to_start)} "
+      f"stopping={len(children_to_stop)}"
+    )
+
+    # Commit the authoritative controller collection before starting any new
+    # MQTT network-loop threads. Remote callbacks can execute immediately after
+    # loopStart().
+    self.subscribed_children = required_children
+
+    new_subscriptions = need_subscribe - self.subscribed
+    old_subscriptions = self.subscribed - need_subscribe
+
+    for topic, callback in old_subscriptions:
       self.pubsub.removeCallback(topic)
       log.info("Unsubscribed from", topic)
-    for topic, callback in new:
+
+    for topic, callback in new_subscriptions:
       self.pubsub.addCallback(topic, callback)
       log.info("Subscribed to", topic)
+
     self.subscribed = need_subscribe
+
+    # Shut down removed/replaced clients after parent callback reconciliation.
+    for child_obj in children_to_stop:
+      log.debug(
+        f"Stopping remote-child MQTT loop: "
+        f"child={child_obj.child_id} controller={id(child_obj)}"
+      )
+      try:
+        child_obj.client.disconnect()
+      except Exception as e:
+        log.warning(
+          f"Failed to disconnect remote child {child_obj.child_id}: {e}"
+        )
+      finally:
+        child_obj.loopStop()
+
+    # Start only newly created clients. Retained clients keep their existing
+    # network loops and automatic Paho reconnection behavior.
+    for child_obj in children_to_start:
+      log.debug(
+        f"Starting remote-child MQTT loop: "
+        f"child={child_obj.child_id} controller={id(child_obj)}"
+      )
+      child_obj.loopStart()
+
     return

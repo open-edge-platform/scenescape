@@ -19,12 +19,12 @@ class Command(BaseCommand):
   def handle(self, *args, **options):
 
     print("Kubeclient Container started")
-    kubeclient = KubeClient(options['broker'],
-                            options['auth'],
-                            options['cert'],
-                            options['rootcert'],
-                            options['resturl'])
     try:
+      kubeclient = KubeClient(options['broker'],
+                              options['auth'],
+                              options['cert'],
+                              options['rootcert'],
+                              options['resturl'])
       kubeclient.setup()
     except Exception as e:
       print(f"Kubeclient can't be set up, exception: {e}")
