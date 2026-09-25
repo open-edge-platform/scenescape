@@ -30,9 +30,11 @@ RUN pip3 install --no-cache-dir scikit-build-core \
 # Build main controller package
 COPY ./controller/src/controller /tmp/controller/controller
 COPY ./controller/src/setup.py /tmp/controller/setup.py
+COPY ./reid_service/src/reid_service /tmp/controller/reid_service
 RUN cd /tmp/controller \
     && python3 setup.py bdist_wheel \
     && pip3 install --no-cache-dir ./dist/*.whl -vvv \
+    && cp -r reid_service /usr/local/lib/python3.11/site-packages/reid_service \
     && cd \
     && rm -rf /tmp/controller
 
@@ -101,6 +103,7 @@ RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.2
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/controller /usr/local/lib/${PY_LIB_DIR}/site-packages/controller
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/reid_service /usr/local/lib/${PY_LIB_DIR}/site-packages/reid_service
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
