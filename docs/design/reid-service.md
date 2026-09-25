@@ -35,7 +35,7 @@ extraction; Section 6.5 still chooses the POI correlation feed).
 
 **Adds:** the deployable boundary, Tracker-stream ingest ownership, centralized purge/metrics,
 and the external API — baseline `ReIDDatabase` over the network (6.1) plus POI / gallery / TTL /
-trajectory capability for the SLP epics (6.2–6.11). Scheduling is Section 9; the contracts are
+trajectory capability for the SLP epics (6.2–6.12). Scheduling is Section 9; the contracts are
 specified here. Live tracking gallery writes are stream-driven only — no general-gallery write
 endpoint in Section 6.
 
@@ -107,6 +107,39 @@ Move the library in 4.2 into `reid-service`. ADR 13: gRPC for synchronous query/
 - **Live `findMatches` / `addEntry` are internal.** Tracker (ADR 7) publishes tracks on MQTT. `reid-service` matches and stores while consuming that stream. Feature gating, TIER 1 extraction, and ADR 15 enroll/query plus write-health/epoch rules move with that orchestration. There is no Controller round trip and no live-loop write endpoint.
 - **External match/store is HTTP/gRPC (Section 6).** MQTT request/reply (correlation ID + reply-to) remains an open alternative for this surface only (Section 11): one bus versus a simpler call/return that matches ADR 13.
 - **`purgeExpired` is internal.** Delete the Controller timer and `_PURGE_OWNER`. `reid-service` runs `purgeExpired()` on `REID_PURGE_INTERVAL_SECS`. `REID_DESCRIPTOR_TTL_SECS` moves with it. Adapter expiration fields and reclaim-only semantics stay as ADR 14 defined them.
+
+```mermaid
+flowchart LR
+  subgraph Live["Live loop (MQTT)"]
+    TRK[Tracker] -->|tracks| MQTT[MQTT Broker]
+    MQTT -->|scene tracks| REID[reid-service]
+  end
+
+  subgraph Store["Descriptor store"]
+    GEN[General gallery]
+    POI[POI gallery]
+    AUD[Enrollment audit]
+  end
+
+  REID -->|match / addEntry / purge| GEN
+  REID --> POI
+  REID --> AUD
+
+  subgraph Ext["External API HTTP/gRPC"]
+    INV[Investigator / VLM-recall<br/>query only]
+    OPS[POI operators<br/>enroll / update / delete]
+    COR[POI correlation daemon]
+  end
+
+  INV -->|findMatches / trajectories / stats| REID
+  OPS -->|POI write path| REID
+  COR -->|query POI set| REID
+  COR -->|poi_match| EVT[PubSub.EVENT]
+
+  OPS -.->|no write path| GEN
+```
+
+**Live loop:** Tracker publishes scene tracks; `reid-service` matches and stores into the general gallery with no Controller round trip. **External API:** investigator clients query only (6.12); POI operators write only the POI gallery and enrollment audit; the correlation daemon queries like any client and publishes `poi_match` events (6.5). There is no general-gallery write endpoint.
 
 The Controller circuit breaker is not ported: live matching is inside `reid-service`. Degradation signaling (stop using matches; recommend purge/compaction when volume is the cause) is a follow-on and does not block extraction (Section 11).
 
