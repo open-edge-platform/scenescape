@@ -97,21 +97,24 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                PublishCallback publish_callback,
                                const TrackingConfig& tracking_config,
                                const std::unordered_map<std::string, Camera>& cameras,
-                               ClockFn clock_fn)
+                               ObjectClassConfig object_class, ClockFn clock_fn)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
       tracker_(build_tracker_config(tracking_config)), clock_fn_(std::move(clock_fn)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
-    // Build coordinate transformers with full intrinsics + extrinsics
+    // Build coordinate transformers using Manager asset projection settings.
     for (const auto& [camera_id, camera] : cameras) {
-        transformers_.emplace(camera_id,
-                              CoordinateTransformer(camera.intrinsics, camera.extrinsics));
+        transformers_.emplace(camera_id, CoordinateTransformer(camera.intrinsics, camera.extrinsics,
+                                                               object_class.shift_type,
+                                                               object_class.footprint_half_m));
     }
 
-    LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{}", cameras.size(),
-             scope_.scene_id, scope_.category);
+    LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{} (shift_type={}, "
+             "footprint_half_m={})",
+             cameras.size(), scope_.scene_id, scope_.category, object_class.shift_type,
+             object_class.footprint_half_m.has_value() ? *object_class.footprint_half_m : -1.0);
 
     worker_thread_ = std::thread(&TrackingWorker::run, this);
 }

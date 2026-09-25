@@ -3,6 +3,7 @@
 
 #include "config_loader.hpp"
 #include "logger.hpp"
+#include "object_class.hpp"
 #include "scene_loader.hpp"
 #include "scene_parser.hpp"
 
@@ -42,11 +43,19 @@ private:
 // ---------------------------------------------------------------------------
 // Helper: create a mock client factory returning a pre-configured mock
 // ---------------------------------------------------------------------------
-ManagerClientFactory make_mock_factory(const std::string& scenes_response) {
-    return [scenes_response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
+ManagerClientFactory
+make_mock_factory(const std::string& scenes_response,
+                  const std::string& assets_response =
+                      R"({"count":0,"next":null,"previous":null,"results":[]})") {
+    return [scenes_response,
+            assets_response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
         auto mock = std::make_unique<test::MockManagerRestClient>();
         EXPECT_CALL(*mock, authenticate(_, _)).Times(1);
         EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(scenes_response));
+        // May be skipped when scene JSON parsing fails before assets are requested.
+        EXPECT_CALL(*mock, fetchAssets())
+            .Times(::testing::AnyNumber())
+            .WillRepeatedly(Return(assets_response));
         return mock;
     };
 }
@@ -522,6 +531,37 @@ TEST_F(ApiSceneLoaderPipelineTest, FullPipelineReturnsScenes) {
     EXPECT_DOUBLE_EQ(scenes[0].cameras[0].extrinsics.translation[2], 3.0);
     EXPECT_DOUBLE_EQ(scenes[0].cameras[0].intrinsics.fx, 500.0);
     EXPECT_DOUBLE_EQ(scenes[0].cameras[0].intrinsics.distortion.k1, 0.1);
+    EXPECT_TRUE(loader->objectClasses().empty());
+}
+
+TEST_F(ApiSceneLoaderPipelineTest, LoadsObjectClassesFromAssets) {
+    TempFile auth_file(R"({"user": "admin", "password": "pass123"})");
+
+    ManagerConfig mgr;
+    mgr.url = "https://localhost:443";
+    mgr.auth_path = auth_file.path().string();
+
+    const std::string assets = R"({
+        "results": [
+            {"name": "person", "shift_type": 1, "x_size": 0.5, "y_size": 0.5},
+            {"name": "FW190D", "shift_type": 2, "x_size": 1.0, "y_size": 1.0}
+        ]
+    })";
+    auto factory = make_mock_factory(make_api_response(), assets);
+    auto loader = create_api_scene_loader(mgr, schema_dir_, factory);
+
+    auto scenes = loader->load();
+    ASSERT_EQ(scenes.size(), 1u);
+
+    const auto person = lookupObjectClass(loader->objectClasses(), "person");
+    EXPECT_EQ(person.shift_type, ObjectClassConfig::kShiftType1);
+    ASSERT_TRUE(person.footprint_half_m.has_value());
+    EXPECT_DOUBLE_EQ(*person.footprint_half_m, 0.25);
+
+    const auto plane = lookupObjectClass(loader->objectClasses(), "fw190d");
+    EXPECT_EQ(plane.shift_type, ObjectClassConfig::kShiftType2);
+    ASSERT_TRUE(plane.footprint_half_m.has_value());
+    EXPECT_DOUBLE_EQ(*plane.footprint_half_m, 0.5);
 }
 
 TEST_F(ApiSceneLoaderPipelineTest, MultipleScenesAndCameras) {

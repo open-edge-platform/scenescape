@@ -24,6 +24,7 @@ from harnesses.black_box_harness.mock_manager import (
     _DISTORTION_KEYS,
     _MAX_COPLANAR_DETERMINANT,
     _are_coplanar,
+    _assets_from_object_classes,
     _build_rest_scene,
     _calculate_determinant,
     _compute_extrinsics,
@@ -74,6 +75,8 @@ def rest_server(two_camera_scene_config):
   scene = _build_rest_scene(two_camera_scene_config)
   server = HTTPServer(("127.0.0.1", 0), MockManagerHandler)
   server.scene = scene
+  server.assets = _assets_from_object_classes(
+    two_camera_scene_config.get("object_classes"))
   port = server.server_address[1]
   thread = threading.Thread(target=server.serve_forever, daemon=True)
   thread.start()
@@ -343,10 +346,44 @@ class TestMockManagerHTTP:
     assert status == 200
     assert body["results"] == []
 
-  def test_get_assets_returns_empty(self, rest_server):
+  def test_get_assets_returns_empty_by_default(self, rest_server):
     status, body = self._get(rest_server, "/api/v1/assets")
     assert status == 200
     assert body["results"] == []
+
+  def test_get_assets_returns_object_classes(self, two_camera_scene_config):
+    """object_classes on the scene config are served as Manager assets."""
+    cfg = dict(two_camera_scene_config)
+    cfg["object_classes"] = [
+      {"name": "person", "shift_type": 1, "x_size": 0.5, "y_size": 0.5},
+      {"name": "FW190D", "shift_type": 2, "x_size": 1.0, "y_size": 1.0},
+    ]
+    scene = _build_rest_scene(cfg)
+    server = HTTPServer(("127.0.0.1", 0), MockManagerHandler)
+    server.scene = scene
+    server.assets = _assets_from_object_classes(cfg["object_classes"])
+    port = server.server_address[1]
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+      status, body = self._get(f"http://127.0.0.1:{port}", "/api/v1/assets")
+      assert status == 200
+      assert len(body["results"]) == 2
+      by_name = {a["name"]: a for a in body["results"]}
+      assert by_name["person"]["shift_type"] == 1
+      assert by_name["FW190D"]["shift_type"] == 2
+      assert by_name["FW190D"]["x_size"] == pytest.approx(1.0)
+    finally:
+      server.shutdown()
+
+  def test_assets_from_object_classes_skips_nameless(self):
+    assets = _assets_from_object_classes([
+      {"shift_type": 2},
+      {"name": "FW190D", "shift_type": 2, "x_size": 1.0, "y_size": 1.0},
+    ])
+    assert len(assets) == 1
+    assert assets[0]["name"] == "FW190D"
+    assert assets[0]["shift_type"] == 2
 
   def test_get_camera_returns_correct_camera(self, rest_server):
     status, body = self._get(rest_server, "/api/v1/camera/Cam_x1_0")

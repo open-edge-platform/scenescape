@@ -56,7 +56,11 @@ void addMetadataAttributes(std::string_view metadataJson,
 } // namespace
 
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
-                                             const CameraExtrinsics& extrinsics) {
+                                             const CameraExtrinsics& extrinsics, int shift_type,
+                                             std::optional<double> footprint_half_m)
+    : shift_type_(shift_type == ObjectClassConfig::kShiftType2 ? ObjectClassConfig::kShiftType2
+                                                               : ObjectClassConfig::kShiftType1),
+      footprint_half_m_(std::move(footprint_half_m)) {
     // Build intrinsics matrix K = [fx 0 cx; 0 fy cy; 0 0 1]
     intrinsics_matrix_ = cv::Matx33d(intrinsics.fx, 0.0, intrinsics.cx, 0.0, intrinsics.fy,
                                      intrinsics.cy, 0.0, 0.0, 1.0);
@@ -188,7 +192,48 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     std::vector<uint8_t> valid;
     batchPixelToWorld(pixels, world, valid);
 
-    // Phase 4: Assemble TrackedObjects from world-projected points
+    // Phase 4: TYPE_2 re-projects the foot after deriving baseAngle from the
+    // TYPE_1 foot (matches Controller MovingObject.camLoc / projectBounds).
+    if (shift_type_ == ObjectClassConfig::kShiftType2) {
+        const double cam_x = camera_origin_.x;
+        const double cam_y = camera_origin_.y;
+        const double cam_z = std::abs(camera_origin_.z);
+
+        std::vector<size_t> type2_indices;
+        std::vector<cv::Point2f> type2_feet;
+        type2_indices.reserve(n);
+        type2_feet.reserve(n);
+
+        for (size_t i = 0; i < n; ++i) {
+            const size_t base = i * kPixelsPerDetection;
+            if (!valid[base]) {
+                continue;
+            }
+            const auto& foot = world[base];
+            const auto& bbox = detections[i].bounding_box_px;
+            const double base_len = std::sqrt((foot.x - cam_x) * (foot.x - cam_x) +
+                                              (foot.y - cam_y) * (foot.y - cam_y));
+            const double base_angle_deg = std::atan2(cam_z, base_len) * (180.0 / std::numbers::pi);
+            type2_indices.push_back(i);
+            type2_feet.push_back(
+                {bbox.x + bbox.width / 2.0f,
+                 bbox.y + bbox.height -
+                     (bbox.height / 2.0f) * static_cast<float>(base_angle_deg / 90.0)});
+        }
+
+        if (!type2_feet.empty()) {
+            std::vector<cv::Point2d> type2_world;
+            std::vector<uint8_t> type2_valid;
+            batchPixelToWorld(type2_feet, type2_world, type2_valid);
+            for (size_t j = 0; j < type2_indices.size(); ++j) {
+                if (type2_valid[j]) {
+                    world[type2_indices[j] * kPixelsPerDetection] = type2_world[j];
+                }
+            }
+        }
+    }
+
+    // Phase 5: Assemble TrackedObjects from world-projected points
     std::vector<rv::tracking::TrackedObject> result(n);
     std::vector<uint8_t> detection_valid(n);
 
@@ -226,20 +271,17 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         const double elevation_angle = std::atan2(std::abs(cam_z), ll1);
         const double height_m = std::sin(elevation_angle) * ll2;
 
-        // Shift foot point away from camera by half the object width along
-        // the camera→foot bearing.  This compensates for the fact that the
-        // bottom-center of the bounding box projects to the near edge of
-        // the object's footprint, not its center.  Without this offset,
-        // the same object observed from two cameras at different angles
-        // projects to two different ground points, causing duplicate tracks
-        // when the gap exceeds the matching threshold.
+        // Shift foot point away from camera by half the object footprint along
+        // the camera→foot bearing. Prefer a fixed asset half-size when provided
+        // (Controller path); otherwise use half the projected bbox width.
         const double foot_dx = foot.x - cam_x;
         const double foot_dy = foot.y - cam_y;
         const double bearing_len = std::sqrt(foot_dx * foot_dx + foot_dy * foot_dy);
         double offset_x = foot.x;
         double offset_y = foot.y;
         if (bearing_len > 1e-9) {
-            const double half_size = width_m / 2.0;
+            const double half_size =
+                footprint_half_m_.has_value() ? *footprint_half_m_ : (width_m / 2.0);
             offset_x += (foot_dx / bearing_len) * half_size;
             offset_y += (foot_dy / bearing_len) * half_size;
         }

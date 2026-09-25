@@ -35,6 +35,16 @@ public:
      * @throws std::runtime_error if not authenticated, connection fails, or HTTP error
      */
     virtual std::string fetchScenes() = 0;
+
+    /**
+     * @brief Fetch object-class assets from the Manager API.
+     *
+     * Used for per-category projection settings (`shift_type`, sizes).
+     *
+     * @return Raw JSON response body string
+     * @throws std::runtime_error if not authenticated, connection fails, or HTTP error
+     */
+    virtual std::string fetchAssets() = 0;
 };
 
 /**
@@ -59,6 +69,7 @@ public:
 
     void authenticate(const std::string& username, const std::string& password) override;
     std::string fetchScenes() override;
+    std::string fetchAssets() override;
 
 private:
     std::string url_;

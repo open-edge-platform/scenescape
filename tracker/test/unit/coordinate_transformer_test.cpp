@@ -509,6 +509,49 @@ TEST(CoordinateTransformerTest, UpwardRayReturnsValidResult) {
     EXPECT_EQ(result.size(), 1u);
 }
 
+TEST(CoordinateTransformerTest, Type2ShiftTypeIsStored) {
+    CameraIntrinsics intrinsics;
+    intrinsics.fx = intrinsics.fy = 500.0;
+    intrinsics.cx = 320.0;
+    intrinsics.cy = 240.0;
+
+    CameraExtrinsics extrinsics;
+    extrinsics.translation = {0.0, 0.0, 5.0};
+    extrinsics.rotation = {-45.0, 0.0, 0.0};
+    extrinsics.scale = {1.0, 1.0, 1.0};
+
+    CoordinateTransformer type1(intrinsics, extrinsics, ObjectClassConfig::kShiftType1);
+    CoordinateTransformer type2(intrinsics, extrinsics, ObjectClassConfig::kShiftType2);
+    EXPECT_EQ(type1.shiftType(), ObjectClassConfig::kShiftType1);
+    EXPECT_EQ(type2.shiftType(), ObjectClassConfig::kShiftType2);
+}
+
+TEST(CoordinateTransformerTest, FixedFootprintHalfOverridesProjectedWidthOffset) {
+    CameraIntrinsics intrinsics;
+    intrinsics.fx = intrinsics.fy = 500.0;
+    intrinsics.cx = 320.0;
+    intrinsics.cy = 240.0;
+
+    CameraExtrinsics extrinsics;
+    extrinsics.translation = {0.0, 0.0, 5.0};
+    extrinsics.rotation = {-45.0, 0.0, 0.0};
+    extrinsics.scale = {1.0, 1.0, 1.0};
+
+    CoordinateTransformer projected(intrinsics, extrinsics);
+    CoordinateTransformer fixed(intrinsics, extrinsics, ObjectClassConfig::kShiftType1, 0.25);
+
+    std::vector<Detection> detections = {make_detection(280.0f, 100.0f, 80.0f, 200.0f)};
+    auto r_proj = projected.transformDetections(detections);
+    auto r_fixed = fixed.transformDetections(detections);
+    ASSERT_EQ(r_proj.size(), 1u);
+    ASSERT_EQ(r_fixed.size(), 1u);
+
+    const double dx = r_proj[0].x - r_fixed[0].x;
+    const double dy = r_proj[0].y - r_fixed[0].y;
+    EXPECT_GT(std::sqrt(dx * dx + dy * dy), 0.01)
+        << "Asset footprint half-size should change the camloc offset vs projected width";
+}
+
 //
 // metadata_json passthrough tests
 //
