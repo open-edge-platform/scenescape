@@ -820,7 +820,7 @@ class Cam(Sensor):
     return camera_data
 
   def save(self, *args, **kwargs):
-    # Normalize positional save() args so update_fields is only ever read/modified via kwargs
+    # Normalize positional save() args so update_fields is only read and modified via kwargs
     for name, value in zip(("force_insert", "force_update", "using", "update_fields"), args):
       kwargs.setdefault(name, value)
     args = ()
@@ -828,14 +828,16 @@ class Cam(Sensor):
     # Reset camera pose when reassigned to a different scene
     original_scene = None
     scene_changed = False
-    if self.pk is not None:
+    update_fields = kwargs.get("update_fields")
+    scene_update_requested = update_fields is None or bool(
+      {"scene", "scene_id"} & set(update_fields)
+    )
+    if self.pk is not None and scene_update_requested:
       # This is an update, check if scene has changed
       try:
         original = Cam.objects.get(pk=self.pk)
-        # str() both sides: scene_id may be a uuid.UUID (from DB) on one side
-        # and a plain str (from a REST payload) on the other; comparing those
-        # directly is always unequal and would wipe pose on every save.
-        if str(original.scene_id) != str(self.scene_id):
+        scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
+        if original.scene_id != scene_id:
           original_scene = original.scene
           # Scene has changed, clear pose-related fields
           self.transforms = []
@@ -857,12 +859,10 @@ class Cam(Sensor):
     if self.cv_subsystem is None:
       self.cv_subsystem = 'AUTO'
 
-    # Only force the pose reset into update_fields if the scene change itself will be persisted
-    update_fields = kwargs.get("update_fields")
     if scene_changed and update_fields is not None:
-      update_fields = set(update_fields)
-      if "scene" in update_fields or "scene_id" in update_fields:
-        kwargs["update_fields"] = update_fields | {"transforms", "scene_x", "scene_y", "scene_z"}
+      kwargs["update_fields"] = set(update_fields) | {
+        "transforms", "scene_x", "scene_y", "scene_z"
+      }
 
     super().save(*args, **kwargs)
 
