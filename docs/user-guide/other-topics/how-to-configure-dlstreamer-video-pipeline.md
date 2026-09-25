@@ -21,7 +21,7 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
   - V4L2 (Video4Linux2) local USB camera devices: `/dev/video0` (path to device). Allowed paths: `/dev/video` (default device), `/dev/videoX`, `/dev/mediaX` and symbolic links: `/dev/v4l/by-id/xxx`, `/dev/v4l/by-path/xxx`.
-  - File sources (e.g. `file://video.ts`) are not supported for Kubernetes camera pipelines - see the [Limitations](#limitations).
+  - File sources are not directly mountable in Kubernetes camera pipelines - to use a video file, serve it over RTSP yourself instead, see [Using Your Own Video Files](#using-your-own-video-files) below.
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
@@ -221,13 +221,22 @@ You can upload custom models to the Models Volume using the Models page. The Mod
 2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](./model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
 
+### Using Your Own Video Files
+
+The Helm chart does not deploy any media/RTSP server, and camera pipeline Pods have no video-file volume mounted, so the **Camera (Video Source)** field cannot point at a local file the way it can in a Docker Compose deployment. To use a video file as a camera source, serve it over RTSP yourself from anywhere reachable by the cluster - for example a small standalone stack pairing an RTSP server such as `mediamtx` with an `ffmpeg` process that reads your file and republishes it as a stream. The bundled Retail and Queuing demo scenes use exactly this pattern; see [retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and [queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml) for one working example.
+
+Once you have an RTSP source reachable from the cluster:
+
+1. Set the **Camera (Video Source)** field to that RTSP URL (e.g. `rtsp://<host-or-service-reachable-from-cluster>:<port>/<path>`).
+2. If the RTSP source runs outside the cluster (e.g. on a separate Docker host), make sure it's reachable from cluster Pods first - see [Video Source (sample/demo camera feeds)](/kubernetes/README.md#video-source-sampledemo-camera-feeds) for how this is wired up for the demo scenes, as one example of exposing an external RTSP source to the cluster.
+
 ### Limitations
 
 - Only serial chaining of detectors with classification or re-identification models is supported in the **Camera Chain** field, where the ROI from the detection model serves as input to the classification or re-identification model in the chain. Serial chaining of two or more detectors is not supported (e.g. vehicle detector → license plate detector → OCR). Parallel inference on multiple models is not yet supported.
 - Distortion correction is temporarily disabled due to a bug in DL Streamer Pipeline Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
-- File-based video sources are not supported for Kubernetes camera pipelines - the per-camera pipeline Pod has no video-file volume mounted. Use RTSP, HTTP/HTTPS, or a V4L2 device instead, or use the [Docker Compose deployment](#manual-video-pipeline-configuration-in-docker-compose-deployment) for file-based testing.
+- File-based video sources are not supported for Kubernetes camera pipelines - the per-camera pipeline Pod has no video-file volume mounted. Serve your video over RTSP instead, see [Using Your Own Video Files](#using-your-own-video-files).
 - Cross-stream batching is not supported since in Scenescape Kubernetes deployment each camera pipeline is running in a separate Pod.
 - Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
 - MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
