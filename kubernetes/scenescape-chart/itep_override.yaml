@@ -7,11 +7,13 @@ imagePullSecrets:
   - name: "%MaestroGeneratedDockerCredential%"
 prehook: "%PreHookCredential%"
 media:
-  storageClassName: openebs-lvmpv-shared
+ storageClassName: openebs-lvmpv-shared
+autocalibration:
+ modelStorageClassName: openebs-lvmpv-shared
 models:
-  storageClassName: openebs-lvmpv-shared
+ storageClassName: openebs-lvmpv-shared
 videos:
-  storageClassName: openebs-lvmpv-shared
+ storageClassName: openebs-lvmpv-shared
 controller:
   storageClassName: openebs-lvmpv-shared
 userAccessConfig:
