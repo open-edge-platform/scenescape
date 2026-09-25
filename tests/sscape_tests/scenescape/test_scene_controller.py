@@ -1423,8 +1423,6 @@ class TestSceneControllerRemoteChildParent:
 class TestChildSceneControllerCatalogs:
   """Catalog callback wiring for remote children (NEX-T21933)."""
 
-  TEST_NAME = "NEX-T21933"
-
   @staticmethod
   def _build_child():
     child = ChildSceneController.__new__(ChildSceneController)
