@@ -55,7 +55,7 @@ endpoint in Section 6.
 - Stream Manager's video/clip API. It only bounds trajectory retrieval (6.11). Draft: [docs/design/stream-manager](https://github.com/open-edge-platform/scenescape/tree/tdorau/stream-manager-api-draft/docs/design/stream-manager).
 - UI, including 2D-track click-through.
 - Wire-level OpenAPI/proto. This document specifies behavior; schemas are implementation detail.
-- authN/authZ mechanism, and whether POI correlation reuses ADR 15 `DATA_EXTERNAL` (Section 11). Read-vs-write privilege split, deployment-scoped POI writes (not per-scene), POI writers cannot touch the general gallery, immutable enrollment audit (`enrolled_by` + append-only history), and POI write rate limits are decided (6.2, 6.4, 6.7). Semantic proof that an enrollment embedding is the intended person is out of scope.
+- authN/authZ mechanism, and whether POI correlation reuses ADR 15 `DATA_EXTERNAL` (Section 11). Security / trust decisions for POI and query callers are in 6.12.
 
 ## 4. Background / Context
 
@@ -150,10 +150,9 @@ Thin wrappers over today's methods. No behavior change.
 ### 6.2 Design principles
 
 - **One contract per backend.** Same endpoints, shapes, and success rules. If an adapter lacks a primitive (for example count), the service implements it. Callers do not branch on VDMS vs Qdrant.
-- **Writes are POI-gallery only.** Insert, update, and delete are 6.4 and 6.7. Query (6.3) may read both galleries and never writes. General-gallery aging is the 24h TTL (6.7). A principal with POI write permission has no API path to insert, update, or delete general-gallery (live track) descriptors — those writes are Tracker-stream ingest only. POI and general galleries must not share a writable collection or set.
+- **Writes are POI-gallery only.** Insert, update, and delete are 6.4 and 6.7. Query (6.3) may read both galleries and never writes. General-gallery aging is the 24h TTL (6.7).
 - **POI records are persisted, not long-TTL.** See 6.10. `poi_id` is server-generated.
-- **POI scope is the deployment, not a scene.** Insert, update, and delete apply to the POI gallery for that `reid-service` deployment. There is no per-scene POI write key; an enrolled POI is visible / matchable wherever that deployment's correlation and query clients run. Isolation across customers or sites is a separate deployment (or equivalent hard partition), not a `scene_id` on the write API.
-- **Query principals cannot write.** Investigator / VLM-recall clients (Epic #120) get query, trajectory, and stats only. They must not be authorized for POI enroll, embedding append, metadata PATCH, or delete. POI write verbs are a separate privilege for operators / enrollment automation that drive safety alerts (Epic #221). Same `reid-service` instance is fine; privilege separation is the trust boundary, not a second deployment.
+- **Security / trust.** Privilege split, deployment scope, gallery isolation, enrollment audit, and write rate limits are 6.12.
 
 ### 6.3 Query API
 
@@ -163,11 +162,7 @@ Expose `findMatches` to investigator tools, VLM-recall (Epic #120), and POI matc
 
 `POST /poi` accepts precomputed embeddings plus `severity`, `notes`, and `enrolled_by`. It does not take raw images or a client `poi_id`. Internally it uses the `addEntry` write path without inventing an `rvid`. Who runs image → embedding for a one-off enrollment (ephemeral DL Streamer pipeline vs a synchronous extract API) is open (Section 11).
 
-`enrolled_by` is required and persisted on every enroll and embedding append so writes are auditable after the fact. It is attribution, not a content-integrity check: an authorized writer can still enroll a misleading embedding.
-
-**Immutable enrollment audit.** Every enroll and embedding append appends an audit record (`enrolled_by`, timestamp, vector id or hash). Metadata PATCH and deactivate do not rewrite or remove prior records. Hard delete (6.7) removes the POI from the matchable gallery but must not erase the audit trail — forensic history outlives the live POI record. That is the v1 control for authorized-writer POI misuse; the service does not validate that an embedding is the intended person.
-
-**Write-path rate limits** apply to POI insert, embedding append, PATCH, and delete so a compromised client that holds write credentials cannot flood enrollments or deletes (DoS / resource exhaustion). Rate limits do not decide whether a given vector is a truthful enrollment.
+`enrolled_by` is required on every enroll and embedding append. Immutable enrollment audit and write-path rate limits are specified in 6.12; mechanics here: each enroll/append appends an audit record (`enrolled_by`, timestamp, vector id or hash). Metadata PATCH and deactivate do not rewrite or remove prior records. Hard delete (6.7) removes the POI from the matchable gallery but must not erase the audit trail.
 
 Updates:
 
@@ -202,7 +197,7 @@ Whether stats accept `scene_id` / `camera_id` is open (Section 11). Export size 
 
 ### 6.7 Deletion (POI gallery only)
 
-New `deleteEntry`. Delete by `poi_id` and by filter (`severity`, enrollment date), reusing `reid_constraints.py`. Removes the POI from the matchable gallery. The immutable enrollment audit (6.4) is retained.
+New `deleteEntry`. Delete by `poi_id` and by filter (`severity`, enrollment date), reusing `reid_constraints.py`. Removes the POI from the matchable gallery. Enrollment audit retention is 6.12.
 
 The general gallery is not deletable through this API. It ages out on the ADR 14 TTL (default 24h). Further purge, compaction, or an explicit erasure path can be added later and does not block this endpoint.
 
@@ -250,6 +245,17 @@ Retention is the general-gallery TTL (default 24h). The API cannot return purged
 
 Size the `reid-service` piece (5.4 fields plus this endpoint) separately from Stream Manager integration (id mapping, record lifecycle, multi-clip UI).
 
+### 6.12 Security / trust model
+
+Policy for the external API (Section 6). The authN/authZ *mechanism* (tokens, mTLS, gateway policy, etc.) remains open (Section 11) and must land before `POST /poi` or delete ship (Section 9). MQTT trust for the Tracker subscription is a separate open (Section 11).
+
+- **Query principals cannot write.** Investigator / VLM-recall clients (Epic #120) get query, trajectory, and stats only. They must not be authorized for POI enroll, embedding append, metadata PATCH, or delete. POI write verbs are a separate privilege for operators / enrollment automation that drive safety alerts (Epic #221).
+- **Same service, separate privileges.** One `reid-service` instance may serve both Epic #120 and Epic #221. Privilege separation is the trust boundary, not a second deployment.
+- **POI scope is the deployment, not a scene.** Insert, update, and delete apply to that deployment's POI gallery. There is no per-scene POI write key; an enrolled POI is visible / matchable wherever that deployment's correlation and query clients run. Isolation across customers or sites is a separate deployment (or equivalent hard partition), not a `scene_id` on the write API.
+- **POI writers cannot poison regular track entries.** A principal with POI write permission has no API path to insert, update, or delete general-gallery (live track) descriptors — those writes are Tracker-stream ingest only (6.2). POI and general galleries must not share a writable collection or set.
+- **Immutable enrollment audit.** Every enroll and embedding append records `enrolled_by`, timestamp, and vector id or hash (6.4). PATCH and deactivate do not rewrite history. Hard delete removes the matchable POI but keeps the audit trail (6.7). That is the v1 control for authorized-writer POI misuse. No inactive-by-default gate, dual-control activate, or elevated-delete role in this design. `enrolled_by` is attribution, not content integrity: an authorized writer can still enroll a misleading embedding. Semantic proof that an embedding is the intended person is out of scope for `reid-service`.
+- **Write-path rate limits.** Apply to POI insert, embedding append, PATCH, and delete so a compromised client that holds write credentials cannot flood enrollments or deletes (DoS / resource exhaustion). Rate limits do not decide whether a given vector is a truthful enrollment.
+
 ---
 
 ## 7. Alternatives Considered
@@ -275,7 +281,7 @@ Ship `reid-service` behind a flag, dual-run against in-Controller ReID until par
 Section 6 sequencing:
 
 - 6.1 before any other API.
-- Security / trust model opens (Section 11) before `POST /poi` or delete ship. Tracker-subscription trust stays a separate open.
+- authN/authZ mechanism (Section 11) before `POST /poi` or delete ship; policy is 6.12. Tracker-subscription trust stays a separate open.
 - 6.8 after 6.4 and 6.6 (a collection must exist before it has a TTL).
 - 6.11 after Tracker publishes `camera_id` and per-sighting timestamp (5.4). Stream Manager integration follows that, not the other way around.
 
@@ -302,21 +308,9 @@ OTel, not REST-only: match latency and backend duration (5.3), `Gallery_Size_Act
 - **Correlation feed.** ADR 15 `DATA_EXTERNAL` as-is vs a dedicated path (6.5).
 - **Stats scope.** Whole-collection `GET /collections/{name}/stats` vs `scene_id` / `camera_id` filters for v1 (6.6).
 
-**Security / trust model** (authN/authZ mechanism before `POST /poi` or delete ship — Section 9)
+**Security**
 
-**Decided (6.2, 6.4, 6.7)**
-
-- Investigator / query clients are read-only: no enroll, append, PATCH, or delete.
-- POI write privilege is separate from query privilege; same service instance may serve both Epic #120 and Epic #221.
-- POI insert/update/delete is scoped to the deployment's POI gallery, not per scene. Cross-customer or cross-site isolation is by separate deployment (or hard partition), not a write-time `scene_id`.
-- POI writers cannot poison regular track entries: no general-gallery write/delete API; live descriptors are Tracker-stream ingest only; POI and general galleries do not share a writable collection.
-- Immutable enrollment audit: every enroll/append records `enrolled_by`, timestamp, and vector id or hash; PATCH/deactivate do not rewrite history; hard delete removes the matchable POI but keeps the audit trail. That is the v1 response to authorized-writer POI misuse; no inactive-by-default gate, dual-control activate, or elevated-delete role in this design.
-- Rate limits on POI write/delete endpoints bound DoS from a compromised write-capable client.
-- Semantic proof that an embedding is the intended person is out of scope for `reid-service`.
-
-**Still open**
-
-- **authN/authZ mechanism.** How principals and the read-vs-write split above are enforced (tokens, mTLS, gateway policy, etc.).
+- **authN/authZ mechanism.** How principals and the read-vs-write split in 6.12 are enforced (tokens, mTLS, gateway policy, etc.). Required before `POST /poi` or delete ship (Section 9). MQTT trust for the Tracker subscription is listed under Extraction above.
 
 ## 12. References
 
