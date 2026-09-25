@@ -624,6 +624,8 @@ services:
     pids_limit: 1000
 
   reid-service:
+    profiles:
+      - reid-service
     image: intel/scenescape-reid:${VERSION:-latest}
     init: true
     networks:
