@@ -623,6 +623,29 @@ services:
     restart: always
     pids_limit: 1000
 
+  reid-service:
+    profiles:
+      - reid-service
+    image: intel/scenescape-reid:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+    environment:
+      REID_DATABASE: ${REID_DATABASE:-VDMS}
+      REID_HOSTNAME: ${REID_HOSTNAME:-reid.scenescape.intel.com}
+      REID_PORT: ${REID_PORT:-55555}
+      REID_USE_TLS: ${REID_USE_TLS:-true}
+      REID_SERVICE_PORT: ${REID_SERVICE_PORT:-50051}
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: reid-client-key
+        target: certs/scenescape-reid.key
+      - source: reid-client-cert
+        target: certs/scenescape-reid.crt
+    restart: always
+    pids_limit: 1000
+
 configs:
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
