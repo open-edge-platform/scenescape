@@ -287,6 +287,12 @@ class SceneController:
       reid_policy = self._hierarchyReidPublishPolicy(scene, otype)
       will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
+      # by removing those fields - messages produced by this controller will not be treated
+      # as external source messages by other controllers
+      jdata.pop('source_id', None)
+      jdata.pop('pose', None)
+      jdata.pop('track', None)
+
       jdata['objects'] = buildDetectionsList(
         objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
         attach_reid_provenance=True,
@@ -447,7 +453,8 @@ class SceneController:
         detection_types = [topic['thing_type']]
         # Path segment is the publisher id (child scene uid or agent source_id).
         publisher_id = topic['scene_id']
-        if 'source_id' in jdata:
+        sender = self.cache_manager.sceneWithID(publisher_id)
+        if 'source_id' in jdata and sender is None:
           if jdata['source_id'] != publisher_id:
             log.error("External source_id %r does not match topic publisher id %r",
                       jdata['source_id'], publisher_id)
@@ -610,35 +617,56 @@ class SceneController:
                 f"scene={scene.uid}: {reason}")
       return True
 
-    # Every external-source object's 'id' is trusted directly as global
-    # track identity by default (no source allowlist to configure): the
-    # object bypasses Scenescape's kinematic tracker/ReID association and
-    # keeps the source-assigned id as its gid for as long as the source
-    # keeps reporting that same id. This is safe for sources like a UWB/RTLS
-    # tag whose id is already a permanent hardware identifier. To keep this
-    # safe without requiring per-source configuration, each id is claimed
-    # exclusively per (scene, category): if a different source is already
-    # using the same id at the same time -- a genuine identity collision --
-    # the newly arriving, colliding object is dropped rather than silently
-    # merged into an unrelated track. See IdentityClaimRegistry for the one
-    # case this does not solve (a single source reusing a stale id for a
-    # new physical object after its previous claim has expired).
-    accepted_objects = []
-    for obj in jdata.get('objects', []):
-      obj_id = obj.get('id')
-      ok, collision_reason = self.identity_claim_registry.claim(
-        scene.uid, detection_type, source_id, obj_id, msg_when)
-      if ok:
-        accepted_objects.append(obj)
-      else:
-        log.warning(
-          f"Rejecting external-source object: id={obj_id} from source={source_id} "
-          f"scene={scene.uid} category={detection_type}: {collision_reason}")
-    jdata['objects'] = accepted_objects
+    source_track = jdata.get('track')
+    routed_objects = []
+    tracked_id_counts = {}
+    if source_track is not False:
+      for obj in jdata.get('objects', []):
+        source_obj_id = obj.get('id')
+        if source_obj_id is not None:
+          tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
 
-    external_source = SimpleNamespace(name=source_id, uid=source_id, retrack=False)
-    return scene.processSceneData(jdata, external_source, camera_pose,
-                                  detection_type, when=msg_when)
+    for index, obj in enumerate(jdata.get('objects', [])):
+      routed_obj = dict(obj)
+      routed_obj.pop('track', None)
+      if source_track is False:
+        obj_id = routed_obj.get('id')
+        if obj_id is None:
+          log.warning(
+            f"Rejecting external-source object without id: source={source_id} "
+            f"scene={scene.uid} category={detection_type} track=false")
+          continue
+        ok, collision_reason = self.identity_claim_registry.claim(
+          scene.uid, detection_type, source_id, obj_id, msg_when)
+        if not ok:
+          log.warning(
+            f"Rejecting external-source object: id={obj_id} from source={source_id} "
+            f"scene={scene.uid} category={detection_type}: {collision_reason}")
+          continue
+      else:
+        source_obj_id = routed_obj.get('id')
+        if source_obj_id is not None:
+          if tracked_id_counts.get(source_obj_id, 0) == 1:
+            routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{source_obj_id}"
+          else:
+            log.warning(
+              f"Duplicate tracked external object id={source_obj_id} from source={source_id} "
+              f"scene={scene.uid} category={detection_type}; ignoring id hint for this message")
+            routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
+        else:
+          routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
+      routed_objects.append(routed_obj)
+
+    if not routed_objects:
+      return True
+
+    routed_jdata = dict(jdata)
+    routed_jdata['objects'] = routed_objects
+    routed_jdata.pop('track', None)
+    routed_source = SimpleNamespace(name=source_id, uid=source_id, retrack=(source_track is not False))
+    scene.processSceneData(routed_jdata, routed_source, camera_pose,
+                           detection_type, when=msg_when)
+    return True
 
   @staticmethod
   def _withRemoteChildParent(info, parent_uid):

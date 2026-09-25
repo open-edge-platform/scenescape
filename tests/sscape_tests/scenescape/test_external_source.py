@@ -6,6 +6,7 @@
 import pytest
 import threading
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import numpy as np
 from controller.external_source import (
@@ -19,6 +20,7 @@ from controller.external_source import (
   REASON_UNSUPPORTED_REFERENCE_FRAME,
   REASON_UNTRUSTED_SCENE_POSE,
 )
+from controller.scene_controller import SceneController
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
 
 
@@ -456,3 +458,137 @@ class TestExternalSourceSweepLifecycle:
 
     assert registry._sweep_timer is not None
     registry.stopBackgroundSweep()
+
+
+class TestExternalSourceTrackRouting:
+  def _makeController(self):
+    controller = SceneController.__new__(SceneController)
+    controller.external_source_pose_cache = MagicMock()
+    controller.external_source_pose_cache.resolve.return_value = (
+      SimpleNamespace(pose_mat=np.eye(4)), None)
+    controller.identity_claim_registry = MagicMock()
+    controller.identity_claim_registry.claim.return_value = (True, None)
+    controller.trusted_positioning_sources = frozenset()
+    return controller
+
+  @staticmethod
+  def _makeScene():
+    scene = MagicMock()
+    scene.uid = 'scene-1'
+    return scene
+
+  def test_source_track_false_applies_to_all_objects_and_preserves_ids(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    jdata = {
+      'source_id': 'drone-1',
+      'track': False,
+      'objects': [
+        {'id': 'obj-1', 'category': 'person', 'translation': [0, 0, 0]},
+        {'id': 'obj-2', 'category': 'person', 'translation': [1, 0, 0]},
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    assert scene.processSceneData.call_count == 1
+    routed_jdata, source_ns = scene.processSceneData.call_args[0][0], scene.processSceneData.call_args[0][1]
+    assert [obj['id'] for obj in routed_jdata['objects']] == ['obj-1', 'obj-2']
+    assert all('track' not in obj for obj in routed_jdata['objects'])
+    assert source_ns.retrack is False
+    assert [claim.args for claim in controller.identity_claim_registry.claim.call_args_list] == [
+      ('scene-1', 'person', 'drone-1', 'obj-1', 10.0),
+      ('scene-1', 'person', 'drone-1', 'obj-2', 10.0),
+    ]
+
+  def test_source_track_false_uses_passthrough(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    jdata = {
+      'source_id': 'drone-1',
+      'track': False,
+      'objects': [
+        {'id': 'obj-1', 'category': 'person', 'translation': [0, 0, 0]},
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    routed_jdata, source_ns = scene.processSceneData.call_args[0][0], scene.processSceneData.call_args[0][1]
+    assert routed_jdata['objects'][0]['id'] == 'obj-1'
+    assert source_ns.retrack is False
+
+  def test_tracked_object_without_id_gets_controller_local_placeholder(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    jdata = {
+      'source_id': 'drone-1',
+      'objects': [
+        {'category': 'person', 'translation': [0, 0, 0]},
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    routed_jdata, source_ns = scene.processSceneData.call_args[0][0], scene.processSceneData.call_args[0][1]
+    assert routed_jdata['objects'][0]['id'] == 'tracked:drone-1:person:0'
+    assert source_ns.retrack is True
+    controller.identity_claim_registry.claim.assert_not_called()
+    assert 'track' not in routed_jdata
+
+  def test_source_track_true_uses_tracked_path_for_all_objects(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    jdata = {
+      'source_id': 'drone-1',
+      'track': True,
+      'objects': [
+        {'id': 'obj-1', 'category': 'person', 'translation': [0, 0, 0]},
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    assert scene.processSceneData.call_count == 1
+    routed_jdata, source_ns = scene.processSceneData.call_args[0][0], scene.processSceneData.call_args[0][1]
+    assert source_ns.retrack is True
+    assert routed_jdata['objects'][0]['id'] == 'tracked:drone-1:person:obj-1'
+    controller.identity_claim_registry.claim.assert_not_called()
+
+  def test_tracked_objects_with_source_ids_use_stable_tracking_hints(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    jdata = {
+      'source_id': 'drone-1',
+      'objects': [
+        {'id': 'obj-1', 'category': 'person', 'translation': [0, 0, 0]},
+        {'id': 'obj-2', 'category': 'person', 'translation': [1, 0, 0]},
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    routed_jdata = scene.processSceneData.call_args[0][0]
+    assert [obj['id'] for obj in routed_jdata['objects']] == [
+      'tracked:drone-1:person:obj-1',
+      'tracked:drone-1:person:obj-2',
+    ]
+
+  def test_duplicate_tracked_source_ids_do_not_use_id_hint(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    jdata = {
+      'source_id': 'drone-1',
+      'objects': [
+        {'id': 'obj-1', 'category': 'person', 'translation': [0, 0, 0]},
+        {'id': 'obj-1', 'category': 'person', 'translation': [1, 0, 0]},
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    routed_jdata = scene.processSceneData.call_args[0][0]
+    assert [obj['id'] for obj in routed_jdata['objects']] == [
+      'tracked:drone-1:person:0',
+      'tracked:drone-1:person:1',
+    ]

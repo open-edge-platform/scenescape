@@ -341,7 +341,7 @@
           "description": "Semantic metadata describing what an object is (age, gender, clothing, embedding vectors, etc)."
         }
       },
-      "required": ["category", "translation", "id"]
+      "required": ["category", "translation"]
     },
     "external_pose": {
       "type": "object",
@@ -437,9 +437,35 @@
           "items": {
             "$ref": "#/definitions/external_detection"
           }
+        },
+        "track": {
+          "title": "Track All Source Objects",
+          "type": "boolean",
+          "description": "When present and false, all objects in this message bypass Scenescape tracking and preserve their source-provided ids. When true or omitted, all objects go through the normal tracking path and id is optional."
         }
       },
-      "required": ["timestamp", "source_id", "objects"]
+      "required": ["timestamp", "source_id", "objects"],
+      "allOf": [
+        {
+          "if": {
+            "required": ["track"],
+            "properties": {
+              "track": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "objects": {
+                "items": {
+                  "required": ["id"]
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "singleton": {
       "title": "Sensor Metadata",
