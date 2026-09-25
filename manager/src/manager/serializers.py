@@ -267,7 +267,7 @@ class SingletonSerializer(NonNullSerializer):
   class Meta:
     model = SingletonSensor
     fields = ['uid', 'scene', 'sensor_id', 'name', 'area', 'points', 'radius', 'center',
-              'translation', 'singleton_type', 'color_ranges', 'visible']
+              'translation', 'singleton_type', 'color_ranges', 'visible', 'tracking_enabled']
 
 class CamSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)

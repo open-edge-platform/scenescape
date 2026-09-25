@@ -501,3 +501,48 @@ def test_processCameraData_processes_each_detection_type(scene_obj, camera_obj, 
   assert [call[0] for call in finished] == ['person', 'vehicle']
   assert finished[0][1] == ['person']
   assert finished[1][1] == ['vehicle']
+
+def test_update_visible_filters_tracking_disabled_and_keeps_default_enabled(scene_obj):
+  """_updateVisible excludes tracking-disabled cameras and includes default ones."""
+  from types import SimpleNamespace
+  from unittest.mock import Mock
+
+  obj = SimpleNamespace(sceneLoc=SimpleNamespace(), visibility=None)
+
+  enabled_rov = Mock()
+  enabled_rov.isPointWithin.return_value = True
+  enabled_camera = SimpleNamespace(
+    cameraID='cam_enabled',
+    tracking_enabled=True,
+    pose=SimpleNamespace(regionOfView=enabled_rov),
+  )
+
+  disabled_rov = Mock()
+  disabled_rov.isPointWithin.return_value = True
+  disabled_camera = SimpleNamespace(
+    cameraID='cam_disabled',
+    tracking_enabled=False,
+    pose=SimpleNamespace(regionOfView=disabled_rov),
+  )
+
+  default_rov = Mock()
+  default_rov.isPointWithin.return_value = True
+  default_camera = SimpleNamespace(
+    cameraID='cam_default',
+    pose=SimpleNamespace(regionOfView=default_rov),
+  )
+
+  scene_obj.cameras = {
+    enabled_camera.cameraID: enabled_camera,
+    disabled_camera.cameraID: disabled_camera,
+    default_camera.cameraID: default_camera,
+  }
+
+  scene_obj._updateVisible([obj])
+
+  assert set(obj.visibility) == {'cam_enabled', 'cam_default'}
+  assert 'cam_disabled' not in obj.visibility
+
+  disabled_rov.isPointWithin.assert_not_called()
+  enabled_rov.isPointWithin.assert_called_once_with(obj.sceneLoc)
+  default_rov.isPointWithin.assert_called_once_with(obj.sceneLoc)

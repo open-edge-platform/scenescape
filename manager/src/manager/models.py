@@ -619,6 +619,7 @@ class Sensor(models.Model):
   scene = models.ForeignKey(Scene, null=True, on_delete=models.SET_NULL)
   icon = models.ImageField(default=None, null=True, blank=True)
 #  map = models.ImageField(default=None, null=True, blank=False)
+  tracking_enabled = models.BooleanField(default=True, verbose_name="Tracking Enabled")
 
   def __str__(self):
     return self.name

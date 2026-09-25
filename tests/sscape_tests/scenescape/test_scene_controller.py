@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from contextlib import nullcontext
 import json
 import os
 import threading
@@ -1359,3 +1360,116 @@ class TestSceneControllerRemoteChildParent:
     assert scene is remote_sender
     assert remote_sender.parent is None
 
+
+class TestSceneControllerTrackingEnabledFilter:
+  """Unit tests for camera tracking_enabled filter in handleMovingObjectMessage()."""
+
+  def _build_controller(self, scene):
+    controller = SceneController.__new__(SceneController)
+
+    controller.cache_manager = MagicMock()
+    controller.cache_manager.sceneWithCameraID.return_value = scene
+    controller.cache_manager.refreshScenesForCamParams = MagicMock()
+    controller.cache_manager.invalidate = MagicMock()
+
+    controller.schema_val = MagicMock()
+    controller.schema_val.validateMessage.return_value = True
+
+    controller.publishDetections = MagicMock()
+
+    controller.rewrite_all_time = True
+    controller.rewrite_bad_time = False
+    controller.max_lag = 9999
+    controller.ntp_server = "ntp"
+    controller.ntp_client = MagicMock()
+    controller.last_time_sync = None
+    controller.time_offset = 0
+
+    return controller
+
+  def _build_scene(self, tracking_enabled):
+    camera = SimpleNamespace(tracking_enabled=tracking_enabled)
+
+    tracker = MagicMock()
+    tracker.getUniqueIDCount.return_value = 0
+    tracker.currentObjects.return_value = []
+
+    scene = MagicMock()
+    scene.uid = "scene-1"
+    scene.name = "scene-1"
+    scene.cameras = {"cam-1": camera}
+    scene.tracker = tracker
+    scene.processCameraData.return_value = True
+
+    return scene
+
+  @patch("controller.scene_controller.PubSub.parseTopic")
+  @patch("controller.scene_controller.adjust_time")
+  @patch("controller.scene_controller.get_epoch_time")
+  @patch("controller.scene_controller.get_iso_time")
+  @patch("controller.scene_controller.metrics")
+  def test_handle_moving_object_message_skips_when_tracking_disabled(
+    self,
+    metrics_mock,
+    get_iso_time_mock,
+    get_epoch_time_mock,
+    adjust_time_mock,
+    parse_topic_mock,
+  ):
+    scene = self._build_scene(tracking_enabled=False)
+    controller = self._build_controller(scene)
+
+    parse_topic_mock.return_value = {"_topic_id": "camera", "camera_id": "cam-1"}
+    adjust_time_mock.return_value = (0, None)
+    get_epoch_time_mock.return_value = 1000.0
+    get_iso_time_mock.return_value = "2026-01-01T00:00:00Z"
+    metrics_mock.time_mqtt_handler.return_value = nullcontext()
+
+    payload = {
+      "id": "cam-1",
+      "objects": {"person": []},
+      "timestamp": "2026-01-01T00:00:00Z",
+    }
+    message = SimpleNamespace(topic="ignored/topic", payload=orjson.dumps(payload))
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    # Filter must return before processing/publishing.
+    scene.processCameraData.assert_not_called()
+    controller.publishDetections.assert_not_called()
+    controller.cache_manager.invalidate.assert_not_called()
+
+  @patch("controller.scene_controller.PubSub.parseTopic")
+  @patch("controller.scene_controller.adjust_time")
+  @patch("controller.scene_controller.get_epoch_time")
+  @patch("controller.scene_controller.get_iso_time")
+  @patch("controller.scene_controller.metrics")
+  def test_handle_moving_object_message_processes_when_tracking_enabled(
+    self,
+    metrics_mock,
+    get_iso_time_mock,
+    get_epoch_time_mock,
+    adjust_time_mock,
+    parse_topic_mock,
+  ):
+    scene = self._build_scene(tracking_enabled=True)
+    controller = self._build_controller(scene)
+
+    parse_topic_mock.return_value = {"_topic_id": "camera", "camera_id": "cam-1"}
+    adjust_time_mock.return_value = (0, None)
+    get_epoch_time_mock.return_value = 1000.0
+    get_iso_time_mock.return_value = "2026-01-01T00:00:00Z"
+    metrics_mock.time_mqtt_handler.return_value = nullcontext()
+
+    payload = {
+      "id": "cam-1",
+      "objects": {"person": []},
+      "timestamp": "2026-01-01T00:00:00Z",
+    }
+    message = SimpleNamespace(topic="ignored/topic", payload=orjson.dumps(payload))
+
+    controller.handleMovingObjectMessage(None, None, message)
+
+    scene.processCameraData.assert_called_once()
+    controller.publishDetections.assert_called_once()
+    controller.cache_manager.invalidate.assert_not_called()
