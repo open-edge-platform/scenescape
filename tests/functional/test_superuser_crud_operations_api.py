@@ -49,7 +49,7 @@ class CRUDPermissionsTest(FunctionalTest):
     if existing:
       self.rest_admin.deleteScene(existing[0]["uid"])
 
-    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/tests/resources/maps/HazardZoneSceneLarge.png"
     assert os.path.exists(map_image), f"Map image not found: {map_image}"
     with open(map_image, "rb") as f:
       map_data = f.read()

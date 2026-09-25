@@ -1,4 +1,4 @@
-# How to Build Cluster Analytics from Source
+# Build Cluster Analytics from Source
 
 ## Prerequisites
 
@@ -22,6 +22,7 @@
   ```
 
 - **Build cluster_analytics**:
+
   ```bash
   make cluster_analytics
   ```

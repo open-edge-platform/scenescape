@@ -7,14 +7,13 @@
 
 Uses ANALYTICS_MQTT (no Scene Controller) so coverage is not redundant with
 FULL_STACK camera→Controller→Analytics child-event tests. Injects a minimal
-Tracker envelope on data/scene and asserts Analytics emits ROI events.
-"""
+Tracker envelope on data/scene and asserts Analytics emits ROI events."""
+
 
 import json
 import threading
 import time
 
-import tests.common_test_utils as common
 from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -26,6 +25,8 @@ from tests.functional.event_asserts import (
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import ANALYTICS_MQTT
 
+import pytest
+
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=ANALYTICS_MQTT,
   auth=AUTH_CONTROLLER,
@@ -36,18 +37,14 @@ CONNECT_WAIT = 10
 GEOMETRY_SETTLE = 3
 
 
+@pytest.mark.test_name("NEX-T29241")
 def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(
-    record_xml_attribute, params):
+    params, result_recorder):
   """! Analytics accepts Tracker DATA_SCENE envelopes and emits region events.
 
-  @param    record_xml_attribute    Pytest fixture recording the test name.
-  @param    params                  Dict of test parameters.
+  @param    params           Dict of test parameters.
+  @param    result_recorder  Pytest fixture recording the Zephyr test result.
   """
-  TEST_NAME = "NEX-T21483"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
-  exit_code = 1
-
   rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
   assert rest.authenticate(params["user"], params["password"])
 
@@ -125,10 +122,7 @@ def test_analytics_emits_roi_event_for_tracker_shaped_scene_data(
     check_event_contains_data(events[0], "region")
     assert_event_objects_have_visibility(events[0])
     log.info(f"PASS: {len(events)} ROI event(s) from Tracker-shaped scene data")
-    exit_code = 0
+    result_recorder.success()
   finally:
     client.loopStop()
     rest.deleteRegion(roi_uid)
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0

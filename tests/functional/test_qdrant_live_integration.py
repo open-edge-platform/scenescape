@@ -56,7 +56,8 @@ def qdrant_db():
     f"and plain localhost:{DEFAULT_PORT}; last={last_error})")
 
 
-def test_live_schema_and_vector_operations(qdrant_db):
+@pytest.mark.test_name("NEX-T29230")
+def test_live_schema_and_vector_operations(qdrant_db, result_recorder):
   set_name = f"reid_test_{uuid.uuid4().hex[:8]}"
   qdrant_db.set_name = set_name
   qdrant_db.similarity_metric = "L2"
@@ -80,9 +81,11 @@ def test_live_schema_and_vector_operations(qdrant_db):
     gender={"label": "Female", "confidence": 0.95})
   assert matches and matches[0]
   assert matches[0][0]["uuid"] == "uuid-1"
+  result_recorder.success()
 
 
-def test_live_persist_attributes(qdrant_db):
+@pytest.mark.test_name("NEX-T29231")
+def test_live_persist_attributes(qdrant_db, result_recorder):
   set_name = f"reid_persist_{uuid.uuid4().hex[:8]}"
   qdrant_db.set_name = set_name
   qdrant_db.similarity_metric = "L2"
@@ -98,3 +101,4 @@ def test_live_persist_attributes(qdrant_db):
 
   attrs = qdrant_db.getPersistedAttributes("persist-uuid", set_name=set_name)
   assert attrs == {"gender": "Male"}
+  result_recorder.success()

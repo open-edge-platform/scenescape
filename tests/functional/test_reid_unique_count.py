@@ -347,7 +347,7 @@ def test_reid_unique_count(params, record_xml_attribute):
 
   minimum, maximum = get_scene_count_bounds()
   scene_config = {
-    "302cf49a-97ec-402d-a324-c5077b280b7b": {
+    common.get_scene_uid(params, "Queuing"): {
       "error": False,
       "current": 0,
       "minimum": minimum,
