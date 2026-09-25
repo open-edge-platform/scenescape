@@ -22,9 +22,8 @@ SPDX-License-Identifier: Apache-2.0
 - Main tracker evaluation README (canonical formats, usage, CLI): [README.md](README.md)
 - ADR context: [docs/adr/0009-tracking-evaluation.md](../../../docs/adr/0009-tracking-evaluation.md)
 - Example configurations:
-  - Full tracker evaluation: [pipeline_configs/metric_test_evaluation.yaml](pipeline_configs/metric_test_evaluation.yaml)
+  - Black-box suite (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/)
   - Camera projection accuracy: [pipeline_configs/camera_projection_evaluation.yaml](pipeline_configs/camera_projection_evaluation.yaml)
-  - Black-box suite configs (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/)
 
 ## Folders structure
 
@@ -175,7 +174,7 @@ Check `evaluators/README.md` for more details
 - Integration tests: `pytest . -v -m "integration"`
 - Unit & integration: `pytest tests/ -q --tb=short`.
 - PipelineEngine test: `pytest tests/test_pipeline_engine.py -v`.
-- Full pipeline test via CLI `python pipeline_engine.py pipeline_configs/metric_test_evaluation.yaml` to ensure dataset → harness → evaluator flow succeeds.
+- Full pipeline test via CLI, e.g. `python pipeline_engine.py pipeline_configs/black_box_unity/black_box_controller_immediate.yaml`, to ensure dataset → harness → evaluator flow succeeds.
 
 ## I/O, Data Formats and Conversions
 

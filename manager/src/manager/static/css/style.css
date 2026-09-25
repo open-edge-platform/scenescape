@@ -238,13 +238,33 @@ polygon {
   background: none;
 }
 
-.mark circle {
+.mark circle.mark-dot {
   stroke-width: 4px;
   opacity: 0.9;
 }
 
 .trail line {
   stroke-width: 2px;
+}
+
+.association-window {
+  fill: none;
+  stroke-width: 2px;
+  stroke-dasharray: 6 4;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.person .association-window {
+  stroke: #009933;
+}
+
+.vehicle .association-window {
+  stroke: #0099ff;
+}
+
+.apriltag .association-window {
+  stroke: #888888;
 }
 
 .mark text {
@@ -254,15 +274,15 @@ polygon {
   font: bold 18px sans-serif;
 }
 
-.person circle {
+.person circle.mark-dot {
   fill: #009933;
 }
 
-.vehicle circle {
+.vehicle circle.mark-dot {
   fill: #0099ff;
 }
 
-.apriltag circle {
+.apriltag circle.mark-dot {
   fill: #888888;
 }
 

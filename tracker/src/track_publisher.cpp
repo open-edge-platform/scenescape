@@ -106,6 +106,27 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
             obj.AddMember("confidence", Value(*track.confidence), allocator);
         }
 
+        if (track.association_window.has_value()) {
+            const auto& window = *track.association_window;
+            Value assoc(kObjectType);
+            assoc.AddMember("method", Value().SetString(window.method.c_str(), allocator),
+                            allocator);
+            assoc.AddMember("shape", Value().SetString(window.shape.c_str(), allocator), allocator);
+            if (window.radius_m.has_value()) {
+                assoc.AddMember("radius_m", Value(*window.radius_m), allocator);
+            }
+            if (window.semi_major_m.has_value()) {
+                assoc.AddMember("semi_major_m", Value(*window.semi_major_m), allocator);
+            }
+            if (window.semi_minor_m.has_value()) {
+                assoc.AddMember("semi_minor_m", Value(*window.semi_minor_m), allocator);
+            }
+            if (window.angle_rad.has_value()) {
+                assoc.AddMember("angle_rad", Value(*window.angle_rad), allocator);
+            }
+            obj.AddMember("association_window", assoc, allocator);
+        }
+
         objects_array.PushBack(obj, allocator);
     }
 

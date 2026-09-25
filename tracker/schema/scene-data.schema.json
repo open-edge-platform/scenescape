@@ -144,6 +144,41 @@
           "type": "integer",
           "description": "Number of frames this track has been observed",
           "minimum": 0
+        },
+        "association_window": {
+          "type": "object",
+          "description": "Association gate geometry for UI visualization. Euclidean association is a circle of radius max_radius_m; position_mahalanobis is the χ² ellipse of the track's predicted XY measurement covariance.",
+          "properties": {
+            "method": {
+              "type": "string",
+              "enum": ["euclidean", "position_mahalanobis"]
+            },
+            "shape": {
+              "type": "string",
+              "enum": ["circle", "ellipse"]
+            },
+            "radius_m": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Circle radius in meters when shape is circle"
+            },
+            "semi_major_m": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Ellipse semi-major axis in meters when shape is ellipse"
+            },
+            "semi_minor_m": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Ellipse semi-minor axis in meters when shape is ellipse"
+            },
+            "angle_rad": {
+              "type": "number",
+              "description": "Ellipse major-axis angle in radians in the scene XY plane (from +X toward +Y)"
+            }
+          },
+          "required": ["method", "shape"],
+          "additionalProperties": false
         }
       },
       "additionalProperties": true

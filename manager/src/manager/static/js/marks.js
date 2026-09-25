@@ -50,6 +50,34 @@ function updateTooltipContent(mark, o, show_telemetry) {
   }
 }
 
+function removeAssociationWindow(mark) {
+  const existing = mark.select(".association-window");
+  if (existing) {
+    existing.remove();
+  }
+}
+
+function updateAssociationWindow(mark, o, scale, show_association_windows) {
+  removeAssociationWindow(mark);
+  if (!show_association_windows || !o.association_window) {
+    return;
+  }
+
+  const window = o.association_window;
+  let shape;
+  if (window.shape === "ellipse") {
+    const rx = Math.max(1, (window.semi_major_m || 0) * scale);
+    const ry = Math.max(1, (window.semi_minor_m || 0) * scale);
+    // Scene +Y is up; SVG +Y is down, so negate the scene angle.
+    const angleDeg = (-(window.angle_rad || 0) * 180) / Math.PI;
+    shape = mark.ellipse(0, 0, rx, ry).transform("r" + angleDeg);
+  } else {
+    const radius = Math.max(1, (window.radius_m || 0) * scale);
+    shape = mark.circle(0, 0, radius);
+  }
+  shape.addClass("association-window");
+}
+
 // Plot marks
 function plot(
   objects,
@@ -58,6 +86,7 @@ function plot(
   svgCanvas,
   show_telemetry,
   show_trails,
+  show_association_windows = false,
 ) {
   // Scenescape sends only updated marks, so we need to determine
   // which old marks are not in the current update and remove them
@@ -124,7 +153,7 @@ function plot(
           o.translation[0],
           o.translation[1],
         );
-        line.attr("stroke", mark.select("circle").attr("stroke"));
+        line.attr("stroke", mark.select(".mark-dot").attr("stroke"));
       }
     }
     // Otherwise, add new mark
@@ -139,6 +168,7 @@ function plot(
         show_trails,
       ));
     }
+    updateAssociationWindow(mark, o, scale, show_association_windows);
     updateTooltipContent(mark, o, show_telemetry);
   });
 }
@@ -191,7 +221,7 @@ function addNewMark(
   }
 
   // Create the circle
-  var circle = mark.circle(0, 0, mark_radius);
+  var circle = mark.circle(0, 0, mark_radius).addClass("mark-dot");
 
   // add tooltip foreign object
   var text = mark.text(0, 0, "");

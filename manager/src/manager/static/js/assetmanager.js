@@ -24,6 +24,14 @@ export default function AssetManager(
   let activeCamera = camera;
   let objectCache = {};
   let marks = {};
+  let associationWindows = {};
+  let showAssociationWindows = false;
+
+  const associationMaterial = new THREE.LineBasicMaterial({
+    color: 0x33cc66,
+    transparent: true,
+    opacity: 0.85,
+  });
 
   const labelRenderer = createLabelRenderer(domElement);
   const { setLabelVisible, setLabelMode, getLabelMode } = SetupMarkHover(
@@ -80,6 +88,82 @@ export default function AssetManager(
     }
   }
 
+  function setAssociationWindowsVisibility(shouldShow) {
+    showAssociationWindows = shouldShow;
+    for (const windowObj of Object.values(associationWindows)) {
+      windowObj.visible = shouldShow;
+    }
+  }
+
+  function removeAssociationWindow(objectId) {
+    const windowObj = associationWindows[objectId];
+    if (!windowObj) return;
+    scene.remove(windowObj);
+    windowObj.geometry.dispose();
+    delete associationWindows[objectId];
+  }
+
+  function buildAssociationWindowGeometry(window) {
+    const segments = 64;
+    if (window.shape === "ellipse") {
+      const a = Math.max(window.semi_major_m || 0, 1e-3);
+      const b = Math.max(window.semi_minor_m || 0, 1e-3);
+      const curve = new THREE.EllipseCurve(
+        0,
+        0,
+        a,
+        b,
+        0,
+        2 * Math.PI,
+        false,
+        0,
+      );
+      const points = curve
+        .getPoints(segments)
+        .map((p) => new THREE.Vector3(p.x, p.y, 0.05));
+      return new THREE.BufferGeometry().setFromPoints(points);
+    }
+    const radius = Math.max(window.radius_m || 0, 1e-3);
+    const points = [];
+    for (let i = 0; i <= segments; i++) {
+      const theta = (i / segments) * Math.PI * 2;
+      points.push(
+        new THREE.Vector3(
+          radius * Math.cos(theta),
+          radius * Math.sin(theta),
+          0.05,
+        ),
+      );
+    }
+    return new THREE.BufferGeometry().setFromPoints(points);
+  }
+
+  function updateAssociationWindow(obj) {
+    const objectId = String(obj.id);
+    if (!showAssociationWindows || !obj.association_window) {
+      removeAssociationWindow(objectId);
+      return;
+    }
+
+    const geometry = buildAssociationWindowGeometry(obj.association_window);
+    let windowObj = associationWindows[objectId];
+    if (windowObj) {
+      windowObj.geometry.dispose();
+      windowObj.geometry = geometry;
+    } else {
+      windowObj = new THREE.LineLoop(geometry, associationMaterial);
+      associationWindows[objectId] = windowObj;
+      scene.add(windowObj);
+    }
+
+    windowObj.position.set(obj.translation[0], obj.translation[1], 0);
+    windowObj.rotation.set(0, 0, 0);
+    if (obj.association_window.shape === "ellipse") {
+      windowObj.rotation.z = obj.association_window.angle_rad || 0;
+    }
+    windowObj.visible = true;
+  }
+
   // Plot marks on the scene
   function plot(msg) {
     // Scenescape sends only current marks, so we need to determine
@@ -112,6 +196,7 @@ export default function AssetManager(
 
       delete marks[markId];
       scene.remove(del);
+      removeAssociationWindow(markId);
     }
 
     // Remove oldMarks from both the scene and the marks collection
@@ -177,6 +262,8 @@ export default function AssetManager(
         updateLabelData(thisMark, obj);
         if (getLabelMode() === "all") setLabelVisible(thisMark, true);
       }
+
+      updateAssociationWindow(obj);
     });
   }
 
@@ -290,6 +377,7 @@ export default function AssetManager(
     loadAssets,
     plot,
     setMarksVisibility,
+    setAssociationWindowsVisibility,
     renderLabels,
     setLabelMode,
     setCamera,

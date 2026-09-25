@@ -9,13 +9,18 @@ to load scene configuration, matching production behaviour exactly:
  POST /api/v1/auth              → {"token": "mock"}
  GET  /api/v1/scenes            → {"results": [<scene>]}
  GET  /api/v1/scenes/child      → {"results": []}
- GET  /api/v1/assets            → {"results": []}
+ GET  /api/v1/assets            → {"results": [<asset>, ...]} from
+                                  scene_config ``object_classes`` (empty if omitted)
  GET  /api/v1/camera/<uid>      → <camera>
  POST /api/v1/camera/<uid>      → <camera>   (accepts updateCamera, no-ops)
 
 Scene format follows the Manager REST serializer (CamSerializer):
  cameras carry ``camera points`` / ``map points`` so Camera.__init__
  constructs a PointCorrespondenceTransform, identical to production.
+
+Optional ``object_classes`` on the scene config (same shape as the camera
+projection harness) are exposed as Manager assets so Controller can apply
+per-category ``shift_type`` (TYPE_1 / TYPE_2) during world projection.
 
 Run as a standalone process inside the Docker network:
  python mock_manager.py <port> <scene_config_json>
@@ -113,6 +118,38 @@ def _pose_mat_to_extrinsics(mat):
     float(mat[3, 3] * math.sqrt(rmat[0, 2]**2 + rmat[1, 2]**2 + rmat[2, 2]**2)),
   ]
   return {"translation": translation, "rotation": euler_deg, "scale": scale}
+
+
+def _assets_from_object_classes(object_classes):
+  """Map harness ``object_classes`` entries to Manager ``/api/v1/assets`` results.
+
+  Controller ``Tracking.updateObjectClasses`` copies every asset field except
+  ``name`` onto the category dict, including ``shift_type`` used by
+  ``MovingObject.camLoc`` (TYPE_1 bottom-centre vs TYPE_2 perspective shift).
+  """
+  results = []
+  for index, entry in enumerate(object_classes or []):
+    if not isinstance(entry, dict):
+      continue
+    name = entry.get("name")
+    if not name:
+      continue
+    asset = {
+      "uid": str(entry.get("uid", index)),
+      "name": name,
+      "shift_type": int(entry.get("shift_type", 1)),
+      "x_size": float(entry.get("x_size", 0.0)),
+      "y_size": float(entry.get("y_size", 0.0)),
+      "z_size": float(entry.get("z_size", 0.0)),
+    }
+    for key in (
+      "tracking_radius", "project_to_map", "rotation_from_velocity",
+      "x_buffer_size", "y_buffer_size", "z_buffer_size",
+    ):
+      if key in entry:
+        asset[key] = entry[key]
+    results.append(asset)
+  return results
 
 
 def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
@@ -289,7 +326,7 @@ class MockManagerHandler(BaseHTTPRequestHandler):
       return
 
     if path == "/api/v1/assets":
-      self._send_json(200, {"results": []})
+      self._send_json(200, {"results": getattr(self.server, "assets", [])})
       return
 
     if path.startswith("/api/v1/camera/"):
@@ -309,7 +346,12 @@ def run(port: int, scene_config: dict) -> None:
   scene = _build_rest_scene(scene_config)
   server = HTTPServer(("0.0.0.0", port), MockManagerHandler)
   server.scene = scene
-  print(f"[MockManager] Listening on 0.0.0.0:{port}  scene={scene['uid']}", flush=True)
+  server.assets = _assets_from_object_classes(scene_config.get("object_classes"))
+  print(
+    f"[MockManager] Listening on 0.0.0.0:{port}  scene={scene['uid']}  "
+    f"assets={len(server.assets)}",
+    flush=True,
+  )
   server.serve_forever()
 
 if __name__ == "__main__":

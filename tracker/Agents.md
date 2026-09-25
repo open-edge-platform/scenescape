@@ -15,7 +15,7 @@ The service uses a multi-threaded pipeline: `MqttClient` receives detections →
 
 **For detailed architecture, see**: [Design Document](../docs/design/tracker-service.md) | [Implementation Guide](docs/implementation.md)
 
-**Related ADRs**: [ADR-0003](../docs/adr/0003-scaling-controller-performance.md) (C++ Implementation), [ADR-0007](../docs/adr/0007-tracker-service.md) (Time Chunking), [ADR-0008](../docs/adr/0008-tracker-service-horizontal-scaling.md) (Horizontal Scaling)
+**Related ADRs**: [ADR-0003](../docs/adr/0003-scaling-controller-performance.md) (C++ Implementation), [ADR-0007](../docs/adr/0007-tracker-service.md) (Time Chunking), [ADR-0008](../docs/adr/0008-tracker-service-horizontal-scaling.md) (Horizontal Scaling), [ADR-0017](../docs/adr/0017-probabilistic-tracking-association.md) (Probabilistic Association; Phase 1 accepted — [design](../docs/design/probabilistic-tracking-association.md))
 
 ## Build System
 
@@ -78,6 +78,10 @@ Run `make test-unit-coverage` to verify locally. New code MUST maintain these th
 **Subscribes**: `scenescape/data/camera/+` — Detection messages from cameras
 
 **Publishes**: `scenescape/data/scene/<scene_id>` — Tracked object messages
+
+When `scenes.source=api`, the service also loads Manager `/api/v1/assets` for
+per-category projection (`shift_type`, footprint sizes) used by
+`CoordinateTransformer`. Missing assets soft-falls back to TYPE_1 defaults.
 
 ## Development Workflows
 

@@ -166,6 +166,7 @@ class SceneDataIngestion:
     # but Analytics _updateVisible also treats empty as fill-eligible.
     obj.visibility = obj_data.get('visibility')
     obj.info = {'category': obj.category, 'confidence': obj.confidence}
+    obj.association_window = obj_data.get('association_window')
 
     # Reconstruct bbMeters from size when available
     if obj.size and len(obj.size) == 3:

@@ -40,6 +40,7 @@ var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
 var show_trails = false;
+var show_association_windows = false;
 var scene_y_max = 480; // Scene image height in pixels
 var savedElements = [];
 var is_coloring_enabled = false; // Default state of the coloring feature
@@ -207,6 +208,7 @@ async function checkBrokerConnections() {
           svgCanvas,
           show_telemetry,
           show_trails,
+          show_association_windows,
         );
       } else if (topic.includes("event")) {
         var etype = topic.split("/")[2];
@@ -2223,6 +2225,10 @@ $(document).ready(function () {
   $("input#show-telemetry").on("change", function () {
     if ($(this).is(":checked")) show_telemetry = true;
     else show_telemetry = false;
+  });
+
+  $("input#show-association-windows").on("change", function () {
+    show_association_windows = $(this).is(":checked");
   });
 
   $(".form-group")
