@@ -10,6 +10,7 @@
 #include "rv/apollo/multi_hm_bipartite_graph_matcher.hpp"
 #include "rv/apollo/secure_matrix.hpp"
 #include "rv/tracking/Classification.hpp"
+#include "rv/tracking/OrientationAttributes.hpp"
 
 namespace rv {
 namespace tracking {
@@ -34,8 +35,12 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
 {
   cv::Mat innovation = measurement.measurementVector() - (track.predictedMeasurementMean);
 
-  // ignore yaw, 2D detectors cannot detect orientation
-  innovation.at<double>(6, 0) = 0.;
+  // Use yaw in the gate only when both sides have orientation. Camera detections
+  // and tracks that have never seen an orienting sensor leave yaw out.
+  if (!(orientation::hasOrientation(measurement) && orientation::orientationObserved(track)))
+  {
+    innovation.at<double>(6, 0) = 0.;
+  }
 
   cv::Mat mahalanobisDistance = innovation.t() * (track.predictedMeasurementCovInv) * innovation;
 

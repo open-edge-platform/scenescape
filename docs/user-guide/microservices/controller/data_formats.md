@@ -12,6 +12,14 @@ SPDX-License-Identifier: Apache-2.0
 | [Camera Input Message Format](#camera-input-message-format)                   | Subscribe | `scenescape/data/camera/{camera_id}`              |
 | [External Source Input Message Format](#external-source-input-message-format) | Subscribe | `scenescape/external/{publisher_id}/{thing_type}` |
 | [Data Scene Output Message Format](#data-scene-output-message-format)         | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}`   |
+| Point cloud preview (Manager 3D UI)                                           | Publish   | `scenescape/pointcloud/camera/{camera_id}`        |
+
+> **Point cloud preview:** the Manager 3D UI requests a live sensor point cloud with
+> `getpointcloud` on `scenescape/cmd/camera/{camera_id}` (same command topic as
+> `getimage`). Publishers that support LiDAR/radar visualization reply on
+> `scenescape/pointcloud/camera/{camera_id}` with a JSON payload
+> (`format: xyz_intensity_f32`, base64 little-endian float32 points, sensor-local
+> frame). The Scene Controller does not consume this topic.
 
 The Scene Controller only tracks objects and publishes unregulated per-category output. Sensor
 correlation, regulated (rate-controlled) output, and region/tripwire event publishing are owned

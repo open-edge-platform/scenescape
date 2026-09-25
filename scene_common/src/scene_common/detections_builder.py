@@ -263,6 +263,8 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   if hasattr(aobj, 'confidence'):
     obj_dict['confidence'] = aobj.confidence
+  if getattr(aobj, 'source', None):
+    obj_dict['source'] = aobj.source
   if hasattr(aobj, 'similarity'):
     obj_dict['similarity'] = aobj.similarity
   if hasattr(aobj, 'first_seen'):
