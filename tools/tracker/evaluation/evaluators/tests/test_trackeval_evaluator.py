@@ -21,8 +21,8 @@ from evaluators.trackeval_evaluator import TrackEvalEvaluator
 
 @pytest.fixture
 def evaluator():
-  """Create TrackEvalEvaluator instance."""
-  return TrackEvalEvaluator()
+  """Create TrackEvalEvaluator instance (mock data ~30 fps grid)."""
+  return TrackEvalEvaluator().set_base_fps(30.0)
 
 
 @pytest.fixture
@@ -62,14 +62,26 @@ def mock_tracker_outputs():
 
 @pytest.fixture
 def mock_ground_truth_file(tmp_path):
-  """Create mock ground truth CSV file in MOTChallenge 3D format."""
-  gt_file = tmp_path / "gt.txt"
-  # Format: frame,id,x,y,z,conf,class,visibility (no header)
-  gt_content = """1,1,1.0,2.0,0.0,1.0,1,1
-1,2,3.0,4.0,0.0,1.0,1,1
-2,1,1.1,2.1,0.0,1.0,1,1
-2,2,3.1,4.1,0.0,1.0,1,1"""
-  gt_file.write_text(gt_content)
+  """Create mock ground truth JSONL file in canonical Tracker Output Format."""
+  import json
+  gt_file = tmp_path / "ground_truth.jsonl"
+  gt_frames = [
+    {
+      "timestamp": "2024-01-01T00:00:00.000Z",
+      "objects": [
+        {"id": 1, "category": "person", "translation": [1.0, 2.0, 0.0]},
+        {"id": 2, "category": "person", "translation": [3.0, 4.0, 0.0]},
+      ],
+    },
+    {
+      "timestamp": "2024-01-01T00:00:00.033Z",
+      "objects": [
+        {"id": 1, "category": "person", "translation": [1.1, 2.1, 0.0]},
+        {"id": 2, "category": "person", "translation": [3.1, 4.1, 0.0]},
+      ],
+    },
+  ]
+  gt_file.write_text("\n".join(json.dumps(frame) for frame in gt_frames))
   return str(gt_file)
 
 
@@ -292,7 +304,7 @@ class TestSetBaseFps:
     assert evaluator._base_fps == 25.0
 
   def test_none_resets(self, evaluator):
-    """None resets to auto-compute."""
+    """None clears the configured frame rate."""
     evaluator.set_base_fps(30.0)
     evaluator.set_base_fps(None)
     assert evaluator._base_fps is None
@@ -316,9 +328,19 @@ class TestSetBaseFps:
   def test_overrides_computed_fps(
     self, evaluator, mock_tracker_outputs, mock_ground_truth_file, temp_result_folder
   ):
-    """When set, base_fps overrides computed FPS."""
+    """The configured base_fps is used for frame alignment."""
     evaluator.set_base_fps(15.0)
     evaluator.configure_metrics(['HOTA'])
     evaluator.set_output_folder(temp_result_folder)
     evaluator.process_tracker_outputs(mock_tracker_outputs, mock_ground_truth_file)
     assert evaluator._camera_fps == 15.0
+
+  def test_process_without_fps_raises(
+    self, mock_tracker_outputs, mock_ground_truth_file, temp_result_folder
+  ):
+    """Processing without a configured frame rate raises a clear error."""
+    ev = TrackEvalEvaluator()
+    ev.configure_metrics(['HOTA'])
+    ev.set_output_folder(temp_result_folder)
+    with pytest.raises(RuntimeError, match="Frame rate is required"):
+      ev.process_tracker_outputs(mock_tracker_outputs, mock_ground_truth_file)

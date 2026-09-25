@@ -91,8 +91,12 @@ analytics:
 autocalibration:
   image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent
-  # When true, skip the ~550MB NetVLAD download at container start.
-  # Markerless calibration needs the model; deployment smoke tests do not.
+  modelStorage: 1Gi
+  modelStorageClassName: ""
+  # When true, skip the background NetVLAD download sidecar.
+  # The app starts without waiting for it; AprilTag calibration works
+  # immediately, and markerless calibration works once the model lands
+  # on the netvlad PVC. Deployment smoke tests do not need markerless.
   skipModelDownload: false
 
 kubeclient:
@@ -102,12 +106,12 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.3.0-20260915-weekly-ubuntu24"
+    tag: "2026.3.0-20260922-weekly-ubuntu24"
     pullPolicy: IfNotPresent
 
 retail:
   repository: docker.io/intel/dlstreamer-pipeline-server
-  tag: "2026.3.0-20260915-weekly-ubuntu24"
+  tag: "2026.3.0-20260922-weekly-ubuntu24"
   pullPolicy: IfNotPresent
   storageClassName: ""
   cameras:
@@ -121,7 +125,7 @@ retail:
 queuing:
   repository: docker.io/intel/dlstreamer-pipeline-server
   pullPolicy: IfNotPresent
-  tag: "2026.3.0-20260915-weekly-ubuntu24"
+  tag: "2026.3.0-20260922-weekly-ubuntu24"
   storageClassName: ""
   cameras:
     image: linuxserver/ffmpeg
