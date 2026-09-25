@@ -20,14 +20,14 @@ _UPLOAD_SCENES_DIR = _REPO_ROOT / "tools" / "upload_scenes"
 if str(_UPLOAD_SCENES_DIR) not in sys.path:
   sys.path.insert(0, str(_UPLOAD_SCENES_DIR))
 
-from uploader import SceneScapeClient, parse_auth, upload_one, is_application_ready  # noqa: E402
+from uploader import SceneScapeClient, parse_auth, upload_one, is_application_ready, read_object_library, upload_object_library  # noqa: E402
 
 _RESOURCES_DIR = Path(__file__).resolve().parents[1] / "resources" / "scenes"
+_OBJECT_LIBRARY_PATH = _RESOURCES_DIR / "object-library.json"
 
 # Keys used by ServiceProfile/_PROFILE_SCENE_ARCHIVES to pick which archives a
 # stack needs. Values are tuples of archive paths, uploaded in order. Each
-# scene lives in its own directory: <scene>/<scene>.zip, plus optional
-# <scene>/assets.json and <scene>/calibration_markers.json sidecars.
+# scene lives in its own directory as a single <scene>/<scene>.zip archive.
 SCENE_ARCHIVES = {
   "demo": (_RESOURCES_DIR / "Demo" / "Demo.zip",),
   "calibration": (_RESOURCES_DIR / "Queuing" / "Queuing.zip",),
@@ -45,10 +45,10 @@ _READY_TIMEOUT_SECONDS = 120
 def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys):
   """Imports the archives for *archive_keys* and returns {scene_name: uid}.
 
-  @param    resturl       REST API base URL of the target deployment
-  @param    rootcert      CA certificate path used to verify the server
-  @param    auth_path     controller.auth file used to authenticate
-  @param    archive_keys  keys into SCENE_ARCHIVES to upload
+  @param    resturl                 REST API base URL of the target deployment
+  @param    rootcert                CA certificate path used to verify the server
+  @param    auth_path               controller.auth file used to authenticate
+  @param    archive_keys            keys into SCENE_ARCHIVES to upload
   @return                 dict mapping scene name -> uid
   """
   client = SceneScapeClient(resturl, verify=rootcert)
@@ -57,6 +57,12 @@ def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys):
   # accepting connections; retry rather than fail on the first attempt.
   if not is_application_ready(client, _READY_TIMEOUT_SECONDS, user, password):
     raise RuntimeError(f"{resturl} was not ready after {_READY_TIMEOUT_SECONDS} seconds")
+
+  library = read_object_library(str(_OBJECT_LIBRARY_PATH))
+  if library is None:
+    raise RuntimeError(f"Failed to read {_OBJECT_LIBRARY_PATH}")
+  if library and not upload_object_library(client, library):
+    raise RuntimeError(f"Failed to upload object library from {_OBJECT_LIBRARY_PATH}")
 
   scene_uids = {}
   for archive_key in archive_keys:

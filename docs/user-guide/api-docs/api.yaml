@@ -2729,6 +2729,11 @@ components:
           default: 0.0
           title: Map Bearing/Rotation (degrees)
           description: Rotation angle for the geospatial map view in degrees
+        calibration_markers:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalibrationMarker"
+          readOnly: true
       required:
         - name
     ShiftTypeEnum:

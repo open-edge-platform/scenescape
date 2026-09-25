@@ -138,7 +138,7 @@ services:
 
 configs:
   retail-config:
-    file: ./dlstreamer-pipeline-server/retail-config.json
+    file: ./sample_data/demo_scenes/Retail/retail-config.json
   mosquitto-secure:
     file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
 

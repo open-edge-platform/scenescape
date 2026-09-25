@@ -142,7 +142,7 @@ def schema_validator():
 @pytest.fixture(scope="session")
 def sample_data():
   subprocess.run(
-    ["make", "init-sample-data"],
+    ["make", "init-pipeline-runner-videos"],
     cwd=_REPO_ROOT,
     check=True,
   )

@@ -45,18 +45,49 @@ def test_scenescape_installation(_k8s_manager, result_recorder):
 
 
 @pytest.mark.kubernetes_only
+def test_kubeclient_spawns_dlstreamer_pipelines(_k8s_manager, result_recorder):
+  """Verify kubeclient creates available DL Streamer deployments for demo cameras."""
+  result = subprocess.run(
+    ["kubectl", "get", "deployments",
+     "--namespace", "scenescape",
+     "--kubeconfig", _k8s_manager.kubeconfig,
+     "--selector", "release=scenescape",
+     "--output", "json"],
+    capture_output=True, text=True, check=True,
+  )
+  deployments = json.loads(result.stdout)["items"]
+  pipelines = [
+    deployment for deployment in deployments
+    if "videoppl" in deployment["metadata"]["name"]
+  ]
+  assert pipelines, "kubeclient did not create any DL Streamer pipeline deployments"
+
+  unavailable = [
+    deployment["metadata"]["name"] for deployment in pipelines
+    if deployment["status"].get("availableReplicas", 0) < 1
+  ]
+  logger.info(
+    "Found %d kubeclient-created DL Streamer pipeline deployment(s): %s",
+    len(pipelines), ", ".join(deployment["metadata"]["name"] for deployment in pipelines),
+  )
+  assert not unavailable, (
+    "kubeclient-created DL Streamer pipeline deployments are not available: "
+    + ", ".join(unavailable)
+  )
+  result_recorder.success()
+
+
 @pytest.mark.test_name("NEX-T29215")
 def test_scenescape_pods_not_restarting(_k8s_manager, result_recorder):
   """Verify core Scenescape pods don't restart within a 2-minute window.
 
-  NTP (chrony) and dlstreamer (retail/queuing cams) are excluded because
-  they crash in KinD due to missing capabilities (SYS_TIME) and GPU hardware.
-  These services are not required for functional test execution.
+  NTP (chrony) is excluded because it crashes in KinD due to missing
+  capabilities (SYS_TIME). It is not required for functional test execution.
   """
   kubeconfig = _k8s_manager.kubeconfig
 
   # Pods whose restarts we ignore (known KinD-incompatible services)
-  _EXCLUDED_SUFFIXES = ("-ntpserv", "-retail-cams", "-queuing-cams", "-kubeclient")
+  _EXCLUDED_SUFFIXES = ("-ntpserv", "-kubeclient")
 
   def _get_restart_counts():
     result = subprocess.run(

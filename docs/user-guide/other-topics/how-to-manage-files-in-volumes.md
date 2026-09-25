@@ -9,7 +9,6 @@
 The volume names can be identified by looking for keywords in their names. Before running the commands below, set the environment variable in the shell:
 
 - `VOL_KEYWORD=models` for the Models Volume.
-- `VOL_KEYWORD=sample-data` for the Sample-Data Volume.
 
 **Verify the Docker Volume exists:**
 
@@ -68,7 +67,6 @@ After the copy operation completes, verify the file transfer by listing the volu
 The volume names can be identified by looking for keywords in their names. Before running the commands below, set the environment variable in the shell:
 
 - `VOL_KEYWORD=models` for the Models Volume.
-- `VOL_KEYWORD=sample-data` for the Sample-Data Volume.
 
 **Find the Persistent Volume Claim name (PVC):**
 
@@ -106,7 +104,7 @@ POD_NAME="<pod-name-with-write-access>"
 echo "Pod name: $POD_NAME"
 ```
 
-> **Tip:** For the Models Volume, web-app pods typically have write access. For the Sample-Data Volume, video pipeline pods usually have write access.
+> **Tip:** Web-app pods typically have write access to the Models Volume.
 
 **Identify the volume mount name:**
 

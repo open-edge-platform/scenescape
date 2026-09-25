@@ -10,11 +10,9 @@ media:
   storageClassName: openebs-lvmpv-shared
 autocalibration:
   modelStorageClassName: openebs-lvmpv-shared
-video:
+models:
   storageClassName: openebs-lvmpv-shared
 videos:
-  storageClassName: openebs-lvmpv-shared
-sampleData:
   storageClassName: openebs-lvmpv-shared
 controller:
   storageClassName: openebs-lvmpv-shared

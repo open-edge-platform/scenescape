@@ -69,7 +69,7 @@ services:
 
 configs:
   queuing-config:
-    file: ./dlstreamer-pipeline-server/queuing-config.json
+    file: ./sample_data/demo_scenes/Queuing/queuing-config.json
 
 volumes:
   vol-models:

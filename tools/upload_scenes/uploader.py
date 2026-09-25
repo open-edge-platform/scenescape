@@ -19,8 +19,13 @@ DEFAULT_WAIT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 5
 REQUEST_TIMEOUT_SECONDS = 60
 RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors")
-# Each scene lives in its own directory: <scene>/<scene>.zip, plus optional
-# <scene>/assets.json and <scene>/calibration_markers.json sidecars.
+# Each scene lives in its own directory: <scene>/<scene>.zip. The archived
+# JSON carries the scene's calibration_markers directly, plus each camera's
+# "command"/"camerachain" fields; on Kubernetes, kubeclient builds each
+# camera's DL Streamer pipeline from those two DB fields, while Compose's
+# dlsps containers use static pipeline JSON and simply ignore them.
+# Object library (Asset3D) entries have no scene FK, so they aren't part of
+# any scene archive; see read_object_library()/upload_object_library().
 
 log = logging.getLogger("upload-scenes")
 
@@ -122,22 +127,39 @@ def read_scene_from_zip(zip_path):
   return scene
 
 
-def upload_assets(client, scene):
-  """Creates the object library entries a scene relies on, unless they exist already."""
-  assets = scene.get("assets", [])
-  if assets is None:
-    return True
-  if not isinstance(assets, (list, tuple)):
-    log.error("Scene '%s' has invalid 'assets' entry (expected list)", scene.get('name'))
-    return False
+def read_object_library(path):
+  """Reads a standalone object-library.json (a plain list of asset dicts).
 
-  for asset in assets:
+  Returns [] when the file is absent (the library is optional), or None when
+  present but unreadable/malformed.
+  """
+  if not os.path.isfile(path):
+    return []
+  try:
+    with open(path, encoding="utf-8") as library_file:
+      library = json.load(library_file)
+  except (OSError, json.JSONDecodeError) as e:
+    log.error(f"Failed to read {path}: {e}")
+    return None
+  if not isinstance(library, list):
+    log.error(f"{path} must contain a JSON list of asset objects")
+    return None
+  return library
+
+
+def upload_object_library(client, library):
+  """Creates object library (Asset3D) entries, unless they already exist by name.
+
+  Assets have no scene FK: they're a global library shared by every scene, so
+  they're provisioned once from a standalone file instead of per-scene archives.
+  """
+  for asset in library:
     if not isinstance(asset, dict):
-      log.error("Ignoring malformed asset in scene '%s': not an object", scene.get('name'))
+      log.error("Ignoring malformed object library entry: not an object")
       return False
     name = asset.get("name")
     if not name or not isinstance(name, str):
-      log.error("Ignoring an asset without a valid name in scene '%s'", scene.get('name'))
+      log.error("Ignoring an object library entry without a valid name")
       return False
     if client.asset_exists(name):
       continue
@@ -200,7 +222,7 @@ def upload_scene(client, scene, zip_path):
 
 
 def upload_one(client, zip_path):
-  """Imports a single scene archive plus its assets/markers.
+  """Imports a single scene archive plus its calibration markers.
 
   Returns the scene's uid on success (including when it already exists), or
   None on failure.
@@ -209,49 +231,15 @@ def upload_one(client, zip_path):
   if scene is None:
     return None
 
-  # A scene's assets/calibration_markers, if any, live as sidecar JSON files
-  # next to its zip: <scene_dir>/assets.json, <scene_dir>/calibration_markers.json
-  scene_dir = os.path.dirname(zip_path)
-  assets_sidecar = os.path.join(scene_dir, "assets.json")
-  calib_sidecar = os.path.join(scene_dir, "calibration_markers.json")
-  # Load and merge sidecar assets
-  if os.path.exists(assets_sidecar):
-    try:
-      with open(assets_sidecar, encoding="utf-8") as f:
-        extra_assets = json.load(f)
-      if isinstance(extra_assets, list):
-        scene.setdefault("assets", [])
-        scene["assets"].extend(extra_assets)
-      else:
-        log.error("Sidecar %s must contain a JSON list", assets_sidecar)
-        return None
-    except Exception as e:
-      log.error("Failed to read assets sidecar %s: %s", assets_sidecar, e)
-      return None
-  if os.path.exists(calib_sidecar):
-    try:
-      with open(calib_sidecar, encoding="utf-8") as f:
-        extra_markers = json.load(f)
-      if isinstance(extra_markers, list):
-        scene.setdefault("calibration_markers", [])
-        scene["calibration_markers"].extend(extra_markers)
-      else:
-        log.error("Sidecar %s must contain a JSON list", calib_sidecar)
-        return None
-    except Exception as e:
-      log.error("Failed to read calibration markers sidecar %s: %s", calib_sidecar, e)
-      return None
-
   name = scene["name"]
   existing_uid = client.scene_uid(name)
   if existing_uid:
-    log.info(f"Scene '{name}' already exists, reconciling assets/markers for {zip_path}")
-    if not upload_assets(client, scene) or not upload_calibration_markers(client, scene):
+    log.info(f"Scene '{name}' already exists, reconciling markers for {zip_path}")
+    if not upload_calibration_markers(client, scene):
       return None
     return existing_uid
 
-  if not upload_assets(client, scene) \
-      or not upload_scene(client, scene, zip_path) \
+  if not upload_scene(client, scene, zip_path) \
       or not upload_calibration_markers(client, scene):
     return None
 
