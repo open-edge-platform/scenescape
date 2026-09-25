@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from functools import partial
+
 import orjson
 
 from scene_common import log
@@ -66,16 +68,17 @@ class ChildSceneController():
     )
     log.info("Subscribed to", self.child_scene_topic)
 
-    for catalog_type, (pubsub_enum, catalog_meta) in [
-      ('tripwires', (PubSub.DATA_CHILD_TRIPWIRES, self._catalog_cache['tripwires'])),
-      ('rois', (PubSub.DATA_CHILD_ROIS, self._catalog_cache['rois'])),
-      ('sensors', (PubSub.DATA_CHILD_SENSORS, self._catalog_cache['sensors'])),
+    for catalog_type, pubsub_enum in [
+      ('tripwires', PubSub.DATA_CHILD_TRIPWIRES),
+      ('rois', PubSub.DATA_CHILD_ROIS),
+      ('sensors', PubSub.DATA_CHILD_SENSORS),
     ]:
       topic = PubSub.formatTopic(pubsub_enum, scene_id=self.child_id)
       self.client.removeCallback(topic)
       self.client.addCallback(
         topic,
-        lambda client, userdata, msg, ct=catalog_type: self.enqueueCatalog(client, userdata, msg),
+        lambda client, userdata, msg, catalog_type=catalog_type:
+          self.enqueueCatalog(client, userdata, msg, catalog_type),
         qos=1
       )
       log.info(f"Subscribed to {topic}")
@@ -133,8 +136,11 @@ class ChildSceneController():
     except Exception as e:
       log.error(f"Failed to persist {catalog_type} for child {self.child_name}: {e}")
 
-  def enqueueCatalog(self, client, userdata, message):
-    self.parent_controller.enqueueRemoteCallback(self.handleCatalog, message)
+  def enqueueCatalog(self, client, userdata, message, catalog_type):
+    self.parent_controller.enqueueRemoteCallback(
+      partial(self.handleCatalog, catalog_type=catalog_type),
+      message,
+    )
     return
 
   def publishStatus(self, client, userdata, message):
