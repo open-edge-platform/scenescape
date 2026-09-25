@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
+
+from selenium.webdriver.support.ui import WebDriverWait
+
 import tests.ui.common_ui_test_utils as common
 from tests.utils.log import get_logger
 from tests.ui import UserInterfaceTest
@@ -50,6 +53,17 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.error(f"Error checking calibration points: {e}")
       return False
 
+  def verify_camera_projection_visible(self):
+    """Check that a saved 3D pose initializes the map projection."""
+    def projection_visible(browser):
+      return browser.execute_script("""
+        const calibration = window.camera_calibration;
+        const material = calibration?.viewport?.projectedMaterial;
+        return Boolean(calibration?.projectionEnabled && material?.visible);
+      """)
+
+    return WebDriverWait(self.browser, WAIT_SEC).until(projection_visible)
+
   def checkCalibration3d2dAprilTag(self):
     try:
       assert self.login()
@@ -94,6 +108,8 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Verify camera pose from 3D calibration (9 values: translation, rotation, scale).")
       has_points = self.verify_calibration_points_exist(min_values=9)
       assert has_points, "No camera pose found after 3D calibration"
+      assert self.verify_camera_projection_visible(), \
+        "Camera projection was not visible after loading the saved 3D pose"
 
       log.info("Press Auto Calibrate of atag-qcam1.")
       self.clickOnElement("auto-autocalibration", delay=WAIT_SEC)
@@ -113,6 +129,8 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       log.info("Verify camera pose from 3D calibration (9 values: translation, rotation, scale).")
       has_points = self.verify_calibration_points_exist(min_values=9)
       assert has_points, "No camera pose found after 3D calibration"
+      assert self.verify_camera_projection_visible(), \
+        "Camera projection was not visible after loading the saved 3D pose"
 
       log.info("Press Auto Calibrate of atag-qcam2.")
       self.clickOnElement("auto-autocalibration", delay=WAIT_SEC)
