@@ -5,14 +5,14 @@ import socket
 
 import vdms
 
-from controller.reid import ReIDDatabase, ReidNoValidVectorsError, ReidPartialWriteError
+from reid_service.reid import ReIDDatabase, ReidNoValidVectorsError, ReidPartialWriteError
 from scene_common.reid_constants import (
   K_NEIGHBORS,
   SCHEMA_NAME,
   SIMILARITY_METRIC,
   VDMS_EXPIRATION_KEY,
 )
-from controller.reid_env import (
+from reid_service.reid_env import (
   get_reid_ca_cert,
   get_reid_client_cert,
   get_reid_client_key,

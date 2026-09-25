@@ -7,7 +7,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import UnexpectedResponse
 
-from controller.reid import ReIDDatabase, ReidNoValidVectorsError
+from reid_service.reid import ReIDDatabase, ReidNoValidVectorsError
 from scene_common.reid_constants import (
   EXPIRES_AT_KEY,
   K_NEIGHBORS,
@@ -15,7 +15,7 @@ from scene_common.reid_constants import (
   SCHEMA_NAME,
   SIMILARITY_METRIC,
 )
-from controller.reid_env import (
+from reid_service.reid_env import (
   get_reid_api_key,
   get_reid_ca_cert,
   get_reid_hostname,

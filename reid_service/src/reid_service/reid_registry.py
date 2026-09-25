@@ -9,13 +9,13 @@ library of the backend it selects.
 
 from importlib import import_module
 
-from controller.reid_env import get_reid_database
+from reid_service.reid_env import get_reid_database
 
 # Backend name -> (module path, adapter class name). Register new backends here;
 # no other production module needs to know the set of available adapters.
 _BACKENDS = {
-  "VDMS": ("controller.vdms_adapter", "VDMSDatabase"),
-  "QDRANT": ("controller.qdrant_adapter", "QdrantDatabase"),
+  "VDMS": ("reid_service.vdms_adapter", "VDMSDatabase"),
+  "QDRANT": ("reid_service.qdrant_adapter", "QdrantDatabase"),
 }
 
 
@@ -44,7 +44,9 @@ def get_reid_database_class(name=None):
     module = import_module(module_path)
   except ImportError as error:
     raise ImportError(
-      f"ReID backend '{normalized}' needs '{module_path}', which failed to "
+      f"ReID backend '{normalized}' needs '{module_path}' "
+      f"(legacy import path: 'controller.{module_path.rsplit('.', 1)[-1]}'), "
+      "which failed to "
       f"import ({error}). Install the client library for this backend or set "
       f"REID_DATABASE to one of: {supported_backends()}") from error
   return getattr(module, class_name)

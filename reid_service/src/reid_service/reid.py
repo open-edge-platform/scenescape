@@ -14,8 +14,8 @@ from scene_common.reid_constants import (
   is_inner_product_metric,
   normalize_similarity_score,
 )
-from controller.reid_constraints import build_query_constraints
-from controller.reid_env import (
+from reid_service.reid_constraints import build_query_constraints
+from reid_service.reid_env import (
   get_reid_confidence_threshold,
   get_reid_descriptor_ttl_secs,
 )
