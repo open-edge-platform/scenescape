@@ -2,11 +2,14 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Convert VIDETEC-2 HDF5 ``/detections`` slices into (N, 5) frame files.
+"""Convert VIDETEC-2 HDF5 ``/detections`` (+ ``/frames``) into (N, 5) frame files.
 
 Archive-only helper. Live ingest uses the same float32 layout produced here.
 
 Columns written: range_m, doppler_mps, azimuth_deg, elevation_deg, magnitude.
+
+Also writes ``index.json`` with per-frame ``timestamp`` (from ``/frames/timestamp``
+when present) and optional ``sensor.json`` from ``/sensor`` attributes.
 
 VIDETEC-2 (https://zenodo.org/records/17799385) is licensed CC BY 4.0.
 Cite the dataset when redistributing converted frames.
@@ -31,28 +34,36 @@ def _load_h5(path: Path):
   return h5py.File(path, "r")
 
 
-def scale_params(h5):
-  """Return range/doppler bin→physical scale factors from /radar_params if present."""
-  params = h5.get("radar_params")
-  range_scale = 1.0
-  doppler_scale = 1.0
-  if params is None:
-    return range_scale, doppler_scale
-  # VIDETEC stores compound or dataset fields; accept common keys.
-  data = params[()] if hasattr(params, "__getitem__") else params
+def _attr_float(obj, *keys, default=1.0):
+  """Read the first matching float attribute or compound field."""
+  attrs = getattr(obj, "attrs", {})
+  for key in keys:
+    if key in attrs:
+      val = attrs[key]
+      if hasattr(val, "__len__") and not isinstance(val, (str, bytes)):
+        return float(val[0])
+      return float(val)
+  # Fallback: compound / scalar dataset body (older sketches).
+  data = obj[()] if hasattr(obj, "__getitem__") else obj
   if hasattr(data, "dtype") and data.dtype.names:
-    names = data.dtype.names
-    row = data[0] if data.shape else data
-    for key in ("range_resolution", "range_res", "range_bin_m"):
-      if key in names:
-        range_scale = float(row[key])
-        break
-    for key in ("doppler_resolution", "doppler_res", "velocity_resolution"):
-      if key in names:
-        doppler_scale = float(row[key])
-        break
-  elif isinstance(data, np.ndarray) and data.dtype == object:
-    pass
+    row = data[0] if getattr(data, "shape", ()) else data
+    for key in keys:
+      if key in data.dtype.names:
+        return float(row[key])
+  return float(default)
+
+
+def scale_params(h5):
+  """Return range/doppler bin→physical scale factors from /radar_params."""
+  params = h5.get("radar_params")
+  if params is None:
+    return 1.0, 1.0
+  range_scale = _attr_float(
+    params, "range_resolution_m", "range_resolution", "range_res", "range_bin_m",
+    default=1.0)
+  doppler_scale = _attr_float(
+    params, "doppler_resolution_mps", "doppler_resolution", "doppler_res",
+    "velocity_resolution", default=1.0)
   return range_scale, doppler_scale
 
 
@@ -62,8 +73,42 @@ def detections_table(h5):
   return h5["detections"]
 
 
-def frames_from_detections(dets, range_scale: float, doppler_scale: float):
-  """Yield (frame_index, float32 (N,5)) from a VIDETEC detections compound table."""
+def frame_timestamps(h5):
+  """Return 1-D int64 timestamps aligned with frame_index, or None."""
+  frames = h5.get("frames")
+  if frames is None:
+    return None
+  if "timestamp" in frames:
+    return np.asarray(frames["timestamp"][()], dtype=np.int64)
+  if hasattr(frames, "dtype") and getattr(frames.dtype, "names", None):
+    if "timestamp" in frames.dtype.names:
+      return np.asarray(frames["timestamp"][()], dtype=np.int64)
+  return None
+
+
+def sensor_metadata(h5):
+  """Collect /sensor attributes into a JSON-serializable dict."""
+  sensor = h5.get("sensor")
+  if sensor is None:
+    return {}
+  out = {}
+  for key, val in sensor.attrs.items():
+    if isinstance(val, bytes):
+      out[key] = val.decode("utf-8", errors="replace")
+    elif hasattr(val, "tolist"):
+      out[key] = val.tolist()
+    else:
+      out[key] = val if isinstance(val, (str, int, float, bool)) else str(val)
+  return out
+
+
+def frames_from_detections(dets, range_scale: float, doppler_scale: float,
+                           n_frames: int | None = None):
+  """Yield (frame_index, float32 (N,5)) for every frame index in [0, n_frames).
+
+  Empty frames (no detections) yield shape (0, 5). When ``n_frames`` is None,
+  only indices that appear in the detections table are emitted (legacy).
+  """
   data = dets[()]
   if not hasattr(data, "dtype") or data.dtype.names is None:
     raise SystemExit("/detections must be a compound dataset")
@@ -73,20 +118,30 @@ def frames_from_detections(dets, range_scale: float, doppler_scale: float):
   if missing:
     raise SystemExit(f"/detections missing fields: {sorted(missing)}")
 
-  frame_ids = np.unique(data["frame_index"])
-  for frame_index in frame_ids:
-    rows = data[data["frame_index"] == frame_index]
-    frame = np.column_stack([
-      rows["range"].astype(np.float32) * range_scale,
-      rows["doppler"].astype(np.float32) * doppler_scale,
-      rows["azimuth"].astype(np.float32),
-      rows["elevation"].astype(np.float32),
-      rows["magnitude"].astype(np.float32),
-    ]).astype(np.float32)
-    yield int(frame_index), frame
+  by_index: dict[int, np.ndarray] = {}
+  if data.size:
+    frame_ids = data["frame_index"]
+    for frame_index in np.unique(frame_ids):
+      rows = data[frame_ids == frame_index]
+      by_index[int(frame_index)] = np.column_stack([
+        rows["range"].astype(np.float32) * range_scale,
+        rows["doppler"].astype(np.float32) * doppler_scale,
+        rows["azimuth"].astype(np.float32),
+        rows["elevation"].astype(np.float32),
+        rows["magnitude"].astype(np.float32),
+      ]).astype(np.float32)
+
+  if n_frames is None:
+    for frame_index in sorted(by_index):
+      yield frame_index, by_index[frame_index]
+    return
+
+  empty = np.zeros((0, 5), dtype=np.float32)
+  for frame_index in range(int(n_frames)):
+    yield frame_index, by_index.get(frame_index, empty)
 
 
-def write_frames(out_dir: Path, frames, fmt: str):
+def write_frames(out_dir: Path, frames, fmt: str, timestamps=None):
   out_dir.mkdir(parents=True, exist_ok=True)
   index = []
   for frame_index, frame in frames:
@@ -97,7 +152,10 @@ def write_frames(out_dir: Path, frames, fmt: str):
       path = out_dir / f"{frame_index:06d}.npz"
       header = ",".join(FRAME_COLUMNS)
       np.savetxt(path, frame, delimiter=",", header=header, comments="")
-    index.append({"frame_index": frame_index, "path": path.name, "n": int(frame.shape[0])})
+    entry = {"frame_index": frame_index, "path": path.name, "n": int(frame.shape[0])}
+    if timestamps is not None and 0 <= frame_index < len(timestamps):
+      entry["timestamp"] = int(timestamps[frame_index])
+    index.append(entry)
   (out_dir / "index.json").write_text(json.dumps(index, indent=2) + "\n")
   return index
 
@@ -106,11 +164,15 @@ def parse_args(argv=None):
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument("hdf5", type=Path, help="Path to VIDETEC HDF5 file")
   parser.add_argument("-o", "--output", type=Path, required=True, help="Output frames directory")
-  parser.add_argument("--format", choices=("npy", "npz"), default="npy")
+  parser.add_argument("--format", choices=("npy", "csv"), default="npy")
   parser.add_argument("--range-scale", type=float, default=None,
                       help="Override range bin→metres scale")
   parser.add_argument("--doppler-scale", type=float, default=None,
                       help="Override doppler bin→m/s scale")
+  parser.add_argument("--skip-empty", action="store_true",
+                      help="Omit frames with zero detections (default: keep all)")
+  parser.add_argument("--max-frames", type=int, default=None,
+                      help="Limit number of frames written (from the start)")
   return parser.parse_args(argv)
 
 
@@ -123,8 +185,22 @@ def main(argv=None):
     if args.doppler_scale is not None:
       doppler_scale = args.doppler_scale
     dets = detections_table(h5)
-    frames = frames_from_detections(dets, range_scale, doppler_scale)
-    index = write_frames(args.output, frames, args.format)
+    timestamps = frame_timestamps(h5)
+    n_frames = None if args.skip_empty else (None if timestamps is None else len(timestamps))
+    if timestamps is None and not args.skip_empty:
+      # Still prefer contiguous indices when detections alone define the span.
+      data = dets[()]
+      if data.size:
+        n_frames = int(np.max(data["frame_index"])) + 1
+    frames = frames_from_detections(dets, range_scale, doppler_scale, n_frames)
+    if args.max_frames is not None:
+      frames = ((i, f) for i, f in frames if i < args.max_frames)
+      if timestamps is not None:
+        timestamps = timestamps[:args.max_frames]
+    index = write_frames(args.output, frames, args.format, timestamps=timestamps)
+    sensor = sensor_metadata(h5)
+    if sensor:
+      (args.output / "sensor.json").write_text(json.dumps(sensor, indent=2) + "\n")
   print(f"Wrote {len(index)} frames to {args.output} "
         f"(range_scale={range_scale}, doppler_scale={doppler_scale})")
   return 0

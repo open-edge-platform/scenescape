@@ -1,0 +1,11 @@
+{
+  "source": "VIDETEC-2 Zenodo record description (https://zenodo.org/records/17799385)",
+  "coordinate_frame": "x-east, y-north, z-up",
+  "utm_zone": 32,
+  "utm_epsg": "EPSG:32632",
+  "origin_utm_easting_m": 695310.500,
+  "origin_utm_northing_m": 5347376.094,
+  "origin_lat_approx": 48.2494788974,
+  "origin_lon_approx": 11.6310746174,
+  "note": "Prefer UTM easting/northing for GNSS→local; lat/lon are derived via pyproj for reference only."
+}

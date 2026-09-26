@@ -52,4 +52,8 @@ python3 radar_publisher.py --radar-id radar1 --frames-dir ./frames \
 
 [VIDETEC-2](https://zenodo.org/records/17799385) (CC BY 4.0) provides gantry FMCW detections at an intersection. HDF5 `/detections` is archive-only; convert with `videtec_hdf5_to_frames.py` before replay.
 
+For the DNN fusion demo, also build VoD 7-float bins and point
+`RADAR_RAW_DATASET_DIR` at the converted tree — see
+[Run the Radar-Intersection Fusion Demo](../docs/user-guide/how-to-guides/run-radar-intersection-demo.md#videtec-2-real-data).
+
 When using or redistributing converted frames, attribute: *VIDETEC-2, Zenodo, CC BY 4.0*.
