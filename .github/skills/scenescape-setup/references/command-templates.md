@@ -32,7 +32,7 @@ use `--insecure` because the broker certificate is issued for `broker.scenescape
 ```bash
 docker container run --rm --network <project>_scenescape \
   -v <deploy_dir>/secrets/certs/scenescape-ca.pem:/ca.pem:ro \
-  eclipse-mosquitto:2.0.22 \
+  eclipse-mosquitto:2.1-alpine \
   mosquitto_sub -h broker.scenescape.intel.com -p 1883 \
   --cafile /ca.pem --insecure \
   -t '<topic>' -C 1 -W 120
@@ -43,7 +43,7 @@ docker container run --rm --network <project>_scenescape \
 ```bash
 docker container run --rm --network <project>_scenescape \
   -v <deploy_dir>/secrets/certs/scenescape-ca.pem:/ca.pem:ro \
-  eclipse-mosquitto:2.0.22 \
+  eclipse-mosquitto:2.1-alpine \
   mosquitto_pub -h broker.scenescape.intel.com -p 1883 \
   --cafile /ca.pem --insecure \
   -t '<topic>' -m '<payload>'

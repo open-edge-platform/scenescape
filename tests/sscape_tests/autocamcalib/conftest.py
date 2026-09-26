@@ -8,7 +8,7 @@ import pytest
 
 from atag_camera_calibration import CameraCalibrationApriltag
 
-scene_map = "sample_data/atag-calib-demo-map.png"
+scene_map = "tests/resources/maps/atag-calib-demo-map.png"
 
 @pytest.fixture(scope="module")
 def relative_tolerance():

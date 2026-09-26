@@ -23,8 +23,8 @@ CAMERA_NAME = "camtest1"
 SCALE = 1000
 
 
-@pytest.mark.test_name("NEX-T10393_PAGE_NAVIGATE")
-def test_persistence_on_page_navigate(demo_scene, params, result_recorder):
+@pytest.mark.test_name("NEX-T29234")
+def test_persistence_on_page_navigate(params, result_recorder):
   """! Checks that a scene can be created and a camera added.
   @param    params                  Dict of test parameters.
   """
@@ -75,8 +75,8 @@ _RESTART_LOGIN_TIMEOUT = 120
 _RESTART_LOGIN_POLL_INTERVAL = 2
 
 
-@pytest.mark.test_name("NEX-T10393_RESTART")
-def test_persistence_on_restart(demo_scene, params, scenescape_env, result_recorder):
+@pytest.mark.test_name("NEX-T29235")
+def test_persistence_on_restart(params, scenescape_env, result_recorder):
   """! Checks that a scene and camera created via the UI are still present
   after the manager (web) service itself is restarted, proving the data is
   persisted in the database rather than only held in memory.

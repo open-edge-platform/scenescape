@@ -177,7 +177,7 @@ The Scene Controller now supports a dedicated `reid-config.json` configuration f
 
 Place `reid-config.json` in the controller config directory:
 
-```
+```text
 controller/config/reid-config.json
 ```
 
@@ -255,7 +255,7 @@ Each embedding still has to be attributable to exactly one enrollment:
 - **Live-gid collision limits concurrent Rematch.** A parent will not assign the same database
   UUID to two concurrent live tracks. Cross-child identity continuity via ReID is therefore
   verified for **sequential** rematch today; concurrent two-child merge via ReID alone is a
-  [product follow-up](../../../adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity).
+  [product follow-up](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0015-hierarchy-reid-provenance.md#how-should-two-live-parent-tracks-share-one-reid-database-identity).
 - **Provenance is not accepted from detectors.** Origin claims arriving on a camera topic are
   discarded, so a detector cannot bypass the bounding-box quality gate.
 

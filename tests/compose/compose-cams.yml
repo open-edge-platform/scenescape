@@ -20,7 +20,7 @@ services:
     image: linuxserver/ffmpeg:version-8.1-cli
     command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
     volumes:
-      - vol-sample-data:/workspace/media
+      - vol-videos:/workspace/media
     networks:
       scenescape-test:
     depends_on:
@@ -32,7 +32,7 @@ services:
     image: linuxserver/ffmpeg:version-8.1-cli
     command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
     volumes:
-      - vol-sample-data:/workspace/media
+      - vol-videos:/workspace/media
     networks:
       scenescape-test:
     depends_on:
@@ -41,4 +41,4 @@ services:
     pids_limit: 1000
 
 volumes:
-  vol-sample-data:
+  vol-videos:

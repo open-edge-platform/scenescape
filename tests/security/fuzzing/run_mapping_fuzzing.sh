@@ -6,7 +6,7 @@
 set -euo pipefail
 
 export SERVICE_NAME="mapping"
-export SPEC_SOURCE="${SPEC_SOURCE:-/repo/docs/user-guide/microservices/mapping-service/api-docs/mapping-api.yaml}"
+export SPEC_SOURCE="${SPEC_SOURCE:-/repo/docs/user-guide/microservices/mapping-service/_assets/mapping-api.yaml}"
 export SERVER_URL="https://web.scenescape.intel.com/api/v1/mapping"
 
 exec /workspace/run_service_fuzzing.sh

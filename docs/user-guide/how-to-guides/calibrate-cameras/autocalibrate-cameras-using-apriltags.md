@@ -18,10 +18,8 @@ This calibration method is ideal for fixed camera setups requiring precise posit
 Before You Begin, ensure the following:
 
 - **Camera Setup**: Cameras placed with a clear view of the scene.
-- **Scene Created**: Add cameras in Scenescape and set the detection model to `-m apriltag`.
+- **Scene Created**: Add cameras in Scenescape.
 - **Scenescape Installation**: Installed and running.
-
-> **Note**: To switch from the default person detection model, replace `retail` with `apriltag` in `docker-compose.yml`.
 
 ---
 

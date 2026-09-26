@@ -23,9 +23,9 @@ def test_different_formats_maps_api(params, rest, scene_uid, result_recorder, de
 
   # Test uploading different map formats
   map_files = [
-    os.path.join('sample_data', 'LabMap.png'),
-    os.path.join('sample_data', 'LotMap.png'),
-    os.path.join('sample_data', 'scene.png'),
+    os.path.join('tests', 'resources', 'maps', 'LabMap.png'),
+    os.path.join('tests', 'resources', 'maps', 'LotMap.png'),
+    os.path.join('tests', 'resources', 'maps', 'scene.png'),
   ]
 
   for idx, map_file in enumerate(map_files):

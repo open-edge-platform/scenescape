@@ -33,7 +33,7 @@ class SceneControllerImportJSON(FunctionalTest):
     self.sceneUID = self.params['scene_id']
     self.frameRate = FRAMES_PER_SECOND
     self.sceneData = None
-    self.jsonPath = "./sample_data/Retail.json"
+    self.jsonPath = "./tests/resources/Retail.json"
     self._mqtt_ready = threading.Event()
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],

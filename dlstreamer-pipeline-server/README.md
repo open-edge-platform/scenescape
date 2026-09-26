@@ -166,8 +166,8 @@ Following are the step-by-step instructions for enabling person reidentification
 
    ```bash
    docker compose -f docker-compose.yml \
-     -f sample_data/docker-compose.vdms-override.yml \
-     -f sample_data/docker-compose.reid-pipeline-override.yml \
+     -f sample_data/compose/docker-compose.vdms-override.yml \
+     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
      --profile controller up -d
    ```
 
@@ -202,12 +202,12 @@ Following are the step-by-step instructions for enabling person reidentification
 
    ```sh
    docker compose -f docker-compose.yml \
-     -f sample_data/docker-compose.vdms-override.yml \
-     -f sample_data/docker-compose.reid-pipeline-override.yml \
+     -f sample_data/compose/docker-compose.vdms-override.yml \
+     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
      --profile controller down
    docker compose -f docker-compose.yml \
-     -f sample_data/docker-compose.vdms-override.yml \
-     -f sample_data/docker-compose.reid-pipeline-override.yml \
+     -f sample_data/compose/docker-compose.vdms-override.yml \
+     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
      --profile controller up queuing-video retail-video reid scene -d
    ```
 
