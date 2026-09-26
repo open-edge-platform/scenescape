@@ -17,25 +17,31 @@ Related Cursor plan drafts (not in-repo): `videtec_radar_demo_ca4bfda2`,
 
 ## Current priority (locked)
 
-**Do not advance SceneScape demo / MQTT / packaging work until RadarPillars
-quality on real VIDETEC is acceptable.**
+**Dense-cloud PyTorch performance is locked in as good.** SceneScape MQTT /
+packaging stay deferred until **full-window** (or runtime-accumulate) recall
+is demo-usable; do **not** treat sparse single-frame VoD→gantry as “model
+broken” when support is present.
 
-**VoD download is optional** (TU Delft access). Active ladder is **VoD-free**:
-fixed-input PyTorch↔OV parity, then VIDETEC GNSS PyTorch vs OV, then fine-tune
-only if both backends are healthy and VIDETEC is still bad.
+**VoD download is optional** (TU Delft access). Ladder completed VoD-free
+through fine-tune + window/density diagnosis.
 
 | Priority | Work | Status |
 | --- | --- | --- |
 | **P0-A** | **Fixed-input parity:** PyTorch OpenPCDet ckpt vs host+OV IR on synthetic + VIDETEC bins | **Done** (`parity_pytorch_vs_ov.json`) |
-| **P0-B** | **VIDETEC GNSS:** same stride-5 window, PyTorch dets vs OV dets (VRU / all-class) | **Done** — both fail VRU; see acceptance |
+| **P0-B** | **VIDETEC GNSS:** stride-5 window, PyTorch vs OV (VRU / all-class) | **Done** — baseline both fail VRU on sparse 3000–5000; see acceptance |
 | **P0-C** | Optional VoD val mAP (if access appears) — paper regen, not a hard gate | Optional |
-| P0-D | Fine-tune + re-export OV | FT2 ep11 best full-window (**11.5%**). FT4: freeze attention → stable associated train; **80%** on 10 associable frames; full-window still ~5.7%. Bottleneck = missing near-GT radar returns |
-| P1 | SceneScape real-data MQTT demo | **Deferred** |
+| **P0-D** | Fine-tune + densify diagnosis | **Done (dense lock-in)** — FT2 ep11 + **±5 accumulate** on **2100–4100** → **~51% VRU@3m**; associable subset **≥92–99%**. Single-frame full-window still capped by missing near-GT returns |
+| P0-E | Runtime accumulate in g3d / FT5 train-on-densified / OV re-export | **Next** (parity with offline H=5; not MQTT yet) |
+| P1 | SceneScape real-data MQTT demo | **Deferred** until full-window / runtime path is demo-usable |
 | P2 | Upstream DLS / DLSPS bake drop | After quality |
 
-**Quality gate (before SceneScape resume):** fine-tune (or other model fix)
-must lift GNSS **VRU** recall @ 2 m / 3 m on the PyTorch path, then re-export
-OV and re-check. ~0.25% OV all-class proximity was largely vehicle clutter.
+**Dense-cloud gate (locked):** when radar returns exist near GNSS (associable
+frames), FT2/FT4 hit **≥80–99% VRU@3m**. Failure mode for sparse full windows
+is **support density**, not a broken detector.
+
+**Full-window / demo gate (still open):** lift operational recall beyond ~51%
+(H=5 on best window) via runtime multi-frame stack, denser train (FT5), or
+fusion — then re-export OV and re-check.
 
 ### Why detection (not just classification) can fail
 
@@ -119,8 +125,13 @@ N=**5347376.094** m (X-east, Y-north, Z-up). Eval:
 Time sync is healthy (p95 \|Δt\| ≈ 74–85 ms). At demo default score **0.1**,
 dense-window detections are **empty** (max offline score ≈ 0.095).
 
-**Verdict:** instrumentation + baseline **closed**; **quality gate failed**.
-Do not treat SceneScape fusion demo as done.
+**Verdict (baseline):** instrumentation + sparse-window baseline **closed**;
+demo quality **failed** on 3000–5000 single-frame.
+
+**Verdict (post FT + densify):** dense-support PyTorch path **validated**.
+Best offline: FT2 ep11, window **2100–4100**, `--accumulate-half-window 5` →
+**51.4% VRU@3m** (associable **≥92%**). H=10 regresses. See acceptance
+“Window + density” section.
 
 Details: `sample_data/radar_intersection/VIDETEC_ACCEPTANCE.md`.
 
@@ -195,28 +206,27 @@ flowchart LR
 | `demo-radar` compose + synthetic data-init | **Done** (plumbing) | `docker-compose.radar-override.yml` |
 | Real VIDETEC ingest / convert / data-init prefer-real | **Done** | `VIDETEC-2/`, `prepare_radar_demo_data.py` |
 | GStreamer smoke on real bins | **Done** | DLSPS `…-g3d` |
-| GNSS metrics + UTM origin | **Done (quality fail)** | `VIDETEC_ACCEPTANCE.md` |
-| SceneScape MQTT E2E on real frames | **Deferred** until quality gate | needs `SUPASS` + better weights |
+| GNSS metrics + UTM origin | **Done** (baseline fail; dense lock-in later) | `VIDETEC_ACCEPTANCE.md` |
+| SceneScape MQTT E2E on real frames | **Deferred** until full-window / runtime accumulate is demo-usable | needs `SUPASS` + densify path |
 
 ---
 
-## Phase C — Verification ladder then optional fine-tune (**active P0**)
+## Phase C — Verification ladder then fine-tune / densify (**P0 largely done**)
 
-Ordered diagnosis (user-agreed, **VoD-free**). Fine-tune is **not** the
-default next step. VoD paper regen remains optional if access appears.
+Ordered diagnosis (user-agreed, **VoD-free**). VoD paper regen remains optional.
 
 | Step | Goal | Status |
 | --- | --- | --- |
-| **C0. Fixed-input parity** | Same synthetic + VIDETEC `(N,7)` clouds through PyTorch ckpt vs host+OV IR; report matched XY / score deltas | **Done** — synthetic tops agree (~0.5–0.6 m XY, 4/5 pytorch dets matched); OV emits many extra low-score boxes (NMS/score); sparse VIDETEC often empty on PyTorch |
-| **C1. VIDETEC GNSS PyTorch vs OV** | Stride-5 3000–5000: VRU / all-class recall @ 1/2/3 m for both backends | **Done** — see acceptance; both fail VRU; PyTorch quieter than OV |
+| **C0. Fixed-input parity** | Same synthetic + VIDETEC `(N,7)` clouds through PyTorch ckpt vs host+OV IR; report matched XY / score deltas | **Done** — synthetic tops agree (~0.5–0.6 m XY); OV emits many extra low-score boxes; sparse VIDETEC often empty on PyTorch |
+| **C1. VIDETEC GNSS PyTorch vs OV** | Stride-5 3000–5000: VRU / all-class recall @ 1/2/3 m for both backends | **Done** — both fail VRU on that sparse window; PyTorch quieter than OV |
 | **C2. Optional VoD val mAP** | Reproduce ~52.56 mAP if VoD lands on disk | Optional / not blocking |
-| **C3. Fine-tune (conditional)** | Gantry gap confirmed on **both** backends after C0/C1 | FT4 stabilizes associated train (freeze PillarAttention). Associable-subset VRU@3m **80%**; full-window capped by sparse returns |
-| **C4. Re-export OV + VIDETEC re-eval** | After a justified fine-tune ckpt | Parked |
-| **C5. SceneScape MQTT demo** | After quality gate | Deferred |
+| **C3. Fine-tune + densify** | Close gantry gap; separate model vs support-density failure | **Done (dense lock-in)** — FT2/FT4; best window 2100–4100; ±5 accumulate → **51.4%** VRU@3m; associable **≥92–99%** |
+| **C4. Runtime densify / OV re-export** | Port H≈5 accumulate into g3d (or FT5 densified train); re-export OV; re-eval | **Next** |
+| **C5. SceneScape MQTT demo** | After full-window / runtime path is demo-usable | Deferred |
 
-Prior FOV notes remain useful diagnostics but do **not** authorize fine-tune
-alone: 194/401 GNSS samples outside VoD PC range; in-FOV OV VRU@3m still
-≈0.5% on the **unproven-vs-PyTorch** path until C1 closes.
+Prior FOV notes remain useful diagnostics: 194/401 GNSS samples outside VoD
+PC range on the old eval slice; associability scan shows **2100–4100** is the
+better 401-frame window (~10× more near-GT support than 3000–5000).
 
 ### VoD data prerequisite
 
@@ -245,21 +255,19 @@ Target: Car/Ped/Cyc 3D AP near the published rot checkpoint (~52.56 mAP R11).
 
 ## What is left (ordered)
 
-### Active — RadarPillars quality
+### Active — densify runtime / close full-window gap
 
-1. **C0** Fixed-input PyTorch↔OV parity (synthetic + VIDETEC bins) — harness done;
-   synthetic matched tops ~0.5–0.6 m; OV over-produces low-score boxes.
-2. **C1** VIDETEC GNSS PyTorch vs OV (stride-5) — **both fail VRU**; PyTorch
-   nearly silent (8 dets / 401); OV all-class ~15.7% is vehicle clutter. Domain
-   gap (not OV-only) is the leading explanation.
-3. **C3** Fine-tune is now the candidate next step (stack healthy enough on
-   synthetic control; VIDETEC bad on **both** backends). Optional VoD mAP remains
-   nice-to-have, not a hard gate.
-4. Re-export / SceneScape MQTT only after the quality gate.
+1. **C0–C3 done** (parity, baseline GNSS, FT ladder, dense-cloud lock-in).
+   Optional VoD mAP remains nice-to-have, not a hard gate.
+2. **C4 next:** wire gantry-static **±5 frame accumulate** into the g3d /
+   offline OV path and match PyTorch 2100–4100 numbers; optionally FT5
+   train-on-densified clouds if single-frame must improve without a buffer.
+3. Re-export OV only after the runtime densify (or FT5) ckpt/path is chosen.
+4. SceneScape MQTT only after full-window / runtime recall is demo-usable.
 
-### Deferred — SceneScape product path (after quality gate)
+### Deferred — SceneScape product path (after full-window gate)
 
-3. Full MQTT `demo-radar` on real frames (radar-only + fusion) — was P0 item 4; **parked**.
+3. Full MQTT `demo-radar` on real frames (radar-only + fusion) — **parked**.
 4. Land DLS PRs (`feature/g3dinference-multi-model`) + DLSPS bump + drop `build-dlsps-g3d`.
 5. SceneScape cleanup: stock DLSPS tags, native `application/x-radar` end-to-end.
 6. BAT / functional radar re-verify; PR hygiene.
