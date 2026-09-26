@@ -1,0 +1,121 @@
+#!/usr/bin/env python3
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+"""Batch PyTorch RadarPillars inference (OpenPCDet ckpt) over VIDETEC frames.
+
+Writes JSONL compatible with ``eval_radarpillars_gnss.py``. Run under the
+RadarPillar venv::
+
+  ~/mainline/RadarPillar/.venv/bin/python \\
+    sample_data/radar_intersection/finetune/batch_pytorch_radarpillars_infer.py \\
+    --frames-dir .../VIDETEC-2/converted/frames \\
+    --start-index 3000 --stop-index 5000 --stride 5 \\
+    -o .../VIDETEC-2/detections_stride5_pytorch.jsonl
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+import numpy as np
+
+_HERE = Path(__file__).resolve().parent
+_ROOT = _HERE.parent
+if str(_HERE) not in sys.path:
+  sys.path.insert(0, str(_HERE))
+if str(_ROOT) not in sys.path:
+  sys.path.insert(0, str(_ROOT))
+
+from pytorch_radarpillars_infer import RadarPillarsTorch, _RP  # noqa: E402
+
+
+def parse_args(argv=None):
+  ap = argparse.ArgumentParser(description=__doc__)
+  ap.add_argument("--frames-dir", type=Path, required=True)
+  ap.add_argument("--cfg-file", type=Path,
+                  default=_RP / "tools/cfgs/vod_models/videtec_radarpillar_gantry.yaml")
+  ap.add_argument("--ckpt", type=Path,
+                  default=_RP / "output/cfgs/vod_models/videtec_radarpillar_gantry/"
+                          "videtec_gantry_ft/ckpt/checkpoint_epoch_25.pth")
+  ap.add_argument("--device", default="cuda:0")
+  ap.add_argument("--score-threshold", type=float, default=0.03)
+  ap.add_argument("--start-index", type=int, default=0)
+  ap.add_argument("--stop-index", type=int, default=None)
+  ap.add_argument("--stride", type=int, default=1)
+  ap.add_argument(
+    "--accumulate-half-window", type=int, default=0,
+    help="Stack ±N neighboring frame indices (gantry-static radar). 0=single frame.")
+  ap.add_argument("-o", "--output", type=Path, required=True)
+  return ap.parse_args(argv)
+
+
+def _load_points(path: Path) -> np.ndarray:
+  points = np.load(path)
+  if points.ndim == 2 and points.shape[1] == 5:
+    from videtec_to_pcd import videtec_to_pcd
+    return videtec_to_pcd(points)
+  if points.ndim == 2 and points.shape[1] >= 7:
+    return points[:, :7].astype(np.float32)
+  return np.fromfile(path, dtype=np.float32).reshape(-1, 7)
+
+
+def _accumulate_points(frames_dir: Path, frame_index: int, half_window: int) -> np.ndarray:
+  """Concatenate VoD-style (N,7) points across [fi-H, fi+H] (static gantry)."""
+  chunks = []
+  for fi in range(frame_index - half_window, frame_index + half_window + 1):
+    path = frames_dir / f"{fi:06d}.npy"
+    if not path.is_file():
+      continue
+    pts = _load_points(path)
+    if pts.size:
+      chunks.append(pts)
+  if not chunks:
+    return np.zeros((0, 7), dtype=np.float32)
+  return np.concatenate(chunks, axis=0)
+
+
+def main(argv=None):
+  args = parse_args(argv)
+  index_path = args.frames_dir / "index.json"
+  index = {int(e["frame_index"]): e for e in json.loads(index_path.read_text())}
+  model = RadarPillarsTorch(args.cfg_file, args.ckpt, device=args.device)
+
+  start = args.start_index
+  stop = args.stop_index if args.stop_index is not None else max(index)
+  half = max(0, int(args.accumulate_half_window))
+  args.output.parent.mkdir(parents=True, exist_ok=True)
+  n_frames = 0
+  n_objs = 0
+  with args.output.open("w") as fh:
+    for frame_index in range(start, stop + 1, max(1, args.stride)):
+      path = args.frames_dir / f"{frame_index:06d}.npy"
+      if not path.is_file():
+        continue
+      if half > 0:
+        points = _accumulate_points(args.frames_dir, frame_index, half)
+      else:
+        points = _load_points(path)
+      objects = model.infer(points, score_threshold=args.score_threshold)
+      entry = {
+        "frame_index": frame_index,
+        "timestamp": index.get(frame_index, {}).get("timestamp"),
+        "objects": objects,
+        "accumulate_half_window": half,
+        "n_points": int(len(points)),
+      }
+      fh.write(json.dumps(entry) + "\n")
+      n_frames += 1
+      n_objs += len(objects)
+      if n_frames % 25 == 0:
+        print(f"... {n_frames} frames, {n_objs} objects", flush=True)
+  print(f"Wrote {n_frames} frames ({n_objs} objects) → {args.output}"
+        + (f" (accumulate ±{half})" if half else ""))
+  return 0
+
+
+if __name__ == "__main__":
+  raise SystemExit(main())
