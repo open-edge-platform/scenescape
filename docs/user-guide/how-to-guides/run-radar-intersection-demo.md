@@ -36,13 +36,57 @@ proves IR + DLS + SceneScape plumbing; quality may need fine-tuning later.
 2. A local [DLStreamer](https://github.com/open-edge-platform/dlstreamer) checkout
    with the generalized `g3dinference` branch (default path
    `../dlstreamer` next to this repo). Override with `DLSTREAMER_SRC=...`.
-3. Camera JPEG sequence (optional for radar-only): the V2X-Seq example used by
+3. **Real VIDETEC-2 radar frames (recommended acceptance path)** — see
+   [VIDETEC-2 real data](#videtec-2-real-data) below. Without them,
+   `radar-data-init` falls back to synthetic frames (plumbing only).
+4. Camera JPEG sequence (optional for radar-only): the V2X-Seq example used by
    the LiDAR demo under
    `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/image/`.
    Override with `RADAR_CAM_DATASET_DIR` if needed.
-4. Manager/Controller images that include first-class radar
+5. Manager/Controller images that include first-class radar
    (`DATA_RADAR`, `Radar` sensor). `make demo-radar` rebuilds core images by
    default (`DEMO_REBUILD_IMAGES=true`).
+
+## VIDETEC-2 real data
+
+[VIDETEC-2](https://zenodo.org/records/17799385) (CC BY 4.0) provides the
+gantry FMCW detections used for the DNN acceptance gate. Synthetic bins do
+**not** close that gate.
+
+1. Download `Radar_dataset.zip` and `gnss.zip` from the Zenodo record.
+2. Extract the HDF5 files and GNSS CSVs under
+   `sample_data/radar_intersection/VIDETEC-2/` (git-ignored):
+
+   ```bash
+   mkdir -p sample_data/radar_intersection/VIDETEC-2/{download,radar,gnss}
+   # place Radar_dataset.zip + gnss.zip into download/, then:
+   unzip download/Radar_dataset.zip -d sample_data/radar_intersection/VIDETEC-2/radar
+   unzip download/gnss.zip -d sample_data/radar_intersection/VIDETEC-2/gnss
+   ```
+
+3. Convert radar **51** (Oct 9 overlap with `rosbag2_2025_10_09-14_43_55`) to
+   `(N,5)` frames + VoD 7-float `pcd_bin`, preserving `/frames/timestamp`:
+
+   ```bash
+   python3 radar/videtec_hdf5_to_frames.py \
+     sample_data/radar_intersection/VIDETEC-2/radar/radar_dataset_51.h5 \
+     -o sample_data/radar_intersection/VIDETEC-2/converted/frames
+   python3 sample_data/radar_intersection/prepare_radar_demo_data.py \
+     -o sample_data/radar_intersection/VIDETEC-2/converted \
+     --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames
+   ```
+
+4. `radar-data-init` mounts
+   `RADAR_RAW_DATASET_DIR` (default
+   `./sample_data/radar_intersection/VIDETEC-2/converted`). When `frames/` or
+   `pcd_bin/` is present it copies real data into the sample-data volume;
+   otherwise it generates synthetic frames. Set `RADAR_REQUIRE_REAL=true` to
+   fail closed without the archive.
+
+Attribution when using or redistributing converted frames:
+
+> VIDETEC-2 dataset, Zenodo record [17799385](https://zenodo.org/records/17799385),
+> Creative Commons Attribution 4.0 International (CC BY 4.0).
 
 ## Run
 
@@ -56,7 +100,8 @@ inside the stock DLSPS container and tags
 compose:
 
 1. `radar-scene-init` — imports **Radar Intersection** (idempotent).
-2. `radar-data-init` — synthetic radar `.bin` PCD + optional camera JPEGs.
+2. `radar-data-init` — real VIDETEC `.bin` PCD when present, else synthetic;
+   optional camera JPEGs.
 3. `radar-model-init` — copies RadarPillars IR into `vol-models`.
 4. `radar-stream` — publishes radar + camera detections.
 
@@ -72,6 +117,12 @@ CAM_MUTE=true SUPASS=<password> make demo-radar
 
 Leave `CAM_MUTE` / `RADAR_MUTE` unset (or `false`). Both modalities publish.
 
+### Force real-data-only init
+
+```bash
+RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
+```
+
 ## Useful environment variables
 
 | Variable | Default | Notes |
@@ -79,15 +130,23 @@ Leave `CAM_MUTE` / `RADAR_MUTE` unset (or `false`). Both modalities publish.
 | `DLSTREAMER_SRC` | `../dlstreamer` | Checkout used by `build-dlsps-g3d` |
 | `DLS_G3D_IMAGE` | `…:2026.2.0-ubuntu24-rc2-g3d` | Baked DLSPS tag |
 | `RADAR_DEVICE` | `CPU` | OpenVINO device for RadarPillars |
-| `RADAR_SCORE_THRESHOLD` | `0.1` | `g3dinference` score filter |
+| `RADAR_SCORE_THRESHOLD` | `0.1` | `g3dinference` score filter; use `≈0.03` on real VIDETEC (VoD domain gap) |
 | `CAM_DEVICE` | `CPU` | OpenVINO device for `gvadetect` |
 | `RADAR_MUTE` / `CAM_MUTE` | `false` | Mute a modality |
+| `RADAR_RAW_DATASET_DIR` | `./sample_data/radar_intersection/VIDETEC-2/converted` | Host path with `frames/` and/or `pcd_bin/` (or raw `.h5`) |
+| `RADAR_REQUIRE_REAL` | `false` | `true` fails if no real VIDETEC inputs |
+| `RADAR_MAX_FRAMES` | (unset) | Cap frames when converting HDF5 inside data-init |
 | `RADAR_CAM_DATASET_DIR` | LiDAR V2X example tree | Must contain `infrastructure-side/image/` |
 | `DEMO_REBUILD_IMAGES` | `true` | Set `false` to skip Scenescape image rebuild |
 
 ## Verify
 
 ```bash
+# Confirm data-init used real frames
+docker compose -f docker-compose.yml \
+  -f sample_data/radar_intersection/docker-compose.radar-override.yml \
+  logs radar-data-init | tail -20
+
 # Radar detections
 docker compose -f docker-compose.yml \
   -f sample_data/radar_intersection/docker-compose.radar-override.yml \
@@ -106,6 +165,23 @@ docker compose -f docker-compose.yml \
 
 `radar-stream` logs should show `[radar] frames=… objects=N`. Scene view should
 show tracks with radar-only, then both sources when camera is unmuted.
+
+## GNSS accuracy gate (offline)
+
+After producing per-frame RadarPillars detections JSONL (timestamps aligned with
+`frames/index.json`), score against the Oct 9 RTK track:
+
+```bash
+python3 sample_data/radar_intersection/eval_radarpillars_gnss.py \
+  --index sample_data/radar_intersection/VIDETEC-2/converted/frames/index.json \
+  --detections /path/to/detections.jsonl \
+  --gnss sample_data/radar_intersection/VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55/*_gps.csv \
+  -o sample_data/radar_intersection/VIDETEC-2/gnss_metrics.json
+```
+
+Primary metrics are GNSS VRU recall @ 1/2/3 m and matched position error — not
+camera-label mAP. Use the published VIDETEC local origin via `--videtec-origin`
+(UTM 32N E=695310.500, N=5347376.094; see `videtec_local_origin.json`).
 
 ## Stop
 

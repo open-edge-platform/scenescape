@@ -13,9 +13,16 @@ Writes:
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
+
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+  sys.path.insert(0, str(_HERE))
+
+from videtec_to_pcd import videtec_to_pcd  # noqa: E402
 
 
 def make_videtec_frame(rng: np.random.Generator, clusters: list[tuple]) -> np.ndarray:
@@ -39,27 +46,12 @@ def make_videtec_frame(rng: np.random.Generator, clusters: list[tuple]) -> np.nd
   return np.vstack(parts).astype(np.float32)
 
 
-def videtec_to_pcd(frame: np.ndarray) -> np.ndarray:
-  """(N,5) range/doppler/az/el/mag → (N,7) x,y,z,rcs,v_r,v_r_comp,time."""
-  frame = np.asarray(frame, dtype=np.float32)
-  if frame.size == 0:
-    return np.zeros((0, 7), dtype=np.float32)
-  r, d, az, el, mag = frame.T
-  az_r = np.deg2rad(az)
-  el_r = np.deg2rad(el)
-  cos_el = np.cos(el_r)
-  x = r * cos_el * np.cos(az_r)
-  y = r * cos_el * np.sin(az_r)
-  z = r * np.sin(el_r)
-  return np.stack([x, y, z, mag, d, d, np.zeros_like(d)], axis=1).astype(np.float32)
-
-
-def main():
+def main(argv=None):
   ap = argparse.ArgumentParser()
   ap.add_argument("-o", "--out-dir", required=True, help="Base radar_intersection dir")
   ap.add_argument("-n", "--num-frames", type=int, default=60)
   ap.add_argument("--seed", type=int, default=0)
-  args = ap.parse_args()
+  args = ap.parse_args(argv)
   base = Path(args.out_dir)
   frames_dir = base / "frames"
   pcd_dir = base / "pcd_bin"

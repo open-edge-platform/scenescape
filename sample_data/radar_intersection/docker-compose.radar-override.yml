@@ -50,8 +50,9 @@ services:
     restart: "no"
     pids_limit: 1000
 
-  # Synthetic VIDETEC-style radar frames + camera JPEGs (from V2X-Seq or
-  # LIDAR_RAW_DATASET_DIR) into the shared sample-data volume.
+  # Prefer real VIDETEC-2 frames/pcd_bin when RADAR_RAW_DATASET_DIR is populated
+  # (see run-radar-intersection-demo.md). Fall back to synthetic frames for CI
+  # hosts without the Zenodo archive. Optional camera JPEGs from V2X-Seq.
   radar-data-init:
     image: python:3.11-slim
     environment:
@@ -62,15 +63,40 @@ services:
       - JPEG_SRC_DIR=/src/image
       - JPEG_DST_DIR=/dst/radar_intersection/images
       - JPEG_QUALITY=${JPEG_QUALITY:-50}
-      - RADAR_FRAMES_DST=/dst/radar_intersection/frames
       - RADAR_NUM_FRAMES=${RADAR_NUM_FRAMES:-60}
+      - RADAR_MAX_FRAMES=${RADAR_MAX_FRAMES:-}
+      - RADAR_REQUIRE_REAL=${RADAR_REQUIRE_REAL:-false}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
         set -e
-        pip install --no-cache-dir --quiet numpy pillow
+        pip install --no-cache-dir --quiet numpy pillow h5py
         mkdir -p /dst/radar_intersection/frames /dst/radar_intersection/pcd_bin /dst/radar_intersection/images
-        python3 /generate_synthetic_radar_frames.py -o /dst/radar_intersection -n $${RADAR_NUM_FRAMES}
+        PREPARE_ARGS="-o /dst/radar_intersection -n $${RADAR_NUM_FRAMES}"
+        if [ -n "$${RADAR_MAX_FRAMES}" ]; then
+          PREPARE_ARGS="$${PREPARE_ARGS} --max-frames $${RADAR_MAX_FRAMES}"
+        fi
+        if [ "$${RADAR_REQUIRE_REAL}" = "true" ]; then
+          PREPARE_ARGS="$${PREPARE_ARGS} --require-real"
+        fi
+        # Prefer host-converted frames, then prebuilt pcd_bin, then HDF5.
+        if [ -d /src/radar/frames ] && ls /src/radar/frames/*.npy >/dev/null 2>&1; then
+          PREPARE_ARGS="$${PREPARE_ARGS} --frames-dir /src/radar/frames"
+          if [ -d /src/radar/pcd_bin ] && ls /src/radar/pcd_bin/*.bin >/dev/null 2>&1; then
+            PREPARE_ARGS="$${PREPARE_ARGS} --pcd-bin-dir /src/radar/pcd_bin"
+          fi
+          echo "radar-data-init: using real frames under /src/radar/frames"
+        elif [ -d /src/radar/pcd_bin ] && ls /src/radar/pcd_bin/*.bin >/dev/null 2>&1; then
+          PREPARE_ARGS="$${PREPARE_ARGS} --pcd-bin-dir /src/radar/pcd_bin"
+          echo "radar-data-init: using real pcd_bin under /src/radar/pcd_bin"
+        elif ls /src/radar/*.h5 >/dev/null 2>&1 || ls /src/radar/*.hdf5 >/dev/null 2>&1; then
+          HDF5=$$(ls /src/radar/*.h5 /src/radar/*.hdf5 2>/dev/null | head -1)
+          PREPARE_ARGS="$${PREPARE_ARGS} --hdf5 $${HDF5}"
+          echo "radar-data-init: converting HDF5 $${HDF5}"
+        else
+          echo "radar-data-init: no real VIDETEC under /src/radar — synthetic fallback"
+        fi
+        python3 /prepare_radar_demo_data.py $${PREPARE_ARGS}
         if [ -d /src/image ] && ls /src/image/*.jpg >/dev/null 2>&1; then
           python3 /reencode_jpegs.py
         else
@@ -78,8 +104,12 @@ services:
         fi
         echo 'radar_intersection data ready'
     volumes:
+      - ${RADAR_RAW_DATASET_DIR:-./sample_data/radar_intersection/VIDETEC-2/converted}:/src/radar:ro
       - ${RADAR_CAM_DATASET_DIR:-./sample_data/lidar_intersection/V2X-Seq-SPD-Example}/infrastructure-side/image:/src/image:ro
+      - ./sample_data/radar_intersection/prepare_radar_demo_data.py:/prepare_radar_demo_data.py:ro
       - ./sample_data/radar_intersection/generate_synthetic_radar_frames.py:/generate_synthetic_radar_frames.py:ro
+      - ./sample_data/radar_intersection/videtec_to_pcd.py:/videtec_to_pcd.py:ro
+      - ./radar/videtec_hdf5_to_frames.py:/videtec_hdf5_to_frames.py:ro
       - ./sample_data/lidar_intersection/reencode_jpegs.py:/reencode_jpegs.py:ro
       - vol-sample-data:/dst
     restart: "no"
