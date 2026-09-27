@@ -74,7 +74,7 @@ through fine-tune + window/density diagnosis.
 | **P0-D** | Fine-tune + densify diagnosis | **Done (dense lock-in)** — FT2 ep11 + **±5 accumulate** on **2100–4100** → **~51% VRU@3m**; associable subset **≥92–99%**. Single-frame full-window still capped by missing near-GT returns |
 | **P0-E / C4** | Runtime densify in OV + g3d playback bins | **Done** — OV VoD densify + `pcd_bin_acc5` |
 | **P0-F** | FT2→OV re-export + densify re-eval | **Done** — `FP16_ft2` OV ±5 → **52.4%** VRU@3m (≈ PyTorch 51.4%) |
-| P1 | SceneScape real-data MQTT demo | **Next candidate** (use FT2 IR + densified bins; still needs `SUPASS`) |
+| P1 | SceneScape real-data MQTT demo | **Done + full verify (2026-09-27)** — rebuilt manager/controller (Radar mig); CA `keyUsage`; scene import HTTP 201; FT2/`pcd_bin_acc5` + classical + roadside → MQTT + regulated scene |
 | P2 | Upstream DLS / DLSPS bake drop | After quality |
 
 **Dense-cloud gate (locked):** when radar returns exist near GNSS (associable
@@ -303,8 +303,12 @@ Target: Car/Ped/Cyc 3D AP near the published rot checkpoint (~52.56 mAP R11).
 
 1. **C0–C4 done**, including **FT2→OV** (`model_installer/FP16_ft2/`, RPW1
    included). Offline OV-FT2 ±5 on 2100–4100 ≈ **52%** VRU@3m.
-2. **C5 next:** `demo-radar` with FT2 config + `pcd_bin_acc5` (or runtime
-   accumulate), `RADAR_SCORE_THRESHOLD≈0.01–0.03`, needs `SUPASS`.
+2. **C5 done + full verify (2026-09-27):** rebuilt core images from
+   `feature/radar-support` (manager `0004_radar`, controller `DATA_RADAR`);
+   regenerated secrets with CA `keyUsage=keyCertSign,cRLSign` (Python TLS).
+   Scene import **HTTP 201** with `intersection-radar1`. FT2 + `pcd_bin_acc5`
+   (2100–4100, score 0.03) → MQTT + regulated **Radar Intersection**.
+   Classical + roadside verified on same stack (`frames_bin`).
 3. Optional FT5 only if single-frame-without-buffer is required.
 4. Live streaming ring-buffer inside `g3dinference` (causal) remains a later
    DLS change; file playback uses pre-densified bins.
