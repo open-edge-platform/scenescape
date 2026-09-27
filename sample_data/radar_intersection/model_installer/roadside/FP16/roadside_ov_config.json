@@ -1,0 +1,44 @@
+{
+  "model_type": "roadside",
+  "nn_model": "roadside_pointnet_seg.xml",
+  "input_features": 6,
+  "num_classes": 3,
+  "class_names": [
+    "background",
+    "person",
+    "vehicle"
+  ],
+  "norm_stats": {
+    "lo": [
+      -3.5440166357147973e-06,
+      -79.47398376464844,
+      -81.08999633789062,
+      -10.880000114440918,
+      15.0,
+      0.3400000035762787
+    ],
+    "hi": [
+      76.26675415039062,
+      53.152687072753906,
+      78.70181274414062,
+      10.710000038146973,
+      51.0,
+      10.880000114440918
+    ]
+  },
+  "cluster_distance_m": 2.0,
+  "min_score": 0.35,
+  "accumulate_half_window_default": 0,
+  "precision": "FP16",
+  "train_meta": {
+    "train_data": "VIDETEC-2",
+    "train_data_license": "CC BY 4.0",
+    "train_data_attribution": "VIDETEC-2, Zenodo https://zenodo.org/records/17799385, CC BY 4.0",
+    "labeling": "weak GNSS (person radius); no RoadsideRadar / INFRA-3DRC labels",
+    "excludes_datasets": [
+      "RoadsideRadar (CC BY-NC-SA 4.0 \u2014 non-commercial)"
+    ],
+    "code_license": "Apache-2.0"
+  },
+  "source_ckpt": "roadside_videtec_ccby.pt"
+}

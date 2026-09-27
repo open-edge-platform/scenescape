@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Install roadside PointNet OpenVINO IR (VIDETEC-trained, CC BY path).
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODELS_PATH="${MODELS_PATH:-/home/pipeline-server/models}"
+OUT_DIR="${MODELS_PATH}/public/roadside/FP16"
+BAKE_DIR="${SCRIPT_DIR}/roadside/FP16"
+
+log() { printf '[install-roadside] %s\n' "$*"; }
+
+mkdir -p "${OUT_DIR}"
+
+if [[ ! -f "${BAKE_DIR}/roadside_pointnet_seg.xml" ]] || \
+   [[ ! -f "${BAKE_DIR}/roadside_ov_config.json" ]]; then
+  log "ERROR: missing baked IR at ${BAKE_DIR}"
+  log "Run: python3 sample_data/radar_intersection/export_roadside_ov.py \\"
+  log "  --ckpt .../roadside_videtec_ccby.pt -o sample_data/radar_intersection/model_installer/roadside/FP16"
+  exit 1
+fi
+
+log "Installing roadside OpenVINO IR → ${OUT_DIR}"
+cp -a "${BAKE_DIR}/." "${OUT_DIR}/"
+log "Done. RADAR_ROADSIDE_CONFIG=${OUT_DIR}/roadside_ov_config.json"
+ls -la "${OUT_DIR}"

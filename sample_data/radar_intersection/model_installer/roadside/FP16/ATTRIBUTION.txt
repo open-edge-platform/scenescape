@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+Roadside OpenVINO IR (PointNetSeg) baked for SceneScape radar demo.
+
+- Code / IR packaging: Apache-2.0 (Intel)
+- Training data: VIDETEC-2, Zenodo https://zenodo.org/records/17799385, CC BY 4.0
+- Does NOT use RoadsideRadar / INFRA-3DRC dataset (CC BY-NC-SA 4.0)
+- Method inspired by Bhanderi et al., Sci. Rep. 2025 (architecture only)
+
+When redistributing this model or demos that use it, attribute VIDETEC-2 (CC BY 4.0).
