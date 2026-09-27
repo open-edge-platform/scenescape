@@ -2,13 +2,14 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Export RadarPillars (HF) BEV backbone + detection head to OpenVINO IR.
+"""Export RadarPillars BEV backbone + detection head to OpenVINO IR.
 
 Host-side pillar VFE / PillarAttention / scatter stay in Python (numpy) at
 runtime; this IR is the OpenVINO-optimized 2-D CNN + 1x1 heads — the same
 split used by openvino_contrib PointPillars.
 
-Checkpoint: Fatihbin/radarpillars-vod (Apache-2.0).
+Default grid is VoD ego. Pass ``--gantry`` for VIDETEC FT2+
+(``point_cloud_range=[-20,-40,-5,60,40,3]``, voxel ``0.2``).
 """
 
 from __future__ import annotations
@@ -23,12 +24,19 @@ import torch
 import torch.nn as nn
 
 
-# VoD radar grid (vod_radarpillar_rot.yaml)
-PC_RANGE = [0.0, -25.6, -3.0, 51.2, 25.6, 2.0]
-VOXEL_SIZE = [0.16, 0.16, 5.0]
+# VoD radar grid (vod_radarpillar_rot.yaml) — overridden by --gantry / CLI
+PC_RANGE_VOD = [0.0, -25.6, -3.0, 51.2, 25.6, 2.0]
+VOXEL_SIZE_VOD = [0.16, 0.16, 5.0]
+# VIDETEC gantry (videtec_radarpillar_gantry.yaml / FT2)
+PC_RANGE_GANTRY = [-20.0, -40.0, -5.0, 60.0, 40.0, 3.0]
+VOXEL_SIZE_GANTRY = [0.2, 0.2, 8.0]
 BEV_CHANNELS = 32
-NX = int(round((PC_RANGE[3] - PC_RANGE[0]) / VOXEL_SIZE[0]))  # 320
-NY = int(round((PC_RANGE[4] - PC_RANGE[1]) / VOXEL_SIZE[1]))  # 320
+
+
+def _grid(pc_range, voxel_size):
+  nx = int(round((pc_range[3] - pc_range[0]) / voxel_size[0]))
+  ny = int(round((pc_range[4] - pc_range[1]) / voxel_size[1]))
+  return nx, ny
 
 
 class EasyDict(dict):
@@ -156,18 +164,29 @@ def main():
   parser.add_argument("--ckpt", type=Path, required=True)
   parser.add_argument("-o", "--output", type=Path, required=True,
                       help="Output directory for IR + config")
+  parser.add_argument(
+    "--gantry", action="store_true",
+    help="Use VIDETEC gantry PC range / voxel size (FT2+). Default: VoD ego box.")
+  parser.add_argument("--source-label", default=None,
+                      help="Config 'source' string (default from ckpt path)")
+  parser.add_argument("--max-voxels", type=int, default=None)
   args = parser.parse_args()
   out = args.output
   out.mkdir(parents=True, exist_ok=True)
+
+  pc_range = list(PC_RANGE_GANTRY if args.gantry else PC_RANGE_VOD)
+  voxel_size = list(VOXEL_SIZE_GANTRY if args.gantry else VOXEL_SIZE_VOD)
+  nx, ny = _grid(pc_range, voxel_size)
+  max_voxels = args.max_voxels or (40000 if args.gantry else 16000)
 
   model = RadarPillarsBevDetect().eval()
   load_bev_weights(model, args.ckpt)
   export_vfe_attn_weights(args.ckpt, out)
 
-  example = torch.zeros(1, BEV_CHANNELS, NY, NX)
+  example = torch.zeros(1, BEV_CHANNELS, ny, nx)
   with torch.no_grad():
     cls, box, direction = model(example)
-  print("shapes", cls.shape, box.shape, direction.shape)
+  print("shapes", cls.shape, box.shape, direction.shape, "grid", nx, ny)
 
   import openvino as ov
   ov_model = ov.convert_model(model, example_input=example)
@@ -175,16 +194,19 @@ def main():
   ov.save_model(ov_model, str(xml_path))
   print("Wrote", xml_path)
 
+  source = args.source_label or (
+    "radarpillar_videtec_gantry_ft2" if args.gantry else "Fatihbin/radarpillars-vod")
   config = {
     "model": "RadarPillars",
-    "source": "Fatihbin/radarpillars-vod",
+    "source": source,
+    "ckpt": str(args.ckpt),
     "license": "Apache-2.0",
-    "point_cloud_range": PC_RANGE,
-    "voxel_size": VOXEL_SIZE,
+    "point_cloud_range": pc_range,
+    "voxel_size": voxel_size,
     "max_points_per_voxel": 32,
-    "max_voxels": 16000,
+    "max_voxels": max_voxels,
     "bev_channels": BEV_CHANNELS,
-    "grid_size": [NX, NY, 1],
+    "grid_size": [nx, ny, 1],
     "nn_model": str(xml_path.name),
     "preproc_weights": "radarpillars_preproc_weights.npz",
     "score_threshold": 0.1,

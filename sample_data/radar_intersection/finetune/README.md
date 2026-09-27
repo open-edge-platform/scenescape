@@ -10,11 +10,9 @@ This directory prepares a weak-label training set and documents fine-tuning
 from the VoD checkpoint ([fthbng77/RadarPillar](https://github.com/fthbng77/RadarPillar),
 HF `Fatihbin/radarpillars-vod`).
 
-**Status:** FT4 fixes associated-set training by **freezing PillarAttention**
-(nan-grad source). Best **eval window** is **2100–4100** (not 3000–5000).
-Single-frame FT2 ep11 → **18.5%** VRU@3m there; with **±5-frame** gantry-static
-accumulate → **51.4%** (associable subset ≥92–99%). Demo MQTT still deferred;
-next is wire accumulate into the runtime path and/or FT5 train-on-densified.
+**Status:** Dense-cloud + FT2→OV closed. Offline OV-FT2 ±5 on 2100–4100 →
+**52.4%** VRU@3m (`model_installer/FP16_ft2/`). C5 MQTT demo is the next
+product step (FT2 IR + densified bins). FT5 optional.
 
 ## Why fine-tune
 

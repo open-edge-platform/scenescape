@@ -31,8 +31,9 @@ through fine-tune + window/density diagnosis.
 | **P0-B** | **VIDETEC GNSS:** stride-5 window, PyTorch vs OV (VRU / all-class) | **Done** — baseline both fail VRU on sparse 3000–5000; see acceptance |
 | **P0-C** | Optional VoD val mAP (if access appears) — paper regen, not a hard gate | Optional |
 | **P0-D** | Fine-tune + densify diagnosis | **Done (dense lock-in)** — FT2 ep11 + **±5 accumulate** on **2100–4100** → **~51% VRU@3m**; associable subset **≥92–99%**. Single-frame full-window still capped by missing near-GT returns |
-| P0-E | Runtime accumulate in g3d / FT5 train-on-densified / OV re-export | **Next** (parity with offline H=5; not MQTT yet) |
-| P1 | SceneScape real-data MQTT demo | **Deferred** until full-window / runtime path is demo-usable |
+| **P0-E / C4** | Runtime densify in OV + g3d playback bins | **Done** — OV VoD densify + `pcd_bin_acc5` |
+| **P0-F** | FT2→OV re-export + densify re-eval | **Done** — `FP16_ft2` OV ±5 → **52.4%** VRU@3m (≈ PyTorch 51.4%) |
+| P1 | SceneScape real-data MQTT demo | **Next candidate** (use FT2 IR + densified bins; still needs `SUPASS`) |
 | P2 | Upstream DLS / DLSPS bake drop | After quality |
 
 **Dense-cloud gate (locked):** when radar returns exist near GNSS (associable
@@ -221,8 +222,8 @@ Ordered diagnosis (user-agreed, **VoD-free**). VoD paper regen remains optional.
 | **C1. VIDETEC GNSS PyTorch vs OV** | Stride-5 3000–5000: VRU / all-class recall @ 1/2/3 m for both backends | **Done** — both fail VRU on that sparse window; PyTorch quieter than OV |
 | **C2. Optional VoD val mAP** | Reproduce ~52.56 mAP if VoD lands on disk | Optional / not blocking |
 | **C3. Fine-tune + densify** | Close gantry gap; separate model vs support-density failure | **Done (dense lock-in)** — FT2/FT4; best window 2100–4100; ±5 accumulate → **51.4%** VRU@3m; associable **≥92–99%** |
-| **C4. Runtime densify / OV re-export** | Port H≈5 accumulate into g3d (or FT5 densified train); re-export OV; re-eval | **Next** |
-| **C5. SceneScape MQTT demo** | After full-window / runtime path is demo-usable | Deferred |
+| **C4. Runtime densify / OV re-export** | Port H≈5 accumulate into OV + g3d playback; re-export FT2 OV; re-eval | **Done** — densify + **FT2→OV** (`FP16_ft2`); OV-FT2 ±5 **52.4%** VRU@3m |
+| **C5. SceneScape MQTT demo** | FT2 IR + densified bins on real frames | **Ready to attempt** (needs `SUPASS`) |
 
 Prior FOV notes remain useful diagnostics: 194/401 GNSS samples outside VoD
 PC range on the old eval slice; associability scan shows **2100–4100** is the
@@ -255,15 +256,15 @@ Target: Car/Ped/Cyc 3D AP near the published rot checkpoint (~52.56 mAP R11).
 
 ## What is left (ordered)
 
-### Active — densify runtime / close full-window gap
+### Active — SceneScape MQTT with FT2 densify path
 
-1. **C0–C3 done** (parity, baseline GNSS, FT ladder, dense-cloud lock-in).
-   Optional VoD mAP remains nice-to-have, not a hard gate.
-2. **C4 next:** wire gantry-static **±5 frame accumulate** into the g3d /
-   offline OV path and match PyTorch 2100–4100 numbers; optionally FT5
-   train-on-densified clouds if single-frame must improve without a buffer.
-3. Re-export OV only after the runtime densify (or FT5) ckpt/path is chosen.
-4. SceneScape MQTT only after full-window / runtime recall is demo-usable.
+1. **C0–C4 done**, including **FT2→OV** (`model_installer/FP16_ft2/`, RPW1
+   included). Offline OV-FT2 ±5 on 2100–4100 ≈ **52%** VRU@3m.
+2. **C5 next:** `demo-radar` with FT2 config + `pcd_bin_acc5` (or runtime
+   accumulate), `RADAR_SCORE_THRESHOLD≈0.01–0.03`, needs `SUPASS`.
+3. Optional FT5 only if single-frame-without-buffer is required.
+4. Live streaming ring-buffer inside `g3dinference` (causal) remains a later
+   DLS change; file playback uses pre-densified bins.
 
 ### Deferred — SceneScape product path (after full-window gate)
 

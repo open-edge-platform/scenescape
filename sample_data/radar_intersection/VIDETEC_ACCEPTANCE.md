@@ -210,6 +210,32 @@ gap to a demo gate is mostly frames that still lack near-GT returns even after
 stacking — next levers are train-time densify (FT5), runtime ±5 accumulate in
 the g3d path, or fusion.
 
+### C4 — Runtime densify (OV + g3d playback bins)
+
+Shared helper: `videtec_accumulate.py`. Offline OV batch and PyTorch batch both
+take `--accumulate-half-window`. Densified bins for
+`multifilesrc` → `g3dinference` (no GStreamer graph change):
+
+`build_accumulated_pcd_bins.py` → `VIDETEC-2/converted/pcd_bin_acc5/`
+(2001 frames, 2100–4100, H=5). Point `RADAR_DATA_PATH` at
+`…/pcd_bin_acc5/%06d.bin`.
+
+| Backend | Weights | Acc | VRU @ 1 m | VRU @ 3 m | Hits |
+| --- | --- | --- | --- | --- | --- |
+| OV host+IR | VoD (shipped FP16) | 0 | 20.4% | **23.7%** | 95 |
+| OV host+IR | VoD | ±5 | 32.7% | **37.4%** | 150 |
+| OV host+IR | **FT2 ep11** (`FP16_ft2`) | 0 | 31.4% | **35.9%** | 144 |
+| OV host+IR | **FT2 ep11** | ±5 | 43.9% | **52.4%** | 210 |
+| PyTorch | FT2 ep11 | 0 | 13.2% | 18.5% | 74 |
+| PyTorch | FT2 ep11 | ±5 | 44.6% | **51.4%** | 206 |
+
+**Read:** Densify plumbing works on OV. **FT2→OV re-export**
+(`export_radarpillars_ov.py --gantry` → `model_installer/FP16_ft2/`) closes the
+gap: OV-FT2 ±5 reaches **52.4%** VRU@3m, matching PyTorch FT2 ±5 (**51.4%**).
+Streaming live ring-buffer inside `g3dinference` remains a later DLS change;
+file playback uses pre-densified bins + FT2 IR.
+
+
 ```bash
 # Parity
 ~/mainline/RadarPillar/.venv/bin/python \
@@ -222,7 +248,7 @@ the g3d path, or fusion.
   sample_data/radar_intersection/finetune/eval_ft_epoch_curve.py \
   --score-threshold 0.01
 
-# Best-window + multi-frame (example)
+# Best-window + multi-frame (PyTorch)
 ~/mainline/RadarPillar/.venv/bin/python \
   sample_data/radar_intersection/finetune/batch_pytorch_radarpillars_infer.py \
   --ckpt ~/mainline/RadarPillar/weights/radarpillar_videtec_gantry_ft2_ep11.pth \
@@ -230,6 +256,34 @@ the g3d path, or fusion.
   --start-index 2100 --stop-index 4100 --stride 5 \
   --accumulate-half-window 5 --score-threshold 0.01 \
   -o sample_data/radar_intersection/VIDETEC-2/detections_w2100_4100_ft2ep11_acc5.jsonl
+
+# C4 OV densify + g3d bins
+~/mainline/RadarPillar/.venv/bin/python \
+  sample_data/radar_intersection/batch_radarpillars_infer.py \
+  --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
+  --start-index 2100 --stop-index 4100 --stride 5 \
+  --accumulate-half-window 5 --score-threshold 0.01 \
+  -o sample_data/radar_intersection/VIDETEC-2/detections_w2100_4100_ov_acc5.jsonl
+python3 sample_data/radar_intersection/build_accumulated_pcd_bins.py \
+  --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
+  --accumulate-half-window 5 --start-index 2100 --stop-index 4100 \
+  -o sample_data/radar_intersection/VIDETEC-2/converted/pcd_bin_acc5
+
+# FT2 → OV (gantry grid) + densified eval
+~/mainline/RadarPillar/.venv/bin/python \
+  sample_data/radar_intersection/export_radarpillars_ov.py \
+  --ckpt ~/mainline/RadarPillar/weights/radarpillar_videtec_gantry_ft2_ep11.pth \
+  --gantry -o sample_data/radar_intersection/model_installer/FP16_ft2
+python3 ~/mainline/dlstreamer/samples/gstreamer/gst_launch/g3dinference/npz_to_rpw1.py \
+  sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_preproc_weights.npz \
+  -o sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_preproc_weights.rpw1
+~/mainline/RadarPillar/.venv/bin/python \
+  sample_data/radar_intersection/batch_radarpillars_infer.py \
+  --config sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_ov_config.json \
+  --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
+  --start-index 2100 --stop-index 4100 --stride 5 \
+  --accumulate-half-window 5 --score-threshold 0.01 \
+  -o sample_data/radar_intersection/VIDETEC-2/detections_w2100_4100_ovft2_acc5.jsonl
 ```
 
 ## Full SceneScape E2E (MQTT / regulated tracks)
