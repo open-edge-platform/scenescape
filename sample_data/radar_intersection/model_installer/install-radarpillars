@@ -10,7 +10,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MODELS_PATH="${MODELS_PATH:-/home/pipeline-server/models}"
 OUT_DIR="${MODELS_PATH}/public/radarpillars/FP16"
-BAKE_DIR="${SCRIPT_DIR}/FP16"
+# Prefer FT2 gantry IR when present (C5 demo); override with RADAR_IR_DIR=FP16|FP16_ft2.
+IR_NAME="${RADAR_IR_DIR:-}"
+if [[ -z "${IR_NAME}" ]]; then
+  if [[ -f "${SCRIPT_DIR}/FP16_ft2/radarpillars_bev_detect.xml" ]]; then
+    IR_NAME="FP16_ft2"
+  else
+    IR_NAME="FP16"
+  fi
+fi
+BAKE_DIR="${SCRIPT_DIR}/${IR_NAME}"
 
 log() { printf '[install-radarpillars] %s\n' "$*"; }
 
@@ -21,7 +30,7 @@ if [[ ! -d "${BAKE_DIR}" ]] || [[ ! -f "${BAKE_DIR}/radarpillars_bev_detect.xml"
   exit 1
 fi
 
-log "Installing RadarPillars IR → ${OUT_DIR}"
+log "Installing RadarPillars IR (${IR_NAME}) → ${OUT_DIR}"
 cp -a "${BAKE_DIR}/." "${OUT_DIR}/"
 # Ensure config paths are relative to OUT_DIR
 if [[ ! -f "${OUT_DIR}/radarpillars_ov_config.json" ]]; then

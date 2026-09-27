@@ -797,11 +797,14 @@ demo-lidar: build-dlsps-g3d $(DEMO_BUILD:build=build-core-lidar) init-sample-dat
 # RADAR_PERCEPTION=classical|roadside|radarpillars (default classical).
 # All modes share g3dinference → gvametaconvert → MQTT (needs -g3d bake).
 RADAR_PERCEPTION ?= classical
+# Export so docker compose ${RADAR_PERCEPTION} / ${DLS_G3D_IMAGE} see make values
+# (do not prefix env vars on the same line as $(call start_demo) — that breaks @$(MAKE)).
+export RADAR_PERCEPTION
+export DLS_G3D_IMAGE
 .PHONY: demo-radar
 demo-radar: build-dlsps-g3d $(DEMO_BUILD:build=build-core) init-sample-data
 	@echo "demo-radar: RADAR_PERCEPTION=$(RADAR_PERCEPTION) DLS_G3D_IMAGE=$(DLS_G3D_IMAGE)"
-	RADAR_PERCEPTION="$(RADAR_PERCEPTION)" DLS_G3D_IMAGE="$(DLS_G3D_IMAGE)" \
-	  $(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
+	$(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close
 demo-close:

@@ -36,7 +36,11 @@ services:
       - |
         set -e
         apk add --no-cache curl >/dev/null
-        TOKEN=$$(curl -sk -X POST -d "username=admin&password=${SUPASS}" https://web.scenescape.intel.com/api/v1/auth \
+        # --data-urlencode: SUPASS may contain +/=/& which break raw -d forms.
+        TOKEN=$$(curl -sk -X POST \
+          --data-urlencode "username=admin" \
+          --data-urlencode "password=${SUPASS}" \
+          https://web.scenescape.intel.com/api/v1/auth \
           | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
         if [ -z "$$TOKEN" ]; then
           echo "radar-scene-init: failed to authenticate to the Scenescape API"
@@ -48,10 +52,17 @@ services:
           exit 0
         fi
         echo "radar-scene-init: importing 'Radar Intersection' scene..."
-        curl -sk -X POST -H "Authorization: Token $$TOKEN" \
+        HTTP=$$(curl -sk -o /tmp/import-out -w '%{http_code}' -X POST \
+          -H "Authorization: Token $$TOKEN" \
           -F "zipFile=@/scene-import/RadarIntersection-scene-import.zip" \
-          https://web.scenescape.intel.com/api/v1/import-scene/
-        echo "radar-scene-init: done"
+          https://web.scenescape.intel.com/api/v1/import-scene/)
+        if [ "$$HTTP" != "200" ] && [ "$$HTTP" != "201" ]; then
+          echo "radar-scene-init: import-scene failed HTTP $$HTTP"
+          head -c 2000 /tmp/import-out || true
+          echo
+          exit 1
+        fi
+        echo "radar-scene-init: done (HTTP $$HTTP)"
     restart: "no"
     pids_limit: 1000
 
@@ -71,6 +82,8 @@ services:
       - RADAR_NUM_FRAMES=${RADAR_NUM_FRAMES:-60}
       - RADAR_MAX_FRAMES=${RADAR_MAX_FRAMES:-}
       - RADAR_REQUIRE_REAL=${RADAR_REQUIRE_REAL:-false}
+      # Subdir under RADAR_RAW_DATASET_DIR for 7-float bins (e.g. pcd_bin_acc5).
+      - RADAR_PCD_SUBDIR=${RADAR_PCD_SUBDIR:-pcd_bin}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -84,16 +97,17 @@ services:
         if [ "$${RADAR_REQUIRE_REAL}" = "true" ]; then
           PREPARE_ARGS="$${PREPARE_ARGS} --require-real"
         fi
-        # Prefer host-converted frames, then prebuilt pcd_bin, then HDF5.
+        PCD_SUB="$${RADAR_PCD_SUBDIR:-pcd_bin}"
+        # Prefer host-converted frames, then prebuilt pcd bins, then HDF5.
         if [ -d /src/radar/frames ] && ls /src/radar/frames/*.npy >/dev/null 2>&1; then
           PREPARE_ARGS="$${PREPARE_ARGS} --frames-dir /src/radar/frames"
-          if [ -d /src/radar/pcd_bin ] && ls /src/radar/pcd_bin/*.bin >/dev/null 2>&1; then
-            PREPARE_ARGS="$${PREPARE_ARGS} --pcd-bin-dir /src/radar/pcd_bin"
+          if [ -d "/src/radar/$${PCD_SUB}" ] && ls "/src/radar/$${PCD_SUB}"/*.bin >/dev/null 2>&1; then
+            PREPARE_ARGS="$${PREPARE_ARGS} --pcd-bin-dir /src/radar/$${PCD_SUB}"
           fi
-          echo "radar-data-init: using real frames under /src/radar/frames"
-        elif [ -d /src/radar/pcd_bin ] && ls /src/radar/pcd_bin/*.bin >/dev/null 2>&1; then
-          PREPARE_ARGS="$${PREPARE_ARGS} --pcd-bin-dir /src/radar/pcd_bin"
-          echo "radar-data-init: using real pcd_bin under /src/radar/pcd_bin"
+          echo "radar-data-init: using real frames under /src/radar/frames (pcd=$${PCD_SUB})"
+        elif [ -d "/src/radar/$${PCD_SUB}" ] && ls "/src/radar/$${PCD_SUB}"/*.bin >/dev/null 2>&1; then
+          PREPARE_ARGS="$${PREPARE_ARGS} --pcd-bin-dir /src/radar/$${PCD_SUB}"
+          echo "radar-data-init: using real pcd under /src/radar/$${PCD_SUB}"
         elif ls /src/radar/*.h5 >/dev/null 2>&1 || ls /src/radar/*.hdf5 >/dev/null 2>&1; then
           HDF5=$$(ls /src/radar/*.h5 /src/radar/*.hdf5 2>/dev/null | head -1)
           PREPARE_ARGS="$${PREPARE_ARGS} --hdf5 $${HDF5}"
@@ -127,6 +141,7 @@ services:
     environment:
       - MODELS_PATH=/home/pipeline-server/models
       - RADAR_PERCEPTION=${RADAR_PERCEPTION:-classical}
+      - RADAR_IR_DIR=${RADAR_IR_DIR:-}
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
