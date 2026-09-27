@@ -119,7 +119,10 @@ $(CASECRETSDIR)/certs/scenescape-ca.pem: $(CASECRETSDIR)/ca/scenescape-ca.key
 	@mkdir -p $(CASECRETSDIR)/certs
 	@if [ -n "$(CERTPASS)" ] ; then PASSFLAGS="-passin pass:$(CERTPASS)" ; fi ; \
 	openssl req $${PASSFLAGS} -x509 -new -key $< -days 1825 -out $@ \
-	  -subj "/CN=ca.$(CERTDOMAIN)"
+	  -subj "/CN=ca.$(CERTDOMAIN)" \
+	  -addext "basicConstraints=critical,CA:TRUE" \
+	  -addext "keyUsage=critical,keyCertSign,cRLSign" \
+	  -addext "subjectKeyIdentifier=hash"
 	@chmod 0644 $@
 
 $(SECRETSDIR)/certs/%.key:
