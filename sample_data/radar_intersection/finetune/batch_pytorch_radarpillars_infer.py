@@ -21,8 +21,6 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
-
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent
 if str(_HERE) not in sys.path:
@@ -31,6 +29,7 @@ if str(_ROOT) not in sys.path:
   sys.path.insert(0, str(_ROOT))
 
 from pytorch_radarpillars_infer import RadarPillarsTorch, _RP  # noqa: E402
+from videtec_accumulate import accumulate_points, load_vod_points  # noqa: E402
 
 
 def parse_args(argv=None):
@@ -53,31 +52,6 @@ def parse_args(argv=None):
   return ap.parse_args(argv)
 
 
-def _load_points(path: Path) -> np.ndarray:
-  points = np.load(path)
-  if points.ndim == 2 and points.shape[1] == 5:
-    from videtec_to_pcd import videtec_to_pcd
-    return videtec_to_pcd(points)
-  if points.ndim == 2 and points.shape[1] >= 7:
-    return points[:, :7].astype(np.float32)
-  return np.fromfile(path, dtype=np.float32).reshape(-1, 7)
-
-
-def _accumulate_points(frames_dir: Path, frame_index: int, half_window: int) -> np.ndarray:
-  """Concatenate VoD-style (N,7) points across [fi-H, fi+H] (static gantry)."""
-  chunks = []
-  for fi in range(frame_index - half_window, frame_index + half_window + 1):
-    path = frames_dir / f"{fi:06d}.npy"
-    if not path.is_file():
-      continue
-    pts = _load_points(path)
-    if pts.size:
-      chunks.append(pts)
-  if not chunks:
-    return np.zeros((0, 7), dtype=np.float32)
-  return np.concatenate(chunks, axis=0)
-
-
 def main(argv=None):
   args = parse_args(argv)
   index_path = args.frames_dir / "index.json"
@@ -96,9 +70,9 @@ def main(argv=None):
       if not path.is_file():
         continue
       if half > 0:
-        points = _accumulate_points(args.frames_dir, frame_index, half)
+        points = accumulate_points(args.frames_dir, frame_index, half)
       else:
-        points = _load_points(path)
+        points = load_vod_points(path)
       objects = model.infer(points, score_threshold=args.score_threshold)
       entry = {
         "frame_index": frame_index,

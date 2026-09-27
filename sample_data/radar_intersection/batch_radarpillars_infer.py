@@ -15,13 +15,12 @@ import json
 import sys
 from pathlib import Path
 
-import numpy as np
-
 _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
   sys.path.insert(0, str(_HERE))
 
 from radarpillars_infer import RadarPillarsOV  # noqa: E402
+from videtec_accumulate import accumulate_points, load_vod_points  # noqa: E402
 
 
 def parse_args(argv=None):
@@ -34,6 +33,9 @@ def parse_args(argv=None):
   ap.add_argument("--start-index", type=int, default=0)
   ap.add_argument("--stop-index", type=int, default=None)
   ap.add_argument("--stride", type=int, default=1)
+  ap.add_argument(
+    "--accumulate-half-window", type=int, default=0,
+    help="Stack ±N neighboring frame indices (gantry-static). 0=single frame.")
   ap.add_argument("-o", "--output", type=Path, required=True)
   return ap.parse_args(argv)
 
@@ -47,6 +49,7 @@ def main(argv=None):
 
   start = args.start_index
   stop = args.stop_index if args.stop_index is not None else max(index)
+  half = max(0, int(args.accumulate_half_window))
   args.output.parent.mkdir(parents=True, exist_ok=True)
   n_frames = 0
   n_objs = 0
@@ -55,28 +58,25 @@ def main(argv=None):
       path = args.frames_dir / f"{frame_index:06d}.npy"
       if not path.is_file():
         continue
-      points = np.load(path)
-      # Already (N,5) VIDETEC → convert; or load .bin if preferred.
-      if points.ndim == 2 and points.shape[1] == 5:
-        from videtec_to_pcd import videtec_to_pcd
-        points = videtec_to_pcd(points)
-      elif points.ndim == 2 and points.shape[1] == 7:
-        points = points.astype(np.float32)
+      if half > 0:
+        points = accumulate_points(args.frames_dir, frame_index, half)
       else:
-        # raw float dump
-        points = np.fromfile(path, dtype=np.float32).reshape(-1, 7)
+        points = load_vod_points(path)
       objects = model.infer(points)
       entry = {
         "frame_index": frame_index,
         "timestamp": index.get(frame_index, {}).get("timestamp"),
         "objects": objects,
+        "accumulate_half_window": half,
+        "n_points": int(len(points)),
       }
       fh.write(json.dumps(entry) + "\n")
       n_frames += 1
       n_objs += len(objects)
       if n_frames % 50 == 0:
         print(f"... {n_frames} frames, {n_objs} objects", flush=True)
-  print(f"Wrote {n_frames} frames ({n_objs} objects) → {args.output}")
+  print(f"Wrote {n_frames} frames ({n_objs} objects) → {args.output}"
+        + (f" (accumulate ±{half})" if half else ""))
   return 0
 
 

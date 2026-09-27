@@ -76,7 +76,21 @@ gantry FMCW detections used for the DNN acceptance gate. Synthetic bins do
      --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames
    ```
 
-4. `radar-data-init` mounts
+4. **Optional densify (C4):** stack ±5 neighbor frames into densified bins for
+   `g3dinference` playback (same recipe as offline GNSS peak on 2100–4100).
+   Does not change the GStreamer graph — point `RADAR_DATA_PATH` at the output:
+
+   ```bash
+   python3 sample_data/radar_intersection/build_accumulated_pcd_bins.py \
+     --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
+     --accumulate-half-window 5 \
+     --start-index 2100 --stop-index 4100 \
+     -o sample_data/radar_intersection/VIDETEC-2/converted/pcd_bin_acc5
+   # Then set RADAR_RAW_DATASET_DIR / compose path to use pcd_bin_acc5, or:
+   # RADAR_DATA_PATH=.../pcd_bin_acc5/%06d.bin RADAR_START_INDEX=2100 RADAR_STOP_INDEX=4100
+   ```
+
+5. `radar-data-init` mounts
    `RADAR_RAW_DATASET_DIR` (default
    `./sample_data/radar_intersection/VIDETEC-2/converted`). When `frames/` or
    `pcd_bin/` is present it copies real data into the sample-data volume;
@@ -134,6 +148,8 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `CAM_DEVICE` | `CPU` | OpenVINO device for `gvadetect` |
 | `RADAR_MUTE` / `CAM_MUTE` | `false` | Mute a modality |
 | `RADAR_RAW_DATASET_DIR` | `./sample_data/radar_intersection/VIDETEC-2/converted` | Host path with `frames/` and/or `pcd_bin/` (or raw `.h5`) |
+| `RADAR_DATA_PATH` | `…/pcd_bin/%06d.bin` | multifilesrc pattern; use `pcd_bin_acc5/%06d.bin` for ±5 densify |
+| `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `0` / unset | Slice densified window (e.g. 2100–4100) |
 | `RADAR_REQUIRE_REAL` | `false` | `true` fails if no real VIDETEC inputs |
 | `RADAR_MAX_FRAMES` | (unset) | Cap frames when converting HDF5 inside data-init |
 | `RADAR_CAM_DATASET_DIR` | LiDAR V2X example tree | Must contain `infrastructure-side/image/` |
