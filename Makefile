@@ -125,7 +125,7 @@ help:
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  build-dlsps-g3d             Bake local DLSPS image with generalized g3dinference"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
-	@echo "  demo-radar                  Start the basic Scenescape demo plus the Radar-intersection (Radar/Camera) fusion demo"
+	@echo "  demo-radar                  Radar-intersection demo (RADAR_PERCEPTION=classical|roadside|radarpillars)"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -189,7 +189,7 @@ help:
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
 	@echo "  - Use 'make demo-lidar' to run the basic LiDAR-intersection (LIDAR/Camera) fusion demo."
 	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for prerequisites and setup steps."
-	@echo "  - Use 'make demo-radar' to run the Radar-intersection (RadarPillars OpenVINO + camera) fusion demo."
+	@echo "  - Use 'make demo-radar' for Radar-intersection (RADAR_PERCEPTION=classical|roadside|radarpillars)."
 	@echo "    See docs/user-guide/how-to-guides/run-radar-intersection-demo.md for prerequisites and setup steps."
 	@echo ""
 
@@ -793,10 +793,15 @@ build-dlsps-g3d:
 demo-lidar: build-dlsps-g3d $(DEMO_BUILD:build=build-core-lidar) init-sample-data
 	DLS_G3D_IMAGE="$(DLS_G3D_IMAGE)" $(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
 
-# Radar-intersection (g3dinference radarpillars + camera gvadetect) fusion demo
+# Radar-intersection fusion demo.
+# RADAR_PERCEPTION=classical|roadside|radarpillars (default classical).
+# All modes share g3dinference → gvametaconvert → MQTT (needs -g3d bake).
+RADAR_PERCEPTION ?= classical
 .PHONY: demo-radar
 demo-radar: build-dlsps-g3d $(DEMO_BUILD:build=build-core) init-sample-data
-	DLS_G3D_IMAGE="$(DLS_G3D_IMAGE)" $(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
+	@echo "demo-radar: RADAR_PERCEPTION=$(RADAR_PERCEPTION) DLS_G3D_IMAGE=$(DLS_G3D_IMAGE)"
+	RADAR_PERCEPTION="$(RADAR_PERCEPTION)" DLS_G3D_IMAGE="$(DLS_G3D_IMAGE)" \
+	  $(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close
 demo-close:

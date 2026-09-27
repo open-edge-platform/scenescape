@@ -1,0 +1,10 @@
+{
+  "model_type": "classical",
+  "cluster_distance_m": 2.5,
+  "track_distance_m": 5.0,
+  "doppler_person_mps": 0.4,
+  "track_ttl_frames": 5,
+  "point_features": 5,
+  "class_names": ["vehicle", "person", "cyclist"],
+  "notes": "Host cluster+track; no neural IR. Config path required by g3dinference."
+}

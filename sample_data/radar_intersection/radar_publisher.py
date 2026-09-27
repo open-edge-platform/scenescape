@@ -4,15 +4,14 @@
 
 """Radar + camera dual-stream publisher for the radar-intersection demo.
 
-Uses generalized DLStreamer ``g3dinference model-type=radarpillars`` (same
-GStreamer shape as the LiDAR PointPillars demo). Requires a DLSPS image with
-the rebuilt ``libgst3delements.so`` (see ``make build-dlsps-g3d``).
+All radar modes share one GStreamer publish stack via ``g3dinference``:
 
-Streams:
-  Radar  → scenescape/data/radar/{id}
-  Camera → scenescape/data/camera/{id}
+  classical | roadside | radarpillars
+    → g3dlidarparse → g3dinference → gvametaconvert → FIFO → MQTT
 
-Set RADAR_MUTE=true or CAM_MUTE=true to verify a single modality.
+Set ``RADAR_PERCEPTION`` to select the backend. Camera uses ``gvadetect``.
+Requires a DLSPS image with rebuilt ``libgst3delements.so``
+(``make build-dlsps-g3d``).
 """
 
 from __future__ import annotations
@@ -38,11 +37,50 @@ from radar_sensor_contract import (
 BROKER = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 
+RADAR_PERCEPTION = os.environ.get("RADAR_PERCEPTION", "classical").strip().lower()
 RADAR_SENSOR_ID = os.environ.get("RADAR_SENSOR_ID", "intersection-radar1")
-RADAR_DATA_PATH = os.environ.get(
-  "RADAR_DATA_PATH",
-  "/home/pipeline-server/videos/radar_intersection/pcd_bin/%06d.bin",
-)
+
+_MODE_DEFAULTS = {
+  "classical": {
+    "data": "/home/pipeline-server/videos/radar_intersection/frames_bin/%06d.bin",
+    "config": "/home/pipeline-server/models/public/classical/classical_ov_config.json",
+    "point_features": 5,
+    "score": 0.0,
+  },
+  "roadside": {
+    "data": "/home/pipeline-server/videos/radar_intersection/frames_bin/%06d.bin",
+    "config": "/home/pipeline-server/models/public/roadside/FP16/roadside_ov_config.json",
+    "point_features": 5,
+    "score": 0.0,
+  },
+  "radarpillars": {
+    "data": "/home/pipeline-server/videos/radar_intersection/pcd_bin/%06d.bin",
+    "config": "/home/pipeline-server/models/public/radarpillars/FP16/radarpillars_ov_config.json",
+    "point_features": 7,
+    "score": 0.1,
+  },
+}
+
+if RADAR_PERCEPTION not in _MODE_DEFAULTS:
+  raise SystemExit(
+    f"RADAR_PERCEPTION={RADAR_PERCEPTION!r} invalid; "
+    "use classical | roadside | radarpillars")
+
+_mode = _MODE_DEFAULTS[RADAR_PERCEPTION]
+
+
+def _env_or(name: str, default: str) -> str:
+  raw = os.environ.get(name)
+  if raw is None or not str(raw).strip():
+    return default
+  return str(raw).strip()
+
+
+RADAR_DATA_PATH = _env_or("RADAR_DATA_PATH", _mode["data"])
+RADAR_MODEL_CONFIG = _env_or("RADAR_MODEL_CONFIG", _mode["config"])
+RADAR_POINT_FEATURES = int(_env_or("RADAR_POINT_FEATURES", str(_mode["point_features"])))
+RADAR_SCORE_THRESHOLD = float(_env_or("RADAR_SCORE_THRESHOLD", str(_mode["score"])))
+
 RADAR_START_INDEX = int(os.environ.get("RADAR_START_INDEX", "0"))
 _RADAR_STOP_RAW = os.environ.get("RADAR_STOP_INDEX")
 RADAR_STOP_INDEX = (
@@ -50,11 +88,6 @@ RADAR_STOP_INDEX = (
 RADAR_LOOP = os.environ.get("RADAR_LOOP", "true").lower() not in ("0", "false", "no")
 RADAR_FRAME_RATE = int(os.environ.get("RADAR_FRAME_RATE", "10"))
 RADAR_DEVICE = os.environ.get("RADAR_DEVICE", "CPU").strip().upper()
-RADAR_SCORE_THRESHOLD = float(os.environ.get("RADAR_SCORE_THRESHOLD", "0.1"))
-RADAR_MODEL_CONFIG = os.environ.get(
-  "RADAR_MODEL_CONFIG",
-  "/home/pipeline-server/models/public/radarpillars/FP16/radarpillars_ov_config.json",
-)
 RADAR_ADD_TENSOR_DATA = os.environ.get("RADAR_ADD_TENSOR_DATA", "false").lower()
 if RADAR_ADD_TENSOR_DATA not in ("true", "false"):
   RADAR_ADD_TENSOR_DATA = "false"
@@ -123,6 +156,8 @@ def _build_combined_pipeline() -> str:
       loop=RADAR_LOOP,
       frame_rate=RADAR_FRAME_RATE,
       model_config=RADAR_MODEL_CONFIG,
+      model_type=RADAR_PERCEPTION,
+      point_features=RADAR_POINT_FEATURES,
       device=RADAR_DEVICE,
       score_threshold=RADAR_SCORE_THRESHOLD,
       add_tensor_data=RADAR_ADD_TENSOR_DATA,
@@ -167,8 +202,10 @@ def _fifo_publish_loop(
 
 def main() -> None:
   print(
-    f"[radar-publisher] radar_sensor={RADAR_SENSOR_ID} cam_sensor={CAM_SENSOR_ID} "
-    f"broker={BROKER}:{PORT} radar_device={RADAR_DEVICE} cam_device={CAM_DEVICE} "
+    f"[radar-publisher] perception={RADAR_PERCEPTION} "
+    f"radar_sensor={RADAR_SENSOR_ID} cam_sensor={CAM_SENSOR_ID} "
+    f"broker={BROKER}:{PORT} radar_device={RADAR_DEVICE} "
+    f"point_features={RADAR_POINT_FEATURES} score_thr={RADAR_SCORE_THRESHOLD} "
     f"radar_mute={RADAR_MUTE} cam_mute={CAM_MUTE}",
     flush=True,
   )
@@ -205,7 +242,8 @@ def main() -> None:
         "fifo_path": RADAR_FIFO,
         "topic": RADAR_TOPIC,
         "client": client,
-        "builder": lambda raw: build_radar_message(raw, RADAR_SENSOR_ID, float(RADAR_FRAME_RATE)),
+        "builder": lambda raw: build_radar_message(
+          raw, RADAR_SENSOR_ID, float(RADAR_FRAME_RATE)),
         "fps": float(RADAR_FRAME_RATE),
       },
       daemon=True,

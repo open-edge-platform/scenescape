@@ -5,47 +5,60 @@ SPDX-License-Identifier: Apache-2.0
 
 # Run the Radar-Intersection Fusion Demo
 
-- **Time to Complete:** About 30–45 minutes (first image rebuild)
+- **Time to Complete:** About 20–45 minutes (depends on perception mode)
 
-This guide runs the **Radar Intersection** demo: RadarPillars detections via
-DLStreamer `g3dinference model-type=radarpillars` on
-`scenescape/data/radar/{id}`, fused with OpenVINO camera `gvadetect` on
+This guide runs the **Radar Intersection** demo: radar detections on
+`scenescape/data/radar/{id}` fused with OpenVINO camera `gvadetect` on
 `scenescape/data/camera/{id}`.
 
-It does **not** use `g3dradarprocess` (raw ADC). Inference runs in GStreamer
-(same shape as the LiDAR PointPillars demo).
+## Perception modes (`RADAR_PERCEPTION`)
+
+All modes share one stack:
+`g3dlidarparse` → `g3dinference` → `gvametaconvert` → MQTT
+(`radar_sensor_contract`). Only the `model-type` and bin layout change.
+
+| Mode | `model-type` | Input bins | When to use |
+| --- | --- | --- | --- |
+| **`classical`** (default) | `classical` | `frames_bin` (5-float) | Best **sparsity robustness** |
+| **`roadside`** | `roadside` | `frames_bin` + OV PointNetSeg | Sparse DNN; VIDETEC CC BY weights |
+| **`radarpillars`** | `radarpillars` | `pcd_bin` (7-float) | Pillar / VoD-style DNN |
+
+```bash
+SUPASS=<password> make demo-radar                              # classical
+SUPASS=<password> RADAR_PERCEPTION=roadside make demo-radar
+SUPASS=<password> RADAR_PERCEPTION=radarpillars make demo-radar
+```
+
+It does **not** use `g3dradarprocess` (raw ADC).
 
 ## Architecture
 
 | Piece | Role |
 | --- | --- |
-| `sample_data/radar_intersection/docker-compose.radar-override.yml` | Scene/data/model init + `radar-stream` |
-| `radar_publisher.py` | Combined GStreamer pipeline → MQTT |
-| `radar_file_playback.py` | `multifilesrc` / `g3dlidarparse point-features=7` / `g3dinference` fragments |
-| `model_installer/FP16/` | Baked RadarPillars OpenVINO IR + RPW1 preproc weights |
-| `RadarIntersection-scene-import.zip` | Scene + camera + first-class radar sensor |
-| `make build-dlsps-g3d` | Local DLSPS image with generalized `g3dinference` |
+| `docker-compose.radar-override.yml` | Scene/data/model init + `radar-stream` |
+| `radar_publisher.py` | Shared GST → FIFO → MQTT for all modes |
+| `radar_file_playback.py` | `multifilesrc` / parse / `g3dinference` fragments |
+| `model_installer/classical/` | Classical g3dinference JSON config |
+| `model_installer/roadside/FP16/` | Roadside OpenVINO IR (VIDETEC-trained) |
+| `model_installer/FP16/` | RadarPillars IR |
+| `make build-dlsps-g3d` | DLSPS image with `classical`/`roadside`/`radarpillars` runtimes |
 
-Model: [Fatihbin/radarpillars-vod](https://huggingface.co/Fatihbin/radarpillars-vod)
-(Apache-2.0). Domain gap: VoD ego training vs gantry VIDETEC — this demo
-proves IR + DLS + SceneScape plumbing; quality may need fine-tuning later.
+Roadside commercial path: see
+[`baselines/PROVENANCE.md`](../../../sample_data/radar_intersection/baselines/PROVENANCE.md)
+(VIDETEC CC BY 4.0; no RoadsideRadar NC dataset).
 
 ## Prerequisites
 
 1. Same host requirements as the core demo (`SUPASS`, Docker, secrets).
 2. A local [DLStreamer](https://github.com/open-edge-platform/dlstreamer) checkout
-   with the generalized `g3dinference` branch (default path
-   `../dlstreamer` next to this repo). Override with `DLSTREAMER_SRC=...`.
-3. **Real VIDETEC-2 radar frames (recommended acceptance path)** — see
-   [VIDETEC-2 real data](#videtec-2-real-data) below. Without them,
+   with generalized `g3dinference` including `classical` / `roadside` runtimes
+   (default `../dlstreamer`). Override `DLSTREAMER_SRC=...`.
+3. **Real VIDETEC-2 radar frames (recommended)** — see
+   [VIDETEC-2 real data](#videtec-2-real-data). Without them,
    `radar-data-init` falls back to synthetic frames (plumbing only).
-4. Camera JPEG sequence (optional for radar-only): the V2X-Seq example used by
-   the LiDAR demo under
+4. Camera JPEG sequence (optional for radar-only): V2X-Seq example under
    `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/image/`.
-   Override with `RADAR_CAM_DATASET_DIR` if needed.
-5. Manager/Controller images that include first-class radar
-   (`DATA_RADAR`, `Radar` sensor). `make demo-radar` rebuilds core images by
-   default (`DEMO_REBUILD_IMAGES=true`).
+5. Manager/Controller with first-class radar (`DATA_RADAR`).
 
 ## VIDETEC-2 real data
 
@@ -105,19 +118,23 @@ Attribution when using or redistributing converted frames:
 ## Run
 
 ```bash
+# Default: classical (g3dinference model-type=classical)
 SUPASS=<password> make demo-radar
+
+# OpenVINO roadside (model-type=roadside; VIDETEC CC BY weights)
+SUPASS=<password> RADAR_PERCEPTION=roadside make demo-radar
+
+# RadarPillars (model-type=radarpillars)
+SUPASS=<password> RADAR_PERCEPTION=radarpillars make demo-radar
 ```
 
-`make demo-radar` first runs `build-dlsps-g3d` (rebuilds `libgst3delements.so`
-inside the stock DLSPS container and tags
-`intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2-g3d`), then starts
-compose:
+`make demo-radar` always runs `build-dlsps-g3d` so all four model-types are in
+the plugin. Compose steps:
 
 1. `radar-scene-init` — imports **Radar Intersection** (idempotent).
-2. `radar-data-init` — real VIDETEC `.bin` PCD when present, else synthetic;
-   optional camera JPEGs.
-3. `radar-model-init` — copies RadarPillars IR into `vol-models`.
-4. `radar-stream` — publishes radar + camera detections.
+2. `radar-data-init` — `frames/`, `frames_bin/` (5-float), `pcd_bin/` (7-float).
+3. `radar-model-init` — installs config/IR for the selected `RADAR_PERCEPTION`.
+4. `radar-stream` — shared GST publish path for radar + camera.
 
 Open the UI and select **Radar Intersection**.
 
@@ -126,10 +143,6 @@ Open the UI and select **Radar Intersection**.
 ```bash
 CAM_MUTE=true SUPASS=<password> make demo-radar
 ```
-
-### Fusion (default)
-
-Leave `CAM_MUTE` / `RADAR_MUTE` unset (or `false`). Both modalities publish.
 
 ### Force real-data-only init
 
@@ -141,18 +154,18 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `DLSTREAMER_SRC` | `../dlstreamer` | Checkout used by `build-dlsps-g3d` |
+| `RADAR_PERCEPTION` | `classical` | `classical` \| `roadside` \| `radarpillars` |
+| `RADAR_DEVICE` | `CPU` | OpenVINO device for roadside / radarpillars |
+| `RADAR_SCORE_THRESHOLD` | mode default (`0` / `0.1`) | Use `≈0.03` for radarpillars on real VIDETEC |
+| `RADAR_MODEL_CONFIG` | mode default under `vol-models` | Override g3dinference config JSON |
+| `RADAR_DATA_PATH` | `frames_bin` or `pcd_bin` | multifilesrc pattern |
+| `DLSTREAMER_SRC` | `../dlstreamer` | Checkout for `build-dlsps-g3d` |
 | `DLS_G3D_IMAGE` | `…:2026.2.0-ubuntu24-rc2-g3d` | Baked DLSPS tag |
-| `RADAR_DEVICE` | `CPU` | OpenVINO device for RadarPillars |
-| `RADAR_SCORE_THRESHOLD` | `0.1` | `g3dinference` score filter; use `≈0.03` on real VIDETEC (VoD domain gap) |
 | `CAM_DEVICE` | `CPU` | OpenVINO device for `gvadetect` |
 | `RADAR_MUTE` / `CAM_MUTE` | `false` | Mute a modality |
-| `RADAR_RAW_DATASET_DIR` | `./sample_data/radar_intersection/VIDETEC-2/converted` | Host path with `frames/` and/or `pcd_bin/` (or raw `.h5`) |
-| `RADAR_DATA_PATH` | `…/pcd_bin/%06d.bin` | multifilesrc pattern; use `pcd_bin_acc5/%06d.bin` for ±5 densify |
-| `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `0` / unset | Slice densified window (e.g. 2100–4100) |
+| `RADAR_RAW_DATASET_DIR` | `./sample_data/radar_intersection/VIDETEC-2/converted` | Host `frames/` / bins |
+| `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `0` / unset | Frame slice |
 | `RADAR_REQUIRE_REAL` | `false` | `true` fails if no real VIDETEC inputs |
-| `RADAR_MAX_FRAMES` | (unset) | Cap frames when converting HDF5 inside data-init |
-| `RADAR_CAM_DATASET_DIR` | LiDAR V2X example tree | Must contain `infrastructure-side/image/` |
 | `DEMO_REBUILD_IMAGES` | `true` | Set `false` to skip Scenescape image rebuild |
 
 ## Verify

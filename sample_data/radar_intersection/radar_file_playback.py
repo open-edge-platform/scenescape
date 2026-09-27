@@ -4,10 +4,15 @@
 
 """Recorded-file GStreamer fragments for the radar-intersection demo.
 
-Radar branch: multifilesrc → g3dlidarparse (point-features=7) →
-g3dinference model-type=radarpillars → gvametaconvert → FIFO.
+All radar perception modes share one publish stack:
 
-Camera branch mirrors the LiDAR demo (jpegdec → gvadetect).
+  multifilesrc → g3dlidarparse → g3dinference → gvametaconvert → FIFO
+
+| model-type   | point-features | data |
+| --- | ---: | --- |
+| classical    | 5 | frames_bin/%06d.bin |
+| roadside     | 5 | frames_bin/%06d.bin |
+| radarpillars | 7 | pcd_bin/%06d.bin |
 """
 
 from __future__ import annotations
@@ -24,12 +29,14 @@ def radar_multifilesrc_parts(
   loop: bool,
   frame_rate: int,
   model_config: str,
+  model_type: str,
+  point_features: int,
   device: str,
   score_threshold: float,
   add_tensor_data: str,
   fifo_path: str,
 ) -> list[str]:
-  """GStreamer fragments for recorded RadarPillars ``.bin`` (7 float32/point)."""
+  """GStreamer fragments for recorded radar bins + g3dinference."""
   parts = [
     f"multifilesrc location={shlex.quote(data_path)} start-index={start_index}",
   ]
@@ -39,9 +46,9 @@ def radar_multifilesrc_parts(
     parts.append("loop=true")
   parts += [
     "caps=application/octet-stream",
-    f"! g3dlidarparse stride=1 frame-rate={frame_rate} point-features=7",
+    f"! g3dlidarparse stride=1 frame-rate={frame_rate} point-features={int(point_features)}",
     f"! g3dinference config={shlex.quote(model_config)}"
-    f" model-type=radarpillars"
+    f" model-type={shlex.quote(model_type)}"
     f" device={shlex.quote(device)}"
     f" score-threshold={score_threshold}",
     f"! gvametaconvert add-tensor-data={add_tensor_data} format=json",

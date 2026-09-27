@@ -15,6 +15,47 @@ Related Cursor plan drafts (not in-repo): `videtec_radar_demo_ca4bfda2`,
 
 ---
 
+## Phase-1 alternate perception (2026-09-27)
+
+**Criterion = sparsity robustness** (not mean full-window recall). Offline
+VIDETEC 2100–4100 stride 5; stratified by points within 3 m of GNSS.
+
+| Method | 1-pt @3m recall (H=0) | Miss when support≥1 (H=0) | N=1 cloud recall |
+| --- | ---: | ---: | ---: |
+| classical | **96.9%** | **2.6%** | 47% |
+| roadside (weak GNSS PointNet) | **96.9%** | **2.6%** | 47% |
+| RadarPillars FT2 | 30.2% | 60.3% | **0%** |
+
+Artifacts: `sample_data/radar_intersection/baselines/`,
+`VIDETEC-2/phase1_baselines/PHASE1_COMPARE.md` + `sparsity_robustness.json`.
+**Takeaway:** classical/roadside are sparsity-robust; RP is not (fails
+single-point roadside cases; densify helps means, not the hard sparse bin).
+Roadside ≈ classical on sparse recall, cleaner under empty support.
+**Commercial path:** roadside weights are **VIDETEC-only** (CC BY 4.0) —
+`phase1_baselines/roadside_videtec_ccby.pt`; see `baselines/PROVENANCE.md`.
+No RoadsideRadar (CC BY-NC-SA) data/weights.
+
+---
+
+## Phase-2 Intel stack (2026-09-27) — locked product call
+
+**Product requirement:** classical and roadside go through **`g3dinference`**
+so parse → OD meta → `gvametaconvert` → publish is **one stack** (not a
+parallel Python publisher path).
+
+| `RADAR_PERCEPTION` | `g3dinference model-type` | Input |
+| --- | --- | --- |
+| `classical` (default) | `classical` | `frames_bin` 5-float VIDETEC |
+| `roadside` | `roadside` | `frames_bin` 5-float + OV PointNetSeg |
+| `radarpillars` | `radarpillars` | `pcd_bin` 7-float VoD |
+
+DLS: `classical_runtime.*`, `roadside_runtime.*` in
+`dlstreamer/.../g3dinference/`. SceneScape: shared
+`radar_file_playback` / `radar_publisher` / `radar_sensor_contract`.
+Bake: always `make build-dlsps-g3d` for `demo-radar`.
+
+---
+
 ## Current priority (locked)
 
 **Dense-cloud PyTorch performance is locked in as good.** SceneScape MQTT /
@@ -63,9 +104,11 @@ separates those.
 | MQTT | `scenescape/data/radar/{sensor_id}` (`DATA_RADAR`); radar-local metres; Controller applies pose |
 | Native detection list | VIDETEC-style `(N,5)`: range, doppler, az, el, magnitude |
 | Example archive | [VIDETEC-2](https://zenodo.org/records/17799385) (CC BY 4.0) — convert HDF5 → frames offline |
-| Classical perception | `radar/` cluster/track publisher (v1, non-DNN) |
-| DNN path | RadarPillars (VoD) → **partial** OpenVINO: FP16 BEV/detect IR + **host** VFE/PillarAttention; **not** full-graph OV, **not** INT8 |
-| DLStreamer element | **Generalize** `g3dinference` with `model-type=pointpillars\|radarpillars` — do **not** invent `g3dradarinfer` |
+| Classical perception | `g3dinference model-type=classical` (host cluster/track; shared OD publish) |
+| Roadside perception | `g3dinference model-type=roadside` (OV PointNetSeg + host instances) |
+| Pillar DNN path | RadarPillars → **partial** OpenVINO BEV/detect + host VFE/attn; `model-type=radarpillars` |
+| DLStreamer element | **Generalize** `g3dinference` with `model-type=pointpillars\|radarpillars\|classical\|roadside` — do **not** invent `g3dradarinfer` |
+
 | Radar PCD for DNN | VoD-style **7 float32**/point: `x, y, z, rcs, v_r, v_r_comp, time` |
 | Acceptance data | **Real [VIDETEC-2](https://zenodo.org/records/17799385)** through convert → PCD → `g3dinference` → MQTT → Controller. Synthetic frames are plumbing-only; they do **not** close the demo. |
 | Accuracy gate | Measure RadarPillars on real VIDETEC using **RTK-GNSS VRU first**; camera tracks only as weak secondary after sync/pose proof |

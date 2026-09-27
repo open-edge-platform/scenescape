@@ -9,8 +9,9 @@ generate synthetic frames (CI / no-archive fallback).
 
 Writes under ``--out-dir``:
   frames/%06d.npy
-  pcd_bin/%06d.bin   float32 (N,7)
-  frames/index.json  (copied or generated; includes timestamps when available)
+  frames_bin/%06d.bin  float32 (N,5) VIDETEC — classical / roadside g3dinference
+  pcd_bin/%06d.bin     float32 (N,7) VoD-style — radarpillars
+  frames/index.json    (copied or generated; includes timestamps when available)
 """
 
 from __future__ import annotations
@@ -39,6 +40,22 @@ def _write_pcd_from_frames(frames_dir: Path, pcd_dir: Path) -> int:
   for path in npy_files:
     frame = np.load(path)
     videtec_to_pcd(frame).tofile(pcd_dir / f"{path.stem}.bin")
+  return len(npy_files)
+
+
+def _write_frames_bin(frames_dir: Path, bin_dir: Path) -> int:
+  """Pack (N,5) npy → tightly packed float32 .bin for g3dlidarparse point-features=5."""
+  bin_dir.mkdir(parents=True, exist_ok=True)
+  npy_files = sorted(frames_dir.glob("*.npy"))
+  if not npy_files:
+    raise SystemExit(f"no *.npy frames under {frames_dir}")
+  for path in npy_files:
+    frame = np.asarray(np.load(path), dtype=np.float32)
+    if frame.size == 0:
+      frame = np.zeros((0, 5), dtype=np.float32)
+    elif frame.ndim == 1:
+      frame = frame.reshape(1, -1)
+    frame[:, :5].astype(np.float32).tofile(bin_dir / f"{path.stem}.bin")
   return len(npy_files)
 
 
@@ -100,6 +117,7 @@ def main(argv=None):
   args = parse_args(argv)
   out = args.out_dir
   frames_dst = out / "frames"
+  frames_bin_dst = out / "frames_bin"
   pcd_dst = out / "pcd_bin"
   frames_dst.mkdir(parents=True, exist_ok=True)
   pcd_dst.mkdir(parents=True, exist_ok=True)
@@ -144,6 +162,10 @@ def main(argv=None):
       index.append({"frame_index": i, "path": f"{i:06d}.npy", "n": int(frame.shape[0])})
     (frames_dst / "index.json").write_text(json.dumps(index, indent=2) + "\n")
     print(f"Synthetic fallback: {args.num_frames} frames → {out}")
+
+  if any(frames_dst.glob("*.npy")):
+    n5 = _write_frames_bin(frames_dst, frames_bin_dst)
+    print(f"Wrote {n5} VIDETEC 5-float bins → {frames_bin_dst}")
 
   marker = out / "DATA_SOURCE.txt"
   marker.write_text("real-videtec\n" if used_real else "synthetic\n")

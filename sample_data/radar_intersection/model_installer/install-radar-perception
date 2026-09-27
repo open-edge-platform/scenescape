@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Install g3dinference configs/IR for RADAR_PERCEPTION=classical|roadside|radarpillars.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODELS_PATH="${MODELS_PATH:-/home/pipeline-server/models}"
+MODE="${RADAR_PERCEPTION:-classical}"
+MODE="$(echo "${MODE}" | tr '[:upper:]' '[:lower:]')"
+
+log() { printf '[install-radar-perception] %s\n' "$*"; }
+
+log "RADAR_PERCEPTION=${MODE}"
+
+case "${MODE}" in
+  classical)
+    OUT="${MODELS_PATH}/public/classical"
+    mkdir -p "${OUT}"
+    cp -a "${SCRIPT_DIR}/classical/classical_ov_config.json" "${OUT}/"
+    log "classical config → ${OUT}/classical_ov_config.json"
+    ;;
+  roadside)
+    bash "${SCRIPT_DIR}/install-roadside"
+    ;;
+  radarpillars)
+    bash "${SCRIPT_DIR}/install-radarpillars"
+    ;;
+  *)
+    log "ERROR: unknown RADAR_PERCEPTION=${MODE}"
+    log "Supported: classical | roadside | radarpillars"
+    exit 1
+    ;;
+esac
+
+log "done"
