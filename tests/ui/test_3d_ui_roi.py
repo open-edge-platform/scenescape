@@ -6,6 +6,8 @@ import pytest
 import tests.ui.common_ui_test_utils as common
 from tests.ui import UserInterfaceTest
 from tests.ui.browser import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK
 from tests.utils.spec import FuncTestSpec
@@ -21,6 +23,7 @@ PANEL_WAIT_SEC = 100
 ROI_NAME = "3D_UI_ROI"
 NEW_COLOR_HEX = "#ff0000"
 NEW_OPACITY = 0.25
+MAX_OPACITY = 1.0
 NEW_HEIGHT = 5
 
 
@@ -56,12 +59,14 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
       "title": ROI_NAME,
       "points": roi_points,
     }])
+    roi_form = self.browser.find_element(By.ID, "roi-form")
     self.executeScript(
       "const field = document.getElementById('id_rois');"
       "field.value = arguments[0];"
       "document.getElementById('roi-form').submit();",
       roi_data,
     )
+    WebDriverWait(self.browser, PANEL_WAIT_SEC).until(EC.staleness_of(roi_form))
     return
 
   def check_roi_controls(self, result_recorder):
@@ -143,6 +148,22 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
       f"ROI opacity did not update: expected {NEW_OPACITY}, got {state_after_opacity['opacity']}"
     )
     log.info("ROI opacity updated correctly.")
+
+    log.info("Verify ROI opacity accepts its maximum boundary value.")
+    common.set_3d_control_input_value(
+      self.browser,
+      common.get_3d_control_input(self.browser, ROI_NAME, "opacity", "@type='number'"),
+      MAX_OPACITY,
+    )
+    state_at_max_opacity = common.wait_for_3d_scene_object_state(
+      self.browser, ROI_NAME,
+      lambda state: abs(state.get("opacity") - MAX_OPACITY) < 0.01
+    )
+    assert abs(state_at_max_opacity["opacity"] - MAX_OPACITY) < 0.01, (
+      f"ROI opacity did not accept maximum: expected {MAX_OPACITY}, "
+      f"got {state_at_max_opacity['opacity']}"
+    )
+    log.info("ROI opacity maximum boundary handled correctly.")
 
     log.info("6. Change ROI height via the control panel.")
     common.set_3d_control_input_value(
