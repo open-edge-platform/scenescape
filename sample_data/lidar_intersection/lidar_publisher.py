@@ -15,6 +15,7 @@ import base64
 import json
 import math
 import os
+import struct
 import shlex
 import subprocess
 import sys
@@ -399,8 +400,6 @@ def _read_pointcloud_payload(path: str, max_points: int) -> "dict | None":
   Format is little-endian float32 xyz[+intensity].
   """
   try:
-    import struct
-
     with open(path, "rb") as f:
       raw = f.read()
   except Exception as exc:

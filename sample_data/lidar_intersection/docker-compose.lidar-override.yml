@@ -146,14 +146,12 @@ services:
     # LIDAR_DEVICE below). Comment these out (and set LIDAR_DEVICE=CPU) to
     # run the LiDAR branch on CPU too; the camera branch defaults to CPU
     # already and doesn't need this.
-    # GPU device mount disabled for WSL/CPU hosts (no /dev/dri). Re-enable with
-    # LIDAR_DEVICE=GPU when a usable GPU is present.
-    # devices:
-    #   - "/dev/dri:/dev/dri"
-    # group_add:
-    #   - "992"
-    # device_cgroup_rules:
-    #   - "c 226:* rmw"
+    devices:
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - "992"
+    device_cgroup_rules:
+      - "c 226:* rmw"
     depends_on:
       broker:
         condition: service_started
@@ -210,3 +208,6 @@ services:
         target: certs/scenescape-ca.pem
     restart: always
     pids_limit: 1000
+
+volumes:
+  vol-sample-data:
