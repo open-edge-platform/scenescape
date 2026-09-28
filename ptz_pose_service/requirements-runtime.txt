@@ -5,4 +5,5 @@
 # Keep package list in alphabetical order
 defusedxml==0.7.1
 onvif-zeep==0.2.12
+paho-mqtt==2.1.0
 requests==2.33.0

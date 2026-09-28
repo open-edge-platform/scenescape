@@ -57,6 +57,26 @@ def build_argparser():
   parser.add_argument("--discover-only", action="store_true", default=False,
                       help="discover ONVIF/PTZ cameras on the network, log them, and exit "
                            "(use this to populate the config file, no REST connection needed)")
+
+  # Auto-recalibration fallback (used for cameras whose ONVIF PTZ position
+  # space can't be reliably converted to degrees - see README.md).
+  parser.add_argument("--broker", default="broker.scenescape.intel.com",
+                      help="MQTT broker host[:port] used to request calibration images")
+  parser.add_argument("--brokerauth", default="/run/secrets/browser.auth",
+                      help="user:password or path to JSON file for MQTT broker authentication")
+  parser.add_argument("--brokerrootcert", default="/run/secrets/certs/scenescape-ca.pem",
+                      help="path to CA certificate for MQTT broker TLS verification")
+  parser.add_argument("--autocalibration-url",
+                      default="https://autocalibration.scenescape.intel.com:8443/v1",
+                      help="autocalibration service REST API base URL")
+  parser.add_argument("--autocalibration-rootcert", default="/run/secrets/certs/scenescape-ca.pem",
+                      help="path to CA certificate for autocalibration REST TLS verification")
+  parser.add_argument("--min-raw-delta", type=float, default=0.02,
+                      help="minimum raw ONVIF pan/tilt unit change before a camera in "
+                           "auto-recalibration mode is considered to have moved")
+  parser.add_argument("--recal-settle-s", type=float, default=2.0,
+                      help="how long a camera's raw pan/tilt must stay still before "
+                           "triggering auto-recalibration")
   return parser
 
 
@@ -73,7 +93,11 @@ def main():
       onvif_username=args.onvif_username, onvif_password=args.onvif_password,
       poll_hz=args.poll_hz, min_delta_deg=args.min_delta_deg,
       default_pan_scale=args.pan_scale, default_tilt_scale=args.tilt_scale,
-      default_invert_pan=args.invert_pan, default_invert_tilt=args.invert_tilt)
+      default_invert_pan=args.invert_pan, default_invert_tilt=args.invert_tilt,
+      broker=args.broker, brokerauth=args.brokerauth, brokerrootcert=args.brokerrootcert,
+      autocalibration_url=args.autocalibration_url,
+      autocalibration_rootcert=args.autocalibration_rootcert,
+      min_raw_delta=args.min_raw_delta, recal_settle_s=args.recal_settle_s)
   ctx.setup()
   ctx.loop_forever()
   return 0

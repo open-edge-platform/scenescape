@@ -117,3 +117,37 @@ def scale_from_fov(space_min: float, space_max: float, fov_degrees: float) -> fl
     raise ValueError(f"Invalid PTZ position space range: [{space_min}, {space_max}]")
   return fov_degrees / span
 
+
+def quaternion_to_euler_xyz_degrees(x: float, y: float, z: float, w: float) -> List[float]:
+  """Convert a ``[x, y, z, w]`` quaternion (scalar-last, the convention used
+  by ``scipy.spatial.transform.Rotation.as_quat()``) into the ``[roll, pitch,
+  yaw]`` intrinsic Euler-XYZ degrees representation used by Scenescape's
+  camera ``rotation`` field (matching three.js's ``Euler`` with the default
+  ``'XYZ'`` order, as used client-side by the manual calibration UI).
+
+  Implemented from scratch (quaternion -> rotation matrix -> Euler-XYZ) to
+  keep this service numpy/scipy-free; the matrix-to-Euler step mirrors
+  three.js's ``Euler.setFromRotationMatrix()`` for order ``'XYZ'``.
+  """
+  import math
+
+  # Quaternion -> 3x3 rotation matrix (row-major, transforms column vectors).
+  m00 = 1 - 2 * (y * y + z * z)
+  m01 = 2 * (x * y - w * z)
+  m02 = 2 * (x * z + w * y)
+  m11 = 1 - 2 * (x * x + z * z)
+  m12 = 2 * (y * z - w * x)
+  m21 = 2 * (y * z + w * x)
+  m22 = 1 - 2 * (x * x + y * y)
+
+  m02_clamped = max(-1.0, min(1.0, m02))
+  pitch = math.asin(m02_clamped)
+  if abs(m02_clamped) < 0.9999999:
+    roll = math.atan2(-m12, m22)
+    yaw = math.atan2(-m01, m00)
+  else:
+    roll = math.atan2(m21, m11)
+    yaw = 0.0
+
+  return [math.degrees(roll), math.degrees(pitch), math.degrees(yaw)]
+

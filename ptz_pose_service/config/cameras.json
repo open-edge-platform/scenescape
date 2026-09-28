@@ -9,10 +9,11 @@
       "home_tilt": null,
       "pan_degrees": null,
       "tilt_degrees": null,
-      "pan_scale": 1.0,
-      "tilt_scale": 1.0,
+      "pan_scale": null,
+      "tilt_scale": null,
       "invert_pan": false,
-      "invert_tilt": false
+      "invert_tilt": false,
+      "auto_recalibrate": null
     }
   ]
 }
