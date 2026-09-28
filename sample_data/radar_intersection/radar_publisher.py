@@ -25,7 +25,12 @@ import sys
 import threading
 import time
 
-from radar_file_playback import camera_multifilesrc_parts, radar_multifilesrc_parts
+from radar_file_playback import (
+  camera_multifilesrc_parts,
+  playback_index,
+  radar_multifilesrc_parts,
+  setup_getimage_responder,
+)
 from radar_sensor_contract import (
   MqttState,
   build_camera_message,
@@ -176,6 +181,10 @@ def _fifo_publish_loop(
   client,
   builder,
   fps: float,
+  frame_index_cell: list | None = None,
+  start_index: int = 0,
+  stop_index: int | None = None,
+  loop: bool = True,
 ) -> None:
   published = 0
   with open(fifo_path, "r", encoding="utf-8", errors="replace") as fifo:
@@ -194,6 +203,9 @@ def _fifo_publish_loop(
       msg = builder(raw)
       safe_publish(client, topic, msg)
       published += 1
+      if frame_index_cell is not None:
+        frame_index_cell[0] = playback_index(
+          published, start_index, stop_index, loop)
       if published % max(1, int(fps)) == 0:
         objs = msg.get("objects") or {}
         n = sum(len(v) for v in objs.values()) if isinstance(objs, dict) else 0
@@ -212,7 +224,11 @@ def main() -> None:
 
   state = MqttState()
   atexit.register(state.shutdown)
+  cam_frame_index: list = [CAM_START_INDEX if not CAM_MUTE else None]
   client = connect_mqtt("radar-demo-publisher", BROKER, PORT, state)
+  if not CAM_MUTE:
+    setup_getimage_responder(
+      client, CAM_SENSOR_ID, CAM_DATA_PATH, cam_frame_index, CAM_START_INDEX)
 
   if not CAM_MUTE:
     _make_fifo(CAM_FIFO)
@@ -260,6 +276,10 @@ def main() -> None:
         "builder": lambda raw: build_camera_message(
           raw, CAM_SENSOR_ID, float(CAM_FRAME_RATE), CAM_DETECTION_LABELS),
         "fps": float(CAM_FRAME_RATE),
+        "frame_index_cell": cam_frame_index,
+        "start_index": CAM_START_INDEX,
+        "stop_index": CAM_STOP_INDEX,
+        "loop": CAM_LOOP,
       },
       daemon=True,
       name="camera",

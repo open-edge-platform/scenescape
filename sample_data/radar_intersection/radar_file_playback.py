@@ -17,8 +17,12 @@ All radar perception modes share one publish stack:
 
 from __future__ import annotations
 
+import base64
+import json
 import os
 import shlex
+
+import paho.mqtt.client as mqtt
 
 
 def radar_multifilesrc_parts(
@@ -99,3 +103,52 @@ def ensure_parent_dir(path: str) -> None:
   parent = os.path.dirname(path)
   if parent:
     os.makedirs(parent, exist_ok=True)
+
+
+def playback_index(published_count: int, start: int, stop: int | None, loop: bool) -> int:
+  """Dataset file index for the latest published camera frame."""
+  if published_count <= 0:
+    return start
+  offset = published_count - 1
+  if stop is None:
+    return start + offset
+  span = stop - start + 1
+  if span <= 0:
+    return start
+  if loop:
+    return start + (offset % span)
+  return min(start + offset, stop)
+
+
+def read_frame_as_jpeg_b64(path: str) -> str | None:
+  try:
+    with open(path, "rb") as f:
+      return base64.b64encode(f.read()).decode("ascii")
+  except Exception as exc:
+    print(f"[radar-camera] Failed to read preview frame {path}: {exc}", flush=True)
+    return None
+
+
+def setup_getimage_responder(
+  client: mqtt.Client,
+  sensor_id: str,
+  data_path: str,
+  frame_index_cell: list,
+  start_index: int,
+) -> None:
+  """Answer Manager UI getimage from the recorded JPEG sequence."""
+  image_topic = f"scenescape/image/camera/{sensor_id}"
+
+  def _on_message(msg_client, _userdata, message):
+    if message.payload.decode("utf-8", errors="replace").strip() != "getimage":
+      return
+    idx = frame_index_cell[0]
+    if idx is None:
+      return
+    b64 = read_frame_as_jpeg_b64(data_path % idx) or read_frame_as_jpeg_b64(
+      data_path % start_index)
+    if b64 is not None:
+      msg_client.publish(image_topic, json.dumps({"image": b64}), qos=0)
+
+  client.subscribe(f"scenescape/cmd/camera/{sensor_id}")
+  client.on_message = _on_message

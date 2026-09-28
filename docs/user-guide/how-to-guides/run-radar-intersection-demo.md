@@ -56,8 +56,15 @@ Roadside commercial path: see
 3. **Real VIDETEC-2 radar frames (recommended)** — see
    [VIDETEC-2 real data](#videtec-2-real-data). Without them,
    `radar-data-init` falls back to synthetic frames (plumbing only).
-4. Camera JPEG sequence (optional for radar-only): V2X-Seq example under
-   `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/image/`.
+4. Camera JPEG sequence for fusion (default `CAM_MUTE=false`):
+   - Preferred: V2X-Seq under
+     `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/image/`
+     (same archive as the LiDAR demo; set `CAM_START_INDEX=10699`
+     `CAM_STOP_INDEX=10949`).
+   - Or stage frames under
+     `sample_data/radar_intersection/camera_demo/infrastructure-side/image/`
+     and set `RADAR_CAM_DATASET_DIR=./sample_data/radar_intersection/camera_demo`
+     with `CAM_START_INDEX=1` / `CAM_STOP_INDEX` matching the sequence.
 5. Manager/Controller with first-class radar (`DATA_RADAR`).
 
 ## VIDETEC-2 real data
@@ -136,7 +143,31 @@ the plugin. Compose steps:
 3. `radar-model-init` — installs config/IR for the selected `RADAR_PERCEPTION`.
 4. `radar-stream` — shared GST publish path for radar + camera.
 
-Open the UI and select **Radar Intersection**.
+Open the UI and select **Radar Intersection**. For fusion, leave the camera
+unmuted (default): `radar-stream` publishes both
+`scenescape/data/radar/intersection-radar1` and
+`scenescape/data/camera/radar-cam1`, and answers Manager `getimage` for the
+`radar-cam1` video pane. On the scene view you should see map tracks from
+radar together with the live camera feed / detections.
+
+Example (FT2 densify + **time-aligned VIDETEC camera** fusion):
+
+`runs_vru` Oct‑9 `run_0` overlaps densified bins on frames **3270–4100**
+(~15:01–15:02 CEST). Stage `s110_o` frames into `camera_demo/` (see
+`camera_demo/ALIGN.json`; mean \|Δt\| ≈ 24 ms), then:
+
+```bash
+SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
+  RADAR_PCD_SUBDIR=pcd_bin_acc5 RADAR_IR_DIR=FP16_ft2 \
+  RADAR_START_INDEX=3270 RADAR_STOP_INDEX=4100 RADAR_SCORE_THRESHOLD=0.03 \
+  RADAR_CAM_DATASET_DIR=./sample_data/radar_intersection/camera_demo \
+  CAM_START_INDEX=3270 CAM_STOP_INDEX=4100 CAM_MUTE=false \
+  make demo-radar
+```
+
+Open **Radar Intersection**, select **radar-cam1** for the live pane, and
+confirm map tracks update while camera detections publish on
+`scenescape/data/camera/radar-cam1`.
 
 ### Radar-only
 
@@ -163,6 +194,8 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `DLS_G3D_IMAGE` | `…:2026.2.0-ubuntu24-rc2-g3d` | Baked DLSPS tag |
 | `CAM_DEVICE` | `CPU` | OpenVINO device for `gvadetect` |
 | `RADAR_MUTE` / `CAM_MUTE` | `false` | Mute a modality |
+| `RADAR_CAM_DATASET_DIR` | `./sample_data/lidar_intersection/V2X-Seq-SPD-Example` | Host tree containing `infrastructure-side/image/` |
+| `CAM_START_INDEX` / `CAM_STOP_INDEX` | `10699` / `10949` | JPEG sequence slice (`%06d.jpg`) |
 | `RADAR_RAW_DATASET_DIR` | `./sample_data/radar_intersection/VIDETEC-2/converted` | Host `frames/` / bins |
 | `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `0` / unset | Frame slice |
 | `RADAR_REQUIRE_REAL` | `false` | `true` fails if no real VIDETEC inputs |
@@ -181,10 +214,10 @@ docker compose -f docker-compose.yml \
   -f sample_data/radar_intersection/docker-compose.radar-override.yml \
   exec -T broker mosquitto_sub -h localhost -t 'scenescape/data/radar/#' -C 3 -v
 
-# Camera detections
+# Camera detections (TLS on 1883 — prefer probing from radar-stream with paho+CA)
 docker compose -f docker-compose.yml \
   -f sample_data/radar_intersection/docker-compose.radar-override.yml \
-  exec -T broker mosquitto_sub -h localhost -t 'scenescape/data/camera/radar-cam1' -C 3 -v
+  logs radar-stream | grep -E '\[camera\]|\[radar\]' | tail -20
 
 # Regulated scene (tracks)
 docker compose -f docker-compose.yml \

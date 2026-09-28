@@ -46,6 +46,8 @@ sample_data/radar_intersection/frames/
 sample_data/radar_intersection/weights/
 # Manually-downloaded VIDETEC-2 radar/GNSS (Zenodo 17799385) - see run-radar-intersection-demo.md
 sample_data/radar_intersection/VIDETEC-2/
+# Generated camera JPEG staging for radar fusion demo (see run-radar-intersection-demo.md)
+sample_data/radar_intersection/camera_demo/
 .test_logs
 test_data
 test_reports/
