@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from analytics.analytics_models import AnalyticsObject
-from analytics.event_publisher import publish_events
-from analytics.state import AnalyticsStateStore
+from analytics.event_publisher import publish_events, publish_potential_events
+from analytics.state import AnalyticsStateStore, PotentialAnalyticsEvent
 from analytics.tripwire import TripwireEvent
 from scene_common.chain_data import ChainData
 from scene_common.geometry import Point, Region, Tripwire
@@ -227,3 +227,68 @@ class TestEventPublisher:
 
     assert 'objects' not in scene.events
     assert 'count' not in scene.events
+
+
+class TestPotentialEventPublisher:
+
+  def test_publishes_stable_lifecycle_payload_on_potential_topic(self):
+    region = _region()
+    scene = SimpleNamespace(
+      uid='scene-1',
+      name='Test Scene',
+      regions={'roi-1': region},
+      tripwires={},
+    )
+    event = PotentialAnalyticsEvent(
+      event_id='stable-id',
+      scene_id='scene-1',
+      scene_name='Test Scene',
+      geometry_type='region',
+      geometry_id='roi-1',
+      geometry_name='ROI',
+      geometry_metadata=region.serialize(),
+      object_id='obj-1',
+      detection_type='person',
+      transition='entered',
+      anchor_timestamp=10.0,
+      prediction_timestamp=11.0,
+      translation=[2.0, 3.0, 0.0],
+    )
+    mock_publish = MagicMock()
+
+    publish_potential_events(scene, [event], mock_publish)
+
+    topic, raw_payload = mock_publish.call_args.args
+    payload = orjson.loads(raw_payload)
+    assert topic.endswith('/potential')
+    assert payload['event_id'] == 'stable-id'
+    assert payload['status'] == 'potential'
+    assert payload['transition'] == 'entered'
+    assert payload['object']['position_source'] == 'predicted'
+
+  def test_publishes_terminal_event_when_geometry_was_deleted(self):
+    scene = SimpleNamespace(
+      uid='scene-1', name='Test Scene', regions={}, tripwires={})
+    event = PotentialAnalyticsEvent(
+      event_id='stable-id',
+      scene_id='scene-1',
+      scene_name='Test Scene',
+      geometry_type='region',
+      geometry_id='deleted',
+      geometry_name='Deleted ROI',
+      geometry_metadata={'uuid': 'deleted', 'title': 'Deleted ROI'},
+      object_id='obj-1',
+      detection_type='person',
+      transition='entered',
+      anchor_timestamp=10.0,
+      prediction_timestamp=11.0,
+      translation=[2.0, 3.0, 0.0],
+      status='expired',
+    )
+    mock_publish = MagicMock()
+
+    publish_potential_events(scene, [event], mock_publish)
+
+    payload = orjson.loads(mock_publish.call_args.args[1])
+    assert payload['status'] == 'expired'
+    assert payload['region_name'] == 'Deleted ROI'

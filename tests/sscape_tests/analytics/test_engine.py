@@ -67,6 +67,19 @@ class TestProcessFrameReliabilityGate:
 
     assert obj.chain_data.publishedLocations[0] is original_loc
 
+  @patch('analytics.engine.update_tripwire_events')
+  @patch('analytics.engine.update_region_events')
+  def test_duplicate_external_observation_does_not_extend_real_history(
+    self, mock_region_events, mock_tripwire_events,
+  ):
+    obj = _obj(num_prior_locations=1)
+    original_history = list(obj.chain_data.publishedLocations)
+    obj.observation_is_fresh = False
+
+    process_frame('person', 10.0, [obj], {}, {}, {}, {}, AnalyticsStateStore())
+
+    assert obj.chain_data.publishedLocations == original_history
+
 
 class TestProcessFrameDispatch:
 

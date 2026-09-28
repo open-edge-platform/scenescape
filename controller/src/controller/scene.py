@@ -4,6 +4,7 @@
 from typing import Optional
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 import robot_vision as rv
 from scene_common import log
@@ -310,6 +311,7 @@ class Scene(SceneModel):
     """Create moving objects from already-localized scene/source observations."""
 
     new = jdata['objects']
+    source_rotation = Rotation.from_matrix(cameraPose.pose_mat[:3, :3])
 
     objects = []
     child_objects = []
@@ -323,6 +325,11 @@ class Scene(SceneModel):
       translation = np.hstack([translation.asNumpyCartesian, [1]])
       translation = np.matmul(cameraPose.pose_mat, translation)
       info['translation'] = translation[:3]
+      if 'velocity' in info:
+        info['velocity'] = source_rotation.apply(info['velocity']).tolist()
+      if 'rotation' in info:
+        object_rotation = Rotation.from_quat(info['rotation'])
+        info['rotation'] = (source_rotation * object_rotation).as_quat().tolist()
 
       # Embeddings travel nested under metadata (see detections_builder.prepareObjDict);
       # a top-level 'reid' key is never produced by a child scene and would bypass the

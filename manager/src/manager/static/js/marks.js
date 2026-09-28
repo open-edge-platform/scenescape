@@ -9,6 +9,161 @@ var mark_radius = 9;
 var marks = {}; // Global object to store marks to improve performance
 var trails = {};
 
+function colorFromObjectId(objectId) {
+  let hash = 0;
+  for (let index = 0; index < objectId.length; index += 1) {
+    hash = (hash * 31 + objectId.charCodeAt(index)) >>> 0;
+  }
+  const color = (hash & 0xffffff).toString(16).padStart(6, "0");
+  return `#${color}`;
+}
+
+function createTrailGroup(svgCanvas, objectId, type, suffix, stroke) {
+  return svgCanvas
+    .group()
+    .attr("id", `trail_${objectId}_${suffix}`)
+    .addClass("trail")
+    .addClass(type)
+    .addClass(`trail-${suffix}`)
+    .attr("stroke", stroke)
+    .attr("fill", "none");
+}
+
+function ensureTrailState(
+  svgCanvas,
+  objectId,
+  type,
+  stroke,
+  seedPoint = null,
+) {
+  let trail = trails[objectId];
+  if (!trail) {
+    trail = {
+      observedGroup: createTrailGroup(
+        svgCanvas,
+        objectId,
+        type,
+        "observed",
+        stroke,
+      ),
+      predictedGroup: createTrailGroup(
+        svgCanvas,
+        objectId,
+        type,
+        "predicted",
+        stroke,
+      ),
+      lastObservedPoint: null,
+      lastObservedTimestamp: null,
+      lastPredictedPoint: null,
+      lastRenderedPoint: null,
+      predictedPath: null,
+    };
+    trails[objectId] = trail;
+  } else {
+    if (!trail.observedGroup) {
+      trail.observedGroup = createTrailGroup(
+        svgCanvas,
+        objectId,
+        type,
+        "observed",
+        stroke,
+      );
+    }
+    if (!trail.predictedGroup) {
+      trail.predictedGroup = createTrailGroup(
+        svgCanvas,
+        objectId,
+        type,
+        "predicted",
+        stroke,
+      );
+    }
+    trail.observedGroup.attr("stroke", stroke);
+    trail.predictedGroup.attr("stroke", stroke);
+  }
+  if (!trail.lastObservedPoint && seedPoint) {
+    trail.lastObservedPoint = seedPoint.slice();
+  }
+  if (!trail.lastRenderedPoint && seedPoint) {
+    trail.lastRenderedPoint = seedPoint.slice();
+  }
+  return trail;
+}
+
+function clearPredictedTrail(trail) {
+  if (!trail || !trail.predictedGroup) {
+    return;
+  }
+  trail.predictedGroup.clear();
+  trail.lastPredictedPoint = null;
+  trail.predictedPath = null;
+}
+
+function appendTrailLine(group, startPoint, endPoint, stroke) {
+  const line = group.line(
+    startPoint[0],
+    startPoint[1],
+    endPoint[0],
+    endPoint[1],
+  );
+  line.attr("stroke", stroke);
+}
+
+function appendPredictedPath(trail, startPoint, endPoint, stroke) {
+  if (!trail.predictedPath) {
+    trail.predictedPath = trail.predictedGroup
+      .path(`M${startPoint[0]},${startPoint[1]} L${endPoint[0]},${endPoint[1]}`)
+      .attr({
+        stroke,
+        fill: "none",
+        "stroke-dasharray": "8 6",
+        "stroke-linecap": "butt",
+      });
+    return;
+  }
+  trail.predictedPath.attr(
+    "d",
+    `${trail.predictedPath.attr("d")} L${endPoint[0]},${endPoint[1]}`,
+  );
+}
+
+function updateTrail(
+  trail,
+  translation,
+  stroke,
+  positionSource,
+  observationTimestamp,
+) {
+  const renderedStart = trail.lastRenderedPoint || trail.lastObservedPoint;
+  if (positionSource === "predicted") {
+    if (renderedStart && (
+      !trail.lastPredictedPoint
+      || trail.lastPredictedPoint[0] !== translation[0]
+      || trail.lastPredictedPoint[1] !== translation[1]
+      || trail.lastPredictedPoint[2] !== translation[2]
+    )) {
+      appendPredictedPath(trail, renderedStart, translation, stroke);
+    }
+    trail.lastPredictedPoint = translation.slice();
+    trail.lastRenderedPoint = translation.slice();
+    return;
+  }
+
+  if (trail.lastObservedPoint) {
+    appendTrailLine(
+      trail.observedGroup,
+      trail.lastObservedPoint,
+      translation,
+      stroke,
+    );
+  }
+  trail.lastObservedPoint = translation.slice();
+  trail.lastObservedTimestamp = observationTimestamp || null;
+  trail.lastRenderedPoint = translation.slice();
+  clearPredictedTrail(trail);
+}
+
 function addOrUpdateTableRow(table, key, value) {
   var existingRow = table.querySelector(`tr[data-key="${key}"]`);
   if (existingRow) {
@@ -80,23 +235,20 @@ function plot(
   objects.forEach((o) => {
     var mark;
     var trail;
+    const stroke = colorFromObjectId(o.id);
 
     // Convert from meters to pixels
     o.translation = metersToPixels(o.translation, scale, scene_y_max);
-
     if (o.id in marks) {
       mark = marks[o.id];
       if (show_trails) {
-        trail = trails[o.id];
-        // Create trail group if it doesn't exist (e.g., show_trails was toggled on after mark creation)
-        if (!trail) {
-          trail = svgCanvas
-            .group()
-            .attr("id", "trail_" + o.id)
-            .addClass("trail")
-            .addClass(o.type);
-          trails[o.id] = trail;
-        }
+        trail = ensureTrailState(
+          svgCanvas,
+          o.id,
+          o.type,
+          stroke,
+          [mark.matrix.e, mark.matrix.f],
+        );
       }
     }
 
@@ -118,14 +270,15 @@ function plot(
 
       // Add a new line segment to the trail if enabled
       if (show_trails && trail) {
-        var line = trail.line(
-          prev_x,
-          prev_y,
-          o.translation[0],
-          o.translation[1],
+        updateTrail(
+          trail,
+          o.translation.slice(),
+          stroke,
+          o.position_source || "observed",
+          o.observation_timestamp,
         );
-        line.attr("stroke", mark.select("circle").attr("stroke"));
       }
+      mark.attr("data-position-source", o.position_source || "observed");
     }
     // Otherwise, add new mark
     else {
@@ -150,7 +303,8 @@ function removeExpiredMarks(oldMarks) {
 
     // Also remove old trails
     if (trails[o]) {
-      trails[o].remove();
+      trails[o].observedGroup?.remove();
+      trails[o].predictedGroup?.remove();
       delete trails[o];
     }
   });
@@ -165,6 +319,7 @@ function addNewMark(
   show_telemetry,
   show_trails,
 ) {
+  const stroke = colorFromObjectId(o.id);
   mark = svgCanvas
     .group()
     .attr("id", "mark_" + o.id)
@@ -172,11 +327,13 @@ function addNewMark(
     .addClass(o.type);
 
   if (show_trails) {
-    trail = svgCanvas
-      .group()
-      .attr("id", "mark_" + o.id)
-      .addClass("trail")
-      .addClass(o.type);
+    trail = ensureTrailState(
+      svgCanvas,
+      o.id,
+      o.type,
+      stroke,
+      o.translation.slice(),
+    );
   }
 
   // FIXME: Make object size in the display a configurable option, or receive from Scenescape
@@ -218,7 +375,7 @@ function addNewMark(
   }
 
   // Set a stroke color based on the ID
-  circle.attr("stroke", "#" + o.id.substring(0, 6));
+  circle.attr("stroke", stroke);
 
   // Add a title element to the circle which will act as a tooltip
   var title = Snap.parse("<title>" + o.id + "</title>");
@@ -229,11 +386,21 @@ function addNewMark(
   }
 
   mark.transform("T" + o.translation[0] + "," + o.translation[1]);
+  mark.attr("data-position-source", o.position_source || "observed");
 
   // Store the mark in the global marks object for future use
   marks[o.id] = mark;
 
   if (show_trails) {
+    trail.lastObservedPoint =
+      (o.position_source || "observed") === "predicted" ? null : o.translation.slice();
+    trail.lastObservedTimestamp =
+      (o.position_source || "observed") === "predicted"
+        ? null
+        : (o.observation_timestamp || null);
+    trail.lastPredictedPoint =
+      (o.position_source || "observed") === "predicted" ? o.translation.slice() : null;
+    trail.lastRenderedPoint = o.translation.slice();
     trails[o.id] = trail;
   }
   return { mark, trail };

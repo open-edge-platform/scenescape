@@ -60,6 +60,10 @@ class TestAnalyticsObject:
     assert obj.metadata is None
     assert obj.reid is None
     assert obj.visibility is None
+    assert obj.external_source_id is None
+    assert obj.extrapolation_enabled is False
+    assert obj.position_source == 'observed'
+    assert obj.observation_is_fresh is True
 
   def test_optional_fields_accept_arbitrary_values(self):
     sentinel = object()
@@ -142,6 +146,13 @@ class TestMovingObjectToAnalyticsObject:
       metadata={'age': 'adult'},
       reid={'embedding_vector': [0.1, 0.2]},
       visibility=['cam1', 'cam2'],
+      external_source_id='source-1',
+      extrapolation_enabled=True,
+      extrapolation_interval_ms=1000,
+      extrapolation_start_delay_ms=1500,
+      extrapolation_horizon_intervals=2,
+      position_source='observed',
+      observation_timestamp='2026-01-01T00:00:00Z',
     )
 
     ao = moving_object_to_analytics_object(src)
@@ -152,6 +163,13 @@ class TestMovingObjectToAnalyticsObject:
     assert ao.metadata == {'age': 'adult'}
     assert ao.reid == {'embedding_vector': [0.1, 0.2]}
     assert ao.visibility == ['cam1', 'cam2']
+    assert ao.external_source_id == 'source-1'
+    assert ao.extrapolation_enabled is True
+    assert ao.extrapolation_interval_ms == 1000
+    assert ao.extrapolation_start_delay_ms == 1500
+    assert ao.extrapolation_horizon_intervals == 2
+    assert ao.position_source == 'observed'
+    assert ao.observation_timestamp == '2026-01-01T00:00:00Z'
 
   def test_optional_fields_carried_through_when_present(self):
     sentinel = object()

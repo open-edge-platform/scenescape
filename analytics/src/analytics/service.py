@@ -1,12 +1,16 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import orjson
 from collections import defaultdict
 from pathlib import Path
+import threading
+import time
+
+import orjson
 
 from analytics.adapters.scene_model import AnalyticsScene
-from analytics.event_publisher import publish_events
+from analytics.event_publisher import publish_events, publish_potential_events
+from analytics.prediction import PredictionManager
 from scene_common.cache_manager import CacheManager
 from scene_common.detections_builder import buildDetectionsList, computeCameraBounds
 from scene_common import log
@@ -35,6 +39,8 @@ class AnalyticsService:
     self.rewrite_all_time = rewrite_all_time
     self.regulate_cache = {}
     self.mqtt_auth = mqtt_auth
+    self._publish_lock = threading.Lock()
+    self._publish_owner = None
 
     self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
 
@@ -50,7 +56,8 @@ class AnalyticsService:
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
-    self.pubsub.connect()
+    self._prediction_pubsub = self.pubsub
+    self._prediction_pubsub_is_dedicated = False
 
     self.cache_manager = CacheManager(
       data_source,
@@ -62,15 +69,90 @@ class AnalyticsService:
 
     self.visibility_topic = visibility_topic
     self.scenes = []
+    self._prediction_manager = PredictionManager()
+    self._prediction_lock = threading.RLock()
+    self._prediction_stop = threading.Event()
+    self._prediction_thread = None
+    self._prediction_last_published = {}
     log.info(f"AnalyticsService: visibility on {self.visibility_topic} topic")
     return
 
   def loopForever(self):
-    return self.pubsub.loopForever()
+    self._ensurePredictionRuntime()
+    self.pubsub.loopStart()
+    try:
+      self._predictionLoop()
+    finally:
+      self._prediction_stop.set()
+      self.pubsub.disconnect()
+      self.pubsub.loopStop()
+
+  def _ensurePredictionRuntime(self):
+    """Initialize prediction collaborators for normal and test construction."""
+    if not hasattr(self, '_prediction_manager'):
+      self._prediction_manager = PredictionManager()
+    if not hasattr(self, '_prediction_lock'):
+      self._prediction_lock = threading.RLock()
+    if not hasattr(self, '_prediction_stop'):
+      self._prediction_stop = threading.Event()
+    if not hasattr(self, '_prediction_thread'):
+      self._prediction_thread = None
+    if not hasattr(self, '_prediction_last_published'):
+      self._prediction_last_published = {}
+    if not hasattr(self, '_publish_lock'):
+      self._publish_lock = threading.Lock()
+    if not hasattr(self, '_publish_owner'):
+      self._publish_owner = None
+    if not hasattr(self, '_prediction_pubsub'):
+      self._prediction_pubsub = self.pubsub
+      self._prediction_pubsub_is_dedicated = False
+
+  def _predictionLoop(self):
+    """Publish due extrapolated snapshots until the MQTT loop exits."""
+    while not self._prediction_stop.wait(0.01):
+      self._predictionTick(get_epoch_time())
+
+  def _predictionTick(self, now):
+    """Process one scheduler tick for all scenes with live baselines."""
+    self._ensurePredictionRuntime()
+    with self._prediction_lock:
+      for scene_id in self._prediction_manager.scene_ids():
+        scene = self.cache_manager.sceneWithID(scene_id)
+        if scene is None:
+          events = self._prediction_manager.discard_scene(scene_id, now)
+          publish_potential_events(None, events, self._publishPrediction)
+          self.regulate_cache.pop(scene_id, None)
+          continue
+        result = self._prediction_manager.predict(scene, now)
+        publish_potential_events(scene, result.events, self._publishPrediction)
+        if not result.samples:
+          continue
+        cached = self.regulate_cache.get(scene_id)
+        if cached is None:
+          continue
+        self._publishRegulatedSnapshot(
+          scene, cached, now, predicted_samples=result.samples)
+        cached['last_prediction'] = now
 
   # ------------------------------------------------------------------
   # Publication
   # ------------------------------------------------------------------
+
+  def _publish(self, topic, payload, qos=0, retain=False):
+    """Serialize outbound MQTT writes from callbacks and prediction ticks."""
+    self._ensurePredictionRuntime()
+    thread_name = threading.current_thread().name
+    self._publish_lock.acquire()
+    try:
+      self._publish_owner = thread_name
+      return self.pubsub.publish(topic, payload, qos=qos, retain=retain)
+    finally:
+      self._publish_owner = None
+      self._publish_lock.release()
+
+  def _publishPrediction(self, topic, payload, qos=0, retain=False):
+    """Publish background prediction output on the shared MQTT client."""
+    return self._publish(topic, payload, qos=qos, retain=retain)
 
   def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
     if not hasattr(scene, 'lastPubCount'):
@@ -97,11 +179,27 @@ class AnalyticsService:
     return self.regulate_rate
 
   def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id):
+    self._ensurePredictionRuntime()
+    with self._prediction_lock:
+      self._cacheRegulatedDetections(
+        scene_obj, msg_objects, otype, jdata, camera_id)
+    return
+
+  def _cacheRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id):
     update_rate = self.calculateRate()
     scene_uid = scene_obj.uid
 
     if scene_uid not in self.regulate_cache:
-      self.regulate_cache[scene_uid] = {'objects': {}, 'rate': {}, 'last': None}
+      self.regulate_cache[scene_uid] = {
+        'objects': {},
+        'rate': {},
+        'last': None,
+        'last_prediction': None,
+        'id': jdata.get('id', scene_uid),
+        'name': jdata.get('name', getattr(scene_obj, 'name', scene_uid)),
+        'timestamp': jdata.get('timestamp'),
+        'scene_rate': 0.0,
+      }
     scene = self.regulate_cache[scene_uid]
 
     scene['objects'][otype] = buildDetectionsList(
@@ -122,31 +220,76 @@ class AnalyticsService:
           scene['rate'][cam_id] = scene_rate
 
     now = get_epoch_time()
-    if self.shouldPublish(scene['last'], now, 1 / scene_obj.regulated_rate):
-      objects = []
+    prediction_result = self._prediction_manager.predict(scene_obj, now)
+    publish_potential_events(
+      scene_obj, prediction_result.events, self._publish)
+    max_delay = 1 / float(scene_obj.regulated_rate)
+    # A real observation must immediately replace a displayed prediction.
+    # Otherwise the regulated rate limit can leave the UI showing a dashed
+    # extrapolation past the observed corner until the next allowed publish.
+    replacing_prediction = scene['last_prediction'] is not None
+    regulated_due = self.shouldPublish(scene['last'], now, max_delay)
+    if replacing_prediction or regulated_due:
       is_regulated = self.visibility_topic == 'regulated'
-      msg_objects_lookup = {obj.gid: obj for obj in msg_objects} if is_regulated else {}
-
-      for key in scene['objects']:
-        for obj in scene['objects'][key]:
-          if is_regulated:
-            aobj = msg_objects_lookup.get(obj['id'], None)
-            if aobj is not None:
-              computeCameraBounds(scene_obj, aobj, obj)
-          objects.append(obj)
-
-      new_jdata = {
-        'timestamp': jdata['timestamp'],
-        'objects': objects,
-        'id': jdata['id'],
-        'name': jdata['name'],
-        'scene_rate': round(1 / update_rate, 1),
-        'rate': scene['rate'],
-      }
-      jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-      self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid), jstr)
-      scene['last'] = now
+      if is_regulated:
+        msg_objects_lookup = {obj.gid: obj for obj in msg_objects}
+        for obj in scene['objects'][otype]:
+          aobj = msg_objects_lookup.get(obj['id'])
+          if aobj is not None:
+            computeCameraBounds(scene_obj, aobj, obj)
+      scene['id'] = jdata.get('id', scene_uid)
+      scene['name'] = jdata.get('name', getattr(scene_obj, 'name', scene_uid))
+      scene['timestamp'] = jdata.get('timestamp')
+      scene['scene_rate'] = round(1 / update_rate, 1)
+      self._publishRegulatedSnapshot(
+        scene_obj, scene, now,
+        predicted_samples=prediction_result.samples)
+      scene['last_prediction'] = now if prediction_result.samples else None
     return
+
+  def _publishRegulatedSnapshot(
+      self, scene_obj, cached, now, predicted_samples=None):
+    """Publish an immutable observed/predicted copy of the regulated cache."""
+    predictions = {
+      (sample.detection_type, sample.object_id): sample
+      for sample in (predicted_samples or [])
+    }
+    objects = []
+    for detection_type, cached_objects in cached['objects'].items():
+      for cached_object in cached_objects:
+        obj = dict(cached_object)
+        sample = predictions.get((detection_type, obj['id']))
+        if sample is not None:
+          obj['translation'] = sample.location.asCartesianVector
+          obj['velocity'] = sample.velocity.asCartesianVector
+          obj['position_source'] = 'predicted'
+          obj['observation_timestamp'] = get_iso_time(
+            sample.observation_timestamp)
+          obj['prediction_age_ms'] = sample.prediction_age_ms
+          obj['prediction_horizon_ms'] = sample.prediction_horizon_ms
+        objects.append(obj)
+
+    payload = {
+      'timestamp': (
+        get_iso_time(now) if predicted_samples else cached['timestamp']
+      ),
+      'objects': objects,
+      'id': cached['id'],
+      'name': cached['name'],
+      'scene_rate': cached['scene_rate'],
+      'rate': cached['rate'],
+    }
+    if predicted_samples:
+      self._publishPrediction(
+        PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_obj.uid),
+        orjson.dumps(payload, option=orjson.OPT_SERIALIZE_NUMPY),
+      )
+    else:
+      self._publish(
+        PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_obj.uid),
+        orjson.dumps(payload, option=orjson.OPT_SERIALIZE_NUMPY),
+      )
+    cached['last'] = now
 
   def publishRegionDetections(self, scene, objects, otype, jdata):
     current_time = get_epoch_time(jdata['timestamp'])
@@ -163,7 +306,7 @@ class AnalyticsService:
         region_jdata = dict(jdata)
         region_jdata['objects'] = region_objects
         jstr = orjson.dumps(region_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
-        self.pubsub.publish(
+        self._publish(
           PubSub.formatTopic(PubSub.DATA_REGION, scene_id=scene.uid,
                              region_id=rname, thing_type=otype),
           jstr,
@@ -199,16 +342,32 @@ class AnalyticsService:
         log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}")
         return
 
-    scene.updateTrackedObjects(detection_type, jdata.get('objects', []))
-    analytics_objects = scene.getTrackedObjects(detection_type)
-    msg_when = get_epoch_time(jdata.get('timestamp'))
+    self._ensurePredictionRuntime()
+    with self._prediction_lock:
+      scene.updateTrackedObjects(detection_type, jdata.get('objects', []))
+      analytics_objects = scene.getTrackedObjects(detection_type)
+      msg_when = get_epoch_time(jdata.get('timestamp'))
+      prediction_when = get_epoch_time()
+      for obj in analytics_objects:
+        if getattr(obj, 'observation_timestamp', None) is None:
+          obj.observation_timestamp = jdata.get('timestamp')
+        obj.observation_is_fresh = (
+          self._prediction_manager.is_fresh_observation(
+            scene.uid, detection_type, obj, prediction_when,
+            scheduling_timestamp=prediction_when)
+        )
 
-    # Prefer producer-supplied visibility; fill gaps before events so event
-    # payloads and regulated output share the same camera ID lists.
-    scene._updateVisible(analytics_objects)
+      # Prefer producer-supplied visibility; fill gaps before events so event
+      # payloads and regulated output share the same camera ID lists.
+      scene._updateVisible(analytics_objects)
+      potential_events = self._prediction_manager.observe(
+        scene, detection_type, analytics_objects, msg_when,
+        scheduling_timestamp=prediction_when)
+    publish_potential_events(scene, potential_events, self._publish)
     scene._updateEvents(detection_type, msg_when, analytics_objects,
-                        publish_fn=self.pubsub.publish)
-    self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
+                        publish_fn=self._publish)
+    self.publishDetections(
+      scene, analytics_objects, msg_when, detection_type, jdata, None)
     return
 
   def handleSensorMessage(self, client, userdata, message):
@@ -240,13 +399,13 @@ class AnalyticsService:
 
     jdata['scene_id'] = scene.uid
     jdata['scene_name'] = scene.name
-    publish_events(scene, jdata['timestamp'], self.pubsub.publish)
+    publish_events(scene, jdata['timestamp'], self._publish)
     return
 
   def _publishRetainedCatalog(self, topic_id, scene_id, payload):
     """Publish *payload* as the last-known catalog for *scene_id* (retained)."""
     topic = PubSub.formatTopic(topic_id, scene_id=scene_id)
-    self.pubsub.publish(
+    self._publish(
       topic, orjson.dumps(payload).decode('utf-8'), qos=1, retain=True)
     return topic
 
@@ -333,8 +492,10 @@ class AnalyticsService:
     command = str(message.payload.decode("utf-8"))
     if command == "update":
       try:
-        self.updateSubscriptions()
-        self.updateRegulateCache()
+        self._ensurePredictionRuntime()
+        with self._prediction_lock:
+          self.updateSubscriptions()
+          self.updateRegulateCache()
         for scene in getattr(self, 'scenes', []):
           self.publishTripwiresForScene(scene)
           self.publishRoisForScene(scene)
@@ -396,8 +557,10 @@ class AnalyticsService:
     return
 
   def updateRegulateCache(self):
-    scene_ids = {s.uid for s in self.scenes}
-    for scene_id in list(self.regulate_cache.keys()):
-      if scene_id not in scene_ids:
-        self.regulate_cache.pop(scene_id)
+    self._ensurePredictionRuntime()
+    with self._prediction_lock:
+      scene_ids = {s.uid for s in self.scenes}
+      for scene_id in list(self.regulate_cache.keys()):
+        if scene_id not in scene_ids:
+          self.regulate_cache.pop(scene_id, None)
     return

@@ -162,6 +162,21 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     'velocity': velocity.asCartesianVector
   })
 
+  external_source_id = getattr(aobj, 'external_source_id', None)
+  if external_source_id is not None:
+    obj_dict.update({
+      'external_source_id': external_source_id,
+      'extrapolation_enabled': getattr(aobj, 'extrapolation_enabled', False),
+      'extrapolation_interval_ms': getattr(
+        aobj, 'extrapolation_interval_ms', None),
+      'extrapolation_start_delay_ms': getattr(
+        aobj, 'extrapolation_start_delay_ms', None),
+      'extrapolation_horizon_intervals': getattr(
+        aobj, 'extrapolation_horizon_intervals', 2),
+      'position_source': getattr(aobj, 'position_source', 'observed'),
+      'observation_timestamp': getattr(aobj, 'observation_timestamp', None),
+    })
+
   rotation = aobj.rotation
   if rotation is not None:
     obj_dict['rotation'] = rotation

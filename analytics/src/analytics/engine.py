@@ -50,7 +50,8 @@ def process_frame(
   now_str = get_iso_time(now)
 
   for obj in cur_objects:
-    obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
+    if getattr(obj, 'observation_is_fresh', True):
+      obj.chain_data.publishedLocations.insert(0, obj.sceneLoc)
 
   reliable_objects = [
     obj for obj in cur_objects

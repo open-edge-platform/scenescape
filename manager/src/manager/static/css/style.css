@@ -247,6 +247,10 @@ polygon {
   stroke-width: 2px;
 }
 
+.trail-predicted path {
+  stroke-dasharray: 8px 6px;
+}
+
 .mark text {
   text-anchor: middle;
   alignment-baseline: middle;

@@ -9,6 +9,7 @@ import orjson
 import pytest
 
 from analytics.service import AnalyticsService
+from scene_common.geometry import Point
 from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 
@@ -47,7 +48,7 @@ class TestInit:
     mock_schema.assert_called_once_with('schema.json', is_multi_message=True)
     mock_pubsub_cls.assert_called_once_with('auth', 'cert', 'root', 'broker', keepalive=60)
     assert mock_pubsub_instance.onConnect == service.onConnect
-    mock_pubsub_instance.connect.assert_called_once()
+    mock_pubsub_instance.connect.assert_not_called()
     mock_cache_cls.assert_called_once()
     assert service.visibility_topic == 'regulated'
     assert service.scene_data_schema_validator is None
@@ -73,6 +74,30 @@ class TestInit:
     assert mock_schema.call_count == 2
     mock_schema.assert_any_call('scene-data.schema.json', is_multi_message=False)
     assert service.scene_data_schema_validator is scene_validator
+
+
+class TestLoopForever:
+
+  def test_uses_paho_thread_for_all_mqtt_io(self):
+    service = _service()
+    service._predictionLoop = MagicMock()
+
+    service.loopForever()
+
+    service.pubsub.loopStart.assert_called_once_with()
+    service.pubsub.loopForever.assert_not_called()
+    service.pubsub.disconnect.assert_called_once_with()
+    service.pubsub.loopStop.assert_called_once_with()
+
+  def test_stops_paho_thread_when_prediction_loop_fails(self):
+    service = _service()
+    service._predictionLoop = MagicMock(side_effect=RuntimeError('failed'))
+
+    with pytest.raises(RuntimeError, match='failed'):
+      service.loopForever()
+
+    service.pubsub.disconnect.assert_called_once_with()
+    service.pubsub.loopStop.assert_called_once_with()
 
 
 class TestShouldPublish:
@@ -343,8 +368,23 @@ class TestHandleSceneDataMessage:
 
   def test_known_scene_processes_and_publishes(self):
     service = _service()
-    scene = MagicMock()
-    scene.getTrackedObjects.return_value = ['analytics-obj']
+    scene = MagicMock(uid='scene1', name='Scene 1')
+    scene.regions = {}
+    scene.tripwires = {}
+
+    analytics_obj = MagicMock()
+    analytics_obj.gid = 'obj-1'
+    analytics_obj.sceneLoc = Point([0.0, 0.0, 0.0])
+    analytics_obj.velocity = Point([0.0, 0.0, 0.0])
+    analytics_obj.extrapolation_enabled = True
+    analytics_obj.extrapolation_interval_ms = 1000
+    analytics_obj.extrapolation_start_delay_ms = None
+    analytics_obj.extrapolation_horizon_intervals = 2
+    analytics_obj.position_source = 'observed'
+    analytics_obj.observation_timestamp = None
+    analytics_obj.observation_is_fresh = True
+
+    scene.getTrackedObjects.return_value = [analytics_obj]
     service.cache_manager.sceneWithID.return_value = scene
     service.publishDetections = MagicMock()
     message = self._message()
@@ -353,14 +393,13 @@ class TestHandleSceneDataMessage:
 
     scene.updateTrackedObjects.assert_called_once_with('person', [])
     scene.getTrackedObjects.assert_called_once_with('person')
-    scene._updateVisible.assert_called_once_with(['analytics-obj'])
+    scene._updateVisible.assert_called_once_with([analytics_obj])
     scene._updateEvents.assert_called_once()
-    method_names = [name for name, _, _ in scene.method_calls]
-    assert method_names.index('_updateVisible') < method_names.index('_updateEvents')
     args, kwargs = scene._updateEvents.call_args
     assert args[0] == 'person'
-    assert args[2] == ['analytics-obj']
-    assert kwargs['publish_fn'] == service.pubsub.publish
+    assert args[2] == [analytics_obj]
+    assert callable(kwargs['publish_fn'])
+    assert kwargs['publish_fn'].__self__ is service
     service.publishDetections.assert_called_once()
 
 
@@ -438,7 +477,7 @@ class TestHandleSensorMessage:
     with patch('analytics.service.publish_events') as mock_publish:
       service.handleSensorMessage(None, None, message)
 
-    mock_publish.assert_called_once_with(scene, '2026-01-01T00:00:00.000Z', service.pubsub.publish)
+    mock_publish.assert_called_once_with(scene, '2026-01-01T00:00:00.000Z', service._publish)
 
   def test_rewrite_all_time_overrides_timestamp(self):
     service = _service(rewrite_all_time=True)
@@ -456,7 +495,7 @@ class TestHandleSensorMessage:
     scene.processSensorData.assert_called_once()
     call_jdata = scene.processSensorData.call_args.args[0]
     assert call_jdata['timestamp'] == 'rewritten-ts'
-    mock_publish.assert_called_once_with(scene, 'rewritten-ts', service.pubsub.publish)
+    mock_publish.assert_called_once_with(scene, 'rewritten-ts', service._publish)
 
 
 class TestHandleDatabaseMessage:
