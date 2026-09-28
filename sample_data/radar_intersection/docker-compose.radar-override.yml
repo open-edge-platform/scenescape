@@ -124,7 +124,9 @@ services:
         echo 'radar_intersection data ready'
     volumes:
       - ${RADAR_RAW_DATASET_DIR:-./sample_data/radar_intersection/VIDETEC-2/converted}:/src/radar:ro
-      - ${RADAR_CAM_DATASET_DIR:-./sample_data/lidar_intersection/V2X-Seq-SPD-Example}/infrastructure-side/image:/src/image:ro
+      # Default: gitignored VIDETEC camera_demo/ (make prepare-radar-camera).
+      # Override with V2X-Seq path if desired.
+      - ${RADAR_CAM_DATASET_DIR:-./sample_data/radar_intersection/camera_demo}/infrastructure-side/image:/src/image:ro
       - ./sample_data/radar_intersection/prepare_radar_demo_data.py:/prepare_radar_demo_data.py:ro
       - ./sample_data/radar_intersection/generate_synthetic_radar_frames.py:/generate_synthetic_radar_frames.py:ro
       - ./sample_data/radar_intersection/videtec_to_pcd.py:/videtec_to_pcd.py:ro
@@ -187,8 +189,8 @@ services:
       - CAM_DEVICE=${CAM_DEVICE:-CPU}
       - CAM_SCORE_THRESHOLD=${CAM_SCORE_THRESHOLD:-0.5}
       - CAM_MUTE=${CAM_MUTE:-false}
-      - CAM_START_INDEX=${CAM_START_INDEX:-010699}
-      - CAM_STOP_INDEX=${CAM_STOP_INDEX:-010949}
+      - CAM_START_INDEX=${CAM_START_INDEX:-3270}
+      - CAM_STOP_INDEX=${CAM_STOP_INDEX:-4100}
       - CAM_DATA_PATH=/home/pipeline-server/videos/radar_intersection/images/%06d.jpg
     volumes:
       - ./sample_data/radar_intersection/radar_publisher.py:/home/pipeline-server/user_scripts/radar_publisher.py:ro

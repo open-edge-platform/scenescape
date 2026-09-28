@@ -57,14 +57,19 @@ Roadside commercial path: see
    [VIDETEC-2 real data](#videtec-2-real-data). Without them,
    `radar-data-init` falls back to synthetic frames (plumbing only).
 4. Camera JPEG sequence for fusion (default `CAM_MUTE=false`):
-   - Preferred: V2X-Seq under
-     `sample_data/lidar_intersection/V2X-Seq-SPD-Example/infrastructure-side/image/`
-     (same archive as the LiDAR demo; set `CAM_START_INDEX=10699`
-     `CAM_STOP_INDEX=10949`).
-   - Or stage frames under
-     `sample_data/radar_intersection/camera_demo/infrastructure-side/image/`
-     and set `RADAR_CAM_DATASET_DIR=./sample_data/radar_intersection/camera_demo`
-     with `CAM_START_INDEX=1` / `CAM_STOP_INDEX` matching the sequence.
+   - **Default:** `make demo-radar` runs `prepare-radar-camera`, which downloads
+     VIDETEC-2 `runs_vru.tar.gz` from Zenodo (cached under gitignored
+     `VIDETEC-2/download/`), extracts Oct‑9 `run_0` / `s110_o_cam_8`, and stages
+     time-aligned JPEGs under gitignored
+     `sample_data/radar_intersection/camera_demo/`. **No camera dataset files
+     are committed to the repo.** Requires converted radar
+     `VIDETEC-2/converted/frames/index.json` (step 3 below). Defaults:
+     `RADAR_CAM_DATASET_DIR=./sample_data/radar_intersection/camera_demo`,
+     `CAM_START_INDEX=3270`, `CAM_STOP_INDEX=4100`.
+   - Skip staging: `CAM_MUTE=true`, or `SKIP_RADAR_CAMERA_STAGE=true`, or point
+     `RADAR_CAM_DATASET_DIR` at another tree (e.g. V2X-Seq under
+     `sample_data/lidar_intersection/V2X-Seq-SPD-Example` with
+     `CAM_START_INDEX=10699` `CAM_STOP_INDEX=10949`).
 5. Manager/Controller with first-class radar (`DATA_RADAR`).
 
 ## VIDETEC-2 real data
@@ -150,24 +155,21 @@ unmuted (default): `radar-stream` publishes both
 `radar-cam1` video pane. On the scene view you should see map tracks from
 radar together with the live camera feed / detections.
 
-Example (FT2 densify + **time-aligned VIDETEC camera** fusion):
-
-`runs_vru` Oct‑9 `run_0` overlaps densified bins on frames **3270–4100**
-(~15:01–15:02 CEST). Stage `s110_o` frames into `camera_demo/` (see
-`camera_demo/ALIGN.json`; mean \|Δt\| ≈ 24 ms), then:
+Example (FT2 densify + **time-aligned VIDETEC camera** fusion). Camera staging
+is automatic on `make demo-radar` when `CAM_MUTE` is false (first run downloads
+~4 GiB `runs_vru` once into `VIDETEC-2/download/`):
 
 ```bash
 SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
   RADAR_PCD_SUBDIR=pcd_bin_acc5 RADAR_IR_DIR=FP16_ft2 \
   RADAR_START_INDEX=3270 RADAR_STOP_INDEX=4100 RADAR_SCORE_THRESHOLD=0.03 \
-  RADAR_CAM_DATASET_DIR=./sample_data/radar_intersection/camera_demo \
-  CAM_START_INDEX=3270 CAM_STOP_INDEX=4100 CAM_MUTE=false \
   make demo-radar
 ```
 
 Open **Radar Intersection**, select **radar-cam1** for the live pane, and
 confirm map tracks update while camera detections publish on
-`scenescape/data/camera/radar-cam1`.
+`scenescape/data/camera/radar-cam1`. The staged slice covers frames
+**3270–4100** (~15:01–15:02 CEST; see `camera_demo/ALIGN.json` after staging).
 
 ### Radar-only
 
@@ -194,8 +196,9 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `DLS_G3D_IMAGE` | `…:2026.2.0-ubuntu24-rc2-g3d` | Baked DLSPS tag |
 | `CAM_DEVICE` | `CPU` | OpenVINO device for `gvadetect` |
 | `RADAR_MUTE` / `CAM_MUTE` | `false` | Mute a modality |
-| `RADAR_CAM_DATASET_DIR` | `./sample_data/lidar_intersection/V2X-Seq-SPD-Example` | Host tree containing `infrastructure-side/image/` |
-| `CAM_START_INDEX` / `CAM_STOP_INDEX` | `10699` / `10949` | JPEG sequence slice (`%06d.jpg`) |
+| `RADAR_CAM_DATASET_DIR` | `./sample_data/radar_intersection/camera_demo` | Host tree with `infrastructure-side/image/` (auto-staged; gitignored) |
+| `CAM_START_INDEX` / `CAM_STOP_INDEX` | `3270` / `4100` | JPEG sequence slice (`%06d.jpg`) |
+| `SKIP_RADAR_CAMERA_STAGE` | `false` | `true` skips Zenodo download / `camera_demo` staging |
 | `RADAR_RAW_DATASET_DIR` | `./sample_data/radar_intersection/VIDETEC-2/converted` | Host `frames/` / bins |
 | `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `0` / unset | Frame slice |
 | `RADAR_REQUIRE_REAL` | `false` | `true` fails if no real VIDETEC inputs |

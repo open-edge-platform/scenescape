@@ -126,6 +126,7 @@ help:
 	@echo "  build-dlsps-g3d             Bake local DLSPS image with generalized g3dinference"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
 	@echo "  demo-radar                  Radar-intersection demo (RADAR_PERCEPTION=classical|roadside|radarpillars)"
+	@echo "  prepare-radar-camera        Download/stage VIDETEC camera JPEGs into gitignored camera_demo/"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -797,13 +798,42 @@ demo-lidar: build-dlsps-g3d $(DEMO_BUILD:build=build-core-lidar) init-sample-dat
 # RADAR_PERCEPTION=classical|roadside|radarpillars (default classical).
 # All modes share g3dinference → gvametaconvert → MQTT (needs -g3d bake).
 RADAR_PERCEPTION ?= classical
+# Time-aligned VIDETEC camera staging (gitignored camera_demo/; not in git).
+CAM_MUTE ?= false
+RADAR_CAM_DATASET_DIR ?= ./sample_data/radar_intersection/camera_demo
+CAM_START_INDEX ?= 3270
+CAM_STOP_INDEX ?= 4100
+SKIP_RADAR_CAMERA_STAGE ?= false
 # Export so docker compose ${RADAR_PERCEPTION} / ${DLS_G3D_IMAGE} see make values
 # (do not prefix env vars on the same line as $(call start_demo) — that breaks @$(MAKE)).
 export RADAR_PERCEPTION
 export DLS_G3D_IMAGE
+export CAM_MUTE
+export RADAR_CAM_DATASET_DIR
+export CAM_START_INDEX
+export CAM_STOP_INDEX
+
+# Download Zenodo runs_vru (cached) and stage JPEGs under camera_demo/ for fusion.
+.PHONY: prepare-radar-camera
+prepare-radar-camera:
+	@if [ "$(CAM_MUTE)" = "true" ] || [ "$(CAM_MUTE)" = "TRUE" ] || [ "$(CAM_MUTE)" = "1" ]; then \
+		echo "prepare-radar-camera: CAM_MUTE=$(CAM_MUTE) — skip"; \
+	elif [ "$(SKIP_RADAR_CAMERA_STAGE)" = "true" ] || [ "$(SKIP_RADAR_CAMERA_STAGE)" = "TRUE" ] || [ "$(SKIP_RADAR_CAMERA_STAGE)" = "1" ]; then \
+		echo "prepare-radar-camera: SKIP_RADAR_CAMERA_STAGE=true — skip"; \
+	elif ! printf '%s' "$(RADAR_CAM_DATASET_DIR)" | grep -q 'camera_demo'; then \
+		echo "prepare-radar-camera: RADAR_CAM_DATASET_DIR=$(RADAR_CAM_DATASET_DIR) — skip VIDETEC stage"; \
+	else \
+		python3 sample_data/radar_intersection/stage_videtec_camera_demo.py \
+			--videtec-root sample_data/radar_intersection/VIDETEC-2 \
+			--out-dir sample_data/radar_intersection/camera_demo \
+			--radar-start "$(CAM_START_INDEX)" \
+			--radar-stop "$(CAM_STOP_INDEX)"; \
+	fi
+
 .PHONY: demo-radar
-demo-radar: build-dlsps-g3d $(DEMO_BUILD:build=build-core) init-sample-data
+demo-radar: build-dlsps-g3d $(DEMO_BUILD:build=build-core) init-sample-data prepare-radar-camera
 	@echo "demo-radar: RADAR_PERCEPTION=$(RADAR_PERCEPTION) DLS_G3D_IMAGE=$(DLS_G3D_IMAGE)"
+	@echo "demo-radar: RADAR_CAM_DATASET_DIR=$(RADAR_CAM_DATASET_DIR) CAM=$(CAM_START_INDEX)-$(CAM_STOP_INDEX) mute=$(CAM_MUTE)"
 	$(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close
