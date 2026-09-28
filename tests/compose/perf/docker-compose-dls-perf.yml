@@ -213,7 +213,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20260915-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20260922-weekly-ubuntu24
     privileged: true
     networks:
       scenescape:
@@ -302,6 +302,22 @@ services:
       - vol-netvlad_models:/data/netvlad_models
       - vol-media:/data/media
       - vol-datasets:/data/datasets
+    restart: "no"
+
+  autocalibration-model-init:
+    image: intel/scenescape-autocalibration:${VERSION:-latest}
+    entrypoint: ["python3", "/usr/local/bin/download_models.py"]
+    user: "${UID:-1000}:${GID:-1000}"
+    depends_on:
+      autocalibration-init:
+        condition: service_completed_successfully
+    environment:
+      - NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad
+      - HTTP_PROXY=${HTTP_PROXY}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - NO_PROXY=${NO_PROXY}
+    volumes:
+      - vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad
     restart: "no"
 
   autocalibration:

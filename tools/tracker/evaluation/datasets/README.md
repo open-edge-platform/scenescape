@@ -27,7 +27,7 @@ Dataset adapters convert dataset-specific formats to Scenescape canonical format
 - Single scene: `Unity`
 - Two cameras: `Cam_x1_0`, `Cam_x2_0`
 - Multiple FPS options: 1, 10, 30 (separate JSON files per FPS)
-- Ground truth in MOTChallenge 3D CSV format (see [Canonical Data Formats](../README.md#canonical-data-formats))
+- Ground truth in canonical JSONL format with absolute timestamps (see [Canonical Data Formats](../README.md#canonical-data-formats))
 
 **Usage Example**:
 ```python
@@ -69,7 +69,7 @@ gt_path = dataset.get_ground_truth()
 - Seven cameras: `cam0`–`cam6` (mapping `cam0=CVLab1`, `cam1=CVLab2`, `cam2=CVLab3`, `cam3=CVLab4`, `cam4=IDIAP1`, `cam5=IDIAP2`, `cam6=IDIAP3`)
 - Single FPS option: 2 (native annotation rate; 400 annotated frames)
 - Explicit camera intrinsics and extrinsics (converted from the dataset calibration files) in the scene configuration
-- Ground truth in MOTChallenge 3D CSV format (see [Canonical Data Formats](../README.md#canonical-data-formats))
+- Ground truth in canonical JSONL format with absolute timestamps (see [Canonical Data Formats](../README.md#canonical-data-formats))
 
 **Preprocessing**: The canonical artifacts are generated from the raw dataset with the
 `datasets.wildtrack.preprocess` module. See [wildtrack/preprocess.py](wildtrack/preprocess.py).

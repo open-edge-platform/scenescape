@@ -28,20 +28,22 @@ def get_allowed_hosts():
   Determine allowed hosts for Django's HOST header validation.
 
   Priority (highest to lowest):
-  1. SCENESCAPE_ALLOWED_HOSTS env var (comma-separated list)
-  2. Fallback to ['*'] for backwards compatibility
+  1. SCENESCAPE_ALLOWED_HOSTS env var (comma-separated list) extended with default hosts
+  2. Fallback to default hosts if env var is not set or empty
 
-  Environment variables should contain comma-separated host values:
+  Default hosts include local hosts required for application to start correctly.
+
+  Environment variable should contain comma-separated host values:
   - SCENESCAPE_ALLOWED_HOSTS=example.com,10.0.0.1
   """
-  if 'SCENESCAPE_ALLOWED_HOSTS' in os.environ:
-    hosts = [h.strip() for h in os.getenv('SCENESCAPE_ALLOWED_HOSTS').split(',') if h.strip()]
-    hosts.extend(['web.scenescape.svc.cluster.local', 'web.scenescape.intel.com'])  # Always allow these hosts
-    if hosts:
-      return hosts
+  default_hosts = ['127.0.0.1', 'localhost', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']
+  raw_hosts = os.getenv('SCENESCAPE_ALLOWED_HOSTS', '').strip()
+  if raw_hosts:
+    hosts = [h.strip() for h in raw_hosts.split(',') if h.strip()]
+    default_hosts.extend(hosts)
 
   # Fallback for backwards compatibility
-  return ['*']
+  return default_hosts
 
 ALLOWED_HOSTS = get_allowed_hosts()
 DEFAULT_CHARSET = "utf-8"

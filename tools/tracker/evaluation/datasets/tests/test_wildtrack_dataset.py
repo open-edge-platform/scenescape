@@ -21,13 +21,11 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from datasets.wildtrack_dataset import WildtrackDataset
 from datasets.wildtrack import calibration as wt
-from utils.format_converters import read_csv_to_dataframe, stream_jsonl
+from utils.format_converters import stream_jsonl
 
 REPO_ROOT = Path(__file__).parent.parent.parent.parent.parent.parent
 DATASET_PATH = REPO_ROOT / "tests" / "system" / "metric" / "wildtrack_dataset"
 SCHEMA_PATH = REPO_ROOT / "tracker" / "schema"
-
-GT_COLUMNS = ["frame", "id", "x", "y", "z", "conf", "class", "vis"]
 
 
 @pytest.fixture
@@ -191,28 +189,34 @@ class TestInputs:
 
 
 class TestGroundTruth:
-  """Test ground-truth CSV output."""
+  """Test ground-truth JSONL output."""
 
   def test_ground_truth_format(self, dataset):
     gt_path = dataset.get_ground_truth()
-    df = read_csv_to_dataframe(gt_path, has_header=False, column_names=GT_COLUMNS)
-    assert df.shape[1] == 8
-    # Frame numbers are 1-indexed and within [1, 400].
-    assert df["frame"].min() == 1
-    assert df["frame"].max() == 400
-    # z is always 0, class/conf/visibility constants.
-    assert (df["z"] == 0).all()
-    assert (df["conf"] == 1.0).all()
-    assert (df["class"] == 1).all()
+    assert gt_path.endswith(".jsonl")
+    frames = list(stream_jsonl(gt_path))
+    # One frame per source timestamp (1-indexed elsewhere; here 400 frames).
+    assert len(frames) == 400
+    for frame in frames:
+      assert "timestamp" in frame
+      assert isinstance(frame["objects"], list)
+    objects = [obj for frame in frames for obj in frame["objects"]]
+    # z is always 0; each object carries id/category/translation.
+    for obj in objects:
+      assert obj["translation"][2] == 0
+      assert "id" in obj
+      assert "category" in obj
 
   def test_ground_truth_row_count_matches_source(self, dataset):
     gt_path = dataset.get_ground_truth()
-    df = read_csv_to_dataframe(gt_path, has_header=False, column_names=GT_COLUMNS)
+    objects = [
+      obj for frame in stream_jsonl(gt_path) for obj in frame["objects"]
+    ]
     source_rows = sum(
       len(entry["objects"].get("person", []))
       for entry in stream_jsonl(str(DATASET_PATH / "gtLoc.json"))
     )
-    assert len(df) == source_rows
+    assert len(objects) == source_rows
 
   def test_ground_truth_requires_output_folder(self):
     ds = WildtrackDataset(str(DATASET_PATH))
