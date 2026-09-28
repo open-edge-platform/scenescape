@@ -148,7 +148,7 @@ def euler_xyz_to_matrix(rx: float, ry: float, rz: float) -> Matrix3:
   rot_x = ((1, 0, 0), (0, cx, -sx), (0, sx, cx))
   rot_y = ((cy, 0, sy), (0, 1, 0), (-sy, 0, cy))
   rot_z = ((cz, -sz, 0), (sz, cz, 0), (0, 0, 1))
-  return matmul3(matmul3(rot_x, rot_y), rot_z)
+  return matmul3(rot_z, matmul3(rot_y, rot_x))
 
 
 def quat_to_matrix(quat: list[float]) -> Matrix3:
