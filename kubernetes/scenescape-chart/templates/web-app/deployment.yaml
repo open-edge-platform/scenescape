@@ -8,6 +8,7 @@ metadata:
   name: {{ .Release.Name }}-web-dep
   labels:
     app: {{ .Release.Name }}-web
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

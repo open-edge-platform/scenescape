@@ -8,6 +8,7 @@ metadata:
   name: {{ .Release.Name }}-pgserver
   labels:
     app: {{ .Release.Name }}-pgserver
+    {{ include "releaseLabels" . | indent 4 }}
   annotations:
     container.apparmor.security.beta.kubernetes.io/pgserver: unconfined
 spec:

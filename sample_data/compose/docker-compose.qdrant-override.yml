@@ -36,6 +36,9 @@ services:
         source: ${SECRETSDIR}/certs/scenescape-ca.pem
         target: /qdrant/tls/cacert.pem
         read_only: true
+      - type: volume
+        source: vol-reid-qdrant
+        target: /qdrant/storage
     restart: always
     pids_limit: 1000
 
@@ -45,3 +48,6 @@ services:
         condition: service_started
     environment:
       REID_DATABASE: QDRANT
+
+volumes:
+  vol-reid-qdrant:

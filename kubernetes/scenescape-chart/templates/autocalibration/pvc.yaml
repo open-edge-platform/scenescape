@@ -6,6 +6,8 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ .Release.Name }}-datasets-pvc
+  labels:
+    {{ include "releaseLabels" . | indent 4 }}
   annotations:
     "helm.sh/hook": pre-install
     "helm.sh/hook-weight": "{{ int .Values.pvc.hookWeight }}"
@@ -22,6 +24,8 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ .Release.Name }}-netvlad-pvc
+  labels:
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   {{- if .Values.autocalibration.modelStorageClassName }}
   storageClassName: {{ .Values.autocalibration.modelStorageClassName | quote }}

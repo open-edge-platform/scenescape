@@ -9,6 +9,7 @@ metadata:
   name: {{ .Release.Name }}-kubeclient-dep
   labels:
     app: {{ .Release.Name }}-kubeclient
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

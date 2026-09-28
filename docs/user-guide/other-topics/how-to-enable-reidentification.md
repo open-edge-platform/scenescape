@@ -84,7 +84,7 @@ material, and controller connection settings. The selected override sets
 ### Prerequisites
 
 - ReID is already enabled (feature extraction pipeline and `reid-config.json` as in the steps above).
-- Secrets include shared ReID certificates (`scenescape-reid*` / `scenescape-reid-s*`). Regenerate with `make clean-secrets && make init-secrets` if those files are missing.
+- Secrets include shared ReID certificates (`scenescape-reid*` / `scenescape-reid-s*`). Use `make certificate-renew` if those files are missing or expired; it preserves application credentials.
 - You can pass an override file when starting services.
 
 ### Steps
@@ -142,7 +142,11 @@ Values are validated at controller startup. A port outside 1–65535, a confiden
      --profile controller up
    ```
 
-> **Note:** Vector data is not migrated between VDMS and Qdrant. After a backend switch, identities are matched only against embeddings stored in the newly selected database.
+> **Note:** Compose stores VDMS and Qdrant data in separate named volumes,
+> `vol-reid-vdms` and `vol-reid-qdrant`. Recreating a backend container does not
+> remove its embeddings unless the volume is explicitly deleted. Vector data is
+> not migrated between the two formats; switching back to a previously used
+> backend reconnects to that backend's existing volume.
 
 ### Kubernetes (Helm)
 
@@ -201,9 +205,11 @@ the chart renders that config into `/vdms/data` and starts the server with
 `-cfg`. If you pin a different VDMS image, confirm it still provides
 `override_default_config.py` and the `-cfg` flag.
 
-ReID vector data is stored in `emptyDir` and is lost when the pod restarts,
-which matches the behaviour before the volumes existed. Replace `reid-data`
-with a PersistentVolumeClaim if the embeddings must survive restarts.
+Unlike the persistent Compose volumes, Kubernetes ReID vector data is stored in
+`emptyDir` and is lost when the pod restarts. Replace `reid-data` with a
+PersistentVolumeClaim if the embeddings must survive restarts. SceneScape's
+upgrade tooling reports this configuration as non-persistent and cannot promise
+a complete Kubernetes data backup while it remains enabled.
 
 The pod still runs as root (`runAsUser: 0`) because both upstream images expect
 it; that is a separate hardening step.

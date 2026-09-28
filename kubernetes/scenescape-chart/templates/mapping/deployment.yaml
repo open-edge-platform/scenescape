@@ -9,6 +9,7 @@ metadata:
   name: {{ .Release.Name }}-mapping
   labels:
     app: {{ .Release.Name }}-mapping
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

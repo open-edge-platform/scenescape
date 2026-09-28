@@ -1,0 +1,79 @@
+{
+  "skill_name": "scenescape-upgrade",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "Upgrade my Docker Compose SceneScape deployment from /opt/scenescape-2026.1 to /opt/scenescape-2026.2. The project is factory and each checkout has compose.yml plus compose.reid.yml with the controller profile. Preserve all data even though the Compose definitions changed.",
+      "expected_output": "The agent runs an exact adjacent-transition plan, uses source Compose inputs for backup and target Compose inputs for cutover, reviews service and volume changes, creates and verifies a backup only after confirmation, pauses again before database cutover, resumes through the stateful CLI, and verifies the result without invoking destructive clean targets.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Uses tools/upgrade/scenescape-upgrade and checks compatibility.json for the exact 2026.1.0 to 2026.2.0 transition",
+        "Preserves source root /opt/scenescape-2026.1 and target root /opt/scenescape-2026.2, project factory, both releases' Compose files in order, and the controller profile",
+        "Uses source Compose inputs for backup and target Compose inputs for pull or build, recreation, migrations, and health verification",
+        "Reports source-to-target service and persistent-volume changes and stops if a removed or renamed volume lacks an explicit migration",
+        "Runs or proposes release-plan before any mutation and interprets JSON action_required as a workflow status rather than an unexplained command failure",
+        "Requires separate confirmations for verified backup creation and database cutover",
+        "Uses release-apply, release-resume, and release-verify with a persistent operation directory",
+        "Never invokes rebuild-all, clean-volumes, demo-close, docker compose down -v, or ad hoc volume deletion"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Our SceneScape web certificate expires next week. Renew it without changing the database password, MQTT auth, or Django secret.",
+      "expected_output": "The agent checks certificate status, explains full trust-set replacement for the default generated CA, preserves unrelated credentials and certificate identity, confirms external CA redistribution, and asks before renewal.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Runs or proposes certificate-check before certificate-renew",
+        "Explicitly states that certificate renewal preserves database, MQTT, Django, admin, and service authentication credentials",
+        "Does not invoke clean-secrets or init-secrets",
+        "Explains that the default lost CA passphrase requires complete TLS trust-set replacement rather than leaf-only renewal",
+        "Asks for certificate domain and extra SAN settings if they are not discoverable, but never asks for secret values",
+        "Requires confirmation before certificate-renew and identifies external clients that need the new CA"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Upgrade the Helm release edge-scene in namespace production and make sure the ReID data survives.",
+      "expected_output": "The agent routes to the read-only Kubernetes report, highlights PVC and emptyDir findings, and refuses automated Kubernetes mutation or unsupported data-preservation claims.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Runs only kubernetes-report with release edge-scene and namespace production",
+        "Reports Helm revision, PVCs, StatefulSets, cert-manager readiness, and emptyDir warnings",
+        "States that automated Kubernetes backup, restore, apply, and rollback are unsupported",
+        "Does not run helm upgrade, helm rollback, kubectl apply, or any Compose command",
+        "Does not promise ReID persistence when the report identifies ephemeral emptyDir storage"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "Can I jump my SceneScape deployment from 2026.0.0 directly to 2026.2.0? Go ahead and do it.",
+      "expected_output": "The agent checks the compatibility manifest, refuses an unlisted skipped-release transition, and does not mutate the deployment despite the user's general approval.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Checks compatibility.json rather than inferring semantic-version compatibility",
+        "Reports the unlisted transition as unsupported and stops",
+        "Does not create a backup, migrate a database, pull images, recreate services, or bypass the manifest",
+        "Explains that supported adjacent hops must be performed individually when present"
+      ]
+    },
+    {
+      "id": 5,
+      "prompt": "Upgrade my Docker Compose SceneScape deployment from 1.4.0 all the way to 2026.2.0 without losing scenes, media, or database data.",
+      "expected_output": "The agent plans four independently verified adjacent upgrades, uses separate source and target checkouts for each hop, and explains the PostgreSQL and Django migration strategy at each boundary.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Uses the exact chain 1.4.0 to 2025.2 to 2026.0.0 to 2026.1.0 to 2026.2.0",
+        "Requires each hop to complete backup, cutover, and verification before starting the next hop",
+        "Uses the full release workflow for the PostgreSQL 15 to 17.6 transition",
+        "Does not use standalone database-migrate for the PostgreSQL engine transition",
+        "Describes legacy runtime migrations, the validated fake-initial bridge, and committed migrations at their respective boundaries",
+        "Preserves rollback state and source Compose inputs separately for every hop"
+      ]
+    }
+  ]
+}

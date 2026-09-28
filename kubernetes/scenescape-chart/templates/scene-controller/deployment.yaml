@@ -8,6 +8,7 @@ metadata:
   name: {{ .Release.Name }}-scene-dep
   labels:
     app: {{ .Release.Name }}-scene
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

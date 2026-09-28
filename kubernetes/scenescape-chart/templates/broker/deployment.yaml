@@ -8,6 +8,7 @@ metadata:
   name: {{ .Release.Name }}-broker
   labels:
     app: {{ .Release.Name }}-broker
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

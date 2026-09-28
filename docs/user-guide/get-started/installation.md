@@ -61,6 +61,26 @@ Optionally, the number of jobs can be adjusted by setting the `JOBS` variable, e
 make JOBS=1
 ```
 
+### Renew deployment certificates
+
+Check certificates before they expire:
+
+```bash
+make certificate-check MINIMUM_VALID_DAYS=30
+```
+
+Renewing certificates rotates the complete TLS trust set because the generated
+certificate authority key is protected by a one-time passphrase. It preserves
+the database, Django secret, and service authentication tokens, stores the old
+TLS material under `upgrade-state/`, and recreates services to load the new set:
+
+```bash
+make certificate-renew
+```
+
+Do not use `make clean-secrets` for certificate renewal. That target also
+removes application credentials.
+
 ### (Optional): Build dependency list of Scenescape container images
 
 ```bash
@@ -128,7 +148,7 @@ The following profiles are available:
 | `cluster-analytics` | Enables cluster-analytics service.                                                      |
 | `tracker`           | Tracker service + Analytics service (no Scene Controller). Used by `make demo-tracker`. |
 
-> **ReID backends:** The `demo-reid` and `demo-all` targets default to VDMS (`REID_BACKEND=vdms`); set `REID_BACKEND=qdrant` to switch. For raw Compose, add exactly one of `sample_data/compose/docker-compose.vdms-override.yml` or `sample_data/compose/docker-compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
+> **ReID backends:** The `demo-reid` and `demo-all` targets default to VDMS (`REID_BACKEND=vdms`); set `REID_BACKEND=qdrant` to switch. For raw Compose, add exactly one of `sample_data/compose/docker-compose.vdms-override.yml` or `sample_data/compose/docker-compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. Each backend stores its data in a separate persistent named volume. See [Selecting the ReID Vector Database Backend](../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
 
 Profiles can be specified on the command line with `--profile`:
 

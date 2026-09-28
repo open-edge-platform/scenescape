@@ -26,6 +26,9 @@ services:
       - OVERRIDE_ca_file=/run/secrets/certs/scenescape-ca.pem
       - OVERRIDE_cert_file=/run/secrets/certs/scenescape-reid-s.crt
       - OVERRIDE_key_file=/run/secrets/certs/scenescape-reid-s.key
+      - OVERRIDE_db_root_path=/vdms/data/db
+    volumes:
+      - vol-reid-vdms:/vdms/data
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -42,3 +45,6 @@ services:
         condition: service_started
     environment:
       REID_DATABASE: VDMS
+
+volumes:
+  vol-reid-vdms:

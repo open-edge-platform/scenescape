@@ -8,6 +8,7 @@ metadata:
   name: {{ .Release.Name }}-mediaserver-dep
   labels:
     app: {{ .Release.Name }}-mediaserver
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
   replicas: 1
   selector:

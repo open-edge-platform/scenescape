@@ -83,6 +83,38 @@ helm install scenescape scenescape-chart -n <NAMESPACE> --create-namespace \
 helm uninstall scenescape -n <NAMESPACE>
 ```
 
+## Upgrade readiness and guardrails
+
+Inspect an existing release without changing cluster state:
+
+```sh
+make kubernetes-upgrade-report RELEASE=scenescape NAMESPACE=<NAMESPACE>
+```
+
+The report lists the Helm revision, PVCs, StatefulSets, cert-manager readiness,
+and `emptyDir` volumes that will not survive pod replacement. Automated
+Kubernetes backup, restore, application upgrade, and rollback are not supported.
+Compose upgrade commands refuse `--deployment-type kubernetes`.
+
+Before an operator-led upgrade, preserve the current values and render the
+candidate release without applying it:
+
+```sh
+helm get values scenescape -n <NAMESPACE> -o yaml > values-current.yaml
+helm upgrade scenescape scenescape-chart -n <NAMESPACE> \
+   --values values-current.yaml --dry-run
+kubectl get certificate -n <NAMESPACE>
+```
+
+After an approved upgrade, verify workload rollout. Helm rollback restores the
+chart revision, but does not restore database or ephemeral data:
+
+```sh
+kubectl rollout status statefulset/scenescape-pgserver -n <NAMESPACE>
+helm history scenescape -n <NAMESPACE>
+helm rollback scenescape <REVISION> -n <NAMESPACE>
+```
+
 ## Environment Variables
 
 ### Proxy Configuration

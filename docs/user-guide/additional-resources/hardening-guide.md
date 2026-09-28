@@ -127,7 +127,17 @@ make -C ./tools/certificates CERTPASS="${CERTPASS}"
 
 where `CERTPASS` is set beforehand to a long random string generated with `openssl rand -base64 33`. This means that, in future, the same CA cannot be used to generate more certificates. The random string is not known to anyone, including the user performing the deployment.
 
-If you need to know the `CERTPASS` in order to generate more certificates in future, you can remove the `manager/secrets/ca` and `manager/secrets/certs` directories and run the `make` command again, specifying your own custom `CERTPASS` variable. In a default deployment, this is not needed.
+The default CA passphrase is not retained, so individual service certificates
+cannot later be re-signed by that CA. Use `make certificate-check` to inspect
+certificate lifetime and `make certificate-renew` to stage, validate, back up,
+and replace the complete generated TLS trust set. The renewal command preserves
+Django, database, MQTT, and service authentication credentials, then recreates
+Compose services so they load the new files. Distribute the new CA certificate
+to browsers, adapters, hierarchy peers, and other external clients.
+
+Do not use `make clean-secrets` for certificate renewal. It removes unrelated
+application credentials. Credential rotation is a separate operation and is not
+performed by the certificate lifecycle tooling.
 
 ### Configuring the certificate generation tooling
 
