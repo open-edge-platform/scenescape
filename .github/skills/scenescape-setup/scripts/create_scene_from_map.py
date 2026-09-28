@@ -5,7 +5,11 @@
 Automates the manual REST steps documented in references/scene-map-alternatives.md for the
 `mapping=glb`/`blueprint` deployment paths (`.glb`/`.ply` meshes auto-compute `scale`; a 2D
 blueprint image needs pixels-per-meter passed via --scale). Retry-safe: if a scene with
---scene-name already exists, its uid is reused instead of creating a duplicate.
+--scene-name already exists and its stored map's original filename matches --map-file's, its
+uid is reused instead of creating a duplicate. If the name matches but the map's filename
+differs, this refuses to silently register cameras against a stale scene -- pick a new
+--scene-name instead. (A byte-content comparison isn't possible: the manager re-encodes/
+re-exports every uploaded .glb, so the stored file never matches the upload byte-for-byte.)
 """
 
 from __future__ import annotations
@@ -14,6 +18,7 @@ import argparse
 import ssl
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -62,14 +67,29 @@ def manager_session(base_url: str, ca_cert: Path, supass_path: Path) -> requests
   return session
 
 
-def find_scene_uid_by_name(session: requests.Session, base_url: str, scene_name: str) -> str | None:
+def find_scene_by_name(session: requests.Session, base_url: str, scene_name: str) -> dict | None:
   resp = session.get(f"{base_url}/api/v1/scenes", params={"name": scene_name}, timeout=30)
   resp.raise_for_status()
   results = resp.json().get("results", resp.json()) if isinstance(resp.json(), dict) else resp.json()
   for scene in results:
     if scene.get("name") == scene_name:
-      return scene.get("uid")
+      return scene
   return None
+
+
+_DEDUP_SUFFIX_LEN = 7  # Django Storage.get_alternative_name()'s random suffix length
+
+
+def original_map_stem(stored_map_url: str) -> str:
+  """Best-effort recovery of the originally-uploaded filename (without extension) from the
+  manager's stored /media/ URL. Django's storage only appends a random suffix
+  ("_<7 chars>") to the stem when a same-named file already exists in storage; strip it if
+  present so a same-name re-upload still compares equal."""
+  stem = Path(urlparse(stored_map_url).path).stem
+  suffix = stem[-(_DEDUP_SUFFIX_LEN + 1):]
+  if len(suffix) == _DEDUP_SUFFIX_LEN + 1 and suffix[0] == "_" and suffix[1:].isalnum():
+    stem = stem[: -(_DEDUP_SUFFIX_LEN + 1)]
+  return stem
 
 
 def create_scene(
@@ -127,14 +147,26 @@ def main() -> None:
   ca_cert = args.deploy_dir / "secrets" / "certs" / "scenescape-ca.pem"
   session = manager_session(args.base_url, ca_cert, supass_path)
 
-  scene_uid = find_scene_uid_by_name(session, args.base_url, args.scene_name)
-  if scene_uid is None:
+  existing = find_scene_by_name(session, args.base_url, args.scene_name)
+  if existing is None:
     scene_uid = create_scene(
       session, args.base_url, args.scene_name, args.map_file, args.scale, args.camera_calibration,
     )
     print(f"Created scene '{args.scene_name}'")
   else:
-    print(f"Reusing existing scene '{args.scene_name}'")
+    scene_uid = existing["uid"]
+    existing_map_url = existing.get("map")
+    existing_stem = original_map_stem(existing_map_url) if existing_map_url else None
+    if existing_stem != args.map_file.stem:
+      print(
+        f"ERROR: scene '{args.scene_name}' (uid={scene_uid}) already exists with a different "
+        f"map ({existing_map_url!r}) than {args.map_file}. Refusing to silently reuse a stale "
+        "scene and register cameras against the wrong map -- use a different --scene-name, or "
+        "delete/replace the existing scene's map first.",
+        file=sys.stderr,
+      )
+      sys.exit(2)
+    print(f"Reusing existing scene '{args.scene_name}' (map matches)")
 
   print(f"Done. Scene UID: {scene_uid}")
 

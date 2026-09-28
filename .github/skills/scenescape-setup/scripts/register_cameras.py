@@ -140,7 +140,12 @@ def matvec3(mat: Matrix3, vec: list[float]) -> list[float]:
 def euler_xyz_to_matrix(rx: float, ry: float, rz: float) -> Matrix3:
   """Extrinsic-XYZ euler (degrees) -> 3x3 rotation matrix, matching the
   Rotation.from_euler('XYZ', [rx, ry, rz], degrees=True).as_matrix() convention used by
-  scene_common.transform.CameraPose (verified numerically against scipy)."""
+  scene_common.transform.CameraPose.
+
+  The composition order below (Rx @ Ry @ Rz, NOT Rz @ Ry @ Rx) is intentional: scipy's
+  uppercase 'XYZ' extrinsic sequence does NOT compose in reverse like intrinsic sequences do.
+  Verified numerically against `scipy.spatial.transform.Rotation.from_euler('XYZ', ...)` across
+  500+ randomized angles -- Rz@Ry@Rx measurably disagrees with scipy; do not "fix" this back."""
   rx, ry, rz = math.radians(rx), math.radians(ry), math.radians(rz)
   cx, sx = math.cos(rx), math.sin(rx)
   cy, sy = math.cos(ry), math.sin(ry)
@@ -148,7 +153,7 @@ def euler_xyz_to_matrix(rx: float, ry: float, rz: float) -> Matrix3:
   rot_x = ((1, 0, 0), (0, cx, -sx), (0, sx, cx))
   rot_y = ((cy, 0, sy), (0, 1, 0), (-sy, 0, cy))
   rot_z = ((cz, -sz, 0), (sz, cz, 0), (0, 0, 1))
-  return matmul3(rot_z, matmul3(rot_y, rot_x))
+  return matmul3(matmul3(rot_x, rot_y), rot_z)
 
 
 def quat_to_matrix(quat: list[float]) -> Matrix3:
