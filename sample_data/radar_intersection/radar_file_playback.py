@@ -136,19 +136,35 @@ def setup_getimage_responder(
   frame_index_cell: list,
   start_index: int,
 ) -> None:
-  """Answer Manager UI getimage from the recorded JPEG sequence."""
-  image_topic = f"scenescape/image/camera/{sensor_id}"
+  """Answer Manager UI image requests from the recorded JPEG sequence.
 
-  def _on_message(msg_client, _userdata, message):
-    if message.payload.decode("utf-8", errors="replace").strip() != "getimage":
-      return
+  Scene live view publishes ``getimage`` and expects
+  ``scenescape/image/camera/{id}``. The camera calibration page publishes
+  ``getcalibrationimage`` and expects
+  ``scenescape/image/calibration/camera/{id}`` (same contract as
+  ``sscape_post_inference_data_publish``).
+  """
+  live_topic = f"scenescape/image/camera/{sensor_id}"
+  calib_topic = f"scenescape/image/calibration/camera/{sensor_id}"
+
+  def _jpeg_payload() -> str | None:
     idx = frame_index_cell[0]
     if idx is None:
-      return
-    b64 = read_frame_as_jpeg_b64(data_path % idx) or read_frame_as_jpeg_b64(
+      return None
+    return read_frame_as_jpeg_b64(data_path % idx) or read_frame_as_jpeg_b64(
       data_path % start_index)
+
+  def _on_message(msg_client, _userdata, message):
+    cmd = message.payload.decode("utf-8", errors="replace").strip()
+    if cmd == "getimage":
+      topic = live_topic
+    elif cmd == "getcalibrationimage":
+      topic = calib_topic
+    else:
+      return
+    b64 = _jpeg_payload()
     if b64 is not None:
-      msg_client.publish(image_topic, json.dumps({"image": b64}), qos=0)
+      msg_client.publish(topic, json.dumps({"image": b64}), qos=0)
 
   client.subscribe(f"scenescape/cmd/camera/{sensor_id}")
   client.on_message = _on_message

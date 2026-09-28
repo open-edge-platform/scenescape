@@ -182,6 +182,9 @@ class MovingObject:
     self.camera = camera
     self.info = info.copy()
     self.has_detection_rotation = 'rotation' in self.info
+    # Debug aid from multi-sensor publishers (e.g. "lidar"/"radar"/"camera").
+    # Promote out of info so detections_builder can publish it on regulated MQTT.
+    self.source = self.info.pop('source', None)
 
     self.category = self.info.get('category', 'object')
     self.boundingBox = None

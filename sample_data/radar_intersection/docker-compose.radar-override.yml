@@ -46,9 +46,44 @@ services:
           echo "radar-scene-init: failed to authenticate to the Scenescape API"
           exit 1
         fi
+        # Keep radar + camera extrinsics in sync with RadarIntersection.json
+        # (VIDETEC ENU / Mapbox map). Scene import is skipped when the scene
+        # already exists, so pose sync still runs.
+        sync_radar_pose() {
+          SCENE_UID=$$(curl -sk -H "Authorization: Token $$TOKEN" \
+            https://web.scenescape.intel.com/api/v1/scenes \
+            | tr '}' '\n' | grep -F 'Radar Intersection' \
+            | sed -n 's/.*"uid"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
+          if [ -z "$$SCENE_UID" ]; then
+            echo "radar-scene-init: could not resolve Radar Intersection uid for pose sync"
+            return 1
+          fi
+          HTTP=$$(curl -sk -o /tmp/radar-pose-out -w '%{http_code}' -X PUT \
+            -H "Authorization: Token $$TOKEN" -H "Content-Type: application/json" \
+            -d "{\"name\":\"intersection-radar1\",\"sensor_id\":\"intersection-radar1\",\"scene\":\"$$SCENE_UID\",\"transform_type\":\"euler\",\"translation\":[50.8967,70.8894,4.5],\"rotation\":[0.0,0.0,-9.088],\"scale\":[1.0,1.0,1.0]}" \
+            https://web.scenescape.intel.com/api/v1/radar/intersection-radar1)
+          if [ "$$HTTP" != "200" ] && [ "$$HTTP" != "201" ]; then
+            echo "radar-scene-init: radar pose sync failed HTTP $$HTTP"
+            head -c 1000 /tmp/radar-pose-out || true
+            echo
+            return 1
+          fi
+          HTTP=$$(curl -sk -o /tmp/cam-pose-out -w '%{http_code}' -X PUT \
+            -H "Authorization: Token $$TOKEN" -H "Content-Type: application/json" \
+            -d "{\"name\":\"radar-cam1\",\"sensor_id\":\"radar-cam1\",\"scene\":\"$$SCENE_UID\",\"transform_type\":\"euler\",\"translation\":[51.3967,70.3894,9.6],\"rotation\":[-90.0,90.0,0.0],\"scale\":[1.0,1.0,1.0],\"intrinsics\":{\"fx\":2175.553931,\"fy\":2320.125728,\"cx\":960.0,\"cy\":540.0}}" \
+            https://web.scenescape.intel.com/api/v1/camera/radar-cam1)
+          if [ "$$HTTP" != "200" ] && [ "$$HTTP" != "201" ]; then
+            echo "radar-scene-init: camera pose sync failed HTTP $$HTTP"
+            head -c 1000 /tmp/cam-pose-out || true
+            echo
+            return 1
+          fi
+          echo "radar-scene-init: synced radar+camera poses (radar HTTP ok, cam HTTP $$HTTP)"
+        }
         if curl -sk -H "Authorization: Token $$TOKEN" https://web.scenescape.intel.com/api/v1/scenes \
           | grep -Eq '"name"[[:space:]]*:[[:space:]]*"Radar Intersection"'; then
-          echo "radar-scene-init: 'Radar Intersection' scene already exists, skipping import"
+          echo "radar-scene-init: 'Radar Intersection' scene already exists"
+          sync_radar_pose
           exit 0
         fi
         echo "radar-scene-init: importing 'Radar Intersection' scene..."
@@ -63,6 +98,7 @@ services:
           exit 1
         fi
         echo "radar-scene-init: done (HTTP $$HTTP)"
+        sync_radar_pose
     restart: "no"
     pids_limit: 1000
 

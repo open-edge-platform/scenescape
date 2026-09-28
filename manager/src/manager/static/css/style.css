@@ -258,6 +258,21 @@ polygon {
   fill: #009933;
 }
 
+.cyclist circle {
+  fill: #f39c12;
+}
+
+/* Debug aid: distinguish un-fused lidar/radar vs camera detections by stroke.
+   Fill color (by object type) and the source letter label are unaffected. */
+.source-lidar circle,
+.source-radar circle {
+  stroke-dasharray: 4, 3;
+}
+
+.source-camera circle {
+  stroke-dasharray: none;
+}
+
 .vehicle circle {
   fill: #0099ff;
 }

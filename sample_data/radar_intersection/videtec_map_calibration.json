@@ -1,0 +1,100 @@
+{
+  "source": "mapbox static",
+  "style": "mapbox/satellite-streets-v12",
+  "origin_lat": 48.2494788974,
+  "origin_lon": 11.6310746174,
+  "local_xmin_m": -50.0,
+  "local_xmax_m": 90.0,
+  "local_ymin_m": -70.0,
+  "local_ymax_m": 70.0,
+  "width_px": 1280,
+  "height_px": 1280,
+  "scale_pixels_per_meter": 9.142857142857142,
+  "note": "Image left=west(xmin), right=east(xmax), top=north(ymax), bottom=south(ymin). Scene XY: x=east from left edge, y=north from bottom edge \u2192 y_scene = (height_px/scale) - y_from_top_m, or place origin at map bottom-left = (xmin,ymin).",
+  "camera_s110_o_cam_8": {
+    "translation_scene": [
+      39.5369,
+      56.774,
+      9.2419
+    ],
+    "translation_local": [
+      -10.4631,
+      -13.226,
+      9.2419
+    ],
+    "rotation_euler_xyz": [
+      -175.19,
+      71.37,
+      74.985
+    ],
+    "heading_deg_from_east": 1.62,
+    "forward_xyz": [
+      0.9476,
+      0.0268,
+      -0.3183
+    ],
+    "reproj_mean_px": 78.93,
+    "intrinsics": {
+      "fx": 2175.553931,
+      "fy": 2320.125728,
+      "cx": 960.0,
+      "cy": 600.0
+    },
+    "sensor_id": "radar-cam1",
+    "videtec_id": "s110_o_cam_8",
+    "local_enu_m": [
+      -10.4631,
+      -13.226,
+      9.2419
+    ],
+    "scene_xyz_m": [
+      39.5369,
+      56.774,
+      9.2419
+    ],
+    "rotation_euler_xyz_deg": [
+      -175.19,
+      71.37,
+      74.985
+    ],
+    "image_size": [
+      1920,
+      1200
+    ],
+    "method": "solvePnP direct cam2world (Scenescape RH Y-down; no Three.js GL flip)"
+  },
+  "radar_intersection_radar1": {
+    "sensor_id": "intersection-radar1",
+    "local_enu_m": [
+      0.8967,
+      0.8894,
+      4.5
+    ],
+    "scene_xyz_m": [
+      50.8967,
+      70.8894,
+      4.5
+    ],
+    "rotation_euler_xyz_deg": [
+      0.0,
+      0.0,
+      -9.088
+    ],
+    "videtec_sensor_json": {
+      "position_xyz_m": [
+        0.8967,
+        0.8894,
+        4.5
+      ],
+      "orientation_yaw_deg": -9.088,
+      "orientation_pitch_deg": 7.5,
+      "orientation_roll_deg": -5.0,
+      "mounting_height_m": 4.5
+    },
+    "relative_to_camera_local_m": [
+      11.3598,
+      14.1154,
+      -4.7419
+    ]
+  }
+}

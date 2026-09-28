@@ -10,6 +10,7 @@ import { GUI } from "/static/examples/jsm/libs/lil-gui.module.min.js";
 import Stats from "/static/examples/jsm/libs/stats.module.js";
 import AssetManager from "/static/js/assetmanager.js";
 import CameraManager from "/static/js/thing/managers/cameramanager.js";
+import RadarManager from "/static/js/thing/managers/radarmanager.js";
 import RegionManager from "/static/js/thing/managers/regionmanager.js";
 import SensorManager from "/static/js/thing/managers/sensormanager.js";
 import TripwireManager from "/static/js/thing/managers/tripwiremanager.js";
@@ -140,6 +141,7 @@ function main() {
   );
 
   const camerasFolder = panel.addFolder("Camera Settings");
+  const radarsFolder = panel.addFolder("Radar Settings");
   const tripwiresFolder = panel.addFolder("Tripwires Settings");
   const regionsFolder = panel.addFolder("Regions Settings");
   const sensorsFolder = panel.addFolder("Sensors Settings");
@@ -157,6 +159,13 @@ function main() {
         orbitControls: orbitControls,
         setViewCamera: setViewCamera,
         camerasFolder: camerasFolder,
+      },
+      radar: {
+        manager: RadarManager,
+        renderer: renderer,
+        sceneViewCamera: sceneViewCamera,
+        orbitControls: orbitControls,
+        radarsFolder: radarsFolder,
       },
       tripwire: {
         manager: TripwireManager,
@@ -246,7 +255,7 @@ function main() {
       addSceneControls();
     }
     for (const thing of things) {
-      if (thing !== "camera") {
+      if (thing !== "camera" && thing !== "radar") {
         sceneThing.loadChildAnalytics(sceneThingManagers, thing);
       }
     }

@@ -127,6 +127,27 @@ Attribution when using or redistributing converted frames:
 > VIDETEC-2 dataset, Zenodo record [17799385](https://zenodo.org/records/17799385),
 > Creative Commons Attribution 4.0 International (CC BY 4.0).
 
+## Scene map (VIDETEC / Mapbox)
+
+The demo ships a Mapbox satellite snapshot of the Garching‑Hochbrück
+intersection (VIDETEC local ENU origin), not the LiDAR placeholder map.
+Pixels/metre and map-corner LLA are in `RadarIntersection.json`. To refresh
+the imagery (requires a Mapbox token, **not** stored in git):
+
+```bash
+export MAPBOX_API_KEY=<token>
+python3 sample_data/radar_intersection/fetch_videtec_mapbox_map.py
+# then rebuild RadarIntersection-scene-import.zip / re-import the scene
+```
+
+Radar pose comes from VIDETEC `/sensor` (ENU `[0.90, 0.89, 4.5]`,
+yaw ≈ −9.1°). `radar-cam1` (`s110_o_cam_8`) was solved with OpenCV
+`solvePnP` on Mapbox↔camera feature matches (direct cam→world, Scenescape
+RH / Y-down — **not** the Three.js GL row-flip used only in the UI). Result:
+mount over EB lanes (~10 m west of the radar gantry), look ≈ **+X**
+(heading ~2°), pitched down at the road. See `videtec_map_calibration.json`.
+
+
 ## Run
 
 ```bash
@@ -146,7 +167,9 @@ the plugin. Compose steps:
 1. `radar-scene-init` — imports **Radar Intersection** (idempotent).
 2. `radar-data-init` — `frames/`, `frames_bin/` (5-float), `pcd_bin/` (7-float).
 3. `radar-model-init` — installs config/IR for the selected `RADAR_PERCEPTION`.
-4. `radar-stream` — shared GST publish path for radar + camera.
+4. `radar-stream` — shared GST publish path for radar + camera. Detections
+   stay radar-local (+X forward); Controller applies the VIDETEC ENU /
+   Mapbox-calibrated radar pose.
 
 Open the UI and select **Radar Intersection**. For fusion, leave the camera
 unmuted (default): `radar-stream` publishes both
@@ -162,7 +185,7 @@ is automatic on `make demo-radar` when `CAM_MUTE` is false (first run downloads
 ```bash
 SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
   RADAR_PCD_SUBDIR=pcd_bin_acc5 RADAR_IR_DIR=FP16_ft2 \
-  RADAR_START_INDEX=3270 RADAR_STOP_INDEX=4100 RADAR_SCORE_THRESHOLD=0.03 \
+  RADAR_START_INDEX=3270 RADAR_STOP_INDEX=4100 RADAR_SCORE_THRESHOLD=0.1 \
   make demo-radar
 ```
 
@@ -170,6 +193,8 @@ Open **Radar Intersection**, select **radar-cam1** for the live pane, and
 confirm map tracks update while camera detections publish on
 `scenescape/data/camera/radar-cam1`. The staged slice covers frames
 **3270–4100** (~15:01–15:02 CEST; see `camera_demo/ALIGN.json` after staging).
+Use **`RADAR_SCORE_THRESHOLD=0.1`** (radarpillars default) so person count stays
+near the single GNSS VRU; `0.03` floods the map with clutter.
 
 ### Radar-only
 
@@ -189,7 +214,7 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | --- | --- | --- |
 | `RADAR_PERCEPTION` | `classical` | `classical` \| `roadside` \| `radarpillars` |
 | `RADAR_DEVICE` | `CPU` | OpenVINO device for roadside / radarpillars |
-| `RADAR_SCORE_THRESHOLD` | mode default (`0` / `0.1`) | Use `≈0.03` for radarpillars on real VIDETEC |
+| `RADAR_SCORE_THRESHOLD` | mode default (`0` / `0.1`) | Radarpillars: use **`0.1`** (~1 person on densify slice); `0.03` is clutter |
 | `RADAR_MODEL_CONFIG` | mode default under `vol-models` | Override g3dinference config JSON |
 | `RADAR_DATA_PATH` | `frames_bin` or `pcd_bin` | multifilesrc pattern |
 | `DLSTREAMER_SRC` | `../dlstreamer` | Checkout for `build-dlsps-g3d` |

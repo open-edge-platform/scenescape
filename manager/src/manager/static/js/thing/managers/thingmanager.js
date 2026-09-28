@@ -5,6 +5,7 @@
 
 import RESTClient from "/static/js/restclient.js";
 import SceneCamera from "/static/js/thing/scenecamera.js";
+import SceneRadar from "/static/js/thing/sceneradar.js";
 import SceneTripwire from "/static/js/thing/scenetripwire.js";
 import SceneRegion from "/static/js/thing/sceneregion.js";
 import SceneSensor from "/static/js/thing/scenesensor.js";
@@ -12,6 +13,7 @@ import { REST_URL, SUCCESS } from "/static/js/constants.js";
 
 let sceneThingObjects = {
   camera: SceneCamera,
+  radar: SceneRadar,
   tripwire: SceneTripwire,
   region: SceneRegion,
   sensor: SceneSensor,
@@ -19,6 +21,7 @@ let sceneThingObjects = {
 
 let sceneThingAPI = {
   camera: "getCameras",
+  radar: "getRadars",
   tripwire: "getTripwires",
   region: "getRegions",
   sensor: "getSensors",
@@ -28,6 +31,7 @@ let sceneThingUpdateAPI = {
   tripwire: "updateTripwire",
   region: "updateRegion",
   sensor: "updateSensor",
+  radar: "updateRadar",
 };
 
 export default class ThingManager {

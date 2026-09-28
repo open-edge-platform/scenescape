@@ -62,6 +62,7 @@ _MODE_DEFAULTS = {
     "data": "/home/pipeline-server/videos/radar_intersection/pcd_bin/%06d.bin",
     "config": "/home/pipeline-server/models/public/radarpillars/FP16/radarpillars_ov_config.json",
     "point_features": 7,
+    # ~1 person/frame mean on VIDETEC 3270–4100 densify (0.03 floods clutter).
     "score": 0.1,
   },
 }

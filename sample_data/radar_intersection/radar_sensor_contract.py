@@ -5,8 +5,9 @@
 """SceneScape radar detection publish contract (input-agnostic).
 
 Maps gvametaconvert 3-D OD JSON (from g3dinference model-type=radarpillars)
-onto scenescape/data/radar/{id}. Translations stay in radar-local metres;
-Controller applies sensor extrinsics.
+onto scenescape/data/radar/{id}. Translations stay in radar-local metres
+(+X forward, +Y left, +Z up); Controller applies VIDETEC ENU-calibrated
+sensor extrinsics (see ``RadarIntersection.json`` / Mapbox map).
 """
 
 from __future__ import annotations

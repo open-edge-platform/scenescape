@@ -92,6 +92,26 @@ export default class RESTClient {
     return this._crud("DELETE", `camera/${uid}`);
   }
 
+  async getRadars(data) {
+    return this._crud("GET", "radars", data);
+  }
+
+  async createRadar(data) {
+    return this._crud("POST", "radar", data);
+  }
+
+  async getRadar(uid) {
+    return this._crud("GET", `radar/${uid}`);
+  }
+
+  async updateRadar(uid, data) {
+    return this._crud("PUT", `radar/${uid}`, data);
+  }
+
+  async deleteRadar(uid) {
+    return this._crud("DELETE", `radar/${uid}`);
+  }
+
   async getTripwires(data) {
     return this._crud("GET", "tripwires", data);
   }

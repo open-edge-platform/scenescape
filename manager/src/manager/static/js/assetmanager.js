@@ -13,6 +13,9 @@ import {
 } from "/static/js/draw.js";
 import { SetupMarkHover } from "/static/js/interactions.js";
 
+// Detection source is untrusted MQTT data; only these values are shown.
+const KNOWN_SOURCES = ["lidar", "radar", "camera"];
+
 export default function AssetManager(
   scene,
   subscribeToTracking,
@@ -47,6 +50,11 @@ export default function AssetManager(
       });
     } else {
       updateLabelFields(markObject, { dwell: null });
+    }
+
+    // Debug aid: which sensor produced this detection before fusion.
+    if (KNOWN_SOURCES.includes(obj.source)) {
+      updateLabelFields(markObject, { source: obj.source });
     }
   }
 
