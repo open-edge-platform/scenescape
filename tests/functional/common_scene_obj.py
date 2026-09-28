@@ -277,8 +277,23 @@ class SceneObjectMqtt(FunctionalTest):
   def runROIMqttExecute(self):
     objLocation = self.getLocations()
     self.sendDetections(objLocation, self.frameRate)
+    self.settleRegionExit(objLocation[-1])
     log.info(f"Expected entered list: {self.expectedEnter}")
     log.info(f"Expected exited list: {self.expectedExit}")
+    return
+
+  def settleRegionExit(self, finalLocation, timeout=5):
+    """Analytics only re-evaluates region membership on a new frame, so a
+    debounced exit needs extra frames past DEBOUNCE_DELAY to be flushed."""
+    jdata = self.objData()
+    camera_id = jdata['id']
+    jdata['objects'][PERSON][0]['bounding_box']['y'] = finalLocation
+    deadline = get_epoch_time() + timeout
+    while self.expectedExit and get_epoch_time() < deadline:
+      time.sleep(0.6)
+      jdata['timestamp'] = get_iso_time()
+      self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_CAMERA,
+                                        camera_id=camera_id), json.dumps(jdata))
     return
 
   def runROIMqttDelete(self):
