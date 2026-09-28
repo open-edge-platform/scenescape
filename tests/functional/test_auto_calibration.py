@@ -282,19 +282,20 @@ class AutoCalibration(FunctionalTest):
 @pytest.mark.parametrize(
   "test_name, n_tags, random_select, expect_status, expected_result, intrinsics",
   [
-    ("NEX-T17850:", 0, False, "success", EXPECTED_RESULT_1,
-     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    ("NEX-T10487:", 2, False, "success", EXPECTED_RESULT_2,
-     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    ("NEX-T17851:", 0, True, "success", EXPECTED_RESULT_3, None),
-    ("NEX-T10486:", 3, False, "pending", EXPECTED_RESULT_4,
-     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
-    ("NEX-T17852:", 6, True, "pending", None,
-     [[905, 0, 640], [0, 905, 360], [0, 0, 1]]),
+    pytest.param("NEX-T17850:", 0, False, "success", EXPECTED_RESULT_1,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]], marks=pytest.mark.test_name("NEX-T17850")),
+    pytest.param("NEX-T10487:", 2, False, "success", EXPECTED_RESULT_2,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]], marks=pytest.mark.test_name("NEX-T10487")),
+    pytest.param("NEX-T17851:", 0, True, "success", EXPECTED_RESULT_3, None,
+     marks=pytest.mark.test_name("NEX-T17851")),
+    pytest.param("NEX-T10486:", 3, False, "pending", EXPECTED_RESULT_4,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]], marks=pytest.mark.test_name("NEX-T10486")),
+    pytest.param("NEX-T17852:", 6, True, "pending", None,
+     [[905, 0, 640], [0, 905, 360], [0, 0, 1]], marks=pytest.mark.test_name("NEX-T17852")),
   ]
 )
 @pytest.mark.basic_acceptance
-def test_auto_calibration(scenescape_env, request, record_xml_attribute,
+def test_auto_calibration(scenescape_env, request, record_xml_attribute, result_recorder,
               test_name, n_tags, random_select,
               expect_status, expected_result, intrinsics, repo_root):
   test = AutoCalibration(test_name, request, record_xml_attribute,
@@ -302,3 +303,4 @@ def test_auto_calibration(scenescape_env, request, record_xml_attribute,
              expected_result, intrinsics=intrinsics, repo_root=repo_root)
   test.runAutoCalibration()
   assert test.exitCode == 0
+  result_recorder.success()

@@ -44,6 +44,7 @@ RUN cd /tmp/reloc && \
     patch -p0 < /tmp/reloc-patches/04-pipelines-modifications.patch && \
     patch -p0 < /tmp/reloc-patches/05-pycolmap-api-fix.patch && \
     patch -p0 < /tmp/reloc-patches/06-pycolmap-rigid3d-api.patch && \
+    patch -p0 < /tmp/reloc-patches/07-netvlad-require-preloaded-model.patch && \
     # Copy new files
     cp -r /tmp/reloc-new-files/* /tmp/reloc/ && \
     # Copy verification tests for runtime use
@@ -70,7 +71,7 @@ RUN python3 setup.py bdist_wheel && \
     cp build/*.so /tmp/apriltag_build/ && \
     cp dist/*.whl /output/
 
-# NetVLAD with on-demand loading (NO MODEL DOWNLOAD)
+# NetVLAD package with model supplied by the deployment init step
 WORKDIR /tmp/netvlad
 RUN mkdir -p third_party/netvlad && \
     touch third_party/__init__.py third_party/netvlad/__init__.py && \
@@ -162,18 +163,6 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY --chown=$WSUSER:$WSUSER autocalibration/src/autocalibration $SCENESCAPE_HOME/autocalibration
 RUN chmod +x $SCENESCAPE_HOME/autocalibration
 COPY --chown=$WSUSER:$WSUSER autocalibration/src/*.py $SCENESCAPE_HOME/
-COPY --chown=$WSUSER:$WSUSER autocalibration/tools/ondemand_model_loader.py /usr/local/bin/download_models.py
-
-RUN echo '#!/bin/bash\n\
-set -e\n\
-if [ "$SKIP_MODEL_DOWNLOAD" != "1" ]; then\n\
-    echo "Checking NetVLAD model..."\n\
-    python3 /usr/local/bin/download_models.py\n\
-fi\n\
-touch /tmp/healthy\n\
-exec "$@"\n' > /usr/local/bin/startup.sh && \
-    chmod +x /usr/local/bin/startup.sh && \
-    chown $WSUSER:$WSUSER /usr/local/bin/startup.sh
 
 # Switch to non-root user
 USER $WSUSER
@@ -182,13 +171,12 @@ WORKDIR $SCENESCAPE_HOME
 HEALTHCHECK --interval=30s --timeout=5s --retries=10 \
     CMD pgrep -f python3 || exit 1
 
-ENTRYPOINT ["/usr/local/bin/startup.sh", "/home/scenescape/Scenescape/autocalibration"]
+ENTRYPOINT ["/home/scenescape/Scenescape/autocalibration"]
 
 # ---------- Cam Calibration Test Stage ------------------
 # This stage is meant to be used for test execution (not for final runtime)
 FROM autocalibration-runtime AS autocalibration-test
 ENV DEBIAN_FRONTEND=noninteractive
-ENV SKIP_MODEL_DOWNLOAD=1
 
 # Switch back to root to install test dependencies
 USER root

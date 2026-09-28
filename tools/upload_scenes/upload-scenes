@@ -24,7 +24,7 @@ import requests
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from uploader import (  # noqa: E402
   DEFAULT_WAIT_SECONDS, SceneScapeClient, log, parse_auth, upload_all,
-  wait_for_database,
+  is_application_ready,
 )
 
 
@@ -70,14 +70,8 @@ def main():
     requests.packages.urllib3.disable_warnings()
   client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True))
 
-  if args.wait and not wait_for_database(client, args.wait):
+  if args.wait and not is_application_ready(client, args.wait, user, password):
     log.error(f"{args.url} was not ready after {args.wait} seconds")
-    return 1
-
-  try:
-    client.authenticate(user, password)
-  except requests.RequestException as e:
-    log.error(f"Cannot authenticate against {args.url}: {e}")
     return 1
 
   return 1 if upload_all(client, scene_archives) else 0

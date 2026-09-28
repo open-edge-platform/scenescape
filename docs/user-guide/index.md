@@ -125,8 +125,8 @@ Run the LiDAR-Intersection Fusion Demo <./how-to-guides/run-lidar-intersection-d
 Analytics <./microservices/analytics/analytics.md>
 Auto Camera Calibration <./microservices/auto-calibration/auto-calibration.md>
 Cluster Analytics <./microservices/cluster-analytics/cluster-analytics.md>
-Scene Controller <./microservices/controller/controller.md>
 Mapping Service <./microservices/mapping-service/mapping-service.md>
+Scene Controller <./microservices/controller/controller.md>
 API Reference <./api-reference.md>
 
 :::

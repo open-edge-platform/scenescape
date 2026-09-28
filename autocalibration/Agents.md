@@ -116,6 +116,21 @@ docker compose exec autocalibration bash
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
 - `CALIBRATION_MODE`: `apriltag` or `markerless`
 - `LOG_LEVEL`: `DEBUG`, `INFO`, `WARNING`, `ERROR`
+- `NETVLAD_MODEL_DIR`: model directory used by the download service/sidecar and HLoc. The
+  application starts and serves AprilTag calibration whether or not the model is present yet.
+
+### NetVLAD model lifecycle
+
+The autocalibration application does not download NetVLAD at runtime, and it does not wait
+for it at startup: AprilTag calibration is available immediately. Docker Compose runs
+`autocalibration-model-init` in parallel with the application and stores the verified model in
+`vol-netvlad_models`. Kubernetes runs the equivalent as a background sidecar (not a blocking
+init container) against a dedicated PVC, retrying until it succeeds. Both use
+`autocalibration/tools/ondemand_model_loader.py`, which verifies the download checksum.
+Markerless calibration becomes available as soon as the verified model appears on the shared
+volume/PVC; requests made before that point fail with a clear error instead of hanging.
+Smoke-test deployments that don't exercise markerless calibration may set
+`autocalibration.skipModelDownload: true` to skip the sidecar entirely.
 
 ### Configuration Files
 

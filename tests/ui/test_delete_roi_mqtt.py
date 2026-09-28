@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
 import time
 import json
+import pytest
+
 from tests.ui.browser import Browser
 import tests.ui.common_ui_test_utils as common
 from scene_common.rest_client import RESTClient
@@ -46,17 +48,13 @@ def getRegionUid(rest, re_name):
   # Get the uid of the first result
   return res["results"][0]['uid']
 
-def test_roi_mqtt(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10430")
+def test_roi_mqtt(params, result_recorder):
   """! Test the deletion of ROI and verify that the deleted ROI is not publishing any data to MQTT.
   @param    params                  List of test parameters.
-  @param    record_xml_attribute    Function for recording test name.
+  @param    result_recorder         Pytest fixture recording the test result.
   @return   exit_code               Boolean representing whether the test passed or failed.
   """
-  TEST_NAME = "NEX-T10430"
-  record_xml_attribute("name", TEST_NAME)
-  print("Executing: " + TEST_NAME)
-
-  exit_code = 1
 
   rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
   assert rest.authenticate(params['user'], params['password'])
@@ -112,17 +110,11 @@ def test_roi_mqtt(params, record_xml_attribute):
     # Check MQTT messages to verify that the deleted ROI is no longer publishing
     global message_received
 
-    if client.isConnected():
-      if message_received == False:
-        exit_code = 0
-      else:
-        print("Still receiving message from ROI!")
-    else:
-      print("Failed to connect!")
+    assert client.isConnected(), "Failed to connect!"
+    assert not message_received, "Still receiving message from ROI!"
+    result_recorder.success()
 
   finally:
     browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
 
-  assert exit_code == 0
   return
