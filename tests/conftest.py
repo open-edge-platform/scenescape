@@ -1166,7 +1166,7 @@ def result_recorder(request):
 
 # Properties of the seeded "Demo" scene, reproduced by the demo_scene fixture
 # so tests get identical content on every deployment backend.
-DEMO_SCENE_MAP = "sample_data/HazardZoneSceneLarge.png"
+DEMO_SCENE_MAP = "tests/resources/maps/HazardZoneSceneLarge.png"
 DEMO_SCENE_SCALE = 100.0
 DEMO_SCENE_CAMERAS = ("camera1", "camera2", "camera3")
 DEMO_CAMERA_TRANSFORM_TYPE = "3d-2d point correspondence"
