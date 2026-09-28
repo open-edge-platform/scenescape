@@ -54,7 +54,7 @@ Read the matching reference under [Additional resources](#additional-resources) 
 
 ## Hard requirements
 
-- **Zephyr ID**: every test suite/module needs `NEX-T#####` (`TEST_NAME` and/or `record_xml_attribute`).
+- **Zephyr ID**: every test suite/module needs `NEX-T#####` (@pytest.mark.test_name("NEX-T#####")).
 - **Functional/UI**: declare module-level `SCENESCAPE_SPEC = FuncTestSpec(...)` with the correct `ServiceProfile` from `tests/utils/profiles.py`.
 - **Naming**: files `test_*.py`, functions `test_*` (pytest norms).
 - **Markers that matter**:

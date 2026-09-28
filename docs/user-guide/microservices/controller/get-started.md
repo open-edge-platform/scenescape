@@ -1,4 +1,4 @@
-# Get Started with Scene Controller
+# Get Started
 
 ## Prerequisites
 
@@ -148,7 +148,7 @@ When using a pose estimation model (e.g. `yolo11n-pose`) in the DL Streamer vide
 :::{toctree}
 :hidden:
 
-get-started/build-from-source.md
+Build from Source <./get-started/build-from-source.md>
 
 :::
 hide_directive-->

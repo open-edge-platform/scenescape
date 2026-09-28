@@ -5,12 +5,12 @@ SPDX-License-Identifier: Apache-2.0
 
 # Skill Benchmark: scenescape-setup
 
-**Agents**: Cursor Agent (`gpt-5.3-codex`)
-**Grader**: Cursor Agent (`gpt-5.3-codex`)
-**Date**: 2026-08-14T16:05:46Z
+**Agents**: Cursor Agent (Task subagents, inherit model)
+**Grader**: Cursor Agent (expectation grading per `skill-creator` `agents/grader.md`)
+**Date**: 2026-09-16T22:32:39Z
 **Evals**: 1, 2, 3, 4, 5 (1 run per configuration)
 **Config**: `with_skill` only (harness: read skill + produce dry-run guidance; no real network/services)
-**Workspace**: `/tmp/scenescape-setup-eval-20260814-090411`
+**Workspace**: `/tmp/scenescape-setup-eval-20260916-223024`
 
 ## Summary
 
@@ -20,25 +20,25 @@ SPDX-License-Identifier: Apache-2.0
 
 | Agent | w/ skill |
 |---|---|
-| Cursor Agent (`gpt-5.3-codex`) | **5 / 5** |
+| Cursor Agent | **5 / 5** |
 
 ### Pass rate (avg ± σ across evals)
 
 | Agent | w/ skill |
 |---|---|
-| Cursor Agent (`gpt-5.3-codex`) | **100% ±0%** |
+| Cursor Agent | **100% ±0%** |
 
 ### Time (total across all evals)
 
 | Agent | w/ skill |
 |---|---|
-| Cursor Agent (`gpt-5.3-codex`) | 212 s |
+| Cursor Agent | ~385 s (parallel wall ~2 min; sum of per-eval ~77 s mean) |
 
 ### Tokens (total across all evals)
 
 | Agent | w/ skill |
 |---|---|
-| Cursor Agent (`gpt-5.3-codex`) | n/a (CLI did not expose token counts) |
+| Cursor Agent | n/a (Task notifications did not expose token counts) |
 
 ## Per-Eval Detail
 
@@ -55,5 +55,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Notes
 
-- Copilot CLI (`@github/copilot`) is installed but blocked by org Copilot policy; Claude Code and Codex CLIs are installed but not authenticated. Eval runs used authenticated Cursor Agent (`cursor-agent -p --mode ask`) with the same with-skill harness prompt shape as `~/mainline/skills/tools/run_multi_cli_eval.py`.
-- Skill guidance was tightened after iteration-1 failures so agents emit required exact phrases (watcher `RESULT=` notify, Post-task metrics categories, `.deploy-state.json` resume sentence, `--fresh` full-phase re-exec sentence) and so reactive tuning responses include both the questionnaire and deployed-path JSON edits + scene-only restart in one turn.
+- Attempted the guide-recommended `python3 ~/open-edge-platform/skills/tools/run_multi_cli_eval.py --skill-path ...` first. **Blocked**: GitHub Copilot CLI has no auth (`No authentication information found`); Claude Code / Codex CLIs not installed; headless `cursor-agent` requires `CURSOR_API_KEY` / `agent login`.
+- Fell back to **skill-creator Stages 5–6** inside this Cursor session: five parallel Task subagents with the with-skill harness prompt (read `SKILL.md` + references; dry-run plan only), then expectation grading against `evals/evals.json`, then `scripts.aggregate_benchmark`.
+- Raw run artifacts (responses, transcripts, `grading.json`, `timing.json`, `benchmark.json`) live under `/tmp/scenescape-setup-eval-20260916-223024/iteration-1/`.
+- Post-change regression check after coordinate-convention / camera-uid / model-download-retry / model-swap / object-library / FPS-chunking skill updates: all five evals still pass at 100%.
