@@ -280,7 +280,7 @@ Size the `reid-service` piece (5.4 fields plus this endpoint) separately from St
 
 ### 6.12 Security / trust model
 
-Policy for the external API (Section 6). The authN/authZ *mechanism* (tokens, mTLS, gateway policy, etc.) remains open (Section 11) and must land before `POST /poi` or delete ship (Section 9). MQTT trust for the Tracker subscription is a separate open (Section 11).
+Policy for the external API (Section 6). The authN/authZ _mechanism_ (tokens, mTLS, gateway policy, etc.) remains open (Section 11) and must land before `POST /poi` or delete ship (Section 9). MQTT trust for the Tracker subscription is a separate open (Section 11).
 
 - **Query principals cannot write.** Investigator / VLM-recall clients (Epic #120) get query, trajectory, and stats only. They must not be authorized for POI enroll, embedding append, metadata PATCH, or delete. POI write verbs are a separate privilege for operators / enrollment automation that drive safety alerts (Epic #221).
 - **Same service, separate privileges.** One `reid-service` instance may serve both Epic #120 and Epic #221. Privilege separation is the trust boundary, not a second deployment.
