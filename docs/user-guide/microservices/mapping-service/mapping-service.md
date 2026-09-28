@@ -1,12 +1,15 @@
+# Mapping Service
+
 <!--hide_directive
 <div class="component_card_widget">
-  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/mapping/docs">
+  <a class="icon_github" href="https://github.com/open-edge-platform/scenescape/tree/main/mapping/">
      GitHub
+  </a>
+  <a class="icon_document" href="https://github.com/open-edge-platform/scenescape/blob/main/mapping/README.md">
+     Readme
   </a>
 </div>
 hide_directive-->
-
-# Mapping Service
 
 The Mapping Service generates 3D scene reconstructions — meshes, point clouds, and camera parameters (poses and intrinsics) — from a set of captured images or video frames. It exposes a REST API so other microservices can request reconstructions on demand.
 
@@ -26,212 +29,48 @@ Each container is built with one of two state-of-the-art models:
 - **Camera Data**: Extracts camera poses and intrinsics alongside geometry
 - **Image Enhancement**: Automatic CLAHE preprocessing for improved contrast
 
-## Scenescape Integration
-
-The following diagram shows the dataflow between the Scenescape Web UI, database, MQTT
-broker, and the Mapping Service.
-
-> **Note:** The diagram is currently best viewed in light color mode.
-
-```mermaid
-sequenceDiagram
-    Scenescape Web UI ->>+Database: "Query camera info"
-    Scenescape Web UI ->>+MQTT Broker: "Get latest frame for each camera"
-    Scenescape Web UI ->>+Mapping Service: "REST API call to /reconstruction endpoint with camera frames"
-    Mapping Service ->>+Scenescape Web UI: "Output: GLB & Camera Poses"
-    Scenescape Web UI ->>+Database: "Update scene map & camera poses"
-```
-
-## API Endpoints
-
-> **Security note:** Mapping service endpoints currently do not enforce endpoint-level
-> authentication or authorization. Deploy behind trusted network boundaries and reverse
-> proxy controls, and use TLS for transport protection.
-
-### Health Check
-
-```bash
-GET /health
-```
-
-Returns service status and model availability.
-
-### List Models
-
-```bash
-GET /models
-```
-
-Returns information about the model in this container and its status.
-
-### 3D Reconstruction
-
-```bash
-POST /reconstruction
-```
-
-Perform 3D reconstruction from images and/or video.
-
-#### Request Format
-
-**Multipart Form Data (Required)**
-
-The API accepts `Content-Type: multipart/form-data` to upload image and/or video files:
-
-```bash
-POST /reconstruction
-Content-Type: multipart/form-data
-
-Form fields:
-- images: Image files (can specify multiple)
-- video: Video file (optional)
-- output_format: "glb" or "json" (default: "glb")
-- mesh_type: "mesh" or "pointcloud" (default: "mesh")
-- use_keyframes: "true" or "false" (for video, default: true)
-```
-
-**Notes:**
-
-- You can provide images only, video only, or both together
-- All inputs are processed as individual frames
-- The API only accepts multipart/form-data format with actual file uploads
-- JSON payloads with base64-encoded images are NOT supported
-- `model_type` is no longer needed - the model is determined at build time
-
-#### Response Format
-
-```json
-{
-  "success": true,
-  "model": "mapanything", // indicates which model was used
-  "glb_data": "base64_encoded_glb_file",
-  "camera_poses": [
-    {
-      "rotation": [0, 0, 0, 0], // quaternion rotation [x, y, z, w]
-      "translation": [0, 0, 0] // 3D translation vector [x, y, z]
-    }
-  ],
-  "intrinsics": [
-    [
-      [0, 0, 0],
-      [0, 0, 0],
-      [0, 0, 1]
-    ] // 3x3 intrinsics matrix [[fx, 0, cx], [0, fy, cy], [0, 0, 1]]
-  ],
-  "processing_time": 15.23,
-  "message": "Success message"
-}
-```
-
 ## Building and Running
 
 Check out [How to Build from Source](./build-from-source.md) for instructions on building
 the service from source and running it.
 
-## Using the API
+### Minimum Hardware Requirements
 
-### Example with Python Client
+- **CPU**: 12th Gen or newer Intel® Core™ processors (i5 or higher), or 2nd Gen or newer Intel®
+  Xeon® processors
+- **RAM**:
+  - MapAnything: 8GB minimum (4GB for model + overhead)
+  - VGGT: 16GB minimum (8GB for model + overhead, more for high resolution images)
+- **Storage**: 12GB free space for Docker images and models
 
-```python
-import base64
-import requests
-from pathlib import Path
+### Performance Notes
 
-# Prepare multipart request
-files = []
-handles = []
-for image_path in ["image1.jpg", "image2.jpg"]:
-  path = Path(image_path)
-  handle = path.open("rb")
-  handles.append(handle)
-  files.append(("images", (path.name, handle, "image/jpeg")))
+- **First Run**: Initial model download may take several minutes
+- **Memory Requirements**:
+  - MapAnything: ~4GB RAM
+  - VGGT: ~8GB RAM (more for high resolution)
+- **Processing Time**: Varies by image count and resolution
 
-data = {
-  "output_format": "glb",
-  "mesh_type": "mesh",
-}
+## Scenescape Integration
 
-try:
-try:
-  # Send request through the Apache reverse proxy used in the full stack deployment
-  response = requests.post("https://localhost/api/v1/mapping/reconstruction", data=data, files=files, verify=False)
-  result = response.json()
+The following diagram shows the dataflow between the Scenescape Web UI, database, MQTT
+broker, and the Mapping Service.
 
-  if result["success"]:
-    # Save GLB file
-    glb_data = base64.b64decode(result["glb_data"])
-    with open("output.glb", "wb") as f:
-      f.write(glb_data)
-
-    print(f"Model used: {result['model']}")
-    print(f"Processing time: {result['processing_time']:.2f}s")
-    print(f"Camera poses: {len(result['camera_poses'])}")
-finally:
-  for handle in handles:
-    handle.close()
+```mermaid
+---
+config: {"theme": "dark"}
+---
+sequenceDiagram
+    Scenescape Web UI ->>+Database: Query camera info
+    Scenescape Web UI ->>+MQTT Broker: Get latest frame for each camera
+    Scenescape Web UI ->>+Mapping Service: REST API call to /reconstruction endpoint with camera frames
+    Mapping Service ->>+Scenescape Web UI: Output: GLB & Camera Poses
+    Scenescape Web UI ->>+Database: Update scene map & camera poses
 ```
 
-### Using the Included Client
+## Development
 
-```bash
-# Check API health (model-agnostic)
-python client_example.py --health-check --insecure
-
-# Specify output type
-python client_example.py --images image1.jpg image2.jpg --mesh-type mesh --output mesh.glb --insecure
-python client_example.py --images image1.jpg image2.jpg --mesh-type pointcloud --output points.glb --insecure
-```
-
-### Using curl
-
-```bash
-# Health check
-curl https://localhost:8444/v1/health --insecure
-
-# Startup progress (poll initialization state)
-while true; do
-  curl -ks https://localhost:8444/v1/health | jq '{status, ready, initialization}'
-  sleep 2
-done
-
-# List models
-curl https://localhost:8444/v1/models --insecure
-
-# Reconstruction with images (using multipart/form-data - recommended)
-curl -X POST "https://localhost:8444/v1/reconstruction" \
-  -F "images=@image1.jpg" \
-  -F "images=@image2.jpg" \
-  -F "output_format=glb" \
-  -F "mesh_type=mesh" \
-  --insecure
-
-# Reconstruction with video
-curl -X POST "https://localhost:8444/v1/reconstruction" \
-  -F "video=@video.mp4" \
-  -F "output_format=glb" \
-  -F "mesh_type=mesh" \
-  -F "use_keyframes=true" \
-  --insecure
-
-# Reconstruction with both images and video
-curl -X POST "https://localhost:8444/v1/reconstruction" \
-  -F "images=@image1.jpg" \
-  -F "images=@image2.jpg" \
-  -F "video=@video.mp4" \
-  -F "output_format=glb" \
-  -F "mesh_type=mesh" \
-  --insecure
-
-# Save GLB output to file (requires jq for JSON parsing)
-curl -X POST "https://localhost:8444/v1/reconstruction" \
-  -F "images=@image1.jpg" \
-  -F "images=@image2.jpg" \
-  -F "output_format=glb" \
-  -F "mesh_type=mesh" \
-  --insecure | jq -r '.glb_data' | base64 -d > output.glb
-```
-
-## Model Comparison
+### Model Comparison
 
 | Feature               | MapAnything           | VGGT                                                                           |
 | --------------------- | --------------------- | ------------------------------------------------------------------------------ |
@@ -244,8 +83,6 @@ curl -X POST "https://localhost:8444/v1/reconstruction" \
 | **Native Output**     | Watertight mesh       | Point cloud                                                                    |
 | **Supported Outputs** | Mesh, Point cloud     | Point cloud, Mesh                                                              |
 
-## Development
-
 ### Adding Custom Models
 
 To add support for additional models:
@@ -256,24 +93,7 @@ To add support for additional models:
 4. Update the Makefile to support the new model type
 5. Add build-time model selection logic
 
-## Minimum Hardware Requirements
-
-- **CPU**: 12th Gen or newer Intel® Core™ processors (i5 or higher), or 2nd Gen or newer Intel®
-  Xeon® processors
-- **RAM**:
-  - MapAnything: 8GB minimum (4GB for model + overhead)
-  - VGGT: 16GB minimum (8GB for model + overhead, more for high resolution images)
-- **Storage**: 12GB free space for Docker images and models
-
-## Performance Notes
-
-- **First Run**: Initial model download may take several minutes
-- **Memory Requirements**:
-  - MapAnything: ~4GB RAM
-  - VGGT: ~8GB RAM (more for high resolution)
-- **Processing Time**: Varies by image count and resolution
-
-## Best Practices
+### Best Practices
 
 - **Image Preprocessing**: All input images automatically undergo Contrast Limited Adaptive
   Histogram Equalization (CLAHE) to enhance contrast and improve reconstruction quality,
@@ -297,14 +117,15 @@ To add support for additional models:
 ## Supporting Resources
 
 - [Build from Source](./build-from-source.md): Build the service from source and run it.
-- [API Reference](./api-docs/mapping-api.yaml): Comprehensive reference for the Mapping service
+- [API Reference](./api-reference.md): Comprehensive reference for the Mapping service
   REST API endpoints.
 
 <!--hide_directive
 :::{toctree}
 :hidden:
 
-./build-from-source.md
+Build from Source <./build-from-source.md>
+API Reference <./api-reference.md>
 
 :::
 hide_directive-->

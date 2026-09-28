@@ -22,6 +22,7 @@ import os
 import time
 
 import numpy as np
+import pytest
 
 from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
@@ -62,8 +63,8 @@ IDENTITY_ROTATION = [0, 0, 0, 1]
 
 
 class ExternalSourceIngest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute, repo_root):
-    super().__init__(testName, request, recordXMLAttribute)
+  def __init__(self, testName, request, repo_root):
+    super().__init__(testName, request, None)
     self.repoRoot = repo_root
 
     self.exitCode = 1
@@ -110,7 +111,7 @@ class ExternalSourceIngest(FunctionalTest):
     is confirmed by a successful external-source publish on DATA_SCENE when
     REST does not expose ``trs_matrix``.
     """
-    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/tests/resources/maps/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_bytes = f.read()
 
@@ -372,26 +373,21 @@ class ExternalSourceIngest(FunctionalTest):
       f"Non-colliding id missing from scene output after {MAX_WAIT_TIMEOUT_S}s: {ids}")
 
   def verifyFunction(self):
-    if self.testName and self.recordXMLAttribute:
-      self.recordXMLAttribute("name", self.testName)
-
-    try:
-      self.prepareScene()
-      self.verifyWgs84PoseIngestAndLocationAccuracy()
-      self.verifyPoseReuseFromCache()
-      self.verifySourceIdTopicMismatchRejected()
-      self.verifyIdentityCollisionDropsSecondSource()
-      self.verifyUntrustedScenePoseRejected()
-      self.exitCode = 0
-    finally:
-      self.recordTestResult()
+    self.prepareScene()
+    self.verifyWgs84PoseIngestAndLocationAccuracy()
+    self.verifyPoseReuseFromCache()
+    self.verifySourceIdTopicMismatchRejected()
+    self.verifyIdentityCollisionDropsSecondSource()
+    self.verifyUntrustedScenePoseRejected()
+    self.exitCode = 0
     return
 
 
-def test_external_source_ingest(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
-  test = ExternalSourceIngest(TEST_NAME, request, record_xml_attribute, repo_root)
+@pytest.mark.test_name("NEX-T29229")
+def test_external_source_ingest(scenescape_env, demo_scene, request, repo_root, result_recorder):
+  test = ExternalSourceIngest(TEST_NAME, request, repo_root)
   test.verifyFunction()
-  assert test.exitCode == 0
+  result_recorder.success()
   return
 
 def main():

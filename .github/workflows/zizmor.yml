@@ -6,30 +6,17 @@ name: "[Code Analysis] Zizmor Scan"
 run-name: "[Code Analysis] Zizmor Scan"
 
 on:
+  workflow_call: {}
   workflow_dispatch: {}
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
-  push:
-    branches:
-      - main
-      - release-*
   schedule:
     # Run security checks every day at 2 AM UTC
     - cron: "0 2 * * *"
 
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group:
-
-# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down.
+# Hardcoded prefix so this group is stable when called via workflow_call
+# (github.workflow evaluates to the caller's workflow name in reusable workflows).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: zizmor-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions: {}

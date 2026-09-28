@@ -23,13 +23,13 @@ normal.
 
 This is the only path that gives you real percentile queries (see
 [Computing P95/P99](#computing-p95p99) below) — a print-and-discard receiver
-can't compute those, only a backend with the histogram's bucket data over a
+cannot compute those, only a backend with the histogram's bucket data over a
 time range can.
 
 ## Quick ad-hoc check (no repo changes)
 
 If you just want to confirm data is flowing before standing up a full
-Collector, a few lines of Python stood up locally will do it — this isn't a
+Collector, a few lines of Python stood up locally will do it — this is not a
 script shipped in this repo, just something you can save and run yourself:
 
 ```python
@@ -78,9 +78,9 @@ real Collector path above.
 | `scenescape_controller_reid_total_tracked_object_count` | gauge     | count | —           | Sum of tracked-object count across every category                     |
 
 All ReID gauges and the histogram carry the same `category` attribute
-(e.g. `person` vs `car`) so multiple tracked categories don't collide on
+(e.g. `person` vs `car`) so multiple tracked categories do not collide on
 the same series — except the total tracked-object count, which is
-intentionally unattributed since it's already summed across categories.
+intentionally unattributed since it is already summed across categories.
 
 Plus the pre-existing controller metrics (MQTT throughput, tracking
 duration, time-chunking stats) — those export the same way, unrelated to
@@ -88,7 +88,7 @@ ReID.
 
 ## Computing P95/P99
 
-The histogram itself doesn't carry a precomputed percentile — only raw
+The histogram itself does not carry a precomputed percentile — only raw
 `count`/`sum`/`min`/`max` plus bucket data. Real P95/P99 come from a proper
 metrics backend querying that bucket data over a time range, e.g. in
 Prometheus:
@@ -114,5 +114,5 @@ histogram_quantile(0.99,
   streaming and objects are being detected/tracked, not just that the
   controller is up.
 - **Changed `CONTROLLER_METRICS_EXPORT_INTERVAL_S` and nothing changed**:
-  it's only read once, at process start (`metrics.init()`) — restart the
+  it is only read once, at process start (`metrics.init()`) — restart the
   `scene`/`controller-analytics` container after changing it.

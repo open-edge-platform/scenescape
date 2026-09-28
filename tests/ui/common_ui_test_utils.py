@@ -1436,9 +1436,14 @@ def calculate_ssim(img1, img2):
 
   # Use multi-channel SSIM to preserve color information (important for UI testing)
   if len(img1.shape) == 3:
-    return ssim(img1, img2, channel_axis=2)
+    # channel_axis parameter requires explicit reduction to scalar
+    result = ssim(img1, img2, channel_axis=2)
+    # If result is an array (per-channel SSIM), take the mean
+    if isinstance(result, np.ndarray):
+      return float(result.mean())
+    return float(result)
   else:
-    return ssim(img1, img2)
+    return float(ssim(img1, img2))
 
 def mse(mat1, mat2):
   """! Mean Squared Error between two numpy arrays.

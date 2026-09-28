@@ -80,7 +80,7 @@ echo "Volume name: $VOLUME"
 
 ### Identify the mount path
 
-**Find the Pod that has the volume mounted**
+**Find the Pod that has the volume mounted:**
 
 First, list all pods that mount the volume:
 
@@ -106,7 +106,7 @@ POD_NAME="<pod-name-with-write-access>"
 echo "Pod name: $POD_NAME"
 ```
 
-> **Tip**: For the Models Volume, web-app pods typically have write access. For the Sample-Data Volume, video pipeline pods usually have write access.
+> **Tip:** For the Models Volume, web-app pods typically have write access. For the Sample-Data Volume, video pipeline pods usually have write access.
 
 **Identify the volume mount name:**
 

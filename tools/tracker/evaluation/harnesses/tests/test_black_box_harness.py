@@ -178,7 +178,7 @@ class TestSetCustomConfig:
   def test_accepts_valid_config(self, harness, tracker_config_file):
     result = harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
     })
     assert result is harness
@@ -187,7 +187,7 @@ class TestSetCustomConfig:
   def test_overrides_drain_timeout(self, harness, tracker_config_file):
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
         "drain_timeout": 10.0,
     })
@@ -196,7 +196,7 @@ class TestSetCustomConfig:
   def test_overrides_startup_wait(self, harness, tracker_config_file):
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
         "startup_wait_s": 5.0,
     })
@@ -213,7 +213,7 @@ class TestSetCustomConfig:
   def test_overrides_scene_id(self, harness, tracker_config_file):
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
         "scene_id": "override-uid",
     })
@@ -261,7 +261,7 @@ class TestReset:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
     })
     harness.set_output_folder(tmp_path)
@@ -285,7 +285,7 @@ class TestProcessInputsGuards:
   def test_raises_when_no_scene_config(self, harness, tracker_config_file):
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
     })
     with pytest.raises(RuntimeError, match="set_scene_config"):
@@ -315,7 +315,7 @@ class TestProcessInputsFlow:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
         "drain_timeout": 0.1,  # fast test
     })
@@ -398,7 +398,7 @@ class TestProcessInputsFlow:
     list(configured_harness.process_inputs(iter(sample_frames)))
 
     assert len(run_calls) == 2
-    assert run_calls[0] == "eclipse-mosquitto:2.0.22"  # broker first
+    assert run_calls[0] == "eclipse-mosquitto:2.1-alpine"  # broker first
     assert run_calls[1] == "intel/scenescape-controller:test"  # tracker second
 
   @patch("harnesses.black_box_harness.black_box_harness.docker")
@@ -519,13 +519,13 @@ class TestContainerTypeConfig:
     with pytest.raises(ValueError, match="container_type"):
       harness.set_custom_config({
           "tracker_config_path": tracker_config_file,
-          "broker_image": "eclipse-mosquitto:2.0.22",
+          "broker_image": "eclipse-mosquitto:2.1-alpine",
       })
 
   def test_accepts_controller_type(self, harness, tracker_config_file):
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
     })
     assert harness._container_type == CONTAINER_TYPE_CONTROLLER
@@ -533,7 +533,7 @@ class TestContainerTypeConfig:
   def test_accepts_tracker_type(self, harness, tracker_config_file):
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "tracker",
     })
     assert harness._container_type == CONTAINER_TYPE_TRACKER
@@ -542,14 +542,14 @@ class TestContainerTypeConfig:
     with pytest.raises(ValueError, match="container_type"):
       harness.set_custom_config({
           "tracker_config_path": tracker_config_file,
-          "broker_image": "eclipse-mosquitto:2.0.22",
+          "broker_image": "eclipse-mosquitto:2.1-alpine",
           "container_type": "unknown",
       })
 
   def test_reset_clears_container_type(self, harness, tracker_config_file):
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "tracker",
     })
     harness.reset()
@@ -587,7 +587,7 @@ class TestTimestampRewriting:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "drain_timeout": 0.0,
         "container_type": CONTAINER_TYPE_TRACKER,
     })
@@ -602,7 +602,7 @@ class TestTimestampRewriting:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "drain_timeout": 0.0,
         "container_type": CONTAINER_TYPE_CONTROLLER,
     })
@@ -669,7 +669,7 @@ class TestFramePacing:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
         "drain_timeout": 0.0,
     })
@@ -695,7 +695,7 @@ class TestFramePacing:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
         "drain_timeout": 0.0,
     })
@@ -740,7 +740,7 @@ class TestFramePacing:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
         "drain_timeout": 0.0,
         "startup_wait_s": 0.0,
@@ -779,7 +779,7 @@ class TestFramePacing:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
         "drain_timeout": 0.0,
         "startup_wait_s": 0.0,
@@ -905,7 +905,7 @@ class TestPersistOutputs:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
         "drain_timeout": 0.1,
     })
@@ -932,7 +932,7 @@ class TestPersistConfig:
     harness.set_output_folder(out_dir)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
     })
 
@@ -945,7 +945,7 @@ class TestPersistConfig:
   def test_noop_without_output_folder(self, harness, tracker_config_file):
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "tracker",
     })
     # Should not raise when no output folder is configured.
@@ -1001,7 +1001,7 @@ class TestTrackerServiceAuthFile:
     harness.set_scene_config(scene_config)
     harness.set_custom_config({
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "drain_timeout": 0.0,
         "container_type": "tracker",
     })

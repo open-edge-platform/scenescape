@@ -62,13 +62,13 @@ What `demo-tracker` does:
 - Runs `make init-sample-data` to prepare volumes and sample files
 - Invokes the compose helper with: `--profile tracker`
 
-### Stop Tracker + Analytics demo:
+### Stop Tracker + Analytics demo
 
 ```bash
 docker compose --profile tracker down
 ```
 
-### Restart Tracker + Analytics demo:
+### Restart Tracker + Analytics demo
 
 ```bash
 docker compose --profile tracker up -d

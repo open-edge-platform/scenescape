@@ -252,8 +252,8 @@ _BACKENDS = {
 - Unit tests under `tests/sscape_tests/<adapter>/` (interface, schema, insert, match, persist).
 - Functional: extend `tests/functional/reid_backend.py` and a Compose profile (see `tests/utils/profiles.py` `REID_QDRANT` / `compose-qdrant.yml` / `compose-scene_reid_qdrant.yml`).
 - Sample deploy override pattern: one backend per override, exposed as the
-  logical `reid` service (see `sample_data/docker-compose.vdms-override.yml`
-  and `sample_data/docker-compose.qdrant-override.yml`).
+  logical `reid` service (see `sample_data/compose/docker-compose.vdms-override.yml`
+  and `sample_data/compose/docker-compose.qdrant-override.yml`).
 - Document user switch steps in `docs/user-guide/other-topics/how-to-enable-reidentification.md` and env vars in `docs/user-guide/microservices/controller/Extended-ReID.md`.
 
 Reference implementations: `vdms_adapter.py`, `qdrant_adapter.py`.

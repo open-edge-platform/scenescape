@@ -116,6 +116,21 @@ docker compose exec autocalibration bash
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
 - `CALIBRATION_MODE`: `apriltag` or `markerless`
 - `LOG_LEVEL`: `DEBUG`, `INFO`, `WARNING`, `ERROR`
+- `NETVLAD_MODEL_DIR`: model directory used by the download service/sidecar and HLoc. The
+  application starts and serves AprilTag calibration whether or not the model is present yet.
+
+### NetVLAD model lifecycle
+
+The autocalibration application does not download NetVLAD at runtime, and it does not wait
+for it at startup: AprilTag calibration is available immediately. Docker Compose runs
+`autocalibration-model-init` in parallel with the application and stores the verified model in
+`vol-netvlad_models`. Kubernetes runs the equivalent as a background sidecar (not a blocking
+init container) against a dedicated PVC, retrying until it succeeds. Both use
+`autocalibration/tools/ondemand_model_loader.py`, which verifies the download checksum.
+Markerless calibration becomes available as soon as the verified model appears on the shared
+volume/PVC; requests made before that point fail with a clear error instead of hanging.
+Smoke-test deployments that don't exercise markerless calibration may set
+`autocalibration.skipModelDownload: true` to skip the sidecar entirely.
 
 ### Configuration Files
 
@@ -177,6 +192,20 @@ pubsub.publish(f"calibration/result/{camera_id}", json.dumps(calibration_result)
 2. Check MQTT messages: `docker compose exec mosquitto mosquitto_sub -t 'calibration/#'`
 3. Inspect frames: Save detection images to volume for manual review
 4. Verify AprilTag detection: Check tag sizes, lighting, camera resolution
+
+### Exercising Perceptual-Sensor Localization
+
+`tools/perceptual_sensor_cli.py` is a standalone CLI for point-cloud test and
+verification workflows (reuses the `point_cloud_registration` engine and
+`autocalibration_client`). Commands:
+
+- `glb-to-cloud <mesh> <out.pcd|out.ply>` — sample a point cloud from a GLB/PLY mesh
+- `transform <in> <out> --matrix <file>` — apply a 4x4 transform to a cloud
+- `localize --sensor-id <id> --scene-id <uuid> --pointcloud <file>` — POST to the localization endpoint
+- `status --sensor-id <id> [--poll]` — GET/poll localization status
+
+Typical KPI/evidence flow: sample a scene cloud, transform it by a known matrix
+to emulate a sensor, POST it, then poll for the recovered transform.
 
 ## Integration Points
 

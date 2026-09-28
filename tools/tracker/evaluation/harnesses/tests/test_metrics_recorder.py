@@ -150,7 +150,7 @@ class TestMetricsCustomConfig:
   def _base(self, tracker_config_file):
     return {
         "tracker_config_path": tracker_config_file,
-        "broker_image": "eclipse-mosquitto:2.0.22",
+        "broker_image": "eclipse-mosquitto:2.1-alpine",
         "container_type": "controller",
     }
 

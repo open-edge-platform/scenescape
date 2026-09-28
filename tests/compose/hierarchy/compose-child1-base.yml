@@ -33,21 +33,19 @@ services:
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
     healthcheck:
-      test: "curl --insecure -X GET https://child1-web.scenescape.intel.com:443/api/v1/database-ready | grep 'true'"
+      test: "curl --insecure -H 'Host: localhost' -X GET https://127.0.0.1:443/api/v1/database-ready | grep 'true'"
       interval: 5s
       timeout: 60s
       retries: 10
       start_period: 120s
     environment:
-      - "EXAMPLEDB=/home/scenescape/Scenescape/tests/testdb.tar.bz2"
       - "DBHOST=child1-pgserver"
       - "DBPORT=5432"
       - "DBTYPE=postgres"
+      - "SCENESCAPE_ALLOWED_HOSTS"
       - "SUPASS"
     volumes:
-      - ./tests/testdb.tar.bz2:/home/scenescape/Scenescape/tests/testdb.tar.bz2
       - child1-vol-media:/workspace/media
-      - child1-vol-sample-data:/home/scenescape/Scenescape/sample_data
       - child1-vol-migrations:/workspace/migrations
     secrets:
       - source: root-cert
@@ -83,5 +81,4 @@ services:
 volumes:
   child1-vol-db:
   child1-vol-media:
-  child1-vol-sample-data:
   child1-vol-migrations:

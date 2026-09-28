@@ -275,7 +275,8 @@ class TrackEvalEvaluator(TrackerEvaluator):
     """Set base frame rate for timestamp-to-frame-number conversion.
 
     Args:
-      fps: Frames per second (> 0), or None to auto-compute from timestamps.
+      fps: Frames per second (> 0). Required before processing; it is never
+        inferred from timestamps. None leaves it unset and processing raises.
 
     Returns:
       Self for method chaining.
@@ -312,10 +313,18 @@ class TrackEvalEvaluator(TrackerEvaluator):
     """
     try:
       # Import conversion utilities
-      sys.path.insert(0, str(Path(__file__).parent.parent / 'utils'))
-      from format_converters import (
+      from utils.format_converters import (
         convert_canonical_to_motchallenge_csv,
-        create_motchallenge_seqinfo
+        create_motchallenge_seqinfo,
+        stream_jsonl
+      )
+      from utils.timeline import (
+        deduplicate_frames_by_timestamp,
+        parse_timestamp,
+        reference_timestamp,
+        require_fps,
+        resolve_ground_truth_path,
+        timestamp_to_frame,
       )
 
       # Create temporary directory for TrackEval input/output
@@ -328,31 +337,14 @@ class TrackEvalEvaluator(TrackerEvaluator):
         raise RuntimeError("No tracker outputs provided")
 
       # Drop duplicated timestamps when production tracker runs metrics dataset in immediate mode.
-      seen_timestamps = set()
-      filtered_outputs = []
-      for data in tracker_output_list:
-        timestamp = data.get("timestamp")
-        if timestamp in seen_timestamps:
-          continue
-        seen_timestamps.add(timestamp)
-        filtered_outputs.append(data)
-      tracker_output_list = filtered_outputs
+      tracker_output_list = deduplicate_frames_by_timestamp(tracker_output_list)
 
       # Calculate number of frames and FPS from timestamps
-      from datetime import datetime
       timestamps = [
-        datetime.fromisoformat(data["timestamp"].replace("Z", "+00:00"))
-        for data in tracker_output_list
+        parse_timestamp(data["timestamp"]) for data in tracker_output_list
       ]
       self._num_frames = len(timestamps)
-      if self._base_fps is not None:
-        self._camera_fps = self._base_fps
-      elif self._num_frames > 1:
-        # Calculate average FPS from timestamps
-        time_span = (timestamps[-1] - timestamps[0]).total_seconds()
-        self._camera_fps = (self._num_frames - 1) / time_span if time_span > 0 else 30.0
-      else:
-        self._camera_fps = 30.0  # Default
+      self._camera_fps = require_fps(self._base_fps)
 
       # Setup directory structure for TrackEval
       # GT structure: GT_FOLDER/seq/gt/gt.txt + seqinfo.ini
@@ -366,45 +358,46 @@ class TrackEvalEvaluator(TrackerEvaluator):
       tracker_data_folder = tracker_folder / "data"
       tracker_data_folder.mkdir(parents=True, exist_ok=True)
 
+      # Load ground truth frames from JSONL.
+      gt_frames = list(stream_jsonl(resolve_ground_truth_path(ground_truth)))
+
+      # Compute a shared reference timestamp so ground-truth and tracker
+      # frames are quantized onto the same time grid. This keeps matching
+      # timestamp-based even though TrackEval requires integer frame indices.
+      shared_reference = reference_timestamp(tracker_output_list, gt_frames)
+
       # Convert tracker outputs to MOTChallenge CSV format
       self._tracker_csv_path = tracker_data_folder / f"{self._seq_name}.txt"
       self._uuid_to_id_map = convert_canonical_to_motchallenge_csv(
         tracker_output_list,
         str(self._tracker_csv_path),
-        self._camera_fps
+        self._camera_fps,
+        reference_timestamp=shared_reference
       )
 
       if self._output_folder:
         mirrored_tracker_csv = self._output_folder / self._tracker_csv_path.name
         shutil.copy(self._tracker_csv_path, mirrored_tracker_csv)
 
-      # Handle ground truth - it should be a file path string
-      # but comes as iterator due to base class signature
-      if isinstance(ground_truth, str):
-        gt_file_path = ground_truth
-      else:
-        # If it's an iterator, try to get the first element (file path)
-        gt_data = list(ground_truth)
-        if gt_data and isinstance(gt_data[0], str):
-          gt_file_path = gt_data[0]
-        else:
-          raise RuntimeError(
-            "Ground truth must be a file path string. "
-            "Ensure dataset.get_ground_truth() returns a CSV file path."
-          )
-
-      # Copy ground truth to expected location
+      # Convert ground truth to MOTChallenge CSV using the shared reference.
       self._ground_truth_csv_path = gt_folder / "gt.txt"
-      shutil.copy(gt_file_path, self._ground_truth_csv_path)
+      convert_canonical_to_motchallenge_csv(
+        gt_frames,
+        str(self._ground_truth_csv_path),
+        self._camera_fps,
+        reference_timestamp=shared_reference
+      )
 
-      # Determine actual number of frames from both tracker and ground truth
-      # Read max frame from ground truth CSV
-      import pandas as pd
-      gt_df = pd.read_csv(self._ground_truth_csv_path, header=None, names=['frame', 'id', 'x', 'y', 'z', 'conf', 'class', 'vis'])
-      max_gt_frame = int(gt_df['frame'].max()) if not gt_df.empty else self._num_frames
-
-      # Use maximum of tracker frames and ground truth frames
-      self._num_frames = max(self._num_frames, max_gt_frame)
+      # Use maximum frame index across tracker and ground truth
+      self._num_frames = max(
+        self._num_frames,
+        max(
+          timestamp_to_frame(
+            parse_timestamp(frame["timestamp"]), shared_reference, self._camera_fps
+          )
+          for frame in tracker_output_list + gt_frames
+        )
+      )
 
       # Create seqinfo.ini
       create_motchallenge_seqinfo(

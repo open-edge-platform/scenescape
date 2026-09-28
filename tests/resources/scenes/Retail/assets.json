@@ -1,0 +1,13 @@
+[
+  {
+    "name": "person",
+    "x_size": 0.5,
+    "y_size": 0.5,
+    "z_size": 1.85,
+    "mark_color": "green",
+    "scale": 1.0,
+    "tracking_radius": 2.0,
+    "rotation_from_velocity": false,
+    "project_to_map": false
+  }
+]

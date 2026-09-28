@@ -59,6 +59,10 @@ python scripts/upload_object_asset.py \
 
 ## Notes
 
+- Unregistered classes still render: the web UI registers a generic green box for category
+  `"unknown"` before Object Library assets load, and unmatched categories fall back to that
+  geometry rather than being dropped. A library entry is only needed when you want a specific
+  size, color, or `.glb` — not merely for the class to appear.
 - `--name` must exactly match the object class string the detection pipeline publishes; a
   mismatched name creates an unused library entry rather than an error.
 - The script covers the commonly-needed fields (size, mark color, optional `.glb`, mass,
