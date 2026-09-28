@@ -25,8 +25,8 @@
   "z_target_m": 1.0,
   "method": "gnss_xy_yaw_grid + z = z_target - median(matched z_local); yaw-only euler; FT2 densify dets",
   "inputs": {
-    "detections": "/home/spoluri/mainline/scenescape/sample_data/radar_intersection/VIDETEC-2/detections_w2100_4100_ft2ep11_acc5.jsonl",
-    "gnss": "/home/spoluri/mainline/scenescape/sample_data/radar_intersection/VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55/rosbag2_2025_10_09-14_43_55_0_gps.csv",
+    "detections": "sample_data/radar_intersection/VIDETEC-2/detections_w2100_4100_ft2ep11_acc5.jsonl",
+    "gnss": "sample_data/radar_intersection/VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55/rosbag2_2025_10_09-14_43_55_0_gps.csv",
     "frame_start": 3270,
     "frame_stop": 4100
   }

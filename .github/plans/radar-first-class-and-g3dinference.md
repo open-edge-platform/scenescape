@@ -8,7 +8,8 @@ SPDX-License-Identifier: Apache-2.0
 Status snapshot of the radar product path developed on
 `feature/radar-support` (SceneScape) and `feature/g3dinference-multi-model`
 (DLStreamer). Reconstructs the agreed plan from the prior design chats and
-marks what landed vs what remains.
+marks what landed vs what remains. **Updated 2026-09-28:** C5/P1 MQTT demo
+live (multi-cam + dual-radar + portable scene); VoD val mAP dropped.
 
 Related Cursor plan drafts (not in-repo): `videtec_radar_demo_ca4bfda2`,
 `radarpillars_openvino_dls_8576cfc8`. Chat: [radar g3dinference work](6ee327ad-6ae8-4889-9694-8ee4881d810f).
@@ -58,32 +59,42 @@ Bake: always `make build-dlsps-g3d` for `demo-radar`.
 
 ## Current priority (locked)
 
-**Dense-cloud PyTorch performance is locked in as good.** SceneScape MQTT /
-packaging stay deferred until **full-window** (or runtime-accumulate) recall
-is demo-usable; do **not** treat sparse single-frame VoD→gantry as “model
-broken” when support is present.
+**Dense-cloud PyTorch performance is locked in as good.** Do **not** treat
+sparse single-frame VoD→gantry as “model broken” when support is present.
+Ladder completed **VoD-free** (no View-of-Delft val mAP / paper regen).
 
-**VoD download is optional** (TU Delft access). Ladder completed VoD-free
-through fine-tune + window/density diagnosis.
+**SceneScape MQTT demo is live** (FT2 densify + multi-cam / dual-radar fusion).
+Remaining work is quality uplift, causal densify in DLS, and upstream bake.
 
 | Priority | Work | Status |
 | --- | --- | --- |
 | **P0-A** | **Fixed-input parity:** PyTorch OpenPCDet ckpt vs host+OV IR on synthetic + VIDETEC bins | **Done** (`parity_pytorch_vs_ov.json`) |
 | **P0-B** | **VIDETEC GNSS:** stride-5 window, PyTorch vs OV (VRU / all-class) | **Done** — baseline both fail VRU on sparse 3000–5000; see acceptance |
-| **P0-C** | Optional VoD val mAP (if access appears) — paper regen, not a hard gate | Optional |
 | **P0-D** | Fine-tune + densify diagnosis | **Done (dense lock-in)** — FT2 ep11 + **±5 accumulate** on **2100–4100** → **~51% VRU@3m**; associable subset **≥92–99%**. Single-frame full-window still capped by missing near-GT returns |
-| **P0-E / C4** | Runtime densify in OV + g3d playback bins | **Done** — OV VoD densify + `pcd_bin_acc5` |
+| **P0-E / C4** | Runtime densify in OV + g3d playback bins | **Done** — OV densify + `pcd_bin_acc5` |
 | **P0-F** | FT2→OV re-export + densify re-eval | **Done** — `FP16_ft2` OV ±5 → **52.4%** VRU@3m (≈ PyTorch 51.4%) |
-| P1 | SceneScape real-data MQTT demo | **Done + full verify (2026-09-27)** — rebuilt manager/controller (Radar mig); CA `keyUsage`; scene import HTTP 201; FT2/`pcd_bin_acc5` + classical + roadside → MQTT + regulated scene |
-| P2 | Upstream DLS / DLSPS bake drop | After quality |
+| P1 | SceneScape real-data MQTT demo | **Done** (2026-09-27 verify; **2026-09-28** multi-sensor) — see below |
+| P2 | Upstream DLS / DLSPS bake drop | Open — after quality / PR land |
+
+**P1 demo state (2026-09-28):**
+
+- FT2 / `pcd_bin_acc5` + classical + roadside → MQTT + regulated scene
+- **8 cameras** (s110 o/n/w/s + s120 o/n/w/s) via `CAM_SENSOR_IDS` + staged
+  `camera_demo/`
+- **2 radars** (`intersection-radar1` dataset 51, `intersection-radar2`
+  dataset 52) time-aligned `3270–4100` ↔ `3098–3928`
+- GNSS XY/yaw-fit radar1 + relative radar2; UI-calibrated cameras locked in
+  `RadarIntersection.json` + scene-import ZIP (`pack_radar_scene_import.py`,
+  `radar_scene_init.py` re-sync on every `demo-radar`)
+- Default score thr **0.1** (radarpillars); avoid 0.03 clutter on densify slice
 
 **Dense-cloud gate (locked):** when radar returns exist near GNSS (associable
 frames), FT2/FT4 hit **≥80–99% VRU@3m**. Failure mode for sparse full windows
 is **support density**, not a broken detector.
 
-**Full-window / demo gate (still open):** lift operational recall beyond ~51%
-(H=5 on best window) via runtime multi-frame stack, denser train (FT5), or
-fusion — then re-export OV and re-check.
+**Full-window quality gate (still open):** lift operational recall beyond ~51%
+(H=5 on best window) via causal runtime multi-frame stack, denser train
+(optional FT5), or fusion — then re-export OV and re-check.
 
 ### Why detection (not just classification) can fail
 
@@ -113,7 +124,10 @@ separates those.
 | Acceptance data | **Real [VIDETEC-2](https://zenodo.org/records/17799385)** through convert → PCD → `g3dinference` → MQTT → Controller. Synthetic frames are plumbing-only; they do **not** close the demo. |
 | Accuracy gate | Measure RadarPillars on real VIDETEC using **RTK-GNSS VRU first**; camera tracks only as weak secondary after sync/pose proof |
 | Cameras | Unchanged `gvadetect` → `data/camera/{id}`; fusion is Controller’s job |
+| Demo scene portability | `RadarIntersection.json` is pose SoT; ZIP for fresh import; `radar_scene_init` always re-syncs sensors |
+| Demo score (radarpillars) | **`RADAR_SCORE_THRESHOLD=0.1`** on densify slice (~1 VRU); `0.03` is clutter |
 | LiDAR (unchanged debt) | Still overloads `data/camera/{id}` — **not** standardized like radar |
+| VoD val mAP | **Dropped** — not a gate; ladder stays VIDETEC/GNSS-only |
 
 ---
 
@@ -251,80 +265,55 @@ flowchart LR
 | Real VIDETEC ingest / convert / data-init prefer-real | **Done** | `VIDETEC-2/`, `prepare_radar_demo_data.py` |
 | GStreamer smoke on real bins | **Done** | DLSPS `…-g3d` |
 | GNSS metrics + UTM origin | **Done** (baseline fail; dense lock-in later) | `VIDETEC_ACCEPTANCE.md` |
-| SceneScape MQTT E2E on real frames | **Deferred** until full-window / runtime accumulate is demo-usable | needs `SUPASS` + densify path |
+| SceneScape MQTT E2E on real frames | **Done** — FT2 densify + multi-cam / dual-radar | `make demo-radar`, how-to |
 
 ---
 
-## Phase C — Verification ladder then fine-tune / densify (**P0 largely done**)
+## Phase C — Verification ladder then fine-tune / densify (**done**)
 
-Ordered diagnosis (user-agreed, **VoD-free**). VoD paper regen remains optional.
+Ordered diagnosis (user-agreed, **VoD-free**). View-of-Delft val mAP was
+dropped from the ladder (not a gate).
 
 | Step | Goal | Status |
 | --- | --- | --- |
 | **C0. Fixed-input parity** | Same synthetic + VIDETEC `(N,7)` clouds through PyTorch ckpt vs host+OV IR; report matched XY / score deltas | **Done** — synthetic tops agree (~0.5–0.6 m XY); OV emits many extra low-score boxes; sparse VIDETEC often empty on PyTorch |
 | **C1. VIDETEC GNSS PyTorch vs OV** | Stride-5 3000–5000: VRU / all-class recall @ 1/2/3 m for both backends | **Done** — both fail VRU on that sparse window; PyTorch quieter than OV |
-| **C2. Optional VoD val mAP** | Reproduce ~52.56 mAP if VoD lands on disk | Optional / not blocking |
 | **C3. Fine-tune + densify** | Close gantry gap; separate model vs support-density failure | **Done (dense lock-in)** — FT2/FT4; best window 2100–4100; ±5 accumulate → **51.4%** VRU@3m; associable **≥92–99%** |
 | **C4. Runtime densify / OV re-export** | Port H≈5 accumulate into OV + g3d playback; re-export FT2 OV; re-eval | **Done** — densify + **FT2→OV** (`FP16_ft2`); OV-FT2 ±5 **52.4%** VRU@3m |
-| **C5. SceneScape MQTT demo** | FT2 IR + densified bins on real frames | **Ready to attempt** (needs `SUPASS`) |
+| **C5. SceneScape MQTT demo** | FT2 IR + densified bins on real frames (+ fusion) | **Done** — 2026-09-27 single-radar verify; 2026-09-28 multi-cam / dual-radar / portable scene |
 
 Prior FOV notes remain useful diagnostics: 194/401 GNSS samples outside VoD
 PC range on the old eval slice; associability scan shows **2100–4100** is the
 better 401-frame window (~10× more near-GT support than 3000–5000).
 
-### VoD data prerequisite
-
-```text
-RadarPillar expects:
-  data/VoD/view_of_delft_PUBLIC/radar_5frames/
-    ImageSets/{train,val,test}.txt
-    training/{velodyne,label_2,calib,image_2}/
-```
-
-Register / download from https://viewofdelft-dataset.tudelft.nl/ (institutional
-email). Place under `~/mainline/RadarPillar/data/VoD/...`, then:
-
-```bash
-cd ~/mainline/RadarPillar && source .venv/bin/activate
-python -m pcdet.datasets.vod.vod_dataset create_vod_infos \
-  tools/cfgs/dataset_configs/vod_dataset_radar.yaml
-CUDA_VISIBLE_DEVICES=0 python tools/test.py \
-  --cfg_file tools/cfgs/vod_models/vod_radarpillar_rot.yaml \
-  --ckpt weights/radarpillar_vod_best_map52.56.pth
-```
-
-Target: Car/Ped/Cyc 3D AP near the published rot checkpoint (~52.56 mAP R11).
-
 ---
 
 ## What is left (ordered)
 
-### Active — SceneScape MQTT with FT2 densify path
+### Done through C5 / P1 (do not re-open)
 
-1. **C0–C4 done**, including **FT2→OV** (`model_installer/FP16_ft2/`, RPW1
-   included). Offline OV-FT2 ±5 on 2100–4100 ≈ **52%** VRU@3m.
-2. **C5 done + full verify (2026-09-27):** rebuilt core images from
-   `feature/radar-support` (manager `0004_radar`, controller `DATA_RADAR`);
-   regenerated secrets with CA `keyUsage=keyCertSign,cRLSign` (Python TLS).
-   Scene import **HTTP 201** with `intersection-radar1`. FT2 + `pcd_bin_acc5`
-   (2100–4100, score 0.03) → MQTT + regulated **Radar Intersection**.
-   Classical + roadside verified on same stack (`frames_bin`).
-3. Optional FT5 only if single-frame-without-buffer is required.
-4. Live streaming ring-buffer inside `g3dinference` (causal) remains a later
-   DLS change; file playback uses pre-densified bins.
+- C0–C4 + FT2→OV (`model_installer/FP16_ft2/`); offline OV-FT2 ±5 ≈ **52%** VRU@3m
+- C5 MQTT E2E: FT2 + `pcd_bin_acc5`, classical, roadside; multi-cam + dual radar;
+  GNSS-fit / UI poses in `RadarIntersection.json` (portable via ZIP + scene-init)
 
-### Deferred — SceneScape product path (after full-window gate)
+### Active next
 
-3. Full MQTT `demo-radar` on real frames (radar-only + fusion) — **parked**.
-4. Land DLS PRs (`feature/g3dinference-multi-model`) + DLSPS bump + drop `build-dlsps-g3d`.
-5. SceneScape cleanup: stock DLSPS tags, native `application/x-radar` end-to-end.
-6. BAT / functional radar re-verify; PR hygiene.
+1. **Full-window quality gate** — lift operational VRU recall past ~51% (H=5
+   best window) via denser train (**optional FT5** if single-frame-without-buffer
+   is required), better densify, or camera–radar fusion; re-export OV and re-check.
+2. **Causal live densify in `g3dinference`** — ring-buffer accumulate at
+   runtime (today = pre-built `pcd_bin_acc5` for file playback).
+3. **Upstream DLS / DLSPS** — land `feature/g3dinference-multi-model`, bump
+   DLSPS image, drop local `make build-dlsps-g3d`.
+4. **SceneScape cleanup** — stock DLSPS tags; native `application/x-radar`
+   end-to-end (no bake workaround).
+5. **PR hygiene** — BAT / functional radar re-verify on tip; merge readiness.
 
 ### Later (after metrics justify)
 
-7. Deeper OpenVINO fusion / optional INT8 PTQ.
-8. Zero-copy iGPU / remote tensors.
-9. First-class LiDAR; rename `g3dlidarparse` → generic point-cloud parse.
+6. Deeper OpenVINO fusion / optional INT8 PTQ.
+7. Zero-copy iGPU / remote tensors.
+8. First-class LiDAR; rename `g3dlidarparse` → generic point-cloud parse.
 
 ---
 
@@ -337,14 +326,16 @@ Target: Car/Ped/Cyc 3D AP near the published rot checkpoint (~52.56 mAP R11).
 - Treating vision YOLO-on-RD-maps as the radar DNN.
 - Treating camera tracks as primary GT without proven time/pose association.
 - Claiming end-to-end OpenVINO or INT8 optimization for the current split graph.
-- **Claiming the DNN demo complete while VRU GNSS recall remains ~0.**
+- **View-of-Delft val mAP / paper regen** as an acceptance gate (dropped).
+- Treating sparse full-window ~51% VRU@3m as “model broken” when associable
+  frames already hit ≥80–99%.
 
 ---
 
-## Key commands (current interim)
+## Key commands (current)
 
 ```bash
-# Eval with calibrated VIDETEC UTM origin (offline Python / batch detections)
+# Offline GNSS VRU gate (calibrated VIDETEC UTM origin)
 python3 sample_data/radar_intersection/eval_radarpillars_gnss.py \
   --index sample_data/radar_intersection/VIDETEC-2/converted/frames/index.json \
   --detections sample_data/radar_intersection/VIDETEC-2/detections_stride5.jsonl \
@@ -352,11 +343,16 @@ python3 sample_data/radar_intersection/eval_radarpillars_gnss.py \
   --sensor sample_data/radar_intersection/VIDETEC-2/converted/frames/sensor.json \
   --videtec-origin --categories person,cyclist
 
-# Bake DLSPS with generalized g3dinference (needs ../dlstreamer) — after new IR
+# Bake DLSPS with generalized g3dinference (needs ../dlstreamer)
 make build-dlsps-g3d
 
-# SceneScape fusion demo — DEFERRED until quality gate
-# RADAR_REQUIRE_REAL=true RADAR_SCORE_THRESHOLD=0.03 SUPASS=<password> make demo-radar
+# Live fusion demo (FT2 densify + multi-cam / dual-radar)
+SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
+  RADAR_PCD_SUBDIR=pcd_bin_acc5 RADAR_IR_DIR=FP16_ft2 \
+  RADAR_SCORE_THRESHOLD=0.1 make demo-radar
+
+# After pose edits: lock JSON → rebuild import ZIP for other machines
+python3 sample_data/radar_intersection/pack_radar_scene_import.py
 ```
 
 Docs: [add-and-use-radar-sensors](../../docs/user-guide/how-to-guides/add-and-use-radar-sensors.md),

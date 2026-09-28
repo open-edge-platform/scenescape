@@ -36,6 +36,8 @@ It does **not** use `g3dradarprocess` (raw ADC).
 | Piece | Role |
 | --- | --- |
 | `docker-compose.radar-override.yml` | Scene/data/model init + `radar-stream` |
+| `RadarIntersection.json` + scene-import ZIP | Portable scene (map + sensor poses) |
+| `radar_scene_init.py` | Import ZIP + sync sensors from JSON |
 | `radar_publisher.py` | Shared GST → FIFO → MQTT for all modes |
 | `radar_file_playback.py` | `multifilesrc` / parse / `g3dinference` fragments |
 | `model_installer/classical/` | Classical g3dinference JSON config |
@@ -127,30 +129,55 @@ Attribution when using or redistributing converted frames:
 > VIDETEC-2 dataset, Zenodo record [17799385](https://zenodo.org/records/17799385),
 > Creative Commons Attribution 4.0 International (CC BY 4.0).
 
-## Scene map (VIDETEC / Mapbox)
+## Scene configuration (portable)
 
-The demo ships a Mapbox satellite snapshot of the Garching‑Hochbrück
-intersection (VIDETEC local ENU origin), not the LiDAR placeholder map.
-Pixels/metre and map-corner LLA are in `RadarIntersection.json`. To refresh
-the imagery (requires a Mapbox token, **not** stored in git):
+**Source of truth** for the demo scene is committed under
+`sample_data/radar_intersection/`:
+
+| Artifact | Role |
+| --- | --- |
+| `RadarIntersection.json` | Map scale / LLA corners + **all** camera and radar poses |
+| `RadarIntersection.png` | Mapbox satellite (host file) |
+| `RadarIntersection-scene-import.zip` | Fresh-machine import (JSON + map) |
+| `radar_scene_init.py` | Imports the ZIP if needed, then **re-syncs** every sensor from the JSON |
+| `pack_radar_scene_import.py` | Rebuilds the ZIP after JSON/map edits |
+| `videtec_map_calibration.json` / `radar_pose_gnss_fit.json` | Provenance for how poses were derived |
+
+On any machine, `make demo-radar` runs `radar-scene-init`, which:
+
+1. Imports **Radar Intersection** from the ZIP if the scene is missing
+   (e.g. after `make demo-close` wiped volumes).
+2. Creates/updates the eight cameras and two radars from
+   `RadarIntersection.json` so UI calibrations do not have to be repeated.
+
+Default sensors: `radar-cam1` plus s110 n/w/s and s120 o/n/w/s; radars
+`intersection-radar1` (dataset 51) and `intersection-radar2` (dataset 52,
+time-aligned `3098–3928` ↔ radar1 `3270–4100`).
+
+After you change poses in the UI (or edit the JSON), lock them for other
+hosts:
+
+```bash
+# Prefer exporting from a known-good live DB into RadarIntersection.json,
+# then:
+python3 sample_data/radar_intersection/pack_radar_scene_import.py
+# commit RadarIntersection.json + RadarIntersection-scene-import.zip
+# (+ calibration provenance JSON if you updated fits)
+```
+
+To refresh Mapbox imagery only (requires a Mapbox token, **not** stored in
+git):
 
 ```bash
 export MAPBOX_API_KEY=<token>
 python3 sample_data/radar_intersection/fetch_videtec_mapbox_map.py
-# then rebuild RadarIntersection-scene-import.zip / re-import the scene
+python3 sample_data/radar_intersection/pack_radar_scene_import.py
 ```
 
-Radar pose comes from VIDETEC `/sensor` (ENU `[0.90, 0.89, 4.5]`,
-yaw ≈ −9.1°). `radar-cam1` (`s110_o_cam_8`) was solved with OpenCV
-`solvePnP` on Mapbox↔camera feature matches (direct cam→world, Scenescape
-RH / Y-down — **not** the Three.js GL row-flip used only in the UI). Result:
-mount over EB lanes (~10 m west of the radar gantry), look ≈ **+X**
-(heading ~2°), pitched down at the road. See `videtec_map_calibration.json`.
-
-The other **s110** cameras (`radar-cam-n` / `-w` / `-s` → `s110_{n,w,s}_cam_8`)
-share that calibrated translation and pitch; only heading is rotated by
-+90° / +180° / −90° (north / west / south). The **s120** bridge cameras are
-not auto-placed yet (no reliable SE3 to s110 in-tree).
+Radar1 pose is GNSS XY/yaw fit (`radar_pose_gnss_fit.json`); radar2 is the
+dataset-local ENU offset from radar1 with opposite yaw. Camera poses are
+UI / PnP calibrations stored in the JSON — see
+`videtec_map_calibration.json`.
 
 
 ## Run
@@ -169,19 +196,18 @@ SUPASS=<password> RADAR_PERCEPTION=radarpillars make demo-radar
 `make demo-radar` always runs `build-dlsps-g3d` so all four model-types are in
 the plugin. Compose steps:
 
-1. `radar-scene-init` — imports **Radar Intersection** (idempotent).
-2. `radar-data-init` — `frames/`, `frames_bin/` (5-float), `pcd_bin/` (7-float).
+1. `radar-scene-init` — imports **Radar Intersection** if missing, then
+   syncs every camera/radar pose from `RadarIntersection.json`.
+2. `radar-data-init` — `frames/`, `frames_bin/` (5-float), `pcd_bin/` /
+   `radar2/pcd_bin` (7-float), and per-camera JPEGs.
 3. `radar-model-init` — installs config/IR for the selected `RADAR_PERCEPTION`.
-4. `radar-stream` — shared GST publish path for radar + camera. Detections
-   stay radar-local (+X forward); Controller applies the VIDETEC ENU /
-   Mapbox-calibrated radar pose.
+4. `radar-stream` — shared GST publish path for radars + cameras. Detections
+   stay sensor-local; Controller applies the JSON poses.
 
-Open the UI and select **Radar Intersection**. For fusion, leave the camera
-unmuted (default): `radar-stream` publishes both
-`scenescape/data/radar/intersection-radar1` and
-`scenescape/data/camera/radar-cam1`, and answers Manager `getimage` for the
-`radar-cam1` video pane. On the scene view you should see map tracks from
-radar together with the live camera feed / detections.
+Open the UI and select **Radar Intersection**. Default fusion publishes
+both radars and all eight cameras (see `CAM_SENSOR_IDS` /
+`RADAR_SENSOR_IDS`). Select any `radar-cam*` pane for live video;
+`getimage` is answered per camera id.
 
 Example (FT2 densify + **time-aligned VIDETEC camera** fusion). Camera staging
 is automatic on `make demo-radar` when `CAM_MUTE` is false (first run downloads
@@ -194,9 +220,9 @@ SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
   make demo-radar
 ```
 
-Open **Radar Intersection**, select **radar-cam1** for the live pane, and
+Open **Radar Intersection**, select any **radar-cam*** pane, and
 confirm map tracks update while camera detections publish on
-`scenescape/data/camera/radar-cam1`. The staged slice covers frames
+`scenescape/data/camera/{id}`. The staged slice covers frames
 **3270–4100** (~15:01–15:02 CEST; see `camera_demo/ALIGN.json` after staging).
 Use **`RADAR_SCORE_THRESHOLD=0.1`** (radarpillars default) so person count stays
 near the single GNSS VRU; `0.03` floods the map with clutter.
@@ -226,11 +252,15 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `DLS_G3D_IMAGE` | `…:2026.2.0-ubuntu24-rc2-g3d` | Baked DLSPS tag |
 | `CAM_DEVICE` | `CPU` | OpenVINO device for `gvadetect` |
 | `RADAR_MUTE` / `CAM_MUTE` | `false` | Mute a modality |
-| `RADAR_CAM_DATASET_DIR` | `./sample_data/radar_intersection/camera_demo` | Host tree with `infrastructure-side/image/` (auto-staged; gitignored) |
+| `RADAR_CAM_DATASET_DIR` | `./sample_data/radar_intersection/camera_demo` | Host tree with per-id JPEG dirs (auto-staged; gitignored) |
+| `CAM_SENSOR_IDS` | eight `radar-cam*` ids | Comma list; each needs `{CAM_DATA_ROOT}/{id}/%06d.jpg` |
 | `CAM_START_INDEX` / `CAM_STOP_INDEX` | `3270` / `4100` | JPEG sequence slice (`%06d.jpg`) |
 | `SKIP_RADAR_CAMERA_STAGE` | `false` | `true` skips Zenodo download / `camera_demo` staging |
-| `RADAR_RAW_DATASET_DIR` | `./sample_data/radar_intersection/VIDETEC-2/converted` | Host `frames/` / bins |
-| `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `0` / unset | Frame slice |
+| `RADAR_RAW_DATASET_DIR` | `…/VIDETEC-2/converted` | Host radar1 `frames/` / bins |
+| `RADAR2_RAW_DATASET_DIR` | `…/VIDETEC-2/converted_r52` | Host radar2 densified bins |
+| `RADAR_SENSOR_IDS` | `intersection-radar1,intersection-radar2` | Comma list of radar MQTT ids |
+| `RADAR_DATA_PATHS` / `RADAR_INDEX_RANGES` | see compose | Per-radar bin path and start-stop |
+| `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `3270` / `4100` | Default radar1 slice (overridden per-id via `RADAR_INDEX_RANGES`) |
 | `RADAR_REQUIRE_REAL` | `false` | `true` fails if no real VIDETEC inputs |
 | `DEMO_REBUILD_IMAGES` | `true` | Set `false` to skip Scenescape image rebuild |
 

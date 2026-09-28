@@ -315,9 +315,15 @@ def main() -> int:
     "gnss_xy_yaw_grid + z = z_target - median(matched z_local); "
     "yaw-only euler; FT2 densify dets"
   )
+  def _rel(p: Path) -> str:
+    try:
+      return str(p.resolve().relative_to(Path.cwd().resolve()))
+    except ValueError:
+      return str(p)
+
   result["inputs"] = {
-    "detections": str(args.detections),
-    "gnss": str(args.gnss),
+    "detections": _rel(Path(args.detections)),
+    "gnss": _rel(Path(args.gnss)),
     "frame_start": args.frame_start,
     "frame_stop": args.frame_stop,
   }
