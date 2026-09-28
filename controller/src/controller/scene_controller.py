@@ -618,7 +618,6 @@ class SceneController:
       return True
 
     source_track = jdata.get('track')
-    routed_objects = []
     tracked_id_counts = {}
     if source_track is not False:
       for obj in jdata.get('objects', []):
@@ -626,6 +625,7 @@ class SceneController:
         if source_obj_id is not None:
           tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
 
+    routed_objects = []
     for index, obj in enumerate(jdata.get('objects', [])):
       routed_obj = dict(obj)
       routed_obj.pop('track', None)
@@ -646,6 +646,8 @@ class SceneController:
       else:
         source_obj_id = routed_obj.get('id')
         if source_obj_id is not None:
+          # if object id is unique accross the message (appears once in tracked_id_counts),
+          # use it; otherwise, fall back to index-based id
           if tracked_id_counts.get(source_obj_id, 0) == 1:
             routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{source_obj_id}"
           else:
