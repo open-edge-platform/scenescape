@@ -36,6 +36,17 @@ DEFAULT_RADAR_START = 3270
 DEFAULT_RADAR_STOP = 4100
 DEFAULT_CAM = "s110_o_cam_8"
 DEFAULT_RUN = "run_0"
+# Scene sensor_id → VIDETEC camera archive name (s110 + s120 gantries).
+DEFAULT_CAM_MAP = (
+  "radar-cam1:s110_o_cam_8,"
+  "radar-cam-n:s110_n_cam_8,"
+  "radar-cam-w:s110_w_cam_8,"
+  "radar-cam-s:s110_s_cam_8,"
+  "radar-cam-s120-o:s120_o_cam_8,"
+  "radar-cam-s120-n:s120_n_cam_8,"
+  "radar-cam-s120-w:s120_w_cam_8,"
+  "radar-cam-s120-s:s120_s_cam_8"
+)
 
 
 def _download(url: str, dest: Path, expect_min_bytes: int = 0) -> None:
@@ -196,6 +207,78 @@ def _align(
   return report
 
 
+def _parse_cam_map(raw: str) -> list[tuple[str, str]]:
+  """Parse ``sensor_id:videtec_id,...`` into ordered pairs."""
+  pairs: list[tuple[str, str]] = []
+  for part in raw.split(","):
+    part = part.strip()
+    if not part:
+      continue
+    if ":" not in part:
+      raise SystemExit(f"bad --cameras entry {part!r}; want sensor_id:videtec_id")
+    sensor_id, videtec_id = part.split(":", 1)
+    pairs.append((sensor_id.strip(), videtec_id.strip()))
+  if not pairs:
+    raise SystemExit("empty --cameras map")
+  return pairs
+
+
+def _stage_one_camera(
+  *,
+  root: Path,
+  download: Path,
+  extract_dir: Path,
+  index_path: Path,
+  sensor_id: str,
+  camera: str,
+  run: str,
+  out_image: Path,
+  radar_start: int,
+  radar_stop: int,
+  ffmpeg_image: str,
+  force: bool,
+) -> dict:
+  needed = radar_stop - radar_start + 1
+  align_path = out_image.parent / f"ALIGN_{sensor_id}.json"
+  if not force and align_path.is_file() and out_image.is_dir():
+    n_jpg = sum(1 for _ in out_image.glob("*.jpg"))
+    if n_jpg >= needed:
+      print(
+        f"[stage-cam] {sensor_id}: already staged ({n_jpg} JPEGs) — skip",
+        flush=True,
+      )
+      return json.loads(align_path.read_text(encoding="utf-8"))
+
+  member = f"runs_vru/{run}/{camera}.tar.gz"
+  cam_tar = _extract_member(download, member, extract_dir / run)
+  work = root / "camera_stage_work" / f"{run}_{camera}"
+  cam_ts = _cam_timestamps(cam_tar)
+  mp4 = _extract_mp4(cam_tar, work / "mp4")
+  n_frames = _decode_mp4(mp4, work / "mp4frames", ffmpeg_image)
+  if n_frames != len(cam_ts):
+    raise SystemExit(
+      f"{camera}: decoded {n_frames} frames but have {len(cam_ts)} timestamps")
+
+  report = _align(
+    index_path=index_path,
+    cam_ts=cam_ts,
+    mp4_frames=work / "mp4frames",
+    out_image_dir=out_image,
+    radar_start=radar_start,
+    radar_stop=radar_stop,
+  )
+  report["camera"] = camera
+  report["sensor_id"] = sensor_id
+  report["run"] = run
+  align_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+  print(
+    f"[stage-cam] {sensor_id} ({camera}): wrote {report['n']} JPEGs → {out_image} "
+    f"mean |dt|={report['dt_ms_mean']} ms",
+    flush=True,
+  )
+  return report
+
+
 def main() -> int:
   ap = argparse.ArgumentParser(description=__doc__)
   ap.add_argument(
@@ -205,11 +288,16 @@ def main() -> int:
   ap.add_argument(
     "--out-dir", type=Path,
     default=Path("sample_data/radar_intersection/camera_demo"),
-    help="Gitignored staging tree with infrastructure-side/image/")
+    help="Gitignored staging tree; JPEGs under <out-dir>/<sensor_id>/")
   ap.add_argument("--radar-start", type=int, default=DEFAULT_RADAR_START)
   ap.add_argument("--radar-stop", type=int, default=DEFAULT_RADAR_STOP)
   ap.add_argument("--run", default=DEFAULT_RUN)
-  ap.add_argument("--camera", default=DEFAULT_CAM)
+  ap.add_argument(
+    "--cameras", default=DEFAULT_CAM_MAP,
+    help="Comma list sensor_id:videtec_cam (default: s110 o/n/w/s → radar-cam*)")
+  ap.add_argument(
+    "--camera", default="",
+    help="Deprecated single VIDETEC cam; if set, stages as radar-cam1 only")
   ap.add_argument(
     "--ffmpeg-image",
     default="linuxserver/ffmpeg:version-8.1-cli")
@@ -224,18 +312,11 @@ def main() -> int:
   root: Path = args.videtec_root
   download = root / "download" / "runs_vru.tar.gz"
   index_path = root / "converted" / "frames" / "index.json"
-  out_image = args.out_dir / "infrastructure-side" / "image"
-  align_path = args.out_dir / "ALIGN.json"
-  needed = args.radar_stop - args.radar_start + 1
 
-  if not args.force and align_path.is_file() and out_image.is_dir():
-    n_jpg = sum(1 for _ in out_image.glob("*.jpg"))
-    if n_jpg >= needed:
-      print(
-        f"[stage-cam] already staged ({n_jpg} JPEGs in {out_image}) — skip",
-        flush=True,
-      )
-      return 0
+  if args.camera:
+    cam_map = [("radar-cam1", args.camera)]
+  else:
+    cam_map = _parse_cam_map(args.cameras)
 
   if not index_path.is_file():
     raise SystemExit(
@@ -250,32 +331,55 @@ def main() -> int:
     _download(ZENODO_RUNS_VRU, download, expect_min_bytes=4_000_000_000)
 
   extract_dir = root / "runs_vru_extract"
-  member = f"runs_vru/{args.run}/{args.camera}.tar.gz"
-  cam_tar = _extract_member(download, member, extract_dir / args.run)
+  reports = []
+  for sensor_id, camera in cam_map:
+    out_image = args.out_dir / sensor_id
+    reports.append(_stage_one_camera(
+      root=root,
+      download=download,
+      extract_dir=extract_dir,
+      index_path=index_path,
+      sensor_id=sensor_id,
+      camera=camera,
+      run=args.run,
+      out_image=out_image,
+      radar_start=args.radar_start,
+      radar_stop=args.radar_stop,
+      ffmpeg_image=args.ffmpeg_image,
+      force=args.force,
+    ))
 
-  work = root / "camera_stage_work" / f"{args.run}_{args.camera}"
-  cam_ts = _cam_timestamps(cam_tar)
-  mp4 = _extract_mp4(cam_tar, work / "mp4")
-  n_frames = _decode_mp4(mp4, work / "mp4frames", args.ffmpeg_image)
-  if n_frames != len(cam_ts):
-    raise SystemExit(f"decoded {n_frames} frames but have {len(cam_ts)} timestamps")
+  # Legacy path used by older data-init mounts (single camera).
+  legacy = args.out_dir / "infrastructure-side" / "image"
+  primary = args.out_dir / cam_map[0][0]
+  if primary.is_dir() and any(primary.glob("*.jpg")):
+    legacy.mkdir(parents=True, exist_ok=True)
+    # Refresh legacy symlink tree only when empty or forced.
+    if args.force or not any(legacy.glob("*.jpg")):
+      for old in legacy.glob("*.jpg"):
+        old.unlink()
+      for src in sorted(primary.glob("*.jpg")):
+        dest = legacy / src.name
+        if dest.exists() or dest.is_symlink():
+          dest.unlink()
+        dest.symlink_to(src.resolve())
 
-  report = _align(
-    index_path=index_path,
-    cam_ts=cam_ts,
-    mp4_frames=work / "mp4frames",
-    out_image_dir=out_image,
-    radar_start=args.radar_start,
-    radar_stop=args.radar_stop,
-  )
-  report["camera"] = args.camera
-  report["run"] = args.run
-  align_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-  print(f"[stage-cam] wrote {report['n']} JPEGs → {out_image}", flush=True)
-  print(f"[stage-cam] {align_path}: mean |dt|={report['dt_ms_mean']} ms", flush=True)
+  summary = {
+    "cameras": [
+      {"sensor_id": sid, "videtec_id": vid, "n": r.get("n")}
+      for (sid, vid), r in zip(cam_map, reports)
+    ],
+    "radar_start": args.radar_start,
+    "radar_stop": args.radar_stop,
+    "run": args.run,
+  }
+  align_all = args.out_dir / "ALIGN.json"
+  align_all.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+  print(f"[stage-cam] summary → {align_all}", flush=True)
   print(
     f"[stage-cam] use RADAR_CAM_DATASET_DIR={args.out_dir} "
-    f"CAM_START_INDEX={args.radar_start} CAM_STOP_INDEX={args.radar_stop}",
+    f"CAM_START_INDEX={args.radar_start} CAM_STOP_INDEX={args.radar_stop} "
+    f"CAM_SENSOR_IDS={','.join(s for s, _ in cam_map)}",
     flush=True,
   )
   return 0

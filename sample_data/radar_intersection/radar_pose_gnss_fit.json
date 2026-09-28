@@ -1,0 +1,33 @@
+{
+  "translation": [
+    51.39665722846985,
+    71.1394202709198,
+    4.767168998718262
+  ],
+  "rotation": [
+    0.0,
+    0.0,
+    -8.088000000000001
+  ],
+  "recall_at_m": 3.0,
+  "recall": 0.8106060606060606,
+  "median_xy_err_m": 0.5706775745333007,
+  "median_matched_z_local": -3.7671689987182617,
+  "median_matched_z_world": 1.0,
+  "n_gnss_frames_scored": 132,
+  "n_matched": 107,
+  "bootstrap": {
+    "x": 50.89665722846985,
+    "y": 70.8894202709198,
+    "z": 4.5,
+    "yaw": -9.088
+  },
+  "z_target_m": 1.0,
+  "method": "gnss_xy_yaw_grid + z = z_target - median(matched z_local); yaw-only euler; FT2 densify dets",
+  "inputs": {
+    "detections": "/home/spoluri/mainline/scenescape/sample_data/radar_intersection/VIDETEC-2/detections_w2100_4100_ft2ep11_acc5.jsonl",
+    "gnss": "/home/spoluri/mainline/scenescape/sample_data/radar_intersection/VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55/rosbag2_2025_10_09-14_43_55_0_gps.csv",
+    "frame_start": 3270,
+    "frame_stop": 4100
+  }
+}

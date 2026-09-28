@@ -143,9 +143,12 @@ def setup_getimage_responder(
   ``getcalibrationimage`` and expects
   ``scenescape/image/calibration/camera/{id}`` (same contract as
   ``sscape_post_inference_data_publish``).
+
+  Multiple cameras may register; a shared ``on_message`` dispatches by topic.
   """
   live_topic = f"scenescape/image/camera/{sensor_id}"
   calib_topic = f"scenescape/image/calibration/camera/{sensor_id}"
+  cmd_topic = f"scenescape/cmd/camera/{sensor_id}"
 
   def _jpeg_payload() -> str | None:
     idx = frame_index_cell[0]
@@ -154,7 +157,7 @@ def setup_getimage_responder(
     return read_frame_as_jpeg_b64(data_path % idx) or read_frame_as_jpeg_b64(
       data_path % start_index)
 
-  def _on_message(msg_client, _userdata, message):
+  def _handle(_msg_client, message) -> None:
     cmd = message.payload.decode("utf-8", errors="replace").strip()
     if cmd == "getimage":
       topic = live_topic
@@ -164,7 +167,19 @@ def setup_getimage_responder(
       return
     b64 = _jpeg_payload()
     if b64 is not None:
-      msg_client.publish(topic, json.dumps({"image": b64}), qos=0)
+      _msg_client.publish(topic, json.dumps({"image": b64}), qos=0)
 
-  client.subscribe(f"scenescape/cmd/camera/{sensor_id}")
-  client.on_message = _on_message
+  handlers = getattr(client, "_sscape_cmd_handlers", None)
+  if handlers is None:
+    handlers = {}
+    client._sscape_cmd_handlers = handlers
+
+    def _dispatch(msg_client, _userdata, message):
+      handler = handlers.get(message.topic)
+      if handler is not None:
+        handler(msg_client, message)
+
+    client.on_message = _dispatch
+
+  handlers[cmd_topic] = _handle
+  client.subscribe(cmd_topic)

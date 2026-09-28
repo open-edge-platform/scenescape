@@ -2,14 +2,21 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Radar + camera dual-stream publisher for the radar-intersection demo.
+"""Radar + multi-camera publisher for the radar-intersection demo.
 
 All radar modes share one GStreamer publish stack via ``g3dinference``:
 
   classical | roadside | radarpillars
     → g3dlidarparse → g3dinference → gvametaconvert → FIFO → MQTT
 
-Set ``RADAR_PERCEPTION`` to select the backend. Camera uses ``gvadetect``.
+Set ``RADAR_PERCEPTION`` to select the backend. Cameras use ``gvadetect``.
+
+``CAM_SENSOR_IDS`` / ``RADAR_SENSOR_IDS`` (comma-separated) run one GST
+branch + MQTT topic per id. Optional ``RADAR_DATA_PATHS`` /
+``RADAR_INDEX_RANGES`` override per-radar bin paths and start/stop
+(time-align radar2 3098–3928 to radar1 3270–4100). Camera JPEGs live under
+``{CAM_DATA_ROOT}/{sensor_id}/%06d.jpg``.
+
 Requires a DLSPS image with rebuilt ``libgst3delements.so``
 (``make build-dlsps-g3d``).
 """
@@ -43,7 +50,14 @@ BROKER = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 
 RADAR_PERCEPTION = os.environ.get("RADAR_PERCEPTION", "classical").strip().lower()
-RADAR_SENSOR_ID = os.environ.get("RADAR_SENSOR_ID", "intersection-radar1")
+# Multi-radar: RADAR_SENSOR_IDS=intersection-radar1,intersection-radar2
+# Legacy RADAR_SENSOR_ID still works when RADAR_SENSOR_IDS is unset.
+_RADAR_IDS_RAW = os.environ.get("RADAR_SENSOR_IDS", "").strip()
+if _RADAR_IDS_RAW:
+  RADAR_SENSOR_IDS = [s.strip() for s in _RADAR_IDS_RAW.split(",") if s.strip()]
+else:
+  RADAR_SENSOR_IDS = [os.environ.get("RADAR_SENSOR_ID", "intersection-radar1").strip()]
+RADAR_SENSOR_ID = RADAR_SENSOR_IDS[0]  # legacy alias
 
 _MODE_DEFAULTS = {
   "classical": {
@@ -98,14 +112,75 @@ RADAR_ADD_TENSOR_DATA = os.environ.get("RADAR_ADD_TENSOR_DATA", "false").lower()
 if RADAR_ADD_TENSOR_DATA not in ("true", "false"):
   RADAR_ADD_TENSOR_DATA = "false"
 RADAR_MUTE = os.environ.get("RADAR_MUTE", "false").lower() in ("1", "true", "yes")
-RADAR_TOPIC = f"scenescape/data/radar/{RADAR_SENSOR_ID}"
-RADAR_FIFO = "/tmp/radar_detections.fifo"
 
-CAM_SENSOR_ID = os.environ.get("CAM_SENSOR_ID", "radar-cam1")
-CAM_DATA_PATH = os.environ.get(
-  "CAM_DATA_PATH",
-  "/home/pipeline-server/videos/radar_intersection/images/%06d.jpg",
-)
+# Optional per-id overrides:
+#   RADAR_DATA_PATHS=id:/path/%06d.bin,id2:/path2/%06d.bin
+#   RADAR_INDEX_RANGES=id:3270-4100,id2:3098-3928
+_RADAR_PATH_MAP: dict[str, str] = {}
+for part in os.environ.get("RADAR_DATA_PATHS", "").split(","):
+  part = part.strip()
+  if not part or ":" not in part:
+    continue
+  sid, path = part.split(":", 1)
+  sid, path = sid.strip(), path.strip()
+  if sid and path:
+    _RADAR_PATH_MAP[sid] = path
+_RADAR_RANGE_MAP: dict[str, tuple[int, int | None]] = {}
+for part in os.environ.get("RADAR_INDEX_RANGES", "").split(","):
+  part = part.strip()
+  if not part or ":" not in part:
+    continue
+  sid, rng = part.split(":", 1)
+  sid, rng = sid.strip(), rng.strip()
+  if not sid or "-" not in rng:
+    continue
+  a, b = rng.split("-", 1)
+  _RADAR_RANGE_MAP[sid] = (
+    int(a.strip()),
+    int(b.strip()) if b.strip() else None,
+  )
+
+
+def _radar_data_path(sensor_id: str) -> str:
+  if sensor_id in _RADAR_PATH_MAP:
+    return _RADAR_PATH_MAP[sensor_id]
+  if len(RADAR_SENSOR_IDS) == 1:
+    return RADAR_DATA_PATH
+  # Convention: first id uses RADAR_DATA_PATH; others under …/radar2/ sibling.
+  if sensor_id == RADAR_SENSOR_IDS[0]:
+    return RADAR_DATA_PATH
+  root = RADAR_DATA_PATH.rsplit("/pcd_bin/", 1)[0] if "/pcd_bin/" in RADAR_DATA_PATH else (
+    RADAR_DATA_PATH.rsplit("/frames_bin/", 1)[0] if "/frames_bin/" in RADAR_DATA_PATH
+    else "/home/pipeline-server/videos/radar_intersection")
+  sub = "pcd_bin" if RADAR_PERCEPTION == "radarpillars" else "frames_bin"
+  return f"{root}/radar2/{sub}/%06d.bin"
+
+
+def _radar_index_range(sensor_id: str) -> tuple[int, int | None]:
+  if sensor_id in _RADAR_RANGE_MAP:
+    return _RADAR_RANGE_MAP[sensor_id]
+  return RADAR_START_INDEX, RADAR_STOP_INDEX
+
+
+def _radar_fifo(sensor_id: str) -> str:
+  safe = sensor_id.replace("/", "_")
+  return f"/tmp/radar_demo_radar_{safe}.fifo"
+
+# Multi-camera: CAM_SENSOR_IDS=radar-cam1,radar-cam-n,... (default single cam).
+# Legacy CAM_SENSOR_ID still works when CAM_SENSOR_IDS is unset.
+_CAM_IDS_RAW = os.environ.get("CAM_SENSOR_IDS", "").strip()
+if _CAM_IDS_RAW:
+  CAM_SENSOR_IDS = [s.strip() for s in _CAM_IDS_RAW.split(",") if s.strip()]
+else:
+  CAM_SENSOR_IDS = [os.environ.get("CAM_SENSOR_ID", "radar-cam1").strip()]
+
+CAM_DATA_ROOT = os.environ.get(
+  "CAM_DATA_ROOT",
+  "/home/pipeline-server/videos/radar_intersection/images",
+).rstrip("/")
+# Legacy single-path override (only when exactly one camera).
+_CAM_DATA_PATH_LEGACY = os.environ.get("CAM_DATA_PATH", "").strip()
+
 CAM_START_INDEX = int(os.environ.get("CAM_START_INDEX", "0"))
 _CAM_STOP_RAW = os.environ.get("CAM_STOP_INDEX")
 CAM_STOP_INDEX = (
@@ -129,8 +204,17 @@ CAM_MODEL_PROC = os.environ.get(
   "/home/pipeline-server/videos/radar_intersection/model-proc"
   "/person-vehicle-bike-detection-crossroad-1016.json",
 )
-CAM_FIFO = "/tmp/radar_demo_camera.fifo"
-CAM_TOPIC = f"scenescape/data/camera/{CAM_SENSOR_ID}"
+
+
+def _cam_data_path(sensor_id: str) -> str:
+  if len(CAM_SENSOR_IDS) == 1 and _CAM_DATA_PATH_LEGACY:
+    return _CAM_DATA_PATH_LEGACY
+  return f"{CAM_DATA_ROOT}/{sensor_id}/%06d.jpg"
+
+
+def _cam_fifo(sensor_id: str) -> str:
+  safe = sensor_id.replace("/", "_")
+  return f"/tmp/radar_demo_camera_{safe}.fifo"
 
 
 def _make_fifo(path: str) -> None:
@@ -142,33 +226,36 @@ def _make_fifo(path: str) -> None:
 def _build_combined_pipeline() -> str:
   parts = ["gst-launch-1.0"]
   if not CAM_MUTE:
-    parts += camera_multifilesrc_parts(
-      data_path=CAM_DATA_PATH,
-      start_index=CAM_START_INDEX,
-      stop_index=CAM_STOP_INDEX,
-      loop=CAM_LOOP,
-      frame_rate=CAM_FRAME_RATE,
-      model=CAM_MODEL,
-      model_proc=CAM_MODEL_PROC,
-      device=CAM_DEVICE,
-      score_threshold=CAM_SCORE_THRESHOLD,
-      fifo_path=CAM_FIFO,
-    )
+    for sensor_id in CAM_SENSOR_IDS:
+      parts += camera_multifilesrc_parts(
+        data_path=_cam_data_path(sensor_id),
+        start_index=CAM_START_INDEX,
+        stop_index=CAM_STOP_INDEX,
+        loop=CAM_LOOP,
+        frame_rate=CAM_FRAME_RATE,
+        model=CAM_MODEL,
+        model_proc=CAM_MODEL_PROC,
+        device=CAM_DEVICE,
+        score_threshold=CAM_SCORE_THRESHOLD,
+        fifo_path=_cam_fifo(sensor_id),
+      )
   if not RADAR_MUTE:
-    parts += radar_multifilesrc_parts(
-      data_path=RADAR_DATA_PATH,
-      start_index=RADAR_START_INDEX,
-      stop_index=RADAR_STOP_INDEX,
-      loop=RADAR_LOOP,
-      frame_rate=RADAR_FRAME_RATE,
-      model_config=RADAR_MODEL_CONFIG,
-      model_type=RADAR_PERCEPTION,
-      point_features=RADAR_POINT_FEATURES,
-      device=RADAR_DEVICE,
-      score_threshold=RADAR_SCORE_THRESHOLD,
-      add_tensor_data=RADAR_ADD_TENSOR_DATA,
-      fifo_path=RADAR_FIFO,
-    )
+    for sensor_id in RADAR_SENSOR_IDS:
+      start_i, stop_i = _radar_index_range(sensor_id)
+      parts += radar_multifilesrc_parts(
+        data_path=_radar_data_path(sensor_id),
+        start_index=start_i,
+        stop_index=stop_i,
+        loop=RADAR_LOOP,
+        frame_rate=RADAR_FRAME_RATE,
+        model_config=RADAR_MODEL_CONFIG,
+        model_type=RADAR_PERCEPTION,
+        point_features=RADAR_POINT_FEATURES,
+        device=RADAR_DEVICE,
+        score_threshold=RADAR_SCORE_THRESHOLD,
+        add_tensor_data=RADAR_ADD_TENSOR_DATA,
+        fifo_path=_radar_fifo(sensor_id),
+      )
   if len(parts) == 1:
     raise SystemExit("Both RADAR_MUTE and CAM_MUTE set")
   return " ".join(parts)
@@ -216,7 +303,7 @@ def _fifo_publish_loop(
 def main() -> None:
   print(
     f"[radar-publisher] perception={RADAR_PERCEPTION} "
-    f"radar_sensor={RADAR_SENSOR_ID} cam_sensor={CAM_SENSOR_ID} "
+    f"radar_sensors={RADAR_SENSOR_IDS} cam_sensors={CAM_SENSOR_IDS} "
     f"broker={BROKER}:{PORT} radar_device={RADAR_DEVICE} "
     f"point_features={RADAR_POINT_FEATURES} score_thr={RADAR_SCORE_THRESHOLD} "
     f"radar_mute={RADAR_MUTE} cam_mute={CAM_MUTE}",
@@ -225,16 +312,19 @@ def main() -> None:
 
   state = MqttState()
   atexit.register(state.shutdown)
-  cam_frame_index: list = [CAM_START_INDEX if not CAM_MUTE else None]
   client = connect_mqtt("radar-demo-publisher", BROKER, PORT, state)
-  if not CAM_MUTE:
-    setup_getimage_responder(
-      client, CAM_SENSOR_ID, CAM_DATA_PATH, cam_frame_index, CAM_START_INDEX)
 
+  cam_frame_cells: dict[str, list] = {}
   if not CAM_MUTE:
-    _make_fifo(CAM_FIFO)
+    for sensor_id in CAM_SENSOR_IDS:
+      cell: list = [CAM_START_INDEX]
+      cam_frame_cells[sensor_id] = cell
+      setup_getimage_responder(
+        client, sensor_id, _cam_data_path(sensor_id), cell, CAM_START_INDEX)
+      _make_fifo(_cam_fifo(sensor_id))
   if not RADAR_MUTE:
-    _make_fifo(RADAR_FIFO)
+    for sensor_id in RADAR_SENSOR_IDS:
+      _make_fifo(_radar_fifo(sensor_id))
 
   pipeline_cmd = _build_combined_pipeline()
   print(f"[radar-publisher] Starting pipeline: {pipeline_cmd}", flush=True)
@@ -252,39 +342,50 @@ def main() -> None:
 
   threads: list[threading.Thread] = []
   if not RADAR_MUTE:
-    threads.append(threading.Thread(
-      target=_fifo_publish_loop,
-      kwargs={
-        "name": "radar",
-        "fifo_path": RADAR_FIFO,
-        "topic": RADAR_TOPIC,
-        "client": client,
-        "builder": lambda raw: build_radar_message(
-          raw, RADAR_SENSOR_ID, float(RADAR_FRAME_RATE)),
-        "fps": float(RADAR_FRAME_RATE),
-      },
-      daemon=True,
-      name="radar",
-    ))
+    for sensor_id in RADAR_SENSOR_IDS:
+      sid = sensor_id
+
+      def _radar_builder(raw, _sid=sid):
+        return build_radar_message(raw, _sid, float(RADAR_FRAME_RATE))
+
+      threads.append(threading.Thread(
+        target=_fifo_publish_loop,
+        kwargs={
+          "name": f"radar:{sid}",
+          "fifo_path": _radar_fifo(sid),
+          "topic": f"scenescape/data/radar/{sid}",
+          "client": client,
+          "builder": _radar_builder,
+          "fps": float(RADAR_FRAME_RATE),
+        },
+        daemon=True,
+        name=f"radar:{sid}",
+      ))
   if not CAM_MUTE:
-    threads.append(threading.Thread(
-      target=_fifo_publish_loop,
-      kwargs={
-        "name": "camera",
-        "fifo_path": CAM_FIFO,
-        "topic": CAM_TOPIC,
-        "client": client,
-        "builder": lambda raw: build_camera_message(
-          raw, CAM_SENSOR_ID, float(CAM_FRAME_RATE), CAM_DETECTION_LABELS),
-        "fps": float(CAM_FRAME_RATE),
-        "frame_index_cell": cam_frame_index,
-        "start_index": CAM_START_INDEX,
-        "stop_index": CAM_STOP_INDEX,
-        "loop": CAM_LOOP,
-      },
-      daemon=True,
-      name="camera",
-    ))
+    for sensor_id in CAM_SENSOR_IDS:
+      sid = sensor_id  # bind for lambda
+
+      def _builder(raw, _sid=sid):
+        return build_camera_message(
+          raw, _sid, float(CAM_FRAME_RATE), CAM_DETECTION_LABELS)
+
+      threads.append(threading.Thread(
+        target=_fifo_publish_loop,
+        kwargs={
+          "name": f"camera:{sid}",
+          "fifo_path": _cam_fifo(sid),
+          "topic": f"scenescape/data/camera/{sid}",
+          "client": client,
+          "builder": _builder,
+          "fps": float(CAM_FRAME_RATE),
+          "frame_index_cell": cam_frame_cells[sid],
+          "start_index": CAM_START_INDEX,
+          "stop_index": CAM_STOP_INDEX,
+          "loop": CAM_LOOP,
+        },
+        daemon=True,
+        name=f"camera:{sid}",
+      ))
 
   for t in threads:
     t.start()

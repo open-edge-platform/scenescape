@@ -803,6 +803,7 @@ CAM_MUTE ?= false
 RADAR_CAM_DATASET_DIR ?= ./sample_data/radar_intersection/camera_demo
 CAM_START_INDEX ?= 3270
 CAM_STOP_INDEX ?= 4100
+CAM_SENSOR_IDS ?= radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s,radar-cam-s120-o,radar-cam-s120-n,radar-cam-s120-w,radar-cam-s120-s
 SKIP_RADAR_CAMERA_STAGE ?= false
 # Radarpillars: 0.1 ≈ one person/frame on the densify demo slice (avoid 0.03 clutter).
 ifeq ($(RADAR_PERCEPTION),radarpillars)
@@ -816,6 +817,7 @@ export CAM_MUTE
 export RADAR_CAM_DATASET_DIR
 export CAM_START_INDEX
 export CAM_STOP_INDEX
+export CAM_SENSOR_IDS
 export RADAR_SCORE_THRESHOLD
 
 # Download Zenodo runs_vru (cached) and stage JPEGs under camera_demo/ for fusion.
@@ -838,7 +840,7 @@ prepare-radar-camera:
 .PHONY: demo-radar
 demo-radar: build-dlsps-g3d $(DEMO_BUILD:build=build-core) init-sample-data prepare-radar-camera
 	@echo "demo-radar: RADAR_PERCEPTION=$(RADAR_PERCEPTION) DLS_G3D_IMAGE=$(DLS_G3D_IMAGE)"
-	@echo "demo-radar: RADAR_CAM_DATASET_DIR=$(RADAR_CAM_DATASET_DIR) CAM=$(CAM_START_INDEX)-$(CAM_STOP_INDEX) mute=$(CAM_MUTE)"
+	@echo "demo-radar: RADAR_CAM_DATASET_DIR=$(RADAR_CAM_DATASET_DIR) CAM=$(CAM_START_INDEX)-$(CAM_STOP_INDEX) sensors=$(CAM_SENSOR_IDS) mute=$(CAM_MUTE)"
 	$(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close

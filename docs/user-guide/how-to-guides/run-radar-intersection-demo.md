@@ -147,6 +147,11 @@ RH / Y-down — **not** the Three.js GL row-flip used only in the UI). Result:
 mount over EB lanes (~10 m west of the radar gantry), look ≈ **+X**
 (heading ~2°), pitched down at the road. See `videtec_map_calibration.json`.
 
+The other **s110** cameras (`radar-cam-n` / `-w` / `-s` → `s110_{n,w,s}_cam_8`)
+share that calibrated translation and pitch; only heading is rotated by
++90° / +180° / −90° (north / west / south). The **s120** bridge cameras are
+not auto-placed yet (no reliable SE3 to s110 in-tree).
+
 
 ## Run
 

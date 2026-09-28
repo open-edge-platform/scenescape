@@ -17,7 +17,7 @@
 
 services:
   radar-scene-init:
-    image: alpine:3.23
+    image: python:3.11-slim
     networks:
       scenescape:
     depends_on:
@@ -31,74 +31,9 @@ services:
       - no_proxy=${no_proxy},.scenescape.intel.com
     volumes:
       - ./sample_data/radar_intersection/RadarIntersection-scene-import.zip:/scene-import/RadarIntersection-scene-import.zip:ro
-    entrypoint: ["/bin/sh", "-c"]
-    command:
-      - |
-        set -e
-        apk add --no-cache curl >/dev/null
-        # --data-urlencode: SUPASS may contain +/=/& which break raw -d forms.
-        TOKEN=$$(curl -sk -X POST \
-          --data-urlencode "username=admin" \
-          --data-urlencode "password=${SUPASS}" \
-          https://web.scenescape.intel.com/api/v1/auth \
-          | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-        if [ -z "$$TOKEN" ]; then
-          echo "radar-scene-init: failed to authenticate to the Scenescape API"
-          exit 1
-        fi
-        # Keep radar + camera extrinsics in sync with RadarIntersection.json
-        # (VIDETEC ENU / Mapbox map). Scene import is skipped when the scene
-        # already exists, so pose sync still runs.
-        sync_radar_pose() {
-          SCENE_UID=$$(curl -sk -H "Authorization: Token $$TOKEN" \
-            https://web.scenescape.intel.com/api/v1/scenes \
-            | tr '}' '\n' | grep -F 'Radar Intersection' \
-            | sed -n 's/.*"uid"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)
-          if [ -z "$$SCENE_UID" ]; then
-            echo "radar-scene-init: could not resolve Radar Intersection uid for pose sync"
-            return 1
-          fi
-          HTTP=$$(curl -sk -o /tmp/radar-pose-out -w '%{http_code}' -X PUT \
-            -H "Authorization: Token $$TOKEN" -H "Content-Type: application/json" \
-            -d "{\"name\":\"intersection-radar1\",\"sensor_id\":\"intersection-radar1\",\"scene\":\"$$SCENE_UID\",\"transform_type\":\"euler\",\"translation\":[50.8967,70.8894,4.5],\"rotation\":[0.0,0.0,-9.088],\"scale\":[1.0,1.0,1.0]}" \
-            https://web.scenescape.intel.com/api/v1/radar/intersection-radar1)
-          if [ "$$HTTP" != "200" ] && [ "$$HTTP" != "201" ]; then
-            echo "radar-scene-init: radar pose sync failed HTTP $$HTTP"
-            head -c 1000 /tmp/radar-pose-out || true
-            echo
-            return 1
-          fi
-          HTTP=$$(curl -sk -o /tmp/cam-pose-out -w '%{http_code}' -X PUT \
-            -H "Authorization: Token $$TOKEN" -H "Content-Type: application/json" \
-            -d "{\"name\":\"radar-cam1\",\"sensor_id\":\"radar-cam1\",\"scene\":\"$$SCENE_UID\",\"transform_type\":\"euler\",\"translation\":[51.3967,70.3894,9.6],\"rotation\":[-90.0,90.0,0.0],\"scale\":[1.0,1.0,1.0],\"intrinsics\":{\"fx\":2175.553931,\"fy\":2320.125728,\"cx\":960.0,\"cy\":540.0}}" \
-            https://web.scenescape.intel.com/api/v1/camera/radar-cam1)
-          if [ "$$HTTP" != "200" ] && [ "$$HTTP" != "201" ]; then
-            echo "radar-scene-init: camera pose sync failed HTTP $$HTTP"
-            head -c 1000 /tmp/cam-pose-out || true
-            echo
-            return 1
-          fi
-          echo "radar-scene-init: synced radar+camera poses (radar HTTP ok, cam HTTP $$HTTP)"
-        }
-        if curl -sk -H "Authorization: Token $$TOKEN" https://web.scenescape.intel.com/api/v1/scenes \
-          | grep -Eq '"name"[[:space:]]*:[[:space:]]*"Radar Intersection"'; then
-          echo "radar-scene-init: 'Radar Intersection' scene already exists"
-          sync_radar_pose
-          exit 0
-        fi
-        echo "radar-scene-init: importing 'Radar Intersection' scene..."
-        HTTP=$$(curl -sk -o /tmp/import-out -w '%{http_code}' -X POST \
-          -H "Authorization: Token $$TOKEN" \
-          -F "zipFile=@/scene-import/RadarIntersection-scene-import.zip" \
-          https://web.scenescape.intel.com/api/v1/import-scene/)
-        if [ "$$HTTP" != "200" ] && [ "$$HTTP" != "201" ]; then
-          echo "radar-scene-init: import-scene failed HTTP $$HTTP"
-          head -c 2000 /tmp/import-out || true
-          echo
-          exit 1
-        fi
-        echo "radar-scene-init: done (HTTP $$HTTP)"
-        sync_radar_pose
+      - ./sample_data/radar_intersection/RadarIntersection.json:/scene-import/RadarIntersection.json:ro
+      - ./sample_data/radar_intersection/radar_scene_init.py:/radar_scene_init.py:ro
+    entrypoint: ["python3", "/radar_scene_init.py"]
     restart: "no"
     pids_limit: 1000
 
@@ -112,7 +47,7 @@ services:
       - https_proxy=${https_proxy}
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
       - no_proxy=${no_proxy},.scenescape.intel.com
-      - JPEG_SRC_DIR=/src/image
+      - JPEG_SRC_DIR=/src/camera
       - JPEG_DST_DIR=/dst/radar_intersection/images
       - JPEG_QUALITY=${JPEG_QUALITY:-50}
       - RADAR_NUM_FRAMES=${RADAR_NUM_FRAMES:-60}
@@ -120,6 +55,8 @@ services:
       - RADAR_REQUIRE_REAL=${RADAR_REQUIRE_REAL:-false}
       # Subdir under RADAR_RAW_DATASET_DIR for 7-float bins (e.g. pcd_bin_acc5).
       - RADAR_PCD_SUBDIR=${RADAR_PCD_SUBDIR:-pcd_bin}
+      - RADAR2_PCD_SUBDIR=${RADAR2_PCD_SUBDIR:-pcd_bin_acc5}
+      - CAM_SENSOR_IDS=${CAM_SENSOR_IDS:-radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s,radar-cam-s120-o,radar-cam-s120-n,radar-cam-s120-w,radar-cam-s120-s}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -152,17 +89,56 @@ services:
           echo "radar-data-init: no real VIDETEC under /src/radar — synthetic fallback"
         fi
         python3 /prepare_radar_demo_data.py $${PREPARE_ARGS}
-        if [ -d /src/image ] && ls /src/image/*.jpg >/dev/null 2>&1; then
-          python3 /reencode_jpegs.py
+        # Second radar unit (radar_dataset_52) densified bins → radar2/pcd_bin.
+        R2_SUB="$${RADAR2_PCD_SUBDIR:-pcd_bin_acc5}"
+        if [ -d "/src/radar2/$${R2_SUB}" ] && ls "/src/radar2/$${R2_SUB}"/*.bin >/dev/null 2>&1; then
+          mkdir -p /dst/radar_intersection/radar2/pcd_bin
+          rm -f /dst/radar_intersection/radar2/pcd_bin/*.bin
+          cp "/src/radar2/$${R2_SUB}"/*.bin /dst/radar_intersection/radar2/pcd_bin/
+          echo "radar-data-init: staged $$(ls /dst/radar_intersection/radar2/pcd_bin/*.bin | wc -l) radar2 bins from $${R2_SUB}"
+        elif [ -d /src/radar2/pcd_bin ] && ls /src/radar2/pcd_bin/*.bin >/dev/null 2>&1; then
+          mkdir -p /dst/radar_intersection/radar2/pcd_bin
+          rm -f /dst/radar_intersection/radar2/pcd_bin/*.bin
+          cp /src/radar2/pcd_bin/*.bin /dst/radar_intersection/radar2/pcd_bin/
+          echo "radar-data-init: staged $$(ls /dst/radar_intersection/radar2/pcd_bin/*.bin | wc -l) radar2 bins from pcd_bin"
         else
-          echo 'radar-data-init: no camera JPEGs under /src/image — camera branch needs RADAR_CAM_DATASET_DIR'
+          echo "radar-data-init: no radar2 bins under /src/radar2 — second radar muted unless provided"
         fi
+        # Stage per-camera JPEG dirs (sensor_id/%06d.jpg) for synchronized multi-cam GST.
+        python3 - <<'PY'
+        import os, shutil
+        from pathlib import Path
+        src_root = Path("/src/camera")
+        dst_root = Path("/dst/radar_intersection/images")
+        ids = [s.strip() for s in os.environ.get("CAM_SENSOR_IDS", "radar-cam1").split(",") if s.strip()]
+        dst_root.mkdir(parents=True, exist_ok=True)
+        staged = 0
+        for sid in ids:
+          src = src_root / sid
+          # Legacy single-cam layout
+          if not src.is_dir() and sid == "radar-cam1":
+            legacy = src_root / "infrastructure-side" / "image"
+            if legacy.is_dir():
+              src = legacy
+          if not src.is_dir() or not any(src.glob("*.jpg")):
+            print(f"radar-data-init: no JPEGs for {sid} under {src}")
+            continue
+          dst = dst_root / sid
+          if dst.exists():
+            shutil.rmtree(dst)
+          shutil.copytree(src, dst, symlinks=False)
+          n = sum(1 for _ in dst.glob("*.jpg"))
+          print(f"radar-data-init: staged {n} JPEGs → {dst}")
+          staged += 1
+        if staged == 0:
+          print("radar-data-init: no camera JPEGs — set RADAR_CAM_DATASET_DIR / prepare-radar-camera")
+        PY
         echo 'radar_intersection data ready'
     volumes:
       - ${RADAR_RAW_DATASET_DIR:-./sample_data/radar_intersection/VIDETEC-2/converted}:/src/radar:ro
+      - ${RADAR2_RAW_DATASET_DIR:-./sample_data/radar_intersection/VIDETEC-2/converted_r52}:/src/radar2:ro
       # Default: gitignored VIDETEC camera_demo/ (make prepare-radar-camera).
-      # Override with V2X-Seq path if desired.
-      - ${RADAR_CAM_DATASET_DIR:-./sample_data/radar_intersection/camera_demo}/infrastructure-side/image:/src/image:ro
+      - ${RADAR_CAM_DATASET_DIR:-./sample_data/radar_intersection/camera_demo}:/src/camera:ro
       - ./sample_data/radar_intersection/prepare_radar_demo_data.py:/prepare_radar_demo_data.py:ro
       - ./sample_data/radar_intersection/generate_synthetic_radar_frames.py:/generate_synthetic_radar_frames.py:ro
       - ./sample_data/radar_intersection/videtec_to_pcd.py:/videtec_to_pcd.py:ro
@@ -213,21 +189,24 @@ services:
       - MQTT_PORT=1883
       - RADAR_PERCEPTION=${RADAR_PERCEPTION:-classical}
       - RADAR_SENSOR_ID=intersection-radar1
+      - RADAR_SENSOR_IDS=${RADAR_SENSOR_IDS:-intersection-radar1,intersection-radar2}
       - RADAR_DEVICE=${RADAR_DEVICE:-CPU}
       - RADAR_FRAME_RATE=${RADAR_FRAME_RATE:-10}
       - RADAR_SCORE_THRESHOLD=${RADAR_SCORE_THRESHOLD:-}
       - RADAR_MUTE=${RADAR_MUTE:-false}
       - RADAR_DATA_PATH=${RADAR_DATA_PATH:-}
+      - RADAR_DATA_PATHS=${RADAR_DATA_PATHS:-intersection-radar1:/home/pipeline-server/videos/radar_intersection/pcd_bin/%06d.bin,intersection-radar2:/home/pipeline-server/videos/radar_intersection/radar2/pcd_bin/%06d.bin}
+      - RADAR_INDEX_RANGES=${RADAR_INDEX_RANGES:-intersection-radar1:3270-4100,intersection-radar2:3098-3928}
       - RADAR_MODEL_CONFIG=${RADAR_MODEL_CONFIG:-}
-      - RADAR_START_INDEX=${RADAR_START_INDEX:-0}
-      - RADAR_STOP_INDEX=${RADAR_STOP_INDEX:-}
-      - CAM_SENSOR_ID=radar-cam1
+      - RADAR_START_INDEX=${RADAR_START_INDEX:-3270}
+      - RADAR_STOP_INDEX=${RADAR_STOP_INDEX:-4100}
+      - CAM_SENSOR_IDS=${CAM_SENSOR_IDS:-radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s,radar-cam-s120-o,radar-cam-s120-n,radar-cam-s120-w,radar-cam-s120-s}
+      - CAM_DATA_ROOT=/home/pipeline-server/videos/radar_intersection/images
       - CAM_DEVICE=${CAM_DEVICE:-CPU}
       - CAM_SCORE_THRESHOLD=${CAM_SCORE_THRESHOLD:-0.5}
       - CAM_MUTE=${CAM_MUTE:-false}
       - CAM_START_INDEX=${CAM_START_INDEX:-3270}
       - CAM_STOP_INDEX=${CAM_STOP_INDEX:-4100}
-      - CAM_DATA_PATH=/home/pipeline-server/videos/radar_intersection/images/%06d.jpg
     volumes:
       - ./sample_data/radar_intersection/radar_publisher.py:/home/pipeline-server/user_scripts/radar_publisher.py:ro
       - ./sample_data/radar_intersection/radar_file_playback.py:/home/pipeline-server/user_scripts/radar_file_playback.py:ro

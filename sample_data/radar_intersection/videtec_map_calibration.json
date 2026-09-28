@@ -71,14 +71,14 @@
       4.5
     ],
     "scene_xyz_m": [
-      50.8967,
-      70.8894,
-      4.5
+      51.39665722846985,
+      71.1394202709198,
+      4.767168998718262
     ],
     "rotation_euler_xyz_deg": [
       0.0,
       0.0,
-      -9.088
+      -8.088000000000001
     ],
     "videtec_sensor_json": {
       "position_xyz_m": [
@@ -95,6 +95,142 @@
       11.3598,
       14.1154,
       -4.7419
+    ],
+    "method": "gnss_xy_yaw_grid + z = z_target - median(matched z_local); yaw-only euler; FT2 densify dets",
+    "gnss_recall_at_3m": 0.8106060606060606,
+    "gnss_median_xy_err_m": 0.5706775745333007,
+    "note": "XY/yaw from GNSS association on FT2 densify dets; Z is effective (z_target - median matched z_local) so boxes sit near scene Z\u22481 m. Physical gantry height may be closer to calibrated camera Z (~8\u20139 m)."
+  },
+  "s110_sibling_cameras": {
+    "method": "s110 co-gantry: siblings share calibrated translation + pitch_down; heading = anchor_heading + {0,+90,+180,-90} for o/n/w/s",
+    "anchor": "radar-cam1 / s110_o_cam_8",
+    "anchor_heading_pitch_down_deg": [
+      13.660638722617819,
+      26.344843374732587
+    ],
+    "cameras": {
+      "radar-cam1": {
+        "videtec_id": "s110_o_cam_8",
+        "sensor_id": "radar-cam1",
+        "scene_xyz_m": [
+          48.779247286199656,
+          54.83584638816223,
+          7.697017029220973
+        ],
+        "rotation_euler_xyz_deg": [
+          -154.50282946764085,
+          60.55045922678577,
+          64.82523567326857
+        ],
+        "heading_deg_from_east": 13.660638722617819,
+        "heading_offset_deg": 0.0
+      },
+      "radar-cam-n": {
+        "videtec_id": "s110_n_cam_8",
+        "sensor_id": "radar-cam-n",
+        "scene_xyz_m": [
+          48.779247286199656,
+          54.83584638816223,
+          7.697017029220973
+        ],
+        "rotation_euler_xyz_deg": [
+          -117.00436329764779,
+          -12.218584536307956,
+          -6.155964621247511
+        ],
+        "heading_deg_from_east": 103.66063872261782,
+        "heading_offset_deg": 90.0
+      },
+      "radar-cam-w": {
+        "videtec_id": "s110_w_cam_8",
+        "sensor_id": "radar-cam-w",
+        "scene_xyz_m": [
+          48.779247286199656,
+          54.83584638816223,
+          7.697017029220973
+        ],
+        "rotation_euler_xyz_deg": [
+          154.50282946764085,
+          -60.55045922678577,
+          -118.70869892824004
+        ],
+        "heading_deg_from_east": 193.66063872261782,
+        "heading_offset_deg": 180.0
+      },
+      "radar-cam-s": {
+        "videtec_id": "s110_s_cam_8",
+        "sensor_id": "radar-cam-s",
+        "scene_xyz_m": [
+          48.779247286199656,
+          54.83584638816223,
+          7.697017029220973
+        ],
+        "rotation_euler_xyz_deg": [
+          117.00436329764781,
+          12.21858453630797,
+          173.84403537875247
+        ],
+        "heading_deg_from_east": -76.33936127738218,
+        "heading_offset_deg": -90.0
+      }
+    },
+    "note": "s120_* cameras are on the second bridge; no reliable relative SE3 to s110_o is in-tree yet, so they are not auto-placed here."
+  },
+  "radar_intersection_radar1_gnss_fit": {
+    "translation": [
+      51.39665722846985,
+      71.1394202709198,
+      4.767168998718262
+    ],
+    "rotation": [
+      0.0,
+      0.0,
+      -8.088000000000001
+    ],
+    "recall_at_m": 3.0,
+    "recall": 0.8106060606060606,
+    "median_xy_err_m": 0.5706775745333007,
+    "median_matched_z_local": -3.7671689987182617,
+    "median_matched_z_world": 1.0,
+    "n_gnss_frames_scored": 132,
+    "n_matched": 107,
+    "bootstrap": {
+      "x": 50.89665722846985,
+      "y": 70.8894202709198,
+      "z": 4.5,
+      "yaw": -9.088
+    },
+    "z_target_m": 1.0,
+    "method": "gnss_xy_yaw_grid + z = z_target - median(matched z_local); yaw-only euler; FT2 densify dets",
+    "inputs": {
+      "detections": "/home/spoluri/mainline/scenescape/sample_data/radar_intersection/VIDETEC-2/detections_w2100_4100_ft2ep11_acc5.jsonl",
+      "gnss": "/home/spoluri/mainline/scenescape/sample_data/radar_intersection/VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55/rosbag2_2025_10_09-14_43_55_0_gps.csv",
+      "frame_start": 3270,
+      "frame_stop": 4100
+    }
+  },
+  "radar_intersection_radar2": {
+    "sensor_id": "intersection-radar2",
+    "videtec_hdf5": "radar_dataset_52.h5",
+    "local_enu_m": [
+      0.6367291808128357,
+      1.1944797039031982,
+      4.5
+    ],
+    "scene_xyz_m": [
+      51.136729180812836,
+      71.4444797039032,
+      4.767168998718262
+    ],
+    "rotation_euler_xyz_deg": [
+      0.0,
+      0.0,
+      172.122
+    ],
+    "method": "relative to GNSS-fitted radar1 using dataset local ENU delta; yaw-only",
+    "index_range_time_aligned_to_r1_3270_4100": [
+      3098,
+      3928
     ]
   }
 }
