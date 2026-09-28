@@ -1356,6 +1356,95 @@ def wait_for_elements(browser, search_phrase, text=None, findBy=By.XPATH, maxWai
   print( "Failed finding element with [{}]:'{}'".format(findBy, search_phrase))
   return False
 
+def get_3d_control_folder_title(browser, object_name, max_wait=100):
+  """! Wait for and return a named lil-gui 3D control folder title."""
+  title_xpath = f"//div[@class='title' and normalize-space(text())='{object_name}']"
+  assert wait_for_elements(
+    browser, title_xpath, findBy=By.XPATH, maxWait=max_wait, refreshPage=False,
+  ), f"3D control panel for '{object_name}' did not load"
+  return browser.find_element(By.XPATH, title_xpath)
+
+def expand_3d_control_folder(browser, object_name, title_element, max_wait=100):
+  """! Expand a named lil-gui 3D control folder when it is collapsed."""
+  folder_xpath = (
+    f"//div[@class='title' and normalize-space(text())='{object_name}']"
+    "/ancestor::div[contains(concat(' ', normalize-space(@class), ' '), ' lil-gui ')][1]"
+  )
+  folder = browser.find_element(By.XPATH, folder_xpath)
+  if "closed" not in (folder.get_attribute("class") or ""):
+    return
+
+  browser.execute_script("arguments[0].click();", title_element)
+  deadline = time.monotonic() + max_wait
+  while time.monotonic() < deadline:
+    refreshed_folders = browser.find_elements(By.XPATH, folder_xpath)
+    if refreshed_folders and "closed" not in (refreshed_folders[0].get_attribute("class") or ""):
+      return
+    time.sleep(0.25)
+  raise AssertionError(f"3D control folder for '{object_name}' did not expand in time")
+
+def get_3d_control_input(browser, object_name, control_name, input_selector):
+  """! Locate an input in a named lil-gui 3D control row."""
+  xpath = (
+    f"//div[@class='title' and normalize-space(text())='{object_name}']"
+    "/following-sibling::div[@class='children'][1]"
+    f"//div[@class='name' and normalize-space(text())='{control_name}']"
+    f"/following-sibling::*[1]//input[{input_selector}]"
+  )
+  return browser.find_element(By.XPATH, xpath)
+
+def set_3d_control_input_value(browser, input_element, value):
+  """! Set a lil-gui input value and dispatch its input event."""
+  browser.execute_script(
+    "arguments[0].value = arguments[1];"
+    "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));",
+    input_element, value,
+  )
+
+def get_3d_scene_object_state(browser, object_name):
+  """! Read a named 3D scene object and its optional text label."""
+  script = """
+    const testScene = window.__testScene;
+    if (!testScene) return {hooksAvailable: false};
+    const node = testScene.getObjectByName(arguments[0]);
+    if (!node) return {hooksAvailable: true, found: false};
+    const label = node.getObjectByName("textObject_" + arguments[0]);
+    return {
+      hooksAvailable: true,
+      found: true,
+      visible: node.visible,
+      height: node.height,
+      color: node.material ? node.material.color.getHexString() : null,
+      opacity: node.material ? node.material.opacity : null,
+      hasLabel: !!label,
+      labelVisible: label ? (label.visible && node.visible) : null,
+    };
+  """
+  return browser.execute_script(script, object_name)
+
+def wait_for_3d_scene_object_state(browser, object_name, predicate, timeout_seconds=30):
+  """! Poll a 3D scene object until its state satisfies a predicate."""
+  deadline = time.monotonic() + timeout_seconds
+  last_state = None
+  while time.monotonic() < deadline:
+    last_state = get_3d_scene_object_state(browser, object_name)
+    if predicate(last_state):
+      return last_state
+    time.sleep(0.25)
+  assert last_state is not None, f"3D object '{object_name}' state was never available"
+  assert predicate(last_state), f"3D object '{object_name}' never reached the expected state"
+  return last_state
+
+def wait_for_3d_control_enabled(browser, object_name, control_name="show", timeout_seconds=30):
+  """! Poll until a named lil-gui checkbox control is enabled."""
+  deadline = time.monotonic() + timeout_seconds
+  while time.monotonic() < deadline:
+    checkbox = get_3d_control_input(browser, object_name, control_name, "@type='checkbox'")
+    if checkbox.is_enabled():
+      return checkbox
+    time.sleep(0.25)
+  raise AssertionError(f"3D object '{object_name}' '{control_name}' control was not re-enabled in time")
+
 def selenium_wait_for_elements(browser, search_phrase, timeout=20):
   """
   This function waits for elements to be available in the browser by using expected_conditions
