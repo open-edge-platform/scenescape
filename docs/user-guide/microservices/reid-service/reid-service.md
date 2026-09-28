@@ -26,3 +26,12 @@ defaults to `50051`.
 
 The backend remains the Compose service `reid`; the extracted application is
 `reid-service` so existing backend overrides continue to work.
+
+<!--hide_directive
+:::{toctree}
+:hidden:
+
+get-started/build-from-source
+
+:::
+hide_directive-->
