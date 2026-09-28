@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -304,6 +304,18 @@ class Viewport extends THREE.Scene {
   }
 
   // Camera image projection functions
+
+  setCameraPoseFromEuler(translation, rotation) {
+    const camera = new THREE.Object3D();
+    camera.position.fromArray(translation);
+    camera.rotation.fromArray(
+      rotation.map((angle) => THREE.MathUtils.degToRad(angle)),
+    );
+    camera.rotateY(Math.PI);
+    camera.rotateZ(Math.PI);
+    camera.updateMatrix();
+    this.setCameraPose(camera.matrix);
+  }
 
   setCameraPose(matrix) {
     const euler = new THREE.Euler();
