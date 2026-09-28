@@ -37,6 +37,7 @@ jobs:
         with:
           app-id: ${{ secrets.RENOVATE_APP_ID }}
           private-key: ${{ secrets.RENOVATE_APP_PEM }}
+          permission-repo: public_repo
 
       - name: "Self-hosted Renovate"
         uses: renovatebot/github-action@b50d2ba2bd928235abdcc14d06dfafc217f1c565 # v46.1.18
