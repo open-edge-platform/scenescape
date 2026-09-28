@@ -339,6 +339,13 @@ step_calibration() {
 }
 
 step_mapping_health() {
+  read_mapping_inputs
+  if [[ "$MAPPING" != "reconstruction" ]]; then
+    log "STEP 10: SKIP (mapping=$MAPPING doesn't use the mapping/reconstruction service)"
+    state_write 10
+    return
+  fi
+
   log "STEP 10: mapping service health"
   cd "$DEPLOY_DIR"
   python3 scripts/check_service_health.py \

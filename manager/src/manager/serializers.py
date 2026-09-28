@@ -768,6 +768,19 @@ class SceneSerializer(NonNullSerializer):
       with transaction.atomic():
         Scene.objects.bulk_create([instance])
         instance.refresh_from_db()
+    else:
+      # Apply the incoming fields (including a replacement 'map') before the mesh
+      # handling below, or a new GLB/PLY upload would be aligned/thumbnailed against
+      # the stale, not-yet-replaced instance.map.
+      for key, value in validated_data.items():
+        setattr(instance, key, value)
+
+    if map_path and not instance.map._committed:
+      # Model.save() (which bulk_create() above skips) is normally what commits an
+      # uploaded FileField to storage via pre_save(); on this update path nothing else
+      # does that, so without this the mesh processing below would read a nonexistent
+      # instance.map.path.
+      instance.map.save(instance.map.name, instance.map.file, save=False)
 
     if output_lla:
       instance.scenescapeScene.output_lla = output_lla
@@ -827,8 +840,6 @@ class SceneSerializer(NonNullSerializer):
       self.update_child_transform(instance.parent, transform)
 
     if is_update:
-      for key, value in validated_data.items():
-        setattr(instance, key, value)
       instance.save(send_update_command=send_update_command)
     else:
       instance.notifyDbUpdate()
