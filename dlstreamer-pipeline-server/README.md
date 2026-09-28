@@ -42,6 +42,12 @@ Below are step-by-step instructions for enabling out-of-the-box scenes in Scenes
 
 Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other Scenescape services and provides optimal performance for the visual analytics service. Only Intel GPU devices are supported.
 
+> **Note:** `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
+> settings referenced below live in each scene's own compose file,
+> [sample_data/demo_scenes/Retail/retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and
+> [sample_data/demo_scenes/Queuing/queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml),
+> not the root `docker-compose.yml`.
+
 To facilitate GPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
 
 - Video decode offloaded to GPU
@@ -70,15 +76,15 @@ The following steps enable the above-mentioned optimizations for:
    ```
 
 2. Use the predefined configuration files in your `docker-compose.yml` to enable GPU acceleration for out-of-box scenes:
-   - [queuing-config-gpu.json](./queuing-config-gpu.json) - GPU configuration for Queuing scene
-   - [retail-config-gpu.json](./retail-config-gpu.json) - GPU configuration for Retail scene
+   - [queuing-config-gpu.json](../sample_data/demo_scenes/Queuing/queuing-config-gpu.json) - GPU configuration for Queuing scene
+   - [retail-config-gpu.json](../sample_data/demo_scenes/Retail/retail-config-gpu.json) - GPU configuration for Retail scene
 
    ```yaml
    configs:
      retail-config:
-       file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+       file: ./sample_data/demo_scenes/Retail/retail-config-gpu.json
      queuing-config:
-       file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+       file: ./sample_data/demo_scenes/Queuing/queuing-config-gpu.json
    ```
 
 ### Manual GPU Device Selection (by exposing device to container)
@@ -110,9 +116,9 @@ To enable Scenescape pipelines to run on a specific GPU device of your choice (e
      ```yaml
      configs:
        retail-config:
-         file: ./dlstreamer-pipeline-server/retail-config-gpu.json
+         file: ./sample_data/demo_scenes/Retail/retail-config-gpu.json
        queuing-config:
-         file: ./dlstreamer-pipeline-server/queuing-config-gpu.json
+         file: ./sample_data/demo_scenes/Queuing/queuing-config-gpu.json
      ```
 
 By following these steps, only the selected GPU device will be available in the container. As a result, all DL Streamer Pipeline Server pipelines running in the container will use the GPU device of your choice.
@@ -122,6 +128,12 @@ By following these steps, only the selected GPU device will be available in the 
 ## Running on NPU
 
 Running inference on NPU is recommended when an Intel® NPU is available on the system. This offloads the inference workload to the NPU, freeing up CPU and GPU resources for other Scenescape services.
+
+> **Note:** `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
+> settings referenced below live in each scene's own compose file,
+> [sample_data/demo_scenes/Retail/retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and
+> [sample_data/demo_scenes/Queuing/queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml),
+> not the root `docker-compose.yml`.
 
 To facilitate NPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
 
@@ -146,15 +158,15 @@ NPU performance metrics can be monitored using [NPU System Monitoring Tool](http
    ```
 
 2. Use the predefined configuration files in your `docker-compose.yml` to enable NPU acceleration for out-of-box scenes:
-   - [queuing-config-npu.json](./queuing-config-npu.json) - NPU configuration for Queuing scene
-   - [retail-config-npu.json](./retail-config-npu.json) - NPU configuration for Retail scene
+   - [queuing-config-npu.json](../sample_data/demo_scenes/Queuing/queuing-config-npu.json) - NPU configuration for Queuing scene
+   - [retail-config-npu.json](../sample_data/demo_scenes/Retail/retail-config-npu.json) - NPU configuration for Retail scene
 
    ```yaml
    configs:
    retail-config:
-     file: ./dlstreamer-pipeline-server/retail-config-npu.json
+     file: ./sample_data/demo_scenes/Retail/retail-config-npu.json
    queuing-config:
-     file: ./dlstreamer-pipeline-server/queuing-config-npu.json
+     file: ./sample_data/demo_scenes/Queuing/queuing-config-npu.json
    ```
 
 ## Enable Reidentification
@@ -162,13 +174,16 @@ NPU performance metrics can be monitored using [NPU System Monitoring Tool](http
 Following are the step-by-step instructions for enabling person reidentification for the out-of-box **Queuing** scene.
 
 1. **Enable the ReID Database Container and pipeline configs**\
-   Launch Scenescape with exactly one ReID backend override plus the ReID pipeline override. This example selects VDMS:
+   Launch Scenescape with exactly one ReID backend override, and launch the
+   video-source stack with the ReID pipeline override. This example selects VDMS:
 
    ```bash
    docker compose -f docker-compose.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
-     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
      --profile controller up -d
+   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
+     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml \
+     -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d
    ```
 
    To use Qdrant instead, replace `docker-compose.vdms-override.yml` with
@@ -177,19 +192,19 @@ Following are the step-by-step instructions for enabling person reidentification
    (both overrides included automatically) and defaults to VDMS; use
    `make demo-reid REID_BACKEND=qdrant` for Qdrant.
 
-2. The predefined [queuing-config-reid.json](./queuing-config-reid.json) and
-   [retail-config-reid.json](./retail-config-reid.json) configs enable vector
+2. The predefined [queuing-config-reid.json](../sample_data/demo_scenes/Queuing/queuing-config-reid.json) and
+   [retail-config-reid.json](../sample_data/demo_scenes/Retail/retail-config-reid.json) configs enable vector
    embedding metadata from the DL Streamer service and are applied
    automatically by `docker-compose.reid-pipeline-override.yml` above. If you
    are composing the services manually without that override file, set them
-   directly instead:
+   directly in the video-source stack instead:
 
    ```yaml
    configs:
      queuing-config:
-       file: ./dlstreamer-pipeline-server/queuing-config-reid.json
+       file: ./sample_data/demo_scenes/Queuing/queuing-config-reid.json
      retail-config:
-       file: ./dlstreamer-pipeline-server/retail-config-reid.json
+       file: ./sample_data/demo_scenes/Retail/retail-config-reid.json
    ```
 
    If this is the first time running Scenescape, run:
@@ -203,12 +218,15 @@ Following are the step-by-step instructions for enabling person reidentification
    ```sh
    docker compose -f docker-compose.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
-     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
      --profile controller down
+   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
+     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml down
    docker compose -f docker-compose.yml \
      -f sample_data/compose/docker-compose.vdms-override.yml \
-     -f sample_data/compose/docker-compose.reid-pipeline-override.yml \
-     --profile controller up queuing-video retail-video reid scene -d
+     --profile controller up reid scene -d
+   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
+     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml \
+     -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d
    ```
 
    Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.
@@ -228,7 +246,7 @@ Following are step-by-step instructions for enabling pose estimation for the out
    ./download_public_models.sh yolo11m-pose
    ```
 
-   For pipelines that combine pose estimation with re-identification (as in [queuing-config-pose.json](./queuing-config-pose.json) `qcam1`), also download the `mars-small128` ReID model:
+   For pipelines that combine pose estimation with re-identification (as in [queuing-config-pose.json](../sample_data/demo_scenes/Queuing/queuing-config-pose.json) `qcam1`), also download the `mars-small128` ReID model:
 
    ```bash
    ./download_public_models.sh mars-small128
@@ -243,12 +261,12 @@ Following are step-by-step instructions for enabling pose estimation for the out
    docker rm scenescape-models
    ```
 
-3. **Use the predefined pipeline configuration** [queuing-config-pose.json](./queuing-config-pose.json):
+3. **Use the predefined pipeline configuration** [queuing-config-pose.json](../sample_data/demo_scenes/Queuing/queuing-config-pose.json):
 
    ```yaml
    configs:
      queuing-config:
-       file: ./dlstreamer-pipeline-server/queuing-config-pose.json
+       file: ./sample_data/demo_scenes/Queuing/queuing-config-pose.json
    ```
 
 4. **Enable pose-based bounding box adjustment** in the Scene Controller (optional):
@@ -271,7 +289,7 @@ synchronized to the same NTP source.
 > file-based sources such as `multifilesrc`.
 
 1. Ensure the `rtspsrc` element in your pipeline string includes `add-reference-timestamp-meta=true`. The out-of-box
-   [queuing-config.json](./queuing-config.json) already includes this setting.
+   [queuing-config.json](../sample_data/demo_scenes/Queuing/queuing-config.json) already includes this setting.
 
 2. Set `use_frame_ntp_timestamp` to `true` in your pipeline payload. In
    `queuing-config.json` this is the `payload.parameters` block:

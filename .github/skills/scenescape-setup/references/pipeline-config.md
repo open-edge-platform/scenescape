@@ -107,7 +107,7 @@ python3 <skill-dir>/scripts/adapt_pipeline_config.py \
   [video-file-input.md](./video-file-input.md) / [video-file-publishing.md](./video-file-publishing.md)
   — they are looped through an internal RTSP
   re-streamer, so this file's spec applies unchanged once `deploy-inputs.json` is written.
-- Canonical upstream examples: `dlstreamer-pipeline-server/queuing-config.json` and
+- Canonical upstream examples: `sample_data/demo_scenes/Queuing/queuing-config.json` and
   `docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md`
 - `scripts/download_model.py` fetches the model via the **Model Download Microservice**
   (`intel/model-download` container REST API). The model name/hub
