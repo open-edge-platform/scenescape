@@ -318,6 +318,68 @@ class TestMatchFunction(unittest.TestCase):
     self.assertTrue(len(unassigned_tracks) == 1)
     self.assertTrue(len(unanssigend_objects) == 2)
 
+  def test_multi_camera_detections_fuse_into_one_track(self):
+    """Cross-camera birth clustering must fuse one object into a single track with averaged geometry."""
+    tracker_config = tracking.TrackManagerConfig()
+    tracker_config.motion_models = [tracking.MotionModel.CV]
+    tracker_config.default_process_noise = 1e-4
+    tracker_config.default_measurement_noise = 0.2
+    tracker_config.init_state_covariance = 1.0
+
+    tracker = tracking.MultipleObjectTracker(
+      tracker_config, tracking.DistanceType.Euclidean, 2.0)
+    tracker.update_tracker_params(10)
+
+    cam0 = create_object_at_location(x=7.11, y=7.67)
+    cam0.length = cam0.width = cam0.height = 0.5
+    cam1 = create_object_at_location(x=7.91, y=6.69)
+    cam1.length = cam1.width = cam1.height = 0.5
+
+    tracker.track(
+      [[cam0], [cam1]],
+      datetime.now(),
+      tracking.DistanceType.Euclidean,
+      2.0,
+      0.5,
+    )
+    self.assertEqual(
+      len(tracker.get_tracks()),
+      1,
+      'cross-camera detections of one object must birth a single track',
+    )
+    track = tracker.get_tracks()[0]
+    self.assertAlmostEqual(track.x, 0.5 * (cam0.x + cam1.x), places=5)
+    self.assertAlmostEqual(track.y, 0.5 * (cam0.y + cam1.y), places=5)
+
+  def test_multi_camera_track_update_averages_world_position(self):
+    """Track updates must average geometry across cameras, not last-camera wins."""
+    tracker_config = tracking.TrackManagerConfig()
+    tracker_config.motion_models = [tracking.MotionModel.CV]
+    tracker_config.default_process_noise = 1e-4
+    tracker_config.default_measurement_noise = 0.2
+    tracker_config.init_state_covariance = 1.0
+    tracker_config.max_number_of_unreliable_frames = 0
+
+    tracker = tracking.MultipleObjectTracker(
+      tracker_config, tracking.DistanceType.Euclidean, 5.0)
+    tracker.update_tracker_params(10)
+
+    cam0 = create_object_at_location(x=7.11, y=7.67)
+    cam0.length = cam0.width = cam0.height = 0.5
+    cam1 = create_object_at_location(x=7.91, y=6.69)
+    cam1.length = cam1.width = cam1.height = 0.5
+    mid_x = 0.5 * (cam0.x + cam1.x)
+    mid_y = 0.5 * (cam0.y + cam1.y)
+
+    ts = datetime.now()
+    tracker.track([[cam0], [cam1]], ts, tracking.DistanceType.Euclidean, 5.0, 0.5)
+    ts += timedelta(milliseconds=100)
+    tracker.track([[cam0], [cam1]], ts, tracking.DistanceType.Euclidean, 5.0, 0.5)
+
+    track = tracker.get_tracks()[0]
+    self.assertAlmostEqual(track.x, mid_x, delta=0.15)
+    self.assertAlmostEqual(track.y, mid_y, delta=0.15)
+
 class TestClassification(unittest.TestCase):
   def test_classification_functions(self):
     classification_data = tracking.ClassificationData(['Car', 'Bike', 'Pedestrian'])
