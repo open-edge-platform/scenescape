@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Minimum time (seconds) between consecutive event emissions for the same
 # region or tripwire.  Guards the ``when`` timestamp on each state object.
@@ -43,6 +43,34 @@ class TripwireAnalyticsState:
   """
   objects: Dict[str, List[Any]] = field(default_factory=dict)
   when: float = 0.0
+
+
+@dataclass
+class PotentialAnalyticsEvent:
+  """A predicted transition awaiting resolution by a real observation."""
+  event_id: str
+  scene_id: str
+  scene_name: str
+  geometry_type: str
+  geometry_id: str
+  geometry_name: str
+  geometry_metadata: Dict[str, Any]
+  object_id: str
+  detection_type: str
+  transition: Any
+  anchor_timestamp: float
+  prediction_timestamp: float
+  translation: List[float]
+  status: str = 'potential'
+
+
+@dataclass
+class PredictionAnalyticsState:
+  """Potential events and predicted geometry state for one object."""
+  region_membership: Dict[str, bool] = field(default_factory=dict)
+  previous_location: Optional[Any] = None
+  active_events: Dict[Tuple[str, str, str], PotentialAnalyticsEvent] = field(
+    default_factory=dict)
 
 
 class AnalyticsStateStore:

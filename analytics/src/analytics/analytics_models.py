@@ -35,6 +35,16 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
     metadata=getattr(obj, 'metadata', None),
     reid=getattr(obj, 'reid', None),
     visibility=getattr(obj, 'visibility', None),
+    external_source_id=getattr(obj, 'external_source_id', None),
+    extrapolation_enabled=getattr(obj, 'extrapolation_enabled', False),
+    extrapolation_interval_ms=getattr(obj, 'extrapolation_interval_ms', None),
+    extrapolation_start_delay_ms=getattr(
+      obj, 'extrapolation_start_delay_ms', None),
+    extrapolation_horizon_intervals=getattr(
+      obj, 'extrapolation_horizon_intervals', 2),
+    position_source=getattr(obj, 'position_source', 'observed'),
+    observation_timestamp=getattr(obj, 'observation_timestamp', None),
+    observation_is_fresh=getattr(obj, 'observation_is_fresh', True),
   )
 
 
@@ -75,3 +85,11 @@ class AnalyticsObject:
   # Camera IDs whose FOV contains this object. Prefer pass-through from the
   # track producer; AnalyticsScene._updateVisible fills only when missing.
   visibility: Optional[Any] = None
+  external_source_id: Optional[str] = None
+  extrapolation_enabled: bool = False
+  extrapolation_interval_ms: Optional[float] = None
+  extrapolation_start_delay_ms: Optional[float] = None
+  extrapolation_horizon_intervals: float = 2
+  position_source: str = 'observed'
+  observation_timestamp: Optional[str] = None
+  observation_is_fresh: bool = True

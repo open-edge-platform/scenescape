@@ -177,15 +177,19 @@ publishes over authenticated MQTT, see
 
 ### External Source Top-Level Fields
 
-| Field        | Type                  |  Required   | Description                                                                                                                                                                                                                                         |
-| ------------ | --------------------- | :---------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `timestamp`  | string (ISO 8601 UTC) |     Yes     | Time the observations (and pose, if present) were acquired                                                                                                                                                                                          |
-| `source_id`  | string                |     Yes     | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                |
-| `objects`    | array                 |     Yes     | Observed objects, in the source's local coordinate frame, or camera-style pixel detections when `bounding_box_px` is used (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update  |
-| `pose`       | object                |     No      | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
-| `intrinsics` | object                | Conditional | Required when any object uses `bounding_box_px`; camera intrinsics used to localize those pixel detections with the same algorithm as camera-ingest payloads                                                                                        |
-| `distortion` | object                |     No      | Optional distortion coefficients paired with `intrinsics` for external pixel detections                                                                                                                                                             |
-| `track`      | boolean               |     No      | When present, applies to **all** `objects[*]` in the message. `false` bypasses Scenescape tracking and preserves source object ids; `true` (or lack of this attrtibute) routes all objects through the normal tracking path                         |
+| Field                              | Type                  |  Required   | Description                                                                                                                                                                                                                                         |
+| ---------------------------------- | --------------------- | :---------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `timestamp`                        | string (ISO 8601 UTC) |     Yes     | Time the observations (and pose, if present) were acquired                                                                                                                                                                                          |
+| `source_id`                        | string                |     Yes     | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                |
+| `objects`                          | array                 |     Yes     | Observed objects, in the source's local coordinate frame, or camera-style pixel detections when `bounding_box_px` is used (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update  |
+| `pose`                             | object                |     No      | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
+| `intrinsics`                       | object                | Conditional | Required when any object uses `bounding_box_px`; camera intrinsics used to localize those pixel detections with the same algorithm as camera-ingest payloads                                                                                        |
+| `distortion`                       | object                |     No      | Optional distortion coefficients paired with `intrinsics` for external pixel detections                                                                                                                                                             |
+| `track`                            | boolean               |     No      | Applies to all objects. `false` bypasses Scenescape tracking and preserves source object ids; `true` or omission routes objects through normal tracking                                                                                              |
+| `extrapolate`                      | boolean               |     No      | Enables bounded constant-velocity extrapolation; defaults to `false`. `true` requires an explicit `track=false` and is unavailable on tracked/retracked or pixel detections                                                                          |
+| `extrapolation_interval_ms`        | number > 0            | Conditional | Interpolation interval in milliseconds between predicted positions. Required when `extrapolate=true`                                                                                                                                                |
+| `extrapolation_start_delay_ms`     | number > 0            |     No      | Delay in milliseconds after a real observation before prediction begins; defaults to `extrapolation_interval_ms`                                                                                                                              |
+| `extrapolation_horizon_intervals`  | number, (0, 100]      |     No      | Maximum extrapolation duration after prediction starts, measured in interpolation intervals; defaults to `2`                                                                                                                                      |
 
 ### External Source Pose Fields (`pose`)
 
@@ -220,9 +224,10 @@ publishes over authenticated MQTT, see
 | Field             | Type               |  Required   | Description                                                                                                                                                                              |
 | ----------------- | ------------------ | :---------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `category`        | string             |     Yes     | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                                                                  |
-| `translation`     | array[3] of number | Conditional | Position of the object relative to the source's local origin (`x`, `y`, `z`); required unless `bounding_box_px` is used                                                                  |
+| `translation`     | array[3] of number | Conditional | Position of the object relative to the source's local origin (`x`, `y`, `z`); required unless `bounding_box_px` is used; required when extrapolation is enabled                               |
 | `id`              | string             | Conditional | Required when the top-level source `track` value is `false`; optional when the top-level source `track` value is `true` or omitted                                                       |
-| `rotation`        | array[4] of number |     No      | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                              |
+| `rotation`        | array[4] of number |     No      | 3D orientation of the object as a quaternion (`x`, `y`, `z`, `w`) in source-local axes                                                                                                   |
+| `velocity`        | array[3] of number | Conditional | Source-reported velocity (`vx`, `vy`, `vz`) in metres per second in source-local axes; required when extrapolation is enabled                                                             |
 | `size`            | array[3] of number |     No      | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                     |
 | `confidence`      | number > 0         |     No      | Source-reported confidence for this observation                                                                                                                                          |
 | `bounding_box_px` | object             | Conditional | Pixel-space detection box from a camera-like external source using `x/y/width/height`; when present, Scenescape localizes the object using the same pixel-detection path as camera input |
@@ -238,6 +243,18 @@ When that value is `false`, the object bypasses the kinematic tracker/ReID path 
 published object `id` remains the source-provided `id`. When the value is `true` or
 omitted, the object follows the normal Scenescape tracking path and the controller assigns the
 published object `id`, so the source message may omit `objects[*].id`.
+
+When `extrapolate=true`, `track=false` must be explicit, and every object must contain
+`translation` and `velocity`; pixel detections are not eligible. The controller rotates both
+vectors from source-local axes into scene coordinates, but applies source translation only to
+position. It also composes the object's `rotation` with the source-pose rotation. For WGS84
+poses, the existing limitation still applies: the source rotation is not aligned from a local
+geodetic frame (for example ENU) into scene axes, so publishers must supply a rotation already
+compatible with the scene convention.
+
+Tracked external objects published with `track=true` or omission may also carry
+`position_source: "observed"` and `observation_timestamp` internally after ingestion; those
+fields are added by the controller and propagated through analytics output.
 
 When an object includes `bounding_box_px`, it is treated as a camera-style pixel detection rather
 than as a source-local Cartesian observation. In that case:
@@ -440,17 +457,17 @@ A subsequent message reuses the cached pose and reports a point object (no `size
 > and [Singleton Sensor Data](../../how-to-guides/integrate-cameras-and-sensors.md#singleton-sensor-data)
 > for the sensor input message format and how tagged data appears on scene objects.
 
-All Scene Controller output messages include an `objects` array of tracked objects. Each
-tracked object contains the following fields:
+All Scene Controller output messages include an `objects` array of scene objects. Each
+object contains the following fields:
 
 | Field                  | Type               | Description                                                                                                                                                                                                                                                      |
 | ---------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                   | string (UUID)      | Persistent track identifier assigned by the controller                                                                                                                                                                                                           |
+| `id`                   | string             | Persistent identifier assigned by the controller, or the source-provided id for an untracked external object                                                                                                                                                     |
 | `type`                 | string             | Object type label; same value as `category` (e.g. `"person"`)                                                                                                                                                                                                    |
 | `category`             | string             | Object class label (e.g. `"person"`)                                                                                                                                                                                                                             |
 | `confidence`           | number             | Inference confidence of the most recent contributing detection                                                                                                                                                                                                   |
 | `translation`          | array[3] of number | 3D world position (`x`, `y`, `z`) in metres                                                                                                                                                                                                                      |
-| `size`                 | array[3] of number | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                                                                                                                   |
+| `size`                 | array[3] or null   | 3D object dimensions (`x`, `y`, `z`) in metres; `null` for a point observation with no known extent                                                                                                                                                              |
 | `velocity`             | array[3] of number | Velocity vector (`x`, `y`, `z`) in metres per second                                                                                                                                                                                                             |
 | `rotation`             | array[4] of number | Orientation quaternion                                                                                                                                                                                                                                           |
 | `visibility`           | array of string    | Camera IDs currently observing this object                                                                                                                                                                                                                       |
@@ -464,6 +481,17 @@ tracked object contains the following fields:
 | `first_seen`           | string (ISO 8601)  | Timestamp when the track was first created                                                                                                                                                                                                                       |
 | `metadata`             | object             | Semantic attributes propagated from camera detections; present when visual analytics (e.g. age, gender, Re-ID) are configured. Same attribute structure as camera input. See note below.                                                                         |
 | `camera_bounds`        | object             | Per-camera pixel bounding boxes (`{camera_id: {x, y, width, height, projected}}`) where `projected=false` means detector-provided pixel bbox and `projected=true` means computed projection; may be empty (`{}`) when no camera currently observes the track     |
+| `external_source_id`   | string or absent   | Publisher `source_id`; present only on untracked external-source objects                                                                                                                                                                              |
+| `extrapolation_enabled` | boolean or absent | Whether the external-source object is eligible for extrapolation; present only on untracked external-source objects                                                                                                                                   |
+| `extrapolation_interval_ms` | number or null | Interpolation interval between predicted positions in milliseconds; `null` when extrapolation is disabled and no interval was supplied                                                                                                               |
+| `extrapolation_start_delay_ms` | number or null | Delay after a real observation before extrapolation begins in milliseconds; defaults to `extrapolation_interval_ms` when omitted                                                                                                                   |
+| `extrapolation_horizon_intervals` | number or absent | Bounded extrapolation duration after prediction starts in interpolation intervals; defaults to `2` for untracked external-source objects                                                                                                         |
+| `position_source`      | string or absent   | `"observed"` for positions emitted by the Controller; downstream extrapolated positions use `"predicted"`                                                                                                                                             |
+| `observation_timestamp` | string or absent  | Original external observation timestamp; remains fixed when downstream services emit predictions                                                                                                                                                     |
+
+For untracked external-source objects, output `velocity` is the source-reported velocity
+rotated into scene coordinates. These per-object fields are required for correct handling
+because one scene output can mix camera tracks and objects from multiple external sources.
 
 > **Note on `metadata` in track objects**: Each attribute follows the structure
 > `{label, model_name, confidence?}` — identical to [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr)
@@ -504,9 +532,9 @@ tracked object contains the following fields:
 
 Published on MQTT topic: `scenescape/data/scene/{scene_id}/{thing_type}`
 
-The Scene Controller publishes unregulated (raw) tracking results, one message per object
-category per scene publication cycle. Each message contains the current state of all tracked
-objects of that category.
+The Scene Controller publishes unregulated (raw) scene results, one message per object
+category per scene publication cycle. Each message contains the current state of all objects
+of that category, including any untracked external-source objects.
 
 ### Data Scene Top-Level Fields
 

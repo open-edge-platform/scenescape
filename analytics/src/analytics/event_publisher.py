@@ -21,7 +21,7 @@ import orjson
 from scene_common import log
 from scene_common.geometry import Region, Tripwire
 from scene_common.mqtt import PubSub
-from scene_common.timestamp import get_epoch_time
+from scene_common.timestamp import get_epoch_time, get_iso_time
 
 from analytics.event_serializer import (
   build_objects_dict,
@@ -85,6 +85,47 @@ def publish_events(scene, ts_str, publish_fn):
   scene.events.pop('objects', None)
   scene.events.pop('count', None)
   return
+
+
+def publish_potential_events(_scene, events, publish_fn):
+  """Publish predicted ROI/tripwire lifecycle updates on the potential topic."""
+  for event in events:
+    event_data = {
+      'timestamp': get_iso_time(event.prediction_timestamp),
+      'scene_id': event.scene_id,
+      'scene_name': event.scene_name,
+      f'{event.geometry_type}_id': event.geometry_id,
+      f'{event.geometry_type}_name': event.geometry_name,
+      'event_id': event.event_id,
+      'status': event.status,
+      'object': {
+        'id': event.object_id,
+        'type': event.detection_type,
+        'translation': event.translation,
+        'position_source': (
+          'predicted' if event.status in ('potential', 'expired') else 'observed'
+        ),
+        'observation_timestamp': get_iso_time(event.anchor_timestamp),
+      },
+      'metadata': dict(event.geometry_metadata),
+    }
+    if event.geometry_type == 'region':
+      event_data['transition'] = event.transition
+      event_data['metadata']['fromSensor'] = False
+    else:
+      event_data['direction'] = event.transition
+
+    event_topic = PubSub.formatTopic(
+      PubSub.EVENT,
+      region_type=event.geometry_type,
+      event_type='potential',
+      scene_id=event.scene_id,
+      region_id=event.geometry_id,
+    )
+    publish_fn(
+      event_topic,
+      orjson.dumps(event_data, option=orjson.OPT_SERIALIZE_NUMPY),
+    )
 
 
 def _build_all_region_objs_list(region_state, event_data):

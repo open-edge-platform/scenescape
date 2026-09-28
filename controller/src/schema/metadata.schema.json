@@ -348,6 +348,18 @@
           "minItems": 4,
           "maxItems": 4
         },
+        "velocity": {
+          "title": "Velocity",
+          "type": "array",
+          "description": "Source-reported velocity (vx, vy, vz) in meters per second, expressed in the source's local axes.",
+          "items": {
+            "type": "number",
+            "minimum": -1e308,
+            "maximum": 1e308
+          },
+          "minItems": 3,
+          "maxItems": 3
+        },
         "size": {
           "title": "Size",
           "type": "array",
@@ -499,6 +511,32 @@
           "title": "Track All Source Objects",
           "type": "boolean",
           "description": "When present and false, all objects in this message bypass Scenescape tracking and preserve their source-provided ids. When true or omitted, all objects go through the normal tracking path and id is optional."
+        },
+        "extrapolate": {
+          "title": "Enable Extrapolation",
+          "type": "boolean",
+          "default": false,
+          "description": "Enable bounded constant-velocity extrapolation for these observations. Only valid with an explicit track value of false."
+        },
+        "extrapolation_interval_ms": {
+          "title": "Extrapolation Interpolation Interval",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Interval in milliseconds between extrapolated positions. Required when extrapolate is true."
+        },
+        "extrapolation_start_delay_ms": {
+          "title": "Extrapolation Start Delay",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Delay in milliseconds after a real observation before extrapolated positions begin. Defaults to extrapolation_interval_ms."
+        },
+        "extrapolation_horizon_intervals": {
+          "title": "Extrapolation Horizon",
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "default": 2,
+          "description": "Maximum extrapolation duration after prediction starts, expressed as a number of interpolation intervals."
         }
       },
       "required": ["timestamp", "source_id", "objects"],
@@ -531,6 +569,32 @@
               "objects": {
                 "items": {
                   "required": ["id"]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "required": ["extrapolate"],
+            "properties": {
+              "extrapolate": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "required": ["track", "extrapolation_interval_ms"],
+            "properties": {
+              "track": {
+                "const": false
+              },
+              "objects": {
+                "items": {
+                  "required": ["translation", "velocity"],
+                  "not": {
+                    "required": ["bounding_box_px"]
+                  }
                 }
               }
             }

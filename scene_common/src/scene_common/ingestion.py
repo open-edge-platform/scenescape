@@ -158,6 +158,15 @@ class SceneDataIngestion:
     obj.confidence = obj_data.get('confidence')
     obj.frameCount = obj_data.get('frame_count', 0)
     obj.rotation = obj_data.get('rotation')
+    obj.external_source_id = obj_data.get('external_source_id')
+    obj.extrapolation_enabled = obj_data.get('extrapolation_enabled', False)
+    obj.extrapolation_interval_ms = obj_data.get('extrapolation_interval_ms')
+    obj.extrapolation_start_delay_ms = obj_data.get(
+      'extrapolation_start_delay_ms')
+    obj.extrapolation_horizon_intervals = obj_data.get(
+      'extrapolation_horizon_intervals', 2)
+    obj.position_source = obj_data.get('position_source', 'observed')
+    obj.observation_timestamp = obj_data.get('observation_timestamp')
     obj.vectors = []
     obj.boundingBox = None
     obj.boundingBoxPixels = None

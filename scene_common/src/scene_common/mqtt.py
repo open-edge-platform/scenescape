@@ -96,27 +96,31 @@ class PubSub(_PubSubTopicBase):
     if cert is not None:
       if certs is None:
         certs = {}
+      certs['certfile'] = cert
 
     self.client = initializeMqttClient(transport=transport, userdata=userdata)
+    self._set_auth(auth)
     if not self.checkTlsConnection(certs, transport, userdata):
-      return
-
-    if auth is not None:
-      user = pw = None
-      if os.path.exists(auth):
-        with open(auth) as json_file:
-          data = json.load(json_file)
-        user = data['user']
-        pw = data['password']
-      else:
-        sep = auth.find(':')
-        if sep < 0:
-          raise ValueError("Invalid user/password")
-        user = auth[:sep]
-        pw = auth[sep+1:]
-      self.client.username_pw_set(user, pw)
+      self._set_auth(auth)
 
     return
+
+  def _set_auth(self, auth):
+    if auth is None:
+      return
+    user = pw = None
+    if os.path.exists(auth):
+      with open(auth) as json_file:
+        data = json.load(json_file)
+      user = data['user']
+      pw = data['password']
+    else:
+      sep = auth.find(':')
+      if sep < 0:
+        raise ValueError("Invalid user/password")
+      user = auth[:sep]
+      pw = auth[sep+1:]
+    self.client.username_pw_set(user, pw)
 
   @classmethod
   def getTopicByTemplateName(cls, topic_name):

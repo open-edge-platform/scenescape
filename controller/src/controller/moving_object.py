@@ -199,7 +199,23 @@ class MovingObject:
     self.info.pop('id')
     self.gid = None
     self.frameCount = 1
-    self.velocity = None
+    self.external_source_id = self.info.pop('external_source_id', None)
+    source_velocity = self.info.pop('velocity', None)
+    self.velocity = (
+      Point(source_velocity)
+      if self.external_source_id is not None and source_velocity is not None
+      else None
+    )
+    self.extrapolation_enabled = self.info.pop('extrapolation_enabled', False)
+    self.extrapolation_interval_ms = self.info.pop(
+      'extrapolation_interval_ms', None)
+    self.extrapolation_start_delay_ms = self.info.pop(
+      'extrapolation_start_delay_ms', None)
+    self.extrapolation_horizon_intervals = self.info.pop(
+      'extrapolation_horizon_intervals', 2)
+    self.position_source = self.info.pop(
+      'position_source', 'observed' if self.external_source_id is not None else None)
+    self.observation_timestamp = self.info.pop('observation_timestamp', None)
     self.location = None
     self.rotation = np.array([0, 0, 0, 1]).tolist()
     self.intersected = False
@@ -367,6 +383,8 @@ class MovingObject:
       self.size = info['size']
     if info is not None and 'translation' in info:
       self.orig_point = Point(info['translation'])
+      if 'rotation' in info:
+        self.rotation = info['rotation']
       if camera and hasattr(camera, 'pose'):
         if 'rotation' in info:
           if self.project_to_map:

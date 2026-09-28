@@ -79,8 +79,9 @@ fields and examples; do not invent alternate shapes.
    and `translation` in the **source's local frame** (relative to the source
    origin described by `pose`). Include `id` whenever the top-level source
    `track` value is `false`; when the top-level source `track` value is `true`
-   or omitted, `id` is optional. Optional `size`, `rotation`, `confidence`,
-   and `metadata` follow the same contract. See
+   or omitted, `id` is optional. Map source-local velocity and 3D orientation
+   without changing coordinate conventions. Optional fields follow the canonical
+   contract. See
    [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
 
 5. **Choose whether the source message should be tracked by Scenescape**. The
@@ -89,7 +90,12 @@ fields and examples; do not invent alternate shapes.
    unique within your source. See
    [Source-Identity Trust for Untracked Objects, with Collision Detection](../microservices/controller/data_formats.md#source-identity-trust-for-untracked-objects-with-collision-detection).
 
-6. **Resolve coordinate conventions in the converter**, not in the controller:
+6. **Opt into extrapolation only for untracked observations** when the source
+   supplies the required motion data. Follow the validation rules and defaults in
+   [External Source Top-Level Fields](../microservices/controller/data_formats.md#external-source-top-level-fields);
+   do not enable it for tracked or pixel detections.
+
+7. **Resolve coordinate conventions in the converter**, not in the controller:
    - Quaternions are `(x, y, z, w)`.
    - Object `translation` is metres relative to the source local origin.
    - Pose places that origin in either WGS84 (`lat_long_alt`) or scene-local

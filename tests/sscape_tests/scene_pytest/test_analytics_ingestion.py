@@ -65,6 +65,30 @@ def test_ingest_explicit_empty_visibility_is_preserved():
   assert ingestion._objects['obj-1'].visibility == []
 
 
+def test_ingest_preserves_external_prediction_metadata():
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person(
+    velocity=[1.0, 2.0, 3.0],
+    external_source_id='source-1',
+    extrapolation_enabled=True,
+    extrapolation_interval_ms=1000,
+    extrapolation_start_delay_ms=1500,
+    extrapolation_horizon_intervals=2,
+    position_source='observed',
+    observation_timestamp='2026-01-01T00:00:00Z',
+  )], {})
+
+  obj = ingestion._objects['obj-1']
+  assert obj.velocity == Point(1.0, 2.0, 3.0)
+  assert obj.external_source_id == 'source-1'
+  assert obj.extrapolation_enabled is True
+  assert obj.extrapolation_interval_ms == 1000
+  assert obj.extrapolation_start_delay_ms == 1500
+  assert obj.extrapolation_horizon_intervals == 2
+  assert obj.position_source == 'observed'
+  assert obj.observation_timestamp == '2026-01-01T00:00:00Z'
+
+
 def test_ingest_preserves_identity_across_frames():
   """ChainData is preserved when the same object id reappears."""
   ingestion = SceneDataIngestion()

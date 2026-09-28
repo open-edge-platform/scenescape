@@ -109,7 +109,6 @@ class SceneController:
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
-    self.pubsub.connect()
 
     self.cache_manager = CacheManager(
       data_source,
@@ -264,6 +263,11 @@ class SceneController:
     # Free-run unregulated output for analytics. Empty objects lists are
     # intentional: no detections is state. Rate limiting belongs only on
     # analytics' regulated topic.
+    for external_field in (
+        'source_id', 'pose', 'track', 'extrapolate',
+        'extrapolation_interval_ms', 'extrapolation_start_delay_ms',
+        'extrapolation_horizon_intervals'):
+      jdata.pop(external_field, None)
     jdata['objects'] = buildDetectionsList(objects, scene, self.visibility_topic == 'unregulated', include_sensors=False)
     if 'debug_hmo_start_time' in jdata:
       jdata['debug_hmo_processing_time'] = get_epoch_time() - jdata['debug_hmo_start_time']
@@ -293,6 +297,10 @@ class SceneController:
       jdata.pop('source_id', None)
       jdata.pop('pose', None)
       jdata.pop('track', None)
+      jdata.pop('extrapolate', None)
+      jdata.pop('extrapolation_interval_ms', None)
+      jdata.pop('extrapolation_start_delay_ms', None)
+      jdata.pop('extrapolation_horizon_intervals', None)
 
       jdata['objects'] = buildDetectionsList(
         objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
@@ -677,6 +685,18 @@ class SceneController:
               f"Rejecting external-source object: id={obj_id} from source={source_id} "
               f"scene={scene.uid} category={detection_type}: {collision_reason}")
             continue
+          routed_obj.update({
+            'external_source_id': source_id,
+            'extrapolation_enabled': jdata.get('extrapolate', False),
+            'extrapolation_interval_ms': jdata.get('extrapolation_interval_ms'),
+            'extrapolation_start_delay_ms': jdata.get(
+              'extrapolation_start_delay_ms'),
+            'extrapolation_horizon_intervals': jdata.get(
+              'extrapolation_horizon_intervals', 2),
+            'position_source': 'observed',
+            'observation_timestamp': jdata.get(
+              'timestamp', get_iso_time(msg_when)),
+          })
         else:
           source_obj_id = routed_obj.get('id')
           if source_obj_id is not None:

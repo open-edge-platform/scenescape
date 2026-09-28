@@ -14,6 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 | [Regulated Scene Output Message Format](#regulated-scene-output-message-format) | Publish   | `scenescape/regulated/scene/{scene_id}`                           |
 | [Region Event Output Message Format](#region-event-output-message-format)       | Publish   | `scenescape/event/region/{scene_id}/{region_id}/{event_type}`     |
 | [Tripwire Event Output Message Format](#tripwire-event-output-message-format)   | Publish   | `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` |
+| [Potential Event Output Message Format](#potential-event-output-message-format) | Publish   | `scenescape/event/{region_type}/{scene_id}/{region_id}/potential` |
 
 The Analytics service consumes the Scene Controller's unregulated per-category output
 (`scenescape/data/scene/{scene_id}/{thing_type}`, see
@@ -99,6 +100,24 @@ The Analytics service publishes regulated (rate-controlled) tracking results agg
 object categories into a single message. This is the primary output topic for downstream
 applications.
 
+For an external-source object that opts into extrapolation, the service starts
+publishing predicted positions when the last real observation is older than the
+source's configured interval. A predicted object has
+`position_source: "predicted"`, keeps `observation_timestamp` set to the real
+sample that anchors the prediction, and includes `prediction_age_ms` and
+`prediction_horizon_ms`. The `velocity` is the effective scene-coordinate
+velocity used for the prediction. The source-reported velocity drives the
+first prediction; after two real observations, Analytics blends 75% of the
+latest source velocity with 25% of the finite-difference observed velocity.
+Every predicted point is calculated from the latest real position rather than
+from the preceding prediction. A real sample resets the position and sets
+`position_source: "observed"`. Predictions stop at the configured horizon and
+are never fed back into tracking or confirmed analytics history.
+
+Consumers should treat predicted samples as discrete points. If the UI renders a
+dashed trail, it must build that trail from the ordered predicted samples rather
+than assuming a single uninterrupted polyline will arrive in one message.
+
 ### Regulated Scene Top-Level Fields
 
 | Field        | Type                  | Description                                                                                                 |
@@ -173,6 +192,36 @@ applications.
   ]
 }
 ```
+
+## Potential Event Output Message Format
+
+Published on one of these MQTT topics:
+
+- `scenescape/event/region/{scene_id}/{region_id}/potential`
+- `scenescape/event/tripwire/{scene_id}/{tripwire_id}/potential`
+
+These messages report an ROI transition or tripwire crossing inferred from an
+extrapolated external-source position. They do not affect confirmed object
+counts, the `objects` event stream, or region dwell state.
+
+The first message for a predicted transition has status `potential`. A later
+real observation publishes another message with the same `event_id` and status
+`confirmed` or `rejected`. If no real observation arrives before the prediction
+horizon, the status becomes `expired`.
+
+| Field                   | Type                  | Description                                                               |
+| ----------------------- | --------------------- | ------------------------------------------------------------------------- |
+| `timestamp`             | string (ISO 8601 UTC) | Time of this lifecycle update                                             |
+| `scene_id`              | string                | Scene identifier                                                          |
+| `scene_name`            | string                | Scene name                                                                |
+| `region_id`/`tripwire_id` | string              | Geometry identifier                                                       |
+| `region_name`/`tripwire_name` | string          | Geometry name                                                             |
+| `event_id`              | string (UUID)         | Stable identifier shared by all lifecycle updates for this prediction     |
+| `status`                | string                | `potential`, `confirmed`, `rejected`, or `expired`                         |
+| `transition`            | string                | Region-only value: `entered` or `exited`                                  |
+| `direction`             | integer               | Tripwire-only crossing direction: `1` or `-1`                             |
+| `object`                | object                | Object ID, type, position, provenance, and anchoring observation timestamp |
+| `metadata`              | object                | Region or tripwire geometry                                               |
 
 ## Region Event Output Message Format
 

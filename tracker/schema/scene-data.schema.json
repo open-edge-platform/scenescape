@@ -94,7 +94,7 @@
           "maxItems": 3
         },
         "size": {
-          "type": "array",
+          "type": ["array", "null"],
           "description": "Object size [length, width, height] in meters",
           "items": { "type": "number", "minimum": 0 },
           "minItems": 3,
@@ -144,6 +144,40 @@
           "type": "integer",
           "description": "Number of frames this track has been observed",
           "minimum": 0
+        },
+        "external_source_id": {
+          "type": "string",
+          "description": "Publisher source_id for an untracked external-source object"
+        },
+        "extrapolation_enabled": {
+          "type": "boolean",
+          "description": "Whether bounded constant-velocity extrapolation is enabled for this object"
+        },
+        "extrapolation_interval_ms": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Interpolation interval between extrapolated positions in milliseconds, or null when disabled"
+        },
+        "extrapolation_start_delay_ms": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "description": "Delay after a real observation before extrapolation begins in milliseconds, or null when disabled"
+        },
+        "extrapolation_horizon_intervals": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100,
+          "description": "Maximum extrapolation duration after prediction starts, measured in interpolation intervals"
+        },
+        "position_source": {
+          "type": "string",
+          "enum": ["observed", "predicted"],
+          "description": "Whether translation is observed or extrapolated"
+        },
+        "observation_timestamp": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Timestamp of the external observation anchoring this position"
         }
       },
       "additionalProperties": true
