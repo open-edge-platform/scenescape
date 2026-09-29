@@ -25,8 +25,9 @@ host video file
   → DL Streamer / verify_rtsp / proxy bypass
 ```
 
-MediaMTX is the broker only. It matches SceneScape sample compose
-(`sample_data/compose/docker-compose-dl-streamer-example.yml` `mediaserver` + `queuing-cams`). This skill
+MediaMTX is the broker only. It matches SceneScape's standalone per-scene video-source
+compose files (`sample_data/demo_scenes/<Scene>/<scene>-video-compose.yaml`, each with its
+own `mediaserver` service + `*-cams`). This skill
 does not own MediaMTX configuration beyond the default image and the `mediaserver` network alias.
 
 ## What bootstrap writes
