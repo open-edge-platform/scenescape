@@ -5,6 +5,7 @@
 
 import json
 import os
+import queue
 import threading
 
 import orjson
@@ -302,6 +303,8 @@ class TestSceneControllerPublishers:
     controller = SceneController.__new__(SceneController)
     controller.pubsub = MagicMock()
     controller.visibility_topic = visibility_topic
+    controller._moving_object_queue = queue.Queue()
+    controller._moving_object_stop = threading.Event()
     return controller
 
   def test_publish_scene_detections_publishes_and_invokes_external_builder(self):
@@ -1048,6 +1051,8 @@ class TestHandleMovingObjectExternal:
     controller._handleExternalSourceObject = MagicMock(return_value=True)
     controller._scenesForExternalPublisher = MagicMock(return_value=[MagicMock()])
     controller.publishDetections = MagicMock()
+    controller._moving_object_queue = queue.Queue()
+    controller._moving_object_stop = threading.Event()
     return controller
 
   def _external_message(self, scene_id, payload):
@@ -1127,6 +1132,8 @@ class TestHandleMovingObjectExternal:
     })
 
     controller.handleMovingObjectMessage(None, None, message)
+    callback, callback_args, _ = controller._moving_object_queue.get_nowait()
+    callback(*callback_args)
 
     controller._handleChildSceneObject.assert_called_once()
     args = controller._handleChildSceneObject.call_args.args
