@@ -183,7 +183,6 @@ class Scene3dRoiUserInterfaceTest(UserInterfaceTest):
     return
 
 
-@pytest.mark.fresh_stack
 @common.mock_display
 @pytest.mark.test_name("NEX-T10472")
 def test_3d_ui_roi(scenescape_env, request, result_recorder):
