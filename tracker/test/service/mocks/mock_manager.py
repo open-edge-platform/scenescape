@@ -6,9 +6,10 @@
 """
 Mock Manager REST API server for tracker service tests.
 
-Implements the two endpoints the tracker uses:
+Implements the three endpoints the tracker uses:
   POST /api/v1/auth  - returns auth token
   GET  /api/v1/scenes - returns scene list (requires token)
+  GET  /api/v1/assets - returns asset list (requires token)
 
 Serves a real Manager API response (complete JSON with count, next, previous, results).
 The tracker's ApiSceneLoader extracts the results array and transforms it to nested schema format.
@@ -43,6 +44,8 @@ class MockManagerHandler(BaseHTTPRequestHandler):
       self._send_json(200, {"status": "ok"})
     elif self.path == "/api/v1/scenes":
       self._handle_scenes()
+    elif self.path == "/api/v1/assets":
+      self._handle_assets()
     else:
       self._send_json(404, {"detail": "Not found."})
 
@@ -72,6 +75,16 @@ class MockManagerHandler(BaseHTTPRequestHandler):
 
     scenes_response = load_scenes()
     self._send_json(200, scenes_response)
+
+  def _handle_assets(self):
+    auth = self.headers.get("Authorization", "")
+    if auth != f"Token {TOKEN}":
+      self._send_json(
+          401, {
+              "detail": "Authentication credentials were not provided."})
+      return
+
+    self._send_json(200, {"count": 0, "next": None, "previous": None, "results": []})
 
   def _send_json(self, code, data):
     body = json.dumps(data).encode()

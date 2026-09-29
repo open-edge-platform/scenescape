@@ -42,11 +42,13 @@ private:
 // ---------------------------------------------------------------------------
 // Helper: create a mock client factory returning a pre-configured mock
 // ---------------------------------------------------------------------------
-ManagerClientFactory make_mock_factory(const std::string& scenes_response) {
-    return [scenes_response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
+ManagerClientFactory make_mock_factory(const std::string& scenes_response,
+                                       const std::string& assets_response = R"({"results":[]})") {
+    return [scenes_response, assets_response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
         auto mock = std::make_unique<test::MockManagerRestClient>();
         EXPECT_CALL(*mock, authenticate(_, _)).Times(1);
         EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(scenes_response));
+        EXPECT_CALL(*mock, fetchAssets()).WillOnce(Return(assets_response));
         return mock;
     };
 }
@@ -508,7 +510,9 @@ TEST_F(ApiSceneLoaderPipelineTest, FullPipelineReturnsScenes) {
     mgr.url = "https://localhost:443";
     mgr.auth_path = auth_file.path().string();
 
-    auto factory = make_mock_factory(make_api_response());
+    auto factory = make_mock_factory(
+        make_api_response(),
+        R"({"results":[{"name":"vehicle","rotation_from_velocity":true},{"name":"person","rotation_from_velocity":false}]})");
     auto loader = create_api_scene_loader(mgr, schema_dir_, factory);
 
     auto scenes = loader->load();
@@ -522,6 +526,8 @@ TEST_F(ApiSceneLoaderPipelineTest, FullPipelineReturnsScenes) {
     EXPECT_DOUBLE_EQ(scenes[0].cameras[0].extrinsics.translation[2], 3.0);
     EXPECT_DOUBLE_EQ(scenes[0].cameras[0].intrinsics.fx, 500.0);
     EXPECT_DOUBLE_EQ(scenes[0].cameras[0].intrinsics.distortion.k1, 0.1);
+    EXPECT_TRUE(loader->asset_rotation_config().at("vehicle"));
+    EXPECT_FALSE(loader->asset_rotation_config().at("person"));
 }
 
 TEST_F(ApiSceneLoaderPipelineTest, MultipleScenesAndCameras) {

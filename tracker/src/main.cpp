@@ -94,8 +94,9 @@ int main(int argc, char* argv[]) {
 
     // Load scenes using appropriate loader based on config
     std::vector<tracker::Scene> scenes;
+    std::unique_ptr<tracker::ISceneLoader> scene_loader;
     try {
-        auto scene_loader = tracker::create_scene_loader(
+        scene_loader = tracker::create_scene_loader(
             config.scenes, cli_config.config_path.parent_path(), config.infrastructure.manager,
             cli_config.schema_path.parent_path());
         scenes = scene_loader->load();
@@ -150,7 +151,8 @@ int main(int argc, char* argv[]) {
 
     // Initialize time chunk scheduler with workers
     auto scheduler = std::make_unique<tracker::TimeChunkScheduler>(
-        chunk_buffer, scene_registry, config.tracking, publish_callback, clock_fn);
+        chunk_buffer, scene_registry, config.tracking, publish_callback,
+        clock_fn, scene_loader->asset_rotation_config());
 
     // Initialize message handler with buffer integration
     auto message_handler = std::make_unique<tracker::MessageHandler>(

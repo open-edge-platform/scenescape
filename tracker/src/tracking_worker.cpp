@@ -13,11 +13,13 @@
 #include <algorithm>
 #include <charconv>
 #include <chrono>
+#include <cmath>
 #include <numeric>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <string_view>
+#include <unordered_set>
 
 namespace tracker {
 
@@ -93,13 +95,30 @@ rv::tracking::TrackManagerConfig build_tracker_config(const TrackingConfig& conf
 
 } // namespace
 
+std::array<double, 4> update_velocity_rotation(double vx, double vy,
+                                                VelocityRotationState& state) {
+    const double speed = std::hypot(vx, vy);
+    if (state.active) {
+        state.active = speed > kRotationSpeedThresholdOff;
+    } else {
+        state.active = speed > kRotationSpeedThresholdOn;
+    }
+
+    if (state.active) {
+        state.rotation = CoordinateTransformer::yawToQuaternion(std::atan2(vy, vx));
+    }
+    return state.rotation;
+}
+
 TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
                                PublishCallback publish_callback,
                                const TrackingConfig& tracking_config,
                                const std::unordered_map<std::string, Camera>& cameras,
-                               ClockFn clock_fn)
+                               ClockFn clock_fn,
+                               bool rotation_from_velocity)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
-      publish_callback_(std::move(publish_callback)),
+        publish_callback_(std::move(publish_callback)),
+        rotation_from_velocity_(rotation_from_velocity),
       tracker_(build_tracker_config(tracking_config)), clock_fn_(std::move(clock_fn)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
@@ -259,6 +278,14 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
 
     // Update ID map: preserve UUIDs for continuing tracks, generate new for new tracks
     id_map_ = update_id_map(id_map_, active_ids);
+    if (!rotation_from_velocity_) {
+        rotation_states_.clear();
+    } else {
+        std::unordered_set<int32_t> active_id_set(active_ids.begin(), active_ids.end());
+        std::erase_if(rotation_states_, [&active_id_set](const auto& entry) {
+            return !active_id_set.contains(entry.first);
+        });
+    }
 
     std::vector<Track> tracks;
     tracks.reserve(rv_tracks.size());
@@ -270,7 +297,12 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         track.translation = {rv_track.x, rv_track.y, rv_track.z};
         track.velocity = {rv_track.vx, rv_track.vy, 0.0};
         track.size = {rv_track.length, rv_track.width, rv_track.height};
-        track.rotation = CoordinateTransformer::yawToQuaternion(rv_track.yaw);
+        if (!rotation_from_velocity_) {
+            track.rotation = {0.0, 0.0, 0.0, 1.0};
+        } else {
+            auto& rotation_state = rotation_states_[rv_track.id];
+            track.rotation = update_velocity_rotation(rv_track.vx, rv_track.vy, rotation_state);
+        }
 
         track.metadata_json = metadataJson(rv_track.attributes);
 

@@ -43,7 +43,8 @@ public:
      */
     TimeChunkScheduler(TimeChunkBuffer& buffer, const SceneRegistry& registry,
                        const TrackingConfig& config, PublishCallback publish_callback,
-                       ClockFn clock_fn = makeSystemClock());
+                       ClockFn clock_fn = makeSystemClock(),
+                       AssetRotationConfig asset_rotation_config = {});
 
     /// Destructor stops scheduler and all workers
     ~TimeChunkScheduler();
@@ -125,6 +126,7 @@ private:
     const SceneRegistry& registry_;
     TrackingConfig config_;
     PublishCallback publish_callback_;
+    AssetRotationConfig asset_rotation_config_;
     ClockFn clock_fn_;
 
     std::chrono::milliseconds interval_;

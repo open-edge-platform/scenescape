@@ -36,6 +36,24 @@ using PublishCallback = std::function<void(
     const std::string& scene_id, const std::string& scene_name, const std::string& category,
     const std::string& timestamp, const std::vector<Track>& tracks)>;
 
+constexpr double kRotationSpeedThresholdOn = 1.0;
+constexpr double kRotationSpeedThresholdOff = 0.5;
+
+struct VelocityRotationState {
+    bool active = false;
+    std::array<double, 4> rotation = {0.0, 0.0, 0.0, 1.0};
+};
+
+/**
+ * @brief Update velocity-derived orientation using hysteresis.
+ *
+ * A new heading is enabled above the on threshold and remains enabled until
+ * speed falls to or below the lower off threshold. When disabled, the last
+ * valid quaternion is retained.
+ */
+std::array<double, 4> update_velocity_rotation(double vx, double vy,
+                                                VelocityRotationState& state);
+
 /**
  * @brief Per-scope worker thread for processing detection chunks.
  *
@@ -60,7 +78,8 @@ public:
     TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
                    PublishCallback publish_callback, const TrackingConfig& tracking_config,
                    const std::unordered_map<std::string, Camera>& cameras,
-                   ClockFn clock_fn = makeSystemClock());
+                   ClockFn clock_fn = makeSystemClock(),
+                   bool rotation_from_velocity = false);
 
     /// Destructor joins worker thread
     ~TrackingWorker();
@@ -162,6 +181,7 @@ private:
     std::string scene_name_;
     int queue_capacity_;
     PublishCallback publish_callback_;
+    bool rotation_from_velocity_;
 
     // RobotVision tracker instance (Hungarian matching + Kalman filter)
     rv::tracking::MultipleObjectTracker tracker_;
@@ -171,6 +191,8 @@ private:
 
     // RobotVision int ID -> UUID v4 string mapping (single-thread access, no mutex)
     std::unordered_map<int32_t, std::string> id_map_;
+
+    std::unordered_map<int32_t, VelocityRotationState> rotation_states_;
 
     std::thread worker_thread_;
     mutable std::mutex queue_mutex_;
