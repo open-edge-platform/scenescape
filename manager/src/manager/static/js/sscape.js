@@ -1841,6 +1841,7 @@ $(document).ready(function () {
 
         if (
           result.cameras ||
+          result.calibration_markers ||
           result.tripwires ||
           result.regions ||
           result.sensors
