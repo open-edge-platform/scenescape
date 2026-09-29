@@ -3,7 +3,18 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Reboot an ONVIF-capable camera via the device management SystemReboot command."""
+"""Reboot an ONVIF-capable camera via the device management SystemReboot command.
+
+Run inside the ptz-pose container rather than a host virtualenv: the pinned
+onvif-zeep/zeep versions in the image are known to work with these cameras,
+whereas newer zeep releases fail their GetCapabilities call outright.
+
+    docker cp ptz_pose_service/tools scenescape-ptz-pose-1:/tmp/tools
+    docker compose exec ptz-pose python3 /tmp/tools/onvif_reboot.py 192.168.0.91:2020
+
+Rebooting needs an administrator account, which is typically not the
+PTZ-capable account the pose service runs as.
+"""
 
 import argparse
 import getpass
@@ -16,7 +27,7 @@ from onvif.exceptions import ONVIFError
 
 def build_argparser():
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument("camera", nargs="?", default="192.168.0.91",
+  parser.add_argument("camera", nargs="?", default="192.168.0.91:2020",
                        help="IP/hostname of camera, optionally with :port")
   parser.add_argument("--username", default=os.environ.get("ONVIF_ADMIN_USERNAME"),
                       help="ONVIF admin username (default: ONVIF_ADMIN_USERNAME env var, "
