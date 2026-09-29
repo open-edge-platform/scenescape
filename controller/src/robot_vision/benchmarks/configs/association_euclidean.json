@@ -1,0 +1,5 @@
+{
+  "method": "euclidean",
+  "gate_probability": 0.99,
+  "max_radius_m": 2.0
+}

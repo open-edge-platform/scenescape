@@ -19,6 +19,55 @@ from controller.external_source import IdentityClaimRegistry
 from scene_common.mqtt import PubSub
 
 
+class TestSceneControllerExtractTrackerConfigAssociation:
+  """Association block parsing from tracker-config.json."""
+
+  def test_extract_association_defaults_and_validates_method(self, tmp_path):
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+    config_path = tmp_path / 'tracker-config.json'
+    config_path.write_text(json.dumps({
+      'max_unreliable_time_s': 1.0,
+      'non_measurement_time_dynamic_s': 0.8,
+      'non_measurement_time_static_s': 1.6,
+      'time_chunking_enabled': True,
+      'time_chunking_rate_fps': 10,
+      'association': {
+        'method': 'bogus',
+        'gate_probability': 0.95,
+        'max_radius_m': 7.0,
+      },
+    }))
+
+    scene_controller.extractTrackerConfigData(str(config_path))
+
+    association = scene_controller.tracker_config_data['association']
+    assert association['method'] == 'position_mahalanobis'
+    assert association['gate_probability'] == pytest.approx(0.95)
+    assert association['max_radius_m'] == pytest.approx(7.0)
+
+  def test_extract_association_position_mahalanobis(self, tmp_path):
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+    config_path = tmp_path / 'tracker-config.json'
+    config_path.write_text(json.dumps({
+      'max_unreliable_time_s': 1.0,
+      'non_measurement_time_dynamic_s': 0.8,
+      'non_measurement_time_static_s': 1.6,
+      'association': {
+        'method': 'position_mahalanobis',
+        'gate_probability': 0.99,
+        'max_radius_m': 10.0,
+      },
+    }))
+
+    scene_controller.extractTrackerConfigData(str(config_path))
+
+    association = scene_controller.tracker_config_data['association']
+    assert association['method'] == 'position_mahalanobis'
+    assert association['max_radius_m'] == pytest.approx(10.0)
+
+
 class TestSceneControllerExtractTrackerRate:
   """Unit tests for SceneController._extractTrackerRate."""
 
@@ -292,6 +341,71 @@ class TestSceneDeserializeReidConfigPropagation:
 
     assert scene.pose_adjustment_config_data == scene_data['pose_adjustment_config_data']
     assert scene.pose_adjustment._resolved_detection_types['pedestrian'] == 'person'
+
+
+class TestSceneDeserializeAssociationConfigPropagation:
+  """Regression: association_config from scene data must reach the live tracker."""
+
+  @patch('controller.scene.TimeChunkedIntelLabsTracking')
+  def test_deserialize_applies_association_config_to_tracker(self, mock_tracking):
+    """Deserialize with association_config updates scene and tracker association."""
+    mock_tracker = MagicMock()
+    mock_tracking.return_value = mock_tracker
+
+    from controller.scene import Scene
+    association = {
+      'method': 'position_mahalanobis',
+      'gate_probability': 0.95,
+      'max_radius_m': 10.0,
+    }
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene_data = {
+        'uid': 'test-uid-assoc-1',
+        'name': 'test_scene',
+        'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+        'association_config': association,
+      }
+      scene = Scene.deserialize(scene_data)
+
+    assert scene.association_config['method'] == 'position_mahalanobis'
+    assert scene.association_config['gate_probability'] == pytest.approx(0.95)
+    assert scene.association_config['max_radius_m'] == pytest.approx(10.0)
+    mock_tracker.applyAssociationConfig.assert_called()
+    applied = mock_tracker.applyAssociationConfig.call_args.args[0]
+    assert applied['method'] == 'position_mahalanobis'
+
+  @patch('controller.scene.TimeChunkedIntelLabsTracking')
+  def test_update_scene_pushes_association_without_recreating_tracker(self, mock_tracking):
+    """Hydrate/updateScene applies association even when timing params are unchanged."""
+    mock_tracker = MagicMock()
+    mock_tracking.return_value = mock_tracker
+
+    from controller.scene import Scene
+    with patch.object(Scene, 'available_trackers', {'intel_labs': mock_tracking,
+                                                    'time_chunked_intel_labs': mock_tracking}):
+      scene = Scene.deserialize({
+        'uid': 'test-uid-assoc-2',
+        'name': 'test_scene',
+        'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+      })
+      mock_tracker.applyAssociationConfig.reset_mock()
+      scene.updateScene({
+        'uid': 'test-uid-assoc-2',
+        'name': 'test_scene',
+        'map': None,
+        'tracker_config': [1.0, 0.8, 1.6, 15, True, 15, 5.0],
+        'association_config': {
+          'method': 'position_mahalanobis',
+          'gate_probability': 0.99,
+          'max_radius_m': 8.0,
+        },
+      })
+
+    assert scene.association_config['method'] == 'position_mahalanobis'
+    mock_tracker.applyAssociationConfig.assert_called()
 
 
 class TestSceneControllerPublishers:

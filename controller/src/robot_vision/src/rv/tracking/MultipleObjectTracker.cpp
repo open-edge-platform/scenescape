@@ -226,12 +226,14 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
                                                   const DistanceType &distanceType,
                                                   double distanceThreshold,
                                                   std::vector<size_t> &unassignedObjects,
-                                                  const std::chrono::system_clock::time_point &timestamp)
+                                                  const std::chrono::system_clock::time_point &timestamp,
+                                                  double maxRadiusM)
 {
   std::vector<std::pair<size_t, size_t>> assignments;
   std::vector<size_t> unassignedTracks;
 
-  match(tracks, objects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
+  match(tracks, objects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold,
+        maxRadiusM);
 
   // Update measurements - set measurement
   for (const auto &assignment : assignments)
@@ -342,14 +344,15 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
                                   const std::chrono::system_clock::time_point &timestamp,
                                   double scoreThreshold)
 {
-  track(objects, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold);
+  track(objects, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold, mMaxRadiusM);
 }
 
 void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
                                   const std::chrono::system_clock::time_point &timestamp,
                                   const DistanceType &distanceType,
                                   double distanceThreshold,
-                                  double scoreThreshold)
+                                  double scoreThreshold,
+                                  double maxRadiusM)
 {
   if (objects.empty())
   {
@@ -371,11 +374,11 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
 
   std::vector<size_t> unassignedObjects;
   tracks = matchAndAssignMeasurements(tracks, objects, distanceType, distanceThreshold, unassignedObjects,
-                                      timestamp);
+                                      timestamp, maxRadiusM);
 
   std::vector<size_t> unassignedLowScoreObjects;
   tracks = matchAndAssignMeasurements(tracks, lowScoreObjects, distanceType, distanceThreshold,
-                                      unassignedLowScoreObjects, timestamp);
+                                      unassignedLowScoreObjects, timestamp, maxRadiusM);
 
   // 3.1 Update measurements - Match to unreliable objects first and then suspended tracks.
   // Remove objects already assigned to tracks
@@ -383,14 +386,14 @@ void MultipleObjectTracker::track(std::vector<tracking::TrackedObject> objects,
 
   auto unreliableTracks = mTrackManager.getUnreliableTracks();
   matchAndAssignMeasurements(unreliableTracks, objects, distanceType, distanceThreshold, unassignedObjects,
-                             timestamp);
+                             timestamp, maxRadiusM);
 
   // Remove objects already assigned to Unreliable tracks
   objects = filterByIndex(objects, unassignedObjects);
 
   auto suspendedTracks = mTrackManager.getSuspendedTracks();
   matchAndAssignMeasurements(suspendedTracks, objects, distanceType, distanceThreshold, unassignedObjects,
-                             timestamp);
+                             timestamp, maxRadiusM);
 
   // 3.2 Update measurements - Correct measurements
   mTrackManager.correct();
@@ -412,7 +415,8 @@ std::vector<tracking::TrackedObject>
 MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::TrackedObject> &tracks,
                                                   std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
                                                   const DistanceType &distanceType,
-                                                  double distanceThreshold)
+                                                  double distanceThreshold,
+                                                  double maxRadiusM)
 {
   const size_t numCameras = objectsPerCamera.size();
   if (numCameras == 0 || tracks.empty())
@@ -438,7 +442,8 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
           unassignedTracks,
           unassignedObjectsPerCamera[i],
           distanceType,
-          distanceThreshold);
+          distanceThreshold,
+          maxRadiusM);
   }
 
   // Group all camera matches per track index so each track gets one fused measurement.
@@ -498,14 +503,15 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
                                   const std::chrono::system_clock::time_point &timestamp,
                                   double scoreThreshold)
 {
-  track(objectsPerCamera, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold);
+  track(objectsPerCamera, timestamp, mDistanceType, mDistanceThreshold, scoreThreshold, mMaxRadiusM);
 }
 
 void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
                                   const std::chrono::system_clock::time_point &timestamp,
                                   const DistanceType &distanceType,
                                   double distanceThreshold,
-                                  double scoreThreshold)
+                                  double scoreThreshold,
+                                  double maxRadiusM)
 {
   if (objectsPerCamera.empty())
   {
@@ -530,21 +536,28 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
   // 2.- Associate with the reliable states first
   auto tracks = mTrackManager.getReliableTracks();
 
-  tracks = matchAndAssignMeasurements(tracks, objectsPerCamera, distanceType, distanceThreshold);
+  tracks = matchAndAssignMeasurements(tracks, objectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
 
-  tracks = matchAndAssignMeasurements(tracks, lowScoreObjectsPerCamera, distanceType, distanceThreshold);
+  tracks = matchAndAssignMeasurements(tracks, lowScoreObjectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
 
   // 3.1 Update measurements - Match to unreliable objects first and then suspended tracks.
   auto unreliableTracks = mTrackManager.getUnreliableTracks();
-  matchAndAssignMeasurements(unreliableTracks, objectsPerCamera, distanceType, distanceThreshold);
+  matchAndAssignMeasurements(unreliableTracks, objectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
 
   auto suspendedTracks = mTrackManager.getSuspendedTracks();
-  matchAndAssignMeasurements(suspendedTracks, objectsPerCamera, distanceType, distanceThreshold);
+  matchAndAssignMeasurements(suspendedTracks, objectsPerCamera, distanceType, distanceThreshold, maxRadiusM);
 
   // 3.2 Update measurements - Correct measurements
   mTrackManager.correct();
 
   // 4. - Group unmatched detections across cameras before creating tracks.
+  // Detection-to-detection clustering must use Euclidean meters: raw detections
+  // do not carry track predictedMeasurementCov, so PositionMahalanobis treats
+  // them as near-delta covariances and fails to fuse the same object seen by
+  // two cameras (duplicate frozen tracks). Use the legacy ~2 m birth radius —
+  // not maxRadiusM — so a Mahalanobis association ceiling (e.g. 10 m) does not
+  // over-merge nearby people at birth. Track-to-detection association above
+  // still uses distanceType / distanceThreshold / maxRadiusM.
   std::vector<tracking::TrackedObject> newObjects;
   size_t totalUnassignedObjects = 0;
   for (auto &cameraObjects : objectsPerCamera)
@@ -564,7 +577,8 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
     std::vector<std::pair<size_t, size_t>> assignments;
     std::vector<size_t> unassignedTracks;
     std::vector<size_t> unassignedObjects;
-    match(newObjects, cameraObjects, assignments, unassignedTracks, unassignedObjects, distanceType, distanceThreshold);
+    match(newObjects, cameraObjects, assignments, unassignedTracks, unassignedObjects,
+          DistanceType::Euclidean, kDefaultBirthClusterRadiusM, kDefaultBirthClusterRadiusM);
 
     for (const auto &[newObjectIndex, cameraObjectIndex] : assignments)
     {

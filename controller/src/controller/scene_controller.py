@@ -12,8 +12,10 @@ from scene_common.cache_manager import CacheManager
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
+from controller.ilabs_tracking import normalize_association_config
 from controller.scene import Scene
 from scene_common import log
+from scene_common.association import DEFAULT_ASSOCIATION_CONFIG
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
@@ -163,6 +165,21 @@ class SceneController:
         else:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
+
+      association = tracker_config.get("association", {})
+      association_input = {
+        **DEFAULT_ASSOCIATION_CONFIG,
+        **association,
+      }
+      try:
+        self.tracker_config_data["association"] = normalize_association_config(
+          association_input)
+      except ValueError as err:
+        log.error("Invalid association config in tracker config file: %s", err)
+        # Keep valid numeric fields; drop the unknown method so defaults apply.
+        association_input.pop("method", None)
+        self.tracker_config_data["association"] = normalize_association_config(
+          association_input)
     return
 
   def extractReidConfigData(self, reid_config_file):

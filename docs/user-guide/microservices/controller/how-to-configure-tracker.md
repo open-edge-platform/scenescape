@@ -261,6 +261,40 @@ cameras. The behavior is always on and has no configuration parameter.
   averaged with measurements from other cameras that arrive within that window. Cameras are
   distinguished by their camera ID.
 
+## Detection-to-Track Association
+
+Association decides which detections update which tracks. The default is covariance-aware
+Mahalanobis gating (`position_mahalanobis`). Euclidean meter gating remains available for
+rollback.
+
+Add an `association` block to `controller/config/tracker-config.json` (Controller-proper) or
+under `tracking.association` in the Tracker service `tracker.json`:
+
+```json
+{
+  "association": {
+    "method": "position_mahalanobis",
+    "gate_probability": 0.99,
+    "max_radius_m": 10.0
+  }
+}
+```
+
+| Field              | Meaning                                                                                                                                                                                                                                                                                                                                                                                              | Default                |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `method`           | `position_mahalanobis` (UKF predicted covariance + χ² gate) or `euclidean` (legacy meter gate)                                                                                                                                                                                                                                                                                                       | `position_mahalanobis` |
+| `gate_probability` | χ² gate probability for Mahalanobis (2 DOF). Ignored for Euclidean.                                                                                                                                                                                                                                                                                                                                  | `0.99`                 |
+| `max_radius_m`     | Euclidean: track↔detection association distance (m). Mahalanobis: hard Euclidean **safety ceiling** (m) so a bad track covariance cannot associate arbitrarily far (also keeps the χ² gate from being clipped under long coast). Does **not** set cross-camera birth clustering radius (fixed ~2 m). Does **not** model multi-camera pose disagreement—that is Phase 2 measurement R (see ADR-0017). | `10.0`                 |
+
+**Rollback to Euclidean:** set `"method": "euclidean"` and typically `"max_radius_m": 2.0`, then
+restart the Scene Controller or Tracker service.
+
+**Tracker service env overrides** (optional): `TRACKER_ASSOCIATION_METHOD`,
+`TRACKER_ASSOCIATION_GATE_PROBABILITY`, `TRACKER_ASSOCIATION_MAX_RADIUS_M`.
+
+Invalid `method` values fail startup (Controller raises; Tracker throws). Omitting the
+`association` block uses the defaults above.
+
 ## Persisting Object Attributes Across Detection Gaps
 
 Detection pipelines do not always re-report every attribute (e.g., shirt color, license plate,

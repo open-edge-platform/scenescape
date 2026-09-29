@@ -278,6 +278,9 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   if hasattr(aobj, 'asset_scale'):
     obj_dict['asset_scale'] = aobj.asset_scale
+  association_window = getattr(aobj, 'association_window', None)
+  if association_window:
+    obj_dict['association_window'] = association_window
   if len(aobj.chain_data.persist):
     obj_dict['persistent_data'] = aobj.chain_data.persist
   return obj_dict

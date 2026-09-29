@@ -117,6 +117,10 @@ def serialize_for_event(obj, include_sensors=False, include_region_dwell=False, 
   if hasattr(ao, 'first_seen'):
     obj_dict['first_seen'] = get_iso_time(ao.first_seen)
 
+  association_window = getattr(ao, 'association_window', None)
+  if association_window:
+    obj_dict['association_window'] = association_window
+
   if isinstance(obj, TripwireEvent):
     obj_dict['direction'] = obj.direction
 

@@ -357,5 +357,40 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithoutConfidence_OmitsConfidenceFiel
     EXPECT_FALSE(doc["objects"][0].HasMember("confidence"));
 }
 
+TEST_F(TrackPublisherTest, Serialize_Track_WithAssociationWindow_IncludesGeometry) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+
+    Track track = createSampleTrack("a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d", "person");
+    AssociationWindow window;
+    window.method = "position_mahalanobis";
+    window.shape = "ellipse";
+    window.semi_major_m = 1.5;
+    window.semi_minor_m = 0.5;
+    window.angle_rad = 0.25;
+    track.association_window = window;
+
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+
+    const auto& obj = doc["objects"][0];
+    ASSERT_TRUE(obj.HasMember("association_window"));
+    const auto& assoc = obj["association_window"];
+    EXPECT_STREQ(assoc["method"].GetString(), "position_mahalanobis");
+    EXPECT_STREQ(assoc["shape"].GetString(), "ellipse");
+    EXPECT_DOUBLE_EQ(assoc["semi_major_m"].GetDouble(), 1.5);
+    EXPECT_DOUBLE_EQ(assoc["semi_minor_m"].GetDouble(), 0.5);
+    EXPECT_DOUBLE_EQ(assoc["angle_rad"].GetDouble(), 0.25);
+}
+
 } // namespace
 } // namespace tracker
