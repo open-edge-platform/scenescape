@@ -17,8 +17,18 @@ def fingerprint(name, uid):
 
 
 def pairing_uri(host, username, name, uid):
+  """!Build ``s2://?u=&a=&s=&n=`` — password and UID stay off the QR.
+
+  ``n`` carries the human scene name so handhelds can label the bookmark
+  before (or without) a manager login.
+  """
   query = urlencode(
-    {"u": host, "a": username, "s": fingerprint(name, uid)},
+    {
+      "u": host,
+      "a": username,
+      "s": fingerprint(name, uid),
+      "n": str(name),
+    },
     safe=".:",
   )
   return f"s2://?{query}"

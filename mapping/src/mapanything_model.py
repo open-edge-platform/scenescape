@@ -22,15 +22,17 @@ import traceback
 from scene_common import log
 
 from model_interface import ReconstructionModel
+from image_transforms import mapanything_transform
 
 # Add model paths to sys.path
 sys.path.append('/workspace/map-anything')
 
 # Import MapAnything-specific modules
 from mapanything.models import MapAnything
-from mapanything.utils.image import find_closest_aspect_ratio, IMAGE_NORMALIZATION_DICT, RESOLUTION_MAPPINGS
+from mapanything.utils.image import find_closest_aspect_ratio, IMAGE_NORMALIZATION_DICT
 from mapanything.utils.geometry import depthmap_to_world_frame
 from mapanything.utils.cropping import crop_resize_if_necessary
+import torch
 import torchvision.transforms as tvf
 
 
@@ -70,7 +72,9 @@ class MapAnythingModel(ReconstructionModel):
     Run MapAnything inference on a LIST of frames.
 
     Args:
-      frames: [{"data": "<base64>"}, ...]  (base64-encoded images)
+      frames: [{"data": "<base64>", "camera_intrinsics": {...}?, "camera_location": {...}?}, ...]
+        Optional intrinsics (pixels of the uploaded image) and camera-to-world
+        poses are passed to the model as geometric conditioning.
 
     Returns:
       Dictionary containing predictions, camera poses, and intrinsics
@@ -84,6 +88,8 @@ class MapAnythingModel(ReconstructionModel):
       pil_images = []
       original_sizes = []
       camera_ids = []
+      prior_intrinsics = []
+      prior_poses = []
 
       for img_data in frames:
         camera_ids.append(img_data.get("camera_id"))
@@ -93,8 +99,10 @@ class MapAnythingModel(ReconstructionModel):
         pil_image = Image.fromarray(img_array)
         pil_images.append(pil_image)
         original_sizes.append((pil_image.size[0], pil_image.size[1]))  # (width, height)
+        prior_intrinsics.append(self.intrinsics_from_metadata(img_data.get("camera_intrinsics")))
+        prior_poses.append(self.pose_from_location(img_data.get("camera_location")))
 
-      views = self._preprocess_images(pil_images)
+      views = self._preprocess_images(pil_images, prior_intrinsics, prior_poses)
       if not views:
         raise ValueError("No valid images processed")
 
@@ -128,66 +136,24 @@ class MapAnythingModel(ReconstructionModel):
 
   def scale_intrinsics_to_original_size(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
                    preprocessing_mode: str = "crop") -> list:
-    """Scale intrinsics for MapAnything preprocessing (resolution mapping + rescale + crop)"""
+    """Undo MapAnything's per-image resize + center crop on model-resolution intrinsics.
+
+    Args:
+      intrinsics: (S, 3, 3) intrinsics in model-input pixels
+      model_size: (height, width) of the model input
+      original_sizes: [(orig_width, orig_height), ...]
+      preprocessing_mode: unused; MapAnything always resizes then crops
+    """
     if len(intrinsics.shape) == 2:
       # Single matrix (3, 3) -> (1, 3, 3)
       intrinsics = intrinsics[np.newaxis, ...]
 
-    def find_closest_aspect_ratio(aspect_ratio, resolution_set=518):
-      """Find closest aspect ratio mapping"""
-      aspect_keys = sorted(RESOLUTION_MAPPINGS[resolution_set].keys())
-      closest_key = min(aspect_keys, key=lambda x: abs(x - aspect_ratio))
-      return RESOLUTION_MAPPINGS[resolution_set][closest_key]
-
-    scaled_intrinsics = []
     model_height, model_width = model_size
-
-    # Calculate average aspect ratio (MapAnything uses this to determine target size)
-    aspect_ratios = [w / h for w, h in original_sizes]
-    avg_aspect_ratio = sum(aspect_ratios) / len(aspect_ratios)
-
-    # Get the target size that MapAnything would have used
-    target_width, target_height = find_closest_aspect_ratio(avg_aspect_ratio)
-
-    for i, (orig_width, orig_height) in enumerate(original_sizes):
-      K = intrinsics[i].copy()
-
-      # MapAnything preprocessing steps (reverse them):
-      # 1. Rescale image to target size using Lanczos
-      # 2. Crop if necessary to exact target dimensions
-
-      # Step 1: Reverse the rescaling
-      # Calculate what intermediate size would have been after rescaling
-      scale_factor_width = target_width / orig_width
-      scale_factor_height = target_height / orig_height
-      scale_factor = min(scale_factor_width, scale_factor_height)  # Maintain aspect ratio
-
-      intermediate_width = int(orig_width * scale_factor)
-      intermediate_height = int(orig_height * scale_factor)
-
-      # Step 2: Reverse any cropping that was applied
-      # If intermediate size > target size, then cropping was applied
-      crop_offset_x = 0
-      crop_offset_y = 0
-
-      if intermediate_width > target_width:
-        crop_offset_x = (intermediate_width - target_width) // 2
-      if intermediate_height > target_height:
-        crop_offset_y = (intermediate_height - target_height) // 2
-
-      # Apply reverse transformations to intrinsics
-      # First, undo cropping (add back the crop offset)
-      K[0, 2] += crop_offset_x  # cx
-      K[1, 2] += crop_offset_y  # cy
-
-      # Then, undo scaling (scale back to original)
-      inverse_scale = 1.0 / scale_factor
-      K[0, 0] *= inverse_scale  # fx
-      K[1, 1] *= inverse_scale  # fy
-      K[0, 2] *= inverse_scale  # cx
-      K[1, 2] *= inverse_scale  # cy
-
-      scaled_intrinsics.append(K)
+    target_size = (model_width, model_height)
+    scaled_intrinsics = []
+    for i, original_size in enumerate(original_sizes):
+      transform = mapanything_transform(original_size, target_size)
+      scaled_intrinsics.append(transform.invert_intrinsics(intrinsics[i]))
 
     return scaled_intrinsics
 
@@ -223,16 +189,32 @@ class MapAnythingModel(ReconstructionModel):
       scene = predictions_to_glb(predictions, as_mesh=True)
       return scene
 
-  def _preprocess_images(self, pil_images: List[Image.Image]) -> List[Dict[str, Any]]:
+  def _preprocess_images(
+    self,
+    pil_images: List[Image.Image],
+    prior_intrinsics: Optional[List[Optional[np.ndarray]]] = None,
+    prior_poses: Optional[List[Optional[np.ndarray]]] = None,
+  ) -> List[Dict[str, Any]]:
     """
-    Preprocess images using MapAnything's logic.
+    Preprocess images using MapAnything's logic and attach geometric priors.
 
     Args:
       pil_images: List of PIL images
+      prior_intrinsics: Per-image 3x3 intrinsics in original pixels, or None
+      prior_poses: Per-image 4x4 camera-to-world poses, or None
 
     Returns:
       List of view dictionaries ready for inference
     """
+    n = len(pil_images)
+    prior_intrinsics = list(prior_intrinsics or [None] * n)
+    prior_poses = list(prior_poses or [None] * n)
+
+    # MapAnything requires view 0 to carry a pose whenever any view does.
+    if prior_poses and prior_poses[0] is None and any(p is not None for p in prior_poses):
+      log.warning("MapAnything: first view has no camera_location; ignoring pose priors for all views")
+      prior_poses = [None] * n
+
     # Calculate average aspect ratio (MapAnything uses this)
     aspect_ratios = [img.size[0] / img.size[1] for img in pil_images]
     average_aspect_ratio = sum(aspect_ratios) / len(aspect_ratios)
@@ -251,19 +233,37 @@ class MapAnythingModel(ReconstructionModel):
 
     # Process each image
     views = []
+    conditioned = 0
     for i, pil_image in enumerate(pil_images):
       # Apply MapAnything's crop_resize_if_necessary
       processed_img = crop_resize_if_necessary(pil_image, resolution=target_size)[0]
 
       # Normalize and create view dict
-      views.append(dict(
+      view = dict(
         img=ImgNorm(processed_img)[None],
         true_shape=np.int32([processed_img.size[::-1]]),
         idx=i,
         instance=str(i),
         data_norm_type=[norm_type],
-      ))
+      )
 
+      K = prior_intrinsics[i]
+      if K is not None:
+        transform = mapanything_transform(pil_image.size, target_size)
+        K_model = transform.apply_to_intrinsics(K)
+        view["intrinsics"] = torch.from_numpy(K_model.astype(np.float32))[None]
+        conditioned += 1
+
+      pose = prior_poses[i]
+      if pose is not None:
+        view["camera_poses"] = torch.from_numpy(pose.astype(np.float32))[None]
+
+      views.append(view)
+
+    log.info(
+      f"MapAnything views: {len(views)} images, {conditioned} with intrinsics, "
+      f"{sum(1 for p in prior_poses if p is not None)} with poses"
+    )
     return views
 
   def _process_outputs(self, outputs: List[Dict], original_sizes: List[tuple],

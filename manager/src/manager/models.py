@@ -17,6 +17,7 @@ from PIL import Image
 from django.core.files.base import ContentFile
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.db import models, transaction
+from django.db.models import Q
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
@@ -32,7 +33,7 @@ from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
-from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla, validate_mapping_bundle_zip, validate_arkit_mapping_bundle_zip
+from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla
 from manager.fields import ListField
 
 from scene_common import log
@@ -116,28 +117,8 @@ class Scene(models.Model):
                             validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply","mp4",
                             "mov", "mkv", "webm", "avi"]),
                                         validate_map_file])
-  # Shared SLAM artifacts (rtabmap.db + baseline point cloud/mesh/metadata) contributed by
-  # handheld mapping sessions, separate from `map` (the renderable glb/ply/image/video).
-  # A second handheld pulls this bundle to resume/relocalize into the same map instead of
-  # starting from scratch. No merge/conflict resolution yet — last upload wins.
-  mapping_bundle = models.FileField(
-    "Shared mapping session artifacts (SLAM database + baseline) as a .zip bundle",
-    default=None, null=True, blank=True,
-    validators=[FileExtensionValidator(["zip"]), validate_mapping_bundle_zip])
-  mapping_bundle_updated = models.DateTimeField("Mapping bundle last updated", default=None, null=True,
-                            blank=True, editable=False)
-  mapping_bundle_contributor = models.CharField("Mapping bundle last contributor", max_length=200,
-                            default="", blank=True, editable=False)
-  # iOS ARKit resume artifacts (ARWorldMap zip), independent of RTAB-Map mapping_bundle.
-  # Alignment with Linux handhelds is through the shared scene `map` GLB.
-  arkit_mapping_bundle = models.FileField(
-    "Shared ARKit mapping session artifacts (ARWorldMap + metadata) as a .zip bundle",
-    default=None, null=True, blank=True,
-    validators=[FileExtensionValidator(["zip"]), validate_arkit_mapping_bundle_zip])
-  arkit_mapping_bundle_updated = models.DateTimeField(
-    "ARKit mapping bundle last updated", default=None, null=True, blank=True, editable=False)
-  arkit_mapping_bundle_contributor = models.CharField(
-    "ARKit mapping bundle last contributor", max_length=200, default="", blank=True, editable=False)
+  map_contributor = models.CharField(
+    "Scene map last contributor", max_length=200, default="", blank=True)
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(5e-324)])
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)
@@ -346,7 +327,7 @@ class Scene(models.Model):
             # For generated meshes (_from_generate_mesh == True), autoAlignSceneMap() returns early.
             # This asymmetry is intentional; see method implementation for details.
             # Only auto-align if a new GLB file was uploaded
-            if self._original_map != self.map:
+            if self._original_map != self.map and not getattr(self, '_from_generate_mesh', False):
               self.autoAlignSceneMap()
             self.saveThumbnail()
           else:
@@ -525,6 +506,61 @@ class Scene(models.Model):
   def wssConnection(self):
     log.info("Getting wss connection string.")
     return "wss://localhost/mqtt"
+
+def map_revision_upload_to(instance, filename):
+  return f"map-revisions/{instance.scene_id}/{instance.id}.glb"
+
+def mapping_artifact_upload_to(instance, filename):
+  return f"mapping-artifacts/{instance.scene_id}/{instance.id}.zip"
+
+class SceneMapRevision(models.Model):
+  """One uploaded scene mesh. The live Scene.map file is the head revision."""
+
+  id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+  scene = models.ForeignKey(Scene, on_delete=models.CASCADE, related_name="map_revisions")
+  file = models.FileField(upload_to=map_revision_upload_to, blank=True)
+  sha256 = models.CharField(max_length=64)
+  source = models.CharField(max_length=32)
+  contributor = models.CharField(max_length=200, default="", blank=True)
+  created = models.DateTimeField(auto_now_add=True)
+  transform = models.JSONField(default=dict)
+  head = models.BooleanField(default=False)
+
+  class Meta:
+    constraints = [
+      models.UniqueConstraint(
+        fields=["scene"],
+        condition=Q(head=True),
+        name="unique_head_map_revision",
+      ),
+    ]
+
+class SceneMappingArtifact(models.Model):
+  """One method's resume zip. Live clients read the row with head=True."""
+
+  id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+  scene = models.ForeignKey(
+    Scene, on_delete=models.CASCADE, related_name="mapping_artifacts")
+  method = models.CharField(max_length=32)
+  bundle = models.FileField(upload_to=mapping_artifact_upload_to)
+  sha256 = models.CharField(max_length=64)
+  size = models.PositiveBigIntegerField()
+  fiducials = models.JSONField(default=list)
+  map_revision = models.ForeignKey(
+    SceneMapRevision, null=True, blank=True, on_delete=models.SET_NULL,
+    related_name="artifacts")
+  created = models.DateTimeField(auto_now_add=True)
+  contributor = models.CharField(max_length=200, default="", blank=True)
+  head = models.BooleanField(default=False)
+
+  class Meta:
+    constraints = [
+      models.UniqueConstraint(
+        fields=["scene", "method"],
+        condition=Q(head=True),
+        name="unique_head_mapping_artifact",
+      ),
+    ]
 
 class ChildScene(models.Model):
   child = models.OneToOneField(Scene, default=None, null=True, blank=True,

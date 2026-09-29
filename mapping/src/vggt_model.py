@@ -30,6 +30,7 @@ import traceback
 from scene_common import log
 
 from model_interface import ReconstructionModel
+from image_transforms import vggt_transform
 
 sys.path.append('/workspace/vggt')
 
@@ -144,84 +145,25 @@ class VGGTModel(ReconstructionModel):
     """Get native output format."""
     return "pointcloud"
 
-  def _camera_center_from_c2w(self, c2w: np.ndarray) -> np.ndarray:
-    return c2w[:3, 3]
-
-  def _baseline_units(self, c2w_a: np.ndarray, c2w_b: np.ndarray) -> float:
-    ca = self._camera_center_from_c2w(c2w_a)
-    cb = self._camera_center_from_c2w(c2w_b)
-    return float(np.linalg.norm(cb - ca))
-
   def scale_intrinsics_to_original_size(self, intrinsics: np.ndarray, model_size: tuple, original_sizes: list,
                    preprocessing_mode: str = "crop") -> list:
-    """Scale intrinsics for VGGT preprocessing (simple resize + crop/pad)"""
+    """Undo VGGT's per-image resize (shorter side -> 518) + center crop on intrinsics.
+
+    Args:
+      intrinsics: (S, 3, 3) intrinsics in model-input pixels
+      model_size: (height, width) of the model input (518, 518)
+      original_sizes: [(orig_width, orig_height), ...]
+      preprocessing_mode: unused; _preprocess_images always resizes then crops
+    """
     if len(intrinsics.shape) == 2:
       # Single matrix (3, 3) -> (1, 3, 3)
       intrinsics = intrinsics[np.newaxis, ...]
 
+    target = int(model_size[0])
     scaled_intrinsics = []
-    model_height, model_width = model_size
-    target_size = 518  # VGGT target size
-
-    for i, (orig_width, orig_height) in enumerate(original_sizes):
-      K = intrinsics[i].copy()
-
-      if preprocessing_mode == "crop":
-        # Original VGGT crop mode: width is set to target_size, height may be cropped
-        width_scale = orig_width / target_size
-
-        # Calculate what the new height would have been after resize
-        new_height_before_crop = round(orig_height * (target_size / orig_width) / 14) * 14
-
-        if new_height_before_crop > target_size:
-          # Height was cropped - need to account for cropping offset
-          height_scale = orig_height / new_height_before_crop
-          # Principal point offset due to center cropping
-          crop_offset = (new_height_before_crop - target_size) // 2
-          K[1, 2] = K[1, 2] * height_scale + crop_offset * height_scale
-        else:
-          # Height was not cropped
-          height_scale = orig_height / new_height_before_crop
-          K[1, 2] = K[1, 2] * height_scale
-
-        # Scale focal lengths and principal point
-        K[0, 0] *= width_scale  # fx
-        K[0, 2] *= width_scale  # cx
-        K[1, 1] *= height_scale # fy
-
-      elif preprocessing_mode == "pad":
-        # Pad mode: largest dimension set to target_size, smaller padded
-        if orig_width >= orig_height:
-          # Width was the larger dimension
-          scale = orig_width / target_size
-          new_height_before_pad = round(orig_height * (target_size / orig_width) / 14) * 14
-
-          # Remove padding offset from principal point
-          h_padding = target_size - new_height_before_pad
-          pad_top = h_padding // 2
-          K[1, 2] = (K[1, 2] - pad_top) * scale
-          K[0, 2] *= scale
-
-          # Scale focal lengths
-          K[0, 0] *= scale
-          K[1, 1] *= scale
-
-        else:
-          # Height was the larger dimension
-          scale = orig_height / target_size
-          new_width_before_pad = round(orig_width * (target_size / orig_height) / 14) * 14
-
-          # Remove padding offset from principal point
-          w_padding = target_size - new_width_before_pad
-          pad_left = w_padding // 2
-          K[0, 2] = (K[0, 2] - pad_left) * scale
-          K[1, 2] *= scale
-
-          # Scale focal lengths
-          K[0, 0] *= scale
-          K[1, 1] *= scale
-
-      scaled_intrinsics.append(K)
+    for i, original_size in enumerate(original_sizes):
+      transform = vggt_transform(original_size, target=target)
+      scaled_intrinsics.append(transform.invert_intrinsics(intrinsics[i]))
 
     return scaled_intrinsics
 
@@ -424,22 +366,17 @@ class VGGTModel(ReconstructionModel):
     for pil_image in pil_images:
       w, h = pil_image.size
 
-      # Scale so min side == 518
-      scale = target / float(min(w, h))
-      new_w = int(round((w * scale) / 14.0) * 14)
-      new_h = int(round((h * scale) / 14.0) * 14)
-
-      # Safety: ensure both dims >= 518 after rounding
-      new_w = max(target, new_w)
-      new_h = max(target, new_h)
+      # Same arithmetic as vggt_transform so intrinsics can be inverted exactly
+      transform = vggt_transform((w, h), target=target)
+      new_w = int(round(w * transform.scale_x))
+      new_h = int(round(h * transform.scale_y))
 
       img_resized = pil_image.resize((new_w, new_h), Image.Resampling.BICUBIC)
       img_tensor = tvf.ToTensor()(img_resized)  # (3, H, W)
 
       # Center crop to 518x518 (no padding)
-      H, W = img_tensor.shape[1], img_tensor.shape[2]
-      top = (H - target) // 2
-      left = (W - target) // 2
+      top = transform.crop_top
+      left = transform.crop_left
       img_tensor = img_tensor[:, top:top + target, left:left + target]
 
       if img_tensor.shape[1] != target or img_tensor.shape[2] != target:
@@ -471,47 +408,40 @@ class VGGTModel(ReconstructionModel):
 
     return predictions
 
-  def _baseline_metric_from_camera_locations(self, camera_locations, camera_ids=None) -> float:
+  def _metric_scale_from_camera_locations(self, camera_locations, camera_to_world_list) -> float:
     """
-    Robustly compute a metric baseline (meters) from camera_locations.
+    Metric-per-model-unit scale from frames that carry a camera_location prior.
 
-    camera_locations may contain dicts, None, and/or malformed entries.
-    Each valid dict must contain 'translation': [x,y,z] in meters.
+    Pairs are matched by frame index, so each ratio compares the same two
+    cameras in both frames. Returns the median ratio, or 0.0 when fewer than
+    two frames have a usable prior or the model baseline is degenerate.
     """
-    if not camera_locations or len(camera_locations) < 2:
+    if not camera_locations:
       return 0.0
 
-    try:
-      translations = []
-      for loc in camera_locations:
-        if not isinstance(loc, dict):
-          continue
-        t = loc.get("translation", None)
-        if t is None or len(t) != 3:
-          continue
-        t = np.asarray(t, dtype=np.float32)
-        if t.shape != (3,) or not np.isfinite(t).all():
-          continue
-        translations.append(t)
+    centers = []
+    for idx, loc in enumerate(camera_locations):
+      if idx >= len(camera_to_world_list):
+        break
+      pose = self.pose_from_location(loc)
+      if pose is None:
+        continue
+      centers.append((pose[:3, 3], camera_to_world_list[idx][:3, 3]))
 
-      if len(translations) < 2:
-        return 0.0
-
-      distances = []
-      for i in range(len(translations)):
-        for j in range(i + 1, len(translations)):
-          d = float(np.linalg.norm(translations[j] - translations[i]))
-          if np.isfinite(d) and d > 1e-6:
-            distances.append(d)
-
-      if not distances:
-        return 0.0
-
-      return float(np.min(distances))
-
-    except Exception as e:
-      log.exception(f"Failed to compute baseline from camera_locations: {e}")
+    if len(centers) < 2:
       return 0.0
+
+    ratios = []
+    for i in range(len(centers)):
+      for j in range(i + 1, len(centers)):
+        d_metric = float(np.linalg.norm(centers[j][0] - centers[i][0]))
+        d_model = float(np.linalg.norm(centers[j][1] - centers[i][1]))
+        if d_metric > 1e-6 and d_model > 1e-6 and np.isfinite(d_metric) and np.isfinite(d_model):
+          ratios.append(d_metric / d_model)
+
+    if not ratios:
+      return 0.0
+    return float(np.median(ratios))
 
   def _process_outputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
             model_size: tuple, camera_ids: List[Any] = None, camera_locations: List[Any] = None) -> Dict[str, Any]:
@@ -588,34 +518,28 @@ class VGGTModel(ReconstructionModel):
 
       camera_to_world_list.append(c2w)
 
-    # --- SCALE FIX: compute metric baseline from provided camera_locations ---
-    baseline_metric = self._baseline_metric_from_camera_locations(camera_locations, camera_ids=camera_ids)
+    # --- SCALE FIX: metric scale from matched camera_location pairs ---
+    scale = self._metric_scale_from_camera_locations(camera_locations, camera_to_world_list)
 
-    if baseline_metric <= 0:
+    if scale <= 0:
       log.warning("VGGT: camera_locations missing/invalid; skipping metric scaling (scale will be arbitrary).")
+    else:
+      log.info(f"Scaling VGGT outputs by s={scale:.6f} (median metric/model baseline over matched frame pairs)")
 
-    if baseline_metric > 0 and len(camera_to_world_list) >= 2:
-      b_units = self._baseline_units(camera_to_world_list[0], camera_to_world_list[1])
-      if b_units > 1e-6:
-        scale = baseline_metric / b_units
-        log.info(f"Scaling VGGT outputs by s={scale:.6f} (baseline {baseline_metric:.6f}m / {b_units:.6f} units)")
+      # scale camera translations
+      for k in range(len(camera_to_world_list)):
+        camera_to_world_list[k] = camera_to_world_list[k].copy()
+        camera_to_world_list[k][:3, 3] *= scale
 
-        # scale camera translations
-        for k in range(len(camera_to_world_list)):
-          camera_to_world_list[k] = camera_to_world_list[k].copy()
-          camera_to_world_list[k][:3, 3] *= scale
+      # scale world points (affects glb_size -> pixels_per_meter)
+      if isinstance(predictions.get("world_points_from_depth"), np.ndarray):
+        predictions["world_points_from_depth"] *= scale
+      if isinstance(predictions.get("world_points"), np.ndarray):
+        predictions["world_points"] *= scale
 
-        # scale world points (affects glb_size -> pixels_per_meter)
-        if isinstance(predictions.get("world_points_from_depth"), np.ndarray):
-          predictions["world_points_from_depth"] *= scale
-        if isinstance(predictions.get("world_points"), np.ndarray):
-          predictions["world_points"] *= scale
-
-        # optional: scale depth too (only if used elsewhere)
-        if isinstance(predictions.get("depth"), np.ndarray):
-          predictions["depth"] *= scale
-      else:
-        log.warning(f"VGGT: predicted baseline too small ({b_units}); skipping scaling.")
+      # optional: scale depth too (only if used elsewhere)
+      if isinstance(predictions.get("depth"), np.ndarray):
+        predictions["depth"] *= scale
 
     # --- now build camera_poses + intrinsics_list using the scaled camera_to_world_list ---
     camera_poses = []

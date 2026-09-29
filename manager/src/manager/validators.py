@@ -3,19 +3,15 @@
 
 import os
 import re
-import json
-import shutil
-import sqlite3
 import tempfile
 import uuid
 from zipfile import BadZipFile, ZipFile
 
 from django.core.exceptions import ValidationError
-import open3d as o3d
 from PIL import Image
-from plyfile import PlyData
 
 def validate_glb(value):
+  import open3d as o3d
   with tempfile.NamedTemporaryFile(suffix=".glb") as glb_file:
     glb_file.write(value.read())
     glb_file.flush()
@@ -45,98 +41,13 @@ def validate_image(value):
   return value
 
 def validate_ply(value):
+  from plyfile import PlyData
   try:
     PlyData.read(value)
     value.seek(0)
   except Exception as e:
     raise ValidationError(f"Invalid PLY file: {str(e)}")
   return value
-
-def validate_arkit_mapping_bundle_zip(value):
-  """!Verify a zip holds an iOS ARKit resume bundle, not an RTAB-Map database.
-
-  Django cannot decode ``ARWorldMap``. Require the documented members and a
-  ``slam_backend: arkit`` manifest, and reject ``rtabmap.db`` so this file
-  cannot be stored on the Linux handheld endpoint by mistake.
-  """
-  try:
-    with ZipFile(value, "r") as zf:
-      bad_entry = zf.testzip()
-      if bad_entry is not None:
-        raise ValidationError(f"Corrupt entry in ARKit mapping bundle: {bad_entry}")
-      names = set(zf.namelist())
-      if "rtabmap.db" in names:
-        raise ValidationError("ARKit mapping bundle must not contain rtabmap.db")
-      if "arworldmap.bin" not in names:
-        raise ValidationError("ARKit mapping bundle must contain arworldmap.bin")
-      if "manifest.json" not in names:
-        raise ValidationError("ARKit mapping bundle must contain manifest.json")
-      try:
-        manifest = json.loads(zf.read("manifest.json"))
-      except (ValueError, UnicodeDecodeError) as exc:
-        raise ValidationError(f"ARKit mapping bundle manifest is not valid JSON: {exc}") from exc
-      if not isinstance(manifest, dict) or manifest.get("slam_backend") != "arkit":
-        raise ValidationError("ARKit mapping bundle manifest must set slam_backend to arkit")
-      info = zf.getinfo("arworldmap.bin")
-      if info.file_size < 1:
-        raise ValidationError("ARKit mapping bundle arworldmap.bin is empty")
-      with zf.open("arworldmap.bin") as src:
-        magic = src.read(8)
-      if magic and not (magic.startswith(b"bplist") or magic.startswith(b"<?xml")):
-        # NSKeyedArchiver typically writes a binary plist; allow other non-empty
-        # encodings so a future Apple format does not hard-fail upload.
-        pass
-  except ValidationError:
-    raise
-  except BadZipFile as exc:
-    raise ValidationError(f"Invalid zip file: {exc}") from exc
-  finally:
-    value.seek(0)
-  return value
-
-
-def validate_mapping_bundle_zip(value):
-  """!Verify a shared mapping bundle contains a usable RTAB-Map database.
-
-  Requires a structurally valid database with at least one node, plus either
-  visual words or raw features. Word can be empty after a localization-mode
-  shutdown; Feature still carries the descriptors needed to resume.
-  SQLite integrity alone does not catch a database emptied by a mode switch.
-  """
-  try:
-    with ZipFile(value, "r") as zf:
-      bad_entry = zf.testzip()
-      if bad_entry is not None:
-        raise ValidationError(f"Corrupt entry in mapping bundle: {bad_entry}")
-      if "rtabmap.db" not in zf.namelist():
-        raise ValidationError("Mapping bundle must contain rtabmap.db")
-      with tempfile.TemporaryDirectory(prefix="mapping_bundle_check_") as tmp:
-        db_path = os.path.join(tmp, "rtabmap.db")
-        with zf.open("rtabmap.db") as src, open(db_path, "wb") as dst:
-          shutil.copyfileobj(src, dst)
-        with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as db:
-          if db.execute("PRAGMA integrity_check").fetchone()[0] != "ok":
-            raise ValidationError("Mapping bundle RTAB-Map database failed SQLite integrity check")
-          nodes = _sqlite_table_count(db, "Node")
-          words = _sqlite_table_count(db, "Word")
-          features = _sqlite_table_count(db, "Feature")
-        if nodes == 0:
-          raise ValidationError("Mapping bundle RTAB-Map database contains no nodes")
-        if words == 0 and features == 0:
-          raise ValidationError("Mapping bundle RTAB-Map database contains no visual words")
-  except sqlite3.Error as exc:
-    raise ValidationError(f"Invalid RTAB-Map database in mapping bundle: {exc}")
-  except BadZipFile as e:
-    raise ValidationError(f"Invalid zip file: {e}")
-  finally:
-    value.seek(0)
-  return value
-
-def _sqlite_table_count(db, table):
-  try:
-    return int(db.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])
-  except sqlite3.Error:
-    return 0
 
 def validate_map_file(value):
   ext = os.path.splitext(value.name)[1].lower()[1:]
@@ -259,4 +170,14 @@ def validate_map_corners_lla(value):
     if not (-180 <= lon <= 180):
       raise ValidationError(f"Corner {i+1} longitude ({lon}) must be between -180 and 180 degrees.")
 
+  return value
+
+
+def validate_mapping_bundle_zip(value):
+  """Historical hook for migrations 0004–0006. The column is removed in 0007."""
+  return value
+
+
+def validate_arkit_mapping_bundle_zip(value):
+  """Historical hook for migrations 0005–0006. The column is removed in 0007."""
   return value

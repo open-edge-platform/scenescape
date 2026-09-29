@@ -395,6 +395,67 @@ class TestAPIService:
     # Should succeed with defaults
     assert response.status_code in [200, 500]  # May fail on actual processing
 
+  def test_reconstruction_forwards_camera_intrinsics(self, client):
+    """camera_intrinsics form entries are parsed per image and passed to the model."""
+    import time
+    from api_service_base import loaded_model
+
+    img_bytes = base64.b64decode(self.create_test_image_base64())
+    data = {
+      'output_format': 'json',
+      'camera_ids': ['handheld-01', 'ipcam-1'],
+      'camera_locations': [
+        json.dumps({"translation": [0, 0, 0], "rotation": [0, 0, 0, 1]}),
+        json.dumps({}),
+      ],
+      'camera_intrinsics': [
+        json.dumps({"fx": 600.5, "fy": 601.0, "cx": 320.0, "cy": 240.0, "width": 640, "height": 480}),
+        json.dumps({}),
+      ],
+      'images': [
+        (io.BytesIO(img_bytes), 'kf1.jpg'),
+        (io.BytesIO(img_bytes), 'ext.jpg'),
+      ],
+    }
+
+    response = client.post(f'{API_PREFIX}/reconstruction', data=data, content_type='multipart/form-data')
+    assert response.status_code == 200
+
+    for _ in range(50):
+      time.sleep(0.1)
+      if loaded_model.run_inference.call_args is not None:
+        break
+    frames = loaded_model.run_inference.call_args[0][0]
+    assert len(frames) == 2
+    assert frames[0]['camera_intrinsics'] == {
+      "fx": 600.5, "fy": 601.0, "cx": 320.0, "cy": 240.0, "width": 640, "height": 480,
+    }
+    assert frames[0]['camera_location']["rotation"] == [0, 0, 0, 1]
+    assert frames[1]['camera_intrinsics'] is None
+
+  @pytest.mark.parametrize("bad", [
+    "not-json",
+    json.dumps({"fx": 600, "fy": 600, "cx": 320}),          # missing cy
+    json.dumps({"fx": -1, "fy": 600, "cx": 320, "cy": 240}),  # non-positive focal
+    json.dumps({"fx": "a", "fy": 600, "cx": 320, "cy": 240}),  # non-numeric
+    json.dumps({"fx": 600, "fy": 600, "cx": 320, "cy": 240, "width": 0}),
+    json.dumps([600, 600, 320, 240]),
+  ])
+  def test_reconstruction_rejects_invalid_camera_intrinsics(self, client, bad):
+    """Malformed camera_intrinsics must be rejected rather than silently dropped."""
+    img_bytes = base64.b64decode(self.create_test_image_base64())
+    data = {
+      'output_format': 'json',
+      'camera_intrinsics': [bad],
+      'images': [(io.BytesIO(img_bytes), 'kf1.jpg')],
+    }
+
+    response = client.post(f'{API_PREFIX}/reconstruction', data=data, content_type='multipart/form-data')
+    assert response.status_code == 400
+    body = json.loads(response.data)
+    assert body['success'] is False
+    assert 'camera_intrinsics' in body['error']
+
   def test_endpoint_not_found(self, client):
     """Test 404 for non-existent endpoint"""
     response = client.get('/nonexistent')

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
+import json
 import os
 
 from django.contrib.auth import authenticate
@@ -582,14 +583,11 @@ class SceneSerializer(NonNullSerializer):
   children = serializers.SerializerMethodField('get_children')
   map_processed = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False, allow_null=True)
   trs_matrix = serializers.SerializerMethodField('get_trs_matrix')
-  mapping_bundle_updated = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False,
-                            allow_null=True, read_only=True)
-  mapping_bundle_contributor = serializers.CharField(required=False, read_only=True)
-  has_mapping_bundle = serializers.SerializerMethodField('get_has_mapping_bundle')
-  arkit_mapping_bundle_updated = serializers.DateTimeField(format=f"{DATETIME_FORMAT}Z", required=False,
-                            allow_null=True, read_only=True)
-  arkit_mapping_bundle_contributor = serializers.CharField(required=False, read_only=True)
-  has_arkit_mapping_bundle = serializers.SerializerMethodField('get_has_arkit_mapping_bundle')
+  map_contributor = serializers.CharField(required=False, allow_blank=True, max_length=200)
+  source = serializers.CharField(required=False, allow_blank=True, write_only=True, max_length=32)
+  map_source = serializers.SerializerMethodField('get_map_source')
+  map_revision = serializers.SerializerMethodField('get_map_revision')
+  mapping_artifacts = serializers.SerializerMethodField('get_mapping_artifacts')
 
   def validate(self, attrs):
     if not self.initial_data:
@@ -610,7 +608,7 @@ class SceneSerializer(NonNullSerializer):
     if unknown:
       raise serializers.ValidationError({field: ["Unknown field."] for field in unknown})
 
-    read_only_fields = {'uid'}
+    read_only_fields = {'uid', 'map_source', 'map_revision', 'mapping_artifacts'}
     attempted = set(self.initial_data.keys()) & read_only_fields
 
     if attempted:
@@ -642,11 +640,29 @@ class SceneSerializer(NonNullSerializer):
       return obj.trs_matrix
     return None
 
-  def get_has_mapping_bundle(self, obj):
-    return bool(obj.mapping_bundle)
+  def get_map_source(self, obj):
+    head = obj.map_revisions.filter(head=True).first()
+    return head.source if head else None
 
-  def get_has_arkit_mapping_bundle(self, obj):
-    return bool(obj.arkit_mapping_bundle)
+  def get_map_revision(self, obj):
+    head = obj.map_revisions.filter(head=True).first()
+    return str(head.id) if head else None
+
+  def get_mapping_artifacts(self, obj):
+    from manager.mapping_store import isoformat_z
+    rows = obj.mapping_artifacts.filter(head=True).order_by("method")
+    artifacts = []
+    for row in rows:
+      artifacts.append({
+        "id": str(row.id),
+        "method": row.method,
+        "created": isoformat_z(row.created),
+        "contributor": row.contributor,
+        "sha256": row.sha256,
+        "fiducials": row.fiducials or [],
+        "map_revision": str(row.map_revision_id) if row.map_revision_id else None,
+      })
+    return artifacts
 
   def to_representation(self, instance):
     ret = super().to_representation(instance)
@@ -748,6 +764,14 @@ class SceneSerializer(NonNullSerializer):
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
     skip_auto_align = bool(validated_data.pop('skip_auto_align', False))
+    map_source = validated_data.pop('source', None)
+    if map_source:
+      from django.core.exceptions import ValidationError as DjangoValidationError
+      from manager.mapping_store import validate_slug
+      try:
+        validate_slug(str(map_source))
+      except DjangoValidationError as exc:
+        raise serializers.ValidationError({"source": exc.messages})
 
     parent_uid = None
     transform = None
@@ -774,6 +798,8 @@ class SceneSerializer(NonNullSerializer):
 
     if skip_auto_align:
       instance._from_generate_mesh = True
+      instance.resetRotation()
+      instance.resetTranslation()
 
     if output_lla:
       instance.scenescapeScene.output_lla = output_lla
@@ -807,7 +833,7 @@ class SceneSerializer(NonNullSerializer):
 
       if ext == ".glb":
         # Only auto-align if a new GLB file was uploaded
-        if instance._original_map != instance.map:
+        if instance._original_map != instance.map and not skip_auto_align:
           instance.autoAlignSceneMap()
         instance.saveThumbnail()
         Scene.objects.filter(pk=instance.pk).update(thumbnail=instance.thumbnail)
@@ -823,7 +849,22 @@ class SceneSerializer(NonNullSerializer):
       instance.save(send_update_command=send_update_command)
     else:
       instance.notifyDbUpdate()
+    self._record_map_revision(instance, map_path, map_source)
     return instance
+
+  def _record_map_revision(self, instance, map_path, map_source):
+    if not map_path or not instance.map:
+      return
+    Scene.objects.filter(pk=instance.pk).update(map=instance.map.name)
+    from manager.mapping_store import MappingStoreError, clear_glb_head, record_glb_revision
+    try:
+      ext = os.path.splitext(instance.map.name)[1].lower()
+      if ext == ".glb":
+        record_glb_revision(instance, map_source, instance.map_contributor)
+      else:
+        clear_glb_head(instance)
+    except MappingStoreError as exc:
+      raise serializers.ValidationError({"source": [str(exc)]})
 
   def create(self, validated_data):
     return self.create_update(validated_data)
@@ -842,6 +883,19 @@ class SceneSerializer(NonNullSerializer):
       # Skip if not provided
       if popped_data is None:
         continue
+
+      # Multipart QueryDict.pop returns a one-element list of the form string.
+      # JSON bodies arrive as a list of three numbers.
+      if (isinstance(popped_data, (list, tuple)) and len(popped_data) == 1
+          and isinstance(popped_data[0], str)):
+        popped_data = popped_data[0]
+      if isinstance(popped_data, str):
+        try:
+          popped_data = json.loads(popped_data)
+        except json.JSONDecodeError:
+          raise serializers.ValidationError({
+            key: 'Must be a list of exactly 3 numeric values [x, y, z].'
+          })
 
       # Must be a list or tuple of exactly 3 elements
       if not isinstance(popped_data, (list, tuple)) or len(popped_data) != 3:
@@ -872,10 +926,8 @@ class SceneSerializer(NonNullSerializer):
               'camera_calibration', 'apriltag_size', 'map_processed', 'polycam_data',
               'number_of_localizations', 'global_feature', 'local_feature', 'matcher',
               'minimum_number_of_matches', 'inlier_threshold', 'geospatial_provider', 'map_zoom',
-              'map_center_lat', 'map_center_lng', 'map_bearing', 'mapping_bundle_updated',
-              'mapping_bundle_contributor', 'has_mapping_bundle',
-              'arkit_mapping_bundle_updated', 'arkit_mapping_bundle_contributor',
-              'has_arkit_mapping_bundle']
+              'map_center_lat', 'map_center_lng', 'map_bearing', 'map_contributor',
+              'source', 'map_source', 'map_revision', 'mapping_artifacts']
 
 class PubSubACLSerializer(NonNullSerializer):
   class Meta:

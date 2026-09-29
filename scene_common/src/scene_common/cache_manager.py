@@ -155,6 +155,12 @@ class CacheManager:
           scene = old_scene
           scene.updateScene(scene_data)
         else:
+          # A fresh Scene replaces the previous instance for this uid; stop
+          # the old tracker (thread pools, stale-feature timers) or every
+          # DB-triggered refresh leaks them until the pids limit is hit.
+          previous = (self._old_scene_cache or {}).get(uid) if hasattr(self, '_old_scene_cache') else None
+          if previous is not None:
+            self._teardownScene(previous)
           scene_cls = getattr(self, '_scene_cls', None)
           if scene_cls is None:
             from controller.scene import Scene
