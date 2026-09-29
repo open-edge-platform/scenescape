@@ -211,25 +211,34 @@ def project_world_points_to_pixels(
     rotation: Sequence[float],
     translation: Sequence[float],
     intrinsics: dict,
+    distortion: Optional[dict] = None,
 ) -> Optional[List[List[float]]]:
   """Project world points into camera pixels for a given camera pose.
 
   Used to keep a camera's stored 3D-2D calibration correspondences valid
   after a PTZ move: the world points are physically fixed, so only their
   pixel positions change as the camera rotates. Verified to match
-  ``cv2.projectPoints`` exactly for an undistorted pinhole model.
+  ``cv2.projectPoints`` exactly.
 
-  Distortion is not applied; cameras calibrated through the AprilTag flow
-  carry no distortion coefficients (the pipeline already works on an
-  undistorted model).
+  The camera's distortion coefficients must be applied here whenever it has
+  any, because Scenescape re-derives the pose from these pixels with
+  ``cv2.solvePnP`` using that same model; projecting as a plain pinhole
+  while it un-distorts would silently bias the recovered pose.
 
   @param  intrinsics  dict with 'fx', 'fy', 'cx', 'cy'
+  @param  distortion  optional dict with 'k1', 'k2', 'p1', 'p2', 'k3'
   @return  list of [u, v] pixels, or None if any point falls at/behind the
            camera plane (pose can't be represented by these correspondences)
   """
   rot_mat = euler_xyz_degrees_to_matrix(rotation)
   fx, fy = intrinsics['fx'], intrinsics['fy']
   cx, cy = intrinsics['cx'], intrinsics['cy']
+  distortion = distortion or {}
+  k1 = distortion.get('k1') or 0.0
+  k2 = distortion.get('k2') or 0.0
+  p1 = distortion.get('p1') or 0.0
+  p2 = distortion.get('p2') or 0.0
+  k3 = distortion.get('k3') or 0.0
 
   pixels = []
   for point in points_3d:
@@ -240,7 +249,12 @@ def project_world_points_to_pixels(
     z = sum(rot_mat[k][2] * offset[k] for k in range(3))
     if z <= 1e-6:
       return None
-    pixels.append([fx * x / z + cx, fy * y / z + cy])
+    xn, yn = x / z, y / z
+    r2 = xn * xn + yn * yn
+    radial = 1.0 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2
+    xd = xn * radial + 2.0 * p1 * xn * yn + p2 * (r2 + 2.0 * xn * xn)
+    yd = yn * radial + p1 * (r2 + 2.0 * yn * yn) + 2.0 * p2 * xn * yn
+    pixels.append([fx * xd + cx, fy * yd + cy])
   return pixels
 
 

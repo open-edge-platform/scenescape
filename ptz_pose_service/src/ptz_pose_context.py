@@ -91,6 +91,7 @@ class TrackedCamera:
   # 2D calibration view keeps its points (see _buildPoseUpdate).
   home_points_3d: Optional[List[List[float]]] = None
   intrinsics: Optional[dict] = None
+  distortion: Optional[dict] = None
   last_raw_pan: float = 0.0
   last_raw_tilt: float = 0.0
   last_raw_change_time: float = 0.0
@@ -387,6 +388,7 @@ class PTZPoseContext:
         'translation': [float(v) for v in translation],
         'name': name,
         'intrinsics': result.get('intrinsics'),
+        'distortion': result.get('distortion'),
         'points_2d': points_2d,
         'points_3d': points_3d,
     }
@@ -437,7 +439,8 @@ class PTZPoseContext:
     """
     if camera.home_points_3d and camera.intrinsics:
       reprojected = project_world_points_to_pixels(
-          camera.home_points_3d, rotation, translation, camera.intrinsics)
+          camera.home_points_3d, rotation, translation, camera.intrinsics,
+          camera.distortion)
       if reprojected is not None:
         return {
             'name': camera.camera_name,
@@ -518,6 +521,7 @@ class PTZPoseContext:
             pose_update_mode=pose_update_mode,
             home_points_3d=info['points_3d'],
             intrinsics=info['intrinsics'],
+            distortion=info['distortion'],
             last_raw_pan=float(home_pan),
             last_raw_tilt=float(home_tilt),
         )
