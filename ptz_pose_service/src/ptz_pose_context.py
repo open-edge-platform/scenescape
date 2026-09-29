@@ -31,7 +31,10 @@ from dlstreamer.onvif import (
     PTZController,
 )
 
-from pose_math import rotation_from_ptz_delta, rotation_delta_magnitude, scale_from_fov
+from pose_math import (
+    rotation_from_ptz_delta, rotation_delta_magnitude, scale_from_fov,
+    implausible_recalibration_reason,
+)
 from auto_recalibration import AutoRecalibrator
 
 # An ONVIF AbsolutePanTiltPositionSpace whose URI advertises the generic,
@@ -42,6 +45,12 @@ from auto_recalibration import AutoRecalibrator
 # back to auto-recalibration (see AutoRecalibrator) instead of a linear
 # pan/tilt approximation.
 GENERIC_SPACE_SPAN_THRESHOLD_DEG = 4.0
+
+# Assumed position-reporting range when a camera's ONVIF profile doesn't
+# advertise an AbsolutePanTiltPositionSpace at all, so a manually-configured
+# pan_degrees/tilt_degrees FOV still has something to scale against (see
+# PTZPoseContext._resolveAxisScales).
+DEFAULT_POSITION_SPACE = (-1.0, 1.0)
 
 
 @dataclass
@@ -95,7 +104,8 @@ class PTZPoseContext:
                broker="broker.scenescape.intel.com", brokerauth=None, brokerrootcert=None,
                autocalibration_url="https://autocalibration.scenescape.intel.com:8443/v1",
                autocalibration_rootcert=None,
-               min_raw_delta=0.02, recal_settle_s=2.0):
+               min_raw_delta=0.02, recal_settle_s=2.0,
+               min_camera_height=0.1, max_translation_drift=1.0):
     self.resturl = resturl
     self.restauth = restauth
     self.rootcert = rootcert
@@ -121,6 +131,10 @@ class PTZPoseContext:
     # How long a camera's raw pan/tilt must stay still before triggering
     # recalibration, so a single pan/tilt sweep doesn't retrigger repeatedly.
     self.recal_settle_s = recal_settle_s
+    # Sanity thresholds applied to every auto-recalibration result before
+    # it's trusted (see pose_math.implausible_recalibration_reason).
+    self.min_camera_height = min_camera_height
+    self.max_translation_drift = max_translation_drift
     self.recalibrator: Optional[AutoRecalibrator] = None
 
     self.rest = RESTClient(resturl, rootcert=rootcert, auth=restauth)
@@ -236,7 +250,13 @@ class PTZPoseContext:
     configured, the scale is derived from the camera's own advertised
     AbsolutePanTiltPositionSpace range (queried via ONVIF GetNodes) so that
     cameras with different position-reporting units and different physical
-    sweep ranges (e.g. 360° vs. 90° pan) are all normalized correctly.
+    sweep ranges (e.g. 360° vs. 90° pan) are all normalized correctly. If the
+    camera's ONVIF profile doesn't advertise a position range at all,
+    ``pan_degrees``/``tilt_degrees`` is still honored by assuming the
+    standard ONVIF generic normalized range (``[-1, 1]``) - the vast
+    majority of ONVIF PTZ cameras report GetStatus position in that space
+    even when GetNodes doesn't expose it - so a manually-configured FOV
+    isn't silently discarded just because a camera omits that metadata.
 
     If neither is configured, the camera's advertised position space is
     inspected: a real degree-reporting space is trusted with scale 1.0, but
@@ -259,7 +279,17 @@ class PTZPoseContext:
       if pan_fov is not None or tilt_fov is not None:
         log.warning(
             f"{host}:{port} did not report an absolute PTZ position range; "
-            "ignoring configured pan_degrees/tilt_degrees, using pan_scale/tilt_scale defaults")
+            f"assuming the standard ONVIF generic normalized range {DEFAULT_POSITION_SPACE} "
+            "to apply the configured pan_degrees/tilt_degrees")
+        return (
+            float(pan_scale) if pan_scale is not None
+            else scale_from_fov(*DEFAULT_POSITION_SPACE, pan_fov) if pan_fov is not None
+            else self.default_pan_scale,
+            float(tilt_scale) if tilt_scale is not None
+            else scale_from_fov(*DEFAULT_POSITION_SPACE, tilt_fov) if tilt_fov is not None
+            else self.default_tilt_scale,
+            True,
+        )
       return (
           float(pan_scale) if pan_scale is not None else self.default_pan_scale,
           float(tilt_scale) if tilt_scale is not None else self.default_tilt_scale,
@@ -470,6 +500,15 @@ class PTZPoseContext:
         if result is None:
           log.warning(
               f"Auto-recalibration failed for {camera.label}; will retry on next pose change")
+          return
+        reject_reason = implausible_recalibration_reason(
+            result['translation'], camera.home_translation,
+            min_height=self.min_camera_height, max_drift=self.max_translation_drift)
+        if reject_reason:
+          log.error(
+              f"Rejecting auto-recalibration result for {camera.label}: {reject_reason} "
+              f"(rotation={result['rotation']} translation={result['translation']}); "
+              "keeping previous pose")
           return
         update = self._buildPoseUpdate(camera, result['rotation'], result['translation'])
         rest_result = self.rest.updateCamera(camera.scene_camera_uid, update)

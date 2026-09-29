@@ -142,5 +142,8 @@ class AutoRecalibrator:
     if not quat or not trans or len(quat) != 4 or len(trans) != 3:
       log.error(f"Auto-recalibration result for {camera_id} missing quaternion/translation")
       return None
+    spread_ratio = result.get('spread_ratio')
+    if spread_ratio is not None:
+      log.info(f"Auto-recalibration for {camera_id} used a point spread ratio of {spread_ratio:.3f}")
     rotation = quaternion_to_euler_xyz_degrees(*[float(v) for v in quat])
     return {'rotation': rotation, 'translation': [float(v) for v in trans]}

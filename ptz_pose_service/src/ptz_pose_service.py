@@ -77,6 +77,15 @@ def build_argparser():
   parser.add_argument("--recal-settle-s", type=float, default=2.0,
                       help="how long a camera's raw pan/tilt must stay still before "
                            "triggering auto-recalibration")
+  parser.add_argument("--min-camera-height", type=float, default=0.1,
+                      help="reject an auto-recalibration result whose translation Z is below "
+                           "this (a fixed PTZ camera should always be above the floor plane; "
+                           "catches AprilTag pose-estimation ambiguities that flip the camera "
+                           "below the floor)")
+  parser.add_argument("--max-translation-drift", type=float, default=1.0,
+                      help="reject an auto-recalibration result whose translation moved more "
+                           "than this (scene units, normally meters) from the last known-good "
+                           "position; a fixed PTZ mount's position shouldn't change")
   return parser
 
 
@@ -97,7 +106,9 @@ def main():
       broker=args.broker, brokerauth=args.brokerauth, brokerrootcert=args.brokerrootcert,
       autocalibration_url=args.autocalibration_url,
       autocalibration_rootcert=args.autocalibration_rootcert,
-      min_raw_delta=args.min_raw_delta, recal_settle_s=args.recal_settle_s)
+      min_raw_delta=args.min_raw_delta, recal_settle_s=args.recal_settle_s,
+      min_camera_height=args.min_camera_height,
+      max_translation_drift=args.max_translation_drift)
   ctx.setup()
   ctx.loop_forever()
   return 0

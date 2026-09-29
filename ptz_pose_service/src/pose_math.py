@@ -37,7 +37,8 @@ Scope / limitations (first iteration):
 
 from __future__ import annotations
 
-from typing import List, Sequence, Tuple
+import math
+from typing import List, Optional, Sequence, Tuple
 
 
 def normalize_degrees(angle: float) -> float:
@@ -129,8 +130,6 @@ def quaternion_to_euler_xyz_degrees(x: float, y: float, z: float, w: float) -> L
   keep this service numpy/scipy-free; the matrix-to-Euler step mirrors
   three.js's ``Euler.setFromRotationMatrix()`` for order ``'XYZ'``.
   """
-  import math
-
   # Quaternion -> 3x3 rotation matrix (row-major, transforms column vectors).
   m00 = 1 - 2 * (y * y + z * z)
   m01 = 2 * (x * y - w * z)
@@ -150,4 +149,41 @@ def quaternion_to_euler_xyz_degrees(x: float, y: float, z: float, w: float) -> L
     yaw = 0.0
 
   return [math.degrees(roll), math.degrees(pitch), math.degrees(yaw)]
+
+
+def implausible_recalibration_reason(
+    translation: Sequence[float],
+    reference_translation: Optional[Sequence[float]] = None,
+    min_height: float = 0.1,
+    max_drift: float = 1.0,
+) -> Optional[str]:
+  """Sanity-checks a freshly auto-recalibrated camera translation before it's
+  trusted and pushed to Scenescape.
+
+  A PTZ camera's mounting position is physically fixed - only its pan/tilt
+  orientation changes - so a legitimate recalibration's translation should
+  barely move from the last known-good one. AprilTag pose estimation can
+  occasionally return a degenerate/mirrored solution (a well-known PnP
+  ambiguity for near-planar tag layouts, more likely at certain oblique
+  pan/tilt angles), which tends to flip the camera to an implausible spot
+  such as below the floor. Two independent checks catch this:
+
+  - ``min_height``: the camera's world Z (translation[2], "up" in
+    Scenescape's Z-up convention) must be above the floor plane.
+  - ``max_drift``: the new translation must be within ``max_drift`` (in
+    scene units, normally meters) of ``reference_translation`` (the
+    previous known-good translation), if given.
+
+  @return   None if the pose looks plausible, else a human-readable reason
+            it was rejected.
+  """
+  z = translation[2]
+  if z < min_height:
+    return f"translation z={z:.3f} is below the minimum camera height {min_height} (below/at floor)"
+  if reference_translation is not None:
+    drift = math.sqrt(sum((a - b) ** 2 for a, b in zip(translation, reference_translation)))
+    if drift > max_drift:
+      return (f"translation moved {drift:.3f} from the last known-good position "
+              f"(max allowed {max_drift}); a fixed PTZ mount shouldn't move")
+  return None
 

@@ -10,7 +10,10 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from scene_common import log
-from scene_common.transform import CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics
+from scene_common.transform import (
+    CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics,
+    pointsSpreadRatio, MIN_PNP_SPREAD_RATIO,
+)
 from scene_common.timestamp import get_iso_time
 
 from atag_camera_calibration import CameraCalibrationApriltag, \
@@ -18,6 +21,11 @@ from atag_camera_calibration import CameraCalibrationApriltag, \
 from auto_camera_calibration_controller import CameraCalibrationController
 
 MAX_WAIT_FRAME_COUNT = 10
+# Minimum expected height (scene units, normally meters) of the camera above
+# the lowest AprilTag it matched; guards against solvePnP's translation
+# converging to a spurious, physically-impossible solution (see the check in
+# generate_calibration()).
+MIN_CAMERA_HEIGHT_ABOVE_TAGS_M = 0.3
 
 
 class ApriltagCameraCalibrationController(CameraCalibrationController):
@@ -181,6 +189,43 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         points_3d = [np.dot(self.scene_pose_mat, np.append(point, 1))[:3].tolist()
                      for point in points_3d]
 
+        # solvePnP's pose is only as reliable as the matched points' spatial
+        # spread, not how many of them there are: tags that are (near-)coplanar
+        # or lack real depth variation relative to their distance from the
+        # camera are a known PnP conditioning issue and can yield a solution
+        # that reprojects fine in 2D but is physically wrong. Flag it early so
+        # the reason is clear even in the (usual) case the bad pose still
+        # happens to look plausible enough to pass the height check below.
+        spread_ratio = pointsSpreadRatio(points_3d)
+        if spread_ratio < MIN_PNP_SPREAD_RATIO:
+          message = (
+              f"Matched AprilTags are too close to coplanar for a reliable pose solve "
+              f"(spread ratio={spread_ratio:.3f}, minimum {MIN_PNP_SPREAD_RATIO}); needs tags "
+              "with more depth/height variation visible from this viewpoint.")
+          log.error(f"Rejecting degenerate calibration geometry for camera {cam_frame_data['id']}: {message}")
+          return {"status": "error", "message": message, "spread_ratio": spread_ratio,
+                  "calibration_points_3d": points_3d, "calibration_points_2d": points_2d}
+
+        # solvePnP's translation is the least-constrained part of the solve when
+        # the matched tags have shallow depth/height variation relative to their
+        # distance from the camera (a known PnP conditioning issue, more likely
+        # at oblique/grazing viewing angles) - it can converge to a spurious
+        # solution that reprojects fine in 2D but places the camera somewhere
+        # physically impossible, e.g. below the tags it's supposedly looking
+        # down at. Cameras are expected to be mounted above what they observe,
+        # so reject (rather than silently accept) a solve that violates that.
+        min_tag_z = min(point[2] for point in points_3d)
+        if trans[2] < min_tag_z - MIN_CAMERA_HEIGHT_ABOVE_TAGS_M:
+          message = (
+              f"Computed camera position (z={trans[2]:.2f}) is implausibly below the "
+              f"AprilTags it observed (lowest tag z={min_tag_z:.2f}); the matched tags likely "
+              "don't have enough depth/height spread from this viewpoint for a reliable pose "
+              "solve. Try recalibrating from a view with tags at more varied distances/heights.")
+          log.error(f"Rejecting implausible calibration for camera {cam_frame_data['id']}: {message}")
+          return {"status": "error", "message": message, "spread_ratio": spread_ratio,
+                  "translation": trans.tolist(),
+                  "calibration_points_3d": points_3d, "calibration_points_2d": points_2d}
+
         cam_calib_data['scene_name'] = sceneobj.name
         cam_calib_data['sensor_id'] = cam_frame_data['id']
         cam_calib_data['error'] = "False"
@@ -197,6 +242,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
             "calibration_points_2d": points_2d,
             "quaternion": quat.tolist(),
             "translation": trans.tolist(),
+            "spread_ratio": spread_ratio,
             "details": cam_calib_data  # Optionally include all returned data
         }
       else:
