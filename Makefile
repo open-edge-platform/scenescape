@@ -49,6 +49,10 @@ DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,aprilt
 	tools/pipeline_runner/video/car-detection.ts
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
+DEPLOY_WAIT_SECONDS ?= $(DEMO_WAIT_SECONDS)
+DEPLOY_PROFILES ?= controller
+DEPLOY_PROFILE_ARGS = $(strip $(foreach profile,$(DEPLOY_PROFILES),--profile $(profile)))
+DEPLOY_COMPOSE_ARGS ?=
 # Host directory with one subdirectory per demo scene (each holding a <name>.zip)
 DEMO_SCENES_DIR ?= sample_data/demo_scenes
 DEMO_SCENES_URL ?= https://localhost:$(if $(HTTPS_PORT),$(HTTPS_PORT),443)/api/v1
@@ -118,9 +122,10 @@ help:
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
+	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
-	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
+	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all|tracker, default: core)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -172,6 +177,7 @@ help:
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
+	@echo "  - Use 'SUPASS=<password> make build-core docker-compose.yml .env deploy' to start without demo videos or scenes."
 	@echo "  - Use 'make build-all demo-k8s DEMO_K8S_MODE=all' to build Scenescape and run demo using Kubernetes with all services."
 	@echo ""
 	@echo "Tips:"
@@ -696,38 +702,15 @@ init-pipeline-runner-videos: convert-dls-videos
 	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Retail/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 	@docker run --rm -v $(CURDIR)/tools/pipeline_runner/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 
-# Helper target to start demo with compose
-# $(1): extra `docker compose` args for the main stack (e.g. profiles, ReID backend override)
-# $(2): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
+# Helper to start demo with compose
+# $(1): Compose profiles to enable
+# $(2): extra `docker compose` args for the main stack (e.g. ReID backend override)
+# $(3): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
-	@$(MAKE) docker-compose.yml
-	@$(MAKE) .env
-	@if [ -z "$$SUPASS" ]; then \
-		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
-		echo "The SUPASS environment variable is the super user password for logging into Scenescape."; \
-		exit 1; \
-	fi
-	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
-		echo "Updating docker-compose.yml with custom MQTT broker port: $$BROKER_PORT"; \
-		sed -i -E "s/[0-9]+:1883/$$BROKER_PORT:1883/g" docker-compose.yml; \
-	fi
-	@if [ "$$HTTPS_PORT" != "" ] && [ "$$HTTPS_PORT" != "443" ]; then \
-		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
-		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
-	fi
-	@echo "$(1)" > .scenescape-profile
-	@if [ "$(DEMO_WAIT_SECONDS)" != "0" ]; then \
-		echo "Waiting for Scenescape services to be ready..."; \
-		docker compose $(1) up -d --wait --wait-timeout $(DEMO_WAIT_SECONDS); \
-	else \
-		echo "Starting Scenescape services in detached mode..."; \
-		docker compose $(1) up -d; \
-	fi
-	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(2)"
+	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)"
+	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)"
 	@$(MAKE) demo-scenes
 	@echo ""
-	@echo "To stop Scenescape, type:"
-	@echo "    docker compose $(1) down"
 	@echo "Or use: make demo-close"
 endef
 
@@ -752,25 +735,52 @@ demo-scenes:
 		$(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
 		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
 
+.PHONY: deploy
+deploy: docker-compose.yml .env
+	@if [ -z "$$SUPASS" ]; then \
+		echo "Please set the SUPASS environment variable before deployment."; \
+		echo "The SUPASS environment variable is the super user password for logging into Scenescape."; \
+		exit 1; \
+	fi
+	@if [ "$$BROKER_PORT" != "" ] && [ "$$BROKER_PORT" != "1883" ]; then \
+		echo "Updating docker-compose.yml with custom MQTT broker port: $$BROKER_PORT"; \
+		sed -i -E "s/[0-9]+:1883/$$BROKER_PORT:1883/g" docker-compose.yml; \
+	fi
+	@if [ "$$HTTPS_PORT" != "" ] && [ "$$HTTPS_PORT" != "443" ]; then \
+		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
+		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
+	fi
+	@echo "$(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS)" > .scenescape-profile
+	@if [ "$(DEPLOY_WAIT_SECONDS)" != "0" ]; then \
+		echo "Waiting for Scenescape services to be ready..."; \
+		docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) up -d --wait --wait-timeout $(DEPLOY_WAIT_SECONDS); \
+	else \
+		echo "Starting Scenescape services in detached mode..."; \
+		docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) up -d; \
+	fi
+	@echo ""
+	@echo "To stop Scenescape, type:"
+	@echo "    docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) down"
+
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core)
-	$(call start_demo,--profile controller)
+	$(call start_demo,controller)
 
 .PHONY: demo-reid
 demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core)
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller),-f $(REID_PIPELINE_OVERRIDE_FILE))
+	$(call start_demo,controller,$(REID_COMPOSE_ARGS),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-all
 demo-all: check-reid-backend $(DEMO_BUILD:build=build-all)
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping),-f $(REID_PIPELINE_OVERRIDE_FILE))
+	$(call start_demo,controller cluster-analytics mapping,$(REID_COMPOSE_ARGS),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-cluster-analytics
 demo-cluster-analytics: $(DEMO_BUILD:build=build-all)
-	$(call start_demo,--profile controller --profile cluster-analytics)
+	$(call start_demo,controller cluster-analytics)
 
 .PHONY: demo-tracker
 demo-tracker: $(DEMO_BUILD:build=build-all)
-	$(call start_demo,--profile tracker)
+	$(call start_demo,tracker)
 
 .PHONY: demo-close
 demo-close:

@@ -88,6 +88,19 @@ analytics:
   # regulated, unregulated, or none
   visibilityTopic: regulated
 
+tracker:
+  enabled: false
+  image: intel/scenescape-tracker
+  pullPolicy: IfNotPresent
+  logLevel: info
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "2"
+      memory: 512Mi
+
 autocalibration:
   image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent

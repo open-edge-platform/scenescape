@@ -46,6 +46,26 @@ Save this password for future logins. You can change the admin password later vi
 - Build, load and restart a single service (e.g. manager): `make -C kubernetes manager`
 - Remove all: `make -C kubernetes clean-all`
 
+### Tracker + Analytics without demo media
+
+From the repository root, build and deploy the Tracker profile to Kind with Helm:
+
+```sh
+SUPASS='<admin-password>' PGPASS='<database-password>' \
+  make build-all demo-k8s DEMO_K8S_MODE=tracker
+```
+
+This builds the images, prepares the local Kind cluster, and installs the chart
+with Tracker and Analytics enabled. The Scene Controller is omitted, and demo
+video sources and scene imports are skipped. Helm still creates the supporting
+Scenescape services, secrets, ConfigMaps, and persistent volume claims. Tracker
+itself is stateless and connects to the chart's broker and Manager services, so
+it does not need a dedicated Service, ConfigMap, or PVC.
+
+To use a different Kubernetes cluster, install the chart directly and set
+`tracker.enabled=true` and `reid.enabled=false` in the Helm values. The chart
+automatically omits the Scene Controller when Tracker is enabled.
+
 ## Scenescape Only
 
 If you already have a Kubernetes cluster you can use the Helm chart directly.

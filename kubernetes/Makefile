@@ -7,10 +7,11 @@ CONTROLLERIMAGE=intel/scenescape-controller
 CLUSTERANALYTICSIMAGE=intel/scenescape-cluster-analytics
 MAPPINGIMAGE=intel/scenescape-mapping
 ANALYTICSIMAGE=intel/scenescape-analytics
+TRACKERIMAGE=intel/scenescape-tracker
 
 # Image groupings for flexible builds
 CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE) $(ANALYTICSIMAGE)
-ALL_IMAGES=$(CORE_IMAGES) $(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
+ALL_IMAGES=$(CORE_IMAGES) $(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE) $(TRACKERIMAGE)
 
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
@@ -36,7 +37,7 @@ RELEASE=scenescape-release-1
 FORCE_VAAPI?=0
 CHART_DEBUG?=0
 
-# Demo mode variable for Kubernetes deployments (core, reid or all)
+# Deployment mode for Kubernetes (core, reid, all or tracker)
 DEMO_K8S_MODE?=core
 # ReID vector database backend used when ReID is deployed: vdms (default) or qdrant
 REID_BACKEND?=vdms
@@ -56,7 +57,7 @@ UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install Scenescape with helm
-default: install-deps clean-kind kind load-core video-source-up install
+default: install-deps clean-kind kind load-core $(if $(filter tracker,$(DEMO_K8S_MODE)),build-load-tracker,video-source-up) install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
@@ -216,6 +217,12 @@ load-core:
 load-all: load-core
 	$(MAKE) load-image IMAGE=$(CLUSTERANALYTICSIMAGE)
 	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
+	$(MAKE) load-image IMAGE=$(TRACKERIMAGE)
+
+.PHONY: build-load-tracker
+build-load-tracker:
+	$(MAKE) -C ../tracker
+	$(MAKE) load-image IMAGE=$(TRACKERIMAGE)
 
 SERVICES := $(patsubst scenescape-%,%,$(ALL_IMAGES))
 .PHONY: $(SERVICES)
@@ -252,8 +259,8 @@ copy-files:
 
 check-demo-k8s-mode:
 	@case "$(DEMO_K8S_MODE)" in \
-	  core|reid|all) ;; \
-	  *) echo "Invalid DEMO_K8S_MODE '$(DEMO_K8S_MODE)'. Use core, reid or all."; exit 1 ;; \
+	  core|reid|all|tracker) ;; \
+	  *) echo "Invalid DEMO_K8S_MODE '$(DEMO_K8S_MODE)'. Use core, reid, all or tracker."; exit 1 ;; \
 	esac
 	@case "$(REID_BACKEND)" in \
 	  vdms|qdrant) ;; \
@@ -318,13 +325,17 @@ install: check-demo-k8s-mode copy-files chart.yaml
 		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND)"; \
 	elif [ "$(DEMO_K8S_MODE)" = "all" ]; then \
 		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND) --set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
+	elif [ "$(DEMO_K8S_MODE)" = "tracker" ]; then \
+		MODE_ARG="--set reid.enabled=false --set tracker.enabled=true"; \
 	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
 	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${ALLOWED_HOSTS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);
 	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
 		rm -f /tmp/scenescape-proxy-values.yaml; \
 	fi
-	$(MAKE) demo-scenes
+	@if [ "$(DEMO_K8S_MODE)" != "tracker" ]; then \
+		$(MAKE) demo-scenes; \
+	fi
 
 uninstall:
 	helm uninstall $(RELEASE) -n $(NAMESPACE) || true
@@ -345,7 +356,9 @@ wait-for-ready:
 rebuild: rebuild-demo
 
 rebuild-demo:
-	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
+	@if [ "$(DEMO_K8S_MODE)" = "tracker" ]; then \
+		$(MAKE) build-load-tracker && $(MAKE) rebuild-core; \
+	elif [ "$(DEMO_K8S_MODE)" = "all" ]; then \
 		$(MAKE) rebuild-all; \
 	else \
 		$(MAKE) rebuild-core; \

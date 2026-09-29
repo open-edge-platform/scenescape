@@ -86,7 +86,7 @@ _Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
 ### 2. Set Up Secure Communication
 
-> **Note:** For details on available Docker Compose profiles, see [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles).
+> **Note:** For details on available Docker Compose profiles, see [Docker Compose Profiles](../deployment/deploy-docker.md#docker-compose-profiles).
 
 **On Parent system**:
 

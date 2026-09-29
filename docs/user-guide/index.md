@@ -107,7 +107,7 @@ System Requirements <./get-started/system-requirements.md>
 :hidden:
 :caption: How-to Guides
 
-Deploy Scenescape <./how-to-guides/deploy-scenescape-using-prebuilt-containers.md>
+Deploy Scenescape <./how-to-guides/deployment/index.md>
 Use the UI and Online Documentation <./how-to-guides/ui-tutorial.md>
 Build a Scene <./how-to-guides/build-a-scene/index.md>
 Integrate Cameras and Sensors <./how-to-guides/integrate-cameras-and-sensors.md>
