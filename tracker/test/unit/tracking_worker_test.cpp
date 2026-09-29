@@ -416,8 +416,7 @@ TEST_F(TrackingWorkerTest, EmptyChunks_PublishEveryTime) {
     EXPECT_EQ(publish_count, 2);
     EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
     const auto processed_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
-    while (worker.processed_count() < 2 &&
-           std::chrono::steady_clock::now() < processed_deadline) {
+    while (worker.processed_count() < 2 && std::chrono::steady_clock::now() < processed_deadline) {
         std::this_thread::yield();
     }
     EXPECT_EQ(worker.processed_count(), 2);
