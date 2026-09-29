@@ -187,3 +187,89 @@ def implausible_recalibration_reason(
               f"(max allowed {max_drift}); a fixed PTZ mount shouldn't move")
   return None
 
+
+def euler_xyz_degrees_to_matrix(rotation: Sequence[float]) -> List[List[float]]:
+  """Intrinsic Euler-XYZ (degrees) -> 3x3 camera-to-world rotation matrix.
+
+  Matches ``scipy.spatial.transform.Rotation.from_euler('XYZ', ..., degrees=True)``
+  (i.e. ``R = Rx @ Ry @ Rz``), the convention Scenescape stores camera
+  ``rotation`` in, expanded by hand to keep this module dependency-free.
+  """
+  rx, ry, rz = (math.radians(angle) for angle in rotation)
+  cx, sx = math.cos(rx), math.sin(rx)
+  cy, sy = math.cos(ry), math.sin(ry)
+  cz, sz = math.cos(rz), math.sin(rz)
+  return [
+      [cy * cz, -cy * sz, sy],
+      [cx * sz + sx * sy * cz, cx * cz - sx * sy * sz, -sx * cy],
+      [sx * sz - cx * sy * cz, sx * cz + cx * sy * sz, cx * cy],
+  ]
+
+
+def project_world_points_to_pixels(
+    points_3d: Sequence[Sequence[float]],
+    rotation: Sequence[float],
+    translation: Sequence[float],
+    intrinsics: dict,
+) -> Optional[List[List[float]]]:
+  """Project world points into camera pixels for a given camera pose.
+
+  Used to keep a camera's stored 3D-2D calibration correspondences valid
+  after a PTZ move: the world points are physically fixed, so only their
+  pixel positions change as the camera rotates. Verified to match
+  ``cv2.projectPoints`` exactly for an undistorted pinhole model.
+
+  Distortion is not applied; cameras calibrated through the AprilTag flow
+  carry no distortion coefficients (the pipeline already works on an
+  undistorted model).
+
+  @param  intrinsics  dict with 'fx', 'fy', 'cx', 'cy'
+  @return  list of [u, v] pixels, or None if any point falls at/behind the
+           camera plane (pose can't be represented by these correspondences)
+  """
+  rot_mat = euler_xyz_degrees_to_matrix(rotation)
+  fx, fy = intrinsics['fx'], intrinsics['fy']
+  cx, cy = intrinsics['cx'], intrinsics['cy']
+
+  pixels = []
+  for point in points_3d:
+    offset = [point[i] - translation[i] for i in range(3)]
+    # Camera-frame coordinates: transpose of the camera-to-world rotation.
+    x = sum(rot_mat[k][0] * offset[k] for k in range(3))
+    y = sum(rot_mat[k][1] * offset[k] for k in range(3))
+    z = sum(rot_mat[k][2] * offset[k] for k in range(3))
+    if z <= 1e-6:
+      return None
+    pixels.append([fx * x / z + cx, fy * y / z + cy])
+  return pixels
+
+
+def split_point_correspondence_transforms(
+    transforms: Sequence[float],
+) -> Optional[Tuple[List[List[float]], List[List[float]]]]:
+  """Split a stored '3d-2d point correspondence' transforms array.
+
+  Layout is ``[u1, v1, ..., un, vn, x1, y1, z1, ..., xn, yn, zn]`` - all 2D
+  camera points first, then the matching 3D map points (see
+  ``scene_common.transform.CameraPose.arrayToDictionary``).
+
+  @return  (points_2d, points_3d), or None if the array isn't that layout
+  """
+  count = len(transforms)
+  if count == 0 or count % 5 != 0:
+    return None
+  n = count // 5
+  points_2d = [list(transforms[i * 2:i * 2 + 2]) for i in range(n)]
+  points_3d = [list(transforms[n * 2 + i * 3: n * 2 + i * 3 + 3]) for i in range(n)]
+  return points_2d, points_3d
+
+
+def join_point_correspondence_transforms(
+    points_2d: Sequence[Sequence[float]],
+    points_3d: Sequence[Sequence[float]],
+) -> List[float]:
+  """Flatten 2D/3D correspondences back into a stored transforms array."""
+  flat = [float(v) for point in points_2d for v in point]
+  flat.extend(float(v) for point in points_3d for v in point)
+  return flat
+

@@ -33,9 +33,13 @@ from dlstreamer.onvif import (
 
 from pose_math import (
     rotation_from_ptz_delta, rotation_delta_magnitude, scale_from_fov,
-    implausible_recalibration_reason,
+    implausible_recalibration_reason, project_world_points_to_pixels,
+    split_point_correspondence_transforms, join_point_correspondence_transforms,
 )
 from auto_recalibration import AutoRecalibrator
+
+# Scenescape transform type used by the AprilTag/auto calibration flow.
+POINT_CORRESPONDENCE_TRANSFORM = '3d-2d point correspondence'
 
 # An ONVIF AbsolutePanTiltPositionSpace whose URI advertises the generic,
 # normalized space (conventionally [-1, 1]) - or whose reported range simply
@@ -83,6 +87,10 @@ class TrackedCamera:
   last_applied_rotation: List[float] = field(default_factory=list)
   label: str = ""
   pose_update_mode: str = MODE_PTZ_DELTA
+  # Calibration correspondences reprojected on each pose update so the UI's
+  # 2D calibration view keeps its points (see _buildPoseUpdate).
+  home_points_3d: Optional[List[List[float]]] = None
+  intrinsics: Optional[dict] = None
   last_raw_pan: float = 0.0
   last_raw_tilt: float = 0.0
   last_raw_change_time: float = 0.0
@@ -365,15 +373,82 @@ class PTZPoseContext:
     name = result.get('name')
     if not name:
       raise RuntimeError(f"Camera {scene_camera_uid} has no 'name' set")
-    return [float(v) for v in rotation], [float(v) for v in translation], name
+    # Cameras calibrated through the AprilTag/auto flow store 3D-2D point
+    # correspondences that the UI draws in the 2D calibration view. Keep them
+    # so pose updates can reproject rather than discard them (see
+    # _buildPoseUpdate).
+    points_2d = points_3d = None
+    if result.get('transform_type') == POINT_CORRESPONDENCE_TRANSFORM:
+      split = split_point_correspondence_transforms(result.get('transforms') or [])
+      if split is not None:
+        points_2d, points_3d = split
+    info = {
+        'rotation': [float(v) for v in rotation],
+        'translation': [float(v) for v in translation],
+        'name': name,
+        'intrinsics': result.get('intrinsics'),
+        'points_2d': points_2d,
+        'points_3d': points_3d,
+    }
+    return info
+
+  def _applyConfiguredIntrinsics(self, scene_camera_uid, entry):
+    """Push any ``intrinsics``/``distortion``/``resolution`` configured for a
+    camera to Scenescape before its pose is read.
+
+    Scenescape defaults a newly added camera to a rough guess (a single FOV
+    value), but AprilTag calibration and pose reprojection both solve against
+    these numbers, so using the camera's real datasheet/calibration values
+    materially improves accuracy. Declaring them in the camera map makes them
+    survive a database reset instead of having to be re-entered in the UI.
+    """
+    update = {key: entry[key] for key in ('intrinsics', 'distortion', 'resolution')
+              if entry.get(key) is not None}
+    if not update:
+      return
+
+    result = self.rest.getCamera(scene_camera_uid)
+    if result.errors:
+      raise RuntimeError(f"Failed to fetch camera {scene_camera_uid}: {result.errors}")
+    if all(result.get(key) == value for key, value in update.items()):
+      return
+
+    update['name'] = result.get('name')
+    result = self.rest.updateCamera(scene_camera_uid, update)
+    if result.errors:
+      log.error(f"Failed to apply configured intrinsics to {scene_camera_uid}: {result.errors}")
+      return
+    log.info(f"Applied configured intrinsics to {scene_camera_uid}: {update}")
+    return
 
   def _buildPoseUpdate(self, camera: "TrackedCamera", rotation, translation):
     """Builds the REST payload to persist a new camera pose.
 
-    ``transform_type: "euler"`` and ``scale`` must be included alongside
-    ``rotation``/``translation`` (see ``_fetchCameraInfo``) or the update is
-    silently ignored by cameras not already using the 'euler' transform type.
+    For a camera calibrated from 3D-2D point correspondences, the stored
+    world points are physically fixed, so the new pose is expressed by
+    reprojecting them to their new pixel positions. That keeps the camera on
+    its native transform type (the 2D calibration view still has points to
+    draw) and Scenescape re-derives the same pose from them via solvePnP.
+
+    Otherwise - or if the new pose would push a point behind the camera -
+    fall back to a plain euler pose. ``transform_type`` and ``scale`` must be
+    included alongside ``rotation``/``translation`` (see ``_fetchCameraInfo``)
+    or the update is silently ignored.
     """
+    if camera.home_points_3d and camera.intrinsics:
+      reprojected = project_world_points_to_pixels(
+          camera.home_points_3d, rotation, translation, camera.intrinsics)
+      if reprojected is not None:
+        return {
+            'name': camera.camera_name,
+            'transform_type': POINT_CORRESPONDENCE_TRANSFORM,
+            'transforms': join_point_correspondence_transforms(
+                reprojected, camera.home_points_3d),
+        }
+      log.warning(
+          f"{camera.label}: new pose puts calibration points behind the camera; "
+          "falling back to a euler pose update (2D calibration points will be cleared)")
+
     return {
         'name': camera.camera_name,
         'transform_type': 'euler',
@@ -403,7 +478,12 @@ class PTZPoseContext:
         controller = PTZController(
             host, port, profile_token, self.onvif_username, self.onvif_password)
 
-        home_rotation, home_translation, camera_name = self._fetchCameraInfo(scene_uid)
+        self._applyConfiguredIntrinsics(scene_uid, entry)
+
+        info = self._fetchCameraInfo(scene_uid)
+        home_rotation = info['rotation']
+        home_translation = info['translation']
+        camera_name = info['name']
 
         home_pan = entry.get('home_pan')
         home_tilt = entry.get('home_tilt')
@@ -436,13 +516,17 @@ class PTZPoseContext:
             invert_pan=bool(entry.get('invert_pan', self.default_invert_pan)),
             invert_tilt=bool(entry.get('invert_tilt', self.default_invert_tilt)),
             pose_update_mode=pose_update_mode,
+            home_points_3d=info['points_3d'],
+            intrinsics=info['intrinsics'],
             last_raw_pan=float(home_pan),
             last_raw_tilt=float(home_tilt),
         )
         self.cameras.append(camera)
+        points_note = (f", reprojecting {len(info['points_3d'])} calibration points"
+                       if info['points_3d'] and info['intrinsics'] else "")
         log.info(
             f"Tracking PTZ camera {camera.label} in '{pose_update_mode}' mode "
-            f"(home rotation={home_rotation})")
+            f"(home rotation={home_rotation}{points_note})")
       except Exception as err:
         log.error(f"Skipping camera {host}:{port} ({scene_uid}): {err}")
 

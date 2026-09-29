@@ -13,7 +13,10 @@
       "tilt_scale": null,
       "invert_pan": false,
       "invert_tilt": false,
-      "pose_update_mode": "ptz_delta"
+      "pose_update_mode": "ptz_delta",
+      "resolution": [1280, 720],
+      "intrinsics": { "fx": 1066.3453, "fy": 1066.3453, "cx": 640.0, "cy": 360.0 },
+      "distortion": { "k1": -0.371571, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0 }
     }
   ]
 }
