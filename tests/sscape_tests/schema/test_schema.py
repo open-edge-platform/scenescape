@@ -134,11 +134,29 @@ def test_validateExternalSourceMessage_objectWithoutSizeIsValid(schemaObject):
   assert result == True
   return
 
-def test_validateExternalSourceMessage_objectWithoutIdIsInvalid(schemaObject):
-  """An object observation missing the required 'id' field must fail validation."""
+@pytest.mark.parametrize("track", [None, True])
+def test_validateExternalSourceMessage_trackedObjectWithoutIdIsValid(schemaObject, track):
+  """Tracked observations may omit source-local ids."""
   jdata = {
     "timestamp": "1970-01-01T00:00:00.000Z",
     "source_id": "drone-1",
+    "objects": [
+      {"category": "person", "translation": [1.0, 2.0, 0.0]},
+    ],
+  }
+  if track is not None:
+    jdata["track"] = track
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == True
+  return
+
+def test_validateExternalSourceMessage_untrackedObjectWithoutIdIsInvalid(schemaObject):
+  """Untracked observations require a source-local id to preserve."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "track": False,
     "objects": [
       {"category": "person", "translation": [1.0, 2.0, 0.0]},
     ],
