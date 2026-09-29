@@ -22,6 +22,7 @@ from werkzeug.utils import secure_filename
 import uuid
 import threading
 import json
+import math
 import re
 import traceback
 
@@ -162,6 +163,49 @@ MAX_VIDEO_SIZE_BYTES = 50 * 1024 * 1024   # 50MB video
 # Status management constants
 STATUS_CLEANUP_INTERVAL_SECONDS = 300     # 5 minutes
 
+
+def parse_camera_intrinsics(raw: str):
+  """Parse one camera_intrinsics form entry.
+
+  Returns a dict with fx, fy, cx, cy (and optional width/height) or None when
+  the entry is empty. Raises ValueError for malformed input.
+  """
+  if raw is None or not str(raw).strip():
+    return None
+  try:
+    meta = json.loads(raw)
+  except ValueError as e:
+    raise ValueError(f"camera_intrinsics is not valid JSON: {e}")
+  if meta is None or meta == {}:
+    return None
+  if not isinstance(meta, dict):
+    raise ValueError("camera_intrinsics must be a JSON object")
+
+  out = {}
+  for key in ("fx", "fy", "cx", "cy"):
+    if key not in meta:
+      raise ValueError(f"camera_intrinsics missing {key}")
+    try:
+      value = float(meta[key])
+    except (TypeError, ValueError):
+      raise ValueError(f"camera_intrinsics {key} must be numeric")
+    if not math.isfinite(value):
+      raise ValueError(f"camera_intrinsics {key} must be finite")
+    out[key] = value
+  if out["fx"] <= 0 or out["fy"] <= 0:
+    raise ValueError("camera_intrinsics focal lengths must be positive")
+
+  for key in ("width", "height"):
+    if key in meta and meta[key] is not None:
+      try:
+        value = int(meta[key])
+      except (TypeError, ValueError):
+        raise ValueError(f"camera_intrinsics {key} must be an integer")
+      if value <= 0 or value > 100000:
+        raise ValueError(f"camera_intrinsics {key} out of range")
+      out[key] = value
+  return out
+
 def initialize_model():
   """Initialize the model - this will be overridden by model-specific services"""
   raise NotImplementedError("This should be overridden by model-specific services")
@@ -272,6 +316,7 @@ def reconstruct3D():
   video_file = request.files.get("video")
   camera_ids = request.form.getlist("camera_ids")
   camera_locations = request.form.getlist("camera_locations", None)
+  camera_intrinsics = request.form.getlist("camera_intrinsics", None)
 
   if (not image_files) and (video_file is None):
     set_status(request_id, state="failed", updated_at=time.time(), error="Provide images and/or video")
@@ -318,10 +363,20 @@ def reconstruct3D():
           )
           cam_loc = None
 
+      cam_intr = None
+      if camera_intrinsics and idx < len(camera_intrinsics):
+        try:
+          cam_intr = parse_camera_intrinsics(camera_intrinsics[idx])
+        except ValueError as e:
+          log.warning(f"Invalid camera_intrinsics for image {idx}: {e}")
+          set_status(request_id, state="failed", updated_at=time.time(), error="Invalid input")
+          return jsonify({"success": False, "request_id": request_id, "error": "Invalid camera_intrinsics format"}), 400
+
       images.append({
           "filename": secure_filename(f.filename),
           "camera_id": cam_id,
           "camera_location": cam_loc,   # Only populated if provided
+          "camera_intrinsics": cam_intr,  # Pixels of the uploaded image; only if provided
           "data": base64.b64encode(raw).decode("utf-8"),
       })
 

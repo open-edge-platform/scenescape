@@ -10,11 +10,10 @@ import uuid
 from zipfile import BadZipFile, ZipFile
 
 from django.core.exceptions import ValidationError
-import open3d as o3d
 from PIL import Image
-from plyfile import PlyData
 
 def validate_glb(value):
+  import open3d as o3d
   with tempfile.NamedTemporaryFile(suffix=".glb") as glb_file:
     glb_file.write(value.read())
     glb_file.flush()
@@ -44,6 +43,7 @@ def validate_image(value):
   return value
 
 def validate_ply(value):
+  from plyfile import PlyData
   try:
     PlyData.read(value)
     value.seek(0)
@@ -215,4 +215,14 @@ def validate_map_corners_lla(value):
     if not (-180 <= lon <= 180):
       raise ValidationError(f"Corner {i+1} longitude ({lon}) must be between -180 and 180 degrees.")
 
+  return value
+
+
+def validate_mapping_bundle_zip(value):
+  """Historical hook for migrations 0004–0006. The column is removed in 0007."""
+  return value
+
+
+def validate_arkit_mapping_bundle_zip(value):
+  """Historical hook for migrations 0005–0006. The column is removed in 0007."""
   return value

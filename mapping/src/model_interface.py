@@ -70,13 +70,18 @@ class ReconstructionModel(ABC):
     Args:
       images: List of image dictionaries containing:
         - data: Base64 encoded image data
+        - (optional) camera_id: identifier echoed back in the outputs
+        - (optional) camera_location: camera-to-world prior with "translation"
+          [x,y,z] and "rotation" quaternion [x,y,z,w] (OpenCV camera axes)
+        - (optional) camera_intrinsics: {"fx","fy","cx","cy"} in pixels of the
+          uploaded image (optional "width"/"height" of that image)
         - (optional) metadata like filename, timestamp, etc.
 
     Returns:
       Dictionary containing:
         - predictions: Model-specific predictions dict
         - camera_poses: List of camera poses (camera-to-world transformations)
-          - Each pose has "rotation" (quaternion [w,x,y,z]) and "translation" ([x,y,z])
+          - Each pose has "rotation" (quaternion [x,y,z,w]) and "translation" ([x,y,z])
         - intrinsics: List of camera intrinsic matrices (3x3) for original image sizes
 
     Raises:
@@ -292,6 +297,53 @@ class ReconstructionModel(ABC):
       z = 0.25 * s
 
     return np.array([x, y, z, w])
+
+  def intrinsics_from_metadata(self, meta: Any) -> Optional[np.ndarray]:
+    """
+    Build a 3x3 pinhole matrix from a camera_intrinsics dict, or None if absent/invalid.
+    """
+    if not isinstance(meta, dict):
+      return None
+    try:
+      fx, fy, cx, cy = (float(meta[k]) for k in ("fx", "fy", "cx", "cy"))
+    except (KeyError, TypeError, ValueError):
+      return None
+    if not all(math.isfinite(v) for v in (fx, fy, cx, cy)) or fx <= 0 or fy <= 0:
+      return None
+    return np.array([[fx, 0.0, cx], [0.0, fy, cy], [0.0, 0.0, 1.0]], dtype=np.float64)
+
+  def pose_from_location(self, loc: Any) -> Optional[np.ndarray]:
+    """
+    Build a 4x4 camera-to-world matrix from a camera_location dict, or None if absent/invalid.
+
+    Expects "translation" [x,y,z] and "rotation" quaternion [x,y,z,w].
+    """
+    if not isinstance(loc, dict):
+      return None
+    t = loc.get("translation")
+    q = loc.get("rotation")
+    if not isinstance(t, (list, tuple)) or len(t) != 3:
+      return None
+    if not isinstance(q, (list, tuple)) or len(q) != 4:
+      return None
+    try:
+      t = np.asarray([float(v) for v in t], dtype=np.float64)
+      x, y, z, w = (float(v) for v in q)
+    except (TypeError, ValueError):
+      return None
+    norm = math.sqrt(x * x + y * y + z * z + w * w)
+    if not np.isfinite(t).all() or not math.isfinite(norm) or norm < 1e-9:
+      return None
+    x, y, z, w = x / norm, y / norm, z / norm, w / norm
+    R = np.array([
+      [1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)],
+      [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)],
+      [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)],
+    ], dtype=np.float64)
+    pose = np.eye(4, dtype=np.float64)
+    pose[:3, :3] = R
+    pose[:3, 3] = t
+    return pose
 
   def _max_frames_for_time_budget(
     self,

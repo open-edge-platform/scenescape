@@ -105,7 +105,18 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: Optional camera location metadata as JSON strings, one per image
+                  description: |
+                    Optional camera-to-world pose priors as JSON strings, one per image:
+                    `{"translation": [x, y, z], "rotation": [qx, qy, qz, qw]}` in OpenCV camera axes.
+                    Use `{}` for images without a prior.
+                camera_intrinsics:
+                  type: array
+                  items:
+                    type: string
+                  description: |
+                    Optional pinhole intrinsics as JSON strings, one per image, in pixels of the
+                    uploaded image: `{"fx", "fy", "cx", "cy"}` with optional `"width"`/`"height"`.
+                    Use `{}` for images without calibration. Malformed entries are rejected (400).
             encoding:
               images:
                 contentType: image/jpeg, image/png
@@ -370,7 +381,12 @@ components:
           type: array
           items:
             type: string
-          description: Optional camera location metadata as JSON strings, one per image
+          description: Optional camera-to-world pose priors as JSON strings, one per image
+        camera_intrinsics:
+          type: array
+          items:
+            type: string
+          description: Optional pinhole intrinsics (fx, fy, cx, cy in uploaded-image pixels) as JSON strings, one per image
 
     ReconstructionAckResponse:
       type: object
