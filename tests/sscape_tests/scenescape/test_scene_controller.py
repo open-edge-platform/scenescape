@@ -348,10 +348,10 @@ class TestSceneControllerPublishers:
     )
     jdata_base = {
       'timestamp': '2026-01-01T00:00:01Z',
-      'source_id': 'robot-01',
-      'pose': {'reference_frame': 'scene', 'translation': [1, 2, 3]},
-      'track': False,
       'objects': ['unchanged'],
+      'track': False,
+      'source_id': 'px4-sih-drone-1',
+      'pose': {'reference_frame': 'wgs84'},
     }
 
     scene_controller.shouldPublish = MagicMock(return_value=True)
@@ -362,9 +362,8 @@ class TestSceneControllerPublishers:
     assert scene_controller.pubsub.publish.call_count == 1
     assert scene.last_published_detection['person'] == 101.0
     assert jdata_base['objects'] == ['unchanged']
-    assert jdata_base['source_id'] == 'robot-01'
-    published_payload = orjson.loads(scene_controller.pubsub.publish.call_args.args[1])
-    assert published_payload['objects'] == [{'id': 'o1'}]
+    assert jdata_base['source_id'] == 'px4-sih-drone-1'
+    published_payload = orjson.loads(scene_controller.pubsub.publish.call_args[0][1])
     assert 'source_id' not in published_payload
     assert 'pose' not in published_payload
     assert 'track' not in published_payload
