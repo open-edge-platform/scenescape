@@ -128,6 +128,7 @@ private:
     const SceneRegistry& registry_;
     TrackingConfig config_;
     PublishCallback publish_callback_;
+    AssetRotationConfig asset_rotation_config_;
     ClockFn clock_fn_;
     ObjectClassMap object_classes_;
 

@@ -13,6 +13,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -74,6 +75,8 @@ struct Scene {
     std::string name;            ///< Human-readable scene name
     std::vector<Camera> cameras; ///< Cameras assigned to this scene
 };
+
+using AssetRotationConfig = std::unordered_map<std::string, bool>;
 
 /**
  * @brief Abstract interface for loading scene configurations.

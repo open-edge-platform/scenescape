@@ -38,9 +38,13 @@ public:
     virtual std::string fetchScenes() = 0;
 
     /**
+<<<<<<< HEAD
      * @brief Fetch object-class assets from the Manager API.
      *
      * Used for per-category projection settings (`shift_type`, sizes).
+=======
+     * @brief Fetch all asset definitions from the Manager API.
+>>>>>>> 940b693c (tracker rotation hystheresis added)
      *
      * @return Raw JSON response body string
      * @throws std::runtime_error if not authenticated, connection fails, or HTTP error
