@@ -39,9 +39,13 @@ which walks through measuring the two things accuracy depends on.
    flow), the stored world points are reprojected to their new pixel
    positions instead of overwriting the pose as raw Euler angles. That keeps
    the camera on its native transform type so the 2D calibration view still
-   has points to draw, and Scenescape re-derives the same pose from them. If
-   a pose would put those points behind the camera the update is skipped
-   rather than written as Euler angles, which would discard them.
+   has points to draw, and Scenescape re-derives the same pose from them.
+   Only points that are still in frame are written. With barrel distortion
+   the lens model folds back past a certain radius, so a point well outside
+   the frame would otherwise be projected *into* it at a wrong pixel and
+   corrupt the pose. If fewer than 6 points stay visible, the update is
+   skipped instead of being written as Euler angles, which would discard the
+   points.
 
 > **Why matrix composition rather than adding to the Euler angles?**
 > Scenescape stores `rotation` as *intrinsic* Euler XYZ, whose third
@@ -90,9 +94,12 @@ docker run --rm --network host intel/scenescape-ptz-pose-service:latest \
       "tilt_degrees": null,
       "pan_scale": -154.15,
       "tilt_scale": 56.49,
-      "tilt_curve": [0.0, 42.05, 9.41],
+      "pan_curve": [0.0, -164.2, 39.11],
+      "tilt_curve": [0.0, 63.03, -5.01],
       "pan_backlash_deg": 0.0,
       "tilt_backlash_deg": 2.83,
+      "pan_home_approach": null,
+      "tilt_home_approach": "increasing",
       "invert_pan": false,
       "invert_tilt": false,
       "pose_update_mode": "ptz_delta",
@@ -127,6 +134,11 @@ They are **specific to that camera** — see
 - `pan_backlash_deg`/`tilt_backlash_deg`: mechanical slack in degrees, which
   makes the same reported position mean different physical angles depending on
   the direction of approach. See [Measuring backlash](#measuring-backlash).
+- `pan_home_approach`/`tilt_home_approach`: `"increasing"` or `"decreasing"`
+  — which way the ONVIF position was moving when the home pose was
+  calibrated. Needed only at startup: with backlash it decides which side of
+  the slack the camera sits on. If omitted, the service assumes the middle of
+  that slack, which leaves up to half the backlash as error in *both* directions.
 - `pan_degrees`/`tilt_degrees`: fallback if no explicit scale is given — the
   camera's physical sweep in degrees, divided by the ONVIF position range the
   camera advertises (`AbsolutePanTiltPositionSpace` via `GetNodes`, assumed
@@ -198,14 +210,17 @@ Recommended order (each step feeds the next):
 4. Write the results into `config/cameras.json`, rebuild, restart
 5. Calibrate the camera's pose once in the Scenescape UI
 6. Restart `ptz-pose` so it picks that pose up as its home reference
+7. [Measure tracking accuracy and fit pan/tilt curves](#measuring-tracking-accuracy-and-fitting-pantilt-curves).
+   This step runs *with* the service, re-calibrates, and is repeated until
+   the numbers are satisfactory.
 
 Steps 1-3 are one-off per camera model; their output lives in the config file
 and is reapplied on every start.
 
-> **Stop the service while measuring.** `docker compose stop ptz-pose` first.
+> **Stop the service while measuring** (steps 1-3). Run `docker compose stop ptz-pose` first.
 > The tools drive the camera, and a running service would track those moves
 > from a baseline that no longer matches, writing poses into the database as
-> it goes.
+> it goes. Step 7 is the exception: it measures the running service.
 
 All tools take `--help`. They run inside containers because the dependencies
 are split: `ptz-pose` has the ONVIF/MQTT plumbing, `autocalibration` has
@@ -213,15 +228,18 @@ OpenCV. Copy them in first:
 
 ```bash
 cd <repo root>
-docker compose exec ptz-pose rm -rf /tmp/tools
-docker compose exec autocalibration rm -rf /tmp/tools
+docker compose exec -u root ptz-pose rm -rf /tmp/tools
+docker compose exec -u root autocalibration rm -rf /tmp/tools
 docker cp ptz_pose_service/tools scenescape-ptz-pose-1:/tmp/tools
 docker cp ptz_pose_service/tools scenescape-autocalibration-1:/tmp/tools
 ```
 
-> Remove the old directory first — `docker cp` nests the source inside an
+> Remove the old directory first. `docker cp` nests the source inside an
 > existing directory of the same name rather than replacing it, so a stale
-> copy will silently keep running.
+> copy will silently keep running. The `-u root` is needed because the copied
+> files keep the host user's uid, which the container user can't delete.
+> Check with `docker compose exec ptz-pose ls /tmp/tools`: there must be no
+> nested `tools/`.
 
 ### Calibrating intrinsics and lens distortion
 
@@ -343,9 +361,12 @@ a mid-range fit splits the difference, drifts the *opposite* way at the other
 end.
 
 `measure_ptz_scale.py` reports the variation across the travel; if it is more
-than ~15% a curve is worth fitting. Obtain one by fitting a polynomial to the
-per-step scales the tool prints, then set e.g.
-`"tilt_curve": [0.0, 42.05, 9.41]` for `42.05*t + 9.41*t²`.
+than ~15% a curve is worth fitting. The recommended way to get one is
+`fit_ptz_curves.py`. It fits both `pan_curve` and `tilt_curve` in one step,
+directly against detected AprilTags (see
+[Measuring tracking accuracy](#measuring-tracking-accuracy-and-fitting-pantilt-curves)).
+Curves are polynomials in the ONVIF position, e.g.
+`"tilt_curve": [0.0, 42.05, 9.41]` means `42.05*t + 9.41*t²`.
 
 On the development camera the tilt axis ran from 53.8 °/unit near the middle
 of its range to 60.6 °/unit near the top. Fitting the curve reduced mean
@@ -385,6 +406,12 @@ models each axis as a deadband, tracking where the camera physically is rather
 than where it reports being, and only rotating the pose once the slack has
 been taken up.
 
+The model also needs to know which side of the slack the camera was on when
+it was calibrated. If the camera is re-calibrated while the service is
+running, the service already knows this from tracking it. At startup it does
+not, so set `tilt_home_approach`/`pan_home_approach`, or re-calibrate once
+after moving the camera while the service runs.
+
 <details>
 <summary>What this looked like on the development camera</summary>
 
@@ -401,6 +428,125 @@ tilt did not.
 
 Modelling it halved the vertical reprojection error (47.5 px → 24.4 px).
 </details>
+
+### Measuring tracking accuracy and fitting pan/tilt curves
+
+This checks the final result: how far the pose the service *stores* is from
+where the AprilTags actually are in the frame. The same measurement is then
+used to fit **both** `pan_curve` and `tilt_curve` in one step.
+
+The measurement tool drives the camera through a pan path and then a tilt path
+of offsets from its current position. The defaults are pan ±0.2 (≈ ±32°) and
+tilt +0.1 / −0.3 (≈ +6° / −16°), and every stop is visited from both
+directions, so backlash shows up. At each stop it waits for the service to
+write the pose, has autocalibration detect the tags, and projects their world
+points through the stored pose. The camera's config entry is saved with the
+results, so the fit knows which curves, backlash and home approach were in
+use.
+
+Unlike steps 1-3 it needs `ptz-pose` **running**:
+
+```bash
+# 0. Re-calibrate the camera from the Scenescape UI (service running).
+#    The service logs "was re-calibrated externally; adopting it as the new home".
+#    Close the calibration page afterwards so it doesn't save over the test.
+
+# 1. Measure (about 4 minutes; the camera returns to its start position)
+docker compose exec ptz-pose python3 /tmp/tools/measure_reprojection_accuracy.py \
+    --camera-uid atag-ptzcam3 --onvif-host 192.168.0.91 --onvif-port 2020
+
+# 2. Fit pan_curve and tilt_curve against the measured tags
+docker cp scenescape-ptz-pose-1:/tmp/reprojection_accuracy.json /tmp/
+docker cp /tmp/reprojection_accuracy.json scenescape-autocalibration-1:/tmp/
+docker compose exec autocalibration python3 /tmp/tools/fit_ptz_curves.py
+```
+
+Widen or narrow the paths with `--pan-path`/`--tilt-path` (offsets, visited
+in order) to cover the range the camera is used over while keeping tags in
+view. Stops where no tags are detected are still recorded, because the move
+matters for backlash. End the tilt path with an upward move into the start
+position (as the default does) so `tilt_home_approach: "increasing"` stays
+true after a restart.
+
+Step 1 prints mean/max pixel error per stop and per axis. The error at the
+start position is the floor, set by tag detection and the scene mesh (~3 px
+on the development camera).
+
+Step 2 replays the service's exact model, `Rz(Δpan) · R_start · Rx(Δtilt)`,
+with each axis tracked through its backlash deadband along the measured path.
+It also fits two nuisance parameters, so the measurement doesn't need to start
+from a perfectly known state:
+- a small **start pose correction**: above ~1°, re-calibrate and measure again,
+- where each axis **started within its backlash band**, which depends on how
+  the camera last arrived.
+
+It then prints, per axis:
+
+| line | meaning |
+|---|---|
+| per-stop table | `actual`: the rotation the tags say the camera made; `current`/`fitted`: what the service computes with the current/fitted curve |
+| `service, as measured` | what step 1 measured |
+| `current` | current curve, from the fitted start state |
+| `linear` | best constant scale |
+| `curve` | best polynomial (`--pan-degree`/`--tilt-degree`, default 2) |
+| `floor` | best angle fitted independently at each stop: the lowest error any curve can reach |
+| `WARNING` | the fitted curve bends implausibly outside the measured range (checked over `--pan-travel`/`--tilt-travel`); widen the path or use degree 1 |
+
+It ends with the `pan_curve`/`tilt_curve` lines to paste into
+`config/cameras.json` (they replace `pan_scale`/`tilt_scale`). If `curve` is
+close to `floor`, the curve is as good as it can be. If the floor itself is
+well above the start-position error, the rest is not in the curve (see
+[Known limitation](#known-limitation-pan-axis-not-vertical)).
+
+To apply the result:
+
+1. Put `pan_curve`/`tilt_curve` in `config/cameras.json`.
+2. `docker compose restart ptz-pose`. The config file is mounted, so no rebuild
+   is needed. On restart the last pose the service wrote at the start position
+   becomes home, and after a good measurement that pose is accurate.
+3. Repeat steps 1-2 to confirm. When the curves have converged, `current`,
+   `curve` and `floor` agree.
+
+<details>
+<summary>What this looked like on the development camera</summary>
+
+Mean / max error per axis:
+
+| state | pan | tilt |
+|---|---|---|
+| after first restart: tilt home approach unknown, `pan_scale: -154.15` | 20.8 / 76.2 px | 22.3 / 31.8 px |
+| re-calibrated from the UI while running | 21.4 / 77.5 px | 4.8 / 10.4 px¹ |
+| + pan-only curve `[0, -166.06, 34.61]`, `tilt_home_approach: increasing` | 14.4 / 48.8 px | 4.8 / 10.4 px¹ |
+| same settings, wider tilt path (+0.1 / −0.3) | 13.9 / 46.7 px | 9.2 / 30.0 px |
+| + `fit_ptz_curves.py`: pan `[0, -164.2, 39.11]`, tilt `[0, 63.03, -5.01]` | **12.3 / 38.2 px** | **4.5 / 14.2 px** |
+
+¹ tilt path ±0.1 only.
+
+- The wider tilt path exposed the old `tilt_curve` `[0, 42.05, 9.41]`, which
+  came from the texture sweep. It was accurate near home but under-rotated by
+  1.3° at −16° (up to 30 px). Fitted against tags over the wider range, tilt
+  error halved and reached its floor (4.3 px).
+- A tilt curve fitted on the narrow ±0.1 path alone, `[0, -7.37, 40.33]`,
+  matched the data but reversed slope near tilt 0.1. That is why the tool
+  warns about extrapolation and why the default tilt path is wide.
+- The fit found tilt had started +1.40° into its ±1.42° backlash band
+  (arrived going down). Without fitting that, the tilt numbers would have been
+  skewed by a full backlash.
+- **Pan** is non-uniform (~170 °/unit on the negative side of home, ~150 on
+  the positive), but with the curve at its floor (~11.6 px), the remaining pan
+  error is not in the curve. Fitting a pan axis that is free to lean brings it
+  to ~4–6 px, with the best axis ~7° from world vertical (see
+  [Known limitation](#known-limitation-pan-axis-not-vertical)).
+</details>
+
+#### Known limitation: pan axis not vertical
+
+The model pans about world vertical (`Rz`). If the mount isn't level, or the
+stored home rotation has a small error about a horizontal axis, pan actually
+turns about a leaning axis. The error then grows with the pan angle and no
+`pan_curve` can remove it. The symptom is a `fit_ptz_curves.py` pan floor well
+above the start-position error. Levelling the mount, or a more accurate home
+calibration (more tags, with more height variation), reduces it.
 
 ### Rebooting a camera
 
@@ -428,6 +574,8 @@ newer `zeep` releases can fail the initial `GetCapabilities` call outright.
 | [`measure_ptz_scale.py`](tools/measure_ptz_scale.py) | `autocalibration` | Recover degrees-per-ONVIF-unit from those frames |
 | [`capture_ptz_backlash.py`](tools/capture_ptz_backlash.py) | `ptz-pose` | Arrive at positions from both directions, saving frame pairs |
 | [`measure_ptz_backlash.py`](tools/measure_ptz_backlash.py) | `autocalibration` | Measure mechanical slack from those pairs |
+| [`measure_reprojection_accuracy.py`](tools/measure_reprojection_accuracy.py) | `ptz-pose` (service running) | Drive a pan/tilt path, measure stored-pose error against detected AprilTags |
+| [`fit_ptz_curves.py`](tools/fit_ptz_curves.py) | `autocalibration` | Fit `pan_curve` and `tilt_curve` together from that measurement, and report the floor any curve can reach |
 | [`onvif_reboot.py`](tools/onvif_reboot.py) | `ptz-pose` | Reboot a camera over ONVIF |
 
 ## Live updates in the calibration UI
@@ -474,11 +622,12 @@ After a move, check that:
   move — only the 2D view shows the reprojection.
 
 To compare the delta-tracked pose against an independent measurement, run
-auto-calibration manually from the UI and compare the resulting rotation.
-Bear in mind a single auto-calibration run is not exact ground truth: on the
-development camera repeated runs from the same position varied by up to
-`[0.34, 0.19, 0.21] m` in translation and a few degrees in rotation. For
-anything finer than that, use the homography-based tools instead.
+[`measure_reprojection_accuracy.py`](#measuring-tracking-accuracy-and-fitting-pantilt-curves).
+It gives pixel error per position against detected tags. Comparing with a
+manual auto-calibration from the UI is coarser: a single run is not exact
+ground truth. On the development camera, repeated runs from the same position
+varied by up to `[0.34, 0.19, 0.21] m` in translation and a few degrees in
+rotation.
 
 ### Diagnosing a pose that tracks badly
 
@@ -486,10 +635,12 @@ anything finer than that, use the homography-based tools instead.
 |---|---|
 | Error grows steadily with distance from the calibrated position | `pan_scale`/`tilt_scale` wrong — [re-measure](#measuring-pantilt-scale-factors) |
 | Tracks one direction well, offset the other way | Backlash — [measure it](#measuring-backlash) |
+| Offset by roughly half the backlash in *both* directions | Home approach direction unknown — set `*_home_approach` |
 | Good near the middle of travel, drifts at both ends in opposite directions | Non-uniform travel — [fit a curve](#if-the-scale-isnt-constant) |
+| Pan error grows with angle even with a fitted `pan_curve`; tilt also drifts during pure pan moves | Pan axis not vertical — [known limitation](#known-limitation-pan-axis-not-vertical) |
 | Pose rotates the wrong way entirely | Sign — negate the scale or set `invert_pan`/`invert_tilt` |
 | Points fit near the image centre but drift at the edges | Lens distortion — [calibrate intrinsics](#calibrating-intrinsics-and-lens-distortion) |
-| Points vanish from the 2D view | A pose put them behind the camera, or the camera was left on the `euler` transform type; re-calibrate once from the UI |
+| Points vanish from the 2D view | Expected for tags that have left the frame. If all vanish: a pose put them behind the camera, or the camera was left on the `euler` transform type; re-calibrate once from the UI |
 | Points stop updating live but the pose is right on reload | Browser MQTT disconnected (see [Live updates](#live-updates-in-the-calibration-ui)) |
 
 ## Environment variables / credentials

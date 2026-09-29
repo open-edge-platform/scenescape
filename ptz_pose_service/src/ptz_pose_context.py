@@ -35,13 +35,17 @@ from dlstreamer.onvif import (
 from pose_math import (
     rotation_delta_magnitude, scale_from_fov, axis_angle_degrees, apply_backlash,
     compose_ptz_rotation, implausible_recalibration_reason,
-    project_world_points_to_pixels, split_point_correspondence_transforms,
+    visible_point_correspondences, split_point_correspondence_transforms,
     join_point_correspondence_transforms,
 )
 from auto_recalibration import AutoRecalibrator
 
 # Scenescape transform type used by the AprilTag/auto calibration flow.
 POINT_CORRESPONDENCE_TRANSFORM = '3d-2d point correspondence'
+# Scenescape's solvePnP falls back to P3P below 6 non-coplanar points, which
+# only accepts exactly 4, so require enough for its iterative solver.
+MIN_PNP_POINTS = 6
+HOME_APPROACHES = ('increasing', 'decreasing')
 
 # An ONVIF AbsolutePanTiltPositionSpace whose URI advertises the generic,
 # normalized space (conventionally [-1, 1]) - or whose reported range simply
@@ -96,6 +100,10 @@ class TrackedCamera:
   tilt_physical_deg: Optional[float] = None
   home_pan_physical_deg: float = 0.0
   home_tilt_physical_deg: float = 0.0
+  # Direction the ONVIF position was moving when the home pose was calibrated
+  # ('increasing'/'decreasing'), or None if unknown.
+  pan_home_approach: Optional[str] = None
+  tilt_home_approach: Optional[str] = None
   invert_pan: bool = False
   invert_tilt: bool = False
   last_applied_rotation: List[float] = field(default_factory=list)
@@ -468,22 +476,21 @@ class PTZPoseContext:
              without destroying the camera's calibration points
     """
     if camera.home_points_3d and camera.intrinsics:
-      reprojected = project_world_points_to_pixels(
+      points_2d, points_3d = visible_point_correspondences(
           camera.home_points_3d, rotation, translation, camera.intrinsics,
           camera.distortion)
-      if reprojected is None:
+      if len(points_3d) < MIN_PNP_POINTS:
         # Writing a euler pose here would drop the correspondences entirely
         # and they could only be recovered by re-calibrating, so leave the
         # stored pose alone until the camera points somewhere usable again.
         log.warning(
-            f"{camera.label}: new pose puts calibration points behind the camera; "
-            "keeping the previous pose rather than clearing them")
+            f"{camera.label}: only {len(points_3d)} of {len(camera.home_points_3d)} "
+            f"calibration points visible (need {MIN_PNP_POINTS}); keeping the previous pose")
         return None
       return {
           'name': camera.camera_name,
           'transform_type': POINT_CORRESPONDENCE_TRANSFORM,
-          'transforms': join_point_correspondence_transforms(
-              reprojected, camera.home_points_3d),
+          'transforms': join_point_correspondence_transforms(points_2d, points_3d),
       }
 
     return {
@@ -515,19 +522,36 @@ class PTZPoseContext:
     return compose_ptz_rotation(camera.home_rotation, delta_pan, delta_tilt), delta_pan, delta_tilt
 
   def _resetBacklashState(self, camera: "TrackedCamera"):
-    """Re-centre the backlash tracking on the camera's current home position.
+    """Initialise backlash tracking at the camera's home position.
 
-    Whichever way the head was travelling when the pose was calibrated is
-    unknown, so the physical angle is assumed to sit mid-band there; that
-    bounds any residual error to half the slack instead of the whole of it.
+    The physical angle trails the reported one by half the slack on the side
+    the head last came from. If that direction was declared (``*_home_approach``)
+    it is used; otherwise the angle is assumed mid-band, which leaves up to
+    half the slack of error in *both* directions.
     """
-    camera.home_pan_physical_deg = axis_angle_degrees(
-        camera.home_pan, camera.pan_scale, camera.pan_curve, camera.invert_pan)
-    camera.home_tilt_physical_deg = axis_angle_degrees(
-        camera.home_tilt, camera.tilt_scale, camera.tilt_curve, camera.invert_tilt)
+    camera.home_pan_physical_deg = self._homePhysicalAngle(
+        camera.home_pan, camera.pan_scale, camera.pan_curve, camera.invert_pan,
+        camera.pan_backlash_deg, camera.pan_home_approach)
+    camera.home_tilt_physical_deg = self._homePhysicalAngle(
+        camera.home_tilt, camera.tilt_scale, camera.tilt_curve, camera.invert_tilt,
+        camera.tilt_backlash_deg, camera.tilt_home_approach)
     camera.pan_physical_deg = camera.home_pan_physical_deg
     camera.tilt_physical_deg = camera.home_tilt_physical_deg
     return
+
+  @staticmethod
+  def _homePhysicalAngle(position, scale, curve, invert, backlash_deg, approach):
+    reported = axis_angle_degrees(position, scale, curve, invert)
+    if not approach or backlash_deg <= 0.0:
+      return reported
+    if approach not in HOME_APPROACHES:
+      raise ValueError(f"Unknown home approach {approach!r}; expected one of {HOME_APPROACHES}")
+    # Sign of d(angle)/d(position): scale, curve and invert can all flip it.
+    ahead = axis_angle_degrees(position + 1e-3, scale, curve, invert)
+    direction = 1.0 if ahead >= reported else -1.0
+    if approach == 'decreasing':
+      direction = -direction
+    return reported - direction * backlash_deg / 2.0
 
   def _notifyCalibrationUI(self, camera: "TrackedCamera", update):
     """Publish a pose update so an open calibration page can redraw at once.
@@ -611,7 +635,11 @@ class PTZPoseContext:
     camera.last_applied_rotation = list(info['rotation'])
     camera.last_written_rotation = None
     camera.last_written_transforms = None
-    self._resetBacklashState(camera)
+    # The tracker already knows which side of the slack each axis is on, so
+    # keep that rather than re-centring (which would add half the slack of error).
+    self._rotationFor(camera, pan, tilt)
+    camera.home_pan_physical_deg = camera.pan_physical_deg
+    camera.home_tilt_physical_deg = camera.tilt_physical_deg
     points = len(info['points_3d']) if info['points_3d'] else 0
     log.info(
         f"{camera.label} was re-calibrated externally; adopting it as the new home "
@@ -679,6 +707,8 @@ class PTZPoseContext:
             tilt_curve=entry.get('tilt_curve'),
             pan_backlash_deg=float(entry.get('pan_backlash_deg') or 0.0),
             tilt_backlash_deg=float(entry.get('tilt_backlash_deg') or 0.0),
+            pan_home_approach=entry.get('pan_home_approach'),
+            tilt_home_approach=entry.get('tilt_home_approach'),
             invert_pan=bool(entry.get('invert_pan', self.default_invert_pan)),
             invert_tilt=bool(entry.get('invert_tilt', self.default_invert_tilt)),
             pose_update_mode=pose_update_mode,

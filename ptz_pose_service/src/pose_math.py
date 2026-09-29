@@ -354,6 +354,70 @@ def project_world_points_to_pixels(
   @return  list of [u, v] pixels, or None if any point falls at/behind the
            camera plane (pose can't be represented by these correspondences)
   """
+  pixels = []
+  for point in _project_points(points_3d, rotation, translation, intrinsics, distortion):
+    if point is None:
+      return None
+    pixels.append(point[:2])
+  return pixels
+
+
+def visible_point_correspondences(
+    points_3d: Sequence[Sequence[float]],
+    rotation: Sequence[float],
+    translation: Sequence[float],
+    intrinsics: dict,
+    distortion: Optional[dict] = None,
+) -> Tuple[List[List[float]], List[List[float]]]:
+  """Project world points, keeping only those the camera can actually see.
+
+  A PTZ move takes some calibration points out of frame. Projecting those
+  anyway is actively harmful with a barrel-distortion model: ``1 + k1*r^2``
+  folds back beyond a certain radius (r ~ 0.95 for k1 = -0.37), so a point
+  far outside the frame lands *inside* it at a wrong pixel - and beyond
+  ``r^2 = -1/k1`` mirrors to the opposite side. solvePnP can't undo that,
+  so every such point corrupts the pose Scenescape re-derives. Points behind
+  the camera, past the fold, or outside the image (assumed ``2*cx`` x
+  ``2*cy``) are therefore dropped.
+
+  @return  (points_2d, points_3d) for the visible points only
+  """
+  width, height = 2.0 * intrinsics['cx'], 2.0 * intrinsics['cy']
+  limit_r2 = max_monotonic_radius_squared(distortion)
+  points_2d, kept_3d = [], []
+  for world, point in zip(points_3d, _project_points(
+      points_3d, rotation, translation, intrinsics, distortion)):
+    if point is None:
+      continue
+    u, v, r2 = point
+    if r2 >= limit_r2 or not (0.0 <= u < width and 0.0 <= v < height):
+      continue
+    points_2d.append([u, v])
+    kept_3d.append(list(world))
+  return points_2d, kept_3d
+
+
+def max_monotonic_radius_squared(distortion: Optional[dict] = None) -> float:
+  """Squared normalized radius at which the radial distortion model folds back.
+
+  Distorted radius is ``r*(1 + k1*r^2 + k2*r^4 + k3*r^6)``; past the first
+  point where its derivative reaches zero, distinct rays map to the same
+  pixel and the model no longer describes the lens.
+  """
+  distortion = distortion or {}
+  k1 = distortion.get('k1') or 0.0
+  k2 = distortion.get('k2') or 0.0
+  k3 = distortion.get('k3') or 0.0
+  r2 = 0.0
+  while r2 < 100.0:
+    if 1.0 + 3.0 * k1 * r2 + 5.0 * k2 * r2 * r2 + 7.0 * k3 * r2 ** 3 <= 0.0:
+      return r2
+    r2 += 1e-3
+  return math.inf
+
+
+def _project_points(points_3d, rotation, translation, intrinsics, distortion):
+  """Yield ``(u, v, r2)`` per world point, or None for one at/behind the camera."""
   rot_mat = euler_xyz_degrees_to_matrix(rotation)
   fx, fy = intrinsics['fx'], intrinsics['fy']
   cx, cy = intrinsics['cx'], intrinsics['cy']
@@ -364,7 +428,6 @@ def project_world_points_to_pixels(
   p2 = distortion.get('p2') or 0.0
   k3 = distortion.get('k3') or 0.0
 
-  pixels = []
   for point in points_3d:
     offset = [point[i] - translation[i] for i in range(3)]
     # Camera-frame coordinates: transpose of the camera-to-world rotation.
@@ -372,14 +435,14 @@ def project_world_points_to_pixels(
     y = sum(rot_mat[k][1] * offset[k] for k in range(3))
     z = sum(rot_mat[k][2] * offset[k] for k in range(3))
     if z <= 1e-6:
-      return None
+      yield None
+      continue
     xn, yn = x / z, y / z
     r2 = xn * xn + yn * yn
     radial = 1.0 + k1 * r2 + k2 * r2 * r2 + k3 * r2 * r2 * r2
     xd = xn * radial + 2.0 * p1 * xn * yn + p2 * (r2 + 2.0 * xn * xn)
     yd = yn * radial + p1 * (r2 + 2.0 * yn * yn) + 2.0 * p2 * xn * yn
-    pixels.append([fx * xd + cx, fy * yd + cy])
-  return pixels
+    yield [fx * xd + cx, fy * yd + cy, r2]
 
 
 def split_point_correspondence_transforms(
