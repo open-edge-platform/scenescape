@@ -51,8 +51,7 @@ struct VelocityRotationState {
  * speed falls to or below the lower off threshold. When disabled, the last
  * valid quaternion is retained.
  */
-std::array<double, 4> update_velocity_rotation(double vx, double vy,
-                                                VelocityRotationState& state);
+std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRotationState& state);
 
 /**
  * @brief Per-scope worker thread for processing detection chunks.
@@ -78,8 +77,7 @@ public:
     TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
                    PublishCallback publish_callback, const TrackingConfig& tracking_config,
                    const std::unordered_map<std::string, Camera>& cameras,
-                   ClockFn clock_fn = makeSystemClock(),
-                   bool rotation_from_velocity = false);
+                   ClockFn clock_fn = makeSystemClock(), bool rotation_from_velocity = false);
 
     /// Destructor joins worker thread
     ~TrackingWorker();

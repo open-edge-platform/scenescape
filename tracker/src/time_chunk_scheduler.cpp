@@ -13,12 +13,11 @@ namespace tracker {
 
 TimeChunkScheduler::TimeChunkScheduler(TimeChunkBuffer& buffer, const SceneRegistry& registry,
                                        const TrackingConfig& config,
-                           PublishCallback publish_callback,
-                                       ClockFn clock_fn,
+                                       PublishCallback publish_callback, ClockFn clock_fn,
                                        AssetRotationConfig asset_rotation_config)
     : buffer_(buffer), registry_(registry), config_(config),
-    publish_callback_(std::move(publish_callback)),
-    asset_rotation_config_(std::move(asset_rotation_config)), clock_fn_(std::move(clock_fn)) {
+      publish_callback_(std::move(publish_callback)),
+      asset_rotation_config_(std::move(asset_rotation_config)), clock_fn_(std::move(clock_fn)) {
     // Defense-in-depth: schema and config loader validate this upstream,
     // but guard here to prevent undefined behavior if bypassed.
     if (config_.time_chunking_rate_fps <= 0) {
@@ -179,9 +178,9 @@ TrackingWorker* TimeChunkScheduler::get_or_create_worker(const TrackingScope& sc
         it != asset_rotation_config_.end()) {
         rotation_from_velocity = it->second;
     }
-    auto worker = std::make_unique<TrackingWorker>(
-        scope, scene_display_name, kWorkerQueueCapacity, publish_callback_, config_, cameras,
-        clock_fn_, rotation_from_velocity);
+    auto worker = std::make_unique<TrackingWorker>(scope, scene_display_name, kWorkerQueueCapacity,
+                                                   publish_callback_, config_, cameras, clock_fn_,
+                                                   rotation_from_velocity);
 
     LOG_INFO("Created TrackingWorker for scope {}/{} (total workers: {}, cameras: {})",
              scope.scene_id, scope.category, workers_.size() + 1, cameras.size());

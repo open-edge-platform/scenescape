@@ -44,7 +44,8 @@ private:
 // ---------------------------------------------------------------------------
 ManagerClientFactory make_mock_factory(const std::string& scenes_response,
                                        const std::string& assets_response = R"({"results":[]})") {
-    return [scenes_response, assets_response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
+    return [scenes_response,
+            assets_response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
         auto mock = std::make_unique<test::MockManagerRestClient>();
         EXPECT_CALL(*mock, authenticate(_, _)).Times(1);
         EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(scenes_response));

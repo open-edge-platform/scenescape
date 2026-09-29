@@ -151,20 +151,21 @@ int main(int argc, char* argv[]) {
 
     // Initialize time chunk scheduler with workers
     auto scheduler = std::make_unique<tracker::TimeChunkScheduler>(
-        chunk_buffer, scene_registry, config.tracking, publish_callback,
-        clock_fn, scene_loader->asset_rotation_config());
+        chunk_buffer, scene_registry, config.tracking, publish_callback, clock_fn,
+        scene_loader->asset_rotation_config());
 
     // Initialize message handler with buffer integration
     auto message_handler = std::make_unique<tracker::MessageHandler>(
         g_mqtt_client, scene_registry, chunk_buffer, config.tracking,
         config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path(),
         clock_fn);
+    time
 
-    // In dynamic mode (API source), enable database update notifications.
-    // On receiving any database change (scene create/update/delete, camera change, etc.),
-    // the handler triggers graceful shutdown. Docker restart policy restarts the service,
-    // which re-fetches all scenes from the API.
-    if (config.scenes.source == tracker::SceneSource::Api) {
+        // In dynamic mode (API source), enable database update notifications.
+        // On receiving any database change (scene create/update/delete, camera change, etc.),
+        // the handler triggers graceful shutdown. Docker restart policy restarts the service,
+        // which re-fetches all scenes from the API.
+        if (config.scenes.source == tracker::SceneSource::Api) {
         message_handler->enableDynamicMode(
             []() { g_shutdown_requested = ShutdownReason::SCENE_UPDATE; });
     }
