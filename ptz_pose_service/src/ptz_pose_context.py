@@ -40,10 +40,9 @@ from auto_recalibration import AutoRecalibrator
 # An ONVIF AbsolutePanTiltPositionSpace whose URI advertises the generic,
 # normalized space (conventionally [-1, 1]) - or whose reported range simply
 # isn't wide enough to plausibly already be real degrees - can't be trusted
-# as a 1:1 degrees-per-unit mapping without a configured pan_degrees/
-# tilt_degrees field of view. Cameras that hit this are handled by falling
-# back to auto-recalibration (see AutoRecalibrator) instead of a linear
-# pan/tilt approximation.
+# as a 1:1 degrees-per-unit mapping. Such cameras need an explicitly
+# configured pan_degrees/tilt_degrees (the camera's real physical sweep, from
+# its datasheet) to convert their readings into degrees.
 GENERIC_SPACE_SPAN_THRESHOLD_DEG = 4.0
 
 # Assumed position-reporting range when a camera's ONVIF profile doesn't
@@ -51,6 +50,17 @@ GENERIC_SPACE_SPAN_THRESHOLD_DEG = 4.0
 # pan_degrees/tilt_degrees FOV still has something to scale against (see
 # PTZPoseContext._resolveAxisScales).
 DEFAULT_POSITION_SPACE = (-1.0, 1.0)
+
+# How a camera's Scenescape pose is kept in sync with its live PTZ position:
+#   MODE_PTZ_DELTA  - rotate the calibrated "home" pose by the pan/tilt delta,
+#                     converted to degrees via pan_degrees/tilt_degrees (or an
+#                     explicit pan_scale/tilt_scale). Fast, no video needed.
+#   MODE_AUTOCALIBRATION - run a full AprilTag re-calibration after each move.
+#                     Opt-in: needs a clear view of well-distributed tags, and
+#                     is rejected outright when that geometry is degenerate.
+MODE_PTZ_DELTA = "ptz_delta"
+MODE_AUTOCALIBRATION = "autocalibration"
+POSE_UPDATE_MODES = (MODE_PTZ_DELTA, MODE_AUTOCALIBRATION)
 
 
 @dataclass
@@ -72,15 +82,16 @@ class TrackedCamera:
   invert_tilt: bool = False
   last_applied_rotation: List[float] = field(default_factory=list)
   label: str = ""
-  # When True, this camera's PTZ position space can't be reliably converted
-  # to degrees; pose updates are done via AutoRecalibrator instead of the
-  # linear pan/tilt approximation (see GENERIC_SPACE_SPAN_THRESHOLD_DEG).
-  needs_recalibration: bool = False
+  pose_update_mode: str = MODE_PTZ_DELTA
   last_raw_pan: float = 0.0
   last_raw_tilt: float = 0.0
   last_raw_change_time: float = 0.0
   pending_recal: bool = False
   recal_in_progress: bool = False
+
+  @property
+  def needs_recalibration(self) -> bool:
+    return self.pose_update_mode == MODE_AUTOCALIBRATION
 
   def __post_init__(self):
     if not self.last_applied_rotation:
@@ -105,7 +116,8 @@ class PTZPoseContext:
                autocalibration_url="https://autocalibration.scenescape.intel.com:8443/v1",
                autocalibration_rootcert=None,
                min_raw_delta=0.02, recal_settle_s=2.0,
-               min_camera_height=0.1, max_translation_drift=1.0):
+               min_camera_height=0.1, max_translation_drift=1.0,
+               default_pose_update_mode=MODE_PTZ_DELTA):
     self.resturl = resturl
     self.restauth = restauth
     self.rootcert = rootcert
@@ -118,6 +130,7 @@ class PTZPoseContext:
     self.default_tilt_scale = default_tilt_scale
     self.default_invert_pan = default_invert_pan
     self.default_invert_tilt = default_invert_tilt
+    self.default_pose_update_mode = default_pose_update_mode
 
     self.broker = broker
     self.brokerauth = brokerauth
@@ -317,8 +330,11 @@ class PTZPoseContext:
           f"{host}:{port} reports a generic/normalized PTZ position space "
           f"(pan URI={pan_uri!r}, pan range=[{pan_min}, {pan_max}], "
           f"tilt range=[{tilt_min}, {tilt_max}]) with no pan_degrees/tilt_degrees "
-          "configured; falling back to auto-recalibration on pose change instead of "
-          "a linear pan/tilt approximation")
+          f"configured, so its readings can't be converted to degrees; pose updates will "
+          f"use the --pan-scale/--tilt-scale defaults "
+          f"({self.default_pan_scale}/{self.default_tilt_scale}) and are unlikely to be "
+          "accurate. Set pan_degrees/tilt_degrees (the camera's physical sweep, from its "
+          f"datasheet) for this camera, or switch it to '{MODE_AUTOCALIBRATION}' mode.")
     return self.default_pan_scale, self.default_tilt_scale, reliable
 
   def _fetchCameraInfo(self, scene_camera_uid):
@@ -400,8 +416,10 @@ class PTZPoseContext:
               f"position as home: pan={home_pan} tilt={home_tilt}")
 
         pan_scale, tilt_scale, reliable = self._resolveAxisScales(controller, host, port, entry)
-        auto_recalibrate = entry.get('auto_recalibrate')
-        needs_recalibration = (not reliable) if auto_recalibrate is None else bool(auto_recalibrate)
+        pose_update_mode = entry.get('pose_update_mode', self.default_pose_update_mode)
+        if pose_update_mode not in POSE_UPDATE_MODES:
+          raise ValueError(
+              f"Unknown pose_update_mode {pose_update_mode!r}; expected one of {POSE_UPDATE_MODES}")
 
         camera = TrackedCamera(
             scene_camera_uid=scene_uid,
@@ -417,17 +435,14 @@ class PTZPoseContext:
             tilt_scale=tilt_scale,
             invert_pan=bool(entry.get('invert_pan', self.default_invert_pan)),
             invert_tilt=bool(entry.get('invert_tilt', self.default_invert_tilt)),
-            needs_recalibration=needs_recalibration,
+            pose_update_mode=pose_update_mode,
             last_raw_pan=float(home_pan),
             last_raw_tilt=float(home_tilt),
         )
         self.cameras.append(camera)
-        if needs_recalibration:
-          log.info(
-              f"Tracking PTZ camera {camera.label} in auto-recalibration mode "
-              f"(home rotation={home_rotation})")
-        else:
-          log.info(f"Tracking PTZ camera {camera.label} (home rotation={home_rotation})")
+        log.info(
+            f"Tracking PTZ camera {camera.label} in '{pose_update_mode}' mode "
+            f"(home rotation={home_rotation})")
       except Exception as err:
         log.error(f"Skipping camera {host}:{port} ({scene_uid}): {err}")
 

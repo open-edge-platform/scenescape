@@ -15,7 +15,9 @@ import os
 
 from scene_common import log
 
-from ptz_pose_context import PTZPoseContext
+from ptz_pose_context import (
+    PTZPoseContext, POSE_UPDATE_MODES, MODE_PTZ_DELTA, MODE_AUTOCALIBRATION,
+)
 
 
 def build_argparser():
@@ -58,8 +60,14 @@ def build_argparser():
                       help="discover ONVIF/PTZ cameras on the network, log them, and exit "
                            "(use this to populate the config file, no REST connection needed)")
 
-  # Auto-recalibration fallback (used for cameras whose ONVIF PTZ position
-  # space can't be reliably converted to degrees - see README.md).
+  parser.add_argument("--pose-update-mode", choices=POSE_UPDATE_MODES, default=MODE_PTZ_DELTA,
+                      help="default mechanism for keeping a camera's pose in sync with its PTZ "
+                           f"position ('{MODE_PTZ_DELTA}': rotate the calibrated home pose by the "
+                           f"pan/tilt delta; '{MODE_AUTOCALIBRATION}': re-run AprilTag "
+                           "auto-calibration after each move). Overridable per camera via "
+                           "'pose_update_mode' in the config file.")
+
+  # Settings for the opt-in autocalibration pose update mode.
   parser.add_argument("--broker", default="broker.scenescape.intel.com",
                       help="MQTT broker host[:port] used to request calibration images")
   parser.add_argument("--brokerauth", default="/run/secrets/browser.auth",
@@ -108,7 +116,8 @@ def main():
       autocalibration_rootcert=args.autocalibration_rootcert,
       min_raw_delta=args.min_raw_delta, recal_settle_s=args.recal_settle_s,
       min_camera_height=args.min_camera_height,
-      max_translation_drift=args.max_translation_drift)
+      max_translation_drift=args.max_translation_drift,
+      default_pose_update_mode=args.pose_update_mode)
   ctx.setup()
   ctx.loop_forever()
   return 0

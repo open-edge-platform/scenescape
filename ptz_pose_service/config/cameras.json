@@ -7,13 +7,13 @@
       "profile_token": null,
       "home_pan": null,
       "home_tilt": null,
-      "pan_degrees": null,
-      "tilt_degrees": null,
+      "pan_degrees": 332.0,
+      "tilt_degrees": 120.0,
       "pan_scale": null,
       "tilt_scale": null,
       "invert_pan": false,
       "invert_tilt": false,
-      "auto_recalibrate": null
+      "pose_update_mode": "ptz_delta"
     }
   ]
 }

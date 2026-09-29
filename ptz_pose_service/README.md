@@ -68,7 +68,8 @@ docker run --rm --network host intel/scenescape-ptz-pose-service:latest \
       "pan_scale": null,
       "tilt_scale": null,
       "invert_pan": false,
-      "invert_tilt": false
+      "invert_tilt": false,
+      "pose_update_mode": "ptz_delta"
     }
   ]
 }
@@ -97,31 +98,44 @@ docker run --rm --network host intel/scenescape-ptz-pose-service:latest \
   advertise a usable position range, or its space's real degrees are known
   directly (in which case a scale of `1.0` is normally correct).
 - `invert_pan`/`invert_tilt`: per-camera overrides of `--invert-pan`/`--invert-tilt`.
-- `auto_recalibrate`: optional bool override. If a camera's ONVIF position
-  space can't be reliably converted to degrees (see below), it's put into
-  auto-recalibration mode automatically; set this explicitly to force that
-  mode on/off regardless of the detected position space.
+- `pose_update_mode`: per-camera override of `--pose-update-mode` — which
+  mechanism keeps this camera's pose in sync (see below).
 
-## Auto-recalibration fallback (generic/normalized position spaces)
+## Pose update modes
 
-Some ONVIF PTZ cameras only report a generic, normalized pan/tilt position
-(conventionally `[-1, 1]`) with no reliable way to convert it to degrees
-without a hand-measured field of view. For those cameras (and without
-`pan_degrees`/`tilt_degrees`/`pan_scale`/`tilt_scale` configured), this
-service falls back to full AprilTag-based recalibration instead of a linear
-approximation: it watches the camera's raw pan/tilt for movement, waits for
-it to settle (`--recal-settle-s`), grabs a fresh frame via the same MQTT
-`getcalibrationimage` mechanism the manual calibration UI uses, and asks the
-autocalibration service to compute a brand new pose.
+How a camera's Scenescape pose is kept in sync with its live PTZ position is
+selected with `--pose-update-mode` (or per camera via `pose_update_mode`):
 
-Because AprilTag-based pose solves can occasionally be poorly conditioned
-(see the autocalibration service's own point-spread and camera-height
-checks), a resulting pose is only trusted and pushed to Scenescape if it
-passes two additional sanity checks (`--min-camera-height`,
-`--max-translation-drift`): a fixed PTZ mount's translation shouldn't move
-between recalibrations, and it should always be above the floor. A rejected
-result just keeps the previous pose and logs why; it's retried on the next
-pan/tilt change.
+### `ptz_delta` (default)
+
+Rotates the camera's calibrated "home" pose by its pan/tilt delta, converted
+to degrees via `pan_degrees`/`tilt_degrees` (or an explicit
+`pan_scale`/`tilt_scale`). Needs no video feed and no AprilTags — but it does
+need the camera's physical sweep range to be known, since most ONVIF cameras
+report position in a normalized `[-1, 1]` space rather than real degrees. If
+the position space can't be converted to degrees and no `pan_degrees`/
+`tilt_degrees` is configured, the service logs a warning and falls back to
+the `--pan-scale`/`--tilt-scale` defaults, which will not be accurate.
+
+### `autocalibration` (opt-in)
+
+Re-runs full AprilTag-based auto-calibration after each move: watches the raw
+pan/tilt for movement, waits for it to settle (`--recal-settle-s`), grabs a
+fresh frame via the same MQTT `getcalibrationimage` mechanism the manual
+calibration UI uses, and asks the autocalibration service for a new pose.
+
+This requires a clear view of well-distributed AprilTags at every pan/tilt
+position the camera will be used at. Tags that are (near-)coplanar or lack
+depth/height variation make the underlying `solvePnP` solve unreliable, and
+the autocalibration service rejects such results outright rather than
+returning a wrong pose. Results are additionally sanity-checked here against
+`--min-camera-height` and `--max-translation-drift` (a fixed PTZ mount's
+position shouldn't move between recalibrations, and should be above the
+floor). A rejected result keeps the previous pose, logs why, and is retried
+on the next pan/tilt change.
+
+Auto-calibration can always be triggered manually from the camera's
+calibration page in the Scenescape UI, regardless of the configured mode.
 
 ## Environment variables / credentials
 
@@ -141,6 +155,11 @@ pan/tilt change.
 | `--min-delta-deg` | `0.2` | minimum rotation change before a REST update is sent |
 | `--pan-scale` / `--tilt-scale` | `1.0` | default degrees per unit of ONVIF pan/tilt |
 | `--invert-pan` / `--invert-tilt` | `false` | flip sign of pan/tilt contribution |
+| `--pose-update-mode` | `ptz_delta` | default pose sync mechanism (`ptz_delta` or `autocalibration`) |
+| `--recal-settle-s` | `2.0` | (autocalibration mode) how long pan/tilt must be still before recalibrating |
+| `--min-raw-delta` | `0.02` | (autocalibration mode) minimum raw pan/tilt change counted as movement |
+| `--min-camera-height` | `0.1` | (autocalibration mode) reject a result below this Z |
+| `--max-translation-drift` | `1.0` | (autocalibration mode) reject a result that moved further than this |
 | `--discover-only` | `false` | discover cameras, log them, exit (no REST connection) |
 
 ## Build
