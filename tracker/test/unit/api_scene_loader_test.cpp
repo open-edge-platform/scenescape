@@ -518,7 +518,9 @@ TEST_F(ApiSceneLoaderPipelineTest, FullPipelineReturnsScenes) {
     mgr.url = "https://localhost:443";
     mgr.auth_path = auth_file.path().string();
 
-    auto factory = make_mock_factory(make_api_response());
+    auto factory = make_mock_factory(
+        make_api_response(),
+        R"({"results":[{"name":"vehicle","rotation_from_velocity":true},{"name":"person","rotation_from_velocity":false}]})");
     auto loader = create_api_scene_loader(mgr, schema_dir_, factory);
 
     auto scenes = loader->load();
@@ -579,6 +581,8 @@ TEST_F(ApiSceneLoaderPipelineTest, AssetsFailureKeepsScenesAndEmptiesObjectClass
         EXPECT_EQ(loader->load().size(), 1u);
         EXPECT_TRUE(loader->objectClasses().empty());
     }
+    EXPECT_TRUE(loader->asset_rotation_config().at("vehicle"));
+    EXPECT_FALSE(loader->asset_rotation_config().at("person"));
 }
 
 TEST_F(ApiSceneLoaderPipelineTest, MultipleScenesAndCameras) {
