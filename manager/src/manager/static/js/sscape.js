@@ -5,6 +5,7 @@
 
 import {
   APP_NAME,
+  CAMERA_POSE,
   CMD_CAMERA,
   DATA_CAMERA,
   DATA_REGULATED,
@@ -129,6 +130,15 @@ async function checkBrokerConnections() {
         "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
       );
 
+      // A camera's pose can change while its calibration page is open (the PTZ
+      // pose service republishes it as the camera pans and tilts), so redraw
+      // from these instead of only on reload.
+      if (window.location.href.includes("/cam/calibrate/")) {
+        const poseTopic = APP_NAME + CAMERA_POSE + $("#sensor_id").val();
+        client.subscribe(poseTopic);
+        console.log("Subscribed to " + poseTopic);
+      }
+
       if (document.getElementById("scene_children")?.value !== "0") {
         client.subscribe(APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
         console.log("Subscribed to " + APP_NAME + SYS_CHILDSCENE_STATUS + "/+");
@@ -250,6 +260,8 @@ async function checkBrokerConnections() {
         plotSingleton(msg);
       } else if (topic.includes(IMAGE_CALIBRATE)) {
         updateCalibrationView(msg);
+      } else if (topic.includes(CAMERA_POSE)) {
+        handleAutoCalibrationPose(msg);
       } else if (topic.includes(IMAGE_CAMERA)) {
         // Skip processing regular camera images on calibration page
         if (window.location.href.includes("/cam/calibrate/")) {

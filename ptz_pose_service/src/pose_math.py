@@ -51,6 +51,89 @@ def normalize_degrees(angle: float) -> float:
   return angle
 
 
+def axis_angle_degrees(
+    position: float,
+    scale: float,
+    curve: Optional[Sequence[float]] = None,
+    invert: bool = False,
+) -> float:
+  """Absolute rotation angle an axis is at for a given ONVIF position.
+
+  A single degrees-per-unit ``scale`` assumes the axis turns uniformly across
+  its travel. Real heads need not: on the camera used for development the
+  tilt axis measured 53.8 deg/unit near the middle of its range and
+  60.6 deg/unit near the top, so a constant scale fitted mid-range
+  undershoots at one end and overshoots at the other. Passing ``curve``
+  instead models the position-to-angle relationship as a polynomial
+  (coefficients in increasing power, so ``[0, 42.05, 9.41]`` means
+  ``42.05*t + 9.41*t^2``). Only differences between two positions are ever
+  used, so any constant term cancels.
+  """
+  if curve:
+    angle = sum(c * position ** i for i, c in enumerate(curve))
+  else:
+    angle = position * scale
+  return -angle if invert else angle
+
+
+def apply_backlash(
+    previous_angle: Optional[float],
+    reported_angle: float,
+    backlash_degrees: float,
+) -> float:
+  """Where an axis physically is, given where it reports being.
+
+  Gear slack puts the position encoder on the motor side of the gearbox, so
+  when travel reverses the encoder moves while the camera does not, until the
+  slack is taken up. The camera therefore trails the reported position by up
+  to half the slack either side, which is the classic backlash deadband:
+  the physical angle only moves when the reported angle drags it past the
+  edge of that band.
+
+  Measured on the development camera by arriving at the same reported tilt
+  from each direction: 2.83 deg of slack on tilt (consistent to 0.7 deg
+  across its travel) and none measurable on pan.
+
+  @param  previous_angle    last known physical angle, or None to start
+                            centred on the reported one
+  @param  reported_angle    angle implied by the camera's reported position
+  @param  backlash_degrees  total slack; 0 disables the model
+  @return                   physical angle in degrees
+  """
+  if backlash_degrees <= 0.0 or previous_angle is None:
+    return reported_angle
+  half = backlash_degrees / 2.0
+  return min(max(previous_angle, reported_angle - half), reported_angle + half)
+
+
+def compose_ptz_rotation(
+    home_rotation: Sequence[float],
+    delta_pan_degrees: float,
+    delta_tilt_degrees: float,
+) -> List[float]:
+  """Rotate a camera's home pose by pan/tilt deltas already in degrees.
+
+  A pan/tilt head rotates the camera about two fixed mechanical axes: pan
+  swings the whole head about the world vertical (Z) axis, and tilt pivots
+  the camera about its own horizontal (local X) axis. That composes as
+  ``R_new = Rz(dpan) @ R_home @ Rx(dtilt)``. Both were confirmed on a real
+  head: the recovered axes were within 2 degrees of world Z and camera X.
+
+  This must be done on rotation matrices rather than by adding the deltas to
+  the stored ``[roll, pitch, yaw]`` triple: those are *intrinsic* Euler
+  angles, so their third component is a rotation about an already-rotated
+  local axis, not the world vertical. Measured against ground-truth poses, a
+  pure pan move changes all three Euler components (e.g. roll -14 deg,
+  pitch +34 deg, yaw +20 deg), so adding a delta to yaw alone produces a
+  badly wrong pose.
+  """
+  rotated = matrix_multiply(
+      rotation_matrix_z(delta_pan_degrees),
+      matrix_multiply(euler_xyz_degrees_to_matrix(home_rotation),
+                      rotation_matrix_x(delta_tilt_degrees)))
+  return matrix_to_euler_xyz_degrees(rotated)
+
+
 def rotation_from_ptz_delta(
     home_rotation: Sequence[float],
     home_pan: float,
@@ -61,21 +144,14 @@ def rotation_from_ptz_delta(
     tilt_scale: float = 1.0,
     invert_pan: bool = False,
     invert_tilt: bool = False,
+    pan_curve: Optional[Sequence[float]] = None,
+    tilt_curve: Optional[Sequence[float]] = None,
 ) -> Tuple[List[float], float, float]:
   """Compute an updated camera rotation from a pan/tilt reading.
 
-  A pan/tilt head rotates the camera about two fixed mechanical axes: pan
-  swings the whole head about the world vertical (Z) axis, and tilt pivots
-  the camera about its own horizontal (local X) axis. That composes as
-  ``R_new = Rz(dpan) @ R_home @ Rx(dtilt)``.
-
-  This must be done on rotation matrices rather than by adding the deltas to
-  the stored ``[roll, pitch, yaw]`` triple: those are *intrinsic* Euler
-  angles, so their third component is a rotation about an already-rotated
-  local axis, not the world vertical. Measured against ground-truth poses on
-  a real head, a pure pan move changes all three Euler components (e.g. roll
-  -14 deg, pitch +34 deg, yaw +20 deg), so adding a delta to yaw alone
-  produces a badly wrong pose.
+  Convenience wrapper over ``axis_angle_degrees`` and
+  ``compose_ptz_rotation`` for callers that don't model backlash; see those
+  for the details.
 
   @param      home_rotation   [roll, pitch, yaw] in degrees, the camera's
                               calibrated rotation stored in Scenescape
@@ -87,17 +163,16 @@ def rotation_from_ptz_delta(
   @param      tilt_scale      degrees rotated about camera X per unit of ONVIF tilt
   @param      invert_pan      flip the sign of the pan contribution
   @param      invert_tilt     flip the sign of the tilt contribution
+  @param      pan_curve       optional polynomial replacing ``pan_scale``
+  @param      tilt_curve      optional polynomial replacing ``tilt_scale``
   @return     (new_rotation, delta_pan_degrees, delta_tilt_degrees)
   """
-  delta_pan_degrees = (pan - home_pan) * pan_scale * (-1.0 if invert_pan else 1.0)
-  delta_tilt_degrees = (tilt - home_tilt) * tilt_scale * (-1.0 if invert_tilt else 1.0)
-
-  rotated = matrix_multiply(
-      rotation_matrix_z(delta_pan_degrees),
-      matrix_multiply(euler_xyz_degrees_to_matrix(home_rotation),
-                      rotation_matrix_x(delta_tilt_degrees)))
-
-  return matrix_to_euler_xyz_degrees(rotated), delta_pan_degrees, delta_tilt_degrees
+  delta_pan_degrees = (axis_angle_degrees(pan, pan_scale, pan_curve, invert_pan)
+                       - axis_angle_degrees(home_pan, pan_scale, pan_curve, invert_pan))
+  delta_tilt_degrees = (axis_angle_degrees(tilt, tilt_scale, tilt_curve, invert_tilt)
+                        - axis_angle_degrees(home_tilt, tilt_scale, tilt_curve, invert_tilt))
+  return (compose_ptz_rotation(home_rotation, delta_pan_degrees, delta_tilt_degrees),
+          delta_pan_degrees, delta_tilt_degrees)
 
 
 def rotation_delta_magnitude(rotation_a: Sequence[float], rotation_b: Sequence[float]) -> float:

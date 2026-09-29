@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from scene_common import log
+from scene_common.mqtt import PubSub
 from scene_common.rest_client import RESTClient
 
 from dlstreamer.onvif import (
@@ -32,9 +33,10 @@ from dlstreamer.onvif import (
 )
 
 from pose_math import (
-    rotation_from_ptz_delta, rotation_delta_magnitude, scale_from_fov,
-    implausible_recalibration_reason, project_world_points_to_pixels,
-    split_point_correspondence_transforms, join_point_correspondence_transforms,
+    rotation_delta_magnitude, scale_from_fov, axis_angle_degrees, apply_backlash,
+    compose_ptz_rotation, implausible_recalibration_reason,
+    project_world_points_to_pixels, split_point_correspondence_transforms,
+    join_point_correspondence_transforms,
 )
 from auto_recalibration import AutoRecalibrator
 
@@ -82,6 +84,18 @@ class TrackedCamera:
   home_tilt: float
   pan_scale: float = 1.0
   tilt_scale: float = 1.0
+  # Optional polynomials replacing the constant scales for heads whose travel
+  # isn't uniform (see pose_math.axis_delta_degrees).
+  pan_curve: Optional[List[float]] = None
+  tilt_curve: Optional[List[float]] = None
+  # Gear slack, in degrees, and the physical angle each axis is tracked to be
+  # at within it (see pose_math.apply_backlash).
+  pan_backlash_deg: float = 0.0
+  tilt_backlash_deg: float = 0.0
+  pan_physical_deg: Optional[float] = None
+  tilt_physical_deg: Optional[float] = None
+  home_pan_physical_deg: float = 0.0
+  home_tilt_physical_deg: float = 0.0
   invert_pan: bool = False
   invert_tilt: bool = False
   last_applied_rotation: List[float] = field(default_factory=list)
@@ -97,6 +111,11 @@ class TrackedCamera:
   last_raw_change_time: float = 0.0
   pending_recal: bool = False
   recal_in_progress: bool = False
+  # Pose last written by this service, used to tell its own updates apart from
+  # a calibration applied elsewhere (see PTZPoseContext._rebaselineIfRecalibrated).
+  last_written_transforms: Optional[List[float]] = None
+  last_written_rotation: Optional[List[float]] = None
+  last_rebaseline_check: float = 0.0
 
   @property
   def needs_recalibration(self) -> bool:
@@ -126,7 +145,9 @@ class PTZPoseContext:
                autocalibration_rootcert=None,
                min_raw_delta=0.02, recal_settle_s=2.0,
                min_camera_height=0.1, max_translation_drift=1.0,
-               default_pose_update_mode=MODE_PTZ_DELTA):
+               default_pose_update_mode=MODE_PTZ_DELTA,
+               rebaseline_check_s=2.0, rebaseline_tolerance_deg=0.5,
+               notify_ui=True):
     self.resturl = resturl
     self.restauth = restauth
     self.rootcert = rootcert
@@ -140,6 +161,12 @@ class PTZPoseContext:
     self.default_invert_pan = default_invert_pan
     self.default_invert_tilt = default_invert_tilt
     self.default_pose_update_mode = default_pose_update_mode
+    # How often to check whether the stored pose was changed by someone else
+    # (e.g. a manual re-calibration), and how much difference counts as one.
+    self.rebaseline_check_s = rebaseline_check_s
+    self.rebaseline_tolerance_deg = rebaseline_tolerance_deg
+    self.notify_ui = notify_ui
+    self.notify_pubsub = None
 
     self.broker = broker
     self.brokerauth = brokerauth
@@ -389,6 +416,7 @@ class PTZPoseContext:
         'name': name,
         'intrinsics': result.get('intrinsics'),
         'distortion': result.get('distortion'),
+        'transforms': result.get('transforms'),
         'points_2d': points_2d,
         'points_3d': points_3d,
     }
@@ -432,25 +460,31 @@ class PTZPoseContext:
     its native transform type (the 2D calibration view still has points to
     draw) and Scenescape re-derives the same pose from them via solvePnP.
 
-    Otherwise - or if the new pose would push a point behind the camera -
-    fall back to a plain euler pose. ``transform_type`` and ``scale`` must be
-    included alongside ``rotation``/``translation`` (see ``_fetchCameraInfo``)
-    or the update is silently ignored.
+    Otherwise a plain euler pose is used. ``transform_type`` and ``scale``
+    must be included alongside ``rotation``/``translation`` (see
+    ``_fetchCameraInfo``) or the update is silently ignored.
+
+    @return  the update payload, or None if this pose can't be represented
+             without destroying the camera's calibration points
     """
     if camera.home_points_3d and camera.intrinsics:
       reprojected = project_world_points_to_pixels(
           camera.home_points_3d, rotation, translation, camera.intrinsics,
           camera.distortion)
-      if reprojected is not None:
-        return {
-            'name': camera.camera_name,
-            'transform_type': POINT_CORRESPONDENCE_TRANSFORM,
-            'transforms': join_point_correspondence_transforms(
-                reprojected, camera.home_points_3d),
-        }
-      log.warning(
-          f"{camera.label}: new pose puts calibration points behind the camera; "
-          "falling back to a euler pose update (2D calibration points will be cleared)")
+      if reprojected is None:
+        # Writing a euler pose here would drop the correspondences entirely
+        # and they could only be recovered by re-calibrating, so leave the
+        # stored pose alone until the camera points somewhere usable again.
+        log.warning(
+            f"{camera.label}: new pose puts calibration points behind the camera; "
+            "keeping the previous pose rather than clearing them")
+        return None
+      return {
+          'name': camera.camera_name,
+          'transform_type': POINT_CORRESPONDENCE_TRANSFORM,
+          'transforms': join_point_correspondence_transforms(
+              reprojected, camera.home_points_3d),
+      }
 
     return {
         'name': camera.camera_name,
@@ -459,6 +493,131 @@ class PTZPoseContext:
         'translation': translation,
         'scale': [1.0, 1.0, 1.0],
     }
+
+  def _rotationFor(self, camera: "TrackedCamera", pan, tilt):
+    """Rotation the camera is at now, tracking each axis through its backlash.
+
+    The physical angle is carried between polls because backlash is history
+    dependent: the same reported position means different things depending on
+    which way the head last travelled.
+    """
+    reported_pan = axis_angle_degrees(pan, camera.pan_scale, camera.pan_curve,
+                                      camera.invert_pan)
+    reported_tilt = axis_angle_degrees(tilt, camera.tilt_scale, camera.tilt_curve,
+                                       camera.invert_tilt)
+    camera.pan_physical_deg = apply_backlash(
+        camera.pan_physical_deg, reported_pan, camera.pan_backlash_deg)
+    camera.tilt_physical_deg = apply_backlash(
+        camera.tilt_physical_deg, reported_tilt, camera.tilt_backlash_deg)
+
+    delta_pan = camera.pan_physical_deg - camera.home_pan_physical_deg
+    delta_tilt = camera.tilt_physical_deg - camera.home_tilt_physical_deg
+    return compose_ptz_rotation(camera.home_rotation, delta_pan, delta_tilt), delta_pan, delta_tilt
+
+  def _resetBacklashState(self, camera: "TrackedCamera"):
+    """Re-centre the backlash tracking on the camera's current home position.
+
+    Whichever way the head was travelling when the pose was calibrated is
+    unknown, so the physical angle is assumed to sit mid-band there; that
+    bounds any residual error to half the slack instead of the whole of it.
+    """
+    camera.home_pan_physical_deg = axis_angle_degrees(
+        camera.home_pan, camera.pan_scale, camera.pan_curve, camera.invert_pan)
+    camera.home_tilt_physical_deg = axis_angle_degrees(
+        camera.home_tilt, camera.tilt_scale, camera.tilt_curve, camera.invert_tilt)
+    camera.pan_physical_deg = camera.home_pan_physical_deg
+    camera.tilt_physical_deg = camera.home_tilt_physical_deg
+    return
+
+  def _notifyCalibrationUI(self, camera: "TrackedCamera", update):
+    """Publish a pose update so an open calibration page can redraw at once.
+
+    Writing to the database alone leaves a calibration page showing the pose
+    it loaded with. Publishing on the camera's pose topic lets the UI redraw
+    immediately, and keeps this service independent of the autocalibration
+    service - the browser subscribes to the broker directly. Best-effort: a
+    failure here only costs the live redraw, so it must never interrupt
+    tracking.
+    """
+    if not self.notify_ui:
+      return
+    if update.get('transform_type') != POINT_CORRESPONDENCE_TRANSFORM:
+      return
+    split = split_point_correspondence_transforms(update.get('transforms') or [])
+    if split is None:
+      return
+    try:
+      if self.notify_pubsub is None:
+        self.notify_pubsub = PubSub(self.brokerauth, None, self.brokerrootcert, self.broker)
+        self.notify_pubsub.connect()
+        self.notify_pubsub.loopStart()
+      points_2d, points_3d = split
+      self.notify_pubsub.publish(
+          PubSub.formatTopic(PubSub.DATA_AUTOCALIB_CAM_POSE,
+                             camera_id=camera.scene_camera_uid),
+          json.dumps({'status': 'success',
+                      'camera_id': camera.scene_camera_uid,
+                      'calibration_points_2d': points_2d,
+                      'calibration_points_3d': points_3d}))
+    except Exception as err:
+      log.warning(f"Could not publish pose update for {camera.label}: {err}")
+      self.notify_pubsub = None
+    return
+
+  def _rebaselineIfRecalibrated(self, camera: "TrackedCamera", pan, tilt):
+    """Adopt an externally applied calibration as the new home reference.
+
+    The camera's pose can be re-calibrated at any time from the Scenescape UI
+    while this service is running. Without noticing that, the service would
+    keep rotating the pose it cached at startup and write back that stale
+    snapshot - including its stale set of calibration points, silently
+    replacing the ones the new calibration produced.
+
+    A stored pose that differs from what this service last wrote can only
+    have come from somewhere else, so it is taken as the new home, paired
+    with the pan/tilt the camera is at right now.
+    """
+    now = time.monotonic()
+    if now - camera.last_rebaseline_check < self.rebaseline_check_s:
+      return
+    camera.last_rebaseline_check = now
+
+    try:
+      info = self._fetchCameraInfo(camera.scene_camera_uid)
+    except Exception as err:
+      log.error(f"Could not check {camera.label} for external re-calibration: {err}")
+      return
+
+    reference = camera.last_written_rotation or camera.home_rotation
+    if rotation_delta_magnitude(info['rotation'], reference) < self.rebaseline_tolerance_deg:
+      return
+    # Scenescape re-derives rotation from written correspondences via solvePnP,
+    # and that value drifts a little from the one used to generate them, so the
+    # rotation alone would flag this service's own updates as external. The
+    # stored correspondences are compared instead: they are reproduced exactly.
+    if camera.last_written_transforms is not None and info['transforms'] is not None:
+      if len(camera.last_written_transforms) == len(info['transforms']) and all(
+          abs(a - b) < 1e-6
+          for a, b in zip(camera.last_written_transforms, info['transforms'])):
+        return
+
+    camera.home_rotation = info['rotation']
+    camera.home_translation = info['translation']
+    camera.home_points_3d = info['points_3d']
+    camera.intrinsics = info['intrinsics']
+    camera.distortion = info['distortion']
+    camera.home_pan = pan
+    camera.home_tilt = tilt
+    camera.last_applied_rotation = list(info['rotation'])
+    camera.last_written_rotation = None
+    camera.last_written_transforms = None
+    self._resetBacklashState(camera)
+    points = len(info['points_3d']) if info['points_3d'] else 0
+    log.info(
+        f"{camera.label} was re-calibrated externally; adopting it as the new home "
+        f"(rotation={info['rotation']}, {points} calibration points, "
+        f"pan={pan:.6f} tilt={tilt:.6f})")
+    return
 
   def setup(self):
     """Load the camera map, resolve ONVIF profiles, fetch each camera's
@@ -516,6 +675,10 @@ class PTZPoseContext:
             home_tilt=float(home_tilt),
             pan_scale=pan_scale,
             tilt_scale=tilt_scale,
+            pan_curve=entry.get('pan_curve'),
+            tilt_curve=entry.get('tilt_curve'),
+            pan_backlash_deg=float(entry.get('pan_backlash_deg') or 0.0),
+            tilt_backlash_deg=float(entry.get('tilt_backlash_deg') or 0.0),
             invert_pan=bool(entry.get('invert_pan', self.default_invert_pan)),
             invert_tilt=bool(entry.get('invert_tilt', self.default_invert_tilt)),
             pose_update_mode=pose_update_mode,
@@ -526,6 +689,7 @@ class PTZPoseContext:
             last_raw_tilt=float(home_tilt),
         )
         self.cameras.append(camera)
+        self._resetBacklashState(camera)
         points_note = (f", reprojecting {len(info['points_3d'])} calibration points"
                        if info['points_3d'] and info['intrinsics'] else "")
         log.info(
@@ -549,15 +713,16 @@ class PTZPoseContext:
     pan = status.position.pan
     tilt = status.position.tilt
 
-    new_rotation, delta_pan, delta_tilt = rotation_from_ptz_delta(
-        camera.home_rotation, camera.home_pan, camera.home_tilt, pan, tilt,
-        pan_scale=camera.pan_scale, tilt_scale=camera.tilt_scale,
-        invert_pan=camera.invert_pan, invert_tilt=camera.invert_tilt)
+    self._rebaselineIfRecalibrated(camera, pan, tilt)
+
+    new_rotation, delta_pan, delta_tilt = self._rotationFor(camera, pan, tilt)
 
     if rotation_delta_magnitude(new_rotation, camera.last_applied_rotation) < self.min_delta_deg:
       return
 
     update = self._buildPoseUpdate(camera, new_rotation, camera.home_translation)
+    if update is None:
+      return
     result = self.rest.updateCamera(camera.scene_camera_uid, update)
     if result.errors:
       log.error(f"Failed to update pose for {camera.label}: {result.errors}")
@@ -567,6 +732,9 @@ class PTZPoseContext:
         f"Camera {camera.label} pose updated: pan={pan:.3f} (Δ{delta_pan:+.2f}°) "
         f"tilt={tilt:.3f} (Δ{delta_tilt:+.2f}°) rotation={new_rotation}")
     camera.last_applied_rotation = new_rotation
+    camera.last_written_rotation = list(new_rotation)
+    camera.last_written_transforms = update.get('transforms')
+    self._notifyCalibrationUI(camera, update)
     return
 
   def _pollRecalibratingCamera(self, camera: TrackedCamera):
@@ -614,6 +782,8 @@ class PTZPoseContext:
               "keeping previous pose")
           return
         update = self._buildPoseUpdate(camera, result['rotation'], result['translation'])
+        if update is None:
+          return
         rest_result = self.rest.updateCamera(camera.scene_camera_uid, update)
         if rest_result.errors:
           log.error(f"Failed to save recalibrated pose for {camera.label}: {rest_result.errors}")

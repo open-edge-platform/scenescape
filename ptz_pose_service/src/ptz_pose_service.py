@@ -94,6 +94,16 @@ def build_argparser():
                       help="reject an auto-recalibration result whose translation moved more "
                            "than this (scene units, normally meters) from the last known-good "
                            "position; a fixed PTZ mount's position shouldn't change")
+  parser.add_argument("--rebaseline-check-s", type=float, default=2.0,
+                      help="how often to check whether the stored pose was re-calibrated "
+                           "elsewhere (e.g. from the Scenescape UI) and should replace the "
+                           "cached home reference; 0 disables the check")
+  parser.add_argument("--rebaseline-tolerance-deg", type=float, default=0.5,
+                      help="how far the stored pose must differ from the last one this service "
+                           "wrote before it counts as an external re-calibration")
+  parser.add_argument("--no-notify-ui", dest="notify_ui", action="store_false", default=True,
+                      help="don't push pose updates to open calibration pages (they will then "
+                           "only show a new pose after a reload)")
   return parser
 
 
@@ -117,7 +127,10 @@ def main():
       min_raw_delta=args.min_raw_delta, recal_settle_s=args.recal_settle_s,
       min_camera_height=args.min_camera_height,
       max_translation_drift=args.max_translation_drift,
-      default_pose_update_mode=args.pose_update_mode)
+      default_pose_update_mode=args.pose_update_mode,
+      rebaseline_check_s=args.rebaseline_check_s,
+      rebaseline_tolerance_deg=args.rebaseline_tolerance_deg,
+      notify_ui=args.notify_ui)
   ctx.setup()
   ctx.loop_forever()
   return 0
