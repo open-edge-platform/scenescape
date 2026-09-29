@@ -6,18 +6,41 @@
 """Reboot an ONVIF-capable camera via the device management SystemReboot command."""
 
 import argparse
+import getpass
 import os
 import site
 
 from onvif import ONVIFCamera
+from onvif.exceptions import ONVIFError
 
 
 def build_argparser():
   parser = argparse.ArgumentParser(description=__doc__)
-  parser.add_argument("camera", nargs="?", default="",
+  parser.add_argument("camera", nargs="?", default="192.168.0.91",
                        help="IP/hostname of camera, optionally with :port")
-  parser.add_argument("--auth", default="", help="user:pass to authenticate as")
+  parser.add_argument("--username", default=os.environ.get("ONVIF_ADMIN_USERNAME"),
+                      help="ONVIF admin username (default: ONVIF_ADMIN_USERNAME env var, "
+                           "else prompted)")
   return parser
+
+
+def prompt_credentials(username):
+  """Resolve ONVIF admin credentials, prompting for whatever wasn't supplied.
+
+  Deliberately reads ONVIF_ADMIN_USERNAME/ONVIF_ADMIN_PASSWORD rather than the
+  ONVIF_USERNAME/ONVIF_PASSWORD pair the pose service runs with: rebooting
+  needs an administrator account, while the service only needs a PTZ-capable
+  one, and the two must stay independent.
+
+  The password is never accepted as a CLI argument so it can't leak into
+  shell history or the process list.
+  """
+  while not username:
+    username = input("ONVIF admin username: ").strip()
+  password = os.environ.get("ONVIF_ADMIN_PASSWORD")
+  while not password:
+    password = getpass.getpass(f"ONVIF password for {username}: ")
+  return username, password
 
 
 def find_wsdl_path():
@@ -39,23 +62,29 @@ def main():
     cam_port = int(cam_ip[idx + 1:])
     cam_ip = cam_ip[:idx]
 
-  idx = args.auth.find(':')
-  if idx < 0:
-    print("Need both user and password separated by a colon for authentication")
-    return 1
-  user = args.auth[:idx]
-  password = args.auth[idx + 1:]
+  user, password = prompt_credentials(args.username)
 
   wsdl_path = find_wsdl_path()
   print("WSDL is", wsdl_path)
 
   print(f"Attempting connection to {cam_ip}:{cam_port}")
-  mycam = ONVIFCamera(cam_ip, cam_port, user, password, wsdl_path)
-  hostname = mycam.devicemgmt.GetHostname()
+  try:
+    mycam = ONVIFCamera(cam_ip, cam_port, user, password, wsdl_path)
+    hostname = mycam.devicemgmt.GetHostname()
+  except ONVIFError as err:
+    print(f"Failed to connect to {cam_ip}:{cam_port} as {user}: {err}")
+    return 1
   print("Connected to", hostname.Name)
 
   print("Sending SystemReboot request...")
-  result = mycam.devicemgmt.SystemReboot()
+  try:
+    result = mycam.devicemgmt.SystemReboot()
+  except ONVIFError as err:
+    # Cameras commonly expose read-only ONVIF accounts that can drive PTZ but
+    # can't reboot; that surfaces here as an "Authority failure" fault.
+    print(f"Reboot rejected by camera: {err}")
+    print(f"'{user}' may lack administrator rights; retry with an admin account.")
+    return 1
   print("Camera response:", result)
 
   return 0
