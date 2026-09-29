@@ -1,22 +1,24 @@
 # PTZ Pose Service
 
-Keeps a Scenescape camera's stored `rotation` in sync with a physical ONVIF
-PTZ camera's live pan/tilt position.
+Keeps a Scenescape camera's stored pose in sync with a physical ONVIF PTZ
+camera's live pan/tilt position, so a camera that is panned or tilted after
+calibration stays correctly placed in the scene.
 
-**Status**: experimental / first iteration — pan & tilt only, no zoom, docker
-logs are the only feedback mechanism for now.
+**Status**: experimental — pan and tilt only, no zoom; docker logs are the
+only feedback mechanism for now.
+
+New to this service? Start with [Setting up a new camera](#setting-up-a-new-camera),
+which walks through measuring the two things accuracy depends on.
 
 ## What it does
 
 1. On startup, for each camera in the config file:
    - resolves an ONVIF PTZ media profile (auto-detected if not pinned),
-   - if `pan_degrees`/`tilt_degrees` is configured, queries the camera's own
-     advertised absolute pan/tilt position range (ONVIF `GetNodes`) and
-     derives a degrees-per-unit scale factor from it, so cameras with
-     different physical fields of view (e.g. 360° vs. 90° pan) or different
-     position-reporting units are normalized correctly (see `pan_degrees`/
-     `tilt_degrees` in the config schema below),
-   - fetches the camera's calibrated `rotation` from Scenescape via the REST
+   - applies any `intrinsics`/`distortion`/`resolution` declared for the
+     camera, so a measured lens calibration survives a database reset,
+   - resolves the degrees-per-ONVIF-unit scale factors for pan and tilt
+     (see `pan_scale`/`tilt_scale` and `pan_degrees`/`tilt_degrees` below),
+   - fetches the camera's calibrated pose from Scenescape via the REST
      API (this is the pose set during scene calibration, at whatever pan/tilt
      the camera physically had at that time — the "home" position),
    - records the ONVIF pan/tilt reading at that home position, either from
@@ -24,15 +26,26 @@ logs are the only feedback mechanism for now.
      camera's current status at startup (i.e. it assumes the camera is still
      at its calibrated position when the service starts).
 2. Polls each camera's PTZ status (`GetStatus`) at `--poll-hz` (default 5×/s).
-3. Normalizes the raw pan/tilt delta from home into degrees (using the
-   resolved scale factors) and converts it into a new `[roll, pitch, yaw]`
-   rotation (yaw ← pan, pitch ← tilt, roll unchanged); when the change
-   exceeds `--min-delta-deg`, `PATCH`es the camera's `rotation` via
-   `updateCamera()` and logs the change.
+3. Converts the pan/tilt delta from home into degrees and rotates the home
+   pose accordingly: pan turns the head about the **world vertical axis** and
+   tilt pivots the camera about its **own horizontal axis**, composed as
+   `R_new = Rz(Δpan) · R_home · Rx(Δtilt)`. When the change exceeds
+   `--min-delta-deg` the new pose is persisted via `updateCamera()`.
+4. For cameras calibrated from 3D-2D point correspondences (the AprilTag/auto
+   flow), the stored world points are reprojected to their new pixel
+   positions instead of overwriting the pose as raw Euler angles. That keeps
+   the camera on its native transform type so the 2D calibration view still
+   has points to draw, and Scenescape re-derives the same pose from them.
+
+> **Why matrix composition rather than adding to the Euler angles?**
+> Scenescape stores `rotation` as *intrinsic* Euler XYZ, whose third
+> component rotates about an already-rotated local axis — not the world
+> vertical. Measured against ground-truth poses, a pure pan move changes all
+> three components (e.g. roll −14°, pitch +34°, yaw +20°), so adding the pan
+> delta to yaw alone gave ~18° of error versus ~1.8° for the composed form.
 
 See [pose_math.py](src/pose_math.py) for the exact math and its documented
-assumptions/limitations (linear pan/tilt→degrees mapping, no zoom, no full
-quaternion composition).
+assumptions/limitations (linear pan/tilt→degrees mapping, no zoom).
 
 ## Discovering cameras
 
@@ -63,13 +76,16 @@ docker run --rm --network host intel/scenescape-ptz-pose-service:latest \
       "profile_token": null,
       "home_pan": null,
       "home_tilt": null,
-      "pan_degrees": 360.0,
-      "tilt_degrees": 90.0,
-      "pan_scale": null,
-      "tilt_scale": null,
+      "pan_degrees": null,
+      "tilt_degrees": null,
+      "pan_scale": -154.15,
+      "tilt_scale": 59.17,
       "invert_pan": false,
       "invert_tilt": false,
-      "pose_update_mode": "ptz_delta"
+      "pose_update_mode": "ptz_delta",
+      "resolution": [1280, 720],
+      "intrinsics": { "fx": 1066.3453, "fy": 1066.3453, "cx": 640.0, "cy": 360.0 },
+      "distortion": { "k1": -0.371571, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0 }
     }
   ]
 }
@@ -79,27 +95,26 @@ docker run --rm --network host intel/scenescape-ptz-pose-service:latest \
 - `home_pan`/`home_tilt`: optional; if omitted, the camera's pan/tilt at
   service startup is used as home. Set these explicitly if the service may
   restart while the camera isn't at its calibrated position.
-- `pan_degrees`/`tilt_degrees`: the camera's real physical field of view in
-  degrees (from its datasheet, e.g. `360` for a full-turn pan turret or `90`
-  for a limited-sweep camera). If set, the service queries the camera's own
-  advertised `AbsolutePanTiltPositionSpace` range via ONVIF `GetNodes` at
-  startup and derives `pan_scale`/`tilt_scale` from it automatically — this
-  is the recommended way to configure scale, since it normalizes for
-  whatever units that particular camera reports (raw degrees, normalized
-  `[-1, 1]`, etc.) without guessing a multiplier by hand. If the camera's
-  ONVIF profile doesn't advertise a position range at all (`GetNodes`
-  returns nothing usable), `pan_degrees`/`tilt_degrees` is still honored by
-  assuming the standard ONVIF generic normalized range (`[-1, 1]`), since
-  that's what the vast majority of ONVIF PTZ cameras report position in
-  regardless of whether they expose that metadata.
-- `pan_scale`/`tilt_scale`: explicit degrees-per-unit overrides. If set,
-  they take priority over `pan_degrees`/`tilt_degrees` and the
-  `--pan-scale`/`--tilt-scale` CLI defaults. Use these when a camera doesn't
-  advertise a usable position range, or its space's real degrees are known
-  directly (in which case a scale of `1.0` is normally correct).
+- `pan_scale`/`tilt_scale`: degrees of real rotation per ONVIF position unit.
+  **These are the values to set**, and the reliable way to obtain them is to
+  measure them — see [Measuring pan/tilt scale factors](#measuring-pantilt-scale-factors).
+  Datasheet sweep figures are often wrong: on the camera used for development
+  the documented 332° pan measured 308°, and a negative sign was needed
+  because the head pans opposite to the assumed convention.
+- `pan_degrees`/`tilt_degrees`: fallback if no explicit scale is given — the
+  camera's physical sweep in degrees, divided by the ONVIF position range the
+  camera advertises (`AbsolutePanTiltPositionSpace` via `GetNodes`, assumed
+  `[-1, 1]` if it advertises nothing usable). Convenient, but only as accurate
+  as the datasheet.
 - `invert_pan`/`invert_tilt`: per-camera overrides of `--invert-pan`/`--invert-tilt`.
+  Equivalent to negating the corresponding scale.
 - `pose_update_mode`: per-camera override of `--pose-update-mode` — which
   mechanism keeps this camera's pose in sync (see below).
+- `resolution`/`intrinsics`/`distortion`: optional lens parameters, applied to
+  Scenescape at startup if they differ from what is stored. Declaring them
+  here means a measured calibration is reapplied automatically instead of
+  having to be re-entered in the UI after a database reset. See
+  [Calibrating intrinsics and lens distortion](#calibrating-intrinsics-and-lens-distortion).
 
 ## Pose update modes
 
@@ -108,14 +123,17 @@ selected with `--pose-update-mode` (or per camera via `pose_update_mode`):
 
 ### `ptz_delta` (default)
 
-Rotates the camera's calibrated "home" pose by its pan/tilt delta, converted
-to degrees via `pan_degrees`/`tilt_degrees` (or an explicit
-`pan_scale`/`tilt_scale`). Needs no video feed and no AprilTags — but it does
-need the camera's physical sweep range to be known, since most ONVIF cameras
-report position in a normalized `[-1, 1]` space rather than real degrees. If
-the position space can't be converted to degrees and no `pan_degrees`/
-`tilt_degrees` is configured, the service logs a warning and falls back to
-the `--pan-scale`/`--tilt-scale` defaults, which will not be accurate.
+Rotates the camera's calibrated "home" pose by its pan/tilt delta. Needs no
+video feed, no AprilTags and no re-calibration — but it does need accurate
+`pan_scale`/`tilt_scale`, since most ONVIF cameras report position in a
+normalized `[-1, 1]` space rather than real degrees. See
+[Measuring pan/tilt scale factors](#measuring-pantilt-scale-factors); if no
+usable scale can be resolved the service logs a warning and falls back to the
+`--pan-scale`/`--tilt-scale` defaults, which will not be accurate.
+
+Assumes the camera rotates about its own centre, so `translation` is left
+untouched. Real pan/tilt heads have a small lever arm between the rotation
+axes and the lens, which this ignores.
 
 ### `autocalibration` (opt-in)
 
@@ -136,6 +154,194 @@ on the next pan/tilt change.
 
 Auto-calibration can always be triggered manually from the camera's
 calibration page in the Scenescape UI, regardless of the configured mode.
+
+## Setting up a new camera
+
+The accuracy of PTZ pose tracking rests on two things being right: the
+camera's **lens parameters** and its **pan/tilt scale factors**. Both are
+properties of the hardware, both are commonly wrong or absent in datasheets,
+and both can be measured directly with the tools in [tools/](tools/). The
+measurements need no AprilTags or scene calibration, so they apply equally to
+manual, marker-based and markerless deployments.
+
+Recommended order:
+
+1. [Calibrate intrinsics and lens distortion](#calibrating-intrinsics-and-lens-distortion)
+2. [Measure pan/tilt scale factors](#measuring-pantilt-scale-factors)
+3. Write both results into `config/cameras.json`, rebuild, restart
+4. Calibrate the camera's pose once in the Scenescape UI
+5. Restart `ptz-pose` so it picks that pose up as its home reference
+
+Steps 1 and 2 are one-off per camera model; their output lives in the config
+file and is reapplied on every start.
+
+All tools take `--help`. They run inside containers because the dependencies
+are split: `ptz-pose` has the ONVIF/MQTT plumbing, `autocalibration` has
+OpenCV. Copy them in first:
+
+```bash
+cd <repo root>
+docker cp ptz_pose_service/tools scenescape-ptz-pose-1:/tmp/tools
+docker cp ptz_pose_service/tools scenescape-autocalibration-1:/tmp/tools
+```
+
+> If a tool is re-copied after editing, remove the old directory first
+> (`docker compose exec ptz-pose rm -rf /tmp/tools`) — `docker cp` nests the
+> directory inside an existing one instead of replacing it.
+
+### Calibrating intrinsics and lens distortion
+
+Scenescape defaults a new camera to a rough guess (a single FOV value). If
+that is far from reality, or the lens has noticeable barrel distortion,
+calibration points will fit well near the image centre and drift badly toward
+the edges.
+
+```bash
+# 1. Sweep a grid of pan/tilt positions, matching the scene's AprilTags in each
+docker compose exec ptz-pose python3 /tmp/tools/collect_calibration_views.py \
+    --camera-uid atag-ptzcam3 --onvif-host 192.168.0.91 --onvif-port 2020
+
+# 2. Fit intrinsics + distortion over all views at once
+docker cp scenescape-ptz-pose-1:/tmp/calibration_views.json /tmp/
+docker cp /tmp/calibration_views.json scenescape-autocalibration-1:/tmp/
+docker compose exec autocalibration python3 /tmp/tools/calibrate_intrinsics.py \
+    --camera-uid atag-ptzcam3
+```
+
+The tool prints before/after reprojection error and a JSON block to paste into
+`config/cameras.json` (or use `--apply` to write it straight to Scenescape).
+
+It deliberately fits a **constrained** model by default — square pixels,
+principal point pinned to the image centre, one radial term — and drops views
+whose reprojection error marks them as mis-detections. A tag sweep yields few
+distinct world points, and those points carry the scene mesh's own error, so
+an unconstrained fit will happily trade physical plausibility for a lower
+residual: on the development camera it produced `fx`/`fy` differing by 3% with
+a *worse* maximum error. Use `--fit-principal-point`, `--fit-aspect-ratio`,
+`--fit-k2`, `--fit-k3` or `--fit-tangential` only with dense, well-spread
+coverage.
+
+This step does need AprilTags, since it needs known 3D points. For a camera in
+a scene without them, calibrate the lens conventionally (e.g. a checkerboard
+with OpenCV) and put the result in `config/cameras.json` directly.
+
+<details>
+<summary>What this looked like on the development camera</summary>
+
+The datasheet gave `fx=710.79, fy=848.11` — internally inconsistent, since
+`fx ≠ fy` by 20% implies non-square pixels. Measured over 15 views / 122
+points:
+
+| | fx / fy | k1 | mean error | max error |
+|---|---|---|---|---|
+| datasheet, no distortion | 710.8 / 848.1 | – | 25.67 px | 155.3 px |
+| measured | 1066.3 / 1066.3 | −0.3716 | **3.18 px** | **8.0 px** |
+
+An 87% reduction in mean error, and the strong barrel distortion (`k1 = −0.37`)
+explained why edge points had been drifting.
+</details>
+
+### Measuring pan/tilt scale factors
+
+Most ONVIF cameras report pan/tilt in a normalized `[-1, 1]` space, so the
+service needs to know how many degrees one unit represents. This is measured
+from image content alone — no markers, no scene calibration:
+
+```bash
+# 1. Sweep the full travel, saving a frame at each position
+docker compose exec ptz-pose python3 /tmp/tools/capture_ptz_sweep.py \
+    --camera-uid atag-ptzcam3 --onvif-host 192.168.0.91 --onvif-port 2020 \
+    --pan-range -0.9 0.9 --pan-step 0.05 --tilt-range 0.1 0.9 --tilt-step 0.05
+
+# 2. Recover how far the camera actually rotated between consecutive frames
+docker cp scenescape-ptz-pose-1:/tmp/ptz_sweep /tmp/ptz_sweep
+docker cp /tmp/ptz_sweep scenescape-autocalibration-1:/tmp/ptz_sweep
+docker compose exec autocalibration python3 /tmp/tools/measure_ptz_scale.py \
+    --camera-uid atag-ptzcam3
+```
+
+**How it works.** For each consecutive pair of frames, SIFT finds distinctive
+keypoints — corner- and blob-like spots, described in a way that survives
+rotation, scale and lighting changes — and matches them between the two
+images. A camera that only rotates transforms the whole scene by
+`H = K·R·K⁻¹` regardless of depth, so fitting that homography and computing
+`R = K⁻¹·H·K` recovers the rotation. Its angle divided by the ONVIF position
+change gives degrees per unit. Accurate intrinsics matter here, which is why
+lens calibration comes first.
+
+Each step is measured independently and screened on match count, rotation-axis
+consistency and magnitude, so one bad frame (a blank wall, too little overlap)
+costs only the steps touching it. Use `--verbose` to see every rejection.
+
+The report also states how much the scale varies across the travel — if that
+is small, a single linear scale is justified; if not, the measured value is
+only an approximation. Sweep the widest range the scene allows: a narrow
+sweep can give a confidently wrong answer.
+
+The sign is *not* taken from the measurement — it depends on the stored pose
+convention. If the pose rotates the wrong way after a move, negate the scale
+(or set `invert_pan`/`invert_tilt`).
+
+<details>
+<summary>What this looked like on the development camera</summary>
+
+| axis | measured | implied full travel | datasheet |
+|---|---|---|---|
+| pan | 154.15 °/unit | 308° | 332° |
+| tilt | 59.17 °/unit | 118° | 120° ✅ |
+
+Both axes varied only ~9% across the travel, so a single linear scale was
+justified. Two independent checks: pan agreed to 0.2% with a separate
+AprilTag-based fit, and the recovered pan axis in camera coordinates
+(`[0.00, −0.908, −0.419]`, i.e. 24.8° below horizontal) matched the camera's
+physical downward tilt.
+
+A first attempt over a much narrower sweep gave 44.9 °/unit for tilt — one bad
+step in a short sequence was enough to skew it by 25%. Hence sweeping wide.
+</details>
+
+### Rebooting a camera
+
+Some cameras need an occasional reboot (for example after RTSP sessions are
+left stale by abrupt restarts):
+
+```bash
+docker compose exec ptz-pose python3 /tmp/tools/onvif_reboot.py 192.168.0.91:2020
+```
+
+Credentials are prompted for, never passed as arguments, and read from
+`ONVIF_ADMIN_USERNAME`/`ONVIF_ADMIN_PASSWORD` rather than the service's own
+`ONVIF_USERNAME`/`ONVIF_PASSWORD` — rebooting needs an administrator account,
+while the service only needs a PTZ-capable one. Run it inside the container:
+the pinned `onvif-zeep` there is known to work with these cameras, whereas
+newer `zeep` releases can fail the initial `GetCapabilities` call outright.
+
+### Tool reference
+
+| Tool | Runs in | Purpose |
+|---|---|---|
+| [`collect_calibration_views.py`](tools/collect_calibration_views.py) | `ptz-pose` | Sweep pan/tilt, collecting AprilTag 2D/3D correspondences per view |
+| [`calibrate_intrinsics.py`](tools/calibrate_intrinsics.py) | `autocalibration` | Fit intrinsics + distortion from those views |
+| [`capture_ptz_sweep.py`](tools/capture_ptz_sweep.py) | `ptz-pose` | Sweep pan/tilt, saving a frame at each position (no markers needed) |
+| [`measure_ptz_scale.py`](tools/measure_ptz_scale.py) | `autocalibration` | Recover degrees-per-ONVIF-unit from those frames |
+| [`onvif_reboot.py`](tools/onvif_reboot.py) | `ptz-pose` | Reboot a camera over ONVIF |
+
+## Verifying it works
+
+After a move, check that:
+
+- the service logged a pose update (`docker logs scenescape-ptz-pose-1`),
+- the camera's calibration page shows its points **on** the AprilTags — reload
+  with a hard refresh, as the page is otherwise served from browser cache,
+- translation is unchanged and above the floor (a fixed mount doesn't move),
+- the 3D view's camera frustum points the new way. The 3D calibration points
+  themselves are world points on fixed tags, so they are *expected* not to
+  move — only the 2D view shows the reprojection.
+
+To compare the delta-tracked pose against an independent measurement, run
+auto-calibration manually from the UI and compare the resulting rotation.
+Bear in mind a single auto-calibration run is not exact ground truth: its own
+run-to-run variation is on the order of a few degrees.
 
 ## Environment variables / credentials
 

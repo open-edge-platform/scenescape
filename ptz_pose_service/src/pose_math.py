@@ -64,27 +64,40 @@ def rotation_from_ptz_delta(
 ) -> Tuple[List[float], float, float]:
   """Compute an updated camera rotation from a pan/tilt reading.
 
+  A pan/tilt head rotates the camera about two fixed mechanical axes: pan
+  swings the whole head about the world vertical (Z) axis, and tilt pivots
+  the camera about its own horizontal (local X) axis. That composes as
+  ``R_new = Rz(dpan) @ R_home @ Rx(dtilt)``.
+
+  This must be done on rotation matrices rather than by adding the deltas to
+  the stored ``[roll, pitch, yaw]`` triple: those are *intrinsic* Euler
+  angles, so their third component is a rotation about an already-rotated
+  local axis, not the world vertical. Measured against ground-truth poses on
+  a real head, a pure pan move changes all three Euler components (e.g. roll
+  -14 deg, pitch +34 deg, yaw +20 deg), so adding a delta to yaw alone
+  produces a badly wrong pose.
+
   @param      home_rotation   [roll, pitch, yaw] in degrees, the camera's
                               calibrated rotation stored in Scenescape
   @param      home_pan        ONVIF pan value at the calibrated position
   @param      home_tilt       ONVIF tilt value at the calibrated position
   @param      pan             current ONVIF pan value
   @param      tilt            current ONVIF tilt value
-  @param      pan_scale       degrees of yaw per unit of ONVIF pan delta
-  @param      tilt_scale      degrees of pitch per unit of ONVIF tilt delta
+  @param      pan_scale       degrees rotated about world Z per unit of ONVIF pan
+  @param      tilt_scale      degrees rotated about camera X per unit of ONVIF tilt
   @param      invert_pan      flip the sign of the pan contribution
   @param      invert_tilt     flip the sign of the tilt contribution
   @return     (new_rotation, delta_pan_degrees, delta_tilt_degrees)
   """
-  roll, pitch, yaw = home_rotation
-
   delta_pan_degrees = (pan - home_pan) * pan_scale * (-1.0 if invert_pan else 1.0)
   delta_tilt_degrees = (tilt - home_tilt) * tilt_scale * (-1.0 if invert_tilt else 1.0)
 
-  new_yaw = normalize_degrees(yaw + delta_pan_degrees)
-  new_pitch = normalize_degrees(pitch + delta_tilt_degrees)
+  rotated = matrix_multiply(
+      rotation_matrix_z(delta_pan_degrees),
+      matrix_multiply(euler_xyz_degrees_to_matrix(home_rotation),
+                      rotation_matrix_x(delta_tilt_degrees)))
 
-  return [roll, new_pitch, new_yaw], delta_pan_degrees, delta_tilt_degrees
+  return matrix_to_euler_xyz_degrees(rotated), delta_pan_degrees, delta_tilt_degrees
 
 
 def rotation_delta_magnitude(rotation_a: Sequence[float], rotation_b: Sequence[float]) -> float:
@@ -204,6 +217,42 @@ def euler_xyz_degrees_to_matrix(rotation: Sequence[float]) -> List[List[float]]:
       [cx * sz + sx * sy * cz, cx * cz - sx * sy * sz, -sx * cy],
       [sx * sz - cx * sy * cz, sx * cz + cx * sy * sz, cx * cy],
   ]
+
+
+def matrix_to_euler_xyz_degrees(matrix: Sequence[Sequence[float]]) -> List[float]:
+  """3x3 rotation matrix -> intrinsic Euler-XYZ degrees.
+
+  Inverse of ``euler_xyz_degrees_to_matrix``; matches
+  ``scipy.spatial.transform.Rotation.as_euler('XYZ', degrees=True)``.
+  """
+  sy = max(-1.0, min(1.0, matrix[0][2]))
+  pitch = math.asin(sy)
+  if abs(sy) < 0.9999999:
+    roll = math.atan2(-matrix[1][2], matrix[2][2])
+    yaw = math.atan2(-matrix[0][1], matrix[0][0])
+  else:
+    # Gimbal lock: roll and yaw are degenerate, so fold everything into roll.
+    roll = math.atan2(matrix[2][1], matrix[1][1])
+    yaw = 0.0
+  return [math.degrees(roll), math.degrees(pitch), math.degrees(yaw)]
+
+
+def matrix_multiply(a: Sequence[Sequence[float]],
+                    b: Sequence[Sequence[float]]) -> List[List[float]]:
+  """Multiply two 3x3 matrices."""
+  return [[sum(a[i][k] * b[k][j] for k in range(3)) for j in range(3)] for i in range(3)]
+
+
+def rotation_matrix_x(degrees: float) -> List[List[float]]:
+  """Rotation of ``degrees`` about the X axis."""
+  c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+  return [[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]]
+
+
+def rotation_matrix_z(degrees: float) -> List[List[float]]:
+  """Rotation of ``degrees`` about the Z axis."""
+  c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+  return [[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]]
 
 
 def project_world_points_to_pixels(
