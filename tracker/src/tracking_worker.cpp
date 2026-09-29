@@ -95,8 +95,7 @@ rv::tracking::TrackManagerConfig build_tracker_config(const TrackingConfig& conf
 
 } // namespace
 
-std::array<double, 4> update_velocity_rotation(double vx, double vy,
-                                                VelocityRotationState& state) {
+std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRotationState& state) {
     const double speed = std::hypot(vx, vy);
     if (state.active) {
         state.active = speed > kRotationSpeedThresholdOff;
@@ -114,10 +113,14 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                PublishCallback publish_callback,
                                const TrackingConfig& tracking_config,
                                const std::unordered_map<std::string, Camera>& cameras,
+<<<<<<< HEAD
                                ObjectClassConfig object_class, ClockFn clock_fn)
+=======
+                               ClockFn clock_fn, bool rotation_from_velocity)
+>>>>>>> 51fc3806 (code format)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
-        publish_callback_(std::move(publish_callback)),
-        rotation_from_velocity_(rotation_from_velocity),
+      publish_callback_(std::move(publish_callback)),
+      rotation_from_velocity_(rotation_from_velocity),
       tracker_(build_tracker_config(tracking_config)), clock_fn_(std::move(clock_fn)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);

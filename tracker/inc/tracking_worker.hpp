@@ -52,8 +52,7 @@ struct VelocityRotationState {
  * speed falls to or below the lower off threshold. When disabled, the last
  * valid quaternion is retained.
  */
-std::array<double, 4> update_velocity_rotation(double vx, double vy,
-                                                VelocityRotationState& state);
+std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRotationState& state);
 
 /**
  * @brief Per-scope worker thread for processing detection chunks.
