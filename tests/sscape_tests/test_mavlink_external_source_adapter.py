@@ -98,6 +98,7 @@ def test_build_payload_includes_self_object_and_wgs84_pose():
     "category": "vehicle",
     "translation": [0.0, 0.0, 0.0],
     "rotation": IDENTITY_QUAT,
+    "size": [0.6, 0.6, 0.3],
   }]
   assert payload["pose"]["reference_frame"] == "wgs84"
   assert payload["pose"]["lat_long_alt"] == [37.4, -122.1, 10.0]

@@ -346,7 +346,12 @@ class TestSceneControllerPublishers:
       last_published_detection=defaultdict(lambda: None),
       reid_config_data={'minimum_bbox_area': 5000},
     )
-    jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': ['unchanged']}
+    jdata_base = {
+      'timestamp': '2026-01-01T00:00:01Z',
+      'objects': ['unchanged'],
+      'source_id': 'px4-sih-drone-1',
+      'pose': {'reference_frame': 'wgs84'},
+    }
 
     scene_controller.shouldPublish = MagicMock(return_value=True)
     with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
@@ -356,6 +361,10 @@ class TestSceneControllerPublishers:
     assert scene_controller.pubsub.publish.call_count == 1
     assert scene.last_published_detection['person'] == 101.0
     assert jdata_base['objects'] == ['unchanged']
+    assert jdata_base['source_id'] == 'px4-sih-drone-1'
+    published_payload = orjson.loads(scene_controller.pubsub.publish.call_args[0][1])
+    assert 'source_id' not in published_payload
+    assert 'pose' not in published_payload
     # Confirm reid provenance stamping is actually wired through to buildDetectionsList
     _, call_kwargs = mock_build.call_args
     assert call_kwargs['attach_reid_provenance'] is True

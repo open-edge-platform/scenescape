@@ -287,6 +287,11 @@ class SceneController:
       reid_policy = self._hierarchyReidPublishPolicy(scene, otype)
       will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
+      # Hierarchy output must not carry agent publisher fields. If source_id
+      # leaks onto external/{scene_uid}/+, the wildcard subscription re-ingests
+      # it and rejects the message (source_id != scene uid).
+      jdata.pop('source_id', None)
+      jdata.pop('pose', None)
       jdata['objects'] = buildDetectionsList(
         objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
         attach_reid_provenance=True,
