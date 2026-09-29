@@ -189,9 +189,12 @@ Mat UnscentedKalmanFilterMod::predict(InputArray _control)
 Mat UnscentedKalmanFilterMod::correct(InputArray _measurement)
 {
   Mat measurement = _measurement.getMat();
-  // compute the estimate of the covariance between x* and y*
-  // Sxy = SUM_{i=0}^{2*DP}( Wc[i]*fc_i*hc_i.t )
-  xyCov = transitionSPFuncValsCenter * Wc * measurementSPFuncValsCenter.t();
+  // Cross-covariance must use the same predicted-state sigma points as Syy.
+  // Using transitionSPFuncValsCenter (prior→predict) here left velocity weakly
+  // observable and kept P_v stuck near its isotropic init.
+  Mat predictedStateSPCenter;
+  subtract(sigmaPoints, repeat(state, 1, 2 * DP + 1), predictedStateSPCenter);
+  xyCov = predictedStateSPCenter * Wc * measurementSPFuncValsCenter.t();
 
   // compute the Kalman gain matrix
   // K = Sxy * Syy^(-1)

@@ -112,6 +112,19 @@ private:
   void singleModelCorrect(const TrackedObject &measurement);
 
   /**
+   * @brief Velocity-aligned, dt-scaled process noise (no direct position noise).
+   *
+   * Along-track velocity/acceleration noise is larger than cross-track so
+   * predicted measurement covariance elongates in the direction of motion.
+   */
+  static cv::Mat kinematicProcessNoiseCov(double processNoise, double vx, double vy, double deltaT);
+
+  /**
+   * @brief Apply kinematic Q for the upcoming predict using the current estimate.
+   */
+  void updateProcessNoiseForPredict(double deltaT);
+
+  /**
    * @brief Combines probability coming from the three models and calculates the conditional probability
    */
   static void combiningProbability(cv::Mat const &transitionProbability,
@@ -170,6 +183,9 @@ private:
   cv::Mat mModelProbability;
 
   std::size_t mNumberOfModels{0u};
+
+  double mProcessNoise{1e-4};
+  double mMeasurementNoise{1e-2};
 };
 } // namespace tracking
 } // namespace rv
