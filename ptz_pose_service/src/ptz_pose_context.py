@@ -104,6 +104,8 @@ class TrackedCamera:
   # ('increasing'/'decreasing'), or None if unknown.
   pan_home_approach: Optional[str] = None
   tilt_home_approach: Optional[str] = None
+  # World-frame pan axis; None means world vertical.
+  pan_axis: Optional[List[float]] = None
   invert_pan: bool = False
   invert_tilt: bool = False
   last_applied_rotation: List[float] = field(default_factory=list)
@@ -519,7 +521,8 @@ class PTZPoseContext:
 
     delta_pan = camera.pan_physical_deg - camera.home_pan_physical_deg
     delta_tilt = camera.tilt_physical_deg - camera.home_tilt_physical_deg
-    return compose_ptz_rotation(camera.home_rotation, delta_pan, delta_tilt), delta_pan, delta_tilt
+    return (compose_ptz_rotation(camera.home_rotation, delta_pan, delta_tilt, camera.pan_axis),
+            delta_pan, delta_tilt)
 
   def _resetBacklashState(self, camera: "TrackedCamera"):
     """Initialise backlash tracking at the camera's home position.
@@ -704,6 +707,7 @@ class PTZPoseContext:
             pan_scale=pan_scale,
             tilt_scale=tilt_scale,
             pan_curve=entry.get('pan_curve'),
+            pan_axis=entry.get('pan_axis'),
             tilt_curve=entry.get('tilt_curve'),
             pan_backlash_deg=float(entry.get('pan_backlash_deg') or 0.0),
             tilt_backlash_deg=float(entry.get('tilt_backlash_deg') or 0.0),

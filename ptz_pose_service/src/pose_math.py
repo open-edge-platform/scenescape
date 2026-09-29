@@ -110,14 +110,19 @@ def compose_ptz_rotation(
     home_rotation: Sequence[float],
     delta_pan_degrees: float,
     delta_tilt_degrees: float,
+    pan_axis: Optional[Sequence[float]] = None,
 ) -> List[float]:
   """Rotate a camera's home pose by pan/tilt deltas already in degrees.
 
   A pan/tilt head rotates the camera about two fixed mechanical axes: pan
   swings the whole head about the world vertical (Z) axis, and tilt pivots
   the camera about its own horizontal (local X) axis. That composes as
-  ``R_new = Rz(dpan) @ R_home @ Rx(dtilt)``. Both were confirmed on a real
-  head: the recovered axes were within 2 degrees of world Z and camera X.
+  ``R_new = Rz(dpan) @ R_home @ Rx(dtilt)``.
+
+  ``pan_axis`` replaces world Z with the head's actual pan axis in world
+  coordinates, for a mount that isn't level (or a home pose with a small tilt
+  error): on the development camera it leaned ~7 deg, which no pan scale or
+  curve can compensate since the error grows with the pan angle.
 
   This must be done on rotation matrices rather than by adding the deltas to
   the stored ``[roll, pitch, yaw]`` triple: those are *intrinsic* Euler
@@ -127,8 +132,10 @@ def compose_ptz_rotation(
   pitch +34 deg, yaw +20 deg), so adding a delta to yaw alone produces a
   badly wrong pose.
   """
+  pan = (rotation_matrix_axis(pan_axis, delta_pan_degrees) if pan_axis
+         else rotation_matrix_z(delta_pan_degrees))
   rotated = matrix_multiply(
-      rotation_matrix_z(delta_pan_degrees),
+      pan,
       matrix_multiply(euler_xyz_degrees_to_matrix(home_rotation),
                       rotation_matrix_x(delta_tilt_degrees)))
   return matrix_to_euler_xyz_degrees(rotated)
@@ -322,6 +329,19 @@ def rotation_matrix_x(degrees: float) -> List[List[float]]:
   """Rotation of ``degrees`` about the X axis."""
   c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
   return [[1.0, 0.0, 0.0], [0.0, c, -s], [0.0, s, c]]
+
+
+def rotation_matrix_axis(axis: Sequence[float], degrees: float) -> List[List[float]]:
+  """Rotation of ``degrees`` about an arbitrary axis (Rodrigues' formula)."""
+  norm = math.sqrt(sum(v * v for v in axis))
+  x, y, z = (v / norm for v in axis)
+  c, s = math.cos(math.radians(degrees)), math.sin(math.radians(degrees))
+  t = 1.0 - c
+  return [
+      [t * x * x + c, t * x * y - s * z, t * x * z + s * y],
+      [t * x * y + s * z, t * y * y + c, t * y * z - s * x],
+      [t * x * z - s * y, t * y * z + s * x, t * z * z + c],
+  ]
 
 
 def rotation_matrix_z(degrees: float) -> List[List[float]]:

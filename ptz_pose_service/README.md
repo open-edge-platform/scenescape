@@ -31,8 +31,9 @@ which walks through measuring the two things accuracy depends on.
    tracks each axis through its `*_backlash_deg` deadband so the angle used
    is where the camera physically is rather than where it reports being.
 4. Rotates the home pose by that delta: pan turns the head about the **world
-   vertical axis** and tilt pivots the camera about its **own horizontal
-   axis**, composed as `R_new = Rz(Δpan) · R_home · Rx(Δtilt)`. When the
+   vertical axis** (or the measured `pan_axis`, for a mount that isn't level)
+   and tilt pivots the camera about its **own horizontal axis**, composed as
+   `R_new = R_pan(Δpan) · R_home · Rx(Δtilt)`. When the
    change exceeds `--min-delta-deg` the new pose is persisted via
    `updateCamera()` and published for the UI to redraw.
 5. For cameras calibrated from 3D-2D point correspondences (the AprilTag/auto
@@ -94,8 +95,9 @@ docker run --rm --network host intel/scenescape-ptz-pose-service:latest \
       "tilt_degrees": null,
       "pan_scale": -154.15,
       "tilt_scale": 56.49,
-      "pan_curve": [0.0, -164.2, 39.11],
-      "tilt_curve": [0.0, 63.03, -5.01],
+      "pan_curve": [0.0, -158.55, 35.15],
+      "tilt_curve": [0.0, 51.69, 3.5],
+      "pan_axis": [0.0684, 0.1106, 0.9915],
       "pan_backlash_deg": 0.0,
       "tilt_backlash_deg": 2.83,
       "pan_home_approach": null,
@@ -131,6 +133,13 @@ They are **specific to that camera** — see
   only differences matter, so any constant term cancels. Needed when the
   measured scale varies materially across the travel (the development camera
   ranged from 52 to 59 °/unit on tilt).
+- `pan_axis`: optional direction of the head's pan axis in **world**
+  coordinates (`[x, y, z]`, normalised by the service). Defaults to world
+  vertical `[0, 0, 1]`. Set it when the mount isn't level: pan then turns
+  about a leaning axis and the error grows with the pan angle, which no scale
+  or curve can fix. Measure it with `fit_ptz_curves.py` (see
+  [Pan axis not vertical](#pan-axis-not-vertical)). It is fixed to the mount,
+  so it stays valid across re-calibrations.
 - `pan_backlash_deg`/`tilt_backlash_deg`: mechanical slack in degrees, which
   makes the same reported position mean different physical angles depending on
   the direction of approach. See [Measuring backlash](#measuring-backlash).
@@ -210,7 +219,8 @@ Recommended order (each step feeds the next):
 4. Write the results into `config/cameras.json`, rebuild, restart
 5. Calibrate the camera's pose once in the Scenescape UI
 6. Restart `ptz-pose` so it picks that pose up as its home reference
-7. [Measure tracking accuracy and fit pan/tilt curves](#measuring-tracking-accuracy-and-fitting-pantilt-curves).
+7. [Measure tracking accuracy and fit the head model](#measuring-tracking-accuracy-and-fitting-the-head-model)
+   (`pan_curve`, `tilt_curve`, `pan_axis`).
    This step runs *with* the service, re-calibrates, and is repeated until
    the numbers are satisfactory.
 
@@ -364,7 +374,7 @@ end.
 than ~15% a curve is worth fitting. The recommended way to get one is
 `fit_ptz_curves.py`. It fits both `pan_curve` and `tilt_curve` in one step,
 directly against detected AprilTags (see
-[Measuring tracking accuracy](#measuring-tracking-accuracy-and-fitting-pantilt-curves)).
+[Measuring tracking accuracy](#measuring-tracking-accuracy-and-fitting-the-head-model)).
 Curves are polynomials in the ONVIF position, e.g.
 `"tilt_curve": [0.0, 42.05, 9.41]` means `42.05*t + 9.41*t²`.
 
@@ -429,11 +439,11 @@ tilt did not.
 Modelling it halved the vertical reprojection error (47.5 px → 24.4 px).
 </details>
 
-### Measuring tracking accuracy and fitting pan/tilt curves
+### Measuring tracking accuracy and fitting the head model
 
 This checks the final result: how far the pose the service *stores* is from
 where the AprilTags actually are in the frame. The same measurement is then
-used to fit **both** `pan_curve` and `tilt_curve` in one step.
+used to fit `pan_curve`, `tilt_curve` and `pan_axis` together in one step.
 
 The measurement tool drives the camera through a pan path and then a tilt path
 of offsets from its current position. The defaults are pan ±0.2 (≈ ±32°) and
@@ -441,8 +451,8 @@ tilt +0.1 / −0.3 (≈ +6° / −16°), and every stop is visited from both
 directions, so backlash shows up. At each stop it waits for the service to
 write the pose, has autocalibration detect the tags, and projects their world
 points through the stored pose. The camera's config entry is saved with the
-results, so the fit knows which curves, backlash and home approach were in
-use.
+results, so the fit knows which curves, pan axis, backlash and home approach
+were in use.
 
 Unlike steps 1-3 it needs `ptz-pose` **running**:
 
@@ -455,7 +465,7 @@ Unlike steps 1-3 it needs `ptz-pose` **running**:
 docker compose exec ptz-pose python3 /tmp/tools/measure_reprojection_accuracy.py \
     --camera-uid atag-ptzcam3 --onvif-host 192.168.0.91 --onvif-port 2020
 
-# 2. Fit pan_curve and tilt_curve against the measured tags
+# 2. Fit pan_curve, tilt_curve and pan_axis against the measured tags
 docker cp scenescape-ptz-pose-1:/tmp/reprojection_accuracy.json /tmp/
 docker cp /tmp/reprojection_accuracy.json scenescape-autocalibration-1:/tmp/
 docker compose exec autocalibration python3 /tmp/tools/fit_ptz_curves.py
@@ -472,8 +482,10 @@ Step 1 prints mean/max pixel error per stop and per axis. The error at the
 start position is the floor, set by tag detection and the scene mesh (~3 px
 on the development camera).
 
-Step 2 replays the service's exact model, `Rz(Δpan) · R_start · Rx(Δtilt)`,
+Step 2 replays the service's exact model, `R_pan(Δpan) · R_start · Rx(Δtilt)`,
 with each axis tracked through its backlash deadband along the measured path.
+By default the pan axis is fitted too (`--no-fit-pan-axis` keeps the
+configured one); the first line reports how far it leans from vertical.
 It also fits two nuisance parameters, so the measurement doesn't need to start
 from a perfectly known state:
 - a small **start pose correction**: above ~1°, re-calibrate and measure again,
@@ -486,26 +498,26 @@ It then prints, per axis:
 |---|---|
 | per-stop table | `actual`: the rotation the tags say the camera made; `current`/`fitted`: what the service computes with the current/fitted curve |
 | `service, as measured` | what step 1 measured |
-| `current` | current curve, from the fitted start state |
-| `linear` | best constant scale |
-| `curve` | best polynomial (`--pan-degree`/`--tilt-degree`, default 2) |
+| `current` | current curves and pan axis, from the fitted start state |
+| `linear` | best constant scale (with the fitted pan axis) |
+| `curve` | best polynomial (`--pan-degree`/`--tilt-degree`, default 2), with the fitted pan axis |
 | `floor` | best angle fitted independently at each stop: the lowest error any curve can reach |
 | `WARNING` | the fitted curve bends implausibly outside the measured range (checked over `--pan-travel`/`--tilt-travel`); widen the path or use degree 1 |
 
-It ends with the `pan_curve`/`tilt_curve` lines to paste into
-`config/cameras.json` (they replace `pan_scale`/`tilt_scale`). If `curve` is
-close to `floor`, the curve is as good as it can be. If the floor itself is
-well above the start-position error, the rest is not in the curve (see
-[Known limitation](#known-limitation-pan-axis-not-vertical)).
+It ends with the `pan_curve`/`tilt_curve`/`pan_axis` lines to paste into
+`config/cameras.json` (the curves replace `pan_scale`/`tilt_scale`). If `curve`
+is close to `floor`, the model is as good as it can be. If the floor itself is
+well above the start-position error, the rest is not in the model: look for
+direction-dependent errors (backlash) or tag detection problems at those stops.
 
 To apply the result:
 
-1. Put `pan_curve`/`tilt_curve` in `config/cameras.json`.
+1. Put `pan_curve`/`tilt_curve`/`pan_axis` in `config/cameras.json`.
 2. `docker compose restart ptz-pose`. The config file is mounted, so no rebuild
    is needed. On restart the last pose the service wrote at the start position
    becomes home, and after a good measurement that pose is accurate.
-3. Repeat steps 1-2 to confirm. When the curves have converged, `current`,
-   `curve` and `floor` agree.
+3. Repeat steps 1-2 to confirm. When the values have converged, `current`,
+   `curve` and `floor` agree, and the fitted pan axis matches the configured one.
 
 <details>
 <summary>What this looked like on the development camera</summary>
@@ -518,7 +530,8 @@ Mean / max error per axis:
 | re-calibrated from the UI while running | 21.4 / 77.5 px | 4.8 / 10.4 px¹ |
 | + pan-only curve `[0, -166.06, 34.61]`, `tilt_home_approach: increasing` | 14.4 / 48.8 px | 4.8 / 10.4 px¹ |
 | same settings, wider tilt path (+0.1 / −0.3) | 13.9 / 46.7 px | 9.2 / 30.0 px |
-| + `fit_ptz_curves.py`: pan `[0, -164.2, 39.11]`, tilt `[0, 63.03, -5.01]` | **12.3 / 38.2 px** | **4.5 / 14.2 px** |
+| + `fit_ptz_curves.py`: pan `[0, -164.2, 39.11]`, tilt `[0, 63.03, -5.01]` | 12.3 / 38.2 px | 4.5 / 14.2 px |
+| + `pan_axis` `[0.0684, 0.1106, 0.9915]` (7.5° lean), refitted pan `[0, -158.55, 35.15]`, tilt `[0, 51.69, 3.5]` | **6.9 / 23.9 px** | **4.0 / 7.9 px** |
 
 ¹ tilt path ±0.1 only.
 
@@ -533,20 +546,28 @@ Mean / max error per axis:
   (arrived going down). Without fitting that, the tilt numbers would have been
   skewed by a full backlash.
 - **Pan** is non-uniform (~170 °/unit on the negative side of home, ~150 on
-  the positive), but with the curve at its floor (~11.6 px), the remaining pan
-  error is not in the curve. Fitting a pan axis that is free to lean brings it
-  to ~4–6 px, with the best axis ~7° from world vertical (see
-  [Known limitation](#known-limitation-pan-axis-not-vertical)).
+  the positive). With the curve alone it stopped at ~12 px, because the pan
+  axis leans 7.5° from world vertical. Setting `pan_axis` halved the pan error
+  (12.3 → 6.9 px), and a re-fit on the new data returned the same axis to
+  within 0.25°.
+- The remaining pan error is uneven. At pan +0.108 it was 5 px arriving from
+  one side and 16 px from the other, which suggests a little pan backlash
+  (configured as 0) plus repeatability. The per-stop floor is 4.0 px.
 </details>
 
-#### Known limitation: pan axis not vertical
+#### Pan axis not vertical
 
-The model pans about world vertical (`Rz`). If the mount isn't level, or the
-stored home rotation has a small error about a horizontal axis, pan actually
-turns about a leaning axis. The error then grows with the pan angle and no
-`pan_curve` can remove it. The symptom is a `fit_ptz_curves.py` pan floor well
-above the start-position error. Levelling the mount, or a more accurate home
-calibration (more tags, with more height variation), reduces it.
+By default the model pans about world vertical (`Rz`). If the mount isn't
+level, or the stored home rotation has a small error about a horizontal axis,
+pan actually turns about a leaning axis. The error then grows with the pan
+angle, pure pan moves also appear to change tilt, and no `pan_curve` can
+remove it.
+
+`fit_ptz_curves.py` fits the axis by default and prints it as `pan_axis`, with
+its lean from vertical. Put it in `config/cameras.json`; the service then pans
+about that axis. It is a property of the mount, so it stays valid across
+re-calibrations, but re-measure it if the camera is remounted. A lean of more
+than a few degrees may also be worth fixing physically.
 
 ### Rebooting a camera
 
@@ -575,7 +596,7 @@ newer `zeep` releases can fail the initial `GetCapabilities` call outright.
 | [`capture_ptz_backlash.py`](tools/capture_ptz_backlash.py) | `ptz-pose` | Arrive at positions from both directions, saving frame pairs |
 | [`measure_ptz_backlash.py`](tools/measure_ptz_backlash.py) | `autocalibration` | Measure mechanical slack from those pairs |
 | [`measure_reprojection_accuracy.py`](tools/measure_reprojection_accuracy.py) | `ptz-pose` (service running) | Drive a pan/tilt path, measure stored-pose error against detected AprilTags |
-| [`fit_ptz_curves.py`](tools/fit_ptz_curves.py) | `autocalibration` | Fit `pan_curve` and `tilt_curve` together from that measurement, and report the floor any curve can reach |
+| [`fit_ptz_curves.py`](tools/fit_ptz_curves.py) | `autocalibration` | Fit `pan_curve`, `tilt_curve` and `pan_axis` together from that measurement, and report the floor any curve can reach |
 | [`onvif_reboot.py`](tools/onvif_reboot.py) | `ptz-pose` | Reboot a camera over ONVIF |
 
 ## Live updates in the calibration UI
@@ -622,7 +643,7 @@ After a move, check that:
   move — only the 2D view shows the reprojection.
 
 To compare the delta-tracked pose against an independent measurement, run
-[`measure_reprojection_accuracy.py`](#measuring-tracking-accuracy-and-fitting-pantilt-curves).
+[`measure_reprojection_accuracy.py`](#measuring-tracking-accuracy-and-fitting-the-head-model).
 It gives pixel error per position against detected tags. Comparing with a
 manual auto-calibration from the UI is coarser: a single run is not exact
 ground truth. On the development camera, repeated runs from the same position
@@ -637,7 +658,7 @@ rotation.
 | Tracks one direction well, offset the other way | Backlash — [measure it](#measuring-backlash) |
 | Offset by roughly half the backlash in *both* directions | Home approach direction unknown — set `*_home_approach` |
 | Good near the middle of travel, drifts at both ends in opposite directions | Non-uniform travel — [fit a curve](#if-the-scale-isnt-constant) |
-| Pan error grows with angle even with a fitted `pan_curve`; tilt also drifts during pure pan moves | Pan axis not vertical — [known limitation](#known-limitation-pan-axis-not-vertical) |
+| Pan error grows with angle even with a fitted `pan_curve`; tilt also drifts during pure pan moves | Pan axis not vertical — [set `pan_axis`](#pan-axis-not-vertical) |
 | Pose rotates the wrong way entirely | Sign — negate the scale or set `invert_pan`/`invert_tilt` |
 | Points fit near the image centre but drift at the edges | Lens distortion — [calibrate intrinsics](#calibrating-intrinsics-and-lens-distortion) |
 | Points vanish from the 2D view | Expected for tags that have left the frame. If all vanish: a pose put them behind the camera, or the camera was left on the `euler` transform type; re-calibrate once from the UI |
