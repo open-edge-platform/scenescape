@@ -20,8 +20,8 @@ In Kubernetes deployments, the camera calibration form provides access to a subs
 - **Camera (Video Source)**: Specifies the video source command. Supported formats:
   - RTSP streams: `rtsp://camera-ip:554/stream` (raw H.264).
   - HTTP/HTTPS streams: `http://camera-ip/mjpeg` (MJPEG).
-  - File sources: `file://video.ts` (relative to video folder, which is mounted from Sample-Data Volume). Streaming-friendly formats as MPEG-TS (.ts) are recommended. MP4 inputs are not reliably supported - see the [Limitations](#limitations).
   - V4L2 (Video4Linux2) local USB camera devices: `/dev/video0` (path to device). Allowed paths: `/dev/video` (default device), `/dev/videoX`, `/dev/mediaX` and symbolic links: `/dev/v4l/by-id/xxx`, `/dev/v4l/by-path/xxx`.
+  - File sources are not directly mountable in Kubernetes camera pipelines - to use a video file, serve it over RTSP yourself instead, see [Using Your Own Video Files](#using-your-own-video-files) below.
 - **Camera Chain**: defines the sequence or combination of AI models to chain together in the pipeline using their short identifiers (e.g., "retail"). Models can be chained serially (one after another). For details on chaining syntax, available models, and usage examples, see the [Model Chaining](#model-chaining) section below.
 - **Camera Pipeline**: The generated or custom GStreamer pipeline string
 
@@ -185,7 +185,7 @@ After generating a pipeline preview, you can make manual adjustments:
    - Ensure the pipeline maintains compatibility with Scenescape - do not modify `gvapython` or `cameraundistort` elements.
 
 2. **Common Customizations**:
-   - **Video Source**: change input source type (file, RTSP, HTTP, device).
+   - **Video Source**: change input source type (RTSP, HTTP, device).
    - **Model Parameters**: fine-tune AI model inference settings either in model config file or the **Camera Pipeline** field.
 
 3. **Enable Use Camera Pipeline**: check the **Use Camera Pipeline** checkbox to apply your custom pipeline string directly instead of auto-generation from form fields.
@@ -211,11 +211,9 @@ After generating a pipeline preview, you can make manual adjustments:
 - **Monitor Performance**: check camera performance after applying pipeline changes.
 - **Backup Configurations**: save working pipeline configurations for future reference.
 
-### Adding custom models or input video files
+### Adding custom models
 
-You can upload custom models or input video files and use them in DL Streamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
-
-#### Uploading custom models
+You can upload custom models and use them in DL Streamer Video Pipeline. These are stored in the Models Volume.
 
 You can upload custom models to the Models Volume using the Models page. The Models page is accessible in the top menu of the Scenescape UI. Alternatively, use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide to do it from the command line.
 
@@ -223,12 +221,14 @@ You can upload custom models to the Models Volume using the Models page. The Mod
 2. Update the model configuration file or upload a new one so that it includes the newly added model(s). See [Model Configuration File Format](./model-configuration-file-format.md) for more details on the file format and when/how it should be updated.
 3. Reference the model in the camera pipeline configuration: use the short model name in the **Camera Chain** and the custom model configuration file name in the **Model Config** field.
 
-#### Uploading custom video files
+### Using Your Own Video Files
 
-You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+The Helm chart does not deploy any media/RTSP server, and camera pipeline Pods have no video-file volume mounted, so the **Camera (Video Source)** field cannot point at a local file the way it can in a Docker Compose deployment. To use a video file as a camera source, serve it over RTSP yourself from anywhere reachable by the cluster - for example a small standalone stack pairing an RTSP server such as `mediamtx` with an `ffmpeg` process that reads your file and republishes it as a stream. The bundled Retail and Queuing demo scenes use exactly this pattern; see [retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and [queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml) for one working example.
 
-1. Upload the video file to the Sample-Data Volume.
-2. Reference the file in the camera pipeline configuration: set the **Camera (Video Source)** field using the relative path to the Sample-Data Volume, e.g.: `file://new-video.ts`.
+Once you have an RTSP source reachable from the cluster:
+
+1. Set the **Camera (Video Source)** field to that RTSP URL (e.g. `rtsp://<host-or-service-reachable-from-cluster>:<port>/<path>`).
+2. If the RTSP source runs outside the cluster (e.g. on a separate Docker host), make sure it's reachable from cluster Pods first - see [Video Source (sample/demo camera feeds)](/kubernetes/README.md#video-source-sampledemo-camera-feeds) for how this is wired up for the demo scenes, as one example of exposing an external RTSP source to the cluster.
 
 ### Limitations
 
@@ -236,6 +236,7 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 - Distortion correction is temporarily disabled due to a bug in DL Streamer Pipeline Server.
 - Explicit frame rate and resolution configuration is not available yet.
 - Network instability and camera disconnects are not handled gracefully for network-based streams (RTSP/HTTP/HTTPS) and may cause the pipeline to fail.
+- File-based video sources are not supported for Kubernetes camera pipelines - the per-camera pipeline Pod has no video-file volume mounted. Serve your video over RTSP instead, see [Using Your Own Video Files](#using-your-own-video-files).
 - Cross-stream batching is not supported since in Scenescape Kubernetes deployment each camera pipeline is running in a separate Pod.
 - Direct selection of a specific GPU as decode device on systems with multiple GPUs is not supported. As a workaround, use specific GStreamer elements in the **Camera Pipeline** field according to [DL Streamer documentation](https://docs.openedgeplatform.intel.com/dev/edge-ai-libraries/dlstreamer/dev_guide/gpu_device_selection.html).
 - MP4 input files are not reliably supported. This is due to a GStreamer limitation: the combination of `multifilesrc` and `decodebin3` elements may fail because MP4 container metadata is unavailable when data is provided as discrete file fragments. As a workaround, convert MP4 files to a streaming-friendly format such as MPEG-TS (.ts).
@@ -250,7 +251,7 @@ You can upload custom input video files to the Sample-Data Volume using the comm
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 
-Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice. The file [docker-compose-dl-streamer-example.yml](/sample_data/compose/docker-compose-dl-streamer-example.yml) shows how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Scenescape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/dlstreamer-pipeline-server/queuing-config.json) and [retail-config.json](/dlstreamer-pipeline-server/retail-config.json).
+Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice. The video-source compose files [retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and [queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml) show how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Scenescape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/sample_data/demo_scenes/Queuing/queuing-config.json) and [retail-config.json](/sample_data/demo_scenes/Retail/retail-config.json).
 
 > **Note:** To run DL Streamer Pipeline Server pipelines on hardware accelerators (GPU or NPU), see the DL Streamer Pipeline Server service [user documentation](/dlstreamer-pipeline-server/README.md).
 
@@ -259,13 +260,14 @@ Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice.
 The following is the GStreamer command that defines the video processing pipeline. It specifies how video frames are read, processed, and analyzed using various GStreamer elements and plugins. Each element in the pipeline performs a specific task, such as decoding, object detection, metadata conversion, and publishing, to enable video analytics in the Scenescape platform.
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/qcam1.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+"pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
+
+This example is taken from the bundled Queuing demo scene: its `mediaserver` service republishes the sample video files over RTSP (see [queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml)), and the pipeline above consumes that RTSP stream. `multifilesrc` (reading a video file directly, see [Adding custom video files](#adding-custom-video-files) below) is also supported for a fully custom pipeline.
 
 #### Breakdown of gstreamer command
 
-`multifilesrc` is a GStreamer element that reads video files from disk. The `loop=TRUE` parameter ensures the video will loop continuously. The `location` parameter specifies the path to the video file to be used as input. In this example, the video file is located at `/home/pipeline-server/videos/qcam1.ts`.
-`decodebin` is a GStreamer element that automatically detects and decodes the input video stream. It simplifies the pipeline by handling various video formats without manual configuration.
+`rtspsrc` is a GStreamer element that connects to an RTSP video source; the `location` parameter is the stream URL. The `add-reference-timestamp-meta=true` parameter attaches NTP timing metadata used by `use_frame_ntp_timestamp` (see [Parameters](#parameters)). `rtph264depay`, `h264parse`, and `avdec_h264` extract, parse, and decode the H.264 elementary stream.
 
 `videoconvert` converts the video stream into a raw format suitable for further processing. In this case, it ensures the video is in the BGR format required by downstream elements.
 
@@ -393,7 +395,7 @@ Read the instructions on how to configure cross stream batching in [DL Streamer 
 
 ### Adding custom models or input video files to Docker volumes
 
-You can upload custom models or input video files and use them in DL Streamer Video Pipeline. These are stored in the Models Volume and Sample-Data Volume respectively.
+You can upload custom models to the Models Volume, and add your own input video files by bind-mounting them into your compose setup.
 
 #### Uploading custom models to Docker volumes
 
@@ -402,9 +404,9 @@ You can upload custom models to the Models Volume using the command line. Use th
 1. Upload the model in OpenVINO IR format with desired precision(s).
 2. Reference the model in the video pipeline inference element (e.g. `gvadetect`).
 
-#### Uploading custom video files to Docker volumes
+#### Adding custom video files
 
-You can upload custom input video files to the Sample-Data Volume using the command line. Use the instructions in the [How to Manage Files in Volumes](./how-to-manage-files-in-volumes.md) guide.
+There is no shared volume for video files; bind-mount your own video folder directly into a service in your compose file instead, following the pattern used by the bundled demo scenes ([queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml), [retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml)):
 
-1. Upload the video file to the Sample-Data Volume.
-2. Reference the file in the video pipeline source element `multifilesrc`.
+1. Bind-mount your video folder into a `mediamtx`-based `mediaserver` service plus an `ffmpeg` looper that republishes the file(s) over RTSP (recommended, matches the bundled demos), or bind-mount it directly into the DL Streamer Pipeline Server container for a `multifilesrc`-based setup.
+2. Reference the resulting source (RTSP URL or file path) in the video pipeline source element (`rtspsrc` or `multifilesrc`).

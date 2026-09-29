@@ -59,7 +59,7 @@ services:
 
 configs:
   retail-config:
-    file: ./dlstreamer-pipeline-server/retail-config-no-ntp.json
+    file: ./sample_data/demo_scenes/Retail/retail-config-no-ntp.json
 
 volumes:
   vol-models:
