@@ -167,7 +167,6 @@ int main(int argc, char* argv[]) {
         g_mqtt_client, scene_registry, chunk_buffer, config.tracking,
         config.infrastructure.tracker.schema_validation, cli_config.schema_path.parent_path(),
         clock_fn);
-    time
 
         // In dynamic mode (API source), enable database update notifications.
         // On receiving any database change (scene create/update/delete, camera change, etc.),
