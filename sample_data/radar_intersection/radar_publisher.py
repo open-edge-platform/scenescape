@@ -112,6 +112,9 @@ RADAR_ADD_TENSOR_DATA = os.environ.get("RADAR_ADD_TENSOR_DATA", "false").lower()
 if RADAR_ADD_TENSOR_DATA not in ("true", "false"):
   RADAR_ADD_TENSOR_DATA = "false"
 RADAR_MUTE = os.environ.get("RADAR_MUTE", "false").lower() in ("1", "true", "yes")
+# Causal densify for live/stream: past frames kept by g3dinference (0 = off).
+# past=10 ≈ span of offline ±5 without looking ahead. Prefer single-frame bins.
+RADAR_ACCUMULATE_PAST = int(os.environ.get("RADAR_ACCUMULATE_PAST", "0") or "0")
 
 # Optional per-id overrides:
 #   RADAR_DATA_PATHS=id:/path/%06d.bin,id2:/path2/%06d.bin
@@ -255,6 +258,7 @@ def _build_combined_pipeline() -> str:
         score_threshold=RADAR_SCORE_THRESHOLD,
         add_tensor_data=RADAR_ADD_TENSOR_DATA,
         fifo_path=_radar_fifo(sensor_id),
+        accumulate_past=RADAR_ACCUMULATE_PAST,
       )
   if len(parts) == 1:
     raise SystemExit("Both RADAR_MUTE and CAM_MUTE set")
@@ -306,6 +310,7 @@ def main() -> None:
     f"radar_sensors={RADAR_SENSOR_IDS} cam_sensors={CAM_SENSOR_IDS} "
     f"broker={BROKER}:{PORT} radar_device={RADAR_DEVICE} "
     f"point_features={RADAR_POINT_FEATURES} score_thr={RADAR_SCORE_THRESHOLD} "
+    f"accumulate_past={RADAR_ACCUMULATE_PAST} "
     f"radar_mute={RADAR_MUTE} cam_mute={CAM_MUTE}",
     flush=True,
   )

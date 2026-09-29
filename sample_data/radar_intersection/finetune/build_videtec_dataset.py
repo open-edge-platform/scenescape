@@ -42,6 +42,35 @@ from eval_radarpillars_gnss import (  # noqa: E402
 )
 from videtec_to_pcd import videtec_to_pcd  # noqa: E402
 
+
+def _load_frame_pcd(frames_dir: Path, frame_index: int, max_abs_elev_deg: float | None) -> np.ndarray:
+  """Load one VIDETEC frame as VoD-style (N,7), optionally elev-filtered."""
+  npy = frames_dir / f"{frame_index:06d}.npy"
+  if not npy.is_file():
+    return np.zeros((0, 7), dtype=np.float32)
+  frame = np.load(npy)
+  if frame.size and max_abs_elev_deg is not None:
+    mask = np.abs(frame[:, 3]) <= max_abs_elev_deg
+    frame = frame[mask]
+  if frame.size == 0:
+    return np.zeros((0, 7), dtype=np.float32)
+  return videtec_to_pcd(frame)
+
+
+def _accumulate_pcd(
+  frames_dir: Path, frame_index: int, half: int, max_abs_elev_deg: float | None,
+) -> np.ndarray:
+  """Stack ±half neighbor frames (gantry-static) into one (N,7) cloud."""
+  half = max(0, int(half))
+  chunks = []
+  for fi in range(frame_index - half, frame_index + half + 1):
+    pts = _load_frame_pcd(frames_dir, fi, max_abs_elev_deg)
+    if pts.size:
+      chunks.append(pts)
+  if not chunks:
+    return np.zeros((0, 7), dtype=np.float32)
+  return np.concatenate(chunks, axis=0)
+
 # VoD-ish default sizes (l, w, h) metres — OpenPCDet KITTI order in label is h w l
 PERSON_LWH = (0.8, 0.6, 1.73)
 CYCLIST_LWH = (1.76, 0.6, 1.73)
@@ -91,6 +120,13 @@ def parse_args(argv=None):
                   help="Keep frames whose GNSS radar-local XY lies in this box "
                        "(gantry-expanded vs VoD forward-only)")
   ap.add_argument("--min-points", type=int, default=3)
+  ap.add_argument(
+    "--accumulate-half-window", type=int, default=0,
+    help="FT5 densify: stack ±N neighbor frames into each training cloud (0=single)")
+  ap.add_argument("--exclude-start", type=int, default=None,
+                  help="Exclude frame_index >= this (with --exclude-end) from the set")
+  ap.add_argument("--exclude-end", type=int, default=None,
+                  help="Exclude frame_index <= this (with --exclude-start) from the set")
   ap.add_argument("--near-gt-radius-m", type=float, default=3.0,
                   help="Association radius (m) around GNSS for point support / snap")
   ap.add_argument("--min-points-near-gt", type=int, default=1,
@@ -141,12 +177,18 @@ def main(argv=None):
     d.mkdir(parents=True, exist_ok=True)
 
   x0, y0, _z0, x1, y1, _z1 = args.pc_range
+  half = max(0, int(args.accumulate_half_window))
+  excl_lo = args.exclude_start
+  excl_hi = args.exclude_end
   kept = []
-  skipped = {"dt": 0, "range": 0, "points": 0, "near_gt": 0, "missing": 0}
+  skipped = {"dt": 0, "range": 0, "points": 0, "near_gt": 0, "missing": 0, "excluded": 0}
 
   for entry in index:
     fi = int(entry["frame_index"])
     if fi % max(1, args.stride) != 0:
+      continue
+    if excl_lo is not None and excl_hi is not None and excl_lo <= fi <= excl_hi:
+      skipped["excluded"] += 1
       continue
     if "timestamp" not in entry:
       continue
@@ -165,11 +207,10 @@ def main(argv=None):
     if not npy.is_file():
       skipped["missing"] += 1
       continue
-    frame = np.load(npy)
-    if frame.size and args.max_abs_elev_deg is not None:
-      mask = np.abs(frame[:, 3]) <= args.max_abs_elev_deg
-      frame = frame[mask]
-    pcd = videtec_to_pcd(frame)
+    if half > 0:
+      pcd = _accumulate_pcd(args.frames_dir, fi, half, args.max_abs_elev_deg)
+    else:
+      pcd = _load_frame_pcd(args.frames_dir, fi, args.max_abs_elev_deg)
     if pcd.shape[0] < args.min_points:
       skipped["points"] += 1
       continue
@@ -202,6 +243,7 @@ def main(argv=None):
       "seq_id": sid, "frame_index": fi, "gx": gx, "gy": gy,
       "bx": bx, "by": by, "n": int(pcd.shape[0]), "n_near": n_near,
       "snap_shift_m": float(math.hypot(bx - gx, by - gy)),
+      "accumulate_half_window": half,
     })
 
   n = len(kept)
@@ -232,6 +274,9 @@ def main(argv=None):
     "min_points_near_gt": args.min_points_near_gt,
     "snap_gt_to_points": args.snap_gt_to_points,
     "z_from_points": args.z_from_points,
+    "accumulate_half_window": half,
+    "exclude_start": excl_lo,
+    "exclude_end": excl_hi,
     "snap_shift_m": {
       "mean": float(shifts.mean()),
       "median": float(np.median(shifts)),
@@ -242,7 +287,11 @@ def main(argv=None):
       "median": float(np.median(near_counts)),
     },
     "skipped": skipped,
-    "source": "VIDETEC-2 + GNSS pseudo-labels (associated)",
+    "source": (
+      "VIDETEC-2 + GNSS pseudo-labels (associated"
+      + (f", accumulate ±{half}" if half else "")
+      + ")"
+    ),
   }
   (args.out / "dataset_meta.json").write_text(json.dumps(meta, indent=2) + "\n")
   (args.out / "kept_index.json").write_text(json.dumps(kept) + "\n")

@@ -53,9 +53,10 @@ services:
       - RADAR_NUM_FRAMES=${RADAR_NUM_FRAMES:-60}
       - RADAR_MAX_FRAMES=${RADAR_MAX_FRAMES:-}
       - RADAR_REQUIRE_REAL=${RADAR_REQUIRE_REAL:-false}
-      # Subdir under RADAR_RAW_DATASET_DIR for 7-float bins (e.g. pcd_bin_acc5).
+      # Subdir under RADAR_RAW_DATASET_DIR for 7-float bins.
+      # Prefer single-frame pcd_bin + RADAR_ACCUMULATE_PAST (causal) over pcd_bin_acc5.
       - RADAR_PCD_SUBDIR=${RADAR_PCD_SUBDIR:-pcd_bin}
-      - RADAR2_PCD_SUBDIR=${RADAR2_PCD_SUBDIR:-pcd_bin_acc5}
+      - RADAR2_PCD_SUBDIR=${RADAR2_PCD_SUBDIR:-pcd_bin}
       - CAM_SENSOR_IDS=${CAM_SENSOR_IDS:-radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s,radar-cam-s120-o,radar-cam-s120-n,radar-cam-s120-w,radar-cam-s120-s}
     entrypoint: ["/bin/sh", "-c"]
     command:
@@ -89,8 +90,8 @@ services:
           echo "radar-data-init: no real VIDETEC under /src/radar — synthetic fallback"
         fi
         python3 /prepare_radar_demo_data.py $${PREPARE_ARGS}
-        # Second radar unit (radar_dataset_52) densified bins → radar2/pcd_bin.
-        R2_SUB="$${RADAR2_PCD_SUBDIR:-pcd_bin_acc5}"
+        # Second radar unit (radar_dataset_52) → radar2/pcd_bin (causal densify in g3d).
+        R2_SUB="$${RADAR2_PCD_SUBDIR:-pcd_bin}"
         if [ -d "/src/radar2/$${R2_SUB}" ] && ls "/src/radar2/$${R2_SUB}"/*.bin >/dev/null 2>&1; then
           mkdir -p /dst/radar_intersection/radar2/pcd_bin
           rm -f /dst/radar_intersection/radar2/pcd_bin/*.bin
@@ -193,6 +194,7 @@ services:
       - RADAR_DEVICE=${RADAR_DEVICE:-CPU}
       - RADAR_FRAME_RATE=${RADAR_FRAME_RATE:-10}
       - RADAR_SCORE_THRESHOLD=${RADAR_SCORE_THRESHOLD:-}
+      - RADAR_ACCUMULATE_PAST=${RADAR_ACCUMULATE_PAST:-0}
       - RADAR_MUTE=${RADAR_MUTE:-false}
       - RADAR_DATA_PATH=${RADAR_DATA_PATH:-}
       - RADAR_DATA_PATHS=${RADAR_DATA_PATHS:-intersection-radar1:/home/pipeline-server/videos/radar_intersection/pcd_bin/%06d.bin,intersection-radar2:/home/pipeline-server/videos/radar_intersection/radar2/pcd_bin/%06d.bin}

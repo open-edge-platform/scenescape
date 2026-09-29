@@ -808,7 +808,10 @@ SKIP_RADAR_CAMERA_STAGE ?= false
 # Radarpillars: 0.1 ≈ one person/frame on the densify demo slice (avoid 0.03 clutter).
 ifeq ($(RADAR_PERCEPTION),radarpillars)
 RADAR_SCORE_THRESHOLD ?= 0.1
+# Causal densify for live/stream: past=10 ≈ offline ±5 span; use single-frame pcd_bin.
+RADAR_ACCUMULATE_PAST ?= 10
 endif
+RADAR_ACCUMULATE_PAST ?= 0
 # Export so docker compose ${RADAR_PERCEPTION} / ${DLS_G3D_IMAGE} see make values
 # (do not prefix env vars on the same line as $(call start_demo) — that breaks @$(MAKE)).
 export RADAR_PERCEPTION
@@ -819,6 +822,7 @@ export CAM_START_INDEX
 export CAM_STOP_INDEX
 export CAM_SENSOR_IDS
 export RADAR_SCORE_THRESHOLD
+export RADAR_ACCUMULATE_PAST
 
 # Download Zenodo runs_vru (cached) and stage JPEGs under camera_demo/ for fusion.
 .PHONY: prepare-radar-camera

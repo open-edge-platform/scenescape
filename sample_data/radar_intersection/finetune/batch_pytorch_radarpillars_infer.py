@@ -29,7 +29,11 @@ if str(_ROOT) not in sys.path:
   sys.path.insert(0, str(_ROOT))
 
 from pytorch_radarpillars_infer import RadarPillarsTorch, _RP  # noqa: E402
-from videtec_accumulate import accumulate_points, load_vod_points  # noqa: E402
+from videtec_accumulate import (  # noqa: E402
+  accumulate_points,
+  accumulate_points_causal,
+  load_vod_points,
+)
 
 
 def parse_args(argv=None):
@@ -47,13 +51,18 @@ def parse_args(argv=None):
   ap.add_argument("--stride", type=int, default=1)
   ap.add_argument(
     "--accumulate-half-window", type=int, default=0,
-    help="Stack ±N neighboring frame indices (gantry-static radar). 0=single frame.")
+    help="Non-causal stack ±N. Mutually exclusive with --accumulate-past.")
+  ap.add_argument(
+    "--accumulate-past", type=int, default=0,
+    help="Causal stack past N + current (live). past=10 ≈ H=5 span.")
   ap.add_argument("-o", "--output", type=Path, required=True)
   return ap.parse_args(argv)
 
 
 def main(argv=None):
   args = parse_args(argv)
+  if args.accumulate_half_window and args.accumulate_past:
+    raise SystemExit("Use only one of --accumulate-half-window or --accumulate-past")
   index_path = args.frames_dir / "index.json"
   index = {int(e["frame_index"]): e for e in json.loads(index_path.read_text())}
   model = RadarPillarsTorch(args.cfg_file, args.ckpt, device=args.device)
@@ -61,6 +70,7 @@ def main(argv=None):
   start = args.start_index
   stop = args.stop_index if args.stop_index is not None else max(index)
   half = max(0, int(args.accumulate_half_window))
+  past = max(0, int(args.accumulate_past))
   args.output.parent.mkdir(parents=True, exist_ok=True)
   n_frames = 0
   n_objs = 0
@@ -69,7 +79,9 @@ def main(argv=None):
       path = args.frames_dir / f"{frame_index:06d}.npy"
       if not path.is_file():
         continue
-      if half > 0:
+      if past > 0:
+        points = accumulate_points_causal(args.frames_dir, frame_index, past)
+      elif half > 0:
         points = accumulate_points(args.frames_dir, frame_index, half)
       else:
         points = load_vod_points(path)
@@ -79,6 +91,7 @@ def main(argv=None):
         "timestamp": index.get(frame_index, {}).get("timestamp"),
         "objects": objects,
         "accumulate_half_window": half,
+        "accumulate_past": past,
         "n_points": int(len(points)),
       }
       fh.write(json.dumps(entry) + "\n")
@@ -86,8 +99,12 @@ def main(argv=None):
       n_objs += len(objects)
       if n_frames % 25 == 0:
         print(f"... {n_frames} frames, {n_objs} objects", flush=True)
-  print(f"Wrote {n_frames} frames ({n_objs} objects) → {args.output}"
-        + (f" (accumulate ±{half})" if half else ""))
+  densify = ""
+  if past:
+    densify = f" (causal past={past})"
+  elif half:
+    densify = f" (accumulate ±{half})"
+  print(f"Wrote {n_frames} frames ({n_objs} objects) → {args.output}{densify}")
   return 0
 
 

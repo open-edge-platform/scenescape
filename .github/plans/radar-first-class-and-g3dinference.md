@@ -92,9 +92,13 @@ Remaining work is quality uplift, causal densify in DLS, and upstream bake.
 frames), FT2/FT4 hit **≥80–99% VRU@3m**. Failure mode for sparse full windows
 is **support density**, not a broken detector.
 
-**Full-window quality gate (still open):** lift operational recall beyond ~51%
-(H=5 on best window) via causal runtime multi-frame stack, denser train
-(optional FT5), or fusion — then re-export OV and re-check.
+**Full-window quality gate (still OPEN — reconfirmed 2026-09-28):** OV-FT2 on
+2100–4100 stride 5: **H=5 @ score≥0.01 → 52.4% VRU@3m** (associable **92.4%**
+on 170 frames); **@ demo score 0.1 → 26.4%**. Dense-cloud lock-in holds; the
+operational full-window number has not lifted. **FT5** (train-time ±5 densify
++ associated + freeze `backbone_3d`, init FT2 ep11) **did not close the gate**:
+H=5 plateau **~39%**, H=0 **11.5%** (like FT4), worse than FT2 H=5. Keep FT2
+as the demo weights; next levers are causal runtime densify or fusion.
 
 ### Why detection (not just classification) can fail
 
@@ -298,11 +302,18 @@ better 401-frame window (~10× more near-GT support than 3000–5000).
 
 ### Active next
 
-1. **Full-window quality gate** — lift operational VRU recall past ~51% (H=5
-   best window) via denser train (**optional FT5** if single-frame-without-buffer
-   is required), better densify, or camera–radar fusion; re-export OV and re-check.
-2. **Causal live densify in `g3dinference`** — ring-buffer accumulate at
-   runtime (today = pre-built `pcd_bin_acc5` for file playback).
+1. **Full-window quality gate** — **OPEN** (2026-09-28 re-run: OV-FT2 H=5
+   52.4% VRU@3m @0.01; 26.4% @ demo 0.1). **FT5 (train-time ±5 densify,
+   associated, freeze attn, init FT2 ep11) failed to lift** — plateau
+   **~39%** H=5 / **11.5%** H=0 (FT4-like), regressing vs FT2 H=5 **51.4%**.
+   Keep FT2 as demo weights. Causal densify landed in g3d (next item);
+   remaining quality lever is camera–radar fusion.
+2. **Causal live densify in `g3dinference`** — **DONE**: GST
+   `accumulate-past` ring buffer; SceneScape `RADAR_ACCUMULATE_PAST`
+   (radarpillars default 10); offline `--accumulate-past` on batch infer.
+   Prefer single-frame `pcd_bin` over `pcd_bin_acc5` for live-ready demos.
+   Offline OV-FT2 gate: causal past=10 → **52.7%** VRU@3m @0.01 on 2100–4100
+   (parity with non-causal H=5 **52.4%**).
 3. **Upstream DLS / DLSPS** — land `feature/g3dinference-multi-model`, bump
    DLSPS image, drop local `make build-dlsps-g3d`.
 4. **SceneScape cleanup** — stock DLSPS tags; native `application/x-radar`
@@ -346,10 +357,17 @@ python3 sample_data/radar_intersection/eval_radarpillars_gnss.py \
 # Bake DLSPS with generalized g3dinference (needs ../dlstreamer)
 make build-dlsps-g3d
 
-# Live fusion demo (FT2 densify + multi-cam / dual-radar)
+# Live fusion demo (FT2 + causal densify + multi-cam / dual-radar)
 SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
-  RADAR_PCD_SUBDIR=pcd_bin_acc5 RADAR_IR_DIR=FP16_ft2 \
+  RADAR_IR_DIR=FP16_ft2 RADAR_ACCUMULATE_PAST=10 \
   RADAR_SCORE_THRESHOLD=0.1 make demo-radar
+
+# Offline causal densify gate (past=10 ≈ H=5 span, no future)
+python3 sample_data/radar_intersection/batch_radarpillars_infer.py \
+  --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
+  --config sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_ov_config.json \
+  --start-index 2100 --stop-index 4100 --accumulate-past 10 --score-threshold 0.01 \
+  -o sample_data/radar_intersection/VIDETEC-2/detections_ft2_causal10_thr001.jsonl
 
 # After pose edits: lock JSON → rebuild import ZIP for other machines
 python3 sample_data/radar_intersection/pack_radar_scene_import.py

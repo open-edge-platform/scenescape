@@ -11,8 +11,10 @@ from the VoD checkpoint ([fthbng77/RadarPillar](https://github.com/fthbng77/Rada
 HF `Fatihbin/radarpillars-vod`).
 
 **Status:** Dense-cloud + FT2→OV closed. Offline OV-FT2 ±5 on 2100–4100 →
-**52.4%** VRU@3m (`model_installer/FP16_ft2/`). C5 MQTT demo is the next
-product step (FT2 IR + densified bins). FT5 optional.
+**52.4%** VRU@3m (`model_installer/FP16_ft2/`). **FT5** (train-time densify)
+did **not** beat FT2 on the full-window gate (~39% H=5). Keep FT2 for demos;
+causal densify in g3d (`accumulate-past=10`) matches H=5 offline (~52.7%
+VRU@3m); next quality lever is camera–radar fusion.
 
 ## Why fine-tune
 

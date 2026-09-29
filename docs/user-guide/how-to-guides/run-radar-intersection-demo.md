@@ -103,9 +103,12 @@ gantry FMCW detections used for the DNN acceptance gate. Synthetic bins do
      --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames
    ```
 
-4. **Optional densify (C4):** stack ±5 neighbor frames into densified bins for
-   `g3dinference` playback (same recipe as offline GNSS peak on 2100–4100).
-   Does not change the GStreamer graph — point `RADAR_DATA_PATH` at the output:
+4. **Preferred densify (live-ready):** single-frame `pcd_bin` + GST
+   `accumulate-past` (causal ring in `g3dinference`). For radarpillars,
+   `make demo-radar` defaults `RADAR_ACCUMULATE_PAST=10` (≈ offline ±5 span
+   without future frames). No prebuilt densified bins required.
+
+   Optional offline non-causal bins (legacy / A–B vs causal):
 
    ```bash
    python3 sample_data/radar_intersection/build_accumulated_pcd_bins.py \
@@ -113,8 +116,7 @@ gantry FMCW detections used for the DNN acceptance gate. Synthetic bins do
      --accumulate-half-window 5 \
      --start-index 2100 --stop-index 4100 \
      -o sample_data/radar_intersection/VIDETEC-2/converted/pcd_bin_acc5
-   # Then set RADAR_RAW_DATASET_DIR / compose path to use pcd_bin_acc5, or:
-   # RADAR_DATA_PATH=.../pcd_bin_acc5/%06d.bin RADAR_START_INDEX=2100 RADAR_STOP_INDEX=4100
+   # RADAR_PCD_SUBDIR=pcd_bin_acc5 RADAR_ACCUMULATE_PAST=0  # pre-densified
    ```
 
 5. `radar-data-init` mounts
@@ -209,16 +211,20 @@ both radars and all eight cameras (see `CAM_SENSOR_IDS` /
 `RADAR_SENSOR_IDS`). Select any `radar-cam*` pane for live video;
 `getimage` is answered per camera id.
 
-Example (FT2 densify + **time-aligned VIDETEC camera** fusion). Camera staging
-is automatic on `make demo-radar` when `CAM_MUTE` is false (first run downloads
-~4 GiB `runs_vru` once into `VIDETEC-2/download/`):
+Example (FT2 + **causal densify** + time-aligned VIDETEC camera fusion).
+Camera staging is automatic on `make demo-radar` when `CAM_MUTE` is false
+(first run downloads ~4 GiB `runs_vru` once into `VIDETEC-2/download/`):
 
 ```bash
 SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
-  RADAR_PCD_SUBDIR=pcd_bin_acc5 RADAR_IR_DIR=FP16_ft2 \
+  RADAR_IR_DIR=FP16_ft2 RADAR_ACCUMULATE_PAST=10 \
   RADAR_START_INDEX=3270 RADAR_STOP_INDEX=4100 RADAR_SCORE_THRESHOLD=0.1 \
   make demo-radar
 ```
+
+(`RADAR_ACCUMULATE_PAST=10` is the radarpillars Makefile default; single-frame
+`pcd_bin` is staged. Set `RADAR_ACCUMULATE_PAST=0` + `RADAR_PCD_SUBDIR=pcd_bin_acc5`
+for the older pre-densified playback path.)
 
 Open **Radar Intersection**, select any **radar-cam*** pane, and
 confirm map tracks update while camera detections publish on

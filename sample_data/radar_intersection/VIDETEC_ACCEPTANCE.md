@@ -232,9 +232,58 @@ take `--accumulate-half-window`. Densified bins for
 **Read:** Densify plumbing works on OV. **FT2→OV re-export**
 (`export_radarpillars_ov.py --gantry` → `model_installer/FP16_ft2/`) closes the
 gap: OV-FT2 ±5 reaches **52.4%** VRU@3m, matching PyTorch FT2 ±5 (**51.4%**).
-Streaming live ring-buffer inside `g3dinference` remains a later DLS change;
-file playback uses pre-densified bins + FT2 IR.
 
+### C4b — Causal densify (live stream path)
+
+Non-causal ±H needs future frames and cannot run on a live radar stream.
+`g3dinference` now exposes GST property **`accumulate-past`**: a ring buffer of
+the last N frames + current, concatenated before voxelize/infer. SceneScape
+wires it via `RADAR_ACCUMULATE_PAST` (radarpillars demo default **10** ≈ H=5
+span). Prefer single-frame `pcd_bin` over prebuilt `pcd_bin_acc5`.
+
+Offline gate (same window as C4; OV-FT2):
+
+```bash
+python3 sample_data/radar_intersection/batch_radarpillars_infer.py \
+  --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
+  --config sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_ov_config.json \
+  --start-index 2100 --stop-index 4100 --accumulate-past 10 --score-threshold 0.01 \
+  -o sample_data/radar_intersection/VIDETEC-2/detections_ft2_causal10_thr001.jsonl
+```
+
+Compare to ±5 with `--accumulate-half-window 5`. **Measured (OV-FT2, 2100–4100,
+score 0.01):** causal past=10 → **52.7%** VRU@3m (recall@1m 40.3%, @2m 48.8%;
+1055 hits) — matches non-causal H=5 **52.4%**. Artifact:
+`VIDETEC-2/gnss_ft2_causal10_thr001.json`.
+
+Live demo:
+
+```bash
+SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
+  RADAR_IR_DIR=FP16_ft2 RADAR_ACCUMULATE_PAST=10 \
+  make demo-radar
+```
+
+Requires `make build-dlsps-g3d` after pulling the DLS `accumulate-past` change.
+
+### Fine-tune attempt 5 (train-time densify) — did not lift gate
+
+| Item | Value |
+| --- | --- |
+| Tag | `videtec_gantry_ft5` |
+| Data | `finetune_ds_ft5` — associated + **±5 accumulate**, exclude eval **2100–4100**, stride 2 → **1403** samples (mean **8.3** pts near GT) |
+| Init / train | FT2 ep11; freeze `backbone_3d`; LR 3e-4; 12 ep; `skip_nan=0` |
+| Curve | `VIDETEC-2/gnss_ft5_epoch_curve.json` |
+
+| Ckpt | Window | Acc | VRU @ 3 m |
+| --- | --- | ---: | ---: |
+| FT5 ep4–12 | 2100–4100 | 0 | **11.5%** |
+| FT5 ep1–12 | 2100–4100 | ±5 | **~39.2%** |
+| FT2 ep11 (ref) | 2100–4100 | ±5 | **51.4%** |
+
+**Read:** Train-time densify produces a denser associated set but the frozen-attn
+finetune **regresses** H=5 full-window recall vs FT2 (toward FT4). **Do not**
+replace demo FT2 weights with FT5. Gate remains open for causal densify / fusion.
 
 ```bash
 # Parity

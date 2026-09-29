@@ -13,6 +13,11 @@ All radar perception modes share one publish stack:
 | classical    | 5 | frames_bin/%06d.bin |
 | roadside     | 5 | frames_bin/%06d.bin |
 | radarpillars | 7 | pcd_bin/%06d.bin |
+
+Live / stream-friendly densify: set ``accumulate_past`` (GST
+``accumulate-past``) so g3dinference concatenates prior frames with the
+current cloud before inference. Prefer single-frame ``pcd_bin`` + past=10
+over prebuilt ``pcd_bin_acc5`` so the same path works for live radar.
 """
 
 from __future__ import annotations
@@ -39,6 +44,7 @@ def radar_multifilesrc_parts(
   score_threshold: float,
   add_tensor_data: str,
   fifo_path: str,
+  accumulate_past: int = 0,
 ) -> list[str]:
   """GStreamer fragments for recorded radar bins + g3dinference."""
   parts = [
@@ -48,13 +54,18 @@ def radar_multifilesrc_parts(
     parts.append(f"stop-index={stop_index}")
   if loop:
     parts.append("loop=true")
-  parts += [
-    "caps=application/octet-stream",
-    f"! g3dlidarparse stride=1 frame-rate={frame_rate} point-features={int(point_features)}",
+  infer = (
     f"! g3dinference config={shlex.quote(model_config)}"
     f" model-type={shlex.quote(model_type)}"
     f" device={shlex.quote(device)}"
-    f" score-threshold={score_threshold}",
+    f" score-threshold={score_threshold}"
+  )
+  if accumulate_past and int(accumulate_past) > 0:
+    infer += f" accumulate-past={int(accumulate_past)}"
+  parts += [
+    "caps=application/octet-stream",
+    f"! g3dlidarparse stride=1 frame-rate={frame_rate} point-features={int(point_features)}",
+    infer,
     f"! gvametaconvert add-tensor-data={add_tensor_data} format=json",
     f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(fifo_path)}",
     "! fakesink sync=false",
