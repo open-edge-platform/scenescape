@@ -20,17 +20,17 @@ SCENESCAPE_ENV_MATRIX = {
 
 TEST_NAME = "NEX-T10404"
 
-def runROIMqttCreate(self):
-  self.exitCode = 1
-  self.runSceneObjMqttInitialize()
+def runROIMqttCreate(sceneObjectMqtt):
+  sceneObjectMqtt.exitCode = 1
+  sceneObjectMqtt.runSceneObjMqttInitialize()
   try:
-    self.runSceneObjMqttPrepare()
-    self.runROIMqttExecute()
-    passed = self.runROIMqttVerifyPassed()
+    sceneObjectMqtt.runSceneObjMqttPrepare()
+    sceneObjectMqtt.runROIMqttExecute()
+    passed = sceneObjectMqtt.runROIMqttVerifyPassed()
     if passed:
-      self.exitCode = 0
+      sceneObjectMqtt.exitCode = 0
   finally:
-    self.runSceneObjMqttFinally()
+    sceneObjectMqtt.runSceneObjMqttFinally()
   return
 
 @pytest.mark.basic_acceptance
