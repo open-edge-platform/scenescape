@@ -12,6 +12,9 @@
 namespace tracker {
 namespace {
 
+// Controller moving_object.DEFAULT_EDGE_LENGTH
+constexpr double kDefaultEdgeLength = 1.0;
+
 std::string toLower(std::string_view value) {
     std::string lower(value);
     std::transform(lower.begin(), lower.end(), lower.begin(),
@@ -39,13 +42,10 @@ ObjectClassConfig parseAssetObject(const rapidjson::Value& asset) {
     ObjectClassConfig config;
     config.shift_type = readShiftType(asset);
 
-    const double x_size = readNumber(asset, "x_size", 0.0);
-    const double y_size = readNumber(asset, "y_size", 0.0);
-    // Controller: mean([x_size, y_size]) / 2. Only pin a fixed offset when sizes
-    // are configured; otherwise keep projected-bbox half-width behavior.
-    if (x_size > 0.0 && y_size > 0.0) {
-        config.footprint_half_m = (x_size + y_size) / 4.0;
-    }
+    // Controller: mean([x_size, y_size]) / 2, zero sizes included.
+    config.footprint_half_m = (readNumber(asset, "x_size", kDefaultEdgeLength) +
+                               readNumber(asset, "y_size", kDefaultEdgeLength)) /
+                              4.0;
     return config;
 }
 

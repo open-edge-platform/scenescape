@@ -36,12 +36,23 @@ TEST(ObjectClassTest, UnknownCategoryDefaultsToType1) {
     EXPECT_FALSE(cfg.footprint_half_m.has_value());
 }
 
-TEST(ObjectClassTest, ZeroSizesOmitFixedFootprint) {
+TEST(ObjectClassTest, ZeroSizesKeepFixedFootprint) {
     const auto map = parseObjectClassesFromAssetsJson(
-        R"({"results":[{"name":"thing","shift_type":1,"x_size":0,"y_size":0}]})");
+        R"({"results":[{"name":"flat","x_size":0,"y_size":0},{"name":"thin","x_size":0,"y_size":2}]})");
+    const auto flat = lookupObjectClass(map, "flat");
+    ASSERT_TRUE(flat.footprint_half_m.has_value());
+    EXPECT_DOUBLE_EQ(*flat.footprint_half_m, 0.0);
+    const auto thin = lookupObjectClass(map, "thin");
+    ASSERT_TRUE(thin.footprint_half_m.has_value());
+    EXPECT_DOUBLE_EQ(*thin.footprint_half_m, 0.5);
+}
+
+TEST(ObjectClassTest, MissingOrNonNumericSizesUseDefaultEdgeLength) {
+    const auto map =
+        parseObjectClassesFromAssetsJson(R"({"results":[{"name":"thing","x_size":"big"}]})");
     const auto cfg = lookupObjectClass(map, "thing");
-    EXPECT_EQ(cfg.shift_type, ObjectClassConfig::kShiftType1);
-    EXPECT_FALSE(cfg.footprint_half_m.has_value());
+    ASSERT_TRUE(cfg.footprint_half_m.has_value());
+    EXPECT_DOUBLE_EQ(*cfg.footprint_half_m, 0.5);
 }
 
 TEST(ObjectClassTest, SkipsNamelessEntries) {
