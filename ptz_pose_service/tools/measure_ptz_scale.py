@@ -90,6 +90,8 @@ def build_argparser():
   parser.add_argument("--verbose", action="store_true",
                       help="print every step, including rejected ones")
   parser.add_argument("--resturl", default="https://web.scenescape.intel.com:443/api/v1")
+  parser.add_argument("--result-json",
+                      help="also write the measured scales (unsigned) to this file")
   parser.add_argument("--rootcert", default="/run/secrets/certs/scenescape-ca.pem")
   parser.add_argument("--restauth", default="/run/secrets/calibration.auth")
   return parser
@@ -270,6 +272,10 @@ def main():
           "(sign follows the stored pose convention, not the measurement):\n")
     for axis, value in summary.items():
       print(f'  "{axis}_scale": {abs(value):.2f},')
+  if args.result_json:
+    with open(args.result_json, "w", encoding="utf-8") as handle:
+      json.dump({f"{axis}_scale": round(abs(value), 2) for axis, value in summary.items()},
+                handle)
   return 0
 
 

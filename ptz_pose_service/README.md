@@ -7,8 +7,9 @@ calibration stays correctly placed in the scene.
 **Status**: experimental — pan and tilt only, no zoom; docker logs are the
 only feedback mechanism for now.
 
-New to this service? Start with [Setting up a new camera](#setting-up-a-new-camera),
-which walks through measuring the two things accuracy depends on.
+New to this service? Start with [Setting up a new camera](#setting-up-a-new-camera):
+[`tools/tune_ptz_camera.sh`](tools/tune_ptz_camera.sh) measures and configures a
+new PTZ camera in one run.
 
 ## What it does
 
@@ -170,7 +171,9 @@ They are **specific to that camera** — see
 
 **Static (non-PTZ) cameras** can be listed with only `scene_camera_uid` and
 the lens fields, without `onvif_host`. The service applies their lens settings
-at startup and does not track them:
+at startup and does not track them. `"track": false` does the same for a PTZ
+camera, pausing its tracking (the tuning script uses it while tools drive the
+camera):
 
 ```json
 {
@@ -201,6 +204,61 @@ result as its new home (see
 [Re-calibrating while the service runs](#re-calibrating-while-the-service-runs)).
 
 ## Setting up a new camera
+
+### Quick start: tune with one script
+
+[`tools/tune_ptz_camera.sh`](tools/tune_ptz_camera.sh) runs the whole
+procedure below unattended and writes the results into `config/cameras.json`.
+Run it on the host from the repo root:
+
+```bash
+ptz_pose_service/tools/tune_ptz_camera.sh \
+    --camera-uid atag-ptzcam4 --onvif-host 192.168.0.94 --onvif-port 2020
+```
+
+Before running it:
+
+- the camera is added in Scenescape and streams through the pipeline server,
+- it points at a view with **at least 6 AprilTags** that stay visible within
+  about ±0.2 pan / +0.1 −0.3 tilt of it (this is the start position),
+- the `ptz-pose` and `autocalibration` containers are running,
+- with a proxy configured, the camera's IP is in the `ptz-pose` container's
+  `no_proxy`/`NO_PROXY` (add it in `docker-compose.yml` and recreate the
+  container with `ONVIF_USERNAME`/`ONVIF_PASSWORD` exported). The script checks
+  this and stops with instructions if it's missing.
+
+It then runs, in about 20 minutes:
+
+| phase | what | tools |
+|---|---|---|
+| preflight | ONVIF reachable, camera in Scenescape, ≥6 tags matched; backs up the config | `ptz_goto.py`, `save_fresh_calibration.py --dry-run` |
+| 1. lens | AprilTag sweep around the start; fits and applies intrinsics + distortion | `collect_calibration_views.py`, `calibrate_intrinsics.py` |
+| 2. scale | texture sweep over the travel; starting pan/tilt scale | `capture_ptz_sweep.py`, `measure_ptz_scale.py` |
+| 3. model ×2 | fresh home, accuracy measurement, fit of curves, pan axis, backlash and signs | `measure_reprojection_accuracy.py`, `fit_ptz_curves.py` |
+| 4. verify | fresh home and a final measurement with the applied values | same |
+
+While phases 1-2 drive the camera, its tracking is paused with `track: false`.
+Before every measurement the camera is parked at its start position from a
+known direction (pan decreasing, tilt increasing, matching the configured
+`*_home_approach`), a fresh auto-calibration is saved as its trusted home, and
+the service is restarted. The fit drops stops whose tags were mis-matched,
+and the script falls back to a constant scale for any axis whose curve
+wouldn't extrapolate safely.
+
+It ends with a summary of the error per stage, the best achievable error, and
+the final config entry. All measurements and the config backup are kept in
+`/tmp/ptz_tune_<camera>_<time>/`. If it fails or is interrupted, the config is
+restored and the service restarted.
+
+Useful options (`--help` lists all): `--skip-lens`/`--skip-scale` to keep
+existing values, `--rounds N`, `--pan-path`/`--tilt-path` if tags leave the
+view on the default measurement path, `--scale-pan-range`/`--scale-tilt-range`
+to limit the texture sweep, and `--yes` to skip the confirmation.
+
+The sections below explain each step, for running them by hand or
+investigating a result.
+
+### The steps in detail
 
 Accuracy rests on three properties of the hardware: the camera's **lens
 parameters**, its **pan/tilt scale factors**, and any **mechanical backlash**
@@ -668,6 +726,10 @@ newer `zeep` releases can fail the initial `GetCapabilities` call outright.
 | [`measure_reprojection_accuracy.py`](tools/measure_reprojection_accuracy.py) | `ptz-pose` (service running) | Drive a pan/tilt path, measure stored-pose error against detected AprilTags |
 | [`fit_ptz_curves.py`](tools/fit_ptz_curves.py) | `autocalibration` | Fit `pan_curve`, `tilt_curve`, `pan_axis` and (with `--fit-backlash`) backlash from that measurement, and report the floor any curve can reach |
 | [`onvif_reboot.py`](tools/onvif_reboot.py) | `ptz-pose` | Reboot a camera over ONVIF |
+| [`tune_ptz_camera.sh`](tools/tune_ptz_camera.sh) | host | Run the whole tuning procedure for one camera and write the results to the config |
+| [`ptz_goto.py`](tools/ptz_goto.py) | `ptz-pose` | Move to a position arriving from a given direction per axis (or print the position) |
+| [`save_fresh_calibration.py`](tools/save_fresh_calibration.py) | `ptz-pose` | Auto-calibrate at the current view and save it, like Auto calibrate + Save camera |
+| [`update_camera_config.py`](tools/update_camera_config.py) | host | Set, merge or remove fields of one camera's entry in `cameras.json` |
 
 ## Live updates in the calibration UI
 

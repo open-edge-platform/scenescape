@@ -43,6 +43,10 @@ from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation
 
 AXES = ("pan", "tilt")
+# A stop that no rotation at all fits to within this many times the median stop
+# (and at least MIN_REJECT_PX) has mis-matched tags, not a model error.
+OUTLIER_ERROR_RATIO = 3.0
+MIN_REJECT_PX = 15.0
 
 
 def build_argparser():
@@ -66,6 +70,11 @@ def build_argparser():
   parser.add_argument("--fit-backlash", action="store_true",
                       help="also fit pan/tilt backlash instead of using the configured values "
                            "(needs stops reached from both directions, as the default path has)")
+  parser.add_argument("--try-sign-flips", action="store_true",
+                      help="also start the fit from the negated pan/tilt scale and keep the best; "
+                           "for a new camera whose rotation directions aren't known yet")
+  parser.add_argument("--result-json",
+                      help="also write the fitted values and errors to this file")
   return parser
 
 
@@ -148,12 +157,36 @@ def lean_degrees(axis):
   return float(np.degrees(np.arccos(abs(axis[2]))))
 
 
+def reject_bad_stops(stops, start_pose):
+  """Stops whose detections no camera rotation explains, i.e. mis-matched tags.
+
+  Checked with a free 3D rotation, so it doesn't depend on the model being
+  fitted. One such stop can otherwise drag the whole fit.
+  """
+  errors = {}
+  for i, stop in enumerate(stops):
+    if not stop["points_2d"]:
+      continue
+    residual = lambda r, s=stop: np.hypot(*(project(Rotation.from_rotvec(r) * start_pose, s)
+                                             - np.array(s["points_2d"])).T)
+    errors[i] = float(np.mean(residual(least_squares(residual, np.zeros(3)).x)))
+  if not errors:
+    return set()
+  threshold = max(OUTLIER_ERROR_RATIO * float(np.median(list(errors.values()))), MIN_REJECT_PX)
+  rejected = {i for i, e in errors.items() if e > threshold}
+  for i in sorted(rejected):
+    stop = stops[i]
+    print(f"Dropping stop {i + 1} ({stop['axis']} {stop[stop['axis']]:+.4f}): no rotation fits "
+          f"its tags better than {errors[i]:.1f} px (limit {threshold:.1f}) - mis-matched tags")
+  return rejected
+
+
 class Fit:
   """Parameters: start-pose correction (3); per axis either the backlash and where
   in its band the axis started (if fitted) or just the start offset; pan axis
   slopes (2, if fitted); curves."""
 
-  def __init__(self, data, settings, degrees, fit_pan_axis, fit_backlash=False):
+  def __init__(self, data, settings, degrees, fit_pan_axis, fit_backlash=False, rejected=()):
     self.stops = data["stops"]
     self.start = {"pan": data["start_pan"], "tilt": data["start_tilt"]}
     self.stored_start = Rotation.from_euler("XYZ", self.stops[0]["rotation"], degrees=True)
@@ -161,7 +194,8 @@ class Fit:
     self.degrees = degrees
     self.fit_pan_axis = fit_pan_axis
     self.fit_backlash = fit_backlash
-    self.measured = [i for i, s in enumerate(self.stops) if s["points_2d"]]
+    # Rejected stops still count for backlash tracking: the head did move there.
+    self.measured = [i for i, s in enumerate(self.stops) if s["points_2d"] and i not in rejected]
 
   def unpack(self, x):
     correction, x = Rotation.from_rotvec(x[:3]), x[3:]
@@ -246,20 +280,37 @@ def extrapolation_warning(curve, positions, travel):
   return None
 
 
+def solve_best(data, settings, degrees, fit_pan_axis, fit_backlash, try_sign_flips, rejected):
+  """Fit, optionally from each sign of the starting curves, keeping the lowest error."""
+  signs = [(1, 1), (-1, 1), (1, -1), (-1, -1)] if try_sign_flips else [(1, 1)]
+  best = None
+  for pan_sign, tilt_sign in signs:
+    variant = dict(settings)
+    for axis, sign in (("pan", pan_sign), ("tilt", tilt_sign)):
+      variant[axis] = dict(settings[axis], curve=[sign * c for c in settings[axis]["curve"]])
+    fit = Fit(data, variant, degrees, fit_pan_axis, fit_backlash, rejected)
+    x = fit.solve()
+    error = float(np.mean(fit.errors(x)))
+    if best is None or error < best[2]:
+      best = (fit, x, error)
+  return best[0], best[1]
+
+
 def main():
   args = build_argparser().parse_args()
   data = json.load(open(args.input, encoding="utf-8"))
   settings = load_settings(data, args.config)
+  rejected = reject_bad_stops(
+      data["stops"], Rotation.from_euler("XYZ", data["stops"][0]["rotation"], degrees=True))
 
   # Current settings with only the start state free: the baseline to beat.
   current = Fit(data, settings, {a: len(settings[a]["curve"]) - 1 for a in AXES},
-                fit_pan_axis=False)
+                fit_pan_axis=False, rejected=rejected)
   current_x = current.solve(fixed_curves=True)
-  linear = Fit(data, settings, {"pan": 1, "tilt": 1}, args.fit_pan_axis, args.fit_backlash)
-  linear_x = linear.solve()
-  fit = Fit(data, settings, {"pan": args.pan_degree, "tilt": args.tilt_degree},
-            args.fit_pan_axis, args.fit_backlash)
-  best_x = fit.solve()
+  linear, linear_x = solve_best(data, settings, {"pan": 1, "tilt": 1}, args.fit_pan_axis,
+                                args.fit_backlash, args.try_sign_flips, rejected)
+  fit, best_x = solve_best(data, settings, {"pan": args.pan_degree, "tilt": args.tilt_degree},
+                           args.fit_pan_axis, args.fit_backlash, args.try_sign_flips, rejected)
 
   start_pose, offsets, backlash, pan_axis, curves = fit.unpack(best_x)
   deltas = fit.deltas(offsets, backlash, curves)
@@ -273,6 +324,8 @@ def main():
         f"({lean_degrees(settings['pan_axis']):.2f} deg from vertical)"
         + (f", fitted {np.round(pan_axis, 4).tolist()} "
            f"({lean_degrees(pan_axis):.2f} deg from vertical)" if args.fit_pan_axis else ""))
+  result = {"start_pose_correction_deg": correction, "axes": {}, "warnings": [],
+            "rejected_stops": sorted(i + 1 for i in rejected)}
 
   for axis in AXES:
     indices = [i for i in fit.measured if fit.stops[i]["axis"] == axis]
@@ -315,6 +368,25 @@ def main():
     warning = extrapolation_warning(curves[axis], positions, getattr(args, f"{axis}_travel"))
     if warning:
       print(f"  WARNING: fitted {axis} curve {warning}")
+      result["warnings"].append(f"{axis}: {warning}")
+    mean = lambda errors: float(np.mean(errors)) if len(errors) else None
+    result["axes"][axis] = {
+        "service_px": mean(service),
+        "current_px": mean(current.errors(current_x, only_axis=axis)),
+        "curve_px": mean(fit.errors(best_x, only_axis=axis)),
+        "floor_px": mean(np.concatenate(floor)),
+    }
+
+  config = {f"{axis}_curve": [round(float(c) * settings[axis]["sign"], 2) for c in curves[axis]]
+            for axis in AXES}
+  if args.fit_pan_axis:
+    config["pan_axis"] = [round(float(v), 4) for v in pan_axis]
+  if args.fit_backlash:
+    config.update({f"{axis}_backlash_deg": round(float(backlash[axis]), 2) for axis in AXES})
+  result["config"] = config
+  if args.result_json:
+    with open(args.result_json, "w", encoding="utf-8") as handle:
+      json.dump(result, handle)
 
   print("\nFor config/cameras.json (curves replace *_scale):")
   for axis in AXES:

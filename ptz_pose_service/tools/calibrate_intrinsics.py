@@ -51,6 +51,8 @@ def build_argparser():
   parser.add_argument("--input", default="/tmp/calibration_views.json")
   parser.add_argument("--apply", action="store_true",
                       help="write the fitted intrinsics/distortion back to Scenescape")
+  parser.add_argument("--result-json",
+                      help="also write the fitted config block and fit quality to this file")
   parser.add_argument("--fit-principal-point", action="store_true",
                       help="fit cx/cy instead of pinning them to the image centre")
   parser.add_argument("--fit-aspect-ratio", action="store_true",
@@ -186,7 +188,8 @@ def main():
   print("         distortion " + "  ".join(f"{k}={v:+.5f}" for k, v in fitted_distortion.items()))
   print(f"         reprojection error: mean {after[0]:.2f}px  max {after[1]:.2f}px  (RMS {rms:.2f})")
   print(f"         uncertainty (1 sigma): f ±{focal_std:.1f}  k1 ±{std[4]:.4f}")
-  if focal_std > 0.05 * fitted["fx"] or std[4] > 0.05:
+  poorly_constrained = bool(focal_std > 0.05 * fitted["fx"] or std[4] > 0.05)
+  if poorly_constrained:
     print("         WARNING: poorly constrained - the tags don't span enough of the frame "
           "or of depth; don't trust this fit")
   improvement = (1 - after[0] / before[0]) * 100 if before[0] else 0.0
@@ -197,6 +200,11 @@ def main():
                   "distortion": {k: round(v, 6) for k, v in fitted_distortion.items()}}
   print("\nAdd to this camera's entry in ptz_pose_service/config/cameras.json:\n")
   print(",\n".join(f'  "{k}": {json.dumps(v)}' for k, v in config_block.items()))
+
+  if args.result_json:
+    with open(args.result_json, "w", encoding="utf-8") as handle:
+      json.dump({"config": config_block, "poorly_constrained": poorly_constrained,
+                 "mean_error_before": before[0], "mean_error_after": after[0]}, handle)
 
   if args.apply:
     update = dict(config_block)

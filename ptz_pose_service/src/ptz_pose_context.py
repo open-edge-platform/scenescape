@@ -619,13 +619,14 @@ class PTZPoseContext:
 
     for entry in entries:
       scene_uid = entry['scene_camera_uid']
-      if not entry.get('onvif_host'):
-        # Static camera: nothing to track, but its lens settings still apply.
+      if not entry.get('onvif_host') or entry.get('track') is False:
+        # Static camera, or tracking paused (e.g. while tools drive it): lens settings only.
         try:
           self._applyConfiguredIntrinsics(scene_uid, entry)
-          log.info(f"Static camera {scene_uid}: lens settings checked, not tracked")
+          kind = "Static camera" if not entry.get('onvif_host') else "Tracking paused for"
+          log.info(f"{kind} {scene_uid}: lens settings checked, not tracked")
         except Exception as err:
-          log.error(f"Could not apply lens settings to static camera {scene_uid}: {err}")
+          log.error(f"Could not apply lens settings to camera {scene_uid}: {err}")
         continue
       host = entry['onvif_host']
       port = int(entry.get('onvif_port', 80))
@@ -728,7 +729,12 @@ class PTZPoseContext:
 
   def loop_forever(self):
     if not self.cameras:
-      log.error("No cameras being tracked, nothing to do")
+      # Stay up rather than exit: with restart: always, exiting would crash-loop
+      # the container while all cameras are static or have tracking paused.
+      log.warning("No PTZ cameras being tracked; idle until restarted with a new config")
+      while self._running:
+        time.sleep(1.0)
+      log.info("PTZ Pose Service stopped")
       return
 
     log.info(
