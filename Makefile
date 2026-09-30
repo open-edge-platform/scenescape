@@ -60,7 +60,7 @@ DEMO_SCENES_WAIT ?= 300
 UPLOAD_SCENES := tools/upload_scenes/upload-scenes
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
-REID_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.$(strip $(REID_BACKEND))-override.yml
+REID_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/compose.$(strip $(REID_BACKEND))-override.yaml
 # retail-config/queuing-config now live in VIDEO_SOURCE_COMPOSE_FILE, not docker-compose.yml.
 REID_PIPELINE_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/compose.reid-pipeline-override.yaml
 REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
