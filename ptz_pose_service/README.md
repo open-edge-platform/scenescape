@@ -33,8 +33,9 @@ which walks through measuring the two things accuracy depends on.
 4. Rotates the home pose by that delta: pan turns the head about the **world
    vertical axis** (or the measured `pan_axis`, for a mount that isn't level)
    and tilt pivots the camera about its **own horizontal axis**, composed as
-   `R_new = R_pan(Δpan) · R_home · Rx(Δtilt)`. When the
-   change exceeds `--min-delta-deg` the new pose is persisted via
+  `R_new = R_pan(Δpan) · R_home · Rx(Δtilt)`. Once the head has been still
+  for `--pose-settle-s` (default 0.5s) and the change exceeds
+  `--min-delta-deg`, the new pose is persisted via
    `updateCamera()` and published for the UI to redraw.
 5. For cameras calibrated from 3D-2D point correspondences (the AprilTag/auto
    flow), the stored world points are reprojected to their new pixel
@@ -100,6 +101,7 @@ docker run --rm --network host intel/scenescape-ptz-pose-service:latest \
       "pan_axis": [0.0684, 0.1106, 0.9915],
       "pan_backlash_deg": 0.0,
       "tilt_backlash_deg": 2.83,
+      "pose_settle_s": 0.5,
       "pan_home_approach": null,
       "tilt_home_approach": "increasing",
       "invert_pan": false,
@@ -143,6 +145,10 @@ They are **specific to that camera** — see
 - `pan_backlash_deg`/`tilt_backlash_deg`: mechanical slack in degrees, which
   makes the same reported position mean different physical angles depending on
   the direction of approach. See [Measuring backlash](#measuring-backlash).
+- `pose_settle_s`: optional per-camera override of `--pose-settle-s`.
+  Holds REST/MQTT pose updates until the pan and tilt have stopped changing
+  for this many seconds. Backlash tracking still runs on every poll. Set to
+  `0` to update during movement instead.
 - `pan_home_approach`/`tilt_home_approach`: `"increasing"` or `"decreasing"`
   — which way the ONVIF position was moving when the home pose was
   calibrated. Needed only at startup: with backlash it decides which side of
@@ -616,6 +622,14 @@ redraw is lost but tracking continues unaffected. Disable with
 Because the browser's MQTT connection is user-toggleable, live updates stop if
 it is disconnected; the stored pose is still correct and appears on reload.
 
+The service waits for `--pose-settle-s` after the last detected motion before
+publishing a pose. This avoids several intermediate point jumps during one PTZ
+move, but the displayed pose remains at the previous position while the head
+is moving. The image refreshes independently, so points may temporarily be
+off the tags during motion; they should align once the head settles and a new
+image arrives. Set `--pose-settle-s 0` (or `pose_settle_s: 0` per camera) to
+restore in-motion updates.
+
 ## Re-calibrating while the service runs
 
 The service caches the calibrated pose as its home reference at startup. If a
@@ -683,6 +697,7 @@ rotation.
 | `--onvif-username` / `--onvif-password` | env vars | ONVIF credentials |
 | `--poll-hz` | `5.0` | PTZ status poll rate |
 | `--min-delta-deg` | `0.2` | minimum rotation change before a REST update is sent |
+| `--pose-settle-s` | `0.5` | seconds of stillness before a `ptz_delta` pose is written (0 updates during movement) |
 | `--pan-scale` / `--tilt-scale` | `1.0` | default degrees per unit of ONVIF pan/tilt |
 | `--invert-pan` / `--invert-tilt` | `false` | flip sign of pan/tilt contribution |
 | `--rebaseline-check-s` | `2.0` | how often to look for an externally applied re-calibration (0 disables) |

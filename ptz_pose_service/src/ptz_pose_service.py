@@ -44,6 +44,7 @@ def build_argparser():
                       help="how many times per second to poll each camera's PTZ status")
   parser.add_argument("--min-delta-deg", type=float, default=0.2,
                       help="minimum rotation change (degrees) before pushing a pose update")
+  parser.add_argument("--pose-settle-s", type=float, default=0.5, help="seconds of stillness before writing a ptz_delta pose (0 disables; per-camera override: pose_settle_s)")
 
   parser.add_argument("--pan-scale", type=float, default=1.0,
                       help="default degrees of yaw per unit of ONVIF pan delta "
@@ -118,7 +119,7 @@ def main():
   ctx = PTZPoseContext(
       args.resturl, args.restauth, args.rootcert, args.config,
       onvif_username=args.onvif_username, onvif_password=args.onvif_password,
-      poll_hz=args.poll_hz, min_delta_deg=args.min_delta_deg,
+      poll_hz=args.poll_hz, min_delta_deg=args.min_delta_deg, pose_settle_s=args.pose_settle_s,
       default_pan_scale=args.pan_scale, default_tilt_scale=args.tilt_scale,
       default_invert_pan=args.invert_pan, default_invert_tilt=args.invert_tilt,
       broker=args.broker, brokerauth=args.brokerauth, brokerrootcert=args.brokerrootcert,

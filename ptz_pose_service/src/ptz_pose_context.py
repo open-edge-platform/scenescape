@@ -121,6 +121,9 @@ class TrackedCamera:
   last_raw_change_time: float = 0.0
   pending_recal: bool = False
   recal_in_progress: bool = False
+  last_observed_rotation: List[float] = field(default_factory=list)
+  last_pose_change_time: float = 0.0
+  pose_settle_s: float = 0.5
   # Pose last written by this service, used to tell its own updates apart from
   # a calibration applied elsewhere (see PTZPoseContext._rebaselineIfRecalibrated).
   last_written_transforms: Optional[List[float]] = None
@@ -134,6 +137,8 @@ class TrackedCamera:
   def __post_init__(self):
     if not self.last_applied_rotation:
       self.last_applied_rotation = list(self.home_rotation)
+    if not self.last_observed_rotation:
+      self.last_observed_rotation = list(self.home_rotation)
     if not self.label:
       self.label = f"{self.onvif_host}:{self.onvif_port} -> {self.scene_camera_uid}"
     if not self.last_raw_change_time:
@@ -157,7 +162,7 @@ class PTZPoseContext:
                min_camera_height=0.1, max_translation_drift=1.0,
                default_pose_update_mode=MODE_PTZ_DELTA,
                rebaseline_check_s=2.0, rebaseline_tolerance_deg=0.5,
-               notify_ui=True):
+               notify_ui=True, pose_settle_s=0.5):
     self.resturl = resturl
     self.restauth = restauth
     self.rootcert = rootcert
@@ -171,6 +176,7 @@ class PTZPoseContext:
     self.default_invert_pan = default_invert_pan
     self.default_invert_tilt = default_invert_tilt
     self.default_pose_update_mode = default_pose_update_mode
+    self.pose_settle_s = pose_settle_s
     # How often to check whether the stored pose was changed by someone else
     # (e.g. a manual re-calibration), and how much difference counts as one.
     self.rebaseline_check_s = rebaseline_check_s
@@ -636,6 +642,8 @@ class PTZPoseContext:
     camera.home_pan = pan
     camera.home_tilt = tilt
     camera.last_applied_rotation = list(info['rotation'])
+    camera.last_observed_rotation = list(info['rotation'])
+    camera.last_pose_change_time = time.monotonic()
     camera.last_written_rotation = None
     camera.last_written_transforms = None
     # The tracker already knows which side of the slack each axis is on, so
@@ -711,6 +719,7 @@ class PTZPoseContext:
             tilt_curve=entry.get('tilt_curve'),
             pan_backlash_deg=float(entry.get('pan_backlash_deg') or 0.0),
             tilt_backlash_deg=float(entry.get('tilt_backlash_deg') or 0.0),
+            pose_settle_s=float(entry.get('pose_settle_s', self.pose_settle_s)),
             pan_home_approach=entry.get('pan_home_approach'),
             tilt_home_approach=entry.get('tilt_home_approach'),
             invert_pan=bool(entry.get('invert_pan', self.default_invert_pan)),
@@ -750,6 +759,13 @@ class PTZPoseContext:
     self._rebaselineIfRecalibrated(camera, pan, tilt)
 
     new_rotation, delta_pan, delta_tilt = self._rotationFor(camera, pan, tilt)
+
+    now = time.monotonic()
+    if rotation_delta_magnitude(new_rotation, camera.last_observed_rotation) >= self.min_delta_deg:
+      camera.last_observed_rotation = new_rotation
+      camera.last_pose_change_time = now
+    if camera.pose_settle_s > 0 and now - camera.last_pose_change_time < camera.pose_settle_s:
+      return
 
     if rotation_delta_magnitude(new_rotation, camera.last_applied_rotation) < self.min_delta_deg:
       return
