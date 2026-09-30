@@ -29,8 +29,8 @@ Configuration is read from environment variables provided by `utils/.env`:
 | ----------------- | ---------------------------------------------------------- |
 | `JIRA_TEAM`       | Team custom field value (`Vision_AI`)                      |
 | `JIRA_PROJECT`    | Zephyr project key (`ITEP`)                                |
-| `ZEPHYR_API_BASE` | `https://jira.devtools.intel.com/rest/atm/1.0/`            |
-| `JIRA_API_BASE`   | `https://jira.devtools.intel.com/rest/api/2/`              |
+| `ZEPHYR_API_BASE` | `$ZEPHYR_API_BASE`            |
+| `JIRA_API_BASE`   | `$JIRA_API_BASE`              |
 | `JIRA_TOKEN`      | `<jira personal access token>`                             |
 | `JIRA_USER`       | Jira user key recorded as the executor of uploaded results |
 
