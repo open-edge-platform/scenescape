@@ -114,7 +114,7 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
     LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{} (shift_type={}, "
              "footprint_half_m={})",
              cameras.size(), scope_.scene_id, scope_.category, object_class.shift_type,
-             object_class.footprint_half_m.has_value() ? *object_class.footprint_half_m : -1.0);
+             object_class.footprint_half_m.value_or(-1.0));
 
     worker_thread_ = std::thread(&TrackingWorker::run, this);
 }

@@ -150,7 +150,7 @@ void CoordinateTransformer::batchPixelToWorld(const std::vector<cv::Point2f>& pi
             world[i] = cv::Point2d(start_x + t * ray_x, start_y + t * ray_y);
         } else {
             // Horizon culling
-            const double xy_len = std::sqrt(ray_x * ray_x + ray_y * ray_y);
+            const double xy_len = std::hypot(ray_x, ray_y);
             if (xy_len > kRayEpsilon) {
                 world[i] = cv::Point2d(start_x + (ray_x / xy_len) * horizon_distance,
                                        start_y + (ray_y / xy_len) * horizon_distance);
@@ -210,8 +210,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             }
             const auto& foot = world[base];
             const auto& bbox = detections[i].bounding_box_px;
-            const double base_len = std::sqrt((foot.x - cam_x) * (foot.x - cam_x) +
-                                              (foot.y - cam_y) * (foot.y - cam_y));
+            const double base_len = std::hypot(foot.x - cam_x, foot.y - cam_y);
             const double base_angle_deg = std::atan2(cam_z, base_len) * (180.0 / std::numbers::pi);
             type2_indices.push_back(i);
             type2_feet.push_back(
@@ -256,17 +255,11 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         const auto& tl = world[base + 3];
 
         // Width: distance between bottom-left and bottom-right
-        const double dx_w = br.x - bl.x;
-        const double dy_w = br.y - bl.y;
-        const double width_m = std::sqrt(dx_w * dx_w + dy_w * dy_w);
+        const double width_m = std::hypot(br.x - bl.x, br.y - bl.y);
 
         // Height: elevation angle geometry
-        const double cdx = cam_x - tl.x;
-        const double cdy = cam_y - tl.y;
-        const double ll1 = std::sqrt(cdx * cdx + cdy * cdy + cam_z * cam_z);
-        const double dx_h = tl.x - bl.x;
-        const double dy_h = tl.y - bl.y;
-        const double ll2 = std::sqrt(dx_h * dx_h + dy_h * dy_h);
+        const double ll1 = std::hypot(cam_x - tl.x, cam_y - tl.y, cam_z);
+        const double ll2 = std::hypot(tl.x - bl.x, tl.y - bl.y);
         const double elevation_angle = std::atan2(std::abs(cam_z), ll1);
         const double height_m = std::sin(elevation_angle) * ll2;
 
@@ -275,12 +268,11 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         // (Controller path); otherwise use half the projected bbox width.
         const double foot_dx = foot.x - cam_x;
         const double foot_dy = foot.y - cam_y;
-        const double bearing_len = std::sqrt(foot_dx * foot_dx + foot_dy * foot_dy);
+        const double bearing_len = std::hypot(foot_dx, foot_dy);
         double offset_x = foot.x;
         double offset_y = foot.y;
         if (bearing_len > 1e-9) {
-            const double half_size =
-                footprint_half_m_.has_value() ? *footprint_half_m_ : (width_m / 2.0);
+            const double half_size = footprint_half_m_.value_or(width_m / 2.0);
             offset_x += (foot_dx / bearing_len) * half_size;
             offset_y += (foot_dy / bearing_len) * half_size;
         }
