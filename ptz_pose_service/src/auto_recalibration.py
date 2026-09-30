@@ -4,18 +4,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Automatic re-calibration fallback for PTZ cameras.
+On-demand AprilTag pose requests, used by the measurement tools in tools/.
 
-Some ONVIF PTZ cameras only advertise a generic, normalized
-``AbsolutePanTiltPositionSpace`` (conventionally ``[-1, 1]``) with no way to
-reliably derive degrees-per-unit without knowing the camera's physical
-field of view (see ``pan_degrees``/``tilt_degrees`` in the README). For
-those cameras, instead of guessing a linear pan/tilt -> rotation
-approximation, this module grabs a fresh frame from the camera (the same
-MQTT ``getcalibrationimage`` mechanism the manual calibration UI uses) and
-asks the autocalibration service to compute a brand new AprilTag-based pose
-from it, then converts the result into Scenescape's ``rotation``/
-``translation`` camera fields.
+Grabs a fresh frame from a camera (the same MQTT ``getcalibrationimage``
+mechanism the manual calibration UI uses) and asks the autocalibration
+service to match the scene's AprilTags in it. The service itself does not use
+this: it tracks PTZ moves from pan/tilt alone.
 """
 
 from __future__ import annotations

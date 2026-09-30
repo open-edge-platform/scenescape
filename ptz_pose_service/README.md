@@ -33,9 +33,9 @@ which walks through measuring the two things accuracy depends on.
 4. Rotates the home pose by that delta: pan turns the head about the **world
    vertical axis** (or the measured `pan_axis`, for a mount that isn't level)
    and tilt pivots the camera about its **own horizontal axis**, composed as
-  `R_new = R_pan(Δpan) · R_home · Rx(Δtilt)`. Once the head has been still
-  for `--pose-settle-s` (default 0.5s) and the change exceeds
-  `--min-delta-deg`, the new pose is persisted via
+   `R_new = R_pan(Δpan) · R_home · Rx(Δtilt)`. Once the head has been still
+   for `--pose-settle-s` (default 0.5s) and the change exceeds
+   `--min-delta-deg`, the new pose is persisted via
    `updateCamera()` and published for the UI to redraw.
 5. For cameras calibrated from 3D-2D point correspondences (the AprilTag/auto
    flow), the stored world points are reprojected to their new pixel
@@ -45,9 +45,11 @@ which walks through measuring the two things accuracy depends on.
    Only points that are still in frame are written. With barrel distortion
    the lens model folds back past a certain radius, so a point well outside
    the frame would otherwise be projected *into* it at a wrong pixel and
-   corrupt the pose. If fewer than 6 points stay visible, the update is
-   skipped instead of being written as Euler angles, which would discard the
-   points.
+   corrupt the pose. If fewer than 6 points stay visible (too few for
+   Scenescape's `solvePnP`), the rotation is written directly as a Euler pose
+   instead, which clears the 2D points from the calibration view. The service
+   keeps the world points in memory and switches back to point
+   correspondences as soon as enough are in view again.
 
 > **Why matrix composition rather than adding to the Euler angles?**
 > Scenescape stores `rotation` as *intrinsic* Euler XYZ, whose third
@@ -96,17 +98,16 @@ docker run --rm --network host intel/scenescape-ptz-pose-service:latest \
       "tilt_degrees": null,
       "pan_scale": -154.15,
       "tilt_scale": 56.49,
-      "pan_curve": [0.0, -158.55, 35.15],
-      "tilt_curve": [0.0, 51.69, 3.5],
-      "pan_axis": [0.0684, 0.1106, 0.9915],
-      "pan_backlash_deg": 0.0,
-      "tilt_backlash_deg": 2.83,
+      "pan_curve": [0.0, -159.23, 20.5],
+      "tilt_curve": [0.0, 62.65, -4.4],
+      "pan_axis": [0.0637, 0.1063, 0.9923],
+      "pan_backlash_deg": 0.75,
+      "tilt_backlash_deg": 2.63,
       "pose_settle_s": 0.5,
-      "pan_home_approach": null,
+      "pan_home_approach": "decreasing",
       "tilt_home_approach": "increasing",
       "invert_pan": false,
       "invert_tilt": false,
-      "pose_update_mode": "ptz_delta",
       "resolution": [1280, 720],
       "intrinsics": { "fx": 1066.3453, "fy": 1066.3453, "cx": 640.0, "cy": 360.0 },
       "distortion": { "k1": -0.371571, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0 }
@@ -161,8 +162,6 @@ They are **specific to that camera** — see
   as the datasheet.
 - `invert_pan`/`invert_tilt`: per-camera overrides of `--invert-pan`/`--invert-tilt`.
   Equivalent to negating the corresponding scale.
-- `pose_update_mode`: per-camera override of `--pose-update-mode` — which
-  mechanism keeps this camera's pose in sync (see below).
 - `resolution`/`intrinsics`/`distortion`: optional lens parameters, applied to
   Scenescape at startup if they differ from what is stored. Declaring them
   here means a measured calibration is reapplied automatically instead of
@@ -182,17 +181,12 @@ at startup and does not track them:
 }
 ```
 
-## Pose update modes
+## How poses are kept in sync
 
-How a camera's Scenescape pose is kept in sync with its live PTZ position is
-selected with `--pose-update-mode` (or per camera via `pose_update_mode`):
-
-### `ptz_delta` (default)
-
-Rotates the camera's calibrated "home" pose by its pan/tilt delta. Needs no
-video feed, no AprilTags and no re-calibration — but it does need accurate
-`pan_scale`/`tilt_scale`, since most ONVIF cameras report position in a
-normalized `[-1, 1]` space rather than real degrees. See
+The service rotates the camera's calibrated "home" pose by its pan/tilt delta.
+It needs no video feed, no AprilTags and no re-calibration after a move, but it
+does need accurate `pan_scale`/`tilt_scale`, since most ONVIF cameras report
+position in a normalized `[-1, 1]` space rather than real degrees. See
 [Measuring pan/tilt scale factors](#measuring-pantilt-scale-factors); if no
 usable scale can be resolved the service logs a warning and falls back to the
 `--pan-scale`/`--tilt-scale` defaults, which will not be accurate.
@@ -201,25 +195,10 @@ Assumes the camera rotates about its own centre, so `translation` is left
 untouched. Real pan/tilt heads have a small lever arm between the rotation
 axes and the lens, which this ignores.
 
-### `autocalibration` (opt-in)
-
-Re-runs full AprilTag-based auto-calibration after each move: watches the raw
-pan/tilt for movement, waits for it to settle (`--recal-settle-s`), grabs a
-fresh frame via the same MQTT `getcalibrationimage` mechanism the manual
-calibration UI uses, and asks the autocalibration service for a new pose.
-
-This requires a clear view of well-distributed AprilTags at every pan/tilt
-position the camera will be used at. Tags that are (near-)coplanar or lack
-depth/height variation make the underlying `solvePnP` solve unreliable, and
-the autocalibration service rejects such results outright rather than
-returning a wrong pose. Results are additionally sanity-checked here against
-`--min-camera-height` and `--max-translation-drift` (a fixed PTZ mount's
-position shouldn't move between recalibrations, and should be above the
-floor). A rejected result keeps the previous pose, logs why, and is retried
-on the next pan/tilt change.
-
-Auto-calibration can always be triggered manually from the camera's
-calibration page in the Scenescape UI, regardless of the configured mode.
+The service never re-runs auto-calibration itself. Calibrate from the camera's
+calibration page in the Scenescape UI whenever needed; the service adopts the
+result as its new home (see
+[Re-calibrating while the service runs](#re-calibrating-while-the-service-runs)).
 
 ## Setting up a new camera
 
@@ -525,7 +504,8 @@ Unlike steps 1-3 it needs `ptz-pose` **running**:
 
 ```bash
 # 0. Re-calibrate the camera from the Scenescape UI (service running).
-#    The service logs "was re-calibrated externally; adopting it as the new home".
+#    Click "Save camera" afterwards; the service then logs
+#    "new calibration saved in Scenescape; adopted as the trusted home".
 #    Close the calibration page afterwards so it doesn't save over the test.
 
 # 1. Measure (about 4 minutes; the camera returns to its start position)
@@ -535,7 +515,7 @@ docker compose exec ptz-pose python3 /tmp/tools/measure_reprojection_accuracy.py
 # 2. Fit pan_curve, tilt_curve and pan_axis against the measured tags
 docker cp scenescape-ptz-pose-1:/tmp/reprojection_accuracy.json /tmp/
 docker cp /tmp/reprojection_accuracy.json scenescape-autocalibration-1:/tmp/
-docker compose exec autocalibration python3 /tmp/tools/fit_ptz_curves.py
+docker compose exec autocalibration python3 /tmp/tools/fit_ptz_curves.py --fit-backlash
 ```
 
 Widen or narrow the paths with `--pan-path`/`--tilt-path` (offsets, visited
@@ -553,6 +533,9 @@ Step 2 replays the service's exact model, `R_pan(Δpan) · R_start · Rx(Δtilt)
 with each axis tracked through its backlash deadband along the measured path.
 By default the pan axis is fitted too (`--no-fit-pan-axis` keeps the
 configured one); the first line reports how far it leans from vertical.
+With `--fit-backlash` it also fits `pan_backlash_deg`/`tilt_backlash_deg` from
+the stops reached from both directions, instead of using the configured
+values, so no separate backlash capture is needed.
 It also fits two nuisance parameters, so the measurement doesn't need to start
 from a perfectly known state:
 - a small **start pose correction**: above ~1°, re-calibrate and measure again,
@@ -571,20 +554,33 @@ It then prints, per axis:
 | `floor` | best angle fitted independently at each stop: the lowest error any curve can reach |
 | `WARNING` | the fitted curve bends implausibly outside the measured range (checked over `--pan-travel`/`--tilt-travel`); widen the path or use degree 1 |
 
-It ends with the `pan_curve`/`tilt_curve`/`pan_axis` lines to paste into
+It ends with the `pan_curve`/`tilt_curve`/`pan_axis` lines (plus the backlash
+lines with `--fit-backlash`) to paste into
 `config/cameras.json` (the curves replace `pan_scale`/`tilt_scale`). If `curve`
 is close to `floor`, the model is as good as it can be. If the floor itself is
 well above the start-position error, the rest is not in the model: look for
 direction-dependent errors (backlash) or tag detection problems at those stops.
 
+A large, constant tilt (or pan) error on every stop after the first move,
+including back at the start position, means the service assumed the wrong
+side of the backlash band. The fitted `started ... within [...]` offset then
+sits at the opposite edge from what `*_home_approach` says; the fit itself
+is still valid.
+
 To apply the result:
 
-1. Put `pan_curve`/`tilt_curve`/`pan_axis` in `config/cameras.json`.
+1. Put the printed lines in `config/cameras.json`. Set `pan_home_approach` to
+   `"decreasing"` and `tilt_home_approach` to `"increasing"`: that is how the
+   default path last arrives at the start position.
 2. `docker compose restart ptz-pose`. The config file is mounted, so no rebuild
-   is needed. On restart the last pose the service wrote at the start position
-   becomes home, and after a good measurement that pose is accurate.
-3. Repeat steps 1-2 to confirm. When the values have converged, `current`,
-   `curve` and `floor` agree, and the fitted pan axis matches the configured one.
+   is needed.
+3. Auto-calibrate from the UI and click **Save camera**, without moving the
+   camera. On restart the service takes the stored pose as home, which carries
+   whatever error the old settings had; saving a fresh calibration makes it
+   the trusted home.
+4. Repeat steps 1-2 of the measurement to confirm. When the values have
+   converged, `current`, `curve` and `floor` agree, and re-fitting returns the
+   same pan axis and backlash.
 
 <details>
 <summary>What this looked like on the development camera</summary>
@@ -598,7 +594,9 @@ Mean / max error per axis:
 | + pan-only curve `[0, -166.06, 34.61]`, `tilt_home_approach: increasing` | 14.4 / 48.8 px | 4.8 / 10.4 px¹ |
 | same settings, wider tilt path (+0.1 / −0.3) | 13.9 / 46.7 px | 9.2 / 30.0 px |
 | + `fit_ptz_curves.py`: pan `[0, -164.2, 39.11]`, tilt `[0, 63.03, -5.01]` | 12.3 / 38.2 px | 4.5 / 14.2 px |
-| + `pan_axis` `[0.0684, 0.1106, 0.9915]` (7.5° lean), refitted pan `[0, -158.55, 35.15]`, tilt `[0, 51.69, 3.5]` | **6.9 / 23.9 px** | **4.0 / 7.9 px** |
+| + `pan_axis` `[0.0684, 0.1106, 0.9915]` (7.5° lean), refitted pan `[0, -158.55, 35.15]`, tilt `[0, 51.69, 3.5]` | 6.9 / 23.9 px | 4.0 / 7.9 px |
+| next day, after a camera reboot: same settings, tilt home approach now wrong | 7.7 / 20.1 px | 44.4 / 65.9 px |
+| + `--fit-backlash`: pan backlash 0.75°, tilt 2.63°, refitted curves and axis, fresh home | **5.0 / 16.3 px** | **3.9 / 9.2 px** |
 
 ¹ tilt path ±0.1 only.
 
@@ -617,9 +615,14 @@ Mean / max error per axis:
   axis leans 7.5° from world vertical. Setting `pan_axis` halved the pan error
   (12.3 → 6.9 px), and a re-fit on the new data returned the same axis to
   within 0.25°.
-- The remaining pan error is uneven. At pan +0.108 it was 5 px arriving from
-  one side and 16 px from the other, which suggests a little pan backlash
-  (configured as 0) plus repeatability. The per-stop floor is 4.0 px.
+- The remaining pan error was uneven. At pan +0.108 it was 5 px arriving from
+  one side and 16 px from the other. `--fit-backlash` measured 0.75° of pan
+  backlash (configured as 0 until then); modelling it brought pan to 5.0 px.
+  A re-fit on the new data returned the same backlash (0.76° pan, 2.58° tilt)
+  and axis (within 0.3°).
+- After the camera was rebooted, it arrived at home tilting down while the
+  config said `increasing`, so the service was a full backlash (~2.7°, ~45 px)
+  off in tilt. The fit recovered the curve unaffected.
 </details>
 
 #### Pan axis not vertical
@@ -663,7 +666,7 @@ newer `zeep` releases can fail the initial `GetCapabilities` call outright.
 | [`capture_ptz_backlash.py`](tools/capture_ptz_backlash.py) | `ptz-pose` | Arrive at positions from both directions, saving frame pairs |
 | [`measure_ptz_backlash.py`](tools/measure_ptz_backlash.py) | `autocalibration` | Measure mechanical slack from those pairs |
 | [`measure_reprojection_accuracy.py`](tools/measure_reprojection_accuracy.py) | `ptz-pose` (service running) | Drive a pan/tilt path, measure stored-pose error against detected AprilTags |
-| [`fit_ptz_curves.py`](tools/fit_ptz_curves.py) | `autocalibration` | Fit `pan_curve`, `tilt_curve` and `pan_axis` together from that measurement, and report the floor any curve can reach |
+| [`fit_ptz_curves.py`](tools/fit_ptz_curves.py) | `autocalibration` | Fit `pan_curve`, `tilt_curve`, `pan_axis` and (with `--fit-backlash`) backlash from that measurement, and report the floor any curve can reach |
 | [`onvif_reboot.py`](tools/onvif_reboot.py) | `ptz-pose` | Reboot a camera over ONVIF |
 
 ## Live updates in the calibration UI
@@ -693,17 +696,40 @@ restore in-motion updates.
 
 ## Re-calibrating while the service runs
 
-The service caches the calibrated pose as its home reference at startup. If a
-camera is re-calibrated afterwards — from the UI, or by any other client — it
-notices within `--rebaseline-check-s` (default 2s) and adopts the new pose,
-together with the pan/tilt the camera is at that moment, as its new home.
+The **home** is the trusted ground-truth calibration: a pose calibrated by the
+user, manually or with the autocalibration service, together with the pan/tilt
+the camera was at. Every pose the service writes after a move is *derived* from
+that home by calculation.
 
-Detection compares the *stored correspondences* against the ones this service
-last wrote, not the camera's rotation: Scenescape re-derives rotation from
-written points via `solvePnP`, and that derived value drifts slightly from the
-one used to generate them. Comparing rotations would therefore mistake the
-service's own updates for external ones, re-baseline onto a mid-move pose, and
-compound from there.
+When the camera is calibrated again from the UI (manually or by triggering
+auto-calibration) while the service runs, the service notices within
+`--rebaseline-check-s` (default 2s) and adopts that calibration as the new
+home: its pose, calibration points and lens parameters, paired with the
+pan/tilt the camera is at that moment. All later moves are calculated from it.
+The backlash state is carried over, since the service already knows which side
+of the slack each axis is on.
+
+In the UI, **Auto calibrate** only proposes a calibration on the page; nothing
+is stored until **Save camera** is clicked, so that is when the service adopts
+it and logs `new calibration saved in Scenescape; adopted as the trusted home`.
+Don't move the camera between the two clicks: the service's live updates for
+the move replace the proposed points on the page, and those would be saved
+instead.
+
+Detection compares the *stored correspondences* against the ones the service
+expects (the home at startup, then its own writes), with no angle threshold:
+they are stored exactly as written, so any difference is a new calibration,
+even one a fraction of a degree from the current pose, as a re-calibration
+of a still camera usually is. Comparing rotations instead would not work:
+Scenescape re-derives rotation from written points via `solvePnP`, and that
+value drifts slightly from the one used to generate them. Only a camera stored
+as a plain Euler pose is compared by rotation, using
+`--rebaseline-tolerance-deg`.
+
+The home is held in memory only. On restart the service takes whatever pose is
+stored at that moment as home, which is a derived pose if the camera was moved
+since its last calibration. For the most accurate home after a restart,
+calibrate once from the UI at the camera's current position.
 
 ## Verifying it works
 
@@ -736,7 +762,7 @@ rotation.
 | Pan error grows with angle even with a fitted `pan_curve`; tilt also drifts during pure pan moves | Pan axis not vertical — [set `pan_axis`](#pan-axis-not-vertical) |
 | Pose rotates the wrong way entirely | Sign — negate the scale or set `invert_pan`/`invert_tilt` |
 | Points fit near the image centre but drift at the edges | Lens distortion — [calibrate intrinsics](#calibrating-intrinsics-and-lens-distortion) |
-| Points vanish from the 2D view | Expected for tags that have left the frame. If all vanish: a pose put them behind the camera, or the camera was left on the `euler` transform type; re-calibrate once from the UI |
+| Points vanish from the 2D view | Expected for tags that have left the frame. If all vanish, fewer than 6 points were in view and the pose was written as a Euler rotation; they return once enough tags are back in view. If the service restarted meanwhile, it only sees the Euler pose, so re-calibrate once from the UI |
 | Points stop updating live but the pose is right on reload | Browser MQTT disconnected (see [Live updates](#live-updates-in-the-calibration-ui)) |
 
 ## Environment variables / credentials
@@ -758,17 +784,13 @@ rotation.
 | `--onvif-username` / `--onvif-password` | env vars | ONVIF credentials |
 | `--poll-hz` | `5.0` | PTZ status poll rate |
 | `--min-delta-deg` | `0.2` | minimum rotation change before a REST update is sent |
-| `--pose-settle-s` | `0.5` | seconds of stillness before a `ptz_delta` pose is written (0 updates during movement) |
+| `--pose-settle-s` | `0.5` | seconds of stillness before a pose is written (0 updates during movement) |
 | `--pan-scale` / `--tilt-scale` | `1.0` | default degrees per unit of ONVIF pan/tilt |
 | `--invert-pan` / `--invert-tilt` | `false` | flip sign of pan/tilt contribution |
 | `--rebaseline-check-s` | `2.0` | how often to look for an externally applied re-calibration (0 disables) |
-| `--rebaseline-tolerance-deg` | `0.5` | how far the stored pose must differ before it counts as external |
+| `--rebaseline-tolerance-deg` | `0.5` | for a camera stored as a Euler pose only: how far its rotation must differ before it counts as a new calibration |
 | `--no-notify-ui` | off | don't publish pose updates for open calibration pages |
-| `--pose-update-mode` | `ptz_delta` | default pose sync mechanism (`ptz_delta` or `autocalibration`) |
-| `--recal-settle-s` | `2.0` | (autocalibration mode) how long pan/tilt must be still before recalibrating |
-| `--min-raw-delta` | `0.02` | (autocalibration mode) minimum raw pan/tilt change counted as movement |
-| `--min-camera-height` | `0.1` | (autocalibration mode) reject a result below this Z |
-| `--max-translation-drift` | `1.0` | (autocalibration mode) reject a result that moved further than this |
+| `--broker` / `--brokerauth` / `--brokerrootcert` | Scenescape defaults | MQTT broker used for those live page updates |
 | `--discover-only` | `false` | discover cameras, log them, exit (no REST connection) |
 
 ## Build

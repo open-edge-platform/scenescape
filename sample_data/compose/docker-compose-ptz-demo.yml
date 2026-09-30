@@ -333,9 +333,6 @@ services:
   # with its live ONVIF pan/tilt position. Populate
   # ./ptz_pose_service/config/cameras.json with the camera UIDs from your
   # scene before starting this profile; see ptz_pose_service/README.md.
-  # Cameras whose ONVIF PTZ position space can't be reliably converted to
-  # degrees fall back to auto-recalibration via the broker/autocalibration
-  # services (hence the extra dependencies/secrets below).
   ptz-pose:
     image: intel/scenescape-ptz-pose-service:${VERSION:-latest}
     init: true
@@ -347,8 +344,6 @@ services:
       web:
         condition: service_healthy
       broker:
-        condition: service_started
-      autocalibration:
         condition: service_started
     environment:
       - ONVIF_USERNAME=${ONVIF_USERNAME}
@@ -362,8 +357,6 @@ services:
       --broker broker.scenescape.intel.com
       --brokerauth /run/secrets/browser.auth
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
-      --autocalibration-url https://autocalibration.scenescape.intel.com:8443/v1
-      --autocalibration-rootcert /run/secrets/certs/scenescape-ca.pem
     volumes:
       - ./ptz_pose_service/config/cameras.json:/app/config/cameras.json:ro
     secrets:

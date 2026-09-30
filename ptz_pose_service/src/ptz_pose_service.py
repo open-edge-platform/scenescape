@@ -15,9 +15,7 @@ import os
 
 from scene_common import log
 
-from ptz_pose_context import (
-    PTZPoseContext, POSE_UPDATE_MODES, MODE_PTZ_DELTA, MODE_AUTOCALIBRATION,
-)
+from ptz_pose_context import PTZPoseContext
 
 
 def build_argparser():
@@ -61,40 +59,13 @@ def build_argparser():
                       help="discover ONVIF/PTZ cameras on the network, log them, and exit "
                            "(use this to populate the config file, no REST connection needed)")
 
-  parser.add_argument("--pose-update-mode", choices=POSE_UPDATE_MODES, default=MODE_PTZ_DELTA,
-                      help="default mechanism for keeping a camera's pose in sync with its PTZ "
-                           f"position ('{MODE_PTZ_DELTA}': rotate the calibrated home pose by the "
-                           f"pan/tilt delta; '{MODE_AUTOCALIBRATION}': re-run AprilTag "
-                           "auto-calibration after each move). Overridable per camera via "
-                           "'pose_update_mode' in the config file.")
-
-  # Settings for the opt-in autocalibration pose update mode.
+  # The broker is used to push live pose updates to open calibration pages.
   parser.add_argument("--broker", default="broker.scenescape.intel.com",
-                      help="MQTT broker host[:port] used to request calibration images")
+                      help="MQTT broker host[:port] for live calibration-page updates")
   parser.add_argument("--brokerauth", default="/run/secrets/browser.auth",
                       help="user:password or path to JSON file for MQTT broker authentication")
   parser.add_argument("--brokerrootcert", default="/run/secrets/certs/scenescape-ca.pem",
                       help="path to CA certificate for MQTT broker TLS verification")
-  parser.add_argument("--autocalibration-url",
-                      default="https://autocalibration.scenescape.intel.com:8443/v1",
-                      help="autocalibration service REST API base URL")
-  parser.add_argument("--autocalibration-rootcert", default="/run/secrets/certs/scenescape-ca.pem",
-                      help="path to CA certificate for autocalibration REST TLS verification")
-  parser.add_argument("--min-raw-delta", type=float, default=0.02,
-                      help="minimum raw ONVIF pan/tilt unit change before a camera in "
-                           "auto-recalibration mode is considered to have moved")
-  parser.add_argument("--recal-settle-s", type=float, default=2.0,
-                      help="how long a camera's raw pan/tilt must stay still before "
-                           "triggering auto-recalibration")
-  parser.add_argument("--min-camera-height", type=float, default=0.1,
-                      help="reject an auto-recalibration result whose translation Z is below "
-                           "this (a fixed PTZ camera should always be above the floor plane; "
-                           "catches AprilTag pose-estimation ambiguities that flip the camera "
-                           "below the floor)")
-  parser.add_argument("--max-translation-drift", type=float, default=1.0,
-                      help="reject an auto-recalibration result whose translation moved more "
-                           "than this (scene units, normally meters) from the last known-good "
-                           "position; a fixed PTZ mount's position shouldn't change")
   parser.add_argument("--rebaseline-check-s", type=float, default=2.0,
                       help="how often to check whether the stored pose was re-calibrated "
                            "elsewhere (e.g. from the Scenescape UI) and should replace the "
@@ -105,6 +76,10 @@ def build_argparser():
   parser.add_argument("--no-notify-ui", dest="notify_ui", action="store_false", default=True,
                       help="don't push pose updates to open calibration pages (they will then "
                            "only show a new pose after a reload)")
+  # Removed with the autocalibration pose mode; still accepted so existing deployments start.
+  for obsolete in ("--autocalibration-url", "--autocalibration-rootcert"):
+    parser.add_argument(obsolete, dest="obsolete_" + obsolete[2:].replace("-", "_"),
+                        help=argparse.SUPPRESS)
   return parser
 
 
@@ -116,6 +91,10 @@ def main():
     return 0
 
   log.info("PTZ Pose Service started")
+  # After the first info line: scene_common.log fixes its level from the first message.
+  for name in ("autocalibration_url", "autocalibration_rootcert"):
+    if getattr(args, "obsolete_" + name) is not None:
+      log.warning(f"--{name.replace('_', '-')} is no longer used and is ignored")
   ctx = PTZPoseContext(
       args.resturl, args.restauth, args.rootcert, args.config,
       onvif_username=args.onvif_username, onvif_password=args.onvif_password,
@@ -123,12 +102,6 @@ def main():
       default_pan_scale=args.pan_scale, default_tilt_scale=args.tilt_scale,
       default_invert_pan=args.invert_pan, default_invert_tilt=args.invert_tilt,
       broker=args.broker, brokerauth=args.brokerauth, brokerrootcert=args.brokerrootcert,
-      autocalibration_url=args.autocalibration_url,
-      autocalibration_rootcert=args.autocalibration_rootcert,
-      min_raw_delta=args.min_raw_delta, recal_settle_s=args.recal_settle_s,
-      min_camera_height=args.min_camera_height,
-      max_translation_drift=args.max_translation_drift,
-      default_pose_update_mode=args.pose_update_mode,
       rebaseline_check_s=args.rebaseline_check_s,
       rebaseline_tolerance_deg=args.rebaseline_tolerance_deg,
       notify_ui=args.notify_ui)

@@ -17,7 +17,6 @@ from __future__ import annotations
 import json
 import os
 import signal
-import threading
 import time
 from dataclasses import dataclass, field
 from typing import List, Optional
@@ -34,11 +33,9 @@ from dlstreamer.onvif import (
 
 from pose_math import (
     rotation_delta_magnitude, scale_from_fov, axis_angle_degrees, apply_backlash,
-    compose_ptz_rotation, implausible_recalibration_reason,
-    visible_point_correspondences, split_point_correspondence_transforms,
-    join_point_correspondence_transforms,
+    compose_ptz_rotation, visible_point_correspondences,
+    split_point_correspondence_transforms, join_point_correspondence_transforms,
 )
-from auto_recalibration import AutoRecalibrator
 
 # Scenescape transform type used by the AprilTag/auto calibration flow.
 POINT_CORRESPONDENCE_TRANSFORM = '3d-2d point correspondence'
@@ -60,17 +57,6 @@ GENERIC_SPACE_SPAN_THRESHOLD_DEG = 4.0
 # pan_degrees/tilt_degrees FOV still has something to scale against (see
 # PTZPoseContext._resolveAxisScales).
 DEFAULT_POSITION_SPACE = (-1.0, 1.0)
-
-# How a camera's Scenescape pose is kept in sync with its live PTZ position:
-#   MODE_PTZ_DELTA  - rotate the calibrated "home" pose by the pan/tilt delta,
-#                     converted to degrees via pan_degrees/tilt_degrees (or an
-#                     explicit pan_scale/tilt_scale). Fast, no video needed.
-#   MODE_AUTOCALIBRATION - run a full AprilTag re-calibration after each move.
-#                     Opt-in: needs a clear view of well-distributed tags, and
-#                     is rejected outright when that geometry is degenerate.
-MODE_PTZ_DELTA = "ptz_delta"
-MODE_AUTOCALIBRATION = "autocalibration"
-POSE_UPDATE_MODES = (MODE_PTZ_DELTA, MODE_AUTOCALIBRATION)
 
 
 @dataclass
@@ -110,29 +96,19 @@ class TrackedCamera:
   invert_tilt: bool = False
   last_applied_rotation: List[float] = field(default_factory=list)
   label: str = ""
-  pose_update_mode: str = MODE_PTZ_DELTA
   # Calibration correspondences reprojected on each pose update so the UI's
   # 2D calibration view keeps its points (see _buildPoseUpdate).
   home_points_3d: Optional[List[List[float]]] = None
   intrinsics: Optional[dict] = None
   distortion: Optional[dict] = None
-  last_raw_pan: float = 0.0
-  last_raw_tilt: float = 0.0
-  last_raw_change_time: float = 0.0
-  pending_recal: bool = False
-  recal_in_progress: bool = False
   last_observed_rotation: List[float] = field(default_factory=list)
   last_pose_change_time: float = 0.0
   pose_settle_s: float = 0.5
-  # Pose last written by this service, used to tell its own updates apart from
-  # a calibration applied elsewhere (see PTZPoseContext._rebaselineIfRecalibrated).
-  last_written_transforms: Optional[List[float]] = None
-  last_written_rotation: Optional[List[float]] = None
+  # What Scenescape should hold if nobody else saved a calibration: the home at
+  # startup, then this service's own writes (see _rebaselineIfRecalibrated).
+  known_transforms: Optional[List[float]] = None
+  known_rotation: Optional[List[float]] = None
   last_rebaseline_check: float = 0.0
-
-  @property
-  def needs_recalibration(self) -> bool:
-    return self.pose_update_mode == MODE_AUTOCALIBRATION
 
   def __post_init__(self):
     if not self.last_applied_rotation:
@@ -141,8 +117,6 @@ class TrackedCamera:
       self.last_observed_rotation = list(self.home_rotation)
     if not self.label:
       self.label = f"{self.onvif_host}:{self.onvif_port} -> {self.scene_camera_uid}"
-    if not self.last_raw_change_time:
-      self.last_raw_change_time = time.monotonic()
     return
 
 
@@ -156,11 +130,6 @@ class PTZPoseContext:
                default_pan_scale=1.0, default_tilt_scale=1.0,
                default_invert_pan=False, default_invert_tilt=False,
                broker="broker.scenescape.intel.com", brokerauth=None, brokerrootcert=None,
-               autocalibration_url="https://autocalibration.scenescape.intel.com:8443/v1",
-               autocalibration_rootcert=None,
-               min_raw_delta=0.02, recal_settle_s=2.0,
-               min_camera_height=0.1, max_translation_drift=1.0,
-               default_pose_update_mode=MODE_PTZ_DELTA,
                rebaseline_check_s=2.0, rebaseline_tolerance_deg=0.5,
                notify_ui=True, pose_settle_s=0.5):
     self.resturl = resturl
@@ -175,7 +144,6 @@ class PTZPoseContext:
     self.default_tilt_scale = default_tilt_scale
     self.default_invert_pan = default_invert_pan
     self.default_invert_tilt = default_invert_tilt
-    self.default_pose_update_mode = default_pose_update_mode
     self.pose_settle_s = pose_settle_s
     # How often to check whether the stored pose was changed by someone else
     # (e.g. a manual re-calibration), and how much difference counts as one.
@@ -187,20 +155,6 @@ class PTZPoseContext:
     self.broker = broker
     self.brokerauth = brokerauth
     self.brokerrootcert = brokerrootcert
-    self.autocalibration_url = autocalibration_url
-    self.autocalibration_rootcert = autocalibration_rootcert
-    # Minimum raw ONVIF pan/tilt unit change (not degrees - these cameras'
-    # units can't be reliably converted) before a camera in recalibration
-    # fallback mode is considered to have moved.
-    self.min_raw_delta = min_raw_delta
-    # How long a camera's raw pan/tilt must stay still before triggering
-    # recalibration, so a single pan/tilt sweep doesn't retrigger repeatedly.
-    self.recal_settle_s = recal_settle_s
-    # Sanity thresholds applied to every auto-recalibration result before
-    # it's trusted (see pose_math.implausible_recalibration_reason).
-    self.min_camera_height = min_camera_height
-    self.max_translation_drift = max_translation_drift
-    self.recalibrator: Optional[AutoRecalibrator] = None
 
     self.rest = RESTClient(resturl, rootcert=rootcert, auth=restauth)
     self.cameras: List[TrackedCamera] = []
@@ -306,11 +260,10 @@ class PTZPoseContext:
     return True
 
   def _resolveAxisScales(self, controller, host, port, entry):
-    """Determine degrees-per-unit pan/tilt scale factors for a camera, and
-    whether that mapping can be trusted at all.
+    """Determine degrees-per-unit pan/tilt scale factors for a camera.
 
     Priority: an explicit ``pan_scale``/``tilt_scale`` in the config always
-    wins (assumed reliable). Otherwise, if ``pan_degrees``/``tilt_degrees``
+    wins. Otherwise, if ``pan_degrees``/``tilt_degrees``
     (the camera's real physical field of view, e.g. from its datasheet) is
     configured, the scale is derived from the camera's own advertised
     AbsolutePanTiltPositionSpace range (queried via ONVIF GetNodes) so that
@@ -325,16 +278,15 @@ class PTZPoseContext:
 
     If neither is configured, the camera's advertised position space is
     inspected: a real degree-reporting space is trusted with scale 1.0, but
-    a generic/normalized space (see ``_isReliableDegreeSpace``) is flagged
-    as unreliable so the caller can fall back to auto-recalibration instead
-    of guessing a linear approximation.
+    a generic/normalized space (see ``_isReliableDegreeSpace``) only gets the
+    ``--pan-scale``/``--tilt-scale`` defaults, with a warning.
 
-    @return     (pan_scale, tilt_scale, reliable)
+    @return     (pan_scale, tilt_scale)
     """
     pan_scale = entry.get('pan_scale')
     tilt_scale = entry.get('tilt_scale')
     if pan_scale is not None and tilt_scale is not None:
-      return float(pan_scale), float(tilt_scale), True
+      return float(pan_scale), float(tilt_scale)
 
     pan_fov = entry.get('pan_degrees')
     tilt_fov = entry.get('tilt_degrees')
@@ -353,12 +305,10 @@ class PTZPoseContext:
             float(tilt_scale) if tilt_scale is not None
             else scale_from_fov(*DEFAULT_POSITION_SPACE, tilt_fov) if tilt_fov is not None
             else self.default_tilt_scale,
-            True,
         )
       return (
           float(pan_scale) if pan_scale is not None else self.default_pan_scale,
           float(tilt_scale) if tilt_scale is not None else self.default_tilt_scale,
-          True,
       )
 
     (pan_min, pan_max, pan_uri), (tilt_min, tilt_max, tilt_uri) = ranges
@@ -373,21 +323,19 @@ class PTZPoseContext:
       if tilt_scale is None:
         tilt_scale = (scale_from_fov(tilt_min, tilt_max, tilt_fov)
                       if tilt_fov is not None else self.default_tilt_scale)
-      return float(pan_scale), float(tilt_scale), True
+      return float(pan_scale), float(tilt_scale)
 
-    reliable = self._isReliableDegreeSpace(
-        (pan_min, pan_max, pan_uri), (tilt_min, tilt_max, tilt_uri))
-    if not reliable:
+    if not self._isReliableDegreeSpace(
+        (pan_min, pan_max, pan_uri), (tilt_min, tilt_max, tilt_uri)):
       log.warning(
           f"{host}:{port} reports a generic/normalized PTZ position space "
           f"(pan URI={pan_uri!r}, pan range=[{pan_min}, {pan_max}], "
-          f"tilt range=[{tilt_min}, {tilt_max}]) with no pan_degrees/tilt_degrees "
-          f"configured, so its readings can't be converted to degrees; pose updates will "
-          f"use the --pan-scale/--tilt-scale defaults "
+          f"tilt range=[{tilt_min}, {tilt_max}]) with no pan_scale/tilt_scale or "
+          f"pan_degrees/tilt_degrees configured; pose updates will use the "
+          f"--pan-scale/--tilt-scale defaults "
           f"({self.default_pan_scale}/{self.default_tilt_scale}) and are unlikely to be "
-          "accurate. Set pan_degrees/tilt_degrees (the camera's physical sweep, from its "
-          f"datasheet) for this camera, or switch it to '{MODE_AUTOCALIBRATION}' mode.")
-    return self.default_pan_scale, self.default_tilt_scale, reliable
+          "accurate. Measure pan_scale/tilt_scale for this camera (see README).")
+    return self.default_pan_scale, self.default_tilt_scale
 
   def _fetchCameraInfo(self, scene_camera_uid):
     """Fetch a camera's calibrated rotation/translation and name from Scenescape.
@@ -476,30 +424,27 @@ class PTZPoseContext:
     its native transform type (the 2D calibration view still has points to
     draw) and Scenescape re-derives the same pose from them via solvePnP.
 
-    Otherwise a plain euler pose is used. ``transform_type`` and ``scale``
-    must be included alongside ``rotation``/``translation`` (see
-    ``_fetchCameraInfo``) or the update is silently ignored.
-
-    @return  the update payload, or None if this pose can't be represented
-             without destroying the camera's calibration points
+    Otherwise - or if too few of those points are in view for solvePnP - the
+    rotation is written directly as a euler pose. ``transform_type`` and
+    ``scale`` must be included alongside ``rotation``/``translation`` (see
+    ``_fetchCameraInfo``) or the update is silently ignored. The service keeps
+    the world points in memory, so it returns to point correspondences once
+    enough of them are back in view.
     """
     if camera.home_points_3d and camera.intrinsics:
       points_2d, points_3d = visible_point_correspondences(
           camera.home_points_3d, rotation, translation, camera.intrinsics,
           camera.distortion)
-      if len(points_3d) < MIN_PNP_POINTS:
-        # Writing a euler pose here would drop the correspondences entirely
-        # and they could only be recovered by re-calibrating, so leave the
-        # stored pose alone until the camera points somewhere usable again.
-        log.warning(
-            f"{camera.label}: only {len(points_3d)} of {len(camera.home_points_3d)} "
-            f"calibration points visible (need {MIN_PNP_POINTS}); keeping the previous pose")
-        return None
-      return {
-          'name': camera.camera_name,
-          'transform_type': POINT_CORRESPONDENCE_TRANSFORM,
-          'transforms': join_point_correspondence_transforms(points_2d, points_3d),
-      }
+      if len(points_3d) >= MIN_PNP_POINTS:
+        return {
+            'name': camera.camera_name,
+            'transform_type': POINT_CORRESPONDENCE_TRANSFORM,
+            'transforms': join_point_correspondence_transforms(points_2d, points_3d),
+        }
+      log.warning(
+          f"{camera.label}: only {len(points_3d)} of {len(camera.home_points_3d)} "
+          f"calibration points visible (need {MIN_PNP_POINTS}); writing the rotation as a "
+          "euler pose until enough are back in view")
 
     return {
         'name': camera.camera_name,
@@ -574,11 +519,13 @@ class PTZPoseContext:
     """
     if not self.notify_ui:
       return
-    if update.get('transform_type') != POINT_CORRESPONDENCE_TRANSFORM:
-      return
-    split = split_point_correspondence_transforms(update.get('transforms') or [])
-    if split is None:
-      return
+    if update.get('transform_type') == POINT_CORRESPONDENCE_TRANSFORM:
+      split = split_point_correspondence_transforms(update.get('transforms') or [])
+      if split is None:
+        return
+    else:
+      # A euler pose has no correspondences; clear the page's now-stale points.
+      split = ([], [])
     try:
       if self.notify_pubsub is None:
         self.notify_pubsub = PubSub(self.brokerauth, None, self.brokerrootcert, self.broker)
@@ -606,9 +553,10 @@ class PTZPoseContext:
     snapshot - including its stale set of calibration points, silently
     replacing the ones the new calibration produced.
 
-    A stored pose that differs from what this service last wrote can only
-    have come from somewhere else, so it is taken as the new home, paired
-    with the pan/tilt the camera is at right now.
+    A stored calibration that differs from what this service expects can only
+    have come from somewhere else (normally "Save camera" in the UI), so it is
+    taken as the new trusted home, paired with the pan/tilt the camera is at
+    right now.
     """
     now = time.monotonic()
     if now - camera.last_rebaseline_check < self.rebaseline_check_s:
@@ -621,18 +569,17 @@ class PTZPoseContext:
       log.error(f"Could not check {camera.label} for external re-calibration: {err}")
       return
 
-    reference = camera.last_written_rotation or camera.home_rotation
-    if rotation_delta_magnitude(info['rotation'], reference) < self.rebaseline_tolerance_deg:
-      return
-    # Scenescape re-derives rotation from written correspondences via solvePnP,
-    # and that value drifts a little from the one used to generate them, so the
-    # rotation alone would flag this service's own updates as external. The
-    # stored correspondences are compared instead: they are reproduced exactly.
-    if camera.last_written_transforms is not None and info['transforms'] is not None:
-      if len(camera.last_written_transforms) == len(info['transforms']) and all(
-          abs(a - b) < 1e-6
-          for a, b in zip(camera.last_written_transforms, info['transforms'])):
+    if info['points_3d'] is not None:
+      # Correspondences are stored exactly as written, so any difference is a new
+      # calibration - even one within a fraction of a degree of the current pose.
+      known = camera.known_transforms
+      if known is not None and len(known) == len(info['transforms']) and all(
+          abs(a - b) < 1e-6 for a, b in zip(known, info['transforms'])):
         return
+    elif (camera.known_transforms is None and camera.known_rotation is not None and
+          rotation_delta_magnitude(info['rotation'], camera.known_rotation)
+          < self.rebaseline_tolerance_deg):
+      return
 
     camera.home_rotation = info['rotation']
     camera.home_translation = info['translation']
@@ -644,8 +591,8 @@ class PTZPoseContext:
     camera.last_applied_rotation = list(info['rotation'])
     camera.last_observed_rotation = list(info['rotation'])
     camera.last_pose_change_time = time.monotonic()
-    camera.last_written_rotation = None
-    camera.last_written_transforms = None
+    camera.known_rotation = list(info['rotation'])
+    camera.known_transforms = info['transforms'] if info['points_3d'] is not None else None
     # The tracker already knows which side of the slack each axis is on, so
     # keep that rather than re-centring (which would add half the slack of error).
     self._rotationFor(camera, pan, tilt)
@@ -653,7 +600,7 @@ class PTZPoseContext:
     camera.home_tilt_physical_deg = camera.tilt_physical_deg
     points = len(info['points_3d']) if info['points_3d'] else 0
     log.info(
-        f"{camera.label} was re-calibrated externally; adopting it as the new home "
+        f"{camera.label}: new calibration saved in Scenescape; adopted as the trusted home "
         f"(rotation={info['rotation']}, {points} calibration points, "
         f"pan={pan:.6f} tilt={tilt:.6f})")
     return
@@ -704,11 +651,7 @@ class PTZPoseContext:
               f"No home_pan/home_tilt configured for {host}:{port}, using current "
               f"position as home: pan={home_pan} tilt={home_tilt}")
 
-        pan_scale, tilt_scale, reliable = self._resolveAxisScales(controller, host, port, entry)
-        pose_update_mode = entry.get('pose_update_mode', self.default_pose_update_mode)
-        if pose_update_mode not in POSE_UPDATE_MODES:
-          raise ValueError(
-              f"Unknown pose_update_mode {pose_update_mode!r}; expected one of {POSE_UPDATE_MODES}")
+        pan_scale, tilt_scale = self._resolveAxisScales(controller, host, port, entry)
 
         camera = TrackedCamera(
             scene_camera_uid=scene_uid,
@@ -732,34 +675,24 @@ class PTZPoseContext:
             tilt_home_approach=entry.get('tilt_home_approach'),
             invert_pan=bool(entry.get('invert_pan', self.default_invert_pan)),
             invert_tilt=bool(entry.get('invert_tilt', self.default_invert_tilt)),
-            pose_update_mode=pose_update_mode,
             home_points_3d=info['points_3d'],
             intrinsics=info['intrinsics'],
             distortion=info['distortion'],
-            last_raw_pan=float(home_pan),
-            last_raw_tilt=float(home_tilt),
+            known_rotation=list(info['rotation']),
+            known_transforms=info['transforms'] if info['points_3d'] is not None else None,
         )
         self.cameras.append(camera)
         self._resetBacklashState(camera)
         points_note = (f", reprojecting {len(info['points_3d'])} calibration points"
                        if info['points_3d'] and info['intrinsics'] else "")
         log.info(
-            f"Tracking PTZ camera {camera.label} in '{pose_update_mode}' mode "
+            f"Tracking PTZ camera {camera.label} "
             f"(home rotation={home_rotation}{points_note})")
       except Exception as err:
         log.error(f"Skipping camera {host}:{port} ({scene_uid}): {err}")
-
-    if any(camera.needs_recalibration for camera in self.cameras) and self.recalibrator is None:
-      self.recalibrator = AutoRecalibrator(
-          self.autocalibration_url, self.autocalibration_rootcert,
-          self.broker, self.brokerauth, self.brokerrootcert)
     return
 
   def pollCamera(self, camera: TrackedCamera):
-    if camera.needs_recalibration:
-      self._pollRecalibratingCamera(camera)
-      return
-
     status = camera.controller.get_status()
     pan = status.position.pan
     tilt = status.position.tilt
@@ -779,8 +712,6 @@ class PTZPoseContext:
       return
 
     update = self._buildPoseUpdate(camera, new_rotation, camera.home_translation)
-    if update is None:
-      return
     result = self.rest.updateCamera(camera.scene_camera_uid, update)
     if result.errors:
       log.error(f"Failed to update pose for {camera.label}: {result.errors}")
@@ -790,75 +721,9 @@ class PTZPoseContext:
         f"Camera {camera.label} pose updated: pan={pan:.3f} (Δ{delta_pan:+.2f}°) "
         f"tilt={tilt:.3f} (Δ{delta_tilt:+.2f}°) rotation={new_rotation}")
     camera.last_applied_rotation = new_rotation
-    camera.last_written_rotation = list(new_rotation)
-    camera.last_written_transforms = update.get('transforms')
+    camera.known_rotation = list(new_rotation)
+    camera.known_transforms = update.get('transforms')
     self._notifyCalibrationUI(camera, update)
-    return
-
-  def _pollRecalibratingCamera(self, camera: TrackedCamera):
-    """Poll loop body for a camera whose PTZ position space can't be
-    reliably converted to degrees (see ``_isReliableDegreeSpace``). Instead
-    of a linear approximation, this watches for the raw pan/tilt reading to
-    move and settle, then triggers a full AprilTag-based recalibration in a
-    background thread so the poll loop isn't blocked on it."""
-    status = camera.controller.get_status()
-    pan = status.position.pan
-    tilt = status.position.tilt
-
-    moved = (abs(pan - camera.last_raw_pan) > self.min_raw_delta or
-             abs(tilt - camera.last_raw_tilt) > self.min_raw_delta)
-    now = time.monotonic()
-    if moved:
-      camera.last_raw_pan = pan
-      camera.last_raw_tilt = tilt
-      camera.last_raw_change_time = now
-      camera.pending_recal = True
-      return
-
-    if not camera.pending_recal or camera.recal_in_progress:
-      return
-    if (now - camera.last_raw_change_time) < self.recal_settle_s:
-      return
-
-    camera.pending_recal = False
-    camera.recal_in_progress = True
-
-    def _doRecalibrate():
-      try:
-        result = self.recalibrator.recalibrate(camera.scene_camera_uid)
-        if result is None:
-          log.warning(
-              f"Auto-recalibration failed for {camera.label}; will retry on next pose change")
-          return
-        reject_reason = implausible_recalibration_reason(
-            result['translation'], camera.home_translation,
-            min_height=self.min_camera_height, max_drift=self.max_translation_drift)
-        if reject_reason:
-          log.error(
-              f"Rejecting auto-recalibration result for {camera.label}: {reject_reason} "
-              f"(rotation={result['rotation']} translation={result['translation']}); "
-              "keeping previous pose")
-          return
-        update = self._buildPoseUpdate(camera, result['rotation'], result['translation'])
-        if update is None:
-          return
-        rest_result = self.rest.updateCamera(camera.scene_camera_uid, update)
-        if rest_result.errors:
-          log.error(f"Failed to save recalibrated pose for {camera.label}: {rest_result.errors}")
-          return
-        camera.home_rotation = result['rotation']
-        camera.home_translation = result['translation']
-        camera.home_pan = pan
-        camera.home_tilt = tilt
-        camera.last_applied_rotation = result['rotation']
-        log.info(
-            f"Auto-recalibrated {camera.label}: rotation={result['rotation']} "
-            f"translation={result['translation']}")
-      finally:
-        camera.recal_in_progress = False
-      return
-
-    threading.Thread(target=_doRecalibrate, daemon=True).start()
     return
 
   def loop_forever(self):

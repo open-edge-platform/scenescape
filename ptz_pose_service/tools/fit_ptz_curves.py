@@ -63,6 +63,9 @@ def build_argparser():
                       help="ONVIF tilt range the camera is used over (see --pan-travel)")
   parser.add_argument("--no-fit-pan-axis", dest="fit_pan_axis", action="store_false",
                       help="keep the configured pan_axis (default world vertical) fixed")
+  parser.add_argument("--fit-backlash", action="store_true",
+                      help="also fit pan/tilt backlash instead of using the configured values "
+                           "(needs stops reached from both directions, as the default path has)")
   return parser
 
 
@@ -146,39 +149,51 @@ def lean_degrees(axis):
 
 
 class Fit:
-  """Parameters: start-pose correction (3), per-axis start offset in the backlash band,
-  pan axis slopes (2, if fitted), curves."""
+  """Parameters: start-pose correction (3); per axis either the backlash and where
+  in its band the axis started (if fitted) or just the start offset; pan axis
+  slopes (2, if fitted); curves."""
 
-  def __init__(self, data, settings, degrees, fit_pan_axis):
+  def __init__(self, data, settings, degrees, fit_pan_axis, fit_backlash=False):
     self.stops = data["stops"]
     self.start = {"pan": data["start_pan"], "tilt": data["start_tilt"]}
     self.stored_start = Rotation.from_euler("XYZ", self.stops[0]["rotation"], degrees=True)
     self.settings = settings
     self.degrees = degrees
     self.fit_pan_axis = fit_pan_axis
+    self.fit_backlash = fit_backlash
     self.measured = [i for i, s in enumerate(self.stops) if s["points_2d"]]
 
   def unpack(self, x):
     correction, x = Rotation.from_rotvec(x[:3]), x[3:]
-    offsets, curves = {}, {}
+    offsets, backlash, curves = {}, {}, {}
     for axis in AXES:
-      offsets[axis], x = (x[0], x[1:]) if self.settings[axis]["backlash"] else (0.0, x)
+      if self.fit_backlash:
+        # Start offset as a fraction of the half-band keeps it inside the band.
+        backlash[axis], offsets[axis] = x[0], x[1] * x[0] / 2.0
+        x = x[2:]
+      else:
+        backlash[axis] = self.settings[axis]["backlash"]
+        offsets[axis], x = (x[0], x[1:]) if backlash[axis] else (0.0, x)
     pan_axis = self.settings["pan_axis"]
     if self.fit_pan_axis:
       pan_axis, x = axis_from_slopes(x[:2]), x[2:]
     for axis in AXES:
       n = self.degrees[axis]
       curves[axis], x = [0.0, *x[:n]], x[n:]
-    return correction * self.stored_start, offsets, pan_axis, curves
+    return correction * self.stored_start, offsets, backlash, pan_axis, curves
 
   def initial(self):
     x, lower, upper = [0.0] * 3, [-0.2] * 3, [0.2] * 3
     for axis in AXES:
-      half = self.settings[axis]["backlash"] / 2.0
-      if half:
+      configured = self.settings[axis]["backlash"]
+      if self.fit_backlash:
+        x += [max(configured, 0.5), 0.0]
+        lower += [0.0, -1.0]
+        upper += [6.0, 1.0]
+      elif configured:
         x.append(0.0)
-        lower.append(-half)
-        upper.append(half)
+        lower.append(-configured / 2.0)
+        upper.append(configured / 2.0)
     if self.fit_pan_axis:
       configured = self.settings["pan_axis"]
       x += [configured[0] / configured[2], configured[1] / configured[2]]
@@ -192,14 +207,14 @@ class Fit:
       upper += [np.inf] * n
     return np.array(x), (lower, upper)
 
-  def deltas(self, offsets, curves):
+  def deltas(self, offsets, backlash, curves):
     return {axis: angle_deltas(curves[axis], [s[axis] for s in self.stops], self.start[axis],
-                               self.settings[axis]["backlash"], offsets[axis])
+                               backlash[axis], offsets[axis])
             for axis in AXES}
 
   def errors(self, x, only_axis=None):
-    start_pose, offsets, pan_axis, curves = self.unpack(x)
-    d = self.deltas(offsets, curves)
+    start_pose, offsets, backlash, pan_axis, curves = self.unpack(x)
+    d = self.deltas(offsets, backlash, curves)
     return np.concatenate([stop_errors(self.stops[i], start_pose, d["pan"][i], d["tilt"][i],
                                        pan_axis)
                            for i in self.measured
@@ -240,16 +255,16 @@ def main():
   current = Fit(data, settings, {a: len(settings[a]["curve"]) - 1 for a in AXES},
                 fit_pan_axis=False)
   current_x = current.solve(fixed_curves=True)
-  linear = Fit(data, settings, {"pan": 1, "tilt": 1}, args.fit_pan_axis)
+  linear = Fit(data, settings, {"pan": 1, "tilt": 1}, args.fit_pan_axis, args.fit_backlash)
   linear_x = linear.solve()
   fit = Fit(data, settings, {"pan": args.pan_degree, "tilt": args.tilt_degree},
-            args.fit_pan_axis)
+            args.fit_pan_axis, args.fit_backlash)
   best_x = fit.solve()
 
-  start_pose, offsets, pan_axis, curves = fit.unpack(best_x)
-  deltas = fit.deltas(offsets, curves)
-  _, current_offsets, _, current_curves = current.unpack(current_x)
-  current_deltas = current.deltas(current_offsets, current_curves)
+  start_pose, offsets, backlash, pan_axis, curves = fit.unpack(best_x)
+  deltas = fit.deltas(offsets, backlash, curves)
+  _, current_offsets, current_backlash, _, current_curves = current.unpack(current_x)
+  current_deltas = current.deltas(current_offsets, current_backlash, current_curves)
 
   correction = np.degrees(np.linalg.norm(best_x[:3]))
   print(f"Start pose correction: {correction:.2f} deg"
@@ -265,11 +280,12 @@ def main():
       print(f"\n== {axis}: no measured stops")
       continue
     positions = [fit.stops[i][axis] for i in indices]
-    half = settings[axis]["backlash"] / 2.0
+    half = backlash[axis] / 2.0
+    label = "fitted " if args.fit_backlash else ""
     band = (f", started {offsets[axis]:+.2f} deg within [{-half:+.2f}, {half:+.2f}]"
             if half else "")
     print(f"\n== {axis}  (range {min(positions):+.4f} .. {max(positions):+.4f}, "
-          f"backlash {settings[axis]['backlash']:.2f} deg{band})")
+          f"{label}backlash {backlash[axis]:.2f} deg{band})")
 
     other = "tilt" if axis == "pan" else "pan"
 
@@ -292,7 +308,7 @@ def main():
     print(f"  service, as measured:           {summary(service)}")
     print(f"  current {rounded(current_curves[axis])}: "
           f"{summary(current.errors(current_x, only_axis=axis))}")
-    print(f"  linear  {rounded(linear.unpack(linear_x)[3][axis])}: "
+    print(f"  linear  {rounded(linear.unpack(linear_x)[4][axis])}: "
           f"{summary(linear.errors(linear_x, only_axis=axis))}")
     print(f"  curve   {rounded(curves[axis])}: {summary(fit.errors(best_x, only_axis=axis))}")
     print(f"  floor (best angle per stop):    {summary(np.concatenate(floor))}")
@@ -306,6 +322,9 @@ def main():
     print(f'  "{axis}_curve": {json.dumps(curve)},')
   if args.fit_pan_axis:
     print(f'  "pan_axis": {json.dumps([round(float(v), 4) for v in pan_axis])},')
+  if args.fit_backlash:
+    for axis in AXES:
+      print(f'  "{axis}_backlash_deg": {round(float(backlash[axis]), 2)},')
   print("\n'actual' is the rotation the tags say the camera made; 'current'/'fitted' are what\n"
         "the service computes with the current/fitted curve, from the fitted start state.\n"
         "A floor well above the start-position error means the rest is not in the curve\n"
