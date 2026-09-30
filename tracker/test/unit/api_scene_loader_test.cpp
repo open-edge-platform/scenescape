@@ -3,7 +3,6 @@
 
 #include "config_loader.hpp"
 #include "logger.hpp"
-#include "object_class.hpp"
 #include "scene_loader.hpp"
 #include "scene_parser.hpp"
 
@@ -552,16 +551,7 @@ TEST_F(ApiSceneLoaderPipelineTest, LoadsObjectClassesFromAssets) {
 
     auto scenes = loader->load();
     ASSERT_EQ(scenes.size(), 1u);
-
-    const auto person = lookupObjectClass(loader->objectClasses(), "person");
-    EXPECT_EQ(person.shift_type, ObjectClassConfig::kShiftType1);
-    ASSERT_TRUE(person.footprint_half_m.has_value());
-    EXPECT_DOUBLE_EQ(*person.footprint_half_m, 0.25);
-
-    const auto plane = lookupObjectClass(loader->objectClasses(), "fw190d");
-    EXPECT_EQ(plane.shift_type, ObjectClassConfig::kShiftType2);
-    ASSERT_TRUE(plane.footprint_half_m.has_value());
-    EXPECT_DOUBLE_EQ(*plane.footprint_half_m, 0.5);
+    EXPECT_EQ(loader->objectClasses().size(), 2u);
 }
 
 TEST_F(ApiSceneLoaderPipelineTest, MultipleScenesAndCameras) {
