@@ -44,7 +44,8 @@ V2X-Seq-SPD-Example.zip
 sample_data/lidar_intersection/V2X-Seq-SPD-Example/
 sample_data/radar_intersection/frames/
 sample_data/radar_intersection/weights/
-# Manually-downloaded VIDETEC-2 radar/GNSS (Zenodo 17799385) - see run-radar-intersection-demo.md
+# VIDETEC-2 radar/GNSS/camera caches (Zenodo 17799385) — fetched by
+# make prepare-radar-videtec / prepare-radar-camera on first demo-radar.
 sample_data/radar_intersection/VIDETEC-2/
 # Generated camera JPEG staging for radar fusion (make prepare-radar-camera / demo-radar)
 sample_data/radar_intersection/camera_demo/

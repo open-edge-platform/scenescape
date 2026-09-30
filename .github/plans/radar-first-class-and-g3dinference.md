@@ -13,7 +13,9 @@ causal densify + FT2 OV quality parity (~52.7% VRU@3m); **Intel latency path
 Stages 1–2b done** (postproc ~2× on VIDETEC; OV VFE/attn ~5–6× on dense);
 **Priority-1 BEV GPU** = compose `/dev/dri` + `bev_device` / `RADAR_DEVICE=GPU`
 wired; this host is **CPU-only** so CPU `LATENCY` compile hint landed instead;
-**Controller late fusion accepted** (no extra camera–radar detection fuse).
+**Controller late fusion accepted** (no extra camera–radar detection fuse);
+**first-deploy VIDETEC is automated** (`prepare-radar-videtec` +
+`prepare-radar-camera` via `make demo-radar`).
 See *Results rollup* under OpenVINO optimization status.
 
 Related Cursor plan drafts (not in-repo): `videtec_radar_demo_ca4bfda2`,
@@ -450,7 +452,8 @@ python3 sample_data/radar_intersection/eval_radarpillars_gnss.py \
   --sensor sample_data/radar_intersection/VIDETEC-2/converted/frames/sensor.json \
   --videtec-origin --categories person,cyclist
 
-# Bake DLSPS with generalized g3dinference (needs ../dlstreamer)
+# Bake DLSPS with generalized g3dinference
+# (clone https://github.com/saratpoluri/dlstreamer as ../dlstreamer)
 make build-dlsps-g3d
 
 # Live fusion demo (FT2 + causal densify + multi-cam / dual-radar)

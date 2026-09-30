@@ -24,13 +24,18 @@ import statistics
 import subprocess
 import sys
 import tarfile
-import urllib.request
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-ZENODO_RUNS_VRU = (
-  "https://zenodo.org/api/records/17799385/files/runs_vru.tar.gz/content"
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+  sys.path.insert(0, str(_HERE))
+
+from videtec_zenodo import (  # noqa: E402
+  download_zenodo_file,
+  extract_tar_member,
 )
+
 # Oct-9 run_0 / densified pcd_bin_acc5 overlap (see ALIGN.json from prior runs).
 DEFAULT_RADAR_START = 3270
 DEFAULT_RADAR_STOP = 4100
@@ -49,49 +54,8 @@ DEFAULT_CAM_MAP = (
 )
 
 
-def _download(url: str, dest: Path, expect_min_bytes: int = 0) -> None:
-  dest.parent.mkdir(parents=True, exist_ok=True)
-  existing = dest.stat().st_size if dest.exists() else 0
-  if expect_min_bytes and existing >= expect_min_bytes:
-    print(f"[stage-cam] using cached {dest} ({existing} bytes)", flush=True)
-    return
-  req = urllib.request.Request(url)
-  mode = "wb"
-  if existing > 0:
-    req.add_header("Range", f"bytes={existing}-")
-    mode = "ab"
-    print(f"[stage-cam] resuming {dest} from {existing}", flush=True)
-  else:
-    print(f"[stage-cam] downloading {url} → {dest}", flush=True)
-  with urllib.request.urlopen(req, timeout=300) as resp, open(dest, mode) as out:
-    if existing and getattr(resp, "status", None) == 200:
-      print("[stage-cam] server ignored Range; restarting", flush=True)
-      out.close()
-      dest.unlink()
-      return _download(url, dest, expect_min_bytes=0)
-    n = existing
-    while True:
-      chunk = resp.read(1 << 20)
-      if not chunk:
-        break
-      out.write(chunk)
-      n += len(chunk)
-      if n % (50 << 20) < (1 << 20):
-        print(f"[stage-cam]   {n / 1e9:.2f} GB", flush=True)
-  print(f"[stage-cam] download done ({dest.stat().st_size} bytes)", flush=True)
-
-
 def _extract_member(outer: Path, member: str, dest_dir: Path) -> Path:
-  dest_dir.mkdir(parents=True, exist_ok=True)
-  out_path = dest_dir / Path(member).name
-  if out_path.exists() and out_path.stat().st_size > 0:
-    return out_path
-  print(f"[stage-cam] extracting {member}", flush=True)
-  with tarfile.open(outer, "r:gz") as tf:
-    m = tf.getmember(member)
-    m.name = Path(m.name).name
-    tf.extract(m, path=dest_dir)
-  return dest_dir / Path(member).name
+  return extract_tar_member(outer, member, dest_dir)
 
 
 def _cam_timestamps(cam_tar: Path) -> list[int]:
@@ -327,8 +291,7 @@ def main() -> int:
     if not download.is_file():
       raise SystemExit(f"--skip-download but missing {download}")
   else:
-    # ~4.13 GiB published size; allow slight variance.
-    _download(ZENODO_RUNS_VRU, download, expect_min_bytes=4_000_000_000)
+    download_zenodo_file("runs_vru.tar.gz", download.parent, log_prefix="[stage-cam]")
 
   extract_dir = root / "runs_vru_extract"
   reports = []

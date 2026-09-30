@@ -125,8 +125,10 @@ help:
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  build-dlsps-g3d             Bake local DLSPS image with generalized g3dinference"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
-	@echo "  demo-radar                  Radar-intersection demo (RADAR_PERCEPTION=classical|roadside|radarpillars)"
+	@echo "  prepare-radar-videtec       Download/convert VIDETEC-2 radar+GNSS (first deploy; gitignored)"
 	@echo "  prepare-radar-camera        Download/stage VIDETEC camera JPEGs into gitignored camera_demo/"
+	@echo "  prepare-radar-data          prepare-radar-videtec + prepare-radar-camera"
+	@echo "  demo-radar                  Radar-intersection demo (RADAR_PERCEPTION=classical|roadside|radarpillars)"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -782,7 +784,7 @@ demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
 demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
 	$(call start_demo,--profile tracker)
 
-# Bake DLSPS with generalized g3dinference (needs DLSTREAMER_SRC checkout)
+# Bake DLSPS with generalized g3dinference (clone https://github.com/saratpoluri/dlstreamer as DLSTREAMER_SRC)
 .PHONY: build-dlsps-g3d
 build-dlsps-g3d:
 	DLSTREAMER_SRC="$(DLSTREAMER_SRC)" DLS_BASE_IMAGE="$(DLS_BASE_IMAGE)" \
@@ -805,6 +807,10 @@ CAM_START_INDEX ?= 3270
 CAM_STOP_INDEX ?= 4100
 CAM_SENSOR_IDS ?= radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s,radar-cam-s120-o,radar-cam-s120-n,radar-cam-s120-w,radar-cam-s120-s
 SKIP_RADAR_CAMERA_STAGE ?= false
+# First-deploy VIDETEC radar+GNSS download/convert (gitignored VIDETEC-2/).
+SKIP_RADAR_VIDETEC_PREP ?= false
+# Fail closed in radar-data-init when real VIDETEC is expected (default on).
+RADAR_REQUIRE_REAL ?= true
 # Radarpillars: 0.1 ≈ one person/frame on the densify demo slice (avoid 0.03 clutter).
 ifeq ($(RADAR_PERCEPTION),radarpillars)
 RADAR_SCORE_THRESHOLD ?= 0.1
@@ -823,6 +829,17 @@ export CAM_STOP_INDEX
 export CAM_SENSOR_IDS
 export RADAR_SCORE_THRESHOLD
 export RADAR_ACCUMULATE_PAST
+export RADAR_REQUIRE_REAL
+
+# Download Zenodo Radar_dataset + gnss; convert radar51 → converted/, radar52 → converted_r52/.
+.PHONY: prepare-radar-videtec
+prepare-radar-videtec:
+	@if [ "$(SKIP_RADAR_VIDETEC_PREP)" = "true" ] || [ "$(SKIP_RADAR_VIDETEC_PREP)" = "TRUE" ] || [ "$(SKIP_RADAR_VIDETEC_PREP)" = "1" ]; then \
+		echo "prepare-radar-videtec: SKIP_RADAR_VIDETEC_PREP=true — skip"; \
+	else \
+		python3 sample_data/radar_intersection/prepare_videtec_demo_data.py \
+			--root sample_data/radar_intersection/VIDETEC-2; \
+	fi
 
 # Download Zenodo runs_vru (cached) and stage JPEGs under camera_demo/ for fusion.
 .PHONY: prepare-radar-camera
@@ -841,10 +858,14 @@ prepare-radar-camera:
 			--radar-stop "$(CAM_STOP_INDEX)"; \
 	fi
 
+.PHONY: prepare-radar-data
+prepare-radar-data: prepare-radar-videtec prepare-radar-camera
+
 .PHONY: demo-radar
-demo-radar: build-dlsps-g3d $(DEMO_BUILD:build=build-core) init-sample-data prepare-radar-camera
+demo-radar: build-dlsps-g3d $(DEMO_BUILD:build=build-core) init-sample-data prepare-radar-data
 	@echo "demo-radar: RADAR_PERCEPTION=$(RADAR_PERCEPTION) DLS_G3D_IMAGE=$(DLS_G3D_IMAGE)"
 	@echo "demo-radar: RADAR_CAM_DATASET_DIR=$(RADAR_CAM_DATASET_DIR) CAM=$(CAM_START_INDEX)-$(CAM_STOP_INDEX) sensors=$(CAM_SENSOR_IDS) mute=$(CAM_MUTE)"
+	@echo "demo-radar: RADAR_REQUIRE_REAL=$(RADAR_REQUIRE_REAL)"
 	$(call start_demo,$(strip $(RADAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close

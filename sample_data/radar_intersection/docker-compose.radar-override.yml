@@ -52,7 +52,7 @@ services:
       - JPEG_QUALITY=${JPEG_QUALITY:-50}
       - RADAR_NUM_FRAMES=${RADAR_NUM_FRAMES:-60}
       - RADAR_MAX_FRAMES=${RADAR_MAX_FRAMES:-}
-      - RADAR_REQUIRE_REAL=${RADAR_REQUIRE_REAL:-false}
+      - RADAR_REQUIRE_REAL=${RADAR_REQUIRE_REAL:-true}
       # Subdir under RADAR_RAW_DATASET_DIR for 7-float bins.
       # Prefer single-frame pcd_bin + RADAR_ACCUMULATE_PAST (causal) over pcd_bin_acc5.
       - RADAR_PCD_SUBDIR=${RADAR_PCD_SUBDIR:-pcd_bin}

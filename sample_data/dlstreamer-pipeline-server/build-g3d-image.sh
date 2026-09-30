@@ -19,7 +19,8 @@ DOCKERFILE="${ROOT}/sample_data/dlstreamer-pipeline-server/Dockerfile.g3dinferen
 
 if [[ ! -f "${DLSTREAMER_SRC}/scripts/rebuild_3delements_plugin.sh" ]]; then
   echo "Missing ${DLSTREAMER_SRC}/scripts/rebuild_3delements_plugin.sh" >&2
-  echo "Set DLSTREAMER_SRC to a checkout with feature/g3dinference-multi-model." >&2
+  echo "Set DLSTREAMER_SRC to a clone of https://github.com/saratpoluri/dlstreamer" >&2
+  echo "(generalized g3dinference: classical / roadside / radarpillars)." >&2
   exit 1
 fi
 

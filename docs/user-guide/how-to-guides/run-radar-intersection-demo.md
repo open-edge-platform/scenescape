@@ -43,7 +43,7 @@ It does **not** use `g3dradarprocess` (raw ADC).
 | `model_installer/classical/` | Classical g3dinference JSON config |
 | `model_installer/roadside/FP16/` | Roadside OpenVINO IR (VIDETEC-trained) |
 | `model_installer/FP16/` | RadarPillars IR |
-| `make build-dlsps-g3d` | DLSPS image with `classical`/`roadside`/`radarpillars` runtimes |
+| `make build-dlsps-g3d` | Bake DLSPS from [saratpoluri/dlstreamer](https://github.com/saratpoluri/dlstreamer) (`classical`/`roadside`/`radarpillars`) |
 
 Roadside commercial path: see
 [`baselines/PROVENANCE.md`](../../../sample_data/radar_intersection/baselines/PROVENANCE.md)
@@ -52,61 +52,75 @@ Roadside commercial path: see
 ## Prerequisites
 
 1. Same host requirements as the core demo (`SUPASS`, Docker, secrets).
-2. A local [DLStreamer](https://github.com/open-edge-platform/dlstreamer) checkout
-   with generalized `g3dinference` including `classical` / `roadside` runtimes
-   (default `../dlstreamer`). Override `DLSTREAMER_SRC=...`.
-3. **Real VIDETEC-2 radar frames (recommended)** — see
-   [VIDETEC-2 real data](#videtec-2-real-data). Without them,
-   `radar-data-init` falls back to synthetic frames (plumbing only).
-4. Camera JPEG sequence for fusion (default `CAM_MUTE=false`):
-   - **Default:** `make demo-radar` runs `prepare-radar-camera`, which downloads
-     VIDETEC-2 `runs_vru.tar.gz` from Zenodo (cached under gitignored
-     `VIDETEC-2/download/`), extracts Oct‑9 `run_0` / `s110_o_cam_8`, and stages
-     time-aligned JPEGs under gitignored
-     `sample_data/radar_intersection/camera_demo/`. **No camera dataset files
-     are committed to the repo.** Requires converted radar
-     `VIDETEC-2/converted/frames/index.json` (step 3 below). Defaults:
-     `RADAR_CAM_DATASET_DIR=./sample_data/radar_intersection/camera_demo`,
-     `CAM_START_INDEX=3270`, `CAM_STOP_INDEX=4100`.
-   - Skip staging: `CAM_MUTE=true`, or `SKIP_RADAR_CAMERA_STAGE=true`, or point
-     `RADAR_CAM_DATASET_DIR` at another tree (e.g. V2X-Seq under
-     `sample_data/lidar_intersection/V2X-Seq-SPD-Example` with
-     `CAM_START_INDEX=10699` `CAM_STOP_INDEX=10949`).
-5. Manager/Controller with first-class radar (`DATA_RADAR`).
+2. Clone and build against **[saratpoluri/dlstreamer](https://github.com/saratpoluri/dlstreamer)**
+   (generalized `g3dinference` with `classical` / `roadside` / `radarpillars`).
+   Stock [open-edge-platform/dlstreamer](https://github.com/open-edge-platform/dlstreamer)
+   does **not** include these runtimes yet.
+
+   ```bash
+   # sibling of the scenescape checkout (matches default DLSTREAMER_SRC)
+   git clone https://github.com/saratpoluri/dlstreamer.git ../dlstreamer
+   # optional: DLSTREAMER_SRC=/path/to/saratpoluri/dlstreamer
+   ```
+
+   `make demo-radar` / `make build-dlsps-g3d` bake that tree into the local
+   `-g3d` DLSPS image.
+3. Network access on **first** `make demo-radar` to download VIDETEC-2 from
+   [Zenodo 17799385](https://zenodo.org/records/17799385) (CC BY 4.0)
+   — radar HDF5 (~1.9 GiB), GNSS (~4 MiB), and optionally cameras
+   (`runs_vru` ~4 GiB). Cached under gitignored `VIDETEC-2/` /
+   `camera_demo/`. Re-runs are idempotent.
+4. Manager/Controller with first-class radar (`DATA_RADAR`).
+
+## First deploy (automated)
+
+Scene definitions, FT2 / roadside / classical model IRs, and compose
+pipelines are **in git**. VIDETEC bytes are **not**; `make demo-radar`
+fetches and converts them on first run:
+
+```bash
+# One shot: bake g3d image + download/convert VIDETEC + stage cameras + start
+SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_IR_DIR=FP16_ft2 \
+  make demo-radar
+```
+
+`demo-radar` depends on `prepare-radar-data` =
+
+| Target | Script | Produces (gitignored) |
+| --- | --- | --- |
+| `prepare-radar-videtec` | `prepare_videtec_demo_data.py` | `VIDETEC-2/download/`, `radar/`, `gnss/`, `converted/` (dataset 51), `converted_r52/` (dataset 52) |
+| `prepare-radar-camera` | `stage_videtec_camera_demo.py` | `camera_demo/{radar-cam*}/` JPEGs |
+
+Defaults: `RADAR_REQUIRE_REAL=true` (fail if prep skipped / incomplete),
+`RADAR_ACCUMULATE_PAST=10` for radarpillars. Skip pieces with
+`SKIP_RADAR_VIDETEC_PREP=true`, `SKIP_RADAR_CAMERA_STAGE=true`, or
+`CAM_MUTE=true`. Synthetic-only plumbing:
+`SKIP_RADAR_VIDETEC_PREP=true RADAR_REQUIRE_REAL=false`.
+
+Manual / CI refresh:
+
+```bash
+make prepare-radar-data          # radar+GNSS+cameras
+make prepare-radar-videtec       # radar+GNSS only
+python3 sample_data/radar_intersection/prepare_videtec_demo_data.py --check-only
+```
 
 ## VIDETEC-2 real data
 
-[VIDETEC-2](https://zenodo.org/records/17799385) (CC BY 4.0) provides the
-gantry FMCW detections used for the DNN acceptance gate. Synthetic bins do
-**not** close that gate.
+[VIDETEC-2](https://zenodo.org/records/17799385) (CC BY 4.0) is the
+acceptance dataset. Prefer the automated path above. Manual equivalent:
 
-1. Download `Radar_dataset.zip` and `gnss.zip` from the Zenodo record.
-2. Extract the HDF5 files and GNSS CSVs under
-   `sample_data/radar_intersection/VIDETEC-2/` (git-ignored):
+1. Archives land in `sample_data/radar_intersection/VIDETEC-2/download/`
+   (`Radar_dataset.zip`, `gnss.zip`, `runs_vru.tar.gz`).
+2. `prepare_videtec_demo_data.py` extracts HDF5s and converts both radars:
 
-   ```bash
-   mkdir -p sample_data/radar_intersection/VIDETEC-2/{download,radar,gnss}
-   # place Radar_dataset.zip + gnss.zip into download/, then:
-   unzip download/Radar_dataset.zip -d sample_data/radar_intersection/VIDETEC-2/radar
-   unzip download/gnss.zip -d sample_data/radar_intersection/VIDETEC-2/gnss
-   ```
+   - radar **51** → `VIDETEC-2/converted/{frames,frames_bin,pcd_bin}/`
+   - radar **52** → `VIDETEC-2/converted_r52/...` (time-aligned
+     `3098–3928` ↔ radar1 `3270–4100`)
 
-3. Convert radar **51** (Oct 9 overlap with `rosbag2_2025_10_09-14_43_55`) to
-   `(N,5)` frames + VoD 7-float `pcd_bin`, preserving `/frames/timestamp`:
-
-   ```bash
-   python3 radar/videtec_hdf5_to_frames.py \
-     sample_data/radar_intersection/VIDETEC-2/radar/radar_dataset_51.h5 \
-     -o sample_data/radar_intersection/VIDETEC-2/converted/frames
-   python3 sample_data/radar_intersection/prepare_radar_demo_data.py \
-     -o sample_data/radar_intersection/VIDETEC-2/converted \
-     --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames
-   ```
-
-4. **Preferred densify (live-ready):** single-frame `pcd_bin` + GST
-   `accumulate-past` (causal ring in `g3dinference`). For radarpillars,
-   `make demo-radar` defaults `RADAR_ACCUMULATE_PAST=10` (≈ offline ±5 span
-   without future frames). No prebuilt densified bins required.
+3. **Preferred densify (live):** single-frame `pcd_bin` + GST
+   `accumulate-past` (`RADAR_ACCUMULATE_PAST=10` by default for
+   radarpillars). No prebuilt densified bins required.
 
    Optional offline non-causal bins (legacy / A–B vs causal):
 
@@ -116,15 +130,12 @@ gantry FMCW detections used for the DNN acceptance gate. Synthetic bins do
      --accumulate-half-window 5 \
      --start-index 2100 --stop-index 4100 \
      -o sample_data/radar_intersection/VIDETEC-2/converted/pcd_bin_acc5
-   # RADAR_PCD_SUBDIR=pcd_bin_acc5 RADAR_ACCUMULATE_PAST=0  # pre-densified
+   # RADAR_PCD_SUBDIR=pcd_bin_acc5 RADAR_ACCUMULATE_PAST=0
    ```
 
-5. `radar-data-init` mounts
-   `RADAR_RAW_DATASET_DIR` (default
-   `./sample_data/radar_intersection/VIDETEC-2/converted`). When `frames/` or
-   `pcd_bin/` is present it copies real data into the sample-data volume;
-   otherwise it generates synthetic frames. Set `RADAR_REQUIRE_REAL=true` to
-   fail closed without the archive.
+4. `radar-data-init` mounts `RADAR_RAW_DATASET_DIR` /
+   `RADAR2_RAW_DATASET_DIR` (defaults under `VIDETEC-2/converted*`) and
+   copies into the sample-data volume.
 
 Attribution when using or redistributing converted frames:
 
@@ -254,7 +265,7 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `RADAR_SCORE_THRESHOLD` | mode default (`0` / `0.1`) | Radarpillars: use **`0.1`** (~1 person on densify slice); `0.03` is clutter |
 | `RADAR_MODEL_CONFIG` | mode default under `vol-models` | Override g3dinference config JSON |
 | `RADAR_DATA_PATH` | `frames_bin` or `pcd_bin` | multifilesrc pattern |
-| `DLSTREAMER_SRC` | `../dlstreamer` | Checkout for `build-dlsps-g3d` |
+| `DLSTREAMER_SRC` | `../dlstreamer` | [saratpoluri/dlstreamer](https://github.com/saratpoluri/dlstreamer) checkout for `build-dlsps-g3d` |
 | `DLS_G3D_IMAGE` | `…:2026.2.0-ubuntu24-rc2-g3d` | Baked DLSPS tag |
 | `CAM_DEVICE` | `CPU` | OpenVINO device for `gvadetect` |
 | `RADAR_MUTE` / `CAM_MUTE` | `false` | Mute a modality |
@@ -262,12 +273,13 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `CAM_SENSOR_IDS` | eight `radar-cam*` ids | Comma list; each needs `{CAM_DATA_ROOT}/{id}/%06d.jpg` |
 | `CAM_START_INDEX` / `CAM_STOP_INDEX` | `3270` / `4100` | JPEG sequence slice (`%06d.jpg`) |
 | `SKIP_RADAR_CAMERA_STAGE` | `false` | `true` skips Zenodo download / `camera_demo` staging |
+| `SKIP_RADAR_VIDETEC_PREP` | `false` | Skip Zenodo radar/GNSS download+convert |
 | `RADAR_RAW_DATASET_DIR` | `…/VIDETEC-2/converted` | Host radar1 `frames/` / bins |
 | `RADAR2_RAW_DATASET_DIR` | `…/VIDETEC-2/converted_r52` | Host radar2 densified bins |
 | `RADAR_SENSOR_IDS` | `intersection-radar1,intersection-radar2` | Comma list of radar MQTT ids |
 | `RADAR_DATA_PATHS` / `RADAR_INDEX_RANGES` | see compose | Per-radar bin path and start-stop |
 | `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `3270` / `4100` | Default radar1 slice (overridden per-id via `RADAR_INDEX_RANGES`) |
-| `RADAR_REQUIRE_REAL` | `false` | `true` fails if no real VIDETEC inputs |
+| `RADAR_REQUIRE_REAL` | `true` (via Makefile) | Fail if no real VIDETEC inputs |
 | `DEMO_REBUILD_IMAGES` | `true` | Set `false` to skip Scenescape image rebuild |
 
 ## Verify
