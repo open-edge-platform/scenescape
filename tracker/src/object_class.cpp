@@ -43,7 +43,7 @@ ObjectClassConfig parseAssetObject(const rapidjson::Value& asset) {
     const double y_size = readNumber(asset, "y_size", 0.0);
     // Controller: mean([x_size, y_size]) / 2. Only pin a fixed offset when sizes
     // are configured; otherwise keep projected-bbox half-width behavior.
-    if (x_size > 0.0 || y_size > 0.0) {
+    if (x_size > 0.0 && y_size > 0.0) {
         config.footprint_half_m = (x_size + y_size) / 4.0;
     }
     return config;

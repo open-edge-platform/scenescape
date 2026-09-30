@@ -58,8 +58,7 @@ void addMetadataAttributes(std::string_view metadataJson,
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
                                              const CameraExtrinsics& extrinsics, int shift_type,
                                              std::optional<double> footprint_half_m)
-    : shift_type_(shift_type == ObjectClassConfig::kShiftType2 ? ObjectClassConfig::kShiftType2
-                                                               : ObjectClassConfig::kShiftType1),
+    : shift_type_(shift_type),
       footprint_half_m_(std::move(footprint_half_m)) {
     // Build intrinsics matrix K = [fx 0 cx; 0 fy cy; 0 0 1]
     intrinsics_matrix_ = cv::Matx33d(intrinsics.fx, 0.0, intrinsics.cx, 0.0, intrinsics.fy,

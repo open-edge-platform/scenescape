@@ -597,9 +597,7 @@ class BlackBoxHarness(TrackerHarness):
         (thread, port) — the port is passed to containers via ``add_hosts``.
     """
     port = _free_port()
-    scene_config = dict(self._scene_config)
-    if self._object_classes:
-      scene_config["object_classes"] = list(self._object_classes)
+    scene_config = {**self._scene_config, "object_classes": self._object_classes}
     t = threading.Thread(
         target=_run_mock_manager,
         args=(port, scene_config),
