@@ -29,7 +29,7 @@ cp /path/to/your/utils ./deepscenario_utils.py
 
 ### 2. Download Required Models
 
-Download the required models for License Plate Detection and Optical Character Recognition to the following location `scenescape/model_installer/models/public/`. For more information, refer to [DL Streamer documentation](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition#models).
+Create the `scenescape/models` folder and download there the required models for License Plate Detection and Optical Character Recognition. For more information, refer to [DL Streamer documentation](https://github.com/open-edge-platform/dlstreamer/tree/main/samples/gstreamer/gst_launch/license_plate_recognition#models).
 
 ### 3. Build the extended Docker container based on the DL Streamer Pipeline Server docker image
 
@@ -38,13 +38,13 @@ Running the `DeepScenario` script requires additional Python modules installed o
 Create a Dockerfile named `Dockerfile.dls-deepscenario` and copy the following into it:
 
 ```Dockerfile
-FROM docker.io/intel/dlstreamer-pipeline-server:2025.2.0-extended-ubuntu24
+FROM docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20260922-weekly-ubuntu24
 
 USER root
 
-RUN pip3 install scipy argon2-cffi cryptography opencv-python numpy openvino onnxruntime
+RUN pip3 install scipy==1.18.1 argon2-cffi==25.1.0 cryptography==50.0.0 opencv-python==4.11.0.86 numpy==2.4.6 openvino==2026.2.0 onnxruntime==1.29.0
 
-RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN pip3 install torch==2.14.0 torchvision==0.29.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cpu
 
 USER intelmicroserviceuser
 ```
@@ -52,8 +52,13 @@ USER intelmicroserviceuser
 And then build the image with:
 
 ```bash
-docker build Dockerfile.dls-deepscenario -t dls-ps-deepscenario
+docker build -f Dockerfile.dls-deepscenario -t dls-ps-deepscenario
 ```
+
+> [!NOTE]
+> You can use a different version of the DL Streamer Pipeline Server Docker image as the base image. If you do, update the `FROM` line in the Dockerfile to use the desired tag. Available versions are listed on [Docker Hub](https://hub.docker.com/r/intel/dlstreamer-pipeline-server/tags).
+>
+> Changing the base image version may also require updating the versions of the Python modules installed in the Dockerfile. If the selected versions are incompatible, the build will fail and the error messages will indicate which module versions need to be updated. After adjusting them, rebuild the image.
 
 ### 4. Configure Video Analytics Pipeline
 
@@ -185,7 +190,9 @@ Each pipeline can have a separate `intrinsics.json` file. The DeepScenario scrip
 
 ### 6. Modify Docker Compose Configuration
 
-Edit the `sample_data/docker-compose-dl-streamer-example.yml` file to disable the `retail` and `queuing` video services and enable the `deepscenario` service:
+Edit the `sample_data/demo_scenes/Retail/retail-video-compose.yaml` file (or
+`Queuing/queuing-video-compose.yaml`) to disable its video service and enable
+the `deepscenario` service:
 
 **Remove the following sections:**
 
@@ -207,11 +214,6 @@ deepscenario:
     - "8556:8554"
   devices:
     - "/dev/dri:/dev/dri"
-  depends_on:
-    broker:
-      condition: service_started
-    ntpserv:
-      condition: service_started
   environment:
     - RUN_MODE=EVA
     - DETECTION_DEVICE=CPU
@@ -231,12 +233,17 @@ deepscenario:
     - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
     - vol-dlstreamer-pipeline-server-pipeline-root:/var/cache/pipeline_root:uid=1999,gid=1999
     - ./sample_data:/home/pipeline-server/videos
-    - ./model_installer/models/public/ch_PP-OCRv4_rec_infer/FP32:/home/pipeline-server/models/ch_PP-OCRv4_rec_infer
-    - ./model_installer/models/public/yolov8_license_plate_detector/FP32:/home/pipeline-server/models/yolov8_license_plate_detector
+    - ./models/ch_PP-OCRv4_rec_infer/FP32:/home/pipeline-server/models/ch_PP-OCRv4_rec_infer
+    - ./models/yolov8_license_plate_detector/FP32:/home/pipeline-server/models/yolov8_license_plate_detector
   secrets:
     - source: root-cert
       target: certs/scenescape-ca.pem
 ```
+
+`deepscenario` runs in the video-source stack alongside `retail-video`/`queuing-video`,
+not in `docker-compose.yml`, so it cannot use `depends_on` on `broker`/`ntpserv`
+(those services live in the main stack); it reaches them by hostname on the
+shared `scenescape` network once the main stack is up.
 
 Add `maxlag` option to the scene controller command:
 
@@ -272,8 +279,9 @@ scenescape/
 │               └── FP32/
 │                   ├── yolov8_license_plate_detector.xml
 │                   └── yolov8_license_plate_detector.bin
-└── sample_data/
-    └── docker-compose-dl-streamer-example.yml
+└── sample_data/demo_scenes/
+    ├── Retail/retail-video-compose.yaml
+    └── Queuing/queuing-video-compose.yaml
 ```
 
 ### 8. Build and Run

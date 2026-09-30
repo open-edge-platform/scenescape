@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+import pytest
+
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
 
@@ -15,16 +17,15 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_sensor_area_main(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T10401")
+def test_sensor_area_main(params, result_recorder):
   """! Checks that a sensor covering the entire scene, a circular area, and a
   triangular area can each be calibrated.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the test result.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10401"
-  record_xml_attribute("name", TEST_NAME)
-  exit_code = 1
   browser = None
   try:
     print("Executing: " + TEST_NAME)
@@ -52,13 +53,11 @@ def test_sensor_area_main(params, record_xml_attribute):
     assert entire_scene.is_selected()
     validate_circular_sensor_area(browser)
     validate_polygon_sensor_area(browser)
-    exit_code = 0
+    result_recorder.success()
   finally:
     if browser is not None:
       common.delete_sensor(browser, sensor_name)
       browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
-    assert exit_code == 0
   return
 
 def validate_polygon_sensor_area(browser):

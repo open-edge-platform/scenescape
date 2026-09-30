@@ -8,7 +8,7 @@
 
 services:
   broker:
-    image: eclipse-mosquitto:2.0.22
+    image: eclipse-mosquitto:2.1-alpine
     ports:
       - "1883" # Dynamic host port for non-TLS
       - "8883" # Dynamic host port for TLS

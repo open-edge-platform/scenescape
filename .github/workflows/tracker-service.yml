@@ -1,0 +1,261 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[CI] Tracker Service"
+run-name: "[CI] Tracker Service"
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+
+concurrency:
+  group: tracker-service-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect-changes:
+    name: "Detect Tracker Changes"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      run-jobs: ${{ steps.changes.outputs.tracker }}
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0 # Fetch all history for accurate diff
+
+      - name: "Detect tracker changes"
+        id: changes
+        uses: dorny/paths-filter@7b450fff21473bca461d4b92ce414b9d0420d706 # v4.0.2
+        with:
+          filters: |
+            tracker:
+              - 'tracker/**'
+              - '.github/workflows/tracker-service.yml'
+
+  lint-cpp-code:
+    name: "Lint C++ code"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: "Install clang-format"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: "Check C++ formatting"
+        run: make -C tracker lint-cpp
+
+  lint-dockerfile:
+    name: "Lint Dockerfile"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: "Install hadolint"
+        run: |
+          wget -qO /usr/local/bin/hadolint https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64
+          chmod +x /usr/local/bin/hadolint
+
+      - name: "Lint Dockerfile"
+        run: make -C tracker lint-dockerfile
+
+  lint-python:
+    name: "Lint Python code"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: "Install autopep8"
+        run: pip install autopep8
+
+      - name: "Lint Python files"
+        run: make -C tracker lint-python
+
+  trivy-scan:
+    name: "Trivy security scan (optional)"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: "Install Trivy"
+        run: |
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+          echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install -y trivy
+
+      - name: "Run Trivy scan"
+        continue-on-error: true
+        run: make -C tracker lint-trivy
+
+  native-build-and-test:
+    name: "Native build and unit tests"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up runner space
+        run: |
+          # Remove Java (JDKs)
+          sudo rm -rf /usr/lib/jvm
+          # Remove .NET SDKs
+          sudo rm -rf /usr/share/dotnet
+          # Remove Swift toolchain
+          sudo rm -rf /usr/share/swift
+          # Remove Haskell (GHC)
+          sudo rm -rf /usr/local/.ghcup
+          # Remove Julia
+          sudo rm -rf /usr/local/julia*
+          # Remove Android SDKs
+          sudo rm -rf /usr/local/lib/android
+
+      - name: "Checkout code"
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: "Install build tools"
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libopencv-dev \
+            libeigen3-dev \
+            libopenblas-dev \
+            lcov
+          pip install conan gcovr
+
+      - name: "Configure Conan"
+        run: |
+          conan profile detect --force
+
+      - name: "Cache Conan packages"
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-${{ hashFiles('tracker/conanfile.txt') }}
+          restore-keys: |
+            conan-${{ runner.os }}-
+
+      - name: "Build release"
+        run: make -C tracker build
+
+      - name: "Build debug with tests"
+        run: make -C tracker build-debug
+
+      - name: "Run unit tests with coverage"
+        run: make -C tracker test-unit-coverage
+
+      - name: "Upload coverage reports"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: coverage-reports
+          path: |
+            tracker/build-debug/coverage/coverage.xml
+            tracker/build-debug/coverage/html/
+          retention-days: 30
+
+      - name: "Display coverage summary"
+        if: always()
+        run: |
+          {
+            echo "## 📊 Coverage Summary"
+            echo ""
+            echo "Coverage reports have been generated and uploaded as artifacts."
+            echo ""
+            gcovr tracker/build-debug \
+              --root tracker \
+              --exclude '.*test.*' \
+              --exclude '.*/build-debug/.*' \
+              --exclude '.*/usr/.*' \
+              --exclude '.*/.conan.*' \
+              --exclude '.*/.conan2/.*' \
+              --exclude '.*robot_vision.*' \
+              --exclude '.*controller.*' \
+              --exclude '.*external.*' \
+              --exclude '.*third_party.*' \
+              --exclude '.*/src/main.cpp' || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  docker-build-and-test:
+    name: "Docker build and service tests"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.run-jobs == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Free up runner space
+        run: |
+          # Remove Java (JDKs)
+          sudo rm -rf /usr/lib/jvm
+          # Remove .NET SDKs
+          sudo rm -rf /usr/share/dotnet
+          # Remove Swift toolchain
+          sudo rm -rf /usr/share/swift
+          # Remove Haskell (GHC)
+          sudo rm -rf /usr/local/.ghcup
+          # Remove Julia
+          sudo rm -rf /usr/local/julia*
+          # Remove Android SDKs
+          sudo rm -rf /usr/local/lib/android
+
+      - name: "Checkout code"
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: "Set up Docker Buildx"
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: "Build Docker image"
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: tracker/Dockerfile
+          target: runtime
+          push: false
+          load: true
+          tags: intel/scenescape-tracker:latest
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            BUILD_TYPE=Release
+          cache-from: type=gha,scope=tracker-service
+          cache-to: type=gha,mode=max,scope=tracker-service
+
+      - name: "Install Python dependencies"
+        run: |
+          pip install -r tracker/test/service/requirements.txt
+
+      - name: "Run service tests"
+        run: make -C tracker test-service

@@ -35,7 +35,7 @@ maintain a per-publisher ID-mapping cache.
 Publish under your persistent `source_id` (topic path = publisher id). Scene
 membership is consumer-side binding (`wgs84` geospatial auto-attach, or
 `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`). See
-[ADR 16](../../adr/0016-unified-external-source-ingestion.md).
+[ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md).
 
 ## Prerequisites
 
@@ -52,7 +52,7 @@ membership is consumer-side binding (`wgs84` geospatial auto-attach, or
 
 Familiarity with the source protocol and with JSON/MQTT is assumed. Architecture
 background:
-[ADR 14 — Unified External-Source Ingestion](../../adr/0016-unified-external-source-ingestion.md).
+[ADR 16 — Unified External-Source Ingestion](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md).
 
 ## Mapping Checklist
 
@@ -75,16 +75,19 @@ fields and examples; do not invent alternate shapes.
      Details:
      [External Source Pose Fields](../microservices/controller/data_formats.md#external-source-pose-fields-pose).
 
-4. **Map each native observation** to an `objects[*]` entry with a required
-   string `id`, `category`, and `translation` in the **source's local frame**
-   (relative to the source origin described by `pose`). Optional `size`,
-   `rotation`, `confidence`, and `metadata` follow the same contract. See
+4. **Map each native observation** to an `objects[*]` entry with `category`
+   and `translation` in the **source's local frame** (relative to the source
+   origin described by `pose`). Include `id` whenever the top-level source
+   `track` value is `false`; when the top-level source `track` value is `true`
+   or omitted, `id` is optional. Optional `size`, `rotation`, `confidence`,
+   and `metadata` follow the same contract. See
    [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
 
-5. **Keep object `id` values persistent and unique** within your source. They
-   are trusted as global track identity by default, with cross-source collision
-   detection. Do not mint a fresh UUID on every process restart. See
-   [Trusted Identity by Default, with Collision Detection](../microservices/controller/data_formats.md#trusted-identity-by-default-with-collision-detection).
+5. **Choose whether the source message should be tracked by Scenescape**. The
+   top-level source `track` value applies to all objects in that message.
+   `track=false` preserves the source `id`, so keep those ids persistent and
+   unique within your source. See
+   [Source-Identity Trust for Untracked Objects, with Collision Detection](../microservices/controller/data_formats.md#source-identity-trust-for-untracked-objects-with-collision-detection).
 
 6. **Resolve coordinate conventions in the converter**, not in the controller:
    - Quaternions are `(x, y, z, w)`.
@@ -196,7 +199,7 @@ End-to-end MQTT coverage that exercises this path lives in
 The adapter and this guide do **not** cover:
 
 - Footprint-based multi-scene handoff policy (platform **binding** Future Work,
-  [ADR 16](../../adr/0016-unified-external-source-ingestion.md))
+  [ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md))
 - Cross-source fusion or camera/external deduplication
 - Stronger trust-domain join / MQTT ACL hardening beyond same-authority certs
   (ADR 14 Future Work — discuss with security)
@@ -205,7 +208,7 @@ The adapter and this guide do **not** cover:
 
 - [External Source Input Message Format](../microservices/controller/data_formats.md#external-source-input-message-format)
 - [Scene Controller](../microservices/controller/controller.md)
-- [ADR 14 — Unified External-Source Ingestion](../../adr/0016-unified-external-source-ingestion.md)
+- [ADR 16 — Unified External-Source Ingestion](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md)
 - [Integrate Cameras and Sensors](./integrate-cameras-and-sensors.md)
 - Example MAVLink adapter:
   [`tools/external_source_adapters/`](../../../tools/external_source_adapters/README.md)

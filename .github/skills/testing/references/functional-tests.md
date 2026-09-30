@@ -29,10 +29,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T10404"
-
 @pytest.mark.basic_acceptance
-@pytest.mark.test_name(TEST_NAME)
+@pytest.mark.test_name("NEX-T10404")
 def test_roi_create(scenescape_env, demo_scene, request, result_recorder):
   # ... exercise MQTT/REST against live stack ...
   result_recorder.success()
@@ -48,7 +46,10 @@ Defined in `tests/utils/spec.py`:
 | `auth`             | `AUTH_CONTROLLER` or `AUTH_BROWSER`                 |
 | `require_password` | Default `True`                                      |
 | `extra_args`       | Extra `--key value` pairs for params                |
-| `exampledb`        | Override baseline DB (e.g. `calibrationdb.tar.bz2`) |
+
+Baseline scenes are selected per-profile via `_PROFILE_SCENE_ARCHIVES` in
+`tests/conftest.py` (keys into `tests/utils/scene_baseline.SCENE_ARCHIVES`),
+not via a `FuncTestSpec` field.
 
 ## Integration-style tests
 
@@ -60,7 +61,7 @@ Use when a functional test needs **literal** remote children (separate Scene
 Controller processes) on one host.
 
 **Customer / deployment procedure** (unrelated: share or separate DBs; hierarchy:
-shared with children, parent-only passthrough, or none):  
+shared with children, parent-only passthrough, or none):
 [ReID Across Controllers](../../../../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported)
 
 **Test harness pieces:**

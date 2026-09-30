@@ -68,7 +68,7 @@ services:
       start_period: 10s
 
   broker:
-    image: eclipse-mosquitto:2.0.22
+    image: eclipse-mosquitto:2.1-alpine
     configs:
       - source: mosquitto-secure
         target: /mosquitto/config/mosquitto.conf
@@ -238,7 +238,7 @@ services:
     restart: always
 
   video-analytics:
-    image: intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: intel/dlstreamer-pipeline-server:2026.3.0-20260922-weekly-ubuntu24
     networks:
       scenescape:
     depends_on:

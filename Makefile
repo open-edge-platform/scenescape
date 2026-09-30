@@ -36,14 +36,34 @@ SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
-DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
-DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+SAMPLE_COMPOSE_DIR := sample_data/compose
+VIDEO_SOURCE_DIR := sample_data/demo_scenes
+# Each demo scene owns its own private mediamtx (same "mediaserver" service
+# name in both files); Compose merges them into one shared instance when both
+# -f flags are combined, matching pre-split behavior.
+RETAIL_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Retail/retail-video-compose.yaml
+QUEUING_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Queuing/queuing-video-compose.yaml
+VIDEO_SOURCE_COMPOSE_FILES := -f $(RETAIL_VIDEO_COMPOSE_FILE) -f $(QUEUING_VIDEO_COMPOSE_FILE)
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts) \
+	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
+	tools/pipeline_runner/video/car-detection.ts
+DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
+# Host directory with one subdirectory per demo scene (each holding a <name>.zip)
+DEMO_SCENES_DIR ?= sample_data/demo_scenes
+DEMO_SCENES_URL ?= https://localhost:$(if $(HTTPS_PORT),$(HTTPS_PORT),443)/api/v1
+# The demo certificate is issued for web.scenescape.intel.com, not for localhost.
+# Override with --rootcert <ca.pem> when uploading to a properly named host.
+DEMO_SCENES_TLS ?= --insecure
+# Seconds the scene upload waits for the database to come up
+DEMO_SCENES_WAIT ?= 300
+UPLOAD_SCENES := tools/upload_scenes/upload-scenes
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
-REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
-REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
-REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
+REID_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.$(strip $(REID_BACKEND))-override.yml
+# retail-config/queuing-config now live in VIDEO_SOURCE_COMPOSE_FILE, not docker-compose.yml.
+REID_PIPELINE_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.reid-pipeline-override.yml
+REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
@@ -98,6 +118,7 @@ help:
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
+	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
 	@echo ""
@@ -129,6 +150,7 @@ help:
 	@echo "  run_unit_tests              Run unit tests"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
+	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
 	@echo "  run_metric_tests            Run metric tests"
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
 	@echo ""
@@ -490,6 +512,16 @@ run_stability_tests: setup-tests
 		$(PYTEST) $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Stability tests failed" && exit 1)
 	@echo "DONE ==> Running stability tests"
 
+.PHONY: run_performance_degradation_test
+run_performance_degradation_test: setup-tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	$(eval HOURS ?= 2)
+	@echo "Running performance degradation test..."
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		PERFORMANCE_HOURS=$(HOURS) \
+		$(PYTEST) $(TESTS_DIR)/system/performance/ $(PYTEST_FLAGS) || (echo "Performance degradation test failed" && exit 1)
+	@echo "DONE ==> Running performance degradation test"
+
 # --- Performance and metric tests ---
 
 TEST_DATA ?= test_data
@@ -615,8 +647,19 @@ lint-dockerfiles:
 	@find . -name '*Dockerfile*' | xargs hadolint || (echo "Dockerfile linting failed" && exit 1)
 	@echo "DONE ==> Linting Dockerfiles"
 
+.PHONY: prettier-dependency
+prettier-dependency:
+	@if npx --no-install prettier --version >/dev/null 2>&1; then \
+		echo "==> prettier already available, skipping install"; \
+	else \
+		echo "==> Installing prettier dependencies from .github/resources/package.json..."; \
+		DEPS=$$(node -p "Object.entries(require('./.github/resources/package.json').devDependencies).map(([k,v]) => k+'@'+v).join(' ')"); \
+		npm install --no-save $$DEPS || (echo "Installing prettier dependencies failed" && exit 1); \
+		echo "DONE ==> Installing prettier dependencies"; \
+	fi
+
 .PHONY: prettier-check
-prettier-check:
+prettier-check: prettier-dependency
 	@echo "==> Checking style with prettier..."
 	@npx prettier --check . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json  || (echo "Prettier check failed - run 'make prettier-write' to fix" && exit 1)
 	@echo "DONE ==> Checking style with prettier"
@@ -636,7 +679,7 @@ format-python:
 	@echo "DONE ==> Formatting Python files"
 
 .PHONY: prettier-write
-prettier-write:
+prettier-write: prettier-dependency
 	@echo "==> Formatting code with prettier..."
 	@npx prettier --write . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json || (echo "Prettier formatting failed" && exit 1)
 	@echo "DONE ==> Formatting code with prettier"
@@ -653,27 +696,19 @@ add-licensing:
 convert-dls-videos:
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 
-.PHONY: init-sample-data
-init-sample-data: convert-dls-videos
-	@echo "Initializing sample data volume..."
-	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
-	@echo "Setting up volume permissions..."
-	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
-	@echo "Copying files from $(CURDIR)/sample_data to volume..."
-	@if [ -d "$(CURDIR)/sample_data" ]; then \
-		docker run --rm \
-			-v $(CURDIR)/sample_data:/source:ro \
-			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
-			--user $(shell id -u):$(shell id -g) \
-			alpine:3.23 \
-			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
-	else \
-		echo "WARNING: Source directory $(CURDIR)/sample_data does not exist!"; \
-		exit 1; \
-	fi
-	@echo "Sample data volume initialized."
+# tools/pipeline_runner mounts a "vol-videos" named volume (unlike the
+# standalone video-source compose stack, which bind-mounts the files
+# directly); populate it from the source directories required by the demos.
+.PHONY: init-pipeline-runner-videos
+init-pipeline-runner-videos: convert-dls-videos
+	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-videos 2>/dev/null || true
+	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Queuing/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Retail/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/tools/pipeline_runner/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 
 # Helper target to start demo with compose
+# $(1): extra `docker compose` args for the main stack (e.g. profiles, ReID backend override)
+# $(2): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
 	@$(MAKE) docker-compose.yml
 	@$(MAKE) .env
@@ -698,6 +733,8 @@ define start_demo
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(1) up -d; \
 	fi
+	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(2)"
+	@$(MAKE) demo-scenes
 	@echo ""
 	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(1) down"
@@ -711,24 +748,38 @@ check-reid-backend:
 		*) echo "REID_BACKEND must be 'vdms' (default) or 'qdrant'"; exit 1 ;; \
 	esac
 
+.PHONY: demo-scenes
+demo-scenes:
+	@VENV="tools/upload_scenes/.venv"; \
+	if [ ! -x "$$VENV/bin/pip" ]; then \
+		rm -rf "$$VENV"; \
+		python3 -m venv "$$VENV"; \
+		"$$VENV/bin/pip" install -q -r tools/upload_scenes/requirements.txt; \
+	fi
+	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) to $(DEMO_SCENES_URL)..."
+	@VENV="tools/upload_scenes/.venv"; \
+	"$$VENV/bin/python3" $(UPLOAD_SCENES) --restauth $(SECRETSDIR)/controller.auth \
+		$(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
+		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
+
 .PHONY: demo
-demo: $(DEMO_BUILD:build=build-core) init-sample-data
+demo: $(DEMO_BUILD:build=build-core)
 	$(call start_demo,--profile controller)
 
 .PHONY: demo-reid
-demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
+demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core)
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-all
-demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
+demo-all: check-reid-backend $(DEMO_BUILD:build=build-all)
+	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-cluster-analytics
-demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
+demo-cluster-analytics: $(DEMO_BUILD:build=build-all)
 	$(call start_demo,--profile controller --profile cluster-analytics)
 
 .PHONY: demo-tracker
-demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
+demo-tracker: $(DEMO_BUILD:build=build-all)
 	$(call start_demo,--profile tracker)
 
 .PHONY: demo-close
@@ -737,6 +788,7 @@ demo-close:
 		echo "Error: .scenescape-profile not found. Was the demo started with 'make demo'?"; \
 		exit 1; \
 	fi
+	@$(MAKE) video-source-down
 	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
 	@rm -f .scenescape-profile
 
@@ -748,10 +800,21 @@ demo-k8s: check-reid-backend
 docker-compose.yml:
 	cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@;
 
-$(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
+$(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "==> Converting sample videos for DLStreamer..."
-	@./dlstreamer-pipeline-server/convert_video_to_ts.sh
+	@$(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
+
+# Demo video sources are not a part of the core Scenescape stack; it joins the same "scenescape" Docker network so it
+# can reach the broker/ntpserv aliases and dlsps pipelines can be reached at
+# rtsp://mediaserver:8554/<camera-id>.
+.PHONY: video-source-up
+video-source-up: convert-dls-videos
+	SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . $(VIDEO_SOURCE_COMPOSE_FILES) $(VIDEO_SOURCE_ARGS) up -d
+
+.PHONY: video-source-down
+video-source-down:
+	-SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . $(VIDEO_SOURCE_COMPOSE_FILES) down
 
 .PHONY: .env
 .env:
@@ -768,6 +831,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
+	@echo "SCENESCAPE_ALLOWED_HOSTS=*" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets

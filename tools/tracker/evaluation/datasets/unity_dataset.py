@@ -13,7 +13,7 @@ from contextlib import ExitStack
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracking_dataset import TrackingDataset
-from utils.format_converters import read_json, convert_json_to_csv, stream_jsonl
+from utils.format_converters import read_json, write_jsonl, stream_jsonl
 
 
 class UnityDataset(TrackingDataset):
@@ -271,7 +271,8 @@ class UnityDataset(TrackingDataset):
     """Get ground truth in evaluator input format.
 
     Returns:
-      Path to CSV file with ground truth data in Ground Truth Format (MOTChallenge 3D CSV)
+      Path to JSONL file with ground truth in the canonical Tracker Output
+      Format (absolute ISO timestamps, flattened ``objects`` array)
       (see tools/tracker/evaluation/README.md#canonical-data-formats).
     """
     gt_file = self._dataset_path / "gtLoc.json"
@@ -285,8 +286,7 @@ class UnityDataset(TrackingDataset):
 
     sampling_stride = self._get_sampling_stride()
 
-    gt_data = []
-    filtered_frame_num = 0
+    gt_frames = []
 
     for base_frame_idx, entry in enumerate(stream_jsonl(str(gt_file))):
       timestamp = entry.get("timestamp")
@@ -302,43 +302,25 @@ class UnityDataset(TrackingDataset):
       if base_frame_idx % sampling_stride != 0:
         continue
 
-      filtered_frame_num += 1
-
       objects = entry.get("objects", {})
-      gt_data.extend([
-        {
-          "frame": filtered_frame_num,
-          "object_id": obj["id"],
-          "x": obj["translation"][0],
-          "y": obj["translation"][1],
-          "z": obj["translation"][2],
-          "category": obj.get("category", category)
-        }
-        for category, category_objects in objects.items()
-        if self._object_categories is None or category in self._object_categories
-        for obj in category_objects
-      ])
-    # Convert to Ground Truth Format (MOTChallenge 3D CSV)
-    # See tools/tracker/evaluation/README.md#canonical-data-formats for format specification
-    mapping = {
-      "frame": {"pointer": "/frame"},
-      "id": {"pointer": "/object_id"},
-      "x": {"pointer": "/x"},
-      "y": {"pointer": "/y"},
-      "z": {"pointer": "/z"},
-      "conf": {"value": 1.0},
-      "class": {"value": 1},
-      "visibility": {"value": 1}
-    }
+      gt_frames.append({
+        "timestamp": timestamp,
+        "objects": [
+          {
+            "id": obj["id"],
+            "category": obj.get("category", category),
+            "translation": obj["translation"],
+          }
+          for category, category_objects in objects.items()
+          if self._object_categories is None or category in self._object_categories
+          for obj in category_objects
+        ]
+      })
 
-    output_file = self._output_folder / "ground_truth_motchallenge.csv"
-
-    convert_json_to_csv(
-      gt_data,
-      mapping,
-      str(output_file),
-      include_header=False
-    )
+    # Ground Truth Format == canonical Tracker Output Format (JSONL).
+    # See tools/tracker/evaluation/README.md#canonical-data-formats.
+    output_file = self._output_folder / "ground_truth.jsonl"
+    write_jsonl(gt_frames, str(output_file))
 
     return str(output_file)
 

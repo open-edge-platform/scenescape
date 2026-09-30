@@ -36,7 +36,7 @@ class ApriltagRegistration(FunctionalTest):
 
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
-    self.scene_id = '302cf49a-97ec-402d-a324-c5077b280b7b'
+    self.scene_id = self.params['scene_id']
     self.original_apriltag_size = None
     self.autocalib_base = f"{self.params['weburl']}/api/v1/autocalibration"
 

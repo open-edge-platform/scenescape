@@ -6,10 +6,8 @@ name: "[CI] Update Image Caches"
 run-name: "[CI] Update Image Caches"
 
 on:
+  workflow_call: {}
   workflow_dispatch:
-  push:
-    branches:
-      - main
 
 env:
   DOCKER_BUILDKIT: 1

@@ -1,3 +1,6 @@
+<!-- SPDX-FileCopyrightText: (C) 2026 Intel Corporation -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+
 # Work with Spatial Analytics Data: ROIs and Tripwires
 
 This guide is the programmatic integration reference for Scenescape spatial analytics: REST discovery, MQTT topics, event schemas, and application code samples. For UI steps to create and edit ROIs and Tripwires, see [Configure Spatial Analytics](./build-a-scene/configure-spatial-analytics.md).
@@ -825,7 +828,7 @@ In `docker-compose.yml`, uncomment the broker ports section:
 
 ```yaml
 broker:
-  image: eclipse-mosquitto:2.0.22
+  image: eclipse-mosquitto:2.1-alpine
   ports:
     - "1883:1883" # Uncomment this line
   # ... rest of broker config
