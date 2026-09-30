@@ -12,6 +12,7 @@ Scenescape makes writing applications based on sensor data faster, easier and be
 
 - **Getting Started**
   - [Installation](docs/user-guide/get-started/installation.md): Step-by-step guide to getting started with the Scenescape.
+  - [Radar Intersection demo](sample_data/radar_intersection/README.md): Reproduce the VIDETEC radar+camera fusion demo (`make demo-radar`).
 
 - **API Reference**
   - [API Reference](docs/user-guide/api-reference.md): Comprehensive OpenAPI (Swagger) documentation for the Scenescape REST API, including endpoints, schemas, and usage examples.
