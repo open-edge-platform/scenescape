@@ -247,20 +247,6 @@ The tracker may accumulate suspended tracks for some time for re-tracking purpos
   - Add `"suspended_track_timeout_secs": <value>` to `controller/config/tracker-config.json` (or `tracker-config-immediate.json` for immediate mode).
   - The parameter follows the same configuration flow as other tracker parameters like `max_unreliable_time_s` and `non_measurement_time_dynamic_s`.
 
-## Multi-Camera Position Fusion
-
-When several cameras detect the same object, the tracker averages their world-space geometry
-(position, size, and yaw) into a single measurement instead of keeping the projection from the
-last processed camera. This reduces position jumps caused by projection differences between
-cameras. The behavior is always on and has no configuration parameter.
-
-- **Time-chunking mode:** detections from all cameras that match a track in the same chunk are
-  averaged. Unmatched detections from different cameras that are clustered into one new track
-  also start from their averaged geometry.
-- **Immediate mode:** the latest measurement from each camera is kept per track for 250 ms and
-  averaged with measurements from other cameras that arrive within that window. Cameras are
-  distinguished by their camera ID.
-
 ## Detection-to-Track Association
 
 Association decides which detections update which tracks. The default is covariance-aware
