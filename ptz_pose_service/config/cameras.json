@@ -24,6 +24,18 @@
       "resolution": [1280, 720],
       "intrinsics": { "fx": 1066.3453, "fy": 1066.3453, "cx": 640.0, "cy": 360.0 },
       "distortion": { "k1": -0.371571, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0 }
+    },
+    {
+      "scene_camera_uid": "atag-ptzcam1",
+      "resolution": [1920, 1080],
+      "intrinsics": { "fx": 1100.6252, "fy": 1100.6252, "cx": 960.0, "cy": 540.0 },
+      "distortion": { "k1": -0.207929, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0 }
+    },
+    {
+      "scene_camera_uid": "atag-ptzcam2",
+      "resolution": [1920, 1080],
+      "intrinsics": { "fx": 1126.1095, "fy": 1126.1095, "cx": 960.0, "cy": 540.0 },
+      "distortion": { "k1": -0.208265, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0 }
     }
   ]
 }

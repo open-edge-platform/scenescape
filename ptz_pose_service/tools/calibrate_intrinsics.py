@@ -101,8 +101,9 @@ def reject_outlier_views(views, object_points, image_points, matrix, distortion)
   keep = [i for i, m in enumerate(means) if m <= threshold]
   for i, m in enumerate(means):
     if i not in keep:
-      print(f"  dropping view {i} (pan={views[i]['pan']:+.4f} tilt={views[i]['tilt']:+.4f}): "
-            f"mean error {m:.1f}px > {threshold:.1f}px")
+      where = (f"pan={views[i]['pan']:+.4f} tilt={views[i]['tilt']:+.4f}"
+               if views[i].get("pan") is not None else "static")
+      print(f"  dropping view {i} ({where}): mean error {m:.1f}px > {threshold:.1f}px")
   return keep
 
 
@@ -124,7 +125,10 @@ def main():
     print(f"Failed to fetch camera {args.camera_uid}: {camera.errors}")
     return 1
   intrinsics = camera["intrinsics"]
-  width, height = camera["resolution"]
+  width, height = data.get("image_size") or camera["resolution"]
+  if list(camera["resolution"]) != [width, height]:
+    print(f"Stored resolution {camera['resolution']} doesn't match the camera's frames "
+          f"{[width, height]}; fitting and applying {[width, height]}")
   matrix = np.array([[intrinsics["fx"], 0, intrinsics["cx"]],
                      [0, intrinsics["fy"], intrinsics["cy"]],
                      [0, 0, 1]], dtype=np.float64)
@@ -163,10 +167,13 @@ def main():
   if flags & cv2.CALIB_FIX_ASPECT_RATIO:
     seed[0, 0] = seed[1, 1] = (seed[0, 0] + seed[1, 1]) / 2.0
 
-  rms, matrix, distortion, _, _ = cv2.calibrateCamera(
+  rms, matrix, distortion, _, _, std_intrinsics, _, _ = cv2.calibrateCameraExtended(
       object_points, image_points, (width, height), seed, distortion.copy(),
       flags=flags)
   distortion = distortion.ravel()[:5]
+  # Order: fx, fy, cx, cy, k1, ...; with a fixed aspect ratio the focal sigma is in fy.
+  std = std_intrinsics.ravel()
+  focal_std = max(std[0], std[1])
 
   after = reprojection_error(object_points, image_points, matrix, distortion)
   fitted = {"fx": float(matrix[0, 0]), "fy": float(matrix[1, 1]),
@@ -178,6 +185,10 @@ def main():
         f"cx={fitted['cx']:.2f} cy={fitted['cy']:.2f}")
   print("         distortion " + "  ".join(f"{k}={v:+.5f}" for k, v in fitted_distortion.items()))
   print(f"         reprojection error: mean {after[0]:.2f}px  max {after[1]:.2f}px  (RMS {rms:.2f})")
+  print(f"         uncertainty (1 sigma): f ±{focal_std:.1f}  k1 ±{std[4]:.4f}")
+  if focal_std > 0.05 * fitted["fx"] or std[4] > 0.05:
+    print("         WARNING: poorly constrained - the tags don't span enough of the frame "
+          "or of depth; don't trust this fit")
   improvement = (1 - after[0] / before[0]) * 100 if before[0] else 0.0
   print(f"\nMean error improved by {improvement:.1f}%")
 

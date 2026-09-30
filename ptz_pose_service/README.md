@@ -169,6 +169,19 @@ They are **specific to that camera** — see
   having to be re-entered in the UI after a database reset. See
   [Calibrating intrinsics and lens distortion](#calibrating-intrinsics-and-lens-distortion).
 
+**Static (non-PTZ) cameras** can be listed with only `scene_camera_uid` and
+the lens fields, without `onvif_host`. The service applies their lens settings
+at startup and does not track them:
+
+```json
+{
+  "scene_camera_uid": "atag-ptzcam1",
+  "resolution": [1920, 1080],
+  "intrinsics": { "fx": 1100.6252, "fy": 1100.6252, "cx": 960.0, "cy": 540.0 },
+  "distortion": { "k1": -0.207929, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0 }
+}
+```
+
 ## Pose update modes
 
 How a camera's Scenescape pose is kept in sync with its live PTZ position is
@@ -292,6 +305,54 @@ coverage.
 This step does need AprilTags, since it needs known 3D points. For a camera in
 a scene without them, calibrate the lens conventionally (e.g. a checkerboard
 with OpenCV) and put the result in `config/cameras.json` directly.
+
+#### Static (non-PTZ) cameras
+
+The same two tools work for a fixed camera. Omit `--onvif-host` and the
+collector grabs several frames of the one view instead of sweeping:
+
+```bash
+docker compose exec ptz-pose python3 /tmp/tools/collect_calibration_views.py \
+    --camera-uid atag-ptzcam1 --output /tmp/views_atag-ptzcam1.json
+
+docker cp scenescape-ptz-pose-1:/tmp/views_atag-ptzcam1.json /tmp/
+docker cp /tmp/views_atag-ptzcam1.json scenescape-autocalibration-1:/tmp/
+docker compose exec autocalibration python3 /tmp/tools/calibrate_intrinsics.py \
+    --camera-uid atag-ptzcam1 --input /tmp/views_atag-ptzcam1.json
+```
+
+Repeated frames only average out detection jitter. The fit relies on the tags
+in that one view spreading across the frame and in depth, so check the
+`uncertainty` line: the tool warns when focal length or `k1` is poorly
+constrained. Its sigmas assume independent views, so with repeated frames
+treat them as roughly 2× optimistic.
+
+Put the result in a [static entry](#config-file---config-default-appconfigcamerasjson)
+in `config/cameras.json` and restart `ptz-pose`. Scenescape re-derives the
+camera's pose from its stored calibration points with the new lens model, so
+no re-calibration is required, although re-running auto-calibration afterwards
+does no harm.
+
+The collector records the real frame size from the camera's images, and the
+fit uses that instead of the stored `resolution`. A stored resolution that
+doesn't match the stream is common and silently wrong: the principal point
+then lands outside the image and every pose is solved against a broken model.
+
+<details>
+<summary>What this looked like on the two static cameras</summary>
+
+Both were stored as `resolution: [640, 480]` with the default `fx=570,
+cx=960, cy=540`, while actually streaming 1920×1080. Five frames each:
+
+| camera | tags | fitted fx | k1 | stored pose error before | after |
+|---|---|---|---|---|---|
+| `atag-ptzcam1` | 12 | 1100.6 ± 11.5 | −0.208 ± 0.006 | 54.8 / 90.6 px | **7.1 / 11.0 px** |
+| `atag-ptzcam2` | 11 | 1126.1 ± 10.0 | −0.208 ± 0.003 | 84.4 / 151.4 px | **5.5 / 11.4 px** |
+
+The two independently fitted lenses agree to within about 2%, as expected
+for the same camera model. The re-derived poses moved by 1.2–1.6 m, so the
+wrong intrinsics had also been misplacing the cameras in the scene.
+</details>
 
 <details>
 <summary>What this looked like on the development camera</summary>
@@ -595,7 +656,7 @@ newer `zeep` releases can fail the initial `GetCapabilities` call outright.
 
 | Tool | Runs in | Purpose |
 |---|---|---|
-| [`collect_calibration_views.py`](tools/collect_calibration_views.py) | `ptz-pose` | Sweep pan/tilt, collecting AprilTag 2D/3D correspondences per view |
+| [`collect_calibration_views.py`](tools/collect_calibration_views.py) | `ptz-pose` | Collect AprilTag 2D/3D correspondences: pan/tilt sweep, or repeated frames of a static camera |
 | [`calibrate_intrinsics.py`](tools/calibrate_intrinsics.py) | `autocalibration` | Fit intrinsics + distortion from those views |
 | [`capture_ptz_sweep.py`](tools/capture_ptz_sweep.py) | `ptz-pose` | Sweep pan/tilt, saving a frame at each position (no markers needed) |
 | [`measure_ptz_scale.py`](tools/measure_ptz_scale.py) | `autocalibration` | Recover degrees-per-ONVIF-unit from those frames |

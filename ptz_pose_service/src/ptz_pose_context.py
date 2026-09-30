@@ -671,9 +671,17 @@ class PTZPoseContext:
       return
 
     for entry in entries:
+      scene_uid = entry['scene_camera_uid']
+      if not entry.get('onvif_host'):
+        # Static camera: nothing to track, but its lens settings still apply.
+        try:
+          self._applyConfiguredIntrinsics(scene_uid, entry)
+          log.info(f"Static camera {scene_uid}: lens settings checked, not tracked")
+        except Exception as err:
+          log.error(f"Could not apply lens settings to static camera {scene_uid}: {err}")
+        continue
       host = entry['onvif_host']
       port = int(entry.get('onvif_port', 80))
-      scene_uid = entry['scene_camera_uid']
       try:
         profile_token = self._resolveProfileToken(host, port, entry.get('profile_token'))
         controller = PTZController(
