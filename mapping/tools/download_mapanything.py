@@ -11,44 +11,50 @@ import sys
 
 from scene_common import log
 
-from model_utils import ensure_cache_directories, check_model_exists, create_success_marker
+from model_utils import (
+    ensure_cache_directories,
+    check_model_exists,
+    create_success_marker,
+    retry_with_exponential_backoff,
+)
 
 MODEL_NAME = "mapanything"
+MODEL_ID = 'facebook/map-anything-apache'
 
 def download_mapanything_model() -> bool:
   """
-  Download MapAnything model using the installed package.
+  Download MapAnything model using the installed package with automatic retries.
 
   Returns:
     True if download successful, False otherwise
   """
-  try:
+  def _download_attempt():
     log.info("Downloading MapAnything model...")
 
-    # Add MapAnything to Python path
+    # Add MapAnything to Python path (guard against duplicates across retry attempts)
     mapanything_path = "/workspace/map-anything"
-    sys.path.insert(0, str(mapanything_path))
+    if mapanything_path not in sys.path:
+      sys.path.insert(0, mapanything_path)
 
     from mapanything.models import MapAnything
 
-    # Try Apache 2.0 licensed model first
-    model_name = 'facebook/map-anything-apache'
-    log.info(f'Loading {model_name}...')
+    log.info(f'Loading {MODEL_ID}...')
 
     # This will trigger the download if not cached
-    model = MapAnything.from_pretrained(model_name)
-
-    # Create success marker
-    success_message = f'MapAnything model {model_name} downloaded successfully'
-    if not create_success_marker(MODEL_NAME, success_message):
-      return False
+    MapAnything.from_pretrained(MODEL_ID)
 
     log.info('MapAnything (Apache 2.0) model downloaded successfully!')
-    return True
 
+  try:
+    # Retries cover the network download only; marker creation below is a local
+    # filesystem write and isn't worth re-downloading the model to retry.
+    retry_with_exponential_backoff(_download_attempt)
   except Exception as e:
-    log.error(f'Failed to download MapAnything model: {e}')
+    log.error(f'Failed to download MapAnything model after retries: {e}')
     return False
+
+  success_message = f'MapAnything model {MODEL_ID} downloaded successfully'
+  return create_success_marker(MODEL_NAME, success_message)
 
 def ensure_mapanything_model() -> bool:
   """

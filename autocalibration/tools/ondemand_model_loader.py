@@ -4,8 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-On-demand NetVLAD model loader for Scenescape autocalibration.
-This script downloads the NetVLAD model only when needed, reducing Docker image size.
+NetVLAD model loader for the Scenescape autocalibration deployment init step.
 """
 
 import os

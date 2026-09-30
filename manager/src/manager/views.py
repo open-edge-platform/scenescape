@@ -121,6 +121,7 @@ def protected_media(request, path, media_root):
     return HttpResponseNotFound()
   return HttpResponse("401 Unauthorized", status=401)
 
+@superuser_required
 def list_resources(request, folder_name):
   """! List files in folder_name inside MEDIA_ROOT and return them as JSON."""
   media_root_real = os.path.realpath(settings.MEDIA_ROOT)
@@ -310,17 +311,6 @@ class CamUpdateView(SuperUserCheck, UpdateView):
   model = Cam
   fields = ['sensor_id', 'name', 'scene']
   template_name = "cam/cam_update.html"
-
-  def form_valid(self, form):
-    """Reset camera pose when reassigned to a different scene."""
-    # Check if the scene has changed
-    if self.object.scene != form.cleaned_data.get('scene'):
-      # Clear pose-related fields when scene is reassigned
-      form.instance.transforms = []
-      form.instance.scene_x = None
-      form.instance.scene_y = None
-      form.instance.scene_z = None
-    return super().form_valid(form)
 
   def get_success_url(self):
     if self.object.scene is not None:
