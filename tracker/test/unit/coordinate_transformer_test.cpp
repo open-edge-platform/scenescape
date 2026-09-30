@@ -19,6 +19,7 @@
 
 #include <array>
 #include <cmath>
+#include <numbers>
 #include <optional>
 #include <span>
 #include <vector>
@@ -530,7 +531,7 @@ TEST(CoordinateTransformerTest, Type2FootMatchesControllerCamLoc) {
     const auto br = project(x + w, y + h);
     const auto cam = type1.getCameraOrigin();
     const double base_len = std::hypot((bl.x + br.x) / 2.0 - cam.x, (bl.y + br.y) / 2.0 - cam.y);
-    const double base_angle_deg = std::atan2(cam.z, base_len) * 180.0 / M_PI;
+    const double base_angle_deg = std::atan2(cam.z, base_len) * 180.0 / std::numbers::pi;
     const auto expected =
         project(x + w / 2.0f, y + h - (h / 2.0f) * static_cast<float>(base_angle_deg / 90.0));
 
