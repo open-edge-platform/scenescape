@@ -213,7 +213,7 @@ does not make attention expensive here.
 target for denser radars / future densify; it is **not** the VIDETEC demo
 critical path today.
 
-**Stage 2a — postproc latency (DONE, await confirm):** score-gated decode in
+**Stage 2a — postproc latency (DONE):** score-gated decode in
 Python (`_postprocess_heads`); C++ skips full NCHW→HWAC rearrange and gates on
 logits in-place. VIDETEC slice 3270–3319 (score 0.1):
 
@@ -223,11 +223,25 @@ logits in-place. VIDETEC slice 3270–3319 (score 0.1):
 | After | **53 ms** | **9 ms (17%)** | **48 ms** | **8 ms (17%)** |
 
 OV BEV (~33–39 ms, ~70% of remaining) is now the main cost on this sparse path.
-Artifacts: `profile_stages_ft2_postproc_opt.json`. Rebuild `make build-dlsps-g3d`
-to pick up the C++ rearrange skip for live demo.
+Artifacts: `profile_stages_ft2_postproc_opt.json`.
 
-**Stage 2b recommendation (await confirm):** OV-ify VFE + PillarAttention for
-dense/future path (synthetic N≥2k); optional OV BEV `GPU` device trial for demo.
+**Stage 2b — OV VFE + PillarAttention (DONE, await confirm):** export
+`radarpillars_vfe_linear.xml` + `radarpillars_attention.xml` (FP32, dynamic
+shapes) via `export_radarpillars_preproc_ov.py`; wire Python + C++
+`g3dinference` when config keys `vfe_linear_model` / `attention_model` are set.
+Parity vs host: VFE ~1e-6, attention ~5e-7. Synthetic dense (post Stage 2a base):
+
+| N pts | host attn (Stage1) | OV attn (2b) | host total | OV total |
+| ---: | ---: | ---: | ---: | ---: |
+| 500 | 88 ms (24%) | **1.7 ms (3%)** | 366 | **64** |
+| 2k | 271 (50%) | **13 (13%)** | 547 | **100** |
+| 5k | 610 (59%) | **46 (28%)** | 1038 | **165** |
+
+Artifact: `profile_stages_ft2_ov_preproc_synth.json`. Live demo needs
+`radar-model-init` + recreate `radar-stream` after bake.
+
+**Stage 3 recommendation (await confirm):** vectorize/OV voxelize+scatter;
+optional OV BEV `GPU` for remaining sparse-path cost.
 
 **Acceptance for this workstream:** bit-exact or tight numeric parity vs current
 host+OV on fixed bins; no VRU@3m regression on causal past=10 gate; document
@@ -387,12 +401,10 @@ better 401-frame window (~10× more near-GT support than 3000–5000).
    remaining *quality* lever is camera–radar fusion.
 2. **Causal live densify in `g3dinference`** — **DONE** (`accumulate-past`,
    `RADAR_ACCUMULATE_PAST=10`, offline `--accumulate-past`; ~52.7% VRU@3m).
-3. **Host preproc → Intel / OpenVINO** — **Stage 1 DONE (profile).** On VIDETEC
-   demo density, **postproc (~62%) + OV BEV (~33%)** dominate; VFE/attn are
-   negligible even with causal past=10. Attention/VFE dominate only on
-   synthetic dense clouds (N≥~500–2k pillars). **Await confirm for Stage 2
-   scope:** (a) postproc/BEV latency for demo, and/or (b) OV-ify VFE+attention
-   for dense/future path. Details under *OpenVINO optimization status*.
+3. **Host preproc → Intel / OpenVINO** — **Stages 1–2b DONE.** Profile showed
+   postproc then OV BEV on VIDETEC sparsity; Stage 2a score-gated decode ~2×;
+   Stage 2b OV VFE+attention cuts dense-path total ~5–6× (attn 610→46 ms at
+   5k pts). **Await confirm for Stage 3** (voxelize/scatter ± BEV GPU).
 4. **Upstream DLS / DLSPS** — land `feature/g3dinference-multi-model`, bump
    DLSPS image, drop local `make build-dlsps-g3d`.
 5. **SceneScape cleanup** — stock DLSPS tags; native `application/x-radar`

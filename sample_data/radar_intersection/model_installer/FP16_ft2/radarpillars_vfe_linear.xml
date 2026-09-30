@@ -1,0 +1,108 @@
+<?xml version="1.0"?>
+<net name="Model0" version="11">
+	<layers>
+		<layer id="0" name="flat_feats" type="Parameter" version="opset1">
+			<data shape="?,15" element_type="f32" />
+			<output>
+				<port id="0" precision="FP32" names="flat_feats">
+					<dim>-1</dim>
+					<dim>15</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="1" name="self.linear.weight" type="Const" version="opset1">
+			<data element_type="f32" shape="32, 15" offset="0" size="1920" />
+			<output>
+				<port id="0" precision="FP32" names="self.linear.weight">
+					<dim>32</dim>
+					<dim>15</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="2" name="__module.linear/aten::linear/MatMul" type="MatMul" version="opset1">
+			<data transpose_a="false" transpose_b="true" />
+			<input>
+				<port id="0" precision="FP32">
+					<dim>-1</dim>
+					<dim>15</dim>
+				</port>
+				<port id="1" precision="FP32">
+					<dim>32</dim>
+					<dim>15</dim>
+				</port>
+			</input>
+			<output>
+				<port id="2" precision="FP32">
+					<dim>-1</dim>
+					<dim>32</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="3" name="Constant_2380" type="Const" version="opset1">
+			<data element_type="f32" shape="1, 32" offset="1920" size="128" />
+			<output>
+				<port id="0" precision="FP32">
+					<dim>1</dim>
+					<dim>32</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="4" name="__module.linear/aten::linear/Add" type="Add" version="opset1">
+			<data auto_broadcast="numpy" />
+			<input>
+				<port id="0" precision="FP32">
+					<dim>-1</dim>
+					<dim>32</dim>
+				</port>
+				<port id="1" precision="FP32">
+					<dim>1</dim>
+					<dim>32</dim>
+				</port>
+			</input>
+			<output>
+				<port id="2" precision="FP32" names="7,input">
+					<dim>-1</dim>
+					<dim>32</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="5" name="aten::relu/Relu" type="ReLU" version="opset1">
+			<input>
+				<port id="0" precision="FP32">
+					<dim>-1</dim>
+					<dim>32</dim>
+				</port>
+			</input>
+			<output>
+				<port id="1" precision="FP32">
+					<dim>-1</dim>
+					<dim>32</dim>
+				</port>
+			</output>
+		</layer>
+		<layer id="6" name="Result_11" type="Result" version="opset1">
+			<input>
+				<port id="0" precision="FP32">
+					<dim>-1</dim>
+					<dim>32</dim>
+				</port>
+			</input>
+		</layer>
+	</layers>
+	<edges>
+		<edge from-layer="0" from-port="0" to-layer="2" to-port="0" />
+		<edge from-layer="1" from-port="0" to-layer="2" to-port="1" />
+		<edge from-layer="2" from-port="2" to-layer="4" to-port="0" />
+		<edge from-layer="3" from-port="0" to-layer="4" to-port="1" />
+		<edge from-layer="4" from-port="2" to-layer="5" to-port="0" />
+		<edge from-layer="5" from-port="1" to-layer="6" to-port="0" />
+	</edges>
+	<rt_info>
+		<info name="OpenVINO Runtime" value="2026.4.0-22959-99c81491cc3-releases/2026/4" />
+		<Runtime_version value="2026.4.0-22959-99c81491cc3-releases/2026/4" />
+		<conversion_parameters>
+			<framework value="pytorch" />
+			<is_python_object value="True" />
+		</conversion_parameters>
+	</rt_info>
+</net>

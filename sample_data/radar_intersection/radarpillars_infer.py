@@ -74,16 +74,15 @@ def _voxelize(points, pc_range, voxel_size, max_points, max_voxels):
   return voxels, coors, num_points
 
 
-def _pillar_vfe(voxels, num_points, weights, pc_range, voxel_size):
-  """Simplified PillarVFE with absolute xyz + velocity decomp + PFN max-pool."""
+def _pillar_vfe(voxels, num_points, weights, pc_range, voxel_size, vfe_compiled=None):
+  """Simplified PillarVFE with absolute xyz + velocity decomp + PFN max-pool.
+
+  When ``vfe_compiled`` is an OpenVINO CompiledModel for the fused linear+BN+ReLU
+  IR, the affine runs on OV; max-pool over points stays on the host.
+  """
   if voxels.shape[0] == 0:
     return np.zeros((0, 32), dtype=np.float32)
-  # Feature dim for USE_ABSOLUTE_XYZ + velocity decomp (vx,vy from v_r_comp):
-  # points: x y z rcs v_r v_r_comp time (7)
-  # + cluster center offsets + voxel center offsets typical PointPillars
-  # RadarPillars with USE_VELOCITY_DECOMPOSITION adds vx,vy from atan2.
   pts = voxels.copy()
-  # Mask empty
   for i in range(pts.shape[0]):
     n = int(num_points[i])
     if n < pts.shape[1]:
@@ -107,10 +106,8 @@ def _pillar_vfe(voxels, num_points, weights, pc_range, voxel_size):
   xc = x - fmean[:, :, 0:1]
   yc = y - fmean[:, :, 1:2]
   zc = z - fmean[:, :, 2:3]
-  # Voxel-center offsets from point coords and voxel size
   origin = np.array(pc_range[:3], dtype=np.float32)
   vs = np.array(voxel_size, dtype=np.float32)
-  # voxel index from first point in pillar
   vox_c = np.zeros((pts.shape[0], 1, 3), dtype=np.float32)
   for i in range(pts.shape[0]):
     n = max(int(num_points[i]), 1)
@@ -121,21 +118,23 @@ def _pillar_vfe(voxels, num_points, weights, pc_range, voxel_size):
   zp = z - vox_c[:, :, 2:3]
   feats = np.concatenate(
     [x, y, z, rcs, vr, vr_comp, time, xc, yc, zc, xp, yp, zp, vx, vy], axis=-1)
-  w = weights["vfe.pfn_layers.0.linear.weight"]  # (32, 15)
-  cin = w.shape[1]
-  if feats.shape[-1] != cin:
-    raise RuntimeError(f"VFE feature dim {feats.shape[-1]} != weight in {cin}")
   V, P, C = feats.shape
   flat = feats.reshape(V * P, C)
-  out = flat @ w.T
-  gamma = weights["vfe.pfn_layers.0.norm.weight"]
-  beta = weights["vfe.pfn_layers.0.norm.bias"]
-  mean = weights["vfe.pfn_layers.0.norm.running_mean"]
-  var = weights["vfe.pfn_layers.0.norm.running_var"]
-  out = (out - mean) / np.sqrt(var + 1e-3)
-  out = out * gamma + beta
-  out = np.maximum(out, 0)
-  out = out.reshape(V, P, -1)
+  if vfe_compiled is not None:
+    out = np.array(vfe_compiled([flat])[0], dtype=np.float32).reshape(V, P, -1)
+  else:
+    w = weights["vfe.pfn_layers.0.linear.weight"]  # (32, 15)
+    if feats.shape[-1] != w.shape[1]:
+      raise RuntimeError(f"VFE feature dim {feats.shape[-1]} != weight in {w.shape[1]}")
+    out = flat @ w.T
+    gamma = weights["vfe.pfn_layers.0.norm.weight"]
+    beta = weights["vfe.pfn_layers.0.norm.bias"]
+    mean = weights["vfe.pfn_layers.0.norm.running_mean"]
+    var = weights["vfe.pfn_layers.0.norm.running_var"]
+    out = (out - mean) / np.sqrt(var + 1e-3)
+    out = out * gamma + beta
+    out = np.maximum(out, 0)
+    out = out.reshape(V, P, -1)
   pillar = np.zeros((V, out.shape[-1]), dtype=np.float32)
   for i in range(V):
     n = max(int(num_points[i]), 1)
@@ -143,13 +142,18 @@ def _pillar_vfe(voxels, num_points, weights, pc_range, voxel_size):
   return pillar
 
 
-def _pillar_attention(pillar_features, weights):
-  """Single-head PillarAttention (batch_size=1)."""
+def _pillar_attention(pillar_features, weights, attn_compiled=None):
+  """Single-head PillarAttention (batch_size=1).
+
+  When ``attn_compiled`` is set, run the OpenVINO attention IR; otherwise numpy.
+  """
   if pillar_features.shape[0] == 0:
     return pillar_features
-  # Optional pre_mlp — checkpoint may not have it if channels match
+  if attn_compiled is not None:
+    x = pillar_features.astype(np.float32)[None, ...]  # (1, N, 32)
+    y = np.array(attn_compiled([x])[0], dtype=np.float32)
+    return y.reshape(pillar_features.shape)
   x = pillar_features  # (N, 32)
-  # MultiheadAttention in_proj: 3*E x E
   in_w = weights["backbone_3d.attn.in_proj_weight"]
   in_b = weights["backbone_3d.attn.in_proj_bias"]
   out_w = weights["backbone_3d.attn.out_proj.weight"]
@@ -164,16 +168,12 @@ def _pillar_attention(pillar_features, weights):
   attn = attn / (attn.sum(axis=-1, keepdims=True) + 1e-9)
   y = attn @ v
   y = y @ out_w.T + out_b
-  # norm1
   y = x + y
   y = _layernorm(y, weights["backbone_3d.norm1.weight"], weights["backbone_3d.norm1.bias"])
-  # FFN
   ffn0_w = weights["backbone_3d.ffn.0.weight"]
   ffn0_b = weights["backbone_3d.ffn.0.bias"]
   ffn2_w = weights["backbone_3d.ffn.2.weight"]
   ffn2_b = weights["backbone_3d.ffn.2.bias"]
-  h = np.maximum(y @ ffn0_w.T + ffn0_b, 0)  # GELU approx with ReLU for speed
-  # Better GELU:
   h = y @ ffn0_w.T + ffn0_b
   h = 0.5 * h * (1.0 + np.tanh(math.sqrt(2 / math.pi) * (h + 0.044715 * h ** 3)))
   h = h @ ffn2_w.T + ffn2_b
@@ -354,6 +354,14 @@ class RadarPillarsOV:
     self.preproc = dict(np.load(model_dir / self.cfg["preproc_weights"]))
     core = ov.Core()
     self.compiled = core.compile_model(str(model_dir / self.cfg["nn_model"]), device)
+    self.vfe_compiled = None
+    self.attn_compiled = None
+    if self.cfg.get("vfe_linear_model"):
+      self.vfe_compiled = core.compile_model(
+        str(model_dir / self.cfg["vfe_linear_model"]), device)
+    if self.cfg.get("attention_model"):
+      self.attn_compiled = core.compile_model(
+        str(model_dir / self.cfg["attention_model"]), device)
     self.anchors = _generate_anchors(self.cfg)
     self.device = device
 
@@ -364,7 +372,8 @@ class RadarPillarsOV:
       cfg["max_points_per_voxel"], cfg["max_voxels"])
     pillars = _pillar_vfe(
       voxels, num_points, self.preproc,
-      cfg["point_cloud_range"], cfg["voxel_size"])
+      cfg["point_cloud_range"], cfg["voxel_size"],
+      vfe_compiled=self.vfe_compiled)
     if pillars.shape[0] == 0:
       return []
     # Fix VFE channel mismatch: pad/truncate to 32
@@ -373,7 +382,7 @@ class RadarPillarsOV:
       n = min(pillars.shape[1], cfg["bev_channels"])
       out[:, :n] = pillars[:, :n]
       pillars = out
-    pillars = _pillar_attention(pillars, self.preproc)
+    pillars = _pillar_attention(pillars, self.preproc, attn_compiled=self.attn_compiled)
     nx, ny, _ = cfg["grid_size"]
     spatial = _scatter(pillars, coors, nx, ny, cfg["bev_channels"])
     result = self.compiled([spatial])

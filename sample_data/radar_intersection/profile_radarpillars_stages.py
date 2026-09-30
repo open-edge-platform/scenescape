@@ -60,7 +60,8 @@ def _timed_infer(model: RadarPillarsOV, points: np.ndarray) -> dict[str, float]:
   t = time.perf_counter()
   pillars = _pillar_vfe(
     voxels, num_points, model.preproc,
-    cfg["point_cloud_range"], cfg["voxel_size"])
+    cfg["point_cloud_range"], cfg["voxel_size"],
+    vfe_compiled=model.vfe_compiled)
   if pillars.shape[0] and pillars.shape[1] != cfg["bev_channels"]:
     out = np.zeros((pillars.shape[0], cfg["bev_channels"]), np.float32)
     n = min(pillars.shape[1], cfg["bev_channels"])
@@ -77,7 +78,7 @@ def _timed_infer(model: RadarPillarsOV, points: np.ndarray) -> dict[str, float]:
     }
 
   t = time.perf_counter()
-  pillars = _pillar_attention(pillars, model.preproc)
+  pillars = _pillar_attention(pillars, model.preproc, attn_compiled=model.attn_compiled)
   t_attn = (time.perf_counter() - t) * 1e3
 
   t = time.perf_counter()
