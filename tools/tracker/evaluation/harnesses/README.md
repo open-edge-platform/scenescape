@@ -282,14 +282,14 @@ The harness starts `mock_manager.py` as a thread on the Docker host and register
 
 Endpoints served:
 
-| Method | Path                   | Description                                                  |
-| ------ | ---------------------- | ------------------------------------------------------------ |
-| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials        |
-| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics  |
-| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                  |
+| Method | Path                   | Description                                                                          |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------ |
+| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials                                |
+| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics                          |
+| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                                          |
 | GET    | `/api/v1/assets`       | Returns the `object_classes` entries from `set_custom_config()` (empty when omitted) |
-| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics |
-| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)          |
+| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics                         |
+| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)                                  |
 
 Camera extrinsics (`translation`, `rotation`, `scale`) are computed from the dataset's
 `camera points` / `map points` using the same logic as production:
