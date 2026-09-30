@@ -57,7 +57,7 @@ UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install Scenescape with helm
-default: install-deps clean-kind kind load-core $(if $(filter tracker,$(DEMO_K8S_MODE)),build-load-tracker,video-source-up) install
+default: install-deps clean-kind kind load-core video-source-up install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
@@ -219,11 +219,6 @@ load-all: load-core
 	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
 	$(MAKE) load-image IMAGE=$(TRACKERIMAGE)
 
-.PHONY: build-load-tracker
-build-load-tracker:
-	$(MAKE) -C ../tracker
-	$(MAKE) load-image IMAGE=$(TRACKERIMAGE)
-
 SERVICES := $(patsubst scenescape-%,%,$(ALL_IMAGES))
 .PHONY: $(SERVICES)
 $(SERVICES):
@@ -290,31 +285,26 @@ demo-scenes:
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
 install: check-demo-k8s-mode copy-files chart.yaml
-	@VALUES_FILE=""; \
-	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
-		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
-		if [ -n "$(http_proxy)" ]; then \
-			echo "httpProxy: \"$(http_proxy)\"" >> $$VALUES_FILE; \
-		fi; \
-		if [ -n "$(https_proxy)" ]; then \
-			echo "httpsProxy: \"$(https_proxy)\"" >> $$VALUES_FILE; \
-		fi; \
-		if [ -n "$(no_proxy)" ]; then \
-			echo "noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
-		fi; \
-		VALUES_FILE="-f $$VALUES_FILE"; \
+	@VALUES_FILE=$$(mktemp); \
+	trap 'rm -f "$$VALUES_FILE"' EXIT; \
+	if [ -n "$(http_proxy)" ]; then \
+		echo "httpProxy: \"$(http_proxy)\"" >> $$VALUES_FILE; \
+	fi; \
+	if [ -n "$(https_proxy)" ]; then \
+		echo "httpsProxy: \"$(https_proxy)\"" >> $$VALUES_FILE; \
+	fi; \
+	if [ -n "$(no_proxy)" ]; then \
+		echo "noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
+	fi; \
+	if [ -n "$${SUPASS}" ]; then \
+		printf "supass: '%s'\n" "$$(printf '%s' "$${SUPASS}" | sed "s/'/''/g")" >> $$VALUES_FILE; \
+	fi; \
+	if [ -n "$${PGPASS}" ]; then \
+		printf "pgserver:\n  password: '%s'\n" "$$(printf '%s' "$${PGPASS}" | sed "s/'/''/g")" >> $$VALUES_FILE; \
 	fi; \
 	DEBUG_ARGS=""; \
 	if [ "$(CHART_DEBUG)" = "1" ]; then \
 		DEBUG_ARGS="--set chartdebug=true"; \
-	fi; \
-	SUPASS_ARG=""; \
-	if [ -n "$${SUPASS}" ]; then \
-		SUPASS_ARG="--set supass=$${SUPASS}"; \
-	fi; \
-	PGPASS_ARG=""; \
-	if [ -n "$${PGPASS}" ]; then \
-		PGPASS_ARG="--set pgserver.password=$${PGPASS}"; \
 	fi; \
 	ALLOWED_HOSTS_ARG=""; \
 	if [ -n "$${SCENESCAPE_ALLOWED_HOSTS}" ]; then \
@@ -329,10 +319,7 @@ install: check-demo-k8s-mode copy-files chart.yaml
 		MODE_ARG="--set reid.enabled=false --set tracker.enabled=true"; \
 	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${ALLOWED_HOSTS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);
-	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
-		rm -f /tmp/scenescape-proxy-values.yaml; \
-	fi
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${ALLOWED_HOSTS_ARG} $${MODE_ARG} --values "$$VALUES_FILE" $(TEST_FLAGS);
 	@if [ "$(DEMO_K8S_MODE)" != "tracker" ]; then \
 		$(MAKE) demo-scenes; \
 	fi
@@ -356,9 +343,7 @@ wait-for-ready:
 rebuild: rebuild-demo
 
 rebuild-demo:
-	@if [ "$(DEMO_K8S_MODE)" = "tracker" ]; then \
-		$(MAKE) build-load-tracker && $(MAKE) rebuild-core; \
-	elif [ "$(DEMO_K8S_MODE)" = "all" ]; then \
+	@if [ "$(DEMO_K8S_MODE)" = "all" ] || [ "$(DEMO_K8S_MODE)" = "tracker" ]; then \
 		$(MAKE) rebuild-all; \
 	else \
 		$(MAKE) rebuild-core; \

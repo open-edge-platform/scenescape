@@ -31,10 +31,10 @@ SUPASS=<password> DEMO_REBUILD_IMAGES=false make demo
 The Docker Compose demo targets are tiered, each building on the previous one:
 
 | Target      | Includes                                                |
-| ----------- | -------------------------------------------------------- |
-| `demo`      | Core services with tracking, without ReID                |
-| `demo-reid` | `demo` plus the ReID vector database                      |
-| `demo-all`  | `demo-reid` plus cluster analytics and mapping services   |
+| ----------- | ------------------------------------------------------- |
+| `demo`      | Core services with tracking, without ReID               |
+| `demo-reid` | `demo` plus the ReID vector database                    |
+| `demo-all`  | `demo-reid` plus cluster analytics and mapping services |
 
 The ReID targets use VDMS by default. Set `REID_BACKEND=qdrant` to use Qdrant:
 
@@ -51,16 +51,17 @@ Connect and sign in as described in [Deploy on Docker](./deploy-docker.md#verify
 
 ### Uploading Your Own Scenes
 
-Scenes that already exist are skipped, so re-running `make demo-scenes` is safe. Install the tool's dependencies once with:
+Scenes that already exist are skipped, so re-running `make demo-scenes` is safe. `make demo`/`make demo-scenes` create and reuse a virtual environment at `tools/upload_scenes/.venv`; create or reuse it directly if you have not run either target yet, since the system Python on the supported Ubuntu setup is externally managed and rejects a bare `pip install`:
 
 ```bash
-pip install -r tools/upload_scenes/requirements.txt
+python3 -m venv tools/upload_scenes/.venv
+tools/upload_scenes/.venv/bin/pip install -r tools/upload_scenes/requirements.txt
 ```
 
 To load your own scenes into an already-running deployment, point the tool at a different directory of per-scene subdirectories, each with its own `<scene>.zip` as produced by the "Export Scene" button of the web UI:
 
 ```bash
-python3 tools/upload_scenes/upload-scenes \
+tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \
   --restauth manager/secrets/controller.auth \
   --rootcert manager/secrets/certs/scenescape-ca.pem \
   https://web.scenescape.intel.com/api/v1 ./my-scenes
@@ -91,15 +92,18 @@ The chart does not run a media server itself. Start the bundled Retail and Queui
 Install the upload tool's dependencies once, as shown in [Uploading Your Own Scenes](#uploading-your-own-scenes) above. Then, with `kubectl` access to the cluster and the web service reachable (for example, through the port-forward from [Deploy on Kubernetes](./deploy-kubernetes.md#verify)):
 
 ```bash
-AUTH_FILE=$(mktemp)
-kubectl get secret scenescape-controller.auth --namespace "$NAMESPACE" \
-  -o jsonpath='{.data.controller\.auth}' | base64 -d > "$AUTH_FILE"
+(
+  NAMESPACE="${NAMESPACE:-scenescape}"
+  AUTH_FILE=$(mktemp)
+  trap 'rm -f "$AUTH_FILE"' EXIT
 
-python3 tools/upload_scenes/upload-scenes \
-  --restauth "$AUTH_FILE" --insecure --wait 300 \
-  https://localhost:8443/api/v1 sample_data/demo_scenes
+  kubectl get secret scenescape-controller.auth --namespace "$NAMESPACE" \
+    -o jsonpath='{.data.controller\.auth}' | base64 -d > "$AUTH_FILE"
 
-rm -f "$AUTH_FILE"
+  tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \
+    --restauth "$AUTH_FILE" --insecure --wait 300 \
+    https://localhost:8443/api/v1 sample_data/demo_scenes
+)
 ```
 
-Adjust the host and port to match however you reach the web service. Scenes that already exist are skipped, so re-running this is safe.
+Running this as a subshell with an `EXIT` trap ensures the temporary credential file is removed even if a command fails or the snippet is interrupted. Adjust the host and port to match however you reach the web service. Scenes that already exist are skipped, so re-running this is safe.

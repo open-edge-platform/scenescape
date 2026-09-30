@@ -41,13 +41,23 @@ export NAMESPACE=scenescape
 export SUPASS='<choose-a-strong-admin-password>'
 export PGPASS='<choose-a-strong-database-password>'
 
-helm upgrade --install scenescape kubernetes/scenescape-chart/ \
-  --namespace "$NAMESPACE" --create-namespace \
-  --set-string supass="$SUPASS" \
-  --set-string pgserver.password="$PGPASS" \
-  --set reid.enabled=false \
-  --wait --timeout 30m
+(
+  VALUES_FILE=$(mktemp)
+  trap 'rm -f "$VALUES_FILE"' EXIT
+
+  printf "supass: '%s'\npgserver:\n  password: '%s'\n" \
+    "$(printf '%s' "$SUPASS" | sed "s/'/''/g")" \
+    "$(printf '%s' "$PGPASS" | sed "s/'/''/g")" > "$VALUES_FILE"
+
+  helm upgrade --install scenescape kubernetes/scenescape-chart/ \
+    --namespace "$NAMESPACE" --create-namespace \
+    --values "$VALUES_FILE" \
+    --set reid.enabled=false \
+    --wait --timeout 30m
+)
 ```
+
+Passwords are written to a temporary values file rather than passed with `--set`/`--set-string`, because Helm splits those flags on commas: a password containing one would otherwise be parsed as two separate values. The subshell's `EXIT` trap removes the file whether the install succeeds, fails, or is interrupted.
 
 This installs the web application, database, broker, NTP server, Scene Controller, Analytics, Auto Camera Calibration, and supporting resources, including persistent volume claims and certificates. ReID is disabled explicitly, because it is enabled by the chart's defaults. No demo scenes or video sources are installed.
 
@@ -57,12 +67,12 @@ If the cluster has no default StorageClass, provide a Helm values file that sets
 
 Enable additional chart features by setting these values on `helm upgrade`/`helm install`:
 
-| Value                       | Default | Effect                                                                 |
-| --------------------------- | ------- | ----------------------------------------------------------------------- |
-| `reid.enabled`               | `true`  | Deploys the ReID vector database (`reid.backend`: `vdms` or `qdrant`).   |
-| `tracker.enabled`            | `false` | Deploys Tracker + Analytics instead of the Scene Controller.            |
-| `mapping.enabled`            | `false` | Deploys the mapping service.                                            |
-| `clusterAnalytics.enabled`   | `false` | Deploys the cluster-analytics service.                                  |
+| Value                      | Default | Effect                                                                 |
+| -------------------------- | ------- | ---------------------------------------------------------------------- |
+| `reid.enabled`             | `true`  | Deploys the ReID vector database (`reid.backend`: `vdms` or `qdrant`). |
+| `tracker.enabled`          | `false` | Deploys Tracker + Analytics instead of the Scene Controller.           |
+| `mapping.enabled`          | `false` | Deploys the mapping service.                                           |
+| `clusterAnalytics.enabled` | `false` | Deploys the cluster-analytics service.                                 |
 
 See [How to Enable Re-identification](../../other-topics/how-to-enable-reidentification.md) for ReID backend details, and [Scenescape on Kubernetes](/kubernetes/README.md) for the full chart reference.
 

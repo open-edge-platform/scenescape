@@ -26,12 +26,16 @@ export SUPASS=<password>
 Then, from the repository root:
 
 ```bash
+# Build images from source:
 make build-core docker-compose.yml .env deploy
+
+# If you already ran `make init-secrets install-models` per Prepare Container Images (prebuilt path), use instead:
+make docker-compose.yml .env deploy
 ```
 
 The targets run in order:
 
-- `build-core` generates secrets, builds the core service images, and installs the default models. Skip this if you prepared prebuilt images instead (see [Prepare Container Images](./prepare-images.md)).
+- `build-core` generates secrets, builds the core service images, and installs the default models. Skip this and use the prebuilt-image command above if you prepared prebuilt images instead (see [Prepare Container Images](./prepare-images.md)).
 - `docker-compose.yml` creates the Compose configuration from the repository's example configuration.
 - `.env` creates the Compose environment file from the generated secrets.
 - `deploy` starts the `controller` profile and requires `SUPASS` for the initial administrator account.
@@ -61,11 +65,11 @@ Scenescape uses [Docker Compose profiles](https://docs.docker.com/compose/how-to
 The following profiles are available:
 
 | Profile             | Description                                                                             |
-| ------------------- | ----------------------------------------------------------------------------------------- |
-| `controller`        | Scene Controller (tracking) + Analytics service. Used by this guide and `make demo`.       |
-| `mapping`           | Enables mapping service.                                                                   |
-| `cluster-analytics` | Enables cluster-analytics service.                                                          |
-| `tracker`           | Tracker service + Analytics service (no Scene Controller). Used by `make demo-tracker`.     |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `controller`        | Scene Controller (tracking) + Analytics service. Used by this guide and `make demo`.    |
+| `mapping`           | Enables mapping service.                                                                |
+| `cluster-analytics` | Enables cluster-analytics service.                                                      |
+| `tracker`           | Tracker service + Analytics service (no Scene Controller). Used by `make demo-tracker`. |
 
 > **ReID backends:** For raw Compose, add exactly one of `sample_data/compose/docker-compose.vdms-override.yml` or `sample_data/compose/docker-compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](../../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
 
