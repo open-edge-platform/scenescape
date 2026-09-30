@@ -184,6 +184,26 @@ SPDX-License-Identifier: Apache-2.0
             >
               Generate Geospatial Bounds & Snapshot
             </button>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-action="queryOsmFeatures"
+            >
+              Query OSM Data
+            </button>
+          </div>
+        </div>
+
+        <!-- OSM query result - only visible for geospatial -->
+        <div class="form-group row" id="osmFeaturesRow" style="display:none;">
+          <label class="col-sm-2 col-form-label">OSM Query Result</label>
+          <div class="col-sm-10">
+            <textarea
+              id="osmFeaturesOutput"
+              class="form-control"
+              readonly
+              rows="8"
+            ></textarea>
           </div>
         </div>
 
@@ -194,6 +214,54 @@ SPDX-License-Identifier: Apache-2.0
             <div id="map"></div>
           </div>
         </div>
+
+        <!-- OSM ROI Generation Section - only visible if bbox has been set -->
+        <div class="form-group row" id="osmRoiGenerationRow" style="display:none;">
+          <label class="col-sm-2 col-form-label">OSM ROIs</label>
+          <div class="col-sm-10">
+            <button
+              type="button"
+              class="btn btn-primary"
+              id="generateRoisBtn"
+            >
+              Create ROIs from OSM
+            </button>
+            <div id="osmRoiStatus" class="mt-2"></div>
+
+            <!-- ROI Preview Section -->
+            <div id="osmRoiPreviewContainer" class="mt-3" style="display:none;">
+              <h6>Preview of Generated ROIs</h6>
+              <div class="card">
+                <div class="card-body">
+                  <canvas
+                    id="osmRoiPreviewCanvas"
+                    width="400"
+                    height="400"
+                    style="border: 1px solid #ddd; max-width: 100%; height: auto;"
+                  ></canvas>
+                  <div id="osmRoiPreviewList" class="mt-3"></div>
+                </div>
+              </div>
+              <button
+                type="button"
+                class="btn btn-success mt-3"
+                id="confirmCreateRoisBtn"
+              >
+                Confirm and Create ROIs
+              </button>
+              <button
+                type="button"
+                class="btn btn-secondary mt-3"
+                id="cancelCreateRoisBtn"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden scene ID for ROI operations -->
+        <input type="hidden" id="sceneUID" value="{{ object.id }}" />
 
         <!-- All other scene fields - always visible -->
         {% for field in form %}
@@ -639,6 +707,7 @@ SPDX-License-Identifier: Apache-2.0
   <script src="/static/js/geospatial/mapbox-plugin.js"></script>
   <script src="/static/js/geospatial/geomanager.js"></script>
   <script src="/static/js/geospatial/scene-form.js"></script>
+  <script src="/static/js/geospatial/scene-update-osm-roi.js"></script>
   <div class="display-none">
     <button class="btn btn-secondary" id="connect">Connect</button>
     <button class="btn btn-secondary" id="disconnect">Disconnect</button>

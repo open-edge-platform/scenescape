@@ -166,6 +166,13 @@ class Scene(models.Model):
     default=None, null=True, blank=True, editable=False,
     help_text="4x4 transformation matrix (translation-rotation-scale) stored as JSON [[...], [...], [...], [...]]"
   )
+  # OSM ways cache (raw ohsome query result, reused across ROI generation
+  # clicks so we don't re-hit the OSM API unless the cache is cleared).
+  osm_ways_cache = models.JSONField(
+    "Cached OpenStreetMap way geometries for this scene",
+    default=None, null=True, blank=True, editable=False,
+    help_text="Cached raw OSM way geometries fetched for this scene's map corners bounding box"
+  )
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
   polycam_data = models.FileField(blank=True, null=True, validators=[FileExtensionValidator(["zip"])])
   dataset_dir = models.CharField(blank=True, max_length=200, editable=False)

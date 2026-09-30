@@ -440,3 +440,68 @@ class TestSaveGeospatialSnapshot(TestCase):
     response = self.client.post(reverse('save_geospatial_snapshot'), data = {'image_data': self.DUMMY_IMAGE_DATA})
     self.assertEqual(response.status_code, 403)
     return
+
+class TestQueryOsmFeatures(TestCase):
+  """Verifies the query-osm-features endpoint: auth wiring, bbox validation, and
+  that a successful upstream query is passed through as JSON."""
+
+  VALID_BBOX = {'south': 54.5180, 'west': 18.5414, 'north': 54.5207, 'east': 18.5442}
+
+  def setUp(self):
+    self.user = User.objects.create_superuser('test_user', 'test_user@intel.com', 'testpassword')
+    return
+
+  def test_authenticated_request_returns_upstream_result(self):
+    self.client.post(reverse('sign_in'), data = {'username': 'test_user', 'password': 'testpassword'})
+    fake_result = {'count': 2, 'features': [{'id': 1, 'tags': {'highway': 'footway'}}]}
+    with patch('manager.osm_query.query_osm_features', return_value = fake_result) as mock_query:
+      response = self.client.post(
+        reverse('query_osm_features'),
+        data = json.dumps({'bbox': self.VALID_BBOX}),
+        content_type = 'application/json',
+      )
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(json.loads(response.content), fake_result)
+    mock_query.assert_called_once_with(
+      self.VALID_BBOX['south'], self.VALID_BBOX['west'], self.VALID_BBOX['north'], self.VALID_BBOX['east'],
+    )
+    return
+
+  def test_unauthenticated_request_is_rejected(self):
+    # Same session-auth-as-AnonymousUser + permission-denial pattern as
+    # SaveGeospatialSnapshot: unauthenticated requests get 403, not 401.
+    response = self.client.post(
+      reverse('query_osm_features'),
+      data = json.dumps({'bbox': self.VALID_BBOX}),
+      content_type = 'application/json',
+    )
+    self.assertEqual(response.status_code, 403)
+    return
+
+  def test_missing_bbox_field_is_rejected(self):
+    self.client.post(reverse('sign_in'), data = {'username': 'test_user', 'password': 'testpassword'})
+    incomplete_bbox = {'south': 54.5180, 'west': 18.5414, 'north': 54.5207}  # missing 'east'
+    response = self.client.post(
+      reverse('query_osm_features'),
+      data = json.dumps({'bbox': incomplete_bbox}),
+      content_type = 'application/json',
+    )
+    self.assertEqual(response.status_code, 400)
+    return
+
+  def test_invalid_bbox_is_rejected_without_calling_upstream(self):
+    self.client.post(reverse('sign_in'), data = {'username': 'test_user', 'password': 'testpassword'})
+    # south >= north is invalid; validate_bbox() must reject this before any
+    # HTTP call is attempted, so patch the transport layer (not the function
+    # under test) to prove the real validation logic short-circuits it.
+    inverted_bbox = {'south': 54.52, 'west': 18.5414, 'north': 54.51, 'east': 18.5442}
+    with patch('manager.osm_query.requests.post') as mock_post:
+      response = self.client.post(
+        reverse('query_osm_features'),
+        data = json.dumps({'bbox': inverted_bbox}),
+        content_type = 'application/json',
+      )
+    self.assertEqual(response.status_code, 400)
+    mock_post.assert_not_called()
+    return
+

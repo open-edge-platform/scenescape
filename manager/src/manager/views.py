@@ -36,6 +36,7 @@ from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication
 
 from manager.api import IsAdminOrReadOnly
+from manager import osm_query, osm_roi
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
@@ -891,6 +892,129 @@ class SaveGeospatialSnapshot(APIView):
 
     except Exception as e:
       log.error("Error saving geospatial snapshot")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+class QueryOsmFeatures(APIView):
+  """Query OSM road/footway features for a map bbox. Stepping-stone endpoint;
+  keeps the ohsome API call and any endpoint/API-key details server-side only."""
+  # Called from an authenticated browser session, not an external API client
+  authentication_classes = [SessionAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request):
+    try:
+      bbox = request.data.get('bbox') or {}
+      south = bbox.get('south')
+      west = bbox.get('west')
+      north = bbox.get('north')
+      east = bbox.get('east')
+      if None in (south, west, north, east):
+        return JsonResponse({'error': 'bbox must include south, west, north, east'}, status=400)
+
+      result = osm_query.query_osm_features(south, west, north, east)
+      return JsonResponse(result)
+
+    except osm_query.OsmQueryError as e:
+      return JsonResponse({'error': str(e)}, status=400)
+    except Exception as e:
+      log.error("Error querying OSM features")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+
+class PreviewRoisFromOsm(APIView):
+  """Preview OSM-derived polygon ROIs before creation.
+  
+  Derives the query bounding box from the scene's saved map_corners_lla.
+  Fetches line geometries from OSM (cached on the scene after first fetch),
+  converts to scene-local coordinates, buffers to polygons, and returns a
+  preview list with temporary UUIDs without persisting to DB.
+  
+  Includes the scene's map_bearing so the frontend can rotate the canvas
+  preview to match the current map orientation.
+  """
+  authentication_classes = [SessionAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request):
+    try:
+      scene_uid = request.data.get('scene')
+
+      if not scene_uid:
+        return JsonResponse({'error': 'scene is required'}, status=400)
+
+      # Get the scene; 404 if not found or invalid UUID
+      try:
+        scene = Scene.objects.get(pk=scene_uid)
+      except (Scene.DoesNotExist, ValueError):
+        return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
+
+      if not scene.map_corners_lla:
+        return JsonResponse({
+          'error': 'Scene map corners not set. '
+                   'Click "Generate Geospatial Bounds & Snapshot" in scene editor first.'
+        }, status=400)
+
+      previews = osm_roi.build_roi_previews(scene)
+      bearing = scene.map_bearing or 0.0
+      
+      return JsonResponse({
+        'rois': previews,
+        'bearing': bearing,  # degrees, for canvas rotation correction
+      })
+
+    except osm_roi.OsmRoiError as e:
+      return JsonResponse({'error': str(e)}, status=400)
+    except osm_query.OsmQueryError as e:
+      return JsonResponse({'error': str(e)}, status=400)
+    except Exception as e:
+      log.error("Error previewing OSM ROIs")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+
+class CreateSelectedRoisFromOsm(APIView):
+  """Create Region DB objects from selected OSM-derived ROI previews.
+  
+  Takes the output from PreviewRoisFromOsm (rounded-trip by the frontend),
+  filters to only checked items, and creates real Region + RegionPoint DB
+  objects using RegionSerializer.
+  """
+  authentication_classes = [SessionAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request):
+    try:
+      scene_uid = request.data.get('scene')
+      rois = request.data.get('rois') or []
+
+      if not scene_uid:
+        return JsonResponse({'error': 'scene is required'}, status=400)
+      if not isinstance(rois, list):
+        return JsonResponse({'error': 'rois must be a list'}, status=400)
+
+      # Get the scene; 404 if not found or invalid UUID
+      try:
+        scene = Scene.objects.get(pk=scene_uid)
+      except (Scene.DoesNotExist, ValueError):
+        return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
+
+      # Filter to only checked ROIs
+      checked_rois = [roi for roi in rois if roi.get('checked', False)]
+      
+      if not checked_rois:
+        return JsonResponse({'created': []})
+
+      regions = osm_roi.create_regions(scene, checked_rois)
+      result = [{'uuid': str(r.uuid), 'name': r.name} for r in regions]
+      return JsonResponse({'created': result})
+
+    except osm_roi.OsmRoiError as e:
+      return JsonResponse({'error': str(e)}, status=400)
+    except Exception as e:
+      log.error("Error creating OSM ROIs")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      # Check if it's a DRF ValidationError
+      if hasattr(e, 'detail'):
+        return JsonResponse({'error': str(e.detail)}, status=400)
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
 @superuser_required

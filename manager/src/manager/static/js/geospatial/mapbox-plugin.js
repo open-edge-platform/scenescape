@@ -157,6 +157,14 @@ class MapboxPlugin extends MapInterface {
     const nw = bounds.getNorthWest();
     const se = bounds.getSouthEast();
 
+    // Normalized bbox for non-map consumers (e.g. the OSM query button)
+    window.lastGeospatialBbox = {
+      south: sw.lat,
+      west: sw.lng,
+      north: ne.lat,
+      east: ne.lng,
+    };
+
     // Populate the scale field in the form
     const scaleField = document.getElementById("id_scale");
     if (scaleField) {
