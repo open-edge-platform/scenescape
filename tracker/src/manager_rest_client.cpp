@@ -133,37 +133,14 @@ void ManagerRestClient::authenticate(const std::string& username, const std::str
 }
 
 std::string ManagerRestClient::fetchScenes() {
-    if (token_.empty()) {
-        throw std::runtime_error("Manager API not authenticated — call authenticate() first");
-    }
-
-    auto [scheme_host_port, path_prefix] = parse_url(url_);
-    auto client =
-        create_http_client(scheme_host_port, ca_cert_path_, connect_timeout_, read_timeout_);
-
-    // GET /api/v1/scenes with auth header
-    std::string scenes_path = path_prefix + "/api/v1/scenes";
-    httplib::Headers headers = {{"Authorization", "Token " + token_}};
-
-    LOG_DEBUG("Fetching scenes from Manager API: {}{}", scheme_host_port, scenes_path);
-
-    auto result = client.Get(scenes_path, headers);
-
-    if (!result) {
-        throw std::runtime_error("Manager API connection failed: " +
-                                 httplib::to_string(result.error()));
-    }
-
-    if (result->status != 200) {
-        throw std::runtime_error("Manager API scenes request failed (HTTP " +
-                                 std::to_string(result->status) + "): " + result->body);
-    }
-
-    LOG_INFO("Fetched scenes from Manager API ({} bytes)", result->body.size());
-    return result->body;
+    return fetch("scenes");
 }
 
 std::string ManagerRestClient::fetchAssets() {
+    return fetch("assets");
+}
+
+std::string ManagerRestClient::fetch(std::string_view resource) {
     if (token_.empty()) {
         throw std::runtime_error("Manager API not authenticated — call authenticate() first");
     }
@@ -172,12 +149,12 @@ std::string ManagerRestClient::fetchAssets() {
     auto client =
         create_http_client(scheme_host_port, ca_cert_path_, connect_timeout_, read_timeout_);
 
-    std::string assets_path = path_prefix + "/api/v1/assets";
+    std::string path = path_prefix + "/api/v1/" + std::string(resource);
     httplib::Headers headers = {{"Authorization", "Token " + token_}};
 
-    LOG_DEBUG("Fetching assets from Manager API: {}{}", scheme_host_port, assets_path);
+    LOG_DEBUG("Fetching {} from Manager API: {}{}", resource, scheme_host_port, path);
 
-    auto result = client.Get(assets_path, headers);
+    auto result = client.Get(path, headers);
 
     if (!result) {
         throw std::runtime_error("Manager API connection failed: " +
@@ -185,11 +162,11 @@ std::string ManagerRestClient::fetchAssets() {
     }
 
     if (result->status != 200) {
-        throw std::runtime_error("Manager API assets request failed (HTTP " +
+        throw std::runtime_error("Manager API " + std::string(resource) + " request failed (HTTP " +
                                  std::to_string(result->status) + "): " + result->body);
     }
 
-    LOG_INFO("Fetched assets from Manager API ({} bytes)", result->body.size());
+    LOG_INFO("Fetched {} from Manager API ({} bytes)", resource, result->body.size());
     return result->body;
 }
 

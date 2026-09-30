@@ -6,6 +6,7 @@
 #include <chrono>
 #include <optional>
 #include <string>
+#include <string_view>
 
 namespace tracker {
 
@@ -72,6 +73,8 @@ public:
     std::string fetchAssets() override;
 
 private:
+    std::string fetch(std::string_view resource);
+
     std::string url_;
     std::optional<std::string> ca_cert_path_;
     std::string token_;
