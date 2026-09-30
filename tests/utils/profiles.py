@@ -95,7 +95,7 @@ _MAPPING = WaitConfig(timeout=600)
 # only so other mapping-based profiles keep failing fast.
 _MAPPING_STABILITY = WaitConfig(timeout=6000)
 _ANALYTICS = WaitConfig(log_pattern="Subscribed to")
-_CLUSTER_ANALYTICS = WaitConfig(log_pattern="Cluster Analytics Container started")
+_CLUSTER_ANALYTICS = WaitConfig(log_pattern="Subscribed to")
 
 
 # ---------------------------------------------------------------------------
