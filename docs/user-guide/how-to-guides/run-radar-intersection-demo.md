@@ -250,7 +250,7 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | Variable | Default | Notes |
 | --- | --- | --- |
 | `RADAR_PERCEPTION` | `classical` | `classical` \| `roadside` \| `radarpillars` |
-| `RADAR_DEVICE` | `CPU` | OpenVINO device for roadside / radarpillars |
+| `RADAR_DEVICE` | `CPU` | OpenVINO device for roadside / radarpillars (`GPU` needs host `/dev/dri`; compose passes it through like the LiDAR demo) |
 | `RADAR_SCORE_THRESHOLD` | mode default (`0` / `0.1`) | Radarpillars: use **`0.1`** (~1 person on densify slice); `0.03` is clutter |
 | `RADAR_MODEL_CONFIG` | mode default under `vol-models` | Override g3dinference config JSON |
 | `RADAR_DATA_PATH` | `frames_bin` or `pcd_bin` | multifilesrc pattern |

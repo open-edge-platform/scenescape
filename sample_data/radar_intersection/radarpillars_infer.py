@@ -344,6 +344,19 @@ def _yaw_to_quat(yaw: float) -> list[float]:
   return [0.0, 0.0, float(math.sin(half)), float(math.cos(half))]
 
 
+def _ov_compile(core, model_path: str | Path, device: str):
+  """Compile for online single-stream inference (LATENCY hint when supported)."""
+  path = str(model_path)
+  try:
+    from openvino import properties
+    cfg = {
+      properties.hint.performance_mode: properties.hint.PerformanceMode.LATENCY,
+    }
+    return core.compile_model(path, device, cfg)
+  except Exception:
+    return core.compile_model(path, device)
+
+
 class RadarPillarsOV:
   def __init__(self, config_path: str | Path, device: str = "CPU"):
     if ov is None:
@@ -353,17 +366,22 @@ class RadarPillarsOV:
     model_dir = self.config_path.parent
     self.preproc = dict(np.load(model_dir / self.cfg["preproc_weights"]))
     core = ov.Core()
-    self.compiled = core.compile_model(str(model_dir / self.cfg["nn_model"]), device)
+    # Optional per-stage devices (VIDETEC: BEV on GPU when present; preproc stays CPU).
+    bev_device = str(self.cfg.get("bev_device") or device)
+    preproc_device = str(self.cfg.get("preproc_device") or device)
+    self.compiled = _ov_compile(core, model_dir / self.cfg["nn_model"], bev_device)
     self.vfe_compiled = None
     self.attn_compiled = None
     if self.cfg.get("vfe_linear_model"):
-      self.vfe_compiled = core.compile_model(
-        str(model_dir / self.cfg["vfe_linear_model"]), device)
+      self.vfe_compiled = _ov_compile(
+        core, model_dir / self.cfg["vfe_linear_model"], preproc_device)
     if self.cfg.get("attention_model"):
-      self.attn_compiled = core.compile_model(
-        str(model_dir / self.cfg["attention_model"]), device)
+      self.attn_compiled = _ov_compile(
+        core, model_dir / self.cfg["attention_model"], preproc_device)
     self.anchors = _generate_anchors(self.cfg)
     self.device = device
+    self.bev_device = bev_device
+    self.preproc_device = preproc_device
 
   def infer(self, points: np.ndarray) -> list[dict]:
     cfg = self.cfg

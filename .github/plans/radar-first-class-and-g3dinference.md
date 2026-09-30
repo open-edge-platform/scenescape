@@ -10,7 +10,10 @@ Status snapshot of the radar product path developed on
 (DLStreamer). Reconstructs the agreed plan from the prior design chats and
 marks what landed vs what remains. **Updated 2026-09-29:** C5/P1 demo live;
 causal densify + FT2 OV quality parity (~52.7% VRU@3m); **Intel latency path
-Stages 1–2b done** (postproc ~2× on VIDETEC; OV VFE/attn ~5–6× on dense).
+Stages 1–2b done** (postproc ~2× on VIDETEC; OV VFE/attn ~5–6× on dense);
+**Priority-1 BEV GPU** = compose `/dev/dri` + `bev_device` / `RADAR_DEVICE=GPU`
+wired; this host is **CPU-only** so CPU `LATENCY` compile hint landed instead;
+**Controller late fusion accepted** (no extra camera–radar detection fuse).
 See *Results rollup* under OpenVINO optimization status.
 
 Related Cursor plan drafts (not in-repo): `videtec_radar_demo_ca4bfda2`,
@@ -65,9 +68,10 @@ Bake: always `make build-dlsps-g3d` for `demo-radar`.
 sparse single-frame VoD→gantry as “model broken” when support is present.
 Ladder completed **VoD-free** (no View-of-Delft val mAP / paper regen).
 
-**SceneScape MQTT demo is live** (FT2 densify + multi-cam / dual-radar fusion).
-Remaining work is Stage 3 voxelize/scatter (optional), full-window quality /
-fusion, and upstream DLS bake.
+**SceneScape MQTT demo is live** (FT2 densify + multi-cam / dual-radar).
+Controller late fusion is **accepted as-is** (camera can keep a track alive
+without radar). Remaining plan work: upstream DLS bake, optional
+voxelize/scatter, INT8 / zero-copy later.
 
 | Priority | Work | Status |
 | --- | --- | --- |
@@ -95,13 +99,13 @@ fusion, and upstream DLS bake.
 frames), FT2/FT4 hit **≥80–99% VRU@3m**. Failure mode for sparse full windows
 is **support density**, not a broken detector.
 
-**Full-window quality gate (still OPEN — reconfirmed 2026-09-28):** OV-FT2 on
-2100–4100 stride 5: **H=5 @ score≥0.01 → 52.4% VRU@3m** (associable **92.4%**
-on 170 frames); **@ demo score 0.1 → 26.4%**. Dense-cloud lock-in holds; the
-operational full-window number has not lifted. **FT5** (train-time ±5 densify
-+ associated + freeze `backbone_3d`, init FT2 ep11) **did not close the gate**:
-H=5 plateau **~39%**, H=0 **11.5%** (like FT4), worse than FT2 H=5. Keep FT2
-as the demo weights; next levers are causal runtime densify or fusion.
+**Full-window radar-only GNSS gate (recorded, not a product blocker — 2026-09-29):**
+OV-FT2 on 2100–4100 stride 5: **H=5 @ score≥0.01 → 52.4% VRU@3m** (associable
+**92.4%** on 170 frames); **@ demo score 0.1 → 26.4%**. Causal past=10 ≈ **52.7%**.
+**FT5** failed to lift (~39% H=5). Keep FT2 demo weights. This metric is
+**radar detections only** (no Controller, no cameras). Product bar is scene
+tracking with Controller late fusion — **accepted**; do **not** pursue extra
+camera→radar detection fusion or mid-tier fuse for this gap.
 
 ### Why detection (not just classification) can fail
 
@@ -130,7 +134,7 @@ separates those.
 | Radar PCD for DNN | VoD-style **7 float32**/point: `x, y, z, rcs, v_r, v_r_comp, time` |
 | Acceptance data | **Real [VIDETEC-2](https://zenodo.org/records/17799385)** through convert → PCD → `g3dinference` → MQTT → Controller. Synthetic frames are plumbing-only; they do **not** close the demo. |
 | Accuracy gate | Measure RadarPillars on real VIDETEC using **RTK-GNSS VRU first**; camera tracks only as weak secondary after sync/pose proof |
-| Cameras | Unchanged `gvadetect` → `data/camera/{id}`; fusion is Controller’s job |
+| Cameras | Unchanged `gvadetect` → `data/camera/{id}`; **Controller late fusion** (pose + track). Camera-only updates may keep a track alive without radar — **accepted; no further fusion work** |
 | Demo scene portability | `RadarIntersection.json` is pose SoT; ZIP for fresh import; `radar_scene_init` always re-syncs sensors |
 | Demo score (radarpillars) | **`RADAR_SCORE_THRESHOLD=0.1`** on densify slice (~1 VRU); `0.03` is clutter |
 | LiDAR (unchanged debt) | Still overloads `data/camera/{id}` — **not** standardized like radar |
@@ -188,6 +192,16 @@ Artifacts: `gnss_w2100_4100_ft2_ov_summary.json`,
 | Stage 1 baseline | 107 ms | 67 ms (62%) | 112 ms |
 | **Stage 2a** score-gated postproc | **53 ms (~2×)** | **9 ms (17%)** | **48 ms** |
 | After 2a bottleneck | OV BEV ~34–39 ms (~70% of remaining) | | |
+| **P1 CPU LATENCY hint** (no GPU) | **~47 ms** | ~10 ms | **~53 ms** |
+
+**Priority-1 BEV device (2026-09-29):** Host = i7-14700F, OpenVINO
+`devices=[CPU]`, **no `/dev/dri`**. Compose now passes `/dev/dri` + render
+cgroup (same pattern as LiDAR); set `RADAR_DEVICE=GPU` (or config
+`bev_device` / `preproc_device`) on GPU hosts. Python + C++ compile with
+`ov::hint::PerformanceMode::LATENCY`. Bare-BEV microbench speedup is **noisy**
+on this CPU (~0.9–1.35×); e2e past=0 median **~47 ms** (was ~53 after 2a).
+Artifact: `VIDETEC-2/profile_stages_ft2_bev_latency_hint.json`. g3d image
+rebuilt with LATENCY compile.
 
 **Synthetic dense stress (shows why OV preproc matters for denser radars):**
 
@@ -212,14 +226,23 @@ single-frame pcd_bin + g3dinference accumulate-past=10
 + score-gated C++ postproc
 ```
 
-### Tracked stages
+### Tracked stages (VIDETEC ROI order)
 
 1. **Profile** — **DONE** (2026-09-28).
 2. **OV-ify VFE + PillarAttention** — **DONE** (2026-09-29):
    `export_radarpillars_preproc_ov.py` → `vfe_linear_model` / `attention_model`.
-3. **Voxelize + scatter** — pending (await confirm).
-4. **Bounded/sparse attention** — only if denser captures still blow up N.
-5. **Optional later:** INT8 / NNCF; zero-copy iGPU; OV BEV `GPU` for sparse-path BEV.
+3. **BEV on GPU (+ CPU LATENCY hint)** — **DONE on this host as CPU substitute**
+   (2026-09-29): compose dri passthrough; `bev_device`/`preproc_device`;
+   LATENCY compile in Python + `radarpillars_runtime.cpp`. **Re-measure on a
+   real iGPU/dGPU host** before claiming GPU win.
+4. **Upstream DLS bake** — pending (await confirm).
+5. **Camera–radar fusion (quality)** — **DONE / out of scope** (2026-09-29):
+   scene late fusion already in Controller; product accepted as-is. Offline
+   ~52% radar-only VRU@3m is **not** a fused-track metric and is not a fuse
+   work item.
+6. **Voxelize + scatter** — pending (optional; await confirm).
+7. **Bounded/sparse attention** — only if denser captures still blow up N.
+8. **Optional later:** INT8 / NNCF; zero-copy iGPU.
 
 **Acceptance:** tight numeric parity; no VRU@3m regression on causal past=10;
 document latency before/after. Do **not** claim fully fused e2e OV until
@@ -372,28 +395,29 @@ better 401-frame window (~10× more near-GT support than 3000–5000).
 
 ### Active next
 
-1. **Full-window quality gate** — **OPEN** (2026-09-28 re-run: OV-FT2 H=5
-   52.4% VRU@3m @0.01; 26.4% @ demo 0.1). **FT5 failed to lift** (~39% H=5).
-   Keep FT2 demo weights. Causal densify preserves H=5 parity (~52.7%);
-   remaining *quality* lever is camera–radar fusion.
+1. **Full-window radar-only GNSS** — **Accepted as-is** (2026-09-29). Recorded
+   OV-FT2 H=5 **52.4%** / causal **52.7%** @0.01; **26.4%** @ demo 0.1. Not a
+   fused-scene gate. No extra camera–radar detection fusion planned.
 2. **Causal live densify in `g3dinference`** — **DONE** (`accumulate-past`,
    `RADAR_ACCUMULATE_PAST=10`, offline `--accumulate-past`; ~52.7% VRU@3m).
-3. **Host preproc → Intel / OpenVINO** — **Stages 1–2b DONE** (see *Results
-   rollup*). Sparse VIDETEC: postproc ~2× (107→53 ms). Dense synthetic: total
-   ~5–6× (e.g. 5k pts 1038→165 ms). **Await confirm for Stage 3**
-   (voxelize/scatter ± BEV GPU).
+3. **Host preproc → Intel / OpenVINO** — **Stages 1–2b + P1 BEV-device DONE**
+   (see *Results rollup*). Sparse VIDETEC: postproc ~2× (107→53 ms); P1 CPU
+   LATENCY e2e past=0 ~47 ms. Dense synthetic: total ~5–6×.
 4. **Upstream DLS / DLSPS** — land `feature/g3dinference-multi-model`, bump
-   DLSPS image, drop local `make build-dlsps-g3d`.
-5. **SceneScape cleanup** — stock DLSPS tags; native `application/x-radar`
+   DLSPS image, drop local `make build-dlsps-g3d`. **Next after confirm.**
+5. **Controller late fusion** — **DONE / accepted** (multi-cam + dual-radar
+   MQTT; camera can continue tracks without radar). No mid-tier fuse.
+6. **Voxelize + scatter** — optional latency when denser clouds justify it.
+7. **SceneScape cleanup** — stock DLSPS tags; native `application/x-radar`
    end-to-end (no bake workaround).
-6. **PR hygiene** — BAT / functional radar re-verify on tip; merge readiness.
+8. **PR hygiene** — BAT / functional radar re-verify on tip; merge readiness.
 
 ### Later (after preproc OV or metrics justify)
 
-7. Camera–radar fusion for full-window quality uplift.
-8. INT8 / NNCF PTQ (BEV ± preproc) once fused graph exists.
-9. Zero-copy iGPU / remote tensors.
-10. First-class LiDAR; rename `g3dlidarparse` → generic point-cloud parse.
+9. Bounded/sparse attention if N blows up.
+10. INT8 / NNCF PTQ (BEV ± preproc) once fused graph exists.
+11. Zero-copy iGPU / remote tensors (needs real GPU host).
+12. First-class LiDAR; rename `g3dlidarparse` → generic point-cloud parse.
 
 ---
 
@@ -405,6 +429,8 @@ better 401-frame window (~10× more near-GT support than 3000–5000).
 - PyTorch XPU inside DLS (OpenVINO IR only for the BEV/detect slice).
 - Treating vision YOLO-on-RD-maps as the radar DNN.
 - Treating camera tracks as primary GT without proven time/pose association.
+- Extra camera→radar **detection** fusion or mid-tier fuse to chase the offline
+  ~52% radar-only VRU@3m gate (Controller late fusion is enough for product).
 - Claiming end-to-end OpenVINO or INT8 optimization **until** host preproc
   OV workstream above lands (BEV-only today).
 - **View-of-Delft val mAP / paper regen** as an acceptance gate (dropped).
