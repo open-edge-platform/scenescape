@@ -645,12 +645,11 @@ lint-dockerfiles:
 
 .PHONY: prettier-dependency
 prettier-dependency:
-	@if npx --no-install prettier --version >/dev/null 2>&1; then \
-		echo "==> Installing prettier dependencies from .github/resources/package.json..."; \
-		DEPS=$$(node -p "Object.entries(require('./.github/resources/package.json').devDependencies).map(([k,v]) => k+'@'+v).join(' ')"); \
-		npm install --no-save $$DEPS || (echo "Installing prettier dependencies failed" && exit 1); \
-		echo "DONE ==> Installing prettier dependencies"; \
-	fi
+	@echo "==> Installing prettier dependencies from .github/resources/package.json..."; \
+	DEPS=$$(node -p "Object.entries(require('./.github/resources/package.json').devDependencies).map(([k,v]) => k+'@'+v).join(' ')"); \
+	npm install --no-save $$DEPS || (echo "Installing prettier dependencies failed" && exit 1); \
+	echo "DONE ==> Installing prettier dependencies"; \
+
 
 .PHONY: prettier-check
 prettier-check: prettier-dependency
