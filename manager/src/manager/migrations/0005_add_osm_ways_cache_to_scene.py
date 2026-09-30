@@ -7,14 +7,10 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-    ('manager', '0005_add_osm_bbox_to_scene'),
+    ('manager', '0004_add_cached_sensors_to_childscene'),
   ]
 
   operations = [
-    migrations.RemoveField(model_name='scene', name='osm_bbox_south'),
-    migrations.RemoveField(model_name='scene', name='osm_bbox_west'),
-    migrations.RemoveField(model_name='scene', name='osm_bbox_north'),
-    migrations.RemoveField(model_name='scene', name='osm_bbox_east'),
     migrations.AddField(
       model_name='scene',
       name='osm_ways_cache',

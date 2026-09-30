@@ -40,7 +40,6 @@ async function toggleMapFields() {
     const locationInputRow = document.getElementById("locationInputRow");
     const generateButtonRow = document.getElementById("generateButtonRow");
     const mapViewRow = document.getElementById("mapViewRow");
-    const osmFeaturesRow = document.getElementById("osmFeaturesRow");
     const osmRoiGenerationRow = document.getElementById("osmRoiGenerationRow");
 
     if (mapProviderRow) {
@@ -54,9 +53,6 @@ async function toggleMapFields() {
     }
     if (mapViewRow) {
       mapViewRow.style.display = type === "geospatial" ? "" : "none";
-    }
-    if (osmFeaturesRow) {
-      osmFeaturesRow.style.display = type === "geospatial" ? "" : "none";
     }
     if (osmRoiGenerationRow) {
       osmRoiGenerationRow.style.display = type === "geospatial" ? "" : "none";
@@ -285,60 +281,6 @@ window.saveCurrentGeospatialSettings =
   };
 
 // Setup event listeners when the DOM is loaded
-// Query OSM road/footway features for the last-generated bbox and show the
-// raw result in the output textarea. Stepping-stone: no map overlay yet.
-async function queryOsmFeatures() {
-  const outputField = document.getElementById("osmFeaturesOutput");
-  const bbox = window.lastGeospatialBbox;
-
-  if (!bbox) {
-    if (outputField) {
-      outputField.value =
-        "Click \"Generate Geospatial Bounds & Snapshot\" first to select an area.";
-    }
-    return;
-  }
-
-  if (outputField) {
-    outputField.value = "Querying OSM data...";
-  }
-
-  const apiUrl = "/api/v1/query-osm-features/";
-  console.log("Querying OSM features:", { url: apiUrl, bbox: bbox });
-
-  try {
-    const csrfToken = document.querySelector("[name=csrfmiddlewaretoken]");
-    if (!csrfToken) {
-      throw new Error("CSRF token not found");
-    }
-
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken.value,
-      },
-      body: JSON.stringify({ bbox: bbox }),
-    });
-
-    const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.error || `Request failed (${response.status})`);
-    }
-
-    console.log("OSM features query succeeded:", { url: apiUrl, result: result });
-
-    if (outputField) {
-      outputField.value = JSON.stringify(result, null, 2);
-    }
-  } catch (error) {
-    console.error("OSM features query failed:", { url: apiUrl, error: error });
-    if (outputField) {
-      outputField.value = "Error querying OSM data: " + error.message;
-    }
-  }
-}
-
 document.addEventListener("DOMContentLoaded", function () {
   // Load saved provider preference first (even before toggleMapFields)
   loadSavedMapProvider();
@@ -391,11 +333,6 @@ document.addEventListener("DOMContentLoaded", function () {
   actionButtons.forEach((button) => {
     const action = button.getAttribute("data-action");
     button.addEventListener("click", function () {
-      // queryOsmFeatures is not a map-provider strategy method; handle it directly.
-      if (action === "queryOsmFeatures") {
-        queryOsmFeatures();
-        return;
-      }
       if (window.mapManager && typeof mapManager[action] === "function") {
         // Save current settings before generating bounds/snapshot
         if (action === "generateBounds") {

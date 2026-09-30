@@ -3,17 +3,9 @@
 
 """Safety-hardened server-side helper for querying the ohsome API (HeiGIT).
 
-Stepping-stone backend for the "Query OSM Data" button in the geospatial
-scene UI: takes a map bounding box already produced by the "Generate
-Geospatial Bounds & Snapshot" flow and returns a small JSON summary of
-OSM road/footway features in that area. Requires an ohsome API key: sign up
-at https://account.heigit.org/signup and set it in the OHSOME_API_KEY
-environment variable.
-
-This intentionally duplicates (in trimmed form) the safety design of
-tools/osm_v2x_map_exploration/ohsome_client.py, since that tool directory
-isn't on the Manager package's import path. Consolidate into a shared
-module if this becomes a permanent feature.
+Fetches OSM road/footway geometries for a scene's map bounding box.
+Requires an ohsome API key: sign up at https://account.heigit.org/signup
+and set it in the OHSOME_API_KEY environment variable.
 
 Security controls (see .github/skills/security/SKILL.md):
 - Endpoint is restricted to an HTTPS allow-list; no user-supplied URLs.
@@ -144,63 +136,6 @@ def _read_bounded(response: requests.Response) -> bytes:
       raise OsmQueryError(f"Response exceeded max size of {MAX_RESPONSE_BYTES} bytes")
     chunks.append(chunk)
   return b"".join(chunks)
-
-
-def query_osm_features(
-  south: float, west: float, north: float, east: float,
-  endpoint: str = DEFAULT_ENDPOINT,
-) -> Dict[str, Any]:
-  """Query ohsome for road/footway ways in a bbox and return a small summary.
-
-  Returns a JSON-serializable dict: {"count": <int>, "features": [...]},
-  where each feature is {"id": <int>, "tags": {...}}. This is a
-  stepping-stone summary (capped sample), not the full geometry payload.
-  """
-  bbox = validate_bbox(south, west, north, east)
-  endpoint = validate_endpoint(endpoint)
-  api_key = get_api_key()
-  aoi = bbox.as_aoi()
-  body = {"aoi": aoi, "filter": ROAD_FILTER, "time": "latest", "clip": True}
-  url = endpoint + EXTRACTION_PATH
-
-  logger.info(f"Querying ohsome: url={url} aoi={aoi}")
-
-  last_error: Optional[Exception] = None
-  for attempt in range(1, MAX_RETRIES + 1):
-    _throttle()
-    try:
-      response = requests.post(
-        url,
-        json=body,
-        headers={"Authorization": api_key, "User-Agent": USER_AGENT},
-        timeout=REQUEST_TIMEOUT_S,
-        stream=True,
-        # verify defaults to True (system CA bundle); TLS verification is never disabled.
-      )
-      response.raise_for_status()
-      content = _read_bounded(response)
-      features_df = pd.read_parquet(io.BytesIO(content))
-      ways = features_df[features_df["osm_type"] == "way"]
-      features = [
-        {"id": int(row["osm_id"]), "tags": row["tags"] or {}}
-        for _, row in ways.head(MAX_SAMPLE_FEATURES).iterrows()
-      ]
-      logger.info(f"ohsome query succeeded: url={url} way_count={len(ways)}")
-      return {"count": len(ways), "features": features}
-    except (requests.RequestException, OsmQueryError, OSError, ValueError) as exc:
-      last_error = exc
-      logger.warning(f"ohsome request attempt {attempt}/{MAX_RETRIES} failed: url={url} error={exc}")
-      if attempt < MAX_RETRIES:
-        time.sleep(RETRY_BACKOFF_S * attempt)
-
-  raise OsmQueryError(f"ohsome query failed after {MAX_RETRIES} attempts: {last_error}")
-
-
-def _feature_type(tags: dict) -> str:
-  """Extract the road type from OSM tags, with sensible fallbacks."""
-  if not isinstance(tags, dict):
-    return "way"
-  return tags.get("highway") or tags.get("footway") or "way"
 
 
 def query_osm_ways_geometry(

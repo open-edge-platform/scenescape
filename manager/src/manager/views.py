@@ -894,33 +894,6 @@ class SaveGeospatialSnapshot(APIView):
       log.error("Error saving geospatial snapshot")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
-class QueryOsmFeatures(APIView):
-  """Query OSM road/footway features for a map bbox. Stepping-stone endpoint;
-  keeps the ohsome API call and any endpoint/API-key details server-side only."""
-  # Called from an authenticated browser session, not an external API client
-  authentication_classes = [SessionAuthentication]
-  permission_classes = [IsAdminOrReadOnly]
-
-  def post(self, request):
-    try:
-      bbox = request.data.get('bbox') or {}
-      south = bbox.get('south')
-      west = bbox.get('west')
-      north = bbox.get('north')
-      east = bbox.get('east')
-      if None in (south, west, north, east):
-        return JsonResponse({'error': 'bbox must include south, west, north, east'}, status=400)
-
-      result = osm_query.query_osm_features(south, west, north, east)
-      return JsonResponse(result)
-
-    except osm_query.OsmQueryError as e:
-      return JsonResponse({'error': str(e)}, status=400)
-    except Exception as e:
-      log.error("Error querying OSM features")
-      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
-
-
 class PreviewRoisFromOsm(APIView):
   """Preview OSM-derived polygon ROIs before creation.
   
