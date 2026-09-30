@@ -19,10 +19,12 @@ from pathlib import Path
 import numpy as np
 
 _HERE = Path(__file__).resolve().parent
+_RI_ROOT = _HERE.parent
+_REPO_ROOT = _RI_ROOT.parents[1]
 if str(_HERE) not in sys.path:
   sys.path.insert(0, str(_HERE))
 # Host checkout: repo_root/radar. Container: PYTHONPATH …/radar_lib.
-_RADAR_HOST = _HERE.parents[1] / "radar"
+_RADAR_HOST = _REPO_ROOT / "radar"
 if _RADAR_HOST.is_dir() and str(_RADAR_HOST) not in sys.path:
   sys.path.insert(0, str(_RADAR_HOST))
 

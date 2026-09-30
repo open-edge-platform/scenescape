@@ -29,9 +29,11 @@ from pathlib import Path
 
 import numpy as np
 
-_HERE = Path(__file__).resolve().parents[1]
-if str(_HERE) not in sys.path:
-  sys.path.insert(0, str(_HERE))
+_RI_ROOT = Path(__file__).resolve().parents[1]
+if str(_RI_ROOT / "radarpillars") not in sys.path:
+  sys.path.insert(0, str(_RI_ROOT / "radarpillars"))
+if str(_RI_ROOT / "prepare") not in sys.path:
+  sys.path.insert(0, str(_RI_ROOT / "prepare"))
 
 from eval_radarpillars_gnss import (  # noqa: E402
   VIDETEC_UTM_EASTING_M,

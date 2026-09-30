@@ -25,8 +25,9 @@ import numpy as np
 import torch
 
 _HERE = Path(__file__).resolve().parent
-if str(_HERE / "baselines") not in sys.path:
-  sys.path.insert(0, str(_HERE / "baselines"))
+_RI_ROOT = _HERE.parent
+if str(_RI_ROOT / "baselines") not in sys.path:
+  sys.path.insert(0, str(_RI_ROOT / "baselines"))
 if str(_HERE) not in sys.path:
   sys.path.insert(0, str(_HERE))
 

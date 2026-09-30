@@ -32,7 +32,7 @@ services:
     volumes:
       - ./sample_data/radar_intersection/RadarIntersection-scene-import.zip:/scene-import/RadarIntersection-scene-import.zip:ro
       - ./sample_data/radar_intersection/RadarIntersection.json:/scene-import/RadarIntersection.json:ro
-      - ./sample_data/radar_intersection/radar_scene_init.py:/radar_scene_init.py:ro
+      - ./sample_data/radar_intersection/runtime/radar_scene_init.py:/radar_scene_init.py:ro
     entrypoint: ["python3", "/radar_scene_init.py"]
     restart: "no"
     pids_limit: 1000
@@ -89,7 +89,7 @@ services:
         else
           echo "radar-data-init: no real VIDETEC under /src/radar — synthetic fallback"
         fi
-        python3 /prepare_radar_demo_data.py $${PREPARE_ARGS}
+        PYTHONPATH=/prepare python3 /prepare/prepare_radar_demo_data.py $${PREPARE_ARGS}
         # Second radar unit (radar_dataset_52) → radar2/pcd_bin (causal densify in g3d).
         R2_SUB="$${RADAR2_PCD_SUBDIR:-pcd_bin}"
         if [ -d "/src/radar2/$${R2_SUB}" ] && ls "/src/radar2/$${R2_SUB}"/*.bin >/dev/null 2>&1; then
@@ -140,9 +140,7 @@ services:
       - ${RADAR2_RAW_DATASET_DIR:-./sample_data/radar_intersection/VIDETEC-2/converted_r52}:/src/radar2:ro
       # Default: gitignored VIDETEC camera_demo/ (make prepare-radar-camera).
       - ${RADAR_CAM_DATASET_DIR:-./sample_data/radar_intersection/camera_demo}:/src/camera:ro
-      - ./sample_data/radar_intersection/prepare_radar_demo_data.py:/prepare_radar_demo_data.py:ro
-      - ./sample_data/radar_intersection/generate_synthetic_radar_frames.py:/generate_synthetic_radar_frames.py:ro
-      - ./sample_data/radar_intersection/videtec_to_pcd.py:/videtec_to_pcd.py:ro
+      - ./sample_data/radar_intersection/prepare:/prepare:ro
       - ./radar/videtec_hdf5_to_frames.py:/videtec_hdf5_to_frames.py:ro
       - ./sample_data/lidar_intersection/reencode_jpegs.py:/reencode_jpegs.py:ro
       - vol-sample-data:/dst
@@ -219,9 +217,9 @@ services:
       - CAM_START_INDEX=${CAM_START_INDEX:-3270}
       - CAM_STOP_INDEX=${CAM_STOP_INDEX:-4100}
     volumes:
-      - ./sample_data/radar_intersection/radar_publisher.py:/home/pipeline-server/user_scripts/radar_publisher.py:ro
-      - ./sample_data/radar_intersection/radar_file_playback.py:/home/pipeline-server/user_scripts/radar_file_playback.py:ro
-      - ./sample_data/radar_intersection/radar_sensor_contract.py:/home/pipeline-server/user_scripts/radar_sensor_contract.py:ro
+      - ./sample_data/radar_intersection/runtime/radar_publisher.py:/home/pipeline-server/user_scripts/radar_publisher.py:ro
+      - ./sample_data/radar_intersection/runtime/radar_file_playback.py:/home/pipeline-server/user_scripts/radar_file_playback.py:ro
+      - ./sample_data/radar_intersection/runtime/radar_sensor_contract.py:/home/pipeline-server/user_scripts/radar_sensor_contract.py:ro
       - ./sample_data/radar_intersection/model-proc:/home/pipeline-server/videos/radar_intersection/model-proc:ro
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models

@@ -17,11 +17,12 @@ import zipfile
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
-_DEFAULT_JSON = _HERE / "RadarIntersection.json"
+_RI_ROOT = _HERE.parent
+_DEFAULT_JSON = _RI_ROOT / "RadarIntersection.json"
 # Mapbox snapshot (preferred); fall back to legacy spaced filename.
-_DEFAULT_MAP = _HERE / "RadarIntersection.png"
-_LEGACY_MAP = _HERE / "Radar Intersection.png"
-_DEFAULT_ZIP = _HERE / "RadarIntersection-scene-import.zip"
+_DEFAULT_MAP = _RI_ROOT / "RadarIntersection.png"
+_LEGACY_MAP = _RI_ROOT / "Radar Intersection.png"
+_DEFAULT_ZIP = _RI_ROOT / "RadarIntersection-scene-import.zip"
 # Scene-import ZIP entry name (Manager media key uses the basename).
 _ZIP_MAP_NAME = "Radar Intersection.png"
 

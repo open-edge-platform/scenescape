@@ -68,12 +68,12 @@ radar input; start from VoD ckpt rather than from scratch.
 ## 3. Export OpenVINO + re-eval
 
 ```bash
-python3 sample_data/radar_intersection/export_radarpillars_ov.py \
+python3 sample_data/radar_intersection/radarpillars/export_radarpillars_ov.py \
   --ckpt /path/to/fine_tuned.pth \
   -o sample_data/radar_intersection/model_installer/FP16
 
-python3 sample_data/radar_intersection/batch_radarpillars_infer.py ...
-python3 sample_data/radar_intersection/eval_radarpillars_gnss.py \
+python3 sample_data/radar_intersection/radarpillars/batch_radarpillars_infer.py ...
+python3 sample_data/radar_intersection/radarpillars/eval_radarpillars_gnss.py \
   --videtec-origin --vod-pc-range \
   --categories person,cyclist ...
 ```

@@ -244,7 +244,7 @@ span). Prefer single-frame `pcd_bin` over prebuilt `pcd_bin_acc5`.
 Offline gate (same window as C4; OV-FT2):
 
 ```bash
-python3 sample_data/radar_intersection/batch_radarpillars_infer.py \
+python3 sample_data/radar_intersection/radarpillars/batch_radarpillars_infer.py \
   --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
   --config sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_ov_config.json \
   --start-index 2100 --stop-index 4100 --accumulate-past 10 --score-threshold 0.01 \
@@ -325,26 +325,26 @@ replace demo FT2 weights with FT5. Gate remains open for causal densify / fusion
 
 # C4 OV densify + g3d bins
 ~/mainline/RadarPillar/.venv/bin/python \
-  sample_data/radar_intersection/batch_radarpillars_infer.py \
+  sample_data/radar_intersection/radarpillars/batch_radarpillars_infer.py \
   --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
   --start-index 2100 --stop-index 4100 --stride 5 \
   --accumulate-half-window 5 --score-threshold 0.01 \
   -o sample_data/radar_intersection/VIDETEC-2/detections_w2100_4100_ov_acc5.jsonl
-python3 sample_data/radar_intersection/build_accumulated_pcd_bins.py \
+python3 sample_data/radar_intersection/prepare/build_accumulated_pcd_bins.py \
   --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
   --accumulate-half-window 5 --start-index 2100 --stop-index 4100 \
   -o sample_data/radar_intersection/VIDETEC-2/converted/pcd_bin_acc5
 
 # FT2 → OV (gantry grid) + densified eval
 ~/mainline/RadarPillar/.venv/bin/python \
-  sample_data/radar_intersection/export_radarpillars_ov.py \
+  sample_data/radar_intersection/radarpillars/export_radarpillars_ov.py \
   --ckpt ~/mainline/RadarPillar/weights/radarpillar_videtec_gantry_ft2_ep11.pth \
   --gantry -o sample_data/radar_intersection/model_installer/FP16_ft2
 python3 ~/mainline/dlstreamer/samples/gstreamer/gst_launch/g3dinference/npz_to_rpw1.py \
   sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_preproc_weights.npz \
   -o sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_preproc_weights.rpw1
 ~/mainline/RadarPillar/.venv/bin/python \
-  sample_data/radar_intersection/batch_radarpillars_infer.py \
+  sample_data/radar_intersection/radarpillars/batch_radarpillars_infer.py \
   --config sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_ov_config.json \
   --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
   --start-index 2100 --stop-index 4100 --stride 5 \

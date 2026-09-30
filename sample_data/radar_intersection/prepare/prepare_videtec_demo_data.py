@@ -19,7 +19,7 @@ not need system packages. Safe to re-run; skips work when outputs exist.
 
 Example::
 
-  python3 sample_data/radar_intersection/prepare_videtec_demo_data.py \\
+  python3 sample_data/radar_intersection/prepare/prepare_videtec_demo_data.py \\
     --root sample_data/radar_intersection/VIDETEC-2
 """
 
@@ -33,6 +33,8 @@ import venv
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
+_RI_ROOT = _HERE.parent
+_REPO_ROOT = _RI_ROOT.parents[1]
 if str(_HERE) not in sys.path:
   sys.path.insert(0, str(_HERE))
 
@@ -50,10 +52,6 @@ DEMO_READY_VERSION = "1"
 RADAR1_CHECK_INDEX = 3270
 RADAR2_CHECK_INDEX = 3098
 MIN_BINS_HINT = 20_000
-
-
-def _repo_root() -> Path:
-  return _HERE.parents[1]
 
 
 def _venv_python(root: Path) -> Path:
@@ -121,7 +119,7 @@ def _write_ready(root: Path) -> None:
 
 
 def _pythonpath() -> str:
-  parts = [str(_HERE), str(_repo_root() / "radar")]
+  parts = [str(_HERE), str(_REPO_ROOT / "radar")]
   existing = os.environ.get("PYTHONPATH", "")
   if existing:
     parts.append(existing)
@@ -155,7 +153,7 @@ def parse_args(argv=None):
   ap = argparse.ArgumentParser(description=__doc__)
   ap.add_argument(
     "--root", type=Path,
-    default=_HERE / "VIDETEC-2",
+    default=_RI_ROOT / "VIDETEC-2",
     help="Gitignored VIDETEC-2 root (download + radar + converted*)")
   ap.add_argument(
     "--force", action="store_true",

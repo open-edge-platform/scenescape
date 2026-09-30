@@ -25,8 +25,9 @@ from pathlib import Path
 import numpy as np
 
 _HERE = Path(__file__).resolve().parent
-if str(_HERE) not in sys.path:
-  sys.path.insert(0, str(_HERE))
+_RI_ROOT = _HERE.parent
+if str(_RI_ROOT / "radarpillars") not in sys.path:
+  sys.path.insert(0, str(_RI_ROOT / "radarpillars"))
 
 from eval_radarpillars_gnss import (  # noqa: E402
   VIDETEC_UTM_EASTING_M,
@@ -241,27 +242,27 @@ def main() -> int:
   ap.add_argument(
     "--detections",
     type=Path,
-    default=_HERE / "VIDETEC-2/detections_w2100_4100_ft2ep11_acc5.jsonl",
+    default=_RI_ROOT / "VIDETEC-2/detections_w2100_4100_ft2ep11_acc5.jsonl",
   )
   ap.add_argument(
     "--index",
     type=Path,
-    default=_HERE / "VIDETEC-2/converted/frames/index.json",
+    default=_RI_ROOT / "VIDETEC-2/converted/frames/index.json",
   )
   ap.add_argument(
     "--gnss",
     type=Path,
-    default=_HERE / "VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55"
+    default=_RI_ROOT / "VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55"
     "/rosbag2_2025_10_09-14_43_55_0_gps.csv",
   )
   ap.add_argument(
     "--calib",
     type=Path,
-    default=_HERE / "videtec_map_calibration.json",
+    default=_RI_ROOT / "videtec_map_calibration.json",
   )
   ap.add_argument(
     "--sensor", type=Path,
-    default=_HERE / "VIDETEC-2/converted/frames/sensor.json")
+    default=_RI_ROOT / "VIDETEC-2/converted/frames/sensor.json")
   ap.add_argument("--frame-start", type=int, default=3270)
   ap.add_argument("--frame-stop", type=int, default=4100)
   ap.add_argument("--max-dt", type=float, default=0.2)
@@ -273,7 +274,7 @@ def main() -> int:
   ap.add_argument("--bootstrap-yaw", type=float, default=None)
   ap.add_argument(
     "-o", "--output", type=Path,
-    default=_HERE / "radar_pose_gnss_fit.json")
+    default=_RI_ROOT / "radar_pose_gnss_fit.json")
   args = ap.parse_args()
 
   calib = json.loads(args.calib.read_text())

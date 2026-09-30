@@ -837,7 +837,7 @@ prepare-radar-videtec:
 	@if [ "$(SKIP_RADAR_VIDETEC_PREP)" = "true" ] || [ "$(SKIP_RADAR_VIDETEC_PREP)" = "TRUE" ] || [ "$(SKIP_RADAR_VIDETEC_PREP)" = "1" ]; then \
 		echo "prepare-radar-videtec: SKIP_RADAR_VIDETEC_PREP=true — skip"; \
 	else \
-		python3 sample_data/radar_intersection/prepare_videtec_demo_data.py \
+		python3 sample_data/radar_intersection/prepare/prepare_videtec_demo_data.py \
 			--root sample_data/radar_intersection/VIDETEC-2; \
 	fi
 
@@ -851,7 +851,7 @@ prepare-radar-camera:
 	elif ! printf '%s' "$(RADAR_CAM_DATASET_DIR)" | grep -q 'camera_demo'; then \
 		echo "prepare-radar-camera: RADAR_CAM_DATASET_DIR=$(RADAR_CAM_DATASET_DIR) — skip VIDETEC stage"; \
 	else \
-		python3 sample_data/radar_intersection/stage_videtec_camera_demo.py \
+		python3 sample_data/radar_intersection/prepare/stage_videtec_camera_demo.py \
 			--videtec-root sample_data/radar_intersection/VIDETEC-2 \
 			--out-dir sample_data/radar_intersection/camera_demo \
 			--radar-start "$(CAM_START_INDEX)" \

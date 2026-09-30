@@ -16,8 +16,11 @@ import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
+_RI_ROOT = _HERE.parent
 if str(_HERE) not in sys.path:
   sys.path.insert(0, str(_HERE))
+if str(_RI_ROOT / "prepare") not in sys.path:
+  sys.path.insert(0, str(_RI_ROOT / "prepare"))
 
 from radarpillars_infer import RadarPillarsOV  # noqa: E402
 from videtec_accumulate import (  # noqa: E402
@@ -31,7 +34,7 @@ def parse_args(argv=None):
   ap = argparse.ArgumentParser(description=__doc__)
   ap.add_argument("--frames-dir", type=Path, required=True, help="frames/ with %%06d.npy + index.json")
   ap.add_argument("--config", type=Path,
-                  default=_HERE / "model_installer/FP16/radarpillars_ov_config.json")
+                  default=_RI_ROOT / "model_installer/FP16/radarpillars_ov_config.json")
   ap.add_argument("--device", default="CPU")
   ap.add_argument("--score-threshold", type=float, default=0.03)
   ap.add_argument("--start-index", type=int, default=0)

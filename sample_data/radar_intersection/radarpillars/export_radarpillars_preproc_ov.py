@@ -95,11 +95,11 @@ def parse_args(argv=None):
   ap = argparse.ArgumentParser(description=__doc__)
   ap.add_argument(
     "--weights", type=Path,
-    default=Path(__file__).resolve().parent / "model_installer/FP16_ft2/radarpillars_preproc_weights.npz",
+    default=Path(__file__).resolve().parents[1] / "model_installer/FP16_ft2/radarpillars_preproc_weights.npz",
   )
   ap.add_argument(
     "-o", "--output", type=Path,
-    default=Path(__file__).resolve().parent / "model_installer/FP16_ft2",
+    default=Path(__file__).resolve().parents[1] / "model_installer/FP16_ft2",
   )
   ap.add_argument("--example-pillars", type=int, default=128,
                   help="Example N for attention conversion")

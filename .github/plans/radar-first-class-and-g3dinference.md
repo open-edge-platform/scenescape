@@ -445,7 +445,7 @@ better 401-frame window (~10× more near-GT support than 3000–5000).
 
 ```bash
 # Offline GNSS VRU gate (calibrated VIDETEC UTM origin)
-python3 sample_data/radar_intersection/eval_radarpillars_gnss.py \
+python3 sample_data/radar_intersection/radarpillars/eval_radarpillars_gnss.py \
   --index sample_data/radar_intersection/VIDETEC-2/converted/frames/index.json \
   --detections sample_data/radar_intersection/VIDETEC-2/detections_stride5.jsonl \
   --gnss sample_data/radar_intersection/VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55/*_gps.csv \
@@ -462,14 +462,14 @@ SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
   RADAR_SCORE_THRESHOLD=0.1 make demo-radar
 
 # Offline causal densify gate (past=10 ≈ H=5 span, no future)
-python3 sample_data/radar_intersection/batch_radarpillars_infer.py \
+python3 sample_data/radar_intersection/radarpillars/batch_radarpillars_infer.py \
   --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
   --config sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_ov_config.json \
   --start-index 2100 --stop-index 4100 --accumulate-past 10 --score-threshold 0.01 \
   -o sample_data/radar_intersection/VIDETEC-2/detections_ft2_causal10_thr001.jsonl
 
 # After pose edits: lock JSON → rebuild import ZIP for other machines
-python3 sample_data/radar_intersection/pack_radar_scene_import.py
+python3 sample_data/radar_intersection/scene/pack_radar_scene_import.py
 ```
 
 Docs: [add-and-use-radar-sensors](../../docs/user-guide/how-to-guides/add-and-use-radar-sensors.md),

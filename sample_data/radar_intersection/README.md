@@ -44,6 +44,19 @@ Defaults: `DLSTREAMER_SRC=../dlstreamer`, `RADAR_REQUIRE_REAL=true`,
 | `make prepare-radar-camera` | Camera JPEGs only |
 | `make build-dlsps-g3d` | Bake local DLSPS from `saratpoluri/dlstreamer` |
 
+## Script layout
+
+| Folder | Contents |
+| --- | --- |
+| `runtime/` | Live GST/MQTT publisher, scene init (`demo-radar` compose) |
+| `prepare/` | Zenodo download, HDF5→bins convert, camera staging |
+| `radarpillars/` | Offline OV infer / export / eval / profile |
+| `roadside/` | Roadside OV export + sparse publish loop |
+| `scene/` | Scene ZIP pack, Mapbox map, GNSS pose fit |
+| `baselines/` | Phase-1 classical/roadside comparison |
+| `finetune/` | RadarPillars gantry fine-tune tooling |
+| `model_installer/` | Shipped classical / roadside / FT2 IRs |
+
 ## Checked in vs fetched
 
 | In git | First-deploy cache (gitignored) |

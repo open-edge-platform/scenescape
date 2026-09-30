@@ -37,12 +37,13 @@ It does **not** use `g3dradarprocess` (raw ADC).
 | --- | --- |
 | `docker-compose.radar-override.yml` | Scene/data/model init + `radar-stream` |
 | `RadarIntersection.json` + scene-import ZIP | Portable scene (map + sensor poses) |
-| `radar_scene_init.py` | Import ZIP + sync sensors from JSON |
-| `radar_publisher.py` | Shared GST → FIFO → MQTT for all modes |
-| `radar_file_playback.py` | `multifilesrc` / parse / `g3dinference` fragments |
+| `runtime/radar_scene_init.py` | Import ZIP + sync sensors from JSON |
+| `runtime/radar_publisher.py` | Shared GST → FIFO → MQTT for all modes |
+| `runtime/radar_file_playback.py` | `multifilesrc` / parse / `g3dinference` fragments |
+| `prepare/` | First-deploy VIDETEC download/convert + camera stage |
 | `model_installer/classical/` | Classical g3dinference JSON config |
 | `model_installer/roadside/FP16/` | Roadside OpenVINO IR (VIDETEC-trained) |
-| `model_installer/FP16/` | RadarPillars IR |
+| `model_installer/FP16/` / `FP16_ft2/` | RadarPillars IR |
 | `make build-dlsps-g3d` | Bake DLSPS from [saratpoluri/dlstreamer](https://github.com/saratpoluri/dlstreamer) (`classical`/`roadside`/`radarpillars`) |
 
 Roadside commercial path: see
@@ -88,8 +89,8 @@ SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_IR_DIR=FP16_ft2 \
 
 | Target | Script | Produces (gitignored) |
 | --- | --- | --- |
-| `prepare-radar-videtec` | `prepare_videtec_demo_data.py` | `VIDETEC-2/download/`, `radar/`, `gnss/`, `converted/` (dataset 51), `converted_r52/` (dataset 52) |
-| `prepare-radar-camera` | `stage_videtec_camera_demo.py` | `camera_demo/{radar-cam*}/` JPEGs |
+| `prepare-radar-videtec` | `prepare/prepare_videtec_demo_data.py` | `VIDETEC-2/download/`, `radar/`, `gnss/`, `converted/` (dataset 51), `converted_r52/` (dataset 52) |
+| `prepare-radar-camera` | `prepare/stage_videtec_camera_demo.py` | `camera_demo/{radar-cam*}/` JPEGs |
 
 Defaults: `RADAR_REQUIRE_REAL=true` (fail if prep skipped / incomplete),
 `RADAR_ACCUMULATE_PAST=10` for radarpillars. Skip pieces with
@@ -102,7 +103,7 @@ Manual / CI refresh:
 ```bash
 make prepare-radar-data          # radar+GNSS+cameras
 make prepare-radar-videtec       # radar+GNSS only
-python3 sample_data/radar_intersection/prepare_videtec_demo_data.py --check-only
+python3 sample_data/radar_intersection/prepare/prepare_videtec_demo_data.py --check-only
 ```
 
 ## VIDETEC-2 real data
@@ -112,7 +113,7 @@ acceptance dataset. Prefer the automated path above. Manual equivalent:
 
 1. Archives land in `sample_data/radar_intersection/VIDETEC-2/download/`
    (`Radar_dataset.zip`, `gnss.zip`, `runs_vru.tar.gz`).
-2. `prepare_videtec_demo_data.py` extracts HDF5s and converts both radars:
+2. `prepare/prepare_videtec_demo_data.py` extracts HDF5s and converts both radars:
 
    - radar **51** → `VIDETEC-2/converted/{frames,frames_bin,pcd_bin}/`
    - radar **52** → `VIDETEC-2/converted_r52/...` (time-aligned
@@ -125,7 +126,7 @@ acceptance dataset. Prefer the automated path above. Manual equivalent:
    Optional offline non-causal bins (legacy / A–B vs causal):
 
    ```bash
-   python3 sample_data/radar_intersection/build_accumulated_pcd_bins.py \
+   python3 sample_data/radar_intersection/prepare/build_accumulated_pcd_bins.py \
      --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
      --accumulate-half-window 5 \
      --start-index 2100 --stop-index 4100 \
@@ -173,7 +174,7 @@ hosts:
 ```bash
 # Prefer exporting from a known-good live DB into RadarIntersection.json,
 # then:
-python3 sample_data/radar_intersection/pack_radar_scene_import.py
+python3 sample_data/radar_intersection/scene/pack_radar_scene_import.py
 # commit RadarIntersection.json + RadarIntersection-scene-import.zip
 # (+ calibration provenance JSON if you updated fits)
 ```
@@ -183,8 +184,8 @@ git):
 
 ```bash
 export MAPBOX_API_KEY=<token>
-python3 sample_data/radar_intersection/fetch_videtec_mapbox_map.py
-python3 sample_data/radar_intersection/pack_radar_scene_import.py
+python3 sample_data/radar_intersection/scene/fetch_videtec_mapbox_map.py
+python3 sample_data/radar_intersection/scene/pack_radar_scene_import.py
 ```
 
 Radar1 pose is GNSS XY/yaw fit (`radar_pose_gnss_fit.json`); radar2 is the
@@ -315,7 +316,7 @@ After producing per-frame RadarPillars detections JSONL (timestamps aligned with
 `frames/index.json`), score against the Oct 9 RTK track:
 
 ```bash
-python3 sample_data/radar_intersection/eval_radarpillars_gnss.py \
+python3 sample_data/radar_intersection/radarpillars/eval_radarpillars_gnss.py \
   --index sample_data/radar_intersection/VIDETEC-2/converted/frames/index.json \
   --detections /path/to/detections.jsonl \
   --gnss sample_data/radar_intersection/VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55/*_gps.csv \
@@ -337,7 +338,7 @@ make demo-close
 Host Python with `torch` + `openvino` + HF checkpoint:
 
 ```bash
-python3 sample_data/radar_intersection/export_radarpillars_ov.py \
+python3 sample_data/radar_intersection/radarpillars/export_radarpillars_ov.py \
   --ckpt sample_data/radar_intersection/weights/radarpillar_vod_best_map52.56.pth \
   -o sample_data/radar_intersection/model_installer/FP16
 ```
@@ -345,7 +346,7 @@ python3 sample_data/radar_intersection/export_radarpillars_ov.py \
 Optional offline Python smoke (not used by the demo path):
 
 ```bash
-python3 sample_data/radar_intersection/radarpillars_infer.py
+python3 sample_data/radar_intersection/radarpillars/radarpillars_infer.py
 ```
 
 ## Related

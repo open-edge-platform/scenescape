@@ -10,7 +10,7 @@ Use to decide what to OV-ify next; wait for confirmation before Stage 2.
 
 Example::
 
-  python3 sample_data/radar_intersection/profile_radarpillars_stages.py \\
+  python3 sample_data/radar_intersection/radarpillars/profile_radarpillars_stages.py \\
     --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \\
     --config sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_ov_config.json \\
     --start-index 3270 --stop-index 3369 --accumulate-past 0 \\
@@ -29,8 +29,11 @@ from pathlib import Path
 import numpy as np
 
 _HERE = Path(__file__).resolve().parent
+_RI_ROOT = _HERE.parent
 if str(_HERE) not in sys.path:
   sys.path.insert(0, str(_HERE))
+if str(_RI_ROOT / "prepare") not in sys.path:
+  sys.path.insert(0, str(_RI_ROOT / "prepare"))
 
 from radarpillars_infer import (  # noqa: E402
   RadarPillarsOV,

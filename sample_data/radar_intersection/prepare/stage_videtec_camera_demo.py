@@ -10,7 +10,7 @@ only this tooling.
 
 Typical use (from repo root, via ``make prepare-radar-camera``)::
 
-  python3 sample_data/radar_intersection/stage_videtec_camera_demo.py \\
+  python3 sample_data/radar_intersection/prepare/stage_videtec_camera_demo.py \\
     --videtec-root sample_data/radar_intersection/VIDETEC-2 \\
     --out-dir sample_data/radar_intersection/camera_demo
 """

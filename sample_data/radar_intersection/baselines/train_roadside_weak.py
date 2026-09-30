@@ -30,8 +30,8 @@ _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent
 if str(_HERE) not in sys.path:
   sys.path.insert(0, str(_HERE))
-if str(_ROOT) not in sys.path:
-  sys.path.insert(0, str(_ROOT))
+if str(_ROOT / "radarpillars") not in sys.path:
+  sys.path.insert(0, str(_ROOT / "radarpillars"))
 
 from eval_radarpillars_gnss import (  # noqa: E402
   VIDETEC_UTM_EASTING_M,

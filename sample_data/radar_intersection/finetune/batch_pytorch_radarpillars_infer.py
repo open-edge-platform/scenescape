@@ -25,8 +25,8 @@ _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent
 if str(_HERE) not in sys.path:
   sys.path.insert(0, str(_HERE))
-if str(_ROOT) not in sys.path:
-  sys.path.insert(0, str(_ROOT))
+if str(_ROOT / "prepare") not in sys.path:
+  sys.path.insert(0, str(_ROOT / "prepare"))
 
 from pytorch_radarpillars_infer import RadarPillarsTorch, _RP  # noqa: E402
 from videtec_accumulate import (  # noqa: E402

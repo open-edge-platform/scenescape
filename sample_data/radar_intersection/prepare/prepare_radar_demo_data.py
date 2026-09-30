@@ -72,13 +72,13 @@ def _copy_frames(src: Path, dst: Path) -> None:
 
 
 def _from_hdf5(hdf5: Path, frames_dir: Path, max_frames: int | None) -> None:
-  radar_dir = Path(__file__).resolve().parents[2] / "radar"
-  # Host layout: sample_data/radar_intersection → repo/radar
-  # Container layout: scripts mounted at /; converter at /videtec_hdf5_to_frames.py
+  # Host: repo/radar. Container: /videtec_hdf5_to_frames.py (compose mount).
+  ri_root = _HERE.parent
+  repo_root = ri_root.parents[1]
   candidates = [
     Path("/videtec_hdf5_to_frames.py"),
-    radar_dir / "videtec_hdf5_to_frames.py",
-    _HERE.parent.parent / "radar" / "videtec_hdf5_to_frames.py",
+    repo_root / "radar" / "videtec_hdf5_to_frames.py",
+    Path("/prepare/../radar/videtec_hdf5_to_frames.py"),
   ]
   converter = next((p for p in candidates if p.is_file()), None)
   if converter is None:
