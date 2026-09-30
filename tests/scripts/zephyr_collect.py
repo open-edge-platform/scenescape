@@ -5,7 +5,7 @@
 
 """Pytest plugin that dumps the Zephyr ID declared by each collected test.
 
-Loaded with ``-p zephyr_collect`` by ``utils/check_zephyr_mapping.py``.
+Loaded with ``-p zephyr_collect`` by ``tests/scripts/check_zephyr_mapping.py``.
 """
 
 import json

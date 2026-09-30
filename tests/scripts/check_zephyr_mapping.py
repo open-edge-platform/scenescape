@@ -23,10 +23,10 @@ import subprocess
 import sys
 import tempfile
 
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+COLLECT_PLUGIN_DIR = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(os.path.dirname(COLLECT_PLUGIN_DIR))
 
 DEFAULT_PYTEST = os.path.join(REPO_ROOT, "tests", ".venv", "bin", "pytest")
-COLLECT_PLUGIN_DIR = os.path.join(REPO_ROOT, "tests", "scripts")
 
 # Unit tests are out of scope for this check
 TEST_ROOT = os.path.join(REPO_ROOT, "tests")

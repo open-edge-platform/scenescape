@@ -440,7 +440,7 @@ setup-pytest:
 
 # ============================== Zephyr traceability ==============================
 
-ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/utils/check_zephyr_mapping.py
+ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_zephyr_mapping.py
 
 .PHONY: check-zephyr-ids
 check-zephyr-ids:
