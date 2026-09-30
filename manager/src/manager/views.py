@@ -940,7 +940,8 @@ class PreviewRoisFromOsm(APIView):
     except osm_query.OsmQueryError as e:
       return JsonResponse({'error': str(e)}, status=400)
     except Exception as e:
-      log.error("Error previewing OSM ROIs")
+      log.error(f"Error previewing OSM ROIs: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
 
@@ -983,7 +984,7 @@ class CreateSelectedRoisFromOsm(APIView):
     except osm_roi.OsmRoiError as e:
       return JsonResponse({'error': str(e)}, status=400)
     except Exception as e:
-      log.error("Error creating OSM ROIs")
+      log.error(f"Error creating OSM ROIs: {e}")
       log.error(f"Traceback: {traceback.format_exc()}")
       # Check if it's a DRF ValidationError
       if hasattr(e, 'detail'):

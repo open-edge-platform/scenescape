@@ -360,35 +360,6 @@ def assign_temp_uuid(previews: List[Dict[str, Any]]) -> None:
     preview["checked"] = True
 
 
-def bbox_from_map_corners(
-  map_corners_lla: Optional[List[List[float]]],
-) -> Tuple[float, float, float, float]:
-  """Derive an OSM query bounding box from the scene's saved map corners.
-
-  Args:
-    map_corners_lla: list of 4 [lat, lon, alt] corners (Scene.map_corners_lla).
-
-  Returns:
-    (south, west, north, east) bounding box in degrees.
-
-  Raises:
-    OsmRoiError: if map_corners_lla is not set or malformed.
-  """
-  if not map_corners_lla:
-    raise OsmRoiError(
-      "Scene has no map_corners_lla set; generate geospatial bounds "
-      "(Generate Geospatial Bounds & Snapshot) before creating OSM ROIs."
-    )
-
-  try:
-    lats = [float(corner[0]) for corner in map_corners_lla]
-    lons = [float(corner[1]) for corner in map_corners_lla]
-  except (IndexError, TypeError, ValueError) as exc:
-    raise OsmRoiError(f"Invalid map_corners_lla: {exc}")
-
-  return min(lats), min(lons), max(lats), max(lons)
-
-
 def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
   """Fetch OSM ways, convert to local coordinates, buffer to polygons, name them, assign UUID.
 

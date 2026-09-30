@@ -138,6 +138,13 @@ def _read_bounded(response: requests.Response) -> bytes:
   return b"".join(chunks)
 
 
+def _feature_type(tags: dict) -> str:
+  """Extract the road type from OSM tags, with sensible fallbacks."""
+  if not isinstance(tags, dict):
+    return "way"
+  return tags.get("highway") or tags.get("footway") or "way"
+
+
 def query_osm_ways_geometry(
   south: float, west: float, north: float, east: float,
   endpoint: str = DEFAULT_ENDPOINT,
