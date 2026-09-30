@@ -6,10 +6,13 @@
 #include "logger.hpp"
 #include "tracking_worker.hpp"
 
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <format>
 #include <mutex>
+#include <optional>
 #include <thread>
 
 namespace tracker {
@@ -642,6 +645,59 @@ TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
         EXPECT_NEAR(*track.confidence, expected_confidence, 1e-9)
             << "Track " << track.id << " has wrong confidence";
     }
+}
+
+// The worker's ObjectClassConfig reaches its CoordinateTransformer: the same bbox publishes a
+// different world position under TYPE_2 than under the default TYPE_1.
+TEST_F(TrackingWorkerTest, Tracking_ObjectClassShiftTypeChangesPublishedPosition) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    const auto first_track_position = [&](const ObjectClassConfig& object_class) {
+        std::mutex mtx;
+        std::condition_variable cv;
+        std::optional<std::array<double, 3>> position;
+
+        PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                       const std::string&, const std::vector<Track>& tracks) {
+            std::lock_guard lock(mtx);
+            if (!position && !tracks.empty()) {
+                position = tracks.front().translation;
+                cv.notify_one();
+            }
+        };
+
+        TrackingScope scope{"scene-1", "plane"};
+        TrackingWorker worker(scope, "Test Scene", 10, callback, config, cameras_, object_class);
+
+        for (int i = 0; i < 3; ++i) {
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "plane";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
+            batch.detections.push_back(
+                Detection{.id = 1, .bounding_box_px = cv::Rect2f(600.0f, 400.0f, 80.0f, 200.0f)});
+            chunk.camera_batches.push_back(std::move(batch));
+            worker.try_enqueue(std::move(chunk));
+        }
+
+        std::unique_lock lock(mtx);
+        EXPECT_TRUE(cv.wait_for(lock, std::chrono::seconds(2), [&] {
+            return position.has_value();
+        })) << "No reliable track published";
+        return position.value_or(std::array<double, 3>{});
+    };
+
+    const auto type1 = first_track_position({});
+    const auto type2 =
+        first_track_position(ObjectClassConfig{.shift_type = ObjectClassConfig::kShiftType2});
+
+    EXPECT_GT(std::hypot(type2[0] - type1[0], type2[1] - type1[1]), 0.1)
+        << "TYPE_2 object class should change the projected track position";
 }
 
 // -----------------------------------------------------------------

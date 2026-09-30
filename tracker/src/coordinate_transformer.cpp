@@ -190,8 +190,8 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     std::vector<uint8_t> valid;
     batchPixelToWorld(pixels, world, valid);
 
-    // Phase 4: TYPE_2 re-projects the foot after deriving baseAngle from the
-    // TYPE_1 foot (matches Controller MovingObject.camLoc / projectBounds).
+    // Phase 4: TYPE_2 re-projects the foot shifted up by baseAngle, measured from the camera to
+    // the midpoint of the projected bottom corners (Controller projectBounds / camLoc).
     if (shift_type_ == ObjectClassConfig::kShiftType2) {
         const double cam_x = camera_origin_.x;
         const double cam_y = camera_origin_.y;
