@@ -58,8 +58,7 @@ void addMetadataAttributes(std::string_view metadataJson,
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
                                              const CameraExtrinsics& extrinsics, int shift_type,
                                              std::optional<double> footprint_half_m)
-    : shift_type_(shift_type),
-      footprint_half_m_(std::move(footprint_half_m)) {
+    : shift_type_(shift_type), footprint_half_m_(std::move(footprint_half_m)) {
     // Build intrinsics matrix K = [fx 0 cx; 0 fy cy; 0 0 1]
     intrinsics_matrix_ = cv::Matx33d(intrinsics.fx, 0.0, intrinsics.cx, 0.0, intrinsics.fy,
                                      intrinsics.cy, 0.0, 0.0, 1.0);
@@ -211,12 +210,13 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             const auto& foot = world[base];
             const auto& bbox = detections[i].bounding_box_px;
             const double base_len = std::hypot(foot.x - cam_x, foot.y - cam_y);
-            const double base_angle_deg = std::atan2(cam_z, base_len) * (180.0 / std::numbers::pi);
+            const double base_angle = std::atan2(cam_z, base_len);
             type2_indices.push_back(i);
             type2_feet.push_back(
                 {bbox.x + bbox.width / 2.0f,
                  bbox.y + bbox.height -
-                     (bbox.height / 2.0f) * static_cast<float>(base_angle_deg / 90.0)});
+                     (bbox.height / 2.0f) *
+                         static_cast<float>(base_angle / (std::numbers::pi / 2.0))});
         }
 
         if (!type2_feet.empty()) {
