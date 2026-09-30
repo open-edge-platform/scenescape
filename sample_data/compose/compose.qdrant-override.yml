@@ -3,8 +3,8 @@
 
 # Select Qdrant as the ReID backend.
 # Usage:
-#   docker compose -f compose.dl-streamer-example.yaml \
-#     -f compose.qdrant-override.yaml --profile controller up
+#   docker compose -f compose.dl-streamer-example.yml \
+#     -f compose.qdrant-override.yml --profile controller up
 #
 # Use exactly one ReID backend override at a time.
 # Shared REID_* defaults: hostname reid.scenescape.intel.com, port 55555, TLS on.

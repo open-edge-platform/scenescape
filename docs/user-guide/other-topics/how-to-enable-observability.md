@@ -41,7 +41,7 @@ Before you begin, ensure the following:
 - Scenescape is deployed and running (see the
   [Installation Guide](../get-started/installation.md)).
 - You are able to edit the Compose file used by your deployment (for example
-  `sample_data/compose/compose.dl-streamer-example.yaml`) and set environment
+  `sample_data/compose/compose.dl-streamer-example.yml`) and set environment
   variables for the affected containers.
 - You have an OpenTelemetry Collector reachable from the service containers.
   A minimal collector configuration used by the tracker load tests is
@@ -83,7 +83,7 @@ startup to fail with a `ValueError`.
 
 The provided Compose files already wire these variables through to the
 `scene` service. For example, in
-[`sample_data/compose/compose.dl-streamer-example.yaml`](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/compose/compose.dl-streamer-example.yaml)
+[`sample_data/compose/compose.dl-streamer-example.yml`](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/compose/compose.dl-streamer-example.yml)
 the controller declares:
 
 ```yaml
@@ -108,7 +108,7 @@ export CONTROLLER_ENABLE_TRACING=true
 export CONTROLLER_TRACING_ENDPOINT=otel-collector:4317
 export CONTROLLER_TRACING_SAMPLE_RATIO=1.0
 
-docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yaml up
+docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml up
 ```
 
 Make sure your OpenTelemetry Collector container is on the same network as
@@ -231,7 +231,7 @@ services:
 
 For a working end-to-end setup with an OpenTelemetry Collector, tracker
 service, and load generator, see
-[`tracker/test/load/compose.yaml`](https://github.com/open-edge-platform/scenescape/blob/main/tracker/test/load/compose.yaml)
+[`tracker/test/load/compose.yml`](https://github.com/open-edge-platform/scenescape/blob/main/tracker/test/load/compose.yml)
 and the collector configuration in the same directory.
 
 ### What the Tracker Service Exports

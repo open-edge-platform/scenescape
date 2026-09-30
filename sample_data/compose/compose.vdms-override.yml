@@ -3,8 +3,8 @@
 
 # Select VDMS as the ReID backend.
 # Usage:
-#   docker compose -f compose.dl-streamer-example.yaml \
-#     -f compose.vdms-override.yaml --profile controller up
+#   docker compose -f compose.dl-streamer-example.yml \
+#     -f compose.vdms-override.yml --profile controller up
 #
 # Use exactly one ReID backend override at a time.
 

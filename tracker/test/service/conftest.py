@@ -22,7 +22,7 @@ def tls_certs(tmp_path):
   """
   Generate test TLS certificates in a temp directory.
 
-  The compose.yaml uses secrets configured via env vars
+  The compose.yml uses secrets configured via env vars
   pointing to these certificate files. This fixture is shared by
   both TLS and non-TLS tests - non-TLS tests need valid files for
   Docker Compose secrets even though the certs won't be used.
@@ -43,7 +43,7 @@ def tracker_service(tls_certs):
       dict: Contains 'containers' and 'docker' client
   """
   service_dir = Path(__file__).parent
-  compose_file = service_dir / "compose.yaml"
+  compose_file = service_dir / "compose.yml"
 
   project_name = f"tracker-test-{uuid.uuid4().hex[:8]}"
 
@@ -88,7 +88,7 @@ def tracker_service_delayed_broker(tls_certs):
       dict: Contains 'docker' client (broker stopped after initial startup)
   """
   service_dir = Path(__file__).parent
-  compose_file = service_dir / "compose.yaml"
+  compose_file = service_dir / "compose.yml"
 
   project_name = f"tracker-delayed-{uuid.uuid4().hex[:8]}"
 
@@ -148,7 +148,7 @@ def tracker_service_otel(tls_certs):
       dict: Contains 'containers' and 'docker' client
   """
   service_dir = Path(__file__).parent
-  compose_file = service_dir / "compose.yaml"
+  compose_file = service_dir / "compose.yml"
 
   project_name = f"tracker-otel-{uuid.uuid4().hex[:8]}"
 
@@ -197,7 +197,7 @@ def tls_tracker_service_with_fusion_scene(tls_certs):
   The fusion scene is provided via docker-compose volume mount at /test-fixtures/.
   """
   service_dir = Path(__file__).parent
-  compose_path = service_dir / "compose.yaml"
+  compose_path = service_dir / "compose.yml"
   project_name = f"tracker-fusion-{uuid.uuid4().hex[:8]}"
 
   env_file = tls_certs.temp_dir / ".env"
@@ -217,7 +217,7 @@ def tls_tracker_service_with_fusion_scene(tls_certs):
   )
 
   docker = DockerClient(
-      compose_files=[compose_path, str(service_dir / "compose.override.yaml")],
+      compose_files=[compose_path, str(service_dir / "compose.override.yml")],
       compose_project_name=project_name,
       compose_project_directory=str(service_dir),
       compose_env_files=[str(env_file)],
@@ -258,7 +258,7 @@ def tracker_service_api(tls_certs):
       dict: Contains 'docker' client
   """
   service_dir = Path(__file__).parent
-  compose_file = service_dir / "compose.yaml"
+  compose_file = service_dir / "compose.yml"
 
   project_name = f"tracker-api-{uuid.uuid4().hex[:8]}"
 

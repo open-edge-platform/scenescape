@@ -19,8 +19,8 @@ DLS = f"{COMPOSE}/dlstreamer"
 HIER = f"{COMPOSE}/hierarchy"
 # Mounted only when the host has usable DRM nodes (see resolve_compose_files).
 _GPU_DRI_OVERRIDES = (
-  ("compose.retail-video", f"{DLS}/compose.gpu-dri-retail.yaml"),
-  ("compose.queuing-video", f"{DLS}/compose.gpu-dri-queuing.yaml"),
+  ("compose.retail-video", f"{DLS}/compose.gpu-dri-retail.yml"),
+  ("compose.queuing-video", f"{DLS}/compose.gpu-dri-queuing.yml"),
 )
 
 
@@ -105,12 +105,12 @@ _CLUSTER_ANALYTICS = WaitConfig(log_pattern="Cluster Analytics Container started
 FULL_STACK = ServiceProfile(
   name="full_stack",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.scene.yaml",
-    f"{COMPOSE}/compose.web.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -124,13 +124,13 @@ FULL_STACK = ServiceProfile(
 FULL_STACK_WITH_MAPPING = ServiceProfile(
   name="full_stack_with_mapping",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.scene.yaml",
-    f"{COMPOSE}/compose.web.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
-    f"{COMPOSE}/compose.mapping.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
+    f"{COMPOSE}/compose.mapping.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -144,15 +144,15 @@ FULL_STACK_WITH_MAPPING = ServiceProfile(
 FULL_STACK_WITH_MAPPING_AND_VIDEO = ServiceProfile(
   name="full_stack_with_mapping_and_video",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{DLS}/compose.retail-video.yaml",
-    f"{COMPOSE}/compose.scene.yaml",
-    f"{COMPOSE}/compose.web.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
-    f"{COMPOSE}/compose.mapping.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{DLS}/compose.retail-video.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
+    f"{COMPOSE}/compose.cams.yml",
+    f"{COMPOSE}/compose.mapping.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -169,13 +169,13 @@ FULL_STACK_WITH_MAPPING_AND_VIDEO = ServiceProfile(
 FULL_STACK_WITH_RETAIL_VIDEO = ServiceProfile(
   name="full_stack_with_retail_video",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{DLS}/compose.retail-video.yaml",
-    f"{COMPOSE}/compose.scene.yaml",
-    f"{COMPOSE}/compose.web.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{DLS}/compose.retail-video.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.cams.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -189,15 +189,15 @@ FULL_STACK_WITH_RETAIL_VIDEO = ServiceProfile(
 FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
   name="full_stack_with_video_and_retail",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{DLS}/compose.retail-video.yaml",
-    f"{DLS}/compose.queuing-video.yaml",
-    f"{COMPOSE}/compose.scene.yaml",
-    f"{COMPOSE}/compose.web-default.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{DLS}/compose.retail-video.yml",
+    f"{DLS}/compose.queuing-video.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.web-default.yml",
+    f"{COMPOSE}/compose.cams.yml",
+    f"{COMPOSE}/compose.analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -212,12 +212,12 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
 REID_NO_VIDEO = ServiceProfile(
   name="reid_no_video",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.vdms.yaml",
-    f"{COMPOSE}/compose.scene-reid.yaml",
-    f"{COMPOSE}/compose.web-default.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.vdms.yml",
+    f"{COMPOSE}/compose.scene-reid.yml",
+    f"{COMPOSE}/compose.web-default.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -232,16 +232,16 @@ REID_NO_VIDEO = ServiceProfile(
 REID = ServiceProfile(
   name="reid",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.vdms.yaml",
-    f"{DLS}/compose.retail-video-reid.yaml",
-    f"{DLS}/compose.queuing-video-reid.yaml",
-    f"{COMPOSE}/compose.scene-reid.yaml",
-    f"{COMPOSE}/compose.web-default.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.vdms.yml",
+    f"{DLS}/compose.retail-video-reid.yml",
+    f"{DLS}/compose.queuing-video-reid.yml",
+    f"{COMPOSE}/compose.scene-reid.yml",
+    f"{COMPOSE}/compose.web-default.yml",
+    f"{COMPOSE}/compose.cams.yml",
+    f"{COMPOSE}/compose.analytics.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -260,14 +260,14 @@ REID = ServiceProfile(
 REID_CORE = ServiceProfile(
   name="reid_core",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.vdms.yaml",
-    f"{COMPOSE}/compose.scene-reid.yaml",
-    # Use compose.web.yaml (testdb / Demo) so hierarchy helpers can link Demo.
-    f"{COMPOSE}/compose.web.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.vdms.yml",
+    f"{COMPOSE}/compose.scene-reid.yml",
+    # Use compose.web.yml (testdb / Demo) so hierarchy helpers can link Demo.
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -283,15 +283,15 @@ REID_CORE = ServiceProfile(
 REID_QDRANT = ServiceProfile(
   name="reid_qdrant",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.qdrant.yaml",
-    f"{DLS}/compose.retail-video-reid.yaml",
-    f"{DLS}/compose.queuing-video-reid.yaml",
-    f"{COMPOSE}/compose.scene-reid-qdrant.yaml",
-    f"{COMPOSE}/compose.web-default.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.qdrant.yml",
+    f"{DLS}/compose.retail-video-reid.yml",
+    f"{DLS}/compose.queuing-video-reid.yml",
+    f"{COMPOSE}/compose.scene-reid-qdrant.yml",
+    f"{COMPOSE}/compose.web-default.yml",
+    f"{COMPOSE}/compose.cams.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -308,12 +308,12 @@ REID_QDRANT = ServiceProfile(
 REID_CORE_QDRANT = ServiceProfile(
   name="reid_core_qdrant",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.qdrant.yaml",
-    f"{COMPOSE}/compose.scene-reid-qdrant.yaml",
-    f"{COMPOSE}/compose.web.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.qdrant.yml",
+    f"{COMPOSE}/compose.scene-reid-qdrant.yml",
+    f"{COMPOSE}/compose.web.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -326,11 +326,11 @@ REID_CORE_QDRANT = ServiceProfile(
 )
 
 _HIER_BASE = (
-  f"{HIER}/compose.common.yaml",
-  f"{HIER}/compose.parent-base.yaml",
-  f"{HIER}/compose.child1-base.yaml",
-  f"{HIER}/compose.child2-base.yaml",
-  f"{HIER}/compose.parent-analytics.yaml",
+  f"{HIER}/compose.common.yml",
+  f"{HIER}/compose.parent-base.yml",
+  f"{HIER}/compose.child1-base.yml",
+  f"{HIER}/compose.child2-base.yml",
+  f"{HIER}/compose.parent-analytics.yml",
 )
 
 _HIER_WAIT = {
@@ -354,11 +354,11 @@ _HIER_WAIT = {
 REID_HIER_SHARED = ServiceProfile(
   name="reid_hier_shared",
   compose_files=_HIER_BASE + (
-    f"{HIER}/compose.vdms-shared.yaml",
-    f"{HIER}/compose.parent-scene-reid.yaml",
-    f"{HIER}/compose.child1-scene-reid.yaml",
-    f"{HIER}/compose.child2-scene-reid.yaml",
-    f"{HIER}/compose.deps-vdms-shared.yaml",
+    f"{HIER}/compose.vdms-shared.yml",
+    f"{HIER}/compose.parent-scene-reid.yml",
+    f"{HIER}/compose.child1-scene-reid.yml",
+    f"{HIER}/compose.child2-scene-reid.yml",
+    f"{HIER}/compose.deps-vdms-shared.yml",
   ),
   wait_for={**_HIER_WAIT, "vdms-shared": WaitConfig()},
 )
@@ -367,11 +367,11 @@ REID_HIER_SHARED = ServiceProfile(
 REID_HIER_CHILDREN_ONLY = ServiceProfile(
   name="reid_hier_children_only",
   compose_files=_HIER_BASE + (
-    f"{HIER}/compose.vdms-shared.yaml",
-    f"{HIER}/compose.parent-scene.yaml",
-    f"{HIER}/compose.child1-scene-reid.yaml",
-    f"{HIER}/compose.child2-scene-reid.yaml",
-    f"{HIER}/compose.deps-vdms-shared-children.yaml",
+    f"{HIER}/compose.vdms-shared.yml",
+    f"{HIER}/compose.parent-scene.yml",
+    f"{HIER}/compose.child1-scene-reid.yml",
+    f"{HIER}/compose.child2-scene-reid.yml",
+    f"{HIER}/compose.deps-vdms-shared-children.yml",
   ),
   wait_for={**_HIER_WAIT, "vdms-shared": WaitConfig()},
 )
@@ -380,11 +380,11 @@ REID_HIER_CHILDREN_ONLY = ServiceProfile(
 REID_HIER_PARENT_ONLY = ServiceProfile(
   name="reid_hier_parent_only",
   compose_files=_HIER_BASE + (
-    f"{HIER}/compose.vdms-shared.yaml",
-    f"{HIER}/compose.parent-scene-reid.yaml",
-    f"{HIER}/compose.child1-scene.yaml",
-    f"{HIER}/compose.child2-scene.yaml",
-    f"{HIER}/compose.deps-vdms-shared-parent.yaml",
+    f"{HIER}/compose.vdms-shared.yml",
+    f"{HIER}/compose.parent-scene-reid.yml",
+    f"{HIER}/compose.child1-scene.yml",
+    f"{HIER}/compose.child2-scene.yml",
+    f"{HIER}/compose.deps-vdms-shared-parent.yml",
   ),
   wait_for={**_HIER_WAIT, "vdms-shared": WaitConfig()},
 )
@@ -393,11 +393,11 @@ REID_HIER_PARENT_ONLY = ServiceProfile(
 REID_HIER_PARTIAL = ServiceProfile(
   name="reid_hier_partial",
   compose_files=_HIER_BASE + (
-    f"{HIER}/compose.vdms-a.yaml",
-    f"{HIER}/compose.parent-scene-reid.yaml",
-    f"{HIER}/compose.child1-scene-reid.yaml",
-    f"{HIER}/compose.child2-scene.yaml",
-    f"{HIER}/compose.deps-partial.yaml",
+    f"{HIER}/compose.vdms-a.yml",
+    f"{HIER}/compose.parent-scene-reid.yml",
+    f"{HIER}/compose.child1-scene-reid.yml",
+    f"{HIER}/compose.child2-scene.yml",
+    f"{HIER}/compose.deps-partial.yml",
   ),
   wait_for={**_HIER_WAIT, "vdms-a": WaitConfig()},
 )
@@ -406,12 +406,12 @@ REID_HIER_PARTIAL = ServiceProfile(
 REID_HIER_SPLIT = ServiceProfile(
   name="reid_hier_split",
   compose_files=_HIER_BASE + (
-    f"{HIER}/compose.vdms-a.yaml",
-    f"{HIER}/compose.vdms-b.yaml",
-    f"{HIER}/compose.parent-scene-reid.yaml",
-    f"{HIER}/compose.child1-scene-reid.yaml",
-    f"{HIER}/compose.child2-scene-reid.yaml",
-    f"{HIER}/compose.deps-split.yaml",
+    f"{HIER}/compose.vdms-a.yml",
+    f"{HIER}/compose.vdms-b.yml",
+    f"{HIER}/compose.parent-scene-reid.yml",
+    f"{HIER}/compose.child1-scene-reid.yml",
+    f"{HIER}/compose.child2-scene-reid.yml",
+    f"{HIER}/compose.deps-split.yml",
   ),
   wait_for={**_HIER_WAIT, "vdms-a": WaitConfig(), "vdms-b": WaitConfig()},
 )
@@ -419,14 +419,14 @@ REID_HIER_SPLIT = ServiceProfile(
 REID_SEMANTIC = ServiceProfile(
   name="reid_semantic",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.vdms.yaml",
-    f"{DLS}/compose.queuing-video-reid-semantic.yaml",
-    f"{COMPOSE}/compose.scene-reid.yaml",
-    f"{COMPOSE}/compose.web-default.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.vdms.yml",
+    f"{DLS}/compose.queuing-video-reid-semantic.yml",
+    f"{COMPOSE}/compose.scene-reid.yml",
+    f"{COMPOSE}/compose.web-default.yml",
+    f"{COMPOSE}/compose.cams.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -439,14 +439,14 @@ REID_SEMANTIC = ServiceProfile(
 REID_SEMANTIC_QDRANT = ServiceProfile(
   name="reid_semantic_qdrant",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.qdrant.yaml",
-    f"{DLS}/compose.queuing-video-reid-semantic.yaml",
-    f"{COMPOSE}/compose.scene-reid-qdrant.yaml",
-    f"{COMPOSE}/compose.web-default.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.qdrant.yml",
+    f"{DLS}/compose.queuing-video-reid-semantic.yml",
+    f"{COMPOSE}/compose.scene-reid-qdrant.yml",
+    f"{COMPOSE}/compose.web-default.yml",
+    f"{COMPOSE}/compose.cams.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -460,16 +460,16 @@ REID_SEMANTIC_QDRANT = ServiceProfile(
 FULL_STACK_AUTOCALIBRATION = ServiceProfile(
   name="full_stack_autocalibration",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.scene.yaml",
-    f"{COMPOSE}/compose.web-calibration.yaml",
-    f"{DLS}/compose.queuing-video.yaml",
-    f"{DLS}/compose.retail-video.yaml",
-    f"{COMPOSE}/compose.autocalibration.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.web-calibration.yml",
+    f"{DLS}/compose.queuing-video.yml",
+    f"{DLS}/compose.retail-video.yml",
+    f"{COMPOSE}/compose.autocalibration.yml",
+    f"{COMPOSE}/compose.cams.yml",
+    f"{COMPOSE}/compose.analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -485,9 +485,9 @@ FULL_STACK_AUTOCALIBRATION = ServiceProfile(
 SCENE_NO_DB = ServiceProfile(
   name="scene_no_db",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.scene-no-db.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.scene-no-db.yml",
   ),
   wait_for={
     "scene": _SCENE,
@@ -497,11 +497,11 @@ SCENE_NO_DB = ServiceProfile(
 MARKERLESS = ServiceProfile(
   name="markerless",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.web.yaml",
-    f"{COMPOSE}/compose.autocalibration.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.autocalibration.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -513,10 +513,10 @@ MARKERLESS = ServiceProfile(
 INFERENCE_PERF = ServiceProfile(
   name="inference_perf",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
-    f"{DLS}/compose.retail-video.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.cams.yml",
+    f"{DLS}/compose.retail-video.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -527,13 +527,13 @@ INFERENCE_PERF = ServiceProfile(
 FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
   name="full_stack_autocalibration_no_apriltags",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.scene.yaml",
-    f"{COMPOSE}/compose.web-default.yaml",
-    f"{COMPOSE}/compose.autocalibration.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.web-default.yml",
+    f"{COMPOSE}/compose.autocalibration.yml",
+    f"{COMPOSE}/compose.analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
@@ -548,18 +548,18 @@ FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS = ServiceProfile(
 STABILITY = ServiceProfile(
   name="stability",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{DLS}/compose.retail-video.yaml",
-    f"{DLS}/compose.queuing-video.yaml",
-    f"{COMPOSE}/compose.scene.yaml",
-    f"{COMPOSE}/compose.web-default.yaml",
-    f"{COMPOSE}/compose.cams.yaml",
-    f"{COMPOSE}/compose.autocalibration.yaml",
-    f"{COMPOSE}/compose.mapping.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
-    f"{COMPOSE}/compose.cluster-analytics.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{DLS}/compose.retail-video.yml",
+    f"{DLS}/compose.queuing-video.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.web-default.yml",
+    f"{COMPOSE}/compose.cams.yml",
+    f"{COMPOSE}/compose.autocalibration.yml",
+    f"{COMPOSE}/compose.mapping.yml",
+    f"{COMPOSE}/compose.analytics.yml",
+    f"{COMPOSE}/compose.cluster-analytics.yml",
   ),
   wait_for={
     "broker": _BROKER,
@@ -581,11 +581,11 @@ STABILITY = ServiceProfile(
 ANALYTICS_MQTT = ServiceProfile(
   name="analytics_mqtt",
   compose_files=(
-    f"{DLS}/compose.broker.yaml",
-    f"{COMPOSE}/compose.ntp.yaml",
-    f"{COMPOSE}/compose.pgserver.yaml",
-    f"{COMPOSE}/compose.web.yaml",
-    f"{COMPOSE}/compose.analytics.yaml",
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
   ),
   wait_for={
     "pgserver": _PGSERVER,
