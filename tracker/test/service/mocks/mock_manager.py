@@ -73,23 +73,23 @@ class MockManagerHandler(BaseHTTPRequestHandler):
 
     self._send_json(200, {"token": TOKEN})
 
+  def _authorized(self):
+    if self.headers.get("Authorization", "") == f"Token {TOKEN}":
+      return True
+    self._send_json(
+        401, {
+            "detail": "Authentication credentials were not provided."})
+    return False
+
   def _handle_scenes(self):
-    auth = self.headers.get("Authorization", "")
-    if auth != f"Token {TOKEN}":
-      self._send_json(
-          401, {
-              "detail": "Authentication credentials were not provided."})
+    if not self._authorized():
       return
 
     scenes_response = load_scenes()
     self._send_json(200, scenes_response)
 
   def _handle_assets(self):
-    auth = self.headers.get("Authorization", "")
-    if auth != f"Token {TOKEN}":
-      self._send_json(
-          401, {
-              "detail": "Authentication credentials were not provided."})
+    if not self._authorized():
       return
 
     self._send_json(200, load_assets())
