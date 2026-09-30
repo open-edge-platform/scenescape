@@ -44,8 +44,8 @@ Running the pipelines on GPU is highly recommended when available on the system.
 
 > **Note:** `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
 > settings referenced below live in each scene's own compose file,
-> [sample_data/demo_scenes/Retail/retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and
-> [sample_data/demo_scenes/Queuing/queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml),
+> [sample_data/demo_scenes/Retail/compose.retail-video.yaml](/sample_data/demo_scenes/Retail/compose.retail-video.yaml) and
+> [sample_data/demo_scenes/Queuing/compose.queuing-video.yaml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yaml),
 > not the root `docker-compose.yml`.
 
 To facilitate GPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
@@ -131,8 +131,8 @@ Running inference on NPU is recommended when an Intel® NPU is available on the 
 
 > **Note:** `retail-video`/`queuing-video` services and their `retail-config`/`queuing-config`
 > settings referenced below live in each scene's own compose file,
-> [sample_data/demo_scenes/Retail/retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and
-> [sample_data/demo_scenes/Queuing/queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml),
+> [sample_data/demo_scenes/Retail/compose.retail-video.yaml](/sample_data/demo_scenes/Retail/compose.retail-video.yaml) and
+> [sample_data/demo_scenes/Queuing/compose.queuing-video.yaml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yaml),
 > not the root `docker-compose.yml`.
 
 To facilitate NPU acceleration, sample configuration files are provided for the out-of-box **Queuing** and **Retail** scenes with the following pipeline optimizations:
@@ -179,15 +179,15 @@ Following are the step-by-step instructions for enabling person reidentification
 
    ```bash
    docker compose -f docker-compose.yml \
-     -f sample_data/compose/docker-compose.vdms-override.yml \
+     -f sample_data/compose/compose.vdms-override.yaml \
      --profile controller up -d
-   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
-     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml \
-     -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d
+   docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.retail-video.yaml \
+     -f sample_data/demo_scenes/Queuing/compose.queuing-video.yaml \
+     -f sample_data/compose/compose.reid-pipeline-override.yaml up -d
    ```
 
-   To use Qdrant instead, replace `docker-compose.vdms-override.yml` with
-   `docker-compose.qdrant-override.yml`. Do not combine the two backend
+   To use Qdrant instead, replace `compose.vdms-override.yaml` with
+   `compose.qdrant-override.yaml`. Do not combine the two backend
    overrides. From the repository root, `make demo-reid` does the same
    (both overrides included automatically) and defaults to VDMS; use
    `make demo-reid REID_BACKEND=qdrant` for Qdrant.
@@ -195,7 +195,7 @@ Following are the step-by-step instructions for enabling person reidentification
 2. The predefined [queuing-config-reid.json](../sample_data/demo_scenes/Queuing/queuing-config-reid.json) and
    [retail-config-reid.json](../sample_data/demo_scenes/Retail/retail-config-reid.json) configs enable vector
    embedding metadata from the DL Streamer service and are applied
-   automatically by `docker-compose.reid-pipeline-override.yml` above. If you
+   automatically by `compose.reid-pipeline-override.yaml` above. If you
    are composing the services manually without that override file, set them
    directly in the video-source stack instead:
 
@@ -217,16 +217,16 @@ Following are the step-by-step instructions for enabling person reidentification
 
    ```sh
    docker compose -f docker-compose.yml \
-     -f sample_data/compose/docker-compose.vdms-override.yml \
+     -f sample_data/compose/compose.vdms-override.yaml \
      --profile controller down
-   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
-     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml down
+   docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.retail-video.yaml \
+     -f sample_data/demo_scenes/Queuing/compose.queuing-video.yaml down
    docker compose -f docker-compose.yml \
-     -f sample_data/compose/docker-compose.vdms-override.yml \
+     -f sample_data/compose/compose.vdms-override.yaml \
      --profile controller up reid scene -d
-   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
-     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml \
-     -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d
+   docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.retail-video.yaml \
+     -f sample_data/demo_scenes/Queuing/compose.queuing-video.yaml \
+     -f sample_data/compose/compose.reid-pipeline-override.yaml up -d
    ```
 
    Ensure the OMZ model `person-reidentification-retail-0277` is available in `omz/` subfolder of models volume: `docker run --rm -v scenescape_vol-models:/models alpine ls /models/omz`.

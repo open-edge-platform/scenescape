@@ -178,7 +178,7 @@ mediaserver-down:
 # kubeclient, so retail-video/queuing-video are not started here.
 # Each scene owns its own private mediamtx (same "mediaserver" service name in
 # both files); Compose merges them into one shared instance across -f flags.
-VIDEO_SOURCE_COMPOSE_FILES := -f ../sample_data/demo_scenes/Retail/retail-video-compose.yaml -f ../sample_data/demo_scenes/Queuing/queuing-video-compose.yaml
+VIDEO_SOURCE_COMPOSE_FILES := -f ../sample_data/demo_scenes/Retail/compose.retail-video.yaml -f ../sample_data/demo_scenes/Queuing/compose.queuing-video.yaml
 
 .PHONY: video-source-up
 video-source-up:

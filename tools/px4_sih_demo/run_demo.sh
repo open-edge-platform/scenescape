@@ -13,7 +13,7 @@
 # Host-side REST/MQTT use https://127.0.0.1 / localhost with TLS verify disabled.
 # That is intentional for this demo tooling: SceneScape certs are issued for
 # *.scenescape.intel.com (Docker DNS), not localhost. The MQTT port publish is
-# bound to loopback only (see docker-compose.broker-port.yml).
+# bound to loopback only (see compose.broker-port.yaml).
 #
 # Usage:
 #   export MAPBOX_API_KEY=pk....
@@ -71,12 +71,12 @@ PY
 
 resolve_broker_host() {
   # Demo tooling on the host: talk to loopback and skip cert hostname checks.
-  # Broker publish is 127.0.0.1-only (docker-compose.broker-port.yml).
+  # Broker publish is 127.0.0.1-only (compose.broker-port.yaml).
   export SCENESCAPE_BROKER="${SCENESCAPE_BROKER:-127.0.0.1}"
   export SCENESCAPE_MQTT_INSECURE="${SCENESCAPE_MQTT_INSECURE:-1}"
 }
 
-PX4_DEMO_COMPOSE=( -f docker-compose.yml -f tools/px4_sih_demo/docker-compose.broker-port.yml )
+PX4_DEMO_COMPOSE=( -f docker-compose.yml -f tools/px4_sih_demo/compose.broker-port.yaml )
 
 ensure_host_demo_compose() {
   echo "Applying host-side demo compose overrides (MQTT port + scene timestamp tolerance) …"

@@ -177,7 +177,7 @@ path under load.
 | [test_load.py](test_load.py)                             | SLI test cases                        |
 | [conftest.py](conftest.py)                               | Fixtures, Prometheus scraper, summary |
 | [simulate-detections.js](simulate-detections.js)         | k6 MQTT load generator                |
-| [compose.yml](compose.yml)                               | Docker Compose stack                  |
+| [compose.yaml](compose.yaml)                               | Docker Compose stack                  |
 | [config/scenes.json](config/scenes.json)                 | Scene & camera configuration          |
 | [config/otel-collector.yaml](config/otel-collector.yaml) | Collector config                      |
 | [Dockerfile.k6](Dockerfile.k6)                           | k6 image with MQTT extension          |

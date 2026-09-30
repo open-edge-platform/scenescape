@@ -111,7 +111,7 @@ export GST_DEBUG_FILE=/tmp/trace.log
 
 > **Note**: For guidance on GStreamer debug levels and general debugging of GStreamer applications, see the [Troubleshooting](#troubleshooting) section.
 
-Enable the following setting in the [Docker Compose file](./docker-compose-ppl.yaml):
+Enable the following setting in the [Docker Compose file](./compose.ppl.yaml):
 
 ```
 services:
@@ -138,7 +138,7 @@ Please refer to [DL Streamer documentation](https://docs.openedgeplatform.intel.
 
 ### Disabling latency tracer
 
-To disable the latency tracer, unset the environment variables `GST_DEBUG`, `GST_TRACERS`, and `GST_DEBUG_FILE` and comment out the volume mount in the [Docker Compose file](./docker-compose-ppl.yaml):
+To disable the latency tracer, unset the environment variables `GST_DEBUG`, `GST_TRACERS`, and `GST_DEBUG_FILE` and comment out the volume mount in the [Docker Compose file](./compose.ppl.yaml):
 
 ```
 services:

@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  controller.auth:
+    environment: CONTROLLER_AUTH
+
+services:
+  cluster-analytics:
+    image: intel/scenescape-cluster-analytics:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape-test:
+    depends_on:
+      broker:
+        condition: service_started
+    environment:
+      OPENBLAS_NUM_THREADS: "2"
+      OMP_NUM_THREADS: "2"
+      MKL_NUM_THREADS: "2"
+    command: >
+      --broker broker.scenescape.intel.com
+      --brokerauth /run/secrets/controller.auth
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - controller.auth
+    restart: always
+    pids_limit: 1000

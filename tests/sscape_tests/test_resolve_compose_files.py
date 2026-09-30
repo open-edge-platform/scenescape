@@ -12,11 +12,11 @@ from tests.utils.profiles import _host_has_dri, resolve_compose_files
 
 TEST_NAME = "NEX-T22100"
 
-_RETAIL = "tests/compose/dlstreamer/compose-retail_video.yml"
-_QUEUING = "tests/compose/dlstreamer/compose-queuing_video.yml"
-_OTHER = "tests/compose/compose-scene.yml"
-_RETAIL_DRI = "tests/compose/dlstreamer/compose-gpu-dri-retail.yml"
-_QUEUING_DRI = "tests/compose/dlstreamer/compose-gpu-dri-queuing.yml"
+_RETAIL = "tests/compose/dlstreamer/compose.retail-video.yaml"
+_QUEUING = "tests/compose/dlstreamer/compose.queuing-video.yaml"
+_OTHER = "tests/compose/compose.scene.yaml"
+_RETAIL_DRI = "tests/compose/dlstreamer/compose.gpu-dri-retail.yaml"
+_QUEUING_DRI = "tests/compose/dlstreamer/compose.gpu-dri-queuing.yaml"
 
 # S_IFMT / S_IFCHR as mode bits (stat.S_IFMT is a function in Python 3).
 _S_IFMT = 0o170000

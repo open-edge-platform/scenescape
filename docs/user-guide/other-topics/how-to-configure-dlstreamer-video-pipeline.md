@@ -223,7 +223,7 @@ You can upload custom models to the Models Volume using the Models page. The Mod
 
 ### Using Your Own Video Files
 
-The Helm chart does not deploy any media/RTSP server, and camera pipeline Pods have no video-file volume mounted, so the **Camera (Video Source)** field cannot point at a local file the way it can in a Docker Compose deployment. To use a video file as a camera source, serve it over RTSP yourself from anywhere reachable by the cluster - for example a small standalone stack pairing an RTSP server such as `mediamtx` with an `ffmpeg` process that reads your file and republishes it as a stream. The bundled Retail and Queuing demo scenes use exactly this pattern; see [retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and [queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml) for one working example.
+The Helm chart does not deploy any media/RTSP server, and camera pipeline Pods have no video-file volume mounted, so the **Camera (Video Source)** field cannot point at a local file the way it can in a Docker Compose deployment. To use a video file as a camera source, serve it over RTSP yourself from anywhere reachable by the cluster - for example a small standalone stack pairing an RTSP server such as `mediamtx` with an `ffmpeg` process that reads your file and republishes it as a stream. The bundled Retail and Queuing demo scenes use exactly this pattern; see [compose.retail-video.yaml](/sample_data/demo_scenes/Retail/compose.retail-video.yaml) and [compose.queuing-video.yaml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yaml) for one working example.
 
 Once you have an RTSP source reachable from the cluster:
 
@@ -251,7 +251,7 @@ Once you have an RTSP source reachable from the cluster:
 
 ## Manual Video Pipeline Configuration (in Docker Compose deployment)
 
-Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice. The video-source compose files [retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml) and [queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml) show how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Scenescape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/sample_data/demo_scenes/Queuing/queuing-config.json) and [retail-config.json](/sample_data/demo_scenes/Retail/retail-config.json).
+Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice. The video-source compose files [compose.retail-video.yaml](/sample_data/demo_scenes/Retail/compose.retail-video.yaml) and [compose.queuing-video.yaml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yaml) show how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Scenescape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/sample_data/demo_scenes/Queuing/queuing-config.json) and [retail-config.json](/sample_data/demo_scenes/Retail/retail-config.json).
 
 > **Note:** To run DL Streamer Pipeline Server pipelines on hardware accelerators (GPU or NPU), see the DL Streamer Pipeline Server service [user documentation](/dlstreamer-pipeline-server/README.md).
 
@@ -263,7 +263,7 @@ The following is the GStreamer command that defines the video processing pipelin
 "pipeline": "rtspsrc location=rtsp://mediaserver:8554/queuing-cam1 add-reference-timestamp-meta=true latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
-This example is taken from the bundled Queuing demo scene: its `mediaserver` service republishes the sample video files over RTSP (see [queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml)), and the pipeline above consumes that RTSP stream. `multifilesrc` (reading a video file directly, see [Adding custom video files](#adding-custom-video-files) below) is also supported for a fully custom pipeline.
+This example is taken from the bundled Queuing demo scene: its `mediaserver` service republishes the sample video files over RTSP (see [compose.queuing-video.yaml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yaml)), and the pipeline above consumes that RTSP stream. `multifilesrc` (reading a video file directly, see [Adding custom video files](#adding-custom-video-files) below) is also supported for a fully custom pipeline.
 
 #### Breakdown of gstreamer command
 
@@ -406,7 +406,7 @@ You can upload custom models to the Models Volume using the command line. Use th
 
 #### Adding custom video files
 
-There is no shared volume for video files; bind-mount your own video folder directly into a service in your compose file instead, following the pattern used by the bundled demo scenes ([queuing-video-compose.yaml](/sample_data/demo_scenes/Queuing/queuing-video-compose.yaml), [retail-video-compose.yaml](/sample_data/demo_scenes/Retail/retail-video-compose.yaml)):
+There is no shared volume for video files; bind-mount your own video folder directly into a service in your compose file instead, following the pattern used by the bundled demo scenes ([compose.queuing-video.yaml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yaml), [compose.retail-video.yaml](/sample_data/demo_scenes/Retail/compose.retail-video.yaml)):
 
 1. Bind-mount your video folder into a `mediamtx`-based `mediaserver` service plus an `ffmpeg` looper that republishes the file(s) over RTSP (recommended, matches the bundled demos), or bind-mount it directly into the DL Streamer Pipeline Server container for a `multifilesrc`-based setup.
 2. Reference the resulting source (RTSP URL or file path) in the video pipeline source element (`rtspsrc` or `multifilesrc`).

@@ -103,10 +103,10 @@ def tls_tracker_service(tls_certs):
   """
   Fixture that starts tracker service with TLS-enabled MQTT broker.
 
-  Uses docker-compose.yaml configured for TLS mode via environment variables.
+  Uses compose.yaml configured for TLS mode via environment variables.
   """
   service_dir = Path(__file__).parent
-  compose_path = service_dir / "docker-compose.yaml"
+  compose_path = service_dir / "compose.yaml"
   project_name = f"tracker-tls-{uuid.uuid4().hex[:8]}"
 
   env_file = tls_certs.temp_dir / ".env"

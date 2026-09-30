@@ -220,7 +220,7 @@ def main(argv=None):
   if not _wait_mqtt_connected(pubsub, timeout_s=15):
     raise SystemExit(
       f"MQTT broker {broker}:{broker_port} did not connect — ensure port 1883 is "
-      "published (tools/px4_sih_demo/docker-compose.broker-port.yml) and the "
+      "published (tools/px4_sih_demo/compose.broker-port.yaml) and the "
       "broker is reachable")
   # Publisher-centric: topic path is source_id. Optional SCENESCAPE_SCENE_ID is
   # only for operator notes / manual CONTROLLER_EXTERNAL_SOURCE_BINDINGS.

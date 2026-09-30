@@ -357,7 +357,7 @@ cluster_analytics/
 │   └── service/                       # Component tests (Docker)
 │       ├── conftest.py
 │       ├── test_clustering_pipeline.py
-│       └── docker-compose.yaml
+│       └── compose.yaml
 └── tools/
     └── webui/                         # Optional Flask+SocketIO WebUI
         ├── web_ui.py

@@ -1,16 +1,16 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Self-contained video source for the Retail demo scene: its own mediamtx +
+# Self-contained video source for the Queuing demo scene: its own mediamtx +
 # ffmpeg loopers publish the sample videos over RTSP, and DL Streamer
 # Pipeline Server consumes them and publishes detections over MQTT.
 # Run alongside the main Scenescape stack (same COMPOSE_PROJECT_NAME so the
 # "scenescape" Docker network and vol-models volume are shared), e.g.:
 #   make video-source-up
 # or directly (paths are relative to the repo root, used as --project-directory):
-#   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml up -d
+#   docker compose --project-directory . -f sample_data/demo_scenes/Queuing/compose.queuing-video.yaml up -d
 #
-# Combine with Queuing/queuing-video-compose.yaml (add another -f) to run both
+# Combine with Retail/compose.retail-video.yaml (add another -f) to run both
 # demo scenes together; Compose merges the two same-named "mediaserver"
 # services into one shared instance. Used standalone, this scene gets its own
 # private mediaserver.
@@ -27,12 +27,12 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-ca.pem
 
 configs:
-  retail-config:
+  queuing-config:
     # Use this configuration file to run decoding and inference on GPU
-    # file: ./sample_data/demo_scenes/Retail/retail-config-gpu.json
-    file: ./sample_data/demo_scenes/Retail/retail-config.json
+    # file: ./sample_data/demo_scenes/Queuing/queuing-config-gpu.json
+    file: ./sample_data/demo_scenes/Queuing/queuing-config.json
     # Use this configuration file to run inference on NPU
-    # file: ./sample_data/demo_scenes/Retail/retail-config-npu.json
+    # file: ./sample_data/demo_scenes/Queuing/queuing-config-npu.json
 
 services:
   mediaserver:
@@ -48,11 +48,11 @@ services:
     restart: always
     pids_limit: 1000
 
-  retail-cams:
+  queuing-cams:
     image: linuxserver/ffmpeg:version-8.1-cli
-    command: -nostdin -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts -re -stream_loop -1 -i /workspace/media/apriltag-cam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/retail-cam2
+    command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
     volumes:
-      - ./sample_data/demo_scenes/Retail/video:/workspace/media:ro
+      - ./sample_data/demo_scenes/Queuing/video:/workspace/media:ro
     networks:
       scenescape:
     depends_on:
@@ -60,14 +60,14 @@ services:
     restart: always
     pids_limit: 1000
 
-  retail-video:
+  queuing-video:
     image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20260915-weekly-ubuntu24
     networks:
       scenescape:
     tty: true
     entrypoint: ["./run.sh"]
     # ports:
-    #   - "8080:8080"
+    #   - "8081:8080"
     # Uncomment these lines to use GPU acceleration
     # devices:
     #   - "/dev/dri:/dev/dri"
@@ -83,7 +83,7 @@ services:
       - "c 209:* rmw"
       - "a 189:* rwm"
     depends_on:
-      retail-cams:
+      queuing-cams:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-I", "-s", "http://localhost:8080/pipelines"]
@@ -108,11 +108,11 @@ services:
       - NO_PROXY=mediaserver,broker.scenescape.intel.com,${NO_PROXY}
       - no_proxy=mediaserver,broker.scenescape.intel.com,${no_proxy}
     configs:
-      - source: retail-config
+      - source: queuing-config
         target: /home/pipeline-server/config.json
     volumes:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
-      - vol-dlstreamer-pipeline-server-pipeline-root-retail:/var/cache/pipeline_root:uid=1999,gid=1999
+      - vol-dlstreamer-pipeline-server-pipeline-root-queuing:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-models:/home/pipeline-server/models
     secrets:
       - source: root-cert
@@ -122,7 +122,7 @@ services:
 
 volumes:
   vol-models:
-  vol-dlstreamer-pipeline-server-pipeline-root-retail:
+  vol-dlstreamer-pipeline-server-pipeline-root-queuing:
     driver: local
     driver_opts:
       type: tmpfs
