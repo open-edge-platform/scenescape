@@ -76,6 +76,22 @@ def collect_frames(
   print(f"Collected {len(camera_ids)} frame(s): {camera_ids}")
 
 
+def resolve_project(deploy_dir: Path, explicit: str | None) -> str:
+  """Resolve the Compose project name, preferring an explicit value, then the
+  deploy-dir docker-compose.yml `name:` field, falling back to 'scenescape'."""
+  if explicit:
+    return explicit
+  compose = deploy_dir / "docker-compose.yml"
+  if compose.is_file():
+    for line in compose.read_text().splitlines():
+      stripped = line.strip()
+      if stripped.startswith("name:"):
+        val = stripped.split(":", 1)[1].strip()
+        if val:
+          return val
+  return "scenescape"
+
+
 def main() -> None:
   parser = argparse.ArgumentParser(description="Collect calibration frames from SceneScape cameras via MQTT")
   parser.add_argument(
@@ -86,12 +102,12 @@ def main() -> None:
   )
   parser.add_argument("--cameras", required=True, nargs="+", metavar="CAMERA_ID", help="One or more camera IDs")
   parser.add_argument("--out-dir", required=True, type=Path, help="Directory to write captured JPEG files")
-  parser.add_argument("--project", default="scenescape", help="Docker Compose project name (default: scenescape)")
+  parser.add_argument("--project", default=None, help="Docker Compose project name (default: derived from deploy-dir docker-compose.yml 'name:', else 'scenescape')")
   parser.add_argument("--timeout-per-camera", type=int, default=30, metavar="SECONDS", help="Seconds to wait per camera (default: 30)")
   args = parser.parse_args()
 
   collect_frames(
-    project=args.project,
+    project=resolve_project(args.deploy_dir, args.project),
     deploy_dir=args.deploy_dir,
     camera_ids=args.cameras,
     out_dir=args.out_dir,

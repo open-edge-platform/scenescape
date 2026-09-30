@@ -192,8 +192,13 @@ phase_end_step() {
 }
 
 connect_rtsp_hosts_to_network() {
-  local net_name
-  net_name=$(docker network ls --format '{{.Name}}' | grep '_scenescape$' | head -1 || true)
+  local net_name ss_project
+  ss_project=$(awk '/^name:[[:space:]]*/{v=$2; gsub(/[[:space:]]/,"",v); print v; exit}' "$DEPLOY_DIR/docker-compose.yml" 2>/dev/null || true)
+  net_name=""
+  if [[ -n "${ss_project:-}" ]]; then
+    net_name=$(docker network ls --format '{{.Name}}' | grep -E "^${ss_project}_scenescape$" | head -1 || true)
+  fi
+  [[ -n "$net_name" ]] || net_name=$(docker network ls --format '{{.Name}}' | grep '_scenescape$' | head -1 || true)
   [[ -n "$net_name" ]] || return 0
 
   local stream host container
