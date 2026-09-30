@@ -70,6 +70,11 @@ def build_argparser():
   parser.add_argument("--fit-backlash", action="store_true",
                       help="also fit pan/tilt backlash instead of using the configured values "
                            "(needs stops reached from both directions, as the default path has)")
+  parser.add_argument("--backlash-knots", type=int, nargs=2, default=[1, 1],
+                      metavar=("PAN", "TILT"),
+                      help="with --fit-backlash: per axis, the number of positions across the "
+                           "measured range where backlash is fitted, interpolated between them "
+                           "and held constant beyond (1 = a single constant value)")
   parser.add_argument("--try-sign-flips", action="store_true",
                       help="also start the fit from the negated pan/tilt scale and keep the best; "
                            "for a new camera whose rotation directions aren't known yet")
@@ -94,7 +99,7 @@ def load_settings(data, config_path):
         # Fitted as the effective angle; invert is folded back in on output.
         "curve": [sign * c for c in curve],
         "sign": sign,
-        "backlash": float(entry.get(f"{axis}_backlash_deg") or 0.0),
+        "backlash": backlash_table(entry.get(f"{axis}_backlash_deg")),
     }
   axis = np.array(entry.get("pan_axis") or [0.0, 0.0, 1.0], dtype=float)
   settings["pan_axis"] = axis / np.linalg.norm(axis)
@@ -109,18 +114,40 @@ def slope(curve, position):
   return sum(i * c * position ** (i - 1) for i, c in enumerate(curve) if i)
 
 
-def angle_deltas(curve, positions, start, backlash, start_offset):
+def backlash_table(value):
+  """Config ``*_backlash_deg`` (a number, or [[position, degrees], ...]) as a knot list."""
+  if isinstance(value, list):
+    return [(float(p), float(d)) for p, d in value]
+  return [(0.0, float(value or 0.0))]
+
+
+def backlash_at(table, position):
+  """Backlash in degrees at a position; matches pose_math.backlash_degrees_at."""
+  if len(table) == 1:
+    return max(0.0, table[0][1])
+  positions, values = zip(*table)
+  return max(0.0, float(np.interp(position, positions, values)))
+
+
+def backlash_config(table):
+  if len(table) == 1:
+    return round(float(table[0][1]), 2)
+  return [[round(float(p), 4), round(float(d), 2)] for p, d in table]
+
+
+def angle_deltas(curve, positions, start, backlash, start_fraction):
   """Mirror of the service's backlash tracking (see PTZPoseContext._rotationFor).
 
-  ``start_offset`` is where the physical angle sat in the deadband at the
-  start, relative to the reported one (within +-backlash/2).
+  ``backlash`` is a knot table (see ``backlash_table``), so the band can widen
+  across the travel. ``start_fraction`` (-1..1) is where the physical angle sat
+  in the band at the start, relative to the reported one.
   """
-  start_angle = angle(curve, start) + start_offset
+  start_angle = angle(curve, start) + start_fraction * backlash_at(backlash, start) / 2.0
   current, deltas = start_angle, []
-  half = backlash / 2.0
   for position in positions:
     reported = angle(curve, position)
-    current = min(max(current, reported - half), reported + half) if half else reported
+    half = backlash_at(backlash, position) / 2.0
+    current = min(max(current, reported - half), reported + half)
     deltas.append(current - start_angle)
   return deltas
 
@@ -186,7 +213,8 @@ class Fit:
   in its band the axis started (if fitted) or just the start offset; pan axis
   slopes (2, if fitted); curves."""
 
-  def __init__(self, data, settings, degrees, fit_pan_axis, fit_backlash=False, rejected=()):
+  def __init__(self, data, settings, degrees, fit_pan_axis, fit_backlash=False, rejected=(),
+               backlash_knots=(1, 1)):
     self.stops = data["stops"]
     self.start = {"pan": data["start_pan"], "tilt": data["start_tilt"]}
     self.stored_start = Rotation.from_euler("XYZ", self.stops[0]["rotation"], degrees=True)
@@ -196,38 +224,48 @@ class Fit:
     self.fit_backlash = fit_backlash
     # Rejected stops still count for backlash tracking: the head did move there.
     self.measured = [i for i, s in enumerate(self.stops) if s["points_2d"] and i not in rejected]
+    # Knots spread over the positions that have tag data; held constant beyond.
+    self.knots = {}
+    for axis, count in zip(AXES, backlash_knots):
+      seen = [self.stops[i][axis] for i in self.measured if self.stops[i]["axis"] == axis]
+      seen = seen or [self.start[axis]]
+      self.knots[axis] = (list(np.linspace(min(seen), max(seen), count))
+                          if count > 1 else [0.0])
+
+  def _has_backlash(self, axis):
+    return self.fit_backlash or any(d for _, d in self.settings[axis]["backlash"])
 
   def unpack(self, x):
     correction, x = Rotation.from_rotvec(x[:3]), x[3:]
-    offsets, backlash, curves = {}, {}, {}
+    fractions, backlash, curves = {}, {}, {}
     for axis in AXES:
       if self.fit_backlash:
-        # Start offset as a fraction of the half-band keeps it inside the band.
-        backlash[axis], offsets[axis] = x[0], x[1] * x[0] / 2.0
-        x = x[2:]
+        n = len(self.knots[axis])
+        backlash[axis], x = list(zip(self.knots[axis], x[:n])), x[n:]
       else:
         backlash[axis] = self.settings[axis]["backlash"]
-        offsets[axis], x = (x[0], x[1:]) if backlash[axis] else (0.0, x)
+      fractions[axis], x = (x[0], x[1:]) if self._has_backlash(axis) else (0.0, x)
     pan_axis = self.settings["pan_axis"]
     if self.fit_pan_axis:
       pan_axis, x = axis_from_slopes(x[:2]), x[2:]
     for axis in AXES:
       n = self.degrees[axis]
       curves[axis], x = [0.0, *x[:n]], x[n:]
-    return correction * self.stored_start, offsets, backlash, pan_axis, curves
+    return correction * self.stored_start, fractions, backlash, pan_axis, curves
 
   def initial(self):
     x, lower, upper = [0.0] * 3, [-0.2] * 3, [0.2] * 3
     for axis in AXES:
-      configured = self.settings[axis]["backlash"]
       if self.fit_backlash:
-        x += [max(configured, 0.5), 0.0]
-        lower += [0.0, -1.0]
-        upper += [6.0, 1.0]
-      elif configured:
+        start_value = max(backlash_at(self.settings[axis]["backlash"], self.start[axis]), 0.5)
+        n = len(self.knots[axis])
+        x += [start_value] * n
+        lower += [0.0] * n
+        upper += [6.0] * n
+      if self._has_backlash(axis):
         x.append(0.0)
-        lower.append(-configured / 2.0)
-        upper.append(configured / 2.0)
+        lower.append(-1.0)
+        upper.append(1.0)
     if self.fit_pan_axis:
       configured = self.settings["pan_axis"]
       x += [configured[0] / configured[2], configured[1] / configured[2]]
@@ -280,7 +318,8 @@ def extrapolation_warning(curve, positions, travel):
   return None
 
 
-def solve_best(data, settings, degrees, fit_pan_axis, fit_backlash, try_sign_flips, rejected):
+def solve_best(data, settings, degrees, fit_pan_axis, fit_backlash, try_sign_flips, rejected,
+               backlash_knots=(1, 1)):
   """Fit, optionally from each sign of the starting curves, keeping the lowest error."""
   signs = [(1, 1), (-1, 1), (1, -1), (-1, -1)] if try_sign_flips else [(1, 1)]
   best = None
@@ -288,7 +327,7 @@ def solve_best(data, settings, degrees, fit_pan_axis, fit_backlash, try_sign_fli
     variant = dict(settings)
     for axis, sign in (("pan", pan_sign), ("tilt", tilt_sign)):
       variant[axis] = dict(settings[axis], curve=[sign * c for c in settings[axis]["curve"]])
-    fit = Fit(data, variant, degrees, fit_pan_axis, fit_backlash, rejected)
+    fit = Fit(data, variant, degrees, fit_pan_axis, fit_backlash, rejected, backlash_knots)
     x = fit.solve()
     error = float(np.mean(fit.errors(x)))
     if best is None or error < best[2]:
@@ -308,9 +347,11 @@ def main():
                 fit_pan_axis=False, rejected=rejected)
   current_x = current.solve(fixed_curves=True)
   linear, linear_x = solve_best(data, settings, {"pan": 1, "tilt": 1}, args.fit_pan_axis,
-                                args.fit_backlash, args.try_sign_flips, rejected)
+                                args.fit_backlash, args.try_sign_flips, rejected,
+                                args.backlash_knots)
   fit, best_x = solve_best(data, settings, {"pan": args.pan_degree, "tilt": args.tilt_degree},
-                           args.fit_pan_axis, args.fit_backlash, args.try_sign_flips, rejected)
+                           args.fit_pan_axis, args.fit_backlash, args.try_sign_flips, rejected,
+                           args.backlash_knots)
 
   start_pose, offsets, backlash, pan_axis, curves = fit.unpack(best_x)
   deltas = fit.deltas(offsets, backlash, curves)
@@ -333,12 +374,15 @@ def main():
       print(f"\n== {axis}: no measured stops")
       continue
     positions = [fit.stops[i][axis] for i in indices]
-    half = backlash[axis] / 2.0
+    half = backlash_at(backlash[axis], fit.start[axis]) / 2.0
     label = "fitted " if args.fit_backlash else ""
-    band = (f", started {offsets[axis]:+.2f} deg within [{-half:+.2f}, {half:+.2f}]"
+    band = (f", started {offsets[axis] * half:+.2f} deg within [{-half:+.2f}, {half:+.2f}]"
             if half else "")
+    across = (f" ({backlash_at(backlash[axis], min(positions)):.2f} -> "
+              f"{backlash_at(backlash[axis], max(positions)):.2f} deg across the range)"
+              if len(backlash[axis]) > 1 else " deg")
     print(f"\n== {axis}  (range {min(positions):+.4f} .. {max(positions):+.4f}, "
-          f"{label}backlash {backlash[axis]:.2f} deg{band})")
+          f"{label}backlash {backlash_config(backlash[axis])}{across}{band})")
 
     other = "tilt" if axis == "pan" else "pan"
 
@@ -382,7 +426,7 @@ def main():
   if args.fit_pan_axis:
     config["pan_axis"] = [round(float(v), 4) for v in pan_axis]
   if args.fit_backlash:
-    config.update({f"{axis}_backlash_deg": round(float(backlash[axis]), 2) for axis in AXES})
+    config.update({f"{axis}_backlash_deg": backlash_config(backlash[axis]) for axis in AXES})
   result["config"] = config
   if args.result_json:
     with open(args.result_json, "w", encoding="utf-8") as handle:
@@ -396,7 +440,7 @@ def main():
     print(f'  "pan_axis": {json.dumps([round(float(v), 4) for v in pan_axis])},')
   if args.fit_backlash:
     for axis in AXES:
-      print(f'  "{axis}_backlash_deg": {round(float(backlash[axis]), 2)},')
+      print(f'  "{axis}_backlash_deg": {json.dumps(backlash_config(backlash[axis]))},')
   print("\n'actual' is the rotation the tags say the camera made; 'current'/'fitted' are what\n"
         "the service computes with the current/fitted curve, from the fitted start state.\n"
         "A floor well above the start-position error means the rest is not in the curve\n"

@@ -45,6 +45,8 @@
 #   --scale-tilt-range A B    texture sweep tilt range (default 0.2 0.9)
 #   --pan-path "OFFSETS"      accuracy measurement pan offsets (default: tool's)
 #   --tilt-path "OFFSETS"     accuracy measurement tilt offsets (default: tool's)
+#   --backlash-knots PAN TILT backlash values fitted across each axis's range,
+#                             interpolated between them (default 3 1)
 #   --accept-poor-lens        continue even if the lens fit is poorly constrained
 #   --yes                     don't ask for confirmation
 #
@@ -61,7 +63,7 @@ REMOTE=/tmp/ptz_tools
 CAMERA="" HOST="" PORT=80 ROUNDS=2 SKIP_LENS=0 SKIP_SCALE=0 YES=0 ACCEPT_POOR_LENS=0
 LENS_PAN_SPAN=0.12 LENS_TILT_SPAN=0.1
 SCALE_PAN_RANGE=(-0.9 0.9) SCALE_TILT_RANGE=(0.2 0.9)
-PAN_PATH=() TILT_PATH=()
+PAN_PATH=() TILT_PATH=() BACKLASH_KNOTS=(3 1)
 
 usage() { sed -n '/^# Usage:/,/^# Environment/p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
 
@@ -78,6 +80,7 @@ while [[ $# -gt 0 ]]; do
     --scale-tilt-range) SCALE_TILT_RANGE=("$2" "$3"); shift 3 ;;
     --pan-path) read -ra PAN_PATH <<<"$2"; shift 2 ;;
     --tilt-path) read -ra TILT_PATH <<<"$2"; shift 2 ;;
+    --backlash-knots) BACKLASH_KNOTS=("$2" "$3"); shift 3 ;;
     --accept-poor-lens) ACCEPT_POOR_LENS=1; shift ;;
     --yes) YES=1; shift ;;
     -h|--help) usage ;;
@@ -156,7 +159,8 @@ measure_and_fit() {
 fit() {
   local tag=$1; shift
   in_autocal "$REMOTE/fit_ptz_curves.py" --input "/tmp/accuracy_${CAMERA}_$tag.json" \
-      --fit-backlash --try-sign-flips --result-json "/tmp/fit_${CAMERA}_$tag.json" "$@" \
+      --fit-backlash --backlash-knots "${BACKLASH_KNOTS[@]}" --try-sign-flips \
+      --result-json "/tmp/fit_${CAMERA}_$tag.json" "$@" \
       | grep -E 'Dropping|correction|Pan axis|^==|service, as|current|curve |floor|WARNING'
   docker cp "$AUTOCAL:/tmp/fit_${CAMERA}_$tag.json" "$OUT/fit_$tag.json" >/dev/null
 }

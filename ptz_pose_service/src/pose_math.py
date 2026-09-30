@@ -96,6 +96,25 @@ def apply_backlash(
   return min(max(previous_angle, reported_angle - half), reported_angle + half)
 
 
+def backlash_degrees_at(backlash, position: float) -> float:
+  """Backlash at an ONVIF position.
+
+  ``backlash`` is either one value in degrees, or ``[[position, degrees], ...]``
+  interpolated linearly between those positions and held constant beyond the
+  first and last: gear slack can vary across the travel (on the development
+  camera pan went from ~0.2 deg on one side to ~2.4 deg on the other).
+  """
+  if not isinstance(backlash, (list, tuple)):
+    return max(0.0, float(backlash or 0.0))
+  knots = sorted((float(p), float(d)) for p, d in backlash)
+  if position <= knots[0][0]:
+    return max(0.0, knots[0][1])
+  for (p0, d0), (p1, d1) in zip(knots, knots[1:]):
+    if position <= p1:
+      return max(0.0, d0 + (d1 - d0) * (position - p0) / (p1 - p0))
+  return max(0.0, knots[-1][1])
+
+
 def compose_ptz_rotation(
     home_rotation: Sequence[float],
     delta_pan_degrees: float,

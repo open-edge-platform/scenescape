@@ -19,7 +19,7 @@ import os
 import signal
 import time
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from scene_common import log
 from scene_common.mqtt import PubSub
@@ -33,6 +33,7 @@ from dlstreamer.onvif import (
 
 from pose_math import (
     rotation_delta_magnitude, scale_from_fov, axis_angle_degrees, apply_backlash,
+    backlash_degrees_at,
     compose_ptz_rotation, visible_point_correspondences,
     split_point_correspondence_transforms, join_point_correspondence_transforms,
 )
@@ -79,9 +80,11 @@ class TrackedCamera:
   pan_curve: Optional[List[float]] = None
   tilt_curve: Optional[List[float]] = None
   # Gear slack, in degrees, and the physical angle each axis is tracked to be
-  # at within it (see pose_math.apply_backlash).
-  pan_backlash_deg: float = 0.0
-  tilt_backlash_deg: float = 0.0
+  # Gear slack in degrees - one value, or [[position, degrees], ...] across the
+  # travel - and the physical angle each axis is tracked to be at within it
+  # (see pose_math.apply_backlash).
+  pan_backlash_deg: Union[float, List[List[float]]] = 0.0
+  tilt_backlash_deg: Union[float, List[List[float]]] = 0.0
   pan_physical_deg: Optional[float] = None
   tilt_physical_deg: Optional[float] = None
   home_pan_physical_deg: float = 0.0
@@ -466,9 +469,11 @@ class PTZPoseContext:
     reported_tilt = axis_angle_degrees(tilt, camera.tilt_scale, camera.tilt_curve,
                                        camera.invert_tilt)
     camera.pan_physical_deg = apply_backlash(
-        camera.pan_physical_deg, reported_pan, camera.pan_backlash_deg)
+        camera.pan_physical_deg, reported_pan,
+        backlash_degrees_at(camera.pan_backlash_deg, pan))
     camera.tilt_physical_deg = apply_backlash(
-        camera.tilt_physical_deg, reported_tilt, camera.tilt_backlash_deg)
+        camera.tilt_physical_deg, reported_tilt,
+        backlash_degrees_at(camera.tilt_backlash_deg, tilt))
 
     delta_pan = camera.pan_physical_deg - camera.home_pan_physical_deg
     delta_tilt = camera.tilt_physical_deg - camera.home_tilt_physical_deg
@@ -494,8 +499,9 @@ class PTZPoseContext:
     return
 
   @staticmethod
-  def _homePhysicalAngle(position, scale, curve, invert, backlash_deg, approach):
+  def _homePhysicalAngle(position, scale, curve, invert, backlash, approach):
     reported = axis_angle_degrees(position, scale, curve, invert)
+    backlash_deg = backlash_degrees_at(backlash, position)
     if not approach or backlash_deg <= 0.0:
       return reported
     if approach not in HOME_APPROACHES:
@@ -669,8 +675,8 @@ class PTZPoseContext:
             pan_curve=entry.get('pan_curve'),
             pan_axis=entry.get('pan_axis'),
             tilt_curve=entry.get('tilt_curve'),
-            pan_backlash_deg=float(entry.get('pan_backlash_deg') or 0.0),
-            tilt_backlash_deg=float(entry.get('tilt_backlash_deg') or 0.0),
+            pan_backlash_deg=entry.get('pan_backlash_deg') or 0.0,
+            tilt_backlash_deg=entry.get('tilt_backlash_deg') or 0.0,
             pose_settle_s=float(entry.get('pose_settle_s', self.pose_settle_s)),
             pan_home_approach=entry.get('pan_home_approach'),
             tilt_home_approach=entry.get('tilt_home_approach'),
