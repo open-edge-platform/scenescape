@@ -266,6 +266,23 @@ SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
 
 Requires `make build-dlsps-g3d` after pulling the DLS `accumulate-past` change.
 
+### C4c — Intel latency optimizations (2026-09-28 → 09-29)
+
+Quality gate above is unchanged; this section is **runtime**. Full tables live in
+[`.github/plans/radar-first-class-and-g3dinference.md`](../../.github/plans/radar-first-class-and-g3dinference.md)
+(*Results rollup*).
+
+| Change | Metric improved | Result |
+| --- | --- | --- |
+| Causal `accumulate-past=10` | Live densify vs offline ±5 | **52.7%** VRU@3m ≈ H=5 **52.4%** |
+| Stage 2a score-gated postproc | VIDETEC slice total latency | **107 → 53 ms** (~2×); postproc 67 → 9 ms |
+| Stage 2b OV VFE + attention | Dense synthetic total (5k pts) | **1038 → 165 ms** (~6×); attn 610 → 46 ms |
+| FT5 train-time densify | Full-window VRU@3m | **~39%** — failed; keep FT2 |
+
+Ship: `FP16_ft2/` includes `radarpillars_vfe_linear.*` + `radarpillars_attention.*`;
+config keys `vfe_linear_model` / `attention_model`. Profiler:
+`profile_radarpillars_stages.py`.
+
 ### Fine-tune attempt 5 (train-time densify) — did not lift gate
 
 | Item | Value |
