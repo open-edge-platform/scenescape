@@ -207,9 +207,12 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             if (!valid[base]) {
                 continue;
             }
-            const auto& foot = world[base];
+            const auto& bl = world[base + 1];
+            const auto& br = world[base + 2];
             const auto& bbox = detections[i].bounding_box_px;
-            const double base_len = std::hypot(foot.x - cam_x, foot.y - cam_y);
+            const double base_x = (bl.x + br.x) / 2.0;
+            const double base_y = (bl.y + br.y) / 2.0;
+            const double base_len = std::hypot(base_x - cam_x, base_y - cam_y);
             const double base_angle = std::atan2(cam_z, base_len);
             type2_indices.push_back(i);
             type2_feet.push_back(
