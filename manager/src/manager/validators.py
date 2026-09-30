@@ -12,6 +12,16 @@ import open3d as o3d
 from PIL import Image
 from plyfile import PlyData
 
+# Allow-list: letters, digits, space, dash, underscore, dot; blocks path separators and traversal.
+SCENE_NAME_RE = re.compile(r'^[\w \-.]+$')
+
+def validate_scene_name(value):
+  if not SCENE_NAME_RE.match(value) or value.startswith('.') or '..' in value:
+    raise ValidationError(
+        "Scene name may only contain letters, digits, spaces, dashes, underscores, and dots, "
+        "and may not start with a dot or contain '..'.")
+  return value
+
 def validate_glb(value):
   with tempfile.NamedTemporaryFile(suffix=".glb") as glb_file:
     glb_file.write(value.read())
