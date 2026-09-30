@@ -227,8 +227,10 @@ def _generate_anchors(cfg):
 
 
 def _decode_boxes(box_preds, anchors, dir_preds, dir_offset, num_dir_bins):
-  """ResidualCoder-style decode (simplified)."""
-  # box_preds / anchors: (H, W, A, 7)  xa,ya,za,dx,dy,dz,r
+  """ResidualCoder-style decode (simplified).
+
+  Accepts ``(H, W, A, *)`` or flat ``(N, *)`` for box/anchors (7) and dir (2).
+  """
   xa, ya, za, dx, dy, dz, ra = np.split(anchors, 7, axis=-1)
   xt, yt, zt, dxt, dyt, dzt, rt = np.split(box_preds, 7, axis=-1)
   diagonal = np.sqrt(dx ** 2 + dy ** 2)
@@ -239,13 +241,76 @@ def _decode_boxes(box_preds, anchors, dir_preds, dir_offset, num_dir_bins):
   dyg = np.exp(dyt) * dy
   dzg = np.exp(dzt) * dz
   rg = rt + ra
-  # direction
   dir_cls = np.argmax(dir_preds, axis=-1)
   period = 2 * np.pi / num_dir_bins
   rg_lim = rg - dir_offset
   rg_lim = rg_lim - np.floor(rg_lim / period + 0.5) * period
+  # dir_cls is (...,) — broadcast to match rg's trailing singleton from split
   rg = rg_lim + dir_offset + period * dir_cls[..., None]
   return np.concatenate([xg, yg, zg, dxg, dyg, dzg, rg], axis=-1)
+
+
+def _logit_threshold(score_threshold: float) -> float:
+  """Minimum logit such that sigmoid(logit) >= score_threshold."""
+  thr = float(score_threshold)
+  thr = min(max(thr, 1e-6), 1.0 - 1e-6)
+  return float(math.log(thr / (1.0 - thr)))
+
+
+def _postprocess_heads(cls_preds, box_preds, dir_preds, anchors, cfg) -> list[dict]:
+  """Score-gated decode + NMS (matches C++ radarpillars runtime).
+
+  Only decodes anchors whose best-class logit clears the score threshold,
+  avoiding a full 240k-box decode on sparse radar.
+  """
+  # (1, C, H, W) → (H, W, A, ...)
+  def rearrange(pred, per_anchor):
+    p = pred[0].transpose(1, 2, 0)  # H W C
+    h, w, c = p.shape
+    return p.reshape(h, w, c // per_anchor, per_anchor)
+
+  cls = rearrange(cls_preds, 3)
+  box = rearrange(box_preds, 7)
+  direction = rearrange(dir_preds, 2)
+  if anchors.shape[0] != cls.shape[0] or anchors.shape[1] != cls.shape[1]:
+    anchors = _generate_anchors(cfg)
+
+  # Best class via logits (equiv to sigmoid-then-argmax); gate before decode.
+  best_cls = cls.argmax(axis=-1)
+  best_logit = cls.max(axis=-1)
+  thr = float(cfg.get("score_threshold", 0.1))
+  logit_thr = _logit_threshold(thr)
+  mask = best_logit >= logit_thr
+  if not np.any(mask):
+    return []
+
+  box_m = box[mask]
+  anc_m = anchors[mask]
+  dir_m = direction[mask]
+  cls_m = best_cls[mask]
+  # Stable sigmoid for survivors only
+  scores_m = 1.0 / (1.0 + np.exp(-best_logit[mask]))
+  decoded = _decode_boxes(box_m, anc_m, dir_m, cfg["dir_offset"], cfg["num_dir_bins"])
+  if decoded.ndim > 2:
+    decoded = decoded.reshape(-1, 7)
+  else:
+    decoded = decoded.reshape(-1, 7)
+
+  keep = _nms(decoded, scores_m, float(cfg.get("nms_thresh", 0.1)))
+  names = cfg["class_names"]
+  objects = []
+  for idx, k in enumerate(keep):
+    b = decoded[k]
+    cat = names[int(cls_m[k])] if int(cls_m[k]) < len(names) else "vehicle"
+    objects.append({
+      "id": idx + 1,
+      "category": cat,
+      "confidence": float(scores_m[k]),
+      "translation": [float(b[0]), float(b[1]), float(b[2])],
+      "size": [float(b[3]), float(b[4]), float(b[5])],
+      "rotation": _yaw_to_quat(float(b[6])),
+    })
+  return objects
 
 
 def _nms(boxes, scores, thresh, top_k=100):
@@ -334,43 +399,4 @@ class RadarPillarsOV:
       if len(outs) < 3:
         raise RuntimeError(f"Unexpected OV outputs: {[o.shape for o in outs]}")
       cls_preds, box_preds, dir_preds = outs[0], outs[1], outs[2]
-    # (1, C, H, W) → (H, W, A, ...)
-    def rearrange(pred, per_anchor):
-      p = pred[0].transpose(1, 2, 0)  # H W C
-      h, w, c = p.shape
-      a = c // per_anchor
-      return p.reshape(h, w, a, per_anchor)
-
-    cls = rearrange(cls_preds, 3)
-    box = rearrange(box_preds, 7)
-    direction = rearrange(dir_preds, 2)
-    anchors = self.anchors
-    if anchors.shape[0] != cls.shape[0] or anchors.shape[1] != cls.shape[1]:
-      # regenerate if mismatch
-      anchors = _generate_anchors(cfg)
-    decoded = _decode_boxes(box, anchors, direction, cfg["dir_offset"], cfg["num_dir_bins"])
-    scores = 1.0 / (1.0 + np.exp(-cls))  # sigmoid
-    # per location take best class
-    best_cls = scores.argmax(axis=-1)
-    best_score = scores.max(axis=-1)
-    thr = float(cfg.get("score_threshold", 0.1))
-    flat_boxes = decoded.reshape(-1, 7)
-    flat_scores = best_score.reshape(-1)
-    flat_cls = best_cls.reshape(-1)
-    mask = flat_scores >= thr
-    flat_boxes, flat_scores, flat_cls = flat_boxes[mask], flat_scores[mask], flat_cls[mask]
-    keep = _nms(flat_boxes, flat_scores, float(cfg.get("nms_thresh", 0.1)))
-    names = cfg["class_names"]
-    objects = []
-    for idx, k in enumerate(keep):
-      b = flat_boxes[k]
-      cat = names[int(flat_cls[k])] if int(flat_cls[k]) < len(names) else "vehicle"
-      objects.append({
-        "id": idx + 1,
-        "category": cat,
-        "confidence": float(flat_scores[k]),
-        "translation": [float(b[0]), float(b[1]), float(b[2])],
-        "size": [float(b[3]), float(b[4]), float(b[5])],
-        "rotation": _yaw_to_quat(float(b[6])),
-      })
-    return objects
+    return _postprocess_heads(cls_preds, box_preds, dir_preds, self.anchors, cfg)
