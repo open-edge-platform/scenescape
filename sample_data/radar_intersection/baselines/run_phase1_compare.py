@@ -183,7 +183,8 @@ def _render_md(summary: dict) -> str:
     "",
     "## Notes",
     "",
-    "- **classical**: `radar/` distance cluster + NN track; |doppler|≥0.4 → `person`.",
+    "- **classical**: cluster + NN track; live demo person iff |doppler| ∈ [0.4, 3.0) m/s "
+    "(faster detections stay vehicle).",
     "- **roadside**: PointNet-style semantic seg + class-aware cluster (keeps 1-pt objects);",
     "  weakly trained on GNSS (person radius 3 m); train 500–9000 excluding eval 2100–4100.",
     "- **radarpillars_***: prior P0 FT2 / OV-FT2 GNSS JSON (not re-run here).",

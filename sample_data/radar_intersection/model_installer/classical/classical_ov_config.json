@@ -3,8 +3,9 @@
   "cluster_distance_m": 2.5,
   "track_distance_m": 5.0,
   "doppler_person_mps": 0.4,
+  "doppler_person_max_mps": 3.0,
   "track_ttl_frames": 5,
   "point_features": 5,
   "class_names": ["vehicle", "person", "cyclist"],
-  "notes": "Host cluster+track; no neural IR. Config path required by g3dinference."
+  "notes": "Host cluster+track; no neural IR. Person only for |doppler| in [doppler_person_mps, doppler_person_max_mps); faster detections (cars) stay vehicle."
 }

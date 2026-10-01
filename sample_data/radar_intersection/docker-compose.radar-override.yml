@@ -90,19 +90,31 @@ services:
           echo "radar-data-init: no real VIDETEC under /src/radar — synthetic fallback"
         fi
         PYTHONPATH=/prepare python3 /prepare/prepare_radar_demo_data.py $${PREPARE_ARGS}
-        # Second radar unit (radar_dataset_52) → radar2/pcd_bin (causal densify in g3d).
+        # Second radar (dataset 52): stage frames_bin (classical/roadside) and
+        # pcd bins (radarpillars). Publisher picks the subdir from RADAR_PERCEPTION.
+        R2_STAGED=0
+        if [ -d /src/radar2/frames_bin ] && ls /src/radar2/frames_bin/*.bin >/dev/null 2>&1; then
+          mkdir -p /dst/radar_intersection/radar2/frames_bin
+          rm -f /dst/radar_intersection/radar2/frames_bin/*.bin
+          cp /src/radar2/frames_bin/*.bin /dst/radar_intersection/radar2/frames_bin/
+          echo "radar-data-init: staged $$(ls /dst/radar_intersection/radar2/frames_bin/*.bin | wc -l) radar2 frames_bin"
+          R2_STAGED=1
+        fi
         R2_SUB="$${RADAR2_PCD_SUBDIR:-pcd_bin}"
         if [ -d "/src/radar2/$${R2_SUB}" ] && ls "/src/radar2/$${R2_SUB}"/*.bin >/dev/null 2>&1; then
           mkdir -p /dst/radar_intersection/radar2/pcd_bin
           rm -f /dst/radar_intersection/radar2/pcd_bin/*.bin
           cp "/src/radar2/$${R2_SUB}"/*.bin /dst/radar_intersection/radar2/pcd_bin/
-          echo "radar-data-init: staged $$(ls /dst/radar_intersection/radar2/pcd_bin/*.bin | wc -l) radar2 bins from $${R2_SUB}"
+          echo "radar-data-init: staged $$(ls /dst/radar_intersection/radar2/pcd_bin/*.bin | wc -l) radar2 pcd_bin from $${R2_SUB}"
+          R2_STAGED=1
         elif [ -d /src/radar2/pcd_bin ] && ls /src/radar2/pcd_bin/*.bin >/dev/null 2>&1; then
           mkdir -p /dst/radar_intersection/radar2/pcd_bin
           rm -f /dst/radar_intersection/radar2/pcd_bin/*.bin
           cp /src/radar2/pcd_bin/*.bin /dst/radar_intersection/radar2/pcd_bin/
-          echo "radar-data-init: staged $$(ls /dst/radar_intersection/radar2/pcd_bin/*.bin | wc -l) radar2 bins from pcd_bin"
-        else
+          echo "radar-data-init: staged $$(ls /dst/radar_intersection/radar2/pcd_bin/*.bin | wc -l) radar2 pcd_bin"
+          R2_STAGED=1
+        fi
+        if [ "$${R2_STAGED}" = "0" ]; then
           echo "radar-data-init: no radar2 bins under /src/radar2 — second radar muted unless provided"
         fi
         # Stage per-camera JPEG dirs (sensor_id/%06d.jpg) for synchronized multi-cam GST.
@@ -204,7 +216,9 @@ services:
       - RADAR_ACCUMULATE_PAST=${RADAR_ACCUMULATE_PAST:-0}
       - RADAR_MUTE=${RADAR_MUTE:-false}
       - RADAR_DATA_PATH=${RADAR_DATA_PATH:-}
-      - RADAR_DATA_PATHS=${RADAR_DATA_PATHS:-intersection-radar1:/home/pipeline-server/videos/radar_intersection/pcd_bin/%06d.bin,intersection-radar2:/home/pipeline-server/videos/radar_intersection/radar2/pcd_bin/%06d.bin}
+      # Empty → radar_publisher mode defaults (frames_bin for classical/roadside,
+      # pcd_bin for radarpillars) plus radar2/<subdir> for the second sensor.
+      - RADAR_DATA_PATHS=${RADAR_DATA_PATHS:-}
       - RADAR_INDEX_RANGES=${RADAR_INDEX_RANGES:-intersection-radar1:3270-4100,intersection-radar2:3098-3928}
       - RADAR_MODEL_CONFIG=${RADAR_MODEL_CONFIG:-}
       - RADAR_START_INDEX=${RADAR_START_INDEX:-3270}

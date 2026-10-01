@@ -213,7 +213,7 @@ the plugin. Compose steps:
 1. `radar-scene-init` — imports **Radar Intersection** if missing, then
    syncs every camera/radar pose from `RadarIntersection.json`.
 2. `radar-data-init` — `frames/`, `frames_bin/` (5-float), `pcd_bin/` /
-   `radar2/pcd_bin` (7-float), and per-camera JPEGs.
+   `radar2/frames_bin` + `radar2/pcd_bin`, and per-camera JPEGs.
 3. `radar-model-init` — installs config/IR for the selected `RADAR_PERCEPTION`.
 4. `radar-stream` — shared GST publish path for radars + cameras. Detections
    stay sensor-local; Controller applies the JSON poses.
@@ -278,7 +278,7 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `RADAR_RAW_DATASET_DIR` | `…/VIDETEC-2/converted` | Host radar1 `frames/` / bins |
 | `RADAR2_RAW_DATASET_DIR` | `…/VIDETEC-2/converted_r52` | Host radar2 densified bins |
 | `RADAR_SENSOR_IDS` | `intersection-radar1,intersection-radar2` | Comma list of radar MQTT ids |
-| `RADAR_DATA_PATHS` / `RADAR_INDEX_RANGES` | see compose | Per-radar bin path and start-stop |
+| `RADAR_DATA_PATHS` / `RADAR_INDEX_RANGES` | empty / index ranges | Per-radar path override (default: mode `frames_bin` or `pcd_bin` + `radar2/…`) |
 | `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `3270` / `4100` | Default radar1 slice (overridden per-id via `RADAR_INDEX_RANGES`) |
 | `RADAR_REQUIRE_REAL` | `true` (via Makefile) | Fail if no real VIDETEC inputs |
 | `DEMO_REBUILD_IMAGES` | `true` | Set `false` to skip Scenescape image rebuild |
