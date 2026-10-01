@@ -42,9 +42,9 @@ SCENE_NAME = "Demo"
 
 # camera1 is pre-registered in tests/testdb.tar.bz2.
 CONTROL_CAMERA = "camera1"
-CANARY_CAMERA = "sensor10"
+SEEDED_CONTROL_CAMERA = "sensor10"
 INVALID_SENDER = "sensor_bad"
-SEEDED_CAMERAS = (CANARY_CAMERA, INVALID_SENDER)
+SEEDED_CAMERAS = (SEEDED_CONTROL_CAMERA, INVALID_SENDER)
 
 UNKNOWN_CAMERA = "camera4"
 
@@ -259,7 +259,7 @@ def _print_evidence(evidence):
     log.info(line)
 
 @pytest.mark.test_name("NEX-T10423")
-def test_malformed_data(scenescape_env, params):
+def test_malformed_data(scenescape_env, params, result_recorder):
   rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
   assert rest.authenticate(params["user"], params["password"]), \
     "REST authentication failed"
@@ -323,17 +323,17 @@ def test_malformed_data(scenescape_env, params):
         f"unknown sender {UNKNOWN_CAMERA!r} produced {seen} scene updates"
       )
 
-    # Freshly seeded camera with valid data must be forwarded,
-    # confirming registration and the database are healthy.
-    canary_count, payload = _drive_until_emit(
-      pubsub, counter, CANARY_CAMERA, EMIT_TIMEOUT_S,
+    # Second positive control, registered the same way as INVALID_SENDER, so a
+    # failure here means the seeding path broke rather than schema validation.
+    seeded_count, payload = _drive_until_emit(
+      pubsub, counter, SEEDED_CONTROL_CAMERA, EMIT_TIMEOUT_S,
     )
-    ok = canary_count > 0
-    evidence.append((CANARY_CAMERA, "valid (canary)", payload, ">0",
-                     canary_count, "ACCEPTED" if ok else "DROPPED", ok))
+    ok = seeded_count > 0
+    evidence.append((SEEDED_CONTROL_CAMERA, "valid (seeded control)", payload,
+                     ">0", seeded_count, "ACCEPTED" if ok else "DROPPED", ok))
     if not ok:
       failures.append(
-        f"canary {CANARY_CAMERA!r} produced no scene updates"
+        f"seeded control {SEEDED_CONTROL_CAMERA!r} produced no scene updates"
       )
   finally:
     pubsub.loopStop()
@@ -341,12 +341,5 @@ def test_malformed_data(scenescape_env, params):
 
   _print_evidence(evidence)
 
-  result = 1 if failures else 0
-  for failure in failures:
-    print("FAILURE:", failure)
-
-  assert result == 0, "; ".join(failures)
-
-
-if __name__ == "__main__":
-  pytest.main([__file__])
+  assert not failures, "; ".join(failures)
+  result_recorder.success()
