@@ -26,5 +26,5 @@ setuptools==83.0.0
 torch==2.13.0
 torchvision==0.28.0+cpu
 tqdm==4.67.3
-trimesh==4.11.5
+trimesh==5.1.0
 wheel==0.47.0
