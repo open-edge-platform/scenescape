@@ -3,6 +3,7 @@
 
 import json
 import os
+import ssl
 import paho.mqtt.client as mqtt
 import re
 import struct
@@ -98,8 +99,15 @@ class PubSub(_PubSubTopicBase):
         certs = {}
 
     self.client = initializeMqttClient(transport=transport, userdata=userdata)
-    if not self.checkTlsConnection(certs, transport, userdata):
-      return
+    if insecure and certs is not None:
+      certs['cert_reqs'] = ssl.CERT_NONE
+    if certs is not None:
+      try:
+        self.client.tls_set(**certs)
+      except Exception as e:
+        raise RuntimeError(
+          f"Failed to configure TLS for MQTT broker {self.broker}:{self.port}"
+        ) from e
 
     if auth is not None:
       user = pw = None
@@ -148,24 +156,6 @@ class PubSub(_PubSubTopicBase):
     if match:
       return match.groups()
     return None
-
-  def onTlsConnect(self, client, userdata, flags, rc):
-    if rc == mqtt.CONNACK_ACCEPTED:
-      log.info("connection accepted")
-    else:
-      log.info("connection failed")
-    return
-
-  def checkTlsConnection(self, certs, transport, userdata):
-    self.client.on_connect = self.onTlsConnect
-    try:
-      self.client.tls_set(**certs)
-      self.client.connect(self.broker, self.port, 60)
-      return True
-
-    except Exception as e:
-      self.client = initializeMqttClient(transport=transport, userdata=userdata)
-      return False
 
   def connect(self):
     return self.client.connect(self.broker, self.port, self.keepalive)
