@@ -56,7 +56,7 @@ Two capabilities in Scenescape are being **delegated** to new OEP components, an
 DLSPS is **already integrated** with Scenescape as the pipeline runtime; this integration is being evolved, not introduced. Two limitations of today's integration drive the evolution:
 
 - DLSPS does not (today) expose a runtime API for arbitrary pipeline reconfiguration, and runs a statically configured number of pipelines. As a consequence, the Kubernetes flow above **recreates DLSPS pods on every pipeline update**. Once DLSPS exposes a runtime pipeline API, Scenescape will use it for true dynamic pipeline lifecycle in both Docker Compose and Kubernetes deployments.
-- Scenescape injects custom Python logic — the _SceneScape adapter_ — into DLSPS pipelines via `gvapython` elements. The adapter code lives under [`dlstreamer-pipeline-server/user_scripts/gstplugins/`](../../dlstreamer-pipeline-server/user_scripts/gstplugins/) in the Scenescape repository (not in the DLSPS repository); it is statically injected into DLSPS pipeline configurations and executed by DLSPS at runtime. The `gvapython` element is itself being deprecated upstream in favour of the Gst Analytics Python API. The adapter is monolithic today; refactoring it into smaller, reusable units is a multi-phase activity discussed in the _Open Questions_ section.
+- Scenescape injects custom Python logic — the _SceneScape adapter_ — into DLSPS pipelines via `gvapython` elements. The adapter code lives under [`dlstreamer-pipeline-server/user_scripts/gstplugins/`](../../dlstreamer-pipeline-server/user_scripts/gstplugins/) in the Scenescape repository (not in the DLSPS repository); it is statically injected into DLSPS pipeline configurations and executed by DLSPS at runtime. These elements have already replaced the former monolithic `gvapython` adapter.
 
 ### 4.2 Scenescape Component Reference
 
@@ -306,7 +306,7 @@ The exact pipeline-definition format (parametrization syntax, version envelope) 
 | Frequency                                        | At scene start/stop and on any pipeline-to-source mapping change.                                                                                                                                          |
 | Failure mode                                     | Lifecycle-call failures surface to Pipeline Orchestrator; the legacy pod-recreation (Kubernetes) and static-JSON (Docker Compose) mechanisms remain available until parity, per the _Constraints_ section. |
 
-**Scenescape-authored DLSPS extensions.** The `gvapython`-based extension code under [`dlstreamer-pipeline-server/user_scripts/gstplugins/`](../../dlstreamer-pipeline-server/user_scripts/gstplugins/) is statically injected into DLSPS pipeline configurations and runs inside the DLSPS pipeline process. It is **not** part of the DLSPS client library (the client library is a Scenescape-side Python API; the extensions run inside DLSPS). Its migration from `gvapython` to the Gst Analytics Python API and its breakdown into smaller units are tracked in _Open Questions_.
+**Scenescape-authored DLSPS extensions.** The `gvapython`-based extension code under [`dlstreamer-pipeline-server/user_scripts/gstplugins/`](../../dlstreamer-pipeline-server/user_scripts/gstplugins/) is statically injected into DLSPS pipeline configurations and runs inside the DLSPS pipeline process. It is **not** part of the DLSPS client library (the client library is a Scenescape-side Python API; the extensions run inside DLSPS).
 
 #### 5.5.4 Scenescape ↔ Stream Manager
 
