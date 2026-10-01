@@ -29,18 +29,13 @@ double readNumber(const rapidjson::Value& obj, const char* key, double fallback)
     return obj[key].GetDouble();
 }
 
-int readShiftType(const rapidjson::Value& obj) {
-    if (!obj.HasMember("shift_type") || !obj["shift_type"].IsNumber()) {
-        return ObjectClassConfig::kShiftType1;
-    }
-    const int value = obj["shift_type"].GetInt();
-    return value == ObjectClassConfig::kShiftType2 ? ObjectClassConfig::kShiftType2
-                                                   : ObjectClassConfig::kShiftType1;
-}
-
 ObjectClassConfig parseAssetObject(const rapidjson::Value& asset) {
     ObjectClassConfig config;
-    config.shift_type = readShiftType(asset);
+    // Controller camLoc: only shift_type == 2 (2.0 too) selects TYPE_2.
+    config.shift_type = readNumber(asset, "shift_type", ObjectClassConfig::kShiftType1) ==
+                                ObjectClassConfig::kShiftType2
+                            ? ObjectClassConfig::kShiftType2
+                            : ObjectClassConfig::kShiftType1;
 
     // Controller: mean([x_size, y_size]) / 2, zero sizes included.
     config.footprint_half_m = (readNumber(asset, "x_size", kDefaultEdgeLength) +

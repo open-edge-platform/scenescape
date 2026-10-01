@@ -55,6 +55,19 @@ TEST(ObjectClassTest, MissingOrNonNumericSizesUseDefaultEdgeLength) {
     EXPECT_DOUBLE_EQ(*cfg.footprint_half_m, 0.5);
 }
 
+TEST(ObjectClassTest, ShiftTypeMatchesControllerEquality) {
+    const auto map = parseObjectClassesFromAssetsJson(R"({"results":[
+        {"name":"float2","shift_type":2.0},
+        {"name":"three","shift_type":3},
+        {"name":"string2","shift_type":"2"},
+        {"name":"null","shift_type":null}
+    ]})");
+    EXPECT_EQ(lookupObjectClass(map, "float2").shift_type, ObjectClassConfig::kShiftType2);
+    EXPECT_EQ(lookupObjectClass(map, "three").shift_type, ObjectClassConfig::kShiftType1);
+    EXPECT_EQ(lookupObjectClass(map, "string2").shift_type, ObjectClassConfig::kShiftType1);
+    EXPECT_EQ(lookupObjectClass(map, "null").shift_type, ObjectClassConfig::kShiftType1);
+}
+
 TEST(ObjectClassTest, SkipsNamelessEntries) {
     const auto map = parseObjectClassesFromAssetsJson(
         R"({"results":[{"shift_type":2},{"name":"car","shift_type":2,"x_size":2,"y_size":4}]})");
