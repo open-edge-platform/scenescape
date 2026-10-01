@@ -116,7 +116,12 @@ services:
       - OBJECT_COUNT=${NUM_OBJECTS:-300}
       - DEFAULT_TEST_DURATION=${DURATION:-1m}
       - CAMERA_ID_PREFIX=atag-qcam
-    command: ["run", "--no-usage-report", "/scripts/${K6_SCRIPT:-simulate-detections.js}"]
+    command:
+      [
+        "run",
+        "--no-usage-report",
+        "/scripts/${K6_SCRIPT:-simulate-detections.js}",
+      ]
     depends_on:
       tracker:
         condition: service_healthy

@@ -316,7 +316,8 @@ MessageHandler::parseExternalSourceMessage(const std::string& payload) {
     if (document.HasParseError() || !document.IsObject() ||
         (schema_validation_ && external_source_schema_ &&
          !validateJson(document, external_source_schema_.get()))) {
-        LOG_WARN("Failed to validate external source message against schema -  {}", payload.c_str());
+        LOG_WARN("Failed to validate external source message against schema -  {}",
+                 payload.c_str());
         return std::nullopt;
     }
     if (!document.HasMember("source_id") || !document["source_id"].IsString() ||

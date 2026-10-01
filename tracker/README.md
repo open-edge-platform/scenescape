@@ -139,14 +139,14 @@ The tracker includes k6-based camera-only, external-source-only, and mixed load 
 
 **Test parameters** are configurable via environment variables:
 
-| Variable               | Default | Description                          |
-| ---------------------- | ------- | ------------------------------------ |
-| `NUM_CAMERAS`          | `4`     | Simulated camera count               |
-| `NUM_EXTERNAL_SOURCES` | `0` or `4` | External source count by target   |
-| `FPS`                  | `15`    | Messages per second per camera       |
-| `EXTERNAL_FPS`          | `FPS`   | Messages per second per source       |
-| `NUM_OBJECTS`          | `300`   | Objects per message/source           |
-| `DURATION`             | `1m`    | Load duration                        |
+| Variable               | Default    | Description                     |
+| ---------------------- | ---------- | ------------------------------- |
+| `NUM_CAMERAS`          | `4`        | Simulated camera count          |
+| `NUM_EXTERNAL_SOURCES` | `0` or `4` | External source count by target |
+| `FPS`                  | `15`       | Messages per second per camera  |
+| `EXTERNAL_FPS`         | `FPS`      | Messages per second per source  |
+| `NUM_OBJECTS`          | `300`      | Objects per message/source      |
+| `DURATION`             | `1m`       | Load duration                   |
 
 **Example: Run a 5-minute mixed test with 8 cameras and 6 external sources:**
 
