@@ -20,7 +20,7 @@ This guide deploys a clean Scenescape instance with Docker Compose: an empty sce
 Before deploying for the first time, set the `SUPASS` environment variable to the super user password for logging into Scenescape. This should be different from your system user's password:
 
 ```bash
-export SUPASS=<password>
+export SUPASS='<choose-a-strong-admin-password>'
 ```
 
 Then, from the repository root:

@@ -79,9 +79,6 @@ TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics clust
 TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
 DEPLOYMENT_TEST ?= 0
 
-# Kubernetes demo variables
-DEMO_K8S_MODE ?= core
-
 # Observability variables
 CONTROLLER_ENABLE_METRICS ?= false
 CONTROLLER_METRICS_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
@@ -125,7 +122,7 @@ help:
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
-	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all|tracker, default: core)"
+	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEPLOY_PROFILES selects controller|tracker|mapping|cluster-analytics|reid, default: controller)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -178,14 +175,14 @@ help:
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
 	@echo "  - Use 'SUPASS=<password> make build-core docker-compose.yml .env deploy' to start without demo videos or scenes."
-	@echo "  - Use 'make build-all demo-k8s DEMO_K8S_MODE=all' to build Scenescape and run demo using Kubernetes with all services."
+	@echo "  - Use 'make build-all demo-k8s DEPLOY_PROFILES=\"controller mapping cluster-analytics reid\"' to build Scenescape and run demo using Kubernetes with all services."
 	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
 	@echo "  - Use 'make JOBS=N' to build Scenescape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
-	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEMO_K8S_MODE=reid|all)"
+	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEPLOY_PROFILES containing reid)"
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
 	@echo ""
 
@@ -645,10 +642,14 @@ lint-dockerfiles:
 
 .PHONY: prettier-dependency
 prettier-dependency:
-	@echo "==> Installing prettier dependencies from .github/resources/package.json..."; \
-	DEPS=$$(node -p "Object.entries(require('./.github/resources/package.json').devDependencies).map(([k,v]) => k+'@'+v).join(' ')"); \
-	npm install --no-save $$DEPS || (echo "Installing prettier dependencies failed" && exit 1); \
-	echo "DONE ==> Installing prettier dependencies"; \
+	@if npx --no-install prettier --version >/dev/null 2>&1 && node -e "require.resolve('prettier-plugin-jinja-template')" >/dev/null 2>&1; then \
+		echo "==> prettier dependencies already available, skipping install"; \
+	else \
+		echo "==> Installing prettier dependencies from .github/resources/package.json..."; \
+		DEPS=$$(node -p "Object.entries(require('./.github/resources/package.json').devDependencies).map(([k,v]) => k+'@'+v).join(' ')"); \
+		npm install --no-save $$DEPS || (echo "Installing prettier dependencies failed" && exit 1); \
+		echo "DONE ==> Installing prettier dependencies"; \
+	fi
 
 
 .PHONY: prettier-check
@@ -705,6 +706,7 @@ init-pipeline-runner-videos: convert-dls-videos
 # $(3): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
 	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)"
+	@touch .scenescape-demo
 	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)"
 	@$(MAKE) demo-scenes
 	@echo ""
@@ -781,17 +783,19 @@ demo-tracker: $(DEMO_BUILD:build=build-all)
 
 .PHONY: demo-close
 demo-close:
-	@if [ ! -f .scenescape-profile ]; then \
-		echo "Error: .scenescape-profile not found. Was the demo started with 'make demo'?"; \
+	@if [ ! -f .scenescape-demo ]; then \
+		echo "Error: .scenescape-demo not found. Was the demo started with 'make demo'?"; \
+		echo "If you deployed without demo media via 'make deploy', stop it instead with:"; \
+		echo "    docker compose \$$(cat .scenescape-profile 2>/dev/null) down"; \
 		exit 1; \
 	fi
 	@$(MAKE) video-source-down
 	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
-	@rm -f .scenescape-profile
+	@rm -f .scenescape-profile .scenescape-demo
 
 .PHONY: demo-k8s
 demo-k8s: check-reid-backend
-	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEMO_K8S_MODE=$(DEMO_K8S_MODE) REID_BACKEND=$(strip $(REID_BACKEND))
+	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEPLOY_PROFILES="$(DEPLOY_PROFILES)" REID_BACKEND=$(strip $(REID_BACKEND))
 
 .PHONY: docker-compose.yml
 docker-compose.yml:

@@ -14,7 +14,7 @@ Before you begin, prepare container images: see [Prepare Container Images](./pre
 ### Deploy
 
 ```bash
-export SUPASS=<password>
+export SUPASS='<choose-a-strong-admin-password>'
 make demo
 ```
 
@@ -23,7 +23,7 @@ make demo
 To use prebuilt images instead of building locally, after preparing them per [Prepare Container Images](./prepare-images.md):
 
 ```bash
-SUPASS=<password> DEMO_REBUILD_IMAGES=false make demo
+SUPASS='<choose-a-strong-admin-password>' DEMO_REBUILD_IMAGES=false make demo
 ```
 
 ### Demo Tiers

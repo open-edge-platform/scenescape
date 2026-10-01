@@ -37,10 +37,17 @@ RELEASE=scenescape-release-1
 FORCE_VAAPI?=0
 CHART_DEBUG?=0
 
-# Deployment mode for Kubernetes (core, reid, all or tracker)
-DEMO_K8S_MODE?=core
-# ReID vector database backend used when ReID is deployed: vdms (default) or qdrant
+# Compose-profile-style selector shared with the root Makefile's DEPLOY_PROFILES:
+# space-separated list of controller|tracker|mapping|cluster-analytics|reid
+DEPLOY_PROFILES?=controller
+# ReID vector database backend used when "reid" is in DEPLOY_PROFILES: vdms (default) or qdrant
 REID_BACKEND?=vdms
+
+TRACKER_ARG := $(if $(filter tracker,$(DEPLOY_PROFILES)),--set tracker.enabled=true,)
+MAPPING_ARG := $(if $(filter mapping,$(DEPLOY_PROFILES)),--set mapping.enabled=true,)
+CLUSTER_ANALYTICS_ARG := $(if $(filter cluster-analytics,$(DEPLOY_PROFILES)),--set clusterAnalytics.enabled=true,)
+REID_ARG := $(if $(filter reid,$(DEPLOY_PROFILES)),--set reid.enabled=true --set reid.backend=$(REID_BACKEND),--set reid.enabled=false)
+MODE_ARG := $(strip $(TRACKER_ARG) $(MAPPING_ARG) $(CLUSTER_ANALYTICS_ARG) $(REID_ARG))
 
 # Directory with one subdirectory per demo scene (each holding a <name>.zip),
 # and the client that uploads them
@@ -57,7 +64,10 @@ UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
 # Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install Scenescape with helm
-default: install-deps clean-kind kind load-core video-source-up install
+# Tracker/mapping/cluster-analytics need their own image (load-all); tracker
+# also has no use for the bundled demo cameras, since it replaces the Scene
+# Controller entirely.
+default: install-deps clean-kind kind $(if $(filter tracker mapping cluster-analytics,$(DEPLOY_PROFILES)),load-all,load-core) $(if $(filter tracker,$(DEPLOY_PROFILES)),,video-source-up) install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
@@ -252,11 +262,8 @@ copy-files:
 	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
 
 
-check-demo-k8s-mode:
-	@case "$(DEMO_K8S_MODE)" in \
-	  core|reid|all|tracker) ;; \
-	  *) echo "Invalid DEMO_K8S_MODE '$(DEMO_K8S_MODE)'. Use core, reid, all or tracker."; exit 1 ;; \
-	esac
+.PHONY: check-reid-backend
+check-reid-backend:
 	@case "$(REID_BACKEND)" in \
 	  vdms|qdrant) ;; \
 	  *) echo "Invalid REID_BACKEND '$(REID_BACKEND)'. Use vdms or qdrant."; exit 1 ;; \
@@ -284,7 +291,7 @@ demo-scenes:
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
-install: check-demo-k8s-mode copy-files chart.yaml
+install: check-reid-backend copy-files chart.yaml
 	@VALUES_FILE=$$(mktemp); \
 	trap 'rm -f "$$VALUES_FILE"' EXIT; \
 	if [ -n "$(http_proxy)" ]; then \
@@ -310,17 +317,9 @@ install: check-demo-k8s-mode copy-files chart.yaml
 	if [ -n "$${SCENESCAPE_ALLOWED_HOSTS}" ]; then \
 		ALLOWED_HOSTS_ARG="--set web.allowedHosts=$${SCENESCAPE_ALLOWED_HOSTS}"; \
 	fi; \
-	MODE_ARG="--set reid.enabled=false"; \
-	if [ "$(DEMO_K8S_MODE)" = "reid" ]; then \
-		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND)"; \
-	elif [ "$(DEMO_K8S_MODE)" = "all" ]; then \
-		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND) --set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
-	elif [ "$(DEMO_K8S_MODE)" = "tracker" ]; then \
-		MODE_ARG="--set reid.enabled=false --set tracker.enabled=true"; \
-	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${ALLOWED_HOSTS_ARG} $${MODE_ARG} --values "$$VALUES_FILE" $(TEST_FLAGS);
-	@if [ "$(DEMO_K8S_MODE)" != "tracker" ]; then \
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${ALLOWED_HOSTS_ARG} $(MODE_ARG) --values "$$VALUES_FILE" $(TEST_FLAGS);
+	@if [ -z "$(strip $(filter tracker,$(DEPLOY_PROFILES)))" ]; then \
 		$(MAKE) demo-scenes; \
 	fi
 
@@ -343,7 +342,7 @@ wait-for-ready:
 rebuild: rebuild-demo
 
 rebuild-demo:
-	@if [ "$(DEMO_K8S_MODE)" = "all" ] || [ "$(DEMO_K8S_MODE)" = "tracker" ]; then \
+	@if [ -n "$(strip $(filter tracker mapping cluster-analytics,$(DEPLOY_PROFILES)))" ]; then \
 		$(MAKE) rebuild-all; \
 	else \
 		$(MAKE) rebuild-core; \

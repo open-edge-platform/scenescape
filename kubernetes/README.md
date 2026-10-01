@@ -52,7 +52,7 @@ From the repository root, build and deploy the Tracker profile to Kind with Helm
 
 ```sh
 SUPASS='<admin-password>' PGPASS='<database-password>' \
-  make build-all demo-k8s DEMO_K8S_MODE=tracker
+  make build-all demo-k8s DEPLOY_PROFILES=tracker
 ```
 
 This builds the images, prepares the local Kind cluster, and installs the chart

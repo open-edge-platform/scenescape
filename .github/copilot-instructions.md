@@ -235,7 +235,7 @@ pubsub.publish(topic, json_payload)
 
 - Helm chart: `kubernetes/scenescape-chart/`
 - Reference: `kubernetes/README.md` for K8s-specific patterns
-- Test via `make demo-k8s DEMO_K8S_MODE=core|reid|all|tracker`
+- Test via `make demo-k8s DEPLOY_PROFILES="controller|tracker|mapping|cluster-analytics|reid"` (space-separated, same variable as the Compose `deploy` target, default: `controller`)
 - ReID backend selected by `reid.backend` (`vdms`|`qdrant`), or `REID_BACKEND` for the make targets
 - `tracker.enabled=true` deploys Tracker + Analytics and omits the Scene Controller
 
