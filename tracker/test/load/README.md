@@ -54,13 +54,13 @@ graph LR
 
 ## SLI Thresholds
 
-| SLI              | Target         | Kind    | Metric                  | Description                        |
-| ---------------- | -------------- | ------- | ----------------------- | ---------------------------------- |
-| Dropped messages | < 0.1%         | Gate    | `tracker.mqtt.dropped`  | Ratio of dropped to total messages |
-| Active tracks    | Expected total | Gate    | `tracker.tracks.active` | Camera tracks plus external tracks |
+| SLI              | Target         | Kind    | Metric                  | Description                         |
+| ---------------- | -------------- | ------- | ----------------------- | ----------------------------------- |
+| Dropped messages | < 0.1%         | Gate    | `tracker.mqtt.dropped`  | Ratio of dropped to total messages  |
+| Active tracks    | Expected total | Gate    | `tracker.tracks.active` | Camera tracks plus external tracks  |
 | Throughput       | ≥ input rate   | Warning | `tracker.mqtt.messages` | Sustained msg/s vs total input rate |
-| Latency p50      | < 1/FPS s      | Warning | `tracker.mqtt.latency`  | Median end-to-end latency          |
-| Latency p99      | < 2/FPS s      | Warning | `tracker.mqtt.latency`  | 99th percentile tail latency       |
+| Latency p50      | < 1/FPS s      | Warning | `tracker.mqtt.latency`  | Median end-to-end latency           |
+| Latency p99      | < 2/FPS s      | Warning | `tracker.mqtt.latency`  | 99th percentile tail latency        |
 
 **Gate** tests fail the build. **Warning** tests emit `pytest.warns()` but always pass.
 
@@ -117,22 +117,22 @@ The hardware section helps reproduce results across machines. The per-stage brea
 
 All parameters are environment-variable driven:
 
-| Variable          | Default                       | Description                         |
-| ----------------- | ----------------------------- | ----------------------------------- |
-| `NUM_CAMERAS`     | 4                             | Simulated camera count              |
-| `FPS`             | 15                            | Frames per second per camera        |
-| `NUM_EXTERNAL_SOURCES` | 0 (camera), 4 (external/mixed) | Distinct external publisher count |
-| `EXTERNAL_FPS`    | `FPS`                         | Messages per second per external source |
-| `CHUNKING_FPS`    | `FPS`                         | Tracker time-chunk dispatch rate    |
-| `NUM_OBJECTS`     | 300                           | Detections per message              |
-| `SCENARIO`        | `camera`                      | `camera`, `external`, or `mixed`    |
-| `DURATION`        | 1m                            | Nominal test duration (SLI window)  |
-| `LATENCY_P50_MS`  | 1000/FPS                      | p50 warning: 1 chunk period (ms)    |
-| `LATENCY_P99_MS`  | 2000/FPS                      | p99 warning: 2 chunk periods (ms)   |
-| `THROUGHPUT_MIN`  | total input rate × 0.95       | Minimum sustained msg/s             |
-| `DROP_MAX_RATIO`  | 0.001                         | Maximum allowed drop ratio          |
-| `PROMETHEUS_URL`  | http://localhost:8889/metrics | OTel Collector endpoint             |
-| `METRICS_TIMEOUT` | 30                            | Seconds to wait for stable counters |
+| Variable               | Default                        | Description                             |
+| ---------------------- | ------------------------------ | --------------------------------------- |
+| `NUM_CAMERAS`          | 4                              | Simulated camera count                  |
+| `FPS`                  | 15                             | Frames per second per camera            |
+| `NUM_EXTERNAL_SOURCES` | 0 (camera), 4 (external/mixed) | Distinct external publisher count       |
+| `EXTERNAL_FPS`         | `FPS`                          | Messages per second per external source |
+| `CHUNKING_FPS`         | `FPS`                          | Tracker time-chunk dispatch rate        |
+| `NUM_OBJECTS`          | 300                            | Detections per message                  |
+| `SCENARIO`             | `camera`                       | `camera`, `external`, or `mixed`        |
+| `DURATION`             | 1m                             | Nominal test duration (SLI window)      |
+| `LATENCY_P50_MS`       | 1000/FPS                       | p50 warning: 1 chunk period (ms)        |
+| `LATENCY_P99_MS`       | 2000/FPS                       | p99 warning: 2 chunk periods (ms)       |
+| `THROUGHPUT_MIN`       | total input rate × 0.95        | Minimum sustained msg/s                 |
+| `DROP_MAX_RATIO`       | 0.001                          | Maximum allowed drop ratio              |
+| `PROMETHEUS_URL`       | http://localhost:8889/metrics  | OTel Collector endpoint                 |
+| `METRICS_TIMEOUT`      | 30                             | Seconds to wait for stable counters     |
 
 ## Simulation Model
 
