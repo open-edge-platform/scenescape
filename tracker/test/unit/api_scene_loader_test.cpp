@@ -11,12 +11,14 @@
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
+#include <stdexcept>
 
 namespace tracker {
 namespace {
 
 using ::testing::_;
 using ::testing::Return;
+using ::testing::Throw;
 
 // ---------------------------------------------------------------------------
 // RAII temp file helper
@@ -552,6 +554,31 @@ TEST_F(ApiSceneLoaderPipelineTest, LoadsObjectClassesFromAssets) {
     auto scenes = loader->load();
     ASSERT_EQ(scenes.size(), 1u);
     EXPECT_EQ(loader->objectClasses().size(), 2u);
+}
+
+TEST_F(ApiSceneLoaderPipelineTest, AssetsFailureKeepsScenesAndEmptiesObjectClasses) {
+    TempFile auth_file(R"({"user": "admin", "password": "pass123"})");
+
+    ManagerConfig mgr;
+    mgr.url = "https://localhost:443";
+    mgr.auth_path = auth_file.path().string();
+
+    const std::string scenes_response = make_api_response();
+    const ManagerClientFactory fetch_throws =
+        [scenes_response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
+        auto mock = std::make_unique<test::MockManagerRestClient>();
+        EXPECT_CALL(*mock, authenticate(_, _)).Times(1);
+        EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(scenes_response));
+        EXPECT_CALL(*mock, fetchAssets())
+            .WillOnce(Throw(std::runtime_error("Manager API assets request failed (HTTP 500)")));
+        return mock;
+    };
+
+    for (const auto& factory : {fetch_throws, make_mock_factory(scenes_response, "not json")}) {
+        auto loader = create_api_scene_loader(mgr, schema_dir_, factory);
+        EXPECT_EQ(loader->load().size(), 1u);
+        EXPECT_TRUE(loader->objectClasses().empty());
+    }
 }
 
 TEST_F(ApiSceneLoaderPipelineTest, MultipleScenesAndCameras) {
