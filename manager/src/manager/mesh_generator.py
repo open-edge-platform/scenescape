@@ -4,6 +4,7 @@
 from io import BytesIO
 from contextlib import ExitStack
 import json
+import re
 import time
 import base64
 import requests
@@ -15,6 +16,7 @@ import subprocess
 from pathlib import Path
 import mimetypes
 
+import zipfile
 import numpy as np
 from scipy.spatial.transform import Rotation
 from django.core.files.base import ContentFile
@@ -562,7 +564,8 @@ class MeshGenerator:
       except Exception:
         pass
 
-  def finalizeMeshFromStatus(self, scene, request_id: str):
+  def finalizeMeshFromStatus(self, scene, request_id: str, method: str | None = None):
+    """Store a completed reconstruction as a candidate artifact and GLB revision."""
     status = self.mapping_client.getReconstructionStatus(request_id)
 
     if not status.get("success"):
@@ -581,50 +584,145 @@ class MeshGenerator:
     if not glb_data:
       return {"success": False, "error": "Mapping service did not return GLB data"}
 
-    # Validate the reconstructed mesh is a single connected scene before
-    # mutating any camera poses, so a rejected mesh leaves the scene untouched.
+    # Validate before storing anything so rejected meshes cannot change scene state.
     connectivity_error, merged_mesh = self._checkMeshConnectivity(glb_data)
     if connectivity_error is not None:
       return {"success": False, "error": connectivity_error}
 
-    # Recompute anchored/calibrated state now, before any write-back mutates poses.
-    # This is done fresh here rather than reused from startMeshGeneration because
-    # that call happens in a separate HTTP request (and often a separate worker
-    # process), so any state cached on `self` would not survive to this call.
+    method = method or self.reconstructionMethod()
+    cameras = scene.sensor_set.filter(type="camera").order_by("id")
     serializer = CamSerializer()
     anchored_cameras = {
       camera.sensor_id: self._is_camera_calibrated(camera, serializer)
       for camera in cameras
     }
 
-    self._updateSceneCamerasWithMappingResult(mapping_result, cameras, anchored_cameras)
-
-    # The mapping service builds the GLB from raw world_points in MapAnything's
-    # world frame, but returns camera poses already rotated into the Scenescape
-    # frame. Mesh and cameras therefore start out in different frames.
-    # With anchored cameras we know their true scene pose, so align the mesh onto
-    # them (moving the mesh, not the trusted cameras). Without any anchor there is
-    # no reference, so fall back to the geometric floor-fit heuristic.
     has_anchors = any(anchored_cameras.values())
     if has_anchors:
-      mesh_to_scene, _ = self._computeAnchorMeshTransform(
+      mesh_to_scene, camera_transform = self._computeAnchorMeshTransform(
         mapping_result, cameras, anchored_cameras, serializer)
       if mesh_to_scene is not None:
         merged_mesh.apply_transform(mesh_to_scene)
-      self._saveMeshToScene(scene, merged_mesh, align=False)
     else:
-      mesh_transform = self._saveMeshToScene(scene, merged_mesh, align=True)
-      if mesh_transform is not None:
-        self._transformCamerasWithMeshAlignment(cameras, mesh_transform, anchored_cameras)
+      merged_mesh, camera_transform = self.alignMeshToXYPlane(merged_mesh)
 
-    # Identify unanchored cameras for user warning
+    glb_bytes = merged_mesh.export(file_type="glb")
+    proposed_cameras = self._proposedCameras(mapping_result, camera_transform)
+    manifest = {
+      "version": 1,
+      "method": method,
+      "contributor": "mapping-service",
+      "created": get_iso_time(),
+      "source": {"service": "mapping", "request_id": request_id},
+      "mesh": {
+        "file": "mesh.glb",
+        "frame": "scene",
+        "transform": {
+          "translation": [0.0, 0.0, 0.0],
+          "rotation": [0.0, 0.0, 0.0],
+          "scale": [1.0, 1.0, 1.0],
+        },
+      },
+      "cameras": proposed_cameras,
+      "stats": {
+        "processing_time": mapping_result.get("processing_time"),
+        "cameras": len(proposed_cameras),
+      },
+    }
+    reconstruction = {key: value for key, value in mapping_result.items() if key != "glb_data"}
+    artifact = self._storeArtifact(scene, method, manifest, glb_bytes, reconstruction)
+    from manager.api import _artifact_payload
+
     unanchored_cameras = [cam_id for cam_id, is_anchored in anchored_cameras.items() if not is_anchored]
-    result = {"success": True}
+    result = {
+      "success": True,
+      "artifact": _artifact_payload(artifact),
+    }
     if unanchored_cameras:
       result["unanchored_cameras"] = unanchored_cameras
-      log.info(f"Mesh generation complete. Unanchored cameras (no prior calibration): {unanchored_cameras}")
+    log.info(
+      "Stored mapping candidate for scene %s (method=%s, revision=%s)",
+      scene.pk, method, artifact.map_revision_id,
+    )
 
     return result
+
+  def reconstructionMethod(self):
+    """Artifact method slug for this mapping service, from its configured model."""
+    configured = os.environ.get("MAPPING_METHOD", "").strip().lower()
+    if configured:
+      return configured
+    try:
+      models = (self.mapping_client.checkHealth() or {}).get("models") or {}
+      name = next(iter(models), "") if isinstance(models, dict) else ""
+    except Exception:  # noqa: BLE001 - health is advisory
+      name = ""
+    slug = re.sub(r"[^a-z0-9_-]", "", str(name).lower())
+    return slug or "mapanything"
+
+  def _storeArtifact(self, scene, method, manifest, glb_bytes, reconstruction):
+    from manager.mapping_store import sha256_file, store_artifact
+    with tempfile.NamedTemporaryFile(prefix="reconstruction-", suffix=".zip", delete=False) as tmp:
+      zip_path = tmp.name
+    try:
+      with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps(manifest, indent=2))
+        archive.writestr("reconstruction.json", json.dumps(reconstruction))
+        archive.writestr("mesh.glb", glb_bytes)
+      return store_artifact(
+        scene, method, zip_path, sha256_file(zip_path), None,
+        "mapping-service", None, activate=False,
+      )
+    finally:
+      try:
+        os.remove(zip_path)
+      except OSError:
+        pass
+
+  def _proposedCameras(self, mapping_result, mesh_transform):
+    """Service camera poses, aligned to the candidate mesh, as proposals."""
+    intrinsics_by_id = {}
+    for item in mapping_result.get("intrinsics") or []:
+      if isinstance(item, dict) and item.get("camera_id") is not None and item.get("K") is not None:
+        intrinsics_by_id[item["camera_id"]] = item["K"]
+    cameras = []
+    for pose in mapping_result.get("camera_poses") or []:
+      if not isinstance(pose, dict) or pose.get("camera_id") is None:
+        continue
+      try:
+        position = np.asarray(pose["translation"], dtype=float)
+        quat_xyzw = np.asarray(pose["rotation"], dtype=float)
+        position, quat_xyzw = self._applyMeshAlignment(position, quat_xyzw, mesh_transform)
+      except (KeyError, ValueError, TypeError) as exc:
+        log.warning(f"Skipping camera pose {pose.get('camera_id')}: {exc}")
+        continue
+      entry = {
+        "id": str(pose["camera_id"]),
+        "kind": "proposed",
+        "translation": [float(value) for value in position],
+        "quaternion_xyzw": [float(value) for value in quat_xyzw],
+      }
+      K = intrinsics_by_id.get(pose["camera_id"])
+      if K is not None:
+        K = np.asarray(K, dtype=float)
+        entry["intrinsics"] = {
+          "fx": float(K[0, 0]), "fy": float(K[1, 1]),
+          "cx": float(K[0, 2]), "cy": float(K[1, 2]),
+        }
+      cameras.append(entry)
+    return cameras
+
+  @staticmethod
+  def _applyMeshAlignment(position, quat_xyzw, mesh_transform):
+    """Apply a candidate mesh alignment to one camera pose."""
+    if mesh_transform is None:
+      return position, quat_xyzw
+    rotation = np.asarray(mesh_transform["rotation_matrix"], dtype=float)
+    translation = np.asarray(mesh_transform["translation"], dtype=float)
+    center_offset = np.asarray(mesh_transform["center_offset"], dtype=float)
+    position = rotation @ position + translation - center_offset
+    orientation = rotation @ Rotation.from_quat(quat_xyzw).as_matrix()
+    return position, Rotation.from_matrix(orientation).as_quat()
 
   def _updateSceneCamerasWithMappingResult(self, mapping_result, cameras, anchored_cameras=None):
     """

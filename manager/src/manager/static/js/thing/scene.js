@@ -4,6 +4,7 @@
 "use strict";
 
 import * as THREE from "/static/assets/three.module.js";
+import { GLTFLoader } from "/static/examples/jsm/loaders/GLTFLoader.js";
 import thingTransformControls from "/static/js/thing/controls/thingtransformcontrols.js";
 import validateInputControls from "/static/js/thing/controls/validateinputcontrols.js";
 import RESTClient from "/static/js/restclient.js";
@@ -251,6 +252,115 @@ export default class Scene {
     }
   }
 
+  // ── Map source (GLB revisions) ─────────────────────────────────────────
+  // Every mesh contributed to the scene (user upload, handheld SLAM, world
+  // model) is a revision. The dropdown previews one; "set as default" makes it
+  // Scene.map. Nothing is persisted on selection alone.
+  async addMapSourceControls() {
+    const response = await this.restclient.getMapRevisions(this.sceneID);
+    if (response.statusCode !== SUCCESS) return;
+    const { revisions, default: defaultId } = response.content;
+    if (!revisions || revisions.length < 2) return;
+
+    this._revisions = {};
+    const labels = {};
+    for (const rev of revisions) {
+      const when = rev.created ? rev.created.replace("T", " ").slice(0, 16) : "";
+      const who = rev.contributor ? ` · ${rev.contributor}` : "";
+      const tag = rev.id === defaultId ? " ✓" : "";
+      const label = `${rev.method}${who} · ${when}${tag}`;
+      labels[label] = rev.id;
+      this._revisions[rev.id] = rev;
+    }
+    this._defaultRevisionId = defaultId;
+    this._previewRevisionId = defaultId;
+
+    const current = Object.keys(labels).find((k) => labels[k] === defaultId) || Object.keys(labels)[0];
+    const settings = { "map source": current };
+    this.mapSourceFolder = this.controlsFolder.addFolder("Map Source");
+    this.mapSourceFolder
+      .add(settings, "map source", Object.keys(labels))
+      .onChange((label) => this.previewRevision(labels[label]))
+      .$widget.id = "map-source-select";
+
+    if (this.isStaff !== null) {
+      const actions = {
+        "set as default": () => this.activateRevision(this._previewRevisionId),
+        "delete revision": () => this.deleteRevision(this._previewRevisionId),
+      };
+      this.mapSourceFolder.add(actions, "set as default").$widget.id = "map-source-activate";
+      this.mapSourceFolder.add(actions, "delete revision").$widget.id = "map-source-delete";
+    }
+  }
+
+  previewRevision(revisionId) {
+    const rev = this._revisions && this._revisions[revisionId];
+    if (!rev || !rev.file || !this.sceneMesh) return;
+    this._previewRevisionId = revisionId;
+    const loader = new GLTFLoader();
+    loader.load(
+      rev.file,
+      (gltf) => {
+        const t = rev.transform || {};
+        const rot = t.rotation || [0, 0, 0];
+        const pos = t.translation || [0, 0, 0];
+        const scl = t.scale || [1, 1, 1];
+        gltf.scene.rotation.set(
+          THREE.MathUtils.degToRad(rot[0]),
+          THREE.MathUtils.degToRad(rot[1]),
+          THREE.MathUtils.degToRad(rot[2]),
+        );
+        gltf.scene.position.set(pos[0], pos[1], pos[2]);
+        gltf.scene.scale.set(scl[0], scl[1], scl[2]);
+        gltf.scene.name = "3d_scene";
+        gltf.scene.castShadow = true;
+        this.scene.remove(this.sceneMesh);
+        this.sceneMesh = gltf.scene;
+        this.scene.add(this.sceneMesh);
+        if (this.transformControl) this.transformControl.attach(this.sceneMesh);
+        this.toast.showToast(
+          revisionId === this._defaultRevisionId
+            ? `Showing default map (${rev.method})`
+            : `Previewing ${rev.method} map — not the default`,
+          "info",
+        );
+      },
+      undefined,
+      (error) => {
+        console.log("Error loading revision glTF: " + error);
+        this.toast.showToast("Could not load that map revision", "error");
+      },
+    );
+  }
+
+  async activateRevision(revisionId) {
+    if (!revisionId || revisionId === this._defaultRevisionId) return;
+    const response = await this.restclient.activateMapRevision(this.sceneID, revisionId);
+    if (response.statusCode === SUCCESS) {
+      this.toast.showToast("Default map updated — reloading", "success");
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      const detail = (response.content && (response.content.error || response.content.detail)) || "";
+      this.toast.showToast(`Could not set default map. ${detail}`, "error");
+    }
+  }
+
+  async deleteRevision(revisionId) {
+    if (!revisionId || revisionId === this._defaultRevisionId) {
+      this.toast.showToast("The default map cannot be deleted", "warning");
+      return;
+    }
+    if (!window.confirm("Delete this map revision?")) return;
+    const response = await this.restclient.deleteMapRevision(this.sceneID, revisionId);
+    if (response.statusCode === 204) {
+      this.toast.showToast("Map revision deleted — reloading", "success");
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      const detail = (response.content && (response.content.error || response.content.detail)) || "";
+      this.toast.showToast(`Could not delete revision. ${detail}`, "error");
+    }
+  }
+
   initializeScene(cameraZ, center, floorHeight, floorWidth) {
     this.perspectiveCamera.position.set(center.x, center.y, cameraZ);
 
@@ -355,6 +465,7 @@ export default class Scene {
           this.updateCamerasOnSave = value;
         }.bind(this),
       );
+      this.addMapSourceControls();
     }
 
     if (this.isStaff === null) {
