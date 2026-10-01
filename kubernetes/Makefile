@@ -67,7 +67,7 @@ UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
 # Tracker/mapping/cluster-analytics need their own image (load-all); tracker
 # also has no use for the bundled demo cameras, since it replaces the Scene
 # Controller entirely.
-default: install-deps clean-kind kind $(if $(filter tracker mapping cluster-analytics,$(DEPLOY_PROFILES)),load-all,load-core) $(if $(filter tracker,$(DEPLOY_PROFILES)),,video-source-up) install
+default: check-deploy-profiles install-deps clean-kind kind $(if $(filter tracker mapping cluster-analytics,$(DEPLOY_PROFILES)),load-all,load-core) $(if $(filter tracker,$(DEPLOY_PROFILES)),,video-source-up) install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
@@ -262,6 +262,15 @@ copy-files:
 	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
 
 
+.PHONY: check-deploy-profiles
+check-deploy-profiles:
+	@for profile in $(DEPLOY_PROFILES); do \
+		case "$$profile" in \
+		  controller|tracker|mapping|cluster-analytics|reid) ;; \
+		  *) echo "Invalid DEPLOY_PROFILES token '$$profile'. Use any of: controller tracker mapping cluster-analytics reid."; exit 1 ;; \
+		esac; \
+	done
+
 .PHONY: check-reid-backend
 check-reid-backend:
 	@case "$(REID_BACKEND)" in \
@@ -291,7 +300,7 @@ demo-scenes:
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
-install: check-reid-backend copy-files chart.yaml
+install: check-deploy-profiles check-reid-backend copy-files chart.yaml
 	@VALUES_FILE=$$(mktemp); \
 	trap 'rm -f "$$VALUES_FILE"' EXIT; \
 	if [ -n "$(http_proxy)" ]; then \
