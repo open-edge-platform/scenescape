@@ -102,16 +102,26 @@ def main() -> int:
   cfg = json.loads(SCENE_JSON.read_text(encoding="utf-8"))
 
   for cam in cfg.get("cameras", []):
+    # UI exports often keep transform_type="3d-2d point correspondence" while
+    # only storing translation/rotation/scale. The REST API builds the
+    # transforms column from those fields only when transform_type is euler.
+    transform_type = cam.get("transform_type", "euler")
+    if cam.get("transforms") is None and all(
+        k in cam for k in ("translation", "rotation")
+    ):
+      transform_type = "euler"
     payload = {
       "name": cam["name"],
       "sensor_id": cam["uid"],
       "scene": scene_uid,
-      "transform_type": cam.get("transform_type", "euler"),
+      "transform_type": transform_type,
       "translation": cam["translation"],
       "rotation": cam["rotation"],
       "scale": cam.get("scale", [1.0, 1.0, 1.0]),
       "intrinsics": cam.get("intrinsics"),
     }
+    if cam.get("transforms") is not None:
+      payload["transforms"] = cam["transforms"]
     status, cur = _req("GET", f"/camera/{cam['uid']}", headers=hdr)
     if status == 200:
       status2, out = _req("PUT", f"/camera/{cam['uid']}", data=payload, headers=hdr)
