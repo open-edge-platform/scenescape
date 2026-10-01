@@ -78,7 +78,9 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/logger.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/cli.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/config_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/external_source.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_loader.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_geospatial.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/api_scene_loader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/manager_rest_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_transformer.cpp

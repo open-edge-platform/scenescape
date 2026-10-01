@@ -8,6 +8,7 @@
 
 #include "utils/mock_manager_rest_client.hpp"
 
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <gtest/gtest.h>
@@ -49,6 +50,19 @@ ManagerClientFactory make_mock_factory(const std::string& scenes_response) {
         EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(scenes_response));
         return mock;
     };
+}
+
+std::string png_header(uint32_t width, uint32_t height) {
+    std::string data(24, '\0');
+    const std::array<uint8_t, 8> signature = {0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A};
+    for (size_t index = 0; index < signature.size(); ++index) {
+        data[index] = static_cast<char>(signature[index]);
+    }
+    for (size_t index = 0; index < 4; ++index) {
+        data[16 + index] = static_cast<char>((width >> (24U - 8U * index)) & 0xFFU);
+        data[20 + index] = static_cast<char>((height >> (24U - 8U * index)) & 0xFFU);
+    }
+    return data;
 }
 
 // ---------------------------------------------------------------------------
@@ -155,6 +169,30 @@ TEST(ApiSceneLoaderTest, FileSourceStillWorksWithDefaultParams) {
     ASSERT_NE(loader, nullptr);
     // Should throw because file doesn't exist (not because of factory issues)
     EXPECT_THROW(loader->load(), std::runtime_error);
+}
+
+TEST(ApiSceneLoaderTest, FileSourceCalculatesTrsMatrixFromImageMap) {
+    TempFile map_file(png_header(981, 1112), ".png");
+    const std::string scenes = R"([{
+            "uid": "geo-scene", "name": "Geo Scene", "output_lla": true,
+            "map": ")" + map_file.path().string() +
+                               R"(", "scale": 5.765182197,
+            "map_corners_lla": [
+                [33.842058, -112.136117, 539], [33.842175, -112.134245, 539],
+                [33.843923, -112.134407, 539], [33.843811, -112.136257, 539]
+            ],
+            "cameras": []
+        }])";
+    TempFile scene_file(scenes);
+    ScenesConfig config;
+    config.source = SceneSource::File;
+    config.file_path = scene_file.path().string();
+    auto loader = create_scene_loader(config, scene_file.path().parent_path());
+
+    const auto loaded = loader->load();
+
+    ASSERT_EQ(loaded.size(), 1);
+    EXPECT_TRUE(loaded[0].trs_matrix.has_value());
 }
 
 TEST(ApiSceneLoaderTest, FileSourceMissingFilePathThrows) {
@@ -624,6 +662,91 @@ TEST_F(ApiSceneLoaderPipelineTest, EmptyResultsReturnsNoScenes) {
     EXPECT_TRUE(scenes.empty());
 }
 
+TEST_F(ApiSceneLoaderPipelineTest, LoadsSceneWithoutCamerasField) {
+    TempFile auth_file(R"({"user": "admin", "password": "pass"})");
+    const std::string response = R"({"results": [{
+            "uid": "external-only-scene", "name": "External Only"
+        }]})";
+
+    ManagerConfig manager;
+    manager.url = "https://localhost";
+    manager.auth_path = auth_file.path().string();
+    auto loader = create_api_scene_loader(manager, schema_dir_, make_mock_factory(response));
+
+    const auto scenes = loader->load();
+
+    ASSERT_EQ(scenes.size(), 1);
+    EXPECT_EQ(scenes[0].uid, "external-only-scene");
+    EXPECT_TRUE(scenes[0].cameras.empty());
+}
+
+TEST_F(ApiSceneLoaderPipelineTest, CalculatesTrsMatrixFromManagerImageMap) {
+    TempFile auth_file(R"({"user": "admin", "password": "pass"})");
+    const std::string response = R"({"results": [{
+            "uid": "geo-scene", "name": "Geo Scene", "output_lla": true,
+            "map": "/media/scene.png", "scale": 5.765182197,
+            "map_corners_lla": [
+                [33.842058, -112.136117, 539], [33.842175, -112.134245, 539],
+                [33.843923, -112.134407, 539], [33.843811, -112.136257, 539]
+            ],
+            "cameras": [{
+                "uid": "cam1", "name": "Camera", "intrinsics": {},
+                "translation": [0,0,3], "rotation": [-90,0,0], "scale": [1,1,1]
+            }]
+        }]})";
+    auto factory = [response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
+        auto mock = std::make_unique<test::MockManagerRestClient>();
+        EXPECT_CALL(*mock, authenticate(_, _)).Times(1);
+        EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(response));
+        EXPECT_CALL(*mock, fetchResource("/media/scene.png"))
+            .WillOnce(Return(png_header(981, 1112)));
+        return mock;
+    };
+    ManagerConfig manager;
+    manager.url = "https://localhost";
+    manager.auth_path = auth_file.path().string();
+    auto loader = create_api_scene_loader(manager, schema_dir_, factory);
+
+    const auto scenes = loader->load();
+
+    ASSERT_EQ(scenes.size(), 1);
+    EXPECT_TRUE(scenes[0].trs_matrix.has_value());
+}
+
+TEST_F(ApiSceneLoaderPipelineTest, CalculatesTrsMatrixFromThreeDimensionalMapThumbnail) {
+    TempFile auth_file(R"({"user": "admin", "password": "pass"})");
+    const std::string response = R"({"results": [{
+            "uid": "geo-scene", "name": "Geo Scene", "output_lla": true,
+            "map": "/media/scene.glb", "thumbnail": "/media/scene.png", "scale": 5.765182197,
+            "map_corners_lla": [
+                [33.842058, -112.136117, 539], [33.842175, -112.134245, 539],
+                [33.843923, -112.134407, 539], [33.843811, -112.136257, 539]
+            ],
+            "cameras": [{
+                "uid": "cam1", "name": "Camera", "intrinsics": {},
+                "translation": [0,0,3], "rotation": [-90,0,0], "scale": [1,1,1]
+            }]
+        }]})";
+    auto factory = [response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
+        auto mock = std::make_unique<test::MockManagerRestClient>();
+        EXPECT_CALL(*mock, authenticate(_, _)).Times(1);
+        EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(response));
+        EXPECT_CALL(*mock, fetchResource("/media/scene.glb")).Times(0);
+        EXPECT_CALL(*mock, fetchResource("/media/scene.png"))
+            .WillOnce(Return(png_header(981, 1112)));
+        return mock;
+    };
+    ManagerConfig manager;
+    manager.url = "https://localhost";
+    manager.auth_path = auth_file.path().string();
+    auto loader = create_api_scene_loader(manager, schema_dir_, factory);
+
+    const auto scenes = loader->load();
+
+    ASSERT_EQ(scenes.size(), 1);
+    EXPECT_TRUE(scenes[0].trs_matrix.has_value());
+}
+
 TEST_F(ApiSceneLoaderPipelineTest, SchemaValidationFailureSkipsInvalidScenes) {
     TempFile auth_file(R"({"user": "admin", "password": "pass"})");
     // Scene missing required "uid" field — should be skipped, not throw
@@ -659,6 +782,85 @@ TEST(SceneParserTest, RequireArray3NonNumberElementThrows) {
     })";
     rapidjson::Document doc;
     doc.Parse(json);
+
+    EXPECT_THROW(detail::parse_scene(doc), std::runtime_error);
+}
+
+TEST(SceneParserTest, ParsesOptionalTrsMatrix) {
+    const char* json = R"({
+        "uid": "scene1", "name": "Scene", "cameras": [],
+        "trs_matrix": [
+            [1.0, 0.0, 0.0, 10.0],
+            [0.0, 2.0, 0.0, 20.0],
+            [0.0, 0.0, 3.0, 30.0],
+            [0.0, 0.0, 0.0, 1.0]
+        ]
+    })";
+    rapidjson::Document doc;
+    doc.Parse(json);
+
+    const auto scene = detail::parse_scene(doc);
+
+    ASSERT_TRUE(scene.trs_matrix.has_value());
+    EXPECT_DOUBLE_EQ((*scene.trs_matrix)[0][3], 10.0);
+    EXPECT_DOUBLE_EQ((*scene.trs_matrix)[1][1], 2.0);
+    EXPECT_DOUBLE_EQ((*scene.trs_matrix)[2][2], 3.0);
+    EXPECT_DOUBLE_EQ((*scene.trs_matrix)[3][3], 1.0);
+}
+
+TEST(SceneParserTest, ParsesGeospatialMapInputs) {
+    rapidjson::Document doc;
+    doc.Parse(R"({
+        "uid": "scene1", "name": "Scene", "cameras": [],
+        "output_lla": true,
+        "map": "/media/scene.png",
+        "scale": 100.0,
+        "map_corners_lla": [
+            [33.0, -112.0, 500.0], [33.0, -111.9, 500.0],
+            [33.1, -111.9, 500.0], [33.1, -112.0, 500.0]
+        ]
+    })");
+
+    const auto scene = detail::parse_scene(doc);
+
+    EXPECT_TRUE(scene.output_lla);
+    EXPECT_EQ(scene.map_uri, "/media/scene.png");
+    ASSERT_TRUE(scene.map_scale.has_value());
+    EXPECT_DOUBLE_EQ(*scene.map_scale, 100.0);
+    ASSERT_TRUE(scene.map_corners_lla.has_value());
+    EXPECT_DOUBLE_EQ((*scene.map_corners_lla)[2][0], 33.1);
+}
+
+TEST(SceneParserTest, MissingTrsMatrixRemainsUnset) {
+    rapidjson::Document doc;
+    doc.Parse(R"({"uid": "scene1", "name": "Scene", "cameras": []})");
+
+    const auto scene = detail::parse_scene(doc);
+
+    EXPECT_FALSE(scene.trs_matrix.has_value());
+}
+
+TEST(SceneParserTest, InvalidTrsMatrixShapeThrows) {
+    rapidjson::Document doc;
+    doc.Parse(R"({
+        "uid": "scene1", "name": "Scene", "cameras": [],
+        "trs_matrix": [[1.0, 0.0], [0.0, 1.0]]
+    })");
+
+    EXPECT_THROW(detail::parse_scene(doc), std::runtime_error);
+}
+
+TEST(SceneParserTest, NonNumericTrsMatrixElementThrows) {
+    rapidjson::Document doc;
+    doc.Parse(R"({
+        "uid": "scene1", "name": "Scene", "cameras": [],
+        "trs_matrix": [
+            [1.0, 0.0, 0.0, 0.0],
+            [0.0, "invalid", 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]
+        ]
+    })");
 
     EXPECT_THROW(detail::parse_scene(doc), std::runtime_error);
 }

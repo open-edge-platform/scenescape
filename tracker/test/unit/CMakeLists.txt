@@ -11,7 +11,9 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/logger.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/cli.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/config_loader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/external_source.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_loader.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/scene_geospatial.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/api_scene_loader.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/manager_rest_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/coordinate_transformer.cpp
@@ -36,6 +38,7 @@ add_executable(tracker_tests
     logger_test.cpp
     cli_test.cpp
     config_loader_test.cpp
+    external_source_test.cpp
     coordinate_transformer_test.cpp
     healthcheck_server_test.cpp
     healthcheck_command_test.cpp
@@ -53,6 +56,7 @@ add_executable(tracker_tests
     uuid_test.cpp
     id_map_test.cpp
     api_scene_loader_test.cpp
+    scene_geospatial_test.cpp
     manager_rest_client_test.cpp
     telemetry_test.cpp
     metrics_test.cpp

@@ -28,7 +28,8 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
 
 .PHONY: all dependencies dependencies-debug dependencies-relwithdebinfo \
         build build-debug build-relwithdebinfo run run-debug profile flamegraph \
-        test-unit test-unit-coverage test-service test-load clean install-tools install-deps \
+		test-unit test-unit-coverage test-service test-load test-load-external test-load-mixed \
+		clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report \
         mqtt-subscribe mqtt-publish broker-start broker-stop generate-certs
@@ -231,9 +232,13 @@ flamegraph:
 # Test targets
 #####################################################################
 
+TEST_ENV := env \
+    -u CONTROLLER_EXTERNAL_SOURCE_BINDINGS \
+    -u CONTROLLER_TRUSTED_POSITIONING_SOURCES
+
 test-unit: build-debug
 	@echo "Running unit tests..."
-	. build-debug/conanrun.sh && cd build-debug && ctest --output-on-failure
+	$(TEST_ENV) bash -c '. build-debug/conanrun.sh && cd build-debug && ctest --output-on-failure'
 
 test-unit-coverage: build-debug
 	@echo "Running unit tests with coverage..."
@@ -344,11 +349,20 @@ test-service: build-image
 # Load test: orchestrates compose lifecycle, generates load, asserts SLIs.
 # Override defaults for boundary testing:
 #   NUM_CAMERAS=8 FPS=30 NUM_OBJECTS=500 DURATION=5m make test-load
-test-load: build-image
-	$(MAKE) -C test/load test VERSION=$(VERSION) \
-		NUM_CAMERAS=$${NUM_CAMERAS:-4} FPS=$${FPS:-15} \
-		NUM_OBJECTS=$${NUM_OBJECTS:-300} DURATION=$${DURATION:-1m} \
-		METRICS_EXPORT_INTERVAL_S=$${METRICS_EXPORT_INTERVAL_S:-1}
+test-load: LOAD_SCENARIO := camera
+test-load-external: LOAD_SCENARIO := external
+test-load-mixed: LOAD_SCENARIO := mixed
+
+test-load test-load-external test-load-mixed: build-image
+	$(MAKE) -C test/load test VERSION=$(VERSION) SCENARIO=$(LOAD_SCENARIO) \
+		NUM_CAMERAS=$(if $(filter external,$(LOAD_SCENARIO)),0,$(if $(NUM_CAMERAS),$(NUM_CAMERAS),4)) \
+		NUM_EXTERNAL_SOURCES=$(if $(filter camera,$(LOAD_SCENARIO)),0,$(if $(NUM_EXTERNAL_SOURCES),$(NUM_EXTERNAL_SOURCES),4)) \
+		FPS=$(if $(FPS),$(FPS),15) \
+		EXTERNAL_FPS=$(if $(EXTERNAL_FPS),$(EXTERNAL_FPS),$(if $(FPS),$(FPS),15)) \
+		CHUNKING_FPS=$(if $(CHUNKING_FPS),$(CHUNKING_FPS),$(if $(FPS),$(FPS),15)) \
+		NUM_OBJECTS=$(if $(NUM_OBJECTS),$(NUM_OBJECTS),300) \
+		DURATION=$(if $(DURATION),$(DURATION),1m) \
+		METRICS_EXPORT_INTERVAL_S=$(if $(METRICS_EXPORT_INTERVAL_S),$(METRICS_EXPORT_INTERVAL_S),1)
 
 #####################################################################
 # Docker build targets
