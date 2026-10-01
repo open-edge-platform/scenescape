@@ -8,7 +8,7 @@ open3d-cpu[headless]==0.19.0
 numpy==2.2.6
 
 # Mesh loading for GLB scene meshes (used by scene_common.mesh_util)
-trimesh==4.11.5
+trimesh==5.1.0
 
 # HTTP requests to the perceptual-sensor calibration API
 requests==2.33.0
