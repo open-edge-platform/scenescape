@@ -92,6 +92,21 @@ def build_radar_message(raw: dict, sensor_id: str, fps: float) -> dict:
   return {"id": sensor_id, "timestamp": ts, "rate": round(fps, 2), "objects": objects}
 
 
+def remap_camera_label(label: str) -> str | None:
+  """Map COCO detector labels onto SceneScape radar-demo categories.
+
+  Returns None for classes we do not publish (traffic lights, animals, …).
+  """
+  key = (label or "").strip().lower().replace(" ", "_")
+  if key == "person":
+    return "person"
+  if key in ("bicycle", "motorcycle", "motorbike"):
+    return "cyclist"
+  if key in ("car", "bus", "truck", "train", "vehicle"):
+    return "vehicle"
+  return None
+
+
 def build_camera_message(
   raw: dict, sensor_id: str, fps: float, allowed_labels: list[str] | None,
 ) -> dict:
@@ -101,7 +116,10 @@ def build_camera_message(
     detection = item.get("detection")
     if not isinstance(detection, dict) or "confidence" not in detection:
       continue
-    label = (detection.get("label") or str(detection.get("label_id", ""))).strip()
+    raw_label = (detection.get("label") or str(detection.get("label_id", ""))).strip()
+    label = remap_camera_label(raw_label)
+    if label is None:
+      continue
     if allowed_labels and label not in allowed_labels:
       continue
     try:

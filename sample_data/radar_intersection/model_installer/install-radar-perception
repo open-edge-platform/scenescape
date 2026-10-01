@@ -15,6 +15,9 @@ log() { printf '[install-radar-perception] %s\n' "$*"; }
 
 log "RADAR_PERCEPTION=${MODE}"
 
+# Camera detector (shared across classical/roadside/radarpillars).
+bash "${SCRIPT_DIR}/install-camera-yolox"
+
 case "${MODE}" in
   classical)
     OUT="${MODELS_PATH}/public/classical"

@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Install OpenVINO YOLOX FP16 IR for radar-intersection cameras.
+# Default: yolox_s (8-cam realtime). Override: CAM_YOLOX_VARIANT=l|s
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MODELS_PATH="${MODELS_PATH:-/home/pipeline-server/models}"
+VARIANT="$(echo "${CAM_YOLOX_VARIANT:-s}" | tr '[:upper:]' '[:lower:]')"
+case "${VARIANT}" in
+  s|small) VARIANT=s; STEM=yolox_s; HF_DEFAULT=OpenVINO/yolox_s-fp16-ov ;;
+  l|large) VARIANT=l; STEM=yolox_l; HF_DEFAULT=OpenVINO/yolox_l-fp16-ov ;;
+  *)
+    echo "[install-camera-yolox] ERROR: CAM_YOLOX_VARIANT must be s or l (got ${VARIANT})" >&2
+    exit 1
+    ;;
+esac
+HF_REPO="${CAM_YOLOX_HF_REPO:-${HF_DEFAULT}}"
+SRC_DIR="${SCRIPT_DIR}/camera_${STEM}"
+OUT="${MODELS_PATH}/public/${STEM}_fp16"
+
+log() { printf '[install-camera-yolox] %s\n' "$*"; }
+
+mkdir -p "${OUT}"
+
+have_ir() {
+  [[ -f "${1}/${STEM}.xml" && -f "${1}/${STEM}.bin" ]]
+}
+
+if have_ir "${SRC_DIR}"; then
+  log "using local IR from ${SRC_DIR}"
+  cp -a "${SRC_DIR}/${STEM}.xml" "${SRC_DIR}/${STEM}.bin" "${OUT}/"
+  if [[ -f "${SRC_DIR}/config.json" ]]; then
+    cp -a "${SRC_DIR}/config.json" "${OUT}/"
+  fi
+elif have_ir "${OUT}"; then
+  log "IR already present in ${OUT}"
+else
+  log "downloading ${HF_REPO} → ${OUT}"
+  if command -v huggingface-cli >/dev/null 2>&1; then
+    huggingface-cli download "${HF_REPO}" \
+      "${STEM}.xml" "${STEM}.bin" config.json \
+      --local-dir "${OUT}"
+  elif python3 -c 'import huggingface_hub' >/dev/null 2>&1; then
+    STEM="${STEM}" HF_REPO="${HF_REPO}" OUT="${OUT}" python3 - <<'PY'
+from huggingface_hub import hf_hub_download
+import os
+repo = os.environ["HF_REPO"]
+out = os.environ["OUT"]
+stem = os.environ["STEM"]
+for name in (f"{stem}.xml", f"{stem}.bin", "config.json"):
+  print(hf_hub_download(repo_id=repo, filename=name, local_dir=out))
+PY
+  else
+    log "ERROR: need local IR under ${SRC_DIR} or huggingface_hub / huggingface-cli"
+    exit 1
+  fi
+fi
+
+if ! have_ir "${OUT}"; then
+  log "ERROR: missing ${STEM}.xml/.bin under ${OUT}"
+  exit 1
+fi
+
+log "camera ${STEM} → ${OUT}/${STEM}.xml"

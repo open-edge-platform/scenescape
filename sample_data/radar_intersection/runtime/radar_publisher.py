@@ -33,6 +33,7 @@ import threading
 import time
 
 from radar_file_playback import (
+  annotate_frame_jpeg_b64,
   camera_multifilesrc_parts,
   playback_index,
   radar_multifilesrc_parts,
@@ -191,22 +192,31 @@ CAM_STOP_INDEX = (
 CAM_LOOP = os.environ.get("CAM_LOOP", "true").lower() not in ("0", "false", "no")
 CAM_FRAME_RATE = int(os.environ.get("CAM_FRAME_RATE", "10"))
 CAM_DEVICE = os.environ.get("CAM_DEVICE", "CPU").strip().upper()
-CAM_SCORE_THRESHOLD = float(os.environ.get("CAM_SCORE_THRESHOLD", "0.5"))
+CAM_SCORE_THRESHOLD = float(os.environ.get("CAM_SCORE_THRESHOLD", "0.6"))
 CAM_MUTE = os.environ.get("CAM_MUTE", "false").lower() in ("1", "true", "yes")
+# Scene categories after COCO→scene remapping (see build_camera_message).
 CAM_DETECTION_LABELS = [
   s.strip() for s in os.environ.get("CAM_DETECTION_LABELS", "vehicle,person,cyclist").split(",")
   if s.strip()
 ]
+# Default YOLOX-S for 8-cam realtime; CAM_YOLOX_VARIANT=l for larger accuracy.
+_CAM_YOLOX_VARIANT = os.environ.get("CAM_YOLOX_VARIANT", "s").strip().lower()
+if _CAM_YOLOX_VARIANT in ("l", "large"):
+  _CAM_YOLOX_STEM = "yolox_l"
+else:
+  _CAM_YOLOX_STEM = "yolox_s"
 CAM_MODEL = os.environ.get(
   "CAM_MODEL",
-  "/home/pipeline-server/models/omz/person-vehicle-bike-detection-crossroad-1016"
-  "/FP32/person-vehicle-bike-detection-crossroad-1016.xml",
+  f"/home/pipeline-server/models/public/{_CAM_YOLOX_STEM}_fp16/{_CAM_YOLOX_STEM}.xml",
 )
 CAM_MODEL_PROC = os.environ.get(
   "CAM_MODEL_PROC",
-  "/home/pipeline-server/videos/radar_intersection/model-proc"
-  "/person-vehicle-bike-detection-crossroad-1016.json",
+  "/home/pipeline-server/videos/radar_intersection/model-proc/yolox_coco.json",
 )
+# Optional shared OpenVINO instance across cameras. Empty by default:
+# sharing one id across 8 parallel gvadetect branches can stall preroll.
+CAM_MODEL_INSTANCE_ID = os.environ.get("CAM_MODEL_INSTANCE_ID", "").strip()
+
 
 
 def _cam_data_path(sensor_id: str) -> str:
@@ -241,6 +251,7 @@ def _build_combined_pipeline() -> str:
         device=CAM_DEVICE,
         score_threshold=CAM_SCORE_THRESHOLD,
         fifo_path=_cam_fifo(sensor_id),
+        model_instance_id=CAM_MODEL_INSTANCE_ID or None,
       )
   if not RADAR_MUTE:
     for sensor_id in RADAR_SENSOR_IDS:
@@ -277,8 +288,12 @@ def _fifo_publish_loop(
   start_index: int = 0,
   stop_index: int | None = None,
   loop: bool = True,
+  drive_frame_index: bool = True,
+  data_path: str | None = None,
+  image_b64_cell: list | None = None,
 ) -> None:
   published = 0
+  t0 = time.monotonic()
   with open(fifo_path, "r", encoding="utf-8", errors="replace") as fifo:
     while True:
       line = fifo.readline()
@@ -295,13 +310,27 @@ def _fifo_publish_loop(
       msg = builder(raw)
       safe_publish(client, topic, msg)
       published += 1
-      if frame_index_cell is not None:
-        frame_index_cell[0] = playback_index(
-          published, start_index, stop_index, loop)
+      idx = None
+      if drive_frame_index and frame_index_cell is not None:
+        idx = playback_index(published, start_index, stop_index, loop)
+        frame_index_cell[0] = idx
+      if image_b64_cell is not None and data_path is not None:
+        if idx is None and frame_index_cell is not None:
+          idx = frame_index_cell[0]
+        if idx is not None:
+          annotated = annotate_frame_jpeg_b64(
+            data_path % idx, msg.get("objects") or {}, fps=float(fps))
+          if annotated:
+            image_b64_cell[0] = annotated
       if published % max(1, int(fps)) == 0:
+        elapsed = max(1e-3, time.monotonic() - t0)
         objs = msg.get("objects") or {}
         n = sum(len(v) for v in objs.values()) if isinstance(objs, dict) else 0
-        print(f"[{name}] frames={published} objects={n}", flush=True)
+        print(
+          f"[{name}] frames={published} objects={n} "
+          f"meas_fps={published / elapsed:.2f}",
+          flush=True,
+        )
 
 
 def main() -> None:
@@ -309,6 +338,7 @@ def main() -> None:
     f"[radar-publisher] perception={RADAR_PERCEPTION} "
     f"radar_sensors={RADAR_SENSOR_IDS} cam_sensors={CAM_SENSOR_IDS} "
     f"broker={BROKER}:{PORT} radar_device={RADAR_DEVICE} "
+    f"cam_model={CAM_MODEL} cam_device={CAM_DEVICE} "
     f"point_features={RADAR_POINT_FEATURES} score_thr={RADAR_SCORE_THRESHOLD} "
     f"accumulate_past={RADAR_ACCUMULATE_PAST} "
     f"radar_mute={RADAR_MUTE} cam_mute={CAM_MUTE}",
@@ -320,12 +350,21 @@ def main() -> None:
   client = connect_mqtt("radar-demo-publisher", BROKER, PORT, state)
 
   cam_frame_cells: dict[str, list] = {}
+  cam_image_cells: dict[str, list] = {}
   if not CAM_MUTE:
     for sensor_id in CAM_SENSOR_IDS:
       cell: list = [CAM_START_INDEX]
       cam_frame_cells[sensor_id] = cell
+      img_cell: list = [None]
+      cam_image_cells[sensor_id] = img_cell
+      # Seed with raw first frame until detections arrive.
+      seed = annotate_frame_jpeg_b64(
+        _cam_data_path(sensor_id) % CAM_START_INDEX, {}, fps=float(CAM_FRAME_RATE))
+      if seed:
+        img_cell[0] = seed
       setup_getimage_responder(
-        client, sensor_id, _cam_data_path(sensor_id), cell, CAM_START_INDEX)
+        client, sensor_id, _cam_data_path(sensor_id), cell, CAM_START_INDEX,
+        image_b64_cell=img_cell)
       _make_fifo(_cam_fifo(sensor_id))
   if not RADAR_MUTE:
     for sensor_id in RADAR_SENSOR_IDS:
@@ -387,6 +426,11 @@ def main() -> None:
           "start_index": CAM_START_INDEX,
           "stop_index": CAM_STOP_INDEX,
           "loop": CAM_LOOP,
+          # Frame index + annotated JPEG advance with detections so live
+          # view matches SceneScape's burned-in box contract.
+          "drive_frame_index": True,
+          "data_path": _cam_data_path(sid),
+          "image_b64_cell": cam_image_cells[sid],
         },
         daemon=True,
         name=f"camera:{sid}",

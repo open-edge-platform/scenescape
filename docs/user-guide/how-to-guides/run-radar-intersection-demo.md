@@ -8,7 +8,9 @@ SPDX-License-Identifier: Apache-2.0
 - **Time to Complete:** About 20–45 minutes (depends on perception mode)
 
 This guide runs the **Radar Intersection** demo: radar detections on
-`scenescape/data/radar/{id}` fused with OpenVINO camera `gvadetect` on
+`scenescape/data/radar/{id}` fused with OpenVINO camera `gvadetect`
+([`OpenVINO/yolox_s-fp16-ov`](https://huggingface.co/OpenVINO/yolox_s-fp16-ov),
+Apache-2.0 COCO YOLOX-S by default; set `CAM_YOLOX_VARIANT=l` for YOLOX-L) on
 `scenescape/data/camera/{id}`.
 
 ## Perception modes (`RADAR_PERCEPTION`)
@@ -268,7 +270,11 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `RADAR_DATA_PATH` | `frames_bin` or `pcd_bin` | multifilesrc pattern |
 | `DLSTREAMER_SRC` | `../dlstreamer` | [saratpoluri/dlstreamer](https://github.com/saratpoluri/dlstreamer) checkout for `build-dlsps-g3d` |
 | `DLS_G3D_IMAGE` | `…:2026.2.0-ubuntu24-rc2-g3d` | Baked DLSPS tag |
-| `CAM_DEVICE` | `CPU` | OpenVINO device for `gvadetect` |
+| `CAM_DEVICE` | `GPU` | OpenVINO device for camera `gvadetect` |
+| `CAM_YOLOX_VARIANT` | `s` | `s` (realtime 8-cam) or `l` (higher accuracy, slower) |
+| `CAM_MODEL` | `…/yolox_s_fp16/yolox_s.xml` | Hugging Face `OpenVINO/yolox_s-fp16-ov` (Apache-2.0) |
+| `CAM_MODEL_PROC` | `…/model-proc/yolox_coco.json` | COCO labels → publisher maps to vehicle/person/cyclist |
+| `CAM_MODEL_INSTANCE_ID` | _(empty)_ | Optional shared `gvadetect` instance id (can stall 8-cam preroll) |
 | `RADAR_MUTE` / `CAM_MUTE` | `false` | Mute a modality |
 | `RADAR_CAM_DATASET_DIR` | `./sample_data/radar_intersection/camera_demo` | Host tree with per-id JPEG dirs (auto-staged; gitignored) |
 | `CAM_SENSOR_IDS` | eight `radar-cam*` ids | Comma list; each needs `{CAM_DATA_ROOT}/{id}/%06d.jpg` |

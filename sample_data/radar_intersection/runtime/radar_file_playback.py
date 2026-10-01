@@ -85,6 +85,7 @@ def camera_multifilesrc_parts(
   device: str,
   score_threshold: float,
   fifo_path: str,
+  model_instance_id: str | None = None,
 ) -> list[str]:
   parts = [
     f"multifilesrc location={shlex.quote(data_path)} start-index={start_index}",
@@ -93,16 +94,21 @@ def camera_multifilesrc_parts(
     parts.append(f"stop-index={stop_index}")
   if loop:
     parts.append("loop=true")
+  detect = (
+    f"! gvadetect model={shlex.quote(model)}"
+    f" model-proc={shlex.quote(model_proc)}"
+    f" device={shlex.quote(device)}"
+    f" threshold={score_threshold}"
+  )
+  if model_instance_id:
+    detect += f" model-instance-id={shlex.quote(model_instance_id)}"
   parts += [
     "caps=image/jpeg",
     "! jpegdec",
     "! videoconvert",
     "! video/x-raw,format=BGR",
     f"! gvafpsthrottle target-fps={frame_rate}",
-    f"! gvadetect model={shlex.quote(model)}"
-    f" model-proc={shlex.quote(model_proc)}"
-    f" device={shlex.quote(device)}"
-    f" threshold={score_threshold}",
+    detect,
     "! gvametaconvert add-tensor-data=false format=json",
     f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(fifo_path)}",
     "! fakesink sync=false",
@@ -140,12 +146,66 @@ def read_frame_as_jpeg_b64(path: str) -> str | None:
     return None
 
 
+# Match sscape_post_inference_data_publish person red; vehicles use a darker teal
+# so boxes stay readable on bright asphalt / truck sides.
+_ANNOTATE_COLORS = {
+  "person": (0, 0, 255),
+  "vehicle": (40, 120, 50),
+  "bicycle": (40, 120, 50),
+  "cyclist": (40, 120, 50),
+}
+_ANNOTATE_DEFAULT = (180, 40, 200)
+
+
+def annotate_frame_jpeg_b64(path: str, objects: dict | None, fps: float | None = None) -> str | None:
+  """Load a JPEG, draw detection boxes, return base64 JPEG (SceneScape live view)."""
+  try:
+    import cv2  # pylint: disable=import-outside-toplevel
+  except ImportError:
+    return read_frame_as_jpeg_b64(path)
+  img = cv2.imread(path)
+  if img is None:
+    return read_frame_as_jpeg_b64(path)
+  for otype, obj_list in (objects or {}).items():
+    color = _ANNOTATE_COLORS.get(str(otype).lower(), _ANNOTATE_DEFAULT)
+    if not isinstance(obj_list, list):
+      continue
+    for obj in obj_list:
+      if not isinstance(obj, dict):
+        continue
+      bbox = obj.get("bounding_box_px") or {}
+      try:
+        x = int(bbox["x"])
+        y = int(bbox["y"])
+        w = int(bbox["width"])
+        h = int(bbox["height"])
+      except (KeyError, TypeError, ValueError):
+        continue
+      cv2.rectangle(img, (x, y), (x + w, y + h), color, 4)
+  if fps is not None:
+    scale = int((img.shape[0] + 479) / 480)
+    fps_str = f"FPS {float(fps):.1f}"
+    cv2.putText(
+      img, fps_str, (0, 30 * scale), cv2.FONT_HERSHEY_SIMPLEX,
+      1 * scale, (0, 0, 0), 5 * scale,
+    )
+    cv2.putText(
+      img, fps_str, (0, 30 * scale), cv2.FONT_HERSHEY_SIMPLEX,
+      1 * scale, (255, 255, 255), 2 * scale,
+    )
+  ok, buf = cv2.imencode(".jpg", img)
+  if not ok:
+    return read_frame_as_jpeg_b64(path)
+  return base64.b64encode(buf.tobytes()).decode("ascii")
+
+
 def setup_getimage_responder(
   client: mqtt.Client,
   sensor_id: str,
   data_path: str,
   frame_index_cell: list,
   start_index: int,
+  image_b64_cell: list | None = None,
 ) -> None:
   """Answer Manager UI image requests from the recorded JPEG sequence.
 
@@ -155,13 +215,16 @@ def setup_getimage_responder(
   ``scenescape/image/calibration/camera/{id}`` (same contract as
   ``sscape_post_inference_data_publish``).
 
+  When ``image_b64_cell`` is set, live view serves that cached (annotated)
+  JPEG. Calibration still uses the raw frame at ``frame_index_cell``.
+
   Multiple cameras may register; a shared ``on_message`` dispatches by topic.
   """
   live_topic = f"scenescape/image/camera/{sensor_id}"
   calib_topic = f"scenescape/image/calibration/camera/{sensor_id}"
   cmd_topic = f"scenescape/cmd/camera/{sensor_id}"
 
-  def _jpeg_payload() -> str | None:
+  def _raw_jpeg() -> str | None:
     idx = frame_index_cell[0]
     if idx is None:
       return None
@@ -172,11 +235,16 @@ def setup_getimage_responder(
     cmd = message.payload.decode("utf-8", errors="replace").strip()
     if cmd == "getimage":
       topic = live_topic
+      b64 = None
+      if image_b64_cell is not None and image_b64_cell[0]:
+        b64 = image_b64_cell[0]
+      if b64 is None:
+        b64 = _raw_jpeg()
     elif cmd == "getcalibrationimage":
       topic = calib_topic
+      b64 = _raw_jpeg()
     else:
       return
-    b64 = _jpeg_payload()
     if b64 is not None:
       _msg_client.publish(topic, json.dumps({"image": b64}), qos=0)
 
