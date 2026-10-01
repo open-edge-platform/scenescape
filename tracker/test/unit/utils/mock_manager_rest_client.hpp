@@ -20,6 +20,7 @@ public:
     MOCK_METHOD(void, authenticate, (const std::string&, const std::string&), (override));
     MOCK_METHOD(std::string, fetchScenes, (), (override));
     MOCK_METHOD(std::string, fetchAssets, (), (override));
+    MOCK_METHOD(std::string, fetchResource, (const std::string&), (override));
 };
 
 } // namespace tracker::test

@@ -100,7 +100,10 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                ObjectClassConfig object_class, ClockFn clock_fn)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
-      tracker_(build_tracker_config(tracking_config)), clock_fn_(std::move(clock_fn)) {
+      tracker_(build_tracker_config(tracking_config)),
+      external_track_max_age_(std::chrono::duration_cast<std::chrono::system_clock::duration>(
+          std::chrono::duration<double>(tracking_config.max_unreliable_time_s))),
+      clock_fn_(std::move(clock_fn)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
@@ -216,6 +219,9 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 
     // Run Hungarian matching, Kalman filter, and ID conversion
     auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp);
+    auto external_tracks = update_external_tracks(chunk, now);
+    tracks.insert(tracks.end(), std::make_move_iterator(external_tracks.begin()),
+                  std::make_move_iterator(external_tracks.end()));
     chunk.obs_ctx.captureTrackTime();
 
     // Update active tracks gauge for this scope
@@ -239,6 +245,9 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
     objects_per_camera.reserve(chunk.camera_batches.size());
 
     for (const auto& batch : chunk.camera_batches) {
+        if (batch.source != DetectionBatch::Source::Camera) {
+            continue;
+        }
         auto transformer_it = transformers_.find(batch.camera_id);
         if (transformer_it == transformers_.end()) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
@@ -303,6 +312,61 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         tracks.push_back(std::move(track));
     }
 
+    return tracks;
+}
+
+std::vector<Track>
+TrackingWorker::update_external_tracks(const Chunk& chunk,
+                                       std::chrono::system_clock::time_point now) {
+    for (const auto& batch : chunk.camera_batches) {
+        if (batch.source != DetectionBatch::Source::External) {
+            continue;
+        }
+        for (const auto& detection : batch.external_detections) {
+            auto existing = external_tracks_.find(detection.id);
+            if (existing != external_tracks_.end() &&
+                batch.timestamp < existing->second.event_time) {
+                continue;
+            }
+
+            Track track;
+            track.id = detection.id;
+            track.category = chunk.category;
+            track.translation = detection.translation;
+            track.velocity = {0.0, 0.0, 0.0};
+            track.size = detection.size;
+            track.rotation = detection.rotation;
+            track.metadata_json = detection.metadata_json;
+            track.confidence = detection.confidence;
+
+            if (existing != external_tracks_.end() &&
+                batch.timestamp > existing->second.event_time) {
+                const double elapsed =
+                    std::chrono::duration<double>(batch.timestamp - existing->second.event_time)
+                        .count();
+                for (size_t axis = 0; axis < track.velocity.size(); ++axis) {
+                    track.velocity[axis] =
+                        (track.translation[axis] - existing->second.track.translation[axis]) /
+                        elapsed;
+                }
+            }
+            external_tracks_[detection.id] = ExternalTrackState{track, batch.timestamp, now};
+        }
+    }
+
+    for (auto it = external_tracks_.begin(); it != external_tracks_.end();) {
+        if (now - it->second.last_seen > external_track_max_age_) {
+            it = external_tracks_.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    std::vector<Track> tracks;
+    tracks.reserve(external_tracks_.size());
+    for (const auto& [_, state] : external_tracks_) {
+        tracks.push_back(state.track);
+    }
     return tracks;
 }
 

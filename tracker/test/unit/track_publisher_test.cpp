@@ -206,6 +206,30 @@ TEST_F(TrackPublisherTest, Serialize_HandlesEmptyTracks) {
     EXPECT_EQ(doc["objects"].Size(), 0u);
 }
 
+TEST_F(TrackPublisherTest, Serialize_OmitsSizeForPointTrack) {
+    auto mock_client = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mock_client);
+    std::string captured_payload;
+    EXPECT_CALL(*mock_client, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mock_client, publish(_, _))
+        .WillOnce([&captured_payload](const std::string&, const std::string& payload) {
+            captured_payload = payload;
+        });
+    Track track;
+    track.id = "uwb-tag-7";
+    track.category = "person";
+    track.translation = {1.0, 2.0, 3.0};
+    track.velocity = {0.0, 0.0, 0.0};
+    track.rotation = {0.0, 0.0, 0.0, 1.0};
+
+    publisher.publish("scene-1", "Scene", "person", "2026-01-27T12:00:00.000Z", {track});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
+    ASSERT_EQ(doc["objects"].Size(), 1u);
+    EXPECT_FALSE(doc["objects"][0].HasMember("size"));
+}
+
 TEST_F(TrackPublisherTest, Serialize_HandlesMultipleTracks) {
     auto mock_client = std::make_shared<MockMqttClient>();
     TrackPublisher publisher(mock_client);

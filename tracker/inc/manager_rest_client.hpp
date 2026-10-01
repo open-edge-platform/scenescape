@@ -46,6 +46,14 @@ public:
      * @throws std::runtime_error if not authenticated, connection fails, or HTTP error
      */
     virtual std::string fetchAssets() = 0;
+    /**
+     * @brief Fetch a Manager-hosted media resource using the authenticated session.
+     *
+     * @param resource_url URL of the resource to fetch
+     * @return Raw response body string
+     * @throws std::runtime_error if not authenticated, connection fails, or HTTP error
+     */
+    virtual std::string fetchResource(const std::string& resource_url) = 0;
 };
 
 /**
@@ -70,7 +78,11 @@ public:
 
     void authenticate(const std::string& username, const std::string& password) override;
     std::string fetchScenes() override;
+
     std::string fetchAssets() override;
+
+    std::string fetchResource(const std::string& resource_url) override;
+
 
 private:
     std::string fetch(std::string_view resource);
