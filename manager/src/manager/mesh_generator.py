@@ -4,6 +4,7 @@
 from io import BytesIO
 from contextlib import ExitStack
 import json
+import re
 import time
 import base64
 import requests
@@ -11,20 +12,17 @@ import os
 import threading
 from typing import Dict, List
 import tempfile
-import subprocess
+import zipfile
 from pathlib import Path
 import mimetypes
 
 import numpy as np
 from scipy.spatial.transform import Rotation
-from django.core.files.base import ContentFile
-import paho.mqtt.client as mqtt
 import trimesh
 
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from scene_common.mesh_util import mergeMesh, checkMeshConnectivity
-from scene_common.options import QUATERNION
 from scene_common import log
 from manager.serializers import CamSerializer
 
@@ -525,7 +523,63 @@ class MeshGenerator:
       except Exception:
         pass
 
-  def finalizeMeshFromStatus(self, scene, request_id: str):
+  def startReconstructionFromKeyframes(self, scene, mesh_type="mesh", max_images=None):
+    """Submit the scene's ``keyframes`` artifact to the mapping service.
+
+    Keyframe poses and intrinsics from the artifact manifest are passed as
+    priors. Returns the service response (``request_id`` for polling).
+    """
+    from manager.models import SceneMappingArtifact
+    artifact = SceneMappingArtifact.objects.filter(
+      scene=scene, method="keyframes", head=True).first()
+    if artifact is None or not artifact.bundle:
+      return {"success": False, "error": "Scene has no keyframes artifact"}
+    cameras = [c for c in (artifact.manifest or {}).get("cameras") or []
+               if isinstance(c, dict) and c.get("file")]
+    if not cameras:
+      return {"success": False, "error": "keyframes manifest lists no frames"}
+    if max_images and len(cameras) > int(max_images):
+      cameras = self._subsample(cameras, int(max_images))
+
+    images, order, locations = {}, [], []
+    with zipfile.ZipFile(artifact.bundle.path) as archive:
+      names = set(archive.namelist())
+      for cam in cameras:
+        if cam["file"] not in names:
+          log.warning(f"keyframes zip is missing {cam['file']}")
+          continue
+        cam_id = re.sub(r"[^a-zA-Z0-9_-]", "_", str(cam.get("id") or Path(cam["file"]).stem))[:64]
+        images[cam_id] = {
+          "filename": Path(cam["file"]).name,
+          "data": base64.b64encode(archive.read(cam["file"])).decode("ascii"),
+        }
+        order.append(cam_id)
+        t = cam.get("translation")
+        q = cam.get("quaternion_wxyz")
+        locations.append({"translation": t, "rotation": q} if t and q else None)
+    if not order:
+      return {"success": False, "error": "No readable keyframe images"}
+
+    result = self.mapping_client.startReconstructMesh(images, order, locations, mesh_type)
+    result["images"] = len(order)
+    result["keyframes_artifact"] = str(artifact.id)
+    return result
+
+  @staticmethod
+  def _subsample(items, max_n):
+    if max_n <= 1:
+      return items[:1]
+    idx = sorted({round(i * (len(items) - 1) / (max_n - 1)) for i in range(max_n)})
+    return [items[i] for i in idx]
+
+  def finalizeMeshFromStatus(self, scene, request_id: str, method: str = None):
+    """Store a finished reconstruction as a mapping artifact for review.
+
+    The mesh becomes a GLB revision for ``method`` and the service's camera
+    poses/intrinsics are recorded as *proposed* in the artifact manifest.
+    Neither the scene default map nor any camera is changed here; that is
+    the user's call (activate the revision, apply proposals).
+    """
     status = self.mapping_client.getReconstructionStatus(request_id)
 
     if not status.get("success"):
@@ -538,229 +592,111 @@ class MeshGenerator:
     if not mapping_result.get("success"):
       return {"success": False, "error": mapping_result.get("error", "reconstruction failed")}
 
-    cameras = scene.sensor_set.filter(type="camera").order_by("id")
-
     glb_data = mapping_result.get("glb_data")
     if not glb_data:
       return {"success": False, "error": "Mapping service did not return GLB data"}
 
-    # Validate the reconstructed mesh is a single connected scene before
-    # mutating any camera poses, so a rejected mesh leaves the scene untouched.
     connectivity_error, merged_mesh = self._checkMeshConnectivity(glb_data)
     if connectivity_error is not None:
       return {"success": False, "error": connectivity_error}
 
-    self._updateSceneCamerasWithMappingResult(mapping_result, cameras)
-    mesh_transform = self._saveMeshToScene(scene, merged_mesh)
-    if mesh_transform is not None:
-      self._transformCamerasWithMeshAlignment(cameras, mesh_transform)
-    return {"success": True}
+    method = method or self.reconstructionMethod()
+    aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
+    glb_bytes = aligned_mesh.export(file_type='glb')
+    cameras = self._proposedCameras(mapping_result, mesh_transform)
+    manifest = {
+      "version": 1,
+      "method": method,
+      "contributor": "mapping-service",
+      "created": get_iso_time(),
+      "source": {"service": "mapping", "request_id": request_id},
+      "mesh": {"file": "mesh.glb", "frame": "scene",
+               "transform": {"translation": [0.0, 0.0, 0.0],
+                             "rotation": [0.0, 0.0, 0.0],
+                             "scale": [1.0, 1.0, 1.0]}},
+      "cameras": cameras,
+      "stats": {
+        "processing_time": mapping_result.get("processing_time"),
+        "cameras": len(cameras),
+      },
+    }
+    reconstruction = {k: v for k, v in mapping_result.items() if k != "glb_data"}
+    artifact = self._storeArtifact(scene, method, manifest, glb_bytes, reconstruction)
+    from manager.api import _artifact_payload
+    return {"success": True, "artifact": _artifact_payload(artifact)}
 
-  def _updateSceneCamerasWithMappingResult(self, mapping_result, cameras):
-    """
-    Update scene cameras with poses and intrinsics returned by mapping service.
-
-    Args:
-      scene: Scene object containing cameras
-      mapping_result: Result from mapping service containing camera_poses and intrinsics
-      cameras: QuerySet of camera objects in enumeration order
-    """
+  def reconstructionMethod(self):
+    """Artifact method slug for this mapping service, from its health model name."""
+    configured = os.environ.get("MAPPING_METHOD", "").strip().lower()
+    if configured:
+      return configured
     try:
-      camera_poses_raw = mapping_result.get("camera_poses", [])
-      intrinsics_raw = mapping_result.get("intrinsics", [])
+      models = (self.mapping_client.checkHealth() or {}).get("models") or {}
+      name = next(iter(models), "") if isinstance(models, dict) else ""
+    except Exception:  # noqa: BLE001 - health is advisory
+      name = ""
+    slug = re.sub(r"[^a-z0-9_-]", "", str(name).lower())
+    return slug or "mapanything"
 
-      pose_by_id = {}
-      for p in camera_poses_raw:
-        if not isinstance(p, dict):
-          continue
-        cid = p.get("camera_id")
-        if cid is None:
-          continue
-        pose_by_id[cid] = p
-
-      if not pose_by_id:
-        log.warning("Mapping service returned no camera poses with camera_id")
-        return
-
-      intrinsics_by_id = {}
-
-      if intrinsics_raw and isinstance(intrinsics_raw[0], dict):
-        for item in intrinsics_raw:
-          cid = item.get("camera_id")
-          K = item.get("K")
-          if cid is None or K is None:
-            continue
-          intrinsics_by_id[cid] = K
-
-      cameras_list = list(cameras)
-      log.info(f"Updating cameras using camera_id matching. Cameras in scene: {len(cameras_list)}")
-
-      # Update each camera with corresponding pose and intrinsics
-      for camera in cameras_list:
-        try:
-          cam_id = camera.sensor_id
-          pose_data = pose_by_id.get(cam_id)
-          intrinsics_matrix = intrinsics_by_id.get(cam_id)
-
-          if pose_data is None:
-            log.warning(f"No pose for camera {cam_id}, skipping")
-            continue
-
-          if intrinsics_matrix is None:
-            log.warning(f"No intrinsics for camera {cam_id}, skipping intrinsics update")
-
-          # Convert mapping service format to Django camera format
-          self._updateCameraParameters(camera, pose_data, intrinsics_matrix)
-
-          log.info(f"Updated camera {camera.sensor_id} with new pose and intrinsics")
-        except Exception as e:
-          log.error(f"Failed to update camera {camera.sensor_id}: {e}")
-
-    except Exception as e:
-      log.error(f"Failed to update scene cameras: {e}")
-
-  def _updateCameraParameters(self, camera, pose_data, intrinsics_matrix):
-    """
-    Update a single camera with new pose and intrinsics.
-
-    Args:
-      camera: Camera model instance
-      pose_data: Dictionary with 'rotation' (quaternion) and 'translation' from mapping service
-      intrinsics_matrix: 3x3 intrinsics matrix from mapping service
-    """
+  def _storeArtifact(self, scene, method, manifest, glb_bytes, reconstruction):
+    from manager.mapping_store import sha256_file, store_artifact
+    with tempfile.NamedTemporaryFile(prefix="reconstruction-", suffix=".zip", delete=False) as tmp:
+      zip_path = tmp.name
     try:
-      # Extract pose data
-      rotation_quat = pose_data['rotation']  # [x, y, z, w]
-      translation = pose_data['translation']  # [x, y, z]
+      with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("manifest.json", json.dumps(manifest, indent=2))
+        archive.writestr("reconstruction.json", json.dumps(reconstruction))
+        archive.writestr("mesh.glb", glb_bytes)
+      return store_artifact(scene, method, zip_path, sha256_file(zip_path),
+                            None, "mapping-service", None, activate=False)
+    finally:
+      try:
+        os.remove(zip_path)
+      except OSError:
+        pass
 
-      # Extract intrinsics (3x3 matrix -> fx, fy, cx, cy)
-      intrinsics_array = np.array(intrinsics_matrix)
-      fx = intrinsics_array[0, 0]
-      fy = intrinsics_array[1, 1]
-      cx = intrinsics_array[0, 2]
-      cy = intrinsics_array[1, 2]
+  def _proposedCameras(self, mapping_result, mesh_transform):
+    """Service camera poses, moved by the mesh alignment, as manifest proposals."""
+    intrinsics_by_id = {}
+    for item in mapping_result.get("intrinsics") or []:
+      if isinstance(item, dict) and item.get("camera_id") is not None and item.get("K") is not None:
+        intrinsics_by_id[item["camera_id"]] = item["K"]
+    cameras = []
+    for pose in mapping_result.get("camera_poses") or []:
+      if not isinstance(pose, dict) or pose.get("camera_id") is None:
+        continue
+      try:
+        position = np.asarray(pose["translation"], dtype=float)
+        quat_xyzw = np.asarray(pose["rotation"], dtype=float)
+        position, quat_xyzw = self._applyMeshAlignment(position, quat_xyzw, mesh_transform)
+      except (KeyError, ValueError, TypeError) as exc:
+        log.warning(f"Skipping camera pose {pose.get('camera_id')}: {exc}")
+        continue
+      entry = {
+        "id": str(pose["camera_id"]),
+        "kind": "proposed",
+        "translation": [float(v) for v in position],
+        "quaternion_xyzw": [float(v) for v in quat_xyzw],
+      }
+      K = intrinsics_by_id.get(pose["camera_id"])
+      if K is not None:
+        K = np.asarray(K, dtype=float)
+        entry["intrinsics"] = {"fx": float(K[0, 0]), "fy": float(K[1, 1]),
+                               "cx": float(K[0, 2]), "cy": float(K[1, 2])}
+      cameras.append(entry)
+    return cameras
 
-      # Update camera model fields
-      camera.cam.intrinsics_fx = fx
-      camera.cam.intrinsics_fy = fy
-      camera.cam.intrinsics_cx = cx
-      camera.cam.intrinsics_cy = cy
-
-      # Update camera transform using QUATERNION format
-      # Django QUATERNION format expects: [translation_x, translation_y, translation_z,
-      #                   rotation_x, rotation_y, rotation_z, rotation_w,
-      #                   scale_x, scale_y, scale_z]
-      camera.cam.transforms = [
-        translation[0], translation[1], translation[2],  # translation
-        rotation_quat[0], rotation_quat[1], rotation_quat[2], rotation_quat[3],  # quaternion [x, y, z, w]
-        1.0, 1.0, 1.0  # scale (default to 1.0)
-      ]
-      camera.cam.transform_type = QUATERNION  # Use quaternion transform type
-
-      # Save the camera
-      camera.cam.save()
-
-    except Exception as e:
-      log.error(f"Error updating camera {camera.sensor_id}: {e}")
-      raise
-
-  def _saveMeshToScene(self, scene, merged_mesh):
-    """
-    Save the generated GLB mesh to the scene's map field.
-
-    Args:
-      scene: Scene object to update
-      merged_mesh: Pre-loaded, merged trimesh object from _checkMeshConnectivity
-
-    Returns:
-      dict: Transformation applied to mesh (rotation matrix, translation, center_offset)
-    """
-    try:
-
-      # Align the mesh to XY plane with largest bottom face flat and in first quadrant
-      log.info(f"Aligning mesh to XY plane in first quadrant")
-      aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
-
-      # Export the aligned mesh as GLB
-      glb_filename = f"{scene.name}_generated_mesh.glb"
-      glb_exported_bytes = aligned_mesh.export(file_type='glb')
-
-      log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
-      # Save to scene's map field without triggering save yet
-      scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
-
-      # Update the map_processed timestamp
-      scene.map_processed = get_iso_time()
-      scene._original_map = None
-      # Set flag to indicate mesh is from generateMesh flow (already aligned by mapping service)
-      scene._from_generate_mesh = True
-      scene.save()
-
-      log.info(f"Saved generated mesh to scene {scene.name}")
-
-      return mesh_transform
-
-    except Exception as e:
-      log.error(f"Failed to save mesh to scene: {e}")
-      raise Exception(f"Failed to save mesh file: {e}")
-
-  def _transformCamerasWithMeshAlignment(self, cameras, mesh_transform):
-    """
-    Apply the same transformation to cameras that was applied to the mesh.
-    This maintains the relative pose between cameras and mesh.
-
-    Args:
-      cameras: QuerySet of camera objects to transform
-      mesh_transform: Dictionary containing:
-        - 'rotation_matrix': 3x3 rotation matrix applied to mesh
-        - 'translation': Translation vector applied to mesh after rotation
-        - 'center_offset': Centering offset applied to mesh
-    """
-    try:
-      rotation_matrix = mesh_transform['rotation_matrix']
-      translation = mesh_transform['translation']
-      center_offset = mesh_transform['center_offset']
-
-      log.info(f"Transforming {cameras.count()} cameras to match mesh alignment")
-
-      for camera in cameras:
-        try:
-        # Get current camera transform (in QUATERNION format)
-        # Format: [tx, ty, tz, qx, qy, qz, qw, sx, sy, sz]
-          cam_transforms = camera.cam.transforms
-
-          if not cam_transforms or len(cam_transforms) < 10:
-            log.warning(f"Camera {camera.sensor_id} has invalid transforms, skipping")
-            continue
-
-          current_position = np.array([cam_transforms[0], cam_transforms[1], cam_transforms[2]])
-          current_quat_xyzw = np.array([cam_transforms[3], cam_transforms[4], cam_transforms[5], cam_transforms[6]])
-          current_rotation = Rotation.from_quat(current_quat_xyzw).as_matrix()
-
-          rotated_position = rotation_matrix @ current_position
-          translated_position = rotated_position + translation
-          final_position = translated_position - center_offset
-          final_rotation = rotation_matrix @ current_rotation
-          final_quat_xyzw = Rotation.from_matrix(final_rotation).as_quat()
-
-          # Update camera transforms
-          camera.cam.transforms = [
-            final_position[0], final_position[1], final_position[2],  # translation
-            final_quat_xyzw[0], final_quat_xyzw[1], final_quat_xyzw[2], final_quat_xyzw[3],  # quaternion [x, y, z, w]
-            cam_transforms[7], cam_transforms[8], cam_transforms[9]  # scale (preserve original)
-          ]
-
-          camera.cam.save()
-          log.info(f"Transformed camera {camera.sensor_id}")
-
-        except Exception as e:
-          log.error(f"Failed to transform camera {camera.sensor_id}: {e}")
-
-      log.info(f"Successfully transformed all cameras to match mesh alignment")
-
-    except Exception as e:
-      log.error(f"Failed to transform cameras with mesh alignment: {e}")
-      raise
+  @staticmethod
+  def _applyMeshAlignment(position, quat_xyzw, mesh_transform):
+    """Apply the mesh alignment transform to one camera pose."""
+    if mesh_transform is None:
+      return position, quat_xyzw
+    rotation_matrix = np.asarray(mesh_transform['rotation_matrix'], dtype=float)
+    translation = np.asarray(mesh_transform['translation'], dtype=float)
+    center_offset = np.asarray(mesh_transform['center_offset'], dtype=float)
+    final_position = rotation_matrix @ position + translation - center_offset
+    final_rotation = rotation_matrix @ Rotation.from_quat(quat_xyzw).as_matrix()
+    return final_position, Rotation.from_matrix(final_rotation).as_quat()
 
   def _extractLargestBottomFaceNormal(self, mesh):
     """

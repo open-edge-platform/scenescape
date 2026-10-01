@@ -641,12 +641,11 @@ class SceneSerializer(NonNullSerializer):
     return None
 
   def get_map_source(self, obj):
-    head = obj.map_revisions.filter(head=True).first()
-    return head.source if head else None
+    rev = obj.default_map_revision
+    return rev.method if rev else None
 
   def get_map_revision(self, obj):
-    head = obj.map_revisions.filter(head=True).first()
-    return str(head.id) if head else None
+    return str(obj.default_map_revision_id) if obj.default_map_revision_id else None
 
   def get_mapping_artifacts(self, obj):
     from manager.mapping_store import isoformat_z
@@ -660,6 +659,7 @@ class SceneSerializer(NonNullSerializer):
         "contributor": row.contributor,
         "sha256": row.sha256,
         "fiducials": row.fiducials or [],
+        "manifest": row.manifest or {},
         "map_revision": str(row.map_revision_id) if row.map_revision_id else None,
       })
     return artifacts
@@ -856,13 +856,13 @@ class SceneSerializer(NonNullSerializer):
     if not map_path or not instance.map:
       return
     Scene.objects.filter(pk=instance.pk).update(map=instance.map.name)
-    from manager.mapping_store import MappingStoreError, clear_glb_head, record_glb_revision
+    from manager.mapping_store import MappingStoreError, clear_default_revision, record_glb_revision
     try:
       ext = os.path.splitext(instance.map.name)[1].lower()
       if ext == ".glb":
         record_glb_revision(instance, map_source, instance.map_contributor)
       else:
-        clear_glb_head(instance)
+        clear_default_revision(instance)
     except MappingStoreError as exc:
       raise serializers.ValidationError({"source": [str(exc)]})
 

@@ -68,6 +68,18 @@ export default class RESTClient {
     return this._crud("PUT", `scene/${uid}`, data, config);
   }
 
+  async getMapRevisions(uid) {
+    return this._crud("GET", `scene/${uid}/map-revisions`);
+  }
+
+  async activateMapRevision(uid, revisionId) {
+    return this._crud("POST", `scene/${uid}/map-revisions/${revisionId}/activate`);
+  }
+
+  async deleteMapRevision(uid, revisionId) {
+    return this._crud("DELETE", `scene/${uid}/map-revisions/${revisionId}`);
+  }
+
   async updateChildScene(uid, data) {
     return this._crud("PUT", `child/${uid}`, data);
   }

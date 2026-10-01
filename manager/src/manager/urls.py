@@ -89,8 +89,28 @@ urlpatterns += [
   re_path(r'api/v1/(scene)/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$', api.ManageThing.as_view()),
   re_path(
       r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'mapping-artifacts$',
+      api.SceneMappingArtifactListView.as_view(), name='scene_mapping_artifacts'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
       r'mapping-artifacts/(?P<method>[a-z][a-z0-9_-]{0,31})$',
       api.SceneMappingArtifactView.as_view(), name='scene_mapping_artifact'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'map-revisions$',
+      api.SceneMapRevisionListView.as_view(), name='scene_map_revisions'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'map-revisions/(?P<revision_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})(?:/activate)?$',
+      api.SceneMapRevisionView.as_view(), name='scene_map_revision'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'reconstruct$',
+      api.SceneReconstructView.as_view(), name='scene_reconstruct'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'reconstruct/(?P<request_id>[0-9a-fA-F-]{1,64})$',
+      api.SceneReconstructView.as_view(), name='scene_reconstruct_status'),
   re_path(r'api/v1/(cameras)$', api.ListThings.as_view()),
   re_path(r'api/v1/(camera)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(camera)/([^/]+)$', api.ManageThing.as_view()),

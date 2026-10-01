@@ -26,8 +26,8 @@ from manager.models import Scene, Cam, SingletonSensor, Region, Tripwire, Asset3
 from manager.serializers import *
 from manager.scene_import import ImportScene
 from manager.mapping_store import (
-  DIGEST_HEADER, MappingStoreError, delete_head_artifact, download_digest,
-  isoformat_z, store_artifact, validate_slug,
+  DIGEST_HEADER, MappingStoreError, activate_revision, delete_head_artifact,
+  delete_revision, download_digest, isoformat_z, store_artifact, validate_slug,
 )
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
@@ -121,9 +121,12 @@ class SceneImportAPIView(APIView):
 class SceneMappingArtifactView(APIView):
   """!Upload, download, or delete one mapping method's resume zip.
 
-  The zip is one method's opaque resume blob. The scene mesh is uploaded
-  separately. Manifest fields ``sha256``, ``fiducials``, and ``map_revision``
-  arrive as form data on the same request. Unknown form keys are ignored.
+  The zip is one method's opaque blob plus two optional standard members:
+  ``manifest.json`` (method metadata, fiducials, proposed cameras, mesh
+  transform) and ``mesh.glb``. A ``mesh.glb`` becomes this method's GLB
+  revision; it becomes the scene default only with form field ``activate``.
+  Form fields ``sha256``, ``fiducials``, ``contributor``, ``map_revision`` and
+  ``activate`` arrive on the same request. Unknown form keys are ignored.
   """
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [permissions.IsAuthenticated]
@@ -176,6 +179,7 @@ class SceneMappingArtifactView(APIView):
         request.data.get("fiducials"),
         str(request.data.get("contributor") or ""),
         request.data.get("map_revision"),
+        activate=_truthy(request.data.get("activate")),
       )
     except MappingStoreError as exc:
       return Response({"error": str(exc)}, status=exc.status)
@@ -202,6 +206,12 @@ class SceneMappingArtifactView(APIView):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+def _truthy(value):
+  if isinstance(value, bool):
+    return value
+  return str(value or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def _spool_upload(upload):
   handle = tempfile.NamedTemporaryFile(prefix="mapping-artifact-", suffix=".zip", delete=False)
   try:
@@ -222,8 +232,176 @@ def _artifact_payload(artifact):
     "sha256": artifact.sha256,
     "size": artifact.size,
     "fiducials": artifact.fiducials or [],
+    "manifest": artifact.manifest or {},
     "map_revision": artifact.map_revision_id,
   }
+
+
+def _revision_payload(scene, revision, request=None):
+  def _url(field):
+    if not field or not field.name:
+      return None
+    url = field.url
+    return request.build_absolute_uri(url) if request is not None else url
+
+  artifacts = list(revision.artifacts.filter(head=True).values_list("id", flat=True))
+  return {
+    "id": revision.id,
+    "method": revision.method,
+    "contributor": revision.contributor,
+    "created": isoformat_z(revision.created),
+    "sha256": revision.sha256,
+    "transform": revision.transform or {},
+    "is_default": scene.default_map_revision_id == revision.id,
+    "file": _url(revision.file),
+    "thumbnail": _url(revision.thumbnail),
+    "artifacts": artifacts,
+  }
+
+
+def _lookup_scene(scene_id):
+  try:
+    return Scene.objects.get(pk=scene_id)
+  except (Scene.DoesNotExist, ValueError, DjangoValidationError):
+    return None
+
+
+class SceneMappingArtifactListView(APIView):
+  """!Every method's live artifact for a scene, with manifest metadata."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAuthenticated]
+
+  def get(self, request, scene_id):
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    from manager.models import SceneMappingArtifact
+    rows = SceneMappingArtifact.objects.filter(scene=scene, head=True).order_by("method")
+    return Response([_artifact_payload(row) for row in rows])
+
+
+class SceneMapRevisionListView(APIView):
+  """!All GLB revisions of a scene, newest first, flagged with the default."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAuthenticated]
+
+  def get(self, request, scene_id):
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    rows = scene.map_revisions.order_by("-created", "-id")
+    return Response({
+      "default": scene.default_map_revision_id,
+      "revisions": [_revision_payload(scene, row, request) for row in rows],
+    })
+
+
+class SceneMapRevisionView(APIView):
+  """!Inspect or delete one GLB revision; POST ``…/activate`` makes it default."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def _lookup(self, scene_id, revision_id):
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return None, None
+    from manager.models import SceneMapRevision
+    try:
+      revision = SceneMapRevision.objects.get(pk=revision_id, scene=scene)
+    except (SceneMapRevision.DoesNotExist, ValueError, DjangoValidationError):
+      return scene, None
+    return scene, revision
+
+  def get(self, request, scene_id, revision_id):
+    scene, revision = self._lookup(scene_id, revision_id)
+    if revision is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    return Response(_revision_payload(scene, revision, request))
+
+  def post(self, request, scene_id, revision_id):
+    scene, revision = self._lookup(scene_id, revision_id)
+    if revision is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    try:
+      activate_revision(scene, revision)
+    except MappingStoreError as exc:
+      return Response({"error": str(exc)}, status=exc.status)
+    scene.refresh_from_db()
+    log.info("Map revision activated", scene.pk, revision.method, str(revision.pk))
+    return Response(_revision_payload(scene, revision, request))
+
+  def delete(self, request, scene_id, revision_id):
+    scene, revision = self._lookup(scene_id, revision_id)
+    if revision is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    try:
+      delete_revision(scene, revision)
+    except MappingStoreError as exc:
+      return Response({"error": str(exc)}, status=exc.status)
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+class SceneReconstructView(APIView):
+  """!Run a world-model reconstruction from the scene's ``keyframes`` artifact.
+
+  POST starts a job on the mapping service (body: ``mesh_type``, ``max_images``)
+  and returns its ``request_id``. GET ``…/reconstruct/<request_id>`` polls it;
+  once complete the result is stored as a *candidate* artifact + GLB revision
+  for the service's method. Nothing becomes the default map here.
+  """
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request, scene_id):
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    from manager.mesh_generator import MeshGenerator
+    generator = MeshGenerator()
+    mesh_type = str(request.data.get("mesh_type") or "mesh")
+    if mesh_type not in ("mesh", "pointcloud"):
+      return Response({"error": "mesh_type must be mesh or pointcloud"},
+                      status=status.HTTP_400_BAD_REQUEST)
+    max_images = request.data.get("max_images")
+    try:
+      max_images = int(max_images) if max_images not in (None, "") else None
+    except ValueError:
+      return Response({"error": "max_images must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+      result = generator.startReconstructionFromKeyframes(scene, mesh_type, max_images)
+    except Exception as exc:  # noqa: BLE001 - surfaced to the caller
+      log.error("Reconstruction start failed", scene.pk, str(exc))
+      return Response({"success": False, "error": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+    if not result.get("success"):
+      return Response(result, status=status.HTTP_409_CONFLICT)
+    result["method"] = generator.reconstructionMethod()
+    return Response(result, status=status.HTTP_202_ACCEPTED)
+
+  def get(self, request, scene_id, request_id):
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    from manager.mesh_generator import MeshGenerator
+    generator = MeshGenerator()
+    status_data = generator.mapping_client.getReconstructionStatus(request_id)
+    if not status_data.get("success") or status_data.get("state") != "complete":
+      return Response(status_data)
+    from manager.models import SceneMappingArtifact
+    existing = SceneMappingArtifact.objects.filter(
+      scene=scene, manifest__source__request_id=request_id).first()
+    if existing is not None:
+      status_data["finalized"] = True
+      status_data["artifact"] = _artifact_payload(existing)
+      status_data.pop("result", None)
+      return Response(status_data)
+    finalize = generator.finalizeMeshFromStatus(scene, request_id)
+    if not finalize.get("success"):
+      return Response({**status_data, "finalized": False, "error": finalize.get("error")},
+                      status=status.HTTP_502_BAD_GATEWAY)
+    status_data["finalized"] = True
+    status_data["artifact"] = finalize["artifact"]
+    status_data.pop("result", None)
+    return Response(status_data)
+
 
 class ManageThing(APIView):
   authentication_classes = [authentication.TokenAuthentication]

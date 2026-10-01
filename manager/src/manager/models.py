@@ -119,6 +119,10 @@ class Scene(models.Model):
                                         validate_map_file])
   map_contributor = models.CharField(
     "Scene map last contributor", max_length=200, default="", blank=True)
+  # Which GLB revision Scene.map mirrors. Null when the map is not a mesh.
+  default_map_revision = models.ForeignKey(
+    "SceneMapRevision", null=True, blank=True, on_delete=models.SET_NULL,
+    related_name="+", editable=False)
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(5e-324)])
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)
@@ -510,30 +514,26 @@ class Scene(models.Model):
 def map_revision_upload_to(instance, filename):
   return f"map-revisions/{instance.scene_id}/{instance.id}.glb"
 
+def map_revision_thumbnail_upload_to(instance, filename):
+  return f"map-revisions/{instance.scene_id}/{instance.id}_2d.png"
+
 def mapping_artifact_upload_to(instance, filename):
   return f"mapping-artifacts/{instance.scene_id}/{instance.id}.zip"
 
 class SceneMapRevision(models.Model):
-  """One uploaded scene mesh. The live Scene.map file is the head revision."""
+  """One scene mesh from one method. Scene.map mirrors scene.default_map_revision."""
+
+  USER_METHOD = "user"
 
   id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
   scene = models.ForeignKey(Scene, on_delete=models.CASCADE, related_name="map_revisions")
   file = models.FileField(upload_to=map_revision_upload_to, blank=True)
+  thumbnail = models.ImageField(upload_to=map_revision_thumbnail_upload_to, null=True, blank=True)
   sha256 = models.CharField(max_length=64)
-  source = models.CharField(max_length=32)
+  method = models.CharField(max_length=32, default=USER_METHOD)
   contributor = models.CharField(max_length=200, default="", blank=True)
   created = models.DateTimeField(auto_now_add=True)
   transform = models.JSONField(default=dict)
-  head = models.BooleanField(default=False)
-
-  class Meta:
-    constraints = [
-      models.UniqueConstraint(
-        fields=["scene"],
-        condition=Q(head=True),
-        name="unique_head_map_revision",
-      ),
-    ]
 
 class SceneMappingArtifact(models.Model):
   """One method's resume zip. Live clients read the row with head=True."""
@@ -546,6 +546,7 @@ class SceneMappingArtifact(models.Model):
   sha256 = models.CharField(max_length=64)
   size = models.PositiveBigIntegerField()
   fiducials = models.JSONField(default=list)
+  manifest = models.JSONField(default=dict, blank=True)
   map_revision = models.ForeignKey(
     SceneMapRevision, null=True, blank=True, on_delete=models.SET_NULL,
     related_name="artifacts")

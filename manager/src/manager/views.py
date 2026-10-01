@@ -971,6 +971,7 @@ def generate_mesh_status(request, pk):
         scene.save(update_fields=["mesh_state"])
 
     status_data["finalized"] = True
+    status_data["artifact"] = finalize_result.get("artifact")
     return JsonResponse(status_data, status=200)
 
   except Exception as e:
