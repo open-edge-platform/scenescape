@@ -18,7 +18,7 @@ TEST(ObjectClassTest, ParseManagerListPayload) {
 
     ASSERT_EQ(map.size(), 2u);
 
-    const auto person = lookupObjectClass(map, "Person");
+    const auto person = lookupObjectClass(map, "person");
     EXPECT_EQ(person.shift_type, ObjectClassConfig::kShiftType1);
     ASSERT_TRUE(person.footprint_half_m.has_value());
     EXPECT_DOUBLE_EQ(*person.footprint_half_m, 0.25);
@@ -34,6 +34,15 @@ TEST(ObjectClassTest, UnknownCategoryDefaultsToType1) {
     const auto cfg = lookupObjectClass(empty, "vehicle");
     EXPECT_EQ(cfg.shift_type, ObjectClassConfig::kShiftType1);
     EXPECT_FALSE(cfg.footprint_half_m.has_value());
+}
+
+TEST(ObjectClassTest, CategoryMatchIsCaseSensitive) {
+    const auto map = parseObjectClassesFromAssetsJson(
+        R"({"results":[{"name":"Plane","shift_type":2},{"name":"plane","shift_type":1}]})");
+    ASSERT_EQ(map.size(), 2u);
+    EXPECT_EQ(lookupObjectClass(map, "Plane").shift_type, ObjectClassConfig::kShiftType2);
+    EXPECT_EQ(lookupObjectClass(map, "plane").shift_type, ObjectClassConfig::kShiftType1);
+    EXPECT_FALSE(lookupObjectClass(map, "PLANE").footprint_half_m.has_value());
 }
 
 TEST(ObjectClassTest, ZeroSizesKeepFixedFootprint) {

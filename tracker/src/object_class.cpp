@@ -3,8 +3,6 @@
 
 #include "object_class.hpp"
 
-#include <algorithm>
-#include <cctype>
 #include <stdexcept>
 
 #include <rapidjson/document.h>
@@ -14,13 +12,6 @@ namespace {
 
 // Controller moving_object.DEFAULT_EDGE_LENGTH
 constexpr double kDefaultEdgeLength = 1.0;
-
-std::string toLower(std::string_view value) {
-    std::string lower(value);
-    std::transform(lower.begin(), lower.end(), lower.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return lower;
-}
 
 double readNumber(const rapidjson::Value& obj, const char* key, double fallback) {
     if (!obj.HasMember(key) || !obj[key].IsNumber()) {
@@ -52,7 +43,7 @@ void ingestResultsArray(const rapidjson::Value& results, ObjectClassMap& out) {
         if (!asset.IsObject() || !asset.HasMember("name") || !asset["name"].IsString()) {
             continue;
         }
-        out[toLower(asset["name"].GetString())] = parseAssetObject(asset);
+        out[asset["name"].GetString()] = parseAssetObject(asset);
     }
 }
 
@@ -77,7 +68,7 @@ ObjectClassMap parseObjectClassesFromAssetsJson(std::string_view json) {
 
 ObjectClassConfig lookupObjectClass(const ObjectClassMap& object_classes,
                                     std::string_view category) {
-    const auto it = object_classes.find(toLower(category));
+    const auto it = object_classes.find(std::string(category));
     if (it == object_classes.end()) {
         return {};
     }

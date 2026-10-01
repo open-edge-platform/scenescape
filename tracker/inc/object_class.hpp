@@ -26,7 +26,7 @@ struct ObjectClassConfig {
     std::optional<double> footprint_half_m;
 };
 
-/// Category name (lowercased) → projection config.
+/// Asset name → projection config.
 using ObjectClassMap = std::unordered_map<std::string, ObjectClassConfig>;
 
 /**
@@ -38,7 +38,7 @@ using ObjectClassMap = std::unordered_map<std::string, ObjectClassConfig>;
 ObjectClassMap parseObjectClassesFromAssetsJson(std::string_view json);
 
 /**
- * @brief Look up projection config for a detection category (case-insensitive).
+ * @brief Look up projection config for a detection category (exact match).
  *
  * Returns TYPE_1 with no fixed footprint when the category is unknown.
  */
