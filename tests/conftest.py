@@ -1195,7 +1195,12 @@ DEMO_SCENE_CAMERAS = ("camera1", "camera2", "camera3")
 DEMO_CAMERA_TRANSFORM_TYPE = "3d-2d point correspondence"
 # Resolution and intrinsics of the seeded demo cameras.
 DEMO_CAMERA_RESOLUTION = [640, 480]
-DEMO_CAMERA_INTRINSICS = {'fov': 70}
+DEMO_CAMERA_INTRINSICS = {
+  'fx': 571.2592026968458,
+  'fy': 571.2592026968458,
+  'cx': 320.0,
+  'cy': 240.0,
+}
 # Each seeded camera views the map from a different angle, so they must not
 # share one calibration.  Used for any camera name not listed here.
 DEMO_CAMERA_TRANSFORMS = [278.0, 61.0, 621.0, 132.0, 559.0, 460.0, 66.0, 289.0,
@@ -1388,7 +1393,7 @@ def scene_factory(params):
   created_cameras = []
   borrowed_cameras = []
 
-  _BORROWED_FIELDS = ('scene', 'transform_type', 'transforms', 'resolution',
+  _BORROWED_FIELDS = ('name', 'scene', 'transform_type', 'transforms', 'resolution',
                       'intrinsics')
 
   def _delete_by_name(getter, deleter, kind, name):
@@ -1404,6 +1409,7 @@ def scene_factory(params):
 
   def _camera_payload(camera, scene_uid):
     return {
+      'name': camera,
       'scene': scene_uid,
       'transform_type': DEMO_CAMERA_TRANSFORM_TYPE,
       'resolution': DEMO_CAMERA_RESOLUTION,
@@ -1422,13 +1428,19 @@ def scene_factory(params):
     for obj in existing:
       uid = obj['uid']
       previous = {field: obj.get(field) for field in _BORROWED_FIELDS}
+      relinked = _await_database(
+        watcher,
+        lambda uid=uid: rest.updateCamera(uid, {'scene': scene_uid}),
+        f"borrowing camera '{camera}'")
+      assert relinked, f"scene_factory failed borrowing camera '{camera}': " \
+        f"{relinked.statusCode} {getattr(relinked, 'errors', None)}"
+      borrowed_cameras.append((uid, camera, previous))
       updated = _await_database(
         watcher,
         lambda uid=uid: rest.updateCamera(uid, _camera_payload(camera, scene_uid)),
-        f"borrowing camera '{camera}'")
+        f"calibrating borrowed camera '{camera}'")
       assert updated, f"scene_factory failed borrowing camera '{camera}': " \
         f"{updated.statusCode} {getattr(updated, 'errors', None)}"
-      borrowed_cameras.append((uid, camera, previous))
     return True
 
   def _factory(name, cameras=(), map_image=None, replace=False, **fields):
@@ -1472,7 +1484,7 @@ def scene_factory(params):
           watcher,
           lambda camera=camera: rest.createCamera(dict(
             _camera_payload(camera, scene['uid']),
-            name=camera, sensor_id=camera)),
+            sensor_id=camera)),
           f"creating camera '{camera}'")
         assert created, f"scene_factory failed creating camera '{camera}': " \
           f"{created.statusCode} {getattr(created, 'errors', None)}"
@@ -1488,10 +1500,19 @@ def scene_factory(params):
   yield _factory
 
   for uid, camera, previous in reversed(borrowed_cameras):
-    restore = {field: value for field, value in previous.items()
-               if value is not None or field == 'scene'}
     try:
-      rest.updateCamera(uid, restore)
+      # Restoring the old scene also clears the pose; restore it afterwards.
+      relinked = rest.updateCamera(uid, {'scene': previous['scene']})
+      if not relinked:
+        logger.warning("scene_factory could not restore camera '%s' (%s): %s",
+                       camera, uid, getattr(relinked, 'errors', None))
+        continue
+      restore = {field: value for field, value in previous.items()
+                 if field != 'scene' and value is not None}
+      restored = rest.updateCamera(uid, restore)
+      if not restored:
+        logger.warning("scene_factory could not restore camera '%s' (%s): %s",
+                       camera, uid, getattr(restored, 'errors', None))
     except Exception as exc:
       logger.warning("scene_factory could not restore camera '%s' (%s): %s",
                      camera, uid, exc)
