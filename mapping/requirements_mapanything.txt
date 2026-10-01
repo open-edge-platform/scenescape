@@ -20,5 +20,5 @@ torch==2.13.0
 torchaudio==2.11.0
 torchvision==0.28.0
 tqdm==4.67.1
-trimesh==4.11.0
+trimesh==5.1.0
 uniception==0.1.6
