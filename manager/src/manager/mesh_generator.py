@@ -191,6 +191,8 @@ class MappingServiceClient:
       cam_id: intr
       for cam_id, intr in zip(camera_order, camera_intrinsics_order or [])
     }
+    any_location = any(v is not None for v in camera_loc_by_id.values())
+    any_intrinsics = any(v is not None for v in camera_intr_by_id.values())
     log.info(f"Sending {len(images)} images to mapping service for reconstruction")
 
     files = []
@@ -215,6 +217,9 @@ class MappingServiceClient:
             )
             files.append(("camera_ids", (None, camera_id)))
             cam_loc = camera_loc_by_id.get(camera_id)
+            # The service pairs camera_locations / camera_intrinsics with
+            # images by index, so a camera without a prior still gets an
+            # (empty) entry; the model simply leaves that view unconditioned.
             if cam_loc is not None:
               cam_loc_clean = {
                 "translation": list(cam_loc["translation"]),
@@ -222,8 +227,8 @@ class MappingServiceClient:
                 "scale": list(cam_loc.get("scale", [1.0, 1.0, 1.0])),
               }
               files.append(("camera_locations", (None, json.dumps(cam_loc_clean))))
-            else:
-              log.warning(f"No camera location for {camera_id}")
+            elif any_location:
+              files.append(("camera_locations", (None, "")))
             cam_intr = camera_intr_by_id.get(camera_id)
             if cam_intr is not None:
               intr_clean = {k: float(cam_intr[k]) for k in ("fx", "fy", "cx", "cy")}
@@ -231,8 +236,7 @@ class MappingServiceClient:
                 if cam_intr.get(k) is not None:
                   intr_clean[k] = int(cam_intr[k])
               files.append(("camera_intrinsics", (None, json.dumps(intr_clean))))
-            elif camera_intrinsics_order:
-              # The service pairs entries by index, so keep the list aligned.
+            elif any_intrinsics:
               files.append(("camera_intrinsics", (None, "")))
           else:
             log.warning(
@@ -577,24 +581,29 @@ class MeshGenerator:
         intrinsics.append(self._priorIntrinsics(cam))
     if not order:
       return {"success": False, "error": "No readable keyframe images"}
-    # The service pairs priors with images by index and the model ignores pose
-    # priors entirely unless the first view has one, so only send complete sets.
-    if any(loc is None for loc in locations):
-      log.warning("keyframes: some frames lack poses; sending no pose priors")
-      locations = [None] * len(order)
-    if any(k is None for k in intrinsics):
-      log.warning("keyframes: some frames lack intrinsics; sending no intrinsics priors")
-      intrinsics = None
+    # Priors are per view; images without them (e.g. scene cameras) are
+    # reconstructed unconditioned. MapAnything anchors the world frame on
+    # view 0, so put a frame with a pose first when there is one.
+    order, locations, intrinsics = self._posedViewFirst(order, locations, intrinsics)
+    n_pose = sum(1 for v in locations if v is not None)
+    n_intr = sum(1 for v in intrinsics if v is not None)
 
     result = self.mapping_client.startReconstructMesh(
-      images, order, locations, mesh_type, camera_intrinsics_order=intrinsics)
-    result["priors"] = {
-      "poses": locations[0] is not None if locations else False,
-      "intrinsics": intrinsics is not None,
-    }
+      images, order, locations, mesh_type,
+      camera_intrinsics_order=intrinsics if n_intr else None)
+    result["priors"] = {"poses": n_pose, "intrinsics": n_intr}
     result["images"] = len(order)
     result["keyframes_artifact"] = str(artifact.id)
     return result
+
+  @staticmethod
+  def _posedViewFirst(order, locations, intrinsics):
+    """Rotate the lists so the first view has a pose, if any view does."""
+    first = next((i for i, loc in enumerate(locations) if loc is not None), None)
+    if first in (None, 0):
+      return order, locations, intrinsics
+    swap = lambda seq: [seq[first]] + seq[:first] + seq[first + 1:]
+    return swap(order), swap(locations), swap(intrinsics)
 
   @staticmethod
   def _priorLocation(cam):

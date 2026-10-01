@@ -114,7 +114,7 @@ def test_keyframes_upload_then_reconstruct_yields_candidate(client, scene):
   # Intrinsics priors go along, in pixels of the uploaded (uncropped) image.
   assert submitted["intrinsics"][0] == {"fx": 600.0, "fy": 600.0, "cx": 320.0, "cy": 240.0,
                                         "width": 640, "height": 480}
-  assert resp.json()["priors"] == {"poses": True, "intrinsics": True}
+  assert resp.json()["priors"] == {"poses": 2, "intrinsics": 2}
 
   with patch("manager.mesh_generator.MappingServiceClient.getReconstructionStatus",
              return_value=_fake_result(submitted["order"])):
@@ -158,8 +158,9 @@ def test_reconstruct_without_keyframes_is_409(client, scene):
   assert "keyframes" in resp.json()["error"]
 
 
-def test_client_sends_aligned_intrinsics_and_locations():
-  """The service pairs priors by index, so every image gets an entry."""
+def test_client_keeps_priors_index_aligned_with_unposed_cameras():
+  """Scene cameras have no pose/intrinsics; their slots must still be sent so
+  the handheld frames after them keep the right priors."""
   from manager.mesh_generator import MappingServiceClient
   captured = {}
 
@@ -174,16 +175,34 @@ def test_client_sends_aligned_intrinsics_and_locations():
     return _Resp()
 
   client = MappingServiceClient()
-  images = {c: {"filename": f"{c}.jpg", "data": base64.b64encode(_JPEG).decode()} for c in ("a", "b")}
+  ids = ["kf0", "axis-01", "kf1"]
+  images = {c: {"filename": f"{c}.jpg", "data": base64.b64encode(_JPEG).decode()} for c in ids}
+  locs = [{"translation": [0, 0, 0], "rotation": [0, 0, 0, 1]}, None,
+          {"translation": [1, 0, 0], "rotation": [0, 0, 0, 1]}]
+  intr = [{"fx": 500, "fy": 500, "cx": 320, "cy": 240, "width": 640, "height": 480}, None,
+          {"fx": 500, "fy": 500, "cx": 320, "cy": 240}]
   with patch("manager.mesh_generator.requests.post", side_effect=fake_post):
-    client.startReconstructMesh(
-      images, ["a", "b"],
-      [{"translation": [0, 0, 0], "rotation": [0, 0, 0, 1]}, {"translation": [1, 0, 0], "rotation": [0, 0, 0, 1]}],
-      camera_intrinsics_order=[{"fx": 500, "fy": 500, "cx": 320, "cy": 240, "width": 640, "height": 480}, None],
-    )
+    client.startReconstructMesh(images, ids, locs, camera_intrinsics_order=intr)
+
   fields = [(k, v[1]) for k, v in captured["files"] if k != "images"]
-  intr = [v for k, v in fields if k == "camera_intrinsics"]
-  assert len(intr) == 2
-  assert json.loads(intr[0]) == {"fx": 500.0, "fy": 500.0, "cx": 320.0, "cy": 240.0, "width": 640, "height": 480}
-  assert intr[1] == ""  # placeholder keeps index alignment
-  assert len([k for k, _ in fields if k == "camera_locations"]) == 2
+  cam_ids = [v for k, v in fields if k == "camera_ids"]
+  sent_locs = [v for k, v in fields if k == "camera_locations"]
+  sent_intr = [v for k, v in fields if k == "camera_intrinsics"]
+  assert cam_ids == ids
+  assert len(sent_locs) == 3 and len(sent_intr) == 3
+  assert sent_locs[1] == "" and sent_intr[1] == ""          # scene camera: empty slots
+  assert json.loads(sent_locs[2])["translation"] == [1, 0, 0]  # kf1 still gets its own pose
+  assert json.loads(sent_intr[0])["width"] == 640
+
+
+def test_job_puts_a_posed_view_first():
+  """MapAnything drops all pose priors if view 0 has none."""
+  from manager.mesh_generator import MeshGenerator
+  order, locs, intr = MeshGenerator._posedViewFirst(
+    ["cam", "kf0", "kf1"], [None, {"t": 0}, {"t": 1}], [None, {"fx": 1}, {"fx": 2}])
+  assert order == ["kf0", "cam", "kf1"]
+  assert locs[0] == {"t": 0} and locs[1] is None and locs[2] == {"t": 1}
+  assert intr == [{"fx": 1}, None, {"fx": 2}]
+  # Already posed first, or no poses at all: untouched.
+  assert MeshGenerator._posedViewFirst(["a", "b"], [{"t": 0}, None], [None, None])[0] == ["a", "b"]
+  assert MeshGenerator._posedViewFirst(["a", "b"], [None, None], [None, None])[0] == ["a", "b"]
