@@ -246,8 +246,9 @@ than as a source-local Cartesian observation. In that case:
   discarded.
 - Scenescape computes the object location with the same pixel-to-location algorithm used for camera
   detections.
-- The detection always enters normal Scenescape tracking, even if the message sets `track=false`;
-  source-local id values are treated only as tracking hints on this path.
+- With `track=true` or when `track` is omitted, the localized detection enters normal Scenescape
+  tracking. With `track=false`, it bypasses tracking and keeps its source-provided `id`, just like
+  a source-local Cartesian observation.
 
 ### Pose Caching and Message Ordering
 
