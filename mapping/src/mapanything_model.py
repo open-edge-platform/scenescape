@@ -46,6 +46,15 @@ class MapAnythingModel(ReconstructionModel):
   This model is used by the mapanything-service container.
   """
 
+  # Rx(180°): MapAnything's world has +Y down / +Z into the scene relative to
+  # the Scenescape frame. Self-inverse, so the same matrix maps both ways.
+  SCENE_TO_MODEL_WORLD = np.array([
+    [1, 0, 0, 0],
+    [0, -1, 0, 0],
+    [0, 0, -1, 0],
+    [0, 0, 0, 1],
+  ], dtype=np.float64)
+
   def __init__(self, device: str = "cpu"):
     super().__init__(
       model_name="mapanything",
@@ -209,6 +218,14 @@ class MapAnythingModel(ReconstructionModel):
     n = len(pil_images)
     prior_intrinsics = list(prior_intrinsics or [None] * n)
     prior_poses = list(prior_poses or [None] * n)
+
+    # Output poses and the GLB are rotated 180° about world X on the way out
+    # (see _process_outputs), so priors given in the scene frame must be
+    # rotated the same way on the way in or they land in a mirrored world.
+    prior_poses = [
+      None if p is None else self.SCENE_TO_MODEL_WORLD @ np.asarray(p, dtype=np.float64)
+      for p in prior_poses
+    ]
 
     # MapAnything requires view 0 to carry a pose whenever any view does.
     if prior_poses and prior_poses[0] is None and any(p is not None for p in prior_poses):

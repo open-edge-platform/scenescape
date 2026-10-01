@@ -613,6 +613,8 @@ class MeshGenerator:
     if q is None and cam.get("quaternion_wxyz") is not None:
       w, x, y, z = cam["quaternion_wxyz"]
       q = [x, y, z, w]
+    if q is None and isinstance(cam.get("rotation"), (list, tuple)):
+      q = cam["rotation"]  # legacy manifests: already xyzw
     if not (isinstance(t, (list, tuple)) and len(t) == 3
             and isinstance(q, (list, tuple)) and len(q) == 4):
       return None

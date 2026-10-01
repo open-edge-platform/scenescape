@@ -61,7 +61,7 @@ def _keyframes_zip(n=3):
       archive.writestr(name, _JPEG)
       cams.append({"id": f"kf{i:06d}", "kind": "observed", "file": name,
                    "translation": [float(i), 0.0, 1.5],
-                   "quaternion_wxyz": [0.7071, 0.0, 0.7071, 0.0],
+                   "quaternion_xyzw": [0.0, 0.7071, 0.0, 0.7071],
                    "intrinsics": {"width": 640, "height": 480, "fx": 600, "fy": 600, "cx": 320, "cy": 240}})
     manifest = {"version": 1, "method": "keyframes", "contributor": "handheld-01", "cameras": cams}
     archive.writestr("manifest.json", json.dumps(manifest))
@@ -109,7 +109,7 @@ def test_keyframes_upload_then_reconstruct_yields_candidate(client, scene):
   assert resp.json()["request_id"] == "abc123"
   assert resp.json()["method"] == "mapanything"
   assert submitted["n_images"] == 2 and len(submitted["order"]) == 2
-  # Manifest stores wxyz; the service reads camera_locations.rotation as xyzw.
+  # Manifest and service both use xyzw; passed through unchanged.
   assert submitted["locations"][0]["rotation"] == [0.0, 0.7071, 0.0, 0.7071]
   # Intrinsics priors go along, in pixels of the uploaded (uncropped) image.
   assert submitted["intrinsics"][0] == {"fx": 600.0, "fy": 600.0, "cx": 320.0, "cy": 240.0,
