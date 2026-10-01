@@ -204,7 +204,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
 
         for (size_t i = 0; i < n; ++i) {
             const size_t base = i * kPixelsPerDetection;
-            if (!valid[base]) {
+            if (!valid[base] || !valid[base + 1] || !valid[base + 2]) {
                 continue;
             }
             const auto& bl = world[base + 1];
