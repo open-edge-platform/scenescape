@@ -28,6 +28,7 @@
   },
   "cluster_distance_m": 2.0,
   "min_score": 0.35,
+  "mounting_height_m": 4.5,
   "accumulate_half_window_default": 0,
   "precision": "FP16",
   "train_meta": {
