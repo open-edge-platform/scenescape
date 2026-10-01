@@ -49,6 +49,7 @@ DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
 DEFAULT_SIMILARITY_METRIC = DEFAULT_CONFIG_SIMILARITY_METRIC
 SUPPORTED_SIMILARITY_METRICS = SUPPORTED_CONFIG_SIMILARITY_METRICS
+DEFAULT_INACTIVE_TRACK_GRACE_SECS = 60.0
 
 # One purge worker per process: category trackers each construct a UUIDManager,
 # but they share one ReID store and must not each schedule DeleteExpired /
@@ -126,6 +127,7 @@ class UUIDManager:
     self._owns_purge_timer = False
     self.scene_id = None
     self._shutdown_complete = False
+    self.inactive_track_since = {}
 
     self.unique_id_count_lock = threading.Lock()
     # ReID embedding dimensions are inferred from the first observed embedding.
@@ -227,6 +229,16 @@ class UUIDManager:
       'minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.feature_slice_size = reid_config_data.get(
       'feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
+    self.inactive_track_grace_secs = float(
+      reid_config_data.get(
+        'inactive_track_grace_secs',
+        DEFAULT_INACTIVE_TRACK_GRACE_SECS,
+      )
+    )
+
+    if self.inactive_track_grace_secs < 0:
+      raise ValueError("inactive_track_grace_secs must be non-negative")
+
     if hasattr(self, 'reid_database') and self.reid_database is not None:
       new_db_metric = self._resolveDatabaseSimilarityMetric(self.similarity_metric)
       current_db_metric = getattr(self.reid_database, 'similarity_metric', None)
@@ -478,6 +490,65 @@ class UUIDManager:
       return None
     return getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
 
+  def hasPendingTrack(self, track_id):
+    """Return True when ``track_id`` is collecting evidence and has no decision."""
+    with self.active_ids_lock:
+      data = self.active_ids.get(track_id)
+      return data is not None and data[0] is None
+
+  def transferPendingTrack(self, old_track_id, new_track_id):
+    """Move unresolved ReID collection state between tracker fragments.
+
+    The tracking layer owns the spatial/temporal association decision. This
+    method only transfers UUID-manager state after that decision has been made.
+    A track with an in-flight query or completed identity is never transferred.
+
+    @return bool  True when state was transferred, otherwise False
+    """
+    if old_track_id == new_track_id:
+      return True
+
+    with self.active_ids_lock:
+      old_data = self.active_ids.get(old_track_id)
+      new_data = self.active_ids.get(new_track_id)
+      if old_data is None or old_data[0] is not None:
+        return False
+      if new_data is not None and new_data[0] is not None:
+        return False
+      if old_track_id in self.active_query:
+        log.warning(
+          f"Skipping ReID tracker-fragment handoff with in-flight query: "
+          f"rv_id={old_track_id} -> {new_track_id}")
+        return False
+
+      self.active_ids[new_track_id] = old_data
+      self.active_ids.pop(old_track_id, None)
+
+    def move_state(state):
+      if old_track_id not in state:
+        return
+      old_value = state.pop(old_track_id)
+      if new_track_id not in state:
+        state[new_track_id] = old_value
+
+    move_state(self.quality_features)
+    move_state(self.quality_observation_counts)
+    move_state(self.enrollment_features)
+    move_state(self.local_enrollment_features)
+    move_state(self.features_for_database)
+    move_state(self.features_for_database_timestamps)
+
+    self.inactive_track_since.pop(old_track_id, None)
+    self.inactive_track_since.pop(new_track_id, None)
+    self.match_latency_tracker.discardTrackStart(old_track_id)
+    self.match_latency_tracker.markTrackStart(new_track_id)
+
+    log.debug(
+      f"Transferred pending ReID state from rv_id={old_track_id} "
+      f"to rv_id={new_track_id}, observations="
+      f"{self.quality_observation_counts.get(new_track_id, 0)}")
+    return True
+
   def pruneInactiveTracks(self, tracked_objects):
     """
     Removes inactive tracks from the active_ids dict.
@@ -511,28 +582,72 @@ class UUIDManager:
       metrics.record_reid_total_tracked_object_count(
         TrackedObjectRegistry.getInstance().getTotalCount(self.scene_id))
 
-    # Normal pruning based on tracker's active tracks
+    # Preserve unresolved tracker IDs briefly because Robot Vision may suspend
+    # and later reactivate the same rv_id. Resolved tracks are still pruned
+    # immediately so their database identity can be matched by another track.
+    active_track_set = set(active_tracks)
+    current_time = get_epoch_time()
+
+    # A currently visible track is no longer inactive.
+    for track_id in active_track_set:
+      self.inactive_track_since.pop(track_id, None)
+
     inactive_tracks = []
     new_active_ids = {}
+
     with self.active_ids_lock:
-      for k, v in self.active_ids.items():
-        if k in active_tracks:
-          new_active_ids[k] = v
-        else:
-          inactive_tracks.append((k, v))
+      for track_id, data in self.active_ids.items():
+        if track_id in active_track_set:
+          new_active_ids[track_id] = data
+          continue
+
+        database_id = data[0]
+
+        # Only pending/unresolved tracks need the suspension grace period.
+        if database_id is None:
+          inactive_since = self.inactive_track_since.setdefault(
+            track_id, current_time)
+          inactive_age = current_time - inactive_since
+
+          if inactive_age <= self.inactive_track_grace_secs:
+            new_active_ids[track_id] = data
+            log.debug(
+              f"Retaining suspended unresolved ReID track: "
+              f"rv_id={track_id}, "
+              f"inactive_age={inactive_age:.2f}, "
+              f"grace={self.inactive_track_grace_secs:.2f}"
+            )
+            continue
+
+        self.inactive_track_since.pop(track_id, None)
+        inactive_tracks.append((track_id, data))
+
       self.active_ids = new_active_ids
 
     for track_id, data in inactive_tracks:
+      observation_count = self.quality_observation_counts.get(track_id, 0)
+      unique_vectors = len(self.quality_features.get(track_id, []))
+      query_submitted = track_id in self.active_query
+
+      if data[0] is None:
+        log.warning(
+          f"Pruning unresolved ReID track after grace period: "
+          f"rv_id={track_id}, "
+          f"observations={observation_count}, "
+          f"unique_vectors={unique_vectors}, "
+          f"required={self.minimum_feature_count}, "
+          f"query_submitted={query_submitted}"
+        )
+
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
       self.quality_observation_counts.pop(track_id, None)
       self.enrollment_features.pop(track_id, None)
       self.local_enrollment_features.pop(track_id, None)
       self.features_for_database_timestamps.pop(track_id, None)
-      # Track never reached a match decision (e.g. reid disabled, insufficient
-      # features); discard its start time rather than leaking it forever.
       self.match_latency_tracker.discardTrackStart(track_id)
       self._addNewFeaturesToDatabase(track_id)
+
     return
 
   def _addNewFeaturesToDatabase(self, track_id, slice_size=None):
@@ -768,16 +883,34 @@ class UUIDManager:
     @param  minimum_bbox_area      Optional override for minimum pixel bbox area (px^2)
     """
     reid_embedding = self._extractReidEmbedding(sscape_object)
-    if reid_embedding is None or not self.reid_enabled:
+
+    if reid_embedding is None:
+      log.debug(
+        f"ReID observation rejected: rv_id={sscape_object.rv_id}, "
+        "reason=no_embedding"
+      )
+      return
+
+    if not self.reid_enabled:
       return
 
     if not self._ensureReIDDimensions(reid_embedding):
+      log.debug(
+        f"ReID observation rejected: rv_id={sscape_object.rv_id}, "
+        "reason=invalid_dimensions"
+      )
       return
 
     if not self.isQueryableObservation(sscape_object, minimum_bbox_area):
+      bbox = getattr(sscape_object, "boundingBoxPixels", None)
+      area = bbox.area if bbox is not None else None
+
       log.debug(
-        f"gatherQualityVisualFeatures: Rejected embedding for rv_id={sscape_object.rv_id} "
-        f"(no usable pixel bbox and no vetted provenance)")
+        f"ReID observation rejected: rv_id={sscape_object.rv_id}, "
+        f"reason=quality_gate, bbox_area={area}, "
+        f"minimum_bbox_area={minimum_bbox_area or self.minimum_bbox_area}, "
+        f"provenance={getattr(sscape_object, 'reid_provenance', None)}"
+      )
       return
 
     self.quality_observation_counts[sscape_object.rv_id] = (
@@ -1375,6 +1508,21 @@ class UUIDManager:
 
     @param  sscape_object  The current Scenescape object
     """
+    was_suspended = sscape_object.rv_id in self.inactive_track_since
+
+    if was_suspended:
+      inactive_since = self.inactive_track_since.pop(
+        sscape_object.rv_id, None)
+      inactive_duration = (
+        get_epoch_time() - inactive_since
+        if inactive_since is not None
+        else 0.0
+      )
+      log.debug(
+        f"Reactivated unresolved ReID track: "
+        f"rv_id={sscape_object.rv_id}, "
+        f"inactive_duration={inactive_duration:.2f}"
+      )
     is_new = self.isNewTrackerID(sscape_object)
     self._category = sscape_object.category
 
