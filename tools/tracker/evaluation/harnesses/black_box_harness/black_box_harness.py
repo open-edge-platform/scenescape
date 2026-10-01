@@ -77,7 +77,8 @@ Optional:
                            (default 4317).
   object_classes  (list):  Optional asset definitions forwarded to the mock
                            Manager ``/api/v1/assets`` endpoint so Controller
-                           applies per-category ``shift_type`` (TYPE_1/TYPE_2).
+                           and Tracker Service apply per-category
+                           ``shift_type`` (TYPE_1/TYPE_2) and footprint size.
                            Each entry: ``{name, shift_type, x_size, y_size, ...}``.
 """
 

@@ -19,8 +19,9 @@ Scene format follows the Manager REST serializer (CamSerializer):
  constructs a PointCorrespondenceTransform, identical to production.
 
 Optional ``object_classes`` on the scene config (same shape as the camera
-projection harness) are exposed as Manager assets so Controller can apply
-per-category ``shift_type`` (TYPE_1 / TYPE_2) during world projection.
+projection harness) are exposed as Manager assets so Controller and Tracker
+Service apply per-category ``shift_type`` (TYPE_1 / TYPE_2) and footprint size
+during world projection.
 
 Run as a standalone process inside the Docker network:
  python mock_manager.py <port> <scene_config_json>
