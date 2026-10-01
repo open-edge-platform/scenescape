@@ -138,9 +138,10 @@ def _assets_from_object_classes(object_classes):
       "uid": str(entry.get("uid", index)),
       "name": name,
       "shift_type": int(entry.get("shift_type", 1)),
-      "x_size": float(entry.get("x_size", 0.0)),
-      "y_size": float(entry.get("y_size", 0.0)),
-      "z_size": float(entry.get("z_size", 0.0)),
+      # Manager Asset3D defaults x/y/z_size to 1.0.
+      "x_size": float(entry.get("x_size", 1.0)),
+      "y_size": float(entry.get("y_size", 1.0)),
+      "z_size": float(entry.get("z_size", 1.0)),
     }
     for key in (
       "tracking_radius", "project_to_map", "rotation_from_velocity",

@@ -377,6 +377,12 @@ class TestMockManagerHTTP:
     assert assets[0]["name"] == "FW190D"
     assert assets[0]["shift_type"] == 2
 
+  def test_assets_from_object_classes_default_sizes_match_manager(self):
+    assets = _assets_from_object_classes([{"name": "FW190D"}])
+    assert assets[0]["x_size"] == 1.0
+    assert assets[0]["y_size"] == 1.0
+    assert assets[0]["z_size"] == 1.0
+
   def test_get_camera_returns_correct_camera(self, rest_server):
     status, body = self._get(rest_server(), "/api/v1/camera/Cam_x1_0")
     assert status == 200
