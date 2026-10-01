@@ -2,7 +2,7 @@
 # Copyright (C) 2026 Intel Corporation
 
 """
-Load tests — verify the tracker can sustain the configured camera load.
+Load tests — verify the tracker can sustain camera, external, or mixed load.
 
 The Makefile orchestrates the lifecycle:
   compose up (broker, otel-collector, tracker) → k6 run → pytest → compose down
@@ -88,28 +88,25 @@ class TestSLI:
     )
 
   def test_active_tracks(self, load_config, prometheus, metrics_summary):
-    """Verify the tracker created the expected number of active tracks.
+    """Verify the tracker created the expected camera and external tracks.
 
-    Each camera publishes NUM_OBJECTS detections per frame.  The tracker
-    must maintain exactly that many active tracks once steady state is
-    reached.
-
-    Threshold: active_tracks == NUM_OBJECTS.
+    Camera views describe the same object set; external sources each use unique
+    IDs and therefore contribute an independent set of tracks.
     """
     tracks = prometheus.get_gauge(ACTIVE_TRACKS)
     metrics_summary["active_tracks"] = tracks
 
-    expected = load_config["num_objects"]
+    expected = load_config["expected_tracks"]
     assert tracks is not None, f"Gauge {ACTIVE_TRACKS} not found"
     assert tracks == expected, (
-      f"Active tracks {tracks:.0f} != {expected} objects"
+      f"Active tracks {tracks:.0f} != {expected} expected tracks"
     )
 
   def test_throughput(self, load_config, prometheus, metrics_summary):
     """KPI warning: sustained message throughput.
 
     Computes received messages / duration and compares against the
-    configured minimum rate (cameras × FPS by default).
+    configured minimum rate (camera plus external-source messages).
     """
     duration_s = pytimeparse2.parse(load_config["duration"])
 

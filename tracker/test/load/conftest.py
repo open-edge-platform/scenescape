@@ -31,18 +31,32 @@ def load_config(request):
   Override any value:
     LATENCY_P50_MS=80 LATENCY_P99_MS=150 THROUGHPUT_MIN=40 make test-load
   """
+  scenario = os.getenv("SCENARIO", "camera")
   fps = int(os.getenv("FPS", "15"))
+  external_fps = int(os.getenv("EXTERNAL_FPS", str(fps)))
+  chunking_fps = int(os.getenv("CHUNKING_FPS", str(fps)))
   num_cameras = int(os.getenv("NUM_CAMERAS", "4"))
+  num_external_sources = int(os.getenv("NUM_EXTERNAL_SOURCES", "0"))
+  num_objects = int(os.getenv("NUM_OBJECTS", "300"))
+  input_rate = num_cameras * fps + num_external_sources * external_fps
 
   cfg = {
+    "scenario": scenario,
     "num_cameras": num_cameras,
     "fps": fps,
-    "num_objects": int(os.getenv("NUM_OBJECTS", "300")),
+    "num_external_sources": num_external_sources,
+    "external_fps": external_fps,
+    "num_objects": num_objects,
+    "input_rate": input_rate,
+    "expected_tracks": (num_objects if num_cameras else 0)
+    + num_external_sources * num_objects,
     "duration": os.getenv("DURATION", "1m"),
-    "latency_p50_ms": float(os.getenv("LATENCY_P50_MS", str(1000.0 / fps))),
-    "latency_p99_ms": float(os.getenv("LATENCY_P99_MS", str(2000.0 / fps))),
+    "latency_p50_ms": float(
+      os.getenv("LATENCY_P50_MS", str(1000.0 / chunking_fps))),
+    "latency_p99_ms": float(
+      os.getenv("LATENCY_P99_MS", str(2000.0 / chunking_fps))),
     "throughput_min": float(os.getenv("THROUGHPUT_MIN",
-                                      str(num_cameras * fps * 0.95))),
+                                      str(input_rate * 0.95))),
     "drop_max_ratio": float(os.getenv("DROP_MAX_RATIO", "0.001")),
     "prometheus_url": os.getenv("PROMETHEUS_URL", "http://localhost:8889/metrics"),
     "metrics_timeout": int(os.getenv("METRICS_TIMEOUT", "60")),
@@ -287,12 +301,15 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
   # -- Hardware + test parameters (compact) ----------------------------------
   hw = _gather_hardware_info()
   cores = f" ({hw['cpu_cores']} cores)" if hw["cpu_cores"] != "n/a" else ""
-  input_rate = load_cfg["num_cameras"] * load_cfg["fps"]
+  input_rate = load_cfg["input_rate"]
   w.line("")
   w.line(f"  Hardware: {hw['cpu_model']}{cores}, {hw['ram_gb']}, "
          f"kernel {hw['kernel']}")
-  w.line(f"  Load:     {load_cfg['num_cameras']} cam \u00d7 {load_cfg['fps']} FPS "
-         f"\u00d7 {load_cfg['num_objects']} obj = {input_rate} msg/s "
+  w.line(f"  Scenario: {load_cfg['scenario']}")
+  w.line(f"  Load:     {load_cfg['num_cameras']} cam x {load_cfg['fps']} FPS + "
+         f"{load_cfg['num_external_sources']} external x "
+         f"{load_cfg['external_fps']} FPS, {load_cfg['num_objects']} objects/source "
+         f"= {input_rate} msg/s "
          f"for {load_cfg['duration']} ({duration_s}s)")
   w.line("")
 
@@ -317,7 +334,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
 
   # Active tracks
   tracks = summary.get("active_tracks")
-  expected = load_cfg["num_objects"]
+  expected = load_cfg["expected_tracks"]
   tracks_str = f"{tracks:.0f}" if tracks is not None else "n/a"
   rows.append((
     "Active tracks",

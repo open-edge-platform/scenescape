@@ -4,6 +4,30 @@
 
 This document focuses on the most challenging implementation concepts in the Tracker Service — threading model, synchronization patterns, and data flow. It is not intended to be a complete reference. Consult the [source code](../src/) for full implementation details.
 
+## External-Source Path
+
+`MessageHandler` also consumes publisher-centric
+`scenescape/external/{publisher_id}/{thing_type}` messages. It resolves manual
+or geospatial scene bindings, caches source-to-scene poses for 30 seconds, and
+transforms source-local observations before adding them to the normal
+scene/category chunk. For image-map scenes, startup derives the local-to-ECEF
+`trs_matrix` from the map dimensions, pixels-per-metre scale, and four
+`map_corners_lla` points using the same elevated-point affine fit as the Python
+Controller. For 3D scenes, Manager's generated top-view thumbnail supplies the
+image dimensions and scale, avoiding GLB parsing. API resource retrieval is
+restricted to the authenticated Manager origin. A persisted matrix is retained
+as fallback when no usable map image or thumbnail exists.
+
+External observations carry authoritative string IDs. `TrackingWorker` keeps
+them in a separate per-scope state map, derives velocity from consecutive
+observations, and bypasses RobotVision association and UUID assignment. It then
+publishes them together with, but does not fuse them into, camera tracks.
+`IdentityClaimRegistry` prevents two external publishers from concurrently using
+the same ID in one scene/category. Point observations may omit `size`.
+
+The payload fields and rejection semantics remain canonical in
+[Controller data formats](../../docs/user-guide/microservices/controller/data_formats.md#external-source-input-message-format).
+
 For high-level design, goals, SLIs, and observability details, see [Design Document](../../docs/design/tracker-service.md). For message and configuration schemas, see [`tracker/schema/`](../schema/).
 
 ---

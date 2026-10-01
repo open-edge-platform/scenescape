@@ -75,13 +75,15 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
         velocity.PushBack(track.velocity[2], allocator);
         obj.AddMember("velocity", velocity, allocator);
 
-        // Size [length, width, height]
-        Value size(kArrayType);
-        size.Reserve(3, allocator);
-        size.PushBack(track.size[0], allocator);
-        size.PushBack(track.size[1], allocator);
-        size.PushBack(track.size[2], allocator);
-        obj.AddMember("size", size, allocator);
+        // Size [length, width, height] is absent for point observations.
+        if (track.size.has_value()) {
+            Value size(kArrayType);
+            size.Reserve(3, allocator);
+            size.PushBack((*track.size)[0], allocator);
+            size.PushBack((*track.size)[1], allocator);
+            size.PushBack((*track.size)[2], allocator);
+            obj.AddMember("size", size, allocator);
+        }
 
         // Rotation quaternion [x, y, z, w]
         Value rotation(kArrayType);

@@ -4,6 +4,7 @@
 #pragma once
 
 #include "config_loader.hpp"
+#include "external_source.hpp"
 #include "mqtt_client.hpp"
 #include "scene_registry.hpp"
 #include "time_chunk_buffer.hpp"
@@ -12,6 +13,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -19,6 +21,8 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -34,6 +38,13 @@ struct CameraMessage {
     std::string id;
     std::string timestamp;
     std::map<std::string, std::vector<Detection>> objects; // category -> detections
+};
+
+struct ExternalSourceMessage {
+    std::string source_id;
+    std::string timestamp;
+    std::optional<ExternalPose> pose;
+    std::vector<ExternalDetection> objects;
 };
 
 /**
@@ -55,6 +66,9 @@ public:
 
     /// Topic pattern for camera subscriptions (format with camera_id)
     static constexpr const char* TOPIC_CAMERA_SUBSCRIBE_PATTERN = "scenescape/data/camera/{}";
+
+    static constexpr const char* TOPIC_EXTERNAL_PREFIX = "scenescape/external/";
+    static constexpr const char* TOPIC_EXTERNAL_SUBSCRIBE = "scenescape/external/+/+";
 
     /// Topic pattern for scene output (format with scene_id and thing_type)
     static constexpr const char* TOPIC_SCENE_DATA_PATTERN = "scenescape/data/scene/{}/{}";
@@ -80,12 +94,16 @@ public:
      * @param clock_fn Callable returning the current time (defaults to system_clock::now).
      *                 Inject a lambda in tests to control time, or pass NtpClock::asClockFn()
      *                 to use NTP-adjusted time.
+     * @param external_sources_config Configuration for external data sources
      */
     explicit MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
                             const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
                             const TrackingConfig& tracking_config, bool schema_validation = true,
                             const std::filesystem::path& schema_dir = "/scenescape/schema",
-                            ClockFn clock_fn = makeSystemClock());
+                            ClockFn clock_fn = makeSystemClock(),
+                            ExternalSourcesConfig external_sources_config = {});
+
+    ~MessageHandler();
 
     /**
      * @brief Enable dynamic mode for database update notifications.
@@ -138,6 +156,12 @@ private:
      */
     void handleCameraMessage(const std::string& topic, const std::string& payload);
 
+    void handleExternalSourceMessage(const std::string& topic, const std::string& payload);
+
+    void startExternalSourceSweeper();
+    void stopExternalSourceSweeper();
+    void externalSourceSweepLoop();
+
     /**
      * @brief Handle database update notification (dynamic mode).
      *
@@ -164,6 +188,15 @@ private:
      * @return Parsed message or nullopt if parsing fails
      */
     std::optional<CameraMessage> parseCameraMessage(const std::string& payload);
+
+    std::optional<ExternalSourceMessage> parseExternalSourceMessage(const std::string& payload);
+
+    static std::optional<std::pair<std::string, std::string>>
+    extractExternalTopic(const std::string& topic);
+
+    std::vector<const Scene*> resolveExternalScenes(const std::string& publisher_id,
+                                                    const ExternalSourceMessage& message,
+                                                    std::chrono::system_clock::time_point when);
 
     /**
      * @brief Check if message timestamp is too old (lagged).
@@ -210,6 +243,11 @@ private:
     ShutdownCallback shutdown_callback_;
     std::unique_ptr<rapidjson::SchemaDocument> camera_schema_;
     std::unique_ptr<rapidjson::SchemaDocument> scene_schema_;
+    std::unique_ptr<rapidjson::SchemaDocument> external_source_schema_;
+    ExternalSourcesConfig external_sources_config_;
+    const std::unordered_map<std::string, std::vector<const Scene*>> external_scene_bindings_;
+    ExternalSourcePoseCache external_pose_cache_;
+    IdentityClaimRegistry identity_claim_registry_;
 
     std::atomic<int> received_count_{0};
     std::atomic<int> buffered_count_{0};
@@ -224,6 +262,11 @@ private:
     mutable std::mutex categories_mutex_;
     std::unordered_set<std::string> validated_categories_;
     std::unordered_set<TrackingScope, TrackingScopeHash> active_scopes_;
+
+    std::mutex external_sweeper_mutex_;
+    std::condition_variable external_sweeper_cv_;
+    bool external_sweeper_stop_requested_{false};
+    std::thread external_sweeper_thread_;
 };
 
 } // namespace tracker

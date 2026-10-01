@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenescape.intel.com/tracker/schema/external-source.schema.json",
+  "title": "Unified External Source Message",
+  "type": "object",
+  "required": ["timestamp", "source_id", "objects"],
+  "properties": {
+    "timestamp": { "type": "string", "format": "date-time" },
+    "source_id": { "type": "string", "minLength": 1 },
+    "pose": { "$ref": "#/$defs/pose" },
+    "objects": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/detection" }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "vector3": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 3,
+      "maxItems": 3
+    },
+    "quaternion": {
+      "type": "array",
+      "items": { "type": "number", "minimum": -1, "maximum": 1 },
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "pose": {
+      "type": "object",
+      "required": ["reference_frame"],
+      "properties": {
+        "reference_frame": { "enum": ["wgs84", "scene"] },
+        "lat_long_alt": { "$ref": "#/$defs/vector3" },
+        "translation": { "$ref": "#/$defs/vector3" },
+        "rotation": { "$ref": "#/$defs/quaternion" },
+        "position_accuracy_m": { "type": "number", "exclusiveMinimum": 0 },
+        "provider": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "reference_frame": { "const": "wgs84" } } },
+          "then": { "required": ["lat_long_alt"] },
+          "else": { "required": ["translation"] }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "detection": {
+      "type": "object",
+      "required": ["id", "category", "translation"],
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "translation": { "$ref": "#/$defs/vector3" },
+        "rotation": { "$ref": "#/$defs/quaternion" },
+        "size": {
+          "type": "array",
+          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "confidence": { "type": "number", "exclusiveMinimum": 0 },
+        "metadata": { "type": "object", "additionalProperties": true }
+      },
+      "additionalProperties": true
+    }
+  }
+}

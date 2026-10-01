@@ -65,7 +65,7 @@ graph LR
     TS -.->|Telemetry| OTEL[OTLP Collector]
 ```
 
-**DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes detections, transforms them to world coordinates, applies Kalman filtering, and publishes tracks. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OpenTelemetry Collector.
+**DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes detections, transforms them to world coordinates, applies Kalman filtering, and publishes tracks. Dynamic external sources may also publish pose plus observations under their own publisher ID. Their authoritative IDs bypass Kalman association and are merged into the same scene output without camera/external fusion. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OpenTelemetry Collector.
 
 ## Communication
 

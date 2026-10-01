@@ -20,6 +20,8 @@
 
 namespace tracker {
 
+using TrsMatrix = std::array<std::array<double, 4>, 4>;
+
 /**
  * @brief Lens distortion coefficients.
  */
@@ -73,6 +75,12 @@ struct Scene {
     std::string uid;             ///< Scene identifier (UUID, used in MQTT topic)
     std::string name;            ///< Human-readable scene name
     std::vector<Camera> cameras; ///< Cameras assigned to this scene
+    bool output_lla = false;
+    std::string map_uri;
+    std::string thumbnail_uri;
+    std::optional<double> map_scale;
+    std::optional<std::array<std::array<double, 3>, 4>> map_corners_lla;
+    std::optional<TrsMatrix> trs_matrix; ///< Scene-local XYZ to ECEF transformation matrix
 };
 
 /**
@@ -142,6 +150,12 @@ namespace scene_json {
 constexpr char SCENE_UID[] = "/uid";
 constexpr char SCENE_NAME[] = "/name";
 constexpr char SCENE_CAMERAS[] = "/cameras";
+constexpr char SCENE_OUTPUT_LLA[] = "/output_lla";
+constexpr char SCENE_MAP[] = "/map";
+constexpr char SCENE_THUMBNAIL[] = "/thumbnail";
+constexpr char SCENE_SCALE[] = "/scale";
+constexpr char SCENE_MAP_CORNERS_LLA[] = "/map_corners_lla";
+constexpr char SCENE_TRS_MATRIX[] = "/trs_matrix";
 
 // Camera fields (relative pointers within camera object)
 constexpr char CAMERA_UID[] = "/uid";

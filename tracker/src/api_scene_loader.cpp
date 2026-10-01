@@ -6,6 +6,7 @@
 #include "config_loader.hpp"
 #include "logger.hpp"
 #include "object_class.hpp"
+#include "scene_geospatial.hpp"
 #include "scene_parser.hpp"
 
 #include <fstream>
@@ -213,7 +214,29 @@ public:
         // Parse validated scenes into structs
         std::vector<Scene> scenes;
         for (const auto& scene_val : valid_scenes.GetArray()) {
-            scenes.push_back(detail::parse_scene(scene_val));
+            auto scene = detail::parse_scene(scene_val);
+            if (scene.output_lla && scene.map_corners_lla.has_value() &&
+                scene.map_scale.has_value()) {
+                bool calculated = false;
+                for (const auto& resource : {scene.map_uri, scene.thumbnail_uri}) {
+                    if (resource.empty() || calculated || !isSupportedImageResource(resource)) {
+                        continue;
+                    }
+                    try {
+                        calculated =
+                            calculateSceneTrsFromImage(scene, client->fetchResource(resource));
+                    } catch (const std::exception& error) {
+                        LOG_WARN("Failed to read geospatial map resource for scene '{}': {}",
+                                 scene.uid, error.what());
+                    }
+                }
+                if (!calculated) {
+                    LOG_WARN("Cannot derive geospatial transform from map or thumbnail for scene "
+                             "'{}'; using persisted transform if available",
+                             scene.uid);
+                }
+            }
+            scenes.push_back(std::move(scene));
         }
 
         LOG_INFO("Loaded {} scenes from Manager API", scenes.size());

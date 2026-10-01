@@ -3,6 +3,8 @@
 
 #include "scene_loader.hpp"
 
+#include "logger.hpp"
+#include "scene_geospatial.hpp"
 #include "scene_parser.hpp"
 
 #include <fstream>
@@ -14,6 +16,14 @@
 namespace tracker {
 
 namespace {
+
+std::string read_binary_file(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) {
+        throw std::runtime_error("Failed to open scene map: " + path.string());
+    }
+    return std::string(std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>());
+}
 
 class FileSceneLoader : public ISceneLoader {
 public:
@@ -41,7 +51,36 @@ public:
 
         std::vector<Scene> scenes;
         for (const auto& scene_val : doc.GetArray()) {
-            scenes.push_back(detail::parse_scene(scene_val));
+            auto scene = detail::parse_scene(scene_val);
+            if (scene.output_lla && scene.map_corners_lla.has_value() &&
+                scene.map_scale.has_value()) {
+                bool calculated = false;
+                for (const auto& resource : {scene.map_uri, scene.thumbnail_uri}) {
+                    if (resource.empty() || calculated || !isSupportedImageResource(resource)) {
+                        continue;
+                    }
+                    if (resource.find("://") != std::string::npos) {
+                        LOG_WARN("Skipping remote map resource '{}' in file scene mode", resource);
+                        continue;
+                    }
+                    try {
+                        std::filesystem::path map_path(resource);
+                        if (!map_path.is_absolute()) {
+                            map_path = file_path_.parent_path() / map_path;
+                        }
+                        calculated = calculateSceneTrsFromImage(scene, read_binary_file(map_path));
+                    } catch (const std::exception& error) {
+                        LOG_WARN("Failed to read geospatial map resource for scene '{}': {}",
+                                 scene.uid, error.what());
+                    }
+                }
+                if (!calculated) {
+                    LOG_WARN("Cannot derive geospatial transform from map or thumbnail for scene "
+                             "'{}'; using persisted transform if available",
+                             scene.uid);
+                }
+            }
+            scenes.push_back(std::move(scene));
         }
 
         return scenes;

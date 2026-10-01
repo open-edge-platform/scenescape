@@ -121,6 +121,7 @@ protected:
         mock_client_->captureCallback();
         ON_CALL(*mock_client_, isConnected()).WillByDefault(Return(true));
         ON_CALL(*mock_client_, isSubscribed()).WillByDefault(Return(true));
+        EXPECT_CALL(*mock_client_, subscribe(_)).Times(::testing::AnyNumber());
 
         // Create test scene registry with cam1
         test_registry_ = createTestRegistry();
@@ -150,6 +151,127 @@ TEST_F(MessageHandlerTest, Start_SubscribesToRegisteredCameras) {
 
     MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
+}
+
+TEST_F(MessageHandlerTest, Start_SubscribesToExternalSources) {
+    EXPECT_CALL(*mock_client_, subscribe(MessageHandler::TOPIC_EXTERNAL_SUBSCRIBE)).Times(1);
+    EXPECT_CALL(*mock_client_, subscribe(std::format(MessageHandler::TOPIC_CAMERA_SUBSCRIBE_PATTERN,
+                                                     TEST_CAMERA_ID)))
+        .Times(1);
+
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+}
+
+TEST_F(MessageHandlerTest, ExternalScenePoseTransformsAndBuffersAuthoritativeDetection) {
+    ExternalSourcesConfig external_config;
+    external_config.bindings["agent-1"] = {TEST_SCENE_ID};
+    external_config.trusted_positioning_sources.insert("agent-1");
+    const auto message_time = *parseTimestamp("2026-01-27T12:00:00.000Z");
+    MessageHandler handler(
+        mock_client_, test_registry_, test_buffer_, test_config_, false, TRACKER_SCHEMA_DIR,
+        [message_time] { return message_time; }, external_config);
+    handler.start();
+    const std::string payload = R"({
+      "timestamp": "2026-01-27T12:00:00.000Z",
+      "source_id": "agent-1",
+      "pose": {"reference_frame": "scene", "translation": [10, 20, 0]},
+      "objects": [{
+        "id": "tag-7", "category": "person", "translation": [1, 2, 3]
+      }]
+    })";
+
+    mock_client_->simulateMessage("scenescape/external/agent-1/person", payload);
+
+    const auto buffered = test_buffer_.pop_all();
+    const TrackingScope scope{TEST_SCENE_ID, "person"};
+    ASSERT_TRUE(buffered.contains(scope));
+    const auto& batch = buffered.at(scope).at("agent-1");
+    EXPECT_EQ(batch.source, DetectionBatch::Source::External);
+    ASSERT_EQ(batch.external_detections.size(), 1);
+    EXPECT_EQ(batch.external_detections[0].id, "tag-7");
+    EXPECT_EQ(batch.external_detections[0].translation, (std::array<double, 3>{11.0, 22.0, 3.0}));
+}
+
+TEST_F(MessageHandlerTest, ExternalDetectionBuffersForSceneWithoutCameras) {
+    Scene scene;
+    scene.uid = "external-only-scene";
+    scene.name = "External Only Scene";
+    SceneRegistry registry;
+    registry.register_scenes({scene});
+
+    ExternalSourcesConfig external_config;
+    external_config.bindings["agent-1"] = {scene.uid};
+    external_config.trusted_positioning_sources.insert("agent-1");
+    const auto message_time = *parseTimestamp("2026-01-27T12:00:00.000Z");
+    MessageHandler handler(
+        mock_client_, registry, test_buffer_, test_config_, false, TRACKER_SCHEMA_DIR,
+        [message_time] { return message_time; }, external_config);
+    handler.start();
+
+    const std::string payload = R"({
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "source_id": "agent-1",
+        "pose": {"reference_frame": "scene", "translation": [0, 0, 0]},
+        "objects": [{
+            "id": "person-7", "category": "person", "translation": [1, 2, 0]
+        }]
+    })";
+    mock_client_->simulateMessage("scenescape/external/agent-1/person", payload);
+
+    const auto buffered = test_buffer_.pop_all();
+    const TrackingScope scope{scene.uid, "person"};
+    ASSERT_TRUE(buffered.contains(scope));
+    EXPECT_TRUE(registry.get_all_camera_ids().empty());
+    ASSERT_EQ(buffered.at(scope).at("agent-1").external_detections.size(), 1);
+}
+
+TEST_F(MessageHandlerTest, ExternalTopicSourceMismatchIsRejected) {
+    ExternalSourcesConfig external_config;
+    external_config.bindings["agent-1"] = {TEST_SCENE_ID};
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false,
+                           TRACKER_SCHEMA_DIR, makeSystemClock(), external_config);
+    handler.start();
+
+    mock_client_->simulateMessage(
+        "scenescape/external/agent-1/person",
+        R"({"timestamp":"2026-01-27T12:00:00.000Z","source_id":"agent-2","objects":[]})");
+
+    EXPECT_EQ(handler.getRejectedCount(), 1);
+    EXPECT_TRUE(test_buffer_.empty());
+}
+
+TEST_F(MessageHandlerTest, ExternalMalformedPayloadRejectedWithoutSchemaValidation) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    mock_client_->simulateMessage(
+        "scenescape/external/agent-1/person",
+        R"({"timestamp":"2026-01-27T12:00:00.000Z","source_id":"agent-1","objects":[{"id":7}]})");
+
+    EXPECT_EQ(handler.getRejectedCount(), 1);
+    EXPECT_TRUE(test_buffer_.empty());
+}
+
+TEST_F(MessageHandlerTest, ExternalObjectCategoryMustMatchTopic) {
+    ExternalSourcesConfig external_config;
+    external_config.bindings["agent-1"] = {TEST_SCENE_ID};
+    external_config.trusted_positioning_sources.insert("agent-1");
+    const auto message_time = *parseTimestamp("2026-01-27T12:00:00.000Z");
+    MessageHandler handler(
+        mock_client_, test_registry_, test_buffer_, test_config_, false, TRACKER_SCHEMA_DIR,
+        [message_time] { return message_time; }, external_config);
+    handler.start();
+    const std::string payload = R"({
+        "timestamp":"2026-01-27T12:00:00.000Z",
+        "source_id":"agent-1",
+        "pose":{"reference_frame":"scene","translation":[0,0,0]},
+        "objects":[{
+            "id":"car-1","category":"vehicle","translation":[1,2,3]}]})";
+
+    mock_client_->simulateMessage("scenescape/external/agent-1/person", payload);
+
+    EXPECT_TRUE(test_buffer_.empty());
 }
 
 // Test subscribing to multiple cameras
@@ -712,7 +834,8 @@ TEST_P(InvalidTopicTest, RejectsInvalidTopic) {
         R"({"id": "cam1", "timestamp": "2026-01-27T12:00:00.000Z", "objects": {}})";
     mock_client_->simulateMessage(tc.topic, payload);
 
-    EXPECT_EQ(handler.getReceivedCount(), 1);
+    const int expected_received = tc.topic.starts_with(MessageHandler::TOPIC_CAMERA_PREFIX) ? 1 : 0;
+    EXPECT_EQ(handler.getReceivedCount(), expected_received);
     EXPECT_EQ(handler.getRejectedCount(), 1);
 }
 
@@ -1000,16 +1123,14 @@ TEST_F(MessageHandlerTest, StaticMode_StopDoesNotUnsubscribeDatabaseUpdate) {
     handler.stop();
 }
 
-// Test that database update in static mode is treated as camera message (rejected)
-TEST_F(MessageHandlerTest, StaticMode_DatabaseUpdateTreatedAsCameraMessage) {
+// Database updates are unsupported in static mode and rejected before camera parsing.
+TEST_F(MessageHandlerTest, StaticMode_DatabaseUpdateIsRejectedAsUnsupportedTopic) {
     MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
     handler.start();
 
-    // In static mode, database update topic is routed to handleCameraMessage
-    // which rejects it because it doesn't match camera topic format
     mock_client_->simulateMessage(MessageHandler::TOPIC_DATABASE_UPDATE, "update");
 
-    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getReceivedCount(), 0);
     EXPECT_EQ(handler.getRejectedCount(), 1);
 }
 
@@ -1334,11 +1455,15 @@ TEST_F(MessageHandlerTest, ClockFn_DefaultSystemClock_Used) {
     EXPECT_EQ(handler.getBufferedCount(), 1);
 }
 
-// Test that handler does not subscribe when registry is empty
-TEST_F(MessageHandlerTest, Start_NoSubscriptionsWithEmptyRegistry) {
+// External-source ingestion remains active when no cameras are registered.
+TEST_F(MessageHandlerTest, Start_ExternalSubscriptionWithEmptyRegistry) {
     SceneRegistry empty_registry;
 
-    EXPECT_CALL(*mock_client_, subscribe(_)).Times(0);
+    EXPECT_CALL(*mock_client_, subscribe(std::string(MessageHandler::TOPIC_EXTERNAL_SUBSCRIBE)))
+        .Times(1);
+    EXPECT_CALL(*mock_client_,
+                subscribe(::testing::StartsWith(MessageHandler::TOPIC_CAMERA_PREFIX)))
+        .Times(0);
 
     MessageHandler handler(mock_client_, empty_registry, test_buffer_, test_config_, false);
     handler.start();
