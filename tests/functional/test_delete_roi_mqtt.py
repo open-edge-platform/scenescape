@@ -29,7 +29,7 @@ def runROIMqttDelete(self):
     self.runSceneObjMqttFinally()
   return
 
-@pytest.mark.test_name("NEX-T10430")
+@pytest.mark.test_name("NEX-T29295")
 def test_roi_delete(scenescape_env, request, record_xml_attribute):
   test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
   runROIMqttDelete(test)
