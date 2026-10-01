@@ -14,4 +14,4 @@ setuptools >= 82.0.1
 xmltodict == 1.0.4
 PyYAML == 6.0.3
 pylint [spelling] == 4.0.6
-flake8 == 7.3.0
+flake8 == 7.4.1
