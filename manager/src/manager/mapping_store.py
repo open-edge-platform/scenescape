@@ -528,15 +528,21 @@ def _activate_locked(scene, revision):
 
 
 def delete_revision(scene, revision):
-  """Delete one revision unless it is the default or backs a head artifact."""
+  """Delete one revision and the artifacts that produced it.
+
+  Rejecting a candidate means rejecting that method's result as a whole, so
+  the artifact zip goes with the GLB. The default revision cannot be deleted.
+  """
   if revision.scene_id != scene.pk:
     raise MappingStoreError("map_revision is not a GLB revision of this scene", 400)
   if scene.default_map_revision_id == revision.pk:
     raise MappingStoreError("Cannot delete the default map revision", 409)
-  if SceneMappingArtifact.objects.filter(map_revision=revision, head=True).exists():
-    raise MappingStoreError("Revision backs a live mapping artifact", 409)
   with transaction.atomic():
     _lock_scene(scene.pk, nowait=False)
+    for artifact in SceneMappingArtifact.objects.filter(map_revision=revision):
+      if artifact.bundle:
+        artifact.bundle.delete(save=False)
+      artifact.delete()
     _delete_revision_files(scene, revision)
     revision.delete()
 

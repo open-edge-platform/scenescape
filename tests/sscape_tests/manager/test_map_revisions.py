@@ -137,22 +137,20 @@ def test_eviction_is_per_method_and_protects_default(scene, tmp_path, monkeypatc
   assert scene.default_map_revision_id == default_rev.id
 
 
-def test_delete_revision_refuses_default_and_live_artifact(scene, tmp_path):
+def test_delete_revision_refuses_default_and_removes_its_artifact(scene, tmp_path):
   artifact = _store(scene, "mapanything", tmp_path, {"mesh.glb": _glb_bytes()}, activate=True)
   rev = artifact.map_revision
   with pytest.raises(mapping_store.MappingStoreError) as exc:
     mapping_store.delete_revision(scene, rev)
   assert exc.value.status == 409
 
-  # Not default anymore, but still backs the head artifact.
+  # Once another revision is default, rejecting this candidate deletes the
+  # revision and the artifact that produced it.
   other = _store(scene, "vggt", tmp_path, {"mesh.glb": _glb_bytes(2.0)}, activate=True)
-  with pytest.raises(mapping_store.MappingStoreError):
-    mapping_store.delete_revision(scene, rev)
-
-  # Orphan revision can go.
-  SceneMappingArtifact.objects.filter(pk=artifact.pk).update(head=False)
   mapping_store.delete_revision(scene, rev)
   assert not SceneMapRevision.objects.filter(pk=rev.pk).exists()
+  assert not SceneMappingArtifact.objects.filter(pk=artifact.pk).exists()
+  assert SceneMappingArtifact.objects.filter(scene=scene, method="vggt", head=True).exists()
   scene.refresh_from_db()
   assert scene.default_map_revision_id == other.map_revision_id
 

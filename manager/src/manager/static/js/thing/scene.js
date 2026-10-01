@@ -297,10 +297,30 @@ export default class Scene {
     const rev = this._revisions && this._revisions[revisionId];
     if (!rev || !rev.file || !this.sceneMesh) return;
     this._previewRevisionId = revisionId;
+    // Same progress bar the page shows on first load; a multi-MB GLB can
+    // take seconds and the view must not look frozen meanwhile.
+    const wrapper = document.getElementById("loader-progress-wrapper");
+    const bar = wrapper ? wrapper.querySelector(".progress-bar") : null;
+    let widthClass = "width0";
+    const showProgress = (percent) => {
+      if (!wrapper || !bar) return;
+      wrapper.style.display = "flex";
+      const by5 = Math.min(100, Math.floor(percent / 5) * 5);
+      bar.classList.remove(widthClass);
+      widthClass = "width" + by5;
+      bar.classList.add(widthClass);
+      bar.setAttribute("aria-valuenow", percent);
+      bar.innerText = `${rev.method}: ${percent}%`;
+    };
+    const hideProgress = () => {
+      if (wrapper) wrapper.style.display = "none";
+    };
+    showProgress(0);
     const loader = new GLTFLoader();
     loader.load(
       rev.file,
       (gltf) => {
+        hideProgress();
         const t = rev.transform || {};
         const rot = t.rotation || [0, 0, 0];
         const pos = t.translation || [0, 0, 0];
@@ -325,8 +345,11 @@ export default class Scene {
           "info",
         );
       },
-      undefined,
+      (xhr) => {
+        if (xhr.total) showProgress(Math.round((xhr.loaded / xhr.total) * 100));
+      },
       (error) => {
+        hideProgress();
         console.log("Error loading revision glTF: " + error);
         this.toast.showToast("Could not load that map revision", "error");
       },
