@@ -61,7 +61,7 @@ def _keyframes_zip(n=3):
       archive.writestr(name, _JPEG)
       cams.append({"id": f"kf{i:06d}", "kind": "observed", "file": name,
                    "translation": [float(i), 0.0, 1.5],
-                   "quaternion_wxyz": [1.0, 0.0, 0.0, 0.0],
+                   "quaternion_wxyz": [0.7071, 0.0, 0.7071, 0.0],
                    "intrinsics": {"width": 640, "height": 480, "fx": 600, "fy": 600, "cx": 320, "cy": 240}})
     manifest = {"version": 1, "method": "keyframes", "contributor": "handheld-01", "cameras": cams}
     archive.writestr("manifest.json", json.dumps(manifest))
@@ -94,9 +94,11 @@ def test_keyframes_upload_then_reconstruct_yields_candidate(client, scene):
 
   submitted = {}
 
-  def fake_start(images, order, locations, mesh_type="mesh", uploaded_map=None):
+  def fake_start(images, order, locations, mesh_type="mesh", uploaded_map=None,
+                 camera_intrinsics_order=None):
     submitted["order"] = list(order)
     submitted["locations"] = list(locations)
+    submitted["intrinsics"] = list(camera_intrinsics_order or [])
     submitted["n_images"] = len(images)
     return {"success": True, "request_id": "abc123", "state": "processing"}
 
@@ -107,8 +109,12 @@ def test_keyframes_upload_then_reconstruct_yields_candidate(client, scene):
   assert resp.json()["request_id"] == "abc123"
   assert resp.json()["method"] == "mapanything"
   assert submitted["n_images"] == 2 and len(submitted["order"]) == 2
-  # pose priors travel with the images, wxyz as the service expects
-  assert submitted["locations"][0]["rotation"] == [1.0, 0.0, 0.0, 0.0]
+  # Manifest stores wxyz; the service reads camera_locations.rotation as xyzw.
+  assert submitted["locations"][0]["rotation"] == [0.0, 0.7071, 0.0, 0.7071]
+  # Intrinsics priors go along, in pixels of the uploaded (uncropped) image.
+  assert submitted["intrinsics"][0] == {"fx": 600.0, "fy": 600.0, "cx": 320.0, "cy": 240.0,
+                                        "width": 640, "height": 480}
+  assert resp.json()["priors"] == {"poses": True, "intrinsics": True}
 
   with patch("manager.mesh_generator.MappingServiceClient.getReconstructionStatus",
              return_value=_fake_result(submitted["order"])):
@@ -150,3 +156,34 @@ def test_reconstruct_without_keyframes_is_409(client, scene):
     resp = client.post(f"/api/v1/scene/{scene.pk}/reconstruct", {}, format="json")
   assert resp.status_code == 409
   assert "keyframes" in resp.json()["error"]
+
+
+def test_client_sends_aligned_intrinsics_and_locations():
+  """The service pairs priors by index, so every image gets an entry."""
+  from manager.mesh_generator import MappingServiceClient
+  captured = {}
+
+  class _Resp:
+    status_code = 200
+    content = b"{}"
+    def json(self):
+      return {"success": True, "request_id": "r", "processing_time": 0.1}
+
+  def fake_post(url, data=None, files=None, **kw):
+    captured["files"] = files
+    return _Resp()
+
+  client = MappingServiceClient()
+  images = {c: {"filename": f"{c}.jpg", "data": base64.b64encode(_JPEG).decode()} for c in ("a", "b")}
+  with patch("manager.mesh_generator.requests.post", side_effect=fake_post):
+    client.startReconstructMesh(
+      images, ["a", "b"],
+      [{"translation": [0, 0, 0], "rotation": [0, 0, 0, 1]}, {"translation": [1, 0, 0], "rotation": [0, 0, 0, 1]}],
+      camera_intrinsics_order=[{"fx": 500, "fy": 500, "cx": 320, "cy": 240, "width": 640, "height": 480}, None],
+    )
+  fields = [(k, v[1]) for k, v in captured["files"] if k != "images"]
+  intr = [v for k, v in fields if k == "camera_intrinsics"]
+  assert len(intr) == 2
+  assert json.loads(intr[0]) == {"fx": 500.0, "fy": 500.0, "cx": 320.0, "cy": 240.0, "width": 640, "height": 480}
+  assert intr[1] == ""  # placeholder keeps index alignment
+  assert len([k for k, _ in fields if k == "camera_locations"]) == 2

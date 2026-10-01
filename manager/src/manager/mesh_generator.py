@@ -159,6 +159,7 @@ class MappingServiceClient:
     camera_location_order: List,
     mesh_type: str = "mesh",
     uploaded_map=None,
+    camera_intrinsics_order: List = None,
   ):
     """
     Call mapping service to reconstruct 3D mesh from images.
@@ -166,7 +167,11 @@ class MappingServiceClient:
     Args:
       images: Dictionary of camera images with base64 data
       camera_order: List of camera IDs in the order cameras should be processed
+      camera_location_order: Per-camera {translation, rotation[xyzw]} or None
       mesh_type: Output type ('mesh' or 'pointcloud')
+      camera_intrinsics_order: Per-camera {fx, fy, cx, cy, width?, height?} in
+        pixels of the uploaded image, or None. The service undoes its own
+        resize/crop, so these must match the image actually sent.
 
     Returns:
       dict: Response from mapping service
@@ -181,6 +186,10 @@ class MappingServiceClient:
     camera_loc_by_id = {
       cam_id: cam_loc
       for cam_id, cam_loc in zip(camera_order, camera_location_order)
+    }
+    camera_intr_by_id = {
+      cam_id: intr
+      for cam_id, intr in zip(camera_order, camera_intrinsics_order or [])
     }
     log.info(f"Sending {len(images)} images to mapping service for reconstruction")
 
@@ -215,6 +224,16 @@ class MappingServiceClient:
               files.append(("camera_locations", (None, json.dumps(cam_loc_clean))))
             else:
               log.warning(f"No camera location for {camera_id}")
+            cam_intr = camera_intr_by_id.get(camera_id)
+            if cam_intr is not None:
+              intr_clean = {k: float(cam_intr[k]) for k in ("fx", "fy", "cx", "cy")}
+              for k in ("width", "height"):
+                if cam_intr.get(k) is not None:
+                  intr_clean[k] = int(cam_intr[k])
+              files.append(("camera_intrinsics", (None, json.dumps(intr_clean))))
+            elif camera_intrinsics_order:
+              # The service pairs entries by index, so keep the list aligned.
+              files.append(("camera_intrinsics", (None, "")))
           else:
             log.warning(
                 f"Camera {camera_id} in camera_order but not in images dict"
@@ -541,7 +560,7 @@ class MeshGenerator:
     if max_images and len(cameras) > int(max_images):
       cameras = self._subsample(cameras, int(max_images))
 
-    images, order, locations = {}, [], []
+    images, order, locations, intrinsics = {}, [], [], []
     with zipfile.ZipFile(artifact.bundle.path) as archive:
       names = set(archive.namelist())
       for cam in cameras:
@@ -554,16 +573,58 @@ class MeshGenerator:
           "data": base64.b64encode(archive.read(cam["file"])).decode("ascii"),
         }
         order.append(cam_id)
-        t = cam.get("translation")
-        q = cam.get("quaternion_wxyz")
-        locations.append({"translation": t, "rotation": q} if t and q else None)
+        locations.append(self._priorLocation(cam))
+        intrinsics.append(self._priorIntrinsics(cam))
     if not order:
       return {"success": False, "error": "No readable keyframe images"}
+    # The service pairs priors with images by index and the model ignores pose
+    # priors entirely unless the first view has one, so only send complete sets.
+    if any(loc is None for loc in locations):
+      log.warning("keyframes: some frames lack poses; sending no pose priors")
+      locations = [None] * len(order)
+    if any(k is None for k in intrinsics):
+      log.warning("keyframes: some frames lack intrinsics; sending no intrinsics priors")
+      intrinsics = None
 
-    result = self.mapping_client.startReconstructMesh(images, order, locations, mesh_type)
+    result = self.mapping_client.startReconstructMesh(
+      images, order, locations, mesh_type, camera_intrinsics_order=intrinsics)
+    result["priors"] = {
+      "poses": locations[0] is not None if locations else False,
+      "intrinsics": intrinsics is not None,
+    }
     result["images"] = len(order)
     result["keyframes_artifact"] = str(artifact.id)
     return result
+
+  @staticmethod
+  def _priorLocation(cam):
+    """keyframes manifest pose -> service camera_location (rotation as xyzw)."""
+    t = cam.get("translation")
+    q = cam.get("quaternion_xyzw")
+    if q is None and cam.get("quaternion_wxyz") is not None:
+      w, x, y, z = cam["quaternion_wxyz"]
+      q = [x, y, z, w]
+    if not (isinstance(t, (list, tuple)) and len(t) == 3
+            and isinstance(q, (list, tuple)) and len(q) == 4):
+      return None
+    return {"translation": [float(v) for v in t], "rotation": [float(v) for v in q]}
+
+  @staticmethod
+  def _priorIntrinsics(cam):
+    """keyframes manifest intrinsics -> service camera_intrinsics, or None."""
+    intr = cam.get("intrinsics")
+    if not isinstance(intr, dict):
+      return None
+    try:
+      out = {k: float(intr[k]) for k in ("fx", "fy", "cx", "cy")}
+    except (KeyError, TypeError, ValueError):
+      return None
+    if out["fx"] <= 0 or out["fy"] <= 0:
+      return None
+    for k in ("width", "height"):
+      if intr.get(k):
+        out[k] = int(intr[k])
+    return out
 
   @staticmethod
   def _subsample(items, max_n):
