@@ -182,6 +182,16 @@ class ManageThing(APIView):
         thing = thing_class.objects.filter(child_id=uid).first()
       if thing is None and isinstance(uid, int):
         thing = thing_class.objects.filter(pk=uid).first()
+      return thing
+    # Django delete URLs use Cam/SingletonSensor pk; REST clients use sensor_id.
+    if thing_type in ("camera", "sensor") and uid is not None:
+      pk = None
+      if isinstance(uid, int):
+        pk = uid
+      elif str(uid).isdigit():
+        pk = int(uid)
+      if pk is not None:
+        thing = thing_class.objects.filter(pk=pk).first()
     return thing
 
   def get(self, request, thing_type, uid=None):
@@ -298,8 +308,21 @@ class PreviewGeospatialChildTransform(APIView):
       return Response(missing, status=status.HTTP_400_BAD_REQUEST)
 
     errors = {}
-    parent_scene = Scene.objects.filter(pk=parent_uid).first()
-    child_scene = Scene.objects.filter(pk=child_uid).first()
+    parent_pk = None
+    child_pk = None
+    try:
+      parent_pk = uuid.UUID(str(parent_uid))
+    except (ValueError, TypeError, AttributeError):
+      errors['parent'] = ['Must be a valid UUID.']
+    try:
+      child_pk = uuid.UUID(str(child_uid))
+    except (ValueError, TypeError, AttributeError):
+      errors['child'] = ['Must be a valid UUID.']
+    if errors:
+      return Response(errors, status=status.HTTP_400_BAD_REQUEST)
+
+    parent_scene = Scene.objects.filter(pk=parent_pk).first()
+    child_scene = Scene.objects.filter(pk=child_pk).first()
     if parent_scene is None:
       errors['parent'] = ['Scene not found.']
     if child_scene is None:
@@ -574,3 +597,88 @@ class ACLCheck(APIView):
         return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
     else:
       return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
+
+
+class GenerateSceneMesh(APIView):
+  """POST /api/v1/scene/<uuid>/generate-mesh/ — Token auth (superuser)."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAdminUser]
+
+  def post(self, request, pk):
+    scene = Scene.objects.filter(pk=pk).first()
+    if scene is None:
+      return Response(
+        {"success": False, "error": "Scene not found"},
+        status=status.HTTP_404_NOT_FOUND,
+      )
+    mesh_type = request.data.get("mesh_type", "mesh")
+    uploaded_map = request.FILES.get("map", None)
+    from manager.mesh_http import start_mesh_generation_payload
+    payload, code = start_mesh_generation_payload(
+      scene, mesh_type, uploaded_map=uploaded_map
+    )
+    return Response(payload, status=code)
+
+
+class GenerateSceneMeshStatus(APIView):
+  """GET /api/v1/scene/<uuid>/generate-mesh-status/?request_id= — Token auth."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAdminUser]
+
+  def get(self, request, pk):
+    scene = Scene.objects.filter(pk=pk).first()
+    if scene is None:
+      return Response(
+        {"success": False, "error": "Scene not found"},
+        status=status.HTTP_404_NOT_FOUND,
+      )
+    request_id = request.query_params.get("request_id")
+    from manager.mesh_http import mesh_generation_status_payload
+    payload, code = mesh_generation_status_payload(scene, request_id)
+    return Response(payload, status=code)
+
+
+class UiBootstrap(APIView):
+  """
+  GET /api/v1/ui-bootstrap/?page=chrome|scenes|scene|cameras|sensors|assets|models|list-sheets&id=
+
+  Session cookie or Token. Chrome allows anonymous; other pages need auth.
+  Same payloads as former Django json_script bootstraps (host-independent UI).
+  For list-sheets, id is cam|sensor|asset. For scene, id is scene UUID.
+  """
+  authentication_classes = [
+    authentication.TokenAuthentication,
+    authentication.SessionAuthentication,
+  ]
+  permission_classes = [permissions.AllowAny]
+
+  def get(self, request):
+    from django.http import Http404
+    from django.middleware.csrf import get_token
+    from manager.services.ui_bootstrap import resolve_ui_bootstrap
+
+    page = request.query_params.get("page", "").strip()
+    entity_id = request.query_params.get("id")
+    # Chrome + sign-in bootstraps are public; other pages need auth.
+    if page not in ("chrome", "sign-in", "signin", "login") and not request.user.is_authenticated:
+      return Response(
+        {"detail": "Authentication credentials were not provided."},
+        status=status.HTTP_401_UNAUTHORIZED,
+      )
+    try:
+      payload = resolve_ui_bootstrap(request, page, entity_id)
+    except ValueError as exc:
+      return Response(
+        {"detail": str(exc)},
+        status=status.HTTP_400_BAD_REQUEST,
+      )
+    except Http404:
+      return Response(
+        {"detail": "Not found."},
+        status=status.HTTP_404_NOT_FOUND,
+      )
+    # Ensure CSRF cookie for static sign-in shells that never hit Django HTML.
+    if page in ("sign-in", "signin", "login"):
+      get_token(request)
+    return Response(payload)
+

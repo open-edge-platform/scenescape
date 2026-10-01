@@ -132,14 +132,55 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .tripwire {
   display: none !important;
 }
 
-/* Sensors stay on the Snap overlay — React map does not draw them. */
-body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group {
+/* Local sensors are drawn by React SensorLayer; keep child_sensor_* on Snap. */
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group[id^="sensor_"] {
+  display: none !important;
+}
+
+/* Live marks/trails are drawn by React MarksLayer. */
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .mark,
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .trail {
+  display: none !important;
+}
+
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group[id^="child_"] {
   display: block !important;
   pointer-events: none;
 }
 
-body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group #name,
-body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group text.value {
+body.ss-use-react-map #ss-map-host .ss-react-sensor .area {
+  fill: #c65d00;
+  fill-opacity: var(--ss-map-area-fill-opacity, 0.25);
+  stroke: #c65d00;
+  transition: fill var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease);
+}
+
+body.ss-use-react-map #ss-map-host .ss-react-sensor .sensor {
+  fill: #c65d00;
+  stroke: #fff;
+  stroke-width: 1.5;
+}
+
+body.ss-use-react-map #ss-map-host .ss-react-sensor .value,
+body.ss-use-react-map #ss-map-host .ss-react-sensor-name {
+  fill: #c65d00;
+  font-family: var(--ss-font-sans, sans-serif);
+  font-size: 13px;
+  font-weight: 600;
+  paint-order: stroke fill;
+  stroke: #fff;
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+body.ss-use-react-map #ss-map-host .ss-react-sensor .value {
+  text-anchor: middle;
+}
+
+/* Legacy Snap sensor chrome (child overlays only). */
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group[id^="child_"] #name,
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group[id^="child_"] text.value {
   display: block !important;
   fill: #c65d00;
   font-family: var(--ss-font-sans, sans-serif);
@@ -150,17 +191,14 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group text.value {
   stroke-width: 3px;
   stroke-linejoin: round;
   stroke-linecap: round;
-  /* Prefer attribute / inline style from sensorNameAnchor(). */
   text-anchor: unset;
 }
 
-body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group text.value {
-  /* Value sits on the area; keep centered like legacy. */
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group[id^="child_"] text.value {
   text-anchor: middle;
 }
 
-body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
-  /* Same fill/stroke pattern as ROI: tinted fill + solid matching border. */
+body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group[id^="child_"] .area {
   fill: #c65d00;
   fill-opacity: var(--ss-map-area-fill-opacity, 0.4);
   opacity: 1;
@@ -170,7 +208,8 @@ body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
 
 @media (prefers-reduced-motion: reduce) {
   .ss-react-roi-poly,
-  body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group .area {
+  body.ss-use-react-map #ss-map-host .ss-react-sensor .area,
+  body.ss-use-react-map #ss-map-host .ss-snap-legacy .area-group[id^="child_"] .area {
     transition: none;
   }
 }

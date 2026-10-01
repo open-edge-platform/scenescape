@@ -11,6 +11,7 @@ import { SensorSheet } from "./sheets/SensorSheet";
 import { AssetSheet } from "./sheets/AssetSheet";
 import { CameraCalibratePanel } from "./sheets/CameraCalibratePanel";
 import { SensorCalibratePanel } from "./sheets/SensorCalibratePanel";
+import { loadUiBootstrap } from "./lib/uiBootstrap";
 import type { SheetAction } from "./lib/sheetQuery";
 import "./tokens/tokens.css";
 
@@ -45,6 +46,23 @@ const SHEET_ACTIONS = new Set([
 
 function isSheetAction(v: string | null): v is Exclude<SheetAction, null> {
   return Boolean(v && SHEET_ACTIONS.has(v));
+}
+
+function sheetsKindFromPath(): "cam" | "sensor" | "asset" | null {
+  const path = window.location.pathname;
+  if (path.includes("/cam/list") || path.startsWith("/cameras")) {
+    return "cam";
+  }
+  if (
+    path.includes("/singleton_sensor/list") ||
+    path.startsWith("/sensors")
+  ) {
+    return "sensor";
+  }
+  if (path.includes("/asset/list") || path.startsWith("/assets")) {
+    return "asset";
+  }
+  return null;
 }
 
 function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
@@ -178,20 +196,19 @@ function ListSheetsApp({ bootstrap }: { bootstrap: ListBootstrap }) {
   );
 }
 
-function readBootstrap(): ListBootstrap | null {
-  const el = document.getElementById("ss-list-sheets-bootstrap");
-  if (!el?.textContent) {
-    return null;
+async function main(): Promise<void> {
+  const kind = sheetsKindFromPath();
+  if (!kind) {
+    return;
   }
-  try {
-    return JSON.parse(el.textContent) as ListBootstrap;
-  } catch {
-    return null;
+  const bootstrap = await loadUiBootstrap<ListBootstrap>(
+    "ss-list-sheets-bootstrap",
+    "list-sheets",
+    kind,
+  );
+  if (!bootstrap) {
+    return;
   }
-}
-
-const bootstrap = readBootstrap();
-if (bootstrap) {
   const host = document.createElement("div");
   host.id = "ss-list-sheets-root";
   document.body.appendChild(host);
@@ -205,3 +222,5 @@ if (bootstrap) {
     </StrictMode>,
   );
 }
+
+void main();

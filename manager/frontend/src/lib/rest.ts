@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+import { tokenAuthHeaders } from "./session";
+
 export type RestError = {
   status: number;
   message: string;
@@ -8,10 +10,6 @@ export type RestError = {
 };
 
 const API_BASE = "/api/v1";
-
-function authHeader(token: string): HeadersInit {
-  return token ? { Authorization: `Token ${token}` } : {};
-}
 
 async function parseError(resp: Response): Promise<RestError> {
   let body: unknown;
@@ -65,7 +63,7 @@ export async function restJson<T>(
     method,
     credentials: "same-origin",
     headers: {
-      ...authHeader(token),
+      ...tokenAuthHeaders(token),
       Accept: "application/json",
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
     },
@@ -90,7 +88,7 @@ export async function restForm<T>(
     method,
     credentials: "same-origin",
     headers: {
-      ...authHeader(token),
+      ...tokenAuthHeaders(token),
       Accept: "application/json",
     },
     body: form,
@@ -137,6 +135,14 @@ export const api = {
     ),
   deleteSensor: (token: string, uid: string) =>
     restJson("DELETE", `/sensor/${encodeURIComponent(uid)}`, token),
+  deleteCamera: (token: string, uid: string) =>
+    restJson("DELETE", `/camera/${encodeURIComponent(uid)}`, token),
+  deleteChild: (token: string, uid: string) =>
+    restJson("DELETE", `/child/${encodeURIComponent(uid)}`, token),
+  deleteScene: (token: string, uid: string) =>
+    restJson("DELETE", `/scene/${encodeURIComponent(uid)}`, token),
+  deleteAsset: (token: string, uid: string) =>
+    restJson("DELETE", `/asset/${encodeURIComponent(uid)}`, token),
   createChild: (token: string, data: unknown) =>
     restJson<Record<string, unknown>>("POST", "/child", token, data),
   updateChild: (token: string, uid: string, data: unknown) =>

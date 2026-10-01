@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-import { getCsrfToken } from "../lib/djangoDelete";
+import { readAuthToken } from "../lib/authToken";
+import { tokenAuthHeaders } from "../lib/session";
 
 export type TreeNode = { [name: string]: TreeNode | null };
 
@@ -13,6 +14,13 @@ export type LoadResponse = {
 };
 
 const API = "/api/v1/model-directory/";
+
+function authHeaders(extra?: HeadersInit): HeadersInit {
+  return {
+    ...tokenAuthHeaders(readAuthToken()),
+    ...extra,
+  };
+}
 
 async function readError(resp: Response): Promise<string> {
   try {
@@ -34,10 +42,9 @@ async function request(
   const resp = await fetch(`${API}${query}`, {
     method,
     credentials: "same-origin",
-    headers: {
-      "X-CSRFToken": getCsrfToken(),
+    headers: authHeaders({
       Accept: "text/plain, application/json",
-    },
+    }),
     body,
   });
   const text = (await resp.text()).trim();
@@ -59,7 +66,7 @@ export async function loadTree(
   });
   const resp = await fetch(`${API}?${params}`, {
     credentials: "same-origin",
-    headers: { Accept: "application/json", "X-CSRFToken": getCsrfToken() },
+    headers: authHeaders({ Accept: "application/json" }),
   });
   if (!resp.ok) {
     throw new Error(await readError(resp));
@@ -78,7 +85,7 @@ export async function checkExists(
   });
   const resp = await fetch(`${API}?${params}`, {
     credentials: "same-origin",
-    headers: { "X-CSRFToken": getCsrfToken() },
+    headers: authHeaders(),
   });
   if (!resp.ok) {
     throw new Error(await readError(resp));

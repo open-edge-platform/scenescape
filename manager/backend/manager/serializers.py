@@ -9,7 +9,6 @@ from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.core.files import File
 from django.db import transaction
 
 from rest_framework import serializers
@@ -848,27 +847,14 @@ class SceneSerializer(NonNullSerializer):
       instance.trs_matrix = trs_matrix
 
     # Map align/thumbnail for *new* scenes only. On update, validated_data is
-    # applied below and Scene.save() handles .glb/.ply (auto-align + thumbnail).
+    # applied below and Scene.save() → services.scene_map.finalize_scene_map.
     # Running that here on update uses the *old* map path and 500s.
     if map_path and not is_update:
-      map_path = '/media/' + map_path.name
-      ext = os.path.splitext(map_path)[1].lower()
-
-      if ext == ".ply":
-        glb_file = instance.map.path.replace(".ply", ".glb")
-        if os.path.exists(glb_file):
-          with open(glb_file, 'rb') as f:
-            instance.map.save(os.path.basename(glb_file), File(f), save=False)
-          ext = os.path.splitext(glb_file)[1].lower()
-        else:
-          raise serializers.ValidationError(f"Error processing .ply file")
-
-      if ext == ".glb":
-        # Only auto-align if a new GLB file was uploaded
-        if instance._original_map != instance.map:
-          instance.autoAlignSceneMap()
-        instance.saveThumbnail()
-        Scene.objects.filter(pk=instance.pk).update(thumbnail=instance.thumbnail)
+      from manager.services.scene_map import apply_map_on_scene_create
+      try:
+        apply_map_on_scene_create(instance)
+      except ValueError as e:
+        raise serializers.ValidationError(str(e))
 
     if parent_uid:
       self.link_parent(parent_uid, instance)

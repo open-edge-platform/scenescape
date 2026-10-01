@@ -180,7 +180,8 @@ services:
       --brokerrootcert /run/secrets/certs/scenescape-ca.pem
       --autocalibration autocalibration.scenescape.intel.com:8443
     healthcheck:
-      test: "curl --insecure -H 'Host: localhost' -X GET https://127.0.0.1:443/api/v1/database-ready | grep 'true'"
+      # --noproxy: host HTTP(S)_PROXY must not force CONNECT to 127.0.0.1 (403).
+      test: "curl --noproxy '*' --insecure -H 'Host: localhost' -X GET https://127.0.0.1:443/api/v1/database-ready | grep 'true'"
       interval: 10s
       timeout: 120s
       retries: 10
@@ -190,8 +191,8 @@ services:
       - SCENESCAPE_ALLOWED_HOSTS=${SCENESCAPE_ALLOWED_HOSTS}
       - DBHOST=pgserver
       - DBPORT=5432
-      - no_proxy=${no_proxy},.scenescape.intel.com
-      - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - no_proxy=${no_proxy},127.0.0.1,localhost,.scenescape.intel.com
+      - NO_PROXY=${NO_PROXY},127.0.0.1,localhost,.scenescape.intel.com
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - MAPBOX_API_KEY=${MAPBOX_API_KEY}
       # Max upload size for scene map files (blueprints, .glb meshes). Default

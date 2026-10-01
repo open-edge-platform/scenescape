@@ -524,9 +524,17 @@ export function SensorCalibratePanel({
         ) : null}
         {area === "poly" ? (
           <div className="ss-text-field">
-            <label className="ss-text-field-label" htmlFor="ss-sensor-cal-pts">
-              Points JSON [[x,y], …]
-            </label>
+            <div className="ss-text-field-label ss-text-field-label--with-help">
+              <label htmlFor="ss-sensor-cal-pts">Points JSON</label>
+              <button
+                type="button"
+                className="scene-detail-help"
+                title="Format: [[x,y], …]"
+                aria-label="Points JSON format: [[x,y], …]"
+              >
+                <i className="bi bi-info-circle" aria-hidden="true" />
+              </button>
+            </div>
             <div className="ss-text-field-control">
               <textarea
                 id="ss-sensor-cal-pts"

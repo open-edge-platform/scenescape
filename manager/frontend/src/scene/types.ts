@@ -72,6 +72,10 @@ export type SceneDetailBootstrap = {
     regions: number;
     tripwires: number;
   };
+  /** Child overlay JSON strings for legacy `#id_child_*` hidden inputs. */
+  childRoiJson?: string;
+  childTripwireJson?: string;
+  childSensorJson?: string;
   scenes?: {
     id: string;
     name: string;
@@ -99,8 +103,6 @@ declare global {
     numberTripwires?: () => void;
     stringifyRois?: () => void;
     stringifyTripwires?: () => void;
-    saveRois?: (values: string[]) => void;
-    getRoiValues?: (className: string, kind: string) => string[];
     ssMqttClient?: {
       subscribe: (topic: string) => void;
       publish: (topic: string, payload: string) => void;
@@ -108,10 +110,12 @@ declare global {
       removeListener?: (ev: string, fn: (...args: unknown[]) => void) => void;
       off?: (ev: string, fn: (...args: unknown[]) => void) => void;
       end?: (force?: boolean) => void;
+      connected?: boolean;
     };
-    ssEnsureMqttScene?: () => void;
-    ssRoiDirty?: boolean;
-    ssTripDirty?: boolean;
+    ssAttachSceneMqttClient?: (client: NonNullable<Window["ssMqttClient"]>) => void;
+    ssRefreshSceneId?: () => string;
+    ssReactOwnsMqtt?: boolean;
+    ssReactOwnsCameraStrip?: boolean;
     ssPersistGeometry?: (
       options?: { preferHidden?: boolean } | string[],
     ) => void | Promise<void>;
@@ -138,14 +142,6 @@ declare global {
       hasRoi?: (svgId: string) => boolean;
       hasTripwire?: (svgId: string) => boolean;
     };
-    ssSyncRoiColorSectors?: (
-      uuid: string,
-      sectors: {
-        thresholds: { color: string; color_min: number }[];
-        range_max: number;
-      },
-    ) => void;
-    ssReapplyRoiColors?: () => void;
   }
 }
 

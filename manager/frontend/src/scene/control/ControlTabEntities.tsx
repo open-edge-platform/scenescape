@@ -11,6 +11,7 @@ import {
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useAppToast } from "../../components/ToastProvider";
 import { ACTION_ICONS } from "../../components/actionIcons";
+import { refreshCameraStrip } from "../../mqtt";
 import { api, type RestError } from "../../lib/rest";
 import { publishSceneTabCounts } from "../../lib/sceneTab";
 import { copyTextToClipboard } from "../editors/copyText";
@@ -22,23 +23,26 @@ import type {
 import "./ControlTabEntities.css";
 import "../../components/Button.css";
 
-declare global {
-  interface Window {
-    ssRefreshCameraSnapshots?: () => void;
-    ssDrawSingletonSensors?: () => void;
-    ssRemoveSingletonSensor?: (sensorId: string) => void;
-  }
-}
-
 export function CamerasPanelContent({
   cameras,
   isSuperuser,
+  authToken = "",
+  onCamerasChange,
 }: {
   cameras: SceneCameraBootstrap[];
   isSuperuser: boolean;
+  authToken?: string;
+  onCamerasChange?: Dispatch<SetStateAction<SceneCameraBootstrap[]>>;
 }) {
+  const toast = useAppToast();
+  const [pendingCamera, setPendingCamera] =
+    useState<SceneCameraBootstrap | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const canDelete = Boolean(authToken && onCamerasChange);
+
   useEffect(() => {
-    const refresh = () => window.ssRefreshCameraSnapshots?.();
+    const refresh = () => refreshCameraStrip();
     refresh();
     const t1 = window.setTimeout(refresh, 400);
     const t2 = window.setTimeout(refresh, 1200);
@@ -47,6 +51,29 @@ export function CamerasPanelContent({
       window.clearTimeout(t2);
     };
   }, [cameras]);
+
+  const confirmCameraDelete = useCallback(async () => {
+    if (!pendingCamera || !authToken || !onCamerasChange) {
+      return;
+    }
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await api.deleteCamera(authToken, pendingCamera.sensorId);
+      onCamerasChange((prev) =>
+        prev.filter(
+          (c) =>
+            c.id !== pendingCamera.id && c.sensorId !== pendingCamera.sensorId,
+        ),
+      );
+      toast.show("Camera deleted", "ok");
+      setPendingCamera(null);
+    } catch (err) {
+      setDeleteError((err as RestError).message || "Delete failed");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [authToken, onCamerasChange, pendingCamera, toast]);
 
   if (cameras.length === 0) {
     return (
@@ -103,7 +130,23 @@ export function CamerasPanelContent({
                     aria-hidden="true"
                   />
                 </a>
-                {cam.deleteUrl ? (
+                {canDelete ? (
+                  <button
+                    type="button"
+                    className="ss-icon-btn ss-icon-btn--danger"
+                    title={`Delete ${cam.name}`}
+                    aria-label={`Delete ${cam.name}`}
+                    onClick={() => {
+                      setDeleteError(null);
+                      setPendingCamera(cam);
+                    }}
+                  >
+                    <i
+                      className={`bi ${ACTION_ICONS.delete}`}
+                      aria-hidden="true"
+                    />
+                  </button>
+                ) : cam.deleteUrl ? (
                   <a
                     className="ss-icon-btn ss-icon-btn--danger"
                     href={cam.deleteUrl}
@@ -121,6 +164,27 @@ export function CamerasPanelContent({
           </div>
         </div>
       ))}
+      <ConfirmDialog
+        open={Boolean(pendingCamera)}
+        title="Delete camera?"
+        confirmLabel="Delete"
+        danger
+        busy={deleteBusy}
+        onConfirm={confirmCameraDelete}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setPendingCamera(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <p>
+          Are you sure you want to delete{" "}
+          <strong>{pendingCamera?.name || "this camera"}</strong>?
+        </p>
+        <p>This action cannot be undone.</p>
+        {deleteError ? <p className="ss-confirm-error">{deleteError}</p> : null}
+      </ConfirmDialog>
     </>
   );
 }
@@ -144,8 +208,8 @@ export function SensorsPanelContent({
   const canDelete = Boolean(authToken && onSensorsChange);
 
   useEffect(() => {
-    window.ssDrawSingletonSensors?.();
-  }, [sensors]);
+    publishSceneTabCounts({ sensors: sensors.length });
+  }, [sensors.length]);
 
   const confirmSensorDelete = useCallback(async () => {
     if (!pendingSensor || !authToken || !onSensorsChange) {
@@ -155,7 +219,6 @@ export function SensorsPanelContent({
     setDeleteError(null);
     try {
       await api.deleteSensor(authToken, pendingSensor.sensorId);
-      window.ssRemoveSingletonSensor?.(pendingSensor.sensorId);
       onSensorsChange((prev) =>
         prev.filter(
           (s) =>
@@ -210,7 +273,9 @@ export function SensorsPanelContent({
                   type="button"
                   className="ss-tab-row__meta sensor-id ss-tab-row__copy-id"
                   title="Click to copy ID"
-                  onClick={() => void copyTextToClipboard(sensor.sensorId)}
+                  onClick={() =>
+                    void copyTextToClipboard(sensor.sensorId, toast.show)
+                  }
                 >
                   {sensor.sensorId}
                 </button>
@@ -298,10 +363,41 @@ export function SensorsPanelContent({
 export function ChildrenPanelContent({
   childrenLinks,
   isSuperuser,
+  authToken = "",
+  onChildrenChange,
 }: {
   childrenLinks: SceneChildBootstrap[];
   isSuperuser: boolean;
+  authToken?: string;
+  onChildrenChange?: Dispatch<SetStateAction<SceneChildBootstrap[]>>;
 }) {
+  const toast = useAppToast();
+  const [pendingChild, setPendingChild] =
+    useState<SceneChildBootstrap | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const canDelete = Boolean(authToken && onChildrenChange);
+
+  const confirmChildDelete = useCallback(async () => {
+    if (!pendingChild || !authToken || !onChildrenChange) {
+      return;
+    }
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await api.deleteChild(authToken, pendingChild.id);
+      onChildrenChange((prev) =>
+        prev.filter((c) => c.id !== pendingChild.id),
+      );
+      toast.show("Child link deleted", "ok");
+      setPendingChild(null);
+    } catch (err) {
+      setDeleteError((err as RestError).message || "Delete failed");
+    } finally {
+      setDeleteBusy(false);
+    }
+  }, [authToken, onChildrenChange, pendingChild, toast]);
+
   if (childrenLinks.length === 0) {
     return (
       <div className="ss-empty-state">
@@ -367,7 +463,24 @@ export function ChildrenPanelContent({
                       aria-hidden="true"
                     />
                   </a>
-                  {child.deleteUrl ? (
+                  {canDelete ? (
+                    <button
+                      type="button"
+                      className="ss-icon-btn ss-icon-btn--danger"
+                      title={`Delete ${child.name}`}
+                      aria-label={`Delete ${child.name}`}
+                      id={`child-delete-${child.name}`}
+                      onClick={() => {
+                        setDeleteError(null);
+                        setPendingChild(child);
+                      }}
+                    >
+                      <i
+                        className={`bi ${ACTION_ICONS.delete}`}
+                        aria-hidden="true"
+                      />
+                    </button>
+                  ) : child.deleteUrl ? (
                     <a
                       className="ss-icon-btn ss-icon-btn--danger"
                       href={child.deleteUrl}
@@ -387,6 +500,27 @@ export function ChildrenPanelContent({
           </div>
         );
       })}
+      <ConfirmDialog
+        open={Boolean(pendingChild)}
+        title="Delete child scene link?"
+        confirmLabel="Delete"
+        danger
+        busy={deleteBusy}
+        onConfirm={confirmChildDelete}
+        onCancel={() => {
+          if (!deleteBusy) {
+            setPendingChild(null);
+            setDeleteError(null);
+          }
+        }}
+      >
+        <p>
+          Are you sure you want to delete{" "}
+          <strong>{pendingChild?.name || "this child link"}</strong>?
+        </p>
+        <p>This action cannot be undone.</p>
+        {deleteError ? <p className="ss-confirm-error">{deleteError}</p> : null}
+      </ConfirmDialog>
     </>
   );
 }

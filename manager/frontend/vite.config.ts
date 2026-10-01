@@ -50,14 +50,35 @@ function spdxLicenseHeaders(): Plugin {
   };
 }
 
+/** Copy public/*.html shells into the Django static ui output. */
+function copyStaticShell(): Plugin {
+  return {
+    name: "copy-static-shell",
+    apply: "build",
+    closeBundle() {
+      const destDir = path.resolve(__dirname, "../backend/manager/static/ui");
+      fs.mkdirSync(destDir, { recursive: true });
+      for (const name of ["shell.html", "sign-in.html"]) {
+        const src = path.resolve(__dirname, "public", name);
+        if (fs.existsSync(src)) {
+          fs.copyFileSync(src, path.join(destDir, name));
+        }
+      }
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), spdxLicenseHeaders()],
+  plugins: [react(), spdxLicenseHeaders(), copyStaticShell()],
   build: {
     outDir: path.resolve(__dirname, "../backend/manager/static/ui"),
     emptyOutDir: true,
     cssCodeSplit: false,
     rollupOptions: {
       input: {
+        chrome: path.resolve(__dirname, "src/chrome-main.tsx"),
+        spa: path.resolve(__dirname, "src/spa-main.tsx"),
+        "sign-in": path.resolve(__dirname, "src/sign-in-main.tsx"),
         "scene-detail": path.resolve(__dirname, "src/main.tsx"),
         "admin-list": path.resolve(__dirname, "src/admin-list-main.tsx"),
         "destructive-actions": path.resolve(

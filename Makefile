@@ -612,6 +612,10 @@ manager-ui:
 lint-javascript:
 	@echo "==> Linting JavaScript files..."
 	@find . -name '*.js'  | xargs npx eslint -c .github/resources/eslint.config.js --no-warn-ignored || (echo "Javascript linting failed" && exit 1)
+	@echo "==> Syntax-checking Manager static JS (node --check)..."
+	@find manager/backend/manager/static/js -name '*.js' ! -name '*.min.js' -print0 \
+		| xargs -0 -n1 node --check \
+		|| (echo "Manager static JS syntax check failed" && exit 1)
 	@echo "==> Linting Manager UI (manager/frontend)..."
 	@$(MAKE) -C manager ui-install
 	@(cd manager/frontend && npm run lint) || (echo "Manager UI linting failed" && exit 1)

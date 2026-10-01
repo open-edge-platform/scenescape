@@ -28,8 +28,6 @@ urlpatterns = [
   path('scene/detail/<uuid:pk>/', views.SceneDetailView.as_view(), name='scene_detail'),
   path('scene/update/<uuid:pk>/', views.SceneUpdateView.as_view(), name='scene_update'),
   path('scene/delete/<uuid:pk>/', views.SceneDeleteView.as_view(), name='scene_delete'),
-  path('scene/generate-mesh/<uuid:pk>/', views.generate_mesh, name='generate_mesh'),
-  path('scene/generate-mesh-status/<uuid:pk>/',views.generate_mesh_status, name='generate_mesh_status'),
   path('mapping-service/status/', views.check_mapping_service_status, name='mapping_service_status'),
   path('cam/list/', views.CamListView.as_view(), name='cam_list'),
   path('cam/create/', views.CamCreateView.as_view(), name='cam_create'),
@@ -124,6 +122,21 @@ urlpatterns += [
   path("api/v1/import-scene/", api.SceneImportAPIView.as_view()),
   path("api/v1/childscene/preview-geospatial-transform/",
        api.PreviewGeospatialChildTransform.as_view()),
+  path(
+    "api/v1/scene/<uuid:pk>/generate-mesh/",
+    api.GenerateSceneMesh.as_view(),
+    name="api_generate_mesh",
+  ),
+  path(
+    "api/v1/scene/<uuid:pk>/generate-mesh-status/",
+    api.GenerateSceneMeshStatus.as_view(),
+    name="api_generate_mesh_status",
+  ),
+  path(
+    "api/v1/ui-bootstrap/",
+    api.UiBootstrap.as_view(),
+    name="api_ui_bootstrap",
+  ),
 
 ]
 

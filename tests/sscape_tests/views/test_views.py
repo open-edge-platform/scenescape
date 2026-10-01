@@ -248,6 +248,9 @@ class TestCameraViews(TestCase):
     self.assertContains(response, 'id="camera_img_canvas"')
     self.assertContains(response, 'id="map_canvas_3D"')
     self.assertContains(response, 'id="initial-id_transforms"')
+    # Embed skips React chrome (no wasted ui-bootstrap chrome fetch).
+    self.assertNotContains(response, 'id="ss-chrome-root"')
+    self.assertNotContains(response, 'ui/chrome.js')
     return
 
   def test_camera_calibrate_embed_orphan_redirects_to_list(self):

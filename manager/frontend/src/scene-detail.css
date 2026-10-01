@@ -35,20 +35,27 @@ body.ss-scene-workspace {
   margin: 0;
 }
 
-body.ss-scene-workspace > .navbar.fixed-top {
+body.ss-scene-workspace > #ss-chrome-root {
+  flex: 0 0 auto;
+}
+
+body.ss-scene-workspace > .navbar.fixed-top,
+body.ss-scene-workspace #ss-chrome-root > .navbar.fixed-top {
   position: sticky;
   top: 0;
   flex: 0 0 auto;
   z-index: 1030;
 }
 
-body.ss-scene-workspace > .navbar.fixed-top .navbar-brand {
+body.ss-scene-workspace > .navbar.fixed-top .navbar-brand,
+body.ss-scene-workspace #ss-chrome-root > .navbar.fixed-top .navbar-brand {
   padding-top: 0.2rem;
   padding-bottom: 0.2rem;
   font-size: 1rem;
 }
 
-body.ss-scene-workspace > .navbar.fixed-top .nav-link {
+body.ss-scene-workspace > .navbar.fixed-top .nav-link,
+body.ss-scene-workspace #ss-chrome-root > .navbar.fixed-top .nav-link {
   font-size: 0.875rem;
 }
 

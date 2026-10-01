@@ -3,19 +3,19 @@
 
 import { memo, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { fitSceneMapDisplay } from "../lib/legacyBridge";
 import { LEGACY_MAP_IDS, notifyMapHostReady } from "../map/legacyMapHost";
 import { ReactSceneMap } from "./map/ReactSceneMap";
+import type { SceneSensorBootstrap } from "./types";
 import "./SceneMapPane.css";
 
 function refitMap(): void {
-  if (typeof window.fitSceneMapDisplay === "function") {
-    window.fitSceneMapDisplay();
-  }
+  fitSceneMapDisplay();
 }
 
 /**
- * Marks stay in native map pixels on the Snap overlay. Match the React
- * map's viewBox so resize only changes display scale, not coordinates.
+ * Marks stay in native map pixels on the React map layer when ssUseReactMap.
+ * Match Snap overlay viewBox to React for child overlays.
  */
 function syncSnapToReact(stage: HTMLElement): void {
   const reactSvg = stage.querySelector(
@@ -43,18 +43,22 @@ type Props = {
   mapUrl?: string | null;
   mapWidth?: number;
   mapHeight?: number;
+  sensors?: SceneSensorBootstrap[];
+  assetMarkColors?: Record<string, string>;
   setupHelper?: ReactNode;
 };
 
 /**
- * Adopts the Django-rendered map host into the React layout.
- * When ssUseReactMap is set, overlays ReactSceneMap on the map stage only
- * (#map-controls are adopted into the scene header row).
+ * Adopts the bootstrap-built map host (`ensureSceneDetailDom`) into the
+ * React layout. When ssUseReactMap is set, overlays ReactSceneMap on the
+ * map stage only (#map-controls are adopted into the scene header row).
  */
 export const SceneMapPane = memo(function SceneMapPane({
   mapUrl = null,
   mapWidth = 1280,
   mapHeight = 720,
+  sensors = [],
+  assetMarkColors = {},
   setupHelper = null,
 }: Props) {
   const slotRef = useRef<HTMLDivElement>(null);
@@ -200,6 +204,8 @@ export const SceneMapPane = memo(function SceneMapPane({
                 mapHref={mapUrl}
                 mapWidth={naturalSize.width || mapWidth}
                 mapHeight={naturalSize.height || mapHeight}
+                sensors={sensors}
+                assetMarkColors={assetMarkColors}
               />
             </div>,
             stage,

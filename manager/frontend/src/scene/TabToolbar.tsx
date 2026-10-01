@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useEffect, useState, type MouseEvent } from "react";
+import { persistGeometry } from "../lib/legacyBridge";
 import "./TabToolbar.css";
 
 type Props = {
@@ -9,10 +10,10 @@ type Props = {
   isSuperuser: boolean;
 };
 
-function persistGeometry(ev: MouseEvent): void {
+function onPersistGeometry(ev: MouseEvent): void {
   ev.preventDefault();
   ev.stopPropagation();
-  void window.ssPersistGeometry?.();
+  void persistGeometry();
 }
 
 function HelpButton({
@@ -72,10 +73,11 @@ function LiveToggle({
 
 /**
  * Active-tab toolbar controls with stable DOM ids for sscape.js handlers.
+ * Dirty state comes from ss-roi-dirty / ss-trip-dirty events only.
  */
 export function TabToolbar({ activeTab, isSuperuser }: Props) {
-  const [roiDirty, setRoiDirty] = useState(() => Boolean(window.ssRoiDirty));
-  const [tripDirty, setTripDirty] = useState(() => Boolean(window.ssTripDirty));
+  const [roiDirty, setRoiDirty] = useState(false);
+  const [tripDirty, setTripDirty] = useState(false);
 
   useEffect(() => {
     const onRoi = (ev: Event) => {
@@ -86,8 +88,6 @@ export function TabToolbar({ activeTab, isSuperuser }: Props) {
     };
     window.addEventListener("ss-roi-dirty", onRoi);
     window.addEventListener("ss-trip-dirty", onTrip);
-    setRoiDirty(Boolean(window.ssRoiDirty));
-    setTripDirty(Boolean(window.ssTripDirty));
     return () => {
       window.removeEventListener("ss-roi-dirty", onRoi);
       window.removeEventListener("ss-trip-dirty", onTrip);
@@ -166,7 +166,7 @@ export function TabToolbar({ activeTab, isSuperuser }: Props) {
                 title={roiDirty ? "Save unsaved changes" : "No unsaved changes"}
                 disabled={!roiDirty}
                 aria-disabled={roiDirty ? "false" : "true"}
-                onClick={persistGeometry}
+                onClick={onPersistGeometry}
               >
                 Save
               </button>
@@ -201,7 +201,7 @@ export function TabToolbar({ activeTab, isSuperuser }: Props) {
                 }
                 disabled={!tripDirty}
                 aria-disabled={tripDirty ? "false" : "true"}
-                onClick={persistGeometry}
+                onClick={onPersistGeometry}
               >
                 Save
               </button>

@@ -650,7 +650,7 @@ body.cal-pane-expanded {
 
   body.ss-embed .cal-pane-viewport {
     height: auto;
-    min-height: 0;
+    min-height: 12rem;
   }
 }
 
@@ -710,7 +710,12 @@ body.cal-pane-expanded {
   line-height: 1.2;
 }
 
-.connected {
+.connected,
+#mqtt_status.connected,
+#mqtt_status[data-ss-mqtt="connected"],
+.scene-detail-mqtt-pill.connected,
+.scene-detail-mqtt-pill[data-ss-mqtt="connected"],
+.child_mqtt_status.connected {
   background-color: transparent !important;
   color: var(--ss-status-ok) !important;
   border-color: var(--ss-status-ok) !important;

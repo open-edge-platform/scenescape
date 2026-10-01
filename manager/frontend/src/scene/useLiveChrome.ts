@@ -4,15 +4,24 @@
 import { useEffect, useState } from "react";
 
 /**
- * MQTT connected flag mirrored from #mqtt_status (legacy jQuery toggles the class).
+ * MQTT connected flag from ss-mqtt-status / live client, mirrored onto #mqtt_status.
  */
 export function useMqttConnected(): boolean {
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const sync = () => {
+    const readConnected = () => {
+      if (window.ssMqttClient?.connected) {
+        return true;
+      }
       const el = document.getElementById("mqtt_status");
-      const next = Boolean(el?.classList.contains("connected"));
+      return Boolean(
+        el?.classList.contains("connected") ||
+          el?.getAttribute("data-ss-mqtt") === "connected",
+      );
+    };
+    const sync = () => {
+      const next = readConnected();
       setConnected((prev) => (prev === next ? prev : next));
     };
     sync();
@@ -20,7 +29,10 @@ export function useMqttConnected(): boolean {
     let mo: MutationObserver | null = null;
     if (el) {
       mo = new MutationObserver(sync);
-      mo.observe(el, { attributes: true, attributeFilter: ["class"] });
+      mo.observe(el, {
+        attributes: true,
+        attributeFilter: ["class", "data-ss-mqtt"],
+      });
     }
     const onEvt = (ev: Event) => {
       const detail = (ev as CustomEvent<{ connected?: boolean }>).detail;
@@ -33,9 +45,16 @@ export function useMqttConnected(): boolean {
       }
     };
     window.addEventListener("ss-mqtt-status", onEvt);
+    window.addEventListener("ss-mqtt-connected", sync);
+    // Client may connect before the pill mounts; catch up shortly after.
+    const t1 = window.setTimeout(sync, 250);
+    const t2 = window.setTimeout(sync, 1000);
     return () => {
       mo?.disconnect();
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
       window.removeEventListener("ss-mqtt-status", onEvt);
+      window.removeEventListener("ss-mqtt-connected", sync);
     };
   }, []);
 

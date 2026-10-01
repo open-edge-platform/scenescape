@@ -1,27 +1,26 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-function csrfToken(): string {
-  const input = document.querySelector(
-    'input[name="csrfmiddlewaretoken"]',
-  ) as HTMLInputElement | null;
-  if (input?.value) {
-    return input.value;
-  }
-  const match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-  return match ? decodeURIComponent(match[1]) : "";
-}
+import { tokenAuthHeaders } from "./session";
 
-export async function startMeshGeneration(sceneId: string): Promise<string> {
-  const resp = await fetch(`/scene/generate-mesh/${sceneId}/`, {
-    method: "POST",
-    credentials: "same-origin",
-    headers: {
-      Accept: "application/json",
-      "X-CSRFToken": csrfToken(),
+const API_BASE = "/api/v1";
+
+export async function startMeshGeneration(
+  authToken: string,
+  sceneId: string,
+): Promise<string> {
+  const resp = await fetch(
+    `${API_BASE}/scene/${encodeURIComponent(sceneId)}/generate-mesh/`,
+    {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        Accept: "application/json",
+        ...tokenAuthHeaders(authToken),
+      },
+      body: new FormData(),
     },
-    body: new FormData(),
-  });
+  );
   const data = (await resp.json().catch(() => ({}))) as {
     success?: boolean;
     request_id?: string;
@@ -41,6 +40,7 @@ export type MeshStatusResult = {
 };
 
 export async function pollMeshStatus(
+  authToken: string,
   sceneId: string,
   requestId: string,
   opts?: { timeoutMs?: number; intervalMs?: number },
@@ -53,8 +53,14 @@ export async function pollMeshStatus(
       throw new Error("Timed out waiting for mesh generation.");
     }
     const resp = await fetch(
-      `/scene/generate-mesh-status/${sceneId}/?request_id=${encodeURIComponent(requestId)}`,
-      { credentials: "same-origin", headers: { Accept: "application/json" } },
+      `${API_BASE}/scene/${encodeURIComponent(sceneId)}/generate-mesh-status/?request_id=${encodeURIComponent(requestId)}`,
+      {
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          ...tokenAuthHeaders(authToken),
+        },
+      },
     );
     const data = (await resp.json().catch(() => ({}))) as {
       success?: boolean;
@@ -89,9 +95,10 @@ export async function checkMappingServiceAvailable(
   try {
     const resp = await fetch("/mapping-service/status/", {
       method: "GET",
+      credentials: "same-origin",
       headers: {
         Accept: "application/json",
-        Authorization: `Token ${authToken}`,
+        ...tokenAuthHeaders(authToken),
       },
     });
     if (!resp.ok) {

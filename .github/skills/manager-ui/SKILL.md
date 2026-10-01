@@ -20,7 +20,10 @@ SPDX-License-Identifier: Apache-2.0
   `{% static 'ui/…' %}`
 - Build: `make -C manager ui-build` (or `SKIP_UI=1`). Details:
   `manager/frontend/README.md`
-- Remaining epics: `.github/plans/manager-ui.md`
+- Architecture decision (host-independent islands):
+  `docs/adr/0019-host-independent-manager-ui.md`
+- UI↔backend contract (bootstrap / REST / auth / MQTT):
+  `docs/design/manager-ui-backend-contract.md`
 
 Do **not** reopen Snap / calibrate iframe work. Do **not** stretch the scene
 map (`slice` / cover); keep `meet` aspect.
@@ -94,7 +97,16 @@ Stable DOM ids, `window` APIs, and events that UI tests and hybrid bridges
 depend on. Change only with matching test updates in the same PR. Do not
 rename `#ss-admin-list-root`, table action hrefs, or map ids below.
 
+**Long-term boundary:** HTTP + bootstrap JSON + MQTT — see
+[`docs/design/manager-ui-backend-contract.md`](../../docs/design/manager-ui-backend-contract.md).
+Tables below are **transitional debt**; do not add new required template
+sibling ids or `window.ss*` APIs. Prefer `lib/rest.ts`, `lib/session.ts`, and
+`lib/bootstrap.ts`.
+
 ### Map host
+
+Built from scene-detail bootstrap by `ensureSceneDetailDom` (not Django
+HTML). Ids remain hard contracts for `sscape.js` / UI tests.
 
 | Id / selector | Role |
 | --- | --- |
@@ -106,8 +118,8 @@ rename `#ss-admin-list-root`, table action hrefs, or map ids below.
 | `#scene` | Scene id / metadata |
 | `#fullscreen`, `#show-trails`, `#show-telemetry`, `#coloring-switch` | Map chrome (`#map-controls` centered on map column via `#ss-map-toggles-slot`) |
 | `#ss-scene-chrome` / `.ss-scene-header-actions` | Scene chrome: back + title + export/3d/edit/delete + rate |
-| `#id_rois`, `#tripwires` | Hidden geometry JSON |
-| `#id_child_rois`, `#child_tripwires`, `#child_sensors` | Child overlay JSON |
+| `#id_rois`, `#tripwires` | Hidden geometry JSON (from bootstrap) |
+| `#id_child_rois`, `#child_tripwires`, `#child_sensors` | Child overlay JSON (from bootstrap) |
 
 ### Toolbar / tabs
 
@@ -147,23 +159,43 @@ SVG `g.roi` / `g.tripwire`, `adding-roi` / `adding-tripwire`.
 
 ### Navbar
 
+Owned by the React **chrome** island (`ui/chrome.js`, `#ss-chrome-root` +
+`ss-chrome-bootstrap`). Ids remain hard contracts:
+
 `#nav-help` (Help menu), `#nav-docs` (OEP published docs), `#nav-support`
 (GitHub Issues), `#nav-about` / `#ss-about-modal` (About), `#nav-admin`
 (staff; under account menu), `#navbar-username` (account menu),
-`#ss-theme-toggle`.
+`#ss-theme-toggle`, `#home`, `#navbar-version`, `#nav-scenes`,
+`#nav-cameras`, `#nav-sensors`, `#nav-models` (K8s), `#nav-object-library`,
+`#nav-sign-out`, `#login-submit` (sign-in form).
 
 ### `window` APIs
 
-`fitSceneMapDisplay`, `numberRois` / `numberTripwires`,
-`stringifyRois` / `stringifyTripwires`, `getRoiValues` / `saveRois`,
-`ssPersistGeometry`, `ssMap`, `ssRoiEditors`,
-`ssRefreshCameraSnapshots` / `ssDrawSingletonSensors` /
-`ssRemoveSingletonSensor`, `ssToast` / `ssConfirm` / `ssSceneTelemetry`,
-`ssMqttClient`.
+React scene-detail owns MQTT connect (`src/mqtt/useSceneMqtt`), camera strip
+frames (`useCameraStripMqtt`), local sensors (`SensorLayer`), and live marks
+(`MarksLayer`). Call sites use `lib/legacyBridge.ts` — under `ssUseReactMap`
+fit/number go only through `window.ssMap` (no Snap `window.fitSceneMapDisplay`
+/ `numberRois` fallbacks).
+
+**React freeze (hybrid still required):**
+
+`ssMap` / `ssRoiEditors` / `ssPersistGeometry` (React install; sscape
+`saveRois` still calls persist), `ssAttachSceneMqttClient` / `ssMqttClient`
+(shared transport; Snap child overlays + calibrate still attach),
+`ssToast` / `ssConfirm` (legacy JS only; React uses providers/dialogs),
+`ssSceneTelemetry`, `ssSyncRoiColorSectors` / `ssReapplyRoiColors`.
+
+**Not React freeze** (sscape-only; calibrate / Snap-map pages — do not call
+from React or list as island contracts): `fitSceneMapDisplay`, `numberRois` /
+`numberTripwires`, `stringifyRois` / `stringifyTripwires`, `ssEnsureMqttScene`,
+`ssRefreshCameraSnapshots`, `ssDrawSingletonSensors`,
+`ssRemoveSingletonSensor`, `getRoiValues`, `saveRois`.
 
 Events: `ss-roi-form-add`, `ss-tripwire-form-add`, `ss-scene-rate`,
 `ss-camera-rate`, `ss-telemetry-clear`, `ss-map-host-ready`,
-`ss-tab-counts`, `ss-scene-tab`.
+`ss-tab-counts`, `ss-scene-tab`, `ss-roi-dirty`, `ss-trip-dirty`,
+`ss-mqtt-status`, `ss-mqtt-connected`, `ss-singleton`, `ss-scene-objects`,
+`ss-show-trails`.
 
 ### REST (Manager persist)
 

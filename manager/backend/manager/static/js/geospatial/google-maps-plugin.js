@@ -143,8 +143,9 @@ class GoogleMapsPlugin extends MapInterface {
 
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
-    const heading =
-      typeof this.map.getHeading === "function" ? this.map.getHeading() : 0;
+    // Google Static Maps tiles are always north-up (no heading for satellite).
+    // Keep stored corners aligned with the stitched bitmap.
+    const heading = 0;
     this.writeGeospatialFormFields(center.lat(), center.lng(), zoom, heading);
 
     this.generateSnapshot();
@@ -154,8 +155,10 @@ class GoogleMapsPlugin extends MapInterface {
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
 
-    const heading =
-      typeof this.map.getHeading === "function" ? this.map.getHeading() : 0;
+    // Force north-up: Static Maps API does not rotate satellite tiles to match
+    // the interactive map heading, so rotated quadrant centers would mismatch
+    // north-up imagery and produce a discontinuous stitch.
+    const heading = 0;
     const q = this.snapshotQuadrantCenters(
       center.lat(),
       center.lng(),

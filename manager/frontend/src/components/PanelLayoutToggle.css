@@ -70,12 +70,17 @@ body.ss-workspace-resizing .ss-cal-workspace-main {
 }
 
 .ss-cal-workspace .ss-workspace-cal-preview-frame {
+  position: relative;
   min-height: 0;
+  flex: 1 1 auto;
 }
 
 .ss-cal-workspace .ss-workspace-cal-preview-frame iframe {
-  min-height: 0;
+  position: absolute;
+  inset: 0;
+  width: 100%;
   height: 100%;
+  border: 0;
 }
 
 .ss-cal-workspace--bleed-iframe {

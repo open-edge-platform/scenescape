@@ -1,9 +1,10 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 """
-Submit a reconstruction job to the SceneScape mapping service, then poll the manager's
-generate-mesh-status endpoint to finalize.  The manager automatically applies
-alignMeshToXYPlane() and _transformCamerasWithMeshAlignment() before persisting.
+Submit a reconstruction job to the SceneScape mapping service, then poll the
+manager Token generate-mesh-status API to finalize. The manager automatically
+applies alignMeshToXYPlane() and _transformCamerasWithMeshAlignment() before
+persisting.
 
 Usage:
     python reconstruct_and_finalize.py \
@@ -146,38 +147,19 @@ def ensure_camera(session: requests.Session, manager_url: str, scene_uid: str, c
   print(f"Camera created: {camera_id}")
 
 
-def finalize_mesh(manager_url: str, verify_tls: bool | str, username: str, password: str, scene_uid: str, request_id: str) -> None:
+def finalize_mesh(
+  session: requests.Session,
+  manager_url: str,
+  scene_uid: str,
+  request_id: str,
+) -> None:
   """
-  Poll the manager's generate-mesh-status endpoint until finalized.
-
-  The manager's generate-mesh-status view requires a Django superuser session
-  (not just a token), so we log in with a cookie-based session here.
+  Poll Token /api/v1/scene/<uuid>/generate-mesh-status/ until finalized.
   """
-  import re
-
-  session = requests.Session()
-  session.verify = verify_tls
-
-  # Obtain CSRF token from login page
-  login_page = session.get(f"{manager_url}/sign_in/", timeout=20)
-  login_page.raise_for_status()
-  match = re.search(r'<input[^>]*name="csrfmiddlewaretoken"[^>]*value="([^"]*)"', login_page.text)
-  csrf_token = match.group(1) if match else session.cookies.get("csrftoken", "")
-
-  login_resp = session.post(
-    f"{manager_url}/sign_in/",
-    data={"username": username, "password": password, "csrfmiddlewaretoken": csrf_token},
-    headers={"Referer": f"{manager_url}/sign_in/"},
-    allow_redirects=False,
-    timeout=30,
-  )
-  if login_resp.status_code not in (302, 303):
-    raise RuntimeError(f"Django login failed: HTTP {login_resp.status_code}")
-
   deadline = time.time() + POLL_TIMEOUT_S
   while time.time() < deadline:
     resp = session.get(
-      f"{manager_url}/scene/generate-mesh-status/{scene_uid}/",
+      f"{manager_url}/api/v1/scene/{scene_uid}/generate-mesh-status/",
       params={"request_id": request_id},
       timeout=60,
     )
@@ -236,7 +218,7 @@ def main() -> None:
   request_id = submit_reconstruction(args.mapping_url, verify_tls, args.frames_dir, args.cameras, args.video_file)
 
   # Finalize via manager (applies alignment automatically)
-  finalize_mesh(args.manager_url, verify_tls, "admin", supass, scene_uid, request_id)
+  finalize_mesh(session, args.manager_url, scene_uid, request_id)
 
   print(f"Done. Scene UID: {scene_uid}")
 

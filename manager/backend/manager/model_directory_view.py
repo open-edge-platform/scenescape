@@ -12,9 +12,9 @@ from rest_framework.views import APIView
 
 from manager.api import IsAdminOrReadOnly
 
-# Authenticated with sessionid and csrf token
+# Authenticated with DRF Token (same as ManageThing / portable UI path)
 class ModelDirectory(APIView):
-  authentication_classes = [authentication.SessionAuthentication]
+  authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
   # Safely join paths and ensure they are within MODEL_ROOT

@@ -1,0 +1,40 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+
+Static Manager sign-in shell — no Django template tags.
+Serve under /static/ui/sign-in.html (or as the document for /sign_in/).
+Requires /static/{css,ui,images} and POST /sign_in/ + GET /api/v1/ui-bootstrap/.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script src="/static/js/theme-boot.js"></script>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>SceneScape</title>
+    <link
+      rel="stylesheet"
+      href="/static/bootstrap/css/bootstrap-reboot.min.css"
+    />
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css" />
+    <link
+      rel="stylesheet"
+      href="/static/bootstrap/css/bootstrap-grid.min.css"
+    />
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="/static/ui/manager-ui.css" />
+  </head>
+  <body>
+    <div class="container-fluid wrapper">
+      <div class="content">
+        <div id="ss-sign-in-root"></div>
+      </div>
+    </div>
+    <script src="/static/js/theme.js"></script>
+    <script type="module" src="/static/ui/sign-in.js"></script>
+  </body>
+</html>

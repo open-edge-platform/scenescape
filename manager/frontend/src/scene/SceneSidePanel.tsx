@@ -53,7 +53,9 @@ type Props = {
   sceneId?: string;
   wssConnection?: string;
   authToken?: string;
+  onCamerasChange?: Dispatch<SetStateAction<SceneCameraBootstrap[]>>;
   onSensorsChange?: Dispatch<SetStateAction<SceneSensorBootstrap[]>>;
+  onChildrenChange?: Dispatch<SetStateAction<SceneChildBootstrap[]>>;
 };
 
 function SceneControlPanel({
@@ -96,7 +98,9 @@ export function SceneSidePanel({
   sceneId = "",
   wssConnection = "",
   authToken = "",
+  onCamerasChange,
   onSensorsChange,
+  onChildrenChange,
 }: Props) {
   const [activeId, setActiveId] = useState<SceneControlTabId>(() =>
     readStoredSceneTab(sceneId),
@@ -168,6 +172,8 @@ export function SceneSidePanel({
               <CamerasPanelContent
                 cameras={cameras}
                 isSuperuser={isSuperuser}
+                authToken={authToken}
+                onCamerasChange={onCamerasChange}
               />
             </div>
           </SceneControlPanel>
@@ -222,6 +228,8 @@ export function SceneSidePanel({
                 <ChildrenPanelContent
                   childrenLinks={childrenLinks}
                   isSuperuser={isSuperuser}
+                  authToken={authToken}
+                  onChildrenChange={onChildrenChange}
                 />
               </div>
             </div>

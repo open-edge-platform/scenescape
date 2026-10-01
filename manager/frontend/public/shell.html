@@ -1,0 +1,56 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+
+Static Manager shell — no Django template tags.
+Serve under /static/ui/shell.html (or as the document for / and /:uuid/).
+Requires /static/{css,js,ui,bootstrap,assets,images} and /api/v1 from the API host.
+Session login remains at /sign_in/.
+-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <script src="/static/js/theme-boot.js"></script>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <title>SceneScape</title>
+    <link
+      rel="stylesheet"
+      href="/static/bootstrap/css/bootstrap-reboot.min.css"
+    />
+    <link rel="stylesheet" href="/static/bootstrap/css/bootstrap.min.css" />
+    <link
+      rel="stylesheet"
+      href="/static/bootstrap/css/bootstrap-grid.min.css"
+    />
+    <link
+      rel="stylesheet"
+      href="/static/bootstrap/css/bootstrap-icons.css"
+    />
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <link rel="stylesheet" href="/static/ui/manager-ui.css" />
+  </head>
+  <body>
+    <div id="ss-chrome-root"></div>
+    <div class="container-fluid wrapper">
+      <div class="content">
+        <div id="ss-spa-root"></div>
+      </div>
+    </div>
+    <script src="/static/assets/jquery-3.6.0.min.js"></script>
+    <script src="/static/js/theme.js"></script>
+    <script src="/static/assets/socket.io.min.js"></script>
+    <script src="/static/assets/snap.svg-min.js"></script>
+    <script src="/static/assets/tether.min.js"></script>
+    <script src="/static/assets/imagesloaded.pkgd.min.js"></script>
+    <script src="/static/assets/mqtt.min.js"></script>
+    <script src="/static/assets/glfx.min.js"></script>
+    <script src="/static/assets/jszip.min.js"></script>
+    <script src="/static/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <script type="module" src="/static/js/sscape.js"></script>
+    <script type="module" src="/static/ui/spa.js"></script>
+  </body>
+</html>

@@ -9,18 +9,20 @@ type Props = {
   sceneId: string;
 };
 
-declare global {
-  interface Window {
-    ssEnsureMqttScene?: () => void;
-  }
-}
-
 /**
- * MQTT tab content with hard-contract ids (#broker, #connect, …) for sscape.js.
+ * MQTT tab content with hard-contract ids (#broker, #connect, …).
+ * Connect lifecycle is owned by useSceneMqtt on SceneDetailPage.
  */
 export function MqttSettingsPanel({ wssConnection, sceneId }: Props) {
   useEffect(() => {
-    window.ssEnsureMqttScene?.();
+    const broker = document.getElementById("broker") as HTMLInputElement | null;
+    const addr = document.getElementById("broker-address");
+    if (broker && !broker.value && wssConnection) {
+      broker.value = wssConnection;
+    }
+    if (addr && !addr.textContent) {
+      addr.textContent = window.location.hostname;
+    }
   }, [wssConnection, sceneId]);
 
   const topicDefault = sceneId

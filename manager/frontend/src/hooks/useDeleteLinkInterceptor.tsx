@@ -3,7 +3,8 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { inferDeleteLabel, postDjangoDelete } from "../lib/djangoDelete";
+import { readAuthToken } from "../lib/authToken";
+import { deleteViaRest, inferDeleteLabel } from "../lib/restDelete";
 
 type PendingDelete = {
   url: string;
@@ -16,10 +17,13 @@ type Options = {
   /** Root to intercept; defaults to document */
   root?: ParentNode | null;
   fallbackHref?: string;
+  /** Override token; defaults to readAuthToken() */
+  authToken?: string;
 };
 
 /**
- * Intercepts Django delete-page links and shows an in-page confirm dialog instead.
+ * Intercepts Django delete-page links and shows an in-page confirm dialog.
+ * Confirmed deletes use Token REST (`DELETE /api/v1/...`) only.
  */
 export function useDeleteLinkInterceptor(options: Options = {}) {
   const [pending, setPending] = useState<PendingDelete | null>(null);
@@ -81,12 +85,17 @@ export function useDeleteLinkInterceptor(options: Options = {}) {
     setBusy(true);
     setError(null);
     try {
-      await postDjangoDelete(pending.url, pending.fallbackHref);
+      const token = options.authToken ?? readAuthToken();
+      await deleteViaRest(
+        pending.url,
+        token,
+        pending.fallbackHref,
+      );
     } catch (e) {
       setBusy(false);
       setError(e instanceof Error ? e.message : "Delete failed");
     }
-  }, [pending]);
+  }, [pending, options.authToken]);
 
   const cancel = useCallback(() => {
     if (busy) {

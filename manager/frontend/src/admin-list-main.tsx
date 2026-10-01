@@ -4,28 +4,45 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { AdminListApp, type AdminListBootstrap } from "./admin/AdminListApp";
+import { loadUiBootstrap, type UiBootstrapPage } from "./lib/uiBootstrap";
 import "./tokens/tokens.css";
 
-function readBootstrap(): AdminListBootstrap | null {
-  const el = document.getElementById("ss-admin-list-bootstrap");
-  if (!el?.textContent) {
-    return null;
+function listPageFromPath(): UiBootstrapPage | null {
+  const path = window.location.pathname;
+  if (path.includes("/cam/list") || path.startsWith("/cameras")) {
+    return "cameras";
   }
-  try {
-    return JSON.parse(el.textContent) as AdminListBootstrap;
-  } catch {
-    console.error("Failed to parse admin list bootstrap JSON");
-    return null;
+  if (
+    path.includes("/singleton_sensor/list") ||
+    path.startsWith("/sensors")
+  ) {
+    return "sensors";
   }
+  if (path.includes("/asset/list") || path.startsWith("/assets")) {
+    return "assets";
+  }
+  return null;
 }
 
-const bootstrap = readBootstrap();
-const rootEl = document.getElementById("ss-admin-list-root");
-
-if (bootstrap && rootEl) {
+async function main(): Promise<void> {
+  const page = listPageFromPath();
+  if (!page) {
+    console.error("admin-list: unrecognized list path");
+    return;
+  }
+  const bootstrap = await loadUiBootstrap<AdminListBootstrap>(
+    "ss-admin-list-bootstrap",
+    page,
+  );
+  const rootEl = document.getElementById("ss-admin-list-root");
+  if (!bootstrap || !rootEl) {
+    return;
+  }
   createRoot(rootEl).render(
     <StrictMode>
       <AdminListApp bootstrap={bootstrap} />
     </StrictMode>,
   );
 }
+
+void main();

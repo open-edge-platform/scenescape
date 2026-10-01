@@ -25,7 +25,8 @@ body.ss-embed {
 }
 
 body.ss-embed .navbar,
-body.ss-embed .breadcrumb {
+body.ss-embed .breadcrumb,
+body.ss-embed #ss-chrome-root {
   display: none !important;
 }
 
@@ -70,7 +71,7 @@ body.ss-embed .cal-pane {
 
 body.ss-embed .cal-pane-viewport {
   height: auto;
-  min-height: 0;
+  min-height: 12rem;
   flex: 1 1 auto;
 }
 

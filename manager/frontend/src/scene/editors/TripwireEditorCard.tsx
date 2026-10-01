@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { useState } from "react";
+import { useAppToast } from "../../components/ToastProvider";
+import { numberTripwires } from "../../lib/legacyBridge";
 import { copyTextToClipboard } from "./copyText";
 import type { TripwireEntity } from "./types";
 
@@ -20,6 +22,7 @@ export function TripwireEditorCard({
   onChange,
   onRemove,
 }: Props) {
+  const toast = useAppToast();
   const canEdit = Boolean(isSuperuser) && !tripwire.readOnly;
   const [expanded, setExpanded] = useState(false);
   const detailsId = `trip-details-${tripwire.svgId}`;
@@ -56,11 +59,7 @@ export function TripwireEditorCard({
                 onChange({ ...tripwire, title: e.target.value });
               }}
               onBlur={() => {
-                if (window.ssUseReactMap) {
-                  window.ssMap?.numberTripwires?.();
-                  return;
-                }
-                window.numberTripwires?.();
+                numberTripwires();
               }}
             />
             <button
@@ -103,7 +102,9 @@ export function TripwireEditorCard({
                 type="button"
                 className="ss-editor-copy-id topic-text"
                 title="Click to copy the topic"
-                onClick={() => void copyTextToClipboard(tripwire.topic)}
+                onClick={() =>
+                  void copyTextToClipboard(tripwire.topic, toast.show)
+                }
               >
                 {tripwire.topic}
               </button>

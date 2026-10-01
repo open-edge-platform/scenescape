@@ -3,43 +3,40 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { loadUiBootstrap } from "./lib/uiBootstrap";
 import {
   ScenesHomeApp,
   type ScenesHomeBootstrap,
 } from "./scenes/ScenesHomeApp";
 import "./tokens/tokens.css";
 
-function readBootstrap(): ScenesHomeBootstrap | null {
-  const el = document.getElementById("ss-scenes-home-bootstrap");
-  if (!el?.textContent) {
-    return null;
-  }
-  try {
-    return JSON.parse(el.textContent) as ScenesHomeBootstrap;
-  } catch {
-    console.error("Failed to parse scenes home bootstrap JSON");
-    return null;
-  }
-}
+async function main(): Promise<void> {
+  const bootstrap = await loadUiBootstrap<ScenesHomeBootstrap>(
+    "ss-scenes-home-bootstrap",
+    "scenes",
+  );
+  const host =
+    document.getElementById("ss-scenes-home-app") ||
+    (() => {
+      const el = document.createElement("div");
+      el.id = "ss-scenes-home-app";
+      const mainEl =
+        document.querySelector("main") ||
+        document.querySelector(".content") ||
+        document.querySelector(".container") ||
+        document.body;
+      mainEl.appendChild(el);
+      return el;
+    })();
 
-const bootstrap = readBootstrap();
-const host =
-  document.getElementById("ss-scenes-home-app") ||
-  (() => {
-    const el = document.createElement("div");
-    el.id = "ss-scenes-home-app";
-    const main =
-      document.querySelector("main") ||
-      document.querySelector(".container") ||
-      document.body;
-    main.appendChild(el);
-    return el;
-  })();
-
-if (bootstrap) {
+  if (!bootstrap) {
+    return;
+  }
   createRoot(host).render(
     <StrictMode>
       <ScenesHomeApp bootstrap={bootstrap} />
     </StrictMode>,
   );
 }
+
+void main();

@@ -6,6 +6,7 @@ import {
   useRef,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { fitSceneMapDisplay } from "../lib/legacyBridge";
 import type { WorkspaceLayout } from "./useWorkspaceLayout";
 import "./WorkspaceSplitter.css";
 
@@ -71,11 +72,8 @@ export function WorkspaceSplitter({
         window.removeEventListener("pointermove", onMove);
         window.removeEventListener("pointerup", onUp);
         window.removeEventListener("pointercancel", onUp);
-        if (
-          body.classList.contains("ss-workspace-body") &&
-          typeof window.fitSceneMapDisplay === "function"
-        ) {
-          window.fitSceneMapDisplay();
+        if (body.classList.contains("ss-workspace-body")) {
+          fitSceneMapDisplay();
         }
       };
 

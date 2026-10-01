@@ -25,7 +25,7 @@ export const PANEL_LAYOUT_OPTIONS: {
   },
   {
     mode: "row",
-    label: "Beside",
+    label: "Side",
     title: "Put the settings panel beside the main view",
   },
 ];
@@ -59,7 +59,7 @@ type Props = {
   onChange: (mode: PanelLayoutMode) => void;
 };
 
-/** Auto / Below / Beside control for workspace panel chrome. */
+/** Auto / Below / Side control for workspace panel chrome. */
 export function PanelLayoutToggle({ layoutMode, onChange }: Props) {
   return (
     <div

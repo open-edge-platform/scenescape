@@ -19,6 +19,47 @@
   color: var(--ss-ink);
 }
 
+.ss-text-field-label--with-help {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.ss-text-field-label--with-help > label {
+  margin: 0;
+  font: inherit;
+  color: inherit;
+}
+
+.ss-text-field-label--with-help .scene-detail-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: -0.05rem 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: help;
+}
+
+.ss-text-field-label--with-help .scene-detail-help:hover,
+.ss-text-field-label--with-help .scene-detail-help:focus {
+  color: var(--ss-brand);
+  outline: none;
+}
+
+.ss-text-field-label--with-help .scene-detail-help:focus-visible {
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ss-brand) 35%, transparent);
+}
+
 .ss-text-field-control {
   max-width: var(--ss-field-max, 28rem);
   min-width: 0;

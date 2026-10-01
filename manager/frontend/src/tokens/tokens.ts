@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /**
- * ViPPET-aligned light tokens (mirror — see .github/plans/manager-ui.md).
+ * ViPPET-aligned light tokens (mirror — see docs/adr/0019-host-independent-manager-ui.md
+ * and manager-ui skill tokens section).
  * Runtime light/dark is CSS-driven via html[data-theme]; prefer var(--ss-*).
  */
 export const tokens = {

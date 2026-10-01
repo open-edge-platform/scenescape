@@ -3,7 +3,13 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { publishSceneTabCounts } from "../../lib/sceneTab";
+import {
+  numberRois,
+  numberTripwires,
+  syncRoiColorSectors,
+} from "../../lib/legacyBridge";
 import { createPortal } from "react-dom";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { RegionEditorCard } from "./RegionEditorCard";
 import { TripwireEditorCard } from "./TripwireEditorCard";
 import { persistSceneGeometry, type PersistIdMap } from "../../lib/roiPersist";
@@ -33,6 +39,11 @@ type Props = {
   initialTripwires: TripwireLoadJson[];
 };
 
+type PendingRemove =
+  | { kind: "roi"; svgId: string }
+  | { kind: "trip"; svgId: string }
+  | null;
+
 function remapEntityIds<
   T extends { uuid: string; svgId: string; topic: string },
 >(rows: T[], idMap: PersistIdMap, prefix: "roi" | "tripwire"): T[] {
@@ -51,13 +62,8 @@ function remapEntityIds<
 }
 
 function publishDirty(kind: "roi" | "trip", dirty: boolean): void {
-  if (kind === "roi") {
-    window.ssRoiDirty = dirty;
-    window.dispatchEvent(new CustomEvent("ss-roi-dirty", { detail: dirty }));
-    return;
-  }
-  window.ssTripDirty = dirty;
-  window.dispatchEvent(new CustomEvent("ss-trip-dirty", { detail: dirty }));
+  const eventName = kind === "roi" ? "ss-roi-dirty" : "ss-trip-dirty";
+  window.dispatchEvent(new CustomEvent(eventName, { detail: dirty }));
 }
 
 function pushRoiToModel(roi: RoiEntity, points?: number[][]): void {
@@ -81,7 +87,7 @@ function pushRoiToModel(roi: RoiEntity, points?: number[][]): void {
         }
       : {}),
   });
-  window.ssSyncRoiColorSectors?.(roi.uuid, {
+  syncRoiColorSectors(roi.uuid, {
     thresholds: sectors,
     range_max: roi.rangeMax,
   });
@@ -291,7 +297,7 @@ export function RoiTripwireEditors({
       });
       setRoiDirty(true);
       window.requestAnimationFrame(() => {
-        window.numberRois?.();
+        numberRois();
       });
     };
 
@@ -316,7 +322,7 @@ export function RoiTripwireEditors({
       });
       setTripDirty(true);
       window.requestAnimationFrame(() => {
-        window.numberTripwires?.();
+        numberTripwires();
       });
     };
 
@@ -416,49 +422,49 @@ export function RoiTripwireEditors({
     }
   }, [tripwires.length, isSuperuser]);
 
-  const removeRoi = async (svgId: string) => {
-    const ok = window.ssConfirm
-      ? await window.ssConfirm({
-          title: "Remove region?",
-          message: "Are you sure you wish to remove this ROI?",
-          confirmLabel: "Remove",
-          danger: true,
-        })
-      : window.confirm("Are you sure you wish to remove this ROI?");
-    if (!ok) {
-      return;
-    }
-    const uuid = svgId.replace(/^roi_/, "");
-    modelRemoveRoi(uuid);
-    setRois((prev) => prev.filter((r) => r.svgId !== svgId));
-    window.ssMap?.flushHidden();
-    try {
-      await persistImplRef.current();
-    } catch {
-      setRoiDirty(true);
-    }
+  const [pendingRemove, setPendingRemove] = useState<PendingRemove>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
+
+  const requestRemoveRoi = (svgId: string) => {
+    setPendingRemove({ kind: "roi", svgId });
   };
 
-  const removeTripwire = async (svgId: string) => {
-    const ok = window.ssConfirm
-      ? await window.ssConfirm({
-          title: "Remove tripwire?",
-          message: "Are you sure you wish to remove this tripwire?",
-          confirmLabel: "Remove",
-          danger: true,
-        })
-      : window.confirm("Are you sure you wish to remove this tripwire?");
-    if (!ok) {
+  const requestRemoveTripwire = (svgId: string) => {
+    setPendingRemove({ kind: "trip", svgId });
+  };
+
+  const confirmPendingRemove = async () => {
+    if (!pendingRemove) {
       return;
     }
-    const uuid = svgId.replace(/^tripwire_/, "");
-    modelRemoveTrip(uuid);
-    setTripwires((prev) => prev.filter((t) => t.svgId !== svgId));
-    window.ssMap?.flushHidden();
+    setRemoveBusy(true);
     try {
-      await persistImplRef.current();
-    } catch {
-      setTripDirty(true);
+      if (pendingRemove.kind === "roi") {
+        const uuid = pendingRemove.svgId.replace(/^roi_/, "");
+        modelRemoveRoi(uuid);
+        setRois((prev) => prev.filter((r) => r.svgId !== pendingRemove.svgId));
+        window.ssMap?.flushHidden();
+        try {
+          await persistImplRef.current();
+        } catch {
+          setRoiDirty(true);
+        }
+      } else {
+        const uuid = pendingRemove.svgId.replace(/^tripwire_/, "");
+        modelRemoveTrip(uuid);
+        setTripwires((prev) =>
+          prev.filter((t) => t.svgId !== pendingRemove.svgId),
+        );
+        window.ssMap?.flushHidden();
+        try {
+          await persistImplRef.current();
+        } catch {
+          setTripDirty(true);
+        }
+      }
+      setPendingRemove(null);
+    } finally {
+      setRemoveBusy(false);
     }
   };
 
@@ -492,7 +498,7 @@ export function RoiTripwireEditors({
                       prev.map((r) => (r.svgId === next.svgId ? next : r)),
                     );
                   }}
-                  onRemove={removeRoi}
+                  onRemove={requestRemoveRoi}
                 />
               ))}
             </>,
@@ -515,13 +521,34 @@ export function RoiTripwireEditors({
                       prev.map((t) => (t.svgId === next.svgId ? next : t)),
                     );
                   }}
-                  onRemove={removeTripwire}
+                  onRemove={requestRemoveTripwire}
                 />
               ))}
             </>,
             tripHost,
           )
         : null}
+      <ConfirmDialog
+        open={pendingRemove !== null}
+        title={
+          pendingRemove?.kind === "trip"
+            ? "Remove tripwire?"
+            : "Remove region?"
+        }
+        confirmLabel="Remove"
+        danger
+        busy={removeBusy}
+        onCancel={() => {
+          if (!removeBusy) {
+            setPendingRemove(null);
+          }
+        }}
+        onConfirm={() => void confirmPendingRemove()}
+      >
+        {pendingRemove?.kind === "trip"
+          ? "Are you sure you wish to remove this tripwire?"
+          : "Are you sure you wish to remove this ROI?"}
+      </ConfirmDialog>
     </>
   );
 }

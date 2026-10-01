@@ -66,9 +66,9 @@ export function SceneMapSetupHelper({
     setMeshBusy(true);
     setError(null);
     try {
-      const requestId = await startMeshGeneration(sceneId);
+      const requestId = await startMeshGeneration(authToken, sceneId);
       toast.show("Mesh generation started…", "info");
-      await pollMeshStatus(sceneId, requestId);
+      await pollMeshStatus(authToken, sceneId, requestId);
       toast.show("Mesh generated — map and cameras updated", "ok");
       onMeshComplete?.();
     } catch (err) {

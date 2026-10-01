@@ -219,8 +219,8 @@ export function SceneManagePanel({
     setMeshBusy(true);
     setError(null);
     try {
-      const requestId = await startMeshGeneration(sceneId);
-      const statusResult = await pollMeshStatus(sceneId, requestId);
+      const requestId = await startMeshGeneration(authToken, sceneId);
+      const statusResult = await pollMeshStatus(authToken, sceneId, requestId);
       const unanchored = statusResult.unanchored_cameras?.filter(Boolean) ?? [];
       if (unanchored.length) {
         toast.show(

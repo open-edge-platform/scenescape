@@ -3,6 +3,8 @@
 
 import { useState } from "react";
 import { OccupancyColorRange } from "../../components/OccupancyColorRange";
+import { useAppToast } from "../../components/ToastProvider";
+import { numberRois } from "../../lib/legacyBridge";
 import { copyTextToClipboard } from "./copyText";
 import type { RoiEntity } from "./types";
 
@@ -21,6 +23,7 @@ export function RegionEditorCard({
   onChange,
   onRemove,
 }: Props) {
+  const toast = useAppToast();
   const disabled = !isSuperuser || roi.readOnly;
   const [expanded, setExpanded] = useState(false);
   const detailsId = `roi-details-${roi.svgId}`;
@@ -51,13 +54,7 @@ export function RegionEditorCard({
               value={roi.title}
               onChange={(e) => onChange({ ...roi, title: e.target.value })}
               onBlur={() => {
-                if (window.ssUseReactMap) {
-                  window.ssMap?.numberRois?.();
-                  return;
-                }
-                if (typeof window.numberRois === "function") {
-                  window.numberRois();
-                }
+                numberRois();
               }}
             />
             <button
@@ -180,7 +177,7 @@ export function RegionEditorCard({
                 type="button"
                 className="ss-editor-copy-id topic-text"
                 title="Click to copy the topic"
-                onClick={() => void copyTextToClipboard(roi.topic)}
+                onClick={() => void copyTextToClipboard(roi.topic, toast.show)}
               >
                 {roi.topic}
               </button>

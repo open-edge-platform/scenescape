@@ -405,6 +405,7 @@ body.is-map-fullscreen .ss-scene-chrome-gap {
 }
 
 .ss-workspace-body {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 0;
@@ -413,29 +414,29 @@ body.is-map-fullscreen .ss-scene-chrome-gap {
   overflow: hidden;
 }
 
-/* stack: map on top, tabs peek below */
-.ss-workspace--stack .ss-workspace-body {
-  flex-direction: column;
-}
-
-/* row: map on the left/main, tabs peek on the side */
+/*
+ * Map stays full-bleed; Side/Below only change overlay panel placement.
+ * The panel sits above the map — ROI / tripwire / vertex edits under it
+ * need Hide panel (or a narrower panel) to reach. Intentional trade-off.
+ */
+.ss-workspace--stack .ss-workspace-body,
 .ss-workspace--row .ss-workspace-body {
-  flex-direction: row;
-  align-items: stretch;
+  flex-direction: column;
 }
 
 .ss-scene-detail--workspace .ss-workspace-main {
   position: relative;
   display: flex;
   flex-direction: column;
-  flex: 1.5 1 0;
+  flex: 1 1 auto;
+  width: 100%;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
 
 .ss-workspace--stack .ss-workspace-main {
-  flex: 2.4 1 0;
+  flex: 1 1 auto;
 }
 
 .ss-scene-detail--workspace .ss-scene-map-pane,
@@ -513,50 +514,49 @@ body.is-map-fullscreen .ss-scene-chrome-gap {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  /* Grow into leftover space after the map’s flex share */
-  flex: 1 1 0;
+  position: absolute;
+  z-index: 8;
+  background: var(--ss-card-bg);
   /* Fixed sensor / ROI / tripwire row width (fits doubled name field). */
   --ss-tab-entity-width: 48rem;
 }
 
 .ss-workspace--stack .ss-scene-side {
-  flex: 0 0 auto;
+  left: 0;
+  right: 0;
+  bottom: 0;
   width: 100%;
-  min-width: 0;
   max-width: 100%;
-  min-height: 0;
   height: var(--ss-panel-size, 14rem);
-  max-height: var(--ss-panel-size, 14rem);
-  overflow: hidden;
+  max-height: min(var(--ss-panel-size, 14rem), 55vh);
+  border-top: 1px solid var(--ss-card-border);
+  box-shadow: none;
   transition:
-    height var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
-    max-height var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    transform var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
     opacity var(--ss-motion-fast, 120ms) ease;
 }
 
 .ss-workspace--row .ss-scene-side {
-  flex: 0 0 auto;
-  min-width: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: var(--ss-panel-size, 20rem);
   max-width: min(var(--ss-panel-size, 20rem), 48vw);
   height: auto;
   max-height: none;
-  align-self: stretch;
-  overflow: hidden;
+  border-left: 1px solid var(--ss-card-border);
+  box-shadow: none;
   transition:
-    width var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
-    max-width var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
+    transform var(--ss-motion-base, 180ms) var(--ss-motion-ease, ease),
     opacity var(--ss-motion-fast, 120ms) ease;
 }
 
 .ss-workspace-main {
-  transition: flex-basis var(--ss-motion-base, 180ms)
-    var(--ss-motion-ease, ease);
+  transition: none;
 }
 
 body.ss-workspace-resizing .ss-workspace--stack .ss-scene-side,
-body.ss-workspace-resizing .ss-workspace--row .ss-scene-side,
-body.ss-workspace-resizing .ss-workspace-main {
+body.ss-workspace-resizing .ss-workspace--row .ss-scene-side {
   transition: none;
 }
 
@@ -573,6 +573,7 @@ body.ss-workspace-resizing .ss-workspace-main {
   display: none !important;
 }
 
+/* Overlay panel: hide without reflowing the map */
 .ss-workspace--map-focus .ss-workspace-splitter,
 .ss-workspace--map-focus .ss-scene-side {
   display: none;
@@ -580,6 +581,30 @@ body.ss-workspace-resizing .ss-workspace-main {
 
 .ss-workspace--map-focus .ss-workspace-main {
   flex: 1 1 auto;
+}
+
+/* Overlay splitter sits on the panel’s inner edge (calibrate keeps flex splitter). */
+.ss-workspace-body > .ss-workspace-splitter {
+  position: absolute;
+  z-index: 9;
+  margin: 0;
+  flex: none;
+}
+
+.ss-workspace--row .ss-workspace-body > .ss-workspace-splitter--row {
+  top: 0;
+  bottom: 0;
+  right: var(--ss-panel-size, 20rem);
+  width: 0.75rem;
+  transform: translateX(50%);
+}
+
+.ss-workspace--stack .ss-workspace-body > .ss-workspace-splitter--stack {
+  left: 0;
+  right: 0;
+  bottom: var(--ss-panel-size, 14rem);
+  height: 0.75rem;
+  transform: translateY(50%);
 }
 
 @media (max-width: 719px) {
@@ -1115,6 +1140,7 @@ body.ss-workspace-resizing .ss-workspace-main {
   .ss-scene-detail--workspace .ss-scene-side,
   .ss-workspace--stack .ss-scene-side,
   .ss-workspace--row .ss-scene-side {
+    position: static;
     flex: none;
     height: auto;
     width: 100%;
@@ -1122,6 +1148,9 @@ body.ss-workspace-resizing .ss-workspace-main {
     max-height: none;
     min-height: 0;
     overflow: visible;
+    box-shadow: none;
+    border: 0;
+    transform: none;
   }
 
   .ss-scene-detail--workspace .ss-scene-map-pane,

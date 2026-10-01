@@ -9,6 +9,8 @@ import {
   type CSSProperties,
 } from "react";
 import { SCENE_TAB_COUNTS_EVENT, type SceneTabCounts } from "../lib/sceneTab";
+import { fitSceneMapDisplay } from "../lib/legacyBridge";
+import { useSceneMqtt, useCameraStripMqtt } from "../mqtt";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { ToastProvider } from "../components/ToastProvider";
 import { LegacyConfirmHost } from "../components/LegacyConfirmHost";
@@ -17,7 +19,7 @@ import { SceneMapSetupHelper } from "./SceneMapSetupHelper";
 import { SceneSidePanel } from "./SceneSidePanel";
 import { RoiTripwireEditors } from "./editors/RoiTripwireEditors";
 import { SceneWorkspaceSheets } from "../sheets/SceneWorkspaceSheets";
-import { postDjangoDelete } from "../lib/djangoDelete";
+import { deleteViaRest } from "../lib/restDelete";
 import { useWorkspaceLayout } from "./useWorkspaceLayout";
 import type { WorkspaceLayoutMode } from "./useWorkspaceLayout";
 import { useWorkspaceDensity } from "./useWorkspaceDensity";
@@ -112,6 +114,13 @@ function SceneDetailInner({ bootstrap }: Props) {
    */
   window.ssUseReactMap = Boolean(mapBitmapUrl);
 
+  useSceneMqtt({
+    sceneId: scene.id,
+    wssConnection: scene.wssConnection || "",
+    enabled: Boolean(mapBitmapUrl),
+  });
+  useCameraStripMqtt(Boolean(mapBitmapUrl));
+
   useEffect(() => {
     const setSceneRateCb = (hz: string) => setSceneRate(hz || "--");
     window.ssSceneTelemetry = {
@@ -158,12 +167,10 @@ function SceneDetailInner({ bootstrap }: Props) {
 
   useEffect(() => {
     const id = window.requestAnimationFrame(() => {
-      if (typeof window.fitSceneMapDisplay === "function") {
-        window.fitSceneMapDisplay();
-      }
+      fitSceneMapDisplay();
     });
     return () => window.cancelAnimationFrame(id);
-  }, [mapFocus, panelSizePx, layout]);
+  }, [layout]);
 
   const confirmSceneDelete = useCallback(async () => {
     if (!urls.sceneDelete) {
@@ -172,12 +179,16 @@ function SceneDetailInner({ bootstrap }: Props) {
     setSceneDeleteBusy(true);
     setSceneDeleteError(null);
     try {
-      await postDjangoDelete(urls.sceneDelete, urls.scenesHome || "/");
+      await deleteViaRest(
+        urls.sceneDelete,
+        bootstrap.authToken || "",
+        urls.scenesHome || "/",
+      );
     } catch (e) {
       setSceneDeleteBusy(false);
       setSceneDeleteError(e instanceof Error ? e.message : "Delete failed");
     }
-  }, [urls.sceneDelete, urls.scenesHome]);
+  }, [bootstrap.authToken, urls.sceneDelete, urls.scenesHome]);
 
   const tabs: TabItem[] = [
     { id: "cameras", label: "Cameras", count: countLabel(tabCounts.cameras) },
@@ -210,18 +221,15 @@ function SceneDetailInner({ bootstrap }: Props) {
           className={`scene-detail-mqtt-pill${mqttConnected ? " connected" : ""}`}
           title={mqttConnected ? "MQTT connected" : "MQTT disconnected"}
           data-ss-mqtt={mqttConnected ? "connected" : "disconnected"}
+          aria-label={mqttConnected ? "MQTT connected" : "MQTT disconnected"}
         >
           <i className="bi bi-arrow-down-up" aria-hidden="true" />
-          <span className="ss-mqtt-label">
-            {mqttConnected ? "MQTT" : "MQTT"}
-          </span>
         </span>
       ),
     },
   ];
 
   const back = sceneDetailBack(urls);
-  const layoutInSideColumn = layout === "row" && !mapFocus;
 
   const sceneActions = (
     <div className="ss-scene-header-actions" role="group" aria-label="Scene">
@@ -309,16 +317,25 @@ function SceneDetailInner({ bootstrap }: Props) {
       <button
         type="button"
         className={`ss-layout-toggle-btn ss-map-focus-btn${mapFocus ? " is-active" : ""}`}
-        title={mapFocus ? "Show control panel (Esc)" : "Map only focus"}
+        title={
+          mapFocus
+            ? "Show control panel (Esc)"
+            : "Hide panel to edit map geometry underneath"
+        }
+        aria-label={
+          mapFocus
+            ? "Show control panel"
+            : "Hide panel to edit map geometry underneath"
+        }
         aria-pressed={mapFocus}
         onClick={toggleMapFocus}
       >
         <i
-          className={`bi ${mapFocus ? "bi-layout-sidebar" : "bi-arrows-fullscreen"}`}
+          className={`bi ${mapFocus ? "bi-layout-sidebar-reverse" : "bi-layout-sidebar"}`}
           aria-hidden="true"
         />
         <span className="ss-layout-toggle-label">
-          {mapFocus ? "Panel" : "Map"}
+          {mapFocus ? "Show panel" : "Hide panel"}
         </span>
       </button>
     </div>
@@ -326,7 +343,7 @@ function SceneDetailInner({ bootstrap }: Props) {
 
   const mapTogglesSlotRef = useRef<HTMLDivElement>(null);
 
-  // Park Django #map-controls centered over the map column chrome.
+  // Park bootstrap-built #map-controls centered over the map column chrome.
   useEffect(() => {
     const slot = mapTogglesSlotRef.current;
     if (!slot) {
@@ -390,27 +407,17 @@ function SceneDetailInner({ bootstrap }: Props) {
             id="ss-map-toggles-slot"
             className="ss-scene-map-toggles-slot"
           />
-          {!layoutInSideColumn ? (
-            <div className="ss-scene-chrome-end hide-fullscreen">
-              {layoutActions}
-            </div>
-          ) : (
-            <div className="ss-scene-chrome-end-spacer" aria-hidden="true" />
-          )}
+          <div className="ss-scene-chrome-end hide-fullscreen">
+            {layoutActions}
+          </div>
         </div>
-        {layoutInSideColumn ? (
-          <>
-            <div className="ss-scene-chrome-gap" aria-hidden="true" />
-            <div className="ss-scene-chrome-side hide-fullscreen">
-              {layoutActions}
-            </div>
-          </>
-        ) : null}
       </div>
       <div className="ss-workspace-body">
         <div className="ss-workspace-main">
           <SceneMapPane
             mapUrl={mapBitmapUrl}
+            sensors={sensors}
+            assetMarkColors={bootstrap.assetMarkColors}
             setupHelper={
               !mapBitmapUrl && isSuperuser ? (
                 <SceneMapSetupHelper
@@ -445,7 +452,9 @@ function SceneDetailInner({ bootstrap }: Props) {
           sceneId={scene.id}
           wssConnection={bootstrap.scene.wssConnection || ""}
           authToken={bootstrap.authToken}
+          onCamerasChange={setCameras}
           onSensorsChange={setSensors}
+          onChildrenChange={setChildrenLinks}
         />
       </div>
       <RoiTripwireEditors

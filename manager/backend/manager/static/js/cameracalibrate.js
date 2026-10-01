@@ -279,7 +279,23 @@ export class ConvergedCameraCalibration {
       // Uses the topic for the camera image, as it is the only topic that sends intrinsics
       // when there are no detections in the scene
       if (topic === cameraTopic) {
-        let msg = JSON.parse(message);
+        let msg;
+        try {
+          if (typeof message === "string") {
+            msg = JSON.parse(message);
+          } else if (
+            typeof TextDecoder !== "undefined" &&
+            (message instanceof Uint8Array || ArrayBuffer.isView(message))
+          ) {
+            msg = JSON.parse(new TextDecoder().decode(message));
+          } else if (message && typeof message.toString === "function") {
+            msg = JSON.parse(message.toString("utf8"));
+          } else {
+            return;
+          }
+        } catch (err) {
+          return;
+        }
         const intrinsics = this.getIntrinsics();
 
         this.isUpdatedInVAService = compareIntrinsics(

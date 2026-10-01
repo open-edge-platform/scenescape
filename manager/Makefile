@@ -31,11 +31,12 @@ ui-install:
 
 ui-build:
 	# Sync canonical --ss-* tokens into Django static (pages must not need Node).
+	# static/ui/ is gitignored — release/demo images must run this (build-image does).
 	cp -f frontend/src/tokens/ss-tokens.css backend/manager/static/css/tokens.css
 ifndef SKIP_UI
 	cd frontend && npm ci && npm run build
 else
-	@echo "SKIP_UI=1 — skipping manager UI build (tokens still synced)"
+	@echo "SKIP_UI=1 — skipping manager UI build (tokens still synced; do not use for release images)"
 endif
 
 build-image: ui-build jslibraries jsm-examples remove-symlink Dockerfile
