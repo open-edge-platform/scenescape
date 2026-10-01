@@ -154,39 +154,8 @@ class MapboxPlugin extends MapInterface {
 
     const center = this.map.getCenter();
     const zoom = this.map.getZoom();
-    const scale = this.calculateScale(center.lat, zoom);
-
-    const ne = bounds.getNorthEast();
-    const sw = bounds.getSouthWest();
-    const nwLat = ne.lat;
-    const nwLng = sw.lng;
-    const seLat = sw.lat;
-    const seLng = ne.lng;
-
-    // Populate the scale field in the form
-    const scaleField = document.getElementById("id_scale");
-    if (scaleField) {
-      scaleField.value = scale.toFixed(2);
-    }
-
-    // Populate map_corners_lla field with corners in the expected format
-    // Expected order: starting from the bottom-left corner counterclockwise
-    // Format: [ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]
-    const mapCornersField = document.getElementById("id_map_corners_lla");
-    if (mapCornersField) {
-      const cornersLLA = [
-        [sw.lat, sw.lng, 0], // SW (bottom-left)
-        [nwLat, nwLng, 0], // NW (top-left)
-        [ne.lat, ne.lng, 0], // NE (top-right)
-        [seLat, seLng, 0], // SE (bottom-right)
-      ];
-      mapCornersField.value = JSON.stringify(cornersLLA);
-
-      const outputLlaField = document.getElementById("id_output_lla");
-      if (outputLlaField) {
-        outputLlaField.value = "True";
-      }
-    }
+    const bearing = this.map.getBearing();
+    this.writeGeospatialFormFields(center.lat, center.lng, zoom, bearing);
 
     this.generateSnapshot();
   }
@@ -197,8 +166,8 @@ class MapboxPlugin extends MapInterface {
     const bearing = this.map.getBearing();
     const pitch = 0;
 
-    const width = 1280;
-    const height = 1280;
+    const width = this.constructor.SNAPSHOT_SIZE_PX;
+    const height = this.constructor.SNAPSHOT_SIZE_PX;
 
     const url = `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${center.lng},${center.lat},${zoom},${bearing},${pitch}/${width}x${height}?access_token=${this.accessToken}`;
 
