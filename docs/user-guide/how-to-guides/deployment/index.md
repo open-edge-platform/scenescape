@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 These guides cover preparing container images and deploying Scenescape on Docker Compose or Kubernetes, with or without the bundled demo.
 
-- [Prepare Container Images](./prepare-images.md): Build Scenescape images from source, or use prebuilt images.
+- [Preparation](./preparation.md): Prepare secrets, models, and images from source or use prebuilt images.
 
 - [Deploy on Docker](./deploy-docker.md): Deploy a clean Scenescape instance with Docker Compose.
 
@@ -20,7 +20,7 @@ These guides cover preparing container images and deploying Scenescape on Docker
 :maxdepth: 1
 :hidden:
 
-Prepare Container Images <./prepare-images.md>
+Preparation <./preparation.md>
 Deploy on Docker <./deploy-docker.md>
 Deploy on Kubernetes <./deploy-kubernetes.md>
 Deploy the Demo <./deploy-demo.md>

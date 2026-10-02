@@ -794,7 +794,7 @@ demo-tracker: $(DEMO_BUILD:build=build-all)
 # Basic LiDAR-intersection (LIDAR/Camera) fusion demo only
 .PHONY: demo-lidar
 demo-lidar: $(DEMO_BUILD:build=build-core-lidar)
-	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
+	$(call start_demo,controller,$(LIDAR_COMPOSE_ARGS))
 
 .PHONY: demo-close
 demo-close:

@@ -45,9 +45,9 @@ Scenescape can run on Docker Compose or on Kubernetes, and can be deployed clean
 
 | I want to...                                    | Steps                                                                                                                                                   |
 | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Deploy clean Scenescape on Docker               | [Prepare Container Images](../how-to-guides/deployment/prepare-images.md) then [Deploy on Docker](../how-to-guides/deployment/deploy-docker.md)         |
-| Deploy clean Scenescape on Kubernetes           | [Prepare Container Images](../how-to-guides/deployment/prepare-images.md) then [Deploy on Kubernetes](../how-to-guides/deployment/deploy-kubernetes.md) |
-| Explore the bundled demo (Docker or Kubernetes) | [Prepare Container Images](../how-to-guides/deployment/prepare-images.md) then [Deploy the Demo](../how-to-guides/deployment/deploy-demo.md)            |
+| Deploy clean Scenescape on Docker               | [Preparation](../how-to-guides/deployment/preparation.md) then [Deploy on Docker](../how-to-guides/deployment/deploy-docker.md)         |
+| Deploy clean Scenescape on Kubernetes           | [Preparation](../how-to-guides/deployment/preparation.md) then [Deploy on Kubernetes](../how-to-guides/deployment/deploy-kubernetes.md) |
+| Explore the bundled demo (Docker or Kubernetes) | [Preparation](../how-to-guides/deployment/preparation.md) then [Deploy the Demo](../how-to-guides/deployment/deploy-demo.md)            |
 
 > **Note:** The Kubernetes guides assume a cluster already exists and `kubectl` is configured with access to it. To spin up a local, self-contained cluster for development or evaluation instead, see [Scenescape on Kubernetes](/kubernetes/README.md).
 

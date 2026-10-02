@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 The demo builds on a clean Scenescape deployment by adding two things: the bundled Retail and Queuing sample video sources, and the corresponding preloaded demo scenes. This lets you explore the UI without connecting your own cameras.
 
-Before you begin, prepare container images: see [Prepare Container Images](./prepare-images.md).
+Before you begin, complete [Preparation](./preparation.md).
 
 ## Docker
 
@@ -20,21 +20,26 @@ make demo
 
 `make demo` builds the core images (unless `DEMO_REBUILD_IMAGES=false`), starts the `controller` profile, starts the separate demo video-source stack, and uploads the two demo scenes by running `make demo-scenes`. `make demo-scenes` creates a local Python virtual environment at `tools/upload_scenes/.venv` the first time it runs; no system-wide package installation is required.
 
-To use prebuilt images instead of building locally, after preparing them per [Prepare Container Images](./prepare-images.md):
+To use prebuilt images instead of building locally, after following the prebuilt option in [Preparation](./preparation.md):
 
 ```bash
 SUPASS='<choose-a-strong-admin-password>' DEMO_REBUILD_IMAGES=false make demo
 ```
 
-### Demo Tiers
+### Docker Demo Targets
 
-The Docker Compose demo targets are tiered, each building on the previous one:
+The Docker demo targets start the common sample video sources and upload the standard demo scenes, then select these services or overlays:
 
-| Target      | Includes                                                |
-| ----------- | ------------------------------------------------------- |
-| `demo`      | Core services with tracking, without ReID               |
-| `demo-reid` | `demo` plus the ReID vector database                    |
-| `demo-all`  | `demo-reid` plus cluster analytics and mapping services |
+| Target                   | Services / behavior |
+| ------------------------ | ------------------- |
+| `demo`                   | Controller + Analytics; no ReID. |
+| `demo-reid`              | `demo` plus the selected ReID backend and ReID pipeline override. |
+| `demo-all`               | `demo-reid` plus Mapping and Cluster Analytics. |
+| `demo-cluster-analytics` | `demo` plus Cluster Analytics; no Mapping or ReID override. |
+| `demo-tracker`           | Tracker + Analytics instead of the Scene Controller. |
+| `demo-lidar`             | `demo` plus the LiDAR/camera intersection fusion overlay. It requires a manually downloaded dataset and first-run model setup; see [Run the LiDAR-Intersection Fusion Demo](../run-lidar-intersection-demo.md). |
+
+The `demo-all`, `demo-cluster-analytics`, and `demo-tracker` targets build all service images by default. `demo-lidar` builds the dedicated LiDAR variant. Set `DEMO_REBUILD_IMAGES=false` to skip building when the required images already exist.
 
 The ReID targets use VDMS by default. Set `REID_BACKEND=qdrant` to use Qdrant:
 
@@ -81,17 +86,26 @@ make demo-close
 
 ## Kubernetes
 
-If you do not already have a cluster, the simplest way to run the demo is Scenescape's all-in-one Kind setup:
+For the simplest all-in-one demo on a new local Kind cluster, use Scenescape's bootstrap script:
 
 ```bash
 KUBERNETES=1 ./deploy.sh
 ```
 
-This builds the images, creates a local Kind cluster, deploys the chart, wires up the demo video sources, and uploads the demo scenes, all automatically. See [Scenescape on Kubernetes: All-in-one](https://github.com/open-edge-platform/scenescape/blob/main/kubernetes/README.md#all-in-one) for details, including how to add ReID, mapping, cluster analytics, or Tracker with `DEPLOY_PROFILES`.
+This checks host prerequisites, builds the core images, creates a local Kind cluster, deploys the default Controller profile, wires up the demo video sources, and uploads the demo scenes. This is the recommended one-command route for the standard demo. The script builds only core images, so it is not the route for Tracker, Mapping, or Cluster Analytics profiles.
+
+For explicit profile selection or optional services, prepare the required images first and use `make demo-k8s`. For example, to run Controller + ReID + Mapping + Cluster Analytics:
+
+```bash
+SUPASS='<choose-a-strong-admin-password>' PGPASS='<choose-a-strong-database-password>' \
+  make build-all demo-k8s DEPLOY_PROFILES='controller mapping cluster-analytics reid'
+```
+
+`make demo-k8s` expects the selected images to exist locally and recreates the default Kind cluster before loading them. The accepted `DEPLOY_PROFILES` tokens are `controller`, `tracker`, `mapping`, `cluster-analytics`, and `reid`. Do not combine `tracker` and `reid`: ReID is used by the Scene Controller, which Tracker replaces.
 
 ### Existing Cluster
 
-If you already have a cluster, deploy Scenescape as described in [Deploy on Kubernetes](./deploy-kubernetes.md), enabling whichever [optional services](./deploy-kubernetes.md#optional-services) you want, then add the two demo-only pieces below.
+For an existing Kubernetes cluster, follow [Deploy on Kubernetes](./deploy-kubernetes.md) and then add the two demo-only pieces below.
 
 ### Wire Up the Demo Video Sources
 

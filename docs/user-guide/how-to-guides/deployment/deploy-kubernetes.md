@@ -15,7 +15,7 @@ This guide deploys a clean Scenescape instance to an existing Kubernetes cluster
 - [Helm](https://helm.sh/) 3.
 - [Cert Manager](https://cert-manager.io/) installed in the cluster; the chart's certificate resources depend on it.
 - A default StorageClass with dynamic volume provisioning, or a values file that sets storage classes for the chart's persistent volume claims.
-- Container images available to the cluster: see [Prepare Container Images](./prepare-images.md).
+- Container images available to the cluster: see [Preparation](./preparation.md).
 - A checkout of the Scenescape repository (see [Get Scenescape](../../get-started/installation.md#step-1-get-scenescape)); the chart lives at `kubernetes/scenescape-chart/`.
 
 Check the selected cluster context and available storage classes:
@@ -69,10 +69,12 @@ Enable additional chart features by setting these values on `helm upgrade`/`helm
 
 | Value                      | Default | Effect                                                                 |
 | -------------------------- | ------- | ---------------------------------------------------------------------- |
-| `reid.enabled`             | `true`  | Deploys the ReID vector database (`reid.backend`: `vdms` or `qdrant`). |
+| `reid.enabled`             | `true`  | Deploys the ReID vector database (`reid.backend`: `vdms` or `qdrant`); requires `tracker.enabled=false` so the Scene Controller is deployed to use ReID. |
 | `tracker.enabled`          | `false` | Deploys Tracker + Analytics instead of the Scene Controller.           |
 | `mapping.enabled`          | `false` | Deploys the mapping service.                                           |
 | `clusterAnalytics.enabled` | `false` | Deploys the cluster-analytics service.                                 |
+
+ReID is consumed by the Scene Controller. Tracker mode replaces the Scene Controller, so do not enable ReID together with `tracker.enabled=true`.
 
 See [How to Enable Re-identification](../../other-topics/how-to-enable-reidentification.md) for ReID backend details, and [Scenescape on Kubernetes](/kubernetes/README.md) for the full chart reference.
 

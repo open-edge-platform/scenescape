@@ -85,7 +85,7 @@ still resolve. Do not restate field tables in the how-to or skill.
 ### Manager Service
 
 - **Overview** (`docs/user-guide/using-intel-scenescape/` and related guides): Web UI features, REST API, database schema
-- **Build** (`docs/user-guide/how-to-guides/deployment/prepare-images.md` and root build guides): Django setup, migrations, static files
+- **Build** (`docs/user-guide/how-to-guides/deployment/preparation.md` and root build guides): Django setup, migrations, static files
 - **API Spec** (`docs/user-guide/api-reference.md`): REST endpoint definitions
 - **Tests** (`manager/tests/README.md`): UI tests, functional tests, API tests
 
@@ -102,7 +102,7 @@ Root-level documentation in `docs/user-guide/`:
 - **Architecture overview** - System design and component interactions
 - **Getting Started** (`docs/user-guide/get-started/installation.md`) - Prerequisites, getting the source, and choosing a deployment; links out rather than holding commands
 - **Build Instructions** - Root Makefile targets, build system overview
-- **Deployment** (`docs/user-guide/how-to-guides/deployment/`) - `prepare-images.md` (build vs prebuilt), `deploy-docker.md`, `deploy-kubernetes.md`, `deploy-demo.md`
+- **Deployment** (`docs/user-guide/how-to-guides/deployment/`) - `preparation.md` (source-build vs prebuilt setup), `deploy-docker.md`, `deploy-kubernetes.md`, `deploy-demo.md`
 - **Development Guide** - Local development workflow
 - **Testing** - Test execution across all services
 - **API Reference** - Complete API documentation index

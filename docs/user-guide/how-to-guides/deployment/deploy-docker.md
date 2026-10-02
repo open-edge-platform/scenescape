@@ -13,7 +13,7 @@ This guide deploys a clean Scenescape instance with Docker Compose: an empty sce
 
 - Verify you meet the [System Requirements](../../get-started/system-requirements.md), including Docker.
 - A checkout of the Scenescape repository (see [Get Scenescape](../../get-started/installation.md#step-1-get-scenescape)).
-- Container images available: see [Prepare Container Images](./prepare-images.md).
+- Complete [Preparation](./preparation.md) for source-built or prebuilt images.
 
 ## Deploy
 
@@ -23,22 +23,13 @@ Before deploying for the first time, set the `SUPASS` environment variable to th
 export SUPASS='<choose-a-strong-admin-password>'
 ```
 
-Then, from the repository root:
+Then, from the repository root, start the default Controller + Analytics deployment:
 
 ```bash
-# Build images from source:
-make build-core docker-compose.yml .env deploy
-
-# If you already ran `make init-secrets install-models` per Prepare Container Images (prebuilt path), use instead:
-make docker-compose.yml .env deploy
+make deploy
 ```
 
-The targets run in order:
-
-- `build-core` generates secrets, builds the core service images, and installs the default models. Skip this and use the prebuilt-image command above if you prepared prebuilt images instead (see [Prepare Container Images](./prepare-images.md)).
-- `docker-compose.yml` creates the Compose configuration from the repository's example configuration.
-- `.env` creates the Compose environment file from the generated secrets.
-- `deploy` starts the `controller` profile and requires `SUPASS` for the initial administrator account.
+`make deploy` uses the existing `docker-compose.yml` and `.env` targets to generate the Compose configuration and environment file as needed, then starts the `controller` profile. It requires `SUPASS` for the initial administrator account. Image, secret, and model preparation is covered in [Preparation](./preparation.md).
 
 This starts the Scenescape core: the web application, database, broker, NTP server, Scene Controller, Analytics, and Auto Camera Calibration. It does not start the separate demo video-source stack, and it does not upload any demo scenes.
 
