@@ -71,6 +71,8 @@ REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
+LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
+LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 
 # Test variables
 TESTS_FOLDER := tests
@@ -97,6 +99,10 @@ build-core: init-secrets build-core-images install-models
 .PHONY: build-all
 build-all: init-secrets build-all-images install-models
 
+.PHONY: build-core-lidar
+# Source labels / default Asset3D objects are in-tree; same as build-core.
+build-core-lidar: build-core
+
 # ============================== Help ================================
 
 .PHONY: help
@@ -109,6 +115,7 @@ help:
 	@echo "  build-all                   Build secrets, all images, and install models"
 	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
+	@echo "  build-core-lidar            Alias of build-core (LiDAR demo source labels are in-tree)"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
@@ -120,6 +127,7 @@ help:
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
+	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEPLOY_PROFILES selects controller|tracker|mapping|cluster-analytics|reid, default: controller)"
@@ -184,6 +192,8 @@ help:
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
 	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEPLOY_PROFILES containing reid)"
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
+	@echo "  - Use 'make demo-lidar' to run the basic LiDAR-intersection (LIDAR/Camera) fusion demo."
+	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for prerequisites and setup steps."
 	@echo ""
 
 # ========================= Build Images =============================
@@ -780,6 +790,11 @@ demo-cluster-analytics: $(DEMO_BUILD:build=build-all)
 .PHONY: demo-tracker
 demo-tracker: $(DEMO_BUILD:build=build-all)
 	$(call start_demo,tracker)
+
+# Basic LiDAR-intersection (LIDAR/Camera) fusion demo only
+.PHONY: demo-lidar
+demo-lidar: $(DEMO_BUILD:build=build-core-lidar)
+	$(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
 
 .PHONY: demo-close
 demo-close:
