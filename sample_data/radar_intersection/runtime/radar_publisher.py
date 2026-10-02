@@ -13,9 +13,8 @@ Set ``RADAR_PERCEPTION`` to select the backend. Cameras use ``gvadetect``.
 
 ``CAM_SENSOR_IDS`` / ``RADAR_SENSOR_IDS`` (comma-separated) run one GST
 branch + MQTT topic per id. Optional ``RADAR_DATA_PATHS`` /
-``RADAR_INDEX_RANGES`` override per-radar bin paths and start/stop
-(time-align radar2 3098–3928 to radar1 3270–4100). Camera JPEGs live under
-``{CAM_DATA_ROOT}/{sensor_id}/%06d.jpg``.
+``RADAR_INDEX_RANGES`` override per-radar bin paths and start/stop.
+Camera JPEGs live under ``{CAM_DATA_ROOT}/{sensor_id}/%06d.jpg``.
 
 Requires a DLSPS image with rebuilt ``libgst3delements.so``
 (``make build-dlsps-g3d``).

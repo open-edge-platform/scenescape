@@ -154,6 +154,32 @@ def main() -> int:
       return 1
     print(f"radar-scene-init: synced radar {radar['uid']} (HTTP {status2})")
 
+  # Drop sensors no longer listed in RadarIntersection.json (e.g. s120 cams,
+  # intersection-radar2) so the live scene matches the demo budget.
+  want_cams = {c["uid"] for c in cfg.get("cameras", [])}
+  want_radars = {r["uid"] for r in cfg.get("radars", [])}
+
+  def _scene_uid(obj: dict) -> str | None:
+    sc = obj.get("scene")
+    if isinstance(sc, dict):
+      return sc.get("uid")
+    return sc
+
+  status, cams = _req("GET", "/cameras", headers=hdr)
+  if status == 200 and isinstance(cams, dict):
+    for cam in cams.get("results", []):
+      sid = cam.get("sensor_id") or cam.get("uid")
+      if sid and sid not in want_cams and _scene_uid(cam) == scene_uid:
+        status2, out = _req("DELETE", f"/camera/{sid}", headers=hdr)
+        print(f"radar-scene-init: deleted camera {sid} (HTTP {status2})")
+  status, radars = _req("GET", "/radars", headers=hdr)
+  if status == 200 and isinstance(radars, dict):
+    for radar in radars.get("results", []):
+      sid = radar.get("sensor_id") or radar.get("uid")
+      if sid and sid not in want_radars and _scene_uid(radar) == scene_uid:
+        status2, out = _req("DELETE", f"/radar/{sid}", headers=hdr)
+        print(f"radar-scene-init: deleted radar {sid} (HTTP {status2})")
+
   print("radar-scene-init: done")
   return 0
 

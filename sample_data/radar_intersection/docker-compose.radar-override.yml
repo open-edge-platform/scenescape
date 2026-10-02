@@ -211,7 +211,7 @@ services:
       - MQTT_PORT=1883
       - RADAR_PERCEPTION=${RADAR_PERCEPTION:-classical}
       - RADAR_SENSOR_ID=intersection-radar1
-      - RADAR_SENSOR_IDS=${RADAR_SENSOR_IDS:-intersection-radar1,intersection-radar2}
+      - RADAR_SENSOR_IDS=${RADAR_SENSOR_IDS:-intersection-radar1}
       - RADAR_DEVICE=${RADAR_DEVICE:-CPU}
       - RADAR_FRAME_RATE=${RADAR_FRAME_RATE:-10}
       - RADAR_SCORE_THRESHOLD=${RADAR_SCORE_THRESHOLD:-}
@@ -219,9 +219,9 @@ services:
       - RADAR_MUTE=${RADAR_MUTE:-false}
       - RADAR_DATA_PATH=${RADAR_DATA_PATH:-}
       # Empty → radar_publisher mode defaults (frames_bin for classical/roadside,
-      # pcd_bin for radarpillars) plus radar2/<subdir> for the second sensor.
+      # pcd_bin for radarpillars). Optional radar2/<subdir> if a second id is set.
       - RADAR_DATA_PATHS=${RADAR_DATA_PATHS:-}
-      - RADAR_INDEX_RANGES=${RADAR_INDEX_RANGES:-intersection-radar1:3270-4100,intersection-radar2:3098-3928}
+      - RADAR_INDEX_RANGES=${RADAR_INDEX_RANGES:-intersection-radar1:3270-4100}
       - RADAR_MODEL_CONFIG=${RADAR_MODEL_CONFIG:-}
       - RADAR_START_INDEX=${RADAR_START_INDEX:-3270}
       - RADAR_STOP_INDEX=${RADAR_STOP_INDEX:-4100}

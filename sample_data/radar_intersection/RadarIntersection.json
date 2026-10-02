@@ -159,27 +159,6 @@
         1.0
       ],
       "scene": "b2c3d4e5-f6a7-4901-bcde-f12345678901"
-    },
-    {
-      "uid": "intersection-radar2",
-      "name": "intersection-radar2",
-      "transform_type": "euler",
-      "translation": [
-        51.136729180812836,
-        71.4444797039032,
-        4.767168998718262
-      ],
-      "rotation": [
-        -0.0,
-        0.0,
-        172.122
-      ],
-      "scale": [
-        1.0,
-        1.0,
-        1.0
-      ],
-      "scene": "b2c3d4e5-f6a7-4901-bcde-f12345678901"
     }
   ]
 }
