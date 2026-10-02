@@ -83,13 +83,16 @@ class ListThings(generics.ListAPIView):
     query_params = self.request.query_params
     if query_params:
       keys = query_params.keys()
-      bad_keys = [x for x in keys if x not in ('name', 'parent', 'scene', 'username', 'id')]
+      
+      bad_keys = [x for x in keys if x not in ('name', 'parent', 'scene', 'username', 'id', 'page')]
       if bad_keys:
         log.warning(f"Invalid key(s) in query params: {bad_keys}")
         return []
 
       filter_params = {}
       for key in keys:
+        if key == 'page':
+          continue
         filter_params[key] = query_params.get(key)
       if 'parent' in filter_params:
         uid = filter_params['parent']
