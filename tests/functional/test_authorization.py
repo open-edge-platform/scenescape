@@ -154,6 +154,7 @@ def test_authz_non_superuser_cannot_create_via_plural_endpoints(non_superuser_cl
   result_recorder.success()
 
 
+@pytest.mark.test_name("NEX-T26179")
 def test_authz_non_superuser_cannot_check_acl(non_superuser_client, params, result_recorder):
   """Verify that POST /aclcheck is restricted to administrators."""
   response = requests.post(
@@ -169,6 +170,7 @@ def test_authz_non_superuser_cannot_check_acl(non_superuser_client, params, resu
   result_recorder.success()
 
 
+@pytest.mark.test_name("NEX-T26180")
 def test_authz_superuser_can_check_acl(rest, params, result_recorder):
   """Verify that an administrator can use POST /aclcheck."""
   response = requests.post(

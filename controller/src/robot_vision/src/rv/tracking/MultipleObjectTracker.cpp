@@ -8,6 +8,7 @@
 #include <optional>
 #include "rv/Utils.hpp"
 #include "rv/tracking/Classification.hpp"
+#include "rv/tracking/OrientationAttributes.hpp"
 
 namespace rv {
 namespace tracking {
@@ -136,6 +137,50 @@ void mergeHistoricalMetadata(const TrackedObject &track, TrackedObject &measurem
     {
       measurement.attributes.erase(confidenceKey);
     }
+  }
+}
+
+/**
+ * Prefer yaw from an orienting detection among matches. Geometry (xyz/size)
+ * stays on fusedObject (typically last-match). When several orienting
+ * detections match, pick the highest classification confidence and break ties
+ * with later camera order.
+ */
+void applyOrientingYaw(const std::vector<std::pair<size_t, size_t>> &matches,
+                       const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
+                       TrackedObject &fusedObject)
+{
+  bool found = false;
+  double bestConfidence = -1.0;
+  size_t bestCameraIndex = 0;
+  double bestYaw = fusedObject.yaw;
+
+  for (const auto &[cameraIndex, objectIndex] : matches)
+  {
+    const auto &object = objectsPerCamera[cameraIndex][objectIndex];
+    if (!orientation::hasOrientation(object))
+    {
+      continue;
+    }
+    const double confidence = object.classification.size() > 0 ? object.classification.maxCoeff() : 0.0;
+    if (!found || confidence > bestConfidence
+        || (confidence == bestConfidence && cameraIndex > bestCameraIndex))
+    {
+      found = true;
+      bestConfidence = confidence;
+      bestCameraIndex = cameraIndex;
+      bestYaw = object.yaw;
+    }
+  }
+
+  if (found)
+  {
+    fusedObject.yaw = bestYaw;
+    orientation::setHasOrientation(fusedObject, true);
+  }
+  else
+  {
+    orientation::setHasOrientation(fusedObject, false);
   }
 }
 
@@ -315,6 +360,7 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     // Keep geometry/measurement from the latest matched camera for compatibility.
     const auto &lastMatch = matches.back();
     auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
+    applyOrientingYaw(matches, objectsPerCamera, fusedObject);
     fuseMetadata(matches, objectsPerCamera, fusedObject);
     mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
 
@@ -421,6 +467,7 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
       auto fusedObject = cameraObjects[cameraObjectIndex];
       const std::vector<std::vector<TrackedObject>> candidates = {{newObjects[newObjectIndex]}, {fusedObject}};
       const std::vector<std::pair<size_t, size_t>> matches = {{0, 0}, {1, 0}};
+      applyOrientingYaw(matches, candidates, fusedObject);
       fuseMetadata(matches, candidates, fusedObject);
       newObjects[newObjectIndex] = std::move(fusedObject);
     }
