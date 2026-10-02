@@ -185,6 +185,15 @@ class ExternalSourceIngest(FunctionalTest):
 
   def publishAndWaitForIds(self, jdata, expected_ids, timeout=MAX_WAIT_TIMEOUT_S):
     """Publish until one scene snapshot contains all expected object ids."""
+    return self.publishAndWaitForObjects(
+      jdata,
+      lambda objects: set(expected_ids).issubset(
+        {obj.get('id') for obj in objects}),
+      timeout,
+    )
+
+  def publishAndWaitForObjects(self, jdata, predicate, timeout=MAX_WAIT_TIMEOUT_S):
+    """Publish until one scene snapshot satisfies predicate."""
     self.lastObjects = None
     topic = self.externalSourceTopic(jdata.get('source_id', AGENT_SOURCE_ID))
     start = time.time()
@@ -192,8 +201,7 @@ class ExternalSourceIngest(FunctionalTest):
       jdata['timestamp'] = get_iso_time()
       self.pubsub.publish(topic, json.dumps(jdata))
       time.sleep(1 / FRAMES_PER_SECOND)
-      published_ids = {obj.get('id') for obj in (self.lastObjects or [])}
-      if set(expected_ids).issubset(published_ids):
+      if predicate(self.lastObjects or []):
         return True
     return False
 
@@ -389,6 +397,172 @@ class ExternalSourceIngest(FunctionalTest):
       assert self._findObject(source_id)["id"] == source_id
     return
 
+  def verifyPixelBoundingBoxForcesTracking(self):
+    source_object_id = "pixel-source-1"
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "track": False,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "intrinsics": {
+        "fx": 905.0,
+        "fy": 905.0,
+        "cx": 640.0,
+        "cy": 360.0,
+      },
+      "objects": [
+        {
+          "id": source_object_id,
+          "category": THING_TYPE,
+          "bounding_box_px": {
+            "x": 221,
+            "y": 157,
+            "width": 108,
+            "height": 259,
+          },
+        },
+      ],
+    }
+    count = self.publishAndWait(jdata)
+    assert count, "External source pixel detection did not produce tracked output"
+    published_id, obj = self._findNonSourceObjectId({source_object_id})
+    assert published_id != source_object_id
+    assert "translation" in obj
+    return
+
+  def verifyPixelBoundingBoxWithRotationDerivedFromPose(self):
+    source_object_id = "pixel-rotation-check"
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": [
+          AGENT_LAT_LONG_ALT[0],
+          AGENT_LAT_LONG_ALT[1],
+          AGENT_LAT_LONG_ALT[2] + 2.0,
+        ],
+        "rotation": [-0.7071068, 0.0, 0.0, 0.7071068],
+        "provider": "robot",
+      },
+      "intrinsics": {
+        "fx": 905.0,
+        "fy": 905.0,
+        "cx": 640.0,
+        "cy": 360.0,
+      },
+      "objects": [
+        {
+          "id": source_object_id,
+          "category": THING_TYPE,
+          "bounding_box_px": {
+            "x": 600,
+            "y": 520,
+            "width": 80,
+            "height": 160,
+          },
+        },
+      ],
+    }
+    count = self.publishAndWait(jdata)
+    assert count, "Pixel detection with rotated source pose did not produce tracked output"
+    assert self.lastObjects is not None
+    return
+
+  def verifyPixelBoundingBoxWithoutIntrinsicsRejected(self):
+    pixel_object_id = "pixel-missing-intrinsics"
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "objects": [
+        {
+          "id": pixel_object_id,
+          "category": THING_TYPE,
+          "bounding_box_px": {
+            "x": 221,
+            "y": 157,
+            "width": 108,
+            "height": 259,
+          },
+        },
+      ],
+    }
+    is_absent = self.publishAndCheckIdAbsent(jdata, pixel_object_id, timeout=5)
+    assert is_absent, (
+      "External source pixel detection without intrinsics unexpectedly produced output "
+      f"for id={pixel_object_id}"
+    )
+    return
+
+  def verifyMixedTranslationAndPixelObjects(self):
+    translation_source_id = "mixed-untracked-1"
+    pixel_source_id = "mixed-pixel-1"
+    pixel_marker = {
+      "label": "mixed-pixel",
+      "model_name": "external-source-functional-test",
+    }
+    jdata = {
+      "source_id": AGENT_SOURCE_ID,
+      "track": False,
+      "pose": {
+        "reference_frame": "wgs84",
+        "lat_long_alt": AGENT_LAT_LONG_ALT,
+        "rotation": IDENTITY_ROTATION,
+      },
+      "intrinsics": {
+        "fx": 905.0,
+        "fy": 905.0,
+        "cx": 640.0,
+        "cy": 360.0,
+      },
+      "objects": [
+        {
+          "id": translation_source_id,
+          "category": THING_TYPE,
+          "translation": [0.15, 0.0, 0.0],
+          "size": [0.5, 0.5, 1.8],
+        },
+        {
+          "id": pixel_source_id,
+          "category": THING_TYPE,
+          "metadata": {"test_marker": pixel_marker},
+          "bounding_box_px": {
+            "x": 221,
+            "y": 157,
+            "width": 108,
+            "height": 259,
+          },
+        },
+      ],
+    }
+    def _containsMixedObjects(objects):
+      ids = {obj.get("id") for obj in objects}
+      has_pixel_marker = any(
+        obj.get("metadata", {}).get("test_marker") == pixel_marker
+        for obj in objects
+      )
+      return translation_source_id in ids and has_pixel_marker
+
+    assert self.publishAndWaitForObjects(jdata, _containsMixedObjects), (
+      "Mixed translation and tracked pixel objects did not appear in one scene snapshot")
+    published_ids = {obj.get("id") for obj in (self.lastObjects or [])}
+    assert translation_source_id in published_ids
+    assert pixel_source_id not in published_ids
+    tracked_pixel_objects = [
+      obj for obj in (self.lastObjects or [])
+      if obj.get("metadata", {}).get("test_marker") == pixel_marker
+    ]
+    assert tracked_pixel_objects, "Tracked pixel object missing from mixed scene output"
+    assert "translation" in tracked_pixel_objects[0]
+    self._verifyUUIDFormat(tracked_pixel_objects[0]["id"])
+    return
+
   def verifyUntrustedScenePoseRejected(self):
     """A scene-frame pose from a source not in CONTROLLER_TRUSTED_POSITIONING_SOURCES
     must be rejected: the untrusted source's object never appears in tracked
@@ -517,6 +691,10 @@ class ExternalSourceIngest(FunctionalTest):
     self.verifyPoseReuseFromCache()
     self.verifyUntrackedObjectPreservesId()
     self.verifySourceTrackFalseAppliesToAllObjects()
+    self.verifyPixelBoundingBoxForcesTracking()
+    self.verifyPixelBoundingBoxWithRotationDerivedFromPose()
+    self.verifyPixelBoundingBoxWithoutIntrinsicsRejected()
+    self.verifyMixedTranslationAndPixelObjects()
     self.verifySourceIdTopicMismatchRejected()
     self.verifyIdentityCollisionDropsSecondSource()
     self.verifyUntrustedScenePoseRejected()

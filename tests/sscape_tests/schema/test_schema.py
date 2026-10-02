@@ -166,6 +166,94 @@ def test_validateExternalSourceMessage_untrackedObjectWithoutIdIsInvalid(schemaO
   assert result == False
   return
 
+def test_validateExternalSourceMessage_pixelDetectionWithoutTranslationIsValid(schemaObject):
+  """Pixel external detections may omit translation when pose and intrinsics are present."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "pose": {
+      "reference_frame": "wgs84",
+      "lat_long_alt": [37.4, -122.1, 10.0],
+    },
+    "intrinsics": {
+      "fx": 905.0,
+      "fy": 905.0,
+      "cx": 640.0,
+      "cy": 360.0,
+    },
+    "objects": [
+      {
+        "category": "person",
+        "bounding_box_px": {
+          "x": 221,
+          "y": 157,
+          "width": 108,
+          "height": 259,
+        },
+      },
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == True
+  return
+
+def test_validateExternalSourceMessage_pixelDetectionRequiresIntrinsics(schemaObject):
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "pose": {
+      "reference_frame": "wgs84",
+      "lat_long_alt": [37.4, -122.1, 10.0],
+    },
+    "objects": [
+      {
+        "category": "person",
+        "bounding_box_px": {
+          "x": 221,
+          "y": 157,
+          "width": 108,
+          "height": 259,
+        },
+      },
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == False
+  return
+
+def test_validateExternalSourceMessage_pixelDetectionRejectsTopLeftShape(schemaObject):
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "pose": {
+      "reference_frame": "wgs84",
+      "lat_long_alt": [37.4, -122.1, 10.0],
+    },
+    "intrinsics": {
+      "fx": 905.0,
+      "fy": 905.0,
+      "cx": 640.0,
+      "cy": 360.0,
+    },
+    "objects": [
+      {
+        "category": "person",
+        "bounding_box_px": {
+          "top": 157,
+          "left": 221,
+          "width": 108,
+          "height": 259,
+        },
+      },
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == False
+  return
+
 @pytest.mark.parametrize("schemaPath, expected", [(INVALID_SCHEMA_PATH, None),
                                                    (SCHEMA_PATH, True)])
 def test_compileValidators(schemaObject, schemaPath, expected):
