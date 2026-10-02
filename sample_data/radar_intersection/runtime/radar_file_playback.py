@@ -64,6 +64,10 @@ def radar_multifilesrc_parts(
     infer += f" accumulate-past={int(accumulate_past)}"
   parts += [
     "caps=application/octet-stream",
+    # Early non-leaky queue so each radar branch gets its own streaming
+    # thread and multifilesrc blocks to the parse frame-rate (leaky here
+    # would drop frames while g3dlidarparse sleeps).
+    "! queue max-size-buffers=2",
     f"! g3dlidarparse stride=1 frame-rate={frame_rate} point-features={int(point_features)}",
     infer,
     "! queue max-size-buffers=8 leaky=downstream",
@@ -219,6 +223,8 @@ def setup_getimage_responder(
   frame_index_cell: list,
   start_index: int,
   image_b64_cell: list | None = None,
+  objects_cell: list | None = None,
+  fps: float | None = None,
 ) -> None:
   """Answer Manager UI image requests from the recorded JPEG sequence.
 
@@ -228,8 +234,8 @@ def setup_getimage_responder(
   ``scenescape/image/calibration/camera/{id}`` (same contract as
   ``sscape_post_inference_data_publish``).
 
-  When ``image_b64_cell`` is set, live view serves that cached (annotated)
-  JPEG. Calibration still uses the raw frame at ``frame_index_cell``.
+  Annotation is done lazily on ``getimage`` (not every GST frame) so multi-cam
+  publish can hold the target rate. Calibration still uses the raw frame.
 
   Multiple cameras may register; a shared ``on_message`` dispatches by topic.
   """
@@ -248,8 +254,12 @@ def setup_getimage_responder(
     cmd = message.payload.decode("utf-8", errors="replace").strip()
     if cmd == "getimage":
       topic = live_topic
+      idx = frame_index_cell[0] if frame_index_cell else None
+      objs = (objects_cell[0] if objects_cell else None) or {}
       b64 = None
-      if image_b64_cell is not None and image_b64_cell[0]:
+      if idx is not None:
+        b64 = annotate_frame_jpeg_b64(data_path % idx, objs, fps=fps)
+      if b64 is None and image_b64_cell is not None and image_b64_cell[0]:
         b64 = image_b64_cell[0]
       if b64 is None:
         b64 = _raw_jpeg()

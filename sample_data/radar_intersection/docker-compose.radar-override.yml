@@ -211,8 +211,8 @@ services:
       - MQTT_PORT=1883
       - RADAR_PERCEPTION=${RADAR_PERCEPTION:-classical}
       - RADAR_SENSOR_ID=intersection-radar1
-      - RADAR_SENSOR_IDS=${RADAR_SENSOR_IDS:-intersection-radar1}
-      - RADAR_DEVICE=${RADAR_DEVICE:-GPU}
+      - RADAR_SENSOR_IDS=${RADAR_SENSOR_IDS:-intersection-radar1,intersection-radar2}
+      - RADAR_DEVICE=${RADAR_DEVICE:-CPU}
       - RADAR_FRAME_RATE=${RADAR_FRAME_RATE:-10}
       - RADAR_SCORE_THRESHOLD=${RADAR_SCORE_THRESHOLD:-}
       - RADAR_ACCUMULATE_PAST=${RADAR_ACCUMULATE_PAST:-0}
@@ -225,7 +225,7 @@ services:
       - RADAR_MODEL_CONFIG=${RADAR_MODEL_CONFIG:-}
       - RADAR_START_INDEX=${RADAR_START_INDEX:-3270}
       - RADAR_STOP_INDEX=${RADAR_STOP_INDEX:-4100}
-      - CAM_SENSOR_IDS=${CAM_SENSOR_IDS:-radar-cam1}
+      - CAM_SENSOR_IDS=${CAM_SENSOR_IDS:-radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s}
       - CAM_DATA_ROOT=/home/pipeline-server/videos/radar_intersection/images
       - CAM_DEVICE=${CAM_DEVICE:-GPU}
       - CAM_SCORE_THRESHOLD=${CAM_SCORE_THRESHOLD:-0.6}

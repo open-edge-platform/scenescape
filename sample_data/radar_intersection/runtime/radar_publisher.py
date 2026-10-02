@@ -238,11 +238,18 @@ def _make_fifo(path: str) -> None:
   os.mkfifo(path)
 
 
-def _build_combined_pipeline() -> str:
-  parts = ["gst-launch-1.0"]
+def _build_sensor_pipelines() -> list[tuple[str, str]]:
+  """Build gst-launch commands for demo sensors.
+
+  Cameras share one multi-branch process (stable ~10 fps on GPU). Each radar
+  gets its own process — a single multi-radar gst-launch serializes
+  g3dlidarparse frame-rate sleeps and starves the second radar.
+  """
+  pipelines: list[tuple[str, str]] = []
   if not CAM_MUTE:
+    cam_parts = ["gst-launch-1.0"]
     for sensor_id in CAM_SENSOR_IDS:
-      parts += camera_multifilesrc_parts(
+      cam_parts += camera_multifilesrc_parts(
         data_path=_cam_data_path(sensor_id),
         start_index=CAM_START_INDEX,
         stop_index=CAM_STOP_INDEX,
@@ -255,10 +262,11 @@ def _build_combined_pipeline() -> str:
         fifo_path=_cam_fifo(sensor_id),
         model_instance_id=CAM_MODEL_INSTANCE_ID or None,
       )
+    pipelines.append(("cameras", " ".join(cam_parts)))
   if not RADAR_MUTE:
     for sensor_id in RADAR_SENSOR_IDS:
       start_i, stop_i = _radar_index_range(sensor_id)
-      parts += radar_multifilesrc_parts(
+      parts = ["gst-launch-1.0"] + radar_multifilesrc_parts(
         data_path=_radar_data_path(sensor_id),
         start_index=start_i,
         stop_index=stop_i,
@@ -273,9 +281,10 @@ def _build_combined_pipeline() -> str:
         fifo_path=_radar_fifo(sensor_id),
         accumulate_past=RADAR_ACCUMULATE_PAST,
       )
-  if len(parts) == 1:
+      pipelines.append((f"radar:{sensor_id}", " ".join(parts)))
+  if not pipelines:
     raise SystemExit("Both RADAR_MUTE and CAM_MUTE set")
-  return " ".join(parts)
+  return pipelines
 
 
 def _fifo_publish_loop(
@@ -293,9 +302,12 @@ def _fifo_publish_loop(
   drive_frame_index: bool = True,
   data_path: str | None = None,
   image_b64_cell: list | None = None,
+  objects_cell: list | None = None,
+  publish=None,
 ) -> None:
   published = 0
   t0 = time.monotonic()
+  _publish = publish or (lambda _topic, msg: safe_publish(client, _topic, msg))
   with open(fifo_path, "r", encoding="utf-8", errors="replace") as fifo:
     while True:
       line = fifo.readline()
@@ -310,20 +322,15 @@ def _fifo_publish_loop(
       except json.JSONDecodeError:
         continue
       msg = builder(raw)
-      safe_publish(client, topic, msg)
+      _publish(topic, msg)
       published += 1
       idx = None
       if drive_frame_index and frame_index_cell is not None:
         idx = playback_index(published, start_index, stop_index, loop)
         frame_index_cell[0] = idx
-      if image_b64_cell is not None and data_path is not None:
-        if idx is None and frame_index_cell is not None:
-          idx = frame_index_cell[0]
-        if idx is not None:
-          annotated = annotate_frame_jpeg_b64(
-            data_path % idx, msg.get("objects") or {}, fps=float(fps))
-          if annotated:
-            image_b64_cell[0] = annotated
+      # Cache objects for lazy getimage annotation (avoid per-frame JPEG encode).
+      if objects_cell is not None:
+        objects_cell[0] = msg.get("objects") or {}
       if published % max(1, int(fps)) == 0:
         elapsed = max(1e-3, time.monotonic() - t0)
         objs = msg.get("objects") or {}
@@ -353,12 +360,15 @@ def main() -> None:
 
   cam_frame_cells: dict[str, list] = {}
   cam_image_cells: dict[str, list] = {}
+  cam_objects_cells: dict[str, list] = {}
   if not CAM_MUTE:
     for sensor_id in CAM_SENSOR_IDS:
       cell: list = [CAM_START_INDEX]
       cam_frame_cells[sensor_id] = cell
       img_cell: list = [None]
       cam_image_cells[sensor_id] = img_cell
+      obj_cell: list = [{}]
+      cam_objects_cells[sensor_id] = obj_cell
       # Seed with raw first frame until detections arrive.
       seed = annotate_frame_jpeg_b64(
         _cam_data_path(sensor_id) % CAM_START_INDEX, {}, fps=float(CAM_FRAME_RATE))
@@ -366,27 +376,21 @@ def main() -> None:
         img_cell[0] = seed
       setup_getimage_responder(
         client, sensor_id, _cam_data_path(sensor_id), cell, CAM_START_INDEX,
-        image_b64_cell=img_cell)
+        image_b64_cell=img_cell, objects_cell=obj_cell, fps=float(CAM_FRAME_RATE))
       _make_fifo(_cam_fifo(sensor_id))
   if not RADAR_MUTE:
     for sensor_id in RADAR_SENSOR_IDS:
       _make_fifo(_radar_fifo(sensor_id))
 
-  pipeline_cmd = _build_combined_pipeline()
-  print(f"[radar-publisher] Starting pipeline: {pipeline_cmd}", flush=True)
-  proc = subprocess.Popen(shlex.split(pipeline_cmd), stderr=sys.stderr)
-  print(f"[radar-publisher] Pipeline started (pid={proc.pid})", flush=True)
-
-  @atexit.register
-  def _cleanup():
-    if proc.poll() is None:
-      proc.terminate()
-      try:
-        proc.wait(timeout=5)
-      except subprocess.TimeoutExpired:
-        proc.kill()
-
+  # Open FIFO readers before gst-launch writers so publish never blocks
+  # pipeline start / first buffers on a writer-only open.
   threads: list[threading.Thread] = []
+  mqtt_lock = threading.Lock()
+
+  def _locked_publish(topic: str, payload: dict) -> None:
+    with mqtt_lock:
+      safe_publish(client, topic, payload)
+
   if not RADAR_MUTE:
     for sensor_id in RADAR_SENSOR_IDS:
       sid = sensor_id
@@ -403,13 +407,14 @@ def main() -> None:
           "client": client,
           "builder": _radar_builder,
           "fps": float(RADAR_FRAME_RATE),
+          "publish": _locked_publish,
         },
         daemon=True,
         name=f"radar:{sid}",
       ))
   if not CAM_MUTE:
     for sensor_id in CAM_SENSOR_IDS:
-      sid = sensor_id  # bind for lambda
+      sid = sensor_id
 
       def _builder(raw, _sid=sid):
         return build_camera_message(
@@ -432,11 +437,11 @@ def main() -> None:
           "start_index": CAM_START_INDEX,
           "stop_index": CAM_STOP_INDEX,
           "loop": CAM_LOOP,
-          # Frame index + annotated JPEG advance with detections so live
-          # view matches SceneScape's burned-in box contract.
           "drive_frame_index": True,
           "data_path": _cam_data_path(sid),
           "image_b64_cell": cam_image_cells[sid],
+          "objects_cell": cam_objects_cells[sid],
+          "publish": _locked_publish,
         },
         daemon=True,
         name=f"camera:{sid}",
@@ -444,10 +449,30 @@ def main() -> None:
 
   for t in threads:
     t.start()
+
+  pipeline_specs = _build_sensor_pipelines()
+  procs: list[tuple[str, subprocess.Popen]] = []
+  for name, pipeline_cmd in pipeline_specs:
+    print(f"[radar-publisher] Starting {name}: {pipeline_cmd}", flush=True)
+    proc = subprocess.Popen(shlex.split(pipeline_cmd), stderr=sys.stderr)
+    procs.append((name, proc))
+    print(f"[radar-publisher] {name} started (pid={proc.pid})", flush=True)
+
+  @atexit.register
+  def _cleanup():
+    for _, proc in procs:
+      if proc.poll() is None:
+        proc.terminate()
+        try:
+          proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+          proc.kill()
+
   print("[radar-demo] running (Ctrl+C to stop)", flush=True)
   while True:
-    if proc.poll() is not None:
-      raise SystemExit(f"gstreamer exited {proc.returncode}")
+    for name, proc in procs:
+      if proc.poll() is not None:
+        raise SystemExit(f"gstreamer {name} exited {proc.returncode}")
     for t in threads:
       if not t.is_alive():
         raise SystemExit(f"thread {t.name} died")
