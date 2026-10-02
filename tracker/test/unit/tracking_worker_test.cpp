@@ -46,6 +46,46 @@ protected:
     std::unordered_map<std::string, Camera> cameras_ = make_test_cameras();
 };
 
+TEST(VelocityRotationTest, ActivatesAboveOnThreshold) {
+    VelocityRotationState state;
+
+    const auto rotation = update_velocity_rotation(1.01, 0.0, state);
+
+    EXPECT_TRUE(state.active);
+    EXPECT_NEAR(rotation[2], 0.0, 1e-12);
+    EXPECT_NEAR(rotation[3], 1.0, 1e-12);
+}
+
+TEST(VelocityRotationTest, InactiveStateIgnoresSpeedInsideHysteresisBand) {
+    VelocityRotationState state;
+
+    const auto rotation = update_velocity_rotation(0.75, 0.0, state);
+
+    EXPECT_FALSE(state.active);
+    EXPECT_EQ(rotation, (std::array<double, 4>{0.0, 0.0, 0.0, 1.0}));
+}
+
+TEST(VelocityRotationTest, ActiveStateStaysActiveInsideHysteresisBand) {
+    VelocityRotationState state;
+    update_velocity_rotation(1.1, 0.0, state);
+
+    const auto rotation = update_velocity_rotation(0.75, 0.0, state);
+
+    EXPECT_TRUE(state.active);
+    EXPECT_NEAR(rotation[2], 0.0, 1e-12);
+    EXPECT_NEAR(rotation[3], 1.0, 1e-12);
+}
+
+TEST(VelocityRotationTest, DeactivatesAtOffThresholdAndRetainsLastRotation) {
+    VelocityRotationState state;
+    const auto first_rotation = update_velocity_rotation(0.0, 1.1, state);
+
+    const auto stopped_rotation = update_velocity_rotation(0.0, 0.5, state);
+
+    EXPECT_FALSE(state.active);
+    EXPECT_EQ(stopped_rotation, first_rotation);
+}
+
 // Test that worker processes chunks and calls publish callback
 TEST_F(TrackingWorkerTest, ProcessesChunks_CallsPublishCallback) {
     std::mutex mtx;
@@ -361,6 +401,10 @@ TEST_F(TrackingWorkerTest, EmptyChunks_PublishEveryTime) {
     }
 
     EXPECT_EQ(publish_count, 2);
+    const auto processed_deadline = std::chrono::steady_clock::now() + std::chrono::seconds(1);
+    while (worker.processed_count() < 2 && std::chrono::steady_clock::now() < processed_deadline) {
+        std::this_thread::yield();
+    }
     EXPECT_EQ(worker.processed_count(), 2);
     ASSERT_EQ(published_track_lists.size(), 2u);
     EXPECT_TRUE(published_track_lists[0].empty());

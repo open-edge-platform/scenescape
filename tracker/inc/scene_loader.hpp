@@ -12,6 +12,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -74,6 +75,8 @@ struct Scene {
     std::vector<Camera> cameras; ///< Cameras assigned to this scene
 };
 
+using AssetRotationConfig = std::unordered_map<std::string, bool>;
+
 /**
  * @brief Abstract interface for loading scene configurations.
  *
@@ -90,6 +93,17 @@ public:
      * @throws std::runtime_error if loading fails
      */
     virtual std::vector<Scene> load() = 0;
+
+    /**
+     * @brief Return cached per-category velocity-rotation configuration.
+     *
+     * File-backed scene configurations have no Manager asset catalog and return
+     * an empty map. API-backed loaders populate this map during load().
+     */
+    [[nodiscard]] virtual const AssetRotationConfig& asset_rotation_config() const {
+        static const AssetRotationConfig empty;
+        return empty;
+    }
 };
 
 /**

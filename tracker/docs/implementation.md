@@ -290,6 +290,23 @@ struct Track {
 };
 ```
 
+### Manager asset cache and velocity orientation
+
+API-backed startup authenticates once, fetches scenes, and fetches
+`/api/v1/assets`. The tracker retains a category-keyed cache of each asset's
+`rotation_from_velocity` Boolean. The cache is passed to lazily created
+`TrackingWorker` instances through `TrackingScope.category`. File-backed scene
+configuration has no Manager asset catalog, so velocity orientation remains
+disabled unless a future local asset source is added.
+
+When enabled for a category, each worker keeps orientation state per
+RobotVision track ID. The state turns on when planar speed is strictly greater
+than `1.0 m/s`, remains on while speed is strictly greater than `0.5 m/s`, and
+turns off at or below `0.5 m/s`. While off, the last valid quaternion is
+retained. The heading is `atan2(vy, vx)` and is serialized as a Z-axis
+quaternion. Asset changes are picked up through the existing API database
+update restart path.
+
 ### ObservabilityContext
 
 Carries trace context, span lifecycle, and stage timestamps through the pipeline. Each `DetectionBatch` owns its `ObservabilityContext`, enabling per-camera-batch trace correlation and latency breakdown. See [Design Document](../../docs/design/tracker-service.md#observability) for metrics, tracing, and logging specifications.

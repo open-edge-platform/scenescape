@@ -28,6 +28,9 @@ protected:
         server_.Get("/api/v1/scenes", [this](const httplib::Request& req, httplib::Response& res) {
             scenes_handler(req, res);
         });
+        server_.Get("/api/v1/assets", [this](const httplib::Request& req, httplib::Response& res) {
+            assets_handler(req, res);
+        });
 
         // Listen on ephemeral port on localhost
         port_ = server_.bind_to_any_port("127.0.0.1");
@@ -60,6 +63,11 @@ protected:
         };
 
     std::function<void(const httplib::Request&, httplib::Response&)> scenes_handler =
+        [](const httplib::Request&, httplib::Response& res) {
+            res.set_content(R"({"results":[]})", "application/json");
+        };
+
+    std::function<void(const httplib::Request&, httplib::Response&)> assets_handler =
         [](const httplib::Request&, httplib::Response& res) {
             res.set_content(R"({"results":[]})", "application/json");
         };
@@ -226,6 +234,20 @@ TEST_F(ManagerRestClientTest, FetchScenesPassesAuthHeader) {
     ManagerRestClient client(base_url_);
     client.authenticate("u", "p");
     client.fetchScenes();
+
+    EXPECT_EQ(captured_auth, "Token test-token-123");
+}
+
+TEST_F(ManagerRestClientTest, FetchAssetsPassesAuthHeader) {
+    std::string captured_auth;
+    assets_handler = [&](const httplib::Request& req, httplib::Response& res) {
+        captured_auth = req.get_header_value("Authorization");
+        res.set_content(R"({"results":[]})", "application/json");
+    };
+
+    ManagerRestClient client(base_url_);
+    client.authenticate("u", "p");
+    client.fetchAssets();
 
     EXPECT_EQ(captured_auth, "Token test-token-123");
 }

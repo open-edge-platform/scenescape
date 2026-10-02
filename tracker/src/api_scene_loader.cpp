@@ -169,6 +169,8 @@ public:
         auto client = client_factory_(manager_config_);
         client->authenticate(username, password);
         std::string response_body = client->fetchScenes();
+        asset_rotation_config_.clear();
+        parse_asset_rotation_config(client->fetchAssets(), asset_rotation_config_);
 
         // Parse the API response
         rapidjson::Document response_doc;
@@ -209,10 +211,42 @@ public:
         return scenes;
     }
 
+    [[nodiscard]] const AssetRotationConfig& asset_rotation_config() const override {
+        return asset_rotation_config_;
+    }
+
 private:
+    static void parse_asset_rotation_config(const std::string& response_body,
+                                            AssetRotationConfig& config) {
+        rapidjson::Document doc;
+        doc.Parse(response_body.c_str());
+        if (doc.HasParseError() || !doc.IsObject() || !doc.HasMember("results") ||
+            !doc["results"].IsArray()) {
+            throw std::runtime_error("Manager API assets response missing 'results' array");
+        }
+        for (const auto& asset : doc["results"].GetArray()) {
+            if (!asset.IsObject() || !asset.HasMember("name") || !asset["name"].IsString()) {
+                LOG_WARN("Skipping asset without a valid name");
+                continue;
+            }
+            bool enabled = false;
+            if (asset.HasMember("rotation_from_velocity") &&
+                !asset["rotation_from_velocity"].IsNull()) {
+                if (!asset["rotation_from_velocity"].IsBool()) {
+                    LOG_WARN("Skipping invalid rotation_from_velocity for asset {}",
+                             asset["name"].GetString());
+                    continue;
+                }
+                enabled = asset["rotation_from_velocity"].GetBool();
+            }
+            config[asset["name"].GetString()] = enabled;
+        }
+    }
+
     ManagerConfig manager_config_;
     std::filesystem::path schema_dir_;
     ManagerClientFactory client_factory_;
+    AssetRotationConfig asset_rotation_config_;
 };
 
 } // namespace
