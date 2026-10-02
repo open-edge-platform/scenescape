@@ -526,9 +526,9 @@ def _ensure_mapping_cache_volumes():
     bare_docker.volume.create(vol)
 
 
-# Sample video source dirs for tests/compose/compose-cams.yml (retail-cams,
+# Sample video source dirs for tests/compose/compose.cams.yml (retail-cams,
 # queuing-cams), which mounts a per-project "vol-videos" volume rather than
-# a bind mount like the standalone per-scene sample_data/demo_scenes/<Scene>/<scene>-video-compose.yaml files.
+# a bind mount like the standalone per-scene sample_data/demo_scenes/<Scene>/compose.<scene>-video.yml files.
 _SAMPLE_VIDEO_DIRS = ("demo_scenes/Retail/video", "demo_scenes/Queuing/video")
 
 
@@ -721,7 +721,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     logger.info("Converting and staging sample videos into the test vol-videos volume...")
     _init_sample_data_volume(project_name, repo_root)
 
-    if any("compose-mapping.yml" in cf for cf in profile.compose_files):
+    if any("compose.mapping.yml" in cf for cf in profile.compose_files):
       _ensure_mapping_cache_volumes()
 
     logger.info("Starting compose services...")
