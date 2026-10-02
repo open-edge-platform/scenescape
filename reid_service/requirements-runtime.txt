@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# This file is licensed under Apache 2.0 License.
+
+numpy==2.2.6
+grpcio==1.76.0
+protobuf==5.29.5
+qdrant-client==1.18.0
+vdms==0.0.22

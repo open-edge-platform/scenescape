@@ -45,3 +45,8 @@ services:
         condition: service_started
     environment:
       REID_DATABASE: QDRANT
+
+  reid-service:
+    depends_on:
+      reid:
+        condition: service_started
