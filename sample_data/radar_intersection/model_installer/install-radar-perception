@@ -15,8 +15,8 @@ log() { printf '[install-radar-perception] %s\n' "$*"; }
 
 log "RADAR_PERCEPTION=${MODE}"
 
-# Camera detector (shared across classical/roadside/radarpillars).
-bash "${SCRIPT_DIR}/install-camera-yolox"
+# Camera detector uses OMZ already installed in vol-models (no download).
+# Default: person-vehicle-bike-detection-crossroad-1016 (same as lidar demo).
 
 case "${MODE}" in
   classical)

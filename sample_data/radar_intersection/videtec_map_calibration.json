@@ -174,7 +174,7 @@
         "heading_offset_deg": -90.0
       }
     },
-    "note": "s120_* bridge cameras are provisioned in RadarIntersection.json (manual / UI calib); scene-init syncs them on every demo-radar."
+    "note": "s110 o/n/w/s only — s120 bridge cameras removed (4-cam edge budget)."
   },
   "radar_intersection_radar1_gnss_fit": {
     "translation": [

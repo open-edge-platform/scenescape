@@ -805,7 +805,7 @@ CAM_MUTE ?= false
 RADAR_CAM_DATASET_DIR ?= ./sample_data/radar_intersection/camera_demo
 CAM_START_INDEX ?= 3270
 CAM_STOP_INDEX ?= 4100
-CAM_SENSOR_IDS ?= radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s,radar-cam-s120-o,radar-cam-s120-n,radar-cam-s120-w,radar-cam-s120-s
+CAM_SENSOR_IDS ?= radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s
 SKIP_RADAR_CAMERA_STAGE ?= false
 # First-deploy VIDETEC radar+GNSS download/convert (gitignored VIDETEC-2/).
 SKIP_RADAR_VIDETEC_PREP ?= false

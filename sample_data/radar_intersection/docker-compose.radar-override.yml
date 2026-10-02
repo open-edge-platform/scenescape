@@ -57,7 +57,7 @@ services:
       # Prefer single-frame pcd_bin + RADAR_ACCUMULATE_PAST (causal) over pcd_bin_acc5.
       - RADAR_PCD_SUBDIR=${RADAR_PCD_SUBDIR:-pcd_bin}
       - RADAR2_PCD_SUBDIR=${RADAR2_PCD_SUBDIR:-pcd_bin}
-      - CAM_SENSOR_IDS=${CAM_SENSOR_IDS:-radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s,radar-cam-s120-o,radar-cam-s120-n,radar-cam-s120-w,radar-cam-s120-s}
+      - CAM_SENSOR_IDS=${CAM_SENSOR_IDS:-radar-cam1,radar-cam-n,radar-cam-w,radar-cam-s}
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -167,7 +167,6 @@ services:
       - MODELS_PATH=/home/pipeline-server/models
       - RADAR_PERCEPTION=${RADAR_PERCEPTION:-classical}
       - RADAR_IR_DIR=${RADAR_IR_DIR:-}
-      - CAM_YOLOX_VARIANT=${CAM_YOLOX_VARIANT:-l}
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
@@ -213,7 +212,7 @@ services:
       - RADAR_PERCEPTION=${RADAR_PERCEPTION:-classical}
       - RADAR_SENSOR_ID=intersection-radar1
       - RADAR_SENSOR_IDS=${RADAR_SENSOR_IDS:-intersection-radar1}
-      - RADAR_DEVICE=${RADAR_DEVICE:-CPU}
+      - RADAR_DEVICE=${RADAR_DEVICE:-GPU}
       - RADAR_FRAME_RATE=${RADAR_FRAME_RATE:-10}
       - RADAR_SCORE_THRESHOLD=${RADAR_SCORE_THRESHOLD:-}
       - RADAR_ACCUMULATE_PAST=${RADAR_ACCUMULATE_PAST:-0}
@@ -236,9 +235,8 @@ services:
       - CAM_MUTE=${CAM_MUTE:-false}
       - CAM_START_INDEX=${CAM_START_INDEX:-3270}
       - CAM_STOP_INDEX=${CAM_STOP_INDEX:-4100}
-      - CAM_YOLOX_VARIANT=${CAM_YOLOX_VARIANT:-l}
-      - CAM_MODEL=${CAM_MODEL:-/home/pipeline-server/models/public/yolox_l_fp16/yolox_l.xml}
-      - CAM_MODEL_PROC=${CAM_MODEL_PROC:-/home/pipeline-server/videos/radar_intersection/model-proc/yolox_coco.json}
+      - CAM_MODEL=${CAM_MODEL:-/home/pipeline-server/models/omz/person-vehicle-bike-detection-crossroad-1016/FP32/person-vehicle-bike-detection-crossroad-1016.xml}
+      - CAM_MODEL_PROC=${CAM_MODEL_PROC:-/home/pipeline-server/videos/radar_intersection/model-proc/person-vehicle-bike-detection-crossroad-1016.json}
       - CAM_MODEL_INSTANCE_ID=${CAM_MODEL_INSTANCE_ID:-}
     volumes:
       - ./sample_data/radar_intersection/runtime/radar_publisher.py:/home/pipeline-server/user_scripts/radar_publisher.py:ro

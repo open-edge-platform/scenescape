@@ -41,16 +41,12 @@ DEFAULT_RADAR_START = 3270
 DEFAULT_RADAR_STOP = 4100
 DEFAULT_CAM = "s110_o_cam_8"
 DEFAULT_RUN = "run_0"
-# Scene sensor_id → VIDETEC camera archive name (s110 + s120 gantries).
+# Scene sensor_id → VIDETEC camera archive name (s110 gantry only).
 DEFAULT_CAM_MAP = (
   "radar-cam1:s110_o_cam_8,"
   "radar-cam-n:s110_n_cam_8,"
   "radar-cam-w:s110_w_cam_8,"
-  "radar-cam-s:s110_s_cam_8,"
-  "radar-cam-s120-o:s120_o_cam_8,"
-  "radar-cam-s120-n:s120_n_cam_8,"
-  "radar-cam-s120-w:s120_w_cam_8,"
-  "radar-cam-s120-s:s120_s_cam_8"
+  "radar-cam-s:s110_s_cam_8"
 )
 
 

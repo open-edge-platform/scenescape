@@ -27,7 +27,10 @@
     ]
   },
   "cluster_distance_m": 2.0,
-  "min_score": 0.35,
+  "person_cluster_distance_m": 1.5,
+  "vehicle_cluster_distance_m": 5.0,
+  "vehicle_min_points": 2,
+  "min_score": 0.5,
   "mounting_height_m": 4.5,
   "accumulate_half_window_default": 0,
   "precision": "FP16",
@@ -41,5 +44,6 @@
     ],
     "code_license": "Apache-2.0"
   },
-  "source_ckpt": "roadside_videtec_ccby.pt"
+  "source_ckpt": "roadside_videtec_ccby.pt",
+  "notes": "Vehicle merge radius 5 m (was 2 m) so multi-return cars become one instance; drop single-point vehicle; min_score 0.5."
 }

@@ -93,14 +93,14 @@ def build_radar_message(raw: dict, sensor_id: str, fps: float) -> dict:
 
 
 def remap_camera_label(label: str) -> str | None:
-  """Map COCO detector labels onto SceneScape radar-demo categories.
+  """Map detector labels onto SceneScape radar-demo categories.
 
   Returns None for classes we do not publish (traffic lights, animals, …).
   """
   key = (label or "").strip().lower().replace(" ", "_")
   if key == "person":
     return "person"
-  if key in ("bicycle", "motorcycle", "motorbike"):
+  if key in ("bicycle", "motorcycle", "motorbike", "bike", "cyclist"):
     return "cyclist"
   if key in ("car", "bus", "truck", "train", "vehicle"):
     return "vehicle"

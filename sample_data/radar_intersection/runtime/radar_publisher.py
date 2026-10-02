@@ -203,19 +203,17 @@ CAM_DETECTION_LABELS = [
   s.strip() for s in os.environ.get("CAM_DETECTION_LABELS", "vehicle,person,cyclist").split(",")
   if s.strip()
 ]
-# Single-cam compare defaults to YOLOX-L; set CAM_YOLOX_VARIANT=s for multi-cam.
-_CAM_YOLOX_VARIANT = os.environ.get("CAM_YOLOX_VARIANT", "l").strip().lower()
-if _CAM_YOLOX_VARIANT in ("s", "small"):
-  _CAM_YOLOX_STEM = "yolox_s"
-else:
-  _CAM_YOLOX_STEM = "yolox_l"
+# SceneScape OMZ default for multi-class intersection: crossroad-1016
+# (person / vehicle / bike). Override with CAM_MODEL / CAM_MODEL_PROC.
 CAM_MODEL = os.environ.get(
   "CAM_MODEL",
-  f"/home/pipeline-server/models/public/{_CAM_YOLOX_STEM}_fp16/{_CAM_YOLOX_STEM}.xml",
+  "/home/pipeline-server/models/omz/person-vehicle-bike-detection-crossroad-1016"
+  "/FP32/person-vehicle-bike-detection-crossroad-1016.xml",
 )
 CAM_MODEL_PROC = os.environ.get(
   "CAM_MODEL_PROC",
-  "/home/pipeline-server/videos/radar_intersection/model-proc/yolox_coco.json",
+  "/home/pipeline-server/videos/radar_intersection/model-proc"
+  "/person-vehicle-bike-detection-crossroad-1016.json",
 )
 # Optional shared OpenVINO instance across cameras. Empty by default:
 # sharing one id across 8 parallel gvadetect branches can stall preroll.

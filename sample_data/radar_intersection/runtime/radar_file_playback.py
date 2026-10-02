@@ -66,6 +66,7 @@ def radar_multifilesrc_parts(
     "caps=application/octet-stream",
     f"! g3dlidarparse stride=1 frame-rate={frame_rate} point-features={int(point_features)}",
     infer,
+    "! queue max-size-buffers=8 leaky=downstream",
     f"! gvametaconvert add-tensor-data={add_tensor_data} format=json",
     f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(fifo_path)}",
     "! fakesink sync=false",
@@ -81,7 +82,7 @@ def camera_multifilesrc_parts(
   loop: bool,
   frame_rate: int,
   model: str,
-  model_proc: str,
+  model_proc: str | None,
   device: str,
   score_threshold: float,
   fifo_path: str,
@@ -94,21 +95,33 @@ def camera_multifilesrc_parts(
     parts.append(f"stop-index={stop_index}")
   if loop:
     parts.append("loop=true")
-  detect = (
-    f"! gvadetect model={shlex.quote(model)}"
-    f" model-proc={shlex.quote(model_proc)}"
-    f" device={shlex.quote(device)}"
-    f" threshold={score_threshold}"
-  )
+  detect = f"! gvadetect model={shlex.quote(model)} device={shlex.quote(device)} threshold={score_threshold}"
+  if model_proc and str(model_proc).strip():
+    detect += f" model-proc={shlex.quote(str(model_proc).strip())}"
   if model_instance_id:
     detect += f" model-instance-id={shlex.quote(model_instance_id)}"
-  parts += [
-    "caps=image/jpeg",
-    "! jpegdec",
-    "! videoconvert",
-    "! video/x-raw,format=BGR",
-    f"! gvafpsthrottle target-fps={frame_rate}",
+  # GPU path (dlstreamer-coding-agent): HW JPEG decode + vapostproc, let
+  # caps/memory auto-negotiate. Avoid jpegdec/videoconvert/BGR which force
+  # sysmem and GPU↔CPU copies. Rank(vajpegdec)=none so name it explicitly.
+  if str(device).upper().startswith("GPU"):
+    detect += " pre-process-backend=va"
+    decode = [
+      "caps=image/jpeg",
+      "! vajpegdec",
+      "! vapostproc",
+      f"! gvafpsthrottle target-fps={frame_rate}",
+    ]
+  else:
+    decode = [
+      "caps=image/jpeg",
+      "! jpegdec",
+      "! videoconvert",
+      "! video/x-raw,format=BGR",
+      f"! gvafpsthrottle target-fps={frame_rate}",
+    ]
+  parts += decode + [
     detect,
+    "! queue max-size-buffers=8 leaky=downstream",
     "! gvametaconvert add-tensor-data=false format=json",
     f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(fifo_path)}",
     "! fakesink sync=false",

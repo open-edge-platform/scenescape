@@ -9,10 +9,8 @@ SPDX-License-Identifier: Apache-2.0
 
 This guide runs the **Radar Intersection** demo: radar detections on
 `scenescape/data/radar/{id}` fused with OpenVINO camera `gvadetect`
-([`OpenVINO/yolox_l-fp16-ov`](https://huggingface.co/OpenVINO/yolox_l-fp16-ov),
-Apache-2.0 COCO YOLOX-L by default for the single-cam compare setup;
-`CAM_YOLOX_VARIANT=s` for multi-cam realtime) on
-`scenescape/data/camera/{id}`.
+(OMZ [`person-vehicle-bike-detection-crossroad-1016`](https://docs.openvino.ai/2024/omz_models_model_person_vehicle_bike_detection_crossroad_1016.html))
+on four s110 cameras (`scenescape/data/camera/{id}`).
 
 ## Perception modes (`RADAR_PERCEPTION`)
 
@@ -164,12 +162,12 @@ On any machine, `make demo-radar` runs `radar-scene-init`, which:
 
 1. Imports **Radar Intersection** from the ZIP if the scene is missing
    (e.g. after `make demo-close` wiped volumes).
-2. Creates/updates the eight cameras and two radars from
+2. Creates/updates the four s110 cameras and two radars from
    `RadarIntersection.json` so UI calibrations do not have to be repeated.
 
 Default live pair for cam↔radar compare: `radar-cam1` (s110_o anchor) +
-`intersection-radar1` (dataset 51). Restore the eight cameras / two radars via
-`CAM_SENSOR_IDS` / `RADAR_SENSOR_IDS` (s110 n/w/s, s120 o/n/w/s; radar2
+`intersection-radar1` (dataset 51). Restore the four s110 cameras / two radars via
+`CAM_SENSOR_IDS` / `RADAR_SENSOR_IDS` (s110 o/n/w/s; radar2
 time-aligned `3098–3928` ↔ radar1 `3270–4100`).
 
 After you change poses in the UI (or edit the JSON), lock them for other
@@ -223,7 +221,7 @@ the plugin. Compose steps:
    stay sensor-local; Controller applies the JSON poses.
 
 Open the UI and select **Radar Intersection**. Default fusion publishes
-both radars and all eight cameras (see `CAM_SENSOR_IDS` /
+both radars and all four s110 cameras (see `CAM_SENSOR_IDS` /
 `RADAR_SENSOR_IDS`). Select any `radar-cam*` pane for live video;
 `getimage` is answered per camera id.
 
@@ -273,9 +271,8 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `DLSTREAMER_SRC` | `../dlstreamer` | [saratpoluri/dlstreamer](https://github.com/saratpoluri/dlstreamer) checkout for `build-dlsps-g3d` |
 | `DLS_G3D_IMAGE` | `…:2026.2.0-ubuntu24-rc2-g3d` | Baked DLSPS tag |
 | `CAM_DEVICE` | `GPU` | OpenVINO device for camera `gvadetect` |
-| `CAM_YOLOX_VARIANT` | `l` | `l` (single-cam accuracy) or `s` (multi-cam realtime) |
-| `CAM_MODEL` | `…/yolox_l_fp16/yolox_l.xml` | Hugging Face `OpenVINO/yolox_l-fp16-ov` (Apache-2.0) |
-| `CAM_MODEL_PROC` | `…/model-proc/yolox_coco.json` | COCO labels → publisher maps to vehicle/person/cyclist |
+| `CAM_MODEL` | `…/omz/person-vehicle-bike-detection-crossroad-1016/FP32/….xml` | OMZ crossroad detector |
+| `CAM_MODEL_PROC` | `…/model-proc/person-vehicle-bike-detection-crossroad-1016.json` | vehicle / person / cyclist |
 | `CAM_SCORE_THRESHOLD` | `0.6` | Global `gvadetect` score threshold |
 | `CAM_PERSON_MIN_SCORE` | `0.75` | Extra person score floor (cuts sign/grass FPs) |
 | `CAM_PERSON_MIN_HEIGHT_PX` | `100` | Drop tiny person boxes |
