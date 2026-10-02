@@ -114,5 +114,6 @@ class SensorDeleteMqtt(SceneObjectMqtt):
 
 def test_sensor_delete_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorDeleteMqtt(TEST_NAME, request, record_xml_attribute)
+  test.sceneUID = demo_scene
   test.runSensorMqttDelete()
   assert test.exitCode == 0

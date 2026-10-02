@@ -160,7 +160,7 @@ def _phase2_drain_tracker(obj_data, client, cam_topic, regulated_msgs, lock):
 
 
 def test_tracker_objects_drop_to_zero_with_empty_detections(
-    objData, record_xml_attribute, params):
+    objData, record_xml_attribute, params, demo_scene):
   """! Verify that the tracker drops all tracked objects to zero when the
   camera sends an empty detection list after a period of active tracking.
 

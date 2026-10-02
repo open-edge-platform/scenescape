@@ -239,7 +239,6 @@ def trigger_track_pruning(pubsub, topic_str, camera_id):
   time.sleep(8)
 
 
-
 @pytest.mark.test_name("NEX-T29240")
 def test_reid_no_metadata(scenescape_env, params, result_recorder):
   """

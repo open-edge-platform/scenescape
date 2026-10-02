@@ -36,7 +36,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 
 @pytest.mark.test_name("NEX-T21477")
-def test_child_roi_event_propagated_to_parent(objData, params, result_recorder):
+def test_child_roi_event_propagated_to_parent(
+    objData, params, result_recorder, demo_scene):
   """! Verify that ROI entry/exit events from a child scene are republished on
   the parent scene's MQTT EVENT topic.
 
@@ -47,6 +48,7 @@ def test_child_roi_event_propagated_to_parent(objData, params, result_recorder):
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
@@ -97,7 +99,8 @@ def test_child_roi_event_propagated_to_parent(objData, params, result_recorder):
 
 
 @pytest.mark.test_name("NEX-T21478")
-def test_child_tripwire_event_propagated_to_parent(objData, params, result_recorder):
+def test_child_tripwire_event_propagated_to_parent(
+    objData, params, result_recorder, demo_scene):
   """! Verify that tripwire crossing events from a child scene are republished
   on the parent scene's MQTT EVENT topic.
 
@@ -108,6 +111,7 @@ def test_child_tripwire_event_propagated_to_parent(objData, params, result_recor
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
@@ -162,7 +166,8 @@ def test_child_tripwire_event_propagated_to_parent(objData, params, result_recor
 
 
 @pytest.mark.test_name("NEX-T21479")
-def test_child_sensor_event_propagated_to_parent(objData, params, result_recorder):
+def test_child_sensor_event_propagated_to_parent(
+    objData, params, result_recorder, demo_scene):
   """! Verify that environmental sensor events from a child scene are
   republished on the parent scene's MQTT EVENT topic.
 
@@ -178,6 +183,7 @@ def test_child_sensor_event_propagated_to_parent(objData, params, result_recorde
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
@@ -237,7 +243,8 @@ def test_child_sensor_event_propagated_to_parent(objData, params, result_recorde
 
 
 @pytest.mark.test_name("NEX-T29236")
-def test_child_attribute_sensor_event_propagated_to_parent(objData, params, result_recorder):
+def test_child_attribute_sensor_event_propagated_to_parent(
+    objData, params, result_recorder, demo_scene):
   """! Verify attribute singleton events from a child scene reach the parent.
 
   Distinct from the environmental sensor case and from
@@ -251,6 +258,7 @@ def test_child_attribute_sensor_event_propagated_to_parent(objData, params, resu
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
@@ -295,7 +303,8 @@ def test_child_attribute_sensor_event_propagated_to_parent(objData, params, resu
 
 
 @pytest.mark.test_name("NEX-T21480")
-def test_parent_event_attributes_match_child_event(objData, params, result_recorder):
+def test_parent_event_attributes_match_child_event(
+    objData, params, result_recorder, demo_scene):
   """! Verify that region_id, region_name, count category keys and values, and
   the from_child_scene metadata attribution in the parent's republished event
   match those in the child's original event.
@@ -308,6 +317,7 @@ def test_parent_event_attributes_match_child_event(objData, params, result_recor
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
@@ -362,7 +372,8 @@ def test_parent_event_attributes_match_child_event(objData, params, result_recor
 
 
 @pytest.mark.test_name("NEX-T21481")
-def test_child_event_propagation_is_timely(objData, params, result_recorder):
+def test_child_event_propagation_is_timely(
+    objData, params, result_recorder, demo_scene):
   """! Verify that event propagation from child to parent occurs with minimal
   delay (within PROPAGATION_LIMIT seconds of the first child event).
 
@@ -373,6 +384,7 @@ def test_child_event_propagation_is_timely(objData, params, result_recorder):
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
@@ -412,7 +424,8 @@ def test_child_event_propagation_is_timely(objData, params, result_recorder):
 
 
 @pytest.mark.test_name("NEX-T21482")
-def test_no_events_without_parent_link(objData, params, result_recorder):
+def test_no_events_without_parent_link(
+    objData, params, result_recorder, demo_scene):
   """! Verify that child scene events are NOT republished on a parent topic
   when no parent-child link exists (unlinked child).
 
@@ -423,6 +436,7 @@ def test_no_events_without_parent_link(objData, params, result_recorder):
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
@@ -455,7 +469,8 @@ def test_no_events_without_parent_link(objData, params, result_recorder):
 
 
 @pytest.mark.test_name("NEX-T21483")
-def test_event_region_id_matches_child_definition(objData, params, result_recorder):
+def test_event_region_id_matches_child_definition(
+    objData, params, result_recorder, demo_scene):
   """! Verify that the region_id in a parent scene ROI event matches the ROI
   uid originally defined in the child scene.
 
@@ -466,6 +481,7 @@ def test_event_region_id_matches_child_definition(objData, params, result_record
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()
@@ -499,7 +515,8 @@ def test_event_region_id_matches_child_definition(objData, params, result_record
 
 
 @pytest.mark.test_name("NEX-T29237")
-def test_events_stop_after_child_unlinked(objData, params, result_recorder):
+def test_events_stop_after_child_unlinked(
+    objData, params, result_recorder, demo_scene):
   """! Verify that after unlinking a child from its parent, subsequent child
   events are no longer republished on the parent's MQTT EVENT topic.
 
@@ -511,6 +528,7 @@ def test_events_stop_after_child_unlinked(objData, params, result_recorder):
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   helper = ChildSceneTest(params)
   rest_client = helper.make_rest_client()

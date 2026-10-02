@@ -24,7 +24,7 @@ SCENESCAPE_ENV_MATRIX = {
 
 TEST_NAME = "NEX-T21884"
 
-def test_scene_details_api(request, params, record_xml_attribute):
+def test_scene_details_api(demo_scene, request, params, record_xml_attribute):
   test_name = getattr(request.node, '_scenescape_test_name', TEST_NAME)
   record_xml_attribute("name", test_name)
   exit_code = 1

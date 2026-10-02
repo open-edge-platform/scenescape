@@ -59,8 +59,9 @@ Read the matching reference under [Additional resources](#additional-resources) 
 - **Naming**: files `test_*.py`, functions `test_*` (pytest norms).
 - **Markers that matter**:
   - `@pytest.mark.basic_acceptance` — BAT / `make run_basic_acceptance_tests`
-  - `@pytest.mark.preserve_db` — skip automatic DB restore
   - `@pytest.mark.kubernetes_only` — skipped on `--backend=docker`
+- **Isolation**: Create test data with the `scene_factory` fixture (auto-removes its scenes/cameras on teardown)
+  and clean up anything else the test mutates.
 
 ## Authoring checklist
 

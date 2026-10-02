@@ -38,9 +38,9 @@ IMG_H = 480
 ANALYTICS = os.environ.get('ANALYTICS', 'false').lower() == 'true'
 
 class SensorMqttMessageFlowTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
+  def __init__(self, testName, request, recordXMLAttribute, scene_uid=None):
     super().__init__(testName, request, recordXMLAttribute)
-    self.sceneUID = self.params['scene_id']
+    self.sceneUID = scene_uid if scene_uid is not None else self.params['scene_id']
     self.cameraId = "camera1"
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
@@ -661,6 +661,6 @@ class SensorMqttMessageFlowTest(FunctionalTest):
     return
 
 def test_sensor_mqtt_message_flow(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = SensorMqttMessageFlowTest(TEST_NAME, request, record_xml_attribute)
+  test = SensorMqttMessageFlowTest(TEST_NAME, request, record_xml_attribute, scene_uid=demo_scene)
   test.checkForMalfunctions()
   assert test.exitCode == 0

@@ -29,7 +29,7 @@ def test_scene_details_main(params, record_xml_attribute):
     print("Test that the user can view scene details")
     browser = Browser()
     assert common.check_page_login(browser, params)
-    scene_name = "Demo"
+    scene_name = "Retail"
     browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(1) > .nav-link").click()
     assert scene_name in browser.page_source
 

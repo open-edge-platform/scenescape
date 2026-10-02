@@ -51,7 +51,7 @@ def cleanup_created_camera(browser, camera_name):
 @pytest.mark.fresh_stack
 @common.mock_display
 @pytest.mark.test_name("NEX-T10558")
-def test_camera_creation_3d_ui(params, result_recorder):
+def test_camera_creation_3d_ui(demo_scene, params, result_recorder):
   """! Test that the user is able to create a camera in the 3D UI interface.
   @param    params                  Dict of test parameters.
   @param    result_recorder         Pytest fixture recording the test result.

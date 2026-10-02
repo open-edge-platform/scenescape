@@ -93,6 +93,8 @@ class OrphanedSensorTest(FunctionalTest):
 
 def test_orphaned_sensors(scenescape_env, demo_scene, request, record_xml_attribute):
   test = OrphanedSensorTest(TEST_NAME, request, record_xml_attribute)
+  test.params['scene_id'] = demo_scene
+  test.existingSceneUID = demo_scene
   test.verifyOrphanedSensors()
   assert test.exitCode == 0
   return

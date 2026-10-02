@@ -26,6 +26,7 @@ WAIT_SEC = 3
 class WillOurShipGo(UserInterfaceTest):
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
+    self.params['scene'] = "Retail"
 
   def setUpCalibrationTest(self):
     """! Sets up the scene for testing the 3D UI calibration by navigating to the page,

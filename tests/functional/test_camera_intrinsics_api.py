@@ -18,7 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T21879"
-MAX_CONTROLLER_WAIT = 20  # seconds
+MAX_CONTROLLER_WAIT = 60  # seconds
 MAX_ATTEMPTS = 3
 
 class CameraIntrinsicsTest(FunctionalTest):
@@ -113,6 +113,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 
     # Update camera with new intrinsics
     updateData = {
+      'name': self.testCameraName,
       'intrinsics': newIntrinsics,
       'distortion': newDistortion
     }
@@ -181,5 +182,7 @@ class CameraIntrinsicsTest(FunctionalTest):
 
 def test_camera_intrinsics(scenescape_env, demo_scene, request, record_xml_attribute):
   test = CameraIntrinsicsTest(TEST_NAME, request, record_xml_attribute)
+  test.params['scene_id'] = demo_scene
+  test.existingSceneUID = demo_scene
   test.testCameraIntrinsics()
   assert test.exitCode == 0

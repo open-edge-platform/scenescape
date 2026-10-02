@@ -50,7 +50,7 @@ def test_live_button(params, record_xml_attribute=None):
     print("Test that the 'Live View' button in a scene works.")
     browser = Browser()
     assert common.check_page_login(browser, params)
-    assert common.check_db_status(browser)
+    assert common.check_db_status(browser, scene_name="Retail")
 
     camera1_box = browser.find_element(By.ID, 'camera1')
     live_toggle = browser.find_element(By.ID, "live-view")

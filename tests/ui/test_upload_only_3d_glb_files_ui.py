@@ -14,7 +14,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_only_upload_glb_main(params, record_xml_attribute):
+def test_only_upload_glb_main(demo_scene, params, record_xml_attribute):
   """! Checks that a user can not upload a files that are not .glb as a 3D scene map.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

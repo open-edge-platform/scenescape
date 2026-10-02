@@ -18,7 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 TEST_NAME = "NEX-T21881"
-MAX_CONTROLLER_WAIT = 20  # seconds
+MAX_CONTROLLER_WAIT = 60  # seconds
 MAX_ATTEMPTS = 3
 
 class DeleteSensorsTest(FunctionalTest):
@@ -204,5 +204,6 @@ class DeleteSensorsTest(FunctionalTest):
 
 def test_delete_sensor(scenescape_env, demo_scene, request, record_xml_attribute):
   test = DeleteSensorsTest(TEST_NAME, request, record_xml_attribute)
+  test.params['scene_id'] = demo_scene
   test.testDeleteSensors()
   assert test.exitCode == 0
