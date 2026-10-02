@@ -40,7 +40,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 SCENE_NAME = "Demo"
 
-# camera1 is pre-registered in tests/testdb.tar.bz2.
 CONTROL_CAMERA = "camera1"
 SEEDED_CONTROL_CAMERA = "sensor10"
 INVALID_SENDER = "sensor_bad"
@@ -48,9 +47,7 @@ SEEDED_CAMERAS = (SEEDED_CONTROL_CAMERA, INVALID_SENDER)
 
 UNKNOWN_CAMERA = "camera4"
 
-# wait time for an expected scene update.
 EMIT_TIMEOUT_S = 120
-# drive time for a camera with no scene updates.
 DROP_WINDOW_S = 6
 PUBLISH_INTERVAL_S = 0.2
 DRAIN_TIME_S = 1.5
@@ -80,12 +77,21 @@ def _good_payload(camera_id):
   }
 
 
-# Each builder takes a camera_id and returns a fresh message that must be
-# rejected by the controller's schema validation.
-
 def _missing_timestamp(camera_id):
   payload = _good_payload(camera_id)
   del payload["timestamp"]
+  return payload
+
+
+def _invalid_timestamp_format(camera_id):
+  payload = _good_payload(camera_id)
+  payload["timestamp"] = "-1"
+  return payload
+
+
+def _negative_rate(camera_id):
+  payload = _good_payload(camera_id)
+  payload["rate"] = -1000
   return payload
 
 
@@ -110,6 +116,16 @@ def _negative_bbox_width(camera_id):
 def _negative_bbox_height(camera_id):
   payload = _good_payload(camera_id)
   payload["objects"]["person"][0]["bounding_box"]["height"] = -0.3
+  return payload
+
+def _invalid_com_sensor6_7(camera_id):
+  payload = _good_payload(camera_id)
+  payload["objects"]["person"][0]["bounding_box"] = {
+    "x": 259,
+    "y": -1,
+    "width": 101,
+    "height": 240,
+  }
   return payload
 
 
@@ -140,18 +156,20 @@ def _missing_geometry(camera_id):
 
 def _rotation_out_of_range(camera_id):
   payload = _good_payload(camera_id)
-  # rotation quaternion components must satisfy -1 < value < 1.
+  # rotation quaternion components must satisfy -1 < value < 1. 
   payload["objects"]["person"][0]["rotation"] = [1.0, 0.0, 0.0, 0.0]
   return payload
 
 
-# name -> builder for messages that the controller must drop on schema grounds.
 INVALID_CASES = (
   ("missing_timestamp", _missing_timestamp),
+  ("invalid_timestamp_format", _invalid_timestamp_format),
+  ("negative_rate", _negative_rate),
   ("zero_confidence", _zero_confidence),
   ("negative_confidence", _negative_confidence),
   ("negative_bbox_width", _negative_bbox_width),
   ("negative_bbox_height", _negative_bbox_height),
+  ("invalid_com_sensor6_7", _invalid_com_sensor6_7),
   ("negative_object_id", _negative_object_id),
   ("non_string_id", _non_string_id),
   ("missing_category", _missing_category),
