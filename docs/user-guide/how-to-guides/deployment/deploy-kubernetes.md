@@ -67,12 +67,12 @@ If the cluster has no default StorageClass, provide a Helm values file that sets
 
 Enable additional chart features by setting these values on `helm upgrade`/`helm install`:
 
-| Value                      | Default | Effect                                                                 |
-| -------------------------- | ------- | ---------------------------------------------------------------------- |
+| Value                      | Default | Effect                                                                                                                                                   |
+| -------------------------- | ------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `reid.enabled`             | `true`  | Deploys the ReID vector database (`reid.backend`: `vdms` or `qdrant`); requires `tracker.enabled=false` so the Scene Controller is deployed to use ReID. |
-| `tracker.enabled`          | `false` | Deploys Tracker + Analytics instead of the Scene Controller.           |
-| `mapping.enabled`          | `false` | Deploys the mapping service.                                           |
-| `clusterAnalytics.enabled` | `false` | Deploys the cluster-analytics service.                                 |
+| `tracker.enabled`          | `false` | Deploys Tracker + Analytics instead of the Scene Controller.                                                                                             |
+| `mapping.enabled`          | `false` | Deploys the mapping service.                                                                                                                             |
+| `clusterAnalytics.enabled` | `false` | Deploys the cluster-analytics service.                                                                                                                   |
 
 ReID is consumed by the Scene Controller. Tracker mode replaces the Scene Controller, so do not enable ReID together with `tracker.enabled=true`.
 

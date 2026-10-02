@@ -30,13 +30,13 @@ SUPASS='<choose-a-strong-admin-password>' DEMO_REBUILD_IMAGES=false make demo
 
 The Docker demo targets start the common sample video sources and upload the standard demo scenes, then select these services or overlays:
 
-| Target                   | Services / behavior |
-| ------------------------ | ------------------- |
-| `demo`                   | Controller + Analytics; no ReID. |
-| `demo-reid`              | `demo` plus the selected ReID backend and ReID pipeline override. |
-| `demo-all`               | `demo-reid` plus Mapping and Cluster Analytics. |
-| `demo-cluster-analytics` | `demo` plus Cluster Analytics; no Mapping or ReID override. |
-| `demo-tracker`           | Tracker + Analytics instead of the Scene Controller. |
+| Target                   | Services / behavior                                                                                                                                                                                             |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `demo`                   | Controller + Analytics; no ReID.                                                                                                                                                                                |
+| `demo-reid`              | `demo` plus the selected ReID backend and ReID pipeline override.                                                                                                                                               |
+| `demo-all`               | `demo-reid` plus Mapping and Cluster Analytics.                                                                                                                                                                 |
+| `demo-cluster-analytics` | `demo` plus Cluster Analytics; no Mapping or ReID override.                                                                                                                                                     |
+| `demo-tracker`           | Tracker + Analytics instead of the Scene Controller.                                                                                                                                                            |
 | `demo-lidar`             | `demo` plus the LiDAR/camera intersection fusion overlay. It requires a manually downloaded dataset and first-run model setup; see [Run the LiDAR-Intersection Fusion Demo](../run-lidar-intersection-demo.md). |
 
 The `demo-all`, `demo-cluster-analytics`, and `demo-tracker` targets build all service images by default. `demo-lidar` builds the dedicated LiDAR variant. Set `DEMO_REBUILD_IMAGES=false` to skip building when the required images already exist.

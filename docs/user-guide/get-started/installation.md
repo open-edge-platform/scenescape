@@ -43,8 +43,8 @@ git checkout <tag-version>
 
 Scenescape can run on Docker Compose or on Kubernetes, and can be deployed clean (an empty scene database, ready for your own cameras and scenes) or with the bundled demo (two sample scenes preloaded with recorded video). Either way, you first need Scenescape's container images available, either built from source or as prebuilt images.
 
-| I want to...                                    | Steps                                                                                                                                                   |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| I want to...                                    | Steps                                                                                                                                   |
+| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | Deploy clean Scenescape on Docker               | [Preparation](../how-to-guides/deployment/preparation.md) then [Deploy on Docker](../how-to-guides/deployment/deploy-docker.md)         |
 | Deploy clean Scenescape on Kubernetes           | [Preparation](../how-to-guides/deployment/preparation.md) then [Deploy on Kubernetes](../how-to-guides/deployment/deploy-kubernetes.md) |
 | Explore the bundled demo (Docker or Kubernetes) | [Preparation](../how-to-guides/deployment/preparation.md) then [Deploy the Demo](../how-to-guides/deployment/deploy-demo.md)            |
