@@ -6,12 +6,14 @@
 #include <array>
 #include <cmath>
 #include <numbers>
+#include <optional>
 #include <span>
 #include <vector>
 
 #include <opencv2/core.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
+#include "object_class.hpp"
 #include "scene_loader.hpp"
 #include "tracking_types.hpp"
 
@@ -34,7 +36,13 @@ namespace tracker {
  * 1. Collect pixels: foot (bottom-center), bottom-left, bottom-right, top-left
  * 2. Batch undistort all 4*N pixels via cv::undistortPoints()
  * 3. Pose-transform + ray-plane intersection (z=0) with OpenMP
- * 4. Assemble TrackedObjects: position from foot, size from corners
+ * 4. Optional TYPE_2 foot re-projection (wide/short objects)
+ * 5. Assemble TrackedObjects: position from foot, size from corners
+ *
+ * Projection modes (shift_type), matching Controller MovingObject.camLoc:
+ * - ObjectClassConfig::kShiftType1 (default): bottom-center of the bbox
+ * - ObjectClassConfig::kShiftType2: shift foot upward by (height/2)*(baseAngle/90)
+ *   before projecting
  *
  * Euler angle convention:
  * - XYZ INTRINSIC rotation order, angles in DEGREES
@@ -48,8 +56,25 @@ public:
      *
      * @param intrinsics Camera intrinsic parameters (fx, fy, cx, cy, distortion)
      * @param extrinsics Camera extrinsic parameters (translation, rotation, scale)
+     * @param shift_type Projection mode: ObjectClassConfig::kShiftType1 (default) or
+     *        ObjectClassConfig::kShiftType2
+     * @param footprint_half_m Optional camloc size offset (metres). When set,
+     *        uses this instead of half the projected bbox width — matching
+     *        Controller MovingObject.mapObjectDetectionToWorld asset sizes.
      */
-    CoordinateTransformer(const CameraIntrinsics& intrinsics, const CameraExtrinsics& extrinsics);
+    CoordinateTransformer(const CameraIntrinsics& intrinsics, const CameraExtrinsics& extrinsics,
+                          int shift_type = ObjectClassConfig::kShiftType1,
+                          std::optional<double> footprint_half_m = std::nullopt);
+
+    /**
+     * @brief Projection mode used for the detection foot point.
+     */
+    [[nodiscard]] int shiftType() const { return shift_type_; }
+
+    /**
+     * @brief Optional fixed half-footprint used for the camloc bearing offset.
+     */
+    [[nodiscard]] const std::optional<double>& footprintHalfM() const { return footprint_half_m_; }
 
     /**
      * @brief Batch-transform detections from pixel space to world-space TrackedObjects.
@@ -133,6 +158,8 @@ private:
     cv::Vec4d distortion_coeffs_;
     cv::Matx44d pose_matrix_;
     cv::Point3d camera_origin_;
+    int shift_type_;
+    std::optional<double> footprint_half_m_;
 
     static constexpr double kFallbackHorizonDistance = 100.0;
     static constexpr double kEarthRadius = 6371000.0;

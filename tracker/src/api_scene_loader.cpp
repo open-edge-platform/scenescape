@@ -5,6 +5,7 @@
 
 #include "config_loader.hpp"
 #include "logger.hpp"
+#include "object_class.hpp"
 #include "scene_parser.hpp"
 
 #include <fstream>
@@ -195,6 +196,16 @@ public:
         // Transform flat API format -> nested schema format
         detail::transform_api_scenes(scenes_doc);
 
+        // Load object-class assets before scene validation so projection settings are
+        // available even when some scenes are skipped. Soft-fail if assets are missing.
+        try {
+            object_classes_ = parseObjectClassesFromAssetsJson(client->fetchAssets());
+            LOG_INFO("Loaded {} object classes from Manager assets", object_classes_.size());
+        } catch (const std::exception& e) {
+            object_classes_.clear();
+            LOG_WARN("Failed to load Manager assets (using TYPE_1 defaults): {}", e.what());
+        }
+
         // Validate each scene against scene.schema.json (skips invalid scenes with warning)
         auto scene_schema_path = schema_dir_ / "scene.schema.json";
         auto valid_scenes = detail::validate_scenes(scenes_doc, scene_schema_path);
@@ -209,10 +220,13 @@ public:
         return scenes;
     }
 
+    [[nodiscard]] const ObjectClassMap& objectClasses() const override { return object_classes_; }
+
 private:
     ManagerConfig manager_config_;
     std::filesystem::path schema_dir_;
     ManagerClientFactory client_factory_;
+    ObjectClassMap object_classes_;
 };
 
 } // namespace

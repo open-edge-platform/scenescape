@@ -50,7 +50,9 @@ pip install -r requirements.txt
 
 Create a YAML configuration file (see `pipeline_configs/` directory):
 
-**Full tracker evaluation** (`pipeline_configs/controller_evaluation.yaml`):
+**Full tracker evaluation** (black-box suite under [`pipeline_configs/black_box_unity/`](pipeline_configs/black_box_unity/); Wildtrack under [`pipeline_configs/black_box_wildtrack/`](pipeline_configs/black_box_wildtrack/)):
+
+Example pipeline shape (see the YAML files in those directories for complete, runnable configs):
 
 ```yaml
 pipeline:
