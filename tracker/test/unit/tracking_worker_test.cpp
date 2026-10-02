@@ -12,6 +12,7 @@
 #include <condition_variable>
 #include <format>
 #include <mutex>
+#include <numbers>
 #include <optional>
 #include <thread>
 
@@ -698,6 +699,68 @@ TEST_F(TrackingWorkerTest, Tracking_ObjectClassShiftTypeChangesPublishedPosition
 
     EXPECT_GT(std::hypot(type2[0] - type1[0], type2[1] - type1[1]), 0.1)
         << "TYPE_2 object class should change the projected track position";
+}
+
+// Pixel detections carry no orientation, so a turning track must not publish the Kalman yaw
+// that the CTRV model integrates from the estimated turn rate.
+TEST_F(TrackingWorkerTest, Tracking_CameraOnlyTurningTrack_PublishesIdentityRotation) {
+    constexpr int kChunksToSend = 90;
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+    constexpr double kRadiusPx = 250.0;
+    constexpr double kRadPerFrame = 2.0 * std::numbers::pi / 60.0; // one turn per 4 s @ 15 FPS
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    int callback_count = 0;
+    size_t published_tracks = 0;
+    double max_abs_yaw = 0.0;
+
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        for (const auto& track : tracks) {
+            const double yaw = 2.0 * std::atan2(track.rotation[2], track.rotation[3]);
+            max_abs_yaw =
+                std::max(max_abs_yaw, std::abs(std::remainder(yaw, 2.0 * std::numbers::pi)));
+        }
+        published_tracks += tracks.size();
+        callback_count++;
+        cv.notify_one();
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", kChunksToSend, callback, config,
+                          cameras_);
+
+    for (int i = 0; i < kChunksToSend; ++i) {
+        const double angle = kRadPerFrame * i;
+        const auto foot_x = static_cast<float>(640.0 + kRadiusPx * std::cos(angle));
+        const auto foot_y = static_cast<float>(360.0 + kRadiusPx * std::sin(angle));
+
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        chunk.chunk_time = std::chrono::steady_clock::now();
+
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp = std::chrono::system_clock::time_point{} + i * kFramePeriod;
+        batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+        batch.detections.push_back(Detection{
+            .id = 1, .bounding_box_px = cv::Rect2f(foot_x - 20.0f, foot_y - 80.0f, 40.0f, 80.0f)});
+        chunk.camera_batches.push_back(std::move(batch));
+        ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+    }
+
+    std::unique_lock lock(mtx);
+    ASSERT_TRUE(
+        cv.wait_for(lock, std::chrono::seconds(5), [&] { return callback_count >= kChunksToSend; }))
+        << "Timed out waiting for " << kChunksToSend << " publish callbacks";
+    ASSERT_GT(published_tracks, 0u) << "No reliable tracks published";
+    EXPECT_LT(max_abs_yaw, 1e-6) << "Camera-only track published yaw of " << max_abs_yaw
+                                 << " rad (expected identity rotation)";
 }
 
 // -----------------------------------------------------------------
