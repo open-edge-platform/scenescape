@@ -13,7 +13,7 @@ DLStreamer / OpenVINO integration is intentionally out of scope here.
 
 | Tag | Implementation |
 | --- | --- |
-| classical | GST `g3dinference` cluster+track; person only for \|doppler\| ∈ [0.4, 3.0) m/s (cars stay vehicle) |
+| classical | GST `g3dinference` cluster+track; person for \|doppler\| ∈ [0.5, 2.8) m/s **and** compact cluster (extent ≤1.5 m); else vehicle. Score vs **GNSS VRU GT**, not camera. |
 | roadside | Compact PointNet semantic seg + class-aware cluster (keeps 1-point objects); GNSS weak labels |
 | radarpillars | Prior P0 FT2 / OV-FT2 JSON under `VIDETEC-2/` (not re-run by the harness) |
 

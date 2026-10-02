@@ -194,17 +194,21 @@ CAM_FRAME_RATE = int(os.environ.get("CAM_FRAME_RATE", "10"))
 CAM_DEVICE = os.environ.get("CAM_DEVICE", "CPU").strip().upper()
 CAM_SCORE_THRESHOLD = float(os.environ.get("CAM_SCORE_THRESHOLD", "0.6"))
 CAM_MUTE = os.environ.get("CAM_MUTE", "false").lower() in ("1", "true", "yes")
+# Stricter person post-filters (sign-on-grass FPs) — independent of gvadetect thr.
+CAM_PERSON_MIN_SCORE = float(os.environ.get("CAM_PERSON_MIN_SCORE", "0.75"))
+CAM_PERSON_MIN_HEIGHT_PX = float(os.environ.get("CAM_PERSON_MIN_HEIGHT_PX", "100"))
+CAM_PERSON_MIN_ASPECT = float(os.environ.get("CAM_PERSON_MIN_ASPECT", "1.2"))
 # Scene categories after COCO→scene remapping (see build_camera_message).
 CAM_DETECTION_LABELS = [
   s.strip() for s in os.environ.get("CAM_DETECTION_LABELS", "vehicle,person,cyclist").split(",")
   if s.strip()
 ]
-# Default YOLOX-S for 8-cam realtime; CAM_YOLOX_VARIANT=l for larger accuracy.
-_CAM_YOLOX_VARIANT = os.environ.get("CAM_YOLOX_VARIANT", "s").strip().lower()
-if _CAM_YOLOX_VARIANT in ("l", "large"):
-  _CAM_YOLOX_STEM = "yolox_l"
-else:
+# Single-cam compare defaults to YOLOX-L; set CAM_YOLOX_VARIANT=s for multi-cam.
+_CAM_YOLOX_VARIANT = os.environ.get("CAM_YOLOX_VARIANT", "l").strip().lower()
+if _CAM_YOLOX_VARIANT in ("s", "small"):
   _CAM_YOLOX_STEM = "yolox_s"
+else:
+  _CAM_YOLOX_STEM = "yolox_l"
 CAM_MODEL = os.environ.get(
   "CAM_MODEL",
   f"/home/pipeline-server/models/public/{_CAM_YOLOX_STEM}_fp16/{_CAM_YOLOX_STEM}.xml",
@@ -411,7 +415,11 @@ def main() -> None:
 
       def _builder(raw, _sid=sid):
         return build_camera_message(
-          raw, _sid, float(CAM_FRAME_RATE), CAM_DETECTION_LABELS)
+          raw, _sid, float(CAM_FRAME_RATE), CAM_DETECTION_LABELS,
+          person_min_score=CAM_PERSON_MIN_SCORE,
+          person_min_height_px=CAM_PERSON_MIN_HEIGHT_PX,
+          person_min_aspect=CAM_PERSON_MIN_ASPECT,
+        )
 
       threads.append(threading.Thread(
         target=_fifo_publish_loop,

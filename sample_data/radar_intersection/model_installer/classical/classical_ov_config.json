@@ -2,11 +2,14 @@
   "model_type": "classical",
   "cluster_distance_m": 2.5,
   "track_distance_m": 5.0,
-  "doppler_person_mps": 0.4,
-  "doppler_person_max_mps": 3.0,
+  "doppler_person_mps": 0.5,
+  "doppler_person_max_mps": 2.8,
+  "person_max_extent_m": 1.5,
+  "person_min_points": 1,
+  "person_min_confidence": 0.5,
   "mounting_height_m": 4.5,
   "track_ttl_frames": 5,
   "point_features": 5,
   "class_names": ["vehicle", "person", "cyclist"],
-  "notes": "Host cluster+track; no neural IR. Person only for |doppler| in [doppler_person_mps, doppler_person_max_mps). Box center z = -mounting_height_m + h/2 so objects sit on the ground."
+  "notes": "Host cluster+track; no neural IR. Person when |doppler| ∈ [0.5, 2.8) AND compact cluster (extent ≤ 1.5 m, ≥1 pt) AND confidence ≥ 0.5. Extent gate is the main empty-road FP filter; min_points=1 keeps sparse VRUs."
 }

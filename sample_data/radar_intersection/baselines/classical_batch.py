@@ -8,9 +8,10 @@ Runs the SceneScape ``radar/`` v1 perception sequentially over a frame window
 (track continuity), optionally stacking neighbor frames before clustering
 (``--accumulate-half-window``, same densify idea as RadarPillars H=5).
 
-Dynamic clusters (|doppler| >= threshold) are labeled ``person`` so VRU
-category filters in ``eval_radarpillars_gnss.py`` can score them; static /
-slow clusters are ``vehicle``.
+Person only when |doppler| is in the walking band *and* the cluster is compact
+(extent / min points) *and* the track is stable — matches live
+``classical_runtime`` so GNSS VRU eval reflects demo behavior. Everything else
+is ``vehicle`` (prefer FP vehicles over phantom people on empty road).
 """
 
 from __future__ import annotations
@@ -48,18 +49,41 @@ def _accumulate_n5(frames_dir: Path, frame_index: int, half: int) -> np.ndarray:
   return np.concatenate(chunks, axis=0)
 
 
-def _mean_abs_doppler(frame: np.ndarray, cluster_xyz: np.ndarray,
-                      cluster_dist: float) -> float:
-  """Mean |doppler| of detections belonging to a cluster centroid."""
+def _cluster_stats(frame: np.ndarray, cluster_xyz: np.ndarray,
+                   cluster_dist: float) -> tuple[float, int, float]:
+  """Return (mean |doppler|, n_points, extent_xy) for members near centroid."""
   if frame.shape[0] == 0:
-    return 0.0
+    return 0.0, 0, 0.0
   xyz = spherical_to_xyz(frame)
-  dist = np.linalg.norm(xyz - cluster_xyz.reshape(1, 3), axis=1)
+  dist = np.linalg.norm(xyz[:, :2] - cluster_xyz.reshape(1, 3)[:, :2], axis=1)
   mask = dist <= max(cluster_dist, 0.5)
   if not np.any(mask):
     i = int(np.argmin(dist))
-    return float(abs(frame[i, 1]))
-  return float(np.mean(np.abs(frame[mask, 1])))
+    return float(abs(frame[i, 1])), 1, 0.0
+  members = xyz[mask]
+  mean_dop = float(np.mean(np.abs(frame[mask, 1])))
+  extent = float(np.max(np.linalg.norm(members[:, :2] - cluster_xyz[:2], axis=1)))
+  return mean_dop, int(mask.sum()), extent
+
+
+def _label_person(
+  mean_dop: float,
+  n_points: int,
+  extent_xy: float,
+  confidence: float,
+  *,
+  dop_min: float,
+  dop_max: float,
+  max_extent: float,
+  min_points: int,
+  min_confidence: float,
+) -> bool:
+  return (
+    dop_min <= mean_dop < dop_max
+    and n_points >= min_points
+    and extent_xy <= max_extent
+    and confidence >= min_confidence
+  )
 
 
 def parse_args(argv=None):
@@ -72,8 +96,11 @@ def parse_args(argv=None):
   ap.add_argument("--accumulate-half-window", type=int, default=0)
   ap.add_argument("--cluster-distance-m", type=float, default=2.5)
   ap.add_argument("--track-distance-m", type=float, default=5.0)
-  ap.add_argument("--doppler-person-mps", type=float, default=0.4,
-                  help="|doppler| >= this → category person")
+  ap.add_argument("--doppler-person-mps", type=float, default=0.5)
+  ap.add_argument("--doppler-person-max-mps", type=float, default=2.8)
+  ap.add_argument("--person-max-extent-m", type=float, default=1.5)
+  ap.add_argument("--person-min-points", type=int, default=1)
+  ap.add_argument("--person-min-confidence", type=float, default=0.5)
   ap.add_argument("-o", "--output", type=Path, required=True)
   return ap.parse_args(argv)
 
@@ -88,6 +115,8 @@ def main(argv=None):
   half = max(0, int(args.accumulate_half_window))
   args.output.parent.mkdir(parents=True, exist_ok=True)
   n_emit = 0
+  n_person = 0
+  n_vehicle = 0
 
   with args.output.open("w") as out:
     for fi in range(args.start, args.end + 1):
@@ -104,8 +133,21 @@ def main(argv=None):
 
       objects = []
       for track in tracks:
-        dop = _mean_abs_doppler(frame, track.position, args.cluster_distance_m)
-        cat = "person" if dop >= args.doppler_person_mps else "vehicle"
+        dop, n_pts, extent = _cluster_stats(
+          frame, track.position, args.cluster_distance_m)
+        is_person = _label_person(
+          dop, n_pts, extent, float(track.confidence),
+          dop_min=args.doppler_person_mps,
+          dop_max=args.doppler_person_max_mps,
+          max_extent=args.person_max_extent_m,
+          min_points=args.person_min_points,
+          min_confidence=args.person_min_confidence,
+        )
+        cat = "person" if is_person else "vehicle"
+        if is_person:
+          n_person += 1
+        else:
+          n_vehicle += 1
         objects.append({
           "id": int(track.track_id),
           "category": cat,
@@ -124,7 +166,11 @@ def main(argv=None):
       out.write(json.dumps(line) + "\n")
       n_emit += 1
 
-  print(f"wrote {n_emit} frames → {args.output}", flush=True)
+  print(
+    f"wrote {n_emit} frames → {args.output} "
+    f"(person_objs={n_person} vehicle_objs={n_vehicle})",
+    flush=True,
+  )
   return 0
 
 

@@ -9,8 +9,9 @@ SPDX-License-Identifier: Apache-2.0
 
 This guide runs the **Radar Intersection** demo: radar detections on
 `scenescape/data/radar/{id}` fused with OpenVINO camera `gvadetect`
-([`OpenVINO/yolox_s-fp16-ov`](https://huggingface.co/OpenVINO/yolox_s-fp16-ov),
-Apache-2.0 COCO YOLOX-S by default; set `CAM_YOLOX_VARIANT=l` for YOLOX-L) on
+([`OpenVINO/yolox_l-fp16-ov`](https://huggingface.co/OpenVINO/yolox_l-fp16-ov),
+Apache-2.0 COCO YOLOX-L by default for the single-cam compare setup;
+`CAM_YOLOX_VARIANT=s` for multi-cam realtime) on
 `scenescape/data/camera/{id}`.
 
 ## Perception modes (`RADAR_PERCEPTION`)
@@ -166,8 +167,9 @@ On any machine, `make demo-radar` runs `radar-scene-init`, which:
 2. Creates/updates the eight cameras and two radars from
    `RadarIntersection.json` so UI calibrations do not have to be repeated.
 
-Default sensors: `radar-cam1` plus s110 n/w/s and s120 o/n/w/s; radars
-`intersection-radar1` (dataset 51) and `intersection-radar2` (dataset 52,
+Default live pair for cam↔radar compare: `radar-cam1` (s110_o anchor) +
+`intersection-radar1` (dataset 51). Restore the eight cameras / two radars via
+`CAM_SENSOR_IDS` / `RADAR_SENSOR_IDS` (s110 n/w/s, s120 o/n/w/s; radar2
 time-aligned `3098–3928` ↔ radar1 `3270–4100`).
 
 After you change poses in the UI (or edit the JSON), lock them for other
@@ -271,19 +273,23 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 | `DLSTREAMER_SRC` | `../dlstreamer` | [saratpoluri/dlstreamer](https://github.com/saratpoluri/dlstreamer) checkout for `build-dlsps-g3d` |
 | `DLS_G3D_IMAGE` | `…:2026.2.0-ubuntu24-rc2-g3d` | Baked DLSPS tag |
 | `CAM_DEVICE` | `GPU` | OpenVINO device for camera `gvadetect` |
-| `CAM_YOLOX_VARIANT` | `s` | `s` (realtime 8-cam) or `l` (higher accuracy, slower) |
-| `CAM_MODEL` | `…/yolox_s_fp16/yolox_s.xml` | Hugging Face `OpenVINO/yolox_s-fp16-ov` (Apache-2.0) |
+| `CAM_YOLOX_VARIANT` | `l` | `l` (single-cam accuracy) or `s` (multi-cam realtime) |
+| `CAM_MODEL` | `…/yolox_l_fp16/yolox_l.xml` | Hugging Face `OpenVINO/yolox_l-fp16-ov` (Apache-2.0) |
 | `CAM_MODEL_PROC` | `…/model-proc/yolox_coco.json` | COCO labels → publisher maps to vehicle/person/cyclist |
+| `CAM_SCORE_THRESHOLD` | `0.6` | Global `gvadetect` score threshold |
+| `CAM_PERSON_MIN_SCORE` | `0.75` | Extra person score floor (cuts sign/grass FPs) |
+| `CAM_PERSON_MIN_HEIGHT_PX` | `100` | Drop tiny person boxes |
+| `CAM_PERSON_MIN_ASPECT` | `1.2` | Require height/width ≥ this for person |
 | `CAM_MODEL_INSTANCE_ID` | _(empty)_ | Optional shared `gvadetect` instance id (can stall 8-cam preroll) |
+| `CAM_SENSOR_IDS` | `radar-cam1` | Default: s110_o anchor cam overlapping radar1; restore full 8-cam list for multi-view |
+| `RADAR_SENSOR_IDS` | `intersection-radar1` | Default: dataset-51 radar only (paired with radar-cam1) |
 | `RADAR_MUTE` / `CAM_MUTE` | `false` | Mute a modality |
 | `RADAR_CAM_DATASET_DIR` | `./sample_data/radar_intersection/camera_demo` | Host tree with per-id JPEG dirs (auto-staged; gitignored) |
-| `CAM_SENSOR_IDS` | eight `radar-cam*` ids | Comma list; each needs `{CAM_DATA_ROOT}/{id}/%06d.jpg` |
 | `CAM_START_INDEX` / `CAM_STOP_INDEX` | `3270` / `4100` | JPEG sequence slice (`%06d.jpg`) |
 | `SKIP_RADAR_CAMERA_STAGE` | `false` | `true` skips Zenodo download / `camera_demo` staging |
 | `SKIP_RADAR_VIDETEC_PREP` | `false` | Skip Zenodo radar/GNSS download+convert |
 | `RADAR_RAW_DATASET_DIR` | `…/VIDETEC-2/converted` | Host radar1 `frames/` / bins |
 | `RADAR2_RAW_DATASET_DIR` | `…/VIDETEC-2/converted_r52` | Host radar2 densified bins |
-| `RADAR_SENSOR_IDS` | `intersection-radar1,intersection-radar2` | Comma list of radar MQTT ids |
 | `RADAR_DATA_PATHS` / `RADAR_INDEX_RANGES` | empty / index ranges | Per-radar path override (default: mode `frames_bin` or `pcd_bin` + `radar2/…`) |
 | `RADAR_START_INDEX` / `RADAR_STOP_INDEX` | `3270` / `4100` | Default radar1 slice (overridden per-id via `RADAR_INDEX_RANGES`) |
 | `RADAR_REQUIRE_REAL` | `true` (via Makefile) | Fail if no real VIDETEC inputs |

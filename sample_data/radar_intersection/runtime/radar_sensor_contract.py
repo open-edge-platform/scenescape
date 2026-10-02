@@ -108,8 +108,21 @@ def remap_camera_label(label: str) -> str | None:
 
 
 def build_camera_message(
-  raw: dict, sensor_id: str, fps: float, allowed_labels: list[str] | None,
+  raw: dict,
+  sensor_id: str,
+  fps: float,
+  allowed_labels: list[str] | None,
+  *,
+  person_min_score: float = 0.0,
+  person_min_height_px: float = 0.0,
+  person_min_aspect: float = 0.0,
 ) -> dict:
+  """Build MQTT camera payload; optionally drop weak/small person FPs.
+
+  ``person_min_*`` filters target spurious detections (e.g. roadside signs
+  mislabeled as person) without raising the global gvadetect threshold used
+  for vehicles.
+  """
   ts = wall_clock_timestamp()
   objects: dict = {}
   for i, item in enumerate(raw.get("objects") or []):
@@ -123,20 +136,33 @@ def build_camera_message(
     if allowed_labels and label not in allowed_labels:
       continue
     try:
-      objects.setdefault(label, []).append({
-        "id": i + 1,
-        "category": label,
-        "confidence": detection["confidence"],
-        "bounding_box_px": {
-          "x": item["x"],
-          "y": item["y"],
-          "width": item["w"],
-          "height": item["h"],
-        },
-        "source": "camera",
-      })
-    except (KeyError, TypeError):
+      conf = float(detection["confidence"])
+      x = float(item["x"])
+      y = float(item["y"])
+      w = float(item["w"])
+      h = float(item["h"])
+    except (KeyError, TypeError, ValueError):
       continue
+    if label == "person":
+      if conf < person_min_score:
+        continue
+      if person_min_height_px > 0 and h < person_min_height_px:
+        continue
+      # Standing people are taller than wide; flat/square blobs are often signs.
+      if person_min_aspect > 0 and w > 0 and (h / w) < person_min_aspect:
+        continue
+    objects.setdefault(label, []).append({
+      "id": i + 1,
+      "category": label,
+      "confidence": conf,
+      "bounding_box_px": {
+        "x": x,
+        "y": y,
+        "width": w,
+        "height": h,
+      },
+      "source": "camera",
+    })
   return {"id": sensor_id, "timestamp": ts, "rate": round(fps, 2), "objects": objects}
 
 
