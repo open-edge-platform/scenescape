@@ -4,12 +4,11 @@
 
 - Verify you meet the [System Requirements](./system-requirements.md).
 
-- Install required software such as Docker; see [System Requirements](./system-requirements.md) for details.
-
 ## Step 1: Get Scenescape
 
 <!--hide_directive::::{tab-set}hide_directive-->
-<!--hide_directive:::{tab-item}hide_directive--> **Download a release**
+<!--hide_directive:::{tab-item}hide_directive-->
+**Download a release**
 
 Note that these operations must be executed when logged in as a standard (non-root) user. **Do NOT use root or sudo.**
 

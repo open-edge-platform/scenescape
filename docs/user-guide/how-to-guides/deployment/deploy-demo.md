@@ -81,7 +81,17 @@ make demo-close
 
 ## Kubernetes
 
-Deploy Scenescape as described in [Deploy on Kubernetes](./deploy-kubernetes.md), enabling whichever [optional services](./deploy-kubernetes.md#optional-services) you want, then add the two demo-only pieces below.
+If you do not already have a cluster, the simplest way to run the demo is Scenescape's all-in-one Kind setup:
+
+```bash
+KUBERNETES=1 ./deploy.sh
+```
+
+This builds the images, creates a local Kind cluster, deploys the chart, wires up the demo video sources, and uploads the demo scenes, all automatically. See [Scenescape on Kubernetes: All-in-one](https://github.com/open-edge-platform/scenescape/blob/main/kubernetes/README.md#all-in-one) for details, including how to add ReID, mapping, cluster analytics, or Tracker with `DEPLOY_PROFILES`.
+
+### Existing Cluster
+
+If you already have a cluster, deploy Scenescape as described in [Deploy on Kubernetes](./deploy-kubernetes.md), enabling whichever [optional services](./deploy-kubernetes.md#optional-services) you want, then add the two demo-only pieces below.
 
 ### Wire Up the Demo Video Sources
 
