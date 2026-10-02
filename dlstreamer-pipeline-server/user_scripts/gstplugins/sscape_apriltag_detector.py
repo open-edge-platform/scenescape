@@ -41,6 +41,15 @@ _GST_LOG = GstCategoryLogger(
   "SceneScape AprilTag detection element",
 )
 
+# cv2.aruco's predefined dictionaries that decode AprilTag families.
+APRILTAG_DICTIONARIES = {
+  "tag16h5": cv2.aruco.DICT_APRILTAG_16h5,
+  "tag25h9": cv2.aruco.DICT_APRILTAG_25h9,
+  "tag36h10": cv2.aruco.DICT_APRILTAG_36h10,
+  "tag36h11": cv2.aruco.DICT_APRILTAG_36h11,
+}
+
+
 
 class SscapeApriltagDetect(GstBase.BaseTransform):
   """Detect AprilTags and attach them as GVA regions of interest."""
@@ -65,16 +74,10 @@ class SscapeApriltagDetect(GstBase.BaseTransform):
     "tag-family": (
       str,
       "AprilTag family",
-      "Space-separated AprilTag families to detect, e.g. "
-      "\"tag36h11\" or \"tag36h11 tag25h9\".",
+      "AprilTag family to detect, one of: "
+      "\"tag16h5\", \"tag25h9\", \"tag36h10\", \"tag36h11\". "
+      "cv2.aruco decodes a single family per detector.",
       "tag36h11",
-      GObject.ParamFlags.READWRITE,
-    ),
-    "nthreads": (
-      int,
-      "Detector threads",
-      "Number of threads used by the AprilTag detector.",
-      1, 32, 1,
       GObject.ParamFlags.READWRITE,
     ),
     "quad-decimate": (
@@ -85,19 +88,13 @@ class SscapeApriltagDetect(GstBase.BaseTransform):
       1.0, 8.0, 1.0,
       GObject.ParamFlags.READWRITE,
     ),
-    "min-decision-margin": (
-      float,
-      "Minimum decision margin",
-      "Discard detections whose decision margin falls below this value. "
-      "0.0 keeps every detection the decoder accepts.",
-      0.0, 1000.0, 0.0,
-      GObject.ParamFlags.READWRITE,
-    ),
-    "label-prefix": (
+    "category": (
       str,
-      "Detection label prefix",
-      "Prefix prepended to the numeric tag id to form the detection label.",
-      "apriltag_",
+      "Detection category",
+      "GVA region category assigned to every detected tag. All tags share "
+      "this one category; the tag's own id/family ride along as tensor "
+      "attributes so the controller tracks AprilTags with a single tracker.",
+      "apriltag",
       GObject.ParamFlags.READWRITE,
     ),
   }
@@ -111,10 +108,8 @@ class SscapeApriltagDetect(GstBase.BaseTransform):
 
     # Properties (defaults)
     self._tag_family: str = "tag36h11"
-    self._nthreads: int = 1
     self._quad_decimate: float = 1.0
-    self._min_decision_margin: float = 0.0
-    self._label_prefix: str = "apriltag_"
+    self._category: str = "apriltag"
 
     # Runtime state
     self._detector = None
@@ -125,28 +120,20 @@ class SscapeApriltagDetect(GstBase.BaseTransform):
     name = prop.name
     if name == "tag-family":
       return self._tag_family
-    if name == "nthreads":
-      return self._nthreads
     if name == "quad-decimate":
       return self._quad_decimate
-    if name == "min-decision-margin":
-      return self._min_decision_margin
-    if name == "label-prefix":
-      return self._label_prefix
+    if name == "category":
+      return self._category
     raise AttributeError(f"Unknown property {name}")
 
   def do_set_property(self, prop, value):  # pylint: disable=arguments-differ
     name = prop.name
     if name == "tag-family":
       self._tag_family = value or "tag36h11"
-    elif name == "nthreads":
-      self._nthreads = int(value)
     elif name == "quad-decimate":
       self._quad_decimate = float(value)
-    elif name == "min-decision-margin":
-      self._min_decision_margin = float(value)
-    elif name == "label-prefix":
-      self._label_prefix = value if value is not None else ""
+    elif name == "category":
+      self._category = value or "apriltag"
     else:
       raise AttributeError(f"Unknown property {name}")
     # Detector caches its construction args; rebuild on the next buffer.
@@ -170,17 +157,19 @@ class SscapeApriltagDetect(GstBase.BaseTransform):
   def _ensure_detector(self):
     if self._detector is not None:
       return self._detector
-    # Imported lazily so the element still registers when the wheel is absent.
-    from pupil_apriltags import Detector  # pylint: disable=import-outside-toplevel
+    dict_id = APRILTAG_DICTIONARIES.get(self._tag_family)
+    if dict_id is None:
+      raise ValueError(f"Unsupported AprilTag family '{self._tag_family}'")
 
-    self._detector = Detector(
-      families=self._tag_family,
-      nthreads=self._nthreads,
-      quad_decimate=self._quad_decimate,
+    params = cv2.aruco.DetectorParameters()
+    params.cornerRefinementMethod = cv2.aruco.CORNER_REFINE_APRILTAG
+    params.aprilTagQuadDecimate = self._quad_decimate
+    self._detector = cv2.aruco.ArucoDetector(
+      cv2.aruco.getPredefinedDictionary(dict_id), params
     )
     self._log.info(
       f"AprilTag detector ready family={self._tag_family} "
-      f"nthreads={self._nthreads} quad_decimate={self._quad_decimate}"
+      f"quad_decimate={self._quad_decimate}"
     )
     return self._detector
 
@@ -198,7 +187,7 @@ class SscapeApriltagDetect(GstBase.BaseTransform):
           self._unsupported_format_logged = True
         return None
       gray = cv2.cvtColor(raw_frame, conversion)
-    # pupil-apriltags requires a contiguous uint8 buffer it can borrow.
+    # cv2.aruco requires a contiguous uint8 buffer it can borrow.
     return np.ascontiguousarray(gray, dtype=np.uint8)
 
   def _detect_and_attach(self, buffer: Gst.Buffer) -> None:
@@ -208,14 +197,12 @@ class SscapeApriltagDetect(GstBase.BaseTransform):
     if gray is None:
       return
 
-    detections = self._ensure_detector().detect(gray)
+    corners_list, ids, _ = self._ensure_detector().detectMarkers(gray)
     height, width = gray.shape[:2]
     attached = 0
 
-    for tag in detections:
-      if tag.decision_margin < self._min_decision_margin:
-        continue
-      corners = np.asarray(tag.corners, dtype=np.float32)
+    for marker_corners, marker_id in zip(corners_list, [] if ids is None else ids.flatten()):
+      corners = marker_corners.reshape(-1, 2)
       x0, y0 = corners.min(axis=0)
       x1, y1 = corners.max(axis=0)
       # Clamp to the frame; GVA rejects regions that fall outside it.
@@ -223,8 +210,11 @@ class SscapeApriltagDetect(GstBase.BaseTransform):
       y = int(max(0, min(y0, height - 1)))
       w = int(max(1, min(x1, width) - x))
       h = int(max(1, min(y1, height) - y))
+      # Every tag shares one category; extra_params carries its identity
+      # through gvametaconvert instead of a separately-built GVA tensor.
       frame.add_region(
-        x, y, w, h, f"{self._label_prefix}{tag.tag_id}", 1.0, False
+        x, y, w, h, self._category, 1.0, False,
+        extra_params={"tag_id": int(marker_id), "tag_family": self._tag_family},
       )
       attached += 1
 
