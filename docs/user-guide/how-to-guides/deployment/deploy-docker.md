@@ -99,6 +99,12 @@ export COMPOSE_PROFILES=controller,mapping
 docker compose up -d
 ```
 
+## Select the Mapping Model
+
+Each Mapping image contains exactly one 3D reconstruction model, fixed at build time. The `mapping` service in `docker-compose.yml` uses `intel/scenescape-mapping:${VERSION}`, which is MapAnything. To run VGGT, change its `image` to `intel/scenescape-mapping:${VERSION}-vggt`.
+
+The selected variant must exist locally or on Docker Hub. The root `make build-all` builds only the default MapAnything image; build both variants with `make -C mapping build-all` (see [Build Mapping Service from Source](../../microservices/mapping-service/build-from-source.md)).
+
 For more details, see the [Docker Compose profiles documentation](https://docs.docker.com/compose/how-tos/profiles/) and the [COMPOSE_PROFILES environment variable reference](https://docs.docker.com/compose/how-tos/environment-variables/envvars/#compose_profiles).
 
 > **Note:** The `--profile` flags used with `docker compose down` must match those used when starting the services. Otherwise, containers started under a specific profile will remain running.

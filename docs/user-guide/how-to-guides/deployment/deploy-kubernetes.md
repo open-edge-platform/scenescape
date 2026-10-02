@@ -76,6 +76,18 @@ Enable additional chart features by setting these values on `helm upgrade`/`helm
 
 See [How to Enable Re-identification](../../other-topics/how-to-enable-reidentification.md) for ReID backend details, and [Scenescape on Kubernetes](/kubernetes/README.md) for the full chart reference.
 
+### Select the Mapping Model
+
+Each Mapping image contains exactly one 3D reconstruction model, fixed at build time. The chart selects the image tag with `mapping.model`:
+
+| `mapping.model` | Image used                                         |
+| --------------- | -------------------------------------------------- |
+| empty (default) | `intel/scenescape-mapping:<version>` (MapAnything) |
+| `mapanything`   | `intel/scenescape-mapping:<version>-mapanything`   |
+| `vggt`          | `intel/scenescape-mapping:<version>-vggt`          |
+
+The matching variant must be available to the cluster: either pulled from Docker Hub, or built with `make -C mapping build-all` (see [Build Mapping Service from Source](../../microservices/mapping-service/build-from-source.md)) and pushed to the registry set in `repository`. The root `make build-all` builds only the default MapAnything image.
+
 ## Verify
 
 Confirm that workloads and claims become ready:

@@ -46,6 +46,8 @@ Save this password for future logins. You can change the admin password later vi
 - Build, load and restart a single service (e.g. manager): `make -C kubernetes manager`
 - Remove all: `make -C kubernetes clean-all`
 
+The Kind flow loads the default Mapping image (`intel/scenescape-mapping:<version>`, MapAnything). To use VGGT, build it with `make -C mapping build-all`, load it with `make -C kubernetes load-image IMAGE=intel/scenescape-mapping VERSION=<version>-vggt`, and install the chart with `--set mapping.model=vggt`. See [Select the Mapping Model](../docs/user-guide/how-to-guides/deployment/deploy-kubernetes.md#select-the-mapping-model).
+
 ### Tracker + Analytics without demo media
 
 From the repository root, build and deploy the Tracker profile to Kind with Helm:

@@ -34,6 +34,14 @@ To also build the Tracker, Mapping, and Cluster Analytics images (required for t
 make build-all
 ```
 
+`make build-all` builds the Mapping image with the default MapAnything model only. To build both Mapping variants (MapAnything and VGGT), run:
+
+```bash
+make -C mapping build-all
+```
+
+See [Build Mapping Service from Source](../../microservices/mapping-service/build-from-source.md) for the resulting image tags.
+
 ### (Optional) List Image Dependencies
 
 ```bash
@@ -52,7 +60,7 @@ Prebuilt images are published on Docker Hub:
 - [Scenescape Autocalibration](https://hub.docker.com/r/intel/scenescape-autocalibration)
 - [Scenescape Tracker](https://hub.docker.com/r/intel/scenescape-tracker)
 - [Scenescape Cluster Analytics](https://hub.docker.com/r/intel/scenescape-cluster-analytics)
-- [Scenescape Mapping](https://hub.docker.com/r/intel/scenescape-mapping)
+- [Scenescape Mapping](https://hub.docker.com/r/intel/scenescape-mapping): `<version>` and `<version>-mapanything` contain MapAnything; `<version>-vggt` contains VGGT
 
 ### Docker
 

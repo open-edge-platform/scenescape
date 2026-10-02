@@ -63,7 +63,15 @@ spec:
           value: /run/secrets/certs/scenescape-ca.pem
         - name: TRACKER_SCENES_SOURCE
           value: api
-        {{ include "proxy_envs" . | indent 10 }}
+        # Paho MQTT ignores no_proxy; tracker unsets these empty vars at startup (proxy_utils.cpp)
+        - name: http_proxy
+          value: ""
+        - name: https_proxy
+          value: ""
+        - name: HTTP_PROXY
+          value: ""
+        - name: HTTPS_PROXY
+          value: ""
         ports:
         - containerPort: 8080
           name: health
