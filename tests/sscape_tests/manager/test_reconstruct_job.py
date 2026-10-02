@@ -226,3 +226,26 @@ def test_job_puts_a_posed_view_first():
   # Already posed first, or no poses at all: untouched.
   assert MeshGenerator._posedViewFirst(["a", "b"], [{"t": 0}, None], [None, None])[0] == ["a", "b"]
   assert MeshGenerator._posedViewFirst(["a", "b"], [None, None], [None, None])[0] == ["a", "b"]
+
+
+def test_map_frame_keyframes_fall_back_to_heuristic(client, scene):
+  # Legacy handheld bundles carried raw SLAM map-frame poses; registering to
+  # those flips the mesh, so the job must ignore them.
+  up, _ = _keyframes_zip(n=2)
+  with zipfile.ZipFile(up) as src:
+    man = json.loads(src.read("manifest.json"))
+    frames = {n: src.read(n) for n in src.namelist() if n != "manifest.json"}
+  man["frame"] = "map"
+  buf = io.BytesIO()
+  with zipfile.ZipFile(buf, "w") as z:
+    for n, data in frames.items():
+      z.writestr(n, data)
+    z.writestr("manifest.json", json.dumps(man))
+  data = buf.getvalue()
+  buf.seek(0); buf.name = "keyframes.zip"
+  resp = client.put(f"/api/v1/scene/{scene.pk}/mapping-artifacts/keyframes",
+                    {"bundle": buf, "sha256": hashlib.sha256(data).hexdigest()}, format="multipart")
+  assert resp.status_code == 200, resp.content
+
+  from manager.mesh_generator import MeshGenerator
+  assert MeshGenerator()._alignToKeyframes(scene, _fake_result(["kf000000", "kf000001"])) is None

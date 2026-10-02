@@ -618,6 +618,10 @@ class MeshGenerator:
       scene=scene, method="keyframes", head=True).first()
     if artifact is None:
       return None
+    frame = (artifact.manifest or {}).get("frame") or "scene"
+    if frame != "scene":
+      log.warning(f"Keyframe poses are in frame '{frame}', not 'scene'; using XY-plane heuristic")
+      return None
     known = {}
     for cam in (artifact.manifest or {}).get("cameras") or []:
       loc = self._priorLocation(cam) if isinstance(cam, dict) else None
