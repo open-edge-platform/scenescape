@@ -237,7 +237,9 @@ services:
       - CAM_STOP_INDEX=${CAM_STOP_INDEX:-4100}
       - CAM_MODEL=${CAM_MODEL:-/home/pipeline-server/models/omz/person-vehicle-bike-detection-crossroad-1016/FP32/person-vehicle-bike-detection-crossroad-1016.xml}
       - CAM_MODEL_PROC=${CAM_MODEL_PROC:-/home/pipeline-server/videos/radar_intersection/model-proc/person-vehicle-bike-detection-crossroad-1016.json}
-      - CAM_MODEL_INSTANCE_ID=${CAM_MODEL_INSTANCE_ID:-}
+      - CAM_MODEL_INSTANCE_ID=${CAM_MODEL_INSTANCE_ID:-radar-demo-omz}
+      - OMP_NUM_THREADS=${OMP_NUM_THREADS:-2}
+      - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-2}
     volumes:
       - ./sample_data/radar_intersection/runtime/radar_publisher.py:/home/pipeline-server/user_scripts/radar_publisher.py:ro
       - ./sample_data/radar_intersection/runtime/radar_file_playback.py:/home/pipeline-server/user_scripts/radar_file_playback.py:ro

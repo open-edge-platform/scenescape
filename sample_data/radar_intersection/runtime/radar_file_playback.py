@@ -64,13 +64,14 @@ def radar_multifilesrc_parts(
     infer += f" accumulate-past={int(accumulate_past)}"
   parts += [
     "caps=application/octet-stream",
-    # Early non-leaky queue so each radar branch gets its own streaming
-    # thread and multifilesrc blocks to the parse frame-rate (leaky here
-    # would drop frames while g3dlidarparse sleeps).
+    # Early queue for a dedicated streaming thread. frame-rate=0 disables the
+    # g3dlidarparse wall-clock sleep (it under-delivers under CPU load); the
+    # publisher paces MQTT to RADAR_FRAME_RATE. Non-leaky post-infer queue
+    # back-pressures multifilesrc so classical does not spin at max CPU.
     "! queue max-size-buffers=2",
-    f"! g3dlidarparse stride=1 frame-rate={frame_rate} point-features={int(point_features)}",
+    f"! g3dlidarparse stride=1 frame-rate=0 point-features={int(point_features)}",
     infer,
-    "! queue max-size-buffers=8 leaky=downstream",
+    "! queue max-size-buffers=1",
     f"! gvametaconvert add-tensor-data={add_tensor_data} format=json",
     f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(fifo_path)}",
     "! fakesink sync=false",
@@ -104,6 +105,8 @@ def camera_multifilesrc_parts(
     detect += f" model-proc={shlex.quote(str(model_proc).strip())}"
   if model_instance_id:
     detect += f" model-instance-id={shlex.quote(model_instance_id)}"
+    # Parallel infer slots so shared-instance multi-cam does not serialize to <<10 fps.
+    detect += " nireq=4"
   # GPU path (dlstreamer-coding-agent): HW JPEG decode + vapostproc, let
   # caps/memory auto-negotiate. Avoid jpegdec/videoconvert/BGR which force
   # sysmem and GPU↔CPU copies. Rank(vajpegdec)=none so name it explicitly.
@@ -114,6 +117,8 @@ def camera_multifilesrc_parts(
       "! vajpegdec",
       "! vapostproc",
       f"! gvafpsthrottle target-fps={frame_rate}",
+      # Non-leaky queue so each cam branch runs on its own streaming thread.
+      "! queue max-size-buffers=2",
     ]
   else:
     decode = [
@@ -122,6 +127,7 @@ def camera_multifilesrc_parts(
       "! videoconvert",
       "! video/x-raw,format=BGR",
       f"! gvafpsthrottle target-fps={frame_rate}",
+      "! queue max-size-buffers=2",
     ]
   parts += decode + [
     detect,
