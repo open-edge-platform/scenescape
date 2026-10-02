@@ -366,8 +366,13 @@ class SceneReconstructView(APIView):
       max_images = int(max_images) if max_images not in (None, "") else None
     except ValueError:
       return Response({"error": "max_images must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
+    use_priors = request.data.get("use_priors")
+    if use_priors not in (None, ""):
+      use_priors = _truthy(use_priors)
+    else:
+      use_priors = None
     try:
-      result = generator.startReconstructionFromKeyframes(scene, mesh_type, max_images)
+      result = generator.startReconstructionFromKeyframes(scene, mesh_type, max_images, use_priors)
     except Exception as exc:  # noqa: BLE001 - surfaced to the caller
       log.error("Reconstruction start failed", scene.pk, str(exc))
       return Response({"success": False, "error": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)

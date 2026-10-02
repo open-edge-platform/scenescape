@@ -77,8 +77,9 @@ def _fake_result(cam_ids):
     "success": True, "state": "complete",
     "result": {
       "success": True, "glb_data": glb, "processing_time": 4.2,
-      "camera_poses": [{"camera_id": c, "rotation": [0, 0, 0, 1],
-                        "translation": [i, 0, 1.5]} for i, c in enumerate(cam_ids)],
+      # Model frame: scene scaled x2 and shifted (selected frames kf0/kf2 sit 2 m apart).
+      "camera_poses": [{"camera_id": c, "rotation": [0, 0.7071, 0, 0.7071],
+                        "translation": [4 * i + 10, 0, 3.0]} for i, c in enumerate(cam_ids)],
       "intrinsics": [{"camera_id": c, "K": [[600, 0, 320], [0, 600, 240], [0, 0, 1]]} for c in cam_ids],
     },
   }
@@ -103,18 +104,29 @@ def test_keyframes_upload_then_reconstruct_yields_candidate(client, scene):
     return {"success": True, "request_id": "abc123", "state": "processing"}
 
   with patch("manager.mesh_generator.MappingServiceClient.startReconstructMesh", side_effect=fake_start), \
-       patch("manager.mesh_generator.MappingServiceClient.checkHealth", return_value={"available": True, "models": {}}):
+       patch("manager.mesh_generator.MappingServiceClient.checkHealth",
+             return_value={"available": True, "model": "mapanything",
+                           "models": {"available": ["mapanything"], "active": "mapanything"}}):
     resp = client.post(f"/api/v1/scene/{scene.pk}/reconstruct", {"max_images": 2}, format="json")
   assert resp.status_code == 202, resp.content
   assert resp.json()["request_id"] == "abc123"
   assert resp.json()["method"] == "mapanything"
   assert submitted["n_images"] == 2 and len(submitted["order"]) == 2
-  # Manifest and service both use xyzw; passed through unchanged.
+  # Default: images only. Priors fragment MapAnything's geometry; the known
+  # poses are used to align the result afterwards instead.
+  assert submitted["locations"] == [None, None]
+  assert submitted["intrinsics"] == []
+  assert resp.json()["priors"] == {"poses": 0, "intrinsics": 0}
+
+  # Opt-in priors still work and keep the manifest's xyzw order.
+  with patch("manager.mesh_generator.MappingServiceClient.startReconstructMesh", side_effect=fake_start), \
+       patch("manager.mesh_generator.MappingServiceClient.checkHealth", return_value={"available": True, "models": {}}):
+    resp2 = client.post(f"/api/v1/scene/{scene.pk}/reconstruct",
+                        {"max_images": 2, "use_priors": True}, format="json")
+  assert resp2.status_code == 202, resp2.content
   assert submitted["locations"][0]["rotation"] == [0.0, 0.7071, 0.0, 0.7071]
-  # Intrinsics priors go along, in pixels of the uploaded (uncropped) image.
-  assert submitted["intrinsics"][0] == {"fx": 600.0, "fy": 600.0, "cx": 320.0, "cy": 240.0,
-                                        "width": 640, "height": 480}
-  assert resp.json()["priors"] == {"poses": 2, "intrinsics": 2}
+  assert submitted["intrinsics"][0]["fx"] == 600.0
+  assert resp2.json()["priors"] == {"poses": 2, "intrinsics": 2}
 
   with patch("manager.mesh_generator.MappingServiceClient.getReconstructionStatus",
              return_value=_fake_result(submitted["order"])):
@@ -129,6 +141,14 @@ def test_keyframes_upload_then_reconstruct_yields_candidate(client, scene):
   assert len(cams) == 2 and all(c["kind"] == "proposed" for c in cams)
   assert cams[0]["intrinsics"]["fx"] == 600.0
   assert art["manifest"]["source"]["request_id"] == "abc123"
+  # Registered to the keyframe poses: proposed cameras land where SLAM had them.
+  align = art["manifest"]["stats"]["alignment"]
+  assert align["method"] == "sim3_keyframes" and align["pairs"] == 2
+  assert abs(align["scale"] - 0.5) < 1e-3
+  assert align["residual_max_m"] < 1e-6
+  by_id = {c["id"]: c for c in cams}
+  assert np.allclose(by_id[submitted["order"][0]]["translation"], [0.0, 0.0, 1.5], atol=1e-6)
+  assert np.allclose(by_id[submitted["order"][1]]["translation"], [2.0, 0.0, 1.5], atol=1e-6)
 
   # Candidate only: default map unchanged, both artifacts live.
   scene.refresh_from_db()

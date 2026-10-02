@@ -546,12 +546,18 @@ class MeshGenerator:
       except Exception:
         pass
 
-  def startReconstructionFromKeyframes(self, scene, mesh_type="mesh", max_images=None):
+  def startReconstructionFromKeyframes(self, scene, mesh_type="mesh", max_images=None,
+                                       use_priors=None):
     """Submit the scene's ``keyframes`` artifact to the mapping service.
 
-    Keyframe poses and intrinsics from the artifact manifest are passed as
-    priors. Returns the service response (``request_id`` for polling).
+    By default the model sees images only: conditioning MapAnything on our
+    SLAM poses/intrinsics measurably fragments its geometry, so the known
+    camera poses are used afterwards (finalize) to register the result into
+    the scene frame instead. ``use_priors=True`` (or env
+    ``MAPPING_USE_PRIORS=1``) sends them anyway for experiments.
     """
+    if use_priors is None:
+      use_priors = os.environ.get("MAPPING_USE_PRIORS", "").strip().lower() in ("1", "true", "yes")
     from manager.models import SceneMappingArtifact
     artifact = SceneMappingArtifact.objects.filter(
       scene=scene, method="keyframes", head=True).first()
@@ -581,10 +587,14 @@ class MeshGenerator:
         intrinsics.append(self._priorIntrinsics(cam))
     if not order:
       return {"success": False, "error": "No readable keyframe images"}
-    # Priors are per view; images without them (e.g. scene cameras) are
-    # reconstructed unconditioned. MapAnything anchors the world frame on
-    # view 0, so put a frame with a pose first when there is one.
-    order, locations, intrinsics = self._posedViewFirst(order, locations, intrinsics)
+    if use_priors:
+      # Priors are per view; images without them (e.g. scene cameras) are
+      # reconstructed unconditioned. MapAnything anchors the world frame on
+      # view 0, so put a frame with a pose first when there is one.
+      order, locations, intrinsics = self._posedViewFirst(order, locations, intrinsics)
+    else:
+      locations = [None] * len(order)
+      intrinsics = [None] * len(order)
     n_pose = sum(1 for v in locations if v is not None)
     n_intr = sum(1 for v in intrinsics if v is not None)
 
@@ -595,6 +605,53 @@ class MeshGenerator:
     result["images"] = len(order)
     result["keyframes_artifact"] = str(artifact.id)
     return result
+
+  def _alignToKeyframes(self, scene, mapping_result):
+    """Fit scene<-model from returned camera poses vs the keyframes artifact.
+
+    Returns ``{"scene_T_model", "summary"}`` or None when fewer than two
+    returned cameras match keyframes with poses.
+    """
+    from manager.models import SceneMappingArtifact
+    from manager import scene_align
+    artifact = SceneMappingArtifact.objects.filter(
+      scene=scene, method="keyframes", head=True).first()
+    if artifact is None:
+      return None
+    known = {}
+    for cam in (artifact.manifest or {}).get("cameras") or []:
+      loc = self._priorLocation(cam) if isinstance(cam, dict) else None
+      if loc is not None:
+        known[re.sub(r"[^a-zA-Z0-9_-]", "_", str(cam.get("id")))[:64]] = loc
+    scene_poses, model_poses, ids = [], [], []
+    for pose in mapping_result.get("camera_poses") or []:
+      if not isinstance(pose, dict):
+        continue
+      cid = str(pose.get("camera_id"))
+      if cid not in known:
+        continue
+      try:
+        model_poses.append(scene_align.pose_matrix(pose["translation"], pose["rotation"]))
+        scene_poses.append(scene_align.pose_matrix(known[cid]["translation"], known[cid]["rotation"]))
+        ids.append(cid)
+      except (KeyError, TypeError, ValueError):
+        continue
+    if len(ids) < 2:
+      log.warning(f"Reconstruction alignment: only {len(ids)} pose pairs; using XY-plane heuristic")
+      return None
+    T = scene_align.estimate_scene_T_model(scene_poses, model_poses)
+    res = scene_align.residuals(T, scene_poses, model_poses)
+    summ = scene_align.summary(T)
+    summ.update({
+      "method": "sim3_keyframes",
+      "pairs": len(ids),
+      "residual_median_m": float(np.median(res)),
+      "residual_max_m": float(np.max(res)),
+    })
+    log.info(f"Reconstruction aligned to keyframes: scale={summ['scale']:.3f} "
+             f"rot={summ['rotation_deg']:.1f}deg pairs={len(ids)} "
+             f"residual median={summ['residual_median_m']:.3f} m max={summ['residual_max_m']:.3f} m")
+    return {"scene_T_model": T, "summary": summ}
 
   @staticmethod
   def _posedViewFirst(order, locations, intrinsics):
@@ -673,7 +730,13 @@ class MeshGenerator:
       return {"success": False, "error": connectivity_error}
 
     method = method or self.reconstructionMethod()
-    aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
+    alignment = self._alignToKeyframes(scene, mapping_result)
+    if alignment is not None:
+      merged_mesh.apply_transform(alignment["scene_T_model"])
+      aligned_mesh = merged_mesh
+      mesh_transform = {"scene_T_model": alignment["scene_T_model"]}
+    else:
+      aligned_mesh, mesh_transform = self.alignMeshToXYPlane(merged_mesh)
     glb_bytes = aligned_mesh.export(file_type='glb')
     cameras = self._proposedCameras(mapping_result, mesh_transform)
     manifest = {
@@ -690,6 +753,7 @@ class MeshGenerator:
       "stats": {
         "processing_time": mapping_result.get("processing_time"),
         "cameras": len(cameras),
+        "alignment": (alignment or {}).get("summary") or {"method": "xy_plane_heuristic"},
       },
     }
     reconstruction = {k: v for k, v in mapping_result.items() if k != "glb_data"}
@@ -703,8 +767,9 @@ class MeshGenerator:
     if configured:
       return configured
     try:
-      models = (self.mapping_client.checkHealth() or {}).get("models") or {}
-      name = next(iter(models), "") if isinstance(models, dict) else ""
+      health = self.mapping_client.checkHealth() or {}
+      models = health.get("models") or {}
+      name = (models.get("active") if isinstance(models, dict) else None) or health.get("model") or ""
     except Exception:  # noqa: BLE001 - health is advisory
       name = ""
     slug = re.sub(r"[^a-z0-9_-]", "", str(name).lower())
@@ -763,6 +828,10 @@ class MeshGenerator:
     """Apply the mesh alignment transform to one camera pose."""
     if mesh_transform is None:
       return position, quat_xyzw
+    if "scene_T_model" in mesh_transform:
+      from manager.scene_align import apply_to_pose, pose_matrix
+      t, q = apply_to_pose(mesh_transform["scene_T_model"], pose_matrix(position, quat_xyzw))
+      return np.asarray(t), np.asarray(q)
     rotation_matrix = np.asarray(mesh_transform['rotation_matrix'], dtype=float)
     translation = np.asarray(mesh_transform['translation'], dtype=float)
     center_offset = np.asarray(mesh_transform['center_offset'], dtype=float)
