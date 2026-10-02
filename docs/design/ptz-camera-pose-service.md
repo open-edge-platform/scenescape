@@ -67,14 +67,14 @@ runtime path that changes a camera's effective pose between detections.
 These are measured findings from real hardware, not assumptions, and should seed the new
 service's calibration model rather than be re-derived:
 
-| Finding | Detail |
-|---|---|
-| ONVIF position units are not degrees | `GetStatus` commonly reports a normalized, vendor-defined range. A degrees-per-unit scale (or better, a per-axis polynomial curve) must be derived from the camera's own advertised `AbsolutePanTiltPositionSpace` range, or configured from a datasheet FOV as a fallback. A `"Generic"`-URI or narrow-range space cannot be trusted as literal degrees. |
-| Axis travel is non-linear | Measured tilt scale varied 53.8–60.6°/unit across the travel on the development camera; a single constant scale under/overshoots at the ends. A low-order polynomial per axis fit this well. |
-| Mechanical backlash is real and asymmetric per axis | 2.83° of slack measured on tilt, ~0 on pan, varying across the travel. The *reported* position lags the *physical* one by up to half the slack depending on direction of last travel. |
-| The pan axis is not perfectly vertical | Measured ~7° lean on the development camera. No scale or curve correction fixes this — the resulting error grows with the pan angle. Modeling pan as a rotation about the camera's actual (measured) pan axis, not world `Z`, removes it. |
-| Euler-angle addition is wrong | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changes all three Euler components (PoC measured roll −14°, pitch +34°, yaw +20° for one move). Adding the pan delta to yaw alone produced ~18° of error; composing full rotation matrices (`R_new = R_pan(axis, Δpan) · R_home · Rx(Δtilt)`) reduced that to ~1.8°. |
-| Lever arm is negligible | Modeling the offset between the rotation axes and the optical center improved reprojection accuracy by only 0.13 px on the development camera and produced a physically implausible fitted value. Treating the camera as rotating about its own center is an acceptable simplification. |
+| Finding                                             | Detail                                                                                                                                                                                                                                                                                                                                                    |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ONVIF position units are not degrees                | `GetStatus` commonly reports a normalized, vendor-defined range. A degrees-per-unit scale (or better, a per-axis polynomial curve) must be derived from the camera's own advertised `AbsolutePanTiltPositionSpace` range, or configured from a datasheet FOV as a fallback. A `"Generic"`-URI or narrow-range space cannot be trusted as literal degrees. |
+| Axis travel is non-linear                           | Measured tilt scale varied 53.8–60.6°/unit across the travel on the development camera; a single constant scale under/overshoots at the ends. A low-order polynomial per axis fit this well.                                                                                                                                                              |
+| Mechanical backlash is real and asymmetric per axis | 2.83° of slack measured on tilt, ~0 on pan, varying across the travel. The _reported_ position lags the _physical_ one by up to half the slack depending on direction of last travel.                                                                                                                                                                     |
+| The pan axis is not perfectly vertical              | Measured ~7° lean on the development camera. No scale or curve correction fixes this — the resulting error grows with the pan angle. Modeling pan as a rotation about the camera's actual (measured) pan axis, not world `Z`, removes it.                                                                                                                 |
+| Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changes all three Euler components (PoC measured roll −14°, pitch +34°, yaw +20° for one move). Adding the pan delta to yaw alone produced ~18° of error; composing full rotation matrices (`R_new = R_pan(axis, Δpan) · R_home · Rx(Δtilt)`) reduced that to ~1.8°.                 |
+| Lever arm is negligible                             | Modeling the offset between the rotation axes and the optical center improved reprojection accuracy by only 0.13 px on the development camera and produced a physically implausible fitted value. Treating the camera as rotating about its own center is an acceptable simplification.                                                                   |
 
 ### Why the PoC's write path is rejected
 
@@ -90,7 +90,7 @@ the existing calibration UI, but is the wrong integration point for a production
   depends on — recoverable only via the PoC's own rebaseline heuristic.
 - It couples pose freshness to REST write latency and Manager availability, on what
   should be a sub-frame-period hot path.
-- There is no record of *when* a given pose was valid relative to a given detection
+- There is no record of _when_ a given pose was valid relative to a given detection
   frame — exactly the timestamp/sequence gap identified earlier for PTZ support
   in general.
 
@@ -250,7 +250,12 @@ Example valid message:
     "frame_id": "scene:main",
     "transform_direction": "scene_from_camera",
     "matrix_layout": "row_major",
-    "matrix_4x4": [[1,0,0,0],[0,1,0,0],[0,0,1,4],[0,0,0,1]],
+    "matrix_4x4": [
+      [1, 0, 0, 0],
+      [0, 1, 0, 0],
+      [0, 0, 1, 4],
+      [0, 0, 0, 1]
+    ],
     "translation_unit": "m"
   },
   "motion_state": "stationary",
@@ -364,10 +369,10 @@ tests only, not as production service configuration.
 
 Both existing MOT paths consume PoseContext; neither hosts the Resolver:
 
-| Profile | Projection point | v1 integration |
-|---|---|---|
-| Legacy Controller MOT | `Scene.processCameraData()` before in-process tracking | Subscribe to resolved pose topic, maintain a bounded per-camera pose buffer, and build a short-lived projection pose from PoseContext plus static home intrinsics/distortion. Do not mutate stored `camera.pose`. |
-| Tracker MOT | `CoordinateTransformer` before C++ MOT | Subscribe to the same resolved pose topic and apply the resolved transform to the per-camera transformer/input batch before association. Preserve the same timestamp, validity, age, and motion-state gates as Controller. |
+| Profile               | Projection point                                       | v1 integration                                                                                                                                                                                                             |
+| --------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Legacy Controller MOT | `Scene.processCameraData()` before in-process tracking | Subscribe to resolved pose topic, maintain a bounded per-camera pose buffer, and build a short-lived projection pose from PoseContext plus static home intrinsics/distortion. Do not mutate stored `camera.pose`.          |
+| Tracker MOT           | `CoordinateTransformer` before C++ MOT                 | Subscribe to the same resolved pose topic and apply the resolved transform to the per-camera transformer/input batch before association. Preserve the same timestamp, validity, age, and motion-state gates as Controller. |
 
 The topic payload is the shared contract; each consumer may have a language-specific
 value type. Both paths have independent feature flags and first run in shadow mode. Shadow
@@ -445,49 +450,49 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 7. Risks and Mitigations
 
-| Risk | Mitigation |
-|---|---|
-| ONVIF position space misidentified as degrees (wrong vendor/firmware) | Resolver validates the reported position-space URI/ranges and calibration version; do not infer degrees from a generic or narrow normalized range. Missing measured calibration fails closed. |
-| Backlash/curve/pan-axis miscalibrated for a physical camera | Require the PoC measurement procedure for each supported camera; record reprojection residual and calibration version; reject uncalibrated settings rather than silently use scale defaults. |
-| Clock/timestamp drift between Adapter and consumers | Shared NTP synchronization; midpoint timestamp plus measured half-round-trip uncertainty; all consumers check pose age; `rewrite_all_time` is prohibited for PTZ scenes. |
-| Out-of-order, repeated, malformed, or unauthorized gRPC samples | mTLS camera authorization, per-adapter sequence validation, timestamp/range checks, finite-number validation, explicit acknowledgements, and rejection metrics. |
-| Stale retained pose after Adapter, Resolver, or camera outage | Resolver publishes invalid state on sample timeout; consumers independently enforce max pose age; Resolver has separate MQTT status/LWT. No consumer treats retained delivery as proof of freshness. |
-| Controller and Tracker apply different pose semantics | Shared resolved schema and conformance fixtures; identical validity/motion/age gates; profile-specific shadow and release gates. |
-| Manager calibration changes while Resolver holds cached configuration | Camera-scoped invalidation notification followed by read-only reload; failed reload invalidates pose; periodic refresh is recovery only. |
-| Translation changes due to real PTZ mechanism | v1 explicitly holds translation fixed (rotation about optical center); this assumption is documented and validated per supported hardware. |
-| Zoom later changes intrinsics or distortion | Zoom remains a non-goal; protobuf optional field and `schema_version` allow evolution, but consumers ignore zoom until a separate calibration design exists. |
+| Risk                                                                  | Mitigation                                                                                                                                                                                           |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ONVIF position space misidentified as degrees (wrong vendor/firmware) | Resolver validates the reported position-space URI/ranges and calibration version; do not infer degrees from a generic or narrow normalized range. Missing measured calibration fails closed.        |
+| Backlash/curve/pan-axis miscalibrated for a physical camera           | Require the PoC measurement procedure for each supported camera; record reprojection residual and calibration version; reject uncalibrated settings rather than silently use scale defaults.         |
+| Clock/timestamp drift between Adapter and consumers                   | Shared NTP synchronization; midpoint timestamp plus measured half-round-trip uncertainty; all consumers check pose age; `rewrite_all_time` is prohibited for PTZ scenes.                             |
+| Out-of-order, repeated, malformed, or unauthorized gRPC samples       | mTLS camera authorization, per-adapter sequence validation, timestamp/range checks, finite-number validation, explicit acknowledgements, and rejection metrics.                                      |
+| Stale retained pose after Adapter, Resolver, or camera outage         | Resolver publishes invalid state on sample timeout; consumers independently enforce max pose age; Resolver has separate MQTT status/LWT. No consumer treats retained delivery as proof of freshness. |
+| Controller and Tracker apply different pose semantics                 | Shared resolved schema and conformance fixtures; identical validity/motion/age gates; profile-specific shadow and release gates.                                                                     |
+| Manager calibration changes while Resolver holds cached configuration | Camera-scoped invalidation notification followed by read-only reload; failed reload invalidates pose; periodic refresh is recovery only.                                                             |
+| Translation changes due to real PTZ mechanism                         | v1 explicitly holds translation fixed (rotation about optical center); this assumption is documented and validated per supported hardware.                                                           |
+| Zoom later changes intrinsics or distortion                           | Zoom remains a non-goal; protobuf optional field and `schema_version` allow evolution, but consumers ignore zoom until a separate calibration design exists.                                         |
 
 ## 8. Rollout / Migration Plan
 
 1. **Contracts and math** — add the versioned `.proto` to a shared API package (for
-  example `scene_common/proto/` or top-level `api/`), generate the Python Adapter and
-  Resolver bindings from it, and publish the `.proto` plus v1 compatibility policy for
-  Sensor Manager consumers. Define the resolved MQTT JSON schema/topic, `PoseContext`
-  value type, and matrix-composition math. Add API/schema compatibility tests and port
-  the validated PoC math as library-level tests.
+   example `scene_common/proto/` or top-level `api/`), generate the Python Adapter and
+   Resolver bindings from it, and publish the `.proto` plus v1 compatibility policy for
+   Sensor Manager consumers. Define the resolved MQTT JSON schema/topic, `PoseContext`
+   value type, and matrix-composition math. Add API/schema compatibility tests and port
+   the validated PoC math as library-level tests.
 2. **Adapter** — implement ONVIF polling → raw gRPC `SubmitPTZSample` only. Verify
-  timestamp uncertainty, units/position-space metadata, sequence/restart behavior,
-  mTLS identity, bounded retry, and secret handling.
+   timestamp uncertainty, units/position-space metadata, sequence/restart behavior,
+   mTLS identity, bounded retry, and secret handling.
 3. **Resolver** — deploy as a separate process; read home pose and `ptz_calibration`
-  from Manager; maintain per-camera motion/backlash state; publish valid/invalid
-  PoseContext messages. Validate configuration invalidation and single-writer ownership.
+   from Manager; maintain per-camera motion/backlash state; publish valid/invalid
+   PoseContext messages. Validate configuration invalidation and single-writer ownership.
 4. **Shadow mode, Controller profile** — Controller subscribes and computes candidate
-  dynamic projection without feeding legacy MOT. Record per-frame pose sequence,
-  calibration version, age, quality, and projection residual.
+   dynamic projection without feeding legacy MOT. Record per-frame pose sequence,
+   calibration version, age, quality, and projection residual.
 5. **Shadow mode, Tracker profile** — independently verify its C++ `CoordinateTransformer`
-  applies the same resolved transform and gates. Do not run duplicate active MOT
-  publishers for one scene/lease to compare profiles.
+   applies the same resolved transform and gates. Do not run duplicate active MOT
+   publishers for one scene/lease to compare profiles.
 6. **Feature-flagged projection** — enable dynamic projection separately for each MOT
-  profile after that profile passes its shadow exit criteria. Keep static-pose fallback
-  and immediate disable/rollback.
+   profile after that profile passes its shadow exit criteria. Keep static-pose fallback
+   and immediate disable/rollback.
 7. **Validation and default-on** — use the PoC reprojection methodology, stationary
-  targets, both movement directions, measured backlash/axis calibration, sample loss,
-  jitter, stale pose, and adapter/resolver restart. Enable by deployment only after the
-  spatial-error budget and latency gates below are met.
+   targets, both movement directions, measured backlash/axis calibration, sample loss,
+   jitter, stale pose, and adapter/resolver restart. Enable by deployment only after the
+   spatial-error budget and latency gates below are met.
 8. **Future evolution** — a Sensor Manager may replace the ONVIF Adapter by implementing
-  the same gRPC input API. Later, the Resolver may be absorbed into the full ADR 13
-  Positioning Service; projection-facing MQTT contract remains stable. gRPC
-  `getPose(id, when)` is a separate future interface, not part of v1.
+   the same gRPC input API. Later, the Resolver may be absorbed into the full ADR 13
+   Positioning Service; projection-facing MQTT contract remains stable. gRPC
+   `getPose(id, when)` is a separate future interface, not part of v1.
 
 ## 9. Testing & Monitoring
 
