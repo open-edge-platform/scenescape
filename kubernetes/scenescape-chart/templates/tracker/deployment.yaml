@@ -1,0 +1,116 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.tracker.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-tracker
+  labels:
+    app: {{ .Release.Name }}-tracker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-tracker
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-tracker
+        {{ include "releaseLabels" . | indent 8 }}
+    spec:
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      initContainers:
+      - name: wait-for-broker-initcontainer
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
+        command: ["/bin/sh", "-c", "until nc -vz broker.{{ .Release.Namespace }}.svc.cluster.local 1883; do sleep 1; done"]
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
+      - name: wait-for-web-initcontainer
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
+        command: ["/bin/sh", "-c", "until wget -q --spider http://web.{{ .Release.Namespace }}.svc.cluster.local; do sleep 1; done"]
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
+      containers:
+      - name: {{ .Release.Name }}-tracker
+        image: {{ .Values.repository }}/{{ .Values.tracker.image }}:{{ .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.tracker.pullPolicy }}
+        env:
+        - name: TRACKER_LOG_LEVEL
+          value: {{ .Values.tracker.logLevel | quote }}
+        - name: TRACKER_MQTT_HOST
+          value: broker.{{ .Release.Namespace }}.svc.cluster.local
+        - name: TRACKER_MQTT_PORT
+          value: "1883"
+        - name: TRACKER_MQTT_INSECURE
+          value: "false"
+        - name: TRACKER_MQTT_TLS_CA_CERT
+          value: /run/secrets/certs/scenescape-ca.pem
+        - name: TRACKER_MQTT_TLS_VERIFY_SERVER
+          value: "true"
+        - name: TRACKER_MANAGER_URL
+          value: https://web.{{ .Release.Namespace }}.svc.cluster.local
+        - name: TRACKER_MANAGER_AUTH_PATH
+          value: /run/secrets/controller.auth
+        - name: TRACKER_MANAGER_CA_CERT_PATH
+          value: /run/secrets/certs/scenescape-ca.pem
+        - name: TRACKER_SCENES_SOURCE
+          value: api
+        # Paho MQTT ignores no_proxy; tracker unsets these empty vars at startup (proxy_utils.cpp)
+        - name: http_proxy
+          value: ""
+        - name: https_proxy
+          value: ""
+        - name: HTTP_PROXY
+          value: ""
+        - name: HTTPS_PROXY
+          value: ""
+        ports:
+        - containerPort: 8080
+          name: health
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: health
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: health
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        securityContext:
+          {{ include "defaultContainerSecurityContext" . | indent 10 }}
+        resources:
+          {{- toYaml .Values.tracker.resources | nindent 10 }}
+        volumeMounts:
+        - mountPath: /run/secrets/certs/scenescape-ca.pem
+          name: certs
+          readOnly: true
+          subPath: scenescape-ca.pem
+        - mountPath: /run/secrets/controller.auth
+          name: controller-auth
+          readOnly: true
+          subPath: controller.auth
+      restartPolicy: Always
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      volumes:
+      {{ include "certs_volume" . | indent 6 }}
+      - name: controller-auth
+        secret:
+          secretName: {{ .Release.Name }}-controller.auth
+{{- end }}
