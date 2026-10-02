@@ -6,7 +6,6 @@
 These tests assert the tags reach MQTT as normal detections.
 """
 
-import re
 import time
 
 import pytest
@@ -27,26 +26,24 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 CAMERA_ID = "atag-qcam1"
 
-APRILTAG_CATEGORY = re.compile(r"^apriltag_(\d+)$")
+APRILTAG_CATEGORY = "apriltag"
 PERSON_CATEGORY = "person"
 
-EXPECTED_TAGS = {
-  "apriltag_100", "apriltag_101", "apriltag_102",
-  "apriltag_103", "apriltag_104", "apriltag_105"
-}
+EXPECTED_TAGS = {100, 101, 102, 103, 104, 105}
+
 
 DETECTION_WAIT_S = 90
 COLLECT_WINDOW_S = 30
 POLL_INTERVAL_S = 0.5
 
 
-def _apriltag_categories(frame):
-  """! Return the AprilTag category names present in a camera frame.
+def _apriltag_detections(frame):
+  """! Return the AprilTag detections present in a camera frame.
 
   @param    frame   Decoded DATA_CAMERA payload.
-  @return   set of category names matching `apriltag_<id>`.
+  @return   list of detection dicts under the `apriltag` category.
   """
-  return {c for c in frame.get('objects', {}) if APRILTAG_CATEGORY.match(c)}
+  return frame.get('objects', {}).get(APRILTAG_CATEGORY, [])
 
 
 def _collect_frames(tester, camera_id, window_s):
@@ -114,7 +111,7 @@ def test_apriltag_detections_published(result_recorder, mqtt_tester):
   @param    mqtt_tester       ServiceMqttTest subscribed to all cameras.
   """
   frame = _wait_for_frame(
-    mqtt_tester, CAMERA_ID, lambda f: bool(_apriltag_categories(f)),
+    mqtt_tester, CAMERA_ID, lambda f: bool(_apriltag_detections(f)),
     DETECTION_WAIT_S,
   )
   assert frame is not None, (
@@ -126,13 +123,12 @@ def test_apriltag_detections_published(result_recorder, mqtt_tester):
   people = 0
 
   for frame in frames:
-    for category in _apriltag_categories(frame):
-      tags.add(category)
-      for detection in frame['objects'][category]:
-        assert detection['category'] == category
-        assert 0.0 < detection['confidence'] <= 1.0, (
-          f"{category} confidence out of range: {detection['confidence']}"
-        )
+    for detection in _apriltag_detections(frame):
+      assert detection['category'] == APRILTAG_CATEGORY
+      assert 0.0 < detection['confidence'] <= 1.0, (
+        f"apriltag confidence out of range: {detection['confidence']}"
+      )
+      tags.add(detection['tag_id'])
     for detection in frame.get('objects', {}).get(PERSON_CATEGORY, []):
       people += 1
       assert 0.0 < detection['confidence'] <= 1.0
