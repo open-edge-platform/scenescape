@@ -258,6 +258,30 @@
         }
       }
     },
+    "external_sources": {
+      "type": "object",
+      "description": "Bindings and trust configuration for unified external-source ingestion",
+      "properties": {
+        "bindings": {
+          "type": "object",
+          "description": "Publisher IDs mapped to scene IDs that should ingest their observations",
+          "additionalProperties": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "minItems": 1,
+            "uniqueItems": true
+          }
+        },
+        "trusted_positioning_sources": {
+          "type": "array",
+          "description": "Source IDs authorized to publish poses in scene-local coordinates",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true,
+          "default": []
+        }
+      },
+      "additionalProperties": false
+    },
     "scenes": {
       "type": "object",
       "description": "Scene configuration source. Use 'api' (default) to fetch scenes dynamically from Manager REST API (requires infrastructure.manager). Use 'file' to load scenes from an external JSON file.",

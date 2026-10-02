@@ -28,6 +28,9 @@ protected:
         server_.Get("/api/v1/scenes", [this](const httplib::Request& req, httplib::Response& res) {
             scenes_handler(req, res);
         });
+        server_.Get("/media/map.png", [this](const httplib::Request& req, httplib::Response& res) {
+            resource_handler(req, res);
+        });
 
         // Listen on ephemeral port on localhost
         port_ = server_.bind_to_any_port("127.0.0.1");
@@ -62,6 +65,11 @@ protected:
     std::function<void(const httplib::Request&, httplib::Response&)> scenes_handler =
         [](const httplib::Request&, httplib::Response& res) {
             res.set_content(R"({"results":[]})", "application/json");
+        };
+
+    std::function<void(const httplib::Request&, httplib::Response&)> resource_handler =
+        [](const httplib::Request&, httplib::Response& res) {
+            res.set_content("map-bytes", "application/octet-stream");
         };
 
     httplib::Server server_;
@@ -228,6 +236,26 @@ TEST_F(ManagerRestClientTest, FetchScenesPassesAuthHeader) {
     client.fetchScenes();
 
     EXPECT_EQ(captured_auth, "Token test-token-123");
+}
+
+TEST_F(ManagerRestClientTest, FetchResourceUsesAuthenticatedManagerOrigin) {
+    std::string authorization;
+    resource_handler = [&](const httplib::Request& request, httplib::Response& response) {
+        authorization = request.get_header_value("Authorization");
+        response.set_content("map-bytes", "application/octet-stream");
+    };
+    ManagerRestClient client(base_url_);
+    client.authenticate("admin", "password");
+
+    EXPECT_EQ(client.fetchResource(base_url_ + "/media/map.png"), "map-bytes");
+    EXPECT_EQ(authorization, "Token test-token-123");
+}
+
+TEST_F(ManagerRestClientTest, FetchResourceRejectsDifferentOrigin) {
+    ManagerRestClient client(base_url_);
+    client.authenticate("admin", "password");
+
+    EXPECT_THROW(client.fetchResource("http://example.com/media/map.png"), std::runtime_error);
 }
 
 // ===== fetchScenes() — error cases =====

@@ -48,6 +48,10 @@
     "non_measurement_time_dynamic_s": 0.8,
     "non_measurement_time_static_s": 1.6
   },
+  "external_sources": {
+    "bindings": {},
+    "trusted_positioning_sources": []
+  },
   "scenes": {
     "source": "api"
   }

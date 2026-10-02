@@ -163,4 +163,39 @@ std::string ManagerRestClient::fetchScenes() {
     return result->body;
 }
 
+std::string ManagerRestClient::fetchResource(const std::string& resource_url) {
+    if (token_.empty()) {
+        throw std::runtime_error("Manager API not authenticated — call authenticate() first");
+    }
+
+    const auto [manager_origin, manager_prefix] = parse_url(url_);
+    std::string resource_path;
+    if (resource_url.starts_with("/")) {
+        resource_path = resource_url;
+    } else {
+        const auto [resource_origin, parsed_path] = parse_url(resource_url);
+        if (resource_origin != manager_origin) {
+            throw std::runtime_error("Refusing to fetch map resource from a different origin");
+        }
+        resource_path = parsed_path;
+    }
+    if (resource_path.empty() || !resource_path.starts_with("/")) {
+        throw std::runtime_error("Invalid Manager map resource path");
+    }
+
+    auto client =
+        create_http_client(manager_origin, ca_cert_path_, connect_timeout_, read_timeout_);
+    httplib::Headers headers = {{"Authorization", "Token " + token_}};
+    auto result = client.Get(resource_path, headers);
+    if (!result) {
+        throw std::runtime_error("Manager map request failed: " +
+                                 httplib::to_string(result.error()));
+    }
+    if (result->status != 200) {
+        throw std::runtime_error("Manager map request failed (HTTP " +
+                                 std::to_string(result->status) + ")");
+    }
+    return result->body;
+}
+
 } // namespace tracker
