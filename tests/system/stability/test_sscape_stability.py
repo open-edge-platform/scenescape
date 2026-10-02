@@ -19,6 +19,7 @@ from tests.utils.containers import (
 )
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import STABILITY
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=STABILITY,
@@ -654,6 +655,7 @@ def on_message(mqttc, obj, msg):
   objects_detected += 1
   return
 
+@pytest.mark.test_name("NEX-T10411")
 def test_sscape_stability(params, record_xml_attribute, scenescape_env):
   """! Checks that scenescape performs as expected over a given time period.
   @param    params                  Dict of test parameters.
