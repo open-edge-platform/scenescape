@@ -9,7 +9,7 @@ from controller.moving_object import (DEFAULT_EDGE_LENGTH,
                                       MovingObject)
 from controller.uuid_manager import UUIDManager
 from scene_common import log
-from scene_common.options import TYPE_1
+from scene_common.options import TYPE_1, TYPE_2
 import uuid
 from controller.observability import metrics
 
@@ -223,7 +223,7 @@ class Tracking(Thread):
     if persist_attributes is None:
       persist_attributes = {}
     tracking_radius = DEFAULT_TRACKING_RADIUS
-    shift_type = TYPE_1
+    shift_type = TYPE_2
     project_to_map = False
     rotation_from_velocity = False
 
@@ -235,6 +235,7 @@ class Tracking(Thread):
       mobj.size = [oclass.get('x_size', DEFAULT_EDGE_LENGTH),
                    oclass.get('y_size', DEFAULT_EDGE_LENGTH),
                    oclass.get('z_size', DEFAULT_EDGE_LENGTH)]
+      mobj._size_from_prior = True
       mobj.buffer_size = [oclass.get('x_buffer_size', 0.0),
                           oclass.get('y_buffer_size', 0.0),
                           oclass.get('z_buffer_size', 0.0)]

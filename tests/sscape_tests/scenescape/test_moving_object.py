@@ -37,6 +37,53 @@ def _base_info(*, object_id='obj-1', metadata=None, rotation=None):
   return info
 
 
+class TestType2Projection:
+  # Footprint x in [1,2], y in [-0.5,0.5]; camera at the origin on the -x axis,
+  # so the near edge is x=1 (width 1) and the true center is (1.5, 0).
+  def _quad(self):
+    return [Point(2.0, 0.5, 0.0, polar=False),
+            Point(2.0, -0.5, 0.0, polar=False),
+            Point(1.0, -0.5, 0.0, polar=False),
+            Point(1.0, 0.5, 0.0, polar=False)]
+
+  def _pose(self, center=(1.5, 0.0)):
+    return SimpleNamespace(
+      translation=Point(0.0, 0.0, 5.0, polar=False),
+      cameraPointToWorldPoint=lambda p: Point(center[0], center[1], 0.0, polar=False),
+    )
+
+  def _obj(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    obj = MovingObject(_base_info(), when, _camera())
+    obj.bbShadow = self._quad()
+    return obj
+
+  def test_no_prior_grazing_uses_near_edge_plus_half_width(self):
+    obj = self._obj()
+    obj.baseAngle = 0.0
+    obj._size_from_prior = False
+    pt = obj._type2WorldPoint(SimpleNamespace(pose=self._pose()))
+    assert abs(pt.x - 1.5) < 1e-6
+    assert abs(pt.y - 0.0) < 1e-6
+
+  def test_overhead_converges_to_bbox_center(self):
+    obj = self._obj()
+    obj.baseAngle = 90.0
+    obj._size_from_prior = False
+    pt = obj._type2WorldPoint(SimpleNamespace(pose=self._pose(center=(1.5, 0.0))))
+    assert abs(pt.x - 1.5) < 1e-6
+    assert abs(pt.y - 0.0) < 1e-6
+
+  def test_prior_half_extent_overrides_measured_width(self):
+    obj = self._obj()
+    obj.baseAngle = 0.0
+    obj._size_from_prior = True
+    obj.size = [0.4, 0.4, 0.1]   # half-extent 0.2 rather than the measured 0.5
+    pt = obj._type2WorldPoint(SimpleNamespace(pose=self._pose()))
+    assert abs(pt.x - 1.2) < 1e-6
+    assert abs(pt.y - 0.0) < 1e-6
+
+
 class TestChainData:
   def test_chain_data_defaults_include_sensor_maps(self):
     chain_data = ChainData(regions={}, publishedLocations=[], persist={})

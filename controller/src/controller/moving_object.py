@@ -4,6 +4,7 @@
 import base64
 import binascii
 import datetime
+import math
 import uuid
 import warnings
 from enum import Enum
@@ -167,9 +168,10 @@ class MovingObject:
   def __init__(self, info, when, camera):
     self.chain_data = None
     self.size = None
+    self._size_from_prior = False
     self.buffer_size = None
     self.tracking_radius = DEFAULT_TRACKING_RADIUS
-    self.shift_type = TYPE_1
+    self.shift_type = TYPE_2
     self.project_to_map = False
     self.map_triangle_mesh = None
     self.map_translation = None
@@ -358,6 +360,48 @@ class MovingObject:
         height = float(self.size[2])
     return type2ShiftWeight(getattr(self, 'baseAngle', 0.0), footprint, height)
 
+  def _type2WorldPoint(self, camera):
+    """Unified TYPE_2 world projection that needs no size prior.
+
+    Anchors on the bbox edge nearest the camera (any edge, chosen in scene
+    space), pushes toward the object center by the footprint half-extent -- a
+    real size prior when present, otherwise that near edge's own half-width --
+    and blends to the bbox-center projection as the view nears overhead.
+    """
+    if not hasattr(self, 'bbShadow') or self.bbShadow is None:
+      self._projectBounds()
+    ground = Point(camera.pose.translation.x, camera.pose.translation.y, 0, polar=False)
+    # bbShadow is the bbox projected to the ground plane in cyclic corner order;
+    # pick the edge whose midpoint is nearest the camera (orientation-agnostic).
+    corners = list(self.bbShadow)
+    near_center = None
+    near_width = 0.0
+    best = None
+    for i in range(len(corners)):
+      a = corners[i]
+      b = corners[(i + 1) % len(corners)]
+      mid = a.midpoint(b)
+      dist = ground.distance(mid)
+      if best is None or dist < best:
+        best = dist
+        near_center = mid
+        near_width = a.distance(b)
+    if self._size_from_prior and self.size is not None and len(self.size) >= 2:
+      half_extent = float(np.mean([self.size[0], self.size[1]])) / 2.0
+    else:
+      half_extent = near_width / 2.0
+    away = Line(ground, near_center)
+    edge_point = Line(near_center, Point(half_extent, away.angle, 0, polar=True),
+                      relative=True).end
+    # Angle-only blend: near edge at grazing, bbox center overhead.
+    weight = math.sin(math.radians(min(abs(self.baseAngle), 90.0)))
+    center_img = Point(self.boundingBox.x + self.boundingBox.width / 2.0,
+                       self.boundingBox.y + self.boundingBox.height / 2.0)
+    center_point = camera.pose.cameraPointToWorldPoint(center_img)
+    return Point(edge_point.x + (center_point.x - edge_point.x) * weight,
+                 edge_point.y + (center_point.y - edge_point.y) * weight,
+                 0, polar=False)
+
   @property
   def camLoc(self):
     """Object location in camera coordinate system"""
@@ -378,6 +422,7 @@ class MovingObject:
     """Maps detected object pose to world coordinate system"""
     if info is not None and 'size' in info:
       self.size = info['size']
+      self._size_from_prior = True
     if info is not None and 'translation' in info:
       self.orig_point = Point(info['translation'])
       if camera and hasattr(camera, 'pose'):
@@ -396,14 +441,17 @@ class MovingObject:
         self.orig_point = camera.pose.cameraPointToWorldPoint(Point(info['translation']))
     else:
       if camera and hasattr(camera, 'pose'):
-        self.orig_point = camera.pose.cameraPointToWorldPoint(self.camLoc)
-        if not self.camLoc.is3D:
-          offset = np.mean([self.size[0], self.size[1]]) / 2
-          if self.shift_type == TYPE_2:
-            offset = offset * (1.0 - self._type2Weight())
-          line1 = Line(camera.pose.translation, self.orig_point)
-          line2 = Line(self.orig_point, Point(offset, line1.angle, 0, polar=True), relative=True)
-          self.orig_point = line2.end
+        if self.shift_type == TYPE_2 and not self.boundingBox.origin.is3D:
+          self.orig_point = self._type2WorldPoint(camera)
+        else:
+          self.orig_point = camera.pose.cameraPointToWorldPoint(self.camLoc)
+          if not self.camLoc.is3D:
+            offset = np.mean([self.size[0], self.size[1]]) / 2
+            if self.shift_type == TYPE_2:
+              offset = offset * (1.0 - self._type2Weight())
+            line1 = Line(camera.pose.translation, self.orig_point)
+            line2 = Line(self.orig_point, Point(offset, line1.angle, 0, polar=True), relative=True)
+            self.orig_point = line2.end
     self.location = [Chronoloc(self.orig_point, when, self.boundingBox)]
     self.vectors = [Vector(camera, self.orig_point, when)]
     if hasattr(self, 'buffer_size') and self.buffer_size is not None:
