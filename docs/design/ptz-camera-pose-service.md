@@ -32,15 +32,16 @@ remains the static "home" reference and is never overwritten by this service.
   the camera's calibrated home pose, accurate enough for ground-plane projection.
 - Publish that orientation as a versioned, timestamped `PoseContext` that downstream
   projection can consume without knowing anything about PTZ, ONVIF, or backlash.
-- Make the service's internal camera model (scale/curve, backlash, pan-axis tilt)
-  swappable per camera from calibration data, without code changes.
+- Make the service's internal camera model (per-axis scale/curve and backlash, calibrated
+  pan- and tilt-axis orientations) swappable per camera from calibration data, without
+  code changes.
 - Keep a stable adapter-to-resolver API and a PTZ-independent resolved-pose contract,
   so this capability can later move into the ADR 13 Positioning Service without changing
   either MOT consumer.
 
 ## 3. Non-Goals
 
-- Zoom tracking and zoom-dependent intrinsics (first iteration is pan/tilt only).
+- Zoom tracking and zoom-dependent intrinsics; pan and tilt rotation are both in scope.
 - Modeling the lever arm between the rotation axes and the optical center (PoC measured
   this as a 0.13 px reprojection improvement on the development camera — negligible
   next to other error sources).
@@ -75,6 +76,15 @@ service's calibration model rather than be re-derived:
 | The pan axis is not perfectly vertical              | Measured ~7° lean on the development camera. No scale or curve correction fixes this — the resulting error grows with the pan angle. Modeling pan as a rotation about the camera's actual (measured) pan axis, not world `Z`, removes it.                                                                                                                 |
 | Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changes all three Euler components (PoC measured roll −14°, pitch +34°, yaw +20° for one move). Adding the pan delta to yaw alone produced ~18° of error; composing full rotation matrices (`R_new = R_pan(axis, Δpan) · R_home · Rx(Δtilt)`) reduced that to ~1.8°.                 |
 | Lever arm is negligible                             | Modeling the offset between the rotation axes and the optical center improved reprojection accuracy by only 0.13 px on the development camera and produced a physically implausible fitted value. Treating the camera as rotating about its own center is an acceptable simplification.                                                                   |
+
+The PoC applies tilt deltas as rotations about the camera-local X axis, but does not
+estimate tilt-axis misalignment. The production camera model supports calibrated
+orientations for both axes: the pan axis is expressed in the scene frame, and the tilt
+axis in the camera frame at home. This distinguishes a fixed mounting offset, already
+captured by the home pose, from a non-ideal mechanical rotation axis. The calibration
+and reprojection checks must cover both axes; the PoC's pan-axis measurement alone is
+not sufficient to validate tilt-axis correction.
+| Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changes all three Euler components (PoC measured roll −14°, pitch +34°, yaw +20° for one move). Adding the pan delta to yaw alone produced ~18° of error; composing full rotation matrices (`R_new = R_pan(axis_pan, Δpan) · R_home · R_tilt(axis_tilt, Δtilt)`) reduced that to ~1.8°.                 |
 
 ### Why the PoC's write path is rejected
 
@@ -318,13 +328,17 @@ maintains one state machine per configured PTZ camera, holding:
 
 - Home pose (`pose_mat` derived from the camera's calibrated `rotation`/`translation`),
   recorded `home_pan`/`home_tilt`, and the approach direction used at calibration time.
-- Per-axis scale or curve, pan axis (defaults to world `Z`, overridable per the PoC's
-  measured-lean finding), backlash model, inversion flags.
+- Per-axis scale or curve, backlash model, inversion flags, and calibrated axis
+  orientations. The pan axis is expressed in the scene frame; the tilt axis is expressed
+  in the camera frame at home. Nominal axes may be defaults only when the camera's
+  calibration validates those assumptions.
 - A small ring buffer of recent raw readings per camera, used to:
   - classify `stationary` only after readings remain within the configured angular
     threshold for the configured settle interval; classify `slewing` while changing and
     `settling` until the interval passes; transition to `unknown` on timeout/offline;
   - apply the measured scale/curve, direction, backlash history, and pan-axis model;
+    - apply the measured scale/curve, direction, backlash history, and both calibrated
+      axis orientations;
   - reject non-finite, out-of-range, duplicate/out-of-order, too-old, or mismatched
     calibration-version input;
   - publish a valid PoseContext after accepted samples, and an invalid status when pose
@@ -357,13 +371,15 @@ configuration and must be fixed before a profile is enabled.
 
 The PoC's measurement tools (`measure_ptz_backlash.py`, `fit_ptz_curves.py`,
 `measure_ptz_scale.py`, `measure_reprojection_accuracy.py`,
-`tune_ptz_camera.sh`) remain valuable as **offline calibration tooling**: they produce
-the scale/curve/backlash/pan-axis values the Resolver needs per camera. Manager is the
-source of truth. Add a `ptz_calibration` block to the Manager camera schema containing
-the measured parameters, home raw pan/tilt, approach directions, and
-`calibration_version`; do not store credentials there. The tools write this block via
-the authenticated Manager REST API. Local config files may be used by offline tools and
-tests only, not as production service configuration.
+`tune_ptz_camera.sh`) remain valuable as **offline calibration tooling** for scale,
+curve, backlash, pan-axis, and reprojection measurements. The production calibration
+workflow must also measure and validate the tilt-axis orientation; the PoC does not
+provide that measurement. Manager is the source of truth. Add a `ptz_calibration` block
+to the Manager camera schema containing the measured per-axis parameters and
+orientations, home raw pan/tilt, approach directions, and `calibration_version`; do not
+store credentials there. The tools write this block via the authenticated Manager REST
+API. Local config files may be used by offline tools and tests only, not as production
+service configuration.
 
 ### 5.6 What changes for projection
 
@@ -454,6 +470,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ONVIF position space misidentified as degrees (wrong vendor/firmware) | Resolver validates the reported position-space URI/ranges and calibration version; do not infer degrees from a generic or narrow normalized range. Missing measured calibration fails closed.        |
 | Backlash/curve/pan-axis miscalibrated for a physical camera           | Require the PoC measurement procedure for each supported camera; record reprojection residual and calibration version; reject uncalibrated settings rather than silently use scale defaults.         |
+| Per-axis curve, backlash, or pan/tilt-axis orientation miscalibrated for a physical camera | Require measured per-axis calibration and reprojection validation for each supported camera; record residual and calibration version; reject uncalibrated settings rather than silently use nominal axes or scale defaults. |
 | Clock/timestamp drift between Adapter and consumers                   | Shared NTP synchronization; midpoint timestamp plus measured half-round-trip uncertainty; all consumers check pose age; `rewrite_all_time` is prohibited for PTZ scenes.                             |
 | Out-of-order, repeated, malformed, or unauthorized gRPC samples       | mTLS camera authorization, per-adapter sequence validation, timestamp/range checks, finite-number validation, explicit acknowledgements, and rejection metrics.                                      |
 | Stale retained pose after Adapter, Resolver, or camera outage         | Resolver publishes invalid state on sample timeout; consumers independently enforce max pose age; Resolver has separate MQTT status/LWT. No consumer treats retained delivery as proof of freshness. |
@@ -497,14 +514,17 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 ## 9. Testing & Monitoring
 
 - **Unit tests**: port the PoC's `pose_math.py` test coverage (axis composition,
+- **Unit tests**: port the PoC's `pose_math.py` test coverage (axis composition,
   backlash deadband, scale-from-FOV derivation, non-commutativity of pan/tilt) as the
-  resolver's core math tests; include unchanged translation and row-major matrix fixtures.
+  resolver's core math tests; add calibrated pan- and tilt-axis orientation cases,
+  including non-nominal axes, plus unchanged translation and row-major matrix fixtures.
 - **gRPC contract tests**: valid sample, unknown camera, unauthorized certificate,
   duplicate/out-of-order sequence, restart with new adapter instance ID, invalid ranges,
   NaN/Inf, timestamp bounds, and retry/ack behavior.
 - **Calibration tooling validation**: the PoC's measurement scripts remain the
-  acceptance method for a newly onboarded physical camera (backlash, curve, pan-axis,
-  reprojection accuracy) before it is trusted in production.
+- **Calibration tooling validation**: extend the PoC's measurement workflow to validate
+  backlash, curve, pan- and tilt-axis orientations, and reprojection accuracy before a
+  newly onboarded physical camera is trusted in production.
 - **Integration/replay tests**: recorded ONVIF reading sequences (including out-of-order
   and gap scenarios) replayed through gRPC and Resolver; verify state transitions,
   retained valid/invalid output, stale behavior, configuration invalidation, and both
@@ -523,7 +543,9 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   scenarios and in both directions of approach. A deployment must configure this budget;
   without it, the PTZ feature cannot be enabled.
 - At-home pose output is equivalent to the static calibration within the configured
-  reprojection tolerance; pan/tilt sweeps remain within the spatial-error budget.
+- At-home pose output is equivalent to the static calibration within the configured
+  reprojection tolerance; pan-only, tilt-only, and combined sweeps remain within the
+  spatial-error budget.
 - During slewing/settling, neither consumer feeds detections from that camera into MOT;
   on stale/offline/invalid pose, both fail closed within the configured max-pose-age.
 - Under the target polling rate and configured network impairment, p95 processing latency
