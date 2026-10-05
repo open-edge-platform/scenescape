@@ -467,6 +467,111 @@
         }
       ]
     },
+    "pose_context": {
+      "title": "Resolved Camera Pose Context",
+      "description": "Timestamped projection pose resolved for an ONVIF PTZ camera.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "schema_version": {"const": 1},
+        "camera_id": {"type": "string", "minLength": 1},
+        "timestamp": {"$ref": "#/definitions/timestamp"},
+        "sequence": {"type": "integer", "minimum": 0},
+        "valid": {"type": "boolean"},
+        "pose": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "frame_id": {"type": "string", "minLength": 1},
+            "transform_direction": {"const": "scene_from_camera"},
+            "matrix_layout": {"const": "row_major"},
+            "matrix_4x4": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {"type": "number"},
+                "minItems": 4,
+                "maxItems": 4
+              },
+              "minItems": 4,
+              "maxItems": 4
+            },
+            "translation_unit": {"const": "m"}
+          },
+          "required": [
+            "frame_id", "transform_direction", "matrix_layout",
+            "matrix_4x4", "translation_unit"
+          ]
+        },
+        "motion_state": {
+          "enum": ["stationary", "slewing", "settling", "unknown"]
+        },
+        "sample_age_s": {"type": "number", "minimum": 0},
+        "timestamp_uncertainty_s": {"type": "number", "minimum": 0},
+        "calibration_version": {"type": "string", "minLength": 1},
+        "invalid_reason": {
+          "enum": [
+            "no_sample", "sample_stale", "moving", "settling",
+            "calibration_missing", "calibration_changed", "invalid_sample"
+          ]
+        },
+        "quality": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "score": {"type": "number", "minimum": 0, "maximum": 1},
+            "temporal_score": {"type": "number", "minimum": 0, "maximum": 1},
+            "calibration_score": {"type": "number", "minimum": 0, "maximum": 1},
+            "reprojection_rms_px": {"type": "number", "minimum": 0}
+          },
+          "required": [
+            "score", "temporal_score", "calibration_score", "reprojection_rms_px"
+          ]
+        }
+      },
+      "required": [
+        "schema_version", "camera_id", "timestamp", "sequence", "valid",
+        "motion_state", "sample_age_s", "timestamp_uncertainty_s",
+        "calibration_version"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "properties": {"valid": {"const": true}},
+            "required": ["valid"]
+          },
+          "then": {
+            "required": ["pose", "quality"],
+            "not": {"required": ["invalid_reason"]}
+          },
+          "else": {
+            "required": ["invalid_reason"],
+            "not": {"required": ["pose"]}
+          }
+        }
+      ]
+    },
+    "camera_config_changed": {
+      "title": "Camera Configuration Invalidation",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "camera_id": {"type": "string", "minLength": 1},
+        "calibration_version": {"type": "string", "minLength": 1}
+      },
+      "required": ["camera_id", "calibration_version"]
+    },
+    "resolver_status": {
+      "title": "Pose Resolver Status",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "resolver_id": {"type": "string", "minLength": 1},
+        "status": {"type": "string", "minLength": 1},
+        "timestamp": {"$ref": "#/definitions/timestamp"}
+      },
+      "required": ["resolver_id", "status", "timestamp"]
+    },
     "singleton": {
       "title": "Sensor Metadata",
       "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into Scenescape.",
@@ -536,6 +641,15 @@
     },
     "external_source": {
       "$ref": "#/definitions/external_source"
+    },
+    "pose_context": {
+      "$ref": "#/definitions/pose_context"
+    },
+    "camera_config_changed": {
+      "$ref": "#/definitions/camera_config_changed"
+    },
+    "resolver_status": {
+      "$ref": "#/definitions/resolver_status"
     }
   },
   "additionalProperties": true,

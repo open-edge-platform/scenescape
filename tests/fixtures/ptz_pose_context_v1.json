@@ -1,0 +1,35 @@
+{
+  "meta:license": [
+    "SPDX-FileCopyrightText: (C) 2026 Intel Corporation",
+    "SPDX-License-Identifier: Apache-2.0"
+  ],
+  "message": {
+    "schema_version": 1,
+    "camera_id": "atag-ptzcam3",
+    "timestamp": "2026-10-01T10:15:30.123Z",
+    "sequence": 10432,
+    "valid": true,
+    "pose": {
+      "frame_id": "scene:main",
+      "transform_direction": "scene_from_camera",
+      "matrix_layout": "row_major",
+      "matrix_4x4": [
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, 1, 4],
+        [0, 0, 0, 1]
+      ],
+      "translation_unit": "m"
+    },
+    "motion_state": "stationary",
+    "sample_age_s": 0.004,
+    "timestamp_uncertainty_s": 0.012,
+    "calibration_version": "atag-ptzcam3-v3",
+    "quality": {
+      "score": 0.94,
+      "temporal_score": 0.98,
+      "calibration_score": 0.96,
+      "reprojection_rms_px": 1.2
+    }
+  }
+}

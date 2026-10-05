@@ -22,11 +22,13 @@ CHUNK_SIZE = 1024 * 1024
 class _Topic(Enum):
   CHANNEL = auto()
   CMD_CAMERA = auto()
+  CMD_CAMERA_CONFIG = auto()
   CMD_DATABASE = auto()
   CMD_KUBECLIENT = auto()
   CMD_SCENE_UPDATE = auto()
   DATA_AUTOCALIB_CAM_POSE = auto()
   DATA_CAMERA = auto()
+  DATA_CAMERA_POSE = auto()
   DATA_EXTERNAL = auto()
   DATA_REGION = auto()
   DATA_REGULATED = auto()
@@ -37,6 +39,7 @@ class _Topic(Enum):
   IMAGE_CAMERA = auto()
   POINTCLOUD_CAMERA = auto()
   SYS_CHILDSCENE_STATUS = auto()
+  SYS_POSITIONING_STATUS = auto()
   ANALYTICS_CLUSTERS = auto()
   DATA_CHILD_TRIPWIRES = auto()
   DATA_CHILD_ROIS = auto()
@@ -53,11 +56,13 @@ class PubSub(_PubSubTopicBase):
   _TopicTemplates = {
     _Topic.CHANNEL: Template(TOPIC_BASE + "/channel/${channel}"),
     _Topic.CMD_CAMERA: Template(TOPIC_BASE + "/cmd/camera/${camera_id}"),
+    _Topic.CMD_CAMERA_CONFIG: Template(TOPIC_BASE + "/cmd/camera/config/${camera_id}"),
     _Topic.CMD_DATABASE: Template(TOPIC_BASE + "/cmd/database"),
     _Topic.CMD_KUBECLIENT: Template(TOPIC_BASE + "/cmd/kubeclient"),
     _Topic.CMD_SCENE_UPDATE: Template(TOPIC_BASE + "/cmd/scene/update/${scene_id}"),
     _Topic.DATA_AUTOCALIB_CAM_POSE: Template(TOPIC_BASE + "/autocalibration/camera/pose/${camera_id}"),
     _Topic.DATA_CAMERA: Template(TOPIC_BASE + "/data/camera/${camera_id}"),
+    _Topic.DATA_CAMERA_POSE: Template(TOPIC_BASE + "/data/camera/pose/${camera_id}"),
     _Topic.DATA_EXTERNAL: Template(TOPIC_BASE + "/external/${scene_id}/${thing_type}"),
     _Topic.DATA_REGION: Template(TOPIC_BASE + "/data/region/${scene_id}/${region_id}/${thing_type}"),
     _Topic.DATA_REGULATED: Template(TOPIC_BASE + "/regulated/scene/${scene_id}"),
@@ -68,6 +73,8 @@ class PubSub(_PubSubTopicBase):
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
     _Topic.POINTCLOUD_CAMERA: Template(TOPIC_BASE + "/pointcloud/camera/${camera_id}"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
+    _Topic.SYS_POSITIONING_STATUS: Template(
+      TOPIC_BASE + "/sys/positioning/status/${resolver_id}"),
     _Topic.ANALYTICS_CLUSTERS: Template(TOPIC_BASE + "/analytics/clusters/${scene_id}"),
     _Topic.DATA_CHILD_TRIPWIRES: Template(TOPIC_BASE + "/data/child/tripwires/${scene_id}"),
     _Topic.DATA_CHILD_ROIS: Template(TOPIC_BASE + "/data/child/rois/${scene_id}"),
@@ -150,6 +157,7 @@ class PubSub(_PubSubTopicBase):
     regex = regex.replace(r'\$\{scene_name\}', r'([^/]+)')
     regex = regex.replace(r'\$\{region_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{sensor_id\}', r'([^/]+)')
+    regex = regex.replace(r'\$\{resolver_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{region_type\}', r'([^/]+)')
     regex = regex.replace(r'\$\{event_type\}', r'([^/]+)')
     pattern = re.compile(f'^{regex}$', re.IGNORECASE)
