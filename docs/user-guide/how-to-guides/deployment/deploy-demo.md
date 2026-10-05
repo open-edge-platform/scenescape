@@ -89,8 +89,9 @@ make demo-close
 For the standard demo on a new local Kind cluster, build the core images and invoke the Kubernetes demo target from the repository root:
 
 ```bash
-SUPASS='<choose-a-strong-admin-password>' PGPASS='<choose-a-strong-database-password>' \
-  make build-core demo-k8s
+export SUPASS='<choose-a-strong-admin-password>'
+export PGPASS='<choose-a-strong-database-password>'
+make build-core demo-k8s
 ```
 
 The `build-core` goal prepares secrets, builds the core images, and installs models. `demo-k8s` installs the local Kind prerequisites, creates the cluster, loads the images, deploys the Helm chart, starts the demo video sources, and uploads the demo scenes.
@@ -98,8 +99,9 @@ The `build-core` goal prepares secrets, builds the core images, and installs mod
 Use `DEPLOY_PROFILES` to select optional services. For profiles that need Tracker, Mapping, or Cluster Analytics images, use `build-all` instead of `build-core`. For example, to run Controller + ReID + Mapping + Cluster Analytics:
 
 ```bash
-SUPASS='<choose-a-strong-admin-password>' PGPASS='<choose-a-strong-database-password>' \
-  make build-all demo-k8s DEPLOY_PROFILES='controller mapping cluster-analytics reid'
+export SUPASS='<choose-a-strong-admin-password>'
+export PGPASS='<choose-a-strong-database-password>'
+make build-all demo-k8s DEPLOY_PROFILES='controller mapping cluster-analytics reid'
 ```
 
 `DEPLOY_PROFILES` accepts `controller`, `tracker`, `mapping`, `cluster-analytics`, and `reid`; the default is `controller`. Tracker replaces the Scene Controller, so do not select both `tracker` and `reid`.
