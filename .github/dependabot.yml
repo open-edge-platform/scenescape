@@ -74,8 +74,12 @@ updates:
           - "*"
     ignore:
       - dependency-name: "python"
-        versions:
-          - ">= 3.15"
+        update-types:
+          [
+            "version-update:semver-major",
+            "version-update:semver-minor",
+            "version-update:semver-patch",
+          ]
     reviewers:
       - "saratpoluri"
       - "dmytroye"
