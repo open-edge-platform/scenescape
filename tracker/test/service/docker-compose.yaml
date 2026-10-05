@@ -27,7 +27,7 @@ services:
 
   ntp-server:
     profiles: ["ntp"]
-    image: dockurr/chrony:4.8
+    image: dockurr/chrony:4.9
     ports:
       - "123/udp" # Dynamic host port for ntplib queries from test host
     environment:
