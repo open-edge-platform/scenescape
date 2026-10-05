@@ -137,6 +137,15 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       "",
       GObject.ParamFlags.READWRITE,
     ),
+    "source": (
+      str,
+      "Detection source tag",
+      "Optional sensor-type tag (e.g. 'camera') added to every published "
+      "object as 'source'. Multi-sensor demos use it to tell camera "
+      "detections from radar/lidar ones downstream. Empty adds nothing.",
+      "",
+      GObject.ParamFlags.READWRITE,
+    ),
     "mqtt-host": (
       str,
       "MQTT broker host",
@@ -166,6 +175,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     self._policy_name: str = "detectionPolicy"
     self._publish_image: bool = False
     self._detection_labels: list = []
+    self._source: str = ""
     self._mqtt_host: str = os.environ.get(
       "MQTT_HOST", "broker.scenescape.intel.com"
     )
@@ -195,6 +205,8 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       return self._publish_image
     if name == "detection-labels":
       return ",".join(self._detection_labels)
+    if name == "source":
+      return self._source
     if name == "mqtt-host":
       return self._mqtt_host
     if name == "mqtt-port":
@@ -222,6 +234,8 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         self._detection_labels = [
           s.strip() for s in value.split(",") if s.strip()
         ]
+    elif name == "source":
+      self._source = (value or "").strip()
     elif name == "mqtt-host":
       if value:
         self._mqtt_host = value
@@ -488,6 +502,11 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
           otype = vaobj["category"]
           vaobj["id"] = self._resolve_object_id(det, objects[otype])
           objects[otype].append(vaobj)
+
+    if self._source:
+      for obj_list in objects.values():
+        for obj in obj_list:
+          obj["source"] = self._source
 
     self._process_sub_detections(objects)
     self._frame_level_data["objects"] = objects

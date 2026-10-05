@@ -325,6 +325,12 @@ docker compose -f docker-compose.yml \
 `radar-stream` logs should show `[radar] frames=… objects=N`. Scene view should
 show tracks with radar-only, then both sources when camera is unmuted.
 
+Radar detections carry `"source": "radar"`. Camera detections are tagged
+`"source": "camera"` by the `source=camera` property on
+`sscape_post_inference_data_publish`, so tracks keep the originating sensor and
+the scene view labels marks `R` / `C`. The property defaults to empty, so stock
+pipelines publish unchanged payloads.
+
 ## GNSS accuracy gate (offline)
 
 After producing per-frame RadarPillars detections JSONL (timestamps aligned with

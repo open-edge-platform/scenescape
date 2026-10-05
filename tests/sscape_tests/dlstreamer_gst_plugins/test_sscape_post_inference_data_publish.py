@@ -71,6 +71,7 @@ class TestProperties:
     assert element.do_get_property(make_prop("metadatagenpolicy")) == "detectionPolicy"
     assert element.do_get_property(make_prop("publish-image")) is False
     assert element.do_get_property(make_prop("detection-labels")) == ""
+    assert element.do_get_property(make_prop("source")) == ""
     assert element.do_get_property(make_prop("mqtt-port")) == 1883
 
   def test_set_and_get_cameraid(self, element):
@@ -103,6 +104,15 @@ class TestProperties:
     element.do_set_property(make_prop("detection-labels"), "person")
     element.do_set_property(make_prop("detection-labels"), "")
     assert element._detection_labels == []
+
+  def test_set_and_get_source(self, element):
+    element.do_set_property(make_prop("source"), " camera ")
+    assert element.do_get_property(make_prop("source")) == "camera"
+
+  def test_set_source_none_clears_value(self, element):
+    element.do_set_property(make_prop("source"), "camera")
+    element.do_set_property(make_prop("source"), None)
+    assert element.do_get_property(make_prop("source")) == ""
 
   def test_set_and_get_mqtt_host(self, element):
     element.do_set_property(make_prop("mqtt-host"), "broker.local")
@@ -332,6 +342,21 @@ class TestBuildObjectData:
     objects = element._frame_level_data["objects"]
     assert list(objects.keys()) == ["person"]
     assert len(objects["person"]) == 1
+
+  def test_source_not_added_by_default(self, element):
+    element._build_object_data(self._gvadata([self._det("person")]))
+    assert "source" not in element._frame_level_data["objects"]["person"][0]
+
+  def test_source_tag_added_to_every_top_level_object(self, element):
+    element._source = "camera"
+    gvadata = self._gvadata([self._det("person"), self._det("vehicle"), self._det("person")])
+
+    element._build_object_data(gvadata)
+
+    objects = element._frame_level_data["objects"]
+    tagged = [o for lst in objects.values() for o in lst]
+    assert len(tagged) == 3
+    assert all(o["source"] == "camera" for o in tagged)
 
   def test_tracker_id_is_preserved(self, element):
     gvadata = self._gvadata([self._det("person", id=7)])

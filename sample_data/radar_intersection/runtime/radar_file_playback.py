@@ -217,6 +217,7 @@ def camera_sscape_parts(
     f"! sscape_post_inference_data_publish name=datapublisher_{safe}"
     f" cameraid={shlex.quote(sensor_id)}"
     f" metadatagenpolicy=detectionPolicy"
+    f" source=camera"
   )
   if labels:
     publish += f" detection-labels={shlex.quote(labels)}"
