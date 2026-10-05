@@ -115,3 +115,11 @@ To remove the Helm release while leaving the namespace and any retained storage 
 ```bash
 helm uninstall scenescape --namespace "$NAMESPACE"
 ```
+
+For a local Kind deployment created by the repository's Kubernetes Makefile, use `make -C kubernetes uninstall` to uninstall its Helm release while leaving the Kind cluster running. To delete that local Kind cluster and all resources/data in it, use:
+
+```bash
+make -C kubernetes clean-all
+```
+
+> **Warning:** `clean-all` deletes the Kind cluster. Do not run it when the active Kubernetes context points to a cluster whose workloads or data must be retained.

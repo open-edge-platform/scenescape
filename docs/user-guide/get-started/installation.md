@@ -1,5 +1,7 @@
 # Installation
 
+For a quick preview, follow the [Quick Start guide](./quickstart.md).
+
 ## Prerequisites
 
 - Verify you meet the [System Requirements](./system-requirements.md).

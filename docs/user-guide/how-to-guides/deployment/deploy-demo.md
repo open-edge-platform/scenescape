@@ -118,11 +118,21 @@ Install the upload tool's dependencies once, as shown in [Uploading Your Own Sce
 
 ```bash
 (
+  set -euo pipefail
   NAMESPACE="${NAMESPACE:-scenescape}"
   AUTH_FILE=$(mktemp)
   trap 'rm -f "$AUTH_FILE"' EXIT
 
-  kubectl get secret scenescape-controller.auth --namespace "$NAMESPACE" \
+  AUTH_SECRET_NAMES=$(kubectl get secrets --namespace "$NAMESPACE" \
+    -o custom-columns=:metadata.name --no-headers | grep -E 'controller[.]auth$' || true)
+  AUTH_SECRET_COUNT=$(printf '%s\n' "$AUTH_SECRET_NAMES" | sed '/^$/d' | wc -l)
+  if [ "$AUTH_SECRET_COUNT" -ne 1 ]; then
+    echo "Expected exactly one controller.auth Secret in namespace $NAMESPACE; found $AUTH_SECRET_COUNT." >&2
+    exit 1
+  fi
+  AUTH_SECRET_NAME=$(printf '%s\n' "$AUTH_SECRET_NAMES" | sed -n '1p')
+
+  kubectl get secret "$AUTH_SECRET_NAME" --namespace "$NAMESPACE" \
     -o jsonpath='{.data.controller\.auth}' | base64 -d > "$AUTH_FILE"
 
   tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \

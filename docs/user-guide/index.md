@@ -98,6 +98,7 @@ Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.h
 :caption: Get Started
 
 Scenescape Overview <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
+Quick Start <./get-started/quickstart.md>
 Installation <./get-started/installation.md>
 System Requirements <./get-started/system-requirements.md>
 
