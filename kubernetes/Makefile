@@ -270,6 +270,9 @@ check-deploy-profiles:
 		  *) echo "Invalid DEPLOY_PROFILES token '$$profile'. Use any of: controller tracker mapping cluster-analytics reid."; exit 1 ;; \
 		esac; \
 	done
+	@if [ -n "$(filter tracker,$(DEPLOY_PROFILES))" ] && [ -n "$(filter reid,$(DEPLOY_PROFILES))" ]; then \
+		echo "DEPLOY_PROFILES cannot include both tracker and reid."; exit 1; \
+	fi
 
 .PHONY: check-reid-backend
 check-reid-backend:
