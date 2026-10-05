@@ -12,8 +12,8 @@ labels. **Not shipped yet** — train/export/promote still open (needs RadarPill
 Dataset tooling is ready (`VIDETEC-2/finetune_ds_ft6/` when built). Full plan
 and status:
 
-[`.github/plans/radar-tuning-and-eval.md`](../../../.github/plans/radar-tuning-and-eval.md)
-(section 4).
+[`.github/plans/radar-first-class-and-g3dinference.md`](../../../.github/plans/radar-first-class-and-g3dinference.md)
+(*Phase: camera-GT densify, NMS, FT6*).
 
 Until FT6 promotes, keep using **FP16_ft2** with `nms_thresh=0.05` and
 `RADAR_ACCUMULATE_PAST=4`.
