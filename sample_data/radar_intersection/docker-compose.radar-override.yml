@@ -16,6 +16,29 @@
 # See docs/user-guide/how-to-guides/run-radar-intersection-demo.md.
 
 services:
+  # The base compose file also starts the retail/queuing sample scenes (an RTSP
+  # server, two ffmpeg publishers and two DLStreamer pipeline servers). The radar
+  # demo does not use them and they add several GB of RAM, so gate them behind a
+  # profile this demo never enables. Opt back in with:
+  #   docker compose ... --profile sample-scenes up -d
+  # (the same profile also re-enables autocalibration, gated below)
+  mediaserver:
+    profiles: ["sample-scenes"]
+  retail-cams:
+    profiles: ["sample-scenes"]
+  retail-video:
+    profiles: ["sample-scenes"]
+  queuing-cams:
+    profiles: ["sample-scenes"]
+  queuing-video:
+    profiles: ["sample-scenes"]
+  # Camera/radar poses come from RadarIntersection.json; the demo never uses
+  # visual auto-calibration (the NetVLAD/torch image is a large RAM consumer).
+  autocalibration-init:
+    profiles: ["sample-scenes"]
+  autocalibration:
+    profiles: ["sample-scenes"]
+
   radar-scene-init:
     image: python:3.11-slim
     networks:
@@ -25,6 +48,7 @@ services:
         condition: service_healthy
     environment:
       - SUPASS=${SUPASS}
+      - RADAR_PRUNE_OTHER_SCENES=${RADAR_PRUNE_OTHER_SCENES:-true}
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
@@ -117,7 +141,7 @@ services:
         if [ "$${R2_STAGED}" = "0" ]; then
           echo "radar-data-init: no radar2 bins under /src/radar2 — second radar muted unless provided"
         fi
-        # Stage per-camera JPEG dirs (sensor_id/%06d.jpg) for synchronized multi-cam GST.
+        # Stage per-camera JPEG dirs (+ optional fused MPEG-TS clips) for GST.
         python3 - <<'PY'
         import os, shutil
         from pathlib import Path
@@ -141,7 +165,8 @@ services:
             shutil.rmtree(dst)
           shutil.copytree(src, dst, symlinks=False)
           n = sum(1 for _ in dst.glob("*.jpg"))
-          print(f"radar-data-init: staged {n} JPEGs → {dst}")
+          n_ts = sum(1 for _ in dst.glob("*.ts"))
+          print(f"radar-data-init: staged {n} JPEGs + {n_ts} clips → {dst}")
           staged += 1
         if staged == 0:
           print("radar-data-init: no camera JPEGs — set RADAR_CAM_DATASET_DIR / prepare-radar-camera")
@@ -229,15 +254,15 @@ services:
       - CAM_DATA_ROOT=/home/pipeline-server/videos/radar_intersection/images
       - CAM_DEVICE=${CAM_DEVICE:-GPU}
       - CAM_SCORE_THRESHOLD=${CAM_SCORE_THRESHOLD:-0.6}
-      - CAM_PERSON_MIN_SCORE=${CAM_PERSON_MIN_SCORE:-0.75}
-      - CAM_PERSON_MIN_HEIGHT_PX=${CAM_PERSON_MIN_HEIGHT_PX:-100}
-      - CAM_PERSON_MIN_ASPECT=${CAM_PERSON_MIN_ASPECT:-1.2}
+      - CAM_DETECTION_LABELS=${CAM_DETECTION_LABELS:-person,vehicle,cyclist}
       - CAM_MUTE=${CAM_MUTE:-false}
       - CAM_START_INDEX=${CAM_START_INDEX:-3270}
       - CAM_STOP_INDEX=${CAM_STOP_INDEX:-4100}
       - CAM_MODEL=${CAM_MODEL:-/home/pipeline-server/models/omz/person-vehicle-bike-detection-crossroad-1016/FP32/person-vehicle-bike-detection-crossroad-1016.xml}
       - CAM_MODEL_PROC=${CAM_MODEL_PROC:-/home/pipeline-server/videos/radar_intersection/model-proc/person-vehicle-bike-detection-crossroad-1016.json}
-      - CAM_MODEL_INSTANCE_ID=${CAM_MODEL_INSTANCE_ID:-radar-demo-omz}
+      - CAM_NTP_SERVER=${CAM_NTP_SERVER:-ntpserv}
+      - ADDITIONAL_GST_PLUGIN_PATH=/home/sscape
+      - ROOT_CA=/run/secrets/certs/scenescape-ca.pem
       - OMP_NUM_THREADS=${OMP_NUM_THREADS:-2}
       - OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS:-2}
     volumes:
@@ -245,6 +270,8 @@ services:
       - ./sample_data/radar_intersection/runtime/radar_file_playback.py:/home/pipeline-server/user_scripts/radar_file_playback.py:ro
       - ./sample_data/radar_intersection/runtime/radar_sensor_contract.py:/home/pipeline-server/user_scripts/radar_sensor_contract.py:ro
       - ./sample_data/radar_intersection/model-proc:/home/pipeline-server/videos/radar_intersection/model-proc:ro
+      # Established SceneScape camera plugins (same mount as retail/queuing).
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-sample-data:/home/pipeline-server/videos
       - vol-models:/home/pipeline-server/models
     secrets:

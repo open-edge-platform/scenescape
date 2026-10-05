@@ -4,30 +4,28 @@
 
 """Recorded-file GStreamer fragments for the radar-intersection demo.
 
-All radar perception modes share one publish stack:
+Radar (custom g3d path)::
 
   multifilesrc → g3dlidarparse → g3dinference → gvametaconvert → FIFO
 
-| model-type   | point-features | data |
-| --- | ---: | --- |
-| classical    | 5 | frames_bin/%06d.bin |
-| roadside     | 5 | frames_bin/%06d.bin |
-| radarpillars | 7 | pcd_bin/%06d.bin |
+Cameras use the **same** SceneScape object-detection chain as retail/queuing
+file replay (``queuing-config-no-rtsp.json`` / ``retail-config-no-rtsp.json``)::
 
-Live / stream-friendly densify: set ``accumulate_past`` (GST
-``accumulate-past``) so g3dinference concatenates prior frames with the
-current cloud before inference. Prefer single-frame ``pcd_bin`` + past=10
-over prebuilt ``pcd_bin_acc5`` so the same path works for live radar.
+  multifilesrc → decodebin → videoconvert → BGR
+    → sscape_timestamp_capture → gvadetect → gvametaconvert
+    → sscape_post_inference_data_publish → fakesink
+
+Live-view ``getimage`` and MQTT detections are handled inside
+``sscape_post_inference_data_publish`` (same buffer — no custom annotate).
 """
 
 from __future__ import annotations
 
-import base64
-import json
+import glob
 import os
 import shlex
-
-import paho.mqtt.client as mqtt
+import subprocess
+import time
 
 
 def radar_multifilesrc_parts(
@@ -47,6 +45,7 @@ def radar_multifilesrc_parts(
   accumulate_past: int = 0,
 ) -> list[str]:
   """GStreamer fragments for recorded radar bins + g3dinference."""
+  del frame_rate  # paced by publisher (g3dlidarparse frame-rate=0)
   parts = [
     f"multifilesrc location={shlex.quote(data_path)} start-index={start_index}",
   ]
@@ -64,10 +63,6 @@ def radar_multifilesrc_parts(
     infer += f" accumulate-past={int(accumulate_past)}"
   parts += [
     "caps=application/octet-stream",
-    # Early queue for a dedicated streaming thread. frame-rate=0 disables the
-    # g3dlidarparse wall-clock sleep (it under-delivers under CPU load); the
-    # publisher paces MQTT to RADAR_FRAME_RATE. Non-leaky post-infer queue
-    # back-pressures multifilesrc so classical does not spin at max CPU.
     "! queue max-size-buffers=2",
     f"! g3dlidarparse stride=1 frame-rate=0 point-features={int(point_features)}",
     infer,
@@ -79,215 +74,169 @@ def radar_multifilesrc_parts(
   return parts
 
 
-def camera_multifilesrc_parts(
-  *,
-  data_path: str,
+def camera_clip_path(
+  data_root: str,
+  sensor_id: str,
   start_index: int,
   stop_index: int | None,
-  loop: bool,
   frame_rate: int,
+) -> str:
+  """Stable MPEG-TS path for a camera JPEG slice."""
+  stop = "end" if stop_index is None else str(int(stop_index))
+  return (
+    f"{data_root.rstrip('/')}/{sensor_id}"
+    f"/clip_{int(start_index)}_{stop}_{int(frame_rate)}fps.ts"
+  )
+
+
+def _resolve_stop_index(jpeg_dir: str, start_index: int, stop_index: int | None) -> int:
+  if stop_index is not None:
+    return int(stop_index)
+  last = start_index
+  for path in glob.glob(os.path.join(jpeg_dir, "*.jpg")):
+    try:
+      last = max(last, int(os.path.splitext(os.path.basename(path))[0]))
+    except ValueError:
+      continue
+  return last
+
+
+def ensure_camera_mpegts(
+  *,
+  jpeg_pattern: str,
+  start_index: int,
+  stop_index: int | None,
+  frame_rate: int,
+  out_path: str,
+) -> str:
+  """Fuse numbered JPEGs into an MPEG-TS clip at ``frame_rate`` (cached)."""
+  jpeg_dir = os.path.dirname(jpeg_pattern) or "."
+  stop = _resolve_stop_index(jpeg_dir, start_index, stop_index)
+  first = jpeg_pattern % start_index
+  if not os.path.isfile(first):
+    raise FileNotFoundError(f"camera JPEG missing: {first}")
+  parent = os.path.dirname(out_path)
+  if parent:
+    os.makedirs(parent, exist_ok=True)
+  if os.path.isfile(out_path) and os.path.getmtime(out_path) >= os.path.getmtime(first):
+    last = jpeg_pattern % stop
+    if not os.path.isfile(last) or os.path.getmtime(out_path) >= os.path.getmtime(last):
+      print(f"[radar-camera] reusing clip {out_path}", flush=True)
+      return out_path
+
+  n_frames = stop - start_index + 1
+  print(
+    f"[radar-camera] encoding {n_frames} JPEGs → {out_path} @ {frame_rate} fps",
+    flush=True,
+  )
+  t0 = time.monotonic()
+  tmp_path = out_path + ".partial"
+  if os.path.exists(tmp_path):
+    os.remove(tmp_path)
+
+  from shutil import which  # pylint: disable=import-outside-toplevel
+  ffmpeg = which("ffmpeg")
+  if ffmpeg:
+    cmd = [
+      ffmpeg, "-y",
+      "-framerate", str(int(frame_rate)),
+      "-start_number", str(int(start_index)),
+      "-i", jpeg_pattern,
+      "-frames:v", str(int(n_frames)),
+      "-c:v", "libx264",
+      "-preset", "veryfast",
+      "-crf", "28",
+      "-x264opts", "keyint=10:min-keyint=10:scenecut=0",
+      "-forced-idr", "1",
+      "-pix_fmt", "yuv420p",
+      "-an",
+      "-f", "mpegts",
+      tmp_path,
+    ]
+  else:
+    cmd = [
+      "gst-launch-1.0", "-q",
+      "multifilesrc", f"location={jpeg_pattern}",
+      f"start-index={int(start_index)}", f"stop-index={int(stop)}",
+      "caps=image/jpeg",
+      "!", "jpegdec",
+      "!", "videoconvert",
+      "!", "video/x-raw,format=I420",
+      "!", "x264enc", "tune=zerolatency", "key-int-max=10",
+      "speed-preset=veryfast",
+      "!", "mpegtsmux",
+      "!", "filesink", f"location={tmp_path}",
+    ]
+
+  proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
+  if proc.returncode != 0 or not os.path.isfile(tmp_path):
+    err = (proc.stderr or proc.stdout or "").strip()[-800:]
+    if os.path.exists(tmp_path):
+      os.remove(tmp_path)
+    raise RuntimeError(f"camera clip encode failed ({proc.returncode}): {err}")
+  os.replace(tmp_path, out_path)
+  print(
+    f"[radar-camera] wrote {out_path} in {time.monotonic() - t0:.1f}s",
+    flush=True,
+  )
+  return out_path
+
+
+def camera_sscape_parts(
+  *,
+  video_path: str,
+  sensor_id: str,
+  loop: bool,
   model: str,
   model_proc: str | None,
   device: str,
   score_threshold: float,
-  fifo_path: str,
-  model_instance_id: str | None = None,
+  detection_labels: str,
+  ntp_server: str = "ntpserv",
 ) -> list[str]:
+  """Established SceneScape camera chain (file → detect → MQTT + getimage).
+
+  Mirrors ``queuing-config-no-rtsp.json`` / ``retail-config-no-rtsp.json``:
+  ``sscape_post_inference_data_publish`` owns detection MQTT and annotated
+  ``getimage`` replies from the same Gst buffer.
+  """
   parts = [
-    f"multifilesrc location={shlex.quote(data_path)} start-index={start_index}",
+    f"multifilesrc location={shlex.quote(video_path)}",
   ]
-  if stop_index is not None:
-    parts.append(f"stop-index={stop_index}")
   if loop:
     parts.append("loop=true")
-  detect = f"! gvadetect model={shlex.quote(model)} device={shlex.quote(device)} threshold={score_threshold}"
+  safe = "".join(c if c.isalnum() else "_" for c in sensor_id)
+  detect = (
+    f"! gvadetect model={shlex.quote(model)} device={shlex.quote(device)}"
+    f" threshold={score_threshold}"
+  )
   if model_proc and str(model_proc).strip():
     detect += f" model-proc={shlex.quote(str(model_proc).strip())}"
-  if model_instance_id:
-    detect += f" model-instance-id={shlex.quote(model_instance_id)}"
-    # Parallel infer slots so shared-instance multi-cam does not serialize to <<10 fps.
-    detect += " nireq=4"
-  # GPU path (dlstreamer-coding-agent): HW JPEG decode + vapostproc, let
-  # caps/memory auto-negotiate. Avoid jpegdec/videoconvert/BGR which force
-  # sysmem and GPU↔CPU copies. Rank(vajpegdec)=none so name it explicitly.
-  if str(device).upper().startswith("GPU"):
-    detect += " pre-process-backend=va"
-    decode = [
-      "caps=image/jpeg",
-      "! vajpegdec",
-      "! vapostproc",
-      f"! gvafpsthrottle target-fps={frame_rate}",
-      # Non-leaky queue so each cam branch runs on its own streaming thread.
-      "! queue max-size-buffers=2",
-    ]
-  else:
-    decode = [
-      "caps=image/jpeg",
-      "! jpegdec",
-      "! videoconvert",
-      "! video/x-raw,format=BGR",
-      f"! gvafpsthrottle target-fps={frame_rate}",
-      "! queue max-size-buffers=2",
-    ]
-  parts += decode + [
+  labels = (detection_labels or "").strip()
+  publish = (
+    f"! sscape_post_inference_data_publish name=datapublisher_{safe}"
+    f" cameraid={shlex.quote(sensor_id)}"
+    f" metadatagenpolicy=detectionPolicy"
+  )
+  if labels:
+    publish += f" detection-labels={shlex.quote(labels)}"
+  parts += [
+    f"name=source_{safe}",
+    "! decodebin",
+    "! videoconvert",
+    "! video/x-raw,format=BGR",
+    f"! sscape_timestamp_capture name=timesync_{safe}"
+    f" ntp-server={shlex.quote(ntp_server)}"
+    " use-frame-ntp-timestamp=false",
     detect,
-    "! queue max-size-buffers=8 leaky=downstream",
-    "! gvametaconvert add-tensor-data=false format=json",
-    f"! gvametapublish method=file file-format=json-lines file-path={shlex.quote(fifo_path)}",
-    "! fakesink sync=false",
+    "! gvametaconvert add-tensor-data=true"
+    f" name=metaconvert_{safe}",
+    publish,
+    "! gvametapublish name=destination_"
+    f"{safe} method=file file-path=/dev/null",
+    # DLSPS drains an appsink; bare gst-launch does not, so an appsink here
+    # queues raw BGR frames without bound (~70 MB/s/cam) and OOMs the host.
+    # sync=true keeps real-time pacing from the clip's 10 fps timestamps.
+    "! fakesink sync=true",
   ]
   return parts
-
-
-def ensure_parent_dir(path: str) -> None:
-  parent = os.path.dirname(path)
-  if parent:
-    os.makedirs(parent, exist_ok=True)
-
-
-def playback_index(published_count: int, start: int, stop: int | None, loop: bool) -> int:
-  """Dataset file index for the latest published camera frame."""
-  if published_count <= 0:
-    return start
-  offset = published_count - 1
-  if stop is None:
-    return start + offset
-  span = stop - start + 1
-  if span <= 0:
-    return start
-  if loop:
-    return start + (offset % span)
-  return min(start + offset, stop)
-
-
-def read_frame_as_jpeg_b64(path: str) -> str | None:
-  try:
-    with open(path, "rb") as f:
-      return base64.b64encode(f.read()).decode("ascii")
-  except Exception as exc:
-    print(f"[radar-camera] Failed to read preview frame {path}: {exc}", flush=True)
-    return None
-
-
-# Match sscape_post_inference_data_publish person red; vehicles use a darker teal
-# so boxes stay readable on bright asphalt / truck sides.
-_ANNOTATE_COLORS = {
-  "person": (0, 0, 255),
-  "vehicle": (40, 120, 50),
-  "bicycle": (40, 120, 50),
-  "cyclist": (40, 120, 50),
-}
-_ANNOTATE_DEFAULT = (180, 40, 200)
-
-
-def annotate_frame_jpeg_b64(path: str, objects: dict | None, fps: float | None = None) -> str | None:
-  """Load a JPEG, draw detection boxes, return base64 JPEG (SceneScape live view)."""
-  try:
-    import cv2  # pylint: disable=import-outside-toplevel
-  except ImportError:
-    return read_frame_as_jpeg_b64(path)
-  img = cv2.imread(path)
-  if img is None:
-    return read_frame_as_jpeg_b64(path)
-  for otype, obj_list in (objects or {}).items():
-    color = _ANNOTATE_COLORS.get(str(otype).lower(), _ANNOTATE_DEFAULT)
-    if not isinstance(obj_list, list):
-      continue
-    for obj in obj_list:
-      if not isinstance(obj, dict):
-        continue
-      bbox = obj.get("bounding_box_px") or {}
-      try:
-        x = int(bbox["x"])
-        y = int(bbox["y"])
-        w = int(bbox["width"])
-        h = int(bbox["height"])
-      except (KeyError, TypeError, ValueError):
-        continue
-      cv2.rectangle(img, (x, y), (x + w, y + h), color, 4)
-  if fps is not None:
-    scale = int((img.shape[0] + 479) / 480)
-    fps_str = f"FPS {float(fps):.1f}"
-    cv2.putText(
-      img, fps_str, (0, 30 * scale), cv2.FONT_HERSHEY_SIMPLEX,
-      1 * scale, (0, 0, 0), 5 * scale,
-    )
-    cv2.putText(
-      img, fps_str, (0, 30 * scale), cv2.FONT_HERSHEY_SIMPLEX,
-      1 * scale, (255, 255, 255), 2 * scale,
-    )
-  ok, buf = cv2.imencode(".jpg", img)
-  if not ok:
-    return read_frame_as_jpeg_b64(path)
-  return base64.b64encode(buf.tobytes()).decode("ascii")
-
-
-def setup_getimage_responder(
-  client: mqtt.Client,
-  sensor_id: str,
-  data_path: str,
-  frame_index_cell: list,
-  start_index: int,
-  image_b64_cell: list | None = None,
-  objects_cell: list | None = None,
-  fps: float | None = None,
-) -> None:
-  """Answer Manager UI image requests from the recorded JPEG sequence.
-
-  Scene live view publishes ``getimage`` and expects
-  ``scenescape/image/camera/{id}``. The camera calibration page publishes
-  ``getcalibrationimage`` and expects
-  ``scenescape/image/calibration/camera/{id}`` (same contract as
-  ``sscape_post_inference_data_publish``).
-
-  Annotation is done lazily on ``getimage`` (not every GST frame) so multi-cam
-  publish can hold the target rate. Calibration still uses the raw frame.
-
-  Multiple cameras may register; a shared ``on_message`` dispatches by topic.
-  """
-  live_topic = f"scenescape/image/camera/{sensor_id}"
-  calib_topic = f"scenescape/image/calibration/camera/{sensor_id}"
-  cmd_topic = f"scenescape/cmd/camera/{sensor_id}"
-
-  def _raw_jpeg() -> str | None:
-    idx = frame_index_cell[0]
-    if idx is None:
-      return None
-    return read_frame_as_jpeg_b64(data_path % idx) or read_frame_as_jpeg_b64(
-      data_path % start_index)
-
-  def _handle(_msg_client, message) -> None:
-    cmd = message.payload.decode("utf-8", errors="replace").strip()
-    if cmd == "getimage":
-      topic = live_topic
-      idx = frame_index_cell[0] if frame_index_cell else None
-      objs = (objects_cell[0] if objects_cell else None) or {}
-      b64 = None
-      if idx is not None:
-        b64 = annotate_frame_jpeg_b64(data_path % idx, objs, fps=fps)
-      if b64 is None and image_b64_cell is not None and image_b64_cell[0]:
-        b64 = image_b64_cell[0]
-      if b64 is None:
-        b64 = _raw_jpeg()
-    elif cmd == "getcalibrationimage":
-      topic = calib_topic
-      b64 = _raw_jpeg()
-    else:
-      return
-    if b64 is not None:
-      _msg_client.publish(topic, json.dumps({"image": b64}), qos=0)
-
-  handlers = getattr(client, "_sscape_cmd_handlers", None)
-  if handlers is None:
-    handlers = {}
-    client._sscape_cmd_handlers = handlers
-
-    def _dispatch(msg_client, _userdata, message):
-      handler = handlers.get(message.topic)
-      if handler is not None:
-        handler(msg_client, message)
-
-    client.on_message = _dispatch
-
-  handlers[cmd_topic] = _handle
-  client.subscribe(cmd_topic)

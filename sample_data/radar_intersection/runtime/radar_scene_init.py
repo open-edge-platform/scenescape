@@ -180,8 +180,33 @@ def main() -> int:
         status2, out = _req("DELETE", f"/radar/{sid}", headers=hdr)
         print(f"radar-scene-init: deleted radar {sid} (HTTP {status2})")
 
+  _prune_other_scenes(hdr, scene_uid)
+
   print("radar-scene-init: done")
   return 0
+
+
+def _prune_other_scenes(hdr: dict, keep_uid: str) -> None:
+  """Delete the stock sample scenes (Retail, Queuing, Demo, ...) from the DB.
+
+  Their cameras have no pipeline in the radar demo, but the scene controller
+  still loads and tracks every scene. Opt out with RADAR_PRUNE_OTHER_SCENES=false.
+  """
+  if os.environ.get("RADAR_PRUNE_OTHER_SCENES", "true").strip().lower() in (
+      "0", "false", "no"):
+    print("radar-scene-init: RADAR_PRUNE_OTHER_SCENES=false — keeping other scenes")
+    return
+  status, scenes = _req("GET", "/scenes", headers=hdr)
+  if status != 200 or not isinstance(scenes, dict):
+    print(f"radar-scene-init: could not list scenes for pruning (HTTP {status})",
+          file=sys.stderr)
+    return
+  for scene in scenes.get("results", []):
+    uid = scene.get("uid")
+    if not uid or uid == keep_uid:
+      continue
+    status2, _ = _req("DELETE", f"/scene/{uid}", headers=hdr)
+    print(f"radar-scene-init: deleted scene '{scene.get('name')}' {uid} (HTTP {status2})")
 
 
 if __name__ == "__main__":

@@ -99,6 +99,12 @@ Defaults: `RADAR_REQUIRE_REAL=true` (fail if prep skipped / incomplete),
 `CAM_MUTE=true`. Synthetic-only plumbing:
 `SKIP_RADAR_VIDETEC_PREP=true RADAR_REQUIRE_REAL=false`.
 
+The radar demo does not start the stock Retail / Queuing sample pipelines
+(`mediaserver`, `retail-*`, `queuing-*`) or `autocalibration` — they are gated
+behind the `sample-scenes` compose profile — and `radar-scene-init` deletes the Retail and
+Queuing scenes from the database to save memory. Keep them with
+`RADAR_PRUNE_OTHER_SCENES=false` and `--profile sample-scenes`.
+
 Manual / CI refresh:
 
 ```bash

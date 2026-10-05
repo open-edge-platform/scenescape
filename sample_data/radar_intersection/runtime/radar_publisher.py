@@ -4,20 +4,19 @@
 
 """Radar + multi-camera publisher for the radar-intersection demo.
 
-All radar modes share one GStreamer publish stack via ``g3dinference``:
+Radar (custom)::
 
-  classical | roadside | radarpillars
-    → g3dlidarparse → g3dinference → gvametaconvert → FIFO → MQTT
+  g3dlidarparse → g3dinference → FIFO → MQTT
 
-Set ``RADAR_PERCEPTION`` to select the backend. Cameras use ``gvadetect``.
+Cameras use the established SceneScape DLStreamer chain
+(``sscape_timestamp_capture`` → ``gvadetect`` →
+``sscape_post_inference_data_publish``), same as retail/queuing file
+replay. That element publishes detections and answers ``getimage`` from
+the same buffer — no custom annotate / FIFO / preview path.
 
-``CAM_SENSOR_IDS`` / ``RADAR_SENSOR_IDS`` (comma-separated) run one GST
-branch + MQTT topic per id. Optional ``RADAR_DATA_PATHS`` /
-``RADAR_INDEX_RANGES`` override per-radar bin paths and start/stop.
-Camera JPEGs live under ``{CAM_DATA_ROOT}/{sensor_id}/%06d.jpg``.
-
-Requires a DLSPS image with rebuilt ``libgst3delements.so``
-(``make build-dlsps-g3d``).
+Camera JPEGs under ``{CAM_DATA_ROOT}/{sensor_id}/%06d.jpg`` are fused
+once to MPEG-TS (``clip_*.ts``) for ``multifilesrc``, matching
+``*-config-no-rtsp.json``.
 """
 
 from __future__ import annotations
@@ -30,18 +29,16 @@ import shlex
 import subprocess
 import sys
 import time
-from multiprocessing import Manager, Process
+from multiprocessing import Process
 
 from radar_file_playback import (
-  annotate_frame_jpeg_b64,
-  camera_multifilesrc_parts,
-  playback_index,
+  camera_clip_path,
+  camera_sscape_parts,
+  ensure_camera_mpegts,
   radar_multifilesrc_parts,
-  setup_getimage_responder,
 )
 from radar_sensor_contract import (
   MqttState,
-  build_camera_message,
   build_radar_message,
   connect_mqtt,
   safe_publish,
@@ -51,14 +48,12 @@ BROKER = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 
 RADAR_PERCEPTION = os.environ.get("RADAR_PERCEPTION", "classical").strip().lower()
-# Multi-radar: RADAR_SENSOR_IDS=intersection-radar1,intersection-radar2
-# Legacy RADAR_SENSOR_ID still works when RADAR_SENSOR_IDS is unset.
 _RADAR_IDS_RAW = os.environ.get("RADAR_SENSOR_IDS", "").strip()
 if _RADAR_IDS_RAW:
   RADAR_SENSOR_IDS = [s.strip() for s in _RADAR_IDS_RAW.split(",") if s.strip()]
 else:
   RADAR_SENSOR_IDS = [os.environ.get("RADAR_SENSOR_ID", "intersection-radar1").strip()]
-RADAR_SENSOR_ID = RADAR_SENSOR_IDS[0]  # legacy alias
+RADAR_SENSOR_ID = RADAR_SENSOR_IDS[0]
 
 _MODE_DEFAULTS = {
   "classical": {
@@ -77,7 +72,6 @@ _MODE_DEFAULTS = {
     "data": "/home/pipeline-server/videos/radar_intersection/pcd_bin/%06d.bin",
     "config": "/home/pipeline-server/models/public/radarpillars/FP16/radarpillars_ov_config.json",
     "point_features": 7,
-    # ~1 person/frame mean on VIDETEC 3270–4100 densify (0.03 floods clutter).
     "score": 0.1,
   },
 }
@@ -113,13 +107,8 @@ RADAR_ADD_TENSOR_DATA = os.environ.get("RADAR_ADD_TENSOR_DATA", "false").lower()
 if RADAR_ADD_TENSOR_DATA not in ("true", "false"):
   RADAR_ADD_TENSOR_DATA = "false"
 RADAR_MUTE = os.environ.get("RADAR_MUTE", "false").lower() in ("1", "true", "yes")
-# Causal densify for live/stream: past frames kept by g3dinference (0 = off).
-# past=10 ≈ span of offline ±5 without looking ahead. Prefer single-frame bins.
 RADAR_ACCUMULATE_PAST = int(os.environ.get("RADAR_ACCUMULATE_PAST", "0") or "0")
 
-# Optional per-id overrides:
-#   RADAR_DATA_PATHS=id:/path/%06d.bin,id2:/path2/%06d.bin
-#   RADAR_INDEX_RANGES=id:3270-4100,id2:3098-3928
 _RADAR_PATH_MAP: dict[str, str] = {}
 for part in os.environ.get("RADAR_DATA_PATHS", "").split(","):
   part = part.strip()
@@ -150,7 +139,6 @@ def _radar_data_path(sensor_id: str) -> str:
     return _RADAR_PATH_MAP[sensor_id]
   if len(RADAR_SENSOR_IDS) == 1:
     return RADAR_DATA_PATH
-  # Convention: first id uses RADAR_DATA_PATH; others under …/radar2/ sibling.
   if sensor_id == RADAR_SENSOR_IDS[0]:
     return RADAR_DATA_PATH
   root = RADAR_DATA_PATH.rsplit("/pcd_bin/", 1)[0] if "/pcd_bin/" in RADAR_DATA_PATH else (
@@ -170,8 +158,7 @@ def _radar_fifo(sensor_id: str) -> str:
   safe = sensor_id.replace("/", "_")
   return f"/tmp/radar_demo_radar_{safe}.fifo"
 
-# Multi-camera: CAM_SENSOR_IDS=radar-cam1,radar-cam-n,... (default single cam).
-# Legacy CAM_SENSOR_ID still works when CAM_SENSOR_IDS is unset.
+
 _CAM_IDS_RAW = os.environ.get("CAM_SENSOR_IDS", "").strip()
 if _CAM_IDS_RAW:
   CAM_SENSOR_IDS = [s.strip() for s in _CAM_IDS_RAW.split(",") if s.strip()]
@@ -182,7 +169,6 @@ CAM_DATA_ROOT = os.environ.get(
   "CAM_DATA_ROOT",
   "/home/pipeline-server/videos/radar_intersection/images",
 ).rstrip("/")
-# Legacy single-path override (only when exactly one camera).
 _CAM_DATA_PATH_LEGACY = os.environ.get("CAM_DATA_PATH", "").strip()
 
 CAM_START_INDEX = int(os.environ.get("CAM_START_INDEX", "0"))
@@ -194,17 +180,9 @@ CAM_FRAME_RATE = int(os.environ.get("CAM_FRAME_RATE", "10"))
 CAM_DEVICE = os.environ.get("CAM_DEVICE", "CPU").strip().upper()
 CAM_SCORE_THRESHOLD = float(os.environ.get("CAM_SCORE_THRESHOLD", "0.6"))
 CAM_MUTE = os.environ.get("CAM_MUTE", "false").lower() in ("1", "true", "yes")
-# Stricter person post-filters (sign-on-grass FPs) — independent of gvadetect thr.
-CAM_PERSON_MIN_SCORE = float(os.environ.get("CAM_PERSON_MIN_SCORE", "0.75"))
-CAM_PERSON_MIN_HEIGHT_PX = float(os.environ.get("CAM_PERSON_MIN_HEIGHT_PX", "100"))
-CAM_PERSON_MIN_ASPECT = float(os.environ.get("CAM_PERSON_MIN_ASPECT", "1.2"))
-# Scene categories after COCO→scene remapping (see build_camera_message).
-CAM_DETECTION_LABELS = [
-  s.strip() for s in os.environ.get("CAM_DETECTION_LABELS", "vehicle,person,cyclist").split(",")
-  if s.strip()
-]
-# SceneScape OMZ default for multi-class intersection: crossroad-1016
-# (person / vehicle / bike). Override with CAM_MODEL / CAM_MODEL_PROC.
+# SceneScape datapublisher allow-list (CSV). Must match model-proc labels.
+CAM_DETECTION_LABELS = os.environ.get(
+  "CAM_DETECTION_LABELS", "person,vehicle,cyclist").strip()
 CAM_MODEL = os.environ.get(
   "CAM_MODEL",
   "/home/pipeline-server/models/omz/person-vehicle-bike-detection-crossroad-1016"
@@ -215,21 +193,13 @@ CAM_MODEL_PROC = os.environ.get(
   "/home/pipeline-server/videos/radar_intersection/model-proc"
   "/person-vehicle-bike-detection-crossroad-1016.json",
 )
-# Optional shared OpenVINO instance across cameras. Empty by default:
-# sharing one id across 8 parallel gvadetect branches can stall preroll.
-CAM_MODEL_INSTANCE_ID = os.environ.get("CAM_MODEL_INSTANCE_ID", "").strip()
+CAM_NTP_SERVER = os.environ.get("CAM_NTP_SERVER", "ntpserv").strip() or "ntpserv"
 
 
-
-def _cam_data_path(sensor_id: str) -> str:
+def _cam_jpeg_pattern(sensor_id: str) -> str:
   if len(CAM_SENSOR_IDS) == 1 and _CAM_DATA_PATH_LEGACY:
     return _CAM_DATA_PATH_LEGACY
   return f"{CAM_DATA_ROOT}/{sensor_id}/%06d.jpg"
-
-
-def _cam_fifo(sensor_id: str) -> str:
-  safe = sensor_id.replace("/", "_")
-  return f"/tmp/radar_demo_camera_{safe}.fifo"
 
 
 def _make_fifo(path: str) -> None:
@@ -238,33 +208,39 @@ def _make_fifo(path: str) -> None:
   os.mkfifo(path)
 
 
-def _build_sensor_pipelines() -> list[tuple[str, str]]:
-  """Build gst-launch commands for demo sensors.
+def _ensure_camera_clips() -> dict[str, str]:
+  clips: dict[str, str] = {}
+  for sensor_id in CAM_SENSOR_IDS:
+    jpeg_pat = _cam_jpeg_pattern(sensor_id)
+    out = camera_clip_path(
+      CAM_DATA_ROOT, sensor_id, CAM_START_INDEX, CAM_STOP_INDEX, CAM_FRAME_RATE)
+    clips[sensor_id] = ensure_camera_mpegts(
+      jpeg_pattern=jpeg_pat,
+      start_index=CAM_START_INDEX,
+      stop_index=CAM_STOP_INDEX,
+      frame_rate=CAM_FRAME_RATE,
+      out_path=out,
+    )
+  return clips
 
-  Cameras share one multi-branch process (one GPU context / optional shared
-  model-instance-id). Each radar gets its own process with publisher-side
-  pacing — multi-radar in one gst-launch under-delivers the second stream.
-  """
+
+def _build_sensor_pipelines(cam_clips: dict[str, str]) -> list[tuple[str, str]]:
+  """One gst-launch per camera (sscape) + one per radar (g3d FIFO)."""
   pipelines: list[tuple[str, str]] = []
   if not CAM_MUTE:
-    cam_parts = ["gst-launch-1.0"]
-    # Share one OpenVINO infer request pool across the four gvadetect branches.
-    instance_id = CAM_MODEL_INSTANCE_ID or "radar-demo-omz"
     for sensor_id in CAM_SENSOR_IDS:
-      cam_parts += camera_multifilesrc_parts(
-        data_path=_cam_data_path(sensor_id),
-        start_index=CAM_START_INDEX,
-        stop_index=CAM_STOP_INDEX,
+      parts = ["gst-launch-1.0"] + camera_sscape_parts(
+        video_path=cam_clips[sensor_id],
+        sensor_id=sensor_id,
         loop=CAM_LOOP,
-        frame_rate=CAM_FRAME_RATE,
         model=CAM_MODEL,
         model_proc=CAM_MODEL_PROC,
         device=CAM_DEVICE,
         score_threshold=CAM_SCORE_THRESHOLD,
-        fifo_path=_cam_fifo(sensor_id),
-        model_instance_id=instance_id,
+        detection_labels=CAM_DETECTION_LABELS,
+        ntp_server=CAM_NTP_SERVER,
       )
-    pipelines.append(("cameras", " ".join(cam_parts)))
+      pipelines.append((f"camera:{sensor_id}", " ".join(parts)))
   if not RADAR_MUTE:
     for sensor_id in RADAR_SENSOR_IDS:
       start_i, stop_i = _radar_index_range(sensor_id)
@@ -297,19 +273,9 @@ def _fifo_publish_loop(
   client,
   builder,
   fps: float,
-  frame_index_cell: list | None = None,
-  start_index: int = 0,
-  stop_index: int | None = None,
-  loop: bool = True,
-  drive_frame_index: bool = True,
-  objects_cell: list | None = None,
   pace: bool = False,
 ) -> None:
-  """Read GST JSON lines and publish.
-
-  When ``pace`` is True (radar paths with frame-rate=0), sleep to hold
-  ``fps`` and skip backlog lines so MQTT stays real-time.
-  """
+  """Read GST JSON lines and publish (radar only)."""
   published = 0
   t0 = time.monotonic()
   interval = (1.0 / fps) if (pace and fps > 0) else 0.0
@@ -325,11 +291,9 @@ def _fifo_publish_loop(
         continue
       if interval > 0:
         now = time.monotonic()
-        # Drop backlog so we publish the freshest frame at the target rate.
         if now + 0.0005 < next_due:
           time.sleep(next_due - now)
         next_due = time.monotonic() + interval
-        # Drain any extra lines accumulated during sleep / slow publish.
         while True:
           ready, _, _ = select.select([fifo], [], [], 0)
           if not ready:
@@ -346,11 +310,6 @@ def _fifo_publish_loop(
       msg = builder(raw)
       safe_publish(client, topic, msg)
       published += 1
-      if drive_frame_index and frame_index_cell is not None:
-        frame_index_cell[0] = playback_index(
-          published, start_index, stop_index, loop)
-      if objects_cell is not None:
-        objects_cell[0] = msg.get("objects") or {}
       if published % max(1, int(fps)) == 0:
         elapsed = max(1e-3, time.monotonic() - t0)
         objs = msg.get("objects") or {}
@@ -362,29 +321,14 @@ def _fifo_publish_loop(
         )
 
 
-def _sensor_publish_process(cfg: dict) -> None:
-  """Dedicated process per sensor so FIFO→MQTT is not GIL-serialized."""
+def _radar_publish_process(cfg: dict) -> None:
   state = MqttState()
   client = connect_mqtt(cfg["client_name"], BROKER, PORT, state)
-  kind = cfg["kind"]
   sid = cfg["sensor_id"]
   fps = float(cfg["fps"])
-  if kind == "radar":
-    def builder(raw, _sid=sid, _fps=fps):
-      return build_radar_message(raw, _sid, _fps)
-  else:
-    labels = cfg["detection_labels"]
-    pmin = float(cfg["person_min_score"])
-    ph = int(cfg["person_min_height_px"])
-    pa = float(cfg["person_min_aspect"])
 
-    def builder(raw, _sid=sid, _fps=fps):
-      return build_camera_message(
-        raw, _sid, _fps, labels,
-        person_min_score=pmin,
-        person_min_height_px=ph,
-        person_min_aspect=pa,
-      )
+  def builder(raw, _sid=sid, _fps=fps):
+    return build_radar_message(raw, _sid, _fps)
 
   _fifo_publish_loop(
     name=cfg["name"],
@@ -393,12 +337,6 @@ def _sensor_publish_process(cfg: dict) -> None:
     client=client,
     builder=builder,
     fps=fps,
-    frame_index_cell=cfg.get("frame_index_cell"),
-    start_index=int(cfg.get("start_index", 0)),
-    stop_index=cfg.get("stop_index"),
-    loop=bool(cfg.get("loop", True)),
-    drive_frame_index=bool(cfg.get("drive_frame_index", False)),
-    objects_cell=cfg.get("objects_cell"),
     pace=bool(cfg.get("pace", False)),
   )
 
@@ -409,96 +347,53 @@ def main() -> None:
     f"radar_sensors={RADAR_SENSOR_IDS} cam_sensors={CAM_SENSOR_IDS} "
     f"broker={BROKER}:{PORT} radar_device={RADAR_DEVICE} "
     f"cam_model={CAM_MODEL} cam_device={CAM_DEVICE} "
+    f"cam_pipeline=sscape_post_inference_data_publish "
     f"point_features={RADAR_POINT_FEATURES} score_thr={RADAR_SCORE_THRESHOLD} "
     f"accumulate_past={RADAR_ACCUMULATE_PAST} "
     f"radar_mute={RADAR_MUTE} cam_mute={CAM_MUTE}",
     flush=True,
   )
 
-  state = MqttState()
-  atexit.register(state.shutdown)
-  # Parent MQTT client is only for getimage / calibration replies.
-  client = connect_mqtt("radar-demo-getimage", BROKER, PORT, state)
-  manager = Manager()
-
-  cam_frame_cells: dict[str, list] = {}
-  cam_image_cells: dict[str, list] = {}
-  cam_objects_cells: dict[str, list] = {}
+  cam_clips: dict[str, str] = {}
   if not CAM_MUTE:
-    for sensor_id in CAM_SENSOR_IDS:
-      cell = manager.list([CAM_START_INDEX])
-      cam_frame_cells[sensor_id] = cell
-      img_cell: list = [None]
-      cam_image_cells[sensor_id] = img_cell
-      obj_cell = manager.list([{}])
-      cam_objects_cells[sensor_id] = obj_cell
-      # Seed with raw first frame until detections arrive.
-      seed = annotate_frame_jpeg_b64(
-        _cam_data_path(sensor_id) % CAM_START_INDEX, {}, fps=float(CAM_FRAME_RATE))
-      if seed:
-        img_cell[0] = seed
-      setup_getimage_responder(
-        client, sensor_id, _cam_data_path(sensor_id), cell, CAM_START_INDEX,
-        image_b64_cell=img_cell, objects_cell=obj_cell, fps=float(CAM_FRAME_RATE))
-      _make_fifo(_cam_fifo(sensor_id))
-  if not RADAR_MUTE:
-    for sensor_id in RADAR_SENSOR_IDS:
-      _make_fifo(_radar_fifo(sensor_id))
+    cam_clips = _ensure_camera_clips()
 
-  # Start FIFO→MQTT workers before gst-launch so writers do not block on open.
   workers: list[Process] = []
   if not RADAR_MUTE:
     for sensor_id in RADAR_SENSOR_IDS:
+      _make_fifo(_radar_fifo(sensor_id))
       cfg = {
-        "kind": "radar",
         "sensor_id": sensor_id,
         "name": f"radar:{sensor_id}",
         "client_name": f"radar-pub-{sensor_id}",
         "fifo_path": _radar_fifo(sensor_id),
         "topic": f"scenescape/data/radar/{sensor_id}",
         "fps": float(RADAR_FRAME_RATE),
-        "drive_frame_index": False,
         "pace": True,
       }
       workers.append(Process(
-        target=_sensor_publish_process, args=(cfg,),
+        target=_radar_publish_process, args=(cfg,),
         name=f"radar:{sensor_id}", daemon=True))
-  if not CAM_MUTE:
-    for sensor_id in CAM_SENSOR_IDS:
-      cfg = {
-        "kind": "camera",
-        "sensor_id": sensor_id,
-        "name": f"camera:{sensor_id}",
-        "client_name": f"cam-pub-{sensor_id}",
-        "fifo_path": _cam_fifo(sensor_id),
-        "topic": f"scenescape/data/camera/{sensor_id}",
-        "fps": float(CAM_FRAME_RATE),
-        "detection_labels": CAM_DETECTION_LABELS,
-        "person_min_score": CAM_PERSON_MIN_SCORE,
-        "person_min_height_px": CAM_PERSON_MIN_HEIGHT_PX,
-        "person_min_aspect": CAM_PERSON_MIN_ASPECT,
-        "frame_index_cell": cam_frame_cells[sensor_id],
-        "objects_cell": cam_objects_cells[sensor_id],
-        "start_index": CAM_START_INDEX,
-        "stop_index": CAM_STOP_INDEX,
-        "loop": CAM_LOOP,
-        "drive_frame_index": True,
-      }
-      workers.append(Process(
-        target=_sensor_publish_process, args=(cfg,),
-        name=f"camera:{sensor_id}", daemon=True))
+    for w in workers:
+      w.start()
 
-  for w in workers:
-    w.start()
-
-  pipeline_specs = _build_sensor_pipelines()
+  pipeline_specs = _build_sensor_pipelines(cam_clips)
   procs: list[tuple[str, subprocess.Popen]] = []
   for name, pipeline_cmd in pipeline_specs:
     print(f"[radar-publisher] Starting {name}: {pipeline_cmd}", flush=True)
     env = os.environ.copy()
-    # Keep classical/OpenVINO from oversubscribing cores next to 4-cam GST.
     env.setdefault("OMP_NUM_THREADS", "2")
     env.setdefault("OPENBLAS_NUM_THREADS", "2")
+    # Same layout as retail/queuing (run.sh appends ADDITIONAL_GST_PLUGIN_PATH
+    # to GST_PLUGIN_PATH; plugins are mounted at /home/sscape/python).
+    # Do not touch PYTHONPATH: the image's own path provides gstgva.
+    plugin_root = env.get("ADDITIONAL_GST_PLUGIN_PATH", "/home/sscape")
+    gst_path = env.get("GST_PLUGIN_PATH", "")
+    if plugin_root not in gst_path.split(":"):
+      env["GST_PLUGIN_PATH"] = f"{gst_path}:{plugin_root}" if gst_path else plugin_root
+    env.setdefault("ROOT_CA", "/run/secrets/certs/scenescape-ca.pem")
+    env.setdefault("MQTT_HOST", BROKER)
+    env.setdefault("MQTT_PORT", str(PORT))
     proc = subprocess.Popen(shlex.split(pipeline_cmd), stderr=sys.stderr, env=env)
     procs.append((name, proc))
     print(f"[radar-publisher] {name} started (pid={proc.pid})", flush=True)
