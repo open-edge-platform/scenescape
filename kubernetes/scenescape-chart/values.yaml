@@ -119,7 +119,7 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.3.0-20260922-weekly-ubuntu24"
+    tag: "2026.3.0-20260929-weekly-ubuntu24"
     pullPolicy: IfNotPresent
 
 models:
