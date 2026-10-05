@@ -55,6 +55,7 @@ export const DATA_CAMERA = "/data/camera/";
 export const IMAGE_CAMERA = "/image/camera/";
 export const IMAGE_CALIBRATE = "/image/calibration/camera/";
 export const CAMERA_POSE = "/autocalibration/camera/pose/";
+export const POINTCLOUD_CAMERA = "/pointcloud/camera/";
 export const SYS_CHILDSCENE_STATUS = "/sys/child/status";
 export const EVENT = "/event";
 
