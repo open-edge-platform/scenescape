@@ -182,7 +182,7 @@ help:
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
-	@echo "  - Use 'SUPASS=<password> make build-core docker-compose.yml .env deploy' to start without demo videos or scenes."
+	@echo "  - Use 'SUPASS=<password> make build-core deploy' to start without demo videos or scenes."
 	@echo "  - Use 'make build-all demo-k8s DEPLOY_PROFILES=\"controller mapping cluster-analytics reid\"' to build Scenescape and run demo using Kubernetes with all services."
 	@echo ""
 	@echo "Tips:"
