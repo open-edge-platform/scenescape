@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+{{- if and .Values.tracker.enabled .Values.reid.enabled }}
+{{- fail "tracker.enabled=true is incompatible with reid.enabled=true; ReID requires the Scene Controller, which Tracker replaces." }}
+{{- end }}
 {{- if .Values.tracker.enabled }}
 ---
 apiVersion: apps/v1

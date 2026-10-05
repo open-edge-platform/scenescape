@@ -29,7 +29,15 @@ Then, from the repository root, start the default Controller + Analytics deploym
 make deploy
 ```
 
-`make deploy` uses the existing `docker-compose.yml` and `.env` targets to generate the Compose configuration and environment file as needed, then starts the `controller` profile. It requires `SUPASS` for the initial administrator account. Image, secret, and model preparation is covered in [Preparation](./preparation.md).
+`make deploy` regenerates `docker-compose.yml` and `.env` on every invocation, overwriting edits to those files, then starts the `controller` profile. It requires `SUPASS` for the initial administrator account. Image, secret, and model preparation is covered in [Preparation](./preparation.md).
+
+Keep persistent Compose customizations, such as a different Mapping image, in a separate override file and pass it through `DEPLOY_COMPOSE_ARGS`:
+
+```bash
+make deploy DEPLOY_COMPOSE_ARGS='-f docker-compose.yml -f docker-compose.custom.yml'
+```
+
+The generated `.env` is also overwritten on each run. Keep custom environment values in the shell or a separate env file and pass that file with `DEPLOY_COMPOSE_ARGS='--env-file .env.custom -f docker-compose.yml -f docker-compose.custom.yml'`.
 
 This starts the Scenescape core: the web application, database, broker, NTP server, Scene Controller, Analytics, and Auto Camera Calibration. It does not start the separate demo video-source stack, and it does not upload any demo scenes.
 

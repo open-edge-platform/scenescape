@@ -122,4 +122,4 @@ For a local Kind deployment created by the repository's Kubernetes Makefile, use
 make -C kubernetes clean-all
 ```
 
-> **Warning:** `clean-all` deletes the Kind cluster. Do not run it when the active Kubernetes context points to a cluster whose workloads or data must be retained.
+> **Warning:** `make -C kubernetes clean-all` runs `kind delete cluster`, which deletes the default Kind cluster named `kind` and its data regardless of the active kubectl context. Its cleanup prerequisite also deletes the generated mediaserver resource using the current kubectl context. Check `kubectl config current-context` and confirm both cleanup effects are safe before running it; do not use it to clean up an existing or production cluster.
