@@ -122,4 +122,4 @@ For a local Kind deployment created by the repository's Kubernetes Makefile, use
 make -C kubernetes clean-all
 ```
 
-> **Warning:** `clean-all` deletes the Kind cluster. Do not run it when the active Kubernetes context points to a cluster whose workloads or data must be retained.
+> **Warning:** This command deletes the default local Kind cluster, regardless of the active Kubernetes context. Do not run it if that Kind cluster contains workloads or data you need to keep.
