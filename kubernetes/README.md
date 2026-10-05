@@ -34,7 +34,9 @@ This will:
 When the web UI is up, log in as `admin` with the password supplied through `SUPASS`.
 
 To enable optional services, pass their names in the shared, space-separated `DEPLOY_PROFILES` variable. Use `make build-all` in place of `make build-core` when selecting Tracker, Mapping, or Cluster Analytics so their images are built and loaded too. For example:
+
 >
+
 ```sh
 SUPASS='<admin-password>' PGPASS='<database-password>' \
   make build-all demo-k8s DEPLOY_PROFILES='controller mapping cluster-analytics reid'
