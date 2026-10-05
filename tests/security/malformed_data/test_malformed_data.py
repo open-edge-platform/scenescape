@@ -165,6 +165,109 @@ def _rotation_out_of_range(camera_id):
   return payload
 
 
+def _timestamp_wrong_type(camera_id):
+  payload = _good_payload(camera_id)
+  payload["timestamp"] = 1735689600
+  return payload
+
+
+def _category_wrong_type(camera_id):
+  payload = _good_payload(camera_id)
+  payload["objects"]["person"][0]["category"] = 42
+  return payload
+
+
+def _detection_id_wrong_type(camera_id):
+  payload = _good_payload(camera_id)
+  payload["objects"]["person"][0]["id"] = "not-an-integer"
+  return payload
+
+
+def _objects_value_not_array(camera_id):
+  payload = _good_payload(camera_id)
+  payload["objects"]["person"] = "not-an-array"
+  return payload
+
+
+def _detection_entry_not_object(camera_id):
+  payload = _good_payload(camera_id)
+  payload["objects"]["person"][0] = "not-an-object"
+  return payload
+
+
+def _bounding_box_wrong_type(camera_id):
+  payload = _good_payload(camera_id)
+  payload["objects"]["person"][0]["bounding_box"]["x"] = "left"
+  return payload
+
+
+def _bounding_box_missing_field(camera_id):
+  payload = _good_payload(camera_id)
+  del payload["objects"]["person"][0]["bounding_box"]["width"]
+  return payload
+
+
+def _translation_wrong_length(camera_id):
+  payload = _good_payload(camera_id)
+  del payload["objects"]["person"][0]["bounding_box"]
+  # translation requires exactly 3 elements.
+  payload["objects"]["person"][0]["translation"] = [1.0, 2.0]
+  payload["objects"]["person"][0]["size"] = [1.0, 1.0, 1.0]
+  return payload
+
+
+def _rotation_wrong_length(camera_id):
+  payload = _good_payload(camera_id)
+  # rotation requires exactly 4 elements (quaternion).
+  payload["objects"]["person"][0]["rotation"] = [0.0, 0.0, 0.0]
+  return payload
+
+
+def _zero_size_component(camera_id):
+  payload = _good_payload(camera_id)
+  del payload["objects"]["person"][0]["bounding_box"]
+  payload["objects"]["person"][0]["translation"] = [1.0, 2.0, 3.0]
+  # size items must be strictly greater than 0.
+  payload["objects"]["person"][0]["size"] = [0.0, 1.0, 1.0]
+  return payload
+
+
+def _conflicting_geometry(camera_id):
+  payload = _good_payload(camera_id)
+  # bounding_box is already present; adding translation+size makes two
+  # mutually-exclusive oneOf geometry branches match at once.
+  payload["objects"]["person"][0]["translation"] = [1.0, 2.0, 3.0]
+  payload["objects"]["person"][0]["size"] = [1.0, 1.0, 1.0]
+  return payload
+
+
+def _keypoint_missing_fields(camera_id):
+  payload = _good_payload(camera_id)
+  # keypoint requires name, x, and y.
+  payload["objects"]["person"][0]["keypoints"] = [{"name": "nose"}]
+  return payload
+
+
+def _semantic_attribute_missing_model_name(camera_id):
+  payload = _good_payload(camera_id)
+  payload["objects"]["person"][0]["metadata"] = {
+    "gender": {"label": "Female", "confidence": 0.8},
+  }
+  return payload
+
+
+def _semantic_attribute_confidence_out_of_range(camera_id):
+  payload = _good_payload(camera_id)
+  payload["objects"]["person"][0]["metadata"] = {
+    "gender": {
+      "label": "Female",
+      "model_name": "age-gender-recognition-retail-0013",
+      "confidence": 1.5,
+    },
+  }
+  return payload
+
+
 INVALID_CASES = (
   ("missing_timestamp", _missing_timestamp),
   ("invalid_timestamp_format", _invalid_timestamp_format),
@@ -180,6 +283,20 @@ INVALID_CASES = (
   ("missing_category", _missing_category),
   ("missing_geometry", _missing_geometry),
   ("rotation_out_of_range", _rotation_out_of_range),
+  ("timestamp_wrong_type", _timestamp_wrong_type),
+  ("category_wrong_type", _category_wrong_type),
+  ("detection_id_wrong_type", _detection_id_wrong_type),
+  ("objects_value_not_array", _objects_value_not_array),
+  ("detection_entry_not_object", _detection_entry_not_object),
+  ("bounding_box_wrong_type", _bounding_box_wrong_type),
+  ("bounding_box_missing_field", _bounding_box_missing_field),
+  ("translation_wrong_length", _translation_wrong_length),
+  ("rotation_wrong_length", _rotation_wrong_length),
+  ("zero_size_component", _zero_size_component),
+  ("conflicting_geometry", _conflicting_geometry),
+  ("keypoint_missing_fields", _keypoint_missing_fields),
+  ("semantic_attribute_missing_model_name", _semantic_attribute_missing_model_name),
+  ("semantic_attribute_confidence_out_of_range", _semantic_attribute_confidence_out_of_range),
 )
 
 
