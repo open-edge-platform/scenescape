@@ -440,16 +440,19 @@ def test_malformed_data(scenescape_env, params, result_recorder):
         f"positive control {CONTROL_CAMERA!r} produced no scene updates"
       )
 
-    # Schema-invalid messages must never be forwarded.
     for name, builder in INVALID_CASES:
-      seen, payload = _drive_expecting_drop(
-        pubsub, counter, INVALID_SENDER, builder, DROP_WINDOW_S,
-      )
-      ok = seen == 0
-      evidence.append((INVALID_SENDER, name, payload, "0", seen,
-                       "REJECTED" if ok else "FORWARDED", ok))
-      if not ok:
-        failures.append(f"invalid case {name!r} produced {seen} scene updates")
+      try:
+        seen, payload = _drive_expecting_drop(
+          pubsub, counter, INVALID_SENDER, builder, DROP_WINDOW_S,
+        )
+        ok = seen == 0
+        evidence.append((INVALID_SENDER, name, payload, "0", seen,
+                         "REJECTED" if ok else "FORWARDED", ok))
+        if not ok:
+          failures.append(f"invalid case {name!r}")
+      except Exception as e:
+        evidence.append((INVALID_SENDER, name, repr(e), "0", "n/a", "ERROR", False))
+        failures.append(f"invalid case {name!r} raised {e!r}")
 
     # Unknown sender: valid payload but unregistered camera must be dropped.
     seen, payload = _drive_expecting_drop(
