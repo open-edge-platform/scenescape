@@ -10,7 +10,7 @@ secrets:
 
 services:
   ntpserv:
-    image: dockurr/chrony:4.8
+    image: dockurr/chrony:4.9
     networks:
       scenescape-test:
     restart: on-failure
