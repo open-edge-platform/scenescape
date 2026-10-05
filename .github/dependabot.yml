@@ -88,6 +88,7 @@ updates:
       - "/sample_data/compose"
       - "/sample_data/demo_scenes/Queuing"
       - "/sample_data/demo_scenes/Retail"
+      - "/sample_data/lidar_intersection"
       - "/tests/compose"
       - "/tests/compose/dlstreamer"
       - "/tests/compose/hierarchy"
