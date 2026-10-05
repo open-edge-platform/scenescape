@@ -86,22 +86,23 @@ make demo-close
 
 ## Kubernetes
 
-For the simplest all-in-one demo on a new local Kind cluster, use Scenescape's bootstrap script:
+For the standard demo on a new local Kind cluster, build the core images and invoke the Kubernetes demo target from the repository root:
 
 ```bash
-KUBERNETES=1 ./deploy.sh
+SUPASS='<choose-a-strong-admin-password>' PGPASS='<choose-a-strong-database-password>' \
+  make build-core demo-k8s
 ```
 
-This checks host prerequisites, builds the core images, creates a local Kind cluster, deploys the default Controller profile, wires up the demo video sources, and uploads the demo scenes. This is the recommended one-command route for the standard demo. The script builds only core images, so it is not the route for Tracker, Mapping, or Cluster Analytics profiles.
+The `build-core` goal prepares secrets, builds the core images, and installs models. `demo-k8s` installs the local Kind prerequisites, creates the cluster, loads the images, deploys the Helm chart, starts the demo video sources, and uploads the demo scenes.
 
-For explicit profile selection or optional services, prepare the required images first and use `make demo-k8s`. For example, to run Controller + ReID + Mapping + Cluster Analytics:
+Use `DEPLOY_PROFILES` to select optional services. For profiles that need Tracker, Mapping, or Cluster Analytics images, use `build-all` instead of `build-core`. For example, to run Controller + ReID + Mapping + Cluster Analytics:
 
 ```bash
 SUPASS='<choose-a-strong-admin-password>' PGPASS='<choose-a-strong-database-password>' \
   make build-all demo-k8s DEPLOY_PROFILES='controller mapping cluster-analytics reid'
 ```
 
-`make demo-k8s` expects the selected images to exist locally and recreates the default Kind cluster before loading them. The accepted `DEPLOY_PROFILES` tokens are `controller`, `tracker`, `mapping`, `cluster-analytics`, and `reid`. Do not combine `tracker` and `reid`: ReID is used by the Scene Controller, which Tracker replaces.
+`DEPLOY_PROFILES` accepts `controller`, `tracker`, `mapping`, `cluster-analytics`, and `reid`; the default is `controller`. Tracker replaces the Scene Controller, so do not select both `tracker` and `reid`.
 
 ### Existing Cluster
 
