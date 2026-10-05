@@ -30,6 +30,7 @@
   -e DBROOT \
   -v scenescape_vol-media:/workspace/media \
   -v scenescape_vol-datasets:/workspace/datasets \
+  -v scenescape_vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad \
   -v $(pwd)/manager/secrets/certs/scenescape-ca.pem:/run/secrets/certs/scenescape-ca.pem:ro \
   -v $(pwd)/manager/secrets/django:/run/secrets/django:ro \
   -v $(pwd)/manager/secrets/calibration.auth:/run/secrets/calibration.auth:ro \
@@ -41,6 +42,24 @@
 
 - **Note**:
   The `autocalibration` service **depends on** the `web` service.
+  The application image does not download NetVLAD at startup, and it does not wait for the
+  download to finish: AprilTag calibration works immediately. For Compose deployments, the
+  `autocalibration-model-init` service downloads the model in parallel with the application
+  starting; markerless calibration becomes available once that download completes. For a
+  standalone `docker run`, run the downloader against the same named volume so markerless
+  calibration works once it finishes:
+
+  ```bash
+  docker run --rm \
+    --user 1000:1000 \
+    --entrypoint python3 \
+    -e NETVLAD_MODEL_DIR=/usr/local/lib/python3.11/site-packages/third_party/netvlad \
+    -v scenescape_vol-netvlad_models:/usr/local/lib/python3.11/site-packages/third_party/netvlad \
+    intel/scenescape-autocalibration \
+    /usr/local/bin/download_models.py
+  ```
+
+  The downloader verifies the model checksum and exits nonzero if preparation fails.
   Before starting this container, ensure that:
   - The **web** service at `https://web.scenescape.intel.com:443` is accessible.
 

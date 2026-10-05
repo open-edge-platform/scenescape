@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+--- hloc/extractors/netvlad.py
++++ hloc/extractors/netvlad.py
+@@ -5 +5 @@
+-import subprocess
++import os
+@@ -18 +18,3 @@
+-netvlad_path = Path(__file__).parent / '../../third_party/netvlad'
++netvlad_path = Path(os.getenv(
++    'NETVLAD_MODEL_DIR',
++    Path(__file__).parent / '../../third_party/netvlad'))
+@@ -66 +67,0 @@
+-    # Download the checkpoint.
+@@ -69,5 +70,3 @@
+-      checkpoint.parent.mkdir(exist_ok=True)
+-      link = self.dir_models[conf['model_name']]
+-      cmd = ['wget', link, '-O', str(checkpoint)]
+-      logger.info(f'Downloading the NetVLAD model with `{cmd}`.')
+-      subprocess.run(cmd, check=True)
++      raise FileNotFoundError(
++          f'NetVLAD model is required at {checkpoint}; '
++          'run the model download init container first')

@@ -1,4 +1,4 @@
-# How to Build Scene Controller from Source
+# Build Scene Controller from Source
 
 ## Prerequisites
 

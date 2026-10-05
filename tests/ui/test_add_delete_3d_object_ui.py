@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+
+import pytest
 
 from tests.ui.browser import By, Browser
 import tests.ui.common_ui_test_utils as common
@@ -13,20 +15,17 @@ SCENESCAPE_SPEC = FuncTestSpec(
   require_password=True, auth="",
 )
 
-def test_add_delete_3d_object(params, record_xml_attribute, repo_root):
+@pytest.mark.test_name("NEX-T10428")
+def test_add_delete_3d_object(params, repo_root, result_recorder):
   """! Checks that a 3D object can be both created and deleted using the web UI.
   @param    params                  Dict of test parameters.
-  @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    result_recorder         Pytest fixture recording the test result.
   @return   exit_code               Indicates test success or failure.
   """
-  TEST_NAME = "NEX-T10428"
-  record_xml_attribute("name", TEST_NAME)
   PAGE_NAME = "Object Library"
   OBJECT_NAME = '3D Object'
   FILE_TO_UPLOAD = f"{repo_root}/tests/ui/test_media/box.glb"
-  exit_code = 1
   try:
-    print("Executing: " + TEST_NAME)
     print("Test that the user can create and delete 3D objects.")
     browser = Browser()
     assert common.check_page_login(browser, params)
@@ -38,10 +37,8 @@ def test_add_delete_3d_object(params, record_xml_attribute, repo_root):
     print('3D object created!')
     assert common.delete_object_library(browser, OBJECT_NAME)
     print('3D object deleted!')
-    exit_code = 0
+    result_recorder.success()
 
   finally:
     browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
-  assert exit_code == 0
   return

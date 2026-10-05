@@ -6,6 +6,7 @@
 
 import sys
 import tempfile
+from unittest.mock import patch
 from pathlib import Path
 from test_utils import setup_hloc_path, print_test_header, print_test_result
 
@@ -111,6 +112,47 @@ def test_feature_extraction():
   return True
 
 
+def test_netvlad_checkpoint_loading():
+  """Verify NetVLAD requires a preloaded checkpoint at the configured path."""
+  print_test_header("NetVLAD Checkpoint")
+
+  try:
+    import importlib
+    import os
+    from hloc.extractors import netvlad
+
+    with tempfile.TemporaryDirectory() as model_dir:
+      os.environ['NETVLAD_MODEL_DIR'] = model_dir
+      netvlad = importlib.reload(netvlad)
+
+      try:
+        netvlad.NetVLAD({'model_name': 'VGG16-NetVLAD-Pitts30K'})
+      except FileNotFoundError:
+        print("  ✓ Missing checkpoint fails before model loading")
+      else:
+        print_test_result(False, "Missing checkpoint was accepted")
+        return False
+
+      checkpoint = Path(model_dir) / 'VGG16-NetVLAD-Pitts30K.mat'
+      checkpoint.touch()
+      with patch.object(netvlad, 'loadmat', side_effect=RuntimeError("sentinel")):
+        try:
+          netvlad.NetVLAD({'model_name': 'VGG16-NetVLAD-Pitts30K'})
+        except RuntimeError as error:
+          if str(error) != "sentinel":
+            raise
+          print("  ✓ Preloaded checkpoint is accepted")
+        else:
+          print_test_result(False, "Preloaded checkpoint was not loaded")
+          return False
+    print_test_result(True)
+    return True
+  except Exception as error:
+    print(f"  ⚠️  Test skipped: {error}")
+    print_test_result(True, "Skipped - dependencies missing")
+    return True
+
+
 def main():
   """Run feature extraction tests."""
   try:
@@ -124,8 +166,9 @@ def main():
 
   # SuperPoint test skipped (not used in Scenescape)
   extraction_passed = test_feature_extraction()
+  netvlad_passed = test_netvlad_checkpoint_loading()
 
-  return 0 if dog_passed else 1
+  return 0 if dog_passed and netvlad_passed else 1
 
 
 if __name__ == '__main__':

@@ -46,6 +46,8 @@ class ImportScene:
           "transform_type": EULER,
           "translation": cam.get("translation"),
           "rotation": cam.get("rotation"),
+          # map_transform_fields requires scale to write transforms; default if archive omits it.
+          "scale": cam.get("scale") or [1.0, 1.0, 1.0],
         })
       cam_items.append(cam_data)
     return cam_items
@@ -87,10 +89,12 @@ class ImportScene:
       "tripwires": None,
       "regions": None,
       "sensors": None,
+      "calibration_markers": None,
       "cameras_created": None,
       "tripwires_created": None,
       "regions_created": None,
       "sensors_created": None,
+      "calibration_markers_created": None,
     }
 
     json_files = [
@@ -202,11 +206,20 @@ class ImportScene:
     import_summary["sensors"] = sensor_errors
     import_summary["sensors_created"] = sensors_created
 
+    # Calibration markers are scoped to this scene via a synthetic marker_id.
+    markers = json_data.get("calibration_markers", []) or []
+    for marker in markers:
+      marker["marker_id"] = f"{scene_id}_{marker.get('apriltag_id')}"
+    markers_created, marker_errors = await self.bulk_create(
+      markers, scene_id, self.rest.createCalibrationMarker)
+    import_summary["calibration_markers"] = marker_errors
+    import_summary["calibration_markers_created"] = markers_created
+
     # children recursion
     for child_data in json_data.get("children", []):
       child_summary = await self.loadScene(child=child_data, parent=scene_id)
       if any(child_summary[key] for key in (
-          "scene", "cameras", "tripwires", "regions", "sensors")):
+          "scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")):
         return child_summary
 
     return import_summary
