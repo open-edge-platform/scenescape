@@ -106,6 +106,10 @@ def _negative_confidence(camera_id):
   payload["objects"]["person"][0]["confidence"] = -0.88
   return payload
 
+def _confidence_above_one(camera_id):
+  payload = _good_payload(camera_id)
+  payload["objects"]["person"][0]["confidence"] = 5.0
+  return payload
 
 def _negative_bbox_width(camera_id):
   payload = _good_payload(camera_id)
@@ -156,7 +160,7 @@ def _missing_geometry(camera_id):
 
 def _rotation_out_of_range(camera_id):
   payload = _good_payload(camera_id)
-  # rotation quaternion components must satisfy -1 < value < 1. 
+  # rotation quaternion components must satisfy -1 < value < 1.
   payload["objects"]["person"][0]["rotation"] = [1.0, 0.0, 0.0, 0.0]
   return payload
 
@@ -167,6 +171,7 @@ INVALID_CASES = (
   ("negative_rate", _negative_rate),
   ("zero_confidence", _zero_confidence),
   ("negative_confidence", _negative_confidence),
+  ("confidence_above_one", _confidence_above_one),
   ("negative_bbox_width", _negative_bbox_width),
   ("negative_bbox_height", _negative_bbox_height),
   ("invalid_com_sensor6_7", _invalid_com_sensor6_7),
