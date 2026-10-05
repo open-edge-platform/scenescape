@@ -27,7 +27,7 @@
   "nn_model": "radarpillars_bev_detect.xml",
   "preproc_weights": "radarpillars_preproc_weights.npz",
   "score_threshold": 0.01,
-  "nms_thresh": 0.1,
+  "nms_thresh": 0.05,
   "class_names": [
     "vehicle",
     "person",

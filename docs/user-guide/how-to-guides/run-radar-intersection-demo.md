@@ -94,7 +94,7 @@ SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_IR_DIR=FP16_ft2 \
 | `prepare-radar-camera` | `prepare/stage_videtec_camera_demo.py` | `camera_demo/{radar-cam*}/` JPEGs |
 
 Defaults: `RADAR_REQUIRE_REAL=true` (fail if prep skipped / incomplete),
-`RADAR_ACCUMULATE_PAST=10` for radarpillars. Skip pieces with
+`RADAR_ACCUMULATE_PAST=4` for radarpillars. Skip pieces with
 `SKIP_RADAR_VIDETEC_PREP=true`, `SKIP_RADAR_CAMERA_STAGE=true`, or
 `CAM_MUTE=true`. Synthetic-only plumbing:
 `SKIP_RADAR_VIDETEC_PREP=true RADAR_REQUIRE_REAL=false`.
@@ -127,7 +127,7 @@ acceptance dataset. Prefer the automated path above. Manual equivalent:
      `3098–3928` ↔ radar1 `3270–4100`)
 
 3. **Preferred densify (live):** single-frame `pcd_bin` + GST
-   `accumulate-past` (`RADAR_ACCUMULATE_PAST=10` by default for
+   `accumulate-past` (`RADAR_ACCUMULATE_PAST=4` by default for
    radarpillars). No prebuilt densified bins required.
 
    Optional offline non-causal bins (legacy / A–B vs causal):
@@ -237,12 +237,12 @@ Camera staging is automatic on `make demo-radar` when `CAM_MUTE` is false
 
 ```bash
 SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
-  RADAR_IR_DIR=FP16_ft2 RADAR_ACCUMULATE_PAST=10 \
+  RADAR_IR_DIR=FP16_ft2 RADAR_ACCUMULATE_PAST=4 \
   RADAR_START_INDEX=3270 RADAR_STOP_INDEX=4100 RADAR_SCORE_THRESHOLD=0.1 \
   make demo-radar
 ```
 
-(`RADAR_ACCUMULATE_PAST=10` is the radarpillars Makefile default; single-frame
+(`RADAR_ACCUMULATE_PAST=4` is the radarpillars Makefile default; single-frame
 `pcd_bin` is staged. Set `RADAR_ACCUMULATE_PAST=0` + `RADAR_PCD_SUBDIR=pcd_bin_acc5`
 for the older pre-densified playback path.)
 

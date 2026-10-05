@@ -45,7 +45,10 @@ def parse_args(argv=None):
     help="Non-causal stack ±N (offline). Mutually exclusive with --accumulate-past.")
   ap.add_argument(
     "--accumulate-past", type=int, default=0,
-    help="Causal stack past N frames + current (live path). past=10 ≈ H=5 span.")
+    help="Causal stack past N frames + current (live path). past=4 is the live default.")
+  ap.add_argument(
+    "--nms-thresh", type=float, default=None,
+    help="Override config nms_thresh (BEV IoU). Omit to use the value in --config.")
   ap.add_argument("-o", "--output", type=Path, required=True)
   return ap.parse_args(argv)
 
@@ -58,6 +61,8 @@ def main(argv=None):
   index = {int(e["frame_index"]): e for e in json.loads(index_path.read_text())}
   model = RadarPillarsOV(args.config, device=args.device)
   model.cfg["score_threshold"] = float(args.score_threshold)
+  if args.nms_thresh is not None:
+    model.cfg["nms_thresh"] = float(args.nms_thresh)
 
   start = args.start_index
   stop = args.stop_index if args.stop_index is not None else max(index)

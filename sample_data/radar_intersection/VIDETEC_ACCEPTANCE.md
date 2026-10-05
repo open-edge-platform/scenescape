@@ -238,8 +238,10 @@ gap: OV-FT2 ±5 reaches **52.4%** VRU@3m, matching PyTorch FT2 ±5 (**51.4%**).
 Non-causal ±H needs future frames and cannot run on a live radar stream.
 `g3dinference` now exposes GST property **`accumulate-past`**: a ring buffer of
 the last N frames + current, concatenated before voxelize/infer. SceneScape
-wires it via `RADAR_ACCUMULATE_PAST` (radarpillars demo default **10** ≈ H=5
-span). Prefer single-frame `pcd_bin` over prebuilt `pcd_bin_acc5`.
+wires it via `RADAR_ACCUMULATE_PAST` (radarpillars demo default **4**; past=10
+≈ H=5 span matches GNSS VRU@3m but raises vegetation clutter and loses
+camera-GT person recall on the 3270–4100 loop — see C4d). Prefer single-frame
+`pcd_bin` over prebuilt `pcd_bin_acc5`.
 
 Offline gate (same window as C4; OV-FT2):
 
@@ -254,17 +256,74 @@ python3 sample_data/radar_intersection/radarpillars/batch_radarpillars_infer.py 
 Compare to ±5 with `--accumulate-half-window 5`. **Measured (OV-FT2, 2100–4100,
 score 0.01):** causal past=10 → **52.7%** VRU@3m (recall@1m 40.3%, @2m 48.8%;
 1055 hits) — matches non-causal H=5 **52.4%**. Artifact:
-`VIDETEC-2/gnss_ft2_causal10_thr001.json`.
+`VIDETEC-2/gnss_ft2_causal10_thr001.json`. That gate scored recall only (no
+map-class false-positive metric) at score 0.01.
 
 Live demo:
 
 ```bash
 SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
-  RADAR_IR_DIR=FP16_ft2 RADAR_ACCUMULATE_PAST=10 \
+  RADAR_IR_DIR=FP16_ft2 RADAR_ACCUMULATE_PAST=4 \
   make demo-radar
 ```
 
 Requires `make build-dlsps-g3d` after pulling the DLS `accumulate-past` change.
+
+### C4d — Camera pseudo-GT densify sweep (3270–4100 loop)
+
+Protocol: project radar-cam1 person boxes onto the scene ground plane; classify
+radar person detections against a satellite class map (road / crosswalk /
+sidewalk / vegetation). Ground truth is one pedestrian on the north footpath
+(frames ~3291–3370 and ~3887–3960; 72 frames at conf ≥ 0.5). Score threshold
+0.1 (demo default). OV-FT2:
+
+| `accumulate_past` | Recall@3 m | On road | On vegetation | Plausible (footpath, in window) |
+| ---: | ---: | ---: | ---: | ---: |
+| 0 | 94% | 30% | 1% | 69% |
+| 3 | 99% | 14% | 3% | 81% |
+| **4** | **100%** | **13%** | **4%** | **81%** |
+| 5 | 99% | 12% | 5% | 80% |
+| 10 | 53% | 17% | 15% | 62% |
+
+**Read:** past=10 (old demo default, chosen for GNSS VRU@3m parity with H=5)
+loses half the camera-confirmed pedestrian detections and raises vegetation
+clutter. past=3–5 are equivalent; **4** is the live default. Map-class gating
+of road persons is **not** applied in product (could hide real events). Harness:
+`sample_data/radar_intersection/analysis/`.
+
+### C4e — NMS IoU sweep (past=4, thr 0.1, FT2)
+
+NMS is already class-agnostic (one argmax label, one greedy BEV pass). Duplicate
+person boxes survive because axis-aligned IoU of ~0.7 m boxes offset by ≥0.5 m
+falls under `nms_thresh=0.1`. Config-only sweep:
+
+| `nms_thresh` | Boxes/hit | Recall@3 m | Road % | Veg % |
+| ---: | ---: | ---: | ---: | ---: |
+| 0.1 (old) | 2.39 | 100% | 12% | 4% |
+| **0.05 (adopted)** | **1.83** | **100%** | 13% | 4% |
+| 0.02 | 1.60 | 100% | 13% | 3% |
+| 0.0 | 1.53 | 100% | 14% | 4% |
+
+**Read:** Lowering to **0.05** cuts duplicates ~24% with no recall loss. Further
+drops help less; residual duplicates need centre-distance suppression (code
+change, deferred). Set in `model_installer/FP16_ft2/radarpillars_ov_config.json`.
+
+### C4f — Classical / roadside vs radarpillars (same protocol)
+
+| Mode | Person recall@3 m | Road % | Veg % | Plausible % | Boxes/hit | Vehicles (conf≥thr) | Vehicle recall |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| **radarpillars past=4 thr 0.1** | **100%** (72/72) | **12%** | 4% | **81%** | 2.39→1.83 @nms0.05 | 0 | 0/677 |
+| classical (default gates) | 94% (68/72) | 44% | 1% | 53% | 1.01 | 1091 | 157/677 |
+| classical loose | 94% | 56% | 1% | 42% | 1.01 | 929 | 126/677 |
+| classical tight | 17% | 51% | 0% | 49% | 1.08 | 1509 | 215/677 |
+| roadside thr 0 / 0.35 | 94% (68/72) | 29% | 3% | 61% | 1.09 | 289 | 98/677 |
+
+**Read:** Radarpillars wins person recall and map-plausible share; classical and
+roadside emit vehicles (FT2 does not — vehicle conf ≤0.05) but put more
+"persons" on the road. Keep **radarpillars + past=4 + nms 0.05** as the demo
+default. Classical remains a viable fallback when vehicle tracks matter more
+than person purity. Runners: `analysis/offline_g3d_publish.py`,
+`baselines/classical_batch.py`.
 
 ### C4c — Intel latency optimizations (2026-09-28 → 09-29)
 
@@ -274,10 +333,13 @@ Quality gate above is unchanged; this section is **runtime**. Full tables live i
 
 | Change | Metric improved | Result |
 | --- | --- | --- |
-| Causal `accumulate-past=10` | Live densify vs offline ±5 | **52.7%** VRU@3m ≈ H=5 **52.4%** |
+| Causal `accumulate-past=4` (live default) | Camera-GT recall + map FP | 100% recall@3m; 13% road / 4% veg |
+| Causal `accumulate-past=10` | Live densify vs offline ±5 (GNSS) | **52.7%** VRU@3m ≈ H=5 **52.4%** (no FP metric) |
 | Stage 2a score-gated postproc | VIDETEC slice total latency | **107 → 53 ms** (~2×); postproc 67 → 9 ms |
 | Stage 2b OV VFE + attention | Dense synthetic total (5k pts) | **1038 → 165 ms** (~6×); attn 610 → 46 ms |
 | FT5 train-time densify | Full-window VRU@3m | **~39%** — failed; keep FT2 |
+| `nms_thresh` 0.1→0.05 | Duplicate boxes/hit | **2.39 → 1.83** (100% recall) |
+| FT6 multi-class distill | Dataset | **647 samples / 255 distilled boxes**; train blocked (no RadarPillar ckpt on host) |
 
 Ship: `FP16_ft2/` includes `radarpillars_vfe_linear.*` + `radarpillars_attention.*`;
 config keys `vfe_linear_model` / `attention_model`. Profiler:
@@ -301,6 +363,21 @@ config keys `vfe_linear_model` / `attention_model`. Profiler:
 **Read:** Train-time densify produces a denser associated set but the frozen-attn
 finetune **regresses** H=5 full-window recall vs FT2 (toward FT4). **Do not**
 replace demo FT2 weights with FT5. Gate remains open for causal densify / fusion.
+
+### Fine-tune attempt 6 (multi-class distillation) — dataset ready, train blocked
+
+| Item | Value |
+| --- | --- |
+| Tag | `videtec_gantry_ft6` |
+| Distill | Base VoD OV (`FP16/`), score ≥0.03, stride 2, frames outside 3270–4100 |
+| Data | `VIDETEC-2/finetune_ds_ft6` — GNSS Pedestrian + distilled Car/Cyclist; exclude 3270–4100 → **647** samples (**255** distilled boxes) |
+| Tools | `finetune/distill_base_labels.py`, `build_videtec_dataset.py --distill-jsonl` |
+| Train | **Blocked on this host** — no RadarPillar checkout / FT2 ep11 `.pth` |
+| IR | Placeholder `model_installer/FP16_ft6/README.md`; keep shipping **FP16_ft2** |
+
+Promotion gate (when trained): past=4, thr 0.1, camera-GT loop — person recall ≥
+FT2, road+veg FP share < FT2, non-trivial vehicle dets at conf ≥0.3 matching
+camera vehicles.
 
 ```bash
 # Parity

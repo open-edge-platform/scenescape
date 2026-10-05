@@ -34,7 +34,7 @@ scene poses in `RadarIntersection.json`.
    ```
 
 Defaults: `DLSTREAMER_SRC=../dlstreamer`, `RADAR_REQUIRE_REAL=true`,
-`RADAR_ACCUMULATE_PAST=10` (radarpillars). Re-runs skip Zenodo work when
+`RADAR_ACCUMULATE_PAST=4` (radarpillars). Re-runs skip Zenodo work when
 `VIDETEC-2/.demo_ready` exists.
 
 | Target | Purpose |

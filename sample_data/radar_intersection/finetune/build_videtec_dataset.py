@@ -146,7 +146,33 @@ def parse_args(argv=None):
   ap.add_argument("--z-from-points", action="store_true", default=True,
                   help="Set box Z from median near-GT point Z - half_h (default on)")
   ap.add_argument("--no-z-from-points", action="store_false", dest="z_from_points")
+  ap.add_argument(
+    "--distill-jsonl", type=Path, default=None,
+    help="Optional JSONL from distill_base_labels.py; merges vehicle/cyclist "
+         "boxes into each kept sample's label file (FT6 multi-class)")
+  ap.add_argument(
+    "--distill-score", type=float, default=0.15,
+    help="Min confidence for distilled boxes when merging")
   return ap.parse_args(argv)
+
+
+def _load_distill(path: Path | None) -> dict[int, list[dict]]:
+  if path is None:
+    return {}
+  out: dict[int, list[dict]] = {}
+  for line in path.open():
+    j = json.loads(line)
+    out[int(j["frame_index"])] = list(j.get("objects") or [])
+  return out
+
+
+def _kitti_class(cat: str) -> str:
+  c = cat.lower()
+  if c in ("person", "pedestrian"):
+    return "Pedestrian"
+  if c in ("cyclist", "bicycle", "bike"):
+    return "Cyclist"
+  return "Car"
 
 
 def main(argv=None):
@@ -159,6 +185,7 @@ def main(argv=None):
     origin_utm_northing=VIDETEC_UTM_NORTHING_M,
   )
   g_t = gnss["t"]
+  distill = _load_distill(args.distill_jsonl)
   if args.box_lwh is not None:
     lwh = tuple(float(x) for x in args.box_lwh)
   elif args.vru_class == "Pedestrian":
@@ -184,6 +211,7 @@ def main(argv=None):
   excl_hi = args.exclude_end
   kept = []
   skipped = {"dt": 0, "range": 0, "points": 0, "near_gt": 0, "missing": 0, "excluded": 0}
+  n_distilled = 0
 
   for entry in index:
     fi = int(entry["frame_index"])
@@ -238,14 +266,34 @@ def main(argv=None):
 
     sid = len(kept)
     pcd.astype(np.float32).tofile(velo / f"{sid:06d}.bin")
-    (lab / f"{sid:06d}.txt").write_text(
-      _kitti_label_line(args.vru_class, bx, by, z_label, lwh))
+    label_lines = [_kitti_label_line(args.vru_class, bx, by, z_label, lwh)]
+    for dobj in distill.get(fi, []):
+      if float(dobj.get("confidence", 0)) < args.distill_score:
+        continue
+      cat = str(dobj.get("category", "")).lower()
+      if cat in ("person", "pedestrian"):
+        continue  # GNSS owns the person label
+      trans = dobj.get("translation") or []
+      if len(trans) < 3:
+        continue
+      size = dobj.get("size")
+      if size and len(size) >= 3:
+        dlwh = (float(size[0]), float(size[1]), float(size[2]))
+      else:
+        dlwh = (3.9, 1.6, 1.56) if cat == "vehicle" else CYCLIST_LWH
+      # Distilled translation is centre; KITTI Z is bottom.
+      dz = float(trans[2]) - dlwh[2] / 2.0
+      label_lines.append(
+        _kitti_label_line(_kitti_class(cat), float(trans[0]), float(trans[1]), dz, dlwh))
+      n_distilled += 1
+    (lab / f"{sid:06d}.txt").write_text("".join(label_lines))
     (cal / f"{sid:06d}.txt").write_text(_identity_calib())
     kept.append({
       "seq_id": sid, "frame_index": fi, "gx": gx, "gy": gy,
       "bx": bx, "by": by, "n": int(pcd.shape[0]), "n_near": n_near,
       "snap_shift_m": float(math.hypot(bx - gx, by - gy)),
       "accumulate_half_window": half,
+      "n_distilled": len(label_lines) - 1,
     })
 
   n = len(kept)
@@ -279,6 +327,9 @@ def main(argv=None):
     "accumulate_half_window": half,
     "exclude_start": excl_lo,
     "exclude_end": excl_hi,
+    "distill_jsonl": str(args.distill_jsonl) if args.distill_jsonl else None,
+    "distill_score": args.distill_score,
+    "n_distilled_boxes": n_distilled,
     "snap_shift_m": {
       "mean": float(shifts.mean()),
       "median": float(np.median(shifts)),
@@ -292,6 +343,7 @@ def main(argv=None):
     "source": (
       "VIDETEC-2 + GNSS pseudo-labels (associated"
       + (f", accumulate ±{half}" if half else "")
+      + (", base-VoD distilled vehicle/cyclist" if args.distill_jsonl else "")
       + ")"
     ),
   }

@@ -104,6 +104,8 @@ is **support density**, not a broken detector.
 **Full-window radar-only GNSS gate (recorded, not a product blocker — 2026-09-29):**
 OV-FT2 on 2100–4100 stride 5: **H=5 @ score≥0.01 → 52.4% VRU@3m** (associable
 **92.4%** on 170 frames); **@ demo score 0.1 → 26.4%**. Causal past=10 ≈ **52.7%**.
+**Live default is past=4** (camera-GT + map FP on 3270–4100; past=10 loses
+recall and raises vegetation clutter — see VIDETEC_ACCEPTANCE C4d).
 **FT5** failed to lift (~39% H=5). Keep FT2 demo weights. This metric is
 **radar detections only** (no Controller, no cameras). Product bar is scene
 tracking with Controller late fusion — **accepted**; do **not** pursue extra
@@ -223,7 +225,7 @@ Artifacts: `profile_stages_ft2_3270_3319.json`,
 #### Live demo stack (current)
 
 ```text
-single-frame pcd_bin + g3dinference accumulate-past=10
+single-frame pcd_bin + g3dinference accumulate-past=4
 + FP16_ft2 (BEV FP16 + VFE/attn FP32 IRs) + score 0.1
 + score-gated C++ postproc
 ```
@@ -401,7 +403,8 @@ better 401-frame window (~10× more near-GT support than 3000–5000).
    OV-FT2 H=5 **52.4%** / causal **52.7%** @0.01; **26.4%** @ demo 0.1. Not a
    fused-scene gate. No extra camera–radar detection fusion planned.
 2. **Causal live densify in `g3dinference`** — **DONE** (`accumulate-past`,
-   `RADAR_ACCUMULATE_PAST=10`, offline `--accumulate-past`; ~52.7% VRU@3m).
+   `RADAR_ACCUMULATE_PAST=4` live default; past=10 ≈ H=5 GNSS VRU@3m ~52.7%).
+   Camera-GT densify sweep (C4d) prefers 4 over 10.
 3. **Host preproc → Intel / OpenVINO** — **Stages 1–2b + P1 BEV-device DONE**
    (see *Results rollup*). Sparse VIDETEC: postproc ~2× (107→53 ms); P1 CPU
    LATENCY e2e past=0 ~47 ms. Dense synthetic: total ~5–6×.
@@ -458,10 +461,10 @@ make build-dlsps-g3d
 
 # Live fusion demo (FT2 + causal densify + multi-cam / dual-radar)
 SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_REQUIRE_REAL=true \
-  RADAR_IR_DIR=FP16_ft2 RADAR_ACCUMULATE_PAST=10 \
+  RADAR_IR_DIR=FP16_ft2 RADAR_ACCUMULATE_PAST=4 \
   RADAR_SCORE_THRESHOLD=0.1 make demo-radar
 
-# Offline causal densify gate (past=10 ≈ H=5 span, no future)
+# Offline causal densify gate (past=10 ≈ H=5 span GNSS; live default is past=4)
 python3 sample_data/radar_intersection/radarpillars/batch_radarpillars_infer.py \
   --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
   --config sample_data/radar_intersection/model_installer/FP16_ft2/radarpillars_ov_config.json \

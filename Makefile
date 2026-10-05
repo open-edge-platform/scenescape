@@ -814,8 +814,9 @@ RADAR_REQUIRE_REAL ?= true
 # Radarpillars: 0.1 ≈ one person/frame on the densify demo slice (avoid 0.03 clutter).
 ifeq ($(RADAR_PERCEPTION),radarpillars)
 RADAR_SCORE_THRESHOLD ?= 0.1
-# Causal densify for live/stream: past=10 ≈ offline ±5 span; use single-frame pcd_bin.
-RADAR_ACCUMULATE_PAST ?= 10
+# Causal densify for live/stream: past=4 (camera-GT recall + map FP balance on
+# the 3270–4100 loop; past=10 smears VRU and raises vegetation clutter).
+RADAR_ACCUMULATE_PAST ?= 4
 endif
 RADAR_ACCUMULATE_PAST ?= 0
 # Export so docker compose ${RADAR_PERCEPTION} / ${DLS_G3D_IMAGE} see make values
