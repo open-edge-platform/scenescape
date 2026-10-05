@@ -128,6 +128,9 @@ def test_apriltag_detections_published(result_recorder, mqtt_tester):
       assert 0.0 < detection['confidence'] <= 1.0, (
         f"apriltag confidence out of range: {detection['confidence']}"
       )
+      bbox = detection.get('bounding_box_px', {})
+      assert set(bbox) >= {'x', 'y', 'width', 'height'}
+      assert bbox['width'] > 0 and bbox['height'] > 0
       tags.add(detection['tag_id'])
     for detection in frame.get('objects', {}).get(PERSON_CATEGORY, []):
       people += 1
