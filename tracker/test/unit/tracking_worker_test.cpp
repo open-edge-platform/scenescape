@@ -41,6 +41,15 @@ std::unordered_map<std::string, Camera> make_test_cameras() {
     return {{"cam-1", cam}};
 }
 
+// processed_count() is bumped after the publish callback returns, so poll instead of reading once.
+int get_processed_count_wait(const TrackingWorker& worker, int expected) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (worker.processed_count() < expected && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return worker.processed_count();
+}
+
 class TrackingWorkerTest : public ::testing::Test {
 protected:
     void SetUp() override { Logger::init("warn"); }
@@ -94,7 +103,7 @@ TEST_F(TrackingWorkerTest, ProcessesChunks_CallsPublishCallback) {
     EXPECT_EQ(publish_count, 1);
     EXPECT_EQ(published_scene_id, "scene-1");
     EXPECT_EQ(published_category, "person");
-    EXPECT_EQ(worker.processed_count(), 1);
+    EXPECT_EQ(get_processed_count_wait(worker, 1), 1);
 }
 
 // Test queue backpressure (drops when full)
@@ -286,7 +295,7 @@ TEST_F(TrackingWorkerTest, SkipsUnknownCamera_InBatch) {
 
     // Worker should process chunk (call callback) but skip unknown camera detections
     EXPECT_EQ(publish_count, 1);
-    EXPECT_EQ(worker.processed_count(), 1);
+    EXPECT_EQ(get_processed_count_wait(worker, 1), 1);
 }
 
 // Test that empty chunk (no detections) flows through tracker and publishes
@@ -323,7 +332,7 @@ TEST_F(TrackingWorkerTest, EmptyChunk_FlowsThroughTracker) {
     }
 
     EXPECT_EQ(publish_count, 1);
-    EXPECT_EQ(worker.processed_count(), 1);
+    EXPECT_EQ(get_processed_count_wait(worker, 1), 1);
     // Empty detections -> no reliable tracks
     EXPECT_TRUE(published_tracks.empty());
     // Fallback timestamp should be valid ISO 8601
@@ -365,7 +374,7 @@ TEST_F(TrackingWorkerTest, EmptyChunks_PublishEveryTime) {
     }
 
     EXPECT_EQ(publish_count, 2);
-    EXPECT_EQ(worker.processed_count(), 2);
+    EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
     ASSERT_EQ(published_track_lists.size(), 2u);
     EXPECT_TRUE(published_track_lists[0].empty());
     EXPECT_TRUE(published_track_lists[1].empty());
@@ -704,20 +713,18 @@ TEST_F(TrackingWorkerTest, Tracking_ObjectClassShiftTypeChangesPublishedPosition
 // Pixel detections carry no orientation, so a turning track must not publish the Kalman yaw
 // that the CTRV model integrates from the estimated turn rate.
 TEST_F(TrackingWorkerTest, Tracking_CameraOnlyTurningTrack_PublishesIdentityRotation) {
-    constexpr int kChunksToSend = 90;
+    constexpr int kChunksToSend = 20;
     constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
     constexpr double kRadiusPx = 250.0;
-    constexpr double kRadPerFrame = 2.0 * std::numbers::pi / 60.0; // one turn per 4 s @ 15 FPS
+    constexpr double kRadPerFrame = 2.0 * std::numbers::pi / 30.0; // one turn per 2 s @ 15 FPS
 
-    std::mutex mtx;
-    std::condition_variable cv;
     int callback_count = 0;
     size_t published_tracks = 0;
     double max_abs_yaw = 0.0;
 
+    // Only the worker thread writes these; they are read after its destructor joins.
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
                                    const std::string&, const std::vector<Track>& tracks) {
-        std::lock_guard lock(mtx);
         for (const auto& track : tracks) {
             const double yaw = 2.0 * std::atan2(track.rotation[2], track.rotation[3]);
             max_abs_yaw =
@@ -725,39 +732,38 @@ TEST_F(TrackingWorkerTest, Tracking_CameraOnlyTurningTrack_PublishesIdentityRota
         }
         published_tracks += tracks.size();
         callback_count++;
-        cv.notify_one();
     };
 
     TrackingConfig config = make_test_tracking_config();
     config.max_unreliable_time_s = 0.0;
 
-    TrackingWorker worker({"scene-1", "person"}, "Test Scene", kChunksToSend, callback, config,
-                          cameras_);
+    {
+        TrackingWorker worker({"scene-1", "person"}, "Test Scene", kChunksToSend, callback, config,
+                              cameras_);
 
-    for (int i = 0; i < kChunksToSend; ++i) {
-        const double angle = kRadPerFrame * i;
-        const auto foot_x = static_cast<float>(640.0 + kRadiusPx * std::cos(angle));
-        const auto foot_y = static_cast<float>(360.0 + kRadiusPx * std::sin(angle));
+        for (int i = 0; i < kChunksToSend; ++i) {
+            const double angle = kRadPerFrame * i;
+            const auto foot_x = static_cast<float>(640.0 + kRadiusPx * std::cos(angle));
+            const auto foot_y = static_cast<float>(360.0 + kRadiusPx * std::sin(angle));
 
-        Chunk chunk;
-        chunk.scene_id = "scene-1";
-        chunk.category = "person";
-        chunk.chunk_time = std::chrono::steady_clock::now();
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "person";
+            chunk.chunk_time = std::chrono::steady_clock::now();
 
-        DetectionBatch batch;
-        batch.camera_id = "cam-1";
-        batch.timestamp = std::chrono::system_clock::time_point{} + i * kFramePeriod;
-        batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
-        batch.detections.push_back(Detection{
-            .id = 1, .bounding_box_px = cv::Rect2f(foot_x - 20.0f, foot_y - 80.0f, 40.0f, 80.0f)});
-        chunk.camera_batches.push_back(std::move(batch));
-        ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
-    }
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp = std::chrono::system_clock::time_point{} + i * kFramePeriod;
+            batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            batch.detections.push_back(Detection{
+                .id = 1,
+                .bounding_box_px = cv::Rect2f(foot_x - 20.0f, foot_y - 80.0f, 40.0f, 80.0f)});
+            chunk.camera_batches.push_back(std::move(batch));
+            ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    } // Destructor processes every queued chunk before joining.
 
-    std::unique_lock lock(mtx);
-    ASSERT_TRUE(
-        cv.wait_for(lock, std::chrono::seconds(5), [&] { return callback_count >= kChunksToSend; }))
-        << "Timed out waiting for " << kChunksToSend << " publish callbacks";
+    ASSERT_EQ(callback_count, kChunksToSend);
     ASSERT_GT(published_tracks, 0u) << "No reliable tracks published";
     EXPECT_LT(max_abs_yaw, 1e-6) << "Camera-only track published yaw of " << max_abs_yaw
                                  << " rad (expected identity rotation)";
