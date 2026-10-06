@@ -44,7 +44,7 @@ class CameraBoundVisibilityRegulated(CameraBounds):
       raise AssertionError("Expected camera_bounds ONLY in regulated topic")
 
 
-@pytest.mark.parametrize("test_name", ["NEX-T10582"])
+@pytest.mark.test_name("NEX-T10582")
 def test_camera_bound_visibility(
         params, pytestconfig, record_xml_attribute, test_name):
   record_xml_attribute("name", test_name)
