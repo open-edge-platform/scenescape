@@ -33,7 +33,7 @@ secrets:
 
 services:
   ntpserv:
-    image: dockurr/chrony:4.8
+    image: dockurr/chrony:4.9
     networks:
       scenescape:
     # ports:
@@ -75,7 +75,7 @@ services:
     pids_limit: 1000
 
   pgserver:
-    image: postgres:17.6
+    image: postgres:18.4
     environment:
       POSTGRES_USER: scenescape
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
@@ -183,7 +183,7 @@ services:
     pids_limit: 1000
 
   mediaserver:
-    image: bluenviron/mediamtx:1.18.1
+    image: bluenviron/mediamtx:1.21.1
     networks:
       scenescape:
         aliases:
@@ -194,7 +194,7 @@ services:
     pids_limit: 1000
 
   retail-cams:
-    image: linuxserver/ffmpeg:version-8.1-cli
+    image: linuxserver/ffmpeg:version-9.0-cli
     command: |
       -nostdin
       -re -stream_loop -1 -i /workspace/media/apriltag-cam1.ts
@@ -293,7 +293,7 @@ services:
 
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
-    image: alpine:3.23
+    image: alpine:3.24
     environment:
       - UID=${UID:-1000}
       - GID=${GID:-1000}

@@ -92,7 +92,7 @@ x-controller-base: &controller-base
 
 services:
   ntpserv:
-    image: dockurr/chrony:4.8
+    image: dockurr/chrony:4.9
     networks:
       scenescape:
     # ports:
@@ -135,7 +135,7 @@ services:
     pids_limit: 1000
 
   pgserver:
-    image: postgres:17.6
+    image: postgres:18.4
     environment:
       POSTGRES_USER: scenescape
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
@@ -259,7 +259,7 @@ services:
 
   # Init container to fix volume permissions for autocalibration
   autocalibration-init:
-    image: alpine:3.23
+    image: alpine:3.24
     command: sh -c "chown -R 1000:1000 /data/netvlad_models /data/media /data/datasets"
     volumes:
       - vol-netvlad_models:/data/netvlad_models
