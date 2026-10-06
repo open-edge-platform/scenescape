@@ -49,7 +49,8 @@ HEALTHCHECK_SERVICES = (
   "scene",                # Scene Controller
   "autocalibration",      # Autocalibration
   "mapping",              # Mapping
-  "controller-analytics", # Cluster Analytics
+  "analytics",            # Analytics
+  "cluster-analytics",    # Cluster Analytics
 )
 
 ### Labels used in health and resource-usage output.
@@ -58,7 +59,8 @@ SERVICE_LABELS = {
   "scene": "Scene Controller",
   "autocalibration": "Autocalibration",
   "mapping": "Mapping",
-  "controller-analytics": "Cluster Analytics",
+  "analytics": "Analytics",
+  "cluster-analytics": "Cluster Analytics",
 }
 
 ### Number of consecutive cycles a monitored service is allowed to report an
