@@ -6,10 +6,10 @@
 # so this file overrides those stacks instead of the main docker-compose.yml.
 # `make demo-reid` and `make demo-all` include this automatically. To run it
 # manually:
-#   docker compose -f docker-compose.yml -f sample_data/compose/docker-compose.vdms-override.yml --profile controller up -d
-#   docker compose --project-directory . -f sample_data/demo_scenes/Retail/retail-video-compose.yaml \
-#     -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml \
-#     -f sample_data/compose/docker-compose.reid-pipeline-override.yml up -d
+#   docker compose -f docker-compose.yml -f sample_data/compose/compose.vdms-override.yml --profile controller up -d
+#   docker compose --project-directory . -f sample_data/demo_scenes/Retail/compose.retail-video.yml \
+#     -f sample_data/demo_scenes/Queuing/compose.queuing-video.yml \
+#     -f sample_data/compose/compose.reid-pipeline-override.yml up -d
 
 configs:
   retail-config:

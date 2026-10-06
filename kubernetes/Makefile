@@ -155,11 +155,11 @@ generate-mediaserver-yaml:
 
 # Deploys the "mediaserver" Service+EndpointSlice alongside the scenescape-chart,
 # pointing it at the host running the per-scene video-source compose file(s)
-# (sample_data/demo_scenes/<Scene>/<scene>-video-compose.yaml).
+# (sample_data/demo_scenes/<Scene>/compose.<scene>-video.yml).
 .PHONY: mediaserver-up
 mediaserver-up:
 	@if [ -z "$(VIDEOSOURCE_IP)" ]; then \
-	    echo "Set VIDEOSOURCE_IP=<ip of the host running sample_data/demo_scenes/<Scene>/<scene>-video-compose.yaml>"; \
+	    echo "Set VIDEOSOURCE_IP=<ip of the host running sample_data/demo_scenes/<Scene>/compose.<scene>-video.yml>"; \
 	    exit 1; \
 	fi
 	$(MAKE) generate-mediaserver-yaml
@@ -178,7 +178,7 @@ mediaserver-down:
 # kubeclient, so retail-video/queuing-video are not started here.
 # Each scene owns its own private mediamtx (same "mediaserver" service name in
 # both files); Compose merges them into one shared instance across -f flags.
-VIDEO_SOURCE_COMPOSE_FILES := -f ../sample_data/demo_scenes/Retail/retail-video-compose.yaml -f ../sample_data/demo_scenes/Queuing/queuing-video-compose.yaml
+VIDEO_SOURCE_COMPOSE_FILES := -f ../sample_data/demo_scenes/Retail/compose.retail-video.yml -f ../sample_data/demo_scenes/Queuing/compose.queuing-video.yml
 
 .PHONY: video-source-up
 video-source-up:

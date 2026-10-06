@@ -3,7 +3,7 @@
 
 # Host-side PX4 demo overrides (apply from repo root):
 #   docker compose -f docker-compose.yml \
-#     -f tools/px4_sih_demo/docker-compose.broker-port.yml up -d broker scene
+#     -f tools/px4_sih_demo/compose.broker-port.yml up -d broker scene
 #
 # - Publishes MQTT 1883 on loopback only so the host MAVLink adapter can reach
 #   the broker without exposing the anonymous Mosquitto listener on the LAN.
