@@ -69,11 +69,11 @@ validation. The findings inform the Positioning Service's PTZ model:
 | Finding                                             | Detail                                                                                                                                                                                                                                                                                                                                                    |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ONVIF position units are not degrees                | `GetStatus` commonly reports a normalized, vendor-defined range. A degrees-per-unit scale (or better, a per-axis polynomial curve) must be derived from the camera's own advertised `AbsolutePanTiltPositionSpace` range, or configured from a datasheet FOV as a fallback. A `"Generic"`-URI or narrow-range space cannot be trusted as literal degrees. |
-| Axis travel is non-linear                           | Measured tilt scale varied 53.8–60.6°/unit across the travel on the TP-Link VIGI C540V; a single constant scale under/overshoots at the ends. A low-order polynomial per axis fit this well.                                                                                                                                                                  |
-| Mechanical backlash is real and asymmetric per axis | 2.83° of slack was measured on tilt and approximately 0° on pan, varying across the travel. The _reported_ position lags the _physical_ one by up to half the slack depending on direction of last travel.                                                                                                                                                       |
-| The pan axis is not perfectly vertical              | A roughly 7° lean was measured on the TP-Link VIGI C540V. No scale or curve correction fixes this; the resulting error grows with pan angle. Modeling pan as a rotation about the camera's measured pan axis, not world `Z`, removes it.                                                                                                                         |
-| Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changed all three Euler components in the PoC (roll −14°, pitch +34°, yaw +20° for one move). Adding pan delta to yaw alone produced about 18° of error; full matrix composition reduced it to about 1.8° on the tested setup.                                                    |
-| Lever arm is negligible                             | Modeling the offset between the rotation axes and the optical center improved reprojection accuracy by only 0.13 px on the TP-Link VIGI C540V and produced a physically implausible fitted value. Treating the camera as rotating about its own center is an acceptable simplification for that tested setup.                                                        |
+| Axis travel is non-linear                           | Measured tilt scale varied 53.8–60.6°/unit across the travel on the TP-Link VIGI C540V; a single constant scale under/overshoots at the ends. A low-order polynomial per axis fit this well.                                                                                                                                                              |
+| Mechanical backlash is real and asymmetric per axis | 2.83° of slack was measured on tilt and approximately 0° on pan, varying across the travel. The _reported_ position lags the _physical_ one by up to half the slack depending on direction of last travel.                                                                                                                                                |
+| The pan axis is not perfectly vertical              | A roughly 7° lean was measured on the TP-Link VIGI C540V. No scale or curve correction fixes this; the resulting error grows with pan angle. Modeling pan as a rotation about the camera's measured pan axis, not world `Z`, removes it.                                                                                                                  |
+| Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changed all three Euler components in the PoC (roll −14°, pitch +34°, yaw +20° for one move). Adding pan delta to yaw alone produced about 18° of error; full matrix composition reduced it to about 1.8° on the tested setup.                                                       |
+| Lever arm is negligible                             | Modeling the offset between the rotation axes and the optical center improved reprojection accuracy by only 0.13 px on the TP-Link VIGI C540V and produced a physically implausible fitted value. Treating the camera as rotating about its own center is an acceptable simplification for that tested setup.                                             |
 
 The PoC did not calibrate tilt-axis orientation independently. Production calibration
 must account for tilt-axis mounting inaccuracy as well as pan-axis misalignment. The
@@ -673,13 +673,13 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
    from Manager; maintain per-camera motion/backlash state; publish valid/invalid
    PoseContext messages. Validate configuration invalidation and single-writer ownership.
 4. **Shadow mode, Controller profile** — Controller subscribes and computes candidate
-  dynamic projection without feeding legacy MOT or changing tracks. Compare it with the
-  static projection baseline and measured ground-truth data; record per-frame pose
-  sequence, calibration version, age, quality, and projection residual.
+   dynamic projection without feeding legacy MOT or changing tracks. Compare it with the
+   static projection baseline and measured ground-truth data; record per-frame pose
+   sequence, calibration version, age, quality, and projection residual.
 5. **Shadow mode, Tracker profile** — independently verify its C++ `CoordinateTransformer`
-  computes the same candidate transform and gates without changing MOT input or track
-  state. Do not run duplicate active MOT publishers for one scene/lease to compare
-  profiles.
+   computes the same candidate transform and gates without changing MOT input or track
+   state. Do not run duplicate active MOT publishers for one scene/lease to compare
+   profiles.
 6. **Feature-flagged projection** — enable dynamic projection separately for each MOT
    profile after that profile passes its shadow exit criteria. Keep static-pose fallback
    and immediate disable/rollback.
@@ -688,11 +688,11 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
    jitter, stale pose, and adapter/resolver restart. Enable by deployment only after the
    spatial-error budget and latency gates below are met.
 8. **Positioning evolution** — add non-PTZ source types behind the Positioning Service's
-  shared contracts. Moving the observation/pose join from each consumer into ADR 13's
-  inline Positioning → Spatial Transform path requires changing consumer integration or
-  adding compatibility adapters; it is not a move-only extraction. The shared selector
-  avoids reimplementing the v1 join. gRPC `getPose(id, when)` is a separate future
-  interface, not part of v1.
+   shared contracts. Moving the observation/pose join from each consumer into ADR 13's
+   inline Positioning → Spatial Transform path requires changing consumer integration or
+   adding compatibility adapters; it is not a move-only extraction. The shared selector
+   avoids reimplementing the v1 join. gRPC `getPose(id, when)` is a separate future
+   interface, not part of v1.
 
 ## 9. Testing & Monitoring
 
