@@ -39,10 +39,11 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
   - If `has_orientation`: unwrap and correct yaw as today (`deltaTheta`).
   - Else: set measurement yaw to the **predicted** yaw (zero yaw innovation) so position/size still update.
 
-### Multi-sensor fuse in one time chunk
+### Multi-sensor fusion (time chunk and streaming)
 
-- Keep last-match (or existing policy) for **position and size**.
-- For **yaw**: if any matched detection in the chunk has `has_orientation`, prefer that yaw (highest classification confidence; later camera index breaks ties) and set fused `has_orientation`.
+- Keep existing policy for **position and size**.
+- For **yaw**: if any matched detection in the chunk has `has_orientation`, prefer that yaw (highest classification confidence; later camera index breaks ties) and set fused `has_orientation`. Yaw is never averaged across detections.
+- In streaming mode, yaw and `has_orientation` come from the current detection only; cached detections from other sensors contribute position and size, not yaw.
 - Sticky track attribute `orientation_observed=true` after any orienting correct (and at track create when the seed detection is orienting).
 
 ### Association
@@ -99,7 +100,6 @@ flowchart LR
 
 ### Negative / limitations
 
-- Position/size fusion policy remains last-match; only yaw is preferential among orienting sensors.
 - Tracks that never see an orienting sensor still rely on velocity heading (and hysteresis thresholds).
 - Pitch/roll remain display/default constants until a future ADR if 6-DOF measurements appear.
 - Sticky `orientation_observed` does not currently expire; a long camera-only gap after an orienting sensor still prefers Kalman yaw unless velocity heading disagrees while moving (publish fallback).
@@ -107,7 +107,7 @@ flowchart LR
 
 ## Implementation notes
 
-- C++: `OrientationAttributes.hpp` (`prepareYawMeasurement` kinematic gate), selective correct in `MultiModelKalmanEstimator`, `applyOrientingYaw` in `MultipleObjectTracker`, conditional Mahalanobis yaw in `ObjectMatching`.
+- C++: `OrientationAttributes.hpp` (`prepareYawMeasurement` kinematic gate), selective correct in `MultiModelKalmanEstimator`, `fuseGeometry` (position/size only) and `applyOrientingYaw` in `MultipleObjectTracker`, conditional Mahalanobis yaw in `ObjectMatching`.
 - Python: `IntelLabsTracking.to_rv_object` / `from_tracked_object` in `controller/ilabs_tracking.py` (unified ~0.6 rad publish disagreement for all linked sensors).
 - Tests: `OrientationFusionTests.cpp`, `tests/sscape_tests/scenescape/test_ilabs_tracking.py`.
 - Publishers (LiDAR demo, external sources, etc.) forward detector rotation without modality-specific yaw smoothing.

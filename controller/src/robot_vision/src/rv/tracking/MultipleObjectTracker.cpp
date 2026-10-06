@@ -59,11 +59,12 @@ void clearMetadataAttributes(TrackedObject &object)
 }
 
 /**
- * @brief Average world geometry across multi-camera matches into measurement.
+ * @brief Average world position and size across multi-camera matches into measurement.
  *
  * Last-camera-wins for x/y biases static objects when cameras disagree on the
  * ground-plane projection. Equal-weight averaging is the Phase-1 fix; per-detection
- * R weighting belongs with Phase 2 measurement covariance.
+ * R weighting belongs with Phase 2 measurement covariance. Yaw is not averaged:
+ * non-orienting detections carry no yaw (see applyOrientingYaw).
  */
 void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
                   const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
@@ -80,8 +81,6 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
   double sumLength = 0.0;
   double sumWidth = 0.0;
   double sumHeight = 0.0;
-  double sumSinYaw = 0.0;
-  double sumCosYaw = 0.0;
 
   for (const auto &[cameraIndex, objectIndex] : matches)
   {
@@ -92,8 +91,6 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
     sumLength += object.length;
     sumWidth += object.width;
     sumHeight += object.height;
-    sumSinYaw += std::sin(object.yaw);
-    sumCosYaw += std::cos(object.yaw);
   }
 
   const double n = static_cast<double>(matches.size());
@@ -103,7 +100,6 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
   measurement.length = sumLength / n;
   measurement.width = sumWidth / n;
   measurement.height = sumHeight / n;
-  measurement.yaw = std::atan2(sumSinYaw / n, sumCosYaw / n);
 }
 
 void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
@@ -190,8 +186,8 @@ void mergeHistoricalMetadata(const TrackedObject &track, TrackedObject &measurem
 }
 
 /**
- * Prefer yaw from an orienting detection among matches. Geometry (xyz/size)
- * stays on fusedObject (typically last-match). When several orienting
+ * Prefer yaw from an orienting detection among matches. Position and size are
+ * averaged separately by fuseGeometry. When several orienting
  * detections match, pick the highest classification confidence and break ties
  * with later camera order.
  */

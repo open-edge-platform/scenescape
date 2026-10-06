@@ -99,6 +99,29 @@ TEST(OrientationFusionTest, BatchedFusePrefersOrientingYawOverLastCamera)
   EXPECT_TRUE(rv::tracking::orientation::orientationObserved(tracks[0]));
 }
 
+TEST(OrientationFusionTest, StreamingFusePreservesOrientingYaw)
+{
+  auto tracker = makeTracker();
+  const double lidarYaw = 1.2;
+  auto lidar = makeDetection(0.0, 0.0, lidarYaw, true);
+  lidar.attributes["camera_id"] = "lidar";
+  auto camera = makeDetection(0.05, 0.0, 0.0, false);
+  camera.attributes["camera_id"] = "camera";
+
+  // Alternate inside the streaming hold window so every update sees the other sensor cached.
+  for (int i = 0; i < 20; ++i)
+  {
+    tracker.track({(i % 2 == 0) ? lidar : camera}, atMs(10 + 50 * i));
+  }
+
+  auto tracks = tracker.getReliableTracks();
+  ASSERT_EQ(tracks.size(), 1u);
+  EXPECT_NEAR(tracks[0].x, 0.5 * (lidar.x + camera.x), 0.02);
+  EXPECT_NEAR(tracks[0].yaw, lidarYaw, 0.1);
+  EXPECT_TRUE(rv::tracking::orientation::orientationObserved(tracks[0]));
+  EXPECT_FALSE(rv::tracking::orientation::hasOrientation(tracks[0]));
+}
+
 TEST(OrientationFusionTest, OrientationAttributeHelpers)
 {
   rv::tracking::TrackedObject object;
