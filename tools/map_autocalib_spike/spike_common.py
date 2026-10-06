@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 
 import cv2
@@ -127,3 +128,73 @@ def image_resolution_from_intrinsics(K, fallback=(1280, 720)):
   if w < 64 or h < 64:
     return fallback
   return w, h
+
+
+def rotation_angle_deg(pose_a, pose_b):
+  """Geodesic angle between two 4x4 (or 3x3) rotations, in degrees."""
+  Ra = pose_a[:3, :3]
+  Rb = pose_b[:3, :3]
+  rel = Ra.T @ Rb
+  cos_theta = np.clip((np.trace(rel) - 1.0) / 2.0, -1.0, 1.0)
+  return math.degrees(math.acos(cos_theta))
+
+
+def pose_from_look(cx, cy, height, yaw_deg, pitch_deg, roll_deg=0.0):
+  """World-from-camera pose: z-up world, OpenCV camera (x right, y down, z forward).
+
+  yaw_deg: heading of the optical-axis ground projection, 0 along +X, CCW.
+  pitch_deg: downward tilt from horizontal (positive looks at the ground).
+  roll_deg: rotation about the optical axis.
+  height: camera Z, must be > 0.
+  """
+  if height <= 0:
+    raise ValueError("camera height must be above ground (z > 0)")
+  yaw = math.radians(yaw_deg)
+  pitch = math.radians(pitch_deg)
+  roll = math.radians(roll_deg)
+  look = np.array([
+    math.cos(pitch) * math.cos(yaw),
+    math.cos(pitch) * math.sin(yaw),
+    -math.sin(pitch),
+  ], dtype=np.float64)
+  world_up = np.array([0.0, 0.0, 1.0])
+  right = np.cross(look, world_up)
+  n = np.linalg.norm(right)
+  if n < 1e-8:
+    right = np.array([math.sin(yaw), -math.cos(yaw), 0.0])
+    n = np.linalg.norm(right)
+  right = right / n
+  down = np.cross(look, right)
+  down = down / np.linalg.norm(down)
+  if abs(roll) > 1e-9:
+    c, s = math.cos(roll), math.sin(roll)
+    right, down = (c * right + s * down), (-s * right + c * down)
+  r_wc = np.column_stack([right, down, look])
+  pose = np.eye(4, dtype=np.float64)
+  pose[:3, :3] = r_wc
+  pose[:3, 3] = [cx, cy, height]
+  return pose
+
+
+def ray_to_ground(pose_mat, K, dist, cam_pts):
+  """Intersect camera rays with z=0. Returns Nx3 world points (nan if invalid)."""
+  pts = np.asarray(cam_pts, dtype=np.float32).reshape(-1, 1, 2)
+  und = cv2.undistortPoints(pts, K, dist).reshape(-1, 2)
+  origin = pose_mat[:3, 3]
+  dirs = (pose_mat[:3, :3] @ np.column_stack([und, np.ones(len(und))]).T).T
+  out = np.full((len(und), 3), np.nan)
+  dz = dirs[:, 2]
+  valid = np.abs(dz) >= 1e-9
+  t = np.full(len(und), np.nan)
+  t[valid] = -origin[2] / dz[valid]
+  valid &= t > 0.3
+  out[valid] = origin + t[valid, None] * dirs[valid]
+  return out
+
+
+def image_from_ground_homography(pose_mat, K):
+  """3x3 homography mapping ground metres [x, y, 1] to image pixels."""
+  cam_from_world = np.linalg.inv(pose_mat)
+  r_cw = cam_from_world[:3, :3]
+  t_cw = cam_from_world[:3, 3]
+  return K @ np.column_stack([r_cw[:, 0], r_cw[:, 1], t_cw])
