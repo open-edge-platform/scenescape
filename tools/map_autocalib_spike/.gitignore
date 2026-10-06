@@ -1,0 +1,4 @@
+# Local spike outputs (overlays, JSON). Fixtures stay external.
+out/
+# Downloaded Smart Intersection videos/frames (not Apache; do not commit).
+fixtures/
