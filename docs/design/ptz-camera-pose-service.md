@@ -9,22 +9,18 @@
 
 ## 1. Overview
 
-A new microservice resolves the live orientation of ONVIF PTZ cameras and makes it
-available to the projection path as a time-stamped, versioned pose context, so that
-detections from a moving camera head can still be placed correctly in the scene.
+The Positioning Service resolves the live orientation of ONVIF PTZ cameras and publishes
+it as a time-stamped, versioned pose context for projection. This lets detections from a
+moving camera head be placed in the scene using the pose valid when each frame was
+acquired. The PTZ Pose Resolver is the first camera-focused capability of Positioning;
+an ONVIF Adapter supplies raw device readings, while the Resolver owns pose computation
+and publishes the resolved context. The Manager retains the static home pose and
+versioned PTZ calibration; live pose is not written back to camera configuration.
 
-This design is informed by a standalone proof-of-concept
-(`ptz_pose_service/` in this repository) built to answer three questions: what data a
-real ONVIF PTZ camera actually reports, how accurately pan/tilt can be converted into a
-rotation, and what mechanical effects (backlash, axis misalignment) matter in practice.
-The PoC's findings are valuable and are carried forward (see
-[Background / Context](#4-background--context)). **Its architecture is not**: the PoC
-polls the camera and overwrites the camera's stored calibration in the Manager database
-directly via REST. That couples a runtime telemetry stream to persistent configuration
-state, is specific to Scenescape's REST camera model, and is the write-shared-mutable-state
-pattern this design deliberately avoids. The production service instead publishes an
-ephemeral pose context that projection consumes per-frame; the camera's stored calibration
-remains the static "home" reference and is never overwritten by this service.
+The production design carries forward measurements from the PoC described in
+[Background / Context](#4-background--context). It replaces the PoC's direct REST writes
+with a timestamped pose contract and read-only calibration access. The PoC is evidence
+for the PTZ model, not the production service architecture.
 
 ## 2. Goals
 
@@ -32,30 +28,27 @@ remains the static "home" reference and is never overwritten by this service.
   the camera's calibrated home pose, accurate enough for ground-plane projection.
 - Publish that orientation as a versioned, timestamped `PoseContext` that downstream
   projection can consume without knowing anything about PTZ, ONVIF, or backlash.
-- Make the service's internal camera model (scale/curve, backlash, pan-axis tilt)
-  swappable per camera from calibration data, without code changes.
-- Keep a stable adapter-to-resolver API and a source-keyed, PTZ-independent resolved-pose
-  contract that a future ADR 13 Positioning Service can implement. v1 deliberately uses
-  a pose side-channel that each consumer joins to detections; moving that join into an
-  inline Positioning → Spatial Transform path will require changing consumer integration
-  or adding compatibility adapters. This design does not claim that future migration is
-  a move without consumer changes.
+- Make the per-camera motion model (scale/curve, backlash, and calibrated pan- and
+  tilt-axis orientation) configurable from calibration data, without code changes.
+- Define stable raw-sample and source-keyed resolved-pose contracts. v1 deliberately uses
+  a pose side-channel that each consumer joins to detections; moving that join into the
+  ADR 13 inline Positioning → Spatial Transform path will require changing consumer
+  integration or adding compatibility adapters.
 
 ## 3. Non-Goals
 
 - Zoom tracking and zoom-dependent intrinsics (first iteration is pan/tilt only).
-- Modeling the lever arm between the rotation axes and the optical center (PoC measured
-  this as a 0.13 px reprojection improvement on the development camera — negligible
-  next to other error sources).
+- Modeling the lever arm between the rotation axes and the optical center (the PoC
+  measured a 0.13 px reprojection improvement on its TP-Link VIGI C540V — negligible
+  next to other error sources on that tested setup).
 - Non-ONVIF PTZ protocols (proprietary vendor SDKs, serial PTZ).
 - Ingesting ONVIF Timed Metadata from the RTP stream (frame-embedded telemetry). May
   become relevant later for fast-slew synchronization; out of scope here.
 - Writing camera pose back into the Manager database. This was the PoC's integration
   point and is explicitly replaced, not reused.
-- Full ADR 13 Positioning Service extraction (shared pose source for LiDAR, SLAM robots,
-  drones). This design covers the PTZ-camera case only. Its v1 side-channel topology is
-  intentionally different from ADR 13's inline pose-enriched observation path; a future
-  extraction requires a consumer integration migration.
+- Supporting non-PTZ sources such as LiDAR, SLAM robots, and drones in this initial
+  capability. Positioning is the owning service, but v1 covers PTZ cameras only and its
+  side-channel topology differs from ADR 13's inline pose-enriched observation path.
 
 ## 4. Background / Context
 
@@ -68,17 +61,25 @@ runtime path that changes a camera's effective pose between detections.
 
 ### What the PoC confirmed about the camera and ONVIF
 
-These are measured findings from real hardware, not assumptions, and should seed the new
-service's calibration model rather than be re-derived:
+These PoC findings were measured on a TP-Link VIGI C540V. The numeric results are specific
+to that camera, firmware, and measurement setup; they are not defaults for other camera
+models. Each supported camera requires its own measured calibration and accuracy
+validation. The findings inform the Positioning Service's PTZ model:
 
 | Finding                                             | Detail                                                                                                                                                                                                                                                                                                                                                    |
 | --------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ONVIF position units are not degrees                | `GetStatus` commonly reports a normalized, vendor-defined range. A degrees-per-unit scale (or better, a per-axis polynomial curve) must be derived from the camera's own advertised `AbsolutePanTiltPositionSpace` range, or configured from a datasheet FOV as a fallback. A `"Generic"`-URI or narrow-range space cannot be trusted as literal degrees. |
-| Axis travel is non-linear                           | Measured tilt scale varied 53.8–60.6°/unit across the travel on the development camera; a single constant scale under/overshoots at the ends. A low-order polynomial per axis fit this well.                                                                                                                                                              |
-| Mechanical backlash is real and asymmetric per axis | 2.83° of slack measured on tilt, ~0 on pan, varying across the travel. The _reported_ position lags the _physical_ one by up to half the slack depending on direction of last travel.                                                                                                                                                                     |
-| The pan axis is not perfectly vertical              | Measured ~7° lean on the development camera. No scale or curve correction fixes this — the resulting error grows with the pan angle. Modeling pan as a rotation about the camera's actual (measured) pan axis, not world `Z`, removes it.                                                                                                                 |
-| Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changes all three Euler components (PoC measured roll −14°, pitch +34°, yaw +20° for one move). Adding the pan delta to yaw alone produced ~18° of error; composing full rotation matrices (`R_new = R_pan(axis, Δpan) · R_home · Rx(Δtilt)`) reduced that to ~1.8°.                 |
-| Lever arm is negligible                             | Modeling the offset between the rotation axes and the optical center improved reprojection accuracy by only 0.13 px on the development camera and produced a physically implausible fitted value. Treating the camera as rotating about its own center is an acceptable simplification.                                                                   |
+| Axis travel is non-linear                           | Measured tilt scale varied 53.8–60.6°/unit across the travel on the TP-Link VIGI C540V; a single constant scale under/overshoots at the ends. A low-order polynomial per axis fit this well.                                                                                                                                                                  |
+| Mechanical backlash is real and asymmetric per axis | 2.83° of slack was measured on tilt and approximately 0° on pan, varying across the travel. The _reported_ position lags the _physical_ one by up to half the slack depending on direction of last travel.                                                                                                                                                       |
+| The pan axis is not perfectly vertical              | A roughly 7° lean was measured on the TP-Link VIGI C540V. No scale or curve correction fixes this; the resulting error grows with pan angle. Modeling pan as a rotation about the camera's measured pan axis, not world `Z`, removes it.                                                                                                                         |
+| Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changed all three Euler components in the PoC (roll −14°, pitch +34°, yaw +20° for one move). Adding pan delta to yaw alone produced about 18° of error; full matrix composition reduced it to about 1.8° on the tested setup.                                                    |
+| Lever arm is negligible                             | Modeling the offset between the rotation axes and the optical center improved reprojection accuracy by only 0.13 px on the TP-Link VIGI C540V and produced a physically implausible fitted value. Treating the camera as rotating about its own center is an acceptable simplification for that tested setup.                                                        |
+
+The PoC did not calibrate tilt-axis orientation independently. Production calibration
+must account for tilt-axis mounting inaccuracy as well as pan-axis misalignment. The
+per-camera tilt-axis model and its measurement procedure must be validated on supported
+hardware before implementation acceptance; the PoC numbers above do not establish that
+model.
 
 ### Why the PoC's write path is rejected
 
@@ -103,20 +104,34 @@ the existing calibration UI, but is the wrong integration point for a production
 
 [ADR 13](../adr/0013-controller-breakdown-microservices.md) separates **Positioning**
 (pose context for a source) from **Spatial Transform & Projection** (2D → 3D using that
-context), both upstream of the Tracker. The Pose Resolver is a separate SceneScape-owned
-process and a narrow instance of the Positioning role for ONVIF PTZ cameras — not the
-full Positioning Service (which would also serve LiDAR, SLAM robots, and other sources).
-ADR 13 places Positioning inline: it joins pose to observations and sends pose-enriched
-context to Spatial Transform & Projection. v1 intentionally differs: detections continue
-to Controller/Tracker, while the Resolver publishes pose on a separate MQTT topic and
-the consumer ingress joins pose to detections by timestamp. This avoids another hop on
-the detection path and lets consumers fail closed independently, but it is not ADR 13's
-topology. A future inline Positioning deployment must replace or adapt this consumer-side
-join; the stable gRPC and PoseContext contracts alone do not make that migration
-consumer-transparent. The timestamp-selection algorithm is implemented once in a shared
-library with Python and C++ bindings so the two v1 consumers do not independently define
-the join. Neither consumer hosts the Resolver or talks to ONVIF. A future Sensor Manager
-can call the same gRPC API or use a converter at the device boundary.
+context), both upstream of the Tracker. The PTZ Pose Resolver is a capability within the
+Positioning Service, whose broader target also covers LiDAR, SLAM robots, and other
+sources. ADR 13 places Positioning inline: it joins pose to observations and sends
+pose-enriched context to Spatial Transform & Projection. PTZ v1 intentionally differs:
+detections continue to Controller/Tracker, while Positioning publishes pose on a
+separate MQTT topic and each consumer ingress joins pose to detections by timestamp.
+This avoids another hop on the detection path and lets consumers fail closed
+independently, but it is an interim deviation from ADR 13's topology. Moving the join
+inline requires changing consumer integration or adding compatibility adapters; the
+stable gRPC and PoseContext contracts alone do not make that migration transparent. The
+timestamp-selection algorithm is implemented once in a shared library with Python and
+C++ bindings so the two v1 consumers do not independently define the join. Neither
+consumer hosts Positioning or talks to ONVIF.
+
+### Relationship to OEP Sensor Manager
+
+This design proposes OEP Sensor Manager as an authenticated gRPC client of the
+Positioning Service's versioned `SubmitPTZSample` API. It supplies timestamped raw PTZ
+readings and the source identity/sequence metadata required by the shared contract; the
+Positioning Service remains responsible for camera authorization, calibration lookup,
+pose resolution, and resolved-pose publication. The ONVIF Adapter is the v1 client when
+it polls cameras directly; Sensor Manager can use the same API when it owns that device
+ingestion. The integration must define source-to-camera mapping, client identity and
+authorization, timestamp/sequence behavior, and contract-version compatibility.
+
+This is distinct from OEP Stream Manager in [ADR 12](../adr/0012-mlops-integration-reuse.md),
+which handles camera discovery, video capture, livestreaming, and replay. This design
+does not assume Stream Manager supplies PTZ telemetry.
 
 ### Relationship to external-source pose handling
 
@@ -145,20 +160,25 @@ invalidation mechanism.
 
 ```mermaid
 flowchart LR
-  CAM["ONVIF PTZ camera"] -->|GetStatus, continuous polling| ADAPTER["Replaceable device Adapter"]
-  ADAPTER -->|gRPC: PTZSample| RESOLVER["SceneScape Pose Resolver\n(separate process)"]
-  SENSOR["Future Sensor Manager"] -.->|same gRPC API, or converter| RESOLVER
-  MANAGER["Manager camera config\nhome + ptz_calibration"] -->|read / invalidate| RESOLVER
-  RESOLVER -->|resolved PoseContext + status/LWT| MQTT["MQTT: scenescape/positioning/pose/{source_id}\nscenescape/positioning/status/{resolver_id}\nQoS 0, retained"]
+  CAM["ONVIF PTZ camera"] -->|GetStatus| ADAPTER["ONVIF Adapter\nseparately deployable"]
+  subgraph POSITIONING["Positioning Service"]
+    RESOLVER["PTZ Pose Resolver\nPTZ capability in v1"]
+  end
+  ADAPTER -->|gRPC: SubmitPTZSample| RESOLVER
+  SENSOR["OEP Sensor Manager"] -->|gRPC: SubmitPTZSample| RESOLVER
+  MANAGER["Manager camera config\nhome pose + ptz_calibration"] -->|read / invalidate| RESOLVER
+  RESOLVER -->|resolved PoseContext + status/LWT| MQTT["MQTT broker\npositioning/pose/{source_id}\npositioning/status/{resolver_id}"]
   MQTT --> CTRL["Controller projection\nlegacy MOT"]
   MQTT --> TRACKER["Tracker CoordinateTransformer\nTracker MOT"]
 ```
 
-Adapter and Resolver are separate deployable processes with separate ownership. An
-Adapter may poll one or more cameras; the Resolver owns per-camera calibration, motion
-history, and pose resolution. Each camera has exactly one active Resolver owner in v1.
-The Controller and Tracker remain independent pose consumers and do not call the
-Resolver synchronously on the detection hot path.
+Positioning owns the Resolver, per-camera calibration, motion history, and pose
+resolution. The Adapter is a replaceable, separately deployable input component and may
+poll one or more cameras; Sensor Manager can submit samples through the same gRPC
+contract. Manager configuration and the MQTT broker are external interfaces. Each
+camera has exactly one active Resolver owner in v1. Controller and Tracker remain
+independent pose consumers and do not call Positioning synchronously on the detection
+hot path. The consumer-side join is a v1 integration choice, not the ADR 13 target path.
 
 ### 5.2 Contracts
 
@@ -176,6 +196,13 @@ single source. Publish the versioned `.proto` for Sensor Manager integrations. T
 protobuf package namespace (`scenescape.ptz.v1`) is the compatibility boundary: additive
 optional fields may be added within v1, but field numbers and existing field semantics
 must not be changed or reused; incompatible changes require a new package/API version.
+
+Sensor Manager is an intended client of this API, not a separate telemetry contract.
+Its client must authenticate as an authorized producer, provide the sample timestamp
+and ordering metadata required by `PTZSample`, and use a source identifier that
+Positioning maps to a Manager-owned camera calibration. The API contract and this
+mapping are part of the design; implementation must verify that Sensor Manager can
+provide these fields and preserve their semantics.
 
 Proposed protobuf API:
 
@@ -477,14 +504,34 @@ configuration and must be fixed before a profile is enabled.
 
 ### 5.5 Calibration data and tooling
 
-The PoC measurement tools and service remain an **isolated lab deployment** used to
-produce the scale/curve/backlash/pan-axis values the Resolver needs per camera. Export
-the measured results from the lab and submit them through the product's validated import
-path to Manager; no lab instrument writes production calibration directly. Manager is
-the source of truth. Its `ptz_calibration` block contains the measured parameters, home
-raw pan/tilt, approach directions, and `calibration_version`; it never contains device
-credentials. Local config files are limited to the isolated lab, offline tools, and tests,
-not production service configuration.
+`ptz_calibration` is the versioned, per-camera model that converts raw ONVIF readings
+into an orientation relative to the camera's static home pose. Home extrinsics alone
+describe orientation at one calibrated position; they do not map normalized ONVIF units
+to angular movement, compensate for non-linear travel or backlash, or describe tilted
+pan/tilt axes caused by mounting inaccuracy.
+
+Manager owns the validated block, which contains the measured parameters needed by the
+Resolver:
+
+- Home raw pan/tilt values and the approach direction used to establish each axis home.
+- Calibrated ONVIF position-space URI and ranges, plus per-axis scale or curve
+  coefficients.
+- Per-axis backlash parameters and calibrated pan- and tilt-axis orientation, including
+  corrections for mounting misalignment.
+- `calibration_version` and calibration quality/provenance, including reprojection
+  residuals needed for validity checks.
+
+PTZ calibration data is required for every supported camera; the Resolver must fail
+closed when it is missing, incomplete, or incompatible with the reported ONVIF position
+space. The PoC measurement tools and service remain an **isolated lab deployment** used
+to produce and validate these values. Export measured results and submit them through
+the product's validated import path to Manager; no lab instrument writes production
+calibration directly. Building production calibration tooling is out of scope for this
+service, but the hardware measurement, validated import, and per-camera acceptance
+procedure are prerequisites to enabling a camera. The tilt-axis correction model must
+be selected and validated on supported hardware before implementation acceptance.
+`ptz_calibration` never contains device credentials. Local config files are limited to
+the isolated lab, offline tools, and tests, not production service configuration.
 
 ### 5.6 What changes for projection
 
@@ -500,10 +547,15 @@ Resolver:
 
 The topic payload and selection algorithm are shared contracts; the shared library
 provides Python and C++ bindings so selection is not implemented twice. Both paths have
-independent feature flags and first run in shadow mode. Shadow
-mode logs candidate projections and quality without feeding them to MOT. Standard
-deployment profiles are validated separately; do not run two active MOT publishers for
-the same scene/lease merely to compare results.
+independent feature flags and first run in **shadow mode**: the consumer computes and
+logs the candidate dynamic projection, pose metadata, and quality/error measurements,
+but does not pass the candidate detection to MOT or change track state. Shadow mode
+allows timing, pose validity, and projection accuracy to be checked against the static
+projection baseline and measured ground-truth data without changing live tracking. Each
+profile records the pose sequence, calibration version, sample age, quality, and
+projection residual needed for that comparison. Standard deployment profiles are
+validated separately; do not run two active MOT publishers for the same scene/lease
+merely to compare results.
 
 Each consumer maintains a bounded, acquisition-time-ordered pending detection queue per
 source. Enqueueing must not block MQTT callbacks; release detections in order after a
@@ -558,19 +610,24 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 6. Alternatives Considered
 
+- **Deploy PTZ as a permanent standalone pose service.** Rejected: PTZ pose resolution
+  belongs to the ADR 13 Positioning Service, whose service boundary is intended to
+  support multiple source types. v1 delivers only the PTZ capability and retains a
+  consumer-side join as an interim deviation; it does not establish a parallel,
+  permanent PTZ positioning service.
 - **Reuse the PoC's REST-overwrite design as-is.** Rejected for the reasons in
   [4](#why-the-pocs-write-path-is-rejected): mutates shared calibration state, destroys
   the home reference, couples freshness to REST latency, no per-frame provenance.
-- **MQTT raw telemetry from adapter to resolver.** Rejected for v1. The adapter has one
-  logical consumer, and gRPC gives an explicit typed request/ack boundary, mTLS identity,
-  and per-sample validation without putting raw device data onto the shared broker. The
-  raw-input boundary is the versioned protobuf API in [5.2](#52-contracts); a future
-  Sensor Manager can implement it directly. If interoperability requires MQTT, a
-  separately deployed converter can translate its raw topic into this API.
-- **gRPC push from adapter to resolver.** Accepted for v1 as the raw telemetry hop.
-  `SubmitPTZSample` is a unary RPC over a persistent mTLS channel. It is distinct from
+- **MQTT raw telemetry from adapter to resolver.** Rejected for v1. The raw-input boundary
+  is the versioned gRPC API in [5.2](#52-contracts), shared by the ONVIF Adapter and
+  Sensor Manager. It gives an explicit typed request/ack boundary, authenticated client
+  identity, and per-sample validation without putting raw device data on the shared
+  broker. A converter is only needed if a future producer is limited to MQTT.
+- **gRPC push into Positioning.** Accepted for v1 as the raw telemetry hop for both the
+  ONVIF Adapter and Sensor Manager. `SubmitPTZSample` is a unary RPC over an authenticated
+  persistent channel. It is distinct from
   ADR 13's future synchronous `getPose(id, when)` query: neither Controller nor Tracker
-  makes a per-detection RPC to the Resolver. Resolved poses use MQTT for asynchronous
+  makes a per-detection RPC to Positioning. Resolved poses use MQTT for asynchronous
   fan-out to both MOT consumers.
 - **ONVIF Timed Metadata embedded in the RTP stream.** Deferred. Would remove the
   separate-channel synchronization problem entirely, but requires GStreamer-side
@@ -616,11 +673,13 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
    from Manager; maintain per-camera motion/backlash state; publish valid/invalid
    PoseContext messages. Validate configuration invalidation and single-writer ownership.
 4. **Shadow mode, Controller profile** — Controller subscribes and computes candidate
-   dynamic projection without feeding legacy MOT. Record per-frame pose sequence,
-   calibration version, age, quality, and projection residual.
+  dynamic projection without feeding legacy MOT or changing tracks. Compare it with the
+  static projection baseline and measured ground-truth data; record per-frame pose
+  sequence, calibration version, age, quality, and projection residual.
 5. **Shadow mode, Tracker profile** — independently verify its C++ `CoordinateTransformer`
-   applies the same resolved transform and gates. Do not run duplicate active MOT
-   publishers for one scene/lease to compare profiles.
+  computes the same candidate transform and gates without changing MOT input or track
+  state. Do not run duplicate active MOT publishers for one scene/lease to compare
+  profiles.
 6. **Feature-flagged projection** — enable dynamic projection separately for each MOT
    profile after that profile passes its shadow exit criteria. Keep static-pose fallback
    and immediate disable/rollback.
@@ -628,12 +687,12 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
    targets, both movement directions, measured backlash/axis calibration, sample loss,
    jitter, stale pose, and adapter/resolver restart. Enable by deployment only after the
    spatial-error budget and latency gates below are met.
-8. **Future evolution** — a Sensor Manager may replace the ONVIF Adapter by implementing
-   the same gRPC input API. The source-keyed PoseContext contract can remain stable, but
-   moving the observation/pose join from each consumer into ADR 13 Positioning requires
-   changing consumer integration or adding compatibility adapters; this is not a
-   move-only extraction. The shared selector avoids reimplementing the v1 join. gRPC
-   `getPose(id, when)` is a separate future interface, not part of v1.
+8. **Positioning evolution** — add non-PTZ source types behind the Positioning Service's
+  shared contracts. Moving the observation/pose join from each consumer into ADR 13's
+  inline Positioning → Spatial Transform path requires changing consumer integration or
+  adding compatibility adapters; it is not a move-only extraction. The shared selector
+  avoids reimplementing the v1 join. gRPC `getPose(id, when)` is a separate future
+  interface, not part of v1.
 
 ## 9. Testing & Monitoring
 
@@ -698,6 +757,12 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   requirements later require tracking during motion, evaluate ONVIF Timed Metadata/RTP
   association or a higher-rate timestamped pose source; do not weaken the v1 gate without
   new accuracy evidence.
+- **Tilt-axis model details.** Tilt-axis calibration is required to account for mounting
+  inaccuracy, but the measured model and parameterization must be established against
+  supported hardware before implementation acceptance.
+- **Sensor Manager contract validation.** This design selects the shared gRPC sample API;
+  implementation must validate the source mapping, authentication identity, timestamp,
+  and sequence guarantees against the Sensor Manager's concrete integration.
 - **Future protocols and zoom.** Non-ONVIF adapters and zoom-dependent intrinsics require
   new calibration profiles but must preserve the gRPC raw-ingest and resolved-pose
   boundaries unless a versioned successor is approved.
