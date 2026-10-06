@@ -5,10 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Plan: Camera Auto-Calibration Against a Satellite Map
 
-Status: **V0–V2 done; P2 cross-view + semantic spikes run — both fail the
-signal bar on Smart Intersection.** Correspondence remains the blocker.
-Next: stronger semantic classes / RoMa-class matcher, or productize click
-prior (stack item 4) while continuing matcher research.
+Status: **V0–V2 done; P2 direct matchers fail; BEV-conditioned NCC proves the
+pipeline when orientation is known (oracle signal 2/4) but automatic heading
+search still fails.** Next: disambiguate yaw (or ship click prior #4) — not
+more direct oblique↔ortho matching.
 
 Scope: **calibration only.** Estimate a camera's extrinsics (and untrusted
 intrinsics) from a camera image plus a metric orthographic / satellite map,
@@ -55,7 +55,7 @@ change. Proceed with all four approaches below, in this order:
 
 | Priority | Approach | Role | Notes |
 | --- | --- | --- | --- |
-| **1** | **Learned cross-view matcher** | Primary automatic path | LoFTR outdoor: **fail** (0/4; ~90 matches, 0 PnP inliers). RoMa tiny + outdoor (`p2_roma.py`): **fail** (0/4); outdoor finds hundreds of inliers but wrong pose (heading flip / 30–50 m XY). BEV+DINO / SuperPoint+LightGlue probes also failed. Needs warp/prior or a true cross-view-trained model. |
+| **1** | **BEV-conditioned match** (pose hyp → warp → dense) | Primary automatic path | Preferred over direct cross-view. `p2_bev_match.py`: **NCC oracle** (GT orient) **signal 2/4** (cam2/4 ≈ 2.4 m); **NCC search fail** (wrong yaw wins). **RoMa-on-BEV oracle fail** (inliers but bad XY). Direct LoFTR/RoMa oblique↔ortho also fail. Gap is **heading selection**, not BEV geometry. |
 | **2** | **Semantic landmarks** | Automatic, interpretable | Marking corners (tophat + Shi-Tomasi) + ORB: **fail** (0/4). Under GT pose, median nearest corner ≈ 35–50 px — detections do not coincide across views. Need class-aware detectors (crosswalk / stop-bar), not generic corners. |
 | **3** | **Map topology (OSM optional)** | Accuracy / disambiguation | Road graph, buildings, crossings when OSM (or similar) is rich enough. Helps asymmetric junctions; failed alone on Smart Intersection; will not help sparse campus maps. Optional, off by default for non-road scenes. |
 | **4** | **Human click prior** | Fallback / assist | Operator clicks once on the map (and optionally sets heading) when (1)–(3) are low-confidence or unavailable. Seeds BEV/structure alignment (cam2/4 diagnostic ≈ 2.5 m XY given orientation). **Ready to productize** while (1)–(2) continue. Full multi-point manual correspondence remains the last resort. |
@@ -78,7 +78,12 @@ Goal was: answer “does this work?” with an offline spike before service work
 | **V2 + OSM** | Does topology clear the fail? | **Fail** (0/4); optional later only |
 | **P2 LoFTR** | Cross-view dense match? | **Fail** (0/4); `p2_crossview.py` |
 | **P2 RoMa** | RoMa tiny/outdoor dense match? | **Fail** (0/4); `p2_roma.py` |
+| **P2 BEV+NCC** | Pose hyp → BEV → NCC? | Oracle **signal 2/4**; search **fail** (`p2_bev_match.py`) |
+| **P2 BEV+RoMa** | Pose hyp → BEV → RoMa? | Oracle **fail** (0/4); inliers≠correct XY |
 | **P2 Semantic** | Marking corners + ORB? | **Fail** (0/4); `p2_semantic.py` |
+| **P2 BEV+NCC oracle** | GT orient → BEV → NCC XY? | **Signal 2/4**; `p2_bev_match.py` |
+| **P2 BEV+NCC search** | Yaw grid → BEV → NCC? | **Fail** (0/4); wrong heading |
+| **P2 BEV+RoMa oracle** | GT orient → BEV → RoMa? | **Fail** (0/4); bad XY |
 
 **Pass bar to start product work (revised):** V0 + V1 pass (done), and a spike
 signal from stack item **1** (cross-view matcher) and/or **2** (semantic
@@ -94,15 +99,20 @@ SuperPoint/LightGlue used only in offline probes.
 | Approach | Result | Notes |
 | --- | --- | --- |
 | LoFTR direct | 0/4 | ~84–105 matches/cam; PnP RANSAC never reaches 6 inliers |
-| RoMa tiny | 0/4 | Inliers present; pose wrong (tens–hundreds of metres) |
-| RoMa outdoor | 0/4 | Up to ~800 inliers/cam; still wrong heading/XY (e.g. cam1 dR≈179°) |
-| Semantic corners+ORB | 0/4 | GT association median 35–50 px; wrong corners |
-| DINO BEV / SP+LightGlue | no suite signal | Probes only; unstable / empty BEV coverage |
+| RoMa tiny / outdoor (direct) | 0/4 | Inliers; wrong pose / heading flip |
+| Semantic corners+ORB | 0/4 | GT association median 35–50 px |
+| **BEV+NCC oracle** | **signal 2/4** | cam2/4 ≈ 2.4 m XY; cam1/3 still poor |
+| BEV+NCC search | 0/4 | Higher NCC score at wrong yaw (~90–180° off) |
+| BEV+RoMa oracle | 0/4 | Structure BEV×crop gets inliers; XY still tens of metres off |
 
 RoMa weights (gitignored): `fixtures/weights/{tiny_roma_v1_outdoor,roma_outdoor}.pth`;
-env: `tools/map_autocalib_spike/.venv-roma` (romatch).
+env: `tools/map_autocalib_spike/.venv-roma` (romatch). Script: `p2_bev_match.py`.
 
-Do **not** start P4 service wiring until (1) or (2) shows signal, unless the
+**Conclusion:** BEV conditioning is the right frame; NCC is the better BEV
+aligner today. Automatic path needs a yaw prior (click, vanishing direction,
+or asymmetric landmark) — not a stronger oblique↔ortho matcher.
+
+Do **not** start P4 service wiring until search shows signal, unless the
 product decision is to ship click-prior first.
 
 ### Eval data
