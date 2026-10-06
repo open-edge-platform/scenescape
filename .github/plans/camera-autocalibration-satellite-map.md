@@ -5,10 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Plan: Camera Auto-Calibration Against a Satellite Map
 
-Status: **V0–V2 verification complete; V2 blocked without a prior.** Path
-forward is the prioritized unblock stack below (human click prior first).
-Product phases restart against that stack, not against fully unattended
-imagery-only matching.
+Status: **V0–V2 verification complete; V2 blocked on correspondence.** Path
+forward is the prioritized unblock stack below (automatic methods first; human
+click as fallback). Product phases restart against that stack, not against
+plain structure+NCC matching.
 
 Scope: **calibration only.** Estimate a camera's extrinsics (and untrusted
 intrinsics) from a camera image plus a metric orthographic / satellite map,
@@ -22,10 +22,10 @@ Related: `autocalibration/Agents.md` (existing strategies).
 ## Fixed constraints (from design review)
 
 - **Hard prior**: camera is above the ground plane (`z > 0`).
-- **Soft prior (accepted)**: a human may supply a weak pose cue via the UI —
-  typically **one click** on the map (look-at / ground point under the view, or
-  approximate camera foot) and/or an approximate heading. Fully unattended
-  matching with only `z > 0` was tested and failed on Smart Intersection.
+- **Human click (fallback)**: operator may supply a weak pose cue via the UI
+  (one map click and/or heading) when automatic methods are low-confidence or
+  unavailable. Preferred path is automatic; click is not required for the
+  default happy path once higher-priority methods work.
 - **Scene class**: anywhere a metric ortho/satellite map is available — not
   roads-only. Intersections are a convenient eval set, not the product scope.
 - **No radar / VIDETEC scene on `main`**: that demo and its scaffolding are out
@@ -49,20 +49,20 @@ similarity.
 ## Unblock stack (priority order)
 
 Verified gap: camera model and landmark **coverage** are fine (V0, V1);
-**correspondence / heading** fails without a cue (V2). Local descriptors
-(AKAZE; SIFT/SuperPoint-class) are a poor fit for this viewpoint change.
-Proceed with all three approaches below, in this order:
+**correspondence / heading** fails with structure+NCC alone (V2). Local
+descriptors (AKAZE; SIFT/SuperPoint-class) are a poor fit for this viewpoint
+change. Proceed with all four approaches below, in this order:
 
 | Priority | Approach | Role | Notes |
 | --- | --- | --- | --- |
-| **1** | **Human click prior** | Primary product path | Operator clicks once on the map (and optionally sets heading). That weak prior seeds the existing BEV / structure alignment that already recovers ~2.5 m XY when orientation is known (cam2/4 diagnostic). Closest to how manual calib works today, with far fewer points. |
-| **2** | **Learned cross-view matcher** | Automatic / reduce clicks | LoFTR / RoMa-class dense matching between camera (or BEV warp) and ortho. Aims at human-like correspondences under extreme viewpoint change. Heavier deps; evaluate after (1) ships a usable path. |
-| **3** | **Map topology (OSM optional)** | Accuracy / disambiguation | Road graph, buildings, crossings when OSM (or similar) is rich enough. Helps asymmetric junctions; **does not** replace (1) on Smart Intersection and will not help sparse campus maps. Keep optional and off by default for non-road scenes. |
+| **1** | **Learned cross-view matcher** | Primary automatic path | LoFTR / RoMa-class dense matching between camera (or BEV warp) and ortho. Closest automatic analogue to how humans associate the same ground point across views. Heavier deps; spike next before service wiring. |
+| **2** | **Semantic landmarks** | Automatic, interpretable | Detect the same semantic classes in camera and map (crosswalk corners, stop bars, curb kinks, building footprints visible in the tile) and associate by type + geometry. Mirrors human feature picking; works without OSM. |
+| **3** | **Map topology (OSM optional)** | Accuracy / disambiguation | Road graph, buildings, crossings when OSM (or similar) is rich enough. Helps asymmetric junctions; failed alone on Smart Intersection; will not help sparse campus maps. Optional, off by default for non-road scenes. |
+| **4** | **Human click prior** | Fallback / assist | Operator clicks once on the map (and optionally sets heading) when (1)–(3) are low-confidence or unavailable. Seeds BEV/structure alignment (cam2/4 diagnostic ≈ 2.5 m XY given orientation). Full multi-point manual correspondence remains the last resort. |
 
-**UI expectation for (1):** human remains in the loop for the prior — one map
-click (required in v1 of the feature), optional heading tweak, then the service
-solves and reports confidence. Full multi-point manual correspondence stays
-available as fallback.
+**UI expectation:** prefer unattended solve via (1)+(2), optionally boosted by
+(3). If confidence is low, prompt for one map click (4) rather than a full
+manual point set.
 
 ---
 
@@ -77,9 +77,9 @@ Goal was: answer “does this work?” with an offline spike before service work
 | **V2 Auto match** | Correspondences with only `z > 0`? | **Fail** (0/4); heading ambiguity |
 | **V2 + OSM** | Does topology clear the fail? | **Fail** (0/4); optional later only |
 
-**Pass bar to start product work (revised):** V0 + V1 pass, and either V2
-signal **or** a chosen unblock from the stack above is designed in. **Stack
-item 1 (click prior) is the gate to restart product phases.**
+**Pass bar to start product work (revised):** V0 + V1 pass (done), and a spike
+signal from stack item **1** (cross-view matcher) and/or **2** (semantic
+landmarks). Item **4** (click) is the product fallback, not the research gate.
 
 ### Eval data
 
@@ -130,13 +130,13 @@ asymmetric, well-mapped junctions only.
 
 ---
 
-## Product phases (restart with click prior)
+## Product phases (automatic first, click as fallback)
 
 | Phase | Deliverable |
 | --- | --- |
 | P1 | Imagery landmark extraction + `scene_common` reader; artifacts beside map |
-| P2 | **Click-prior solver**: ingest one map click (+ optional heading); coarse BEV/structure alignment + uncertainty; Manager UI hook for the click |
-| P3 | Learned cross-view matcher (priority 2) and/or optional OSM topology (priority 3); multi-scene eval including a non-road campus-like map |
+| P2 | **Cross-view matcher spike** (priority 1) and **semantic landmark association** (priority 2); offline eval on Smart Intersection vs V2 baseline |
+| P3 | Optional OSM topology (priority 3); click-prior fallback UI/API (priority 4); multi-scene eval including a non-road campus-like map |
 | P4 | `autocalibration/` map strategy, manager mode, feature-flagged API |
 
 Open product questions:
@@ -144,8 +144,9 @@ Open product questions:
 1. Imagery licensing for cached tiles.
 2. Where landmark artifacts live and who regenerates them.
 3. Target accuracy / range for GA (spike bars were looser).
-4. Click UX: one ground point vs camera foot vs “look toward”; whether heading
-   is inferred from click+image or typed/dragged.
+4. Which cross-view model (LoFTR / RoMa / other) fits the autocalibration image
+   and license constraints.
+5. Click UX for the fallback: one ground point vs camera foot vs “look toward”.
 
 ---
 
