@@ -307,7 +307,10 @@ unchanged in v1: the model assumes rotation about the optical center. Intrinsics
 distortion remain the static values from home calibration. The matrix is an immutable
 snapshot for one timestamp; consumers must not mutate shared camera configuration.
 
-`invalid_reason` uses the canonical positioning vocabulary already present in
+`motion_state` is one of: `stationary` (position within settled threshold for settle
+interval), `slewing` (position changing), `settling` (changed but not yet settled), or
+`unknown` (unknown due to timeout/offline/initial state). `invalid_reason` uses the
+canonical positioning vocabulary already present in
 `controller/src/controller/external_source.py`: `no_pose_available`, `pose_expired`, or
 `invalid_pose`. PTZ-specific causes are carried in bounded `reason_detail` values:
 `no_sample` maps to `no_pose_available`; `sample_stale` maps to `pose_expired`; and
@@ -319,10 +322,32 @@ omitted. Consumers enforce both `valid_until` and their local maximum-age bound,
 crashed Resolver or missed invalid message cannot make a retained pose usable
 indefinitely.
 
+Example invalid message:
+
+```json
+{
+  "schema_version": 1,
+  "source_id": "atag-ptzcam3",
+  "timestamp": "2026-10-01T10:15:30.450Z",
+  "valid_until": "2026-10-01T10:15:30.950Z",
+  "sequence": 10433,
+  "valid": false,
+  "motion_state": "settling",
+  "sample_age_s": 0.005,
+  "timestamp_uncertainty_s": 0.012,
+  "calibration_version": "atag-ptzcam3-v3",
+  "invalid_reason": "invalid_pose",
+  "reason_detail": "settling"
+}
+```
+
 Pose messages use MQTT QoS 0 and retain the latest state per source. Resolver service
 liveness has a separate retained status/LWT topic
 `scenescape/positioning/status/{resolver_id}`; its payload contains only `resolver_id`,
-`status`, and `timestamp`. Consumers can distinguish a live Resolver reporting an
+`status`, and `timestamp`. The LWT is published by the broker from the payload registered
+at CONNECT, so `timestamp` records the session start time, not the failure instant;
+consumers must rely on message arrival time and/or pose `valid_until` to detect Resolver
+downtime, not the timestamp field. Consumers can distinguish a live Resolver reporting an
 invalid pose from an unavailable Resolver, while still enforcing pose freshness
 independently. Device-offline state is reported by the Resolver after its per-camera
 sample timeout, not encoded as a fabricated raw sample. Pose, status, and
@@ -402,13 +427,18 @@ maintains one state machine per configured PTZ camera, holding:
   - reject non-finite, out-of-range, duplicate/out-of-order, too-old, or mismatched
     calibration-version input;
   - publish a valid PoseContext after accepted samples, and an invalid status when pose
-    validity is lost.
+    validity is lost. The Resolver publishes exactly one PoseContext per accepted sample,
+    including while the camera is stationary; it does not suppress unchanged poses. Bracketing
+    correctness depends on this policy: every observation must find its later sample or
+    time out deterministically.
 
 Backlash state is volatile and must be treated as unknown after a Resolver restart, an
 Adapter restart (a new `adapter_instance_id`), or a `calibration_version` change. For
 each axis, the Resolver may initialize the known home backlash band only when the
-reported position is within the configured tolerance of the stored `home_pan` or
-`home_tilt` and calibration records that axis's home approach direction. This initializes
+reported position is within the configured tolerance of that axis's stored home value
+(e.g. `home_pan` for the pan axis) and calibration records that axis's home approach
+direction. Per-axis backlash state is internal; the published PoseContext contract
+reports whole-pose validity only. This initializes
 the same backlash band implied by the calibrated home approach; it does not bypass the
 motion/settle or freshness gates. Otherwise, the affected axis remains invalid with
 `reason_detail: backlash_unknown` until observed movement establishes the deadband state.
@@ -572,8 +602,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 8. Rollout / Migration Plan
 
-1. **Contracts and math** — add the versioned `.proto` to a shared API package (for
-   example top-level `api/ptz/v1/`), generate bindings for Adapter and Resolver, and
+1. **Contracts and math** — add the versioned `.proto` to `api/ptz/v1/`, generate bindings for Adapter and Resolver, and
    publish the `.proto` plus v1 compatibility policy for Sensor Manager consumers.
    Define the source-keyed `positioning/pose/{source_id}` contract, status/LWT topic,
    `valid_until`, canonical positioning failure reasons with PTZ `reason_detail`, and
@@ -648,7 +677,9 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   including bracket wait stays within the deployment's camera-to-tracker latency budget;
   no unbounded retry, sample queue, or pending-detection queue forms. Startup rejects
   `max_pose_age_s < poll_interval_s + max_bracket_wait_s + max_timestamp_uncertainty_s`
-  and, for Controller PTZ scenes, `max_lag <= max_bracket_wait_s`.
+  and, for Controller PTZ scenes, `max_lag <= max_bracket_wait_s`. The Resolver publishes
+  one PoseContext per accepted sample and does not suppress unchanged poses; bypassing
+  this policy breaks bracketing and silently causes all observations to time out.
 - No increase in false track initiation or duplicate tracks versus the static baseline in
   the agreed replay/field dataset. Each MOT profile passes independently before its flag
   can default on.
