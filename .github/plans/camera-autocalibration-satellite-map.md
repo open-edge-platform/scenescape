@@ -5,10 +5,11 @@ SPDX-License-Identifier: Apache-2.0
 
 # Plan: Camera Auto-Calibration Against a Satellite Map
 
-Status: **V0–V2 done; P2 direct matchers fail; BEV-conditioned NCC proves the
-pipeline when orientation is known (oracle signal 2/4) but automatic heading
-search still fails.** Next: disambiguate yaw (or ship click prior #4) — not
-more direct oblique↔ortho matching.
+Status: **BEV+NCC works with known orientation; automatic yaw remains
+ambiguous on SI.** Yaw-prior spike (`p2_yaw_prior.py`): VP + Manhattan
+candidates + local NCC **correctly gates 4/4 to needs_click** (orthogonal
+score ties). Ship click/heading prior (#4) into BEV+NCC refine as the product
+path; keep improving auto yaw off the critical path.
 
 Scope: **calibration only.** Estimate a camera's extrinsics (and untrusted
 intrinsics) from a camera image plus a metric orthographic / satellite map,
@@ -22,10 +23,10 @@ Related: `autocalibration/Agents.md` (existing strategies).
 ## Fixed constraints (from design review)
 
 - **Hard prior**: camera is above the ground plane (`z > 0`).
-- **Human click (fallback)**: operator may supply a weak pose cue via the UI
-  (one map click and/or heading) when automatic methods are low-confidence or
-  unavailable. Preferred path is automatic; click is not required for the
-  default happy path once higher-priority methods work.
+- **Human click (fallback / current product path)**: operator supplies a weak
+  pose cue via the UI (one map click and/or heading) when automatic methods
+  are low-confidence or unavailable. On SI, the yaw-prior gate currently
+  routes all four cameras to click; unattended auto remains a research goal.
 - **Scene class**: anywhere a metric ortho/satellite map is available — not
   roads-only. Intersections are a convenient eval set, not the product scope.
 - **No radar / VIDETEC scene on `main`**: that demo and its scaffolding are out
@@ -58,7 +59,7 @@ change. Proceed with all four approaches below, in this order:
 | **1** | **BEV-conditioned match** (pose hyp → warp → dense) | Primary automatic path | Preferred over direct cross-view. `p2_bev_match.py`: **NCC oracle** (GT orient) **signal 2/4** (cam2/4 ≈ 2.4 m); **NCC search fail** (wrong yaw wins). **RoMa-on-BEV oracle fail** (inliers but bad XY). Direct LoFTR/RoMa oblique↔ortho also fail. Gap is **heading selection**, not BEV geometry. |
 | **2** | **Semantic landmarks** | Automatic, interpretable | Marking corners (tophat + Shi-Tomasi) + ORB: **fail** (0/4). Under GT pose, median nearest corner ≈ 35–50 px — detections do not coincide across views. Need class-aware detectors (crosswalk / stop-bar), not generic corners. |
 | **3** | **Map topology (OSM optional)** | Accuracy / disambiguation | Road graph, buildings, crossings when OSM (or similar) is rich enough. Helps asymmetric junctions; failed alone on Smart Intersection; will not help sparse campus maps. Optional, off by default for non-road scenes. |
-| **4** | **Human click prior** | Fallback / assist | Operator clicks once on the map (and optionally sets heading) when (1)–(3) are low-confidence or unavailable. Seeds BEV/structure alignment (cam2/4 diagnostic ≈ 2.5 m XY given orientation). **Ready to productize** while (1)–(2) continue. Full multi-point manual correspondence remains the last resort. |
+| **4** | **Human click prior** | Fallback / assist | **Product path now.** `p2_yaw_prior.py` confidence gate flags orthogonal NCC ties → prompt for map click and/or heading, then local BEV+NCC refine. V2/BEV oracle: ≈ 2.5 m XY when orientation is known. Full multi-point manual correspondence remains last resort. |
 
 **UI expectation:** prefer unattended solve via (1)+(2), optionally boosted by
 (3). If confidence is low, prompt for one map click (4) rather than a full
@@ -84,11 +85,11 @@ Goal was: answer “does this work?” with an offline spike before service work
 | **P2 BEV+NCC oracle** | GT orient → BEV → NCC XY? | **Signal 2/4**; `p2_bev_match.py` |
 | **P2 BEV+NCC search** | Yaw grid → BEV → NCC? | **Fail** (0/4); wrong heading |
 | **P2 BEV+RoMa oracle** | GT orient → BEV → RoMa? | **Fail** (0/4); bad XY |
+| **P2 yaw prior + gate** | VP/Manhattan + local NCC? | **Gate OK 4/4 needs_click**; auto pose still wrong (`p2_yaw_prior.py`) |
 
-**Pass bar to start product work (revised):** V0 + V1 pass (done), and a spike
-signal from stack item **1** (cross-view matcher) and/or **2** (semantic
-landmarks). **Not met yet.** Item **4** (click) remains the product fallback
-and is the only stack item with a proven XY seed (V2 oracle orient).
+**Pass bar to start product work (revised):** Unattended auto pose still not
+met. **Click/heading-gated BEV+NCC is ready to productize** (stack #4 + #1
+refine). Continue auto-yaw research without blocking that path.
 
 ### P2 results (2026-10-06)
 
@@ -104,16 +105,15 @@ SuperPoint/LightGlue used only in offline probes.
 | **BEV+NCC oracle** | **signal 2/4** | cam2/4 ≈ 2.4 m XY; cam1/3 still poor |
 | BEV+NCC search | 0/4 | Higher NCC score at wrong yaw (~90–180° off) |
 | BEV+RoMa oracle | 0/4 | Structure BEV×crop gets inliers; XY still tens of metres off |
+| **Yaw prior + gate** | **gate 4/4** | VP + map Manhattan + local NCC; orthogonal rivals tied → `needs_click` |
+| Yaw seeded (GT heading sim) | yaw OK; XY weak | Heading alone ≠ full orient; click should also seed map XY |
 
-RoMa weights (gitignored): `fixtures/weights/{tiny_roma_v1_outdoor,roma_outdoor}.pth`;
-env: `tools/map_autocalib_spike/.venv-roma` (romatch). Script: `p2_bev_match.py`.
+Scripts: `p2_bev_match.py`, `p2_yaw_prior.py`. RoMa weights under
+`fixtures/weights/` (gitignored); env `.venv-roma`.
 
-**Conclusion:** BEV conditioning is the right frame; NCC is the better BEV
-aligner today. Automatic path needs a yaw prior (click, vanishing direction,
-or asymmetric landmark) — not a stronger oblique↔ortho matcher.
-
-Do **not** start P4 service wiring until search shows signal, unless the
-product decision is to ship click-prior first.
+**Conclusion:** Prefer **detect ambiguity → ask for click/heading → BEV+NCC
+refine** over more matcher research for the product milestone. Auto yaw
+without a prior remains unsolved on this symmetric intersection.
 
 ### Eval data
 
@@ -169,9 +169,9 @@ asymmetric, well-mapped junctions only.
 | Phase | Deliverable |
 | --- | --- |
 | P1 | Imagery landmark extraction + `scene_common` reader; artifacts beside map |
-| P2 | **Cross-view + semantic spikes done (both fail signal bar).** Iterate matcher (RoMa / better BEV) and class-aware landmarks; optionally start click-prior UI in parallel |
-| P3 | Optional OSM topology (priority 3); click-prior fallback UI/API (priority 4); multi-scene eval including a non-road campus-like map |
-| P4 | `autocalibration/` map strategy, manager mode, feature-flagged API — **gated on P2 signal or explicit click-first product decision** |
+| P2 | Spikes done. **Next product work: click/heading prior UI + BEV+NCC refine** (`p2_yaw_prior` gate). Optional: better auto yaw off the critical path |
+| P3 | Optional OSM; multi-scene eval including campus-like map; tighten pitch/height with click XY |
+| P4 | `autocalibration/` map strategy, manager mode, feature-flagged API — **click-gated BEV path unblocked** |
 
 Open product questions:
 
