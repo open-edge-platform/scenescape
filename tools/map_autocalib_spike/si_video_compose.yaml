@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# RTSP loopers for Smart Intersection videos used by SI-MapAutoCalib pose viz.
+# Joins the running demo's scenescape network and shared mediaserver.
+#
+#   SCENESCAPE_NETWORK=scenescape_scenescape docker compose \
+#     --project-directory . \
+#     -f tools/map_autocalib_spike/si_video_compose.yaml up -d
+
+name: scenescape
+
+networks:
+  scenescape:
+    external: true
+    name: ${SCENESCAPE_NETWORK:-scenescape_scenescape}
+
+services:
+  si-cams:
+    image: linuxserver/ffmpeg:version-8.1-cli
+    command:
+      - -nostdin
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /workspace/media/1122south_h264.ts
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /workspace/media/1122west_h264.ts
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /workspace/media/1122north_h264.ts
+      - -re
+      - -stream_loop
+      - "-1"
+      - -i
+      - /workspace/media/1122east_h264.ts
+      - -map
+      - "0:v"
+      - -c
+      - copy
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://mediaserver:8554/si-camera1
+      - -map
+      - "1:v"
+      - -c
+      - copy
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://mediaserver:8554/si-camera2
+      - -map
+      - "2:v"
+      - -c
+      - copy
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://mediaserver:8554/si-camera3
+      - -map
+      - "3:v"
+      - -c
+      - copy
+      - -f
+      - rtsp
+      - -rtsp_transport
+      - tcp
+      - rtsp://mediaserver:8554/si-camera4
+    volumes:
+      - ${SI_VIDEO_DIR:-/tmp/smart-intersection-v0/frames}:/workspace/media:ro
+    networks:
+      scenescape:
+    restart: always
+    pids_limit: 1000

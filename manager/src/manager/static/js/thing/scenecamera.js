@@ -215,7 +215,7 @@ export default class SceneCamera extends THREE.Object3D {
       vfov,
       this.resolution.w / this.resolution.h,
       0.1,
-      10,
+      50,
     );
     this.sceneCamera.position.copy(this.cameraPosition);
     this.sceneCamera.rotation.copy(this.cameraRotation); //in Radians
