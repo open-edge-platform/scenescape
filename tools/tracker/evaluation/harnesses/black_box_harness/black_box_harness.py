@@ -739,6 +739,7 @@ class BlackBoxHarness(TrackerHarness):
             "--resturl",            manager_url,
             "--restauth",           rest_auth,
             "--broker",             broker_name,
+            "--brokerauth",         f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_PASSWORD}",
             "--tracker_config_file", _CONTAINER_TRACKER_CONFIG,
             "--maxlag",             "1e15",
             "--visibility_topic",   "none",
