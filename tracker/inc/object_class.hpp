@@ -35,7 +35,7 @@ using ObjectClassMap = std::unordered_map<std::string, ObjectClassConfig>;
  * Expects a Manager list payload: `{"results":[{"name","shift_type","x_size","y_size",...},...]}`
  * or a bare JSON array of asset objects. Entries without `name` are skipped.
  */
-ObjectClassMap parseObjectClassesFromAssetsJson(std::string_view json);
+ObjectClassMap parseObjectClassesFromAssets(std::string_view json);
 
 /**
  * @brief Look up projection config for a detection category (exact match).

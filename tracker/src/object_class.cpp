@@ -49,7 +49,7 @@ void ingestResultsArray(const rapidjson::Value& results, ObjectClassMap& out) {
 
 } // namespace
 
-ObjectClassMap parseObjectClassesFromAssetsJson(std::string_view json) {
+ObjectClassMap parseObjectClassesFromAssets(std::string_view json) {
     rapidjson::Document doc;
     if (doc.Parse(json.data(), json.size()).HasParseError()) {
         throw std::runtime_error("Failed to parse Manager assets JSON");

@@ -8,7 +8,7 @@
 using namespace tracker;
 
 TEST(ObjectClassTest, ParseManagerListPayload) {
-    const auto map = parseObjectClassesFromAssetsJson(R"({
+    const auto map = parseObjectClassesFromAssets(R"({
         "count": 2,
         "results": [
             {"name": "person", "shift_type": 1, "x_size": 0.5, "y_size": 0.5},
@@ -37,7 +37,7 @@ TEST(ObjectClassTest, UnknownCategoryDefaultsToType1) {
 }
 
 TEST(ObjectClassTest, CategoryMatchIsCaseSensitive) {
-    const auto map = parseObjectClassesFromAssetsJson(
+    const auto map = parseObjectClassesFromAssets(
         R"({"results":[{"name":"Plane","shift_type":2},{"name":"plane","shift_type":1}]})");
     ASSERT_EQ(map.size(), 2u);
     EXPECT_EQ(lookupObjectClass(map, "Plane").shift_type, ObjectClassConfig::kShiftType2);
@@ -46,7 +46,7 @@ TEST(ObjectClassTest, CategoryMatchIsCaseSensitive) {
 }
 
 TEST(ObjectClassTest, ZeroSizesKeepFixedFootprint) {
-    const auto map = parseObjectClassesFromAssetsJson(
+    const auto map = parseObjectClassesFromAssets(
         R"({"results":[{"name":"flat","x_size":0,"y_size":0},{"name":"thin","x_size":0,"y_size":2}]})");
     const auto flat = lookupObjectClass(map, "flat");
     ASSERT_TRUE(flat.footprint_half_m.has_value());
@@ -58,14 +58,14 @@ TEST(ObjectClassTest, ZeroSizesKeepFixedFootprint) {
 
 TEST(ObjectClassTest, MissingOrNonNumericSizesUseDefaultEdgeLength) {
     const auto map =
-        parseObjectClassesFromAssetsJson(R"({"results":[{"name":"thing","x_size":"big"}]})");
+        parseObjectClassesFromAssets(R"({"results":[{"name":"thing","x_size":"big"}]})");
     const auto cfg = lookupObjectClass(map, "thing");
     ASSERT_TRUE(cfg.footprint_half_m.has_value());
     EXPECT_DOUBLE_EQ(*cfg.footprint_half_m, 0.5);
 }
 
 TEST(ObjectClassTest, ShiftTypeMatchesControllerEquality) {
-    const auto map = parseObjectClassesFromAssetsJson(R"({"results":[
+    const auto map = parseObjectClassesFromAssets(R"({"results":[
         {"name":"float2","shift_type":2.0},
         {"name":"three","shift_type":3},
         {"name":"string2","shift_type":"2"},
@@ -78,7 +78,7 @@ TEST(ObjectClassTest, ShiftTypeMatchesControllerEquality) {
 }
 
 TEST(ObjectClassTest, SkipsNamelessEntries) {
-    const auto map = parseObjectClassesFromAssetsJson(
+    const auto map = parseObjectClassesFromAssets(
         R"({"results":[{"shift_type":2},{"name":"car","shift_type":2,"x_size":2,"y_size":4}]})");
     ASSERT_EQ(map.size(), 1u);
     EXPECT_TRUE(map.contains("car"));

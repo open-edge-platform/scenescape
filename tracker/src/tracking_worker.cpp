@@ -104,7 +104,7 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
-    // Build coordinate transformers using Manager asset projection settings.
+    // Build coordinate transformers
     for (const auto& [camera_id, camera] : cameras) {
         transformers_.emplace(camera_id, CoordinateTransformer(camera.intrinsics, camera.extrinsics,
                                                                object_class.shift_type,

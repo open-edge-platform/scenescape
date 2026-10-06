@@ -199,7 +199,7 @@ public:
         // Load object-class assets before scene validation so projection settings are
         // available even when some scenes are skipped. Soft-fail if assets are missing.
         try {
-            object_classes_ = parseObjectClassesFromAssetsJson(client->fetchAssets());
+            object_classes_ = parseObjectClassesFromAssets(client->fetchAssets());
             LOG_INFO("Loaded {} object classes from Manager assets", object_classes_.size());
         } catch (const std::exception& e) {
             object_classes_.clear();
