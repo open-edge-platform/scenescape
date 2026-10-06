@@ -5,10 +5,10 @@ SPDX-License-Identifier: Apache-2.0
 
 # Plan: Camera Auto-Calibration Against a Satellite Map
 
-Status: **V0–V2 verification complete; V2 blocked on correspondence.** Path
-forward is the prioritized unblock stack below (automatic methods first; human
-click as fallback). Product phases restart against that stack, not against
-plain structure+NCC matching.
+Status: **V0–V2 done; P2 cross-view + semantic spikes run — both fail the
+signal bar on Smart Intersection.** Correspondence remains the blocker.
+Next: stronger semantic classes / RoMa-class matcher, or productize click
+prior (stack item 4) while continuing matcher research.
 
 Scope: **calibration only.** Estimate a camera's extrinsics (and untrusted
 intrinsics) from a camera image plus a metric orthographic / satellite map,
@@ -55,10 +55,10 @@ change. Proceed with all four approaches below, in this order:
 
 | Priority | Approach | Role | Notes |
 | --- | --- | --- | --- |
-| **1** | **Learned cross-view matcher** | Primary automatic path | LoFTR / RoMa-class dense matching between camera (or BEV warp) and ortho. Closest automatic analogue to how humans associate the same ground point across views. Heavier deps; spike next before service wiring. |
-| **2** | **Semantic landmarks** | Automatic, interpretable | Detect the same semantic classes in camera and map (crosswalk corners, stop bars, curb kinks, building footprints visible in the tile) and associate by type + geometry. Mirrors human feature picking; works without OSM. |
+| **1** | **Learned cross-view matcher** | Primary automatic path | LoFTR outdoor direct camera↔ortho: **fail** (0/4; ~90 raw matches, 0 PnP inliers). BEV+DINO / SuperPoint+LightGlue probes also lacked stable inliers. Still the preferred long-term path; needs a better model or warp. |
+| **2** | **Semantic landmarks** | Automatic, interpretable | Marking corners (tophat + Shi-Tomasi) + ORB: **fail** (0/4). Under GT pose, median nearest corner ≈ 35–50 px — detections do not coincide across views. Need class-aware detectors (crosswalk / stop-bar), not generic corners. |
 | **3** | **Map topology (OSM optional)** | Accuracy / disambiguation | Road graph, buildings, crossings when OSM (or similar) is rich enough. Helps asymmetric junctions; failed alone on Smart Intersection; will not help sparse campus maps. Optional, off by default for non-road scenes. |
-| **4** | **Human click prior** | Fallback / assist | Operator clicks once on the map (and optionally sets heading) when (1)–(3) are low-confidence or unavailable. Seeds BEV/structure alignment (cam2/4 diagnostic ≈ 2.5 m XY given orientation). Full multi-point manual correspondence remains the last resort. |
+| **4** | **Human click prior** | Fallback / assist | Operator clicks once on the map (and optionally sets heading) when (1)–(3) are low-confidence or unavailable. Seeds BEV/structure alignment (cam2/4 diagnostic ≈ 2.5 m XY given orientation). **Ready to productize** while (1)–(2) continue. Full multi-point manual correspondence remains the last resort. |
 
 **UI expectation:** prefer unattended solve via (1)+(2), optionally boosted by
 (3). If confidence is low, prompt for one map click (4) rather than a full
@@ -76,10 +76,28 @@ Goal was: answer “does this work?” with an offline spike before service work
 | **V1 Observability** | Enough imagery landmarks without OSM? | **Pass** (4/4; well-spread depth/lateral) |
 | **V2 Auto match** | Correspondences with only `z > 0`? | **Fail** (0/4); heading ambiguity |
 | **V2 + OSM** | Does topology clear the fail? | **Fail** (0/4); optional later only |
+| **P2 LoFTR** | Cross-view dense match? | **Fail** (0/4); `p2_crossview.py` |
+| **P2 Semantic** | Marking corners + ORB? | **Fail** (0/4); `p2_semantic.py` |
 
 **Pass bar to start product work (revised):** V0 + V1 pass (done), and a spike
 signal from stack item **1** (cross-view matcher) and/or **2** (semantic
-landmarks). Item **4** (click) is the product fallback, not the research gate.
+landmarks). **Not met yet.** Item **4** (click) remains the product fallback
+and is the only stack item with a proven XY seed (V2 oracle orient).
+
+### P2 results (2026-10-06)
+
+Scripts: `p2_crossview.py` (LoFTR outdoor), `p2_semantic.py` (marking corners).
+Weights under `fixtures/weights/` (gitignored): `loftr_outdoor.ckpt`,
+SuperPoint/LightGlue used only in offline probes.
+
+| Approach | Result | Notes |
+| --- | --- | --- |
+| LoFTR direct | 0/4 | ~84–105 matches/cam; PnP RANSAC never reaches 6 inliers |
+| Semantic corners+ORB | 0/4 | GT association median 35–50 px; wrong corners |
+| DINO BEV / SP+LightGlue | no suite signal | Probes only; unstable / empty BEV coverage |
+
+Do **not** start P4 service wiring until (1) or (2) shows signal, unless the
+product decision is to ship click-prior first.
 
 ### Eval data
 
@@ -135,9 +153,9 @@ asymmetric, well-mapped junctions only.
 | Phase | Deliverable |
 | --- | --- |
 | P1 | Imagery landmark extraction + `scene_common` reader; artifacts beside map |
-| P2 | **Cross-view matcher spike** (priority 1) and **semantic landmark association** (priority 2); offline eval on Smart Intersection vs V2 baseline |
+| P2 | **Cross-view + semantic spikes done (both fail signal bar).** Iterate matcher (RoMa / better BEV) and class-aware landmarks; optionally start click-prior UI in parallel |
 | P3 | Optional OSM topology (priority 3); click-prior fallback UI/API (priority 4); multi-scene eval including a non-road campus-like map |
-| P4 | `autocalibration/` map strategy, manager mode, feature-flagged API |
+| P4 | `autocalibration/` map strategy, manager mode, feature-flagged API — **gated on P2 signal or explicit click-first product decision** |
 
 Open product questions:
 

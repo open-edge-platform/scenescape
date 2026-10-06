@@ -2,3 +2,5 @@
 out/
 # Downloaded Smart Intersection videos/frames (not Apache; do not commit).
 fixtures/
+# Local venv for torch/kornia spike runs (optional).
+.venv/
