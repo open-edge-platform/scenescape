@@ -8,9 +8,9 @@
 # "scenescape" Docker network and vol-models volume are shared), e.g.:
 #   make video-source-up
 # or directly (paths are relative to the repo root, used as --project-directory):
-#   docker compose --project-directory . -f sample_data/demo_scenes/Queuing/queuing-video-compose.yaml up -d
+#   docker compose --project-directory . -f sample_data/demo_scenes/Queuing/compose.queuing-video.yml up -d
 #
-# Combine with Retail/retail-video-compose.yaml (add another -f) to run both
+# Combine with Retail/compose.retail-video.yml (add another -f) to run both
 # demo scenes together; Compose merges the two same-named "mediaserver"
 # services into one shared instance. Used standalone, this scene gets its own
 # private mediaserver.
