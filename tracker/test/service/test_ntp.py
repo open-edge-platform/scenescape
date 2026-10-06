@@ -43,7 +43,7 @@ def tracker_service_ntp(tls_certs):
   Tracker is configured with TRACKER_NTP_SERVER=ntp-server so it syncs on startup.
   """
   service_dir = Path(__file__).parent
-  compose_file = service_dir / "docker-compose.yaml"
+  compose_file = service_dir / "compose.yml"
 
   project_name = f"tracker-ntp-{uuid.uuid4().hex[:8]}"
 

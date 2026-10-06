@@ -35,6 +35,7 @@ class _Topic(Enum):
   EVENT = auto()
   IMAGE_CALIBRATE = auto()
   IMAGE_CAMERA = auto()
+  POINTCLOUD_CAMERA = auto()
   SYS_CHILDSCENE_STATUS = auto()
   ANALYTICS_CLUSTERS = auto()
   DATA_CHILD_TRIPWIRES = auto()
@@ -65,6 +66,7 @@ class PubSub(_PubSubTopicBase):
     _Topic.EVENT: Template(TOPIC_BASE + "/event/${region_type}/${scene_id}/${region_id}/${event_type}"),
     _Topic.IMAGE_CALIBRATE: Template(TOPIC_BASE + "/image/calibration/camera/${camera_id}"),
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
+    _Topic.POINTCLOUD_CAMERA: Template(TOPIC_BASE + "/pointcloud/camera/${camera_id}"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
     _Topic.ANALYTICS_CLUSTERS: Template(TOPIC_BASE + "/analytics/clusters/${scene_id}"),
     _Topic.DATA_CHILD_TRIPWIRES: Template(TOPIC_BASE + "/data/child/tripwires/${scene_id}"),
@@ -101,8 +103,13 @@ class PubSub(_PubSubTopicBase):
     self.client = initializeMqttClient(transport=transport, userdata=userdata)
     if insecure and certs is not None:
       certs['cert_reqs'] = ssl.CERT_NONE
-    if not self.checkTlsConnection(certs, transport, userdata):
-      return
+    if certs is not None:
+      try:
+        self.client.tls_set(**certs)
+      except Exception as e:
+        raise RuntimeError(
+          f"Failed to configure TLS for MQTT broker {self.broker}:{self.port}"
+        ) from e
 
     if auth is not None:
       user = pw = None
@@ -151,24 +158,6 @@ class PubSub(_PubSubTopicBase):
     if match:
       return match.groups()
     return None
-
-  def onTlsConnect(self, client, userdata, flags, rc):
-    if rc == mqtt.CONNACK_ACCEPTED:
-      log.info("connection accepted")
-    else:
-      log.info("connection failed")
-    return
-
-  def checkTlsConnection(self, certs, transport, userdata):
-    self.client.on_connect = self.onTlsConnect
-    try:
-      self.client.tls_set(**certs)
-      self.client.connect(self.broker, self.port, 60)
-      return True
-
-    except Exception as e:
-      self.client = initializeMqttClient(transport=transport, userdata=userdata)
-      return False
 
   def connect(self):
     return self.client.connect(self.broker, self.port, self.keepalive)
