@@ -145,6 +145,7 @@ def check_person_marks(browser, camera_id):
     log.info(f"co-ordinates after {marks_after}")
   return False
 
+@pytest.mark.test_name("NEX-T10417")
 @pytest.mark.basic_acceptance
 def test_out_of_box(params, record_xml_attribute):
   """! Checks that the person marks in the scene and the image stream for
@@ -154,7 +155,6 @@ def test_out_of_box(params, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10417"
-  record_xml_attribute("name", TEST_NAME)
   log.info( "Executing: " + TEST_NAME )
   log.info( "Test that the out-of-box Demo scene is operating at first build")
 
