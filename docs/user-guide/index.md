@@ -79,6 +79,7 @@ PostgreSQL database server which stores static information used by the web UI an
 
 ## Supporting Resources
 
+- [Quick Start](./get-started/quick-start.md)
 - [Installation](./get-started/installation.md)
 - [API Reference](./api-reference.md)
 - [Camera normalization](./additional-resources/convert-object-detections-to-normalized-image-space.md)
@@ -98,7 +99,7 @@ Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.h
 :caption: Get Started
 
 Scenescape Overview <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
-Quick Start <./get-started/quickstart.md>
+Quick Start <./get-started/quick-start.md>
 Installation <./get-started/installation.md>
 System Requirements <./get-started/system-requirements.md>
 
