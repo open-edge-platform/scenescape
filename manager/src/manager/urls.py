@@ -111,6 +111,8 @@ urlpatterns += [
       r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
       r'reconstruct/(?P<request_id>[0-9a-fA-F-]{1,64})$',
       api.SceneReconstructView.as_view(), name='scene_reconstruct_status'),
+  re_path(r'api/v1/mapping-service/status$',
+          api.MappingServiceStatusView.as_view(), name='api_mapping_service_status'),
   re_path(r'api/v1/(cameras)$', api.ListThings.as_view()),
   re_path(r'api/v1/(camera)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(camera)/([^/]+)$', api.ManageThing.as_view()),

@@ -249,3 +249,23 @@ def test_map_frame_keyframes_fall_back_to_heuristic(client, scene):
 
   from manager.mesh_generator import MeshGenerator
   assert MeshGenerator()._alignToKeyframes(scene, _fake_result(["kf000000", "kf000001"])) is None
+
+
+def test_mapping_service_status_endpoint(client):
+  with patch("manager.mesh_generator.MappingServiceClient.checkHealth",
+             return_value={"available": True, "ready": True, "model": "mapanything",
+                           "models": {"active": "mapanything"}}):
+    resp = client.get("/api/v1/mapping-service/status")
+  assert resp.status_code == 200, resp.content
+  assert resp.json() == {"available": True, "ready": True, "method": "mapanything"}
+
+  with patch("manager.mesh_generator.MappingServiceClient.checkHealth",
+             return_value={"available": False, "error": "Connection refused"}):
+    resp = client.get("/api/v1/mapping-service/status")
+  assert resp.status_code == 200
+  body = resp.json()
+  assert body["available"] is False and body["method"] is None and "refused" in body["error"]
+
+  # Token auth required.
+  from rest_framework.test import APIClient
+  assert APIClient().get("/api/v1/mapping-service/status").status_code in (401, 403)

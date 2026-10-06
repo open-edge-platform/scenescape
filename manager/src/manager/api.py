@@ -340,6 +340,31 @@ class SceneMapRevisionView(APIView):
       return Response({"error": str(exc)}, status=exc.status)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
+class MappingServiceStatusView(APIView):
+  """GET mapping-service/status: is server-side reconstruction available?
+
+  Lets devices decide whether to offer "build a model" at all. Mirrors the
+  session-auth ``mapping-service/status/`` page view for token clients.
+  """
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAuthenticated]
+
+  def get(self, request):
+    from manager.mesh_generator import MappingServiceClient, MeshGenerator
+    try:
+      health = MappingServiceClient().checkHealth() or {}
+    except Exception as exc:  # noqa: BLE001 - health is advisory
+      health = {"available": False, "error": str(exc)}
+    out = {
+      "available": bool(health.get("available")),
+      "ready": bool(health.get("ready", health.get("available"))),
+      "method": MeshGenerator().reconstructionMethod() if health.get("available") else None,
+    }
+    if health.get("error"):
+      out["error"] = str(health["error"])
+    return Response(out)
+
+
 class SceneReconstructView(APIView):
   """!Run a world-model reconstruction from the scene's ``keyframes`` artifact.
 
