@@ -55,7 +55,7 @@ change. Proceed with all four approaches below, in this order:
 
 | Priority | Approach | Role | Notes |
 | --- | --- | --- | --- |
-| **1** | **Learned cross-view matcher** | Primary automatic path | LoFTR outdoor direct camera↔ortho: **fail** (0/4; ~90 raw matches, 0 PnP inliers). BEV+DINO / SuperPoint+LightGlue probes also lacked stable inliers. Still the preferred long-term path; needs a better model or warp. |
+| **1** | **Learned cross-view matcher** | Primary automatic path | LoFTR outdoor: **fail** (0/4; ~90 matches, 0 PnP inliers). RoMa tiny + outdoor (`p2_roma.py`): **fail** (0/4); outdoor finds hundreds of inliers but wrong pose (heading flip / 30–50 m XY). BEV+DINO / SuperPoint+LightGlue probes also failed. Needs warp/prior or a true cross-view-trained model. |
 | **2** | **Semantic landmarks** | Automatic, interpretable | Marking corners (tophat + Shi-Tomasi) + ORB: **fail** (0/4). Under GT pose, median nearest corner ≈ 35–50 px — detections do not coincide across views. Need class-aware detectors (crosswalk / stop-bar), not generic corners. |
 | **3** | **Map topology (OSM optional)** | Accuracy / disambiguation | Road graph, buildings, crossings when OSM (or similar) is rich enough. Helps asymmetric junctions; failed alone on Smart Intersection; will not help sparse campus maps. Optional, off by default for non-road scenes. |
 | **4** | **Human click prior** | Fallback / assist | Operator clicks once on the map (and optionally sets heading) when (1)–(3) are low-confidence or unavailable. Seeds BEV/structure alignment (cam2/4 diagnostic ≈ 2.5 m XY given orientation). **Ready to productize** while (1)–(2) continue. Full multi-point manual correspondence remains the last resort. |
@@ -77,6 +77,7 @@ Goal was: answer “does this work?” with an offline spike before service work
 | **V2 Auto match** | Correspondences with only `z > 0`? | **Fail** (0/4); heading ambiguity |
 | **V2 + OSM** | Does topology clear the fail? | **Fail** (0/4); optional later only |
 | **P2 LoFTR** | Cross-view dense match? | **Fail** (0/4); `p2_crossview.py` |
+| **P2 RoMa** | RoMa tiny/outdoor dense match? | **Fail** (0/4); `p2_roma.py` |
 | **P2 Semantic** | Marking corners + ORB? | **Fail** (0/4); `p2_semantic.py` |
 
 **Pass bar to start product work (revised):** V0 + V1 pass (done), and a spike
@@ -93,8 +94,13 @@ SuperPoint/LightGlue used only in offline probes.
 | Approach | Result | Notes |
 | --- | --- | --- |
 | LoFTR direct | 0/4 | ~84–105 matches/cam; PnP RANSAC never reaches 6 inliers |
+| RoMa tiny | 0/4 | Inliers present; pose wrong (tens–hundreds of metres) |
+| RoMa outdoor | 0/4 | Up to ~800 inliers/cam; still wrong heading/XY (e.g. cam1 dR≈179°) |
 | Semantic corners+ORB | 0/4 | GT association median 35–50 px; wrong corners |
 | DINO BEV / SP+LightGlue | no suite signal | Probes only; unstable / empty BEV coverage |
+
+RoMa weights (gitignored): `fixtures/weights/{tiny_roma_v1_outdoor,roma_outdoor}.pth`;
+env: `tools/map_autocalib_spike/.venv-roma` (romatch).
 
 Do **not** start P4 service wiring until (1) or (2) shows signal, unless the
 product decision is to ship click-prior first.
