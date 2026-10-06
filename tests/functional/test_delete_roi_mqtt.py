@@ -13,7 +13,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T10430"
 
 def runROIMqttDelete(self):
   self.exitCode = 1
@@ -31,6 +30,7 @@ def runROIMqttDelete(self):
 
 @pytest.mark.test_name("NEX-T29295")
 def test_roi_delete(scenescape_env, request, record_xml_attribute):
+  TEST_NAME = "NEX-T29295"
   test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
   runROIMqttDelete(test)
   assert test.exitCode == 0
