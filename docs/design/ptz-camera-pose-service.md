@@ -92,8 +92,9 @@ the existing calibration UI, but is the wrong integration point for a production
 - It collapses "the camera's calibrated home pose" and "the camera's current live pose"
   into a single stored value, destroying the home reference the computation itself
   depends on — recoverable only via the PoC's own rebaseline heuristic.
-- It couples pose freshness to REST write latency and Manager availability, on what
-  should be a sub-frame-period hot path.
+- It couples pose freshness to REST write latency and Manager availability on a
+  latency-sensitive path. v1 instead uses a bounded, explicit bracketing wait; its delay
+  is measured and included in the camera-to-tracker latency budget.
 - There is no record of _when_ a given pose was valid relative to a given detection
   frame — exactly the timestamp/sequence gap identified earlier for PTZ support
   in general.
@@ -267,7 +268,7 @@ Example valid message:
   "schema_version": 1,
   "source_id": "atag-ptzcam3",
   "timestamp": "2026-10-01T10:15:30.123Z",
-  "valid_until": "2026-10-01T10:15:30.250Z",
+  "valid_until": "2026-10-01T10:15:30.623Z",
   "sequence": 10432,
   "valid": true,
   "pose": {
@@ -330,15 +331,33 @@ configuration-invalidation topics are registered in `scene_common.mqtt.PubSub`.
 
 #### Pose selection for an observation
 
+`timestamp` is the source sample's `measured_at` time. `valid_until` is the exclusive
+expiry `timestamp + max_pose_age_s`, using the same configured `max_pose_age_s` at the
+Resolver and both consumers. A pose may be matched only to observations whose acquisition
+timestamp is earlier than `valid_until`; consumers additionally enforce freshness against
+their synchronized local clock. Startup validation requires
+`max_pose_age_s >= poll_interval_s + max_bracket_wait_s + max_timestamp_uncertainty_s`;
+`max_bracket_wait_s` already includes the configured transport-jitter allowance. The
+example assumes a 5 Hz poll interval, 20 ms maximum transport jitter, 12 ms timestamp
+uncertainty, and `max_pose_age_s = 0.5 s`.
+
 The shared selector receives the observation acquisition timestamp and a bounded
-PoseContext history for its `source_id`. It selects the newest valid stationary pose at
-or before the observation timestamp only when a valid stationary context also brackets
-the timestamp from after it. Both contexts must have the same source, frame, and
-`calibration_version`, and must satisfy `valid_until`, uncertainty, and consumer-local
-age limits. The selected transform is the preceding context; v1 does not interpolate or
-extrapolate. If either side is missing, stale, invalid, or non-stationary, or the interval
-crosses a motion/settling boundary, the observation has no usable pose and fails closed.
-The shared library implements this rule once and exposes it to Python and C++ consumers.
+PoseContext history for its `source_id`. v1 uses bounded hold (policy A): if the later
+stationary sample has not arrived, the observation is held in a bounded pending queue,
+without blocking the MQTT callback, until it arrives or the bracket deadline expires.
+The deadline is `observation.timestamp + max_bracket_wait_s`, where
+`max_bracket_wait_s = poll_interval_s + max_pose_transport_jitter_s`; at the 5 Hz default
+this is at most one 200 ms poll period plus configured jitter. If the later sample has
+not arrived by then, drop the observation and count a `pose_bracket_timeout`.
+
+Once available, the selector requires valid stationary samples on both sides of the
+observation timestamp, with the same source, frame, and `calibration_version`; both must
+meet `valid_until`, uncertainty, and consumer-local freshness gates, and the sampled
+interval must contain no motion/settling boundary. Use the preceding transform; do not
+interpolate or extrapolate. If the later sample is invalid/non-stationary or a motion
+boundary is observed, drop the observation immediately rather than waiting for a later
+stationary sample. Queue overflow also fails closed and is counted. The shared library
+implements selection and deadline decisions once and exposes them to Python and C++.
 
 ### 5.3 Adapter (ONVIF polling)
 
@@ -380,12 +399,15 @@ maintains one state machine per configured PTZ camera, holding:
   - publish a valid PoseContext after accepted samples, and an invalid status when pose
     validity is lost.
 
-For `stationary`, consumers use the latest valid resolved pose, subject to the age bound.
-For `slewing` or `settling`, both consumers fail closed: they do not project detections or
-start/update tracks from that camera; prediction of existing tracks continues according
-to the tracker's normal lifecycle. `unknown`, offline, invalid calibration, missing pose,
-or age above the configured maximum are also fail-closed. v1 does not project with a
-nearest moving sample or silently extrapolate.
+All observations, including those received while the camera is stationary, use the shared
+timestamp selector and bounded bracket wait defined in
+[Pose selection for an observation](#pose-selection-for-an-observation); consumers do
+not independently use the latest pose. For `slewing` or `settling`, both consumers fail
+closed: they do not project detections or start/update tracks from that camera; prediction
+of existing tracks continues according to the tracker's normal lifecycle. `unknown`,
+offline, invalid calibration, missing pose, bracket timeout, queue overflow, or age above
+the configured maximum are also fail-closed. v1 does not project with a nearest moving
+sample or silently extrapolate.
 
 The Resolver publishes one PoseContext contract to MQTT. The Controller and Tracker
 subscribe independently and maintain bounded per-source pose state. Both also subscribe
@@ -437,6 +459,12 @@ independent feature flags and first run in shadow mode. Shadow
 mode logs candidate projections and quality without feeding them to MOT. Standard
 deployment profiles are validated separately; do not run two active MOT publishers for
 the same scene/lease merely to compare results.
+
+Each consumer maintains a bounded, acquisition-time-ordered pending detection queue per
+source. Enqueueing must not block MQTT callbacks; release detections in order after a
+valid bracket arrives, and drop/count them on deadline, observed motion boundary, or queue
+overflow. The added wait is bounded by `max_bracket_wait_s` and counts toward the
+camera-to-tracker latency budget.
 
 In both paths `CameraPose`/`CoordinateTransformer` remain projection implementation
 details. The static home transform and intrinsics are immutable configuration snapshots;
@@ -573,8 +601,11 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 - **Integration/replay tests**: recorded ONVIF reading sequences (including out-of-order
   and gap scenarios) replayed through gRPC and Resolver; verify state transitions,
   retained valid/invalid output, stale behavior, configuration invalidation, and both
-  consumer implementations deterministically.
-- **Metrics**: `pose_age` distribution, `motion_state` time-in-state histogram per
+  consumer implementations deterministically. Exercise pending-to-selected, deadline
+  timeout, immediate drop on a motion boundary, queue overflow, and in-order release in
+  both consumers.
+- **Metrics**: `pose_age` distribution, bracket wait duration, pending queue depth,
+  bracket timeout and overflow counts, `motion_state` time-in-state histogram per
   camera, gRPC acceptance/rejection counts and latency, timestamp uncertainty, calibration
   version, rejected-pose counts by reason, and resolved-vs-expected drift using the
   linear-regression residual-offset method from the PoC validation.
@@ -592,8 +623,8 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 - During slewing/settling, neither consumer feeds detections from that camera into MOT;
   on stale/offline/invalid pose, both fail closed within the configured max-pose-age.
 - Under the target polling rate and configured network impairment, p95 processing latency
-  stays within the deployment's camera-to-tracker latency budget, and no unbounded retry
-  or sample queue forms.
+  including bracket wait stays within the deployment's camera-to-tracker latency budget;
+  no unbounded retry, sample queue, or pending-detection queue forms.
 - No increase in false track initiation or duplicate tracks versus the static baseline in
   the agreed replay/field dataset. Each MOT profile passes independently before its flag
   can default on.
