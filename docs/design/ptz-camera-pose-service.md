@@ -34,9 +34,12 @@ remains the static "home" reference and is never overwritten by this service.
   projection can consume without knowing anything about PTZ, ONVIF, or backlash.
 - Make the service's internal camera model (scale/curve, backlash, pan-axis tilt)
   swappable per camera from calibration data, without code changes.
-- Keep a stable adapter-to-resolver API and a PTZ-independent resolved-pose contract,
-  so this capability can later move into the ADR 13 Positioning Service without changing
-  either MOT consumer.
+- Keep a stable adapter-to-resolver API and a source-keyed, PTZ-independent resolved-pose
+  contract that a future ADR 13 Positioning Service can implement. v1 deliberately uses
+  a pose side-channel that each consumer joins to detections; moving that join into an
+  inline Positioning → Spatial Transform path will require changing consumer integration
+  or adding compatibility adapters. This design does not claim that future migration is
+  a move without consumer changes.
 
 ## 3. Non-Goals
 
@@ -50,8 +53,9 @@ remains the static "home" reference and is never overwritten by this service.
 - Writing camera pose back into the Manager database. This was the PoC's integration
   point and is explicitly replaced, not reused.
 - Full ADR 13 Positioning Service extraction (shared pose source for LiDAR, SLAM robots,
-  drones). This design covers the PTZ-camera case only, shaped so that extraction is a
-  move, not a rewrite.
+  drones). This design covers the PTZ-camera case only. Its v1 side-channel topology is
+  intentionally different from ADR 13's inline pose-enriched observation path; a future
+  extraction requires a consumer integration migration.
 
 ## 4. Background / Context
 
@@ -101,10 +105,27 @@ the existing calibration UI, but is the wrong integration point for a production
 context), both upstream of the Tracker. The Pose Resolver is a separate SceneScape-owned
 process and a narrow instance of the Positioning role for ONVIF PTZ cameras — not the
 full Positioning Service (which would also serve LiDAR, SLAM robots, and other sources).
-Both the legacy Controller MOT and the Tracker MOT consume its resolved pose. Neither
-consumer hosts the Resolver or talks to ONVIF. When a future Sensor Manager owns device
-polling, it can call the same gRPC API; if it only publishes a different telemetry
-contract, a converter can adapt that contract at the device boundary.
+ADR 13 places Positioning inline: it joins pose to observations and sends pose-enriched
+context to Spatial Transform & Projection. v1 intentionally differs: detections continue
+to Controller/Tracker, while the Resolver publishes pose on a separate MQTT topic and
+the consumer ingress joins pose to detections by timestamp. This avoids another hop on
+the detection path and lets consumers fail closed independently, but it is not ADR 13's
+topology. A future inline Positioning deployment must replace or adapt this consumer-side
+join; the stable gRPC and PoseContext contracts alone do not make that migration
+consumer-transparent. The timestamp-selection algorithm is implemented once in a shared
+library with Python and C++ bindings so the two v1 consumers do not independently define
+the join. Neither consumer hosts the Resolver or talks to ONVIF. A future Sensor Manager
+can call the same gRPC API or use a converter at the device boundary.
+
+### Relationship to external-source pose handling
+
+`controller/src/controller/external_source.py` already resolves and caches
+source-to-scene transforms for world-space external observations. Its input contract is
+not reused for camera detections, which still require pixel-space projection. The PTZ
+PoseContext and external-source ingestion share canonical positioning failure reasons:
+`no_pose_available`, `pose_expired`, and `invalid_pose`. PTZ-specific causes remain
+available as a bounded `reason_detail` for diagnostics and metrics. This keeps one
+consumer-facing vocabulary without conflating the two observation contracts.
 
 ### Relationship to the Auto Calibration service
 
@@ -127,7 +148,7 @@ flowchart LR
   ADAPTER -->|gRPC: PTZSample| RESOLVER["SceneScape Pose Resolver\n(separate process)"]
   SENSOR["Future Sensor Manager"] -.->|same gRPC API, or converter| RESOLVER
   MANAGER["Manager camera config\nhome + ptz_calibration"] -->|read / invalidate| RESOLVER
-  RESOLVER -->|resolved PoseContext| MQTT["MQTT: scenescape/data/camera/pose/{camera_id}\nQoS 0, retained"]
+  RESOLVER -->|resolved PoseContext + status/LWT| MQTT["MQTT: scenescape/positioning/pose/{source_id}\nscenescape/positioning/status/{resolver_id}\nQoS 0, retained"]
   MQTT --> CTRL["Controller projection\nlegacy MOT"]
   MQTT --> TRACKER["Tracker CoordinateTransformer\nTracker MOT"]
 ```
@@ -232,7 +253,9 @@ earlier proposal to transport raw PTZ samples over MQTT.
 #### Resolver → MOT consumers: `PoseContext`
 
 The Resolver publishes the resolved, projection-facing contract on
-`scenescape/data/camera/pose/{camera_id}`. It is registered in
+`scenescape/positioning/pose/{source_id}`. For v1, `source_id` is the Manager camera
+UID; the topic is source-keyed so a future Positioning Service can publish poses for
+other source types without changing the topic namespace. It is registered in
 `scene_common.mqtt.PubSub`; its JSON schema is added to
 `controller/src/schema/metadata.schema.json` and shared by both consumers. There is no
 raw-PTZ MQTT topic in v1.
@@ -242,12 +265,13 @@ Example valid message:
 ```json
 {
   "schema_version": 1,
-  "camera_id": "atag-ptzcam3",
+  "source_id": "atag-ptzcam3",
   "timestamp": "2026-10-01T10:15:30.123Z",
+  "valid_until": "2026-10-01T10:15:30.250Z",
   "sequence": 10432,
   "valid": true,
   "pose": {
-    "frame_id": "scene:main",
+    "frame_id": "scene:<scene_uid>",
     "transform_direction": "scene_from_camera",
     "matrix_layout": "row_major",
     "matrix_4x4": [
@@ -272,23 +296,49 @@ Example valid message:
 ```
 
 `matrix_4x4` is row-major, maps camera optical-frame coordinates into the named scene
-frame, uses metres, and contains a rigid transform with unit scale. Translation is
+frame, uses metres, and contains a rigid transform with unit scale. `frame_id` is
+provisional in v1: it identifies the exact scene-local frame and is not a global literal
+such as `scene:main`. ADR 13's Shared Scene Graph owns canonical frame/node names; an
+adapter must map this provisional identifier to that contract without changing transform
+semantics. For a camera in a child scene, the child-to-target-scene transform must be
+composed explicitly. Until that transform is resolvable, the consumer fails closed rather
+than interpreting the child frame as the parent frame. Translation is
 unchanged in v1: the model assumes rotation about the optical center. Intrinsics and
 distortion remain the static values from home calibration. The matrix is an immutable
 snapshot for one timestamp; consumers must not mutate shared camera configuration.
 
-Invalid/stale states are represented explicitly with `valid: false`, a bounded
-`invalid_reason` enum (`no_sample`, `sample_stale`, `moving`, `settling`,
-`calibration_missing`, `calibration_changed`, `invalid_sample`), timestamp, sequence, and
-calibration version; `pose` is then omitted.
-Consumers also enforce their own maximum age, so a crashed Resolver or missed invalid
-message cannot make an old retained pose usable indefinitely. Pose messages use MQTT
-QoS 0 and retain the latest state per camera. Resolver service liveness has a separate
-retained status/LWT topic `scenescape/sys/positioning/status/{resolver_id}`; its payload
-contains only `resolver_id`, `status`, and `timestamp`. Device-offline state is reported
-by the Resolver after its per-camera sample timeout, not encoded as a fabricated raw
-sample. The configuration-invalidation and status topics are registered in
-`scene_common.mqtt.PubSub` as well.
+`invalid_reason` uses the canonical positioning vocabulary already present in
+`controller/src/controller/external_source.py`: `no_pose_available`, `pose_expired`, or
+`invalid_pose`. PTZ-specific causes are carried in bounded `reason_detail` values:
+`no_sample` maps to `no_pose_available`; `sample_stale` maps to `pose_expired`; and
+`moving`, `settling`, `calibration_missing`, `calibration_changed`, `invalid_sample`, and
+`backlash_unknown` map to `invalid_pose`. The PTZ details remain available for metrics
+without creating a competing consumer-facing reason vocabulary. Invalid states use
+`valid: false`, timestamp, `valid_until`, sequence, and calibration version; `pose` is
+omitted. Consumers enforce both `valid_until` and their local maximum-age bound, so a
+crashed Resolver or missed invalid message cannot make a retained pose usable
+indefinitely.
+
+Pose messages use MQTT QoS 0 and retain the latest state per source. Resolver service
+liveness has a separate retained status/LWT topic
+`scenescape/positioning/status/{resolver_id}`; its payload contains only `resolver_id`,
+`status`, and `timestamp`. Consumers can distinguish a live Resolver reporting an
+invalid pose from an unavailable Resolver, while still enforcing pose freshness
+independently. Device-offline state is reported by the Resolver after its per-camera
+sample timeout, not encoded as a fabricated raw sample. Pose, status, and
+configuration-invalidation topics are registered in `scene_common.mqtt.PubSub`.
+
+#### Pose selection for an observation
+
+The shared selector receives the observation acquisition timestamp and a bounded
+PoseContext history for its `source_id`. It selects the newest valid stationary pose at
+or before the observation timestamp only when a valid stationary context also brackets
+the timestamp from after it. Both contexts must have the same source, frame, and
+`calibration_version`, and must satisfy `valid_until`, uncertainty, and consumer-local
+age limits. The selected transform is the preceding context; v1 does not interpolate or
+extrapolate. If either side is missing, stale, invalid, or non-stationary, or the interval
+crosses a motion/settling boundary, the observation has no usable pose and fails closed.
+The shared library implements this rule once and exposes it to Python and C++ consumers.
 
 ### 5.3 Adapter (ONVIF polling)
 
@@ -338,10 +388,14 @@ or age above the configured maximum are also fail-closed. v1 does not project wi
 nearest moving sample or silently extrapolate.
 
 The Resolver publishes one PoseContext contract to MQTT. The Controller and Tracker
-subscribe independently and maintain bounded per-camera pose state. `sample_age_s` is
-age at Resolver publication; each consumer additionally computes age from the source
-timestamp against its synchronized clock. The Resolver marks samples invalid when input
-uncertainty or age exceeds configured bounds.
+subscribe independently and maintain bounded per-source pose state. Both also subscribe
+to Resolver status/LWT for availability diagnostics; status does not override pose
+timestamp, `valid_until`, or age gates. The timestamp selection/bracketing rule is
+implemented once in the shared selector library; Controller uses its Python binding and
+Tracker its C++ API. `sample_age_s` is age at Resolver publication; each consumer also
+validates `valid_until` and computes effective age from the source timestamp against its
+synchronized clock. The Resolver marks samples invalid when input uncertainty or age
+exceeds configured bounds.
 
 Quality is diagnostic and does not replace validity gates or detector confidence. At
 publication, define
@@ -367,15 +421,19 @@ tests only, not as production service configuration.
 
 ### 5.6 What changes for projection
 
-Both existing MOT paths consume PoseContext; neither hosts the Resolver:
+v1 deliberately uses a side-channel: detections continue through the existing paths and
+each ingress joins them to a timestamp-selected PoseContext. This differs from ADR 13's
+inline Positioning output of pose-enriched observations. Neither MOT consumer hosts the
+Resolver:
 
 | Profile               | Projection point                                       | v1 integration                                                                                                                                                                                                             |
 | --------------------- | ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Legacy Controller MOT | `Scene.processCameraData()` before in-process tracking | Subscribe to resolved pose topic, maintain a bounded per-camera pose buffer, and build a short-lived projection pose from PoseContext plus static home intrinsics/distortion. Do not mutate stored `camera.pose`.          |
-| Tracker MOT           | `CoordinateTransformer` before C++ MOT                 | Subscribe to the same resolved pose topic and apply the resolved transform to the per-camera transformer/input batch before association. Preserve the same timestamp, validity, age, and motion-state gates as Controller. |
+| Legacy Controller MOT | `Scene.processCameraData()` before in-process tracking | Subscribe to resolved pose topic, maintain bounded per-source pose state, and use the shared selector's Python binding to build a short-lived projection context plus static home intrinsics/distortion. Do not mutate stored `camera.pose`. |
+| Tracker MOT           | `CoordinateTransformer` before C++ MOT                 | Subscribe to the same resolved pose topic and pass the selected transform into each batch using the shared selector's C++ API. Preserve timestamp, validity, age, and motion-state gates. |
 
-The topic payload is the shared contract; each consumer may have a language-specific
-value type. Both paths have independent feature flags and first run in shadow mode. Shadow
+The topic payload and selection algorithm are shared contracts; the shared library
+provides Python and C++ bindings so selection is not implemented twice. Both paths have
+independent feature flags and first run in shadow mode. Shadow
 mode logs candidate projections and quality without feeding them to MOT. Standard
 deployment profiles are validated separately; do not run two active MOT publishers for
 the same scene/lease merely to compare results.
@@ -383,9 +441,9 @@ the same scene/lease merely to compare results.
 In both paths `CameraPose`/`CoordinateTransformer` remain projection implementation
 details. The static home transform and intrinsics are immutable configuration snapshots;
 the per-frame transform comes from the time-appropriate PoseContext. `rewrite_all_time`
-is forbidden for any scene with a PTZ camera because replacing acquisition timestamps
-with receive time invalidates pose matching. Startup/config validation must fail visibly
-if this invariant is violated.
+and `rewrite_bad_time` are forbidden for any scene with a PTZ camera because replacing
+acquisition timestamps with receive time invalidates pose matching. Startup/config
+validation must fail visibly if this invariant is violated.
 
 ### 5.7 Configuration invalidation and runtime ownership
 
@@ -412,8 +470,8 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   to allowed camera IDs. Validate all device-derived numbers, time ranges, sequence,
   camera ID, and position-space metadata as untrusted input.
 - **MQTT**: Resolver may publish only
-  `data/camera/pose/{assigned_camera_id}` and
-  `sys/positioning/status/{resolver_id}`. Manager may publish camera-configuration
+  `positioning/pose/{assigned_source_id}` and
+  `positioning/status/{resolver_id}`. Manager may publish camera-configuration
   invalidations only for cameras it owns. Controller/Tracker may subscribe only to
   cameras in their scene assignment. Retained pose does not bypass timestamp/age
   validation.
@@ -457,7 +515,8 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 | Clock/timestamp drift between Adapter and consumers                   | Shared NTP synchronization; midpoint timestamp plus measured half-round-trip uncertainty; all consumers check pose age; `rewrite_all_time` is prohibited for PTZ scenes.                             |
 | Out-of-order, repeated, malformed, or unauthorized gRPC samples       | mTLS camera authorization, per-adapter sequence validation, timestamp/range checks, finite-number validation, explicit acknowledgements, and rejection metrics.                                      |
 | Stale retained pose after Adapter, Resolver, or camera outage         | Resolver publishes invalid state on sample timeout; consumers independently enforce max pose age; Resolver has separate MQTT status/LWT. No consumer treats retained delivery as proof of freshness. |
-| Controller and Tracker apply different pose semantics                 | Shared resolved schema and conformance fixtures; identical validity/motion/age gates; profile-specific shadow and release gates.                                                                     |
+| Controller and Tracker apply different pose semantics                 | One shared timestamp selector with Python and C++ bindings; both bindings run the same conformance vectors; profile-specific shadow and release gates.                                               |
+| v1 side-channel differs from ADR 13 inline Positioning topology        | Document the consumer-side join as an interim topology; preserve the source-keyed PoseContext contract and shared selector, and plan an explicit integration migration when Positioning is extracted. |
 | Manager calibration changes while Resolver holds cached configuration | Camera-scoped invalidation notification followed by read-only reload; failed reload invalidates pose; periodic refresh is recovery only.                                                             |
 | Translation changes due to real PTZ mechanism                         | v1 explicitly holds translation fixed (rotation about optical center); this assumption is documented and validated per supported hardware.                                                           |
 | Zoom later changes intrinsics or distortion                           | Zoom remains a non-goal; protobuf optional field and `schema_version` allow evolution, but consumers ignore zoom until a separate calibration design exists.                                         |
@@ -465,11 +524,13 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 ## 8. Rollout / Migration Plan
 
 1. **Contracts and math** — add the versioned `.proto` to a shared API package (for
-   example `scene_common/proto/` or top-level `api/`), generate the Python Adapter and
-   Resolver bindings from it, and publish the `.proto` plus v1 compatibility policy for
-   Sensor Manager consumers. Define the resolved MQTT JSON schema/topic, `PoseContext`
-   value type, and matrix-composition math. Add API/schema compatibility tests and port
-   the validated PoC math as library-level tests.
+  example top-level `api/ptz/v1/`), generate bindings for Adapter and Resolver, and
+  publish the `.proto` plus v1 compatibility policy for Sensor Manager consumers.
+  Define the source-keyed `positioning/pose/{source_id}` contract, status/LWT topic,
+  `valid_until`, canonical positioning failure reasons with PTZ `reason_detail`, and
+  provisional `frame_id` compatibility with the ADR 13 Shared Scene Graph. Implement
+  timestamp selection/bracketing once in a shared library with Python and C++ bindings.
+  Add shared contract vectors and port the validated PoC math as library-level tests.
 2. **Adapter** — implement ONVIF polling → raw gRPC `SubmitPTZSample` only. Verify
    timestamp uncertainty, units/position-space metadata, sequence/restart behavior,
    mTLS identity, bounded retry, and secret handling.
@@ -490,15 +551,19 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
    jitter, stale pose, and adapter/resolver restart. Enable by deployment only after the
    spatial-error budget and latency gates below are met.
 8. **Future evolution** — a Sensor Manager may replace the ONVIF Adapter by implementing
-   the same gRPC input API. Later, the Resolver may be absorbed into the full ADR 13
-   Positioning Service; projection-facing MQTT contract remains stable. gRPC
-   `getPose(id, when)` is a separate future interface, not part of v1.
+  the same gRPC input API. The source-keyed PoseContext contract can remain stable, but
+  moving the observation/pose join from each consumer into ADR 13 Positioning requires
+  changing consumer integration or adding compatibility adapters; this is not a
+  move-only extraction. The shared selector avoids reimplementing the v1 join. gRPC
+  `getPose(id, when)` is a separate future interface, not part of v1.
 
 ## 9. Testing & Monitoring
 
 - **Unit tests**: port the PoC's `pose_math.py` test coverage (axis composition,
   backlash deadband, scale-from-FOV derivation, non-commutativity of pan/tilt) as the
   resolver's core math tests; include unchanged translation and row-major matrix fixtures.
+  Run the same timestamp-selection vectors against the shared selector's Python and C++
+  bindings; verify `valid_until` and canonical failure-reason mappings.
 - **gRPC contract tests**: valid sample, unknown camera, unauthorized certificate,
   duplicate/out-of-order sequence, restart with new adapter instance ID, invalid ranges,
   NaN/Inf, timestamp bounds, and retry/ack behavior.
@@ -517,7 +582,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 ### Shadow-mode exit criteria
 
 - Every replayed sample has deterministic acceptance/rejection and the same validity
-  decision in Controller and Tracker conformance tests.
+  decision in Controller and Tracker conformance tests using the same shared selector.
 - For each supported camera, reprojection RMS and the 95th-percentile ground-plane
   position error meet the configured deployment spatial-error budget in stationary
   scenarios and in both directions of approach. A deployment must configure this budget;
@@ -550,6 +615,15 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 - **Future protocols and zoom.** Non-ONVIF adapters and zoom-dependent intrinsics require
   new calibration profiles but must preserve the gRPC raw-ingest and resolved-pose
   boundaries unless a versioned successor is approved.
+- **Controller consumer scope versus ADR 13.** PTZ v1 includes a full, independently
+  feature-flagged Controller consumer, as well as the Tracker consumer. This deliberately
+  invests in the legacy projection path even though ADR 13 schedules it for controlled
+  retirement. The v1 consumer-side join must be migrated or adapted when inline
+  Positioning → Spatial Transform integration is introduced; that future migration is
+  not transparent and must be planned rather than treated as a move-only extraction.
+- **Shared Scene Graph frame naming.** `frame_id` is provisional until ADR 13 phase 2
+  defines canonical node/frame names. Resolve the adapter mapping and child-scene transform
+  composition before enabling PTZ for cameras whose scene frame is nested.
 
 ## 11. References
 
@@ -559,5 +633,6 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 - [`scene_common/src/scene_common/transform.py`](../../scene_common/src/scene_common/transform.py) (`CameraPose`, reused as-is)
 - [`scene_common/src/scene_common/mqtt.py`](../../scene_common/src/scene_common/mqtt.py) (topic template conventions)
 - [`controller/src/controller/scene.py`](../../controller/src/controller/scene.py) (legacy Controller projection path)
+- [`controller/src/controller/external_source.py`](../../controller/src/controller/external_source.py) (external-source pose cache and canonical failure reasons)
 - [`tracker/src/coordinate_transformer.cpp`](../../tracker/src/coordinate_transformer.cpp) (Tracker projection implementation)
 - [`tracker/src/message_handler.cpp`](../../tracker/src/message_handler.cpp) (Tracker camera MQTT subscription)
