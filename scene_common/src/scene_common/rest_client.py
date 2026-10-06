@@ -229,7 +229,7 @@ class RESTClient:
                              verify=self.verify_ssl)
     response = self.decodeReply(reply, HTTPStatus.OK)
     next_url = response.get('next')
-    
+
     while next_url:
       reply = self.session.get(next_url, headers=headers, verify=self.verify_ssl)
       current_response = self.decodeReply(reply, HTTPStatus.OK)
@@ -238,7 +238,7 @@ class RESTClient:
       next_url = current_response.get('next')
       if response.get('results'):
         response.get('results').extend(current_response.get('results', []))
-      
+
     return response
 
   def _update(self, endpoint, data, files=None):
