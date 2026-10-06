@@ -14,6 +14,9 @@ Pipeline
   4. Confidence gate: if the top two distinct yaw modes are ~90° apart and
      close in NCC score → needs_click (prompt for human heading/click).
 
+Fold/flip asymmetry was probed offline and dropped from this workflow;
+richer yaw cues are in p2_rich_yaw.py.
+
 Example:
   python3 p2_yaw_prior.py \\
     --fixture-dir /tmp/smart-intersection-v0 --frames-dir fixtures/videos \\
