@@ -45,6 +45,7 @@ def test_scenescape_installation(_k8s_manager, result_recorder):
 
 
 @pytest.mark.kubernetes_only
+@pytest.mark.test_name("NEX-T29366")
 def test_kubeclient_spawns_dlstreamer_pipelines(_k8s_manager, result_recorder):
   """Verify kubeclient creates available DL Streamer deployments for demo cameras."""
   result = subprocess.run(
