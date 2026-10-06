@@ -337,9 +337,11 @@ Resolver and both consumers. A pose may be matched only to observations whose ac
 timestamp is earlier than `valid_until`; consumers additionally enforce freshness against
 their synchronized local clock. Startup validation requires
 `max_pose_age_s >= poll_interval_s + max_bracket_wait_s + max_timestamp_uncertainty_s`;
-`max_bracket_wait_s` already includes the configured transport-jitter allowance. The
-example assumes a 5 Hz poll interval, 20 ms maximum transport jitter, 12 ms timestamp
-uncertainty, and `max_pose_age_s = 0.5 s`.
+`max_bracket_wait_s` already includes the configured transport-jitter allowance. For the
+Controller PTZ path, startup validation also requires `max_lag > max_bracket_wait_s`, so
+the accepted event-time lag exceeds the maximum pose wait. The example assumes a 5 Hz
+poll interval, 20 ms maximum transport jitter, 12 ms timestamp uncertainty,
+`max_bracket_wait_s = 0.22 s`, and `max_pose_age_s = 0.5 s`.
 
 The shared selector receives the observation acquisition timestamp and a bounded
 PoseContext history for its `source_id`. v1 uses bounded hold (policy A): if the later
@@ -356,8 +358,12 @@ meet `valid_until`, uncertainty, and consumer-local freshness gates, and the sam
 interval must contain no motion/settling boundary. Use the preceding transform; do not
 interpolate or extrapolate. If the later sample is invalid/non-stationary or a motion
 boundary is observed, drop the observation immediately rather than waiting for a later
-stationary sample. Queue overflow also fails closed and is counted. The shared library
-implements selection and deadline decisions once and exposes them to Python and C++.
+stationary sample. Each consumer configures a finite
+`max_pending_detections_per_source`. Before admitting a new detection, it removes expired
+entries; if the queue remains full, it drops the new detection and increments
+`pose_pending_queue_overflow`, preserving FIFO order for already accepted observations.
+Queue overflow fails closed. The shared library implements selection and deadline
+decisions once and exposes them to Python and C++.
 
 ### 5.3 Adapter (ONVIF polling)
 
@@ -459,6 +465,17 @@ independent feature flags and first run in shadow mode. Shadow
 mode logs candidate projections and quality without feeding them to MOT. Standard
 deployment profiles are validated separately; do not run two active MOT publishers for
 the same scene/lease merely to compare results.
+
+Each consumer maintains a bounded, acquisition-time-ordered pending detection queue per
+source. Enqueueing must not block MQTT callbacks; release detections in order after a
+valid bracket arrives, and drop/count them on deadline, observed motion boundary, or queue
+overflow. The added wait is bounded by `max_bracket_wait_s` and counts toward the
+camera-to-tracker latency budget. Controller startup rejects
+`max_lag <= max_bracket_wait_s`; tests verify held detections are not rewritten or dropped
+by the existing lag policy. Tracker must preserve all accepted PTZ batches through
+time-chunk dispatch: the current one-batch-per-camera overwrite behavior must not discard
+a held batch when multiple detections are released together. Static-camera time-chunk
+behavior remains unchanged.
 
 Each consumer maintains a bounded, acquisition-time-ordered pending detection queue per
 source. Enqueueing must not block MQTT callbacks; release detections in order after a
@@ -585,6 +602,27 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
    move-only extraction. The shared selector avoids reimplementing the v1 join. gRPC
    `getPose(id, when)` is a separate future interface, not part of v1.
 
+### Bounded-hold implementation phase gates
+
+- **Phase 1, contracts and math:** the shared selector owns `WAIT`, `SELECTED`, and
+  fail-closed `DROP` decisions and their deadlines. Shared vectors cover a later sample
+  arriving in time, arriving late, an invalid later sample, a motion boundary, and a full
+  pending queue. Test startup constraints `max_pose_age_s >= poll_interval_s +
+  max_bracket_wait_s + max_timestamp_uncertainty_s` and, for Controller,
+  `max_lag > max_bracket_wait_s`.
+- **Phase 3, walking skeleton:** expose/configure bounded queue capacity and register
+  `pose_bracket_timeout` and `pose_pending_queue_overflow` counters plus wait-duration and
+  queue-depth metrics.
+- **Phase 7, Controller:** implement a non-blocking FIFO pending queue per source, expire
+  on deadline, drop new arrivals on full queues after removing expired entries, and test
+  interaction with `max_lag` and `rewrite_bad_time`.
+- **Phase 8, Tracker:** implement the same bounded FIFO policy and preserve multiple held
+  batches for one camera across time-chunk dispatch; test no PTZ batch is silently
+  overwritten by the current per-camera buffer behavior.
+- **Phase 9, acceptance:** replay 15–30 Hz detections against 5 Hz pose samples with
+  configured transport jitter. Verify in-time selection, timeout, motion-boundary drop,
+  overflow, FIFO order, config inequalities, and end-to-end latency including wait.
+
 ## 9. Testing & Monitoring
 
 - **Unit tests**: port the PoC's `pose_math.py` test coverage (axis composition,
@@ -602,10 +640,10 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   and gap scenarios) replayed through gRPC and Resolver; verify state transitions,
   retained valid/invalid output, stale behavior, configuration invalidation, and both
   consumer implementations deterministically. Exercise pending-to-selected, deadline
-  timeout, immediate drop on a motion boundary, queue overflow, and in-order release in
-  both consumers.
+  timeout, immediate drop on a motion boundary, queue overflow, in-order release, and
+  Tracker time-chunk dispatch with multiple held batches for one camera.
 - **Metrics**: `pose_age` distribution, bracket wait duration, pending queue depth,
-  bracket timeout and overflow counts, `motion_state` time-in-state histogram per
+  `pose_bracket_timeout` and `pose_pending_queue_overflow` counts, `motion_state` time-in-state histogram per
   camera, gRPC acceptance/rejection counts and latency, timestamp uncertainty, calibration
   version, rejected-pose counts by reason, and resolved-vs-expected drift using the
   linear-regression residual-offset method from the PoC validation.
@@ -624,7 +662,9 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   on stale/offline/invalid pose, both fail closed within the configured max-pose-age.
 - Under the target polling rate and configured network impairment, p95 processing latency
   including bracket wait stays within the deployment's camera-to-tracker latency budget;
-  no unbounded retry, sample queue, or pending-detection queue forms.
+  no unbounded retry, sample queue, or pending-detection queue forms. Startup rejects
+  `max_pose_age_s < poll_interval_s + max_bracket_wait_s + max_timestamp_uncertainty_s`
+  and, for Controller PTZ scenes, `max_lag <= max_bracket_wait_s`.
 - No increase in false track initiation or duplicate tracks versus the static baseline in
   the agreed replay/field dataset. Each MOT profile passes independently before its flag
   can default on.
