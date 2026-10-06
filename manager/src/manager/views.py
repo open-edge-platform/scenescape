@@ -148,7 +148,9 @@ def saveROI(request, scene_id):
   if request.method == 'POST':
     form = ROIForm(request.POST)
     if form.is_valid():
-      saveRegionData(scene, form)
+      # Import sendUpdateCommand for potential batch notifications
+      from .models import sendUpdateCommand
+      saveRegionData(scene, form, sendUpdateCommand=sendUpdateCommand)
       saveTripwireData(scene, form)
       return redirect('/' + str(scene.id))
     else:
@@ -199,11 +201,14 @@ def saveTripwireData(scene, form):
 
   return
 
-def saveRegionData(scene, form):
+def saveRegionData(scene, form, sendUpdateCommand=None):
   jdata = json.loads(form.cleaned_data['rois'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
 
   current_region_ids = set()
+
+  # Detect if this is an OSM ROI batch (all regions are osm_derived) for optimized notification
+  is_osm_batch = all(getattr(roi, 'osm_derived', False) for roi in jdata) and len(jdata) > 0
 
   for roi in jdata:
     query_uuid = roi.uuid
@@ -243,9 +248,10 @@ def saveRegionData(scene, form):
         'sectors': sectors, 'range_max': roi.range_max
       })
 
-    # notify on mqtt for every region saved in db
-    # ideally one notification after all regions are saved in db
-    region.notifydbupdate()
+    # For OSM ROI batches, delay notification until all regions are saved.
+    # For manual ROIs, notify immediately to allow real-time system updates.
+    if not is_osm_batch:
+      region.notifydbupdate()
 
   # delete older rois
   regions_to_delete = Region.objects.filter(scene=scene).exclude(uuid__in=current_region_ids)
@@ -255,6 +261,11 @@ def saveRegionData(scene, form):
   # delete regions individually to trigger notifydbupdate
   for region in regions_to_delete:
     region.delete()
+
+  # For OSM ROI batches, send a single batched notification after all saves are complete.
+  # This dramatically reduces network overhead (e.g., 50 saves → 1 notification).
+  if is_osm_batch and current_region_ids and sendUpdateCommand:
+    sendUpdateCommand(scene_id=scene.id)
 
   return
 

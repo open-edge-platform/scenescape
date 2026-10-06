@@ -1640,24 +1640,6 @@ function getRoiValues(id, roi) {
   return cur_rois;
 }
 
-function find_duplicates(curr_roi) {
-  const nameCounts = new Map();
-  const duplicates = new Set();
-
-  for (const name of curr_roi) {
-    const trimmedName = name.trim();
-    if (trimmedName) {
-      if (nameCounts.has(trimmedName)) {
-        duplicates.add(trimmedName);
-      } else {
-        nameCounts.set(trimmedName, 1);
-      }
-    }
-  }
-
-  return Array.from(duplicates);
-}
-
 function updateArrow(group) {
   var arrow = group.select(".arrow");
   var label = group.select(".label");
@@ -1792,12 +1774,7 @@ function setupCalibrationType() {
 
 // Function to save roi and tripwires
 function saveRois(roi_values) {
-  var duplicates = find_duplicates(roi_values);
-  if (duplicates.length > 0) {
-    alert(duplicates.toString() + " already exists. Try a different name");
-  } else {
-    $("#roi-form").submit();
-  }
+  $("#roi-form").submit();
 }
 
 if (svgCanvas) {
