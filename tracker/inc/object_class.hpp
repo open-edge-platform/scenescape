@@ -23,7 +23,7 @@ struct ObjectClassConfig {
     int shift_type = kShiftType1;
     /// Camloc bearing offset half-size in metres (Controller mean([x,y])/2).
     /// Empty (category has no asset) → fall back to half the projected bbox width.
-    std::optional<double> footprint_half_m;
+    std::optional<double> footprint_half;
 };
 
 /// Asset name → projection config.

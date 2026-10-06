@@ -108,13 +108,13 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
     for (const auto& [camera_id, camera] : cameras) {
         transformers_.emplace(camera_id, CoordinateTransformer(camera.intrinsics, camera.extrinsics,
                                                                object_class.shift_type,
-                                                               object_class.footprint_half_m));
+                                                               object_class.footprint_half));
     }
 
     LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{} (shift_type={}, "
-             "footprint_half_m={})",
+             "footprint_half={})",
              cameras.size(), scope_.scene_id, scope_.category, object_class.shift_type,
-             object_class.footprint_half_m.value_or(-1.0));
+             object_class.footprint_half.value_or(-1.0));
 
     worker_thread_ = std::thread(&TrackingWorker::run, this);
 }

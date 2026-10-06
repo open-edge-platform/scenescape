@@ -154,7 +154,7 @@ const std::vector<YawToQuaternionTestCase> kYawToQuaternionTests = {
 // Helper to create CoordinateTransformer from test config
 CoordinateTransformer make_transformer(const CameraTestConfig& cfg,
                                        int shift_type = ObjectClassConfig::kShiftType1,
-                                       std::optional<double> footprint_half_m = std::nullopt) {
+                                       std::optional<double> footprint_half = std::nullopt) {
     CameraIntrinsics intrinsics;
     intrinsics.fx = cfg.fx;
     intrinsics.fy = cfg.fy;
@@ -170,7 +170,7 @@ CoordinateTransformer make_transformer(const CameraTestConfig& cfg,
     extrinsics.rotation = cfg.rotation;
     extrinsics.scale = cfg.scale;
 
-    return CoordinateTransformer(intrinsics, extrinsics, shift_type, footprint_half_m);
+    return CoordinateTransformer(intrinsics, extrinsics, shift_type, footprint_half);
 }
 
 // Helper: create Detection from bbox params

@@ -58,13 +58,13 @@ public:
      * @param extrinsics Camera extrinsic parameters (translation, rotation, scale)
      * @param shift_type Projection mode: ObjectClassConfig::kShiftType1 (default) or
      *        ObjectClassConfig::kShiftType2
-     * @param footprint_half_m Optional camloc size offset (metres). When set,
+     * @param footprint_half Optional camloc size offset in metres. When set,
      *        uses this instead of half the projected bbox width — matching
      *        Controller MovingObject.mapObjectDetectionToWorld asset sizes.
      */
     CoordinateTransformer(const CameraIntrinsics& intrinsics, const CameraExtrinsics& extrinsics,
                           int shift_type = ObjectClassConfig::kShiftType1,
-                          std::optional<double> footprint_half_m = std::nullopt);
+                          std::optional<double> footprint_half = std::nullopt);
 
     /**
      * @brief Projection mode used for the detection foot point.
@@ -72,9 +72,9 @@ public:
     [[nodiscard]] int shiftType() const { return shift_type_; }
 
     /**
-     * @brief Optional fixed half-footprint used for the camloc bearing offset.
+     * @brief Optional fixed half-footprint (metres) used for the camloc bearing offset.
      */
-    [[nodiscard]] const std::optional<double>& footprintHalfM() const { return footprint_half_m_; }
+    [[nodiscard]] const std::optional<double>& footprintHalf() const { return footprint_half_; }
 
     /**
      * @brief Batch-transform detections from pixel space to world-space TrackedObjects.
@@ -159,7 +159,7 @@ private:
     cv::Matx44d pose_matrix_;
     cv::Point3d camera_origin_;
     int shift_type_;
-    std::optional<double> footprint_half_m_;
+    std::optional<double> footprint_half_; // metres
 
     static constexpr double kFallbackHorizonDistance = 100.0;
     static constexpr double kEarthRadius = 6371000.0;

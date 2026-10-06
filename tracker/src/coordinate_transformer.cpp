@@ -57,8 +57,8 @@ void addMetadataAttributes(std::string_view metadataJson,
 
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
                                              const CameraExtrinsics& extrinsics, int shift_type,
-                                             std::optional<double> footprint_half_m)
-    : shift_type_(shift_type), footprint_half_m_(std::move(footprint_half_m)) {
+                                             std::optional<double> footprint_half)
+    : shift_type_(shift_type), footprint_half_(std::move(footprint_half)) {
     // Build intrinsics matrix K = [fx 0 cx; 0 fy cy; 0 0 1]
     intrinsics_matrix_ = cv::Matx33d(intrinsics.fx, 0.0, intrinsics.cx, 0.0, intrinsics.fy,
                                      intrinsics.cy, 0.0, 0.0, 1.0);
@@ -275,7 +275,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         double offset_x = foot.x;
         double offset_y = foot.y;
         if (bearing_len > 1e-9) {
-            const double half_size = footprint_half_m_.value_or(width_m / 2.0);
+            const double half_size = footprint_half_.value_or(width_m / 2.0); // metres
             offset_x += (foot_dx / bearing_len) * half_size;
             offset_y += (foot_dy / bearing_len) * half_size;
         }
