@@ -170,8 +170,7 @@ initial 5 Hz-per-camera load, keeps each sample independently acknowledged, and 
 an unbounded stream backlog. A persistent gRPC channel is reused; retry behavior must
 not replay samples as new data.
 
-The `.proto` is a shared, published contract, stored in a shared API location (for
-example `scene_common/proto/` or a small top-level `api/` package), not privately in
+The `.proto` is a shared, published contract stored at `api/ptz/v1/`, not privately in
 either service. Generate and version the Python Adapter and Resolver bindings from this
 single source. Publish the versioned `.proto` for Sensor Manager integrations. The
 protobuf package namespace (`scenescape.ptz.v1`) is the compatibility boundary: additive
@@ -405,6 +404,17 @@ maintains one state machine per configured PTZ camera, holding:
   - publish a valid PoseContext after accepted samples, and an invalid status when pose
     validity is lost.
 
+Backlash state is volatile and must be treated as unknown after a Resolver restart, an
+Adapter restart (a new `adapter_instance_id`), or a `calibration_version` change. For
+each axis, the Resolver may initialize the known home backlash band only when the
+reported position is within the configured tolerance of the stored `home_pan` or
+`home_tilt` and calibration records that axis's home approach direction. This initializes
+the same backlash band implied by the calibrated home approach; it does not bypass the
+motion/settle or freshness gates. Otherwise, the affected axis remains invalid with
+`reason_detail: backlash_unknown` until observed movement establishes the deadband state.
+The Resolver must not publish a valid pose while any contributing axis has unknown
+backlash state.
+
 All observations, including those received while the camera is stationary, use the shared
 timestamp selector and bounded bracket wait defined in
 [Pose selection for an observation](#pose-selection-for-an-observation); consumers do
@@ -437,15 +447,14 @@ configuration and must be fixed before a profile is enabled.
 
 ### 5.5 Calibration data and tooling
 
-The PoC's measurement tools (`measure_ptz_backlash.py`, `fit_ptz_curves.py`,
-`measure_ptz_scale.py`, `measure_reprojection_accuracy.py`,
-`tune_ptz_camera.sh`) remain valuable as **offline calibration tooling**: they produce
-the scale/curve/backlash/pan-axis values the Resolver needs per camera. Manager is the
-source of truth. Add a `ptz_calibration` block to the Manager camera schema containing
-the measured parameters, home raw pan/tilt, approach directions, and
-`calibration_version`; do not store credentials there. The tools write this block via
-the authenticated Manager REST API. Local config files may be used by offline tools and
-tests only, not as production service configuration.
+The PoC measurement tools and service remain an **isolated lab deployment** used to
+produce the scale/curve/backlash/pan-axis values the Resolver needs per camera. Export
+the measured results from the lab and submit them through the product's validated import
+path to Manager; no lab instrument writes production calibration directly. Manager is
+the source of truth. Its `ptz_calibration` block contains the measured parameters, home
+raw pan/tilt, approach directions, and `calibration_version`; it never contains device
+credentials. Local config files are limited to the isolated lab, offline tools, and tests,
+not production service configuration.
 
 ### 5.6 What changes for projection
 
@@ -476,12 +485,6 @@ by the existing lag policy. Tracker must preserve all accepted PTZ batches throu
 time-chunk dispatch: the current one-batch-per-camera overwrite behavior must not discard
 a held batch when multiple detections are released together. Static-camera time-chunk
 behavior remains unchanged.
-
-Each consumer maintains a bounded, acquisition-time-ordered pending detection queue per
-source. Enqueueing must not block MQTT callbacks; release detections in order after a
-valid bracket arrives, and drop/count them on deadline, observed motion boundary, or queue
-overflow. The added wait is bounded by `max_bracket_wait_s` and counts toward the
-camera-to-tracker latency budget.
 
 In both paths `CameraPose`/`CoordinateTransformer` remain projection implementation
 details. The static home transform and intrinsics are immutable configuration snapshots;
@@ -553,18 +556,19 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 7. Risks and Mitigations
 
-| Risk                                                                  | Mitigation                                                                                                                                                                                            |
-| --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ONVIF position space misidentified as degrees (wrong vendor/firmware) | Resolver validates the reported position-space URI/ranges and calibration version; do not infer degrees from a generic or narrow normalized range. Missing measured calibration fails closed.         |
-| Backlash/curve/pan-axis miscalibrated for a physical camera           | Require the PoC measurement procedure for each supported camera; record reprojection residual and calibration version; reject uncalibrated settings rather than silently use scale defaults.          |
-| Clock/timestamp drift between Adapter and consumers                   | Shared NTP synchronization; midpoint timestamp plus measured half-round-trip uncertainty; all consumers check pose age; `rewrite_all_time` is prohibited for PTZ scenes.                              |
-| Out-of-order, repeated, malformed, or unauthorized gRPC samples       | mTLS camera authorization, per-adapter sequence validation, timestamp/range checks, finite-number validation, explicit acknowledgements, and rejection metrics.                                       |
-| Stale retained pose after Adapter, Resolver, or camera outage         | Resolver publishes invalid state on sample timeout; consumers independently enforce max pose age; Resolver has separate MQTT status/LWT. No consumer treats retained delivery as proof of freshness.  |
-| Controller and Tracker apply different pose semantics                 | One shared timestamp selector with Python and C++ bindings; both bindings run the same conformance vectors; profile-specific shadow and release gates.                                                |
-| v1 side-channel differs from ADR 13 inline Positioning topology       | Document the consumer-side join as an interim topology; preserve the source-keyed PoseContext contract and shared selector, and plan an explicit integration migration when Positioning is extracted. |
-| Manager calibration changes while Resolver holds cached configuration | Camera-scoped invalidation notification followed by read-only reload; failed reload invalidates pose; periodic refresh is recovery only.                                                              |
-| Translation changes due to real PTZ mechanism                         | v1 explicitly holds translation fixed (rotation about optical center); this assumption is documented and validated per supported hardware.                                                            |
-| Zoom later changes intrinsics or distortion                           | Zoom remains a non-goal; protobuf optional field and `schema_version` allow evolution, but consumers ignore zoom until a separate calibration design exists.                                          |
+| Risk                                                                  | Mitigation                                                                                                                                                                                                             |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ONVIF position space misidentified as degrees (wrong vendor/firmware) | Resolver validates the reported position-space URI/ranges and calibration version; do not infer degrees from a generic or narrow normalized range. Missing measured calibration fails closed.                          |
+| Backlash/curve/pan-axis miscalibrated for a physical camera           | Require the PoC measurement procedure for each supported camera; record reprojection residual and calibration version; reject uncalibrated settings rather than silently use scale defaults.                           |
+| Clock/timestamp drift between Adapter and consumers                   | Shared NTP synchronization; midpoint timestamp plus measured half-round-trip uncertainty; all consumers check pose age; `rewrite_all_time` and `rewrite_bad_time` are prohibited for PTZ scenes.                       |
+| Backlash history is lost on restart or calibration change             | Reset backlash state to unknown; initialize from calibrated home position and approach direction only within configured home tolerance; otherwise fail closed per axis until observed motion establishes the deadband. |
+| Out-of-order, repeated, malformed, or unauthorized gRPC samples       | mTLS camera authorization, per-adapter sequence validation, timestamp/range checks, finite-number validation, explicit acknowledgements, and rejection metrics.                                                        |
+| Stale retained pose after Adapter, Resolver, or camera outage         | Resolver publishes invalid state on sample timeout; consumers independently enforce max pose age; Resolver has separate MQTT status/LWT. No consumer treats retained delivery as proof of freshness.                   |
+| Controller and Tracker apply different pose semantics                 | One shared timestamp selector with Python and C++ bindings; both bindings run the same conformance vectors; profile-specific shadow and release gates.                                                                 |
+| v1 side-channel differs from ADR 13 inline Positioning topology       | Document the consumer-side join as an interim topology; preserve the source-keyed PoseContext contract and shared selector, and plan an explicit integration migration when Positioning is extracted.                  |
+| Manager calibration changes while Resolver holds cached configuration | Camera-scoped invalidation notification followed by read-only reload; failed reload invalidates pose; periodic refresh is recovery only.                                                                               |
+| Translation changes due to real PTZ mechanism                         | v1 explicitly holds translation fixed (rotation about optical center); this assumption is documented and validated per supported hardware.                                                                             |
+| Zoom later changes intrinsics or distortion                           | Zoom remains a non-goal; protobuf optional field and `schema_version` allow evolution, but consumers ignore zoom until a separate calibration design exists.                                                           |
 
 ## 8. Rollout / Migration Plan
 
@@ -602,34 +606,14 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
    move-only extraction. The shared selector avoids reimplementing the v1 join. gRPC
    `getPose(id, when)` is a separate future interface, not part of v1.
 
-### Bounded-hold implementation phase gates
-
-- **Phase 1, contracts and math:** the shared selector owns `WAIT`, `SELECTED`, and
-  fail-closed `DROP` decisions and their deadlines. Shared vectors cover a later sample
-  arriving in time, arriving late, an invalid later sample, a motion boundary, and a full
-  pending queue. Test startup constraints `max_pose_age_s >= poll_interval_s +
-  max_bracket_wait_s + max_timestamp_uncertainty_s` and, for Controller,
-  `max_lag > max_bracket_wait_s`.
-- **Phase 3, walking skeleton:** expose/configure bounded queue capacity and register
-  `pose_bracket_timeout` and `pose_pending_queue_overflow` counters plus wait-duration and
-  queue-depth metrics.
-- **Phase 7, Controller:** implement a non-blocking FIFO pending queue per source, expire
-  on deadline, drop new arrivals on full queues after removing expired entries, and test
-  interaction with `max_lag` and `rewrite_bad_time`.
-- **Phase 8, Tracker:** implement the same bounded FIFO policy and preserve multiple held
-  batches for one camera across time-chunk dispatch; test no PTZ batch is silently
-  overwritten by the current per-camera buffer behavior.
-- **Phase 9, acceptance:** replay 15–30 Hz detections against 5 Hz pose samples with
-  configured transport jitter. Verify in-time selection, timeout, motion-boundary drop,
-  overflow, FIFO order, config inequalities, and end-to-end latency including wait.
-
 ## 9. Testing & Monitoring
 
-- **Unit tests**: port the PoC's `pose_math.py` test coverage (axis composition,
-  backlash deadband, scale-from-FOV derivation, non-commutativity of pan/tilt) as the
-  resolver's core math tests; include unchanged translation and row-major matrix fixtures.
-  Run the same timestamp-selection vectors against the shared selector's Python and C++
-  bindings; verify `valid_until` and canonical failure-reason mappings.
+- **Unit tests**: validate pose math against the committed hardware measurement dataset
+  captured during the prerequisite measurement session, using the PoC's measured
+  per-camera values as golden vectors. Include unchanged translation, row-major matrix,
+  scale/curve, backlash, pan-axis, and pan/tilt composition cases. Run the same
+  timestamp-selection vectors against the shared selector's Python and C++ bindings;
+  verify `valid_until`, cold-start backlash, and canonical failure-reason mappings.
 - **gRPC contract tests**: valid sample, unknown camera, unauthorized certificate,
   duplicate/out-of-order sequence, restart with new adapter instance ID, invalid ranges,
   NaN/Inf, timestamp bounds, and retry/ack behavior.
