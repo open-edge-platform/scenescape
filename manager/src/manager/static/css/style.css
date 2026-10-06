@@ -922,3 +922,26 @@ ul.errorlist {
 .telemetry-hide {
   display: none;
 }
+
+/* Proposed ROIs (from OSM generation) */
+.roi.proposed-roi polygon {
+  stroke-dasharray: 6, 4;
+}
+
+/* OSM badge styling */
+.osm-badge {
+  display: none;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background-color: #e3f2fd;
+  border: 1px solid #2196f3;
+  border-radius: 3px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #1976d2;
+  vertical-align: middle;
+}
+
+.form-roi.proposed-roi .osm-badge {
+  display: inline-block;
+}

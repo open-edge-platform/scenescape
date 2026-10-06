@@ -20,8 +20,7 @@ from shapely.geometry import LineString, MultiPolygon, Polygon
 from scene_common.earth_lla import convertLLAToECEF
 
 from . import osm_query
-from .models import Region, Scene
-from .serializers import RegionSerializer
+from .models import Scene
 
 logger = logging.getLogger(__name__)
 
@@ -438,43 +437,3 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
   return previews
 
 
-def create_regions(
-  scene: Scene,
-  previews: List[Dict[str, Any]],
-) -> List[Region]:
-  """Create Region DB objects from preview dicts.
-
-  Args:
-    scene: Scene object (must be saved with a pk).
-    previews: list of dicts with "name" and "points" keys.
-
-  Returns:
-    list of created Region objects.
-
-  Raises:
-    OsmRoiError or DRF ValidationError: if any region creation fails.
-  """
-  regions = []
-
-  for preview in previews:
-    # Safely extract fields; missing keys will be caught by serializer validation
-    try:
-      name = preview.get("name")
-      points = preview.get("points")
-
-      serializer_data = {
-        "name": name,
-        "points": points,
-        "scene": str(scene.pk),
-      }
-
-      serializer = RegionSerializer(data=serializer_data)
-      serializer.is_valid(raise_exception=True)
-      region = serializer.save()
-      regions.append(region)
-
-    except (KeyError, TypeError, ValueError) as exc:
-      raise OsmRoiError(f"Invalid ROI data: {exc}")
-
-  logger.info(f"Created {len(regions)} regions from OSM ROI previews")
-  return regions

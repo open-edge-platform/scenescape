@@ -935,52 +935,6 @@ class PreviewRoisFromOsm(APIView):
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
 
-class CreateSelectedRoisFromOsm(APIView):
-  """Create Region DB objects from selected OSM-derived ROI previews.
-  
-  Takes the output from PreviewRoisFromOsm (rounded-trip by the frontend),
-  filters to only checked items, and creates real Region + RegionPoint DB
-  objects using RegionSerializer.
-  """
-  authentication_classes = [SessionAuthentication]
-  permission_classes = [IsAdminOrReadOnly]
-
-  def post(self, request):
-    try:
-      scene_uid = request.data.get('scene')
-      rois = request.data.get('rois') or []
-
-      if not scene_uid:
-        return JsonResponse({'error': 'scene is required'}, status=400)
-      if not isinstance(rois, list):
-        return JsonResponse({'error': 'rois must be a list'}, status=400)
-
-      # Get the scene; 404 if not found or invalid UUID
-      try:
-        scene = Scene.objects.get(pk=scene_uid)
-      except (Scene.DoesNotExist, ValueError):
-        return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
-
-      # Filter to only checked ROIs
-      checked_rois = [roi for roi in rois if roi.get('checked', False)]
-      
-      if not checked_rois:
-        return JsonResponse({'created': []})
-
-      regions = osm_roi.create_regions(scene, checked_rois)
-      result = [{'uuid': str(r.uuid), 'name': r.name} for r in regions]
-      return JsonResponse({'created': result})
-
-    except osm_roi.OsmRoiError as e:
-      return JsonResponse({'error': str(e)}, status=400)
-    except Exception as e:
-      log.error(f"Error creating OSM ROIs: {e}")
-      log.error(f"Traceback: {traceback.format_exc()}")
-      # Check if it's a DRF ValidationError
-      if hasattr(e, 'detail'):
-        return JsonResponse({'error': str(e.detail)}, status=400)
-      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
-
 @superuser_required
 def generate_camera_pipeline(request, sensor_id):
   """Generate camera pipeline preview for a specific camera sensor."""

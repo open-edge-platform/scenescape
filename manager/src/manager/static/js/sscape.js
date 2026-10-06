@@ -33,6 +33,7 @@ var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
 var points, maps, rois, tripwires, child_rois, child_tripwires, child_sensors;
 var dragging, drawing, adding, editing, fullscreen;
+var wasDragging = false;
 var g;
 var radius = 5;
 var scale = 30.0; // Default map scale in pixels/meter
@@ -662,13 +663,24 @@ function polyCenter(pts) {
 
 function editPolygon(group) {
   var circles = group.selectAll("circle");
+  var poly = group.select("polygon");
+
   if (editing) {
     editing = false;
 
     circles.forEach(function (c) {
       c.undrag();
       c.removeClass("is-handle");
+      // Remove click handlers when exiting edit mode
+      c.unclick();
     });
+
+    // Remove polygon click handler and debounce object
+    poly.unclick();
+    if (group.data("polyClickDebounce")) {
+      group.data("polyClickDebounce").cancel();
+      group.removeData("polyClickDebounce");
+    }
 
     stringifyRois();
   } else {
@@ -677,6 +689,26 @@ function editPolygon(group) {
     circles.forEach(function (c) {
       c.drag(move, start, stop);
       c.addClass("is-handle");
+      // Add click handler for vertex removal
+      c.click(function (evt) {
+        evt.stopPropagation(); // Prevent polygon click handler from firing
+        handleVertexClick(c, group);
+      });
+    });
+
+    // Add debounced click handler to polygon body for whole-region deletion
+    // Debounce prevents double-click (used to toggle edit mode) from triggering deletion
+    var polyClickDebounce = createClickDebounce(
+      function () {
+        handleRegionDelete(group);
+      },
+      300 // 300ms debounce window
+    );
+    group.data("polyClickDebounce", polyClickDebounce);
+
+    poly.click(function (evt) {
+      evt.stopPropagation();
+      polyClickDebounce.fire();
     });
   }
 }
@@ -789,7 +821,120 @@ function start() {
 
 function stop() {
   dragging = false;
+  wasDragging = true;
+  // Reset wasDragging flag after a short delay to allow click handler to fire
+  setTimeout(function () {
+    wasDragging = false;
+  }, 10);
   points = [];
+}
+
+/**
+ * Handle vertex (circle) left-click for point removal.
+ * Guards against false positives after a drag, handles vertex underflow, and rebuilds the polygon.
+ */
+function handleVertexClick(circle, group) {
+  // Guard: don't delete if we just finished dragging this vertex
+  if (wasDragging) {
+    return;
+  }
+
+  var circles = group.selectAll("circle");
+  var circleCount = circles.length;
+
+  // If removing this vertex would leave < 3 points, delete the entire region instead
+  if (circleCount <= 3) {
+    handleRegionDelete(group);
+    return;
+  }
+
+  // Remove the clicked circle from the DOM
+  circle.remove();
+
+  // Rebuild the polygon from remaining circles
+  group.select("polygon").remove();
+  points = [];
+  circles = group.selectAll("circle"); // Refresh list after removal
+
+  circles.forEach(function (c) {
+    points.push(c.attr("cx"), c.attr("cy"));
+  });
+
+  var poly = group.polygon(points);
+  poly.prependTo(poly.node.parentElement);
+
+  // Update the center text if it exists
+  var text = group.select("text");
+  var center = polyCenter(points);
+  if (text) {
+    text.attr({
+      x: center[0],
+      y: center[1],
+    });
+  }
+
+  // Sync the hidden #id_rois field (local update only, no form submission)
+  stringifyRois();
+}
+
+/**
+ * Handle whole-region deletion (used by both polygon-click and vertex-underflow paths).
+ * Removes SVG group and form row, updates numbering and hidden field.
+ */
+function handleRegionDelete(group) {
+  var groupId = group.attr("id");
+  
+  // Remove SVG group
+  group.remove();
+
+  // Remove corresponding form row
+  var formRow = $("#form-" + groupId);
+  if (formRow.length) {
+    formRow.remove();
+  }
+
+  // Update numbering and sync hidden field (local update only)
+  numberRois();
+  stringifyRois();
+}
+
+/**
+ * Debounce helper to disambiguate single-click (delete) from double-click (edit mode toggle).
+ * Delays the callback and cancels if a second click happens within the delay window.
+ */
+function createClickDebounce(callback, delayMs) {
+  var timeoutId = null;
+  var clickCount = 0;
+
+  return {
+    fire: function () {
+      clickCount++;
+
+      // If second click within window, cancel timeout (it's a double-click)
+      if (clickCount > 1) {
+        clearTimeout(timeoutId);
+        clickCount = 0;
+        timeoutId = null;
+        return;
+      }
+
+      if (timeoutId) clearTimeout(timeoutId);
+
+      timeoutId = setTimeout(function () {
+        if (clickCount === 1) {
+          callback();
+        }
+        clickCount = 0;
+        timeoutId = null;
+      }, delayMs);
+    },
+
+    cancel: function () {
+      if (timeoutId) clearTimeout(timeoutId);
+      clickCount = 0;
+      timeoutId = null;
+    },
+  };
 }
 
 function stop1() {
@@ -2116,10 +2261,18 @@ $(document).ready(function () {
         var r = confirm("Are you sure you wish to remove this ROI?");
 
         if (r == true) {
-          $("#" + $group.attr("for")).remove();
-          $group.remove();
-          numberRois();
-          saveRois(getRoiValues("form-control roi-title", "roi"));
+          var groupId = $group.attr("for");
+          var svgGroup = Snap.select("#" + groupId);
+          
+          // Local-only removal: no form submission
+          if (svgGroup) {
+            handleRegionDelete(svgGroup);
+          } else {
+            // Fallback if SVG group not found (shouldn't happen in normal flow)
+            $group.remove();
+            numberRois();
+            stringifyRois();
+          }
         }
       });
 
@@ -2128,10 +2281,18 @@ $(document).ready(function () {
         var r = confirm("Are you sure you wish to remove this tripwire?");
 
         if (r == true) {
-          $("#" + $group.attr("for")).remove();
-          $group.remove();
-          numberTripwires();
-          saveRois(getRoiValues("form-control tripwire-title", "tripwire"));
+          var groupId = $group.attr("for");
+          var svgGroup = Snap.select("#" + groupId);
+          
+          // Local-only removal: no form submission
+          if (svgGroup) {
+            handleRegionDelete(svgGroup);
+          } else {
+            // Fallback if SVG group not found
+            $group.remove();
+            numberTripwires();
+            stringifyRois();
+          }
         }
       });
     }
@@ -2308,3 +2469,6 @@ $(document).ready(function () {
     return true; // Normally submit the form
   });
 });
+
+// Export functions for ES module consumers (e.g., scene-update-osm-roi.js)
+export { drawRoi, numberRois, stringifyRois, editPolygon };
