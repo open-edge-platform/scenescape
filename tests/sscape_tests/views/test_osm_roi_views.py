@@ -88,13 +88,14 @@ class TestPreviewRoisFromOsm(TestCase):
     self.assertIn("rois", result)
     self.assertEqual(len(result["rois"]), 3)
 
-    # Verify naming: should use enhanced names with footway subtype and accessibility info
-    # E.g., "Sidewalk [paved, lit]", "Pedestrian Crossing [tactile, lit]", etc.
+    # Verify naming: should use enhanced names with footway subtype, without bracketed tag comments
+    # E.g., "Sidewalk", "Pedestrian Crossing", etc.
     names = [roi["name"] for roi in result["rois"]]
     # Should have at least one sidewalk and one crossing, plus residential street
     self.assertTrue(any("Sidewalk" in name for name in names), f"Expected 'Sidewalk' in names: {names}")
     self.assertTrue(any("Crossing" in name for name in names), f"Expected 'Crossing' in names: {names}")
     self.assertTrue(any("Residential" in name for name in names), f"Expected 'Residential' in names: {names}")
+    self.assertTrue(all("[" not in name for name in names), f"Names must not include bracketed tag comments: {names}")
 
     # Each ROI should have points, type, uuid, checked, tags, and width_m fields
     for roi in result["rois"]:
@@ -108,6 +109,41 @@ class TestPreviewRoisFromOsm(TestCase):
       self.assertGreaterEqual(len(roi["points"]), 3)  # Buffered polygon should have >= 3 points
       self.assertIsInstance(roi["width_m"], (int, float))  # Width should be numeric
       self.assertGreater(roi["width_m"], 0)  # Width should be positive
+
+  def test_preview_uses_lane_based_width_for_minor_road_types(self):
+    """Regression: tertiary/unclassified/living_street previously weren't in the lane-based
+    lookup, so their 'lanes' tag was silently ignored and every such way fell back to the
+    flat DEFAULT_ROAD_WIDTH_M (4.0m) regardless of actual lane count.
+    """
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
+
+    fake_ways = [
+      {
+        "type": "tertiary",
+        "coords": [[MAP_CORNERS_LLA[0][0], MAP_CORNERS_LLA[0][1]],
+                   [MAP_CORNERS_LLA[1][0], MAP_CORNERS_LLA[1][1]]],
+        "tags": {"highway": "tertiary", "lanes": "2", "name": "Rudzka"},
+      },
+      {
+        "type": "unclassified",
+        "coords": [[MAP_CORNERS_LLA[1][0], MAP_CORNERS_LLA[1][1]],
+                   [MAP_CORNERS_LLA[2][0], MAP_CORNERS_LLA[2][1]]],
+        "tags": {"highway": "unclassified", "lanes": "2"},
+      },
+    ]
+
+    with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=fake_ways):
+      response = self.client.post(
+        reverse("preview_rois_from_osm"),
+        data=json.dumps({"scene": str(self.scene.id)}),
+        content_type="application/json",
+      )
+
+    self.assertEqual(response.status_code, 200)
+    result = json.loads(response.content)
+    widths = {roi["type"]: roi["width_m"] for roi in result["rois"]}
+    self.assertEqual(widths["tertiary"], 2 * 3.5)
+    self.assertEqual(widths["unclassified"], 2 * 3.5)
 
   def test_preview_refreshes_stale_cache_missing_tags(self):
     """Test that a pre-existing cache without 'tags' (old schema) is treated as stale and re-fetched."""
@@ -146,6 +182,47 @@ class TestPreviewRoisFromOsm(TestCase):
 
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.osm_ways_cache, fresh_ways)  # cache overwritten with fresh data
+
+  def test_preview_refreshes_stale_cache_list_format_tags(self):
+    """Test that a cache storing tags as list-of-pairs (raw ohsome parquet shape) is treated as stale.
+
+    Pandas/pyarrow decode the ohsome Map<string,string> 'tags' column as a list of
+    [key, value] pairs rather than a dict; if such a cache were reused as-is, every
+    width/lanes-based lookup would silently fall through to the generic default.
+    """
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
+
+    stale_ways = [
+      {
+        "type": "way",
+        "coords": [[MAP_CORNERS_LLA[0][0], MAP_CORNERS_LLA[0][1]],
+                   [MAP_CORNERS_LLA[1][0], MAP_CORNERS_LLA[1][1]]],
+        "tags": [["highway", "secondary"], ["lanes", "3"], ["name", "Grójecka"]],
+      },
+    ]
+    self.scene.osm_ways_cache = stale_ways
+    self.scene.save()
+
+    fresh_ways = [
+      {
+        "type": "residential",
+        "coords": [[MAP_CORNERS_LLA[2][0], MAP_CORNERS_LLA[2][1]],
+                   [MAP_CORNERS_LLA[3][0], MAP_CORNERS_LLA[3][1]]],
+        "tags": {"highway": "residential", "lanes": "3", "name": "Grójecka"},
+      },
+    ]
+
+    with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=fresh_ways) as mock_query:
+      response = self.client.post(
+        reverse("preview_rois_from_osm"),
+        data=json.dumps({"scene": str(self.scene.id)}),
+        content_type="application/json",
+      )
+
+    mock_query.assert_called_once()  # List-format cache must not be reused
+    self.assertEqual(response.status_code, 200)
+    result = json.loads(response.content)
+    self.assertEqual(result["rois"][0]["width_m"], 3 * 3.5)  # lanes-based width, not the generic default
 
   def test_preview_caches_osm_ways_and_skips_requery(self):
     """Test that a second preview call reuses osm_ways_cache instead of re-querying OSM."""

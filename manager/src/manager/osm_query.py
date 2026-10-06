@@ -56,7 +56,7 @@ MAX_RETRIES = 3
 RETRY_BACKOFF_S = 2.0
 MAX_BBOX_SPAN_DEG = 0.05  # ~5.5km at the equator; keeps queries/responses small
 MAX_SAMPLE_FEATURES = 10
-MAX_ROI_FEATURES = 100  # safety cap on raw ways processed for geometry extraction
+MAX_ROI_FEATURES = 1000  # safety cap on raw ways processed for geometry extraction
 
 _last_request_time = 0.0
 
@@ -145,6 +145,24 @@ def _feature_type(tags: dict) -> str:
   return tags.get("highway") or tags.get("footway") or "way"
 
 
+def _normalize_tags(raw_tags: Any) -> Dict[str, Any]:
+  """Convert the parquet 'tags' column into a plain dict.
+
+  Pandas/pyarrow decode the underlying Map<string,string> column as a list
+  of [key, value] pairs (not a dict), so downstream dict-based tag lookups
+  (width/lanes extraction, type detection) would otherwise silently no-op.
+  """
+  if isinstance(raw_tags, dict):
+    return raw_tags
+  if raw_tags is None:
+    return {}
+  try:
+    return {str(k): v for k, v in raw_tags}
+  except (TypeError, ValueError):
+    logger.warning(f"Unable to parse OSM tags, unexpected format: {type(raw_tags)}")
+    return {}
+
+
 def query_osm_ways_geometry(
   south: float, west: float, north: float, east: float,
   endpoint: str = DEFAULT_ENDPOINT,
@@ -193,7 +211,7 @@ def query_osm_ways_geometry(
 
       results = []
       for _, row in ways.iterrows():
-        tags = row.get("tags") or {}
+        tags = _normalize_tags(row.get("tags"))
         way_type = _feature_type(tags)
         geom_bytes = row.get("geom")
         if geom_bytes is None:
@@ -210,9 +228,20 @@ def query_osm_ways_geometry(
           coords = [(lat, lng) for lng, lat in geom.coords]
           results.append({"type": way_type, "coords": coords, "tags": tags})
         elif geom.geom_type == "MultiLineString":
+          # Merge all line segments into a single way entry to avoid duplicate
+          # ROI names and unnecessary fragmentation. Each segment is treated as
+          # a contiguous part of the same logical way.
+          all_coords = []
           for line in geom.geoms:
-            coords = [(lat, lng) for lng, lat in line.coords]
-            results.append({"type": way_type, "coords": coords, "tags": tags})
+            line_coords = [(lat, lng) for lng, lat in line.coords]
+            all_coords.extend(line_coords)
+          # Deduplicate consecutive identical points that may occur at segment junctions
+          if all_coords:
+            deduplicated = [all_coords[0]]
+            for coord in all_coords[1:]:
+              if coord != deduplicated[-1]:
+                deduplicated.append(coord)
+            results.append({"type": way_type, "coords": deduplicated, "tags": tags})
 
       logger.info(
         f"ohsome geometry query succeeded: url={url} way_count={len(ways)} "

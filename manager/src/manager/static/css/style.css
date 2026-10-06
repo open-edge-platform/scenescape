@@ -147,6 +147,8 @@ svg.adding-tripwire {
 .roi circle.vertex,
 .child_roi circle.vertex {
   opacity: 0;
+  /* Hidden vertices must not swallow clicks meant to select the region */
+  pointer-events: none;
 }
 
 .drawPoly .vertex {
@@ -161,6 +163,7 @@ circle.sensor {
   fill: #ff0000;
   cursor: crosshair;
   opacity: 1;
+  pointer-events: auto;
 }
 
 image.sensor {
@@ -178,6 +181,13 @@ polygon {
   opacity: 0.4;
   stroke: red;
   stroke-width: 3px;
+}
+
+/* Vertices picked with ctrl+click for merging stay visible after deselecting the region */
+.roi circle.merge-vertex {
+  fill: #0066ff;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .tripwire line,

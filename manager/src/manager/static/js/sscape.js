@@ -37,6 +37,16 @@ var wasDragging = false;
 var g;
 var radius = 5;
 var scale = 30.0; // Default map scale in pixels/meter
+// The single region currently in edit mode (only one may be edited at a time)
+var activeEditGroup = null;
+// Vertices picked with ctrl+click for merging: two on one region, then two on another
+var mergeVertexSelection = [];
+// Max pixel distance from a polygon edge for a click to be treated as "insert a point here"
+var EDGE_INSERT_THRESHOLD_PX = 15;
+// Window for two right-clicks on a region to count as a double right-click
+var RIGHT_DOUBLE_CLICK_MS = 400;
+// Pointer movement past this is a drag, not a click
+var DRAG_SLOP_PX = 2;
 var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
@@ -661,56 +671,117 @@ function polyCenter(pts) {
   return center;
 }
 
+/**
+ * Select a region for editing. Only one region may be edited at a time:
+ * entering edit mode on a group exits it on whichever other group was active.
+ */
 function editPolygon(group) {
-  var circles = group.selectAll("circle");
-  var poly = group.select("polygon");
+  if (group.data("editing")) return;
 
-  if (editing) {
-    editing = false;
+  if (activeEditGroup && activeEditGroup.node !== group.node) {
+    exitEditMode(activeEditGroup);
+  }
 
-    circles.forEach(function (c) {
-      c.undrag();
-      c.removeClass("is-handle");
-      // Remove click handlers when exiting edit mode
-      c.unclick();
-    });
+  enterEditMode(group);
+  stringifyRois();
+}
 
-    // Remove polygon click handler and debounce object
-    poly.unclick();
-    if (group.data("polyClickDebounce")) {
-      group.data("polyClickDebounce").cancel();
-      group.removeData("polyClickDebounce");
+function enterEditMode(group) {
+  group.data("editing", true);
+  activeEditGroup = group;
+  editing = true;
+
+  // Bring the selected region to the front (among other regions) so its
+  // vertices/edges stay reachable, without covering sensor markers (which
+  // must stay on top per the layering drawRoi() establishes on creation)
+  var firstSensor = svgCanvas.selectAll(".sensor")[0];
+  if (firstSensor) {
+    group.insertBefore(firstSensor);
+  } else {
+    group.appendTo(group.parent());
+  }
+
+  group.selectAll("circle").forEach(function (c) {
+    bindVertexHandlers(group, c);
+  });
+}
+
+function exitEditMode(group) {
+  group.selectAll("circle").forEach(unbindVertexHandlers);
+
+  group.data("editing", false);
+  if (activeEditGroup && activeEditGroup.node === group.node) {
+    activeEditGroup = null;
+  }
+  editing = false;
+}
+
+function bindVertexHandlers(group, circle) {
+  circle.addClass("is-handle");
+  circle.drag(move, start, stop);
+
+  circle.click(function (evt) {
+    if (!evt.ctrlKey && !evt.metaKey) return;
+    evt.stopPropagation();
+    if (wasDragging) return;
+    handleVertexMergeClick(group, circle);
+  });
+
+  var onContextMenu = function (evt) {
+    evt.preventDefault();
+    evt.stopPropagation(); // Don't count toward the region's double right-click
+    if (wasDragging) return;
+    handleVertexDelete(circle, group);
+  };
+  circle.node.addEventListener("contextmenu", onContextMenu);
+  circle.data("onContextMenu", onContextMenu);
+}
+
+/** Vertices stay in the DOM but invisible outside edit mode, so unbind to keep them inert. */
+function unbindVertexHandlers(circle) {
+  circle.undrag();
+  circle.unclick();
+  circle.removeClass("is-handle");
+
+  var onContextMenu = circle.data("onContextMenu");
+  if (onContextMenu) {
+    circle.node.removeEventListener("contextmenu", onContextMenu);
+    circle.removeData("onContextMenu");
+  }
+}
+
+/**
+ * Bind the polygon body handlers, for the region's lifetime:
+ *   left click -> select (or insert a point when near an edge while editing),
+ *   double right click -> delete the region.
+ */
+function bindPolygonClickHandler(group, poly) {
+  if (!poly) return;
+
+  poly.click(function (evt) {
+    evt.stopPropagation();
+
+    var closest = group.data("editing") ? findClosestEdgePoint(group, evt) : null;
+    if (closest && closest.distance <= EDGE_INSERT_THRESHOLD_PX) {
+      insertVertexOnEdge(group, closest);
+    } else {
+      editPolygon(group);
+    }
+  });
+
+  poly.node.addEventListener("contextmenu", function (evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+
+    var now = Date.now();
+    if (now - (group.data("lastRightClick") || 0) <= RIGHT_DOUBLE_CLICK_MS) {
+      group.removeData("lastRightClick");
+      handleRegionDelete(group);
+      return;
     }
 
-    stringifyRois();
-  } else {
-    editing = true;
-
-    circles.forEach(function (c) {
-      c.drag(move, start, stop);
-      c.addClass("is-handle");
-      // Add click handler for vertex removal
-      c.click(function (evt) {
-        evt.stopPropagation(); // Prevent polygon click handler from firing
-        handleVertexClick(c, group);
-      });
-    });
-
-    // Add debounced click handler to polygon body for whole-region deletion
-    // Debounce prevents double-click (used to toggle edit mode) from triggering deletion
-    var polyClickDebounce = createClickDebounce(
-      function () {
-        handleRegionDelete(group);
-      },
-      300 // 300ms debounce window
-    );
-    group.data("polyClickDebounce", polyClickDebounce);
-
-    poly.click(function (evt) {
-      evt.stopPropagation();
-      polyClickDebounce.fire();
-    });
-  }
+    group.data("lastRightClick", now);
+  });
 }
 
 function closePolygon() {
@@ -727,9 +798,7 @@ function closePolygon() {
     .select(".start-point")
     .removeClass("start-point");
 
-  group.dblclick(function () {
-    editPolygon(this);
-  });
+  bindPolygonClickHandler(group, group.select("polygon"));
 
   if ($(".sensor").length) group.insertBefore(svgCanvas.select(".sensor"));
 
@@ -750,32 +819,46 @@ function closePolygon() {
   stringifyRois();
 }
 
+/** Map image extent in pixels, or null if the image isn't rendered yet. */
+function mapBoundsPx() {
+  var image = $("#svgout image")[0];
+  if (!image) return null;
+
+  return {
+    width: image.width.baseVal.value,
+    height: image.height.baseVal.value,
+  };
+}
+
+/**
+ * Clamp a point to the map image. Region vertices outside the map can't be
+ * clicked, which would put parts of a region beyond the user's control.
+ */
+function clampPointToMap(x, y) {
+  var bounds = mapBoundsPx();
+  if (!bounds) return [x, y];
+
+  return [
+    Math.min(Math.max(x, 0), bounds.width),
+    Math.min(Math.max(y, 0), bounds.height),
+  ];
+}
+
 function move(dx, dy) {
   var group = this.parent();
-  var circles = group.selectAll("circle");
-  group.select("polygon").remove();
-  points = [];
+  var clamped = clampPointToMap(this.data("origX") + dx, this.data("origY") + dy);
+
+  if (Math.abs(dx) > DRAG_SLOP_PX || Math.abs(dy) > DRAG_SLOP_PX) {
+    wasDragging = true;
+  }
 
   this.attr({
-    cx: this.data("origX") + dx,
-    cy: this.data("origY") + dy,
+    cx: clamped[0],
+    cy: clamped[1],
   });
 
-  circles.forEach(function (c) {
-    points.push(c.attr("cx"), c.attr("cy"));
-  });
-
-  var poly = group.polygon(points);
-  poly.prependTo(poly.node.parentElement);
-
-  var text = group.select("text");
-  var center = polyCenter(points);
-  if (text) {
-    text.attr({
-      x: center[0],
-      y: center[1],
-    });
-  }
+  rebuildPolygon(group);
+  updateRegionLabel(group);
 }
 
 function move1(dx, dy) {
@@ -809,6 +892,7 @@ function move1(dx, dy) {
 
 function start() {
   dragging = true;
+  wasDragging = false;
 
   if (this.type === "circle") {
     this.data("origX", parseInt(this.attr("cx")));
@@ -821,8 +905,7 @@ function start() {
 
 function stop() {
   dragging = false;
-  wasDragging = true;
-  // Reset wasDragging flag after a short delay to allow click handler to fire
+  // wasDragging is set by move(); clear it once the ensuing click has been handled
   setTimeout(function () {
     wasDragging = false;
   }, 10);
@@ -830,17 +913,16 @@ function stop() {
 }
 
 /**
- * Handle vertex (circle) left-click for point removal.
- * Guards against false positives after a drag, handles vertex underflow, and rebuilds the polygon.
+ * Remove a single vertex (right-clicked). Guards against false positives after a
+ * drag, and falls back to deleting the region when too few vertices would remain.
  */
-function handleVertexClick(circle, group) {
+function handleVertexDelete(circle, group) {
   // Guard: don't delete if we just finished dragging this vertex
   if (wasDragging) {
     return;
   }
 
-  var circles = group.selectAll("circle");
-  var circleCount = circles.length;
+  var circleCount = group.selectAll("circle").length;
 
   // If removing this vertex would leave < 3 points, delete the entire region instead
   if (circleCount <= 3) {
@@ -851,27 +933,8 @@ function handleVertexClick(circle, group) {
   // Remove the clicked circle from the DOM
   circle.remove();
 
-  // Rebuild the polygon from remaining circles
-  group.select("polygon").remove();
-  points = [];
-  circles = group.selectAll("circle"); // Refresh list after removal
-
-  circles.forEach(function (c) {
-    points.push(c.attr("cx"), c.attr("cy"));
-  });
-
-  var poly = group.polygon(points);
-  poly.prependTo(poly.node.parentElement);
-
-  // Update the center text if it exists
-  var text = group.select("text");
-  var center = polyCenter(points);
-  if (text) {
-    text.attr({
-      x: center[0],
-      y: center[1],
-    });
-  }
+  rebuildPolygon(group);
+  updateRegionLabel(group);
 
   // Sync the hidden #id_rois field (local update only, no form submission)
   stringifyRois();
@@ -883,7 +946,9 @@ function handleVertexClick(circle, group) {
  */
 function handleRegionDelete(group) {
   var groupId = group.attr("id");
-  
+
+  dropMergeSelectionsFor(group);
+
   // Remove SVG group
   group.remove();
 
@@ -899,42 +964,539 @@ function handleRegionDelete(group) {
 }
 
 /**
- * Debounce helper to disambiguate single-click (delete) from double-click (edit mode toggle).
- * Delays the callback and cancels if a second click happens within the delay window.
+ * Rebuild a region's <polygon> from its current circle vertices (in DOM order).
+ * Replacing the element drops its click listener, so the body click handler
+ * (merge / edge-insert / delete) is re-bound.
  */
-function createClickDebounce(callback, delayMs) {
-  var timeoutId = null;
-  var clickCount = 0;
+function rebuildPolygon(group) {
+  group.select("polygon").remove();
 
-  return {
-    fire: function () {
-      clickCount++;
+  var poly = group.polygon(flattenVertexPoints(group));
+  poly.prependTo(poly.node.parentElement);
 
-      // If second click within window, cancel timeout (it's a double-click)
-      if (clickCount > 1) {
-        clearTimeout(timeoutId);
-        clickCount = 0;
-        timeoutId = null;
-        return;
-      }
+  bindPolygonClickHandler(group, poly);
 
-      if (timeoutId) clearTimeout(timeoutId);
+  return poly;
+}
 
-      timeoutId = setTimeout(function () {
-        if (clickCount === 1) {
-          callback();
-        }
-        clickCount = 0;
-        timeoutId = null;
-      }, delayMs);
-    },
+/** Vertex centers of a region, as [[x, y], ...] in DOM (winding) order. */
+function vertexPoints(group) {
+  var pts = [];
+  group.selectAll("circle").forEach(function (c) {
+    pts.push([parseFloat(c.attr("cx")), parseFloat(c.attr("cy"))]);
+  });
+  return pts;
+}
 
-    cancel: function () {
-      if (timeoutId) clearTimeout(timeoutId);
-      clickCount = 0;
-      timeoutId = null;
-    },
+/** Same as vertexPoints(), flattened to [x1, y1, x2, y2, ...] for <polygon>. */
+function flattenVertexPoints(group) {
+  var flat = [];
+  vertexPoints(group).forEach(function (p) {
+    flat.push(p[0], p[1]);
+  });
+  return flat;
+}
+
+/** Re-center a region's name label on its current vertices. */
+function updateRegionLabel(group) {
+  var text = group.select("text");
+  if (!text) return;
+
+  var center = polyCenter(flattenVertexPoints(group));
+  text.attr({
+    x: center[0],
+    y: center[1],
+  });
+}
+
+/**
+ * Ctrl+click vertex selection for merging: pick two vertices on one region, then
+ * two on another. The picked pairs mark where each outline opens up; the regions
+ * are then joined along those openings into one continuous outline.
+ */
+function handleVertexMergeClick(group, circle) {
+  if (!group.hasClass("roi")) return;
+
+  for (var i = 0; i < mergeVertexSelection.length; i++) {
+    if (mergeVertexSelection[i].circle.node === circle.node) {
+      mergeVertexSelection[i].circle.removeClass("merge-vertex");
+      mergeVertexSelection.splice(i, 1);
+      return;
+    }
+  }
+
+  if (mergeVertexSelection.length >= 4) return;
+
+  // Picks 1-2 must share a region; picks 3-4 must share a different one
+  var expectedGroup = null;
+  if (mergeVertexSelection.length === 1) {
+    expectedGroup = mergeVertexSelection[0].group;
+  } else if (mergeVertexSelection.length === 3) {
+    expectedGroup = mergeVertexSelection[2].group;
+  }
+  if (expectedGroup && expectedGroup.node !== group.node) return;
+
+  if (mergeVertexSelection.length === 2 && mergeVertexSelection[0].group.node === group.node) {
+    return;
+  }
+
+  mergeVertexSelection.push({ group: group, circle: circle });
+  circle.addClass("merge-vertex");
+
+  if (mergeVertexSelection.length === 4) {
+    mergeSelectedVertices();
+  }
+}
+
+function clearMergeSelection() {
+  mergeVertexSelection.forEach(function (sel) {
+    sel.circle.removeClass("merge-vertex");
+  });
+  mergeVertexSelection = [];
+}
+
+function dropMergeSelectionsFor(group) {
+  mergeVertexSelection = mergeVertexSelection.filter(function (sel) {
+    if (sel.group.node !== group.node) return true;
+    sel.circle.removeClass("merge-vertex");
+    return false;
+  });
+}
+
+/** Position of a circle within its region's vertex ring, or -1. */
+function vertexIndex(group, circle) {
+  var index = -1;
+  var i = 0;
+  group.selectAll("circle").forEach(function (c) {
+    if (c.node === circle.node) index = i;
+    i++;
+  });
+  return index;
+}
+
+/**
+ * Join the two selected regions into one continuous region. The first region
+ * keeps its form row (name, settings); the second is removed.
+ */
+function mergeSelectedVertices() {
+  var groupA = mergeVertexSelection[0].group;
+  var groupB = mergeVertexSelection[2].group;
+  var A = vertexPoints(groupA);
+  var B = vertexPoints(groupB);
+
+  var ring = unionPolygons(A, B);
+
+  // Overlapping outlines can't be bridged without self-intersecting, so they are
+  // unioned above; separated ones are joined at the picked vertices instead.
+  if (!ring) {
+    ring = bridgeRings(
+      A,
+      vertexIndex(groupA, mergeVertexSelection[0].circle),
+      vertexIndex(groupA, mergeVertexSelection[1].circle),
+      B,
+      vertexIndex(groupB, mergeVertexSelection[2].circle),
+      vertexIndex(groupB, mergeVertexSelection[3].circle),
+    );
+  }
+
+  clearMergeSelection();
+
+  if (!ring) {
+    alert(
+      "Those regions can't be joined into one shape. If they are apart, pick the " +
+        "vertices on the sides that face each other.",
+    );
+    return;
+  }
+
+  if (groupA.data("editing")) exitEditMode(groupA);
+  if (groupB.data("editing")) exitEditMode(groupB);
+
+  groupA.selectAll("circle").forEach(function (c) {
+    c.remove();
+  });
+  ring.forEach(function (p) {
+    groupA.circle(p[0], p[1], radius).addClass("vertex");
+  });
+
+  handleRegionDelete(groupB);
+
+  rebuildPolygon(groupA);
+  updateRegionLabel(groupA);
+
+  numberRois();
+  stringifyRois();
+}
+
+/**
+ * Outer ring of the union of two overlapping outlines, or null when they are
+ * disjoint (nothing to union) or the result can't be trusted.
+ */
+function unionPolygons(ringA, ringB) {
+  var areaA = Math.abs(ringSignedArea(ringA));
+  var areaB = Math.abs(ringSignedArea(ringB));
+
+  // A real union covers every input vertex, adds no area beyond A+B, and is simple
+  var acceptable = function (ring) {
+    if (!ring || ring.length < 3) return false;
+
+    var a = Math.abs(ringSignedArea(ring));
+    if (a < Math.max(areaA, areaB) - 0.5 || a > areaA + areaB + 0.5) return false;
+    if (!isSimplePolygon(ring)) return false;
+
+    return ringA.concat(ringB).every(function (p) {
+      return pointInRing(ring, p) || pointOnRingBoundary(ring, p);
+    });
   };
+
+  var result = unionAttempt(ringA, ringB);
+  if (acceptable(result)) return result;
+
+  // Shared/collinear edges make the walk degenerate; a sub-pixel nudge breaks
+  // the tie without visibly moving the outline.
+  var nudged = ringB.map(function (p) {
+    return [p[0] + 1e-4, p[1] + 1e-4];
+  });
+  result = unionAttempt(ringA, nudged);
+
+  return acceptable(result) ? result : null;
+}
+
+/** One union walk: insert crossings into both rings, then trace the outer boundary. */
+function unionAttempt(ringA, ringB) {
+  var A = ensureCCW(ringA);
+  var B = ensureCCW(ringB);
+
+  var perEdgeA = A.map(function () { return []; });
+  var perEdgeB = B.map(function () { return []; });
+  var found = 0;
+
+  for (var i = 0; i < A.length; i++) {
+    for (var j = 0; j < B.length; j++) {
+      var hit = segmentIntersection(
+        A[i], A[(i + 1) % A.length],
+        B[j], B[(j + 1) % B.length],
+      );
+      if (!hit) continue;
+
+      var key = pointKey(hit.point);
+      perEdgeA[i].push({ t: hit.t, pt: hit.point, key: key });
+      perEdgeB[j].push({ t: hit.u, pt: hit.point, key: key });
+      found++;
+    }
+  }
+
+  if (!found) {
+    if (pointInRing(B, A[0])) return B.slice();
+    if (pointInRing(A, B[0])) return A.slice();
+    return null; // disjoint
+  }
+
+  var augA = augmentRing(A, perEdgeA);
+  var augB = augmentRing(B, perEdgeB);
+  var indexA = crossingIndex(augA);
+  var indexB = crossingIndex(augB);
+
+  // Start somewhere guaranteed to be on the union's outer boundary
+  var start = -1;
+  for (var k = 0; k < augA.length; k++) {
+    if (!augA[k].inter && !pointInRing(B, augA[k].pt)) {
+      start = k;
+      break;
+    }
+  }
+  if (start < 0) return B.slice(); // A lies entirely within B
+
+  var result = [];
+  var onA = true;
+  var idx = start;
+  var maxSteps = (augA.length + augB.length) * 4;
+
+  for (var step = 0; step < maxSteps; step++) {
+    var node = (onA ? augA : augB)[idx];
+
+    if (!result.length || !samePoint(result[result.length - 1], node.pt)) {
+      result.push(node.pt);
+    }
+
+    // At a crossing, hand over to the other outline to stay on the outside
+    if (node.inter) {
+      var target = (onA ? indexB : indexA)[node.key];
+      if (target !== undefined) {
+        onA = !onA;
+        idx = target;
+      }
+    }
+
+    idx = (idx + 1) % (onA ? augA : augB).length;
+
+    if (onA && idx === start) {
+      if (result.length > 1 && samePoint(result[0], result[result.length - 1])) {
+        result.pop();
+      }
+      return result.length >= 3 ? result : null;
+    }
+  }
+
+  return null; // walk never closed
+}
+
+/** Ring vertices with crossing points spliced in, in order along each edge. */
+function augmentRing(ring, perEdge) {
+  var out = [];
+
+  for (var i = 0; i < ring.length; i++) {
+    out.push({ pt: ring[i], inter: false, key: null });
+
+    perEdge[i]
+      .slice()
+      .sort(function (a, b) { return a.t - b.t; })
+      .forEach(function (hit) {
+        var last = out[out.length - 1];
+        if (samePoint(last.pt, hit.pt)) {
+          last.inter = true;
+          last.key = hit.key;
+          return;
+        }
+        out.push({ pt: hit.pt, inter: true, key: hit.key });
+      });
+  }
+
+  while (out.length > 1 && samePoint(out[0].pt, out[out.length - 1].pt)) {
+    if (out[out.length - 1].inter) {
+      out[0].inter = true;
+      out[0].key = out[out.length - 1].key;
+    }
+    out.pop();
+  }
+
+  return out;
+}
+
+function crossingIndex(augmented) {
+  var index = {};
+  augmented.forEach(function (node, i) {
+    if (node.inter && index[node.key] === undefined) index[node.key] = i;
+  });
+  return index;
+}
+
+function ensureCCW(ring) {
+  return ringSignedArea(ring) < 0 ? ring.slice().reverse() : ring;
+}
+
+function pointKey(p) {
+  return p[0].toFixed(6) + "|" + p[1].toFixed(6);
+}
+
+function samePoint(a, b) {
+  return Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
+}
+
+/** Intersection of two segments with both parameters, or null if they don't meet. */
+function segmentIntersection(p1, p2, p3, p4) {
+  var d1x = p2[0] - p1[0];
+  var d1y = p2[1] - p1[1];
+  var d2x = p4[0] - p3[0];
+  var d2y = p4[1] - p3[1];
+
+  var denom = d1x * d2y - d1y * d2x;
+  if (Math.abs(denom) < 1e-12) return null; // parallel or collinear
+
+  var t = ((p3[0] - p1[0]) * d2y - (p3[1] - p1[1]) * d2x) / denom;
+  var u = ((p3[0] - p1[0]) * d1y - (p3[1] - p1[1]) * d1x) / denom;
+  if (t < -1e-9 || t > 1 + 1e-9 || u < -1e-9 || u > 1 + 1e-9) return null;
+
+  return { point: [p1[0] + t * d1x, p1[1] + t * d1y], t: t, u: u };
+}
+
+function pointInRing(ring, p) {
+  var inside = false;
+
+  for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    var xi = ring[i][0], yi = ring[i][1];
+    var xj = ring[j][0], yj = ring[j][1];
+
+    if (yi > p[1] !== yj > p[1]) {
+      var xint = ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi;
+      if (p[0] < xint) inside = !inside;
+    }
+  }
+
+  return inside;
+}
+
+function pointOnRingBoundary(ring, p) {
+  for (var i = 0; i < ring.length; i++) {
+    var a = ring[i];
+    var b = ring[(i + 1) % ring.length];
+    var len = Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]));
+    if (len < 1e-9) continue;
+
+    var cross = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
+    if (Math.abs(cross) / len > 1e-3) continue;
+
+    var dot = (p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1]);
+    if (dot >= -1e-6 && dot <= len * len + 1e-6) return true;
+  }
+
+  return false;
+}
+
+/**
+ * Build one ring out of two, opening each at the span between its selected
+ * vertices and connecting the loose ends. Each outline can open on either of the
+ * two spans between its picks, so all combinations are tried and the largest
+ * non-self-intersecting result wins (i.e. the one that discards the least area).
+ */
+function bridgeRings(A, ai1, ai2, B, bi1, bi2) {
+  if (ai1 < 0 || ai2 < 0 || bi1 < 0 || bi2 < 0) return null;
+  if (ai1 === ai2 || bi1 === bi2) return null;
+
+  var aArcs = [ringArc(A, ai2, ai1), ringArc(A, ai1, ai2)];
+  var bArcs = [];
+  [ringArc(B, bi1, bi2), ringArc(B, bi2, bi1)].forEach(function (arc) {
+    bArcs.push(arc, arc.slice().reverse());
+  });
+
+  var best = null;
+
+  aArcs.forEach(function (aArc) {
+    bArcs.forEach(function (bArc) {
+      var ring = aArc.concat(bArc);
+      if (ring.length < 3 || !isSimplePolygon(ring)) return;
+
+      var area = Math.abs(ringSignedArea(ring));
+      if (!best || area > best.area) {
+        best = { ring: ring, area: area };
+      }
+    });
+  });
+
+  return best ? best.ring : null;
+}
+
+/** Ring vertices from index `from` forward to `to`, both inclusive. */
+function ringArc(pts, from, to) {
+  var arc = [];
+  var i = from;
+
+  for (;;) {
+    arc.push(pts[i]);
+    if (i === to) break;
+    i = (i + 1) % pts.length;
+  }
+
+  return arc;
+}
+
+function ringSignedArea(ring) {
+  var sum = 0;
+  for (var i = 0; i < ring.length; i++) {
+    var next = ring[(i + 1) % ring.length];
+    sum += ring[i][0] * next[1] - next[0] * ring[i][1];
+  }
+  return sum / 2;
+}
+
+/** True when no two non-adjacent edges of the ring cross. */
+function isSimplePolygon(ring) {
+  var n = ring.length;
+
+  for (var i = 0; i < n; i++) {
+    for (var j = i + 1; j < n; j++) {
+      // Skip edges sharing an endpoint (consecutive, plus the closing wrap-around)
+      if (j === i + 1 || (i === 0 && j === n - 1)) continue;
+
+      if (
+        segmentsCross(ring[i], ring[(i + 1) % n], ring[j], ring[(j + 1) % n])
+      ) {
+        return false;
+      }
+    }
+  }
+
+  return true;
+}
+
+/** Proper segment intersection (shared endpoints and collinear touching don't count). */
+function segmentsCross(p1, p2, p3, p4) {
+  var orientation = function (a, b, c) {
+    var v = (b[1] - a[1]) * (c[0] - b[0]) - (b[0] - a[0]) * (c[1] - b[1]);
+    if (v > 1e-9) return 1;
+    if (v < -1e-9) return 2;
+    return 0;
+  };
+
+  var o1 = orientation(p1, p2, p3);
+  var o2 = orientation(p1, p2, p4);
+  var o3 = orientation(p3, p4, p1);
+  var o4 = orientation(p3, p4, p2);
+
+  return o1 !== 0 && o2 !== 0 && o3 !== 0 && o4 !== 0 && o1 !== o2 && o3 !== o4;
+}
+
+/**
+ * Insert a new, draggable vertex at the clicked point on the polygon boundary,
+ * directly after the preceding vertex in winding order.
+ */
+function insertVertexOnEdge(group, closest) {
+  var clamped = clampPointToMap(closest.point[0], closest.point[1]);
+  var newCircle = group.circle(clamped[0], clamped[1], radius).addClass("vertex");
+
+  newCircle.insertAfter(closest.before);
+  bindVertexHandlers(group, newCircle);
+
+  rebuildPolygon(group);
+  stringifyRois();
+}
+
+/**
+ * Find the point on the polygon's boundary (nearest edge segment) closest to a click.
+ * Returns {point: [x, y], before: <circle preceding this edge>, distance} or null.
+ */
+function findClosestEdgePoint(group, evt) {
+  var circleArr = [];
+  group.selectAll("circle").forEach(function (c) {
+    circleArr.push(c);
+  });
+
+  if (circleArr.length < 2) return null;
+
+  var offset = $("#svgout").offset();
+  var clickPoint = [evt.pageX - offset.left, evt.pageY - offset.top];
+
+  var closest = null;
+
+  circleArr.forEach(function (circle, i) {
+    var next = circleArr[(i + 1) % circleArr.length];
+    var a = [parseFloat(circle.attr("cx")), parseFloat(circle.attr("cy"))];
+    var b = [parseFloat(next.attr("cx")), parseFloat(next.attr("cy"))];
+    var projected = closestPointOnSegment(clickPoint, a, b);
+    var dx = clickPoint[0] - projected[0];
+    var dy = clickPoint[1] - projected[1];
+    var distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (!closest || distance < closest.distance) {
+      closest = { point: projected, before: circle, distance: distance };
+    }
+  });
+
+  return closest;
+}
+
+/** Project point `p` onto segment [a, b], clamped to the segment's endpoints. */
+function closestPointOnSegment(p, a, b) {
+  var abx = b[0] - a[0];
+  var aby = b[1] - a[1];
+  var lengthSq = abx * abx + aby * aby;
+
+  if (lengthSq === 0) return a;
+
+  var t = ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / lengthSq;
+  t = Math.max(0, Math.min(1, t));
+
+  return [a[0] + t * abx, a[1] + t * aby];
 }
 
 function stop1() {
@@ -1239,6 +1801,15 @@ function saveRois(roi_values) {
 }
 
 if (svgCanvas) {
+  // Clicking empty canvas deselects the region being edited and drops merge picks
+  svgCanvas.click(function () {
+    if (adding || dragging) return;
+    clearMergeSelection();
+    if (!activeEditGroup) return;
+    exitEditMode(activeEditGroup);
+    stringifyRois();
+  });
+
   svgCanvas.mouseup(function (e) {
     if (dragging || !adding) return;
     drawing = true;
@@ -1322,6 +1893,10 @@ function drawRoi(e, index, type) {
 
   e.points.forEach(function (m) {
     var p = metersToPixels(m, scale, scene_y_max);
+    // Keep editable regions on the map so every vertex stays clickable
+    if (type === "roi") {
+      p = clampPointToMap(p[0], p[1]);
+    }
     roi_points.push(p[0], p[1]);
   });
 
@@ -1357,10 +1932,9 @@ function drawRoi(e, index, type) {
     var g = svgCanvas.group();
     g.attr("id", i).addClass(type);
 
-    e.points.forEach(function (m) {
-      var p = metersToPixels(m, scale, scene_y_max);
-      var cir = g.circle(p[0], p[1], radius).addClass("vertex");
-    });
+    for (var pt = 0; pt < roi_points.length; pt += 2) {
+      g.circle(roi_points[pt], roi_points[pt + 1], radius).addClass("vertex");
+    }
 
     var poly = g.polygon(roi_points);
     poly.addClass("poly");
@@ -1368,9 +1942,7 @@ function drawRoi(e, index, type) {
     // Reorder so the polygon is on the bottom
     poly.prependTo(poly.node.parentElement);
 
-    g.dblclick(function () {
-      editPolygon(this);
-    });
+    bindPolygonClickHandler(g, poly);
 
     // Set ROI before (and below) sensor circle if on sensor page
     if ($(".sensor").length) {

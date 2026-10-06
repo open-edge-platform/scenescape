@@ -32,11 +32,18 @@ class OsmRoiError(Exception):
 # Road width lookup table (meters) for buffering line geometries.
 # Matches common OSM highway classifications.
 ROAD_WIDTH_BY_TYPE_M = {
-  "footway": 2.0,
-  "path": 2.0,
-  "cycleway": 2.5,
+  "footway": 3.0,
+  "path": 3.0,
+  "cycleway": 4.0,
+  "track": 4.0,
+  "steps": 3.0,
+  "platform": 5.0,
+  "pedestrian": 5.0,
+  "living_street": 5.0,
   "service": 4.0,
+  "unclassified": 6.0,
   "residential": 6.0,
+  "tertiary": 7.0,
   "secondary": 8.0,
   "primary": 10.0,
   "trunk": 12.0,
@@ -49,8 +56,15 @@ OSM_TYPE_LABELS = {
   "footway": "Walking Path",
   "path": "Pedestrian Path",
   "cycleway": "Bike Path",
+  "track": "Track",
+  "steps": "Steps",
+  "platform": "Platform",
+  "pedestrian": "Pedestrian Street",
+  "living_street": "Living Street",
   "service": "Service Road",
+  "unclassified": "Unclassified Road",
   "residential": "Residential Street",
+  "tertiary": "Tertiary Road",
   "secondary": "Secondary Road",
   "primary": "Primary Road",
   "trunk": "Trunk Road",
@@ -66,12 +80,14 @@ FOOTWAY_TYPE_LABELS = {
 }
 
 # Road types where OSM 'lanes' tag reliably indicates vehicle-carriageway width;
-# excludes footway/path/cycleway, which aren't measured in lanes.
-LANE_BASED_WIDTH_TYPES = frozenset(ROAD_WIDTH_BY_TYPE_M) - {"footway", "path", "cycleway"}
+# excludes path-like types, which aren't measured in lanes.
+LANE_BASED_WIDTH_TYPES = frozenset(ROAD_WIDTH_BY_TYPE_M) - {
+  "footway", "path", "cycleway", "track", "steps", "platform", "pedestrian",
+}
 
 # Safety cap on polygon point count after simplification.
 MAX_POLYGON_POINTS = 200
-STANDARD_LANE_WIDTH_M = 3.5  # meters per lane for road width estimation
+STANDARD_LANE_WIDTH_M = 7.0  # meters per lane for road width estimation
 
 
 def lla_to_local_xy(
@@ -256,10 +272,11 @@ def get_width_m(tags: Dict[str, Any], way_type: str) -> float:
 def build_roi_name(tags: Dict[str, Any], way_type: str, ordinal: int = 1) -> str:
   """Build a descriptive ROI name from OSM tags and type.
 
-  Includes road name (if present), surface quality, and sub-type (for footways).
+  Includes road name (if present) and sub-type (for footways). Named roads use
+  their OSM name alone; the type label is only appended when there's no name.
   Examples:
-    - "Ul. Grójecka (Secondary Road)"
-    - "Sidewalk [asphalt, lit]"
+    - "Ul. Grójecka"
+    - "Sidewalk"
     - "Pedestrian Crossing"
     - "Bike Path-1"
 
@@ -284,32 +301,9 @@ def build_roi_name(tags: Dict[str, Any], way_type: str, ordinal: int = 1) -> str
     if footway_type in FOOTWAY_TYPE_LABELS:
       base_label = FOOTWAY_TYPE_LABELS[footway_type]
 
-  # Add road name if present
+  # Prefer the road's own name; fall back to the type label when unnamed
   road_name = tags.get("name", "").strip()
-  if road_name:
-    name = f"{road_name} ({base_label})"
-  else:
-    name = base_label
-
-  # Add surface quality indicator
-  surface = tags.get("surface", "").lower()
-  surface_label = None
-  if surface in ("paving_stones", "concrete", "asphalt"):
-    surface_label = "paved"
-  elif surface in ("gravel", "dirt", "ground"):
-    surface_label = "unpaved"
-
-  # Build accessibility hints
-  accessibility_hints = []
-  if tags.get("lit") == "yes":
-    accessibility_hints.append("lit")
-  if tags.get("tactile_paving") == "yes":
-    accessibility_hints.append("tactile")
-  if surface_label:
-    accessibility_hints.append(surface_label)
-
-  if accessibility_hints:
-    name += f" [{', '.join(accessibility_hints)}]"
+  name = road_name if road_name else base_label
 
   # Handle duplicates
   if ordinal > 1:
@@ -382,10 +376,11 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
       "enable output_lla and wait for the controller to publish it."
     )
 
-  # Cache is only usable if it was written by the current schema (has "tags");
-  # older caches predate width/tag-based naming and must be refreshed.
+  # Cache is only usable if it was written by the current schema: "tags" present
+  # and already a dict (older caches stored the raw parquet list-of-pairs format,
+  # which silently bypassed width/lanes-based sizing) and must be refreshed.
   cache_is_current = bool(scene.osm_ways_cache) and all(
-    "tags" in way for way in scene.osm_ways_cache
+    isinstance(way.get("tags"), dict) for way in scene.osm_ways_cache
   )
 
   if cache_is_current:
