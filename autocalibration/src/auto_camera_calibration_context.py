@@ -6,6 +6,7 @@ import threading
 
 from atag_camera_calibration_controller import ApriltagCameraCalibrationController
 from auto_camera_calibration_model import CameraCalibrationModel
+from geospatial_map_calibration_controller import GEOSPATIAL_MAP, GeospatialMapCalibrationController
 from markerless_camera_calibration_controller import MarkerlessCameraCalibrationController
 from point_cloud_calibration_controller import PointCloudCalibrationController
 
@@ -36,6 +37,7 @@ class CameraCalibrationContext:
 
     self.scene_strategies["AprilTag"] = ApriltagCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
     self.scene_strategies["Markerless"] = MarkerlessCameraCalibrationController(calibration_data_interface=self.calibration_data_interface)
+    self.scene_strategies[GEOSPATIAL_MAP] = GeospatialMapCalibrationController(calibration_data_interface=self.calibration_data_interface)
 
     # Perceptual-sensor calibration strategies are routed by modality,
     # independently of a scene's camera_calibration mode. Each modality owns its
@@ -58,6 +60,21 @@ class CameraCalibrationContext:
     self.current_processing_scene = None
 
     return
+
+  def strategy_for_scene(self, sceneobj):
+    """! Resolve the calibration strategy for a scene.
+
+    Markerless scenes without a polycam dataset but with a top-down raster
+    map are calibrated against that map.
+    @param   sceneobj      scene object.
+
+    @return  strategy controller or None
+    """
+    mode = sceneobj.camera_calibration
+    if (mode == "Markerless" and not sceneobj.polycam_data
+            and GeospatialMapCalibrationController.supports_scene(sceneobj)):
+      mode = GEOSPATIAL_MAP
+    return self.scene_strategies.get(mode)
 
   def preprocess_scenes(self):
     """! For all scenes in database, preprocess the scene map and store/update results
@@ -95,7 +112,10 @@ class CameraCalibrationContext:
     """
     with self.register_thread_lock:
       try:
-        response_dict = self.scene_strategies[sceneobj.camera_calibration].process_scene_for_calibration(sceneobj, map_update)
+        strategy = self.strategy_for_scene(sceneobj)
+        if strategy is None:
+          raise KeyError(sceneobj.camera_calibration)
+        response_dict = strategy.process_scene_for_calibration(sceneobj, map_update)
       except (FileNotFoundError, KeyError) as e:
         log.error(f"Error in register dataset : {e}")
     self.current_processing_scene = {}
@@ -129,7 +149,7 @@ class CameraCalibrationContext:
     with self.calibration_thread_lock:
       try:
         log.info(f"[processCameraCalibration] About to get strategy for {sceneobj.camera_calibration}")
-        strategy = self.scene_strategies.get(sceneobj.camera_calibration)
+        strategy = self.strategy_for_scene(sceneobj)
         if not strategy:
           result = {
               "status": "error",

@@ -33,6 +33,17 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
      strategy (`POINTCLOUD` modality), routed by sensor modality independently of a scene's
      calibration mode
 
+   **`geospatial_map_calibration.py`**: Calibration against a metric top-down map (PNG/JPEG)
+   - RGB forward-BEV ↔ map Lab NCC over yaw/pitch/height hypotheses and a camera XY grid
+     (productized from `tools/map_autocalib_spike/p2_rich_yaw.py`)
+   - `geospatial_map_calibration_controller.py` exposes it as the `GeospatialMap` strategy;
+     `CameraCalibrationContext.strategy_for_scene` routes Markerless scenes with no
+     `polycam_data` and a raster map to it
+   - Optional REST `prior` (`mapPoint`, `heading`, `height`); ambiguous solves return
+     status `needs_prior` with ranked `candidates`
+   - Unit tests: `tests/sscape_tests/geospatial_map_calib/` (API tests need the
+     `autocalibration-test` image; they skip on the host without `flask_socketio`)
+
 4. **`auto_camera_calibration_controller.py`**: Main service controller
    - Orchestrates calibration workflows
    - Manages MQTT communication with Scene Controller

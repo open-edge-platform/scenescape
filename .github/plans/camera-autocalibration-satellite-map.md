@@ -176,7 +176,7 @@ asymmetric, well-mapped junctions only.
 | P1 | Imagery landmark extraction + `scene_common` reader; artifacts beside map |
 | P2 | **RGB rich-yaw signal.** Next: scene-wide XY search, cam3 debug, wire rich-yaw → BEV refine; click when gated |
 | P3 | Optional OSM; multi-scene eval including campus-like map; class-aware semantics if RGB stalls |
-| P4 | `autocalibration/` map strategy — **RGB-yaw path unblocked for spike→product**; click remains fallback |
+| P4 | `autocalibration/` map strategy — **in service** (`geospatial_map_calibration*.py`, `GeospatialMap` strategy; Markerless + raster map + no polycam routes to it). REST `prior` = click fallback; `needs_prior` status when gated. SI via `eval_service_engine.py`: point prior → yaw ≤10° 4/4, XY 5–14 m; no prior → gated 3/4. UI wiring next |
 
 Open product questions:
 

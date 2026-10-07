@@ -118,12 +118,60 @@ components:
             items:
               type: number
               format: float
+        prior:
+          $ref: "#/components/schemas/GeospatialMapPrior"
       example:
         image: "/9j/4AAQSkZJRgABAQAAAQABAAD..."
         intrinsics:
           - [1000.0, 0.0, 640.0]
           - [0.0, 1000.0, 360.0]
           - [0.0, 0.0, 1.0]
+
+    GeospatialMapPrior:
+      type: object
+      description: |
+        Optional operator hints for geospatial map calibration (Markerless scenes
+        with a PNG/JPEG top-down map and no Polycam dataset). Rejected with 400
+        for other calibration strategies. Any subset of fields may be given.
+      additionalProperties: false
+      properties:
+        mapPoint:
+          type: array
+          description: Approximate camera ground position [x, y] in scene meters
+          minItems: 2
+          maxItems: 2
+          items:
+            type: number
+            format: float
+        heading:
+          type: number
+          format: float
+          description: Approximate optical-axis heading in degrees, 0 along +X, counter-clockwise
+        height:
+          type: number
+          format: float
+          exclusiveMinimum: true
+          minimum: 0
+          maximum: 500
+          description: Camera height above ground in meters
+      example:
+        mapPoint: [42.0, 18.5]
+        heading: 90.0
+
+    GeospatialMapCandidate:
+      type: object
+      properties:
+        yaw_deg:
+          type: number
+          format: float
+        score:
+          type: number
+          format: float
+        map_point:
+          type: array
+          items:
+            type: number
+            format: float
 
     CameraCalibrationTriggerResponse:
       type: object
@@ -161,11 +209,29 @@ components:
           description: Unique identifier of the scene
         status:
           type: string
-          enum: [success, calibrating, error, not_started, busy]
-          description: Calibration status
+          enum: [success, calibrating, error, not_started, busy, needs_prior]
+          description: |
+            Calibration status. `needs_prior` (geospatial map calibration only)
+            means the solve was ambiguous; retry with a `prior`.
         message:
           type: string
           description: Status or error message
+        confidence:
+          type: object
+          description: Geospatial map calibration confidence (optional)
+          properties:
+            score:
+              type: number
+              format: float
+            needs_prior:
+              type: boolean
+            reason:
+              type: string
+        candidates:
+          type: array
+          description: Ranked heading/position candidates from geospatial map calibration (optional)
+          items:
+            $ref: "#/components/schemas/GeospatialMapCandidate"
         quaternion:
           type: array
           minItems: 4

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import math
 import re
 import os
 import base64
@@ -10,6 +11,8 @@ from flask import Flask, jsonify, request
 from flask_socketio import SocketIO
 from werkzeug.exceptions import BadRequest, NotFound, InternalServerError, RequestEntityTooLarge
 
+from geospatial_map_calibration import MAX_HEIGHT_M
+from geospatial_map_calibration_controller import GeospatialMapCalibrationController
 from point_cloud_registration import PointCloudRegistration, PointCloudRegistrationError
 
 logging.basicConfig(level=logging.INFO)
@@ -128,6 +131,10 @@ class CameraCalibrationApi:
     FORMAT = "format"
     MODALITY = "modality"
     INITIAL_TRANSFORM = "initialTransform"
+    PRIOR = "prior"
+    MAP_POINT = "mapPoint"
+    HEADING = "heading"
+    HEIGHT = "height"
 
     class Status:
       BUSY = "busy"
@@ -263,6 +270,30 @@ class CameraCalibrationApi:
         if not isinstance(value, (int, float)):
           raise ValidationError("Initial transform values must be numbers")
 
+  @staticmethod
+  def _is_finite_number(value):
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+  def _validate_map_prior(self, prior):
+    """Validate the optional geospatial map calibration prior."""
+    if not isinstance(prior, dict):
+      raise ValidationError("Prior must be a JSON object")
+    allowed = {self.OpenApi.MAP_POINT, self.OpenApi.HEADING, self.OpenApi.HEIGHT}
+    unknown = set(prior) - allowed
+    if unknown:
+      raise ValidationError(f"Unsupported prior fields: {', '.join(sorted(unknown))}")
+    map_point = prior.get(self.OpenApi.MAP_POINT)
+    if map_point is not None:
+      if (not isinstance(map_point, list) or len(map_point) != 2
+              or not all(self._is_finite_number(v) for v in map_point)):
+        raise ValidationError("Prior mapPoint must be [x, y] in scene meters")
+    heading = prior.get(self.OpenApi.HEADING)
+    if heading is not None and not self._is_finite_number(heading):
+      raise ValidationError("Prior heading must be a number in degrees")
+    height = prior.get(self.OpenApi.HEIGHT)
+    if height is not None and (not self._is_finite_number(height) or not 0 < height <= MAX_HEIGHT_M):
+      raise ValidationError(f"Prior height must be a number in (0, {MAX_HEIGHT_M}] meters")
+
   def _validate_pose_data(self, data):
     """Validate pose-related data in responses."""
     if "quaternion" in data:
@@ -393,7 +424,7 @@ class CameraCalibrationApi:
 
   def _get_calibration_strategy(self, scene):
     """Get calibration strategy for scene."""
-    strategy = self.calibrationContext.scene_strategies.get(scene.camera_calibration)
+    strategy = self.calibrationContext.strategy_for_scene(scene)
     if not strategy:
       raise StrategyNotFoundError()
     return strategy
@@ -618,6 +649,13 @@ class CameraCalibrationApi:
           "id": cameraId
       }
 
+      prior = data.get(self.OpenApi.PRIOR)
+      if prior is not None:
+        if not isinstance(strategy, GeospatialMapCalibrationController):
+          raise ValidationError("Prior is only supported for geospatial map calibration")
+        self._validate_map_prior(prior)
+        cam_frame_data["prior"] = prior
+
       try:
         self.calibrationContext.calibrate_camera_thread_wrapper(
             scene, cameraId, intrinsics, cam_frame_data
@@ -672,6 +710,9 @@ class CameraCalibrationApi:
           self.OpenApi.STATUS: result.get("status", self.OpenApi.Status.ERROR),
           self.OpenApi.MESSAGE: result.get("message", ""),
       }
+      for key in ("confidence", "candidates"):
+        if key in result:
+          response[key] = result[key]
       if result.get("status") == self.OpenApi.Status.SUCCESS:
         self._validate_pose_data(result)
         response["pose"] = result.get("pose")

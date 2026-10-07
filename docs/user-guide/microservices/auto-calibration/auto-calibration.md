@@ -31,6 +31,16 @@ The auto calibration services supports two types of camera calibration methods:
 
 For implementation-level details of markerless calibration using NetVLAD, quadtree attention, and HLoc, see [Markerless Camera Calibration Internals](./markerless-camera-calibration.md).
 
+**Geospatial map calibration**: if a Markerless scene has no Polycam dataset and its
+map is a metric top-down image (PNG or JPEG, such as an ortho or satellite tile), the
+service calibrates against that map instead. It warps the camera frame into a
+bird's-eye view for each heading, pitch, and height hypothesis, and correlates it with
+the map. The `POST /cameras/{cameraId}/calibration` request accepts an optional `prior`
+(`mapPoint` `[x, y]` in scene meters, `heading` in degrees CCW from +X, and `height` in
+meters) that narrows the search. When the heading is ambiguous or the correlation is
+weak, the result status is `needs_prior` and the response includes ranked `candidates`.
+Retry with a prior in that case.
+
 ## NetVLAD model preparation
 
 The autocalibration application image does not download models when it starts, and it does not
