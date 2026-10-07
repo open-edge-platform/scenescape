@@ -24,6 +24,8 @@ TEST_NAME = "NEX-T10473"
 WAIT_SEC = 3
 
 class WillOurShipGo(UserInterfaceTest):
+  BROWSER_WEBGL = True
+
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
     self.params['scene'] = "Retail"
@@ -91,6 +93,44 @@ class WillOurShipGo(UserInterfaceTest):
     action.move_by_offset(xOffset, yOffset).double_click().pause(waitTime).perform()
     if resetPosition:
       action.move_by_offset(xOffset * -1, yOffset * -1).perform()
+
+  def movePointerTo(self, x: int, y: int) -> None:
+    """! Move the pointer to an absolute viewport position."""
+
+    action = self.browser.actionChains()
+    action.w3c_actions.pointer_action.move_to_location(x, y)
+    action.perform()
+
+  def getCalibrationPointScreenPositions(self, cameraName):
+    """! Project the camera's calibration point spheres to viewport pixels using
+    the window.__testScene hook.
+    @param    cameraName    name of the camera owning the calibration points
+    @return   list of (x, y) viewport coordinates, in calibration point order
+    """
+    script = """
+      const testScene = window.__testScene;
+      if (!testScene) return null;
+      const camera = testScene.getObjectByName(arguments[0]);
+      if (!camera || !camera.calibPoints) return [];
+      const viewCamera = testScene.children.find((c) => c.isPerspectiveCamera);
+      const canvas = document.querySelector("#scene canvas") ||
+        document.querySelector("canvas");
+      const rect = canvas.getBoundingClientRect();
+      viewCamera.updateMatrixWorld();
+      return camera.calibPoints.children
+        .filter((c) => c.name.includes("drag_sphere"))
+        .map((sphere) => {
+          const v = sphere.getWorldPosition(sphere.position.clone()).project(viewCamera);
+          return [
+            Math.round(rect.left + (v.x + 1) / 2 * rect.width),
+            Math.round(rect.top + (1 - v.y) / 2 * rect.height),
+          ];
+        });
+    """
+    positions = self.executeScript(script, cameraName)
+    assert positions is not None, "window.__testScene hook is not available"
+    log.info(f"Calibration point screen positions: {positions}")
+    return positions
 
   def clickAndDrag3DScene(self, xOffset: int = 0, yOffset: int = 0,
                           dragBack: bool = False, waitTime: int = 1) -> None:
@@ -188,12 +228,18 @@ class WillOurShipGo(UserInterfaceTest):
 
       log.info("Check dragging calibration point to side changes camera pose")
       position_initial, rotation_initial = self.getCameraPose("camera1")
+      # Re-anchor the pointer on the last calibration point before dragging it
+      points = self.getCalibrationPointScreenPositions("camera1")
+      assert len(points) == 4, f"Expected 4 calibration points, found {points}"
+      self.movePointerTo(*points[-1])
       self.clickAndDrag3DScene(0, 50)
       ss_drag_four_points = self.getPageScreenshot()
       position_dragged, rotation_dragged = self.getCameraPose("camera1")
       assert not self.comparePoses(
         position_initial, position_dragged, rotation_initial, rotation_dragged)
-      assert not self.compareImages(ss_four_points, ss_drag_four_points)
+      # Compare only the calibration region
+      assert not self.compareImages(
+        ss_four_points[150:350, 250:450, :], ss_drag_four_points[150:350, 250:450, :])
 
       log.info("Check returning to original point preserves camera pose")
       self.clickAndDrag3DScene(0, -50)

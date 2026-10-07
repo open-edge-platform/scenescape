@@ -585,7 +585,8 @@ def test_events_stop_after_child_unlinked(
 
 
 @pytest.mark.test_name("NEX-T10520")
-def test_regulated_data_stops_after_child_unlinked(objData, params, result_recorder):
+def test_regulated_data_stops_after_child_unlinked(
+    objData, params, result_recorder, demo_scene):
   """! Verify that after unlinking a child from its parent, raw DATA_REGULATED
   object data from the child scene is no longer forwarded to the parent
   scene's DATA_REGULATED topic (while the child continues to receive its own
@@ -599,6 +600,7 @@ def test_regulated_data_stops_after_child_unlinked(objData, params, result_recor
   @param    objData          Pytest fixture with detection data.
   @param    params           Dict of test parameters.
   @param    result_recorder  Pytest fixture recording the Zephyr test result.
+  @param    demo_scene       Pytest fixture creating the Demo scene used as child.
   """
   FRAME_RATE = 10
   MAX_WAIT = 10
