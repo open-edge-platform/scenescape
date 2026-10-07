@@ -25,6 +25,6 @@ requests==2.33.0
 scipy==1.17.1
 setuptools==83.0.0
 trimesh==4.11.5
-urllib3==2.7.0
+urllib3==2.8.0
 websockets==15.0.1
 wheel==0.47.0
