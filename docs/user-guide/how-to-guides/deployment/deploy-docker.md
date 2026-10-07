@@ -98,7 +98,9 @@ export COMPOSE_PROFILES=controller,mapping
 docker compose up -d
 ```
 
-## Select the Mapping Model
+## (Optional) Select the Mapping Model 
+
+**This section is applicable only when mapping profile is selected)**
 
 Each Mapping image contains exactly one 3D reconstruction model, fixed at build time. The `mapping` service in `docker-compose.yml` uses `intel/scenescape-mapping:${VERSION}`, which is MapAnything. To run VGGT, change its `image` to `intel/scenescape-mapping:${VERSION}-vggt`.
 
