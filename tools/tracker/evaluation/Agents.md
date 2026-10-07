@@ -22,9 +22,8 @@ SPDX-License-Identifier: Apache-2.0
 - Main tracker evaluation README (canonical formats, usage, CLI): [README.md](README.md)
 - ADR context: [docs/adr/0009-tracking-evaluation.md](../../../docs/adr/0009-tracking-evaluation.md)
 - Example configurations:
-  - Full tracker evaluation: [pipeline_configs/metric_test_evaluation.yaml](pipeline_configs/metric_test_evaluation.yaml)
+  - Black-box suite (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/)
   - Camera projection accuracy: [pipeline_configs/camera_projection_evaluation.yaml](pipeline_configs/camera_projection_evaluation.yaml)
-  - Black-box suite configs (default Unity dataset): [pipeline_configs/black_box_unity/](pipeline_configs/black_box_unity/); Wildtrack variant: [pipeline_configs/black_box_wildtrack/](pipeline_configs/black_box_wildtrack/)
 
 ## Folders structure
 
@@ -122,7 +121,7 @@ Check `evaluators/README.md` for more details
 ## Code Entry Points
 
 - **Black-box evaluation suite**: [run_black_box_evaluation.py](run_black_box_evaluation.py) — runs all three black-box configs (Controller-NO-TC, Controller-TC, Tracker-Service) in a single timestamped session. Usage: `python -m run_black_box_evaluation [--output <path>]`. Results land under `<output>/<YYYYMMDD_HHMMSS>/`; see [README.md](README.md) for full output structure.
-- **Mock Manager REST API**: [harnesses/black_box_harness/mock_manager.py](harnesses/black_box_harness/mock_manager.py) — minimal Manager REST server (`/api/v1/auth`, `/api/v1/scenes`, `/api/v1/camera/<uid>`) started by BlackBoxHarness on the Docker host. Computes camera extrinsics with production-identical math from `PointCorrespondenceTransform`.
+- **Mock Manager REST API**: [harnesses/black_box_harness/mock_manager.py](harnesses/black_box_harness/mock_manager.py) — minimal Manager REST server (`/api/v1/auth`, `/api/v1/scenes`, `/api/v1/assets`, `/api/v1/camera/<uid>`) started by BlackBoxHarness on the Docker host. Computes camera extrinsics with production-identical math from `PointCorrespondenceTransform`. `/api/v1/assets` serves the harness `object_classes` entries so per-category `shift_type` is applied.
 - **Metrics recorder**: [harnesses/black_box_harness/metrics_recorder.py](harnesses/black_box_harness/metrics_recorder.py) — parses the OTEL Collector `file` exporter output and writes `metrics_summary.txt` (per-metric min/max/avg, plus median for counters/gauges). Exposes `collect_metric_values()` (structured per-metric values) and `check_dropped_frames()` (dropped-frame count + ratio check).
 - **Pipeline orchestration**: [pipeline_engine.py](pipeline_engine.py) (methods `load_configuration()`, `run()`, `evaluate()`, CLI via `python -m pipeline_engine <config>`).
   - `_configure_harness()` forwards `object_classes` from the YAML `harness.config` block to the harness via `set_custom_config({'object_classes': ...})`.
@@ -175,7 +174,7 @@ Check `evaluators/README.md` for more details
 - Integration tests: `pytest . -v -m "integration"`
 - Unit & integration: `pytest tests/ -q --tb=short`.
 - PipelineEngine test: `pytest tests/test_pipeline_engine.py -v`.
-- Full pipeline test via CLI `python pipeline_engine.py pipeline_configs/metric_test_evaluation.yaml` to ensure dataset → harness → evaluator flow succeeds.
+- Full pipeline test via CLI, e.g. `python pipeline_engine.py pipeline_configs/black_box_unity/black_box_controller_immediate.yaml`, to ensure dataset → harness → evaluator flow succeeds.
 
 ## I/O, Data Formats and Conversions
 
