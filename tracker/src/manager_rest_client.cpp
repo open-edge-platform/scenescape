@@ -133,6 +133,14 @@ void ManagerRestClient::authenticate(const std::string& username, const std::str
 }
 
 std::string ManagerRestClient::fetchScenes() {
+    return fetch("scenes");
+}
+
+std::string ManagerRestClient::fetchAssets() {
+    return fetch("assets");
+}
+
+std::string ManagerRestClient::fetch(std::string_view resource) {
     if (token_.empty()) {
         throw std::runtime_error("Manager API not authenticated — call authenticate() first");
     }
@@ -141,13 +149,12 @@ std::string ManagerRestClient::fetchScenes() {
     auto client =
         create_http_client(scheme_host_port, ca_cert_path_, connect_timeout_, read_timeout_);
 
-    // GET /api/v1/scenes with auth header
-    std::string scenes_path = path_prefix + "/api/v1/scenes";
+    std::string path = path_prefix + "/api/v1/" + std::string(resource);
     httplib::Headers headers = {{"Authorization", "Token " + token_}};
 
-    LOG_DEBUG("Fetching scenes from Manager API: {}{}", scheme_host_port, scenes_path);
+    LOG_DEBUG("Fetching {} from Manager API: {}{}", resource, scheme_host_port, path);
 
-    auto result = client.Get(scenes_path, headers);
+    auto result = client.Get(path, headers);
 
     if (!result) {
         throw std::runtime_error("Manager API connection failed: " +
@@ -155,11 +162,11 @@ std::string ManagerRestClient::fetchScenes() {
     }
 
     if (result->status != 200) {
-        throw std::runtime_error("Manager API scenes request failed (HTTP " +
+        throw std::runtime_error("Manager API " + std::string(resource) + " request failed (HTTP " +
                                  std::to_string(result->status) + "): " + result->body);
     }
 
-    LOG_INFO("Fetched scenes from Manager API ({} bytes)", result->body.size());
+    LOG_INFO("Fetched {} from Manager API ({} bytes)", resource, result->body.size());
     return result->body;
 }
 
