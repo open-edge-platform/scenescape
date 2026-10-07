@@ -19,6 +19,7 @@ class MockManagerRestClient : public IManagerRestClient {
 public:
     MOCK_METHOD(void, authenticate, (const std::string&, const std::string&), (override));
     MOCK_METHOD(std::string, fetchScenes, (), (override));
+    MOCK_METHOD(std::string, fetchAssets, (), (override));
 };
 
 } // namespace tracker::test

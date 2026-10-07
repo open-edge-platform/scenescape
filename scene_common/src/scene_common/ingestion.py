@@ -167,6 +167,9 @@ class SceneDataIngestion:
     obj.visibility = obj_data.get('visibility')
     obj.info = {'category': obj.category, 'confidence': obj.confidence}
     obj.association_window = obj_data.get('association_window')
+    # Debug aid carried through from the publisher (e.g. "lidar"/"camera");
+    # not part of the curated obj.info reconstruction above.
+    obj.source = obj_data.get('source')
 
     # Reconstruct bbMeters from size when available
     if obj.size and len(obj.size) == 3:

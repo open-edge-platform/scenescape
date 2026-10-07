@@ -9,6 +9,7 @@
 #include <unordered_map>
 #include "rv/Utils.hpp"
 #include "rv/tracking/Classification.hpp"
+#include "rv/tracking/OrientationAttributes.hpp"
 
 namespace rv {
 namespace tracking {
@@ -58,11 +59,12 @@ void clearMetadataAttributes(TrackedObject &object)
 }
 
 /**
- * @brief Average world geometry across multi-camera matches into measurement.
+ * @brief Average world position and size across multi-camera matches into measurement.
  *
  * Last-camera-wins for x/y biases static objects when cameras disagree on the
  * ground-plane projection. Equal-weight averaging is the Phase-1 fix; per-detection
- * R weighting belongs with Phase 2 measurement covariance.
+ * R weighting belongs with Phase 2 measurement covariance. Yaw is not averaged:
+ * non-orienting detections carry no yaw (see applyOrientingYaw).
  */
 void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
                   const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
@@ -79,8 +81,6 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
   double sumLength = 0.0;
   double sumWidth = 0.0;
   double sumHeight = 0.0;
-  double sumSinYaw = 0.0;
-  double sumCosYaw = 0.0;
 
   for (const auto &[cameraIndex, objectIndex] : matches)
   {
@@ -91,8 +91,6 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
     sumLength += object.length;
     sumWidth += object.width;
     sumHeight += object.height;
-    sumSinYaw += std::sin(object.yaw);
-    sumCosYaw += std::cos(object.yaw);
   }
 
   const double n = static_cast<double>(matches.size());
@@ -102,7 +100,6 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
   measurement.length = sumLength / n;
   measurement.width = sumWidth / n;
   measurement.height = sumHeight / n;
-  measurement.yaw = std::atan2(sumSinYaw / n, sumCosYaw / n);
 }
 
 void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
@@ -185,6 +182,50 @@ void mergeHistoricalMetadata(const TrackedObject &track, TrackedObject &measurem
     {
       measurement.attributes.erase(confidenceKey);
     }
+  }
+}
+
+/**
+ * Prefer yaw from an orienting detection among matches. Position and size are
+ * averaged separately by fuseGeometry. When several orienting
+ * detections match, pick the highest classification confidence and break ties
+ * with later camera order.
+ */
+void applyOrientingYaw(const std::vector<std::pair<size_t, size_t>> &matches,
+                       const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
+                       TrackedObject &fusedObject)
+{
+  bool found = false;
+  double bestConfidence = -1.0;
+  size_t bestCameraIndex = 0;
+  double bestYaw = fusedObject.yaw;
+
+  for (const auto &[cameraIndex, objectIndex] : matches)
+  {
+    const auto &object = objectsPerCamera[cameraIndex][objectIndex];
+    if (!orientation::hasOrientation(object))
+    {
+      continue;
+    }
+    const double confidence = object.classification.size() > 0 ? object.classification.maxCoeff() : 0.0;
+    if (!found || confidence > bestConfidence
+        || (confidence == bestConfidence && cameraIndex > bestCameraIndex))
+    {
+      found = true;
+      bestConfidence = confidence;
+      bestCameraIndex = cameraIndex;
+      bestYaw = object.yaw;
+    }
+  }
+
+  if (found)
+  {
+    fusedObject.yaw = bestYaw;
+    orientation::setHasOrientation(fusedObject, true);
+  }
+  else
+  {
+    orientation::setHasOrientation(fusedObject, false);
   }
 }
 
@@ -470,6 +511,7 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     const auto &lastMatch = matches.back();
     auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
     fuseGeometry(matches, objectsPerCamera, fusedObject);
+    applyOrientingYaw(matches, objectsPerCamera, fusedObject);
     fuseMetadata(matches, objectsPerCamera, fusedObject);
     mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
 
@@ -587,6 +629,7 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
         = {{newObjects[newObjectIndex]}, {cameraObjects[cameraObjectIndex]}};
       const std::vector<std::pair<size_t, size_t>> matches = {{0, 0}, {1, 0}};
       fuseGeometry(matches, candidates, fusedObject);
+      applyOrientingYaw(matches, candidates, fusedObject);
       fuseMetadata(matches, candidates, fusedObject);
       newObjects[newObjectIndex] = std::move(fusedObject);
     }

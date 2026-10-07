@@ -56,7 +56,9 @@ void addMetadataAttributes(std::string_view metadataJson,
 } // namespace
 
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
-                                             const CameraExtrinsics& extrinsics) {
+                                             const CameraExtrinsics& extrinsics, int shift_type,
+                                             std::optional<double> footprint_half)
+    : shift_type_(shift_type), footprint_half_(std::move(footprint_half)) {
     // Build intrinsics matrix K = [fx 0 cx; 0 fy cy; 0 0 1]
     intrinsics_matrix_ = cv::Matx33d(intrinsics.fx, 0.0, intrinsics.cx, 0.0, intrinsics.fy,
                                      intrinsics.cy, 0.0, 0.0, 1.0);
@@ -147,7 +149,7 @@ void CoordinateTransformer::batchPixelToWorld(const std::vector<cv::Point2f>& pi
             world[i] = cv::Point2d(start_x + t * ray_x, start_y + t * ray_y);
         } else {
             // Horizon culling
-            const double xy_len = std::sqrt(ray_x * ray_x + ray_y * ray_y);
+            const double xy_len = std::hypot(ray_x, ray_y);
             if (xy_len > kRayEpsilon) {
                 world[i] = cv::Point2d(start_x + (ray_x / xy_len) * horizon_distance,
                                        start_y + (ray_y / xy_len) * horizon_distance);
@@ -188,7 +190,51 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     std::vector<uint8_t> valid;
     batchPixelToWorld(pixels, world, valid);
 
-    // Phase 4: Assemble TrackedObjects from world-projected points
+    // Phase 4: TYPE_2 re-projects the foot shifted up by baseAngle, measured from the camera to
+    // the midpoint of the projected bottom corners (Controller projectBounds / camLoc).
+    if (shift_type_ == ObjectClassConfig::kShiftType2) {
+        const double cam_x = camera_origin_.x;
+        const double cam_y = camera_origin_.y;
+        const double cam_z = std::abs(camera_origin_.z);
+
+        std::vector<size_t> type2_indices;
+        std::vector<cv::Point2f> type2_feet;
+        type2_indices.reserve(n);
+        type2_feet.reserve(n);
+
+        for (size_t i = 0; i < n; ++i) {
+            const size_t base = i * kPixelsPerDetection;
+            if (!valid[base] || !valid[base + 1] || !valid[base + 2]) {
+                continue;
+            }
+            const auto& bl = world[base + 1];
+            const auto& br = world[base + 2];
+            const auto& bbox = detections[i].bounding_box_px;
+            const double base_x = (bl.x + br.x) / 2.0;
+            const double base_y = (bl.y + br.y) / 2.0;
+            const double base_len = std::hypot(base_x - cam_x, base_y - cam_y);
+            const double base_angle = std::atan2(cam_z, base_len);
+            type2_indices.push_back(i);
+            type2_feet.push_back(
+                {bbox.x + bbox.width / 2.0f,
+                 bbox.y + bbox.height -
+                     (bbox.height / 2.0f) *
+                         static_cast<float>(base_angle / (std::numbers::pi / 2.0))});
+        }
+
+        if (!type2_feet.empty()) {
+            std::vector<cv::Point2d> type2_world;
+            std::vector<uint8_t> type2_valid;
+            batchPixelToWorld(type2_feet, type2_world, type2_valid);
+            for (size_t j = 0; j < type2_indices.size(); ++j) {
+                if (type2_valid[j]) {
+                    world[type2_indices[j] * kPixelsPerDetection] = type2_world[j];
+                }
+            }
+        }
+    }
+
+    // Phase 5: Assemble TrackedObjects from world-projected points
     std::vector<rv::tracking::TrackedObject> result(n);
     std::vector<uint8_t> detection_valid(n);
 
@@ -212,34 +258,24 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         const auto& tl = world[base + 3];
 
         // Width: distance between bottom-left and bottom-right
-        const double dx_w = br.x - bl.x;
-        const double dy_w = br.y - bl.y;
-        const double width_m = std::sqrt(dx_w * dx_w + dy_w * dy_w);
+        const double width_m = std::hypot(br.x - bl.x, br.y - bl.y);
 
         // Height: elevation angle geometry
-        const double cdx = cam_x - tl.x;
-        const double cdy = cam_y - tl.y;
-        const double ll1 = std::sqrt(cdx * cdx + cdy * cdy + cam_z * cam_z);
-        const double dx_h = tl.x - bl.x;
-        const double dy_h = tl.y - bl.y;
-        const double ll2 = std::sqrt(dx_h * dx_h + dy_h * dy_h);
+        const double ll1 = std::hypot(cam_x - tl.x, cam_y - tl.y, cam_z);
+        const double ll2 = std::hypot(tl.x - bl.x, tl.y - bl.y);
         const double elevation_angle = std::atan2(std::abs(cam_z), ll1);
         const double height_m = std::sin(elevation_angle) * ll2;
 
-        // Shift foot point away from camera by half the object width along
-        // the camera→foot bearing.  This compensates for the fact that the
-        // bottom-center of the bounding box projects to the near edge of
-        // the object's footprint, not its center.  Without this offset,
-        // the same object observed from two cameras at different angles
-        // projects to two different ground points, causing duplicate tracks
-        // when the gap exceeds the matching threshold.
+        // Shift foot point away from camera by half the object footprint along
+        // the camera→foot bearing. Prefer a fixed asset half-size when provided
+        // (Controller path); otherwise use half the projected bbox width.
         const double foot_dx = foot.x - cam_x;
         const double foot_dy = foot.y - cam_y;
-        const double bearing_len = std::sqrt(foot_dx * foot_dx + foot_dy * foot_dy);
+        const double bearing_len = std::hypot(foot_dx, foot_dy);
         double offset_x = foot.x;
         double offset_y = foot.y;
         if (bearing_len > 1e-9) {
-            const double half_size = width_m / 2.0;
+            const double half_size = footprint_half_.value_or(width_m / 2.0); // metres
             offset_x += (foot_dx / bearing_len) * half_size;
             offset_y += (foot_dy / bearing_len) * half_size;
         }

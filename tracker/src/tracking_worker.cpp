@@ -94,7 +94,7 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                PublishCallback publish_callback,
                                const TrackingConfig& tracking_config,
                                const std::unordered_map<std::string, Camera>& cameras,
-                               ClockFn clock_fn)
+                               ObjectClassConfig object_class, ClockFn clock_fn)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
       tracker_(build_tracker_config(tracking_config)),
@@ -102,14 +102,17 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
-    // Build coordinate transformers with full intrinsics + extrinsics
+    // Build coordinate transformers
     for (const auto& [camera_id, camera] : cameras) {
-        transformers_.emplace(camera_id,
-                              CoordinateTransformer(camera.intrinsics, camera.extrinsics));
+        transformers_.emplace(camera_id, CoordinateTransformer(camera.intrinsics, camera.extrinsics,
+                                                               object_class.shift_type,
+                                                               object_class.footprint_half));
     }
 
-    LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{}", cameras.size(),
-             scope_.scene_id, scope_.category);
+    LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{} (shift_type={}, "
+             "footprint_half={})",
+             cameras.size(), scope_.scene_id, scope_.category, object_class.shift_type,
+             object_class.footprint_half.value_or(-1.0));
 
     worker_thread_ = std::thread(&TrackingWorker::run, this);
 }
@@ -268,7 +271,10 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         track.translation = {rv_track.x, rv_track.y, rv_track.z};
         track.velocity = {rv_track.vx, rv_track.vy, 0.0};
         track.size = {rv_track.length, rv_track.width, rv_track.height};
-        track.rotation = CoordinateTransformer::yawToQuaternion(rv_track.yaw);
+        // Pixel detections carry no orientation, so RobotVision yaw is unobserved.
+        // TEMPORARY: fixes yaw drift regression introduced by c2a80ef38 (ITEP-96642, #1958);
+        // subject to change in future.
+        track.rotation = {0.0, 0.0, 0.0, 1.0};
 
         track.metadata_json = metadataJson(rv_track.attributes);
 
