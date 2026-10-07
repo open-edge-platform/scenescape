@@ -80,6 +80,11 @@ must account for tilt-axis mounting inaccuracy as well as pan-axis misalignment.
 per-camera tilt-axis model and its measurement procedure must be validated on supported
 hardware before implementation acceptance; the PoC numbers above do not establish that
 model.
+The production model must therefore treat the tilt axis as a per-camera calibrated axis,
+not assume an ideal `Rx(Δtilt)`. Record its orientation and coordinate frame in
+`ptz_calibration`, then compose pan and tilt as rotations about the calibrated axes. The
+exact frame convention, composition order, and parameterization remain subject to
+hardware measurement; do not infer tilt-axis parameters from the PoC.
 
 ### Why the PoC's write path is rejected
 
@@ -439,18 +444,22 @@ not inside the Adapter's polling hot path.
 
 ### 5.4 Pose Resolver
 
-The Resolver is a separate process. It loads camera configuration from Manager and
-maintains one state machine per configured PTZ camera, holding:
+The PTZ Pose Resolver runs as a process within the Positioning Service; it is not a
+standalone service. It loads camera configuration from Manager and maintains one state
+machine per configured PTZ camera, holding:
 
 - Home pose (`pose_mat` derived from the camera's calibrated `rotation`/`translation`),
   recorded `home_pan`/`home_tilt`, and the approach direction used at calibration time.
-- Per-axis scale or curve, pan axis (defaults to world `Z`, overridable per the PoC's
-  measured-lean finding), backlash model, inversion flags.
+- Per-axis scale or curve, calibrated pan- and tilt-axis orientations in explicitly
+  identified coordinate frames, backlash models, and inversion flags. The PoC's measured
+  pan-axis correction may seed the pan model for that camera; it does not supply a
+  calibrated tilt-axis model.
 - A small ring buffer of recent raw readings per camera, used to:
   - classify `stationary` only after readings remain within the configured angular
     threshold for the configured settle interval; classify `slewing` while changing and
     `settling` until the interval passes; transition to `unknown` on timeout/offline;
-  - apply the measured scale/curve, direction, backlash history, and pan-axis model;
+  - apply per-axis scale/curve and backlash history, then compose rotations about the
+    calibrated pan and tilt axes using the calibration-defined frames and order;
   - reject non-finite, out-of-range, duplicate/out-of-order, too-old, or mismatched
     calibration-version input;
   - publish a valid PoseContext after accepted samples, and an invalid status when pose
@@ -516,8 +525,8 @@ Resolver:
 - Home raw pan/tilt values and the approach direction used to establish each axis home.
 - Calibrated ONVIF position-space URI and ranges, plus per-axis scale or curve
   coefficients.
-- Per-axis backlash parameters and calibrated pan- and tilt-axis orientation, including
-  corrections for mounting misalignment.
+- Per-axis backlash parameters and calibrated pan- and tilt-axis orientations, including
+  their coordinate frames and corrections for mounting misalignment.
 - `calibration_version` and calibration quality/provenance, including reprojection
   residuals needed for validity checks.
 
@@ -530,6 +539,12 @@ calibration directly. Building production calibration tooling is out of scope fo
 service, but the hardware measurement, validated import, and per-camera acceptance
 procedure are prerequisites to enabling a camera. The tilt-axis correction model must
 be selected and validated on supported hardware before implementation acceptance.
+The proposed acceptance measurement sweeps the supported tilt range in both directions
+at multiple pan positions, fits the tilt-axis model on part of the samples, and checks
+reprojection residuals on held-out samples. Compare against the nominal-axis model to
+show whether the mounting correction improves the measured projection. Store the axis
+convention and measured model with the calibration version; this procedure and its
+results are not supplied by the PoC.
 `ptz_calibration` never contains device credentials. Local config files are limited to
 the isolated lab, offline tools, and tests, not production service configuration.
 
@@ -594,8 +609,10 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 - **ONVIF Adapter**: one deployable service, configurable for one or more cameras;
   camera credentials mounted as secrets, never embedded in `cameras.json` or logs.
-- **Pose Resolver**: separate deployable service with Manager read-only credentials,
-  MQTT publish credentials, gRPC server certificate, and per-camera assignment.
+- **Positioning Service**: owns and deploys the PTZ Pose Resolver process, with Manager
+  read-only credentials, MQTT publish credentials, a gRPC server certificate, and
+  per-camera assignment. The Resolver is part of the Positioning service boundary, not a
+  standalone service.
 - **gRPC**: mTLS on the internal service network; client certificate identity is mapped
   to allowed camera IDs. Validate all device-derived numbers, time ranges, sequence,
   camera ID, and position-space metadata as untrusted input.
@@ -643,19 +660,19 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 7. Risks and Mitigations
 
-| Risk                                                                  | Mitigation                                                                                                                                                                                                             |
-| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ONVIF position space misidentified as degrees (wrong vendor/firmware) | Resolver validates the reported position-space URI/ranges and calibration version; do not infer degrees from a generic or narrow normalized range. Missing measured calibration fails closed.                          |
-| Backlash/curve/pan-axis miscalibrated for a physical camera           | Require the PoC measurement procedure for each supported camera; record reprojection residual and calibration version; reject uncalibrated settings rather than silently use scale defaults.                           |
-| Clock/timestamp drift between Adapter and consumers                   | Shared NTP synchronization; midpoint timestamp plus measured half-round-trip uncertainty; all consumers check pose age; `rewrite_all_time` and `rewrite_bad_time` are prohibited for PTZ scenes.                       |
-| Backlash history is lost on restart or calibration change             | Reset backlash state to unknown; initialize from calibrated home position and approach direction only within configured home tolerance; otherwise fail closed per axis until observed motion establishes the deadband. |
-| Out-of-order, repeated, malformed, or unauthorized gRPC samples       | mTLS camera authorization, per-adapter sequence validation, timestamp/range checks, finite-number validation, explicit acknowledgements, and rejection metrics.                                                        |
-| Stale retained pose after Adapter, Resolver, or camera outage         | Resolver publishes invalid state on sample timeout; consumers independently enforce max pose age; Resolver has separate MQTT status/LWT. No consumer treats retained delivery as proof of freshness.                   |
-| Controller and Tracker apply different pose semantics                 | One shared timestamp selector with Python and C++ bindings; both bindings run the same conformance vectors; profile-specific shadow and release gates.                                                                 |
-| v1 side-channel differs from ADR 13 inline Positioning topology       | Document the consumer-side join as an interim topology; preserve the source-keyed PoseContext contract and shared selector, and plan an explicit integration migration when Positioning is extracted.                  |
-| Manager calibration changes while Resolver holds cached configuration | Camera-scoped invalidation notification followed by read-only reload; failed reload invalidates pose; periodic refresh is recovery only.                                                                               |
-| Translation changes due to real PTZ mechanism                         | v1 explicitly holds translation fixed (rotation about optical center); this assumption is documented and validated per supported hardware.                                                                             |
-| Zoom later changes intrinsics or distortion                           | Zoom remains a non-goal; protobuf optional field and `schema_version` allow evolution, but consumers ignore zoom until a separate calibration design exists.                                                           |
+| Risk                                                                    | Mitigation                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ONVIF position space misidentified as degrees (wrong vendor/firmware)   | Resolver validates the reported position-space URI/ranges and calibration version; do not infer degrees from a generic or narrow normalized range. Missing measured calibration fails closed.                                       |
+| Backlash/curve/pan/tilt-axis calibration is wrong for a physical camera | Measure both axis models per supported camera, including tilt-axis mounting correction; validate against held-out reprojection data and record calibration version; reject uncalibrated settings rather than silently use defaults. |
+| Clock/timestamp drift between Adapter and consumers                     | Shared NTP synchronization; midpoint timestamp plus measured half-round-trip uncertainty; all consumers check pose age; `rewrite_all_time` and `rewrite_bad_time` are prohibited for PTZ scenes.                                    |
+| Backlash history is lost on restart or calibration change               | Reset backlash state to unknown; initialize from calibrated home position and approach direction only within configured home tolerance; otherwise fail closed per axis until observed motion establishes the deadband.              |
+| Out-of-order, repeated, malformed, or unauthorized gRPC samples         | mTLS camera authorization, per-adapter sequence validation, timestamp/range checks, finite-number validation, explicit acknowledgements, and rejection metrics.                                                                     |
+| Stale retained pose after Adapter, Resolver, or camera outage           | Resolver publishes invalid state on sample timeout; consumers independently enforce max pose age; Resolver has separate MQTT status/LWT. No consumer treats retained delivery as proof of freshness.                                |
+| Controller and Tracker apply different pose semantics                   | One shared timestamp selector with Python and C++ bindings; both bindings run the same conformance vectors; profile-specific shadow and release gates.                                                                              |
+| v1 side-channel differs from ADR 13 inline Positioning topology         | Document the consumer-side join as an interim topology; preserve the source-keyed PoseContext contract and shared selector, and plan an explicit integration migration when Positioning is extracted.                               |
+| Manager calibration changes while Resolver holds cached configuration   | Camera-scoped invalidation notification followed by read-only reload; failed reload invalidates pose; periodic refresh is recovery only.                                                                                            |
+| Translation changes due to real PTZ mechanism                           | v1 explicitly holds translation fixed (rotation about optical center); this assumption is documented and validated per supported hardware.                                                                                          |
+| Zoom later changes intrinsics or distortion                             | Zoom remains a non-goal; protobuf optional field and `schema_version` allow evolution, but consumers ignore zoom until a separate calibration design exists.                                                                        |
 
 ## 8. Rollout / Migration Plan
 
@@ -669,9 +686,10 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 2. **Adapter** — implement ONVIF polling → raw gRPC `SubmitPTZSample` only. Verify
    timestamp uncertainty, units/position-space metadata, sequence/restart behavior,
    mTLS identity, bounded retry, and secret handling.
-3. **Resolver** — deploy as a separate process; read home pose and `ptz_calibration`
-   from Manager; maintain per-camera motion/backlash state; publish valid/invalid
-   PoseContext messages. Validate configuration invalidation and single-writer ownership.
+3. **Positioning Service / Resolver** — deploy Positioning Service with its PTZ Resolver
+   process. It reads home pose and `ptz_calibration` from Manager, maintains per-camera
+   motion/backlash state, and publishes valid/invalid PoseContext messages. Validate
+   configuration invalidation and single-writer ownership.
 4. **Shadow mode, Controller profile** — Controller subscribes and computes candidate
    dynamic projection without feeding legacy MOT or changing tracks. Compare it with the
    static projection baseline and measured ground-truth data; record per-frame pose
@@ -699,15 +717,18 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 - **Unit tests**: validate pose math against the committed hardware measurement dataset
   captured during the prerequisite measurement session, using the PoC's measured
   per-camera values as golden vectors. Include unchanged translation, row-major matrix,
-  scale/curve, backlash, pan-axis, and pan/tilt composition cases. Run the same
+  scale/curve, backlash, tilt-only and pan-only rotations, combined pan/tilt composition,
+  and calibrated-axis golden vectors. Run the same
   timestamp-selection vectors against the shared selector's Python and C++ bindings;
   verify `valid_until`, cold-start backlash, and canonical failure-reason mappings.
 - **gRPC contract tests**: valid sample, unknown camera, unauthorized certificate,
   duplicate/out-of-order sequence, restart with new adapter instance ID, invalid ranges,
   NaN/Inf, timestamp bounds, and retry/ack behavior.
 - **Calibration tooling validation**: the PoC's measurement scripts remain the
-  acceptance method for a newly onboarded physical camera (backlash, curve, pan-axis,
-  reprojection accuracy) before it is trusted in production.
+  acceptance method for its measured backlash, curves, and pan-axis model. A newly
+  onboarded camera must additionally pass the proposed tilt-axis measurement and held-out
+  reprojection checks in [Calibration data and tooling](#55-calibration-data-and-tooling)
+  before it is trusted in production.
 - **Integration/replay tests**: recorded ONVIF reading sequences (including out-of-order
   and gap scenarios) replayed through gRPC and Resolver; verify state transitions,
   retained valid/invalid output, stale behavior, configuration invalidation, and both
