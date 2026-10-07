@@ -81,6 +81,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/scene_loader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/api_scene_loader.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/manager_rest_client.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/object_class.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_transformer.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp

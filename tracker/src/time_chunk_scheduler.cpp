@@ -13,9 +13,11 @@ namespace tracker {
 
 TimeChunkScheduler::TimeChunkScheduler(TimeChunkBuffer& buffer, const SceneRegistry& registry,
                                        const TrackingConfig& config,
-                                       PublishCallback publish_callback, ClockFn clock_fn)
+                                       PublishCallback publish_callback, ClockFn clock_fn,
+                                       ObjectClassMap object_classes)
     : buffer_(buffer), registry_(registry), config_(config),
-      publish_callback_(std::move(publish_callback)), clock_fn_(std::move(clock_fn)) {
+      publish_callback_(std::move(publish_callback)), clock_fn_(std::move(clock_fn)),
+      object_classes_(std::move(object_classes)) {
     // Defense-in-depth: schema and config loader validate this upstream,
     // but guard here to prevent undefined behavior if bypassed.
     if (config_.time_chunking_rate_fps <= 0) {
@@ -170,9 +172,11 @@ TrackingWorker* TimeChunkScheduler::get_or_create_worker(const TrackingScope& sc
         }
     }
 
-    // Create new worker with tracking config and cameras
+    // Create new worker with tracking config, cameras, and category projection settings
+    const auto object_class = lookupObjectClass(object_classes_, scope.category);
     auto worker = std::make_unique<TrackingWorker>(scope, scene_display_name, kWorkerQueueCapacity,
-                                                   publish_callback_, config_, cameras, clock_fn_);
+                                                   publish_callback_, config_, cameras,
+                                                   object_class, clock_fn_);
 
     LOG_INFO("Created TrackingWorker for scope {}/{} (total workers: {}, cameras: {})",
              scope.scene_id, scope.category, workers_.size() + 1, cameras.size());
