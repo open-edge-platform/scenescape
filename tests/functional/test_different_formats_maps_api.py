@@ -8,6 +8,7 @@ from tests.utils.log import get_logger
 from http import HTTPStatus
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 log = get_logger(__name__)
 
@@ -18,6 +19,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 TEST_NAME = "NEX-T21874"
 
+@pytest.mark.test_name("NEX-T21874")
 def test_different_formats_maps_api(params, rest, scene_uid, result_recorder, demo_scene):
   rest.deleteScene(scene_uid)
 

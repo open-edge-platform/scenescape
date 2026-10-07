@@ -72,6 +72,7 @@ def run_command(command, env_extra=None) -> tuple[int, float]:
   duration = time.time() - start_time
   return process.returncode, duration
 
+@pytest.mark.test_name("NEX-T12520")
 @pytest.mark.parametrize("image", IMAGES_REQUIREMENTS, ids=lambda img: img.name)
 def test_build_time_and_size(record_xml_attribute, image):
   record_xml_attribute("name", f"{TEST_NAME}-{image.name}")

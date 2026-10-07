@@ -69,4 +69,4 @@ commit automatically with `git commit -s`.
 
 ## License
 
-Scenescape is licensed under the terms in [LICENSE](LICENSE). By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.
+Scenescape is licensed under the terms in [LICENSES/Apache-2.0.txt](./LICENSES/Apache-2.0.txt). By contributing to the project, you agree to the license and copyright terms therein and release your contribution under these terms.

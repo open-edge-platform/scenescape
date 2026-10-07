@@ -20,6 +20,8 @@
 
 #include <array>
 #include <cmath>
+#include <numbers>
+#include <optional>
 #include <span>
 #include <vector>
 
@@ -151,7 +153,9 @@ const std::vector<YawToQuaternionTestCase> kYawToQuaternionTests = {
 // clang-format on
 
 // Helper to create CoordinateTransformer from test config
-CoordinateTransformer make_transformer(const CameraTestConfig& cfg) {
+CoordinateTransformer make_transformer(const CameraTestConfig& cfg,
+                                       int shift_type = ObjectClassConfig::kShiftType1,
+                                       std::optional<double> footprint_half = std::nullopt) {
     CameraIntrinsics intrinsics;
     intrinsics.fx = cfg.fx;
     intrinsics.fy = cfg.fy;
@@ -167,7 +171,7 @@ CoordinateTransformer make_transformer(const CameraTestConfig& cfg) {
     extrinsics.rotation = cfg.rotation;
     extrinsics.scale = cfg.scale;
 
-    return CoordinateTransformer(intrinsics, extrinsics);
+    return CoordinateTransformer(intrinsics, extrinsics, shift_type, footprint_half);
 }
 
 // Helper: create Detection from bbox params
@@ -564,6 +568,64 @@ TEST(CoordinateTransformerTest, UpwardRayReturnsValidResult) {
 
     // Should return a valid result (horizon culling, not failure)
     EXPECT_EQ(result.size(), 1u);
+}
+
+// Expected TYPE_2 foot follows Controller CameraPose.projectBounds + MovingObject.camLoc:
+// baseAngle from the camera to the midpoint of the projected bottom corners, then the foot
+// pixel is raised by (height / 2) * (baseAngle / 90) before projecting.
+TEST(CoordinateTransformerTest, Type2FootMatchesControllerCamLoc) {
+    // Zero footprint so the output position is the projected foot itself.
+    const auto type1 = make_transformer(kCameraAtaqQcam1, ObjectClassConfig::kShiftType1, 0.0);
+    const auto type2 = make_transformer(kCameraAtaqQcam1, ObjectClassConfig::kShiftType2, 0.0);
+
+    const auto project = [&](float u, float v) {
+        const auto r = type1.transformDetections(std::vector{make_detection(u, v, 0.0f, 0.0f)});
+        return cv::Point2d(r.at(0).x, r.at(0).y);
+    };
+
+    const float x = 900.0f, y = 350.0f, w = 300.0f, h = 300.0f;
+    const auto bl = project(x, y + h);
+    const auto br = project(x + w, y + h);
+    const auto cam = type1.getCameraOrigin();
+    const double base_len = std::hypot((bl.x + br.x) / 2.0 - cam.x, (bl.y + br.y) / 2.0 - cam.y);
+    const double base_angle_deg = std::atan2(cam.z, base_len) * 180.0 / std::numbers::pi;
+    const auto expected =
+        project(x + w / 2.0f, y + h - (h / 2.0f) * static_cast<float>(base_angle_deg / 90.0));
+
+    const auto result = type2.transformDetections(std::vector{make_detection(x, y, w, h)});
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_NEAR(result[0].x, expected.x, kWorldTolerance);
+    EXPECT_NEAR(result[0].y, expected.y, kWorldTolerance);
+
+    const auto type1_foot = project(x + w / 2.0f, y + h);
+    EXPECT_GT(std::hypot(result[0].x - type1_foot.x, result[0].y - type1_foot.y), 0.1)
+        << "TYPE_2 should move the foot away from the TYPE_1 bottom-center projection";
+}
+
+TEST(CoordinateTransformerTest, FixedFootprintHalfOverridesProjectedWidthOffset) {
+    CameraIntrinsics intrinsics;
+    intrinsics.fx = intrinsics.fy = 500.0;
+    intrinsics.cx = 320.0;
+    intrinsics.cy = 240.0;
+
+    CameraExtrinsics extrinsics;
+    extrinsics.translation = {0.0, 0.0, 5.0};
+    extrinsics.rotation = {-45.0, 0.0, 0.0};
+    extrinsics.scale = {1.0, 1.0, 1.0};
+
+    CoordinateTransformer projected(intrinsics, extrinsics);
+    CoordinateTransformer fixed(intrinsics, extrinsics, ObjectClassConfig::kShiftType1, 0.25);
+
+    std::vector<Detection> detections = {make_detection(280.0f, 100.0f, 80.0f, 200.0f)};
+    auto r_proj = projected.transformDetections(detections);
+    auto r_fixed = fixed.transformDetections(detections);
+    ASSERT_EQ(r_proj.size(), 1u);
+    ASSERT_EQ(r_fixed.size(), 1u);
+
+    const double dx = r_proj[0].x - r_fixed[0].x;
+    const double dy = r_proj[0].y - r_fixed[0].y;
+    EXPECT_GT(std::sqrt(dx * dx + dy * dy), 0.01)
+        << "Asset footprint half-size should change the camloc offset vs projected width";
 }
 
 //
