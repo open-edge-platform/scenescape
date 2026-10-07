@@ -41,7 +41,7 @@ def make_reid_embedding(seed=0.1):
 class RetrackTest:
 
   FRAME_RATE = 10
-  MAX_WAIT = 30
+  MAX_WAIT = 5
   NUM_PUBLISH_ITERATIONS = 5
 
   def __init__(self, params):

@@ -100,21 +100,6 @@ class PointsSerializerField(serializers.DictField):
                                         x=point[0], y=point[1])
     return
 
-class ResolutionSerializerField(serializers.DictField):
-  def to_representation(self, obj):
-    if hasattr(obj, 'width') and hasattr(obj, 'height') \
-       and obj.width is not None and obj.height is not None:
-      return [obj.width, obj.height]
-    return None
-
-  def to_internal_value(self, data):
-    if isinstance(data, (list, tuple)) and len(data) == 2:
-      return {'width': data[0], 'height': data[1]}
-    if isinstance(data, dict) and 'width' in data and 'height' in data:
-      return {'width': data['width'], 'height': data['height']}
-    raise serializers.ValidationError(
-      "resolution must be a [width, height] pair or a {'width', 'height'} object")
-
 class RegionOccupancyThresholdSerializer(serializers.ModelSerializer):
   sectors = serializers.JSONField()
   range_max = serializers.IntegerField()
@@ -335,7 +320,7 @@ class CamSerializer(NonNullSerializer):
     return self.create_update(validated_data, instance)
 
   def map_resolution_fields(self, validated_data):
-    resolution = validated_data.pop('cam', None)
+    resolution = self.initial_data.get('resolution', None)
     if not resolution:
       return
     # Exports emit [width, height]; the UI form posts {"width": .., "height": ..}.

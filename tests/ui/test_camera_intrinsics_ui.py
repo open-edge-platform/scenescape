@@ -48,8 +48,8 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
     f"Timed out waiting for button {button_id!r} to become clickable."
   )
 
-  assert common.wait_for_elements(browser, camera1_element_id)
-  assert common.click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+  assert common.wait_for_elements(browser, camera1_element_id, findBy=By.CSS_SELECTOR)
+  assert common.click_when_clickable(browser, (By.CSS_SELECTOR, camera1_element_id)), (
     f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
   )
 
