@@ -31,7 +31,7 @@ make deploy
 
 `make deploy` regenerates `docker-compose.yml` and `.env` on every invocation, overwriting edits to those files, then starts the `controller` profile. It requires `SUPASS` for the initial administrator account. Image, secret, and model preparation is covered in [Preparation](./preparation.md).
 
-Keep persistent Compose customizations, such as a different Mapping image, in a separate override file and pass it through `DEPLOY_COMPOSE_ARGS`:
+If you want to keep persistent Compose customizations, such as a different Mapping image, in a separate override file and pass it through `DEPLOY_COMPOSE_ARGS`:
 
 ```bash
 make deploy DEPLOY_COMPOSE_ARGS='-f docker-compose.yml -f docker-compose.custom.yml'
