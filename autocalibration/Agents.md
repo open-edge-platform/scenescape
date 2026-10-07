@@ -34,8 +34,10 @@ The **Auto Camera Calibration** service (formerly `camcalibration`) computes cam
      calibration mode
 
    **`geospatial_map_calibration.py`**: Calibration against a metric top-down map (PNG/JPEG)
-   - RGB forward-BEV ↔ map Lab NCC over yaw/pitch/height hypotheses and a camera XY grid
-     (productized from `tools/map_autocalib_spike/p2_rich_yaw.py`)
+   - RGB forward-BEV ↔ map Lab NCC over yaw/pitch/height hypotheses and a camera XY grid;
+     all tunables in `GeoCalibConfig`
+   - Accuracy harness: `tools/geospatial_calib_eval.py` scores the engine against manually
+     calibrated cameras in a scene export (`--prior`, `--set FIELD=VALUE`, `--out`)
    - `geospatial_map_calibration_controller.py` exposes it as the `GeospatialMap` strategy;
      `CameraCalibrationContext.strategy_for_scene` routes Markerless scenes with no
      `polycam_data` and a raster map to it

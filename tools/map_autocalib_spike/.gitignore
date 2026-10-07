@@ -1,7 +1,0 @@
-# Local spike outputs (overlays, JSON). Fixtures stay external.
-out/
-# Downloaded Smart Intersection videos/frames (not Apache; do not commit).
-fixtures/
-# Local venvs for torch/kornia/romatch spike runs (optional).
-.venv/
-.venv-roma/

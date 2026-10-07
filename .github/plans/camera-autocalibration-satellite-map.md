@@ -5,10 +5,15 @@ SPDX-License-Identifier: Apache-2.0
 
 # Plan: Camera Auto-Calibration Against a Satellite Map
 
-Status: **RGB forward-BEV shows yaw signal on SI** (`p2_rich_yaw.py`):
-oracle_xy RGB-only **2/4 rank-1** (cam2/4); local-XY search **yaw_ok 3/4**
-(≤20°). Structure BEV+NCC / fold-flip do not; fold dropped from the workflow.
-Next: widen auto XY search + tighten cam1/3 failures; click remains fallback.
+Status: **in service** as the autocalibration `GeospatialMap` strategy
+(`autocalibration/src/geospatial_map_calibration.py`, tunables in
+`GeoCalibConfig`). Iterate on accuracy with
+`autocalibration/tools/geospatial_calib_eval.py`. Next: XY accuracy (5–14 m
+with a point prior) and unattended heading.
+
+The spike scripts named below (`p2_*.py`, `v*_*.py`, `osm_topology.py`,
+`download_si_videos.sh`, ...) were removed from the tree; recover them with
+`git show c556050bc:tools/map_autocalib_spike/<file>`.
 
 Scope: **calibration only.** Estimate a camera's extrinsics (and untrusted
 intrinsics) from a camera image plus a metric orthographic / satellite map,
@@ -124,10 +129,11 @@ low.
 
 - Primary: [Smart Intersection](https://github.com/open-edge-platform/edge-ai-suites/tree/main/metro-ai-suite/metro-vision-ai-app-recipe/smart-intersection)
   as an **external fixture** (do not vendor into Apache tree until licensing is
-  cleared). DB archive `smart-intersection-ri.tar.bz2`; videos via
-  `tools/map_autocalib_spike/download_si_videos.sh` (GNOME/APT proxy; Intel DMZ
-  `proxy-dmz.intel.com:911/912`).
-- Spike code: `tools/map_autocalib_spike/` (offline only).
+  cleared). DB archive `smart-intersection-ri.tar.bz2` (extract; pass the
+  directory as `--scene-export`); frames are stills from the SI sample videos
+  (camera1=south, camera2=west, camera3=north, camera4=east).
+- Harness: `autocalibration/tools/geospatial_calib_eval.py` (`--prior`,
+  `--set FIELD=VALUE`, `--out report.json`).
 
 ### V0 results (2026-10-05)
 
@@ -176,7 +182,7 @@ asymmetric, well-mapped junctions only.
 | P1 | Imagery landmark extraction + `scene_common` reader; artifacts beside map |
 | P2 | **RGB rich-yaw signal.** Next: scene-wide XY search, cam3 debug, wire rich-yaw → BEV refine; click when gated |
 | P3 | Optional OSM; multi-scene eval including campus-like map; class-aware semantics if RGB stalls |
-| P4 | `autocalibration/` map strategy — **in service** (`geospatial_map_calibration*.py`, `GeospatialMap` strategy; Markerless + raster map + no polycam routes to it). REST `prior` = click fallback; `needs_prior` status when gated. SI via `eval_service_engine.py`: point prior → yaw ≤10° 4/4, XY 5–14 m; no prior → gated 3/4. UI wiring next |
+| P4 | `autocalibration/` map strategy — **in service** (`geospatial_map_calibration*.py`, `GeospatialMap` strategy; Markerless + raster map + no polycam routes to it). REST `prior` = click fallback; `needs_prior` status when gated. SI via `geospatial_calib_eval.py`: point prior → yaw ≤10° 4/4, XY 5–14 m; no prior → gated 3/4. UI wiring next |
 
 Open product questions:
 

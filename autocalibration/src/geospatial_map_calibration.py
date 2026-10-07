@@ -3,8 +3,6 @@
 
 """Camera calibration against a metric top-down (geospatial / ortho) map.
 
-Productized from the RGB forward-BEV spike (tools/map_autocalib_spike/p2_rich_yaw.py):
-
   1. Estimate camera pitch from a ground-plane vanishing point.
   2. Build yaw hypotheses from the map's dominant (Manhattan) edge directions,
      or from an operator heading prior when one is given.
@@ -13,6 +11,9 @@ Productized from the RGB forward-BEV spike (tools/map_autocalib_spike/p2_rich_ya
      sampled in the same frame over a grid of camera XY positions.
   4. Gate: if the best heading has a near-tied rival ~90 degrees away, report
      that a prior (map click and/or heading) is needed instead of guessing.
+
+All tunables live in GeoCalibConfig; measure changes with
+autocalibration/tools/geospatial_calib_eval.py.
 
 World frame follows SceneScape 2D maps: x = px / scale, y = (H - py) / scale,
 z up. Poses are world-from-camera with an OpenCV camera (x right, y down,
@@ -28,41 +29,46 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 RASTER_MAP_EXTENSIONS = (".png", ".jpg", ".jpeg")
-
-DEFAULT_HEIGHTS_M = (5.0, 6.5, 8.0)
 MAX_HEIGHT_M = 500.0
-PITCH_FALLBACK_DEG = 10.0
-PITCH_OFFSETS_DEG = (-2.0, 2.0)
-PITCH_SEARCH_RANGE_DEG = (4.0, 20.0)
-PITCH_VP_RANGE_DEG = (3.0, 25.0)
-
-BEV_RES_M = 0.5
-BEV_NEAR_M = 6.0
-BEV_AHEAD_M = 55.0
-BEV_HALF_LAT_M = 28.0
-MIN_BEV_COVERAGE = 0.05
-MIN_MAP_COVERAGE = 0.2
-MIN_MASK_FRACTION = 0.1
-MIN_MASK_PIXELS = 80
 VALID_PIXEL_LEVEL = 8
-
-SEARCH_STEP_M = 6.0
-MAX_SEARCH_POINTS = 600
-REFINE_STEP_M = 2.0
-PRIOR_RADIUS_M = 12.0
-HEADING_WINDOW_DEG = 20.0
-HEADING_STEP_DEG = 5.0
-MAX_YAW_CANDIDATES = 8
-
-DISTINCT_YAW_DEG = 10.0
-ORTHO_GAP_DEG = 70.0
-AMBIGUITY_SCORE_RATIO = 0.9
-MIN_CONFIDENT_SCORE = 0.1
-NUM_TOP_CANDIDATES = 6
 
 CORRESPONDENCE_COLS = (0.2, 0.5, 0.8)
 CORRESPONDENCE_ROWS = (0.6, 0.75, 0.9)
 MAX_CORRESPONDENCE_RANGE_M = 150.0
+
+
+@dataclass
+class GeoCalibConfig:
+  """Tunables for the map calibration search and confidence gate."""
+  # Camera hypotheses
+  heights_m: tuple = (5.0, 6.5, 8.0)
+  pitch_fallback_deg: float = 10.0
+  pitch_offsets_deg: tuple = (-2.0, 2.0)
+  pitch_search_range_deg: tuple = (4.0, 20.0)
+  pitch_vp_range_deg: tuple = (3.0, 25.0)
+  max_yaw_candidates: int = 8
+  heading_window_deg: float = 20.0
+  heading_step_deg: float = 5.0
+  # Forward bird's-eye view
+  bev_res_m: float = 0.5
+  bev_near_m: float = 6.0
+  bev_ahead_m: float = 55.0
+  bev_half_lat_m: float = 28.0
+  min_bev_coverage: float = 0.05
+  min_map_coverage: float = 0.2
+  min_mask_fraction: float = 0.1
+  min_mask_pixels: int = 80
+  # Camera XY search
+  search_step_m: float = 6.0
+  max_search_points: int = 600
+  refine_step_m: float = 2.0
+  prior_radius_m: float = 12.0
+  # Confidence gate
+  distinct_yaw_deg: float = 10.0
+  ortho_gap_deg: float = 70.0
+  ambiguity_score_ratio: float = 0.9
+  min_confident_score: float = 0.1
+  num_top_candidates: int = 6
 
 
 @dataclass
@@ -118,6 +124,14 @@ def pose_from_look(cx, cy, height, yaw_deg, pitch_deg):
   return pose
 
 
+def look_yaw_pitch(pose):
+  """Inverse of pose_from_look: (yaw_deg, pitch_deg) of the optical axis."""
+  look = pose[:3, 2]
+  pitch = math.degrees(math.asin(float(np.clip(-look[2], -1.0, 1.0))))
+  yaw = math.degrees(math.atan2(float(look[1]), float(look[0]))) % 360.0
+  return yaw, pitch
+
+
 def image_from_ground_homography(pose, K):
   """3x3 homography mapping ground metres [x, y, 1] to image pixels."""
   cam_from_world = np.linalg.inv(pose)
@@ -137,9 +151,9 @@ def _valid_pixels(bgr):
   return (cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY) > VALID_PIXEL_LEVEL).astype(np.float32)
 
 
-def _masked_ncc(a, b, mask):
+def _masked_ncc(a, b, mask, min_pixels):
   """Mean per-channel NCC over a shared mask; None when support is too small."""
-  if int(mask.sum()) < MIN_MASK_PIXELS:
+  if int(mask.sum()) < min_pixels:
     return None
   aa = a[mask]
   bb = b[mask]
@@ -159,11 +173,11 @@ def _structure_image(bgr):
   return cv2.GaussianBlur(np.clip(0.7 * marking + 0.3 * edges, 0, 1), (5, 5), 0)
 
 
-def map_manhattan_angles(map_bgr, scale, n_peaks=2):
+def map_manhattan_angles(map_bgr, scale, res_m, n_peaks=2):
   """Dominant edge orientations (deg in [0, 180)) of the map at BEV resolution."""
   struct = _structure_image(map_bgr)
-  cols = max(8, int(np.ceil(struct.shape[1] / scale / BEV_RES_M)))
-  rows = max(8, int(np.ceil(struct.shape[0] / scale / BEV_RES_M)))
+  cols = max(8, int(np.ceil(struct.shape[1] / scale / res_m)))
+  rows = max(8, int(np.ceil(struct.shape[0] / scale / res_m)))
   grid = cv2.resize(struct, (cols, rows), interpolation=cv2.INTER_AREA)
   gx = cv2.Sobel(grid, cv2.CV_32F, 1, 0, ksize=3)
   gy = cv2.Sobel(grid, cv2.CV_32F, 0, 1, ksize=3)
@@ -184,7 +198,7 @@ def map_manhattan_angles(map_bgr, scale, n_peaks=2):
   return peaks
 
 
-def yaw_candidates_from_manhattan(map_angles):
+def yaw_candidates_from_manhattan(map_angles, max_candidates):
   """Absolute headings along / against / across each dominant map direction."""
   bases = []
   for a in map_angles:
@@ -195,7 +209,7 @@ def yaw_candidates_from_manhattan(map_angles):
   for a in bases:
     if not any(angle_diff_deg(a, u) < 5.0 for u in uniq):
       uniq.append(a % 360.0)
-  return uniq[:MAX_YAW_CANDIDATES] or [0.0, 90.0, 180.0, 270.0]
+  return uniq[:max_candidates] or [0.0, 90.0, 180.0, 270.0]
 
 
 def _detect_lines(gray):
@@ -258,36 +272,39 @@ def estimate_vanishing_point(frame, max_segs=250):
   return best_vp
 
 
-def pitch_from_vp(vp, K):
+def pitch_from_vp(vp, K, config=None):
   """Downward pitch (deg) from the VP's vertical offset; (pitch, from_vp)."""
+  config = config or GeoCalibConfig()
   if vp is None:
-    return PITCH_FALLBACK_DEG, False
+    return config.pitch_fallback_deg, False
   pitch = math.degrees(math.atan2(float(vp[1] - K[1, 2]), float(K[1, 1])))
-  if not PITCH_VP_RANGE_DEG[0] <= pitch <= PITCH_VP_RANGE_DEG[1]:
-    return PITCH_FALLBACK_DEG, False
+  if not config.pitch_vp_range_deg[0] <= pitch <= config.pitch_vp_range_deg[1]:
+    return config.pitch_fallback_deg, False
   return float(pitch), True
 
 
 class GeospatialMapCalibration:
   """Estimates camera pose from a single frame against a metric top-down map."""
 
-  def __init__(self, map_bgr, scale):
+  def __init__(self, map_bgr, scale, config=None):
     if map_bgr is None or map_bgr.ndim != 3 or map_bgr.shape[2] != 3:
       raise ValueError("Scene map must be a 3-channel image")
     if not scale or not math.isfinite(float(scale)) or float(scale) <= 0:
       raise ValueError("Scene map scale (pixels per meter) must be positive")
+    self.config = config or GeoCalibConfig()
+    cfg = self.config
     self.scale = float(scale)
     self.map_h, self.map_w = map_bgr.shape[:2]
     self.extent_m = (self.map_w / self.scale, self.map_h / self.scale)
     self.map_lab = _lab_float(map_bgr)
     self.map_valid = _valid_pixels(map_bgr)
-    self.map_angles = map_manhattan_angles(map_bgr, self.scale)
-    us = np.arange(BEV_NEAR_M, BEV_AHEAD_M, BEV_RES_M)
-    vs = np.arange(-BEV_HALF_LAT_M, BEV_HALF_LAT_M, BEV_RES_M)
+    self.map_angles = map_manhattan_angles(map_bgr, self.scale, cfg.bev_res_m)
+    us = np.arange(cfg.bev_near_m, cfg.bev_ahead_m, cfg.bev_res_m)
+    vs = np.arange(-cfg.bev_half_lat_m, cfg.bev_half_lat_m, cfg.bev_res_m)
     self._bev_u, self._bev_v = np.meshgrid(us, vs)
 
   @classmethod
-  def from_file(cls, map_path, scale):
+  def from_file(cls, map_path, scale, config=None):
     if not is_raster_map(map_path):
       raise ValueError(f"Scene map must be one of {', '.join(RASTER_MAP_EXTENSIONS)}")
     if not os.path.isfile(map_path):
@@ -295,7 +312,7 @@ class GeospatialMapCalibration:
     map_bgr = cv2.imread(str(map_path), cv2.IMREAD_COLOR)
     if map_bgr is None:
       raise ValueError(f"Unable to read scene map: {map_path}")
-    return cls(map_bgr, scale)
+    return cls(map_bgr, scale, config)
 
   def _bev_offsets(self, yaw_deg):
     """Ground offsets (metres) of every BEV cell from a camera at the origin."""
@@ -320,22 +337,23 @@ class GeospatialMapCalibration:
     bev = cv2.remap(frame_lab, u, v, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
     valid = cv2.remap(frame_valid, u, v, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
     valid = (valid > 0.5) & (depth > 0.1)
-    if valid.mean() < MIN_BEV_COVERAGE:
+    if valid.mean() < self.config.min_bev_coverage:
       return None
     return bev, valid
 
   def _score_at(self, bev, bev_valid, offsets_px, cx, cy):
+    cfg = self.config
     oxs, oys = offsets_px
     u = (cx * self.scale + oxs).astype(np.float32)
     v = (self.map_h - cy * self.scale + oys).astype(np.float32)
     crop_valid = cv2.remap(self.map_valid, u, v, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT) > 0.5
-    if crop_valid.mean() < MIN_MAP_COVERAGE:
+    if crop_valid.mean() < cfg.min_map_coverage:
       return None
     mask = bev_valid & crop_valid
-    if mask.mean() < MIN_MASK_FRACTION:
+    if mask.mean() < cfg.min_mask_fraction:
       return None
     crop = cv2.remap(self.map_lab, u, v, cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
-    return _masked_ncc(bev, crop, mask)
+    return _masked_ncc(bev, crop, mask, cfg.min_mask_pixels)
 
   def _search_xy(self, bev, bev_valid, offsets_px, centers):
     best = None
@@ -355,28 +373,30 @@ class GeospatialMapCalibration:
     return [(x, y) for x in xs for y in ys]
 
   def _coarse_centers(self, prior):
+    cfg = self.config
     if prior is not None and prior.map_point is not None:
       px, py = prior.map_point
-      return self._grid(px - PRIOR_RADIUS_M, px + PRIOR_RADIUS_M,
-                        py - PRIOR_RADIUS_M, py + PRIOR_RADIUS_M, REFINE_STEP_M), None
+      r = cfg.prior_radius_m
+      return self._grid(px - r, px + r, py - r, py + r, cfg.refine_step_m), None
     area = self.extent_m[0] * self.extent_m[1]
-    step = max(SEARCH_STEP_M, math.sqrt(area / MAX_SEARCH_POINTS))
+    step = max(cfg.search_step_m, math.sqrt(area / cfg.max_search_points))
     half = step / 2.0
     return self._grid(half, self.extent_m[0] - half, half, self.extent_m[1] - half, step), step
 
   def _hypotheses(self, frame, K, prior):
-    pitch_est, pitch_from_vp_ok = pitch_from_vp(estimate_vanishing_point(frame), K)
-    pitches = [pitch_est] + [pitch_est + d for d in PITCH_OFFSETS_DEG
-                             if PITCH_SEARCH_RANGE_DEG[0] <= pitch_est + d <= PITCH_SEARCH_RANGE_DEG[1]]
+    cfg = self.config
+    pitch_est, pitch_from_vp_ok = pitch_from_vp(estimate_vanishing_point(frame), K, cfg)
+    lo, hi = cfg.pitch_search_range_deg
+    pitches = [pitch_est] + [pitch_est + d for d in cfg.pitch_offsets_deg if lo <= pitch_est + d <= hi]
     if prior is not None and prior.height_m is not None:
       heights = [prior.height_m]
     else:
-      heights = list(DEFAULT_HEIGHTS_M)
+      heights = list(cfg.heights_m)
     if prior is not None and prior.heading_deg is not None:
-      offsets = np.arange(-HEADING_WINDOW_DEG, HEADING_WINDOW_DEG + 1e-6, HEADING_STEP_DEG)
+      offsets = np.arange(-cfg.heading_window_deg, cfg.heading_window_deg + 1e-6, cfg.heading_step_deg)
       yaws = [float((prior.heading_deg + d) % 360.0) for d in offsets]
     else:
-      yaws = yaw_candidates_from_manhattan(self.map_angles)
+      yaws = yaw_candidates_from_manhattan(self.map_angles, cfg.max_yaw_candidates)
     return yaws, pitches, heights, pitch_est, pitch_from_vp_ok
 
   def calibrate(self, frame_bgr, intrinsics, prior=None):
@@ -402,45 +422,15 @@ class GeospatialMapCalibration:
     if not centers:
       raise ValueError("Prior map point is outside the scene map")
 
-    frame_lab = _lab_float(frame_bgr)
-    frame_valid = _valid_pixels(frame_bgr)
     yaws, pitches, heights, pitch_est, pitch_ok = self._hypotheses(frame_bgr, K, prior)
-
-    ranked = []
-    for yaw in yaws:
-      offsets = self._bev_offsets(yaw)
-      offsets_px = (offsets[0] * self.scale, -offsets[1] * self.scale)
-      for pitch in pitches:
-        for height in heights:
-          painted = self._paint_bev(frame_lab, frame_valid, K, yaw, pitch, height, offsets)
-          if painted is None:
-            continue
-          bev, bev_valid = painted
-          best = self._search_xy(bev, bev_valid, offsets_px, centers)
-          if best is None:
-            continue
-          if coarse_step is not None:
-            cx, cy = best[1]
-            local = self._grid(cx - coarse_step, cx + coarse_step,
-                               cy - coarse_step, cy + coarse_step, REFINE_STEP_M)
-            fine = self._search_xy(bev, bev_valid, offsets_px, local)
-            if fine is not None and fine[0] > best[0]:
-              best = fine
-          ranked.append({"score": best[0], "xy": best[1], "yaw": float(yaw),
-                         "pitch": float(pitch), "height": float(height)})
-
-    ranked.sort(key=lambda c: c["score"], reverse=True)
-    top = []
-    for cand in ranked:
-      if not any(angle_diff_deg(cand["yaw"], t["yaw"]) < DISTINCT_YAW_DEG for t in top):
-        top.append(cand)
-      if len(top) >= NUM_TOP_CANDIDATES:
-        break
+    ranked = self._rank_hypotheses(frame_bgr, K, yaws, pitches, heights, centers, coarse_step)
+    top = self._top_distinct_yaws(ranked)
 
     result = {
       "pitch_estimate_deg": pitch_est,
       "pitch_from_vanishing_point": pitch_ok,
-      "candidates": [{"yaw_deg": t["yaw"], "score": t["score"], "map_point": list(t["xy"])} for t in top],
+      "candidates": [{"yaw_deg": t["yaw"], "pitch_deg": t["pitch"], "height_m": t["height"],
+                      "score": t["score"], "map_point": list(t["xy"])} for t in top],
     }
     if not top:
       return {**result, "needs_prior": True, "pose": None,
@@ -465,17 +455,57 @@ class GeospatialMapCalibration:
       "calibration_points_2d": points_2d,
     }
 
+  def _rank_hypotheses(self, frame_bgr, K, yaws, pitches, heights, centers, coarse_step):
+    """Best map XY and score per (yaw, pitch, height), sorted by score."""
+    frame_lab = _lab_float(frame_bgr)
+    frame_valid = _valid_pixels(frame_bgr)
+    ranked = []
+    for yaw in yaws:
+      offsets = self._bev_offsets(yaw)
+      offsets_px = (offsets[0] * self.scale, -offsets[1] * self.scale)
+      for pitch in pitches:
+        for height in heights:
+          painted = self._paint_bev(frame_lab, frame_valid, K, yaw, pitch, height, offsets)
+          if painted is None:
+            continue
+          bev, bev_valid = painted
+          best = self._search_xy(bev, bev_valid, offsets_px, centers)
+          if best is None:
+            continue
+          if coarse_step is not None:
+            cx, cy = best[1]
+            local = self._grid(cx - coarse_step, cx + coarse_step,
+                               cy - coarse_step, cy + coarse_step, self.config.refine_step_m)
+            fine = self._search_xy(bev, bev_valid, offsets_px, local)
+            if fine is not None and fine[0] > best[0]:
+              best = fine
+          ranked.append({"score": best[0], "xy": best[1], "yaw": float(yaw),
+                         "pitch": float(pitch), "height": float(height)})
+    ranked.sort(key=lambda c: c["score"], reverse=True)
+    return ranked
+
+  def _top_distinct_yaws(self, ranked):
+    cfg = self.config
+    top = []
+    for cand in ranked:
+      if not any(angle_diff_deg(cand["yaw"], t["yaw"]) < cfg.distinct_yaw_deg for t in top):
+        top.append(cand)
+      if len(top) >= cfg.num_top_candidates:
+        break
+    return top
+
   def _confidence_gate(self, top, prior):
+    cfg = self.config
     best = top[0]
-    if best["score"] < MIN_CONFIDENT_SCORE:
+    if best["score"] < cfg.min_confident_score:
       return True, f"Weak correlation between camera view and map (score {best['score']:.2f})"
     if prior is not None and prior.heading_deg is not None:
       return False, "Heading prior provided"
-    rival = next((c for c in top[1:] if angle_diff_deg(c["yaw"], best["yaw"]) >= ORTHO_GAP_DEG), None)
+    rival = next((c for c in top[1:] if angle_diff_deg(c["yaw"], best["yaw"]) >= cfg.ortho_gap_deg), None)
     if rival is None:
       return False, "Unique heading"
     ratio = rival["score"] / max(best["score"], 1e-6)
-    if ratio >= AMBIGUITY_SCORE_RATIO:
+    if ratio >= cfg.ambiguity_score_ratio:
       return True, f"Ambiguous heading: rival {rival['yaw']:.0f} deg scores {ratio:.2f} of best"
     return False, f"Best heading beats rival (score ratio {ratio:.2f})"
 

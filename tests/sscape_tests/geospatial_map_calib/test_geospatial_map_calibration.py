@@ -9,8 +9,8 @@ import pytest
 from conftest import GT_CAMERA, INTRINSICS, MAP_SCALE
 
 from geospatial_map_calibration import (
-  GeoMapPrior, GeospatialMapCalibration, angle_diff_deg, is_raster_map, pitch_from_vp,
-  pose_from_look)
+  GeoCalibConfig, GeoMapPrior, GeospatialMapCalibration, angle_diff_deg, is_raster_map,
+  look_yaw_pitch, pitch_from_vp, pose_from_look)
 
 
 def _prior_near_gt():
@@ -113,6 +113,24 @@ def test_pitch_from_vp():
   assert ok and pitch == pytest.approx(12.0)
   assert pitch_from_vp(None, K) == (10.0, False)
   assert pitch_from_vp(np.array([320.0, 0.0]), K)[1] is False
+
+
+def test_calibrate_uses_config_overrides(textured_map, camera_frame, no_vanishing_point):
+  """! Config tunables drive the hypotheses (here: the only camera height searched). """
+  config = GeoCalibConfig(heights_m=(9.0,), min_confident_score=0.99)
+  engine = GeospatialMapCalibration(textured_map, MAP_SCALE, config)
+  prior = GeoMapPrior(map_point=(GT_CAMERA["x"], GT_CAMERA["y"]), heading_deg=GT_CAMERA["yaw"])
+  result = engine.calibrate(camera_frame, INTRINSICS, prior)
+  assert result["height_m"] == 9.0
+  assert all(c["height_m"] == 9.0 for c in result["candidates"])
+  assert result["needs_prior"] is True
+
+
+@pytest.mark.parametrize("yaw,pitch", [(0.0, 10.0), (75.0, 12.5), (200.0, 5.0), (359.0, 30.0)])
+def test_look_yaw_pitch_inverts_pose_from_look(yaw, pitch):
+  got_yaw, got_pitch = look_yaw_pitch(pose_from_look(0.0, 0.0, 6.0, yaw, pitch))
+  assert angle_diff_deg(got_yaw, yaw) < 1e-6
+  assert got_pitch == pytest.approx(pitch)
 
 
 def test_pose_from_look_convention():
