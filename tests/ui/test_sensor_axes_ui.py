@@ -87,7 +87,8 @@ def wait_for_axes_helper_state(browser, sensor_name, predicate, timeout=15.0, po
 
 @pytest.mark.fresh_stack
 @common.mock_display
-def test_sensor_axes_main(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T29213")
+def test_sensor_axes_main(params, result_recorder):
   """! Checks that a circular perceptual sensor's scene-graph node owns a
   THREE.AxesHelper with a real position, that toggling the sensor visible
   flips the node's visibility, and that deleting the sensor removes the node
@@ -95,11 +96,11 @@ def test_sensor_axes_main(params, record_xml_attribute):
   assertion via a test-only hook rather than inferring correctness from
   rendered pixels, so the test fails if updateAxesHelper() is removed or broken.
   @param    params                     Dict of test parameters.
-  @param    record_xml_attribute       Pytest fixture recording the test name.
+  @param    result_recorder            Pytest fixture recording the test result.
   @return   exit_code                  Indicates test success or failure.
   """
+
   TEST_NAME = "NEX-T29213"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   browser = None
   sensor_id = "test_axes_sensor"
@@ -184,6 +185,7 @@ def test_sensor_axes_main(params, record_xml_attribute):
     print("Verified: deleted sensor's node and AxesHelper are gone from the scene graph")
 
     exit_code = 0
+    result_recorder.success()
   finally:
     if browser is not None:
       if not sensor_deleted:
@@ -192,7 +194,6 @@ def test_sensor_axes_main(params, record_xml_attribute):
         common.navigate_directly_to_page(browser, "/")
         common.delete_sensor(browser, sensor_name)
       browser.close()
-    common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0
   return
