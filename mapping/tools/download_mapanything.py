@@ -7,6 +7,7 @@
 On-demand MapAnything model loader for Scenescape 3D mapping service.
 """
 
+import os
 import sys
 
 from scene_common import log
@@ -35,8 +36,15 @@ def download_mapanything_model() -> bool:
     model_name = 'facebook/map-anything-apache'
     log.info(f'Loading {model_name}...')
 
-    # This will trigger the download if not cached
-    model = MapAnything.from_pretrained(model_name)
+    # Cache first: an offline edge node with seeded volumes must not reach
+    # for the Hub (which stalls or fails); only download on a real cache miss.
+    try:
+      model = MapAnything.from_pretrained(model_name, local_files_only=True)
+      log.info('MapAnything weights found in the local Hugging Face cache')
+    except Exception as cache_miss:  # noqa: BLE001
+      if os.environ.get('HF_HUB_OFFLINE', '').strip().lower() in ('1', 'true', 'yes'):
+        raise RuntimeError(f'{model_name} not cached and HF_HUB_OFFLINE is set') from cache_miss
+      model = MapAnything.from_pretrained(model_name)
 
     # Create success marker
     success_message = f'MapAnything model {model_name} downloaded successfully'

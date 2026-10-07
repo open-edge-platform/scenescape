@@ -11,6 +11,7 @@ This model is instantiated directly by the mapanything-service container.
 """
 
 import base64
+import os
 import sys
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -23,6 +24,61 @@ from scene_common import log
 
 from model_interface import ReconstructionModel
 from image_transforms import mapanything_transform
+
+
+def hf_offline_forced() -> bool:
+  return os.environ.get("HF_HUB_OFFLINE", "").strip().lower() in ("1", "true", "yes")
+
+
+def pin_cached_torch_hub_refs() -> None:
+  """Make ``torch.hub.load("owner/repo", ...)`` use the cached checkout offline.
+
+  Without an explicit ref torch.hub first asks github.com whether the default
+  branch is main or master, and only consults the cache after that request
+  fails (a 20 s DNS timeout, or a hang behind a dead resolver). MapAnything's
+  vendored aggregator loads DINOv2 that way. Append the ref of the checkout
+  already in TORCH_HOME so the lookup is skipped.
+  """
+  import torch.hub as hub
+  if getattr(hub.load, "_scenescape_pinned", False):
+    return
+  original = hub.load
+
+  def load(repo_or_dir, *args, **kwargs):
+    if isinstance(repo_or_dir, str) and ":" not in repo_or_dir and repo_or_dir.count("/") == 1 \
+       and not os.path.isdir(repo_or_dir):
+      owner, name = repo_or_dir.split("/")
+      for ref in ("main", "master"):
+        if os.path.isdir(os.path.join(hub.get_dir(), f"{owner}_{name}_{ref}")):
+          repo_or_dir = f"{repo_or_dir}:{ref}"
+          break
+    return original(repo_or_dir, *args, **kwargs)
+
+  load._scenescape_pinned = True
+  hub.load = load
+
+
+def load_from_cache_first(model_cls, checkpoint: str):
+  """``from_pretrained`` without touching the network when the weights are cached.
+
+  huggingface_hub revalidates every file against the Hub before falling back
+  to the cache, which stalls (DNS/connect timeouts per file) or fails on an
+  air-gapped edge node even though the volume holds the weights. Try the
+  cache alone first; download only when nothing is cached and offline mode
+  is not forced via HF_HUB_OFFLINE.
+  """
+  pin_cached_torch_hub_refs()
+  try:
+    model = model_cls.from_pretrained(checkpoint, local_files_only=True)
+    log.info(f"Loaded {checkpoint} from the local Hugging Face cache")
+    return model
+  except Exception as exc:  # noqa: BLE001 - any cache miss means download
+    if hf_offline_forced():
+      raise RuntimeError(
+        f"{checkpoint} is not in the local Hugging Face cache and HF_HUB_OFFLINE is set"
+      ) from exc
+    log.info(f"{checkpoint} not fully cached ({exc.__class__.__name__}); downloading")
+  return model_cls.from_pretrained(checkpoint)
 
 # Add model paths to sys.path
 sys.path.append('/workspace/map-anything')
@@ -67,7 +123,7 @@ class MapAnythingModel(ReconstructionModel):
     """Load MapAnything model and weights."""
     try:
       log.info(f"Loading MapAnything model from {self.model_checkpoint}...")
-      self.model = MapAnything.from_pretrained(self.model_checkpoint).to(self.device)
+      self.model = load_from_cache_first(MapAnything, self.model_checkpoint).to(self.device)
       self.model.eval()
       self.is_loaded = True
       log.info("MapAnything model loaded successfully")
