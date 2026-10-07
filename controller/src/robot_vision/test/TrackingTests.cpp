@@ -616,7 +616,7 @@ TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingStressTest)
     auto const &timestamp = std::chrono::system_clock::time_point(std::chrono::milliseconds(timeMilliseconds));
 
     // simulate a movement with velocity {10 m/s, 10 m/s}
-    for (auto & object: objects)
+    for (auto &object : objects)
     {
       object.x = object.x + 10.0 * deltaT;
       object.y = object.y + 10.0 * deltaT;

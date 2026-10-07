@@ -8,12 +8,14 @@ from tests.ui.browser import Browser, By
 import tests.ui.common_ui_test_utils as common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
   require_password=True, auth="",
 )
 
+@pytest.mark.test_name("NEX-T10433")
 def test_only_upload_glb_main(params, record_xml_attribute):
   """! Checks that a user can not upload a files that are not .glb as a 3D scene map.
   @param    params                  Dict of test parameters.
@@ -21,7 +23,6 @@ def test_only_upload_glb_main(params, record_xml_attribute):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10433"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
   file_names = ["box_invalid.glb", "box.gltf", "box.obj", "good_data.txt"]
   element_id = "id_map"

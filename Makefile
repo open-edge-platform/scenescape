@@ -41,13 +41,13 @@ VIDEO_SOURCE_DIR := sample_data/demo_scenes
 # Each demo scene owns its own private mediamtx (same "mediaserver" service
 # name in both files); Compose merges them into one shared instance when both
 # -f flags are combined, matching pre-split behavior.
-RETAIL_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Retail/retail-video-compose.yaml
-QUEUING_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Queuing/queuing-video-compose.yaml
+RETAIL_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Retail/compose.retail-video.yml
+QUEUING_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Queuing/compose.queuing-video.yml
 VIDEO_SOURCE_COMPOSE_FILES := -f $(RETAIL_VIDEO_COMPOSE_FILE) -f $(QUEUING_VIDEO_COMPOSE_FILE)
 DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts) \
 	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
 	tools/pipeline_runner/video/car-detection.ts
-DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/docker-compose-dl-streamer-example.yml
+DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/compose.dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
 # Host directory with one subdirectory per demo scene (each holding a <name>.zip)
 DEMO_SCENES_DIR ?= sample_data/demo_scenes
@@ -60,9 +60,9 @@ DEMO_SCENES_WAIT ?= 300
 UPLOAD_SCENES := tools/upload_scenes/upload-scenes
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
-REID_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.$(strip $(REID_BACKEND))-override.yml
+REID_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/compose.$(strip $(REID_BACKEND))-override.yml
 # retail-config/queuing-config now live in VIDEO_SOURCE_COMPOSE_FILE, not docker-compose.yml.
-REID_PIPELINE_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/docker-compose.reid-pipeline-override.yml
+REID_PIPELINE_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/compose.reid-pipeline-override.yml
 REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
@@ -161,6 +161,8 @@ help:
 	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
 	@echo "  run_metric_tests            Run metric tests"
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
+	@echo ""
+	@echo "  check-zephyr-ids            Check every non-unit test declares a Zephyr test ID"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
@@ -445,6 +447,14 @@ setup-pytest:
 	@if ! command -v Xvfb > /dev/null 2>&1; then \
 		echo "WARNING: Xvfb is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
+
+# ============================== Zephyr traceability ==============================
+
+ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_zephyr_mapping.py
+
+.PHONY: check-zephyr-ids
+check-zephyr-ids:
+	@$(ZEPHYR_CHECK) || (echo "Zephyr ID check failed" && exit 1)
 
 .PHONY: run_tests
 run_tests: setup-tests
