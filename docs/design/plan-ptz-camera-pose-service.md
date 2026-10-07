@@ -22,13 +22,14 @@ Phases have focused acceptance criteria. Keep Controller and Tracker feature fla
 
 Create `feature/ptz-camera-pose-service` from a base containing the PTZ design. Verify `HEAD` and `git status` first; preserve unrelated worktree changes. If the design is not in `main`, either wait for it to merge or base the feature branch on the design branch and stack the final PR accordingly.
 
-Every phase PR targets the integration branch, never `main`. Branch sequential work from the latest merged integration tip. Phases 4 and 5 can be implemented and unit/conformance-tested in parallel against Phase 1 contracts/vectors; Phase 3 is required only for their end-to-end functional runs. Open the final PR to `main` after Phase 6 acceptance.
+Every phase PR targets the integration branch, never `main`. Branch sequential work from the latest merged integration tip. Phase 3a is on the critical path for every later phase. Phase 3b starts after 3a merges and can run in parallel with Phases 4 and 5; those consumers use Phase 1 for implementation/conformance, Phase 3a for broker/status/ACL end-to-end wiring, and Phase 3b only for runs against resolved poses. Open the final PR to `main` after Phase 6 acceptance.
 
 | Phase                                         | Branch                                    | PR target          |
 | --------------------------------------------- | ----------------------------------------- | ------------------ |
 | 1. Contracts and pose math                    | `feature/ptz-pose/01-contracts-math`      | Integration branch |
 | 2. Manager calibration and import contract    | `feature/ptz-pose/02-manager-calibration` | Integration branch |
-| 3. Positioning deployable                     | `feature/ptz-pose/03-positioning`         | Integration branch |
+| 3a. Positioning service skeleton              | `feature/ptz-pose/03a-service-skeleton`   | Integration branch |
+| 3b. PTZ poller and resolver                   | `feature/ptz-pose/03b-ptz-runtime`        | Integration branch |
 | 4. Controller dwell consumer                  | `feature/ptz-pose/04-controller-consumer` | Integration branch |
 | 5. Tracker dwell consumer                     | `feature/ptz-pose/05-tracker-consumer`    | Integration branch |
 | 6. Shadow validation and feature-flag rollout | `feature/ptz-pose/06-acceptance`          | Integration branch |
@@ -100,13 +101,42 @@ Register all three topics together in `scene_common.mqtt.PubSub`, `PubSubACL.TOP
 **Tests and acceptance:** both camera transform types; valid, partial, malformed, incompatible, and out-of-threshold data; stable API errors; read-only API round-trip; transaction rollback does not invalidate; read-only client can retrieve complete home/calibration. A per-camera onboarding procedure uses the isolated PoC/Auto-Calibration workflow, tilt sweeps both directions, and held-out residual validation. Production calibration tooling remains out of scope.
 
 **Documentation:** Document calibration schema, API validation/import, invalidation, and per-camera onboarding.
+### 3a. Positioning Service Skeleton
 
-### 3. Positioning Deployable
+**Infrastructure only:** Phase 3a contains no ONVIF client, no camera polling, no PTZ sample handling, no calibration interpretation, and no pose math. It establishes build, test, broker identity, and deployment wiring before runtime behavior is introduced.
 
-Depends on Phases 1 and 2; development can use contract fixtures before either consumer phase. Phases 4 and 5 depend on Phase 1 for conformance and on this phase only for end-to-end runs.
+Create the service tree following `cluster_analytics/`: `positioning/Dockerfile`, `positioning/Makefile`, `requirements-build.txt`, `requirements-runtime.txt`, `src/positioning/` with a minimal service entrypoint, `config/positioning.json`, `tests/__init__.py`, `tests/service/`, `tests/README.md`, `README.md`, `docs/README.md`, and required `Agents.md`. Add SPDX headers to all new files.
 
-Create `positioning/Dockerfile` and `positioning/Makefile`, root target `make positioning`, image `scenescape-positioning`, and Compose service/container `positioning`. Use `positioning/config/positioning.json` plus `POSITIONING_` environment overrides. PTZ remains a capability in this generic Positioning service, not a separate deployable. The generic shell owns sample ingest/validation, Manager calibration load/cache/invalidation, motion/settle state, publication, status/LWT, freshness, and health; the replaceable PTZ model owns axis scale/curves, backlash, calibrated axis transforms, and pose composition. Adding a second source type must not require changes to the generic shell.
-Create the new root `deployment/` directory and `deployment/positioning-assignments.json` in this phase; the JSON contains exactly one `source_id -> resolver_id` owner mapping per configured PTZ source and no camera-to-scene membership. Also create `positioning/Dockerfile` and `positioning/Makefile`, root target `make positioning`, image `scenescape-positioning`, and Compose service/container `positioning`. Use `positioning/config/positioning.json` plus `POSITIONING_` environment overrides. PTZ remains a capability in this generic Positioning service, not a separate deployable. The generic shell owns sample ingest/validation, Manager calibration load/cache/invalidation, motion/settle state, publication, status/LWT, freshness, and health; the replaceable PTZ model owns axis scale/curves, backlash, calibrated axis transforms, and pose composition. Adding a second source type must not require changes to the generic shell.
+Update all root `Makefile` component registrations: `CORE_IMAGE_FOLDERS`, `IMAGE_FOLDERS`, the explicit `build-common` dependency list, `TEST_IMAGE_FOLDERS`, and `TEST_IMAGES` so `scenescape-positioning-test` is built by `make setup-tests` and its suite runs under root test targets. Update root help text and clean/rebuild targets as well.
+
+Update `tools/certificates/Makefile`: add `positioning-cert` with `HOST=positioning` and `KEY_USAGE=clientAuth`, generating `$(SECRETSDIR)/certs/scenescape-positioning.key` and `.crt`; add `positioning-csr` following `reid-csr`; register both in `.PHONY`, `deploy-certificates`, and `deploy-csr`. `make init-secrets` must produce the key/certificate. Mount the CA, client certificate, and key read-only.
+
+Create the `positioning.auth` broker identity and bind it to Phase 2 ACL entries. In 3a, write access is limited to `scenescape/positioning/status/{resolver_id}` and read access to `scenescape/cmd/camera/config/{camera_id}`. Test that this identity cannot publish outside its write scope. The minimal service connects to Mosquitto over mTLS using its own certificate and auth file, publishes retained status plus LWT, and remains healthy without PTZ configuration.
+
+Add `tests/compose/compose.positioning.yml` and include it in `tests/utils/profiles.py` compositions used by Controller/scene and Tracker service runs. Add a `sample_data/compose/` override only if a demo scenario requires one. Provision the dedicated auth secret, client cert/CA, broker dependency, and health/readiness check in the test stack.
+
+Add `kubernetes/scenescape-chart/templates/positioning/` deployment, service, and configmap templates. Add Positioning image/config values to `values.yaml`; wire auth and client certificate secret mounts through `_secrets.tpl` and the shared certificate-volume helper; reference the existing `ntp` chart component. Verify Helm renders and deploys the service.
+
+Create root `deployment/` and `deployment/positioning-assignments.json` in 3a. The manifest contains only the single-owner `source_id -> resolver_id` mapping, never camera-to-scene membership. Also define the replay artifact sink before consumers start shadow work: services emit sampled JSONL records to stdout, and the acceptance harness combines Controller/Tracker records by `run_id` into immutable `tests/artifacts/ptz/shadow/<run_id>.jsonl`, published as the CI/acceptance artifact. Services do not write local files or require production volumes; field runs export the equivalent named bundle from structured logs.
+
+**3a acceptance (infrastructure only):**
+
+- Root `make positioning` builds the image; `make init-secrets` emits the client key and certificate.
+- The container starts without PTZ configuration, passes health checks, connects to the broker over mTLS, and publishes retained status plus LWT.
+- The broker identity is denied publish outside its status topic ACL and can read only camera-configuration invalidation.
+- `scenescape-positioning-test` builds and the minimal suite runs under root test targets.
+- The Compose fragment is included in Controller/scene and Tracker test compositions.
+- The Helm chart renders and deploys with the new template, config, secret, certificate, and NTP references.
+- `positioning/Agents.md`, `README.md`, `docs/README.md`, and the assignments manifest exist.
+
+**Documentation:** Document component layout, build/test targets, certificate and broker identity provisioning, Compose/Helm deployment, assignment manifest, artifact sink, and rollback in `positioning/docs/README.md`; link it from `positioning/Agents.md` and `positioning/README.md`.
+
+
+### 3b. PTZ Poller and Resolver
+
+Depends on Phases 1, 2, and 3a. Runtime development can use contract fixtures before either consumer phase; Phases 4 and 5 may proceed after 3a merges and need 3b only for runs against real resolved poses.
+
+Implement the PTZ-specific poller and Resolver modules inside the 3a Positioning shell. The shell owns sample ingest/validation, Manager calibration load/cache/invalidation, motion/settle state, publication, status/LWT, freshness, and health; the replaceable PTZ model owns axis scale/curves, backlash, calibrated axis transforms, and pose composition. Adding a second source type must not require changes to the generic shell.
 
 Select and pin the ONVIF client in this phase. Record the package/version decision and evaluate active maintenance, license, supported Python/runtime versions, API coverage for GetStatus and position-space metadata, and dependency pinning. Do not clone/vendor source during image build. Poll every 0.2 s by default, including while stationary. Emit generated `PTZSample` messages in-process with midpoint timestamp, at least half-round-trip uncertainty, raw position/ranges/URI, per-camera sequence, and a new `adapter_instance_id` after poller restart. No internal gRPC, retry queue, stale replay, calibration math in poller, or raw PTZ MQTT. Keep credentials in mounted deployment secrets and redact logs.
 
@@ -115,18 +145,17 @@ Record the PoC snapshot and fitting script as described under PoC Boundary.
 
 At startup verify NTP synchronization against configured `max_clock_offset_s` and emit clock offset. If a source's clock exceeds the bound or NTP is unavailable, keep the service running but mark affected PTZ sources invalid/disabled until synchronization recovers. Maintain a bounded sample ring buffer sized for settle and backlash history. Derive motion state from measured event timestamps with an injectable clock. Backlash becomes unknown after Resolver/poller restart or calibration change unless the sample is within calibrated home tolerance and approach direction is known; unknown contributing axes never yield valid pose.
 
-Publish exactly one valid/invalid PoseContext per accepted sample on retained QoS 0 `scenescape/positioning/pose/{source_id}`. Invalid raw samples yield no PoseContext. Publish retained QoS 0 status/LWT at `scenescape/positioning/status/{resolver_id}` with only resolver id, status, and session-start timestamp. Consumers enforce freshness independently.
+Publish exactly one valid/invalid PoseContext per accepted sample on retained QoS 0 `scenescape/positioning/pose/{source_id}`. Invalid raw samples yield no PoseContext. Extend the 3a-owned single status/LWT publisher with runtime health; do not create a second publisher for `scenescape/positioning/status/{resolver_id}`. Consumers enforce freshness independently.
 
 Use metric prefix `positioning_`; minimum names and types: `positioning_pose_age_seconds` (histogram), `positioning_pose_sequence_gaps_total` (counter), `positioning_dwell_state_seconds` (histogram with bounded state label), `positioning_dwell_rejected_detections_total` (counter with bounded `reason_detail`), `positioning_motion_state_seconds` (histogram with bounded `motion_state`), `positioning_calibration_version_info` (info gauge), `positioning_projection_drift_pixels` and `positioning_projection_drift_meters` (histograms), and `positioning_clock_offset_seconds` (gauge). Use camera id only where per-camera series are required; never label by detection/object id. No pending-queue or bracket-wait metrics.
 
-**Tests and acceptance:** fake ONVIF device, timestamp/uncertainty, raw validation and sequence/restart, secret redaction, motion/backlash, calibration reload, deterministic replay, 1:1 accepted-sample/context count, retained pose/status/LWT, health, MQTT topic/ACL, ownership manifest overlap rejection, and NTP fail-closed behavior. No certificate-to-camera authorization test is needed for the in-process path. A second source type can be added without changing the generic shell.
+**3b tests and acceptance:** fake ONVIF device; timestamp/uncertainty and raw validation; sequence/restart; secret redaction; motion/backlash; calibration reload; deterministic replay; one context per accepted sample; valid/invalid retained pose; NTP fail-closed; and runtime metrics. The 3a identity/ACL/health/Helm and test-image checks remain owned by Phase 3a. No certificate-to-camera authorization test is needed for the in-process path. Adding a second source type must not require changes to the generic shell.
 
-**Documentation:** Document artifact names, ONVIF dependency decision, configuration, secrets, shell/model boundary, ownership, NTP behavior, metrics, and rollback.
-**Replay artifact sink:** Consumer services emit sampled shadow records as structured JSONL to stdout. The acceptance/replay harness collects Controller and Tracker records for a shared `run_id`, writes `tests/artifacts/ptz/shadow/<run_id>.jsonl`, and publishes it as the CI/acceptance-run artifact; Phase 6 consumes this immutable file. No service writes a local shadow file or requires a production volume. Field-validation operators export the equivalent named artifact bundle from the structured service logs.
+**Documentation:** Document ONVIF dependency choice, polling/sample contract, calibration reload, motion/backlash, NTP behavior, runtime metrics, and runtime rollback.
 
 ### 4. Controller Dwell Consumer
 
-This phase depends on Phase 1 contracts and shared vectors. Phase 3 is required only for end-to-end functional tests. Subscribe to PoseContext and status only for cameras assigned to the Controller's scene; enforce the same boundary in MQTT ACL/configuration and test unauthorized-camera subscription denial. Implement dwell natively at the Controller projection ingress, with no shared C++ selector or detection queue. Pass immutable per-frame pose context through `Scene.processCameraData()` and `MovingObject`, preserving static home pose and intrinsics.
+This phase depends on Phase 1 contracts and shared vectors. Phase 3a provides broker identity, topic registration, and status/LWT for subscription and ACL end-to-end wiring; Phase 3b is required only for runs against real resolved poses. Subscribe to PoseContext/status only for cameras in the Controller's Manager-loaded scene; enforce ACL from Manager's scene assignment and test unauthorized-camera subscription denial. Implement dwell natively at the Controller projection ingress, with no shared C++ selector or detection queue. Pass immutable per-frame pose context through `Scene.processCameraData()` and `MovingObject`, preserving static home pose and intrinsics.
 
 Track `stationary_since` and its uncertainty from the first valid stationary context; require contiguous, strictly increasing sequences. Reset on invalid/non-stationary state, sequence gap/non-increase, calibration change, configured Resolver session change (per Phase 1 status mapping), or source/frame mismatch. Apply the single normative Phase 1 dwell and observation-time inequality without restating or weakening it. Drop detections immediately on any failed gate; existing tracks continue normal aging/prediction and rejected detections neither initiate nor update MOT.
 
@@ -140,7 +169,7 @@ Configure independent default-off flags `CONTROLLER_PTZ_ENABLED` and `CONTROLLER
 
 ### 5. Tracker Dwell Consumer
 
-This phase depends on Phase 1 contracts/vectors and can be implemented in parallel with Phase 4. Phase 3 is required only for end-to-end functional tests. Subscribe to pose/status topics only for cameras assigned to the Tracker scene, enforced by least-privilege MQTT ACLs and tested. Apply the same dwell/session/sequence resets and normative Phase 1 admission inequalities. Select per `DetectionBatch.timestamp`, pass the transform as an argument to `transformDetections()` rather than transformer state, preserve static intrinsics, and gate invalid batches before MOT while normal track aging continues.
+This phase depends on Phase 1 contracts/vectors and can be implemented in parallel with Phase 4 after Phase 3a merges. Phase 3a provides broker identity, topic registration, and status/LWT for subscription and ACL end-to-end wiring; Phase 3b is required only for runs against real resolved poses. Subscribe to pose/status topics only for cameras in the Tracker's Manager-loaded scene, enforced by least-privilege ACLs derived from Manager's scene assignment and tested. Apply the same dwell/session/sequence resets and normative Phase 1 admission inequalities. Select per `DetectionBatch.timestamp`, pass the transform as an argument to `transformDetections()` rather than transformer state, preserve static intrinsics, and gate invalid batches before MOT while normal track aging continues.
 
 Preserve multiple same-camera batches with distinct timestamps in one time chunk: each batch can have a different pose validity and dwell decision, so a one-batch-per-camera overwrite can apply one decision to another batch's detections. Reject timestamp rewrites that replace acquisition time.
 
@@ -152,7 +181,7 @@ Configure independent default-off flags `TRACKER_PTZ_ENABLED` and `TRACKER_PTZ_S
 
 ### 6. Shadow Validation and Feature-Flag Rollout
 
-This phase depends on Phases 1–5, the calibrated per-camera measurement/import, and the golden dataset. Entry also requires deployment-provided ground-plane/reprojection error, camera-to-tracker latency, and post-motion availability budgets. Before enabling a nested-scene camera, resolve the Shared Scene Graph frame-name adapter and demonstrate child-to-target-scene transform composition; otherwise keep that source disabled.
+This phase depends on Phases 1, 2, 3a, 3b, 4, and 5, the calibrated per-camera measurement/import, and the golden dataset. Entry also requires deployment-provided ground-plane/reprojection error, camera-to-tracker latency, and post-motion availability budgets. Before enabling a nested-scene camera, resolve the Shared Scene Graph frame-name adapter and demonstrate child-to-target-scene transform composition; otherwise keep that source disabled.
 
 Prove the real projection path at physical home and at off-home target positions; this is separate from Phase 4's synthetic check. Replay the named/versioned golden dataset and hardware sequences across both directions, motion/settling/dwell recovery, sequence gaps and non-increasing sequence, restarts/session changes, stale retained pose, calibration reload failure, timestamp uncertainty, and clock offset. Record calibration versions, dataset, baseline, and each profile's shadow records.
 
