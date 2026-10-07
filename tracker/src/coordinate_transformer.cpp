@@ -100,19 +100,15 @@ CoordinateTransformer::eulerToRotationMatrix(const std::array<double, 3>& euler_
                        -sx * cy, sx * sz - cx * sy * cz, sx * cz + cx * sy * sz, cx * cy);
 }
 
-void CoordinateTransformer::batchPixelToWorld(const std::vector<cv::Point2f>& pixels,
-                                              std::vector<cv::Point2d>& world,
-                                              std::vector<uint8_t>& valid) const {
-    const auto n = static_cast<int>(pixels.size());
+void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f>& normalized,
+                                                   std::vector<cv::Point2d>& world,
+                                                   std::vector<uint8_t>& valid) const {
+    const auto n = static_cast<int>(normalized.size());
     if (n == 0)
         return;
 
     world.resize(n);
     valid.resize(n);
-
-    // Phase 2: Single batched undistort for all pixels
-    std::vector<cv::Point2f> undistorted(n);
-    cv::undistortPoints(pixels, undistorted, intrinsics_matrix_, distortion_coeffs_);
 
     // Cache pose matrix elements and camera origin for tight loop access
     const double p00 = pose_matrix_(0, 0), p01 = pose_matrix_(0, 1), p02 = pose_matrix_(0, 2);
@@ -129,8 +125,8 @@ void CoordinateTransformer::batchPixelToWorld(const std::vector<cv::Point2f>& pi
     // Phase 3: Parallel pose-transform + ray-plane intersection
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < n; ++i) {
-        const double nx = undistorted[i].x;
-        const double ny = undistorted[i].y;
+        const double nx = normalized[i].x;
+        const double ny = normalized[i].y;
 
         // world_pt = pose_matrix * [nx, ny, 1, 1]
         const double wx = p00 * nx + p01 * ny + p02 + p03;
@@ -165,28 +161,35 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     if (n == 0)
         return {};
 
-    // Phase 1: Collect 4 pixels per detection into contiguous array
-    // Layout per detection: [foot, bottom_left, bottom_right, top_left]
-    std::vector<cv::Point2f> pixels(n * kPixelsPerDetection);
+    // Phase 1: Undistort opposite corners of each bbox into a normalized rectangle
+    std::vector<cv::Point2f> pixels(n * kCornersPerDetection);
 
     for (size_t i = 0; i < n; ++i) {
         const auto& bbox = detections[i].bounding_box_px;
-        const size_t base = i * kPixelsPerDetection;
-
-        // Foot: bottom-center of bbox, used as the object's ground contact point
-        pixels[base + 0] = {bbox.x + bbox.width / 2.0f, bbox.y + bbox.height};
-        // Bottom-left
-        pixels[base + 1] = {bbox.x, bbox.y + bbox.height};
-        // Bottom-right
-        pixels[base + 2] = {bbox.x + bbox.width, bbox.y + bbox.height};
-        // Top-left
-        pixels[base + 3] = {bbox.x, bbox.y};
+        const size_t base = i * kCornersPerDetection;
+        pixels[base] = {bbox.x, bbox.y};
+        pixels[base + 1] = {bbox.x + bbox.width, bbox.y + bbox.height};
     }
 
-    // Phase 2+3: Batch undistort + parallel ray-plane
+    std::vector<cv::Point2f> corners(pixels.size());
+    cv::undistortPoints(pixels, corners, intrinsics_matrix_, distortion_coeffs_);
+
+    // Layout per detection: [foot, bottom_left, bottom_right, top_left]
+    std::vector<cv::Point2f> normalized(n * kPointsPerDetection);
+    for (size_t i = 0; i < n; ++i) {
+        const auto& top_left = corners[i * kCornersPerDetection];
+        const auto& bottom_right = corners[i * kCornersPerDetection + 1];
+        const size_t base = i * kPointsPerDetection;
+        normalized[base] = {(top_left.x + bottom_right.x) / 2.0f, bottom_right.y};
+        normalized[base + 1] = {top_left.x, bottom_right.y};
+        normalized[base + 2] = bottom_right;
+        normalized[base + 3] = top_left;
+    }
+
+    // Phase 2: Parallel ray-plane projection of normalized rectangle points
     std::vector<cv::Point2d> world;
     std::vector<uint8_t> valid;
-    batchPixelToWorld(pixels, world, valid);
+    batchNormalizedToWorld(normalized, world, valid);
 
     // Phase 4: Assemble TrackedObjects from world-projected points
     std::vector<rv::tracking::TrackedObject> result(n);
@@ -198,7 +201,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
 
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < static_cast<int>(n); ++i) {
-        const size_t base = static_cast<size_t>(i) * kPixelsPerDetection;
+        const size_t base = static_cast<size_t>(i) * kPointsPerDetection;
 
         // Check all 4 projections succeeded
         if (!valid[base] || !valid[base + 1] || !valid[base + 2] || !valid[base + 3]) {
