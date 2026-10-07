@@ -202,7 +202,9 @@ def main():
     "scale": scale,
     "regulated_rate": 30,
     "external_update_rate": 30,
-    "camera_calibration": "Manual",
+    # Markerless exposes the Auto Calibrate controls in the calibration page
+    # and 3D camera panel (Manual hides them).
+    "camera_calibration": "Markerless",
   }
 
   args.out_dir.mkdir(parents=True, exist_ok=True)

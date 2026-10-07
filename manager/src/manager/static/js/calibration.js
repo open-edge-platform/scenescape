@@ -153,14 +153,9 @@ async function manageCalibrationState(msg, scene_id) {
       document.getElementById("auto-autocalibration").title = button_message;
     } else if (msg.status == "success") {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
-      if (calibration_strategy == "Markerless") {
-        document.getElementById("auto-autocalibration").title =
-          "Go to 3D view for Markerless auto camera calibration.";
-      } else {
-        document.getElementById("auto-autocalibration").disabled = false;
-        document.getElementById("auto-autocalibration").title =
-          "Click to calibrate the camera automatically";
-      }
+      document.getElementById("auto-autocalibration").disabled = false;
+      document.getElementById("auto-autocalibration").title =
+        "Click to calibrate the camera automatically";
     } else if (msg.status == "re-register") {
       try {
         const response = await registerScene(scene_id);
