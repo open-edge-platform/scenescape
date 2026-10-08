@@ -9,8 +9,8 @@
       "home_tilt": null,
       "pan_degrees": null,
       "tilt_degrees": null,
-      "pan_scale": 156.38,
-      "tilt_scale": 59.52,
+      "pan_scale": 153.36,
+      "tilt_scale": 57.48,
       "pan_home_approach": "decreasing",
       "tilt_home_approach": "increasing",
       "invert_pan": false,
@@ -18,12 +18,11 @@
       "resolution": [1280, 720],
       "intrinsics": {"fx": 1059.9363, "fy": 1059.9363, "cx": 640.0, "cy": 360.0},
       "distortion": {"k1": -0.362086, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0},
-      "pan_curve": [0.0, -163.64, 10.03],
-      "tilt_curve": [0.0, 55.67, 1.41],
-      "pan_axis": [0.0679, 0.1101, 0.9916],
-      "pan_backlash_deg": [[-0.1112, 0.07], [0.1139, 1.21], [0.339, 2.3]],
-      "tilt_backlash_deg": 2.72,
-      "track": false
+      "pan_curve": [0.0, -157.15, 25.82],
+      "tilt_curve": [0.0, 57.31, -0.27],
+      "pan_axis": [0.0597, 0.1046, 0.9927],
+      "pan_backlash_deg": [[-0.2366, 0.37], [-0.0366, 0.01], [0.1634, 1.68]],
+      "tilt_backlash_deg": 2.73
     },
     {
       "scene_camera_uid": "atag-ptzcam1",
