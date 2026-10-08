@@ -117,7 +117,7 @@ services:
   # generic model_download flow since PointPillars is built from source
   # (openvino_contrib), not downloaded from OMZ.
   lidar-model-init:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261006-weekly-ubuntu24
     user: root
     entrypoint: ["/bin/bash", "/model_installer/install-pointpillars"]
     environment:
@@ -135,7 +135,7 @@ services:
     pids_limit: 1000
 
   lidar-stream:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.2.0-ubuntu24-rc2
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261006-weekly-ubuntu24
     networks:
       scenescape:
     tty: true
