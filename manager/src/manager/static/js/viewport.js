@@ -211,6 +211,7 @@ class Viewport extends THREE.Scene {
       if (intersect.object.name.startsWith("calibrationPoint_")) {
         const objectHit = intersect.object;
         this.remove(objectHit);
+        this.calibrationUpdated = true;
         this.calibrationPointNames.push(objectHit.name.split("_")[1]);
         this.calibrationPointNames.sort((a, b) => {
           const numA = parseInt(a.replace(/\D/g, ""));

@@ -130,7 +130,8 @@
           "rejectionRequested": false,
           "rejectionApplied": false,
           "ransacInlierCount": null,
-          "fitPointCount": 4
+          "fitPointCount": 4,
+          "rejectedIndices": []
         }
       }
     ]

@@ -18,7 +18,7 @@ from manager.calculate_intrinsics_view import CalculateCameraIntrinsics
   [
     (None, True, False, None, []),
     (None, False, False, None, []),
-    (np.array([True, True, True, False, False]), True, False, 3, []),
+    (np.array([True, True, True, False, False]), True, False, 3, [3, 4]),
     (np.array([True, True, True, True, False]), True, True, 4, [4]),
   ],
 )

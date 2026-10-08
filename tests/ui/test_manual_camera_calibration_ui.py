@@ -77,8 +77,11 @@ def test_manual_distortion_controls(params, result_recorder):
         rmsError: 1.25,
         perPointErrors: [0.5, 9.0, 1.2, 6.1, 0.3],
       }, ["p0", "p1", "p2", "p3", "p4"]);
+      calibration.rejectedPointIndices = [1];
       const appliedSummary = document.getElementById("calibration-fit-summary").textContent;
       const appliedDetails = document.getElementById("calibration-point-errors").textContent;
+      const acceptedNames = calibration.getAcceptedCalibrationPointNames(
+        calibration.camCanvas.getCalibrationPoints());
       const appliedCameraRejected = calibration.camCanvas.calibrationPointDiagnostics.get("p1");
       const appliedMapRejected = calibration.viewport.children
         .find((point) => point.name === "calibrationPoint_p1")
@@ -92,20 +95,31 @@ def test_manual_distortion_controls(params, result_recorder):
         rejectionApplied: false,
         ransacInlierCount: 3,
         fitPointCount: 5,
-        rejectedIndices: [],
+        rejectedIndices: [1, 3],
         outlierThresholdPx: 5,
         rmsError: 4.25,
         perPointErrors: [0.5, 9.0, 1.2, 6.1, 0.3],
       }, ["p0", "p1", "p2", "p3", "p4"]);
+      const fallbackSummary = document.getElementById("calibration-fit-summary").textContent;
+      const fallbackDetails = document.getElementById("calibration-point-errors").textContent;
+      const fallbackCameraRejected = calibration.camCanvas.calibrationPointDiagnostics.get("p1");
+      calibration.clearCalibrationPoints();
       return {
-        summary: document.getElementById("calibration-fit-summary").textContent,
+        summary: fallbackSummary,
         appliedSummary,
         appliedDetails,
-        details: document.getElementById("calibration-point-errors").textContent,
+        details: fallbackDetails,
+        acceptedNames,
         cameraRejected: appliedCameraRejected,
         mapRejected: appliedMapRejected,
         cameraHighError: appliedCameraHighError,
         mapHighError: appliedMapHighError,
+        fallbackCameraRejected,
+        statusHiddenAfterClear: document.getElementById("calibration-fit-status").hidden,
+        rejectedAfterClear: calibration.rejectedPointIndices,
+        diagnosticsAfterClear: [
+          ...calibration.camCanvas.calibrationPointDiagnostics.keys(),
+        ],
       };
       """
     )
@@ -115,11 +129,20 @@ def test_manual_distortion_controls(params, result_recorder):
     assert "4.25 px" in diagnostics["summary"]
     assert "1 rejected by RANSAC" in diagnostics["appliedSummary"]
     assert "1.25 px" in diagnostics["appliedSummary"]
+    # Rejected p1 must not inflate the high-residual count (only p3).
+    assert "1 pair(s) have final residuals above 5.0 px" in diagnostics["appliedSummary"]
     assert "p1: 9.00 px (rejected by RANSAC)" in diagnostics["appliedDetails"]
+    assert "p3: 6.10 px (included, residual above threshold)" in diagnostics["appliedDetails"]
+    assert "flagged by RANSAC, included in fallback fit" in diagnostics["details"]
+    assert diagnostics["acceptedNames"] == ["p0", "p2", "p3", "p4"]
     assert diagnostics["cameraRejected"] == "rejected"
     assert diagnostics["mapRejected"] == "dc3545"
     assert diagnostics["cameraHighError"] == "high-error"
     assert diagnostics["mapHighError"] == "fd7e14"
+    assert diagnostics["fallbackCameraRejected"] == "rejected"
+    assert diagnostics["statusHiddenAfterClear"] is True
+    assert diagnostics["rejectedAfterClear"] == []
+    assert diagnostics["diagnosticsAfterClear"] == []
     result_recorder.success()
   finally:
     if browser is not None:
