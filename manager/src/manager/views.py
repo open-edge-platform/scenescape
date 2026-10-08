@@ -249,9 +249,9 @@ def saveRegionData(scene, form, sendUpdateCommand=None):
       })
 
     # For OSM ROI batches, delay notification until all regions are saved.
-    # For manual ROIs, notify immediately to allow real-time system updates.
+    # For manual ROIs, notify after commit to ensure consumers see up-to-date data.
     if not is_osm_batch:
-      region.notifydbupdate()
+      transaction.on_commit(lambda: region.notifydbupdate())
 
   # delete older rois
   regions_to_delete = Region.objects.filter(scene=scene).exclude(uuid__in=current_region_ids)

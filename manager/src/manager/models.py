@@ -173,6 +173,13 @@ class Scene(models.Model):
     default=None, null=True, blank=True, editable=False,
     help_text="Cached raw OSM way geometries fetched for this scene's map corners bounding box"
   )
+  # Bounding box used to fetch osm_ways_cache: [south, west, north, east].
+  # Cleared whenever map_corners_lla changes so stale ways are not reused.
+  osm_ways_cache_bbox = models.JSONField(
+    "Cached bounding box for OSM ways query",
+    default=None, null=True, blank=True, editable=False,
+    help_text="Bounding box [south, west, north, east] used to fetch osm_ways_cache; cleared on map edit"
+  )
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
   polycam_data = models.FileField(blank=True, null=True, validators=[FileExtensionValidator(["zip"])])
   dataset_dir = models.CharField(blank=True, max_length=200, editable=False)

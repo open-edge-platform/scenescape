@@ -583,6 +583,11 @@ function stringifyRois() {
       entry.sectors = roi_sectors;
     }
 
+    // Include osm_derived flag if this ROI was generated from OSM
+    if (g.data("osm_derived")) {
+      entry.osm_derived = true;
+    }
+
     rois.push(entry);
   });
 
@@ -2833,15 +2838,15 @@ $(document).ready(function () {
           var groupId = $group.attr("for");
           var svgGroup = Snap.select("#" + groupId);
           
-          // Local-only removal: no form submission
+          // Remove both SVG and form representations
           if (svgGroup) {
-            handleRegionDelete(svgGroup);
-          } else {
-            // Fallback if SVG group not found
-            $group.remove();
-            numberTripwires();
-            stringifyRois();
+            svgGroup.remove();
           }
+          $group.remove();
+          
+          // Update tripwire numbering and serialization
+          numberTripwires();
+          stringifyTripwires();
         }
       });
     }

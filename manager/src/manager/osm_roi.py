@@ -9,6 +9,7 @@ meter coordinate system using the pre-computed trs_matrix.
 """
 
 import logging
+import math
 
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Tuple
@@ -87,7 +88,7 @@ LANE_BASED_WIDTH_TYPES = frozenset(ROAD_WIDTH_BY_TYPE_M) - {
 
 # Safety cap on polygon point count after simplification.
 MAX_POLYGON_POINTS = 200
-STANDARD_LANE_WIDTH_M = 7.0  # meters per lane for road width estimation
+STANDARD_LANE_WIDTH_M = 3.5  # meters per lane for road width estimation
 
 
 def lla_to_local_xy(
@@ -178,8 +179,8 @@ def line_to_polygons(
           f"Polygon has {len(exterior_coords)} points, exceeding "
           f"MAX_POLYGON_POINTS={MAX_POLYGON_POINTS}; truncating"
         )
-        # Keep evenly-spaced subset
-        step = max(1, len(exterior_coords) // MAX_POLYGON_POINTS)
+        # Keep evenly-spaced subset using ceiling division to ensure result ≤ MAX_POLYGON_POINTS
+        step = max(1, math.ceil(len(exterior_coords) / MAX_POLYGON_POINTS))
         exterior_coords = exterior_coords[::step]
 
       polygons.append(exterior_coords)
@@ -358,7 +359,9 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
 
   The bounding box is derived from the scene's saved map_corners_lla, so no
   per-call bbox input is needed. Raw OSM way geometries are cached on the
-  scene (osm_ways_cache) so repeated ROI generation doesn't re-hit the OSM API.
+  scene (osm_ways_cache + osm_ways_cache_bbox) so repeated ROI generation doesn't
+  re-hit the OSM API. The cache is automatically invalidated if map_corners_lla
+  changes, ensuring previews always reflect the current map location.
 
   Args:
     scene: Scene object with trs_matrix and map_corners_lla populated.
@@ -376,20 +379,31 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
       "enable output_lla and wait for the controller to publish it."
     )
 
-  # Cache is only usable if it was written by the current schema: "tags" present
-  # and already a dict (older caches stored the raw parquet list-of-pairs format,
-  # which silently bypassed width/lanes-based sizing) and must be refreshed.
-  cache_is_current = bool(scene.osm_ways_cache) and all(
-    isinstance(way.get("tags"), dict) for way in scene.osm_ways_cache
+  # Cache is only usable if:
+  # 1. Tags format is current (dict, not raw list-of-pairs from parquet)
+  # 2. The bounding box used to fetch the cache still matches current map corners
+  #    (if map_corners_lla changed, the old ways are stale)
+  if not scene.map_corners_lla:
+    raise OsmRoiError(
+      "Scene map corners (map_corners_lla) not set; cannot derive OSM query bounding box"
+    )
+
+  south, west, north, east = bbox_from_map_corners(scene.map_corners_lla)
+  current_bbox = [south, west, north, east]
+
+  cache_is_current = (
+    scene.osm_ways_cache is not None
+    and all(isinstance(way.get("tags"), dict) for way in scene.osm_ways_cache)
+    and scene.osm_ways_cache_bbox == current_bbox
   )
 
   if cache_is_current:
     ways = scene.osm_ways_cache
   else:
-    south, west, north, east = bbox_from_map_corners(scene.map_corners_lla)
     ways = osm_query.query_osm_ways_geometry(south, west, north, east)
     scene.osm_ways_cache = ways
-    scene.save(update_fields=["osm_ways_cache"])
+    scene.osm_ways_cache_bbox = current_bbox
+    scene.save(update_fields=["osm_ways_cache", "osm_ways_cache_bbox"])
 
   previews = []
   for way in ways:

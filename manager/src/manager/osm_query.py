@@ -171,9 +171,11 @@ def query_osm_ways_geometry(
 
   Returns a list of dicts, each with keys:
     - "type": OSM road type (highway, footway, or fallback "way")
-    - "coords": list of (lat, lng) tuples representing the line geometry    - "tags": dict of OSM tags for the way (e.g., width, lanes, footway, surface)
+    - "coords": list of (lat, lng) tuples representing the line geometry
+    - "tags": dict of OSM tags for the way (e.g., width, lanes, footway, surface)
   If any way is a MultiLineString, it is split into one entry per sub-line,
-  preserving the same tags/type for each.
+  preserving the same tags/type for each. This avoids creating artificial bridges
+  across disconnected segments (tunnels, rivers, etc.).
 
   Raises OsmQueryError if the bbox is too large for geometry extraction or if
   the upstream request fails.
@@ -228,20 +230,12 @@ def query_osm_ways_geometry(
           coords = [(lat, lng) for lng, lat in geom.coords]
           results.append({"type": way_type, "coords": coords, "tags": tags})
         elif geom.geom_type == "MultiLineString":
-          # Merge all line segments into a single way entry to avoid duplicate
-          # ROI names and unnecessary fragmentation. Each segment is treated as
-          # a contiguous part of the same logical way.
-          all_coords = []
+          # Emit each line component separately. Concatenating disconnected segments
+          # creates artificial bridges in buffered polygons (e.g., across tunnels/rivers).
           for line in geom.geoms:
-            line_coords = [(lat, lng) for lng, lat in line.coords]
-            all_coords.extend(line_coords)
-          # Deduplicate consecutive identical points that may occur at segment junctions
-          if all_coords:
-            deduplicated = [all_coords[0]]
-            for coord in all_coords[1:]:
-              if coord != deduplicated[-1]:
-                deduplicated.append(coord)
-            results.append({"type": way_type, "coords": deduplicated, "tags": tags})
+            coords = [(lat, lng) for lng, lat in line.coords]
+            if coords:
+              results.append({"type": way_type, "coords": coords, "tags": tags})
 
       logger.info(
         f"ohsome geometry query succeeded: url={url} way_count={len(ways)} "

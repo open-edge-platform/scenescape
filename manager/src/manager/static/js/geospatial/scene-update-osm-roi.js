@@ -91,8 +91,14 @@ async function generateRoisFromOsm() {
       // Pass "osm_proposed" as type to signal this should be styled as proposed
       drawRoi(regionEntry, roi.uuid, "roi");
 
+      // Mark the SVG group with osm_derived flag for later serialization
+      const svgGroup = Snap.select(`#roi_${roi.uuid}`);
+      if (svgGroup) {
+        svgGroup.data("osm_derived", true);
+      }
+
       // Mark the newly created region row with .proposed-roi class
-      const regionRow = document.getElementById(`roi-row-${roi.uuid}`);
+      const regionRow = document.getElementById(`form-roi_${roi.uuid}`);
       if (regionRow) {
         regionRow.classList.add("proposed-roi");
         
@@ -106,6 +112,12 @@ async function generateRoisFromOsm() {
           titleInput.parentElement.appendChild(badge);
         }
       }
+
+      // Mark the SVG group with proposed-roi styling
+      const svgPolygon = Snap.select(`#roi_${roi.uuid} polygon`);
+      if (svgPolygon) {
+        svgPolygon.parent().addClass("proposed-roi");
+      }
     }
 
     // Update region numbering and trigger canvas update
@@ -118,8 +130,11 @@ async function generateRoisFromOsm() {
       ' OSM ROI(s) added to canvas. Drag vertices to adjust, then save.</div>';
   } catch (error) {
     console.error("OSM ROI preview failed:", error);
-    statusDiv.innerHTML =
-      '<div class="alert alert-danger">' + error.message + "</div>";
+    const alertDiv = document.createElement("div");
+    alertDiv.className = "alert alert-danger";
+    alertDiv.textContent = error.message;
+    statusDiv.innerHTML = "";
+    statusDiv.appendChild(alertDiv);
   }
 }
 
