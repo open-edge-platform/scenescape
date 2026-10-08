@@ -16,13 +16,14 @@
       "invert_pan": false,
       "invert_tilt": false,
       "resolution": [1280, 720],
-      "intrinsics": {"fx": 1053.628, "fy": 1053.628, "cx": 640.0, "cy": 360.0},
-      "distortion": {"k1": -0.370729, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0},
+      "intrinsics": {"fx": 1059.9363, "fy": 1059.9363, "cx": 640.0, "cy": 360.0},
+      "distortion": {"k1": -0.362086, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0},
       "pan_curve": [0.0, -163.64, 10.03],
       "tilt_curve": [0.0, 55.67, 1.41],
       "pan_axis": [0.0679, 0.1101, 0.9916],
       "pan_backlash_deg": [[-0.1112, 0.07], [0.1139, 1.21], [0.339, 2.3]],
-      "tilt_backlash_deg": 2.72
+      "tilt_backlash_deg": 2.72,
+      "track": false
     },
     {
       "scene_camera_uid": "atag-ptzcam1",

@@ -72,6 +72,7 @@ class FrameGrabber:
     self.condition = threading.Condition()
     self.image = None
     self.pubsub = PubSub(brokerauth, None, rootcert, broker)
+    self.pubsub.connect()
     self.pubsub.loopStart()
     self.pubsub.addCallback(self.topic, self._onImage, qos=2)
     return

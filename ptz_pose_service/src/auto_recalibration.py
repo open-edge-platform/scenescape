@@ -40,6 +40,7 @@ class AutoRecalibrator:
     self.verify = autocalibration_rootcert if autocalibration_rootcert else False
     self.session = requests.Session()
     self.pubsub = PubSub(brokerauth, None, brokerrootcert, broker)
+    self.pubsub.connect()
     self.pubsub.loopStart()
     return
 
