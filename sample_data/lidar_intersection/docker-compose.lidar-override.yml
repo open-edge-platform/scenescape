@@ -34,7 +34,7 @@ services:
   # if a scene with this name already exists (e.g. on a restart without a
   # volume reset), so it's safe to run on every `make demo-lidar`.
   lidar-scene-init:
-    image: alpine:3.23
+    image: alpine:3.24
     networks:
       scenescape:
     depends_on:

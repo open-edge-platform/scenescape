@@ -36,7 +36,7 @@ configs:
 
 services:
   mediaserver:
-    image: bluenviron/mediamtx:1.18.1
+    image: bluenviron/mediamtx:1.21.1
     networks:
       scenescape:
         aliases:
@@ -49,7 +49,7 @@ services:
     pids_limit: 1000
 
   queuing-cams:
-    image: linuxserver/ffmpeg:version-8.1-cli
+    image: linuxserver/ffmpeg:version-9.0-cli
     command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -re -stream_loop -1 -i /workspace/media/qcam2.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam1 -map 1:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/queuing-cam2
     volumes:
       - ./sample_data/demo_scenes/Queuing/video:/workspace/media:ro
