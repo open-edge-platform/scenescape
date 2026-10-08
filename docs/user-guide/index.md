@@ -79,6 +79,7 @@ PostgreSQL database server which stores static information used by the web UI an
 
 ## Supporting Resources
 
+- [Quick Start](./get-started/quick-start.md)
 - [Installation](./get-started/installation.md)
 - [API Reference](./api-reference.md)
 - [Camera normalization](./additional-resources/convert-object-detections-to-normalized-image-space.md)
@@ -98,6 +99,7 @@ Go back to Libraries <https://docs.openedgeplatform.intel.com/dev/ai-libraries.h
 :caption: Get Started
 
 Scenescape Overview <https://docs.openedgeplatform.intel.com/dev/scenescape/index.html>
+Quick Start <./get-started/quick-start.md>
 Installation <./get-started/installation.md>
 System Requirements <./get-started/system-requirements.md>
 
@@ -107,7 +109,7 @@ System Requirements <./get-started/system-requirements.md>
 :hidden:
 :caption: How-to Guides
 
-Deploy Scenescape <./how-to-guides/deploy-scenescape-using-prebuilt-containers.md>
+Deploy Scenescape <./how-to-guides/deployment/index.md>
 Use the UI and Online Documentation <./how-to-guides/ui-tutorial.md>
 Build a Scene <./how-to-guides/build-a-scene/index.md>
 Integrate Cameras and Sensors <./how-to-guides/integrate-cameras-and-sensors.md>

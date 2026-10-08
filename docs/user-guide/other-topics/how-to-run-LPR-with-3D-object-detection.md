@@ -7,7 +7,7 @@ This guide explains how to:
 
 ## Prerequisites
 
-- Successful deployment of a Scenescape instance using [Installation](../get-started/installation.md)
+- Successful deployment of a Scenescape instance using [Deploy on Docker](../how-to-guides/deployment/deploy-docker.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
