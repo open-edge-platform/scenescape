@@ -125,17 +125,18 @@ def _throttle() -> None:
 def _read_bounded(response: requests.Response) -> bytes:
   """Read a streamed response body, enforcing a max size to avoid resource exhaustion."""
   content_length = response.headers.get("Content-Length")
+  # Defensively parse Content-Length header; use size cap if header is malformed or missing
   if content_length is not None:
     try:
       parsed_content_length = int(content_length)
-    except (TypeError, ValueError):
-      logger.warning(
-        "Ignoring malformed Content-Length header from ohsome response: %r",
-        content_length,
-      )
-    else:
       if parsed_content_length > MAX_RESPONSE_BYTES:
         raise OsmQueryError(f"Response too large ({content_length} bytes)")
+    except (TypeError, ValueError):
+      logger.warning(
+        "Ignoring malformed Content-Length header from ohsome response: %r; "
+        "will enforce max size during streaming",
+        content_length,
+      )
 
   chunks: List[bytes] = []
   total = 0

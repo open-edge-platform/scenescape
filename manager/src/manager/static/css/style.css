@@ -935,7 +935,7 @@ ul.errorlist {
 
 /* Proposed ROIs (from OSM generation) */
 .roi.proposed-roi polygon {
-  stroke-dasharray: 6, 4;
+  /* Solid fill/stroke for proposed ROIs (no dashing) */
 }
 
 /* OSM badge styling */

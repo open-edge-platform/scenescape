@@ -444,12 +444,12 @@ def getMeshAxisAlignedProjectionToXY(mesh):
   # Get min and max bounds
   min_bound = bbox.min_bound.numpy()  # numpy array [min_x, min_y, min_z]
   max_bound = bbox.max_bound.numpy()  # numpy array [max_x, max_y, max_z]
-  # Return corners in counterclockwise order from bottom-left:
-  # SW (bottom-left), SE (bottom-right), NE (top-right), NW (top-left)
+  # Return corners in order expected by scene coordinate system:
+  # SW (bottom-left), NW (top-left), NE (top-right), SE (bottom-right)
   corners = np.array([ [min_bound[0], min_bound[1], 0.0],  # SW
-              [max_bound[0], min_bound[1], 0.0],  # SE
+              [min_bound[0], max_bound[1], 0.0],  # NW
               [max_bound[0], max_bound[1], 0.0],  # NE
-              [min_bound[0], max_bound[1], 0.0] ])  # NW
+              [max_bound[0], min_bound[1], 0.0] ])  # SE
   return corners
 
 def createRegionMesh(region):

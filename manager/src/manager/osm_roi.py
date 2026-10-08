@@ -17,6 +17,7 @@ import uuid
 
 import numpy as np
 from shapely.geometry import LineString, MultiPolygon, Polygon
+from shapely.geometry.base import BufferCapStyle
 
 from scene_common.earth_lla import convertLLAToECEF
 
@@ -153,7 +154,8 @@ def line_to_polygons(
 
   try:
     line = LineString(local_coords)
-    buffered = line.buffer(width_m / 2, cap_style=2)
+    # Use BufferCapStyle.flat to create flat ends on buffered line geometry
+    buffered = line.buffer(width_m / 2, cap_style=BufferCapStyle.flat)
     simplified = buffered.simplify(0.1, preserve_topology=True)
 
     polygons = []
@@ -411,7 +413,8 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
     coords_lla = way["coords"]  # [(lat, lng), ...]
     tags = way.get("tags", {})  # OSM tags for this way
 
-    # Convert LLA coords to local xy
+    # Convert LLA coords to local xy. If any coordinate fails, skip the entire way
+    # to avoid silently creating partial/corrupted geometries.
     local_coords = []
     conversion_failed = False
     for lat, lng in coords_lla:
@@ -419,10 +422,11 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
         x, y = lla_to_local_xy(scene.trs_matrix, lat, lng, alt=0.0)
         local_coords.append((x, y))
       except OsmRoiError as exc:
-        logger.error(f"Failed to convert way coordinate: {exc}")
+        logger.error(f"Failed to convert way coordinate [{lat}, {lng}]: {exc}")
         conversion_failed = True
         break
 
+    # Skip way if any coordinate failed or no coordinates were successfully converted
     if conversion_failed or not local_coords:
       continue
 
