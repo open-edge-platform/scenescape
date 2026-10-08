@@ -13,6 +13,11 @@ from scene_common.geometry import isarray, Point, Line, Rectangle, Region
 
 MAX_COPLANAR_DETERMINANT = 0.1
 FALLBACK_HORIZON_DISTANCE = 1000
+# RANSAC parameters for robust pose estimation from point correspondences.
+# Correspondences whose reprojection error exceeds this threshold (in pixels)
+# are treated as outliers and excluded from the pose fit.
+RANSAC_REPROJECTION_THRESHOLD_PX = 5.0
+MIN_POINTS_FOR_RANSAC = 4
 
 class CameraIntrinsics:
   INTRINSICS_KEYS = ('fx', 'fy', 'cx', 'cy')
@@ -560,8 +565,51 @@ class PointCorrespondenceTransform(CameraPose):
     if self.mapPoints.shape[1] == 2:
       self.mapPoints = np.hstack((self.mapPoints, np.zeros((self.mapPoints.shape[0], 1))))
     self.intrinsics = intrinsics
+    # Boolean mask over the correspondences (True = inlier) set by
+    # _solvePoseRobustly; None when RANSAC was not applied.
+    self.inlier_mask = None
     self.setResolution()
     return
+
+  @property
+  def rejectedIndices(self):
+    """Indices of correspondences rejected as outliers by RANSAC."""
+    if self.inlier_mask is None:
+      return []
+    return [int(i) for i in np.where(~self.inlier_mask)[0]]
+
+  def _solvePoseRobustly(self, computation_method):
+    """Solve the camera pose, rejecting outlier correspondences via RANSAC.
+
+    Tries cv2.solvePnPRansac first when enough correspondences exist; if it
+    cannot produce a usable inlier set, falls back to plain cv2.solvePnP over
+    all correspondences (the previous behavior). Records the inlier mask on
+    self.inlier_mask.
+    """
+    self.inlier_mask = None
+    if len(self.mapPoints) >= MIN_POINTS_FOR_RANSAC:
+      try:
+        _, rvec, tvec, inliers = cv2.solvePnPRansac(
+          self.mapPoints, self.cameraPoints,
+          self.intrinsics.intrinsics, self.intrinsics.distortion,
+          reprojectionError=RANSAC_REPROJECTION_THRESHOLD_PX,
+          confidence=0.99,
+          flags=cv2.SOLVEPNP_AP3P)
+        if inliers is not None and len(inliers) >= MIN_POINTS_FOR_RANSAC:
+          mask = np.zeros(len(self.mapPoints), dtype=bool)
+          mask[inliers.ravel()] = True
+          self.inlier_mask = mask
+          log.info(f"PointCorrespondenceTransform: RANSAC kept "
+                   f"{int(mask.sum())} of {len(self.mapPoints)} correspondences")
+          return rvec, tvec
+      except cv2.error as e:
+        log.warning(f"PointCorrespondenceTransform: RANSAC failed ({e}); "
+                    f"falling back to solvePnP over all correspondences")
+    # Fallback: fit over all correspondences (previous behavior)
+    _, rvec, tvec, = cv2.solvePnP(self.mapPoints, self.cameraPoints,
+                                  self.intrinsics.intrinsics, self.intrinsics.distortion,
+                                  flags=computation_method)
+    return rvec, tvec
 
   def _calculatePoseMat(self):
     computation_method = cv2.SOLVEPNP_ITERATIVE
@@ -570,9 +618,7 @@ class PointCorrespondenceTransform(CameraPose):
     if (not self.arePointsCoplanar(self.mapPoints) and len(self.mapPoints < 6)):
       computation_method = cv2.SOLVEPNP_P3P
 
-    _, rvec, tvec, = cv2.solvePnP(self.mapPoints, self.cameraPoints,
-                                  self.intrinsics.intrinsics, self.intrinsics.distortion,
-                                  flags=computation_method)
+    rvec, tvec = self._solvePoseRobustly(computation_method)
     rmat = cv2.Rodrigues(rvec)[0]
     pose_mat = np.linalg.inv(np.vstack((np.hstack((rmat, tvec)), [0, 0, 0, 1])))
 
