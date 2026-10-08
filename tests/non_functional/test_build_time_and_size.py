@@ -69,21 +69,16 @@ def run_command(command, env_extra=None) -> tuple[int, float]:
   duration = time.time() - start_time
   return process.returncode, duration
 
-<<<<<<< Updated upstream
 @pytest.mark.test_name("NEX-T12520")
-@pytest.mark.parametrize("image", IMAGES_REQUIREMENTS, ids=lambda img: img.name)
-def test_build_time_and_size(record_xml_attribute, image):
-  record_xml_attribute("name", f"{TEST_NAME}-{image.name}")
-=======
 def test_build_time(record_xml_attribute, built_image_result):
   image, duration = built_image_result
   record_xml_attribute("name", f"{TEST_NAME}-{image.name}-time")
->>>>>>> Stashed changes
 
   assert duration <= image.time_limit_seconds, (
     f"{TEST_NAME}: Building {image.name} took {duration:.2f}s (limit is {image.time_limit_seconds}s)"
   )
 
+@pytest.mark.test_name("NEX-T12520")
 def test_image_size(record_xml_attribute, built_image_result):
   image, _ = built_image_result
   record_xml_attribute("name", f"{TEST_NAME}-{image.name}-size")
