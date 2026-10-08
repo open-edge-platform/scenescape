@@ -57,6 +57,69 @@ def test_manual_distortion_controls(params, result_recorder):
     assert not browser.execute_script(
       "return new FormData(document.getElementById('calibration_form')).has('distortion_k1');"
     )
+
+    diagnostics = browser.execute_script(
+      """
+      const calibration = window.camera_calibration;
+      calibration.camCanvas.clearCalibrationPoints();
+      calibration.viewport.clearCalibrationPoints();
+      for (let index = 0; index < 5; index++) {
+        calibration.camCanvas.addCalibrationPoint(80 + index * 80, 90 + index * 50);
+        calibration.viewport.addCalibrationPoint(index, index % 2, 0);
+      }
+      calibration.camCanvas.drawImage();
+      calibration.showCalibrationFitStatus({
+        rejectionRequested: true,
+        rejectionApplied: true,
+        fitPointCount: 4,
+        rejectedIndices: [1],
+        outlierThresholdPx: 5,
+        rmsError: 1.25,
+        perPointErrors: [0.5, 9.0, 1.2, 6.1, 0.3],
+      }, ["p0", "p1", "p2", "p3", "p4"]);
+      const appliedSummary = document.getElementById("calibration-fit-summary").textContent;
+      const appliedDetails = document.getElementById("calibration-point-errors").textContent;
+      const appliedCameraRejected = calibration.camCanvas.calibrationPointDiagnostics.get("p1");
+      const appliedMapRejected = calibration.viewport.children
+        .find((point) => point.name === "calibrationPoint_p1")
+        .material.color.getHexString();
+      const appliedCameraHighError = calibration.camCanvas.calibrationPointDiagnostics.get("p3");
+      const appliedMapHighError = calibration.viewport.children
+        .find((point) => point.name === "calibrationPoint_p3")
+        .material.color.getHexString();
+      calibration.showCalibrationFitStatus({
+        rejectionRequested: true,
+        rejectionApplied: false,
+        ransacInlierCount: 3,
+        fitPointCount: 5,
+        rejectedIndices: [],
+        outlierThresholdPx: 5,
+        rmsError: 4.25,
+        perPointErrors: [0.5, 9.0, 1.2, 6.1, 0.3],
+      }, ["p0", "p1", "p2", "p3", "p4"]);
+      return {
+        summary: document.getElementById("calibration-fit-summary").textContent,
+        appliedSummary,
+        appliedDetails,
+        details: document.getElementById("calibration-point-errors").textContent,
+        cameraRejected: appliedCameraRejected,
+        mapRejected: appliedMapRejected,
+        cameraHighError: appliedCameraHighError,
+        mapHighError: appliedMapHighError,
+      };
+      """
+    )
+    assert "4 of 5 point pairs" in diagnostics["appliedSummary"]
+    assert "only 3 usable point pairs" in diagnostics["summary"]
+    assert "All 5 pairs were used" in diagnostics["summary"]
+    assert "4.25 px" in diagnostics["summary"]
+    assert "1 rejected by RANSAC" in diagnostics["appliedSummary"]
+    assert "1.25 px" in diagnostics["appliedSummary"]
+    assert "p1: 9.00 px (rejected by RANSAC)" in diagnostics["appliedDetails"]
+    assert diagnostics["cameraRejected"] == "rejected"
+    assert diagnostics["mapRejected"] == "dc3545"
+    assert diagnostics["cameraHighError"] == "high-error"
+    assert diagnostics["mapHighError"] == "fd7e14"
     result_recorder.success()
   finally:
     if browser is not None:

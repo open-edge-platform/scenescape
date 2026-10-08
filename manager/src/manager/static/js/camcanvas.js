@@ -28,6 +28,7 @@ class CamCanvas {
       this.calibrationPointNames.push(`p${i}`);
     }
     this.calibrationPointSize = 0;
+    this.calibrationPointDiagnostics = new Map();
 
     this.camScaleFactor = CAMERA_SCALE_FACTOR;
     this.scale = 1;
@@ -185,6 +186,7 @@ class CamCanvas {
       this.calibrationPoints = this.calibrationPoints.filter(
         (p) => p !== point,
       );
+      this.calibrationUpdated = true;
       this.calibrationPointNames.push(point.name);
       this.calibrationPointNames.sort((a, b) => {
         const numA = parseInt(a.replace(/\D/g, ""));
@@ -210,7 +212,11 @@ class CamCanvas {
       this.drawPoint(
         point.x * this.camScaleFactor,
         point.y * this.camScaleFactor,
-        point.color,
+        this.calibrationPointDiagnostics.get(point.name) === "rejected"
+          ? "#dc3545"
+          : this.calibrationPointDiagnostics.get(point.name) === "high-error"
+            ? "#fd7e14"
+            : point.color,
         point.name,
       );
     }
@@ -285,6 +291,19 @@ class CamCanvas {
         acc[point.name] = [point.x, point.y];
         return acc;
       }, {});
+  }
+
+  setCalibrationPointDiagnostics(rejectedNames, highErrorNames) {
+    this.calibrationPointDiagnostics = new Map();
+    rejectedNames.forEach((name) =>
+      this.calibrationPointDiagnostics.set(name, "rejected"),
+    );
+    highErrorNames.forEach((name) => {
+      if (!this.calibrationPointDiagnostics.has(name)) {
+        this.calibrationPointDiagnostics.set(name, "high-error");
+      }
+    });
+    this.drawImage();
   }
 }
 

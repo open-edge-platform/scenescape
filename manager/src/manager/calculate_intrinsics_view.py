@@ -128,11 +128,15 @@ class CalculateCameraIntrinsics(APIView):
         inlier_mask = find_inlier_mask(obj_points, img_points, intrinsics,
                                        distortion, outlier_threshold)
 
-      if inlier_mask is not None and int(inlier_mask.sum()) >= MIN_POINTS_FOR_FIT:
+      ransac_inlier_count = (int(inlier_mask.sum())
+                             if inlier_mask is not None else None)
+      rejection_applied = (inlier_mask is not None and
+                           ransac_inlier_count >= MIN_POINTS_FOR_FIT)
+      if rejection_applied:
         fit_obj_points = obj_points[inlier_mask]
         fit_img_points = img_points[inlier_mask]
-        num_rejected = num_points - int(inlier_mask.sum())
-        log.info(f"Outlier rejection: kept {int(inlier_mask.sum())} of "
+        num_rejected = num_points - ransac_inlier_count
+        log.info(f"Outlier rejection: kept {ransac_inlier_count} of "
                  f"{num_points} correspondences ({num_rejected} rejected)")
       else:
         if reject_outliers:
@@ -159,8 +163,12 @@ class CalculateCameraIntrinsics(APIView):
       euler, position = calculate_pose(rvecs[0], tvecs[0])
       return Response({"euler": euler, "position": position, "mtx": mtx, "dist": dist,
                        "rmsError": float(rms_error),
-                       "inlierCount": int(inlier_mask.sum()),
+                       "rejectionRequested": bool(reject_outliers),
+                       "rejectionApplied": bool(rejection_applied),
+                       "ransacInlierCount": ransac_inlier_count,
+                       "fitPointCount": int(len(fit_obj_points)),
                        "rejectedIndices": rejected_indices,
+                       "outlierThresholdPx": outlier_threshold,
                        "perPointErrors": [float(e) for e in point_errors]},
                       status=status.HTTP_200_OK)
     except (cv2.error, TypeError, ValueError, KeyError) as e:

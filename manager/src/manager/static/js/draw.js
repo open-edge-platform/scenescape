@@ -225,6 +225,7 @@ class Draw {
     const sphere = new THREE.Mesh(POINT_GEOMETRY, material);
     sphere.position.copy(position);
     sphere.name = "calibrationPoint_" + name;
+    sphere.userData.calibrationPointColor = color;
     return sphere;
   }
 

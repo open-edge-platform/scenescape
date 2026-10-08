@@ -58,6 +58,8 @@ When eight or more point pairs exist:
 
 **Expected Result**: Unlocked coefficients update in the UI and are saved with the camera.
 
+The fit status reports how many point pairs were used, the fit RMS reprojection error, and each pair's final reprojection error in pixels. Red points were rejected by RANSAC using a 5 px threshold; orange points remain in the fit but have a final residual above that threshold. If RANSAC cannot find at least four usable pairs, all pairs are used and the status says so. Reprojection error is a review aid, not a guarantee of calibration accuracy.
+
 > **Note:** A single view with eight points may not constrain all five distortion coefficients reliably. Spread points across the image and unlock only the parameters the data can support. Saved distortion is used for camera pose and scene projections; it does not automatically undistort the video stream in Docker deployments.
 
 ![Computed Camera Intrinsics](../../_assets/ui/camera-intrinsics.png)
