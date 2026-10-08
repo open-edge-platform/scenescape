@@ -10,8 +10,8 @@
  * The user can then edit these regions using the same tools as manual ROIs:
  * - Drag vertices to adjust boundaries
  * - Double-click to enter/exit edit mode
- * - Left-click vertices to remove points
- * - Left-click polygon body to delete entire region
+ * - Right-click a vertex to remove that point
+ * - Double right-click a polygon/region to delete the entire region
  * - Save via the "Save Regions and Tripwires" button
  * 
  * All OSM-generated and manual regions are persisted together through the standard

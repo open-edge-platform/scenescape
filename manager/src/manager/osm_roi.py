@@ -153,7 +153,7 @@ def line_to_polygons(
 
   try:
     line = LineString(local_coords)
-    buffered = line.buffer(width_m / 2, cap_style="flat")
+    buffered = line.buffer(width_m / 2, cap_style=2)
     simplified = buffered.simplify(0.1, preserve_topology=True)
 
     polygons = []
@@ -413,15 +413,17 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
 
     # Convert LLA coords to local xy
     local_coords = []
+    conversion_failed = False
     for lat, lng in coords_lla:
       try:
         x, y = lla_to_local_xy(scene.trs_matrix, lat, lng, alt=0.0)
         local_coords.append((x, y))
       except OsmRoiError as exc:
         logger.error(f"Failed to convert way coordinate: {exc}")
+        conversion_failed = True
         break
 
-    if not local_coords:
+    if conversion_failed or not local_coords:
       continue
 
     # Extract width intelligently from tags (lanes, explicit width, type default)
