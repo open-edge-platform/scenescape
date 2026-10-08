@@ -264,8 +264,16 @@ def saveRegionData(scene, form, sendUpdateCommand=None):
 
   # For OSM ROI batches, send a single batched notification after all saves are complete.
   # This dramatically reduces network overhead (e.g., 50 saves → 1 notification).
-  if is_osm_batch and current_region_ids and sendUpdateCommand:
-    sendUpdateCommand(scene_id=scene.id)
+  # If no callback provided, fall back to per-region notifications to avoid silent data loss.
+  if is_osm_batch and current_region_ids:
+    if sendUpdateCommand:
+      # Defer batch notification until after transaction commits to prevent race conditions
+      transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
+    else:
+      # Fallback: send per-region notifications if batch callback unavailable
+      for region_id in current_region_ids:
+        region = Region.objects.get(uuid=region_id)
+        transaction.on_commit(lambda r=region: r.notifydbupdate())
 
   return
 
