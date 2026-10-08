@@ -10,8 +10,12 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
+#include <format>
+#include <map>
 #include <mutex>
 #include <thread>
 
@@ -317,6 +321,68 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_RespectsMaxScopesLimit) {
     EXPECT_GE(scheduler.scope_limit_drops(), 1);
 
     scheduler.stop();
+}
+
+// The scheduler resolves each scope's category in its ObjectClassMap: the same bbox publishes a
+// different world position for a TYPE_2 category than for an unlisted (TYPE_1) one.
+TEST_F(TimeChunkSchedulerTest, Dispatch_AppliesObjectClassPerCategory) {
+    TimeChunkBuffer buffer;
+    SceneRegistry registry;
+    Scene scene;
+    scene.uid = "scene-1";
+    scene.name = "Test Scene 1";
+    Camera cam;
+    cam.uid = "cam-1";
+    cam.name = "Camera 1";
+    cam.intrinsics = {905.0, 905.0, 640.0, 360.0, {0.0, 0.0, 0.0, 0.0}};
+    cam.extrinsics.translation = {0.0, 0.0, 3.0};
+    cam.extrinsics.rotation = {-90.0, 0.0, 0.0};
+    cam.extrinsics.scale = {1.0, 1.0, 1.0};
+    scene.cameras.push_back(cam);
+    registry.register_scenes({scene});
+
+    TrackingConfig config = createConfig(100, 10);
+    config.max_unreliable_time_s = 0.0;
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::map<std::string, std::array<double, 3>> positions;
+    PublishCallback callback = [&](const std::string&, const std::string&,
+                                   const std::string& category, const std::string&,
+                                   const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        if (!tracks.empty() && positions.try_emplace(category, tracks.front().translation).second) {
+            cv.notify_one();
+        }
+    };
+
+    const ObjectClassMap object_classes = {
+        {"plane", ObjectClassConfig{.shift_type = ObjectClassConfig::kShiftType2}}};
+    TimeChunkScheduler scheduler(buffer, registry, config, callback, makeSystemClock(),
+                                 object_classes);
+    scheduler.start();
+
+    std::unique_lock lock(mtx);
+    for (int i = 0; i < 20 && positions.size() < 2; ++i) {
+        lock.unlock();
+        for (const char* category : {"plane", "person"}) {
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
+            batch.receive_time = std::chrono::steady_clock::now();
+            batch.detections.push_back(
+                Detection{.id = 1, .bounding_box_px = cv::Rect2f(600.0f, 400.0f, 80.0f, 200.0f)});
+            buffer.add({"scene-1", category}, "cam-1", std::move(batch));
+        }
+        lock.lock();
+        cv.wait_for(lock, std::chrono::milliseconds(100), [&] { return positions.size() == 2; });
+    }
+
+    ASSERT_EQ(positions.size(), 2u) << "Both categories should publish a reliable track";
+    const auto& plane = positions.at("plane");
+    const auto& person = positions.at("person");
+    EXPECT_GT(std::hypot(plane[0] - person[0], plane[1] - person[1]), 0.1)
+        << "TYPE_2 'plane' should project differently from TYPE_1 'person'";
 }
 
 TEST_F(TimeChunkSchedulerTest, WorkerCount_StartsAtZero) {

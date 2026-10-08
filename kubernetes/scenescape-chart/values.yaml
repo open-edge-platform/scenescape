@@ -88,6 +88,19 @@ analytics:
   # regulated, unregulated, or none
   visibilityTopic: regulated
 
+tracker:
+  enabled: false
+  image: intel/scenescape-tracker
+  pullPolicy: IfNotPresent
+  logLevel: info
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "2"
+      memory: 512Mi
+
 autocalibration:
   image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent
@@ -106,7 +119,7 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.3.0-20260922-weekly-ubuntu24"
+    tag: "2026.3.0-20260929-weekly-ubuntu24"
     pullPolicy: IfNotPresent
 
 models:
@@ -147,7 +160,7 @@ clusterAnalytics:
 mapping:
   enabled: false
   image: intel/scenescape-mapping
-  model: mapanything # one of [mapanything, vggt]
+  model: "" # one of [mapanything, vggt], empty value uses mapanything
   pullPolicy: IfNotPresent
 
 # Used as init container in some deployments to wait for dependent services

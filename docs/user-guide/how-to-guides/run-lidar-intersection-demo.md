@@ -123,7 +123,7 @@ clones/builds anything (the several-minutes-first-run cost mentioned in
 
 ## Prerequisites
 
-- Complete [Installation](../get-started/installation.md) Steps 1-2 (get the
+- Complete [Get Scenescape](../get-started/installation.md#step-1-get-scenescape) and [Preparation](./deployment/preparation.md) (get the
   source and build the container images) at least once.
 - **Download the recorded LiDAR/camera dataset manually** - it is not
   committed to this repo because it's too large (hundreds of MB of `.pcd`
