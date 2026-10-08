@@ -132,6 +132,8 @@ async function generateRoisFromOsm() {
     console.error("OSM ROI preview failed:", error);
     const alertDiv = document.createElement("div");
     alertDiv.className = "alert alert-danger";
+    // Use textContent (not innerHTML) to safely render error message as plain text,
+    // preventing XSS injection if upstream API returns malicious content.
     alertDiv.textContent = error.message;
     statusDiv.innerHTML = "";
     statusDiv.appendChild(alertDiv);
