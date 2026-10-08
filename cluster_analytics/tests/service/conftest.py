@@ -53,7 +53,7 @@ def cluster_analytics_service():
   project_name = f"ca-test-{uuid.uuid4().hex[:8]}"
 
   docker = DockerClient(
-    compose_files=[service_dir / "docker-compose.yaml"],
+    compose_files=[service_dir / "compose.yml"],
     compose_project_name=project_name,
     compose_project_directory=str(service_dir),
   )

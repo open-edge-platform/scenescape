@@ -77,7 +77,7 @@ By default, Regions of Interest trigger events when the center point of each obj
 3. When an object first intersects or last intersects with the region of interest, observe a message on the event topic for that region. The payload shape matches center-point ROI events; see [Event Data Structures](../work-with-spatial-analytics-data.md#event-data-structures).
 
 > **Note:**
-> To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yaml` file:
+> To access the broker port `1883` from outside the Docker network, you must expose the port by **uncommenting** the following lines in your `docker-compose.yml` file:
 >
 > ```yaml
 > broker:
