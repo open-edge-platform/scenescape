@@ -24,6 +24,7 @@ from harnesses.black_box_harness.mock_manager import (
     _DISTORTION_KEYS,
     _MAX_COPLANAR_DETERMINANT,
     _are_coplanar,
+    _assets_from_object_classes,
     _build_rest_scene,
     _calculate_determinant,
     _compute_extrinsics,
@@ -69,16 +70,21 @@ def two_camera_scene_config():
 
 @pytest.fixture
 def rest_server(two_camera_scene_config):
-  """Start a real HTTPServer on an ephemeral port; yield base URL; stop after test."""
-  from harnesses.black_box_harness.mock_manager import _build_rest_scene
-  scene = _build_rest_scene(two_camera_scene_config)
-  server = HTTPServer(("127.0.0.1", 0), MockManagerHandler)
-  server.scene = scene
-  port = server.server_address[1]
-  thread = threading.Thread(target=server.serve_forever, daemon=True)
-  thread.start()
-  yield f"http://127.0.0.1:{port}"
-  server.shutdown()
+  """Factory: start a real HTTPServer on an ephemeral port serving ``object_classes``
+  as assets; return base URL; stop all servers after test."""
+  servers = []
+
+  def start(object_classes=None):
+    server = HTTPServer(("127.0.0.1", 0), MockManagerHandler)
+    server.scene = _build_rest_scene(two_camera_scene_config)
+    server.assets = _assets_from_object_classes(object_classes)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    servers.append(server)
+    return f"http://127.0.0.1:{server.server_address[1]}"
+
+  yield start
+  for server in servers:
+    server.shutdown()
 
 
 # ---------------------------------------------------------------------------
@@ -327,49 +333,78 @@ class TestMockManagerHTTP:
     return resp.status, body_data
 
   def test_post_auth_returns_token(self, rest_server):
-    status, body = self._post(rest_server, "/api/v1/auth")
+    status, body = self._post(rest_server(), "/api/v1/auth")
     assert status == 200
     assert "token" in body
 
   def test_get_scenes_returns_scene_list(self, rest_server):
-    status, body = self._get(rest_server, "/api/v1/scenes")
+    status, body = self._get(rest_server(), "/api/v1/scenes")
     assert status == 200
     assert "results" in body
     assert len(body["results"]) == 1
     assert body["results"][0]["uid"] == "test-scene-uid"
 
   def test_get_scenes_child_returns_empty(self, rest_server):
-    status, body = self._get(rest_server, "/api/v1/scenes/child")
+    status, body = self._get(rest_server(), "/api/v1/scenes/child")
     assert status == 200
     assert body["results"] == []
 
-  def test_get_assets_returns_empty(self, rest_server):
-    status, body = self._get(rest_server, "/api/v1/assets")
+  def test_get_assets_returns_empty_by_default(self, rest_server):
+    status, body = self._get(rest_server(), "/api/v1/assets")
     assert status == 200
     assert body["results"] == []
+
+  def test_get_assets_returns_object_classes(self, rest_server):
+    """object_classes are served as Manager assets."""
+    url = rest_server([
+      {"name": "person", "shift_type": 1, "x_size": 0.5, "y_size": 0.5},
+      {"name": "FW190D", "shift_type": 2, "x_size": 1.0, "y_size": 1.0},
+    ])
+    status, body = self._get(url, "/api/v1/assets")
+    assert status == 200
+    assert len(body["results"]) == 2
+    by_name = {a["name"]: a for a in body["results"]}
+    assert by_name["person"]["shift_type"] == 1
+    assert by_name["FW190D"]["shift_type"] == 2
+    assert by_name["FW190D"]["x_size"] == pytest.approx(1.0)
+
+  def test_assets_from_object_classes_skips_nameless(self):
+    assets = _assets_from_object_classes([
+      {"shift_type": 2},
+      {"name": "FW190D", "shift_type": 2, "x_size": 1.0, "y_size": 1.0},
+    ])
+    assert len(assets) == 1
+    assert assets[0]["name"] == "FW190D"
+    assert assets[0]["shift_type"] == 2
+
+  def test_assets_from_object_classes_default_sizes_match_manager(self):
+    assets = _assets_from_object_classes([{"name": "FW190D"}])
+    assert assets[0]["x_size"] == 1.0
+    assert assets[0]["y_size"] == 1.0
+    assert assets[0]["z_size"] == 1.0
 
   def test_get_camera_returns_correct_camera(self, rest_server):
-    status, body = self._get(rest_server, "/api/v1/camera/Cam_x1_0")
+    status, body = self._get(rest_server(), "/api/v1/camera/Cam_x1_0")
     assert status == 200
     assert body["uid"] == "Cam_x1_0"
     assert "extrinsics" in body
     assert "camera points" in body
 
   def test_get_camera_not_found_returns_404(self, rest_server):
-    status, body = self._get(rest_server, "/api/v1/camera/no-such-cam")
+    status, body = self._get(rest_server(), "/api/v1/camera/no-such-cam")
     assert status == 404
 
   def test_post_camera_returns_200(self, rest_server):
-    status, body = self._post(rest_server, "/api/v1/camera/Cam_x1_0",
+    status, body = self._post(rest_server(), "/api/v1/camera/Cam_x1_0",
                                {"extrinsics": {"translation": [1, 2, 3]}})
     assert status == 200
 
   def test_get_unknown_path_returns_404(self, rest_server):
-    status, body = self._get(rest_server, "/api/v1/unknown")
+    status, body = self._get(rest_server(), "/api/v1/unknown")
     assert status == 404
 
   def test_trailing_slash_normalised(self, rest_server):
     """Trailing slash on /api/v1/scenes/ is handled identically."""
-    status, body = self._get(rest_server, "/api/v1/scenes/")
+    status, body = self._get(rest_server(), "/api/v1/scenes/")
     assert status == 200
     assert "results" in body

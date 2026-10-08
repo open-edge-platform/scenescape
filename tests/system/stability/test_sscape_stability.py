@@ -19,6 +19,7 @@ from tests.utils.containers import (
 )
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import STABILITY
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=STABILITY,
@@ -48,7 +49,8 @@ HEALTHCHECK_SERVICES = (
   "scene",                # Scene Controller
   "autocalibration",      # Autocalibration
   "mapping",              # Mapping
-  "controller-analytics", # Cluster Analytics
+  "analytics",            # Analytics
+  "cluster-analytics",    # Cluster Analytics
 )
 
 ### Labels used in health and resource-usage output.
@@ -57,7 +59,8 @@ SERVICE_LABELS = {
   "scene": "Scene Controller",
   "autocalibration": "Autocalibration",
   "mapping": "Mapping",
-  "controller-analytics": "Cluster Analytics",
+  "analytics": "Analytics",
+  "cluster-analytics": "Cluster Analytics",
 }
 
 ### Number of consecutive cycles a monitored service is allowed to report an
@@ -654,6 +657,7 @@ def on_message(mqttc, obj, msg):
   objects_detected += 1
   return
 
+@pytest.mark.test_name("NEX-T10411")
 def test_sscape_stability(params, record_xml_attribute, scenescape_env):
   """! Checks that scenescape performs as expected over a given time period.
   @param    params                  Dict of test parameters.
