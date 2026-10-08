@@ -86,12 +86,13 @@ _Figure 5: ntpserver config for DL Streamer Pipeline in `pipeline-config.json`._
 
 ### 2. Set Up Secure Communication
 
-> **Note:** For details on available Docker Compose profiles, see [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles).
+> **Note:** For details on available Docker Compose profiles, see [Docker Compose Profiles](../deployment/deploy-docker.md#docker-compose-profiles).
+
+First, deploy Scenescape on both systems using the [Installation guide](../../get-started/installation.md).
 
 **On Parent system**:
 
 ```bash
-./deploy.sh
 docker compose --profile controller down --remove-orphans
 rm manager/secrets/ca/* manager/secrets/certs/*
 make -C tools/certificates/ deploy-certificates CERTPASS=<random-string>
@@ -102,7 +103,6 @@ make -C tools/certificates/ deploy-certificates CERTPASS=<random-string>
 > **Note:** Ensure that there are no scenes with the same UUID present on both the parent and child systems.
 
 ```bash
-./deploy.sh
 docker compose --profile controller down --remove-orphans
 rm manager/secrets/ca/* manager/secrets/certs/*
 # Copy parent secrets:
@@ -115,7 +115,7 @@ scp parent:/path-to-scenescape-repo/manager/secrets/certs/scenescape-ca.pem ./ma
 Then restart Scenescape:
 
 ```bash
-./deploy.sh
+docker compose --profile controller up -d
 ```
 
 ### 3. Link Remote Child
