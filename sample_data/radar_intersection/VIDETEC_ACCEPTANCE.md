@@ -339,7 +339,7 @@ Quality gate above is unchanged; this section is **runtime**. Full tables live i
 | Stage 2b OV VFE + attention | Dense synthetic total (5k pts) | **1038 → 165 ms** (~6×); attn 610 → 46 ms |
 | FT5 train-time densify | Full-window VRU@3m | **~39%** — failed; keep FT2 |
 | `nms_thresh` 0.1→0.05 | Duplicate boxes/hit | **2.39 → 1.83** (100% recall) |
-| FT6 multi-class distill | Dataset | **647 samples / 255 distilled boxes**; train blocked (no RadarPillar ckpt on host) |
+| FT6 multi-class (CPU BEV/head) | Camera-GT promote | **Failed / discarded** — keep **FP16_ft2** |
 
 Ship: `FP16_ft2/` includes `radarpillars_vfe_linear.*` + `radarpillars_attention.*`;
 config keys `vfe_linear_model` / `attention_model`. Profiler:
@@ -364,20 +364,17 @@ config keys `vfe_linear_model` / `attention_model`. Profiler:
 finetune **regresses** H=5 full-window recall vs FT2 (toward FT4). **Do not**
 replace demo FT2 weights with FT5. Gate remains open for causal densify / fusion.
 
-### Fine-tune attempt 6 (multi-class distillation) — dataset ready, train blocked
+### Fine-tune attempt 6 (multi-class distillation) — **abandoned**
 
 | Item | Value |
 | --- | --- |
 | Tag | `videtec_gantry_ft6` |
-| Distill | Base VoD OV (`FP16/`), score ≥0.03, stride 2, frames outside 3270–4100 |
-| Data | `VIDETEC-2/finetune_ds_ft6` — GNSS Pedestrian + distilled Car/Cyclist; exclude 3270–4100 → **647** samples (**255** distilled boxes) |
-| Tools | `finetune/distill_base_labels.py`, `build_videtec_dataset.py --distill-jsonl` |
-| Train | **Blocked on this host** — no RadarPillar checkout / FT2 ep11 `.pth` |
-| IR | Placeholder `model_installer/FP16_ft6/README.md`; keep shipping **FP16_ft2** |
+| Distill / data | Base VoD OV + GNSS; `finetune_ds_ft6` (647 / 255 distilled) |
+| Train | CPU BEV/head from FT2; camera-GT gate **failed** (person 96% vs 100%; road+veg worse; vehicles@0.3 ≈ 1) |
+| Artifacts | **Discarded** (`FP16_ft6/`, CPU trainer, FT6 ckpt) — ship **`FP16_ft2` only** |
 
-Promotion gate (when trained): past=4, thr 0.1, camera-GT loop — person recall ≥
-FT2, road+veg FP share < FT2, non-trivial vehicle dets at conf ≥0.3 matching
-camera vehicles.
+Distill helpers remain under `finetune/` if a GPU OpenPCDet retry is ever needed;
+not required for the demo.
 
 ```bash
 # Parity

@@ -5,15 +5,16 @@ SPDX-License-Identifier: Apache-2.0
 
 # Plan: First-Class Radar + RadarPillars / `g3dinference`
 
-**Canonical radar plan** (densify / NMS / FT6 and g3dinference product path).
+**Canonical radar plan** (densify / NMS / g3dinference product path).
 
 Status on `feature/radar-support` (SceneScape) and
-`feature/g3dinference-multi-model` (DLStreamer). **Updated 2026-10-05:**
+`feature/g3dinference-multi-model` (DLStreamer). **Updated 2026-10-08:**
 demo densify default **past=4**, FT2 **`nms_thresh=0.05`**, camera-GT eval
-harness + classical/roadside comparison landed; **FT6 train → export →
-promote** remains for a RadarPillar host. Earlier (2026-09-29): C5/P1 demo
-live; causal densify + FT2 OV quality parity; Intel latency Stages 1–2b;
-Controller late fusion accepted; first-deploy VIDETEC automated.
+harness + classical/roadside comparison landed; **FT6 abandoned** (failed
+camera-GT gate; IR/trainer discarded) — ship **FP16_ft2**. Earlier
+(2026-09-29): C5/P1 demo live; causal densify + FT2 OV quality parity; Intel
+latency Stages 1–2b; Controller late fusion accepted; first-deploy VIDETEC
+automated.
 
 See *Results rollup* and *Phase: camera-GT densify, NMS, FT6* below.
 Acceptance numbers: `sample_data/radar_intersection/VIDETEC_ACCEPTANCE.md`.
@@ -401,11 +402,14 @@ better 401-frame window (~10× more near-GT support than 3000–5000).
 
 | # | Work | Status |
 | --- | --- | --- |
-| **1** | **FT6 multi-class train → export `FP16_ft6` → camera-GT promote** | **Open** — needs RadarPillar + FT2 ep11 `.pth` (see *Phase: camera-GT densify, NMS, FT6*) |
-| 2 | Upstream DLS / DLSPS — land `feature/g3dinference-multi-model`, drop local `make build-dlsps-g3d` | Next after confirm |
-| 3 | Voxelize + scatter (optional latency) | Later |
-| 4 | SceneScape cleanup — stock DLSPS tags; native `application/x-radar` | Later |
-| 5 | PR hygiene — BAT / functional radar re-verify; merge readiness | Ongoing |
+| **1** | **Upstream DLS / DLSPS** — land `feature/g3dinference-multi-model`, drop local `make build-dlsps-g3d` | **Next** |
+| 2 | PR hygiene — BAT / functional radar re-verify; merge readiness | Ongoing |
+| 3 | SceneScape cleanup — stock DLSPS tags; native `application/x-radar` | Later |
+| 4 | Voxelize + scatter (optional latency) | Later |
+
+Parallel (separate plan): camera auto-cal vs satellite map —
+[`camera-autocalibration-satellite-map.md`](camera-autocalibration-satellite-map.md)
+(**proposed, not started**).
 
 **Accepted / done (do not re-open as product blockers):**
 
@@ -415,6 +419,7 @@ better 401-frame window (~10× more near-GT support than 3000–5000).
 3. Host preproc OV Stages 1–2b + P1 BEV-device — **DONE**.
 4. Controller late fusion — **DONE / accepted**; no mid-tier fuse.
 5. Camera-GT densify/NMS/CR eval (2026-10-05) — **DONE** (defaults + harness).
+6. FT6 multi-class — **abandoned** (gate failed; artifacts discarded; keep FT2).
 
 ### Later (after preproc OV or metrics justify)
 
@@ -442,10 +447,8 @@ Product decisions locked for this phase:
 | Analysis harness (`sample_data/radar_intersection/analysis/`) | **Done** |
 | Offline classical/roadside runners | **Done** |
 | Classical / roadside vs radarpillars table | **Done** — keep radarpillars demo default |
-| Distill tooling + `finetune_ds_ft6` (647 / 255 boxes) | **Done** |
-| Train FT6 from FT2 ep11 | **Open** |
-| Export `FP16_ft6` | **Open** |
-| Promote vs FT2 camera-GT gate; switch demo IR | **Open** |
+| Distill tooling + `finetune_ds_ft6` (647 / 255 boxes) | **Done** (tooling kept; no shipped FT6 IR) |
+| Train / export / promote FT6 | **Abandoned** — gate failed; artifacts discarded; keep **FP16_ft2** |
 
 ### NMS (config-only)
 
@@ -471,56 +474,13 @@ Harness: `analysis/segment_map.py`, `detect_camera_frames.py`,
 `project_camera_detections.py`, `metrics.py`, `offline_g3d_publish.py`;
 also `baselines/classical_batch.py`. Details in `VIDETEC_ACCEPTANCE.md` C4d–f.
 
-### FT6 train → export → promote (open — RadarPillar host)
+### FT6 multi-class — abandoned (2026-10-08)
 
-FT2 person-only labels → vehicle returns become low-score `person` on road.
-Dataset ready; train blocked without RadarPillar + FT2 ep11 `.pth`.
-
-```bash
-# Rebuild dataset if needed (skip if finetune_ds_ft6 already present)
-python3 sample_data/radar_intersection/finetune/distill_base_labels.py \
-  --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
-  --config sample_data/radar_intersection/model_installer/FP16/radarpillars_ov_config.json \
-  --device CPU --score-threshold 0.03 --stride 2 --min-points-near 1 \
-  --start-index 0 --stop-index 6000 \
-  -o sample_data/radar_intersection/VIDETEC-2/distill_base_vc.jsonl
-
-GNSS=sample_data/radar_intersection/VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55/rosbag2_2025_10_09-14_43_55_0_gps.csv
-python3 sample_data/radar_intersection/finetune/build_videtec_dataset.py \
-  --frames-dir sample_data/radar_intersection/VIDETEC-2/converted/frames \
-  --gnss "$GNSS" \
-  --sensor sample_data/radar_intersection/VIDETEC-2/converted/frames/sensor.json \
-  --vru-class Pedestrian --pc-range -20 -40 -5 60 40 3 \
-  --min-points-near-gt 1 --exclude-start 3270 --exclude-end 4100 \
-  --distill-jsonl sample_data/radar_intersection/VIDETEC-2/distill_base_vc.jsonl \
-  --distill-score 0.03 \
-  -o sample_data/radar_intersection/VIDETEC-2/finetune_ds_ft6
-
-# Train (RadarPillar root; DATA_PATH → finetune_ds_ft6)
-python3 /path/to/scenescape/sample_data/radar_intersection/finetune/train_videtec_gantry.py \
-  --cfg_file tools/cfgs/vod_models/videtec_radarpillar_gantry.yaml \
-  --batch_size 4 --epochs 12 --lr 3e-4 \
-  --extra_tag videtec_gantry_ft6 \
-  --pretrained_model /path/to/radarpillar_videtec_gantry_ft2_ep11.pth \
-  --freeze-backbone-3d
-
-# Export — do not overwrite FP16_ft2; keep nms_thresh 0.05
-python3 sample_data/radar_intersection/radarpillars/export_radarpillars_ov.py \
-  --ckpt /path/to/checkpoint_epoch_N.pth --gantry \
-  --source-label radarpillar_videtec_gantry_ft6_epN \
-  -o sample_data/radar_intersection/model_installer/FP16_ft6
-```
-
-Promotion gate (past=4, thr 0.1, camera-GT): person recall ≥ FT2; road+veg
-person share **lower** than FT2; non-trivial vehicles at conf ≥ 0.3. Fail → keep
-`FP16_ft2`. RadarPillar root via `RADARPILLAR_ROOT` / sibling `../RadarPillar`;
-FT2 ep11 `.pth` shipped under `sample_data/radar_intersection/weights/`.
-
-```bash
-# After promote only
-SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_IR_DIR=FP16_ft6 \
-  RADAR_ACCUMULATE_PAST=4 RADAR_SCORE_THRESHOLD=0.1 make demo-radar
-```
+CPU BEV/head fine-tune from FT2 + distilled Car/Cyclist missed the camera-GT
+gate (person 96% vs 100%; road+veg 25% vs 17%; vehicles@0.3 ≈ 1). **Artifacts
+discarded** (`FP16_ft6/`, CPU trainer, FT6 `.pth`). Demo remains **`FP16_ft2`**.
+Distill helpers under `finetune/` stay for a possible later GPU OpenPCDet retry;
+not on the critical path.
 
 ---
 
