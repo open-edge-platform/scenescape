@@ -38,6 +38,17 @@ Defaults: `RADAR_PERCEPTION=radarpillars` (FT2 IR), `RADAR_ACCUMULATE_PAST=4`,
 `VIDETEC-2/.demo_ready` exists. Override with
 `RADAR_PERCEPTION=classical|roadside` when needed.
 
+## Perception methods
+
+| Mode | In one sentence |
+| --- | --- |
+| **`radarpillars`** (default) | Pillar/BEV DNN (FT2 OV IR) on densified `pcd_bin`; best person recall |
+| **`classical`** | No NN — Doppler + spatial cluster/track on `frames_bin` |
+| **`roadside`** | PointNet point labels + class-aware clustering on `frames_bin` |
+
+Full explanations (algorithm, gates, IR paths):
+[Run the Radar-Intersection Fusion Demo — Perception modes](../../docs/user-guide/how-to-guides/run-radar-intersection-demo.md#perception-modes-radar_perception).
+
 | Target | Purpose |
 | --- | --- |
 | `make prepare-radar-data` | VIDETEC download/convert + camera stage only |

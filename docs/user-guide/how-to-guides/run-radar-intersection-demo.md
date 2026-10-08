@@ -24,6 +24,41 @@ All modes share one stack:
 | **`classical`** | `classical` | `frames_bin` (5-float) | Vehicles + sparsity robustness |
 | **`roadside`** | `roadside` | `frames_bin` + OV PointNetSeg | Sparse DNN; VIDETEC CC BY weights |
 
+### What each method does
+
+**`classical` — traditional cluster + track (no neural net).**  
+Host-side clustering on the sparse `(N,5)` VIDETEC frame (range, Doppler,
+azimuth, elevation, magnitude), then short-horizon association. Class rules
+are hand-tuned: a cluster is **person** when `|doppler| ∈ [0.5, 2.8)` m/s,
+extent ≤ 1.5 m, and confidence ≥ 0.5; otherwise **vehicle**. Strong on
+sparsity and vehicles; more empty-road FP than a learned detector. Config:
+`model_installer/classical/classical_ov_config.json`.
+
+**`roadside` — learned point segmentation + traditional instances.**  
+A compact **PointNet-style MLP** (OpenVINO IR) labels each point as
+background / person / vehicle from 6 features
+`(x, y, z, doppler, magnitude, |doppler|)`. Class-aware distance clustering
+then forms instances and **keeps single-point** objects. Inspired by
+RoadsideRadar (Bhanderi et al.); SceneScape weights are **VIDETEC-only**
+(CC BY 4.0 weak GNSS labels) — see
+[`baselines/PROVENANCE.md`](../../../sample_data/radar_intersection/baselines/PROVENANCE.md).
+Default instance gate: `min_score=0.35`. IR:
+`model_installer/roadside/FP16/`.
+
+**`radarpillars` — pillar / BEV detector (default demo).**  
+RadarPillars-style DNN on densified VoD-layout `pcd_bin` (7-float). Live
+demo uses the shipped FT2 OpenVINO IR with causal densify
+(`RADAR_ACCUMULATE_PAST=4`) and publish score threshold `0.1`. Best
+camera-GT **person** recall on the demo slice; soft vehicle scores are
+usually too low to publish. Offline fine-tune notes:
+[`finetune/README.md`](../../../sample_data/radar_intersection/finetune/README.md).
+IR: `model_installer/FP16_ft2/`.
+
+Acceptance numbers (camera-GT protocol):
+[`VIDETEC_ACCEPTANCE.md`](../../../sample_data/radar_intersection/VIDETEC_ACCEPTANCE.md)
+C4d–f. Offline classical/roadside harness:
+[`baselines/README.md`](../../../sample_data/radar_intersection/baselines/README.md).
+
 ```bash
 SUPASS=<password> make demo-radar                              # radarpillars
 SUPASS=<password> RADAR_PERCEPTION=classical make demo-radar
