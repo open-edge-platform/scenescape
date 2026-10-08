@@ -98,7 +98,7 @@ export COMPOSE_PROFILES=controller,mapping
 docker compose up -d
 ```
 
-## (Optional) Select the Mapping Model 
+## (Optional) Select the Mapping Model
 
 **This section is applicable only when mapping profile is selected)**
 
