@@ -182,6 +182,7 @@ def _assert_distinct_parent_ids(ids_final, context, hier):
     f"{context}; got {ids_final}. Recent parent objects={recent}")
 
 
+@pytest.mark.test_name("NEX-T27151")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_SHARED)],
@@ -199,7 +200,6 @@ def test_hierarchy_shared_db_cross_child_merge(demo_scene,
   (ADR 0015 open question on live-gid sharing).
   """
   TEST_NAME = "NEX-T27151"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None
@@ -270,6 +270,7 @@ def test_hierarchy_shared_db_cross_child_merge(demo_scene,
   assert exit_code == 0
 
 
+@pytest.mark.test_name("NEX-T27152")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_CHILDREN_ONLY)],
@@ -282,7 +283,6 @@ def test_hierarchy_children_share_db_parent_none(demo_scene,
   C1↔C2 do not merge via ReID at parent.
   """
   TEST_NAME = "NEX-T27152"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None
@@ -354,6 +354,7 @@ def test_hierarchy_children_share_db_parent_none(demo_scene,
   assert exit_code == 0
 
 
+@pytest.mark.test_name("NEX-T27153")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_PARENT_ONLY)],
@@ -370,7 +371,6 @@ def test_hierarchy_parent_has_db_children_none(demo_scene,
   crop were already enrolled (not this profile), rematch would skip re-enroll.
   """
   TEST_NAME = "NEX-T27153"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None
@@ -440,6 +440,7 @@ def test_hierarchy_parent_has_db_children_none(demo_scene,
   assert exit_code == 0
 
 
+@pytest.mark.test_name("NEX-T27154")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_PARTIAL)],
@@ -452,7 +453,6 @@ def test_hierarchy_partial_db_no_cross_merge(demo_scene,
   merge into C1's parent UUID via ReID.
   """
   TEST_NAME = "NEX-T27154"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None
@@ -517,6 +517,7 @@ def test_hierarchy_partial_db_no_cross_merge(demo_scene,
   assert exit_code == 0
 
 
+@pytest.mark.test_name("NEX-T27155")
 @pytest.mark.parametrize(
   "_env_matrix_setup",
   [_spec(profiles.REID_HIER_SPLIT)],
@@ -529,7 +530,6 @@ def test_hierarchy_split_dbs_no_cross_merge(demo_scene,
   once; parent IDs for C1 vs C2 differ.
   """
   TEST_NAME = "NEX-T27155"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   parent_client = None

@@ -300,6 +300,7 @@ class SceneImportTest(UserInterfaceTest):
           os.remove(self.zipFile)
     return
 
+@pytest.mark.test_name("NEX-T13051")
 @pytest.mark.parametrize(
   "zipFile, expected, waitTime",
   [

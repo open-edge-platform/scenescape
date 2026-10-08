@@ -7,7 +7,7 @@ This guide explains how to:
 
 ## Prerequisites
 
-- Successful deployment of a Scenescape instance using [Installation](../get-started/installation.md)
+- Successful deployment of a Scenescape instance using [Deploy on Docker](../how-to-guides/deployment/deploy-docker.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
@@ -38,7 +38,7 @@ Running the `DeepScenario` script requires additional Python modules installed o
 Create a Dockerfile named `Dockerfile.dls-deepscenario` and copy the following into it:
 
 ```Dockerfile
-FROM docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20260922-weekly-ubuntu24
+FROM docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261006-weekly-ubuntu24
 
 USER root
 
@@ -190,8 +190,8 @@ Each pipeline can have a separate `intrinsics.json` file. The DeepScenario scrip
 
 ### 6. Modify Docker Compose Configuration
 
-Edit the `sample_data/demo_scenes/Retail/retail-video-compose.yaml` file (or
-`Queuing/queuing-video-compose.yaml`) to disable its video service and enable
+Edit the `sample_data/demo_scenes/Retail/compose.retail-video.yml` file (or
+`Queuing/compose.queuing-video.yml`) to disable its video service and enable
 the `deepscenario` service:
 
 **Remove the following sections:**
@@ -280,8 +280,8 @@ scenescape/
 │                   ├── yolov8_license_plate_detector.xml
 │                   └── yolov8_license_plate_detector.bin
 └── sample_data/demo_scenes/
-    ├── Retail/retail-video-compose.yaml
-    └── Queuing/queuing-video-compose.yaml
+    ├── Retail/compose.retail-video.yml
+    └── Queuing/compose.queuing-video.yml
 ```
 
 ### 8. Build and Run

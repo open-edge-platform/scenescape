@@ -33,6 +33,9 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
+pytestmark = pytest.mark.preserve_db
+
+@pytest.mark.test_name("NEX-T21491")
 def test_scene_retrack_disabled_objects_propagate_to_parent(demo_scene,
     objData, record_xml_attribute, params):
   """! Positive test: with retrack=False, objects from the child scene still
@@ -40,11 +43,9 @@ def test_scene_retrack_disabled_objects_propagate_to_parent(demo_scene,
   are merged as already-tracked objects.
 
   @param    objData                 Pytest fixture: object payload template.
-  @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test parameters.
   """
   TEST_NAME = "NEX-T21491"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
@@ -84,6 +85,7 @@ def test_scene_retrack_disabled_objects_propagate_to_parent(demo_scene,
   return
 
 
+@pytest.mark.test_name("NEX-T21492")
 def test_scene_retrack_disabled_preserves_child_object_ids(demo_scene,
     objData, record_xml_attribute, params):
   """! Positive test: with retrack=False, object IDs published on the parent's
@@ -91,11 +93,9 @@ def test_scene_retrack_disabled_preserves_child_object_ids(demo_scene,
   objects bypass the parent tracker and keep their original IDs.
 
   @param    objData                 Pytest fixture: object payload template.
-  @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test parameters.
   """
   TEST_NAME = "NEX-T21492"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
@@ -143,6 +143,7 @@ def test_scene_retrack_disabled_preserves_child_object_ids(demo_scene,
   return
 
 
+@pytest.mark.test_name("NEX-T21493")
 def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(demo_scene,
     objData, record_xml_attribute, params):
   """! Positive test: with retrack=True, the parent tracker assigns its own
@@ -150,11 +151,9 @@ def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(demo_scene,
   the parent regulated topic must not match the child's IDs.
 
   @param    objData                 Pytest fixture: object payload template.
-  @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test parameters.
   """
   TEST_NAME = "NEX-T21493"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
@@ -202,6 +201,7 @@ def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(demo_scene,
   return
 
 
+@pytest.mark.test_name("NEX-T21494")
 def test_scene_retrack_toggle_changes_id_behaviour(demo_scene,
     objData, record_xml_attribute, params):
   """! Positive test: with continuous object publishing, toggling retrack
@@ -211,11 +211,9 @@ def test_scene_retrack_toggle_changes_id_behaviour(demo_scene,
   overlap with child IDs.
 
   @param    objData                 Pytest fixture: object payload template.
-  @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test parameters.
   """
   TEST_NAME = "NEX-T21494"
-  record_xml_attribute("name", TEST_NAME)
   log.info("Executing: " + TEST_NAME)
   exit_code = 1
   client = None
@@ -289,6 +287,7 @@ def test_scene_retrack_toggle_changes_id_behaviour(demo_scene,
   return
 
 
+@pytest.mark.test_name("NEX-T21707")
 def test_external_topic_payload_has_required_fields(demo_scene, objData, record_xml_attribute, params):
   """! Verify that DATA_EXTERNAL messages published for a child scene contain
   the required top-level fields (id, timestamp, name, objects) and that each
@@ -297,11 +296,9 @@ def test_external_topic_payload_has_required_fields(demo_scene, objData, record_
   external topics.
 
   @param    objData                 Pytest fixture: object payload template.
-  @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test parameters.
   """
   TEST_NAME = "NEX-T21707"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
   ext_client = None
@@ -372,6 +369,7 @@ def test_external_topic_payload_has_required_fields(demo_scene, objData, record_
   return
 
 
+@pytest.mark.test_name("NEX-T21708")
 def test_external_topic_translations_reach_parent_regulated(demo_scene,
     objData, record_xml_attribute, params):
   """! Verify that object translations from DATA_EXTERNAL (child scene space)
@@ -383,11 +381,9 @@ def test_external_topic_translations_reach_parent_regulated(demo_scene,
   or Inf.
 
   @param    objData                 Pytest fixture: object payload template.
-  @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test parameters.
   """
   TEST_NAME = "NEX-T21708"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
   sub_client = None
@@ -488,6 +484,7 @@ def test_external_topic_translations_reach_parent_regulated(demo_scene,
   return
 
 
+@pytest.mark.test_name("NEX-T21709")
 def test_external_update_rate_limits_publish_frequency(demo_scene,
     objData, record_xml_attribute, params):
   """! Verify that the external_update_rate scene setting limits the frequency
@@ -498,11 +495,9 @@ def test_external_update_rate_limits_publish_frequency(demo_scene,
   is active.
 
   @param    objData                 Pytest fixture: object payload template.
-  @param    record_xml_attribute    Pytest fixture for XML result tagging.
   @param    params                  Dict of functional-test parameters.
   """
   TEST_NAME = "NEX-T21709"
-  record_xml_attribute("name", TEST_NAME)
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
   ext_client = None

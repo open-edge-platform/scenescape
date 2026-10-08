@@ -28,6 +28,7 @@ from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,

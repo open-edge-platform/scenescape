@@ -400,6 +400,9 @@ class TestProcessInputsFlow:
     assert len(run_calls) == 2
     assert run_calls[0] == "eclipse-mosquitto:2.1-alpine"  # broker first
     assert run_calls[1] == "intel/scenescape-controller:test"  # tracker second
+    controller_command = mock_docker.run.call_args_list[1].kwargs["command"]
+    auth_index = controller_command.index("--brokerauth")
+    assert controller_command[auth_index + 1] == "harness:harness"
 
   @patch("harnesses.black_box_harness.black_box_harness.docker")
   @patch("harnesses.black_box_harness.black_box_harness.mqtt.Client")

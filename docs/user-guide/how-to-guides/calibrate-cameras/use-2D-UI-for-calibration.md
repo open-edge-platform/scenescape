@@ -12,7 +12,7 @@ This task is essential for accurate spatial positioning and analytics in Scenesc
 
 Before You Begin, ensure the following:
 
-- **Installed Dependencies**: Scenescape deployed by running `./deploy.sh`.
+- **Scenescape Deployment**: Deploy Scenescape using one of the [deployment guides](../deployment/index.md).
 
 - **Access and Permissions**: Ensure you have appropriate access to edit configuration files or interact with the UI.
 

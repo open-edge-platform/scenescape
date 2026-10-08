@@ -27,6 +27,7 @@ from tests.functional import FunctionalTest
 from tests.utils.log import get_logger
 from tests.utils.profiles import FULL_STACK
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
+import pytest
 
 log = get_logger(__name__)
 

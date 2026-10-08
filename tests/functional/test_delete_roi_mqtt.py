@@ -6,13 +6,13 @@
 from tests.functional.common_scene_obj import SceneObjectMqtt
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
   auth=AUTH_CONTROLLER,
 )
 
-TEST_NAME = "NEX-T10430"
 
 def runROIMqttDelete(self):
   self.exitCode = 1
@@ -28,7 +28,9 @@ def runROIMqttDelete(self):
     self.runSceneObjMqttFinally()
   return
 
+@pytest.mark.test_name("NEX-T29295")
 def test_roi_delete(scenescape_env, demo_scene, request, record_xml_attribute):
+  TEST_NAME = "NEX-T29295"
   test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
   test.sceneUID = demo_scene
   runROIMqttDelete(test)
