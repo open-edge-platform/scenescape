@@ -113,14 +113,10 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                PublishCallback publish_callback,
                                const TrackingConfig& tracking_config,
                                const std::unordered_map<std::string, Camera>& cameras,
-<<<<<<< HEAD
                                ObjectClassConfig object_class, ClockFn clock_fn)
-=======
-                               ClockFn clock_fn, bool rotation_from_velocity)
->>>>>>> 51fc3806 (code format)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
-      rotation_from_velocity_(rotation_from_velocity),
+      rotation_from_velocity_(object_class.rotation_from_velocity),
       tracker_(build_tracker_config(tracking_config)), clock_fn_(std::move(clock_fn)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
@@ -133,9 +129,9 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
     }
 
     LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{} (shift_type={}, "
-             "footprint_half={})",
+             "footprint_half={}, rotation_from_velocity={})",
              cameras.size(), scope_.scene_id, scope_.category, object_class.shift_type,
-             object_class.footprint_half.value_or(-1.0));
+             object_class.footprint_half.value_or(-1.0), rotation_from_velocity_);
 
     worker_thread_ = std::thread(&TrackingWorker::run, this);
 }
@@ -302,13 +298,14 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         track.translation = {rv_track.x, rv_track.y, rv_track.z};
         track.velocity = {rv_track.vx, rv_track.vy, 0.0};
         track.size = {rv_track.length, rv_track.width, rv_track.height};
+
         if (!rotation_from_velocity_) {
+            LOG_INFO("no Rotation from velocity");
             track.rotation = {0.0, 0.0, 0.0, 1.0};
         } else {
             auto& rotation_state = rotation_states_[rv_track.id];
             track.rotation = update_velocity_rotation(rv_track.vx, rv_track.vy, rotation_state);
         }
-
         track.metadata_json = metadataJson(rv_track.attributes);
 
         // Compatibility fallback for measurements produced by older adapters.

@@ -293,11 +293,13 @@ struct Track {
 ### Manager asset cache and velocity orientation
 
 API-backed startup authenticates once, fetches scenes, and fetches
-`/api/v1/assets`. The tracker retains a category-keyed cache of each asset's
-`rotation_from_velocity` Boolean. The cache is passed to lazily created
-`TrackingWorker` instances through `TrackingScope.category`. File-backed scene
-configuration has no Manager asset catalog, so velocity orientation remains
-disabled unless a future local asset source is added.
+`/api/v1/assets`. Each asset is parsed into a category-keyed `ObjectClassConfig`
+(`shift_type`, footprint size, and the `rotation_from_velocity` Boolean; a
+missing, null, or non-Boolean value disables it). The `ObjectClassMap` is passed
+to the `TimeChunkScheduler`, which resolves `TrackingScope.category` for each
+lazily created `TrackingWorker`. File-backed scene configuration has no Manager
+asset catalog, so velocity orientation remains disabled unless a future local
+asset source is added.
 
 When enabled for a category, each worker keeps orientation state per
 RobotVision track ID. The state turns on when planar speed is strictly greater
@@ -306,6 +308,14 @@ turns off at or below `0.5 m/s`. While off, the last valid quaternion is
 retained. The heading is `atan2(vy, vx)` and is serialized as a Z-axis
 quaternion. Asset changes are picked up through the existing API database
 update restart path.
+
+Detector-supplied orientation is not supported. Camera detections carry only
+`bounding_box_px`; any `rotation` field is ignored, and RobotVision measurements
+are created with `yaw = 0` and without the `has_orientation` attribute.
+Published rotation is therefore identity, or the velocity heading when
+`rotation_from_velocity` is enabled. The Scene Controller rule that detector or
+orienting-sensor yaw takes precedence over velocity heading
+(`ilabs_tracking.py` `to_rv_object` / `from_tracked_object`) is not ported.
 
 ### ObservabilityContext
 
