@@ -14,7 +14,7 @@ services:
     networks:
       - scenescape-test
     volumes:
-      - child2-vol-db:/var/lib/postgresql/data
+      - child2-vol-db:/var/lib/postgresql
 
   child2-web:
     image: intel/scenescape-manager:${VERSION:-latest}

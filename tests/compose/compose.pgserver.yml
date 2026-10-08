@@ -14,7 +14,7 @@ services:
     networks:
       - scenescape-test
     volumes:
-      - vol-db:/var/lib/postgresql/data
+      - vol-db:/var/lib/postgresql
 
 volumes:
   vol-db:

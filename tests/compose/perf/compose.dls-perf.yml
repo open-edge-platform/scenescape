@@ -83,7 +83,7 @@ services:
     networks:
       - scenescape
     volumes:
-      - vol-db:/var/lib/postgresql/data
+      - vol-db:/var/lib/postgresql
     # ports:
     #   - "5432:5432"
     restart: always
