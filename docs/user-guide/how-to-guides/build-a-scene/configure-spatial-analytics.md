@@ -12,7 +12,7 @@ For MQTT topics, event schemas, REST discovery, and application code samples, se
 
 ## Prerequisites
 
-Follow the steps in the [Installation Guide](../../get-started/installation.md) to bring up an instance of Scenescape with out-of-box demo scenes.
+Follow the steps in [Deploy the Demo](../deployment/deploy-demo.md) to bring up an instance of Scenescape with out-of-box demo scenes.
 
 ## Steps to Configure Regions of Interest
 
