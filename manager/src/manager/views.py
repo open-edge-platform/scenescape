@@ -945,9 +945,13 @@ class PreviewRoisFromOsm(APIView):
       })
 
     except osm_roi.OsmRoiError as e:
-      return JsonResponse({'error': str(e)}, status=400)
+      log.error(f"OSM ROI preview validation error: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'Unable to preview ROIs from OSM with the provided scene data'}, status=400)
     except osm_query.OsmQueryError as e:
-      return JsonResponse({'error': str(e)}, status=400)
+      log.error(f"OSM query error while previewing ROIs: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'Unable to fetch OSM data for ROI preview'}, status=400)
     except Exception as e:
       log.error(f"Error previewing OSM ROIs: {e}")
       log.error(f"Traceback: {traceback.format_exc()}")
