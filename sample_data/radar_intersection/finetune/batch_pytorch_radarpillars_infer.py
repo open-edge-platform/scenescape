@@ -5,9 +5,9 @@
 """Batch PyTorch RadarPillars inference (OpenPCDet ckpt) over VIDETEC frames.
 
 Writes JSONL compatible with ``eval_radarpillars_gnss.py``. Run under the
-RadarPillar venv::
+RadarPillar venv (``RADARPILLAR_ROOT`` or sibling ``../RadarPillar``)::
 
-  ~/mainline/RadarPillar/.venv/bin/python \\
+  \"$RADARPILLAR_ROOT\"/.venv/bin/python \\
     sample_data/radar_intersection/finetune/batch_pytorch_radarpillars_infer.py \\
     --frames-dir .../VIDETEC-2/converted/frames \\
     --start-index 3000 --stop-index 5000 --stride 5 \\

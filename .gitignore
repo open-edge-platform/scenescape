@@ -43,7 +43,11 @@ sample_data/xREF_*
 V2X-Seq-SPD-Example.zip
 sample_data/lidar_intersection/V2X-Seq-SPD-Example/
 sample_data/radar_intersection/frames/
-sample_data/radar_intersection/weights/
+# Large / machine-local RadarPillar weights; ship named FT2 init + README only.
+sample_data/radar_intersection/weights/*
+!sample_data/radar_intersection/weights/README.md
+!sample_data/radar_intersection/weights/radarpillar_videtec_gantry_ft2_ep11.pth
+
 # VIDETEC-2 radar/GNSS/camera caches (Zenodo 17799385) — fetched by
 # make prepare-radar-videtec / prepare-radar-camera on first demo-radar.
 sample_data/radar_intersection/VIDETEC-2/

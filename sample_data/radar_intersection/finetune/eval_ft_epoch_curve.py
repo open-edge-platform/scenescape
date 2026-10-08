@@ -20,17 +20,21 @@ from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent
-_RP = Path.home() / "mainline" / "RadarPillar"
+if str(_HERE) not in sys.path:
+  sys.path.insert(0, str(_HERE))
+
+from radarpillar_env import radarpillar_python, resolve_radarpillar_root  # noqa: E402
 
 
 def parse_args(argv=None):
   ap = argparse.ArgumentParser(description=__doc__)
-  ap.add_argument("--ckpt-dir", type=Path,
-                  default=_RP / "output/cfgs/vod_models/videtec_radarpillar_gantry/"
-                          "videtec_gantry_ft/ckpt")
-  ap.add_argument("--cfg-file", type=Path,
-                  default=_RP / "tools/cfgs/vod_models/videtec_radarpillar_gantry.yaml")
-  ap.add_argument("--python", type=Path, default=_RP / ".venv/bin/python")
+  ap.add_argument(
+    "--radarpillar-root", type=Path, default=None,
+    help="RadarPillar checkout (default: $RADARPILLAR_ROOT or ../RadarPillar)")
+  # Defaults filled after resolving root (see main).
+  ap.add_argument("--ckpt-dir", type=Path, default=None)
+  ap.add_argument("--cfg-file", type=Path, default=None)
+  ap.add_argument("--python", type=Path, default=None)
   ap.add_argument("--frames-dir", type=Path,
                   default=_ROOT / "VIDETEC-2/converted/frames")
   ap.add_argument("--out-dir", type=Path, default=_ROOT / "VIDETEC-2")
@@ -56,6 +60,16 @@ def _epoch_from_name(p: Path) -> int | None:
 
 def main(argv=None):
   args = parse_args(argv)
+  rp = resolve_radarpillar_root(args.radarpillar_root)
+  if args.ckpt_dir is None:
+    args.ckpt_dir = (
+      rp / "output/cfgs/vod_models/videtec_radarpillar_gantry/"
+      "videtec_gantry_ft/ckpt")
+  if args.cfg_file is None:
+    args.cfg_file = rp / "tools/cfgs/vod_models/videtec_radarpillar_gantry.yaml"
+  if args.python is None:
+    args.python = radarpillar_python(rp)
+
   ckpts = sorted(args.ckpt_dir.glob("checkpoint_epoch_*.pth"), key=_epoch_from_name)
   if args.epochs:
     want = set(args.epochs)
@@ -68,7 +82,7 @@ def main(argv=None):
   gnss_glob = str(_ROOT / "VIDETEC-2/gnss/rosbag2_2025_10_09-14_43_55/*_gps.csv")
   py = str(args.python)
   batch = str(_HERE / "batch_pytorch_radarpillars_infer.py")
-  eval_py = str(_ROOT / "eval_radarpillars_gnss.py")
+  eval_py = str(_ROOT / "radarpillars/eval_radarpillars_gnss.py")
 
   curve = {
     "score_threshold": args.score_threshold,

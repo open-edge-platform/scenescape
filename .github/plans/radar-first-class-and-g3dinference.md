@@ -513,7 +513,8 @@ python3 sample_data/radar_intersection/radarpillars/export_radarpillars_ov.py \
 
 Promotion gate (past=4, thr 0.1, camera-GT): person recall ≥ FT2; road+veg
 person share **lower** than FT2; non-trivial vehicles at conf ≥ 0.3. Fail → keep
-`FP16_ft2`. `train_videtec_gantry.py` hard-codes RadarPillar path — symlink or edit.
+`FP16_ft2`. RadarPillar root via `RADARPILLAR_ROOT` / sibling `../RadarPillar`;
+FT2 ep11 `.pth` shipped under `sample_data/radar_intersection/weights/`.
 
 ```bash
 # After promote only

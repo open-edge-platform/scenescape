@@ -9,7 +9,7 @@ feature normalize + class-aware instance clustering.
 
 Example::
 
-  ~/mainline/RadarPillar/.venv/bin/python export_roadside_ov.py \\
+  python3 roadside/export_roadside_ov.py \\
     --ckpt VIDETEC-2/phase1_baselines/roadside_videtec_ccby.pt \\
     -o model_installer/roadside/FP16
 """

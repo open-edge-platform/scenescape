@@ -1,7 +1,7 @@
 {
   "model": "RadarPillars",
   "source": "radarpillar_videtec_gantry_ft2_ep11",
-  "ckpt": "/home/spoluri/mainline/RadarPillar/weights/radarpillar_videtec_gantry_ft2_ep11.pth",
+  "ckpt": "sample_data/radar_intersection/weights/radarpillar_videtec_gantry_ft2_ep11.pth",
   "license": "Apache-2.0",
   "point_cloud_range": [
     -20.0,

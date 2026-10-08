@@ -4,10 +4,12 @@
 
 """PyTorch RadarPillars single-cloud inference (OpenPCDet / RadarPillar ckpt).
 
-Requires the RadarPillar venv + editable install. Example::
+Requires a RadarPillar checkout (``RADARPILLAR_ROOT`` or sibling ``../RadarPillar``)
+with venv + editable install. Example::
 
-  ~/mainline/RadarPillar/.venv/bin/python pytorch_radarpillars_infer.py \\
-    --ckpt ~/mainline/RadarPillar/weights/radarpillar_vod_best_map52.56.pth \\
+  export RADARPILLAR_ROOT=/path/to/RadarPillar
+  \"$RADARPILLAR_ROOT\"/.venv/bin/python pytorch_radarpillars_infer.py \\
+    --ckpt \"$RADARPILLAR_ROOT\"/weights/radarpillar_vod_best_map52.56.pth \\
     --bin /path/to/frame.bin --score-threshold 0.03
 """
 
@@ -22,14 +24,13 @@ from pathlib import Path
 import numpy as np
 import torch
 
-_RP = Path.home() / "mainline" / "RadarPillar"
-_alt = Path(__file__).resolve().parents[4] / "RadarPillar"
-if _alt.is_dir():
-  _RP = _alt
-if str(_RP) not in sys.path:
-  sys.path.insert(0, str(_RP))
-if str(_RP / "tools") not in sys.path:
-  sys.path.insert(0, str(_RP / "tools"))
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+  sys.path.insert(0, str(_HERE))
+
+from radarpillar_env import ensure_radarpillar_on_sys_path  # noqa: E402
+
+_RP = ensure_radarpillar_on_sys_path()
 
 from pcdet.config import cfg, cfg_from_yaml_file  # noqa: E402
 from pcdet.datasets import DatasetTemplate  # noqa: E402

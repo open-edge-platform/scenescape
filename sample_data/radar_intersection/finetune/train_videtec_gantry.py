@@ -33,18 +33,21 @@ def _torch_load(*args, **kwargs):
 
 torch.load = _torch_load
 
-RP = Path("/home/spoluri/mainline/RadarPillar")
-os.chdir(RP)
-sys.path.insert(0, str(RP))
-sys.path.insert(0, str(RP / "tools"))
+_HERE = Path(__file__).resolve().parent
+if str(_HERE) not in sys.path:
+  sys.path.insert(0, str(_HERE))
 
-from tensorboardX import SummaryWriter  # noqa: E402
+from radarpillar_env import (  # noqa: E402
+  FT2_EP11_PTH,
+  ensure_radarpillar_on_sys_path,
+  resolve_radarpillar_root,
+)
 
-from pcdet.config import cfg, cfg_from_yaml_file, log_config_to_file  # noqa: E402
-from pcdet.datasets import build_dataloader  # noqa: E402
-from pcdet.models import build_network, model_fn_decorator  # noqa: E402
-from pcdet.utils import common_utils  # noqa: E402
-from train_utils.optimization import build_optimizer, build_scheduler  # noqa: E402
+
+def _bootstrap_radarpillar(root: Path | None) -> Path:
+  rp = ensure_radarpillar_on_sys_path(resolve_radarpillar_root(root))
+  os.chdir(rp)
+  return rp
 
 
 def _model_has_nonfinite(model) -> list[str]:
@@ -104,13 +107,17 @@ def _save_ckpt(model, optimizer, epoch, it, ckpt_dir, logger, max_keep: int):
 
 def main():
   ap = argparse.ArgumentParser(description=__doc__)
+  ap.add_argument(
+    "--radarpillar-root", type=Path, default=None,
+    help="RadarPillar checkout (default: $RADARPILLAR_ROOT or ../RadarPillar)")
   ap.add_argument("--cfg_file", default="tools/cfgs/vod_models/videtec_radarpillar_gantry.yaml")
   ap.add_argument("--batch_size", type=int, default=4)
   ap.add_argument("--epochs", type=int, default=12)
   ap.add_argument("--workers", type=int, default=4)
   ap.add_argument("--extra_tag", default="videtec_gantry_ft2")
-  ap.add_argument("--pretrained_model",
-                  default="weights/radarpillar_vod_best_map52.56.pth")
+  ap.add_argument(
+    "--pretrained_model", type=Path, default=None,
+    help="Init ckpt (default: shipped FT2 ep11 under sample_data/.../weights/)")
   ap.add_argument("--resume", type=Path, default=None,
                   help="Optional ckpt to resume; default starts fresh from pretrained")
   ap.add_argument("--ckpt_save_interval", type=int, default=1)
@@ -120,6 +127,21 @@ def main():
                   help="Freeze PillarAttention (nan-grad source on associated VIDETEC); default on")
   ap.add_argument("--no-freeze-backbone-3d", action="store_false", dest="freeze_backbone_3d")
   args = ap.parse_args()
+
+  _bootstrap_radarpillar(args.radarpillar_root)
+  from tensorboardX import SummaryWriter  # noqa: E402
+  from pcdet.config import cfg, cfg_from_yaml_file, log_config_to_file  # noqa: E402
+  from pcdet.datasets import build_dataloader  # noqa: E402
+  from pcdet.models import build_network, model_fn_decorator  # noqa: E402
+  from pcdet.utils import common_utils  # noqa: E402
+  from train_utils.optimization import build_optimizer, build_scheduler  # noqa: E402
+
+  if args.pretrained_model is None:
+    if FT2_EP11_PTH.is_file():
+      args.pretrained_model = FT2_EP11_PTH
+    else:
+      args.pretrained_model = Path("weights/radarpillar_vod_best_map52.56.pth")
+  args.pretrained_model = Path(args.pretrained_model)
 
   cfg_from_yaml_file(args.cfg_file, cfg)
   cfg.TAG = Path(args.cfg_file).stem
@@ -161,7 +183,8 @@ def main():
   it = 0
   last_epoch = -1
   if args.pretrained_model:
-    model.load_params_from_file(filename=args.pretrained_model, to_cpu=False, logger=logger)
+    model.load_params_from_file(
+      filename=str(args.pretrained_model), to_cpu=False, logger=logger)
 
   if args.freeze_backbone_3d:
     n_frozen = 0

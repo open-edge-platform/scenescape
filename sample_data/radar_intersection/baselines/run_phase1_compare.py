@@ -20,10 +20,15 @@ _HERE = Path(__file__).resolve().parent
 _ROOT = _HERE.parent
 _VID = _ROOT / "VIDETEC-2"
 _FRAMES = _VID / "converted" / "frames"
-_EVAL = _ROOT / "eval_radarpillars_gnss.py"
-_PY_RP = Path.home() / "mainline" / "RadarPillar" / ".venv" / "bin" / "python"
+_EVAL = _ROOT / "radarpillars" / "eval_radarpillars_gnss.py"
 _PY_VID = _VID / ".venv" / "bin" / "python"
 _PY = _PY_VID if _PY_VID.is_file() else Path(sys.executable)
+try:
+  sys.path.insert(0, str(_ROOT / "finetune"))
+  from radarpillar_env import radarpillar_python  # noqa: E402
+  _PY_RP = radarpillar_python()
+except Exception:
+  _PY_RP = _PY
 
 
 def _run(cmd: list[str]):

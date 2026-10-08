@@ -48,24 +48,55 @@ with one GNSS pseudo-box per kept frame (radar-local).
 
 ## 2. Fine-tune (RadarPillar / OpenPCDet)
 
-```bash
-git clone https://github.com/fthbng77/RadarPillar.git ~/mainline/RadarPillar
-cd ~/mainline/RadarPillar
-# follow upstream README: Python env, spconv, OpenPCDet develop install
-huggingface-cli download fthbng77/radarpillars-vod \
-  radarpillar_vod_best_map52.56.pth --local-dir weights
+Fine-tune is **optional** and separate from `make demo-radar` (demo uses
+shipped OpenVINO IRs only).
 
-# Point DATA_PATH / dataset config at VIDETEC-2/finetune_ds (adapt yaml
-# point_cloud_range to the gantry box used above). Then:
-python tools/train.py \
-  --cfg_file tools/cfgs/vod_models/vod_radarpillar_rot.yaml \
-  --batch_size 4 --extra_tag videtec_gantry \
-  --ckpt weights/radarpillar_vod_best_map52.56.pth
+### RadarPillar checkout (portable)
+
+Do **not** assume `~/mainline/RadarPillar`. Set an env var or clone as a
+**sibling** of the Scenescape repo:
+
+```bash
+# From the parent of your scenescape checkout:
+git clone https://github.com/fthbng77/RadarPillar.git RadarPillar
+export RADARPILLAR_ROOT="$(pwd)/RadarPillar"   # or any absolute path
+cd "$RADARPILLAR_ROOT"
+# follow upstream README: Python env, spconv, OpenPCDet develop install
 ```
 
-**Config changes to expect:** expand `POINT_CLOUD_RANGE` (and matching
-anchors / feature map) beyond VoD `[0,-25.6,-3,51.2,25.6,2]`; keep 7-feature
-radar input; start from VoD ckpt rather than from scratch.
+Scenescape tools resolve the tree via `finetune/radarpillar_env.py`:
+
+1. `--radarpillar-root` / `RADARPILLAR_ROOT`
+2. else `<scenescape>/../RadarPillar`
+
+### Init weights
+
+| Checkpoint | Where |
+| --- | --- |
+| **FT2 ep11** (recommended further fine-tune init) | Shipped: `sample_data/radar_intersection/weights/radarpillar_videtec_gantry_ft2_ep11.pth` |
+| VoD baseline | Download into `$RADARPILLAR_ROOT/weights/` (not in Scenescape): |
+
+```bash
+huggingface-cli download fthbng77/radarpillars-vod \
+  radarpillar_vod_best_map52.56.pth --local-dir "$RADARPILLAR_ROOT/weights"
+```
+
+### Train
+
+```bash
+# Preferred: NaN-guarded wrapper (defaults pretrained → shipped FT2 ep11)
+"$RADARPILLAR_ROOT"/.venv/bin/python \
+  sample_data/radar_intersection/finetune/train_videtec_gantry.py \
+  --radarpillar-root "$RADARPILLAR_ROOT" \
+  --cfg_file tools/cfgs/vod_models/videtec_radarpillar_gantry.yaml \
+  --pretrained_model sample_data/radar_intersection/weights/radarpillar_videtec_gantry_ft2_ep11.pth
+
+# Or upstream tools/train.py from $RADARPILLAR_ROOT (point DATA_PATH at finetune_ds)
+```
+
+Copy `finetune/videtec_radarpillar_gantry.yaml` into the RadarPillar cfg tree
+if not already present. Expand `POINT_CLOUD_RANGE` beyond VoD
+`[0,-25.6,-3,51.2,25.6,2]`; keep 7-feature radar input.
 
 ## 3. Export OpenVINO + re-eval
 
@@ -115,5 +146,6 @@ python3 sample_data/radar_intersection/finetune/build_videtec_dataset.py \
 #    person recall ≥ FT2; road+veg FP share < FT2; vehicle conf≥0.3 non-trivial
 ```
 
-Requires a RadarPillar / OpenPCDet checkout and the FT2 ep11 ``.pth``. Without
-those, keep shipping ``FP16_ft2``.
+Requires ``RADARPILLAR_ROOT`` (or sibling ``../RadarPillar``) and the shipped
+FT2 ep11 ``.pth`` under ``weights/``. Without a RadarPillar train env, keep
+shipping ``model_installer/FP16_ft2`` for the demo.

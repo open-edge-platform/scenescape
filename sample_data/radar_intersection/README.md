@@ -54,7 +54,8 @@ Defaults: `DLSTREAMER_SRC=../dlstreamer`, `RADAR_REQUIRE_REAL=true`,
 | `roadside/` | Roadside OV export + sparse publish loop |
 | `scene/` | Scene ZIP pack, Mapbox map, GNSS pose fit |
 | `baselines/` | Phase-1 classical/roadside comparison |
-| `finetune/` | RadarPillars gantry fine-tune tooling |
+| `finetune/` | RadarPillars gantry fine-tune tooling (`RADARPILLAR_ROOT`; see finetune/README) |
+| `weights/` | Shipped FT2 ep11 `.pth` for further fine-tune only (demo uses OV IRs) |
 | `model_installer/` | Shipped classical / roadside / FT2 IRs |
 
 ## Checked in vs fetched
