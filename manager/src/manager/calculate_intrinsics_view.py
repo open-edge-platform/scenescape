@@ -128,13 +128,14 @@ class CalculateCameraIntrinsics(APIView):
         inlier_mask = find_inlier_mask(obj_points, img_points, intrinsics,
                                        distortion, outlier_threshold)
 
-      ransac_inlier_count = (int(inlier_mask.sum())
-                             if inlier_mask is not None else None)
-      rejection_applied = (inlier_mask is not None and
+      ransac_mask = inlier_mask
+      ransac_inlier_count = (int(ransac_mask.sum())
+                             if ransac_mask is not None else None)
+      rejection_applied = (ransac_mask is not None and
                            ransac_inlier_count >= MIN_POINTS_FOR_FIT)
       if rejection_applied:
-        fit_obj_points = obj_points[inlier_mask]
-        fit_img_points = img_points[inlier_mask]
+        fit_obj_points = obj_points[ransac_mask]
+        fit_img_points = img_points[ransac_mask]
         num_rejected = num_points - ransac_inlier_count
         log.info(f"Outlier rejection: kept {ransac_inlier_count} of "
                  f"{num_points} correspondences ({num_rejected} rejected)")
@@ -142,7 +143,6 @@ class CalculateCameraIntrinsics(APIView):
         if reject_outliers:
           log.warning("Outlier rejection found no usable inlier set; "
                       "fitting with all correspondences")
-        inlier_mask = np.ones(num_points, dtype=bool)
         fit_obj_points = obj_points
         fit_img_points = img_points
 
@@ -158,7 +158,10 @@ class CalculateCameraIntrinsics(APIView):
       # can surface which points were discarded and why.
       point_errors = per_point_reprojection_errors(obj_points, img_points,
                                                    rvecs[0], tvecs[0], mtx, dist)
-      rejected_indices = [int(i) for i in np.where(~inlier_mask)[0]]
+      # Preserve RANSAC-flagged outliers even when the fit fell back to all
+      # points, so the UI can still highlight which pairs RANSAC rejected.
+      rejected_indices = ([int(i) for i in np.where(~ransac_mask)[0]]
+                          if ransac_mask is not None else [])
 
       euler, position = calculate_pose(rvecs[0], tvecs[0])
       return Response({"euler": euler, "position": position, "mtx": mtx, "dist": dist,

@@ -88,6 +88,11 @@ export class ConvergedCameraCalibration {
     // FIXME: Find a better way to do these event listeners which require interacting with both
     // the camCanvas and viewport
     this.camCanvas.canvas.addEventListener("mouseup", (event) => {
+      // Right-button mouseup fires before contextmenu; wait for contextmenu
+      // so point deletion is applied before recalculating.
+      if (event.button === 2) {
+        return;
+      }
       this.calculateCalibrationIntrinsics();
     });
     this.camCanvas.canvas.addEventListener("dblclick", (event) => {
@@ -145,6 +150,11 @@ export class ConvergedCameraCalibration {
         viewport.initializeEventListeners();
 
         viewport.renderer.domElement.addEventListener("mouseup", (event) => {
+          // Right-button mouseup fires before contextmenu; wait for contextmenu
+          // so point deletion is applied before recalculating.
+          if (event.button === 2) {
+            return;
+          }
           this.calculateCalibrationIntrinsics();
         });
         viewport.renderer.domElement.addEventListener("dblclick", (event) => {
@@ -402,13 +412,17 @@ export class ConvergedCameraCalibration {
   showCalibrationFitStatus(response, pointNames) {
     const total = pointNames.length;
     const rejectedIndices = response.rejectedIndices || [];
+    const rejectedIndexSet = new Set(rejectedIndices);
     const rejectedNames = rejectedIndices
       .map((index) => pointNames[index])
       .filter(Boolean);
     const threshold = Number(response.outlierThresholdPx);
+    const safeThreshold = Number.isFinite(threshold) ? threshold : 5;
     const errors = response.perPointErrors || [];
     const highErrorIndices = errors
-      .map((error, index) => (error > threshold ? index : -1))
+      .map((error, index) =>
+        error > safeThreshold && !rejectedIndexSet.has(index) ? index : -1,
+      )
       .filter((index) => index >= 0);
     const highErrorNames = highErrorIndices
       .map((index) => pointNames[index])
@@ -418,7 +432,7 @@ export class ConvergedCameraCalibration {
 
     if (response.rejectionApplied) {
       message = `${response.fitPointCount} of ${total} point pairs used in fit; ` +
-        `${rejectedNames.length} rejected by RANSAC (${threshold.toFixed(1)} px threshold).`;
+        `${rejectedNames.length} rejected by RANSAC (${safeThreshold.toFixed(1)} px threshold).`;
     } else if (response.rejectionRequested) {
       message = response.ransacInlierCount === null
         ? `RANSAC could not estimate a usable inlier set; all ${response.fitPointCount} point pairs were used in the fit.`
@@ -430,7 +444,7 @@ export class ConvergedCameraCalibration {
       message += ` Fit RMS reprojection error: ${rms.toFixed(2)} px.`;
     }
     if (highErrorNames.length) {
-      message += ` ${highErrorNames.length} pair(s) have final residuals above ${threshold.toFixed(1)} px.`;
+      message += ` ${highErrorNames.length} pair(s) have final residuals above ${safeThreshold.toFixed(1)} px.`;
     }
     this.setCalibrationFitStatus(message, rejectedNames, highErrorNames);
 
@@ -443,14 +457,51 @@ export class ConvergedCameraCalibration {
     errors.forEach((error, index) => {
       const item = document.createElement("li");
       const pointName = pointNames[index] || `point ${index + 1}`;
-      const state = rejectedIndices.includes(index)
-        ? "rejected by RANSAC"
-        : error > threshold
-          ? "included, residual above threshold"
-          : "included";
+      let state = "included";
+      if (rejectedIndexSet.has(index)) {
+        state = response.rejectionApplied
+          ? "rejected by RANSAC"
+          : "flagged by RANSAC, included in fallback fit";
+      } else if (error > safeThreshold) {
+        state = "included, residual above threshold";
+      }
       item.textContent = `${pointName}: ${Number(error).toFixed(2)} px (${state})`;
       list.appendChild(item);
     });
+  }
+
+  clearCalibrationFitStatus() {
+    const status = document.getElementById("calibration-fit-status");
+    const summary = document.getElementById("calibration-fit-summary");
+    const details = document.getElementById("calibration-fit-details");
+    const errors = document.getElementById("calibration-point-errors");
+    this.rejectedPointIndices = [];
+    if (status) {
+      status.hidden = true;
+    }
+    if (summary) {
+      summary.textContent = "";
+    }
+    if (details) {
+      details.hidden = true;
+      details.open = false;
+    }
+    if (errors) {
+      errors.replaceChildren();
+    }
+    if (this.camCanvas) {
+      this.camCanvas.setCalibrationPointDiagnostics([], []);
+    }
+    if (this.viewport) {
+      this.viewport.setCalibrationPointDiagnostics([], []);
+    }
+  }
+
+  getAcceptedCalibrationPointNames(camPoints) {
+    const rejectedIndices = new Set(this.rejectedPointIndices);
+    return Object.keys(camPoints).filter(
+      (_, index) => !rejectedIndices.has(index),
+    );
   }
 
   initializeTransforms(transforms, transformType) {
@@ -521,6 +572,7 @@ export class ConvergedCameraCalibration {
     this.camCanvas.clearCalibrationPoints();
     this.viewport.clearCalibrationPoints();
     this.projectionEnabled = false;
+    this.clearCalibrationFitStatus();
   }
 
   setupResetPointsButton() {
@@ -577,10 +629,24 @@ export class ConvergedCameraCalibration {
       }
 
       if (this.isValidCalibration(camPoints, scenePoints)) {
-        const camPointsStr = Object.values(camPoints)
+        const acceptedNames = this.getAcceptedCalibrationPointNames(camPoints);
+        if (acceptedNames.length < 4) {
+          alert(
+            "Saving the calibration requires at least 4 accepted point pairs after " +
+              "outlier rejection.\n\n" +
+              `There are currently ${acceptedNames.length} accepted pairs ` +
+              `(${this.rejectedPointIndices.length} rejected by RANSAC). ` +
+              "Remove or adjust the rejected pairs and try again.",
+          );
+          return;
+        }
+        // Persist only pairs that were used in the fitted pose (exclude RANSAC rejects).
+        const camPointsStr = acceptedNames
+          .map((name) => camPoints[name])
           .map((point) => `${point[0]},${point[1]}`)
           .join(",");
-        const scenePointsStr = Object.values(scenePoints)
+        const scenePointsStr = acceptedNames
+          .map((name) => scenePoints[name])
           .map((point) => `${point[0]},${point[1]},${point[2]}`)
           .join(",");
         $("#id_transforms").val(`${camPointsStr},${scenePointsStr}`);
