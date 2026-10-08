@@ -797,9 +797,10 @@ demo-lidar: build-dlsps-g3d $(DEMO_BUILD:build=build-core-lidar) init-sample-dat
 	DLS_G3D_IMAGE="$(DLS_G3D_IMAGE)" $(call start_demo,$(strip $(LIDAR_COMPOSE_ARGS) --profile controller))
 
 # Radar-intersection fusion demo.
-# RADAR_PERCEPTION=classical|roadside|radarpillars (default classical).
+# RADAR_PERCEPTION=classical|roadside|radarpillars (default radarpillars —
+# best camera-GT person recall; classical/roadside for vehicles / sparsity).
 # All modes share g3dinference → gvametaconvert → MQTT (needs -g3d bake).
-RADAR_PERCEPTION ?= classical
+RADAR_PERCEPTION ?= radarpillars
 # Time-aligned VIDETEC camera staging (gitignored camera_demo/; not in git).
 CAM_MUTE ?= false
 RADAR_CAM_DATASET_DIR ?= ./sample_data/radar_intersection/camera_demo

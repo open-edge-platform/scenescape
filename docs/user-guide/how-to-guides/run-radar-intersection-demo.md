@@ -20,14 +20,14 @@ All modes share one stack:
 
 | Mode | `model-type` | Input bins | When to use |
 | --- | --- | --- | --- |
-| **`classical`** (default) | `classical` | `frames_bin` (5-float) | Best **sparsity robustness** |
+| **`radarpillars`** (default) | `radarpillars` | `pcd_bin` (7-float) | Best **person** recall / map purity (camera-GT) |
+| **`classical`** | `classical` | `frames_bin` (5-float) | Vehicles + sparsity robustness |
 | **`roadside`** | `roadside` | `frames_bin` + OV PointNetSeg | Sparse DNN; VIDETEC CC BY weights |
-| **`radarpillars`** | `radarpillars` | `pcd_bin` (7-float) | Pillar / VoD-style DNN |
 
 ```bash
-SUPASS=<password> make demo-radar                              # classical
+SUPASS=<password> make demo-radar                              # radarpillars
+SUPASS=<password> RADAR_PERCEPTION=classical make demo-radar
 SUPASS=<password> RADAR_PERCEPTION=roadside make demo-radar
-SUPASS=<password> RADAR_PERCEPTION=radarpillars make demo-radar
 ```
 
 It does **not** use `g3dradarprocess` (raw ADC).
@@ -269,7 +269,7 @@ RADAR_REQUIRE_REAL=true CAM_MUTE=true SUPASS=<password> make demo-radar
 
 | Variable | Default | Notes |
 | --- | --- | --- |
-| `RADAR_PERCEPTION` | `classical` | `classical` \| `roadside` \| `radarpillars` |
+| `RADAR_PERCEPTION` | `radarpillars` | `radarpillars` \| `classical` \| `roadside` |
 | `RADAR_DEVICE` | `CPU` | OpenVINO device for roadside / radarpillars (`GPU` needs host `/dev/dri`; compose passes it through like the LiDAR demo) |
 | `RADAR_SCORE_THRESHOLD` | mode default (`0` / `0.1`) | Radarpillars: use **`0.1`** (~1 person on densify slice); `0.03` is clutter |
 | `RADAR_MODEL_CONFIG` | mode default under `vol-models` | Override g3dinference config JSON |

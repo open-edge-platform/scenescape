@@ -3,14 +3,14 @@
 
 # Radar-intersection fusion demo (opt-in, dedicated target). Run with:
 #
-#   SUPASS=<password> make demo-radar
+#   SUPASS=<password> make demo-radar                          # radarpillars (default)
+#   SUPASS=<password> RADAR_PERCEPTION=classical make demo-radar
 #   SUPASS=<password> RADAR_PERCEPTION=roadside make demo-radar
-#   SUPASS=<password> RADAR_PERCEPTION=radarpillars make demo-radar
 #
 # RADAR_PERCEPTION (all via g3dinference → gvametaconvert → MQTT):
-#   classical    — model-type=classical, frames_bin 5-float (default)
+#   radarpillars — model-type=radarpillars, VoD 7-float pcd_bin (default; persons)
+#   classical    — model-type=classical, frames_bin 5-float
 #   roadside     — model-type=roadside, OpenVINO PointNetSeg + host instances
-#   radarpillars — model-type=radarpillars, VoD 7-float pcd_bin
 #
 # Requires: make build-dlsps-g3d (classical/roadside/radarpillars share the plugin).
 # See docs/user-guide/how-to-guides/run-radar-intersection-demo.md.
@@ -190,7 +190,7 @@ services:
     entrypoint: ["/bin/bash", "/model_installer/install-radar-perception"]
     environment:
       - MODELS_PATH=/home/pipeline-server/models
-      - RADAR_PERCEPTION=${RADAR_PERCEPTION:-classical}
+      - RADAR_PERCEPTION=${RADAR_PERCEPTION:-radarpillars}
       - RADAR_IR_DIR=${RADAR_IR_DIR:-}
       - HTTPS_PROXY=${HTTPS_PROXY}
       - https_proxy=${https_proxy}
@@ -234,7 +234,7 @@ services:
     environment:
       - MQTT_HOST=broker.scenescape.intel.com
       - MQTT_PORT=1883
-      - RADAR_PERCEPTION=${RADAR_PERCEPTION:-classical}
+      - RADAR_PERCEPTION=${RADAR_PERCEPTION:-radarpillars}
       - RADAR_SENSOR_ID=intersection-radar1
       - RADAR_SENSOR_IDS=${RADAR_SENSOR_IDS:-intersection-radar1}
       - RADAR_DEVICE=${RADAR_DEVICE:-CPU}

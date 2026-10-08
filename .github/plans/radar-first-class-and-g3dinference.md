@@ -54,9 +54,9 @@ parallel Python publisher path).
 
 | `RADAR_PERCEPTION` | `g3dinference model-type` | Input |
 | --- | --- | --- |
-| `classical` (default) | `classical` | `frames_bin` 5-float VIDETEC |
+| `radarpillars` (default) | `radarpillars` | `pcd_bin` 7-float VoD (best persons) |
+| `classical` | `classical` | `frames_bin` 5-float VIDETEC |
 | `roadside` | `roadside` | `frames_bin` 5-float + OV PointNetSeg |
-| `radarpillars` | `radarpillars` | `pcd_bin` 7-float VoD |
 
 DLS: `classical_runtime.*`, `roadside_runtime.*` in
 `dlstreamer/.../g3dinference/`. SceneScape: shared

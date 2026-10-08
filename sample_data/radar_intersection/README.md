@@ -29,13 +29,14 @@ scene poses in `RadarIntersection.json`.
    cameras, bakes the `-g3d` DLSPS image, starts the stack):
 
    ```bash
-   SUPASS=<password> RADAR_PERCEPTION=radarpillars RADAR_IR_DIR=FP16_ft2 \
-     make demo-radar
+   SUPASS=<password> make demo-radar
    ```
 
-Defaults: `DLSTREAMER_SRC=../dlstreamer`, `RADAR_REQUIRE_REAL=true`,
-`RADAR_ACCUMULATE_PAST=4` (radarpillars). Re-runs skip Zenodo work when
-`VIDETEC-2/.demo_ready` exists.
+Defaults: `RADAR_PERCEPTION=radarpillars` (FT2 IR), `RADAR_ACCUMULATE_PAST=4`,
+`RADAR_SCORE_THRESHOLD=0.1`, `DLSTREAMER_SRC=../dlstreamer`,
+`RADAR_REQUIRE_REAL=true`. Re-runs skip Zenodo work when
+`VIDETEC-2/.demo_ready` exists. Override with
+`RADAR_PERCEPTION=classical|roadside` when needed.
 
 | Target | Purpose |
 | --- | --- |

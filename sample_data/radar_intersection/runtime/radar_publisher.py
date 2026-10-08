@@ -47,7 +47,7 @@ from radar_sensor_contract import (
 BROKER = os.environ.get("MQTT_HOST", "broker.scenescape.intel.com")
 PORT = int(os.environ.get("MQTT_PORT", "1883"))
 
-RADAR_PERCEPTION = os.environ.get("RADAR_PERCEPTION", "classical").strip().lower()
+RADAR_PERCEPTION = os.environ.get("RADAR_PERCEPTION", "radarpillars").strip().lower()
 _RADAR_IDS_RAW = os.environ.get("RADAR_SENSOR_IDS", "").strip()
 if _RADAR_IDS_RAW:
   RADAR_SENSOR_IDS = [s.strip() for s in _RADAR_IDS_RAW.split(",") if s.strip()]
