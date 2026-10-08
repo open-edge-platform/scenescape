@@ -303,6 +303,25 @@ class Viewport extends THREE.Scene {
       }, {});
   }
 
+  setCalibrationPointDiagnostics(rejectedNames, highErrorNames) {
+    const rejected = new Set(rejectedNames);
+    const highError = new Set(highErrorNames);
+    this.children
+      .filter((child) => child.name.startsWith("calibrationPoint_"))
+      .forEach((point) => {
+        const pointName = point.name.replace("calibrationPoint_", "");
+        const isRejected = rejected.has(pointName);
+        const isHighError = highError.has(pointName);
+        const color = isRejected
+          ? "#dc3545"
+          : isHighError
+            ? "#fd7e14"
+            : point.userData.calibrationPointColor;
+        point.material.color.set(color);
+        point.material.emissive.set(color);
+      });
+  }
+
   // Camera image projection functions
 
   setCameraPoseFromEuler(translation, rotation) {

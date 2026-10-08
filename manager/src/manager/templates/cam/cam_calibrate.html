@@ -139,6 +139,19 @@ SPDX-License-Identifier: Apache-2.0
             {% endif %}
             <canvas id="map_canvas_3D" class="cameraCal border"></canvas>
           </div>
+          {% if caminst.scene.thumbnail or caminst.scene.map %}
+            <section id="calibration-fit-status" class="alert alert-secondary mt-2" role="status" aria-live="polite" hidden>
+              <div id="calibration-fit-summary"></div>
+              <small class="d-block mt-1">
+                <span class="badge bg-danger">Red</span> rejected by RANSAC.
+                <span class="badge bg-warning text-dark">Orange</span> final residual above threshold.
+              </small>
+              <details id="calibration-fit-details" class="mt-1" hidden>
+                <summary>Point reprojection errors</summary>
+                <ul id="calibration-point-errors" class="mb-0"></ul>
+              </details>
+            </section>
+          {% endif %}
 
           {% if caminst.scene.thumbnail or caminst.scene.map %}
             <div class="form-group row">
