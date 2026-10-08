@@ -24,6 +24,7 @@ from tests.functional.event_asserts import (
 )
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import ANALYTICS_MQTT
+import pytest
 
 import pytest
 
