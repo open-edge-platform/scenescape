@@ -240,7 +240,9 @@ services:
       - RADAR_DEVICE=${RADAR_DEVICE:-CPU}
       - RADAR_FRAME_RATE=${RADAR_FRAME_RATE:-10}
       - RADAR_SCORE_THRESHOLD=${RADAR_SCORE_THRESHOLD:-}
-      - RADAR_ACCUMULATE_PAST=${RADAR_ACCUMULATE_PAST:-0}
+      # Match Makefile radarpillars default (past=4). Compose :-0 previously
+      # wiped densify on partial recreates that only set score thresholds.
+      - RADAR_ACCUMULATE_PAST=${RADAR_ACCUMULATE_PAST:-4}
       - RADAR_MUTE=${RADAR_MUTE:-false}
       - RADAR_DATA_PATH=${RADAR_DATA_PATH:-}
       # Empty → radar_publisher mode defaults (frames_bin for classical/roadside,
