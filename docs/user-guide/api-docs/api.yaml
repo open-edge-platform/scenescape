@@ -2530,6 +2530,10 @@ components:
           readOnly: true
         name:
           type: string
+          description: >
+            Scene name. Letters, digits, spaces, dashes, underscores, and dots
+            only; must not start with a dot or contain '..'.
+          pattern: ^[\w \-.]+$
           maxLength: 150
         map_type:
           oneOf:
