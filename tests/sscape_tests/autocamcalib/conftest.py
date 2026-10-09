@@ -12,8 +12,6 @@ _AUTOCALIBRATION_SRC = Path(__file__).resolve().parents[3] / "autocalibration" /
 if str(_AUTOCALIBRATION_SRC) not in sys.path:
   sys.path.insert(0, str(_AUTOCALIBRATION_SRC))
 
-from atag_camera_calibration import CameraCalibrationApriltag
-
 scene_map = "tests/resources/maps/atag-calib-demo-map.png"
 
 @pytest.fixture(scope="module")
@@ -47,6 +45,8 @@ def pose():
 @pytest.fixture(scope="module")
 def autocalibration():
   """! returns the autocalibration test object. """
+  from atag_camera_calibration import CameraCalibrationApriltag
+
   scale = 268.0
   name = "Test"
   return CameraCalibrationApriltag(scene_map, scale, name)
