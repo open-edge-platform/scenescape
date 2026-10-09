@@ -516,6 +516,15 @@ SPDX-License-Identifier: Apache-2.0
             <button
               type="button"
               class="btn btn-primary btn-sm float-right right-buffer"
+              id="generateRoisBtn"
+              title="{% if osm_roi_disabled_reason %}{{ osm_roi_disabled_reason }}{% else %}Suggest regions of interest from OpenStreetMap data{% endif %}"
+              {% if osm_roi_disabled_reason %}disabled{% endif %}
+            >
+              Suggest ROIs with OSM
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm float-right right-buffer"
               id="new-roi"
               title="Create a new ROI"
             >
@@ -530,6 +539,8 @@ SPDX-License-Identifier: Apache-2.0
           {% endif %}
         </h5>
         <div class="card-body">
+          <div id="osmRoiStatus" class="mb-3"></div>
+
           <div id="roi-fields" class="top-buffer"></div>
           <div id="no-regions">
             No Regions of Interest defined. Click "+ New Region" to create one.
@@ -1036,6 +1047,17 @@ SPDX-License-Identifier: Apache-2.0
               required
               maxlength="100"
             />
+            <div class="input-group-append ml-2">
+              <span class="input-group-text">Type</span>
+            </div>
+            <input
+              type="text"
+              class="form-control roi-type"
+              placeholder="ROI Type"
+              maxlength="150"
+              style="width: 150px;"
+            />
+            <span class="osm-badge" title="This region was generated from OpenStreetMap data">OSM</span>
             <div class="input-group-append">
               <button
                 class="btn btn-secondary roi-remove"
@@ -1220,4 +1242,6 @@ SPDX-License-Identifier: Apache-2.0
     </div>
   </div>
   <input type="hidden" id="auth-token" value="{{ user.auth_token }}" />
+  <input type="hidden" id="sceneUID" value="{{ scene.id }}" />
+  <script type="module" src="/static/js/geospatial/scene-update-osm-roi.js"></script>
 {% endblock %}

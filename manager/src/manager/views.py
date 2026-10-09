@@ -36,6 +36,7 @@ from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication
 
 from manager.api import IsAdminOrReadOnly
+from manager import osm_query, osm_roi
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
@@ -137,8 +138,15 @@ def sceneDetail(request, scene_id):
   scene = get_object_or_404(Scene, pk=scene_id)
   child_rois, child_trips, child_sensors = getAllChildrenMetaData(scene_id)
 
+  osm_roi_disabled_reason = None
+  if scene.map_type != 'geospatial_map':
+    osm_roi_disabled_reason = "Scene map is not geospatial"
+  elif not os.environ.get(osm_query.API_KEY_ENV_VAR):
+    osm_roi_disabled_reason = f"OSM API key ({osm_query.API_KEY_ENV_VAR}) is not configured"
+
   return render(request, 'sscape/sceneDetail.html', {'scene': scene, 'child_rois': child_rois,
-                                                     'child_tripwires': child_trips, 'child_sensors': child_sensors})
+                                                     'child_tripwires': child_trips, 'child_sensors': child_sensors,
+                                                     'osm_roi_disabled_reason': osm_roi_disabled_reason})
 
 @superuser_required
 def saveROI(request, scene_id):
@@ -147,7 +155,9 @@ def saveROI(request, scene_id):
   if request.method == 'POST':
     form = ROIForm(request.POST)
     if form.is_valid():
-      saveRegionData(scene, form)
+      # Import sendUpdateCommand for potential batch notifications
+      from .models import sendUpdateCommand
+      saveRegionData(scene, form, sendUpdateCommand=sendUpdateCommand)
       saveTripwireData(scene, form)
       return redirect('/' + str(scene.id))
     else:
@@ -198,11 +208,14 @@ def saveTripwireData(scene, form):
 
   return
 
-def saveRegionData(scene, form):
+def saveRegionData(scene, form, sendUpdateCommand=None):
   jdata = json.loads(form.cleaned_data['rois'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
 
   current_region_ids = set()
+
+  # Detect if this is an OSM ROI batch (all regions are osm_derived) for optimized notification
+  is_osm_batch = all(getattr(roi, 'osm_derived', False) for roi in jdata) and len(jdata) > 0
 
   for roi in jdata:
     query_uuid = roi.uuid
@@ -219,7 +232,8 @@ def saveRegionData(scene, form):
       'name': roi_title,
       'volumetric': getattr(roi, 'volumetric', False),
       'height': getattr(roi, 'height', 1),
-      'buffer_size': getattr(roi, 'buffer_size', 0)
+      'buffer_size': getattr(roi, 'buffer_size', 0),
+      'roi_type': getattr(roi, 'type', '')
       })
     current_region_ids.add(region.uuid)
 
@@ -242,9 +256,10 @@ def saveRegionData(scene, form):
         'sectors': sectors, 'range_max': roi.range_max
       })
 
-    # notify on mqtt for every region saved in db
-    # ideally one notification after all regions are saved in db
-    region.notifydbupdate()
+    # For OSM ROI batches, delay notification until all regions are saved.
+    # For manual ROIs, notify after commit to ensure consumers see up-to-date data.
+    if not is_osm_batch:
+      transaction.on_commit(lambda: region.notifydbupdate())
 
   # delete older rois
   regions_to_delete = Region.objects.filter(scene=scene).exclude(uuid__in=current_region_ids)
@@ -254,6 +269,19 @@ def saveRegionData(scene, form):
   # delete regions individually to trigger notifydbupdate
   for region in regions_to_delete:
     region.delete()
+
+  # For OSM ROI batches, send a single batched notification after all saves are complete.
+  # This dramatically reduces network overhead (e.g., 50 saves → 1 notification).
+  # If no callback provided, fall back to per-region notifications to avoid silent data loss.
+  if is_osm_batch and current_region_ids:
+    if sendUpdateCommand:
+      # Defer batch notification until after transaction commits to prevent race conditions
+      transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
+    else:
+      # Fallback: send per-region notifications if batch callback unavailable
+      for region_id in current_region_ids:
+        region = Region.objects.get(uuid=region_id)
+        transaction.on_commit(lambda r=region: r.notifydbupdate())
 
   return
 
@@ -882,6 +910,61 @@ class SaveGeospatialSnapshot(APIView):
     except Exception as e:
       log.error("Error saving geospatial snapshot")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+class PreviewRoisFromOsm(APIView):
+  """Preview OSM-derived polygon ROIs before creation.
+  
+  Derives the query bounding box from the scene's saved map_corners_lla.
+  Fetches line geometries from OSM (cached on the scene after first fetch),
+  converts to scene-local coordinates, buffers to polygons, and returns a
+  preview list with temporary UUIDs without persisting to DB.
+  
+  Includes the scene's map_bearing so the frontend can rotate the canvas
+  preview to match the current map orientation.
+  """
+  authentication_classes = [SessionAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request):
+    try:
+      scene_uid = request.data.get('scene')
+
+      if not scene_uid:
+        return JsonResponse({'error': 'scene is required'}, status=400)
+
+      # Get the scene; 404 if not found or invalid UUID
+      try:
+        scene = Scene.objects.get(pk=scene_uid)
+      except (Scene.DoesNotExist, ValueError):
+        return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
+
+      if not scene.map_corners_lla:
+        return JsonResponse({
+          'error': 'Scene map corners not set. '
+                   'Click "Generate Geospatial Bounds & Snapshot" in scene editor first.'
+        }, status=400)
+
+      previews = osm_roi.build_roi_previews(scene)
+      bearing = scene.map_bearing or 0.0
+      
+      return JsonResponse({
+        'rois': previews,
+        'bearing': bearing,  # degrees, for canvas rotation correction
+      })
+
+    except osm_roi.OsmRoiError as e:
+      log.error(f"OSM ROI preview validation error: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'Unable to preview ROIs from OSM with the provided scene data'}, status=400)
+    except osm_query.OsmQueryError as e:
+      log.error(f"OSM query error while previewing ROIs: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'Unable to fetch OSM data for ROI preview'}, status=400)
+    except Exception as e:
+      log.error(f"Error previewing OSM ROIs: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
 
 @superuser_required
 def generate_camera_pipeline(request, sensor_id):

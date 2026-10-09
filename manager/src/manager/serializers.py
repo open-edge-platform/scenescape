@@ -528,6 +528,7 @@ class RegionSerializer(NonNullSerializer):
   points = PointsSerializerField()
   scene = serializers.CharField(source='scene.pk')
   color_ranges = RegionOccupancyThresholdSerializer(source='roi_occupancy_threshold', required=False)
+  roi_type = serializers.CharField(max_length=150, required=False, allow_blank=True)
 
   def validate(self, data):
     _validate_scene_exists(data)
@@ -573,7 +574,7 @@ class RegionSerializer(NonNullSerializer):
   class Meta:
     model = Region
     fields = ['uid', 'name', 'points', 'scene', 'buffer_size', 'height', 'volumetric', 'color_ranges',
-              'visible']
+              'visible', 'roi_type']
 
 class TripwireSerializer(RegionSerializer):
   class Meta:

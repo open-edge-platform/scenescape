@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
 import tempfile
-from manager import views
-from scene_common.geometry import Point
-from unittest.mock import Mock
-from django.test import TestCase, override_settings
-from django.urls import reverse
-from manager.models import Scene, SingletonSensor, Cam
-from manager.views import SingletonSensorDeleteView, SingletonSensorCreateView, \
-                         SingletonSensorUpdateView, CamCreateView, CamDeleteView, CamUpdateView
-from unittest.mock import MagicMock, patch
-from django.contrib.auth.models import User
-from django.test.client import RequestFactory
-from manager.settings import AXES_FAILURE_LIMIT
+import uuid
 from pathlib import Path
+from unittest.mock import MagicMock, Mock, patch
+
+from django.contrib.auth.models import User
+from django.test import TestCase, override_settings
+from django.test.client import RequestFactory
+from django.urls import reverse
+
+from manager import views
+from manager.models import Scene, SingletonSensor, Cam
+from manager.settings import AXES_FAILURE_LIMIT
+from manager.views import SingletonSensorDeleteView, SingletonSensorCreateView, \
+                         SingletonSensorUpdateView, CamCreateView, CamDeleteView, CamUpdateView, \
+                         saveRegionData, saveTripwireData
+from scene_common.geometry import Point
 
 test_scene_id = None
 
@@ -72,6 +75,22 @@ class TestRoiViews(TestCase):
     self.test_scene_id = test_scene.id
     return
 
+  def _generate_roi(self, title='roi1', uuid_str=None, points=None):
+    """Helper to generate ROI data structure."""
+    if uuid_str is None:
+      uuid_str = str(uuid.uuid4())
+    if points is None:
+      points = [[1, 2]]
+    return {'title': title, 'points': points, 'uuid': uuid_str}
+
+  def _generate_tripwire(self, title='trip1', uuid_str=None, points=None):
+    """Helper to generate tripwire data structure."""
+    if uuid_str is None:
+      uuid_str = str(uuid.uuid4())
+    if points is None:
+      points = [[1, 2]]
+    return {'title': title, 'points': points, 'uuid': uuid_str}
+
   def test_save_ROI_get(self):
     response = self.client.get(reverse('save-roi', args=[self.test_scene_id]))
     self.assertEqual(response.status_code, 200)
@@ -89,6 +108,169 @@ class TestRoiViews(TestCase):
     })
     self.assertEqual(response.status_code, 302)
     return
+
+class TestRoiSaveNotificationBatching(TestCase):
+  """Verifies saveROI batches sendUpdateCommand into exactly one call per save."""
+
+  def setUp(self):
+    self.factory = RequestFactory()
+    request = self.factory.get('/')
+    self.user = User.objects.create_superuser('test_user', 'test_user@intel.com', 'testpassword')
+    self.client.post(reverse('sign_in'), data = {'username': 'test_user', 'password': 'testpassword', 'request': request})
+    test_scene = Scene.objects.create(name = "test_scene",  map = 'test_map')
+    self.test_scene_id = test_scene.id
+    return
+
+  def _generate_roi(self, title='roi1', uuid_str=None, points=None):
+    """Helper to generate ROI data structure."""
+    if uuid_str is None:
+      uuid_str = str(uuid.uuid4())
+    if points is None:
+      points = [[1, 2]]
+    return {'title': title, 'points': points, 'uuid': uuid_str}
+
+  def _generate_tripwire(self, title='trip1', uuid_str=None, points=None):
+    """Helper to generate tripwire data structure."""
+    if uuid_str is None:
+      uuid_str = str(uuid.uuid4())
+    if points is None:
+      points = [[1, 2]]
+    return {'title': title, 'points': points, 'uuid': uuid_str}
+
+  @patch('manager.views.sendUpdateCommand')
+  @patch('manager.views.transaction.on_commit')
+  def test_single_notification_multiple_rois(self, mock_on_commit, mock_send_update):
+    """Test that multiple ROIs in one request trigger sendUpdateCommand exactly once."""
+    # Make on_commit execute callbacks immediately
+    def execute_callback(callback):
+      callback()
+    mock_on_commit.side_effect = execute_callback
+    
+    rois = [
+      self._generate_roi(title='roi1', uuid_str=str(uuid.uuid4())),
+      self._generate_roi(title='roi2', uuid_str=str(uuid.uuid4())),
+      self._generate_roi(title='roi3', uuid_str=str(uuid.uuid4())),
+    ]
+    
+    response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+      data = {
+        'rois': json.dumps(rois),
+        'tripwires': json.dumps([])
+      })
+    
+    self.assertEqual(response.status_code, 302)
+    # Should call sendUpdateCommand exactly once, not 3 times
+    mock_send_update.assert_called_once()
+    # Verify it was called with the scene_id
+    mock_send_update.assert_called_once_with(scene_id=self.test_scene_id)
+
+  @patch('manager.views.sendUpdateCommand')
+  @patch('manager.views.transaction.on_commit')
+  def test_single_notification_multiple_tripwires(self, mock_on_commit, mock_send_update):
+    """Test that multiple tripwires in one request trigger sendUpdateCommand exactly once."""
+    def execute_callback(callback):
+      callback()
+    mock_on_commit.side_effect = execute_callback
+    
+    tripwires = [
+      self._generate_tripwire(title='trip1', uuid_str=str(uuid.uuid4())),
+      self._generate_tripwire(title='trip2', uuid_str=str(uuid.uuid4())),
+      self._generate_tripwire(title='trip3', uuid_str=str(uuid.uuid4())),
+    ]
+    
+    response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+      data = {
+        'rois': json.dumps([]),
+        'tripwires': json.dumps(tripwires)
+      })
+    
+    self.assertEqual(response.status_code, 302)
+    # Should call sendUpdateCommand exactly once, not 3 times
+    mock_send_update.assert_called_once()
+    mock_send_update.assert_called_once_with(scene_id=self.test_scene_id)
+
+  @patch('manager.views.sendUpdateCommand')
+  @patch('manager.views.transaction.on_commit')
+  def test_single_notification_rois_and_tripwires_together(self, mock_on_commit, mock_send_update):
+    """Test that mixed ROI and tripwire changes trigger sendUpdateCommand exactly once."""
+    def execute_callback(callback):
+      callback()
+    mock_on_commit.side_effect = execute_callback
+    
+    rois = [
+      self._generate_roi(title='roi1', uuid_str=str(uuid.uuid4())),
+      self._generate_roi(title='roi2', uuid_str=str(uuid.uuid4())),
+    ]
+    tripwires = [
+      self._generate_tripwire(title='trip1', uuid_str=str(uuid.uuid4())),
+      self._generate_tripwire(title='trip2', uuid_str=str(uuid.uuid4())),
+    ]
+    
+    response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+      data = {
+        'rois': json.dumps(rois),
+        'tripwires': json.dumps(tripwires)
+      })
+    
+    self.assertEqual(response.status_code, 302)
+    # Should call sendUpdateCommand exactly once, not twice (once for ROIs + once for tripwires)
+    mock_send_update.assert_called_once()
+    mock_send_update.assert_called_once_with(scene_id=self.test_scene_id)
+
+  def test_no_notification_when_nothing_changed(self):
+    """Test that saveRegionData/saveTripwireData return False (no change) when posting empty lists to a scene with zero existing regions/tripwires."""
+    # Create a fresh scene with zero regions and tripwires
+    fresh_scene = Scene.objects.create(name="fresh_scene_for_noop_test", map='test_map')
+    
+    # Create a mock form with empty rois and tripwires JSON
+    form = Mock()
+    form.cleaned_data = {
+      'rois': json.dumps([]),
+      'tripwires': json.dumps([])
+    }
+    
+    # Call saveRegionData with empty list on a scene with zero existing regions
+    # Should return False (no changes, no notification needed)
+    changed_regions = saveRegionData(fresh_scene, form)
+    self.assertFalse(changed_regions, "saveRegionData should return False when posting empty rois to a scene with zero existing regions")
+    
+    # Call saveTripwireData with empty list on a scene with zero existing tripwires
+    # Should return False (no changes, no notification needed)
+    changed_tripwires = saveTripwireData(fresh_scene, form)
+    self.assertFalse(changed_tripwires, "saveTripwireData should return False when posting empty tripwires to a scene with zero existing tripwires")
+
+  @patch('manager.views.sendUpdateCommand')
+  @patch('manager.views.transaction.on_commit')
+  def test_notification_on_deletion_only(self, mock_on_commit, mock_send_update):
+    """Test that deletion triggers sendUpdateCommand exactly once."""
+    def execute_callback(callback):
+      callback()
+    mock_on_commit.side_effect = execute_callback
+    
+    # First request: save a ROI
+    roi_uuid = str(uuid.uuid4())
+    rois = [self._generate_roi(title='roi1', uuid_str=roi_uuid)]
+    response1 = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+      data = {
+        'rois': json.dumps(rois),
+        'tripwires': json.dumps([])
+      })
+    self.assertEqual(response1.status_code, 302)
+    mock_send_update.assert_called_once()
+    
+    # Reset mock
+    mock_send_update.reset_mock()
+    
+    # Second request: POST with empty ROI list (deletes the ROI)
+    response2 = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+      data = {
+        'rois': json.dumps([]),
+        'tripwires': json.dumps([])
+      })
+    self.assertEqual(response2.status_code, 302)
+    # Should call sendUpdateCommand exactly once for the deletion
+    mock_send_update.assert_called_once()
+    mock_send_update.assert_called_once_with(scene_id=self.test_scene_id)
 
 class TestSignInViews(TestCase):
   def setUp(self):
@@ -440,3 +622,4 @@ class TestSaveGeospatialSnapshot(TestCase):
     response = self.client.post(reverse('save_geospatial_snapshot'), data = {'image_data': self.DUMMY_IMAGE_DATA})
     self.assertEqual(response.status_code, 403)
     return
+

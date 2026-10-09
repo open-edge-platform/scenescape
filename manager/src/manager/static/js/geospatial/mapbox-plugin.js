@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -156,6 +156,14 @@ class MapboxPlugin extends MapInterface {
     const sw = bounds.getSouthWest();
     const nw = bounds.getNorthWest();
     const se = bounds.getSouthEast();
+
+    // Normalized bbox for non-map consumers (e.g. the OSM query button)
+    window.lastGeospatialBbox = {
+      south: sw.lat,
+      west: sw.lng,
+      north: ne.lat,
+      east: ne.lng,
+    };
 
     // Populate the scale field in the form
     const scaleField = document.getElementById("id_scale");

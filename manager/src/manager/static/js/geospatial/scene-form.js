@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -40,6 +40,7 @@ async function toggleMapFields() {
     const locationInputRow = document.getElementById("locationInputRow");
     const generateButtonRow = document.getElementById("generateButtonRow");
     const mapViewRow = document.getElementById("mapViewRow");
+    const osmRoiGenerationRow = document.getElementById("osmRoiGenerationRow");
 
     if (mapProviderRow) {
       mapProviderRow.style.display = type === "geospatial" ? "" : "none";
@@ -52,6 +53,9 @@ async function toggleMapFields() {
     }
     if (mapViewRow) {
       mapViewRow.style.display = type === "geospatial" ? "" : "none";
+    }
+    if (osmRoiGenerationRow) {
+      osmRoiGenerationRow.style.display = type === "geospatial" ? "" : "none";
     }
     console.log("Individual geospatial elements toggled for type:", type);
   }
@@ -333,6 +337,8 @@ document.addEventListener("DOMContentLoaded", function () {
         // Save current settings before generating bounds/snapshot
         if (action === "generateBounds") {
           saveCurrentGeospatialSettings();
+          mapManager[action]();
+          return;
         }
         mapManager[action]();
       }

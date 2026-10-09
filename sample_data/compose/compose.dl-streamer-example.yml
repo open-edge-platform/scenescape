@@ -192,8 +192,15 @@ services:
       - DBPORT=5432
       - no_proxy=${no_proxy},.scenescape.intel.com
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - MAPBOX_API_KEY=${MAPBOX_API_KEY}
+      # ohsome API key for the "Query OSM Data" geospatial feature (see
+      # manager/src/manager/osm_query.py); sign up at https://account.heigit.org/signup
+      - OHSOME_API_KEY=${OHSOME_API_KEY}
       # Max upload size for scene map files (blueprints, .glb meshes). Default
       # 132MB. Raise if uploading large 3D scans or high-res floor plans;
       # lower to reduce per-request memory pressure in constrained deployments.
