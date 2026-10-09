@@ -3,6 +3,9 @@
 
 """Acceptance checks for 3D-2D correspondence geometry used in AprilTag calibration."""
 
+from dataclasses import dataclass
+from typing import Optional
+
 import cv2
 import numpy as np
 
@@ -10,6 +13,19 @@ import numpy as np
 # relative to its largest and is poorly conditioned for solvePnP.
 MIN_PNP_SPREAD_RATIO = 0.05
 MAX_PLANAR_REPROJECTION_ERROR_PX = 5.0
+# Fraction of the tag size the camera may sit below the lowest matched tag.
+CAMERA_BELOW_TAG_TOLERANCE_TAG_FRACTION = 0.5
+PLANAR_MAP_EXTENSIONS = ('.png', '.jpg', '.jpeg')
+
+
+@dataclass(frozen=True)
+class PoseValidation:
+  spread_ratio: float
+  message: Optional[str] = None
+
+  @property
+  def accepted(self):
+    return self.message is None
 
 
 def points_spread_ratio(points_3d):
@@ -67,3 +83,33 @@ def validate_correspondence_geometry(map_points_3d, points_2d, camera_pose,
         f"Planar AprilTag pose reprojection error is too high "
         f"({reprojection_error:.1f} px, maximum {MAX_PLANAR_REPROJECTION_ERROR_PX} px).")
   return spread_ratio, None
+
+
+def validate_camera_pose(map_points_3d, scene_points_3d, points_2d, camera_pose,
+                         camera_position, intrinsics, tag_size, planar_map):
+  """Decide whether a solved AprilTag camera pose can be accepted.
+
+  @param   map_points_3d    Matched tag centers in map coordinates (Nx3)
+  @param   scene_points_3d  Matched tag centers in scene coordinates (Nx3)
+  @param   points_2d        Matched tag centers in image pixels (Nx2)
+  @param   camera_pose      4x4 camera-to-map pose from solvePnP
+  @param   camera_position  Camera translation in scene coordinates
+  @param   intrinsics       3x3 camera matrix
+  @param   tag_size         AprilTag edge length in scene units
+  @param   planar_map       True for image floor plans
+
+  @return  PoseValidation
+  """
+  spread_ratio, message = validate_correspondence_geometry(
+      map_points_3d, points_2d, camera_pose, intrinsics, planar_map)
+  if message:
+    return PoseValidation(spread_ratio, message)
+
+  min_tag_z = min(point[2] for point in scene_points_3d)
+  if camera_position[2] < min_tag_z - tag_size * CAMERA_BELOW_TAG_TOLERANCE_TAG_FRACTION:
+    return PoseValidation(spread_ratio, (
+        f"Computed camera position (z={camera_position[2]:.2f}) is implausibly below the "
+        f"AprilTags it observed (lowest tag z={min_tag_z:.2f}); the matched tags "
+        "likely don't provide enough depth/height spread for a reliable pose solve. "
+        "Try recalibrating from a view with tags at more varied distances/heights."))
+  return PoseValidation(spread_ratio)
