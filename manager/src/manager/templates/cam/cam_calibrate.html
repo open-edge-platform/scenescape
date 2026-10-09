@@ -144,8 +144,9 @@ SPDX-License-Identifier: Apache-2.0
               <section id="calibration-fit-status" class="alert alert-secondary mb-2" role="status" aria-live="polite">
                 <div id="calibration-fit-summary"></div>
                 <small class="d-block mt-1">
-                  <span class="badge bg-danger">Red halo</span> rejected by RANSAC.
-                  <span class="badge bg-warning text-dark">Orange halo</span> final residual above threshold.
+                  <span class="badge bg-dark">✕ mark</span> rejected by RANSAC.
+                  <span class="badge bg-light text-dark border">White ring</span> residual above threshold
+                  (dashed in the camera view).
                 </small>
                 <details id="calibration-fit-details" class="mt-1" hidden>
                   <summary>Point reprojection details</summary>

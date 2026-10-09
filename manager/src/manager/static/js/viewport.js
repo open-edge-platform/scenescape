@@ -11,8 +11,6 @@
 import * as THREE from "/static/assets/three.module.js";
 import { OrbitControls } from "/static/examples/jsm/controls/OrbitControls.js";
 import {
-  CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR,
-  CALIBRATION_DIAGNOSTIC_REJECTED_COLOR,
   CALIBRATION_POINT_COLORS,
   CALIBRATION_SCALE_FACTOR,
   CALIBRATION_TEXT_SIZE,
@@ -313,23 +311,26 @@ class Viewport extends THREE.Scene {
       .filter((child) => child.name.startsWith("calibrationPoint_"))
       .forEach((point) => {
         const pointName = point.name.replace("calibrationPoint_", "");
+        const outline = point.children.find(
+          (child) => child.name === "calibrationHaloOutline",
+        );
         const halo = point.children.find(
           (child) => child.name === "calibrationHalo",
         );
-        if (!halo) {
-          return;
-        }
+        const rejectMark = point.children.find(
+          (child) => child.name === "calibrationRejectMark",
+        );
         const isRejected = rejected.has(pointName);
         const isHighError = highError.has(pointName);
-        if (isRejected || isHighError) {
-          halo.material.color.set(
-            isRejected
-              ? CALIBRATION_DIAGNOSTIC_REJECTED_COLOR
-              : CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR,
-          );
-          halo.visible = true;
-        } else {
-          halo.visible = false;
+        const showRing = isRejected || isHighError;
+        if (outline) {
+          outline.visible = showRing;
+        }
+        if (halo) {
+          halo.visible = showRing;
+        }
+        if (rejectMark) {
+          rejectMark.visible = isRejected;
         }
       });
   }

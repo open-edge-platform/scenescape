@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -15,6 +15,8 @@ import { TextGeometry } from "/static/examples/jsm/geometries/TextGeometry.js";
 import { FontLoader } from "/static/examples/jsm/loaders/FontLoader.js";
 import { mergeGeometries } from "/static/examples/jsm/utils/BufferGeometryUtils.js";
 import {
+  CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR,
+  CALIBRATION_DIAGNOSTIC_RING_COLOR,
   SPHERE_NUM_SEGMENTS,
   SPHERE_RADIUS,
   TEXT_FONT,
@@ -25,7 +27,14 @@ import {
   CSS2DObject,
 } from "/static/examples/jsm/renderers/CSS2DRenderer.js";
 
-const HALO_RADIUS_SCALE = 1.6;
+// Torus rings (not filled spheres) so the identity point color stays visible,
+// matching the stroked rings used in the camera canvas view.
+const HALO_RING_RADIUS = SPHERE_RADIUS * 1.35;
+const HALO_RING_TUBE = SPHERE_RADIUS * 0.14;
+const HALO_OUTLINE_RING_RADIUS = SPHERE_RADIUS * 1.4;
+const HALO_OUTLINE_RING_TUBE = SPHERE_RADIUS * 0.24;
+const REJECT_MARK_LENGTH = SPHERE_RADIUS * 2.4;
+const REJECT_MARK_THICKNESS = SPHERE_RADIUS * 0.22;
 const TEXT_MATERIAL = new THREE.MeshStandardMaterial({
   color: new THREE.Color("black"),
   transparent: false,
@@ -36,11 +45,68 @@ const POINT_GEOMETRY = new THREE.SphereGeometry(
   SPHERE_NUM_SEGMENTS,
   SPHERE_NUM_SEGMENTS,
 );
-const HALO_GEOMETRY = new THREE.SphereGeometry(
-  SPHERE_RADIUS * HALO_RADIUS_SCALE,
-  SPHERE_NUM_SEGMENTS,
-  SPHERE_NUM_SEGMENTS,
+const HALO_GEOMETRY = new THREE.TorusGeometry(
+  HALO_RING_RADIUS,
+  HALO_RING_TUBE,
+  10,
+  36,
 );
+const HALO_OUTLINE_GEOMETRY = new THREE.TorusGeometry(
+  HALO_OUTLINE_RING_RADIUS,
+  HALO_OUTLINE_RING_TUBE,
+  10,
+  36,
+);
+const REJECT_BAR_GEOMETRY = new THREE.BoxGeometry(
+  REJECT_MARK_LENGTH,
+  REJECT_MARK_THICKNESS,
+  REJECT_MARK_THICKNESS,
+);
+
+function createDiagnosticMesh(geometry, color, opacity, name) {
+  const mesh = new THREE.Mesh(
+    geometry,
+    new THREE.MeshBasicMaterial({
+      color: color,
+      transparent: true,
+      opacity: opacity,
+      depthWrite: false,
+    }),
+  );
+  mesh.name = name;
+  mesh.visible = false;
+  // Keep picking on the identity sphere; markers are visual-only.
+  mesh.raycast = () => {};
+  return mesh;
+}
+
+function createRejectMark() {
+  const group = new THREE.Group();
+  group.name = "calibrationRejectMark";
+  group.visible = false;
+  const makeBar = (color, scale) => {
+    const mesh = new THREE.Mesh(
+      REJECT_BAR_GEOMETRY,
+      new THREE.MeshBasicMaterial({
+        color: color,
+        depthWrite: false,
+      }),
+    );
+    mesh.scale.set(scale, scale, scale);
+    mesh.raycast = () => {};
+    return mesh;
+  };
+  const blackA = makeBar(CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR, 1.25);
+  blackA.rotation.z = Math.PI / 4;
+  const blackB = makeBar(CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR, 1.25);
+  blackB.rotation.z = -Math.PI / 4;
+  const whiteA = makeBar(CALIBRATION_DIAGNOSTIC_RING_COLOR, 1);
+  whiteA.rotation.z = Math.PI / 4;
+  const whiteB = makeBar(CALIBRATION_DIAGNOSTIC_RING_COLOR, 1);
+  whiteB.rotation.z = -Math.PI / 4;
+  group.add(blackA, blackB, whiteA, whiteB);
+  return group;
+}
 
 /**
  * Extracts the geometry from the given glTF object.
@@ -232,22 +298,25 @@ class Draw {
     sphere.position.copy(position);
     sphere.name = "calibrationPoint_" + name;
 
-    // Diagnostic halo: toggled/colored by fit status without changing the
-    // point's identity color (which already includes red/orange).
-    const halo = new THREE.Mesh(
-      HALO_GEOMETRY,
-      new THREE.MeshBasicMaterial({
-        color: "#ffffff",
-        transparent: true,
-        opacity: 0.45,
-        depthWrite: false,
-      }),
+    // High-contrast torus rings around the identity sphere (not filled
+    // overlays), plus an X for RANSAC rejects — matches the camera view.
+    sphere.add(
+      createDiagnosticMesh(
+        HALO_OUTLINE_GEOMETRY,
+        CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR,
+        0.95,
+        "calibrationHaloOutline",
+      ),
     );
-    halo.name = "calibrationHalo";
-    halo.visible = false;
-    // Keep picking on the identity sphere; the larger halo is visual-only.
-    halo.raycast = () => {};
-    sphere.add(halo);
+    sphere.add(
+      createDiagnosticMesh(
+        HALO_GEOMETRY,
+        CALIBRATION_DIAGNOSTIC_RING_COLOR,
+        1.0,
+        "calibrationHalo",
+      ),
+    );
+    sphere.add(createRejectMark());
     return sphere;
   }
 
