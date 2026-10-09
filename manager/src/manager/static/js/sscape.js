@@ -511,7 +511,11 @@ var roiGroupAutoColors = {};
 
 /** Resolve a group key's color: user override, then its previously-assigned sticky color, then a hash fallback. */
 function roiGroupColorForKey(key) {
-  return roiGroupColorOverrides[key] || roiGroupAutoColors[key] || getRoiGroupColor(key);
+  return (
+    roiGroupColorOverrides[key] ||
+    roiGroupAutoColors[key] ||
+    getRoiGroupColor(key)
+  );
 }
 
 /**
@@ -818,7 +822,7 @@ function stringifyRois() {
     // Get ROI type if present
     const typeElement = document.querySelector("#form-" + i + " .roi-type");
     if (typeElement) {
-      entry.type = typeElement.value || '';
+      entry.type = typeElement.value || "";
     }
 
     if ($("#form-" + i).length) {
@@ -1027,7 +1031,9 @@ function bindPolygonClickHandler(group, poly) {
   poly.click(function (evt) {
     evt.stopPropagation();
 
-    var closest = group.data("editing") ? findClosestEdgePoint(group, evt) : null;
+    var closest = group.data("editing")
+      ? findClosestEdgePoint(group, evt)
+      : null;
     if (closest && closest.distance <= EDGE_INSERT_THRESHOLD_PX) {
       insertVertexOnEdge(group, closest);
     } else {
@@ -1112,7 +1118,10 @@ function clampPointToMap(x, y) {
 
 function move(dx, dy) {
   var group = this.parent();
-  var clamped = clampPointToMap(this.data("origX") + dx, this.data("origY") + dy);
+  var clamped = clampPointToMap(
+    this.data("origX") + dx,
+    this.data("origY") + dy,
+  );
 
   if (Math.abs(dx) > DRAG_SLOP_PX || Math.abs(dy) > DRAG_SLOP_PX) {
     wasDragging = true;
@@ -1232,13 +1241,19 @@ function handleRegionDelete(group) {
 /**
  * Rebuild a region's <polygon> from its current circle vertices (in DOM order).
  * Replacing the element drops its click listener, so the body click handler
- * (merge / edge-insert / delete) is re-bound.
+ * (merge / edge-insert / delete) is re-bound. Preserve the polygon's inline
+ * stroke and fill styles so the region color is maintained across vertex edits.
  */
 function rebuildPolygon(group) {
-  group.select("polygon").remove();
+  var oldPoly = group.select("polygon");
+  var stroke = oldPoly ? oldPoly.node.style.stroke : "";
+  var fill = oldPoly ? oldPoly.node.style.fill : "";
+  if (oldPoly) oldPoly.remove();
 
   var poly = group.polygon(flattenVertexPoints(group));
   poly.prependTo(poly.node.parentElement);
+  if (stroke) poly.node.style.stroke = stroke;
+  if (fill) poly.node.style.fill = fill;
 
   bindPolygonClickHandler(group, poly);
 
@@ -1302,7 +1317,10 @@ function handleVertexMergeClick(group, circle) {
   }
   if (expectedGroup && expectedGroup.node !== group.node) return;
 
-  if (mergeVertexSelection.length === 2 && mergeVertexSelection[0].group.node === group.node) {
+  if (
+    mergeVertexSelection.length === 2 &&
+    mergeVertexSelection[0].group.node === group.node
+  ) {
     return;
   }
 
@@ -1407,7 +1425,8 @@ function unionPolygons(ringA, ringB) {
     if (!ring || ring.length < 3) return false;
 
     var a = Math.abs(ringSignedArea(ring));
-    if (a < Math.max(areaA, areaB) - 0.5 || a > areaA + areaB + 0.5) return false;
+    if (a < Math.max(areaA, areaB) - 0.5 || a > areaA + areaB + 0.5)
+      return false;
     if (!isSimplePolygon(ring)) return false;
 
     return ringA.concat(ringB).every(function (p) {
@@ -1433,15 +1452,21 @@ function unionAttempt(ringA, ringB) {
   var A = ensureCCW(ringA);
   var B = ensureCCW(ringB);
 
-  var perEdgeA = A.map(function () { return []; });
-  var perEdgeB = B.map(function () { return []; });
+  var perEdgeA = A.map(function () {
+    return [];
+  });
+  var perEdgeB = B.map(function () {
+    return [];
+  });
   var found = 0;
 
   for (var i = 0; i < A.length; i++) {
     for (var j = 0; j < B.length; j++) {
       var hit = segmentIntersection(
-        A[i], A[(i + 1) % A.length],
-        B[j], B[(j + 1) % B.length],
+        A[i],
+        A[(i + 1) % A.length],
+        B[j],
+        B[(j + 1) % B.length],
       );
       if (!hit) continue;
 
@@ -1497,7 +1522,10 @@ function unionAttempt(ringA, ringB) {
     idx = (idx + 1) % (onA ? augA : augB).length;
 
     if (onA && idx === start) {
-      if (result.length > 1 && samePoint(result[0], result[result.length - 1])) {
+      if (
+        result.length > 1 &&
+        samePoint(result[0], result[result.length - 1])
+      ) {
         result.pop();
       }
       return result.length >= 3 ? result : null;
@@ -1516,7 +1544,9 @@ function augmentRing(ring, perEdge) {
 
     perEdge[i]
       .slice()
-      .sort(function (a, b) { return a.t - b.t; })
+      .sort(function (a, b) {
+        return a.t - b.t;
+      })
       .forEach(function (hit) {
         var last = out[out.length - 1];
         if (samePoint(last.pt, hit.pt)) {
@@ -1580,8 +1610,10 @@ function pointInRing(ring, p) {
   var inside = false;
 
   for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    var xi = ring[i][0], yi = ring[i][1];
-    var xj = ring[j][0], yj = ring[j][1];
+    var xi = ring[i][0],
+      yi = ring[i][1];
+    var xj = ring[j][0],
+      yj = ring[j][1];
 
     if (yi > p[1] !== yj > p[1]) {
       var xint = ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi;
@@ -1596,7 +1628,9 @@ function pointOnRingBoundary(ring, p) {
   for (var i = 0; i < ring.length; i++) {
     var a = ring[i];
     var b = ring[(i + 1) % ring.length];
-    var len = Math.sqrt((b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]));
+    var len = Math.sqrt(
+      (b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]),
+    );
     if (len < 1e-9) continue;
 
     var cross = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
@@ -1708,7 +1742,9 @@ function segmentsCross(p1, p2, p3, p4) {
  */
 function insertVertexOnEdge(group, closest) {
   var clamped = clampPointToMap(closest.point[0], closest.point[1]);
-  var newCircle = group.circle(clamped[0], clamped[1], radius).addClass("vertex");
+  var newCircle = group
+    .circle(clamped[0], clamped[1], radius)
+    .addClass("vertex");
 
   newCircle.insertAfter(closest.before);
   bindVertexHandlers(group, newCircle);
@@ -2046,7 +2082,7 @@ function saveRois(roi_values) {
 if (svgCanvas) {
   // Clicking empty canvas deselects the region being edited and drops merge picks
   svgCanvas.click(function () {
-    if (adding || dragging) return;
+    if (adding || dragging || wasDragging) return;
     clearMergeSelection();
     if (!activeEditGroup) return;
     exitEditMode(activeEditGroup);
@@ -3091,7 +3127,7 @@ $(document).ready(function () {
         if (r == true) {
           var groupId = $group.attr("for");
           var svgGroup = Snap.select("#" + groupId);
-          
+
           // Local-only removal: no form submission
           if (svgGroup) {
             handleRegionDelete(svgGroup);
@@ -3111,13 +3147,13 @@ $(document).ready(function () {
         if (r == true) {
           var groupId = $group.attr("for");
           var svgGroup = Snap.select("#" + groupId);
-          
+
           // Remove both SVG and form representations
           if (svgGroup) {
             svgGroup.remove();
           }
           $group.remove();
-          
+
           // Update tripwire numbering and serialization
           numberTripwires();
           stringifyTripwires();

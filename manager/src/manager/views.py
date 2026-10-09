@@ -138,8 +138,15 @@ def sceneDetail(request, scene_id):
   scene = get_object_or_404(Scene, pk=scene_id)
   child_rois, child_trips, child_sensors = getAllChildrenMetaData(scene_id)
 
+  osm_roi_disabled_reason = None
+  if scene.map_type != 'geospatial_map':
+    osm_roi_disabled_reason = "Scene map is not geospatial"
+  elif not os.environ.get(osm_query.API_KEY_ENV_VAR):
+    osm_roi_disabled_reason = f"OSM API key ({osm_query.API_KEY_ENV_VAR}) is not configured"
+
   return render(request, 'sscape/sceneDetail.html', {'scene': scene, 'child_rois': child_rois,
-                                                     'child_tripwires': child_trips, 'child_sensors': child_sensors})
+                                                     'child_tripwires': child_trips, 'child_sensors': child_sensors,
+                                                     'osm_roi_disabled_reason': osm_roi_disabled_reason})
 
 @superuser_required
 def saveROI(request, scene_id):

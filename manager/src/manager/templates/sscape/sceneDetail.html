@@ -517,9 +517,10 @@ SPDX-License-Identifier: Apache-2.0
               type="button"
               class="btn btn-primary btn-sm float-right right-buffer"
               id="generateRoisBtn"
-              title="Generate ROIs from OSM"
+              title="{% if osm_roi_disabled_reason %}{{ osm_roi_disabled_reason }}{% else %}Suggest regions of interest from OpenStreetMap data{% endif %}"
+              {% if osm_roi_disabled_reason %}disabled{% endif %}
             >
-              Create ROIs from OSM
+              Suggest ROIs with OSM
             </button>
             <button
               type="button"
