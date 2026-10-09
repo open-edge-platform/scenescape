@@ -25,6 +25,7 @@ import {
   CSS2DObject,
 } from "/static/examples/jsm/renderers/CSS2DRenderer.js";
 
+const HALO_RADIUS_SCALE = 1.6;
 const TEXT_MATERIAL = new THREE.MeshStandardMaterial({
   color: new THREE.Color("black"),
   transparent: false,
@@ -32,6 +33,11 @@ const TEXT_MATERIAL = new THREE.MeshStandardMaterial({
 });
 const POINT_GEOMETRY = new THREE.SphereGeometry(
   SPHERE_RADIUS,
+  SPHERE_NUM_SEGMENTS,
+  SPHERE_NUM_SEGMENTS,
+);
+const HALO_GEOMETRY = new THREE.SphereGeometry(
+  SPHERE_RADIUS * HALO_RADIUS_SCALE,
   SPHERE_NUM_SEGMENTS,
   SPHERE_NUM_SEGMENTS,
 );
@@ -226,6 +232,23 @@ class Draw {
     sphere.position.copy(position);
     sphere.name = "calibrationPoint_" + name;
     sphere.userData.calibrationPointColor = color;
+
+    // Diagnostic halo: toggled/colored by fit status without changing the
+    // point's identity color (which already includes red/orange).
+    const halo = new THREE.Mesh(
+      HALO_GEOMETRY,
+      new THREE.MeshBasicMaterial({
+        color: "#ffffff",
+        transparent: true,
+        opacity: 0.45,
+        depthWrite: false,
+      }),
+    );
+    halo.name = "calibrationHalo";
+    halo.visible = false;
+    // Keep picking on the identity sphere; the larger halo is visual-only.
+    halo.raycast = () => {};
+    sphere.add(halo);
     return sphere;
   }
 
