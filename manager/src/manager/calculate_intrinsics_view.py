@@ -220,6 +220,29 @@ def assess_calibration_geometry(map_points, cam_points, image_size, rvec, tvec):
     "geometryWarnings": warnings,
   }
 
+def parse_reject_outliers(data):
+  """Return rejectOutliers as a real JSON boolean, or an error message."""
+  if "rejectOutliers" not in data:
+    return True, None
+  value = data["rejectOutliers"]
+  # Reject truthy non-booleans (e.g. "false", 1) that would mislead OpenCV paths.
+  if not isinstance(value, bool):
+    return None, "rejectOutliers must be a boolean"
+  return value, None
+
+def parse_outlier_threshold_px(data):
+  """Return a positive finite outlier threshold in pixels, or an error message."""
+  if "outlierThresholdPx" not in data:
+    return float(RANSAC_REPROJECTION_THRESHOLD_PX), None
+  value = data["outlierThresholdPx"]
+  # bool is a subclass of int; reject it so true/false cannot become 1.0/0.0.
+  if isinstance(value, bool) or not isinstance(value, (int, float)):
+    return None, "outlierThresholdPx must be a positive finite number"
+  threshold = float(value)
+  if not np.isfinite(threshold) or threshold <= 0:
+    return None, "outlierThresholdPx must be a positive finite number"
+  return threshold, None
+
 class CalculateCameraIntrinsics(APIView):
   authentication_classes = [TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
@@ -238,6 +261,14 @@ class CalculateCameraIntrinsics(APIView):
         return Response({"error": "Invalid number of points provided for calculation."},
                         status=status.HTTP_400_BAD_REQUEST)
 
+      reject_outliers, reject_error = parse_reject_outliers(request.data)
+      if reject_error:
+        return Response({"error": reject_error}, status=status.HTTP_400_BAD_REQUEST)
+      outlier_threshold, threshold_error = parse_outlier_threshold_px(request.data)
+      if threshold_error:
+        return Response({"error": threshold_error},
+                        status=status.HTTP_400_BAD_REQUEST)
+
       obj_points = np.array(request.data['mapPoints'], dtype=np.float32)
       img_points = np.array(request.data['camPoints'], dtype=np.float32)
       num_points = len(obj_points)
@@ -252,9 +283,6 @@ class CalculateCameraIntrinsics(APIView):
       # Robust outlier rejection: fit a RANSAC PnP model and keep only the
       # inlier correspondences for the calibration fit. Falls back to using
       # all points if RANSAC cannot find a valid consensus set.
-      reject_outliers = request.data.get("rejectOutliers", True)
-      outlier_threshold = float(request.data.get(
-        "outlierThresholdPx", RANSAC_REPROJECTION_THRESHOLD_PX))
       inlier_mask = None
       if reject_outliers:
         inlier_mask = find_inlier_mask(obj_points, img_points, intrinsics,

@@ -183,6 +183,63 @@ def test_manual_distortion_controls(params, result_recorder):
     assert diagnostics["statusHiddenAfterClear"] is True
     assert diagnostics["rejectedAfterClear"] == []
     assert diagnostics["diagnosticsAfterClear"] == []
+
+    name_sets = browser.execute_script(
+      """
+      const calibration = window.camera_calibration;
+      calibration.camCanvas.clearCalibrationPoints();
+      calibration.viewport.clearCalibrationPoints();
+      for (let index = 0; index < 6; index++) {
+        calibration.camCanvas.addCalibrationPoint(80 + index * 80, 90 + index * 50);
+        calibration.viewport.addCalibrationPoint(index, index % 2, 0);
+      }
+      // Equal counts, but only four shared names (camera keeps p4, map keeps p5).
+      calibration.camCanvas.calibrationPoints =
+        calibration.camCanvas.calibrationPoints.filter((point) => point.name !== "p5");
+      calibration.camCanvas.calibrationPointNames.push("p5");
+      const mapP4 = calibration.viewport.children.find(
+        (child) => child.name === "calibrationPoint_p4");
+      calibration.viewport.remove(mapP4);
+      calibration.viewport.calibrationPointNames.push("p4");
+
+      const camPoints = calibration.camCanvas.getCalibrationPoints();
+      const mapPoints = calibration.viewport.getCalibrationPoints();
+      const mismatchedValid = calibration.isValidCalibration(camPoints, mapPoints);
+      let wouldThrowOnSave = false;
+      if (mismatchedValid) {
+        try {
+          Object.keys(camPoints)
+            .map((name) => mapPoints[name])
+            .map((point) => `${point[0]},${point[1]},${point[2]}`);
+        } catch (error) {
+          wouldThrowOnSave = true;
+        }
+      }
+
+      calibration.camCanvas.clearCalibrationPoints();
+      calibration.viewport.clearCalibrationPoints();
+      for (let index = 0; index < 4; index++) {
+        calibration.camCanvas.addCalibrationPoint(80 + index * 80, 90 + index * 50);
+        calibration.viewport.addCalibrationPoint(index, index % 2, 0);
+      }
+      const matchingValid = calibration.isValidCalibration(
+        calibration.camCanvas.getCalibrationPoints(),
+        calibration.viewport.getCalibrationPoints(),
+      );
+      return {
+        camNames: Object.keys(camPoints).sort(),
+        mapNames: Object.keys(mapPoints).sort(),
+        mismatchedValid,
+        wouldThrowOnSave,
+        matchingValid,
+      };
+      """
+    )
+    assert name_sets["camNames"] == ["p0", "p1", "p2", "p3", "p4"]
+    assert name_sets["mapNames"] == ["p0", "p1", "p2", "p3", "p5"]
+    assert name_sets["mismatchedValid"] is False
+    assert name_sets["wouldThrowOnSave"] is False
+    assert name_sets["matchingValid"] is True
     result_recorder.success()
   finally:
     if browser is not None:

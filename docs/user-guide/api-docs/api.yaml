@@ -1504,6 +1504,20 @@ paths:
                   description: Map of intrinsic parameter names to fix during calibration (e.g. fx, fy, cx, cy, k1, k2, k3, p1, p2)
                   additionalProperties:
                     type: boolean
+                rejectOutliers:
+                  type: boolean
+                  default: true
+                  description: >-
+                    When true, run RANSAC PnP outlier rejection before calibrating.
+                    Must be a JSON boolean (string or numeric truthy values are rejected).
+                outlierThresholdPx:
+                  type: number
+                  format: double
+                  exclusiveMinimum: 0
+                  default: 10.0
+                  description: >-
+                    RANSAC reprojection error threshold in pixels. Must be a positive
+                    finite number when provided.
               required:
                 - mapPoints
                 - camPoints
@@ -1548,8 +1562,92 @@ paths:
                         type: number
                         format: double
                     description: Calibrated distortion coefficients
+                  rmsError:
+                    type: number
+                    format: double
+                    description: Fit RMS reprojection error in pixels
+                  rejectionRequested:
+                    type: boolean
+                    description: Whether outlier rejection was requested
+                  rejectionApplied:
+                    type: boolean
+                    description: >-
+                      Whether RANSAC produced a usable inlier set that was used
+                      for the fit (false when rejection was off or fell back to all points)
+                  ransacInlierCount:
+                    type: integer
+                    nullable: true
+                    description: >-
+                      Number of RANSAC inliers, or null when rejection was not
+                      run or RANSAC could not estimate an inlier set
+                  fitPointCount:
+                    type: integer
+                    description: Number of correspondences used in the calibration fit
+                  rejectedIndices:
+                    type: array
+                    items:
+                      type: integer
+                    description: >-
+                      Zero-based indices of correspondences flagged by RANSAC
+                      (may be non-empty even when rejectionApplied is false)
+                  outlierThresholdPx:
+                    type: number
+                    format: double
+                    description: Reprojection threshold in pixels used for RANSAC
+                  perPointErrors:
+                    type: array
+                    items:
+                      type: number
+                      format: double
+                    description: >-
+                      Per-correspondence reprojection error in pixels under the
+                      fitted model (includes rejected outliers)
+                  mapInPlaneSpreadRatio:
+                    type: number
+                    format: double
+                    description: >-
+                      Ratio of the second to first principal-axis length of the
+                      map points used in the fit
+                  mapVolumeSpreadRatio:
+                    type: number
+                    format: double
+                    description: >-
+                      Ratio of the third to first principal-axis length of the
+                      map points used in the fit
+                  mapNearlyPlanar:
+                    type: boolean
+                    description: Whether the fitted map points are treated as nearly planar
+                  imageCoverage:
+                    type: number
+                    format: double
+                    description: Fraction of the image area spanned by the camera points
+                  imageWidthFraction:
+                    type: number
+                    format: double
+                    description: Fraction of image width spanned by the camera points
+                  imageHeightFraction:
+                    type: number
+                    format: double
+                    description: Fraction of image height spanned by the camera points
+                  depthRangeRatio:
+                    type: number
+                    format: double
+                    nullable: true
+                    description: >-
+                      Max/min camera-depth ratio of fitted map points, or null
+                      when fewer than four points have positive depth
+                  geometryWarnings:
+                    type: array
+                    items:
+                      type: string
+                    description: >-
+                      Human-readable warnings when point layout may leave pose
+                      or distortion poorly constrained despite a low RMS
         "400":
-          description: Invalid input (mismatched point counts, fewer than 4 points, or calculation error)
+          description: >-
+            Invalid input (mismatched point counts, fewer than 4 points,
+            non-boolean rejectOutliers, non-positive outlierThresholdPx,
+            or calculation error)
         "401":
           description: Unauthorized
   /aclcheck:
