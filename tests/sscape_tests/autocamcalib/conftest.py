@@ -3,10 +3,10 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import numpy as np
-import pytest
 import sys
 from pathlib import Path
+import numpy as np
+import pytest
 
 _AUTOCALIBRATION_SRC = Path(__file__).resolve().parents[3] / "autocalibration" / "src"
 if str(_AUTOCALIBRATION_SRC) not in sys.path:
