@@ -88,4 +88,3 @@ def test_image_size(built_image_result, result_recorder):
     f"{TEST_NAME}: Built {image.name} image size is {(built_image.size / 10**6):.2f}MB (limit is {image.size_limit_megabytes}MB)"
   )
   result_recorder.success()
-  
