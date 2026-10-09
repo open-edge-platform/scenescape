@@ -78,7 +78,7 @@ def test_build_time(built_image_result, result_recorder):
   )
 
 @pytest.mark.test_name("NEX-T12520")
-def test_image_size(record_xml_attribute, built_image_result):
+def test_image_size(built_image_result, result_recorder):
   image, _ = built_image_result
   record_xml_attribute("name", f"{TEST_NAME}-{image.name}-size")
 
