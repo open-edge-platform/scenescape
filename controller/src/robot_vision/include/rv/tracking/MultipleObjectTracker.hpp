@@ -11,6 +11,7 @@
 #include <optional>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace rv {
@@ -171,6 +172,8 @@ private:
   {
     TrackedObject object;
     std::chrono::system_clock::time_point when{};
+    // Cameras whose updates already averaged this sample; reusing it would double-count it.
+    std::unordered_set<std::string> usedBy;
   };
   // track id -> camera_id -> last measurement (streaming multi-cam fusion)
   std::unordered_map<Id, std::unordered_map<std::string, CameraMeasurement>> mLastCameraMeasurements;

@@ -43,6 +43,12 @@ std::optional<double> metadataConfidence(const TrackedObject &object, const std:
   return value;
 }
 
+std::string cameraIdOf(const TrackedObject &object)
+{
+  const auto cameraIt = object.attributes.find("camera_id");
+  return (cameraIt != object.attributes.end() && !cameraIt->second.empty()) ? cameraIt->second : "unknown";
+}
+
 void clearMetadataAttributes(TrackedObject &object)
 {
   for (auto attribute = object.attributes.begin(); attribute != object.attributes.end();)
@@ -294,11 +300,7 @@ void MultipleObjectTracker::rememberCameraMeasurement(
   const TrackedObject &measurement,
   const std::chrono::system_clock::time_point &timestamp)
 {
-  auto cameraIt = measurement.attributes.find("camera_id");
-  const std::string cameraId
-    = (cameraIt != measurement.attributes.end() && !cameraIt->second.empty()) ? cameraIt->second
-                                                                              : std::string("unknown");
-  mLastCameraMeasurements[trackId][cameraId] = CameraMeasurement{measurement, timestamp};
+  mLastCameraMeasurements[trackId][cameraIdOf(measurement)] = CameraMeasurement{measurement, timestamp, {}};
 }
 
 TrackedObject MultipleObjectTracker::fuseStreamingCameraMeasurements(
@@ -317,10 +319,14 @@ TrackedObject MultipleObjectTracker::fuseStreamingCameraMeasurements(
   objectsPerCamera.reserve(trackIt->second.size());
   matches.reserve(trackIt->second.size());
 
-  for (const auto &[cameraId, sample] : trackIt->second)
+  const std::string currentCameraId = cameraIdOf(measurement);
+  for (auto &[cameraId, sample] : trackIt->second)
   {
-    (void)cameraId;
     if (timestamp - sample.when > kStreamingMultiCamHold)
+    {
+      continue;
+    }
+    if (cameraId != currentCameraId && !sample.usedBy.insert(currentCameraId).second)
     {
       continue;
     }

@@ -880,3 +880,50 @@ TEST(MultipleObjectTrackerTest, StreamingMultiCameraUpdatesAverageWorldPosition)
   EXPECT_NEAR(tracks[0].x, midX, 0.2);
   EXPECT_NEAR(tracks[0].y, midY, 0.2);
 }
+
+// Streaming path: camera B reports once, then stays silent while camera A keeps reporting
+// within the hold window. B's cached detection must be averaged into A's updates only once;
+// reusing it in every update double-counts it and pulls the track to the A/B midpoint.
+TEST(MultipleObjectTrackerTest, StreamingMultiCameraDoesNotReuseCachedDetection)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mMaxNumberOfUnreliableFrames = 0;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig, rv::tracking::DistanceType::Euclidean, 5.0);
+  objectTracker.updateTrackerParams(10);
+
+  rv::tracking::TrackedObject camA;
+  camA.x = 7.0;
+  camA.y = 7.0;
+  camA.width = camA.length = camA.height = 0.5;
+  camA.attributes["camera_id"] = "Cam_A";
+
+  rv::tracking::TrackedObject camB = camA;
+  camB.x = 8.0;
+  camB.attributes["camera_id"] = "Cam_B";
+
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{camA}, timestamp,
+                      rv::tracking::DistanceType::Euclidean, 5.0, 0.5);
+  timestamp += std::chrono::milliseconds(20);
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{camB}, timestamp,
+                      rv::tracking::DistanceType::Euclidean, 5.0, 0.5);
+
+  // Camera B stays silent while camera A keeps reporting inside the hold window.
+  for (int i = 0; i < 11; ++i)
+  {
+    timestamp += std::chrono::milliseconds(20);
+    objectTracker.track(std::vector<rv::tracking::TrackedObject>{camA}, timestamp,
+                        rv::tracking::DistanceType::Euclidean, 5.0, 0.5);
+  }
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  // One B detection among 13 updates: the track must sit closer to A than to the A/B midpoint.
+  EXPECT_LT(tracks[0].x, 0.5 * (camA.x + 0.5 * (camA.x + camB.x)));
+}
