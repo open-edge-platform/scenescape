@@ -8,6 +8,18 @@ For high-level design, goals, SLIs, and observability details, see [Design Docum
 
 ---
 
+## Bounding Box Projection
+
+For each pixel bounding box, the tracker undistorts its top-left and bottom-right
+corners in one batch across detections. These two points define a rectangle in
+normalized image coordinates. The tracker projects that rectangle's bottom-center
+to the ground plane for the foot position; its bottom-left, bottom-right,
+and top-left determine object width and height. The foot is then shifted away
+from the camera by half the estimated object width to approximate the center
+of the object's footprint.
+
+---
+
 ## Time-Chunk Processing Pipeline
 
 The tracker aggregates detections into fixed time intervals (chunks) before processing. This enables multi-camera fusion, improves tracker efficiency, and decouples camera FPS from output rate.

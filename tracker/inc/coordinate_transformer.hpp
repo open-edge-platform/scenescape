@@ -23,9 +23,9 @@ namespace tracker {
  * @brief Batch-oriented transformer from pixel detections to world-space TrackedObjects.
  *
  * Converts 2D pixel bounding boxes into 3D world positions and sizes using
- * camera intrinsics/extrinsics. The foot point (bottom-center of each bbox)
- * determines the world position via ground-plane intersection; three additional
- * corner points (BL, BR, TL) determine the object's world-space dimensions.
+ * camera intrinsics/extrinsics. Two opposite bbox corners are undistorted to
+ * define a normalized rectangle. Its bottom-center determines world position;
+ * the bottom-left, bottom-right, and top-left determine world-space dimensions.
  *
  * Designed for high-throughput (1000+ detections per batch):
  * - Single cv::undistortPoints call for all pixels in the batch
@@ -33,9 +33,9 @@ namespace tracker {
  * - OpenMP parallelization of pose-transform and ray-plane intersection
  *
  * Transformation pipeline per detection (4 pixels each):
- * 1. Collect pixels: foot (bottom-center), bottom-left, bottom-right, top-left
- * 2. Batch undistort all 4*N pixels via cv::undistortPoints()
- * 3. Pose-transform + ray-plane intersection (z=0) with OpenMP
+ * 1. Collect top-left and bottom-right pixels
+ * 2. Batch undistort 2*N corners and derive normalized foot, BL, BR, TL
+ * 3. Pose-transform + ray-plane intersection (z=0) for 4*N points with OpenMP
  * 4. Optional TYPE_2 foot re-projection (wide/short objects)
  * 5. Assemble TrackedObjects: position from foot, size from corners
  *
@@ -79,8 +79,8 @@ public:
     /**
      * @brief Batch-transform detections from pixel space to world-space TrackedObjects.
      *
-     * For each detection, projects 4 bbox pixels (foot, BL, BR, TL) through the full
-     * undistort → pose → ray-plane pipeline in a single batched operation. Computes
+     * For each detection, undistorts two opposite bbox corners and derives the
+     * normalized foot, BL, BR, TL before batched world projection. Computes
      * world position (from foot point) and world size (from corner distances).
      *
      * Detections where any projection fails are silently skipped.
@@ -127,17 +127,16 @@ public:
 
 private:
     /**
-     * @brief Batch project pixels to world coordinates on the ground plane.
+     * @brief Batch project normalized points to world coordinates on the ground plane.
      *
-     * Single cv::undistortPoints call for all pixels, then parallel
-     * pose-transform + ray-plane intersection.
+     * Parallel pose-transform + ray-plane intersection.
      *
-     * @param pixels Input pixel coordinates
-     * @param[out] world Output world coordinates (pre-allocated, same size as pixels)
-     * @param[out] valid Output validity flags (pre-allocated, same size as pixels)
+     * @param normalized Undistorted normalized image-plane coordinates
+     * @param[out] world Output world coordinates (same size as normalized)
+     * @param[out] valid Output validity flags (same size as normalized)
      */
-    void batchPixelToWorld(const std::vector<cv::Point2f>& pixels, std::vector<cv::Point2d>& world,
-                           std::vector<uint8_t>& valid) const;
+    void batchNormalizedToWorld(const std::vector<cv::Point2f>& normalized,
+                                std::vector<cv::Point2d>& world, std::vector<uint8_t>& valid) const;
 
     /**
      * @brief Compute 3x3 rotation matrix from Euler angles (XYZ intrinsic, degrees).
@@ -166,8 +165,8 @@ private:
     static constexpr double kMinHeightForHorizon = 0.1;
     static constexpr double kRayEpsilon = 1e-6;
 
-    /// Number of pixels projected per detection (foot, BL, BR, TL)
-    static constexpr size_t kPixelsPerDetection = 4;
+    static constexpr size_t kCornersPerDetection = 2;
+    static constexpr size_t kPointsPerDetection = 4;
 };
 
 } // namespace tracker
