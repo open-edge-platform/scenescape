@@ -81,7 +81,9 @@ Run `make test-unit-coverage` to verify locally. New code MUST maintain these th
 
 When `scenes.source=api`, the service also loads Manager `/api/v1/assets` for
 per-category projection (`shift_type`, footprint sizes) used by
-`CoordinateTransformer`. Missing assets soft-falls back to TYPE_1 defaults.
+`CoordinateTransformer` and the `rotation_from_velocity` flag used by
+`TrackingWorker`. Missing assets soft-falls back to TYPE_1 defaults with
+velocity rotation disabled.
 
 ## Development Workflows
 
