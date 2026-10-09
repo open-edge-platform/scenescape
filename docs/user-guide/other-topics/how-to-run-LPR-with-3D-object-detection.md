@@ -7,7 +7,7 @@ This guide explains how to:
 
 ## Prerequisites
 
-- Successful deployment of a Scenescape instance using [Installation](../get-started/installation.md)
+- Successful deployment of a Scenescape instance using [Deploy on Docker](../how-to-guides/deployment/deploy-docker.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
@@ -38,7 +38,7 @@ Running the `DeepScenario` script requires additional Python modules installed o
 Create a Dockerfile named `Dockerfile.dls-deepscenario` and copy the following into it:
 
 ```Dockerfile
-FROM docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20260922-weekly-ubuntu24
+FROM docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261006-weekly-ubuntu24
 
 USER root
 
@@ -190,7 +190,9 @@ Each pipeline can have a separate `intrinsics.json` file. The DeepScenario scrip
 
 ### 6. Modify Docker Compose Configuration
 
-Edit the `sample_data/compose/docker-compose-dl-streamer-example.yml` file to disable the `retail` and `queuing` video services and enable the `deepscenario` service:
+Edit the `sample_data/demo_scenes/Retail/compose.retail-video.yml` file (or
+`Queuing/compose.queuing-video.yml`) to disable its video service and enable
+the `deepscenario` service:
 
 **Remove the following sections:**
 
@@ -212,11 +214,6 @@ deepscenario:
     - "8556:8554"
   devices:
     - "/dev/dri:/dev/dri"
-  depends_on:
-    broker:
-      condition: service_started
-    ntpserv:
-      condition: service_started
   environment:
     - RUN_MODE=EVA
     - DETECTION_DEVICE=CPU
@@ -243,6 +240,11 @@ deepscenario:
       target: certs/scenescape-ca.pem
 ```
 
+`deepscenario` runs in the video-source stack alongside `retail-video`/`queuing-video`,
+not in `docker-compose.yml`, so it cannot use `depends_on` on `broker`/`ntpserv`
+(those services live in the main stack); it reaches them by hostname on the
+shared `scenescape` network once the main stack is up.
+
 Add `maxlag` option to the scene controller command:
 
 ```yaml
@@ -266,17 +268,20 @@ scenescape/
 │   │   ├── categories.json
 │   │   └── intrinsics.json
 │   └── deepscenario-lpr-config.json
-├── models/
-│   ├── ch_PP-OCRv4_rec_infer/
-│   │   └── FP32/
-│   │       ├── ch_PP-OCRv4_rec_infer.xml
-│   │       └── ch_PP-OCRv4_rec_infer.bin
-│   └── yolov8_license_plate_detector/
-│       └── FP32/
-│           ├── yolov8_license_plate_detector.xml
-│           └── yolov8_license_plate_detector.bin
-└── sample_data/
-    └── docker-compose-dl-streamer-example.yml
+├── model_installer/
+│   └── models/
+│       └── public/
+│           ├── ch_PP-OCRv4_rec_infer/
+│           │   └── FP32/
+│           │       ├── ch_PP-OCRv4_rec_infer.xml
+│           │       └── ch_PP-OCRv4_rec_infer.bin
+│           └── yolov8_license_plate_detector/
+│               └── FP32/
+│                   ├── yolov8_license_plate_detector.xml
+│                   └── yolov8_license_plate_detector.bin
+└── sample_data/demo_scenes/
+    ├── Retail/compose.retail-video.yml
+    └── Queuing/compose.queuing-video.yml
 ```
 
 ### 8. Build and Run

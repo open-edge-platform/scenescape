@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 /**
@@ -311,6 +311,22 @@ export class ConvergedCameraCalibration {
         },
       });
     }
+  }
+
+  initializeTransforms(transforms, transformType) {
+    if (transformType === "euler") {
+      const pose = transforms.map((value) => Number(value));
+      if (pose.length === 9 && pose.every(Number.isFinite)) {
+        this.viewport.setCameraPoseFromEuler(
+          pose.slice(0, 3),
+          pose.slice(3, 6),
+        );
+        this.projectionEnabled = true;
+      }
+      return;
+    }
+
+    this.addInitialCalibrationPoints(transforms, transformType);
   }
 
   addInitialCalibrationPoints(points, transformType) {

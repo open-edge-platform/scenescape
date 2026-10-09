@@ -16,6 +16,7 @@ from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK_WITH_RETAIL_VIDEO
+import pytest
 
 log = get_logger(__name__)
 
@@ -290,6 +291,7 @@ class RotationFromVelocityTest(FunctionalTest):
     return
 
 # Pytest entrypoint
+@pytest.mark.test_name("NEX-T10543")
 def test_rotation_from_velocity(scenescape_env, demo_scene, request, record_xml_attribute):
   test = RotationFromVelocityTest(TEST_NAME, request, record_xml_attribute)
   test.run()

@@ -192,13 +192,14 @@ Scenes defined in external file:
 
 #### Dynamic Mode
 
-Scenes fetched from Manager API at startup:
+Scenes and object-class assets fetched from Manager API at startup:
 
 - Set `scenes.source: "api"` or omit `scenes` section (defaults to API mode)
 - Requires `infrastructure.manager` with API URL and credentials
+- Fetches `/api/v1/assets` for per-category projection (`shift_type`, `x_size`/`y_size`, `rotation_from_velocity`); if the request fails, all categories fall back to TYPE_1 with a footprint derived from the projected bounding box and rotation is not calculated from velocity
 - Subscribes to `scenescape/cmd/database` for change notifications
 - On notification: logs change, exits gracefully (Docker restarts the service which loads new config at startup)
-- Fires on any database change: scene create/update/delete, camera changes, region edits, etc.
+- Fires on any database change: scene create/update/delete, camera changes, region edits, asset edits, etc.
 - Suitable for multi-node deployments with centralized scene management
 
 ### Observability

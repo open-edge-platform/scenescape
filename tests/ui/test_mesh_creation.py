@@ -17,6 +17,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.common.exceptions import TimeoutException
+import pytest
 
 MAX_ATTEMPTS = 10
 
@@ -68,19 +69,19 @@ def create_mesh_from_video(browser, video_file):
     raise AssertionError("Timed out waiting for mesh generation success alert from video")
   return
 
+@pytest.mark.test_name("NEX-T10470")
 def test_mesh_creation(params, record_xml_attribute):
   """ Test case to verify mesh creation from cameras and video file.
   @param    params                  Test parameters.
   @param    record_xml_attribute     Function to record test attributes in XML report.
   """
   TEST_NAME = "NEX-T10470"
-  record_xml_attribute("name", TEST_NAME)
   exit_code = 1
 
   try:
     print("Executing: " + TEST_NAME)
     browser = Browser()
-    video_file = "/workspace/sample_data/videos/apriltag-cam1.mp4"
+    video_file = "/workspace/sample_data/demo_scenes/Retail/video/apriltag-cam1.mp4"
     assert common.check_page_login(browser, params)
     assert common.navigate_to_scene(browser, common.TEST_SCENE_NAME)
     assert common.delete_camera(browser, "camera3")

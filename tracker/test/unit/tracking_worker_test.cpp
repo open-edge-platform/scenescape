@@ -6,10 +6,14 @@
 #include "logger.hpp"
 #include "tracking_worker.hpp"
 
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <condition_variable>
 #include <format>
 #include <mutex>
+#include <numbers>
+#include <optional>
 #include <thread>
 
 namespace tracker {
@@ -37,6 +41,15 @@ std::unordered_map<std::string, Camera> make_test_cameras() {
     return {{"cam-1", cam}};
 }
 
+// processed_count() is bumped after the publish callback returns, so poll instead of reading once.
+int get_processed_count_wait(const TrackingWorker& worker, int expected) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (worker.processed_count() < expected && std::chrono::steady_clock::now() < deadline) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return worker.processed_count();
+}
+
 class TrackingWorkerTest : public ::testing::Test {
 protected:
     void SetUp() override { Logger::init("warn"); }
@@ -45,6 +58,46 @@ protected:
     TrackingConfig tracking_config_ = make_test_tracking_config();
     std::unordered_map<std::string, Camera> cameras_ = make_test_cameras();
 };
+
+TEST(VelocityRotationTest, ActivatesAboveOnThreshold) {
+    VelocityRotationState state;
+
+    const auto rotation = update_velocity_rotation(1.01, 0.0, state);
+
+    EXPECT_TRUE(state.active);
+    EXPECT_NEAR(rotation[2], 0.0, 1e-12);
+    EXPECT_NEAR(rotation[3], 1.0, 1e-12);
+}
+
+TEST(VelocityRotationTest, InactiveStateIgnoresSpeedInsideHysteresisBand) {
+    VelocityRotationState state;
+
+    const auto rotation = update_velocity_rotation(0.75, 0.0, state);
+
+    EXPECT_FALSE(state.active);
+    EXPECT_EQ(rotation, (std::array<double, 4>{0.0, 0.0, 0.0, 1.0}));
+}
+
+TEST(VelocityRotationTest, ActiveStateStaysActiveInsideHysteresisBand) {
+    VelocityRotationState state;
+    update_velocity_rotation(1.1, 0.0, state);
+
+    const auto rotation = update_velocity_rotation(0.75, 0.0, state);
+
+    EXPECT_TRUE(state.active);
+    EXPECT_NEAR(rotation[2], 0.0, 1e-12);
+    EXPECT_NEAR(rotation[3], 1.0, 1e-12);
+}
+
+TEST(VelocityRotationTest, DeactivatesAtOffThresholdAndRetainsLastRotation) {
+    VelocityRotationState state;
+    const auto first_rotation = update_velocity_rotation(0.0, 1.1, state);
+
+    const auto stopped_rotation = update_velocity_rotation(0.0, 0.5, state);
+
+    EXPECT_FALSE(state.active);
+    EXPECT_EQ(stopped_rotation, first_rotation);
+}
 
 // Test that worker processes chunks and calls publish callback
 TEST_F(TrackingWorkerTest, ProcessesChunks_CallsPublishCallback) {
@@ -90,7 +143,7 @@ TEST_F(TrackingWorkerTest, ProcessesChunks_CallsPublishCallback) {
     EXPECT_EQ(publish_count, 1);
     EXPECT_EQ(published_scene_id, "scene-1");
     EXPECT_EQ(published_category, "person");
-    EXPECT_EQ(worker.processed_count(), 1);
+    EXPECT_EQ(get_processed_count_wait(worker, 1), 1);
 }
 
 // Test queue backpressure (drops when full)
@@ -282,7 +335,7 @@ TEST_F(TrackingWorkerTest, SkipsUnknownCamera_InBatch) {
 
     // Worker should process chunk (call callback) but skip unknown camera detections
     EXPECT_EQ(publish_count, 1);
-    EXPECT_EQ(worker.processed_count(), 1);
+    EXPECT_EQ(get_processed_count_wait(worker, 1), 1);
 }
 
 // Test that empty chunk (no detections) flows through tracker and publishes
@@ -319,7 +372,7 @@ TEST_F(TrackingWorkerTest, EmptyChunk_FlowsThroughTracker) {
     }
 
     EXPECT_EQ(publish_count, 1);
-    EXPECT_EQ(worker.processed_count(), 1);
+    EXPECT_EQ(get_processed_count_wait(worker, 1), 1);
     // Empty detections -> no reliable tracks
     EXPECT_TRUE(published_tracks.empty());
     // Fallback timestamp should be valid ISO 8601
@@ -361,7 +414,7 @@ TEST_F(TrackingWorkerTest, EmptyChunks_PublishEveryTime) {
     }
 
     EXPECT_EQ(publish_count, 2);
-    EXPECT_EQ(worker.processed_count(), 2);
+    EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
     ASSERT_EQ(published_track_lists.size(), 2u);
     EXPECT_TRUE(published_track_lists[0].empty());
     EXPECT_TRUE(published_track_lists[1].empty());
@@ -642,6 +695,281 @@ TEST_F(TrackingWorkerTest, Tracking_Confidence_PreservedThroughTracker) {
         EXPECT_NEAR(*track.confidence, expected_confidence, 1e-9)
             << "Track " << track.id << " has wrong confidence";
     }
+}
+
+// The worker's ObjectClassConfig reaches its CoordinateTransformer: the same bbox publishes a
+// different world position under TYPE_2 than under the default TYPE_1.
+TEST_F(TrackingWorkerTest, Tracking_ObjectClassShiftTypeChangesPublishedPosition) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    const auto first_track_position = [&](const ObjectClassConfig& object_class) {
+        std::mutex mtx;
+        std::condition_variable cv;
+        std::optional<std::array<double, 3>> position;
+
+        PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                       const std::string&, const std::vector<Track>& tracks) {
+            std::lock_guard lock(mtx);
+            if (!position && !tracks.empty()) {
+                position = tracks.front().translation;
+                cv.notify_one();
+            }
+        };
+
+        TrackingScope scope{"scene-1", "plane"};
+        TrackingWorker worker(scope, "Test Scene", 10, callback, config, cameras_, object_class);
+
+        for (int i = 0; i < 3; ++i) {
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "plane";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
+            batch.detections.push_back(
+                Detection{.id = 1, .bounding_box_px = cv::Rect2f(600.0f, 400.0f, 80.0f, 200.0f)});
+            chunk.camera_batches.push_back(std::move(batch));
+            worker.try_enqueue(std::move(chunk));
+        }
+
+        std::unique_lock lock(mtx);
+        EXPECT_TRUE(cv.wait_for(lock, std::chrono::seconds(2), [&] {
+            return position.has_value();
+        })) << "No reliable track published";
+        return position.value_or(std::array<double, 3>{});
+    };
+
+    const auto type1 = first_track_position({});
+    const auto type2 =
+        first_track_position(ObjectClassConfig{.shift_type = ObjectClassConfig::kShiftType2});
+
+    EXPECT_GT(std::hypot(type2[0] - type1[0], type2[1] - type1[1]), 0.1)
+        << "TYPE_2 object class should change the projected track position";
+}
+
+// Pixel detections carry no orientation, so a turning track must not publish the Kalman yaw
+// that the CTRV model integrates from the estimated turn rate.
+TEST_F(TrackingWorkerTest, Tracking_CameraOnlyTurningTrack_PublishesIdentityRotation) {
+    constexpr int kChunksToSend = 20;
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+    constexpr double kRadiusPx = 250.0;
+    constexpr double kRadPerFrame = 2.0 * std::numbers::pi / 30.0; // one turn per 2 s @ 15 FPS
+
+    int callback_count = 0;
+    size_t published_tracks = 0;
+    double max_abs_yaw = 0.0;
+
+    // Only the worker thread writes these; they are read after its destructor joins.
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        for (const auto& track : tracks) {
+            const double yaw = 2.0 * std::atan2(track.rotation[2], track.rotation[3]);
+            max_abs_yaw =
+                std::max(max_abs_yaw, std::abs(std::remainder(yaw, 2.0 * std::numbers::pi)));
+        }
+        published_tracks += tracks.size();
+        callback_count++;
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    {
+        TrackingWorker worker({"scene-1", "person"}, "Test Scene", kChunksToSend, callback, config,
+                              cameras_);
+
+        for (int i = 0; i < kChunksToSend; ++i) {
+            const double angle = kRadPerFrame * i;
+            const auto foot_x = static_cast<float>(640.0 + kRadiusPx * std::cos(angle));
+            const auto foot_y = static_cast<float>(360.0 + kRadiusPx * std::sin(angle));
+
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "person";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp = std::chrono::system_clock::time_point{} + i * kFramePeriod;
+            batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            batch.detections.push_back(Detection{
+                .id = 1,
+                .bounding_box_px = cv::Rect2f(foot_x - 20.0f, foot_y - 80.0f, 40.0f, 80.0f)});
+            chunk.camera_batches.push_back(std::move(batch));
+            ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    } // Destructor processes every queued chunk before joining.
+
+    ASSERT_EQ(callback_count, kChunksToSend);
+    ASSERT_GT(published_tracks, 0u) << "No reliable tracks published";
+    EXPECT_LT(max_abs_yaw, 1e-6) << "Camera-only track published yaw of " << max_abs_yaw
+                                 << " rad (expected identity rotation)";
+}
+
+TEST_F(TrackingWorkerTest, Tracking_RotationFromVelocityEnabled_PublishesVelocityHeading) {
+    constexpr int kChunksToSend = 30;
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+    constexpr float kStepPx = 20.0f;
+    constexpr float kFootY = 600.0f;
+
+    std::optional<Track> last_track;
+
+    // Only the worker thread writes this; it is read after the destructor joins.
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        if (!tracks.empty()) {
+            last_track = tracks.front();
+        }
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    {
+        TrackingWorker worker({"scene-1", "vehicle"}, "Test Scene", kChunksToSend, callback, config,
+                              cameras_, ObjectClassConfig{.rotation_from_velocity = true});
+
+        for (int i = 0; i < kChunksToSend; ++i) {
+            const float foot_x = 1000.0f - kStepPx * static_cast<float>(i);
+
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "vehicle";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp = std::chrono::system_clock::time_point{} + i * kFramePeriod;
+            batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            batch.detections.push_back(Detection{
+                .id = 1,
+                .bounding_box_px = cv::Rect2f(foot_x - 20.0f, kFootY - 80.0f, 40.0f, 80.0f)});
+            chunk.camera_batches.push_back(std::move(batch));
+            ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    }
+
+    ASSERT_TRUE(last_track.has_value()) << "No reliable tracks published";
+    const double vx = last_track->velocity[0];
+    const double vy = last_track->velocity[1];
+    ASSERT_GT(std::hypot(vx, vy), kRotationSpeedThresholdOn) << "Track never exceeded on-speed";
+
+    const double yaw = 2.0 * std::atan2(last_track->rotation[2], last_track->rotation[3]);
+    EXPECT_NEAR(std::remainder(yaw - std::atan2(vy, vx), 2.0 * std::numbers::pi), 0.0, 1e-9);
+    EXPECT_GT(std::abs(yaw), 0.5) << "Heading along -X should not be identity rotation";
+}
+
+// Test camera geometry: foot_y=600 projects to world y≈11.5 m, foot_y=700 to y≈8 m (>2 m apart).
+constexpr float kMovingFootY = 600.0f;
+constexpr float kStaticFootY = 700.0f;
+constexpr double kTrackSplitWorldY = 9.75;
+constexpr std::array<double, 4> kIdentityRotation = {0.0, 0.0, 0.0, 1.0};
+
+double published_yaw(const Track& track) {
+    return 2.0 * std::atan2(track.rotation[2], track.rotation[3]);
+}
+
+const Track* find_track(const std::vector<Track>& tracks, bool moving) {
+    const auto it = std::ranges::find_if(tracks, [moving](const Track& t) {
+        return (t.translation[1] > kTrackSplitWorldY) == moving;
+    });
+    return it == tracks.end() ? nullptr : &*it;
+}
+
+// Runs a rotation-enabled worker over per-frame foot points; returns tracks published per frame.
+std::vector<std::vector<Track>>
+run_rotation_worker(const std::unordered_map<std::string, Camera>& cameras,
+                    const std::vector<std::vector<cv::Point2f>>& feet_per_frame) {
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+    std::vector<std::vector<Track>> published;
+
+    // Only the worker thread writes this; it is read after the destructor joins.
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        published.push_back(tracks);
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    {
+        TrackingWorker worker({"scene-1", "vehicle"}, "Test Scene",
+                              static_cast<int>(feet_per_frame.size()), callback, config, cameras,
+                              ObjectClassConfig{.rotation_from_velocity = true});
+        for (size_t i = 0; i < feet_per_frame.size(); ++i) {
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "vehicle";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp =
+                std::chrono::system_clock::time_point{} + static_cast<int>(i) * kFramePeriod;
+            batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            for (size_t k = 0; k < feet_per_frame[i].size(); ++k) {
+                const auto& foot = feet_per_frame[i][k];
+                batch.detections.push_back(Detection{
+                    .id = static_cast<int32_t>(k + 1),
+                    .bounding_box_px = cv::Rect2f(foot.x - 20.0f, foot.y - 80.0f, 40.0f, 80.0f)});
+            }
+            chunk.camera_batches.push_back(std::move(batch));
+            EXPECT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    }
+    return published;
+}
+
+TEST_F(TrackingWorkerTest, Tracking_RotationFromVelocity_TracksKeepSeparateState) {
+    constexpr int kFrames = 30;
+    std::vector<std::vector<cv::Point2f>> feet(kFrames);
+    for (int i = 0; i < kFrames; ++i) {
+        feet[i] = {{1000.0f - 20.0f * static_cast<float>(i), kMovingFootY}, {640.0f, kStaticFootY}};
+    }
+
+    const auto published = run_rotation_worker(cameras_, feet);
+
+    ASSERT_EQ(published.size(), static_cast<size_t>(kFrames));
+    const auto& last = published.back();
+    const Track* moving = find_track(last, true);
+    const Track* stationary = find_track(last, false);
+    ASSERT_NE(moving, nullptr);
+    ASSERT_NE(stationary, nullptr);
+
+    ASSERT_GT(std::hypot(moving->velocity[0], moving->velocity[1]), kRotationSpeedThresholdOn);
+    EXPECT_GT(std::abs(published_yaw(*moving)), 2.5) << "Moving track should head along -X";
+    EXPECT_LT(std::hypot(stationary->velocity[0], stationary->velocity[1]),
+              kRotationSpeedThresholdOff);
+    EXPECT_EQ(stationary->rotation, kIdentityRotation)
+        << "Stationary track must not inherit the moving track's heading";
+}
+
+TEST_F(TrackingWorkerTest, Tracking_RotationFromVelocity_NewTrackStartsFromIdentity) {
+    constexpr int kFrames = 30;
+    constexpr int kNewTrackFrame = 20;
+    std::vector<std::vector<cv::Point2f>> feet(kFrames);
+    for (int i = 0; i < kFrames; ++i) {
+        feet[i] = {{1000.0f - 20.0f * static_cast<float>(i), kMovingFootY}};
+        if (i >= kNewTrackFrame) {
+            feet[i].push_back({640.0f, kStaticFootY});
+        }
+    }
+
+    const auto published = run_rotation_worker(cameras_, feet);
+
+    ASSERT_EQ(published.size(), static_cast<size_t>(kFrames));
+    const auto& frame = published[kNewTrackFrame];
+    const Track* existing = find_track(frame, true);
+    const Track* fresh = find_track(frame, false);
+    ASSERT_NE(existing, nullptr);
+    ASSERT_NE(fresh, nullptr) << "New track should be published on its first frame";
+
+    EXPECT_NE(existing->rotation, kIdentityRotation)
+        << "Existing track should already publish a velocity heading";
+    EXPECT_EQ(fresh->rotation, kIdentityRotation) << "New track must start from identity";
+    EXPECT_NE(fresh->id, existing->id);
 }
 
 // -----------------------------------------------------------------
