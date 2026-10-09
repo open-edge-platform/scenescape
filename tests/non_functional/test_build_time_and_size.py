@@ -70,7 +70,7 @@ def run_command(command, env_extra=None) -> tuple[int, float]:
   return process.returncode, duration
 
 @pytest.mark.test_name("NEX-T12520")
-def test_build_time(record_xml_attribute, built_image_result):
+def test_build_time(built_image_result, result_recorder):
   image, duration = built_image_result
   record_xml_attribute("name", f"{TEST_NAME}-{image.name}-time")
 
