@@ -72,7 +72,6 @@ def run_command(command, env_extra=None) -> tuple[int, float]:
 @pytest.mark.test_name("NEX-T12520")
 def test_build_time(built_image_result, result_recorder):
   image, duration = built_image_result
-  record_xml_attribute("name", f"{TEST_NAME}-{image.name}-time")
 
   assert duration <= image.time_limit_seconds, (
     f"{TEST_NAME}: Building {image.name} took {duration:.2f}s (limit is {image.time_limit_seconds}s)"
