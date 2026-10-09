@@ -8,6 +8,7 @@ import numpy as np
 
 import atag_camera_calibration_controller as calibration
 from auto_camera_calibration_api import CameraCalibrationApi
+from calibration_geometry import MIN_PNP_SPREAD_RATIO
 
 
 def _generate_calibration(monkeypatch, points_3d, camera_translation, tag_size=0.2,
@@ -60,7 +61,7 @@ def test_generate_calibration_accepts_well_spread_tags(monkeypatch):
   result = _generate_calibration(monkeypatch, points_3d, [0, 0, 2])
 
   assert result["status"] == "success"
-  assert result["spread_ratio"] >= calibration.MIN_PNP_SPREAD_RATIO
+  assert result["spread_ratio"] >= MIN_PNP_SPREAD_RATIO
 
 
 def test_generate_calibration_uses_map_spread_when_scene_scale_flattens_tags(monkeypatch):
@@ -70,7 +71,7 @@ def test_generate_calibration_uses_map_spread_when_scene_scale_flattens_tags(mon
                                  map_name="scene.glb", mesh_scale=(1, 1, 0.001))
 
   assert result["status"] == "success"
-  assert result["spread_ratio"] >= calibration.MIN_PNP_SPREAD_RATIO
+  assert result["spread_ratio"] >= MIN_PNP_SPREAD_RATIO
   assert result["calibration_points_3d"][-1] == [0, 0, 0.001]
 
 
@@ -82,7 +83,7 @@ def test_generate_calibration_uses_map_spread_when_scene_scale_stretches_tags(mo
 
   assert result["status"] == "error"
   assert "coplanar" in result["message"]
-  assert result["spread_ratio"] < calibration.MIN_PNP_SPREAD_RATIO
+  assert result["spread_ratio"] < MIN_PNP_SPREAD_RATIO
 
 
 def test_generate_calibration_accepts_planar_image_tags(monkeypatch, result_data):
@@ -91,7 +92,7 @@ def test_generate_calibration_accepts_planar_image_tags(monkeypatch, result_data
   result = _generate_calibration(monkeypatch, points_3d, [0, 0, 2])
 
   assert result["status"] == "success"
-  assert result["spread_ratio"] < calibration.MIN_PNP_SPREAD_RATIO
+  assert result["spread_ratio"] < MIN_PNP_SPREAD_RATIO
 
 
 def test_generate_calibration_rejects_collinear_image_tags(monkeypatch):
@@ -101,7 +102,7 @@ def test_generate_calibration_rejects_collinear_image_tags(monkeypatch):
 
   assert result["status"] == "error"
   assert "collinear" in result["message"]
-  assert result["spread_ratio"] < calibration.MIN_PNP_SPREAD_RATIO
+  assert result["spread_ratio"] < MIN_PNP_SPREAD_RATIO
 
 
 def test_generate_calibration_rejects_bad_planar_reprojection(monkeypatch):

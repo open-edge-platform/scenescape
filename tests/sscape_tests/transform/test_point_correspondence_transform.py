@@ -295,6 +295,26 @@ class TestPointCorrespondenceTransformPrivateMethods:
     expected_position = -rmat.T @ tvec
     np.testing.assert_allclose(transform.pose_mat[:3, 3], expected_position, atol=1e-3)
 
+  @pytest.mark.parametrize("num_points", [4, 5])
+  def test_scaled_down_non_coplanar_set_uses_sqpnp(self, num_points):
+    """A well-spread 10 cm layout is non-coplanar regardless of scene units"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    map_points = np.array([[0, 0, 0], [0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1],
+                           [0.1, 0.1, 0.05]])[:num_points]
+    rvec = np.array([0.3, -0.2, 0.1])
+    tvec = np.array([-0.05, -0.05, 0.6])
+    camera_points, _ = cv2.projectPoints(map_points, rvec, tvec,
+                                         intrinsics.intrinsics, None)
+    pose = {'camera points': camera_points.reshape(-1, 2), 'map points': map_points}
+
+    with patch('cv2.solvePnP', wraps=cv2.solvePnP) as spy:
+      transform = PointCorrespondenceTransform(pose, intrinsics)
+
+    assert not transform.arePointsCoplanar(map_points)
+    assert spy.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
+    rmat = cv2.Rodrigues(rvec)[0]
+    np.testing.assert_allclose(transform.pose_mat[:3, 3], -rmat.T @ tvec, atol=1e-4)
+
   def test_calculate_pose_mat_properties_set(self):
     """Test that _calculatePoseMat sets all required properties"""
     with patch('cv2.solvePnP') as mock_solve_pnp:
