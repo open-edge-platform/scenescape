@@ -13,36 +13,26 @@ from scene_common.geometry import isarray, Point, Line, Rectangle, Region
 
 MAX_COPLANAR_DETERMINANT = 0.1
 FALLBACK_HORIZON_DISTANCE = 1000
-# Below this ratio, a point cloud's smallest principal-axis variance is
-# negligible relative to its largest - i.e. the points are effectively
-# coplanar/degenerate for solvePnP (see pointsSpreadRatio()).
+# Below this ratio, a point cloud's smallest principal-axis spread is
+# negligible relative to its largest and is poorly conditioned for solvePnP.
 MIN_PNP_SPREAD_RATIO = 0.05
 
 
 def pointsSpreadRatio(points_3d):
-  """Ratio of the smallest to the largest principal-axis variance of a 3D
-  point cloud (via SVD on the centered points).
+  """Return the smallest-to-largest principal-axis spread ratio for 3D points.
 
-  solvePnP's translation (and, for near-planar targets, part of its
-  rotation) is only well-constrained by depth variation among the matched
-  points relative to their distance from the camera - a well-known PnP
-  conditioning issue, not a matter of how many points are matched. A cloud
-  that is (near-)coplanar or has negligible spread along one axis yields a
-  ratio near 0 and an unstable/ambiguous solve; a well-distributed cloud
-  with real variation in every direction yields a ratio closer to 1.
-
-  @param      points_3d   sequence of [x, y, z] points (world or any common frame)
-  @return                 spread ratio in [0, 1]; 0.0 if fewer than 4 points
+  A value near zero indicates that the points are coplanar or have negligible
+  spread along one axis. Fewer than four points or a collapsed point cloud
+  returns 0.0.
   """
-  pts = np.asarray(points_3d, dtype=float)
-  if len(pts) < 4:
+  points = np.asarray(points_3d, dtype=float)
+  if len(points) < 4:
     return 0.0
-  centered = pts - pts.mean(axis=0)
+  centered = points - points.mean(axis=0)
   singular_values = np.linalg.svd(centered, compute_uv=False)
   if singular_values[0] <= 1e-9:
     return 0.0
   return float(singular_values[-1] / singular_values[0])
-
 
 class CameraIntrinsics:
   INTRINSICS_KEYS = ('fx', 'fy', 'cx', 'cy')
