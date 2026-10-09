@@ -303,9 +303,9 @@ asset source is added.
 
 When enabled for a category, each worker keeps orientation state per
 RobotVision track ID. The state turns on when planar speed is strictly greater
-than `kRotationSpeedThresholdOn m/s`, remains on while speed is strictly greater than 
-`kRotationSpeedThresholdOff m/s`, and turns off at or below `kRotationSpeedThresholdOff m/s`. 
-While off, the last valid quaternion is retained. The heading is `atan2(vy, vx)` and 
+than `kRotationSpeedThresholdOn m/s`, remains on while speed is strictly greater than
+`kRotationSpeedThresholdOff m/s`, and turns off at or below `kRotationSpeedThresholdOff m/s`.
+While off, the last valid quaternion is retained. The heading is `atan2(vy, vx)` and
 is serialized as a Z-axis quaternion. Asset changes are picked up through the existing API database
 update restart path.
 
