@@ -41,6 +41,36 @@ def test_scenescape_installation(_k8s_manager, result_recorder):
   release_status = status["info"]["status"]
   logger.info("Helm release status: %s", release_status)
   assert release_status == "deployed"
+
+  manifest = subprocess.run(
+    ["helm", "get", "manifest", "scenescape",
+     "--namespace", "scenescape",
+     "--kubeconfig", _k8s_manager.kubeconfig],
+    capture_output=True, text=True, check=True,
+  )
+  assert "helm.sh/hook" not in manifest.stdout, "Hook annotations remain in the release manifest"
+
+  pvcs = subprocess.run(
+    ["kubectl", "get", "pvc",
+     "--namespace", "scenescape",
+     "--kubeconfig", _k8s_manager.kubeconfig,
+     "--output", "json"],
+    capture_output=True, text=True, check=True,
+  )
+  pvc_names = {claim["metadata"]["name"] for claim in json.loads(pvcs.stdout)["items"]}
+  expected_pvcs = {
+    "scenescape-datasets-pvc",
+    "scenescape-media-pvc",
+    "scenescape-migrations-pvc",
+    "scenescape-models-pvc",
+  }
+  assert expected_pvcs <= pvc_names, f"Missing PVCs: {expected_pvcs - pvc_names}"
+  unbound_pvcs = {
+    claim["metadata"]["name"] for claim in json.loads(pvcs.stdout)["items"]
+    if claim["metadata"]["name"] in expected_pvcs
+    and claim.get("status", {}).get("phase") != "Bound"
+  }
+  assert not unbound_pvcs, f"PVCs are not bound: {unbound_pvcs}"
   result_recorder.success()
 
 

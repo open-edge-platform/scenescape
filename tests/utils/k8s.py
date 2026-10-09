@@ -394,8 +394,6 @@ class K8sManager:
       f'supass: "{self._supass}"\n'
       f'pgserver:\n'
       f'  password: "{self._supass}"\n'
-      f'hooks:\n'
-      f'  enabled: true\n'
       # KinD/CI often cannot finish the ~550MB NetVLAD fetch before the
       # deployment progress deadline; smoke tests do not need markerless.
       f'autocalibration:\n'
@@ -421,7 +419,7 @@ class K8sManager:
     # Install without --wait: some services (NTP, dlstreamer) crash in KinD
     # due to missing capabilities (SYS_TIME) or hardware (GPU). We wait
     # selectively for only the services our tests actually require.
-    # Timeout covers pre-install hooks (model-installer).
+    # The web deployment's init containers include model initialization.
     _run([
       "helm", "install", _RELEASE_NAME, _CHART_PATH,
       "--namespace", _NAMESPACE,

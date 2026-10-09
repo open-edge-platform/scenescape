@@ -22,7 +22,7 @@ TEST_FLAGS=
 INSTALL_TIMEOUT?=1800s
 
 ifeq ($(DEPLOYMENT_TEST), 1)
-    TEST_FLAGS=--wait --timeout $(INSTALL_TIMEOUT) --debug
+	TEST_FLAGS=--debug
 endif
 
 KINDREG=kind-registry
@@ -35,7 +35,6 @@ REGISTRY=localhost:$(KINDREGPORT)
 
 RELEASE=scenescape-release-1
 FORCE_VAAPI?=0
-CHART_DEBUG?=0
 
 # Compose-profile-style selector shared with the root Makefile's DEPLOY_PROFILES:
 # space-separated list of controller|tracker|mapping|cluster-analytics|reid
@@ -61,7 +60,6 @@ UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
 
 # Proxy settings: if http_proxy, https_proxy, or no_proxy environment variables are set,
 # they will be automatically passed to the Helm chart during installation
-# Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install Scenescape with helm
 # Tracker/mapping/cluster-analytics need their own image (load-all); tracker
@@ -322,16 +320,13 @@ install: check-deploy-profiles check-reid-backend copy-files chart.yaml
 	if [ -n "$${PGPASS}" ]; then \
 		printf "pgserver:\n  password: '%s'\n" "$$(printf '%s' "$${PGPASS}" | sed "s/'/''/g")" >> $$VALUES_FILE; \
 	fi; \
-	DEBUG_ARGS=""; \
-	if [ "$(CHART_DEBUG)" = "1" ]; then \
-		DEBUG_ARGS="--set chartdebug=true"; \
-	fi; \
 	ALLOWED_HOSTS_ARG=""; \
 	if [ -n "$${SCENESCAPE_ALLOWED_HOSTS}" ]; then \
 		ALLOWED_HOSTS_ARG="--set web.allowedHosts=$${SCENESCAPE_ALLOWED_HOSTS}"; \
 	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${ALLOWED_HOSTS_ARG} $(MODE_ARG) --values "$$VALUES_FILE" $(TEST_FLAGS);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${REPOSITORY_ARG} $${ALLOWED_HOSTS_ARG} $(MODE_ARG) --values "$$VALUES_FILE" $(TEST_FLAGS);
+	kubectl rollout status deployment/$(RELEASE)-web-dep -n $(NAMESPACE) --timeout=$(INSTALL_TIMEOUT)
 	@if [ -z "$(strip $(filter tracker,$(DEPLOY_PROFILES)))" ]; then \
 		$(MAKE) demo-scenes; \
 	fi
@@ -364,6 +359,3 @@ rebuild-demo:
 rebuild-core: uninstall delete-namespace build-core install
 
 rebuild-all: uninstall delete-namespace build-all install
-
-test:
-	@helm test $(RELEASE) -n $(NAMESPACE) --timeout 240s

@@ -1,6 +1,14 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+{{- if .Values.modelDownload.enabled }}
+{{- if not (kindIs "bool" .Values.modelDownload.parallelDownloads) }}
+{{- fail "modelDownload.parallelDownloads must be a boolean (true or false)" }}
+{{- end }}
+{{- if not .Values.modelDownload.commandArgs }}
+{{- fail "modelDownload.commandArgs cannot be empty" }}
+{{- end }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -18,11 +26,16 @@ spec:
       labels:
         app: {{ .Release.Name }}-web
         {{ include "releaseLabels" . | indent 8 }}
+      {{ if .Values.modelDownload.enabled }}
+      annotations:
+        checksum/model-download: {{ include (print $.Template.BasePath "/model-download/configmap.yaml") . | sha256sum }}
+      {{ end }}
     spec:
       shareProcessNamespace: true
       securityContext:
         runAsUser: 0
         runAsGroup: 0
+        fsGroup: 1000
       initContainers:
         - name: wait-for-postgres
           image: {{ .Values.pgserver.repository }}/{{ .Values.pgserver.image }}:{{ .Values.pgserver.tag}}
@@ -44,6 +57,47 @@ spec:
               echo "Postgres is ready!"
           securityContext:
             {{ include "defaultContainerSecurityContext" . | indent 12 }}
+        {{- if .Values.modelDownload.enabled }}
+        - name: model-download
+          command: ["/bin/bash", "-c"]
+          args:
+          - |
+            if [ -f /workspace/models-storage/.model-download-config-hash ] && [ "$(cat /workspace/models-storage/.model-download-config-hash)" = "$MODEL_DOWNLOAD_CONFIG_HASH" ]; then
+              echo "Model download configuration is unchanged; skipping download."
+            else
+{{ .Files.Get "files/model-download/entrypoint-k8s.sh" | nindent 14 }}
+              printf '%s\n' "$MODEL_DOWNLOAD_CONFIG_HASH" > /workspace/models-storage/.model-download-config-hash
+            fi
+          image: {{ .Values.modelDownload.image.repository }}/{{ .Values.modelDownload.image.name }}:{{ .Values.modelDownload.image.tag }}
+          imagePullPolicy: {{ .Values.modelDownload.image.pullPolicy }}
+          env:
+            - name: HF_HUB_ENABLE_HF_TRANSFER
+              value: "1"
+            - name: MODEL_DOWNLOADER_ARGS
+              value: {{ .Values.modelDownload.commandArgs | quote }}
+            - name: MODEL_DOWNLOADER_URL
+              value: "http://127.0.0.1:8000"
+            - name: MODEL_DIR
+              value: "/workspace/models-storage/models"
+            - name: MODEL_CONFIG_FILE
+              value: "/workspace/model-download/models.json"
+            - name: MODEL_DOWNLOAD_CONFIG_HASH
+              value: {{ dict "models" (.Files.Get "files/model-download/models.json") "entrypoint" (.Files.Get "files/model-download/entrypoint-k8s.sh") "image" .Values.modelDownload.image "commandArgs" .Values.modelDownload.commandArgs "parallelDownloads" .Values.modelDownload.parallelDownloads "initialWaitTimeout" .Values.modelDownload.initialWaitTimeout "waitTimeout" .Values.modelDownload.waitTimeout | toJson | sha256sum | quote }}
+            - name: PARALLEL_DOWNLOADS
+              value: {{ .Values.modelDownload.parallelDownloads | quote }}
+            - name: MODEL_DOWNLOADER_INITIAL_WAIT_TIMEOUT
+              value: {{ .Values.modelDownload.initialWaitTimeout | quote }}
+            - name: MODEL_DOWNLOADER_WAIT_TIMEOUT
+              value: {{ .Values.modelDownload.waitTimeout | quote }}
+            {{ include "proxy_envs" . | indent 12 }}
+          resources:
+            {{- toYaml .Values.modelDownload.resources | nindent 12 }}
+          volumeMounts:
+          - mountPath: /workspace/models-storage
+            name: models-storage
+          - mountPath: /workspace/model-download
+            name: model-download-code
+        {{- end }}
       containers:
         - name: {{ .Release.Name }}-web
           image: {{ .Values.repository }}/{{ .Values.web.image }}:{{ .Chart.AppVersion }}
@@ -107,8 +161,8 @@ spec:
               command:
               - sh
               - -c
-              - > 
-                curl --insecure -fsS -H 'Host: localhost' 
+              - >
+                curl --insecure -fsS -H 'Host: localhost'
                 https://127.0.0.1:443/api/v1/health >/dev/null
             periodSeconds: 10
             timeoutSeconds: 60
@@ -185,4 +239,9 @@ spec:
       - name: migrations-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-migrations-pvc
+      {{- if .Values.modelDownload.enabled }}
+      - name: model-download-code
+        configMap:
+          name: {{ .Release.Name }}-model-download
+      {{- end }}
 status: {}
