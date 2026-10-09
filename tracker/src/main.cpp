@@ -154,7 +154,8 @@ int main(int argc, char* argv[]) {
 
     // Initialize time chunk scheduler with workers
     auto scheduler = std::make_unique<tracker::TimeChunkScheduler>(
-        chunk_buffer, scene_registry, config.tracking, publish_callback, clock_fn, object_classes);
+        chunk_buffer, scene_registry, config.tracking, publish_callback, clock_fn,
+        std::move(object_classes));
 
     // Initialize message handler with buffer integration
     auto message_handler = std::make_unique<tracker::MessageHandler>(
