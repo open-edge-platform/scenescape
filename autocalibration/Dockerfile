@@ -67,7 +67,8 @@ WORKDIR /tmp/apriltag/apriltag-dev/build
 RUN cmake ../apriltags/ && make -j$(nproc)
 
 WORKDIR /tmp/apriltag/apriltag-dev
-RUN python3 setup.py bdist_wheel && \
+RUN pip3 install --no-cache-dir build && \
+    python3 -m build --wheel && \
     cp build/*.so /tmp/apriltag_build/ && \
     cp dist/*.whl /output/
 
@@ -80,13 +81,15 @@ RUN mkdir -p third_party/netvlad && \
     echo -e "from setuptools import setup, find_packages\n\
 setup(name='third_party', version='1.0.0', packages=find_packages(),\n\
 package_data={'': []}, include_package_data=True)" > setup.py && \
-    python3 setup.py bdist_wheel && \
+    pip3 install --no-cache-dir build && \
+    python3 -m build --wheel && \
     cp dist/*.whl /output/
 
 # Build reloc wheel
 RUN --mount=type=cache,target=/root/.cache/pip \
+    pip3 install --no-cache-dir build && \
     cd /tmp/reloc && \
-    python3 setup.py bdist_wheel && \
+    python3 -m build --wheel && \
     cp dist/*.whl /output/
 
 # =========================
