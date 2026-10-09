@@ -215,17 +215,26 @@ export class ConvergedCameraCalibration {
     }
     const camPointNames = Object.keys(camPoints);
     const mapPointNames = Object.keys(mapPoints);
-    const matchingNames = camPointNames.filter((name) =>
-      mapPointNames.includes(name),
-    );
-
     if (
-      matchingNames.length >= CALIBRATION_MIN_POINTS_FOR_FIT &&
-      camPointNames.length === mapPointNames.length
+      camPointNames.length < CALIBRATION_MIN_POINTS_FOR_FIT ||
+      camPointNames.length !== mapPointNames.length
     ) {
-      return true;
+      return false;
     }
-    return false;
+    // Equal counts are not enough: deleting differently named points in each
+    // view can leave four shared names and one camera-only / map-only name.
+    const mapNameSet = new Set(mapPointNames);
+    return camPointNames.every((name) => mapNameSet.has(name));
+  }
+
+  calibrationPointNamesMatch(camPoints, mapPoints) {
+    const camPointNames = Object.keys(camPoints);
+    const mapPointNames = Object.keys(mapPoints);
+    if (camPointNames.length !== mapPointNames.length) {
+      return false;
+    }
+    const mapNameSet = new Set(mapPointNames);
+    return camPointNames.every((name) => mapNameSet.has(name));
   }
 
   getIntrinsics() {
@@ -286,8 +295,8 @@ export class ConvergedCameraCalibration {
       });
 
       const data = {
-        camPoints: Object.values(camPoints),
-        mapPoints: Object.values(mapPoints),
+        camPoints: pointNames.map((name) => camPoints[name]),
+        mapPoints: pointNames.map((name) => mapPoints[name]),
         fixIntrinsics: fixIntrinsics,
         intrinsics: intrinsicData,
         distortion: distortionData,
@@ -363,8 +372,8 @@ export class ConvergedCameraCalibration {
       if (diagnostics && !diagnostics.hidden) {
         const cameraCount = Object.keys(camPoints).length;
         const mapCount = Object.keys(mapPoints).length;
-        const message = cameraCount !== mapCount
-          ? `Place matching point pairs in both views (${cameraCount} camera, ${mapCount} map).`
+        const message = !this.calibrationPointNamesMatch(camPoints, mapPoints)
+          ? `Place matching point pairs with the same names in both views (${cameraCount} camera, ${mapCount} map).`
           : `Add at least 6 matching point pairs to evaluate the calibration fit (${cameraCount} currently placed).`;
         this.setCalibrationFitStatus(message, [], []);
       }
@@ -726,8 +735,8 @@ export class ConvergedCameraCalibration {
         }
       } else {
         alert(
-          "Saving the calibration requires an equal number of calibration points in each " +
-            `view (minimum ${CALIBRATION_MIN_POINTS_FOR_FIT}).\n\n` +
+          "Saving the calibration requires matching point pairs with the same " +
+            `names in each view (minimum ${CALIBRATION_MIN_POINTS_FOR_FIT}).\n\n` +
             `There are currently ${camPointCount} points in the camera ` +
             `view and ${scenePointCount} points in the scene view.`,
         );
@@ -748,14 +757,10 @@ export class ConvergedCameraCalibration {
       let tvec = new cv.Mat();
       let R = new cv.Mat();
 
-      // Convert imagePoints and objectPoints to cv.Mat
-      const rejectedIndices = new Set(this.rejectedPointIndices);
-      const acceptedIndices = Array.from(
-        { length: Object.keys(camPoints).length },
-        (_, index) => index,
-      ).filter((index) => !rejectedIndices.has(index));
-      const camPointsArray = acceptedIndices.map((index) => Object.values(camPoints)[index]);
-      const objectPointsArray = acceptedIndices.map((index) => Object.values(objectPoints)[index]);
+      // Convert imagePoints and objectPoints to cv.Mat, paired by name.
+      const acceptedNames = this.getAcceptedCalibrationPointNames(camPoints);
+      const camPointsArray = acceptedNames.map((name) => camPoints[name]);
+      const objectPointsArray = acceptedNames.map((name) => objectPoints[name]);
       const imagePointsMat = cv.matFromArray(
         camPointsArray.length,
         2,
