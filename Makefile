@@ -127,6 +127,7 @@ help:
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
+	@echo "  deploy-close                Stop a deployment without removing its volumes"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
@@ -725,12 +726,12 @@ init-pipeline-runner-videos: convert-dls-videos
 # $(2): extra `docker compose` args for the main stack (e.g. ReID backend override)
 # $(3): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
-	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)"
+	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)" DEPLOY_FROM_DEMO=true
 	@touch .scenescape-demo
 	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)"
 	@$(MAKE) demo-scenes
 	@echo ""
-	@echo "Or use: make demo-close"
+	@echo "To stop the demo, run: make demo-close"
 endef
 
 .PHONY: check-reid-backend
@@ -777,9 +778,26 @@ deploy: docker-compose.yml .env
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) up -d; \
 	fi
-	@echo ""
-	@echo "To stop Scenescape, type:"
-	@echo "    docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) down"
+	@if [ "$(DEPLOY_FROM_DEMO)" != "true" ]; then \
+		echo ""; \
+		echo "To stop Scenescape:"; \
+		echo "  make deploy-close"; \
+		echo "  or stop Compose directly:"; \
+		echo "    docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) down"; \
+	fi
+
+.PHONY: deploy-close
+deploy-close:
+	@if [ -f .scenescape-demo ]; then \
+		echo "Error: this deployment is a demo; use 'make demo-close' to stop both Compose stacks."; \
+		exit 1; \
+	fi
+	@if [ ! -f .scenescape-profile ]; then \
+		echo "Error: .scenescape-profile not found. Was the deployment started with 'make deploy'?"; \
+		exit 1; \
+	fi
+	docker compose $(shell cat .scenescape-profile 2>/dev/null) down
+	@rm -f .scenescape-profile
 
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core)
