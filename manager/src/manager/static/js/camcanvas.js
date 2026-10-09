@@ -10,6 +10,8 @@
 
 import {
   CALIBRATION_BACKGROUND_COLOR,
+  CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR,
+  CALIBRATION_DIAGNOSTIC_REJECTED_COLOR,
   CALIBRATION_POINT_COLORS,
   CALIBRATION_POINT_SCALE,
   CAMERA_SCALE_FACTOR,
@@ -212,12 +214,9 @@ class CamCanvas {
       this.drawPoint(
         point.x * this.camScaleFactor,
         point.y * this.camScaleFactor,
-        this.calibrationPointDiagnostics.get(point.name) === "rejected"
-          ? "#dc3545"
-          : this.calibrationPointDiagnostics.get(point.name) === "high-error"
-            ? "#fd7e14"
-            : point.color,
+        point.color,
         point.name,
+        this.calibrationPointDiagnostics.get(point.name) || null,
       );
     }
     this.ctx.restore();
@@ -247,13 +246,33 @@ class CamCanvas {
 
   // Calibration Point functions
 
-  drawPoint(x, y, color, name) {
+  drawPoint(x, y, color, name, diagnostic = null) {
     const size = this.calibrationPointSize;
+    const radius = size / 2;
 
     this.ctx.fillStyle = color;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
     this.ctx.fill();
+
+    if (diagnostic) {
+      // Keep the identity color; draw a halo so diagnostics do not collide
+      // with the red/orange calibration palette entries.
+      const haloColor =
+        diagnostic === "rejected"
+          ? CALIBRATION_DIAGNOSTIC_REJECTED_COLOR
+          : CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR;
+      const lineWidth = Math.max(2, size * 0.22);
+      this.ctx.strokeStyle = haloColor;
+      this.ctx.lineWidth = lineWidth;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius + lineWidth * 0.75, 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.lineWidth = Math.max(1, lineWidth * 0.45);
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, radius + lineWidth * 1.6, 0, Math.PI * 2);
+      this.ctx.stroke();
+    }
 
     this.ctx.font = `${Math.max(12, size)}px Arial`;
     this.ctx.fillStyle = "black";

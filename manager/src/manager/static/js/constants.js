@@ -37,6 +37,9 @@ export const CALIBRATION_POINT_COLORS = [
   "#ffa500", // Orange
   "#800080", // Purple
 ];
+// Halo colors for fit diagnostics (kept distinct from point fill colors).
+export const CALIBRATION_DIAGNOSTIC_REJECTED_COLOR = "#dc3545";
+export const CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR = "#fd7e14";
 export const CALIBRATION_POINT_SCALE = 0.015;
 export const CALIBRATION_SCALE_FACTOR = 200;
 export const CALIBRATION_TEXT_SIZE = 0.1;

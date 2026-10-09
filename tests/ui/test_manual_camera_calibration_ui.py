@@ -82,14 +82,24 @@ def test_manual_distortion_controls(params, result_recorder):
       const appliedDetails = document.getElementById("calibration-point-errors").textContent;
       const acceptedNames = calibration.getAcceptedCalibrationPointNames(
         calibration.camCanvas.getCalibrationPoints());
+      const mapRejected = calibration.viewport.children
+        .find((point) => point.name === "calibrationPoint_p1");
+      const mapHighError = calibration.viewport.children
+        .find((point) => point.name === "calibrationPoint_p3");
+      const rejectedHalo = mapRejected.children.find(
+        (child) => child.name === "calibrationHalo");
+      const highErrorHalo = mapHighError.children.find(
+        (child) => child.name === "calibrationHalo");
       const appliedCameraRejected = calibration.camCanvas.calibrationPointDiagnostics.get("p1");
-      const appliedMapRejected = calibration.viewport.children
-        .find((point) => point.name === "calibrationPoint_p1")
-        .material.color.getHexString();
       const appliedCameraHighError = calibration.camCanvas.calibrationPointDiagnostics.get("p3");
-      const appliedMapHighError = calibration.viewport.children
-        .find((point) => point.name === "calibrationPoint_p3")
-        .material.color.getHexString();
+      const appliedHaloState = {
+        mapPointColor: mapRejected.material.color.getHexString(),
+        mapRejectedHaloVisible: rejectedHalo.visible,
+        mapRejectedHaloColor: rejectedHalo.material.color.getHexString(),
+        mapHighErrorHaloVisible: highErrorHalo.visible,
+        mapHighErrorHaloColor: highErrorHalo.material.color.getHexString(),
+        legend: document.getElementById("calibration-fit-status").textContent,
+      };
       calibration.showCalibrationFitStatus({
         rejectionRequested: true,
         rejectionApplied: false,
@@ -111,15 +121,14 @@ def test_manual_distortion_controls(params, result_recorder):
         details: fallbackDetails,
         acceptedNames,
         cameraRejected: appliedCameraRejected,
-        mapRejected: appliedMapRejected,
         cameraHighError: appliedCameraHighError,
-        mapHighError: appliedMapHighError,
         fallbackCameraRejected,
         statusHiddenAfterClear: document.getElementById("calibration-fit-status").hidden,
         rejectedAfterClear: calibration.rejectedPointIndices,
         diagnosticsAfterClear: [
           ...calibration.camCanvas.calibrationPointDiagnostics.keys(),
         ],
+        ...appliedHaloState,
       };
       """
     )
@@ -136,10 +145,16 @@ def test_manual_distortion_controls(params, result_recorder):
     assert "flagged by RANSAC, included in fallback fit" in diagnostics["details"]
     assert diagnostics["acceptedNames"] == ["p0", "p2", "p3", "p4"]
     assert diagnostics["cameraRejected"] == "rejected"
-    assert diagnostics["mapRejected"] == "dc3545"
+    # Identity color stays green for p1; diagnostic is a red halo instead.
+    assert diagnostics["mapPointColor"] == "00ff00"
+    assert diagnostics["mapRejectedHaloVisible"] is True
+    assert diagnostics["mapRejectedHaloColor"] == "dc3545"
     assert diagnostics["cameraHighError"] == "high-error"
-    assert diagnostics["mapHighError"] == "fd7e14"
+    assert diagnostics["mapHighErrorHaloVisible"] is True
+    assert diagnostics["mapHighErrorHaloColor"] == "fd7e14"
     assert diagnostics["fallbackCameraRejected"] == "rejected"
+    assert "Red halo" in diagnostics["legend"]
+    assert "Orange halo" in diagnostics["legend"]
     assert diagnostics["statusHiddenAfterClear"] is True
     assert diagnostics["rejectedAfterClear"] == []
     assert diagnostics["diagnosticsAfterClear"] == []

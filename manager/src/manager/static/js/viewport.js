@@ -11,6 +11,8 @@
 import * as THREE from "/static/assets/three.module.js";
 import { OrbitControls } from "/static/examples/jsm/controls/OrbitControls.js";
 import {
+  CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR,
+  CALIBRATION_DIAGNOSTIC_REJECTED_COLOR,
   CALIBRATION_POINT_COLORS,
   CALIBRATION_SCALE_FACTOR,
   CALIBRATION_TEXT_SIZE,
@@ -311,15 +313,24 @@ class Viewport extends THREE.Scene {
       .filter((child) => child.name.startsWith("calibrationPoint_"))
       .forEach((point) => {
         const pointName = point.name.replace("calibrationPoint_", "");
+        const halo = point.children.find(
+          (child) => child.name === "calibrationHalo",
+        );
+        if (!halo) {
+          return;
+        }
         const isRejected = rejected.has(pointName);
         const isHighError = highError.has(pointName);
-        const color = isRejected
-          ? "#dc3545"
-          : isHighError
-            ? "#fd7e14"
-            : point.userData.calibrationPointColor;
-        point.material.color.set(color);
-        point.material.emissive.set(color);
+        if (isRejected || isHighError) {
+          halo.material.color.set(
+            isRejected
+              ? CALIBRATION_DIAGNOSTIC_REJECTED_COLOR
+              : CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR,
+          );
+          halo.visible = true;
+        } else {
+          halo.visible = false;
+        }
       });
   }
 
