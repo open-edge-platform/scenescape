@@ -71,7 +71,7 @@ validation. The findings inform the Positioning Service's PTZ model:
 | ONVIF position units are not degrees                | `GetStatus` commonly reports a normalized, vendor-defined range. A degrees-per-unit scale (or better, a per-axis polynomial curve) must be derived from the camera's own advertised `AbsolutePanTiltPositionSpace` range, or configured from a datasheet FOV as a fallback. A `"Generic"`-URI or narrow-range space cannot be trusted as literal degrees. |
 | Axis travel is non-linear                           | Measured tilt scale varied 53.8–60.6°/unit across the travel on the TP-Link VIGI C540V; a single constant scale under/overshoots at the ends. A low-order polynomial per axis fit this well.                                                                                                                                                              |
 | Mechanical backlash is real and asymmetric per axis | 2.83° of slack was measured on tilt and approximately 0° on pan, varying across the travel. The _reported_ position lags the _physical_ one by up to half the slack depending on direction of last travel.                                                                                                                                                |
-| The pan axis is not perfectly vertical              | A roughly 7° lean was measured on the TP-Link VIGI C540V. No scale or curve correction fixes this; the resulting error grows with pan angle. Modeling pan as a rotation about the camera's measured pan axis, not world `Z`, removes it.                                                                                                                  |
+| PTZ axes may be misaligned with world axes          | PTZ-axis alignment depends on camera mounting. A roughly 7° pan-axis lean was measured on the TP-Link VIGI C540V. No scale or curve correction fixes this; the resulting error grows with pan angle. Modeling pan as a rotation about the camera's measured pan axis, rather than assuming alignment with world `Z`, removes it.                          |
 | Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changed all three Euler components in the PoC (roll −14°, pitch +34°, yaw +20° for one move). Adding pan delta to yaw alone produced about 18° of error; full matrix composition reduced it to about 1.8° on the tested setup.                                                       |
 | Lever arm is negligible                             | Modeling the offset between the rotation axes and the optical center improved reprojection accuracy by only 0.13 px on the TP-Link VIGI C540V and produced a physically implausible fitted value. Treating the camera as rotating about its own center is an acceptable simplification for that tested setup.                                             |
 
@@ -179,8 +179,8 @@ flowchart LR
 
 The Positioning deployable owns ONVIF polling, the Resolver, per-camera calibration,
 motion history, and pose resolution. The poller and Resolver are independently testable
-modules joined by the versioned protobuf types in-process. Each camera has exactly one
-active Resolver owner in v1. Manager configuration and MQTT are external interfaces;
+modules joined by the versioned protobuf types in-process. Each supported PTZ camera has
+exactly one active Resolver owner in v1. Manager configuration and MQTT are external interfaces;
 Sensor Manager is a future optional gRPC client, not a second v1 ingest service.
 Controller and Tracker remain independent pose consumers and do not call Positioning
 synchronously on the detection hot path. The consumer-side join is a v1 integration
@@ -569,9 +569,9 @@ Resolver:
 
 The topic payload and selection rules are shared contracts; the Controller and Tracker
 implement the v1 dwell gate in their native integration languages and run identical
-conformance vectors. Both paths have
-independent feature flags and first run in **shadow mode**: the consumer computes and
-logs the candidate dynamic projection, pose metadata, and quality/error measurements,
+conformance vectors. Both paths have independent feature flags and in the first phase
+of development run in **shadow mode**: the consumer computes and logs the candidate
+dynamic projection, pose metadata, and quality/error measurements,
 but does not pass the candidate detection to MOT or change track state. Shadow mode
 allows timing, pose validity, and projection accuracy to be checked against the static
 projection baseline and measured ground-truth data without changing live tracking. Each
