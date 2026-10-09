@@ -12,13 +12,10 @@ from scipy.spatial.transform import Rotation
 from manager.api import IsAdminOrReadOnly
 
 from scene_common import log
-
-# Minimum correspondences needed for a PnP-based pose estimate (and hence for
-# RANSAC-based outlier rejection and for cv2.calibrateCamera).
-MIN_POINTS_FOR_FIT = 4
-# Default RANSAC reprojection threshold (pixels) used to flag bad
-# map-point/camera-point correspondences as outliers.
-DEFAULT_OUTLIER_THRESHOLD_PX = 5.0
+from scene_common.transform import (
+  MIN_POINTS_FOR_RANSAC,
+  RANSAC_REPROJECTION_THRESHOLD_PX,
+)
 
 def y_up_to_y_down(rotation_matrix):
   rotate_y = Rotation.from_euler('Y', np.pi).as_matrix()
@@ -48,7 +45,7 @@ def find_inlier_mask(obj_points, img_points, intrinsics, distortion,
   Returns a boolean mask (True = inlier) over the correspondences, or None if
   a robust estimate could not be produced (too few points, RANSAC failure).
   """
-  if len(obj_points) < MIN_POINTS_FOR_FIT:
+  if len(obj_points) < MIN_POINTS_FOR_RANSAC:
     return None
   try:
     _, _, _, inliers = cv2.solvePnPRansac(
@@ -102,7 +99,7 @@ class CalculateCameraIntrinsics(APIView):
                         status=status.HTTP_400_BAD_REQUEST)
 
       if len(request.data['mapPoints']) != len(request.data['camPoints']) \
-          or len(request.data['mapPoints']) < MIN_POINTS_FOR_FIT:
+          or len(request.data['mapPoints']) < MIN_POINTS_FOR_RANSAC:
         return Response({"error": "Invalid number of points provided for calculation."},
                         status=status.HTTP_400_BAD_REQUEST)
 
@@ -121,8 +118,8 @@ class CalculateCameraIntrinsics(APIView):
       # inlier correspondences for the calibration fit. Falls back to using
       # all points if RANSAC cannot find a valid consensus set.
       reject_outliers = request.data.get("rejectOutliers", True)
-      outlier_threshold = float(request.data.get("outlierThresholdPx",
-                                                 DEFAULT_OUTLIER_THRESHOLD_PX))
+      outlier_threshold = float(request.data.get(
+        "outlierThresholdPx", RANSAC_REPROJECTION_THRESHOLD_PX))
       inlier_mask = None
       if reject_outliers:
         inlier_mask = find_inlier_mask(obj_points, img_points, intrinsics,
@@ -132,7 +129,7 @@ class CalculateCameraIntrinsics(APIView):
       ransac_inlier_count = (int(ransac_mask.sum())
                              if ransac_mask is not None else None)
       rejection_applied = (ransac_mask is not None and
-                           ransac_inlier_count >= MIN_POINTS_FOR_FIT)
+                           ransac_inlier_count >= MIN_POINTS_FOR_RANSAC)
       if rejection_applied:
         fit_obj_points = obj_points[ransac_mask]
         fit_img_points = img_points[ransac_mask]
