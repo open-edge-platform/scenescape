@@ -725,12 +725,12 @@ init-pipeline-runner-videos: convert-dls-videos
 # $(2): extra `docker compose` args for the main stack (e.g. ReID backend override)
 # $(3): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
-	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)"
+	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)" DEPLOY_FROM_DEMO=true
 	@touch .scenescape-demo
 	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)"
 	@$(MAKE) demo-scenes
 	@echo ""
-	@echo "Or use: make demo-close"
+	@echo "To stop the demo, run: make demo-close"
 endef
 
 .PHONY: check-reid-backend
@@ -777,9 +777,11 @@ deploy: docker-compose.yml .env
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) up -d; \
 	fi
+ifneq ($(DEPLOY_FROM_DEMO),true)
 	@echo ""
 	@echo "To stop Scenescape, type:"
 	@echo "    docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) down"
+endif
 
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core)
