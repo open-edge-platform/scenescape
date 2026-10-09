@@ -198,6 +198,10 @@ components:
               type: number
               format: float
           description: 2D calibration points (optional)
+        spread_ratio:
+          type: number
+          format: float
+          description: 3D AprilTag point spread ratio in map coordinates before scene transforms (optional on successful calibration)
       example:
         cameraId: "atag-qcam2"
         sceneId: "302cf49a-97ec-402d-a324-c5077b280b7b"
@@ -211,6 +215,7 @@ components:
         calibration_points_2d:
           - [100, 200]
           - [150, 250]
+        spread_ratio: 0.25
 
     PerceptualSensorLocalizationRequest:
       type: object

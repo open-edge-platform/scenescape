@@ -20,7 +20,7 @@ from pathlib import Path
 
 # Directories that require C++ extensions not available on the host.
 # Listed as paths relative to this conftest's directory.
-_NATIVE_ONLY_DIRS = {"autocamcalib", "markerless", "robot_vision"}
+_NATIVE_ONLY_DIRS = {"markerless", "robot_vision"}
 
 # Import controller module
 _controller_src = Path(__file__).resolve().parent.parent.parent / "controller" / "src"
@@ -28,8 +28,10 @@ if str(_controller_src) not in sys.path:
   sys.path.insert(0, str(_controller_src))
 
 def pytest_ignore_collect(collection_path, config):
-  """Skip test directories that need C++ extensions not installed on host."""
+  """Skip native-only suites and the legacy AprilTag rendering test."""
   if collection_path.is_dir() and collection_path.name in _NATIVE_ONLY_DIRS:
+    return True
+  if collection_path.name == "test_auto_cam.py" and collection_path.parent.name == "autocamcalib":
     return True
 
 # Ensure repo root is on sys.path so "tests.sscape_tests.settings_unittest"

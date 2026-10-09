@@ -49,7 +49,8 @@ _DISTORTION_KEYS = (
   's1', 's2', 's3', 's4', 'taux', 'tauy',
 )
 
-_MAX_COPLANAR_DETERMINANT = 0.1
+# Mirrors MAX_COPLANAR_SPREAD_RATIO in scene_common/src/scene_common/transform.py.
+_MAX_COPLANAR_SPREAD_RATIO = 1e-2
 
 
 def _intrinsics_to_list(intrinsics):
@@ -82,26 +83,15 @@ def _distortion_to_array(distortion):
   return np.pad(arr, (0, 14 - len(arr)))
 
 
-def _calculate_determinant(points):
-  """Mirrors PointCorrespondenceTransform.calculateDeterminant."""
-  p1, p2, p3, p4 = points
-  v1 = np.array([p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]])
-  v2 = np.array([p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]])
-  v3 = np.array([p4[0] - p1[0], p4[1] - p1[1], p4[2] - p1[2]])
-  return np.linalg.det(np.array([v1, v2, v3]))
-
-
 def _are_coplanar(points):
   """Mirrors PointCorrespondenceTransform.arePointsCoplanar."""
-  if len(points) == 5:
-    for i in range(len(points)):
-      subset = [points[j] for j in range(len(points)) if j != i]
-      if abs(_calculate_determinant(subset)) > _MAX_COPLANAR_DETERMINANT:
-        return False
-  elif len(points) == 4:
-    if abs(_calculate_determinant(points)) > _MAX_COPLANAR_DETERMINANT:
-      return False
-  return True
+  points = np.asarray(points, dtype=float)
+  if len(points) < 4:
+    return True
+  singular_values = np.linalg.svd(points - points.mean(axis=0), compute_uv=False)
+  if singular_values[1] <= 1e-9 * max(singular_values[0], 1e-12):
+    return True
+  return bool(singular_values[2] / singular_values[1] < _MAX_COPLANAR_SPREAD_RATIO)
 
 
 def _pose_mat_to_extrinsics(mat):
@@ -160,7 +150,7 @@ def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
   Exactly mirrors PointCorrespondenceTransform._calculatePoseMat() in
   scene_common/src/scene_common/transform.py, including:
   - distortion coefficients via CameraIntrinsics._setDistortion logic
-  - coplanarity check selecting SOLVEPNP_P3P vs SOLVEPNP_ITERATIVE
+  - coplanarity check selecting SOLVEPNP_SQPNP vs SOLVEPNP_ITERATIVE
   - pose extraction via _poseMatToPose
 
   Args:
@@ -183,8 +173,8 @@ def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
     dist = _distortion_to_array(distortion)
 
     computation_method = cv2.SOLVEPNP_ITERATIVE
-    if not _are_coplanar(map_arr.tolist()) and len(map_arr) < 6:
-      computation_method = cv2.SOLVEPNP_P3P
+    if len(map_arr) < 6 and not _are_coplanar(map_arr.tolist()):
+      computation_method = cv2.SOLVEPNP_SQPNP
 
     ok, rvec, tvec = cv2.solvePnP(map_arr, cam_arr, K, dist,
                    flags=computation_method)

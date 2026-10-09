@@ -249,8 +249,8 @@ class TestPointCorrespondenceTransformPrivateMethods:
     assert kwargs['flags'] == cv2.SOLVEPNP_ITERATIVE
 
   @patch('cv2.solvePnP')
-  def test_calculate_pose_mat_p3p_method(self, mock_solve_pnp):
-    """Test _calculatePoseMat with P3P method (non-coplanar points, <6 points)"""
+  def test_calculate_pose_mat_sqpnp_method(self, mock_solve_pnp):
+    """Test _calculatePoseMat with SQPNP method (non-coplanar points, <6 points)"""
     # Mock cv2.solvePnP return values
     mock_rvec = np.array([[0.2], [0.3], [0.4]])
     mock_tvec = np.array([[2.0], [3.0], [4.0]])
@@ -267,14 +267,53 @@ class TestPointCorrespondenceTransformPrivateMethods:
         ])
     }
 
-    # Create transform which should trigger P3P method due to non-coplanar points and <6 points
     with patch.object(PointCorrespondenceTransform, 'arePointsCoplanar', return_value=False):
       transform = PointCorrespondenceTransform(pose, intrinsics)
 
-    # Verify cv2.solvePnP was called with P3P method
     mock_solve_pnp.assert_called_once()
     args, kwargs = mock_solve_pnp.call_args
-    assert kwargs['flags'] == cv2.SOLVEPNP_P3P
+    assert kwargs['flags'] == cv2.SOLVEPNP_SQPNP
+
+  @pytest.mark.parametrize("map_points", [
+      [[0, 0, 0], [2, 0, 0], [0, 2, 0], [0, 0, 1.5]],
+      [[0, 0, 0], [2, 0, 0], [0, 2, 0], [0, 0, 1.5], [2, 2, 0.8]],
+      [[0, 0, 0], [2, 0, 0], [0, 2, 0], [0, 0, 1.5], [2, 2, 0.8], [1, 0.5, 1.2]],
+  ], ids=["4-points", "5-points", "6-points"])
+  def test_calculate_pose_mat_recovers_non_coplanar_pose(self, map_points):
+    """Non-coplanar sets of 4, 5 and 6+ points solve without error and recover the true pose"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    map_points = np.array(map_points, dtype=np.float64)
+    rvec = np.array([0.3, -0.2, 0.1])
+    tvec = np.array([-1.0, -0.5, 8.0])
+    camera_points, _ = cv2.projectPoints(map_points, rvec, tvec,
+                                         intrinsics.intrinsics, None)
+    pose = {'camera points': camera_points.reshape(-1, 2), 'map points': map_points}
+
+    transform = PointCorrespondenceTransform(pose, intrinsics)
+
+    rmat = cv2.Rodrigues(rvec)[0]
+    expected_position = -rmat.T @ tvec
+    np.testing.assert_allclose(transform.pose_mat[:3, 3], expected_position, atol=1e-3)
+
+  @pytest.mark.parametrize("num_points", [4, 5])
+  def test_scaled_down_non_coplanar_set_uses_sqpnp(self, num_points):
+    """A well-spread 10 cm layout is non-coplanar regardless of scene units"""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    map_points = np.array([[0, 0, 0], [0.1, 0, 0], [0, 0.1, 0], [0, 0, 0.1],
+                           [0.1, 0.1, 0.05]])[:num_points]
+    rvec = np.array([0.3, -0.2, 0.1])
+    tvec = np.array([-0.05, -0.05, 0.6])
+    camera_points, _ = cv2.projectPoints(map_points, rvec, tvec,
+                                         intrinsics.intrinsics, None)
+    pose = {'camera points': camera_points.reshape(-1, 2), 'map points': map_points}
+
+    with patch('cv2.solvePnP', wraps=cv2.solvePnP) as spy:
+      transform = PointCorrespondenceTransform(pose, intrinsics)
+
+    assert not transform.arePointsCoplanar(map_points)
+    assert spy.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
+    rmat = cv2.Rodrigues(rvec)[0]
+    np.testing.assert_allclose(transform.pose_mat[:3, 3], -rmat.T @ tvec, atol=1e-4)
 
   def test_calculate_pose_mat_properties_set(self):
     """Test that _calculatePoseMat sets all required properties"""
