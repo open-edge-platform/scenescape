@@ -13,6 +13,7 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 
 from manager.models import Scene, Region, RegionPoint
+from manager.osm_roi import STANDARD_LANE_WIDTH_M
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
 
 
@@ -142,8 +143,8 @@ class TestPreviewRoisFromOsm(TestCase):
     self.assertEqual(response.status_code, 200)
     result = json.loads(response.content)
     widths = {roi["type"]: roi["width_m"] for roi in result["rois"]}
-    self.assertEqual(widths["tertiary"], 2 * 3.5)
-    self.assertEqual(widths["unclassified"], 2 * 3.5)
+    self.assertEqual(widths["tertiary"], 2 * STANDARD_LANE_WIDTH_M)
+    self.assertEqual(widths["unclassified"], 2 * STANDARD_LANE_WIDTH_M)
 
   def test_preview_refreshes_stale_cache_missing_tags(self):
     """Test that a pre-existing cache without 'tags' (old schema) is treated as stale and re-fetched."""
@@ -178,7 +179,7 @@ class TestPreviewRoisFromOsm(TestCase):
     result = json.loads(response.content)
     self.assertEqual(len(result["rois"]), 1)
     self.assertIn("Grójecka", result["rois"][0]["name"])
-    self.assertEqual(result["rois"][0]["width_m"], 3 * 3.5)  # lanes-based width
+    self.assertEqual(result["rois"][0]["width_m"], 3 * STANDARD_LANE_WIDTH_M)  # lanes-based width
 
     self.scene.refresh_from_db()
     self.assertEqual(self.scene.osm_ways_cache, fresh_ways)  # cache overwritten with fresh data
@@ -222,7 +223,7 @@ class TestPreviewRoisFromOsm(TestCase):
     mock_query.assert_called_once()  # List-format cache must not be reused
     self.assertEqual(response.status_code, 200)
     result = json.loads(response.content)
-    self.assertEqual(result["rois"][0]["width_m"], 3 * 3.5)  # lanes-based width, not the generic default
+    self.assertEqual(result["rois"][0]["width_m"], 3 * STANDARD_LANE_WIDTH_M)  # lanes-based width, not the generic default
 
   def test_preview_caches_osm_ways_and_skips_requery(self):
     """Test that a second preview call reuses osm_ways_cache instead of re-querying OSM."""

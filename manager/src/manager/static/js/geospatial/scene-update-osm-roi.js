@@ -74,7 +74,6 @@ async function generateRoisFromOsm() {
     for (const roi of previewResult.rois) {
       // Shape the ROI preview like a saved region object
       const regionEntry = {
-        type: "roi",
         points: roi.points,
         title: roi.name,  // drawRoi expects 'title', not 'name'
         uuid: roi.uuid,
@@ -84,6 +83,7 @@ async function generateRoisFromOsm() {
         sectors: { thresholds: {}, range_max: 0 },  // drawRoi expects this structure; empty since OSM ROIs don't have occupancy data
         tags: roi.tags || {},
         width_m: roi.width_m,
+        type: roi.type,  // OSM way type (e.g., "footway", "secondary", "pedestrian")
         osm_derived: true, // Flag to add OSM badge in form row
       };
 

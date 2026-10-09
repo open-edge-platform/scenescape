@@ -225,7 +225,8 @@ def saveRegionData(scene, form, sendUpdateCommand=None):
       'name': roi_title,
       'volumetric': getattr(roi, 'volumetric', False),
       'height': getattr(roi, 'height', 1),
-      'buffer_size': getattr(roi, 'buffer_size', 0)
+      'buffer_size': getattr(roi, 'buffer_size', 0),
+      'roi_type': getattr(roi, 'type', '')
       })
     current_region_ids.add(region.uuid)
 

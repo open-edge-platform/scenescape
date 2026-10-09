@@ -139,6 +139,14 @@ svg.adding-roi {
   cursor: crosshair;
 }
 
+/* Disable interaction with already-created regions while a new one is being
+   manually drawn, so clicks only ever affect the in-progress polygon. The
+   polygon under construction keeps class "drawPoly" (not "roi") until the
+   draw finishes, so it is unaffected by this rule. */
+svg.adding-roi .roi {
+  pointer-events: none;
+}
+
 svg.adding-tripwire {
   outline: 2px solid #00aa00;
   cursor: crosshair;
@@ -968,4 +976,75 @@ ul.errorlist {
 
 .form-roi.proposed-roi .osm-badge {
   display: inline-block;
+}
+
+/* ROI type grouping boxes (Regions tab). border-left-color is set per-group
+   via JS (regroupRoiFields/getRoiGroupColor) so each type gets a distinct,
+   stable color that matches its ROIs' outline color on the map. */
+.roi-group-box {
+  border: 1px solid #ccc;
+  border-left: 5px solid #ccc;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.roi-group-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #ccc;
+}
+
+.roi-group-type-input {
+  font-weight: bold;
+  border: none;
+  background: transparent;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.roi-group-color-input {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  background: none;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.roi-group-type-input:focus {
+  background: #fff;
+  border: 1px solid #ccc;
+}
+
+.roi-group-count {
+  color: #666;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.roi-group-body {
+  padding: 10px;
+}
+
+.roi-group-body .form-roi {
+  margin-bottom: 10px;
+}
+
+.roi-group-body .form-roi:last-child {
+  margin-bottom: 0;
+}
+
+/* Dim a deselected ROI's form row; the region itself is hidden on the map */
+.roi-row-deselected {
+  opacity: 0.5;
+}
+
+/* Hide a deselected ROI's polygon on the map without removing it */
+.roi-hidden {
+  display: none;
 }

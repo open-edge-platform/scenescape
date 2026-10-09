@@ -89,7 +89,7 @@ LANE_BASED_WIDTH_TYPES = frozenset(ROAD_WIDTH_BY_TYPE_M) - {
 
 # Safety cap on polygon point count after simplification.
 MAX_POLYGON_POINTS = 200
-STANDARD_LANE_WIDTH_M = 3.5  # meters per lane for road width estimation
+STANDARD_LANE_WIDTH_M = 7.0  # meters per lane for road width estimation
 
 
 def lla_to_local_xy(

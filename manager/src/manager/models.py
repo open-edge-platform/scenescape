@@ -376,7 +376,8 @@ class Scene(models.Model):
     jdata = []
     for region in self.regions.all():
       rdict = {'title': region.name, 'points': [], 'uuid':str(region.uuid),
-               'volumetric': region.volumetric, 'height': region.height, 'buffer_size': region.buffer_size}
+               'volumetric': region.volumetric, 'height': region.height, 'buffer_size': region.buffer_size,
+               'type': region.roi_type}
       thresholds, range_max = region.get_sectors()
       rdict['sectors'] = {'thresholds':thresholds, 'range_max':range_max}
 
@@ -1014,6 +1015,7 @@ class Region(BoundingBox):
   height = models.FloatField(default=1.0, null=False, blank=False, validators=[MinValueValidator(0.001)])
   volumetric = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
   visible = models.BooleanField(default=False)
+  roi_type = models.CharField(max_length=150, default='', blank=True, help_text='Type or category of the Region of Interest')
 
   def get_sectors(self):
     if not hasattr(self, 'roi_occupancy_threshold'):
