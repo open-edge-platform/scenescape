@@ -43,4 +43,4 @@ def test_external_client_mocked():
   client.get.assert_called_once_with("/health")
 ```
 
-Mock external I/O (MQTT, REST, OpenCV, DB). Prefer fixtures in the nearest `conftest.py`. Set module-level `TEST_NAME = "NEX-T#####"` for Zephyr/CI tracking.
+Mock external I/O (MQTT, REST, OpenCV, DB). Prefer fixtures in the nearest `conftest.py`. Unit tests do **not** require a Zephyr `NEX-T#####` ID

@@ -48,13 +48,15 @@ Before adding imports or path setup in a new or modified test file:
 | Functional  | `tests/functional/`                             | Workflows with live REST/MQTT/DB             | `SCENESCAPE_SPEC` + `scenescape_env` |
 | Integration | `tests/functional/` or `tests/system/`          | Cross-service pipelines                      | Same as functional                   |
 | UI          | `tests/ui/`                                     | Browser/Selenium flows                       | `SCENESCAPE_SPEC` + `AUTH_BROWSER`   |
+| Non-functional | `tests/non_functional/`                      | Performance, build size/time, API contract   | `scenescape_env` + `result_recorder`  |
 | BAT         | functional/UI + `@pytest.mark.basic_acceptance` | Critical-path smoke                          | Same as parent category              |
 
 Read the matching reference under [Additional resources](#additional-resources) before writing a category.
 
 ## Hard requirements
 
-- **Zephyr ID**: every test suite/module needs `NEX-T#####` (@pytest.mark.test_name("NEX-T#####")).
+- **Zephyr ID**: required for every category **except unit tests** (functional, integration, UI, non_functional, BAT) - every **test method** needs its own unique `NEX-T#####` via `@pytest.mark.test_name("NEX-T#####")`, plus `result_recorder` use inside that method referencing the same ID. Never share one NEX ID across multiple test methods in a module.
+- **Unit tests**: `NEX-T#####` is **not required**. Mocked, host-only tests under `tests/sscape_tests/` or service `*/tests/` trees may omit `@pytest.mark.test_name(...)` entirely.
 - **Functional/UI**: declare module-level `SCENESCAPE_SPEC = FuncTestSpec(...)` with the correct `ServiceProfile` from `tests/utils/profiles.py`.
 - **Naming**: files `test_*.py`, functions `test_*` (pytest norms).
 - **Markers that matter**:
@@ -66,7 +68,8 @@ Read the matching reference under [Additional resources](#additional-resources) 
 
 Before marking a test-authoring task complete:
 
-- [ ] Zephyr ID present
+- [ ] Zephyr ID present on every test method (all categories except unit)
+- [ ] Modules with multiple test methods use a distinct `NEX-T#####` per method (no shared NEX ID across methods)
 - [ ] Positive and negative (or boundary) cases; at least one negative unless N/A
 - [ ] Correct category location and markers
 - [ ] Functional/UI declare `SCENESCAPE_SPEC`
