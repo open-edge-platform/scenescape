@@ -96,10 +96,9 @@ int main(int argc, char* argv[]) {
     // Load scenes using appropriate loader based on config
     std::vector<tracker::Scene> scenes;
     tracker::ObjectClassMap object_classes;
-    std::unique_ptr<tracker::ISceneLoader> scene_loader;
 
     try {
-        scene_loader = tracker::create_scene_loader(
+        auto scene_loader = tracker::create_scene_loader(
             config.scenes, cli_config.config_path.parent_path(), config.infrastructure.manager,
             cli_config.schema_path.parent_path());
         scenes = scene_loader->load();

@@ -300,7 +300,6 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         track.size = {rv_track.length, rv_track.width, rv_track.height};
 
         if (!rotation_from_velocity_) {
-            LOG_INFO("no Rotation from velocity");
             track.rotation = {0.0, 0.0, 0.0, 1.0};
         } else {
             auto& rotation_state = rotation_states_[rv_track.id];

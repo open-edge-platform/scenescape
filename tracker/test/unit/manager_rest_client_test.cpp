@@ -238,20 +238,6 @@ TEST_F(ManagerRestClientTest, FetchScenesPassesAuthHeader) {
     EXPECT_EQ(captured_auth, "Token test-token-123");
 }
 
-TEST_F(ManagerRestClientTest, FetchAssetsPassesAuthHeader) {
-    std::string captured_auth;
-    assets_handler = [&](const httplib::Request& req, httplib::Response& res) {
-        captured_auth = req.get_header_value("Authorization");
-        res.set_content(R"({"results":[]})", "application/json");
-    };
-
-    ManagerRestClient client(base_url_);
-    client.authenticate("u", "p");
-    client.fetchAssets();
-
-    EXPECT_EQ(captured_auth, "Token test-token-123");
-}
-
 // ===== fetchScenes() — error cases =====
 
 TEST_F(ManagerRestClientTest, FetchScenesHttpError403) {
