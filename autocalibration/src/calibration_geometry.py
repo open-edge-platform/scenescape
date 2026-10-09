@@ -28,7 +28,7 @@ class PoseValidation:
     return self.message is None
 
 
-def points_spread_ratio(points_3d):
+def _points_spread_ratio(points_3d):
   """Return the smallest-to-largest principal-axis spread ratio for 3D points.
 
   A value near zero indicates that the points are coplanar or have negligible
@@ -44,8 +44,8 @@ def points_spread_ratio(points_3d):
   return float(singular_values[-1] / singular_values[0])
 
 
-def validate_correspondence_geometry(map_points_3d, points_2d, camera_pose,
-                                     intrinsics, planar_map):
+def _validate_correspondence_geometry(map_points_3d, points_2d, camera_pose,
+                                      intrinsics, planar_map):
   """Check whether matched tag geometry supports a reliable pose.
 
   @param   map_points_3d  Matched tag centers in map coordinates (Nx3)
@@ -57,7 +57,7 @@ def validate_correspondence_geometry(map_points_3d, points_2d, camera_pose,
   @return  (spread_ratio, message) where message is None when the geometry is accepted
   """
   map_points_3d = np.asarray(map_points_3d, dtype=float)
-  spread_ratio = points_spread_ratio(map_points_3d)
+  spread_ratio = _points_spread_ratio(map_points_3d)
   if spread_ratio >= MIN_PNP_SPREAD_RATIO:
     return spread_ratio, None
 
@@ -100,7 +100,7 @@ def validate_camera_pose(map_points_3d, scene_points_3d, points_2d, camera_pose,
 
   @return  PoseValidation
   """
-  spread_ratio, message = validate_correspondence_geometry(
+  spread_ratio, message = _validate_correspondence_geometry(
       map_points_3d, points_2d, camera_pose, intrinsics, planar_map)
   if message:
     return PoseValidation(spread_ratio, message)
