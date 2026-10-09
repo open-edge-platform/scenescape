@@ -20,6 +20,11 @@ diagnostics):
 - Shared threshold / min-point constants from
   `scene_common.transform` (`RANSAC_REPROJECTION_THRESHOLD_PX`,
   `MIN_POINTS_FOR_RANSAC`) mirrored in Manager JS as needed
+- **Geometry conditioning warnings** (map SVD spread, image coverage, depth
+  range) — complementary and **independent** of rematch/ghost candidates; can
+  ship without this plan. Warns when selected points are concentrated /
+  collinear so RMS can look good while pose/distortion remain poorly
+  constrained.
 
 ## Problem
 

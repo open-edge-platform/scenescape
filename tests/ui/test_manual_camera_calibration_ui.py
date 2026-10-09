@@ -76,10 +76,21 @@ def test_manual_distortion_controls(params, result_recorder):
         outlierThresholdPx: 10,
         rmsError: 1.25,
         perPointErrors: [0.5, 12.0, 1.2, 11.1, 0.3],
+        geometryWarnings: [
+          "Map points form a thin line. On the floor plan, drag them into a wide triangle or rectangle across the visible area — not along one line near the camera — then recheck the fit.",
+        ],
       }, ["p0", "p1", "p2", "p3", "p4"]);
       calibration.rejectedPointIndices = [1];
       const appliedSummary = document.getElementById("calibration-fit-summary").textContent;
+      const appliedGuidance = document.getElementById(
+        "calibration-geometry-warnings").textContent;
       const appliedDetails = document.getElementById("calibration-point-errors").textContent;
+      const appliedFitClass = document.getElementById(
+        "calibration-fit-status").className;
+      const appliedGuidanceClass = document.getElementById(
+        "calibration-geometry-guidance").className;
+      const guidanceHidden = document.getElementById(
+        "calibration-geometry-guidance").hidden;
       const acceptedNames = calibration.getAcceptedCalibrationPointNames(
         calibration.camCanvas.getCalibrationPoints());
       const mapRejected = calibration.viewport.children
@@ -112,18 +123,25 @@ def test_manual_distortion_controls(params, result_recorder):
       }, ["p0", "p1", "p2", "p3", "p4"]);
       const fallbackSummary = document.getElementById("calibration-fit-summary").textContent;
       const fallbackDetails = document.getElementById("calibration-point-errors").textContent;
+      const fallbackGuidanceHidden = document.getElementById(
+        "calibration-geometry-guidance").hidden;
       const fallbackCameraRejected = calibration.camCanvas.calibrationPointDiagnostics.get("p1");
       calibration.clearCalibrationPoints();
       return {
         summary: fallbackSummary,
         appliedSummary,
+        appliedGuidance,
         appliedDetails,
+        appliedFitClass,
+        appliedGuidanceClass,
+        guidanceHidden,
+        fallbackGuidanceHidden,
         details: fallbackDetails,
         acceptedNames,
         cameraRejected: appliedCameraRejected,
         cameraHighError: appliedCameraHighError,
         fallbackCameraRejected,
-        statusHiddenAfterClear: document.getElementById("calibration-fit-status").hidden,
+        statusHiddenAfterClear: document.getElementById("calibration-diagnostics").hidden,
         rejectedAfterClear: calibration.rejectedPointIndices,
         diagnosticsAfterClear: [
           ...calibration.camCanvas.calibrationPointDiagnostics.keys(),
@@ -140,9 +158,16 @@ def test_manual_distortion_controls(params, result_recorder):
     assert "1.25 px" in diagnostics["appliedSummary"]
     # Rejected p1 must not inflate the high-residual count (only p3).
     assert "1 pair(s) have final residuals above 10.0 px" in diagnostics["appliedSummary"]
+    assert "thin line" not in diagnostics["appliedSummary"]
+    assert "thin line" in diagnostics["appliedGuidance"]
+    assert "wide triangle or rectangle" in diagnostics["appliedGuidance"]
+    assert diagnostics["guidanceHidden"] is False
+    assert "alert-secondary" in diagnostics["appliedFitClass"]
+    assert "alert-warning" in diagnostics["appliedGuidanceClass"]
     assert "p1: 12.00 px (rejected by RANSAC)" in diagnostics["appliedDetails"]
     assert "p3: 11.10 px (included, residual above threshold)" in diagnostics["appliedDetails"]
     assert "flagged by RANSAC, included in fallback fit" in diagnostics["details"]
+    assert diagnostics["fallbackGuidanceHidden"] is True
     assert diagnostics["acceptedNames"] == ["p0", "p2", "p3", "p4"]
     assert diagnostics["cameraRejected"] == "rejected"
     # Identity color stays green for p1; diagnostic is a red halo instead.
