@@ -122,6 +122,26 @@ TEST(OrientationFusionTest, StreamingFusePreservesOrientingYaw)
   EXPECT_FALSE(rv::tracking::orientation::hasOrientation(tracks[0]));
 }
 
+TEST(OrientationFusionTest, BirthClusteringPicksGlobalOrientingYawWinner)
+{
+  // The most confident orienting detection across all cameras sets the birth yaw,
+  // even when a less confident one joins the cluster after it.
+  auto tracker = makeTracker();
+  const double winnerYaw = 1.2;
+  std::vector<std::vector<rv::tracking::TrackedObject>> batch = {
+    {makeDetection(0.0, 0.0, 0.3, true, 0.6)},
+    {makeDetection(0.02, 0.0, winnerYaw, true, 0.9)},
+    {makeDetection(0.04, 0.0, 2.0, true, 0.7)},
+  };
+
+  tracker.track(batch, atMs(10));
+
+  auto tracks = tracker.getReliableTracks();
+  ASSERT_EQ(tracks.size(), 1u);
+  EXPECT_NEAR(tracks[0].yaw, winnerYaw, 1e-6);
+  EXPECT_TRUE(rv::tracking::orientation::hasOrientation(tracks[0]));
+}
+
 TEST(OrientationFusionTest, OrientationAttributeHelpers)
 {
   rv::tracking::TrackedObject object;

@@ -2,11 +2,111 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
+#include <algorithm>
 #include <chrono>
 #include <iostream>
+#include <string>
+#include <utility>
+#include <vector>
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/Classification.hpp>
 #include <rv/tracking/TrackedObject.hpp>
+
+namespace {
+
+using rv::tracking::TrackedObject;
+using Detections = std::vector<TrackedObject>;
+using DetectionsPerCamera = std::vector<Detections>;
+
+constexpr double kFusionGate = 2.0;
+
+rv::tracking::MultipleObjectTracker makeFusionTracker()
+{
+  rv::tracking::TrackManagerConfig config;
+  config.mMotionModels = {rv::tracking::MotionModel::CV};
+  config.mDefaultProcessNoise = 1e-4;
+  config.mDefaultMeasurementNoise = 0.2;
+  config.mMaxNumberOfUnreliableFrames = 0;
+  return rv::tracking::MultipleObjectTracker(config, rv::tracking::DistanceType::Euclidean, kFusionGate);
+}
+
+TrackedObject makeBox(double x, double y, double z, double length, double width, double height,
+                      const std::string &cameraId = {})
+{
+  TrackedObject object;
+  object.x = x;
+  object.y = y;
+  object.z = z;
+  object.length = length;
+  object.width = width;
+  object.height = height;
+  if (!cameraId.empty())
+  {
+    object.attributes["camera_id"] = cameraId;
+  }
+  return object;
+}
+
+// Equal-weight average of every fused geometry field, without a camera_id so it is never fused again.
+TrackedObject averageOf(const Detections &objects)
+{
+  TrackedObject average;
+  for (const auto &object : objects)
+  {
+    average.x += object.x;
+    average.y += object.y;
+    average.z += object.z;
+    average.length += object.length;
+    average.width += object.width;
+    average.height += object.height;
+  }
+  const double n = static_cast<double>(objects.size());
+  average.x /= n;
+  average.y /= n;
+  average.z /= n;
+  average.length /= n;
+  average.width /= n;
+  average.height /= n;
+  return average;
+}
+
+void expectSameState(const TrackedObject &actual, const TrackedObject &expected)
+{
+  constexpr double kTolerance = 1e-9;
+  EXPECT_NEAR(actual.x, expected.x, kTolerance);
+  EXPECT_NEAR(actual.y, expected.y, kTolerance);
+  EXPECT_NEAR(actual.z, expected.z, kTolerance);
+  EXPECT_NEAR(actual.vx, expected.vx, kTolerance);
+  EXPECT_NEAR(actual.vy, expected.vy, kTolerance);
+  EXPECT_NEAR(actual.yaw, expected.yaw, kTolerance);
+  EXPECT_NEAR(actual.length, expected.length, kTolerance);
+  EXPECT_NEAR(actual.width, expected.width, kTolerance);
+  EXPECT_NEAR(actual.height, expected.height, kTolerance);
+}
+
+// The twin is fed the expected fused detections directly, so equal states prove what fusion fed the filter.
+void expectSameSingleTrack(rv::tracking::MultipleObjectTracker &tracker, rv::tracking::MultipleObjectTracker &twin)
+{
+  const auto tracks = tracker.getTracks();
+  const auto twinTracks = twin.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  ASSERT_EQ(twinTracks.size(), 1U);
+  expectSameState(tracks[0], twinTracks[0]);
+}
+
+std::vector<TrackedObject> tracksSortedByX(rv::tracking::MultipleObjectTracker &tracker)
+{
+  auto tracks = tracker.getTracks();
+  std::sort(tracks.begin(), tracks.end(), [](const auto &a, const auto &b) { return a.x < b.x; });
+  return tracks;
+}
+
+std::chrono::system_clock::time_point atMs(int milliseconds)
+{
+  return std::chrono::system_clock::time_point(std::chrono::milliseconds(milliseconds));
+}
+
+} // namespace
 
 TEST(MultipleObjectTrackerTest, SingleDetectionTracking)
 {
@@ -742,143 +842,228 @@ TEST(MultipleObjectTrackerTest, MultiCameraDetectionsFuseIntoOneTrack)
 TEST(MultipleObjectTrackerTest, MultiCameraBirthClusteringWeightsCamerasEqually)
 {
   // Pairwise averaging would give the last camera weight 1/2 and earlier cameras 1/4.
-  rv::tracking::TrackManagerConfig trackerConfig;
-  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
-  trackerConfig.mDefaultProcessNoise = 1e-4;
-  trackerConfig.mDefaultMeasurementNoise = 0.2;
-  trackerConfig.mInitStateCovariance = 1.0;
-  trackerConfig.mMaxUnreliableTime = 0.0;
-  trackerConfig.mNonMeasurementTimeDynamic = 1.0;
-  trackerConfig.mNonMeasurementTimeStatic = 1.6;
+  auto tracker = makeFusionTracker();
+  const Detections cameras = {makeBox(7.0, 7.0, 0.0, 0.5, 0.4, 1.5), makeBox(7.6, 7.3, 0.1, 0.6, 0.5, 1.8),
+                              makeBox(8.2, 7.9, 0.3, 0.8, 0.6, 2.1)};
 
-  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig, rv::tracking::DistanceType::Euclidean, 2.0);
-  objectTracker.updateTrackerParams(10);
+  tracker.track(DetectionsPerCamera{{cameras[0]}, {cameras[1]}, {cameras[2]}}, atMs(10));
 
-  rv::tracking::TrackedObject cam0;
-  cam0.x = 7.0;
-  cam0.y = 7.0;
-  cam0.width = cam0.length = 0.5;
-  cam0.height = 1.5;
-
-  rv::tracking::TrackedObject cam1 = cam0;
-  cam1.x = 7.6;
-  cam1.y = 7.3;
-  cam1.height = 1.8;
-
-  rv::tracking::TrackedObject cam2 = cam0;
-  cam2.x = 8.2;
-  cam2.y = 7.9;
-  cam2.height = 2.1;
-
-  auto timestamp = std::chrono::system_clock::now();
-  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cam0}, {cam1}, {cam2}},
-                      timestamp,
-                      rv::tracking::DistanceType::Euclidean,
-                      2.0,
-                      0.5);
-
-  auto tracks = objectTracker.getTracks();
+  const auto tracks = tracker.getTracks();
   ASSERT_EQ(tracks.size(), 1U);
-  EXPECT_NEAR(tracks[0].x, (cam0.x + cam1.x + cam2.x) / 3.0, 1e-6);
-  EXPECT_NEAR(tracks[0].y, (cam0.y + cam1.y + cam2.y) / 3.0, 1e-6);
-  EXPECT_NEAR(tracks[0].height, (cam0.height + cam1.height + cam2.height) / 3.0, 1e-6);
+  expectSameState(tracks[0], averageOf(cameras));
+}
+
+TEST(MultipleObjectTrackerTest, MultiCameraBirthKeepsDetectionsBeyondGateSeparate)
+{
+  auto tracker = makeFusionTracker();
+  const auto near = makeBox(7.0, 7.0, 0.0, 0.5, 0.5, 1.7);
+  const auto far = makeBox(7.0 + kFusionGate + 0.5, 7.0, 0.0, 0.5, 0.5, 1.7);
+
+  tracker.track(DetectionsPerCamera{{near}, {far}}, atMs(10));
+
+  const auto tracks = tracksSortedByX(tracker);
+  ASSERT_EQ(tracks.size(), 2U);
+  expectSameState(tracks[0], near);
+  expectSameState(tracks[1], far);
+}
+
+TEST(MultipleObjectTrackerTest, MultiCameraBirthPairsDetectionsOfSeveralObjects)
+{
+  // Two objects seen by three cameras (listed in different orders): each track averages only its own detections.
+  auto tracker = makeFusionTracker();
+  const Detections left = {makeBox(0.0, 0.0, 0.0, 0.5, 0.4, 1.6), makeBox(0.4, 0.3, 0.1, 0.6, 0.5, 1.8),
+                           makeBox(-0.2, 0.4, 0.2, 0.7, 0.6, 1.7)};
+  const Detections right = {makeBox(4.0, 0.0, 0.0, 0.9, 0.8, 1.5), makeBox(4.5, -0.2, 0.1, 1.0, 0.9, 1.6),
+                            makeBox(3.8, 0.3, 0.3, 1.1, 1.0, 1.4)};
+
+  tracker.track(DetectionsPerCamera{{left[0], right[0]}, {right[1], left[1]}, {left[2], right[2]}}, atMs(10));
+
+  const auto tracks = tracksSortedByX(tracker);
+  ASSERT_EQ(tracks.size(), 2U);
+  expectSameState(tracks[0], averageOf(left));
+  expectSameState(tracks[1], averageOf(right));
+}
+
+TEST(MultipleObjectTrackerTest, MultiCameraBirthSeedsFromFirstMatchedCamera)
+{
+  // A new track keeps the non-geometry fields (e.g. the "info" detection id) of the first camera
+  // in its cluster; track updates instead seed from the last matched camera.
+  auto tracker = makeFusionTracker();
+  Detections cameras = {makeBox(7.0, 7.0, 0.0, 0.5, 0.5, 1.7), makeBox(7.3, 7.1, 0.0, 0.5, 0.5, 1.7),
+                        makeBox(7.6, 6.9, 0.0, 0.5, 0.5, 1.7)};
+  for (size_t camera = 0; camera < cameras.size(); ++camera)
+  {
+    cameras[camera].attributes["info"] = "detection-" + std::to_string(camera);
+  }
+
+  tracker.track(DetectionsPerCamera{{cameras[0]}, {cameras[1]}, {cameras[2]}}, atMs(10));
+
+  const auto tracks = tracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  ASSERT_EQ(tracks[0].attributes.count("info"), 1U);
+  EXPECT_EQ(tracks[0].attributes.at("info"), "detection-0");
 }
 
 TEST(MultipleObjectTrackerTest, MultiCameraTrackUpdateAveragesWorldPosition)
 {
-  // Continuing tracks must not keep last-camera geometry when both cameras match.
-  rv::tracking::TrackManagerConfig trackerConfig;
-  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
-  trackerConfig.mDefaultProcessNoise = 1e-4;
-  trackerConfig.mDefaultMeasurementNoise = 0.2;
-  trackerConfig.mInitStateCovariance = 1.0;
-  trackerConfig.mMaxUnreliableTime = 0.0;
-  trackerConfig.mMaxNumberOfUnreliableFrames = 0;
+  // Continuing tracks must average all cameras that matched, not keep last-camera geometry.
+  auto tracker = makeFusionTracker();
+  auto twin = makeFusionTracker();
+  const auto cam0 = makeBox(7.11, 7.67, 0.0, 0.5, 0.5, 0.5);
+  const auto cam1 = makeBox(7.91, 6.69, 0.0, 0.5, 0.5, 0.5);
 
-  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig, rv::tracking::DistanceType::Euclidean, 5.0);
-  objectTracker.updateTrackerParams(10);
+  for (int frame = 0; frame < 2; ++frame)
+  {
+    tracker.track(DetectionsPerCamera{{cam0}, {cam1}}, atMs(10 + 100 * frame));
+    twin.track(DetectionsPerCamera{{averageOf({cam0, cam1})}}, atMs(10 + 100 * frame));
+  }
 
-  rv::tracking::TrackedObject cam0;
-  cam0.x = 7.11;
-  cam0.y = 7.67;
-  cam0.width = cam0.length = cam0.height = 0.5;
+  expectSameSingleTrack(tracker, twin);
+}
 
-  rv::tracking::TrackedObject cam1 = cam0;
-  cam1.x = 7.91;
-  cam1.y = 6.69;
+TEST(MultipleObjectTrackerTest, MultiCameraMovingObjectMatchesPreAveragedSingleCamera)
+{
+  // Three cameras with a fixed per-camera bias on every geometry field, object moving diagonally.
+  auto tracker = makeFusionTracker();
+  auto twin = makeFusionTracker();
+  const Detections bias = {makeBox(-0.3, 0.2, 0.0, 0.5, 0.4, 1.6), makeBox(0.4, -0.1, 0.1, 0.6, 0.5, 1.8),
+                           makeBox(-0.1, -0.4, 0.2, 0.7, 0.6, 1.7)};
 
-  const double midX = 0.5 * (cam0.x + cam1.x);
-  const double midY = 0.5 * (cam0.y + cam1.y);
-  auto timestamp = std::chrono::system_clock::now();
-  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cam0}, {cam1}},
-                      timestamp,
-                      rv::tracking::DistanceType::Euclidean,
-                      5.0,
-                      0.5);
+  for (int frame = 0; frame < 4; ++frame)
+  {
+    DetectionsPerCamera perCamera;
+    Detections all;
+    for (auto detection : bias)
+    {
+      detection.x += 7.0 + 0.15 * frame;
+      detection.y += 7.0 + 0.1 * frame;
+      perCamera.push_back({detection});
+      all.push_back(detection);
+    }
+    tracker.track(perCamera, atMs(10 + 100 * frame));
+    twin.track(DetectionsPerCamera{{averageOf(all)}}, atMs(10 + 100 * frame));
+  }
 
-  timestamp += std::chrono::milliseconds(100);
-  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cam0}, {cam1}},
-                      timestamp,
-                      rv::tracking::DistanceType::Euclidean,
-                      5.0,
-                      0.5);
+  expectSameSingleTrack(tracker, twin);
+}
 
-  auto tracks = objectTracker.getTracks();
-  ASSERT_EQ(tracks.size(), 1U);
-  // After a correct step the filter should sit near the averaged measurement, not last-camera.
-  EXPECT_NEAR(tracks[0].x, midX, 0.15);
-  EXPECT_NEAR(tracks[0].y, midY, 0.15);
+TEST(MultipleObjectTrackerTest, MultiCameraTrackUpdateUsesOnlyMatchedCameras)
+{
+  // A detection outside the gate is not averaged into the track; it births its own track instead.
+  auto tracker = makeFusionTracker();
+  auto twin = makeFusionTracker();
+  const auto camA = makeBox(7.0, 7.0, 0.0, 0.5, 0.5, 1.7);
+  const auto camB = makeBox(7.6, 7.3, 0.0, 0.5, 0.5, 1.9);
+  tracker.track(DetectionsPerCamera{{camA}, {camB}}, atMs(10));
+  twin.track(DetectionsPerCamera{{averageOf({camA, camB})}}, atMs(10));
+
+  auto movedA = camA;
+  movedA.x += 0.1;
+  auto farB = camB;
+  farB.x += 3.0 * kFusionGate;
+  tracker.track(DetectionsPerCamera{{movedA}, {farB}}, atMs(110));
+  twin.track(DetectionsPerCamera{{movedA}}, atMs(110));
+
+  const auto tracks = tracksSortedByX(tracker);
+  const auto twinTracks = twin.getTracks();
+  ASSERT_EQ(tracks.size(), 2U);
+  ASSERT_EQ(twinTracks.size(), 1U);
+  expectSameState(tracks[0], twinTracks[0]);
+  expectSameState(tracks[1], farB);
 }
 
 TEST(MultipleObjectTrackerTest, StreamingMultiCameraUpdatesAverageWorldPosition)
 {
   // Immediate/streaming path: sequential single-camera track() calls must still
   // average geometry using recent per-camera measurements (camera_id attribute).
-  rv::tracking::TrackManagerConfig trackerConfig;
-  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
-  trackerConfig.mDefaultProcessNoise = 1e-4;
-  trackerConfig.mDefaultMeasurementNoise = 0.2;
-  trackerConfig.mInitStateCovariance = 1.0;
-  trackerConfig.mMaxUnreliableTime = 0.0;
-  trackerConfig.mMaxNumberOfUnreliableFrames = 0;
+  auto tracker = makeFusionTracker();
+  auto twin = makeFusionTracker();
+  const auto cam0 = makeBox(7.11, 7.67, 0.0, 0.5, 0.5, 0.5, "Cam_x1_0");
+  const auto cam1 = makeBox(7.91, 6.69, 0.0, 0.5, 0.5, 0.5, "Cam_x2_0");
 
-  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig, rv::tracking::DistanceType::Euclidean, 5.0);
-  objectTracker.updateTrackerParams(10);
-
-  rv::tracking::TrackedObject cam0;
-  cam0.x = 7.11;
-  cam0.y = 7.67;
-  cam0.width = cam0.length = cam0.height = 0.5;
-  cam0.attributes["camera_id"] = "Cam_x1_0";
-
-  rv::tracking::TrackedObject cam1 = cam0;
-  cam1.x = 7.91;
-  cam1.y = 6.69;
-  cam1.attributes["camera_id"] = "Cam_x2_0";
-
-  const double midX = 0.5 * (cam0.x + cam1.x);
-  const double midY = 0.5 * (cam0.y + cam1.y);
-  auto timestamp = std::chrono::system_clock::now();
-
-  // Birth from cam0, then cam1 within the streaming hold window.
-  objectTracker.track(std::vector<rv::tracking::TrackedObject>{cam0}, timestamp,
-                      rv::tracking::DistanceType::Euclidean, 5.0, 0.5);
-  timestamp += std::chrono::milliseconds(50);
-  objectTracker.track(std::vector<rv::tracking::TrackedObject>{cam1}, timestamp,
-                      rv::tracking::DistanceType::Euclidean, 5.0, 0.5);
-
-  // Continue alternating; fused measurement should stay near the midpoint.
-  for (int i = 0; i < 10; ++i)
+  for (int update = 0; update < 4; ++update)
   {
-    timestamp += std::chrono::milliseconds(50);
-    objectTracker.track(std::vector<rv::tracking::TrackedObject>{(i % 2 == 0) ? cam0 : cam1},
-                        timestamp, rv::tracking::DistanceType::Euclidean, 5.0, 0.5);
+    tracker.track(Detections{(update % 2 == 0) ? cam0 : cam1}, atMs(10 + 50 * update));
+    twin.track(Detections{update == 0 ? averageOf({cam0}) : averageOf({cam0, cam1})}, atMs(10 + 50 * update));
   }
 
-  auto tracks = objectTracker.getTracks();
-  ASSERT_EQ(tracks.size(), 1U);
-  EXPECT_NEAR(tracks[0].x, midX, 0.2);
-  EXPECT_NEAR(tracks[0].y, midY, 0.2);
+  expectSameSingleTrack(tracker, twin);
+}
+
+TEST(MultipleObjectTrackerTest, StreamingMultiCameraFusesAllGeometryFields)
+{
+  auto tracker = makeFusionTracker();
+  auto twin = makeFusionTracker();
+  const auto camA = makeBox(7.0, 7.0, 0.0, 0.5, 0.4, 1.6, "Cam_A");
+  const auto camB = makeBox(7.6, 7.3, 0.2, 0.7, 0.6, 1.9, "Cam_B");
+
+  tracker.track(Detections{camA}, atMs(10));
+  tracker.track(Detections{camB}, atMs(60));
+  twin.track(Detections{averageOf({camA})}, atMs(10));
+  twin.track(Detections{averageOf({camA, camB})}, atMs(60));
+
+  expectSameSingleTrack(tracker, twin);
+}
+
+TEST(MultipleObjectTrackerTest, StreamingThreeCamerasAverageLatestSamples)
+{
+  // Round-robin cameras: once all three have reported, every update averages the latest sample of each.
+  auto tracker = makeFusionTracker();
+  auto twin = makeFusionTracker();
+  const Detections cameras = {makeBox(7.0, 7.0, 0.0, 0.5, 0.4, 1.5, "Cam_A"),
+                              makeBox(7.6, 7.3, 0.1, 0.6, 0.5, 1.8, "Cam_B"),
+                              makeBox(8.2, 7.9, 0.3, 0.8, 0.6, 2.1, "Cam_C")};
+  const Detections expected = {averageOf({cameras[0]}), averageOf({cameras[0], cameras[1]}), averageOf(cameras),
+                               averageOf(cameras), averageOf(cameras)};
+
+  for (int update = 0; update < static_cast<int>(expected.size()); ++update)
+  {
+    tracker.track(Detections{cameras[update % cameras.size()]}, atMs(10 + 33 * update));
+    twin.track(Detections{expected[update]}, atMs(10 + 33 * update));
+  }
+
+  expectSameSingleTrack(tracker, twin);
+}
+
+TEST(MultipleObjectTrackerTest, StreamingMultiCameraIgnoresSamplesOutsideHold)
+{
+  const auto camA = makeBox(7.0, 7.0, 0.0, 0.5, 0.5, 1.7, "Cam_A");
+  const auto camB = makeBox(7.6, 7.3, 0.0, 0.5, 0.5, 1.9, "Cam_B");
+  const int holdMs = static_cast<int>(rv::tracking::kStreamingMultiCamHold.count());
+
+  for (const auto &[delayMs, fused] : {std::pair{holdMs - 10, true}, std::pair{holdMs + 10, false}})
+  {
+    SCOPED_TRACE("camera B delay " + std::to_string(delayMs) + " ms");
+    auto tracker = makeFusionTracker();
+    auto twin = makeFusionTracker();
+
+    tracker.track(Detections{camA}, atMs(10));
+    tracker.track(Detections{camB}, atMs(10 + delayMs));
+    twin.track(Detections{averageOf({camA})}, atMs(10));
+    twin.track(Detections{fused ? averageOf({camA, camB}) : averageOf({camB})}, atMs(10 + delayMs));
+
+    expectSameSingleTrack(tracker, twin);
+  }
+}
+
+TEST(MultipleObjectTrackerTest, StreamingMultiCameraUsesLatestSamplePerCamera)
+{
+  // A camera's newer detection replaces its cached one; the older sample is not averaged in again.
+  auto tracker = makeFusionTracker();
+  auto twin = makeFusionTracker();
+  const auto camA = makeBox(7.0, 7.0, 0.0, 0.5, 0.5, 1.7, "Cam_A");
+  auto movedA = camA;
+  movedA.x += 0.4;
+  const auto camB = makeBox(7.8, 7.3, 0.0, 0.5, 0.5, 1.9, "Cam_B");
+
+  tracker.track(Detections{camA}, atMs(10));
+  tracker.track(Detections{movedA}, atMs(30));
+  tracker.track(Detections{camB}, atMs(50));
+  twin.track(Detections{averageOf({camA})}, atMs(10));
+  twin.track(Detections{averageOf({movedA})}, atMs(30));
+  twin.track(Detections{averageOf({movedA, camB})}, atMs(50));
+
+  expectSameSingleTrack(tracker, twin);
 }
 
 // Streaming path: camera B reports once, then stays silent while camera A keeps reporting
