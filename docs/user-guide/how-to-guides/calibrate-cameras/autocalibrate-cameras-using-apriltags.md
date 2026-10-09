@@ -100,7 +100,7 @@ autocalibration:
   # Refer to one of the sample docker-compose yaml files on how to configure the rest
 ```
 
-6. Restart Scenescape (see [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details on choosing profiles):
+6. Restart Scenescape (see [Docker Compose Profiles](../deployment/deploy-docker.md#docker-compose-profiles) for details on choosing profiles):
 
 ```bash
 docker compose --profile controller down
