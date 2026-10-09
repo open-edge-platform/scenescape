@@ -73,9 +73,9 @@ def test_manual_distortion_controls(params, result_recorder):
         rejectionApplied: true,
         fitPointCount: 4,
         rejectedIndices: [1],
-        outlierThresholdPx: 5,
+        outlierThresholdPx: 10,
         rmsError: 1.25,
-        perPointErrors: [0.5, 9.0, 1.2, 6.1, 0.3],
+        perPointErrors: [0.5, 12.0, 1.2, 11.1, 0.3],
       }, ["p0", "p1", "p2", "p3", "p4"]);
       calibration.rejectedPointIndices = [1];
       const appliedSummary = document.getElementById("calibration-fit-summary").textContent;
@@ -106,9 +106,9 @@ def test_manual_distortion_controls(params, result_recorder):
         ransacInlierCount: 3,
         fitPointCount: 5,
         rejectedIndices: [1, 3],
-        outlierThresholdPx: 5,
+        outlierThresholdPx: 10,
         rmsError: 4.25,
-        perPointErrors: [0.5, 9.0, 1.2, 6.1, 0.3],
+        perPointErrors: [0.5, 12.0, 1.2, 11.1, 0.3],
       }, ["p0", "p1", "p2", "p3", "p4"]);
       const fallbackSummary = document.getElementById("calibration-fit-summary").textContent;
       const fallbackDetails = document.getElementById("calibration-point-errors").textContent;
@@ -139,9 +139,9 @@ def test_manual_distortion_controls(params, result_recorder):
     assert "1 rejected by RANSAC" in diagnostics["appliedSummary"]
     assert "1.25 px" in diagnostics["appliedSummary"]
     # Rejected p1 must not inflate the high-residual count (only p3).
-    assert "1 pair(s) have final residuals above 5.0 px" in diagnostics["appliedSummary"]
-    assert "p1: 9.00 px (rejected by RANSAC)" in diagnostics["appliedDetails"]
-    assert "p3: 6.10 px (included, residual above threshold)" in diagnostics["appliedDetails"]
+    assert "1 pair(s) have final residuals above 10.0 px" in diagnostics["appliedSummary"]
+    assert "p1: 12.00 px (rejected by RANSAC)" in diagnostics["appliedDetails"]
+    assert "p3: 11.10 px (included, residual above threshold)" in diagnostics["appliedDetails"]
     assert "flagged by RANSAC, included in fallback fit" in diagnostics["details"]
     assert diagnostics["acceptedNames"] == ["p0", "p2", "p3", "p4"]
     assert diagnostics["cameraRejected"] == "rejected"

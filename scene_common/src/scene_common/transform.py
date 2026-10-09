@@ -16,7 +16,7 @@ FALLBACK_HORIZON_DISTANCE = 1000
 # RANSAC parameters for robust pose estimation from point correspondences.
 # Correspondences whose reprojection error exceeds this threshold (in pixels)
 # are treated as outliers and excluded from the pose fit.
-RANSAC_REPROJECTION_THRESHOLD_PX = 5.0
+RANSAC_REPROJECTION_THRESHOLD_PX = 10.0
 MIN_POINTS_FOR_RANSAC = 4
 
 class CameraIntrinsics:

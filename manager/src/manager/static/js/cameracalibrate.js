@@ -15,6 +15,8 @@ import { CamCanvas } from "/static/js/camcanvas.js";
 import { Viewport } from "/static/js/viewport.js";
 import {
   APP_NAME,
+  CALIBRATION_MIN_POINTS_FOR_FIT,
+  CALIBRATION_OUTLIER_THRESHOLD_PX,
   CMD_CAMERA,
   INITIAL_PROJECTION_OPACITY,
   MAX_COPLANAR_DETERMINANT,
@@ -218,7 +220,7 @@ export class ConvergedCameraCalibration {
     );
 
     if (
-      matchingNames.length >= 4 &&
+      matchingNames.length >= CALIBRATION_MIN_POINTS_FOR_FIT &&
       camPointNames.length === mapPointNames.length
     ) {
       return true;
@@ -353,7 +355,7 @@ export class ConvergedCameraCalibration {
       this.rejectedPointIndices = [];
       if (
         this.isValidCalibration(camPoints, mapPoints) &&
-        Object.keys(camPoints).length >= 4
+        Object.keys(camPoints).length >= CALIBRATION_MIN_POINTS_FOR_FIT
       ) {
         this.updateCalibrationPoseFromFit();
       }
@@ -417,7 +419,9 @@ export class ConvergedCameraCalibration {
       .map((index) => pointNames[index])
       .filter(Boolean);
     const threshold = Number(response.outlierThresholdPx);
-    const safeThreshold = Number.isFinite(threshold) ? threshold : 5;
+    const safeThreshold = Number.isFinite(threshold)
+      ? threshold
+      : CALIBRATION_OUTLIER_THRESHOLD_PX;
     const errors = response.perPointErrors || [];
     const highErrorIndices = errors
       .map((error, index) =>
@@ -436,7 +440,7 @@ export class ConvergedCameraCalibration {
     } else if (response.rejectionRequested) {
       message = response.ransacInlierCount === null
         ? `RANSAC could not estimate a usable inlier set; all ${response.fitPointCount} point pairs were used in the fit.`
-        : `RANSAC found only ${response.ransacInlierCount} usable point pairs; at least 4 are needed. All ${response.fitPointCount} pairs were used in the fit.`;
+        : `RANSAC found only ${response.ransacInlierCount} usable point pairs; at least ${CALIBRATION_MIN_POINTS_FOR_FIT} are needed. All ${response.fitPointCount} pairs were used in the fit.`;
     } else {
       message = `Outlier rejection is off; all ${response.fitPointCount} point pairs were used in the fit.`;
     }
@@ -630,9 +634,10 @@ export class ConvergedCameraCalibration {
 
       if (this.isValidCalibration(camPoints, scenePoints)) {
         const acceptedNames = this.getAcceptedCalibrationPointNames(camPoints);
-        if (acceptedNames.length < 4) {
+        if (acceptedNames.length < CALIBRATION_MIN_POINTS_FOR_FIT) {
           alert(
-            "Saving the calibration requires at least 4 accepted point pairs after " +
+            "Saving the calibration requires at least " +
+              `${CALIBRATION_MIN_POINTS_FOR_FIT} accepted point pairs after ` +
               "outlier rejection.\n\n" +
               `There are currently ${acceptedNames.length} accepted pairs ` +
               `(${this.rejectedPointIndices.length} rejected by RANSAC). ` +
@@ -693,7 +698,7 @@ export class ConvergedCameraCalibration {
       } else {
         alert(
           "Saving the calibration requires an equal number of calibration points in each " +
-            "view (minimum 4).\n\n" +
+            `view (minimum ${CALIBRATION_MIN_POINTS_FOR_FIT}).\n\n` +
             `There are currently ${camPointCount} points in the camera ` +
             `view and ${scenePointCount} points in the scene view.`,
         );
