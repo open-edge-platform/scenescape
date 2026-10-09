@@ -10,7 +10,7 @@ from auto_camera_calibration_model import CalibrationScene
 from markerless_camera_calibration_controller import MarkerlessCameraCalibrationController
 
 
-def makeScene(name, polycam_data=None):
+def make_scene(name, polycam_data=None):
   scene = CalibrationScene(
       uid="f1b9b1b0-1b1b-1b1b-1b1b-1b1b1b1b1b1b", name=name)
   scene.polycam_data = polycam_data
@@ -34,7 +34,7 @@ def test_preprocess_polycam_dataset_rejects_escaping_name(tmp_path, controller, 
   zip_path = tmp_path / "polycam.zip"
   with zipfile.ZipFile(zip_path, "w") as zf:
     zf.writestr("keyframes/marker.txt", "harmless")
-  scene = makeScene(malicious_name, polycam_data=str(zip_path))
+  scene = make_scene(malicious_name, polycam_data=str(zip_path))
 
   with pytest.raises(ValueError):
     controller.preprocess_polycam_dataset(scene)
@@ -67,7 +67,7 @@ def test_reset_scene_skips_rmtree_for_escaping_output_dir(controller, tmp_path, 
   outside_dir = tmp_path / "outside"
   outside_dir.mkdir()
 
-  scene = makeScene("my-scene")
+  scene = make_scene("my-scene")
   scene.output_dir = str(outside_dir)
 
   with patch("shutil.rmtree") as mocked_rmtree:
