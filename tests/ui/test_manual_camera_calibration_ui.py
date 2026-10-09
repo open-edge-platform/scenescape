@@ -57,6 +57,202 @@ def test_manual_distortion_controls(params, result_recorder):
     assert not browser.execute_script(
       "return new FormData(document.getElementById('calibration_form')).has('distortion_k1');"
     )
+
+    diagnostics = browser.execute_script(
+      """
+      const calibration = window.camera_calibration;
+      calibration.camCanvas.clearCalibrationPoints();
+      calibration.viewport.clearCalibrationPoints();
+      for (let index = 0; index < 5; index++) {
+        calibration.camCanvas.addCalibrationPoint(80 + index * 80, 90 + index * 50);
+        calibration.viewport.addCalibrationPoint(index, index % 2, 0);
+      }
+      calibration.camCanvas.drawImage();
+      calibration.showCalibrationFitStatus({
+        rejectionRequested: true,
+        rejectionApplied: true,
+        fitPointCount: 4,
+        rejectedIndices: [1],
+        outlierThresholdPx: 10,
+        rmsError: 1.25,
+        perPointErrors: [0.5, 12.0, 1.2, 11.1, 0.3],
+        geometryWarnings: [
+          "Map points form a thin line. On the floor plan, drag them into a wide triangle or rectangle across the visible area — not along one line near the camera — then recheck the fit.",
+        ],
+      }, ["p0", "p1", "p2", "p3", "p4"]);
+      calibration.rejectedPointIndices = [1];
+      const appliedSummary = document.getElementById("calibration-fit-summary").textContent;
+      const appliedGuidance = document.getElementById(
+        "calibration-geometry-warnings").textContent;
+      const appliedDetails = document.getElementById("calibration-point-errors").textContent;
+      const appliedFitClass = document.getElementById(
+        "calibration-fit-status").className;
+      const appliedGuidanceClass = document.getElementById(
+        "calibration-geometry-guidance").className;
+      const guidanceHidden = document.getElementById(
+        "calibration-geometry-guidance").hidden;
+      const acceptedNames = calibration.getAcceptedCalibrationPointNames(
+        calibration.camCanvas.getCalibrationPoints());
+      const mapRejected = calibration.viewport.children
+        .find((point) => point.name === "calibrationPoint_p1");
+      const mapHighError = calibration.viewport.children
+        .find((point) => point.name === "calibrationPoint_p3");
+      const rejectedHalo = mapRejected.children.find(
+        (child) => child.name === "calibrationHalo");
+      const rejectedOutline = mapRejected.children.find(
+        (child) => child.name === "calibrationHaloOutline");
+      const rejectedMark = mapRejected.children.find(
+        (child) => child.name === "calibrationRejectMark");
+      const highErrorHalo = mapHighError.children.find(
+        (child) => child.name === "calibrationHalo");
+      const highErrorMark = mapHighError.children.find(
+        (child) => child.name === "calibrationRejectMark");
+      const appliedCameraRejected = calibration.camCanvas.calibrationPointDiagnostics.get("p1");
+      const appliedCameraHighError = calibration.camCanvas.calibrationPointDiagnostics.get("p3");
+      const appliedHaloState = {
+        mapPointColor: mapRejected.material.color.getHexString(),
+        mapRejectedHaloVisible: rejectedHalo.visible,
+        mapRejectedOutlineVisible: rejectedOutline.visible,
+        mapRejectedHaloColor: rejectedHalo.material.color.getHexString(),
+        mapRejectedMarkVisible: rejectedMark.visible,
+        mapHighErrorHaloVisible: highErrorHalo.visible,
+        mapHighErrorHaloColor: highErrorHalo.material.color.getHexString(),
+        mapHighErrorMarkVisible: highErrorMark.visible,
+        legend: document.getElementById("calibration-fit-status").textContent,
+      };
+      calibration.showCalibrationFitStatus({
+        rejectionRequested: true,
+        rejectionApplied: false,
+        ransacInlierCount: 3,
+        fitPointCount: 5,
+        rejectedIndices: [1, 3],
+        outlierThresholdPx: 10,
+        rmsError: 4.25,
+        perPointErrors: [0.5, 12.0, 1.2, 11.1, 0.3],
+      }, ["p0", "p1", "p2", "p3", "p4"]);
+      const fallbackSummary = document.getElementById("calibration-fit-summary").textContent;
+      const fallbackDetails = document.getElementById("calibration-point-errors").textContent;
+      const fallbackGuidanceHidden = document.getElementById(
+        "calibration-geometry-guidance").hidden;
+      const fallbackCameraRejected = calibration.camCanvas.calibrationPointDiagnostics.get("p1");
+      calibration.clearCalibrationPoints();
+      return {
+        summary: fallbackSummary,
+        appliedSummary,
+        appliedGuidance,
+        appliedDetails,
+        appliedFitClass,
+        appliedGuidanceClass,
+        guidanceHidden,
+        fallbackGuidanceHidden,
+        details: fallbackDetails,
+        acceptedNames,
+        cameraRejected: appliedCameraRejected,
+        cameraHighError: appliedCameraHighError,
+        fallbackCameraRejected,
+        statusHiddenAfterClear: document.getElementById("calibration-diagnostics").hidden,
+        rejectedAfterClear: calibration.rejectedPointIndices,
+        diagnosticsAfterClear: [
+          ...calibration.camCanvas.calibrationPointDiagnostics.keys(),
+        ],
+        ...appliedHaloState,
+      };
+      """
+    )
+    assert "4 of 5 point pairs" in diagnostics["appliedSummary"]
+    assert "only 3 usable point pairs" in diagnostics["summary"]
+    assert "All 5 pairs were used" in diagnostics["summary"]
+    assert "4.25 px" in diagnostics["summary"]
+    assert "1 rejected by RANSAC" in diagnostics["appliedSummary"]
+    assert "1.25 px" in diagnostics["appliedSummary"]
+    # Rejected p1 must not inflate the high-residual count (only p3).
+    assert "1 pair(s) have final residuals above 10.0 px" in diagnostics["appliedSummary"]
+    assert "thin line" not in diagnostics["appliedSummary"]
+    assert "thin line" in diagnostics["appliedGuidance"]
+    assert "wide triangle or rectangle" in diagnostics["appliedGuidance"]
+    assert diagnostics["guidanceHidden"] is False
+    assert "alert-secondary" in diagnostics["appliedFitClass"]
+    assert "alert-warning" in diagnostics["appliedGuidanceClass"]
+    assert "p1: 12.00 px (rejected by RANSAC)" in diagnostics["appliedDetails"]
+    assert "p3: 11.10 px (included, residual above threshold)" in diagnostics["appliedDetails"]
+    assert "flagged by RANSAC, included in fallback fit" in diagnostics["details"]
+    assert diagnostics["fallbackGuidanceHidden"] is True
+    assert diagnostics["acceptedNames"] == ["p0", "p2", "p3", "p4"]
+    assert diagnostics["cameraRejected"] == "rejected"
+    # Identity color stays green for p1; diagnostic uses contrast ring + ✕.
+    assert diagnostics["mapPointColor"] == "00ff00"
+    assert diagnostics["mapRejectedHaloVisible"] is True
+    assert diagnostics["mapRejectedOutlineVisible"] is True
+    assert diagnostics["mapRejectedHaloColor"] == "ffffff"
+    assert diagnostics["mapRejectedMarkVisible"] is True
+    assert diagnostics["cameraHighError"] == "high-error"
+    assert diagnostics["mapHighErrorHaloVisible"] is True
+    assert diagnostics["mapHighErrorHaloColor"] == "ffffff"
+    assert diagnostics["mapHighErrorMarkVisible"] is False
+    assert diagnostics["fallbackCameraRejected"] == "rejected"
+    assert "✕" in diagnostics["legend"]
+    assert "rejected by RANSAC" in diagnostics["legend"]
+    assert "White ring" in diagnostics["legend"]
+    assert diagnostics["statusHiddenAfterClear"] is True
+    assert diagnostics["rejectedAfterClear"] == []
+    assert diagnostics["diagnosticsAfterClear"] == []
+
+    name_sets = browser.execute_script(
+      """
+      const calibration = window.camera_calibration;
+      calibration.camCanvas.clearCalibrationPoints();
+      calibration.viewport.clearCalibrationPoints();
+      for (let index = 0; index < 6; index++) {
+        calibration.camCanvas.addCalibrationPoint(80 + index * 80, 90 + index * 50);
+        calibration.viewport.addCalibrationPoint(index, index % 2, 0);
+      }
+      // Equal counts, but only four shared names (camera keeps p4, map keeps p5).
+      calibration.camCanvas.calibrationPoints =
+        calibration.camCanvas.calibrationPoints.filter((point) => point.name !== "p5");
+      calibration.camCanvas.calibrationPointNames.push("p5");
+      const mapP4 = calibration.viewport.children.find(
+        (child) => child.name === "calibrationPoint_p4");
+      calibration.viewport.remove(mapP4);
+      calibration.viewport.calibrationPointNames.push("p4");
+
+      const camPoints = calibration.camCanvas.getCalibrationPoints();
+      const mapPoints = calibration.viewport.getCalibrationPoints();
+      const mismatchedValid = calibration.isValidCalibration(camPoints, mapPoints);
+      let wouldThrowOnSave = false;
+      if (mismatchedValid) {
+        try {
+          Object.keys(camPoints)
+            .map((name) => mapPoints[name])
+            .map((point) => `${point[0]},${point[1]},${point[2]}`);
+        } catch (error) {
+          wouldThrowOnSave = true;
+        }
+      }
+
+      calibration.camCanvas.clearCalibrationPoints();
+      calibration.viewport.clearCalibrationPoints();
+      for (let index = 0; index < 4; index++) {
+        calibration.camCanvas.addCalibrationPoint(80 + index * 80, 90 + index * 50);
+        calibration.viewport.addCalibrationPoint(index, index % 2, 0);
+      }
+      const matchingValid = calibration.isValidCalibration(
+        calibration.camCanvas.getCalibrationPoints(),
+        calibration.viewport.getCalibrationPoints(),
+      );
+      return {
+        camNames: Object.keys(camPoints).sort(),
+        mapNames: Object.keys(mapPoints).sort(),
+        mismatchedValid,
+        wouldThrowOnSave,
+        matchingValid,
+      };
+      """
+    )
+    assert name_sets["camNames"] == ["p0", "p1", "p2", "p3", "p4"]
+    assert name_sets["mapNames"] == ["p0", "p1", "p2", "p3", "p5"]
+    assert name_sets["mismatchedValid"] is False
+    assert name_sets["wouldThrowOnSave"] is False
+    assert name_sets["matchingValid"] is True
     result_recorder.success()
   finally:
     if browser is not None:

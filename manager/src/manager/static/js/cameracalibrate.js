@@ -15,6 +15,8 @@ import { CamCanvas } from "/static/js/camcanvas.js";
 import { Viewport } from "/static/js/viewport.js";
 import {
   APP_NAME,
+  CALIBRATION_MIN_POINTS_FOR_FIT,
+  CALIBRATION_OUTLIER_THRESHOLD_PX,
   CMD_CAMERA,
   INITIAL_PROJECTION_OPACITY,
   MAX_COPLANAR_DETERMINANT,
@@ -44,6 +46,8 @@ export class ConvergedCameraCalibration {
     this.isUpdatedInVAService = false;
     this.projectionEnabled = false;
     this.isResolutionUpdated = false;
+    this.calibrationRequestId = 0;
+    this.rejectedPointIndices = [];
 
     // Used for storing undistorted image for projection
     this.projectionImage = new Image();
@@ -85,10 +89,24 @@ export class ConvergedCameraCalibration {
     this.camCanvas = new CamCanvas(canvasElement, imageSrc);
     // FIXME: Find a better way to do these event listeners which require interacting with both
     // the camCanvas and viewport
+    this.camCanvas.canvas.addEventListener("mousedown", () => {
+      // CamCanvas handles the hit-test first; clear markers once a point drag starts.
+      if (this.camCanvas.isDragging) {
+        this.clearCalibrationPointDiagnostics();
+      }
+    });
     this.camCanvas.canvas.addEventListener("mouseup", (event) => {
+      // Right-button mouseup fires before contextmenu; wait for contextmenu
+      // so point deletion is applied before recalculating.
+      if (event.button === 2) {
+        return;
+      }
       this.calculateCalibrationIntrinsics();
     });
     this.camCanvas.canvas.addEventListener("dblclick", (event) => {
+      this.calculateCalibrationIntrinsics();
+    });
+    this.camCanvas.canvas.addEventListener("contextmenu", (event) => {
       this.calculateCalibrationIntrinsics();
     });
     this.camCanvas.canvas.addEventListener("mousemove", (event) => {
@@ -139,10 +157,24 @@ export class ConvergedCameraCalibration {
       .then(() => {
         viewport.initializeEventListeners();
 
+        viewport.renderer.domElement.addEventListener("mousedown", () => {
+          // Viewport handles the hit-test first; clear markers once a point drag starts.
+          if (viewport.isDragging) {
+            this.clearCalibrationPointDiagnostics();
+          }
+        });
         viewport.renderer.domElement.addEventListener("mouseup", (event) => {
+          // Right-button mouseup fires before contextmenu; wait for contextmenu
+          // so point deletion is applied before recalculating.
+          if (event.button === 2) {
+            return;
+          }
           this.calculateCalibrationIntrinsics();
         });
         viewport.renderer.domElement.addEventListener("dblclick", (event) => {
+          this.calculateCalibrationIntrinsics();
+        });
+        viewport.renderer.domElement.addEventListener("contextmenu", (event) => {
           this.calculateCalibrationIntrinsics();
         });
         viewport.renderer.domElement.addEventListener("mousemove", (event) => {
@@ -195,17 +227,26 @@ export class ConvergedCameraCalibration {
     }
     const camPointNames = Object.keys(camPoints);
     const mapPointNames = Object.keys(mapPoints);
-    const matchingNames = camPointNames.filter((name) =>
-      mapPointNames.includes(name),
-    );
-
     if (
-      matchingNames.length >= 4 &&
-      camPointNames.length === mapPointNames.length
+      camPointNames.length < CALIBRATION_MIN_POINTS_FOR_FIT ||
+      camPointNames.length !== mapPointNames.length
     ) {
-      return true;
+      return false;
     }
-    return false;
+    // Equal counts are not enough: deleting differently named points in each
+    // view can leave four shared names and one camera-only / map-only name.
+    const mapNameSet = new Set(mapPointNames);
+    return camPointNames.every((name) => mapNameSet.has(name));
+  }
+
+  calibrationPointNamesMatch(camPoints, mapPoints) {
+    const camPointNames = Object.keys(camPoints);
+    const mapPointNames = Object.keys(mapPoints);
+    if (camPointNames.length !== mapPointNames.length) {
+      return false;
+    }
+    const mapNameSet = new Set(mapPointNames);
+    return camPointNames.every((name) => mapNameSet.has(name));
   }
 
   getIntrinsics() {
@@ -227,12 +268,16 @@ export class ConvergedCameraCalibration {
   }
 
   calculateCalibrationIntrinsics() {
+    const requestId = ++this.calibrationRequestId;
     const camPoints = this.camCanvas.getCalibrationPoints();
     const mapPoints = this.viewport.getCalibrationPoints(true);
     if (
       this.isValidCalibration(camPoints, mapPoints) &&
       Object.keys(camPoints).length >= 6
     ) {
+      const pointNames = Object.keys(camPoints);
+      this.rejectedPointIndices = [];
+      this.setCalibrationFitStatus("Checking calibration point fit...", [], []);
       const intrinsicCheckboxes = $('input[type="checkbox"][name^="enabled_"]');
       const fixIntrinsics = {};
       intrinsicCheckboxes.each(function () {
@@ -262,8 +307,8 @@ export class ConvergedCameraCalibration {
       });
 
       const data = {
-        camPoints: Object.values(camPoints),
-        mapPoints: Object.values(mapPoints),
+        camPoints: pointNames.map((name) => camPoints[name]),
+        mapPoints: pointNames.map((name) => mapPoints[name]),
         fixIntrinsics: fixIntrinsics,
         intrinsics: intrinsicData,
         distortion: distortionData,
@@ -280,6 +325,9 @@ export class ConvergedCameraCalibration {
         data: JSON.stringify(data),
         contentType: "application/json",
         success: function (response) {
+          if (requestId !== this.calibrationRequestId) {
+            return;
+          }
           // Fill out the corresponding intrinsic and distortion fields if they are not disabled
           const intrinsicMtx = response["mtx"].flat();
           $('input[name^="intrinsics_"]').each(function () {
@@ -304,13 +352,214 @@ export class ConvergedCameraCalibration {
                 this.value = response["dist"][K3];
             }
           });
-        },
+          this.rejectedPointIndices = response.rejectionApplied
+            ? response.rejectedIndices || []
+            : [];
+          this.updateCalibrationPoseFromFit();
+          this.showCalibrationFitStatus(response, pointNames);
+        }.bind(this),
         error: function (error) {
+          if (requestId !== this.calibrationRequestId) {
+            return;
+          }
           // If invalid values are passed, print the error text
           console.log(error.responseText);
-        },
+          this.rejectedPointIndices = [];
+          this.setCalibrationFitStatus(
+            "Could not evaluate the calibration fit. Check the point pairs and try again.",
+            [],
+            [],
+          );
+        }.bind(this),
       });
+    } else {
+      this.rejectedPointIndices = [];
+      if (
+        this.isValidCalibration(camPoints, mapPoints) &&
+        Object.keys(camPoints).length >= CALIBRATION_MIN_POINTS_FOR_FIT
+      ) {
+        this.updateCalibrationPoseFromFit();
+      }
+      const diagnostics = document.getElementById("calibration-diagnostics");
+      if (diagnostics && !diagnostics.hidden) {
+        const cameraCount = Object.keys(camPoints).length;
+        const mapCount = Object.keys(mapPoints).length;
+        const message = !this.calibrationPointNamesMatch(camPoints, mapPoints)
+          ? `Place matching point pairs with the same names in both views (${cameraCount} camera, ${mapCount} map).`
+          : `Add at least 6 matching point pairs to evaluate the calibration fit (${cameraCount} currently placed).`;
+        this.setCalibrationFitStatus(message, [], []);
+      }
     }
+  }
+
+  updateCalibrationPoseFromFit() {
+    this.camCanvas.calibrationUpdated = true;
+    this.viewport.calibrationUpdated = true;
+    const cameraMatrix = [
+      [parseFloat($("#id_intrinsics_fx").val()), 0, parseFloat($("#id_intrinsics_cx").val())],
+      [0, parseFloat($("#id_intrinsics_fy").val()), parseFloat($("#id_intrinsics_cy").val())],
+      [0, 0, 1],
+    ];
+    const distCoeffs = [
+      parseFloat($("#id_distortion_k1").val()),
+      parseFloat($("#id_distortion_k2").val()),
+      parseFloat($("#id_distortion_p1").val()),
+      parseFloat($("#id_distortion_p2").val()),
+      parseFloat($("#id_distortion_k3").val()),
+    ];
+    this.getCameraPositionAndRotation(cameraMatrix, distCoeffs);
+  }
+
+  setCalibrationFitStatus(message, rejectedNames, highErrorNames, geometryWarnings = []) {
+    const diagnostics = document.getElementById("calibration-diagnostics");
+    const summary = document.getElementById("calibration-fit-summary");
+    const guidance = document.getElementById("calibration-geometry-guidance");
+    const warningList = document.getElementById("calibration-geometry-warnings");
+    const details = document.getElementById("calibration-fit-details");
+    const errors = document.getElementById("calibration-point-errors");
+    if (!diagnostics || !summary) {
+      return;
+    }
+
+    diagnostics.hidden = false;
+    summary.textContent = message;
+    if (guidance && warningList) {
+      warningList.replaceChildren();
+      if (geometryWarnings.length) {
+        geometryWarnings.forEach((warning) => {
+          const item = document.createElement("li");
+          item.textContent = warning;
+          warningList.appendChild(item);
+        });
+        guidance.hidden = false;
+      } else {
+        guidance.hidden = true;
+      }
+    }
+    if (details) {
+      details.hidden = true;
+      details.open = false;
+    }
+    if (errors) {
+      errors.replaceChildren();
+    }
+    this.camCanvas.setCalibrationPointDiagnostics(rejectedNames, highErrorNames);
+    this.viewport.setCalibrationPointDiagnostics(rejectedNames, highErrorNames);
+  }
+
+  showCalibrationFitStatus(response, pointNames) {
+    const total = pointNames.length;
+    const rejectedIndices = response.rejectedIndices || [];
+    const rejectedIndexSet = new Set(rejectedIndices);
+    const rejectedNames = rejectedIndices
+      .map((index) => pointNames[index])
+      .filter(Boolean);
+    const threshold = Number(response.outlierThresholdPx);
+    const safeThreshold = Number.isFinite(threshold)
+      ? threshold
+      : CALIBRATION_OUTLIER_THRESHOLD_PX;
+    const errors = response.perPointErrors || [];
+    const highErrorIndices = errors
+      .map((error, index) =>
+        error > safeThreshold && !rejectedIndexSet.has(index) ? index : -1,
+      )
+      .filter((index) => index >= 0);
+    const highErrorNames = highErrorIndices
+      .map((index) => pointNames[index])
+      .filter(Boolean);
+    const rms = Number(response.rmsError);
+    const geometryWarnings = response.geometryWarnings || [];
+    let message;
+
+    if (response.rejectionApplied) {
+      message = `${response.fitPointCount} of ${total} point pairs used in fit; ` +
+        `${rejectedNames.length} rejected by RANSAC (${safeThreshold.toFixed(1)} px threshold).`;
+    } else if (response.rejectionRequested) {
+      message = response.ransacInlierCount === null
+        ? `RANSAC could not estimate a usable inlier set; all ${response.fitPointCount} point pairs were used in the fit.`
+        : `RANSAC found only ${response.ransacInlierCount} usable point pairs; at least ${CALIBRATION_MIN_POINTS_FOR_FIT} are needed. All ${response.fitPointCount} pairs were used in the fit.`;
+    } else {
+      message = `Outlier rejection is off; all ${response.fitPointCount} point pairs were used in the fit.`;
+    }
+    if (Number.isFinite(rms)) {
+      message += ` Fit RMS reprojection error: ${rms.toFixed(2)} px.`;
+    }
+    if (highErrorNames.length) {
+      message += ` ${highErrorNames.length} pair(s) have final residuals above ${safeThreshold.toFixed(1)} px.`;
+    }
+    this.setCalibrationFitStatus(
+      message,
+      rejectedNames,
+      highErrorNames,
+      geometryWarnings,
+    );
+
+    const details = document.getElementById("calibration-fit-details");
+    const list = document.getElementById("calibration-point-errors");
+    if (!details || !list || !errors.length) {
+      return;
+    }
+    details.hidden = false;
+    errors.forEach((error, index) => {
+      const item = document.createElement("li");
+      const pointName = pointNames[index] || `point ${index + 1}`;
+      let state = "included";
+      if (rejectedIndexSet.has(index)) {
+        state = response.rejectionApplied
+          ? "rejected by RANSAC"
+          : "flagged by RANSAC, included in fallback fit";
+      } else if (error > safeThreshold) {
+        state = "included, residual above threshold";
+      }
+      item.textContent = `${pointName}: ${Number(error).toFixed(2)} px (${state})`;
+      list.appendChild(item);
+    });
+  }
+
+  clearCalibrationPointDiagnostics() {
+    this.rejectedPointIndices = [];
+    if (this.camCanvas) {
+      this.camCanvas.setCalibrationPointDiagnostics([], []);
+    }
+    if (this.viewport) {
+      this.viewport.setCalibrationPointDiagnostics([], []);
+    }
+  }
+
+  clearCalibrationFitStatus() {
+    const diagnostics = document.getElementById("calibration-diagnostics");
+    const summary = document.getElementById("calibration-fit-summary");
+    const guidance = document.getElementById("calibration-geometry-guidance");
+    const warningList = document.getElementById("calibration-geometry-warnings");
+    const details = document.getElementById("calibration-fit-details");
+    const errors = document.getElementById("calibration-point-errors");
+    this.clearCalibrationPointDiagnostics();
+    if (diagnostics) {
+      diagnostics.hidden = true;
+    }
+    if (summary) {
+      summary.textContent = "";
+    }
+    if (guidance) {
+      guidance.hidden = true;
+    }
+    if (warningList) {
+      warningList.replaceChildren();
+    }
+    if (details) {
+      details.hidden = true;
+      details.open = false;
+    }
+    if (errors) {
+      errors.replaceChildren();
+    }
+  }
+
+  getAcceptedCalibrationPointNames(camPoints) {
+    const rejectedIndices = new Set(this.rejectedPointIndices);
+    return Object.keys(camPoints).filter(
+      (_, index) => !rejectedIndices.has(index),
+    );
   }
 
   initializeTransforms(transforms, transformType) {
@@ -381,6 +630,7 @@ export class ConvergedCameraCalibration {
     this.camCanvas.clearCalibrationPoints();
     this.viewport.clearCalibrationPoints();
     this.projectionEnabled = false;
+    this.clearCalibrationFitStatus();
   }
 
   setupResetPointsButton() {
@@ -437,10 +687,25 @@ export class ConvergedCameraCalibration {
       }
 
       if (this.isValidCalibration(camPoints, scenePoints)) {
-        const camPointsStr = Object.values(camPoints)
+        const acceptedNames = this.getAcceptedCalibrationPointNames(camPoints);
+        if (acceptedNames.length < CALIBRATION_MIN_POINTS_FOR_FIT) {
+          alert(
+            "Saving the calibration requires at least " +
+              `${CALIBRATION_MIN_POINTS_FOR_FIT} accepted point pairs after ` +
+              "outlier rejection.\n\n" +
+              `There are currently ${acceptedNames.length} accepted pairs ` +
+              `(${this.rejectedPointIndices.length} rejected by RANSAC). ` +
+              "Remove or adjust the rejected pairs and try again.",
+          );
+          return;
+        }
+        // Persist only pairs that were used in the fitted pose (exclude RANSAC rejects).
+        const camPointsStr = acceptedNames
+          .map((name) => camPoints[name])
           .map((point) => `${point[0]},${point[1]}`)
           .join(",");
-        const scenePointsStr = Object.values(scenePoints)
+        const scenePointsStr = acceptedNames
+          .map((name) => scenePoints[name])
           .map((point) => `${point[0]},${point[1]},${point[2]}`)
           .join(",");
         $("#id_transforms").val(`${camPointsStr},${scenePointsStr}`);
@@ -486,8 +751,8 @@ export class ConvergedCameraCalibration {
         }
       } else {
         alert(
-          "Saving the calibration requires an equal number of calibration points in each " +
-            "view (minimum 4).\n\n" +
+          "Saving the calibration requires matching point pairs with the same " +
+            `names in each view (minimum ${CALIBRATION_MIN_POINTS_FOR_FIT}).\n\n` +
             `There are currently ${camPointCount} points in the camera ` +
             `view and ${scenePointCount} points in the scene view.`,
         );
@@ -508,9 +773,10 @@ export class ConvergedCameraCalibration {
       let tvec = new cv.Mat();
       let R = new cv.Mat();
 
-      // Convert imagePoints and objectPoints to cv.Mat
-      const camPointsArray = Object.values(camPoints);
-      const objectPointsArray = Object.values(objectPoints);
+      // Convert imagePoints and objectPoints to cv.Mat, paired by name.
+      const acceptedNames = this.getAcceptedCalibrationPointNames(camPoints);
+      const camPointsArray = acceptedNames.map((name) => camPoints[name]);
+      const objectPointsArray = acceptedNames.map((name) => objectPoints[name]);
       const imagePointsMat = cv.matFromArray(
         camPointsArray.length,
         2,

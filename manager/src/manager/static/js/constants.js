@@ -37,6 +37,14 @@ export const CALIBRATION_POINT_COLORS = [
   "#ffa500", // Orange
   "#800080", // Purple
 ];
+// High-contrast diagnostic markers (shape + black/white rings) so they remain
+// readable on red/orange identity fills. Color accents are secondary only.
+export const CALIBRATION_DIAGNOSTIC_RING_COLOR = "#ffffff";
+export const CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR = "#000000";
+// Must match scene_common.transform.RANSAC_REPROJECTION_THRESHOLD_PX /
+// MIN_POINTS_FOR_RANSAC.
+export const CALIBRATION_OUTLIER_THRESHOLD_PX = 10;
+export const CALIBRATION_MIN_POINTS_FOR_FIT = 4;
 export const CALIBRATION_POINT_SCALE = 0.015;
 export const CALIBRATION_SCALE_FACTOR = 200;
 export const CALIBRATION_TEXT_SIZE = 0.1;

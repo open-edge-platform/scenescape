@@ -139,6 +139,32 @@ SPDX-License-Identifier: Apache-2.0
             {% endif %}
             <canvas id="map_canvas_3D" class="cameraCal border"></canvas>
           </div>
+          {% if caminst.scene.thumbnail or caminst.scene.map %}
+            <div id="calibration-diagnostics" class="mt-2" hidden>
+              <section id="calibration-fit-status" class="alert alert-secondary mb-2" role="status" aria-live="polite">
+                <div id="calibration-fit-summary"></div>
+                <small class="d-block mt-1">
+                  <span
+                    class="d-inline-flex align-items-center justify-content-center bg-white text-dark border border-dark rounded-circle fw-bold"
+                    style="width: 1.25rem; height: 1.25rem; font-size: 0.7rem; line-height: 1;"
+                    aria-hidden="true"
+                    >✕</span
+                  >
+                  rejected by RANSAC.
+                  <span class="badge bg-light text-dark border">White ring</span> residual above threshold
+                  (dashed in the camera view).
+                </small>
+                <details id="calibration-fit-details" class="mt-1" hidden>
+                  <summary>Point reprojection details</summary>
+                  <ul id="calibration-point-errors" class="mb-0"></ul>
+                </details>
+              </section>
+              <section id="calibration-geometry-guidance" class="alert alert-warning mb-0" role="status" aria-live="polite" hidden>
+                <strong id="calibration-geometry-heading">Action needed: improve point layout</strong>
+                <ul id="calibration-geometry-warnings" class="mb-0 mt-1"></ul>
+              </section>
+            </div>
+          {% endif %}
 
           {% if caminst.scene.thumbnail or caminst.scene.map %}
             <div class="form-group row">
