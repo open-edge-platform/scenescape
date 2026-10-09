@@ -31,6 +31,7 @@ Uses dedicated Makefile with Conan 2.x + CMake + Ninja. All builds run inside Do
 | `make build-image-debug`  | Debug image with gdbserver         |
 | `make test-unit`          | Run unit tests                     |
 | `make test-unit-coverage` | Coverage with enforced thresholds  |
+| `make test-robot-vision`  | RobotVision unit tests             |
 | `make test-service`       | pytest integration tests           |
 | `make test-load`          | k6 load test + drop-rate assertion |
 | `make lint-all`           | C++, Python, Dockerfile linting    |
@@ -92,6 +93,7 @@ cd tracker
 make build                    # Release build
 make test-unit                # Run unit tests
 make test-unit-coverage       # Verify coverage thresholds
+make test-robot-vision        # RobotVision unit tests
 make test-service             # Integration tests (requires running services)
 make test-load                # k6 load test + drop-rate assertion
 make lint-all                 # All linting checks

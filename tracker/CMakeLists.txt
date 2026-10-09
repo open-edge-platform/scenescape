@@ -26,6 +26,7 @@ project(tracker VERSION ${VERSION_SEMVER} LANGUAGES CXX)
 
 set(TRACKER_CXX_STANDARD 20 CACHE STRING "C++ standard for Tracker targets")
 option(BUILD_TESTS "Build unit tests" OFF)
+option(BUILD_RV_TESTS "Build RobotVision unit tests" OFF)
 
 # Enable coverage for debug builds
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -57,10 +58,10 @@ find_package(OpenMP REQUIRED)
 # RobotVision integration
 #####################################################################
 
-# Configure robot_vision subproject options: no Python, no tests/benchmarks.
+# Configure robot_vision subproject options: no Python or benchmarks; tests only with BUILD_RV_TESTS.
 set(RV_CXX_STANDARD 20 CACHE STRING "C++ standard for RobotVision targets" FORCE)
 set(BUILD_PYTHON_BINDINGS OFF CACHE BOOL "Disable Python bindings in robot_vision" FORCE)
-set(BUILD_TESTING OFF CACHE BOOL "Disable tests in robot_vision" FORCE)
+set(BUILD_TESTING ${BUILD_RV_TESTS} CACHE BOOL "Build tests in robot_vision" FORCE)
 set(BUILD_BENCHMARKS OFF CACHE BOOL "Disable benchmarks in robot_vision" FORCE)
 
 # Add robot_vision as a subdirectory (relative to scenescape root).
