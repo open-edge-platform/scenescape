@@ -12,16 +12,15 @@ from scipy.spatial.transform import Rotation
 from scene_common import log
 from scene_common.transform import (
   CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics,
-  pointsSpreadRatio, MIN_PNP_SPREAD_RATIO,
 )
 from scene_common.timestamp import get_iso_time
 
 from atag_camera_calibration import CameraCalibrationApriltag, \
     TILE_SIZE, DEFAULT_ROTATION_MATRIX, DEFAULT_MESH_ROTATION, MIN_APRILTAG_COUNT
 from auto_camera_calibration_controller import CameraCalibrationController
+from calibration_geometry import validate_correspondence_geometry
 
 MAX_WAIT_FRAME_COUNT = 10
-MAX_PLANAR_REPROJECTION_ERROR_PX = 5.0
 # Allow a small position tolerance below the lowest matched tag, scaled to the
 # configured tag size.
 CAMERA_BELOW_TAG_TOLERANCE_TAG_FRACTION = 0.5
@@ -191,33 +190,13 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
 
         # Image floor plans deliberately have planar tag centers. Check their
         # in-plane distribution and pose reprojection instead of 3D depth spread.
-        spread_ratio = pointsSpreadRatio(map_points_3d)
-        if spread_ratio < MIN_PNP_SPREAD_RATIO:
-          if os.path.splitext(sceneobj.map)[1].lower() in ('.png', '.jpg', '.jpeg'):
-            singular_values = np.linalg.svd(map_points_3d - map_points_3d.mean(axis=0),
-                                            compute_uv=False)
-            if singular_values[0] <= 1e-9 or singular_values[1] / singular_values[0] < MIN_PNP_SPREAD_RATIO:
-              message = "Matched AprilTags are too close to collinear for a reliable planar pose solve."
-            else:
-              world_to_camera = np.linalg.inv(camera_pose)
-              rvec = cv2.Rodrigues(world_to_camera[:3, :3])[0]
-              projected, _ = cv2.projectPoints(map_points_3d, rvec,
-                                                world_to_camera[:3, 3], intrinsic_matrix_2d, None)
-              reprojection_error = np.sqrt(np.mean(np.sum(
-                  (projected.reshape(-1, 2) - np.asarray(points_2d)) ** 2, axis=1)))
-              message = None
-              if not np.isfinite(reprojection_error) or reprojection_error > MAX_PLANAR_REPROJECTION_ERROR_PX:
-                message = (f"Planar AprilTag pose reprojection error is too high "
-                           f"({reprojection_error:.1f} px, maximum {MAX_PLANAR_REPROJECTION_ERROR_PX} px).")
-          else:
-            message = (
-                f"Matched AprilTags are too close to coplanar for a reliable pose solve "
-                f"(spread ratio={spread_ratio:.3f}, minimum {MIN_PNP_SPREAD_RATIO}); "
-                "use tags with more depth/height variation from this viewpoint.")
-          if message:
-            log.error(f"Rejecting degenerate calibration geometry for camera {cam_frame_data['id']}: {message}")
-            return {"status": "error", "message": message, "spread_ratio": spread_ratio,
-                    "calibration_points_3d": points_3d, "calibration_points_2d": points_2d}
+        planar_map = os.path.splitext(sceneobj.map)[1].lower() in ('.png', '.jpg', '.jpeg')
+        spread_ratio, message = validate_correspondence_geometry(
+            map_points_3d, points_2d, camera_pose, intrinsic_matrix_2d, planar_map)
+        if message:
+          log.error(f"Rejecting degenerate calibration geometry for camera {cam_frame_data['id']}: {message}")
+          return {"status": "error", "message": message, "spread_ratio": spread_ratio,
+                  "calibration_points_3d": points_3d, "calibration_points_2d": points_2d}
 
         # Reject solutions that put the camera implausibly below the tags it
         # observed. Scale the tolerance to the tag size to support scenes whose

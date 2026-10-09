@@ -11,28 +11,11 @@ from scene_common import log
 from scipy.spatial.transform import Rotation
 from scene_common.geometry import isarray, Point, Line, Rectangle, Region
 
-MAX_COPLANAR_DETERMINANT = 0.1
+# Points are coplanar when their smallest principal-axis spread is below this
+# fraction of the middle one. Stricter than OpenCV's internal planarity test
+# (eigenvalue ratio 1e-3, i.e. ~0.032 here) so SOLVEPNP_ITERATIVE agrees.
+MAX_COPLANAR_SPREAD_RATIO = 1e-2
 FALLBACK_HORIZON_DISTANCE = 1000
-# Below this ratio, a point cloud's smallest principal-axis spread is
-# negligible relative to its largest and is poorly conditioned for solvePnP.
-MIN_PNP_SPREAD_RATIO = 0.05
-
-
-def pointsSpreadRatio(points_3d):
-  """Return the smallest-to-largest principal-axis spread ratio for 3D points.
-
-  A value near zero indicates that the points are coplanar or have negligible
-  spread along one axis. Fewer than four points or a collapsed point cloud
-  returns 0.0.
-  """
-  points = np.asarray(points_3d, dtype=float)
-  if len(points) < 4:
-    return 0.0
-  centered = points - points.mean(axis=0)
-  singular_values = np.linalg.svd(centered, compute_uv=False)
-  if singular_values[0] <= 1e-9:
-    return 0.0
-  return float(singular_values[-1] / singular_values[0])
 
 class CameraIntrinsics:
   INTRINSICS_KEYS = ('fx', 'fy', 'cx', 'cy')
@@ -619,18 +602,15 @@ class PointCorrespondenceTransform(CameraPose):
 
     return np.linalg.det(np.array([v1, v2, v3]))
 
-  # This is necessary to check when we have 4 or 5 points since
-  # SOLVEPNP_INTERATIVE needs 6 points if they are not coplanar
+  # Scale-invariant so solver selection does not depend on scene units.
   def arePointsCoplanar(self, points):
-    if len(points) == 5:
-      for i in range(len(points)):
-        subset = [points[j] for j in range(len(points)) if j != i]
-        if abs(self.calculateDeterminant(subset)) > MAX_COPLANAR_DETERMINANT:
-          return False
-    elif len(points) == 4:
-      if abs(self.calculateDeterminant(points)) > MAX_COPLANAR_DETERMINANT:
-        return False
-    return True
+    points = np.asarray(points, dtype=float)
+    if len(points) < 4:
+      return True
+    singular_values = np.linalg.svd(points - points.mean(axis=0), compute_uv=False)
+    if singular_values[1] <= 1e-9 * max(singular_values[0], 1e-12):
+      return True
+    return bool(singular_values[2] / singular_values[1] < MAX_COPLANAR_SPREAD_RATIO)
 
 def getPoseMatrix(sceneobj, rot_adjust=None):
   """! Extract the pose matrix of the scenescape object.
