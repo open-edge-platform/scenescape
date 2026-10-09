@@ -2,10 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from types import SimpleNamespace
+from threading import Lock
 
 import numpy as np
 
 import atag_camera_calibration_controller as calibration
+from auto_camera_calibration_api import CameraCalibrationApi
 
 
 def _generate_calibration(monkeypatch, points_3d, camera_translation, tag_size=0.2):
@@ -78,3 +80,18 @@ def test_camera_below_tag_tolerance_scales_with_tag_size(monkeypatch):
   result = _generate_calibration(monkeypatch, points_3d, [0, 0, -0.15], tag_size=0.4)
 
   assert result["status"] == "success"
+
+
+def test_calibration_status_exposes_spread_ratio():
+  scene = SimpleNamespace(id="scene-id", camera_calibration="AprilTag")
+  context = SimpleNamespace(
+      calibration_data_interface=SimpleNamespace(scene_camera_with_id=lambda camera_id: scene),
+      calibration_thread_lock=Lock(),
+      calibration_results={"camera-id": {"status": "success", "spread_ratio": 0.25}},
+  )
+  api = CameraCalibrationApi(context)
+
+  response = api.app.test_client().get("/v1/cameras/camera-id/calibration")
+
+  assert response.status_code == 200
+  assert response.get_json()["spread_ratio"] == 0.25
