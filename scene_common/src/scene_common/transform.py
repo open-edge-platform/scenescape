@@ -585,10 +585,10 @@ class PointCorrespondenceTransform(CameraPose):
 
   def _calculatePoseMat(self):
     computation_method = cv2.SOLVEPNP_ITERATIVE
-    # If the points are not coplanar, we need at least 6 points to calculate the pose
-    # so we use an alternative computation method
-    if (not self.arePointsCoplanar(self.mapPoints) and len(self.mapPoints < 6)):
-      computation_method = cv2.SOLVEPNP_P3P
+    # ITERATIVE needs >= 6 non-coplanar points (DLT init) and P3P accepts only 3-4,
+    # so use SQPNP, which supports any count >= 3.
+    if len(self.mapPoints) < 6 and not self.arePointsCoplanar(self.mapPoints):
+      computation_method = cv2.SOLVEPNP_SQPNP
 
     _, rvec, tvec, = cv2.solvePnP(self.mapPoints, self.cameraPoints,
                                   self.intrinsics.intrinsics, self.intrinsics.distortion,

@@ -160,7 +160,7 @@ def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
   Exactly mirrors PointCorrespondenceTransform._calculatePoseMat() in
   scene_common/src/scene_common/transform.py, including:
   - distortion coefficients via CameraIntrinsics._setDistortion logic
-  - coplanarity check selecting SOLVEPNP_P3P vs SOLVEPNP_ITERATIVE
+  - coplanarity check selecting SOLVEPNP_SQPNP vs SOLVEPNP_ITERATIVE
   - pose extraction via _poseMatToPose
 
   Args:
@@ -183,8 +183,8 @@ def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
     dist = _distortion_to_array(distortion)
 
     computation_method = cv2.SOLVEPNP_ITERATIVE
-    if not _are_coplanar(map_arr.tolist()) and len(map_arr) < 6:
-      computation_method = cv2.SOLVEPNP_P3P
+    if len(map_arr) < 6 and not _are_coplanar(map_arr.tolist()):
+      computation_method = cv2.SOLVEPNP_SQPNP
 
     ok, rvec, tvec = cv2.solvePnP(map_arr, cam_arr, K, dist,
                    flags=computation_method)
