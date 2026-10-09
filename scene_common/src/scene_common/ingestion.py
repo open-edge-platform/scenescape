@@ -166,6 +166,7 @@ class SceneDataIngestion:
     # but Analytics _updateVisible also treats empty as fill-eligible.
     obj.visibility = obj_data.get('visibility')
     obj.info = {'category': obj.category, 'confidence': obj.confidence}
+    obj.association_window = obj_data.get('association_window')
     # Debug aid carried through from the publisher (e.g. "lidar"/"camera");
     # not part of the curated obj.info reconstruction above.
     obj.source = obj_data.get('source')

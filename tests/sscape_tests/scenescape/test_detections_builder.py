@@ -198,6 +198,18 @@ class TestDetectionsBuilder:
 
     assert 'reid' not in detection['metadata']
 
+  def test_prepare_obj_dict_includes_association_window(self):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.association_window = {
+      'method': 'euclidean',
+      'shape': 'circle',
+      'radius_m': 2.0,
+    }
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert detection['association_window'] == obj.association_window
+
   def test_prepare_obj_dict_handles_chain_data_without_sensor_fields(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
     obj.chain_data = ChainData(regions=[], persist={}, publishedLocations=[])
