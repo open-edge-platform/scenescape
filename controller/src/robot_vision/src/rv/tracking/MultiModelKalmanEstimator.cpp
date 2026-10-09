@@ -7,6 +7,7 @@
 #include "rv/tracking/CVModel.hpp"
 #include "rv/tracking/CPModel.hpp"
 #include "rv/tracking/Classification.hpp"
+#include "rv/tracking/OrientationAttributes.hpp"
 
 namespace rv {
 namespace tracking {
@@ -88,6 +89,10 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
   }
 
   mCurrentState = std::move(track);
+  if (orientation::hasOrientation(mCurrentState))
+  {
+    orientation::markOrientationObserved(mCurrentState);
+  }
 }
 
 
@@ -230,14 +235,16 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
 void MultiModelKalmanEstimator::singleModelCorrect(const TrackedObject &measurement)
 {
   auto newMeasurement = measurement;
-  newMeasurement.yaw = mCurrentState.previousYaw - rv::deltaTheta(measurement.yaw, mCurrentState.previousYaw);
+  orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
   auto correctedState = mKalmanFilters[0]->correct(newMeasurement.measurementVector());
 
   mCurrentState.errorCovariance = mKalmanFilters[0]->getErrorCov();
   mCurrentState.setStateVector(correctedState);
 
   mCurrentState.classification = rv::tracking::classification::combine(mCurrentState.classification , measurement.classification);
+  const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
+  orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
   mCurrentState.corrected = true;
 }
 
@@ -249,7 +256,7 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   }
 
   auto newMeasurement = measurement;
-  newMeasurement.yaw = mCurrentState.previousYaw - rv::deltaTheta(measurement.yaw, mCurrentState.previousYaw);
+  orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
 
   std::vector<cv::Mat> states;
   std::vector<cv::Mat> covariances;
@@ -282,7 +289,9 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   mCurrentState.setStateVector(combinedState);
 
   mCurrentState.classification = rv::tracking::classification::combine(mCurrentState.classification , measurement.classification);
+  const TrackedObject priorState = mCurrentState;
   mCurrentState.attributes = measurement.attributes;
+  orientation::mergeOrientationAttributes(priorState, newMeasurement, mCurrentState);
 
   mCurrentState.corrected = true;
 }

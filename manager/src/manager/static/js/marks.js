@@ -16,9 +16,22 @@ function addOrUpdateTableRow(table, key, value) {
   } else {
     var newRow = document.createElement("tr");
     newRow.setAttribute("data-key", key);
-    newRow.innerHTML = `<th>${key}</th><td>${value}</td>`;
+    var th = document.createElement("th");
+    th.textContent = key;
+    var td = document.createElement("td");
+    td.textContent = value;
+    newRow.appendChild(th);
+    newRow.appendChild(td);
     table.appendChild(newRow);
   }
+}
+
+// Detection source is untrusted (published over MQTT by the LiDAR/camera
+// debug pipeline), so it's constrained to a known allow-list before being
+// used in CSS class names or labels.
+var KNOWN_SOURCES = ["lidar", "camera"];
+function sanitizeSource(source) {
+  return KNOWN_SOURCES.includes(source) ? source : undefined;
 }
 
 function updateTooltipContent(mark, o, show_telemetry) {
@@ -26,21 +39,31 @@ function updateTooltipContent(mark, o, show_telemetry) {
   const tooltip = mark.node.querySelector(".mark-tooltip");
   const persistentData = o.persistent_data;
 
-  if (!persistentData) return;
+  // Detection source ("lidar" or "camera") is only present on pipelines that
+  // publish it explicitly (e.g. the LiDAR/camera fusion debug pipeline), so
+  // it's shown separately from persistent_data instead of gating on it.
+  const source = sanitizeSource(o.source);
+  if (source) {
+    addOrUpdateTableRow(table, "source", source);
+  }
 
-  const persistentDataArray = Object.entries(persistentData).flatMap(
-    ([key, value]) =>
-      typeof value === "object" && value !== null
-        ? Object.entries(value).map(([nestedKey, nestedValue]) => ({
-            key: `${key}.${nestedKey}`,
-            value: nestedValue,
-          }))
-        : { key, value },
-  );
+  if (!persistentData && !source) return;
 
-  persistentDataArray.forEach(({ key, value }) =>
-    addOrUpdateTableRow(table, key, value),
-  );
+  if (persistentData) {
+    const persistentDataArray = Object.entries(persistentData).flatMap(
+      ([key, value]) =>
+        typeof value === "object" && value !== null
+          ? Object.entries(value).map(([nestedKey, nestedValue]) => ({
+              key: `${key}.${nestedKey}`,
+              value: nestedValue,
+            }))
+          : { key, value },
+    );
+
+    persistentDataArray.forEach(({ key, value }) =>
+      addOrUpdateTableRow(table, key, value),
+    );
+  }
 
   if (tooltip) {
     const { width, height } = table.getBoundingClientRect();
@@ -170,6 +193,12 @@ function addNewMark(
     .attr("id", "mark_" + o.id)
     .addClass("mark")
     .addClass(o.type);
+  // Detection source ("lidar" or "camera") lets the debug pipeline visually
+  // distinguish which sensor produced an object before fusion is applied.
+  const source = sanitizeSource(o.source);
+  if (source) {
+    mark.addClass("source-" + source);
+  }
 
   if (show_trails) {
     trail = svgCanvas
@@ -177,6 +206,9 @@ function addNewMark(
       .attr("id", "mark_" + o.id)
       .addClass("trail")
       .addClass(o.type);
+    if (source) {
+      trail.addClass("source-" + source);
+    }
   }
 
   // FIXME: Make object size in the display a configurable option, or receive from Scenescape
@@ -184,6 +216,8 @@ function addNewMark(
     mark_radius = parseInt(scale * 0.3); // Person is about 0.3 meter radius
   } else if (o.type == "vehicle") {
     mark_radius = parseInt(scale * 1.5); // Vehicles are about 1.5 meters "radius" (3 meters across)
+  } else if (o.type == "cyclist") {
+    mark_radius = parseInt(scale * 0.35); // Cyclists are about 0.35 meter radius (~0.65 m wide)
   } else if (o.type == "apriltag") {
     mark_radius = parseInt(scale * 0.15); // Arbitrary AprilTag size (smaller than person)
   } else {
@@ -193,8 +227,14 @@ function addNewMark(
   // Create the circle
   var circle = mark.circle(0, 0, mark_radius);
 
+  // Label the mark with the first letter of its detection source (e.g. "L"
+  // for lidar, "C" for camera) so streams can be told apart on the map
+  // before fusion logic combines them. Objects without o.source (e.g. from
+  // pipelines that don't report it) render no label, same as before.
+  var sourceLabel = source ? source.charAt(0).toUpperCase() : "";
+
   // add tooltip foreign object
-  var text = mark.text(0, 0, "");
+  var text = mark.text(0, 0, sourceLabel);
   var foreignObject = document.createElementNS(
     "http://www.w3.org/2000/svg",
     "foreignObject",
