@@ -76,6 +76,7 @@ def test_build_time(built_image_result, result_recorder):
   assert duration <= image.time_limit_seconds, (
     f"{TEST_NAME}: Building {image.name} took {duration:.2f}s (limit is {image.time_limit_seconds}s)"
   )
+  result_recorder.success()
 
 @pytest.mark.test_name("NEX-T12520")
 def test_image_size(built_image_result, result_recorder):
