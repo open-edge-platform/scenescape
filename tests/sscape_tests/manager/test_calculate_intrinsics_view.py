@@ -8,7 +8,12 @@ import numpy as np
 import pytest
 from rest_framework.test import APIRequestFactory, force_authenticate
 
-from manager.calculate_intrinsics_view import CalculateCameraIntrinsics
+from manager.calculate_intrinsics_view import (
+  CalculateCameraIntrinsics,
+  assess_calibration_geometry,
+  assess_image_point_coverage,
+  assess_map_point_geometry,
+)
 
 
 @pytest.mark.test_name("NEX-T10426")
@@ -75,3 +80,77 @@ def test_calculate_intrinsics_reports_rejection_and_fit_counts(
   assert response.data["fitPointCount"] == (4 if expected_applied else 5)
   assert response.data["rejectedIndices"] == expected_rejected
   assert len(response.data["perPointErrors"]) == 5
+  assert "geometryWarnings" in response.data
+  assert "imageCoverage" in response.data
+  assert "mapInPlaneSpreadRatio" in response.data
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_assess_map_point_geometry_flags_collinear_planar_points():
+  """Nearly collinear floor-plan points produce a map geometry warning."""
+  map_points = [
+    [0.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0],
+    [2.0, 0.01, 0.0],
+    [3.0, -0.01, 0.0],
+  ]
+  assessment = assess_map_point_geometry(map_points)
+  assert assessment["mapNearlyPlanar"] is True
+  assert assessment["mapInPlaneSpreadRatio"] < 0.05
+  assert any("thin line" in warning for warning in assessment["warnings"])
+  assert any("triangle or rectangle" in warning
+             for warning in assessment["warnings"])
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_assess_map_point_geometry_accepts_well_spread_planar_square():
+  """A wide planar square should not warn about collinearity."""
+  map_points = [
+    [0.0, 0.0, 0.0],
+    [2.0, 0.0, 0.0],
+    [2.0, 2.0, 0.0],
+    [0.0, 2.0, 0.0],
+  ]
+  assessment = assess_map_point_geometry(map_points)
+  assert assessment["mapNearlyPlanar"] is True
+  assert assessment["warnings"] == []
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_assess_image_point_coverage_flags_concentrated_cluster():
+  """Camera points bunched in a small patch should warn about coverage."""
+  cam_points = [
+    [300.0, 220.0],
+    [310.0, 225.0],
+    [305.0, 230.0],
+    [315.0, 228.0],
+  ]
+  assessment = assess_image_point_coverage(cam_points, (640, 480))
+  assert assessment["imageCoverage"] < 0.12
+  assert any("too little of the frame" in warning
+             for warning in assessment["warnings"])
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_assess_calibration_geometry_flags_shallow_depth_cluster():
+  """Points at similar camera depth should warn even with a planar square."""
+  map_points = np.array([
+    [0.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0],
+    [1.0, 1.0, 0.0],
+    [0.0, 1.0, 0.0],
+  ], dtype=float)
+  cam_points = np.array([
+    [100.0, 100.0],
+    [500.0, 100.0],
+    [500.0, 400.0],
+    [100.0, 400.0],
+  ], dtype=float)
+  # Identity rotation, translation puts the plane at z=5 (uniform depth).
+  rvec = np.zeros((3, 1))
+  tvec = np.array([[0.0], [0.0], [5.0]])
+  geometry = assess_calibration_geometry(
+    map_points, cam_points, (640, 480), rvec, tvec)
+  assert geometry["depthRangeRatio"] == pytest.approx(1.0)
+  assert any("similar depth" in warning
+             for warning in geometry["geometryWarnings"])

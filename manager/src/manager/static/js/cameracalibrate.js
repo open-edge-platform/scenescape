@@ -359,8 +359,8 @@ export class ConvergedCameraCalibration {
       ) {
         this.updateCalibrationPoseFromFit();
       }
-      const status = document.getElementById("calibration-fit-status");
-      if (status && !status.hidden) {
+      const diagnostics = document.getElementById("calibration-diagnostics");
+      if (diagnostics && !diagnostics.hidden) {
         const cameraCount = Object.keys(camPoints).length;
         const mapCount = Object.keys(mapPoints).length;
         const message = cameraCount !== mapCount
@@ -389,17 +389,32 @@ export class ConvergedCameraCalibration {
     this.getCameraPositionAndRotation(cameraMatrix, distCoeffs);
   }
 
-  setCalibrationFitStatus(message, rejectedNames, highErrorNames) {
-    const status = document.getElementById("calibration-fit-status");
+  setCalibrationFitStatus(message, rejectedNames, highErrorNames, geometryWarnings = []) {
+    const diagnostics = document.getElementById("calibration-diagnostics");
     const summary = document.getElementById("calibration-fit-summary");
+    const guidance = document.getElementById("calibration-geometry-guidance");
+    const warningList = document.getElementById("calibration-geometry-warnings");
     const details = document.getElementById("calibration-fit-details");
     const errors = document.getElementById("calibration-point-errors");
-    if (!status || !summary) {
+    if (!diagnostics || !summary) {
       return;
     }
 
-    status.hidden = false;
+    diagnostics.hidden = false;
     summary.textContent = message;
+    if (guidance && warningList) {
+      warningList.replaceChildren();
+      if (geometryWarnings.length) {
+        geometryWarnings.forEach((warning) => {
+          const item = document.createElement("li");
+          item.textContent = warning;
+          warningList.appendChild(item);
+        });
+        guidance.hidden = false;
+      } else {
+        guidance.hidden = true;
+      }
+    }
     if (details) {
       details.hidden = true;
       details.open = false;
@@ -432,6 +447,7 @@ export class ConvergedCameraCalibration {
       .map((index) => pointNames[index])
       .filter(Boolean);
     const rms = Number(response.rmsError);
+    const geometryWarnings = response.geometryWarnings || [];
     let message;
 
     if (response.rejectionApplied) {
@@ -450,11 +466,16 @@ export class ConvergedCameraCalibration {
     if (highErrorNames.length) {
       message += ` ${highErrorNames.length} pair(s) have final residuals above ${safeThreshold.toFixed(1)} px.`;
     }
-    this.setCalibrationFitStatus(message, rejectedNames, highErrorNames);
+    this.setCalibrationFitStatus(
+      message,
+      rejectedNames,
+      highErrorNames,
+      geometryWarnings,
+    );
 
     const details = document.getElementById("calibration-fit-details");
     const list = document.getElementById("calibration-point-errors");
-    if (!details || !list || errors.length === 0) {
+    if (!details || !list || !errors.length) {
       return;
     }
     details.hidden = false;
@@ -475,16 +496,24 @@ export class ConvergedCameraCalibration {
   }
 
   clearCalibrationFitStatus() {
-    const status = document.getElementById("calibration-fit-status");
+    const diagnostics = document.getElementById("calibration-diagnostics");
     const summary = document.getElementById("calibration-fit-summary");
+    const guidance = document.getElementById("calibration-geometry-guidance");
+    const warningList = document.getElementById("calibration-geometry-warnings");
     const details = document.getElementById("calibration-fit-details");
     const errors = document.getElementById("calibration-point-errors");
     this.rejectedPointIndices = [];
-    if (status) {
-      status.hidden = true;
+    if (diagnostics) {
+      diagnostics.hidden = true;
     }
     if (summary) {
       summary.textContent = "";
+    }
+    if (guidance) {
+      guidance.hidden = true;
+    }
+    if (warningList) {
+      warningList.replaceChildren();
     }
     if (details) {
       details.hidden = true;
