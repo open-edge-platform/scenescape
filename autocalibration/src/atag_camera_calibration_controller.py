@@ -23,7 +23,7 @@ from auto_camera_calibration_controller import CameraCalibrationController
 MAX_WAIT_FRAME_COUNT = 10
 MAX_PLANAR_REPROJECTION_ERROR_PX = 5.0
 # Allow a small position tolerance below the lowest matched tag, scaled to the
-# configured tag size rather than assuming scene units are meters.
+# configured tag size.
 CAMERA_BELOW_TAG_TOLERANCE_TAG_FRACTION = 0.5
 
 
