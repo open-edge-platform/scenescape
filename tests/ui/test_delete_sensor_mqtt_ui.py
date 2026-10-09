@@ -84,7 +84,7 @@ def getSensorUid(rest, sensor_name):
   return res["results"][0]['uid']
 
 @pytest.mark.test_name("NEX-T10432")
-def test_sensor_delete_mqtt(params):
+def test_sensor_delete_mqtt(demo_scene, params, record_xml_attribute):
   '''! This function creates a sensor from the UI and then deletes
   the sensor. After the sensor deletion, the MQTT server should not
   give any response, else the test fails.
@@ -99,6 +99,7 @@ def test_sensor_delete_mqtt(params):
   rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
   assert rest.authenticate(params['user'], params['password'])
 
+  browser = None
   try:
     client = PubSub(params['auth'], None, params['rootcert'],
                     params['broker_url'], params['broker_port'])
@@ -154,7 +155,8 @@ def test_sensor_delete_mqtt(params):
       print("Received unexpected message from some sensors!")
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

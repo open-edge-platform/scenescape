@@ -38,6 +38,7 @@ def runROIMqttCreate(sceneObjectMqtt):
 def test_roi_create(scenescape_env, demo_scene, request, record_xml_attribute):
   test_name = getattr(request.node, '_scenescape_test_name', TEST_NAME)
   test = SceneObjectMqtt(test_name, request, record_xml_attribute)
+  test.sceneUID = demo_scene
   runROIMqttCreate(test)
   assert test.exitCode == 0
   return

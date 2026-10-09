@@ -36,7 +36,30 @@ APP_PROPER_NAME = 'Scenescape'
 
 TEST_SCENE_NAME = "Demo"
 TEST_SCENE_ID = "3bc091c7-e449-46a0-9540-29c499bca18c"
+TEST_CAMERA_ID = "camera1"
 TEST_MEDIA_PATH = os.path.dirname(os.path.realpath(__file__)) + "/test_media/"
+
+CAMERA_TOPIC_PREFIX = "scenescape/cmd/camera/"
+
+
+def camera_calibrate_link(browser, sensor_id=TEST_CAMERA_ID):
+  """! Return the calibration anchor of the camera called *sensor_id*.
+  @param    browser     Object wrapping the Selenium driver.
+  @param    sensor_id   Sensor id of the camera, as shown on the scene page.
+  @return   WebElement  The calibration link for that camera.
+  """
+  return browser.find_element(
+    By.CSS_SELECTOR, f'a.snapshot-image[topic="{CAMERA_TOPIC_PREFIX}{sensor_id}"]')
+
+
+def camera_calibrate_url(browser, sensor_id=TEST_CAMERA_ID):
+  """! Return the calibration page path of the camera called *sensor_id*.
+  @param    browser     Object wrapping the Selenium driver.
+  @param    sensor_id   Sensor id of the camera, as shown on the scene page.
+  @return   str         Path of the camera's calibration page.
+  """
+  href = camera_calibrate_link(browser, sensor_id).get_attribute("href")
+  return urlparse(href).path
 
 # SSIM threshold for image comparison (0 to 1 scale, where 1.0 means identical images)
 # Values above 0.95 typically indicate very similar images
@@ -520,7 +543,7 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
     bool: True if calibration was changed successfully, False otherwise.
   """
 
-  browser.find_element(By.ID, 'cam_calibrate_1').click()
+  camera_calibrate_link(browser).click()
   wait = WebDriverWait(browser, BROWSER_WAIT)
   calibration_ready_script = """
     const calibration = window.camera_calibration;
@@ -756,7 +779,7 @@ def check_cam_calibration(browser, not_expected_cam=(0, 0), not_expected_map=(0,
   @return   bool                       Boolean representing success.
   """
   try:
-    browser.find_element(By.ID,'cam_calibrate_1').click()
+    camera_calibrate_link(browser).click()
     cam_values_init = get_calibration_points(browser, 'camera')
     map_values_init = get_calibration_points(browser, 'map')
     if (cam_values_init[0] != not_expected_cam) and (map_values_init[0] != not_expected_map):
@@ -778,7 +801,7 @@ def check_calibration_initialization(browser, expected_cam_values, expected_map_
   """
   calibration = True
   try:
-    browser.find_element(By.ID,'cam_calibrate_1').click()
+    camera_calibrate_link(browser).click()
     cam_values_init = get_calibration_points(browser, 'camera')
     map_values_init = get_calibration_points(browser, 'map')
     for index in range(len(expected_cam_values)):
@@ -965,6 +988,34 @@ def create_sensor_from_sensors_page(browser, sensor_id, sensor_name, scene_name)
     return True
   print("Error while creating sensor:", sensor_name)
   return False
+
+def wait_for_save_complete(browser, timeout, save_page_url):
+  """! Waits for a camera save to finish after the Save button was clicked.
+
+  Saving dispatches the form submit only after an alert ("Camera updated")
+  has been dismissed and an async MQTT round trip completed, so the save is
+  only done once the browser has navigated away from *save_page_url*.
+
+  @param    browser         Object wrapping the Selenium driver.
+  @param    timeout         Seconds to wait for the alert and the navigation.
+  @param    save_page_url   URL of the page the Save button was clicked on.
+  @return   bool            True when the save completed within *timeout*.
+  """
+  deadline = time.time() + timeout
+  try:
+    WebDriverWait(browser, max(0, deadline - time.time())).until(
+      EC.alert_is_present())
+    browser.switch_to.alert.accept()
+  except TimeoutException:
+    # Some flows save without alerting; the navigation below is the real signal.
+    print("No save alert appeared; waiting for navigation instead.")
+  try:
+    WebDriverWait(browser, max(0, deadline - time.time())).until(
+      lambda driver: driver.current_url != save_page_url)
+  except TimeoutException:
+    print(f"Save did not navigate away from {save_page_url!r} within {timeout}s")
+    return False
+  return True
 
 def save_sensor_calibration(browser):
   """! Saves sensor calibration in the Manage Sensor tab.
@@ -1289,14 +1340,15 @@ def create_camera(browser, camera_name, camera_id, scene_name):
   print("Error while creating camera:",camera_name)
   return False
 
-def check_db_status(browser):
+def check_db_status(browser, scene_name=None):
   """! The purpose of this function is to make sure database is
   up before running the tests. This function will return true if
-  it's able to navigate to the 'Demo' scene page.
+  it's able to navigate to the given scene page (defaults to 'Demo').
   @param    browser                    Object wrapping the Selenium driver.
+  @param    scene_name                 Name of the scene to navigate to.
   @return   bool                       Boolean representing success.
   """
-  return navigate_to_scene(browser, TEST_SCENE_NAME)
+  return navigate_to_scene(browser, scene_name or TEST_SCENE_NAME)
 
 def navigate_to_scene(browser, scene_name):
   """! This function navigates to the 'Scenes' page, then waits for the Scene 'scene_name'

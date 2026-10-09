@@ -17,7 +17,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T10397")
-def test_del_sensor_scene_main(params, record_xml_attribute):
+def test_del_sensor_scene_main(demo_scene, params, record_xml_attribute):
   """! Checks that sensor can still be deleted after the scene the sensor was attached to is deleted.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

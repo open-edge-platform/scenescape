@@ -36,8 +36,8 @@ SCENESCAPE_SPEC = FuncTestSpec(
 pytestmark = pytest.mark.preserve_db
 
 @pytest.mark.test_name("NEX-T21491")
-def test_scene_retrack_disabled_objects_propagate_to_parent(
-    objData, params):
+def test_scene_retrack_disabled_objects_propagate_to_parent(demo_scene,
+    objData, record_xml_attribute, params):
   """! Positive test: with retrack=False, objects from the child scene still
   appear on the parent regulated topic.  They bypass the parent tracker and
   are merged as already-tracked objects.
@@ -86,8 +86,8 @@ def test_scene_retrack_disabled_objects_propagate_to_parent(
 
 
 @pytest.mark.test_name("NEX-T21492")
-def test_scene_retrack_disabled_preserves_child_object_ids(
-    objData, params):
+def test_scene_retrack_disabled_preserves_child_object_ids(demo_scene,
+    objData, record_xml_attribute, params):
   """! Positive test: with retrack=False, object IDs published on the parent's
   regulated topic match the IDs from the child scene.  This verifies that
   objects bypass the parent tracker and keep their original IDs.
@@ -144,8 +144,8 @@ def test_scene_retrack_disabled_preserves_child_object_ids(
 
 
 @pytest.mark.test_name("NEX-T21493")
-def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(
-    objData, params):
+def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(demo_scene,
+    objData, record_xml_attribute, params):
   """! Positive test: with retrack=True, the parent tracker assigns its own
   tracking IDs to objects received from the child scene.  The IDs seen on
   the parent regulated topic must not match the child's IDs.
@@ -202,8 +202,8 @@ def test_scene_retrack_enabled_assigns_new_ids_to_child_objects(
 
 
 @pytest.mark.test_name("NEX-T21494")
-def test_scene_retrack_toggle_changes_id_behaviour(
-    objData, params):
+def test_scene_retrack_toggle_changes_id_behaviour(demo_scene,
+    objData, record_xml_attribute, params):
   """! Positive test: with continuous object publishing, toggling retrack
   from True to False causes the parent to switch from assigning new tracking
   IDs to preserving the child's original IDs.  Phase 1 (retrack=True): parent
@@ -288,7 +288,7 @@ def test_scene_retrack_toggle_changes_id_behaviour(
 
 
 @pytest.mark.test_name("NEX-T21707")
-def test_external_topic_payload_has_required_fields(objData, params):
+def test_external_topic_payload_has_required_fields(demo_scene, objData, record_xml_attribute, params):
   """! Verify that DATA_EXTERNAL messages published for a child scene contain
   the required top-level fields (id, timestamp, name, objects) and that each
   object entry contains id, translation (three finite floats), and type.
@@ -370,8 +370,8 @@ def test_external_topic_payload_has_required_fields(objData, params):
 
 
 @pytest.mark.test_name("NEX-T21708")
-def test_external_topic_translations_reach_parent_regulated(
-    objData, params):
+def test_external_topic_translations_reach_parent_regulated(demo_scene,
+    objData, record_xml_attribute, params):
   """! Verify that object translations from DATA_EXTERNAL (child scene space)
   reach the parent regulated topic after the coordinate transform.  With
   retrack=False, object IDs are preserved across the hierarchy, allowing
@@ -485,8 +485,8 @@ def test_external_topic_translations_reach_parent_regulated(
 
 
 @pytest.mark.test_name("NEX-T21709")
-def test_external_update_rate_limits_publish_frequency(
-    objData, params):
+def test_external_update_rate_limits_publish_frequency(demo_scene,
+    objData, record_xml_attribute, params):
   """! Verify that the external_update_rate scene setting limits the frequency
   at which DATA_EXTERNAL messages are published.  The child scene rate is set
   to 1 Hz, camera detections are sent at FRAME_RATE for measure_window seconds.

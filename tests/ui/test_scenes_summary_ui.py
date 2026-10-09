@@ -17,7 +17,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T10394")
-def test_scenes_summary_main(params, record_xml_attribute):
+def test_scenes_summary_main(demo_scene, params, record_xml_attribute):
   """! Creates a second scene and checks that both scenes are both visible in
   the scene summary view.
   @param    params                  Dict of test parameters.

@@ -63,7 +63,7 @@ def create_user(browser, user_name, pwd):
   return True
 
 @pytest.mark.test_name("NEX-T10418")
-def test_crud_operations(params, record_xml_attribute):
+def test_crud_operations(demo_scene, params, record_xml_attribute):
   """! Checks that while an admin can perform CRUD functions
   on scenes, cameras, and sensors via the web UI a regular user cannot.
   @param    params                  Dict of test parameters.

@@ -67,12 +67,9 @@ def rest(params):
   return client
 
 @pytest.fixture(scope="function")
-def scene_uid(rest, params):
-  name = params['scene_name']
-  res = rest.getScenes({'name': name})
-  scenes = res.get('results', []) if isinstance(res, dict) else []
-  assert scenes, f"Scene '{name}' not found"
-  return scenes[0]['uid']
+def scene_uid(demo_scene):
+  """UID of the demo scene, created fresh for the test by demo_scene."""
+  return demo_scene
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_configure(config):

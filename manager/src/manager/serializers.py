@@ -100,18 +100,6 @@ class PointsSerializerField(serializers.DictField):
                                         x=point[0], y=point[1])
     return
 
-class ResolutionSerializerField(serializers.DictField):
-  def to_representation(self, obj):
-    if hasattr(obj, 'width') and hasattr(obj, 'height') \
-       and obj.width is not None and obj.height is not None:
-      return [obj.width, obj.height]
-    return None
-
-  def to_internal_value(self, data):
-    if isinstance(data, (list, tuple)):
-      return {'width': data[0], 'height': data[1]}
-    return None
-
 class RegionOccupancyThresholdSerializer(serializers.ModelSerializer):
   sectors = serializers.JSONField()
   range_max = serializers.IntegerField()
