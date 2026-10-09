@@ -47,11 +47,17 @@ _Figure 1: Testing AprilTag visibility in camera feed._
 
 ### 3. Place AprilTags Throughout the Scene
 
-- Distribute tags so each camera sees at least 4.
+- Distribute tags so each camera sees at least 4, with meaningful variation in their 3D positions.
+- Avoid views where all matched tag centers lie on a single plane or at nearly the same depth.
 - Avoid occlusions or placing tags too close together.
 - Fix tags in position to avoid movement during calibration.
 
 > **Note**: The same AprilTags can be visible in multiple camera views, but ensure at least 4 tags are detectable in each camera.
+
+Calibration rejects tag layouts that are too close to coplanar because they can produce an
+unstable camera pose even when the image reprojection looks reasonable. It also rejects a pose
+that places the camera substantially below the lowest matched tag. That height tolerance scales
+with the configured AprilTag size, so it does not assume the scene coordinates are in meters.
 
 ---
 

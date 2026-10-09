@@ -5,7 +5,12 @@
 
 import numpy as np
 import pytest
+import sys
+from pathlib import Path
 
+_AUTOCALIBRATION_SRC = Path(__file__).resolve().parents[3] / "autocalibration" / "src"
+if str(_AUTOCALIBRATION_SRC) not in sys.path:
+  sys.path.insert(0, str(_AUTOCALIBRATION_SRC))
 from atag_camera_calibration import CameraCalibrationApriltag
 
 scene_map = "tests/resources/maps/atag-calib-demo-map.png"

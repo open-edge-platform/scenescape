@@ -13,6 +13,26 @@ from scene_common.geometry import isarray, Point, Line, Rectangle, Region
 
 MAX_COPLANAR_DETERMINANT = 0.1
 FALLBACK_HORIZON_DISTANCE = 1000
+# Below this ratio, a point cloud's smallest principal-axis spread is
+# negligible relative to its largest and is poorly conditioned for solvePnP.
+MIN_PNP_SPREAD_RATIO = 0.05
+
+
+def pointsSpreadRatio(points_3d):
+  """Return the smallest-to-largest principal-axis spread ratio for 3D points.
+
+  A value near zero indicates that the points are coplanar or have negligible
+  spread along one axis. Fewer than four points or a collapsed point cloud
+  returns 0.0.
+  """
+  points = np.asarray(points_3d, dtype=float)
+  if len(points) < 4:
+    return 0.0
+  centered = points - points.mean(axis=0)
+  singular_values = np.linalg.svd(centered, compute_uv=False)
+  if singular_values[0] <= 1e-9:
+    return 0.0
+  return float(singular_values[-1] / singular_values[0])
 
 class CameraIntrinsics:
   INTRINSICS_KEYS = ('fx', 'fy', 'cx', 'cy')

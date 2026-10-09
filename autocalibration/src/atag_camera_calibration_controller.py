@@ -10,7 +10,10 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from scene_common import log
-from scene_common.transform import CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics
+from scene_common.transform import (
+  CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics,
+  pointsSpreadRatio, MIN_PNP_SPREAD_RATIO,
+)
 from scene_common.timestamp import get_iso_time
 
 from atag_camera_calibration import CameraCalibrationApriltag, \
@@ -18,6 +21,9 @@ from atag_camera_calibration import CameraCalibrationApriltag, \
 from auto_camera_calibration_controller import CameraCalibrationController
 
 MAX_WAIT_FRAME_COUNT = 10
+# Allow a small position tolerance below the lowest matched tag, scaled to the
+# configured tag size rather than assuming scene units are meters.
+CAMERA_BELOW_TAG_TOLERANCE_TAG_FRACTION = 0.5
 
 
 class ApriltagCameraCalibrationController(CameraCalibrationController):
@@ -181,6 +187,36 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         points_3d = [np.dot(self.scene_pose_mat, np.append(point, 1))[:3].tolist()
                      for point in points_3d]
 
+        # A large tag count cannot compensate for poorly distributed 3D
+        # correspondences. Near-coplanar points can produce a plausible 2D
+        # reprojection but an unstable camera pose.
+        spread_ratio = pointsSpreadRatio(points_3d)
+        if spread_ratio < MIN_PNP_SPREAD_RATIO:
+          message = (
+              f"Matched AprilTags are too close to coplanar for a reliable pose solve "
+              f"(spread ratio={spread_ratio:.3f}, minimum {MIN_PNP_SPREAD_RATIO}); "
+              "use tags with more depth/height variation from this viewpoint.")
+          log.error(f"Rejecting degenerate calibration geometry for camera {cam_frame_data['id']}: {message}")
+          return {"status": "error", "message": message, "spread_ratio": spread_ratio,
+                  "calibration_points_3d": points_3d, "calibration_points_2d": points_2d}
+
+        # Reject solutions that put the camera implausibly below the tags it
+        # observed. Scale the tolerance to the tag size to support scenes whose
+        # coordinate units are not meters.
+        min_tag_z = min(point[2] for point in points_3d)
+        below_tag_tolerance = (cur_cam_calib_obj.tag_size
+                               * CAMERA_BELOW_TAG_TOLERANCE_TAG_FRACTION)
+        if trans[2] < min_tag_z - below_tag_tolerance:
+          message = (
+              f"Computed camera position (z={trans[2]:.2f}) is implausibly below the "
+              f"AprilTags it observed (lowest tag z={min_tag_z:.2f}); the matched tags "
+              "likely don't provide enough depth/height spread for a reliable pose solve. "
+              "Try recalibrating from a view with tags at more varied distances/heights.")
+          log.error(f"Rejecting implausible calibration for camera {cam_frame_data['id']}: {message}")
+          return {"status": "error", "message": message, "spread_ratio": spread_ratio,
+                  "translation": trans.tolist(),
+                  "calibration_points_3d": points_3d, "calibration_points_2d": points_2d}
+
         cam_calib_data['scene_name'] = sceneobj.name
         cam_calib_data['sensor_id'] = cam_frame_data['id']
         cam_calib_data['error'] = "False"
@@ -197,6 +233,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
             "calibration_points_2d": points_2d,
             "quaternion": quat.tolist(),
             "translation": trans.tolist(),
+            "spread_ratio": spread_ratio,
             "details": cam_calib_data  # Optionally include all returned data
         }
       else:
