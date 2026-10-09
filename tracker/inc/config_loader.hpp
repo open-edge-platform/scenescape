@@ -8,6 +8,8 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace tracker {
@@ -144,6 +146,14 @@ struct TrackingConfig {
 };
 
 /**
+ * @brief External-source scene bindings and scene-frame pose trust configuration.
+ */
+struct ExternalSourcesConfig {
+    std::unordered_map<std::string, std::vector<std::string>> bindings;
+    std::unordered_set<std::string> trusted_positioning_sources;
+};
+
+/**
  * @brief Service configuration loaded from JSON config file.
  *
  * Values can be overridden by environment variables with TRACKER_ prefix.
@@ -152,6 +162,7 @@ struct ServiceConfig {
     InfrastructureConfig infrastructure;
     ObservabilityConfig observability;
     TrackingConfig tracking;
+    ExternalSourcesConfig external_sources;
     ScenesConfig scenes;
 };
 
@@ -181,6 +192,11 @@ constexpr char TRACKING_MAX_UNRELIABLE_TIME_S[] = "/tracking/max_unreliable_time
 constexpr char TRACKING_NON_MEASUREMENT_TIME_DYNAMIC_S[] =
     "/tracking/non_measurement_time_dynamic_s";
 constexpr char TRACKING_NON_MEASUREMENT_TIME_STATIC_S[] = "/tracking/non_measurement_time_static_s";
+
+// External sources
+constexpr char EXTERNAL_SOURCE_BINDINGS[] = "/external_sources/bindings";
+constexpr char EXTERNAL_SOURCE_TRUSTED_POSITIONING_SOURCES[] =
+    "/external_sources/trusted_positioning_sources";
 
 // NTP
 constexpr char INFRASTRUCTURE_NTP[] = "/infrastructure/ntp";

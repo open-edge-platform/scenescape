@@ -161,6 +161,9 @@ private:
     std::vector<Track> convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tracks,
                                       const std::string& category);
 
+    std::vector<Track> update_external_tracks(const Chunk& chunk,
+                                              std::chrono::system_clock::time_point now);
+
     TrackingScope scope_;
     std::string scene_name_;
     int queue_capacity_;
@@ -174,6 +177,14 @@ private:
 
     // RobotVision int ID -> UUID v4 string mapping (single-thread access, no mutex)
     std::unordered_map<int32_t, std::string> id_map_;
+
+    struct ExternalTrackState {
+        Track track;
+        std::chrono::system_clock::time_point event_time;
+        std::chrono::system_clock::time_point last_seen;
+    };
+    std::unordered_map<std::string, ExternalTrackState> external_tracks_;
+    std::chrono::system_clock::duration external_track_max_age_;
 
     std::thread worker_thread_;
     mutable std::mutex queue_mutex_;

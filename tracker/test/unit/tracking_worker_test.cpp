@@ -106,6 +106,45 @@ TEST_F(TrackingWorkerTest, ProcessesChunks_CallsPublishCallback) {
     EXPECT_EQ(get_processed_count_wait(worker, 1), 1);
 }
 
+TEST_F(TrackingWorkerTest, ExternalDetectionBypassesTrackerAndPreservesIdentity) {
+    std::mutex mutex;
+    std::condition_variable condition;
+    std::vector<Track> published_tracks;
+    const auto now = std::chrono::system_clock::time_point{std::chrono::seconds(1000)};
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mutex);
+        published_tracks = tracks;
+        condition.notify_one();
+    };
+    TrackingWorker worker(TrackingScope{"scene-1", "person"}, "Test Scene", 2, callback,
+                          tracking_config_, {}, {}, [now] { return now; });
+
+    Chunk chunk;
+    chunk.scene_id = "scene-1";
+    chunk.category = "person";
+    DetectionBatch batch;
+    batch.source = DetectionBatch::Source::External;
+    batch.camera_id = "agent-1";
+    batch.timestamp = now;
+    batch.timestamp_iso = "1970-01-01T00:16:40.000Z";
+    batch.external_detections.push_back(
+        ExternalDetection{.id = "uwb-tag-7", .translation = {1.0, 2.0, 3.0}});
+    chunk.camera_batches.push_back(std::move(batch));
+
+    ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+    {
+        std::unique_lock lock(mutex);
+        ASSERT_TRUE(condition.wait_for(lock, std::chrono::seconds(1),
+                                       [&] { return !published_tracks.empty(); }));
+    }
+
+    ASSERT_EQ(published_tracks.size(), 1);
+    EXPECT_EQ(published_tracks[0].id, "uwb-tag-7");
+    EXPECT_EQ(published_tracks[0].translation, (std::array<double, 3>{1.0, 2.0, 3.0}));
+    EXPECT_FALSE(published_tracks[0].size.has_value());
+}
+
 // Test queue backpressure (drops when full)
 TEST_F(TrackingWorkerTest, QueueFull_DropsChunk) {
     // Use a blocking callback to fill the queue

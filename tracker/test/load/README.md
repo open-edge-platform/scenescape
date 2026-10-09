@@ -3,8 +3,8 @@
 
 # Tracker Load Tests
 
-Pytest-based load tests that validate the tracker service under sustained camera
-load. The Makefile orchestrates the full lifecycle:
+Pytest-based load tests that validate the tracker under sustained camera,
+external-source, or combined load. The Makefile orchestrates the full lifecycle:
 
 ```
 compose up (broker, otel-collector, tracker) → k6 run → pytest → compose down
@@ -15,12 +15,15 @@ compose up (broker, otel-collector, tracker) → k6 run → pytest → compose d
 ```bash
 cd tracker/
 make test-load                     # Default: 4 cameras × 15 fps × 300 objects, 1 min
+make test-load-external            # 4 external sources × 15 fps
+make test-load-mixed               # 4 cameras + 4 external sources
 ```
 
 Override defaults for boundary testing:
 
 ```bash
-NUM_CAMERAS=8 FPS=30 NUM_OBJECTS=500 DURATION=5m make test-load
+NUM_CAMERAS=8 FPS=30 NUM_OBJECTS=500 DURATION=5m make test-load-mixed
+NUM_EXTERNAL_SOURCES=12 EXTERNAL_FPS=30 NUM_OBJECTS=500 DURATION=5m make test-load-external
 ```
 
 ## Architecture
@@ -39,9 +42,11 @@ graph LR
     otel -- "Prometheus scrape" --> pytest
 ```
 
-- **k6** ([simulate-detections.js](simulate-detections.js)) publishes MQTT
-  detection messages simulating `NUM_CAMERAS` cameras at `FPS` frames/sec,
-  each with `NUM_OBJECTS` bounding boxes.
+- **k6** ([simulate-detections.js](simulate-detections.js)) publishes camera
+  detections; [simulate-external.js](simulate-external.js) publishes external
+  detections with a stable publisher ID, trusted scene-frame pose, and unique
+  object IDs per source. Each external source is explicitly bound to the test
+  scene.
 - **Tracker** processes messages and exports metrics via OTLP/gRPC.
 - **OTel Collector** ([config/otel-collector.yaml](config/otel-collector.yaml))
   receives OTLP and exposes a Prometheus scrape endpoint on port 8889.
@@ -49,13 +54,13 @@ graph LR
 
 ## SLI Thresholds
 
-| SLI              | Target         | Kind    | Metric                  | Description                        |
-| ---------------- | -------------- | ------- | ----------------------- | ---------------------------------- |
-| Dropped messages | < 0.1%         | Gate    | `tracker.mqtt.dropped`  | Ratio of dropped to total messages |
-| Active tracks    | == NUM_OBJECTS | Gate    | `tracker.tracks.active` | Tracks match expected object count |
-| Throughput       | ≥ input rate   | Warning | `tracker.mqtt.messages` | Sustained msg/s vs input rate      |
-| Latency p50      | < 1/FPS s      | Warning | `tracker.mqtt.latency`  | Median end-to-end latency          |
-| Latency p99      | < 2/FPS s      | Warning | `tracker.mqtt.latency`  | 99th percentile tail latency       |
+| SLI              | Target         | Kind    | Metric                  | Description                         |
+| ---------------- | -------------- | ------- | ----------------------- | ----------------------------------- |
+| Dropped messages | < 0.1%         | Gate    | `tracker.mqtt.dropped`  | Ratio of dropped to total messages  |
+| Active tracks    | Expected total | Gate    | `tracker.tracks.active` | Camera tracks plus external tracks  |
+| Throughput       | ≥ input rate   | Warning | `tracker.mqtt.messages` | Sustained msg/s vs total input rate |
+| Latency p50      | < 1/FPS s      | Warning | `tracker.mqtt.latency`  | Median end-to-end latency           |
+| Latency p99      | < 2/FPS s      | Warning | `tracker.mqtt.latency`  | 99th percentile tail latency        |
 
 **Gate** tests fail the build. **Warning** tests emit `pytest.warns()` but always pass.
 
@@ -106,24 +111,28 @@ After all tests, a summary table is printed with hardware context, observed valu
     End-to-end                 106.82      181.19
 ```
 
-The hardware section helps reproduce results across machines. The per-stage breakdown is informational only — no thresholds are enforced. Note how the 900-object load test shows WARN on latency (p50/p99 exceed thresholds) but PASS on drops—the queue absorbs transient slowness as long as median processing keeps pace.
+The hardware section helps reproduce results across machines. The per-stage breakdown is informational only — no thresholds are enforced. The end-to-end latency histogram is recorded at worker-chunk publication, so it measures receive-to-publish pipeline latency at chunk granularity rather than one sample per input event. External messages that are overwritten in the time-chunk buffer before dispatch are coalesced, not counted as dropped.
 
 ## Configuration
 
 All parameters are environment-variable driven:
 
-| Variable          | Default                       | Description                         |
-| ----------------- | ----------------------------- | ----------------------------------- |
-| `NUM_CAMERAS`     | 4                             | Simulated camera count              |
-| `FPS`             | 15                            | Frames per second per camera        |
-| `NUM_OBJECTS`     | 300                           | Detections per message              |
-| `DURATION`        | 1m                            | Nominal test duration (SLI window)  |
-| `LATENCY_P50_MS`  | 1000/FPS                      | p50 warning: 1 chunk period (ms)    |
-| `LATENCY_P99_MS`  | 2000/FPS                      | p99 warning: 2 chunk periods (ms)   |
-| `THROUGHPUT_MIN`  | cameras × FPS × 0.95          | Minimum sustained msg/s             |
-| `DROP_MAX_RATIO`  | 0.001                         | Maximum allowed drop ratio          |
-| `PROMETHEUS_URL`  | http://localhost:8889/metrics | OTel Collector endpoint             |
-| `METRICS_TIMEOUT` | 30                            | Seconds to wait for stable counters |
+| Variable               | Default                        | Description                             |
+| ---------------------- | ------------------------------ | --------------------------------------- |
+| `NUM_CAMERAS`          | 4                              | Simulated camera count                  |
+| `FPS`                  | 15                             | Frames per second per camera            |
+| `NUM_EXTERNAL_SOURCES` | 0 (camera), 4 (external/mixed) | Distinct external publisher count       |
+| `EXTERNAL_FPS`         | `FPS`                          | Messages per second per external source |
+| `CHUNKING_FPS`         | `FPS`                          | Tracker time-chunk dispatch rate        |
+| `NUM_OBJECTS`          | 300                            | Detections per message                  |
+| `SCENARIO`             | `camera`                       | `camera`, `external`, or `mixed`        |
+| `DURATION`             | 1m                             | Nominal test duration (SLI window)      |
+| `LATENCY_P50_MS`       | 1000/FPS                       | p50 warning: 1 chunk period (ms)        |
+| `LATENCY_P99_MS`       | 2000/FPS                       | p99 warning: 2 chunk periods (ms)       |
+| `THROUGHPUT_MIN`       | total input rate × 0.95        | Minimum sustained msg/s                 |
+| `DROP_MAX_RATIO`       | 0.001                          | Maximum allowed drop ratio              |
+| `PROMETHEUS_URL`       | http://localhost:8889/metrics  | OTel Collector endpoint                 |
+| `METRICS_TIMEOUT`      | 30                             | Seconds to wait for stable counters     |
 
 ## Simulation Model
 
@@ -143,6 +152,12 @@ rows = ceil(NUM_OBJECTS / cols)
 Each object occupies a unique cell with a small seeded-random jitter (±5 px),
 guaranteeing a minimum pixel separation between any two objects. Deterministic
 seeding (`SeededRandom(personId)`) ensures reproducible layouts across runs.
+
+The external-source generator publishes one message per source iteration with
+`NUM_OBJECTS` stable IDs. The source IDs are bound to the load-test scene and
+trusted for scene-frame positioning by the Compose test configuration. External
+track expectation is `NUM_EXTERNAL_SOURCES × NUM_OBJECTS`; in mixed mode the
+camera stream contributes one additional `NUM_OBJECTS` track set.
 
 ### World-space separation
 

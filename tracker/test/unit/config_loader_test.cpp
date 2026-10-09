@@ -802,6 +802,57 @@ TEST(ConfigLoaderTest, TlsConfigFromJsonFile_PartialConfig) {
     EXPECT_TRUE(config.infrastructure.mqtt.tls->client_key_path.empty());
 }
 
+TEST(ConfigLoaderTest, ExternalSourcesFromJson) {
+    const std::string config_text = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "external_sources": {
+        "bindings": {"agent-1": ["scene-1", "scene-2"]},
+        "trusted_positioning_sources": ["positioner-1"]
+      },
+      "scenes": {
+        "source": "file",
+        "file_path": ")" + empty_scenes_path() +
+                                    R"("
+      }
+    })";
+    TempFile config_file(config_text);
+
+    const auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_EQ(config.external_sources.bindings.at("agent-1").size(), 2);
+    EXPECT_EQ(config.external_sources.bindings.at("agent-1")[0], "scene-1");
+    EXPECT_EQ(config.external_sources.bindings.at("agent-1")[1], "scene-2");
+    EXPECT_TRUE(config.external_sources.trusted_positioning_sources.contains("positioner-1"));
+}
+
+TEST(ConfigLoaderTest, ExternalSourcesEnvironmentOverridesJson) {
+    ScopedEnv bindings(tracker::env::EXTERNAL_SOURCE_BINDINGS, "agent-2:scene-3, agent-2:scene-4");
+    ScopedEnv trusted(tracker::env::TRUSTED_POSITIONING_SOURCES, "positioner-2,positioner-3");
+    TempFile config_file(MINIMAL_CONFIG());
+
+    const auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_EQ(config.external_sources.bindings.at("agent-2").size(), 2);
+    EXPECT_TRUE(config.external_sources.trusted_positioning_sources.contains("positioner-2"));
+    EXPECT_TRUE(config.external_sources.trusted_positioning_sources.contains("positioner-3"));
+}
+
+TEST(ConfigLoaderTest, InvalidExternalBindingEnvironmentThrows) {
+    ScopedEnv bindings(tracker::env::EXTERNAL_SOURCE_BINDINGS, "agent-1/invalid:scene-1");
+    TempFile config_file(MINIMAL_CONFIG());
+
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
+TEST(ConfigLoaderTest, EmptyExternalBindingEntryThrows) {
+    ScopedEnv bindings(tracker::env::EXTERNAL_SOURCE_BINDINGS, "agent-1:scene-1,");
+    TempFile config_file(MINIMAL_CONFIG());
+
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
 //
 // Tests for missing required fields (covers lines 176-177, 183-184)
 // These require a permissive schema that doesn't enforce host/port
@@ -1046,22 +1097,6 @@ TEST(ConfigLoaderTest, SceneMissingNameThrows) {
       {
         "uid": "scene-001",
         "cameras": [{"uid": "cam-001", "name": "Camera", "intrinsics": {}, "extrinsics": {"translation": [0,0,0], "rotation": [0,0,0], "scale": [1,1,1]}}]
-      }
-    ])";
-
-    TempSceneFile scene_file(scenes);
-    TempFile config_file(config_with_scene_file(scene_file.path().string()));
-    auto config = load_config(config_file.path(), get_schema_path());
-
-    auto scene_loader = create_scene_loader(config.scenes, config_file.path().parent_path());
-    EXPECT_THROW(scene_loader->load(), std::runtime_error);
-}
-
-TEST(ConfigLoaderTest, SceneMissingCamerasThrows) {
-    const char* scenes = R"([
-      {
-        "uid": "scene-001",
-        "name": "No Cameras"
       }
     ])";
 

@@ -46,17 +46,49 @@ struct TrackingScope {
 };
 
 /**
- * @brief All detections from a single camera frame.
+ * @brief Authoritatively identified external-source observation.
+ */
+struct ExternalDetection {
+    std::string id;
+    std::string category;
+    std::array<double, 3> translation;
+    std::array<double, 4> rotation = {0.0, 0.0, 0.0, 1.0};
+    std::optional<std::array<double, 3>> size;
+    std::string metadata_json;
+    std::optional<double> confidence;
+};
+
+/**
+ * @brief Normalized observations from one source for a scene/category scope.
  *
- * This is the unit stored in TimeChunkBuffer per camera within a scope.
+ * Camera batches store pixel detections in `detections`; external batches store
+ * scene-space authoritative observations in `external_detections`. The batch is
+ * buffered per source and dispatched as part of a time-chunk.
  */
 struct DetectionBatch {
+    enum class Source {
+        Camera,
+        External
+    };
+
+    Source source = Source::Camera;
     std::string camera_id;
     std::chrono::steady_clock::time_point receive_time;
     std::string timestamp_iso;                       ///< Original ISO 8601 timestamp from message
     std::chrono::system_clock::time_point timestamp; ///< Parsed UTC timestamp
     std::vector<Detection> detections;
+    std::vector<ExternalDetection> external_detections;
     ObservabilityContext obs_ctx; ///< Pipeline observability context
+};
+
+/**
+ * @brief Pose of an external source's local origin.
+ */
+struct ExternalPose {
+    std::string reference_frame;
+    std::array<double, 3> position;
+    std::array<double, 4> rotation = {0.0, 0.0, 0.0, 1.0};
+    std::optional<std::string> provider;
 };
 
 /**
@@ -91,10 +123,10 @@ struct Chunk {
 struct Track {
     std::string id;       ///< Persistent track ID (UUID v4, mapped from RobotVision ID)
     std::string category; ///< Object category (e.g., person, vehicle)
-    std::array<double, 3> translation; ///< World position [x, y, z] meters
-    std::array<double, 3> velocity;    ///< Velocity [vx, vy, vz] m/s
-    std::array<double, 3> size;        ///< Object size [length, width, height] meters
-    std::array<double, 4> rotation;    ///< Orientation quaternion [x, y, z, w]
+    std::array<double, 3> translation;         ///< World position [x, y, z] meters
+    std::array<double, 3> velocity;            ///< Velocity [vx, vy, vz] m/s
+    std::optional<std::array<double, 3>> size; ///< Object size, absent for point observations
+    std::array<double, 4> rotation;            ///< Orientation quaternion [x, y, z, w]
     std::string
         metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
     std::optional<double>
