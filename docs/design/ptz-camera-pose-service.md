@@ -2,7 +2,7 @@
 
 - **Author(s)**: [Lukasz Talarczyk](https://github.com/ltalarcz), [Dmytro Yermolenko](https://github.com/dmytroye)
 - **Date**: 2026-10-02
-- **Status**: `Proposed`
+- **Status**: `Accepted`
 - **Related ADRs**: [ADR 13 — Controller Breakdown into Microservices](../adr/0013-controller-breakdown-microservices.md)
 
 ---
