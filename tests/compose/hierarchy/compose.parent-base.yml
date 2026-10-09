@@ -6,7 +6,7 @@ networks:
 
 services:
   parent-pgserver:
-    image: postgres:17.6
+    image: postgres:18.4
     environment:
       POSTGRES_USER: scenescape
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
@@ -14,7 +14,7 @@ services:
     networks:
       - scenescape-test
     volumes:
-      - parent-vol-db:/var/lib/postgresql/data
+      - parent-vol-db:/var/lib/postgresql
 
   parent-web:
     image: intel/scenescape-manager:${VERSION:-latest}
