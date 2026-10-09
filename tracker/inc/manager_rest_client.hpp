@@ -83,7 +83,6 @@ public:
 
     std::string fetchResource(const std::string& resource_url) override;
 
-
 private:
     std::string fetch(std::string_view resource);
 

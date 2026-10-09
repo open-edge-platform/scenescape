@@ -118,7 +118,7 @@ TEST_F(TrackingWorkerTest, ExternalDetectionBypassesTrackerAndPreservesIdentity)
         condition.notify_one();
     };
     TrackingWorker worker(TrackingScope{"scene-1", "person"}, "Test Scene", 2, callback,
-                          tracking_config_, {}, [now] { return now; });
+                          tracking_config_, {}, {}, [now] { return now; });
 
     Chunk chunk;
     chunk.scene_id = "scene-1";

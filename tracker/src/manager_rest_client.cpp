@@ -91,6 +91,11 @@ httplib::Client create_http_client(const std::string& scheme_host_port,
     return client;
 }
 
+auto authenticated_get(httplib::Client& client, std::string_view path, const std::string& token) {
+    httplib::Headers headers = {{"Authorization", "Token " + token}};
+    return client.Get(std::string(path), headers);
+}
+
 } // namespace
 
 void ManagerRestClient::authenticate(const std::string& username, const std::string& password) {
@@ -150,11 +155,10 @@ std::string ManagerRestClient::fetch(std::string_view resource) {
         create_http_client(scheme_host_port, ca_cert_path_, connect_timeout_, read_timeout_);
 
     std::string path = path_prefix + "/api/v1/" + std::string(resource);
-    httplib::Headers headers = {{"Authorization", "Token " + token_}};
 
     LOG_DEBUG("Fetching {} from Manager API: {}{}", resource, scheme_host_port, path);
 
-    auto result = client.Get(path, headers);
+    auto result = authenticated_get(client, path, token_);
 
     if (!result) {
         throw std::runtime_error("Manager API connection failed: " +
@@ -192,8 +196,7 @@ std::string ManagerRestClient::fetchResource(const std::string& resource_url) {
 
     auto client =
         create_http_client(manager_origin, ca_cert_path_, connect_timeout_, read_timeout_);
-    httplib::Headers headers = {{"Authorization", "Token " + token_}};
-    auto result = client.Get(resource_path, headers);
+    auto result = authenticated_get(client, resource_path, token_);
     if (!result) {
         throw std::runtime_error("Manager map request failed: " +
                                  httplib::to_string(result.error()));
