@@ -177,6 +177,10 @@ class IntelLabsTracking(Tracking):
       rv_object.yaw = 0.0
     rv_object.classification = self.rv_classification(sscape_object.confidence)
     attributes.update(self.metadata_to_attributes(sscape_object.metadata))
+    camera = getattr(sscape_object, 'camera', None)
+    camera_id = getattr(camera, 'cameraID', None) or getattr(camera, 'uid', None)
+    if camera_id is not None:
+      attributes['camera_id'] = str(camera_id)
     rv_object.attributes = attributes
     return rv_object
 
