@@ -89,6 +89,12 @@ export class ConvergedCameraCalibration {
     this.camCanvas = new CamCanvas(canvasElement, imageSrc);
     // FIXME: Find a better way to do these event listeners which require interacting with both
     // the camCanvas and viewport
+    this.camCanvas.canvas.addEventListener("mousedown", () => {
+      // CamCanvas handles the hit-test first; clear markers once a point drag starts.
+      if (this.camCanvas.isDragging) {
+        this.clearCalibrationPointDiagnostics();
+      }
+    });
     this.camCanvas.canvas.addEventListener("mouseup", (event) => {
       // Right-button mouseup fires before contextmenu; wait for contextmenu
       // so point deletion is applied before recalculating.
@@ -151,6 +157,12 @@ export class ConvergedCameraCalibration {
       .then(() => {
         viewport.initializeEventListeners();
 
+        viewport.renderer.domElement.addEventListener("mousedown", () => {
+          // Viewport handles the hit-test first; clear markers once a point drag starts.
+          if (viewport.isDragging) {
+            this.clearCalibrationPointDiagnostics();
+          }
+        });
         viewport.renderer.domElement.addEventListener("mouseup", (event) => {
           // Right-button mouseup fires before contextmenu; wait for contextmenu
           // so point deletion is applied before recalculating.
@@ -504,6 +516,16 @@ export class ConvergedCameraCalibration {
     });
   }
 
+  clearCalibrationPointDiagnostics() {
+    this.rejectedPointIndices = [];
+    if (this.camCanvas) {
+      this.camCanvas.setCalibrationPointDiagnostics([], []);
+    }
+    if (this.viewport) {
+      this.viewport.setCalibrationPointDiagnostics([], []);
+    }
+  }
+
   clearCalibrationFitStatus() {
     const diagnostics = document.getElementById("calibration-diagnostics");
     const summary = document.getElementById("calibration-fit-summary");
@@ -511,7 +533,7 @@ export class ConvergedCameraCalibration {
     const warningList = document.getElementById("calibration-geometry-warnings");
     const details = document.getElementById("calibration-fit-details");
     const errors = document.getElementById("calibration-point-errors");
-    this.rejectedPointIndices = [];
+    this.clearCalibrationPointDiagnostics();
     if (diagnostics) {
       diagnostics.hidden = true;
     }
@@ -530,12 +552,6 @@ export class ConvergedCameraCalibration {
     }
     if (errors) {
       errors.replaceChildren();
-    }
-    if (this.camCanvas) {
-      this.camCanvas.setCalibrationPointDiagnostics([], []);
-    }
-    if (this.viewport) {
-      this.viewport.setCalibrationPointDiagnostics([], []);
     }
   }
 

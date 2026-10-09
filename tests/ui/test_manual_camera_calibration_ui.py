@@ -190,7 +190,8 @@ def test_manual_distortion_controls(params, result_recorder):
     assert diagnostics["mapHighErrorHaloColor"] == "ffffff"
     assert diagnostics["mapHighErrorMarkVisible"] is False
     assert diagnostics["fallbackCameraRejected"] == "rejected"
-    assert "✕ mark" in diagnostics["legend"]
+    assert "✕" in diagnostics["legend"]
+    assert "rejected by RANSAC" in diagnostics["legend"]
     assert "White ring" in diagnostics["legend"]
     assert diagnostics["statusHiddenAfterClear"] is True
     assert diagnostics["rejectedAfterClear"] == []

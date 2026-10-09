@@ -144,7 +144,13 @@ SPDX-License-Identifier: Apache-2.0
               <section id="calibration-fit-status" class="alert alert-secondary mb-2" role="status" aria-live="polite">
                 <div id="calibration-fit-summary"></div>
                 <small class="d-block mt-1">
-                  <span class="badge bg-dark">✕ mark</span> rejected by RANSAC.
+                  <span
+                    class="d-inline-flex align-items-center justify-content-center bg-white text-dark border border-dark rounded-circle fw-bold"
+                    style="width: 1.25rem; height: 1.25rem; font-size: 0.7rem; line-height: 1;"
+                    aria-hidden="true"
+                    >✕</span
+                  >
+                  rejected by RANSAC.
                   <span class="badge bg-light text-dark border">White ring</span> residual above threshold
                   (dashed in the camera view).
                 </small>
