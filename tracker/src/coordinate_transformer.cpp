@@ -206,32 +206,34 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         type2_feet.reserve(n);
 
         for (size_t i = 0; i < n; ++i) {
-            const size_t base = i * kPixelsPerDetection;
+            const size_t base = i * kPointsPerDetection;
             if (!valid[base] || !valid[base + 1] || !valid[base + 2]) {
                 continue;
             }
             const auto& bl = world[base + 1];
             const auto& br = world[base + 2];
-            const auto& bbox = detections[i].bounding_box_px;
             const double base_x = (bl.x + br.x) / 2.0;
             const double base_y = (bl.y + br.y) / 2.0;
             const double base_len = std::hypot(base_x - cam_x, base_y - cam_y);
             const double base_angle = std::atan2(cam_z, base_len);
+
+            const auto& top_left_n = corners[i * kCornersPerDetection];
+            const auto& bottom_right_n = corners[i * kCornersPerDetection + 1];
+            const float height_n = bottom_right_n.y - top_left_n.y;
             type2_indices.push_back(i);
             type2_feet.push_back(
-                {bbox.x + bbox.width / 2.0f,
-                 bbox.y + bbox.height -
-                     (bbox.height / 2.0f) *
-                         static_cast<float>(base_angle / (std::numbers::pi / 2.0))});
+                {(top_left_n.x + bottom_right_n.x) / 2.0f,
+                 bottom_right_n.y - (height_n / 2.0f) *
+                                        static_cast<float>(base_angle / (std::numbers::pi / 2.0))});
         }
 
         if (!type2_feet.empty()) {
             std::vector<cv::Point2d> type2_world;
             std::vector<uint8_t> type2_valid;
-            batchPixelToWorld(type2_feet, type2_world, type2_valid);
+            batchNormalizedToWorld(type2_feet, type2_world, type2_valid);
             for (size_t j = 0; j < type2_indices.size(); ++j) {
                 if (type2_valid[j]) {
-                    world[type2_indices[j] * kPixelsPerDetection] = type2_world[j];
+                    world[type2_indices[j] * kPointsPerDetection] = type2_world[j];
                 }
             }
         }
