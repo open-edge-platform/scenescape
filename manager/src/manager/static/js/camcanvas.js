@@ -10,8 +10,8 @@
 
 import {
   CALIBRATION_BACKGROUND_COLOR,
-  CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR,
-  CALIBRATION_DIAGNOSTIC_REJECTED_COLOR,
+  CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR,
+  CALIBRATION_DIAGNOSTIC_RING_COLOR,
   CALIBRATION_POINT_COLORS,
   CALIBRATION_POINT_SCALE,
   CAMERA_SCALE_FACTOR,
@@ -256,22 +256,53 @@ class CamCanvas {
     this.ctx.fill();
 
     if (diagnostic) {
-      // Keep the identity color; draw a halo so diagnostics do not collide
-      // with the red/orange calibration palette entries.
-      const haloColor =
-        diagnostic === "rejected"
-          ? CALIBRATION_DIAGNOSTIC_REJECTED_COLOR
-          : CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR;
-      const lineWidth = Math.max(2, size * 0.22);
-      this.ctx.strokeStyle = haloColor;
+      // Shape + black/white contrast: readable on any identity fill color.
+      const isRejected = diagnostic === "rejected";
+      const ringRadius = radius + Math.max(3, size * 0.35);
+      const lineWidth = Math.max(2.5, size * 0.28);
+      const dash = Math.max(4, size * 0.45);
+      const gap = Math.max(3, size * 0.3);
+
+      this.ctx.save();
+      this.ctx.lineCap = "butt";
+      this.ctx.setLineDash([]);
+      this.ctx.strokeStyle = CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR;
+      this.ctx.lineWidth = lineWidth + 2.5;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+      this.ctx.stroke();
+
+      this.ctx.strokeStyle = CALIBRATION_DIAGNOSTIC_RING_COLOR;
       this.ctx.lineWidth = lineWidth;
+      if (!isRejected) {
+        this.ctx.setLineDash([dash, gap]);
+      }
       this.ctx.beginPath();
-      this.ctx.arc(x, y, radius + lineWidth * 0.75, 0, Math.PI * 2);
+      this.ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
       this.ctx.stroke();
-      this.ctx.lineWidth = Math.max(1, lineWidth * 0.45);
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, radius + lineWidth * 1.6, 0, Math.PI * 2);
-      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+
+      if (isRejected) {
+        const arm = radius * 0.9;
+        this.ctx.lineCap = "round";
+        this.ctx.strokeStyle = CALIBRATION_DIAGNOSTIC_RING_COLOR;
+        this.ctx.lineWidth = Math.max(4, size * 0.38);
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - arm, y - arm);
+        this.ctx.lineTo(x + arm, y + arm);
+        this.ctx.moveTo(x + arm, y - arm);
+        this.ctx.lineTo(x - arm, y + arm);
+        this.ctx.stroke();
+        this.ctx.strokeStyle = CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR;
+        this.ctx.lineWidth = Math.max(2, size * 0.22);
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - arm, y - arm);
+        this.ctx.lineTo(x + arm, y + arm);
+        this.ctx.moveTo(x + arm, y - arm);
+        this.ctx.lineTo(x - arm, y + arm);
+        this.ctx.stroke();
+      }
+      this.ctx.restore();
     }
 
     this.ctx.font = `${Math.max(12, size)}px Arial`;

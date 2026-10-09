@@ -99,16 +99,25 @@ def test_manual_distortion_controls(params, result_recorder):
         .find((point) => point.name === "calibrationPoint_p3");
       const rejectedHalo = mapRejected.children.find(
         (child) => child.name === "calibrationHalo");
+      const rejectedOutline = mapRejected.children.find(
+        (child) => child.name === "calibrationHaloOutline");
+      const rejectedMark = mapRejected.children.find(
+        (child) => child.name === "calibrationRejectMark");
       const highErrorHalo = mapHighError.children.find(
         (child) => child.name === "calibrationHalo");
+      const highErrorMark = mapHighError.children.find(
+        (child) => child.name === "calibrationRejectMark");
       const appliedCameraRejected = calibration.camCanvas.calibrationPointDiagnostics.get("p1");
       const appliedCameraHighError = calibration.camCanvas.calibrationPointDiagnostics.get("p3");
       const appliedHaloState = {
         mapPointColor: mapRejected.material.color.getHexString(),
         mapRejectedHaloVisible: rejectedHalo.visible,
+        mapRejectedOutlineVisible: rejectedOutline.visible,
         mapRejectedHaloColor: rejectedHalo.material.color.getHexString(),
+        mapRejectedMarkVisible: rejectedMark.visible,
         mapHighErrorHaloVisible: highErrorHalo.visible,
         mapHighErrorHaloColor: highErrorHalo.material.color.getHexString(),
+        mapHighErrorMarkVisible: highErrorMark.visible,
         legend: document.getElementById("calibration-fit-status").textContent,
       };
       calibration.showCalibrationFitStatus({
@@ -170,16 +179,19 @@ def test_manual_distortion_controls(params, result_recorder):
     assert diagnostics["fallbackGuidanceHidden"] is True
     assert diagnostics["acceptedNames"] == ["p0", "p2", "p3", "p4"]
     assert diagnostics["cameraRejected"] == "rejected"
-    # Identity color stays green for p1; diagnostic is a red halo instead.
+    # Identity color stays green for p1; diagnostic uses contrast ring + ✕.
     assert diagnostics["mapPointColor"] == "00ff00"
     assert diagnostics["mapRejectedHaloVisible"] is True
-    assert diagnostics["mapRejectedHaloColor"] == "dc3545"
+    assert diagnostics["mapRejectedOutlineVisible"] is True
+    assert diagnostics["mapRejectedHaloColor"] == "ffffff"
+    assert diagnostics["mapRejectedMarkVisible"] is True
     assert diagnostics["cameraHighError"] == "high-error"
     assert diagnostics["mapHighErrorHaloVisible"] is True
-    assert diagnostics["mapHighErrorHaloColor"] == "fd7e14"
+    assert diagnostics["mapHighErrorHaloColor"] == "ffffff"
+    assert diagnostics["mapHighErrorMarkVisible"] is False
     assert diagnostics["fallbackCameraRejected"] == "rejected"
-    assert "Red halo" in diagnostics["legend"]
-    assert "Orange halo" in diagnostics["legend"]
+    assert "✕ mark" in diagnostics["legend"]
+    assert "White ring" in diagnostics["legend"]
     assert diagnostics["statusHiddenAfterClear"] is True
     assert diagnostics["rejectedAfterClear"] == []
     assert diagnostics["diagnosticsAfterClear"] == []

@@ -37,9 +37,10 @@ export const CALIBRATION_POINT_COLORS = [
   "#ffa500", // Orange
   "#800080", // Purple
 ];
-// Halo colors for fit diagnostics (kept distinct from point fill colors).
-export const CALIBRATION_DIAGNOSTIC_REJECTED_COLOR = "#dc3545";
-export const CALIBRATION_DIAGNOSTIC_HIGH_ERROR_COLOR = "#fd7e14";
+// High-contrast diagnostic markers (shape + black/white rings) so they remain
+// readable on red/orange identity fills. Color accents are secondary only.
+export const CALIBRATION_DIAGNOSTIC_RING_COLOR = "#ffffff";
+export const CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR = "#000000";
 // Must match scene_common.transform.RANSAC_REPROJECTION_THRESHOLD_PX /
 // MIN_POINTS_FOR_RANSAC.
 export const CALIBRATION_OUTLIER_THRESHOLD_PX = 10;
