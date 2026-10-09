@@ -191,7 +191,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
 
         # Image floor plans deliberately have planar tag centers. Check their
         # in-plane distribution and pose reprojection instead of 3D depth spread.
-        spread_ratio = pointsSpreadRatio(points_3d)
+        spread_ratio = pointsSpreadRatio(map_points_3d)
         if spread_ratio < MIN_PNP_SPREAD_RATIO:
           if os.path.splitext(sceneobj.map)[1].lower() in ('.png', '.jpg', '.jpeg'):
             singular_values = np.linalg.svd(map_points_3d - map_points_3d.mean(axis=0),
