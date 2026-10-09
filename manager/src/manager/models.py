@@ -31,7 +31,8 @@ from scene_common.options import *
 from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
-from manager.validators import validate_map_file, validate_glb, validate_map_corners_lla, validate_scene_name
+from manager.validators import (
+  SCENE_NAME_PATTERN, validate_map_file, validate_glb, validate_map_corners_lla, validate_scene_name)
 from manager.fields import ListField
 
 from scene_common import log
@@ -194,6 +195,18 @@ class Scene(models.Model):
   regulated_rate = models.FloatField("Regulate Rate (Hz)", default=30, blank=True, validators=[MinValueValidator(0.001)])
   external_update_rate = models.FloatField("Max External Update Rate (Hz)", default=30, blank=True, validators=[MinValueValidator(0.001)])
   inlier_threshold = models.FloatField("Feature Match Confidence Threshold", default=0.5, blank=True, validators=[MinValueValidator(0.0)])
+
+  class Meta:
+    constraints = [
+      models.CheckConstraint(
+        check=(
+          models.Q(name__regex=SCENE_NAME_PATTERN)
+          & ~models.Q(name__startswith='.')
+          & ~models.Q(name__contains='..')
+        ),
+        name="%(app_label)s_%(class)s_valid_name",
+      ),
+    ]
 
   def __str__(self):
     return self.name
