@@ -172,7 +172,7 @@ TrackingWorker* TimeChunkScheduler::get_or_create_worker(const TrackingScope& sc
         }
     }
 
-    // Create new worker with tracking config and cameras
+    // Create new worker with tracking config and cameras and category projection settings
     const auto object_class = lookupObjectClass(object_classes_, scope.category);
     auto worker = std::make_unique<TrackingWorker>(scope, scene_display_name, kWorkerQueueCapacity,
                                                    publish_callback_, config_, cameras,
