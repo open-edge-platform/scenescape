@@ -11,9 +11,9 @@ from auto_camera_calibration_api import CameraCalibrationApi
 
 
 def _generate_calibration(monkeypatch, points_3d, camera_translation, tag_size=0.2,
-                          map_name="scene.png", reprojection_offset=0):
+                          map_name="scene.png", reprojection_offset=0, mesh_scale=(1, 1, 1)):
   scene = SimpleNamespace(id="scene-id", map=map_name, name="test-scene",
-                          apriltag_size=tag_size)
+                          apriltag_size=tag_size, mesh_scale=mesh_scale)
   intrinsics = np.array([[500., 0., 320.], [0., 500., 240.], [0., 0., 1.]])
   camera_pose = np.eye(4)
   camera_pose[2, 3] = -2
@@ -34,7 +34,8 @@ def _generate_calibration(monkeypatch, points_3d, camera_translation, tag_size=0
   controller.cam_calib_objs = {scene.id: camera_calibration}
   controller.frame_count = {}
   monkeypatch.setattr(controller, "decode_image", lambda image: np.zeros((1, 1, 3)))
-  monkeypatch.setattr(calibration, "getPoseMatrix", lambda scene, rotation: np.eye(4))
+  monkeypatch.setattr(calibration, "getPoseMatrix",
+                      lambda scene, rotation: np.diag([*scene.mesh_scale, 1.0]))
   monkeypatch.setattr(calibration, "CameraIntrinsics", lambda intrinsics: intrinsics)
   monkeypatch.setattr(
       calibration,
@@ -60,6 +61,28 @@ def test_generate_calibration_accepts_well_spread_tags(monkeypatch):
 
   assert result["status"] == "success"
   assert result["spread_ratio"] >= calibration.MIN_PNP_SPREAD_RATIO
+
+
+def test_generate_calibration_uses_map_spread_when_scene_scale_flattens_tags(monkeypatch):
+  points_3d = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1]]
+
+  result = _generate_calibration(monkeypatch, points_3d, [0, 0, 2],
+                                 map_name="scene.glb", mesh_scale=(1, 1, 0.001))
+
+  assert result["status"] == "success"
+  assert result["spread_ratio"] >= calibration.MIN_PNP_SPREAD_RATIO
+  assert result["calibration_points_3d"][-1] == [0, 0, 0.001]
+
+
+def test_generate_calibration_uses_map_spread_when_scene_scale_stretches_tags(monkeypatch):
+  points_3d = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 0.001]]
+
+  result = _generate_calibration(monkeypatch, points_3d, [0, 0, 2],
+                                 map_name="scene.glb", mesh_scale=(1, 1, 1000))
+
+  assert result["status"] == "error"
+  assert "coplanar" in result["message"]
+  assert result["spread_ratio"] < calibration.MIN_PNP_SPREAD_RATIO
 
 
 def test_generate_calibration_accepts_planar_image_tags(monkeypatch, result_data):
