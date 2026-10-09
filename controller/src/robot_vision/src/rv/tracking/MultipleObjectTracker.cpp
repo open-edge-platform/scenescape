@@ -588,18 +588,26 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
 
   // 4. - Group unmatched detections across cameras before creating tracks.
   std::vector<tracking::TrackedObject> newObjects;
+  // (camera, object) members of each newObjects entry, re-fused together so cameras weigh equally.
+  std::vector<std::vector<std::pair<size_t, size_t>>> clusterMembers;
   size_t totalUnassignedObjects = 0;
   for (auto &cameraObjects : objectsPerCamera)
   {
     totalUnassignedObjects += cameraObjects.size();
   }
   newObjects.reserve(totalUnassignedObjects);
+  clusterMembers.reserve(totalUnassignedObjects);
 
-  for (auto &cameraObjects : objectsPerCamera)
+  for (size_t cameraIndex = 0; cameraIndex < objectsPerCamera.size(); ++cameraIndex)
   {
+    const auto &cameraObjects = objectsPerCamera[cameraIndex];
     if (newObjects.empty())
     {
-      newObjects.insert(newObjects.end(), cameraObjects.begin(), cameraObjects.end());
+      for (size_t objectIndex = 0; objectIndex < cameraObjects.size(); ++objectIndex)
+      {
+        newObjects.push_back(cameraObjects[objectIndex]);
+        clusterMembers.push_back({{cameraIndex, objectIndex}});
+      }
       continue;
     }
 
@@ -610,19 +618,19 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
 
     for (const auto &[newObjectIndex, cameraObjectIndex] : assignments)
     {
-      auto fusedObject = newObjects[newObjectIndex];
-      const std::vector<std::vector<TrackedObject>> candidates
-        = {{newObjects[newObjectIndex]}, {cameraObjects[cameraObjectIndex]}};
-      const std::vector<std::pair<size_t, size_t>> matches = {{0, 0}, {1, 0}};
-      fuseGeometry(matches, candidates, fusedObject);
-      applyOrientingYaw(matches, candidates, fusedObject);
-      fuseMetadata(matches, candidates, fusedObject);
-      newObjects[newObjectIndex] = std::move(fusedObject);
+      auto &members = clusterMembers[newObjectIndex];
+      members.emplace_back(cameraIndex, cameraObjectIndex);
+      // Re-fuse on every join, not once after the loop: later cameras are matched against the fused cluster.
+      auto &fusedObject = newObjects[newObjectIndex];
+      fuseGeometry(members, objectsPerCamera, fusedObject);
+      applyOrientingYaw(members, objectsPerCamera, fusedObject);
+      fuseMetadata(members, objectsPerCamera, fusedObject);
     }
 
     for (const auto objectIndex : unassignedObjects)
     {
       newObjects.push_back(cameraObjects[objectIndex]);
+      clusterMembers.push_back({{cameraIndex, objectIndex}});
     }
   }
 

@@ -739,6 +739,51 @@ TEST(MultipleObjectTrackerTest, MultiCameraDetectionsFuseIntoOneTrack)
   EXPECT_NEAR(tracks[0].y, 0.5 * (cam0.y + cam1.y), 1e-6);
 }
 
+TEST(MultipleObjectTrackerTest, MultiCameraBirthClusteringWeightsCamerasEqually)
+{
+  // Pairwise averaging would give the last camera weight 1/2 and earlier cameras 1/4.
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mNonMeasurementTimeDynamic = 1.0;
+  trackerConfig.mNonMeasurementTimeStatic = 1.6;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig, rv::tracking::DistanceType::Euclidean, 2.0);
+  objectTracker.updateTrackerParams(10);
+
+  rv::tracking::TrackedObject cam0;
+  cam0.x = 7.0;
+  cam0.y = 7.0;
+  cam0.width = cam0.length = 0.5;
+  cam0.height = 1.5;
+
+  rv::tracking::TrackedObject cam1 = cam0;
+  cam1.x = 7.6;
+  cam1.y = 7.3;
+  cam1.height = 1.8;
+
+  rv::tracking::TrackedObject cam2 = cam0;
+  cam2.x = 8.2;
+  cam2.y = 7.9;
+  cam2.height = 2.1;
+
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cam0}, {cam1}, {cam2}},
+                      timestamp,
+                      rv::tracking::DistanceType::Euclidean,
+                      2.0,
+                      0.5);
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  EXPECT_NEAR(tracks[0].x, (cam0.x + cam1.x + cam2.x) / 3.0, 1e-6);
+  EXPECT_NEAR(tracks[0].y, (cam0.y + cam1.y + cam2.y) / 3.0, 1e-6);
+  EXPECT_NEAR(tracks[0].height, (cam0.height + cam1.height + cam2.height) / 3.0, 1e-6);
+}
+
 TEST(MultipleObjectTrackerTest, MultiCameraTrackUpdateAveragesWorldPosition)
 {
   // Continuing tracks must not keep last-camera geometry when both cameras match.
