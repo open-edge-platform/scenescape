@@ -33,8 +33,11 @@ const HALO_RING_RADIUS = SPHERE_RADIUS * 1.35;
 const HALO_RING_TUBE = SPHERE_RADIUS * 0.14;
 const HALO_OUTLINE_RING_RADIUS = SPHERE_RADIUS * 1.4;
 const HALO_OUTLINE_RING_TUBE = SPHERE_RADIUS * 0.24;
-const REJECT_MARK_LENGTH = SPHERE_RADIUS * 2.4;
-const REJECT_MARK_THICKNESS = SPHERE_RADIUS * 0.22;
+// Flat XY bars (wide in Y) so the X reads from the top-down map camera;
+// length extends past the sphere into the diagnostic ring.
+const REJECT_MARK_LENGTH = SPHERE_RADIUS * 2.9;
+const REJECT_MARK_WIDTH = SPHERE_RADIUS * 0.42;
+const REJECT_MARK_HEIGHT = SPHERE_RADIUS * 0.2;
 const TEXT_MATERIAL = new THREE.MeshStandardMaterial({
   color: new THREE.Color("black"),
   transparent: false,
@@ -59,8 +62,8 @@ const HALO_OUTLINE_GEOMETRY = new THREE.TorusGeometry(
 );
 const REJECT_BAR_GEOMETRY = new THREE.BoxGeometry(
   REJECT_MARK_LENGTH,
-  REJECT_MARK_THICKNESS,
-  REJECT_MARK_THICKNESS,
+  REJECT_MARK_WIDTH,
+  REJECT_MARK_HEIGHT,
 );
 
 function createDiagnosticMesh(geometry, color, opacity, name) {
@@ -70,11 +73,13 @@ function createDiagnosticMesh(geometry, color, opacity, name) {
       color: color,
       transparent: true,
       opacity: opacity,
+      depthTest: false,
       depthWrite: false,
     }),
   );
   mesh.name = name;
   mesh.visible = false;
+  mesh.renderOrder = 2;
   // Keep picking on the identity sphere; markers are visual-only.
   mesh.raycast = () => {};
   return mesh;
@@ -84,27 +89,32 @@ function createRejectMark() {
   const group = new THREE.Group();
   group.name = "calibrationRejectMark";
   group.visible = false;
-  const makeBar = (color, scale) => {
+  // Lift toward the map camera so the X is not buried in the point sphere.
+  group.position.z = SPHERE_RADIUS * 0.35;
+  const makeBar = (color, scale, renderOrder) => {
     const mesh = new THREE.Mesh(
       REJECT_BAR_GEOMETRY,
       new THREE.MeshBasicMaterial({
         color: color,
+        depthTest: false,
         depthWrite: false,
       }),
     );
     mesh.scale.set(scale, scale, scale);
+    mesh.renderOrder = renderOrder;
     mesh.raycast = () => {};
     return mesh;
   };
-  const blackA = makeBar(CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR, 1.25);
-  blackA.rotation.z = Math.PI / 4;
-  const blackB = makeBar(CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR, 1.25);
-  blackB.rotation.z = -Math.PI / 4;
-  const whiteA = makeBar(CALIBRATION_DIAGNOSTIC_RING_COLOR, 1);
+  // White under-stroke, black X on top (same as the camera-view / legend icon).
+  const whiteA = makeBar(CALIBRATION_DIAGNOSTIC_RING_COLOR, 1.25, 3);
   whiteA.rotation.z = Math.PI / 4;
-  const whiteB = makeBar(CALIBRATION_DIAGNOSTIC_RING_COLOR, 1);
+  const whiteB = makeBar(CALIBRATION_DIAGNOSTIC_RING_COLOR, 1.25, 3);
   whiteB.rotation.z = -Math.PI / 4;
-  group.add(blackA, blackB, whiteA, whiteB);
+  const blackA = makeBar(CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR, 1, 4);
+  blackA.rotation.z = Math.PI / 4;
+  const blackB = makeBar(CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR, 1, 4);
+  blackB.rotation.z = -Math.PI / 4;
+  group.add(whiteA, whiteB, blackA, blackB);
   return group;
 }
 
