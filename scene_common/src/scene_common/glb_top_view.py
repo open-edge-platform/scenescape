@@ -14,6 +14,7 @@ SUNLIGHT_COLOR = [1.0, 1.0, 1.0]
 
 VERTICAL_FOV = 40
 THUMBNAIL_RESOLUTION = {'x': 1024, 'y': 768}
+MAX_THUMBNAIL_TEXTURE_SIZE = 4096
 
 def materialToMaterialRecord(mat):
   mat_record = o3d.visualization.rendering.MaterialRecord()
@@ -61,6 +62,10 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
         setattr(mat_record, key, value)
     if hasattr(tmesh.material, 'texture_maps'):
       for key, value in tmesh.material.texture_maps.items():
+        longest_side = max(value.columns, value.rows)
+        if longest_side > MAX_THUMBNAIL_TEXTURE_SIZE:
+          value = value.resize(MAX_THUMBNAIL_TEXTURE_SIZE / longest_side,
+                               o3d.t.geometry.InterpType.Linear)
         if key == "albedo":
           mat_record.albedo_img = value.to_legacy()
         elif key == "normal":

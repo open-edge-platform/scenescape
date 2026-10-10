@@ -26,6 +26,42 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_WAIT_TIME = 5
 TEST_SSIM_THRESHOLD = 0.98 # 98% similarity
 
+@pytest.mark.test_name("NEX-T10426")
+def test_manual_distortion_controls(params, result_recorder):
+  """Distortion coefficients can be unlocked and submitted during manual calibration."""
+  browser = None
+  try:
+    browser = Browser(webgl=True)
+    assert common.check_page_login(browser, params)
+    common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
+    browser.find_element(By.ID, 'cam_calibrate_1').click()
+
+    for coefficient in ('k1', 'k2', 'p1', 'p2', 'k3'):
+      lock = browser.find_element(By.ID, f'enabled_distortion_{coefficient}')
+      field = browser.find_element(By.ID, f'id_distortion_{coefficient}')
+      assert lock.is_displayed() and lock.is_selected()
+      assert not field.is_enabled()
+
+    distortion_lock = browser.find_element(By.ID, 'enabled_distortion_k1')
+    distortion_field = browser.find_element(By.ID, 'id_distortion_k1')
+    distortion_lock.click()
+    assert distortion_field.is_enabled()
+    assert not distortion_field.get_attribute('readonly')
+    distortion_field.clear()
+    distortion_field.send_keys('0.125')
+    assert browser.execute_script(
+      "return new FormData(document.getElementById('calibration_form')).get('distortion_k1');"
+    ) == '0.125'
+    distortion_lock.click()
+    assert not distortion_field.is_enabled()
+    assert not browser.execute_script(
+      "return new FormData(document.getElementById('calibration_form')).has('distortion_k1');"
+    )
+    result_recorder.success()
+  finally:
+    if browser is not None:
+      browser.close()
+
 @pytest.mark.fresh_stack
 @pytest.mark.test_name("NEX-T10426")
 def test_manual_camera_calibration(params, result_recorder):

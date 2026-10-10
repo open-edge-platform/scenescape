@@ -93,9 +93,6 @@ async function registerScene(sceneId) {
 async function initializeCalibration(scene_id, socket) {
   socket.on("service_ready", (notification) => {
     console.log("Calibration service is ready:", notification);
-    if (document.getElementById("lock_distortion_k1")) {
-      document.getElementById("lock_distortion_k1").style.visibility = "hidden";
-    }
 
     calibration_strategy = document.getElementById("calib_strategy").value;
 
@@ -263,7 +260,6 @@ function setMqttForCalibration(client) {
     client,
     APP_NAME + IMAGE_CALIBRATE + $("#sensor_id").val(),
   );
-  document.getElementById("lock_distortion_k1").style.visibility = "visible";
 }
 
 export {
