@@ -355,3 +355,30 @@ def test_mesh_generator_rejected_when_unanchored_camera_lands_far_from_anchors(
   assert qcam.intrinsics_fx == Cam.DEFAULT_INTRINSICS["fx"]
 
 
+@pytest.mark.django_db
+@patch("manager.mesh_generator.CamSerializer")
+def test_mesh_generator_accepts_far_patches_when_all_cameras_anchored(
+    mock_serializer_cls, test_scene_with_cameras):
+  """Demo-scene case: every camera is already calibrated (e.g. apriltag-based
+  retail/queuing scenes), so there is no unanchored pose left to validate.
+  Non-overlapping per-camera patches (cameras covering different parts of the
+  same physical scene) must not be rejected."""
+  scene = test_scene_with_cameras["scene"]
+  qcam = test_scene_with_cameras["qcam"]
+  qcam.transforms = [0.0] * 16
+  qcam.save()
+
+  serializer = _mock_serializer_for_test(mock_serializer_cls)
+  translations = {"camera1": [0.0, 0.0, 0.0], "camera2": [2.0, 0.0, 0.0], "atag-qcam1": [100.0, 0.0, 0.0]}
+  serializer.get_translation.side_effect = lambda cam: translations.get(cam.sensor_id)
+
+  mesh_generator = MeshGenerator()
+  mesh_generator.mapping_client.getReconstructionStatus = MagicMock(
+    return_value=_mapping_result(_FAR_OFFSET, [100.0, 0.0, 0.0]))
+
+  result = mesh_generator.finalizeMeshFromStatus(scene, "req-all-anchored")
+
+  assert result["success"], result.get("error")
+  assert "unanchored_cameras" not in result
+
+
