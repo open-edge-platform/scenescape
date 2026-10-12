@@ -33,8 +33,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 @pytest.mark.test_name("NEX-T21491")
 def test_scene_retrack_disabled_objects_propagate_to_parent(demo_scene,
     objData, record_xml_attribute, params):
