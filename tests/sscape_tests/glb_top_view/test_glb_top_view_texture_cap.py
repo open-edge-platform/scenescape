@@ -18,7 +18,11 @@ import numpy as np
 import open3d as o3d
 import pytest
 
-from scene_common.glb_top_view import MAX_THUMBNAIL_TEXTURE_SIZE, renderTopView
+from scene_common.glb_top_view import (
+  MAX_THUMBNAIL_TEXTURE_SIZE,
+  materialToMaterialRecord,
+  renderTopView,
+)
 
 # Wide atlas mirrors the multi-mesh GLB that triggered the crash; tall covers
 # the rows > columns orientation of the same longest-side cap.
@@ -60,6 +64,15 @@ def _legacy_shape(legacy_img):
   return arr.shape[1], arr.shape[0]
 
 
+def _assert_capped_aspect(capped_cols, capped_rows, columns, rows):
+  longest = max(columns, rows)
+  expected_scale = MAX_THUMBNAIL_TEXTURE_SIZE / longest
+  assert max(capped_cols, capped_rows) == MAX_THUMBNAIL_TEXTURE_SIZE
+  assert capped_cols == pytest.approx(columns * expected_scale, abs=1)
+  assert capped_rows == pytest.approx(rows * expected_scale, abs=1)
+  assert capped_cols / capped_rows == pytest.approx(columns / rows)
+
+
 @pytest.mark.parametrize("columns,rows", [
   (_WIDE_COLUMNS, _WIDE_ROWS),
   (_TALL_COLUMNS, _TALL_ROWS),
@@ -78,13 +91,27 @@ def test_render_top_view_caps_oversized_texture_preserves_aspect(
 
   mat_record = mock_renderer_cls.return_value.scene.add_geometry.call_args.args[2]
   capped_cols, capped_rows = _legacy_shape(mat_record.albedo_img)
-  longest = max(columns, rows)
-  expected_scale = MAX_THUMBNAIL_TEXTURE_SIZE / longest
+  _assert_capped_aspect(capped_cols, capped_rows, columns, rows)
 
-  assert max(capped_cols, capped_rows) == MAX_THUMBNAIL_TEXTURE_SIZE
-  assert capped_cols == pytest.approx(columns * expected_scale, abs=1)
-  assert capped_rows == pytest.approx(rows * expected_scale, abs=1)
-  assert capped_cols / capped_rows == pytest.approx(columns / rows)
+
+@pytest.mark.parametrize("map_key,attr", [
+  ("albedo", "albedo_img"),
+  ("normal", "normal_img"),
+  ("ao_rough_metal", "ao_rough_metal_img"),
+])
+@patch("scene_common.glb_top_view.rendering.OffscreenRenderer")
+def test_render_top_view_caps_each_handled_texture_key(
+    mock_renderer_cls, map_key, attr):
+  """albedo, normal, and ao_rough_metal each receive the longest-side cap."""
+  mock_renderer_cls.return_value = _mock_offscreen_renderer()
+  source = _texture_image(_WIDE_COLUMNS, _WIDE_ROWS)
+  tensor_mesh = [_tensor_mesh_with_textures({map_key: source})]
+
+  renderTopView(MagicMock(), tensor_mesh, np.array([10.0, 8.0, 3.0]), 1024, 768)
+
+  mat_record = mock_renderer_cls.return_value.scene.add_geometry.call_args.args[2]
+  capped_cols, capped_rows = _legacy_shape(getattr(mat_record, attr))
+  _assert_capped_aspect(capped_cols, capped_rows, _WIDE_COLUMNS, _WIDE_ROWS)
 
 
 @pytest.mark.parametrize("columns,rows", [
@@ -181,8 +208,31 @@ def test_render_top_view_skips_resize_when_under_cap(mock_renderer_cls):
 
 
 @patch("scene_common.glb_top_view.rendering.OffscreenRenderer")
-def test_render_top_view_rejects_empty_tensor_mesh(mock_renderer_cls):
-  """Empty tensor_mesh is a hard error (renderer must be mocked: no EGL on host)."""
-  mock_renderer_cls.return_value = _mock_offscreen_renderer()
+def test_render_top_view_rejects_empty_tensor_mesh_before_renderer(mock_renderer_cls):
+  """Empty tensor_mesh fails before OffscreenRenderer (avoids native EGL crash)."""
   with pytest.raises(ValueError, match="tensor_mesh is empty"):
     renderTopView(MagicMock(), [], np.array([1.0, 1.0, 1.0]), 64, 48)
+  mock_renderer_cls.assert_not_called()
+
+
+@pytest.mark.parametrize("columns,rows", [
+  (_WIDE_COLUMNS, _WIDE_ROWS),
+  (_TALL_COLUMNS, _TALL_ROWS),
+])
+def test_material_to_material_record_caps_oversized_albedo(columns, rows):
+  """Autocalibration path shares the same upload cap and does not mutate source."""
+  source = _texture_image(columns, rows)
+  mat = SimpleNamespace(
+    vector_properties={},
+    scalar_properties={},
+    texture_maps={"albedo": source},
+  )
+
+  with patch("scene_common.glb_top_view.VECTOR_PROPERTIES", []), \
+       patch("scene_common.glb_top_view.SCALAR_PROPERTIES", []):
+    mat_record = materialToMaterialRecord(mat)
+
+  capped_cols, capped_rows = _legacy_shape(mat_record.albedo_img)
+  _assert_capped_aspect(capped_cols, capped_rows, columns, rows)
+  assert source.columns == columns
+  assert source.rows == rows
