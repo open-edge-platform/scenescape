@@ -904,12 +904,12 @@ class SaveGeospatialSnapshot(APIView):
 
 class PreviewRoisFromOsm(APIView):
   """Preview OSM-derived polygon ROIs before creation.
-  
+
   Derives the query bounding box from the scene's saved map_corners_lla.
   Fetches line geometries from OSM (cached on the scene after first fetch),
   converts to scene-local coordinates, buffers to polygons, and returns a
   preview list with temporary UUIDs without persisting to DB.
-  
+
   Includes the scene's map_bearing so the frontend can rotate the canvas
   preview to match the current map orientation.
 
@@ -951,7 +951,7 @@ class PreviewRoisFromOsm(APIView):
       if bounds is not None:
         previews = osm_roi.filter_by_bounds(previews, bounds)
       bearing = scene.map_bearing or 0.0
-      
+
       return JsonResponse({
         'rois': previews,
         'bearing': bearing,  # degrees, for canvas rotation correction

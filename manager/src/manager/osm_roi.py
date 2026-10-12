@@ -393,7 +393,7 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
     scene: Scene object with trs_matrix and map_corners_lla populated.
 
   Returns:
-    list of preview dicts: {"uuid": str, "type": str, "points": [[x,y],...], 
+    list of preview dicts: {"uuid": str, "type": str, "points": [[x,y],...],
                            "name": str, "checked": bool, "tags": dict, "width_m": float}.
 
   Raises:
@@ -465,7 +465,7 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
 
   # Assign names using full tag information for context
   assign_names(previews)
-  
+
   # Assign temporary UUIDs for checkbox tracking in frontend
   assign_temp_uuid(previews)
 

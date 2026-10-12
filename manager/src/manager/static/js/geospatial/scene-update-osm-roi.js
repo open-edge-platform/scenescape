@@ -3,22 +3,28 @@
 
 /**
  * OSM ROI generation for Regions tab.
- * 
+ *
  * Fetches OSM-derived ROIs via the PreviewRoisFromOsm endpoint and draws them directly
  * on the main 2D canvas as "proposed" regions (dashed outline, OSM badge).
- * 
+ *
  * The user can then edit these regions using the same tools as manual ROIs:
  * - Drag vertices to adjust boundaries
  * - Double-click to enter/exit edit mode
  * - Right-click a vertex to remove that point
  * - Double right-click a polygon/region to delete the entire region
  * - Save via the "Save Regions and Tripwires" button
- * 
+ *
  * All OSM-generated and manual regions are persisted together through the standard
  * form submission flow (stringifyRois → #id_rois JSON).
  */
 
-import { drawRoi, numberRois, stringifyRois, getSelectionBoundsMeters, clearSelectionArea } from '../sscape.js';
+import {
+  drawRoi,
+  numberRois,
+  stringifyRois,
+  getSelectionBoundsMeters,
+  clearSelectionArea,
+} from "../sscape.js";
 
 /**
  * Whether a polygon's bounding box overlaps an axis-aligned selection rectangle at all.
@@ -38,7 +44,7 @@ function roiOverlapsBounds(points, bounds) {
 
 /**
  * Generate OSM ROI previews and draw them on the main canvas.
- * 
+ *
  * Called when user clicks "Create ROIs from OSM" button.
  */
 async function generateRoisFromOsm() {
@@ -76,7 +82,7 @@ async function generateRoisFromOsm() {
     const previewResult = await previewResponse.json();
     if (!previewResponse.ok) {
       throw new Error(
-        previewResult.error || `Preview failed (${previewResponse.status})`
+        previewResult.error || `Preview failed (${previewResponse.status})`,
       );
     }
 
@@ -91,7 +97,9 @@ async function generateRoisFromOsm() {
     const selectionBounds = getSelectionBoundsMeters();
     let rois = previewResult.rois;
     if (selectionBounds) {
-      rois = rois.filter((roi) => roiOverlapsBounds(roi.points, selectionBounds));
+      rois = rois.filter((roi) =>
+        roiOverlapsBounds(roi.points, selectionBounds),
+      );
     }
 
     if (rois.length === 0) {
@@ -105,15 +113,15 @@ async function generateRoisFromOsm() {
       // Shape the ROI preview like a saved region object
       const regionEntry = {
         points: roi.points,
-        title: roi.name,  // drawRoi expects 'title', not 'name'
+        title: roi.name, // drawRoi expects 'title', not 'name'
         uuid: roi.uuid,
         volumetric: false,
         height: 0,
-        buffer_size: 0,  // drawRoi expects 'buffer_size', not 'buffer'
-        sectors: { thresholds: {}, range_max: 0 },  // drawRoi expects this structure; empty since OSM ROIs don't have occupancy data
+        buffer_size: 0, // drawRoi expects 'buffer_size', not 'buffer'
+        sectors: { thresholds: {}, range_max: 0 }, // drawRoi expects this structure; empty since OSM ROIs don't have occupancy data
         tags: roi.tags || {},
         width_m: roi.width_m,
-        type: roi.type,  // OSM way type (e.g., "footway", "secondary", "pedestrian")
+        type: roi.type, // OSM way type (e.g., "footway", "secondary", "pedestrian")
         osm_derived: true, // Flag to add OSM badge in form row
       };
 
@@ -131,7 +139,7 @@ async function generateRoisFromOsm() {
       const regionRow = document.getElementById(`form-roi_${roi.uuid}`);
       if (regionRow) {
         regionRow.classList.add("proposed-roi");
-        
+
         // Add OSM badge if not already present
         const titleInput = regionRow.querySelector(".roi-title");
         if (titleInput && !regionRow.querySelector(".osm-badge")) {
@@ -158,7 +166,7 @@ async function generateRoisFromOsm() {
     statusDiv.innerHTML =
       '<div class="alert alert-success">' +
       rois.length +
-      ' OSM ROI(s) added to canvas. Drag vertices to adjust, then save.</div>';
+      " OSM ROI(s) added to canvas. Drag vertices to adjust, then save.</div>";
   } catch (error) {
     console.error("OSM ROI preview failed:", error);
     const alertDiv = document.createElement("div");

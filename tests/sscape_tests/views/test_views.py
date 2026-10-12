@@ -145,19 +145,19 @@ class TestRoiSaveNotificationBatching(TestCase):
     def execute_callback(callback):
       callback()
     mock_on_commit.side_effect = execute_callback
-    
+
     rois = [
       self._generate_roi(title='roi1', uuid_str=str(uuid.uuid4())),
       self._generate_roi(title='roi2', uuid_str=str(uuid.uuid4())),
       self._generate_roi(title='roi3', uuid_str=str(uuid.uuid4())),
     ]
-    
+
     response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
       data = {
         'rois': json.dumps(rois),
         'tripwires': json.dumps([])
       })
-    
+
     self.assertEqual(response.status_code, 302)
     # Should call sendUpdateCommand exactly once, not 3 times
     mock_send_update.assert_called_once()
@@ -171,19 +171,19 @@ class TestRoiSaveNotificationBatching(TestCase):
     def execute_callback(callback):
       callback()
     mock_on_commit.side_effect = execute_callback
-    
+
     tripwires = [
       self._generate_tripwire(title='trip1', uuid_str=str(uuid.uuid4())),
       self._generate_tripwire(title='trip2', uuid_str=str(uuid.uuid4())),
       self._generate_tripwire(title='trip3', uuid_str=str(uuid.uuid4())),
     ]
-    
+
     response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
       data = {
         'rois': json.dumps([]),
         'tripwires': json.dumps(tripwires)
       })
-    
+
     self.assertEqual(response.status_code, 302)
     # Should call sendUpdateCommand exactly once, not 3 times
     mock_send_update.assert_called_once()
@@ -196,7 +196,7 @@ class TestRoiSaveNotificationBatching(TestCase):
     def execute_callback(callback):
       callback()
     mock_on_commit.side_effect = execute_callback
-    
+
     rois = [
       self._generate_roi(title='roi1', uuid_str=str(uuid.uuid4())),
       self._generate_roi(title='roi2', uuid_str=str(uuid.uuid4())),
@@ -205,13 +205,13 @@ class TestRoiSaveNotificationBatching(TestCase):
       self._generate_tripwire(title='trip1', uuid_str=str(uuid.uuid4())),
       self._generate_tripwire(title='trip2', uuid_str=str(uuid.uuid4())),
     ]
-    
+
     response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
       data = {
         'rois': json.dumps(rois),
         'tripwires': json.dumps(tripwires)
       })
-    
+
     self.assertEqual(response.status_code, 302)
     # Should call sendUpdateCommand exactly once, not twice (once for ROIs + once for tripwires)
     mock_send_update.assert_called_once()
@@ -221,19 +221,19 @@ class TestRoiSaveNotificationBatching(TestCase):
     """Test that saveRegionData/saveTripwireData return False (no change) when posting empty lists to a scene with zero existing regions/tripwires."""
     # Create a fresh scene with zero regions and tripwires
     fresh_scene = Scene.objects.create(name="fresh_scene_for_noop_test", map='test_map')
-    
+
     # Create a mock form with empty rois and tripwires JSON
     form = Mock()
     form.cleaned_data = {
       'rois': json.dumps([]),
       'tripwires': json.dumps([])
     }
-    
+
     # Call saveRegionData with empty list on a scene with zero existing regions
     # Should return False (no changes, no notification needed)
     changed_regions = saveRegionData(fresh_scene, form)
     self.assertFalse(changed_regions, "saveRegionData should return False when posting empty rois to a scene with zero existing regions")
-    
+
     # Call saveTripwireData with empty list on a scene with zero existing tripwires
     # Should return False (no changes, no notification needed)
     changed_tripwires = saveTripwireData(fresh_scene, form)
@@ -246,7 +246,7 @@ class TestRoiSaveNotificationBatching(TestCase):
     def execute_callback(callback):
       callback()
     mock_on_commit.side_effect = execute_callback
-    
+
     # First request: save a ROI
     roi_uuid = str(uuid.uuid4())
     rois = [self._generate_roi(title='roi1', uuid_str=roi_uuid)]
@@ -257,10 +257,10 @@ class TestRoiSaveNotificationBatching(TestCase):
       })
     self.assertEqual(response1.status_code, 302)
     mock_send_update.assert_called_once()
-    
+
     # Reset mock
     mock_send_update.reset_mock()
-    
+
     # Second request: POST with empty ROI list (deletes the ROI)
     response2 = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
       data = {

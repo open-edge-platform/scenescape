@@ -550,7 +550,11 @@ document.addEventListener("keydown", function (e) {
   if (e.key !== "Backspace" || !selectionBoundsPx) return;
 
   var tag = (document.activeElement && document.activeElement.tagName) || "";
-  if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement && document.activeElement.isContentEditable)) {
+  if (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    (document.activeElement && document.activeElement.isContentEditable)
+  ) {
     return;
   }
 
