@@ -900,14 +900,30 @@ SPDX-License-Identifier: Apache-2.0
         <div class="modal-body">
           <ul>
             <li>
-              Click "New Region" and then click a spot on the map for each
-              vertex of your region of interest (ROI)
+              Click "+ New Region" and click a spot on the map for each
+              vertex of the new region; click the green starting dot to close
+              the polygon; give it a unique name.
             </li>
-            <li>To close the ROI polygon, click on the green starting dot</li>
-            <li>Be sure to give your new ROI a unique name</li>
             <li>
-              To edit an ROI, double click on it and drag its vertices, then
-              double-click again to finish editing
+              Click "Suggest ROIs with OSM" to auto-generate proposed regions
+              from OpenStreetMap data (button is disabled if the scene isn't
+              geospatial or no OSM API key is configured). Proposed regions
+              appear with an "OSM" badge and can be
+              edited the same way as manually drawn regions.
+            </li>
+            <li>
+              To edit a region, double-click it to enter edit mode, then drag
+              its vertices to reshape it, click on an edge to insert a new
+              vertex, right-click a vertex to remove it, or double right-click
+              the region to delete it entirely; double-click again to finish
+              editing.
+            </li>
+            <li>
+              To merge two regions into one, Ctrl+click two vertices on the
+              first region, then two vertices on the second region (four clicks
+              total). Overlapping regions are combined automatically; separated
+              regions are instead joined along the four picked vertices, so
+              pick the vertices on the sides facing each other.
             </li>
             <li>
               Be sure to click "Save Regions and Tripwires" when you are

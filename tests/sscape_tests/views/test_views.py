@@ -597,8 +597,6 @@ class TestSingletonSensorViews(TestCase):
 
 class TestSaveGeospatialSnapshot(TestCase):
   """Verifies save-geospatial-snapshot uses session auth, not token auth (ITEP-95127)."""
-  TEST_NAME = "NEX-T27251"
-
   # 1x1 transparent PNG; content is irrelevant, only auth wiring is under test
   DUMMY_IMAGE_DATA = ("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAAB"
                        "CAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
