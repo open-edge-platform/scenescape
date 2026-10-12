@@ -157,6 +157,12 @@ clusterAnalytics:
   webUI:
     enabled: false
 
+positioning:
+  enabled: false
+  image: intel/scenescape-positioning
+  pullPolicy: IfNotPresent
+  resolverId: positioning-default
+
 mapping:
   enabled: false
   image: intel/scenescape-mapping

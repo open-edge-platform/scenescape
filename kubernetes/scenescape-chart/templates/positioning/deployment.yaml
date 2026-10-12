@@ -1,0 +1,100 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.positioning.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-positioning
+  labels:
+    app: {{ .Release.Name }}-positioning
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-positioning
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-positioning
+        {{ include "releaseLabels" . | indent 8 }}
+    spec:
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+      containers:
+        - name: positioning
+          image: {{ .Values.repository }}/{{ .Values.positioning.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.positioning.pullPolicy }}
+          args:
+            - "--broker"
+            - "broker.{{ .Release.Namespace }}.svc.cluster.local"
+            - "--brokerauth"
+            - "/run/secrets/positioning.auth"
+            - "--cert"
+            - "/run/secrets/certs/scenescape-positioning.crt"
+            - "--keyfile"
+            - "/run/secrets/certs/scenescape-positioning.key"
+            - "--rootcert"
+            - "/run/secrets/certs/scenescape-ca.pem"
+            - "--config"
+            - "/app/config/positioning.json"
+          env:
+            - name: POSITIONING_NTP_SERVER
+              value: "ntpserv.{{ .Release.Namespace }}.svc.cluster.local"
+          securityContext:
+            {{ include "defaultContainerSecurityContext" . | indent 12 }}
+            runAsUser: 1000
+            runAsGroup: 1000
+          readinessProbe:
+            exec:
+              command:
+                - python3
+                - -c
+                - "import os,sys; sys.exit(0 if os.path.exists('/tmp/positioning-ready') else 1)"
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command:
+                - python3
+                - -c
+                - "import os,sys; sys.exit(0 if os.path.exists('/tmp/positioning-ready') else 1)"
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          volumeMounts:
+            - name: positioning-config
+              mountPath: /app/config/positioning.json
+              subPath: positioning.json
+              readOnly: true
+            - name: positioning-auth
+              mountPath: /run/secrets/positioning.auth
+              subPath: positioning.auth
+              readOnly: true
+            - name: certs
+              mountPath: /run/secrets/certs/scenescape-ca.pem
+              subPath: scenescape-ca.pem
+              readOnly: true
+            - name: certs
+              mountPath: /run/secrets/certs/scenescape-positioning.crt
+              subPath: scenescape-positioning.crt
+              readOnly: true
+            - name: certs
+              mountPath: /run/secrets/certs/scenescape-positioning.key
+              subPath: scenescape-positioning.key
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: positioning-config
+          configMap:
+            name: {{ .Release.Name }}-positioning
+        - name: positioning-auth
+          secret:
+            secretName: {{ .Release.Name }}-positioning.auth
+        - name: tmp
+          emptyDir: {}
+        {{- include "certs_volume" . | nindent 8 }}
+{{- end }}
