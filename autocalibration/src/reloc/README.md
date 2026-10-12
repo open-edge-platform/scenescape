@@ -208,6 +208,7 @@ In a match file, each key corresponds to the string `path0.replace('/', '-')+'_'
 - Optionally fix a long-standing bug in SuperPoint descriptor sampling
 - Add script to compute exhaustive pairs for reconstruction or localization
 - Require pycolmap>=0.1.0 and Python>=3.7
+
 </details>
 
 <details>
@@ -216,6 +217,7 @@ In a match file, each key corresponds to the string `path0.replace('/', '-')+'_'
 - Bug fixes and usability improvements.
 - Support PIL backend for image resizing.
 - Add `__version__` attribute to check against future releases.
+
 </details>
 
 <details>
@@ -226,6 +228,7 @@ In a match file, each key corresponds to the string `path0.replace('/', '-')+'_'
 - Support for more datasets: Aachen v1.1, Extended CMU Seasons, RobotCar Seasons, Cambridge Landmarks, 7-Scenes
 - Simplified pipeline and API
 - Spatial matcher
+
 </details>
 
 <details>
