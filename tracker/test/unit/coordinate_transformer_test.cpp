@@ -600,7 +600,7 @@ TEST(CoordinateTransformerTest, Type2FootMatchesShiftedPixelProjection) {
         << "TYPE_2 should move the foot away from the TYPE_1 bottom-center projection";
 }
 
-TEST(CoordinateTransformerTest, DistortedType2FootUsesShiftedPixels) {
+TEST(CoordinateTransformerTest, DistortedType2FootShiftsNormalizedBox) {
     CameraTestConfig config = kCameraAtaqQcam1;
     config.k1 = -0.25;
     config.k2 = 0.08;
@@ -634,15 +634,12 @@ TEST(CoordinateTransformerTest, DistortedType2FootUsesShiftedPixels) {
         const auto br = project(bottom_right);
         const double base_len =
             std::hypot((bl.x + br.x) / 2.0 - camera.x, (bl.y + br.y) / 2.0 - camera.y);
-        const double angle_fraction =
-            std::atan2(std::abs(camera.z), base_len) / (std::numbers::pi / 2.0);
-        const std::vector<cv::Point2f> shifted_pixels = {
-            {bbox.x + bbox.width / 2.0f,
-             bbox.y + bbox.height - bbox.height / 2.0f * static_cast<float>(angle_fraction)}};
-        std::vector<cv::Point2f> normalized_foot;
-        cv::undistortPoints(shifted_pixels, normalized_foot, transformer.getIntrinsicsMatrix(),
-                            transformer.getDistortionCoeffs());
-        const auto expected = project(normalized_foot[0]);
+        const auto angle_fraction = static_cast<float>(
+            std::atan2(std::abs(camera.z), base_len) / (std::numbers::pi / 2.0));
+        const float height = bottom_right.y - top_left.y;
+        const auto expected =
+            project({(top_left.x + bottom_right.x) / 2.0f,
+                     bottom_right.y - (height / 2.0f) * angle_fraction});
         EXPECT_NEAR(result[i].x, expected.x, kWorldTolerance);
         EXPECT_NEAR(result[i].y, expected.y, kWorldTolerance);
     }

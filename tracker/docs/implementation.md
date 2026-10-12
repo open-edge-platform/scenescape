@@ -19,9 +19,8 @@ from the camera by half the estimated object width to approximate the center
 of the object's footprint.
 
 For TYPE_2 objects, the tracker uses the projected bottom corners to calculate
-the base angle, shifts the foot in the original pixel bounding box, then
-undistorts and projects that shifted point. This differs from shifting the foot
-in the normalized bounding box when lens distortion is present.
+the base angle, then shifts the foot up within the normalized (undistorted)
+bounding box and projects that shifted point, matching Controller `camLoc`.
 
 ---
 
