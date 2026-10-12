@@ -70,6 +70,9 @@ The Kubernetes backend creates a fully self-contained KinD cluster, deploys
 Scenescape via the Helm chart, and tears the cluster down at the end of the
 test session.
 
+### Non functional tests
+For `non_functional/test_build_time_and_size.py` test to work correctly, user needs to have [containerd snapshotter feature](https://docs.docker.com/engine/storage/containerd/#enable-containerd-image-store-on-docker-engine) enabled in their docker config.
+
 ## Running tests
 
 Tests are orchestrated by pytest. The `scenescape_env` fixture in

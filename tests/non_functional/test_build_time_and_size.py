@@ -12,7 +12,8 @@ import pytest
 
 logger = logging.getLogger(__name__)
 
-TEST_NAME= "NEX-T12520"
+TIME_TEST_NAME= "NEX-T12520"
+SIZE_TEST_NAME= "NEX-T29815"
 
 BUILD_WORKING_DIR = Path(__file__).resolve().parents[2]
 
@@ -47,7 +48,7 @@ def built_image_result(request):
 
   status, duration = run_command(build_cmd, env_extra)
 
-  assert status == 0, f"{TEST_NAME}: Building {image.name} failed with exit code {status}"
+  assert status == 0, f"Building {image.name} failed with exit code {status}"
   return image, duration
 
 def run_command(command, env_extra=None) -> tuple[int, float]:
@@ -69,22 +70,22 @@ def run_command(command, env_extra=None) -> tuple[int, float]:
   duration = time.time() - start_time
   return process.returncode, duration
 
-@pytest.mark.test_name("NEX-T12520")
+@pytest.mark.test_name(TIME_TEST_NAME)
 def test_build_time(built_image_result, result_recorder):
   image, duration = built_image_result
 
   assert duration <= image.time_limit_seconds, (
-    f"{TEST_NAME}: Building {image.name} took {duration:.2f}s (limit is {image.time_limit_seconds}s)"
+    f"{TIME_TEST_NAME}: Building {image.name} took {duration:.2f}s (limit is {image.time_limit_seconds}s)"
   )
   result_recorder.success()
 
-@pytest.mark.test_name("NEX-T29815")
+@pytest.mark.test_name(SIZE_TEST_NAME)
 def test_image_size(built_image_result, result_recorder):
   image, _ = built_image_result
 
   built_image = docker.image.inspect(f"intel/scenescape-{image.name}")
 
   assert (built_image.size / 10**6) <= image.size_limit_megabytes, (
-    f"{TEST_NAME}: Built {image.name} image size is {(built_image.size / 10**6):.2f}MB (limit is {image.size_limit_megabytes}MB)"
+    f"{SIZE_TEST_NAME}: Built {image.name} image size is {(built_image.size / 10**6):.2f}MB (limit is {image.size_limit_megabytes}MB)"
   )
   result_recorder.success()
