@@ -316,7 +316,8 @@ class TestPreviewRoisFromOsm(TestCase):
     self.assertEqual(response.status_code, 400)
     result = json.loads(response.content)
     self.assertIn("error", result)
-    self.assertIn("trs_matrix", result["error"])
+    # Message is intentionally generic, no internal field names leaked
+    self.assertIn("Unable to preview ROIs", result["error"])
     # Verify we didn't call the upstream query (fail fast)
     mock_query.assert_not_called()
 
@@ -337,7 +338,8 @@ class TestPreviewRoisFromOsm(TestCase):
 
     self.assertEqual(response.status_code, 400)
     result = json.loads(response.content)
-    self.assertIn("API key", result["error"])
+    # Message is intentionally generic, no upstream exception text leaked
+    self.assertIn("Unable to fetch OSM data", result["error"])
 
   def test_preview_rejects_invalid_scene_uuid(self):
     """Test that preview endpoint returns 404 for invalid/non-existent scene UUID."""
