@@ -96,3 +96,21 @@ capabilities:
 meta.helm.sh/release-name: {{ .Release.Name }}
 meta.helm.sh/release-namespace: {{ .Release.Namespace }}
 {{- end }}
+
+{{- define "modelDownload.configHash" -}}
+{{- dict
+  "modelDownload" .Values.modelDownload
+  "imagePullSecrets" .Values.imagePullSecrets
+  "httpProxy" .Values.httpProxy
+  "httpsProxy" .Values.httpsProxy
+  "noProxy" .Values.noProxy
+  "downloadModels" (.Files.Get "files/model-download/download_models.py")
+  "generateModelConfig" (.Files.Get "files/model-download/generate_model_config.py")
+  "entrypoint" (.Files.Get "files/model-download/entrypoint-k8s.sh")
+  "models" (.Files.Get "files/model-download/models.json")
+| toJson | sha256sum -}}
+{{- end }}
+
+{{- define "modelDownload.jobName" -}}
+{{- printf "%s-model-download-%s" (.Release.Name | trunc 33 | trimSuffix "-") (include "modelDownload.configHash" . | trunc 10) -}}
+{{- end }}

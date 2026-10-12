@@ -71,6 +71,32 @@ def test_scenescape_installation(_k8s_manager, result_recorder):
     and claim.get("status", {}).get("phase") != "Bound"
   }
   assert not unbound_pvcs, f"PVCs are not bound: {unbound_pvcs}"
+
+  jobs = subprocess.run(
+    ["kubectl", "get", "jobs",
+     "--namespace", "scenescape",
+     "--kubeconfig", _k8s_manager.kubeconfig,
+     "--selector", "app=scenescape-model-download",
+     "--output", "json"],
+    capture_output=True, text=True, check=True,
+  )
+  model_jobs = json.loads(jobs.stdout)["items"]
+  assert model_jobs, "Model download Job was not installed"
+  assert any(job.get("status", {}).get("succeeded", 0) == 1 for job in model_jobs), (
+    "Model download Job has not completed successfully"
+  )
+
+  web = subprocess.run(
+    ["kubectl", "get", "deployment", "scenescape-web-dep",
+     "--namespace", "scenescape",
+     "--kubeconfig", _k8s_manager.kubeconfig,
+     "--output", "json"],
+    capture_output=True, text=True, check=True,
+  )
+  init_containers = json.loads(web.stdout)["spec"]["template"]["spec"]["initContainers"]
+  init_names = {container["name"] for container in init_containers}
+  assert "wait-for-model-download" in init_names
+  assert "model-download" not in init_names
   result_recorder.success()
 
 

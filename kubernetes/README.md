@@ -108,8 +108,9 @@ helm install scenescape scenescape-chart -n <NAMESPACE> --create-namespace \
    --values values-custom.yaml
 ```
 
-Model preparation runs in the web Deployment's init container before web
-readiness; the controller and kubeclient wait for web before starting. Set
+Model preparation runs in a separate Job. A lightweight init container in the
+web Deployment waits for its completion marker before web readiness; the
+controller and kubeclient wait for web before starting. Set
 `modelDownload.enabled=false` only when model files and configuration are
 already available on the models volume.
 The Kubernetes Makefile waits for the web Deployment specifically after Helm

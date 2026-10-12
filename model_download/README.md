@@ -17,8 +17,9 @@ make -C model_download install-models
 For Kubernetes deployments, the same flow is enabled by default and can be
 disabled with `--set modelDownload.enabled=false` when models are provided
 externally. The chart runs the model downloader service and this folder's
-Python orchestration in the web Deployment's init container, writing outputs
-to the models PVC before the web container starts. The repository's
+Python orchestration in a separate release-managed Job, writing outputs to the
+models PVC. A lightweight init container in the web Deployment waits for the
+Job's completion marker before starting the web container. The repository's
 `make -C kubernetes install` target waits for web readiness, so model download
 failures are visible. When using Helm directly, run
 `kubectl rollout status deployment/scenescape-web-dep -n <NAMESPACE> --timeout=1800s`
