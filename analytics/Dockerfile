@@ -16,8 +16,9 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Build analytics package
 COPY ./analytics/src/analytics /tmp/analytics/analytics
 COPY ./analytics/src/setup.py /tmp/analytics/setup.py
-RUN cd /tmp/analytics \
-    && python3 setup.py bdist_wheel \
+RUN pip3 install --no-cache-dir build \
+    && cd /tmp/analytics \
+    && python3 -m build --wheel \
     && pip3 install --no-cache-dir ./dist/*.whl -vvv \
     && cd \
     && rm -rf /tmp/analytics

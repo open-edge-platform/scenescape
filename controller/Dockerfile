@@ -30,8 +30,9 @@ RUN pip3 install --no-cache-dir scikit-build-core \
 # Build main controller package
 COPY ./controller/src/controller /tmp/controller/controller
 COPY ./controller/src/setup.py /tmp/controller/setup.py
-RUN cd /tmp/controller \
-    && python3 setup.py bdist_wheel \
+RUN pip3 install --no-cache-dir build \
+    && cd /tmp/controller \
+    && python3 -m build --wheel \
     && pip3 install --no-cache-dir ./dist/*.whl -vvv \
     && cd \
     && rm -rf /tmp/controller
