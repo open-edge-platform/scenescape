@@ -245,6 +245,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 | `metrics_collector_image` | When `enable_metrics` | — | OTEL Collector image (e.g. `"otel/opentelemetry-collector-contrib:0.155.0"`) |
 | `metrics_export_interval_s` | No | `2` | Metrics export interval in seconds |
 | `metrics_otlp_port` | No | `4317` | OTLP/gRPC port the collector listens on |
+| `object_classes` | No | `[]` | Asset definitions served from mock Manager `/api/v1/assets` so the tracker applies per-category `shift_type` / footprint. Each entry: `{name, shift_type, x_size, y_size, ...}` |
 
 **Observability (optional)**:
 
@@ -281,14 +282,14 @@ The harness starts `mock_manager.py` as a thread on the Docker host and register
 
 Endpoints served:
 
-| Method | Path                   | Description                                                  |
-| ------ | ---------------------- | ------------------------------------------------------------ |
-| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials        |
-| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics  |
-| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                  |
-| GET    | `/api/v1/assets`       | Returns `{"results": []}` (no assets)                        |
-| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics |
-| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)          |
+| Method | Path                   | Description                                                                          |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------ |
+| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials                                |
+| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics                          |
+| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                                          |
+| GET    | `/api/v1/assets`       | Returns the `object_classes` entries from `set_custom_config()` (empty when omitted) |
+| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics                         |
+| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)                                  |
 
 Camera extrinsics (`translation`, `rotation`, `scale`) are computed from the dataset's
 `camera points` / `map points` using the same logic as production:

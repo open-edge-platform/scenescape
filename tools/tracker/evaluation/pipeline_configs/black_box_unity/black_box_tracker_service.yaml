@@ -26,6 +26,17 @@ harness:
     enable_metrics: true
     metrics_collector_image: otel/opentelemetry-collector-contrib:0.155.0
     metrics_export_interval_s: 2
+    # Manager assets → shift_type / footprint (TYPE_2 for wide/short FW190D).
+    # Tracker loads these via Manager /api/v1/assets into CoordinateTransformer.
+    object_classes:
+      - name: person
+        shift_type: 1
+        x_size: 0.5
+        y_size: 0.5
+      - name: FW190D
+        shift_type: 2
+        x_size: 1.0
+        y_size: 1.0
 
 evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator

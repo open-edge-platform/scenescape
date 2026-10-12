@@ -1,0 +1,164 @@
+{
+  "schema_version": 1,
+  "measurement_id": "atag-ptzcam3-2026-10-08-verify",
+  "provenance": {
+    "measurement_date": "2026-10-08",
+    "run_started_local": "2026-10-08T16:09:22+02:00",
+    "operator": "fst",
+    "camera": {
+      "scene_camera_uid": "atag-ptzcam3",
+      "onvif_host": "192.168.0.91",
+      "onvif_port": 2020,
+      "manufacturer": "TP-Link",
+      "model": "VIGI C540V",
+      "firmware_version": "2.0.5 Build 240914 Rel.61620n",
+      "hardware_id": "1.0"
+    },
+    "calibration_version": null,
+    "calibration_version_note": "The PoC cameras.json schema has no calibration_version field. The applied entry is identified by calibration_sha256.",
+    "calibration_sha256": "77cc6f6ac7356c34add98ce052c4142cbfab8219a8314709fcf076659d76c398",
+    "poc_repository_commit": "f96ec2938031d488f520b68e7e99f231fc109200",
+    "tools": {
+      "tune_ptz_camera.sh": {
+        "path": "ptz_pose_service/tools/tune_ptz_camera.sh",
+        "git_blob_oid": "6c1beccfff18b29ffaa7c16d46d0c0b035e6b183"
+      },
+      "measure_reprojection_accuracy.py": {
+        "path": "ptz_pose_service/tools/measure_reprojection_accuracy.py",
+        "git_blob_oid": "b7653b041fdf33090900d31fdb3dea0f36c75abb"
+      },
+      "fit_ptz_curves.py": {
+        "path": "ptz_pose_service/tools/fit_ptz_curves.py",
+        "git_blob_oid": "4d54ed4bd9b73b33a9f9846d9f8efe360bd2be3c"
+      },
+      "auto_recalibration.py": {
+        "path": "ptz_pose_service/src/auto_recalibration.py",
+        "git_blob_oid": "56c5ceffd76f5473e0144c48d28e30ab3fe65781"
+      }
+    },
+    "container_images": {
+      "ptz_pose": "intel/scenescape-ptz-pose-service:2026.3.0-dev",
+      "autocalibration": "intel/scenescape-autocalibration:2026.3.0-dev"
+    },
+    "runtime_versions": {
+      "python": "3.11.15",
+      "onvif_zeep": "0.2.12",
+      "zeep": "4.3.3",
+      "paho_mqtt": "2.1.0"
+    },
+    "command": "tune_ptz_camera.sh --camera-uid atag-ptzcam3 --onvif-host 192.168.0.91 --onvif-port 2020 --yes",
+    "source_artifacts": [
+      "accuracy_atag-ptzcam3_verify.json",
+      "fit_verify.json",
+      "cameras.json"
+    ],
+    "images_included": false,
+    "tag_coordinates_included": false
+  },
+  "coverage": {
+    "status": "provisional_partial_range",
+    "acceptance_eligible": false,
+    "held_out_validation": false,
+    "pan_position_space_units": [-0.236611, 0.163388],
+    "tilt_position_space_units": [0.390476, 0.790476],
+    "stops": 24,
+    "matched_points": 176,
+    "directions": {
+      "up_stops": 11,
+      "down_stops": 11,
+      "reference_stops": 2
+    },
+    "limitations": [
+      "Held-out residuals cover the recorded ranges only; advertised full ONVIF travel limits were not recorded, so full supported-range coverage is not established.",
+      "Per-stop reprojection residuals are computed from the same AprilTag correspondences used to estimate that stop's pose; they are not independent held-out residuals.",
+      "The PoC camera config has no calibration_version; the calibration fingerprint is recorded instead.",
+      "The pan stop at -0.186368 had one 29.956 px residual; retain this outlier in future comparisons."
+    ]
+  },
+  "applied_calibration": {
+    "onvif_host": "192.168.0.91",
+    "onvif_port": 2020,
+    "scene_camera_uid": "atag-ptzcam3",
+    "profile_token": null,
+    "home_pan": null,
+    "home_tilt": null,
+    "pan_degrees": null,
+    "tilt_degrees": null,
+    "pan_scale": 153.36,
+    "tilt_scale": 57.48,
+    "pan_home_approach": "decreasing",
+    "tilt_home_approach": "increasing",
+    "invert_pan": false,
+    "invert_tilt": false,
+    "resolution": [1280, 720],
+    "intrinsics": {"fx": 1059.9363, "fy": 1059.9363, "cx": 640.0, "cy": 360.0},
+    "distortion": {"k1": -0.362086, "k2": 0.0, "p1": 0.0, "p2": 0.0, "k3": 0.0},
+    "pan_curve": [0.0, -157.15, 25.82],
+    "tilt_curve": [0.0, 57.31, -0.27],
+    "pan_axis": [0.0597, 0.1046, 0.9927],
+    "pan_backlash_deg": [[-0.2366, 0.37], [-0.0366, 0.01], [0.1634, 1.68]],
+    "tilt_backlash_deg": 2.73
+  },
+  "verification": {
+    "start_pan": -0.036417,
+    "start_tilt": 0.690843,
+    "start_pose_correction_deg": 0.0391,
+    "residual_unit": "px",
+    "residual_definition": "Euclidean per-tag reprojection error returned by the PoC verification tool; residual order is the tool's matched-point order at each stop.",
+    "rounding_px": 0.001,
+    "aggregate": {
+      "matched_points": 176,
+      "mean_px": 4.561693,
+      "median_px": 4.010781,
+      "p95_nearest_rank_px": 9.423548,
+      "max_px": 29.95637
+    },
+    "per_axis_fit_report": {
+      "pan": {
+        "service_mean_px": 4.727151,
+        "current_model_mean_px": 4.793425,
+        "verification_fit_candidate_mean_px": 4.900844,
+        "best_per_stop_floor_mean_px": 3.86952
+      },
+      "tilt": {
+        "service_mean_px": 4.384556,
+        "current_model_mean_px": 4.246273,
+        "verification_fit_candidate_mean_px": 4.22874,
+        "best_per_stop_floor_mean_px": 3.731566
+      }
+    },
+    "verification_fit_candidate": {
+      "pan_curve": [0.0, -157.87, 25.37],
+      "tilt_curve": [0.0, 62.02, -4.19],
+      "pan_axis": [0.0558, 0.0998, 0.9934],
+      "pan_backlash_deg": [[-0.2366, 0.31], [-0.0366, 0.03], [0.1634, 1.83]],
+      "tilt_backlash_deg": 2.81
+    },
+    "stops": [
+      {"axis":"pan","pan":-0.036417,"tilt":0.690843,"direction":"reference","point_count":7,"mean_px":3.477,"max_px":6.998,"residuals_px":[0.925,2.553,2.874,2.311,3.628,5.046,6.998]},
+      {"axis":"pan","pan":-0.086271,"tilt":0.690843,"direction":"down","point_count":7,"mean_px":4.162,"max_px":5.896,"residuals_px":[3.651,4.545,2.599,3.521,3.143,5.779,5.896]},
+      {"axis":"pan","pan":-0.136514,"tilt":0.690843,"direction":"down","point_count":6,"mean_px":3.745,"max_px":5.155,"residuals_px":[4.046,1.882,2.533,4.49,4.366,5.155]},
+      {"axis":"pan","pan":-0.186368,"tilt":0.690843,"direction":"down","point_count":7,"mean_px":7.504,"max_px":29.956,"residuals_px":[2.051,1.403,3.247,3.204,8.617,4.052,29.956]},
+      {"axis":"pan","pan":-0.236611,"tilt":0.690843,"direction":"down","point_count":4,"mean_px":1.868,"max_px":4.04,"residuals_px":[1.118,1.075,1.239,4.04]},
+      {"axis":"pan","pan":-0.136514,"tilt":0.690843,"direction":"up","point_count":6,"mean_px":3.972,"max_px":5.992,"residuals_px":[5.837,3.438,1.751,5.992,3.341,3.473]},
+      {"axis":"pan","pan":-0.036417,"tilt":0.690843,"direction":"up","point_count":7,"mean_px":3.377,"max_px":9.205,"residuals_px":[2.682,0.682,2.065,0.705,5.378,2.919,9.205]},
+      {"axis":"pan","pan":0.013437,"tilt":0.690843,"direction":"up","point_count":8,"mean_px":3.336,"max_px":7.207,"residuals_px":[1.622,1.748,4.769,7.207,1.178,5.378,2.006,2.784]},
+      {"axis":"pan","pan":0.063681,"tilt":0.690843,"direction":"up","point_count":9,"mean_px":6.993,"max_px":11.482,"residuals_px":[9.073,5.946,0.592,5.676,3.448,8.291,11.024,7.4,11.482]},
+      {"axis":"pan","pan":0.113535,"tilt":0.690843,"direction":"up","point_count":8,"mean_px":7.687,"max_px":14.444,"residuals_px":[5.394,14.444,9.509,13.981,5.117,4.167,6.631,2.251]},
+      {"axis":"pan","pan":0.163388,"tilt":0.690843,"direction":"up","point_count":7,"mean_px":6.475,"max_px":14.907,"residuals_px":[1.933,2.191,4.517,1.622,8.632,11.52,14.907]},
+      {"axis":"pan","pan":0.063681,"tilt":0.690843,"direction":"down","point_count":8,"mean_px":3.288,"max_px":6.509,"residuals_px":[3.205,0.345,6.509,1.104,3.361,2.177,4.751,4.849]},
+      {"axis":"pan","pan":-0.036417,"tilt":0.690843,"direction":"down","point_count":7,"mean_px":3.431,"max_px":7.125,"residuals_px":[0.949,2.322,2.777,2.255,3.701,4.885,7.125]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.690843,"direction":"reference","point_count":7,"mean_px":3.435,"max_px":7.125,"residuals_px":[0.949,2.322,2.777,2.255,3.7,4.918,7.125]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.740659,"direction":"up","point_count":9,"mean_px":3.717,"max_px":7.267,"residuals_px":[1.966,2.552,2.598,2.337,2.942,5.194,7.267,3.085,5.511]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.790476,"direction":"up","point_count":9,"mean_px":4.889,"max_px":9.424,"residuals_px":[1.29,3.367,5.798,5.433,4.217,5.764,9.424,1.729,6.984]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.740659,"direction":"down","point_count":9,"mean_px":6.221,"max_px":8.083,"residuals_px":[6.716,6.109,3.385,4.771,5.391,7.138,7.159,8.083,7.237]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.690843,"direction":"down","point_count":9,"mean_px":4.079,"max_px":7.767,"residuals_px":[1.022,2.716,4.625,3.439,3.819,5.086,7.767,1.915,6.319]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.591209,"direction":"down","point_count":7,"mean_px":5.235,"max_px":8.277,"residuals_px":[4.141,3.878,5.818,3.462,5.677,5.393,8.277]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.491575,"direction":"down","point_count":7,"mean_px":3.737,"max_px":6.783,"residuals_px":[2.383,1.299,1.959,3.329,5.321,5.084,6.783]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.390476,"direction":"down","point_count":7,"mean_px":4.299,"max_px":7.615,"residuals_px":[2.87,0.606,2.613,4.889,7.615,5.402,6.099]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.491575,"direction":"up","point_count":7,"mean_px":4.296,"max_px":7.329,"residuals_px":[4.746,2.765,2.503,2.544,5.15,5.033,7.329]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.591209,"direction":"up","point_count":7,"mean_px":4.524,"max_px":7.509,"residuals_px":[3.981,3.186,4.56,2.584,5.032,4.819,7.509]},
+      {"axis":"tilt","pan":-0.036417,"tilt":0.690843,"direction":"up","point_count":7,"mean_px":3.407,"max_px":6.818,"residuals_px":[1.029,2.488,2.758,2.319,3.693,4.74,6.818]}
+    ]
+  }
+}
