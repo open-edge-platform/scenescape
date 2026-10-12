@@ -13,7 +13,3 @@ DATABASE_PASSWORD='{{ .Values.pgserver.password }}'
 {{- define "db-password" -}}
 {{ required "You must set pgserver.password (e.g. --set pgserver.password=...) for this chart to install." .Values.pgserver.password }}
 {{- end -}}
-
-{{- define "positioning-auth" -}}
-{"user": "positioning", "password": "{{ randAlphaNum 32 }}"}
-{{- end -}}

@@ -19,8 +19,6 @@ secrets:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
-  positioning.auth:
-    file: ${SECRETSDIR}/positioning.auth
 
 services:
   web:
@@ -73,7 +71,6 @@ services:
       - controller.auth
       - browser.auth
       - calibration.auth
-      - positioning.auth
     restart: on-failure
 
 volumes:
