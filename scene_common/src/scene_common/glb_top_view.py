@@ -62,6 +62,10 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
         setattr(mat_record, key, value)
     if hasattr(tmesh.material, 'texture_maps'):
       for key, value in tmesh.material.texture_maps.items():
+        # Only albedo / normal / ao_rough_metal are used for the thumbnail;
+        # skip unused maps so large atlases are not resized for no benefit.
+        if key not in ("albedo", "normal", "ao_rough_metal"):
+          continue
         longest_side = max(value.columns, value.rows)
         if longest_side > MAX_THUMBNAIL_TEXTURE_SIZE:
           value = value.resize(MAX_THUMBNAIL_TEXTURE_SIZE / longest_side,
