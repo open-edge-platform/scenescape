@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+{{- if not .Values.tracker.enabled }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -23,3 +24,4 @@ metadata:
 data:
   reid-config.json: |-
 {{ .Files.Get "files/scene-controller/reid-config.json" | indent 4 }}
+{{- end }}

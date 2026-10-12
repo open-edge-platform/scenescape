@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import open3d as o3d
@@ -15,6 +15,17 @@ SUNLIGHT_COLOR = [1.0, 1.0, 1.0]
 VERTICAL_FOV = 40
 THUMBNAIL_RESOLUTION = {'x': 1024, 'y': 768}
 MAX_THUMBNAIL_TEXTURE_SIZE = 4096
+_THUMBNAIL_TEXTURE_KEYS = ("albedo", "normal", "ao_rough_metal")
+
+def _legacyTextureForRender(texture):
+  """! Cap oversized textures before Open3D offscreen upload, then convert.
+  Resize is in-memory only; the caller's texture_maps entry is unchanged.
+  """
+  longest_side = max(texture.columns, texture.rows)
+  if longest_side > MAX_THUMBNAIL_TEXTURE_SIZE:
+    texture = texture.resize(MAX_THUMBNAIL_TEXTURE_SIZE / longest_side,
+                             o3d.t.geometry.InterpType.Linear)
+  return texture.to_legacy()
 
 def materialToMaterialRecord(mat):
   mat_record = o3d.visualization.rendering.MaterialRecord()
@@ -24,13 +35,14 @@ def materialToMaterialRecord(mat):
     if key in mat.scalar_properties:
       setattr(mat_record, key, mat.scalar_properties[key])
 
-  # Convert texture maps
+  # Convert texture maps (same upload cap as thumbnail rendering)
   if "albedo" in mat.texture_maps:
-    mat_record.albedo_img = mat.texture_maps["albedo"].to_legacy()
+    mat_record.albedo_img = _legacyTextureForRender(mat.texture_maps["albedo"])
   if "normal" in mat.texture_maps:
-    mat_record.normal_img = mat.texture_maps["normal"].to_legacy()
+    mat_record.normal_img = _legacyTextureForRender(mat.texture_maps["normal"])
   if "ao_rough_metal" in mat.texture_maps:
-    mat_record.ao_rough_metal_img = mat.texture_maps["ao_rough_metal"].to_legacy()
+    mat_record.ao_rough_metal_img = _legacyTextureForRender(
+      mat.texture_maps["ao_rough_metal"])
   return mat_record
 
 def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
@@ -45,13 +57,14 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
   @return img                captured image as array.
   @return pixels_per_meter   determined pixels per meter.
   """
+  if not tensor_mesh:
+    raise ValueError("tensor_mesh is empty; cannot access its first element.")
+
   renderer = rendering.OffscreenRenderer(res_x, res_y)
 
   # Add tensor meshes with materials (convert Material -> MaterialRecord)
   mat_record = rendering.MaterialRecord()
   mat_record.shader = "defaultLit"
-  if not tensor_mesh:
-    raise ValueError("tensor_mesh is empty; cannot access its first element.")
   tmesh = tensor_mesh[0]
   if hasattr(tmesh, 'material') and tmesh.material is not None:
     if hasattr(tmesh.material, 'vector_properties'):
@@ -62,19 +75,17 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
         setattr(mat_record, key, value)
     if hasattr(tmesh.material, 'texture_maps'):
       for key, value in tmesh.material.texture_maps.items():
-        longest_side = max(value.columns, value.rows)
-        if longest_side > MAX_THUMBNAIL_TEXTURE_SIZE:
-          value = value.resize(MAX_THUMBNAIL_TEXTURE_SIZE / longest_side,
-                               o3d.t.geometry.InterpType.Linear)
+        # Only albedo / normal / ao_rough_metal are used for the thumbnail;
+        # skip unused maps so large atlases are not resized for no benefit.
+        if key not in _THUMBNAIL_TEXTURE_KEYS:
+          continue
+        legacy = _legacyTextureForRender(value)
         if key == "albedo":
-          mat_record.albedo_img = value.to_legacy()
+          mat_record.albedo_img = legacy
         elif key == "normal":
-          mat_record.normal_img = value.to_legacy()
+          mat_record.normal_img = legacy
         elif key == "ao_rough_metal":
-          mat_record.ao_rough_metal_img = value.to_legacy()
-
-    if mat_record is None or not hasattr(mat_record, 'shader'):
-      raise ValueError("mat_record is empty or not properly initialized.")
+          mat_record.ao_rough_metal_img = legacy
 
     renderer.scene.add_geometry(f"mesh", triangle_mesh, mat_record)
 
