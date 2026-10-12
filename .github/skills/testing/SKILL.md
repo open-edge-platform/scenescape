@@ -68,8 +68,7 @@ Read the matching reference under [Additional resources](#additional-resources) 
 
 Before marking a test-authoring task complete:
 
-- [ ] Zephyr ID present on every test method (all categories except unit)
-- [ ] Modules with multiple test methods use a distinct `NEX-T#####` per method (no shared NEX ID across methods)
+- [ ] Unique Zephyr ID present on every test method (all categories except unit)
 - [ ] Positive and negative (or boundary) cases; at least one negative unless N/A
 - [ ] Correct category location and markers
 - [ ] Functional/UI declare `SCENESCAPE_SPEC`
