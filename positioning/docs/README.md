@@ -34,36 +34,40 @@ than editing service code:
 1. Calibrate the camera's home pose and PTZ model using the documented hardware
    procedure. Store the validated `ptz_calibration` on the Manager camera record;
    the Resolver reads it and never changes or re-baselines it.
-2. Add the Manager camera UID to `deployment/positioning-assignments.json`, mapped
-   to exactly one configured `resolver_id`. Do not put scene membership in this
-   manifest; Manager remains authoritative for scenes and consumer ACL scope.
-3. Supply the camera's ONVIF endpoint and credentials through deployment secrets.
-   Do not commit camera addresses or credentials, and do not copy values from the
-   local PoC setup into product defaults.
-4. Select the supported motion signal for the device. For an ONVIF `IsMoving`
-   event source, motion must invalidate the pose immediately; on the transition to
-   not-moving, fetch a fresh `GetStatus` sample and continue stationary sampling
-   for the dwell proof. For a device without that event, poll status at 5 Hz and
-   treat any position change as motion until position has remained unchanged for
-   at least 1 second. Both paths use the stored calibration to calculate the new
-   pose; neither recalibrates nor writes the home pose.
+2. Add the camera to the `cameras` list in `positioning/config/positioning.json`
+   (mounted from deployment configuration, not edited in the image). An entry holds
+   the Manager camera UID, ONVIF host and port, `motion_source` (`auto`, `events`, or
+   `polling`), and the path of the mounted secret that holds its ONVIF credentials.
+   Cameras listed in an instance's config are owned by that instance's
+   `resolver_id`; list each camera in exactly one instance. Scene membership stays
+   in Manager, which remains authoritative for scenes and consumer ACL scope.
+3. Put the ONVIF username and password in a deployment secret, never in
+   `positioning.json`. Do not commit camera addresses or credentials, and do not copy
+   values from the local PoC setup into product defaults.
+4. The motion source is chosen when the service connects to the camera. A camera
+   that advertises the ONVIF `IsMoving` event is not polled: `IsMoving` = true
+   invalidates the pose immediately, and `IsMoving` = false triggers a `GetStatus`
+   read plus a confirming read after the settle interval. A camera without that
+   event is polled at 5 Hz, and any position change counts as motion until the
+   position has been unchanged for 1 second. Both paths use the stored calibration
+   to calculate the new pose; neither recalibrates nor writes the home pose.
 5. Keep detections from the source out of tracking while moving, settling, or
    completing the configured dwell. Controller and Tracker enforce this admission
    independently; turning on either feature flag requires its own shadow-mode
    acceptance.
 
-The event path is an early motion signal, not a replacement for timestamped pose
-samples. Continued samples after stop are required to prove dwell and sequence
-continuity. Camera-specific calibration, timing bounds, and credentials are not
-part of this 3a shell and must be completed in their owning implementation phases.
+The event path removes position polling, not timestamped pose samples: while the
+camera is stationary, each event-subscription check without motion still yields a
+sample, so dwell and sequence continuity are preserved. Camera-specific calibration,
+timing bounds, and credentials are not part of this 3a shell and must be completed in
+their owning implementation phases.
 
 ## Deployments and Rollback
 
 Compose tests include the Positioning service only in profiles that launch a Scene
 Controller or Tracker. Helm installs it when `positioning.enabled=true`; it has one
-replica because source ownership is single-writer. The shared
-`deployment/positioning-assignments.json` starts empty and maps source IDs to
-resolver IDs only.
+replica because source ownership is single-writer. The `cameras` list in
+`positioning/config/positioning.json` starts empty; the 3a shell does not read it.
 
 The 3a service publishes no pose and does not alter detections. Roll back by disabling
 the Positioning deployment. Later PTZ rollout rollback is per consumer: disable the
