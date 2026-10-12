@@ -114,26 +114,22 @@ def create_mock_mqtt_message(topic_str, payload_dict):
   return mock_msg
 
 
-def setup_test_environment(params):
+def setup_test_environment(params, scene_uid):
   """
-  Setup common test environment: authenticate, get scene/camera, connect to MQTT.
+  Setup common test environment: authenticate, get camera, connect to MQTT.
 
   @param params  Test parameters from pytest fixture
+  @param scene_uid  UID of the scene to use (created by the demo_scene fixture)
   @return Tuple: (rest_client, scene_uid, scene_name, camera_id, pubsub, topic_str)
   """
-  # Setup: Authenticate and get scene/camera info
+  # Setup: Authenticate and get camera info
   rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
   res = rest.authenticate(params['user'], params['password'])
   assert res, "Authentication failed"
 
-  # Get a scene with cameras configured
-  scenes_result = rest.getScenes({})
-  assert scenes_result, "Failed to get scenes"
-  assert len(scenes_result['results']) > 0, "No scenes available for testing"
-
-  test_scene = scenes_result['results'][0]
-  scene_uid = test_scene['uid']
-  scene_name = test_scene['name']
+  scene_result = rest.getScene(scene_uid)
+  assert scene_result, "Failed to get scene"
+  scene_name = scene_result['name']
 
   # Get cameras for the scene
   cameras_result = rest.getCameras({'scene': scene_uid})
@@ -239,14 +235,14 @@ def trigger_track_pruning(pubsub, topic_str, camera_id):
   time.sleep(8)
 
 
-
 @pytest.mark.test_name("NEX-T29240")
-def test_reid_no_metadata(scenescape_env, params, result_recorder):
+def test_reid_no_metadata(scenescape_env, demo_scene, params, result_recorder):
   """
   Validates that detection messages without metadata are processed correctly
   and no reid vectors are stored in the ReID backend.
 
   @param scenescape_env  Fixture that brings up the core ReID stack per SCENESCAPE_SPEC
+  @param demo_scene  Fixture providing a freshly created scene's UID
   @param params  Test parameters from pytest fixture
   @param result_recorder  Fixture that records the test's pass/fail on teardown
   """
@@ -254,7 +250,7 @@ def test_reid_no_metadata(scenescape_env, params, result_recorder):
 
   pubsub = None
   try:
-    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
+    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params, demo_scene)
 
     log.info("=" * 80)
     log.info("SCENARIO 1: Testing with NO metadata")
@@ -298,12 +294,13 @@ def test_reid_no_metadata(scenescape_env, params, result_recorder):
 
 
 @pytest.mark.test_name("NEX-T29239")
-def test_reid_only_metadata(scenescape_env, params, result_recorder):
+def test_reid_only_metadata(scenescape_env, demo_scene, params, result_recorder):
   """
   Validates that reid embeddings are correctly extracted, tracked, and stored
   in the ReID backend without semantic metadata.
 
   @param scenescape_env  Fixture that brings up the core ReID stack per SCENESCAPE_SPEC
+  @param demo_scene  Fixture providing a freshly created scene's UID
   @param params  Test parameters from pytest fixture
   @param result_recorder  Fixture that records the test's pass/fail on teardown
   """
@@ -311,7 +308,7 @@ def test_reid_only_metadata(scenescape_env, params, result_recorder):
 
   pubsub = None
   try:
-    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
+    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params, demo_scene)
 
     log.info("=" * 80)
     log.info("SCENARIO 2: Testing with REID ONLY metadata")
@@ -369,12 +366,13 @@ def test_reid_only_metadata(scenescape_env, params, result_recorder):
 
 
 @pytest.mark.test_name("NEX-T29238")
-def test_reid_semantic_only_metadata(scenescape_env, params, result_recorder):
+def test_reid_semantic_only_metadata(scenescape_env, demo_scene, params, result_recorder):
   """
   Validates that semantic attributes (age, gender) are correctly processed
   and no NEW reid vectors are stored when reid data is absent.
 
   @param scenescape_env  Fixture that brings up the core ReID stack per SCENESCAPE_SPEC
+  @param demo_scene  Fixture providing a freshly created scene's UID
   @param params  Test parameters from pytest fixture
   @param result_recorder  Fixture that records the test's pass/fail on teardown
   """
@@ -382,7 +380,7 @@ def test_reid_semantic_only_metadata(scenescape_env, params, result_recorder):
 
   pubsub = None
   try:
-    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
+    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params, demo_scene)
 
     log.info("=" * 80)
     log.info("SCENARIO 3: Testing with SEMANTIC ONLY metadata")
@@ -441,7 +439,7 @@ def test_reid_semantic_only_metadata(scenescape_env, params, result_recorder):
 
 
 @pytest.mark.test_name("NEX-T19883")
-def test_reid_combined_metadata(scenescape_env, params, result_recorder):
+def test_reid_combined_metadata(scenescape_env, demo_scene, params, result_recorder):
   """
   Leaner e2e ReID test: DLStreamer pipeline server removed as the source,
   mock detections published directly over MQTT.
@@ -450,6 +448,7 @@ def test_reid_combined_metadata(scenescape_env, params, result_recorder):
   processed together and stored in the ReID backend with full metadata.
 
   @param scenescape_env  Fixture that brings up the core ReID stack per SCENESCAPE_SPEC
+  @param demo_scene  Fixture providing a freshly created scene's UID
   @param params  Test parameters from pytest fixture
   @param result_recorder  Fixture that records the test's pass/fail on teardown
   """
@@ -457,7 +456,7 @@ def test_reid_combined_metadata(scenescape_env, params, result_recorder):
 
   pubsub = None
   try:
-    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
+    rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params, demo_scene)
 
     log.info("=" * 80)
     log.info("SCENARIO 4: Testing with REID + SEMANTIC metadata")

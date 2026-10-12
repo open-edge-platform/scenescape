@@ -117,6 +117,8 @@ class UserInterfaceTest(Diagnostic):
     @param    element_class    The class of the element to show/hide
     @param    display          True if displaying the element, False if hiding
     """
+    WebDriverWait(self.browser, 30).until(
+      lambda browser: browser.find_elements(self.By.CLASS_NAME, element_class))
     if display:
       self.browser.execute_script(
         f"document.getElementsByClassName('{element_class}')[0].style"

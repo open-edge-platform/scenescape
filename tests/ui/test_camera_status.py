@@ -15,11 +15,14 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T10416")
-def test_camera_status_main(params, record_xml_attribute):
+def test_camera_status_main(params, record_xml_attribute, demo_scene):
   """! Checks that the camera streams on the WebUI are updated, reporting success
   if camera 1 and 2 streams are updated, and camera 3 is offline.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.
+  @param    demo_scene              Fixture providing a "Demo" scene with
+                                    camera1/camera2/camera3, where camera3 has
+                                    no video producer and stays offline.
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10416"

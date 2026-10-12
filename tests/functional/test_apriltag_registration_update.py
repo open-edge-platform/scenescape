@@ -18,8 +18,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 POLL_INTERVAL_S = 5
 POLL_TIMEOUT_S = 300
 REST_RETRY_COUNT = 3

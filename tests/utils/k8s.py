@@ -24,7 +24,7 @@ from python_on_whales import docker
 from pytest_kubernetes.providers.kind import KindManagerBase
 from pytest_kubernetes.options import ClusterOptions
 
-from tests.utils.scene_baseline import BASELINE_PATH, dumpdata_command, upload_baseline_scenes
+from tests.utils.scene_baseline import dumpdata_command, upload_baseline_scenes
 
 logger = logging.getLogger("test.k8s")
 
@@ -115,41 +115,6 @@ class K8sScenescapeEnv:
   supass: str
   scene_uids: dict = None  # {scene name: uid}, populated by K8sManager.setup()
 
-  def restore_db(self):
-    """Restore the database to baseline state via kubectl exec."""
-    web_pod = _get_pod_name(self.kubeconfig, self.namespace, f"{self.release_name}-web")
-    manage = "$SCENESCAPE_HOME/manage.py"
-
-    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} flush --no-input")
-    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} loaddata {BASELINE_PATH}")
-    _kubectl_exec(
-      self.kubeconfig, self.namespace, web_pod,
-      # cd first: createuser reads user_access_config.json (is_superuser,
-      # ACLs) from the cwd, and only $SCENESCAPE_HOME has a copy of it.
-      f"cd $SCENESCAPE_HOME && find -L /run/secrets -name '*.auth'"
-      f"  -exec python {manage} createuser --skip-existing {{}} \\;"
-      f" && DJANGO_SUPERUSER_PASSWORD=$SUPASS"
-      f"    python {manage} createsuperuser"
-      f"    --no-input --username=admin"
-      f"    --email=admin@domain.com 2>/dev/null || true",
-    )
-    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} updatedbstatus --ready")
-    logger.info("Database restored.")
-
-    # Restart scene controller to refresh cache.
-    logger.info("Restarting scene controller...")
-    _run([
-      "kubectl", "rollout", "restart",
-      f"deployment/{self.release_name}-scene-dep",
-      "-n", self.namespace, "--kubeconfig", self.kubeconfig,
-    ])
-    _run([
-      "kubectl", "rollout", "status",
-      f"deployment/{self.release_name}-scene-dep",
-      "-n", self.namespace, "--kubeconfig", self.kubeconfig,
-      "--timeout=120s",
-    ])
-    logger.info("Scene controller restarted and ready.")
 
 def _image_exists(ref: str) -> bool:
   try:

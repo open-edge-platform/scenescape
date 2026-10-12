@@ -109,7 +109,7 @@ class SceneControllerImportJSON(FunctionalTest):
 
     except Exception as e:
       log.error(f"Test failed with exception: {e}")
-      self.result_recorder.failure()
+      raise
 
     finally:
       self.pubsub.loopStop()

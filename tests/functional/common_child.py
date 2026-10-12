@@ -62,6 +62,8 @@ class ChildSceneTest:
     # Scene / region IDs populated by setup_scenes()
     self.parent_id = None
     self.child_id = None
+    # uid of the ChildScene link row (the /api/v1/child/<uid> key)
+    self.child_link_uid = None
     self.roi_uid = None
     self.tripwire_uid = None
     self.sensor_uid = None
@@ -123,10 +125,14 @@ class ChildSceneTest:
         f"Expected 200 linking child to parent, got {res.statusCode}: {res.errors}")
       log.info("[SETUP] Linked child to parent")
 
-      # Verify link
+      # Verify link and capture the link uid used by deleteChildSceneLink()
       res = rest_client.getChildScene({"parent": self.parent_id})
       assert res.statusCode == 200, (
         f"Expected 200 fetching child scenes, got {res.statusCode}: {res.errors}")
+      links = [l for l in res["results"] if str(l.get("child")) == str(self.child_id)]
+      assert links, f"Child link for {self.child_id} not found under parent {self.parent_id}"
+      self.child_link_uid = links[0]["uid"]
+      log.info(f"[SETUP] Child link uid={self.child_link_uid}")
     else:
       self.child_unlinked = True
       log.info("[SETUP] Child NOT linked to parent (link=False)")
@@ -240,7 +246,7 @@ class ChildSceneTest:
 
     @param    rest_client   An authenticated :class:`RESTClient`.
     """
-    res = rest_client.deleteChildSceneLink(self.child_id)
+    res = rest_client.deleteChildSceneLink(self.child_link_uid)
     assert res.statusCode == 200, (
       f"Expected 200 deleting child link, got {res.statusCode}: {res.errors}")
     self.child_unlinked = True
