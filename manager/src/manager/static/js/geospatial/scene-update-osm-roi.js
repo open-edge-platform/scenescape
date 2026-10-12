@@ -21,38 +21,19 @@
 import { drawRoi, numberRois, stringifyRois, getSelectionBoundsMeters, clearSelectionArea } from '../sscape.js';
 
 /**
- * Cuts a simple polygon down to the part that falls inside an axis-aligned
- * rectangle (Sutherland-Hodgman clipping, one pass per rectangle edge).
- * Only used to fit auto-generated OSM ROIs to a selection box, not a general tool.
+ * Whether a polygon's bounding box overlaps an axis-aligned selection rectangle at all.
+ * // shortcut: bbox overlap, not exact polygon intersection; upgrade if concave
+ * // buffer shapes start producing false positives for thin/L-shaped selections.
  */
-function clipPolygonToBounds(points, bounds) {
-  const planes = [
-    { inside: (p) => p[0] >= bounds.minX, axis: 0, value: bounds.minX },
-    { inside: (p) => p[0] <= bounds.maxX, axis: 0, value: bounds.maxX },
-    { inside: (p) => p[1] >= bounds.minY, axis: 1, value: bounds.minY },
-    { inside: (p) => p[1] <= bounds.maxY, axis: 1, value: bounds.maxY },
-  ];
-
-  return planes.reduce((poly, plane) => {
-    if (poly.length === 0) return poly;
-    const output = [];
-    for (let i = 0; i < poly.length; i++) {
-      const current = poly[i];
-      const prev = poly[(i + poly.length - 1) % poly.length];
-      const currentIn = plane.inside(current);
-      const prevIn = plane.inside(prev);
-      if (currentIn !== prevIn) {
-        const other = plane.axis === 0 ? 1 : 0;
-        const t = (plane.value - prev[plane.axis]) / (current[plane.axis] - prev[plane.axis]);
-        const point = [];
-        point[plane.axis] = plane.value;
-        point[other] = prev[other] + t * (current[other] - prev[other]);
-        output.push(point);
-      }
-      if (currentIn) output.push(current);
-    }
-    return output;
-  }, points);
+function roiOverlapsBounds(points, bounds) {
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  return (
+    Math.max(...xs) >= bounds.minX &&
+    Math.min(...xs) <= bounds.maxX &&
+    Math.max(...ys) >= bounds.minY &&
+    Math.min(...ys) <= bounds.maxY
+  );
 }
 
 /**
@@ -105,17 +86,12 @@ async function generateRoisFromOsm() {
       return;
     }
 
-    // If the user dragged out a selection area, cut each ROI polygon down to just
-    // the part that falls inside it, instead of showing the full, uncut road shape.
+    // If the user dragged out a selection area, keep any ROI that at least
+    // partially overlaps it, full shape intact (not clipped to the box).
     const selectionBounds = getSelectionBoundsMeters();
     let rois = previewResult.rois;
     if (selectionBounds) {
-      rois = rois
-        .map((roi) => ({
-          ...roi,
-          points: clipPolygonToBounds(roi.points, selectionBounds),
-        }))
-        .filter((roi) => roi.points.length >= 3);
+      rois = rois.filter((roi) => roiOverlapsBounds(roi.points, selectionBounds));
     }
 
     if (rois.length === 0) {

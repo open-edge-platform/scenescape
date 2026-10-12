@@ -912,6 +912,11 @@ class PreviewRoisFromOsm(APIView):
   
   Includes the scene's map_bearing so the frontend can rotate the canvas
   preview to match the current map orientation.
+
+  Optional "bounds" ({minX, minY, maxX, maxY} in scene-local meters) scopes the
+  preview to a sub-region, keeping any polygon that at least partially overlaps
+  it (full, unclipped shape) - equivalent to dragging a selection box in the
+  Regions tab UI.
   """
   authentication_classes = [SessionAuthentication]
   permission_classes = [IsAdminOrReadOnly]
@@ -922,6 +927,13 @@ class PreviewRoisFromOsm(APIView):
 
       if not scene_uid:
         return JsonResponse({'error': 'scene is required'}, status=400)
+
+      bounds = request.data.get('bounds')
+      if bounds is not None and (
+          not isinstance(bounds, dict)
+          or not all(k in bounds for k in ('minX', 'minY', 'maxX', 'maxY'))
+          or not all(isinstance(bounds[k], (int, float)) for k in ('minX', 'minY', 'maxX', 'maxY'))):
+        return JsonResponse({'error': 'bounds must have numeric minX, minY, maxX, maxY'}, status=400)
 
       # Get the scene; 404 if not found or invalid UUID
       try:
@@ -936,6 +948,8 @@ class PreviewRoisFromOsm(APIView):
         }, status=400)
 
       previews = osm_roi.build_roi_previews(scene)
+      if bounds is not None:
+        previews = osm_roi.filter_by_bounds(previews, bounds)
       bearing = scene.map_bearing or 0.0
       
       return JsonResponse({
@@ -955,6 +969,77 @@ class PreviewRoisFromOsm(APIView):
       log.error(f"Error previewing OSM ROIs: {e}")
       log.error(f"Traceback: {traceback.format_exc()}")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+
+class AcceptRoisFromOsm(APIView):
+  """Persist chosen OSM ROI previews (from PreviewRoisFromOsm) as new Regions.
+
+  Unlike the form-based saveROI endpoint, which replaces the scene's entire
+  region set with whatever it's given, this only creates the posted ROIs -
+  other existing regions in the scene are left untouched. Lets API callers
+  accept previews without first re-submitting every other region in the scene.
+  """
+  authentication_classes = [SessionAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request):
+    scene_uid = request.data.get('scene')
+    if not scene_uid:
+      return JsonResponse({'error': 'scene is required'}, status=400)
+
+    rois = request.data.get('rois')
+    if not isinstance(rois, list) or not rois:
+      return JsonResponse({'error': 'rois must be a non-empty list'}, status=400)
+
+    try:
+      scene = Scene.objects.get(pk=scene_uid)
+    except (Scene.DoesNotExist, ValueError):
+      return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
+
+    # Validate every roi before creating anything, so a bad entry can't leave
+    # a partially-accepted batch behind.
+    to_create = []
+    for roi in rois:
+      if not isinstance(roi, dict):
+        return JsonResponse({'error': 'Each roi must be an object'}, status=400)
+
+      points = roi.get('points')
+      if (not isinstance(points, list) or len(points) < 3
+          or not all(isinstance(p, (list, tuple)) and len(p) == 2
+                     and all(isinstance(v, (int, float)) for v in p) for p in points)):
+        return JsonResponse(
+          {'error': 'Each roi needs a "points" list of at least 3 [x, y] number pairs'}, status=400)
+
+      roi_uuid = roi.get('uuid')
+      query_uuid = roi_uuid if isinstance(roi_uuid, str) and validate_uuid(roi_uuid) else uuid.uuid4()
+      roi_name = str(roi.get('name')) if roi.get('name') else f"roi_{query_uuid}"
+      roi_type = str(roi.get('type') or '')
+      to_create.append((query_uuid, roi_name, roi_type, points))
+
+    created = []
+    try:
+      with transaction.atomic():
+        for query_uuid, roi_name, roi_type, points in to_create:
+          region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
+            'scene': scene,
+            'name': roi_name,
+            'volumetric': False,
+            'height': 0,
+            'buffer_size': 0,
+            'roi_type': roi_type,
+          })
+          for point_idx, point in enumerate(points):
+            RegionPoint.objects.update_or_create(
+              region=region, x=point[0], y=point[1], sequence=point_idx)
+          created.append({'uuid': str(region.uuid), 'name': region.name})
+
+      transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
+    except Exception as e:
+      log.error(f"Error accepting OSM ROIs: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+    return JsonResponse({'created': created})
 
 
 @superuser_required

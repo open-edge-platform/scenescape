@@ -391,3 +391,168 @@ class TestPreviewRoisFromOsm(TestCase):
     result = json.loads(response.content)
     self.assertIn("bearing", result)
     self.assertEqual(result["bearing"], 45.0)
+
+
+class TestPreviewRoisFromOsmBounds(TestCase):
+  """Verifies the "bounds" param: keeps the full shape of any overlapping ROI, unclipped."""
+
+  def setUp(self):
+    self.user = User.objects.create_superuser("test_user", "test_user@intel.com", "testpassword")
+    self.scene = Scene.objects.create(
+      name="test_scene_geospatial",
+      map_type="geospatial",
+      output_lla=True,
+      map_corners_lla=MAP_CORNERS_LLA,
+    )
+    trs_matrix = calculateTRSLocal2LLAFromSurfacePoints(MAP_XYZ_CORNERS, MAP_CORNERS_LLA)
+    self.scene.trs_matrix = trs_matrix.tolist() if hasattr(trs_matrix, "tolist") else list(trs_matrix)
+    self.scene.save()
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
+    self.fake_ways = [
+      {
+        "type": "residential",
+        "coords": [[MAP_CORNERS_LLA[0][0], MAP_CORNERS_LLA[0][1]],
+                   [MAP_CORNERS_LLA[1][0], MAP_CORNERS_LLA[1][1]]],
+        "tags": {"highway": "residential"},
+      },
+    ]
+
+  def test_bounds_keeps_full_roi_that_only_partially_overlaps(self):
+    """A box that only covers a corner of the road's buffer polygon must not clip it."""
+    with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=self.fake_ways):
+      unbounded = self.client.post(
+        reverse("preview_rois_from_osm"),
+        data=json.dumps({"scene": str(self.scene.id)}),
+        content_type="application/json",
+      )
+    full_points = json.loads(unbounded.content)["rois"][0]["points"]
+    xs = [p[0] for p in full_points]
+    ys = [p[1] for p in full_points]
+    bounds = {
+      "minX": min(xs) - 1, "minY": min(ys) - 1,
+      "maxX": (min(xs) + max(xs)) / 2, "maxY": (min(ys) + max(ys)) / 2,
+    }
+
+    with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=self.fake_ways):
+      response = self.client.post(
+        reverse("preview_rois_from_osm"),
+        data=json.dumps({"scene": str(self.scene.id), "bounds": bounds}),
+        content_type="application/json",
+      )
+
+    self.assertEqual(response.status_code, 200)
+    result = json.loads(response.content)
+    self.assertEqual(len(result["rois"]), 1)
+    self.assertEqual(result["rois"][0]["points"], full_points)
+
+  def test_bounds_excludes_roi_with_no_overlap(self):
+    far_away_bounds = {"minX": 10000, "minY": 10000, "maxX": 10001, "maxY": 10001}
+
+    with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=self.fake_ways):
+      response = self.client.post(
+        reverse("preview_rois_from_osm"),
+        data=json.dumps({"scene": str(self.scene.id), "bounds": far_away_bounds}),
+        content_type="application/json",
+      )
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(json.loads(response.content)["rois"], [])
+
+  def test_invalid_bounds_returns_400(self):
+    response = self.client.post(
+      reverse("preview_rois_from_osm"),
+      data=json.dumps({"scene": str(self.scene.id),
+                       "bounds": {"minX": "oops", "minY": 0, "maxX": 10, "maxY": 10}}),
+      content_type="application/json",
+    )
+
+    self.assertEqual(response.status_code, 400)
+    self.assertIn("error", json.loads(response.content))
+
+
+class TestAcceptRoisFromOsm(TestCase):
+  """Verifies accept-rois-from-osm persists posted ROIs without touching other regions."""
+
+  def setUp(self):
+    self.user = User.objects.create_superuser("test_user", "test_user@intel.com", "testpassword")
+    self.scene = Scene.objects.create(name="test_scene_accept", map_type="geospatial")
+    self.existing_region = Region.objects.create(scene=self.scene, name="manual_roi")
+    RegionPoint.objects.create(region=self.existing_region, x=0, y=0, sequence=0)
+    RegionPoint.objects.create(region=self.existing_region, x=1, y=0, sequence=1)
+    RegionPoint.objects.create(region=self.existing_region, x=1, y=1, sequence=2)
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
+
+  def _post(self, payload):
+    return self.client.post(
+      reverse("accept_rois_from_osm"),
+      data=json.dumps(payload),
+      content_type="application/json",
+    )
+
+  def test_accept_creates_regions_and_leaves_existing_ones_untouched(self):
+    response = self._post({
+      "scene": str(self.scene.id),
+      "rois": [{"points": [[1, 1], [2, 1], [2, 2]], "name": "Bike Path", "type": "cycleway"}],
+    })
+
+    self.assertEqual(response.status_code, 200)
+    result = json.loads(response.content)
+    self.assertEqual(len(result["created"]), 1)
+    self.assertEqual(result["created"][0]["name"], "Bike Path")
+
+    new_region = Region.objects.get(uuid=result["created"][0]["uuid"])
+    self.assertEqual(new_region.scene_id, self.scene.id)
+    self.assertEqual(new_region.roi_type, "cycleway")
+    self.assertEqual(
+      [(p.x, p.y) for p in new_region.points.order_by("sequence")], [(1, 1), (2, 1), (2, 2)])
+
+    # Additive-only: existing region in the scene must be untouched, unlike saveROI's full replace.
+    self.assertTrue(Region.objects.filter(pk=self.existing_region.pk).exists())
+    self.assertEqual(Region.objects.filter(scene=self.scene).count(), 2)
+
+  def test_accept_requires_scene(self):
+    response = self._post({"rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]})
+    self.assertEqual(response.status_code, 400)
+
+  def test_accept_requires_nonempty_rois_list(self):
+    response = self._post({"scene": str(self.scene.id), "rois": []})
+    self.assertEqual(response.status_code, 400)
+
+  def test_accept_rejects_roi_with_too_few_points(self):
+    response = self._post({"scene": str(self.scene.id), "rois": [{"points": [[0, 0], [1, 0]]}]})
+
+    self.assertEqual(response.status_code, 400)
+    # Nothing created when one entry in the batch is invalid.
+    self.assertEqual(Region.objects.filter(scene=self.scene).count(), 1)
+
+  def test_accept_rejects_unknown_scene(self):
+    response = self._post({
+      "scene": "00000000-0000-0000-0000-000000000000",
+      "rois": [{"points": [[0, 0], [1, 0], [1, 1]]}],
+    })
+    self.assertEqual(response.status_code, 404)
+
+  def test_unauthenticated_accept_is_rejected(self):
+    self.client.logout()
+    response = self._post({"scene": str(self.scene.id), "rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]})
+    self.assertEqual(response.status_code, 403)
+
+  def test_non_superuser_accept_is_rejected(self):
+    User.objects.create_user("regular_user", "regular@intel.com", "testpassword")
+    self.client.logout()
+    self.client.post(reverse("sign_in"), data={"username": "regular_user", "password": "testpassword"})
+
+    response = self._post({"scene": str(self.scene.id), "rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]})
+    self.assertEqual(response.status_code, 403)
+
+  def test_accept_reusing_existing_uuid_overwrites_that_region(self):
+    """Documents a known risk: a posted uuid matching an existing region silently overwrites it."""
+    response = self._post({
+      "scene": str(self.scene.id),
+      "rois": [{"uuid": str(self.existing_region.uuid), "points": [[5, 5], [6, 5], [6, 6]],
+                "name": "overwritten"}],
+    })
+
+    self.assertEqual(response.status_code, 200)
+    self.existing_region.refresh_from_db()
+    self.assertEqual(self.existing_region.name, "overwritten")

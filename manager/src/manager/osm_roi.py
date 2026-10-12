@@ -358,6 +358,28 @@ def assign_temp_uuid(previews: List[Dict[str, Any]]) -> None:
     preview["checked"] = True
 
 
+def roi_overlaps_bounds(
+  points: List[Tuple[float, float]], bounds: Dict[str, float]
+) -> bool:
+  """Whether a polygon's bounding box overlaps an axis-aligned selection rectangle at all.
+
+  Mirrors the frontend's roiOverlapsBounds() in scene-update-osm-roi.js.
+  # shortcut: bbox overlap, not exact polygon intersection; upgrade if concave
+  # buffer shapes start producing false positives for thin/L-shaped selections.
+  """
+  xs = [p[0] for p in points]
+  ys = [p[1] for p in points]
+  return (max(xs) >= bounds["minX"] and min(xs) <= bounds["maxX"]
+          and max(ys) >= bounds["minY"] and min(ys) <= bounds["maxY"])
+
+
+def filter_by_bounds(
+  previews: List[Dict[str, Any]], bounds: Dict[str, float]
+) -> List[Dict[str, Any]]:
+  """Keep previews that at least partially overlap bounds, full shape unmodified."""
+  return [p for p in previews if roi_overlaps_bounds(p["points"], bounds)]
+
+
 def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
   """Fetch OSM ways, convert to local coordinates, buffer to polygons, name them, assign UUID.
 
