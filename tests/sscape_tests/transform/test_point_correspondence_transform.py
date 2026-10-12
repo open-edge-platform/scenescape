@@ -380,7 +380,8 @@ class TestPointCorrespondenceTransformPrivateMethods:
                                          intrinsics.intrinsics, None)
     pose = {'camera points': camera_points.reshape(-1, 2), 'map points': map_points}
 
-    with patch('cv2.solvePnP', wraps=cv2.solvePnP) as spy:
+    with patch('cv2.solvePnPRansac', side_effect=cv2.error("RANSAC unavailable")), \
+         patch('cv2.solvePnP', wraps=cv2.solvePnP) as spy:
       transform = PointCorrespondenceTransform(pose, intrinsics)
 
     assert not transform.arePointsCoplanar(map_points)

@@ -627,6 +627,7 @@ export class ConvergedCameraCalibration {
   }
 
   clearCalibrationPoints() {
+    this.calibrationRequestId++;
     this.camCanvas.clearCalibrationPoints();
     this.viewport.clearCalibrationPoints();
     this.projectionEnabled = false;

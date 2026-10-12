@@ -1513,7 +1513,8 @@ paths:
                 outlierThresholdPx:
                   type: number
                   format: double
-                  exclusiveMinimum: 0
+                  minimum: 0
+                  exclusiveMinimum: true
                   default: 10.0
                   description: >-
                     RANSAC reprojection error threshold in pixels. Must be a positive
@@ -1533,6 +1534,27 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - euler
+                  - position
+                  - mtx
+                  - dist
+                  - rmsError
+                  - rejectionRequested
+                  - rejectionApplied
+                  - ransacInlierCount
+                  - fitPointCount
+                  - rejectedIndices
+                  - outlierThresholdPx
+                  - perPointErrors
+                  - mapInPlaneSpreadRatio
+                  - mapVolumeSpreadRatio
+                  - mapNearlyPlanar
+                  - imageCoverage
+                  - imageWidthFraction
+                  - imageHeightFraction
+                  - depthRangeRatio
+                  - geometryWarnings
                 properties:
                   euler:
                     type: array
