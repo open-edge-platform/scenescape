@@ -43,7 +43,7 @@ from manager.models import Scene, ChildScene, \
   SingletonSensor, SingletonScalarThreshold, \
   Region, RegionPoint, Tripwire, TripwirePoint, \
   SingletonAreaPoint, UserSession, FailedLogin, \
-  RegionOccupancyThreshold, SceneImport
+  RegionOccupancyThreshold, SceneImport, sendUpdateCommand
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
   SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
 from manager.validators import add_form_error, validate_uuid
@@ -155,10 +155,11 @@ def saveROI(request, scene_id):
   if request.method == 'POST':
     form = ROIForm(request.POST)
     if form.is_valid():
-      # Import sendUpdateCommand for potential batch notifications
-      from .models import sendUpdateCommand
-      saveRegionData(scene, form, sendUpdateCommand=sendUpdateCommand)
-      saveTripwireData(scene, form)
+      regions_changed = saveRegionData(scene, form)
+      tripwires_changed = saveTripwireData(scene, form)
+      # Single batched notification per save, regardless of how many regions/tripwires changed.
+      if regions_changed or tripwires_changed:
+        transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
       return redirect('/' + str(scene.id))
     else:
       log.error("Form bad", request.POST)
@@ -167,11 +168,18 @@ def saveROI(request, scene_id):
   return render(request, 'sscape/sceneDetail.html', {'form': form, 'scene': scene})
 
 def saveTripwireData(scene, form):
+  """Save tripwires from the form. Returns True if anything was created, updated or deleted.
+
+  Notification is batched by the caller (saveROI) instead of per-tripwire, to avoid
+  flooding MQTT with one update per tripwire in a single save.
+  """
   jdata = json.loads(form.cleaned_data['tripwires'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
   current_tripwire_ids = set()
+  changed = False
 
   for trip in jdata:
+    changed = True
     query_uuid = trip.uuid
 
     # when a new tripwire is created uuid is invalid
@@ -194,30 +202,31 @@ def saveTripwireData(scene, form):
     # when tripwire is modified older points should be deleted
     TripwirePoint.objects.filter(tripwire = tripwire).exclude(id__in=current_tripwire_point_ids).delete()
 
-    # notify on mqtt for every tripwire saved
-    # ideally one notification after all tripwires are saved in db
-    tripwire.notifydbupdate()
-
-  # delete older tripwires
+  # delete older tripwires; bulk delete (not per-instance) to avoid triggering
+  # the model's own per-instance notifydbupdate() on top of the batched notification
   tripwires_to_delete = Tripwire.objects.filter(scene=scene).exclude(uuid__in=current_tripwire_ids)
+  if tripwires_to_delete.exists():
+    changed = True
   TripwirePoint.objects.filter(tripwire__in=tripwires_to_delete).delete()
+  tripwires_to_delete.delete()
 
-  # delete tripwires individually to trigger notifydbupdate
-  for tw in tripwires_to_delete:
-    tw.delete()
+  return changed
 
-  return
+def saveRegionData(scene, form):
+  """Save regions (manual or OSM-derived) from the form. Returns True if anything was
+  created, updated or deleted.
 
-def saveRegionData(scene, form, sendUpdateCommand=None):
+  Notification is batched by the caller (saveROI) instead of per-region, to avoid
+  flooding MQTT with one update per region in a single save (e.g. 50 OSM ROIs).
+  """
   jdata = json.loads(form.cleaned_data['rois'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
 
   current_region_ids = set()
-
-  # Detect if this is an OSM ROI batch (all regions are osm_derived) for optimized notification
-  is_osm_batch = all(getattr(roi, 'osm_derived', False) for roi in jdata) and len(jdata) > 0
+  changed = False
 
   for roi in jdata:
+    changed = True
     query_uuid = roi.uuid
 
     # when a new roi is created uuid is invalid
@@ -256,34 +265,16 @@ def saveRegionData(scene, form, sendUpdateCommand=None):
         'sectors': sectors, 'range_max': roi.range_max
       })
 
-    # For OSM ROI batches, delay notification until all regions are saved.
-    # For manual ROIs, notify after commit to ensure consumers see up-to-date data.
-    if not is_osm_batch:
-      transaction.on_commit(lambda: region.notifydbupdate())
-
-  # delete older rois
+  # delete older rois; bulk delete (not per-instance) to avoid triggering the
+  # model's own per-instance notifydbupdate() on top of the batched notification
   regions_to_delete = Region.objects.filter(scene=scene).exclude(uuid__in=current_region_ids)
+  if regions_to_delete.exists():
+    changed = True
   RegionPoint.objects.filter(region__in=regions_to_delete).delete()
   RegionOccupancyThreshold.objects.filter(region__in=regions_to_delete).delete()
+  regions_to_delete.delete()
 
-  # delete regions individually to trigger notifydbupdate
-  for region in regions_to_delete:
-    region.delete()
-
-  # For OSM ROI batches, send a single batched notification after all saves are complete.
-  # This dramatically reduces network overhead (e.g., 50 saves → 1 notification).
-  # If no callback provided, fall back to per-region notifications to avoid silent data loss.
-  if is_osm_batch and current_region_ids:
-    if sendUpdateCommand:
-      # Defer batch notification until after transaction commits to prevent race conditions
-      transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
-    else:
-      # Fallback: send per-region notifications if batch callback unavailable
-      for region_id in current_region_ids:
-        region = Region.objects.get(uuid=region_id)
-        transaction.on_commit(lambda r=region: r.notifydbupdate())
-
-  return
+  return changed
 
 #Cam CRUD
 class CamCreateView(SuperUserCheck, CreateView):

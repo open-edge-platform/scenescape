@@ -55,7 +55,6 @@ MIN_REQUEST_INTERVAL_S = 1.0
 MAX_RETRIES = 3
 RETRY_BACKOFF_S = 2.0
 MAX_BBOX_SPAN_DEG = 0.05  # ~5.5km at the equator; keeps queries/responses small
-MAX_SAMPLE_FEATURES = 10
 MAX_ROI_FEATURES = 1000  # safety cap on raw ways processed for geometry extraction
 
 _last_request_time = 0.0

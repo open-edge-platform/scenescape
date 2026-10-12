@@ -18,7 +18,42 @@
  * form submission flow (stringifyRois → #id_rois JSON).
  */
 
-import { drawRoi, numberRois, stringifyRois } from '../sscape.js';
+import { drawRoi, numberRois, stringifyRois, getSelectionBoundsMeters, clearSelectionArea } from '../sscape.js';
+
+/**
+ * Cuts a simple polygon down to the part that falls inside an axis-aligned
+ * rectangle (Sutherland-Hodgman clipping, one pass per rectangle edge).
+ * Only used to fit auto-generated OSM ROIs to a selection box, not a general tool.
+ */
+function clipPolygonToBounds(points, bounds) {
+  const planes = [
+    { inside: (p) => p[0] >= bounds.minX, axis: 0, value: bounds.minX },
+    { inside: (p) => p[0] <= bounds.maxX, axis: 0, value: bounds.maxX },
+    { inside: (p) => p[1] >= bounds.minY, axis: 1, value: bounds.minY },
+    { inside: (p) => p[1] <= bounds.maxY, axis: 1, value: bounds.maxY },
+  ];
+
+  return planes.reduce((poly, plane) => {
+    if (poly.length === 0) return poly;
+    const output = [];
+    for (let i = 0; i < poly.length; i++) {
+      const current = poly[i];
+      const prev = poly[(i + poly.length - 1) % poly.length];
+      const currentIn = plane.inside(current);
+      const prevIn = plane.inside(prev);
+      if (currentIn !== prevIn) {
+        const other = plane.axis === 0 ? 1 : 0;
+        const t = (plane.value - prev[plane.axis]) / (current[plane.axis] - prev[plane.axis]);
+        const point = [];
+        point[plane.axis] = plane.value;
+        point[other] = prev[other] + t * (current[other] - prev[other]);
+        output.push(point);
+      }
+      if (currentIn) output.push(current);
+    }
+    return output;
+  }, points);
+}
 
 /**
  * Generate OSM ROI previews and draw them on the main canvas.
@@ -70,8 +105,27 @@ async function generateRoisFromOsm() {
       return;
     }
 
+    // If the user dragged out a selection area, cut each ROI polygon down to just
+    // the part that falls inside it, instead of showing the full, uncut road shape.
+    const selectionBounds = getSelectionBoundsMeters();
+    let rois = previewResult.rois;
+    if (selectionBounds) {
+      rois = rois
+        .map((roi) => ({
+          ...roi,
+          points: clipPolygonToBounds(roi.points, selectionBounds),
+        }))
+        .filter((roi) => roi.points.length >= 3);
+    }
+
+    if (rois.length === 0) {
+      statusDiv.innerHTML =
+        '<div class="alert alert-warning">No OSM ROIs found in the selected area.</div>';
+      return;
+    }
+
     // Draw each OSM-derived ROI on the main canvas as a proposed region
-    for (const roi of previewResult.rois) {
+    for (const roi of rois) {
       // Shape the ROI preview like a saved region object
       const regionEntry = {
         points: roi.points,
@@ -123,10 +177,11 @@ async function generateRoisFromOsm() {
     // Update region numbering and trigger canvas update
     numberRois();
     stringifyRois();
+    if (selectionBounds) clearSelectionArea();
 
     statusDiv.innerHTML =
       '<div class="alert alert-success">' +
-      previewResult.rois.length +
+      rois.length +
       ' OSM ROI(s) added to canvas. Drag vertices to adjust, then save.</div>';
   } catch (error) {
     console.error("OSM ROI preview failed:", error);

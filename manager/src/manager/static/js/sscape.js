@@ -47,6 +47,14 @@ var EDGE_INSERT_THRESHOLD_PX = 15;
 var RIGHT_DOUBLE_CLICK_MS = 400;
 // Pointer movement past this is a drag, not a click
 var DRAG_SLOP_PX = 2;
+// True while the user is actively dragging out a new selection-area rectangle
+var selectingArea = false;
+// Pixel coords of the drag's starting corner, while selectingArea is true
+var selectionDragStart = null;
+// The <rect> currently shown for the selection area, or null if none
+var selectionRectEl = null;
+// {minX, minY, maxX, maxY} in canvas pixels for the current selection area, or null
+var selectionBoundsPx = null;
 var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
@@ -390,6 +398,7 @@ function addPoly() {
     exitEditMode(activeEditGroup);
   }
   clearMergeSelection();
+  clearSelectionArea();
 
   $("#svgout").addClass("adding-roi");
   adding = true;
@@ -401,6 +410,7 @@ function cancelAddPoly() {
 }
 
 function addTripwire() {
+  clearSelectionArea();
   $("#svgout").addClass("adding-tripwire");
   adding = true;
 }
@@ -409,6 +419,144 @@ function cancelAddTripwire() {
   $("#svgout").removeClass("adding-tripwire");
   adding = false;
 }
+
+/**
+ * Begin dragging out a rectangular selection area on the map, used to scope
+ * the "delete" and "Suggest ROIs with OSM" actions to a sub-region of the scene.
+ * Exits any other in-progress tool first, since only one can be active at a time.
+ */
+function startSelectArea() {
+  if (activeEditGroup) {
+    exitEditMode(activeEditGroup);
+  }
+  clearMergeSelection();
+  cancelAddPoly();
+  cancelAddTripwire();
+  clearSelectionArea();
+
+  $("#svgout").addClass("selecting-area");
+  selectingArea = true;
+}
+
+/** Remove the selection-area rectangle (if any) and forget its bounds. */
+function clearSelectionArea() {
+  if (selectionRectEl) {
+    selectionRectEl.remove();
+    selectionRectEl = null;
+  }
+  selectionBoundsPx = null;
+  updateSelectAreaButton();
+}
+
+/** Highlights the "Select Area" button while a selection box is active, grey otherwise. */
+function updateSelectAreaButton() {
+  $("#select-roi-area")
+    .toggleClass("btn-primary", !!selectionBoundsPx)
+    .toggleClass("btn-secondary", !selectionBoundsPx);
+}
+
+/**
+ * Current selection area, converted from canvas pixels to scene-local meters,
+ * or null if no selection area is active. Used to scope OSM ROI generation.
+ */
+function getSelectionBoundsMeters() {
+  if (!selectionBoundsPx) return null;
+
+  var b = selectionBoundsPx;
+  var p1 = pixelsToMeters([b.minX, b.minY], scale, scene_y_max);
+  var p2 = pixelsToMeters([b.maxX, b.maxY], scale, scene_y_max);
+
+  return {
+    minX: Math.min(p1[0], p2[0]),
+    maxX: Math.max(p1[0], p2[0]),
+    minY: Math.min(p1[1], p2[1]),
+    maxY: Math.max(p1[1], p2[1]),
+  };
+}
+
+/**
+ * Delete every ROI whose centroid falls inside the current selection area
+ * (bound to the Backspace key). No-op if there is no active selection.
+ */
+function deleteRoisInSelection() {
+  if (!selectionBoundsPx) return;
+
+  var bounds = selectionBoundsPx;
+  var matched = [];
+
+  svgCanvas.selectAll(".roi").forEach(function (group) {
+    var center = polyCenter(flattenVertexPoints(group));
+    // shortcut: centroid-in-box test, not full polygon/rectangle intersection;
+    // upgrade if large ROIs that only partially overlap the box should match too.
+    if (
+      center[0] >= bounds.minX &&
+      center[0] <= bounds.maxX &&
+      center[1] >= bounds.minY &&
+      center[1] <= bounds.maxY
+    ) {
+      matched.push(group);
+    }
+  });
+
+  if (matched.length === 0) {
+    clearSelectionArea();
+    return;
+  }
+
+  if (confirm("Delete " + matched.length + " ROI(s) in the selected area?")) {
+    matched.forEach(handleRegionDelete);
+  }
+  clearSelectionArea();
+}
+
+/**
+ * Build a rectangular ROI matching the current selection box, using the same
+ * finish-up path as manually drawn regions (closePolygon). No-op if there's
+ * no active selection.
+ */
+function createRoiFromSelection() {
+  if (!selectionBoundsPx) return;
+  if (activeEditGroup) {
+    exitEditMode(activeEditGroup);
+  }
+  clearMergeSelection();
+
+  var b = selectionBoundsPx;
+  var corners = [
+    [b.minX, b.minY],
+    [b.maxX, b.minY],
+    [b.maxX, b.maxY],
+    [b.minX, b.maxY],
+  ];
+
+  points = [];
+  g = svgCanvas.group();
+  g.addClass("drawPoly");
+  corners.forEach(function (corner, i) {
+    points.push(corner[0], corner[1]);
+    g.circle(corner[0], corner[1], radius).addClass(
+      i === 0 ? "start-point vertex" : "vertex",
+    );
+  });
+  g.polygon(points);
+
+  clearSelectionArea();
+  closePolygon();
+}
+
+// Backspace deletes every ROI inside the current selection area. Ignored while
+// typing in a form field so it doesn't hijack normal text editing.
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Backspace" || !selectionBoundsPx) return;
+
+  var tag = (document.activeElement && document.activeElement.tagName) || "";
+  if (tag === "INPUT" || tag === "TEXTAREA" || (document.activeElement && document.activeElement.isContentEditable)) {
+    return;
+  }
+
+  e.preventDefault();
+  deleteRoisInSelection();
+});
 
 function initArea(a) {
   cancelAddPoly();
@@ -2089,7 +2237,69 @@ if (svgCanvas) {
     stringifyRois();
   });
 
+  // Drag out the selection-area rectangle while the "Select Area" tool is active
+  svgCanvas.mousedown(function (e) {
+    if (!selectingArea) return;
+
+    var offset = $("#svgout").offset();
+    selectionDragStart = [
+      parseInt(e.pageX - offset.left),
+      parseInt(e.pageY - offset.top),
+    ];
+
+    if (selectionRectEl) selectionRectEl.remove();
+    selectionRectEl = svgCanvas
+      .rect(selectionDragStart[0], selectionDragStart[1], 0, 0)
+      .addClass("roi-selection-box");
+  });
+
+  svgCanvas.mousemove(function (e) {
+    if (!selectingArea || !selectionDragStart || !selectionRectEl) return;
+
+    var offset = $("#svgout").offset();
+    var current = [
+      parseInt(e.pageX - offset.left),
+      parseInt(e.pageY - offset.top),
+    ];
+
+    selectionRectEl.attr({
+      x: Math.min(current[0], selectionDragStart[0]),
+      y: Math.min(current[1], selectionDragStart[1]),
+      width: Math.abs(current[0] - selectionDragStart[0]),
+      height: Math.abs(current[1] - selectionDragStart[1]),
+    });
+  });
+
   svgCanvas.mouseup(function (e) {
+    if (selectingArea && selectionDragStart) {
+      var offset = $("#svgout").offset();
+      var current = [
+        parseInt(e.pageX - offset.left),
+        parseInt(e.pageY - offset.top),
+      ];
+
+      selectionBoundsPx = {
+        minX: Math.min(current[0], selectionDragStart[0]),
+        minY: Math.min(current[1], selectionDragStart[1]),
+        maxX: Math.max(current[0], selectionDragStart[0]),
+        maxY: Math.max(current[1], selectionDragStart[1]),
+      };
+      selectionDragStart = null;
+      $("#svgout").removeClass("selecting-area");
+      selectingArea = false;
+
+      // Treat a near-zero-size drag (a click) as "no selection"
+      if (
+        selectionBoundsPx.maxX - selectionBoundsPx.minX < DRAG_SLOP_PX &&
+        selectionBoundsPx.maxY - selectionBoundsPx.minY < DRAG_SLOP_PX
+      ) {
+        clearSelectionArea();
+      } else {
+        updateSelectAreaButton();
+      }
+      return;
+    }
+
     if (dragging || !adding) return;
     drawing = true;
 
@@ -3113,11 +3323,21 @@ $(document).ready(function () {
       }
 
       $("#new-roi").on("click", function () {
-        addPoly();
+        // A finished selection box becomes a ready-made rectangular ROI instead
+        // of starting the click-by-click polygon tool.
+        if (selectionBoundsPx) {
+          createRoiFromSelection();
+        } else {
+          addPoly();
+        }
       });
 
       $("#new-tripwire").on("click", function () {
         addTripwire();
+      });
+
+      $("#select-roi-area").on("click", function () {
+        startSelectArea();
       });
 
       $(".roi-remove").on("click", function () {
@@ -3335,4 +3555,11 @@ $(document).ready(function () {
 });
 
 // Export functions for ES module consumers (e.g., scene-update-osm-roi.js)
-export { drawRoi, numberRois, stringifyRois, editPolygon };
+export {
+  drawRoi,
+  numberRois,
+  stringifyRois,
+  editPolygon,
+  getSelectionBoundsMeters,
+  clearSelectionArea,
+};

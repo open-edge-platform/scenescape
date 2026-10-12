@@ -152,6 +152,25 @@ svg.adding-tripwire {
   cursor: crosshair;
 }
 
+svg.selecting-area {
+  outline: 2px solid #0066ff;
+  cursor: crosshair;
+}
+
+/* Existing regions/tripwires shouldn't intercept clicks while dragging out a selection box */
+svg.selecting-area .roi,
+svg.selecting-area .tripwire {
+  pointer-events: none;
+}
+
+.roi-selection-box {
+  fill: rgba(0, 102, 255, 0.1);
+  stroke: #0066ff;
+  stroke-width: 2px;
+  stroke-dasharray: 6, 4;
+  pointer-events: none;
+}
+
 .roi circle.vertex,
 .child_roi circle.vertex {
   opacity: 0;

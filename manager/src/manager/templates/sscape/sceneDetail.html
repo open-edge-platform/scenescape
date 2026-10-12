@@ -530,6 +530,14 @@ SPDX-License-Identifier: Apache-2.0
             >
               + New Region
             </button>
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm float-right right-buffer"
+              id="select-roi-area"
+              title="Drag a box on the map, then press Backspace to delete the ROIs inside it, or click &quot;Suggest ROIs with OSM&quot; to generate only within it"
+            >
+              Select Area
+            </button>
             <input
               type="button"
               class="btn btn-sm btn-primary float-right right-buffer"
@@ -908,7 +916,7 @@ SPDX-License-Identifier: Apache-2.0
               Click "Suggest ROIs with OSM" to auto-generate proposed regions
               from OpenStreetMap data (button is disabled if the scene isn't
               geospatial or no OSM API key is configured). Proposed regions
-              appear with an "OSM" badge and can be
+              appear with a dashed outline and an "OSM" badge and can be
               edited the same way as manually drawn regions.
             </li>
             <li>
@@ -924,6 +932,14 @@ SPDX-License-Identifier: Apache-2.0
               total). Overlapping regions are combined automatically; separated
               regions are instead joined along the four picked vertices, so
               pick the vertices on the sides facing each other.
+            </li>
+            <li>
+              Click "Select Area" and drag a box on the map to select a region
+              (works on any map, geospatial or not). With a selection active:
+              press Backspace to delete the ROIs whose centers fall inside the
+              box, click "+ New Region" to instantly create a rectangular ROI
+              matching the box, or click "Suggest ROIs with OSM" (geospatial
+              scenes only) to generate proposed regions overlapping it.
             </li>
             <li>
               Be sure to click "Save Regions and Tripwires" when you are

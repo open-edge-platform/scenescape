@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
 import numpy as np
-from shapely.geometry import LineString, MultiPolygon, Polygon
+from shapely.geometry import LineString, Polygon
 from shapely.geometry.base import BufferCapStyle
 
 from scene_common.earth_lla import convertLLAToECEF
@@ -91,6 +91,11 @@ LANE_BASED_WIDTH_TYPES = frozenset(ROAD_WIDTH_BY_TYPE_M) - {
 MAX_POLYGON_POINTS = 200
 STANDARD_LANE_WIDTH_M = 7.0  # meters per lane for road width estimation
 
+TRS_MATRIX_NOT_READY_MSG = (
+  "Scene geospatial calibration (trs_matrix) is not ready; "
+  "enable output_lla and wait for the controller to publish it."
+)
+
 
 def lla_to_local_xy(
   trs_matrix: List[List[float]],
@@ -113,10 +118,7 @@ def lla_to_local_xy(
     OsmRoiError: if trs_matrix is None/falsy or invalid.
   """
   if not trs_matrix:
-    raise OsmRoiError(
-      "Scene geospatial calibration (trs_matrix) is not ready; "
-      "enable output_lla and wait for the controller to publish it."
-    )
+    raise OsmRoiError(TRS_MATRIX_NOT_READY_MSG)
 
   try:
     # Convert LLA to ECEF
@@ -376,10 +378,7 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
     OsmRoiError: if scene.trs_matrix/map_corners_lla is not ready or if OSM query fails.
   """
   if not scene.trs_matrix:
-    raise OsmRoiError(
-      "Scene geospatial calibration (trs_matrix) is not ready; "
-      "enable output_lla and wait for the controller to publish it."
-    )
+    raise OsmRoiError(TRS_MATRIX_NOT_READY_MSG)
 
   # Cache is only usable if:
   # 1. Tags format is current (dict, not raw list-of-pairs from parquet)
