@@ -12,7 +12,9 @@ until the PTZ runtime phase is added.
 
 Build with `make positioning`; run the service tests with `make -C positioning
 test-build` and `docker run --rm intel/scenescape-positioning-test:$(cat version.txt)`.
-Service and deployment requirements are in [docs/README.md](docs/README.md).
+Service and deployment requirements are in [docs/README.md](docs/README.md). The
+user guide page is
+[docs/user-guide/microservices/positioning/positioning.md](../docs/user-guide/microservices/positioning/positioning.md).
 
 The runtime is generic: do not add lab camera IPs, usernames, passwords, or
 camera-specific calibration to the checked-in configuration. ONVIF credentials

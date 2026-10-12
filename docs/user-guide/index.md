@@ -61,6 +61,10 @@ Deep Learning Streamer Pipeline Server (DL Streamer Pipeline Server) is a Python
 
 Computes camera parameters utilizing known priors and camera feed. For more information, refer to [Auto Camera Calibration](./microservices/auto-calibration/auto-calibration.md).
 
+### **Positioning**
+
+Resolves the live pose of sources whose position changes at runtime, such as ONVIF PTZ cameras, and publishes it for the Scene Controller and Tracker. For more information, refer to [Positioning Service](./microservices/positioning/positioning.md).
+
 ### **MQTT Broker**
 
 Mosquitto MQTT broker which acts as the primary message bus connecting sensors, internal components, and applications, including the web interface.
@@ -128,6 +132,7 @@ Analytics <./microservices/analytics/analytics.md>
 Auto Camera Calibration <./microservices/auto-calibration/auto-calibration.md>
 Cluster Analytics <./microservices/cluster-analytics/cluster-analytics.md>
 Mapping Service <./microservices/mapping-service/mapping-service.md>
+Positioning Service <./microservices/positioning/positioning.md>
 Scene Controller <./microservices/controller/controller.md>
 API Reference <./api-reference.md>
 
