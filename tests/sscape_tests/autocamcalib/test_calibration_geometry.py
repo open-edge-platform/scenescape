@@ -6,7 +6,8 @@ import numpy as np
 import pytest
 
 import atag_camera_calibration_controller as calibration
-from calibration_geometry import MIN_PNP_SPREAD_RATIO, validate_camera_pose
+from calibration_geometry import validate_camera_pose
+from scene_common.calibration_geometry import MIN_PNP_SPREAD_RATIO
 
 INTRINSICS = np.array([[500., 0., 320.], [0., 500., 240.], [0., 0., 1.]])
 
