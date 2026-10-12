@@ -19,7 +19,12 @@ spec:
         {{ include "releaseLabels" . | indent 8 }}
     spec:
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -27,6 +32,23 @@ spec:
               matchLabels:
                 app: {{ .Release.Name }}-web
             topologyKey: kubernetes.io/hostname
+      initContainers:
+      - name: prepare-model-directory
+        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
+        command: ["/bin/sh", "-c", "mkdir -p /workspace/models-storage/models"]
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - mountPath: /workspace/models-storage
+          name: models-storage
       containers:
       - name: {{ .Release.Name }}-model-download
         command: ["/bin/bash", "-c"]
@@ -50,7 +72,7 @@ spec:
           - name: MODEL_DOWNLOADER_URL
             value: "http://127.0.0.1:8000"
           - name: MODEL_DIR
-            value: "/workspace/models-storage/models"
+            value: "/opt/models"
           - name: MODEL_CONFIG_FILE
             value: "/workspace/model-download/models.json"
           - name: MODEL_DOWNLOAD_CONFIG_HASH
@@ -62,19 +84,39 @@ spec:
           - name: MODEL_DOWNLOADER_WAIT_TIMEOUT
             value: {{ .Values.modelDownload.waitTimeout | quote }}
           {{ include "proxy_envs" . | indent 10 }}
+          - name: HOME
+            value: /tmp
+          - name: TMPDIR
+            value: /tmp
         resources:
           {{- toYaml .Values.modelDownload.resources | nindent 10 }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
         - mountPath: /workspace/models-storage
           name: models-storage
+        - mountPath: /opt/models
+          name: models-storage
+          subPath: models
         - mountPath: /workspace/model-download
           name: model-download-code
+        - mountPath: /tmp
+          name: tmp
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+      - name: tmp
+        emptyDir: {}
       - name: models-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-models-pvc
