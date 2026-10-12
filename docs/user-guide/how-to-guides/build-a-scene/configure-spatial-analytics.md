@@ -32,14 +32,35 @@ Follow the steps in [Deploy the Demo](../deployment/deploy-demo.md) to bring up 
 3. Click on the `Regions` tab below the scene map view.
 4. Click `New Region` button to create a region.
 5. Draw the region on the scene by clicking points on the scene map to form a polygon. Be sure to click on the starting point to close the polygon.
-6. **Optional**: Add a user-defined name for the ROI in the text box.
+6. **Optional**: Add a user-defined name and type for the ROI in the text boxes.
 7. Click `Save Regions and Tripwires` to save the newly created region.
 
 #### Modify a Region of Interest
 
 1. Click on `Regions` at the bottom of the page.
-2. Find your region in the Scene and double click on the polygon to edit its shape. Drag the vertices to refine their positions.
-3. Click `Save Regions and Tripwires` to persist your changes.
+2. Find your region in the Scene and double click on the polygon to edit its shape. Drag the vertices to refine their positions. Click an edge to insert a new vertex, or right-click a vertex to remove it (double right-click to delete the whole region).
+3. **Optional**: To merge two regions, Ctrl+click a vertex on each region (two clicks per region, four total). Overlapping regions combine automatically; separated regions are joined along the picked vertices.
+4. Click `Save Regions and Tripwires` to persist your changes.
+
+#### Auto-Generate ROIs from OpenStreetMap (Geospatial Scenes)
+
+For scenes using a geospatial map, Scenescape can propose ROIs automatically from OpenStreetMap road and footway data instead of drawing every region by hand.
+
+**Prerequisites:**
+
+- The scene's `Map Type` is set to `Geospatial Map`, and `Generate Geospatial Bounds & Snapshot` has been run (see [Configure Geospatial Coordinates for a Scene](./configure-geospatial-coordinates.md)).
+- An OpenStreetMap API key is configured. See [Configure Geospatial Map Service API Keys](./configure-geospatial-map-service-api-keys.md).
+
+**Steps:**
+
+1. Click on the `Regions` tab below the scene map view.
+2. **Optional**: Click `Select Area` and drag a box over part of the map to limit suggestions to that area.
+3. Click `Suggest ROIs with OSM`. If the button is disabled, hover over it to see why (scene is not geospatial, or no OSM API key is configured).
+4. Scenescape queries OpenStreetMap for roads and footways in view (or in the selected area), buffers each one into a polygon, and draws the proposed regions with a dashed outline and an `OSM` badge. Names and widths are inferred from OpenStreetMap tags (road name, lane count, or road type).
+5. Proposed regions are editable like any other region (drag vertices, rename, merge, delete).
+6. Click `Save Regions and Tripwires` to persist the proposed regions — they are not saved until you do.
+
+> **Tip:** With a selection box active, `Select Area` also lets you press `Backspace` to delete all ROIs whose centers fall inside the box, or click `+ New Region` to create a single rectangular ROI matching the box.
 
 #### Set 3D Visibility
 

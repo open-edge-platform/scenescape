@@ -75,6 +75,7 @@ ROIs are virtual areas defined within a scene's physical space where you want to
 
 - **UUID**: Unique identifier for the ROI
 - **Name**: Human-readable name for the ROI
+- **Type**: Free-form category label for the ROI (for example, a road type when generated from OpenStreetMap)
 - **Points**: Array of (x, y) coordinates defining the polygon boundary in scene world coordinates
 - **Volumetric**: Controls how tracked objects are evaluated within the region:
   - **When enabled**: Objects are treated as 3D volumes; events trigger if any part of the tracked volume intersects the region

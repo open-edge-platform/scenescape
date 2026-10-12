@@ -806,6 +806,145 @@ paths:
           description: ""
         "401":
           description: Unauthorized
+  /preview-rois-from-osm:
+    post:
+      tags:
+        - region
+      operationId: preview_rois_from_osm_create
+      summary: Preview ROIs generated from OpenStreetMap road/footway data for a geospatial scene
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scene:
+                  type: string
+                  format: uuid
+                  description: UID of the scene. Must have geospatial bounds set (map_corners_lla).
+                bounds:
+                  type: object
+                  description: Optional scene-local bounding box to limit suggestions to a selected area.
+                  properties:
+                    minX:
+                      type: number
+                    minY:
+                      type: number
+                    maxX:
+                      type: number
+                    maxY:
+                      type: number
+              required:
+                - scene
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Proposed ROIs (not yet persisted)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rois:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        uuid:
+                          type: string
+                        name:
+                          type: string
+                        type:
+                          type: string
+                        points:
+                          type: array
+                          items:
+                            type: array
+                            items:
+                              type: number
+                        width_m:
+                          type: number
+                        tags:
+                          type: object
+                  bearing:
+                    type: number
+        "400":
+          description: Invalid scene, missing geospatial bounds, or OSM query error
+        "401":
+          description: Unauthorized
+        "404":
+          description: Scene not found
+        "500":
+          description: Internal server error
+  /accept-rois-from-osm:
+    post:
+      tags:
+        - region
+      operationId: accept_rois_from_osm_create
+      summary: Persist previously previewed OSM-derived ROIs as regions, without replacing other existing regions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scene:
+                  type: string
+                  format: uuid
+                rois:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      uuid:
+                        type: string
+                        description: Optional. Reusing the previewed UUID updates that region instead of creating a duplicate.
+                      name:
+                        type: string
+                      type:
+                        type: string
+                      points:
+                        type: array
+                        minItems: 3
+                        items:
+                          type: array
+                          items:
+                            type: number
+                    required:
+                      - points
+              required:
+                - scene
+                - rois
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Regions created or updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  created:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        uuid:
+                          type: string
+                        name:
+                          type: string
+        "400":
+          description: Missing scene/rois, or invalid roi points (fewer than 3 [x, y] pairs)
+        "401":
+          description: Unauthorized
+        "404":
+          description: Scene not found
+        "500":
+          description: Internal server error
   /scene:
     post:
       tags:

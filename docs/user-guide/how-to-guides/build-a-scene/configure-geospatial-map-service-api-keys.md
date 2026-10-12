@@ -2,7 +2,7 @@
 
 ## API Key Configuration
 
-The geospatial mapping functionality requires API keys for Google Maps or Mapbox. These should be configured as environment variables for security.
+The geospatial mapping functionality requires API keys for Google Maps or Mapbox. The OpenStreetMap-based [auto-ROI generation feature](./configure-spatial-analytics.md#auto-generate-rois-from-openstreetmap-geospatial-scenes) requires a separate OpenStreetMap (ohsome API) key. These should be configured as environment variables for security.
 
 ### Environment Variables For API Keys
 
@@ -12,6 +12,9 @@ export GOOGLE_MAPS_API_KEY="your_google_maps_api_key_here"
 
 # Mapbox API Key (for Mapbox provider)
 export MAPBOX_API_KEY="your_mapbox_api_key_here"
+
+# OpenStreetMap API Key (for the "Suggest ROIs with OSM" auto-ROI feature)
+export OHSOME_API_KEY="your_ohsome_api_key_here"
 ```
 
 ### Getting API Keys
@@ -35,6 +38,11 @@ export MAPBOX_API_KEY="your_mapbox_api_key_here"
 4. Create a new token or use the default public token.
 5. Ensure it has the required scopes for your use case.
 
+#### OpenStreetMap (ohsome) API Key
+
+1. Sign up for a free key at [HeiGIT's ohsome account portal](https://account.heigit.org/signup).
+2. Set it as the `OHSOME_API_KEY` environment variable. Without it, the `Suggest ROIs with OSM` button is disabled.
+
 ### Docker Deployment
 
 When deploying with Docker, add the environment variables to your docker-compose.yml:
@@ -46,6 +54,8 @@ services:
       # set api key for the mapping service of choice. you need only one.
       - GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
       - MAPBOX_API_KEY=your_mapbox_api_key_here
+      # required only to use the OSM auto-ROI generation feature
+      - OHSOME_API_KEY=your_ohsome_api_key_here
 ```
 
 ### Security Notes
