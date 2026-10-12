@@ -78,7 +78,7 @@ def test_build_time(built_image_result, result_recorder):
   )
   result_recorder.success()
 
-@pytest.mark.test_name("NEX-T29923")
+@pytest.mark.test_name("NEX-T29815")
 def test_image_size(built_image_result, result_recorder):
   image, _ = built_image_result
 
