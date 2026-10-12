@@ -30,6 +30,11 @@ When making changes, verify and update:
 6. **Prerequisites** (new dependencies or system requirements)
 7. **Testing instructions** (if test setup changed)
 
+## Validation
+
+After modifying Markdown files, run `make prettier-check` from the repository root.
+Markdown changes are considered correct only when this target passes.
+
 ## Example Patterns
 
 ### For Model Selection Features (e.g., mapping service):
