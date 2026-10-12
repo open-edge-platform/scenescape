@@ -74,11 +74,11 @@ graph LR
 
 **Topics Subscribed:**
 
-| Topic                                      | Description                                                                                       |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
-| `scenescape/data/camera/+`                 | Detection messages from AI pipeline with bounding boxes in pixel coordinates                      |
-| `scenescape/external/+/+`                  | Unified external-source observations, addressed by publisher ID and thing type                    |
-| `scenescape/cmd/database`                  | Database change notifications from Manager API (dynamic mode only)                                |
+| Topic                      | Description                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `scenescape/data/camera/+` | Detection messages from AI pipeline with bounding boxes in pixel coordinates   |
+| `scenescape/external/+/+`  | Unified external-source observations, addressed by publisher ID and thing type |
+| `scenescape/cmd/database`  | Database change notifications from Manager API (dynamic mode only)             |
 
 **Detection Message:**
 
@@ -163,14 +163,14 @@ See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.sche
 
 In-memory only - no persistent storage. Stateless design for horizontal scalability.
 
-| Data                           | Retention                                   |
-| ------------------------------ | ------------------------------------------- |
-| Tracking state (Kalman filter) | While running; lost on restart              |
-| External tracks                | Until aged out; lost on restart              |
-| External pose cache and ID claims | 30-second TTL; in-memory only             |
-| Detection buffers              | Flushed `time_chunking_rate_fps` per second |
-| Publish queue                  | Drained on shutdown (2s timeout)            |
-| Scene configuration            | Loaded at startup                           |
+| Data                              | Retention                                   |
+| --------------------------------- | ------------------------------------------- |
+| Tracking state (Kalman filter)    | While running; lost on restart              |
+| External tracks                   | Until aged out; lost on restart             |
+| External pose cache and ID claims | 30-second TTL; in-memory only               |
+| Detection buffers                 | Flushed `time_chunking_rate_fps` per second |
+| Publish queue                     | Drained on shutdown (2s timeout)            |
+| Scene configuration               | Loaded at startup                           |
 
 ### Detection Data Passthrough
 
