@@ -39,29 +39,27 @@ than editing service code:
    the Resolver reads it and never changes or re-baselines it.
 2. Add the camera to the `cameras` list in `positioning/config/positioning.json`
    (mounted from deployment configuration, not edited in the image). An entry holds
-   the Manager camera UID, ONVIF host and port, `motion_source` (`auto`, `events`, or
-   `polling`), and the path of the mounted secret that holds its ONVIF credentials.
+   the Manager camera UID, ONVIF host and port, and the path of the mounted secret
+   that holds its ONVIF credentials.
    Cameras listed in an instance's config are owned by that instance's
    `resolver_id`; list each camera in exactly one instance. Scene membership stays
    in Manager, which remains authoritative for scenes and consumer ACL scope.
 3. Put the ONVIF username and password in a deployment secret, never in
    `positioning.json`. Do not commit camera addresses or credentials, and do not copy
    values from the local PoC setup into product defaults.
-4. The motion source is chosen when the service connects to the camera. A camera
-   that advertises the ONVIF `IsMoving` event is not polled: `IsMoving` = true
-   invalidates the pose immediately, and `IsMoving` = false triggers a `GetStatus`
-   read plus a confirming read after the settle interval. A camera without that
-   event is polled at 5 Hz, and any position change counts as motion until the
-   position has been unchanged for 1 second. Both paths use the stored calibration
-   to calculate the new pose; neither recalibrates nor writes the home pose.
+4. Every camera is polled with `GetStatus` at 5 Hz, including while stationary. Any
+   position change counts as motion until the position has been unchanged for
+   1 second. If the camera reports the ONVIF `IsMoving` status, it is used only as
+   additional information; it never replaces position polling or shortens the settle
+   interval. The stored calibration is used to calculate the new pose; the service
+   neither recalibrates nor writes the home pose.
 5. Keep detections from the source out of tracking while moving, settling, or
    completing the configured dwell. Controller and Tracker enforce this admission
    independently; turning on either feature flag requires its own shadow-mode
    acceptance.
 
-The event path removes position polling, not timestamped pose samples: while the
-camera is stationary, each event-subscription check without motion still yields a
-sample, so dwell and sequence continuity are preserved. Camera-specific calibration,
+Continuous polling provides the timestamped samples needed for dwell and sequence
+continuity. Camera-specific calibration,
 timing bounds, and credentials are not part of this 3a shell and must be completed in
 their owning implementation phases.
 

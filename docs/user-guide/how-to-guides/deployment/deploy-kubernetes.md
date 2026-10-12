@@ -95,10 +95,10 @@ The matching variant must be available to the cluster: either pulled from Docker
 
 When `positioning.enabled=true`, the chart deploys one Positioning replica with its own broker account and client certificate, and renders `positioning.json` from these values:
 
-| Value                    | Default               | Effect                                                                                                                                                                       |
-| ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `positioning.resolverId` | `positioning-default` | Identifies the instance in its status topic `scenescape/positioning/status/{resolverId}`. Must be a single MQTT topic segment (no `/`, `+`, or `#`).                         |
-| `positioning.cameras`    | `[]`                  | PTZ cameras owned by this instance: Manager camera UID, ONVIF host and port, `motion_source` (`auto`, `events`, or `polling`), and the path of the ONVIF credentials secret. |
+| Value                    | Default               | Effect                                                                                                                                               |
+| ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `positioning.resolverId` | `positioning-default` | Identifies the instance in its status topic `scenescape/positioning/status/{resolverId}`. Must be a single MQTT topic segment (no `/`, `+`, or `#`). |
+| `positioning.cameras`    | `[]`                  | PTZ cameras owned by this instance: Manager camera UID, ONVIF host and port, and the path of the ONVIF credentials secret.                           |
 
 Do not put ONVIF usernames or passwords in `positioning.cameras`; provide them as Kubernetes Secrets. The current service shell does not read `positioning.cameras` yet. See [Positioning Service](../../microservices/positioning/positioning.md) for details.
 

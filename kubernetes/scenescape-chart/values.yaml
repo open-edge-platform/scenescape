@@ -162,7 +162,7 @@ positioning:
   image: intel/scenescape-positioning
   pullPolicy: IfNotPresent
   resolverId: positioning-default
-  # Camera entries: Manager camera UID, ONVIF host/port, motion_source, credentials secret path.
+  # Camera entries: Manager camera UID, ONVIF host/port, credentials secret path.
   # Never put ONVIF credentials here.
   cameras: []
 

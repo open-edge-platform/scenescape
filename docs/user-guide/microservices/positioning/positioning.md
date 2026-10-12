@@ -40,18 +40,13 @@ camera-configuration change notifications
 (`scenescape/cmd/camera/config/{camera_id}`). The container reports healthy only
 while it is connected to the broker.
 
-### PTZ Motion Sources
+### PTZ Camera Motion
 
-When camera support is added, the service selects a motion source for each camera
-when it connects:
-
-- **Event mode**: used for cameras that advertise the ONVIF `IsMoving` event. The
-  camera's position is not polled. A moving event invalidates the pose immediately;
-  a stopped event triggers a position read, followed by a confirming read after the
-  settle interval.
-- **Polling mode**: used for cameras without that event. The service polls the
-  camera position at 5 Hz and treats any position change as motion until the
-  position has been unchanged for 1 second.
+When camera support is added, the service polls every PTZ camera's position at 5 Hz,
+including while the camera is stationary, and treats any position change as motion
+until the position has been unchanged for 1 second. If a camera reports the ONVIF
+`IsMoving` status, the service uses it only as additional information; it does not
+replace position polling.
 
 While a camera is moving or settling, the Scene Controller and Tracker do not use its
 detections for tracking.
@@ -99,10 +94,10 @@ The service reads `/app/config/positioning.json`:
 }
 ```
 
-| Field         | Description                                                                                                                                                                                                        |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `resolver_id` | Identifies this service instance in its status topic. Must be a single MQTT topic segment (no `/`, `+`, or `#`).                                                                                                   |
-| `cameras`     | PTZ cameras owned by this instance. Each entry holds the Manager camera UID, ONVIF host and port, `motion_source` (`auto`, `events`, or `polling`), and the path of the mounted secret with the ONVIF credentials. |
+| Field         | Description                                                                                                                                                      |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `resolver_id` | Identifies this service instance in its status topic. Must be a single MQTT topic segment (no `/`, `+`, or `#`).                                                 |
+| `cameras`     | PTZ cameras owned by this instance. Each entry holds the Manager camera UID, ONVIF host and port, and the path of the mounted secret with the ONVIF credentials. |
 
 List each camera in exactly one service instance. Do not put ONVIF usernames or
 passwords in `positioning.json`; provide them as deployment secrets. Each camera's
