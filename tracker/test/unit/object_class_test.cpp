@@ -83,3 +83,30 @@ TEST(ObjectClassTest, SkipsNamelessEntries) {
     ASSERT_EQ(map.size(), 1u);
     EXPECT_TRUE(map.contains("car"));
 }
+
+TEST(ObjectClassTest, ParsesRotationFromVelocity) {
+    const auto map = parseObjectClassesFromAssets(R"({"results":[
+        {"name":"on","rotation_from_velocity":true},
+        {"name":"off","rotation_from_velocity":false},
+        {"name":"missing"},
+        {"name":"null","rotation_from_velocity":null},
+        {"name":"string","rotation_from_velocity":"true"},
+        {"name":"number","rotation_from_velocity":1}
+    ]})");
+    EXPECT_TRUE(lookupObjectClass(map, "on").rotation_from_velocity);
+    for (const char* name : {"off", "missing", "null", "string", "number"}) {
+        EXPECT_FALSE(lookupObjectClass(map, name).rotation_from_velocity) << name;
+    }
+}
+
+TEST(ObjectClassTest, InvalidRotationFromVelocityKeepsOtherFields) {
+    const auto map = parseObjectClassesFromAssets(
+        R"({"results":[{"name":"plane","shift_type":2,"rotation_from_velocity":"yes"}]})");
+    const auto plane = lookupObjectClass(map, "plane");
+    EXPECT_EQ(plane.shift_type, ObjectClassConfig::kShiftType2);
+    EXPECT_FALSE(plane.rotation_from_velocity);
+}
+
+TEST(ObjectClassTest, UnknownCategoryDisablesRotationFromVelocity) {
+    EXPECT_FALSE(lookupObjectClass({}, "vehicle").rotation_from_velocity);
+}
