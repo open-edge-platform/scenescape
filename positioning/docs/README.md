@@ -17,9 +17,12 @@ only after a successful broker connection.
 Use `make positioning` to build the runtime image and `make init-secrets` to create
 the broker identity and `scenescape-positioning` client certificate/key. Start the
 service through the test Compose profile or the Helm chart. Both mount the CA,
-client certificate, private key, and auth file read-only. The identity may publish
-only resolver status and may read camera configuration invalidations. It is not a
-superuser.
+client certificate, private key, and auth file read-only. The generated Manager account
+has read access to camera configuration invalidations and write access to resolver
+status, and it is not a superuser. The bundled Mosquitto configuration does not
+enforce service credentials or topic ACLs; deployments requiring enforcement must
+configure broker authentication and authorization as described in the
+[hardening guide](../../docs/user-guide/additional-resources/hardening-guide.md).
 
 The test image is built by `make setup-tests`; its unit suite runs from the root
 `make run_unit_tests` target. Test service compositions that include the Controller

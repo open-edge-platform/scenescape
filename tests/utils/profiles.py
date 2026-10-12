@@ -72,7 +72,8 @@ def resolve_compose_files(compose_files, dri_path="/dev/dri"):
   """
   files = list(compose_files)
   includes_tracking_service = any(
-    "scene" in os.path.basename(path) or "tracker" in os.path.basename(path)
+    os.path.basename(path).startswith("compose.scene")
+    or os.path.basename(path) == "compose.tracker.yml"
     for path in files
   )
   positioning_compose = f"{COMPOSE}/compose.positioning.yml"
