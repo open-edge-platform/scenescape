@@ -82,6 +82,8 @@ def process_detection(self, detection_data):
 - Pass important dependencies explicitly when it helps clarity or testing; follow local patterns and avoid introducing a DI framework for small changes.
 - Prefer composition over inheritance; add abstractions for real domain concepts or meaningful duplication.
 - Handle errors where useful context is available. When adding context, raise a relevant exception with chaining; avoid catching only to log and re-raise unchanged.
+- Prefer reusing existing code and follow DRY rule.
+- Before adding a new dependency or writing new code, check whether existing standard libraries or already imported libraries can be reused.
 
 ## Django Patterns
 
