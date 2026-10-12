@@ -634,12 +634,11 @@ TEST(CoordinateTransformerTest, DistortedType2FootShiftsNormalizedBox) {
         const auto br = project(bottom_right);
         const double base_len =
             std::hypot((bl.x + br.x) / 2.0 - camera.x, (bl.y + br.y) / 2.0 - camera.y);
-        const auto angle_fraction = static_cast<float>(
-            std::atan2(std::abs(camera.z), base_len) / (std::numbers::pi / 2.0));
+        const auto angle_fraction =
+            static_cast<float>(std::atan2(std::abs(camera.z), base_len) / (std::numbers::pi / 2.0));
         const float height = bottom_right.y - top_left.y;
-        const auto expected =
-            project({(top_left.x + bottom_right.x) / 2.0f,
-                     bottom_right.y - (height / 2.0f) * angle_fraction});
+        const auto expected = project({(top_left.x + bottom_right.x) / 2.0f,
+                                       bottom_right.y - (height / 2.0f) * angle_fraction});
         EXPECT_NEAR(result[i].x, expected.x, kWorldTolerance);
         EXPECT_NEAR(result[i].y, expected.y, kWorldTolerance);
     }
