@@ -198,7 +198,7 @@ The in-process entry point mirrors the RPC contract as
 `submit_ptz_sample(PTZSample) -> PTZSampleAck`, preserving the same validation and
 acknowledgement semantics without serialization, a channel, or a network boundary.
 
-The `.proto` is a shared, published contract stored at `api/positioning/v1/`, not
+The `.proto` is a shared, published contract stored at `docs/user-guide/api-docs/positioning/v1/`, not
 privately in a module. Generate the Python message types from this single source and use
 those types at the in-process poller-to-Resolver boundary. Publish the versioned `.proto`
 for future Sensor Manager integrations. The protobuf package namespace
@@ -680,7 +680,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 8. Rollout / Migration Plan
 
-1. **Contracts and math** — add the versioned `.proto` to `api/positioning/v1/`, generate
+1. **Contracts and math** — add the versioned `.proto` to `docs/user-guide/api-docs/positioning/v1/`, generate
    message types for the in-process poller-to-Resolver boundary, and publish the contract
    plus compatibility policy for future Sensor Manager consumers. Define the source-keyed
    `positioning/pose/{source_id}` contract, status/LWT topic, `valid_until`, canonical
@@ -825,6 +825,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 11. References
 
+- [Positioning PTZ v1: Contracts Reference](./positioning-ptz-contracts.md) (normative topic, schema, dwell, reason, and configuration contracts)
 - [ADR 13 — Controller Breakdown into Functionality-Aligned Microservices](../adr/0013-controller-breakdown-microservices.md)
 - [ADR 16 — Unified External-Source Ingestion Contract](../adr/0016-unified-external-source-ingestion.md) (publisher-centric contract precedent; `external_source` is not reused for pixel-space camera detections)
 - PoC: `ptz_pose_service/` (`src/pose_math.py`, `src/ptz_pose_context.py`, `src/ptz_pose_service.py`, `README.md`, `tools/`)

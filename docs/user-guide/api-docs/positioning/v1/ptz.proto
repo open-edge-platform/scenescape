@@ -1,0 +1,72 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+//
+// Raw PTZ sample contract for the Positioning Service (PTZ capability, v1).
+//
+// Compatibility policy: the package `scenescape.ptz.v1` is the wire
+// compatibility boundary. Within v1 only additive optional fields may be
+// introduced. Existing field numbers, names, types, and semantics must never be
+// changed or reused; removed fields must be `reserved`. Incompatible changes
+// require a new package version (e.g. `scenescape.ptz.v2`).
+//
+// In v1 the ONVIF poller passes `PTZSample` to the Resolver in-process; the
+// `PTZPoseIngest` service is retained for a future authenticated external
+// producer (e.g. OEP Sensor Manager) and is not an internal network hop.
+
+syntax = "proto3";
+
+package scenescape.ptz.v1;
+
+import "google/protobuf/timestamp.proto";
+
+service PTZPoseIngest {
+  rpc SubmitPTZSample(PTZSample) returns (PTZSampleAck);
+}
+
+message PTZSample {
+  // Manager camera UID.
+  string camera_id = 1;
+  // Changes on every poller restart; `sequence` is monotonic within it.
+  string adapter_instance_id = 2;
+  uint64 sequence = 3;
+  // Midpoint of the ONVIF request/response interval.
+  google.protobuf.Timestamp measured_at = 4;
+  // At least half of the ONVIF request/response interval.
+  uint64 timestamp_uncertainty_ns = 5;
+  PTZPosition position = 6;
+  // Advisory only; the Resolver derives the authoritative motion state.
+  ReportedMoveStatus reported_move_status = 7;
+}
+
+// Raw device-reported values in the advertised ONVIF position space.
+message PTZPosition {
+  double pan = 1;
+  double tilt = 2;
+  optional double zoom = 3;
+  string position_space_uri = 4;
+  double pan_min = 5;
+  double pan_max = 6;
+  double tilt_min = 7;
+  double tilt_max = 8;
+}
+
+enum ReportedMoveStatus {
+  REPORTED_MOVE_STATUS_UNSPECIFIED = 0;
+  REPORTED_MOVE_STATUS_IDLE = 1;
+  REPORTED_MOVE_STATUS_MOVING = 2;
+}
+
+message PTZSampleAck {
+  PTZSampleResult result = 1;
+  string detail = 2;
+  uint64 accepted_sequence = 3;
+}
+
+enum PTZSampleResult {
+  PTZ_SAMPLE_RESULT_UNSPECIFIED = 0;
+  PTZ_SAMPLE_RESULT_ACCEPTED = 1;
+  PTZ_SAMPLE_RESULT_DUPLICATE = 2;
+  PTZ_SAMPLE_RESULT_OUT_OF_ORDER = 3;
+  PTZ_SAMPLE_RESULT_UNKNOWN_CAMERA = 4;
+  PTZ_SAMPLE_RESULT_INVALID = 5;
+}

@@ -467,6 +467,152 @@
         }
       ]
     },
+    "pose_context": {
+      "title": "PTZ PoseContext",
+      "description": "Resolved, timestamped pose published by the Positioning service on scenescape/positioning/pose/{source_id}. Draft-04 compatible and self-contained (no $ref) so the Tracker can reuse it unchanged.",
+      "type": "object",
+      "properties": {
+        "schema_version": { "type": "integer", "enum": [1] },
+        "source_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64
+        },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "valid": { "type": "boolean" },
+        "pose": {
+          "type": "object",
+          "properties": {
+            "frame_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "transform_direction": {
+              "type": "string",
+              "enum": ["scene_from_camera"]
+            },
+            "matrix_layout": { "type": "string", "enum": ["row_major"] },
+            "matrix_4x4": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": { "type": "number" }
+              }
+            },
+            "translation_unit": { "type": "string", "enum": ["m"] }
+          },
+          "required": [
+            "frame_id",
+            "transform_direction",
+            "matrix_layout",
+            "matrix_4x4",
+            "translation_unit"
+          ],
+          "additionalProperties": false
+        },
+        "motion_state": {
+          "type": "string",
+          "enum": ["stationary", "slewing", "settling", "unknown"]
+        },
+        "sample_age_s": { "type": "number", "minimum": 0 },
+        "timestamp_uncertainty_s": { "type": "number", "minimum": 0 },
+        "calibration_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "quality": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 0, "maximum": 1 },
+            "temporal_score": { "type": "number", "minimum": 0, "maximum": 1 },
+            "calibration_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "reprojection_rms_px": { "type": "number", "minimum": 0 }
+          },
+          "required": [
+            "score",
+            "temporal_score",
+            "calibration_score",
+            "reprojection_rms_px"
+          ],
+          "additionalProperties": false
+        },
+        "invalid_reason": {
+          "type": "string",
+          "enum": ["no_pose_available", "pose_expired", "invalid_pose"]
+        },
+        "reason_detail": {
+          "type": "string",
+          "enum": [
+            "no_sample",
+            "sample_stale",
+            "moving",
+            "settling",
+            "calibration_missing",
+            "calibration_changed",
+            "invalid_sample",
+            "backlash_unknown"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "source_id",
+        "timestamp",
+        "valid_until",
+        "sequence",
+        "valid",
+        "motion_state",
+        "sample_age_s",
+        "timestamp_uncertainty_s",
+        "calibration_version"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": { "valid": { "enum": [true] } },
+          "required": ["pose", "quality"],
+          "not": {
+            "anyOf": [
+              { "required": ["invalid_reason"] },
+              { "required": ["reason_detail"] }
+            ]
+          }
+        },
+        {
+          "properties": { "valid": { "enum": [false] } },
+          "required": ["invalid_reason"],
+          "not": { "required": ["pose"] }
+        }
+      ]
+    },
+    "positioning_status": {
+      "title": "Positioning resolver status",
+      "description": "Retained status/LWT published on scenescape/positioning/status/{resolver_id}. timestamp is the session start time. Draft-04 compatible and self-contained (no $ref).",
+      "type": "object",
+      "properties": {
+        "resolver_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "status": { "type": "string", "enum": ["online", "offline"] },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64
+        }
+      },
+      "required": ["resolver_id", "status", "timestamp"],
+      "additionalProperties": false
+    },
     "singleton": {
       "title": "Sensor Metadata",
       "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into Scenescape.",
@@ -536,6 +682,12 @@
     },
     "external_source": {
       "$ref": "#/definitions/external_source"
+    },
+    "pose_context": {
+      "$ref": "#/definitions/pose_context"
+    },
+    "positioning_status": {
+      "$ref": "#/definitions/positioning_status"
     }
   },
   "additionalProperties": true,
