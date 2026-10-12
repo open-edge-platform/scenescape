@@ -15,8 +15,8 @@ diagnostics):
 
 - RANSAC outlier rejection for manual calibration / point correspondence pose
 - Fit diagnostics in the Manager UI (RMS, per-point residuals, rejected indices)
-- Visual **halos** (red = rejected, orange = high residual) that preserve each
-  point’s identity color
+- High-contrast black/white diagnostic **rings** (with an ✕ for RANSAC rejects
+  and a dashed camera-view ring for high residuals) that preserve each point’s identity color
 - Shared threshold / min-point constants from
   `scene_common.transform` (`RANSAC_REPROJECTION_THRESHOLD_PX`,
   `MIN_POINTS_FOR_RANSAC`) mirrored in Manager JS as needed

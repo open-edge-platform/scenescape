@@ -273,7 +273,7 @@ export class ConvergedCameraCalibration {
     const mapPoints = this.viewport.getCalibrationPoints(true);
     if (
       this.isValidCalibration(camPoints, mapPoints) &&
-      Object.keys(camPoints).length >= 6
+      Object.keys(camPoints).length >= CALIBRATION_MIN_POINTS_FOR_FIT
     ) {
       const pointNames = Object.keys(camPoints);
       this.rejectedPointIndices = [];
