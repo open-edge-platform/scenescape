@@ -8,7 +8,7 @@ import numpy as np
 
 import atag_camera_calibration_controller as calibration
 from auto_camera_calibration_api import CameraCalibrationApi
-from scene_common.calibration_geometry import MIN_PNP_SPREAD_RATIO
+from calibration_geometry import MIN_PNP_SPREAD_RATIO
 
 
 def _generate_calibration(monkeypatch, points_3d, camera_translation, tag_size=0.2,
@@ -129,7 +129,7 @@ def test_generate_calibration_rejects_camera_far_below_tags(monkeypatch):
   result = _generate_calibration(monkeypatch, points_3d, [0, 0, -0.2])
 
   assert result["status"] == "error"
-  assert "below the matched points" in result["message"]
+  assert "below the AprilTags" in result["message"]
   assert result["translation"][2] == -0.2
 
 
