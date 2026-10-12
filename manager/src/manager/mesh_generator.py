@@ -581,12 +581,6 @@ class MeshGenerator:
     if not glb_data:
       return {"success": False, "error": "Mapping service did not return GLB data"}
 
-    # Validate the reconstructed mesh is a single connected scene before
-    # mutating any camera poses, so a rejected mesh leaves the scene untouched.
-    connectivity_error, merged_mesh = self._checkMeshConnectivity(glb_data)
-    if connectivity_error is not None:
-      return {"success": False, "error": connectivity_error}
-
     # Recompute anchored/calibrated state now, before any write-back mutates poses.
     # This is done fresh here rather than reused from startMeshGeneration because
     # that call happens in a separate HTTP request (and often a separate worker
@@ -596,6 +590,21 @@ class MeshGenerator:
       camera.sensor_id: self._is_camera_calibrated(camera, serializer)
       for camera in cameras
     }
+    has_anchors = any(anchored_cameras.values())
+    all_anchored = bool(anchored_cameras) and all(anchored_cameras.values())
+
+    # Validate the reconstructed mesh is a single connected scene before
+    # mutating any camera poses, so a rejected mesh leaves the scene untouched.
+    # Skipped only when every camera is already anchored (calibrated): there is
+    # no unanchored camera's solved pose left to validate against the trusted
+    # baseline, so per-camera patches covering different, non-overlapping parts
+    # of the same physical scene (e.g. demo scenes) are expected, not an error.
+    # With any unanchored camera present (including the fully-blind case), the
+    # check still guards against that camera's pose being solved into the wrong
+    # physical location.
+    connectivity_error, merged_mesh = self._checkMeshConnectivity(glb_data)
+    if connectivity_error is not None and (merged_mesh is None or not all_anchored):
+      return {"success": False, "error": connectivity_error}
 
     self._updateSceneCamerasWithMappingResult(mapping_result, cameras, anchored_cameras)
 
@@ -605,7 +614,6 @@ class MeshGenerator:
     # With anchored cameras we know their true scene pose, so align the mesh onto
     # them (moving the mesh, not the trusted cameras). Without any anchor there is
     # no reference, so fall back to the geometric floor-fit heuristic.
-    has_anchors = any(anchored_cameras.values())
     if has_anchors:
       mesh_to_scene, _ = self._computeAnchorMeshTransform(
         mapping_result, cameras, anchored_cameras, serializer)
