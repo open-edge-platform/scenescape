@@ -18,6 +18,11 @@ and top-left determine object width and height. The foot is then shifted away
 from the camera by half the estimated object width to approximate the center
 of the object's footprint.
 
+For TYPE_2 objects, the tracker uses the projected bottom corners to calculate
+the base angle, shifts the foot in the original pixel bounding box, then
+undistorts and projects that shifted point. This differs from shifting the foot
+in the normalized bounding box when lens distortion is present.
+
 ---
 
 ## Time-Chunk Processing Pipeline

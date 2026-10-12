@@ -28,21 +28,20 @@ namespace tracker {
  * the bottom-left, bottom-right, and top-left determine world-space dimensions.
  *
  * Designed for high-throughput (1000+ detections per batch):
- * - Single cv::undistortPoints call for all pixels in the batch
+ * - Batched cv::undistortPoints calls for bbox corners and optional TYPE_2 feet
  * - Data-oriented layout: contiguous pixel arrays for cache efficiency
  * - OpenMP parallelization of pose-transform and ray-plane intersection
  *
- * Transformation pipeline per detection (4 pixels each):
+ * Transformation pipeline per detection:
  * 1. Collect top-left and bottom-right pixels
  * 2. Batch undistort 2*N corners and derive normalized foot, BL, BR, TL
  * 3. Pose-transform + ray-plane intersection (z=0) for 4*N points with OpenMP
  * 4. Optional TYPE_2 foot re-projection (wide/short objects)
  * 5. Assemble TrackedObjects: position from foot, size from corners
  *
- * Projection modes (shift_type), matching Controller MovingObject.camLoc:
+ * Projection modes (shift_type):
  * - ObjectClassConfig::kShiftType1 (default): bottom-center of the bbox
- * - ObjectClassConfig::kShiftType2: shift foot upward by (height/2)*(baseAngle/90)
- *   before projecting
+ * - ObjectClassConfig::kShiftType2:  shift foot upward by (height/2)*(baseAngle/90)
  *
  * Euler angle convention:
  * - XYZ INTRINSIC rotation order, angles in DEGREES

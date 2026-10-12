@@ -188,53 +188,39 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         normalized[base + 3] = top_left;
     }
 
-    // Phase 2: Parallel ray-plane projection of normalized rectangle points
+    // Phase 2+3: Batch undistort + parallel ray-plane
     std::vector<cv::Point2d> world;
     std::vector<uint8_t> valid;
     batchNormalizedToWorld(normalized, world, valid);
 
-    // Phase 4: TYPE_2 re-projects the foot shifted up by baseAngle, measured from the camera to
-    // the midpoint of the projected bottom corners (Controller projectBounds / camLoc).
+    // Phase 4: TYPE_2 shifts the foot in normalized space, matching Controller camLoc.
     if (shift_type_ == ObjectClassConfig::kShiftType2) {
         const double cam_x = camera_origin_.x;
         const double cam_y = camera_origin_.y;
         const double cam_z = std::abs(camera_origin_.z);
 
-        std::vector<size_t> type2_indices;
-        std::vector<cv::Point2f> type2_feet;
-        type2_indices.reserve(n);
-        type2_feet.reserve(n);
-
+        std::vector<cv::Point2f> type2_feet(n);
         for (size_t i = 0; i < n; ++i) {
             const size_t base = i * kPointsPerDetection;
-            if (!valid[base] || !valid[base + 1] || !valid[base + 2]) {
-                continue;
-            }
             const auto& bl = world[base + 1];
             const auto& br = world[base + 2];
-            const double base_x = (bl.x + br.x) / 2.0;
-            const double base_y = (bl.y + br.y) / 2.0;
-            const double base_len = std::hypot(base_x - cam_x, base_y - cam_y);
-            const double base_angle = std::atan2(cam_z, base_len);
+            const double base_len =
+                std::hypot((bl.x + br.x) / 2.0 - cam_x, (bl.y + br.y) / 2.0 - cam_y);
+            const auto angle_fraction =
+                static_cast<float>(std::atan2(cam_z, base_len) / (std::numbers::pi / 2.0));
 
-            const auto& top_left_n = corners[i * kCornersPerDetection];
-            const auto& bottom_right_n = corners[i * kCornersPerDetection + 1];
-            const float height_n = bottom_right_n.y - top_left_n.y;
-            type2_indices.push_back(i);
-            type2_feet.push_back(
-                {(top_left_n.x + bottom_right_n.x) / 2.0f,
-                 bottom_right_n.y - (height_n / 2.0f) *
-                                        static_cast<float>(base_angle / (std::numbers::pi / 2.0))});
+            const auto& top_left = normalized[base + 3];
+            const auto& bottom_right = normalized[base + 2];
+            const float height = bottom_right.y - top_left.y;
+            type2_feet[i] = {normalized[base].x, bottom_right.y - (height / 2.0f) * angle_fraction};
         }
 
-        if (!type2_feet.empty()) {
-            std::vector<cv::Point2d> type2_world;
-            std::vector<uint8_t> type2_valid;
-            batchNormalizedToWorld(type2_feet, type2_world, type2_valid);
-            for (size_t j = 0; j < type2_indices.size(); ++j) {
-                if (type2_valid[j]) {
-                    world[type2_indices[j] * kPointsPerDetection] = type2_world[j];
-                }
+        std::vector<cv::Point2d> type2_world;
+        std::vector<uint8_t> type2_valid;
+        batchNormalizedToWorld(type2_feet, type2_world, type2_valid);
+        for (size_t i = 0; i < n; ++i) {
+            if (type2_valid[i]) {
+                world[i * kPointsPerDetection] = type2_world[i];
             }
         }
     }
