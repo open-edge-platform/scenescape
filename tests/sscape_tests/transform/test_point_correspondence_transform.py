@@ -295,6 +295,14 @@ class TestPointCorrespondenceTransformPrivateMethods:
     expected_position = -rmat.T @ tvec
     np.testing.assert_allclose(transform.pose_mat[:3, 3], expected_position, atol=1e-3)
 
+    world_to_camera = np.linalg.inv(transform.pose_mat)
+    recovered_rvec = cv2.Rodrigues(world_to_camera[:3, :3])[0]
+    reprojected_points, _ = cv2.projectPoints(
+      map_points, recovered_rvec, world_to_camera[:3, 3], intrinsics.intrinsics, None)
+    residuals = reprojected_points.reshape(-1, 2) - camera_points.reshape(-1, 2)
+    rms_reprojection_error = np.sqrt(np.mean(np.sum(residuals ** 2, axis=1)))
+    assert rms_reprojection_error < 0.01
+
   @pytest.mark.parametrize("num_points", [4, 5])
   def test_scaled_down_non_coplanar_set_uses_sqpnp(self, num_points):
     """A well-spread 10 cm layout is non-coplanar regardless of scene units"""

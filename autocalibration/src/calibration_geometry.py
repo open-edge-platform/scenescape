@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Acceptance checks for 3D-2D correspondence geometry used in AprilTag calibration."""
+"""AprilTag-specific camera pose acceptance checks."""
 
 from dataclasses import dataclass
 from typing import Optional
@@ -29,7 +29,7 @@ class PoseValidation:
 
 
 def points_spread_ratio(points_3d):
-  """Return the smallest-to-largest principal-axis spread ratio for 3D points.
+  """Return the smallest-to-largest principal-axis spread ratio.
 
   A value near zero indicates that the points are coplanar or have negligible
   spread along one axis. Fewer than four points or a collapsed point cloud
@@ -46,16 +46,7 @@ def points_spread_ratio(points_3d):
 
 def validate_correspondence_geometry(map_points_3d, points_2d, camera_pose,
                                      intrinsics, planar_map):
-  """Check whether matched tag geometry supports a reliable pose.
-
-  @param   map_points_3d  Matched tag centers in map coordinates (Nx3)
-  @param   points_2d      Matched tag centers in image pixels (Nx2)
-  @param   camera_pose    4x4 camera-to-map pose from solvePnP
-  @param   intrinsics     3x3 camera matrix
-  @param   planar_map     True for image floor plans, whose tag centers are planar by design
-
-  @return  (spread_ratio, message) where message is None when the geometry is accepted
-  """
+  """Check whether matched tag geometry supports a reliable pose."""
   map_points_3d = np.asarray(map_points_3d, dtype=float)
   spread_ratio = points_spread_ratio(map_points_3d)
   if spread_ratio >= MIN_PNP_SPREAD_RATIO:

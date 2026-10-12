@@ -91,7 +91,7 @@ def _are_coplanar(points):
   singular_values = np.linalg.svd(points - points.mean(axis=0), compute_uv=False)
   if singular_values[1] <= 1e-9 * max(singular_values[0], 1e-12):
     return True
-  return bool(singular_values[2] / singular_values[1] < _MAX_COPLANAR_SPREAD_RATIO)
+  return bool(singular_values[-1] / singular_values[1] < _MAX_COPLANAR_SPREAD_RATIO)
 
 
 def _pose_mat_to_extrinsics(mat):

@@ -63,9 +63,9 @@ The layout requirements depend on the scene map type:
 
 > **Note**: The same AprilTags can be visible in multiple camera views, but ensure at least 4 tags are detectable in each camera.
 
-For both map types, calibration also rejects a pose that places the camera substantially below
-the lowest matched tag. That height tolerance scales with the configured AprilTag size, so it
-does not assume the scene coordinates are in meters.
+For both map types, calibration rejects a pose when the camera's z-coordinate is more than
+half the configured AprilTag size below the lowest matched tag's z-coordinate. This threshold
+scales with tag size.
 
 ---
 
