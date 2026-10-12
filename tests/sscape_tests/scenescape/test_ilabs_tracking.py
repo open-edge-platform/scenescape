@@ -78,6 +78,44 @@ def test_to_rv_object_omits_orientation_without_detection_rotation():
   assert 'has_orientation' not in rv_object.attributes
 
 
+def _detected_object(**extra):
+  return SimpleNamespace(
+    sceneLoc=Point(1.0, 2.0, 3.0),
+    size=[4.0, 2.0, 1.5],
+    rotation=None,
+    confidence=0.9,
+    info={},
+    frameCount=1,
+    metadata={},
+    has_detection_rotation=False,
+    **extra,
+  )
+
+
+@pytest.mark.parametrize("camera, expected", [
+  (SimpleNamespace(cameraID='cam-1'), 'cam-1'),
+  (SimpleNamespace(uid='child-scene-uid'), 'child-scene-uid'),
+  (SimpleNamespace(cameraID='cam-1', uid='child-scene-uid'), 'cam-1'),
+], ids=['camera', 'child_scene', 'camera_id_wins'])
+def test_to_rv_object_sets_camera_id_from_source(camera, expected):
+  """Streaming fusion keys its per-camera cache on camera_id, for cameras and child scenes alike."""
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+
+  rv_object = tracker.to_rv_object(_detected_object(camera=camera))
+
+  assert rv_object.attributes.get('camera_id') == expected
+
+
+@pytest.mark.parametrize("extra", [{}, {'camera': None}, {'camera': SimpleNamespace()}],
+                         ids=['no_camera', 'camera_none', 'camera_without_id'])
+def test_to_rv_object_omits_camera_id_without_source(extra):
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+
+  rv_object = tracker.to_rv_object(_detected_object(**extra))
+
+  assert 'camera_id' not in rv_object.attributes
+
+
 @pytest.mark.parametrize("yaw", [
   -math.pi,
   -math.pi / 2.0,
