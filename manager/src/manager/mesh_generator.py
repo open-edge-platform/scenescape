@@ -516,12 +516,17 @@ class MeshGenerator:
         if is_calibrated:
           # Camera has a calibrated pose - pass it for anchoring
           t = serializer.get_translation(camera)
-          q = serializer.get_rotation(camera)
+          euler_rotation = serializer.get_rotation(camera)
           s = serializer.get_scale(camera) or [1.0, 1.0, 1.0]
+
+          # get_rotation() returns Euler XYZ degrees; the mapping service only
+          # understands quaternion (len 4) or matrix (3x3) rotations, so convert
+          # here or it silently falls back to identity (ITEP-97219).
+          q = Rotation.from_euler('XYZ', euler_rotation, degrees=True).as_quat()
 
           camera_location_order.append({
             "translation": list(t),
-            "rotation": list(q),
+            "rotation": q.tolist(),
             "scale": list(s),
           })
           log.info(f"Camera {cam_id} is calibrated, will be anchored in mesh generation")
@@ -608,9 +613,8 @@ class MeshGenerator:
 
     self._updateSceneCamerasWithMappingResult(mapping_result, cameras, anchored_cameras)
 
-    # The mapping service builds the GLB from raw world_points in MapAnything's
-    # world frame, but returns camera poses already rotated into the Scenescape
-    # frame. Mesh and cameras therefore start out in different frames.
+    # The mapping service already rotates both the mesh and the returned camera
+    # poses into the Scenescape-equivalent frame (see _computeAnchorMeshTransform).
     # With anchored cameras we know their true scene pose, so align the mesh onto
     # them (moving the mesh, not the trusted cameras). Without any anchor there is
     # no reference, so fall back to the geometric floor-fit heuristic.
@@ -732,19 +736,16 @@ class MeshGenerator:
     Compute the transform that brings the reconstructed mesh into the scene frame,
     using the anchored cameras' known poses as the reference.
 
-    The mapping service exports the mesh in MapAnything's world frame but returns
-    camera poses already rotated by 180 degrees about X into the Scenescape frame.
-    Undoing that rotation puts the mesh in the same frame as the returned poses;
-    any remaining drift is then removed by matching each anchored camera's returned
-    pose to its true calibrated pose.
+    The mapping service already rotates both the exported mesh (predictions_to_glb /
+    create_pointcloud_from_mesh) and the returned camera poses by 180 degrees about X
+    to convert MapAnything's frame into Scenescape's, so mesh and returned poses
+    arrive already sharing one frame. Only the remaining drift needs removing, by
+    matching each anchored camera's returned pose to its true calibrated pose.
 
     Returns:
       tuple: (mesh_to_scene, correction) as a 4x4 matrix and a mesh_transform-style
         dict, or (None, None) if no usable anchor was found.
     """
-    # 180 degrees about X, matching the rotation the mapping service applies to poses.
-    frame_flip = np.diag([1.0, -1.0, -1.0, 1.0])
-
     pose_by_id = {p["camera_id"]: p for p in mapping_result.get("camera_poses", [])
                   if isinstance(p, dict) and p.get("camera_id") is not None}
 
@@ -779,8 +780,8 @@ class MeshGenerator:
         log.warning(f"Could not use anchored camera {cam_id} for mesh alignment: {e}")
 
     if not scene_mats:
-      log.warning("No usable anchored camera pose for mesh alignment, applying frame flip only")
-      return frame_flip, None
+      log.warning("No usable anchored camera pose for mesh alignment, leaving mesh as returned")
+      return None, None
 
     corrections = [s @ np.linalg.inv(r) for s, r in zip(scene_mats, returned_mats)]
 
@@ -797,7 +798,7 @@ class MeshGenerator:
       'translation': correction_mat[:3, 3],
       'center_offset': np.zeros(3),
     }
-    return correction_mat @ frame_flip, correction
+    return correction_mat, correction
 
   def _saveMeshToScene(self, scene, merged_mesh, align=True):
     """
