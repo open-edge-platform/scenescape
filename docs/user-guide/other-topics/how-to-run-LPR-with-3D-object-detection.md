@@ -7,7 +7,7 @@ This guide explains how to:
 
 ## Prerequisites
 
-- Successful deployment of a Scenescape instance using [Installation](../get-started/installation.md)
+- Successful deployment of a Scenescape instance using [Deploy on Docker](../how-to-guides/deployment/deploy-docker.md)
 - Access to the DeepScenario 3D Object Detection package
 
 ## Setup Steps
@@ -38,7 +38,7 @@ Running the `DeepScenario` script requires additional Python modules installed o
 Create a Dockerfile named `Dockerfile.dls-deepscenario` and copy the following into it:
 
 ```Dockerfile
-FROM docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20260929-weekly-ubuntu24
+FROM docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261006-weekly-ubuntu24
 
 USER root
 
