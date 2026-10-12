@@ -49,7 +49,6 @@ class Migration(migrations.Migration):
 
   dependencies = [
     ('manager', '0005_default_asset3d_objects'),
-
   ]
 
   operations = [
