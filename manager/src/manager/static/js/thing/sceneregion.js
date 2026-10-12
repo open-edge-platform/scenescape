@@ -7,6 +7,7 @@ import ThingControls from "/static/js/thing/controls/thingcontrols.js";
 import * as THREE from "/static/assets/three.module.js";
 import validateInputControls from "/static/js/thing/controls/validateinputcontrols.js";
 import Toast from "/static/js/toast.js";
+import { TEXT_SIZE } from "/static/js/constants.js";
 
 const MAX_OPACITY = 1;
 const MAX_SEGMENTS = 65;
@@ -447,6 +448,7 @@ export default class SceneRegion extends THREE.Object3D {
                       `Region ${this.name} successfully deleted.`,
                       "success",
                     );
+                    this.removeCountLabel();
                     this.disposeResources();
                     this.scene.remove(this);
                     this.controlsFolder.destroy();
@@ -490,10 +492,55 @@ export default class SceneRegion extends THREE.Object3D {
       geometry = this.createPoly();
       this.changeGeometry(geometry);
     } else {
+      this.removeCountLabel();
       this.disposeMesh(this.shape);
       this.shape = null;
     }
     this.updateAxesHelper();
+  }
+
+  // True centroid (poly) or circle center, in world space; null for "scene" regions.
+  getRegionCenter() {
+    if (this.regionType === "circle") {
+      if (this.region.hasOwnProperty("center")) {
+        return { x: this.region.center[0], y: this.region.center[1] };
+      }
+      return { x: this.region.x, y: this.region.y };
+    }
+    if (this.points && this.points.length > 0) {
+      const sum = this.points.reduce(
+        (acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }),
+        { x: 0, y: 0 },
+      );
+      return { x: sum.x / this.points.length, y: sum.y / this.points.length };
+    }
+    return null;
+  }
+
+  updateCounts(counts) {
+    const center = this.getRegionCenter();
+    if (!center) return;
+    const text = Object.entries(counts)
+      .map(([type, n]) => `${type}: ${n}`)
+      .join(", ");
+    const position = { x: center.x, y: center.y, z: this.height };
+    this.drawObj
+      .createTextObject(text, position, TEXT_SIZE)
+      .then((textMesh) => {
+        this.removeCountLabel();
+        textMesh.name = "countTextObject";
+        // TextGeometry does not retain the source string.
+        textMesh.userData.text = text;
+        this.add(textMesh);
+      });
+  }
+
+  removeCountLabel() {
+    const label = this.getObjectByName("countTextObject");
+    if (label) {
+      this.remove(label);
+      label.geometry.dispose();
+    }
   }
 
   updateShape(data) {

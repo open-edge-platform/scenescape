@@ -99,13 +99,15 @@ export default class ThingControls {
   updateGeometry(data) {
     this.object3D.points = [];
     this.object3D.createGeometry(data);
-    const oldLabel = this.object3D.getObjectByName(
+    // The text mesh is a child of the region, not the scene; remove() is a
+    // no-op on a non-direct child, so look it up and dispose it via the region.
+    const textObject = this.object3D.getObjectByName(
       "textObject_" + this.object3D.name,
     );
-    if (oldLabel) {
+    if (textObject) {
       // TEXT_MATERIAL (draw.js) is shared across labels; only the geometry is per-instance.
-      this.object3D.remove(oldLabel);
-      oldLabel.geometry.dispose();
+      this.object3D.remove(textObject);
+      textObject.geometry.dispose();
       this.object3D.textMesh = null;
     }
     if (this.object3D.points.length > 0) {
