@@ -11,12 +11,27 @@ from reid_service.reid_registry import create_reid_database
 class ReIDService:
   """Delegate baseline Re-ID operations to one configured adapter."""
 
-  def __init__(self, database=None, adapter=None):
+  def __init__(self, database=None, adapter=None, connect=True):
     self.adapter = adapter or create_reid_database(database, dimensions=None)
+    if connect:
+      # Adapters log and swallow connection errors, so this never raises.
+      # Health() reports whether it succeeded.
+      self.adapter.connect()
+
+  def _is_connected(self):
+    # Qdrant sets adapter.connected; the VDMS client tracks it on adapter.db.
+    if hasattr(self.adapter, "connected"):
+      return bool(self.adapter.connected)
+    db = getattr(self.adapter, "db", None)
+    return bool(getattr(db, "connected", False))
 
   def health(self):
-    """Return service health without changing adapter behavior."""
-    return {"status": "ok", "backend": self.adapter.__class__.__name__}
+    connected = self._is_connected()
+    return {
+      "status": "ok" if connected else "degraded",
+      "backend": self.adapter.__class__.__name__,
+      "connected": connected,
+    }
 
   def find_matches(self, request):
     """Run the existing adapter findMatches operation for a request mapping."""
