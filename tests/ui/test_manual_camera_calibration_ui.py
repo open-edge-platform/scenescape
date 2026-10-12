@@ -253,6 +253,90 @@ def test_manual_distortion_controls(params, result_recorder):
     assert name_sets["mismatchedValid"] is False
     assert name_sets["wouldThrowOnSave"] is False
     assert name_sets["matchingValid"] is True
+
+    save_guard = browser.execute_script(
+      """
+      const calibration = window.camera_calibration;
+      const form = document.getElementById("calibration_form");
+      const originalAjax = $.ajax;
+      const originalSubmit = HTMLFormElement.prototype.submit;
+      const originalAlert = window.alert;
+      const originalClient = calibration.client;
+      const originalUpdatePose = calibration.updateCalibrationPoseFromFit;
+      const originalShowFitStatus = calibration.showCalibrationFitStatus;
+      let request;
+      let nativeSubmissions = 0;
+      let alertText = "";
+
+      try {
+        calibration.client = null;
+        calibration.updateCalibrationPoseFromFit = () => {};
+        calibration.showCalibrationFitStatus = () => {};
+        $.ajax = (options) => {
+          request = options;
+          return {};
+        };
+        HTMLFormElement.prototype.submit = () => {
+          nativeSubmissions++;
+        };
+        window.alert = (message) => {
+          alertText = message;
+        };
+
+        calibration.clearCalibrationPoints();
+        for (let index = 0; index < 6; index++) {
+          calibration.camCanvas.addCalibrationPoint(80 + index * 80, 90 + index * 50);
+          calibration.viewport.addCalibrationPoint(index, index % 2, 0);
+        }
+
+        calibration.calculateCalibrationIntrinsics();
+        const pendingState = calibration.calibrationFitState;
+        form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        const pendingBlocked = nativeSubmissions === 0 && alertText.includes("wait");
+
+        request.error({ responseText: "simulated failure" });
+        const failedState = calibration.calibrationFitState;
+        alertText = "";
+        form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        const failureBlocked = nativeSubmissions === 0 && alertText.includes("failed");
+
+        calibration.calculateCalibrationIntrinsics();
+        request.success({
+          mtx: [[800, 0, 320], [0, 800, 240], [0, 0, 1]],
+          dist: [0, 0, 0, 0, 0],
+          rejectionApplied: true,
+          rejectedIndices: [2],
+        });
+        const readyState = calibration.calibrationFitState;
+        form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+
+        return {
+          pendingState,
+          pendingBlocked,
+          failedState,
+          failureBlocked,
+          readyState,
+          acceptedPairCount: form.querySelector("#id_transforms").value.split(",").length / 5,
+          submittedAfterSuccess: nativeSubmissions === 1,
+        };
+      } finally {
+        $.ajax = originalAjax;
+        HTMLFormElement.prototype.submit = originalSubmit;
+        window.alert = originalAlert;
+        calibration.client = originalClient;
+        calibration.updateCalibrationPoseFromFit = originalUpdatePose;
+        calibration.showCalibrationFitStatus = originalShowFitStatus;
+        calibration.clearCalibrationPoints();
+      }
+      """
+    )
+    assert save_guard["pendingState"] == "pending"
+    assert save_guard["pendingBlocked"] is True
+    assert save_guard["failedState"] == "failed"
+    assert save_guard["failureBlocked"] is True
+    assert save_guard["readyState"] == "ready"
+    assert save_guard["acceptedPairCount"] == 5
+    assert save_guard["submittedAfterSuccess"] is True
     result_recorder.success()
   finally:
     if browser is not None:

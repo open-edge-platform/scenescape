@@ -47,6 +47,7 @@ export class ConvergedCameraCalibration {
     this.projectionEnabled = false;
     this.isResolutionUpdated = false;
     this.calibrationRequestId = 0;
+    this.calibrationFitState = "idle";
     this.rejectedPointIndices = [];
 
     // Used for storing undistorted image for projection
@@ -271,10 +272,12 @@ export class ConvergedCameraCalibration {
     const requestId = ++this.calibrationRequestId;
     const camPoints = this.camCanvas.getCalibrationPoints();
     const mapPoints = this.viewport.getCalibrationPoints(true);
+    this.calibrationFitState = "stale";
     if (
       this.isValidCalibration(camPoints, mapPoints) &&
       Object.keys(camPoints).length >= CALIBRATION_MIN_POINTS_FOR_FIT
     ) {
+      this.calibrationFitState = "pending";
       const pointNames = Object.keys(camPoints);
       this.rejectedPointIndices = [];
       this.setCalibrationFitStatus("Checking calibration point fit...", [], []);
@@ -357,11 +360,13 @@ export class ConvergedCameraCalibration {
             : [];
           this.updateCalibrationPoseFromFit();
           this.showCalibrationFitStatus(response, pointNames);
+          this.calibrationFitState = "ready";
         }.bind(this),
         error: function (error) {
           if (requestId !== this.calibrationRequestId) {
             return;
           }
+          this.calibrationFitState = "failed";
           // If invalid values are passed, print the error text
           console.log(error.responseText);
           this.rejectedPointIndices = [];
@@ -373,6 +378,12 @@ export class ConvergedCameraCalibration {
         }.bind(this),
       });
     } else {
+      if (
+        this.isValidCalibration(camPoints, mapPoints) &&
+        Object.keys(camPoints).length < CALIBRATION_MIN_POINTS_FOR_FIT
+      ) {
+        this.calibrationFitState = "ready";
+      }
       this.rejectedPointIndices = [];
       if (
         this.isValidCalibration(camPoints, mapPoints) &&
@@ -517,6 +528,7 @@ export class ConvergedCameraCalibration {
   }
 
   clearCalibrationPointDiagnostics() {
+    this.calibrationFitState = "stale";
     this.rejectedPointIndices = [];
     if (this.camCanvas) {
       this.camCanvas.setCalibrationPointDiagnostics([], []);
@@ -632,6 +644,7 @@ export class ConvergedCameraCalibration {
     this.viewport.clearCalibrationPoints();
     this.projectionEnabled = false;
     this.clearCalibrationFitStatus();
+    this.calibrationFitState = "idle";
   }
 
   setupResetPointsButton() {
@@ -684,6 +697,25 @@ export class ConvergedCameraCalibration {
       // let the rest of the form flow through untouched.
       if (noPointsTouched) {
         $("#calibration_form")[0].submit();
+        return;
+      }
+
+      if (this.calibrationFitState === "pending") {
+        alert("Please wait for the calibration fit to finish before saving.");
+        return;
+      }
+      if (this.calibrationFitState === "failed") {
+        alert(
+          "The latest calibration fit failed. Adjust the point pairs and wait " +
+            "for a successful fit before saving.",
+        );
+        return;
+      }
+      if (this.calibrationFitState === "stale") {
+        alert(
+          "The calibration fit is out of date. Wait for the current fit to " +
+            "finish before saving.",
+        );
         return;
       }
 
