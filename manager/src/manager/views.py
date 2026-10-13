@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import math
 import os
 import random
 import time
@@ -47,6 +48,19 @@ from manager.models import Scene, ChildScene, \
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
   SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
 from manager.validators import add_form_error, validate_uuid
+
+
+def _is_number(v):
+  """True for real, finite numbers; rejects bool (an int subclass) and NaN/Infinity."""
+  return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _scoped_uuid(model, query_uuid, scene):
+  """Force a fresh uuid if the client-supplied one belongs to another scene,
+  so a reused/guessed uuid can't reassign that scene's region/tripwire."""
+  if model.objects.filter(uuid=query_uuid).exclude(scene=scene).exists():
+    return uuid.uuid4()
+  return query_uuid
 
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
@@ -185,6 +199,7 @@ def saveTripwireData(scene, form):
     # when a new tripwire is created uuid is invalid
     if not validate_uuid(trip.uuid):
       query_uuid = uuid.uuid4()
+    query_uuid = _scoped_uuid(Tripwire, query_uuid, scene)
 
     # Use the provided title or default to "tripwire_<query_uuid>"
     trip_title = trip.title if trip.title else f"tripwire_{query_uuid}"
@@ -232,6 +247,7 @@ def saveRegionData(scene, form):
     # when a new roi is created uuid is invalid
     if not validate_uuid(roi.uuid):
       query_uuid = uuid.uuid4()
+    query_uuid = _scoped_uuid(Region, query_uuid, scene)
 
     # Use the provided title or default to "roi_<query_uuid>"
     roi_title = roi.title if roi.title else f"roi_{query_uuid}"
@@ -932,7 +948,7 @@ class PreviewRoisFromOsm(APIView):
       if bounds is not None and (
           not isinstance(bounds, dict)
           or not all(k in bounds for k in ('minX', 'minY', 'maxX', 'maxY'))
-          or not all(isinstance(bounds[k], (int, float)) for k in ('minX', 'minY', 'maxX', 'maxY'))):
+          or not all(_is_number(bounds[k]) for k in ('minX', 'minY', 'maxX', 'maxY'))):
         return JsonResponse({'error': 'bounds must have numeric minX, minY, maxX, maxY'}, status=400)
 
       # Get the scene; 404 if not found or invalid UUID
@@ -1006,12 +1022,13 @@ class AcceptRoisFromOsm(APIView):
       points = roi.get('points')
       if (not isinstance(points, list) or len(points) < 3
           or not all(isinstance(p, (list, tuple)) and len(p) == 2
-                     and all(isinstance(v, (int, float)) for v in p) for p in points)):
+                     and all(_is_number(v) for v in p) for p in points)):
         return JsonResponse(
           {'error': 'Each roi needs a "points" list of at least 3 [x, y] number pairs'}, status=400)
 
       roi_uuid = roi.get('uuid')
       query_uuid = roi_uuid if isinstance(roi_uuid, str) and validate_uuid(roi_uuid) else uuid.uuid4()
+      query_uuid = _scoped_uuid(Region, query_uuid, scene)
       roi_name = str(roi.get('name')) if roi.get('name') else f"roi_{query_uuid}"
       roi_type = str(roi.get('type') or '')
       to_create.append((query_uuid, roi_name, roi_type, points))

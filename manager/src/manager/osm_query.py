@@ -205,7 +205,7 @@ def query_osm_ways_geometry(
       response = requests.post(
         url,
         json=body,
-        headers={"Authorization": api_key, "User-Agent": USER_AGENT},
+        headers={"Authorization": f"Bearer {api_key}", "User-Agent": USER_AGENT},
         timeout=REQUEST_TIMEOUT_S,
         stream=True,
       )
