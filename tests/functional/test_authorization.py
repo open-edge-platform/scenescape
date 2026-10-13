@@ -190,9 +190,15 @@ def test_authz_superuser_can_check_acl(rest, params, result_recorder):
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T26181")
+@pytest.mark.test_name("NEX-T29948")
 def test_positioning_auth_cannot_publish_outside_status_topic(rest, params, result_recorder):
-  """The positioning account may publish status, but not resolved poses."""
+  """Restrict the positioning account's configured publish permission to status.
+
+  Query Manager's ACL endpoint with WRITE_ONLY for a resolver status topic, which
+  must be allowed, and for a resolved-pose topic, which must be denied. This verifies
+  Manager's ACL policy decision; it does not exercise topic enforcement by a live
+  MQTT broker.
+  """
   headers = {"Authorization": f"Token {rest.token}"}
   endpoint = f"{params['resturl']}/aclcheck"
   status_response = requests.post(
