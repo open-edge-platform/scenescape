@@ -1,0 +1,15 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package scenescape.reid;
+
+import "google/protobuf/struct.proto";
+
+service ReIDService {
+  rpc Health(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc FindMatches(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc FindSchemaMetadata(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc PurgeExpired(google.protobuf.Struct) returns (google.protobuf.Struct);
+}

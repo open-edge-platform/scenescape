@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import base64
@@ -10,12 +10,15 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from scene_common import log
-from scene_common.transform import CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics
+from scene_common.transform import (
+  CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics,
+)
 from scene_common.timestamp import get_iso_time
 
 from atag_camera_calibration import CameraCalibrationApriltag, \
     TILE_SIZE, DEFAULT_ROTATION_MATRIX, DEFAULT_MESH_ROTATION, MIN_APRILTAG_COUNT
 from auto_camera_calibration_controller import CameraCalibrationController
+from calibration_geometry import validate_camera_pose, PLANAR_MAP_EXTENSIONS
 
 MAX_WAIT_FRAME_COUNT = 10
 
@@ -139,8 +142,6 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     if os.path.splitext(sceneobj.map)[1].lower() == '.glb':
       rotation = DEFAULT_MESH_ROTATION
     self.scene_pose_mat = getPoseMatrix(sceneobj, rotation)
-    cam_calib_data = {}
-    cam_calib_data['error'] = "True"
     try:
       cur_cam_calib_obj = self.cam_calib_objs[sceneobj.id]
       log.info(f"Apriltags identified in scene ${sceneobj.name}.")
@@ -169,6 +170,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
                               CameraIntrinsics(intrinsic_matrix_2d))
         # Get respective 2d and 3d points for representation in UI.
         points_3d, points_2d = cur_cam_calib_obj.get_point_correspondences()
+        map_points_3d = np.asarray(points_3d, dtype=float)
         log.info(f"Point correspondences calculated for calibration UI for camera {cam_frame_data['id']}")
 
         cam_to_world_y_down = convertToTransformMatrix(self.scene_pose_mat,
@@ -181,37 +183,17 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         points_3d = [np.dot(self.scene_pose_mat, np.append(point, 1))[:3].tolist()
                      for point in points_3d]
 
-        cam_calib_data['scene_name'] = sceneobj.name
-        cam_calib_data['sensor_id'] = cam_frame_data['id']
-        cam_calib_data['error'] = "False"
-        cam_calib_data['camera_frustum'] = frustum_2d
-        cam_calib_data['calibration_points_3d'] = points_3d
-        cam_calib_data['calibration_points_2d'] = points_2d
-        cam_calib_data['quaternion'] = quat.tolist()
-        cam_calib_data['translation'] = trans.tolist()
-        return {
-            "status": "success",
-            "camera_id": cam_frame_data['id'],
-            "scene_name": sceneobj.name,
-            "calibration_points_3d": points_3d,
-            "calibration_points_2d": points_2d,
-            "quaternion": quat.tolist(),
-            "translation": trans.tolist(),
-            "details": cam_calib_data  # Optionally include all returned data
-        }
-      else:
-        if (cam_frame_data['id'] not in self.frame_count or
-                self.frame_count[cam_frame_data['id']] < MAX_WAIT_FRAME_COUNT):
-          if cam_frame_data['id'] in self.frame_count:
-            self.frame_count[cam_frame_data['id']] += 1
-          else:
-            self.frame_count[cam_frame_data['id']] = 1
-          return {
-              "status": "pending",
-              "message": "Waiting for more frames or tags to be detected"
-          }
-        else:
-          raise TypeError((f"Fewer than {MIN_APRILTAG_COUNT} tags found in {cam_frame_data['id']}'s feed. Make sure there are at least {MIN_APRILTAG_COUNT} tags clearly visible in camera view."))
+        validation = validate_camera_pose(
+            map_points_3d, points_3d, points_2d, camera_pose, trans, intrinsic_matrix_2d,
+            cur_cam_calib_obj.tag_size,
+            os.path.splitext(sceneobj.map)[1].lower() in PLANAR_MAP_EXTENSIONS)
+        if not validation.accepted:
+          log.error(f"Rejecting calibration for camera {cam_frame_data['id']}: {validation.message}")
+          return self._rejection_response(validation, trans, points_3d, points_2d)
+
+        return self._success_response(sceneobj, cam_frame_data['id'], validation, frustum_2d,
+                                      quat, trans, points_3d, points_2d)
+      return self._pending_response(cam_frame_data['id'])
     except KeyError as ke:
       return {
           "status": "error",
@@ -227,3 +209,47 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
           "status": "error",
           "message": f"Unexpected error: {str(e)}"
       }
+
+  @staticmethod
+  def _rejection_response(validation, trans, points_3d, points_2d):
+    return {"status": "error", "message": validation.message,
+            "spread_ratio": validation.spread_ratio, "translation": trans.tolist(),
+            "calibration_points_3d": points_3d, "calibration_points_2d": points_2d}
+
+  @staticmethod
+  def _success_response(sceneobj, camera_id, validation, frustum_2d, quat, trans,
+                        points_3d, points_2d):
+    details = {
+        'error': "False",
+        'scene_name': sceneobj.name,
+        'sensor_id': camera_id,
+        'camera_frustum': frustum_2d,
+        'calibration_points_3d': points_3d,
+        'calibration_points_2d': points_2d,
+        'quaternion': quat.tolist(),
+        'translation': trans.tolist(),
+    }
+    return {
+        "status": "success",
+        "camera_id": camera_id,
+        "scene_name": sceneobj.name,
+        "calibration_points_3d": points_3d,
+        "calibration_points_2d": points_2d,
+        "quaternion": quat.tolist(),
+        "translation": trans.tolist(),
+        "spread_ratio": validation.spread_ratio,
+        "details": details,
+    }
+
+  def _pending_response(self, camera_id):
+    """Wait up to MAX_WAIT_FRAME_COUNT frames for enough tags, then fail."""
+    count = self.frame_count.get(camera_id, 0)
+    if count >= MAX_WAIT_FRAME_COUNT:
+      raise TypeError(
+          f"Fewer than {MIN_APRILTAG_COUNT} tags found in {camera_id}'s feed. Make sure there "
+          f"are at least {MIN_APRILTAG_COUNT} tags clearly visible in camera view.")
+    self.frame_count[camera_id] = count + 1
+    return {
+        "status": "pending",
+        "message": "Waiting for more frames or tags to be detected"
+    }
