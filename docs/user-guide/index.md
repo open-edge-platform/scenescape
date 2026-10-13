@@ -133,6 +133,7 @@ Auto Camera Calibration <./microservices/auto-calibration/auto-calibration.md>
 Cluster Analytics <./microservices/cluster-analytics/cluster-analytics.md>
 Mapping Service <./microservices/mapping-service/mapping-service.md>
 Positioning Service <./microservices/positioning/positioning.md>
+Positioning Operations <./microservices/positioning/operations.md>
 Re-ID Service <./microservices/reid-service/reid-service.md>
 Scene Controller <./microservices/controller/controller.md>
 API Reference <./api-reference.md>
