@@ -27,22 +27,6 @@ import {
 } from "../sscape.js";
 
 /**
- * Whether a polygon's bounding box overlaps an axis-aligned selection rectangle at all.
- * // shortcut: bbox overlap, not exact polygon intersection; upgrade if concave
- * // buffer shapes start producing false positives for thin/L-shaped selections.
- */
-function roiOverlapsBounds(points, bounds) {
-  const xs = points.map((p) => p[0]);
-  const ys = points.map((p) => p[1]);
-  return (
-    Math.max(...xs) >= bounds.minX &&
-    Math.min(...xs) <= bounds.maxX &&
-    Math.max(...ys) >= bounds.minY &&
-    Math.min(...ys) <= bounds.maxY
-  );
-}
-
-/**
  * Generate OSM ROI previews and draw them on the main canvas.
  *
  * Called when user clicks "Create ROIs from OSM" button.
@@ -68,6 +52,10 @@ async function generateRoisFromOsm() {
       throw new Error("CSRF token not found");
     }
 
+    // If the user dragged out a selection area, ask the server to keep only
+    // ROIs that at least partially overlap it (full shape intact, not clipped).
+    const selectionBounds = getSelectionBoundsMeters();
+
     const previewResponse = await fetch("/api/v1/preview-rois-from-osm/", {
       method: "POST",
       headers: {
@@ -76,6 +64,7 @@ async function generateRoisFromOsm() {
       },
       body: JSON.stringify({
         scene: sceneUID.value,
+        ...(selectionBounds && { bounds: selectionBounds }),
       }),
     });
 
@@ -87,26 +76,13 @@ async function generateRoisFromOsm() {
     }
 
     if (!previewResult.rois || previewResult.rois.length === 0) {
-      statusDiv.innerHTML =
-        '<div class="alert alert-warning">No OSM ROIs found in the bounding box.</div>';
+      statusDiv.innerHTML = selectionBounds
+        ? '<div class="alert alert-warning">No OSM ROIs found in the selected area.</div>'
+        : '<div class="alert alert-warning">No OSM ROIs found in the bounding box.</div>';
       return;
     }
 
-    // If the user dragged out a selection area, keep any ROI that at least
-    // partially overlaps it, full shape intact (not clipped to the box).
-    const selectionBounds = getSelectionBoundsMeters();
-    let rois = previewResult.rois;
-    if (selectionBounds) {
-      rois = rois.filter((roi) =>
-        roiOverlapsBounds(roi.points, selectionBounds),
-      );
-    }
-
-    if (rois.length === 0) {
-      statusDiv.innerHTML =
-        '<div class="alert alert-warning">No OSM ROIs found in the selected area.</div>';
-      return;
-    }
+    const rois = previewResult.rois;
 
     // Draw each OSM-derived ROI on the main canvas as a proposed region
     for (const roi of rois) {

@@ -98,15 +98,13 @@ class TestPreviewRoisFromOsm(TestCase):
     self.assertTrue(any("Residential" in name for name in names), f"Expected 'Residential' in names: {names}")
     self.assertTrue(all("[" not in name for name in names), f"Names must not include bracketed tag comments: {names}")
 
-    # Each ROI should have points, type, uuid, checked, tags, and width_m fields
+    # Each ROI should have points, type, uuid, tags, and width_m fields
     for roi in result["rois"]:
       self.assertIn("points", roi)
       self.assertIn("type", roi)
       self.assertIn("uuid", roi)  # temporary tracking UUID
-      self.assertIn("checked", roi)  # default checked state
       self.assertIn("tags", roi)  # full OSM tags
       self.assertIn("width_m", roi)  # computed or extracted width
-      self.assertTrue(roi["checked"])  # Should default to True
       self.assertGreaterEqual(len(roi["points"]), 3)  # Buffered polygon should have >= 3 points
       self.assertIsInstance(roi["width_m"], (int, float))  # Width should be numeric
       self.assertGreater(roi["width_m"], 0)  # Width should be positive

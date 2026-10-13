@@ -344,18 +344,16 @@ def assign_names(previews: List[Dict[str, Any]]) -> None:
 
 
 def assign_temp_uuid(previews: List[Dict[str, Any]]) -> None:
-  """Assign temporary UUIDs to preview ROIs for checkbox state tracking.
+  """Assign temporary UUIDs to preview ROIs for frontend tracking.
 
-  Mutates each preview dict in-place, adding a "uuid" and "checked" key.
-  The UUID is used to link checkboxes in the frontend to the ROI data.
-  All ROIs default to checked=true.
+  Mutates each preview dict in-place, adding a "uuid" key.
+  The UUID links the drawn canvas ROI/DOM row back to this preview entry.
 
   Args:
     previews: list of preview dicts (already with "name", "type", "points").
   """
   for preview in previews:
     preview["uuid"] = str(uuid.uuid4())
-    preview["checked"] = True
 
 
 def roi_overlaps_bounds(
@@ -363,7 +361,6 @@ def roi_overlaps_bounds(
 ) -> bool:
   """Whether a polygon's bounding box overlaps an axis-aligned selection rectangle at all.
 
-  Mirrors the frontend's roiOverlapsBounds() in scene-update-osm-roi.js.
   # shortcut: bbox overlap, not exact polygon intersection; upgrade if concave
   # buffer shapes start producing false positives for thin/L-shaped selections.
   """
@@ -394,7 +391,7 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
 
   Returns:
     list of preview dicts: {"uuid": str, "type": str, "points": [[x,y],...],
-                           "name": str, "checked": bool, "tags": dict, "width_m": float}.
+                           "name": str, "tags": dict, "width_m": float}.
 
   Raises:
     OsmRoiError: if scene.trs_matrix/map_corners_lla is not ready or if OSM query fails.
@@ -466,7 +463,7 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
   # Assign names using full tag information for context
   assign_names(previews)
 
-  # Assign temporary UUIDs for checkbox tracking in frontend
+  # Assign temporary UUIDs for frontend tracking
   assign_temp_uuid(previews)
 
   logger.info(f"Built {len(previews)} ROI previews from {len(ways)} OSM ways")

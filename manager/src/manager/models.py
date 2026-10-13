@@ -167,18 +167,20 @@ class Scene(models.Model):
     help_text="4x4 transformation matrix (translation-rotation-scale) stored as JSON [[...], [...], [...], [...]]"
   )
   # OSM ways cache (raw ohsome query result, reused across ROI generation
-  # clicks so we don't re-hit the OSM API unless the cache is cleared).
+  # clicks so we don't re-hit the OSM API unless the bbox below is stale).
   osm_ways_cache = models.JSONField(
     "Cached OpenStreetMap way geometries for this scene",
     default=None, null=True, blank=True, editable=False,
     help_text="Cached raw OSM way geometries fetched for this scene's map corners bounding box"
   )
   # Bounding box used to fetch osm_ways_cache: [south, west, north, east].
-  # Cleared whenever map_corners_lla changes so stale ways are not reused.
+  # Not cleared on edit; build_roi_previews() compares it against the scene's
+  # current map_corners_lla and refetches if they no longer match.
   osm_ways_cache_bbox = models.JSONField(
     "Cached bounding box for OSM ways query",
     default=None, null=True, blank=True, editable=False,
-    help_text="Bounding box [south, west, north, east] used to fetch osm_ways_cache; cleared on map edit"
+    help_text="Bounding box [south, west, north, east] used to fetch osm_ways_cache; "
+              "stale once it no longer matches the scene's map corners"
   )
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
   polycam_data = models.FileField(blank=True, null=True, validators=[FileExtensionValidator(["zip"])])
