@@ -10,8 +10,10 @@ set(EXEC_NAME RobotVisionTests)
 set(TEST_SOURCES
   main.cpp
   MetadataFusionTests.cpp
+  MultiCameraFusionTests.cpp
+  MultiModelKalmanEstimatorTests.cpp
+  MultipleObjectTrackerTests.cpp
   OrientationFusionTests.cpp
-  TrackingTests.cpp
 )
 
 add_executable(${EXEC_NAME} ${TEST_SOURCES})
