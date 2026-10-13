@@ -22,7 +22,7 @@ TEST(ScenarioSupportTest, TrajectoryKinematics)
 {
   // One full circle at 2 m/s ends where it started.
   const double turnRate = std::numbers::pi / 5.0;
-  const auto circle = Trajectory(0.0, 0.0, 0.0, 2.0, kPerson).turn(turnRate, 10.0).sample(10.0);
+  const auto circle = Trajectory({.speed = 2.0, .box = kPerson}).turn(turnRate, 10.0).sample(10.0);
   ASSERT_EQ(circle.size(), 101U);
   EXPECT_NEAR(circle.back().t, 10.0, 1e-9);
   EXPECT_NEAR(circle.back().x, 0.0, 1e-6);
@@ -32,7 +32,7 @@ TEST(ScenarioSupportTest, TrajectoryKinematics)
   EXPECT_NEAR(std::hypot(circle[25].x, circle[25].y - radius), radius, 1e-6);
 
   // Braking at 10 m/s^2 from 5 m/s stops after 0.5 s and 1.25 m, then stays put.
-  const auto braking = Trajectory(0.0, 0.0, 0.0, 5.0, kCar).accelerate(-10.0, 1.0).sample(10.0);
+  const auto braking = Trajectory({.speed = 5.0, .box = kCar}).accelerate(-10.0, 1.0).sample(10.0);
   EXPECT_DOUBLE_EQ(braking.back().speed, 0.0);
   EXPECT_NEAR(braking.back().x, 1.25, 1e-3);
   EXPECT_EQ(between(braking, 0.5, 1.0).size(), 5U);
@@ -40,7 +40,7 @@ TEST(ScenarioSupportTest, TrajectoryKinematics)
 
 TEST(ScenarioSupportTest, ObserveReportsTruthWithSensorNoise)
 {
-  const auto truth = Trajectory(0.0, 0.0, 3.0, 1.0, kCar).straight(100.0).sample(10.0);
+  const auto truth = Trajectory({.heading = 3.0, .speed = 1.0, .box = kCar}).straight(100.0).sample(10.0);
 
   Sensor camera;
   const auto exact = observe(truth, camera);
@@ -81,23 +81,23 @@ TEST(MotionScenarioTest, TracksMotionCases)
   constexpr double kFps = 10.0;
   const MotionCase cases[] = {
     {.name = "constant velocity",
-     .truth = Trajectory(0.0, 0.0, 0.0, 1.5, kPerson).straight(8.0).sample(kFps),
+     .truth = Trajectory({.speed = 1.5, .box = kPerson}).straight(8.0).sample(kFps),
      .maxPositionError = 0.15,
      .maxFinalSpeedError = 0.03},
     {.name = "acceleration",
-     .truth = Trajectory(0.0, 0.0, 0.0, 0.0, kCar).accelerate(1.0, 5.0).straight(3.0).sample(kFps),
+     .truth = Trajectory({.box = kCar}).accelerate(1.0, 5.0).straight(3.0).sample(kFps),
      .maxPositionError = 0.45,
      .maxFinalSpeedError = 0.01},
     {.name = "turn",
-     .truth = Trajectory(0.0, 0.0, 0.0, 3.0, kCar).straight(2.0).turn(0.5, 4.0).straight(2.0).sample(kFps),
+     .truth = Trajectory({.speed = 3.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).straight(2.0).sample(kFps),
      .maxPositionError = 1.5,
      .maxFinalSpeedError = 0.05},
     {.name = "sudden stop",
-     .truth = Trajectory(0.0, 0.0, 0.0, 5.0, kCar).straight(3.0).accelerate(-10.0, 0.5).straight(4.5).sample(kFps),
+     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(3.0).accelerate(-10.0, 0.5).straight(4.5).sample(kFps),
      .maxPositionError = 0.9,
      .maxFinalSpeedError = 0.05},
     {.name = "manoeuvre",
-     .truth = Trajectory(0.0, 0.0, 0.0, 2.0, kCar)
+     .truth = Trajectory({.speed = 2.0, .box = kCar})
                 .straight(2.0)
                 .accelerate(1.0, 2.0)
                 .turn(-0.4, 3.0)
@@ -145,8 +145,9 @@ TEST(MotionScenarioTest, ConstantVelocityConvergence)
     config.mMotionModels = models;
     Sensor camera{.positionNoise = 0.01};
     FilterRun run(config);
-    run.feed(
-      observe(Trajectory(0.0, 0.0, std::atan2(1.0, 2.0), std::sqrt(5.0), kPerson).straight(9.9).sample(10.0), camera));
+    run.feed(observe(
+      Trajectory({.heading = std::atan2(1.0, 2.0), .speed = std::sqrt(5.0), .box = kPerson}).straight(9.9).sample(10.0),
+      camera));
 
     EXPECT_NEAR(run.state().vx, 2.0, kTolerance);
     EXPECT_NEAR(run.state().vy, 1.0, kTolerance);
@@ -158,7 +159,7 @@ TEST(MotionScenarioTest, TargetBornMovingAcquiresSpeed)
   // The 0.05 velocity prior cap slows speed pick-up: about half of the true 10 m/s after 1 s.
   Sensor camera;
   FilterRun run;
-  run.feed(observe(Trajectory(0.0, 0.0, 0.0, 10.0, kCar).straight(1.0).sample(10.0), camera));
+  run.feed(observe(Trajectory({.speed = 10.0, .box = kCar}).straight(1.0).sample(10.0), camera));
 
   EXPECT_GE(std::hypot(run.state().vx, run.state().vy), 4.5);
 }

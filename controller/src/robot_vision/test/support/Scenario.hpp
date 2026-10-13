@@ -53,8 +53,8 @@ struct TruthSample
 class Trajectory
 {
 public:
-  Trajectory(double x, double y, double heading, double speed, Box box)
-    : mStart{.x = x, .y = y, .heading = heading, .speed = speed, .box = box}
+  explicit Trajectory(TruthSample start)
+    : mStart(start)
   {
   }
 
@@ -93,7 +93,7 @@ public:
           state.speed = std::max(state.speed + segment.acceleration * dt, 0.0);
           state.heading += segment.yawRate * dt;
         }
-        state.t = ++frame / fps;
+        state.t = mStart.t + ++frame / fps;
         state.yawRate = segment.yawRate;
         samples.push_back(state);
       }
