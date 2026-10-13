@@ -28,6 +28,8 @@ cd "${REPO_ROOT}"
   --pyi_out="${tmp_dir}" \
   "${API_ROOT}/positioning/v1/ptz.proto"
 
+# Header strings written into generated files; not this file's license.
+# REUSE-IgnoreStart
 mkdir -p "${OUT_DIR}"
 if [[ ! -f "${OUT_DIR}/__init__.py" ]]; then
   printf '%s\n' \
@@ -51,5 +53,6 @@ for generated in "${tmp_dir}"/positioning/v1/ptz_pb2*; do
     fi
   } > "${OUT_DIR}/$(basename "${generated}")"
 done
+# REUSE-IgnoreEnd
 
 echo "Generated stubs in ${OUT_DIR}"
