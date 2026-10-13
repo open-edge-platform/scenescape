@@ -20,45 +20,77 @@ def create_object_at_location(x : float = 0., y: float= 0., z : float= 0., yaw :
 
   return object_
 
+def _position_at(model, t, vx0, vy0, ax=0., ay=0., w=0.):
+  """Closed-form (x, y) displacement at time t matching the given model's own state equations."""
+  if model == tracking.MotionModel.CV:
+    return vx0 * t, vy0 * t
+  if model == tracking.MotionModel.CA:
+    return vx0 * t + 0.5 * ax * t * t, vy0 * t + 0.5 * ay * t * t
+  if model == tracking.MotionModel.CTRV:
+    yaw0 = np.arctan2(vy0, vx0)
+    v = np.hypot(vx0, vy0)
+    if abs(w) < 1e-6:
+      return v * np.cos(yaw0) * t, v * np.sin(yaw0) * t
+    return ((v / w) * (np.sin(yaw0 + w * t) - np.sin(yaw0)),
+            -(v / w) * (np.cos(yaw0 + w * t) - np.cos(yaw0)))
+  raise ValueError(f"no trajectory defined for motion model {model}")
+
 class TestTracking(unittest.TestCase):
 
-  def test_constant_velocity_single_object(self):
+  def test_single_object_converges_per_motion_model(self):
     """
-    Tests simple intersection
+    Each motion model converges on a trajectory consistent with its own state equations:
+    CV (straight line), CA (constant acceleration), CTRV (constant turn rate).
     """
     classification_data = tracking.ClassificationData(['Car', 'Bike', 'Pedestrian'])
-    tracker_config = tracking.TrackManagerConfig()
-    tracker_config.default_process_noise = 0.00001
-    tracker_config.default_measurement_noise = 0.001
-    tracker_config.motion_models = [tracking.MotionModel.CV]
-
-    tracker = tracking.MultipleObjectTracker(tracker_config)
-    initial_timestamp = datetime.now()
-    tracker.track([], initial_timestamp) # initialize tracker with zero objects
     step = 0.1 # step time in seconds
     total_time = 10.
-    vx = 2.0
-    vy = 1.0
-    x0 = 0.
-    y0 = 0.
+    vx0 = 2.0
+    vy0 = 1.0
 
-    for t in np.arange(step, total_time, step): # initial time is step
-      timestamp = initial_timestamp + timedelta(seconds = t)
+    cases = [
+      (tracking.MotionModel.CV, {}),
+      (tracking.MotionModel.CA, dict(ax=0.3, ay=0.1)),
+      (tracking.MotionModel.CTRV, dict(w=0.2)),
+    ]
 
-      x = x0 + vx * t
-      y = y0 + vy * t
+    for model, kwargs in cases:
+      with self.subTest(model=model):
+        tracker_config = tracking.TrackManagerConfig()
+        tracker_config.default_process_noise = 0.00001
+        tracker_config.default_measurement_noise = 0.001
+        tracker_config.motion_models = [model]
 
-      object_ = create_object_at_location(x=x, y=y, classification=classification_data.classification('Car', 1.0))
-      tracker.track([object_], timestamp)
+        tracker = tracking.MultipleObjectTracker(tracker_config)
+        initial_timestamp = datetime.now()
+        tracker.track([], initial_timestamp) # initialize tracker with zero objects
 
-    tracked_objects = tracker.get_reliable_tracks()
+        for t in np.arange(step, total_time, step): # initial time is step
+          timestamp = initial_timestamp + timedelta(seconds = t)
 
-    self.assertEqual(len(tracked_objects), 1)
-    tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, places=3)
-    self.assertAlmostEqual(tracked_object.vy, vy, places=3)
+          x, y = _position_at(model, t, vx0, vy0, **kwargs)
 
+          object_ = create_object_at_location(x=x, y=y, classification=classification_data.classification('Car', 1.0))
+          tracker.track([object_], timestamp)
 
+        tracked_objects = tracker.get_reliable_tracks()
+
+        self.assertEqual(len(tracked_objects), 1)
+        tracked_object = tracked_objects[0]
+
+        if model == tracking.MotionModel.CTRV:
+          w = kwargs['w']
+          speed = np.hypot(vx0, vy0)
+          final_yaw = np.arctan2(vy0, vx0) + w * total_time
+          self.assertAlmostEqual(tracked_object.vx, speed * np.cos(final_yaw), delta=0.05)
+          self.assertAlmostEqual(tracked_object.vy, speed * np.sin(final_yaw), delta=0.05)
+          self.assertAlmostEqual(tracked_object.w, w, delta=0.05)
+        else:
+          expected_vx = vx0 + kwargs.get('ax', 0.) * total_time
+          expected_vy = vy0 + kwargs.get('ay', 0.) * total_time
+          # CV has no estimation lag (places=3); CA lags the ramping velocity slightly.
+          self.assertAlmostEqual(tracked_object.vx, expected_vx, delta=0.0005 if not kwargs else 0.05)
+          self.assertAlmostEqual(tracked_object.vy, expected_vy, delta=0.0005 if not kwargs else 0.05)
 
   def test_constant_velocity_single_object_with_noise(self):
     """
@@ -153,35 +185,56 @@ class TestTracking(unittest.TestCase):
     self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
 
 class TestMultiModelKalmanEstimator(unittest.TestCase):
-  def test_constant_velocity_single_object_with_noise(self):
+  def test_single_object_converges_per_motion_model_with_noise(self):
+    """
+    Each motion model converges (under measurement noise) on a trajectory consistent with its own state equations.
+    """
     classification_data = tracking.ClassificationData(['Car', 'Bike', 'Pedestrian'])
-
-    initial_timestamp = datetime.now()
-    estimator = tracking.MultiModelKalmanEstimator()
     step = 0.1 # step time in seconds
     total_time = 10.
-    vx = 2.0
-    vy = 1.0
-    x0 = 0.
-    y0 = 0.
-
-    initial_estimate = create_object_at_location(x=x0, y=y0, classification=classification_data.classification('Car', 1.0))
-    estimator.initialize(initial_estimate, initial_timestamp, motion_models=[tracking.MotionModel.CV]) # initialize tracker with zero objects
+    vx0 = 2.0
+    vy0 = 1.0
     mean = 0
     std_dev = 0.01
-    for t in np.arange(step, total_time, step): # initial time is step
-      timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+    cases = [
+      (tracking.MotionModel.CV, {}),
+      (tracking.MotionModel.CA, dict(ax=0.3, ay=0.1)),
+      (tracking.MotionModel.CTRV, dict(w=0.2)),
+    ]
 
-      x = x0 + vx * t + noise_x
-      y = y0 + vy * t + noise_y
+    for model, kwargs in cases:
+      with self.subTest(model=model):
+        initial_timestamp = datetime.now()
+        estimator = tracking.MultiModelKalmanEstimator()
+        initial_estimate = create_object_at_location(classification=classification_data.classification('Car', 1.0))
+        estimator.initialize(initial_estimate, initial_timestamp, motion_models=[model]) # initialize tracker with zero objects
 
-      object_ = create_object_at_location(x=x, y=y, classification=classification_data.classification('Car', 1.0))
-      estimator.track(object_, timestamp)
-    tracked_object = estimator.current_state()
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
+        for t in np.arange(step, total_time, step): # initial time is step
+          timestamp = initial_timestamp + timedelta(seconds = t)
+
+          noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+          x, y = _position_at(model, t, vx0, vy0, **kwargs)
+
+          object_ = create_object_at_location(x=x + noise_x, y=y + noise_y, classification=classification_data.classification('Car', 1.0))
+          estimator.track(object_, timestamp)
+
+        tracked_object = estimator.current_state()
+
+        if model == tracking.MotionModel.CTRV:
+          w = kwargs['w']
+          speed = np.hypot(vx0, vy0)
+          final_yaw = np.arctan2(vy0, vx0) + w * total_time
+          self.assertAlmostEqual(tracked_object.vx, speed * np.cos(final_yaw), delta=0.1)
+          self.assertAlmostEqual(tracked_object.vy, speed * np.sin(final_yaw), delta=0.1)
+          self.assertAlmostEqual(tracked_object.w, w, delta=0.1)
+        else:
+          expected_vx = vx0 + kwargs.get('ax', 0.) * total_time
+          expected_vy = vy0 + kwargs.get('ay', 0.) * total_time
+          # CA ramps velocity over the window, so noise has more room to accumulate than plain CV.
+          delta = 0.1 if kwargs else 0.05
+          self.assertAlmostEqual(tracked_object.vx, expected_vx, delta=delta)
+          self.assertAlmostEqual(tracked_object.vy, expected_vy, delta=delta)
 
   def testPredictFunctionDoubleAndTimestamp(self):
     estimator_a = tracking.MultiModelKalmanEstimator()
