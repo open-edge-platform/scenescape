@@ -98,9 +98,12 @@ When `positioning.enabled=true`, the chart deploys one Positioning replica with 
 | Value                    | Default               | Effect                                                                                                                                               |
 | ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `positioning.resolverId` | `positioning-default` | Identifies the instance in its status topic `scenescape/positioning/status/{resolverId}`. Must be a single MQTT topic segment (no `/`, `+`, or `#`). |
-| `positioning.cameras`    | `[]`                  | PTZ cameras owned by this instance: Manager camera UID, ONVIF host and port, and the path of the ONVIF credentials secret.                           |
 
-Do not put ONVIF usernames or passwords in `positioning.cameras`; provide them as Kubernetes Secrets. The current service shell does not read `positioning.cameras` yet. See [Positioning Service](../../microservices/positioning/positioning.md) for details.
+Source ownership is configured separately by the deployment's `source_id` to
+`resolver_id` assignment manifest. The current Positioning config contains no camera
+list; see the [Positioning Service](../../microservices/positioning/positioning.md)
+and [PTZ pose design](../../../design/ptz-camera-pose-service.md) for current behavior
+and future runtime contracts.
 
 ## Verify
 

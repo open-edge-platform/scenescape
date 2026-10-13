@@ -20,8 +20,8 @@ spec:
         {{ include "releaseLabels" . | indent 8 }}
     spec:
       securityContext:
-        runAsUser: 1000
-        runAsGroup: 1000
+        runAsUser: 1001
+        runAsGroup: 1001
       containers:
         - name: positioning
           image: {{ .Values.repository }}/{{ .Values.positioning.image }}:{{ .Chart.AppVersion }}
@@ -44,8 +44,8 @@ spec:
               value: "ntpserv.{{ .Release.Namespace }}.svc.cluster.local"
           securityContext:
             {{ include "defaultContainerSecurityContext" . | indent 12 }}
-            runAsUser: 1000
-            runAsGroup: 1000
+            runAsUser: 1001
+            runAsGroup: 1001
           readinessProbe:
             exec:
               command:
@@ -53,15 +53,6 @@ spec:
                 - -c
                 - "import os,sys; sys.exit(0 if os.path.exists('/tmp/positioning-ready') else 1)"
             periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 6
-          livenessProbe:
-            exec:
-              command:
-                - python3
-                - -c
-                - "import os,sys; sys.exit(0 if os.path.exists('/tmp/positioning-ready') else 1)"
-            periodSeconds: 10
             timeoutSeconds: 3
             failureThreshold: 6
           volumeMounts:

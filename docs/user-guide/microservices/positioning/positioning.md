@@ -16,10 +16,9 @@ SPDX-License-Identifier: Apache-2.0
 </div>
 hide_directive-->
 
-The Positioning service resolves the live pose of sources whose position changes at
-runtime, starting with ONVIF pan-tilt-zoom (PTZ) cameras. It reads each camera's
-calibrated home pose from the Manager and publishes a timestamped pose context that
-the Scene Controller and Tracker use to project detections from that camera.
+The Positioning service is the deployment boundary for live source-pose capabilities.
+The current service shell connects to MQTT, publishes resolver status, and exposes
+health checks. It does not poll cameras or publish poses.
 
 > **Note:** The current release contains the service shell only. It connects to the
 > MQTT broker, publishes its status, and exposes health checks. It does not yet
@@ -40,21 +39,16 @@ The payload contains `resolver_id`, `status` (`online` or `offline`), and
 `timestamp`. For the last-will message, the timestamp is the session start time,
 not the time the connection was lost.
 
-The broker account can publish only to its own status topic and can read only
-camera-configuration change notifications
-(`scenescape/cmd/camera/config/{camera_id}`). The container reports healthy only
-while it is connected to the broker.
+Manager's ACL policy grants the broker identity write access only to its own status
+topic and read access only to camera-configuration change notifications
+(`scenescape/cmd/camera/config/{camera_id}`). The bundled Mosquitto configuration
+does not enforce topic ACLs; deployments requiring enforcement must configure broker
+authorization as described in the [hardening guide](../../additional-resources/hardening-guide.md).
+The container reports healthy only while it is connected to the broker.
 
-### PTZ Camera Motion
-
-When camera support is added, the service polls every PTZ camera's position at 5 Hz,
-including while the camera is stationary, and treats any position change as motion
-until the position has been unchanged for 1 second. If a camera reports the ONVIF
-`IsMoving` status, the service uses it only as additional information; it does not
-replace position polling.
-
-While a camera is moving or settling, the Scene Controller and Tracker do not use its
-detections for tracking.
+Future PTZ polling, pose resolution, and motion handling are specified in the
+[PTZ pose design](../../../design/ptz-camera-pose-service.md); they are not part of the
+current service shell.
 
 ## Build
 
@@ -81,22 +75,17 @@ The service reads `/app/config/positioning.json`:
 
 ```json
 {
-  "resolver_id": "positioning-default",
-  "cameras": []
+  "resolver_id": "positioning-default"
 }
 ```
 
-| Field         | Description                                                                                                                                                      |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `resolver_id` | Identifies this service instance in its status topic. Must be a single MQTT topic segment (no `/`, `+`, or `#`).                                                 |
-| `cameras`     | PTZ cameras owned by this instance. Each entry holds the Manager camera UID, ONVIF host and port, and the path of the mounted secret with the ONVIF credentials. |
+| Field         | Description                                                                                                            |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `resolver_id` | Identifies this service instance in its status topic. Must be a single MQTT topic segment (no `/`, `+`, or `#`).      |
 
-List each camera in exactly one service instance. Do not put ONVIF usernames or
-passwords in `positioning.json`; provide them as deployment secrets. Each camera's
-home pose and PTZ calibration are stored on its Manager camera record, not in this
-file.
-
-> **Note:** The current service shell does not read the `cameras` list.
+Source ownership is recorded separately in `deployment/positioning-assignments.json`
+as a `source_id` to `resolver_id` mapping. The current manifest is empty. Manager
+remains authoritative for camera-to-scene membership and camera calibration.
 
 The service accepts these command-line options:
 
@@ -121,5 +110,5 @@ poses, so disabling it does not change tracking.
 
 ## Supporting Resources
 
-- [Positioning operations and onboarding](operations.md)
-- [PTZ pose design](https://github.com/open-edge-platform/scenescape/blob/main/docs/design/ptz-camera-pose-service.md)
+- [Positioning operations](operations.md)
+- [PTZ pose design](../../../design/ptz-camera-pose-service.md)
