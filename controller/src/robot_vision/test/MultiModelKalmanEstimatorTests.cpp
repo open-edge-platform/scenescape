@@ -50,7 +50,7 @@ TEST(MultiModelKalmanEstimatorTest, PredictMixesModelStates)
   // An accelerating, turning target makes CV, CA and CTRV disagree.
   Sensor camera;
   FilterRun run;
-  run.feed(observe(Trajectory(0.0, 0.0, 0.0, 2.0).accelerate(1.0, 1.5).turn(0.6, 1.5).sample(10.0), camera));
+  run.feed(observe(Trajectory(0.0, 0.0, 0.0, 2.0, kCar).accelerate(1.0, 1.5).turn(0.6, 1.5).sample(10.0), camera));
 
   const auto before = run.estimator.currentStates();
   const cv::Mat mixing = run.estimator.getConditionalProbability();
@@ -87,7 +87,7 @@ TEST(MultiModelKalmanEstimatorTest, ReinitializeDoesNotDuplicateFilters)
   MultiModelKalmanEstimator estimator;
   for (int i = 0; i < 2; ++i)
   {
-    estimator.initialize(makeBox(0.0, 0.0, 0.0, 4.0, 1.8, 1.5),
+    estimator.initialize(makeBox(0.0, 0.0, 0.0, kCar.length, kCar.width, kCar.height),
                          atSeconds(0.0),
                          config.mDefaultProcessNoise,
                          config.mDefaultMeasurementNoise,
@@ -117,7 +117,7 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
   {
     SCOPED_TRACE("init_state_covariance " + std::to_string(expected.initStateCovariance));
     MultiModelKalmanEstimator estimator;
-    estimator.initialize(makeBox(0.0, 0.0, 0.0, 4.0, 1.8, 1.5),
+    estimator.initialize(makeBox(0.0, 0.0, 0.0, kCar.length, kCar.width, kCar.height),
                          atSeconds(0.0),
                          1e-4,
                          kMeasurementNoise,
