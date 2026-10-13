@@ -10,6 +10,7 @@ set(EXEC_NAME RobotVisionTests)
 set(TEST_SOURCES
   main.cpp
   MetadataFusionTests.cpp
+  MotionScenarioTests.cpp
   MultiCameraFusionTests.cpp
   MultiModelKalmanEstimatorTests.cpp
   MultipleObjectTrackerTests.cpp
