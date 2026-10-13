@@ -62,6 +62,7 @@ cv::Mat measurementSelection()
 
 } // namespace
 
+// Bug: UnscentedKalmanFilterMod::setStateAndCovariance assigned shadowed parameters (no-op); fails on main 6b0a3156b.
 TEST(UnscentedKalmanFilterTest, SetStateAndCovarianceOverwritesFilterState)
 {
   const cv::Mat identity = cv::Mat::eye(kStateSize, kStateSize, CV_64F);
@@ -75,6 +76,7 @@ TEST(UnscentedKalmanFilterTest, SetStateAndCovarianceOverwritesFilterState)
   EXPECT_DOUBLE_EQ(cv::norm(filter->getErrorCov(), errorCov, cv::NORM_INF), 0.0);
 }
 
+// Bug: UnscentedKalmanFilterMod::correct paired prior sigma points with redrawn ones in Pxz; fails on main 6b0a3156b.
 TEST(UnscentedKalmanFilterTest, LinearModelMatchesExactKalmanFilter)
 {
   // CV is linear, so the unscented transform must reproduce the exact Kalman filter.
