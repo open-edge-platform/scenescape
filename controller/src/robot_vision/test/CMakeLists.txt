@@ -15,6 +15,7 @@ set(TEST_SOURCES
   MultiModelKalmanEstimatorTests.cpp
   MultipleObjectTrackerTests.cpp
   OrientationFusionTests.cpp
+  UnscentedKalmanFilterTests.cpp
 )
 
 add_executable(${EXEC_NAME} ${TEST_SOURCES})
