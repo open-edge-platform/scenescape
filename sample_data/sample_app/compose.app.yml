@@ -1,0 +1,16 @@
+services:
+	nodered:
+		image: nodered/node-red:latest
+		networks:
+			- scenescape_scenescape
+    ports:
+      - "1880:1880"
+
+
+networks:
+	scenescape_scenescape:
+		external: true
+
+configs:
+	nodered_settings:
+		external: true
