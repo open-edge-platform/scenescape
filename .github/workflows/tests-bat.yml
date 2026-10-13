@@ -140,6 +140,16 @@ jobs:
         run: |
           make check-zephyr-ids
 
+      # - name: "Check Autocalibration OpenAPI Contract"
+      #   if: always() && steps.setup-test-env.outcome == 'success'
+      #   run: |
+      #     make check-autocalibration-contract
+
+      # - name: "Check Mapping OpenAPI Contract"
+      #   if: always() && steps.setup-test-env.outcome == 'success'
+      #   run: |
+      #     make check-mapping-contract
+
       - name: "Run Basic Acceptance Tests (BAT)"
         if: always() && steps.setup-test-env.outcome == 'success'
         run: |
