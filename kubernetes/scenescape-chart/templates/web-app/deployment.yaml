@@ -74,6 +74,10 @@ spec:
             value: pgserver
           - name: DBPORT
             value: "5432"
+          {{- if .Values.positioning.enabled }}
+          - name: POSITIONING_RESOLVER_ID
+            value: {{ .Values.positioning.resolverId | quote }}
+          {{- end }}
           {{- if .Values.web.allowedHosts }}
           - name: SCENESCAPE_ALLOWED_HOSTS
             value: "{{ .Values.web.allowedHosts }}"

@@ -192,12 +192,12 @@ def test_authz_superuser_can_check_acl(rest, params, result_recorder):
 
 @pytest.mark.test_name("NEX-T29948")
 def test_positioning_auth_cannot_publish_outside_status_topic(rest, params, result_recorder):
-  """Restrict the positioning account's configured publish permission to status.
+  """Restrict the positioning account to its configured resolver status topic.
 
-  Query Manager's ACL endpoint with WRITE_ONLY for a resolver status topic, which
-  must be allowed, and for a resolved-pose topic, which must be denied. This verifies
-  Manager's ACL policy decision; it does not exercise topic enforcement by a live
-  MQTT broker.
+  Query Manager's ACL endpoint with WRITE_ONLY for its configured status topic,
+  another resolver's status topic, and a resolved-pose topic. Only the configured
+  status topic must be allowed. This verifies Manager's ACL decision; it does not
+  exercise topic enforcement by a live MQTT broker.
   """
   headers = {"Authorization": f"Token {rest.token}"}
   endpoint = f"{params['resturl']}/aclcheck"
@@ -206,7 +206,7 @@ def test_positioning_auth_cannot_publish_outside_status_topic(rest, params, resu
     headers=headers,
     json={
       "username": "positioning",
-      "topic": "scenescape/positioning/status/test-resolver",
+      "topic": "scenescape/positioning/status/positioning-default",
       "acc": WRITE_ONLY,
     },
     verify=params["rootcert"],
@@ -214,6 +214,20 @@ def test_positioning_auth_cannot_publish_outside_status_topic(rest, params, resu
   assert status_response.status_code == HTTPStatus.OK, \
     f"Positioning status publish should be allowed: {status_response.text}"
   assert status_response.json()["result"] == "allow"
+
+  other_status_response = requests.post(
+    endpoint,
+    headers=headers,
+    json={
+      "username": "positioning",
+      "topic": "scenescape/positioning/status/other-resolver",
+      "acc": WRITE_ONLY,
+    },
+    verify=params["rootcert"],
+  )
+  assert other_status_response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Positioning status publish should be limited to its resolver: {other_status_response.text}"
+  assert other_status_response.json()["result"] == "deny"
 
   pose_response = requests.post(
     endpoint,
