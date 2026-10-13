@@ -432,9 +432,11 @@ def extractTriangleMesh(map_info, rotation=None):
 def getMeshAxisAlignedProjectionToXY(mesh):
   """! Extract the projection of a mesh to Z=0 plane.
   @param mesh: Open3D triangle mesh
-  @return: list of the projection corners in Z=0 plane in counterclockwise order
-           starting from bottom-left (SW): [SW, NW, NE, SE].
-           This matches the corner ordering expected by validate_map_corners_lla.
+  @return: list of the projection corners in Z=0 plane, clockwise starting from
+           bottom-left (SW): [SW, NW, NE, SE]. Paired index-by-index with
+           Scene.map_corners_lla (see google-maps-plugin.js/mapbox-plugin.js
+           generateBounds()) to solve the local-to-LLA transform, so this order
+           must stay in sync with what those UI plugins write to that field.
   """
   if not isinstance(mesh, o3d.t.geometry.TriangleMesh):
     raise TypeError("Input must be an Open3D TriangleMesh.")

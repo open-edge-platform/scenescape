@@ -1024,13 +1024,17 @@ class AcceptRoisFromOsm(APIView):
             'scene': scene,
             'name': roi_name,
             'volumetric': False,
-            'height': 0,
             'buffer_size': 0,
             'roi_type': roi_type,
           })
+          current_point_ids = set()
           for point_idx, point in enumerate(points):
-            RegionPoint.objects.update_or_create(
+            region_point, _ = RegionPoint.objects.update_or_create(
               region=region, x=point[0], y=point[1], sequence=point_idx)
+            current_point_ids.add(region_point.id)
+          # Reused uuid may belong to a region with more/different points; drop leftovers
+          # (mirrors saveRegionData's cleanup) so the old shape doesn't linger.
+          RegionPoint.objects.filter(region=region).exclude(id__in=current_point_ids).delete()
           created.append({'uuid': str(region.uuid), 'name': region.name})
 
       transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))

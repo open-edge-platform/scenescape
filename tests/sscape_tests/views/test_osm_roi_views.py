@@ -556,3 +556,7 @@ class TestAcceptRoisFromOsm(TestCase):
     self.assertEqual(response.status_code, 200)
     self.existing_region.refresh_from_db()
     self.assertEqual(self.existing_region.name, "overwritten")
+    # Stale points from the region's previous shape must not linger alongside the new ones.
+    self.assertEqual(
+      [(p.x, p.y) for p in self.existing_region.points.order_by("sequence")],
+      [(5, 5), (6, 5), (6, 6)])
