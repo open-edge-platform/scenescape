@@ -79,9 +79,9 @@ The service reads `/app/config/positioning.json`:
 }
 ```
 
-| Field         | Description                                                                                                            |
-| ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `resolver_id` | Identifies this service instance in its status topic. Must be a single MQTT topic segment (no `/`, `+`, or `#`).      |
+| Field         | Description                                                                                                      |
+| ------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `resolver_id` | Identifies this service instance in its status topic. Must be a single MQTT topic segment (no `/`, `+`, or `#`). |
 
 Source ownership is recorded separately in `deployment/positioning-assignments.json`
 as a `source_id` to `resolver_id` mapping. The current manifest is empty. Manager
