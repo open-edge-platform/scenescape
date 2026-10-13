@@ -50,7 +50,7 @@ TEST(MultiModelKalmanEstimatorTest, PredictMixesModelStates)
   // An accelerating, turning target makes CV, CA and CTRV disagree.
   Sensor camera;
   FilterRun run;
-  run.feed(observe(Trajectory(0.0, 0.0, 0.0, 2.0, kCar).accelerate(1.0, 1.5).turn(0.6, 1.5).sample(10.0), camera));
+  run.feed(observe(Trajectory({.speed = 2.0, .box = kCar}).accelerate(1.0, 1.5).turn(0.6, 1.5).sample(10.0), camera));
 
   const auto before = run.estimator.currentStates();
   const cv::Mat mixing = run.estimator.getConditionalProbability();
