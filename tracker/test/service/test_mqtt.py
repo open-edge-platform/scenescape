@@ -13,6 +13,7 @@ Tests tracker's MQTT functionality including:
 """
 
 import json
+import math
 import threading
 import uuid
 import time
@@ -44,17 +45,22 @@ def camera_input_topic(camera_id):
 
 
 def create_camera_detection_message(camera_id="atag-qcam1", timestamp=None, object_id=1, bbox=None,
-                                    metadata=None, confidence=None):
+                                    metadata=None, confidence=None, translation=None, size=None,
+                                    rotation=None):
   """Create a valid camera detection message matching camera-data.schema.json."""
   # Use current timestamp to avoid lag detection dropping the message
   if timestamp is None:
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
-  if bbox is None:
-    bbox = {"x": 100, "y": 50, "width": 80, "height": 200}
-  detection = {
-      "id": object_id,
-      "bounding_box_px": bbox
-  }
+  detection = {"id": object_id}
+  if translation is None:
+    if bbox is None:
+      bbox = {"x": 100, "y": 50, "width": 80, "height": 200}
+    detection["bounding_box_px"] = bbox
+  else:
+    detection["translation"] = translation
+    detection["size"] = size
+  if rotation is not None:
+    detection["rotation"] = rotation
   if metadata is not None:
     detection["metadata"] = metadata
   if confidence is not None:
@@ -474,6 +480,81 @@ def test_multicamera_metadata_fusion_e2e(tls_tracker_service_with_fusion_scene,
     assert candidate_message is not None
     validate_scene_output(candidate_message)
 
+  finally:
+    client.loop_stop()
+    client.disconnect()
+
+
+def test_rotated_3d_detection_publishes_world_yaw(tls_tracker_service_with_fusion_scene):
+  """Verify a LiDAR-style 3D orientation survives MQTT parsing, transform, and publish."""
+  docker = tls_tracker_service_with_fusion_scene["docker"]
+  certs = tls_tracker_service_with_fusion_scene["certs"]
+  host, port = get_broker_host(docker, port=8883)
+
+  expected_yaw = 0.17925653649531559  # SciPy reference in transformation_reference.json
+  sensor_rotation = [0.0, -math.sin(0.35), 0.0, math.cos(0.35)]
+  received_messages = []
+  subscribed = threading.Event()
+
+  def on_message(_client, _userdata, msg):
+    received_messages.append(json.loads(msg.payload.decode()))
+
+  def on_subscribe(_client, _userdata, _mid, _reason_codes, _properties):
+    subscribed.set()
+
+  client = mqtt.Client(
+      callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+      client_id=f"test-3d-rotation-{uuid.uuid4().hex[:8]}",
+  )
+  client.tls_set(
+      ca_certs=str(certs.ca.cert_path),
+      certfile=str(certs.client.cert_path),
+      keyfile=str(certs.client.key_path),
+  )
+  client.on_message = on_message
+  client.on_subscribe = on_subscribe
+  client.connect(host, port, keepalive=60)
+  client.loop_start()
+
+  topic_scene_output = "scenescape/data/scene/fusion-test-scene/thing"
+  try:
+    client.subscribe(topic_scene_output, qos=1)
+    assert subscribed.wait(timeout=5), "MQTT scene-output subscription was not acknowledged"
+
+    for frame in range(40):
+      message = create_camera_detection_message(
+          camera_id="fusion-cam-1",
+          object_id=1,
+          translation=[1.25, -2.5, 0.75],
+          size=[4.0, 1.8, 1.6],
+          rotation=sensor_rotation,
+      )
+      validate_camera_input(message)
+      result = client.publish(camera_input_topic("fusion-cam-1"), json.dumps(message), qos=1)
+      result.wait_for_publish()
+      if frame < 39:
+        time.sleep(0.04)
+
+    def find_expected_track():
+      for message in received_messages:
+        for track in message.get("objects", []):
+          if track.get("category") != "thing":
+            continue
+          rotation = track.get("rotation", [])
+          if len(rotation) != 4:
+            continue
+          actual_yaw = 2.0 * math.atan2(rotation[2], rotation[3])
+          if abs(math.remainder(actual_yaw - expected_yaw, 2.0 * math.pi)) < 0.08:
+            return track
+      return None
+
+    wait(
+        lambda: find_expected_track() is not None,
+        timeout_seconds=DEFAULT_TIMEOUT,
+        sleep_seconds=POLL_INTERVAL,
+    )
+    track = find_expected_track()
+    assert track is not None, "Published track rotation did not match the 3D detector yaw"
   finally:
     client.loop_stop()
     client.disconnect()

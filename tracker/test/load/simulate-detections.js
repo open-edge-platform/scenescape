@@ -19,6 +19,8 @@ Environment configuration (all set via k6 --env or OS environment):
     CAMERA_COUNT          Number of simulated cameras (maps to k6 VUs)
     DEFAULT_TEST_DURATION k6 test duration string (e.g. "30s", "5m")
     CAMERA_ID_PREFIX      Prefix for camera IDs; each VU becomes {prefix}{VU}
+    LOAD_MODE             Detection geometry: 2d (default), 3d, or mixed
+    MIXED_3D_RATIO        Fraction of detections using 3D geometry in mixed mode
 
   Required when MQTT_HOST starts with ssl://, mqtts://, or wss://:
     CA_ROOT               Path to CA root certificate
@@ -42,6 +44,14 @@ const host = getRequiredEnv("MQTT_HOST");
 const port = getRequiredEnv("MQTT_PORT");
 const cameraCount = getRequiredEnv("CAMERA_COUNT");
 const testDuration = getRequiredEnv("DEFAULT_TEST_DURATION");
+const loadMode = __ENV.LOAD_MODE || "2d";
+const mixed3dRatio = Number(__ENV.MIXED_3D_RATIO || "0.5");
+if (!["2d", "3d", "mixed"].includes(loadMode)) {
+  fail(`LOAD_MODE must be one of 2d, 3d, or mixed; got ${loadMode}`);
+}
+if (!Number.isFinite(mixed3dRatio) || mixed3dRatio < 0 || mixed3dRatio > 1) {
+  fail(`MIXED_3D_RATIO must be between 0 and 1; got ${__ENV.MIXED_3D_RATIO}`);
+}
 // camera id
 const cameraIdPrefix = getRequiredEnv("CAMERA_ID_PREFIX");
 const cameraId = `${cameraIdPrefix}${__VU}`;
@@ -105,6 +115,14 @@ try {
 const FRAME_W = 1280;
 const FRAME_H = 720;
 const MARGIN = 40; // px margin from frame edges
+const CAMERA_FX = 905;
+const CAMERA_FY = 905;
+const CAMERA_CX = FRAME_W / 2;
+const CAMERA_CY = FRAME_H / 2;
+const CAMERA_HEIGHT_M = 50;
+const BBOX_WIDTH_PX = 195;
+const BBOX_HEIGHT_PX = 360;
+const IDENTITY_ROTATION = [0, 0, 0, 1];
 
 // Movement state for each person object
 const personMovementState = [];
@@ -192,6 +210,78 @@ function updatePersonPosition(movementState, currentTime) {
   }
 }
 
+function uses3dGeometry(personId) {
+  if (loadMode === "3d") {
+    return true;
+  }
+  if (loadMode !== "mixed") {
+    return false;
+  }
+  return (personId % 100) < mixed3dRatio * 100;
+}
+
+function makeBoundingBox(movementState) {
+  return {
+    x: movementState.currentX - BBOX_WIDTH_PX / 2,
+    y: movementState.currentY - BBOX_HEIGHT_PX / 2,
+    width: BBOX_WIDTH_PX,
+    height: BBOX_HEIGHT_PX,
+  };
+}
+
+function pixelToGround(pixelX, pixelY) {
+  // Load-test cameras use [0, 0, 50] translation and [-180, 0, 0] rotation.
+  return {
+    x: (pixelX - CAMERA_CX) * CAMERA_HEIGHT_M / CAMERA_FX,
+    y: -(pixelY - CAMERA_CY) * CAMERA_HEIGHT_M / CAMERA_FY,
+  };
+}
+
+function sensorMeasurementForBoundingBox(bbox) {
+  const foot = pixelToGround(bbox.x + bbox.width / 2, bbox.y + bbox.height);
+  const bottomLeft = pixelToGround(bbox.x, bbox.y + bbox.height);
+  const bottomRight = pixelToGround(bbox.x + bbox.width, bbox.y + bbox.height);
+  const topLeft = pixelToGround(bbox.x, bbox.y);
+
+  const width = Math.hypot(bottomRight.x - bottomLeft.x, bottomRight.y - bottomLeft.y);
+  const cameraToTopLeft = Math.hypot(topLeft.x, topLeft.y, CAMERA_HEIGHT_M);
+  const topToBottom = Math.hypot(topLeft.x - bottomLeft.x, topLeft.y - bottomLeft.y);
+  const elevation = Math.atan2(CAMERA_HEIGHT_M, cameraToTopLeft);
+  const height = Math.sin(elevation) * topToBottom;
+
+  // Match the bbox path's footprint-center offset before converting world XY
+  // to sensor XY.  With this scene pose, world XY = [sensor X, -sensor Y].
+  const bearing = Math.hypot(foot.x, foot.y);
+  const offset = bearing > 1e-9 ? width / 2 : 0;
+  const worldX = foot.x + (bearing > 1e-9 ? (foot.x / bearing) * offset : 0);
+  const worldY = foot.y + (bearing > 1e-9 ? (foot.y / bearing) * offset : 0);
+
+  return {
+    translation: [worldX, -worldY, CAMERA_HEIGHT_M],
+    size: [width, width, height],
+    rotation: IDENTITY_ROTATION,
+  };
+}
+
+function detectionGeometryForMovement(movementState, use3d) {
+  const bbox = makeBoundingBox(movementState);
+  return use3d ? sensorMeasurementForBoundingBox(bbox) : { bounding_box_px: bbox };
+}
+
+function createDetection(personId, movementState) {
+  return {
+    category: "person",
+    confidence: movementState.confidence,
+    id: personId + 1,
+    ...detectionGeometryForMovement(movementState, uses3dGeometry(personId)),
+  };
+}
+
+function updateDetectionGeometry(detection, movementState) {
+  const use3d = Object.prototype.hasOwnProperty.call(detection, "translation");
+  Object.assign(detection, detectionGeometryForMovement(movementState, use3d));
+}
+
 // Precompute base message structure with realistic person objects
 function createBaseMessage(objectCount) {
   const objectArray = [];
@@ -201,18 +291,7 @@ function createBaseMessage(objectCount) {
   for (let i = 0; i < objectCount; i++) {
     const movementState = initializePersonMovement(i, startTime + i * 500); // Stagger start times
     personMovementState.push(movementState);
-
-    objectArray.push({
-      category: "person",
-      confidence: movementState.confidence,
-      bounding_box_px: {
-        x: 0,
-        y: 0,
-        width: 195,
-        height: 360,
-      },
-      id: i + 1,
-    });
+    objectArray.push(createDetection(i, movementState));
   }
 
   return {
@@ -245,14 +324,7 @@ function updatePositions(baseMessage) {
     // Update person's position based on movement pattern
     updatePersonPosition(movementState, currentTime);
 
-    // Update bounding box (fixed size)
-    const bboxWidth = 195; // Fixed bounding box width
-    const bboxHeight = 360; // Fixed bounding box height
-
-    person.bounding_box_px.x = movementState.currentX - bboxWidth / 2;
-    person.bounding_box_px.y = movementState.currentY - bboxHeight / 2;
-    person.bounding_box_px.width = bboxWidth;
-    person.bounding_box_px.height = bboxHeight;
+    updateDetectionGeometry(person, movementState);
 
     // Fixed confidence
     person.confidence = movementState.confidence;

@@ -20,13 +20,15 @@ namespace tracker {
 /**
  * @brief Single detection from camera frame.
  *
- * Represents one detected object in pixel coordinates before tracking.
- * bounding_box_px uses cv::Rect2f to match OpenCV conventions and avoid
- * manual conversion in the tracking pipeline.
+ * Represents one detected object before tracking. A detection has either a
+ * pixel-space bounding box or a sensor-frame translation and size.
  */
 struct Detection {
     std::optional<int32_t> id; ///< Frame-local detection ID (optional)
     cv::Rect2f bounding_box_px;
+    std::optional<std::array<double, 3>> translation; ///< Sensor-frame position in metres
+    std::optional<std::array<double, 3>> size;        ///< Object dimensions [x, y, z] in metres
+    std::optional<std::array<double, 4>> rotation;    ///< Sensor-frame quaternion [x, y, z, w]
     std::string
         metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
     std::optional<double>

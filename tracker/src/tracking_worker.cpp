@@ -8,7 +8,10 @@
 #include "time_utils.hpp"
 
 #include <rv/tracking/ObjectMatching.hpp>
+#include <rv/tracking/OrientationAttributes.hpp>
 #include <rv/tracking/TrackManager.hpp>
+
+#include <omp.h>
 
 #include <algorithm>
 #include <charconv>
@@ -31,7 +34,31 @@ namespace {
 // (DEFAULT_TRACKING_RADIUS); we keep the same default here so the tracker
 // service produces identical results.
 constexpr double kTrackingDistanceThreshold = 2.0;
+constexpr size_t kOpenMpParallelThreshold = 32;
 constexpr std::string_view kMetadataPrefix = "metadata.";
+
+class ScopedOpenMpThreadLimit {
+public:
+    explicit ScopedOpenMpThreadLimit(int thread_limit)
+        : previous_limit_(omp_get_max_threads()), changed_(previous_limit_ > thread_limit) {
+        if (changed_) {
+            omp_set_num_threads(thread_limit);
+        }
+    }
+
+    ~ScopedOpenMpThreadLimit() {
+        if (changed_) {
+            omp_set_num_threads(previous_limit_);
+        }
+    }
+
+    ScopedOpenMpThreadLimit(const ScopedOpenMpThreadLimit&) = delete;
+    ScopedOpenMpThreadLimit& operator=(const ScopedOpenMpThreadLimit&) = delete;
+
+private:
+    int previous_limit_;
+    bool changed_;
+};
 
 std::string metadataJson(const std::unordered_map<std::string, std::string>& attributes) {
     rapidjson::Document merged;
@@ -107,6 +134,29 @@ std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRot
         state.rotation = CoordinateTransformer::yawToQuaternion(std::atan2(vy, vx));
     }
     return state.rotation;
+}
+
+std::array<double, 4> select_track_rotation(const rv::tracking::TrackedObject& track,
+                                            bool rotation_from_velocity,
+                                            VelocityRotationState& state) {
+    using rv::tracking::orientation::orientationObserved;
+
+    if (orientationObserved(track)) {
+        const double speed = std::hypot(track.vx, track.vy);
+        if (speed >= rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE) {
+            const double velocity_heading = std::atan2(track.vy, track.vx);
+            const double yaw_error = std::abs(rv::angleDifference(velocity_heading, track.yaw));
+            if (yaw_error > rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL) {
+                return CoordinateTransformer::yawToQuaternion(velocity_heading);
+            }
+        }
+        return CoordinateTransformer::yawToQuaternion(track.yaw);
+    }
+
+    if (!rotation_from_velocity) {
+        return {0.0, 0.0, 0.0, 1.0};
+    }
+    return update_velocity_rotation(track.vx, track.vy, state);
 }
 
 TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
@@ -227,7 +277,6 @@ void TrackingWorker::process_chunk(Chunk chunk) {
                                     ? formatTimestamp(now)
                                     : chunk.camera_batches.back().timestamp_iso;
 
-    // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
     auto objects_per_camera = transform_detections(chunk);
     chunk.obs_ctx.captureTransformTime();
 
@@ -299,19 +348,12 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         track.velocity = {rv_track.vx, rv_track.vy, 0.0};
         track.size = {rv_track.length, rv_track.width, rv_track.height};
 
-        if (!rotation_from_velocity_) {
-            track.rotation = {0.0, 0.0, 0.0, 1.0};
-        } else {
-            auto& rotation_state = rotation_states_[rv_track.id];
-            track.rotation = update_velocity_rotation(rv_track.vx, rv_track.vy, rotation_state);
+        VelocityRotationState default_rotation_state;
+        VelocityRotationState* rotation_state = &default_rotation_state;
+        if (rotation_from_velocity_) {
+            rotation_state = &rotation_states_[rv_track.id];
         }
-
-        if (!rotation_from_velocity_) {
-            track.rotation = {0.0, 0.0, 0.0, 1.0};
-        } else {
-            auto& rotation_state = rotation_states_[rv_track.id];
-            track.rotation = update_velocity_rotation(rv_track.vx, rv_track.vy, rotation_state);
-        }
+        track.rotation = select_track_rotation(rv_track, rotation_from_velocity_, *rotation_state);
         track.metadata_json = metadataJson(rv_track.attributes);
 
         // Compatibility fallback for measurements produced by older adapters.
@@ -343,22 +385,32 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
 std::vector<Track> TrackingWorker::match_and_convert(
     std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_camera, const Chunk& chunk,
     std::chrono::system_clock::time_point timestamp) {
+    const auto transformed_detections = std::accumulate(
+        objects_per_camera.begin(), objects_per_camera.end(), size_t{0},
+        [](size_t sum, const auto& camera_objects) { return sum + camera_objects.size(); });
+
     // Feed all cameras as a batch — MOT performs Hungarian matching across cameras,
     // deduplicates objects seen by multiple cameras, and runs Kalman filter update.
     // When no detections are present, track() still advances the Kalman filter and
     // increments non-measurement counters so tracks can age and expire.
-    tracker_.track(std::move(objects_per_camera), timestamp, rv::tracking::DistanceType::Euclidean,
-                   kTrackingDistanceThreshold);
-
-    // Get reliable tracks and map RobotVision int IDs to UUID strings
-    auto rv_tracks = tracker_.getReliableTracks();
-
+    std::vector<rv::tracking::TrackedObject> rv_tracks;
+    {
+        const auto thread_limit =
+            transformed_detections < kOpenMpParallelThreshold ? 1 : omp_get_max_threads();
+        ScopedOpenMpThreadLimit openmp_thread_limit(thread_limit);
+        tracker_.track(std::move(objects_per_camera), timestamp,
+                       rv::tracking::DistanceType::Euclidean, kTrackingDistanceThreshold);
+        // Get reliable tracks and map RobotVision int IDs to UUID strings
+        rv_tracks = tracker_.getReliableTracks();
+    }
     auto tracks = convert_tracks(std::move(rv_tracks), chunk.category);
 
-    LOG_DEBUG("Processed chunk for {}/{}: {} detections -> {} reliable tracks", scope_.scene_id,
-              scope_.category,
-              std::accumulate(chunk.camera_batches.begin(), chunk.camera_batches.end(), 0,
-                              [](int sum, const auto& b) { return sum + b.detections.size(); }),
+    const auto input_detections = std::accumulate(
+        chunk.camera_batches.begin(), chunk.camera_batches.end(), size_t{0},
+        [](size_t sum, const auto& batch) { return sum + batch.detections.size(); });
+    LOG_DEBUG("Processed chunk for {}/{}: input_detections={} transformed_detections={} "
+              "reliable_tracks={}",
+              scope_.scene_id, scope_.category, input_detections, transformed_detections,
               tracks.size());
 
     return tracks;
