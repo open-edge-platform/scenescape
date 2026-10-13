@@ -81,14 +81,11 @@ rv::tracking::TrackManagerConfig build_tracker_config(const TrackingConfig& conf
     rv_config.mNonMeasurementTimeStatic = config.non_measurement_time_static_s;
     rv_config.mSuspendedTrackMaxAgeSecs = 60.0;
 
-    // Kalman filter noise parameters
-    rv_config.mDefaultProcessNoise = 1e-4;
-    rv_config.mDefaultMeasurementNoise = 2e-1;
-    rv_config.mInitStateCovariance = 1.0;
-
-    // Motion models for multi-model Kalman estimator
-    rv_config.mMotionModels = {rv::tracking::MotionModel::CV, rv::tracking::MotionModel::CA,
-                               rv::tracking::MotionModel::CTRV};
+    // Kalman filter noise parameters and motion models shared with the Scene Controller
+    rv_config.mDefaultProcessNoise = rv::tracking::kProductionProcessNoise;
+    rv_config.mDefaultMeasurementNoise = rv::tracking::kProductionMeasurementNoise;
+    rv_config.mInitStateCovariance = rv::tracking::kProductionInitStateCovariance;
+    rv_config.mMotionModels = rv::tracking::kProductionMotionModels;
 
     return rv_config;
 }
