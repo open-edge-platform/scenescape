@@ -68,11 +68,11 @@ spec:
               mountPath: /run/secrets/certs/scenescape-ca.pem
               subPath: scenescape-ca.pem
               readOnly: true
-            - name: certs
+            - name: positioning-tls
               mountPath: /run/secrets/certs/scenescape-positioning.crt
               subPath: scenescape-positioning.crt
               readOnly: true
-            - name: certs
+            - name: positioning-tls
               mountPath: /run/secrets/certs/scenescape-positioning.key
               subPath: scenescape-positioning.key
               readOnly: true
@@ -85,6 +85,14 @@ spec:
         - name: positioning-auth
           secret:
             secretName: {{ .Release.Name }}-positioning.auth
+        - name: positioning-tls
+          secret:
+            secretName: {{ .Release.Name }}-positioning-tls
+            items:
+              - key: tls.crt
+                path: scenescape-positioning.crt
+              - key: tls.key
+                path: scenescape-positioning.key
         - name: tmp
           emptyDir: {}
         {{- include "certs_volume" . | nindent 8 }}

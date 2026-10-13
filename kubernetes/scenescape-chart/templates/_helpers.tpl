@@ -72,15 +72,6 @@
           path: scenescape-mapping.key
         - key: tls.crt
           path: scenescape-mapping.crt
-    {{- if .Values.positioning.enabled }}
-    - secret:
-        name: {{ .Release.Name }}-positioning-tls
-        items:
-        - key: tls.key
-          path: scenescape-positioning.key
-        - key: tls.crt
-          path: scenescape-positioning.crt
-    {{- end }}
     - secret:
         name: {{ .Release.Name }}-scenescape-ca.pem
         items:
