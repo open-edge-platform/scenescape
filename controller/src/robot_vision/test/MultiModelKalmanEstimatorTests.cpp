@@ -87,7 +87,7 @@ TEST(MultiModelKalmanEstimatorTest, ReinitializeDoesNotDuplicateFilters)
   MultiModelKalmanEstimator estimator;
   for (int i = 0; i < 2; ++i)
   {
-    estimator.initialize(makeBox(0.0, 0.0, 0.0, kCar.length, kCar.width, kCar.height),
+    estimator.initialize(makeDetection(0.0, 0.0, 0.0, kCar.length, kCar.width, kCar.height),
                          atSeconds(0.0),
                          config.mDefaultProcessNoise,
                          config.mDefaultMeasurementNoise,
@@ -117,7 +117,7 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
   {
     SCOPED_TRACE("init_state_covariance " + std::to_string(expected.initStateCovariance));
     MultiModelKalmanEstimator estimator;
-    estimator.initialize(makeBox(0.0, 0.0, 0.0, kCar.length, kCar.width, kCar.height),
+    estimator.initialize(makeDetection(0.0, 0.0, 0.0, kCar.length, kCar.width, kCar.height),
                          atSeconds(0.0),
                          1e-4,
                          kMeasurementNoise,

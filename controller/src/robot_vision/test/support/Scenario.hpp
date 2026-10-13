@@ -49,6 +49,11 @@ struct TruthSample
   }
 };
 
+inline TrackedObject makeDetection(const TruthSample &sample)
+{
+  return makeDetection(sample.x, sample.y, 0.0, sample.box.length, sample.box.width, sample.box.height);
+}
+
 // Unicycle ground truth: segments of constant acceleration and turn rate; speed never goes below 0.
 class Trajectory
 {
@@ -155,7 +160,7 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
   std::vector<Observation> observations;
   for (const auto &sample : truth)
   {
-    auto detection = makeBox(sample.x, sample.y, 0.0, sample.box.length, sample.box.width, sample.box.height);
+    auto detection = makeDetection(sample);
     if (sensor.positionNoise > 0.0)
     {
       detection.x += sensor.positionNoise * noise(sensor.rng);
