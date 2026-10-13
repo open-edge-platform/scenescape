@@ -43,14 +43,13 @@ inline std::chrono::system_clock::time_point atSeconds(double seconds)
     std::chrono::duration_cast<std::chrono::system_clock::duration>(std::chrono::duration<double>(seconds)));
 }
 
-// Values used by the Scene Controller and the Tracker service.
 inline TrackManagerConfig productionConfig()
 {
   TrackManagerConfig config;
-  config.mDefaultProcessNoise = 1e-4;
-  config.mDefaultMeasurementNoise = 0.2;
-  config.mInitStateCovariance = 1.0;
-  config.mMotionModels = {MotionModel::CV, MotionModel::CA, MotionModel::CTRV};
+  config.mDefaultProcessNoise = kProductionProcessNoise;
+  config.mDefaultMeasurementNoise = kProductionMeasurementNoise;
+  config.mInitStateCovariance = kProductionInitStateCovariance;
+  config.mMotionModels = kProductionMotionModels;
   return config;
 }
 
