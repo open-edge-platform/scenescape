@@ -4,6 +4,7 @@
 import datetime
 import json
 import os
+import signal
 import tempfile
 import unittest
 from pathlib import Path
@@ -114,9 +115,10 @@ class TestPositioningStatus(unittest.TestCase):
       self.assertFalse(readiness_file.exists())
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
-  def test_graceful_shutdown_publishes_retained_offline_status(self):
+  def test_sigterm_publishes_retained_offline_status(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       service, fake_pubsub, _, _ = self._create_service(temp_dir)
+      original_sigterm_handler = signal.getsignal(signal.SIGTERM)
       will_payload = {"resolver_id": "resolver-a", "status": "offline", "timestamp": "will"}
       shutdown_payload = {
         "resolver_id": "resolver-a", "status": "offline", "timestamp": "shutdown",
@@ -124,9 +126,13 @@ class TestPositioningStatus(unittest.TestCase):
       fake_pubsub.isConnected.return_value = True
       fake_pubsub.connect.side_effect = lambda: fake_pubsub.client.on_pre_connect(
         fake_pubsub.client, None)
+      fake_pubsub.loopForever.side_effect = lambda: os.kill(os.getpid(), signal.SIGTERM)
       with mock.patch("positioning.status_payload", side_effect=[will_payload, shutdown_payload]):
-        service.run()
+        with self.assertRaises(SystemExit) as exit_info:
+          service.run()
 
+      self.assertEqual(exit_info.exception.code, 0)
+      self.assertIs(signal.getsignal(signal.SIGTERM), original_sigterm_handler)
       fake_pubsub.client.will_set.assert_called_once_with(
         "scenescape/positioning/status/resolver-a", json.dumps(will_payload), qos=0, retain=True)
       fake_pubsub.publish.assert_called_once_with(

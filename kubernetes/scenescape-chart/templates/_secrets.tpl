@@ -15,5 +15,10 @@ DATABASE_PASSWORD='{{ .Values.pgserver.password }}'
 {{- end -}}
 
 {{- define "positioning-auth" -}}
+{{- $secret := lookup "v1" "Secret" .Release.Namespace (printf "%s-positioning.auth" .Release.Name) -}}
+{{- if and $secret (hasKey $secret.data "positioning.auth") -}}
+{{ index $secret.data "positioning.auth" | b64dec }}
+{{- else -}}
 {"user": "positioning", "password": "{{ randAlphaNum 32 }}"}
+{{- end -}}
 {{- end -}}

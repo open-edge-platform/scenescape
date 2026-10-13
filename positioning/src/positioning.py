@@ -8,6 +8,7 @@
 import argparse
 import json
 import os
+import signal
 
 from positioning_status import status_payload, status_topic
 from scene_common import log
@@ -65,15 +66,22 @@ class PositioningService:
       pass
     log.warning("Positioning disconnected from MQTT broker")
 
+  def on_sigterm(self, signum, frame):
+    raise SystemExit(0)
+
   def run(self):
+    previous_sigterm_handler = signal.signal(signal.SIGTERM, self.on_sigterm)
     try:
-      self.client.connect()
-      self.client.loopForever()
+      try:
+        self.client.connect()
+        self.client.loopForever()
+      finally:
+        if self.client.isConnected():
+          payload = json.dumps(status_payload(self.resolver_id, "offline"))
+          self.client.publish(self.topic, payload, qos=0, retain=True)
+          self.client.disconnect()
     finally:
-      if self.client.isConnected():
-        payload = json.dumps(status_payload(self.resolver_id, "offline"))
-        self.client.publish(self.topic, payload, qos=0, retain=True)
-        self.client.disconnect()
+      signal.signal(signal.SIGTERM, previous_sigterm_handler)
 
 
 def build_argparser():
