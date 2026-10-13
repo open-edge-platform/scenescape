@@ -62,8 +62,8 @@ inline double minEigenvalue(const cv::Mat &matrix)
   return minValue;
 }
 
-inline TrackedObject
-makeBox(double x, double y, double z, double length, double width, double height, const std::string &cameraId = {})
+inline TrackedObject makeDetection(
+  double x, double y, double z, double length, double width, double height, const std::string &cameraId = {})
 {
   TrackedObject object;
   object.x = x;
