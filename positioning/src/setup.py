@@ -9,7 +9,7 @@ setup(
     packages=find_packages(where='.'),
     python_requires='>=3.9',
     install_requires=[
-        'protobuf>=5.29.0,<7',
+        'protobuf>=5.29.6,<7',
         'grpcio>=1.71.2',
         'numpy',
         'scipy',

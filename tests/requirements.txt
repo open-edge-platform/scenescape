@@ -48,7 +48,7 @@ ntplib==0.4.0
 openapi-spec-validator==0.8.5
 pytz==2026.2
 # Positioning protobuf/gRPC stubs; protobuf pinned to 5.x by vdms, so grpcio-tools stays on 1.71.x
-protobuf==5.29.5
+protobuf==5.29.6
 grpcio==1.71.2
 grpcio-tools==1.71.2
 
