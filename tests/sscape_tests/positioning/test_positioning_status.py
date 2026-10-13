@@ -2,17 +2,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
+import os
+import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 from positioning_status import status_payload, status_topic
 
 try:
-  from scene_common.mqtt import PubSub
+  from positioning import PositioningService
 except ModuleNotFoundError as error:
   if error.name != "paho":
     raise
-  PubSub = None
+  PositioningService = None
 
 
 class TestPositioningStatus(unittest.TestCase):
@@ -42,17 +45,27 @@ class TestPositioningStatus(unittest.TestCase):
     with self.assertRaises(ValueError):
       status_payload("resolver-a", "online", datetime.datetime(2026, 10, 12))
 
-  @unittest.skipIf(PubSub is None, "paho-mqtt is installed in the service test image")
-  def test_pubsub_configures_client_certificate_and_key(self):
-    fake_client = mock.Mock()
-    with mock.patch("scene_common.mqtt.initializeMqttClient", return_value=fake_client):
-      PubSub(None, "client.crt", None, "broker", keyfile="client.key")
-    fake_client.tls_set.assert_called_once_with(certfile="client.crt", keyfile="client.key")
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_service_configures_client_certificate_and_key(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      cert = Path(temp_dir) / "client.crt"
+      keyfile = Path(temp_dir) / "client.key"
+      root_cert = Path(temp_dir) / "root.crt"
+      for credential_path in (cert, keyfile, root_cert):
+        credential_path.write_text("", encoding="utf-8")
+      readiness_file = Path(temp_dir) / "positioning-ready"
 
-  @unittest.skipIf(PubSub is None, "paho-mqtt is installed in the service test image")
-  def test_pubsub_rejects_key_without_client_certificate(self):
-    with self.assertRaises(ValueError):
-      PubSub(None, None, None, "broker", keyfile="client.key")
+      fake_pubsub = mock.Mock()
+      with mock.patch.dict(os.environ, {"POSITIONING_READINESS_FILE": str(readiness_file)}):
+        with mock.patch("positioning.PubSub", return_value=fake_pubsub) as pubsub_factory:
+          PositioningService(
+            {"resolver_id": "resolver-a"}, "broker", "positioning:secret",
+            str(cert), str(keyfile), str(root_cert))
+
+      pubsub_factory.assert_called_once_with(
+        "positioning:secret", None, None, "broker", keepalive=60)
+      fake_pubsub.client.tls_set.assert_called_once_with(
+        ca_certs=str(root_cert), certfile=str(cert), keyfile=str(keyfile))
 
 
 if __name__ == "__main__":

@@ -35,7 +35,11 @@ class PositioningService:
       os.remove(self.readiness_file)
     except FileNotFoundError:
       pass
-    self.client = PubSub(broker_auth, cert, root_cert, broker, keepalive=60, keyfile=keyfile)
+    self.client = PubSub(broker_auth, None, None, broker, keepalive=60)
+    try:
+      self.client.client.tls_set(ca_certs=root_cert, certfile=cert, keyfile=keyfile)
+    except Exception as error:
+      raise RuntimeError(f"Failed to configure TLS for MQTT broker {broker}") from error
     self.client.client.on_connect = self.on_connect
     self.client.client.on_disconnect = self.on_disconnect
 
