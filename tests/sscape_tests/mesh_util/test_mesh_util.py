@@ -388,7 +388,7 @@ def test_mesh_generator_accepts_far_patches_when_all_cameras_anchored(
 @patch("manager.mesh_generator.CamSerializer")
 def test_start_mesh_generation_converts_nonzero_euler_rotation_to_quaternion(
     mock_serializer_cls, mock_pubsub_cls, test_scene_with_cameras):
-  """Regression test for ITEP-97219: a calibrated camera's non-zero Euler
+  """A calibrated camera's non-zero Euler
   rotation must reach the mapping service as the equivalent quaternion,
   not silently fall back to identity."""
   scene = test_scene_with_cameras["scene"]
