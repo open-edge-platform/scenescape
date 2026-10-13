@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
+import json
 import os
 import tempfile
 import unittest
@@ -66,6 +67,37 @@ class TestPositioningStatus(unittest.TestCase):
         "positioning:secret", None, None, "broker", keepalive=60)
       fake_pubsub.client.tls_set.assert_called_once_with(
         ca_certs=str(root_cert), certfile=str(cert), keyfile=str(keyfile))
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_lwt_is_refreshed_before_each_connect(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      cert = Path(temp_dir) / "client.crt"
+      keyfile = Path(temp_dir) / "client.key"
+      root_cert = Path(temp_dir) / "root.crt"
+      for credential_path in (cert, keyfile, root_cert):
+        credential_path.write_text("", encoding="utf-8")
+
+      will_payloads = [
+        {"resolver_id": "resolver-a", "status": "offline", "timestamp": "session-1"},
+        {"resolver_id": "resolver-a", "status": "offline", "timestamp": "session-2"},
+      ]
+      fake_pubsub = mock.Mock()
+      with mock.patch.dict(os.environ, {"POSITIONING_READINESS_FILE": str(Path(temp_dir) / "ready")}):
+        with mock.patch("positioning.PubSub", return_value=fake_pubsub):
+          with mock.patch("positioning.status_payload", side_effect=will_payloads):
+            PositioningService(
+              {"resolver_id": "resolver-a"}, "broker", "positioning:secret",
+              str(cert), str(keyfile), str(root_cert))
+            pre_connect = fake_pubsub.client.on_pre_connect
+            pre_connect(fake_pubsub.client, None)
+            pre_connect(fake_pubsub.client, None)
+
+      self.assertEqual(fake_pubsub.client.will_set.call_args_list, [
+        mock.call("scenescape/positioning/status/resolver-a", json.dumps(will_payloads[0]),
+                  qos=0, retain=True),
+        mock.call("scenescape/positioning/status/resolver-a", json.dumps(will_payloads[1]),
+                  qos=0, retain=True),
+      ])
 
 
 if __name__ == "__main__":

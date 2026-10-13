@@ -40,8 +40,13 @@ class PositioningService:
       self.client.client.tls_set(ca_certs=root_cert, certfile=cert, keyfile=keyfile)
     except Exception as error:
       raise RuntimeError(f"Failed to configure TLS for MQTT broker {broker}") from error
+    self.client.client.on_pre_connect = self.on_pre_connect
     self.client.client.on_connect = self.on_connect
     self.client.client.on_disconnect = self.on_disconnect
+
+  def on_pre_connect(self, client, userdata):
+    will = json.dumps(status_payload(self.resolver_id, "offline"))
+    client.will_set(self.topic, will, qos=0, retain=True)
 
   def on_connect(self, client, userdata, flags, reason_code, properties=None):
     result = getattr(reason_code, "value", reason_code)
@@ -61,8 +66,6 @@ class PositioningService:
     log.warning("Positioning disconnected from MQTT broker")
 
   def run(self):
-    will = json.dumps(status_payload(self.resolver_id, "offline"))
-    self.client.client.will_set(self.topic, will, qos=0, retain=True)
     try:
       self.client.connect()
       self.client.loopForever()
