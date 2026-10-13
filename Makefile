@@ -166,7 +166,7 @@ help:
 	@echo ""
 	@echo "  check-autocalibration-contract  Check autocalibration behavior vs. its committed OpenAPI spec"
 	@echo "  check-mapping-contract          Check mapping behavior vs. its committed OpenAPI spec"
-	@echo "  check-manager-schema-drift      Check manager's generated schema vs. its committed OpenAPI spec"
+	@echo "  check-manager-api-spec-review   Remind PR authors to review Manager API spec changes"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
@@ -461,8 +461,8 @@ check-zephyr-ids:
 	@$(ZEPHYR_CHECK) || (echo "Zephyr ID check failed" && exit 1)
 
 # ============================== OpenAPI schema drift checks ==============================
-# Each check fails with a message if behavior/generated-schema drifts from the
-# committed OpenAPI document. None of them ever rewrites a spec file.
+# Contract checks fail on drift, the Manager PR review reminder is advisory.
+# None of these targets rewrites a spec file.
 
 .PHONY: check-autocalibration-contract
 check-autocalibration-contract: setup-pytest
@@ -476,9 +476,12 @@ check-mapping-contract: setup-pytest
 
 MANAGER_SCHEMA_DRIFT_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_manager_schema_drift.py
 
-.PHONY: check-manager-schema-drift
-check-manager-schema-drift: setup-pytest
-	@$(MANAGER_SCHEMA_DRIFT_CHECK) || (echo "Manager OpenAPI schema drift check failed" && exit 1)
+.PHONY: check-manager-api-spec-review
+check-manager-api-spec-review:
+	@: "$${PR_BASE_SHA:?Set PR_BASE_SHA to the PR base commit}"
+	@: "$${PR_HEAD_SHA:?Set PR_HEAD_SHA to the PR head commit}"
+	@python3 $(CURDIR)/tests/scripts/check_manager_api_spec_reminder.py \
+		"$$PR_BASE_SHA" "$$PR_HEAD_SHA"
 
 .PHONY: run_tests
 run_tests: setup-tests
