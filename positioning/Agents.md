@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Follow the repository guidance in [`../AGENTS.md`](../AGENTS.md) and the
 Positioning deployment and camera onboarding guide in
-[`docs/README.md`](docs/README.md).
+[`../docs/user-guide/microservices/positioning/operations.md`](../docs/user-guide/microservices/positioning/operations.md).
 
 Keep source adapters, the generic resolver shell, and pose models independently
 testable. Never put device credentials or lab-specific camera endpoints in source,

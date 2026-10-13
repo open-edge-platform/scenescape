@@ -70,19 +70,6 @@ This creates `manager/secrets/positioning.auth`,
 `manager/secrets/certs/scenescape-positioning.crt`, and
 `manager/secrets/certs/scenescape-positioning.key`.
 
-## Test
-
-Build and run the service test image:
-
-```bash
-make -C positioning test-build
-docker run --rm intel/scenescape-positioning-test:$(cat version.txt)
-```
-
-`make setup-tests` builds the test image, and `make run_unit_tests` also runs the
-service unit tests. Test stacks that start the Scene Controller or Tracker include
-the Positioning service automatically.
-
 ## Configure
 
 The service reads `/app/config/positioning.json`:
@@ -129,5 +116,5 @@ poses, so disabling it does not change tracking.
 
 ## Supporting Resources
 
-- [Positioning service README](https://github.com/open-edge-platform/scenescape/blob/main/positioning/README.md)
+- [Positioning operations and onboarding](operations.md)
 - [PTZ pose design](https://github.com/open-edge-platform/scenescape/blob/main/docs/design/ptz-camera-pose-service.md)

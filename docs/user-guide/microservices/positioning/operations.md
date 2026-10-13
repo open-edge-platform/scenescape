@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Service Shell
 
-The 3a shell runs without PTZ configuration. It connects to MQTT with the dedicated
+The current service shell runs without PTZ configuration. It connects to MQTT with the dedicated
 `positioning.auth` identity and client certificate, publishes retained
 `scenescape/positioning/status/{resolver_id}` status at QoS 0, and registers an
 offline last will. Its status payload contains only `resolver_id`, `status`, and
@@ -22,11 +22,10 @@ has read access to camera configuration invalidations and write access to resolv
 status, and it is not a superuser. The bundled Mosquitto configuration does not
 enforce service credentials or topic ACLs; deployments requiring enforcement must
 configure broker authentication and authorization as described in the
-[hardening guide](../../docs/user-guide/additional-resources/hardening-guide.md).
+[hardening guide](../../additional-resources/hardening-guide.md).
 
-The test image is built by `make setup-tests`; its unit suite runs from the root
-`make run_unit_tests` target. Test service compositions that include the Controller
-or Tracker also include `tests/compose/compose.positioning.yml`.
+Compose profiles that launch the Controller or Tracker also include the Positioning
+service through `tests/compose/compose.positioning.yml`.
 
 ## Camera Onboarding
 
@@ -59,17 +58,18 @@ than editing service code:
    acceptance.
 
 Continuous polling provides the timestamped samples needed for dwell and sequence
-continuity. Camera-specific calibration,
-timing bounds, and credentials are not part of this 3a shell and must be completed in
-their owning implementation phases.
+continuity. Camera-specific calibration, timing bounds, and credentials are outside
+the scope of the current service shell and belong to their respective implementation
+phases.
 
 ## Deployments and Rollback
 
 Compose tests include the Positioning service only in profiles that launch a Scene
 Controller or Tracker. Helm installs it when `positioning.enabled=true`; it has one
 replica because source ownership is single-writer. The `cameras` list in
-`positioning/config/positioning.json` starts empty; the 3a shell does not read it.
+`positioning/config/positioning.json` starts empty; the current service shell does not
+read it.
 
-The 3a service publishes no pose and does not alter detections. Roll back by disabling
+The current service publishes no pose and does not alter detections. Roll back by disabling
 the Positioning deployment. Later PTZ rollout rollback is per consumer: disable the
 corresponding Controller or Tracker PTZ flag and return to static projection.
