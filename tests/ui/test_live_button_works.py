@@ -9,6 +9,7 @@ import tests.ui.common_ui_test_utils as common
 from tests.ui.browser import By, Browser
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_WITH_VIDEO_AND_RETAIL
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_WITH_VIDEO_AND_RETAIL,
@@ -19,6 +20,7 @@ TEST_WAIT_TIME = 5
 TEST_NAME = "NEX-T10434"
 WORKSPACE = os.path.join(common.TEST_MEDIA_PATH, TEST_NAME)
 
+@pytest.mark.test_name("NEX-T10434")
 def test_live_button(params, record_xml_attribute=None):
   """! Test for functionality of the 'live-view' button for cameras.
   Takes screenshot of the camera1 element for baseline, then enables live-view

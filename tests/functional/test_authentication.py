@@ -31,6 +31,7 @@ _TEST_PASS = "general_pass"
 
 POST_ENTITIES = [
   "/asset",
+  "/aclcheck",
   "/auth",
   "/calibrationmarker",
   "/camera",

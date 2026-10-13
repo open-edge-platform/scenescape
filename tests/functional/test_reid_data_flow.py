@@ -17,7 +17,6 @@ from unittest.mock import Mock
 import pytest
 import numpy as np
 
-import tests.common_test_utils as common
 from scene_common.rest_client import RESTClient
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
@@ -25,15 +24,18 @@ from tests.utils.log import get_logger
 
 from tests.functional.reid_backend import (
   ensure_reid_schema,
-  get_reid_profile_module,
+  get_reid_core_profile_module,
   query_reid_count,
   wait_for_reid_backend_ready,
 )
 from tests.utils.spec import FuncTestSpec
+
 log = get_logger(__name__)
 
+# Leaner profile: ReID stack without the DLStreamer pipeline server; detections
+# are injected directly over MQTT using mock data instead of a live video source.
 SCENESCAPE_SPEC = FuncTestSpec(
-  profile=get_reid_profile_module(),
+  profile=get_reid_core_profile_module(),
 )
 
 
@@ -187,12 +189,13 @@ def setup_test_environment(params):
   return rest, scene_uid, scene_name, camera_id, pubsub, topic_str
 
 
-def publish_detection_frames(pubsub, topic_str, detections_data, num_frames=25):
+def publish_detection_frames(pubsub, topic_str, camera_id, detections_data, num_frames=25):
   """
   Publish multiple detection frames to establish tracking.
 
   @param pubsub  MQTT client
   @param topic_str  MQTT topic for publishing
+  @param camera_id  Camera identifier
   @param detections_data  List of detection tuples
   @param num_frames  Number of frames to publish
   """
@@ -200,7 +203,7 @@ def publish_detection_frames(pubsub, topic_str, detections_data, num_frames=25):
 
   log.info(f"Publishing {num_frames} frames to topic: {topic_str}")
   for frame_num in range(num_frames):
-    msg = create_detection_message(list(detections_data.keys())[0], detections_data[list(detections_data.keys())[0]])
+    msg = create_detection_message(camera_id, detections_data)
     pubsub.publish(topic_str, json.dumps(msg))
     time.sleep(frame_interval)
 
@@ -236,29 +239,29 @@ def trigger_track_pruning(pubsub, topic_str, camera_id):
   time.sleep(8)
 
 
-def test_reid_no_metadata(params, record_xml_attribute):
-  """
-  Test Reid data flow with NO metadata (baseline scenario).
 
+@pytest.mark.test_name("NEX-T29240")
+def test_reid_no_metadata(scenescape_env, params, result_recorder):
+  """
   Validates that detection messages without metadata are processed correctly
   and no reid vectors are stored in the ReID backend.
 
+  @param scenescape_env  Fixture that brings up the core ReID stack per SCENESCAPE_SPEC
   @param params  Test parameters from pytest fixture
-  @param record_xml_attribute  Pytest fixture for recording test metadata
+  @param result_recorder  Fixture that records the test's pass/fail on teardown
   """
-  pytest.skip("Test is unstable")
-  TEST_NAME = "NEX-T19883-NO-METADATA"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
+  log.info("Executing: NEX-T29240")
 
-  exit_code = 1
-
+  pubsub = None
   try:
     rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
 
     log.info("=" * 80)
     log.info("SCENARIO 1: Testing with NO metadata")
     log.info("=" * 80)
+
+    reid_count_before = query_reid_count("person")
+    log.info(f"ReID backend vectors before no-metadata test: {reid_count_before}")
 
     # Create detection without metadata
     detections_no_metadata = [
@@ -279,46 +282,34 @@ def test_reid_no_metadata(params, record_xml_attribute):
     log.info(f"Published message to topic: {topic_str}")
     time.sleep(1)
 
-    # Verify NO reid data stored
-    reid_count = query_reid_count("person")
-    assert reid_count == 0, f"Expected 0 reid vectors, found {reid_count}"
-    log.info("✓ ReID backend verification passed: No reid vectors stored")
+    # Verify NO NEW reid data stored
+    reid_count_after = query_reid_count("person")
+    assert reid_count_after == reid_count_before, \
+           f"Expected no new reid vectors (before={reid_count_before}, after={reid_count_after})"
+    log.info("✓ ReID backend verification passed: No new reid vectors stored")
 
     log.info("✓ Test passed: No metadata flow validated")
-
-    pubsub.loopStop()
-    pubsub.disconnect()
-    exit_code = 0
-
-  except Exception as e:
-    log.error(f"Test failed with exception: {e}")
-    import traceback
-    traceback.print_exc()
-    raise
+    result_recorder.success()
 
   finally:
-    common.record_test_result(TEST_NAME, exit_code)
+    if pubsub is not None:
+      pubsub.loopStop()
+      pubsub.disconnect()
 
-  assert exit_code == 0, "No metadata test failed"
 
-
-def test_reid_only_metadata(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T29239")
+def test_reid_only_metadata(scenescape_env, params, result_recorder):
   """
-  Test Reid data flow with REID ONLY metadata (no semantic attributes).
-
   Validates that reid embeddings are correctly extracted, tracked, and stored
   in the ReID backend without semantic metadata.
 
+  @param scenescape_env  Fixture that brings up the core ReID stack per SCENESCAPE_SPEC
   @param params  Test parameters from pytest fixture
-  @param record_xml_attribute  Pytest fixture for recording test metadata
+  @param result_recorder  Fixture that records the test's pass/fail on teardown
   """
-  pytest.skip("Test is unstable")
-  TEST_NAME = "NEX-T19883-REID-ONLY"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
+  log.info("Executing: NEX-T29239")
 
-  exit_code = 1
-
+  pubsub = None
   try:
     rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
 
@@ -358,16 +349,7 @@ def test_reid_only_metadata(params, record_xml_attribute):
     log.info(f"✓ Message structure verified ({len(detections_reid_only)} detections with reid)")
 
     # Publish multiple frames to establish tracking
-    num_frames = 25
-    frame_interval = 0.1
-
-    log.info(f"Publishing {num_frames} frames with reid metadata...")
-    for frame_num in range(num_frames):
-      msg_reid_only = create_detection_message(camera_id, detections_reid_only)
-      pubsub.publish(topic_str, json.dumps(msg_reid_only))
-      time.sleep(frame_interval)
-
-    log.info(f"Published {num_frames} reid-only frames")
+    publish_detection_frames(pubsub, topic_str, camera_id, detections_reid_only)
 
     # Trigger track pruning and ReID backend storage
     trigger_track_pruning(pubsub, topic_str, camera_id)
@@ -378,41 +360,27 @@ def test_reid_only_metadata(params, record_xml_attribute):
     log.info(f"✓ ReID backend verification passed: {reid_count} reid vectors stored")
 
     log.info("✓ Test passed: Reid-only flow validated")
-
-    pubsub.loopStop()
-    pubsub.disconnect()
-    exit_code = 0
-
-  except Exception as e:
-    log.error(f"Test failed with exception: {e}")
-    import traceback
-    traceback.print_exc()
-    raise
+    result_recorder.success()
 
   finally:
-    common.record_test_result(TEST_NAME, exit_code)
+    if pubsub is not None:
+      pubsub.loopStop()
+      pubsub.disconnect()
 
-  assert exit_code == 0, "Reid-only test failed"
 
-
-def test_reid_semantic_only_metadata(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T29238")
+def test_reid_semantic_only_metadata(scenescape_env, params, result_recorder):
   """
-  Test Reid data flow with SEMANTIC ONLY metadata (no reid embeddings).
-
   Validates that semantic attributes (age, gender) are correctly processed
   and no NEW reid vectors are stored when reid data is absent.
-  Note: This test is independent and does not rely on previous test state.
 
+  @param scenescape_env  Fixture that brings up the core ReID stack per SCENESCAPE_SPEC
   @param params  Test parameters from pytest fixture
-  @param record_xml_attribute  Pytest fixture for recording test metadata
+  @param result_recorder  Fixture that records the test's pass/fail on teardown
   """
-  pytest.skip("Test is unstable")
-  TEST_NAME = "NEX-T19883-SEMANTIC-ONLY"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
+  log.info("Executing: NEX-T29238")
 
-  exit_code = 1
-
+  pubsub = None
   try:
     rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
 
@@ -464,40 +432,30 @@ def test_reid_semantic_only_metadata(params, record_xml_attribute):
     log.info(f"✓ ReID backend verification passed: No new reid vectors stored ({reid_count_before} total)")
 
     log.info("✓ Test passed: Semantic-only flow validated")
-
-    pubsub.loopStop()
-    pubsub.disconnect()
-    exit_code = 0
-
-  except Exception as e:
-    log.error(f"Test failed with exception: {e}")
-    import traceback
-    traceback.print_exc()
-    raise
+    result_recorder.success()
 
   finally:
-    common.record_test_result(TEST_NAME, exit_code)
+    if pubsub is not None:
+      pubsub.loopStop()
+      pubsub.disconnect()
 
-  assert exit_code == 0, "Semantic-only test failed"
 
-
-def test_reid_combined_metadata(params, record_xml_attribute):
+@pytest.mark.test_name("NEX-T19883")
+def test_reid_combined_metadata(scenescape_env, params, result_recorder):
   """
-  Test Reid data flow with REID + SEMANTIC metadata (complete metadata).
+  Leaner e2e ReID test: DLStreamer pipeline server removed as the source,
+  mock detections published directly over MQTT.
 
   Validates that reid embeddings and semantic attributes are correctly
   processed together and stored in the ReID backend with full metadata.
 
+  @param scenescape_env  Fixture that brings up the core ReID stack per SCENESCAPE_SPEC
   @param params  Test parameters from pytest fixture
-  @param record_xml_attribute  Pytest fixture for recording test metadata
+  @param result_recorder  Fixture that records the test's pass/fail on teardown
   """
-  pytest.skip("Test is unstable")
-  TEST_NAME = "NEX-T19883-COMBINED"
-  record_xml_attribute("name", TEST_NAME)
-  log.info(f"Executing: {TEST_NAME}")
+  log.info("Executing: NEX-T19883")
 
-  exit_code = 1
-
+  pubsub = None
   try:
     rest, scene_uid, scene_name, camera_id, pubsub, topic_str = setup_test_environment(params)
 
@@ -531,7 +489,6 @@ def test_reid_combined_metadata(params, record_xml_attribute):
       assert "age" in det["metadata"], f"Detection {idx}: Missing age"
       assert "gender" in det["metadata"], f"Detection {idx}: Missing gender"
 
-      # Verify reid structure
       reid = det["metadata"]["reid"]
       assert "embedding_vector" in reid, f"Detection {idx}: Missing embedding_vector"
       assert "model_name" in reid, f"Detection {idx}: Missing model_name"
@@ -540,23 +497,13 @@ def test_reid_combined_metadata(params, record_xml_attribute):
       assert len(reid["embedding_vector"]) > 1000, \
              f"Detection {idx}: embedding base64 string seems too short"
 
-      # Verify semantic structure
       assert "value" in det["metadata"]["age"], f"Detection {idx}: age missing value"
       assert "confidence" in det["metadata"]["age"], f"Detection {idx}: age missing confidence"
 
     log.info(f"✓ Message structure verified ({len(detections_combined)} detections with reid+semantic)")
 
     # Publish multiple frames to establish tracking
-    num_frames = 25
-    frame_interval = 0.1
-
-    log.info(f"Publishing {num_frames} frames with reid+semantic metadata...")
-    for frame_num in range(num_frames):
-      msg_combined = create_detection_message(camera_id, detections_combined)
-      pubsub.publish(topic_str, json.dumps(msg_combined))
-      time.sleep(frame_interval)
-
-    log.info(f"Published {num_frames} combined reid+semantic frames")
+    publish_detection_frames(pubsub, topic_str, camera_id, detections_combined)
 
     # Trigger track pruning and ReID backend storage
     trigger_track_pruning(pubsub, topic_str, camera_id)
@@ -567,18 +514,9 @@ def test_reid_combined_metadata(params, record_xml_attribute):
     log.info(f"✓ ReID backend verification passed: {reid_count} reid vectors stored")
 
     log.info("✓ Test passed: Combined reid+semantic flow validated")
-
-    pubsub.loopStop()
-    pubsub.disconnect()
-    exit_code = 0
-
-  except Exception as e:
-    log.error(f"Test failed with exception: {e}")
-    import traceback
-    traceback.print_exc()
-    raise
+    result_recorder.success()
 
   finally:
-    common.record_test_result(TEST_NAME, exit_code)
-
-  assert exit_code == 0, "Combined metadata test failed"
+    if pubsub is not None:
+      pubsub.loopStop()
+      pubsub.disconnect()

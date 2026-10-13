@@ -59,8 +59,9 @@ class TrackerEvaluator(ABC):
   def set_base_fps(self, fps: Optional[float]) -> 'TrackerEvaluator':
     """Set base frame rate for timestamp-to-frame-number conversion.
 
-    When set, evaluators use this FPS instead of computing it from tracker
-    output timestamps.  Passing None reverts to automatic computation.
+    Evaluators that quantize timestamps onto a frame grid require this rate;
+    it is never inferred from tracker-output timestamps. Passing None leaves it
+    unset, and such evaluators raise a clear error when processed without it.
 
     Args:
       fps: Frames per second (must be > 0), or None to reset.

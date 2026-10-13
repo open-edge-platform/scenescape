@@ -8,8 +8,6 @@ This guide provides step-by-step instructions to enable or disable re-identifica
 
 This task is important for enabling persistent object tracking across different camera scenes or time intervals.
 
----
-
 ## Prerequisites for Re-identification
 
 Before you begin, ensure the following:
@@ -17,10 +15,13 @@ Before you begin, ensure the following:
 - **Docker** is installed and configured.
 - You have access to modify the `docker-compose.yml` file in your deployment.
 - You are familiar with scene and camera configuration in Scenescape.
+- If you are composing services manually (not via `make demo-reid`), the
+  standalone video-source stack is also running: `docker compose
+--project-directory . -f sample_data/demo_scenes/Retail/compose.retail-video.yml
+-f sample_data/demo_scenes/Queuing/compose.queuing-video.yml
+up -d`. `make demo-reid` starts it automatically.
 
 Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md) for exposing match-latency, camera-count, and tracked-object-count metrics for monitoring and hardware-sizing purposes.
-
----
 
 ## Steps to Enable Reidentification (ReID) for Out of Box Experience
 
@@ -28,17 +29,17 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
 
    Use one backend override with the base Compose file. Both overrides create
    the same logical `reid` service and configure the Scene Controller. Run
-   these commands from the `sample_data/` directory:
+   these commands from the repository root:
 
    ```bash
    # VDMS
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.vdms-override.yml \
+   docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+     -f sample_data/compose/compose.vdms-override.yml \
      --profile controller up
 
    # Or Qdrant
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.qdrant-override.yml \
+   docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+     -f sample_data/compose/compose.qdrant-override.yml \
      --profile controller up
    ```
 
@@ -62,23 +63,21 @@ Once ReID is enabled, see [How to View ReID Latency Metrics](./how-to-view-reid-
 
 2. **Enable Visual Feature Extraction in Video Pipeline (manual `docker compose` usage)**
    The step above is only needed if you are composing services yourself
-   instead of using `make demo-reid`. Edit the retail-config setting in
-   [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) as follows:
+   instead of using `make demo-reid`. Edit the retail-config setting in the
+   [Retail video-source stack](/sample_data/demo_scenes/Retail/compose.retail-video.yml) as follows:
 
 ```yaml
 retail-config:
-  file: ./dlstreamer-pipeline-server/retail-config-reid.json
+  file: ./sample_data/demo_scenes/Retail/retail-config-reid.json
 ```
 
 This reidentification-specific configuration uses a vision pipeline that includes anonymous visual feature extraction (also called "visual embeddings") using a person reidentification model:
 
 ```
-"pipeline": "multifilesrc loop=TRUE location=/home/pipeline-server/videos/apriltag-cam2.ts name=source ! decodebin ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv use-frame-ntp-timestamp=false ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+"pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json name=detection ! gvainference model=/home/pipeline-server/models/omz/person-reidentification-retail-0277/FP32/person-reidentification-retail-0277.xml inference-region=roi-list ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
 ```
 
 **Expected Result**: Scenescape starts with ReID enabled and begins assigning UUIDs based on visual similarity.
-
----
 
 ## Selecting the ReID Vector Database Backend
 
@@ -98,20 +97,20 @@ material, and controller connection settings. The selected override sets
 1. **Stop the stack** using the same base and backend override files used to start it:
 
    ```bash
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.vdms-override.yml \
+   docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+     -f sample_data/compose/compose.vdms-override.yml \
      --profile controller down
    ```
 
 2. **Start with the other backend override**. For example, to select Qdrant:
 
    ```bash
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.qdrant-override.yml \
+   docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+     -f sample_data/compose/compose.qdrant-override.yml \
      --profile controller up
    ```
 
-   The override ([docker-compose.qdrant-override.yml](/sample_data/docker-compose.qdrant-override.yml)):
+   The override ([compose.qdrant-override.yml](/sample_data/compose/compose.qdrant-override.yml)):
    - Starts the logical `reid` service using Qdrant, with TLS on shared host `reid.scenescape.intel.com` and port `55555`
    - Sets `REID_DATABASE=QDRANT` on the `scene` service
    - Connection defaults (hostname, port, TLS=`true`, cert paths) are shared via `REID_*` settings
@@ -143,8 +142,8 @@ Values are validated at controller startup. A port outside 1–65535, a confiden
 2. Replace the Qdrant override with the VDMS override:
 
    ```bash
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.vdms-override.yml \
+   docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+     -f sample_data/compose/compose.vdms-override.yml \
      --profile controller up
    ```
 
@@ -172,10 +171,10 @@ From the repository root, `make demo-k8s` follows the same tiers as the Compose
 demo:
 
 ```bash
-make demo-k8s                                        # core services, no ReID
-make demo-k8s DEMO_K8S_MODE=reid                     # core plus ReID (VDMS)
-make demo-k8s DEMO_K8S_MODE=reid REID_BACKEND=qdrant # core plus ReID (Qdrant)
-make demo-k8s DEMO_K8S_MODE=all                      # ReID plus mapping and cluster analytics
+make demo-k8s                                           # core services, no ReID
+make demo-k8s DEPLOY_PROFILES=reid                      # core plus ReID (VDMS)
+make demo-k8s DEPLOY_PROFILES=reid REID_BACKEND=qdrant  # core plus ReID (Qdrant)
+make demo-k8s DEPLOY_PROFILES="controller mapping cluster-analytics reid"  # ReID plus mapping and cluster analytics
 ```
 
 **Expected Result**: The Scene Controller connects to Qdrant, creates or verifies the ReID collection, and continues UUID assignment via visual similarity.
@@ -214,8 +213,6 @@ with a PersistentVolumeClaim if the embeddings must survive restarts.
 The pod still runs as root (`runAsUser: 0`) because both upstream images expect
 it; that is a separate hardening step.
 
----
-
 ## Steps to Disable Re-identification
 
 1. **Stop using the backend override**
@@ -225,45 +222,46 @@ it; that is a separate hardening step.
    database service.
 
    ```bash
-   docker compose -f docker-compose-dl-streamer-example.yml \
-     -f docker-compose.vdms-override.yml \
+   docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+     -f sample_data/compose/compose.vdms-override.yml \
      --profile controller down
    ```
 
-   Substitute `docker-compose.qdrant-override.yml` when Qdrant is active.
+   Substitute `compose.qdrant-override.yml` when Qdrant is active.
 
 2. **Remove ReID from the Camera Pipeline**
-   Edit the retail-config setting in [Docker Compose](/sample_data/docker-compose-dl-streamer-example.yml) and revert to the config without re-id model:
+   Edit the retail-config setting in the
+   [Retail video-source stack](/sample_data/demo_scenes/Retail/compose.retail-video.yml) and revert to the config without re-id model:
 
-```yaml
-retail-config:
-  file: ./dlstreamer-pipeline-server/retail-config.json
-```
+   ```yaml
+   retail-config:
+     file: ./sample_data/demo_scenes/Retail/retail-config.json
+   ```
 
 3. **Restart the System**:
 
    ```bash
-   docker compose --profile controller up --build
+
    ```
 
-**Expected Result**: Scenescape runs without ReID and no visual feature matching is performed.
+docker compose --project-directory . --profile controller up --build
 
----
+````
+
+**Expected Result**: Scenescape runs without ReID and no visual feature matching is performed.
 
 ## Evaluating Re-identification Performance
 
 - **Track Unique IDs**:\
-  Scenescape publishes `unique_detection_count` via MQTT under the scene category topic. Each object includes an `id` field (UUID) for tracking.
+Scenescape publishes `unique_detection_count` via MQTT under the scene category topic. Each object includes an `id` field (UUID) for tracking.
 
 - **UI Support**:\
-  UUID display in the 3D UI is planned for future releases.
+UUID display in the 3D UI is planned for future releases.
 
 - **Latency Metrics**:\
-  For match-latency trends and correlating them against camera count and tracked-object count (e.g. for hardware sizing or monitoring degradation as a deployment scales), see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md).
+For match-latency trends and correlating them against camera count and tracked-object count (e.g. for hardware sizing or monitoring degradation as a deployment scales), see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md).
 
-> **Note**: The default ReID model is tuned for the 'person' category and may not generalize well to other object types.
-
----
+> **Note:** The default ReID model is tuned for the 'person' category and may not generalize well to other object types.
 
 ## How Re-identification Works
 
@@ -283,11 +281,9 @@ forwarding embeddings (no local child ReID) is supported—parent enrolls on
 query-no-match; see
 [ReID across controllers](../how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md#reid-across-controllers-what-is-supported).
 
----
-
 ## Storage Bounding
 
-Architecture rationale: [ADR-0014](../../adr/0014-reid-descriptor-ttl-retention.md).
+Architecture rationale: [ADR-0014](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0014-reid-descriptor-ttl-retention.md).
 
 TTL retention is a coarse way to bound ReID store growth under memory pressure.
 It intentionally sacrifices long-horizon re-identification: old identities are
@@ -312,14 +308,12 @@ Both deployment models expose the same knobs:
 
 ```bash
 helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
-  -n scenescape --create-namespace \
-  --set reid.enabled=true --set reid.backend=vdms \
-  --set reid.descriptorTtlSecs=3600 --set reid.purgeIntervalSecs=300
-```
+-n scenescape --create-namespace \
+--set reid.enabled=true --set reid.backend=vdms \
+--set reid.descriptorTtlSecs=3600 --set reid.purgeIntervalSecs=300
+````
 
-> **Note**: Retention is time-based only. Under heavy ingest, storage can still grow within the TTL window. This is not capacity-based eviction.
-
----
+> **Note:** Retention is time-based only. Under heavy ingest, storage can still grow within the TTL window. This is not capacity-based eviction.
 
 ## Configuration Options
 
@@ -335,30 +329,30 @@ helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
 To apply changes, use the same backend override you selected when starting the stack:
 
 ```bash
-docker compose -f docker-compose-dl-streamer-example.yml \
-  -f docker-compose.vdms-override.yml \
+docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+  -f sample_data/compose/compose.vdms-override.yml \
   --profile controller down
 make -C docker
-docker compose -f docker-compose-dl-streamer-example.yml \
-  -f docker-compose.vdms-override.yml \
+docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+  -f sample_data/compose/compose.vdms-override.yml \
   --profile controller up --build
 ```
-
----
 
 ## Troubleshooting
 
 1. **Issue: ReID not working**
    - **Cause**: Database container is not running, not linked, or TLS/certs do not match the shared ReID defaults.
    - **Resolution**:
+
      ```bash
-     docker compose -f docker-compose-dl-streamer-example.yml \
-       -f docker-compose.vdms-override.yml \
+     docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+       -f sample_data/compose/compose.vdms-override.yml \
        --profile controller ps reid
-     docker compose -f docker-compose-dl-streamer-example.yml \
-       -f docker-compose.vdms-override.yml \
+     docker compose --project-directory . -f sample_data/compose/compose.dl-streamer-example.yml \
+       -f sample_data/compose/compose.vdms-override.yml \
        --profile controller logs reid
      ```
+
      Substitute the Qdrant override when it is selected. Confirm the `reid`
      service is healthy, the expected `REID_DATABASE` is set on `scene`, and
      the shared `scenescape-reid*` certificates exist.
@@ -374,5 +368,5 @@ docker compose -f docker-compose-dl-streamer-example.yml \
    - **Resolution**: Expected after switching `REID_DATABASE`. Re-accumulate features in the new backend, or restore the previous backend and its data volume.
 
 4. **Issue: No `reid_*` metrics showing up when checking latency/camera-count metrics**
-   - **Cause**: Most commonly, ReID isn't actually enabled yet (feature-extraction pipeline / `reid-config.json` not applied — see [Steps to Enable Reidentification](#steps-to-enable-reidentification-reid-for-out-of-box-experience) above), rather than a metrics-pipeline problem.
+   - **Cause**: Most commonly, ReID is not actually enabled yet (feature-extraction pipeline / `reid-config.json` not applied — see [Steps to Enable Reidentification](#steps-to-enable-reidentification-reid-for-out-of-box-experience) above), rather than a metrics-pipeline problem.
    - **Resolution**: Confirm ReID is enabled and objects are being detected/tracked first; then see [How to View ReID Latency Metrics](./how-to-view-reid-metrics.md#troubleshooting) for metrics-specific troubleshooting.

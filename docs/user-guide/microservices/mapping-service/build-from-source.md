@@ -1,4 +1,4 @@
-# How to Build from Source
+# Build Mapping Service from Source
 
 ## Overview
 
@@ -32,7 +32,7 @@ Each build produces a container image with a single model. The API and runtime a
   git clone https://github.com/open-edge-platform/scenescape.git -b main
   ```
 
-  Note: Adjust the repo link appropriately in case of forked repo.
+  > **Note:** Adjust the repo link appropriately in case of forked repo.
 
 - **Navigate to the Directory**:
 
@@ -42,15 +42,52 @@ Each build produces a container image with a single model. The API and runtime a
 
 - **Build mapping**:
 
+  <!--hide_directive ::::{tab-set} hide_directive-->
+  <!--hide_directive :::{tab-item} hide_directive--> **MapAnything**
+  <!--hide_directive :sync: mapanything hide_directive-->
+
   ```bash
-  export MODEL_TYPE=mapanything # or MODEL_TYPE=vggt
+  export MODEL_TYPE=mapanything
   ```
+
+  <!--hide_directive ::: hide_directive-->
+  <!--hide_directive :::{tab-item} hide_directive--> **VGGT**
+  <!--hide_directive :sync: vggt hide_directive-->
+
+  ```bash
+  export MODEL_TYPE=vggt
+  ```
+
+  <!--hide_directive
+  :::
+  ::::
+  hide_directive-->
 
   ```bash
   make mapping
   ```
 
-### How It Works
+  This produces a single image tagged `intel/scenescape-mapping:<version>` containing the selected model.
+
+- **Build all variants** (optional):
+
+  ```bash
+  make -C mapping build-all
+  ```
+
+  This builds both models and produces the same tags as the published images on Docker Hub:
+
+  | Tag                                              | Model                 |
+  | ------------------------------------------------ | --------------------- |
+  | `intel/scenescape-mapping:<version>-mapanything` | MapAnything           |
+  | `intel/scenescape-mapping:<version>-vggt`        | VGGT                  |
+  | `intel/scenescape-mapping:<version>`, `:latest`  | MapAnything (default) |
+
+  Individual variants can also be built with `make -C mapping build-mapanything` or `make -C mapping build-vggt`.
+
+> **Note:** The root `make build-all` builds only the default MapAnything variant. To deploy VGGT, build it with `make -C mapping build-all` (or `build-vggt`), or pull the `<version>-vggt` image from Docker Hub, and point your deployment at that tag. See [Deploy on Docker](../../how-to-guides/deployment/deploy-docker.md#select-the-mapping-model) and [Deploy on Kubernetes](../../how-to-guides/deployment/deploy-kubernetes.md#select-the-mapping-model).
+
+#### How It Works
 
 - The `MODEL_TYPE` variable controls which model is included (`mapanything` or `vggt`).
 - The Dockerfile clones both model repos, but only installs and configures the selected one.
@@ -63,7 +100,7 @@ See `tests/README.md` for detailed testing instructions.
 
 ## API Documentation
 
-See `docs/mapping-api.yaml` for REST API details. The `/reconstruction` endpoint uses the model selected at build time.
+See [API Reference](./api-reference.md) for REST API details. The `/reconstruction` endpoint uses the model selected at build time.
 
 ### Running the Service
 
@@ -157,7 +194,7 @@ done
 curl https://localhost:8444/v1/models
 ```
 
-Response shows single model details:
+The response shows single model details. For example:
 
 ```json
 {

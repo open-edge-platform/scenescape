@@ -6,30 +6,17 @@ name: "[Code Analysis] Zizmor Scan"
 run-name: "[Code Analysis] Zizmor Scan"
 
 on:
+  workflow_call: {}
   workflow_dispatch: {}
-  pull_request:
-    branches:
-      - main
-      - release-*
-    types:
-      - opened
-      - synchronize
-      - reopened
-  push:
-    branches:
-      - main
-      - release-*
   schedule:
     # Run security checks every day at 2 AM UTC
     - cron: "0 2 * * *"
 
-  # Trigger workflow when enqueued to a merge group
-  # (must be under 'on')
-  merge_group:
-
-# Only run at most 1 workflow concurrently per PR or per branch to keep costs down
+# Only run at most 1 workflow concurrently per PR or per branch to keep costs down.
+# Hardcoded prefix so this group is stable when called via workflow_call
+# (github.workflow evaluates to the caller's workflow name in reusable workflows).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: zizmor-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions: {}
@@ -43,11 +30,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Checkout code"
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: "Run Zizmor scan"
-        uses: open-edge-platform/geti-ci/actions/zizmor@0bed754fc7db24b5f9f15e7ead2eb4acdb0c7263 # v0.1.2
+        uses: open-edge-platform/geti-ci/actions/zizmor@27a17d738348699840c32f98edc9947f21278154 # v0.1.5
         with:
           scan-scope: ${{ contains(fromJSON('["pull_request","merge_group"]'), github.event_name) && 'changed' || 'all' }}
           severity-level: ${{ contains(fromJSON('["pull_request","merge_group"]'), github.event_name) && 'HIGH' || 'LOW' }}

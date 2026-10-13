@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -200,10 +200,7 @@ function initializeCalibrationSettings() {
 
     const transformType = $("#id_transform_type").val();
     const initialTransforms = $("#initial-id_transforms").val().split(",");
-    camera_calibration.addInitialCalibrationPoints(
-      initialTransforms,
-      transformType,
-    );
+    camera_calibration.initializeTransforms(initialTransforms, transformType);
 
     // Set up callbacks for buttons in the calibration interface
     camera_calibration.setupResetPointsButton();

@@ -9,13 +9,19 @@ to load scene configuration, matching production behaviour exactly:
  POST /api/v1/auth              → {"token": "mock"}
  GET  /api/v1/scenes            → {"results": [<scene>]}
  GET  /api/v1/scenes/child      → {"results": []}
- GET  /api/v1/assets            → {"results": []}
+ GET  /api/v1/assets            → {"results": [<asset>, ...]} from
+                                  scene_config ``object_classes`` (empty if omitted)
  GET  /api/v1/camera/<uid>      → <camera>
  POST /api/v1/camera/<uid>      → <camera>   (accepts updateCamera, no-ops)
 
 Scene format follows the Manager REST serializer (CamSerializer):
  cameras carry ``camera points`` / ``map points`` so Camera.__init__
  constructs a PointCorrespondenceTransform, identical to production.
+
+Optional ``object_classes`` on the scene config (same shape as the camera
+projection harness) are exposed as Manager assets so Controller and Tracker
+Service apply per-category ``shift_type`` (TYPE_1 / TYPE_2) and footprint size
+during world projection.
 
 Run as a standalone process inside the Docker network:
  python mock_manager.py <port> <scene_config_json>
@@ -43,7 +49,8 @@ _DISTORTION_KEYS = (
   's1', 's2', 's3', 's4', 'taux', 'tauy',
 )
 
-_MAX_COPLANAR_DETERMINANT = 0.1
+# Mirrors MAX_COPLANAR_SPREAD_RATIO in scene_common/src/scene_common/transform.py.
+_MAX_COPLANAR_SPREAD_RATIO = 1e-2
 
 
 def _intrinsics_to_list(intrinsics):
@@ -76,26 +83,15 @@ def _distortion_to_array(distortion):
   return np.pad(arr, (0, 14 - len(arr)))
 
 
-def _calculate_determinant(points):
-  """Mirrors PointCorrespondenceTransform.calculateDeterminant."""
-  p1, p2, p3, p4 = points
-  v1 = np.array([p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]])
-  v2 = np.array([p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]])
-  v3 = np.array([p4[0] - p1[0], p4[1] - p1[1], p4[2] - p1[2]])
-  return np.linalg.det(np.array([v1, v2, v3]))
-
-
 def _are_coplanar(points):
   """Mirrors PointCorrespondenceTransform.arePointsCoplanar."""
-  if len(points) == 5:
-    for i in range(len(points)):
-      subset = [points[j] for j in range(len(points)) if j != i]
-      if abs(_calculate_determinant(subset)) > _MAX_COPLANAR_DETERMINANT:
-        return False
-  elif len(points) == 4:
-    if abs(_calculate_determinant(points)) > _MAX_COPLANAR_DETERMINANT:
-      return False
-  return True
+  points = np.asarray(points, dtype=float)
+  if len(points) < 4:
+    return True
+  singular_values = np.linalg.svd(points - points.mean(axis=0), compute_uv=False)
+  if singular_values[1] <= 1e-9 * max(singular_values[0], 1e-12):
+    return True
+  return bool(singular_values[-1] / singular_values[1] < _MAX_COPLANAR_SPREAD_RATIO)
 
 
 def _pose_mat_to_extrinsics(mat):
@@ -115,13 +111,46 @@ def _pose_mat_to_extrinsics(mat):
   return {"translation": translation, "rotation": euler_deg, "scale": scale}
 
 
+def _assets_from_object_classes(object_classes):
+  """Map harness ``object_classes`` entries to Manager ``/api/v1/assets`` results.
+
+  Controller ``Tracking.updateObjectClasses`` copies every asset field except
+  ``name`` onto the category dict, including ``shift_type`` used by
+  ``MovingObject.camLoc`` (TYPE_1 bottom-centre vs TYPE_2 perspective shift).
+  """
+  results = []
+  for index, entry in enumerate(object_classes or []):
+    if not isinstance(entry, dict):
+      continue
+    name = entry.get("name")
+    if not name:
+      continue
+    asset = {
+      "uid": str(entry.get("uid", index)),
+      "name": name,
+      "shift_type": int(entry.get("shift_type", 1)),
+      # Manager Asset3D defaults x/y/z_size to 1.0.
+      "x_size": float(entry.get("x_size", 1.0)),
+      "y_size": float(entry.get("y_size", 1.0)),
+      "z_size": float(entry.get("z_size", 1.0)),
+    }
+    for key in (
+      "tracking_radius", "project_to_map", "rotation_from_velocity",
+      "x_buffer_size", "y_buffer_size", "z_buffer_size",
+    ):
+      if key in entry:
+        asset[key] = entry[key]
+    results.append(asset)
+  return results
+
+
 def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
   """Compute camera extrinsics from 2-D/3-D point correspondences.
 
   Exactly mirrors PointCorrespondenceTransform._calculatePoseMat() in
   scene_common/src/scene_common/transform.py, including:
   - distortion coefficients via CameraIntrinsics._setDistortion logic
-  - coplanarity check selecting SOLVEPNP_P3P vs SOLVEPNP_ITERATIVE
+  - coplanarity check selecting SOLVEPNP_SQPNP vs SOLVEPNP_ITERATIVE
   - pose extraction via _poseMatToPose
 
   Args:
@@ -144,8 +173,8 @@ def _compute_extrinsics(cam_pts, map_pts, intrinsics, distortion=None):
     dist = _distortion_to_array(distortion)
 
     computation_method = cv2.SOLVEPNP_ITERATIVE
-    if not _are_coplanar(map_arr.tolist()) and len(map_arr) < 6:
-      computation_method = cv2.SOLVEPNP_P3P
+    if len(map_arr) < 6 and not _are_coplanar(map_arr.tolist()):
+      computation_method = cv2.SOLVEPNP_SQPNP
 
     ok, rvec, tvec = cv2.solvePnP(map_arr, cam_arr, K, dist,
                    flags=computation_method)
@@ -289,7 +318,7 @@ class MockManagerHandler(BaseHTTPRequestHandler):
       return
 
     if path == "/api/v1/assets":
-      self._send_json(200, {"results": []})
+      self._send_json(200, {"results": getattr(self.server, "assets", [])})
       return
 
     if path.startswith("/api/v1/camera/"):
@@ -309,7 +338,12 @@ def run(port: int, scene_config: dict) -> None:
   scene = _build_rest_scene(scene_config)
   server = HTTPServer(("0.0.0.0", port), MockManagerHandler)
   server.scene = scene
-  print(f"[MockManager] Listening on 0.0.0.0:{port}  scene={scene['uid']}", flush=True)
+  server.assets = _assets_from_object_classes(scene_config.get("object_classes"))
+  print(
+    f"[MockManager] Listening on 0.0.0.0:{port}  scene={scene['uid']}  "
+    f"assets={len(server.assets)}",
+    flush=True,
+  )
   server.serve_forever()
 
 if __name__ == "__main__":

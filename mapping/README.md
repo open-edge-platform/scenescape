@@ -9,4 +9,4 @@
   - [How to Build from Source](../docs/user-guide/microservices/mapping-service/build-from-source.md): Step-by-step guide to building from source.
 
 - **API Reference**
-  - [API Reference](../docs/user-guide/microservices/mapping-service/api-docs/mapping-api.yaml): Comprehensive reference for the request/response communication endpoints.
+  - [API Reference](../docs/user-guide/microservices/mapping-service/_assets/mapping-api.yaml): Comprehensive reference for the request/response communication endpoints.

@@ -5,6 +5,7 @@
 
 import json
 import os
+import queue
 import threading
 
 import orjson
@@ -14,8 +15,9 @@ from collections import defaultdict
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 
-from controller.scene_controller import SceneController
+from controller.child_scene_controller import ChildSceneController
 from controller.external_source import IdentityClaimRegistry
+from controller.scene_controller import SceneController
 from scene_common.mqtt import PubSub
 
 
@@ -301,6 +303,8 @@ class TestSceneControllerPublishers:
     controller = SceneController.__new__(SceneController)
     controller.pubsub = MagicMock()
     controller.visibility_topic = visibility_topic
+    controller._moving_object_queue = queue.Queue()
+    controller._moving_object_stop = threading.Event()
     return controller
 
   def test_publish_scene_detections_publishes_and_invokes_external_builder(self):
@@ -337,7 +341,7 @@ class TestSceneControllerPublishers:
     assert scene_controller.publishExternalDetections.call_count == 2
 
   def test_publish_external_detections_publishes_with_sensor_enriched_objects(self):
-    """External publish emits when shouldPublish allows."""
+    """Hierarchy publish strips the dynamic external-source envelope."""
     scene_controller = self._build_controller('unregulated')
     scene = SimpleNamespace(
       uid='scene-1',
@@ -346,7 +350,13 @@ class TestSceneControllerPublishers:
       last_published_detection=defaultdict(lambda: None),
       reid_config_data={'minimum_bbox_area': 5000},
     )
-    jdata_base = {'timestamp': '2026-01-01T00:00:01Z', 'objects': ['unchanged']}
+    jdata_base = {
+      'timestamp': '2026-01-01T00:00:01Z',
+      'objects': ['unchanged'],
+      'track': False,
+      'source_id': 'px4-sih-drone-1',
+      'pose': {'reference_frame': 'wgs84'},
+    }
 
     scene_controller.shouldPublish = MagicMock(return_value=True)
     with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
@@ -356,6 +366,11 @@ class TestSceneControllerPublishers:
     assert scene_controller.pubsub.publish.call_count == 1
     assert scene.last_published_detection['person'] == 101.0
     assert jdata_base['objects'] == ['unchanged']
+    assert jdata_base['source_id'] == 'px4-sih-drone-1'
+    published_payload = orjson.loads(scene_controller.pubsub.publish.call_args[0][1])
+    assert 'source_id' not in published_payload
+    assert 'pose' not in published_payload
+    assert 'track' not in published_payload
     # Confirm reid provenance stamping is actually wired through to buildDetectionsList
     _, call_kwargs = mock_build.call_args
     assert call_kwargs['attach_reid_provenance'] is True
@@ -721,9 +736,7 @@ class TestSceneControllerHandleExternalSourceObject:
     return controller
 
   def test_ingests_objects_when_pose_resolves(self):
-    """Resolves a pose and delegates ingestion to scene.processSceneData. Every
-    external-source object's id is trusted as global identity by default (no
-    source allowlist required), so retrack is always disabled."""
+    """Omitted track uses tracking and source ids as internal hints."""
     scene_controller = self._build_controller()
     fake_camera_pose = MagicMock()
     scene_controller.external_source_pose_cache.resolve.return_value = (fake_camera_pose, None)
@@ -740,10 +753,17 @@ class TestSceneControllerHandleExternalSourceObject:
       scene, 'drone-1', None, 42.0, trusted_scene_pose=False)
     scene.processSceneData.assert_called_once()
     args, kwargs = scene.processSceneData.call_args
-    assert args[0] is jdata
-    assert args[0]['objects'] == jdata['objects']
+    assert args[0] is not jdata
+    assert args[0]['objects'] == [
+      {
+        'id': 'tracked:drone-1:vehicle:agent-track-1',
+        'category': 'vehicle',
+        'translation': [1.0, 2.0, 0.0],
+      },
+    ]
+    assert jdata['objects'][0]['id'] == 'agent-track-1'
     assert args[1].name == 'drone-1'
-    assert args[1].retrack is False
+    assert args[1].retrack is True
     assert args[2] is fake_camera_pose
     assert args[3] == 'vehicle'
     assert kwargs == {'when': 42.0}
@@ -772,9 +792,8 @@ class TestSceneControllerHandleExternalSourceObject:
     assert result is True
     scene.processSceneData.assert_not_called()
 
-  def test_no_source_allowlist_required_for_identity_trust(self):
-    """Any source_id, with no prior configuration, has its object ids trusted as
-    global identity: retrack is False regardless of source_id."""
+  def test_omitted_track_uses_tracking_without_identity_claim(self):
+    """Tracking is the default and does not claim source ids as global ids."""
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
@@ -785,8 +804,11 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller._handleExternalSourceObject(scene, jdata, 'person', 42.0)
 
     args, _ = scene.processSceneData.call_args
-    assert args[1].retrack is False
+    assert args[1].retrack is True
+    assert args[0]['objects'][0]['id'] == (
+      'tracked:never-before-seen-source:person:tag-1')
     assert len(args[0]['objects']) == 1
+    assert len(scene_controller.identity_claim_registry._claims) == 0
 
   def test_colliding_id_from_different_source_is_dropped(self):
     """If a different source_id is already using the same id in the same scene and
@@ -796,12 +818,12 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
 
-    first_jdata = {'source_id': 'source-a', 'objects': [
+    first_jdata = {'source_id': 'source-a', 'track': False, 'objects': [
       {'id': 'tag-1', 'category': 'person', 'translation': [0.0, 0.0, 0.0]},
     ]}
     scene_controller._handleExternalSourceObject(scene, first_jdata, 'person', 10.0)
 
-    second_jdata = {'source_id': 'source-b', 'objects': [
+    second_jdata = {'source_id': 'source-b', 'track': False, 'objects': [
       {'id': 'tag-1', 'category': 'person', 'translation': [1.0, 1.0, 0.0]},
       {'id': 'tag-2', 'category': 'person', 'translation': [2.0, 2.0, 0.0]},
     ]}
@@ -817,10 +839,10 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
-    jdata_1 = {'source_id': 'uwb-hub-1', 'objects': [
+    jdata_1 = {'source_id': 'uwb-hub-1', 'track': False, 'objects': [
       {'id': 'tag-aa:bb:cc', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
     ]}
-    jdata_2 = {'source_id': 'uwb-hub-1', 'objects': [
+    jdata_2 = {'source_id': 'uwb-hub-1', 'track': False, 'objects': [
       {'id': 'tag-aa:bb:cc', 'category': 'person', 'translation': [1.1, 2.1, 0.0]},
     ]}
 
@@ -1024,10 +1046,13 @@ class TestHandleMovingObjectExternal:
     controller.rewrite_all_time = False
     controller.rewrite_bad_time = False
     controller.cache_manager = MagicMock()
+    controller.cache_manager.sceneWithID.return_value = None
     controller.external_source_bindings = {}
     controller._handleExternalSourceObject = MagicMock(return_value=True)
     controller._scenesForExternalPublisher = MagicMock(return_value=[MagicMock()])
     controller.publishDetections = MagicMock()
+    controller._moving_object_queue = queue.Queue()
+    controller._moving_object_stop = threading.Event()
     return controller
 
   def _external_message(self, scene_id, payload):
@@ -1050,7 +1075,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._scenesForExternalPublisher.assert_not_called()
     controller._handleExternalSourceObject.assert_not_called()
@@ -1075,12 +1100,53 @@ class TestHandleMovingObjectExternal:
       'objects': [{'id': 't1'}],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._scenesForExternalPublisher.assert_called_once()
     controller._handleExternalSourceObject.assert_called_once()
     controller.publishDetections.assert_called_once()
     controller.cache_manager.invalidate.assert_not_called()
+
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_local_child_message_with_source_id_uses_hierarchy_path(
+    self, _mock_epoch, _mock_adjust, _mock_metrics
+  ):
+    controller = self._build_controller()
+    child_sender = MagicMock()
+    child_sender.uid = 'child-1'
+    scene = MagicMock()
+    scene.uid = 'scene-a'
+    scene.name = 'Scene A'
+    scene.tracker.getUniqueIDCount.return_value = 1
+    scene.tracker.currentObjects.return_value = ['obj']
+    controller.cache_manager.sceneWithID.return_value = child_sender
+    controller._handleChildSceneObject = MagicMock(return_value=(True, scene))
+    controller._scenesForExternalPublisher.reset_mock()
+    controller._handleExternalSourceObject.reset_mock()
+    message = self._external_message('child-1', {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'source_id': 'robot-01',
+      'objects': [{'id': 't1'}],
+    })
+
+    controller.handleMovingObjectMessage(None, None, message)
+    callback, callback_args, _ = controller._moving_object_queue.get_nowait()
+    callback(*callback_args)
+
+    controller._handleChildSceneObject.assert_called_once()
+    args = controller._handleChildSceneObject.call_args.args
+
+    assert args[0] == 'child-1'
+    assert args[1]['source_id'] == 'robot-01'
+    assert args[1]['objects'] == [{'id': 't1'}]
+    assert args[1]['debug_hmo_start_time'] == 100.0
+    assert args[2:] == ('person', 100.0)
+
+    controller._scenesForExternalPublisher.assert_not_called()
+    controller._handleExternalSourceObject.assert_not_called()
+    controller.publishDetections.assert_called_once()
 
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
@@ -1096,7 +1162,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._handleExternalSourceObject.assert_not_called()
     controller.publishDetections.assert_not_called()
@@ -1119,7 +1185,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller.cache_manager.invalidate.assert_called_once()
     controller.publishDetections.assert_not_called()
@@ -1141,7 +1207,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._handleChildSceneObject.assert_called_once()
     controller._scenesForExternalPublisher.assert_not_called()
@@ -1164,7 +1230,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller.cache_manager.sceneWithID.assert_called_once_with('root-1')
     controller._handleChildSceneObject.assert_not_called()
@@ -1196,7 +1262,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller._handleChildSceneObject.assert_called_once()
     mock_adjust.assert_called_once()
@@ -1224,7 +1290,7 @@ class TestHandleMovingObjectExternal:
       'objects': [],
     })
 
-    controller.handleMovingObjectMessage(None, None, message)
+    controller._processMovingObjectMessage(None, None, message)
 
     controller.cache_manager.sceneWithID.assert_called_with('remote-child-1')
     controller._handleChildSceneObject.assert_called_once()
@@ -1240,6 +1306,7 @@ class TestSceneControllerShutdown:
     controller = SceneController.__new__(SceneController)
     controller.external_source_pose_cache = MagicMock()
     controller.identity_claim_registry = MagicMock()
+    controller._moving_object_stop = MagicMock()
 
     controller.shutdown()
     controller.shutdown()  # idempotent
@@ -1359,3 +1426,80 @@ class TestSceneControllerRemoteChildParent:
     assert scene is remote_sender
     assert remote_sender.parent is None
 
+
+class TestChildSceneControllerCatalogs:
+  """Catalog callback wiring for remote children (NEX-T21933)."""
+
+  @staticmethod
+  def _build_child():
+    child = ChildSceneController.__new__(ChildSceneController)
+    child.child_id = 'remote-child-1'
+    child.child_name = 'Remote Child'
+    child.child_link_uid = 'child-link-1'
+    child.child_event_topic = 'event-topic'
+    child.child_scene_topic = 'scene-topic'
+    child.client = MagicMock()
+    child.parent_controller = MagicMock()
+    child.parent_controller.cache_manager.data_source.updateChildScene.return_value = (
+      SimpleNamespace(status_code=200, errors=[]))
+    child._catalog_cache = {
+      'tripwires': {'last_json': None, 'field': 'cached_tripwires', 'type_name': 'Tripwires'},
+      'rois': {'last_json': None, 'field': 'cached_rois', 'type_name': 'Rois'},
+      'sensors': {'last_json': None, 'field': 'cached_sensors', 'type_name': 'Sensors'},
+    }
+    return child
+
+  @pytest.mark.parametrize(
+    'catalog_type,field_name',
+    [
+      ('tripwires', 'cached_tripwires'),
+      ('rois', 'cached_rois'),
+      ('sensors', 'cached_sensors'),
+    ],
+  )
+  def test_enqueue_catalog_uses_catalog_type_when_persisting(self, catalog_type, field_name):
+    """Valid catalogs are persisted to their corresponding child-scene field."""
+    child = self._build_child()
+    catalog = [{'id': f'{catalog_type}-1'}]
+    message = SimpleNamespace(topic='catalog-topic', payload=json.dumps(catalog).encode('utf-8'))
+
+    child.enqueueCatalog(None, None, message, catalog_type)
+
+    callback, queued_message = child.parent_controller.enqueueRemoteCallback.call_args.args
+    assert queued_message is message
+    callback(None, None, message)
+    child.parent_controller.cache_manager.data_source.updateChildScene.assert_called_once_with(
+      'child-link-1', {field_name: catalog})
+
+  def test_subscriptions_bind_each_catalog_type(self):
+    """Each MQTT callback retains its own catalog type instead of the final loop value."""
+    child = self._build_child()
+
+    child.onChildConnect(None, None, None, 0)
+
+    callbacks = {
+      call.args[0]: call.args[1]
+      for call in child.client.addCallback.call_args_list
+      if call.kwargs.get('qos') == 1
+    }
+    expected_topics = {
+      PubSub.formatTopic(PubSub.DATA_CHILD_TRIPWIRES, scene_id=child.child_id): 'tripwires',
+      PubSub.formatTopic(PubSub.DATA_CHILD_ROIS, scene_id=child.child_id): 'rois',
+      PubSub.formatTopic(PubSub.DATA_CHILD_SENSORS, scene_id=child.child_id): 'sensors',
+    }
+
+    assert callbacks.keys() == expected_topics.keys()
+    for topic, catalog_type in expected_topics.items():
+      child.parent_controller.enqueueRemoteCallback.reset_mock()
+      callbacks[topic](None, None, MagicMock())
+      callback = child.parent_controller.enqueueRemoteCallback.call_args.args[0]
+      assert callback.keywords == {'catalog_type': catalog_type}
+
+  def test_invalid_catalog_payload_is_not_persisted(self):
+    """Invalid catalog JSON is rejected without writing stale child data."""
+    child = self._build_child()
+    message = SimpleNamespace(topic='catalog-topic', payload=b'not-json')
+
+    child.handleCatalog(None, None, message, 'tripwires')
+
+    child.parent_controller.cache_manager.data_source.updateChildScene.assert_not_called()

@@ -80,8 +80,9 @@ def getTripwireUid(rest, tw_name):
   # Get the uid of the first result
   return res["results"][0]['uid']
 
+@pytest.mark.test_name("NEX-T10431")
 @pytest.mark.fresh_stack
-def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
+def test_create_and_delete_tripwire_mqtt(params):
   """! This function creates Trip wire horizontally and the data is published
   such that the object (category ["custom_person"]) moves vertically across the
   tripwrire triggerring event data. The tripwire is deleted and the object data
@@ -91,7 +92,6 @@ def test_create_and_delete_tripwire_mqtt(params, record_xml_attribute):
   @returns exit_code 0 on success, non-zero on failure
   """
   TEST_NAME = "NEX-T10431"
-  record_xml_attribute("name", TEST_NAME)
   print("Executing: " + TEST_NAME)
 
   exit_code = 2

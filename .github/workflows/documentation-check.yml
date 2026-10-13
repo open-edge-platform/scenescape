@@ -1,0 +1,39 @@
+---
+# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: Documentation Check
+
+on:
+  workflow_call: {}
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  filter:
+    permissions:
+      contents: read # needed for actions/checkout
+    runs-on: ubuntu-latest
+    outputs:
+      scenescape_documentation_changed: ${{ steps.filter.outputs.scenescape_documentation }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set paths filter
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
+        with:
+          filters: |
+            scenescape_documentation:
+              - 'docs/user-guide/**'
+
+  build-scenescape-documentation:
+    permissions:
+      contents: read # needed for actions/checkout
+    needs: filter
+    if: ${{ needs.filter.outputs.scenescape_documentation_changed == 'true' }}
+    uses: ./.github/workflows/docs-reusable-workflow.yml
+    with:
+      docs_directory: .

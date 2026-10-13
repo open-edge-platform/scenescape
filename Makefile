@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid_service
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -36,17 +36,43 @@ SECRETSDIR ?= $(CURDIR)/manager/secrets
 CERTDOMAIN ?= scenescape.intel.com
 
 # Demo variables
-DLSTREAMER_SAMPLE_VIDEOS := $(addprefix sample_data/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts qcam1.ts qcam2.ts car-detection.ts)
-DLSTREAMER_DOCKER_COMPOSE_FILE := ./sample_data/docker-compose-dl-streamer-example.yml
+SAMPLE_COMPOSE_DIR := sample_data/compose
+VIDEO_SOURCE_DIR := sample_data/demo_scenes
+# Each demo scene owns its own private mediamtx (same "mediaserver" service
+# name in both files); Compose merges them into one shared instance when both
+# -f flags are combined, matching pre-split behavior.
+RETAIL_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Retail/compose.retail-video.yml
+QUEUING_VIDEO_COMPOSE_FILE := $(VIDEO_SOURCE_DIR)/Queuing/compose.queuing-video.yml
+VIDEO_SOURCE_COMPOSE_FILES := -f $(RETAIL_VIDEO_COMPOSE_FILE) -f $(QUEUING_VIDEO_COMPOSE_FILE)
+DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,apriltag-cam1.ts apriltag-cam2.ts apriltag-cam3.ts) \
+	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
+	tools/pipeline_runner/video/car-detection.ts
+DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/compose.dl-streamer-example.yml
 DEMO_WAIT_SECONDS ?= "0"
+DEPLOY_WAIT_SECONDS ?= $(DEMO_WAIT_SECONDS)
+DEPLOY_PROFILES ?= controller
+DEPLOY_PROFILE_ARGS = $(strip $(foreach profile,$(DEPLOY_PROFILES),--profile $(profile)))
+DEPLOY_COMPOSE_ARGS ?=
+# Host directory with one subdirectory per demo scene (each holding a <name>.zip)
+DEMO_SCENES_DIR ?= sample_data/demo_scenes
+DEMO_SCENES_URL ?= https://localhost:$(if $(HTTPS_PORT),$(HTTPS_PORT),443)/api/v1
+# The demo certificate is issued for web.scenescape.intel.com, not for localhost.
+# Override with --rootcert <ca.pem> when uploading to a properly named host.
+DEMO_SCENES_TLS ?= --insecure
+# Seconds the scene upload waits for the database to come up
+DEMO_SCENES_WAIT ?= 300
+UPLOAD_SCENES := tools/upload_scenes/upload-scenes
 # ReID vector backend used by the ReID demo targets: vdms (default) or qdrant
 REID_BACKEND ?= vdms
-REID_OVERRIDE_FILE = sample_data/docker-compose.$(strip $(REID_BACKEND))-override.yml
-REID_PIPELINE_OVERRIDE_FILE = sample_data/docker-compose.reid-pipeline-override.yml
-REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE) -f $(REID_PIPELINE_OVERRIDE_FILE)
+REID_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/compose.$(strip $(REID_BACKEND))-override.yml
+# retail-config/queuing-config now live in VIDEO_SOURCE_COMPOSE_FILE, not docker-compose.yml.
+REID_PIPELINE_OVERRIDE_FILE = $(SAMPLE_COMPOSE_DIR)/compose.reid-pipeline-override.yml
+REID_COMPOSE_ARGS = -f docker-compose.yml -f $(REID_OVERRIDE_FILE)
 DEMO_REBUILD_IMAGES ?= true
 # Skip build-* prereqs when DEMO_REBUILD_IMAGES is falsy
 DEMO_BUILD := $(if $(filter-out false 0 no,$(shell echo $(DEMO_REBUILD_IMAGES) | tr '[:upper:]' '[:lower:]')),build,)
+LIDAR_OVERRIDE_FILE = sample_data/lidar_intersection/docker-compose.lidar-override.yml
+LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 
 # Test variables
 TESTS_FOLDER := tests
@@ -54,9 +80,6 @@ TEST_DATA_FOLDER := test_data
 TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics
 TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
 DEPLOYMENT_TEST ?= 0
-
-# Kubernetes demo variables
-DEMO_K8S_MODE ?= core
 
 # Observability variables
 CONTROLLER_ENABLE_METRICS ?= false
@@ -76,6 +99,10 @@ build-core: init-secrets build-core-images install-models
 .PHONY: build-all
 build-all: init-secrets build-all-images install-models
 
+.PHONY: build-core-lidar
+# Source labels / default Asset3D objects are in-tree; same as build-core.
+build-core-lidar: build-core
+
 # ============================== Help ================================
 
 .PHONY: help
@@ -88,6 +115,7 @@ help:
 	@echo "  build-all                   Build secrets, all images, and install models"
 	@echo "  build-core-images           Build core microservice images (excluding mapping, cluster_analytics, and tracker) in parallel"
 	@echo "  build-all-images            Build all microservice images in parallel"
+	@echo "  build-core-lidar            Alias of build-core (LiDAR demo source labels are in-tree)"
 	@echo "  init-secrets                Generate secrets and certificates"
 	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
 	@echo ""
@@ -98,8 +126,12 @@ help:
 	@echo "                              (the demo targets require the SUPASS environment variable to be set"
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
+	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
+	@echo "  deploy-close                Stop a deployment without removing its volumes"
+	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
+	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
-	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEMO_K8S_MODE=core|reid|all, default: core)"
+	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEPLOY_PROFILES selects controller|tracker|mapping|cluster-analytics|reid, default: controller)"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -129,8 +161,11 @@ help:
 	@echo "  run_unit_tests              Run unit tests"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
+	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
 	@echo "  run_metric_tests            Run metric tests"
 	@echo "  setup-pytest                Create tests/.venv and install dependencies"
+	@echo ""
+	@echo "  check-zephyr-ids            Check every non-unit test declares a Zephyr test ID"
 	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
@@ -150,15 +185,18 @@ help:
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
-	@echo "  - Use 'make build-all demo-k8s DEMO_K8S_MODE=all' to build Scenescape and run demo using Kubernetes with all services."
+	@echo "  - Use 'SUPASS=<password> make build-core deploy' a clean deployment (without demo cameras or scenes)."
+	@echo "  - Use 'make build-all demo-k8s DEPLOY_PROFILES=\"controller mapping cluster-analytics reid\"' to build Scenescape and run demo using Kubernetes with all services."
 	@echo ""
 	@echo "Tips:"
 	@echo "  - Use 'make BUILD_DIR=<path>' to change build output folder (default is './build')."
 	@echo "  - Use 'make JOBS=N' to build Scenescape images using N parallel processes."
 	@echo "  - Use 'make FOLDERS=\"<list of image folders>\"' to build specific image folders."
 	@echo "  - Image folders can be: $(IMAGE_FOLDERS)"
-	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEMO_K8S_MODE=reid|all)"
+	@echo "  - ReID demo targets (demo-reid, demo-all, demo-k8s with DEPLOY_PROFILES containing reid)"
 	@echo "    default to REID_BACKEND=vdms. Set REID_BACKEND=qdrant to use Qdrant instead."
+	@echo "  - Use 'make demo-lidar' to run the basic LiDAR-intersection (LIDAR/Camera) fusion demo."
+	@echo "    See docs/user-guide/how-to-guides/run-lidar-intersection-demo.md for prerequisites and setup steps."
 	@echo ""
 
 # ========================= Build Images =============================
@@ -181,7 +219,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics: build-common
+autocalibration controller manager analytics mapping cluster_analytics reid_service: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -414,6 +452,14 @@ setup-pytest:
 		echo "WARNING: Xvfb is not installed. UI/Selenium tests will fail. See tests/README.md for installation instructions."; \
 	fi
 
+# ============================== Zephyr traceability ==============================
+
+ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_zephyr_mapping.py
+
+.PHONY: check-zephyr-ids
+check-zephyr-ids:
+	@$(ZEPHYR_CHECK) || (echo "Zephyr ID check failed" && exit 1)
+
 .PHONY: run_tests
 run_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
@@ -479,6 +525,16 @@ run_stability_tests: setup-tests
 		STABILITY_HOURS=$(HOURS) \
 		$(PYTEST) $(TESTS_DIR)/system/stability/ $(PYTEST_FLAGS) || (echo "Stability tests failed" && exit 1)
 	@echo "DONE ==> Running stability tests"
+
+.PHONY: run_performance_degradation_test
+run_performance_degradation_test: setup-tests
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	$(eval HOURS ?= 2)
+	@echo "Running performance degradation test..."
+	SECRETSDIR=$(CURDIR)/manager/secrets SUPASS=$(SUPASS) \
+		PERFORMANCE_HOURS=$(HOURS) \
+		$(PYTEST) $(TESTS_DIR)/system/performance/ $(PYTEST_FLAGS) || (echo "Performance degradation test failed" && exit 1)
+	@echo "DONE ==> Running performance degradation test"
 
 # --- Performance and metric tests ---
 
@@ -605,8 +661,20 @@ lint-dockerfiles:
 	@find . -name '*Dockerfile*' | xargs hadolint || (echo "Dockerfile linting failed" && exit 1)
 	@echo "DONE ==> Linting Dockerfiles"
 
+.PHONY: prettier-dependency
+prettier-dependency:
+	@if npx --no-install prettier --version >/dev/null 2>&1 && node -e "require.resolve('prettier-plugin-jinja-template')" >/dev/null 2>&1; then \
+		echo "==> prettier dependencies already available, skipping install"; \
+	else \
+		echo "==> Installing prettier dependencies from .github/resources/package.json..."; \
+		DEPS=$$(node -p "Object.entries(require('./.github/resources/package.json').devDependencies).map(([k,v]) => k+'@'+v).join(' ')"); \
+		npm install --no-save $$DEPS || (echo "Installing prettier dependencies failed" && exit 1); \
+		echo "DONE ==> Installing prettier dependencies"; \
+	fi
+
+
 .PHONY: prettier-check
-prettier-check:
+prettier-check: prettier-dependency
 	@echo "==> Checking style with prettier..."
 	@npx prettier --check . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json  || (echo "Prettier check failed - run 'make prettier-write' to fix" && exit 1)
 	@echo "DONE ==> Checking style with prettier"
@@ -626,7 +694,7 @@ format-python:
 	@echo "DONE ==> Formatting Python files"
 
 .PHONY: prettier-write
-prettier-write:
+prettier-write: prettier-dependency
 	@echo "==> Formatting code with prettier..."
 	@npx prettier --write . --ignore-path .gitignore --ignore-path .github/resources/.prettierignore --config .github/resources/.prettierrc.json || (echo "Prettier formatting failed" && exit 1)
 	@echo "DONE ==> Formatting code with prettier"
@@ -643,32 +711,54 @@ add-licensing:
 convert-dls-videos:
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 
-.PHONY: init-sample-data
-init-sample-data: convert-dls-videos
-	@echo "Initializing sample data volume..."
-	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-sample-data 2>/dev/null || true
-	@echo "Setting up volume permissions..."
-	@docker run --rm -v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest alpine:3.23 chown $(shell id -u):$(shell id -g) /dest
-	@echo "Copying files from $(CURDIR)/sample_data to volume..."
-	@if [ -d "$(CURDIR)/sample_data" ]; then \
-		docker run --rm \
-			-v $(CURDIR)/sample_data:/source:ro \
-			-v $(COMPOSE_PROJECT_NAME)_vol-sample-data:/dest \
-			--user $(shell id -u):$(shell id -g) \
-			alpine:3.23 \
-			sh -c "echo 'Copying files...'; cp -rv /source/* /dest/ && echo 'Copy completed successfully' || echo 'Copy failed'; echo '';"; \
-	else \
-		echo "WARNING: Source directory $(CURDIR)/sample_data does not exist!"; \
-		exit 1; \
-	fi
-	@echo "Sample data volume initialized."
+# tools/pipeline_runner mounts a "vol-videos" named volume (unlike the
+# standalone video-source compose stack, which bind-mounts the files
+# directly); populate it from the source directories required by the demos.
+.PHONY: init-pipeline-runner-videos
+init-pipeline-runner-videos: convert-dls-videos
+	@docker volume create $(COMPOSE_PROJECT_NAME)_vol-videos 2>/dev/null || true
+	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Queuing/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/$(VIDEO_SOURCE_DIR)/Retail/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
+	@docker run --rm -v $(CURDIR)/tools/pipeline_runner/video:/source:ro -v $(COMPOSE_PROJECT_NAME)_vol-videos:/dest alpine:3.23 sh -c "cp -n /source/*.ts /dest/ 2>/dev/null || true"
 
-# Helper target to start demo with compose
+# Helper to start demo with compose
+# $(1): Compose profiles to enable
+# $(2): extra `docker compose` args for the main stack (e.g. ReID backend override)
+# $(3): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
-	@$(MAKE) docker-compose.yml
-	@$(MAKE) .env
+	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)" DEPLOY_FROM_DEMO=true
+	@touch .scenescape-demo
+	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)"
+	@$(MAKE) demo-scenes
+	@echo ""
+	@echo "To stop the demo, run: make demo-close"
+endef
+
+.PHONY: check-reid-backend
+check-reid-backend:
+	@case "$(strip $(REID_BACKEND))" in \
+		vdms|qdrant) ;; \
+		*) echo "REID_BACKEND must be 'vdms' (default) or 'qdrant'"; exit 1 ;; \
+	esac
+
+.PHONY: demo-scenes
+demo-scenes:
+	@VENV="tools/upload_scenes/.venv"; \
+	if [ ! -x "$$VENV/bin/pip" ]; then \
+		rm -rf "$$VENV"; \
+		python3 -m venv "$$VENV"; \
+		"$$VENV/bin/pip" install -q -r tools/upload_scenes/requirements.txt; \
+	fi
+	@echo "Uploading demo scenes from $(DEMO_SCENES_DIR) to $(DEMO_SCENES_URL)..."
+	@VENV="tools/upload_scenes/.venv"; \
+	"$$VENV/bin/python3" $(UPLOAD_SCENES) --restauth $(SECRETSDIR)/controller.auth \
+		$(DEMO_SCENES_TLS) --wait $(DEMO_SCENES_WAIT) \
+		$(DEMO_SCENES_URL) $(DEMO_SCENES_DIR)
+
+.PHONY: deploy
+deploy: docker-compose.yml .env
 	@if [ -z "$$SUPASS" ]; then \
-		echo "Please set the SUPASS environment variable before starting the demo for the first time."; \
+		echo "Please set the SUPASS environment variable before deployment."; \
 		echo "The SUPASS environment variable is the super user password for logging into Scenescape."; \
 		exit 1; \
 	fi
@@ -680,68 +770,95 @@ define start_demo
 		echo "Updating docker-compose.yml with custom HTTPS port: $$HTTPS_PORT"; \
 		sed -i -E "s/[0-9]+:443/$$HTTPS_PORT:443/g" docker-compose.yml; \
 	fi
-	@echo "$(1)" > .scenescape-profile
-	@if [ "$(DEMO_WAIT_SECONDS)" != "0" ]; then \
+	@echo "$(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS)" > .scenescape-profile
+	@if [ "$(DEPLOY_WAIT_SECONDS)" != "0" ]; then \
 		echo "Waiting for Scenescape services to be ready..."; \
-		docker compose $(1) up -d --wait --wait-timeout $(DEMO_WAIT_SECONDS); \
+		docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) up -d --wait --wait-timeout $(DEPLOY_WAIT_SECONDS); \
 	else \
 		echo "Starting Scenescape services in detached mode..."; \
-		docker compose $(1) up -d; \
+		docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) up -d; \
 	fi
-	@echo ""
-	@echo "To stop Scenescape, type:"
-	@echo "    docker compose $(1) down"
-	@echo "Or use: make demo-close"
-endef
+	@if [ "$(DEPLOY_FROM_DEMO)" != "true" ]; then \
+		echo ""; \
+		echo "To stop Scenescape:"; \
+		echo "  make deploy-close"; \
+		echo "  or stop Compose directly:"; \
+		echo "    docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) down"; \
+	fi
 
-.PHONY: check-reid-backend
-check-reid-backend:
-	@case "$(strip $(REID_BACKEND))" in \
-		vdms|qdrant) ;; \
-		*) echo "REID_BACKEND must be 'vdms' (default) or 'qdrant'"; exit 1 ;; \
-	esac
+.PHONY: deploy-close
+deploy-close:
+	@if [ -f .scenescape-demo ]; then \
+		echo "Error: this deployment is a demo; use 'make demo-close' to stop both Compose stacks."; \
+		exit 1; \
+	fi
+	@if [ ! -f .scenescape-profile ]; then \
+		echo "Error: .scenescape-profile not found. Was the deployment started with 'make deploy'?"; \
+		exit 1; \
+	fi
+	docker compose $(shell cat .scenescape-profile 2>/dev/null) down
+	@rm -f .scenescape-profile
 
 .PHONY: demo
-demo: $(DEMO_BUILD:build=build-core) init-sample-data
-	$(call start_demo,--profile controller)
+demo: $(DEMO_BUILD:build=build-core)
+	$(call start_demo,controller)
 
 .PHONY: demo-reid
-demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller))
+demo-reid: check-reid-backend $(DEMO_BUILD:build=build-core)
+	$(call start_demo,controller,$(REID_COMPOSE_ARGS),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-all
-demo-all: check-reid-backend $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,$(strip $(REID_COMPOSE_ARGS) --profile controller --profile cluster-analytics --profile mapping))
+demo-all: check-reid-backend $(DEMO_BUILD:build=build-all)
+	$(call start_demo,controller cluster-analytics mapping,$(REID_COMPOSE_ARGS),-f $(REID_PIPELINE_OVERRIDE_FILE))
 
 .PHONY: demo-cluster-analytics
-demo-cluster-analytics: $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,--profile controller --profile cluster-analytics)
+demo-cluster-analytics: $(DEMO_BUILD:build=build-all)
+	$(call start_demo,controller cluster-analytics)
 
 .PHONY: demo-tracker
-demo-tracker: $(DEMO_BUILD:build=build-all) init-sample-data
-	$(call start_demo,--profile tracker)
+demo-tracker: $(DEMO_BUILD:build=build-all)
+	$(call start_demo,tracker)
+
+# Basic LiDAR-intersection (LIDAR/Camera) fusion demo only
+.PHONY: demo-lidar
+demo-lidar: $(DEMO_BUILD:build=build-core-lidar)
+	$(call start_demo,controller,$(LIDAR_COMPOSE_ARGS))
 
 .PHONY: demo-close
 demo-close:
-	@if [ ! -f .scenescape-profile ]; then \
-		echo "Error: .scenescape-profile not found. Was the demo started with 'make demo'?"; \
+	@if [ ! -f .scenescape-demo ]; then \
+		echo "Error: .scenescape-demo not found. Was the demo started with 'make demo'?"; \
+		echo "If you deployed without demo media via 'make deploy', stop it instead with:"; \
+		echo "    docker compose \$$(cat .scenescape-profile 2>/dev/null) down"; \
 		exit 1; \
 	fi
+	@$(MAKE) video-source-down
 	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
-	@rm -f .scenescape-profile
+	@rm -f .scenescape-profile .scenescape-demo
 
 .PHONY: demo-k8s
 demo-k8s: check-reid-backend
-	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEMO_K8S_MODE=$(DEMO_K8S_MODE) REID_BACKEND=$(strip $(REID_BACKEND))
+	$(MAKE) -C kubernetes DEPLOYMENT_TEST=$(DEPLOYMENT_TEST) DEPLOY_PROFILES="$(DEPLOY_PROFILES)" REID_BACKEND=$(strip $(REID_BACKEND))
 
 .PHONY: docker-compose.yml
 docker-compose.yml:
 	cp $(DLSTREAMER_DOCKER_COMPOSE_FILE) $@;
 
-$(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
+$(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "==> Converting sample videos for DLStreamer..."
-	@./dlstreamer-pipeline-server/convert_video_to_ts.sh
+	@$(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
+
+# Demo video sources are not a part of the core Scenescape stack; it joins the same "scenescape" Docker network so it
+# can reach the broker/ntpserv aliases and dlsps pipelines can be reached at
+# rtsp://mediaserver:8554/<camera-id>.
+.PHONY: video-source-up
+video-source-up: convert-dls-videos
+	SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . $(VIDEO_SOURCE_COMPOSE_FILES) $(VIDEO_SOURCE_ARGS) up -d
+
+.PHONY: video-source-down
+video-source-down:
+	-SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . $(VIDEO_SOURCE_COMPOSE_FILES) down
 
 .PHONY: .env
 .env:
@@ -758,6 +875,7 @@ $(DLSTREAMER_SAMPLE_VIDEOS): ./dlstreamer-pipeline-server/convert_video_to_ts.sh
 	@echo "CONTROLLER_ENABLE_TRACING=$(CONTROLLER_ENABLE_TRACING)" >> $@
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
+	@echo "SCENESCAPE_ALLOWED_HOSTS=*" >> $@
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets

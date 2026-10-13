@@ -18,10 +18,8 @@ This calibration method is ideal for fixed camera setups requiring precise posit
 Before You Begin, ensure the following:
 
 - **Camera Setup**: Cameras placed with a clear view of the scene.
-- **Scene Created**: Add cameras in Scenescape and set the detection model to `-m apriltag`.
+- **Scene Created**: Add cameras in Scenescape.
 - **Scenescape Installation**: Installed and running.
-
-> **Note**: To switch from the default person detection model, replace `retail` with `apriltag` in `docker-compose.yml`.
 
 ---
 
@@ -53,7 +51,21 @@ _Figure 1: Testing AprilTag visibility in camera feed._
 - Avoid occlusions or placing tags too close together.
 - Fix tags in position to avoid movement during calibration.
 
+The layout requirements depend on the scene map type:
+
+- **Image floor plan (`.png`, `.jpg`, `.jpeg`)**: tag centers are always on the floor plane,
+  so coplanar layouts are expected. Spread the tags across the floor in both directions, as
+  seen by each camera; do not place them along a single line. Calibration rejects nearly
+  collinear layouts and poses whose reprojection error is too high.
+- **3D map (`.glb`)**: give the tags seen by each camera meaningful variation in height or
+  depth. Calibration rejects layouts where all matched tag centers are nearly on a single
+  plane, because they can produce an unstable pose even when the reprojection looks reasonable.
+
 > **Note**: The same AprilTags can be visible in multiple camera views, but ensure at least 4 tags are detectable in each camera.
+
+For both map types, calibration rejects a pose when the camera's z-coordinate is more than
+half the configured AprilTag size below the lowest matched tag's z-coordinate. This threshold
+scales with tag size.
 
 ---
 
@@ -102,7 +114,7 @@ autocalibration:
   # Refer to one of the sample docker-compose yaml files on how to configure the rest
 ```
 
-6. Restart Scenescape (see [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details on choosing profiles):
+6. Restart Scenescape (see [Docker Compose Profiles](../deployment/deploy-docker.md#docker-compose-profiles) for details on choosing profiles):
 
 ```bash
 docker compose --profile controller down

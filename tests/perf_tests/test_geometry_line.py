@@ -109,7 +109,9 @@ def Lines2DCross(start_range, stop_range, step):
   return True
 
 @pytest.mark.basic_acceptance
-def test_geometry_line():
+@pytest.mark.test_name("NEX-T29221")
+def test_geometry_line(result_recorder):
   assert Lines2D(-50, 50, 2)
   assert Lines3D(-50, 50, 2)
   assert Lines2DCross(-50, 50, 2)
+  result_recorder.success()

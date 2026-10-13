@@ -49,6 +49,7 @@ You can apply positive values to expand the bounding box or negative values to s
 - **Shift type**: Shift type is used to compute the bottom center of the object to estimate its position in world coordinates.
   - For most objects the default setting of "Type 1" will work well.
   - For wide and short objects, "Type 2" performs better.
+  - The Tracker Service applies this setting as well when `scenes.source` is `api`; it reads the asset list from the Manager at startup.
 
 ## Additional Settings
 

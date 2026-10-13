@@ -20,9 +20,11 @@ deployment.
 ## When to run the questionnaire
 
 Reactive only — per [SKILL.md](../SKILL.md#tuning-trackerre-id-behavior-reactive-only), do **not**
-ask these questions upfront during Step 1. Always deploy first with the shipped
-`tracker-config.json` defaults unmodified. Only run this questionnaire **after** a deployment is
-running and the user reports a symptom matching this doc (tracks flicker, vanish during
+ask these questions upfront during Step 1. Always deploy first with the skill's tracker defaults
+(for live RTSP that means unmodified `assets/tracker-config.json` values; for **file-backed**
+inputs, bootstrap already sets `time_chunking_rate_fps` from probed file FPS — see
+[video-file-input.md](./video-file-input.md)). Only run this questionnaire **after** a deployment
+is running and the user reports a symptom matching this doc (tracks flicker, vanish during
 occlusion, or IDs change unexpectedly).
 
 **First response after a tracker complaint**: state that you opened `tuning-tracker.md` (not
@@ -30,7 +32,9 @@ occlusion, or IDs change unexpectedly).
 turn** apply symptom-derived starter values from the recommendation logic below to
 `<deploy_dir>/controller/tracker-config.json` (never `assets/tracker-config.json`). Show the
 exact JSON field changes and `docker compose up -d --force-recreate scene`. Note that
-questionnaire answers can refine the starter values further.
+questionnaire answers can refine the starter values further. For file-backed deploys, check the
+already-probed `time_chunking_rate_fps` before changing Q1 — only raise/lower it if the symptom
+still points at a rate mismatch.
 
 ## Questionnaire
 

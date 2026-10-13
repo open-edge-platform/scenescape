@@ -2,3 +2,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 pymavlink>=2.4.41
+paho-mqtt==2.1.0

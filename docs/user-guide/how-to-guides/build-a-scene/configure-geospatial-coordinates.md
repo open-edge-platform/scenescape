@@ -61,6 +61,7 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 - **Specifying the Geospatial Coordinates of the Reference Points**: The geospatial coordinates of the reference points, which are the four map corners, should be specified using the following convention:
   - Input format should be a JSON array, for example:
+
     ```json
     [
       [33.842058, -112.136117, 539],
@@ -69,6 +70,7 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
       [33.843811, -112.136257, 539]
     ]
     ```
+
   - The expected order of the four map corners is counterclockwise starting in the lower left as depicted in the figure below:
 
     ![Map corners convention](../../_assets/geospatial-corners-convention.png "map corners convention")

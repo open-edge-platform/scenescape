@@ -18,8 +18,6 @@ from pathlib import Path
 
 import pytest
 
-import tests.common_test_utils as common
-
 _THIS_DIR = Path(__file__).resolve().parent
 _REPO_ROOT = _THIS_DIR.parent.parent.parent
 _EVAL_SCRIPT = _REPO_ROOT / "tools" / "tracker" / "evaluation" / "run_black_box_evaluation.py"
@@ -69,8 +67,6 @@ _JITTER_PARAMS = [
   for run, thresholds in _JITTER_MAX.items()
   for metric, threshold in thresholds.items()
 ]
-
-TEST_NAME = "NEX-T10463"
 
 
 def _label(run: str, metric: str) -> str:
@@ -139,9 +135,9 @@ def black_box_metrics(tmp_path_factory) -> dict[tuple, float]:
   return metrics
 
 @pytest.mark.parametrize("run,metric,min_threshold", _TRACKEVAL_PARAMS)
-def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, record_xml_attribute):
+@pytest.mark.test_name("NEX-T29226")
+def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, result_recorder):
   """TrackEval metric (HOTA/MOTA/IDF1) must meet the minimum threshold."""
-  record_xml_attribute("name", TEST_NAME)
   label = _label(run, metric)
 
   key = (run, "TrackEvalEvaluator", metric)
@@ -153,12 +149,12 @@ def test_trackeval_threshold(black_box_metrics, run, metric, min_threshold, reco
   assert value >= min_threshold, (
     f"[{run}] {metric} = {value:.4f} < minimum {min_threshold}"
   )
-  common.record_test_result(f"{TEST_NAME} {label}", 0)
+  result_recorder.success()
 
 @pytest.mark.parametrize("run,metric,max_threshold", _JITTER_PARAMS)
-def test_jitter_threshold(black_box_metrics, run, metric, max_threshold, record_xml_attribute):
+@pytest.mark.test_name("NEX-T29227")
+def test_jitter_threshold(black_box_metrics, run, metric, max_threshold, result_recorder):
   """JitterEvaluator metric must not exceed the maximum threshold."""
-  record_xml_attribute("name", TEST_NAME)
   label = _label(run, metric)
 
   key = (run, "JitterEvaluator", metric)
@@ -170,4 +166,4 @@ def test_jitter_threshold(black_box_metrics, run, metric, max_threshold, record_
   assert value <= max_threshold, (
     f"[{run}] {metric} = {value:.4f} > maximum {max_threshold}"
   )
-  common.record_test_result(f"{TEST_NAME} {label}", 0)
+  result_recorder.success()

@@ -11,6 +11,7 @@ from tests.ui import UserInterfaceTest
 from tests.ui import common
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
@@ -63,6 +64,7 @@ class NoAprilTagCalibrationTest(UserInterfaceTest):
     else:
       print("Autocalibration label or button state is incorrect.")
 
+@pytest.mark.test_name("NEX-T10485")
 @common.mock_display
 def test_no_april_tag(request, record_xml_attribute, scenescape_env):
   """! Checks that the ACC displays an appropriate error message and disables the calibration button when no April tags are present in the scene.
@@ -71,7 +73,6 @@ def test_no_april_tag(request, record_xml_attribute, scenescape_env):
   @return   exit_code               Indicates test success or failure.
   """
   TEST_NAME = "NEX-T10485"
-  record_xml_attribute("name", TEST_NAME)
 
   test = NoAprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
   test.execute_test()

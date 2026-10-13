@@ -218,7 +218,7 @@ harness.set_scene_config(dataset.get_scene_config())
 harness.set_custom_config({
     "tracker_config_path": "/path/to/tracker-config.json",
     "container_type": "controller",  # required: "controller" or "tracker"
-    "broker_image": "eclipse-mosquitto:2.0.22",
+    "broker_image": "eclipse-mosquitto:2.1-alpine",
     # Optional overrides:
     # "drain_timeout": 5.0,            # Seconds to wait after last frame
     # "scene_id": "my-scene-uid",      # Override UID from scene config
@@ -232,11 +232,11 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 
 **`set_custom_config()` keys**:
 
-| Key                   | Required | Default | Description                                                          |
-| --------------------- | -------- | ------- | -------------------------------------------------------------------- |
-| `tracker_config_path` | Yes      | —       | Path to tracker config JSON, mounted into the tracker container      |
-| `broker_image`        | Yes      | —       | Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.0.22"`) |
-| `container_type`      | Yes      | —       | `"controller"` or `"tracker"`                                        |
+| Key                   | Required | Default | Description                                                              |
+| --------------------- | -------- | ------- | ------------------------------------------------------------------------ |
+| `tracker_config_path` | Yes      | —       | Path to tracker config JSON, mounted into the tracker container          |
+| `broker_image`        | Yes      | —       | Docker image for the MQTT broker (e.g. `"eclipse-mosquitto:2.1-alpine"`) |
+| `container_type`      | Yes      | —       | `"controller"` or `"tracker"`                                            |
 
 | `drain_timeout` | No | `5.0` | Seconds to wait for remaining tracker outputs after the last frame |
 | `scene_id` | No | derived from scene config `uid` | Override the MQTT topic scene ID |
@@ -245,6 +245,7 @@ outputs = list(harness.process_inputs(dataset.get_inputs()))
 | `metrics_collector_image` | When `enable_metrics` | — | OTEL Collector image (e.g. `"otel/opentelemetry-collector-contrib:0.155.0"`) |
 | `metrics_export_interval_s` | No | `2` | Metrics export interval in seconds |
 | `metrics_otlp_port` | No | `4317` | OTLP/gRPC port the collector listens on |
+| `object_classes` | No | `[]` | Asset definitions served from mock Manager `/api/v1/assets` so the tracker applies per-category `shift_type` / footprint. Each entry: `{name, shift_type, x_size, y_size, ...}` |
 
 **Observability (optional)**:
 
@@ -281,14 +282,14 @@ The harness starts `mock_manager.py` as a thread on the Docker host and register
 
 Endpoints served:
 
-| Method | Path                   | Description                                                  |
-| ------ | ---------------------- | ------------------------------------------------------------ |
-| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials        |
-| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics  |
-| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                  |
-| GET    | `/api/v1/assets`       | Returns `{"results": []}` (no assets)                        |
-| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics |
-| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)          |
+| Method | Path                   | Description                                                                          |
+| ------ | ---------------------- | ------------------------------------------------------------------------------------ |
+| POST   | `/api/v1/auth`         | Returns `{"token": "mock"}` — accepts any credentials                                |
+| GET    | `/api/v1/scenes`       | Returns the full scene with cameras and computed extrinsics                          |
+| GET    | `/api/v1/scenes/child` | Returns `{"results": []}` (no child scenes)                                          |
+| GET    | `/api/v1/assets`       | Returns the `object_classes` entries from `set_custom_config()` (empty when omitted) |
+| GET    | `/api/v1/camera/<uid>` | Returns per-camera data including calibration and extrinsics                         |
+| POST   | `/api/v1/camera/<uid>` | Accepts calibration updates (no-op — not persisted)                                  |
 
 Camera extrinsics (`translation`, `rotation`, `scale`) are computed from the dataset's
 `camera points` / `map points` using the same logic as production:

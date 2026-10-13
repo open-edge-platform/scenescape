@@ -255,10 +255,10 @@ def warmed_scene(params, mqtt_client):
   return scene_uid, camera_id
 
 
+@pytest.mark.test_name("NEX-T25995")
 def test_persist_stored_to_vdms_on_track_end(mqtt_client, warmed_scene,
-                                             record_xml_attribute):
+                                             result_recorder):
   """Persisted gender is flushed to the ReID database when the track ends."""
-  record_xml_attribute("name", "NEX-T25995")
   scene_uid, camera_id = warmed_scene
 
   emb = make_embedding(seed=1)
@@ -280,12 +280,13 @@ def test_persist_stored_to_vdms_on_track_end(mqtt_client, warmed_scene,
   assert "gender" in persist, f"persist missing gender: {persist}"
   assert persist["gender"].get("label") == "Male", \
     f"persist gender label mismatch: {persist.get('gender')}"
+  result_recorder.success()
 
 
+@pytest.mark.test_name("NEX-T25996")
 def test_bbox_below_minimum_area_gathers_no_features(mqtt_client, warmed_scene,
-                                                     record_xml_attribute):
+                                                     result_recorder):
   """Detections under minimum_bbox_area never contribute embeddings."""
-  record_xml_attribute("name", "NEX-T25996")
   scene_uid, camera_id = warmed_scene
 
   det = make_detection(14, SMALL_BBOX, embedding=make_embedding(seed=9),
@@ -303,12 +304,13 @@ def test_bbox_below_minimum_area_gathers_no_features(mqtt_client, warmed_scene,
     f"small-bbox track left pending_collection: {states}"
   assert all(o.get("similarity") is None for o in tracked_objs), \
     "small-bbox track was scored against the ReID database"
+  result_recorder.success()
 
 
+@pytest.mark.test_name("NEX-T25997")
 def test_gender_survives_intermittent_dropouts(mqtt_client, warmed_scene,
-                                               record_xml_attribute):
+                                               result_recorder):
   """Gender stays populated when the analytics model stops reporting the attribute."""
-  record_xml_attribute("name", "NEX-T25997")
   scene_uid, camera_id = warmed_scene
 
   emb = make_embedding(seed=3)
@@ -333,17 +335,17 @@ def test_gender_survives_intermittent_dropouts(mqtt_client, warmed_scene,
   assert labels, "no scene output observed for tracked object during dropout/recovery window"
   assert all(label == "Male" for label in labels), \
     f"gender dropped to null/missing during dropout window: {labels}"
+  result_recorder.success()
 
 
-@pytest.mark.parametrize("reentry_confidence,should_match,seed,test_name", [
-  (0.9, False, 4, "NEX-T25998"),
-  (0.63, True, 6, "NEX-T25999"),
+@pytest.mark.parametrize("reentry_confidence,should_match,seed", [
+  pytest.param(0.9, False, 4, marks=pytest.mark.test_name("NEX-T25998")),
+  pytest.param(0.63, True, 6, marks=pytest.mark.test_name("NEX-T25999")),
 ], ids=["high_confidence_filters", "low_confidence_ignored"])
 def test_gender_confidence_gates_reid_match(mqtt_client, warmed_scene, reentry_confidence,
-                                            should_match, seed, test_name,
-                                            record_xml_attribute):
+                                            should_match, seed,
+                                            result_recorder):
   """Gender filters ReID candidates only at or above the 0.8 confidence threshold."""
-  record_xml_attribute("name", test_name)
   scene_uid, camera_id = warmed_scene
 
   emb = make_embedding(seed=seed)
@@ -384,3 +386,4 @@ def test_gender_confidence_gates_reid_match(mqtt_client, warmed_scene, reentry_c
     assert reentry_gid != baseline_gid, (
       "re-entered track matched the baseline gid despite a mismatched high-confidence "
       "gender; gender is not being applied as a TIER-1 constraint")
+  result_recorder.success()

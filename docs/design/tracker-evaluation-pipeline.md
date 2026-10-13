@@ -94,14 +94,13 @@ The pipeline uses standardized data formats for component interoperability. Deta
 Dataset implementations use format conversion utilities to transform data between canonical JSON formats and evaluator input formats. The utilities provide:
 
 - **JSON→JSON conversion**: Pointer-based mapping (RFC 6901) for schema transformations with **strict validation** (all fields must exist)
-- **JSON→CSV conversion**: Column mapping with **lenient validation** (missing fields become null/NaN)
-- **CSV→DataFrame reading**: Dask-based CSV parsing for efficiency
+- **JSON→CSV conversion**: Column mapping with **lenient validation** (missing fields become null/NaN), used to emit the MOTChallenge CSV consumed by TrackEval
 
 **Libraries used**:
 
 - `python-rapidjson`: Fast JSON serialization/deserialization
 - `jsonpointer`: RFC 6901 JSON pointer support for nested field access
-- `dask`: Efficient CSV reading and writing, especially for large datasets
+- `dask`: Efficient CSV writing, especially for large datasets
 
 **Validation behavior**:
 
@@ -195,7 +194,7 @@ Implementation of the component class must implement the following abstract meth
 
 - **get_ground_truth**() -> str
   - Get ground-truth data in evaluator input format
-  - Returns: path to ground-truth file in Ground Truth Format (MOTChallenge 3D CSV)
+  - Returns: path to ground-truth file in Ground Truth Format (canonical JSONL with absolute ISO timestamps)
   - Raises: RuntimeError if cannot be loaded or converted
 
 - **reset**() -> TrackingDataset
@@ -262,7 +261,7 @@ Implementation of the component class must implement the following abstract meth
 
 - **set_base_fps**(fps: Optional[float]) -> TrackerEvaluator
   - Set base frame rate for timestamp-to-frame-number conversion
-  - When set, evaluators use this FPS instead of computing it from tracker output timestamps; passing None reverts to automatic computation
+  - The frame rate is required by evaluators that quantize timestamps onto a frame grid; it is never inferred from tracker-output timestamps. Passing None leaves it unset, and such evaluators raise a clear error when processed without it
   - Args: frames per second (must be > 0), or None to reset
   - Returns: self for method chaining
   - Raises: ValueError if fps is not None and <= 0

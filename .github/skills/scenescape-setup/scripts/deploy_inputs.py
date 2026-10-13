@@ -21,6 +21,24 @@ MEDIASERVER_HOST = "mediaserver"
 MEDIASERVER_PORT = 8554
 VIDEO_FILE_EXTENSIONS = {".mp4", ".mkv", ".avi", ".mov", ".ts", ".webm", ".mpg", ".mpeg", ".m4v"}
 
+# Stream URLs are interpolated unquoted into a GStreamer launch string, where
+# whitespace separates element properties and '!' separates elements. Restrict
+# them to the characters RTSP URLs actually need, so untrusted camera metadata
+# cannot append elements such as `! filesink location=...`.
+RTSP_URL_RE = re.compile(r"^rtsps?://[A-Za-z0-9._~%!$&'()*+,;=:@/?#\[\]-]+$")
+_GSTREAMER_METACHARS = frozenset(" \t\r\n!\\\"'")
+
+
+def validate_stream_url(stream: str) -> None:
+  """Reject any stream URL that could alter the generated GStreamer pipeline."""
+  if any(char in _GSTREAMER_METACHARS or ord(char) < 0x20 or ord(char) == 0x7F for char in stream):
+    raise ValueError(f"invalid RTSP URL (illegal character): {stream!r}")
+  if not RTSP_URL_RE.match(stream):
+    raise ValueError(f"invalid RTSP URL: {stream!r}")
+  parsed = urlparse(stream)
+  if parsed.scheme not in ("rtsp", "rtsps") or not parsed.netloc:
+    raise ValueError(f"invalid RTSP URL: {stream!r}")
+
 
 def validate_camera_streams(camera_ids: list[str], streams: list[str]) -> None:
   if len(camera_ids) != len(streams):
@@ -32,9 +50,7 @@ def validate_camera_streams(camera_ids: list[str], streams: list[str]) -> None:
   if any("/" in camera_id for camera_id in camera_ids):
     raise ValueError("camera_ids must not contain '/'")
   for stream in streams:
-    parsed = urlparse(stream)
-    if parsed.scheme not in ("rtsp", "rtsps") or not parsed.netloc:
-      raise ValueError(f"invalid RTSP URL: {stream}")
+    validate_stream_url(stream)
 
 
 def validate_inputs(

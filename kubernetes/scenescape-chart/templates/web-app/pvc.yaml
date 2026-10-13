@@ -25,9 +25,9 @@ metadata:
     "helm.sh/hook": pre-install
     "helm.sh/hook-weight": "{{ int .Values.pvc.hookWeight }}"
 spec:
-  storageClassName: {{ .Values.video.storageClassName }}
+  storageClassName: {{ .Values.models.storageClassName }}
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: {{ .Values.video.storage }}
+      storage: {{ .Values.models.storage }}

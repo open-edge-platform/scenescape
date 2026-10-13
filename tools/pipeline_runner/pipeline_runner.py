@@ -44,9 +44,9 @@ CAM_SETTINGS_SCRIPT = "/workspace/tools/pipeline_runner/cam_settings_to_dlsps_co
 OUTPUT_DIR = "output"
 DLS_METADATA_OUTPUT_FILE = "dls_metadata.jsonl"
 SCENESCAPE_METADATA_FILE = "scenescape_metadata.jsonl"
-COMPOSE_FILE = Path(__file__).parent / "docker-compose-ppl.yaml"
+COMPOSE_FILE = Path(__file__).parent / "compose.ppl.yml"
 NPU_DEVICE = "/dev/accel"
-NPU_OVERRIDE_FILE = Path(__file__).parent / "docker-compose-ppl.npu.yaml"
+NPU_OVERRIDE_FILE = Path(__file__).parent / "compose.ppl.npu.yml"
 
 BROKER_HOST = "localhost"
 BROKER_PORT = 1884
@@ -181,7 +181,7 @@ class PipelineRunner:
     # Inject docker compose variables into the process environment
     self._set_env_vars()
 
-    # Run docker compose (equivalent to: docker compose -f docker-compose-ppl.yaml [--profile PROFILE] up -d)
+    # Run docker compose (equivalent to: docker compose -f compose.ppl.yml [--profile PROFILE] up -d)
     self._docker_client = self._make_docker_client()
     try:
       self._docker_client.compose.up(detach=True)
@@ -225,7 +225,7 @@ class PipelineRunner:
     root_dir = str(_REPO_ROOT)
     secrets_dir = os.path.join(root_dir, "manager", "secrets")
     dlsps_config_file = str(COMPOSE_FILE.parent / DLSPS_CONFIG_FILE)
-    # docker-compose-ppl.yaml references DLSPS_CONFIG_FILE via a config section;
+    # compose.ppl.yml references DLSPS_CONFIG_FILE via a config section;
     # the file must exist for compose to parse the YAML without errors.
     Path(dlsps_config_file).touch()
     os.environ.update({

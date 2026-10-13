@@ -175,7 +175,7 @@ class GeospatialIngestPublish(FunctionalTest):
     return scene
 
   def verifyTRSMatrix(self):
-    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/tests/resources/maps/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_data = f.read()
 
@@ -284,7 +284,7 @@ class GeospatialIngestPublish(FunctionalTest):
     return
 
   def verifyPublish(self):
-    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/tests/resources/maps/HazardZoneSceneLarge.png"
     with open(map_image, "rb") as f:
       map_data = f.read()
     log.info("Verifying base output has no lat_long_alt")
@@ -343,6 +343,7 @@ def _verifyLLA(detected_object):
     raise ValueError(f"LLA verification failed! Expected LLA: {EXPECTED_DETECTION_LLA}, got: {detected_object['lat_long_alt']}")
 
 @pytest.mark.skip(reason="Flaky in full suite: TRS matrix not computed. Test passed when run in isolation.")
+@pytest.mark.test_name("NEX-T10490")
 def test_geospatial_ingest_publish(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = GeospatialIngestPublish(TEST_NAME, request, record_xml_attribute, repo_root)
   test.verifyFunction()

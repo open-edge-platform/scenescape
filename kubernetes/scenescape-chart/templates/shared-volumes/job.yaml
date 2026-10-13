@@ -23,8 +23,6 @@ spec:
         volumeMounts:
         - mountPath: /workspace/migrations
           name: migrations-storage
-        - mountPath: /workspace/sample-data
-          name: sample-data-storage
         - mountPath: /workspace/media
           name: media-storage
         - mountPath: /workspace/models
@@ -33,9 +31,6 @@ spec:
       - name: migrations-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-migrations-pvc
-      - name: sample-data-storage
-        persistentVolumeClaim:
-          claimName: {{ .Release.Name }}-sample-data-pvc
       - name: media-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-media-pvc

@@ -29,6 +29,10 @@ class SceneDataSource(ABC):
   def getCamera(self, camera_id):
     pass
 
+  @abstractmethod
+  def getSensors(self, filter):
+    pass
+
 
 class RestSceneDataSource(SceneDataSource):
   def __init__(self, rest_url, rest_auth, root_cert=None):
@@ -43,6 +47,9 @@ class RestSceneDataSource(SceneDataSource):
 
   def getTripwire(self, uid):
     return self.rest.getTripwire(uid)
+
+  def getSensors(self, filter):
+    return self.rest.getSensors(filter)
 
   def getRegion(self, uid):
     return self.rest.getRegion(uid)
@@ -124,3 +131,8 @@ class FileSceneDataSource(SceneDataSource):
         if camera['uid'] == camera_id:
           return camera
     return None
+
+  def getSensors(self, filter):
+    log.info("[JSON mode] getSensors not supported")
+    return {"results": []}
+

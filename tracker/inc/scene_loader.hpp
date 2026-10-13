@@ -5,6 +5,7 @@
 
 #include "config_loader.hpp"
 #include "manager_rest_client.hpp"
+#include "object_class.hpp"
 
 #include <array>
 #include <filesystem>
@@ -90,6 +91,16 @@ public:
      * @throws std::runtime_error if loading fails
      */
     virtual std::vector<Scene> load() = 0;
+
+    /**
+     * @brief Object-class projection settings loaded with scenes (API source).
+     *
+     * File-based loaders return an empty map. Call after successful load().
+     */
+    [[nodiscard]] virtual const ObjectClassMap& objectClasses() const {
+        static const ObjectClassMap kEmpty;
+        return kEmpty;
+    }
 };
 
 /**

@@ -58,7 +58,7 @@ Required:
   tracker_config_path (str): path to tracker-config.json mounted into the
                              tracker container at the expected location.
   container_type  (str):   ``'controller'`` or ``'tracker'``.
-  broker_image    (str):   mosquitto Docker image (e.g. "eclipse-mosquitto:2.0.22").
+  broker_image    (str):   mosquitto Docker image (e.g. "eclipse-mosquitto:2.1-alpine").
 Optional:
   scene_id        (str):   scene uid used to build the output topic;
                            defaults to config['uid'] from set_scene_config().
@@ -75,6 +75,11 @@ Optional:
                            (default 2).
   metrics_otlp_port (int): OTLP/gRPC port the collector listens on
                            (default 4317).
+  object_classes  (list):  Optional asset definitions forwarded to the mock
+                           Manager ``/api/v1/assets`` endpoint so Controller
+                           and Tracker Service apply per-category
+                           ``shift_type`` (TYPE_1/TYPE_2) and footprint size.
+                           Each entry: ``{name, shift_type, x_size, y_size, ...}``.
 """
 
 import json
@@ -128,6 +133,12 @@ _TRACKER_SVC_SCHEMA        = "/scenescape/schema/config.schema.json"
 _MOCK_MANAGER_USER         = "harness"
 _MOCK_MANAGER_PASSWORD     = "harness"
 _MOCK_MANAGER_PORT         = 8888  # internal Docker-network port
+
+# Disable proxying inside harness containers.
+_NO_PROXY_ENVS: Dict[str, str] = {
+    "http_proxy": "", "https_proxy": "", "no_proxy": "*",
+    "HTTP_PROXY": "", "HTTPS_PROXY": "", "NO_PROXY": "*",
+}
 
 # Container type constants
 CONTAINER_TYPE_CONTROLLER = "controller"
@@ -360,6 +371,7 @@ class BlackBoxHarness(TrackerHarness):
     self._drain_timeout: float              = DEFAULT_DRAIN_TIMEOUT
     self._startup_wait_s: float             = DEFAULT_STARTUP_WAIT
     self._camera_order: Optional[List[str]] = None
+    self._object_classes: List[Dict[str, Any]] = []
     self._broker_image: str                 = ""
     self._broker_port: int                  = 0
     self._output_folder: Optional[Path]     = None
@@ -428,6 +440,11 @@ class BlackBoxHarness(TrackerHarness):
     self._startup_wait_s = float(config.get("startup_wait_s", DEFAULT_STARTUP_WAIT))
     if "camera_order" in config:
       self._camera_order = list(config["camera_order"])
+    if "object_classes" in config:
+      classes = config["object_classes"]
+      if not isinstance(classes, list):
+        raise ValueError("object_classes must be a list")
+      self._object_classes = list(classes)
     if "broker_image" not in config:
       raise ValueError("Custom config must contain 'broker_image'")
     self._broker_image   = str(config["broker_image"])
@@ -543,6 +560,7 @@ class BlackBoxHarness(TrackerHarness):
     self._drain_timeout       = DEFAULT_DRAIN_TIMEOUT
     self._startup_wait_s      = DEFAULT_STARTUP_WAIT
     self._camera_order        = None
+    self._object_classes      = []
     self._output_folder       = None
     self._enable_metrics      = False
     self._metrics_collector_image = ""
@@ -580,9 +598,10 @@ class BlackBoxHarness(TrackerHarness):
         (thread, port) — the port is passed to containers via ``add_hosts``.
     """
     port = _free_port()
+    scene_config = {**self._scene_config, "object_classes": self._object_classes}
     t = threading.Thread(
         target=_run_mock_manager,
-        args=(port, self._scene_config),
+        args=(port, scene_config),
         daemon=True,
     )
     t.start()
@@ -719,13 +738,13 @@ class BlackBoxHarness(TrackerHarness):
     manager_url = f"http://{manager_name}:{manager_port}/api/v1"
     rest_auth   = f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_PASSWORD}"
 
-    envs: Dict[str, str] = {}
+    envs: Dict[str, str] = dict(_NO_PROXY_ENVS)
     if collector_name:
-      envs = {
+      envs.update({
           "CONTROLLER_ENABLE_METRICS": "true",
           "CONTROLLER_METRICS_ENDPOINT": f"{collector_name}:{self._metrics_otlp_port}",
           "CONTROLLER_METRICS_EXPORT_INTERVAL_S": str(self._metrics_export_interval_s),
-      }
+      })
 
     return docker.run(
         self._container_image,
@@ -733,6 +752,7 @@ class BlackBoxHarness(TrackerHarness):
             "--resturl",            manager_url,
             "--restauth",           rest_auth,
             "--broker",             broker_name,
+            "--brokerauth",         f"{_MOCK_MANAGER_USER}:{_MOCK_MANAGER_PASSWORD}",
             "--tracker_config_file", _CONTAINER_TRACKER_CONFIG,
             "--maxlag",             "1e15",
             "--visibility_topic",   "none",
@@ -795,6 +815,7 @@ class BlackBoxHarness(TrackerHarness):
         name=tracker_name,
         networks=[net_name],
         add_hosts=[(manager_name, host_gateway)],
+        envs=dict(_NO_PROXY_ENVS),
         volumes=[
             (str(svc_config_file), _TRACKER_SVC_CONFIG, "ro"),
             (str(auth_file),       _TRACKER_SVC_AUTH,   "ro"),

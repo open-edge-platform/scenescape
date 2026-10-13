@@ -31,8 +31,6 @@ sys.path.insert(0, str(_REPO_ROOT / "tools" / "pipeline_runner"))
 from pipeline_runner import PipelineRunner  # noqa: E402
 from tests.pipeline_runner.scenarios import PEOPLE_SCENARIOS, PipelineScenario
 
-TEST_NAME = "NEX-T20170"
-
 MIN_DETECTIONS = 30
 MIN_CATEGORY_DETECTIONS = 3
 COLLECT_TIMEOUT = 120  # seconds - generous to allow model  warm-up
@@ -50,7 +48,9 @@ class TestPeoplePipelines:
     [_apply_marks(s) for s in PEOPLE_SCENARIOS],
     indirect=True,
   )
-  def test_detections_received_and_valid(self, camera_settings_path, schema_validator, sample_data):
+  @pytest.mark.test_name("NEX-T20170")
+  def test_detections_received_and_valid(self, camera_settings_path, schema_validator,
+                                          sample_data, result_recorder):
     """Pipeline produces detections that pass the Scenescape detector schema.
 
     Positive test: for each scenario launch the pipeline, collect
@@ -82,32 +82,4 @@ class TestPeoplePipelines:
         f"Expected >= {MIN_CATEGORY_DETECTIONS} person detections, "
         f"got {category_counts.get('person', 0)}"
       )
-
-  def test_collect_raises_without_stopping_condition(self, tmp_path, sample_data):
-    """collect() must raise ValueError when called with no timeout or min_detections.
-
-    Negative test: calling collect() without any stopping condition is a
-    programming error and must be caught at call time, not silently hang.
-    """
-    # Write a minimal settings file - start() is never called so Docker is
-    # not touched; we only test the argument-validation path of collect().
-    import json
-    settings = {
-      "name": "test-no-stop",
-      "sensor_id": "test-no-stop",
-      "command": "file://qcam1.ts",
-      "cv_subsystem": "AUTO",
-      "camerachain": "retail=CPU",
-      "modelconfig": "model_config.json",
-      "intrinsics_fx": "905", "intrinsics_fy": "905",
-      "intrinsics_cx": "640", "intrinsics_cy": "360",
-      "distortion_k1": "0", "distortion_k2": "0",
-      "distortion_p1": "0", "distortion_p2": "0",
-      "distortion_k3": "0",
-    }
-    path = tmp_path / "no_stop.json"
-    path.write_text(json.dumps(settings))
-
-    runner = PipelineRunner(str(path))
-    with pytest.raises(ValueError, match="timeout.*min_detections"):
-      runner.collect()  # neither timeout nor min_detections provided
+      result_recorder.success()

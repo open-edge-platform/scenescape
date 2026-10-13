@@ -67,7 +67,7 @@ docker run --rm \
 :::{toctree}
 :hidden:
 
-get-started/build-from-source.md
+Build from Source <./get-started/build-from-source.md>
 
 :::
 hide_directive-->

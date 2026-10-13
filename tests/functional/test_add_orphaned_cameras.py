@@ -9,6 +9,7 @@ from scene_common.rest_client import RESTClient
 from tests.functional import FunctionalTest
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
+import pytest
 
 SCENESCAPE_SPEC = FuncTestSpec(
   profile=FULL_STACK,
@@ -91,6 +92,7 @@ class OrphanedCameraTest(FunctionalTest):
 
     return
 
+@pytest.mark.test_name("NEX-T10402")
 def test_orphaned_cameras(scenescape_env, demo_scene, request, record_xml_attribute):
   test = OrphanedCameraTest(TEST_NAME, request, record_xml_attribute)
   test.verifyOrphanedCameras()

@@ -30,6 +30,11 @@ When making changes, verify and update:
 6. **Prerequisites** (new dependencies or system requirements)
 7. **Testing instructions** (if test setup changed)
 
+## Validation
+
+After modifying Markdown files, run `make prettier-check` from the repository root.
+Markdown changes are considered correct only when this target passes.
+
 ## Example Patterns
 
 ### For Model Selection Features (e.g., mapping service):
@@ -85,7 +90,7 @@ still resolve. Do not restate field tables in the how-to or skill.
 ### Manager Service
 
 - **Overview** (`docs/user-guide/using-intel-scenescape/` and related guides): Web UI features, REST API, database schema
-- **Build** (`docs/user-guide/get-started/installation.md` and root build guides): Django setup, migrations, static files
+- **Build** (`docs/user-guide/how-to-guides/deployment/preparation.md` and root build guides): Django setup, migrations, static files
 - **API Spec** (`docs/user-guide/api-reference.md`): REST endpoint definitions
 - **Tests** (`manager/tests/README.md`): UI tests, functional tests, API tests
 
@@ -100,9 +105,9 @@ still resolve. Do not restate field tables in the how-to or skill.
 Root-level documentation in `docs/user-guide/`:
 
 - **Architecture overview** - System design and component interactions
-- **Getting Started** - Initial setup and quick start guide
+- **Getting Started** (`docs/user-guide/get-started/installation.md`) - Prerequisites, getting the source, and choosing a deployment; links out rather than holding commands
 - **Build Instructions** - Root Makefile targets, build system overview
-- **Deployment** - Docker Compose, Kubernetes setup
+- **Deployment** (`docs/user-guide/how-to-guides/deployment/`) - `preparation.md` (source-build vs prebuilt setup), `deploy-docker.md`, `deploy-kubernetes.md`, `deploy-demo.md`
 - **Development Guide** - Local development workflow
 - **Testing** - Test execution across all services
 - **API Reference** - Complete API documentation index

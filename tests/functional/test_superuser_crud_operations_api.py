@@ -10,6 +10,7 @@ from scene_common.rest_client import RESTClient
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
 from tests.utils.profiles import FULL_STACK
 from tests.utils.log import get_logger
+import pytest
 
 log = get_logger(__name__)
 
@@ -49,7 +50,7 @@ class CRUDPermissionsTest(FunctionalTest):
     if existing:
       self.rest_admin.deleteScene(existing[0]["uid"])
 
-    map_image = f"{self.repoRoot}/sample_data/HazardZoneSceneLarge.png"
+    map_image = f"{self.repoRoot}/tests/resources/maps/HazardZoneSceneLarge.png"
     assert os.path.exists(map_image), f"Map image not found: {map_image}"
     with open(map_image, "rb") as f:
       map_data = f.read()
@@ -149,9 +150,9 @@ class CRUDPermissionsTest(FunctionalTest):
     finally:
       self.tearDown()
 
+@pytest.mark.test_name("NEX-T21775")
 def test_crud_operations_api(scenescape_env, demo_scene, request, record_xml_attribute, repo_root):
   test = CRUDPermissionsTest(TEST_NAME, request, record_xml_attribute, repo_root)
-  record_xml_attribute("name", TEST_NAME)
   ok = False
   try:
     ok = test.runTest()

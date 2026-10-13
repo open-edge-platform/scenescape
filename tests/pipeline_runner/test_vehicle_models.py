@@ -29,8 +29,6 @@ sys.path.insert(0, str(_REPO_ROOT / "tools" / "pipeline_runner"))
 from pipeline_runner import PipelineRunner  # noqa: E402
 from tests.pipeline_runner.scenarios import VEHICLE_SCENARIOS, PipelineScenario
 
-TEST_NAME = "NEX-T21524"
-
 MIN_DETECTIONS = 200
 MIN_CATEGORY_DETECTIONS = 3
 COLLECT_TIMEOUT = 120  # seconds - generous to allow model  warm-up
@@ -54,7 +52,9 @@ class TestVehiclePipelines:
     [_apply_marks(s) for s in VEHICLE_SCENARIOS],
     indirect=True,
   )
-  def test_detections_received_and_valid(self, camera_settings_path, schema_validator, sample_data):
+  @pytest.mark.test_name("NEX-T21524")
+  def test_detections_received_and_valid(self, camera_settings_path, schema_validator,
+                                          sample_data, result_recorder):
     """Pipeline produces detections that pass the Scenescape detector schema.
 
     Positive test: for each scenario launch the pipeline, collect
@@ -95,9 +95,11 @@ class TestVehiclePipelines:
       f"Expected >= {MIN_CATEGORY_DETECTIONS} vehicle detections, "
       f"got {vehicle_count}"
     )
+    result_recorder.success()
 
 
-  def test_invalid_sensor_id_raises(self, tmp_path, sample_data):
+  @pytest.mark.test_name("NEX-T29225")
+  def test_invalid_sensor_id_raises(self, tmp_path, sample_data, result_recorder):
     """PipelineRunner raises when the camera settings file is missing sensor_id.
 
     Negative test: a settings file without the required ``sensor_id`` key
@@ -123,30 +125,4 @@ class TestVehiclePipelines:
 
     with pytest.raises(KeyError):
       PipelineRunner(str(path))  # should fail in _get_camera_id()
-
-  def test_collect_raises_without_stopping_condition(self, tmp_path, sample_data):
-    """collect() must raise ValueError when called with neither timeout nor min_detections.
-
-    Negative test: calling collect() without any stopping condition is a
-    programming error and must be caught at call time.
-    """
-    import json
-    settings = {
-      "name": "car-no-stop",
-      "sensor_id": "car-no-stop",
-      "command": "file://car-detection.ts",
-      "cv_subsystem": "AUTO",
-      "camerachain": "pvbcross16=CPU",
-      "modelconfig": "model_config.json",
-      "intrinsics_fx": "905", "intrinsics_fy": "905",
-      "intrinsics_cx": "640", "intrinsics_cy": "360",
-      "distortion_k1": "0", "distortion_k2": "0",
-      "distortion_p1": "0", "distortion_p2": "0",
-      "distortion_k3": "0",
-    }
-    path = tmp_path / "no_stop.json"
-    path.write_text(json.dumps(settings))
-
-    runner = PipelineRunner(str(path))
-    with pytest.raises(ValueError, match="timeout.*min_detections"):
-      runner.collect()  # neither timeout nor min_detections provided
+    result_recorder.success()

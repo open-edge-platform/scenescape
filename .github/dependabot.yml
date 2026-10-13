@@ -1,5 +1,5 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 version: 2
@@ -9,6 +9,9 @@ updates:
     directory: /
     schedule:
       interval: "monthly"
+      time: "04:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 1
     commit-message:
       prefix: "GitHub Actions"
     groups:
@@ -26,8 +29,16 @@ updates:
     directory: "/kubernetes/scenescape-chart"
     schedule:
       interval: "monthly"
+      time: "04:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 1
     commit-message:
       prefix: "Helm charts"
+    groups:
+      helm-dependencies:
+        applies-to: version-updates
+        patterns:
+          - "*"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -37,25 +48,38 @@ updates:
   - package-ecosystem: "docker"
     directories:
       - "/"
+      - "/analytics"
       - "/autocalibration"
-      - "/broker"
+      - "/cluster_analytics"
       - "/controller"
       - "/kubernetes/init-images"
       - "/manager"
-      - "/scene_common"
-      - "/cluster_analytics"
-      - "/controller/src/robot_vision"
       - "/mapping"
+      - "/scene_common"
+      - "/tests/security/fuzzing"
+      - "/tools/v2x"
       - "/tracker"
       - "/tracker/test/load"
     schedule:
       interval: "monthly"
+      time: "04:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 1
     commit-message:
       prefix: "Dockerfile"
+    groups:
+      docker-images:
+        applies-to: version-updates
+        patterns:
+          - "*"
     ignore:
       - dependency-name: "python"
         update-types:
-          ["version-update:semver-major", "version-update:semver-minor"]
+          [
+            "version-update:semver-major",
+            "version-update:semver-minor",
+            "version-update:semver-patch",
+          ]
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -64,17 +88,33 @@ updates:
   # Enable version updates for Docker Compose
   - package-ecosystem: "docker-compose"
     directories:
-      - "/sample_data"
+      - "/cluster_analytics/tests/service"
+      - "/sample_data/compose"
+      - "/sample_data/demo_scenes/Queuing"
+      - "/sample_data/demo_scenes/Retail"
+      - "/sample_data/lidar_intersection"
       - "/tests/compose"
       - "/tests/compose/dlstreamer"
+      - "/tests/compose/hierarchy"
+      - "/tests/compose/perf"
       - "/tests/perf_tests/compose"
-      - "/tools/ppl_runner"
-      - "/tracker/test/service"
+      - "/tests/security/libraries"
+      - "/tools/pipeline_runner"
+      - "/tools/px4_sih_demo"
       - "/tracker/test/load"
+      - "/tracker/test/service"
     schedule:
       interval: "monthly"
+      time: "04:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 1
     commit-message:
       prefix: "Docker Compose"
+    groups:
+      docker-compose-images:
+        applies-to: version-updates
+        patterns:
+          - "*"
     reviewers:
       - "saratpoluri"
       - "dmytroye"
@@ -84,24 +124,40 @@ updates:
   - package-ecosystem: "pip"
     directories:
       - "/.github/resources"
+      - "/analytics"
       - "/autocalibration"
-      - "/autocalibration/src/reloc"
+      - "/autocalibration/tools"
+      - "/cluster_analytics"
+      - "/cluster_analytics/tests/service"
+      - "/cluster_analytics/tools/webui"
       - "/controller"
       - "/controller/src/robot_vision"
       - "/manager"
       - "/manager/test"
-      - "/cluster_analytics"
       - "/mapping"
       - "/mapping/tests"
+      - "/scene_common"
+      - "/tests"
       - "/tests/pipeline_runner"
+      - "/tools/external_source_adapters"
       - "/tools/pipeline_runner"
-      - "/tracker/test/service"
-      - "/tracker/test/load"
       - "/tools/tracker/evaluation"
+      - "/tools/upload_scenes"
+      - "/tools/v2x"
+      - "/tracker/test/load"
+      - "/tracker/test/service"
     schedule:
       interval: "monthly"
+      time: "04:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 1
     commit-message:
       prefix: "pip"
+    groups:
+      python-dependencies:
+        applies-to: version-updates
+        patterns:
+          - "*"
     ignore:
       - dependency-name: "numpy"
         update-types:
@@ -119,8 +175,16 @@ updates:
     directory: "/.github/resources"
     schedule:
       interval: "monthly"
+      time: "04:00"
+      timezone: "Etc/UTC"
+    open-pull-requests-limit: 1
     commit-message:
       prefix: "npm"
+    groups:
+      npm-dependencies:
+        applies-to: version-updates
+        patterns:
+          - "*"
     reviewers:
       - "Irakus"
       - "saratpoluri"

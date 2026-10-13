@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 # via ipaddress, since urlparse().hostname already strips the URL's brackets.
 _VALID_HOSTNAME_RE = re.compile(r"^[A-Za-z0-9.-]+$")
 
-from deploy_inputs import load_inputs, validate_camera_streams
+from deploy_inputs import load_inputs, validate_camera_streams, validate_stream_url
 
 MODEL_XML = (
   "/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/"
@@ -74,6 +74,8 @@ PIPELINE_PARAMETERS = {
 
 
 def gstreamer_pipeline(rtsp_url: str) -> str:
+  # rtsp_url is interpolated unquoted below; re-check it at the injection point.
+  validate_stream_url(rtsp_url)
   return (
     f"rtspsrc location={rtsp_url} add-reference-timestamp-meta=true latency=200 "
     f"! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR "
