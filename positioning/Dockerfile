@@ -38,6 +38,6 @@ HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
 ENTRYPOINT ["python3", "/app/positioning.py"]
 
 FROM scenescape-positioning-runtime AS scenescape-positioning-test
-COPY --chown=$USER_ID:$GROUP_ID positioning/tests /app/tests
+COPY --chown=$USER_ID:$GROUP_ID tests/sscape_tests/positioning /app/tests
 ENTRYPOINT []
 CMD ["python3", "-m", "unittest", "discover", "-s", "/app/tests"]

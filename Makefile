@@ -507,8 +507,6 @@ run_unit_tests: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
-	PYTHONPATH="$(CURDIR)/positioning/src:$(CURDIR)/scene_common/src" \
-		$(PYTEST) positioning/tests/ -v --tb=short || (echo "Positioning unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_basic_acceptance_tests
