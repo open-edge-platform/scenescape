@@ -81,7 +81,7 @@ class PubSub(_PubSubTopicBase):
   }
 
   def __init__(self, auth, cert, rootca, broker, port=None, keepalive=60,
-               insecure=False, transport="tcp", userdata=None, keyfile=None):
+               insecure=False, transport="tcp", userdata=None):
     self.broker = broker
     self.port = port
     self.keepalive = keepalive
@@ -105,13 +105,6 @@ class PubSub(_PubSubTopicBase):
     if cert is not None:
       if certs is None:
         certs = {}
-      certs["certfile"] = cert
-    if keyfile is not None:
-      if cert is None:
-        raise ValueError("A client certificate is required when specifying a key file")
-      if certs is None:
-        certs = {}
-      certs["keyfile"] = keyfile
 
     self.client = initializeMqttClient(transport=transport, userdata=userdata)
     if insecure and certs is not None:
