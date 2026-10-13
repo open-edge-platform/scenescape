@@ -19,6 +19,16 @@
 
 namespace rv::tracking::test {
 
+struct Box
+{
+  double length = 0.0;
+  double width = 0.0;
+  double height = 0.0;
+};
+
+inline constexpr Box kCar{.length = 4.5, .width = 1.8, .height = 1.5};
+inline constexpr Box kPerson{.length = 0.5, .width = 0.5, .height = 1.7};
+
 struct TruthSample
 {
   double t = 0.0;
@@ -27,6 +37,7 @@ struct TruthSample
   double heading = 0.0;
   double speed = 0.0;
   double yawRate = 0.0;
+  Box box;
 
   double vx() const
   {
@@ -42,8 +53,8 @@ struct TruthSample
 class Trajectory
 {
 public:
-  Trajectory(double x, double y, double heading, double speed)
-    : mStart{.x = x, .y = y, .heading = heading, .speed = speed}
+  Trajectory(double x, double y, double heading, double speed, Box box)
+    : mStart{.x = x, .y = y, .heading = heading, .speed = speed, .box = box}
   {
   }
 
@@ -126,10 +137,9 @@ inline std::vector<TruthSample> between(const std::vector<TruthSample> &samples,
 struct Sensor
 {
   double positionNoise = 0.0; // standard deviation [m]
+  double sizeNoise = 0.0;     // standard deviation of length, width and height [m]
+  double yawNoise = 0.0;      // standard deviation [rad], orienting sensors only
   bool orienting = false;     // reports heading as yaw and sets has_orientation, like a LiDAR
-  double length = 4.0;
-  double width = 1.8;
-  double height = 1.5;
   std::mt19937 rng{1};
 };
 
@@ -145,15 +155,22 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
   std::vector<Observation> observations;
   for (const auto &sample : truth)
   {
-    auto detection = makeBox(sample.x, sample.y, 0.0, sensor.length, sensor.width, sensor.height);
+    auto detection = makeBox(sample.x, sample.y, 0.0, sample.box.length, sample.box.width, sample.box.height);
     if (sensor.positionNoise > 0.0)
     {
       detection.x += sensor.positionNoise * noise(sensor.rng);
       detection.y += sensor.positionNoise * noise(sensor.rng);
     }
+    if (sensor.sizeNoise > 0.0)
+    {
+      detection.length += sensor.sizeNoise * noise(sensor.rng);
+      detection.width += sensor.sizeNoise * noise(sensor.rng);
+      detection.height += sensor.sizeNoise * noise(sensor.rng);
+    }
     if (sensor.orienting)
     {
-      detection.yaw = std::remainder(sample.heading, 2.0 * std::numbers::pi);
+      const double yawError = sensor.yawNoise > 0.0 ? sensor.yawNoise * noise(sensor.rng) : 0.0;
+      detection.yaw = std::remainder(sample.heading + yawError, 2.0 * std::numbers::pi);
       orientation::setHasOrientation(detection, true);
     }
     observations.push_back({sample.t, std::move(detection)});
