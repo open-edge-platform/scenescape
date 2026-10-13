@@ -20,6 +20,7 @@ using rv::tracking::MultiModelKalmanEstimator;
 
 } // namespace
 
+// Bug: MultiModelKalmanEstimator covariance getters returned each other's matrix; fails on main 6b0a3156b.
 TEST(MultiModelKalmanEstimatorTest, KalmanFilterCovarianceGettersReturnMatchingMatrices)
 {
   rv::tracking::TrackedObject object;
@@ -45,6 +46,7 @@ TEST(MultiModelKalmanEstimatorTest, KalmanFilterCovarianceGettersReturnMatchingM
   EXPECT_DOUBLE_EQ(cv::norm(measurementCov, state.predictedMeasurementCov, cv::NORM_INF), 0.0);
 }
 
+// Bug: IMM mixing had no effect (UnscentedKalmanFilterMod::setStateAndCovariance no-op); fails on main 6b0a3156b.
 TEST(MultiModelKalmanEstimatorTest, PredictMixesModelStates)
 {
   // An accelerating, turning target makes CV, CA and CTRV disagree.
@@ -81,6 +83,7 @@ TEST(MultiModelKalmanEstimatorTest, PredictMixesModelStates)
   }
 }
 
+// Bug: MultiModelKalmanEstimator::initialize cleared only mSystemModels, so filters piled up; fails on main 6b0a3156b.
 TEST(MultiModelKalmanEstimatorTest, ReinitializeDoesNotDuplicateFilters)
 {
   const auto config = productionConfig();
