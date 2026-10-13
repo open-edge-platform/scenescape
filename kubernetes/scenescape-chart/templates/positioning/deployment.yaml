@@ -95,5 +95,12 @@ spec:
                 path: scenescape-positioning.key
         - name: tmp
           emptyDir: {}
-        {{- include "certs_volume" . | nindent 8 }}
+        - name: certs
+          projected:
+            sources:
+              - secret:
+                  name: {{ .Release.Name }}-scenescape-ca.pem
+                  items:
+                    - key: tls.crt
+                      path: scenescape-ca.pem
 {{- end }}
