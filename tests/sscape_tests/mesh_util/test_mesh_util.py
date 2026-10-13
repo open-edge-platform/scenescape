@@ -11,6 +11,7 @@ import numpy as np
 import open3d as o3d
 import pytest
 import trimesh
+from scipy.spatial.transform import Rotation
 from plyfile import PlyData, PlyElement
 import tempfile
 
@@ -380,5 +381,34 @@ def test_mesh_generator_accepts_far_patches_when_all_cameras_anchored(
 
   assert result["success"], result.get("error")
   assert "unanchored_cameras" not in result
+
+
+@pytest.mark.django_db
+@patch("manager.mesh_generator.PubSub")
+@patch("manager.mesh_generator.CamSerializer")
+def test_start_mesh_generation_converts_nonzero_euler_rotation_to_quaternion(
+    mock_serializer_cls, mock_pubsub_cls, test_scene_with_cameras):
+  """Regression test for ITEP-97219: a calibrated camera's non-zero Euler
+  rotation must reach the mapping service as the equivalent quaternion,
+  not silently fall back to identity."""
+  scene = test_scene_with_cameras["scene"]
+  euler_rotation = [30.0, 45.0, 60.0]
+  expected_quat = Rotation.from_euler('XYZ', euler_rotation, degrees=True).as_quat().tolist()
+
+  serializer = mock_serializer_cls.return_value
+  serializer.get_translation.return_value = [1.0, 2.0, 3.0]
+  serializer.get_rotation.return_value = euler_rotation
+  serializer.get_scale.return_value = [1.0, 1.0, 1.0]
+
+  mesh_generator = MeshGenerator()
+  mesh_generator.image_collector.collectImagesForScene = MagicMock(return_value=[])
+  mesh_generator.mapping_client.startReconstructMesh = MagicMock(
+    return_value={"request_id": "req-euler"})
+
+  result = mesh_generator.startMeshGeneration(scene)
+
+  assert result["success"], result.get("error")
+  camera_location_order = mesh_generator.mapping_client.startReconstructMesh.call_args[0][2]
+  assert camera_location_order[0]["rotation"] == pytest.approx(expected_quat)
 
 
