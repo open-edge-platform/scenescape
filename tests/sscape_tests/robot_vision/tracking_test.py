@@ -523,6 +523,80 @@ class TestMatchFunction(unittest.TestCase):
     self.assertAlmostEqual(track.x, mid_x, delta=0.15)
     self.assertAlmostEqual(track.y, mid_y, delta=0.15)
 
+class TestInvalidInput(unittest.TestCase):
+  """Characterizes current behavior for malformed input. The tracker does not
+  validate NaN/Inf/negative values at any of these boundaries today, so these
+  tests pin down what actually happens instead of what should happen."""
+
+  @staticmethod
+  def _single_model_tracker(motion_model=tracking.MotionModel.CV):
+    tracker_config = tracking.TrackManagerConfig()
+    tracker_config.motion_models = [motion_model]
+    return tracking.MultipleObjectTracker(tracker_config)
+
+  def test_nan_position_is_not_rejected_and_blocks_future_matches(self):
+    tracker = self._single_model_tracker()
+    t0 = datetime.now()
+    tracker.track([create_object_at_location(x=float('nan'), y=0.)], t0)
+    self.assertTrue(np.isnan(tracker.get_tracks()[0].x))
+
+    # A NaN track can never satisfy a distance gate again, so a later, valid
+    # detection of the same object spawns a duplicate track instead of matching.
+    tracker.track([create_object_at_location(x=1.0, y=0.)], t0 + timedelta(seconds=0.1))
+    self.assertEqual(len(tracker.get_tracks()), 2)
+
+  def test_inf_position_is_not_rejected(self):
+    tracker = self._single_model_tracker()
+    tracker.track([create_object_at_location(x=float('inf'), y=0.)], datetime.now())
+    self.assertTrue(np.isinf(tracker.get_tracks()[0].x))
+
+  def test_negative_object_size_is_not_rejected(self):
+    tracker = self._single_model_tracker()
+    object_ = create_object_at_location(x=0., y=0.)
+    object_.length = object_.width = object_.height = -1.
+    tracker.track([object_], datetime.now())
+    track = tracker.get_tracks()[0]
+    self.assertEqual((track.length, track.width, track.height), (-1., -1., -1.))
+
+  def test_negative_match_threshold_rejects_everything_instead_of_crashing(self):
+    track_00 = create_object_at_location(x=0, y=0)
+    measurement_00 = create_object_at_location(x=0.1, y=0.1)
+    assignments, unassigned_tracks, unassigned_objects = tracking.match(
+      [track_00], [measurement_00], threshold=-5.0)
+    self.assertEqual(assignments, [])
+    self.assertEqual(unassigned_objects, [0])
+
+  def test_negative_process_and_measurement_noise_diverges_instead_of_raising(self):
+    tracker_config = tracking.TrackManagerConfig()
+    tracker_config.motion_models = [tracking.MotionModel.CV]
+    tracker_config.default_process_noise = -1.0
+    tracker_config.default_measurement_noise = -1.0
+    tracker = tracking.MultipleObjectTracker(tracker_config)
+    t0 = datetime.now()
+    tracker.track([create_object_at_location(x=0., y=0.)], t0)
+    tracker.track([create_object_at_location(x=1., y=0.)], t0 + timedelta(seconds=0.1))
+    track = tracker.get_tracks()[0]
+    # Negative covariances are mathematically invalid: the filter blows up
+    # wildly rather than rejecting the config.
+    self.assertGreater(abs(track.x), 100.)
+
+  def test_negative_time_step_is_not_rejected(self):
+    tracker = self._single_model_tracker()
+    t0 = datetime.now()
+    tracker.track([create_object_at_location(x=0., y=0.)], t0)
+    # Disagreeing camera clocks can deliver an earlier timestamp than the last update.
+    tracker.track([create_object_at_location(x=1., y=0.)], t0 - timedelta(seconds=1.0))
+    track = tracker.get_tracks()[0]
+    self.assertTrue(np.isfinite(track.vx))
+
+  def test_negative_camera_frame_rate_wraps_frame_counts_to_a_huge_unsigned_value(self):
+    track_manager = tracking.TrackManager(tracking.TrackManagerConfig())
+    track_manager.update_tracker_config(-10)
+    # mMaxNumberOfUnreliableFrames is unsigned: a negative frame rate silently
+    # underflows it to ~2**32 instead of raising, so tracks would effectively
+    # never become reliable.
+    self.assertGreater(track_manager.config.max_number_of_unreliable_frames, 2**31)
+
 class TestClassification(unittest.TestCase):
   def test_classification_functions(self):
     classification_data = tracking.ClassificationData(['Car', 'Bike', 'Pedestrian'])
