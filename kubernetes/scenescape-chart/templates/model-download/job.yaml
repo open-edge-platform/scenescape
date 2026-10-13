@@ -33,10 +33,10 @@ spec:
                 app: {{ .Release.Name }}-web
             topologyKey: kubernetes.io/hostname
       initContainers:
-      - name: prepare-model-directory
-        image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
-        imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
-        command: ["/bin/sh", "-c", "mkdir -p /workspace/models-storage/models"]
+      - name: prepare-model-downloader
+        image: {{ .Values.modelDownload.image.repository }}/{{ .Values.modelDownload.image.name }}:{{ .Values.modelDownload.image.tag }}
+        imagePullPolicy: {{ .Values.modelDownload.image.pullPolicy }}
+        command: ["/bin/sh", "-c", "mkdir -p /workspace/models-storage/models && cp -R /opt/. /workspace/opt/"]
         securityContext:
           runAsNonRoot: true
           runAsUser: 1000
@@ -49,6 +49,8 @@ spec:
         volumeMounts:
         - mountPath: /workspace/models-storage
           name: models-storage
+        - mountPath: /workspace/opt
+          name: opt
       containers:
       - name: {{ .Release.Name }}-model-download
         command: ["/bin/bash", "-c"]
@@ -102,6 +104,8 @@ spec:
         volumeMounts:
         - mountPath: /workspace/models-storage
           name: models-storage
+        - mountPath: /opt
+          name: opt
         - mountPath: /opt/models
           name: models-storage
           subPath: models
@@ -115,6 +119,8 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+      - name: opt
+        emptyDir: {}
       - name: tmp
         emptyDir: {}
       - name: models-storage
