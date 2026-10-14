@@ -504,6 +504,14 @@ class ACLCheck(APIView):
       if PubSub.match_topic(templateTopic, currentTopic):
         matchedACL = acl
 
+    if matchedACL and matchedACL.topic == "POSITIONING_POSE":
+      topic_data = PubSub.parseTopic(currentTopic) or {}
+      source_id = topic_data.get("source_id")
+      if not source_id or not Cam.objects.filter(
+        sensor_id=source_id, scene__isnull=False
+      ).exists():
+        return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
+
     if matchedACL:
       if matchedACL.access == requestedAccess:
         return Response({'result': 'allow', 'acc': requestedAccess}, status=status.HTTP_200_OK)

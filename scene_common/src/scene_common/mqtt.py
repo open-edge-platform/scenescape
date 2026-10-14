@@ -41,6 +41,9 @@ class _Topic(Enum):
   DATA_CHILD_TRIPWIRES = auto()
   DATA_CHILD_ROIS = auto()
   DATA_CHILD_SENSORS = auto()
+  CMD_CAMERA_CONFIG = auto()
+  POSITIONING_POSE = auto()
+  POSITIONING_STATUS = auto()
 
 # Really gross way to put above constants directly into PubSub class
 class _PubSubTopicBase:
@@ -53,6 +56,7 @@ class PubSub(_PubSubTopicBase):
   _TopicTemplates = {
     _Topic.CHANNEL: Template(TOPIC_BASE + "/channel/${channel}"),
     _Topic.CMD_CAMERA: Template(TOPIC_BASE + "/cmd/camera/${camera_id}"),
+    _Topic.CMD_CAMERA_CONFIG: Template(TOPIC_BASE + "/cmd/camera/config/${camera_id}"),
     _Topic.CMD_DATABASE: Template(TOPIC_BASE + "/cmd/database"),
     _Topic.CMD_KUBECLIENT: Template(TOPIC_BASE + "/cmd/kubeclient"),
     _Topic.CMD_SCENE_UPDATE: Template(TOPIC_BASE + "/cmd/scene/update/${scene_id}"),
@@ -67,6 +71,8 @@ class PubSub(_PubSubTopicBase):
     _Topic.IMAGE_CALIBRATE: Template(TOPIC_BASE + "/image/calibration/camera/${camera_id}"),
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
     _Topic.POINTCLOUD_CAMERA: Template(TOPIC_BASE + "/pointcloud/camera/${camera_id}"),
+    _Topic.POSITIONING_POSE: Template(TOPIC_BASE + "/positioning/pose/${source_id}"),
+    _Topic.POSITIONING_STATUS: Template(TOPIC_BASE + "/positioning/status/${resolver_id}"),
     _Topic.SYS_CHILDSCENE_STATUS: Template(TOPIC_BASE + "/sys/child/status/${scene_id}"),
     _Topic.ANALYTICS_CLUSTERS: Template(TOPIC_BASE + "/analytics/clusters/${scene_id}"),
     _Topic.DATA_CHILD_TRIPWIRES: Template(TOPIC_BASE + "/data/child/tripwires/${scene_id}"),
@@ -145,6 +151,8 @@ class PubSub(_PubSubTopicBase):
     regex = re.escape(template)
     regex = regex.replace(r'\$\{thing_type\}', r'([^/]+)')
     regex = regex.replace(r'\$\{camera_id\}', r'([^/]+)')
+    regex = regex.replace(r'\$\{source_id\}', r'([^/]+)')
+    regex = regex.replace(r'\$\{resolver_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{scene_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{channel\}', r'([^/]+)')
     regex = regex.replace(r'\$\{scene_name\}', r'([^/]+)')

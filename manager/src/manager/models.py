@@ -38,7 +38,7 @@ from scene_common import log
 
 # FIXME - when entire app has transitioned to using APIs
 # move this definition to views.py
-def sendUpdateCommand(scene_id=None, camera_data=None):
+def sendUpdateCommand(scene_id=None, camera_data=None, camera_config_update=None):
   broker = os.environ.get("BROKER")
   auth = os.environ.get("BROKERAUTH")
   rootcert = os.environ.get("BROKERROOTCERT")
@@ -71,6 +71,12 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
 
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
+      if camera_config_update:
+        topic = PubSub.formatTopic(
+          PubSub.CMD_CAMERA_CONFIG, camera_id=camera_config_update['camera_id'])
+        client.publish(topic, json.dumps({
+          'calibration_version': camera_config_update['calibration_version']
+        }), qos=1)
       msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
       if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
         client.loopStart()
@@ -730,6 +736,7 @@ class Cam(Sensor):
                                             help_text="Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.")
   camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
                                      help_text="The camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once 'Use Camera Pipeline' is enabled and 'Save Camera' button is clicked. Please review and/or adjust it before applying.")
+  ptz_calibration = models.JSONField(default=None, null=True, blank=True)
   detection_labels = models.TextField(max_length=2000, null=True, blank=True,
                                    verbose_name="Detection Labels",
                                    help_text="Detection labels to use, one per line")
@@ -871,7 +878,13 @@ class Cam(Sensor):
 
     # Clear cache again after transaction commits to prevent concurrent requests from
     # repopulating with pre-commit DB state (handles ATOMIC_REQUESTS race condition)
-    transaction.on_commit(lambda: sendUpdateCommand(camera_data=self.cameraData('save')))
+    calibration = self.ptz_calibration or {}
+    camera_config_update = {
+      'camera_id': self.sensor_id,
+      'calibration_version': calibration.get('calibration_version'),
+    }
+    transaction.on_commit(lambda: sendUpdateCommand(
+      camera_data=self.cameraData('save'), camera_config_update=camera_config_update))
     transaction.on_commit(lambda: invalidate_scene_cache(self.scene, original_scene if scene_changed else None))
     return
 

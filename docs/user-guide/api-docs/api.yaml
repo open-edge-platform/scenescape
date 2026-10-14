@@ -2000,6 +2000,11 @@ components:
         resolution:
           type: object
           additionalProperties: {}
+        ptz_calibration:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Versioned PTZ calibration block validated against the Positioning v1 calibration contract.
         scene:
           type: string
           format: uuid
@@ -2818,6 +2823,7 @@ components:
       enum:
         - CHANNEL
         - CMD_CAMERA
+        - CMD_CAMERA_CONFIG
         - CMD_DATABASE
         - CMD_KUBECLIENT
         - CMD_SCENE_UPDATE
@@ -2831,12 +2837,15 @@ components:
         - EVENT
         - IMAGE_CALIBRATE
         - IMAGE_CAMERA
+        - POSITIONING_POSE
+        - POSITIONING_STATUS
         - SYS_CHILDSCENE_STATUS
         - ANALYTICS_CLUSTERS
       type: string
       description: |-
         * `CHANNEL` - CHANNEL
         * `CMD_CAMERA` - CMD_CAMERA
+        * `CMD_CAMERA_CONFIG` - CMD_CAMERA_CONFIG
         * `CMD_DATABASE` - CMD_DATABASE
         * `CMD_KUBECLIENT` - CMD_KUBECLIENT
         * `CMD_SCENE_UPDATE` - CMD_SCENE_UPDATE
@@ -2850,6 +2859,8 @@ components:
         * `EVENT` - EVENT
         * `IMAGE_CALIBRATE` - IMAGE_CALIBRATE
         * `IMAGE_CAMERA` - IMAGE_CAMERA
+        * `POSITIONING_POSE` - POSITIONING_POSE
+        * `POSITIONING_STATUS` - POSITIONING_STATUS
         * `SYS_CHILDSCENE_STATUS` - SYS_CHILDSCENE_STATUS
         * `ANALYTICS_CLUSTERS` - ANALYTICS_CLUSTERS
     TransformTypeEnum:

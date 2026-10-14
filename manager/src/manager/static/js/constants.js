@@ -49,12 +49,15 @@ export const TEXT_SIZE = 0.2;
 
 // Mqtt topics
 export const CMD_CAMERA = "/cmd/camera/";
+export const CMD_CAMERA_CONFIG = "/cmd/camera/config/";
 export const CMD_DATABASE = "/cmd/database";
 export const DATA_REGULATED = "/regulated/scene/";
 export const DATA_CAMERA = "/data/camera/";
 export const IMAGE_CAMERA = "/image/camera/";
 export const IMAGE_CALIBRATE = "/image/calibration/camera/";
 export const POINTCLOUD_CAMERA = "/pointcloud/camera/";
+export const POSITIONING_POSE = "/positioning/pose/";
+export const POSITIONING_STATUS = "/positioning/status/";
 export const SYS_CHILDSCENE_STATUS = "/sys/child/status";
 export const EVENT = "/event";
 
