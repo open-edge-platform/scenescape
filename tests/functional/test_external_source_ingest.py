@@ -398,7 +398,7 @@ class ExternalSourceIngest(FunctionalTest):
       assert self._findObject(source_id)["id"] == source_id
     return
 
-  def verifyPixelBoundingBoxForcesTracking(self):
+  def verifyPixelBoundingBoxPreservesIdWhenTrackFalse(self):
     source_object_id = "pixel-source-1"
     jdata = {
       "source_id": AGENT_SOURCE_ID,
@@ -427,10 +427,10 @@ class ExternalSourceIngest(FunctionalTest):
         },
       ],
     }
-    count = self.publishAndWait(jdata)
-    assert count, "External source pixel detection did not produce tracked output"
-    published_id, obj = self._findNonSourceObjectId({source_object_id})
-    assert published_id != source_object_id
+    assert self.publishAndWaitForIds(jdata, {source_object_id}), (
+      "External source pixel detection with track=false did not produce output")
+    obj = self._findObject(source_object_id)
+    assert obj["id"] == source_object_id
     assert "translation" in obj
     return
 
@@ -551,17 +551,17 @@ class ExternalSourceIngest(FunctionalTest):
       return translation_source_id in ids and has_pixel_marker
 
     assert self.publishAndWaitForObjects(jdata, _containsMixedObjects), (
-      "Mixed translation and tracked pixel objects did not appear in one scene snapshot")
+      "Mixed translation and pixel objects did not appear in one scene snapshot")
     published_ids = {obj.get("id") for obj in (self.lastObjects or [])}
     assert translation_source_id in published_ids
-    assert pixel_source_id not in published_ids
-    tracked_pixel_objects = [
+    assert pixel_source_id in published_ids
+    pixel_objects = [
       obj for obj in (self.lastObjects or [])
       if obj.get("metadata", {}).get("test_marker") == pixel_marker
     ]
-    assert tracked_pixel_objects, "Tracked pixel object missing from mixed scene output"
-    assert "translation" in tracked_pixel_objects[0]
-    self._verifyUUIDFormat(tracked_pixel_objects[0]["id"])
+    assert pixel_objects, "Pixel object missing from mixed scene output"
+    assert pixel_objects[0]["id"] == pixel_source_id
+    assert "translation" in pixel_objects[0]
     return
 
   def verifyUntrustedScenePoseRejected(self):
@@ -692,7 +692,7 @@ class ExternalSourceIngest(FunctionalTest):
     self.verifyPoseReuseFromCache()
     self.verifyUntrackedObjectPreservesId()
     self.verifySourceTrackFalseAppliesToAllObjects()
-    self.verifyPixelBoundingBoxForcesTracking()
+    self.verifyPixelBoundingBoxPreservesIdWhenTrackFalse()
     self.verifyPixelBoundingBoxWithRotationDerivedFromPose()
     self.verifyPixelBoundingBoxWithoutIntrinsicsRejected()
     self.verifyMixedTranslationAndPixelObjects()
