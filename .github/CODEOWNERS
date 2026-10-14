@@ -20,6 +20,7 @@ tests/                                                @sbelhaik @dpitulax @Filip
 .github/workflows/tests-all.yml                       @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @dmytroye @Irakus
 .github/workflows/tests-stability.yml                 @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @dmytroye @Irakus
 .github/workflows/tests-performance-degradation.yml   @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @dmytroye @Irakus
+.github/workflows/tracker-service.yml                 @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @dmytroye @Irakus
 .github/actions/setup-tests/                          @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @dmytroye @Irakus
 
 # documentation content
