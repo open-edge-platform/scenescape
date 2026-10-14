@@ -23,6 +23,7 @@ from controller.external_source import (
 from controller.scene_controller import SceneController
 from controller.moving_object import MovingObject
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
+from scene_common.reid_constants import REID_PROVENANCE_KEY
 from scene_common.transform import CameraPose
 
 
@@ -639,6 +640,39 @@ class TestExternalSourceTrackRouting:
     assert pixel_camera.pose.intrinsics is not None
     scene._finishProcessing.assert_called_once_with('person', 10.0, [pixel_moving_object], [])
     controller.identity_claim_registry.claim.assert_not_called()
+
+  def test_pixel_detection_strips_reid_provenance(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    scene._createMovingObjectsForDetection.return_value = [object()]
+    jdata = {
+      'source_id': 'drone-1',
+      'track': True,
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 3.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'intrinsics': {'fx': 905.0, 'fy': 905.0, 'cx': 640.0, 'cy': 360.0},
+      'objects': [{
+        'id': 'obj-1',
+        'category': 'person',
+        'bounding_box_px': {'x': 221, 'y': 157, 'width': 108, 'height': 259},
+        'metadata': {
+          'reid': {
+            'embedding_vector': [0.1, 0.2],
+            'model_name': 'test-reid',
+            REID_PROVENANCE_KEY: {'scene_id': 'other-scene'},
+          },
+        },
+      }],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    routed_objects = scene._createMovingObjectsForDetection.call_args[0][1]
+    assert REID_PROVENANCE_KEY not in routed_objects[0]['metadata']['reid']
+    assert routed_objects[0]['metadata']['reid']['embedding_vector'] == [0.1, 0.2]
 
   def test_pixel_detection_preserves_source_id_when_track_false(self):
     controller = self._makeController()

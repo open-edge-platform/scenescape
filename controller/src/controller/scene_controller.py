@@ -15,7 +15,7 @@ from scene_common.transform import CameraIntrinsics, CameraPose
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
-from controller.scene import Scene
+from controller.scene import Scene, stripReidProvenance
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mqtt import PubSub
@@ -774,6 +774,9 @@ class SceneController:
     pixel_moving_objects = []
     already_tracked_objects = []
     if routed_pixel_objects and synthetic_intrinsics is not None:
+      # Same camera-ingest gate: external pixel crops must not claim another
+      # scene already vetted the embedding provenance.
+      stripReidProvenance(routed_pixel_objects)
       scene._convertPixelBoundingBoxesToMeters(
         routed_pixel_objects,
         synthetic_intrinsics.intrinsics,

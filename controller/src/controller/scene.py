@@ -34,7 +34,7 @@ MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 
 def stripReidProvenance(detections):
   """
-  Remove claimed embedding provenance from detections arriving on a camera topic.
+  Remove claimed embedding provenance from pixel detections (camera or external).
 
   Provenance means "another scene vetted this crop with a pixel bbox before forwarding
   it". A detector is judged by the bbox it sends, so honoring such a claim from one
