@@ -104,7 +104,7 @@ def test_scenescape_installation(_k8s_manager, result_recorder):
 
 @pytest.mark.kubernetes_only
 @pytest.mark.test_name("NEX-T29218")
-def test_scenescape_helm_uninstall_cleans_resources(_k8s_manager, result_recorder):
+def test_scenescape_helm_uninstall_cleans_resources(_k8s_manager, result_recorder, tmp_path):
   """Verify Helm uninstall removes release-managed claims and model resources."""
   token = secrets.token_hex(4)
   release = f"cleanup-{token}"
@@ -112,19 +112,32 @@ def test_scenescape_helm_uninstall_cleans_resources(_k8s_manager, result_recorde
   kubeconfig = _k8s_manager.kubeconfig
   chart_path = str(Path(_k8s_manager._repo_root) / "kubernetes" / "scenescape-chart")
   test_password = secrets.token_hex(24)
+  # Credentials stay out of argv; the shared ingress path and fixed MQTT NodePort belong to the main release.
+  values_file = tmp_path / "cleanup-values.yaml"
+  values_file.write_text(
+    f'supass: "{test_password}"\n'
+    f'pgserver:\n'
+    f'  password: "{test_password}"\n'
+    f'ingress:\n'
+    f'  enabled: false\n'
+    f'mqttService:\n'
+    f'  nodePort:\n'
+    f'    enabled: false\n'
+  )
+  values_file.chmod(0o600)
   release_may_exist = True
 
   try:
-    subprocess.run(
+    install = subprocess.run(
       ["helm", "install", release, chart_path,
        "--namespace", namespace,
        "--create-namespace",
        "--kubeconfig", kubeconfig,
        "--timeout", "120s",
-       "--set-string", f"supass={test_password}",
-       "--set-string", f"pgserver.password={test_password}"],
-      capture_output=True, text=True, check=True,
+       "--values", str(values_file)],
+      capture_output=True, text=True, check=False,
     )
+    assert install.returncode == 0, f"Temporary release install failed:\n{install.stderr}"
 
     expected_pvcs = {
       f"{release}-datasets-pvc",
