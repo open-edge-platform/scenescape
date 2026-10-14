@@ -138,7 +138,7 @@ $(SECRETSDIR)/certs/%.key:
 	@echo Generating $*.key
 	@mkdir -p $(SECRETSDIR)/certs
 	@openssl ecparam -name secp384r1 -genkey -noout -out $@
-	@chmod 0600 $@
+	@chmod 0644 $@
 
 $(SECRETSDIR)/certs/%.csr: $(SECRETSDIR)/certs/%.key
 	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)" ; \

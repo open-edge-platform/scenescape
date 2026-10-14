@@ -16,7 +16,8 @@ only after a successful broker connection.
 
 Use `make positioning` to build the runtime image and `make init-secrets` to create
 the broker identity and `scenescape-positioning` client certificate/key. Start the
-service through the test Compose profile or the Helm chart. Both mount the CA,
+service with the Docker Compose `controller` or `tracker` profile (`make demo` /
+`make deploy`), the test Compose stack, or the Helm chart. All three mount the CA,
 client certificate, private key, and auth file read-only. The generated Manager account
 has read access to camera configuration invalidations and write access to resolver
 status, and it is not a superuser. The bundled Mosquitto configuration does not
@@ -24,8 +25,10 @@ enforce service credentials or topic ACLs; deployments requiring enforcement mus
 configure broker authentication and authorization as described in the
 [hardening guide](../../additional-resources/hardening-guide.md).
 
-Compose profiles that launch the Controller or Tracker also include the Positioning
-service through `tests/compose/compose.positioning.yml`.
+Demo and deploy Compose include Positioning with the `controller` and `tracker`
+profiles in `sample_data/compose/compose.dl-streamer-example.yml`. Test stacks that
+launch a Controller or Tracker also include it through
+`tests/compose/compose.positioning.yml`.
 
 ## Source Ownership
 
@@ -54,9 +57,9 @@ artifact volumes. Field runs export an equivalently named bundle from structured
 
 ## Deployments and Rollback
 
-Compose tests include the Positioning service only in profiles that launch a Scene
-Controller or Tracker. Helm installs it when `positioning.enabled=true`; it has one
-replica to preserve single-writer source ownership.
+Demo, deploy, and Compose tests include the Positioning service with the Scene
+Controller or Tracker profiles. Helm installs it when `positioning.enabled=true`; it
+has one replica to preserve single-writer source ownership.
 
 The current service publishes no pose and does not alter detections. Roll back by disabling
 the Positioning deployment. Later PTZ rollout rollback is per consumer: disable the
