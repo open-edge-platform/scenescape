@@ -2,19 +2,25 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Default Code Owners
-*                         @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik
-
+*                                       @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik
 
 # Tests content
 
-autocalibration/tests/    @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
-cluster_analytics/tests/  @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
-controller/tests/         @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
-manager/test/             @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
-mapping/tests/            @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
-tracker/test/             @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
-tests/                    @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+autocalibration/tests/                  @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+cluster_analytics/tests/                @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+controller/tests/                       @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+manager/test/                           @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+mapping/tests/                          @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+tracker/test/                           @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+tests/                                  @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel
+
+# Tests Github Actions
+
+.github/workflows/tests-bat.yml         @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @dmytroye @Irakus
+.github/workflows/tests-bat.yml         @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @dmytroye @Irakus
+.github/workflows/tests-stability.yml   @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @dmytroye @Irakus
+.github/actions/setup-tests/            @sbelhaik @dpitulax @FilipAdamus97 @saratpoluri @ltalarcz @tdorauintc @dmytroye @Irakus
 
 # documentation content
-/docs/                    @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
-**/README.md              @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
+/docs/                                  @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
+**/README.md                            @saratpoluri @ltalarcz @tdorauintc @MikolajKasprzak @dmytroye @Irakus @daddo-intel @sbelhaik @open-edge-platform/open-edge-platform-docs-write
