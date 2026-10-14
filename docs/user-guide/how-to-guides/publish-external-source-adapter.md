@@ -76,30 +76,40 @@ fields and examples; do not invent alternate shapes.
      [External Source Pose Fields](../microservices/controller/data_formats.md#external-source-pose-fields-pose).
 
 4. **Map each native observation** to an `objects[*]` entry with `category`
-   and `translation` in the **source's local frame** (relative to the source
-   origin described by `pose`). Include `id` whenever the top-level source
-   `track` value is `false`; when the top-level source `track` value is `true`
-   or omitted, `id` is optional. Optional `size`, `rotation`, `confidence`,
-   and `metadata` follow the same contract. See
+   and exactly one location form:
+   - **Cartesian**: `translation` in the **source's local frame** (metres
+     relative to the source origin described by `pose`).
+   - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
+     `translation`. Include top-level `pose` and `intrinsics` on that same
+     message (pose-cache reuse alone is not enough for pixel detections).
+   Do not put both `translation` and `bounding_box_px` on one object. Include
+   `id` whenever the top-level source `track` value is `false`; when `track`
+   is `true` or omitted, `id` is optional. Optional `size`, `rotation`,
+   `confidence`, and `metadata` follow the same contract. See
    [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
 
 5. **Choose whether the source message should be tracked by Scenescape**. The
-   top-level source `track` value applies to all objects in that message.
-   `track=false` preserves the source `id`, so keep those ids persistent and
-   unique within your source. See
+   top-level source `track` value applies to all objects in that message,
+   including pixel detections. `track=false` preserves the source `id`, so
+   keep those ids persistent and unique within your source. When `track` is
+   `true` or omitted, the controller assigns published track ids. See
    [Source-Identity Trust for Untracked Objects, with Collision Detection](../microservices/controller/data_formats.md#source-identity-trust-for-untracked-objects-with-collision-detection).
 
 6. **Resolve coordinate conventions in the converter**, not in the controller:
    - Quaternions are `(x, y, z, w)`.
    - Object `translation` is metres relative to the source local origin.
+   - Pixel boxes use camera pixel coordinates with message-level `intrinsics`
+     (and optional `distortion`).
    - Pose places that origin in either WGS84 (`lat_long_alt`) or scene-local
      (`translation`), matching `reference_frame`.
 
 ## Pose Reuse
 
-After a successful pose is cached for `(bound_scene_uid, source_id)`, later messages may
-omit `pose` and reuse the cached transform. A message with `pose` and an empty
-`objects` array refreshes the cache without ingesting observations.
+After a successful pose is cached for `(bound_scene_uid, source_id)`, later
+Cartesian messages may omit `pose` and reuse the cached transform. Pixel
+detections still require `pose` (and `intrinsics`) on the same message. A
+message with `pose` and an empty `objects` array refreshes the cache without
+ingesting observations.
 
 If no usable transform is available, or a pose fails trust/geo checks, the
 controller drops the message and logs a rejection reason. See
@@ -186,7 +196,9 @@ or certificates in the converter. Topic path uses `SOURCE_ID`; optional
 2. Confirm messages arrive on
    `scenescape/external/{publisher_id}/{thing_type}` (MQTT client or broker logs).
 3. Watch `scenescape/data/scene/{scene_id}/{thing_type}` (or the 3D UI) for
-   ingested objects whose `id` matches what the converter published.
+   ingested objects. With `track=false`, published `id` values should match
+   the converter's source ids. With `track=true` or omitted `track`, expect
+   controller-assigned track ids instead.
 4. If nothing appears, check Scene Controller logs for pose/identity rejection
    reasons listed under
    [Pose Caching and Message Ordering](../microservices/controller/data_formats.md#pose-caching-and-message-ordering).
