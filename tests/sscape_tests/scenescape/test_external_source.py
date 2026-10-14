@@ -603,7 +603,7 @@ class TestExternalSourceTrackRouting:
     controller = self._makeController()
     scene = self._makeScene()
     pixel_moving_object = object()
-    scene._createMovingObjectsForDetection.return_value = [pixel_moving_object]
+    scene.createMovingObjectsForDetection.return_value = [pixel_moving_object]
     pixel_pose = CameraPose({'translation': [1.0, 2.0, 3.0],
                              'rotation': [0.0, 0.0, 0.0, 1.0],
                              'scale': [1.0, 1.0, 1.0]}, None)
@@ -630,7 +630,7 @@ class TestExternalSourceTrackRouting:
 
     scene.processSceneData.assert_not_called()
     detection_type, routed_objects, when, pixel_camera = \
-      scene._createMovingObjectsForDetection.call_args[0]
+      scene.createMovingObjectsForDetection.call_args[0]
     assert detection_type == 'person'
     assert routed_objects[0]['id'] == 'tracked:drone-1:person:obj-1'
     assert routed_objects[0]['bounding_box_px']['x'] == 221
@@ -638,13 +638,13 @@ class TestExternalSourceTrackRouting:
     assert 'translation' not in routed_objects[0]
     assert when == 10.0
     assert pixel_camera.pose.intrinsics is not None
-    scene._finishProcessing.assert_called_once_with('person', 10.0, [pixel_moving_object], [])
+    scene.finishProcessing.assert_called_once_with('person', 10.0, [pixel_moving_object], [])
     controller.identity_claim_registry.claim.assert_not_called()
 
   def test_pixel_detection_strips_reid_provenance(self):
     controller = self._makeController()
     scene = self._makeScene()
-    scene._createMovingObjectsForDetection.return_value = [object()]
+    scene.createMovingObjectsForDetection.return_value = [object()]
     jdata = {
       'source_id': 'drone-1',
       'track': True,
@@ -670,7 +670,7 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    routed_objects = scene._createMovingObjectsForDetection.call_args[0][1]
+    routed_objects = scene.createMovingObjectsForDetection.call_args[0][1]
     assert REID_PROVENANCE_KEY not in routed_objects[0]['metadata']['reid']
     assert routed_objects[0]['metadata']['reid']['embedding_vector'] == [0.1, 0.2]
 
@@ -678,7 +678,7 @@ class TestExternalSourceTrackRouting:
     controller = self._makeController()
     scene = self._makeScene()
     pixel_moving_object = MagicMock()
-    scene._createMovingObjectsForDetection.return_value = [pixel_moving_object]
+    scene.createMovingObjectsForDetection.return_value = [pixel_moving_object]
     jdata = {
       'source_id': 'drone-1',
       'track': False,
@@ -698,9 +698,9 @@ class TestExternalSourceTrackRouting:
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
     scene.processSceneData.assert_not_called()
-    routed_objects = scene._createMovingObjectsForDetection.call_args[0][1]
+    routed_objects = scene.createMovingObjectsForDetection.call_args[0][1]
     assert routed_objects[0]['id'] == 'obj-1'
-    scene._finishProcessing.assert_called_once_with('person', 10.0, [], [pixel_moving_object])
+    scene.finishProcessing.assert_called_once_with('person', 10.0, [], [pixel_moving_object])
     controller.identity_claim_registry.claim.assert_called_once_with(
       'scene-1', 'person', 'drone-1', 'obj-1', 10.0)
 
@@ -711,7 +711,7 @@ class TestExternalSourceTrackRouting:
                              'rotation': [1.0, 0.0, 0.0, 0.0],
                              'scale': [1.0, 1.0, 1.0]}, None)
     controller.external_source_pose_cache.resolve.return_value = (pixel_pose, None)
-    scene._createMovingObjectsForDetection.side_effect = (
+    scene.createMovingObjectsForDetection.side_effect = (
       lambda category, objects, when, camera:
         [MovingObject(info, when, camera) for info in objects])
     jdata = {
@@ -732,7 +732,7 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    tracked_objects = scene._finishProcessing.call_args[0][3]
+    tracked_objects = scene.finishProcessing.call_args[0][3]
     assert len(tracked_objects) == 1
     tracked_objects[0].setGID(tracked_objects[0].oid)
     assert tracked_objects[0].gid == 'obj-1'
@@ -759,8 +759,8 @@ class TestExternalSourceTrackRouting:
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
     scene.processSceneData.assert_not_called()
-    scene._createMovingObjectsForDetection.assert_not_called()
-    scene._finishProcessing.assert_not_called()
+    scene.createMovingObjectsForDetection.assert_not_called()
+    scene.finishProcessing.assert_not_called()
 
   def test_pixel_detection_missing_pose_rejects_entire_message(self):
     controller = self._makeController()
@@ -785,17 +785,17 @@ class TestExternalSourceTrackRouting:
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
     scene.processSceneData.assert_not_called()
-    scene._createMovingObjectsForDetection.assert_not_called()
-    scene._createMovingObjectsForSceneData.assert_not_called()
-    scene._finishProcessing.assert_not_called()
+    scene.createMovingObjectsForDetection.assert_not_called()
+    scene.createMovingObjectsForSceneData.assert_not_called()
+    scene.finishProcessing.assert_not_called()
 
   def test_mixed_translation_and_pixel_objects_use_their_native_paths(self):
     controller = self._makeController()
     scene = self._makeScene()
     pixel_moving_object = MagicMock()
     translation_moving_object = object()
-    scene._createMovingObjectsForDetection.return_value = [pixel_moving_object]
-    scene._createMovingObjectsForSceneData.return_value = (
+    scene.createMovingObjectsForDetection.return_value = [pixel_moving_object]
+    scene.createMovingObjectsForSceneData.return_value = (
       [],
       [translation_moving_object],
     )
@@ -826,17 +826,17 @@ class TestExternalSourceTrackRouting:
 
     scene.processSceneData.assert_not_called()
     routed_jdata, source_ns, camera_pose = \
-      scene._createMovingObjectsForSceneData.call_args[0][:3]
+      scene.createMovingObjectsForSceneData.call_args[0][:3]
     assert [obj['id'] for obj in routed_jdata['objects']] == ['obj-translation']
     assert source_ns.retrack is False
     assert camera_pose.intrinsics is None
 
-    pixel_objects = scene._createMovingObjectsForDetection.call_args[0][1]
-    pixel_camera = scene._createMovingObjectsForDetection.call_args[0][3]
+    pixel_objects = scene.createMovingObjectsForDetection.call_args[0][1]
+    pixel_camera = scene.createMovingObjectsForDetection.call_args[0][3]
     assert pixel_objects[0]['id'] == 'obj-pixel'
     assert 'translation' not in pixel_objects[0]
     assert pixel_camera.pose.intrinsics is not None
-    scene._finishProcessing.assert_called_once_with(
+    scene.finishProcessing.assert_called_once_with(
       'person',
       10.0,
       [],
@@ -848,8 +848,8 @@ class TestExternalSourceTrackRouting:
     scene = self._makeScene()
     pixel_moving_object = object()
     translation_moving_object = object()
-    scene._createMovingObjectsForDetection.return_value = [pixel_moving_object]
-    scene._createMovingObjectsForSceneData.return_value = ([translation_moving_object], [])
+    scene.createMovingObjectsForDetection.return_value = [pixel_moving_object]
+    scene.createMovingObjectsForSceneData.return_value = ([translation_moving_object], [])
     jdata = {
       'source_id': 'drone-1',
       'track': True,
@@ -868,7 +868,7 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    assert scene._createMovingObjectsForSceneData.call_args[0][1].retrack is True
-    scene._finishProcessing.assert_called_once_with(
+    assert scene.createMovingObjectsForSceneData.call_args[0][1].retrack is True
+    scene.finishProcessing.assert_called_once_with(
       'person', 10.0, [pixel_moving_object, translation_moving_object], [])
     controller.identity_claim_registry.claim.assert_not_called()

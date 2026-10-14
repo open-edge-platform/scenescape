@@ -199,7 +199,7 @@ class Scene(SceneModel):
   def _get_pose_cache_ttl(self):
     return max(MIN_POSE_CACHE_TTL, self.max_unreliable_time * POSE_CACHE_TTL_MULTIPLIER)
 
-  def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
+  def createMovingObjectsForDetection(self, detectionType, detections, when, camera):
     objects = []
     scene_map_triangle_mesh = self.map_triangle_mesh
     scene_map_translation = self.mesh_translation
@@ -243,12 +243,12 @@ class Scene(SceneModel):
         when,
       )
       if "intrinsics" not in jdata:
-        self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
-      objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
-      self._finishProcessing(detection_type, when, objects)
+        self.convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
+      objects = self.createMovingObjectsForDetection(detection_type, detections, when, camera)
+      self.finishProcessing(detection_type, when, objects)
     return True
 
-  def _convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
+  def convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
     """
     Convert pixel bounding boxes to meters for a batch of objects, including nested sub_detections.
 
@@ -297,15 +297,15 @@ class Scene(SceneModel):
 
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
-    prepared = self._createMovingObjectsForSceneData(
+    prepared = self.createMovingObjectsForSceneData(
       jdata, child, cameraPose, detectionType, when)
     if prepared is None:
       return True
     objects, child_objects = prepared
-    self._finishProcessing(detectionType, when, objects, child_objects)
+    self.finishProcessing(detectionType, when, objects, child_objects)
     return True
 
-  def _createMovingObjectsForSceneData(self, jdata, child, cameraPose,
+  def createMovingObjectsForSceneData(self, jdata, child, cameraPose,
                                        detectionType, when=None):
     """Create moving objects from already-localized scene/source observations."""
 
@@ -353,7 +353,7 @@ class Scene(SceneModel):
 
     return objects, child_objects
 
-  def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
+  def finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     # Compute camera visibility for both retracked objects (fed into this
     # scene's own tracker) and already-tracked/retrack=False objects (merged
     # in as-is): both are published on this scene's output topics and can be

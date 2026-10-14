@@ -777,7 +777,7 @@ class SceneController:
       # Same camera-ingest gate: external pixel crops must not claim another
       # scene already vetted the embedding provenance.
       stripReidProvenance(routed_pixel_objects)
-      scene._convertPixelBoundingBoxesToMeters(
+      scene.convertPixelBoundingBoxesToMeters(
         routed_pixel_objects,
         synthetic_intrinsics.intrinsics,
         synthetic_intrinsics.distortion,
@@ -786,7 +786,7 @@ class SceneController:
         cameraID=source_id,
         pose=CameraPose(camera_pose.pose_mat, synthetic_intrinsics),
       )
-      created_pixel_objects = scene._createMovingObjectsForDetection(
+      created_pixel_objects = scene.createMovingObjectsForDetection(
         detection_type, routed_pixel_objects, msg_when, pixel_camera)
       if source_track is False:
         for pixel_object in created_pixel_objects:
@@ -812,7 +812,7 @@ class SceneController:
                                detection_type, when=msg_when)
         return True
 
-      prepared = scene._createMovingObjectsForSceneData(
+      prepared = scene.createMovingObjectsForSceneData(
         routed_jdata, routed_source, camera_pose, detection_type, when=msg_when)
       if prepared is not None:
         translation_moving_objects, translation_already_tracked_objects = prepared
@@ -820,7 +820,7 @@ class SceneController:
         already_tracked_objects.extend(translation_already_tracked_objects)
 
     if pixel_moving_objects or already_tracked_objects:
-      scene._finishProcessing(
+      scene.finishProcessing(
         detection_type,
         msg_when,
         pixel_moving_objects,
