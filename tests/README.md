@@ -227,7 +227,8 @@ pytest tests/sscape_tests
 ## Test isolation
 
 Tests that need their own data create it through the `scene_factory` fixture, which removes every
-scene and camera it created when the test ends:
+scene and camera it created when the test ends, and deletes any sensor still attached to a scene
+it created:
 
 ```python
 def test_something(scene_factory):
@@ -235,12 +236,16 @@ def test_something(scene_factory):
                         map_image="sample_data/HazardZoneScene.png", scale=100.0)
 ```
 
-Pass `replace=True` to delete any pre-existing scene or camera with the same
-name first, since `Scene.name`, `Sensor.name` and `Sensor.sensor_id` are unique.
+Pass `replace=True` when a pre-existing scene or camera with the same name may already exist
+(e.g. the seeded Demo scene), since `Scene.name`, `Sensor.name` and `Sensor.sensor_id` are unique.
+This renames the existing scene aside (restoring its name on teardown) and borrows its cameras
+rather than deleting them, so pre-existing data isn't lost.
 
 The `demo_scene` fixture is built on `scene_factory` and provides a freshly
 created `Demo` scene with `camera1`, `camera2` and `camera3`, so it is identical
-on every deployment backend. It returns the new scene UID.
+on every deployment backend. It returns the new scene UID, and confirms the
+scene controller's tracker for that scene is warmed up (see
+`tests/utils/scene_ready.py`) before returning it.
 
 Tests that mutate seeded data are responsible for cleaning up after themselves.
 

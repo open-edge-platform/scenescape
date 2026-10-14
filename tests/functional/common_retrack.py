@@ -113,6 +113,12 @@ class RetrackTest:
     assert child_links.statusCode == 200 and child_links['count'] == 1, \
       "Child-parent link not found after linking"
 
+    from tests.utils.scene_ready import wait_for_tracker_ready
+    if not wait_for_tracker_ready(self.params, self.parent_id, camera_id="camera1"):
+      log.warning(
+        f"setup_scenes: tracker for parent scene {self.parent_id} did not "
+        "confirm readiness; proceeding anyway")
+
   def teardown_scenes(self, rest_client):
     """! Unlink the child scene and delete the parent scene created for
     the test.  The Demo child scene is a fixture and is never deleted.

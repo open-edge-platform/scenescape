@@ -74,7 +74,7 @@ try:
   import utils.log as _testlog
   from utils import stream_subprocess
   from utils.containers import collect_logs, wait_for_services
-  from utils.scene_baseline import dumpdata_command, upload_baseline_scenes
+  from utils.scene_baseline import upload_baseline_scenes
   _ORCHESTRATION_AVAILABLE = True
 except ImportError:
   pass
@@ -640,14 +640,10 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
         controller_auth_path,
         scene_archives,
       )
-      logger.info("Snapshotting baseline database...")
-      docker.compose.execute(
-        "web", ["sh", "-c", dumpdata_command("$SCENESCAPE_HOME/manage.py")], tty=False)
     elif hierarchy_ports:
       # Hierarchy stacks run one Manager per role (parent/child1/child2), each
-      # needing its own baseline "Demo" scene. There is no bare "web" key here
-      # so restore_db() never applies to these profiles; a one-time upload at
-      # startup is enough.
+      # needing its own baseline "Demo" scene; a one-time upload at startup is
+      # enough since per-test isolation comes from scene_factory/demo_scene.
       for key in profile.wait_for:
         if not key.endswith("-web"):
           continue
@@ -1462,8 +1458,8 @@ def scene_factory(params):
     @param  replace     Rename a pre-existing scene with the same name aside
                         and restore its name on teardown.
                         Cameras are never deleted, only borrowed.
-    @param  fields      Extra fields forwarded to the scene create call.
-    """
+    @param  fields      Extra fields forwarded to the scene create call."""
+
     payload = {'name': name}
     payload.update(fields)
     if map_image:
@@ -1539,6 +1535,22 @@ def scene_factory(params):
       except Exception as exc:
         logger.warning("scene_factory could not delete camera %s: %s", uid, exc)
     for uid in reversed(created_scenes):
+      # Remove the sensors explicitly before deleting the scene.
+      try:
+        for sensor in _rest_results(rest.getSensors, {'scene': uid}):
+          sensor_uid = sensor.get('uid')
+          if not sensor_uid:
+            continue
+          try:
+            _await_database(
+              watcher, lambda sensor_uid=sensor_uid: rest.deleteSensor(sensor_uid),
+              f"deleting sensor {sensor_uid}")
+          except Exception as exc:
+            logger.warning("scene_factory could not delete sensor %s: %s",
+                           sensor_uid, exc)
+      except Exception as exc:
+        logger.warning("scene_factory could not list sensors for scene %s: %s",
+                       uid, exc)
       try:
         _await_database(watcher, lambda uid=uid: rest.deleteScene(uid),
                         f"deleting scene {uid}")
@@ -1589,6 +1601,15 @@ def demo_scene(request, scene_factory, params):
     scale=DEMO_SCENE_SCALE,
   )
   uid = scene['uid']
+
+  # Prove the controller's tracker for this scene is actually warmed up
+  # before handing the UID to the test.
+  from tests.utils.scene_ready import wait_for_tracker_ready
+  if not wait_for_tracker_ready(params, uid, camera_id=DEMO_SCENE_CAMERAS[0]):
+    logger.warning(
+      "demo_scene: tracker for scene '%s' (%s) did not confirm readiness; "
+      "proceeding anyway, test may need to retry on its own", uid,
+      params['scene_name'])
 
   previous_option = getattr(request.config.option, "scene_id", None)
   request.config.option.scene_id = uid

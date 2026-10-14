@@ -6,10 +6,9 @@
 Replaces the old EXAMPLEDB/testdb.tar.bz2 mechanism: instead of loading a
 Django fixture straight into the database, the fixture scenes under
 tests/resources/scenes are imported through the same REST API a real
-deployment uses (via tools/upload_scenes/uploader.py). The resulting rows are
-then snapshotted with `manage.py dumpdata` inside the web container, so that
-per-test restores stay a single `loaddata` call — the same cost as the old
-tar-based fixture.
+deployment uses (via tools/upload_scenes/uploader.py). Per-test isolation is
+provided by the `scene_factory`/`demo_scene` fixtures (tests/conftest.py),
+which create and tear down scenes/cameras per test via that same REST API.
 """
 
 import sys
@@ -35,10 +34,6 @@ SCENE_ARCHIVES = {
                          _RESOURCES_DIR / "Queuing" / "Queuing.zip"),
 }
 
-# Snapshot excludes rows recreated separately by scenescape-init/createuser
-# on every restore, and the transient upload bookkeeping record.
-BASELINE_PATH = "/tmp/scenescape_baseline.json"
-_DUMPDATA_EXCLUDES = ("manager.PubSubACL", "manager.SceneImport")
 _READY_TIMEOUT_SECONDS = 120
 
 
@@ -73,12 +68,3 @@ def upload_baseline_scenes(resturl, rootcert, auth_path, archive_keys):
       scene_uids[archive_path.parent.name] = uid
 
   return scene_uids
-
-
-def dumpdata_command(manage):
-  """Returns the shell command that snapshots the current DB to BASELINE_PATH.
-
-  @param    manage    path to manage.py inside the web container, e.g. "$SCENESCAPE_HOME/manage.py"
-  """
-  exclude_args = " ".join(f"-e {model}" for model in _DUMPDATA_EXCLUDES)
-  return f"python {manage} dumpdata manager {exclude_args} --indent 2 -o {BASELINE_PATH}"

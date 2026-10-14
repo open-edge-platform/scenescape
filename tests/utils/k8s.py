@@ -24,7 +24,7 @@ from python_on_whales import docker
 from pytest_kubernetes.providers.kind import KindManagerBase
 from pytest_kubernetes.options import ClusterOptions
 
-from tests.utils.scene_baseline import dumpdata_command, upload_baseline_scenes
+from tests.utils.scene_baseline import upload_baseline_scenes
 
 logger = logging.getLogger("test.k8s")
 
@@ -483,12 +483,6 @@ class K8sManager:
     resturl = f"https://web.scenescape.intel.com:{self.web_port}/api/v1"
     self._scene_uids = upload_baseline_scenes(
       resturl, self.cert_file, self.auth_file, scene_archives,
-    )
-    logger.info("Snapshotting baseline database...")
-    web_pod = _get_pod_name(self.kubeconfig, _NAMESPACE, f"{_RELEASE_NAME}-web")
-    _kubectl_exec(
-      self.kubeconfig, _NAMESPACE, web_pod,
-      dumpdata_command("$SCENESCAPE_HOME/manage.py"),
     )
     return
 
