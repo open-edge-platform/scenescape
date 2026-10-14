@@ -722,14 +722,17 @@ class SceneController:
 
     synthetic_intrinsics = None
     if pixel_objects:
-      if 'intrinsics' not in jdata:
+      # Match schema: pixel detections require pose and intrinsics on the same
+      # message. Reject the whole message rather than partially ingesting any
+      # co-packaged translation objects.
+      missing = [field for field in ('pose', 'intrinsics') if field not in jdata]
+      if missing:
         log.warning(
-          f"Discarding external pixel detections without intrinsics: "
-          f"source={source_id} scene={scene.uid}")
-        pixel_objects = []
-      else:
-        synthetic_intrinsics = CameraIntrinsics(
-          jdata['intrinsics'], jdata.get('distortion'))
+          f"Discarding external message with pixel detections missing "
+          f"{', '.join(missing)}: source={source_id} scene={scene.uid}")
+        return True
+      synthetic_intrinsics = CameraIntrinsics(
+        jdata['intrinsics'], jdata.get('distortion'))
 
     def _route_objects(indexed_objects):
       routed_objects = []

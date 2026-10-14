@@ -648,6 +648,11 @@ class TestExternalSourceTrackRouting:
     jdata = {
       'source_id': 'drone-1',
       'track': False,
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 3.0],
+        'rotation': IDENTITY_ROTATION,
+      },
       'intrinsics': {'fx': 905.0, 'fy': 905.0, 'cx': 640.0, 'cy': 360.0},
       'objects': [{
         'id': 'obj-1',
@@ -678,6 +683,11 @@ class TestExternalSourceTrackRouting:
     jdata = {
       'source_id': 'drone-1',
       'track': False,
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [0.0, 0.0, 3.0],
+        'rotation': IDENTITY_ROTATION,
+      },
       'intrinsics': {'fx': 905.0, 'fy': 905.0, 'cx': 640.0, 'cy': 360.0},
       'objects': [{
         'id': 'obj-1',
@@ -715,6 +725,35 @@ class TestExternalSourceTrackRouting:
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
     scene.processSceneData.assert_not_called()
+    scene._createMovingObjectsForDetection.assert_not_called()
+    scene._finishProcessing.assert_not_called()
+
+  def test_pixel_detection_missing_pose_rejects_entire_message(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    jdata = {
+      'source_id': 'drone-1',
+      'intrinsics': {'fx': 905.0, 'fy': 905.0, 'cx': 640.0, 'cy': 360.0},
+      'objects': [
+        {
+          'id': 'obj-translation',
+          'category': 'person',
+          'translation': [0, 0, 0],
+        },
+        {
+          'id': 'obj-pixel',
+          'category': 'person',
+          'bounding_box_px': {'x': 221, 'y': 157, 'width': 108, 'height': 259},
+        },
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    scene.processSceneData.assert_not_called()
+    scene._createMovingObjectsForDetection.assert_not_called()
+    scene._createMovingObjectsForSceneData.assert_not_called()
+    scene._finishProcessing.assert_not_called()
 
   def test_mixed_translation_and_pixel_objects_use_their_native_paths(self):
     controller = self._makeController()
@@ -780,6 +819,11 @@ class TestExternalSourceTrackRouting:
     jdata = {
       'source_id': 'drone-1',
       'track': True,
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 3.0],
+        'rotation': IDENTITY_ROTATION,
+      },
       'intrinsics': {'fx': 905.0, 'fy': 905.0, 'cx': 640.0, 'cy': 360.0},
       'objects': [
         {'id': 'obj-translation', 'category': 'person', 'translation': [0, 0, 0]},
