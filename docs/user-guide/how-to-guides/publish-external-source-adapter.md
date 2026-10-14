@@ -211,5 +211,5 @@ The adapter and this guide do **not** cover:
 - [ADR 16 — Unified External-Source Ingestion](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md)
 - [Integrate Cameras and Sensors](./integrate-cameras-and-sensors.md)
 - Example MAVLink adapter:
-  [`tools/external_source_adapters/`](../../../tools/external_source_adapters/README.md)
+  [`tools/external_source_adapters/`](https://github.com/open-edge-platform/scenescape/blob/main/tools/external_source_adapters/README.md)
   (`mavlink_to_external_source.py`)
