@@ -217,8 +217,6 @@ class TrackMatcher:
 
     self.stats = collections.Counter()
 
-  # ------------------------------------------------------------------ ingest
-
   def process_frame(self, observations: List[TrackObservation]):
     """Feed one scene-track message, then retire tracks no longer present."""
     present = set()
@@ -306,8 +304,6 @@ class TrackMatcher:
     for tid in pending:
       self._flush(tid)
 
-  # ------------------------------------------------------------------ gating
-
   def _stateFor(self, obs):
     state = self._tracks.get(obs.track_id)
     if state is not None:
@@ -380,8 +376,6 @@ class TrackMatcher:
     entry = self._pending.get(obs.track_id)
     if entry is not None:
       _append_unique(entry["reid_vectors"], obs.embedding)
-
-  # ------------------------------------------------------------------ query
 
   def _runQuery(self, obs, state, vectors, metadata):
     started = self.clock()
@@ -560,8 +554,6 @@ class TrackMatcher:
       if best is None or (value > best if is_higher_better_metric(metric) else value < best):
         best = value
     return best
-
-  # ------------------------------------------------------------------ write
 
   def _flush(self, track_id):
     """Port of UUIDManager._addNewFeaturesToDatabase."""

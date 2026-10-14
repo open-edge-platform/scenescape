@@ -162,8 +162,6 @@ class TrackIngest:
     self._last_stats_log = clock()
     self.pubsub = None
 
-  # --------------------------------------------------------------- routing
-
   def handle_message(self, topic, payload):
     parsed = parse_scene_topic(topic)
     if parsed is None:
@@ -237,8 +235,6 @@ class TrackIngest:
       self.stats["decision_publish_errors"] += 1
       log.error(f"[reid-ingest] failed to publish decision on {topic}: {err}")
 
-  # --------------------------------------------------------------- stats
-
   def snapshot(self):
     """Aggregate ingest + matcher counters (for the IngestStats RPC and logs)."""
     total = Counter(self.stats)
@@ -259,8 +255,6 @@ class TrackIngest:
       return
     self._last_stats_log = now
     _announce(f"[reid-ingest] stats {self.snapshot()['counters']}")
-
-  # --------------------------------------------------------------- MQTT
 
   def start(self, pubsub, topic=DEFAULT_TOPIC):
     """Subscribe on connect (so reconnects resubscribe) and start the loop."""
