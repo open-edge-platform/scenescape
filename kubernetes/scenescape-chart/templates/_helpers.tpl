@@ -97,8 +97,10 @@ meta.helm.sh/release-name: {{ .Release.Name }}
 meta.helm.sh/release-namespace: {{ .Release.Namespace }}
 {{- end }}
 
+{{/* Bump jobTemplateRevision when changing the model Job's Pod template. */}}
 {{- define "modelDownload.configHash" -}}
 {{- dict
+  "jobTemplateRevision" 2
   "modelDownload" .Values.modelDownload
   "imagePullSecrets" .Values.imagePullSecrets
   "httpProxy" .Values.httpProxy

@@ -381,12 +381,9 @@ class K8sManager:
   def _generate_values_file(self):
     """Generate a Helm values.yaml for the test deployment.
 
-    Hooks are always enabled so that model-installer runs as a pre-install
-    hook (before web/kubeclient start). Scenes and cameras are no longer
-    preloaded from an example DB; they are uploaded over REST once web and
-    kubeclient are ready (see _upload_baseline_scenes()).
-    When models are pre-loaded on the PVC, model-installer skips
-    downloads (checks if dirs already exist) so it completes quickly.
+    Model preparation runs in a release-managed Job; the web Deployment waits
+    for its completion marker. Scenes and cameras are uploaded over REST once
+    web and kubeclient are ready (see _upload_baseline_scenes()).
     """
     tmp_dir = self._tmp_path_factory.mktemp("k8s_helm")
     values_file = tmp_dir / "values.yaml"

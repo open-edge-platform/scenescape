@@ -83,6 +83,9 @@ If you already have a Kubernetes cluster you can use the Helm chart directly.
 
 1. Install [Cert Manager](https://cert-manager.io/) in your cluster.
 
+The chart requires Kubernetes 1.32 or newer so Helm uninstall removes the
+PostgreSQL StatefulSet's PVC as well as the chart's standalone PVC resources.
+
 2. Copy common scripts to chart folder:
 
 ```sh
