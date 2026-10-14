@@ -357,7 +357,9 @@ class SensorMqttMessageFlowTest(FunctionalTest):
     event_sensor_names = ['circle_env_sensor', 'poly_env_sensor', 'cleanup_env_sensor']
     sensorsReceived = [name for name in event_sensor_names if 'received' in self.sensors[name]]
     assert len(sensorsReceived) == len(event_sensor_names), (
-      "Expected region sensor events", sensorsReceived, event_sensor_names
+      "Expected region sensor events", sensorsReceived, event_sensor_names,
+      f"regionEvents keys={list(self.regionEvents.keys())}",
+      f"cleanupUpdateTimes={self.cleanupUpdateTimes}",
     )
 
     for sensor_name in event_sensor_names:

@@ -37,6 +37,11 @@ def test_scenes_summary_main(demo_scene, params, record_xml_attribute):
     scene_name_1 = "Scene-1"
     scale = 1000
     map_image = os.path.join(common.TEST_MEDIA_PATH, "SampleJpegMap.jpeg")
+
+    browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(1) > .nav-link").click()
+    scenes_before = [el.text for el in browser.find_elements(By.CLASS_NAME, "card-header")]
+    print(f"Scenes visible before creation: {scenes_before}")
+
     print("Creating Scene " + scene_name_1)
     assert common.create_scene(browser, scene_name_1, scale, map_image)
 
@@ -47,7 +52,8 @@ def test_scenes_summary_main(demo_scene, params, record_xml_attribute):
     nr_scenes = len(scene_names)
     print(f"The page shows {nr_scenes} scenes: {scene_names}")
     assert scene_name_0 in scene_names and scene_name_1 in scene_names
-    assert nr_scenes == 2
+    assert nr_scenes == len(scenes_before) + 1, (
+      f"Expected exactly one new scene, before={scenes_before}, after={scene_names}")
     print("Test conditions met, deleting " + scene_name_1)
     exit_code = 0
 

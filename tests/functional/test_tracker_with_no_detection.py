@@ -21,7 +21,6 @@ import threading
 import time
 
 from scene_common.mqtt import PubSub
-from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
@@ -182,16 +181,9 @@ def test_tracker_objects_drop_to_zero_with_empty_detections(
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
   client = None
-  rest_client = None
 
   try:
-    rest_client = RESTClient(params['resturl'], rootcert=params['rootcert'])
-    assert rest_client.authenticate(params['user'], params['password'])
-
-    scenes = rest_client.getScenes({'name': params['scene_name']})
-    assert scenes['count'] > 0, \
-      f"Scene '{params['scene_name']}' not found"
-    scene_id = scenes['results'][0]['uid']
+    scene_id = demo_scene
     log.info(f"Using scene '{params['scene_name']}' uid={scene_id}")
 
     reg_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_id)

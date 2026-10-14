@@ -167,23 +167,31 @@ def delete_object_library(browser, object_name):
   print('Object Library asset "{0}" deleted!'.format(object_name))
   return True
 
-def delete_scene(browser, scene_name):
+def delete_scene(browser, scene_name, timeout=10):
   """! Delete named Scenescape scene.
   @param    browser                    Object wrapping the Selenium driver.
   @param    scene_name                 Name of the scene to be deleted.
+  @param    timeout                    Seconds to wait for the deletion to complete.
   @return   bool                       Boolean representing success.
   """
+  wait = WebDriverWait(browser, timeout)
   browser.find_element(By.ID, "nav-scenes").click()
-  time.sleep(1)
-  browser.find_element(By.NAME, scene_name).find_element(By.NAME, "Delete",).click()
-  time.sleep(1)
-  print("Confirmation appeared: " + str(browser.find_element(By.XPATH, "//*[@type = 'submit']").get_attribute("value")))
-  browser.find_element(By.XPATH, "//*[@type = 'submit']").click()
-  time.sleep(1)
-  if scene_name not in browser.page_source:
-    print(scene_name + " deleted")
-    return True
-  return False
+  cards = wait.until(
+    lambda b: [c for c in b.find_elements(By.CSS_SELECTOR, '.card[name]')
+              if c.get_attribute("name") == scene_name] or False)
+  cards[-1].find_element(By.NAME, "Delete").click()
+  submit = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@type = 'submit']")))
+  print("Confirmation appeared: " + str(submit.get_attribute("value")))
+  submit.click()
+  try:
+    wait.until(
+      lambda b: not [c for c in b.find_elements(By.CSS_SELECTOR, '.card[name]')
+                    if c.get_attribute("name") == scene_name])
+  except TimeoutException:
+    print(f"Error while deleting scene: {scene_name!r} still present after {timeout}s")
+    return False
+  print(scene_name + " deleted")
+  return True
 
 def take_screenshot(browser, element, path):
   """! Function to take a screenshot of the requested element.
@@ -2010,7 +2018,7 @@ class InteractWithPage(ABC):
       upload_success = True
       print(check_str_root + "Passed")
     else:
-      print(check_str_root + "Failed")
+      print(check_str_root + f"Failed: file_url={file_url!r} tmp_files={tmp_files}")
     return upload_success
 
   def check_screenshots_differ(self) -> bool:
@@ -2064,7 +2072,9 @@ class InteractWithPage(ABC):
       upload_success = True
       print(check_str_root + "Passed")
     else:
-      print(check_str_root + "Failed")
+      print(check_str_root + f"Failed: navigate_success={navigate_success} "
+           f"page_file_name={page_file_name!r} expected={self.interaction_params.file_name!r} "
+           f"current_url={self.browser.current_url!r}")
     return upload_success
 
   def check_successful_interaction(self, checks: CheckInteraction) -> bool:
@@ -2194,8 +2204,12 @@ class InteractWithSceneUpdate(InteractWithPage):
     upload_success = False
     correct_address = self.upload_file()
 
-    # Wait for redirect to resolve back to the Scenes page
-    selenium_wait_for_elements(self.browser, (By.LINK_TEXT, "+ New Scene"), 5)
+    # Wait for redirect to resolve back to the Scenes page. 3D assets (.glb)
+    # can take longer to process server-side (mesh validation, thumbnail
+    # generation) than flat image uploads, so allow more time here.
+    redirected = selenium_wait_for_elements(self.browser, (By.LINK_TEXT, "+ New Scene"), 15)
+    if not redirected:
+      print(f"Timed out waiting for redirect after upload; current_url={self.browser.current_url!r}")
     successful_checks = self.check_successful_interaction(checks)
     if successful_checks and correct_address:
       upload_success = True

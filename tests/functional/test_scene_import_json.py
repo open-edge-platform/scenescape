@@ -54,6 +54,10 @@ class SceneControllerImportJSON(FunctionalTest):
     self.sceneData = json.loads(data)
     return
 
+  def anySceneMessageReceived(self, pahoClient, userdata, message):
+    log.info(f"Observed scene topic message: {message.topic}")
+    return
+
   def runTest(self):
     """Checks that JSON file is a valid data source when database is inaccessible
 
@@ -80,7 +84,10 @@ class SceneControllerImportJSON(FunctionalTest):
       topic_scene = PubSub.formatTopic(PubSub.DATA_SCENE,
                                        scene_id=self.sceneUID,
                                        thing_type=PERSON)
+      log.info(f"Subscribing for scene UID {self.sceneUID!r} on topic {topic_scene!r}")
       self.pubsub.addCallback(topic_scene, self.sceneReceived)
+      wildcard_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id="+", thing_type="+")
+      self.pubsub.addCallback(wildcard_topic, self.anySceneMessageReceived)
 
       log.info("Sending detections for scene messages to appear.")
       objLocation = self.getLocations()
