@@ -217,7 +217,7 @@ function uses3dGeometry(personId) {
   if (loadMode !== "mixed") {
     return false;
   }
-  return (personId % 100) < mixed3dRatio * 100;
+  return personId % 100 < mixed3dRatio * 100;
 }
 
 function makeBoundingBox(movementState) {
@@ -232,8 +232,8 @@ function makeBoundingBox(movementState) {
 function pixelToGround(pixelX, pixelY) {
   // Load-test cameras use [0, 0, 50] translation and [-180, 0, 0] rotation.
   return {
-    x: (pixelX - CAMERA_CX) * CAMERA_HEIGHT_M / CAMERA_FX,
-    y: -(pixelY - CAMERA_CY) * CAMERA_HEIGHT_M / CAMERA_FY,
+    x: ((pixelX - CAMERA_CX) * CAMERA_HEIGHT_M) / CAMERA_FX,
+    y: (-(pixelY - CAMERA_CY) * CAMERA_HEIGHT_M) / CAMERA_FY,
   };
 }
 
@@ -243,9 +243,15 @@ function sensorMeasurementForBoundingBox(bbox) {
   const bottomRight = pixelToGround(bbox.x + bbox.width, bbox.y + bbox.height);
   const topLeft = pixelToGround(bbox.x, bbox.y);
 
-  const width = Math.hypot(bottomRight.x - bottomLeft.x, bottomRight.y - bottomLeft.y);
+  const width = Math.hypot(
+    bottomRight.x - bottomLeft.x,
+    bottomRight.y - bottomLeft.y,
+  );
   const cameraToTopLeft = Math.hypot(topLeft.x, topLeft.y, CAMERA_HEIGHT_M);
-  const topToBottom = Math.hypot(topLeft.x - bottomLeft.x, topLeft.y - bottomLeft.y);
+  const topToBottom = Math.hypot(
+    topLeft.x - bottomLeft.x,
+    topLeft.y - bottomLeft.y,
+  );
   const elevation = Math.atan2(CAMERA_HEIGHT_M, cameraToTopLeft);
   const height = Math.sin(elevation) * topToBottom;
 
@@ -265,7 +271,9 @@ function sensorMeasurementForBoundingBox(bbox) {
 
 function detectionGeometryForMovement(movementState, use3d) {
   const bbox = makeBoundingBox(movementState);
-  return use3d ? sensorMeasurementForBoundingBox(bbox) : { bounding_box_px: bbox };
+  return use3d
+    ? sensorMeasurementForBoundingBox(bbox)
+    : { bounding_box_px: bbox };
 }
 
 function createDetection(personId, movementState) {

@@ -132,20 +132,20 @@ The hardware section helps reproduce results across machines. The per-stage brea
 
 All parameters are environment-variable driven:
 
-| Variable          | Default                       | Description                         |
-| ----------------- | ----------------------------- | ----------------------------------- |
-| `NUM_CAMERAS`     | 4                             | Simulated camera count              |
-| `FPS`             | 15                            | Frames per second per camera        |
-| `NUM_OBJECTS`     | 300                           | Detections per message              |
-| `DURATION`        | 1m                            | Nominal test duration (SLI window)  |
-| `LOAD_MODE`       | 2d                            | `2d`, `3d`, or `mixed` geometry     |
+| Variable          | Default                       | Description                                         |
+| ----------------- | ----------------------------- | --------------------------------------------------- |
+| `NUM_CAMERAS`     | 4                             | Simulated camera count                              |
+| `FPS`             | 15                            | Frames per second per camera                        |
+| `NUM_OBJECTS`     | 300                           | Detections per message                              |
+| `DURATION`        | 1m                            | Nominal test duration (SLI window)                  |
+| `LOAD_MODE`       | 2d                            | `2d`, `3d`, or `mixed` geometry                     |
 | `MIXED_3D_RATIO`  | 0.5                           | Fraction of mixed-mode detections using 3D geometry |
-| `LATENCY_P50_MS`  | 1000/FPS                      | p50 warning: 1 chunk period (ms)    |
-| `LATENCY_P99_MS`  | 2000/FPS                      | p99 warning: 2 chunk periods (ms)   |
-| `THROUGHPUT_MIN`  | cameras × FPS × 0.95          | Minimum sustained msg/s             |
-| `DROP_MAX_RATIO`  | 0.001                         | Maximum allowed drop ratio          |
-| `PROMETHEUS_URL`  | http://localhost:8889/metrics | OTel Collector endpoint             |
-| `METRICS_TIMEOUT` | 30                            | Seconds to wait for stable counters |
+| `LATENCY_P50_MS`  | 1000/FPS                      | p50 warning: 1 chunk period (ms)                    |
+| `LATENCY_P99_MS`  | 2000/FPS                      | p99 warning: 2 chunk periods (ms)                   |
+| `THROUGHPUT_MIN`  | cameras × FPS × 0.95          | Minimum sustained msg/s                             |
+| `DROP_MAX_RATIO`  | 0.001                         | Maximum allowed drop ratio                          |
+| `PROMETHEUS_URL`  | http://localhost:8889/metrics | OTel Collector endpoint                             |
+| `METRICS_TIMEOUT` | 30                            | Seconds to wait for stable counters                 |
 
 ## Simulation Model
 
