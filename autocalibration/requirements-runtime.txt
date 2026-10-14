@@ -3,8 +3,6 @@
 # This file is licensed under Apache 2.0 License.
 
 addict==2.4.0
-intel-openmp==2025.2.0
-intel_extension_for_pytorch==2.7.0
 kornia==0.8.1
 kubernetes==33.1.0
 numpy==1.26.4
@@ -18,5 +16,5 @@ scipy==1.15.3
 torch==2.7.1+cpu
 torchvision==0.22.1+cpu
 trimesh==4.7.4
-flask-socketio==5.3.6
+flask-socketio==5.5.1
 eventlet==0.35.2

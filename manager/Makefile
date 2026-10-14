@@ -10,6 +10,7 @@ JSLIBDIR = src/static
 CURL_FLAGS = --connect-timeout 5 --max-time 120 --retry 5 --retry-delay 0
 FORCE_VAAPI ?= 0
 THREEJS_VERSION = 168
+OPENCV_JS_VERSION = 4.x
 SECRETSDIR ?= ./secrets
 
 include ../common.mk
@@ -188,9 +189,9 @@ $(JSLIBDIR)/assets/ProjectedMaterial.module.js:
 	  &&  sed "s,'three','/static/assets/three.module.js'," $@ > temp.js && mv temp.js $@
 
 $(JSLIBDIR)/assets/opencv.js:
-	URL=https://docs.opencv.org/4.10.0 && PKG=$$(basename $@) \
+	URL=https://docs.opencv.org/$(OPENCV_JS_VERSION) && PKG=$$(basename $@) \
 	  && echo "$${URL}/$${PKG}" >> $(BUILD_DIR)/$(IMAGE)-downloaded-deps.txt \
-	  && curl $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
+	  && curl -f $(CURL_FLAGS) --location --create-dirs --output $@ $${URL}/$${PKG}
 
 $(JSLIBDIR)/assets/doxygen-awesome.css:
 	URL=https://raw.githubusercontent.com/jothepro/doxygen-awesome-css/main && PKG=$$(basename $@) \

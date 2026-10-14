@@ -94,8 +94,10 @@ const waitUntil = (condition, checkInterval, maxWaitTime) => {
 };
 
 function initializeOpencv() {
-  return new Promise((resolve) => {
-    if (cv.getBuildInformation?.() !== undefined) {
+  return new Promise((resolve, reject) => {
+    if (typeof cv === "undefined") {
+      reject(new Error("OpenCV.js did not load"));
+    } else if (cv.getBuildInformation?.() !== undefined) {
       // Already loaded
       resolve(true);
     } else {
