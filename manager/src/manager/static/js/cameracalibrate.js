@@ -175,9 +175,12 @@ export class ConvergedCameraCalibration {
         viewport.renderer.domElement.addEventListener("dblclick", (event) => {
           this.calculateCalibrationIntrinsics();
         });
-        viewport.renderer.domElement.addEventListener("contextmenu", (event) => {
-          this.calculateCalibrationIntrinsics();
-        });
+        viewport.renderer.domElement.addEventListener(
+          "contextmenu",
+          (event) => {
+            this.calculateCalibrationIntrinsics();
+          },
+        );
         viewport.renderer.domElement.addEventListener("mousemove", (event) => {
           if (viewport.isDragging) {
             this.projectionEnabled = false;
@@ -412,8 +415,16 @@ export class ConvergedCameraCalibration {
     this.camCanvas.calibrationUpdated = true;
     this.viewport.calibrationUpdated = true;
     const cameraMatrix = [
-      [parseFloat($("#id_intrinsics_fx").val()), 0, parseFloat($("#id_intrinsics_cx").val())],
-      [0, parseFloat($("#id_intrinsics_fy").val()), parseFloat($("#id_intrinsics_cy").val())],
+      [
+        parseFloat($("#id_intrinsics_fx").val()),
+        0,
+        parseFloat($("#id_intrinsics_cx").val()),
+      ],
+      [
+        0,
+        parseFloat($("#id_intrinsics_fy").val()),
+        parseFloat($("#id_intrinsics_cy").val()),
+      ],
       [0, 0, 1],
     ];
     const distCoeffs = [
@@ -426,11 +437,18 @@ export class ConvergedCameraCalibration {
     this.getCameraPositionAndRotation(cameraMatrix, distCoeffs);
   }
 
-  setCalibrationFitStatus(message, rejectedNames, highErrorNames, geometryWarnings = []) {
+  setCalibrationFitStatus(
+    message,
+    rejectedNames,
+    highErrorNames,
+    geometryWarnings = [],
+  ) {
     const diagnostics = document.getElementById("calibration-diagnostics");
     const summary = document.getElementById("calibration-fit-summary");
     const guidance = document.getElementById("calibration-geometry-guidance");
-    const warningList = document.getElementById("calibration-geometry-warnings");
+    const warningList = document.getElementById(
+      "calibration-geometry-warnings",
+    );
     const details = document.getElementById("calibration-fit-details");
     const errors = document.getElementById("calibration-point-errors");
     if (!diagnostics || !summary) {
@@ -459,7 +477,10 @@ export class ConvergedCameraCalibration {
     if (errors) {
       errors.replaceChildren();
     }
-    this.camCanvas.setCalibrationPointDiagnostics(rejectedNames, highErrorNames);
+    this.camCanvas.setCalibrationPointDiagnostics(
+      rejectedNames,
+      highErrorNames,
+    );
     this.viewport.setCalibrationPointDiagnostics(rejectedNames, highErrorNames);
   }
 
@@ -488,12 +509,14 @@ export class ConvergedCameraCalibration {
     let message;
 
     if (response.rejectionApplied) {
-      message = `${response.fitPointCount} of ${total} point pairs used in fit; ` +
+      message =
+        `${response.fitPointCount} of ${total} point pairs used in fit; ` +
         `${rejectedNames.length} rejected by RANSAC (${safeThreshold.toFixed(1)} px threshold).`;
     } else if (response.rejectionRequested) {
-      message = response.ransacInlierCount === null
-        ? `RANSAC could not estimate a usable inlier set; all ${response.fitPointCount} point pairs were used in the fit.`
-        : `RANSAC found only ${response.ransacInlierCount} usable point pairs; at least ${CALIBRATION_MIN_POINTS_FOR_FIT} are needed. All ${response.fitPointCount} pairs were used in the fit.`;
+      message =
+        response.ransacInlierCount === null
+          ? `RANSAC could not estimate a usable inlier set; all ${response.fitPointCount} point pairs were used in the fit.`
+          : `RANSAC found only ${response.ransacInlierCount} usable point pairs; at least ${CALIBRATION_MIN_POINTS_FOR_FIT} are needed. All ${response.fitPointCount} pairs were used in the fit.`;
     } else {
       message = `Outlier rejection is off; all ${response.fitPointCount} point pairs were used in the fit.`;
     }
@@ -547,7 +570,9 @@ export class ConvergedCameraCalibration {
     const diagnostics = document.getElementById("calibration-diagnostics");
     const summary = document.getElementById("calibration-fit-summary");
     const guidance = document.getElementById("calibration-geometry-guidance");
-    const warningList = document.getElementById("calibration-geometry-warnings");
+    const warningList = document.getElementById(
+      "calibration-geometry-warnings",
+    );
     const details = document.getElementById("calibration-fit-details");
     const errors = document.getElementById("calibration-point-errors");
     this.clearCalibrationPointDiagnostics();

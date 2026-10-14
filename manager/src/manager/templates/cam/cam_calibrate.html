@@ -141,7 +141,12 @@ SPDX-License-Identifier: Apache-2.0
           </div>
           {% if caminst.scene.thumbnail or caminst.scene.map %}
             <div id="calibration-diagnostics" class="mt-2" hidden>
-              <section id="calibration-fit-status" class="alert alert-secondary mb-2" role="status" aria-live="polite">
+              <section
+                id="calibration-fit-status"
+                class="alert alert-secondary mb-2"
+                role="status"
+                aria-live="polite"
+              >
                 <div id="calibration-fit-summary"></div>
                 <small class="d-block mt-1">
                   <span
@@ -151,16 +156,26 @@ SPDX-License-Identifier: Apache-2.0
                     >✕</span
                   >
                   rejected by RANSAC.
-                  <span class="badge bg-light text-dark border">White ring</span> residual above threshold
-                  (dashed in the camera view).
+                  <span class="badge bg-light text-dark border"
+                    >White ring</span
+                  >
+                  residual above threshold (dashed in the camera view).
                 </small>
                 <details id="calibration-fit-details" class="mt-1" hidden>
                   <summary>Point reprojection details</summary>
                   <ul id="calibration-point-errors" class="mb-0"></ul>
                 </details>
               </section>
-              <section id="calibration-geometry-guidance" class="alert alert-warning mb-0" role="status" aria-live="polite" hidden>
-                <strong id="calibration-geometry-heading">Action needed: improve point layout</strong>
+              <section
+                id="calibration-geometry-guidance"
+                class="alert alert-warning mb-0"
+                role="status"
+                aria-live="polite"
+                hidden
+              >
+                <strong id="calibration-geometry-heading"
+                  >Action needed: improve point layout</strong
+                >
                 <ul id="calibration-geometry-warnings" class="mb-0 mt-1"></ul>
               </section>
             </div>
