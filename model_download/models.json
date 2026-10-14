@@ -22,6 +22,24 @@
     },
     {
       "model_downloader": {
+        "name": "OpenVINO/yolox_s-int8-ov",
+        "hub": "huggingface"
+      },
+      "scenescape": {
+        "name": "yolox_s-int8",
+        "config": {
+          "type": "detect",
+          "params": {
+            "model": "huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml"
+          },
+          "adapter-params": {
+            "metadatagenpolicy": "detectionPolicy"
+          }
+        }
+      }
+    },
+    {
+      "model_downloader": {
         "name": "person-detection-retail-0013",
         "hub": "omz"
       },
