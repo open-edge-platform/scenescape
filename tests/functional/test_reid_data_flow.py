@@ -173,7 +173,7 @@ def setup_test_environment(params, scene_uid):
 
   # Wait for the configured ReID backend to be ready
   log.info("Waiting for ReID backend to be ready...")
-  backend_ready = wait_for_reid_backend_ready(use_tls=False, max_attempts=30, retry_interval=1)
+  backend_ready = wait_for_reid_backend_ready(use_tls=True, max_attempts=30, retry_interval=1)
   assert backend_ready, "ReID backend failed to become ready within timeout"
   log.info("ReID backend is ready")
 

@@ -111,7 +111,10 @@ class CacheManager:
           if epoch != self._cache_epoch:
             # invalidate() superseded this fetch, so its results are stale.
             return
-          self._applySceneResults(found)
+          retired = self._applySceneResults(found)
+        # Joining a tracker waits for its queue to drain.
+        for scene, clear_registries in retired:
+          self._teardownScene(scene, clear_registries=clear_registries)
         return
       finally:
         with self._lock:
@@ -119,7 +122,12 @@ class CacheManager:
           self._refresh_done.notify_all()
 
   def _applySceneResults(self, found):
-    """Apply fetched scene results. Caller must hold self._lock."""
+    """Apply fetched scene results. Caller must hold self._lock.
+
+    @return  list of (scene, clear_registries) for previous Scene instances
+             that were replaced; the caller tears them down after releasing
+             the lock.
+    """
     if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
       self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
@@ -170,13 +178,23 @@ class CacheManager:
         self._cached_scenes_by_sensorID[sensorID] = scene
       self.cached_scenes_by_uid[scene.uid] = scene
 
+    live = {id(scene) for scene in self.cached_scenes_by_uid.values()}
+    live_names = {getattr(scene, 'name', None)
+                  for scene in self.cached_scenes_by_uid.values()}
+    retired = []
+    for old_scene in (getattr(self, '_old_scene_cache', None) or {}).values():
+      if old_scene is not None and id(old_scene) not in live:
+        retired.append(
+          (old_scene, getattr(old_scene, 'name', None) not in live_names))
+
     # Clear old scene cache after processing all scenes
     if hasattr(self, '_old_scene_cache'):
       self._old_scene_cache = None
 
     self._cache_refreshed = get_epoch_time()
+    return retired
 
-  def _teardownScene(self, scene):
+  def _teardownScene(self, scene, clear_registries=True):
     """
     Fully tear down a Scene that has been deleted (no longer present in the
     data source). Stops its tracker thread(s) -- which in turn shuts down
@@ -189,11 +207,15 @@ class CacheManager:
 
     @param  scene  The Scene instance being removed, or None (safe no-op --
                    pop(uid, None) returns None if uid was somehow already gone)
+    @param  clear_registries  False when a live scene already uses the same
+                   name, so its registry entries must be kept.
     """
     if scene is None:
       return
     if getattr(scene, "tracker", None) is not None:
       scene.tracker.join()
+    if not clear_registries:
+      return
     CameraRegistry.getInstance().removeScene(scene.name)
     TrackedObjectRegistry.getInstance().removeScene(scene.name)
     return

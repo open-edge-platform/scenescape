@@ -23,6 +23,10 @@ POSITION_THRESHOLD = 0.001
 ROTATION_THRESHOLD = 0.001
 TEST_NAME = "NEX-T10473"
 WAIT_SEC = 3
+# Vertical distance, in pixels, the last calibration point is dragged.
+DRAG_OFFSET_PX = 50
+# Margin, in pixels, around the dragged point's path used for image comparison.
+DRAG_REGION_MARGIN_PX = 30
 
 class WillOurShipGo(UserInterfaceTest):
   BROWSER_WEBGL = True
@@ -232,18 +236,25 @@ class WillOurShipGo(UserInterfaceTest):
       # Re-anchor the pointer on the last calibration point before dragging it
       points = self.getCalibrationPointScreenPositions("camera1")
       assert len(points) == 4, f"Expected 4 calibration points, found {points}"
-      self.movePointerTo(*points[-1])
-      self.clickAndDrag3DScene(0, 50)
+      drag_x, drag_y = points[-1]
+      self.movePointerTo(drag_x, drag_y)
+      self.clickAndDrag3DScene(0, DRAG_OFFSET_PX)
       ss_drag_four_points = self.getPageScreenshot()
       position_dragged, rotation_dragged = self.getCameraPose("camera1")
       assert not self.comparePoses(
         position_initial, position_dragged, rotation_initial, rotation_dragged)
-      # Compare only the calibration region
+      # Compare only the area the dragged point moved through; a fixed region
+      # is mostly static background, which hides the moved point from SSIM.
+      y_min = max(drag_y - DRAG_REGION_MARGIN_PX, 0)
+      y_max = drag_y + DRAG_OFFSET_PX + DRAG_REGION_MARGIN_PX
+      x_min = max(drag_x - DRAG_REGION_MARGIN_PX, 0)
+      x_max = drag_x + DRAG_REGION_MARGIN_PX
       assert not self.compareImages(
-        ss_four_points[150:350, 250:450, :], ss_drag_four_points[150:350, 250:450, :])
+        ss_four_points[y_min:y_max, x_min:x_max, :],
+        ss_drag_four_points[y_min:y_max, x_min:x_max, :])
 
       log.info("Check returning to original point preserves camera pose")
-      self.clickAndDrag3DScene(0, -50)
+      self.clickAndDrag3DScene(0, -DRAG_OFFSET_PX)
       position_final, rotation_final = self.getCameraPose("camera1")
       ss_drag_four_points_return = self.getPageScreenshot()
       assert self.compareImages(ss_four_points, ss_drag_four_points_return)

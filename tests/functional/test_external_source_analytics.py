@@ -187,6 +187,7 @@ class ExternalSourceAnalytics(FunctionalTest):
     payload = {
       "timestamp": get_iso_time(),
       "source_id": AGENT_SOURCE_ID,
+      "track": False,
       "objects": [{
         "id": OBJECT_ID,
         "category": THING_TYPE,

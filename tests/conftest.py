@@ -1392,20 +1392,26 @@ def scene_factory(params):
   created_scenes = []
   created_cameras = []
   borrowed_cameras = []
+  # (uid, original name) of pre-existing scenes renamed aside by replace=True
+  set_aside_scenes = []
 
   _BORROWED_FIELDS = ('name', 'scene', 'transform_type', 'transforms', 'resolution',
                       'intrinsics')
 
-  def _delete_by_name(getter, deleter, kind, name):
-    """Remove pre-existing objects called *name* so creation cannot clash."""
-    for obj in _rest_results(getter, {'name': name}):
-      try:
-        deleter(obj['uid'])
-      except Exception as exc:
-        logger.warning("scene_factory could not delete existing %s '%s' (%s): %s",
-                       kind, name, obj.get('uid'), exc)
-    assert _wait_until_absent(getter, name), \
-      f"scene_factory could not clear existing {kind} named '{name}'"
+  def _set_aside_scenes(watcher, name):
+    """Rename pre-existing scenes called *name* so the name is free."""
+
+    for obj in _rest_results(rest.getScenes, {'name': name}):
+      uid = obj['uid']
+      temp_name = f"{name}-set-aside-{uid[:8]}"
+      renamed = _await_database(
+        watcher, lambda uid=uid: rest.updateScene(uid, {'name': temp_name}),
+        f"setting aside scene '{name}'")
+      assert renamed, f"scene_factory could not set aside scene '{name}' " \
+        f"({uid}): {renamed.statusCode} {getattr(renamed, 'errors', None)}"
+      set_aside_scenes.append((uid, name))
+    assert _wait_until_absent(rest.getScenes, name), \
+      f"scene_factory could not free the scene name '{name}'"
 
   def _camera_payload(camera, scene_uid):
     return {
@@ -1453,7 +1459,8 @@ def scene_factory(params):
     @param  name        Scene name.
     @param  cameras     Camera names to attach to the scene.
     @param  map_image   Repo-relative path of a map image to upload.
-    @param  replace     Delete a pre-existing scene with the same name first.
+    @param  replace     Rename a pre-existing scene with the same name aside
+                        and restore its name on teardown.
                         Cameras are never deleted, only borrowed.
     @param  fields      Extra fields forwarded to the scene create call.
     """
@@ -1466,7 +1473,7 @@ def scene_factory(params):
 
     with _database_watcher(params) as watcher:
       if replace:
-        _delete_by_name(rest.getScenes, rest.deleteScene, "scene", name)
+        _set_aside_scenes(watcher, name)
 
       scene = _await_database(watcher, lambda: rest.createScene(payload),
                               f"creating scene '{name}'")
@@ -1499,35 +1506,60 @@ def scene_factory(params):
 
   yield _factory
 
-  for uid, camera, previous in reversed(borrowed_cameras):
-    try:
-      # Restoring the old scene also clears the pose; restore it afterwards.
-      relinked = rest.updateCamera(uid, {'scene': previous['scene']})
-      if not relinked:
+  # Every teardown waits for CMD_DATABASE so the controller has
+  # dropped the test scene before the next test starts.
+  with _database_watcher(params) as watcher:
+    for uid, camera, previous in reversed(borrowed_cameras):
+      try:
+        # Restoring the old scene also clears the pose; restore it afterwards.
+        relinked = _await_database(
+          watcher, lambda uid=uid: rest.updateCamera(uid, {'scene': previous['scene']}),
+          f"returning camera '{camera}'")
+        if not relinked:
+          logger.warning("scene_factory could not restore camera '%s' (%s): %s",
+                         camera, uid, getattr(relinked, 'errors', None))
+          continue
+        restore = {field: value for field, value in previous.items()
+                   if field != 'scene' and value is not None}
+        restored = _await_database(
+          watcher, lambda uid=uid: rest.updateCamera(uid, restore),
+          f"restoring camera '{camera}'")
+        if not restored:
+          logger.warning("scene_factory could not restore camera '%s' (%s): %s",
+                         camera, uid, getattr(restored, 'errors', None))
+      except Exception as exc:
         logger.warning("scene_factory could not restore camera '%s' (%s): %s",
-                       camera, uid, getattr(relinked, 'errors', None))
-        continue
-      restore = {field: value for field, value in previous.items()
-                 if field != 'scene' and value is not None}
-      restored = rest.updateCamera(uid, restore)
-      if not restored:
-        logger.warning("scene_factory could not restore camera '%s' (%s): %s",
-                       camera, uid, getattr(restored, 'errors', None))
-    except Exception as exc:
-      logger.warning("scene_factory could not restore camera '%s' (%s): %s",
-                     camera, uid, exc)
-  # Cameras first: deleting a scene cascades, but explicit removal keeps
-  # camera names free even if the scene delete fails.
-  for uid in reversed(created_cameras):
-    try:
-      rest.deleteCamera(uid)
-    except Exception as exc:
-      logger.warning("scene_factory could not delete camera %s: %s", uid, exc)
-  for uid in reversed(created_scenes):
-    try:
-      rest.deleteScene(uid)
-    except Exception as exc:
-      logger.warning("scene_factory could not delete scene %s: %s", uid, exc)
+                       camera, uid, exc)
+    # Cameras first: deleting a scene cascades, but explicit removal keeps
+    # camera names free even if the scene delete fails.
+    for uid in reversed(created_cameras):
+      try:
+        _await_database(watcher, lambda uid=uid: rest.deleteCamera(uid),
+                        f"deleting camera {uid}")
+      except Exception as exc:
+        logger.warning("scene_factory could not delete camera %s: %s", uid, exc)
+    for uid in reversed(created_scenes):
+      try:
+        _await_database(watcher, lambda uid=uid: rest.deleteScene(uid),
+                        f"deleting scene {uid}")
+      except Exception as exc:
+        logger.warning("scene_factory could not delete scene %s: %s", uid, exc)
+    # Give set-aside scenes (e.g. the seeded Demo) their names back.
+    for uid, name in reversed(set_aside_scenes):
+      try:
+        if not _wait_until_absent(rest.getScenes, name):
+          logger.warning("scene_factory: name '%s' still in use; cannot "
+                         "restore scene %s", name, uid)
+          continue
+        renamed = _await_database(
+          watcher, lambda uid=uid, name=name: rest.updateScene(uid, {'name': name}),
+          f"restoring scene name '{name}'")
+        if not renamed:
+          logger.warning("scene_factory could not restore scene '%s' (%s): %s",
+                         name, uid, getattr(renamed, 'errors', None))
+      except Exception as exc:
+        logger.warning("scene_factory could not restore scene '%s' (%s): %s",
+                       name, uid, exc)
 
 
 @pytest.fixture(scope="function")
