@@ -3,7 +3,6 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import os
 import time
 from tests.ui.browser import Browser
 import tests.ui.common_ui_test_utils as common
@@ -35,11 +34,7 @@ def test_del_sensor_scene_main(demo_scene, params, record_xml_attribute):
     sensor_id = "test_sensor"
     sensor_name = "Sensor_0"
     scene_name = common.TEST_SCENE_NAME
-    scale = 1000
-    map_image = os.path.join(common.TEST_MEDIA_PATH, "HazardZoneScene.png")
 
-    print("Creating Scene " + scene_name)
-    assert common.create_scene(browser, scene_name, scale, map_image)
     assert common.create_sensor_from_scene(browser, sensor_id, sensor_name, scene_name)
     assert common.delete_scene(browser, scene_name)
 

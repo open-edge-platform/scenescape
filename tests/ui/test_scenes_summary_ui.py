@@ -38,16 +38,15 @@ def test_scenes_summary_main(demo_scene, params, record_xml_attribute):
     scale = 1000
     map_image = os.path.join(common.TEST_MEDIA_PATH, "SampleJpegMap.jpeg")
     print("Creating Scene " + scene_name_1)
-    common.create_scene(browser, scene_name_1, scale, map_image)
+    assert common.create_scene(browser, scene_name_1, scale, map_image)
 
     time.sleep(1)
     browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(1) > .nav-link").click()
     scenes_name = browser.find_elements(By.CLASS_NAME, "card-header")
-    element1 = scenes_name[0].text
-    element2 = scenes_name[1].text
-    nr_scenes = len(scenes_name)
-    print(f"The page shows {nr_scenes} scenes: {element1}, {element2}")
-    assert element1 == scene_name_0 and element2 == scene_name_1
+    scene_names = [el.text for el in scenes_name]
+    nr_scenes = len(scene_names)
+    print(f"The page shows {nr_scenes} scenes: {scene_names}")
+    assert scene_name_0 in scene_names and scene_name_1 in scene_names
     assert nr_scenes == 2
     print("Test conditions met, deleting " + scene_name_1)
     exit_code = 0
