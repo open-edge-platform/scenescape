@@ -190,7 +190,7 @@ publishes over authenticated MQTT, see
 | `timestamp`  | string (ISO 8601 UTC) |     Yes     | Time the observations (and pose, if present) were acquired                                                                                                                                                                                          |
 | `source_id`  | string                |     Yes     | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                |
 | `objects`    | array                 |     Yes     | Observed objects, in the source's local coordinate frame, or camera-style pixel detections when `bounding_box_px` is used (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update  |
-| `pose`       | object                |     No      | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
+| `pose`       | object                | Conditional | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); required when any object uses `bounding_box_px`, otherwise may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
 | `intrinsics` | object                | Conditional | Required when any object uses `bounding_box_px`; camera intrinsics used to localize those pixel detections with the same algorithm as camera-ingest payloads                                                                                        |
 | `distortion` | object                |     No      | Optional distortion coefficients paired with `intrinsics` for external pixel detections                                                                                                                                                             |
 | `track`      | boolean               |     No      | When present, applies to **all** `objects[*]` in the message. `false` bypasses Scenescape tracking and preserves source object ids; `true` (or lack of this attrtibute) routes all objects through the normal tracking path                         |
@@ -250,8 +250,8 @@ published object `id`, so the source message may omit `objects[*].id`.
 When an object includes `bounding_box_px`, it is treated as a camera-style pixel detection rather
 than as a source-local Cartesian observation. In that case:
 
-- `pose` and top-level `intrinsics` are both required; if either is missing, the detection is
-  discarded.
+- `pose` and top-level `intrinsics` are both required on the same message; if either is missing,
+  schema validation rejects the message and no objects from it are ingested.
 - Scenescape computes the object location with the same pixel-to-location algorithm used for camera
   detections.
 - With `track=true` or when `track` is omitted, the localized detection enters normal Scenescape
