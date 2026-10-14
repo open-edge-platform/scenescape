@@ -436,6 +436,10 @@ class ExternalSourceIngest(FunctionalTest):
 
   def verifyPixelBoundingBoxWithRotationDerivedFromPose(self):
     source_object_id = "pixel-rotation-check"
+    pixel_marker = {
+      "label": "pixel-rotation-check",
+      "model_name": "external-source-functional-test",
+    }
     jdata = {
       "source_id": AGENT_SOURCE_ID,
       "pose": {
@@ -458,6 +462,7 @@ class ExternalSourceIngest(FunctionalTest):
         {
           "id": source_object_id,
           "category": THING_TYPE,
+          "metadata": {"test_marker": pixel_marker},
           "bounding_box_px": {
             "x": 600,
             "y": 520,
@@ -467,9 +472,15 @@ class ExternalSourceIngest(FunctionalTest):
         },
       ],
     }
-    count = self.publishAndWait(jdata)
-    assert count, "Pixel detection with rotated source pose did not produce tracked output"
-    assert self.lastObjects is not None
+    def _containsRotatedPixel(objects):
+      return any(
+        obj.get("metadata", {}).get("test_marker") == pixel_marker
+        and "translation" in obj
+        for obj in objects
+      )
+
+    assert self.publishAndWaitForObjects(jdata, _containsRotatedPixel), (
+      "Pixel detection with rotated source pose did not produce tracked output")
     return
 
   def verifyPixelBoundingBoxWithoutIntrinsicsRejected(self):
