@@ -223,6 +223,33 @@ def test_validateExternalSourceMessage_pixelDetectionRequiresIntrinsics(schemaOb
   assert result == False
   return
 
+def test_validateExternalSourceMessage_pixelDetectionRequiresPose(schemaObject):
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "intrinsics": {
+      "fx": 905.0,
+      "fy": 905.0,
+      "cx": 640.0,
+      "cy": 360.0,
+    },
+    "objects": [
+      {
+        "category": "person",
+        "bounding_box_px": {
+          "x": 221,
+          "y": 157,
+          "width": 108,
+          "height": 259,
+        },
+      },
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == False
+  return
+
 def test_validateExternalSourceMessage_pixelDetectionRejectsTopLeftShape(schemaObject):
   jdata = {
     "timestamp": "1970-01-01T00:00:00.000Z",
