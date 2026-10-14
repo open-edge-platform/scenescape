@@ -26,16 +26,26 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_WAIT_TIME = 5
 TEST_SSIM_THRESHOLD = 0.98 # 98% similarity
 
+@pytest.mark.fresh_stack
 @pytest.mark.test_name("NEX-T10426")
-def test_manual_distortion_controls(params, result_recorder):
-  """Distortion coefficients can be unlocked and submitted during manual calibration."""
+def test_manual_camera_calibration(params, result_recorder):
+  """! Checks that the camera calibration can be set manually and saved.
+  @param    params                  Dict of test parameters.
+  @param    result_recorder         Pytest fixture recording the test result.
+  """
   browser = None
   try:
+    log.info("Executing: NEX-T10426")
+    log.info("Test that camera pose can be be set manually")
     browser = Browser(webgl=True)
     assert common.check_page_login(browser, params)
+    assert common.check_db_status(browser)
+
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
     browser.find_element(By.ID, 'cam_calibrate_1').click()
+    time.sleep(TEST_WAIT_TIME)
 
+    log.info("Verify distortion coefficient lock controls")
     for coefficient in ('k1', 'k2', 'p1', 'p2', 'k3'):
       lock = browser.find_element(By.ID, f'enabled_distortion_{coefficient}')
       field = browser.find_element(By.ID, f'id_distortion_{coefficient}')
@@ -57,29 +67,6 @@ def test_manual_distortion_controls(params, result_recorder):
     assert not browser.execute_script(
       "return new FormData(document.getElementById('calibration_form')).has('distortion_k1');"
     )
-    result_recorder.success()
-  finally:
-    if browser is not None:
-      browser.close()
-
-@pytest.mark.fresh_stack
-@pytest.mark.test_name("NEX-T10426")
-def test_manual_camera_calibration(params, result_recorder):
-  """! Checks that the camera calibration can be set manually and saved.
-  @param    params                  Dict of test parameters.
-  @param    result_recorder         Pytest fixture recording the test result.
-  """
-  browser = None
-  try:
-    log.info("Executing: NEX-T10426")
-    log.info("Test that camera pose can be be set manually")
-    browser = Browser(webgl=True)
-    assert common.check_page_login(browser, params)
-    assert common.check_db_status(browser)
-
-    common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
-    browser.find_element(By.ID, 'cam_calibrate_1').click()
-    time.sleep(TEST_WAIT_TIME)
 
     viewport_dimensions = browser.execute_script("return [window.innerWidth, window.innerHeight];")
 
