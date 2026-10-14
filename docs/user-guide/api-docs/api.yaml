@@ -1510,15 +1510,25 @@ paths:
                   description: >-
                     When true, run RANSAC PnP outlier rejection before calibrating.
                     Must be a JSON boolean (string or numeric truthy values are rejected).
+                pixelsPerMeter:
+                  type: number
+                  format: double
+                  minimum: 0
+                  exclusiveMinimum: true
+                  description: >-
+                    Scene map resolution in pixels per meter. When outlierThresholdPx
+                    is omitted, the RANSAC reprojection threshold is scaled from the
+                    10 px reference at 100 px/m (clamped). Must be a positive finite
+                    number when provided.
                 outlierThresholdPx:
                   type: number
                   format: double
                   minimum: 0
                   exclusiveMinimum: true
-                  default: 10.0
                   description: >-
-                    RANSAC reprojection error threshold in pixels. Must be a positive
-                    finite number when provided.
+                    Explicit RANSAC reprojection error threshold in pixels. When
+                    omitted, derived from pixelsPerMeter (or 10 px if that is also
+                    omitted). Must be a positive finite number when provided.
               required:
                 - mapPoints
                 - camPoints
@@ -1615,7 +1625,9 @@ paths:
                   outlierThresholdPx:
                     type: number
                     format: double
-                    description: Reprojection threshold in pixels used for RANSAC
+                    description: >-
+                      Reprojection threshold in pixels used for RANSAC (explicit
+                      request value, or scaled from pixelsPerMeter)
                   perPointErrors:
                     type: array
                     items:
@@ -1668,8 +1680,8 @@ paths:
         "400":
           description: >-
             Invalid input (mismatched point counts, fewer than 4 points,
-            non-boolean rejectOutliers, non-positive outlierThresholdPx,
-            or calculation error)
+            non-boolean rejectOutliers, non-positive outlierThresholdPx or
+            pixelsPerMeter, or calculation error)
         "401":
           description: Unauthorized
   /aclcheck:

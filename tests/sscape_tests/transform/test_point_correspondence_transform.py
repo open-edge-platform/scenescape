@@ -166,6 +166,33 @@ class TestPointCorrespondenceTransform:
     mock_solve_pnp.assert_not_called()
     assert transform.rejectedIndices == [3]
     assert transform.pose_mat.shape == (4, 4)
+    # Default (no scene scale) keeps the reference 10 px threshold.
+    assert mock_solve_pnp_ransac.call_args.kwargs['reprojectionError'] == 10.0
+
+  @patch('cv2.solvePnPRansac')
+  @patch('cv2.solvePnP')
+  def test_ransac_threshold_scales_with_pixels_per_meter(
+      self, mock_solve_pnp, mock_solve_pnp_ransac):
+    """Low map ppm uses a stricter RANSAC reprojection threshold."""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    mock_rvec = np.array([[0.1], [0.2], [0.3]])
+    mock_tvec = np.array([[1.0], [2.0], [3.0]])
+    inliers = np.array([[0], [1], [2], [3], [4], [5]], dtype=np.int32)
+    mock_solve_pnp_ransac.return_value = (True, mock_rvec, mock_tvec, inliers)
+
+    pose = {
+        'camera points': np.array([
+            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
+        ]),
+        'map points': np.array([
+            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
+        ]),
+        'pixels per meter': 50.0,
+    }
+    PointCorrespondenceTransform(pose, intrinsics)
+
+    assert mock_solve_pnp_ransac.call_args.kwargs['reprojectionError'] == 5.0
+    mock_solve_pnp.assert_not_called()
 
   def test_ransac_rejects_gross_outlier(self):
     """End-to-end: a grossly mis-clicked correspondence is rejected, pose stays accurate"""

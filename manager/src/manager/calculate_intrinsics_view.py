@@ -15,6 +15,7 @@ from scene_common import log
 from scene_common.transform import (
   MIN_POINTS_FOR_RANSAC,
   RANSAC_REPROJECTION_THRESHOLD_PX,
+  scaled_reprojection_threshold_px,
 )
 
 # Geometry-conditioning thresholds for fit diagnostics. These warn when the
@@ -230,18 +231,45 @@ def parse_reject_outliers(data):
     return None, "rejectOutliers must be a boolean"
   return value, None
 
-def parse_outlier_threshold_px(data):
-  """Return a positive finite outlier threshold in pixels, or an error message."""
-  if "outlierThresholdPx" not in data:
-    return float(RANSAC_REPROJECTION_THRESHOLD_PX), None
-  value = data["outlierThresholdPx"]
-  # bool is a subclass of int; reject it so true/false cannot become 1.0/0.0.
+def parse_pixels_per_meter(data):
+  """Return scene map scale (pixels/meter), or None when omitted / invalid-empty.
+
+  Explicit invalid values (non-positive, non-finite, wrong type) return an error.
+  Omitted or null means "use the reference default threshold".
+  """
+  if "pixelsPerMeter" not in data or data["pixelsPerMeter"] is None:
+    return None, None
+  value = data["pixelsPerMeter"]
   if isinstance(value, bool) or not isinstance(value, (int, float)):
-    return None, "outlierThresholdPx must be a positive finite number"
-  threshold = float(value)
-  if not np.isfinite(threshold) or threshold <= 0:
-    return None, "outlierThresholdPx must be a positive finite number"
-  return threshold, None
+    return None, "pixelsPerMeter must be a positive finite number"
+  ppm = float(value)
+  if not np.isfinite(ppm) or ppm <= 0:
+    return None, "pixelsPerMeter must be a positive finite number"
+  return ppm, None
+
+def parse_outlier_threshold_px(data):
+  """Return a positive finite outlier threshold in pixels, or an error message.
+
+  Explicit outlierThresholdPx wins. Otherwise the threshold is scaled from the
+  scene map resolution (pixelsPerMeter) relative to the reference ppm used by
+  RANSAC_REPROJECTION_THRESHOLD_PX.
+  """
+  if "outlierThresholdPx" in data:
+    value = data["outlierThresholdPx"]
+    # bool is a subclass of int; reject it so true/false cannot become 1.0/0.0.
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+      return None, "outlierThresholdPx must be a positive finite number"
+    threshold = float(value)
+    if not np.isfinite(threshold) or threshold <= 0:
+      return None, "outlierThresholdPx must be a positive finite number"
+    return threshold, None
+
+  ppm, ppm_error = parse_pixels_per_meter(data)
+  if ppm_error:
+    return None, ppm_error
+  if ppm is None:
+    return float(RANSAC_REPROJECTION_THRESHOLD_PX), None
+  return scaled_reprojection_threshold_px(ppm), None
 
 class CalculateCameraIntrinsics(APIView):
   authentication_classes = [TokenAuthentication]

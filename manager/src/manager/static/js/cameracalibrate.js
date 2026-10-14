@@ -309,6 +309,7 @@ export class ConvergedCameraCalibration {
         distortionData.push(parseFloat(this.value));
       });
 
+      const sceneScale = parseFloat($("#scale").val());
       const data = {
         camPoints: pointNames.map((name) => camPoints[name]),
         mapPoints: pointNames.map((name) => mapPoints[name]),
@@ -317,6 +318,10 @@ export class ConvergedCameraCalibration {
         distortion: distortionData,
         imageSize: this.camCanvas.getImageSize(),
       };
+      // Scene map resolution scales the RANSAC reprojection threshold.
+      if (Number.isFinite(sceneScale) && sceneScale > 0) {
+        data.pixelsPerMeter = sceneScale;
+      }
 
       $.ajax({
         url: `${REST_URL}/calculateintrinsics`,

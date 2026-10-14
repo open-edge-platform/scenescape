@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -41,6 +41,10 @@ export const CALIBRATION_POINT_COLORS = [
 // readable on red/orange identity fills. Color accents are secondary only.
 export const CALIBRATION_DIAGNOSTIC_RING_COLOR = "#ffffff";
 export const CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR = "#000000";
+// Fallback when the API does not return outlierThresholdPx. Prefer the
+// response value, which is scaled by scene pixels-per-meter (see
+// scene_common.transform.scaled_reprojection_threshold_px). Base 10 px is
+// the threshold at RANSAC_THRESHOLD_REFERENCE_PPM (100).
 // Must match scene_common.transform.RANSAC_REPROJECTION_THRESHOLD_PX /
 // MIN_POINTS_FOR_RANSAC.
 export const CALIBRATION_OUTLIER_THRESHOLD_PX = 10;

@@ -14,9 +14,15 @@ from manager.calculate_intrinsics_view import (
   assess_image_point_coverage,
   assess_map_point_geometry,
   parse_outlier_threshold_px,
+  parse_pixels_per_meter,
   parse_reject_outliers,
 )
-from scene_common.transform import RANSAC_REPROJECTION_THRESHOLD_PX
+from scene_common.transform import (
+  RANSAC_REPROJECTION_THRESHOLD_PX,
+  RANSAC_THRESHOLD_MAX_PX,
+  RANSAC_THRESHOLD_MIN_PX,
+  scaled_reprojection_threshold_px,
+)
 
 
 def _calibration_payload(**overrides):
@@ -210,6 +216,14 @@ def test_parse_reject_outliers_rejects_non_booleans(reject_outliers):
     ({}, float(RANSAC_REPROJECTION_THRESHOLD_PX)),
     ({"outlierThresholdPx": 10}, 10.0),
     ({"outlierThresholdPx": 2.5}, 2.5),
+    # Explicit threshold wins over pixelsPerMeter.
+    ({"outlierThresholdPx": 7.0, "pixelsPerMeter": 50.0}, 7.0),
+    # At the reference ppm the scaled default matches the base threshold.
+    ({"pixelsPerMeter": 100.0}, float(RANSAC_REPROJECTION_THRESHOLD_PX)),
+    # Low ppm → stricter threshold (few pixels are a larger world distance).
+    ({"pixelsPerMeter": 50.0}, 5.0),
+    # High ppm → looser threshold.
+    ({"pixelsPerMeter": 200.0}, 20.0),
   ],
 )
 def test_parse_outlier_threshold_px_accepts_positive_finite(payload, expected):
@@ -231,11 +245,40 @@ def test_parse_outlier_threshold_px_rejects_invalid_values(threshold):
 
 @pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
+  "pixels_per_meter",
+  ["100", True, False, 0, -1, float("nan"), float("inf")],
+)
+def test_parse_pixels_per_meter_rejects_invalid_values(pixels_per_meter):
+  value, error = parse_pixels_per_meter({"pixelsPerMeter": pixels_per_meter})
+  assert value is None
+  assert "positive finite" in error
+
+
+@pytest.mark.test_name("NEX-T10426")
+@pytest.mark.parametrize(
+  ("ppm", "expected"),
+  [
+    (None, float(RANSAC_REPROJECTION_THRESHOLD_PX)),
+    (100.0, 10.0),
+    (50.0, 5.0),
+    (200.0, 20.0),
+    (1.0, float(RANSAC_THRESHOLD_MIN_PX)),
+    (10000.0, float(RANSAC_THRESHOLD_MAX_PX)),
+  ],
+)
+def test_scaled_reprojection_threshold_px(ppm, expected):
+  assert scaled_reprojection_threshold_px(ppm) == pytest.approx(expected)
+
+
+@pytest.mark.test_name("NEX-T10426")
+@pytest.mark.parametrize(
   ("overrides", "error_fragment"),
   [
     ({"rejectOutliers": "false"}, "boolean"),
     ({"outlierThresholdPx": 0}, "positive finite"),
     ({"outlierThresholdPx": "10"}, "positive finite"),
+    ({"pixelsPerMeter": 0}, "positive finite"),
+    ({"pixelsPerMeter": "100"}, "positive finite"),
   ],
 )
 def test_calculate_intrinsics_rejects_invalid_outlier_controls(
@@ -244,3 +287,28 @@ def test_calculate_intrinsics_rejects_invalid_outlier_controls(
   response = _post_calculate_intrinsics(_calibration_payload(**overrides))
   assert response.status_code == 400
   assert error_fragment in response.data["error"]
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_calculate_intrinsics_scales_threshold_from_pixels_per_meter():
+  """When pixelsPerMeter is set, the response reports the scaled threshold."""
+  intrinsic_matrix = np.array([
+    [800.0, 0.0, 320.0],
+    [0.0, 800.0, 240.0],
+    [0.0, 0.0, 1.0],
+  ])
+  rotation = np.zeros((3, 1))
+  translation = np.array([[0.0], [0.0], [5.0]])
+  distortion = np.zeros(5)
+  payload = _calibration_payload(pixelsPerMeter=50.0)
+
+  with patch(
+      "manager.calculate_intrinsics_view.find_inlier_mask",
+      return_value=None) as find_inliers, patch(
+      "cv2.calibrateCamera",
+      return_value=(0.75, intrinsic_matrix, distortion, [rotation], [translation])):
+    response = _post_calculate_intrinsics(payload)
+
+  assert response.status_code == 200
+  assert response.data["outlierThresholdPx"] == pytest.approx(5.0)
+  assert find_inliers.call_args.args[-1] == pytest.approx(5.0)

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import math
@@ -17,10 +17,33 @@ from scene_common.geometry import isarray, Point, Line, Rectangle, Region
 MAX_COPLANAR_SPREAD_RATIO = 1e-2
 FALLBACK_HORIZON_DISTANCE = 1000
 # RANSAC parameters for robust pose estimation from point correspondences.
-# Correspondences whose reprojection error exceeds this threshold (in pixels)
-# are treated as outliers and excluded from the pose fit.
+# Base threshold (pixels) applies at RANSAC_THRESHOLD_REFERENCE_PPM. Scene map
+# resolution (pixels per meter) scales it: low ppm → stricter (few pixels are a
+# larger world distance); high ppm → looser. Clamped to keep RANSAC stable.
 RANSAC_REPROJECTION_THRESHOLD_PX = 10.0
+RANSAC_THRESHOLD_REFERENCE_PPM = 100.0
+RANSAC_THRESHOLD_MIN_PX = 2.0
+RANSAC_THRESHOLD_MAX_PX = 50.0
 MIN_POINTS_FOR_RANSAC = 4
+
+
+def scaled_reprojection_threshold_px(pixels_per_meter=None):
+  """Return a RANSAC reprojection threshold scaled by scene map resolution.
+
+  @param  pixels_per_meter  Scene map scale (map pixels per meter). When None
+                            or invalid, returns RANSAC_REPROJECTION_THRESHOLD_PX.
+  @return Threshold in camera-image pixels.
+  """
+  if pixels_per_meter is None:
+    return float(RANSAC_REPROJECTION_THRESHOLD_PX)
+  try:
+    ppm = float(pixels_per_meter)
+  except (TypeError, ValueError):
+    return float(RANSAC_REPROJECTION_THRESHOLD_PX)
+  if not math.isfinite(ppm) or ppm <= 0:
+    return float(RANSAC_REPROJECTION_THRESHOLD_PX)
+  scaled = RANSAC_REPROJECTION_THRESHOLD_PX * (ppm / RANSAC_THRESHOLD_REFERENCE_PPM)
+  return float(min(max(scaled, RANSAC_THRESHOLD_MIN_PX), RANSAC_THRESHOLD_MAX_PX))
 
 class CameraIntrinsics:
   INTRINSICS_KEYS = ('fx', 'fy', 'cx', 'cy')
@@ -568,6 +591,9 @@ class PointCorrespondenceTransform(CameraPose):
     if self.mapPoints.shape[1] == 2:
       self.mapPoints = np.hstack((self.mapPoints, np.zeros((self.mapPoints.shape[0], 1))))
     self.intrinsics = intrinsics
+    # Scene map resolution (pixels/meter) when known; scales the RANSAC
+    # reprojection threshold. Do not use pose['scale'] — that is mesh scale.
+    self.pixels_per_meter = pose.get('pixels per meter')
     # Boolean mask over the correspondences (True = inlier) set by
     # _solvePoseRobustly; None when RANSAC was not applied.
     self.inlier_mask = None
@@ -592,10 +618,11 @@ class PointCorrespondenceTransform(CameraPose):
     self.inlier_mask = None
     if len(self.mapPoints) >= MIN_POINTS_FOR_RANSAC:
       try:
+        threshold_px = scaled_reprojection_threshold_px(self.pixels_per_meter)
         _, rvec, tvec, inliers = cv2.solvePnPRansac(
           self.mapPoints, self.cameraPoints,
           self.intrinsics.intrinsics, self.intrinsics.distortion,
-          reprojectionError=RANSAC_REPROJECTION_THRESHOLD_PX,
+          reprojectionError=threshold_px,
           confidence=0.99,
           flags=cv2.SOLVEPNP_AP3P)
         if inliers is not None and len(inliers) >= MIN_POINTS_FOR_RANSAC:
