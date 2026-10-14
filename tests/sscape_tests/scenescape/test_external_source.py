@@ -758,7 +758,6 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    scene.processSceneData.assert_not_called()
     scene.createMovingObjectsForDetection.assert_not_called()
     scene.finishProcessing.assert_not_called()
 

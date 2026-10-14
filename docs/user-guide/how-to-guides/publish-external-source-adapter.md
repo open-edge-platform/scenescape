@@ -82,11 +82,11 @@ fields and examples; do not invent alternate shapes.
    - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
      `translation`. Include top-level `pose` and `intrinsics` on that same
      message (pose-cache reuse alone is not enough for pixel detections).
-   Do not put both `translation` and `bounding_box_px` on one object. Include
-   `id` whenever the top-level source `track` value is `false`; when `track`
-   is `true` or omitted, `id` is optional. Optional `size`, `rotation`,
-   `confidence`, and `metadata` follow the same contract. See
-   [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
+     Do not put both `translation` and `bounding_box_px` on one object. Include
+     `id` whenever the top-level source `track` value is `false`; when `track`
+     is `true` or omitted, `id` is optional. Optional `size`, `rotation`,
+     `confidence`, and `metadata` follow the same contract. See
+     [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
 
 5. **Choose whether the source message should be tracked by Scenescape**. The
    top-level source `track` value applies to all objects in that message,
