@@ -8,7 +8,7 @@
       {
         "name": "apriltag-cam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam1 latency=200 ! decodebin3 ! sscape_timestamp_capture name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_s-fp16-ov/yolox_s.xml device=GPU inference-region=0 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam1 latency=200 ! decodebin3 ! sscape_timestamp_capture name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml device=GPU inference-region=0 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -65,7 +65,7 @@
       {
         "name": "apriltag-cam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam2 latency=200 ! decodebin3 ! sscape_timestamp_capture name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_s-fp16-ov/yolox_s.xml device=GPU inference-region=0 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/retail-cam2 latency=200 ! decodebin3 ! sscape_timestamp_capture name=timesync ! gvadetect scheduling-policy=latency batch-size=1 inference-interval=1 model=/home/pipeline-server/models/huggingface/OpenVINO_yolox_s-int8-ov/yolox_s.xml device=GPU inference-region=0 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
