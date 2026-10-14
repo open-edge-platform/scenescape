@@ -228,12 +228,12 @@ publishes over authenticated MQTT, see
 | Field             | Type               |  Required   | Description                                                                                                                                                                              |
 | ----------------- | ------------------ | :---------: | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `category`        | string             |     Yes     | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                                                                  |
-| `translation`     | array[3] of number | Conditional | Position of the object relative to the source's local origin (`x`, `y`, `z`); required unless `bounding_box_px` is used                                                                  |
+| `translation`     | array[3] of number | Conditional | Position of the object relative to the source's local origin (`x`, `y`, `z`); exactly one of `translation` or `bounding_box_px` is required                                               |
 | `id`              | string             | Conditional | Required when the top-level source `track` value is `false`; optional when the top-level source `track` value is `true` or omitted                                                       |
 | `rotation`        | array[4] of number |     No      | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                              |
 | `size`            | array[3] of number |     No      | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                     |
 | `confidence`      | number > 0         |     No      | Source-reported confidence for this observation                                                                                                                                          |
-| `bounding_box_px` | object             | Conditional | Pixel-space detection box from a camera-like external source using `x/y/width/height`; when present, Scenescape localizes the object using the same pixel-detection path as camera input |
+| `bounding_box_px` | object             | Conditional | Pixel-space detection box from a camera-like external source using `x/y/width/height`; mutually exclusive with `translation`; localizes via the same pixel-detection path as camera input |
 | `metadata`        | object             |     No      | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr))                                           |
 
 Unlike camera detections, `size` is optional here: a source that cannot estimate an object's
@@ -248,7 +248,8 @@ omitted, the object follows the normal Scenescape tracking path and the controll
 published object `id`, so the source message may omit `objects[*].id`.
 
 When an object includes `bounding_box_px`, it is treated as a camera-style pixel detection rather
-than as a source-local Cartesian observation. In that case:
+than as a source-local Cartesian observation. Do not send both `translation` and `bounding_box_px`
+on the same object. In that case:
 
 - `pose` and top-level `intrinsics` are both required on the same message; if either is missing,
   schema validation rejects the message and no objects from it are ingested.

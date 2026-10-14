@@ -383,11 +383,11 @@
         },
         "bounding_box_px": {
           "$ref": "#/definitions/bounding_box_px",
-          "description": "Pixel-space bounding box from a camera-like external source. When this field is used, the object may omit translation and is localized from pixels using the message pose and intrinsics."
+          "description": "Pixel-space bounding box from a camera-like external source. Mutually exclusive with translation: when this field is used, omit translation and localize from pixels using the message pose and intrinsics."
         }
       },
       "required": ["category"],
-      "anyOf": [
+      "oneOf": [
         { "required": ["translation"] },
         { "required": ["bounding_box_px"] }
       ]

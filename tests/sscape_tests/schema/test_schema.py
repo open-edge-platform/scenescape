@@ -198,6 +198,39 @@ def test_validateExternalSourceMessage_pixelDetectionWithoutTranslationIsValid(s
   assert result == True
   return
 
+def test_validateExternalSourceMessage_rejectsBothTranslationAndBoundingBoxPx(schemaObject):
+  """translation and bounding_box_px are mutually exclusive on one object."""
+  jdata = {
+    "timestamp": "1970-01-01T00:00:00.000Z",
+    "source_id": "drone-1",
+    "pose": {
+      "reference_frame": "wgs84",
+      "lat_long_alt": [37.4, -122.1, 10.0],
+    },
+    "intrinsics": {
+      "fx": 905.0,
+      "fy": 905.0,
+      "cx": 640.0,
+      "cy": 360.0,
+    },
+    "objects": [
+      {
+        "category": "person",
+        "translation": [0.0, 0.0, 0.0],
+        "bounding_box_px": {
+          "x": 221,
+          "y": 157,
+          "width": 108,
+          "height": 259,
+        },
+      },
+    ],
+  }
+
+  result = schemaObject.validateMessage("external_source", jdata, True)
+  assert result == False
+  return
+
 def test_validateExternalSourceMessage_pixelDetectionRequiresIntrinsics(schemaObject):
   jdata = {
     "timestamp": "1970-01-01T00:00:00.000Z",
