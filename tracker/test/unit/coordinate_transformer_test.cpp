@@ -569,9 +569,9 @@ TEST(CoordinateTransformerTest, UpwardRayReturnsValidResult) {
     EXPECT_EQ(result.size(), 1u);
 }
 
-// TYPE_2 shifts the pixel foot using the angle to the midpoint of the projected
-// bottom corners, then undistorts and projects that foot.
-TEST(CoordinateTransformerTest, Type2FootMatchesShiftedPixelProjection) {
+// Zero distortion makes the pixel-space shift equal to the normalized one
+// see DistortedType2FootShiftsNormalizedBox.
+TEST(CoordinateTransformerTest, Type2FootMatchesPixelShiftWithoutDistortion) {
     // Zero footprint so the output position is the projected foot itself.
     const auto type1 = make_transformer(kCameraAtaqQcam1, ObjectClassConfig::kShiftType1, 0.0);
     const auto type2 = make_transformer(kCameraAtaqQcam1, ObjectClassConfig::kShiftType2, 0.0);

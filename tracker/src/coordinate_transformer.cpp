@@ -188,12 +188,12 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         normalized[base + 3] = top_left;
     }
 
-    // Phase 2+3: Batch undistort + parallel ray-plane
+    // Phase 2: Parallel ray-plane projection of normalized rectangle points
     std::vector<cv::Point2d> world;
     std::vector<uint8_t> valid;
     batchNormalizedToWorld(normalized, world, valid);
 
-    // Phase 4: TYPE_2 shifts the foot in normalized space, matching Controller camLoc.
+    // Phase 3: TYPE_2 shifts the foot in normalized space, matching Controller camLoc.
     if (shift_type_ == ObjectClassConfig::kShiftType2) {
         const double cam_x = camera_origin_.x;
         const double cam_y = camera_origin_.y;
@@ -225,7 +225,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         }
     }
 
-    // Phase 5: Assemble TrackedObjects from world-projected points
+    // Phase 4: Assemble TrackedObjects from world-projected points
     std::vector<rv::tracking::TrackedObject> result(n);
     std::vector<uint8_t> detection_valid(n);
 

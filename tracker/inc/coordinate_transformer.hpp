@@ -28,7 +28,7 @@ namespace tracker {
  * the bottom-left, bottom-right, and top-left determine world-space dimensions.
  *
  * Designed for high-throughput (1000+ detections per batch):
- * - Batched cv::undistortPoints calls for bbox corners and optional TYPE_2 feet
+ * - Single cv::undistortPoints call for all pixels in the batch
  * - Data-oriented layout: contiguous pixel arrays for cache efficiency
  * - OpenMP parallelization of pose-transform and ray-plane intersection
  *
