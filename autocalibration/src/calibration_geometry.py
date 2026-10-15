@@ -14,9 +14,6 @@ from scene_common.transform import RANSAC_REPROJECTION_THRESHOLD_PX
 # Below this ratio, a point set's smallest principal-axis spread is negligible
 # relative to its largest and is poorly conditioned for solvePnP.
 MIN_PNP_SPREAD_RATIO = 0.05
-# Match the RANSAC inlier gate so planar acceptance is not stricter than the
-# pose solve. Callers may pass a scene-scale-adjusted value instead.
-MAX_PLANAR_REPROJECTION_ERROR_PX = RANSAC_REPROJECTION_THRESHOLD_PX
 # Fraction of the tag size the camera may sit below the lowest matched tag.
 CAMERA_BELOW_TAG_TOLERANCE_TAG_FRACTION = 0.5
 PLANAR_MAP_EXTENSIONS = ('.png', '.jpg', '.jpeg')
@@ -53,7 +50,10 @@ def _validate_correspondence_geometry(map_points_3d, points_2d, camera_pose,
                                       max_reprojection_error_px=None):
   """Check whether matched tag geometry supports a reliable pose."""
   map_points_3d = np.asarray(map_points_3d, dtype=float)
-  max_error_px = (MAX_PLANAR_REPROJECTION_ERROR_PX
+  # Default planar gate matches the RANSAC inlier threshold so acceptance is
+  # not stricter than the pose solve. Callers may pass a scene-scale-adjusted
+  # value instead.
+  max_error_px = (RANSAC_REPROJECTION_THRESHOLD_PX
                   if max_reprojection_error_px is None
                   else float(max_reprojection_error_px))
   spread_ratio = _points_spread_ratio(map_points_3d)
@@ -98,7 +98,7 @@ def validate_camera_pose(map_points_3d, scene_points_3d, points_2d, camera_pose,
   @param   tag_size         AprilTag edge length in scene units
   @param   planar_map       True for image floor plans
   @param   max_reprojection_error_px  Optional planar RMS gate (defaults to
-                            MAX_PLANAR_REPROJECTION_ERROR_PX). Prefer the
+                            RANSAC_REPROJECTION_THRESHOLD_PX). Prefer the
                             scene-scale-adjusted RANSAC threshold.
 
   @return  PoseValidation

@@ -7,7 +7,6 @@ import pytest
 
 import atag_camera_calibration_controller as calibration
 from calibration_geometry import (
-  MAX_PLANAR_REPROJECTION_ERROR_PX,
   MIN_PNP_SPREAD_RATIO,
   validate_camera_pose,
 )
@@ -45,10 +44,6 @@ def test_accepts_planar_tags_on_image_map():
   result = _validate(PLANAR_POINTS)
   assert result.accepted
   assert result.spread_ratio < MIN_PNP_SPREAD_RATIO
-
-
-def test_planar_gate_matches_ransac_default():
-  assert MAX_PLANAR_REPROJECTION_ERROR_PX == RANSAC_REPROJECTION_THRESHOLD_PX
 
 
 @pytest.mark.parametrize("points, planar_map, offset, expected", [

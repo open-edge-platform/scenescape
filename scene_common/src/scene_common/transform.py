@@ -737,18 +737,6 @@ class PointCorrespondenceTransform(CameraPose):
     self._calculateRegionOfView(self.resolution)
     return
 
-  def calculateDeterminant(self, points):
-    p1, p2, p3, p4 = points
-
-    v1 = np.array([p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2]])
-    v2 = np.array([p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2]])
-    v3 = np.array([p4[0] - p1[0], p4[1] - p1[1], p4[2] - p1[2]])
-
-    return np.linalg.det(np.array([v1, v2, v3]))
-
-  def arePointsCoplanar(self, points):
-    """Return True when the point set is coplanar (delegates to shared helper)."""
-    return points_are_coplanar(points)
 
 def getPoseMatrix(sceneobj, rot_adjust=None):
   """! Extract the pose matrix of the scenescape object.

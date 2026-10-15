@@ -14,7 +14,6 @@ from manager.calculate_intrinsics_view import (
   assess_calibration_geometry,
   assess_image_point_coverage,
   assess_map_point_geometry,
-  find_inlier_mask,
   fit_pose_fixed_intrinsics,
   needs_pose_only_fit,
   parse_outlier_threshold_px,
@@ -26,6 +25,7 @@ from scene_common.transform import (
   RANSAC_THRESHOLD_MAX_PX,
   RANSAC_THRESHOLD_MIN_PX,
   scaled_reprojection_threshold_px,
+  solve_pnpransac,
 )
 
 
@@ -98,8 +98,8 @@ def test_calculate_intrinsics_reports_rejection_and_fit_counts(
   )
 
   with patch(
-      "manager.calculate_intrinsics_view.find_inlier_mask",
-      return_value=inlier_mask), patch(
+      "manager.calculate_intrinsics_view.solve_pnpransac",
+      return_value=(None, None, inlier_mask)), patch(
       "cv2.calibrateCamera",
       return_value=(0.75, intrinsic_matrix, distortion, [rotation], [translation])):
     response = _post_calculate_intrinsics(payload)
@@ -307,19 +307,20 @@ def test_calculate_intrinsics_scales_threshold_from_pixels_per_meter():
   payload = _calibration_payload(pixelsPerMeter=50.0)
 
   with patch(
-      "manager.calculate_intrinsics_view.find_inlier_mask",
-      return_value=None) as find_inliers, patch(
+      "manager.calculate_intrinsics_view.solve_pnpransac",
+      return_value=(None, None, None)) as find_inliers, patch(
       "cv2.calibrateCamera",
       return_value=(0.75, intrinsic_matrix, distortion, [rotation], [translation])):
     response = _post_calculate_intrinsics(payload)
 
   assert response.status_code == 200
   assert response.data["outlierThresholdPx"] == pytest.approx(5.0)
-  assert find_inliers.call_args.args[-1] == pytest.approx(5.0)
+  assert find_inliers.call_args.kwargs["reprojection_threshold_px"] == pytest.approx(
+    5.0)
 
 
 @pytest.mark.test_name("NEX-T10426")
-def test_find_inlier_mask_uses_sqpnp_ransac_for_coplanar_points():
+def test_solve_pnpransac_uses_sqpnp_for_coplanar_points():
   """Floor-plan (coplanar) map points use SQPNP RANSAC for outlier rejection."""
   obj_points = np.array([
     [0.0, 0.0, 0.0],
@@ -348,9 +349,9 @@ def test_find_inlier_mask_uses_sqpnp_ransac_for_coplanar_points():
   with patch(
       "cv2.solvePnPRansac",
       return_value=(True, mock_rvec, mock_tvec, inliers)) as mock_ransac:
-    mask = find_inlier_mask(
+    _, _, mask = solve_pnpransac(
       obj_points, img_points, intrinsics, distortion,
-      RANSAC_REPROJECTION_THRESHOLD_PX)
+      reprojection_threshold_px=RANSAC_REPROJECTION_THRESHOLD_PX)
 
   mock_ransac.assert_called_once()
   assert mock_ransac.call_args.kwargs["flags"] == cv2.SOLVEPNP_SQPNP
@@ -359,7 +360,7 @@ def test_find_inlier_mask_uses_sqpnp_ransac_for_coplanar_points():
 
 
 @pytest.mark.test_name("NEX-T10426")
-def test_find_inlier_mask_runs_ransac_for_non_coplanar_points():
+def test_solve_pnpransac_uses_ap3p_for_non_coplanar_points():
   """Non-coplanar map points use AP3P RANSAC via the shared helper."""
   obj_points = np.array([
     [0.0, 0.0, 0.0],
@@ -388,9 +389,9 @@ def test_find_inlier_mask_runs_ransac_for_non_coplanar_points():
   with patch(
       "cv2.solvePnPRansac",
       return_value=(True, mock_rvec, mock_tvec, inliers)) as mock_ransac:
-    mask = find_inlier_mask(
+    _, _, mask = solve_pnpransac(
       obj_points, img_points, intrinsics, distortion,
-      RANSAC_REPROJECTION_THRESHOLD_PX)
+      reprojection_threshold_px=RANSAC_REPROJECTION_THRESHOLD_PX)
 
   mock_ransac.assert_called_once()
   assert mock_ransac.call_args.kwargs["flags"] == cv2.SOLVEPNP_AP3P

@@ -55,19 +55,6 @@ def calculate_pose(rvec, tvec):
 
   return euler, position
 
-def find_inlier_mask(obj_points, img_points, intrinsics, distortion,
-                     reprojection_threshold_px):
-  """Use shared RANSAC PnP to identify outlier correspondences.
-
-  Returns a boolean mask (True = inlier) over the correspondences, or None if
-  RANSAC is skipped (too few points) or fails. Coplanar sets use SQPNP;
-  non-coplanar use AP3P. Policy lives in scene_common.transform.solve_pnpransac.
-  """
-  _, _, mask = solve_pnpransac(
-    obj_points, img_points, intrinsics, distortion,
-    reprojection_threshold_px=reprojection_threshold_px)
-  return mask
-
 def per_point_reprojection_errors(obj_points, img_points, rvec, tvec, mtx, dist):
   """Reprojection error (pixels) of every correspondence under the fitted model."""
   projected, _ = cv2.projectPoints(obj_points, rvec, tvec, mtx, dist)
@@ -104,16 +91,13 @@ def needs_pose_only_fit(obj_points):
 
 
 def fit_pose_fixed_intrinsics(obj_points, img_points, intrinsics, distortion):
-  """Pose-only fit that keeps the supplied intrinsics and distortion fixed.
+  """Pose-only SQPNP fit that keeps the supplied intrinsics and distortion fixed.
 
-  Mirrors PointCorrespondenceTransform solver selection: SQPNP for sparse
-  non-coplanar sets, ITERATIVE otherwise.
+  Call only for needs_pose_only_fit sets (sparse non-coplanar correspondences
+  where calibrateCamera cannot initialize).
   """
-  method = cv2.SOLVEPNP_ITERATIVE
-  if len(obj_points) < 6 and not points_are_coplanar(obj_points):
-    method = cv2.SOLVEPNP_SQPNP
   ok, rvec, tvec = cv2.solvePnP(
-    obj_points, img_points, intrinsics, distortion, flags=method)
+    obj_points, img_points, intrinsics, distortion, flags=cv2.SOLVEPNP_SQPNP)
   if not ok:
     raise cv2.error("solvePnP failed for pose-only calibration fit")
   errors = per_point_reprojection_errors(
@@ -336,17 +320,17 @@ class CalculateCameraIntrinsics(APIView):
       # all points if RANSAC cannot find a valid consensus set.
       inlier_mask = None
       if reject_outliers:
-        inlier_mask = find_inlier_mask(obj_points, img_points, intrinsics,
-                                       distortion, outlier_threshold)
+        _, _, inlier_mask = solve_pnpransac(
+          obj_points, img_points, intrinsics, distortion,
+          reprojection_threshold_px=outlier_threshold)
 
-      ransac_mask = inlier_mask
-      ransac_inlier_count = (int(ransac_mask.sum())
-                             if ransac_mask is not None else None)
-      rejection_applied = (ransac_mask is not None and
+      ransac_inlier_count = (int(inlier_mask.sum())
+                             if inlier_mask is not None else None)
+      rejection_applied = (inlier_mask is not None and
                            ransac_inlier_count >= MIN_POINTS_FOR_RANSAC)
       if rejection_applied:
-        fit_obj_points = obj_points[ransac_mask]
-        fit_img_points = img_points[ransac_mask]
+        fit_obj_points = obj_points[inlier_mask]
+        fit_img_points = img_points[inlier_mask]
         num_rejected = num_points - ransac_inlier_count
         log.info(f"Outlier rejection: kept {ransac_inlier_count} of "
                  f"{num_points} correspondences ({num_rejected} rejected)")
@@ -357,16 +341,14 @@ class CalculateCameraIntrinsics(APIView):
         fit_obj_points = obj_points
         fit_img_points = img_points
 
-      flags = build_calibrate_flags(fix_intrinsics, len(fit_obj_points))
-
       if needs_pose_only_fit(fit_obj_points):
-        # Intrinsics/distortion stay at the request values (already forced
-        # fixed by build_calibrate_flags for <6 points).
+        # Intrinsics/distortion stay at the request values.
         log.info("Using pose-only SQPNP fit for "
                  f"{len(fit_obj_points)} non-coplanar correspondences")
         rms_error, mtx, dist, rvecs, tvecs = fit_pose_fixed_intrinsics(
           fit_obj_points, fit_img_points, intrinsics, distortion)
       else:
+        flags = build_calibrate_flags(fix_intrinsics, len(fit_obj_points))
         rms_error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
           [fit_obj_points], [fit_img_points], image_size, intrinsics,
           distortion, flags=flags)
@@ -378,8 +360,8 @@ class CalculateCameraIntrinsics(APIView):
                                                    rvecs[0], tvecs[0], mtx, dist)
       # Preserve RANSAC-flagged outliers even when the fit fell back to all
       # points, so the UI can still highlight which pairs RANSAC rejected.
-      rejected_indices = ([int(i) for i in np.where(~ransac_mask)[0]]
-                          if ransac_mask is not None else [])
+      rejected_indices = ([int(i) for i in np.where(~inlier_mask)[0]]
+                          if inlier_mask is not None else [])
 
       euler, position = calculate_pose(rvecs[0], tvecs[0])
       geometry = assess_calibration_geometry(

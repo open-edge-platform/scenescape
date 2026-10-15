@@ -9,7 +9,11 @@ import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from scene_common.transform import PointCorrespondenceTransform, CameraIntrinsics
+from scene_common.transform import (
+  PointCorrespondenceTransform,
+  CameraIntrinsics,
+  points_are_coplanar,
+)
 from scene_common.geometry import Point
 
 class TestPointCorrespondenceTransform:
@@ -53,36 +57,14 @@ class TestPointCorrespondenceTransform:
 
   def test_are_points_coplanar_true(self):
     """Test coplanarity check with coplanar points"""
-    intrinsics = CameraIntrinsics([800, 800, 320, 240])
-    pose = {
-        'camera points': np.array([
-            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
-        ]),
-        'map points': np.array([
-            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
-        ])  # All z=0, need at least 6 points
-    }
-    transform = PointCorrespondenceTransform(pose, intrinsics)
-
     coplanar_points = np.array([
         [1.2, 2.3, 0], [3.4, 4.5, 0], [5.6, 6.7, 0], [7.8, 8.9, 0]
     ])
-    assert transform.arePointsCoplanar(coplanar_points)
+    assert points_are_coplanar(coplanar_points)
 
   def test_are_points_coplanar_false(self):
     """Test coplanarity check with non-coplanar points"""
-    intrinsics = CameraIntrinsics([800, 800, 320, 240])
-    pose = {
-        'camera points': np.array([
-            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
-        ]),
-        'map points': np.array([
-            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
-        ])
-    }
-    transform = PointCorrespondenceTransform(pose, intrinsics)
-
-    # Points that definitely violate coplanarity (determinant > 0.1)
+    # Points that definitely violate coplanarity
     # Create a clear tetrahedron with large z differences
     non_coplanar_points = np.array([
         [0.0, 0.0, 0.0],
@@ -90,32 +72,7 @@ class TestPointCorrespondenceTransform:
         [0.0, 1.0, 0.0],
         [0.0, 0.0, 1.0]   # Unit tetrahedron
     ])
-    assert not transform.arePointsCoplanar(non_coplanar_points)
-
-  def test_calculate_determinant(self):
-    """Test determinant calculation for coplanarity"""
-    intrinsics = CameraIntrinsics([800, 800, 320, 240])
-    pose = {
-        'camera points': np.array([
-            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
-        ]),
-        'map points': np.array([
-            [1, 1, 0], [2, 2, 0], [3, 3, 0], [4, 4, 0], [5, 5, 0], [6, 6, 0]
-        ])
-    }
-    transform = PointCorrespondenceTransform(pose, intrinsics)
-
-    # Points forming a tetrahedron
-    points = np.array([
-        [1.2, 2.3, 0.5],
-        [4.7, 5.8, 1.2],
-        [7.9, 8.1, 2.3],
-        [3.4, 6.7, 0.8]
-    ])
-    determinant = transform.calculateDeterminant(points)
-    assert isinstance(determinant, (int, float, np.number))
-    # Non-coplanar points should have non-zero determinant
-    assert not math.isclose(determinant, 0.0, abs_tol=1e-6)
+    assert not points_are_coplanar(non_coplanar_points)
 
   @patch('cv2.solvePnPRansac', side_effect=cv2.error("RANSAC unavailable"))
   @patch('cv2.solvePnP')
@@ -333,24 +290,9 @@ class TestPointCorrespondenceTransform:
       PointCorrespondenceTransform(pose, None)
 
   def test_are_points_coplanar_insufficient_points(self):
-    """Test coplanarity check with insufficient points - implementation may handle gracefully"""
-    # Create a valid transform first with enough points
-    intrinsics = CameraIntrinsics([800, 800, 320, 240])
-    pose = {
-        'camera points': np.array([
-            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
-        ]),
-        'map points': np.array([
-            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
-        ])
-    }
-    transform = PointCorrespondenceTransform(pose, intrinsics)
-
-    # Test with insufficient points - implementation may handle by returning False or a default
+    """Fewer than four points are treated as coplanar (too small to judge)."""
     insufficient_points = np.array([[1, 2, 0], [3, 4, 0]])  # Only 2 points
-    result = transform.arePointsCoplanar(insufficient_points)
-    # With only 2 points, coplanarity is undefined, but implementation may return False
-    assert isinstance(result, bool)
+    assert points_are_coplanar(insufficient_points) is True
 
 class TestPointCorrespondenceTransformPrivateMethods:
   """Test private methods of PointCorrespondenceTransform class"""
@@ -412,8 +354,7 @@ class TestPointCorrespondenceTransformPrivateMethods:
         ])
     }
 
-    with patch.object(PointCorrespondenceTransform, 'arePointsCoplanar', return_value=False):
-      transform = PointCorrespondenceTransform(pose, intrinsics)
+    transform = PointCorrespondenceTransform(pose, intrinsics)
 
     mock_solve_pnp.assert_called_once()
     args, kwargs = mock_solve_pnp.call_args
@@ -464,7 +405,7 @@ class TestPointCorrespondenceTransformPrivateMethods:
          patch('cv2.solvePnP', wraps=cv2.solvePnP) as spy:
       transform = PointCorrespondenceTransform(pose, intrinsics)
 
-    assert not transform.arePointsCoplanar(map_points)
+    assert not points_are_coplanar(map_points)
     assert spy.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
     rmat = cv2.Rodrigues(rvec)[0]
     np.testing.assert_allclose(transform.pose_mat[:3, 3], -rmat.T @ tvec, atol=1e-4)
