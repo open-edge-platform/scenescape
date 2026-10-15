@@ -63,18 +63,43 @@ make run-debug
 
 **Environment overrides:** The following variables can be overridden:
 
-| Variable                   | Default                                      | Description                   |
-| -------------------------- | -------------------------------------------- | ----------------------------- |
-| `TRACKER_MQTT_HOST`        | `localhost`                                  | MQTT broker hostname          |
-| `TRACKER_MQTT_PORT`        | `1883`                                       | MQTT broker port              |
-| `TRACKER_MQTT_INSECURE`    | `false`                                      | Disable TLS (for test broker) |
-| `TRACKER_MQTT_TLS_CA_CERT` | `../manager/secrets/certs/scenescape-ca.pem` | CA certificate path           |
+| Variable                                 | Default                                      | Description                                      |
+| ---------------------------------------- | -------------------------------------------- | ------------------------------------------------ |
+| `TRACKER_MQTT_HOST`                      | `localhost`                                  | MQTT broker hostname                             |
+| `TRACKER_MQTT_PORT`                      | `1883`                                       | MQTT broker port                                 |
+| `TRACKER_MQTT_INSECURE`                  | `false`                                      | Disable TLS (for test broker)                    |
+| `TRACKER_MQTT_TLS_CA_CERT`               | `../manager/secrets/certs/scenescape-ca.pem` | CA certificate path                              |
+| `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`    | Empty                                        | Comma-separated `publisher_id:scene_uid` entries |
+| `CONTROLLER_TRUSTED_POSITIONING_SOURCES` | Empty                                        | Sources allowed to publish scene-frame poses     |
 
 Example with insecure test broker:
 
 ```bash
 make run TRACKER_MQTT_INSECURE=true
 ```
+
+### External Sources
+
+The tracker subscribes to `scenescape/external/{publisher_id}/{thing_type}` and
+supports unified dynamic-source payloads containing `source_id`. The canonical
+payload contract is documented in
+[External Source Input Message Format](../docs/user-guide/microservices/controller/data_formats.md#external-source-input-message-format).
+
+External object IDs are authoritative: they bypass RobotVision association and
+are published unchanged, with cross-source collision protection. Camera and
+external observations remain independent tracks and are not fused.
+
+For image-map scenes, the tracker calculates the scene-local-to-ECEF transform at
+startup from `map_corners_lla`, image dimensions, and the configured pixels-per-metre
+`scale`, matching the Python Controller. API mode retrieves the map from the same
+authenticated Manager origin; file mode reads the configured local map path. For
+3D maps, the tracker uses Manager's generated PNG/JPEG top-view thumbnail and its
+scale instead of downloading or parsing the GLB. A persisted `trs_matrix` remains
+a final compatibility fallback when no usable image or thumbnail is available.
+Scene-frame poses require an explicit binding and a source listed in
+`CONTROLLER_TRUSTED_POSITIONING_SOURCES`.
+Legacy configured child-scene payloads without `source_id` are not supported by
+the C++ tracker.
 
 **Manual execution:** If not using Make targets, you must source the Conan environment
 first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
@@ -94,33 +119,39 @@ make test-unit
 make test-unit-coverage
 # Report: build-debug/coverage/html/index.html
 
-# Run load tests (requires Docker and compose stack running)
+# Run camera-only load test (builds and manages its Compose stack)
 make test-load
+
+# Run external-only and combined load tests
+make test-load-external
+make test-load-mixed
 ```
 
 **Load Testing**
 
-The tracker includes k6-based load testing to validate SLI performance under sustained load.
+The tracker includes k6-based camera-only, external-source-only, and mixed load tests.
 
 **What the test does:**
 
-- Sends synthetic MQTT detection messages at configurable rates (default: 4 cameras × 15 FPS × 300 objects = 60 msg/s)
+- Sends synthetic MQTT detections at configurable camera and external-source rates
 - Measures end-to-end latency (p50, p99) and per-stage latency breakdown
 - Validates SLIs: dropped message rate < 0.1%, active track count, throughput
 
 **Test parameters** are configurable via environment variables:
 
-| Variable               | Default | Description                     |
-| ---------------------- | ------- | ------------------------------- |
-| `LOAD_TEST_DURATION_S` | `60`    | Duration of load test (seconds) |
-| `LOAD_TEST_CAMERAS`    | `4`     | Number of simulated cameras     |
-| `LOAD_TEST_FPS`        | `15`    | Frames per second per camera    |
-| `LOAD_TEST_OBJECTS`    | `300`   | Max objects per frame           |
+| Variable               | Default    | Description                     |
+| ---------------------- | ---------- | ------------------------------- |
+| `NUM_CAMERAS`          | `4`        | Simulated camera count          |
+| `NUM_EXTERNAL_SOURCES` | `0` or `4` | External source count by target |
+| `FPS`                  | `15`       | Messages per second per camera  |
+| `EXTERNAL_FPS`         | `FPS`      | Messages per second per source  |
+| `NUM_OBJECTS`          | `300`      | Objects per message/source      |
+| `DURATION`             | `1m`       | Load duration                   |
 
-**Example: Run a 120-second test with 8 cameras at 30 FPS:**
+**Example: Run a 5-minute mixed test with 8 cameras and 6 external sources:**
 
 ```bash
-make test-load LOAD_TEST_DURATION_S=120 LOAD_TEST_CAMERAS=8 LOAD_TEST_FPS=30
+NUM_CAMERAS=8 NUM_EXTERNAL_SOURCES=6 FPS=30 EXTERNAL_FPS=20 DURATION=5m make test-load-mixed
 ```
 
 For full load test setup and troubleshooting, see [load test README](test/load/README.md).

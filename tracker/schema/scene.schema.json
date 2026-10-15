@@ -4,7 +4,7 @@
   "title": "Scene Configuration",
   "description": "Single scene object from Manager API response for Tracker Service validation. Iterate over API results[] and validate each scene individually.",
   "type": "object",
-  "required": ["uid", "name", "cameras"],
+  "required": ["uid", "name"],
   "examples": [
     {
       "uid": "3bc091c7-e449-46a0-9540-29c499bca18c",
@@ -64,13 +64,53 @@
       "description": "Human-readable scene name",
       "examples": ["Retail", "Queuing", "Main Hall"]
     },
+    "output_lla": {
+      "type": "boolean",
+      "description": "Enable geospatial scene coordinates"
+    },
+    "map": {
+      "type": ["string", "null"],
+      "description": "Scene map path or Manager media URL"
+    },
+    "thumbnail": {
+      "type": ["string", "null"],
+      "description": "Top-view scene image used to derive 3D map XY dimensions"
+    },
+    "scale": {
+      "type": ["number", "null"],
+      "exclusiveMinimum": 0,
+      "description": "Image map scale in pixels per metre"
+    },
+    "map_corners_lla": {
+      "type": ["array", "null"],
+      "description": "Four geographic map corners in latitude, longitude, altitude order",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 3,
+        "items": { "type": "number" }
+      }
+    },
+    "trs_matrix": {
+      "type": "array",
+      "description": "Optional 4x4 transformation matrix from scene-local XYZ coordinates to ECEF coordinates",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {
+        "type": "array",
+        "minItems": 4,
+        "maxItems": 4,
+        "items": { "type": "number" }
+      }
+    },
     "cameras": {
       "type": "array",
       "description": "Cameras assigned to this scene with calibration data",
       "items": {
         "$ref": "#/$defs/camera"
-      },
-      "minItems": 1
+      }
     }
   },
   "$defs": {

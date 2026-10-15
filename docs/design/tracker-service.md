@@ -58,14 +58,15 @@ Explicitly out of scope:
 
 ```mermaid
 graph LR
+    EXT[External Sources] -->|Pose + observations| MQTT[MQTT Broker]
     DLS[DL Streamer] -->|Detections| MQTT[MQTT Broker]
-    MQTT -->|Detections| TS[Tracker Service]
+    MQTT -->|Camera detections + external observations| TS[Tracker Service]
     TS -->|Tracks| MQTT
     MQTT -->|Tracks| AS[Analytics Service]
     TS -.->|Telemetry| OTEL[OTLP Collector]
 ```
 
-**DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes detections, transforms them to world coordinates, applies Kalman filtering, and publishes tracks. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OpenTelemetry Collector.
+**DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes camera detections and external-source observations, transforms them to scene coordinates, and publishes tracks. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OpenTelemetry Collector.
 
 ## Communication
 
@@ -73,10 +74,11 @@ graph LR
 
 **Topics Subscribed:**
 
-| Topic                      | Description                                                                  |
-| -------------------------- | ---------------------------------------------------------------------------- |
-| `scenescape/data/camera/+` | Detection messages from AI pipeline with bounding boxes in pixel coordinates |
-| `scenescape/cmd/database`  | Database change notifications from Manager API (dynamic mode only)           |
+| Topic                      | Description                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------ |
+| `scenescape/data/camera/+` | Detection messages from AI pipeline with bounding boxes in pixel coordinates   |
+| `scenescape/external/+/+`  | Unified external-source observations, addressed by publisher ID and thing type |
+| `scenescape/cmd/database`  | Database change notifications from Manager API (dynamic mode only)             |
 
 **Detection Message:**
 
@@ -98,6 +100,32 @@ See full schema: [`camera-data.schema.json`](../../tracker/schema/camera-data.sc
   }
 }
 ```
+
+### External-Source Messages
+
+External publishers send unified source messages to
+`scenescape/external/{publisher_id}/{thing_type}`. Tracker requires the payload
+`source_id` to match the topic publisher ID and each object's category to match
+the topic thing type. See the [canonical external-source payload contract](../user-guide/microservices/controller/data_formats.md#external-source-input-message-format)
+and Tracker's [`external-source.schema.json`](../../tracker/schema/external-source.schema.json)
+for message details.
+
+Tracker resolves scenes from configured publisher-to-scene bindings, or
+automatically attaches WGS84 poses to georeferenced scenes when no binding is
+configured. Scene-frame poses require a manual binding and a trusted positioning
+source. A pose in the message is transformed into scene coordinates and cached
+for 30 seconds; later messages may reuse that pose by omitting it. A pose-only
+message with an empty `objects` array refreshes the cache without adding
+observations. External object IDs are authoritative: these observations bypass
+RobotVision association, derive velocity from successive observations, and are
+published alongside camera tracks without camera/external fusion. Collisions
+between different publishers claiming the same ID in a scene/category are
+rejected.
+
+**Tracker-specific limitation:** each external object must include a string
+`id`, and the payload's `track` field does not change Tracker's handling. This
+differs from the shared controller contract, where IDs may be omitted for
+tracked objects; do not assume both consumers accept that contract identically.
 
 ### Output
 
@@ -135,12 +163,14 @@ See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.sche
 
 In-memory only - no persistent storage. Stateless design for horizontal scalability.
 
-| Data                           | Retention                                   |
-| ------------------------------ | ------------------------------------------- |
-| Tracking state (Kalman filter) | While running; lost on restart              |
-| Detection buffers              | Flushed `time_chunking_rate_fps` per second |
-| Publish queue                  | Drained on shutdown (2s timeout)            |
-| Scene configuration            | Loaded at startup                           |
+| Data                              | Retention                                   |
+| --------------------------------- | ------------------------------------------- |
+| Tracking state (Kalman filter)    | While running; lost on restart              |
+| External tracks                   | Until aged out; lost on restart             |
+| External pose cache and ID claims | 30-second TTL; in-memory only               |
+| Detection buffers                 | Flushed `time_chunking_rate_fps` per second |
+| Publish queue                     | Drained on shutdown (2s timeout)            |
+| Scene configuration               | Loaded at startup                           |
 
 ### Detection Data Passthrough
 
@@ -201,6 +231,19 @@ Scenes and object-class assets fetched from Manager API at startup:
 - On notification: logs change, exits gracefully (Docker restarts the service which loads new config at startup)
 - Fires on any database change: scene create/update/delete, camera changes, region edits, asset edits, etc.
 - Suitable for multi-node deployments with centralized scene management
+
+#### External Sources
+
+External-source configuration is defined by `external_sources` in
+[`config.schema.json`](../../tracker/schema/config.schema.json):
+
+- `bindings` maps publisher IDs to one or more scene IDs. A configured binding
+  takes precedence over geospatial auto-attachment.
+- `trusted_positioning_sources` lists publishers allowed to provide
+  scene-frame poses; unset or empty means none are trusted.
+- The equivalent environment overrides are
+  `CONTROLLER_EXTERNAL_SOURCE_BINDINGS` and
+  `CONTROLLER_TRUSTED_POSITIONING_SOURCES`.
 
 ### Observability
 

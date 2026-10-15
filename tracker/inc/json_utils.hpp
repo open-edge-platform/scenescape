@@ -14,7 +14,7 @@ namespace tracker::detail {
 
 /**
  * @brief Get optional value from JSON using pointer path.
- * @tparam T Expected value type (std::string or double)
+ * @tparam T Expected value type (std::string, double, or bool)
  * @param doc The JSON value to query
  * @param pointer JSON pointer path (e.g., "/intrinsics/fx")
  * @return Optional containing value if found and correct type, nullopt otherwise
@@ -30,6 +30,10 @@ std::optional<T> get_value(const rapidjson::Value& doc, const char* pointer) {
         } else if constexpr (std::is_same_v<T, double>) {
             if (val->IsNumber()) {
                 return val->GetDouble();
+            }
+        } else if constexpr (std::is_same_v<T, bool>) {
+            if (val->IsBool()) {
+                return val->GetBool();
             }
         }
     }

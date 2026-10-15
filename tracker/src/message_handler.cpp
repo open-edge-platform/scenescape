@@ -8,6 +8,7 @@
 #include "time_utils.hpp"
 #include "topic_utils.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <format>
 #include <fstream>
@@ -27,6 +28,8 @@ namespace {
 // Schema file names
 constexpr const char* CAMERA_SCHEMA_FILE = "camera-data.schema.json";
 constexpr const char* SCENE_SCHEMA_FILE = "scene-data.schema.json";
+constexpr const char* EXTERNAL_SOURCE_SCHEMA_FILE = "external-source.schema.json";
+constexpr auto kExternalSourceSweepInterval = std::chrono::seconds(30);
 
 // Static JSON Pointers for thread-safe, zero-overhead field extraction (RFC 6901)
 // These are initialized once at program startup, avoiding per-call path parsing
@@ -39,21 +42,67 @@ static const rapidjson::Pointer PTR_BBOX_Y("/bounding_box_px/y");
 static const rapidjson::Pointer PTR_BBOX_WIDTH("/bounding_box_px/width");
 static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
 
+template <size_t Size>
+std::array<double, Size> parseNumberArray(const rapidjson::Value& value) {
+    std::array<double, Size> result{};
+    for (rapidjson::SizeType index = 0; index < Size; ++index) {
+        result[index] = value[index].GetDouble();
+    }
+    return result;
+}
+
+template <size_t Size>
+bool isNumberArray(const rapidjson::Value& value) {
+    if (!value.IsArray() || value.Size() != Size) {
+        return false;
+    }
+    return std::all_of(value.Begin(), value.End(),
+                       [](const rapidjson::Value& element) { return element.IsNumber(); });
+}
+
+std::unordered_map<std::string, std::vector<const Scene*>>
+resolveExternalSceneBindings(const ExternalSourcesConfig& external_sources_config,
+                             const SceneRegistry& scene_registry) {
+    std::unordered_map<std::string, std::vector<const Scene*>> resolved_bindings;
+    for (const auto& [publisher_id, scene_ids] : external_sources_config.bindings) {
+        auto& scenes = resolved_bindings[publisher_id];
+        for (const auto& scene_id : scene_ids) {
+            if (const auto* scene = scene_registry.find_scene_by_id(scene_id)) {
+                scenes.push_back(scene);
+            } else {
+                LOG_WARN("External binding scene '{}' not found for publisher '{}'", scene_id,
+                         publisher_id);
+            }
+        }
+    }
+    return resolved_bindings;
+}
+
 } // namespace
 
 MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
                                const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
                                const TrackingConfig& tracking_config, bool schema_validation,
-                               const std::filesystem::path& schema_dir, ClockFn clock_fn)
+                               const std::filesystem::path& schema_dir, ClockFn clock_fn,
+                               ExternalSourcesConfig external_sources_config)
     : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry), buffer_(buffer),
       tracking_config_(tracking_config), schema_validation_(schema_validation),
+      external_sources_config_(std::move(external_sources_config)),
+      external_scene_bindings_(
+          resolveExternalSceneBindings(external_sources_config_, scene_registry_)),
+      external_pose_cache_(kDefaultExternalSourceTtlSeconds, kDefaultExternalSourceSweepChunkSize,
+                           tracking_config.max_lag_s),
+      identity_claim_registry_(kDefaultExternalSourceTtlSeconds,
+                               kDefaultExternalSourceSweepChunkSize, tracking_config.max_lag_s),
       clock_fn_(std::move(clock_fn)) {
     if (schema_validation_) {
         auto camera_schema_path = schema_dir / CAMERA_SCHEMA_FILE;
         auto scene_schema_path = schema_dir / SCENE_SCHEMA_FILE;
+        auto external_source_schema_path = schema_dir / EXTERNAL_SOURCE_SCHEMA_FILE;
 
         camera_schema_ = loadSchema(camera_schema_path);
         scene_schema_ = loadSchema(scene_schema_path);
+        external_source_schema_ = loadSchema(external_source_schema_path);
 
         if (!camera_schema_) {
             LOG_WARN("Failed to load camera schema from {}, validation disabled for input",
@@ -63,6 +112,10 @@ MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
             LOG_WARN("Failed to load scene schema from {}, validation disabled for output",
                      scene_schema_path.string());
         }
+        if (!external_source_schema_) {
+            LOG_WARN("Failed to load external-source schema from {}, validation disabled for input",
+                     external_source_schema_path.string());
+        }
 
         if (camera_schema_ && scene_schema_) {
             LOG_INFO("Schema validation enabled for MQTT messages");
@@ -70,6 +123,10 @@ MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
     } else {
         LOG_INFO("Schema validation disabled for MQTT messages");
     }
+}
+
+MessageHandler::~MessageHandler() {
+    stopExternalSourceSweeper();
 }
 
 std::unique_ptr<rapidjson::SchemaDocument>
@@ -101,10 +158,17 @@ void MessageHandler::enableDynamicMode(ShutdownCallback callback) {
 }
 
 void MessageHandler::start() {
+    startExternalSourceSweeper();
+
     // Set up message callback with topic-based routing
     mqtt_client_->setMessageCallback([this](const std::string& topic, const std::string& payload) {
         routeMessage(topic, payload);
     });
+
+    mqtt_client_->subscribe(TOPIC_EXTERNAL_SUBSCRIBE);
+    LOG_INFO_ENTRY(LogEntry("Queued external-source subscription")
+                       .component("mqtt")
+                       .operation(TOPIC_EXTERNAL_SUBSCRIBE));
 
     // In dynamic mode, subscribe to database update topic for config change notifications
     if (dynamic_mode_) {
@@ -145,9 +209,13 @@ void MessageHandler::start() {
 }
 
 void MessageHandler::stop() {
+    stopExternalSourceSweeper();
+
     LOG_INFO("MessageHandler stopping (received: {}, buffered: {}, rejected: {}, lagged: {})",
              received_count_.load(), buffered_count_.load(), rejected_count_.load(),
              lagged_count_.load());
+
+    mqtt_client_->unsubscribe(TOPIC_EXTERNAL_SUBSCRIBE);
 
     // Unsubscribe from all camera topics (skip invalid UIDs - same validation as start())
     auto camera_ids = scene_registry_.get_all_camera_ids();
@@ -167,11 +235,279 @@ void MessageHandler::stop() {
     mqtt_client_->setMessageCallback(nullptr);
 }
 
+void MessageHandler::startExternalSourceSweeper() {
+    std::lock_guard lock(external_sweeper_mutex_);
+    if (external_sweeper_thread_.joinable()) {
+        return;
+    }
+    external_sweeper_stop_requested_ = false;
+    external_sweeper_thread_ = std::thread(&MessageHandler::externalSourceSweepLoop, this);
+}
+
+void MessageHandler::stopExternalSourceSweeper() {
+    std::thread sweeper;
+    {
+        std::lock_guard lock(external_sweeper_mutex_);
+        external_sweeper_stop_requested_ = true;
+        if (external_sweeper_thread_.joinable()) {
+            sweeper = std::move(external_sweeper_thread_);
+        }
+    }
+    external_sweeper_cv_.notify_all();
+    if (sweeper.joinable()) {
+        sweeper.join();
+    }
+}
+
+void MessageHandler::externalSourceSweepLoop() {
+    std::unique_lock lock(external_sweeper_mutex_);
+    while (!external_sweeper_stop_requested_) {
+        if (external_sweeper_cv_.wait_for(lock, kExternalSourceSweepInterval,
+                                          [this] { return external_sweeper_stop_requested_; })) {
+            return;
+        }
+        lock.unlock();
+        const auto now = clock_fn_();
+        external_pose_cache_.sweepExpired(now);
+        identity_claim_registry_.sweepExpired(now);
+        lock.lock();
+    }
+}
+
 void MessageHandler::routeMessage(const std::string& topic, const std::string& payload) {
     if (dynamic_mode_ && topic == TOPIC_DATABASE_UPDATE) {
         handleDatabaseUpdateMessage(topic, payload);
-    } else {
+    } else if (topic.starts_with(TOPIC_EXTERNAL_PREFIX)) {
+        handleExternalSourceMessage(topic, payload);
+    } else if (topic.starts_with(TOPIC_CAMERA_PREFIX)) {
         handleCameraMessage(topic, payload);
+    } else {
+        LOG_WARN("Rejecting message from unsupported topic: {}", topic);
+        rejected_count_++;
+    }
+}
+
+std::optional<std::pair<std::string, std::string>>
+MessageHandler::extractExternalTopic(const std::string& topic) {
+    if (!topic.starts_with(TOPIC_EXTERNAL_PREFIX)) {
+        return std::nullopt;
+    }
+    const std::string_view remainder(
+        topic.data() + std::char_traits<char>::length(TOPIC_EXTERNAL_PREFIX),
+        topic.size() - std::char_traits<char>::length(TOPIC_EXTERNAL_PREFIX));
+    const size_t separator = remainder.find('/');
+    if (separator == std::string_view::npos || separator == 0 ||
+        separator == remainder.size() - 1 ||
+        remainder.find('/', separator + 1) != std::string_view::npos) {
+        return std::nullopt;
+    }
+    std::string publisher_id(remainder.substr(0, separator));
+    std::string category(remainder.substr(separator + 1));
+    if (!isValidTopicSegment(publisher_id) || !isValidTopicSegment(category)) {
+        return std::nullopt;
+    }
+    return std::pair{std::move(publisher_id), std::move(category)};
+}
+
+std::optional<ExternalSourceMessage>
+MessageHandler::parseExternalSourceMessage(const std::string& payload) {
+    rapidjson::Document document;
+    document.Parse(payload.c_str());
+    if (document.HasParseError() || !document.IsObject() ||
+        (schema_validation_ && external_source_schema_ &&
+         !validateJson(document, external_source_schema_.get()))) {
+        LOG_WARN("Failed to validate external source message against schema -  {}",
+                 payload.c_str());
+        return std::nullopt;
+    }
+    if (!document.HasMember("source_id") || !document["source_id"].IsString() ||
+        !document.HasMember("timestamp") || !document["timestamp"].IsString() ||
+        !document.HasMember("objects") || !document["objects"].IsArray()) {
+        LOG_WARN("External message missing required fields or has invalid types -  {}",
+                 payload.c_str());
+        return std::nullopt;
+    }
+
+    ExternalSourceMessage message;
+    message.source_id = document["source_id"].GetString();
+    message.timestamp = document["timestamp"].GetString();
+    if (document.HasMember("pose")) {
+        const auto& value = document["pose"];
+        if (!value.IsObject() || !value.HasMember("reference_frame") ||
+            !value["reference_frame"].IsString()) {
+            LOG_WARN("External message has invalid pose -  {}", payload.c_str());
+            return std::nullopt;
+        }
+        ExternalPose pose;
+        pose.reference_frame = value["reference_frame"].GetString();
+        const char* position_field =
+            pose.reference_frame == "wgs84" ? "lat_long_alt" : "translation";
+        if (!value.HasMember(position_field) || !isNumberArray<3>(value[position_field])) {
+            LOG_WARN("External message missing required position field or has invalid type -  {}",
+                     payload.c_str());
+            return std::nullopt;
+        }
+        pose.position = parseNumberArray<3>(value[position_field]);
+        if (value.HasMember("rotation")) {
+            if (!isNumberArray<4>(value["rotation"])) {
+                LOG_WARN("External message has invalid rotation field -  {}", payload.c_str());
+                return std::nullopt;
+            }
+            pose.rotation = parseNumberArray<4>(value["rotation"]);
+        }
+        if (value.HasMember("provider") && value["provider"].IsString()) {
+            pose.provider = value["provider"].GetString();
+        }
+        message.pose = std::move(pose);
+    }
+
+    for (const auto& value : document["objects"].GetArray()) {
+        if (!value.IsObject() || !value.HasMember("id") || !value["id"].IsString() ||
+            !value.HasMember("category") || !value["category"].IsString() ||
+            !value.HasMember("translation") || !isNumberArray<3>(value["translation"])) {
+            LOG_WARN("External message missing required object fields or has invalid types -  {}",
+                     payload.c_str());
+            return std::nullopt;
+        }
+        ExternalDetection detection;
+        detection.id = value["id"].GetString();
+        detection.category = value["category"].GetString();
+        detection.translation = parseNumberArray<3>(value["translation"]);
+        if (value.HasMember("rotation")) {
+            if (!isNumberArray<4>(value["rotation"])) {
+                LOG_WARN("External message has invalid rotation field for object -  {}",
+                         payload.c_str());
+                return std::nullopt;
+            }
+            detection.rotation = parseNumberArray<4>(value["rotation"]);
+        }
+        if (value.HasMember("size")) {
+            if (!isNumberArray<3>(value["size"])) {
+                LOG_WARN("External message has invalid size field for object -  {}",
+                         payload.c_str());
+                return std::nullopt;
+            }
+            detection.size = parseNumberArray<3>(value["size"]);
+        }
+        if (value.HasMember("confidence") && value["confidence"].IsNumber()) {
+            detection.confidence = value["confidence"].GetDouble();
+        }
+        if (value.HasMember("metadata") && value["metadata"].IsObject()) {
+            rapidjson::StringBuffer buffer;
+            rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+            value["metadata"].Accept(writer);
+            detection.metadata_json = buffer.GetString();
+        }
+        message.objects.push_back(std::move(detection));
+    }
+    return message;
+}
+
+std::vector<const Scene*>
+MessageHandler::resolveExternalScenes(const std::string& publisher_id,
+                                      const ExternalSourceMessage& message,
+                                      std::chrono::system_clock::time_point when) {
+    std::vector<const Scene*> scenes;
+    const auto binding = external_scene_bindings_.find(publisher_id);
+    if (binding != external_scene_bindings_.end()) {
+        return binding->second;
+    }
+    if (!message.pose.has_value()) {
+        for (const auto& scene_id : external_pose_cache_.scenesWithLiveCache(publisher_id, when)) {
+            if (const auto* scene = scene_registry_.find_scene_by_id(scene_id)) {
+                LOG_INFO("Resolved external scenes pose - pushing scene_id '{}'", scene_id);
+                scenes.push_back(scene);
+            }
+        }
+    } else if (message.pose->reference_frame == "wgs84") {
+        for (const auto& scene : scene_registry_.get_all_scenes()) {
+            if (scene.trs_matrix.has_value()) {
+                scenes.push_back(&scene);
+            }
+        }
+    }
+    return scenes;
+}
+
+void MessageHandler::handleExternalSourceMessage(const std::string& topic,
+                                                 const std::string& payload) {
+    ObservabilityContext obs_ctx;
+    obs_ctx.captureReceiveTime();
+    received_count_++;
+    const auto topic_parts = extractExternalTopic(topic);
+    const auto message = parseExternalSourceMessage(payload);
+    if (!topic_parts.has_value() || !message.has_value() ||
+        message->source_id != topic_parts->first) {
+        rejected_count_++;
+        obs_ctx.abort(kReasonRejectedSchema);
+        return;
+    }
+    const auto timestamp = parseTimestamp(message->timestamp);
+    if (!timestamp.has_value()) {
+        rejected_count_++;
+        obs_ctx.abort(kReasonRejectedParse);
+        return;
+    }
+    if (isMessageLagged(*timestamp)) {
+        lagged_count_++;
+        obs_ctx.abort(kReasonRejectedLag);
+        return;
+    }
+    const auto scenes = resolveExternalScenes(topic_parts->first, *message, *timestamp);
+
+    for (const auto* scene : scenes) {
+        const bool trusted =
+            external_sources_config_.trusted_positioning_sources.contains(message->source_id);
+        const auto pose = external_pose_cache_.resolve(*scene, message->source_id, message->pose,
+                                                       *timestamp, trusted);
+        if (!pose.source_to_scene.has_value()) {
+            LOG_WARN("External source pose unavailable for source={} scene={}: {}",
+                     message->source_id, scene->uid, pose.reason);
+            continue;
+        }
+
+        DetectionBatch batch;
+        batch.source = DetectionBatch::Source::External;
+        batch.receive_time = std::chrono::steady_clock::now();
+        batch.timestamp = *timestamp;
+        batch.timestamp_iso = message->timestamp;
+        batch.obs_ctx = obs_ctx;
+        batch.obs_ctx.scene_id = scene->uid;
+        batch.obs_ctx.category = topic_parts->second;
+        for (const auto& object : message->objects) {
+            if (object.category != topic_parts->second) {
+                LOG_WARN("Rejecting external object id={} source={}: category '{}' does not match "
+                         "topic category '{}'",
+                         object.id, message->source_id, object.category, topic_parts->second);
+                continue;
+            }
+            const auto claim = identity_claim_registry_.claim(
+                scene->uid, topic_parts->second, message->source_id, object.id, *timestamp);
+            if (!claim.first) {
+                LOG_WARN("Rejecting colliding external object id={} source={} scene={}", object.id,
+                         message->source_id, scene->uid);
+                continue;
+            }
+            auto transformed = object;
+            transformed.translation =
+                transformExternalPoint(*pose.source_to_scene, object.translation);
+            batch.external_detections.push_back(std::move(transformed));
+        }
+        if (batch.external_detections.empty()) {
+            continue;
+        }
+
+        const TrackingScope scope{scene->uid, topic_parts->second};
+        {
+            std::lock_guard lock(categories_mutex_);
+            active_scopes_.insert(scope);
+        }
+        batch.obs_ctx.captureBufferTime();
+        buffer_.add(scope, message->source_id, std::move(batch));
+        buffered_count_++;
+        Metrics::inc_messages({{kAttrScene, scene->uid},
+                               {kAttrCameraId, message->source_id},
+                               {kAttrReason, kReasonAccepted}});
     }
 }
 

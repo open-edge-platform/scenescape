@@ -5,10 +5,14 @@
 
 #include "env_vars.hpp"
 #include "json_utils.hpp"
+#include "topic_utils.hpp"
 
+#include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <stdexcept>
+#include <string_view>
 
 #include <rapidjson/document.h>
 #include <rapidjson/istreamwrapper.h>
@@ -123,6 +127,76 @@ void apply_env(T& field, const char* env_name, Parser parser) {
 void apply_env_string(std::string& field, const char* env_name) {
     if (auto val = get_env(env_name); val.has_value()) {
         field = val.value();
+    }
+}
+
+std::string trim(std::string_view value) {
+    auto first = std::find_if_not(value.begin(), value.end(),
+                                  [](unsigned char ch) { return std::isspace(ch); });
+    auto last = std::find_if_not(value.rbegin(), value.rend(), [](unsigned char ch) {
+                    return std::isspace(ch);
+                }).base();
+    if (first >= last) {
+        return {};
+    }
+    return std::string(first, last);
+}
+
+std::vector<std::string> split_csv(const std::string& value, const std::string& source) {
+    std::vector<std::string> entries;
+    size_t start = 0;
+    while (start <= value.size()) {
+        const size_t end = value.find(',', start);
+        auto entry = trim(std::string_view(value).substr(
+            start, end == std::string::npos ? std::string::npos : end - start));
+        if (entry.empty()) {
+            throw std::runtime_error("Invalid " + source + ": empty comma-separated entry");
+        }
+        entries.push_back(std::move(entry));
+        if (end == std::string::npos) {
+            break;
+        }
+        start = end + 1;
+    }
+    return entries;
+}
+
+void validate_external_id(const std::string& value, const std::string& source) {
+    if (!isValidTopicSegment(value)) {
+        throw std::runtime_error("Invalid " + source + " identifier: " + value);
+    }
+}
+
+void add_binding(ExternalSourcesConfig& config, const std::string& publisher_id,
+                 const std::string& scene_id, const std::string& source) {
+    validate_external_id(publisher_id, source);
+    validate_external_id(scene_id, source);
+    auto& scenes = config.bindings[publisher_id];
+    if (std::find(scenes.begin(), scenes.end(), scene_id) == scenes.end()) {
+        scenes.push_back(scene_id);
+    }
+}
+
+void parse_binding_env(ExternalSourcesConfig& config, const std::string& value,
+                       const std::string& source) {
+    config.bindings.clear();
+    for (const auto& entry : split_csv(value, source)) {
+        const size_t separator = entry.find(':');
+        if (separator == std::string::npos || entry.find(':', separator + 1) != std::string::npos) {
+            throw std::runtime_error("Invalid " + source + " binding: " + entry);
+        }
+        const auto publisher_id = trim(std::string_view(entry).substr(0, separator));
+        const auto scene_id = trim(std::string_view(entry).substr(separator + 1));
+        add_binding(config, publisher_id, scene_id, source);
+    }
+}
+
+void parse_trusted_sources_env(ExternalSourcesConfig& config, const std::string& value,
+                               const std::string& source) {
+    config.trusted_positioning_sources.clear();
+    for (const auto& source_id : split_csv(value, source)) {
+        validate_external_id(source_id, source);
+        config.trusted_positioning_sources.insert(source_id);
     }
 }
 
@@ -312,6 +386,25 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                                      kDefaultNonMeasurementTimeStaticS)
             .GetDouble();
 
+    // External-source configuration (optional)
+    if (const auto* bindings = GetValueByPointer(config_doc, json::EXTERNAL_SOURCE_BINDINGS)) {
+        for (auto it = bindings->MemberBegin(); it != bindings->MemberEnd(); ++it) {
+            const std::string publisher_id = it->name.GetString();
+            for (const auto& scene : it->value.GetArray()) {
+                add_binding(config.external_sources, publisher_id, scene.GetString(),
+                            "external_sources.bindings");
+            }
+        }
+    }
+    if (const auto* trusted =
+            GetValueByPointer(config_doc, json::EXTERNAL_SOURCE_TRUSTED_POSITIONING_SOURCES)) {
+        for (const auto& source : trusted->GetArray()) {
+            const std::string source_id = source.GetString();
+            validate_external_id(source_id, "external_sources.trusted_positioning_sources");
+            config.external_sources.trusted_positioning_sources.insert(source_id);
+        }
+    }
+
     // NTP configuration (optional; server empty/missing = use OS clock)
     if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP)) {
         NtpConfig ntp_config;
@@ -402,6 +495,14 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               tracker::env::NON_MEASUREMENT_TIME_DYNAMIC_S, parse_positive_double);
     apply_env(config.tracking.non_measurement_time_static_s,
               tracker::env::NON_MEASUREMENT_TIME_STATIC_S, parse_positive_double);
+
+    if (auto val = get_env(tracker::env::EXTERNAL_SOURCE_BINDINGS); val.has_value()) {
+        parse_binding_env(config.external_sources, *val, tracker::env::EXTERNAL_SOURCE_BINDINGS);
+    }
+    if (auto val = get_env(tracker::env::TRUSTED_POSITIONING_SOURCES); val.has_value()) {
+        parse_trusted_sources_env(config.external_sources, *val,
+                                  tracker::env::TRUSTED_POSITIONING_SOURCES);
+    }
 
     // NTP overrides: env vars take precedence;
     if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {

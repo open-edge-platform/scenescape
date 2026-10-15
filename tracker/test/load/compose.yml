@@ -65,9 +65,11 @@ services:
       - TRACKER_METRICS_ENABLED=true
       - TRACKER_OTLP_ENDPOINT=otel-collector:4317
       - TRACKER_METRICS_EXPORT_INTERVAL_S=${METRICS_EXPORT_INTERVAL_S:-1}
-      - TRACKER_TIME_CHUNKING_RATE_FPS=${FPS:-15}
+      - TRACKER_TIME_CHUNKING_RATE_FPS=${CHUNKING_FPS:-15}
       - TRACKER_MAX_LAG_S=1.0
       - TRACKER_MQTT_SCHEMA_VALIDATION=true
+      - CONTROLLER_EXTERNAL_SOURCE_BINDINGS=${EXTERNAL_SOURCE_BINDINGS:-}
+      - CONTROLLER_TRUSTED_POSITIONING_SOURCES=${EXTERNAL_SOURCE_IDS:-}
       # Paho MQTT proxy workaround
       - http_proxy=
       - https_proxy=
@@ -102,15 +104,24 @@ services:
     profiles: ["k6"]
     volumes:
       - ./simulate-detections.js:/scripts/simulate-detections.js:ro
+      - ./simulate-external.js:/scripts/simulate-external.js:ro
     environment:
       - MQTT_HOST=tcp://broker
       - MQTT_PORT=1883
       - CAMERA_COUNT=${NUM_CAMERAS:-4}
       - CAMERA_FPS=${FPS:-15}
+      - EXTERNAL_SOURCE_COUNT=${NUM_EXTERNAL_SOURCES:-0}
+      - EXTERNAL_FPS=${EXTERNAL_FPS:-15}
+      - EXTERNAL_SOURCE_PREFIX=load-agent-
       - OBJECT_COUNT=${NUM_OBJECTS:-300}
       - DEFAULT_TEST_DURATION=${DURATION:-1m}
       - CAMERA_ID_PREFIX=atag-qcam
-    command: ["run", "--no-usage-report", "/scripts/simulate-detections.js"]
+    command:
+      [
+        "run",
+        "--no-usage-report",
+        "/scripts/${K6_SCRIPT:-simulate-detections.js}",
+      ]
     depends_on:
       tracker:
         condition: service_healthy
