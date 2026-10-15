@@ -344,6 +344,22 @@ class TestMoveEvents(unittest.TestCase):
                      [("PTZController/Move/Channel_1", "0", "Initialized")])
     self.assertEqual(self.camera.unsubscribed, 1)
 
+  def test_renews_using_camera_granted_lease(self):
+    self.camera.subscription_lease_s = 10
+    device = self.factory().connect_services()
+    self.addCleanup(device.close)
+    now = [100.0]
+    with PullPointSubscription(device, termination_s=60, monotonic=lambda: now[0]) as subscription:
+      self.assertAlmostEqual(subscription._lease_s, 10, places=1)
+      self.assertAlmostEqual(subscription._expires_at, 110, places=1)
+      now[0] = 105
+      self.camera.subscription_lease_s = 4
+      subscription.pull(timeout_s=0)
+      renewals = [operation for operation, _ in self.camera.operations if operation == "Renew"]
+      self.assertEqual(len(renewals), 1)
+      self.assertAlmostEqual(subscription._lease_s, 4, places=1)
+      self.assertAlmostEqual(subscription._expires_at, 109, places=1)
+
   def test_monitor_tracks_state_and_emits_records(self):
     monitor = MoveEventMonitor("cam-b", self.factory, "PTZController/Move", "is_moving")
     stop = threading.Event()

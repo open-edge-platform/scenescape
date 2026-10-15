@@ -47,13 +47,15 @@ class FakeOnvifCamera:
   """Configurable fake device; set attributes to change state between calls."""
 
   def __init__(self, username="operator", password="fake-secret-Pa55", advertise_host="10.255.0.1",
-               clock_offset_s=0.0, require_reference_parameters=False, with_events=True):
+               clock_offset_s=0.0, require_reference_parameters=False, with_events=True,
+               subscription_lease_s=60):
     self.username = username
     self.password = password
     self.advertise_host = advertise_host
     self.clock_offset_s = clock_offset_s
     self.require_reference_parameters = require_reference_parameters
     self.with_events = with_events
+    self.subscription_lease_s = subscription_lease_s
     self.pan = 0.25
     self.tilt = -0.5
     self.zoom = 0.0
@@ -211,9 +213,16 @@ class FakeOnvifCamera:
         return True
     return False
 
+  def _subscription_lease_xml(self):
+    current = self._device_now()
+    termination = current + datetime.timedelta(seconds=self.subscription_lease_s)
+    return (f"<tev:CurrentTime>{current.strftime('%Y-%m-%dT%H:%M:%SZ')}</tev:CurrentTime>"
+            f"<tev:TerminationTime>{termination.strftime('%Y-%m-%dT%H:%M:%SZ')}</tev:TerminationTime>")
+
   def _op_CreatePullPointSubscription(self, request, header):
     return 200, _ENVELOPE.format(body=(
-      "<tev:CreatePullPointSubscriptionResponse><tev:SubscriptionReference>"
+      "<tev:CreatePullPointSubscriptionResponse>"
+      f"{self._subscription_lease_xml()}<tev:SubscriptionReference>"
       f"<wsa5:Address>{self._xaddr('/onvif/services')}</wsa5:Address>"
       "<wsa5:ReferenceParameters><tnsaxis:SubscriptionId>7</tnsaxis:SubscriptionId>"
       "</wsa5:ReferenceParameters></tev:SubscriptionReference>"
@@ -247,7 +256,11 @@ class FakeOnvifCamera:
       f"<tev:TerminationTime>{utc}</tev:TerminationTime>{messages}</tev:PullMessagesResponse>"))
 
   def _op_Renew(self, request, header):
-    return self._check_subscription(header) or (200, _ENVELOPE.format(body="<wsnt:RenewResponse/>"))
+    error = self._check_subscription(header)
+    if error:
+      return error
+    return 200, _ENVELOPE.format(body=(
+      f"<wsnt:RenewResponse>{self._subscription_lease_xml()}</wsnt:RenewResponse>"))
 
   def _op_Unsubscribe(self, request, header):
     error = self._check_subscription(header)

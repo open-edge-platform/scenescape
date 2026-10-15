@@ -5,6 +5,7 @@
 
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from html import escape
 from typing import Dict, List, Optional
 
@@ -15,6 +16,26 @@ from positioning.onvif.soap import OnvifError, child_text, find_child, find_path
 _EVENTS_WSDL = "http://www.onvif.org/ver10/events/wsdl"
 _SUBSCRIPTION_MANAGER = "http://docs.oasis-open.org/wsn/bw-2/SubscriptionManager"
 _IS_REFERENCE_PARAMETER = '{http://www.w3.org/2005/08/addressing}IsReferenceParameter'
+
+
+def _granted_lease_s(response):
+  current_time = child_text(response, "CurrentTime")
+  termination_time = child_text(response, "TerminationTime")
+  if not current_time or not termination_time:
+    raise OnvifError("Subscription response is missing lease timestamps")
+  try:
+    current = datetime.fromisoformat(current_time.replace("Z", "+00:00"))
+    termination = datetime.fromisoformat(termination_time.replace("Z", "+00:00"))
+  except ValueError:
+    raise OnvifError("Subscription response has invalid lease timestamps") from None
+  if current.tzinfo is None:
+    current = current.replace(tzinfo=timezone.utc)
+  if termination.tzinfo is None:
+    termination = termination.replace(tzinfo=timezone.utc)
+  lease_s = (termination - current).total_seconds()
+  if lease_s <= 0:
+    raise OnvifError("Subscription response has an expired lease")
+  return lease_s
 
 
 def normalize_topic(topic):
@@ -71,6 +92,7 @@ class PullPointSubscription:
     self.address: Optional[str] = None
     self._reference_parameters: List[str] = []
     self._expires_at = 0.0
+    self._lease_s = termination_s
 
   def __enter__(self):
     self.create()
@@ -83,6 +105,7 @@ class PullPointSubscription:
     events_url = self._device.xaddrs.get("events")
     if not events_url:
       raise OnvifError("Device does not advertise an ONVIF Events service")
+    request_started = self._monotonic()
     response = self._device.call(
       events_url, f"{_EVENTS_WSDL}/EventPortType/CreatePullPointSubscriptionRequest",
       "<tev:CreatePullPointSubscription><tev:InitialTerminationTime>"
@@ -94,7 +117,11 @@ class PullPointSubscription:
     for parameter in parameters if parameters is not None else ():
       parameter.set(_IS_REFERENCE_PARAMETER, "true")
       self._reference_parameters.append(tostring(parameter, encoding="unicode"))
-    self._expires_at = self._monotonic() + self.termination_s
+    self._set_lease(response, request_started)
+
+  def _set_lease(self, response, request_started):
+    self._lease_s = _granted_lease_s(response)
+    self._expires_at = request_started + self._lease_s
 
   def _header(self, action):
     return (f"<wsa:Action>{action}</wsa:Action><wsa:To>{escape(self.address)}</wsa:To>"
@@ -106,7 +133,7 @@ class PullPointSubscription:
 
   def pull(self, timeout_s=1, message_limit=16):
     """Long-poll for up to `timeout_s` seconds; renews the subscription when half-expired."""
-    if self._monotonic() > self._expires_at - self.termination_s / 2:
+    if self._monotonic() >= self._expires_at - self._lease_s / 2:
       self.renew()
     action = f"{_EVENTS_WSDL}/PullPointSubscription/PullMessagesRequest"
     response = self._subscription_call(
@@ -117,10 +144,11 @@ class PullPointSubscription:
     return parse_notifications(response)
 
   def renew(self):
-    self._subscription_call(
+    request_started = self._monotonic()
+    response = self._subscription_call(
       f"{_SUBSCRIPTION_MANAGER}/RenewRequest",
       f"<wsnt:Renew><wsnt:TerminationTime>PT{int(self.termination_s)}S</wsnt:TerminationTime></wsnt:Renew>")
-    self._expires_at = self._monotonic() + self.termination_s
+    self._set_lease(response, request_started)
 
   def unsubscribe(self):
     """Best effort: devices cap concurrent PullPoints, so never leak one."""
