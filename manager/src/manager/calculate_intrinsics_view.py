@@ -15,6 +15,7 @@ from scene_common import log
 from scene_common.transform import (
   MIN_POINTS_FOR_RANSAC,
   RANSAC_REPROJECTION_THRESHOLD_PX,
+  points_are_coplanar,
   scaled_reprojection_threshold_px,
   solve_pnpransac,
 )
@@ -89,6 +90,37 @@ def build_calibrate_flags(fix_intrinsics, num_points):
     if any(fix_intrinsics.get(key, True) for key in keys) or num_points < min_points:
       flags |= flag
   return flags
+
+
+def needs_pose_only_fit(obj_points):
+  """True when calibrateCamera cannot initialize extrinsics for this set.
+
+  OpenCV's calibrateCamera uses iterative PnP/DLT that requires at least six
+  non-coplanar points. Smaller non-coplanar sets (typical of 3D map cal or
+  RANSAC-reduced inliers) must use a pose-only SQPNP path instead. Planar
+  floor-plan layouts still work with calibrateCamera.
+  """
+  return (len(obj_points) < 6 and not points_are_coplanar(obj_points))
+
+
+def fit_pose_fixed_intrinsics(obj_points, img_points, intrinsics, distortion):
+  """Pose-only fit that keeps the supplied intrinsics and distortion fixed.
+
+  Mirrors PointCorrespondenceTransform solver selection: SQPNP for sparse
+  non-coplanar sets, ITERATIVE otherwise.
+  """
+  method = cv2.SOLVEPNP_ITERATIVE
+  if len(obj_points) < 6 and not points_are_coplanar(obj_points):
+    method = cv2.SOLVEPNP_SQPNP
+  ok, rvec, tvec = cv2.solvePnP(
+    obj_points, img_points, intrinsics, distortion, flags=method)
+  if not ok:
+    raise cv2.error("solvePnP failed for pose-only calibration fit")
+  errors = per_point_reprojection_errors(
+    obj_points, img_points, rvec, tvec, intrinsics, distortion)
+  rms_error = float(np.sqrt(np.mean(np.square(errors))))
+  return (rms_error, np.asarray(intrinsics, dtype=np.float64).copy(),
+          np.asarray(distortion, dtype=np.float64).copy(), [rvec], [tvec])
 
 def _singular_values_3d(points):
   """Principal-axis lengths (descending) for a 3D point set, padded to 3."""
@@ -327,10 +359,17 @@ class CalculateCameraIntrinsics(APIView):
 
       flags = build_calibrate_flags(fix_intrinsics, len(fit_obj_points))
 
-      rms_error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera([fit_obj_points],
-                                                              [fit_img_points],
-                                                              image_size, intrinsics,
-                                                              distortion, flags=flags)
+      if needs_pose_only_fit(fit_obj_points):
+        # Intrinsics/distortion stay at the request values (already forced
+        # fixed by build_calibrate_flags for <6 points).
+        log.info("Using pose-only SQPNP fit for "
+                 f"{len(fit_obj_points)} non-coplanar correspondences")
+        rms_error, mtx, dist, rvecs, tvecs = fit_pose_fixed_intrinsics(
+          fit_obj_points, fit_img_points, intrinsics, distortion)
+      else:
+        rms_error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
+          [fit_obj_points], [fit_img_points], image_size, intrinsics,
+          distortion, flags=flags)
 
       # Per-point reprojection errors of every correspondence (inliers and
       # rejected outliers alike) under the final fitted model, so the caller

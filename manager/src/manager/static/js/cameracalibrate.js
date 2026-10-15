@@ -110,6 +110,12 @@ export class ConvergedCameraCalibration {
     this.camCanvas.canvas.addEventListener("contextmenu", (event) => {
       this.calculateCalibrationIntrinsics();
     });
+    // CamCanvas ends drags on mouseleave; refit so Save is not stuck on stale.
+    this.camCanvas.canvas.addEventListener("mouseleave", () => {
+      if (this.calibrationFitState === "stale") {
+        this.calculateCalibrationIntrinsics();
+      }
+    });
     this.camCanvas.canvas.addEventListener("mousemove", (event) => {
       if (this.camCanvas.isDragging) {
         this.projectionEnabled = false;
@@ -181,6 +187,14 @@ export class ConvergedCameraCalibration {
             this.calculateCalibrationIntrinsics();
           },
         );
+        viewport.renderer.domElement.addEventListener("mouseleave", (event) => {
+          if (viewport.isDragging) {
+            viewport.onMouseUp(event);
+          }
+          if (this.calibrationFitState === "stale") {
+            this.calculateCalibrationIntrinsics();
+          }
+        });
         viewport.renderer.domElement.addEventListener("mousemove", (event) => {
           if (viewport.isDragging) {
             this.projectionEnabled = false;
@@ -556,6 +570,9 @@ export class ConvergedCameraCalibration {
   }
 
   clearCalibrationPointDiagnostics() {
+    // Invalidate in-flight responses so a pre-edit callback cannot restore
+    // obsolete rejection indices after the user starts dragging a point.
+    this.calibrationRequestId++;
     this.calibrationFitState = "stale";
     this.rejectedPointIndices = [];
     if (this.camCanvas) {
@@ -669,12 +686,25 @@ export class ConvergedCameraCalibration {
   }
 
   clearCalibrationPoints() {
-    this.calibrationRequestId++;
     this.camCanvas.clearCalibrationPoints();
     this.viewport.clearCalibrationPoints();
     this.projectionEnabled = false;
+    // clearCalibrationFitStatus → clearCalibrationPointDiagnostics bumps
+    // calibrationRequestId so any in-flight fit response is ignored.
     this.clearCalibrationFitStatus();
     this.calibrationFitState = "idle";
+  }
+
+  setupCalibrationParameterListeners() {
+    // Intrinsics/distortion edits (and lock toggles) change the model that
+    // produced the current RANSAC rejection set; require a fresh fit before save.
+    const onParameterChange = () => {
+      this.clearCalibrationPointDiagnostics();
+      this.calculateCalibrationIntrinsics();
+    };
+    $(
+      'input[name^="intrinsics_"], input[name^="distortion_"], input[id^="enabled_"]',
+    ).on("change", onParameterChange);
   }
 
   setupResetPointsButton() {

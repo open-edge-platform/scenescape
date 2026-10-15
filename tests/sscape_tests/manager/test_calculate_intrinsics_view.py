@@ -15,6 +15,8 @@ from manager.calculate_intrinsics_view import (
   assess_image_point_coverage,
   assess_map_point_geometry,
   find_inlier_mask,
+  fit_pose_fixed_intrinsics,
+  needs_pose_only_fit,
   parse_outlier_threshold_px,
   parse_pixels_per_meter,
   parse_reject_outliers,
@@ -394,3 +396,77 @@ def test_find_inlier_mask_runs_ransac_for_non_coplanar_points():
   assert mock_ransac.call_args.kwargs["flags"] == cv2.SOLVEPNP_AP3P
   assert mask is not None
   assert mask.tolist() == [True, True, True, True, False]
+
+
+def _projected_non_coplanar_correspondences(num_points):
+  """Synthesize a non-coplanar set that calibrateCamera rejects for count < 6."""
+  map_points = np.array([
+    [0.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+    [1.0, 1.0, 0.5],
+    [0.5, 0.0, 0.8],
+  ], dtype=np.float32)[:num_points]
+  intrinsics = np.array([
+    [800.0, 0.0, 320.0],
+    [0.0, 800.0, 240.0],
+    [0.0, 0.0, 1.0],
+  ], dtype=np.float64)
+  distortion = np.zeros(5)
+  rvec = np.array([[0.1], [-0.2], [0.05]])
+  tvec = np.array([[0.0], [0.0], [5.0]])
+  cam_points, _ = cv2.projectPoints(map_points, rvec, tvec, intrinsics, distortion)
+  return (map_points, cam_points.reshape(-1, 2).astype(np.float32),
+          intrinsics, distortion)
+
+
+@pytest.mark.test_name("NEX-T10426")
+@pytest.mark.parametrize("num_points", [4, 5])
+def test_needs_pose_only_fit_for_small_non_coplanar_sets(num_points):
+  map_points, _, _, _ = _projected_non_coplanar_correspondences(num_points)
+  assert needs_pose_only_fit(map_points)
+  planar = np.array([
+    [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0],
+  ], dtype=np.float32)
+  assert not needs_pose_only_fit(planar)
+
+
+@pytest.mark.test_name("NEX-T10426")
+@pytest.mark.parametrize("num_points", [4, 5])
+def test_calculate_intrinsics_pose_only_path_for_small_non_coplanar_sets(
+    num_points):
+  """Four/five non-coplanar pairs must succeed without mocking calibrateCamera."""
+  map_points, cam_points, intrinsics, distortion = (
+    _projected_non_coplanar_correspondences(num_points))
+  payload = _calibration_payload(
+    mapPoints=map_points.tolist(),
+    camPoints=cam_points.tolist(),
+    intrinsics=intrinsics.tolist(),
+    distortion=distortion.tolist(),
+    rejectOutliers=False,
+  )
+
+  with patch("cv2.calibrateCamera") as mock_calibrate:
+    response = _post_calculate_intrinsics(payload)
+
+  assert response.status_code == 200, response.data
+  mock_calibrate.assert_not_called()
+  assert response.data["fitPointCount"] == num_points
+  assert response.data["rejectionApplied"] is False
+  assert len(response.data["perPointErrors"]) == num_points
+  assert response.data["rmsError"] < 1.0
+  np.testing.assert_allclose(response.data["mtx"], intrinsics, atol=1e-6)
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_fit_pose_fixed_intrinsics_uses_sqpnp_for_non_coplanar():
+  map_points, cam_points, intrinsics, distortion = (
+    _projected_non_coplanar_correspondences(4))
+  with patch("cv2.solvePnP", wraps=cv2.solvePnP) as spy:
+    rms, mtx, dist, rvecs, tvecs = fit_pose_fixed_intrinsics(
+      map_points, cam_points, intrinsics, distortion)
+  assert spy.call_args.kwargs["flags"] == cv2.SOLVEPNP_SQPNP
+  assert rms < 1.0
+  assert len(rvecs) == 1 and len(tvecs) == 1
+  np.testing.assert_allclose(mtx, intrinsics)
