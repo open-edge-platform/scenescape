@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <chrono>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -17,6 +18,13 @@ namespace {
 using namespace rv::tracking::test;
 using rv::tracking::MotionModel;
 using rv::tracking::MultiModelKalmanEstimator;
+
+// Row of a motion model in getModelProbability() for productionConfig().
+int modelIndex(MotionModel model)
+{
+  const auto &models = rv::tracking::kProductionMotionModels;
+  return static_cast<int>(std::ranges::find(models, model) - models.begin());
+}
 
 } // namespace
 
@@ -81,6 +89,39 @@ TEST(MultiModelKalmanEstimatorTest, PredictMixesModelStates)
       EXPECT_NEAR(predicted.at<double>(k), mixed.at<double>(k), 1e-9) << "model " << j << ", state index " << k;
     }
   }
+}
+
+// Bug: all model states shared one predicted-measurement buffer, so every model reported the last model's (CTRV)
+// prediction; fails on main 6b0a3156b.
+TEST(MultiModelKalmanEstimatorTest, PredictKeepsPerModelPredictedMeasurements)
+{
+  // An accelerating, turning target makes CV, CA and CTRV predict different positions.
+  Sensor camera;
+  FilterRun run;
+  run.feed(observe(Trajectory({.speed = 2.0, .box = kCar}).accelerate(1.0, 1.5).turn(0.6, 1.5).sample(10.0), camera));
+  run.coast(0.5);
+
+  // Reference: each filter's own predicted measurement, the mean that goes with its S in the model likelihood.
+  // Reading the private mKalmanFilters and measurementEstimate requires -fno-access-control (test/CMakeLists.txt).
+  const auto &filters = run.estimator.mKalmanFilters;
+  double spread = 0.0;
+  for (const auto &filter : filters)
+  {
+    spread = std::max(spread, cv::norm(filter->measurementEstimate, filters[0]->measurementEstimate, cv::NORM_INF));
+  }
+  ASSERT_GT(spread, 1e-2) << "models must predict different measurements";
+
+  // The combined predicted measurement is the probability-weighted mean of the model predictions.
+  const auto models = run.estimator.currentStates();
+  const cv::Mat probability = run.estimator.getModelProbability();
+  cv::Mat mixture = cv::Mat::zeros(rv::tracking::TrackedObject::MeasurementSize, 1, CV_64F);
+  for (size_t i = 0; i < filters.size(); ++i)
+  {
+    EXPECT_LT(cv::norm(models[i].predictedMeasurementMean, filters[i]->measurementEstimate, cv::NORM_INF), 1e-9)
+      << "model " << i;
+    mixture += probability.at<double>(static_cast<int>(i)) * filters[i]->measurementEstimate;
+  }
+  EXPECT_LT(cv::norm(run.state().predictedMeasurementMean, mixture, cv::NORM_INF), 1e-9);
 }
 
 // Bug: MultiModelKalmanEstimator::initialize cleared only mSystemModels, so filters piled up; fails on main 6b0a3156b.
@@ -191,5 +232,67 @@ TEST(MultiModelKalmanEstimatorTest, KinematicProcessNoiseShape)
     rest.at<double>(idx::Yaw, idx::Yaw) = 0.0;
     rest.at<double>(idx::YawRate, idx::YawRate) = 0.0;
     EXPECT_DOUBLE_EQ(cv::norm(rest, cv::NORM_INF), 0.0) << "position, z and size must get no direct noise";
+  }
+}
+
+// Bug: all models were scored against one shared predicted measurement, so only S could separate them. With IMM mixing
+// working, the models' S are nearly equal and the probabilities stayed near 1/3 for an accelerating target.
+TEST(MultiModelKalmanEstimatorTest, AcceleratingTargetFavoursConstantAcceleration)
+{
+  struct MotionCase
+  {
+    const char *name;
+    std::vector<TruthSample> truth;
+    double from; // model probabilities are averaged over [from, to)
+    double to;
+    bool accelerating;
+  };
+  // Windows start once the probabilities have settled: after the speed pick-up at birth, about 1 s into braking.
+  const MotionCase cases[] = {
+    {.name = "pulling away",
+     .truth = Trajectory({.box = kCar}).accelerate(2.0, 8.0).sample(10.0),
+     .from = 2.0,
+     .to = 8.0,
+     .accelerating = true},
+    {.name = "braking",
+     .truth = Trajectory({.speed = 10.0, .box = kCar}).straight(3.0).accelerate(-4.0, 2.5).sample(10.0),
+     .from = 4.0,
+     .to = 5.5,
+     .accelerating = true},
+    {.name = "constant velocity",
+     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(8.0).sample(10.0),
+     .from = 3.0,
+     .to = 8.0,
+     .accelerating = false},
+  };
+  constexpr double kFavoured = 0.45;
+
+  for (const auto &motion : cases)
+  {
+    SCOPED_TRACE(motion.name);
+    Sensor camera{.positionNoise = 0.05};
+    FilterRun run;
+    run.feed(observe(between(motion.truth, 0.0, motion.from), camera));
+
+    const auto window = observe(between(motion.truth, motion.from, motion.to), camera);
+    cv::Mat probabilitySum = cv::Mat::zeros(static_cast<int>(rv::tracking::kProductionMotionModels.size()), 1, CV_64F);
+    for (const auto &observation : window)
+    {
+      run.feed({observation});
+      probabilitySum += run.estimator.getModelProbability();
+    }
+    const cv::Mat mean = probabilitySum / static_cast<double>(window.size());
+    const double constantAcceleration = mean.at<double>(modelIndex(MotionModel::CA));
+
+    if (motion.accelerating)
+    {
+      EXPECT_GE(constantAcceleration, kFavoured) << "mean model probabilities " << mean.t();
+      EXPECT_GT(constantAcceleration, mean.at<double>(modelIndex(MotionModel::CV)));
+      EXPECT_GT(constantAcceleration, mean.at<double>(modelIndex(MotionModel::CTRV)));
+    }
+    else
+    {
+      EXPECT_LT(constantAcceleration, kFavoured) << "mean model probabilities " << mean.t();
+    }
   }
 }
