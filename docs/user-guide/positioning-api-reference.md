@@ -148,6 +148,17 @@ Schema cannot express:
 - Each axis `frame` matches its place in `composition_order`.
 - `backlash` nodes have distinct positions.
 
+### Manager Import Threshold
+
+Manager accepts a non-null `ptz_calibration` only when its
+`reprojection_rms_px` does not exceed `PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX`.
+Configure this as a finite, positive maximum in pixels, for example
+`PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX=1.5` in the Compose project `.env` file or
+the environment used to launch Compose. The Manager service forwards this value
+without a default. If it is unset or empty, malformed, non-finite, zero, or
+negative, calibration imports and non-null calibration writes are rejected; set
+the threshold before importing or updating calibrated cameras.
+
 ### Example
 
 ```json

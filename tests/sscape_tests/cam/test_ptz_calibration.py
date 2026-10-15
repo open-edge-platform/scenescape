@@ -104,6 +104,15 @@ class PTZCalibrationSerializerTest(TestCase):
       serializer.validate_ptz_calibration(PTZ_CALIBRATION)
     self.assertIn("not configured", str(raised.exception))
 
+  def test_invalid_import_threshold_rejects_calibration(self):
+    serializer = CamSerializer()
+    for threshold in ("", "invalid", "nan", "inf", "0", "-1"):
+      with self.subTest(threshold=threshold), self.settings(
+        PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX=threshold
+      ):
+        with self.assertRaises(ValidationError):
+          serializer.validate_ptz_calibration(PTZ_CALIBRATION)
+
 
 class PTZCalibrationInvalidationTest(TestCase):
 
