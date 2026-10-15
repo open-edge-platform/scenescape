@@ -73,6 +73,146 @@ the camera's `ptz_calibration.position_space`. If `reported_move_status` is alwa
 Keep lab configurations and credentials under `positioning/.local/`, which is
 git-ignored. Never place camera endpoints or credentials in tracked files.
 
+## Configure Your Own PTZ Camera Locally
+
+Use the git-ignored `positioning/.local/` directory for lab cameras. A complete
+setup looks like this:
+
+```text
+positioning/.local/
+├── positioning.json                 # service config with your sources
+├── positioning-assignments.json     # source_id -> resolver_id
+├── compose.override.yml             # mounts the files above into the container
+└── secrets/
+    └── <source_id>.json             # ONVIF credentials, mode 0600
+```
+
+1. Create the directory and a credentials file for each camera. Use an ONVIF
+   account, which some vendors manage separately from web UI users (for example,
+   on Axis: **System > Accounts > ONVIF accounts**). An Operator role is
+   sufficient for polling and events.
+
+   ```bash
+   mkdir -p positioning/.local/secrets && chmod 700 positioning/.local/secrets
+   cat > positioning/.local/secrets/lab-ptz-1.json <<'EOF'
+   {"username": "<onvif-user>", "password": "<onvif-password>"}
+   EOF
+   chmod 600 positioning/.local/secrets/lab-ptz-1.json
+   ```
+
+   Edit the file in an editor rather than typing the password into shell history.
+
+2. Verify each camera with the probe (see
+   [PTZ Camera Onboarding Check](#ptz-camera-onboarding-check)). Note the ONVIF
+   port, the profile token if you need a specific one, whether
+   `reported_move_status` changes to `MOVING` while the camera moves, and whether
+   the event topic list contains a move event.
+
+3. Create `positioning/.local/positioning.json`. Each key under `sources` is the
+   Manager camera UID. This example has one camera that only supports `GetStatus`
+   and one that also publishes an Axis-style `is_moving` event:
+
+   ```json
+   {
+     "resolver_id": "positioning-lab",
+     "poll_interval_s": 0.2,
+     "sources": {
+       "lab-ptz-1": {
+         "type": "onvif_ptz",
+         "host": "<camera-1-ip>",
+         "port": 2020,
+         "credentials_file": "/run/secrets/onvif/lab-ptz-1.json",
+         "move_status": "get_status"
+       },
+       "lab-ptz-2": {
+         "type": "onvif_ptz",
+         "host": "<camera-2-ip>",
+         "port": 80,
+         "credentials_file": "/run/secrets/onvif/lab-ptz-2.json",
+         "move_status": "event",
+         "move_event": {
+           "topic": "PTZController/Move",
+           "data_item": "is_moving"
+         }
+       }
+     }
+   }
+   ```
+
+   Choose `move_status` per camera:
+
+   | Camera behavior during the probe                             | Setting                                          |
+   | ------------------------------------------------------------ | ------------------------------------------------ |
+   | `GetStatus` reports `MOVING` while moving                    | `"move_status": "get_status"`                    |
+   | `GetStatus` always reports `IDLE`, a move event is available | `"move_status": "event"` plus `move_event`       |
+   | Neither is reliable                                          | `"move_status": "none"`                          |
+   | You want event records for calibration only                  | Keep `get_status` or `none` and add `move_event` |
+
+   `credentials_file` is the path inside the container, not on the host.
+
+4. Assign every configured source to the same `resolver_id` in
+   `positioning/.local/positioning-assignments.json`:
+
+   ```json
+   {
+     "lab-ptz-1": "positioning-lab",
+     "lab-ptz-2": "positioning-lab"
+   }
+   ```
+
+5. Create `positioning/.local/compose.override.yml` to mount the configuration,
+   manifest, and credentials into the Positioning service. Compose replaces the
+   whole `command` list, so repeat the broker options. Set `user` to your host
+   user and group IDs (`id -u` and `id -g`) so the service can read the `0600`
+   credential files:
+
+   ```yaml
+   services:
+     positioning:
+       user: "1000:1000"
+       command:
+         - --broker
+         - broker.scenescape.intel.com
+         - --brokerauth
+         - /run/secrets/positioning.auth
+         - --cert
+         - /run/secrets/certs/scenescape-positioning.crt
+         - --keyfile
+         - /run/secrets/certs/scenescape-positioning.key
+         - --rootcert
+         - /run/secrets/certs/scenescape-ca.pem
+         - --config
+         - /run/positioning/positioning.json
+         - --assignments
+         - /run/positioning/positioning-assignments.json
+       volumes:
+         - ./positioning/.local/positioning.json:/run/positioning/positioning.json:ro
+         - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
+         - ./positioning/.local/secrets:/run/secrets/onvif:ro
+   ```
+
+   The secret files mounted by the base Compose file (broker auth and
+   certificates) must also be readable by the user ID you set.
+
+6. Start or recreate the service from the repository root, then follow its logs:
+
+   ```bash
+   docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml \
+     --profile controller up -d positioning
+   docker compose logs -f positioning
+   ```
+
+   At startup the service logs `Configured PTZ sources: [...]` and
+   `PTZ source <id> connected: ...` for each camera. Every 30 seconds it logs a
+   `ptz_poll_stats` record per source with the achieved rate and maximum timestamp
+   uncertainty. Event-capable cameras also log a `ptz_move_event` record for each
+   `is_moving` change. Configuration errors, such as a source missing from the
+   manifest, unknown keys, or an unreadable credentials file, stop the service
+   with a message that names the source.
+
+To return to the default service shell, start the service without the override
+file.
+
 ## Shadow Validation Artifacts
 
 When Controller and Tracker shadow profiles are implemented, each emits sampled,
