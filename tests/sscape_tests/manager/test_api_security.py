@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 from rest_framework.test import APIRequestFactory
@@ -75,3 +75,33 @@ def test_service_health_allows_loopback_request():
 
   assert response.status_code == 200
   assert response.data["status"] == "healthy"
+
+
+@pytest.mark.parametrize(
+  ("resolver_id", "expected_status", "expected_result"),
+  [
+    ("resolver-a", 200, "allow"),
+    ("resolver-b", 403, "deny"),
+  ],
+)
+def test_positioning_status_write_is_bound_to_configured_resolver(
+  resolver_id, expected_status, expected_result,
+):
+  request = Mock(data={
+    "username": "positioning",
+    "topic": f"scenescape/positioning/status/{resolver_id}",
+    "acc": api.WRITE_ONLY,
+  })
+  user = Mock(is_superuser=False)
+  acl = Mock(topic="POSITIONING_STATUS", access=api.WRITE_ONLY)
+  user_acls = MagicMock()
+  user_acls.exists.return_value = True
+  user_acls.__iter__.return_value = iter([acl])
+
+  with patch.dict("os.environ", {"POSITIONING_RESOLVER_ID": "resolver-a"}), \
+       patch.object(api.User.objects, "get", return_value=user), \
+       patch.object(api.PubSubACL.objects, "filter", return_value=user_acls):
+    response = api.ACLCheck().post(request)
+
+  assert response.status_code == expected_status
+  assert response.data["result"] == expected_result

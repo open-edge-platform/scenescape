@@ -60,6 +60,14 @@ _reid_service_src = _REPO_ROOT / "reid_service" / "src"
 if str(_reid_service_src) not in sys.path:
   sys.path.insert(0, str(_reid_service_src))
 
+_positioning_src = _REPO_ROOT / "positioning" / "src"
+if str(_positioning_src) not in sys.path:
+  sys.path.insert(0, str(_positioning_src))
+
+_scene_common_src = _REPO_ROOT / "scene_common" / "src"
+if str(_scene_common_src) not in sys.path:
+  sys.path.insert(0, str(_scene_common_src))
+
 _analytics_src = _REPO_ROOT / "analytics" / "src"
 if str(_analytics_src) not in sys.path:
   sys.path.insert(0, str(_analytics_src))

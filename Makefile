@@ -8,7 +8,8 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
+
+CORE_IMAGE_FOLDERS := autocalibration controller manager analytics positioning
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid_service
 
 # Image variables
@@ -77,8 +78,8 @@ LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics
-TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics positioning
+TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics positioning)
 DEPLOYMENT_TEST ?= 0
 
 # Observability variables
@@ -117,7 +118,7 @@ help:
 	@echo "  build-all-images            Build all microservice images in parallel"
 	@echo "  build-core-lidar            Alias of build-core (LiDAR demo source labels are in-tree)"
 	@echo "  init-secrets                Generate secrets and certificates"
-	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
+	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, positioning, etc.)"
 	@echo ""
 	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
 	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
@@ -221,7 +222,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid_service: build-common
+autocalibration controller manager analytics positioning mapping cluster_analytics reid_service: build-common
 
 # Helper function to build images in parallel
 define parallel-build

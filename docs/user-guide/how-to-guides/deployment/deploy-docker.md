@@ -63,12 +63,12 @@ Scenescape uses [Docker Compose profiles](https://docs.docker.com/compose/how-to
 
 The following profiles are available:
 
-| Profile             | Description                                                                             |
-| ------------------- | --------------------------------------------------------------------------------------- |
-| `controller`        | Scene Controller (tracking) + Analytics service. Used by this guide and `make demo`.    |
-| `mapping`           | Enables mapping service.                                                                |
-| `cluster-analytics` | Enables cluster-analytics service.                                                      |
-| `tracker`           | Tracker service + Analytics service (no Scene Controller). Used by `make demo-tracker`. |
+| Profile             | Description                                                                                |
+| ------------------- | ------------------------------------------------------------------------------------------ |
+| `controller`        | Scene Controller (tracking) + Analytics + Positioning. Used by this guide and `make demo`. |
+| `mapping`           | Enables mapping service.                                                                   |
+| `cluster-analytics` | Enables cluster-analytics service.                                                         |
+| `tracker`           | Tracker + Analytics + Positioning (no Scene Controller). Used by `make demo-tracker`.      |
 
 > **ReID backends:** For raw Compose, add exactly one of `sample_data/compose/compose.vdms-override.yml` or `sample_data/compose/compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](../../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
 

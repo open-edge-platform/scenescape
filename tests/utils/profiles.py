@@ -71,6 +71,14 @@ def resolve_compose_files(compose_files, dri_path="/dev/dri"):
   device node exists so CPU-only hosts can still start video profiles.
   """
   files = list(compose_files)
+  includes_tracking_service = any(
+    os.path.basename(path).startswith("compose.scene")
+    or os.path.basename(path) == "compose.tracker.yml"
+    for path in files
+  )
+  positioning_compose = f"{COMPOSE}/compose.positioning.yml"
+  if includes_tracking_service and positioning_compose not in files:
+    files.append(positioning_compose)
   if not _host_has_dri(dri_path):
     return tuple(files)
   for marker, override in _GPU_DRI_OVERRIDES:
