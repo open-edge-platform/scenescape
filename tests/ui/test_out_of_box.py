@@ -186,9 +186,9 @@ def test_out_of_box(params, record_xml_attribute):
     connected.wait(timeout=5)
     message_received.acquire()
 
-    # send getimage only after connection established
+    # send getimages only after connection established
     for cam in cameras:
-      client.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=cam), "getimage")
+      client.publish(PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id=cam), "getimages")
 
     for cam in cameras:
       while(counter_img[cam] < MAX_IMAGES):
