@@ -7,6 +7,7 @@
 #include <cmath>
 #include <numbers>
 #include <random>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -24,10 +25,11 @@ struct Box
   double length = 0.0;
   double width = 0.0;
   double height = 0.0;
+  std::string_view category;
 };
 
-inline constexpr Box kCar{.length = 4.5, .width = 1.8, .height = 1.5};
-inline constexpr Box kPerson{.length = 0.5, .width = 0.5, .height = 1.7};
+inline constexpr Box kCar{.length = 4.5, .width = 1.8, .height = 1.5, .category = "vehicle"};
+inline constexpr Box kPerson{.length = 0.5, .width = 0.5, .height = 1.7, .category = "person"};
 
 struct TruthSample
 {
@@ -37,6 +39,7 @@ struct TruthSample
   double heading = 0.0;
   double speed = 0.0;
   double yawRate = 0.0;
+  double acceleration = 0.0;
   Box box;
 
   double vx() const
@@ -100,6 +103,8 @@ public:
         }
         state.t = mStart.t + ++frame / fps;
         state.yawRate = segment.yawRate;
+        // Braking ends once the object stands still.
+        state.acceleration = (state.speed > 0.0 || segment.acceleration > 0.0) ? segment.acceleration : 0.0;
         samples.push_back(state);
       }
     }
@@ -183,12 +188,26 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
   return observations;
 }
 
+class FilterRun;
+
+// Notified by FilterRun after initialize(), every track() and every coast(), e.g. by ScenarioRecorder.
+class FilterRunObserver
+{
+public:
+  virtual ~FilterRunObserver() = default;
+  virtual void filterStep(const FilterRun &run) = 0;
+};
+
 // Drives one MultiModelKalmanEstimator the way TrackManager does, without association or lifecycle.
 class FilterRun
 {
 public:
-  explicit FilterRun(TrackManagerConfig config = productionConfig())
+  explicit FilterRun(TrackManagerConfig config = productionConfig(),
+                     FilterRunObserver *observer = nullptr,
+                     int trackId = 1)
     : mConfig(std::move(config))
+    , mObserver(observer)
+    , mTrackId(trackId)
   {
   }
 
@@ -212,6 +231,7 @@ public:
                              mConfig.mMotionModels);
         mInitialized = true;
       }
+      notify();
       states.push_back(state());
     }
     return states;
@@ -220,6 +240,7 @@ public:
   void coast(double seconds)
   {
     estimator.predict(seconds);
+    notify();
   }
 
   TrackedObject state() const
@@ -227,10 +248,30 @@ public:
     return estimator.currentState();
   }
 
+  const TrackManagerConfig &config() const
+  {
+    return mConfig;
+  }
+
+  int trackId() const
+  {
+    return mTrackId;
+  }
+
   MultiModelKalmanEstimator estimator;
 
 private:
+  void notify() const
+  {
+    if (mObserver != nullptr)
+    {
+      mObserver->filterStep(*this);
+    }
+  }
+
   TrackManagerConfig mConfig;
+  FilterRunObserver *mObserver = nullptr;
+  int mTrackId = 1;
   bool mInitialized = false;
 };
 

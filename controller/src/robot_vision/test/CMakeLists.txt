@@ -15,6 +15,7 @@ set(TEST_SOURCES
   MultiModelKalmanEstimatorTests.cpp
   MultipleObjectTrackerTests.cpp
   OrientationFusionTests.cpp
+  ScenarioRecorderTests.cpp
   UnscentedKalmanFilterTests.cpp
 )
 
