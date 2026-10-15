@@ -273,7 +273,7 @@ class SingletonSerializer(NonNullSerializer):
 
 class CamSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
-  sensor_id = serializers.CharField(write_only=True, required=False)
+  sensor_id = serializers.CharField(write_only=True, required=False, max_length=20)
   uid = serializers.CharField(source="sensor_id", read_only=True)
   intrinsics = serializers.SerializerMethodField('get_intrinsics')
   distortion = serializers.SerializerMethodField('get_distortion')
@@ -285,6 +285,22 @@ class CamSerializer(NonNullSerializer):
   scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
   transform_type = serializers.SerializerMethodField('get_transform_type')
   ptz_calibration = serializers.JSONField(required=False, allow_null=True)
+
+  @staticmethod
+  def camera_id_topic_error(value):
+    if not isinstance(value, str) or not value:
+      return "must be a non-empty MQTT topic segment."
+    if len(value) > 20:
+      return "must contain no more than 20 characters."
+    if any(character in value for character in ('/', '+', '#', '\x00')):
+      return "must be a single MQTT topic segment without '/', '+', '#', or NUL."
+    return None
+
+  def validate_sensor_id(self, value):
+    error = self.camera_id_topic_error(value)
+    if error:
+      raise serializers.ValidationError(error)
+    return value
 
   def validate_ptz_calibration(self, value):
     if value is None:
@@ -420,6 +436,11 @@ class CamSerializer(NonNullSerializer):
     return value
 
   def validate_name(self, value):
+    if self.instance is None and 'sensor_id' not in self.initial_data:
+      error = self.camera_id_topic_error(value.replace(" ", "_"))
+      if error:
+        raise serializers.ValidationError(error)
+
     if not self.instance:
       qs = Cam.objects.filter(name=value)
 

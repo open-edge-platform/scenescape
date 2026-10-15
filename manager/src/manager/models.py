@@ -72,11 +72,15 @@ def sendUpdateCommand(scene_id=None, camera_data=None, camera_config_update=None
       if camera_data:
         client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
       if camera_config_update:
-        topic = PubSub.formatTopic(
-          PubSub.CMD_CAMERA_CONFIG, camera_id=camera_config_update['camera_id'])
-        client.publish(topic, json.dumps({
-          'calibration_version': camera_config_update['calibration_version']
-        }), qos=1)
+        try:
+          topic = PubSub.formatTopic(
+            PubSub.CMD_CAMERA_CONFIG, camera_id=camera_config_update['camera_id'])
+        except (TypeError, ValueError) as e:
+          log.warning(f"Skipping camera configuration invalidation: {e}")
+        else:
+          client.publish(topic, json.dumps({
+            'calibration_version': camera_config_update['calibration_version']
+          }), qos=1)
       msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
       if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
         client.loopStart()

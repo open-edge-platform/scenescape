@@ -4,7 +4,7 @@
 from copy import deepcopy
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.db import transaction
@@ -13,7 +13,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.exceptions import ValidationError
 from rest_framework.test import APIClient
 
-from manager.models import Cam, PubSubACL, Scene
+from manager.models import Cam, PubSubACL, Scene, sendUpdateCommand
 from manager.serializers import CamSerializer
 from scene_common.mqtt import PubSub
 
@@ -60,6 +60,17 @@ PTZ_CALIBRATION = {
 
 class PTZCalibrationSerializerTest(TestCase):
 
+  def test_explicit_camera_id_must_be_topic_safe(self):
+    for camera_id in ("North/West", "camera+one", "camera#one", "camera\x00one"):
+      serializer = CamSerializer(data={"name": "Camera", "sensor_id": camera_id})
+      self.assertFalse(serializer.is_valid())
+      self.assertIn("sensor_id", serializer.errors)
+
+  def test_derived_camera_id_must_be_topic_safe(self):
+    serializer = CamSerializer(data={"name": "North/West"})
+    self.assertFalse(serializer.is_valid())
+    self.assertIn("name", serializer.errors)
+
   @override_settings(PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX="1.5")
   def test_valid_calibration_is_accepted(self):
     serializer = CamSerializer()
@@ -95,6 +106,35 @@ class PTZCalibrationSerializerTest(TestCase):
 
 
 class PTZCalibrationInvalidationTest(TestCase):
+
+  def test_incompatible_existing_camera_id_does_not_abort_other_notifications(self):
+    client = Mock()
+    client.publish.return_value.is_published.return_value = True
+
+    class FakePubSub:
+      CMD_CAMERA_CONFIG = PubSub.CMD_CAMERA_CONFIG
+      CMD_DATABASE = PubSub.CMD_DATABASE
+      CMD_KUBECLIENT = PubSub.CMD_KUBECLIENT
+      formatTopic = staticmethod(PubSub.formatTopic)
+
+      def __new__(cls, *args, **kwargs):
+        return client
+
+    with patch.dict("os.environ", {"BROKER": "broker"}), \
+         patch("manager.models.PubSub", FakePubSub):
+      sendUpdateCommand(
+        camera_data={"sensor_id": "North/West"},
+        camera_config_update={
+          "camera_id": "North/West",
+          "calibration_version": "legacy-v1",
+        },
+      )
+
+    published_topics = [call.args[0] for call in client.publish.call_args_list]
+    self.assertEqual(published_topics, [
+      PubSub.formatTopic(PubSub.CMD_KUBECLIENT),
+      PubSub.formatTopic(PubSub.CMD_DATABASE),
+    ])
 
   def test_camera_save_commit_publishes_calibration_version(self):
     with patch("manager.models.sendUpdateCommand") as send_update:
