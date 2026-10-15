@@ -1015,10 +1015,12 @@ class SceneSerializer(NonNullSerializer):
 class PubSubACLSerializer(NonNullSerializer):
   scenes = serializers.PrimaryKeyRelatedField(
     queryset=Scene.objects.all(), many=True, required=False)
+  sources = serializers.ListField(
+    child=serializers.RegexField(r'^[^/+#]{1,20}$'), required=False, max_length=1024)
 
   class Meta:
     model = PubSubACL
-    fields = ['topic', 'access', 'scenes']
+    fields = ['topic', 'access', 'scenes', 'sources']
 
 class UserSerializer(NonNullSerializer):
   uid = serializers.CharField(source="pk", read_only=True)

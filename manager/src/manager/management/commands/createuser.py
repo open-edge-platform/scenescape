@@ -58,10 +58,15 @@ class Command(BaseCommand):
         )
 
       for acl in acl_data:
+        sources = acl.get('sources', [])
+        if not isinstance(sources, list) or not all(isinstance(s, str) for s in sources):
+          log.error(f"Invalid sources for {acl.get('topic')} in {USER_ACCESS_CONFIG}")
+          sources = []
         PubSubACL.objects.update_or_create(
             user=current_user,
             topic=acl.get('topic'),
-            defaults={'access':acl.get('access', 0)}
+            defaults={'access':acl.get('access', 0),
+                      'sources':sources}
         )
 
   def loadUserAccessConfig(self):

@@ -572,9 +572,12 @@ when calibration is absent). The notification is registered with `transaction.on
 so a rolled-back camera update emits nothing. Positioning reads the camera record from
 Manager; the notification carries no calibration payload or credentials.
 
-A non-superuser `POSITIONING_POSE` ACL grants access only to sources whose Manager camera
-belongs to one of the scenes assigned to that ACL entry (`acls[].scenes` in the user API).
-An entry with no assigned scenes denies every pose topic.
+A non-superuser `POSITIONING_POSE` ACL grants access only to existing Manager cameras that
+are either listed in that ACL entry's `sources` (camera UIDs) or belong to one of its
+assigned `scenes` (`acls[].sources` / `acls[].scenes` in the user API).
+An entry with neither denies every pose topic. `positioning.auth` is provisioned with
+pose write access and an empty `sources` list; assign each resolver's cameras (the
+`source_id`s mapped to it in the deployment manifest) before it can publish.
 
 Per-camera onboarding measures the ONVIF position space, home pan/tilt and approach
 directions, axis curves and orientations, backlash, settling parameters, and held-out

@@ -49,7 +49,8 @@
   "positioning.auth": {
     "acls": [
       { "topic": "CMD_CAMERA_CONFIG", "access": 1 },
-      { "topic": "POSITIONING_STATUS", "access": 2 }
+      { "topic": "POSITIONING_STATUS", "access": 2 },
+      { "topic": "POSITIONING_POSE", "access": 2, "sources": [] }
     ],
     "is_superuser": false
   }
