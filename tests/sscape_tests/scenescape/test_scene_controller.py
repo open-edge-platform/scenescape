@@ -1426,7 +1426,6 @@ class TestSceneControllerRemoteChildParent:
     assert scene is remote_sender
     assert remote_sender.parent is None
 
-
 class TestChildSceneControllerCatalogs:
   """Catalog callback wiring for remote children (NEX-T21933)."""
 
