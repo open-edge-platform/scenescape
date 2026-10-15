@@ -610,13 +610,16 @@ class PointCorrespondenceTransform(CameraPose):
   def _solvePoseRobustly(self, computation_method):
     """Solve the camera pose, rejecting outlier correspondences via RANSAC.
 
-    Tries cv2.solvePnPRansac first when enough correspondences exist; if it
-    cannot produce a usable inlier set, falls back to plain cv2.solvePnP over
-    all correspondences (the previous behavior). Records the inlier mask on
-    self.inlier_mask.
+    Tries cv2.solvePnPRansac (AP3P) when enough non-coplanar correspondences
+    exist; AP3P is unreliable on planar layouts and can mark all points as
+    inliers while returning a pose with huge reprojection error. For coplanar
+    sets, or when RANSAC cannot produce a usable inlier set, falls back to
+    plain cv2.solvePnP over all correspondences (the previous behavior).
+    Records the inlier mask on self.inlier_mask.
     """
     self.inlier_mask = None
-    if len(self.mapPoints) >= MIN_POINTS_FOR_RANSAC:
+    coplanar = self.arePointsCoplanar(self.mapPoints)
+    if len(self.mapPoints) >= MIN_POINTS_FOR_RANSAC and not coplanar:
       try:
         threshold_px = scaled_reprojection_threshold_px(self.pixels_per_meter)
         _, rvec, tvec, inliers = cv2.solvePnPRansac(
@@ -635,6 +638,9 @@ class PointCorrespondenceTransform(CameraPose):
       except cv2.error as e:
         log.warning(f"PointCorrespondenceTransform: RANSAC failed ({e}); "
                     f"falling back to solvePnP over all correspondences")
+    elif coplanar:
+      log.info("PointCorrespondenceTransform: coplanar correspondences; "
+               "skipping AP3P RANSAC and using solvePnP")
     # Fallback: fit over all correspondences (previous behavior)
     _, rvec, tvec, = cv2.solvePnP(self.mapPoints, self.cameraPoints,
                                   self.intrinsics.intrinsics, self.intrinsics.distortion,

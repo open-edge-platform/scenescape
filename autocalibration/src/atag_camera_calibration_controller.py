@@ -12,6 +12,7 @@ from scipy.spatial.transform import Rotation
 from scene_common import log
 from scene_common.transform import (
   CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics,
+  scaled_reprojection_threshold_px,
 )
 from scene_common.timestamp import get_iso_time
 
@@ -158,6 +159,8 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       log.info(f"Image decoded for camera {cam_frame_data['id']}, shape: {src_2d_image.shape if src_2d_image is not None else 'None'}")
       intrinsic_matrix_2d = np.array(camera_intrinsics)
       cur_cam_calib_obj.intrinsic_matrix_2d = intrinsic_matrix_2d
+      # Scale RANSAC / planar gates with scene map resolution when available.
+      cur_cam_calib_obj.pixels_per_meter = getattr(sceneobj, "scale", None)
       cur_cam_calib_obj.find_apriltags_in_frame(src_2d_image, True)
       camera_pose = cur_cam_calib_obj.get_camera_pose_in_scene()
       log.info(f"Camera pose computed for camera {cam_frame_data['id']}")
@@ -171,6 +174,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         # Get respective 2d and 3d points for representation in UI.
         points_3d, points_2d = cur_cam_calib_obj.get_point_correspondences()
         map_points_3d = np.asarray(points_3d, dtype=float)
+        points_2d_arr = np.asarray(points_2d, dtype=float)
         log.info(f"Point correspondences calculated for calibration UI for camera {cam_frame_data['id']}")
 
         cam_to_world_y_down = convertToTransformMatrix(self.scene_pose_mat,
@@ -183,10 +187,26 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         points_3d = [np.dot(self.scene_pose_mat, np.append(point, 1))[:3].tolist()
                      for point in points_3d]
 
+        # Pose was solved with RANSAC; score acceptance on inliers only so
+        # rejected outliers cannot inflate planar RMS past the gate.
+        pose_transform = getattr(cur_cam_calib_obj, "last_pose_transform", None)
+        inlier_mask = getattr(pose_transform, "inlier_mask", None)
+        if inlier_mask is not None and int(np.count_nonzero(inlier_mask)) >= MIN_APRILTAG_COUNT:
+          validate_map = map_points_3d[inlier_mask]
+          validate_2d = points_2d_arr[inlier_mask]
+          validate_scene = [points_3d[i] for i in np.flatnonzero(inlier_mask)]
+        else:
+          validate_map = map_points_3d
+          validate_2d = points_2d_arr
+          validate_scene = points_3d
+
+        max_reproj_px = scaled_reprojection_threshold_px(
+            getattr(sceneobj, "scale", None))
         validation = validate_camera_pose(
-            map_points_3d, points_3d, points_2d, camera_pose, trans, intrinsic_matrix_2d,
-            cur_cam_calib_obj.tag_size,
-            os.path.splitext(sceneobj.map)[1].lower() in PLANAR_MAP_EXTENSIONS)
+            validate_map, validate_scene, validate_2d, camera_pose, trans,
+            intrinsic_matrix_2d, cur_cam_calib_obj.tag_size,
+            os.path.splitext(sceneobj.map)[1].lower() in PLANAR_MAP_EXTENSIONS,
+            max_reprojection_error_px=max_reproj_px)
         if not validation.accepted:
           log.error(f"Rejecting calibration for camera {cam_frame_data['id']}: {validation.message}")
           return self._rejection_response(validation, trans, points_3d, points_2d)

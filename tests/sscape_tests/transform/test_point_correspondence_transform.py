@@ -153,12 +153,13 @@ class TestPointCorrespondenceTransform:
     inliers = np.array([[0], [1], [2], [4], [5]], dtype=np.int32)  # index 3 rejected
     mock_solve_pnp_ransac.return_value = (True, mock_rvec, mock_tvec, inliers)
 
+    # Non-coplanar map points so AP3P RANSAC is eligible.
     pose = {
         'camera points': np.array([
             [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
         ]),
         'map points': np.array([
-            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
+            [0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [1, 0, 1]
         ])
     }
     transform = PointCorrespondenceTransform(pose, intrinsics)
@@ -185,7 +186,7 @@ class TestPointCorrespondenceTransform:
             [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
         ]),
         'map points': np.array([
-            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
+            [0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [1, 0, 1]
         ]),
         'pixels per meter': 50.0,
     }
@@ -193,6 +194,29 @@ class TestPointCorrespondenceTransform:
 
     assert mock_solve_pnp_ransac.call_args.kwargs['reprojectionError'] == 5.0
     mock_solve_pnp.assert_not_called()
+
+  @patch('cv2.solvePnPRansac')
+  @patch('cv2.solvePnP')
+  def test_coplanar_points_skip_ap3p_ransac(self, mock_solve_pnp, mock_solve_pnp_ransac):
+    """Coplanar layouts skip AP3P RANSAC and use plain solvePnP."""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    mock_rvec = np.array([[0.1], [0.2], [0.3]])
+    mock_tvec = np.array([[1.0], [2.0], [3.0]])
+    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
+
+    pose = {
+        'camera points': np.array([
+            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
+        ]),
+        'map points': np.array([
+            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
+        ]),
+    }
+    transform = PointCorrespondenceTransform(pose, intrinsics)
+
+    mock_solve_pnp_ransac.assert_not_called()
+    mock_solve_pnp.assert_called_once()
+    assert transform.rejectedIndices == []
 
   def test_ransac_rejects_gross_outlier(self):
     """End-to-end: a grossly mis-clicked correspondence is rejected, pose stays accurate"""
