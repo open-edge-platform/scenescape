@@ -114,7 +114,12 @@ class CacheManager:
           retired = self._applySceneResults(found)
         # Joining a tracker waits for its queue to drain.
         for scene, clear_registries in retired:
-          self._teardownScene(scene, clear_registries=clear_registries)
+          if clear_registries:
+            self._teardownScene(scene, clear_registries=True)
+          else:
+            threading.Thread(
+              target=self._teardownScene, args=(scene,),
+              kwargs={'clear_registries': False}, daemon=True).start()
         return
       finally:
         with self._lock:
