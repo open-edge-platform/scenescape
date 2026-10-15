@@ -174,7 +174,7 @@ class SoapClient:
     headers = {"Content-Type": f'application/soap+xml; charset=utf-8; action="{action}"'}
     try:
       with self._session.post(url, data=payload, headers=headers, stream=True,
-                              timeout=timeout_s or self.timeout_s) as response:
+                              timeout=timeout_s or self.timeout_s, allow_redirects=False) as response:
         content = self._read_bounded(response)
         status_code = response.status_code
     except requests.RequestException as error:

@@ -135,6 +135,8 @@ class OnvifPtzDevice:
     port = parts.port or self.port
     if parts.hostname != self.host.strip("[]"):
       parts = parts._replace(scheme=self.scheme)
+    elif self.scheme == "https" and parts.scheme == "http":
+      raise OnvifTransportError("HTTPS camera advertised an insecure service address")
     return urlunsplit((parts.scheme, f"{_format_host(self.host)}:{port}", parts.path, parts.query, ""))
 
   def get_capabilities(self):
