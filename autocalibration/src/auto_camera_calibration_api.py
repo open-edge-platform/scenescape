@@ -682,7 +682,7 @@ class CameraCalibrationApi:
       elif result.get("status") == self.OpenApi.Status.ERROR:
         # Diagnostic-only fields (no pose validation needed): let callers see
         # exactly which points a rejected calibration was based on.
-        for key in ("spread_ratio", "translation", "calibration_points_3d", "calibration_points_2d"):
+        for key in ("quaternion", "translation", "calibration_points_3d", "calibration_points_2d", "spread_ratio"):
           if key in result:
             response[key] = result[key]
       return jsonify(response), 200

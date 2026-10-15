@@ -3,6 +3,8 @@
 # SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import sys
+from pathlib import Path
 import numpy as np
 import pytest
 import sys
@@ -11,7 +13,6 @@ from pathlib import Path
 _AUTOCALIBRATION_SRC = Path(__file__).resolve().parents[3] / "autocalibration" / "src"
 if str(_AUTOCALIBRATION_SRC) not in sys.path:
   sys.path.insert(0, str(_AUTOCALIBRATION_SRC))
-
 
 scene_map = "tests/resources/maps/atag-calib-demo-map.png"
 
