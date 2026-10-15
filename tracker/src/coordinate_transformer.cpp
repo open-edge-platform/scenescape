@@ -53,6 +53,33 @@ void addMetadataAttributes(std::string_view metadataJson,
     }
 }
 
+void addReidSighting(const Detection& detection, const std::string& camera_id,
+                     const std::string& timestamp, const std::string& chunk_id,
+                     std::unordered_map<std::string, std::string>& attributes) {
+    rapidjson::Document metadata;
+    if (metadata.Parse(detection.metadata_json.c_str()).HasParseError() || !metadata.IsObject() ||
+        !metadata.HasMember("reid") || !metadata["reid"].IsObject()) {
+        return;
+    }
+    rapidjson::Document sighting;
+    sighting.SetObject();
+    auto& allocator = sighting.GetAllocator();
+    sighting.AddMember("camera_id", rapidjson::Value(camera_id.c_str(), allocator), allocator);
+    sighting.AddMember("timestamp", rapidjson::Value(timestamp.c_str(), allocator), allocator);
+    sighting.AddMember("chunk_id", rapidjson::Value(chunk_id.c_str(), allocator), allocator);
+    sighting.AddMember("reid", rapidjson::Value(metadata["reid"], allocator), allocator);
+    rapidjson::Value bbox(rapidjson::kObjectType);
+    bbox.AddMember("x", detection.bounding_box_px.x, allocator);
+    bbox.AddMember("y", detection.bounding_box_px.y, allocator);
+    bbox.AddMember("width", detection.bounding_box_px.width, allocator);
+    bbox.AddMember("height", detection.bounding_box_px.height, allocator);
+    sighting.AddMember("bounding_box_px", bbox, allocator);
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    sighting.Accept(writer);
+    attributes["reid_sighting"] = buffer.GetString();
+}
+
 } // namespace
 
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
@@ -162,7 +189,10 @@ void CoordinateTransformer::batchPixelToWorld(const std::vector<cv::Point2f>& pi
 }
 
 std::vector<rv::tracking::TrackedObject>
-CoordinateTransformer::transformDetections(std::span<const Detection> detections) const {
+CoordinateTransformer::transformDetections(std::span<const Detection> detections,
+                                           const std::string& camera_id,
+                                           const std::string& timestamp,
+                                           const std::string& chunk_id) const {
     const auto n = detections.size();
     if (n == 0)
         return {};
@@ -290,6 +320,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         obj.height = height_m;
         if (!detections[i].metadata_json.empty()) {
             addMetadataAttributes(detections[i].metadata_json, obj.attributes);
+            addReidSighting(detections[i], camera_id, timestamp, chunk_id, obj.attributes);
         }
         if (detections[i].confidence.has_value()) {
             char buf[32];

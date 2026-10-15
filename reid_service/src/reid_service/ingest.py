@@ -26,6 +26,7 @@ Environment:
 import concurrent.futures
 import datetime
 import json
+import math
 import os
 import threading
 import time
@@ -69,7 +70,8 @@ def _bbox_area(obj):
   if not isinstance(bbox, dict):
     return None
   try:
-    return float(bbox["width"]) * float(bbox["height"])
+    width, height = float(bbox["width"]), float(bbox["height"])
+    return width * height if math.isfinite(width) and math.isfinite(height) else 0.0
   except (KeyError, TypeError, ValueError):
     return None
 
@@ -93,10 +95,27 @@ def parse_scene_message(payload, category=None, stats=None):
       stats["objects_without_id"] += 1
       continue
     metadata = obj.get("metadata") or {}
+    sighting = obj.get("reid_sighting")
     embedding = provenance = None
-    if isinstance(metadata, dict) and metadata.get("reid") is not None:
+    camera_id = None
+    bbox_px_area = _bbox_area(obj)
+    observation_timestamp = timestamp
+    reid_payload = metadata.get("reid") if isinstance(metadata, dict) else None
+    if sighting is not None:
+      # Never use track-level metadata as a fallback when a producer explicitly
+      # supplies a (possibly malformed) per-detection sighting.
+      reid_payload = None
+      bbox_px_area = 0.0
+      if (isinstance(sighting, dict) and isinstance(sighting.get("camera_id"), str)
+          and sighting["camera_id"] and isinstance(sighting.get("timestamp"), str)
+          and sighting["timestamp"] and isinstance(sighting.get("reid"), dict)):
+        camera_id = sighting["camera_id"]
+        observation_timestamp = sighting["timestamp"]
+        bbox_px_area = _bbox_area(sighting) or 0.0
+        reid_payload = sighting["reid"]
+    if reid_payload is not None:
       try:
-        embedding, provenance = decode_reid_payload(metadata["reid"])
+        embedding, provenance = decode_reid_payload(reid_payload)
       except ValueError as err:
         stats["embedding_decode_errors"] += 1
         log.debug(f"[reid-ingest] bad embedding on {track_id}: {err}")
@@ -109,9 +128,10 @@ def parse_scene_message(payload, category=None, stats=None):
       embedding=embedding,
       provenance=provenance,
       metadata=semantic,
-      bbox_px_area=_bbox_area(obj),
-      timestamp=timestamp,
-      cameras=list(obj.get("visibility") or []),
+      bbox_px_area=bbox_px_area,
+      timestamp=observation_timestamp,
+      camera_id=camera_id,
+      cameras=[camera_id] if camera_id else list(obj.get("visibility") or []),
       upstream_reid_state=obj.get("reid_state"),
       previous_ids=[str(c["id"]) for c in chain if isinstance(c, dict) and c.get("id")],
     ))

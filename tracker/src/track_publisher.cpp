@@ -101,6 +101,14 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
             }
         }
 
+        if (!track.reid_sighting_json.empty()) {
+            Document sighting;
+            if (!sighting.Parse(track.reid_sighting_json.c_str()).HasParseError() &&
+                sighting.IsObject()) {
+                obj.AddMember("reid_sighting", Value(sighting, allocator), allocator);
+            }
+        }
+
         // Optional confidence score
         if (track.confidence.has_value()) {
             obj.AddMember("confidence", Value(*track.confidence), allocator);

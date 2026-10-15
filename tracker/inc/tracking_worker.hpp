@@ -14,6 +14,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <deque>
 #include <functional>
 #include <mutex>
@@ -156,7 +157,8 @@ private:
      */
     std::vector<Track>
     match_and_convert(std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_camera,
-                      const Chunk& chunk, std::chrono::system_clock::time_point timestamp);
+                      const Chunk& chunk, std::chrono::system_clock::time_point timestamp,
+                      const std::string& chunk_id);
 
     /**
      * @brief Transform pixel detections to world coordinates per camera.
@@ -164,7 +166,8 @@ private:
      * @param chunk Input chunk with per-camera detection batches
      * @return Per-camera vectors of TrackedObjects in world coordinates
      */
-    std::vector<std::vector<rv::tracking::TrackedObject>> transform_detections(const Chunk& chunk);
+    std::vector<std::vector<rv::tracking::TrackedObject>> transform_detections(
+        const Chunk& chunk, const std::string& chunk_id);
 
     /**
      * @brief Convert RobotVision tracks to output Track structs.
@@ -176,7 +179,7 @@ private:
      * @return Vector of Track structs ready for publishing
      */
     std::vector<Track> convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tracks,
-                                      const std::string& category);
+                                      const std::string& category, const std::string& chunk_id);
 
     TrackingScope scope_;
     std::string scene_name_;
@@ -194,6 +197,7 @@ private:
     std::unordered_map<int32_t, std::string> id_map_;
 
     std::unordered_map<int32_t, VelocityRotationState> rotation_states_;
+    uint64_t chunk_sequence_ = 0;
 
     std::thread worker_thread_;
     mutable std::mutex queue_mutex_;

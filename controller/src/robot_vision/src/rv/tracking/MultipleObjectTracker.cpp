@@ -69,6 +69,7 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
 
   std::unordered_map<std::string, Winner> winners;
   clearMetadataAttributes(measurement);
+  measurement.attributes.erase("reid_sighting");
 
   for (const auto &[cameraIndex, objectIndex] : matches)
   {
@@ -92,6 +93,18 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
       }
 
       measurement.attributes[key] = value;
+      if (field == "reid")
+      {
+        const auto sighting = object.attributes.find("reid_sighting");
+        if (sighting != object.attributes.end())
+        {
+          measurement.attributes["reid_sighting"] = sighting->second;
+        }
+        else
+        {
+          measurement.attributes.erase("reid_sighting");
+        }
+      }
       const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
       if (confidence)
       {

@@ -109,8 +109,36 @@
         },
         "metadata": {
           "type": "object",
-          "description": "Optional passthrough metadata from the originating detection (e.g., reid, gender, age). Keys and values are detector-defined.",
+          "description": "Optional fused detection metadata. Tracker refreshes reid from the current sighting and omits it on prediction-only frames; other fields retain the existing fusion behavior.",
+          "properties": {
+            "reid": {
+              "type": "object",
+              "description": "Current detection's ReID payload (including embedding_vector when supplied); provenance fields are from that same detection, never a previous frame.",
+              "properties": {
+                "camera_id": { "type": "string", "minLength": 1 },
+                "timestamp": { "type": "string", "format": "date-time" },
+                "bounding_box_px": { "$ref": "#/$defs/reid_bbox" }
+              },
+              "additionalProperties": true
+            }
+          },
           "additionalProperties": true
+        },
+        "reid_sighting": {
+          "type": "object",
+          "description": "Tracker-only fresh ReID detection from the current tracking chunk. Omitted for predictions or detections without ReID. The crop, embedding, camera ID and timestamp belong to the same camera frame.",
+          "required": ["camera_id", "timestamp", "bounding_box_px", "reid"],
+          "properties": {
+            "camera_id": { "type": "string", "minLength": 1 },
+            "timestamp": { "type": "string", "format": "date-time" },
+            "bounding_box_px": { "$ref": "#/$defs/reid_bbox" },
+            "reid": {
+              "type": "object",
+              "description": "Original detection metadata.reid payload",
+              "additionalProperties": true
+            }
+          },
+          "additionalProperties": false
         },
         "confidence": {
           "type": ["number", "null"],
@@ -145,6 +173,17 @@
           "description": "Number of frames this track has been observed",
           "minimum": 0
         }
+      },
+      "additionalProperties": true
+    },
+    "reid_bbox": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number" },
+        "y": { "type": "number" },
+        "width": { "type": "number", "minimum": 0 },
+        "height": { "type": "number", "minimum": 0 }
       },
       "additionalProperties": true
     }

@@ -109,6 +109,38 @@ class TestMessage(unittest.TestCase):
     _, (obs,) = parse_scene_message(scene_message([obj]))
     self.assertEqual(obs.bbox_px_area, 8000.0)
 
+  def test_tracker_sighting_uses_fresh_crop_and_camera(self):
+    obj = _object("t1", dims=8)
+    fresh = _vector(4, 8)
+    obj["reid_sighting"] = {
+      "camera_id": "cam-1", "timestamp": "2026-10-14T15:25:15.000Z",
+      "bounding_box_px": {"x": 5, "y": 6, "width": 80, "height": 90},
+      "reid": {"embedding_vector": [fresh.tolist()], "embedding_dimensions": 8},
+    }
+    _, (obs,) = parse_scene_message(scene_message([obj]))
+    np.testing.assert_allclose(obs.embedding.reshape(-1), fresh)
+    self.assertEqual(obs.bbox_px_area, 7200)
+    self.assertEqual(obs.camera_id, "cam-1")
+    self.assertEqual(obs.cameras, ["cam-1"])
+    self.assertEqual(obs.timestamp, "2026-10-14T15:25:15.000Z")
+
+  def test_malformed_sighting_does_not_use_stale_metadata(self):
+    obj = _object("t1", dims=8)
+    obj["reid_sighting"] = {"reid": obj["metadata"]["reid"]}
+    _, (obs,) = parse_scene_message(scene_message([obj]))
+    self.assertIsNone(obs.embedding)
+    self.assertEqual(obs.bbox_px_area, 0.0)
+
+  def test_small_sighting_crop_is_not_unvetted(self):
+    obj = _object("t1", dims=8)
+    obj["reid_sighting"] = {
+      "camera_id": "cam-1", "timestamp": "2026-10-14T15:25:15.000Z",
+      "bounding_box_px": {"width": 1, "height": 1},
+      "reid": obj["metadata"]["reid"],
+    }
+    _, (obs,) = parse_scene_message(scene_message([obj]))
+    self.assertEqual(obs.bbox_px_area, 1.0)
+
   def test_object_without_embedding(self):
     obj = _object("t1")
     obj["metadata"] = {}

@@ -228,11 +228,12 @@ void TrackingWorker::process_chunk(Chunk chunk) {
                                     : chunk.camera_batches.back().timestamp_iso;
 
     // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
-    auto objects_per_camera = transform_detections(chunk);
+    const std::string chunk_id = std::to_string(++chunk_sequence_);
+    auto objects_per_camera = transform_detections(chunk, chunk_id);
     chunk.obs_ctx.captureTransformTime();
 
     // Run Hungarian matching, Kalman filter, and ID conversion
-    auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp);
+    auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp, chunk_id);
     chunk.obs_ctx.captureTrackTime();
 
     // Update active tracks gauge for this scope
@@ -251,7 +252,7 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 }
 
 std::vector<std::vector<rv::tracking::TrackedObject>>
-TrackingWorker::transform_detections(const Chunk& chunk) {
+TrackingWorker::transform_detections(const Chunk& chunk, const std::string& chunk_id) {
     std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera;
     objects_per_camera.reserve(chunk.camera_batches.size());
 
@@ -261,7 +262,8 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
             continue;
         }
-        objects_per_camera.push_back(transformer_it->second.transformDetections(batch.detections));
+        objects_per_camera.push_back(transformer_it->second.transformDetections(
+            batch.detections, batch.camera_id, batch.timestamp_iso, chunk_id));
     }
 
     return objects_per_camera;
@@ -269,7 +271,7 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
 
 std::vector<Track>
 TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tracks,
-                               const std::string& category) {
+                               const std::string& category, const std::string& chunk_id) {
     // Extract active RobotVision IDs for map update
     std::vector<int32_t> active_ids;
     active_ids.reserve(rv_tracks.size());
@@ -315,6 +317,52 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             }
         }
 
+        auto sighting_it = rv_track.attributes.find("reid_sighting");
+        if (sighting_it != rv_track.attributes.end()) {
+            rapidjson::Document sighting;
+            if (!sighting.Parse(sighting_it->second.c_str()).HasParseError() &&
+                sighting.IsObject() && sighting.HasMember("chunk_id") &&
+                sighting["chunk_id"].IsString() &&
+                chunk_id == sighting["chunk_id"].GetString()) {
+                sighting.RemoveMember("chunk_id");
+                rapidjson::StringBuffer buffer;
+                rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+                sighting.Accept(writer);
+                track.reid_sighting_json = buffer.GetString();
+            }
+        }
+        // Fused metadata can outlive its crop (or retain a higher-confidence
+        // older vector). Publish only the current sighting's embedding, with
+        // provenance from the same detection, and leave other fused fields alone.
+        if (!track.metadata_json.empty()) {
+            rapidjson::Document metadata;
+            if (!metadata.Parse(track.metadata_json.c_str()).HasParseError() && metadata.IsObject()) {
+                if (metadata.HasMember("reid")) {
+                    metadata.RemoveMember("reid");
+                }
+                if (!track.reid_sighting_json.empty()) {
+                    rapidjson::Document sighting;
+                    if (!sighting.Parse(track.reid_sighting_json.c_str()).HasParseError() &&
+                        sighting.IsObject() && sighting.HasMember("reid") &&
+                        sighting["reid"].IsObject() && sighting.HasMember("camera_id") &&
+                        sighting.HasMember("timestamp") && sighting.HasMember("bounding_box_px")) {
+                        auto& allocator = metadata.GetAllocator();
+                        rapidjson::Value reid(sighting["reid"], allocator);
+                        for (const char* field : {"camera_id", "timestamp", "bounding_box_px"}) {
+                            reid.RemoveMember(field);
+                            reid.AddMember(rapidjson::Value(field, allocator),
+                                           rapidjson::Value(sighting[field], allocator), allocator);
+                        }
+                        metadata.AddMember("reid", reid, allocator);
+                    }
+                }
+                rapidjson::StringBuffer buffer;
+                rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+                metadata.Accept(writer);
+                track.metadata_json = buffer.GetString();
+            }
+        }
+
         // Retrieve confidence stored in attributes by transformDetections().
         // NOTE: multi-camera last-write-wins — same limitation as metadata_json.
         auto conf_it = rv_track.attributes.find("confidence");
@@ -335,7 +383,7 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
 
 std::vector<Track> TrackingWorker::match_and_convert(
     std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_camera, const Chunk& chunk,
-    std::chrono::system_clock::time_point timestamp) {
+    std::chrono::system_clock::time_point timestamp, const std::string& chunk_id) {
     // Feed all cameras as a batch — MOT performs Hungarian matching across cameras,
     // deduplicates objects seen by multiple cameras, and runs Kalman filter update.
     // When no detections are present, track() still advances the Kalman filter and
@@ -346,7 +394,7 @@ std::vector<Track> TrackingWorker::match_and_convert(
     // Get reliable tracks and map RobotVision int IDs to UUID strings
     auto rv_tracks = tracker_.getReliableTracks();
 
-    auto tracks = convert_tracks(std::move(rv_tracks), chunk.category);
+    auto tracks = convert_tracks(std::move(rv_tracks), chunk.category, chunk_id);
 
     LOG_DEBUG("Processed chunk for {}/{}: {} detections -> {} reliable tracks", scope_.scene_id,
               scope_.category,

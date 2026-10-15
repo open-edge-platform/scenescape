@@ -186,6 +186,27 @@ TEST_F(TrackPublisherTest, Serialize_TrackHasCorrectFields) {
     EXPECT_DOUBLE_EQ(obj["rotation"][3].GetDouble(), 0.707);
 }
 
+TEST_F(TrackPublisherTest, Serialize_OnlyIncludesFreshReidSighting) {
+    auto mqtt = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mqtt);
+    std::string payload;
+    EXPECT_CALL(*mqtt, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mqtt, publish(_, _))
+        .WillOnce([&payload](const std::string&, const std::string& json) { payload = json; });
+
+    auto observed = createSampleTrack("observed", "person");
+    observed.reid_sighting_json =
+        R"({"camera_id":"cam-1","timestamp":"2026-10-14T12:00:00Z","bounding_box_px":{"x":1,"y":2,"width":80,"height":90},"reid":{"embedding_vector":[[1,2]]}})";
+    auto predicted = createSampleTrack("predicted", "person");
+    publisher.publish("scene", "Scene", "person", "2026-10-14T12:00:00Z", {observed, predicted});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(payload.c_str()).HasParseError());
+    ASSERT_TRUE(doc["objects"][0].HasMember("reid_sighting"));
+    EXPECT_STREQ(doc["objects"][0]["reid_sighting"]["camera_id"].GetString(), "cam-1");
+    EXPECT_FALSE(doc["objects"][1].HasMember("reid_sighting"));
+}
+
 TEST_F(TrackPublisherTest, Serialize_HandlesEmptyTracks) {
     auto mock_client = std::make_shared<MockMqttClient>();
     TrackPublisher publisher(mock_client);

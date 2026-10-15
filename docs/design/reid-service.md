@@ -159,11 +159,11 @@ Match-latency instruments (`scenescape_controller_reid_*match_latency*`, fed by 
 
 Against current Tracker code:
 
-- **Embeddings are best-effort passthrough.** If a detector sets `metadata.reid` (including `embedding_vector`), Tracker preserves it (`Detection::metadata_json` → `TrackPublisher::serialize` on `scenescape/data/scene/{scene_id}/{category}`). It is not a required `Track` field. Multi-camera metadata fusion is confidence / last-write-wins. There is no guaranteed embedding-on-track contract for live matching.
-- **`camera_id` and per-sighting timestamp are missing** on published tracks. Input batches have `DetectionBatch.camera_id`; the scene envelope has a message timestamp; objects have world `translation` / `size`. Schema allows optional `visibility` / `camera_bounds`; `TrackPublisher` does not emit them. Pixel bbox is not required for Stream Manager (6.11).
+- **Embeddings remain best-effort.** If a detection has `metadata.reid`, Tracker publishes `reid_sighting` with that detection's `camera_id`, frame `timestamp`, pixel `bounding_box_px`, and original `reid` payload. Published `metadata.reid` contains that same detection's embedding and provenance fields. Both fields are omitted when no current-chunk ReID detection contributed to the track; historical fused `metadata.reid` is removed on prediction-only frames. Multi-camera fusion selects the metadata.reid winner's corresponding sighting; other metadata fields retain their fusion semantics.
+- **Per-sighting camera and timestamp are available for live ingest**, but are not yet stored with every descriptor. The scene envelope timestamp remains the track computation time. Schema allows optional `visibility` / `camera_bounds`; `TrackPublisher` does not emit them. Pixel bbox is not required for Stream Manager (6.11).
 - **Today's ReID write never stores them.** `UUIDManager` persists `_extractSemanticMetadata()` only. `self.location` (`Chronoloc`: point, timestamp, bbox) is unused on that path. `_extractCameraId()` feeds a metrics counter, not the gallery write.
 
-**Required:** the Tracker payload `reid-service` consumes includes `camera_id` and per-sighting `timestamp`, and `reid-service` stores both on each descriptor write. Closing that gap is Tracker (or detector) work (Section 11). How far back a query can see is the general-gallery TTL (6.11).
+**Remaining:** `reid-service` must store camera ID and per-sighting timestamp on each descriptor write for trajectories (Section 11). It currently consumes these fields for observation/quality gating but does not persist them. How far back a query can see is the general-gallery TTL (6.11).
 
 ---
 
@@ -304,7 +304,7 @@ Policy for the external API (Section 6). The authN/authZ _mechanism_ (tokens, mT
 ## 8. Consequences
 
 - The Controller circuit breaker is not ported. Degradation signaling is a follow-on (Section 11) and does not keep ReID in the Controller.
-- Trajectory persistence waits on Tracker publishing `camera_id` and per-sighting timestamp (5.4).
+- Trajectory persistence still needs per-descriptor storage of the camera ID and per-sighting timestamp supplied by Tracker (5.4).
 - POI data survives container restart only via a volume. Enrollment success is the 6.4 contract. There is no export or automated backend migration.
 
 ## 9. Rollout / Migration Plan
@@ -316,7 +316,7 @@ Section 6 sequencing:
 - 6.1 before any other API.
 - authN/authZ mechanism (Section 11) before `POST /poi` or delete ship; policy is 6.12. Tracker-subscription trust stays a separate open.
 - 6.8 after 6.4 and 6.6 (a collection must exist before it has a TTL).
-- 6.11 after Tracker publishes `camera_id` and per-sighting timestamp (5.4). Stream Manager integration follows that, not the other way around.
+- 6.11 after `reid-service` persists the Tracker's per-sighting camera ID and timestamp (5.4). Stream Manager integration follows that, not the other way around.
 
 Other Section 6 subsections can be scheduled independently against Epic #221 or Epic #120.
 
@@ -332,7 +332,7 @@ OTel, not REST-only: match latency and backend duration (5.3), `Gallery_Size_Act
 
 - **External transport.** Section 6 is specified as HTTP/gRPC, matching ADR 13. MQTT request/reply for that surface only is still open (5.1).
 - **Degradation signaling.** Detect degraded query performance so consumers stop using matches; when the cause is gallery volume, recommend purge or compaction. Signals, thresholds, and the consumer contract are not designed yet. Does not block extraction.
-- **Tracker stream gaps (5.4).** No guaranteed embedding on published tracks. `camera_id` and per-sighting timestamp are not published. Bbox is not required. Live matching and trajectory writes cannot rely on the stream until a guaranteed embedding, `camera_id`, and per-sighting timestamp are published.
+- **Tracker stream gaps (5.4).** Embeddings are best-effort; a detection without `metadata.reid` has no fresh sighting. Tracker publishes camera ID, pixel bbox and per-sighting timestamp on fresh ReID detections, but `reid-service` still needs per-descriptor persistence for trajectory queries.
 - **MQTT trust for the Tracker subscription.** Broker ACL, topic auth, network policy, or a combination. Distinct from endpoint authN/authZ below.
 
 **API**

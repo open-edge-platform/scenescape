@@ -8,6 +8,21 @@ Transforms camera detections to world coordinates and maintains persistent objec
 
 See [design document](../docs/design/tracker-service.md) for architecture details.
 
+### ReID sightings
+
+When a camera detection contains `metadata.reid`, each scene-track object may
+include `reid_sighting` with that detection's `camera_id`, frame `timestamp`,
+`bounding_box_px`, and `reid` payload. The field is omitted when the current
+chunk supplies no ReID detection for the track; predicted tracks never replay
+an old embedding. The published `metadata.reid` contains the current detection's
+embedding and the same `camera_id`, `timestamp` and `bounding_box_px` fields;
+other metadata fields keep their normal fusion semantics. ReID ingest uses the
+sighting's pixel bbox for its quality
+gate rather than bypassing it via `REID_INGEST_ACCEPT_UNVETTED`. If multiple
+cameras observe the same track, the sighting corresponds to the winning ReID
+metadata observation. See the
+[scene data schema](schema/scene-data.schema.json) for the field contract.
+
 ## Development
 
 ### Native
