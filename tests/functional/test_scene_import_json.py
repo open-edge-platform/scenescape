@@ -25,7 +25,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 FRAMES_PER_SECOND = 10
 PERSON = "person"
 MQTT_CONNECT_TIMEOUT_S = 30
-SCENE_WAIT_TIMEOUT_S = 30
+SCENE_WAIT_TIMEOUT_S = 60
 
 class SceneControllerImportJSON(FunctionalTest):
   def __init__(self, request, result_recorder):

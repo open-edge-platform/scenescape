@@ -4,7 +4,8 @@
 import uuid
 import numpy as np
 from tests.functional.backend_functional import BackendFunctionalTest
-from tests.functional.reid_backend import REID_DATABASE, get_reid_profile_module
+from tests.functional.reid_backend import (
+  REID_DATABASE, get_reid_profile_module, wait_for_reid_backend_ready)
 from tests.utils.log import get_logger
 
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
@@ -126,6 +127,9 @@ def test_reid_similarity_search(demo_scene, scenescape_env, request, record_xml_
   @param    record_xml_attribute    Pytest fixture recording the test name.
   @return   exit_code               Indicates test success or failure.
   """
+
+  assert wait_for_reid_backend_ready(use_tls=True, max_attempts=30, retry_interval=1), \
+    "ReID backend did not become ready in time"
 
   test = ReidSimilaritySearch(TEST_NAME, request, record_xml_attribute)
   try:

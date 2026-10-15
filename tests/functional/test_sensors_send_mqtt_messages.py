@@ -139,7 +139,8 @@ class SensorMqttMessageFlowTest(FunctionalTest):
         'singleton_type': "environmental",
       },
       'cleanup_env_sensor': {
-        'area': "scene",
+        'area': "poly",
+        'points': ((-100, 100), (100, 100), (100, -100), (-100, -100)),
         'singleton_type': "environmental",
       },
     }

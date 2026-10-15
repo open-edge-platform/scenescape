@@ -41,7 +41,7 @@ def make_reid_embedding(seed=0.1):
 class RetrackTest:
 
   FRAME_RATE = 10
-  MAX_WAIT = 5
+  MAX_WAIT = 15
   NUM_PUBLISH_ITERATIONS = 5
 
   def __init__(self, params):
@@ -114,10 +114,10 @@ class RetrackTest:
       "Child-parent link not found after linking"
 
     from tests.utils.scene_ready import wait_for_tracker_ready
-    if not wait_for_tracker_ready(self.params, self.parent_id, camera_id="camera1"):
-      log.warning(
-        f"setup_scenes: tracker for parent scene {self.parent_id} did not "
-        "confirm readiness; proceeding anyway")
+    assert wait_for_tracker_ready(self.params, self.parent_id, camera_id="camera1"), (
+      f"setup_scenes: tracker for parent scene {self.parent_id} (child "
+      f"{self.child_id}) never came up; no DATA_SCENE observed for the "
+      "parent within the readiness timeout")
 
   def teardown_scenes(self, rest_client):
     """! Unlink the child scene and delete the parent scene created for
