@@ -863,14 +863,12 @@ export class ConvergedCameraCalibration {
   getCameraPositionAndRotation(cameraMatrix, distCoeffs) {
     const camPoints = this.camCanvas.getCalibrationPoints();
     const objectPoints = this.viewport.getCalibrationPoints();
-    if (
-      !(
-        this.isValidCalibration(camPoints, objectPoints) &&
-        (this.camCanvas.calibrationUpdated ||
-          this.viewport.calibrationUpdated ||
-          this.isResolutionUpdated)
-      )
-    ) {
+    if (!(
+      this.isValidCalibration(camPoints, objectPoints) &&
+      (this.camCanvas.calibrationUpdated ||
+        this.viewport.calibrationUpdated ||
+        this.isResolutionUpdated)
+    )) {
       return false;
     }
 
@@ -899,12 +897,7 @@ export class ConvergedCameraCalibration {
         cv.CV_64F,
         objectPointsArray.flat(),
       );
-      cameraMatrixMat = cv.matFromArray(
-        3,
-        3,
-        cv.CV_64F,
-        cameraMatrix.flat(),
-      );
+      cameraMatrixMat = cv.matFromArray(3, 3, cv.CV_64F, cameraMatrix.flat());
       distCoeffsMat = cv.matFromArray(1, 5, cv.CV_64F, distCoeffs.flat());
 
       let computationMethod = cv.SOLVEPNP_ITERATIVE;
