@@ -682,16 +682,18 @@ class PointCorrespondenceTransform(CameraPose):
       return []
     return [int(i) for i in np.where(~self.inlier_mask)[0]]
 
-  def _solvePoseRobustly(self, computation_method):
+  def _solvePoseRobustly(self):
     """Solve the camera pose, rejecting outlier correspondences via RANSAC.
 
-    Uses shared solve_pnpransac (AP3P for non-coplanar, SQPNP for coplanar).
-    When RANSAC cannot produce a usable inlier set, falls back to plain
-    cv2.solvePnP over all correspondences. Records the inlier mask on
+    Uses shared solve_pnpransac (AP3P for non-coplanar, SQPNP for coplanar) to
+    obtain an inlier mask, then refits with solvePnP on those inliers (or all
+    points when RANSAC is unavailable). Refitting keeps the geometry-appropriate
+    solver (ITERATIVE on planes, SQPNP for sparse non-coplanar sets) so RANSAC's
+    sample solver does not bias the final pose. Records the inlier mask on
     self.inlier_mask.
     """
     self.inlier_mask = None
-    rvec, tvec, mask = solve_pnpransac(
+    _, _, mask = solve_pnpransac(
       self.mapPoints, self.cameraPoints,
       self.intrinsics.intrinsics, self.intrinsics.distortion,
       pixels_per_meter=self.pixels_per_meter)
@@ -699,21 +701,25 @@ class PointCorrespondenceTransform(CameraPose):
       self.inlier_mask = mask
       log.info(f"PointCorrespondenceTransform: RANSAC kept "
                f"{int(mask.sum())} of {len(self.mapPoints)} correspondences")
-      return rvec, tvec
-    # Fallback: fit over all correspondences (previous behavior)
-    _, rvec, tvec, = cv2.solvePnP(self.mapPoints, self.cameraPoints,
-                                  self.intrinsics.intrinsics, self.intrinsics.distortion,
-                                  flags=computation_method)
+      map_pts = self.mapPoints[mask]
+      cam_pts = self.cameraPoints[mask]
+    else:
+      map_pts = self.mapPoints
+      cam_pts = self.cameraPoints
+
+    # ITERATIVE needs >= 6 non-coplanar points (DLT init); SQPNP for sparse
+    # non-coplanar sets. Coplanar layouts use ITERATIVE.
+    method = cv2.SOLVEPNP_ITERATIVE
+    if len(map_pts) < 6 and not points_are_coplanar(map_pts):
+      method = cv2.SOLVEPNP_SQPNP
+    _, rvec, tvec = cv2.solvePnP(
+      map_pts, cam_pts,
+      self.intrinsics.intrinsics, self.intrinsics.distortion,
+      flags=method)
     return rvec, tvec
 
   def _calculatePoseMat(self):
-    computation_method = cv2.SOLVEPNP_ITERATIVE
-    # ITERATIVE needs >= 6 non-coplanar points (DLT init) and P3P accepts only 3-4,
-    # so use SQPNP, which supports any count >= 3.
-    if len(self.mapPoints) < 6 and not self.arePointsCoplanar(self.mapPoints):
-      computation_method = cv2.SOLVEPNP_SQPNP
-
-    rvec, tvec = self._solvePoseRobustly(computation_method)
+    rvec, tvec = self._solvePoseRobustly()
     rmat = cv2.Rodrigues(rvec)[0]
     pose_mat = np.linalg.inv(np.vstack((np.hstack((rmat, tvec)), [0, 0, 0, 1])))
 

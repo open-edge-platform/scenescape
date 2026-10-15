@@ -145,13 +145,14 @@ class TestPointCorrespondenceTransform:
   @patch('cv2.solvePnPRansac')
   @patch('cv2.solvePnP')
   def test_calculate_pose_mat_ransac_success(self, mock_solve_pnp, mock_solve_pnp_ransac):
-    """RANSAC success: pose comes from RANSAC, solvePnP is not called"""
+    """RANSAC success: inliers identified, pose refit via solvePnP on inliers."""
     intrinsics = CameraIntrinsics([800, 800, 320, 240])
 
     mock_rvec = np.array([[0.1], [0.2], [0.3]])
     mock_tvec = np.array([[1.0], [2.0], [3.0]])
     inliers = np.array([[0], [1], [2], [4], [5]], dtype=np.int32)  # index 3 rejected
     mock_solve_pnp_ransac.return_value = (True, mock_rvec, mock_tvec, inliers)
+    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
 
     # Non-coplanar map points so AP3P RANSAC is eligible.
     pose = {
@@ -164,7 +165,9 @@ class TestPointCorrespondenceTransform:
     }
     transform = PointCorrespondenceTransform(pose, intrinsics)
 
-    mock_solve_pnp.assert_not_called()
+    mock_solve_pnp.assert_called_once()
+    # Five inliers, non-coplanar → SQPNP refine
+    assert mock_solve_pnp.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
     assert transform.rejectedIndices == [3]
     assert transform.pose_mat.shape == (4, 4)
     # Default (no scene scale) keeps the reference 10 px threshold.
@@ -181,6 +184,7 @@ class TestPointCorrespondenceTransform:
     mock_tvec = np.array([[1.0], [2.0], [3.0]])
     inliers = np.array([[0], [1], [2], [3], [4], [5]], dtype=np.int32)
     mock_solve_pnp_ransac.return_value = (True, mock_rvec, mock_tvec, inliers)
+    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
 
     pose = {
         'camera points': np.array([
@@ -194,17 +198,18 @@ class TestPointCorrespondenceTransform:
     PointCorrespondenceTransform(pose, intrinsics)
 
     assert mock_solve_pnp_ransac.call_args.kwargs['reprojectionError'] == 5.0
-    mock_solve_pnp.assert_not_called()
+    mock_solve_pnp.assert_called_once()
 
   @patch('cv2.solvePnPRansac')
   @patch('cv2.solvePnP')
   def test_coplanar_points_use_sqpnp_ransac(self, mock_solve_pnp, mock_solve_pnp_ransac):
-    """Coplanar layouts use SQPNP RANSAC (not AP3P) for outlier rejection."""
+    """Coplanar layouts use SQPNP RANSAC then ITERATIVE refine on inliers."""
     intrinsics = CameraIntrinsics([800, 800, 320, 240])
     mock_rvec = np.array([[0.1], [0.2], [0.3]])
     mock_tvec = np.array([[1.0], [2.0], [3.0]])
     inliers = np.array([[0], [1], [2], [3], [4], [5]], dtype=np.int32)
     mock_solve_pnp_ransac.return_value = (True, mock_rvec, mock_tvec, inliers)
+    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
 
     pose = {
         'camera points': np.array([
@@ -218,7 +223,8 @@ class TestPointCorrespondenceTransform:
 
     mock_solve_pnp_ransac.assert_called_once()
     assert mock_solve_pnp_ransac.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
-    mock_solve_pnp.assert_not_called()
+    mock_solve_pnp.assert_called_once()
+    assert mock_solve_pnp.call_args.kwargs['flags'] == cv2.SOLVEPNP_ITERATIVE
     assert transform.rejectedIndices == []
 
   def test_solve_pnpransac_uses_sqpnp_for_coplanar(self):
