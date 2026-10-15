@@ -106,8 +106,12 @@ def _parse_source(source_id, raw):
     if not isinstance(event, dict):
       raise SourceConfigError(f"{where}: move_event must be an object")
     _check_keys(event, _MOVE_EVENT_KEYS, f"{where} move_event")
+    event_topic = _non_empty_string(event.get("topic"), f"{where} move_event.topic").strip("/")
+    if not event_topic or not all(_is_topic_segment(segment) for segment in event_topic.split("/")):
+      raise SourceConfigError(
+        f"{where}: move_event.topic must contain non-empty topic segments without wildcards")
     move_event = MoveEventConfig(
-      _non_empty_string(event.get("topic"), f"{where} move_event.topic").strip("/"),
+      event_topic,
       _non_empty_string(event.get("data_item"), f"{where} move_event.data_item"))
   if move_status == "event" and move_event is None:
     raise SourceConfigError(f"{where}: move_status 'event' requires move_event")

@@ -183,6 +183,12 @@ class TestSecrets(CameraTestCase):
 
 
 class TestSampleContract(unittest.TestCase):
+  def test_poll_interval_must_convert_to_at_least_one_nanosecond(self):
+    with self.assertRaisesRegex(ValueError, "at least 1 ns"):
+      PTZPoller("cam-a", None, ListSink(), poll_interval_s=0.5e-9)
+    poller = PTZPoller("cam-a", None, ListSink(), poll_interval_s=1e-9)
+    self.assertEqual(int(poller.poll_interval_s * 1e9), 1)
+
   def test_midpoint_timestamp_and_half_round_trip_uncertainty(self):
     clock = FakeClock()
     start_ns = clock.wall_ns

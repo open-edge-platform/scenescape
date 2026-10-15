@@ -39,6 +39,14 @@ class TestParseSources(unittest.TestCase):
                       move_event={"topic": "/PTZController/Move/", "data_item": "is_moving"})}})
     self.assertEqual(sources["cam-b"].move_event.topic, "PTZController/Move")
 
+  def test_event_topic_rejects_empty_or_invalid_segments(self):
+    for topic in ("/", "///", "PTZ//Move", "PTZ/+", "PTZ/#"):
+      with self.subTest(topic=topic):
+        config = {"resolver_id": "r1", "sources": {"cam-b": source(
+          move_status="event", move_event={"topic": topic, "data_item": "is_moving"})}}
+        with self.assertRaises(SourceConfigError):
+          parse_sources(config)
+
   def test_rejections(self):
     invalid = [
       {"poll_interval_s": 0},

@@ -160,8 +160,8 @@ class PTZPoller:
     if move_status == "event" and move_monitor is None:
       raise ValueError("move_status 'event' requires a move event monitor")
     if not (isinstance(poll_interval_s, (int, float)) and math.isfinite(poll_interval_s)
-            and poll_interval_s > 0):
-      raise ValueError("poll_interval_s must be a positive finite number")
+        and poll_interval_s >= 1e-9):
+      raise ValueError("poll_interval_s must be finite and at least 1 ns")
     self.source_id = source_id
     self._device_factory = device_factory
     self._sink = sink
