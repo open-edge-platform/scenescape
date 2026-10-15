@@ -555,38 +555,17 @@ results are not supplied by the PoC.
 `ptz_calibration` never contains device credentials. Local config files are limited to
 the isolated lab, offline tools, and tests, not production service configuration.
 
-#### Manager API, import, and onboarding
+#### Manager implementation details
 
-The nullable `ptz_calibration` field is available on `GET`, `POST`, and `PUT
-/api/v1/camera/{uid}` and included in `GET /api/v1/cameras`. Camera-specific
-serialization and archive import use the same field validator. It rejects missing or
-unknown fields, unsupported parameterization versions, non-finite values, invalid axis
-and range geometry, and residuals above the deployment's positive finite
-`PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX` setting. An unset threshold rejects calibration
-imports; it does not disable validation. A client with read-only camera access can read
-the complete home pose and calibration block without permission to edit either.
-
-After a camera save commits, Manager publishes
-`scenescape/cmd/camera/config/{camera_id}` with the new `calibration_version` (or null
-when calibration is absent). The notification is registered with `transaction.on_commit`,
-so a rolled-back camera update emits nothing. Positioning reads the camera record from
-Manager; the notification carries no calibration payload or credentials.
-
-A non-superuser `POSITIONING_POSE` ACL grants access only to existing Manager cameras that
-are either listed in that ACL entry's `sources` (camera UIDs) or belong to one of its
-assigned `scenes` (`acls[].sources` / `acls[].scenes` in the user API).
-An entry with neither denies every pose topic. `positioning.auth` is provisioned with
-pose write access and an empty `sources` list; assign each resolver's cameras (the
-`source_id`s mapped to it in the deployment manifest) before it can publish.
-
-Per-camera onboarding measures the ONVIF position space, home pan/tilt and approach
-directions, axis curves and orientations, backlash, settling parameters, and held-out
-reprojection residual. Store the measurement instrument/version, camera model/firmware,
-date, operator, and fitting provenance with the versioned block. Import through the
-camera-specific API, verify the returned block and residual threshold, then validate
-held-out projections in both travel directions before assigning the source to a
-Positioning resolver. Do not enable a camera without measured deployment error, latency,
-clock, and post-motion availability budgets.
+Manager stores nullable `ptz_calibration` on `Cam` and exposes it through
+`GET`, `POST`, and `PUT /api/v1/camera/{uid}`; collection reads remain available at
+`GET /api/v1/cameras`. `CamSerializer` applies the same validation to REST writes and
+calibration imports, including finite-value, compatibility, and configured residual
+threshold checks. Saving a camera publishes a versioned configuration invalidation only
+after the transaction commits; the Resolver then reloads the calibration through its
+read-only Manager client. Manager derives pose-read ACL scope from camera scene
+membership, while the deployment manifest remains limited to source-to-resolver
+ownership.
 
 ### 5.6 What changes for projection
 
