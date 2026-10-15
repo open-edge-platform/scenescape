@@ -12,7 +12,7 @@ import random
 import filecmp
 import tempfile
 import functools
-import subprocess
+import requests
 import numpy as np
 
 from PIL import Image
@@ -1998,27 +1998,35 @@ class InteractWithPage(ABC):
     parsed_url = urlparse(self.browser.current_url)
     file_url = parsed_url._replace(path=f"/media/{self.interaction_params.file_name}").geturl()
 
-    curl_str = ["curl", file_url, "-k", "-o", file_output_path, "-v"]
-    sessionid = None
-    csrftoken = None
-
+    cookies = {}
     for item in self.browser.get_cookies():
-      if item['name'] == "sessionid":
-        sessionid = f"{item['name']}={item['value']}"
-      elif item['name'] == "csrftoken":
-        csrftoken = f"{item['name']}={item['value']}"
+      if item['name'] in ("sessionid", "csrftoken"):
+        cookies[item['name']] = item['value']
 
-    assert sessionid is not None
-    assert csrftoken is not None
-    curl_str.extend(["-b", f"{sessionid};{csrftoken}"])
-    subprocess.run(curl_str, capture_output=True, text=True)
+    assert "sessionid" in cookies
+    assert "csrftoken" in cookies
+
+    # NOTE: Use the in-process `requests` library rather than shelling out to
+    # `curl`. The `loopback_hosts` fixture patches DNS resolution only within
+    # this Python process (via socket.getaddrinfo/socket.socket.connect), so a
+    # `curl` subprocess cannot resolve the *.scenescape.intel.com hostnames and
+    # would silently fail to download anything.
+    try:
+      response = requests.get(file_url, cookies=cookies, verify=False, timeout=30)
+      response.raise_for_status()
+      with open(file_output_path, "wb") as f:
+        f.write(response.content)
+    except requests.RequestException as e:
+      print(check_str_root + f"Failed: file_url={file_url!r} request_error={e!r}")
+      return upload_success
 
     tmp_files = os.listdir(tmp_dir_path)
     if (self.interaction_params.file_name in tmp_files) and filecmp.cmp(file_output_path, self.interaction_params.file_path):
       upload_success = True
       print(check_str_root + "Passed")
     else:
-      print(check_str_root + f"Failed: file_url={file_url!r} tmp_files={tmp_files}")
+      print(check_str_root + f"Failed: file_url={file_url!r} tmp_files={tmp_files} "
+           f"status_code={response.status_code}")
     return upload_success
 
   def check_screenshots_differ(self) -> bool:
