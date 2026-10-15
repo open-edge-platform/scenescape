@@ -131,6 +131,7 @@ Mapping Service <./microservices/mapping-service/mapping-service.md>
 Re-ID Service <./microservices/reid-service/reid-service.md>
 Scene Controller <./microservices/controller/controller.md>
 API Reference <./api-reference.md>
+Positioning API Reference <./positioning-api-reference.md>
 
 :::
 
