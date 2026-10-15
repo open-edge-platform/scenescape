@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.positioning.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Release.Name }}-positioning-cert
+spec:
+  secretName: {{ .Release.Name }}-positioning-tls
+  issuerRef:
+    name: {{ .Release.Name }}-ca-issuer
+    kind: Issuer
+  commonName: "positioning.scenescape.intel.com"
+  dnsNames:
+    - "positioning.scenescape.intel.com"
+    - "positioning"
+    - "positioning.{{ .Release.Namespace }}"
+    - "positioning.{{ .Release.Namespace }}.svc.cluster.local"
+  usages:
+    - client auth
+  duration: 8760h
+  renewBefore: 720h
+{{- end }}

@@ -15,6 +15,7 @@ Covers:
 import pytest
 import requests
 from http import HTTPStatus
+from scene_common.options import WRITE_ONLY
 from scene_common.rest_client import RESTClient
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
@@ -185,6 +186,62 @@ def test_authz_superuser_can_check_acl(rest, params, result_recorder):
   assert response.status_code == HTTPStatus.OK, \
     f"Expected 200 OK for administrator /aclcheck, got {response.status_code}: {response.text}"
   assert response.json()["result"] == "allow"
+
+  result_recorder.success()
+
+
+@pytest.mark.test_name("NEX-T29948")
+def test_positioning_auth_cannot_publish_outside_status_topic(rest, params, result_recorder):
+  """Restrict the positioning account to its configured resolver status topic.
+
+  Query Manager's ACL endpoint with WRITE_ONLY for its configured status topic,
+  another resolver's status topic, and a resolved-pose topic. Only the configured
+  status topic must be allowed. This verifies Manager's ACL decision; it does not
+  exercise topic enforcement by a live MQTT broker.
+  """
+  headers = {"Authorization": f"Token {rest.token}"}
+  endpoint = f"{params['resturl']}/aclcheck"
+  status_response = requests.post(
+    endpoint,
+    headers=headers,
+    json={
+      "username": "positioning",
+      "topic": "scenescape/positioning/status/positioning-default",
+      "acc": WRITE_ONLY,
+    },
+    verify=params["rootcert"],
+  )
+  assert status_response.status_code == HTTPStatus.OK, \
+    f"Positioning status publish should be allowed: {status_response.text}"
+  assert status_response.json()["result"] == "allow"
+
+  other_status_response = requests.post(
+    endpoint,
+    headers=headers,
+    json={
+      "username": "positioning",
+      "topic": "scenescape/positioning/status/other-resolver",
+      "acc": WRITE_ONLY,
+    },
+    verify=params["rootcert"],
+  )
+  assert other_status_response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Positioning status publish should be limited to its resolver: {other_status_response.text}"
+  assert other_status_response.json()["result"] == "deny"
+
+  pose_response = requests.post(
+    endpoint,
+    headers=headers,
+    json={
+      "username": "positioning",
+      "topic": "scenescape/positioning/pose/test-source",
+      "acc": WRITE_ONLY,
+    },
+    verify=params["rootcert"],
+  )
+  assert pose_response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Positioning pose publish should be denied: {pose_response.text}"
+  assert pose_response.json()["result"] == "deny"
 
   result_recorder.success()
 

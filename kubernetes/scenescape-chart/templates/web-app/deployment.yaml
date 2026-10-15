@@ -74,6 +74,10 @@ spec:
             value: pgserver
           - name: DBPORT
             value: "5432"
+          {{- if .Values.positioning.enabled }}
+          - name: POSITIONING_RESOLVER_ID
+            value: {{ .Values.positioning.resolverId | quote }}
+          {{- end }}
           {{- if .Values.web.allowedHosts }}
           - name: SCENESCAPE_ALLOWED_HOSTS
             value: "{{ .Values.web.allowedHosts }}"
@@ -146,6 +150,12 @@ spec:
             name: calibration-auth
             subPath: calibration.auth
             readOnly: true
+          {{- if .Values.positioning.enabled }}
+          - mountPath: /run/secrets/positioning.auth
+            name: positioning-auth
+            subPath: positioning.auth
+            readOnly: true
+          {{- end }}
           - mountPath: /home/scenescape/Scenescape/media
             name: media-storage
           - mountPath: /workspace/media
@@ -176,6 +186,11 @@ spec:
       - name: calibration-auth
         secret:
           secretName: {{ .Release.Name }}-calibration.auth
+      {{- if .Values.positioning.enabled }}
+      - name: positioning-auth
+        secret:
+          secretName: {{ .Release.Name }}-positioning.auth
+      {{- end }}
       - name: media-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-media-pvc

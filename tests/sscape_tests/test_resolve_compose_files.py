@@ -15,6 +15,7 @@ TEST_NAME = "NEX-T22100"
 _RETAIL = "tests/compose/dlstreamer/compose.retail-video.yml"
 _QUEUING = "tests/compose/dlstreamer/compose.queuing-video.yml"
 _OTHER = "tests/compose/compose.scene.yml"
+_POSITIONING = "tests/compose/compose.positioning.yml"
 _RETAIL_DRI = "tests/compose/dlstreamer/compose.gpu-dri-retail.yml"
 _QUEUING_DRI = "tests/compose/dlstreamer/compose.gpu-dri-queuing.yml"
 
@@ -45,7 +46,7 @@ def test_resolve_compose_files_skips_missing_dri(tmp_path):
   """No DRI overrides when the DRM path does not exist."""
   missing = tmp_path / "missing-dri"
   files = resolve_compose_files((_RETAIL, _QUEUING, _OTHER), dri_path=str(missing))
-  assert files == (_RETAIL, _QUEUING, _OTHER)
+  assert files == (_RETAIL, _QUEUING, _OTHER, _POSITIONING)
 
 
 def test_resolve_compose_files_skips_empty_dri_directory(tmp_path):
@@ -80,4 +81,12 @@ def test_resolve_compose_files_appends_overrides_for_char_devices(tmp_path):
 
   assert _RETAIL_DRI in files
   assert _QUEUING_DRI in files
+  assert _POSITIONING in files
   assert files.index(_RETAIL) < files.index(_RETAIL_DRI)
+
+
+def test_resolve_compose_files_adds_positioning_for_tracker(tmp_path):
+  """Tracker test profiles include the Positioning broker identity service."""
+  tracker = "tests/compose/compose.tracker.yml"
+  files = resolve_compose_files((tracker,), dri_path=str(tmp_path / "missing-dri"))
+  assert files == (tracker, _POSITIONING)

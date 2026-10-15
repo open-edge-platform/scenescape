@@ -2841,6 +2841,8 @@ components:
         - POSITIONING_STATUS
         - SYS_CHILDSCENE_STATUS
         - ANALYTICS_CLUSTERS
+        - POSITIONING_POSE
+        - POSITIONING_STATUS
       type: string
       description: |-
         * `CHANNEL` - CHANNEL
@@ -2863,6 +2865,8 @@ components:
         * `POSITIONING_STATUS` - POSITIONING_STATUS
         * `SYS_CHILDSCENE_STATUS` - SYS_CHILDSCENE_STATUS
         * `ANALYTICS_CLUSTERS` - ANALYTICS_CLUSTERS
+        * `POSITIONING_POSE` - POSITIONING_POSE
+        * `POSITIONING_STATUS` - POSITIONING_STATUS
     TransformTypeEnum:
       enum:
         - matrix

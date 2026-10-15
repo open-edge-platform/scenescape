@@ -60,6 +60,8 @@ export const POSITIONING_POSE = "/positioning/pose/";
 export const POSITIONING_STATUS = "/positioning/status/";
 export const SYS_CHILDSCENE_STATUS = "/sys/child/status";
 export const EVENT = "/event";
+export const POSITIONING_POSE = "/positioning/pose/";
+export const POSITIONING_STATUS = "/positioning/status/";
 
 // Model directory
 export const MODEL_DIRECTORY_API = `${REST_URL}/model-directory/`;

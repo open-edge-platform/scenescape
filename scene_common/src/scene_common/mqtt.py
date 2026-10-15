@@ -78,6 +78,9 @@ class PubSub(_PubSubTopicBase):
     _Topic.DATA_CHILD_TRIPWIRES: Template(TOPIC_BASE + "/data/child/tripwires/${scene_id}"),
     _Topic.DATA_CHILD_ROIS: Template(TOPIC_BASE + "/data/child/rois/${scene_id}"),
     _Topic.DATA_CHILD_SENSORS: Template(TOPIC_BASE + "/data/child/sensors/${scene_id}"),
+    _Topic.CMD_CAMERA_CONFIG: Template(TOPIC_BASE + "/cmd/camera/config/${camera_id}"),
+    _Topic.POSITIONING_POSE: Template(TOPIC_BASE + "/positioning/pose/${source_id}"),
+    _Topic.POSITIONING_STATUS: Template(TOPIC_BASE + "/positioning/status/${resolver_id}"),
   }
 
   def __init__(self, auth, cert, rootca, broker, port=None, keepalive=60,

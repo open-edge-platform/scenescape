@@ -488,6 +488,16 @@ class ACLCheck(APIView):
         status=status.HTTP_400_BAD_REQUEST
       )
 
+    if username == "positioning" and requestedAccess in (WRITE_ONLY, READ_AND_WRITE):
+      resolver_id = os.environ.get("POSITIONING_RESOLVER_ID", "positioning-default")
+      try:
+        positioning_status_topic = PubSub.formatTopic(
+          PubSub.POSITIONING_STATUS, resolver_id=resolver_id)
+      except (KeyError, ValueError):
+        positioning_status_topic = None
+      if currentTopic != positioning_status_topic:
+        return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
+
     user_acls = PubSubACL.objects.filter(user=user)
 
     # Admin users have full read/write access to the broker.
