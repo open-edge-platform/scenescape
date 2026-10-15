@@ -194,13 +194,27 @@ positioning/.local/
    The secret files mounted by the base Compose file (broker auth and
    certificates) must also be readable by the user ID you set.
 
-6. Start or recreate the service from the repository root, then follow its logs:
+6. Start the demo stack, then recreate only the Positioning service with the
+   override. `make demo` generates the root `docker-compose.yml` and starts
+   Positioning with the default configuration, which has no sources:
+
+   ```bash
+   SUPASS=<password> make build-core demo
+   ```
+
+   From the repository root, apply the override and follow the service logs:
 
    ```bash
    docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml \
      --profile controller up -d positioning
    docker compose logs -f positioning
    ```
+
+   The first command merges the override into the `positioning` service and
+   recreates only that container. The broker and other services keep running. Use
+   `--profile tracker` instead if the stack runs the Tracker profile. Run the
+   command again after you edit any file in `positioning/.local/`. The files are
+   read only at startup.
 
    At startup the service logs `Configured PTZ sources: [...]` and
    `PTZ source <id> connected: ...` for each camera. Every 30 seconds it logs a
@@ -210,8 +224,17 @@ positioning/.local/
    manifest, unknown keys, or an unreadable credentials file, stop the service
    with a message that names the source.
 
-To return to the default service shell, start the service without the override
-file.
+To return to the default service shell, recreate the service without the override
+file:
+
+```bash
+docker compose --profile controller up -d positioning
+```
+
+If `pgserver` fails at startup because it found PostgreSQL data from another
+checkout, the checkouts share Compose volumes, which are prefixed `scenescape_` by
+default. Set a distinct `COMPOSE_PROJECT_NAME` for this checkout before
+`make demo`, and pass the same value to the `docker compose` commands above.
 
 ## Shadow Validation Artifacts
 
