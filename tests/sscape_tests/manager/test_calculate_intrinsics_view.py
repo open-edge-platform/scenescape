@@ -4,6 +4,7 @@
 from types import SimpleNamespace
 from unittest.mock import patch
 
+import cv2
 import numpy as np
 import pytest
 from rest_framework.test import APIRequestFactory, force_authenticate
@@ -316,8 +317,8 @@ def test_calculate_intrinsics_scales_threshold_from_pixels_per_meter():
 
 
 @pytest.mark.test_name("NEX-T10426")
-def test_find_inlier_mask_skips_ap3p_ransac_for_coplanar_points():
-  """Floor-plan (coplanar) map points must not run AP3P RANSAC."""
+def test_find_inlier_mask_uses_sqpnp_ransac_for_coplanar_points():
+  """Floor-plan (coplanar) map points use SQPNP RANSAC for outlier rejection."""
   obj_points = np.array([
     [0.0, 0.0, 0.0],
     [1.0, 0.0, 0.0],
@@ -338,19 +339,26 @@ def test_find_inlier_mask_skips_ap3p_ransac_for_coplanar_points():
     [0.0, 0.0, 1.0],
   ])
   distortion = np.zeros(5)
+  mock_rvec = np.zeros((3, 1))
+  mock_tvec = np.array([[0.0], [0.0], [5.0]])
+  inliers = np.array([[0], [1], [2], [3]], dtype=np.int32)
 
-  with patch("cv2.solvePnPRansac") as mock_ransac:
+  with patch(
+      "cv2.solvePnPRansac",
+      return_value=(True, mock_rvec, mock_tvec, inliers)) as mock_ransac:
     mask = find_inlier_mask(
       obj_points, img_points, intrinsics, distortion,
       RANSAC_REPROJECTION_THRESHOLD_PX)
 
-  assert mask is None
-  mock_ransac.assert_not_called()
+  mock_ransac.assert_called_once()
+  assert mock_ransac.call_args.kwargs["flags"] == cv2.SOLVEPNP_SQPNP
+  assert mask is not None
+  assert mask.tolist() == [True, True, True, True, False]
 
 
 @pytest.mark.test_name("NEX-T10426")
 def test_find_inlier_mask_runs_ransac_for_non_coplanar_points():
-  """Non-coplanar map points still use the shared AP3P RANSAC helper."""
+  """Non-coplanar map points use AP3P RANSAC via the shared helper."""
   obj_points = np.array([
     [0.0, 0.0, 0.0],
     [1.0, 0.0, 0.0],
@@ -383,5 +391,6 @@ def test_find_inlier_mask_runs_ransac_for_non_coplanar_points():
       RANSAC_REPROJECTION_THRESHOLD_PX)
 
   mock_ransac.assert_called_once()
+  assert mock_ransac.call_args.kwargs["flags"] == cv2.SOLVEPNP_AP3P
   assert mask is not None
   assert mask.tolist() == [True, True, True, True, False]

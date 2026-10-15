@@ -169,6 +169,7 @@ class TestPointCorrespondenceTransform:
     assert transform.pose_mat.shape == (4, 4)
     # Default (no scene scale) keeps the reference 10 px threshold.
     assert mock_solve_pnp_ransac.call_args.kwargs['reprojectionError'] == 10.0
+    assert mock_solve_pnp_ransac.call_args.kwargs['flags'] == cv2.SOLVEPNP_AP3P
 
   @patch('cv2.solvePnPRansac')
   @patch('cv2.solvePnP')
@@ -197,12 +198,13 @@ class TestPointCorrespondenceTransform:
 
   @patch('cv2.solvePnPRansac')
   @patch('cv2.solvePnP')
-  def test_coplanar_points_skip_ap3p_ransac(self, mock_solve_pnp, mock_solve_pnp_ransac):
-    """Coplanar layouts skip AP3P RANSAC and use plain solvePnP."""
+  def test_coplanar_points_use_sqpnp_ransac(self, mock_solve_pnp, mock_solve_pnp_ransac):
+    """Coplanar layouts use SQPNP RANSAC (not AP3P) for outlier rejection."""
     intrinsics = CameraIntrinsics([800, 800, 320, 240])
     mock_rvec = np.array([[0.1], [0.2], [0.3]])
     mock_tvec = np.array([[1.0], [2.0], [3.0]])
-    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
+    inliers = np.array([[0], [1], [2], [3], [4], [5]], dtype=np.int32)
+    mock_solve_pnp_ransac.return_value = (True, mock_rvec, mock_tvec, inliers)
 
     pose = {
         'camera points': np.array([
@@ -214,13 +216,14 @@ class TestPointCorrespondenceTransform:
     }
     transform = PointCorrespondenceTransform(pose, intrinsics)
 
-    mock_solve_pnp_ransac.assert_not_called()
-    mock_solve_pnp.assert_called_once()
+    mock_solve_pnp_ransac.assert_called_once()
+    assert mock_solve_pnp_ransac.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
+    mock_solve_pnp.assert_not_called()
     assert transform.rejectedIndices == []
 
-  def test_solve_pnpransac_ap3p_skips_coplanar(self):
-    """Shared helper returns None for coplanar sets without calling OpenCV RANSAC."""
-    from scene_common.transform import solve_pnpransac_ap3p
+  def test_solve_pnpransac_uses_sqpnp_for_coplanar(self):
+    """Shared helper selects SQPNP flags for coplanar correspondences."""
+    from scene_common.transform import solve_pnpransac
     map_pts = np.array([
         [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
     ], dtype=np.float32)
@@ -228,10 +231,15 @@ class TestPointCorrespondenceTransform:
         [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
     ], dtype=np.float32)
     k = np.array([[800., 0, 320], [0, 800., 240], [0, 0, 1]])
-    with patch('cv2.solvePnPRansac') as mock_ransac:
-      rvec, tvec, mask = solve_pnpransac_ap3p(map_pts, cam_pts, k, None, 10.0)
-    assert rvec is None and tvec is None and mask is None
-    mock_ransac.assert_not_called()
+    mock_rvec = np.array([[0.1], [0.2], [0.3]])
+    mock_tvec = np.array([[1.0], [2.0], [3.0]])
+    inliers = np.array([[0], [1], [2], [3], [4], [5]], dtype=np.int32)
+    with patch('cv2.solvePnPRansac',
+               return_value=(True, mock_rvec, mock_tvec, inliers)) as mock_ransac:
+      rvec, tvec, mask = solve_pnpransac(map_pts, cam_pts, k, None, 10.0)
+    assert rvec is not None and tvec is not None
+    assert mask is not None and mask.sum() == 6
+    assert mock_ransac.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
 
   def test_ransac_rejects_gross_outlier(self):
     """End-to-end: a grossly mis-clicked correspondence is rejected, pose stays accurate"""
