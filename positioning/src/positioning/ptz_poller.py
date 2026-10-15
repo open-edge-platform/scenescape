@@ -238,7 +238,6 @@ class PTZPoller:
       if self.device is None:
         try:
           self.connect()
-          backoff = 1.0
           failures = 0
         except OnvifError as error:
           log.warning("PTZ source %s connect failed: %s", self.source_id, error)
@@ -255,6 +254,7 @@ class PTZPoller:
         if failures:
           log.info("PTZ source %s polling recovered after %d failures", self.source_id, failures)
         failures = 0
+        backoff = 1.0
       except OnvifError as error:
         failures += 1
         if failures == 1:
@@ -262,6 +262,9 @@ class PTZPoller:
         if failures >= self.max_consecutive_failures:
           log.warning("PTZ source %s reconnecting after %d failures", self.source_id, failures)
           self.disconnect()
+          if stop_event.wait(backoff):
+            break
+          backoff = min(backoff * 2, self.max_backoff_s)
           continue
       except Exception:
         log.exception("Unexpected PTZ polling failure for %s", self.source_id)

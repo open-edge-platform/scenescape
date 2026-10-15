@@ -318,6 +318,37 @@ class TestPollingLoop(CameraTestCase):
     self.assertEqual({s.adapter_instance_id for s in sink.samples}, {poller.adapter_instance_id})
     self.assertEqual([s.sequence for s in sink.samples], list(range(1, len(sink.samples) + 1)))
 
+  def test_reconnect_backoff_escalates_until_status_recovers(self):
+    class StopAfterBackoffs:
+      def __init__(self):
+        self.backoffs = []
+
+      def is_set(self):
+        return len(self.backoffs) >= 4
+
+      def wait(self, timeout):
+        if timeout >= 1:
+          self.backoffs.append(timeout)
+          return len(self.backoffs) >= 4
+        return False
+
+    poller = PTZPoller("cam-a", self.factory, ListSink(), poll_interval_s=0.001,
+                       max_consecutive_failures=1, max_backoff_s=8)
+    poller.connect = lambda: setattr(poller, "device", object())
+    poller.disconnect = lambda: setattr(poller, "device", None)
+    actions = ["fail", "fail", "success", "fail", "fail"]
+
+    def poll_once():
+      if actions.pop(0) == "fail":
+        raise OnvifTransportError("simulated polling failure")
+
+    poller.poll_once = poll_once
+    stop = StopAfterBackoffs()
+    poller.run(stop)
+
+    self.assertEqual(stop.backoffs, [1, 2, 1, 2])
+    self.assertEqual(actions, [])
+
 
 class TestMoveEvents(unittest.TestCase):
   def setUp(self):
