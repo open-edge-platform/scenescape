@@ -16,7 +16,6 @@ from scene_common.transform import RANSAC_REPROJECTION_THRESHOLD_PX
 MIN_PNP_SPREAD_RATIO = 0.05
 # Fraction of the tag size the camera may sit below the lowest matched tag.
 CAMERA_BELOW_TAG_TOLERANCE_TAG_FRACTION = 0.5
-PLANAR_MAP_EXTENSIONS = ('.png', '.jpg', '.jpeg')
 
 
 @dataclass(frozen=True)
@@ -46,9 +45,14 @@ def _points_spread_ratio(points_3d):
 
 
 def _validate_correspondence_geometry(map_points_3d, points_2d, camera_pose,
-                                      intrinsics, planar_map,
-                                      max_reprojection_error_px=None):
-  """Check whether matched tag geometry supports a reliable pose."""
+                                      intrinsics, max_reprojection_error_px=None):
+  """Check whether matched tag geometry supports a reliable pose.
+
+  Well-spread 3D layouts are accepted on spread alone. Near-coplanar layouts
+  (common for floor tags on both image maps and GLB scenes) are accepted when
+  they are not collinear and the pose reprojects within the pixel gate. Map
+  file type does not change these rules.
+  """
   map_points_3d = np.asarray(map_points_3d, dtype=float)
   # Default planar gate matches the RANSAC inlier threshold so acceptance is
   # not stricter than the pose solve. Callers may pass a scene-scale-adjusted
@@ -59,12 +63,6 @@ def _validate_correspondence_geometry(map_points_3d, points_2d, camera_pose,
   spread_ratio = _points_spread_ratio(map_points_3d)
   if spread_ratio >= MIN_PNP_SPREAD_RATIO:
     return spread_ratio, None
-
-  if not planar_map:
-    return spread_ratio, (
-        f"Matched AprilTags are too close to coplanar for a reliable pose solve "
-        f"(spread ratio={spread_ratio:.3f}, minimum {MIN_PNP_SPREAD_RATIO}); "
-        "use tags with more depth/height variation from this viewpoint.")
 
   singular_values = np.linalg.svd(map_points_3d - map_points_3d.mean(axis=0),
                                   compute_uv=False)
@@ -85,7 +83,7 @@ def _validate_correspondence_geometry(map_points_3d, points_2d, camera_pose,
 
 
 def validate_camera_pose(map_points_3d, scene_points_3d, points_2d, camera_pose,
-                         camera_position, intrinsics, tag_size, planar_map,
+                         camera_position, intrinsics, tag_size,
                          max_reprojection_error_px=None):
   """Decide whether a solved AprilTag camera pose can be accepted.
 
@@ -96,7 +94,6 @@ def validate_camera_pose(map_points_3d, scene_points_3d, points_2d, camera_pose,
   @param   camera_position  Camera translation in scene coordinates
   @param   intrinsics       3x3 camera matrix
   @param   tag_size         AprilTag edge length in scene units
-  @param   planar_map       True for image floor plans
   @param   max_reprojection_error_px  Optional planar RMS gate (defaults to
                             RANSAC_REPROJECTION_THRESHOLD_PX). Prefer the
                             scene-scale-adjusted RANSAC threshold.
@@ -104,7 +101,7 @@ def validate_camera_pose(map_points_3d, scene_points_3d, points_2d, camera_pose,
   @return  PoseValidation
   """
   spread_ratio, message = _validate_correspondence_geometry(
-      map_points_3d, points_2d, camera_pose, intrinsics, planar_map,
+      map_points_3d, points_2d, camera_pose, intrinsics,
       max_reprojection_error_px=max_reprojection_error_px)
   if message:
     return PoseValidation(spread_ratio, message)

@@ -524,8 +524,11 @@ def test_validate_correspondence_arrays_pads_2d_map_points():
 
 @pytest.mark.test_name("NEX-T10426")
 def test_calculate_intrinsics_rejects_bad_point_dimensions():
+  # Keep count matched with default camPoints so the length gate does not fire first.
   payload = _calibration_payload(
-    mapPoints=[[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 1, 0, 0]],
+    mapPoints=[
+      [0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 1, 0, 0], [2, 1, 0, 0],
+    ],
   )
   response = _post_calculate_intrinsics(payload)
   assert response.status_code == 400

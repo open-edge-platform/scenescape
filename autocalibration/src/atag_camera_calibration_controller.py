@@ -19,7 +19,7 @@ from scene_common.timestamp import get_iso_time
 from atag_camera_calibration import CameraCalibrationApriltag, \
     TILE_SIZE, DEFAULT_ROTATION_MATRIX, DEFAULT_MESH_ROTATION, MIN_APRILTAG_COUNT
 from auto_camera_calibration_controller import CameraCalibrationController
-from calibration_geometry import validate_camera_pose, PLANAR_MAP_EXTENSIONS
+from calibration_geometry import validate_camera_pose
 
 MAX_WAIT_FRAME_COUNT = 10
 
@@ -206,7 +206,6 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         validation = validate_camera_pose(
             validate_map, validate_scene, validate_2d, camera_pose, trans,
             intrinsic_matrix_2d, cur_cam_calib_obj.tag_size,
-            os.path.splitext(sceneobj.map)[1].lower() in PLANAR_MAP_EXTENSIONS,
             max_reprojection_error_px=max_reproj_px)
         if not validation.accepted:
           log.error(f"Rejecting calibration for camera {cam_frame_data['id']}: {validation.message}")
