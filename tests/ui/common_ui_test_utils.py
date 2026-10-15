@@ -2006,11 +2006,6 @@ class InteractWithPage(ABC):
     assert "sessionid" in cookies
     assert "csrftoken" in cookies
 
-    # NOTE: Use the in-process `requests` library rather than shelling out to
-    # `curl`. The `loopback_hosts` fixture patches DNS resolution only within
-    # this Python process (via socket.getaddrinfo/socket.socket.connect), so a
-    # `curl` subprocess cannot resolve the *.scenescape.intel.com hostnames and
-    # would silently fail to download anything.
     try:
       response = requests.get(file_url, cookies=cookies, verify=False, timeout=30)
       response.raise_for_status()
