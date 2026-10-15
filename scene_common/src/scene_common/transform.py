@@ -17,9 +17,10 @@ from scene_common.geometry import isarray, Point, Line, Rectangle, Region
 MAX_COPLANAR_SPREAD_RATIO = 1e-2
 FALLBACK_HORIZON_DISTANCE = 1000
 # RANSAC parameters for robust pose estimation from point correspondences.
-# Base threshold (pixels) applies at RANSAC_THRESHOLD_REFERENCE_PPM. Scene map
-# resolution (pixels per meter) scales it: low ppm → stricter (few pixels are a
-# larger world distance); high ppm → looser. Clamped to keep RANSAC stable.
+# The gate is in camera-image pixels. Scaling by scene map pixels/meter is an
+# intentional heuristic (not camera-resolution scaling): low map ppm → stricter
+# gate (map click error spans more meters); high ppm → looser. Clamped for
+# RANSAC stability. Prefer an explicit image-space override when available.
 RANSAC_REPROJECTION_THRESHOLD_PX = 10.0
 RANSAC_THRESHOLD_REFERENCE_PPM = 100.0
 RANSAC_THRESHOLD_MIN_PX = 2.0
@@ -28,11 +29,17 @@ MIN_POINTS_FOR_RANSAC = 4
 
 
 def scaled_reprojection_threshold_px(pixels_per_meter=None):
-  """Return a RANSAC reprojection threshold scaled by scene map resolution.
+  """Return a camera-image RANSAC gate scaled by scene map resolution.
+
+  Couples two spaces on purpose: the returned value is used as OpenCV's
+  camera-image reprojectionError, while pixels_per_meter is map scale. This is
+  a scene-resolution heuristic (coarse maps → stricter gate), not a model of
+  camera noise or focal length. Callers that know a true image-space budget
+  should pass an explicit threshold instead.
 
   @param  pixels_per_meter  Scene map scale (map pixels per meter). When None
                             or invalid, returns RANSAC_REPROJECTION_THRESHOLD_PX.
-  @return Threshold in camera-image pixels.
+  @return Threshold in camera-image pixels (clamped).
   """
   if pixels_per_meter is None:
     return float(RANSAC_REPROJECTION_THRESHOLD_PX)

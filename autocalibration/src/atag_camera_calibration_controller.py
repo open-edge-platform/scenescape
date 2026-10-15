@@ -159,7 +159,8 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       log.info(f"Image decoded for camera {cam_frame_data['id']}, shape: {src_2d_image.shape if src_2d_image is not None else 'None'}")
       intrinsic_matrix_2d = np.array(camera_intrinsics)
       cur_cam_calib_obj.intrinsic_matrix_2d = intrinsic_matrix_2d
-      # Scale RANSAC / planar gates with scene map resolution when available.
+      # Map-scale heuristic for the camera-image RANSAC / planar gates (not
+      # camera-resolution scaling). See scaled_reprojection_threshold_px.
       cur_cam_calib_obj.pixels_per_meter = getattr(sceneobj, "scale", None)
       cur_cam_calib_obj.find_apriltags_in_frame(src_2d_image, True)
       camera_pose = cur_cam_calib_obj.get_camera_pose_in_scene()

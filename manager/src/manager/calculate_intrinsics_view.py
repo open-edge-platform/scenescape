@@ -238,11 +238,12 @@ def parse_pixels_per_meter(data):
   return ppm, None
 
 def parse_outlier_threshold_px(data):
-  """Return a positive finite outlier threshold in pixels, or an error message.
+  """Return a positive finite outlier threshold in camera-image pixels.
 
-  Explicit outlierThresholdPx wins. Otherwise the threshold is scaled from the
-  scene map resolution (pixelsPerMeter) relative to the reference ppm used by
-  RANSAC_REPROJECTION_THRESHOLD_PX.
+  Explicit outlierThresholdPx wins (true image-space gate). Otherwise the
+  threshold is derived from scene map pixelsPerMeter via
+  scaled_reprojection_threshold_px — a map-resolution heuristic, not camera
+  resolution or focal-length scaling.
   """
   if "outlierThresholdPx" in data:
     value = data["outlierThresholdPx"]

@@ -1517,18 +1517,21 @@ paths:
                   exclusiveMinimum: true
                   description: >-
                     Scene map resolution in pixels per meter. When outlierThresholdPx
-                    is omitted, the RANSAC reprojection threshold is scaled from the
-                    10 px reference at 100 px/m (clamped). Must be a positive finite
-                    number when provided.
+                    is omitted, used as a scene-scale heuristic to derive the
+                    camera-image RANSAC gate from the 10 px reference at 100 px/m
+                    (clamped). This is not camera-resolution or focal-length
+                    scaling; prefer outlierThresholdPx for an explicit image-space
+                    budget. Must be a positive finite number when provided.
                 outlierThresholdPx:
                   type: number
                   format: double
                   minimum: 0
                   exclusiveMinimum: true
                   description: >-
-                    Explicit RANSAC reprojection error threshold in pixels. When
-                    omitted, derived from pixelsPerMeter (or 10 px if that is also
-                    omitted). Must be a positive finite number when provided.
+                    Explicit RANSAC reprojection error threshold in camera-image
+                    pixels. When omitted, derived from pixelsPerMeter via the
+                    map-scale heuristic (or 10 px if that is also omitted). Must
+                    be a positive finite number when provided.
               required:
                 - mapPoints
                 - camPoints
@@ -1626,8 +1629,9 @@ paths:
                     type: number
                     format: double
                     description: >-
-                      Reprojection threshold in pixels used for RANSAC (explicit
-                      request value, or scaled from pixelsPerMeter)
+                      Camera-image reprojection threshold used for RANSAC
+                      (explicit request value, or map-scale heuristic from
+                      pixelsPerMeter)
                   perPointErrors:
                     type: array
                     items:

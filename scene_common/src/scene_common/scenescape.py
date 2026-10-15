@@ -38,8 +38,8 @@ class SceneLoader:
         if 'map points' in info:
           if SceneLoader.scene.areCoordinatesInPixels(info['map points']):
             info['map points'] = SceneLoader.scene.mapPixelsToMetric(info['map points'])
-        # Propagate scene map scale so point-correspondence RANSAC can scale
-        # its reprojection threshold with pixels-per-meter.
+        # Propagate scene map scale for the RANSAC map-ppm heuristic (see
+        # scaled_reprojection_threshold_px); not camera-resolution scaling.
         if SceneLoader.scene.scale is not None and 'pixels per meter' not in info:
           info['pixels per meter'] = SceneLoader.scene.scale
         camera = Camera(name, info)
