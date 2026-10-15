@@ -184,6 +184,8 @@ help:
 	@echo ""
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
 	@echo ""
+	@echo "  generate-positioning-proto  Regenerate Positioning protobuf/gRPC Python stubs"
+	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
 	@echo "  - Use 'SUPASS=<password> make build-core deploy' a clean deployment (without demo cameras or scenes)."
@@ -705,6 +707,14 @@ prettier-write: prettier-dependency
 .PHONY: add-licensing
 add-licensing:
 	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
+
+# ===================== Code Generation =============================
+
+.PHONY: generate-positioning-proto
+generate-positioning-proto:
+	@echo "==> Generating Positioning protobuf stubs..."
+	@docs/user-guide/api-docs/positioning/v1/generate.sh || (echo "Positioning protobuf generation failed" && exit 1)
+	@echo "DONE ==> Generating Positioning protobuf stubs"
 
 # ===================== Docker Compose Demo ==========================
 

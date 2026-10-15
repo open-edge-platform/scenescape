@@ -1,0 +1,98 @@
+{
+  "fixture_version": 1,
+  "provisional": true,
+  "description": "Provisional PTZ pose-math fixture for unit tests only. Not a validated golden measurement dataset; Phase 1 math acceptance still requires tests/data/ptz/reprojection_golden.json from a hardware measurement session.",
+  "source": {
+    "poc_branch": "demo-room-igk3-ptz",
+    "poc_path": "ptz_pose_service/config/cameras.json",
+    "camera_uid": "atag-ptzcam3",
+    "camera_model": "TP-Link VIGI C540V",
+    "from_poc": [
+      "axes.pan.curve",
+      "axes.tilt.curve",
+      "axes.pan.axis",
+      "axes.pan.backlash",
+      "axes.tilt.backlash",
+      "axes.pan.approach_direction",
+      "axes.tilt.approach_direction"
+    ],
+    "placeholders": [
+      "calibration_version",
+      "position_space",
+      "axes.pan.home_position",
+      "axes.tilt.home_position",
+      "axes.tilt.axis",
+      "settle_angular_threshold_deg",
+      "settle_interval_s",
+      "axes.*.backlash_home_tolerance_deg",
+      "axes.*.backlash_history_s",
+      "quality.reprojection_rms_px",
+      "home_pose"
+    ]
+  },
+  "home_pose": {
+    "rotation_euler_xyz_deg": [-120.0, 5.0, 30.0],
+    "translation_m": [1.5, 2.0, 3.2]
+  },
+  "ptz_calibration": {
+    "parameterization_version": "v1",
+    "calibration_version": "atag-ptzcam3-provisional",
+    "position_space": {
+      "uri": "http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace",
+      "pan_min": -1.0,
+      "pan_max": 1.0,
+      "tilt_min": -1.0,
+      "tilt_max": 1.0
+    },
+    "settle_angular_threshold_deg": 0.1,
+    "settle_interval_s": 0.6,
+    "composition_order": ["pan", "home", "tilt"],
+    "axes": {
+      "pan": {
+        "axis": [0.0597, 0.1046, 0.9927],
+        "frame": "world_home",
+        "curve": [0.0, -157.15, 25.82],
+        "home_position": 0.0,
+        "approach_direction": "decreasing",
+        "backlash": [
+          [-0.2366, 0.37],
+          [-0.0366, 0.01],
+          [0.1634, 1.68]
+        ],
+        "backlash_home_tolerance_deg": 0.2,
+        "backlash_history_s": 10.0
+      },
+      "tilt": {
+        "axis": [1.0, 0.0, 0.0],
+        "frame": "camera_local",
+        "curve": [0.0, 57.31, -0.27],
+        "home_position": 0.0,
+        "approach_direction": "increasing",
+        "backlash": 2.73,
+        "backlash_home_tolerance_deg": 0.2,
+        "backlash_history_s": 10.0
+      }
+    },
+    "quality": {
+      "reprojection_rms_px": 1.2
+    },
+    "provenance": {
+      "source": "PoC config/cameras.json on branch demo-room-igk3-ptz",
+      "golden": false
+    }
+  },
+  "curve_vectors": [
+    { "axis": "pan", "position": 0.5, "expected_deg": -72.12 },
+    { "axis": "pan", "position": -0.2, "expected_deg": 32.4628 },
+    { "axis": "tilt", "position": 0.5, "expected_deg": 28.5875 },
+    { "axis": "tilt", "position": -1.0, "expected_deg": -57.58 }
+  ],
+  "backlash_vectors": [
+    { "axis": "pan", "position": -0.5, "expected_deg": 0.37 },
+    { "axis": "pan", "position": -0.1366, "expected_deg": 0.19 },
+    { "axis": "pan", "position": -0.0366, "expected_deg": 0.01 },
+    { "axis": "pan", "position": 0.0634, "expected_deg": 0.845 },
+    { "axis": "pan", "position": 0.5, "expected_deg": 1.68 },
+    { "axis": "tilt", "position": 0.3, "expected_deg": 2.73 }
+  ]
+}
