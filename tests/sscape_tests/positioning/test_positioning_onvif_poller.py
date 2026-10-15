@@ -85,6 +85,7 @@ class CameraTestCase(unittest.TestCase):
     self.credentials = Credentials(self.camera.username, self.camera.password)
 
   def device(self, **kwargs):
+    kwargs.setdefault("scheme", "http")
     device = OnvifPtzDevice("127.0.0.1", self.camera.port, kwargs.pop("credentials", self.credentials),
                             timeout_s=2.0, **kwargs)
     self.addCleanup(device.close)
@@ -99,6 +100,11 @@ class TestOnvifDevice(CameraTestCase):
     self.assertEqual(device.default_space_uri, GENERIC_SPACE)
     self.assertEqual([space.uri for space in device.position_spaces], [GENERIC_SPACE, DEGREES_SPACE])
     self.assertEqual(device.position_space(DEGREES_SPACE).pan_max, 180.0)
+
+  def test_device_defaults_to_https(self):
+    device = OnvifPtzDevice("127.0.0.1", self.camera.port, self.credentials)
+    self.addCleanup(device.close)
+    self.assertEqual(device.scheme, "https")
 
   def test_service_addresses_never_leave_configured_host(self):
     device = self.device().connect()
@@ -157,7 +163,7 @@ class TestSecrets(CameraTestCase):
       logging.getLogger("positioning").debug("probe")
       sink = ListSink()
       poller = PTZPoller("cam-a", lambda: OnvifPtzDevice(
-        "127.0.0.1", self.camera.port, self.credentials, timeout_s=2.0), sink, 0.05)
+        "127.0.0.1", self.camera.port, self.credentials, scheme="http", timeout_s=2.0), sink, 0.05)
       stop = threading.Event()
       worker = threading.Thread(target=poller.run, args=(stop,))
       worker.start()
@@ -282,7 +288,7 @@ class TestPollingLoop(CameraTestCase):
     self.assertFalse(worker.is_alive())
 
   def factory(self):
-    return OnvifPtzDevice("127.0.0.1", self.camera.port, self.credentials, timeout_s=2.0)
+    return OnvifPtzDevice("127.0.0.1", self.camera.port, self.credentials, scheme="http", timeout_s=2.0)
 
   def test_polls_at_fixed_rate_while_stationary(self):
     sink = ListSink()
@@ -363,7 +369,7 @@ class TestMoveEvents(unittest.TestCase):
     self.credentials = Credentials(self.camera.username, self.camera.password)
 
   def factory(self):
-    return OnvifPtzDevice("127.0.0.1", self.camera.port, self.credentials, timeout_s=2.0)
+    return OnvifPtzDevice("127.0.0.1", self.camera.port, self.credentials, scheme="http", timeout_s=2.0)
 
   def test_normalize_topic(self):
     self.assertEqual(normalize_topic("tns1:PTZController/tnsaxis:Move/Channel_1"),

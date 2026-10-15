@@ -85,12 +85,12 @@ def _parse_source(source_id, raw):
   host = _non_empty_string(raw.get("host"), f"{where} host")
   if _FORBIDDEN_HOST_CHARS.intersection(host):
     raise SourceConfigError(f"{where}: host must be a bare hostname or IP address")
-  port = raw.get("port", 80)
-  if isinstance(port, bool) or not isinstance(port, int) or not 0 < port < 65536:
-    raise SourceConfigError(f"{where}: port must be an integer in 1..65535")
-  scheme = raw.get("scheme", "http")
+  scheme = raw.get("scheme", "https")
   if scheme not in ("http", "https"):
     raise SourceConfigError(f"{where}: scheme must be 'http' or 'https'")
+  port = raw.get("port", 443 if scheme == "https" else 80)
+  if isinstance(port, bool) or not isinstance(port, int) or not 0 < port < 65536:
+    raise SourceConfigError(f"{where}: port must be an integer in 1..65535")
   profile_token = raw.get("profile_token")
   if profile_token is not None:
     profile_token = _non_empty_string(profile_token, f"{where} profile_token")

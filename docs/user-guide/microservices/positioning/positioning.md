@@ -157,7 +157,8 @@ configuration has none:
     "<manager-camera-uid>": {
       "type": "onvif_ptz",
       "host": "<camera-host>",
-      "port": 80,
+      "scheme": "https",
+      "port": 443,
       "credentials_file": "/run/secrets/onvif/<manager-camera-uid>.json",
       "move_status": "event",
       "move_event": { "topic": "PTZController/Move", "data_item": "is_moving" }
@@ -171,8 +172,8 @@ configuration has none:
 | `poll_interval_s`       | `0.2`        | Positive poll period for every source                                                                                                                 |
 | `sources.<id>`          | -            | Key is the `source_id` (Manager camera UID, single topic segment)                                                                                     |
 | `type`                  | required     | `onvif_ptz`                                                                                                                                           |
-| `host`, `port`          | -, `80`      | Camera ONVIF endpoint; `host` is a bare hostname or IP                                                                                                |
-| `scheme`, `tls_ca_file` | `http`, -    | `https` with optional CA bundle path                                                                                                                  |
+| `host`, `port`          | -, `443`     | Camera ONVIF endpoint; `host` is a bare hostname or IP                                                                                                |
+| `scheme`, `tls_ca_file` | `https`, -   | HTTPS is the default; optionally provide the CA bundle path for a private camera certificate                                                          |
 | `profile_token`         | first PTZ    | Media profile whose PTZ configuration is polled                                                                                                       |
 | `credentials_file`      | required     | Mounted secret: `{"username": "...", "password": "..."}`. Credentials are never accepted inline.                                                      |
 | `request_timeout_s`     | `1.0`        | Per-request HTTP timeout                                                                                                                              |

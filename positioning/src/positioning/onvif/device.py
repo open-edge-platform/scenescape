@@ -61,7 +61,7 @@ def _format_host(host):
 class OnvifPtzDevice:
   """Connection to one ONVIF PTZ camera; not thread-safe, create one per thread."""
 
-  def __init__(self, host, port, credentials, scheme="http", timeout_s=1.0, verify=True,
+  def __init__(self, host, port, credentials, scheme="https", timeout_s=1.0, verify=True,
                profile_token=None, soap_client=None, wall_clock=time.time):
     if scheme not in ("http", "https"):
       raise ValueError("ONVIF scheme must be 'http' or 'https'")

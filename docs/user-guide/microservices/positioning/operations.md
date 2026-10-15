@@ -74,8 +74,9 @@ it:
    [Troubleshoot ONVIF Access](#troubleshoot-onvif-access).
 6. **Keep the camera's security features enabled.** The poller works with replay
    attack protection and brute-force protection on (verified on AXIS M5526-E).
-   Use HTTPS (`"scheme": "https"`) if the camera supports it, and keep cameras on an
-   isolated network.
+   Use HTTPS (`"scheme": "https"`, the default) in production and keep certificate
+   verification enabled. Set `tls_ca_file` for a private camera CA. If a camera has no
+   HTTPS support, explicitly select HTTP only on an isolated network or protected tunnel.
 7. **Allow network access** from the SceneScape host to the camera's ONVIF port. For
    move events, the poller uses PullPoint subscriptions, so the camera does not need
    to reach the host. Host HTTP proxy variables are ignored for camera traffic.
@@ -152,6 +153,7 @@ positioning/.local/
        "lab-ptz-1": {
          "type": "onvif_ptz",
          "host": "<camera-1-ip>",
+         "scheme": "http",
          "port": 2020,
          "credentials_file": "/run/secrets/onvif/lab-ptz-1.json",
          "move_status": "get_status"
@@ -159,6 +161,7 @@ positioning/.local/
        "lab-ptz-2": {
          "type": "onvif_ptz",
          "host": "<camera-2-ip>",
+         "scheme": "http",
          "port": 80,
          "credentials_file": "/run/secrets/onvif/lab-ptz-2.json",
          "move_status": "event",
@@ -170,6 +173,10 @@ positioning/.local/
      }
    }
    ```
+
+   These examples explicitly use HTTP for isolated lab cameras. Production
+   configurations should use HTTPS; HTTP is only appropriate on an isolated network
+   or protected tunnel.
 
    Choose `move_status` per camera:
 

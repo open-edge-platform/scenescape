@@ -29,9 +29,20 @@ class TestParseSources(unittest.TestCase):
     interval, sources = parse_sources({"resolver_id": "r1", "sources": {"cam-a": source()}})
     config = sources["cam-a"]
     self.assertEqual(interval, 0.2)
-    self.assertEqual((config.scheme, config.port, config.move_status), ("http", 2020, "get_status"))
+    self.assertEqual((config.scheme, config.port, config.move_status), ("https", 2020, "get_status"))
     self.assertIsNone(config.move_event)
     self.assertIs(config.tls_verify, True)
+
+  def test_transport_defaults_and_explicit_http_fallback(self):
+    https_source = source()
+    https_source.pop("port")
+    _, parsed = parse_sources({"resolver_id": "r1", "sources": {"cam-a": https_source}})
+    self.assertEqual((parsed["cam-a"].scheme, parsed["cam-a"].port), ("https", 443))
+
+    http_source = source(scheme="http")
+    http_source.pop("port")
+    _, parsed = parse_sources({"resolver_id": "r1", "sources": {"cam-a": http_source}})
+    self.assertEqual((parsed["cam-a"].scheme, parsed["cam-a"].port), ("http", 80))
 
   def test_event_mode(self):
     _, sources = parse_sources({"resolver_id": "r1", "poll_interval_s": 0.1, "sources": {
@@ -60,7 +71,7 @@ class TestParseSources(unittest.TestCase):
       {"sources": {"cam-a": source(port=0)}},
       {"sources": {"cam-a": source(port=True)}},
       {"sources": {"cam-a": source(scheme="ftp")}},
-      {"sources": {"cam-a": source(tls_ca_file="/ca.pem")}},
+      {"sources": {"cam-a": source(scheme="http", tls_ca_file="/ca.pem")}},
       {"sources": {"cam-a": source(request_timeout_s=-1)}},
       {"sources": {"cam-a": source(move_status="event")}},
       {"sources": {"cam-a": source(move_status="maybe")}},

@@ -79,8 +79,8 @@ def build_argparser():
   parser = argparse.ArgumentParser(description=__doc__,
                                    formatter_class=argparse.RawDescriptionHelpFormatter)
   parser.add_argument("--host", required=True)
-  parser.add_argument("--port", type=int, default=80)
-  parser.add_argument("--scheme", choices=("http", "https"), default="http")
+  parser.add_argument("--port", type=int, default=443)
+  parser.add_argument("--scheme", choices=("http", "https"), default="https")
   parser.add_argument("--profile-token", default=None)
   parser.add_argument("--credentials-file", default=None,
                       help='JSON file {"username": ..., "password": ...}')
