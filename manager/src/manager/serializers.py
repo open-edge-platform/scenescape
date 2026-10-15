@@ -343,9 +343,8 @@ class CamSerializer(NonNullSerializer):
           f"position_space.{axis_name}_min must be less than {axis_name}_max.")
       ranges[axis_name] = (lower, upper)
 
-    finite_number(data['settle_angular_threshold_deg'], 'settle_angular_threshold_deg', 0,
-                  exclusive_minimum=True)
-    finite_number(data['settle_interval_s'], 'settle_interval_s', 0, exclusive_minimum=True)
+    finite_number(data['settle_angular_threshold_deg'], 'settle_angular_threshold_deg', 0)
+    finite_number(data['settle_interval_s'], 'settle_interval_s', 0)
     order = data['composition_order']
     if not isinstance(order, list) or len(order) != 3 or \
        any(not isinstance(element, str) for element in order) or \
@@ -400,9 +399,9 @@ class CamSerializer(NonNullSerializer):
       else:
         finite_number(backlash, f'axes.{axis_name}.backlash', 0)
       finite_number(axis['backlash_home_tolerance_deg'],
-                    f'axes.{axis_name}.backlash_home_tolerance_deg', 0, exclusive_minimum=True)
+                    f'axes.{axis_name}.backlash_home_tolerance_deg', 0)
       finite_number(axis['backlash_history_s'],
-                    f'axes.{axis_name}.backlash_history_s', 0, exclusive_minimum=True)
+                    f'axes.{axis_name}.backlash_history_s', 0)
 
     quality = require_object(data['quality'], 'quality', {'reprojection_rms_px'})
     residual = finite_number(quality['reprojection_rms_px'], 'quality.reprojection_rms_px', 0)
