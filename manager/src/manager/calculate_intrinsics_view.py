@@ -16,6 +16,7 @@ from scene_common.transform import (
   MIN_POINTS_FOR_RANSAC,
   RANSAC_REPROJECTION_THRESHOLD_PX,
   scaled_reprojection_threshold_px,
+  solve_pnpransac_ap3p,
 )
 
 # Geometry-conditioning thresholds for fit diagnostics. These warn when the
@@ -55,26 +56,15 @@ def calculate_pose(rvec, tvec):
 
 def find_inlier_mask(obj_points, img_points, intrinsics, distortion,
                      reprojection_threshold_px):
-  """Use RANSAC PnP to identify outlier correspondences.
+  """Use shared AP3P RANSAC to identify outlier correspondences.
 
   Returns a boolean mask (True = inlier) over the correspondences, or None if
-  a robust estimate could not be produced (too few points, RANSAC failure).
+  RANSAC is skipped (coplanar / too few points) or fails. Policy lives in
+  scene_common.transform.solve_pnpransac_ap3p.
   """
-  if len(obj_points) < MIN_POINTS_FOR_RANSAC:
-    return None
-  try:
-    _, _, _, inliers = cv2.solvePnPRansac(
-      obj_points, img_points, intrinsics, distortion,
-      reprojectionError=reprojection_threshold_px,
-      confidence=0.99,
-      flags=cv2.SOLVEPNP_AP3P)
-  except cv2.error as e:
-    log.warning(f"RANSAC outlier rejection failed: {e}")
-    return None
-  if inliers is None or len(inliers) == 0:
-    return None
-  mask = np.zeros(len(obj_points), dtype=bool)
-  mask[inliers.ravel()] = True
+  _, _, mask = solve_pnpransac_ap3p(
+    obj_points, img_points, intrinsics, distortion,
+    reprojection_threshold_px=reprojection_threshold_px)
   return mask
 
 def per_point_reprojection_errors(obj_points, img_points, rvec, tvec, mtx, dist):

@@ -218,6 +218,21 @@ class TestPointCorrespondenceTransform:
     mock_solve_pnp.assert_called_once()
     assert transform.rejectedIndices == []
 
+  def test_solve_pnpransac_ap3p_skips_coplanar(self):
+    """Shared helper returns None for coplanar sets without calling OpenCV RANSAC."""
+    from scene_common.transform import solve_pnpransac_ap3p
+    map_pts = np.array([
+        [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
+    ], dtype=np.float32)
+    cam_pts = np.array([
+        [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
+    ], dtype=np.float32)
+    k = np.array([[800., 0, 320], [0, 800., 240], [0, 0, 1]])
+    with patch('cv2.solvePnPRansac') as mock_ransac:
+      rvec, tvec, mask = solve_pnpransac_ap3p(map_pts, cam_pts, k, None, 10.0)
+    assert rvec is None and tvec is None and mask is None
+    mock_ransac.assert_not_called()
+
   def test_ransac_rejects_gross_outlier(self):
     """End-to-end: a grossly mis-clicked correspondence is rejected, pose stays accurate"""
     fx, fy, cx, cy = 800.0, 800.0, 640.0, 360.0

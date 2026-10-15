@@ -13,6 +13,7 @@ from manager.calculate_intrinsics_view import (
   assess_calibration_geometry,
   assess_image_point_coverage,
   assess_map_point_geometry,
+  find_inlier_mask,
   parse_outlier_threshold_px,
   parse_pixels_per_meter,
   parse_reject_outliers,
@@ -312,3 +313,75 @@ def test_calculate_intrinsics_scales_threshold_from_pixels_per_meter():
   assert response.status_code == 200
   assert response.data["outlierThresholdPx"] == pytest.approx(5.0)
   assert find_inliers.call_args.args[-1] == pytest.approx(5.0)
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_find_inlier_mask_skips_ap3p_ransac_for_coplanar_points():
+  """Floor-plan (coplanar) map points must not run AP3P RANSAC."""
+  obj_points = np.array([
+    [0.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0],
+    [1.0, 1.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [2.0, 1.0, 0.0],
+  ], dtype=np.float32)
+  img_points = np.array([
+    [320.0, 240.0],
+    [480.0, 240.0],
+    [480.0, 400.0],
+    [320.0, 400.0],
+    [640.0, 400.0],
+  ], dtype=np.float32)
+  intrinsics = np.array([
+    [800.0, 0.0, 320.0],
+    [0.0, 800.0, 240.0],
+    [0.0, 0.0, 1.0],
+  ])
+  distortion = np.zeros(5)
+
+  with patch("cv2.solvePnPRansac") as mock_ransac:
+    mask = find_inlier_mask(
+      obj_points, img_points, intrinsics, distortion,
+      RANSAC_REPROJECTION_THRESHOLD_PX)
+
+  assert mask is None
+  mock_ransac.assert_not_called()
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_find_inlier_mask_runs_ransac_for_non_coplanar_points():
+  """Non-coplanar map points still use the shared AP3P RANSAC helper."""
+  obj_points = np.array([
+    [0.0, 0.0, 0.0],
+    [1.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0],
+    [0.0, 0.0, 1.0],
+    [1.0, 1.0, 1.0],
+  ], dtype=np.float32)
+  img_points = np.array([
+    [320.0, 240.0],
+    [480.0, 240.0],
+    [320.0, 400.0],
+    [400.0, 300.0],
+    [500.0, 350.0],
+  ], dtype=np.float32)
+  intrinsics = np.array([
+    [800.0, 0.0, 320.0],
+    [0.0, 800.0, 240.0],
+    [0.0, 0.0, 1.0],
+  ])
+  distortion = np.zeros(5)
+  mock_rvec = np.zeros((3, 1))
+  mock_tvec = np.array([[0.0], [0.0], [5.0]])
+  inliers = np.array([[0], [1], [2], [3]], dtype=np.int32)
+
+  with patch(
+      "cv2.solvePnPRansac",
+      return_value=(True, mock_rvec, mock_tvec, inliers)) as mock_ransac:
+    mask = find_inlier_mask(
+      obj_points, img_points, intrinsics, distortion,
+      RANSAC_REPROJECTION_THRESHOLD_PX)
+
+  mock_ransac.assert_called_once()
+  assert mask is not None
+  assert mask.tolist() == [True, True, True, True, False]

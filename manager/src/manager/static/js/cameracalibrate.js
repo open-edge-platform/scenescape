@@ -405,7 +405,7 @@ export class ConvergedCameraCalibration {
         const mapCount = Object.keys(mapPoints).length;
         const message = !this.calibrationPointNamesMatch(camPoints, mapPoints)
           ? `Place matching point pairs with the same names in both views (${cameraCount} camera, ${mapCount} map).`
-          : `Add at least 6 matching point pairs to evaluate the calibration fit (${cameraCount} currently placed).`;
+          : `Add at least ${CALIBRATION_MIN_POINTS_FOR_FIT} matching point pairs to evaluate the calibration fit (${cameraCount} currently placed).`;
         this.setCalibrationFitStatus(message, [], []);
       }
     }

@@ -45,6 +45,72 @@ def scaled_reprojection_threshold_px(pixels_per_meter=None):
   scaled = RANSAC_REPROJECTION_THRESHOLD_PX * (ppm / RANSAC_THRESHOLD_REFERENCE_PPM)
   return float(min(max(scaled, RANSAC_THRESHOLD_MIN_PX), RANSAC_THRESHOLD_MAX_PX))
 
+
+def points_are_coplanar(points):
+  """Return True when the 3D point set is coplanar (or too small to judge).
+
+  Scale-invariant so solver selection does not depend on scene units.
+  """
+  points = np.asarray(points, dtype=float)
+  if len(points) < 4:
+    return True
+  singular_values = np.linalg.svd(points - points.mean(axis=0), compute_uv=False)
+  if singular_values[1] <= 1e-9 * max(singular_values[0], 1e-12):
+    return True
+  return bool(singular_values[-1] / singular_values[1] < MAX_COPLANAR_SPREAD_RATIO)
+
+
+def solve_pnpransac_ap3p(map_points, camera_points, camera_matrix, distortion=None,
+                         reprojection_threshold_px=None, pixels_per_meter=None):
+  """Run AP3P RANSAC when correspondences are non-coplanar and numerous enough.
+
+  Shared by pose solve (PointCorrespondenceTransform) and manual-calibration
+  outlier rejection so coplanar / threshold policy stays in one place.
+
+  @param   map_points                 Nx3 (or Nx2) object points
+  @param   camera_points              Nx2 image points
+  @param   camera_matrix              3x3 intrinsics
+  @param   distortion                 Distortion coefficients (or None)
+  @param   reprojection_threshold_px  Explicit image-space gate; when None,
+                                      derived from pixels_per_meter
+  @param   pixels_per_meter           Scene map scale used when threshold omitted
+
+  @return  (rvec, tvec, inlier_mask) on success, or (None, None, None) when
+           RANSAC is skipped (coplanar / too few points) or fails.
+  """
+  map_points = np.asarray(map_points, dtype=np.float32)
+  camera_points = np.asarray(camera_points, dtype=np.float32)
+  if map_points.ndim == 2 and map_points.shape[1] == 2:
+    map_points = np.hstack((map_points, np.zeros((map_points.shape[0], 1),
+                                                 dtype=np.float32)))
+  if len(map_points) < MIN_POINTS_FOR_RANSAC:
+    return None, None, None
+  if points_are_coplanar(map_points):
+    log.info("solve_pnpransac_ap3p: coplanar correspondences; skipping AP3P RANSAC")
+    return None, None, None
+
+  if reprojection_threshold_px is None:
+    threshold_px = scaled_reprojection_threshold_px(pixels_per_meter)
+  else:
+    threshold_px = float(reprojection_threshold_px)
+
+  try:
+    _, rvec, tvec, inliers = cv2.solvePnPRansac(
+      map_points, camera_points, camera_matrix, distortion,
+      reprojectionError=threshold_px,
+      confidence=0.99,
+      flags=cv2.SOLVEPNP_AP3P)
+  except cv2.error as e:
+    log.warning(f"solve_pnpransac_ap3p: RANSAC failed ({e})")
+    return None, None, None
+
+  if inliers is None or len(inliers) == 0:
+    return None, None, None
+  mask = np.zeros(len(map_points), dtype=bool)
+  mask[inliers.ravel()] = True
+  return rvec, tvec, mask
+
+
 class CameraIntrinsics:
   INTRINSICS_KEYS = ('fx', 'fy', 'cx', 'cy')
   DISTORTION_KEYS = ('k1', 'k2', 'p1', 'p2', 'k3', 'k4', 'k5', 'k6',
@@ -610,37 +676,21 @@ class PointCorrespondenceTransform(CameraPose):
   def _solvePoseRobustly(self, computation_method):
     """Solve the camera pose, rejecting outlier correspondences via RANSAC.
 
-    Tries cv2.solvePnPRansac (AP3P) when enough non-coplanar correspondences
-    exist; AP3P is unreliable on planar layouts and can mark all points as
-    inliers while returning a pose with huge reprojection error. For coplanar
-    sets, or when RANSAC cannot produce a usable inlier set, falls back to
-    plain cv2.solvePnP over all correspondences (the previous behavior).
-    Records the inlier mask on self.inlier_mask.
+    Uses shared solve_pnpransac_ap3p (skips AP3P on coplanar layouts). When
+    RANSAC cannot produce a usable inlier set, falls back to plain
+    cv2.solvePnP over all correspondences. Records the inlier mask on
+    self.inlier_mask.
     """
     self.inlier_mask = None
-    coplanar = self.arePointsCoplanar(self.mapPoints)
-    if len(self.mapPoints) >= MIN_POINTS_FOR_RANSAC and not coplanar:
-      try:
-        threshold_px = scaled_reprojection_threshold_px(self.pixels_per_meter)
-        _, rvec, tvec, inliers = cv2.solvePnPRansac(
-          self.mapPoints, self.cameraPoints,
-          self.intrinsics.intrinsics, self.intrinsics.distortion,
-          reprojectionError=threshold_px,
-          confidence=0.99,
-          flags=cv2.SOLVEPNP_AP3P)
-        if inliers is not None and len(inliers) >= MIN_POINTS_FOR_RANSAC:
-          mask = np.zeros(len(self.mapPoints), dtype=bool)
-          mask[inliers.ravel()] = True
-          self.inlier_mask = mask
-          log.info(f"PointCorrespondenceTransform: RANSAC kept "
-                   f"{int(mask.sum())} of {len(self.mapPoints)} correspondences")
-          return rvec, tvec
-      except cv2.error as e:
-        log.warning(f"PointCorrespondenceTransform: RANSAC failed ({e}); "
-                    f"falling back to solvePnP over all correspondences")
-    elif coplanar:
-      log.info("PointCorrespondenceTransform: coplanar correspondences; "
-               "skipping AP3P RANSAC and using solvePnP")
+    rvec, tvec, mask = solve_pnpransac_ap3p(
+      self.mapPoints, self.cameraPoints,
+      self.intrinsics.intrinsics, self.intrinsics.distortion,
+      pixels_per_meter=self.pixels_per_meter)
+    if mask is not None and int(mask.sum()) >= MIN_POINTS_FOR_RANSAC:
+      self.inlier_mask = mask
+      log.info(f"PointCorrespondenceTransform: RANSAC kept "
+               f"{int(mask.sum())} of {len(self.mapPoints)} correspondences")
+      return rvec, tvec
     # Fallback: fit over all correspondences (previous behavior)
     _, rvec, tvec, = cv2.solvePnP(self.mapPoints, self.cameraPoints,
                                   self.intrinsics.intrinsics, self.intrinsics.distortion,
@@ -681,15 +731,9 @@ class PointCorrespondenceTransform(CameraPose):
 
     return np.linalg.det(np.array([v1, v2, v3]))
 
-  # Scale-invariant so solver selection does not depend on scene units.
   def arePointsCoplanar(self, points):
-    points = np.asarray(points, dtype=float)
-    if len(points) < 4:
-      return True
-    singular_values = np.linalg.svd(points - points.mean(axis=0), compute_uv=False)
-    if singular_values[1] <= 1e-9 * max(singular_values[0], 1e-12):
-      return True
-    return bool(singular_values[-1] / singular_values[1] < MAX_COPLANAR_SPREAD_RATIO)
+    """Return True when the point set is coplanar (delegates to shared helper)."""
+    return points_are_coplanar(points)
 
 def getPoseMatrix(sceneobj, rot_adjust=None):
   """! Extract the pose matrix of the scenescape object.
