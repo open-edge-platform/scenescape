@@ -110,8 +110,9 @@ class FakeOnvifCamera:
     nonce = base64.b64decode(token.get("Nonce", ""))
     # Mirrors WS-Security verification; this is not password-hash storage.
     expected = base64.b64encode(hashlib.sha1(
-      # lgtm [py/weak-sensitive-data-hashing]
-      nonce + token.get("Created", "").encode() + self.password.encode()).digest()).decode()
+      nonce + token.get("Created", "").encode()
+      + self.password.encode()  # lgtm [py/weak-sensitive-data-hashing]
+    ).digest()).decode()
     if token.get("Password") != expected:
       return False
     created = datetime.datetime.strptime(token["Created"], "%Y-%m-%dT%H:%M:%SZ").replace(
