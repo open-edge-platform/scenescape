@@ -31,6 +31,8 @@ COPY --from=scenescape-positioning-builder \
     /usr/local/lib/python3.11/site-packages/fast_geometry
 COPY --chown=$USER_ID:$GROUP_ID positioning/src /app
 COPY --chown=$USER_ID:$GROUP_ID positioning/config /app/config
+COPY --chown=$USER_ID:$GROUP_ID deployment/positioning-assignments.json \
+    /app/deployment/positioning-assignments.json
 
 USER $USER_ID:$GROUP_ID
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \

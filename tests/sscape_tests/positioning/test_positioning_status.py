@@ -6,6 +6,7 @@ import json
 import os
 import signal
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -13,11 +14,12 @@ from unittest import mock
 from positioning_status import status_payload, status_topic
 
 try:
-  from positioning_service import PositioningService
+  from positioning_service import PositioningService, create_pollers
 except ModuleNotFoundError as error:
   if error.name != "paho":
     raise
   PositioningService = None
+  create_pollers = None
 
 
 class TestPositioningStatus(unittest.TestCase):
@@ -138,6 +140,30 @@ class TestPositioningStatus(unittest.TestCase):
       fake_pubsub.publish.assert_called_once_with(
         "scenescape/positioning/status/resolver-a", json.dumps(shutdown_payload), qos=0, retain=True)
       fake_pubsub.disconnect.assert_called_once_with()
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_run_starts_and_stops_poller_workers(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      service, fake_pubsub, _, _ = self._create_service(temp_dir)
+      poller = mock.Mock(source_id="cam-a")
+      started = []
+      poller.run.side_effect = lambda stop: (started.append("poll"), stop.wait(5))
+      poller.move_monitor.run.side_effect = lambda stop: (started.append("events"), stop.wait(5))
+      service.pollers = [poller]
+      fake_pubsub.isConnected.return_value = False
+      fake_pubsub.loopForever.side_effect = lambda: (time.sleep(0.1), None)[1]
+      service.run()
+      self.assertEqual(sorted(started), ["events", "poll"])
+      self.assertTrue(service._stop_workers.is_set())
+      self.assertEqual(service._workers, [])
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_configured_sources_require_assignment_manifest(self):
+    config = {"resolver_id": "resolver-a", "sources": {"cam-a": {
+      "type": "onvif_ptz", "host": "camera.example", "credentials_file": "/nonexistent"}}}
+    with self.assertRaises(FileNotFoundError):
+      create_pollers(config, "/nonexistent/assignments.json")
+    self.assertEqual(create_pollers({"resolver_id": "resolver-a"}, "/nonexistent/a.json"), [])
 
 
 if __name__ == "__main__":

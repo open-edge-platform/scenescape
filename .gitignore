@@ -55,6 +55,9 @@ tests/perf_tests/input/*.json
 autocalibration/.vendor/
 mapping/.vendor/
 
+# Local Positioning lab configs: camera endpoints and ONVIF credentials must never be committed
+positioning/.local/
+
 model_installer/models
 package.json
 package-lock.json

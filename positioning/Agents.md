@@ -11,5 +11,8 @@ Positioning deployment and camera onboarding guide in
 
 Keep source adapters, the generic resolver shell, and pose models independently
 testable. Never put device credentials or lab-specific camera endpoints in source,
-tracked configuration, or logs. Preserve the Manager's home calibration; runtime
-pose calculation must not rewrite it.
+tracked configuration, or logs; use the git-ignored `positioning/.local/` for lab
+configs. Preserve the Manager's home calibration; runtime
+pose calculation must not rewrite it. The ONVIF poller (`positioning/onvif/`,
+`ptz_poller.py`) only emits raw `PTZSample` messages: no calibration math, retry
+queue, replay, Manager writes, or MQTT publishing.

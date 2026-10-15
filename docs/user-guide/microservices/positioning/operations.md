@@ -32,19 +32,46 @@ launch a Controller or Tracker also include it through
 
 ## Source Ownership
 
-The current service-shell configuration contains no camera list. Deployment source
-ownership is represented by `deployment/positioning-assignments.json`. The current
-manifest is empty:
+The checked-in configuration contains no camera list. Deployment source ownership is
+represented by `deployment/positioning-assignments.json`. The checked-in manifest is
+empty:
 
 ```json
 {}
 ```
 
 When sources are assigned, each `source_id` maps to exactly one `resolver_id`; this
-manifest does not assign cameras to scenes. Manager remains authoritative for camera
-calibration and camera-to-scene membership. Future PTZ camera configuration and
-runtime behavior are specified in the
-[PTZ pose design](../../../design/ptz-camera-pose-service.md).
+manifest does not assign cameras to scenes. The service refuses to start if a
+configured source is not assigned to its `resolver_id`, or if an entry for its
+`resolver_id` is not configured. Manager remains authoritative for camera
+calibration and camera-to-scene membership. Source configuration is described in
+[Positioning Service](positioning.md#configure).
+
+## PTZ Camera Onboarding Check
+
+Before assigning a camera, verify its ONVIF PTZ endpoint with the same client and
+poller the service uses. The probe prints device identity, the selected PTZ profile,
+advertised absolute pan/tilt spaces, and optionally event topics. It then polls and
+reports achieved rate, interval, timestamp uncertainty, position range, and the
+reported move-status mix:
+
+```bash
+docker run --rm --network host --user "$(id -u):$(id -g)" \
+  -v "$PWD/positioning/.local/secrets/<camera>.json:/run/secrets/onvif/<camera>.json:ro" \
+  --entrypoint python3 intel/scenescape-positioning:$(cat version.txt) \
+  -m positioning.onvif.probe --host <camera-host> --port <onvif-port> \
+  --credentials-file /run/secrets/onvif/<camera>.json --list-topics --duration 30
+```
+
+Add `--samples` to print each `PTZSample` as JSON. Add
+`--move-event-topic PTZController/Move` to subscribe to a vendor move event. Read
+credentials from a file or from `ONVIF_USERNAME`/`ONVIF_PASSWORD`; the probe does not
+accept them as command-line arguments. Compare the reported space URI and ranges with
+the camera's `ptz_calibration.position_space`. If `reported_move_status` is always
+`IDLE` while the camera moves, configure `move_status` as `none` or `event`.
+
+Keep lab configurations and credentials under `positioning/.local/`, which is
+git-ignored. Never place camera endpoints or credentials in tracked files.
 
 ## Shadow Validation Artifacts
 
@@ -61,6 +88,8 @@ Demo, deploy, and Compose tests include the Positioning service with the Scene
 Controller or Tracker profiles. Helm installs it when `positioning.enabled=true`; it
 has one replica to preserve single-writer source ownership.
 
-The current service publishes no pose and does not alter detections. Roll back by disabling
-the Positioning deployment. Later PTZ rollout rollback is per consumer: disable the
-corresponding Controller or Tracker PTZ flag and return to static projection.
+The service does not publish poses and does not alter detections. Roll back PTZ
+polling by removing `sources` from the deployment configuration, or roll back the
+whole service by disabling the Positioning deployment. Later PTZ rollout rollback is
+per consumer: disable the corresponding Controller or Tracker PTZ flag and return to
+static projection.
