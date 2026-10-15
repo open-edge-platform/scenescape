@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/TrackedObject.hpp"
@@ -6,17 +6,12 @@
 namespace rv {
 namespace tracking {
 
-const int TrackedObject::StateSize = 12;
-const int TrackedObject::MeasurementSize = 7;
-
 TrackedObject::TrackedObject()
+  : predictedMeasurementCov(1e-4 * MeasurementMatrix::eye())
+  , predictedMeasurementCovInv(1e4 * MeasurementMatrix::eye())
+  , errorCovariance(1e-4 * StateMatrix::eye())
 {
   classification = Classification::Constant(1,1.0);
-
-  predictedMeasurementMean = cv::Mat::zeros(TrackedObject::MeasurementSize, 1, CV_64F);
-  predictedMeasurementCov = 1e-4 * cv::Mat::eye(TrackedObject::MeasurementSize, TrackedObject::MeasurementSize, CV_64F);
-  predictedMeasurementCovInv = 1e4 * cv::Mat::eye(TrackedObject::MeasurementSize, TrackedObject::MeasurementSize, CV_64F);
-  errorCovariance = 1e-4 * cv::Mat::eye(TrackedObject::StateSize, TrackedObject::StateSize, CV_64F);
 }
 
 std::string TrackedObject::toString() const

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/MultiModelKalmanEstimator.hpp"
@@ -11,6 +11,19 @@
 
 namespace rv {
 namespace tracking {
+
+namespace {
+
+TrackedObject::MeasurementVector
+predictedMeasurement(cv::detail::tracking::UkfSystemModel &model, const cv::Mat &state, const cv::Mat &noise)
+{
+  TrackedObject::MeasurementVector measurement;
+  cv::Mat measurementView(measurement, false); // the model writes h(state) straight into measurement
+  model.measurementFunction(state, noise, measurementView);
+  return measurement;
+}
+
+} // namespace
 
 MultiModelKalmanEstimator::MultiModelKalmanEstimator(double alpha, double beta)
   : mAlpha(alpha)
@@ -175,9 +188,7 @@ void MultiModelKalmanEstimator::singleModelPredict(double deltaT)
   mCurrentState.previousYaw = mCurrentState.yaw;
   mCurrentState.setStateVector(predictedState); // combined current state
   mCurrentState.errorCovariance = mKalmanFilters[0]->getErrorCov();
-  mCurrentState.predictedMeasurementMean = cv::Mat::zeros(mMP, 1, CV_64F);
-
-  mSystemModels[0]->measurementFunction(predictedState, noiseVector, mCurrentState.predictedMeasurementMean);
+  mCurrentState.predictedMeasurementMean = predictedMeasurement(*mSystemModels[0], predictedState, noiseVector);
 
   if (mKalmanFilters[0]->getMeasurementCov().empty())
   {
@@ -188,7 +199,7 @@ void MultiModelKalmanEstimator::singleModelPredict(double deltaT)
     mCurrentState.predictedMeasurementCov = mKalmanFilters[0]->getMeasurementCov();
   }
 
-  mCurrentState.predictedMeasurementCovInv = mCurrentState.predictedMeasurementCov.inv(cv::DECOMP_SVD);
+  cv::invert(mCurrentState.predictedMeasurementCov, mCurrentState.predictedMeasurementCovInv, cv::DECOMP_SVD);
 
   if (deltaT >= 1e-3)
   {
@@ -248,12 +259,12 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
   for (std::size_t i = 0; i < mNumberOfModels; ++i)
   {
     mKalmanFilters[i]->setStateAndCovariance(stateEstimate[i], covarianceEstimate[i]);
-    mSystemModelStates[i].predictedMeasurementMean = cv::Mat::zeros(mMP, 1, CV_64F);
     auto predictedState = mKalmanFilters[i]->predict(deltaTVector);
     predictedStates.push_back(predictedState);
     predictedStateCovariances.push_back(mKalmanFilters[i]->getErrorCov());
     mSystemModelStates[i].setStateVector(predictedState);
-    mSystemModels[i]->measurementFunction(predictedState, noiseVector, mSystemModelStates[i].predictedMeasurementMean);
+    mSystemModelStates[i].predictedMeasurementMean
+      = predictedMeasurement(*mSystemModels[i], predictedState, noiseVector);
   }
 
   cv::Mat combinedState;
@@ -272,7 +283,7 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
 
   for (auto const &state : mSystemModelStates)
   {
-    measurements.push_back(state.predictedMeasurementMean);
+    measurements.push_back(cv::Mat(state.predictedMeasurementMean));
   }
 
   for (auto const &kalmanFilter : mKalmanFilters)
@@ -305,11 +316,9 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
       bestModel = i;
     }
   }
-  cv::Mat associationMeasurementCovariance = measurementCovariances[bestModel].clone();
-
   mCurrentState.predictedMeasurementMean = combinedMeasurement;
-  mCurrentState.predictedMeasurementCov = associationMeasurementCovariance;
-  mCurrentState.predictedMeasurementCovInv = associationMeasurementCovariance.inv(cv::DECOMP_SVD);
+  mCurrentState.predictedMeasurementCov = measurementCovariances[bestModel];
+  cv::invert(mCurrentState.predictedMeasurementCov, mCurrentState.predictedMeasurementCovInv, cv::DECOMP_SVD);
 
   if (deltaT >= 1e-3)
   {
@@ -356,7 +365,7 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
 
     states.push_back(correctedState);
     covariances.push_back(mKalmanFilters[i]->getErrorCov());
-    predictedMeasurements.push_back(mSystemModelStates[i].predictedMeasurementMean);
+    predictedMeasurements.push_back(cv::Mat(mSystemModelStates[i].predictedMeasurementMean));
     measurementCovariances.push_back(mKalmanFilters[i]->getMeasurementCov());
   }
 

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/MultipleObjectTracker.hpp"
@@ -347,17 +347,9 @@ TrackedObject MultipleObjectTracker::fuseStreamingCameraMeasurements(
 void MultipleObjectTracker::pruneCameraMeasurements(
   const std::chrono::system_clock::time_point &timestamp)
 {
-  const auto active = mTrackManager.getTracks();
-  std::unordered_map<Id, bool> activeIds;
-  activeIds.reserve(active.size());
-  for (const auto &track : active)
-  {
-    activeIds[track.id] = true;
-  }
-
   for (auto trackIt = mLastCameraMeasurements.begin(); trackIt != mLastCameraMeasurements.end();)
   {
-    if (!activeIds.count(trackIt->first))
+    if (!mTrackManager.hasId(trackIt->first))
     {
       trackIt = mLastCameraMeasurements.erase(trackIt);
       continue;
