@@ -508,7 +508,7 @@ class ACLCheck(APIView):
       topic_data = PubSub.parseTopic(currentTopic) or {}
       source_id = topic_data.get("source_id")
       if not source_id or not Cam.objects.filter(
-        sensor_id=source_id, scene__isnull=False
+        sensor_id=source_id, scene__in=matchedACL.scenes.all()
       ).exists():
         return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
 

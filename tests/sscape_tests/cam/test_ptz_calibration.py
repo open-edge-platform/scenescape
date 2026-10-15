@@ -167,29 +167,46 @@ class PTZCalibrationAPITest(TestCase):
     self.assertEqual(collection.status_code, 200)
     self.assertEqual(collection.data["results"][0]["ptz_calibration"], updated_calibration)
 
-  def test_pose_acl_requires_camera_scene_assignment(self):
+  def _acl_check(self, client, username, source_id, acc):
+    return client.post("/api/v1/aclcheck", {
+      "username": username,
+      "topic": PubSub.formatTopic(PubSub.POSITIONING_POSE, source_id=source_id),
+      "acc": acc,
+    }, format="json")
+
+  def test_pose_acl_is_limited_to_user_assigned_scene(self):
     admin = User.objects.create_superuser("acl-admin", "acl-admin@example.com", "unused")
-    consumer = User.objects.create_user("ptz-consumer", "ptz-consumer@example.com", "unused")
+    consumer_a = User.objects.create_user("consumer-a", "consumer-a@example.com", "unused")
+    consumer_b = User.objects.create_user("consumer-b", "consumer-b@example.com", "unused")
     admin_token = Token.objects.create(user=admin)
-    PubSubACL.objects.create(user=consumer, topic="POSITIONING_POSE", access=1)
-    scene = Scene.objects.create(name="assigned-scene", map="scene-map")
-    Cam.objects.create(sensor_id="assigned-ptz", name="Assigned PTZ", type="camera", scene=scene)
-    Cam.objects.create(sensor_id="unassigned-ptz", name="Unassigned PTZ", type="camera")
+    scene_a = Scene.objects.create(name="scene-a", map="scene-a-map")
+    scene_b = Scene.objects.create(name="scene-b", map="scene-b-map")
+    Cam.objects.create(sensor_id="ptz-a", name="PTZ A", type="camera", scene=scene_a)
+    Cam.objects.create(sensor_id="ptz-b", name="PTZ B", type="camera", scene=scene_b)
+    PubSubACL.objects.create(user=consumer_a, topic="POSITIONING_POSE", access=1).scenes.set([scene_a])
+    PubSubACL.objects.create(user=consumer_b, topic="POSITIONING_POSE", access=1).scenes.set([scene_b])
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Token {admin_token.key}")
 
-    assigned = client.post("/api/v1/aclcheck", {
-      "username": consumer.username,
-      "topic": PubSub.formatTopic(PubSub.POSITIONING_POSE, source_id="assigned-ptz"),
-      "acc": 1,
-    }, format="json")
-    self.assertEqual(assigned.status_code, 200)
-    self.assertEqual(assigned.data["result"], "allow")
+    self.assertEqual(self._acl_check(client, "consumer-a", "ptz-a", 1).status_code, 200)
+    self.assertEqual(self._acl_check(client, "consumer-b", "ptz-b", 1).status_code, 200)
 
-    unassigned = client.post("/api/v1/aclcheck", {
-      "username": consumer.username,
-      "topic": PubSub.formatTopic(PubSub.POSITIONING_POSE, source_id="unassigned-ptz"),
-      "acc": 1,
-    }, format="json")
-    self.assertEqual(unassigned.status_code, 403)
-    self.assertEqual(unassigned.data["result"], "deny")
+    cross_a = self._acl_check(client, "consumer-a", "ptz-b", 1)
+    self.assertEqual(cross_a.status_code, 403)
+    self.assertEqual(cross_a.data["result"], "deny")
+    cross_b = self._acl_check(client, "consumer-b", "ptz-a", 1)
+    self.assertEqual(cross_b.status_code, 403)
+    self.assertEqual(cross_b.data["result"], "deny")
+
+  def test_pose_acl_without_scene_assignment_denies(self):
+    admin = User.objects.create_superuser("acl-admin", "acl-admin@example.com", "unused")
+    consumer = User.objects.create_user("unscoped", "unscoped@example.com", "unused")
+    admin_token = Token.objects.create(user=admin)
+    scene = Scene.objects.create(name="scene-x", map="scene-x-map")
+    Cam.objects.create(sensor_id="ptz-x", name="PTZ X", type="camera", scene=scene)
+    PubSubACL.objects.create(user=consumer, topic="POSITIONING_POSE", access=3)
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Token {admin_token.key}")
+
+    self.assertEqual(self._acl_check(client, "unscoped", "ptz-x", 1).status_code, 403)
+    self.assertEqual(self._acl_check(client, "unscoped", "ptz-x", 2).status_code, 403)

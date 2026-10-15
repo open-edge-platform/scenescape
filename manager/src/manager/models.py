@@ -595,6 +595,8 @@ class PubSubACL(models.Model):
   user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='acls')
   topic = models.CharField(choices=TOPIC_CHOICES, max_length=50)
   access = models.IntegerField(choices=ACCESS_CHOICES, default=0)
+  # Source-scoped topics (POSITIONING_POSE) are allowed only for cameras in these scenes.
+  scenes = models.ManyToManyField('Scene', blank=True, related_name='pubsub_acls')
 
   class Meta:
     constraints = [
