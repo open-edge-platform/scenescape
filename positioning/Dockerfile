@@ -35,7 +35,7 @@ COPY --chown=$USER_ID:$GROUP_ID positioning/config /app/config
 USER $USER_ID:$GROUP_ID
 HEALTHCHECK --interval=10s --timeout=3s --retries=3 \
     CMD python3 -c "import os,sys; sys.exit(0 if os.path.exists('/tmp/positioning-ready') else 1)"
-ENTRYPOINT ["python3", "/app/positioning.py"]
+ENTRYPOINT ["python3", "/app/positioning_service.py"]
 
 FROM scenescape-positioning-runtime AS scenescape-positioning-test
 COPY --chown=$USER_ID:$GROUP_ID tests/sscape_tests/positioning /app/tests

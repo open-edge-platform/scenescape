@@ -13,7 +13,7 @@ from unittest import mock
 from positioning_status import status_payload, status_topic
 
 try:
-  from positioning import PositioningService
+  from positioning_service import PositioningService
 except ModuleNotFoundError as error:
   if error.name != "paho":
     raise
@@ -56,7 +56,7 @@ class TestPositioningStatus(unittest.TestCase):
     readiness_file = Path(temp_dir) / "positioning-ready"
     fake_pubsub = mock.Mock()
     with mock.patch.dict(os.environ, {"POSITIONING_READINESS_FILE": str(readiness_file)}):
-      with mock.patch("positioning.PubSub", return_value=fake_pubsub) as pubsub_factory:
+      with mock.patch("positioning_service.PubSub", return_value=fake_pubsub) as pubsub_factory:
         service = PositioningService(
           {"resolver_id": "resolver-a"}, "broker", "positioning:secret",
           str(cert), str(keyfile), str(root_cert))
@@ -85,7 +85,7 @@ class TestPositioningStatus(unittest.TestCase):
         {"resolver_id": "resolver-a", "status": "online", "timestamp": "online-2"},
       ]
       client = fake_pubsub.client
-      with mock.patch("positioning.status_payload", side_effect=payloads):
+      with mock.patch("positioning_service.status_payload", side_effect=payloads):
         client.on_pre_connect(client, None)
         client.on_connect(client, None, None, 0)
         self.assertEqual(readiness_file.read_text(encoding="utf-8"), "ready\n")
@@ -127,7 +127,7 @@ class TestPositioningStatus(unittest.TestCase):
       fake_pubsub.connect.side_effect = lambda: fake_pubsub.client.on_pre_connect(
         fake_pubsub.client, None)
       fake_pubsub.loopForever.side_effect = lambda: os.kill(os.getpid(), signal.SIGTERM)
-      with mock.patch("positioning.status_payload", side_effect=[will_payload, shutdown_payload]):
+      with mock.patch("positioning_service.status_payload", side_effect=[will_payload, shutdown_payload]):
         with self.assertRaises(SystemExit) as exit_info:
           service.run()
 
