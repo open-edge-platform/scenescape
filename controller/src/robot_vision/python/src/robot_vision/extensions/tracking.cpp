@@ -257,14 +257,6 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
      .def("get_drifting_tracks",
           &rv::tracking::TrackManager::getDriftingTracks,
           "Returns a list of tracks in risk of being deleted. Objects that have not been visible for config.non_measurement_frames_dynamic / 2.")
-     .def("get_track",
-          &rv::tracking::TrackManager::getTrack,
-          "Returns the TrackedObject stored for the given id.",
-          py::arg("id"))
-     .def("get_kalman_estimator",
-          &rv::tracking::TrackManager::getKalmanEstimator,
-          "Returns the MultiModelKalmanEstimator  stored for the given id.",
-          py::arg("id"))
      .def("has_id",
          &rv::tracking::TrackManager::hasId,
          "Check wether the given Id is registered in the track manager.",

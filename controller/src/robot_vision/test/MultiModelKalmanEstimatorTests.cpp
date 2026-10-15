@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <chrono>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -142,6 +143,15 @@ TEST(MultiModelKalmanEstimatorTest, ReinitializeDoesNotDuplicateFilters)
   EXPECT_EQ(estimator.mSystemModels.size(), 3U);
   EXPECT_EQ(estimator.mKalmanFilters.size(), 3U);
   EXPECT_EQ(estimator.mSystemModelStates.size(), 3U);
+}
+
+TEST(MultiModelKalmanEstimatorTest, IsMoveOnly)
+{
+  // A copy would share the per-model filters and probability matrices with the original.
+  static_assert(!std::is_copy_constructible_v<MultiModelKalmanEstimator>);
+  static_assert(!std::is_copy_assignable_v<MultiModelKalmanEstimator>);
+  static_assert(std::is_move_constructible_v<MultiModelKalmanEstimator>);
+  static_assert(std::is_move_assignable_v<MultiModelKalmanEstimator>);
 }
 
 TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps)

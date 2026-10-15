@@ -142,18 +142,6 @@ public:
   void correct();
 
   /**
-   * @brief Access a specific track
-   *
-   */
-  TrackedObject getTrack(const Id &id);
-
-  /**
-   * @brief Access a specific kalman estimator
-   *
-   */
-  MultiModelKalmanEstimator getKalmanEstimator(const Id &id);
-
-  /**
    * @brief Returns a list of tracked objects states
    *
    */
