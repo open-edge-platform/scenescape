@@ -48,7 +48,7 @@ def cleanup_camera(browser):
 @common.mock_display
 @pytest.mark.test_name("NEX-T10560")
 def test_3d_ui_camera_deletion(params, result_recorder):
-	"""! Verify canceling camera deletion preserves it and confirming deletes it.
+	"""! Verify camera deletion controls in the 3D UI.
 	@param    params                  Dict of test parameters.
 	@param    result_recorder         Pytest fixture recording the test result.
 	"""
@@ -97,6 +97,12 @@ def test_3d_ui_camera_deletion(params, result_recorder):
 		assert common.click_when_clickable(
 			browser, (By.ID, "new-camera-save-camera"), timeout_s=PANEL_WAIT_SEC
 		), "Save camera button did not become clickable"
+		assert WebDriverWait(browser, PANEL_WAIT_SEC).until(
+			EC.text_to_be_present_in_element(
+				(By.CSS_SELECTOR, "#toast-area .alert-success"),
+				"Camera setting has been saved!",
+			)
+		), "Camera save success notification was not shown; camera may not be persisted"
 
 		camera_panel_id = f"{CAMERA_NAME}-control-panel"
 		assert common.wait_for_elements(
