@@ -106,6 +106,7 @@ class FakeOnvifCamera:
     if not token or token.get("Username") != self.username:
       return False
     nonce = base64.b64decode(token.get("Nonce", ""))
+    # codeql[py/weak-sensitive-data-hashing] Mirrors WS-Security verification, not password storage.
     expected = base64.b64encode(hashlib.sha1(
       nonce + token.get("Created", "").encode() + self.password.encode()).digest()).decode()
     if token.get("Password") != expected:
