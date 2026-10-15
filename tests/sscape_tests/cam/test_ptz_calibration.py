@@ -215,25 +215,39 @@ class PTZCalibrationAPITest(TestCase):
 
   def test_positioning_publishes_only_assigned_sources(self):
     admin = User.objects.create_superuser("acl-admin", "acl-admin@example.com", "unused")
-    resolver = User.objects.create_user("positioning", "positioning@example.com", "unused")
+    publisher = User.objects.create_user("pose-publisher", "pose-publisher@example.com", "unused")
     admin_token = Token.objects.create(user=admin)
     scene_a = Scene.objects.create(name="scene-a", map="scene-a-map")
     scene_b = Scene.objects.create(name="scene-b", map="scene-b-map")
     Cam.objects.create(sensor_id="ptz-a", name="PTZ A", type="camera", scene=scene_a)
     Cam.objects.create(sensor_id="ptz-b", name="PTZ B", type="camera", scene=scene_b)
     PubSubACL.objects.create(
-      user=resolver, topic="POSITIONING_POSE", access=2, sources=["ptz-a", "missing-ptz"])
+      user=publisher, topic="POSITIONING_POSE", access=2, sources=["ptz-a", "missing-ptz"])
     client = APIClient()
     client.credentials(HTTP_AUTHORIZATION=f"Token {admin_token.key}")
 
-    allowed = self._acl_check(client, "positioning", "ptz-a", 2)
+    allowed = self._acl_check(client, "pose-publisher", "ptz-a", 2)
     self.assertEqual(allowed.status_code, 200)
     self.assertEqual(allowed.data["result"], "allow")
-    self.assertEqual(self._acl_check(client, "positioning", "ptz-b", 2).status_code, 403)
-    self.assertEqual(self._acl_check(client, "positioning", "missing-ptz", 2).status_code, 403)
-    self.assertEqual(self._acl_check(client, "positioning", "ptz-a", 1).status_code, 403)
+    self.assertEqual(self._acl_check(client, "pose-publisher", "ptz-b", 2).status_code, 403)
+    self.assertEqual(self._acl_check(client, "pose-publisher", "missing-ptz", 2).status_code, 403)
+    self.assertEqual(self._acl_check(client, "pose-publisher", "ptz-a", 1).status_code, 403)
 
-  def test_provisioned_positioning_identity_has_scoped_pose_write(self):
+  def test_positioning_identity_pose_write_is_denied(self):
+    admin = User.objects.create_superuser("acl-admin", "acl-admin@example.com", "unused")
+    resolver = User.objects.create_user("positioning", "positioning@example.com", "unused")
+    admin_token = Token.objects.create(user=admin)
+    scene = Scene.objects.create(name="scene-a", map="scene-a-map")
+    Cam.objects.create(sensor_id="ptz-a", name="PTZ A", type="camera", scene=scene)
+    PubSubACL.objects.create(user=resolver, topic="POSITIONING_POSE", access=2, sources=["ptz-a"])
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Token {admin_token.key}")
+
+    denied = self._acl_check(client, "positioning", "ptz-a", 2)
+    self.assertEqual(denied.status_code, 403)
+    self.assertEqual(denied.data["result"], "deny")
+
+  def test_provisioned_positioning_identity_has_unassigned_pose_acl(self):
     config_path = Path(__file__).resolve().parents[3] / "manager" / "config" / "user_access_config.json"
     acls = json.loads(config_path.read_text())["positioning.auth"]["acls"]
     pose = [acl for acl in acls if acl["topic"] == "POSITIONING_POSE"]
