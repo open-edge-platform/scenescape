@@ -1,6 +1,14 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+{{- if .Values.modelDownload.enabled }}
+{{- if not (kindIs "bool" .Values.modelDownload.parallelDownloads) }}
+{{- fail "modelDownload.parallelDownloads must be a boolean (true or false)" }}
+{{- end }}
+{{- if not .Values.modelDownload.commandArgs }}
+{{- fail "modelDownload.commandArgs cannot be empty" }}
+{{- end }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -18,6 +26,10 @@ spec:
       labels:
         app: {{ .Release.Name }}-web
         {{ include "releaseLabels" . | indent 8 }}
+      {{ if .Values.modelDownload.enabled }}
+      annotations:
+        checksum/model-download: {{ include "modelDownload.configHash" . }}
+      {{ end }}
     spec:
       shareProcessNamespace: true
       securityContext:
@@ -44,6 +56,28 @@ spec:
               echo "Postgres is ready!"
           securityContext:
             {{ include "defaultContainerSecurityContext" . | indent 12 }}
+        {{- if .Values.modelDownload.enabled }}
+        - name: wait-for-model-download
+          image: {{ .Values.busyboxImage.repository }}/{{ .Values.busyboxImage.name }}:{{ .Values.busyboxImage.tag }}
+          imagePullPolicy: {{ .Values.busyboxImage.pullPolicy }}
+          command: ["/bin/sh", "-c"]
+          args:
+          - |
+            marker=/workspace/models-storage/.model-download-config-hash
+            echo "Waiting for model download Job to complete..."
+            until [ -f "$marker" ] && [ "$(cat "$marker")" = "$MODEL_DOWNLOAD_CONFIG_HASH" ]; do
+              sleep 2
+            done
+            echo "Model download Job completed."
+          env:
+            - name: MODEL_DOWNLOAD_CONFIG_HASH
+              value: {{ include "modelDownload.configHash" . | quote }}
+          volumeMounts:
+          - mountPath: /workspace/models-storage
+            name: models-storage
+          securityContext:
+            {{ include "defaultContainerSecurityContext" . | indent 12 }}
+        {{- end }}
       containers:
         - name: {{ .Release.Name }}-web
           image: {{ .Values.repository }}/{{ .Values.web.image }}:{{ .Chart.AppVersion }}
@@ -111,8 +145,8 @@ spec:
               command:
               - sh
               - -c
-              - > 
-                curl --insecure -fsS -H 'Host: localhost' 
+              - >
+                curl --insecure -fsS -H 'Host: localhost'
                 https://127.0.0.1:443/api/v1/health >/dev/null
             periodSeconds: 10
             timeoutSeconds: 60
