@@ -109,9 +109,9 @@ credentials are never sent to a different host. Plain `http` sends a digest rath
 than the password; use `https` where the camera supports it, and keep cameras on an
 isolated network.
 
-Future PTZ polling, pose resolution, and motion handling are specified in the
-[PTZ pose design](../../../design/ptz-camera-pose-service.md); they are not part of the
-current service shell.
+Future pose resolution is specified in the
+[PTZ pose design](../../../design/ptz-camera-pose-service.md); polling and move-event
+handling are now part of the service.
 
 ## Build
 
