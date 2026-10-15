@@ -47,6 +47,39 @@ configured source is not assigned to its `resolver_id`, or if an entry for its
 calibration and camera-to-scene membership. Source configuration is described in
 [Positioning Service](positioning.md#configure).
 
+## Enable ONVIF Access on the Camera
+
+The Positioning service talks to cameras only through ONVIF over HTTP or HTTPS. It
+needs the Device, Media, and PTZ services, and optionally the Events service.
+Settings names differ by vendor; apply these steps on each camera before you probe
+it:
+
+1. **Enable ONVIF.** Many cameras ship with ONVIF disabled, or enable it only after
+   an administrator password is set. Look for **ONVIF**, **Integration protocol**,
+   or **Network services** in the web UI. On Axis, ONVIF settings are under
+   **System > ONVIF** after the first web user exists. On TP-Link VIGI, look under
+   the network settings for ONVIF.
+2. **Create a dedicated ONVIF account** for SceneScape. Some vendors keep ONVIF users
+   separate from web UI users (Axis: **System > Accounts > ONVIF accounts**).
+   Choose the lowest role that allows PTZ status and events, typically **Operator**.
+   Do not reuse the administrator account.
+3. **Note the ONVIF port.** It is often 80 or 443, but some cameras use a separate
+   port (TP-Link VIGI uses 2020). The device service path is
+   `/onvif/device_service`.
+4. **Make sure a media profile has a PTZ configuration.** The poller uses the first
+   profile that has one, or the profile named by `profile_token`.
+5. **Synchronize the camera clock with NTP.** Point the camera at the same NTP
+   source as the SceneScape host (**Date and time** settings). WS-Security
+   authentication depends on the camera clock; see
+   [Troubleshoot ONVIF Access](#troubleshoot-onvif-access).
+6. **Keep the camera's security features enabled.** The poller works with replay
+   attack protection and brute-force protection on (verified on AXIS M5526-E).
+   Use HTTPS (`"scheme": "https"`) if the camera supports it, and keep cameras on an
+   isolated network.
+7. **Allow network access** from the SceneScape host to the camera's ONVIF port. For
+   move events, the poller uses PullPoint subscriptions, so the camera does not need
+   to reach the host. Host HTTP proxy variables are ignored for camera traffic.
+
 ## PTZ Camera Onboarding Check
 
 Before assigning a camera, verify its ONVIF PTZ endpoint with the same client and
@@ -87,10 +120,9 @@ positioning/.local/
     └── <source_id>.json             # ONVIF credentials, mode 0600
 ```
 
-1. Create the directory and a credentials file for each camera. Use an ONVIF
-   account, which some vendors manage separately from web UI users (for example,
-   on Axis: **System > Accounts > ONVIF accounts**). An Operator role is
-   sufficient for polling and events.
+1. Create the directory and a credentials file for each camera. Use the ONVIF
+   account from
+   [Enable ONVIF Access on the Camera](#enable-onvif-access-on-the-camera).
 
    ```bash
    mkdir -p positioning/.local/secrets && chmod 700 positioning/.local/secrets
@@ -235,6 +267,71 @@ If `pgserver` fails at startup because it found PostgreSQL data from another
 checkout, the checkouts share Compose volumes, which are prefixed `scenescape_` by
 default. Set a distinct `COMPOSE_PROJECT_NAME` for this checkout before
 `make demo`, and pass the same value to the `docker compose` commands above.
+
+## Troubleshoot ONVIF Access
+
+Start with the probe (see
+[PTZ Camera Onboarding Check](#ptz-camera-onboarding-check)). It reports the same
+errors as the service, and its `clock_offset_s` field shows the camera clock minus
+the host clock.
+
+### Clocks not synchronized
+
+ONVIF uses WS-Security `UsernameToken` digest authentication. The token includes a
+`Created` timestamp, and cameras reject tokens outside a short window around their
+own clock, often about 5 seconds. Replay attack protection also rejects reused
+nonces. Without clock compensation, a camera whose clock differs from the host
+rejects correct credentials with:
+
+```text
+SOAP fault ...:Sender/ter:NotAuthorized: Sender not authorized
+```
+
+The poller handles this. Before authenticating, it reads the camera clock with an
+unauthenticated `GetSystemDateAndTime` call and offsets `Created` by the measured
+difference. After any `NotAuthorized` fault, it reads the camera clock again and
+retries once. A camera clock that is off by minutes or years therefore still
+authenticates. Do not disable replay protection to work around clock skew; other
+ONVIF tools that do not compensate for skew may fail where the poller succeeds.
+
+You may still see clock-related failures in these cases:
+
+- **The camera clock drifts quickly.** One lab camera without NTP drifted about
+  7 seconds per hour. Each time the drift exceeds the camera's window, one request
+  fails, the clock is resynchronized, and the retry succeeds. That sample has a
+  larger timestamp uncertainty. Enable NTP on the camera to avoid this.
+- **The camera returns an unreadable time.** The service reports
+  `Malformed GetSystemDateAndTime response`. Set the camera time manually or
+  through NTP.
+- **The host clock is wrong.** Samples are timestamped with the host clock, not the
+  camera clock. Check that the host is synchronized:
+
+  ```bash
+  timedatectl | grep -i synchronized   # expect: System clock synchronized: yes
+  ```
+
+To read the camera clock without credentials:
+
+```bash
+curl -s --noproxy '*' -H 'Content-Type: application/soap+xml' \
+  -d '<s:Envelope xmlns:s="http://www.w3.org/2003/05/soap-envelope"><s:Body><GetSystemDateAndTime xmlns="http://www.onvif.org/ver10/device/wsdl"/></s:Body></s:Envelope>' \
+  http://<camera-host>:<onvif-port>/onvif/device_service
+```
+
+The `UTCDateTime` element in the response is the camera's UTC time.
+
+### Other common errors
+
+| Message in probe or service logs                                | Likely cause and fix                                                                                                                                                                     |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `NotAuthorized` that persists after the camera clock is correct | Wrong username or password, or a web UI account instead of an ONVIF account. Check the ONVIF user list on the camera.                                                                    |
+| `HTTP 401 without SOAP body`                                    | The camera requires HTTP Digest and rejected the credentials. Verify the account and its role.                                                                                           |
+| `HTTP 403 without SOAP body` after failed attempts              | Brute-force protection temporarily blocked the host IP. Wait a few minutes before retrying; the service backs off automatically.                                                         |
+| `ConnectTimeout calling ...` or `ConnectionError calling ...`   | Wrong host or port, ONVIF disabled, or a firewall in between. Check the port from the host, for example with the `curl` command above.                                                   |
+| `Device does not advertise ONVIF Media and PTZ services`        | ONVIF PTZ is not enabled, or the camera is not a PTZ model.                                                                                                                              |
+| `No media profile with a PTZ configuration`                     | No media profile has a PTZ configuration, or `profile_token` names a profile without one. Add PTZ to a profile, or remove `profile_token`.                                               |
+| `PTZ move event subscription ... failed`                        | The camera has no free PullPoint subscriptions. Cameras limit concurrent subscriptions (Axis: 4), and other clients may hold them. Stop other ONVIF event clients or restart the camera. |
+| Samples with NaN ranges                                         | The position space reported by `GetStatus` is not advertised by the PTZ node. Check the camera's PTZ configuration and firmware.                                                         |
 
 ## Shadow Validation Artifacts
 
