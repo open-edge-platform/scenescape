@@ -427,6 +427,11 @@ class Scene(models.Model):
           sInfo['distortion'] = [cam.distortion_k1, cam.distortion_k2,
                                  cam.distortion_p1, cam.distortion_p2, cam.distortion_k3]
 
+        # Propagate scene map scale for the RANSAC map-ppm heuristic (see
+        # scaled_reprojection_threshold_px); not camera-resolution scaling.
+        if getattr(mScene, 'scale', None) is not None and 'pixels per meter' not in sInfo:
+          sInfo['pixels per meter'] = mScene.scale
+
         mScene.cameras[sensor.sensor_id] = ScenescapeCamera(
             sensor.sensor_id, sInfo, resolution=(cam.width, cam.height))
     return

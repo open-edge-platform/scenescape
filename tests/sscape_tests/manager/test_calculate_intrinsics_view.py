@@ -11,6 +11,7 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from manager.calculate_intrinsics_view import (
   CalculateCameraIntrinsics,
+  as_distortion_column,
   assess_calibration_geometry,
   assess_image_point_coverage,
   assess_map_point_geometry,
@@ -19,6 +20,7 @@ from manager.calculate_intrinsics_view import (
   parse_outlier_threshold_px,
   parse_pixels_per_meter,
   parse_reject_outliers,
+  validate_correspondence_arrays,
 )
 from scene_common.transform import (
   RANSAC_REPROJECTION_THRESHOLD_PX,
@@ -458,6 +460,9 @@ def test_calculate_intrinsics_pose_only_path_for_small_non_coplanar_sets(
   assert len(response.data["perPointErrors"]) == num_points
   assert response.data["rmsError"] < 1.0
   np.testing.assert_allclose(response.data["mtx"], intrinsics, atol=1e-6)
+  dist = np.asarray(response.data["dist"])
+  assert dist.ndim == 2 and dist.shape[1] == 1
+  np.testing.assert_allclose(dist.ravel(), distortion.ravel(), atol=1e-6)
 
 
 @pytest.mark.test_name("NEX-T10426")
@@ -471,3 +476,57 @@ def test_fit_pose_fixed_intrinsics_uses_sqpnp_for_non_coplanar():
   assert rms < 1.0
   assert len(rvecs) == 1 and len(tvecs) == 1
   np.testing.assert_allclose(mtx, intrinsics)
+  assert dist.shape == (len(distortion), 1)
+  np.testing.assert_allclose(dist.ravel(), distortion)
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_as_distortion_column_normalizes_shapes():
+  assert as_distortion_column([1.0, 2.0, 3.0]).shape == (3, 1)
+  assert as_distortion_column(np.array([[1.0, 2.0]])).shape == (2, 1)
+
+
+@pytest.mark.test_name("NEX-T10426")
+@pytest.mark.parametrize(
+  ("map_points", "cam_points", "expected_error"),
+  [
+    ([[0, 0], [1, 0], [1, 1], [0, 1]],
+     [[0, 0], [1, 0], [1, 1]],
+     "same length"),
+    ([[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 1, 0, 0]],
+     [[0, 0], [1, 0], [1, 1], [0, 1]],
+     "2D or 3D"),
+    ([[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]],
+     [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]],
+     "2D image"),
+    ([[0, 0, float("nan")], [1, 0, 0], [1, 1, 0], [0, 1, 0]],
+     [[0, 0], [1, 0], [1, 1], [0, 1]],
+     "finite"),
+  ],
+)
+def test_validate_correspondence_arrays_rejects_bad_input(
+    map_points, cam_points, expected_error):
+  obj, img, error = validate_correspondence_arrays(map_points, cam_points)
+  assert obj is None and img is None
+  assert expected_error in error
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_validate_correspondence_arrays_pads_2d_map_points():
+  obj, img, error = validate_correspondence_arrays(
+    [[0, 0], [1, 0], [1, 1], [0, 1]],
+    [[10, 10], [20, 10], [20, 20], [10, 20]])
+  assert error is None
+  assert obj.shape == (4, 3)
+  assert img.shape == (4, 2)
+  np.testing.assert_array_equal(obj[:, 2], 0)
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_calculate_intrinsics_rejects_bad_point_dimensions():
+  payload = _calibration_payload(
+    mapPoints=[[0, 0, 0, 0], [1, 0, 0, 0], [1, 1, 0, 0], [0, 1, 0, 0]],
+  )
+  response = _post_calculate_intrinsics(payload)
+  assert response.status_code == 400
+  assert "mapPoints" in response.data["error"]

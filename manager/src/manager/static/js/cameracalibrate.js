@@ -223,9 +223,8 @@ export class ConvergedCameraCalibration {
       for (let i = 0; i < points.length; i++) {
         const subset = points.filter((_, index) => index !== i);
         if (
-          Math.abs(
-            this.#calculateDeterminant(subset) > MAX_COPLANAR_DETERMINANT,
-          )
+          Math.abs(this.#calculateDeterminant(subset)) >
+          MAX_COPLANAR_DETERMINANT
         ) {
           return false;
         }
@@ -355,6 +354,7 @@ export class ConvergedCameraCalibration {
           }
           // Fill out the corresponding intrinsic and distortion fields if they are not disabled
           const intrinsicMtx = response["mtx"].flat();
+          const distCoeffs = response["dist"].flat();
           $('input[name^="intrinsics_"]').each(function () {
             if (!$(this).prop("disabled")) {
               if (this.name === "intrinsics_fx") this.value = intrinsicMtx[FX];
@@ -365,22 +365,26 @@ export class ConvergedCameraCalibration {
           });
           $('input[name^="distortion_"]').each(function () {
             if (!$(this).prop("disabled")) {
-              if (this.name === "distortion_k1")
-                this.value = response["dist"][K1];
-              if (this.name === "distortion_k2")
-                this.value = response["dist"][K2];
-              if (this.name === "distortion_p1")
-                this.value = response["dist"][P1];
-              if (this.name === "distortion_p2")
-                this.value = response["dist"][P2];
-              if (this.name === "distortion_k3")
-                this.value = response["dist"][K3];
+              if (this.name === "distortion_k1") this.value = distCoeffs[K1];
+              if (this.name === "distortion_k2") this.value = distCoeffs[K2];
+              if (this.name === "distortion_p1") this.value = distCoeffs[P1];
+              if (this.name === "distortion_p2") this.value = distCoeffs[P2];
+              if (this.name === "distortion_k3") this.value = distCoeffs[K3];
             }
           });
           this.rejectedPointIndices = response.rejectionApplied
             ? response.rejectedIndices || []
             : [];
-          this.updateCalibrationPoseFromFit();
+          if (!this.updateCalibrationPoseFromFit()) {
+            this.calibrationFitState = "failed";
+            this.setCalibrationFitStatus(
+              "Could not compute a camera pose preview from the fitted model. " +
+                "Adjust the point pairs and try again.",
+              [],
+              [],
+            );
+            return;
+          }
           this.showCalibrationFitStatus(response, pointNames);
           this.calibrationFitState = "ready";
         }.bind(this),
@@ -448,7 +452,7 @@ export class ConvergedCameraCalibration {
       parseFloat($("#id_distortion_p2").val()),
       parseFloat($("#id_distortion_k3").val()),
     ];
-    this.getCameraPositionAndRotation(cameraMatrix, distCoeffs);
+    return this.getCameraPositionAndRotation(cameraMatrix, distCoeffs);
   }
 
   setCalibrationFitStatus(
@@ -697,14 +701,17 @@ export class ConvergedCameraCalibration {
 
   setupCalibrationParameterListeners() {
     // Intrinsics/distortion edits (and lock toggles) change the model that
-    // produced the current RANSAC rejection set; require a fresh fit before save.
-    const onParameterChange = () => {
+    // produced the current RANSAC rejection set. Invalidate immediately so an
+    // in-flight response cannot overwrite typed values, but do not auto-refit:
+    // writing unlocked fields from a new response would wipe manual edits.
+    // Moving a calibration point re-triggers calculateCalibrationIntrinsics.
+    const invalidateFit = () => {
       this.clearCalibrationPointDiagnostics();
-      this.calculateCalibrationIntrinsics();
     };
-    $(
-      'input[name^="intrinsics_"], input[name^="distortion_"], input[id^="enabled_"]',
-    ).on("change", onParameterChange);
+    const selector =
+      'input[name^="intrinsics_"], input[name^="distortion_"], input[id^="enabled_"]';
+    $(selector).on("input", invalidateFit);
+    $(selector).on("change", invalidateFit);
   }
 
   setupResetPointsButton() {
@@ -773,8 +780,8 @@ export class ConvergedCameraCalibration {
       }
       if (this.calibrationFitState === "stale") {
         alert(
-          "The calibration fit is out of date. Wait for the current fit to " +
-            "finish before saving.",
+          "The calibration fit is out of date. Move a calibration point " +
+            "slightly (or wait for a pending fit) to refresh before saving.",
         );
         return;
       }
@@ -857,46 +864,55 @@ export class ConvergedCameraCalibration {
     const camPoints = this.camCanvas.getCalibrationPoints();
     const objectPoints = this.viewport.getCalibrationPoints();
     if (
-      this.isValidCalibration(camPoints, objectPoints) &&
-      (this.camCanvas.calibrationUpdated ||
-        this.viewport.calibrationUpdated ||
-        this.isResolutionUpdated)
+      !(
+        this.isValidCalibration(camPoints, objectPoints) &&
+        (this.camCanvas.calibrationUpdated ||
+          this.viewport.calibrationUpdated ||
+          this.isResolutionUpdated)
+      )
     ) {
-      let rvec = new cv.Mat();
-      let tvec = new cv.Mat();
-      let R = new cv.Mat();
+      return false;
+    }
 
+    let rvec = new cv.Mat();
+    let tvec = new cv.Mat();
+    let R = new cv.Mat();
+    let imagePointsMat = null;
+    let objectPointsMat = null;
+    let cameraMatrixMat = null;
+    let distCoeffsMat = null;
+
+    try {
       // Convert imagePoints and objectPoints to cv.Mat, paired by name.
       const acceptedNames = this.getAcceptedCalibrationPointNames(camPoints);
       const camPointsArray = acceptedNames.map((name) => camPoints[name]);
       const objectPointsArray = acceptedNames.map((name) => objectPoints[name]);
-      const imagePointsMat = cv.matFromArray(
+      imagePointsMat = cv.matFromArray(
         camPointsArray.length,
         2,
         cv.CV_64F,
         camPointsArray.flat(),
       );
-      const objectPointsMat = cv.matFromArray(
+      objectPointsMat = cv.matFromArray(
         objectPointsArray.length,
         3,
         cv.CV_64F,
         objectPointsArray.flat(),
       );
-      let cameraMatrixMat = cv.matFromArray(
+      cameraMatrixMat = cv.matFromArray(
         3,
         3,
         cv.CV_64F,
         cameraMatrix.flat(),
       );
-      let distCoeffsMat = cv.matFromArray(1, 5, cv.CV_64F, distCoeffs.flat());
+      distCoeffsMat = cv.matFromArray(1, 5, cv.CV_64F, distCoeffs.flat());
 
       let computationMethod = cv.SOLVEPNP_ITERATIVE;
       // If we do not have coplanar points and fewer than 6 points, use SQPNP
       if (this.arePointsCoplanar(objectPointsArray) === false) {
         computationMethod = cv.SOLVEPNP_SQPNP;
       }
-      // Prepare other necessary parameters
-      cv.solvePnP(
+      const solved = cv.solvePnP(
         objectPointsMat,
         imagePointsMat,
         cameraMatrixMat,
@@ -906,6 +922,9 @@ export class ConvergedCameraCalibration {
         false,
         computationMethod,
       );
+      if (!solved) {
+        return false;
+      }
       cv.Rodrigues(rvec, R);
       let T = new THREE.Matrix4();
       //OpenCV to OpenGL coordinate system alignment requires negating rows 2 and 3 in transform matrix
@@ -933,6 +952,15 @@ export class ConvergedCameraCalibration {
       this.projectionEnabled = true;
       this.camCanvas.calibrationUpdated = false;
       this.viewport.calibrationUpdated = false;
+      return true;
+    } finally {
+      rvec.delete();
+      tvec.delete();
+      R.delete();
+      if (imagePointsMat) imagePointsMat.delete();
+      if (objectPointsMat) objectPointsMat.delete();
+      if (cameraMatrixMat) cameraMatrixMat.delete();
+      if (distCoeffsMat) distCoeffsMat.delete();
     }
   }
 

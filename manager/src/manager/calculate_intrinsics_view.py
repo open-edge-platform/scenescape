@@ -90,6 +90,37 @@ def needs_pose_only_fit(obj_points):
   return (len(obj_points) < 6 and not points_are_coplanar(obj_points))
 
 
+def as_distortion_column(distortion):
+  """Normalize distortion coefficients to an OpenCV-style column vector (N, 1)."""
+  return np.asarray(distortion, dtype=np.float64).reshape(-1, 1)
+
+
+def validate_correspondence_arrays(map_points, cam_points):
+  """Validate and coerce correspondence arrays to float32 Nx3 / Nx2.
+
+  @return  (obj_points, img_points, error_message). error_message is None on success.
+  """
+  try:
+    obj_points = np.asarray(map_points, dtype=np.float32)
+    img_points = np.asarray(cam_points, dtype=np.float32)
+  except (TypeError, ValueError):
+    return None, None, "mapPoints and camPoints must be numeric arrays"
+
+  if obj_points.ndim != 2 or obj_points.shape[1] not in (2, 3):
+    return None, None, "mapPoints must be an array of 2D or 3D points"
+  if img_points.ndim != 2 or img_points.shape[1] != 2:
+    return None, None, "camPoints must be an array of 2D image points"
+  if len(obj_points) != len(img_points):
+    return None, None, "mapPoints and camPoints must have the same length"
+  if not (np.isfinite(obj_points).all() and np.isfinite(img_points).all()):
+    return None, None, "mapPoints and camPoints must contain finite values"
+
+  if obj_points.shape[1] == 2:
+    obj_points = np.hstack(
+      (obj_points, np.zeros((obj_points.shape[0], 1), dtype=np.float32)))
+  return obj_points, img_points, None
+
+
 def fit_pose_fixed_intrinsics(obj_points, img_points, intrinsics, distortion):
   """Pose-only SQPNP fit that keeps the supplied intrinsics and distortion fixed.
 
@@ -104,7 +135,7 @@ def fit_pose_fixed_intrinsics(obj_points, img_points, intrinsics, distortion):
     obj_points, img_points, rvec, tvec, intrinsics, distortion)
   rms_error = float(np.sqrt(np.mean(np.square(errors))))
   return (rms_error, np.asarray(intrinsics, dtype=np.float64).copy(),
-          np.asarray(distortion, dtype=np.float64).copy(), [rvec], [tvec])
+          as_distortion_column(distortion), [rvec], [tvec])
 
 def _singular_values_3d(points):
   """Principal-axis lengths (descending) for a 3D point set, padded to 3."""
@@ -304,8 +335,11 @@ class CalculateCameraIntrinsics(APIView):
         return Response({"error": threshold_error},
                         status=status.HTTP_400_BAD_REQUEST)
 
-      obj_points = np.array(request.data['mapPoints'], dtype=np.float32)
-      img_points = np.array(request.data['camPoints'], dtype=np.float32)
+      obj_points, img_points, points_error = validate_correspondence_arrays(
+        request.data['mapPoints'], request.data['camPoints'])
+      if points_error:
+        return Response({"error": points_error},
+                        status=status.HTTP_400_BAD_REQUEST)
       num_points = len(obj_points)
 
       intrinsics = np.array(request.data['intrinsics'], dtype=np.float64)
@@ -318,6 +352,8 @@ class CalculateCameraIntrinsics(APIView):
       # Robust outlier rejection: fit a RANSAC PnP model and keep only the
       # inlier correspondences for the calibration fit. Falls back to using
       # all points if RANSAC cannot find a valid consensus set.
+      # RANSAC uses the request intrinsics/distortion as a fixed model; unlocked
+      # lens parameters are refined afterward by calibrateCamera on inliers.
       inlier_mask = None
       if reject_outliers:
         _, _, inlier_mask = solve_pnpransac(
@@ -352,6 +388,7 @@ class CalculateCameraIntrinsics(APIView):
         rms_error, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(
           [fit_obj_points], [fit_img_points], image_size, intrinsics,
           distortion, flags=flags)
+        dist = as_distortion_column(dist)
 
       # Per-point reprojection errors of every correspondence (inliers and
       # rejected outliers alike) under the final fitted model, so the caller
