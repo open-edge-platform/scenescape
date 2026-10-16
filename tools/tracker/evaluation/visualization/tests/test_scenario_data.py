@@ -26,7 +26,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from visualization.scenario_data import (  # noqa: E402 pylint: disable=wrong-import-position
   align_track_to_truth,
+  frame_rate,
   load_scenario,
+  match_tracks_to_truth,
   yaw_from_quaternion,
 )
 
@@ -146,6 +148,21 @@ def test_aligns_track_to_truth(tmp_path):
 
   (tmp_path / "groundtruth.jsonl").unlink()
   assert align_track_to_truth(load_scenario(tmp_path), "1")["x_gt"].isna().all()
+
+
+def test_matches_tracks_to_truth(tmp_path):
+  """Tracks pair with the nearest ground-truth object, whatever their ids."""
+  scenario = load_scenario(FIXTURE)
+  assert frame_rate(scenario.ground_truth) == pytest.approx(10.0)
+  assert match_tracks_to_truth(scenario) == [("1", "1")]
+
+  tracks = (FIXTURE / "tracks.jsonl").read_text(encoding="utf-8").replace('"id":"1"', '"id":"uuid"')
+  (tmp_path / "tracks.jsonl").write_text(tracks, encoding="utf-8")
+  shutil.copy(FIXTURE / "groundtruth.jsonl", tmp_path)
+  assert match_tracks_to_truth(load_scenario(tmp_path)) == [("uuid", "1")]
+
+  (tmp_path / "groundtruth.jsonl").unlink()
+  assert not match_tracks_to_truth(load_scenario(tmp_path))
 
 
 def test_rejects_directory_without_scenario_files(tmp_path):
