@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenescape.intel.com/tracker/schema/camera-data.schema.json",
+  "title": "Camera Data Message",
+  "description": "Camera detection payload for MQTT topic scenescape/data/camera/{camera_id}",
+  "type": "object",
+  "required": ["id", "timestamp", "objects"],
+  "examples": [
+    {
+      "id": "atag-qcam1",
+      "timestamp": "2025-10-08T13:21:40.482Z",
+      "objects": {
+        "person": [
+          {
+            "id": 1,
+            "bounding_box_px": { "x": 4, "y": 0, "width": 127, "height": 309 }
+          }
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Camera/sensor identifier (matches {camera_id} in MQTT topic)"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of frame acquisition"
+    },
+    "objects": {
+      "type": "object",
+      "description": "Detections grouped by category (e.g., person, vehicle)",
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/detection"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "detection": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Frame-local detection ID (not persistent across frames)",
+          "minimum": 0
+        },
+        "bounding_box_px": {
+          "$ref": "#/$defs/bounding_box",
+          "description": "Bounding box in pixel coordinates"
+        },
+        "translation": {
+          "type": "array",
+          "description": "Object position [x, y, z] in the sensor coordinate frame, in metres",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "size": {
+          "type": "array",
+          "description": "Object dimensions [x, y, z] in metres",
+          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "type": "array",
+          "description": "Sensor-frame orientation quaternion [x, y, z, w]",
+          "items": { "type": "number", "minimum": -1, "maximum": 1 },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Optional per-detection metadata (e.g., reid, gender, age). Keys and values are detector-defined.",
+          "additionalProperties": true
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Optional detection confidence score in [0, 1]",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["bounding_box_px"],
+          "not": {
+            "anyOf": [{ "required": ["translation"] }, { "required": ["size"] }]
+          }
+        },
+        {
+          "required": ["translation", "size"],
+          "not": { "required": ["bounding_box_px"] }
+        }
+      ],
+      "additionalProperties": true
+    },
+    "bounding_box": {
+      "type": "object",
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": {
+          "type": "number",
+          "description": "X coordinate of top-left corner"
+        },
+        "y": {
+          "type": "number",
+          "description": "Y coordinate of top-left corner"
+        },
+        "width": {
+          "type": "number",
+          "description": "Width in pixels",
+          "minimum": 0
+        },
+        "height": {
+          "type": "number",
+          "description": "Height in pixels",
+          "minimum": 0
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
