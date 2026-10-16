@@ -11,11 +11,11 @@ from reid_service.reid_registry import create_reid_database
 class ReIDService:
   """Delegate baseline Re-ID operations to one configured adapter."""
 
-  def __init__(self, database=None, adapter=None, connect=True):
+  def __init__(self, database=None, adapter=None, connect=True, ingest=None):
     self.adapter = adapter or create_reid_database(database, dimensions=None)
+    self.ingest = ingest
     if connect:
-      # Adapters log and swallow connection errors, so this never raises.
-      # Health() reports whether it succeeded.
+      # Adapters log and swallow connection errors; health() reports the result.
       self.adapter.connect()
 
   def _is_connected(self):
@@ -26,11 +26,13 @@ class ReIDService:
     return bool(getattr(db, "connected", False))
 
   def health(self):
+    """Return service health without changing adapter behavior."""
     connected = self._is_connected()
     return {
       "status": "ok" if connected else "degraded",
       "backend": self.adapter.__class__.__name__,
       "connected": connected,
+      "ingest_enabled": self.ingest is not None,
     }
 
   def find_matches(self, request):
@@ -50,3 +52,9 @@ class ReIDService:
   def purge_expired(self):
     """Trigger the existing adapter purge operation."""
     return self.adapter.purgeExpired()
+
+  def ingest_stats(self):
+    """Live-loop ingest counters, or {"enabled": False} when ingest is off."""
+    if self.ingest is None:
+      return {"enabled": False}
+    return {"enabled": True, **self.ingest.snapshot()}

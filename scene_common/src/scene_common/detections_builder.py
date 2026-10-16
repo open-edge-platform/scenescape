@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+import base64
 
 from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
@@ -208,7 +209,11 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     if reid_embedding is not None:
       if 'metadata' not in obj_dict:
         obj_dict['metadata'] = {}
-      reid_vec = np.asarray(reid_embedding, dtype=np.float32)
+      if isinstance(reid_embedding, str):
+        # Tracker passes the detector's base64 float32 payload through unchanged.
+        reid_vec = np.frombuffer(base64.b64decode(reid_embedding), dtype=np.float32)
+      else:
+        reid_vec = np.asarray(reid_embedding, dtype=np.float32).reshape(-1)
       obj_dict['metadata']['reid'] = {
         'embedding_vector': reid_vec.tolist(),
         'embedding_dimensions': int(reid_vec.reshape(-1).shape[0]),

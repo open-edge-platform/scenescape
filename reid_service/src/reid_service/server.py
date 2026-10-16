@@ -11,7 +11,10 @@ import grpc
 from google.protobuf import json_format
 from google.protobuf import struct_pb2
 
+from scene_common import log
 from reid_service.api import ReIDService
+from reid_service.ingest import build_from_env
+from reid_service.reid_registry import create_reid_database
 
 
 SERVICE_NAME = "scenescape.reid.ReIDService"
@@ -64,6 +67,7 @@ def create_server(service=None, workers=4):
     "FindMatches": _handler(service.find_matches),
     "FindSchemaMetadata": _handler(service.find_schema_metadata),
     "PurgeExpired": _handler(lambda request: {"result": service.purge_expired()}),
+    "IngestStats": _handler(lambda request: service.ingest_stats()),
   }
   server.add_generic_rpc_handlers((
     grpc.method_handlers_generic_handler(SERVICE_NAME, handlers),
@@ -72,12 +76,22 @@ def create_server(service=None, workers=4):
 
 
 def main():
-  """Start the Re-ID gRPC server."""
+  """Start the Re-ID gRPC server and, when enabled, the Tracker-stream ingest."""
   port = int(os.getenv("REID_SERVICE_PORT", "50051"))
-  server = create_server()
+  # Each (scene, category) matcher gets its own adapter/connection, as each
+  # Controller UUIDManager does today.
+  ingest = build_from_env(lambda: create_reid_database(None, dimensions=None))
+  service = ReIDService(ingest=ingest)
+  log.info(f"ReID backend {service.adapter.__class__.__name__}: {service.health()}")
+  server = create_server(service)
   server.add_insecure_port(f"[::]:{port}")
   server.start()
-  server.wait_for_termination()
+  log.info(f"reid-service gRPC listening on :{port}")
+  try:
+    server.wait_for_termination()
+  finally:
+    if ingest is not None:
+      ingest.stop()
 
 
 if __name__ == "__main__":
