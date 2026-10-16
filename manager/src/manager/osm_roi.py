@@ -171,11 +171,17 @@ def line_to_polygons(
       return []
 
     for poly in geoms:
-      if not isinstance(poly, Polygon):
+      if not isinstance(poly, Polygon) or poly.is_empty:
         continue
 
       # Extract exterior ring coordinates, omit closing duplicate
       exterior_coords = list(poly.exterior.coords)[:-1]
+
+      # A valid ring needs at least 3 distinct points; skip degenerate slivers
+      # (e.g. from a zero/near-zero buffer width) that would later fail to
+      # round-trip through shapely's Polygon constructor.
+      if len(exterior_coords) < 3:
+        continue
 
       # Safety check: truncate if too many points
       if len(exterior_coords) > MAX_POLYGON_POINTS:
@@ -235,6 +241,11 @@ def get_width_m(tags: Dict[str, Any], way_type: str) -> float:
     4. Road type default from ROAD_WIDTH_BY_TYPE_M
     5. DEFAULT_ROAD_WIDTH_M fallback
 
+  Priorities 1 and 2 are only used if they resolve to a positive, finite
+  width; a zero/negative/non-finite value (e.g. "width": "0" or "lanes": "0")
+  falls through to the next priority instead of producing a degenerate
+  (zero-area) buffer polygon downstream.
+
   Args:
     tags: OSM tags dict (e.g., {"width": "3.5", "lanes": "3"}).
     way_type: OSM highway type (e.g., "secondary", "footway").
@@ -248,7 +259,9 @@ def get_width_m(tags: Dict[str, Any], way_type: str) -> float:
   # Priority 1: explicit width tag
   if "width" in tags:
     try:
-      return float(tags["width"])
+      width = float(tags["width"])
+      if math.isfinite(width) and width > 0:
+        return width
     except (ValueError, TypeError):
       pass
 
@@ -257,7 +270,8 @@ def get_width_m(tags: Dict[str, Any], way_type: str) -> float:
     try:
       lanes = int(tags["lanes"])
       estimated_width = lanes * STANDARD_LANE_WIDTH_M
-      return estimated_width
+      if math.isfinite(estimated_width) and estimated_width > 0:
+        return estimated_width
     except (ValueError, TypeError):
       pass
 
