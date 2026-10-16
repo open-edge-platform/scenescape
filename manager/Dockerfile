@@ -70,6 +70,7 @@ ARG CERTDOMAIN=scenescape.intel.com
 ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
+ENV EGL_PLATFORM=surfaceless
 ARG FORCE_VAAPI
 
 # Upgrade base OS packages and install runtime dependencies in one layer

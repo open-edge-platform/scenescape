@@ -9,13 +9,13 @@
  * pipeline: Euler→rotation matrix, lens undistortion, pose-transform, then
  * ray-plane intersection at z=0. Camera configs match tracker/config/scenes.json.
  *
- * FOOT point = bottom-center of bbox: (x + width/2, y + height)
  */
 
 #include "coordinate_transformer.hpp"
 #include "tracking_types.hpp"
 
 #include <gtest/gtest.h>
+#include <opencv2/calib3d.hpp>
 
 #include <array>
 #include <cmath>
@@ -301,6 +301,62 @@ TEST(TransformDetectionsTest, MatchesPythonReference_Position) {
     }
 }
 
+TEST(TransformDetectionsTest, DistortedBboxMatchesTwoCornerControllerProjection) {
+    CameraTestConfig config = kCameraAtaqQcam1;
+    config.k1 = -0.25;
+    config.k2 = 0.08;
+    config.p1 = 0.015;
+    config.p2 = -0.01;
+    auto transformer = make_transformer(config);
+    const cv::Rect2f bbox(70.0f, 80.0f, 180.0f, 240.0f);
+
+    std::vector<cv::Point2f> corners = {{bbox.x, bbox.y},
+                                        {bbox.x + bbox.width, bbox.y + bbox.height}};
+    std::vector<cv::Point2f> normalized;
+    cv::undistortPoints(corners, normalized, transformer.getIntrinsicsMatrix(),
+                        transformer.getDistortionCoeffs());
+    const auto& top_left = normalized[0];
+    const auto& bottom_right = normalized[1];
+    const auto& pose = transformer.getPoseMatrix();
+    const auto camera = transformer.getCameraOrigin();
+    auto project = [&](double x, double y) {
+        const cv::Vec4d point = pose * cv::Vec4d(x, y, 1.0, 1.0);
+        const double t = -camera.z / (point[2] - camera.z);
+        return cv::Point2d(camera.x + t * (point[0] - camera.x),
+                           camera.y + t * (point[1] - camera.y));
+    };
+    const auto foot = project((top_left.x + bottom_right.x) / 2.0, bottom_right.y);
+    const auto bottom_left = project(top_left.x, bottom_right.y);
+    const auto bottom_right_world = project(bottom_right.x, bottom_right.y);
+    const auto top_left_world = project(top_left.x, top_left.y);
+    const double width = cv::norm(bottom_right_world - bottom_left);
+    const double camera_to_top_left =
+        std::hypot(camera.x - top_left_world.x, camera.y - top_left_world.y, camera.z);
+    const double height = std::sin(std::atan2(std::abs(camera.z), camera_to_top_left)) *
+                          cv::norm(top_left_world - bottom_left);
+    const cv::Point2d bearing = foot - cv::Point2d(camera.x, camera.y);
+    const cv::Point2d expected = foot + bearing * (width / (2.0 * cv::norm(bearing)));
+
+    auto result = transformer.transformDetections(
+        std::vector<Detection>{make_detection(bbox.x, bbox.y, bbox.width, bbox.height)});
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_NEAR(result[0].x, expected.x, kWorldTolerance);
+    EXPECT_NEAR(result[0].y, expected.y, kWorldTolerance);
+    EXPECT_NEAR(result[0].width, width, kWorldTolerance);
+    EXPECT_NEAR(result[0].height, height, kWorldTolerance);
+
+    const auto second = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 2);
+    auto second_result = transformer.transformDetections(std::vector<Detection>{second});
+    auto batch = transformer.transformDetections(
+        std::vector<Detection>{make_detection(bbox.x, bbox.y, bbox.width, bbox.height), second});
+    ASSERT_EQ(second_result.size(), 1u);
+    ASSERT_EQ(batch.size(), 2u);
+    EXPECT_NEAR(batch[0].x, expected.x, kWorldTolerance);
+    EXPECT_NEAR(batch[0].y, expected.y, kWorldTolerance);
+    EXPECT_DOUBLE_EQ(batch[1].x, second_result[0].x);
+    EXPECT_DOUBLE_EQ(batch[1].y, second_result[0].y);
+}
+
 TEST(TransformDetectionsTest, MatchesPythonReference_Size) {
     // Verify world-space sizes match independently computed reference values
     auto transformer = make_transformer(kCameraAtaqQcam1);
@@ -513,10 +569,9 @@ TEST(CoordinateTransformerTest, UpwardRayReturnsValidResult) {
     EXPECT_EQ(result.size(), 1u);
 }
 
-// Expected TYPE_2 foot follows Controller CameraPose.projectBounds + MovingObject.camLoc:
-// baseAngle from the camera to the midpoint of the projected bottom corners, then the foot
-// pixel is raised by (height / 2) * (baseAngle / 90) before projecting.
-TEST(CoordinateTransformerTest, Type2FootMatchesControllerCamLoc) {
+// Zero distortion makes the pixel-space shift equal to the normalized one
+// see DistortedType2FootShiftsNormalizedBox.
+TEST(CoordinateTransformerTest, Type2FootMatchesPixelShiftWithoutDistortion) {
     // Zero footprint so the output position is the projected foot itself.
     const auto type1 = make_transformer(kCameraAtaqQcam1, ObjectClassConfig::kShiftType1, 0.0);
     const auto type2 = make_transformer(kCameraAtaqQcam1, ObjectClassConfig::kShiftType2, 0.0);
@@ -543,6 +598,50 @@ TEST(CoordinateTransformerTest, Type2FootMatchesControllerCamLoc) {
     const auto type1_foot = project(x + w / 2.0f, y + h);
     EXPECT_GT(std::hypot(result[0].x - type1_foot.x, result[0].y - type1_foot.y), 0.1)
         << "TYPE_2 should move the foot away from the TYPE_1 bottom-center projection";
+}
+
+TEST(CoordinateTransformerTest, DistortedType2FootShiftsNormalizedBox) {
+    CameraTestConfig config = kCameraAtaqQcam1;
+    config.k1 = -0.25;
+    config.k2 = 0.08;
+    config.p1 = 0.015;
+    config.p2 = -0.01;
+    const auto transformer = make_transformer(config, ObjectClassConfig::kShiftType2, 0.0);
+    const auto camera = transformer.getCameraOrigin();
+    const auto& pose = transformer.getPoseMatrix();
+    const auto project = [&](const cv::Point2f& point) {
+        const cv::Vec4d transformed = pose * cv::Vec4d(point.x, point.y, 1.0, 1.0);
+        const double t = -camera.z / (transformed[2] - camera.z);
+        return cv::Point2d(camera.x + t * (transformed[0] - camera.x),
+                           camera.y + t * (transformed[1] - camera.y));
+    };
+
+    const std::vector<Detection> detections = {make_detection(70.0f, 80.0f, 180.0f, 240.0f),
+                                               make_detection(900.0f, 350.0f, 300.0f, 300.0f)};
+    const auto result = transformer.transformDetections(detections);
+    ASSERT_EQ(result.size(), detections.size());
+
+    for (size_t i = 0; i < detections.size(); ++i) {
+        const auto& bbox = detections[i].bounding_box_px;
+        const std::vector<cv::Point2f> pixels = {{bbox.x, bbox.y},
+                                                 {bbox.x + bbox.width, bbox.y + bbox.height}};
+        std::vector<cv::Point2f> corners;
+        cv::undistortPoints(pixels, corners, transformer.getIntrinsicsMatrix(),
+                            transformer.getDistortionCoeffs());
+        const auto& top_left = corners[0];
+        const auto& bottom_right = corners[1];
+        const auto bl = project({top_left.x, bottom_right.y});
+        const auto br = project(bottom_right);
+        const double base_len =
+            std::hypot((bl.x + br.x) / 2.0 - camera.x, (bl.y + br.y) / 2.0 - camera.y);
+        const auto angle_fraction =
+            static_cast<float>(std::atan2(std::abs(camera.z), base_len) / (std::numbers::pi / 2.0));
+        const float height = bottom_right.y - top_left.y;
+        const auto expected = project({(top_left.x + bottom_right.x) / 2.0f,
+                                       bottom_right.y - (height / 2.0f) * angle_fraction});
+        EXPECT_NEAR(result[i].x, expected.x, kWorldTolerance);
+        EXPECT_NEAR(result[i].y, expected.y, kWorldTolerance);
+    }
 }
 
 TEST(CoordinateTransformerTest, FixedFootprintHalfOverridesProjectedWidthOffset) {
