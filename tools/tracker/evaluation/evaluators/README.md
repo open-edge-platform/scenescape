@@ -110,7 +110,7 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 
 **Key Features**:
 
-- **Track Matching**: Bipartite assignment (Hungarian algorithm) minimizing mean Euclidean distance over overlapping frames. Requires a minimum of 10 overlapping frames (`MIN_OVERLAP_FRAMES`).
+- **Track Matching**: Bipartite assignment (Hungarian algorithm) minimizing mean Euclidean distance over overlapping frames. Requires a minimum of 10 overlapping frames (`MIN_OVERLAP_FRAMES`). Implemented by `match_tracks()` in [`utils/tracks.py`](../utils/tracks.py).
 - **Missing Frame Handling**: Frames where only one side (output or GT) has data produce `NaN` in CSV output, preserving full temporal context.
 - **CSV Output**: Per-metric CSV files with headers:
   - LOC_T_X / LOC_T_Y: `[frame_id, track_id, gt_id, value_track, value_gt]`
