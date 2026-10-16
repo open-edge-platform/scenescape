@@ -99,6 +99,8 @@ There are other methods of determining pixels per meter, such as measuring the d
 
 > **Note:** Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Scenescape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
 
+When generating a top-down preview for an uploaded GLB, Scenescape scales oversized textures for the preview only. The scene map retains its full-resolution textures.
+
 ##### Scene floor plan example
 
 Consider this sample parking lot floor plan image that is modeled off of a [parking lot at Intel Corporation](https://www.google.com/maps/@37.3882958,-121.9644111,44m/data=!3m1!1e3):
