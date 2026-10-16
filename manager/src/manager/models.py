@@ -599,10 +599,9 @@ class PubSubACL(models.Model):
   user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='acls')
   topic = models.CharField(choices=TOPIC_CHOICES, max_length=50)
   access = models.IntegerField(choices=ACCESS_CHOICES, default=0)
-  # Source-scoped topics (POSITIONING_POSE) are allowed only for cameras in these scenes.
+  # Pose reads (POSITIONING_POSE) are allowed only for cameras whose Cam.scene is in this scope.
   scenes = models.ManyToManyField('Scene', blank=True, related_name='pubsub_acls')
-  # Camera sensor IDs explicitly assigned to this identity for POSITIONING_POSE.
-  sources = models.JSONField(default=list, blank=True)
+  all_scenes = models.BooleanField(default=False)
 
   class Meta:
     constraints = [

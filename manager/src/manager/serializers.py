@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
-import math
 import os
 
 from django.contrib.auth import authenticate
@@ -19,6 +18,7 @@ from scipy.spatial.transform import Rotation
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+from manager.ptz_calibration import PTZCalibrationError, validate_ptz_calibration
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
@@ -279,6 +279,7 @@ class CamSerializer(NonNullSerializer):
   distortion = serializers.SerializerMethodField('get_distortion')
   translation = serializers.SerializerMethodField('get_translation')
   rotation = serializers.SerializerMethodField('get_rotation')
+  pose_matrix = serializers.SerializerMethodField('get_pose_matrix')
   scale = serializers.SerializerMethodField('get_scale')
   resolution = serializers.SerializerMethodField('get_resolution')
   transforms = serializers.SerializerMethodField('get_transform')
@@ -305,135 +306,11 @@ class CamSerializer(NonNullSerializer):
   def validate_ptz_calibration(self, value):
     if value is None:
       return None
-
-    def require_object(data, path, required, optional=()):
-      if not isinstance(data, dict):
-        raise serializers.ValidationError(f"{path} must be an object.")
-      missing = set(required) - data.keys()
-      unexpected = data.keys() - set(required) - set(optional)
-      if missing:
-        raise serializers.ValidationError(
-          f"{path} is missing required fields: {', '.join(sorted(missing))}.")
-      if unexpected:
-        raise serializers.ValidationError(
-          f"{path} has unsupported fields: {', '.join(sorted(unexpected))}.")
-      return data
-
-    def finite_number(number, path, minimum=None, exclusive_minimum=False):
-      if isinstance(number, bool) or not isinstance(number, (int, float)):
-        raise serializers.ValidationError(f"{path} must be a finite number.")
-      try:
-        number = float(number)
-      except (OverflowError, ValueError):
-        raise serializers.ValidationError(f"{path} must be a finite number.")
-      if not math.isfinite(number):
-        raise serializers.ValidationError(f"{path} must be a finite number.")
-      if minimum is not None and (number <= minimum if exclusive_minimum else number < minimum):
-        comparison = 'greater than' if exclusive_minimum else 'at least'
-        raise serializers.ValidationError(f"{path} must be {comparison} {minimum}.")
-      return number
-
-    required = {
-      'parameterization_version', 'calibration_version', 'position_space',
-      'settle_angular_threshold_deg', 'settle_interval_s', 'composition_order',
-      'axes', 'quality'
-    }
-    data = require_object(value, 'ptz_calibration', required, ('provenance',))
-    if data['parameterization_version'] != 'v1':
-      raise serializers.ValidationError("parameterization_version must be 'v1'.")
-    version = data['calibration_version']
-    if not isinstance(version, str) or not 1 <= len(version) <= 128:
-      raise serializers.ValidationError("calibration_version must contain 1 to 128 characters.")
-
-    position = require_object(
-      data['position_space'], 'position_space',
-      {'uri', 'pan_min', 'pan_max', 'tilt_min', 'tilt_max'})
-    if not isinstance(position['uri'], str) or not 1 <= len(position['uri']) <= 512:
-      raise serializers.ValidationError("position_space.uri must contain 1 to 512 characters.")
-    ranges = {}
-    for axis_name in ('pan', 'tilt'):
-      lower = finite_number(position[f'{axis_name}_min'], f'position_space.{axis_name}_min')
-      upper = finite_number(position[f'{axis_name}_max'], f'position_space.{axis_name}_max')
-      if lower >= upper:
-        raise serializers.ValidationError(
-          f"position_space.{axis_name}_min must be less than {axis_name}_max.")
-      ranges[axis_name] = (lower, upper)
-
-    finite_number(data['settle_angular_threshold_deg'], 'settle_angular_threshold_deg', 0)
-    finite_number(data['settle_interval_s'], 'settle_interval_s', 0)
-    order = data['composition_order']
-    if not isinstance(order, list) or len(order) != 3 or \
-       any(not isinstance(element, str) for element in order) or \
-       set(order) != {'pan', 'home', 'tilt'}:
-      raise serializers.ValidationError(
-        "composition_order must contain 'pan', 'home', and 'tilt' exactly once.")
-
-    axes = require_object(data['axes'], 'axes', {'pan', 'tilt'})
-    for axis_name in ('pan', 'tilt'):
-      axis = require_object(axes[axis_name], f'axes.{axis_name}', {
-        'axis', 'frame', 'curve', 'home_position', 'approach_direction', 'backlash',
-        'backlash_home_tolerance_deg', 'backlash_history_s'
-      })
-      vector = axis['axis']
-      if not isinstance(vector, list) or len(vector) != 3:
-        raise serializers.ValidationError(f"axes.{axis_name}.axis must contain three numbers.")
-      vector = [finite_number(component, f'axes.{axis_name}.axis') for component in vector]
-      if abs(math.sqrt(sum(component * component for component in vector)) - 1.0) > 1e-3:
-        raise serializers.ValidationError(f"axes.{axis_name}.axis must be a unit vector.")
-      expected_frame = 'world_home' if order.index(axis_name) < order.index('home') else 'camera_local'
-      if axis['frame'] != expected_frame:
-        raise serializers.ValidationError(f"axes.{axis_name}.frame must be '{expected_frame}'.")
-      curve = axis['curve']
-      if not isinstance(curve, list) or not 2 <= len(curve) <= 8:
-        raise serializers.ValidationError(
-          f"axes.{axis_name}.curve must contain 2 to 8 coefficients.")
-      curve = [finite_number(coefficient, f'axes.{axis_name}.curve') for coefficient in curve]
-      if all(coefficient == 0 for coefficient in curve[1:]):
-        raise serializers.ValidationError(f"axes.{axis_name}.curve must not be constant.")
-      home = finite_number(axis['home_position'], f'axes.{axis_name}.home_position')
-      if not ranges[axis_name][0] <= home <= ranges[axis_name][1]:
-        raise serializers.ValidationError(
-          f"axes.{axis_name}.home_position is outside its position range.")
-      if axis['approach_direction'] not in ('increasing', 'decreasing'):
-        raise serializers.ValidationError(
-          f"axes.{axis_name}.approach_direction must be 'increasing' or 'decreasing'.")
-      backlash = axis['backlash']
-      if isinstance(backlash, list):
-        if not 1 <= len(backlash) <= 64:
-          raise serializers.ValidationError(
-            f"axes.{axis_name}.backlash must contain 1 to 64 nodes.")
-        positions = []
-        for node in backlash:
-          if not isinstance(node, list) or len(node) != 2:
-            raise serializers.ValidationError(
-              f"axes.{axis_name}.backlash nodes must be [position, degrees] pairs.")
-          positions.append(finite_number(node[0], f'axes.{axis_name}.backlash'))
-          finite_number(node[1], f'axes.{axis_name}.backlash', 0)
-        if len(positions) != len(set(positions)):
-          raise serializers.ValidationError(
-            f"axes.{axis_name}.backlash node positions must be distinct.")
-      else:
-        finite_number(backlash, f'axes.{axis_name}.backlash', 0)
-      finite_number(axis['backlash_home_tolerance_deg'],
-                    f'axes.{axis_name}.backlash_home_tolerance_deg', 0)
-      finite_number(axis['backlash_history_s'],
-                    f'axes.{axis_name}.backlash_history_s', 0)
-
-    quality = require_object(data['quality'], 'quality', {'reprojection_rms_px'})
-    residual = finite_number(quality['reprojection_rms_px'], 'quality.reprojection_rms_px', 0)
     try:
-      residual_limit = float(settings.PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX)
-    except (AttributeError, TypeError, ValueError):
-      raise serializers.ValidationError("PTZ calibration residual threshold is not configured.")
-    if not math.isfinite(residual_limit) or residual_limit <= 0:
-      raise serializers.ValidationError(
-        "PTZ calibration residual threshold must be finite and positive.")
-    if residual > residual_limit:
-      raise serializers.ValidationError(
-        f"quality.reprojection_rms_px exceeds the {residual_limit:g} px import threshold.")
-    if 'provenance' in data and not isinstance(data['provenance'], dict):
-      raise serializers.ValidationError("provenance must be an object.")
-    return value
+      return validate_ptz_calibration(
+        value, getattr(settings, 'PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX', None))
+    except PTZCalibrationError as error:
+      raise serializers.ValidationError(str(error), code=error.code)
 
   def validate_name(self, value):
     if self.instance is None and 'sensor_id' not in self.initial_data:
@@ -647,6 +524,17 @@ class CamSerializer(NonNullSerializer):
     camera = obj.scene.scenescapeScene.cameraWithID(obj.sensor_id)
     return getattr(camera.pose, 'euler_rotation', None) \
       if camera and hasattr(camera, 'pose') else None
+
+  def get_pose_matrix(self, obj):
+    if not obj.scene:
+      return None
+
+    self.create_camera_instance(obj)
+
+    camera = obj.scene.scenescapeScene.cameraWithID(obj.sensor_id)
+    pose_mat = getattr(camera.pose, 'pose_mat', None) \
+      if camera and hasattr(camera, 'pose') else None
+    return pose_mat.tolist() if pose_mat is not None else None
 
   def get_transform(self, obj):
     if not obj.scene:
@@ -1036,12 +924,10 @@ class SceneSerializer(NonNullSerializer):
 class PubSubACLSerializer(NonNullSerializer):
   scenes = serializers.PrimaryKeyRelatedField(
     queryset=Scene.objects.all(), many=True, required=False)
-  sources = serializers.ListField(
-    child=serializers.RegexField(r'^[^/+#]{1,20}$'), required=False, max_length=1024)
 
   class Meta:
     model = PubSubACL
-    fields = ['topic', 'access', 'scenes', 'sources']
+    fields = ['topic', 'access', 'scenes', 'all_scenes']
 
 class UserSerializer(NonNullSerializer):
   uid = serializers.CharField(source="pk", read_only=True)

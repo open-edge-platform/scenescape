@@ -16,4 +16,9 @@ class Migration(migrations.Migration):
       name="scenes",
       field=models.ManyToManyField(blank=True, related_name="pubsub_acls", to="manager.scene"),
     ),
+    migrations.AddField(
+      model_name="pubsubacl",
+      name="all_scenes",
+      field=models.BooleanField(default=False),
+    ),
   ]

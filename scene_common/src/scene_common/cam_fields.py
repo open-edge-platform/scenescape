@@ -44,6 +44,6 @@ CAM_FORM_FIELDS = [
 # Serializer API fields
 CAM_SERIALIZER_FIELDS = [
     'uid', 'name', 'sensor_id', 'intrinsics', 'transform_type', 'transforms',
-    'distortion', 'translation', 'rotation', 'scale', 'resolution', 'scene',
+    'distortion', 'translation', 'rotation', 'pose_matrix', 'scale', 'resolution', 'scene',
     'threshold', 'aspect',
 ] + CAM_ADVANCED_FIELDS + CAM_KUBERNETES_FIELDS + ['ptz_calibration']

@@ -23,6 +23,7 @@ INSTALL_TIMEOUT?=1800s
 
 ifeq ($(DEPLOYMENT_TEST), 1)
 	TEST_FLAGS=--debug
+	PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX?=2.0
 endif
 
 KINDREG=kind-registry
@@ -324,8 +325,12 @@ install: check-deploy-profiles check-reid-backend copy-files chart.yaml
 	if [ -n "$${SCENESCAPE_ALLOWED_HOSTS}" ]; then \
 		ALLOWED_HOSTS_ARG="--set web.allowedHosts=$${SCENESCAPE_ALLOWED_HOSTS}"; \
 	fi; \
+	PTZ_THRESHOLD_ARG=""; \
+	if [ -n "$(PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX)" ]; then \
+		PTZ_THRESHOLD_ARG="--set-string web.ptzCalibrationResidualThresholdPx=$(PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX)"; \
+	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${REPOSITORY_ARG} $${ALLOWED_HOSTS_ARG} $(MODE_ARG) --values "$$VALUES_FILE" $(TEST_FLAGS);
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${REPOSITORY_ARG} $${ALLOWED_HOSTS_ARG} $${PTZ_THRESHOLD_ARG} $(MODE_ARG) --values "$$VALUES_FILE" $(TEST_FLAGS);
 	kubectl rollout status deployment/$(RELEASE)-web-dep -n $(NAMESPACE) --timeout=$(INSTALL_TIMEOUT)
 	@if [ -z "$(strip $(filter tracker,$(DEPLOY_PROFILES)))" ]; then \
 		$(MAKE) demo-scenes; \
