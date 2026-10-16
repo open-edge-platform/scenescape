@@ -90,12 +90,13 @@ TEST(MotionScenarioTest, TracksMotionCases)
      .maxFinalSpeedError = 0.01},
     {.name = "turn",
      .truth = Trajectory({.speed = 3.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).straight(2.0).sample(kFps),
-     .maxPositionError = 1.5,
+     .maxPositionError = 1.0,
      .maxFinalSpeedError = 0.05},
     {.name = "sudden stop",
      .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(3.0).accelerate(-10.0, 0.5).straight(4.5).sample(kFps),
      .maxPositionError = 0.9,
      .maxFinalSpeedError = 0.05},
+    // Ends 1 s after the stop; CA keeps some deceleration, so the estimated speed overshoots through zero.
     {.name = "manoeuvre",
      .truth = Trajectory({.speed = 2.0, .box = kCar})
                 .straight(2.0)
@@ -104,8 +105,8 @@ TEST(MotionScenarioTest, TracksMotionCases)
                 .accelerate(-2.0, 2.0)
                 .straight(1.0)
                 .sample(kFps),
-     .maxPositionError = 2.5,
-     .maxFinalSpeedError = 0.1},
+     .maxPositionError = 2.1,
+     .maxFinalSpeedError = 0.35},
   };
   constexpr double kWarmUp = 2.0;
 
