@@ -224,26 +224,33 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     std::vector<size_t> bbox_projection_indices(n, n);
     bbox_detection_indices.reserve(n);
 
-
     for (size_t i = 0; i < n; ++i) {
         if (detections[i].translation) {
             continue;
         }
         const auto& bbox = detections[i].bounding_box_px;
-        const size_t base = i * kCornersPerDetection;
+        const size_t k = bbox_detection_indices.size();
+        const size_t base = k * kCornersPerDetection;
+        bbox_projection_indices[i] = k;
+        bbox_detection_indices.push_back(i);
+
         pixels[base] = {bbox.x, bbox.y};
         pixels[base + 1] = {bbox.x + bbox.width, bbox.y + bbox.height};
     }
 
+    const size_t m = bbox_detection_indices.size();
+    pixels.resize(m * kCornersPerDetection);
     std::vector<cv::Point2f> corners(pixels.size());
-    cv::undistortPoints(pixels, corners, intrinsics_matrix_, distortion_coeffs_);
+    if (m > 0) {
+        cv::undistortPoints(pixels, corners, intrinsics_matrix_, distortion_coeffs_);
+    }
 
     // Layout per detection: [foot, bottom_left, bottom_right, top_left]
-    std::vector<cv::Point2f> normalized(n * kPointsPerDetection);
-    for (size_t i = 0; i < n; ++i) {
-        const auto& top_left = corners[i * kCornersPerDetection];
-        const auto& bottom_right = corners[i * kCornersPerDetection + 1];
-        const size_t base = i * kPointsPerDetection;
+    std::vector<cv::Point2f> normalized(m * kPointsPerDetection);
+    for (size_t k = 0; k < m; ++k) {
+        const auto& top_left = corners[k * kCornersPerDetection];
+        const auto& bottom_right = corners[k * kCornersPerDetection + 1];
+        const size_t base = k * kPointsPerDetection;
         normalized[base] = {(top_left.x + bottom_right.x) / 2.0f, bottom_right.y};
         normalized[base + 1] = {top_left.x, bottom_right.y};
         normalized[base + 2] = bottom_right;
@@ -261,9 +268,10 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         const double cam_y = camera_origin_.y;
         const double cam_z = std::abs(camera_origin_.z);
 
-        std::vector<cv::Point2f> type2_feet(n);
-        for (size_t i = 0; i < n; ++i) {
-            const size_t base = i * kPointsPerDetection;
+        std::vector<cv::Point2f> type2_feet(m);
+        for (size_t k = 0; k < m; ++k) {
+            const size_t base = k * kPointsPerDetection;
+
             const auto& bl = world[base + 1];
             const auto& br = world[base + 2];
             const double base_len =
@@ -274,15 +282,15 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             const auto& top_left = normalized[base + 3];
             const auto& bottom_right = normalized[base + 2];
             const float height = bottom_right.y - top_left.y;
-            type2_feet[i] = {normalized[base].x, bottom_right.y - (height / 2.0f) * angle_fraction};
+            type2_feet[k] = {normalized[base].x, bottom_right.y - (height / 2.0f) * angle_fraction};
         }
 
         std::vector<cv::Point2d> type2_world;
         std::vector<uint8_t> type2_valid;
         batchNormalizedToWorld(type2_feet, type2_world, type2_valid);
-        for (size_t i = 0; i < n; ++i) {
-            if (type2_valid[i]) {
-                world[i * kPointsPerDetection] = type2_world[i];
+        for (size_t k = 0; k < m; ++k) {
+            if (type2_valid[k]) {
+                world[k * kPointsPerDetection] = type2_world[k];
             }
         }
     }
@@ -301,7 +309,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         const auto& detection = detections[static_cast<size_t>(i)];
         auto& obj = result[static_cast<size_t>(i)];
 
-        if (detection.translation && detection.size) {
+        if (detection.translation) {
             const auto& translation = *detection.translation;
             const cv::Vec4d sensorPosition(translation[0], translation[1], translation[2], 1.0);
             const cv::Vec4d worldPosition = pose_matrix_ * sensorPosition;
@@ -321,7 +329,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             continue;
         }
 
-        const size_t base = bbox_projection_indices[detection_index] * kPixelsPerDetection;
+        const size_t base = bbox_projection_indices[detection_index] * kPointsPerDetection;
 
         // Check all 4 projections succeeded
         if (!valid[base] || !valid[base + 1] || !valid[base + 2] || !valid[base + 3]) {
@@ -356,19 +364,19 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             offset_y += (foot_dy / bearing_len) * half_size;
         }
 
-        obj.id = detections[i].id.value_or(rv::tracking::InvalidObjectId);
+        obj.id = detection.id.value_or(rv::tracking::InvalidObjectId);
         obj.x = offset_x;
         obj.y = offset_y;
         obj.z = 0.0;
         obj.length = width_m; // [width, width, height] convention
         obj.width = width_m;
         obj.height = height_m;
+        addDetectionAttributes(detection, obj);
         if (!applyDetectionRotation(detection, camera_rotation_, obj)) {
             continue;
         }
-        addDetectionAttributes(detection, obj);
 
-        detection_valid[static_cast<size_t>(i)] = 1;
+        detection_valid[i] = 1;
     }
 
     // Compact: remove invalid detections (preserves ordering)

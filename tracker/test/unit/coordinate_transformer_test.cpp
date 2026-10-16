@@ -516,6 +516,42 @@ TEST(TransformDetectionsTest, MixedPixelAndWorldSpaceDetectionsPreserveInputOrde
     EXPECT_NEAR(result[1].z, expected_position[2], kWorldTolerance);
 }
 
+TEST(TransformDetectionsTest, InterleavedWorldSpaceDetectionsDoNotAffectPixelDetections) {
+    for (const int shift_type : {ObjectClassConfig::kShiftType1, ObjectClassConfig::kShiftType2}) {
+        auto transformer = make_transformer(kCameraAtaqQcam1, shift_type);
+        const auto pixel_a = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+        const auto pixel_b = make_detection(10.0f, 10.0f, 80.0f, 160.0f, 3);
+        Detection world_detection;
+        world_detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+        world_detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+        auto world_a = world_detection;
+        world_a.id = 0;
+        auto world_b = world_detection;
+        world_b.id = 2;
+
+        const auto alone_a = transformer.transformDetections(std::array{pixel_a});
+        const auto alone_b = transformer.transformDetections(std::array{pixel_b});
+        const auto mixed =
+            transformer.transformDetections(std::array{world_a, pixel_a, world_b, pixel_b});
+
+        ASSERT_EQ(alone_a.size(), 1u);
+        ASSERT_EQ(alone_b.size(), 1u);
+        ASSERT_EQ(mixed.size(), 4u) << "shift_type=" << shift_type;
+        for (int i = 0; i < 4; ++i) {
+            EXPECT_EQ(mixed[i].id, i) << "shift_type=" << shift_type;
+        }
+        for (const auto& [mixed_index, alone] :
+             {std::pair{1, &alone_a[0]}, std::pair{3, &alone_b[0]}}) {
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].x, alone->x) << "shift_type=" << shift_type;
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].y, alone->y) << "shift_type=" << shift_type;
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].length, alone->length)
+                << "shift_type=" << shift_type;
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].height, alone->height)
+                << "shift_type=" << shift_type;
+        }
+    }
+}
+
 TEST(TransformDetectionsTest, PreservesDetectionId) {
     auto transformer = make_transformer(kCameraAtaqQcam1);
 
