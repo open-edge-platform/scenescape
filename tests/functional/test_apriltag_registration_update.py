@@ -4,6 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import time
+import zipfile
+from pathlib import Path
+
 import pytest
 import requests
 
@@ -28,6 +31,7 @@ REGISTRATION_RETRY_INTERVAL_S = 90
 BASE_URL = "https://autocalibration.scenescape.intel.com:8443"
 
 MAP_APRILTAG_COUNT = 7  # number of apriltags present in Queuing scene
+QUEUING_ZIP = Path(__file__).resolve().parents[1] / "resources" / "scenes" / "Queuing" / "Queuing.zip"
 
 
 class ApriltagRegistration(FunctionalTest):
@@ -147,6 +151,34 @@ class ApriltagRegistration(FunctionalTest):
         # Cleanup should not hide the primary test failure.
         print(f"WARNING: scene restore failed: {err}")
 
+  def _wait_for_map_processed_cleared(self, timeout_s=30):
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+      if self._get_scene().get('map_processed') is None:
+        return
+      time.sleep(POLL_INTERVAL_S)
+    raise AssertionError("map_processed was not cleared within timeout")
+
+  def _reupload_queuing_map(self):
+    """Re-upload Queuing.png from the baseline scene archive."""
+    assert QUEUING_ZIP.is_file(), f"Missing scene archive: {QUEUING_ZIP}"
+    with zipfile.ZipFile(QUEUING_ZIP) as zf:
+      map_bytes = zf.read("Queuing.png")
+    self._update_scene_with_retries({"map": ("Queuing.png", map_bytes)})
+    self._wait_for_map_processed_cleared()
+
+  def _assert_markers_registered(self):
+    markers_response = self.rest.getCalibrationMarkers({'scene': self.scene_id})
+    assert markers_response, (markers_response.statusCode, markers_response.errors)
+    markers = markers_response.get('results', [])
+    assert len(markers) == MAP_APRILTAG_COUNT, \
+      f"Expected {MAP_APRILTAG_COUNT} calibration markers, got {len(markers)}"
+    for marker in markers:
+      assert 'apriltag_id' in marker, f"Marker missing apriltag_id: {marker}"
+      assert marker.get('dims') is not None, f"Marker has null dims: {marker}"
+    assert self._get_scene().get('map_processed') is not None, \
+      "map_processed was not set after registration"
+
   def runApriltagRegistrationUpdate(self):
     """when apriltag parameters are updated, registration creates/updates
     markers and sets map_processed"""
@@ -155,24 +187,7 @@ class ApriltagRegistration(FunctionalTest):
       self._force_scene_unregistered()
       self._trigger_registration()
       self._poll_for_registration()
-
-      # Calibration markers must exist and carry the expected fields
-      markers_response = self.rest.getCalibrationMarkers({'scene': self.scene_id})
-      assert markers_response, (markers_response.statusCode, markers_response.errors)
-      markers = markers_response.get('results', [])
-      assert len(markers) == MAP_APRILTAG_COUNT, \
-        f"Expected {MAP_APRILTAG_COUNT} calibration markers, got {len(markers)}"
-      for marker in markers:
-        assert 'apriltag_id' in marker, \
-          f"Marker missing apriltag_id: {marker}"
-        assert marker.get('dims') is not None, \
-          f"Marker has null dims: {marker}"
-
-      # map_processed must be updated in the DB
-      updated_scene = self._get_scene()
-      assert updated_scene.get('map_processed') is not None, \
-        "map_processed was not set after registration"
-
+      self._assert_markers_registered()
       self.exitCode = 0
     finally:
       self._restore_scene()
@@ -220,6 +235,38 @@ class ApriltagRegistration(FunctionalTest):
     finally:
       self._restore_scene()
 
+  def runApriltagRegistrationMapReupload(self):
+    """Re-uploading the scene map clears map_processed and re-registration
+    recreates calibration markers from the new map."""
+    try:
+      self._clear_calibration_markers()
+      self._force_scene_unregistered()
+      self._trigger_registration()
+      self._poll_for_registration()
+      self._assert_markers_registered()
+
+      # Negative: non-map field updates must not invalidate registration.
+      scene = self._get_scene()
+      original_name = scene.get('name')
+      processed_before = scene.get('map_processed')
+      self._update_scene_with_retries({'name': f"{original_name}_tmp"})
+      assert self._get_scene().get('map_processed') == processed_before, \
+        "map_processed changed after a name-only update"
+      self._update_scene_with_retries({'name': original_name})
+
+      self._reupload_queuing_map()
+      assert self._get_scene().get('map_processed') is None, \
+        "map_processed should be None after map re-upload"
+
+      self._clear_calibration_markers()
+      self._trigger_registration()
+      self._poll_for_registration()
+      self._assert_markers_registered()
+
+      self.exitCode = 0
+    finally:
+      self._restore_scene()
+
 
 @pytest.mark.test_name("NEX-T10483")
 def test_apriltag_registration_update(request, record_xml_attribute, params):
@@ -242,4 +289,16 @@ def test_apriltag_registration_delete(request, record_xml_attribute, params):
     record_xml_attribute,
   )
   test.runApriltagRegistrationDelete()
+  common.record_test_result(TEST_NAME, test.exitCode)
+
+
+@pytest.mark.test_name("NEX-T29296")
+def test_apriltag_registration_map_reupload(request, record_xml_attribute, params):
+  TEST_NAME = "NEX-T29296"
+  test = ApriltagRegistration(
+    "test_apriltag_registration_map_reupload",
+    request,
+    record_xml_attribute,
+  )
+  test.runApriltagRegistrationMapReupload()
   common.record_test_result(TEST_NAME, test.exitCode)

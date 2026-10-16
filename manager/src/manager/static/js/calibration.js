@@ -143,10 +143,15 @@ async function manageCalibrationState(msg, scene_id) {
     } else if (msg.status == "busy") {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
       document.getElementById("auto-autocalibration").disabled = true;
+      // REST uses sceneId; older socket payloads may still send scene_id.
+      const busySceneId = msg?.sceneId ?? msg?.scene_id;
+      const busySceneName = msg?.sceneName ?? msg?.scene_name;
       var button_message =
-        msg?.scene_id == scene_id
+        busySceneId == scene_id
           ? "Scene updated, Registering the scene"
-          : "Unavailable, registering scene : " + msg?.scene_name;
+          : busySceneName
+            ? "Unavailable, registering scene : " + busySceneName
+            : "Unavailable, another scene is registering";
       document.getElementById("auto-autocalibration").title = button_message;
     } else if (msg.status == "success") {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
@@ -172,9 +177,10 @@ async function manageCalibrationState(msg, scene_id) {
       }
     } else if (msg.status == "error") {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
-      document.getElementById("auto-autocalibration").disabled = true;
+      // Keep the button usable so the user can retry after a failed attempt.
+      document.getElementById("auto-autocalibration").disabled = false;
       document.getElementById("auto-autocalibration").title =
-        msg.message || "Auto camera calibration failed";
+        msg.message || "Auto camera calibration failed. Click to try again";
     } else {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
       document.getElementById("auto-autocalibration").title = msg.status;
