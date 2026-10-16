@@ -52,6 +52,7 @@ services:
       - "DBROOT"
       - "SCENESCAPE_ALLOWED_HOSTS"
       - "SUPASS"
+      - "PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX"
       - "http_proxy=${http_proxy}"
       - "https_proxy=${https_proxy}"
       - "no_proxy=127.0.0.1,localhost,${no_proxy},.scenescape.intel.com"

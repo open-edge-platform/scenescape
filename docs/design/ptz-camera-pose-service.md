@@ -555,6 +555,28 @@ results are not supplied by the PoC.
 `ptz_calibration` never contains device credentials. Local config files are limited to
 the isolated lab, offline tools, and tests, not production service configuration.
 
+#### Manager implementation details
+
+Manager stores nullable `ptz_calibration` on `Cam` and exposes it through
+`GET`, `POST`, and `PUT /api/v1/camera/{uid}`; collection reads remain available at
+`GET /api/v1/cameras`. `CamSerializer` delegates to the reusable
+`manager.ptz_calibration.validate_ptz_calibration` helper for REST writes and
+calibration imports, including finite-value, compatibility, positive motion/backlash
+parameters within calibrated travel, and configured residual threshold checks; errors
+are stable `<path>: <code>` strings. The read-only `pose_matrix` field exposes the
+computed home pose for both Euler and point-correspondence cameras. Saving a camera
+publishes a versioned configuration invalidation only after the transaction commits;
+the Resolver then reloads the calibration through its read-only Manager client.
+
+Pose-read ACLs are enforced from `Cam.scene` at check time: a `POSITIONING_POSE` read
+is allowed only when the camera is assigned to a scene in the identity's ACL scope
+(`scenes`, or `all_scenes` for the deployment-wide Controller/Tracker identity).
+Positioning topics bypass the superuser shortcut, so every identity, including
+`controller.auth`, needs an explicit ACL. Pose writes are limited at topic level to the
+named publisher; the deployment manifest remains the only `source_id -> resolver_id`
+mapping. The per-camera procedure is in
+[Onboard PTZ Cameras](../user-guide/how-to-guides/calibrate-cameras/onboard-ptz-cameras.md).
+
 ### 5.6 What changes for projection
 
 v1 deliberately uses a side-channel: detections continue through the existing paths and

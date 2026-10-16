@@ -5,6 +5,7 @@ import datetime
 import json
 import os
 import signal
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -13,11 +14,11 @@ from unittest import mock
 from positioning_status import status_payload, status_topic
 
 try:
-  from positioning_service import PositioningService
+  from positioning_service import PositioningService, load_config, main
 except ModuleNotFoundError as error:
   if error.name != "paho":
     raise
-  PositioningService = None
+  PositioningService = load_config = main = None
 
 
 class TestPositioningStatus(unittest.TestCase):
@@ -33,6 +34,12 @@ class TestPositioningStatus(unittest.TestCase):
       "timestamp": "2026-10-12T00:00:00.000Z",
     })
 
+  def test_payload_generates_utc_timestamp_when_omitted(self):
+    payload = status_payload("resolver-a", "online")
+    timestamp = datetime.datetime.fromisoformat(payload["timestamp"].replace("Z", "+00:00"))
+    self.assertEqual(timestamp.utcoffset(), datetime.timedelta(0))
+    self.assertEqual(timestamp.microsecond % 1000, 0)
+
   def test_invalid_resolver_id_is_rejected(self):
     for resolver_id in (None, "", "resolver/a", "resolver+one", "resolver#one"):
       with self.subTest(resolver_id=resolver_id):
@@ -47,7 +54,49 @@ class TestPositioningStatus(unittest.TestCase):
     with self.assertRaises(ValueError):
       status_payload("resolver-a", "online", datetime.datetime(2026, 10, 12))
 
-  def _create_service(self, temp_dir):
+  def test_invalid_timestamp_values_are_rejected(self):
+    for timestamp in ("", 123):
+      with self.subTest(timestamp=timestamp):
+        with self.assertRaises(ValueError):
+          status_payload("resolver-a", "online", timestamp)
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_load_config_validates_resolver_id(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      config_path = Path(temp_dir) / "positioning.json"
+      config_path.write_text(json.dumps({"resolver_id": "resolver-a"}), encoding="utf-8")
+      self.assertEqual(load_config(config_path), {"resolver_id": "resolver-a"})
+
+      config_path.write_text(json.dumps({"resolver_id": "invalid/id"}), encoding="utf-8")
+      with self.assertRaises(ValueError):
+        load_config(config_path)
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_main_loads_config_and_starts_service(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      config_path = Path(temp_dir) / "positioning.json"
+      config_path.write_text(json.dumps({"resolver_id": "resolver-a"}), encoding="utf-8")
+      arguments = [
+        "positioning_service", "--config", str(config_path), "--broker", "broker",
+        "--brokerauth", "auth", "--cert", "cert", "--keyfile", "key", "--rootcert", "ca",
+      ]
+      with mock.patch.object(sys, "argv", arguments):
+        with mock.patch("positioning_service.PositioningService") as service_factory:
+          main()
+
+      service_factory.assert_called_once_with(
+        {"resolver_id": "resolver-a"}, "broker", "auth", "cert", "key", "ca")
+      service_factory.return_value.run.assert_called_once_with()
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_main_rejects_missing_config(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      config_path = Path(temp_dir) / "missing.json"
+      with mock.patch.object(sys, "argv", ["positioning_service", "--config", str(config_path)]):
+        with self.assertRaisesRegex(FileNotFoundError, "Positioning config not found"):
+          main()
+
+  def _create_service(self, temp_dir, tls_error=None):
     cert = Path(temp_dir) / "client.crt"
     keyfile = Path(temp_dir) / "client.key"
     root_cert = Path(temp_dir) / "root.crt"
@@ -55,6 +104,7 @@ class TestPositioningStatus(unittest.TestCase):
       credential_path.write_text("", encoding="utf-8")
     readiness_file = Path(temp_dir) / "positioning-ready"
     fake_pubsub = mock.Mock()
+    fake_pubsub.client.tls_set.side_effect = tls_error
     with mock.patch.dict(os.environ, {"POSITIONING_READINESS_FILE": str(readiness_file)}):
       with mock.patch("positioning_service.PubSub", return_value=fake_pubsub) as pubsub_factory:
         service = PositioningService(
@@ -72,6 +122,26 @@ class TestPositioningStatus(unittest.TestCase):
         ca_certs=str(Path(temp_dir) / "root.crt"),
         certfile=str(Path(temp_dir) / "client.crt"),
         keyfile=str(Path(temp_dir) / "client.key"))
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_missing_client_credential_is_rejected(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      cert = Path(temp_dir) / "missing.crt"
+      keyfile = Path(temp_dir) / "client.key"
+      root_cert = Path(temp_dir) / "root.crt"
+      keyfile.write_text("", encoding="utf-8")
+      root_cert.write_text("", encoding="utf-8")
+      with self.assertRaisesRegex(FileNotFoundError, "missing.crt"):
+        PositioningService(
+          {"resolver_id": "resolver-a"}, "broker", "positioning:secret",
+          str(cert), str(keyfile), str(root_cert))
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_tls_setup_failure_is_wrapped(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      with self.assertRaisesRegex(RuntimeError, "Failed to configure TLS for MQTT broker broker") as error:
+        self._create_service(temp_dir, tls_error=OSError("invalid certificate"))
+      self.assertIsInstance(error.exception.__cause__, OSError)
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_liveness_readiness_and_retained_status_across_reconnect(self):
@@ -113,6 +183,25 @@ class TestPositioningStatus(unittest.TestCase):
       service.on_connect(fake_pubsub.client, None, None, 5)
       fake_pubsub.client.publish.assert_not_called()
       self.assertFalse(readiness_file.exists())
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_disconnect_without_readiness_file_is_safe(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      service, fake_pubsub, readiness_file, _ = self._create_service(temp_dir)
+      service.on_disconnect(fake_pubsub.client, None, 1, None)
+      self.assertFalse(readiness_file.exists())
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_run_when_disconnected_does_not_publish_or_disconnect(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      service, fake_pubsub, _, _ = self._create_service(temp_dir)
+      fake_pubsub.isConnected.return_value = False
+      service.run()
+
+      fake_pubsub.connect.assert_called_once_with()
+      fake_pubsub.loopForever.assert_called_once_with()
+      fake_pubsub.publish.assert_not_called()
+      fake_pubsub.disconnect.assert_not_called()
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_sigterm_publishes_retained_offline_status(self):
