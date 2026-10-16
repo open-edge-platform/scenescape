@@ -6,9 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 # Positioning Service
 
 The Positioning service is the deployment boundary for source pose capabilities.
-The current service shell establishes MQTT identity, retained resolver status,
-liveness, and deployment wiring. Camera polling and pose resolution remain disabled
-until the PTZ runtime is implemented.
+The service shell establishes MQTT identity, retained resolver status, liveness, and
+deployment wiring. With PTZ sources configured, it polls ONVIF PTZ cameras at 5 Hz
+and produces raw `PTZSample` messages in-process. Pose resolution is not yet
+implemented.
 
 ## Documentation
 
@@ -45,4 +46,5 @@ docker run --rm intel/scenescape-positioning-test:$(cat version.txt)
 
 The runtime is generic: do not add lab camera IPs, usernames, passwords, or
 camera-specific calibration to checked-in configuration. ONVIF credentials belong
-in deployment secrets, and each camera's calibration belongs in Manager.
+in deployment secrets, and each camera's calibration belongs in Manager. Local lab
+configurations go in the git-ignored `positioning/.local/` directory.

@@ -3,13 +3,19 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Infrastructure-only entrypoint for the Positioning deployable."""
+"""Entrypoint for the Positioning deployable."""
 
 import argparse
 import json
+import logging
 import os
 import signal
+import sys
+import threading
 
+from positioning.ptz_poller import LoggingSampleSink
+from positioning.sources import (
+  build_pollers, load_assignments, parse_sources, validate_assignments)
 from positioning_status import status_payload, status_topic
 from scene_common import log
 from scene_common.mqtt import PubSub
@@ -19,15 +25,39 @@ def load_config(path):
   with open(path, "r", encoding="utf-8") as config_file:
     config = json.load(config_file)
   status_topic(config.get("resolver_id"))
+  parse_sources(config)
   return config
 
 
-class PositioningService:
-  """Owns broker liveness while runtime source capabilities are disabled."""
+def configure_library_logging():
+  handler = logging.StreamHandler(sys.stdout)
+  handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+  library_logger = logging.getLogger("positioning")
+  library_logger.addHandler(handler)
+  library_logger.setLevel(logging.INFO)
+  library_logger.propagate = False
 
-  def __init__(self, config, broker, broker_auth, cert, keyfile, root_cert):
+
+def create_pollers(config, assignments_path):
+  """Validate single-owner assignment and build pollers for this resolver's sources."""
+  poll_interval_s, sources = parse_sources(config)
+  if os.path.isfile(assignments_path):
+    validate_assignments(config["resolver_id"], sources, load_assignments(assignments_path))
+  elif sources:
+    raise FileNotFoundError(f"Positioning assignment manifest not found: {assignments_path}")
+  # The PTZ Resolver replaces this interim sink.
+  return build_pollers(sources, poll_interval_s, LoggingSampleSink())
+
+
+class PositioningService:
+  """Owns broker liveness and the lifecycle of source pollers."""
+
+  def __init__(self, config, broker, broker_auth, cert, keyfile, root_cert, pollers=()):
     self.resolver_id = config["resolver_id"]
     self.topic = status_topic(self.resolver_id)
+    self.pollers = list(pollers)
+    self._stop_workers = threading.Event()
+    self._workers = []
     for credential_path in (cert, keyfile, root_cert):
       if not os.path.isfile(credential_path):
         raise FileNotFoundError(f"Required MQTT TLS file not found: {credential_path}")
@@ -69,13 +99,31 @@ class PositioningService:
   def on_sigterm(self, signum, frame):
     raise SystemExit(0)
 
+  def start_workers(self):
+    for poller in self.pollers:
+      targets = [(poller.run, f"ptz-poll-{poller.source_id}")]
+      if poller.move_monitor is not None:
+        targets.append((poller.move_monitor.run, f"ptz-events-{poller.source_id}"))
+      for target, name in targets:
+        worker = threading.Thread(target=target, args=(self._stop_workers,), name=name, daemon=True)
+        worker.start()
+        self._workers.append(worker)
+
+  def stop_workers(self, timeout_s=5.0):
+    self._stop_workers.set()
+    for worker in self._workers:
+      worker.join(timeout_s)
+    self._workers = []
+
   def run(self):
     previous_sigterm_handler = signal.signal(signal.SIGTERM, self.on_sigterm)
     try:
+      self.start_workers()
       try:
         self.client.connect()
         self.client.loopForever()
       finally:
+        self.stop_workers()
         if self.client.isConnected():
           payload = json.dumps(status_payload(self.resolver_id, "offline"))
           self.client.publish(self.topic, payload, qos=0, retain=True)
@@ -98,6 +146,8 @@ def build_argparser():
                       help="path to CA certificate")
   parser.add_argument("--config", default="/app/config/positioning.json",
                       help="path to deployment-owned Positioning config")
+  parser.add_argument("--assignments", default="/app/deployment/positioning-assignments.json",
+                      help="path to the shared source_id -> resolver_id manifest")
   return parser
 
 
@@ -107,7 +157,11 @@ def main():
     raise FileNotFoundError(f"Positioning config not found: {args.config}")
   config = load_config(args.config)
   log.info("Starting Positioning service")
-  PositioningService(config, args.broker, args.brokerauth, args.cert, args.keyfile, args.rootcert).run()
+  configure_library_logging()
+  pollers = create_pollers(config, args.assignments)
+  log.info(f"Configured PTZ sources: {[poller.source_id for poller in pollers]}")
+  PositioningService(config, args.broker, args.brokerauth, args.cert, args.keyfile, args.rootcert,
+                     pollers).run()
 
 
 if __name__ == "__main__":

@@ -51,6 +51,8 @@ pytz==2026.2
 protobuf==5.29.6
 grpcio==1.71.2
 grpcio-tools==1.71.2
+# Positioning ONVIF poller parses device XML with defusedxml
+defusedxml==0.7.1
 
 # Build dependencies for fast_geometry C++ extension
 pybind11==3.0.4
