@@ -9,6 +9,7 @@ bounded. Credentials never appear in URLs, exceptions, reprs, or logs.
 
 import base64
 import datetime
+import hashlib
 import json
 import os
 import time
@@ -16,7 +17,6 @@ from dataclasses import dataclass, field
 from html import escape
 
 import requests
-from cryptography.hazmat.primitives import hashes
 from defusedxml import ElementTree as SafeET
 from requests.auth import HTTPDigestAuth
 
@@ -151,9 +151,9 @@ class SoapClient:
       self._wall_clock() + self.clock_offset_s, tz=datetime.timezone.utc)
     created = _format_created(created_at)
     # WS-Security UsernameToken PasswordDigest is defined as SHA-1 by the ONVIF/OASIS profile.
-    digest_engine = hashes.Hash(hashes.SHA1())
-    digest_engine.update(nonce + created.encode() + self._credentials.password.encode())
-    digest = digest_engine.finalize()
+    digest = hashlib.sha1(  # nosec B324
+      nonce + created.encode() + self._credentials.password.encode()  # lgtm [py/weak-sensitive-data-hashing]
+    ).digest()
     return (
       f'<wsse:Security xmlns:wsse="{_WSSE}" xmlns:wsu="{_WSU}">'
       "<wsse:UsernameToken>"
