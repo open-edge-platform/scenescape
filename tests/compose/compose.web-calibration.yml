@@ -52,7 +52,7 @@ services:
       - "DBROOT=/workspace"
       - "SCENESCAPE_ALLOWED_HOSTS"
       - "SUPASS"
-      - "PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX=${PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX:-2.0}"
+      - "PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX"
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media

@@ -51,7 +51,7 @@ services:
       - "DBTYPE=postgres"
       - "SCENESCAPE_ALLOWED_HOSTS"
       - "SUPASS"
-      - "PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX=${PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX:-2.0}"
+      - "PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX"
       - "http_proxy=${http_proxy}"
       - "https_proxy=${https_proxy}"
       - "no_proxy=${no_proxy},.scenescape.intel.com"

@@ -30,7 +30,8 @@ block format is defined in the
 - A tool that drives the camera over ONVIF and records its raw pan/tilt position, and
   a fitting tool that estimates the model parameters in step 4. Record the name and
   exact version of both; they go into `provenance`.
-- Manager is configured with `PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX`.
+- Manager's `PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX` (image default `12.0`) suits your
+  accuracy requirement.
 - An administrator API token for the import step.
 
 ## 1. Record the Position Space and Home

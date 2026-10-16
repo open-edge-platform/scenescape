@@ -154,16 +154,14 @@ Schema cannot express:
 ### Manager Import Threshold
 
 Manager accepts a non-null `ptz_calibration` only when its
-`reprojection_rms_px` does not exceed `PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX`.
-Configure this as a finite, positive maximum in pixels, for example
-`PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX=1.5` in the Compose project `.env` file or
-the environment used to launch Compose. The Manager service forwards this value
-without a default. For Helm, set `web.ptzCalibrationResidualThresholdPx`, or export
-`PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX` before `make -C kubernetes install`. Test
-Compose stacks and Helm deployment tests default to `2.0`. If the threshold is unset
-or empty, malformed, non-finite, zero, or negative, calibration imports and non-null
-calibration writes are rejected; set the threshold before importing or updating
-calibrated cameras.
+`reprojection_rms_px` does not exceed `PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX`, a
+finite, positive maximum in pixels. The Manager image sets it to `12.0`, which is
+about 1 degree of pointing error at 3 m in a 1080p image. To override
+it, set the variable in the Compose project `.env` file or the environment used to
+launch Compose; for Helm, set `web.ptzCalibrationResidualThresholdPx`, or export
+`PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX` before `make -C kubernetes install`. If the
+configured value is empty, malformed, non-finite, zero, or negative, calibration
+imports and non-null calibration writes are rejected.
 
 ### Manager Validation Errors
 
