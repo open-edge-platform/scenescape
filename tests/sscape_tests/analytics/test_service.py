@@ -2,12 +2,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 from pathlib import Path
 
 import orjson
 import pytest
 
+from analytics.reid_identity import REID_DECISION_TOPIC, ReidIdentityMap
 from analytics.service import AnalyticsService
 from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
@@ -20,6 +21,7 @@ def _service(visibility_topic='regulated', rewrite_all_time=False):
   service.rewrite_all_time = rewrite_all_time
   service.regulate_cache = {}
   service.mqtt_auth = None
+  service.reid_identities = ReidIdentityMap()
   service.schema_val = MagicMock()
   service.scene_data_schema_validator = None
   service.pubsub = MagicMock()
@@ -508,8 +510,11 @@ class TestOnConnect:
 
     assert service.subscribed == set()
     service.updateSubscriptions.assert_called_once()
-    service.pubsub.addCallback.assert_called_once_with(
-      PubSub.formatTopic(PubSub.CMD_DATABASE), service.handleDatabaseMessage)
+    service.pubsub.addCallback.assert_has_calls([
+      call(PubSub.formatTopic(PubSub.CMD_DATABASE), service.handleDatabaseMessage),
+      call(REID_DECISION_TOPIC, service.handleReidDecisionMessage),
+    ])
+    assert service.pubsub.addCallback.call_count == 2
 
 
 class TestUpdateSubscriptions:

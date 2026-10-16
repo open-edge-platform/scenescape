@@ -23,8 +23,9 @@ import json
 import time
 
 from scene_common import log
+from scene_common.mqtt import PubSub
 
-REID_DECISION_TOPIC = "scenescape/data/reid/+/+"
+REID_DECISION_TOPIC = PubSub.formatTopic(PubSub.DATA_REID, scene_id="+", thing_type="+")
 # Forget a decision once its track has not appeared in scene data for this long.
 DEFAULT_IDENTITY_TTL_SECS = 30.0
 
