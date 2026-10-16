@@ -11,6 +11,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 from fake_onvif_camera import DEGREES_SPACE, GENERIC_SPACE, FakeOnvifCamera
 from positioning.onvif import (
@@ -253,6 +254,19 @@ class TestSampleContract(unittest.TestCase):
     with self.assertRaises(ValueError):
       PTZPoller("cam-a", None, ListSink(), move_status="event")
 
+  def test_unknown_move_status_is_rejected(self):
+    with self.assertRaisesRegex(ValueError, "move_status must be one of"):
+      PTZPoller("cam-a", None, ListSink(), move_status="unknown")
+
+  def test_connect_closes_device_when_connection_fails(self):
+    device = ScriptedDevice(FakeClock())
+    device.connect = mock.Mock(side_effect=OnvifTransportError("connect failed"))
+    poller = PTZPoller("cam-a", lambda: device, ListSink())
+    with self.assertRaises(OnvifTransportError):
+      poller.connect()
+    self.assertTrue(device.closed)
+    self.assertIsNone(poller.device)
+
   def test_sink_failure_does_not_stop_polling(self):
     class FailingSink:
       def submit_ptz_sample(self, sample):
@@ -264,6 +278,49 @@ class TestSampleContract(unittest.TestCase):
     with self.assertLogs("positioning", level="ERROR"):
       self.assertIsNone(poller.poll_once()[1])
     self.assertEqual(poller.poll_once()[0].sequence, 2)
+
+  def test_sink_failure_recovers_on_next_sample(self):
+    class RecoveringSink:
+      def __init__(self):
+        self.calls = 0
+
+      def submit_ptz_sample(self, sample):
+        self.calls += 1
+        if self.calls == 1:
+          raise RuntimeError("temporary sink failure")
+        return ptz_pb2.PTZSampleAck(result=ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED,
+                                    accepted_sequence=sample.sequence)
+
+    clock = FakeClock()
+    poller = PTZPoller("cam-a", lambda: ScriptedDevice(clock), RecoveringSink(), clock=clock)
+    poller.connect()
+    with self.assertLogs("positioning", level="ERROR"):
+      self.assertIsNone(poller.poll_once()[1])
+    sample, ack = poller.poll_once()
+    self.assertEqual(ack.accepted_sequence, sample.sequence)
+    self.assertFalse(poller._sink_failing)
+
+  def test_unexpected_poll_error_disconnects_device(self):
+    class StopAfterPollError:
+      def __init__(self):
+        self.checks = 0
+
+      def is_set(self):
+        self.checks += 1
+        return self.checks > 1
+
+      def wait(self, timeout):
+        return False
+
+    clock = FakeClock()
+    device = ScriptedDevice(clock)
+    poller = PTZPoller("cam-a", lambda: device, ListSink(), clock=clock)
+    poller.device = device
+    poller.poll_once = mock.Mock(side_effect=RuntimeError("unexpected poll error"))
+    with self.assertLogs("positioning", level="ERROR"):
+      poller.run(StopAfterPollError())
+    self.assertTrue(device.closed)
+    self.assertIsNone(poller.device)
 
   def test_logging_sink_acknowledges(self):
     now = [0.0]
@@ -363,6 +420,51 @@ class TestPollingLoop(CameraTestCase):
     self.assertEqual(stop.backoffs, [1, 2, 1, 2])
     self.assertEqual(actions, [])
 
+  def test_connection_errors_retry_with_backoff(self):
+    class StopAfterRetries:
+      def __init__(self):
+        self.waits = []
+
+      def is_set(self):
+        return False
+
+      def wait(self, timeout):
+        self.waits.append(timeout)
+        return len(self.waits) == 2
+
+    poller = PTZPoller("cam-a", self.factory, ListSink())
+    poller.connect = mock.Mock(side_effect=[
+      OnvifTransportError("camera unavailable"), RuntimeError("unexpected connect failure")])
+    stop = StopAfterRetries()
+    with self.assertLogs("positioning", level="WARNING"):
+      poller.run(stop)
+    self.assertEqual(stop.waits, [1.0, 2.0])
+    self.assertEqual(poller.connect.call_count, 2)
+
+  def test_polling_recovers_after_transient_status_error(self):
+    class StopAfterRecovery:
+      def __init__(self):
+        self.waits = []
+        self.stopped = False
+
+      def is_set(self):
+        return self.stopped
+
+      def wait(self, timeout):
+        self.waits.append(timeout)
+        self.stopped = len(self.waits) == 2
+        return self.stopped
+
+    clock = FakeClock()
+    device = ScriptedDevice(clock)
+    poller = PTZPoller("cam-a", self.factory, ListSink(), poll_interval_s=0.001, clock=clock)
+    poller.device = device
+    poller.poll_once = mock.Mock(side_effect=[OnvifTransportError("temporary failure"), None])
+    with self.assertLogs("positioning", level="INFO") as logs:
+      poller.run(StopAfterRecovery())
+    self.assertTrue(any("polling recovered after 1 failures" in line for line in logs.output))
+    self.assertTrue(device.closed)
+
 
 class TestMoveEvents(unittest.TestCase):
   def setUp(self):
@@ -434,6 +536,57 @@ class TestMoveEvents(unittest.TestCase):
     monitor.handle(EventMessage("PTZController/MoveX/Channel_1", None, None, {}, {"is_moving": "1"}))
     monitor.handle(EventMessage("PTZController/Move/Channel_1", None, None, {}, {"is_moving": "x"}))
     self.assertIsNone(monitor.is_moving)
+
+  def test_monitor_retries_subscription_errors_and_clears_state(self):
+    class StopAfterRetries:
+      def __init__(self):
+        self.waits = []
+
+      def is_set(self):
+        return False
+
+      def wait(self, timeout):
+        self.waits.append(timeout)
+        return len(self.waits) == 2
+
+    device = mock.Mock()
+    monitor = MoveEventMonitor("cam-b", mock.Mock(return_value=device),
+                               "PTZController/Move", "is_moving")
+    monitor._set_state(True)
+    stop = StopAfterRetries()
+    with mock.patch("positioning.ptz_poller.PullPointSubscription",
+                    side_effect=[OnvifTransportError("subscription failed"),
+                                 RuntimeError("unexpected subscription failure")]):
+      with self.assertLogs("positioning", level="WARNING"):
+        monitor.run(stop)
+
+    self.assertEqual(stop.waits, [1.0, 2.0])
+    self.assertEqual(device.connect_services.call_count, 2)
+    self.assertEqual(device.close.call_count, 2)
+    self.assertIsNone(monitor.is_moving)
+
+  def test_monitor_handles_factory_failure_without_device(self):
+    class StopAfterWait:
+      def is_set(self):
+        return False
+
+      def wait(self, timeout):
+        return True
+
+    factory = mock.Mock(side_effect=RuntimeError("factory failed"))
+    monitor = MoveEventMonitor("cam-b", factory, "PTZController/Move", "is_moving")
+    with self.assertLogs("positioning", level="ERROR"):
+      monitor.run(StopAfterWait())
+    factory.assert_called_once_with()
+    self.assertIsNone(monitor.is_moving)
+
+  def test_monitor_does_not_start_when_stop_is_already_set(self):
+    stop = threading.Event()
+    stop.set()
+    factory = mock.Mock()
+    monitor = MoveEventMonitor("cam-b", factory, "PTZController/Move", "is_moving")
+    monitor.run(stop)
+    factory.assert_not_called()
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 import unittest
+from unittest import mock
 
 from positioning.ptz_poller import LoggingSampleSink
 from positioning.sources import (
@@ -24,6 +25,16 @@ def source(**overrides):
 class TestParseSources(unittest.TestCase):
   def test_shell_config_without_sources(self):
     self.assertEqual(parse_sources({"resolver_id": "r1"}), (DEFAULT_POLL_INTERVAL_S, {}))
+
+  def test_root_config_must_be_an_object(self):
+    with self.assertRaisesRegex(SourceConfigError, "must be a JSON object"):
+      parse_sources([])
+
+  def test_source_comments_are_ignored(self):
+    interval, sources = parse_sources({"resolver_id": "r1", "sources": {
+      "$comment": "deployment note", "cam-a": source(**{"$comment": "camera"})}})
+    self.assertEqual(interval, DEFAULT_POLL_INTERVAL_S)
+    self.assertEqual(list(sources), ["cam-a"])
 
   def test_defaults(self):
     interval, sources = parse_sources({"resolver_id": "r1", "sources": {"cam-a": source()}})
@@ -78,6 +89,8 @@ class TestParseSources(unittest.TestCase):
       {"sources": {"cam-a": source(move_event={"topic": "x"})}},
       {"sources": {"cam-a": source(password="inline")}},
       {"sources": {"cam-a": source(credentials_file=None)}},
+      {"sources": {"cam-a": []}},
+      {"sources": {"cam-a": source(move_event=[]) }},
     ]
     for overrides in invalid:
       with self.subTest(overrides=overrides):
@@ -104,6 +117,14 @@ class TestAssignments(unittest.TestCase):
           with self.assertRaises(SourceConfigError):
             load_assignments(self.write(directory, payload))
 
+  def test_manifest_rejects_malformed_json(self):
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "assignments.json")
+      with open(path, "w", encoding="utf-8") as handle:
+        handle.write("{")
+      with self.assertRaisesRegex(SourceConfigError, "not valid JSON"):
+        load_assignments(path)
+
   def test_single_owner_validation(self):
     sources = {"cam-a": object()}
     validate_assignments("r1", sources, {"cam-a": "r1", "cam-z": "r2"})
@@ -120,6 +141,30 @@ class TestBuildPollers(unittest.TestCase):
       "cam-a": source(credentials_file="/nonexistent/cam-a.json")}})
     with self.assertRaises(SourceConfigError):
       build_pollers(sources, 0.2, LoggingSampleSink())
+
+  def test_malformed_credentials_are_wrapped(self):
+    with tempfile.TemporaryDirectory() as directory:
+      path = os.path.join(directory, "creds.json")
+      with open(path, "w", encoding="utf-8") as handle:
+        handle.write("{")
+      _, sources = parse_sources({"resolver_id": "r1", "sources": {
+        "cam-a": source(credentials_file=path)}})
+      with self.assertRaisesRegex(SourceConfigError, "cannot read credentials_file"):
+        build_pollers(sources, 0.2, LoggingSampleSink())
+
+  def test_device_factory_uses_source_transport_settings(self):
+    config = {"resolver_id": "r1", "sources": {"cam-a": source(
+      scheme="https", port=8443, profile_token="profile-1", tls_ca_file="/run/secrets/ca.pem")}}
+    _, sources = parse_sources(config)
+    credentials = object()
+    with mock.patch("positioning.sources.load_credentials", return_value=credentials):
+      with mock.patch("positioning.sources.OnvifPtzDevice") as device_factory:
+        poller = build_pollers(sources, 0.2, LoggingSampleSink())[0]
+        poller._device_factory()
+
+    device_factory.assert_called_once_with(
+      "camera.example", 8443, credentials, scheme="https", timeout_s=1.0,
+      verify="/run/secrets/ca.pem", profile_token="profile-1")
 
   def test_builds_poller_and_optional_monitor(self):
     with tempfile.TemporaryDirectory() as directory:
