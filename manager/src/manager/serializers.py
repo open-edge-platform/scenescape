@@ -812,7 +812,19 @@ class SceneSerializer(NonNullSerializer):
         if instance._original_map != instance.map:
           instance.autoAlignSceneMap()
         instance.saveThumbnail()
-        Scene.objects.filter(pk=instance.pk).update(thumbnail=instance.thumbnail)
+        # Persist align + thumbnail fields. Create uses bulk_create and never
+        # calls instance.save(), so filter().update must write them or the UI
+        # keeps rotation/translation at 0 while AprilTag localize assumes Rx=90.
+        Scene.objects.filter(pk=instance.pk).update(
+            thumbnail=instance.thumbnail,
+            scale=instance.scale,
+            rotation_x=instance.rotation_x,
+            rotation_y=instance.rotation_y,
+            rotation_z=instance.rotation_z,
+            translation_x=instance.translation_x,
+            translation_y=instance.translation_y,
+            translation_z=instance.translation_z,
+        )
 
     if parent_uid:
       self.link_parent(parent_uid, instance)
