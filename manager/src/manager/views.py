@@ -34,7 +34,7 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
 from rest_framework.views import APIView
-from rest_framework.authentication import SessionAuthentication
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 
 from manager.api import IsAdminOrReadOnly
 from manager import osm_query, osm_roi
@@ -55,12 +55,27 @@ def _is_number(v):
   return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
 
+def _valid_points(points):
+  """True if every [x, y] pair has finite, non-bool numeric coordinates."""
+  return all(_is_number(p[0]) and _is_number(p[1]) for p in points)
+
+
 def _scoped_uuid(model, query_uuid, scene):
   """Force a fresh uuid if the client-supplied one belongs to another scene,
   so a reused/guessed uuid can't reassign that scene's region/tripwire."""
   if model.objects.filter(uuid=query_uuid).exclude(scene=scene).exists():
     return uuid.uuid4()
   return query_uuid
+
+
+def _dedupe_name(name, seen):
+  """Append a numeric suffix to keep a name unique within one save batch.
+
+  shortcut: silently renames rather than rejecting the save; upgrade to a form
+  error if users need to be told about the collision instead.
+  """
+  seen[name] = seen.get(name, 0) + 1
+  return name if seen[name] == 1 else f"{name}-{seen[name]}"
 
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
@@ -169,8 +184,12 @@ def saveROI(request, scene_id):
   if request.method == 'POST':
     form = ROIForm(request.POST)
     if form.is_valid():
-      regions_changed = saveRegionData(scene, form)
-      tripwires_changed = saveTripwireData(scene, form)
+      try:
+        regions_changed = saveRegionData(scene, form)
+        tripwires_changed = saveTripwireData(scene, form)
+      except ValueError as e:
+        form.add_error(None, str(e))
+        return render(request, 'sscape/sceneDetail.html', {'form': form, 'scene': scene}, status=400)
       # Single batched notification per save, regardless of how many regions/tripwires changed.
       if regions_changed or tripwires_changed:
         transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
@@ -189,8 +208,13 @@ def saveTripwireData(scene, form):
   """
   jdata = json.loads(form.cleaned_data['tripwires'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
+
+  if not all(_valid_points(trip.points) for trip in jdata):
+    raise ValueError('Each tripwire needs numeric, finite [x, y] point coordinates')
+
   current_tripwire_ids = set()
   changed = False
+  seen_names = {}
 
   for trip in jdata:
     changed = True
@@ -203,6 +227,7 @@ def saveTripwireData(scene, form):
 
     # Use the provided title or default to "tripwire_<query_uuid>"
     trip_title = trip.title if trip.title else f"tripwire_{query_uuid}"
+    trip_title = _dedupe_name(trip_title, seen_names)
 
     tripwire, _ = Tripwire.objects.update_or_create(uuid=query_uuid, defaults={
         'scene':scene, 'name':trip_title,
@@ -237,8 +262,12 @@ def saveRegionData(scene, form):
   jdata = json.loads(form.cleaned_data['rois'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
 
+  if not all(_valid_points(roi.points) for roi in jdata):
+    raise ValueError('Each roi needs numeric, finite [x, y] point coordinates')
+
   current_region_ids = set()
   changed = False
+  seen_names = {}
 
   for roi in jdata:
     changed = True
@@ -251,6 +280,7 @@ def saveRegionData(scene, form):
 
     # Use the provided title or default to "roi_<query_uuid>"
     roi_title = roi.title if roi.title else f"roi_{query_uuid}"
+    roi_title = _dedupe_name(roi_title, seen_names)
 
     region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
       'scene': scene,
@@ -934,7 +964,7 @@ class PreviewRoisFromOsm(APIView):
   it (full, unclipped shape) - equivalent to dragging a selection box in the
   Regions tab UI.
   """
-  authentication_classes = [SessionAuthentication]
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
   def post(self, request):
@@ -968,9 +998,18 @@ class PreviewRoisFromOsm(APIView):
         previews = osm_roi.filter_by_bounds(previews, bounds)
       bearing = scene.map_bearing or 0.0
 
+      # Pivot for the bearing rotation, in the same scene-local frame as the ROI points.
+      if scene.map_center_lat is not None and scene.map_center_lng is not None:
+        center_lat, center_lng = scene.map_center_lat, scene.map_center_lng
+      else:
+        south, west, north, east = osm_roi.bbox_from_map_corners(scene.map_corners_lla)
+        center_lat, center_lng = (south + north) / 2.0, (west + east) / 2.0
+      center_x, center_y = osm_roi.lla_to_local_xy(scene.trs_matrix, center_lat, center_lng)
+
       return JsonResponse({
         'rois': previews,
         'bearing': bearing,  # degrees, for canvas rotation correction
+        'center': [center_x, center_y],  # scene-local meters pivot for the bearing rotation
       })
 
     except osm_roi.OsmRoiError as e:
@@ -995,7 +1034,7 @@ class AcceptRoisFromOsm(APIView):
   other existing regions in the scene are left untouched. Lets API callers
   accept previews without first re-submitting every other region in the scene.
   """
-  authentication_classes = [SessionAuthentication]
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
   def post(self, request):

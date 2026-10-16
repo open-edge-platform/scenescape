@@ -1174,7 +1174,7 @@ function unbindVertexHandlers(circle) {
 
 /**
  * Bind the polygon body handlers, for the region's lifetime:
- *   left click -> select (or insert a point when near an edge while editing),
+ *   single click -> select/edit (or insert a point when near an edge while editing),
  *   double right click -> delete the region.
  */
 function bindPolygonClickHandler(group, poly) {
@@ -2386,10 +2386,6 @@ function drawRoi(e, index, type) {
 
   e.points.forEach(function (m) {
     var p = metersToPixels(m, scale, scene_y_max);
-    // Keep editable regions on the map so every vertex stays clickable
-    if (type === "roi") {
-      p = clampPointToMap(p[0], p[1]);
-    }
     roi_points.push(p[0], p[1]);
   });
 

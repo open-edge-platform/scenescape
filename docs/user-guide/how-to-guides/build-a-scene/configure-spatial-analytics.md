@@ -38,7 +38,7 @@ Follow the steps in [Deploy the Demo](../deployment/deploy-demo.md) to bring up 
 #### Modify a Region of Interest
 
 1. Click on `Regions` at the bottom of the page.
-2. Find your region in the Scene and double click on the polygon to edit its shape. Drag the vertices to refine their positions. Click an edge to insert a new vertex, or right-click a vertex to remove it (double right-click to delete the whole region).
+2. Find your region in the Scene and click on the polygon to edit its shape. Drag the vertices to refine their positions. Click an edge to insert a new vertex, or right-click a vertex to remove it (double right-click to delete the whole region).
 3. **Optional**: To merge two regions, Ctrl+click a vertex on each region (two clicks per region, four total). Overlapping regions combine automatically; separated regions are joined along the picked vertices.
 4. Click `Save Regions and Tripwires` to persist your changes.
 
@@ -125,7 +125,7 @@ By default, Regions of Interest trigger events when the center point of each obj
 #### Modify a Tripwire
 
 1. Click on the `Tripwires` tab below the scene map view.
-2. Double click on the tripwire to edit on the scene.
+2. Click on the tripwire to edit on the scene.
 3. Click and drag to change position and orientation.
 4. Click `Save Regions and Tripwires` to persist your changes.
 

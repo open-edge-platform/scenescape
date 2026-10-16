@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
 import numpy as np
-from shapely.geometry import LineString, Polygon
+from shapely.geometry import LineString, Polygon, box
 from shapely.geometry.base import BufferCapStyle
 
 from scene_common.earth_lla import convertLLAToECEF
@@ -359,15 +359,12 @@ def assign_temp_uuid(previews: List[Dict[str, Any]]) -> None:
 def roi_overlaps_bounds(
   points: List[Tuple[float, float]], bounds: Dict[str, float]
 ) -> bool:
-  """Whether a polygon's bounding box overlaps an axis-aligned selection rectangle at all.
-
-  # shortcut: bbox overlap, not exact polygon intersection; upgrade if concave
-  # buffer shapes start producing false positives for thin/L-shaped selections.
-  """
-  xs = [p[0] for p in points]
-  ys = [p[1] for p in points]
-  return (max(xs) >= bounds["minX"] and min(xs) <= bounds["maxX"]
-          and max(ys) >= bounds["minY"] and min(ys) <= bounds["maxY"])
+  """Whether a polygon actually intersects an axis-aligned selection rectangle."""
+  selection = box(bounds["minX"], bounds["minY"], bounds["maxX"], bounds["maxY"])
+  polygon = Polygon(points)
+  if not polygon.is_valid:
+    polygon = polygon.buffer(0)
+  return polygon.intersects(selection)
 
 
 def filter_by_bounds(

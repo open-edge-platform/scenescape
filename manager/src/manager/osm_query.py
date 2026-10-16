@@ -29,6 +29,8 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
 
+import fcntl
+
 import pandas as pd
 import requests
 from shapely import wkb
@@ -58,6 +60,7 @@ MAX_BBOX_SPAN_DEG = 0.05  # ~5.5km at the equator; keeps queries/responses small
 MAX_ROI_FEATURES = 1000  # safety cap on raw ways processed for geometry extraction
 
 _last_request_time = 0.0
+_THROTTLE_LOCK_PATH = "/tmp/.scenescape_osm_throttle.lock"
 
 
 class OsmQueryError(Exception):
@@ -112,12 +115,27 @@ def get_api_key() -> str:
 
 
 def _throttle() -> None:
-  """Enforce a minimum interval between requests to be a good API citizen."""
+  """Enforce a minimum interval between requests to be a good API citizen.
+
+  Uses a flock-ed state file so the interval is shared across worker
+  processes, not just within the one handling this request.
+  """
   global _last_request_time
-  elapsed = time.monotonic() - _last_request_time
-  if elapsed < MIN_REQUEST_INTERVAL_S:
-    time.sleep(MIN_REQUEST_INTERVAL_S - elapsed)
-  _last_request_time = time.monotonic()
+  with open(_THROTTLE_LOCK_PATH, "a+") as lock_file:
+    fcntl.flock(lock_file, fcntl.LOCK_EX)
+    try:
+      lock_file.seek(0)
+      raw = lock_file.read().strip()
+      last = float(raw) if raw else _last_request_time
+      elapsed = time.monotonic() - last
+      if elapsed < MIN_REQUEST_INTERVAL_S:
+        time.sleep(MIN_REQUEST_INTERVAL_S - elapsed)
+      _last_request_time = time.monotonic()
+      lock_file.seek(0)
+      lock_file.truncate()
+      lock_file.write(str(_last_request_time))
+    finally:
+      fcntl.flock(lock_file, fcntl.LOCK_UN)
   return
 
 

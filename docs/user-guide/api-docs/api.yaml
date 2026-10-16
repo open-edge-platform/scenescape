@@ -1788,6 +1788,10 @@ paths:
         - scene
       operationId: save_geospatial_snapshot_create
       summary: Save a geospatial map snapshot as PNG
+      description: >-
+        Called by the Manager web UI's scene editor, not an external API
+        client. Requires an authenticated browser session (not a
+        tokenAuth Authorization header) plus a matching CSRF token.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1801,7 +1805,7 @@ paths:
                 - image_data
         required: true
       security:
-        - tokenAuth: []
+        - cookieAuth: []
       responses:
         "200":
           description: Snapshot saved successfully
@@ -3087,3 +3091,11 @@ components:
       in: header
       name: Authorization
       description: Token-based authentication with required prefix "Token"
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+      description: >-
+        Django session authentication used by the Manager web UI. Requires an
+        authenticated browser session plus a matching X-CSRFToken header on
+        unsafe methods. Not available to external API clients.
