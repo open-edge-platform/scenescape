@@ -32,13 +32,13 @@ import time
 from collections import Counter
 
 from scene_common import log
+from scene_common.mqtt import PubSub
 from reid_service.embedding import decode_reid_payload
 from reid_service.matcher import MatcherConfig, TrackMatcher, TrackObservation
 
 DEFAULT_TOPIC = "scenescape/data/scene/+/+"
 # One message per ReID decision. Analytics maps track_id -> gid from these and
 # publishes the gid on the regulated topic (as the Controller's scene output did).
-DECISION_TOPIC = "scenescape/data/reid/{scene_id}/{category}"
 _TOPIC_PREFIX = ("scenescape", "data", "scene")
 _STATS_LOG_INTERVAL_SECS = 30.0
 
@@ -119,7 +119,7 @@ def parse_scene_message(payload, category=None, stats=None):
 
 
 def decision_message(decision, decided_at_epoch):
-  """Wire format for DECISION_TOPIC."""
+  """Wire format for one identity decision."""
   decided_at = datetime.datetime.fromtimestamp(decided_at_epoch, datetime.timezone.utc)
   return {
     "scene_id": decision["scene_id"],
@@ -227,7 +227,8 @@ class TrackIngest:
     if self.pubsub is None:
       return
     payload = decision_message(decision, self.clock())
-    topic = DECISION_TOPIC.format(scene_id=decision["scene_id"], category=decision["category"])
+    topic = PubSub.formatTopic(PubSub.DATA_REID, scene_id=decision["scene_id"],
+                   thing_type=decision["category"])
     try:
       self.pubsub.publish(topic, json.dumps(payload), qos=1)
       self.stats["decisions_published"] += 1
