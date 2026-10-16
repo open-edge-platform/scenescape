@@ -9,9 +9,6 @@
 
 #include <chrono>
 #include <optional>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 namespace rv {
@@ -60,10 +57,6 @@ inline bool shouldReplace(bool winnerExists,
 }
 
 } // namespace metadata_fusion
-
-/// Hold recent per-camera measurements this long so streaming (Immediate)
-/// updates can average geometry like the batched path.
-constexpr std::chrono::milliseconds kStreamingMultiCamHold{250};
 
 class MultipleObjectTracker
 {
@@ -168,16 +161,6 @@ private:
 
   std::chrono::system_clock::time_point mLastTimestamp;
 
-  struct CameraMeasurement
-  {
-    TrackedObject object;
-    std::chrono::system_clock::time_point when{};
-    // Cameras whose updates already averaged this sample; reusing it would double-count it.
-    std::unordered_set<std::string> usedBy;
-  };
-  // track id -> camera_id -> last measurement (streaming multi-cam fusion)
-  std::unordered_map<Id, std::unordered_map<std::string, CameraMeasurement>> mLastCameraMeasurements;
-
   /**
    * @brief Helper function to match tracks with objects and update measurements
    *
@@ -186,7 +169,6 @@ private:
    * @param distanceType Distance calculation method
    * @param distanceThreshold Maximum distance for matching
    * @param[out] unassignedObjects Indices of objects that were not assigned to any track
-   * @param timestamp Current track step time (for streaming multi-cam hold)
    * @return Updated vector of unassigned tracks
    */
   std::vector<tracking::TrackedObject> matchAndAssignMeasurements(
@@ -194,8 +176,7 @@ private:
     std::vector<tracking::TrackedObject> &objects,
     const DistanceType &distanceType,
     double distanceThreshold,
-    std::vector<size_t> &unassignedObjects,
-    const std::chrono::system_clock::time_point &timestamp);
+    std::vector<size_t> &unassignedObjects);
 
   /**
    * @brief Helper function to match tracks with objects batched from multiple cameras
@@ -213,15 +194,6 @@ private:
     std::vector<std::vector<tracking::TrackedObject>> &objectsPerCamera,
     const DistanceType &distanceType,
     double distanceThreshold);
-
-  void rememberCameraMeasurement(Id trackId,
-                                 const TrackedObject &measurement,
-                                 const std::chrono::system_clock::time_point &timestamp);
-  TrackedObject fuseStreamingCameraMeasurements(
-    Id trackId,
-    TrackedObject measurement,
-    const std::chrono::system_clock::time_point &timestamp);
-  void pruneCameraMeasurements(const std::chrono::system_clock::time_point &timestamp);
 
 };
 } // namespace tracking

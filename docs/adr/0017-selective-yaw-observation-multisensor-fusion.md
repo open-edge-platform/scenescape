@@ -39,11 +39,10 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
   - If `has_orientation`: unwrap and correct yaw as today (`deltaTheta`).
   - Else: set measurement yaw to the **predicted** yaw (zero yaw innovation) so position/size still update.
 
-### Multi-sensor fusion (time chunk and streaming)
+### Multi-sensor fuse in one time chunk
 
 - Keep existing policy for **position and size**.
 - For **yaw**: if any matched detection in the chunk has `has_orientation`, prefer that yaw (highest classification confidence; later camera index breaks ties) and set fused `has_orientation`. Yaw is never averaged across detections.
-- In streaming mode, yaw and `has_orientation` come from the current detection only; cached detections from other sensors contribute position and size, not yaw.
 - Sticky track attribute `orientation_observed=true` after any orienting correct (and at track create when the seed detection is orienting).
 
 ### Association
