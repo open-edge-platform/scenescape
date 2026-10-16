@@ -22,7 +22,8 @@ checks. When PTZ sources are configured, it also polls each ONVIF PTZ camera and
 produces raw `PTZSample` messages in-process.
 
 > **Note:** The PTZ Pose Resolver is not part of this release. Raw samples go to an
-> interim sink that only logs periodic polling statistics. The service does not
+> interim sink that logs reported motion-state changes without repeating unchanged
+> states. The service does not
 > publish poses or change how detections are tracked.
 
 ## How It Works

@@ -323,17 +323,34 @@ class TestSampleContract(unittest.TestCase):
     self.assertIsNone(poller.device)
 
   def test_logging_sink_acknowledges(self):
-    now = [0.0]
-    sink = LoggingSampleSink(interval_s=1.0, monotonic=lambda: now[0])
+    sink = LoggingSampleSink()
     sample = build_sample("cam-a", "id", 7, 0, 1, PtzStatus(0, 0, None, GENERIC_SPACE, "IDLE"),
                           None, ptz_pb2.REPORTED_MOVE_STATUS_IDLE)
-    self.assertEqual(sink.submit_ptz_sample(sample).accepted_sequence, 7)
-    now[0] = 2.0
+    with self.assertLogs("positioning", level="INFO") as logs:
+      ack = sink.submit_ptz_sample(sample)
+    self.assertEqual(ack.accepted_sequence, 7)
+    self.assertIn('\"record\": \"ptz_motion_state\"', logs.output[0])
+    record = json.loads(logs.records[0].getMessage())
+    self.assertIsNone(record["previous_status"])
+    with self.assertNoLogs("positioning", level="INFO"):
+      sink.submit_ptz_sample(sample)
+    sample.sequence = 9
+    sample.reported_move_status = ptz_pb2.REPORTED_MOVE_STATUS_MOVING
     with self.assertLogs("positioning", level="INFO") as logs:
       sink.submit_ptz_sample(sample)
-    self.assertIn('"record": "ptz_poll_stats"', logs.output[0])
-    fields = list(json.loads(logs.records[0].getMessage()).keys())
-    self.assertEqual(fields[fields.index("pan") + 1], "tilt")
+    record = json.loads(logs.records[0].getMessage())
+    self.assertEqual(record["previous_status"], "REPORTED_MOVE_STATUS_IDLE")
+    self.assertEqual(record["reported_move_status"], "REPORTED_MOVE_STATUS_MOVING")
+    sample.sequence = 10
+    with self.assertNoLogs("positioning", level="INFO"):
+      sink.submit_ptz_sample(sample)
+    sample.sequence = 11
+    sample.reported_move_status = ptz_pb2.REPORTED_MOVE_STATUS_IDLE
+    with self.assertLogs("positioning", level="INFO") as logs:
+      sink.submit_ptz_sample(sample)
+    record = json.loads(logs.records[0].getMessage())
+    self.assertEqual(record["previous_status"], "REPORTED_MOVE_STATUS_MOVING")
+    self.assertEqual(record["reported_move_status"], "REPORTED_MOVE_STATUS_IDLE")
 
 
 class TestPollingLoop(CameraTestCase):

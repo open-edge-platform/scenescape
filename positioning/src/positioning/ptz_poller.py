@@ -282,35 +282,29 @@ class PTZPoller:
 
 
 class LoggingSampleSink:
-  """Interim in-process sink until the PTZ Resolver lands; logs periodic per-source stats."""
+  """Interim sink that logs per-source motion status changes until the Resolver lands."""
 
-  def __init__(self, interval_s=30.0, monotonic=time.monotonic):
-    self.interval_s = interval_s
-    self._monotonic = monotonic
+  def __init__(self):
     self._lock = threading.Lock()
-    self._stats = {}
+    self._last_status = {}
 
   def submit_ptz_sample(self, sample):
-    now = self._monotonic()
     with self._lock:
-      stats = self._stats.setdefault(sample.camera_id, {
-        "since": now, "count": 0, "max_uncertainty_ns": 0})
-      stats["count"] += 1
-      stats["max_uncertainty_ns"] = max(stats["max_uncertainty_ns"], sample.timestamp_uncertainty_ns)
-      elapsed = now - stats["since"]
-      if elapsed >= self.interval_s:
+      previous_status = self._last_status.get(sample.camera_id)
+      current_status = sample.reported_move_status
+      self._last_status[sample.camera_id] = current_status
+      if previous_status != current_status:
         log.info(json.dumps({
-          "record": "ptz_poll_stats",
+          "record": "ptz_motion_state",
           "source_id": sample.camera_id,
           "adapter_instance_id": sample.adapter_instance_id,
           "sequence": sample.sequence,
-          "rate_hz": round(stats["count"] / elapsed, 2),
-          "max_uncertainty_ms": round(stats["max_uncertainty_ns"] / 1e6, 2),
+          "previous_status": ptz_pb2.ReportedMoveStatus.Name(previous_status)
+            if previous_status is not None else None,
+          "reported_move_status": ptz_pb2.ReportedMoveStatus.Name(current_status),
           "pan": sample.position.pan,
           "tilt": sample.position.tilt,
           "position_space_uri": sample.position.position_space_uri,
-          "reported_move_status": ptz_pb2.ReportedMoveStatus.Name(sample.reported_move_status),
         }, sort_keys=False))
-        self._stats[sample.camera_id] = {"since": now, "count": 0, "max_uncertainty_ns": 0}
     return ptz_pb2.PTZSampleAck(result=ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED,
                                 accepted_sequence=sample.sequence)

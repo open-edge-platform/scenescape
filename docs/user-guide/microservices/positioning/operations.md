@@ -255,13 +255,13 @@ positioning/.local/
    command again after you edit any file in `positioning/.local/`. The files are
    read only at startup.
 
-   At startup the service logs `Configured PTZ sources: [...]` and
-   `PTZ source <id> connected: ...` for each camera. Every 30 seconds it logs a
-   `ptz_poll_stats` record per source with the achieved rate and maximum timestamp
-   uncertainty. Event-capable cameras also log a `ptz_move_event` record for each
-   `is_moving` change. Configuration errors, such as a source missing from the
-   manifest, unknown keys, or an unreadable credentials file, stop the service
-   with a message that names the source.
+At startup the service logs `Configured PTZ sources: [...]` and
+`PTZ source <id> connected: ...` for each camera. It logs a `ptz_motion_state`
+record only when the reported state changes, such as IDLE to MOVING and back;
+unchanged states produce no recurring log entries. Event-capable cameras also
+log a `ptz_move_event` record for each `is_moving` change. Configuration errors,
+such as a source missing from the manifest, unknown keys, or an unreadable
+credentials file, stop the service with a message that names the source.
 
 To return to the default service shell, recreate the service without the override
 file:
