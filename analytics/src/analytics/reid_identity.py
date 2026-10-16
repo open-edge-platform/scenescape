@@ -82,6 +82,9 @@ class ReidIdentityMap:
       self._last_seen[key] = now
       if not decision["matched"]:
         obj.setdefault("reid_state", "query_no_match")
+        if decision["gid"] != track_id:
+          obj["id"] = decision["gid"]
+          rewritten += 1
         continue
       if decision["gid"] == track_id:
         continue

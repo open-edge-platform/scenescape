@@ -220,10 +220,12 @@ class TrackMatcher:
 
   def process_frame(self, observations: List[TrackObservation]):
     """Feed one scene-track message, then retire tracks no longer present."""
-    present = set()
+    present = {obs.track_id for obs in observations}
+    # Keep rename sources until _stateFor has migrated their state.
+    aliases = {previous for obs in observations for previous in obs.previous_ids}
+    self.prune(present | aliases)
     for obs in observations:
       self.observe(obs)
-      present.add(obs.track_id)
     self.prune(present)
     self.flush_stale()
 
