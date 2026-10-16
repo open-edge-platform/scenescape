@@ -516,10 +516,31 @@ SPDX-License-Identifier: Apache-2.0
             <button
               type="button"
               class="btn btn-primary btn-sm float-right right-buffer"
+              id="generateRoisBtn"
+              title="{% if osm_roi_disabled_reason %}
+                {{ osm_roi_disabled_reason }}
+              {% else %}
+                Suggest regions of interest from OpenStreetMap data
+              {% endif %}"
+              {% if osm_roi_disabled_reason %}disabled{% endif %}
+            >
+              Suggest ROIs with OSM
+            </button>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm float-right right-buffer"
               id="new-roi"
               title="Create a new ROI"
             >
               + New Region
+            </button>
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm float-right right-buffer"
+              id="select-roi-area"
+              title='Drag a box on the map, then press Backspace to delete the ROIs inside it, or click "Suggest ROIs with OSM" to generate regions overlapping it'
+            >
+              Select Area
             </button>
             <input
               type="button"
@@ -530,6 +551,8 @@ SPDX-License-Identifier: Apache-2.0
           {% endif %}
         </h5>
         <div class="card-body">
+          <div id="osmRoiStatus" class="mb-3"></div>
+
           <div id="roi-fields" class="top-buffer"></div>
           <div id="no-regions">
             No Regions of Interest defined. Click "+ New Region" to create one.
@@ -889,14 +912,38 @@ SPDX-License-Identifier: Apache-2.0
         <div class="modal-body">
           <ul>
             <li>
-              Click "New Region" and then click a spot on the map for each
-              vertex of your region of interest (ROI)
+              Click "+ New Region" and click a spot on the map for each vertex
+              of the new region; click the green starting dot to close the
+              polygon; give it a unique name.
             </li>
-            <li>To close the ROI polygon, click on the green starting dot</li>
-            <li>Be sure to give your new ROI a unique name</li>
             <li>
-              To edit an ROI, double click on it and drag its vertices, then
-              double-click again to finish editing
+              Click "Suggest ROIs with OSM" to auto-generate proposed regions
+              from OpenStreetMap data (button is disabled if the scene isn't
+              geospatial or no OSM API key is configured). Proposed regions
+              appear with a dashed outline and an "OSM" badge and can be edited
+              the same way as manually drawn regions.
+            </li>
+            <li>
+              To edit a region, click it to enter edit mode, then drag
+              its vertices to reshape it, click on an edge to insert a new
+              vertex, right-click a vertex to remove it, or double right-click
+              the region to delete it entirely; click again to finish
+              editing.
+            </li>
+            <li>
+              To merge two regions into one, Ctrl+click two vertices on the
+              first region, then two vertices on the second region (four clicks
+              total). Overlapping regions are combined automatically; separated
+              regions are instead joined along the four picked vertices, so pick
+              the vertices on the sides facing each other.
+            </li>
+            <li>
+              Click "Select Area" and drag a box on the map to select a region
+              (works on any map, geospatial or not). With a selection active:
+              press Backspace to delete the ROIs whose centers fall inside the
+              box, click "+ New Region" to instantly create a rectangular ROI
+              matching the box, or click "Suggest ROIs with OSM" (geospatial
+              scenes only) to generate proposed regions overlapping it.
             </li>
             <li>
               Be sure to click "Save Regions and Tripwires" when you are
@@ -1036,6 +1083,21 @@ SPDX-License-Identifier: Apache-2.0
               required
               maxlength="100"
             />
+            <div class="input-group-append ml-2">
+              <span class="input-group-text">Type</span>
+            </div>
+            <input
+              type="text"
+              class="form-control roi-type"
+              placeholder="ROI Type"
+              maxlength="150"
+              style="width: 150px;"
+            />
+            <span
+              class="osm-badge"
+              title="This region was generated from OpenStreetMap data"
+              >OSM</span
+            >
             <div class="input-group-append">
               <button
                 class="btn btn-secondary roi-remove"
@@ -1220,4 +1282,9 @@ SPDX-License-Identifier: Apache-2.0
     </div>
   </div>
   <input type="hidden" id="auth-token" value="{{ user.auth_token }}" />
+  <input type="hidden" id="sceneUID" value="{{ scene.id }}" />
+  <script
+    type="module"
+    src="/static/js/geospatial/scene-update-osm-roi.js"
+  ></script>
 {% endblock %}

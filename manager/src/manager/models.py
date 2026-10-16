@@ -145,7 +145,8 @@ class Scene(models.Model):
                                       help_text=(
                                         "Provide the array of four map corners geospatial coordinates (lat, long, alt).\n"
                                         "Required only if 'Output geospatial coordinates' is set to `Yes`.\n"
-                                        "Expected order: starting from the bottom-left corner counterclockwise.\nExpected JSON format: "
+                                        "Expected order: starting from the bottom-left corner, clockwise (SW, NW, NE, SE)"
+                                        ".\nExpected JSON format: "
                                         "'[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'"))
   # Geospatial map settings
   geospatial_provider = models.CharField("Geospatial Map Provider", max_length=20,
@@ -165,6 +166,22 @@ class Scene(models.Model):
     "Transformation matrix (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude)",
     default=None, null=True, blank=True, editable=False,
     help_text="4x4 transformation matrix (translation-rotation-scale) stored as JSON [[...], [...], [...], [...]]"
+  )
+  # OSM ways cache (raw ohsome query result, reused across ROI generation
+  # clicks so we don't re-hit the OSM API unless the bbox below is stale).
+  osm_ways_cache = models.JSONField(
+    "Cached OpenStreetMap way geometries for this scene",
+    default=None, null=True, blank=True, editable=False,
+    help_text="Cached raw OSM way geometries fetched for this scene's map corners bounding box"
+  )
+  # Bounding box used to fetch osm_ways_cache: [south, west, north, east].
+  # Not cleared on edit; build_roi_previews() compares it against the scene's
+  # current map_corners_lla and refetches if they no longer match.
+  osm_ways_cache_bbox = models.JSONField(
+    "Cached bounding box for OSM ways query",
+    default=None, null=True, blank=True, editable=False,
+    help_text="Bounding box [south, west, north, east] used to fetch osm_ways_cache; "
+              "stale once it no longer matches the scene's map corners"
   )
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
   polycam_data = models.FileField(blank=True, null=True, validators=[FileExtensionValidator(["zip"])])
@@ -362,7 +379,8 @@ class Scene(models.Model):
     jdata = []
     for region in self.regions.all():
       rdict = {'title': region.name, 'points': [], 'uuid':str(region.uuid),
-               'volumetric': region.volumetric, 'height': region.height, 'buffer_size': region.buffer_size}
+               'volumetric': region.volumetric, 'height': region.height, 'buffer_size': region.buffer_size,
+               'type': region.roi_type}
       thresholds, range_max = region.get_sectors()
       rdict['sectors'] = {'thresholds':thresholds, 'range_max':range_max}
 
@@ -1000,6 +1018,7 @@ class Region(BoundingBox):
   height = models.FloatField(default=1.0, null=False, blank=False, validators=[MinValueValidator(0.001)])
   volumetric = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
   visible = models.BooleanField(default=False)
+  roi_type = models.CharField(max_length=150, default='', blank=True, help_text='Type or category of the Region of Interest')
 
   def get_sectors(self):
     if not hasattr(self, 'roi_occupancy_threshold'):

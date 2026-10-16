@@ -282,6 +282,7 @@ class AnalyticsService:
         'volumetric': region.get('volumetric', False),
         'height': region.get('height', 1),
         'buffer_size': region.get('buffer_size', 0),
+        'type': region.get('roi_type', ''),
         'sectors': {
           'thresholds': color_ranges.get('sectors', []),
           'range_max': color_ranges.get('range_max', 0),

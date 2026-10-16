@@ -16,7 +16,7 @@ import tempfile
 
 from scene_common.geometry import Region, Point
 from scene_common.mesh_util import createRegionMesh, createObjectMesh, mergeMesh, extractMeshFromPointCloud, extractMeshFromGLB
-from scene_common.mesh_util import checkMeshConnectivity
+from scene_common.mesh_util import checkMeshConnectivity, getMeshAxisAlignedProjectionToXY
 
 from manager.mesh_generator import MeshGenerator
 from manager.models import Cam, Scene
@@ -105,6 +105,25 @@ def test_create_region_mesh():
   expected_length = 1.0 + 2 * region.buffer_size  # 1 unit length + buffer on each side
   assert np.max(x_values) - np.min(x_values) == pytest.approx(expected_width)
   assert np.max(y_values) - np.min(y_values) == pytest.approx(expected_length)
+
+def test_get_mesh_axis_aligned_projection_to_xy_corner_order():
+  # Regression: corner order must stay [SW, NW, NE, SE] to pair index-by-index
+  # with Scene.map_corners_lla as written by the geospatial map UI plugins.
+  legacy_mesh = o3d.geometry.TriangleMesh()
+  legacy_mesh.vertices = o3d.utility.Vector3dVector(
+    np.array([[0, 0, 0], [2, 0, 0], [2, 3, 0], [0, 3, 0]], dtype=np.float64))
+  legacy_mesh.triangles = o3d.utility.Vector3iVector(np.array([[0, 1, 2], [0, 2, 3]]))
+  mesh = o3d.t.geometry.TriangleMesh.from_legacy(legacy_mesh)
+
+  corners = getMeshAxisAlignedProjectionToXY(mesh)
+
+  expected = np.array([
+    [0, 0, 0],  # SW
+    [0, 3, 0],  # NW
+    [2, 3, 0],  # NE
+    [2, 0, 0],  # SE
+  ])
+  np.testing.assert_array_equal(corners, expected)
 
 def test_create_object_mesh():
   # Create test object
