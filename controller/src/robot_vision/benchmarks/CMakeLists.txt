@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Intel Corporation
+# SPDX-FileCopyrightText: 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 #####################################################################
@@ -17,9 +17,6 @@ if(benchmark_FOUND)
     )
     
     add_executable(${BENCHMARK_EXEC_NAME} ${BENCHMARK_SOURCES})
-
-    set_property(TARGET ${BENCHMARK_EXEC_NAME} PROPERTY CXX_STANDARD ${RV_CXX_STANDARD})
-    set_property(TARGET ${BENCHMARK_EXEC_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
     
     target_compile_options(${BENCHMARK_EXEC_NAME} PRIVATE 
         -fno-access-control
