@@ -41,8 +41,8 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 
 ### Multi-sensor fuse in one time chunk
 
-- Keep last-match (or existing policy) for **position and size**.
-- For **yaw**: if any matched detection in the chunk has `has_orientation`, prefer that yaw (highest classification confidence; later camera index breaks ties) and set fused `has_orientation`.
+- Keep existing policy for **position and size**.
+- For **yaw**: if any matched detection in the chunk has `has_orientation`, prefer that yaw (highest classification confidence; later camera index breaks ties) and set fused `has_orientation`. Yaw is never averaged across detections.
 - Sticky track attribute `orientation_observed=true` after any orienting correct (and at track create when the seed detection is orienting).
 
 ### Association
@@ -99,7 +99,6 @@ flowchart LR
 
 ### Negative / limitations
 
-- Position/size fusion policy remains last-match; only yaw is preferential among orienting sensors.
 - Tracks that never see an orienting sensor still rely on velocity heading (and hysteresis thresholds).
 - Pitch/roll remain display/default constants until a future ADR if 6-DOF measurements appear.
 - Sticky `orientation_observed` does not currently expire; a long camera-only gap after an orienting sensor still prefers Kalman yaw unless velocity heading disagrees while moving (publish fallback).
