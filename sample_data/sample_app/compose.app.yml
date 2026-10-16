@@ -1,16 +1,17 @@
 services:
-	nodered:
-		image: nodered/node-red:latest
-		networks:
-			- scenescape_scenescape
+  nodered:
+    build: .
+    networks:
+      - scenescape_scenescape
     ports:
       - "1880:1880"
-
+    volumes:
+      - nodered_data:/data
 
 networks:
-	scenescape_scenescape:
-		external: true
+  scenescape_scenescape:
+    external: true
 
-configs:
-	nodered_settings:
-		external: true
+volumes:
+  nodered_data:
+    driver: local

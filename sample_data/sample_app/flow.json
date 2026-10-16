@@ -1,0 +1,218 @@
+[
+  {
+    "id": "f6f2187d.f17ca8",
+    "type": "tab",
+    "label": "Scenescape",
+    "disabled": false,
+    "info": ""
+  },
+  {
+    "id": "1661c6a11cc59556",
+    "type": "mqtt in",
+    "z": "f6f2187d.f17ca8",
+    "name": "Scenes",
+    "topic": "scenescape/regulated/scene/#",
+    "qos": "2",
+    "datatype": "auto-detect",
+    "broker": "ed1be9ed439c7126",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 70,
+    "y": 300,
+    "wires": [
+      [
+        "61566273ee6e88c5"
+      ]
+    ]
+  },
+  {
+    "id": "ca4c8dbd84325f28",
+    "type": "debug",
+    "z": "f6f2187d.f17ca8",
+    "name": "debug 1",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "false",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 440,
+    "y": 760,
+    "wires": []
+  },
+  {
+    "id": "61566273ee6e88c5",
+    "type": "function",
+    "z": "f6f2187d.f17ca8",
+    "name": "Count Objects",
+    "func": "const data = msg.payload;\n\nconst objects = data.objects;\n\nconst uniqueCategories = new Set(Array.from((function* () { for (const key in objects) yield objects[key].category; })()));\n\nconst objectPerCategory = {};\n\nfor (const category of uniqueCategories) {\n  objectPerCategory[category] = 0;\n  for (const key in objects) {\n    const object = objects[key];\n    if (object.category !== category) continue;\n    objectPerCategory[category] += 1;\n  }\n}\n\ndelete msg.payload.objects;\ndelete msg.payload.scene_rate;\ndelete msg.payload.rate;\nmsg.payload.objectPerCategory = objectPerCategory;\n\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 240,
+    "wires": [
+      [
+        "49d880a4e0d55996"
+      ]
+    ]
+  },
+  {
+    "id": "e6f86f16d74162a3",
+    "type": "function",
+    "z": "f6f2187d.f17ca8",
+    "name": "ROI Occupancy",
+    "func": "\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 340,
+    "wires": [
+      [
+        "49d880a4e0d55996"
+      ]
+    ]
+  },
+  {
+    "id": "64d60a39e0f9de6b",
+    "type": "mqtt in",
+    "z": "f6f2187d.f17ca8",
+    "name": "ROIs",
+    "topic": "scenescape/regulated/event/region/#",
+    "qos": "2",
+    "datatype": "auto-detect",
+    "broker": "ed1be9ed439c7126",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 70,
+    "y": 360,
+    "wires": [
+      [
+        "e6f86f16d74162a3"
+      ]
+    ]
+  },
+  {
+    "id": "7f944d21d9f50dc7",
+    "type": "mqtt in",
+    "z": "f6f2187d.f17ca8",
+    "name": "Tripwire",
+    "topic": "scenescape/regulated/event/tripwire/#",
+    "qos": "2",
+    "datatype": "auto-detect",
+    "broker": "ed1be9ed439c7126",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 70,
+    "y": 420,
+    "wires": [
+      [
+        "c4d432eee4fc73dc"
+      ]
+    ]
+  },
+  {
+    "id": "c4d432eee4fc73dc",
+    "type": "function",
+    "z": "f6f2187d.f17ca8",
+    "name": "Tripwire Events",
+    "func": "\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 340,
+    "y": 460,
+    "wires": [
+      [
+        "49d880a4e0d55996"
+      ]
+    ]
+  },
+  {
+    "id": "49d880a4e0d55996",
+    "type": "function",
+    "z": "f6f2187d.f17ca8",
+    "name": "Scene Aggregation",
+    "func": "\nreturn msg;",
+    "outputs": 1,
+    "timeout": 0,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 590,
+    "y": 340,
+    "wires": [
+      []
+    ]
+  },
+  {
+    "id": "ed1be9ed439c7126",
+    "type": "mqtt-broker",
+    "name": "Scenescape-broker",
+    "broker": "broker.scenescape.intel.com",
+    "port": 1883,
+    "tls": "ee521c0adde6bc30",
+    "clientid": "",
+    "autoConnect": true,
+    "usetls": true,
+    "protocolVersion": 4,
+    "keepalive": 60,
+    "cleansession": true,
+    "autoUnsubscribe": true,
+    "birthTopic": "",
+    "birthQos": "0",
+    "birthRetain": "false",
+    "birthPayload": "",
+    "birthMsg": {},
+    "closeTopic": "",
+    "closeQos": "0",
+    "closeRetain": "false",
+    "closePayload": "",
+    "closeMsg": {},
+    "willTopic": "",
+    "willQos": "0",
+    "willRetain": "false",
+    "willPayload": "",
+    "willMsg": {},
+    "userProps": "",
+    "sessionExpiry": ""
+  },
+  {
+    "id": "ee521c0adde6bc30",
+    "type": "tls-config",
+    "name": "",
+    "certType": "files",
+    "cert": "",
+    "key": "",
+    "p12": "",
+    "p12name": "",
+    "ca": "",
+    "certname": "",
+    "keyname": "",
+    "caname": "",
+    "servername": "",
+    "verifyservercert": false,
+    "alpnprotocol": "",
+    "certEnv": "",
+    "keyEnv": "",
+    "caEnv": ""
+  }
+]
