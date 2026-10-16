@@ -310,7 +310,7 @@ class LoggingSampleSink:
           "tilt": sample.position.tilt,
           "position_space_uri": sample.position.position_space_uri,
           "reported_move_status": ptz_pb2.ReportedMoveStatus.Name(sample.reported_move_status),
-        }, sort_keys=True))
+        }, sort_keys=False))
         self._stats[sample.camera_id] = {"since": now, "count": 0, "max_uncertainty_ns": 0}
     return ptz_pb2.PTZSampleAck(result=ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED,
                                 accepted_sequence=sample.sequence)

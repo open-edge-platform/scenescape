@@ -51,7 +51,8 @@ pytz==2026.2
 protobuf==5.29.6
 grpcio==1.71.2
 grpcio-tools==1.71.2
-# Positioning ONVIF poller parses device XML with defusedxml
+# Positioning ONVIF UsernameToken digest and device XML dependencies
+cryptography==50.0.0
 defusedxml==0.7.1
 
 # Build dependencies for fast_geometry C++ extension

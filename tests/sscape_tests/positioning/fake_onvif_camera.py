@@ -5,11 +5,11 @@
 
 import base64
 import datetime
-import hashlib
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+from cryptography.hazmat.primitives import hashes
 from defusedxml import ElementTree as SafeET
 
 GENERIC_SPACE = "http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace"
@@ -109,10 +109,9 @@ class FakeOnvifCamera:
       return False
     nonce = base64.b64decode(token.get("Nonce", ""))
     # Mirrors WS-Security verification; this is not password-hash storage.
-    expected = base64.b64encode(hashlib.sha1(
-      nonce + token.get("Created", "").encode()
-      + self.password.encode()  # lgtm [py/weak-sensitive-data-hashing]
-    ).digest()).decode()
+    digest_engine = hashes.Hash(hashes.SHA1())
+    digest_engine.update(nonce + token.get("Created", "").encode() + self.password.encode())
+    expected = base64.b64encode(digest_engine.finalize()).decode()
     if token.get("Password") != expected:
       return False
     created = datetime.datetime.strptime(token["Created"], "%Y-%m-%dT%H:%M:%SZ").replace(

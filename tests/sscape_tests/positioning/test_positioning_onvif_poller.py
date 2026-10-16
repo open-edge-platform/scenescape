@@ -275,6 +275,8 @@ class TestSampleContract(unittest.TestCase):
     with self.assertLogs("positioning", level="INFO") as logs:
       sink.submit_ptz_sample(sample)
     self.assertIn('"record": "ptz_poll_stats"', logs.output[0])
+    fields = list(json.loads(logs.records[0].getMessage()).keys())
+    self.assertEqual(fields[fields.index("pan") + 1], "tilt")
 
 
 class TestPollingLoop(CameraTestCase):
