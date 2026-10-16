@@ -37,7 +37,9 @@ SPDX-License-Identifier: Apache-2.0
   - `evaluators/tests/` - component-specific unit tests
 - `pipeline_configs/` – sample YAML pipelines used by `pipeline_engine.py` for smoke and regression tests.
 - `tests/` – pytest suites covering pipeline engine plus per-component integration tests.
-- `utils/` – reusable helpers (format converters, stream loaders) shared across component groups.
+- `utils/` – reusable helpers (format converters, stream loaders, timeline, track matching) shared across component groups.
+- `visualization/` – plots and videos of robot-vision scenario recordings and canonical tracker output; see `visualization/README.md`
+  - `visualization/tests/` - unit tests, recorded fixture and a copy of the 3D camera-data schema
 
 ## Datasets
 
@@ -136,6 +138,8 @@ Check `evaluators/README.md` for more details
 - **Diagnostic adapter**: [evaluators/diagnostic_evaluator.py](evaluators/diagnostic_evaluator.py).
 - **Camera projection harness**: [harnesses/camera_projection_harness/camera_projection_harness.py](harnesses/camera_projection_harness/camera_projection_harness.py), container script: [harnesses/camera_projection_harness/run_projection.py](harnesses/camera_projection_harness/run_projection.py).
 - **Camera accuracy evaluator**: [evaluators/camera_accuracy_evaluator.py](evaluators/camera_accuracy_evaluator.py).
+- **Track matching**: [utils/tracks.py](utils/tracks.py) (`match_tracks()`, used by the diagnostic evaluator and the visualization tools).
+- **Scenario visualization**: [visualization/plot_scenario.py](visualization/plot_scenario.py) (PNG plots) and [visualization/render_video.py](visualization/render_video.py) (MP4/GIF videos), both on a scenario directory loaded by [visualization/scenario_data.py](visualization/scenario_data.py); workflow in [visualization/README.md](visualization/README.md).
 
 ## Guidelines for Adding New Component or Updating Existing One
 
@@ -165,6 +169,7 @@ Check `evaluators/README.md` for more details
 - `datasets/tests/` - component-specific unit tests
 - `harnesses/tests/` - component-specific unit tests
 - `evaluators/tests/` - component-specific unit tests
+- `visualization/tests/` - visualization unit tests
 - `tests/` – pytest suites covering format converters, pipeline engine plus per-component integration tests.
 
 ### Running tests

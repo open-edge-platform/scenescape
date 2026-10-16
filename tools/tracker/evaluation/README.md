@@ -243,6 +243,12 @@ The pipeline assumes that **tracker output uses the same frame rate as the input
 
 The frame rate is **required** and is never inferred from tracker-output timestamps. Evaluators that quantize timestamps onto a frame grid (TrackEval, diagnostic, camera-accuracy) raise a clear error if it was not configured. Set it with `set_base_fps(fps)` on the evaluator before `process_tracker_outputs()` or `process_projected_outputs()` is called; the pipeline engine calls this automatically when `camera_fps` is configured in the dataset section.
 
+## Scenario Visualization
+
+[visualization/](visualization/README.md) plots and renders short videos of motion scenarios recorded by the
+robot-vision unit tests (`RV_SCENARIO_DIR`), and of tracker output in the canonical formats: trajectory, position error,
+speed, yaw, size, model probabilities and covariance, plus overview and follow-camera videos.
+
 ## Directory Structure
 
 ```
@@ -252,6 +258,7 @@ evaluation/
 ├── harnesses/            # Tracker harness implementations
 ├── evaluators/           # Evaluator implementations
 ├── utils/                # Shared utilities
+├── visualization/        # Plots and videos of scenario recordings
 └── pipeline_configs/     # Pipeline configurations
 ```
 
@@ -356,7 +363,9 @@ The evaluation pipeline has comprehensive test coverage:
   - `datasets/tests/test_*.py`: Datasets unit tests
   - `harnesses/tests/test_*.py`: Harnesses unit tests (includes `CameraProjectionHarness` — 23 tests; `run_projection.py` helpers — 7 tests)
   - `evaluators/tests/test_*.py`: Evaluator unit tests (includes `CameraAccuracyEvaluator` — 37 tests)
+  - `visualization/tests/test_*.py`: Scenario loading, plot and video unit tests
   - `tests/test_format_converters.py`: Format converter unit tests
+  - `tests/test_tracks.py`: Track matching unit tests
 
 - **Integration Tests**: Tests requiring Docker and real components, located in `tests/`
   - `tests/test_scene_controller_harness_integration.py`: End-to-end harness tests with container

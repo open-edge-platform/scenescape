@@ -97,6 +97,10 @@ make test-unit-coverage
 # Run RobotVision (tracking library) unit tests
 make test-robot-vision
 
+# Same, recording motion scenarios for plots and videos
+# (see tools/tracker/evaluation/visualization/README.md)
+RV_SCENARIO_DIR=/tmp/rv-scenarios make test-robot-vision
+
 # Run load tests (requires Docker and compose stack running)
 make test-load
 ```
