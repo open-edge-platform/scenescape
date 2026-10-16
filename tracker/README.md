@@ -6,6 +6,8 @@ High-performance C++ service for multi-object tracking with coordinate transform
 
 Transforms camera detections to world coordinates and maintains persistent object identities across frames and cameras. Built for real-time performance with horizontal scalability.
 
+Each detection may provide either `bounding_box_px` for calibrated pixel-to-world projection, or `translation` and `size` in the sensor coordinate frame (metres). An optional `[x, y, z, w]` quaternion supplies sensor-frame orientation; Tracker transforms it into world coordinates and tracks its Z-axis yaw. Tracks with observed orientation publish Kalman yaw unless motion is at least `rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE` and disagrees by more than `rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL`, in which case velocity heading is published. For tracks without observed orientation, the Manager asset's `rotation_from_velocity` setting controls the existing velocity-heading fallback.
+
 See [design document](../docs/design/tracker-service.md) for architecture details.
 
 ## Development

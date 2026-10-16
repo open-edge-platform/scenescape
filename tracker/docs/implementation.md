@@ -306,32 +306,44 @@ struct Track {
 };
 ```
 
-### Manager asset cache and velocity orientation
+### Manager asset cache
 
 API-backed startup authenticates once, fetches scenes, and fetches
 `/api/v1/assets`. Each asset is parsed into a category-keyed `ObjectClassConfig`
 (`shift_type`, footprint size, and the `rotation_from_velocity` Boolean; a
 missing, null, or non-Boolean value disables it). The `ObjectClassMap` is passed
 to the `TimeChunkScheduler`, which resolves `TrackingScope.category` for each
-lazily created `TrackingWorker`. File-backed scene configuration has no Manager
-asset catalog, so velocity orientation remains disabled unless a future local
-asset source is added.
+lazily created `TrackingWorker`. In file-backed mode, no Manager asset catalog
+is available, so `rotation_from_velocity` defaults to false. Asset changes are
+picked up through the existing API database update restart path.
 
-When enabled for a category, each worker keeps orientation state per
-RobotVision track ID. The state turns on when planar speed is strictly greater
-than `kRotationSpeedThresholdOn m/s`, remains on while speed is strictly greater than
-`kRotationSpeedThresholdOff m/s`, and turns off at or below `kRotationSpeedThresholdOff m/s`.
-While off, the last valid quaternion is retained. The heading is `atan2(vy, vx)` and
-is serialized as a Z-axis quaternion. Asset changes are picked up through the existing API database
-update restart path.
+### Detection inputs and coordinate conversion
 
-Detector-supplied orientation is not supported. Camera detections carry only
-`bounding_box_px`; any `rotation` field is ignored, and RobotVision measurements
-are created with `yaw = 0` and without the `has_orientation` attribute.
-Published rotation is therefore identity, or the velocity heading when
-`rotation_from_velocity` is enabled. The Scene Controller rule that detector or
-orienting-sensor yaw takes precedence over velocity heading
-(`ilabs_tracking.py` `to_rv_object` / `from_tracked_object`) is not ported.
+Detections can provide either `bounding_box_px` or `translation` plus `size`.
+Pixel boxes keep the existing camera-calibrated ground-plane projection. Direct
+3D detections provide sensor-frame position and dimensions in metres; the
+configured camera pose transforms XYZ into world coordinates. An optional
+`rotation` quaternion uses `[x, y, z, w]` order and is composed as camera-to-world
+rotation times detection rotation. RobotVision stores yaw only, so the composed
+world orientation is reduced to Z-yaw and marked with `has_orientation`.
+
+### Rotation publishing
+
+For tracks with observed orientation, published yaw follows the Scene Controller
+`IntelLabsTracking.from_tracked_object` policy. At speeds below
+`rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE`, or when the
+wrapped yaw-to-velocity-heading error is at most
+`rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL`, publish Kalman
+yaw. Otherwise, publish velocity heading. This observed-orientation policy
+takes precedence over `rotation_from_velocity`; the fallback heading is not fed
+back into the Kalman filter.
+
+For tracks that have never received an orienting measurement,
+`rotation_from_velocity` controls the fallback. When enabled, each worker keeps
+velocity-orientation state per RobotVision track ID. It activates above
+`kRotationSpeedThresholdOn`, stays active above
+`kRotationSpeedThresholdOff`, and retains the last quaternion when it
+deactivates. When disabled, never-oriented tracks publish identity rotation.
 
 ### ObservabilityContext
 

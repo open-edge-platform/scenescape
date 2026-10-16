@@ -110,6 +110,8 @@ services:
       - OBJECT_COUNT=${NUM_OBJECTS:-300}
       - DEFAULT_TEST_DURATION=${DURATION:-1m}
       - CAMERA_ID_PREFIX=atag-qcam
+      - LOAD_MODE=${LOAD_MODE:-2d}
+      - MIXED_3D_RATIO=${MIXED_3D_RATIO:-0.5}
     command: ["run", "--no-usage-report", "/scripts/simulate-detections.js"]
     depends_on:
       tracker:

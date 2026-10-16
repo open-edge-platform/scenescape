@@ -379,6 +379,179 @@ TEST(TransformDetectionsTest, MatchesPythonReference_Size) {
     }
 }
 
+TEST(TransformDetectionsTest, TransformsSensorFramePositionSizeAndRotationToWorld) {
+    auto camera_config = kCameraAtaqQcam1;
+    camera_config.translation = {10.0, 20.0, 3.0};
+    camera_config.rotation = {0.0, 0.0, 90.0};
+    auto transformer = make_transformer(camera_config);
+
+    Detection detection;
+    detection.id = 23;
+    detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+    detection.rotation =
+        std::array<double, 4>{0.0, 0.0, std::sin(M_PI / 12.0), std::cos(M_PI / 12.0)};
+
+    const auto result = transformer.transformDetections(std::array{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_EQ(result[0].id, 23);
+    EXPECT_NEAR(result[0].x, 8.0, kWorldTolerance);
+    EXPECT_NEAR(result[0].y, 21.0, kWorldTolerance);
+    EXPECT_NEAR(result[0].z, 6.0, kWorldTolerance);
+    EXPECT_DOUBLE_EQ(result[0].length, 4.0);
+    EXPECT_DOUBLE_EQ(result[0].width, 5.0);
+    EXPECT_DOUBLE_EQ(result[0].height, 6.0);
+    EXPECT_NEAR(result[0].yaw, 2.0 * M_PI / 3.0, kRotationTolerance);
+    EXPECT_EQ(result[0].attributes.at("has_orientation"), "true");
+}
+
+TEST(TransformDetectionsTest, MatchesSciPySensorFrameReferences) {
+    struct SensorFrameTestCase {
+        const char* name;
+        CameraTestConfig camera;
+        std::array<double, 3> translation;
+        std::array<double, 3> size;
+        std::array<double, 4> rotation;
+        std::array<double, 3> expected_position;
+        double expected_yaw;
+    };
+
+    const CameraTestConfig identity_camera = {
+        "identity", 500.0, 500.0, 320.0,           240.0,           0.0,
+        0.0,        0.0,   0.0,   {0.0, 0.0, 0.0}, {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}};
+    const std::array test_cases = {
+        SensorFrameTestCase{
+            "identity_camera_yaw_pi_over_2",
+            identity_camera,
+            {1.0, 2.0, 3.0},
+            {4.0, 5.0, 6.0},
+            {0.0, 0.0, std::sin(std::numbers::pi / 4.0), std::cos(std::numbers::pi / 4.0)},
+            {1.0, 2.0, 3.0},
+            std::numbers::pi / 2.0},
+        SensorFrameTestCase{"lidar_style_rotation_on_tilted_camera_mount",
+                            kCameraAtaqQcam1,
+                            {1.25, -2.5, 0.75},
+                            {4.0, 1.8, 1.6},
+                            {0.0, -std::sin(0.35), 0.0, std::cos(0.35)},
+                            {5.1057880909623607, 1.7910990824901141, 3.8840183493068721},
+                            0.17925653649531559}};
+
+    for (const auto& test_case : test_cases) {
+        auto transformer = make_transformer(test_case.camera);
+        Detection detection;
+        detection.translation = test_case.translation;
+        detection.size = test_case.size;
+        detection.rotation = test_case.rotation;
+
+        const auto result = transformer.transformDetections(std::array{detection});
+
+        ASSERT_EQ(result.size(), 1u) << test_case.name;
+        EXPECT_NEAR(result[0].x, test_case.expected_position[0], 1e-6) << test_case.name;
+        EXPECT_NEAR(result[0].y, test_case.expected_position[1], 1e-6) << test_case.name;
+        EXPECT_NEAR(result[0].z, test_case.expected_position[2], 1e-6) << test_case.name;
+        EXPECT_DOUBLE_EQ(result[0].length, test_case.size[0]) << test_case.name;
+        EXPECT_DOUBLE_EQ(result[0].width, test_case.size[1]) << test_case.name;
+        EXPECT_DOUBLE_EQ(result[0].height, test_case.size[2]) << test_case.name;
+        EXPECT_NEAR(result[0].yaw, test_case.expected_yaw, kRotationTolerance) << test_case.name;
+        EXPECT_EQ(result[0].attributes.at("has_orientation"), "true") << test_case.name;
+    }
+}
+
+TEST(TransformDetectionsTest, MissingRotationDoesNotMarkOrientationObserved) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection;
+    detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+
+    const auto result = transformer.transformDetections(std::array{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_FALSE(result[0].attributes.contains("has_orientation"));
+}
+
+TEST(TransformDetectionsTest, ZeroNormRotationKeepsMeasurementWithoutOrientation) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection;
+    detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+    detection.rotation = std::array<double, 4>{0.0, 0.0, 0.0, 0.0};
+
+    const auto result = transformer.transformDetections(std::array{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_FALSE(result[0].attributes.contains("has_orientation"));
+}
+
+TEST(TransformDetectionsTest, PixelDetectionRotationMarksOrientationObserved) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    auto detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f);
+    detection.rotation = std::array<double, 4>{0.0, 0.0, std::sin(0.25), std::cos(0.25)};
+
+    const auto result = transformer.transformDetections(std::array{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_EQ(result[0].attributes.at("has_orientation"), "true");
+}
+
+TEST(TransformDetectionsTest, MixedPixelAndWorldSpaceDetectionsPreserveInputOrder) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    auto pixel_detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    Detection world_detection;
+    world_detection.id = 2;
+    world_detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    world_detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+    const std::array detections = {pixel_detection, world_detection};
+
+    const auto result = transformer.transformDetections(detections);
+
+    ASSERT_EQ(result.size(), 2u);
+    EXPECT_EQ(result[0].id, 1);
+    EXPECT_NEAR(result[0].x, kAtaqQcam1BboxTests.front().world_x, kWorldTolerance);
+    EXPECT_NEAR(result[0].y, kAtaqQcam1BboxTests.front().world_y, kWorldTolerance);
+    EXPECT_EQ(result[1].id, 2);
+    const cv::Vec4d expected_position = transformer.getPoseMatrix() * cv::Vec4d(1.0, 2.0, 3.0, 1.0);
+    EXPECT_NEAR(result[1].x, expected_position[0], kWorldTolerance);
+    EXPECT_NEAR(result[1].y, expected_position[1], kWorldTolerance);
+    EXPECT_NEAR(result[1].z, expected_position[2], kWorldTolerance);
+}
+
+TEST(TransformDetectionsTest, InterleavedWorldSpaceDetectionsDoNotAffectPixelDetections) {
+    for (const int shift_type : {ObjectClassConfig::kShiftType1, ObjectClassConfig::kShiftType2}) {
+        auto transformer = make_transformer(kCameraAtaqQcam1, shift_type);
+        const auto pixel_a = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+        const auto pixel_b = make_detection(10.0f, 10.0f, 80.0f, 160.0f, 3);
+        Detection world_detection;
+        world_detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+        world_detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+        auto world_a = world_detection;
+        world_a.id = 0;
+        auto world_b = world_detection;
+        world_b.id = 2;
+
+        const auto alone_a = transformer.transformDetections(std::array{pixel_a});
+        const auto alone_b = transformer.transformDetections(std::array{pixel_b});
+        const auto mixed =
+            transformer.transformDetections(std::array{world_a, pixel_a, world_b, pixel_b});
+
+        ASSERT_EQ(alone_a.size(), 1u);
+        ASSERT_EQ(alone_b.size(), 1u);
+        ASSERT_EQ(mixed.size(), 4u) << "shift_type=" << shift_type;
+        for (int i = 0; i < 4; ++i) {
+            EXPECT_EQ(mixed[i].id, i) << "shift_type=" << shift_type;
+        }
+        for (const auto& [mixed_index, alone] :
+             {std::pair{1, &alone_a[0]}, std::pair{3, &alone_b[0]}}) {
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].x, alone->x) << "shift_type=" << shift_type;
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].y, alone->y) << "shift_type=" << shift_type;
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].length, alone->length)
+                << "shift_type=" << shift_type;
+            EXPECT_DOUBLE_EQ(mixed[mixed_index].height, alone->height)
+                << "shift_type=" << shift_type;
+        }
+    }
+}
+
 TEST(TransformDetectionsTest, PreservesDetectionId) {
     auto transformer = make_transformer(kCameraAtaqQcam1);
 

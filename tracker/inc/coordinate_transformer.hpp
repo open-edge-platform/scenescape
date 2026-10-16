@@ -20,7 +20,7 @@
 namespace tracker {
 
 /**
- * @brief Batch-oriented transformer from pixel detections to world-space TrackedObjects.
+ * @brief Transformer from image or sensor-frame detections to world-space TrackedObjects.
  *
  * Converts 2D pixel bounding boxes into 3D world positions and sizes using
  * camera intrinsics/extrinsics. Two opposite bbox corners are undistorted to
@@ -154,6 +154,7 @@ private:
 
     cv::Matx33d intrinsics_matrix_;
     cv::Vec4d distortion_coeffs_;
+    cv::Matx33d camera_rotation_;
     cv::Matx44d pose_matrix_;
     cv::Point3d camera_origin_;
     int shift_type_;

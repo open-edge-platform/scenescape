@@ -6,6 +6,8 @@
 #include "logger.hpp"
 #include "tracking_worker.hpp"
 
+#include <rv/tracking/OrientationAttributes.hpp>
+
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -97,6 +99,80 @@ TEST(VelocityRotationTest, DeactivatesAtOffThresholdAndRetainsLastRotation) {
 
     EXPECT_FALSE(state.active);
     EXPECT_EQ(stopped_rotation, first_rotation);
+}
+
+TEST(VelocityRotationTest, UsesConfiguredFallbackOnlyWhenOrientationWasNeverObserved) {
+    rv::tracking::TrackedObject track;
+    track.vx = 0.0;
+    track.vy = 1.1;
+    VelocityRotationState state;
+
+    const auto inferred = select_track_rotation(track, true, state);
+    EXPECT_TRUE(state.active);
+    EXPECT_NEAR(inferred[2], std::sin(std::numbers::pi / 4.0), 1e-12);
+    EXPECT_NEAR(inferred[3], std::cos(std::numbers::pi / 4.0), 1e-12);
+
+    state = {};
+    const auto identity = select_track_rotation(track, false, state);
+    EXPECT_FALSE(state.active);
+    EXPECT_EQ(identity, (std::array<double, 4>{0.0, 0.0, 0.0, 1.0}));
+}
+
+TEST(VelocityRotationTest, UsesKalmanYawForObservedTrackBelowSpeedGate) {
+    rv::tracking::TrackedObject track;
+    track.yaw = 0.4;
+    track.vx = 0.99;
+    rv::tracking::orientation::setHasOrientation(track, true);
+    VelocityRotationState state;
+
+    const auto rotation = select_track_rotation(track, true, state);
+    const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
+
+    EXPECT_EQ(rotation, expected);
+    EXPECT_FALSE(state.active);
+}
+
+TEST(VelocityRotationTest, UsesKalmanYawAtYawResidualThreshold) {
+    rv::tracking::TrackedObject track;
+    track.yaw = 0.6;
+    track.vx = 1.0;
+    track.attributes[rv::tracking::orientation::ORIENTATION_OBSERVED] =
+        rv::tracking::orientation::TRUE_VALUE;
+    VelocityRotationState state;
+
+    const auto rotation = select_track_rotation(track, true, state);
+    const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
+
+    EXPECT_NEAR(rotation[2], expected[2], 1e-12);
+    EXPECT_NEAR(rotation[3], expected[3], 1e-12);
+}
+
+TEST(VelocityRotationTest, UsesVelocityHeadingWhenObservedYawDisagrees) {
+    rv::tracking::TrackedObject track;
+    track.yaw = 1.0;
+    track.vx = 2.0;
+    rv::tracking::orientation::setHasOrientation(track, true);
+    VelocityRotationState state;
+
+    const auto rotation = select_track_rotation(track, false, state);
+
+    EXPECT_EQ(rotation, (std::array<double, 4>{0.0, 0.0, 0.0, 1.0}));
+}
+
+TEST(VelocityRotationTest, WrapsYawResidualAcrossPi) {
+    rv::tracking::TrackedObject track;
+    const double velocity_heading = -std::numbers::pi + 0.2;
+    track.yaw = std::numbers::pi - 0.2;
+    track.vx = 2.0 * std::cos(velocity_heading);
+    track.vy = 2.0 * std::sin(velocity_heading);
+    rv::tracking::orientation::setHasOrientation(track, true);
+    VelocityRotationState state;
+
+    const auto rotation = select_track_rotation(track, false, state);
+    const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
+
+    EXPECT_NEAR(rotation[2], expected[2], 1e-12);
+    EXPECT_NEAR(rotation[3], expected[3], 1e-12);
 }
 
 // Test that worker processes chunks and calls publish callback
@@ -807,6 +883,116 @@ TEST_F(TrackingWorkerTest, Tracking_CameraOnlyTurningTrack_PublishesIdentityRota
     ASSERT_GT(published_tracks, 0u) << "No reliable tracks published";
     EXPECT_LT(max_abs_yaw, 1e-6) << "Camera-only track published yaw of " << max_abs_yaw
                                  << " rad (expected identity rotation)";
+}
+
+TEST_F(TrackingWorkerTest, Tracking_StationaryRotated3DTrack_PublishesDetectorYaw) {
+    constexpr int kFrames = 10;
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+    constexpr double kDetectorYaw = 0.8;
+
+    auto cameras = make_test_cameras();
+    cameras.at("cam-1").extrinsics.translation = {0.0, 0.0, 0.0};
+    cameras.at("cam-1").extrinsics.rotation = {0.0, 0.0, 0.0};
+
+    std::optional<Track> published_track;
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        if (!tracks.empty()) {
+            published_track = tracks.front();
+        }
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    {
+        TrackingWorker worker({"scene-1", "vehicle"}, "Test Scene", kFrames, callback, config,
+                              cameras);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "vehicle";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp = std::chrono::system_clock::time_point{} + frame * kFramePeriod;
+            batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            batch.detections.push_back(
+                Detection{.id = 1,
+                          .translation = std::array<double, 3>{1.0, 2.0, 3.0},
+                          .size = std::array<double, 3>{4.0, 2.0, 1.0},
+                          .rotation = std::array<double, 4>{0.0, 0.0, std::sin(kDetectorYaw / 2.0),
+                                                            std::cos(kDetectorYaw / 2.0)}});
+            chunk.camera_batches.push_back(std::move(batch));
+            ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    }
+
+    ASSERT_TRUE(published_track.has_value()) << "No reliable 3D track published";
+    EXPECT_LT(std::hypot(published_track->velocity[0], published_track->velocity[1]), 0.1);
+    const double yaw = 2.0 * std::atan2(published_track->rotation[2], published_track->rotation[3]);
+    EXPECT_NEAR(yaw, kDetectorYaw, 1e-3);
+}
+
+TEST_F(TrackingWorkerTest, Tracking_Mixed2DAnd3DMeasurementsPublishSingleTrackWith3DYaw) {
+    constexpr int kFrames = 10;
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+    constexpr double kDetectorYaw = 0.8;
+
+    auto cameras = make_test_cameras();
+    cameras.at("cam-1").extrinsics.translation = {0.0, 0.0, 3.0};
+    cameras.at("cam-1").extrinsics.rotation = {180.0, 0.0, 0.0};
+    Camera second_camera = cameras.at("cam-1");
+    second_camera.uid = "cam-2";
+    cameras.emplace("cam-2", std::move(second_camera));
+
+    std::vector<Track> published_tracks;
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        if (!tracks.empty()) {
+            published_tracks = tracks;
+        }
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    {
+        TrackingWorker worker({"scene-1", "vehicle"}, "Test Scene", kFrames, callback, config,
+                              cameras);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "vehicle";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+            const auto timestamp = std::chrono::system_clock::time_point{} + frame * kFramePeriod;
+
+            DetectionBatch pixel_batch;
+            pixel_batch.camera_id = "cam-1";
+            pixel_batch.timestamp = timestamp;
+            pixel_batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            pixel_batch.detections.push_back(
+                Detection{.id = 1, .bounding_box_px = cv::Rect2f(600.0f, 280.0f, 80.0f, 80.0f)});
+            chunk.camera_batches.push_back(std::move(pixel_batch));
+
+            DetectionBatch sensor_batch;
+            sensor_batch.camera_id = "cam-2";
+            sensor_batch.timestamp = timestamp;
+            sensor_batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            sensor_batch.detections.push_back(
+                Detection{.id = 2,
+                          .translation = std::array<double, 3>{0.0, 0.0, 3.0},
+                          .size = std::array<double, 3>{1.0, 1.0, 1.0},
+                          .rotation = std::array<double, 4>{0.0, 0.0, -std::sin(kDetectorYaw / 2.0),
+                                                            std::cos(kDetectorYaw / 2.0)}});
+            chunk.camera_batches.push_back(std::move(sensor_batch));
+            ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    }
+
+    ASSERT_EQ(published_tracks.size(), 1u);
+    const double yaw = 2.0 * std::atan2(published_tracks.front().rotation[2],
+                                        published_tracks.front().rotation[3]);
+    EXPECT_NEAR(yaw, kDetectorYaw, 1e-3);
 }
 
 TEST_F(TrackingWorkerTest, Tracking_RotationFromVelocityEnabled_PublishesVelocityHeading) {

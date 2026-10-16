@@ -43,7 +43,6 @@
   "$defs": {
     "detection": {
       "type": "object",
-      "required": ["bounding_box_px"],
       "properties": {
         "id": {
           "type": "integer",
@@ -53,6 +52,27 @@
         "bounding_box_px": {
           "$ref": "#/$defs/bounding_box",
           "description": "Bounding box in pixel coordinates"
+        },
+        "translation": {
+          "type": "array",
+          "description": "Object position [x, y, z] in the sensor coordinate frame, in metres",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "size": {
+          "type": "array",
+          "description": "Object dimensions [x, y, z] in metres",
+          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "type": "array",
+          "description": "Sensor-frame orientation quaternion [x, y, z, w]",
+          "items": { "type": "number", "minimum": -1, "maximum": 1 },
+          "minItems": 4,
+          "maxItems": 4
         },
         "metadata": {
           "type": "object",
@@ -66,6 +86,18 @@
           "maximum": 1
         }
       },
+      "oneOf": [
+        {
+          "required": ["bounding_box_px"],
+          "not": {
+            "anyOf": [{ "required": ["translation"] }, { "required": ["size"] }]
+          }
+        },
+        {
+          "required": ["translation", "size"],
+          "not": { "required": ["bounding_box_px"] }
+        }
+      ],
       "additionalProperties": true
     },
     "bounding_box": {

@@ -277,6 +277,62 @@ TEST_F(MessageHandlerTest, BufferedData_ContainsCorrectDetectionInfo) {
     EXPECT_EQ(det.bounding_box_px.height, 100);
 }
 
+TEST_F(MessageHandlerTest, HandleMessage_ParsesWorldSpaceDetection) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    const std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "vehicle": [{
+                "id": 5,
+                "translation": [1.25, -2.5, 0.75],
+                "size": [4.0, 1.8, 1.6],
+                "rotation": [0.0, 0.0, 0.7071067811865475, 0.7071067811865475]
+            }]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    const auto buffer_data = test_buffer_.pop_all();
+    const auto& detections = buffer_data.at({"test-scene-001", "vehicle"}).at("cam1").detections;
+    ASSERT_EQ(detections.size(), 1);
+    const auto& detection = detections.front();
+    EXPECT_FALSE(detection.bounding_box_px.area() > 0.0f);
+    ASSERT_TRUE(detection.translation);
+    EXPECT_EQ(*detection.translation, (std::array<double, 3>{1.25, -2.5, 0.75}));
+    ASSERT_TRUE(detection.size);
+    EXPECT_EQ(*detection.size, (std::array<double, 3>{4.0, 1.8, 1.6}));
+    ASSERT_TRUE(detection.rotation);
+    EXPECT_DOUBLE_EQ((*detection.rotation)[2], 0.7071067811865475);
+}
+
+TEST_F(MessageHandlerTest, HandleMessage_SkipsInvalidGeometryWithoutSchemaValidation) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    const std::vector<std::string> detections = {
+        R"({"id":1})",
+        R"({"id":1,"translation":[1,2,3]})",
+        R"({"id":1,"size":[1,2,3]})",
+        R"({"id":1,"bounding_box_px":{"x":0,"y":0,"width":10,"height":20},"translation":[1,2,3],"size":[1,2,3]})",
+        R"({"id":1,"translation":[1,2,3],"size":[1,2]})",
+        R"({"id":1,"translation":[1,2,3],"size":[1,2,3],"rotation":[0,0,0]})"};
+
+    for (const auto& detection : detections) {
+        const std::string payload = std::format(
+            R"({{"id":"cam1","timestamp":"2026-01-27T12:00:00.000Z","objects":{{"person":[{}]}}}})",
+            detection);
+        mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+        const auto buffered = test_buffer_.pop_all();
+        const auto& batch = buffered.at({"test-scene-001", "person"}).at("cam1");
+        EXPECT_TRUE(batch.detections.empty()) << detection;
+    }
+}
+
 // Test that invalid JSON is rejected
 TEST_F(MessageHandlerTest, HandleMessage_RejectsInvalidJson) {
     MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
@@ -803,6 +859,88 @@ TEST_F(MessageHandlerTest, SchemaValidation_AcceptsValidMessage) {
     EXPECT_EQ(handler.getReceivedCount(), 1);
     EXPECT_EQ(handler.getRejectedCount(), 0);
     EXPECT_EQ(handler.getBufferedCount(), 1);
+}
+
+TEST_F(MessageHandlerTest, SchemaValidation_AcceptsWorldSpaceDetection) {
+    auto schema_dir = get_schema_dir();
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, true,
+                           schema_dir);
+    handler.start();
+
+    const std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "vehicle": [{
+                "translation": [1.25, -2.5, 0.75],
+                "size": [4.0, 1.8, 1.6],
+                "rotation": [0.0, 0.0, 0.0, 1.0]
+            }]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+    const auto buffered = test_buffer_.pop_all();
+    EXPECT_EQ(buffered.at({"test-scene-001", "vehicle"}).at("cam1").detections.size(), 1);
+}
+
+TEST_F(MessageHandlerTest, SchemaValidation_ZeroNormRotationKeepsDetectionWithoutOrientation) {
+    auto schema_dir = get_schema_dir();
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, true,
+                           schema_dir);
+    handler.start();
+
+    const std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "vehicle": [{
+                "translation": [1.25, -2.5, 0.75],
+                "size": [4.0, 1.8, 1.6],
+                "rotation": [0.0, 0.0, 0.0, 0.0]
+            }]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+    const auto buffered = test_buffer_.pop_all();
+    const auto& detections = buffered.at({"test-scene-001", "vehicle"}).at("cam1").detections;
+    ASSERT_EQ(detections.size(), 1);
+    EXPECT_TRUE(detections.front().translation.has_value());
+    EXPECT_TRUE(detections.front().size.has_value());
+    EXPECT_FALSE(detections.front().rotation.has_value());
+}
+
+TEST_F(MessageHandlerTest, SchemaValidation_SkipsAmbiguousDetectionGeometry) {
+    auto schema_dir = get_schema_dir();
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, true,
+                           schema_dir);
+    handler.start();
+
+    const std::string payload = R"({
+        "id": "cam1",
+        "timestamp": "2026-01-27T12:00:00.000Z",
+        "objects": {
+            "person": [{
+                "bounding_box_px": {"x": 0, "y": 0, "width": 10, "height": 20},
+                "translation": [1, 2, 3],
+                "size": [1, 2, 3]
+            }]
+        }
+    })";
+
+    mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
+
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 1);
+    const auto buffered = test_buffer_.pop_all();
+    EXPECT_TRUE(buffered.at({"test-scene-001", "person"}).at("cam1").detections.empty());
 }
 
 // Test invalid message is rejected by schema validation
