@@ -28,7 +28,7 @@ SRC_FILES := $(wildcard src/*.cpp) $(wildcard inc/*.hpp) $(wildcard test/unit/*.
 
 .PHONY: all dependencies dependencies-debug dependencies-relwithdebinfo \
         build build-debug build-relwithdebinfo run run-debug profile flamegraph \
-        test-unit test-unit-coverage test-service test-load clean install-tools install-deps \
+        test-unit test-unit-coverage test-robot-vision test-service test-load clean install-tools install-deps \
         run-image run-image-debug format-cpp lint-cpp format-python lint-python install-hooks \
         lint-dockerfile lint-trivy lint-all coverage-html coverage-xml coverage-report \
         mqtt-subscribe mqtt-publish broker-start broker-stop generate-certs
@@ -162,7 +162,7 @@ build: dependencies
 
 build-debug: dependencies-debug
 	@echo "Building debug..."
-	cmake --preset conan-debug -DBUILD_TESTS=ON -DGIT_COMMIT=$(GIT_COMMIT)
+	cmake --preset conan-debug -DBUILD_TESTS=ON -DBUILD_RV_TESTS=ON -DGIT_COMMIT=$(GIT_COMMIT)
 	cmake --build build-debug -j
 
 build-relwithdebinfo: dependencies-relwithdebinfo
@@ -233,7 +233,7 @@ flamegraph:
 
 test-unit: build-debug
 	@echo "Running unit tests..."
-	. build-debug/conanrun.sh && cd build-debug && ctest --output-on-failure
+	. build-debug/conanrun.sh && ctest --test-dir build-debug/test/unit --output-on-failure
 
 test-unit-coverage: build-debug
 	@echo "Running unit tests with coverage..."
@@ -242,11 +242,15 @@ test-unit-coverage: build-debug
 	@echo "Cleaning previous coverage data..."
 	@find build-debug -name "*.gcda" -delete
 	@echo "Running tests..."
-	. build-debug/conanrun.sh && cd build-debug && ctest --output-on-failure
+	. build-debug/conanrun.sh && ctest --test-dir build-debug/test/unit --output-on-failure
 	@echo "Generating coverage reports..."
 	$(MAKE) coverage-html
 	$(MAKE) coverage-xml
 	$(MAKE) coverage-report
+
+test-robot-vision: build-debug
+	@echo "Running RobotVision unit tests..."
+	. build-debug/conanrun.sh && ctest --test-dir build-debug/robot_vision --output-on-failure
 
 coverage-html:
 	@echo "Generating HTML coverage report with lcov..."
