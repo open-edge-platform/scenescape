@@ -62,10 +62,10 @@ socket.on("connect", async () => {
 
 socket.on("calibration_result", async (notification) => {
   console.log("Calibration result received:", notification);
-  if (notification.result && notification.result.status === "success") {
+  // handleAutoCalibrationPose re-enables the Auto Calibrate button on both
+  // success and failure so a failed attempt does not lock the user out.
+  if (notification.result) {
     handleAutoCalibrationPose(notification.result);
-  } else if (notification.result) {
-    alert("Calibration failed: " + notification.result.message);
   }
 });
 
@@ -354,6 +354,13 @@ $("#auto-autocalibration").on("click", async function () {
   );
   if (data.status === "error") {
     console.log("Calibration failed");
+    const btn = document.getElementById("auto-autocalibration");
+    if (btn) {
+      btn.disabled = false;
+      btn.title =
+        data.message ||
+        "Calibration failed. Click to calibrate the camera automatically";
+    }
   } else {
     console.log("Calibration started:", data);
   }
