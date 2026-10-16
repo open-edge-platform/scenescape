@@ -47,6 +47,21 @@ def label(item_id: str) -> str:
   return item_id[:8] if len(item_id) > 12 else item_id
 
 
+def track_color(pairs: Pairs, track_id: str) -> str:
+  """Colour of a track by its position in `pairs`, so it is the same in every plot and video."""
+  cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
+  order = list(pairs)
+  index = order.index(track_id) if track_id in order else len(order)
+  return cycle[index % len(cycle)]
+
+
+def pair_tracks(scenario: Scenario, fps: Optional[float] = None) -> Pairs:
+  """Every track id, in sorted order, with its matched ground-truth object id or None."""
+  pairs: Pairs = {track_id: None for track_id in scenario.track_ids}
+  pairs.update(dict(match_tracks_to_truth(scenario, fps)))
+  return pairs
+
+
 def position_errors(aligned: pd.DataFrame) -> pd.DataFrame:
   """Position error of a track against the ground truth, total and in the truth's frame.
 
@@ -94,7 +109,7 @@ def plot_trajectory(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
     ax.plot(detections["x"], detections["y"], color="gray", label=f"detections {sensor_id}",
             **DETECTION_STYLE)
   for track_id, track in _tracks(scenario, pairs):
-    color = _color(pairs, track_id)
+    color = track_color(pairs, track_id)
     ax.plot(track["x"], track["y"], color=color, linewidth=1.5, label=f"track {label(track_id)}")
     ax.plot(track["x"].iloc[:1], track["y"].iloc[:1], "x", color=color)
   ax.set_aspect("equal", adjustable="datalim")
@@ -111,7 +126,7 @@ def plot_position_error(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure
   tolerance = 0.5 / (frame_rate(scenario.ground_truth) or 1.0)
   fig, axes = plt.subplots(3, 1, figsize=(10, 9), sharex=True)
   for track_id, object_id in matched.items():
-    color = _color(pairs, track_id)
+    color = track_color(pairs, track_id)
     errors = position_errors(align_track_to_truth(scenario, track_id, object_id, tolerance))
     name = f"track {label(track_id)}"
     axes[0].plot(errors["t"], errors["total"], color=color, label=name)
@@ -139,7 +154,7 @@ def plot_speed_yaw(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
   rows = 3 if has_yaw_rate else 2
   fig, axes = plt.subplots(rows, 1, figsize=(10, 3 * rows + 1), sharex=True)
   for track_id, track in _tracks(scenario, pairs):
-    color = _color(pairs, track_id)
+    color = track_color(pairs, track_id)
     truth = _truth(scenario, pairs.get(track_id))
     name = label(track_id)
     axes[0].plot(track["t"], np.hypot(track["vx"], track["vy"]), color=color, label=f"track {name}")
@@ -175,7 +190,7 @@ def plot_size(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
     return None
   fig, axes = plt.subplots(3, 1, figsize=(10, 9), sharex=True)
   for track_id, track in _tracks(scenario, pairs):
-    color = _color(pairs, track_id)
+    color = track_color(pairs, track_id)
     truth = _truth(scenario, pairs.get(track_id))
     detections = _detections(scenario, pairs.get(track_id))
     name = label(track_id)
@@ -228,7 +243,7 @@ def plot_std_dev(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
   fig, axes = plt.subplots(len(STD_DEV_GROUPS), 1, figsize=(10, 13), sharex=True)
   styles = ("-", "--", ":")
   for track_id, trace in sorted(scenario.estimator.items()):
-    color = _color(pairs, track_id)
+    color = track_color(pairs, track_id)
     for ax, (_, states) in zip(axes, STD_DEV_GROUPS):
       for style, state in zip(styles, states):
         index = trace.state_index(state)
@@ -275,8 +290,7 @@ def plot_scenario(directory, output=None, plots: Optional[Sequence[str]] = None,
   scenario = load_scenario(directory)
   output = Path(output) if output else scenario.directory / "plots"
   output.mkdir(parents=True, exist_ok=True)
-  pairs: Pairs = {track_id: None for track_id in scenario.track_ids}
-  pairs.update(dict(match_tracks_to_truth(scenario, fps)))
+  pairs = pair_tracks(scenario, fps)
 
   written: Dict[str, Optional[Path]] = {}
   for name in names:
@@ -313,14 +327,6 @@ def main(argv: Optional[List[str]] = None) -> int:
   for name, path in written.items():
     print(f"{name}: {path}" if path else f"{name}: skipped (no data)")
   return 0
-
-
-def _color(pairs: Pairs, track_id: str) -> str:
-  """Colour of a track by its position in `pairs`, so it is the same in every plot."""
-  cycle = plt.rcParams["axes.prop_cycle"].by_key()["color"]
-  order = list(pairs)
-  index = order.index(track_id) if track_id in order else len(order)
-  return cycle[index % len(cycle)]
 
 
 def _title(scenario: Scenario, text: str) -> str:
