@@ -49,7 +49,6 @@ DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
 DEFAULT_SIMILARITY_METRIC = DEFAULT_CONFIG_SIMILARITY_METRIC
 SUPPORTED_SIMILARITY_METRICS = SUPPORTED_CONFIG_SIMILARITY_METRICS
-DEFAULT_INACTIVE_TRACK_GRACE_SECS = 60.0
 
 # One purge worker per process: category trackers each construct a UUIDManager,
 # but they share one ReID store and must not each schedule DeleteExpired /
@@ -121,15 +120,18 @@ class UUIDManager:
     # forwarded query evidence is skipped as already stored.
     self.local_enrollment_features = {}
     self.unique_id_count = 0
+    # Distinct identities (gids) that ReID has resolved for this category since
+    # the scene started.
+    self.resolved_identities = set()
     self.stale_feature_timer = None
     self.purge_timer = None
     self.purge_interval_secs = None
     self._owns_purge_timer = False
     self.scene_id = None
     self._shutdown_complete = False
-    self.inactive_track_since = {}
 
     self.unique_id_count_lock = threading.Lock()
+    self.resolved_identities_lock = threading.Lock()
     # ReID embedding dimensions are inferred from the first observed embedding.
     if reid_config_data is None:
       reid_config_data = {}
@@ -197,6 +199,68 @@ class UUIDManager:
       new_count = self.unique_id_count
     return new_count
 
+  def _recordResolvedIdentity(self, database_id, rv_id=None, reason=None):
+    """
+    Record a gid as a live identity resolved by ReID.
+
+    Unlike unique_id_count, this counts *identities* rather than decisions, so
+    a person who leaves and is re-identified on return does not add to it.
+
+    @param   database_id  The gid the track resolved to
+    @param   rv_id        Tracker id that resolved to it, for logging
+    @param   reason       Which ReID decision produced it, for logging
+    @return  int          Number of live identities resolved so far
+    """
+    if database_id is None:
+      return self.max_resolved_identities
+
+    with self.resolved_identities_lock:
+      is_new = database_id not in self.resolved_identities
+      self.resolved_identities.add(database_id)
+      total = len(self.resolved_identities)
+
+    if is_new:
+      log.debug(
+        f"Resolved new ReID identity: gid={database_id}, rv_id={rv_id}, "
+        f"reason={reason}, max_resolved_identities={total}")
+
+    return total
+
+  def _supersedeResolvedIdentity(self, previous_gid, rv_id=None):
+    """
+    Drop a gid that a track has just moved off of.
+
+    A superseded gid is recorded in previous_ids_chain and is nobody's identity
+    any more: it was a provisional id held while ReID collected evidence, or one
+    regenerated to dodge a database id collision. Keeping it would make the
+    resolved-identity total grow with every id churn instead of tracking the
+    number of distinct people ReID has actually established.
+
+    @param   previous_gid  The gid the track no longer holds
+    @param   rv_id         Tracker id that moved off it, for logging
+    @return  int           Number of live identities resolved so far
+    """
+    if previous_gid is None:
+      return self.max_resolved_identities
+
+    with self.resolved_identities_lock:
+      was_tracked = previous_gid in self.resolved_identities
+      self.resolved_identities.discard(previous_gid)
+      total = len(self.resolved_identities)
+
+    if was_tracked:
+      log.debug(
+        f"Superseded ReID identity: gid={previous_gid}, rv_id={rv_id}, "
+        f"max_resolved_identities={total}")
+
+    return total
+
+  @property
+  def max_resolved_identities(self):
+    """Number of distinct identities ReID has resolved and not superseded."""
+    with self.resolved_identities_lock:
+      return len(self.resolved_identities)
+
   def updateReidConfig(self, reid_config_data=None):
     """Update runtime ReID configuration without recreating the UUID manager."""
     old_interval = self.stale_feature_check_interval_secs
@@ -229,16 +293,6 @@ class UUIDManager:
       'minimum_bbox_area', DEFAULT_MINIMUM_BBOX_AREA)
     self.feature_slice_size = reid_config_data.get(
       'feature_slice_size', DEFAULT_FEATURE_SLICE_SIZE)
-    self.inactive_track_grace_secs = float(
-      reid_config_data.get(
-        'inactive_track_grace_secs',
-        DEFAULT_INACTIVE_TRACK_GRACE_SECS,
-      )
-    )
-
-    if self.inactive_track_grace_secs < 0:
-      raise ValueError("inactive_track_grace_secs must be non-negative")
-
     if hasattr(self, 'reid_database') and self.reid_database is not None:
       new_db_metric = self._resolveDatabaseSimilarityMetric(self.similarity_metric)
       current_db_metric = getattr(self.reid_database, 'similarity_metric', None)
@@ -490,65 +544,6 @@ class UUIDManager:
       return None
     return getattr(source, 'cameraID', None) or getattr(source, 'uid', None)
 
-  def hasPendingTrack(self, track_id):
-    """Return True when ``track_id`` is collecting evidence and has no decision."""
-    with self.active_ids_lock:
-      data = self.active_ids.get(track_id)
-      return data is not None and data[0] is None
-
-  def transferPendingTrack(self, old_track_id, new_track_id):
-    """Move unresolved ReID collection state between tracker fragments.
-
-    The tracking layer owns the spatial/temporal association decision. This
-    method only transfers UUID-manager state after that decision has been made.
-    A track with an in-flight query or completed identity is never transferred.
-
-    @return bool  True when state was transferred, otherwise False
-    """
-    if old_track_id == new_track_id:
-      return True
-
-    with self.active_ids_lock:
-      old_data = self.active_ids.get(old_track_id)
-      new_data = self.active_ids.get(new_track_id)
-      if old_data is None or old_data[0] is not None:
-        return False
-      if new_data is not None and new_data[0] is not None:
-        return False
-      if old_track_id in self.active_query:
-        log.warning(
-          f"Skipping ReID tracker-fragment handoff with in-flight query: "
-          f"rv_id={old_track_id} -> {new_track_id}")
-        return False
-
-      self.active_ids[new_track_id] = old_data
-      self.active_ids.pop(old_track_id, None)
-
-    def move_state(state):
-      if old_track_id not in state:
-        return
-      old_value = state.pop(old_track_id)
-      if new_track_id not in state:
-        state[new_track_id] = old_value
-
-    move_state(self.quality_features)
-    move_state(self.quality_observation_counts)
-    move_state(self.enrollment_features)
-    move_state(self.local_enrollment_features)
-    move_state(self.features_for_database)
-    move_state(self.features_for_database_timestamps)
-
-    self.inactive_track_since.pop(old_track_id, None)
-    self.inactive_track_since.pop(new_track_id, None)
-    self.match_latency_tracker.discardTrackStart(old_track_id)
-    self.match_latency_tracker.markTrackStart(new_track_id)
-
-    log.debug(
-      f"Transferred pending ReID state from rv_id={old_track_id} "
-      f"to rv_id={new_track_id}, observations="
-      f"{self.quality_observation_counts.get(new_track_id, 0)}")
-    return True
-
   def pruneInactiveTracks(self, tracked_objects):
     """
     Removes inactive tracks from the active_ids dict.
@@ -582,72 +577,28 @@ class UUIDManager:
       metrics.record_reid_total_tracked_object_count(
         TrackedObjectRegistry.getInstance().getTotalCount(self.scene_id))
 
-    # Preserve unresolved tracker IDs briefly because Robot Vision may suspend
-    # and later reactivate the same rv_id. Resolved tracks are still pruned
-    # immediately so their database identity can be matched by another track.
-    active_track_set = set(active_tracks)
-    current_time = get_epoch_time()
-
-    # A currently visible track is no longer inactive.
-    for track_id in active_track_set:
-      self.inactive_track_since.pop(track_id, None)
-
+    # Normal pruning based on tracker's active tracks
     inactive_tracks = []
     new_active_ids = {}
-
     with self.active_ids_lock:
-      for track_id, data in self.active_ids.items():
-        if track_id in active_track_set:
-          new_active_ids[track_id] = data
-          continue
-
-        database_id = data[0]
-
-        # Only pending/unresolved tracks need the suspension grace period.
-        if database_id is None:
-          inactive_since = self.inactive_track_since.setdefault(
-            track_id, current_time)
-          inactive_age = current_time - inactive_since
-
-          if inactive_age <= self.inactive_track_grace_secs:
-            new_active_ids[track_id] = data
-            log.debug(
-              f"Retaining suspended unresolved ReID track: "
-              f"rv_id={track_id}, "
-              f"inactive_age={inactive_age:.2f}, "
-              f"grace={self.inactive_track_grace_secs:.2f}"
-            )
-            continue
-
-        self.inactive_track_since.pop(track_id, None)
-        inactive_tracks.append((track_id, data))
-
+      for k, v in self.active_ids.items():
+        if k in active_tracks:
+          new_active_ids[k] = v
+        else:
+          inactive_tracks.append((k, v))
       self.active_ids = new_active_ids
 
     for track_id, data in inactive_tracks:
-      observation_count = self.quality_observation_counts.get(track_id, 0)
-      unique_vectors = len(self.quality_features.get(track_id, []))
-      query_submitted = track_id in self.active_query
-
-      if data[0] is None:
-        log.warning(
-          f"Pruning unresolved ReID track after grace period: "
-          f"rv_id={track_id}, "
-          f"observations={observation_count}, "
-          f"unique_vectors={unique_vectors}, "
-          f"required={self.minimum_feature_count}, "
-          f"query_submitted={query_submitted}"
-        )
-
       self.active_query.pop(track_id, None)
       self.quality_features.pop(track_id, None)
       self.quality_observation_counts.pop(track_id, None)
       self.enrollment_features.pop(track_id, None)
       self.local_enrollment_features.pop(track_id, None)
       self.features_for_database_timestamps.pop(track_id, None)
+      # Track never reached a match decision (e.g. reid disabled, insufficient
+      # features); discard its start time rather than leaking it forever.
       self.match_latency_tracker.discardTrackStart(track_id)
       self._addNewFeaturesToDatabase(track_id)
-
     return
 
   def _addNewFeaturesToDatabase(self, track_id, slice_size=None):
@@ -883,34 +834,16 @@ class UUIDManager:
     @param  minimum_bbox_area      Optional override for minimum pixel bbox area (px^2)
     """
     reid_embedding = self._extractReidEmbedding(sscape_object)
-
-    if reid_embedding is None:
-      log.debug(
-        f"ReID observation rejected: rv_id={sscape_object.rv_id}, "
-        "reason=no_embedding"
-      )
-      return
-
-    if not self.reid_enabled:
+    if reid_embedding is None or not self.reid_enabled:
       return
 
     if not self._ensureReIDDimensions(reid_embedding):
-      log.debug(
-        f"ReID observation rejected: rv_id={sscape_object.rv_id}, "
-        "reason=invalid_dimensions"
-      )
       return
 
     if not self.isQueryableObservation(sscape_object, minimum_bbox_area):
-      bbox = getattr(sscape_object, "boundingBoxPixels", None)
-      area = bbox.area if bbox is not None else None
-
       log.debug(
-        f"ReID observation rejected: rv_id={sscape_object.rv_id}, "
-        f"reason=quality_gate, bbox_area={area}, "
-        f"minimum_bbox_area={minimum_bbox_area or self.minimum_bbox_area}, "
-        f"provenance={getattr(sscape_object, 'reid_provenance', None)}"
-      )
+        f"gatherQualityVisualFeatures: Rejected embedding for rv_id={sscape_object.rv_id} "
+        f"(no usable pixel bbox and no vetted provenance)")
       return
 
     self.quality_observation_counts[sscape_object.rv_id] = (
@@ -1362,6 +1295,7 @@ class UUIDManager:
       if previous_gid is not None and previous_gid != database_id:
         sscape_object.save_previous_object_id(previous_gid, similarity_score=similarity,
                                        timestamp=query_timestamp)
+        self._supersedeResolvedIdentity(previous_gid, rv_id=sscape_object.rv_id)
 
       historical_persist = self.reid_database.getPersistedAttributes(database_id)
       log.debug(f"updateActiveDict: historical_persist for gid={database_id}: {historical_persist}")
@@ -1374,6 +1308,8 @@ class UUIDManager:
       log.debug(
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
+      self._recordResolvedIdentity(
+        database_id, rv_id=sscape_object.rv_id, reason='match')
 
       reid_embedding = self._extractReidEmbedding(sscape_object)
       if (
@@ -1412,11 +1348,15 @@ class UUIDManager:
       if previous_gid is not None and previous_gid != database_id:
         sscape_object.save_previous_object_id(previous_gid, similarity_score=None,
                                        timestamp=query_timestamp)
+        self._supersedeResolvedIdentity(previous_gid, rv_id=sscape_object.rv_id)
 
       # Increment counter for unique objects with actual query attempts that found no match
       self._incrementUniqueIdCount()
       log.debug(f"updateActiveDict: No match, assigned new gid={database_id} for track {sscape_object.rv_id}, state={ReidState.QUERY_NO_MATCH.value}")
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
+      self._recordResolvedIdentity(
+        sscape_object.gid, rv_id=sscape_object.rv_id,
+        reason='collision' if database_id_collision else 'no_match')
 
     self._logLiveGidIntegrity("updateActiveDict", sscape_object.rv_id)
 
@@ -1508,21 +1448,6 @@ class UUIDManager:
 
     @param  sscape_object  The current Scenescape object
     """
-    was_suspended = sscape_object.rv_id in self.inactive_track_since
-
-    if was_suspended:
-      inactive_since = self.inactive_track_since.pop(
-        sscape_object.rv_id, None)
-      inactive_duration = (
-        get_epoch_time() - inactive_since
-        if inactive_since is not None
-        else 0.0
-      )
-      log.debug(
-        f"Reactivated unresolved ReID track: "
-        f"rv_id={sscape_object.rv_id}, "
-        f"inactive_duration={inactive_duration:.2f}"
-      )
     is_new = self.isNewTrackerID(sscape_object)
     self._category = sscape_object.category
 

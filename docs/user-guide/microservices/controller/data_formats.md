@@ -495,6 +495,7 @@ objects of that category.
 | `name`                   | string                | Scene name                                                                      |
 | `rate`                   | number                | Current scene processing rate in Hz                                             |
 | `unique_detection_count` | integer               | Cumulative count of unique detections since scene start                         |
+| `max_resolved_identities` | integer              | Count of distinct identities Re-ID has resolved. Superseded ids (those recorded in an object's `previous_ids_chain`) are not counted. |
 | `objects`                | array                 | Tracked objects (see [Common Output Track Fields](#common-output-track-fields)) |
 
 ### Example Data Scene Message
@@ -506,6 +507,7 @@ objects of that category.
   "name": "Queuing",
   "rate": 9.984,
   "unique_detection_count": 91,
+  "max_resolved_identities": 3,
   "objects": [
     {
       "id": "65d49fa0-a855-46f8-bb41-4e92102c7c47",

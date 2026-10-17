@@ -470,6 +470,8 @@ class SceneController:
             for detection_type in detection_types:
               jdata_scene['unique_detection_count'] = scene.tracker.getUniqueIDCount(
                 detection_type)
+              jdata_scene['max_resolved_identities'] = \
+                scene.tracker.getMaxResolvedIdentities(detection_type)
               self.publishDetections(
                 scene, scene.tracker.currentObjects(detection_type),
                 msg_when, detection_type, jdata_scene, camera_id)
@@ -509,6 +511,8 @@ class SceneController:
       jdata['name'] = scene.name
       for detection_type in detection_types:
         jdata['unique_detection_count'] = scene.tracker.getUniqueIDCount(detection_type)
+        jdata['max_resolved_identities'] = \
+          scene.tracker.getMaxResolvedIdentities(detection_type)
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
       return
