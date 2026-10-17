@@ -226,6 +226,11 @@ def test_scene_regulated_rate_update_changes_message_frequency(
   client = None
 
   try:
+    from tests.utils.scene_ready import wait_for_tracker_ready
+    assert wait_for_tracker_ready(helper.params, scene_uid, camera_id="camera1"), (
+      f"Tracker for scene {scene_uid} never came up; no DATA_SCENE observed "
+      "within the readiness timeout")
+
     reg_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
     reg_msgs = []
     msg_lock = threading.Lock()

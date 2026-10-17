@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2022 - 2025 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import threading
 import time
 import json
 
@@ -91,6 +92,33 @@ class WillOurShipGo(SceneObjectMqtt):
     message_received = True
     return
 
+  def waitForTripwireRegistered(self, tripwire_uid, timeout=10):
+    """! Block until the Analytics service's retained tripwire catalog for
+    this scene includes *tripwire_uid*.
+
+    @param    tripwire_uid    uid of the tripwire to wait for.
+    @param    timeout         seconds to wait before giving up.
+    @return   True if the tripwire was found in the catalog, else False.
+    """
+    registered = threading.Event()
+
+    def onCatalog(mqttc, obj, msg):
+      try:
+        catalog = json.loads(msg.payload.decode("utf-8"))
+      except (json.JSONDecodeError, UnicodeDecodeError):
+        return
+      if any(t.get('uuid') == tripwire_uid for t in catalog):
+        registered.set()
+      return
+
+    topic = PubSub.formatTopic(PubSub.DATA_CHILD_TRIPWIRES, scene_id=self.sceneUID)
+    self.client.addCallback(topic, onCatalog)
+    found = registered.wait(timeout)
+    self.client.removeCallback(topic)
+    if not found:
+      log.warning(f"Tripwire {tripwire_uid} not seen in Analytics catalog within {timeout}s")
+    return found
+
   def directionOfPoint(self, a, b, point):
     """! Returns the direction (LEFT, RIGHT, ZERO) of a point relative to a line
     from point a to point b using the 2D cross product.
@@ -156,6 +184,7 @@ class WillOurShipGo(SceneObjectMqtt):
       self.client.subscribe(PubSub.formatTopic(PubSub.EVENT, event_type="objects",
                                                region_type="tripwire", scene_id=self.sceneUID,
                                                region_id=res['uid']))
+      self.waitForTripwireRegistered(res['uid'])
       tripwirePoints = res["points"]
       log.info(f"tripwire points: {tripwirePoints}")
       objLocation = self.getLocations()

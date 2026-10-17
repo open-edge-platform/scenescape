@@ -31,11 +31,13 @@ class SceneControllerImportJSON(FunctionalTest):
   def __init__(self, request, result_recorder):
     super().__init__(None, request, None)
     self.result_recorder = result_recorder
-    self.sceneUID = self.params['scene_id']
     self.frameRate = FRAMES_PER_SECOND
     self.sceneData = None
     self.jsonPath = "./tests/resources/Retail.json"
     self._mqtt_ready = threading.Event()
+
+    with open(self.jsonPath, encoding="utf-8") as f:
+      self.sceneUID = json.load(f)['uid']
 
     self.pubsub = PubSub(self.params['auth'], None, self.params['rootcert'],
                          self.params['broker_url'], int(self.params['broker_port']))

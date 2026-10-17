@@ -397,10 +397,11 @@ class RetrackTest:
       for i in range(5):
         obj_data["timestamp"] = get_iso_time()
         det = obj_data["objects"][obj_category][0]
-        y = 100 + (i * 20)
         if "bounding_box_px" in det:
+          y = 100 + (i * 20)
           det["bounding_box_px"]["y"] = y
         elif "bounding_box" in det:
+          y = i * 0.02
           det["bounding_box"]["y"] = y
         det["category"] = obj_category
         client.publish(topic, json.dumps(obj_data))
@@ -467,10 +468,11 @@ class RetrackTest:
     while time.time() < end:
       obj_data["timestamp"] = get_iso_time()
       det = obj_data["objects"]["person"][0]
-      y = 100 + (i % 5) * 20
       if "bounding_box_px" in det:
+        y = 100 + (i % 5) * 20
         det["bounding_box_px"]["y"] = y
       elif "bounding_box" in det:
+        y = (i % 5) * 0.02
         det["bounding_box"]["y"] = y
       det["category"] = "person"
       client.publish(topic, json.dumps(obj_data))

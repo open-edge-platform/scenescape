@@ -82,14 +82,21 @@ class SensorMqttMessageFlowTest(FunctionalTest):
 
   def eventReceived(self, pahoClient, userdata, message):
     topic = PubSub.parseTopic(message.topic)
-    region_id = topic['region_id']
-    if region_id not in self.sensors:
+    region_uid = topic['region_id']
+    sensor_name = self._sensorNameForUid(region_uid)
+    if sensor_name is None:
       return
 
     payload = json.loads(message.payload.decode("utf-8"))
-    self.sensors[region_id]['received'] = get_epoch_time()
-    self.regionEvents.setdefault(region_id, []).append(payload)
+    self.sensors[sensor_name]['received'] = get_epoch_time()
+    self.regionEvents.setdefault(sensor_name, []).append(payload)
     return
+
+  def _sensorNameForUid(self, uid):
+    for name, info in self.sensors.items():
+      if info.get('uid') == uid:
+        return name
+    return None
 
   def sceneReceived(self, pahoClient, userdata, message):
     payload = json.loads(message.payload.decode("utf-8"))

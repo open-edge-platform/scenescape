@@ -95,16 +95,14 @@ def _phase1_prime_tracker(obj_data, client, regulated_msgs, lock):
   @param    lock            threading.Lock guarding *regulated_msgs*.
   """
   log.info("Publishing non-empty detections to prime the tracker")
-  RetrackTest.publish_data(obj_data, client)
-
   non_empty = False
   start = time.time()
   while time.time() - start < MAX_WAIT:
+    RetrackTest.publish_data(obj_data, client)
     with lock:
       non_empty = any(len(m.get('objects', [])) > 0 for m in regulated_msgs)
     if non_empty:
       break
-    time.sleep(0.2)
 
   assert non_empty, \
     f"No DATA_REGULATED message with objects received within {MAX_WAIT}s"

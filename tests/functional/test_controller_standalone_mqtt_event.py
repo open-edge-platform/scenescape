@@ -106,10 +106,10 @@ def test_controller_publishes_tracking_on_detection(
 
 
 @pytest.mark.test_name("NEX-T22793")
-def test_controller_creates_tracker_after_scene_update(
+def test_controller_preserves_tracker_after_scene_update(
     result_recorder, rest, scene_uid, mqtt_tester):
-  """! Verify that the Controller creates a new tracker for a scene after
-  receiving an 'update' message on CMD_DATABASE.
+  """! Verify that the Controller preserves its tracked objects for a scene
+  across a non-tracker-affecting REST update (e.g. renaming the scene).
 
   @param    result_recorder    Pytest fixture recording test pass/fail.
   @param    rest               Authenticated RESTClient fixture.
@@ -146,12 +146,12 @@ def test_controller_creates_tracker_after_scene_update(
     )
 
     ids_after = mqtt_tester.get_tracked_ids()
-    assert ids_before.isdisjoint(ids_after), (
-      f"Tracked object IDs overlap before and after scene update "
-      f"(before={ids_before}, after={ids_after}); tracker may not have been reset"
+    assert not ids_before.isdisjoint(ids_after), (
+      f"Tracked object IDs did not overlap before and after scene update "
+      f"(before={ids_before}, after={ids_after}); tracker state was unexpectedly reset"
     )
     log.info(
-      "PASS: controller resumed tracking with fresh IDs after scene REST update")
+      "PASS: controller preserved tracked IDs after scene REST update")
     result_recorder.success()
   finally:
     try:
