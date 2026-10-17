@@ -120,6 +120,9 @@ class UUIDManager:
     # forwarded query evidence is skipped as already stored.
     self.local_enrollment_features = {}
     self.unique_id_count = 0
+    # Distinct identities (gids) that ReID has resolved for this category since
+    # the scene started.
+    self.resolved_identities = set()
     self.stale_feature_timer = None
     self.purge_timer = None
     self.purge_interval_secs = None
@@ -128,6 +131,7 @@ class UUIDManager:
     self._shutdown_complete = False
 
     self.unique_id_count_lock = threading.Lock()
+    self.resolved_identities_lock = threading.Lock()
     # ReID embedding dimensions are inferred from the first observed embedding.
     if reid_config_data is None:
       reid_config_data = {}
@@ -194,6 +198,68 @@ class UUIDManager:
       self.unique_id_count += 1
       new_count = self.unique_id_count
     return new_count
+
+  def _recordResolvedIdentity(self, database_id, rv_id=None, reason=None):
+    """
+    Record a gid as a live identity resolved by ReID.
+
+    Unlike unique_id_count, this counts *identities* rather than decisions, so
+    a person who leaves and is re-identified on return does not add to it.
+
+    @param   database_id  The gid the track resolved to
+    @param   rv_id        Tracker id that resolved to it, for logging
+    @param   reason       Which ReID decision produced it, for logging
+    @return  int          Number of live identities resolved so far
+    """
+    if database_id is None:
+      return self.max_resolved_identities
+
+    with self.resolved_identities_lock:
+      is_new = database_id not in self.resolved_identities
+      self.resolved_identities.add(database_id)
+      total = len(self.resolved_identities)
+
+    if is_new:
+      log.debug(
+        f"Resolved new ReID identity: gid={database_id}, rv_id={rv_id}, "
+        f"reason={reason}, max_resolved_identities={total}")
+
+    return total
+
+  def _supersedeResolvedIdentity(self, previous_gid, rv_id=None):
+    """
+    Drop a gid that a track has just moved off of.
+
+    A superseded gid is recorded in previous_ids_chain and is nobody's identity
+    any more: it was a provisional id held while ReID collected evidence, or one
+    regenerated to dodge a database id collision. Keeping it would make the
+    resolved-identity total grow with every id churn instead of tracking the
+    number of distinct people ReID has actually established.
+
+    @param   previous_gid  The gid the track no longer holds
+    @param   rv_id         Tracker id that moved off it, for logging
+    @return  int           Number of live identities resolved so far
+    """
+    if previous_gid is None:
+      return self.max_resolved_identities
+
+    with self.resolved_identities_lock:
+      was_tracked = previous_gid in self.resolved_identities
+      self.resolved_identities.discard(previous_gid)
+      total = len(self.resolved_identities)
+
+    if was_tracked:
+      log.debug(
+        f"Superseded ReID identity: gid={previous_gid}, rv_id={rv_id}, "
+        f"max_resolved_identities={total}")
+
+    return total
+
+  @property
+  def max_resolved_identities(self):
+    """Number of distinct identities ReID has resolved and not superseded."""
+    with self.resolved_identities_lock:
+      return len(self.resolved_identities)
 
   def updateReidConfig(self, reid_config_data=None):
     """Update runtime ReID configuration without recreating the UUID manager."""
@@ -1229,6 +1295,7 @@ class UUIDManager:
       if previous_gid is not None and previous_gid != database_id:
         sscape_object.save_previous_object_id(previous_gid, similarity_score=similarity,
                                        timestamp=query_timestamp)
+        self._supersedeResolvedIdentity(previous_gid, rv_id=sscape_object.rv_id)
 
       historical_persist = self.reid_database.getPersistedAttributes(database_id)
       log.debug(f"updateActiveDict: historical_persist for gid={database_id}: {historical_persist}")
@@ -1241,6 +1308,8 @@ class UUIDManager:
       log.debug(
         f"updateActiveDict: Match found for {sscape_object.rv_id}: {database_id}, similarity={similarity}, state={ReidState.MATCHED.value}")
       self.active_ids[sscape_object.rv_id] = [database_id, similarity]
+      self._recordResolvedIdentity(
+        database_id, rv_id=sscape_object.rv_id, reason='match')
 
       reid_embedding = self._extractReidEmbedding(sscape_object)
       if (
@@ -1279,11 +1348,15 @@ class UUIDManager:
       if previous_gid is not None and previous_gid != database_id:
         sscape_object.save_previous_object_id(previous_gid, similarity_score=None,
                                        timestamp=query_timestamp)
+        self._supersedeResolvedIdentity(previous_gid, rv_id=sscape_object.rv_id)
 
       # Increment counter for unique objects with actual query attempts that found no match
       self._incrementUniqueIdCount()
       log.debug(f"updateActiveDict: No match, assigned new gid={database_id} for track {sscape_object.rv_id}, state={ReidState.QUERY_NO_MATCH.value}")
       self.active_ids[sscape_object.rv_id] = [sscape_object.gid, None]
+      self._recordResolvedIdentity(
+        sscape_object.gid, rv_id=sscape_object.rv_id,
+        reason='collision' if database_id_collision else 'no_match')
 
     self._logLiveGidIntegrity("updateActiveDict", sscape_object.rv_id)
 

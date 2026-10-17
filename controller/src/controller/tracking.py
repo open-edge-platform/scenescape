@@ -46,6 +46,14 @@ class Tracking(Thread):
     log.warning("No tracker for category", category)
     return 0
 
+  def getMaxResolvedIdentities(self, category):
+    """Number of distinct identities ReID has resolved for this category."""
+    tracker = self.trackers.get(category, None)
+    if tracker:
+      return tracker.uuid_manager.max_resolved_identities
+    log.warning("No tracker for category", category)
+    return 0
+
   def updateReidConfig(self, reid_config_data=None):
     """Update ReID behavior in-place for this tracker and all child trackers."""
     self.reid_config_data = reid_config_data if reid_config_data else {}
