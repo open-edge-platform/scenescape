@@ -79,5 +79,8 @@ timestamp-unit: # NEX-T10480
 transform-unit: # NEX-T10512
 	$(call unit-recipe, transform, $(IMAGE)-manager-test)
 
+uuid-manager-unit: # NEX-T19884
+	$(call unit-recipe, uuid_manager, $(IMAGE)-controller-test)
+
 views-unit: # NEX-T10479
 	$(call unit-recipe, views, $(IMAGE)-manager-test)
