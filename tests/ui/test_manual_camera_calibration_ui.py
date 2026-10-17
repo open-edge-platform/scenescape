@@ -270,7 +270,8 @@ def test_manual_distortion_controls(params, result_recorder):
 
       try {
         calibration.client = null;
-        calibration.updateCalibrationPoseFromFit = () => {};
+        // Must return truthy: success path treats a falsey return as pose failure.
+        calibration.updateCalibrationPoseFromFit = () => true;
         calibration.showCalibrationFitStatus = () => {};
         $.ajax = (options) => {
           request = options;
