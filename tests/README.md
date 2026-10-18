@@ -227,7 +227,31 @@ pytest tests/sscape_tests
 | Marker            | Description                                                                       |
 | ----------------- | --------------------------------------------------------------------------------- |
 | `kubernetes_only` | Test runs only with `--backend=kubernetes` or `--backend=all`; skipped for Docker |
-| `preserve_db`     | Skip post-test DB restore so the next test can verify persistence                 |
+
+## Test isolation
+
+Tests that need their own data create it through the `scene_factory` fixture, which removes every
+scene and camera it created when the test ends, and deletes any sensor still attached to a scene
+it created:
+
+```python
+def test_something(scene_factory):
+  scene = scene_factory("my-scene", cameras=["my-cam"],
+                        map_image="sample_data/HazardZoneScene.png", scale=100.0)
+```
+
+Pass `replace=True` when a pre-existing scene or camera with the same name may already exist
+(e.g. the seeded Demo scene), since `Scene.name`, `Sensor.name` and `Sensor.sensor_id` are unique.
+This renames the existing scene aside (restoring its name on teardown) and borrows its cameras
+rather than deleting them, so pre-existing data isn't lost.
+
+The `demo_scene` fixture is built on `scene_factory` and provides a freshly
+created `Demo` scene with `camera1`, `camera2` and `camera3`, so it is identical
+on every deployment backend. It returns the new scene UID, and confirms the
+scene controller's tracker for that scene is warmed up (see
+`tests/utils/scene_ready.py`) before returning it.
+
+Tests that mutate seeded data are responsible for cleaning up after themselves.
 
 ## Multi-controller hierarchy (functional)
 

@@ -24,8 +24,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 _TEST_USER = "general_user"
 _TEST_PASS = "general_pass"
 

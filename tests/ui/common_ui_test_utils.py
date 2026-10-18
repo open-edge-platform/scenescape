@@ -12,7 +12,7 @@ import random
 import filecmp
 import tempfile
 import functools
-import subprocess
+import requests
 import numpy as np
 
 from PIL import Image
@@ -36,7 +36,30 @@ APP_PROPER_NAME = 'Scenescape'
 
 TEST_SCENE_NAME = "Demo"
 TEST_SCENE_ID = "3bc091c7-e449-46a0-9540-29c499bca18c"
+TEST_CAMERA_ID = "camera1"
 TEST_MEDIA_PATH = os.path.dirname(os.path.realpath(__file__)) + "/test_media/"
+
+CAMERA_TOPIC_PREFIX = "scenescape/cmd/camera/"
+
+
+def camera_calibrate_link(browser, sensor_id=TEST_CAMERA_ID):
+  """! Return the calibration anchor of the camera called *sensor_id*.
+  @param    browser     Object wrapping the Selenium driver.
+  @param    sensor_id   Sensor id of the camera, as shown on the scene page.
+  @return   WebElement  The calibration link for that camera.
+  """
+  return browser.find_element(
+    By.CSS_SELECTOR, f'a.snapshot-image[topic="{CAMERA_TOPIC_PREFIX}{sensor_id}"]')
+
+
+def camera_calibrate_url(browser, sensor_id=TEST_CAMERA_ID):
+  """! Return the calibration page path of the camera called *sensor_id*.
+  @param    browser     Object wrapping the Selenium driver.
+  @param    sensor_id   Sensor id of the camera, as shown on the scene page.
+  @return   str         Path of the camera's calibration page.
+  """
+  href = camera_calibrate_link(browser, sensor_id).get_attribute("href")
+  return urlparse(href).path
 
 # SSIM threshold for image comparison (0 to 1 scale, where 1.0 means identical images)
 # Values above 0.95 typically indicate very similar images
@@ -144,23 +167,31 @@ def delete_object_library(browser, object_name):
   print('Object Library asset "{0}" deleted!'.format(object_name))
   return True
 
-def delete_scene(browser, scene_name):
+def delete_scene(browser, scene_name, timeout=10):
   """! Delete named Scenescape scene.
   @param    browser                    Object wrapping the Selenium driver.
   @param    scene_name                 Name of the scene to be deleted.
+  @param    timeout                    Seconds to wait for the deletion to complete.
   @return   bool                       Boolean representing success.
   """
+  wait = WebDriverWait(browser, timeout)
   browser.find_element(By.ID, "nav-scenes").click()
-  time.sleep(1)
-  browser.find_element(By.NAME, scene_name).find_element(By.NAME, "Delete",).click()
-  time.sleep(1)
-  print("Confirmation appeared: " + str(browser.find_element(By.XPATH, "//*[@type = 'submit']").get_attribute("value")))
-  browser.find_element(By.XPATH, "//*[@type = 'submit']").click()
-  time.sleep(1)
-  if scene_name not in browser.page_source:
-    print(scene_name + " deleted")
-    return True
-  return False
+  cards = wait.until(
+    lambda b: [c for c in b.find_elements(By.CSS_SELECTOR, '.card[name]')
+              if c.get_attribute("name") == scene_name] or False)
+  cards[-1].find_element(By.NAME, "Delete").click()
+  submit = wait.until(EC.element_to_be_clickable((By.XPATH, "//*[@type = 'submit']")))
+  print("Confirmation appeared: " + str(submit.get_attribute("value")))
+  submit.click()
+  try:
+    wait.until(
+      lambda b: not [c for c in b.find_elements(By.CSS_SELECTOR, '.card[name]')
+                    if c.get_attribute("name") == scene_name])
+  except TimeoutException:
+    print(f"Error while deleting scene: {scene_name!r} still present after {timeout}s")
+    return False
+  print(scene_name + " deleted")
+  return True
 
 def take_screenshot(browser, element, path):
   """! Function to take a screenshot of the requested element.
@@ -520,7 +551,7 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
     bool: True if calibration was changed successfully, False otherwise.
   """
 
-  browser.find_element(By.ID, 'cam_calibrate_1').click()
+  camera_calibrate_link(browser).click()
   wait = WebDriverWait(browser, BROWSER_WAIT)
   calibration_ready_script = """
     const calibration = window.camera_calibration;
@@ -756,7 +787,7 @@ def check_cam_calibration(browser, not_expected_cam=(0, 0), not_expected_map=(0,
   @return   bool                       Boolean representing success.
   """
   try:
-    browser.find_element(By.ID,'cam_calibrate_1').click()
+    camera_calibrate_link(browser).click()
     cam_values_init = get_calibration_points(browser, 'camera')
     map_values_init = get_calibration_points(browser, 'map')
     if (cam_values_init[0] != not_expected_cam) and (map_values_init[0] != not_expected_map):
@@ -778,7 +809,7 @@ def check_calibration_initialization(browser, expected_cam_values, expected_map_
   """
   calibration = True
   try:
-    browser.find_element(By.ID,'cam_calibrate_1').click()
+    camera_calibrate_link(browser).click()
     cam_values_init = get_calibration_points(browser, 'camera')
     map_values_init = get_calibration_points(browser, 'map')
     for index in range(len(expected_cam_values)):
@@ -965,6 +996,34 @@ def create_sensor_from_sensors_page(browser, sensor_id, sensor_name, scene_name)
     return True
   print("Error while creating sensor:", sensor_name)
   return False
+
+def wait_for_save_complete(browser, timeout, save_page_url):
+  """! Waits for a camera save to finish after the Save button was clicked.
+
+  Saving dispatches the form submit only after an alert ("Camera updated")
+  has been dismissed and an async MQTT round trip completed, so the save is
+  only done once the browser has navigated away from *save_page_url*.
+
+  @param    browser         Object wrapping the Selenium driver.
+  @param    timeout         Seconds to wait for the alert and the navigation.
+  @param    save_page_url   URL of the page the Save button was clicked on.
+  @return   bool            True when the save completed within *timeout*.
+  """
+  deadline = time.time() + timeout
+  try:
+    WebDriverWait(browser, max(0, deadline - time.time())).until(
+      EC.alert_is_present())
+    browser.switch_to.alert.accept()
+  except TimeoutException:
+    # Some flows save without alerting; the navigation below is the real signal.
+    print("No save alert appeared; waiting for navigation instead.")
+  try:
+    WebDriverWait(browser, max(0, deadline - time.time())).until(
+      lambda driver: driver.current_url != save_page_url)
+  except TimeoutException:
+    print(f"Save did not navigate away from {save_page_url!r} within {timeout}s")
+    return False
+  return True
 
 def save_sensor_calibration(browser):
   """! Saves sensor calibration in the Manage Sensor tab.
@@ -1289,14 +1348,15 @@ def create_camera(browser, camera_name, camera_id, scene_name):
   print("Error while creating camera:",camera_name)
   return False
 
-def check_db_status(browser):
+def check_db_status(browser, scene_name=None):
   """! The purpose of this function is to make sure database is
   up before running the tests. This function will return true if
-  it's able to navigate to the 'Demo' scene page.
+  it's able to navigate to the given scene page (defaults to 'Demo').
   @param    browser                    Object wrapping the Selenium driver.
+  @param    scene_name                 Name of the scene to navigate to.
   @return   bool                       Boolean representing success.
   """
-  return navigate_to_scene(browser, TEST_SCENE_NAME)
+  return navigate_to_scene(browser, scene_name or TEST_SCENE_NAME)
 
 def navigate_to_scene(browser, scene_name):
   """! This function navigates to the 'Scenes' page, then waits for the Scene 'scene_name'
@@ -1938,27 +1998,30 @@ class InteractWithPage(ABC):
     parsed_url = urlparse(self.browser.current_url)
     file_url = parsed_url._replace(path=f"/media/{self.interaction_params.file_name}").geturl()
 
-    curl_str = ["curl", file_url, "-k", "-o", file_output_path, "-v"]
-    sessionid = None
-    csrftoken = None
-
+    cookies = {}
     for item in self.browser.get_cookies():
-      if item['name'] == "sessionid":
-        sessionid = f"{item['name']}={item['value']}"
-      elif item['name'] == "csrftoken":
-        csrftoken = f"{item['name']}={item['value']}"
+      if item['name'] in ("sessionid", "csrftoken"):
+        cookies[item['name']] = item['value']
 
-    assert sessionid is not None
-    assert csrftoken is not None
-    curl_str.extend(["-b", f"{sessionid};{csrftoken}"])
-    subprocess.run(curl_str, capture_output=True, text=True)
+    assert "sessionid" in cookies
+    assert "csrftoken" in cookies
+
+    try:
+      response = requests.get(file_url, cookies=cookies, verify=False, timeout=30)
+      response.raise_for_status()
+      with open(file_output_path, "wb") as f:
+        f.write(response.content)
+    except requests.RequestException as e:
+      print(check_str_root + f"Failed: file_url={file_url!r} request_error={e!r}")
+      return upload_success
 
     tmp_files = os.listdir(tmp_dir_path)
     if (self.interaction_params.file_name in tmp_files) and filecmp.cmp(file_output_path, self.interaction_params.file_path):
       upload_success = True
       print(check_str_root + "Passed")
     else:
-      print(check_str_root + "Failed")
+      print(check_str_root + f"Failed: file_url={file_url!r} tmp_files={tmp_files} "
+           f"status_code={response.status_code}")
     return upload_success
 
   def check_screenshots_differ(self) -> bool:
@@ -2012,7 +2075,9 @@ class InteractWithPage(ABC):
       upload_success = True
       print(check_str_root + "Passed")
     else:
-      print(check_str_root + "Failed")
+      print(check_str_root + f"Failed: navigate_success={navigate_success} "
+           f"page_file_name={page_file_name!r} expected={self.interaction_params.file_name!r} "
+           f"current_url={self.browser.current_url!r}")
     return upload_success
 
   def check_successful_interaction(self, checks: CheckInteraction) -> bool:
@@ -2142,8 +2207,12 @@ class InteractWithSceneUpdate(InteractWithPage):
     upload_success = False
     correct_address = self.upload_file()
 
-    # Wait for redirect to resolve back to the Scenes page
-    selenium_wait_for_elements(self.browser, (By.LINK_TEXT, "+ New Scene"), 5)
+    # Wait for redirect to resolve back to the Scenes page. 3D assets (.glb)
+    # can take longer to process server-side (mesh validation, thumbnail
+    # generation) than flat image uploads, so allow more time here.
+    redirected = selenium_wait_for_elements(self.browser, (By.LINK_TEXT, "+ New Scene"), 15)
+    if not redirected:
+      print(f"Timed out waiting for redirect after upload; current_url={self.browser.current_url!r}")
     successful_checks = self.check_successful_interaction(checks)
     if successful_checks and correct_address:
       upload_success = True

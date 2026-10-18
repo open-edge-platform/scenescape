@@ -67,12 +67,28 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
 
     return WebDriverWait(self.browser, WAIT_SEC).until(projection_visible)
 
+  def clickAutoCalibrate(self, camera_id):
+    """Wait for the camera's auto-calibrate button to be enabled, then click it."""
+
+    button_id = f"{camera_id}-auto-calibrate"
+    is_enabled = (
+      "const el = document.getElementById(arguments[0]);"
+      "const ctrl = el && el.closest('.controller');"
+      "return Boolean(ctrl) && !ctrl.hidden && !ctrl.classList.contains('disabled');"
+    )
+    WebDriverWait(self.browser, WAIT_SEC).until(
+      lambda browser: browser.execute_script(is_enabled, button_id))
+    common.click_when_clickable(self.browser, (By.ID, button_id), WAIT_SEC)
+    self.browser.actionChains().pause(1).perform()
+
   def checkCalibration3d2dAprilTag(self):
     try:
       assert self.login()
 
-      cam_url_1 = "/cam/calibrate/4"
-      cam_url_2 = "/cam/calibrate/5"
+      common.navigate_directly_to_page(self.browser, f"/{common.TEST_SCENE_ID}/")
+      cam_url_1 = common.camera_calibrate_url(self.browser, "atag-qcam1")
+      cam_url_2 = common.camera_calibrate_url(self.browser, "atag-qcam2")
+      log.info(f"Camera calibration pages: {cam_url_1}, {cam_url_2}")
 
       # Open 3D UI
       log.info("Navigate to the 3D Scene detail page.")
@@ -84,7 +100,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.clickOnElement("atag-qcam1-control-panel", delay=WAIT_SEC)
 
       log.info("Press auto calibrate button of atag-qcam1.")
-      self.clickOnElement("atag-qcam1-auto-calibrate", delay=WAIT_SEC)
+      self.clickAutoCalibrate("atag-qcam1")
 
       log.info("Press save button of atag-qcam1.")
       self.clickOnElement("atag-qcam1-save-camera", delay=WAIT_SEC)
@@ -94,7 +110,7 @@ class Scene3dUserInterfaceTest(UserInterfaceTest):
       self.clickOnElement("atag-qcam2-control-panel", delay=WAIT_SEC)
 
       log.info("Press auto calibrate button of atag-qcam2.")
-      self.clickOnElement("atag-qcam2-auto-calibrate", delay=WAIT_SEC)
+      self.clickAutoCalibrate("atag-qcam2")
 
       log.info("Press save button of atag-qcam2.")
       self.clickOnElement("atag-qcam2-save-camera", delay=WAIT_SEC)

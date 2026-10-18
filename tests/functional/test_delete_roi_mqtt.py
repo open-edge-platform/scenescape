@@ -29,9 +29,10 @@ def runROIMqttDelete(self):
   return
 
 @pytest.mark.test_name("NEX-T29295")
-def test_roi_delete(scenescape_env, request, record_xml_attribute):
+def test_roi_delete(scenescape_env, demo_scene, request, record_xml_attribute):
   TEST_NAME = "NEX-T29295"
   test = SceneObjectMqtt(TEST_NAME, request, record_xml_attribute)
+  test.sceneUID = demo_scene
   runROIMqttDelete(test)
   assert test.exitCode == 0
   return

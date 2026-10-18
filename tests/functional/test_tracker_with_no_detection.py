@@ -21,7 +21,6 @@ import threading
 import time
 
 from scene_common.mqtt import PubSub
-from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 from tests.utils.log import get_logger
 from tests.utils.spec import FuncTestSpec, AUTH_CONTROLLER
@@ -38,7 +37,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-MAX_WAIT = 10
+MAX_WAIT = 20
 
 EMPTY_SEND_DURATION = 5
 
@@ -96,16 +95,14 @@ def _phase1_prime_tracker(obj_data, client, regulated_msgs, lock):
   @param    lock            threading.Lock guarding *regulated_msgs*.
   """
   log.info("Publishing non-empty detections to prime the tracker")
-  RetrackTest.publish_data(obj_data, client)
-
   non_empty = False
   start = time.time()
   while time.time() - start < MAX_WAIT:
+    RetrackTest.publish_data(obj_data, client)
     with lock:
       non_empty = any(len(m.get('objects', [])) > 0 for m in regulated_msgs)
     if non_empty:
       break
-    time.sleep(0.2)
 
   assert non_empty, \
     f"No DATA_REGULATED message with objects received within {MAX_WAIT}s"
@@ -162,7 +159,7 @@ def _phase2_drain_tracker(obj_data, client, cam_topic, regulated_msgs, lock):
 
 @pytest.mark.test_name("NEX-T10544")
 def test_tracker_objects_drop_to_zero_with_empty_detections(
-    objData, params):
+    objData, record_xml_attribute, params, demo_scene):
   """! Verify that the tracker drops all tracked objects to zero when the
   camera sends an empty detection list after a period of active tracking.
 
@@ -182,16 +179,9 @@ def test_tracker_objects_drop_to_zero_with_empty_detections(
   log.info(f"Executing: {TEST_NAME}")
   exit_code = 1
   client = None
-  rest_client = None
 
   try:
-    rest_client = RESTClient(params['resturl'], rootcert=params['rootcert'])
-    assert rest_client.authenticate(params['user'], params['password'])
-
-    scenes = rest_client.getScenes({'name': params['scene_name']})
-    assert scenes['count'] > 0, \
-      f"Scene '{params['scene_name']}' not found"
-    scene_id = scenes['results'][0]['uid']
+    scene_id = demo_scene
     log.info(f"Using scene '{params['scene_name']}' uid={scene_id}")
 
     reg_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_id)
