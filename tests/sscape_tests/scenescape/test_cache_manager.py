@@ -467,32 +467,32 @@ class TestCacheManagerSensorRestoration:
     assert new_sensor.lastValue == 41
     assert new_sensor.lastWhen == 1234567890
 
-  def test_sensor_needs_restoring_returns_none_when_no_cache(self):
-    """Test that sensorNeedsRestoring returns None when no old cache."""
+  def test_scene_needs_full_reuse_returns_none_when_no_cache(self):
+    """Test that _sceneNeedsFullReuse returns None when no old cache."""
     cache_mgr = CacheManager.__new__(CacheManager)
 
     if hasattr(cache_mgr, '_old_scene_cache'):
       delattr(cache_mgr, '_old_scene_cache')
 
-    result = cache_mgr._sensorNeedsRestoring('scene-uid')
+    result = cache_mgr._sceneNeedsFullReuse('scene-uid')
 
     assert result is None
 
-  def test_sensor_needs_restoring_returns_old_scene(self):
-    """Test that sensorNeedsRestoring returns old scene when it has sensors
-    with cached values worth restoring."""
+  def test_scene_needs_full_reuse_returns_none_for_tracker_owning_scene(self):
+    """Test that a tracker-owning scene is never reused wholesale, even when
+    it has sensors with cached values worth restoring."""
     cache_mgr = CacheManager.__new__(CacheManager)
 
     old_scene = Mock()
     old_scene.sensors = {'sensor-1': Mock(value=42)}
     cache_mgr._old_scene_cache = {'scene-uid': old_scene}
 
-    result = cache_mgr._sensorNeedsRestoring('scene-uid')
+    result = cache_mgr._sceneNeedsFullReuse('scene-uid')
 
-    assert result == old_scene
+    assert result is None
 
-  def test_sensor_needs_restoring_returns_none_when_no_sensor_values(self):
-    """Test that sensorNeedsRestoring returns None when the old scene has no
+  def test_scene_needs_full_reuse_returns_none_when_no_sensor_values(self):
+    """Test that _sceneNeedsFullReuse returns None when the old scene has no
     sensors, or none with a cached value, so a fresh Scene is deserialized
     instead of silently reusing stale tracked-object identities."""
     cache_mgr = CacheManager.__new__(CacheManager)
@@ -501,11 +501,11 @@ class TestCacheManagerSensorRestoration:
     old_scene.sensors = {}
     cache_mgr._old_scene_cache = {'scene-uid': old_scene}
 
-    result = cache_mgr._sensorNeedsRestoring('scene-uid')
+    result = cache_mgr._sceneNeedsFullReuse('scene-uid')
 
     assert result is None
 
-  def test_sensor_needs_restoring_returns_old_scene_when_no_tracker(self):
+  def test_scene_needs_full_reuse_returns_old_scene_when_no_tracker(self):
     """Test that a scene with no ``tracker`` attribute (e.g. AnalyticsScene)
     is always reused, since it owns no tracked-object identity of its own
     and instead needs its ingestion/region/dwell state preserved across the
@@ -515,7 +515,7 @@ class TestCacheManagerSensorRestoration:
     old_scene = SimpleNamespace(sensors={})
     cache_mgr._old_scene_cache = {'scene-uid': old_scene}
 
-    result = cache_mgr._sensorNeedsRestoring('scene-uid')
+    result = cache_mgr._sceneNeedsFullReuse('scene-uid')
 
     assert result is old_scene
 
