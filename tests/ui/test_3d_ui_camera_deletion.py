@@ -19,7 +19,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 PANEL_WAIT_SEC = 100
-CAMERA_NAME = "testcam"
+CAMERA_NAME = "NEX-T10560-testcam"
 DELETE_CAMERA_BUTTON_ID = "new-camera-delete-camera"
 ADD_CAMERA_BUTTON_XPATH = (
   "//div[@id='panel-3d-controls']//div[contains(@class,'name') "
