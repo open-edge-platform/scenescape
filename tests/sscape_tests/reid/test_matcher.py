@@ -95,6 +95,98 @@ def feed(matcher, track_id, vectors, **kw):
     matcher.process_frame([obs(track_id, v, **kw)])
 
 
+class TestControllerStateParity(unittest.TestCase):
+
+  def test_missing_embedding_counts_once_and_remains_pending(self):
+    matcher, decisions = make()
+    states = []
+    matcher.on_state = states.append
+
+    feed(matcher, "t1", [None, None])
+
+    self.assertEqual(matcher.unique_id_count, 1)
+    self.assertEqual(matcher.stats["unique_id_count"], 1)
+    self.assertEqual(states[0]["reid_state"], "pending_collection")
+    self.assertEqual(states[0]["gid"], "t1")
+    self.assertEqual(decisions, [])
+
+  def test_disabled_track_counts_once_without_querying(self):
+    matcher, decisions = make()
+    matcher.reid_enabled = False
+    states = []
+    matcher.on_state = states.append
+
+    feed(matcher, "t1", [vec(1, 0), vec(0, 1), vec(1, 1)])
+
+    self.assertEqual(matcher.unique_id_count, 1)
+    self.assertEqual(states[0]["reid_state"], "reid_disabled")
+    self.assertEqual(matcher.adapter.queries, [])
+    self.assertEqual(decisions, [])
+
+  def test_inflight_query_stays_pending_then_no_match_counts(self):
+    executor = DeferredExecutor()
+    matcher, decisions = make(executor=executor)
+    states = []
+    matcher.on_state = states.append
+    feed(matcher, "t1", [vec(1, 0), vec(0, 1), vec(1, 1)])
+
+    self.assertEqual(states[-1]["reid_state"], "pending_collection")
+    self.assertEqual(matcher.unique_id_count, 0)
+    self.assertEqual(decisions, [])
+
+    executor.run()
+
+    self.assertEqual(decisions[0]["reid_state"], "query_no_match")
+    self.assertEqual(decisions[0]["unique_id_count"], 1)
+
+  def test_match_does_not_increment_unique_count(self):
+    matcher, decisions = make(FakeAdapter(all_match("gid-old")))
+    feed(matcher, "t1", [vec(1, 0), vec(0, 1), vec(1, 1)])
+
+    self.assertEqual(decisions[0]["reid_state"], "matched")
+    self.assertEqual(matcher.unique_id_count, 0)
+
+  def test_initial_missing_embedding_then_no_match_increments_again(self):
+    matcher, decisions = make()
+    feed(matcher, "t1", [None, vec(1, 0), vec(0, 1), vec(1, 1)])
+
+    self.assertEqual(matcher.unique_id_count, 2)
+    self.assertEqual(decisions[0]["unique_id_count"], 2)
+
+  def test_alias_rename_does_not_count_as_new_registration(self):
+    matcher, _ = make()
+    feed(matcher, "t1", [None])
+    matcher.process_frame([obs("renamed", None, previous_ids=["t1"])])
+
+    self.assertEqual(matcher.unique_id_count, 1)
+
+  def test_write_failure_disables_matching_for_subsequent_tracks(self):
+    matcher, _ = make()
+    matcher._markUnhealthy("backend write failed")
+    states = []
+    matcher.on_state = states.append
+    feed(matcher, "t1", [vec(1, 0)])
+
+    self.assertEqual(states[0]["reid_state"], "reid_disabled")
+    self.assertEqual(matcher.unique_id_count, 1)
+    self.assertEqual(matcher.adapter.queries, [])
+
+  def test_no_match_after_track_leaves_still_counts(self):
+    executor = DeferredExecutor()
+    matcher, decisions = make(executor=executor)
+    states = []
+    matcher.on_state = states.append
+    feed(matcher, "t1", [vec(1, 0), vec(0, 1), vec(1, 1)])
+    matcher.process_frame([])
+
+    executor.run()
+
+    self.assertEqual(matcher.unique_id_count, 1)
+    self.assertEqual(decisions, [])
+    self.assertEqual(states[-1]["reid_state"], "query_no_match")
+    self.assertEqual(states[-1]["unique_id_count"], 1)
+
+
 class TestQueryGating(unittest.TestCase):
 
   def test_no_query_before_threshold(self):

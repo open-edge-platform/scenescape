@@ -149,6 +149,7 @@ class _TrackState:
   upstream_reid_state: Optional[str] = None
   last_embedding: Optional[np.ndarray] = None
   distinct_embeddings: int = 0
+  reid_state: str = "pending_collection"
 
 
 class _InlineExecutor:
@@ -188,7 +189,8 @@ class TrackMatcher:
   def __init__(self, adapter, config: MatcherConfig, scene_id=None, category=None,
                write_enabled=False, executor=None,
                on_decision: Optional[Callable[[dict], None]] = None,
-               clock: Callable[[], float] = time.time):
+               clock: Callable[[], float] = time.time,
+               on_state: Optional[Callable[[dict], None]] = None):
     self.adapter = adapter
     self.config = config
     self.scene_id = scene_id
@@ -196,7 +198,10 @@ class TrackMatcher:
     self.write_enabled = write_enabled
     self.executor = executor or _InlineExecutor()
     self.on_decision = on_decision
+    self.on_state = on_state
     self.clock = clock
+    self.reid_enabled = True
+    self.unique_id_count = 0
 
     # Same mapping UUIDManager applies: COSINE config -> IP descriptors.
     self.adapter.similarity_metric = resolve_database_similarity_metric(
@@ -231,9 +236,18 @@ class TrackMatcher:
 
   def observe(self, obs: TrackObservation):
     with self._lock:
+      is_new = obs.track_id not in self._tracks and not any(
+        previous in self._tracks for previous in obs.previous_ids)
       state = self._stateFor(obs)
       state.upstream_id = obs.track_id
       state.upstream_reid_state = obs.upstream_reid_state
+      if is_new and (not self.reid_enabled or obs.embedding is None):
+        self._incrementUniqueIdCount()
+      if not self.reid_enabled:
+        state.reid_state = "reid_disabled"
+      self._publishState(obs, state)
+      if not self.reid_enabled:
+        return
 
       if obs.embedding is None:
         self.stats["observations_without_embedding"] += 1
@@ -275,6 +289,30 @@ class TrackMatcher:
 
     future = self.executor.submit(self._runQuery, obs, state, vectors, metadata)
     future.add_done_callback(self._logUnhandled)
+
+  def _incrementUniqueIdCount(self):
+    """Update the cumulative counter while holding the matcher lock."""
+    self.unique_id_count += 1
+    self.stats["unique_id_count"] = self.unique_id_count
+
+  def _publishState(self, obs, state):
+    """Report Controller-compatible identity state independently of query decisions."""
+    if self.on_state is None:
+      return
+    try:
+      self.on_state({
+        "scene_id": self.scene_id,
+        "category": obs.category,
+        "track_id": obs.track_id,
+        "gid": state.gid if state.gid is not None else obs.track_id,
+        "matched": state.reid_state == "matched",
+        "reid_state": state.reid_state,
+        "similarity": state.similarity,
+        "timestamp": obs.timestamp,
+        "unique_id_count": self.unique_id_count,
+      })
+    except Exception as err:
+      log.error(f"[reid-ingest] state callback failed: {err}")
 
   def prune(self, present_track_ids):
     """Flush tracks that left the stream (UUIDManager.pruneInactiveTracks)."""
@@ -399,6 +437,10 @@ class TrackMatcher:
       track_id = next((tid for tid, s in self._tracks.items() if s is state), None)
       if track_id is None:
         self.stats["tracks_left_before_decision"] += 1
+        if gid is None:
+          self._incrementUniqueIdCount()
+          state.reid_state = "query_no_match"
+          self._publishState(obs, state)
         return None
       decision = self._decide(track_id, state, obs, gid, similarity, per_vector)
     decision["query_secs"] = query_secs
@@ -423,6 +465,7 @@ class TrackMatcher:
 
     if matched:
       state.gid, state.similarity = gid, similarity
+      state.reid_state = "matched"
       self.stats["matches"] += 1
       vectors = self._enrollmentVectorsForMatch(state, similarity, per_vector)
     else:
@@ -431,6 +474,8 @@ class TrackMatcher:
         # id downstream consumers already show never changes on a no-match.
         state.gid = track_id if track_id not in live else str(uuid.uuid4())
       state.similarity = None
+      state.reid_state = "query_no_match"
+      self._incrementUniqueIdCount()
       self.stats["no_matches"] += 1
       vectors = state.enrollment
       if not vectors and not is_upstream_enrollment_claim(obs.provenance):
@@ -453,6 +498,8 @@ class TrackMatcher:
       "track_id": track_id,
       "gid": state.gid,
       "matched": matched,
+      "reid_state": state.reid_state,
+      "unique_id_count": self.unique_id_count,
       "similarity": state.similarity,
       "query_vectors": len(state.quality),
       "enrollment_vectors": len(vectors),
@@ -619,6 +666,7 @@ class TrackMatcher:
         log.error(f"[reid-ingest] disabling writes for {self.scene_id}/"
                   f"{self.category}: {reason}")
       self.write_healthy = False
+      self.reid_enabled = False
       self.write_epoch += 1
       if confirmed:
         self.write_confirmed = True

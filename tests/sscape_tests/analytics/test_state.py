@@ -25,7 +25,7 @@ def test_rename_updates_retained_identity_references(make_analytics_object):
   crossing = TripwireEvent(objects[3], 'forward')
   tripwire.objects['person'] = [crossing]
 
-  store.rename_object('person', 'track-1', 'gid-1')
+  store.update_object_id('person', 'track-1', 'gid-1')
 
   assert all(obj.gid == 'gid-1' for obj in objects)
   assert other.gid == 'track-1'
@@ -40,7 +40,7 @@ def test_rename_missing_identity_is_noop(make_analytics_object):
   obj = make_analytics_object(gid='unrelated')
   store.region('roi-1').objects['person'] = [obj]
 
-  store.rename_object('person', 'missing', 'gid-1')
+  store.update_object_id('person', 'missing', 'gid-1')
 
   assert obj.gid == 'unrelated'
 

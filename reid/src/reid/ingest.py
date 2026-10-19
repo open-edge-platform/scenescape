@@ -44,113 +44,11 @@ _TOPIC_PREFIX = ("scenescape", "data", "scene")
 _STATS_LOG_INTERVAL_SECS = 30.0
 
 
-def _announce(message):
-  """Log at a level that is always shown: scene_common.log hides INFO by default."""
-  emit = getattr(log, "log", None) or log.warning
-  emit(message)
-
-
 def env_flag(name, default=False):
   value = os.getenv(name)
   if value is None:
     return default
   return value.strip().lower() in ("1", "true", "yes", "on")
-
-
-def parse_scene_topic(topic):
-  """Return (scene_id, category) for a DATA_SCENE topic, else None."""
-  parts = topic.split("/")
-  if len(parts) != 5 or tuple(parts[:3]) != _TOPIC_PREFIX:
-    return None
-  return parts[3], parts[4]
-
-
-def _bbox_area(obj):
-  bbox = obj.get("bounding_box_px")
-  if not isinstance(bbox, dict):
-    return None
-  try:
-    width, height = float(bbox["width"]), float(bbox["height"])
-    return width * height if math.isfinite(width) and math.isfinite(height) else 0.0
-  except (KeyError, TypeError, ValueError):
-    return None
-
-
-def parse_scene_message(payload, category=None, stats=None):
-  """
-  Turn one scene-track message into TrackObservations.
-
-  @param   payload   bytes/str JSON, or an already-decoded dict
-  @param   category  topic category, used when an object omits its own
-  @param   stats     optional Counter for decode problems
-  @return  (message_timestamp, [TrackObservation, ...])
-  """
-  stats = stats if stats is not None else Counter()
-  data = json.loads(payload) if isinstance(payload, (bytes, bytearray, str)) else payload
-  timestamp = data.get("timestamp")
-  observations = []
-  for obj in data.get("objects") or []:
-    track_id = obj.get("id")
-    if track_id is None:
-      stats["objects_without_id"] += 1
-      continue
-    metadata = obj.get("metadata") or {}
-    sighting = obj.get("reid_sighting")
-    embedding = provenance = None
-    camera_id = None
-    bbox_px_area = _bbox_area(obj)
-    observation_timestamp = timestamp
-    reid_payload = metadata.get("reid") if isinstance(metadata, dict) else None
-    if sighting is not None:
-      # Never use track-level metadata as a fallback when a producer explicitly
-      # supplies a (possibly malformed) per-detection sighting.
-      reid_payload = None
-      bbox_px_area = 0.0
-      if (isinstance(sighting, dict) and isinstance(sighting.get("camera_id"), str)
-          and sighting["camera_id"] and isinstance(sighting.get("timestamp"), str)
-          and sighting["timestamp"] and isinstance(sighting.get("reid"), dict)):
-        camera_id = sighting["camera_id"]
-        observation_timestamp = sighting["timestamp"]
-        bbox_px_area = _bbox_area(sighting) or 0.0
-        reid_payload = sighting["reid"]
-    if reid_payload is not None:
-      try:
-        embedding, provenance = decode_reid_payload(reid_payload)
-      except ValueError as err:
-        stats["embedding_decode_errors"] += 1
-        log.debug(f"[reid-ingest] bad embedding on {track_id}: {err}")
-    semantic = ({k: v for k, v in metadata.items() if k != "reid"}
-                if isinstance(metadata, dict) else {})
-    chain = obj.get("previous_ids_chain") or []
-    observations.append(TrackObservation(
-      track_id=str(track_id),
-      category=obj.get("category") or category or "object",
-      embedding=embedding,
-      provenance=provenance,
-      metadata=semantic,
-      bbox_px_area=bbox_px_area,
-      timestamp=observation_timestamp,
-      camera_id=camera_id,
-      cameras=[camera_id] if camera_id else list(obj.get("visibility") or []),
-      upstream_reid_state=obj.get("reid_state"),
-      previous_ids=[str(c["id"]) for c in chain if isinstance(c, dict) and c.get("id")],
-    ))
-  return timestamp, observations
-
-
-def decision_message(decision, decided_at_epoch):
-  """Wire format for one identity decision."""
-  decided_at = datetime.datetime.fromtimestamp(decided_at_epoch, datetime.timezone.utc)
-  return {
-    "scene_id": decision["scene_id"],
-    "category": decision["category"],
-    "track_id": decision["track_id"],
-    "gid": decision["gid"],
-    "matched": bool(decision["matched"]),
-    "similarity": decision["similarity"],
-    "timestamp": decision.get("timestamp"),
-    "decided_at": decided_at.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
-  }
 
 
 def load_reid_config(path=None):
@@ -182,8 +80,110 @@ class TrackIngest:
     self._last_stats_log = clock()
     self.pubsub = None
 
+  @staticmethod
+  def _announce(message):
+    """Log at a level that is always shown: scene_common.log hides INFO by default."""
+    emit = getattr(log, "log", None) or log.warning
+    emit(message)
+
+  @staticmethod
+  def _parse_scene_topic(topic):
+    """Return (scene_id, category) for a DATA_SCENE topic, else None."""
+    parts = topic.split("/")
+    if len(parts) != 5 or tuple(parts[:3]) != _TOPIC_PREFIX:
+      return None
+    return parts[3], parts[4]
+
+  @staticmethod
+  def _bbox_area(obj):
+    bbox = obj.get("bounding_box_px")
+    if not isinstance(bbox, dict):
+      return None
+    try:
+      width, height = float(bbox["width"]), float(bbox["height"])
+      return width * height if math.isfinite(width) and math.isfinite(height) else 0.0
+    except (KeyError, TypeError, ValueError):
+      return None
+
+  @classmethod
+  def _parse_scene_message(cls, payload, category=None, stats=None):
+    """
+    Turn one scene-track message into TrackObservations.
+
+    @param   payload   bytes/str JSON, or an already-decoded dict
+    @param   category  topic category, used when an object omits its own
+    @param   stats     optional Counter for decode problems
+    @return  (message_timestamp, [TrackObservation, ...])
+    """
+    stats = stats if stats is not None else Counter()
+    data = json.loads(payload) if isinstance(payload, (bytes, bytearray, str)) else payload
+    timestamp = data.get("timestamp")
+    observations = []
+    for obj in data.get("objects") or []:
+      track_id = obj.get("id")
+      if track_id is None:
+        stats["objects_without_id"] += 1
+        continue
+      metadata = obj.get("metadata") or {}
+      sighting = obj.get("reid_sighting")
+      embedding = provenance = None
+      camera_id = None
+      bbox_px_area = cls._bbox_area(obj)
+      observation_timestamp = timestamp
+      reid_payload = metadata.get("reid") if isinstance(metadata, dict) else None
+      if sighting is not None:
+        reid_payload = None
+        bbox_px_area = 0.0
+        if (isinstance(sighting, dict) and isinstance(sighting.get("camera_id"), str)
+            and sighting["camera_id"] and isinstance(sighting.get("timestamp"), str)
+            and sighting["timestamp"] and isinstance(sighting.get("reid"), dict)):
+          camera_id = sighting["camera_id"]
+          observation_timestamp = sighting["timestamp"]
+          bbox_px_area = cls._bbox_area(sighting) or 0.0
+          reid_payload = sighting["reid"]
+      if reid_payload is not None:
+        try:
+          embedding, provenance = decode_reid_payload(reid_payload)
+        except ValueError as err:
+          stats["embedding_decode_errors"] += 1
+          log.debug(f"[reid-ingest] bad embedding on {track_id}: {err}")
+      semantic = ({k: v for k, v in metadata.items() if k != "reid"}
+                  if isinstance(metadata, dict) else {})
+      chain = obj.get("previous_ids_chain") or []
+      observations.append(TrackObservation(
+        track_id=str(track_id),
+        category=obj.get("category") or category or "object",
+        embedding=embedding,
+        provenance=provenance,
+        metadata=semantic,
+        bbox_px_area=bbox_px_area,
+        timestamp=observation_timestamp,
+        camera_id=camera_id,
+        cameras=[camera_id] if camera_id else list(obj.get("visibility") or []),
+        upstream_reid_state=obj.get("reid_state"),
+        previous_ids=[str(c["id"]) for c in chain if isinstance(c, dict) and c.get("id")],
+      ))
+    return timestamp, observations
+
+  @staticmethod
+  def _decision_message(decision, decided_at_epoch):
+    """Wire format for one identity decision."""
+    decided_at = datetime.datetime.fromtimestamp(decided_at_epoch, datetime.timezone.utc)
+    return {
+      "scene_id": decision["scene_id"],
+      "category": decision["category"],
+      "track_id": decision["track_id"],
+      "gid": decision["gid"],
+      "matched": bool(decision["matched"]),
+      "reid_state": decision.get("reid_state", "matched" if decision["matched"] else "query_no_match"),
+      "unique_id_count": decision.get("unique_id_count", 0),
+      "similarity": decision["similarity"],
+      "timestamp": decision.get("timestamp"),
+      "decided_at": decided_at.isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+    }
+
   def handle_message(self, topic, payload):
-    parsed = parse_scene_topic(topic)
+    parsed = self._parse_scene_topic(topic)
     if parsed is None:
       self.stats["messages_ignored_topic"] += 1
       return
@@ -192,7 +192,7 @@ class TrackIngest:
       self.stats["messages_ignored_scene"] += 1
       return
     try:
-      _, observations = parse_scene_message(payload, category, self.stats)
+      _, observations = self._parse_scene_message(payload, category, self.stats)
     except (ValueError, TypeError, AttributeError) as err:
       self.stats["messages_malformed"] += 1
       log.warning(f"[reid-ingest] malformed message on {topic}: {err}")
@@ -212,9 +212,10 @@ class TrackIngest:
         matcher = TrackMatcher(
           adapter, self.config, scene_id=scene_id, category=category,
           write_enabled=self.write_enabled, executor=self.executor,
-          on_decision=self._onDecision, clock=self.clock)
+          on_decision=self._onDecision, clock=self.clock,
+          on_state=self._publishDecision)
         self._matchers[key] = matcher
-        _announce(f"[reid-ingest] started matcher for scene={scene_id} "
+        self._announce(f"[reid-ingest] started matcher for scene={scene_id} "
                   f"category={category} (writes {'on' if self.write_enabled else 'off'})")
       return matcher
 
@@ -231,13 +232,13 @@ class TrackIngest:
     best = decision.get("best_score")
     best_txt = "none" if best is None else f"{best:.3f}"
     if decision["matched"]:
-      _announce(
+      self._announce(
         f"[reid-ingest] MATCH scene={decision['scene_id']} track={decision['track_id']} "
         f"-> gid={decision['gid']} similarity={decision['similarity']:.3f} "
         f"(threshold={decision['threshold']}) vectors={decision['query_vectors']} "
         f"cameras={decision['cameras']} query_secs={decision['query_secs']:.3f}")
     else:
-      _announce(
+      self._announce(
         f"[reid-ingest] NO MATCH scene={decision['scene_id']} track={decision['track_id']} "
         f"-> new gid={decision['gid']} best_score={best_txt} best_gid={decision.get('best_gid')} "
         f"(threshold={decision['threshold']}) vectors={decision['query_vectors']} "
@@ -246,7 +247,7 @@ class TrackIngest:
   def _publishDecision(self, decision):
     if self.pubsub is None:
       return
-    payload = decision_message(decision, self.clock())
+    payload = self._decision_message(decision, self.clock())
     topic = PubSub.formatTopic(PubSub.DATA_REID, scene_id=decision["scene_id"],
                    thing_type=decision["category"])
     try:
@@ -268,6 +269,7 @@ class TrackIngest:
       "matchers": [f"{s}/{c}" for (s, c), _ in matchers],
       "unhealthy_matchers": [f"{s}/{c}" for (s, c), m in matchers if not m.write_healthy],
       "counters": dict(total),
+      "unique_id_counts": {f"{s}/{c}": m.unique_id_count for (s, c), m in matchers},
     }
 
   def _maybeLogStats(self):
@@ -275,7 +277,7 @@ class TrackIngest:
     if now - self._last_stats_log < _STATS_LOG_INTERVAL_SECS:
       return
     self._last_stats_log = now
-    _announce(f"[reid-ingest] stats {self.snapshot()['counters']}")
+    self._announce(f"[reid-ingest] stats {self.snapshot()['counters']}")
 
   def start(self, pubsub, topic=DEFAULT_TOPIC):
     """Subscribe on connect (so reconnects resubscribe) and start the loop."""
@@ -286,7 +288,7 @@ class TrackIngest:
         log.error(f"[reid-ingest] MQTT connect failed rc={rc}")
         return
       client.addCallback(topic, self._onMessage)
-      _announce(f"[reid-ingest] subscribed to {topic}")
+      self._announce(f"[reid-ingest] subscribed to {topic}")
 
     pubsub.onConnect = on_connect
     pubsub.connect()

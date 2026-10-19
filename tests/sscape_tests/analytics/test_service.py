@@ -32,6 +32,35 @@ def _service(visibility_topic='regulated', rewrite_all_time=False):
   return service
 
 
+@pytest.mark.parametrize('state', ['pending_collection', 'matched', 'query_no_match', 'reid_disabled'])
+def test_controller_reid_state_and_count_reach_regulated_output(state):
+  service = _service()
+  scene = AnalyticsScene('Test scene', None)
+  scene.uid = 'scene1'
+  service.cache_manager.sceneWithID.return_value = scene
+  service.handleReidDecisionMessage(None, None, SimpleNamespace(payload=orjson.dumps({
+    'scene_id': 'scene1', 'category': 'person', 'track_id': 't1', 'gid': 't1',
+    'matched': state == 'matched', 'reid_state': state, 'unique_id_count': 3,
+  })))
+  message = SimpleNamespace(
+    topic=PubSub.formatTopic(PubSub.DATA_SCENE, scene_id='scene1', thing_type='person'),
+    payload=orjson.dumps({
+      'id': 'scene1', 'name': 'Test scene', 'timestamp': get_iso_time(100.0),
+      'unique_detection_count': 99,
+      'objects': [{'id': 't1', 'category': 'person', 'translation': [1, 1, 0]}],
+    }),
+  )
+
+  service.handleSceneDataMessage(None, None, message)
+
+  topic, payload = service.pubsub.publish.call_args.args
+  assert topic == PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id='scene1')
+  output = orjson.loads(payload)
+  assert output['objects'][0]['reid_state'] == state
+  assert output['objects'][0]['id'] == 't1'
+  assert output['unique_detection_count'] == 3
+
+
 def test_delayed_reid_match_preserves_region_dwell_and_crossing(make_region, make_tripwire):
   service = _service()
   scene = AnalyticsScene('Test scene', None)
@@ -115,7 +144,7 @@ def test_reid_rename_does_not_overwrite_live_identity(category):
   objects = [{'id': 'track-1', 'category': 'person'}]
 
   assert identities.apply('scene1', 'person', objects,
-                          rename_object=scene.renameTrackedObject) == 0
+                          rename_object=scene.updateTrackedObjectId) == 0
 
   assert objects == [{'id': 'track-1', 'category': 'person'}]
   assert scene._analytics_objects['track-1'] is original
