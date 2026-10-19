@@ -1991,6 +1991,19 @@ components:
             type: number
             format: double
           readOnly: true
+        pose_matrix:
+          type: array
+          items:
+            type: array
+            minItems: 4
+            maxItems: 4
+            items:
+              type: number
+              format: double
+          minItems: 4
+          maxItems: 4
+          readOnly: true
+          description: Row-major 4x4 camera-to-scene home pose matrix computed by Manager for every transform type. Present only when the camera has a scene and pose.
         scale:
           type: array
           items:
@@ -2000,6 +2013,11 @@ components:
         resolution:
           type: object
           additionalProperties: {}
+        ptz_calibration:
+          type: object
+          additionalProperties: true
+          nullable: true
+          description: Versioned PTZ calibration block validated against the Positioning v1 calibration contract.
         scene:
           type: string
           format: uuid
@@ -2467,6 +2485,16 @@ components:
           allOf:
             - $ref: "#/components/schemas/AccessEnum"
           default: 0
+        scenes:
+          type: array
+          items:
+            type: string
+            format: uuid
+          description: For POSITIONING_POSE reads, scenes whose cameras (by current Cam.scene) may be read.
+        all_scenes:
+          type: boolean
+          default: false
+          description: For POSITIONING_POSE reads, allow every camera assigned to any scene.
       required:
         - topic
     Region:

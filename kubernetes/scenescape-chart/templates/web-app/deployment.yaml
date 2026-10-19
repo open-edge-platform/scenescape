@@ -116,6 +116,10 @@ spec:
           - name: SCENESCAPE_ALLOWED_HOSTS
             value: "{{ .Values.web.allowedHosts }}"
           {{- end }}
+          {{- if .Values.web.ptzCalibrationResidualThresholdPx }}
+          - name: PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX
+            value: {{ .Values.web.ptzCalibrationResidualThresholdPx | quote }}
+          {{- end }}
           - name: SUPASS
             valueFrom:
               secretKeyRef:

@@ -77,6 +77,9 @@ web:
   # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to:
   # ['127.0.0.1', 'localhost', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']
   allowedHosts: ""
+  # Maximum accepted ptz_calibration quality.reprojection_rms_px, in pixels.
+  # Empty keeps the Manager image default (12.0).
+  ptzCalibrationResidualThresholdPx: ""
 
 scene:
   image: intel/scenescape-controller

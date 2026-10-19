@@ -25,6 +25,14 @@ enforce service credentials or topic ACLs; deployments requiring enforcement mus
 configure broker authentication and authorization as described in the
 [hardening guide](../../additional-resources/hardening-guide.md).
 
+In Phase 3a, Positioning is allowed to publish only its own status on the configured
+`scenescape/positioning/status/{resolver_id}` topic. Manager restricts the
+`positioning` username to writes on that topic and provisions no pose-write ACL.
+Publishing to `scenescape/positioning/pose/{source_id}` is deferred to Phase 3b,
+which will update both the ACL guard and the provisioned
+permissions when the poller and Resolver implement pose publishing. Adding a
+pose-write ACL alone does not override the current guard.
+
 Demo and deploy Compose include Positioning with the `controller` and `tracker`
 profiles in `sample_data/compose/compose.dl-streamer-example.yml`. Test stacks that
 launch a Controller or Tracker also include it through

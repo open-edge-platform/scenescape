@@ -120,6 +120,25 @@ class TestPositioningStatus(unittest.TestCase):
       service_factory.return_value.run.assert_called_once_with()
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_main_loads_config_and_starts_service(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      config_path = Path(temp_dir) / "positioning.json"
+      config_path.write_text(json.dumps({"resolver_id": "resolver-a"}), encoding="utf-8")
+      arguments = [
+        "positioning_service", "--config", str(config_path), "--broker", "broker",
+        "--brokerauth", "auth", "--cert", "cert", "--keyfile", "key", "--rootcert", "ca",
+      ]
+      with mock.patch.object(sys, "argv", arguments):
+        with mock.patch("positioning_service.configure_library_logging"):
+          with mock.patch("positioning_service.create_pollers", return_value=[]):
+            with mock.patch("positioning_service.PositioningService") as service_factory:
+              main()
+
+      service_factory.assert_called_once_with(
+        {"resolver_id": "resolver-a"}, "broker", "auth", "cert", "key", "ca", [])
+      service_factory.return_value.run.assert_called_once_with()
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_main_rejects_missing_config(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       config_path = Path(temp_dir) / "missing.json"
@@ -146,7 +165,7 @@ class TestPositioningStatus(unittest.TestCase):
       with self.assertRaises(ValueError):
         create_pollers(config, str(assignments_path))
 
-  def _create_service(self, temp_dir):
+  def _create_service(self, temp_dir, tls_error=None):
     cert = Path(temp_dir) / "client.crt"
     keyfile = Path(temp_dir) / "client.key"
     root_cert = Path(temp_dir) / "root.crt"
@@ -154,6 +173,7 @@ class TestPositioningStatus(unittest.TestCase):
       credential_path.write_text("", encoding="utf-8")
     readiness_file = Path(temp_dir) / "positioning-ready"
     fake_pubsub = mock.Mock()
+    fake_pubsub.client.tls_set.side_effect = tls_error
     with mock.patch.dict(os.environ, {"POSITIONING_READINESS_FILE": str(readiness_file)}):
       with mock.patch("positioning_service.PubSub", return_value=fake_pubsub) as pubsub_factory:
         service = PositioningService(
@@ -188,17 +208,8 @@ class TestPositioningStatus(unittest.TestCase):
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_tls_setup_failure_is_wrapped(self):
     with tempfile.TemporaryDirectory() as temp_dir:
-      for filename in ("client.crt", "client.key", "root.crt"):
-        (Path(temp_dir) / filename).write_text("", encoding="utf-8")
-      fake_pubsub = mock.Mock()
-      fake_pubsub.client.tls_set.side_effect = OSError("invalid certificate")
-      with mock.patch.dict(os.environ, {"POSITIONING_READINESS_FILE": str(Path(temp_dir) / "ready")}):
-        with mock.patch("positioning_service.PubSub", return_value=fake_pubsub):
-          with self.assertRaisesRegex(RuntimeError, "Failed to configure TLS for MQTT broker") as error:
-            PositioningService(
-              {"resolver_id": "resolver-a"}, "broker", "auth",
-              str(Path(temp_dir) / "client.crt"), str(Path(temp_dir) / "client.key"),
-              str(Path(temp_dir) / "root.crt"))
+      with self.assertRaisesRegex(RuntimeError, "Failed to configure TLS for MQTT broker broker") as error:
+        self._create_service(temp_dir, tls_error=OSError("invalid certificate"))
       self.assertIsInstance(error.exception.__cause__, OSError)
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
@@ -275,6 +286,18 @@ class TestPositioningStatus(unittest.TestCase):
         service.run()
       self.assertTrue(service._stop_workers.is_set())
       self.assertIs(signal.getsignal(signal.SIGTERM), original_sigterm_handler)
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_run_when_disconnected_does_not_publish_or_disconnect(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      service, fake_pubsub, _, _ = self._create_service(temp_dir)
+      fake_pubsub.isConnected.return_value = False
+      service.run()
+
+      fake_pubsub.connect.assert_called_once_with()
+      fake_pubsub.loopForever.assert_called_once_with()
+      fake_pubsub.publish.assert_not_called()
+      fake_pubsub.disconnect.assert_not_called()
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_sigterm_publishes_retained_offline_status(self):
