@@ -15,8 +15,8 @@ Before analytics processes a scene message, each object whose Tracker id has a
 Regions, tripwires, events and the regulated topic then all see the
 re-identified id, exactly as with Controller-produced scene data.
 
-A no-match leaves the id unchanged (reid-service reuses the track id as the
-gid), so only matches change what downstream consumers see.
+A no-match normally reuses the track id, but may assign a fresh gid to avoid
+a live identity collision. Honor that gid while retaining the no-match state.
 """
 
 import json
@@ -60,13 +60,15 @@ class ReidIdentityMap:
     self._last_seen[key] = self.clock()
     return True
 
-  def apply(self, scene_id, category, objects):
+  def apply(self, scene_id, category, objects, rename_object=None):
     """
-    Rewrite matched objects in place. Call before analytics consumes them.
+    Apply assigned identities in place. Call before analytics consumes them.
 
     @param   scene_id  scene the objects belong to
     @param   category  thing_type from the topic (used when an object omits it)
     @param   objects   list of scene-data object dicts
+    @param   rename_object  optional (category, old_id, new_id) cache migration;
+                returning False defers a conflicting rename
     @return  number of objects whose id was replaced
     """
     now = self.clock()
@@ -80,8 +82,11 @@ class ReidIdentityMap:
       if decision is None:
         continue
       self._last_seen[key] = now
+      if decision["gid"] != track_id and rename_object is not None:
+        if rename_object(key[1], track_id, decision["gid"]) is False:
+          continue
       if not decision["matched"]:
-        obj.setdefault("reid_state", "query_no_match")
+        obj["reid_state"] = "query_no_match"
         if decision["gid"] != track_id:
           obj["id"] = decision["gid"]
           rewritten += 1

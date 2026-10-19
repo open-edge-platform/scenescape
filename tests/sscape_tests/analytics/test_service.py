@@ -8,10 +8,12 @@ from pathlib import Path
 import orjson
 import pytest
 
+from analytics.adapters.scene_model import AnalyticsScene
 from analytics.reid_identity import REID_DECISION_TOPIC, ReidIdentityMap
 from analytics.service import AnalyticsService
 from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
+from scene_common.timestamp import get_iso_time
 
 
 def _service(visibility_topic='regulated', rewrite_all_time=False):
@@ -28,6 +30,99 @@ def _service(visibility_topic='regulated', rewrite_all_time=False):
   service.cache_manager = MagicMock()
   service.visibility_topic = visibility_topic
   return service
+
+
+def test_delayed_reid_match_preserves_region_dwell_and_crossing(make_region, make_tripwire):
+  service = _service()
+  scene = AnalyticsScene('Test scene', None)
+  scene.uid = 'scene1'
+  scene.regions = {'region-1': make_region()}
+  scene.tripwires = {'tripwire-1': make_tripwire(points=[[5, 0], [5, 10]])}
+  service.cache_manager.sceneWithID.return_value = scene
+  service.publishDetections = MagicMock()
+
+  def frame(when, position):
+    scene.events = {}
+    scene.analytics_state.region('region-1').clear_frame_state()
+    message = SimpleNamespace(
+      topic=PubSub.formatTopic(PubSub.DATA_SCENE, scene_id='scene1', thing_type='person'),
+      payload=orjson.dumps({
+        'timestamp': get_iso_time(when),
+        'objects': [{'id': 'track-1', 'category': 'person', 'translation': position}],
+      }),
+    )
+    with patch('analytics.adapters.scene_model.publish_events'):
+      service.handleSceneDataMessage(None, None, message)
+
+  for when in range(100, 105):
+    frame(when, [4, 5, 0])
+  original = scene.getTrackedObjects('person')[0]
+  chain = original.chain_data
+  history = scene.object_history_cache['track-1']
+  entered = chain.regions['region-1']['entered']
+  region_object = scene.analytics_state.region('region-1').objects['person'][0]
+  service.handleReidDecisionMessage(None, None, SimpleNamespace(payload=orjson.dumps({
+    'scene_id': 'scene1', 'category': 'person', 'track_id': 'track-1',
+    'gid': 'gid-1', 'matched': True, 'similarity': 0.9,
+  })))
+
+  frame(105, [6, 5, 0])
+
+  assert scene.getTrackedObjects('person') == [original]
+  assert original.gid == 'gid-1'
+  assert original.chain_data is chain
+  assert scene.object_history_cache['gid-1'] is history
+  assert 'track-1' not in scene.object_history_cache
+  assert 'track-1' not in scene._analytics_objects
+  assert chain.regions['region-1']['entered'] == entered
+  assert len(chain.publishedLocations) == 6
+  assert region_object.gid == 'gid-1'
+  assert scene.analytics_state.region('region-1').entered == {}
+  assert scene.analytics_state.region('region-1').exited == {}
+  assert all(key != 'region-1' for key, _ in scene.events.get('objects', []))
+  crossing = scene.analytics_state.tripwire('tripwire-1').objects['person']
+  assert crossing[0].object.gid == 'gid-1'
+
+  frame(106, [6, 5, 0])
+  assert scene.getTrackedObjects('person')[0] is original
+  assert chain.regions['region-1']['entered'] == entered
+  assert len(chain.publishedLocations) == 7
+  assert all(key != 'region-1' for key, _ in scene.events.get('objects', []))
+
+  frame(110, [11, 5, 0])
+
+  exited = scene.analytics_state.region('region-1').exited['person']
+  assert len(exited) == 1
+  assert exited[0][0].gid == 'gid-1'
+  assert exited[0][1] == 7.0
+
+
+@pytest.mark.parametrize('category', ['person', 'vehicle'])
+def test_reid_rename_does_not_overwrite_live_identity(category):
+  scene = AnalyticsScene('Test scene', None)
+  scene.updateTrackedObjects('person', [
+    {'id': 'track-1', 'category': 'person', 'translation': [1, 1, 0]},
+    {'id': 'gid-1', 'category': category, 'translation': [2, 2, 0]},
+  ])
+  original = scene._analytics_objects['track-1']
+  existing = scene._analytics_objects['gid-1']
+  history = scene.object_history_cache.copy()
+  identities = ReidIdentityMap()
+  identities.update({
+    'scene_id': 'scene1', 'category': 'person', 'track_id': 'track-1',
+    'gid': 'gid-1', 'matched': True,
+  })
+  objects = [{'id': 'track-1', 'category': 'person'}]
+
+  assert identities.apply('scene1', 'person', objects,
+                          rename_object=scene.renameTrackedObject) == 0
+
+  assert objects == [{'id': 'track-1', 'category': 'person'}]
+  assert scene._analytics_objects['track-1'] is original
+  assert original.gid == 'track-1'
+  assert scene._analytics_objects['gid-1'] is existing
+  assert scene.object_history_cache['track-1'] is history['track-1']
+  assert scene.object_history_cache['gid-1'] is history['gid-1']
 
 
 class TestInit:

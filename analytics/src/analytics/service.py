@@ -204,7 +204,10 @@ class AnalyticsService:
 
     # Swap Tracker ids for re-identified gids before regions/events/regulated
     # output see the objects (the Controller did this in its scene output).
-    self.reid_identities.apply(scene_id, detection_type, jdata.get('objects', []))
+    self.reid_identities.apply(
+      scene_id, detection_type, jdata.get('objects', []),
+      rename_object=scene.renameTrackedObject,
+    )
 
     scene.updateTrackedObjects(detection_type, jdata.get('objects', []))
     analytics_objects = scene.getTrackedObjects(detection_type)

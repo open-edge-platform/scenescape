@@ -91,6 +91,25 @@ class SceneDataIngestion:
       obj = self._build_one(obj_data, sensors or {})
       self._objects[obj.gid] = obj
 
+  def rename_object(self, detection_type: str, old_id: str, new_id: str) -> bool:
+    """Move a live object's identity and history without replacing its state.
+
+    Return False if the rename would overwrite another live object or cross categories.
+    An absent source is a successful no-op for cold starts and subsequent frames.
+    """
+    if old_id == new_id:
+      return True
+    obj = self._objects.get(old_id)
+    if obj is None:
+      return True
+    if obj.category != detection_type or new_id in self._objects:
+      return False
+    self._objects[new_id] = self._objects.pop(old_id)
+    obj.gid = new_id
+    if old_id in self._history:
+      self._history[new_id] = self._history.pop(old_id)
+    return True
+
   def get_objects(self, detection_type: str) -> List[SimpleNamespace]:
     """Return all live objects for *detection_type*."""
     return [o for o in self._objects.values() if o.category == detection_type]
