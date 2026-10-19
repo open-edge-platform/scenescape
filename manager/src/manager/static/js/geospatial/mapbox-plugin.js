@@ -164,7 +164,9 @@ class MapboxPlugin extends MapInterface {
     }
 
     // Populate map_corners_lla field with corners in the expected format
-    // Expected order: starting from the bottom-left corner counterclockwise
+    // Order: starting from the bottom-left corner, clockwise (SW, NW, NE, SE).
+    // The counterclockwise order is accepted as well; the direction is detected
+    // when the geospatial transform is calculated.
     // Format: [ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]
     const mapCornersField = document.getElementById("id_map_corners_lla");
     if (mapCornersField) {

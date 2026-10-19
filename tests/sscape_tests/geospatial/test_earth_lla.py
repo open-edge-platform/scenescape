@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -240,6 +240,63 @@ def test_calculateTRSLocal2LLAFromSurfacePoints(lla_datafile):
     # map points with z != 0
     earth_lla.calculateTRSLocal2LLAFromSurfacePoints(map_pts[:4] + np.ones([4, 3]), lla_pts[:4])
   assert "map points must be on the surface" in str(excinfo.value).lower()
+  return
+
+def _getMapCorners(lla_datafile):
+  """ Returns the (map points, geographic points) pair of the first four points of every input,
+  i.e. the map corners listed counterclockwise from the origin corner, as documented.
+  """
+  with open(lla_datafile, 'r') as f:
+    inputs = json.load(f)
+  return [(np.array(i['map points'][:4]), np.array(i['lat, long, altitude points'][:4])) for i in inputs]
+
+def test_alignCornerWinding_keeps_matching_windings(lla_datafile):
+  for map_pts, lla_pts in _getMapCorners(lla_datafile):
+    # both counterclockwise (documented order)
+    np.testing.assert_array_equal(earth_lla.alignCornerWinding(map_pts, lla_pts), lla_pts)
+    # both clockwise
+    np.testing.assert_array_equal(
+      earth_lla.alignCornerWinding(map_pts[[0, 3, 2, 1]], lla_pts[[0, 3, 2, 1]]), lla_pts[[0, 3, 2, 1]])
+
+def test_alignCornerWinding_reverses_mismatching_windings(lla_datafile):
+  for map_pts, lla_pts in _getMapCorners(lla_datafile):
+    # geographic corners clockwise (SW, NW, NE, SE, as written by the UI), local corners counterclockwise
+    np.testing.assert_array_equal(earth_lla.alignCornerWinding(map_pts, lla_pts[[0, 3, 2, 1]]), lla_pts)
+    # local corners clockwise, geographic corners counterclockwise
+    np.testing.assert_array_equal(earth_lla.alignCornerWinding(map_pts[[0, 3, 2, 1]], lla_pts), lla_pts[[0, 3, 2, 1]])
+
+def test_alignCornerWinding_across_antimeridian():
+  # The map is 9 x 6 m and its longitudes wrap from 179.99995 to -179.99995
+  map_pts = np.array([[0, 0, 0], [9, 0, 0], [9, 6, 0], [0, 6, 0]])
+  lla_pts = np.array([
+    [10.0, 179.99995, 0.0],
+    [10.0, -179.99995, 0.0],
+    [10.00005, -179.99995, 0.0],
+    [10.00005, 179.99995, 0.0],
+  ])
+  np.testing.assert_array_equal(earth_lla.alignCornerWinding(map_pts, lla_pts), lla_pts)
+  np.testing.assert_array_equal(earth_lla.alignCornerWinding(map_pts, lla_pts[[0, 3, 2, 1]]), lla_pts)
+
+def test_alignCornerWinding_leaves_other_inputs_unchanged(lla_datafile):
+  map_pts, lla_pts = _getMapCorners(lla_datafile)[0]
+  # not four corners, so there is no winding to compare
+  np.testing.assert_array_equal(earth_lla.alignCornerWinding(map_pts[:3], lla_pts[:3][[0, 2, 1]]), lla_pts[:3][[0, 2, 1]])
+  with open(lla_datafile, 'r') as f:
+    all_pts = json.load(f)[0]
+  eight_lla_pts = np.array(all_pts['lat, long, altitude points'][:8])
+  np.testing.assert_array_equal(earth_lla.alignCornerWinding(np.array(all_pts['map points'][:8]), eight_lla_pts), eight_lla_pts)
+  # degenerate geographic corners (zero area) have no direction
+  same_point = np.tile(lla_pts[0], (4, 1))
+  np.testing.assert_array_equal(earth_lla.alignCornerWinding(map_pts, same_point), same_point)
+
+def test_calculateTRSLocal2LLAFromSurfacePoints_accepts_both_corner_directions(lla_datafile):
+  for map_pts, lla_pts in _getMapCorners(lla_datafile):
+    counterclockwise_trs = earth_lla.calculateTRSLocal2LLAFromSurfacePoints(map_pts, lla_pts)
+    clockwise_trs = earth_lla.calculateTRSLocal2LLAFromSurfacePoints(map_pts, lla_pts[[0, 3, 2, 1]])
+    np.testing.assert_allclose(clockwise_trs, counterclockwise_trs)
+    # every local corner lands on its own geographic corner, not on a transposed one
+    for map_pt, lla_pt in zip(map_pts, lla_pts):
+      assert calcLLAError(earth_lla.convertXYZToLLA(clockwise_trs, map_pt), lla_pt) < 1.0
   return
 
 def test_getHeading():

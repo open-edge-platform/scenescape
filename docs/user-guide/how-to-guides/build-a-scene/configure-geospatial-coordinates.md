@@ -75,6 +75,8 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
     ![Map corners convention](../../_assets/geospatial-corners-convention.png "map corners convention")
 
+  - Corners listed clockwise from the same starting corner (lower left, upper left, upper right, lower right) are accepted as well. This is the order written by the built-in geospatial map generation. Scenescape detects the direction automatically, but the first corner must always be the one at the scene origin (lower left).
+
 ## Verify Successful Geospatial Coordinate Configuration
 
 1. Open the MQTT client and connect to the Scenescape server on port 1883 with valid credentials.

@@ -107,8 +107,8 @@ def test_create_region_mesh():
   assert np.max(y_values) - np.min(y_values) == pytest.approx(expected_length)
 
 def test_get_mesh_axis_aligned_projection_to_xy_corner_order():
-  # Regression: corner order must stay [SW, NW, NE, SE] to pair index-by-index
-  # with Scene.map_corners_lla as written by the geospatial map UI plugins.
+  # Regression: corners must stay counterclockwise from the origin corner [SW, SE, NE, NW],
+  # the order documented for Scene.map_corners_lla.
   legacy_mesh = o3d.geometry.TriangleMesh()
   legacy_mesh.vertices = o3d.utility.Vector3dVector(
     np.array([[0, 0, 0], [2, 0, 0], [2, 3, 0], [0, 3, 0]], dtype=np.float64))
@@ -119,9 +119,9 @@ def test_get_mesh_axis_aligned_projection_to_xy_corner_order():
 
   expected = np.array([
     [0, 0, 0],  # SW
-    [0, 3, 0],  # NW
-    [2, 3, 0],  # NE
     [2, 0, 0],  # SE
+    [2, 3, 0],  # NE
+    [0, 3, 0],  # NW
   ])
   np.testing.assert_array_equal(corners, expected)
 

@@ -432,11 +432,10 @@ def extractTriangleMesh(map_info, rotation=None):
 def getMeshAxisAlignedProjectionToXY(mesh):
   """! Extract the projection of a mesh to Z=0 plane.
   @param mesh: Open3D triangle mesh
-  @return: list of the projection corners in Z=0 plane, clockwise starting from
-           bottom-left (SW): [SW, NW, NE, SE]. Paired index-by-index with
-           Scene.map_corners_lla (see google-maps-plugin.js/mapbox-plugin.js
-           generateBounds()) to solve the local-to-LLA transform, so this order
-           must stay in sync with what those UI plugins write to that field.
+  @return: list of the projection corners in Z=0 plane in counterclockwise order
+           starting from the origin corner (min_x, min_y): [SW, SE, NE, NW]. This is the
+           order documented for Scene.map_corners_lla; calculateTRSLocal2LLAFromSurfacePoints
+           also accepts the geographic corners in clockwise order.
   """
   if not isinstance(mesh, o3d.t.geometry.TriangleMesh):
     raise TypeError("Input must be an Open3D TriangleMesh.")
@@ -446,12 +445,10 @@ def getMeshAxisAlignedProjectionToXY(mesh):
   # Get min and max bounds
   min_bound = bbox.min_bound.numpy()  # numpy array [min_x, min_y, min_z]
   max_bound = bbox.max_bound.numpy()  # numpy array [max_x, max_y, max_z]
-  # Return corners in order expected by scene coordinate system:
-  # SW (bottom-left), NW (top-left), NE (top-right), SE (bottom-right)
   corners = np.array([ [min_bound[0], min_bound[1], 0.0],  # SW
-              [min_bound[0], max_bound[1], 0.0],  # NW
+              [max_bound[0], min_bound[1], 0.0],  # SE
               [max_bound[0], max_bound[1], 0.0],  # NE
-              [max_bound[0], min_bound[1], 0.0] ])  # SE
+              [min_bound[0], max_bound[1], 0.0] ])  # NW
   return corners
 
 def createRegionMesh(region):
