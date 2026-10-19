@@ -6,7 +6,7 @@
 import json
 import unittest
 
-from reid.ingest import TrackIngest, decision_message
+from reid.ingest import TrackIngest
 from reid.matcher import MatcherConfig
 from test_ingest_parse import _object, scene_message
 from test_matcher import FakeAdapter, all_match
@@ -87,35 +87,54 @@ class FakePubSub:
 
 class TestDecisionPublishing(unittest.TestCase):
 
+  def test_disabled_state_is_published_without_a_query(self):
+    ingest, adapters = make_ingest()
+    ingest.pubsub = FakePubSub()
+    ingest._matcherFor('scene1', 'person').reid_enabled = False
+
+    ingest.handle_message(TOPIC, scene_message([_object('t1')]))
+
+    _, payload, _ = ingest.pubsub.published[-1]
+    self.assertEqual(payload['reid_state'], 'reid_disabled')
+    self.assertEqual(payload['unique_id_count'], 1)
+    self.assertEqual(adapters[0].queries, [])
+    self.assertEqual(ingest.snapshot()['unique_id_counts'], {'scene1/person': 1})
+
   def test_no_match_published_with_track_id_as_gid(self):
     ingest, _ = make_ingest()
     ingest.pubsub = FakePubSub()
     for seed in range(3):
       ingest.handle_message(TOPIC, scene_message([_object("t1", seed=seed)]))
-    ((topic, payload, qos),) = ingest.pubsub.published
+    topic, payload, qos = ingest.pubsub.published[-1]
+    self.assertEqual([message[1]["reid_state"] for message in ingest.pubsub.published],
+             ["pending_collection"] * 3 + ["query_no_match"])
     self.assertEqual(topic, "scenescape/data/reid/scene1/person")
     self.assertEqual(qos, 1)
     self.assertEqual(payload["track_id"], "t1")
     self.assertEqual(payload["gid"], "t1")
     self.assertFalse(payload["matched"])
+    self.assertEqual(payload["unique_id_count"], 1)
 
   def test_match_published_with_stored_gid(self):
     ingest, _ = make_ingest(all_match("gid-old", 0.8))
     ingest.pubsub = FakePubSub()
     for seed in range(3):
       ingest.handle_message(TOPIC, scene_message([_object("t2", seed=seed)]))
-    ((_, payload, _),) = ingest.pubsub.published
+    _, payload, _ = ingest.pubsub.published[-1]
     self.assertTrue(payload["matched"])
     self.assertEqual((payload["track_id"], payload["gid"]), ("t2", "gid-old"))
     self.assertAlmostEqual(payload["similarity"], 0.8, places=6)
+    self.assertEqual(payload["reid_state"], "matched")
+    self.assertEqual(payload["unique_id_count"], 0)
 
   def test_decision_message_shape(self):
-    msg = decision_message({"scene_id": "s", "category": "person", "track_id": "t",
+    msg = TrackIngest._decision_message({"scene_id": "s", "category": "person", "track_id": "t",
                             "gid": "g", "matched": True, "similarity": 0.7,
                             "timestamp": "2026-10-14T16:11:47.410Z"}, 0.0)
     self.assertEqual(msg["decided_at"], "1970-01-01T00:00:00.000Z")
     self.assertEqual(set(msg), {"scene_id", "category", "track_id", "gid", "matched",
-                                "similarity", "timestamp", "decided_at"})
+                                "similarity", "timestamp", "decided_at", "reid_state",
+                                "unique_id_count"})
 
 
 if __name__ == "__main__":

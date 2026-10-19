@@ -24,6 +24,7 @@ import time
 
 from scene_common import log
 from scene_common.mqtt import PubSub
+from scene_common.reid_constants import REID_STATES
 
 REID_DECISION_TOPIC = PubSub.formatTopic(PubSub.DATA_REID, scene_id="+", thing_type="+")
 # Forget a decision once its track has not appeared in scene data for this long.
@@ -38,6 +39,7 @@ class ReidIdentityMap:
     self.clock = clock
     self._decisions = {}
     self._last_seen = {}
+    self._unique_counts = {}
 
   def __len__(self):
     return len(self._decisions)
@@ -48,17 +50,30 @@ class ReidIdentityMap:
       decision = json.loads(payload) if isinstance(payload, (bytes, bytearray, str)) else payload
       key = (str(decision["scene_id"]), str(decision["category"]), str(decision["track_id"]))
       gid = str(decision["gid"])
+      reid_state = decision.get("reid_state", "matched" if decision.get("matched") else "query_no_match")
+      if reid_state not in REID_STATES:
+        raise ValueError("Unknown ReID state")
+      unique_count = decision.get("unique_id_count")
+      if unique_count is not None and (type(unique_count) is not int or unique_count < 0):
+        raise ValueError("Invalid unique identity count")
     except (ValueError, TypeError, KeyError) as err:
       log.warning(f"Ignoring malformed ReID decision: {err}")
       return False
     self._decisions[key] = {
       "gid": gid,
       "matched": bool(decision.get("matched")),
+      "reid_state": reid_state,
       "similarity": decision.get("similarity"),
       "decided_at": decision.get("decided_at") or decision.get("timestamp"),
     }
     self._last_seen[key] = self.clock()
+    if unique_count is not None:
+      self._unique_counts[key[:2]] = unique_count
     return True
+
+  def uniqueDetectionCount(self, scene_id, category):
+    """Return the matcher-owned cumulative count, independent of active object states."""
+    return self._unique_counts.get((str(scene_id), str(category)))
 
   def apply(self, scene_id, category, objects, rename_object=None):
     """
@@ -80,22 +95,22 @@ class ReidIdentityMap:
       key = (str(scene_id), str(obj.get("category") or category), str(track_id))
       decision = self._decisions.get(key)
       if decision is None:
+        obj.setdefault("reid_state", "pending_collection")
         continue
       self._last_seen[key] = now
       if decision["gid"] != track_id and rename_object is not None:
         if rename_object(key[1], track_id, decision["gid"]) is False:
           continue
-      if not decision["matched"]:
-        obj["reid_state"] = "query_no_match"
+      obj["reid_state"] = decision["reid_state"]
+      if decision["reid_state"] != "matched":
         if decision["gid"] != track_id:
           obj["id"] = decision["gid"]
           rewritten += 1
         continue
+      obj["similarity"] = decision["similarity"]
       if decision["gid"] == track_id:
         continue
       obj["id"] = decision["gid"]
-      obj["reid_state"] = "matched"
-      obj["similarity"] = decision["similarity"]
       obj["previous_ids_chain"] = [{
         "id": track_id,
         "timestamp": decision["decided_at"],

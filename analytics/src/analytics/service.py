@@ -146,6 +146,8 @@ class AnalyticsService:
         'scene_rate': round(1 / update_rate, 1),
         'rate': scene['rate'],
       }
+      if 'unique_detection_count' in jdata:
+        new_jdata['unique_detection_count'] = jdata['unique_detection_count']
       jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid), jstr)
       scene['last'] = now
@@ -206,8 +208,11 @@ class AnalyticsService:
     # output see the objects (the Controller did this in its scene output).
     self.reid_identities.apply(
       scene_id, detection_type, jdata.get('objects', []),
-      rename_object=scene.renameTrackedObject,
+      rename_object=scene.updateTrackedObjectId,
     )
+    unique_count = self.reid_identities.uniqueDetectionCount(scene_id, detection_type)
+    if unique_count is not None:
+      jdata['unique_detection_count'] = unique_count
 
     scene.updateTrackedObjects(detection_type, jdata.get('objects', []))
     analytics_objects = scene.getTrackedObjects(detection_type)

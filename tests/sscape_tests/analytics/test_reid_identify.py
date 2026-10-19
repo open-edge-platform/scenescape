@@ -22,6 +22,45 @@ def objects(*ids):
 
 class TestReidIdentityMap(unittest.TestCase):
 
+  def test_pending_and_disabled_states_preserve_identity_and_count(self):
+    for state in ("pending_collection", "reid_disabled"):
+      with self.subTest(state=state):
+        ids = ReidIdentityMap()
+        ids.update({"scene_id": "s1", "category": "person", "track_id": "t1",
+                    "gid": "t1", "matched": False, "reid_state": state,
+                    "unique_id_count": 3})
+        objs = objects("t1")
+
+        self.assertEqual(ids.apply("s1", "person", objs), 0)
+
+        self.assertEqual(objs[0]["reid_state"], state)
+        self.assertEqual(objs[0]["id"], "t1")
+        self.assertEqual(ids.uniqueDetectionCount("s1", "person"), 3)
+        self.assertIsNone(ids.uniqueDetectionCount("s2", "person"))
+        self.assertIsNone(ids.uniqueDetectionCount("s1", "vehicle"))
+
+  def test_matched_state_is_applied_when_gid_does_not_change(self):
+    ids = ReidIdentityMap()
+    ids.update(decision("t1", "t1", True, 0.9))
+    objs = objects("t1")
+
+    self.assertEqual(ids.apply("s1", "person", objs), 0)
+
+    self.assertEqual(objs[0]["reid_state"], "matched")
+    self.assertEqual(objs[0]["similarity"], 0.9)
+    self.assertNotIn("previous_ids_chain", objs[0])
+
+  def test_invalid_state_or_count_is_rejected(self):
+    for invalid in ({"reid_state": "unknown"}, {"unique_id_count": -1},
+                    {"unique_id_count": True}):
+      ids = ReidIdentityMap()
+      payload = {"scene_id": "s1", "category": "person", "track_id": "t1", "gid": "t1"}
+      payload.update(invalid)
+
+      self.assertFalse(ids.update(payload))
+      self.assertEqual(len(ids), 0)
+      self.assertIsNone(ids.uniqueDetectionCount("s1", "person"))
+
   def test_match_replaces_id_and_adds_reid_fields(self):
     ids = ReidIdentityMap()
     ids.update(decision("track-new", "gid-old", True, 0.78))
@@ -33,7 +72,7 @@ class TestReidIdentityMap(unittest.TestCase):
     self.assertEqual(objs[0]["previous_ids_chain"],
                      [{"id": "track-new", "timestamp": "2026-10-14T21:30:00.000Z",
                        "similarity_score": 0.78}])
-    self.assertEqual(objs[1], objects("someone-else")[0])
+    self.assertEqual(objs[1], {**objects("someone-else")[0], "reid_state": "pending_collection"})
 
   def test_no_match_keeps_track_id(self):
     ids = ReidIdentityMap()

@@ -19,6 +19,7 @@ from scene_common.timestamp import get_epoch_time
 from scene_common import log
 
 from scene_common.chain_data import ChainData
+from scene_common.reid_constants import REID_STATES
 
 
 class SceneDataIngestion:
@@ -91,7 +92,7 @@ class SceneDataIngestion:
       obj = self._build_one(obj_data, sensors or {})
       self._objects[obj.gid] = obj
 
-  def rename_object(self, detection_type: str, old_id: str, new_id: str) -> bool:
+  def update_object_id(self, detection_type: str, old_id: str, new_id: str) -> bool:
     """Move a live object's identity and history without replacing its state.
 
     Return False if the rename would overwrite another live object or cross categories.
@@ -202,6 +203,10 @@ class SceneDataIngestion:
     obj.reid = metadata.get('reid') if metadata else {}
     obj.metadata = {}
     obj.similarity = obj_data.get('similarity')
+    reid_state = obj_data.get('reid_state')
+    if isinstance(reid_state, str) and reid_state in REID_STATES:
+      obj.reid_state = reid_state
+    obj.previous_ids_chain = obj_data.get('previous_ids_chain', [])
 
     if obj_data.get('camera_bounds'):
       obj._camera_bounds = obj_data['camera_bounds']

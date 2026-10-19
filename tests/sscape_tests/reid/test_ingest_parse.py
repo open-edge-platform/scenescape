@@ -10,7 +10,9 @@ from collections import Counter
 
 import numpy as np
 
-from reid.ingest import parse_scene_message, parse_scene_topic
+from reid.ingest import TrackIngest
+from reid.embedding import decode_embedding_vector as reid_decode_embedding_vector
+from scene_common.reid_embedding import decode_embedding_vector, get_embedding_dimensions
 
 
 def _vector(seed, dims=256):
@@ -55,16 +57,64 @@ def scene_message(objects, timestamp="2026-10-14T15:25:16.800Z"):
   }).encode()
 
 
+class TestSharedEmbeddingDecoder(unittest.TestCase):
+
+  def test_reid_uses_shared_decoder(self):
+    self.assertIs(reid_decode_embedding_vector, decode_embedding_vector)
+
+  def test_lists_and_numpy_arrays_decode_as_float32_rows(self):
+    for value in ([1, 2, 3], [[1, 2, 3]], np.asarray([1, 2, 3], dtype=np.float64)):
+      with self.subTest(value=value):
+        result = decode_embedding_vector(value, dimensions=3)
+        self.assertEqual(result.shape, (1, 3))
+        self.assertEqual(result.dtype, np.float32)
+        np.testing.assert_array_equal(result, [[1, 2, 3]])
+
+  def test_base64_dimensions_inferred_and_result_is_writable(self):
+    encoded = base64.b64encode(np.asarray([1, 2, 3], dtype=np.float32).tobytes()).decode()
+    result = decode_embedding_vector(encoded)
+
+    np.testing.assert_array_equal(result, [[1, 2, 3]])
+    result[0, 0] = 4
+    self.assertEqual(result[0, 0], 4)
+
+  def test_dimension_mismatch_is_rejected_for_each_encoding(self):
+    vector = np.asarray([1, 2, 3], dtype=np.float32)
+    for value in (vector, vector.tolist(), base64.b64encode(vector.tobytes()).decode()):
+      with self.subTest(value=value), self.assertRaises(ValueError):
+        decode_embedding_vector(value, dimensions=2)
+
+  def test_invalid_base64_and_incomplete_float_are_rejected(self):
+    for value in ("not!valid==base64", base64.b64encode(b"abc").decode()):
+      with self.subTest(value=value), self.assertRaises(ValueError):
+        decode_embedding_vector(value)
+
+  def test_unsupported_input_returns_none(self):
+    for value in (None, {}, 42):
+      with self.subTest(value=value):
+        self.assertIsNone(decode_embedding_vector(value))
+
+  def test_dimension_lookup_preserves_precedence_and_legacy_fallback(self):
+    self.assertEqual(get_embedding_dimensions({"embedding_dimensions": 3, "dimensions": 2}), 3)
+    self.assertEqual(get_embedding_dimensions({"embedding_dimensions": None, "dimensions": "2"}), 2)
+    self.assertIsNone(get_embedding_dimensions({}))
+    self.assertIsNone(get_embedding_dimensions(None))
+
+  def test_invalid_preferred_dimensions_do_not_fall_back(self):
+    with self.assertRaises(ValueError):
+      get_embedding_dimensions({"embedding_dimensions": "bad", "dimensions": 2})
+
+
 class TestTopic(unittest.TestCase):
 
   def test_scene_topic(self):
     self.assertEqual(
-      parse_scene_topic("scenescape/data/scene/1bee62fe/person"), ("1bee62fe", "person"))
+      TrackIngest._parse_scene_topic("scenescape/data/scene/1bee62fe/person"), ("1bee62fe", "person"))
 
   def test_other_topics_ignored(self):
-    self.assertIsNone(parse_scene_topic("scenescape/data/camera/cam1"))
-    self.assertIsNone(parse_scene_topic("scenescape/external/1bee62fe/person"))
-    self.assertIsNone(parse_scene_topic("scenescape/data/scene/1bee62fe"))
+    self.assertIsNone(TrackIngest._parse_scene_topic("scenescape/data/camera/cam1"))
+    self.assertIsNone(TrackIngest._parse_scene_topic("scenescape/external/1bee62fe/person"))
+    self.assertIsNone(TrackIngest._parse_scene_topic("scenescape/data/scene/1bee62fe"))
 
 
 class TestMessage(unittest.TestCase):
@@ -74,7 +124,7 @@ class TestMessage(unittest.TestCase):
       "0c34e67d-4307-4bd2-b30b-e196fc64ae1b", seed=2, similarity=1.0, reid_state="matched",
       previous_ids_chain=[{"id": "c6230452-abc7-4e3b-b630-5c0addc73bc2",
                            "timestamp": "2026-10-14T15:24:57.746Z", "similarity_score": 1.0}])
-    ts, obs = parse_scene_message(
+    ts, obs = TrackIngest._parse_scene_message(
       scene_message([_object("bbd94e08-634b-44d6-960c-52e0e1e09440"), matched]))
 
     self.assertEqual(ts, "2026-10-14T15:25:16.800Z")
@@ -100,26 +150,26 @@ class TestMessage(unittest.TestCase):
                "embedding_dimensions": 8},
       "gender": {"label": "female", "confidence": 0.9},
     }
-    _, (obs,) = parse_scene_message(scene_message([obj]))
+    _, (obs,) = TrackIngest._parse_scene_message(scene_message([obj]))
     np.testing.assert_array_equal(obs.embedding.reshape(-1), vec)
     self.assertEqual(obs.metadata, {"gender": {"label": "female", "confidence": 0.9}})
 
   def test_pixel_bbox_area(self):
     obj = _object("t1", bounding_box_px={"x": 0, "y": 0, "width": 100, "height": 80})
-    _, (obs,) = parse_scene_message(scene_message([obj]))
+    _, (obs,) = TrackIngest._parse_scene_message(scene_message([obj]))
     self.assertEqual(obs.bbox_px_area, 8000.0)
 
   def test_object_without_embedding(self):
     obj = _object("t1")
     obj["metadata"] = {}
-    _, (obs,) = parse_scene_message(scene_message([obj]))
+    _, (obs,) = TrackIngest._parse_scene_message(scene_message([obj]))
     self.assertIsNone(obs.embedding)
 
   def test_malformed_embedding_is_counted_not_raised(self):
     obj = _object("t1")
     obj["metadata"]["reid"]["embedding_dimensions"] = 128  # 256 floats sent
     stats = Counter()
-    _, (obs,) = parse_scene_message(scene_message([obj]), stats=stats)
+    _, (obs,) = TrackIngest._parse_scene_message(scene_message([obj]), stats=stats)
     self.assertIsNone(obs.embedding)
     self.assertEqual(stats["embedding_decode_errors"], 1)
 
@@ -127,12 +177,12 @@ class TestMessage(unittest.TestCase):
     obj = _object("t1")
     del obj["id"]
     stats = Counter()
-    _, obs = parse_scene_message(scene_message([obj]), stats=stats)
+    _, obs = TrackIngest._parse_scene_message(scene_message([obj]), stats=stats)
     self.assertEqual(obs, [])
     self.assertEqual(stats["objects_without_id"], 1)
 
   def test_empty_objects(self):
-    _, obs = parse_scene_message(scene_message([]))
+    _, obs = TrackIngest._parse_scene_message(scene_message([]))
     self.assertEqual(obs, [])
 
 
@@ -150,7 +200,7 @@ class TestTrackerServiceMessage(unittest.TestCase):
   """Captured from the Tracker service (tracker profile): no metadata at all."""
 
   def test_tracker_message_without_metadata(self):
-    ts, (obs,) = parse_scene_message(TRACKER_MESSAGE)
+    ts, (obs,) = TrackIngest._parse_scene_message(TRACKER_MESSAGE)
     self.assertEqual(ts, "2026-10-14T16:11:47.410Z")
     self.assertEqual(obs.track_id, "7b991d99-c141-4771-844c-86ac8c676bda")
     self.assertEqual(obs.category, "person")

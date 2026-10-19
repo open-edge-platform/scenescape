@@ -163,12 +163,12 @@ class AnalyticsScene(SceneModel):
     self._ingestion.ingest(detection_type, tracked_objects, self.sensors)
     return
 
-  def renameTrackedObject(self, detection_type, old_id, new_id):
+  def updateTrackedObjectId(self, detection_type, old_id, new_id):
     """Preserve ingestion and analytics state before ingesting a renamed track."""
-    if not self._ingestion.rename_object(detection_type, old_id, new_id):
+    if not self._ingestion.update_object_id(detection_type, old_id, new_id):
       log.warning(f"Deferring identity rename {old_id} -> {new_id}: live identity conflict")
       return False
-    self.analytics_state.rename_object(detection_type, old_id, new_id)
+    self.analytics_state.update_object_id(detection_type, old_id, new_id)
     return True
 
   def updateTrackedObjects(self, detection_type, tracked_objects):
