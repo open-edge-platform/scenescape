@@ -1,0 +1,404 @@
+[
+    {
+        "id": "333da36bb73fce05",
+        "type": "tab",
+        "label": "Scenescape",
+        "disabled": false,
+        "info": ""
+    },
+    {
+        "id": "ee521c0adde6bc30",
+        "type": "tls-config",
+        "name": "",
+        "certType": "files",
+        "cert": "",
+        "key": "",
+        "p12": "",
+        "p12name": "",
+        "ca": "",
+        "certname": "",
+        "keyname": "",
+        "caname": "",
+        "servername": "",
+        "verifyservercert": false,
+        "alpnprotocol": "",
+        "certEnv": "",
+        "keyEnv": "",
+        "caEnv": ""
+    },
+    {
+        "id": "ed1be9ed439c7126",
+        "type": "mqtt-broker",
+        "name": "Scenescape-broker",
+        "broker": "broker.scenescape.intel.com",
+        "port": 1883,
+        "tls": "ee521c0adde6bc30",
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": true,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "48b518dcfba58737",
+        "type": "ui-base",
+        "name": "My Dashboard",
+        "path": "/dashboard",
+        "appIcon": "",
+        "includeClientData": true,
+        "acceptsClientConfig": [
+            "ui-notification",
+            "ui-control"
+        ],
+        "showPathInSidebar": false,
+        "headerContent": "page",
+        "navigationStyle": "default",
+        "titleBarStyle": "default",
+        "showReconnectNotification": true,
+        "notificationDisplayTime": 1,
+        "showDisconnectNotification": true,
+        "allowInstall": false
+    },
+    {
+        "id": "0027632a18aea5c1",
+        "type": "ui-theme",
+        "name": "Default Theme",
+        "colors": {
+            "surface": "#fcfcfd",
+            "primary": "#0d74ce",
+            "bgPage": "#f9f9fb",
+            "groupBg": "#ffffff",
+            "groupOutline": "#d9d9e0"
+        },
+        "sizes": {
+            "density": "default",
+            "pagePadding": "12px",
+            "groupGap": "12px",
+            "groupBorderRadius": "4px",
+            "widgetGap": "12px"
+        }
+    },
+    {
+        "id": "d4fb70edcb9b76a1",
+        "type": "ui-page",
+        "name": "Dashboard",
+        "ui": "48b518dcfba58737",
+        "path": "/scenescape",
+        "icon": "home",
+        "layout": "grid",
+        "theme": "0027632a18aea5c1",
+        "breakpoints": [
+            {
+                "name": "Default",
+                "px": "0",
+                "cols": "3"
+            },
+            {
+                "name": "Tablet",
+                "px": "576",
+                "cols": "6"
+            },
+            {
+                "name": "Small Desktop",
+                "px": "768",
+                "cols": "9"
+            },
+            {
+                "name": "Desktop",
+                "px": "1024",
+                "cols": "12"
+            }
+        ],
+        "tabs": [],
+        "order": 1,
+        "className": "",
+        "visible": "true",
+        "disabled": "false"
+    },
+    {
+        "id": "3450403b3bce9759",
+        "type": "ui-group",
+        "name": "Scenescape",
+        "page": "d4fb70edcb9b76a1",
+        "width": "14",
+        "height": "3",
+        "order": 1,
+        "showTitle": true,
+        "className": "",
+        "visible": "true",
+        "disabled": "false",
+        "groupType": "default",
+        "tab": ""
+    },
+    {
+        "id": "4943dcb956fa5092",
+        "type": "mqtt in",
+        "z": "333da36bb73fce05",
+        "name": "Scenes",
+        "topic": "scenescape/regulated/scene/#",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "ed1be9ed439c7126",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 70,
+        "y": 300,
+        "wires": [
+            [
+                "ae7b6326e9f288c6"
+            ]
+        ]
+    },
+    {
+        "id": "ae7b6326e9f288c6",
+        "type": "function",
+        "z": "333da36bb73fce05",
+        "name": "Count Objects",
+        "func": "const newPayload = {};\n\nconst data = msg.payload;\n\nconst objects = data.objects;\n\nconst uniqueCategories = new Set(Array.from((function* () { for (const key in objects) yield objects[key].category; })()));\n\nconst objectPerCategory = {};\n\nfor (const category of uniqueCategories) {\n  objectPerCategory[category] = 0;\n  for (const key in objects) {\n    const object = objects[key];\n    if (object.category !== category) continue;\n    objectPerCategory[category] += 1;\n  }\n}\n\n\nnewPayload.scene_name = data.name;\nnewPayload.scene_id = data.id;\nnewPayload.timestamp = data.timestamp;\nnewPayload.objectPerCategory = objectPerCategory;\n\nmsg.payload = newPayload;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 280,
+        "y": 260,
+        "wires": [
+            [
+                "5d70c03bd1a2299f"
+            ]
+        ]
+    },
+    {
+        "id": "4e3f2d14b0440e33",
+        "type": "function",
+        "z": "333da36bb73fce05",
+        "name": "ROI Occupancy",
+        "func": "const newPayload = {}\n\nconst data = msg.payload;\n\nnewPayload.scene_name = data.scene_name;\nnewPayload.scene_id = data.scene_id;\nnewPayload.region_name = data.region_name;\nnewPayload.region_id = data.region_id;\nnewPayload.timestamp = data.timestamp;\n\nconst countObjects = Object.values(data.counts)\nconst occupancy = countObjects.reduce((accumulator, value) => {\n  return accumulator + value;\n}, 0)\nnewPayload.occupancy = occupancy;\n\nmsg.payload = newPayload;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 280,
+        "y": 340,
+        "wires": [
+            [
+                "2dc2a19801a6130c"
+            ]
+        ]
+    },
+    {
+        "id": "81ae4c0ad2eb068b",
+        "type": "mqtt in",
+        "z": "333da36bb73fce05",
+        "name": "ROIs",
+        "topic": "scenescape/event/region/+/#",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "ed1be9ed439c7126",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 70,
+        "y": 360,
+        "wires": [
+            [
+                "4e3f2d14b0440e33"
+            ]
+        ]
+    },
+    {
+        "id": "d9b49644b7b14f8f",
+        "type": "mqtt in",
+        "z": "333da36bb73fce05",
+        "name": "Tripwire",
+        "topic": "scenescape/event/tripwire/+/#",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "ed1be9ed439c7126",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 70,
+        "y": 420,
+        "wires": [
+            [
+                "5146281553e5169b"
+            ]
+        ]
+    },
+    {
+        "id": "5146281553e5169b",
+        "type": "function",
+        "z": "333da36bb73fce05",
+        "name": "Tripwire Events",
+        "func": "const newPayload = {}\n\nconst data = msg.payload;\n\nconst objects = data.objects;\n\nconst filteredObjects = [];\n\nobjects.forEach(function(object) {\n    const newObject = {};\n    newObject.category = object.category;\n    newObject.direction = (object.direction == 1) ? \"in\" : \"out\";\n    filteredObjects.push(newObject);\n});\n\nnewPayload.scene_name = data.scene_name;\nnewPayload.scene_id = data.scene_id;\nnewPayload.tripwire_name = data.tripwire_name;\nnewPayload.tripwire_id = data.tripwire_id;\nnewPayload.timestamp = data.timestamp;\nnewPayload.objects = filteredObjects;\n\nmsg.payload = newPayload;\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 280,
+        "y": 460,
+        "wires": [
+            [
+                "5cabbd09eb7ef27e"
+            ]
+        ]
+    },
+    {
+        "id": "5d70c03bd1a2299f",
+        "type": "function",
+        "z": "333da36bb73fce05",
+        "name": "Save Scene to Context",
+        "func": "const data = msg.payload;\nlet scenes = flow.get('scenes') || {};\nconst scene = scenes[data.scene_id] ?? {};\n\nscene.name = data.scene_name;\nscene.id = data.scene_id;\nscene.objectPerCategory = data.objectPerCategory;\n\nscenes[data.scene_id] = scene;\nflow.set('scenes', scenes);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 540,
+        "y": 260,
+        "wires": [
+            [
+                "b57ff753e3f20b83"
+            ]
+        ]
+    },
+    {
+        "id": "2dc2a19801a6130c",
+        "type": "function",
+        "z": "333da36bb73fce05",
+        "name": "Save ROI to Context",
+        "func": "const data = msg.payload;\nlet scenes = flow.get('scenes') || {};\n\nconst scene = scenes[data.scene_id] ?? {};\n\nscene.name = data.scene_name;\nscene.id = data.scene_id;\n\nconst region_id = data.region_id;\nconst regions = scene['regions'] ?? {};\nconst region = regions[region_id] ?? {};\nregion.name = data.region_name;\nregion.occupancy = data.occupancy;\nregions[region_id] = region;\nscene['regions'] = regions;\n\nscenes[data.scene_id] = scene;\nflow.set('scenes', scenes);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 560,
+        "y": 360,
+        "wires": [
+            [
+                "b57ff753e3f20b83"
+            ]
+        ]
+    },
+    {
+        "id": "5cabbd09eb7ef27e",
+        "type": "function",
+        "z": "333da36bb73fce05",
+        "name": "Save Tripwire to Context",
+        "func": "const data = msg.payload;\nlet scenes = flow.get('scenes') || {};\nconst now = Date.now();\nconst cutoff = now - 30_000;\n\nObject.values(scenes).forEach(function (existingScene) {\n\tObject.values(existingScene.tripwires ?? {}).forEach(function (existingTripwire) {\n\t\texistingTripwire.events = (existingTripwire.events ?? []).filter(function (event) {\n\t\t\treturn event.date >= cutoff;\n\t\t});\n\t});\n});\n\nconst scene = scenes[data.scene_id] ?? {};\n\nscene.name = data.scene_name;\nscene.id = data.scene_id;\n\nconst tripwires = scene['tripwires'] ?? {};\nconst tripwire = tripwires[data.tripwire_id] ?? {};\n\ntripwire.name = data.tripwire_name;\ntripwire.objects = data.objects;\ntripwire.events = tripwire.events ?? [];\n(data.objects ?? []).forEach(function (object) {\n\ttripwire.events.push({\n\t\tdate: now,\n\t\tcategory: object.category,\n\t\tdirection: object.direction,\n\t});\n});\n\ntripwires[data.tripwire_id] = tripwire;\n\nscene['tripwires'] = tripwires;\nscenes[data.scene_id] = scene;\nflow.set('scenes', scenes);\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 610,
+        "y": 480,
+        "wires": [
+            [
+                "b57ff753e3f20b83"
+            ]
+        ]
+    },
+    {
+        "id": "b57ff753e3f20b83",
+        "type": "function",
+        "z": "333da36bb73fce05",
+        "name": "Aggregate Scene Info",
+        "func": "const scenes = flow.get('scenes') || {};\n\nmsg.payload = scenes;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 980,
+        "y": 340,
+        "wires": [
+            [
+                "0feee542068ece27",
+                "820e1b7080cc95fb"
+            ]
+        ]
+    },
+    {
+        "id": "0feee542068ece27",
+        "type": "ui-template",
+        "z": "333da36bb73fce05",
+        "group": "3450403b3bce9759",
+        "page": "",
+        "ui": "",
+        "name": "",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "head": "",
+        "format": "<template>\n  <div style=\"display: flex; flex-wrap: wrap; gap: 16px; padding: 16px;\">\n\n    <!-- One card per scene -->\n    <div v-for=\"scene in msg.payload\" :key=\"scene.id\" style=\"\n        flex: 1 1 440px;\n        min-width: min(100%, 400px);\n        max-width: 100%;\n        box-sizing: border-box;\n        background: #1e1e2e;\n        border-radius: 12px;\n        padding: 16px;\n        color: white;\n        box-shadow: 0 4px 8px rgba(0,0,0,0.3);\n      \">\n\n      <!-- Scene Header -->\n      <div style=\"display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;\">\n        <h3 style=\"margin: 0; color: #89b4fa;\">{{ scene.name }}</h3>\n      </div>\n\n      <hr style=\"border-color: #313244; margin-bottom: 12px;\" />\n\n      <div style=\"margin-bottom: 12px;\">\n        <p style=\"color: #a6adc8; margin: 0 0 6px 0; font-size: 0.85em;\">\n          In Scene\n        </p>\n        <div style=\"display: flex; flex-wrap: wrap; gap: 6px;\">\n          <span v-for=\"(count, category) in scene.objectPerCategory\" :key=\"category\" style=\"\n            background: #313244;\n            padding: 4px 10px;\n            border-radius: 20px;\n            font-size: 0.85em;\n            overflow-wrap: anywhere;\n          \">\n            {{ category }}: {{ count }}\n          </span>\n          <span v-if=\"!Object.keys(scene.objectPerCategory || {}).length\" style=\"\n            background: #313244;\n            border-radius: 6px;\n            padding: 6px 10px;\n            color: #a6adc8;\n            font-size: 0.85em;\n          \">\n            No detections\n          </span>\n        </div>\n      </div>\n\n      <!-- Regions -->\n      <div style=\"margin-bottom: 12px;\">\n        <p style=\"color: #a6adc8; margin: 0 0 6px 0; font-size: 0.85em;\">\n          📍 REGIONS\n        </p>\n        <div v-for=\"region in scene.regions\" :key=\"region.name\" style=\"\n            display: flex;\n            justify-content: space-between;\n            background: #313244;\n            border-radius: 6px;\n            padding: 6px 10px;\n            margin-bottom: 4px;\n          \">\n          <span>{{ region.name }}</span>\n          <span :style=\"{ color: region.occupancy <= 1 ? '#a6e3a1' : region.occupancy < 3 ? '#f9e2af' : '#f38ba8' }\">\n            {{ region.occupancy }} 👤\n          </span>\n        </div>\n        <p v-if=\"scene.regions.length === 0\" style=\"color: #6c7086; font-size: 0.85em;\">\n          No regions\n        </p>\n      </div>\n\n      <!-- Tripwires -->\n      <div>\n        <p style=\"color: #a6adc8; margin: 0 0 6px 0; font-size: 0.85em;\">\n          🚧 TRIPWIRES\n        </p>\n        <div v-for=\"tripwire in scene.tripwires\" :key=\"tripwire.name\" style=\"\n            background: #313244;\n            border-radius: 6px;\n            padding: 6px 10px;\n            margin-bottom: 4px;\n          \">\n          <span>{{ tripwire.name }}</span>\n          <ul v-if=\"tripwire.events && tripwire.events.length\"\n            style=\"margin: 6px 0 0; padding-left: 20px; overflow-wrap: anywhere;\">\n            <li v-for=\"(event, index) in tripwire.events\" :key=\"event.date + ':' + index\">\n              {{ new Date(event.date).toLocaleTimeString() }}\n              {{ event.category }} {{ event.direction === 'in' ? '⬆️' : '⬇️' }}\n            </li>\n          </ul>\n          <p v-else style=\"color: #a6adc8; margin: 6px 0 0; font-size: 0.85em;\">\n            No recent events\n          </p>\n        </div>\n      </div>\n    </div>\n  </div>\n</template>",
+        "storeOutMessages": true,
+        "passthru": true,
+        "resendOnRefresh": true,
+        "templateScope": "local",
+        "className": "",
+        "x": 1220,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "820e1b7080cc95fb",
+        "type": "debug",
+        "z": "333da36bb73fce05",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1220,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "93f1969b1bdb4796",
+        "type": "global-config",
+        "env": [],
+        "modules": {
+            "@flowfuse/node-red-dashboard": "1.33.0"
+        }
+    }
+]
