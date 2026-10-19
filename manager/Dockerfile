@@ -71,6 +71,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV WSUSER=scenescape
 ENV SCENESCAPE_HOME=/home/$WSUSER/Scenescape
 ENV EGL_PLATFORM=surfaceless
+# About 1 degree of pointing error at 3 m in a 1080p image.
+ENV PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX=12.0
 ARG FORCE_VAAPI
 
 # Upgrade base OS packages and install runtime dependencies in one layer

@@ -12,6 +12,8 @@ import math
 from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Tuple, Union
 
+import numpy as np
+
 PARAMETERIZATION_VERSION = "v1"
 FRAME_WORLD_HOME = "world_home"
 FRAME_CAMERA_LOCAL = "camera_local"
@@ -111,6 +113,13 @@ def load_ptz_model(payload: Mapping[str, Any]) -> PTZAxisModel:
   _require_mapping(quality, "quality")
   _check_keys(quality, {"reprojection_rms_px"}, {"reprojection_rms_px"}, "quality")
 
+  settle_angular_threshold_deg = _positive(
+    payload["settle_angular_threshold_deg"], "settle_angular_threshold_deg")
+  for name in AXIS_NAMES:
+    if settle_angular_threshold_deg > axis_travel_deg(specs[name].curve, ranges[name]):
+      raise PTZCalibrationError(
+        f"settle_angular_threshold_deg exceeds the calibrated {name} travel")
+
   provenance = payload.get("provenance")
   if provenance is not None:
     _require_mapping(provenance, "provenance")
@@ -119,9 +128,8 @@ def load_ptz_model(payload: Mapping[str, Any]) -> PTZAxisModel:
     parameterization_version=PARAMETERIZATION_VERSION,
     calibration_version=calibration_version,
     position_space=space,
-    settle_angular_threshold_deg=_nonnegative(
-      payload["settle_angular_threshold_deg"], "settle_angular_threshold_deg"),
-    settle_interval_s=_nonnegative(payload["settle_interval_s"], "settle_interval_s"),
+    settle_angular_threshold_deg=settle_angular_threshold_deg,
+    settle_interval_s=_positive(payload["settle_interval_s"], "settle_interval_s"),
     composition_order=order,
     pan=specs["pan"],
     tilt=specs["tilt"],
@@ -186,6 +194,12 @@ def _load_axis(value, name: str, position_range: Tuple[float, float]) -> AxisSpe
   if approach not in APPROACH_DIRECTIONS:
     raise PTZCalibrationError(f"{label}.approach_direction must be one of {APPROACH_DIRECTIONS}")
 
+  backlash_home_tolerance_deg = _positive(
+    value["backlash_home_tolerance_deg"], f"{label}.backlash_home_tolerance_deg")
+  if backlash_home_tolerance_deg > axis_travel_deg(curve, position_range):
+    raise PTZCalibrationError(
+      f"{label}.backlash_home_tolerance_deg exceeds the calibrated axis travel")
+
   return AxisSpec(
     axis=axis,
     frame=frame,
@@ -193,10 +207,21 @@ def _load_axis(value, name: str, position_range: Tuple[float, float]) -> AxisSpe
     home_position=home_position,
     approach_direction=approach,
     backlash=_load_backlash(value["backlash"], f"{label}.backlash"),
-    backlash_home_tolerance_deg=_nonnegative(
-      value["backlash_home_tolerance_deg"], f"{label}.backlash_home_tolerance_deg"),
-    backlash_history_s=_nonnegative(value["backlash_history_s"], f"{label}.backlash_history_s"),
+    backlash_home_tolerance_deg=backlash_home_tolerance_deg,
+    backlash_history_s=_positive(value["backlash_history_s"], f"{label}.backlash_history_s"),
   )
+
+
+def axis_travel_deg(curve, position_range: Tuple[float, float]) -> float:
+  """Angular span in degrees covered by `curve` over the calibrated position range."""
+  lower, upper = position_range
+  polynomial = np.polynomial.Polynomial(curve)
+  positions = [lower, upper]
+  for root in polynomial.deriv().roots():
+    if abs(root.imag) < 1e-12 and lower < root.real < upper:
+      positions.append(root.real)
+  angles = polynomial(np.array(positions))
+  return float(angles.max() - angles.min())
 
 
 def _load_backlash(value, label: str) -> Backlash:
@@ -239,4 +264,11 @@ def _nonnegative(value, label: str) -> float:
   number = _finite(value, label)
   if number < 0.0:
     raise PTZCalibrationError(f"{label} must be >= 0")
+  return number
+
+
+def _positive(value, label: str) -> float:
+  number = _finite(value, label)
+  if number <= 0.0:
+    raise PTZCalibrationError(f"{label} must be > 0")
   return number

@@ -66,10 +66,16 @@ SCHEMA_AND_LOADER_INVALID = {
   "axis_wrong_length": _mutate(["axes", "pan", "axis"], [0.0, 1.0]),
   "string_number": _mutate(["settle_interval_s"], "0.6"),
   "missing_position_space_uri": _mutate(["position_space", "uri"], delete=True),
+  "zero_settle_threshold": _mutate(["settle_angular_threshold_deg"], 0),
+  "zero_settle_interval": _mutate(["settle_interval_s"], 0),
+  "zero_backlash_home_tolerance": _mutate(["axes", "pan", "backlash_home_tolerance_deg"], 0),
+  "zero_backlash_history": _mutate(["axes", "tilt", "backlash_history_s"], 0),
 }
 
 # Semantic checks only the loader can enforce.
 LOADER_ONLY_INVALID = {
+  "settle_threshold_exceeds_travel": _mutate(["settle_angular_threshold_deg"], 1000.0),
+  "home_tolerance_exceeds_travel": _mutate(["axes", "tilt", "backlash_home_tolerance_deg"], 1000.0),
   "axis_not_unit": _mutate(["axes", "pan", "axis"], [0.5, 0.5, 0.5]),
   "frame_inconsistent_with_order": _mutate(["axes", "tilt", "frame"], "world_home"),
   "empty_range": _mutate(["position_space", "pan_max"], -1.0),
