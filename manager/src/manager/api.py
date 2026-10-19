@@ -504,7 +504,9 @@ class ACLCheck(APIView):
           PubSub.POSITIONING_STATUS, resolver_id=resolver_id)
       except (KeyError, ValueError):
         positioning_status_topic = None
-      if currentTopic != positioning_status_topic:
+      pose_template = PubSub.getTopicByTemplateName("POSITIONING_POSE").template
+      is_positioning_pose_topic = PubSub.match_topic(pose_template, currentTopic)
+      if currentTopic != positioning_status_topic and not is_positioning_pose_topic:
         return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
 
     user_acls = PubSubACL.objects.filter(user=user)

@@ -20,18 +20,18 @@ service with the Docker Compose `controller` or `tracker` profile (`make demo` /
 `make deploy`), the test Compose stack, or the Helm chart. All three mount the CA,
 client certificate, private key, and auth file read-only. The generated Manager account
 has read access to camera configuration invalidations and write access to resolver
-status, and it is not a superuser. The bundled Mosquitto configuration does not
+status and resolved-pose topics, and it is not a superuser. The bundled Mosquitto configuration does not
 enforce service credentials or topic ACLs; deployments requiring enforcement must
 configure broker authentication and authorization as described in the
 [hardening guide](../../additional-resources/hardening-guide.md).
 
-In Phase 3a, Positioning is allowed to publish only its own status on the configured
-`scenescape/positioning/status/{resolver_id}` topic. Manager restricts the
-`positioning` username to writes on that topic and provisions no pose-write ACL.
-Publishing to `scenescape/positioning/pose/{source_id}` is deferred to Phase 3b,
-which will update both the ACL guard and the provisioned
-permissions when the poller and Resolver implement pose publishing. Adding a
-pose-write ACL alone does not override the current guard.
+Positioning may publish only its configured
+`scenescape/positioning/status/{resolver_id}` topic and registered
+`scenescape/positioning/pose/{source_id}` topics. Manager requires explicit ACLs
+for both topic classes; writes to unrelated topics and another resolver's status
+topic are denied. Source ownership is enforced by the Positioning assignment
+manifest and Resolver validation, not by broadening the Manager ACL to unrelated
+topic families.
 
 Demo and deploy Compose include Positioning with the `controller` and `tracker`
 profiles in `sample_data/compose/compose.dl-streamer-example.yml`. Test stacks that

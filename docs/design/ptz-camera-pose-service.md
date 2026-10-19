@@ -577,12 +577,11 @@ named publisher; the deployment manifest remains the only `source_id -> resolver
 mapping.
 
 In Phase 3a, Positioning is allowed to publish only its own status on the configured
-`scenescape/positioning/status/{resolver_id}` topic. `ACLCheck` restricts the
-`positioning` username to writes on that topic, and `positioning.auth` has no
-pose-write ACL. Although Phase 2 registers Positioning as the intended publisher of
-`scenescape/positioning/pose/{source_id}`, pose publishing is deferred to Phase 3b.
-Phase 3b must update both the guard and the provisioned ACLs to enable Positioning
-pose writes while continuing to deny unrelated writes.
+`scenescape/positioning/status/{resolver_id}` topic. Phase 3b adds an explicit
+`POSITIONING_POSE` write ACL and permits the registered
+`scenescape/positioning/pose/{source_id}` template in `ACLCheck`; unrelated writes
+and writes to another resolver's status topic remain denied. Source ownership is
+validated by Positioning against the deployment assignment manifest.
 
 The per-camera procedure is in
 [Onboard PTZ Cameras](../user-guide/how-to-guides/calibrate-cameras/onboard-ptz-cameras.md).

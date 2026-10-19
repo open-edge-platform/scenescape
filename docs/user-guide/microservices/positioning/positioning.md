@@ -154,6 +154,11 @@ configuration has none:
 {
   "resolver_id": "positioning-default",
   "poll_interval_s": 0.2,
+  "max_pose_age_s": 0.5,
+  "max_timestamp_uncertainty_s": 0.01,
+  "target_reprojection_rms_px": 3.0,
+  "sample_ring_buffer_size": 64,
+  "calibration_refresh_interval_s": 30.0,
   "sources": {
     "<manager-camera-uid>": {
       "type": "onvif_ptz",
@@ -168,18 +173,23 @@ configuration has none:
 }
 ```
 
-| Field                   | Default      | Description                                                                                                                                           |
-| ----------------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `poll_interval_s`       | `0.2`        | Positive poll period for every source                                                                                                                 |
-| `sources.<id>`          | -            | Key is the `source_id` (Manager camera UID, single topic segment)                                                                                     |
-| `type`                  | required     | `onvif_ptz`                                                                                                                                           |
-| `host`, `port`          | -, `443`     | Camera ONVIF endpoint; `host` is a bare hostname or IP                                                                                                |
-| `scheme`, `tls_ca_file` | `https`, -   | HTTPS is the default; optionally provide the CA bundle path for a private camera certificate                                                          |
-| `profile_token`         | first PTZ    | Media profile whose PTZ configuration is polled                                                                                                       |
-| `credentials_file`      | required     | Mounted secret: `{"username": "...", "password": "..."}`. Credentials are never accepted inline.                                                      |
-| `request_timeout_s`     | `1.0`        | Per-request HTTP timeout                                                                                                                              |
-| `move_status`           | `get_status` | Source of advisory `reported_move_status`: `get_status`, `event` (requires `move_event`), or `none`                                                   |
-| `move_event`            | -            | `topic` (event topic prefix without namespace prefixes) and `data_item` of a boolean move event; when set, `ptz_move_event` records are always logged |
+| Field                            | Default               | Description                                                                                                                                           |
+| -------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `poll_interval_s`                | `0.2`                 | Positive poll period for every source                                                                                                                 |
+| `sources.<id>`                   | -                     | Key is the `source_id` (Manager camera UID, single topic segment)                                                                                     |
+| `type`                           | required              | `onvif_ptz`                                                                                                                                           |
+| `host`, `port`                   | -, `443`              | Camera ONVIF endpoint; `host` is a bare hostname or IP                                                                                                |
+| `scheme`, `tls_ca_file`          | `https`, -            | HTTPS is the default; optionally provide the CA bundle path for a private camera certificate                                                          |
+| `profile_token`                  | first PTZ             | Media profile whose PTZ configuration is polled                                                                                                       |
+| `credentials_file`               | required              | Mounted secret: `{"username": "...", "password": "..."}`. Credentials are never accepted inline.                                                      |
+| `request_timeout_s`              | `1.0`                 | Per-request HTTP timeout                                                                                                                              |
+| `move_status`                    | `get_status`          | Source of advisory `reported_move_status`: `get_status`, `event` (requires `move_event`), or `none`                                                   |
+| `move_event`                     | -                     | `topic` (event topic prefix without namespace prefixes) and `data_item` of a boolean move event; when set, `ptz_move_event` records are always logged |
+| `max_pose_age_s`                 | required with sources | Positive maximum sample age; at least `poll_interval_s + max_timestamp_uncertainty_s`                                                                 |
+| `max_timestamp_uncertainty_s`    | required with sources | Finite nonnegative upper bound for poller timestamp uncertainty                                                                                       |
+| `target_reprojection_rms_px`     | required with sources | Positive calibration-quality limit; larger Manager residuals invalidate poses                                                                         |
+| `sample_ring_buffer_size`        | `64`                  | Must cover the largest settle/backlash history: `ceil(max_history_s / poll_interval_s) + 2`                                                           |
+| `calibration_refresh_interval_s` | `30.0`                | Positive retry interval for Manager calibration loads                                                                                                 |
 
 Unknown keys are rejected at startup. Device credentials must never be committed. Keep
 them in deployment secrets mounted read-only into the container.
@@ -190,18 +200,26 @@ as a `source_id` to `resolver_id` mapping. The image contains the empty default 
 At startup, every configured source must be assigned to this `resolver_id`, and every
 entry assigned to this `resolver_id` must be configured; otherwise the service exits.
 Manager remains authoritative for camera-to-scene membership and camera calibration.
+The service loads each camera's `ptz_calibration`, computed `pose_matrix`, and scene
+through the read-only Manager API. It subscribes only to configuration invalidations
+for its assigned sources and retries calibration reads periodically. Failed or
+incomplete calibration keeps the source invalid; a live pose is never used as a home
+fallback. Accepted samples publish retained QoS 0 contexts on
+`scenescape/positioning/pose/{source_id}`; malformed raw samples produce no context.
 
 The service accepts these command-line options:
 
-| Option          | Default                                         |
-| --------------- | ----------------------------------------------- |
-| `--broker`      | `broker.scenescape.intel.com`                   |
-| `--brokerauth`  | `/run/secrets/positioning.auth`                 |
-| `--cert`        | `/run/secrets/certs/scenescape-positioning.crt` |
-| `--keyfile`     | `/run/secrets/certs/scenescape-positioning.key` |
-| `--rootcert`    | `/run/secrets/certs/scenescape-ca.pem`          |
-| `--config`      | `/app/config/positioning.json`                  |
-| `--assignments` | `/app/deployment/positioning-assignments.json`  |
+| Option           | Default                                         |
+| ---------------- | ----------------------------------------------- |
+| `--broker`       | `broker.scenescape.intel.com`                   |
+| `--brokerauth`   | `/run/secrets/positioning.auth`                 |
+| `--cert`         | `/run/secrets/certs/scenescape-positioning.crt` |
+| `--keyfile`      | `/run/secrets/certs/scenescape-positioning.key` |
+| `--rootcert`     | `/run/secrets/certs/scenescape-ca.pem`          |
+| `--manager-url`  | `https://web.scenescape.intel.com/api/v1`       |
+| `--manager-auth` | defaults to `--brokerauth`                      |
+| `--config`       | `/app/config/positioning.json`                  |
+| `--assignments`  | `/app/deployment/positioning-assignments.json`  |
 
 ## Deploy
 

@@ -19,7 +19,11 @@ DEFAULT_POLL_INTERVAL_S = 0.2
 DEFAULT_REQUEST_TIMEOUT_S = 1.0
 SOURCE_TYPE_ONVIF_PTZ = "onvif_ptz"
 
-_TOP_LEVEL_KEYS = {"resolver_id", "poll_interval_s", "sources"}
+_TOP_LEVEL_KEYS = {
+  "resolver_id", "poll_interval_s", "max_pose_age_s", "max_timestamp_uncertainty_s",
+  "target_reprojection_rms_px", "sample_ring_buffer_size", "calibration_refresh_interval_s",
+  "sources",
+}
 _SOURCE_KEYS = {
   "type", "host", "port", "scheme", "profile_token", "credentials_file", "tls_ca_file",
   "request_timeout_s", "move_status", "move_event",

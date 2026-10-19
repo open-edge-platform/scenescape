@@ -191,13 +191,13 @@ def test_authz_superuser_can_check_acl(rest, params, result_recorder):
 
 
 @pytest.mark.test_name("NEX-T29948")
-def test_positioning_auth_cannot_publish_outside_status_topic(rest, params, result_recorder):
-  """Restrict the positioning account to its configured resolver status topic.
+def test_positioning_auth_publish_scope(rest, params, result_recorder):
+  """Allow status and resolved-pose writes, but deny unrelated Positioning writes.
 
   Query Manager's ACL endpoint with WRITE_ONLY for its configured status topic,
-  another resolver's status topic, and a resolved-pose topic. Only the configured
-  status topic must be allowed. This verifies Manager's ACL decision; it does not
-  exercise topic enforcement by a live MQTT broker.
+  another resolver's status topic, a resolved-pose topic, and an unrelated topic.
+  This verifies Manager's ACL decision; it does not exercise topic enforcement by
+  a live MQTT broker.
   """
   headers = {"Authorization": f"Token {rest.token}"}
   endpoint = f"{params['resturl']}/aclcheck"
@@ -239,9 +239,23 @@ def test_positioning_auth_cannot_publish_outside_status_topic(rest, params, resu
     },
     verify=params["rootcert"],
   )
-  assert pose_response.status_code == HTTPStatus.FORBIDDEN, \
-    f"Positioning pose publish should be denied: {pose_response.text}"
-  assert pose_response.json()["result"] == "deny"
+  assert pose_response.status_code == HTTPStatus.OK, \
+    f"Positioning pose publish should be allowed: {pose_response.text}"
+  assert pose_response.json()["result"] == "allow"
+
+  unrelated_response = requests.post(
+    endpoint,
+    headers=headers,
+    json={
+      "username": "positioning",
+      "topic": "scenescape/data/camera/test-source",
+      "acc": WRITE_ONLY,
+    },
+    verify=params["rootcert"],
+  )
+  assert unrelated_response.status_code == HTTPStatus.FORBIDDEN, \
+    f"Positioning unrelated publish should be denied: {unrelated_response.text}"
+  assert unrelated_response.json()["result"] == "deny"
 
   result_recorder.success()
 
