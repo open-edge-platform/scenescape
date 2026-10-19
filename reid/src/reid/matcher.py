@@ -54,7 +54,7 @@ from scene_common.reid_constants import (
   pick_best_metric_value,
   resolve_database_similarity_metric,
 )
-from reid_service.reid import (
+from reid.reid import (
   ReidNoValidVectorsError,
   ReidPartialWriteError,
   ReidWriteSupersededError,

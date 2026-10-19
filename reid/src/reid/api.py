@@ -5,7 +5,7 @@
 
 import numpy as np
 
-from reid_service.reid_registry import create_reid_database
+from reid.reid_registry import create_reid_database
 
 
 class ReIDService:

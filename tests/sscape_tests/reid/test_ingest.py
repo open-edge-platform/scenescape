@@ -6,8 +6,8 @@
 import json
 import unittest
 
-from reid_service.ingest import TrackIngest, decision_message
-from reid_service.matcher import MatcherConfig
+from reid.ingest import TrackIngest, decision_message
+from reid.matcher import MatcherConfig
 from test_ingest_parse import _object, scene_message
 from test_matcher import FakeAdapter, all_match
 
