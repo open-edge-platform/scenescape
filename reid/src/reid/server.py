@@ -12,9 +12,9 @@ from google.protobuf import json_format
 from google.protobuf import struct_pb2
 
 from scene_common import log
-from reid_service.api import ReIDService
-from reid_service.ingest import build_from_env
-from reid_service.reid_registry import create_reid_database
+from reid.api import ReIDService
+from reid.ingest import build_from_env
+from reid.reid_registry import create_reid_database
 
 
 SERVICE_NAME = "scenescape.reid.ReIDService"

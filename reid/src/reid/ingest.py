@@ -34,8 +34,8 @@ from collections import Counter
 
 from scene_common import log
 from scene_common.mqtt import PubSub
-from reid_service.embedding import decode_reid_payload
-from reid_service.matcher import MatcherConfig, TrackMatcher, TrackObservation
+from reid.embedding import decode_reid_payload
+from reid.matcher import MatcherConfig, TrackMatcher, TrackObservation
 
 DEFAULT_TOPIC = "scenescape/data/scene/+/+"
 # One message per ReID decision. Analytics maps track_id -> gid from these and

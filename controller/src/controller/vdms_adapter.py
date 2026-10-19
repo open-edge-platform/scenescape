@@ -5,6 +5,6 @@
 
 import sys
 
-from reid_service import vdms_adapter as _implementation
+from reid import vdms_adapter as _implementation
 
 sys.modules[__name__] = _implementation

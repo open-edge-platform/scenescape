@@ -8,8 +8,8 @@ import unittest
 
 import numpy as np
 
-from reid_service.matcher import MatcherConfig, TrackMatcher, TrackObservation
-from reid_service.reid import ReidNoValidVectorsError, ReidPartialWriteError
+from reid.matcher import MatcherConfig, TrackMatcher, TrackObservation
+from reid.reid import ReidNoValidVectorsError, ReidPartialWriteError
 
 
 def vec(*values):

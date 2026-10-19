@@ -10,7 +10,7 @@ from collections import Counter
 
 import numpy as np
 
-from reid_service.ingest import parse_scene_message, parse_scene_topic
+from reid.ingest import parse_scene_message, parse_scene_topic
 
 
 def _vector(seed, dims=256):
