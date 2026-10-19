@@ -3340,23 +3340,19 @@ $(document).ready(function () {
         startSelectArea();
       });
 
+      // Single-item removal via the trash icon is a direct, final action (unlike
+      // the staged region-selection/merge/auto-ROI tooling, which uses
+      // handleRegionDelete() for local-only edits pending an explicit Save).
+      // Persist it immediately, as with the rest of the manual ROI/tripwire flow.
       $(".roi-remove").on("click", function () {
         var $group = $(this).closest(".form-roi");
         var r = confirm("Are you sure you wish to remove this ROI?");
 
         if (r == true) {
-          var groupId = $group.attr("for");
-          var svgGroup = Snap.select("#" + groupId);
-
-          // Local-only removal: no form submission
-          if (svgGroup) {
-            handleRegionDelete(svgGroup);
-          } else {
-            // Fallback if SVG group not found (shouldn't happen in normal flow)
-            $group.remove();
-            numberRois();
-            stringifyRois();
-          }
+          $("#" + $group.attr("for")).remove();
+          $group.remove();
+          numberRois();
+          saveRois(getRoiValues("form-control roi-title", "roi"));
         }
       });
 
@@ -3365,18 +3361,10 @@ $(document).ready(function () {
         var r = confirm("Are you sure you wish to remove this tripwire?");
 
         if (r == true) {
-          var groupId = $group.attr("for");
-          var svgGroup = Snap.select("#" + groupId);
-
-          // Remove both SVG and form representations
-          if (svgGroup) {
-            svgGroup.remove();
-          }
+          $("#" + $group.attr("for")).remove();
           $group.remove();
-
-          // Update tripwire numbering and serialization
           numberTripwires();
-          stringifyTripwires();
+          saveRois(getRoiValues("form-control tripwire-title", "tripwire"));
         }
       });
     }
