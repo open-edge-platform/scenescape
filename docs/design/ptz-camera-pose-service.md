@@ -574,7 +574,18 @@ is allowed only when the camera is assigned to a scene in the identity's ACL sco
 Positioning topics bypass the superuser shortcut, so every identity, including
 `controller.auth`, needs an explicit ACL. Pose writes are limited at topic level to the
 named publisher; the deployment manifest remains the only `source_id -> resolver_id`
-mapping. The per-camera procedure is in
+mapping.
+
+Phase 2 registers Positioning as the intended publisher of
+`scenescape/positioning/pose/{source_id}`, but deliberately leaves pose publishing
+disabled until the Phase 3b poller and Resolver are implemented. Through Phase 3a,
+`ACLCheck` restricts the `positioning` username to writes on its configured
+`scenescape/positioning/status/{resolver_id}` topic, and `positioning.auth` has no
+pose-write ACL. This is an expected staging restriction, not the final publisher
+policy. Phase 3b must update both the guard and the provisioned ACLs to enable
+Positioning pose writes while continuing to deny unrelated writes.
+
+The per-camera procedure is in
 [Onboard PTZ Cameras](../user-guide/how-to-guides/calibrate-cameras/onboard-ptz-cameras.md).
 
 ### 5.6 What changes for projection
