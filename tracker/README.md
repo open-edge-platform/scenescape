@@ -94,6 +94,9 @@ make test-unit
 make test-unit-coverage
 # Report: build-debug/coverage/html/index.html
 
+# Run RobotVision (tracking library) unit tests
+make test-robot-vision
+
 # Run load tests (requires Docker and compose stack running)
 make test-load
 ```
