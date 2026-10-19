@@ -8,6 +8,7 @@
 *~
 *oxx
 *so
+.coverage
 .coverage_*
 .env
 .scenescape-profile
