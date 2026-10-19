@@ -11,6 +11,8 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from manager.calculate_intrinsics_view import (
   CalculateCameraIntrinsics,
+  MAX_CALIBRATION_CORRESPONDENCES,
+  MAX_IMAGE_DIMENSION_PX,
   as_distortion_column,
   assess_calibration_geometry,
   assess_image_point_coverage,
@@ -21,6 +23,9 @@ from manager.calculate_intrinsics_view import (
   parse_pixels_per_meter,
   parse_reject_outliers,
   validate_correspondence_arrays,
+  validate_distortion_coefficients,
+  validate_image_size,
+  validate_intrinsics_matrix,
 )
 from scene_common.transform import (
   RANSAC_REPROJECTION_THRESHOLD_PX,
@@ -116,6 +121,10 @@ def test_calculate_intrinsics_reports_rejection_and_fit_counts(
   assert "geometryWarnings" in response.data
   assert "imageCoverage" in response.data
   assert "mapInPlaneSpreadRatio" in response.data
+  pose_matrix = response.data["poseMatrix"]
+  assert len(pose_matrix) == 4 and all(len(row) == 4 for row in pose_matrix)
+  assert len(response.data["euler"]) == 3
+  assert len(response.data["position"]) == 3
 
 
 @pytest.mark.test_name("NEX-T10426")
@@ -533,3 +542,71 @@ def test_calculate_intrinsics_rejects_bad_point_dimensions():
   response = _post_calculate_intrinsics(payload)
   assert response.status_code == 400
   assert "mapPoints" in response.data["error"]
+
+
+@pytest.mark.test_name("NEX-T10426")
+@pytest.mark.parametrize(
+  ("overrides", "expected_error"),
+  [
+    ({"intrinsics": [[800.0, 0.0], [0.0, 800.0]]}, "3x3"),
+    ({"intrinsics": [
+      [-1.0, 0.0, 320.0], [0.0, 800.0, 240.0], [0.0, 0.0, 1.0],
+    ]}, "fx and fy"),
+    ({"distortion": [0.0, 0.0, 0.0]}, "4, 5, 8, 12, or 14"),
+    ({"imageSize": [640]}, "imageSize"),
+    ({"imageSize": [0, 480]}, "positive"),
+    ({"imageSize": [MAX_IMAGE_DIMENSION_PX + 1, 480]},
+     str(MAX_IMAGE_DIMENSION_PX)),
+  ],
+)
+def test_calculate_intrinsics_rejects_invalid_camera_model(overrides, expected_error):
+  response = _post_calculate_intrinsics(_calibration_payload(**overrides))
+  assert response.status_code == 400
+  assert expected_error in response.data["error"]
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_calculate_intrinsics_rejects_too_many_correspondences():
+  point_count = MAX_CALIBRATION_CORRESPONDENCES + 1
+  payload = _calibration_payload(
+    mapPoints=[[float(i), 0.0, 0.0] for i in range(point_count)],
+    camPoints=[[float(i), 0.0] for i in range(point_count)],
+  )
+  response = _post_calculate_intrinsics(payload)
+  assert response.status_code == 400
+  assert "Invalid number of points" in response.data["error"]
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_validate_intrinsics_matrix_accepts_valid_3x3():
+  matrix, error = validate_intrinsics_matrix([
+    [800.0, 0.0, 320.0], [0.0, 800.0, 240.0], [0.0, 0.0, 1.0],
+  ])
+  assert error is None
+  assert matrix.shape == (3, 3)
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_validate_distortion_coefficients_coerces_nan_to_zero():
+  coeffs, error = validate_distortion_coefficients(
+    [float("nan"), 0.1, 0.0, 0.0, 0.0])
+  assert error is None
+  assert coeffs.shape == (5, 1)
+  assert coeffs[0, 0] == 0.0
+  assert coeffs[1, 0] == pytest.approx(0.1)
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_validate_distortion_coefficients_rejects_infinity():
+  # Inf cannot round-trip through JSON request bodies; exercise the helper.
+  coeffs, error = validate_distortion_coefficients(
+    [0.0, 0.0, float("inf"), 0.0, 0.0])
+  assert coeffs is None
+  assert "finite" in error
+
+
+@pytest.mark.test_name("NEX-T10426")
+def test_validate_image_size_accepts_positive_pair():
+  size, error = validate_image_size([1920, 1080])
+  assert error is None
+  assert size == (1920, 1080)

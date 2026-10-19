@@ -262,7 +262,7 @@ def test_manual_distortion_controls(params, result_recorder):
       const originalSubmit = HTMLFormElement.prototype.submit;
       const originalAlert = window.alert;
       const originalClient = calibration.client;
-      const originalUpdatePose = calibration.updateCalibrationPoseFromFit;
+      const originalApplyPose = calibration.applyFittedCalibrationPose;
       const originalShowFitStatus = calibration.showCalibrationFitStatus;
       let request;
       let nativeSubmissions = 0;
@@ -271,7 +271,7 @@ def test_manual_distortion_controls(params, result_recorder):
       try {
         calibration.client = null;
         // Must return truthy: success path treats a falsey return as pose failure.
-        calibration.updateCalibrationPoseFromFit = () => true;
+        calibration.applyFittedCalibrationPose = () => true;
         calibration.showCalibrationFitStatus = () => {};
         $.ajax = (options) => {
           request = options;
@@ -307,6 +307,12 @@ def test_manual_distortion_controls(params, result_recorder):
           dist: [0, 0, 0, 0, 0],
           rejectionApplied: true,
           rejectedIndices: [2],
+          poseMatrix: [
+            [1, 0, 0, 0],
+            [0, 1, 0, 0],
+            [0, 0, 1, 5],
+            [0, 0, 0, 1],
+          ],
         });
         const readyState = calibration.calibrationFitState;
         form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
@@ -325,7 +331,7 @@ def test_manual_distortion_controls(params, result_recorder):
         HTMLFormElement.prototype.submit = originalSubmit;
         window.alert = originalAlert;
         calibration.client = originalClient;
-        calibration.updateCalibrationPoseFromFit = originalUpdatePose;
+        calibration.applyFittedCalibrationPose = originalApplyPose;
         calibration.showCalibrationFitStatus = originalShowFitStatus;
         calibration.clearCalibrationPoints();
       }

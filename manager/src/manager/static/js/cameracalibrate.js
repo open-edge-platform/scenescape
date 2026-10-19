@@ -375,10 +375,12 @@ export class ConvergedCameraCalibration {
           this.rejectedPointIndices = response.rejectionApplied
             ? response.rejectedIndices || []
             : [];
-          if (!this.updateCalibrationPoseFromFit()) {
+          // Use the API-fitted pose so the preview matches the server model
+          // (browser-side solvePnP can diverge, especially on planar sets).
+          if (!this.applyFittedCalibrationPose(response)) {
             this.calibrationFitState = "failed";
             this.setCalibrationFitStatus(
-              "Could not compute a camera pose preview from the fitted model. " +
+              "Could not apply the fitted camera pose preview. " +
                 "Adjust the point pairs and try again.",
               [],
               [],
@@ -427,6 +429,41 @@ export class ConvergedCameraCalibration {
         this.setCalibrationFitStatus(message, [], []);
       }
     }
+  }
+
+  applyFittedCalibrationPose(response) {
+    const matrix = response && response.poseMatrix;
+    if (!Array.isArray(matrix) || matrix.length !== 4) {
+      return false;
+    }
+    const flat = matrix.flat().map(Number);
+    if (flat.length !== 16 || !flat.every(Number.isFinite)) {
+      return false;
+    }
+    const pose = new THREE.Matrix4();
+    pose.set(
+      flat[0],
+      flat[1],
+      flat[2],
+      flat[3],
+      flat[4],
+      flat[5],
+      flat[6],
+      flat[7],
+      flat[8],
+      flat[9],
+      flat[10],
+      flat[11],
+      flat[12],
+      flat[13],
+      flat[14],
+      flat[15],
+    );
+    this.viewport.setCameraPose(pose);
+    this.projectionEnabled = true;
+    this.camCanvas.calibrationUpdated = false;
+    this.viewport.calibrationUpdated = false;
+    return true;
   }
 
   updateCalibrationPoseFromFit() {
