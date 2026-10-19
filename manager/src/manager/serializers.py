@@ -310,7 +310,7 @@ class CamSerializer(NonNullSerializer):
       return validate_ptz_calibration(
         value, getattr(settings, 'PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX', None))
     except PTZCalibrationError as error:
-      raise serializers.ValidationError(str(error), code=error.code)
+      raise serializers.ValidationError(f"{error.path}: {error.code}", code=error.code)
 
   def validate_name(self, value):
     if self.instance is None and 'sensor_id' not in self.initial_data:

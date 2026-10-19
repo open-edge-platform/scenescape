@@ -228,6 +228,15 @@ class PTZCalibrationValidatorTest(TestCase):
     self.assertEqual(serializer.errors["ptz_calibration"], ["axes.pan.axis: not_unit_vector"])
     self.assertEqual(serializer.errors["ptz_calibration"][0].code, "not_unit_vector")
 
+  def test_serializer_does_not_expose_exception_message(self):
+    error = PTZCalibrationError("axes.pan.axis", "not_unit_vector")
+    error.args = ("Traceback: internal server details must not reach the API",)
+    serializer = CamSerializer(data={"name": "Bad PTZ", "ptz_calibration": PTZ_CALIBRATION})
+    with patch("manager.serializers.validate_ptz_calibration", side_effect=error):
+      self.assertFalse(serializer.is_valid())
+    self.assertEqual(serializer.errors["ptz_calibration"], ["axes.pan.axis: not_unit_vector"])
+    self.assertEqual(serializer.errors["ptz_calibration"][0].code, "not_unit_vector")
+
 
 class PTZCalibrationInvalidationTest(TestCase):
 
