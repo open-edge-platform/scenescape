@@ -5,6 +5,7 @@
 
 import json
 import unittest
+from unittest.mock import Mock
 
 from analytics.reid_identity import ReidIdentityMap
 
@@ -41,6 +42,48 @@ class TestReidIdentityMap(unittest.TestCase):
     self.assertEqual(ids.apply("s1", "person", objs), 0)
     self.assertEqual(objs[0]["id"], "track-1")
     self.assertEqual(objs[0]["reid_state"], "query_no_match")
+
+  def test_no_match_honors_fresh_gid_without_merging_identities(self):
+    ids = ReidIdentityMap()
+    ids.update(decision("track-1", "track-2", True, 0.9))
+    ids.update(decision("track-2", "fresh-gid", False))
+    objs = objects("track-1", "track-2")
+    objs[1]["reid_state"] = "matched"
+
+    self.assertEqual(ids.apply("s1", "person", objs), 2)
+
+    self.assertEqual([obj["id"] for obj in objs], ["track-2", "fresh-gid"])
+    self.assertEqual(objs[1]["reid_state"], "query_no_match")
+    self.assertNotIn("previous_ids_chain", objs[1])
+    self.assertNotIn("similarity", objs[1])
+
+  def test_no_match_migrates_cache_before_applying_fresh_gid(self):
+    ids = ReidIdentityMap()
+    ids.update(decision("track-1", "fresh-gid", False))
+    objs = objects("track-1")
+
+    def migrate(category, old_id, new_id):
+      self.assertEqual(objs[0]["id"], "track-1")
+      return True
+
+    rename = Mock(side_effect=migrate)
+
+    self.assertEqual(ids.apply("s1", "person", objs, rename_object=rename), 1)
+
+    rename.assert_called_once_with("person", "track-1", "fresh-gid")
+    self.assertEqual(objs[0]["id"], "fresh-gid")
+    self.assertEqual(objs[0]["reid_state"], "query_no_match")
+
+  def test_no_match_defers_fresh_gid_when_cache_migration_conflicts(self):
+    ids = ReidIdentityMap()
+    ids.update(decision("track-1", "fresh-gid", False))
+    objs = objects("track-1")
+    rename = Mock(return_value=False)
+
+    self.assertEqual(ids.apply("s1", "person", objs, rename_object=rename), 0)
+
+    rename.assert_called_once_with("person", "track-1", "fresh-gid")
+    self.assertEqual(objs, objects("track-1"))
 
   def test_decision_is_scoped_to_scene_and_category(self):
     ids = ReidIdentityMap()
