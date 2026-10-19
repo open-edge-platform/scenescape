@@ -19,6 +19,8 @@ secrets:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
+  positioning.auth:
+    file: ${SECRETSDIR}/positioning.auth
 
 services:
   web:
@@ -50,6 +52,7 @@ services:
       - "DBROOT=/workspace"
       - "SCENESCAPE_ALLOWED_HOSTS"
       - "SUPASS"
+      - "PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX"
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
@@ -65,6 +68,7 @@ services:
       - controller.auth
       - browser.auth
       - calibration.auth
+      - positioning.auth
     restart: on-failure
 
 volumes:

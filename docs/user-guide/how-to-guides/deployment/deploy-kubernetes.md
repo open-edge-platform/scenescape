@@ -73,6 +73,7 @@ Enable additional chart features by setting these values on `helm upgrade`/`helm
 | `tracker.enabled`          | `false` | Deploys Tracker + Analytics instead of the Scene Controller.                                                                                             |
 | `mapping.enabled`          | `false` | Deploys the mapping service.                                                                                                                             |
 | `clusterAnalytics.enabled` | `false` | Deploys the cluster-analytics service.                                                                                                                   |
+| `positioning.enabled`      | `false` | Deploys the Positioning service. See [Configure the Positioning Service](#configure-the-positioning-service).                                            |
 
 ReID is consumed by the Scene Controller. Tracker mode replaces the Scene Controller, so do not enable ReID together with `tracker.enabled=true`.
 
@@ -89,6 +90,20 @@ Each Mapping image contains exactly one 3D reconstruction model, fixed at build 
 | `vggt`          | `intel/scenescape-mapping:<version>-vggt`          |
 
 The matching variant must be available to the cluster: either pulled from Docker Hub, or built with `make -C mapping build-all` (see [Build Mapping Service from Source](../../microservices/mapping-service/build-from-source.md)) and pushed to the registry set in `repository`. The root `make build-all` builds only the default MapAnything image.
+
+### Configure the Positioning Service
+
+When `positioning.enabled=true`, the chart deploys one Positioning replica with its own broker account and client certificate, and renders `positioning.json` from these values:
+
+| Value                    | Default               | Effect                                                                                                                                               |
+| ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `positioning.resolverId` | `positioning-default` | Identifies the instance in its status topic `scenescape/positioning/status/{resolverId}`. Must be a single MQTT topic segment (no `/`, `+`, or `#`). |
+
+Source ownership is configured separately by the deployment's `source_id` to
+`resolver_id` assignment manifest. The current Positioning config contains no camera
+list; see the [Positioning Service](../../microservices/positioning/positioning.md)
+and [PTZ pose design](../../../design/ptz-camera-pose-service.md) for current behavior
+and future runtime contracts.
 
 ## Verify
 

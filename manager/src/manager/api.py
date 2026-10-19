@@ -455,6 +455,15 @@ class ACLCheck(APIView):
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
+  @staticmethod
+  def poseReadInScope(acl, topic):
+    """Pose reads follow the camera's current Cam.scene, so scope tracks scene membership."""
+    source_id = (PubSub.parseTopic(topic) or {}).get("source_id")
+    camera = Cam.objects.filter(sensor_id=source_id).first() if source_id else None
+    if camera is None or camera.scene_id is None:
+      return False
+    return acl.all_scenes or acl.scenes.filter(pk=camera.scene_id).exists()
+
   def post(self, request):
     if not isinstance(request.data, Mapping):
       log.warning('Request body must be a JSON object')
@@ -488,10 +497,25 @@ class ACLCheck(APIView):
         status=status.HTTP_400_BAD_REQUEST
       )
 
+    if username == "positioning" and requestedAccess in (WRITE_ONLY, READ_AND_WRITE):
+      resolver_id = os.environ.get("POSITIONING_RESOLVER_ID", "positioning-default")
+      try:
+        positioning_status_topic = PubSub.formatTopic(
+          PubSub.POSITIONING_STATUS, resolver_id=resolver_id)
+      except (KeyError, ValueError):
+        positioning_status_topic = None
+      if currentTopic != positioning_status_topic:
+        return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
+
     user_acls = PubSubACL.objects.filter(user=user)
 
-    # Admin users have full read/write access to the broker.
-    if user.is_superuser:
+    is_positioning_topic = any(
+      PubSub.match_topic(PubSub.getTopicByTemplateName(name).template, currentTopic)
+      for name in ("POSITIONING_POSE", "POSITIONING_STATUS"))
+
+    # Admin users have full read/write access to the broker, except Positioning
+    # topics, which always require an explicit ACL.
+    if user.is_superuser and not is_positioning_topic:
       return Response({'result': 'allow', 'acc': READ_AND_WRITE}, status=status.HTTP_200_OK)
 
     if not user_acls.exists():
@@ -503,6 +527,10 @@ class ACLCheck(APIView):
       templateTopic = PubSub.getTopicByTemplateName(acl.topic).template
       if PubSub.match_topic(templateTopic, currentTopic):
         matchedACL = acl
+
+    if matchedACL and matchedACL.topic == "POSITIONING_POSE" and requestedAccess != WRITE_ONLY:
+      if not self.poseReadInScope(matchedACL, currentTopic):
+        return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
 
     if matchedACL:
       if matchedACL.access == requestedAccess:

@@ -15,7 +15,9 @@
       { "topic": "EVENT", "access": 3 },
       { "topic": "SYS_CHILDSCENE_STATUS", "access": 3 },
       { "topic": "DATA_CAMERA", "access": 1 },
-      { "topic": "POINTCLOUD_CAMERA", "access": 2 }
+      { "topic": "POINTCLOUD_CAMERA", "access": 2 },
+      { "topic": "POSITIONING_POSE", "access": 1, "all_scenes": true },
+      { "topic": "POSITIONING_STATUS", "access": 1 }
     ],
     "is_superuser": true
   },
@@ -28,6 +30,7 @@
       { "topic": "POINTCLOUD_CAMERA", "access": 1 },
       { "topic": "CMD_DATABASE", "access": 3 },
       { "topic": "CMD_CAMERA", "access": 3 },
+      { "topic": "CMD_CAMERA_CONFIG", "access": 2 },
       { "topic": "DATA_AUTOCALIB_CAM_POSE", "access": 1 },
       { "topic": "CMD_KUBECLIENT", "access": 3 },
       { "topic": "EVENT", "access": 1 },
@@ -44,5 +47,12 @@
       { "topic": "DATA_AUTOCALIB_CAM_POSE", "access": 2 }
     ],
     "is_superuser": true
+  },
+  "positioning.auth": {
+    "acls": [
+      { "topic": "CMD_CAMERA_CONFIG", "access": 1 },
+      { "topic": "POSITIONING_STATUS", "access": 2 }
+    ],
+    "is_superuser": false
   }
 }

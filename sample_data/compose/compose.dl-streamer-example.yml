@@ -36,6 +36,12 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-mapping.crt
   mapping-key:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
+  positioning.auth:
+    file: ${SECRETSDIR}/positioning.auth
+  positioning-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-positioning.crt
+  positioning-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-positioning.key
 
 x-controller-base: &controller-base
   image: intel/scenescape-controller:${VERSION:-latest}
@@ -87,8 +93,8 @@ x-controller-base: &controller-base
 # - Default (no profile): Core services including autocalibration
 # - mapping: Core services + mapping only
 # - cluster-analytics: Core services + cluster-analytics only
-# - controller: Scene Controller (tracking) + Analytics service
-# - tracker: Tracker service + Analytics service (no Scene Controller)
+# - controller: Scene Controller (tracking) + Analytics + Positioning
+# - tracker: Tracker service + Analytics + Positioning (no Scene Controller)
 
 services:
   ntpserv:
@@ -194,6 +200,7 @@ services:
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - MAPBOX_API_KEY=${MAPBOX_API_KEY}
+      - PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX
       # Max upload size for scene map files (blueprints, .glb meshes). Default
       # 132MB. Raise if uploading large 3D scans or high-res floor plans;
       # lower to reduce per-request memory pressure in constrained deployments.
@@ -254,6 +261,52 @@ services:
         target: certs/scenescape-ca.pem
       - django
       - controller.auth
+    restart: always
+    pids_limit: 1000
+
+  positioning:
+    image: intel/scenescape-positioning:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+        aliases:
+          - positioning.scenescape.intel.com
+    profiles:
+      - controller
+      - tracker
+    depends_on:
+      broker:
+        condition: service_started
+      ntpserv:
+        condition: service_started
+    command:
+      - --broker
+      - broker.scenescape.intel.com
+      - --brokerauth
+      - /run/secrets/positioning.auth
+      - --cert
+      - /run/secrets/certs/scenescape-positioning.crt
+      - --keyfile
+      - /run/secrets/certs/scenescape-positioning.key
+      - --rootcert
+      - /run/secrets/certs/scenescape-ca.pem
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: positioning-client-cert
+        target: certs/scenescape-positioning.crt
+      - source: positioning-client-key
+        target: certs/scenescape-positioning.key
+      - positioning.auth
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import os,sys; sys.exit(0 if os.path.exists('/tmp/positioning-ready') else 1)"
+      interval: 10s
+      timeout: 3s
+      retries: 3
     restart: always
     pids_limit: 1000
 

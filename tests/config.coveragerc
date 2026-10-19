@@ -2,18 +2,26 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # config.coveragerc to control coverage.py
+# Paths are relative to the repository root. Each `source` entry gets its own
+# threshold check in `make check-unit-coverage`.
 [run]
-dynamic_context = test_function
-branch = True
-context = static_context
-omit = */site-packages/*,*/opt/intel/*
-#debug = config, data, sys, premain, pybehave
+source =
+    analytics/src/analytics
+    reid_service/src/reid_service
+    cluster_analytics/src
+    positioning/src
+omit =
+    */.venv/*
+    */site-packages/*
+    */opt/intel/*
+    */tests/*
+# below are the units with main functions of services - no point to cover 
+    reid_service/src/reid_service/server.py
+    cluster_analytics/src/cluster_analytics.py
 
 [report]
 ignore_errors = True
-#omitting tests
-omit=*/tests/*
+show_missing = True
 
 [html]
 directory = tests/ui/reports/code_coverage/htmlcov
-show_contexts = True

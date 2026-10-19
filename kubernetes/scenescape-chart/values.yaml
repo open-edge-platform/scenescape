@@ -77,6 +77,9 @@ web:
   # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to:
   # ['127.0.0.1', 'localhost', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']
   allowedHosts: ""
+  # Maximum accepted ptz_calibration quality.reprojection_rms_px, in pixels.
+  # Empty keeps the Manager image default (12.0).
+  ptzCalibrationResidualThresholdPx: ""
 
 scene:
   image: intel/scenescape-controller
@@ -157,6 +160,12 @@ clusterAnalytics:
   webUI:
     enabled: false
 
+positioning:
+  enabled: false
+  image: intel/scenescape-positioning
+  pullPolicy: IfNotPresent
+  resolverId: positioning-default
+
 mapping:
   enabled: false
   image: intel/scenescape-mapping
@@ -188,7 +197,6 @@ migrations:
 # PVC
 pvc:
   storageClassName: ""
-  hookWeight: "0"
 
 # External access
 service:
@@ -227,13 +235,8 @@ certdomain: ""
 supass: ""
 dbroot: ""
 debug: false
-chartdebug: false
 
 # Proxy configuration
 httpProxy: ""
 httpsProxy: ""
 noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0/12"
-
-# disable pre-install and post-install hooks for cluster compatibility
-hooks:
-  enabled: true

@@ -8,7 +8,8 @@ SHELL := /bin/bash
 
 # Build folders
 COMMON_FOLDER := scene_common
-CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
+
+CORE_IMAGE_FOLDERS := autocalibration controller manager analytics positioning
 IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid_service
 
 # Image variables
@@ -77,8 +78,8 @@ LIDAR_COMPOSE_ARGS = -f docker-compose.yml -f $(LIDAR_OVERRIDE_FILE)
 # Test variables
 TESTS_FOLDER := tests
 TEST_DATA_FOLDER := test_data
-TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics
-TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
+TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics cluster_analytics positioning
+TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics positioning)
 DEPLOYMENT_TEST ?= 0
 
 # Observability variables
@@ -117,7 +118,7 @@ help:
 	@echo "  build-all-images            Build all microservice images in parallel"
 	@echo "  build-core-lidar            Alias of build-core (LiDAR demo source labels are in-tree)"
 	@echo "  init-secrets                Generate secrets and certificates"
-	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, etc.)"
+	@echo "  <image folder>              Build a specific microservice image (autocalibration, controller, positioning, etc.)"
 	@echo ""
 	@echo "  demo                        (default) Start the Scenescape demo with core services (tracking, no ReID)"
 	@echo "  demo-reid                   Start the core demo plus the ReID vector database"
@@ -159,6 +160,8 @@ help:
 	@echo "  run_functional_tests        Run functional tests"
 	@echo "  run_ui_tests                Run UI tests"
 	@echo "  run_unit_tests              Run unit tests"
+	@echo "  run_unit_tests_coverage     Run unit tests and enforce per-service coverage"
+	@echo "  check-unit-coverage         Enforce per-service coverage on existing .coverage data"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
@@ -182,6 +185,8 @@ help:
 	@echo "  prettier-write              Format code using prettier"
 	@echo ""
 	@echo "  add-licensing FILE=<file>   Add licensing headers to a file"
+	@echo ""
+	@echo "  generate-positioning-proto  Regenerate Positioning protobuf/gRPC Python stubs"
 	@echo ""
 	@echo "Usage:"
 	@echo "  - Use 'SUPASS=<password> make build-all demo' to build Scenescape and run demo using Docker Compose."
@@ -219,7 +224,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid_service: build-common
+autocalibration controller manager analytics positioning mapping cluster_analytics reid_service: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -391,6 +396,10 @@ NPROCS ?= $(shell echo $$(nproc) / 3 | bc)
 PYTEST := $(CURDIR)/tests/.venv/bin/pytest
 PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
+UNIT_COV_CONFIG := $(TESTS_DIR)/config.coveragerc
+UNIT_COV_FAIL_UNDER ?= 70
+UNIT_COV_SOURCES_CMD := $(CURDIR)/tests/.venv/bin/python -c 'import configparser, sys; \
+	c = configparser.ConfigParser(); c.read(sys.argv[1]); print(c["run"]["source"])' $(UNIT_COV_CONFIG)
 
 .PHONY: setup-tests
 setup-tests: init-secrets .env setup-pytest build-common
@@ -507,6 +516,26 @@ run_unit_tests: init-secrets setup-pytest
 	@echo "Running unit tests..."
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
+
+.PHONY: run_unit_tests_coverage
+run_unit_tests_coverage: init-secrets setup-pytest
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running unit tests with coverage..."
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) \
+		--cov --cov-config=$(UNIT_COV_CONFIG) --cov-report= \
+		|| (echo "Unit tests failed" && exit 1)
+	$(MAKE) check-unit-coverage
+	@echo "DONE ==> Running unit tests with coverage"
+
+.PHONY: check-unit-coverage
+check-unit-coverage:
+	@services=$$($(UNIT_COV_SOURCES_CMD)) || exit 1; \
+	[ -n "$$services" ] || { echo "No [run] source in $(UNIT_COV_CONFIG)"; exit 1; }; \
+	rc=0; for svc in $$services; do \
+		echo "==> $$svc"; \
+		$(CURDIR)/tests/.venv/bin/coverage report --rcfile=$(UNIT_COV_CONFIG) \
+			--include="$(CURDIR)/$$svc/*" --fail-under=$(UNIT_COV_FAIL_UNDER) || rc=1; \
+	done; exit $$rc
 
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup-tests
@@ -704,6 +733,14 @@ prettier-write: prettier-dependency
 .PHONY: add-licensing
 add-licensing:
 	@reuse annotate --template template $(ADDITIONAL_LICENSING_ARGS) --merge-copyrights --copyright-prefix="spdx-c" --copyright="Intel Corporation" --license="Apache-2.0" $(FILE) || (echo "Adding license failed" && exit 1)
+
+# ===================== Code Generation =============================
+
+.PHONY: generate-positioning-proto
+generate-positioning-proto:
+	@echo "==> Generating Positioning protobuf stubs..."
+	@docs/user-guide/api-docs/positioning/v1/generate.sh || (echo "Positioning protobuf generation failed" && exit 1)
+	@echo "DONE ==> Generating Positioning protobuf stubs"
 
 # ===================== Docker Compose Demo ==========================
 

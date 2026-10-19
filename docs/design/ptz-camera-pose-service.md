@@ -198,7 +198,7 @@ The in-process entry point mirrors the RPC contract as
 `submit_ptz_sample(PTZSample) -> PTZSampleAck`, preserving the same validation and
 acknowledgement semantics without serialization, a channel, or a network boundary.
 
-The `.proto` is a shared, published contract stored at `api/positioning/v1/`, not
+The `.proto` is a shared, published contract stored at `docs/user-guide/api-docs/positioning/v1/`, not
 privately in a module. Generate the Python message types from this single source and use
 those types at the in-process poller-to-Resolver boundary. Publish the versioned `.proto`
 for future Sensor Manager integrations. The protobuf package namespace
@@ -555,6 +555,38 @@ results are not supplied by the PoC.
 `ptz_calibration` never contains device credentials. Local config files are limited to
 the isolated lab, offline tools, and tests, not production service configuration.
 
+#### Manager implementation details
+
+Manager stores nullable `ptz_calibration` on `Cam` and exposes it through
+`GET`, `POST`, and `PUT /api/v1/camera/{uid}`; collection reads remain available at
+`GET /api/v1/cameras`. `CamSerializer` delegates to the reusable
+`manager.ptz_calibration.validate_ptz_calibration` helper for REST writes and
+calibration imports, including finite-value, compatibility, positive motion/backlash
+parameters within calibrated travel, and configured residual threshold checks; errors
+are stable `<path>: <code>` strings. The read-only `pose_matrix` field exposes the
+computed home pose for both Euler and point-correspondence cameras. Saving a camera
+publishes a versioned configuration invalidation only after the transaction commits;
+the Resolver then reloads the calibration through its read-only Manager client.
+
+Pose-read ACLs are enforced from `Cam.scene` at check time: a `POSITIONING_POSE` read
+is allowed only when the camera is assigned to a scene in the identity's ACL scope
+(`scenes`, or `all_scenes` for the deployment-wide Controller/Tracker identity).
+Positioning topics bypass the superuser shortcut, so every identity, including
+`controller.auth`, needs an explicit ACL. Pose writes are limited at topic level to the
+named publisher; the deployment manifest remains the only `source_id -> resolver_id`
+mapping.
+
+In Phase 3a, Positioning is allowed to publish only its own status on the configured
+`scenescape/positioning/status/{resolver_id}` topic. `ACLCheck` restricts the
+`positioning` username to writes on that topic, and `positioning.auth` has no
+pose-write ACL. Although Phase 2 registers Positioning as the intended publisher of
+`scenescape/positioning/pose/{source_id}`, pose publishing is deferred to Phase 3b.
+Phase 3b must update both the guard and the provisioned ACLs to enable Positioning
+pose writes while continuing to deny unrelated writes.
+
+The per-camera procedure is in
+[Onboard PTZ Cameras](../user-guide/how-to-guides/calibrate-cameras/onboard-ptz-cameras.md).
+
 ### 5.6 What changes for projection
 
 v1 deliberately uses a side-channel: detections continue through the existing paths and
@@ -680,7 +712,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 8. Rollout / Migration Plan
 
-1. **Contracts and math** — add the versioned `.proto` to `api/positioning/v1/`, generate
+1. **Contracts and math** — add the versioned `.proto` to `docs/user-guide/api-docs/positioning/v1/`, generate
    message types for the in-process poller-to-Resolver boundary, and publish the contract
    plus compatibility policy for future Sensor Manager consumers. Define the source-keyed
    `positioning/pose/{source_id}` contract, status/LWT topic, `valid_until`, canonical
@@ -825,6 +857,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 11. References
 
+- [Positioning PTZ v1: Contracts Reference](./positioning-ptz-contracts.md) (normative topic, schema, dwell, reason, and configuration contracts)
 - [ADR 13 — Controller Breakdown into Functionality-Aligned Microservices](../adr/0013-controller-breakdown-microservices.md)
 - [ADR 16 — Unified External-Source Ingestion Contract](../adr/0016-unified-external-source-ingestion.md) (publisher-centric contract precedent; `external_source` is not reused for pixel-space camera detections)
 - PoC: `ptz_pose_service/` (`src/pose_math.py`, `src/ptz_pose_context.py`, `src/ptz_pose_service.py`, `README.md`, `tools/`)

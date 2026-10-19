@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+secrets:
+  root-cert:
+    file: ${SECRETSDIR}/certs/scenescape-ca.pem
+  positioning.auth:
+    file: ${SECRETSDIR}/positioning.auth
+  positioning-client-cert:
+    file: ${SECRETSDIR}/certs/scenescape-positioning.crt
+  positioning-client-key:
+    file: ${SECRETSDIR}/certs/scenescape-positioning.key
+
+services:
+  positioning:
+    image: intel/scenescape-positioning:${VERSION:-latest}
+    networks:
+      scenescape-test:
+        aliases:
+          - positioning.scenescape.intel.com
+    depends_on:
+      broker:
+        condition: service_started
+    command:
+      - --broker
+      - broker.scenescape.intel.com
+      - --brokerauth
+      - /run/secrets/positioning.auth
+      - --cert
+      - /run/secrets/certs/scenescape-positioning.crt
+      - --keyfile
+      - /run/secrets/certs/scenescape-positioning.key
+      - --rootcert
+      - /run/secrets/certs/scenescape-ca.pem
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - source: positioning-client-cert
+        target: certs/scenescape-positioning.crt
+      - source: positioning-client-key
+        target: certs/scenescape-positioning.key
+      - positioning.auth
+    healthcheck:
+      test:
+        - CMD
+        - python3
+        - -c
+        - "import os,sys; sys.exit(0 if os.path.exists('/tmp/positioning-ready') else 1)"
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: on-failure
