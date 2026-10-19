@@ -647,13 +647,15 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
     std::vector<std::vector<Track>> frames;
     std::mutex mutex;
     std::condition_variable cv;
-    TrackingWorker worker({"scene-1", "person"}, "Scene", 4,
-        [&](const std::string&, const std::string&, const std::string&,
-            const std::string&, const std::vector<Track>& tracks) {
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Scene", 4,
+        [&](const std::string&, const std::string&, const std::string&, const std::string&,
+            const std::vector<Track>& tracks) {
             std::lock_guard lock(mutex);
             frames.push_back(tracks);
             cv.notify_one();
-        }, config, cameras_);
+        },
+        config, cameras_);
 
     for (int i = 0; i < 4; ++i) {
         Chunk chunk;
@@ -662,22 +664,22 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
         DetectionBatch batch;
         batch.camera_id = "cam-1";
         batch.timestamp_iso = std::format("2026-01-27T12:00:00.{:03d}Z", i * 67);
-        batch.timestamp = std::chrono::system_clock::time_point(
-            std::chrono::milliseconds(1000 + i * 67));
+        batch.timestamp =
+            std::chrono::system_clock::time_point(std::chrono::milliseconds(1000 + i * 67));
         if (i < 3) {
             Detection detection;
             detection.id = 1;
             detection.bounding_box_px = {100, 200, 50, 100};
             detection.metadata_json = std::format(
-                R"({{"reid":{{"embedding_vector":[[{},0]],"camera_id":"wrong"}},"age":{{"label":"adult"}}}})", i + 1);
+                R"({{"reid":{{"embedding_vector":[[{},0]],"camera_id":"wrong"}},"age":{{"label":"adult"}}}})",
+                i + 1);
             batch.detections.push_back(std::move(detection));
         }
         chunk.camera_batches.push_back(std::move(batch));
         ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
         std::unique_lock lock(mutex);
-        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3), [&] {
-            return frames.size() >= static_cast<size_t>(i + 1);
-        }));
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3),
+                                [&] { return frames.size() >= static_cast<size_t>(i + 1); }));
     }
 
     ASSERT_FALSE(frames[0].empty());
@@ -1108,14 +1110,16 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_ReidProvenanceMatchesWinningDete
     int callbacks = 0;
     TrackingConfig config = make_test_tracking_config();
     config.max_unreliable_time_s = 0.0;
-    TrackingWorker worker({"scene-1", "person"}, "Scene", 10,
-        [&](const std::string&, const std::string&, const std::string&,
-            const std::string&, const std::vector<Track>& published) {
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Scene", 10,
+        [&](const std::string&, const std::string&, const std::string&, const std::string&,
+            const std::vector<Track>& published) {
             std::lock_guard lock(mutex);
             tracks.insert(tracks.end(), published.begin(), published.end());
             ++callbacks;
             cv.notify_one();
-        }, config, make_two_cameras());
+        },
+        config, make_two_cameras());
 
     for (int i = 0; i < 4; ++i) {
         Chunk chunk;

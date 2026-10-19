@@ -86,18 +86,17 @@ public:
      * Detections where any projection fails are silently skipped.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
-    * @param camera_id Originating camera for ReID sightings
-    * @param timestamp Originating camera-frame timestamp
-    * @param chunk_id Worker-local freshness token (not published)
+     * @param camera_id Originating camera for ReID sightings
+     * @param timestamp Originating camera-frame timestamp
+     * @param chunk_id Worker-local freshness token (not published)
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
      *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */
     std::vector<rv::tracking::TrackedObject>
-    transformDetections(std::span<const Detection> detections,
-                        const std::string& camera_id = {}, const std::string& timestamp = {},
-                        const std::string& chunk_id = {}) const;
+    transformDetections(std::span<const Detection> detections, const std::string& camera_id = {},
+                        const std::string& timestamp = {}, const std::string& chunk_id = {}) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].

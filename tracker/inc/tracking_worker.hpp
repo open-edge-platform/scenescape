@@ -166,8 +166,8 @@ private:
      * @param chunk Input chunk with per-camera detection batches
      * @return Per-camera vectors of TrackedObjects in world coordinates
      */
-    std::vector<std::vector<rv::tracking::TrackedObject>> transform_detections(
-        const Chunk& chunk, const std::string& chunk_id);
+    std::vector<std::vector<rv::tracking::TrackedObject>>
+    transform_detections(const Chunk& chunk, const std::string& chunk_id);
 
     /**
      * @brief Convert RobotVision tracks to output Track structs.

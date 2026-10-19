@@ -233,7 +233,8 @@ void TrackingWorker::process_chunk(Chunk chunk) {
     chunk.obs_ctx.captureTransformTime();
 
     // Run Hungarian matching, Kalman filter, and ID conversion
-    auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp, chunk_id);
+    auto tracks =
+        match_and_convert(std::move(objects_per_camera), chunk, track_timestamp, chunk_id);
     chunk.obs_ctx.captureTrackTime();
 
     // Update active tracks gauge for this scope
@@ -322,8 +323,7 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             rapidjson::Document sighting;
             if (!sighting.Parse(sighting_it->second.c_str()).HasParseError() &&
                 sighting.IsObject() && sighting.HasMember("chunk_id") &&
-                sighting["chunk_id"].IsString() &&
-                chunk_id == sighting["chunk_id"].GetString()) {
+                sighting["chunk_id"].IsString() && chunk_id == sighting["chunk_id"].GetString()) {
                 sighting.RemoveMember("chunk_id");
                 rapidjson::StringBuffer buffer;
                 rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -336,7 +336,8 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         // provenance from the same detection, and leave other fused fields alone.
         if (!track.metadata_json.empty()) {
             rapidjson::Document metadata;
-            if (!metadata.Parse(track.metadata_json.c_str()).HasParseError() && metadata.IsObject()) {
+            if (!metadata.Parse(track.metadata_json.c_str()).HasParseError() &&
+                metadata.IsObject()) {
                 if (metadata.HasMember("reid")) {
                     metadata.RemoveMember("reid");
                 }

@@ -184,11 +184,9 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
     }
 }
 
-std::vector<rv::tracking::TrackedObject>
-CoordinateTransformer::transformDetections(std::span<const Detection> detections,
-                                           const std::string& camera_id,
-                                           const std::string& timestamp,
-                                           const std::string& chunk_id) const {
+std::vector<rv::tracking::TrackedObject> CoordinateTransformer::transformDetections(
+    std::span<const Detection> detections, const std::string& camera_id,
+    const std::string& timestamp, const std::string& chunk_id) const {
     const auto n = detections.size();
     if (n == 0)
         return {};
