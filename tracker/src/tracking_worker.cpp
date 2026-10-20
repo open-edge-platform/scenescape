@@ -352,7 +352,7 @@ TrackingWorker::update_external_tracks(const Chunk& chunk,
         for (const auto& detection : batch.external_detections) {
             auto existing = external_tracks_.find(detection.id);
             if (existing != external_tracks_.end() &&
-                batch.timestamp < existing->second.event_time) {
+                batch.timestamp <= existing->second.event_time) {
                 continue;
             }
 
