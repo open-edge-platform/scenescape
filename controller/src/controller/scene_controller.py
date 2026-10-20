@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import ntplib
 import orjson
+from scipy.spatial.transform import Rotation
 
 from scene_common.cache_manager import CacheManager
 from scene_common.transform import CameraPose
@@ -904,6 +905,11 @@ class SceneController:
     """
     if not routed_translation_objects:
       return False
+
+    source_rotation = Rotation.from_quat(camera_pose.quaternion_rotation)
+    for obj in routed_translation_objects:
+      object_rotation = Rotation.from_quat(obj.get('rotation', [0.0, 0.0, 0.0, 1.0]))
+      obj['rotation'] = (source_rotation * object_rotation).as_quat().tolist()
 
     routed_jdata = dict(jdata)
     routed_jdata['objects'] = routed_translation_objects

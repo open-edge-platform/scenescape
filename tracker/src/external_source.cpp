@@ -50,7 +50,8 @@ bool finiteMatrix(const cv::Matx44d& matrix) {
                        [](double value) { return std::isfinite(value); });
 }
 
-std::optional<cv::Matx33d> quaternionToRotation(const std::array<double, 4>& quaternion) {
+std::optional<std::array<double, 4>> normalizeQuaternion(
+    const std::array<double, 4>& quaternion) {
     if (!std::all_of(quaternion.begin(), quaternion.end(),
                      [](double value) { return std::isfinite(value); })) {
         return std::nullopt;
@@ -60,11 +61,20 @@ std::optional<cv::Matx33d> quaternionToRotation(const std::array<double, 4>& qua
     if (norm <= kMatrixEpsilon) {
         return std::nullopt;
     }
+    return std::array<double, 4>{quaternion[0] / norm, quaternion[1] / norm,
+                                 quaternion[2] / norm, quaternion[3] / norm};
+}
 
-    const double x = quaternion[0] / norm;
-    const double y = quaternion[1] / norm;
-    const double z = quaternion[2] / norm;
-    const double w = quaternion[3] / norm;
+std::optional<cv::Matx33d> quaternionToRotation(const std::array<double, 4>& quaternion) {
+    const auto normalized = normalizeQuaternion(quaternion);
+    if (!normalized.has_value()) {
+        return std::nullopt;
+    }
+
+    const double x = (*normalized)[0];
+    const double y = (*normalized)[1];
+    const double z = (*normalized)[2];
+    const double w = (*normalized)[3];
     return cv::Matx33d(1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w),
                        2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w),
                        2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y));
@@ -97,6 +107,29 @@ std::array<double, 3> transformExternalPoint(const cv::Matx44d& source_to_scene,
     return {transformed[0], transformed[1], transformed[2]};
 }
 
+std::optional<std::array<double, 4>> composeExternalRotations(
+    const std::array<double, 4>& source_rotation,
+    const std::array<double, 4>& object_rotation) {
+    const auto source = normalizeQuaternion(source_rotation);
+    const auto object = normalizeQuaternion(object_rotation);
+    if (!source.has_value() || !object.has_value()) {
+        return std::nullopt;
+    }
+
+    const double sx = (*source)[0];
+    const double sy = (*source)[1];
+    const double sz = (*source)[2];
+    const double sw = (*source)[3];
+    const double ox = (*object)[0];
+    const double oy = (*object)[1];
+    const double oz = (*object)[2];
+    const double ow = (*object)[3];
+    return normalizeQuaternion({sw * ox + sx * ow + sy * oz - sz * oy,
+                                sw * oy - sx * oz + sy * ow + sz * ox,
+                                sw * oz + sx * oy - sy * ox + sz * ow,
+                                sw * ow - sx * ox - sy * oy - sz * oz});
+}
+
 ExternalSourcePoseCache::ExternalSourcePoseCache(double ttl_seconds, size_t sweep_chunk_size,
                                                  double sweep_grace_seconds)
     : ttl_(secondsToClockDuration(ttl_seconds)),
@@ -126,7 +159,8 @@ ExternalSourcePoseCache::resolveFromCache(const Key& key,
     if (when > cached->second->second.expires_at) {
         return {.reason = kReasonPoseExpired};
     }
-    return {.source_to_scene = cached->second->second.source_to_scene};
+    return {.source_to_scene = cached->second->second.source_to_scene,
+            .source_rotation = cached->second->second.source_rotation};
 }
 
 PoseResolution ExternalSourcePoseCache::resolve(const Scene& scene, const std::string& source_id,
@@ -157,7 +191,7 @@ PoseResolution ExternalSourcePoseCache::resolve(const Scene& scene, const std::s
         try {
             const auto scene_to_ecef = toMatrix(*scene.trs_matrix);
             cv::Matx44d ecef_to_scene;
-                if (std::abs(cv::invert(scene_to_ecef, ecef_to_scene, cv::DECOMP_LU)) <=
+            if (std::abs(cv::invert(scene_to_ecef, ecef_to_scene, cv::DECOMP_LU)) <=
                     kMatrixEpsilon ||
                 !finiteMatrix(ecef_to_scene)) {
                 return {.reason = kReasonSceneGeoreferenceUnavailable};
@@ -175,11 +209,17 @@ PoseResolution ExternalSourcePoseCache::resolve(const Scene& scene, const std::s
     if (!source_to_scene.has_value()) {
         return {.reason = kReasonInvalidPose};
     }
+    const auto source_rotation = normalizeQuaternion(pose->rotation);
+    if (!source_rotation.has_value()) {
+        return {.reason = kReasonInvalidPose};
+    }
     if (existing != cache_index_.end()) {
-        existing->second->second = CachedPose{*source_to_scene, when, when + ttl_};
+        existing->second->second =
+            CachedPose{*source_to_scene, *source_rotation, when, when + ttl_};
         cache_entries_.splice(cache_entries_.end(), cache_entries_, existing->second);
     } else {
-        cache_entries_.emplace_back(key, CachedPose{*source_to_scene, when, when + ttl_});
+        cache_entries_.emplace_back(
+            key, CachedPose{*source_to_scene, *source_rotation, when, when + ttl_});
         auto entry = std::prev(cache_entries_.end());
         try {
             cache_index_.emplace(key, entry);
@@ -188,7 +228,7 @@ PoseResolution ExternalSourcePoseCache::resolve(const Scene& scene, const std::s
             throw;
         }
     }
-    return {.source_to_scene = source_to_scene};
+    return {.source_to_scene = source_to_scene, .source_rotation = *source_rotation};
 }
 
 std::vector<std::string>

@@ -6,6 +6,7 @@
 #include "scene_loader.hpp"
 #include "tracking_types.hpp"
 
+#include <array>
 #include <chrono>
 #include <list>
 #include <mutex>
@@ -32,11 +33,15 @@ inline constexpr const char* kReasonIdentityCollision = "identity_collision";
 
 struct PoseResolution {
     std::optional<cv::Matx44d> source_to_scene;
+    std::array<double, 4> source_rotation = {0.0, 0.0, 0.0, 1.0};
     std::string reason;
 };
 
 std::array<double, 3> transformExternalPoint(const cv::Matx44d& source_to_scene,
                                              const std::array<double, 3>& point);
+std::optional<std::array<double, 4>> composeExternalRotations(
+    const std::array<double, 4>& source_rotation,
+    const std::array<double, 4>& object_rotation);
 
 class ExternalSourcePoseCache {
 public:
@@ -66,6 +71,7 @@ private:
 
     struct CachedPose {
         cv::Matx44d source_to_scene;
+        std::array<double, 4> source_rotation;
         std::chrono::system_clock::time_point when;
         std::chrono::system_clock::time_point expires_at;
     };

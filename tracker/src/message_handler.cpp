@@ -481,6 +481,16 @@ void MessageHandler::handleExternalSourceMessage(const std::string& topic,
                          object.id, message->source_id, object.category, topic_parts->second);
                 continue;
             }
+            auto transformed = object;
+            transformed.translation =
+                transformExternalPoint(*pose.source_to_scene, object.translation);
+            const auto rotation = composeExternalRotations(pose.source_rotation, object.rotation);
+            if (!rotation.has_value()) {
+                LOG_WARN("Rejecting external object id={} source={}: invalid rotation", object.id,
+                         message->source_id);
+                continue;
+            }
+            transformed.rotation = *rotation;
             const auto claim = identity_claim_registry_.claim(
                 scene->uid, topic_parts->second, message->source_id, object.id, *timestamp);
             if (!claim.first) {
@@ -488,9 +498,6 @@ void MessageHandler::handleExternalSourceMessage(const std::string& topic,
                          message->source_id, scene->uid);
                 continue;
             }
-            auto transformed = object;
-            transformed.translation =
-                transformExternalPoint(*pose.source_to_scene, object.translation);
             batch.external_detections.push_back(std::move(transformed));
         }
         if (batch.external_detections.empty() && !message->objects.empty()) {

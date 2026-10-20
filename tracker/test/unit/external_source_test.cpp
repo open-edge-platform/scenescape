@@ -7,6 +7,7 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <cmath>
 
 namespace tracker {
 namespace {
@@ -36,6 +37,18 @@ TEST(ExternalSourcePoseCacheTest, ResolvesTrustedScenePoseAndTransformsPoint) {
     EXPECT_DOUBLE_EQ(point[0], 5.0);
     EXPECT_DOUBLE_EQ(point[1], 7.0);
     EXPECT_DOUBLE_EQ(point[2], 9.0);
+}
+
+TEST(ExternalSourcePoseCacheTest, ComposesSourceAndObjectRotations) {
+    const double half_sqrt = std::sqrt(0.5);
+    const auto rotation = composeExternalRotations(
+        {0.0, 0.0, half_sqrt, half_sqrt}, {0.0, 0.0, half_sqrt, half_sqrt});
+
+    ASSERT_TRUE(rotation.has_value());
+    EXPECT_NEAR((*rotation)[0], 0.0, 1e-12);
+    EXPECT_NEAR((*rotation)[1], 0.0, 1e-12);
+    EXPECT_NEAR((*rotation)[2], 1.0, 1e-12);
+    EXPECT_NEAR((*rotation)[3], 0.0, 1e-12);
 }
 
 TEST(ExternalSourcePoseCacheTest, RejectsUntrustedScenePose) {
@@ -73,8 +86,7 @@ TEST(ExternalSourcePoseCacheTest, ResolvesWgs84WithReflectedSceneTrsMatrix) {
     scene.trs_matrix = std::array<std::array<double, 4>, 4>{
         std::array<double, 4>{-1.0, 0.0, 0.0, ecef[0]},
         std::array<double, 4>{0.0, 1.0, 0.0, ecef[1]},
-        std::array<double, 4>{0.0, 0.0, 1.0, ecef[2]},
-        std::array<double, 4>{0.0, 0.0, 0.0, 1.0}};
+        std::array<double, 4>{0.0, 0.0, 1.0, ecef[2]}, std::array<double, 4>{0.0, 0.0, 0.0, 1.0}};
     ExternalPose pose{.reference_frame = "wgs84", .position = lla};
     ExternalSourcePoseCache cache;
 

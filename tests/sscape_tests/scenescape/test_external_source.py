@@ -547,10 +547,10 @@ class TestExternalSourceTrackRouting:
   def _makeController(self):
     controller = SceneController.__new__(SceneController)
     controller.external_source_pose_cache = MagicMock()
-    controller.external_source_pose_cache.resolve.return_value = (
-      CameraPose({'translation': [0.0, 0.0, 0.0],
-                  'rotation': [0.0, 0.0, 0.0, 1.0],
-                  'scale': [1.0, 1.0, 1.0]}, None), None)
+    camera_pose = CameraPose({'translation': [0.0, 0.0, 0.0],
+                              'rotation': [0.0, 0.0, 0.0, 1.0],
+                              'scale': [1.0, 1.0, 1.0]}, None)
+    controller.external_source_pose_cache.resolve.return_value = (camera_pose, None)
     controller.external_source_pose_cache.resolveIntrinsics.side_effect = (
       self._resolve_intrinsics)
     controller.identity_claim_registry = MagicMock()
@@ -661,6 +661,54 @@ class TestExternalSourceTrackRouting:
       'tracked:drone-1:person:obj-1',
       'tracked:drone-1:person:obj-2',
     ]
+
+  def test_cached_scene_pose_rotation_is_composed_with_object_rotation(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    source_rotation = [0.0, 0.0, 0.7071067811865476, 0.7071067811865476]
+    camera_pose = CameraPose({'translation': [0.0, 0.0, 0.0],
+                              'rotation': source_rotation,
+                              'scale': [1.0, 1.0, 1.0]}, None)
+    controller.external_source_pose_cache.resolve.return_value = (camera_pose, None)
+    jdata = {
+      'source_id': 'positioning-service',
+      'objects': [{
+        'id': 'obj-1',
+        'category': 'person',
+        'translation': [1.0, 0.0, 0.0],
+        'rotation': source_rotation,
+      }],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    routed_jdata = scene.processSceneData.call_args[0][0]
+    assert np.allclose(routed_jdata['objects'][0]['rotation'], [0.0, 0.0, 1.0, 0.0])
+
+  def test_wgs84_pose_rotation_is_composed_with_object_rotation(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    source_rotation = [0.0, 0.0, 0.7071067811865476, 0.7071067811865476]
+    camera_pose = CameraPose({'translation': [0.0, 0.0, 0.0],
+                              'rotation': source_rotation,
+                              'scale': [1.0, 1.0, 1.0]}, None)
+    controller.external_source_pose_cache.resolve.return_value = (camera_pose, None)
+    jdata = {
+      'source_id': 'drone-1',
+      'pose': {'reference_frame': 'wgs84', 'lat_long_alt': [0.0, 0.0, 0.0],
+               'rotation': source_rotation},
+      'objects': [{
+        'id': 'obj-1',
+        'category': 'person',
+        'translation': [1.0, 0.0, 0.0],
+        'rotation': IDENTITY_ROTATION,
+      }],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    routed_jdata = scene.processSceneData.call_args[0][0]
+    assert np.allclose(routed_jdata['objects'][0]['rotation'], source_rotation)
 
   def test_duplicate_tracked_source_ids_do_not_use_id_hint(self):
     controller = self._makeController()
