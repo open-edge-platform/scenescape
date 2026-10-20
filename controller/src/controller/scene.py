@@ -297,11 +297,11 @@ class Scene(SceneModel):
 
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
-    prepared = self.createMovingObjectsForSceneData(
+    objects, child_objects = self.createMovingObjectsForSceneData(
       jdata, child, cameraPose, detectionType, when)
-    if prepared is None:
+    # (None, None) => rejected input (e.g. lat_long_alt + translation).
+    if objects is None:
       return True
-    objects, child_objects = prepared
     self.finishProcessing(detectionType, when, objects, child_objects)
     return True
 
@@ -317,7 +317,7 @@ class Scene(SceneModel):
       if 'lat_long_alt' in info:
         if 'translation' in info:
           log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
-          return None
+          return None, None
         info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
       translation = Point(info['translation'])
       translation = np.hstack([translation.asNumpyCartesian, [1]])

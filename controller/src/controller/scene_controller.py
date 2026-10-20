@@ -570,12 +570,11 @@ class SceneController:
                 msg_when, detection_type, jdata_scene, camera_id)
           return
 
-        handled = self._handleChildSceneObject(
+        success, scene = self._handleChildSceneObject(
           publisher_id, jdata, detection_types[0], msg_when)
-        # None => orphan hierarchy echo from a root scene; ignore.
-        if handled is None:
+        # (None, None) => orphan hierarchy echo from a root scene; ignore.
+        if success is None:
           return
-        success, scene = handled
         sender_id = publisher_id
       else:
         detection_types = jdata['objects'].keys()
@@ -634,7 +633,7 @@ class SceneController:
         # the scene cache. (Root scenes no longer self-subscribe for ingest.)
         log.debug("Ignoring hierarchy publish from root scene %s (no parent)",
                   sender_id)
-        return None
+        return None, None
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
@@ -812,10 +811,11 @@ class SceneController:
                                detection_type, when=msg_when)
         return True
 
-      prepared = scene.createMovingObjectsForSceneData(
-        routed_jdata, routed_source, camera_pose, detection_type, when=msg_when)
-      if prepared is not None:
-        translation_moving_objects, translation_already_tracked_objects = prepared
+      translation_moving_objects, translation_already_tracked_objects = (
+        scene.createMovingObjectsForSceneData(
+          routed_jdata, routed_source, camera_pose, detection_type, when=msg_when))
+      # (None, None) => rejected input; skip merge into pixel path.
+      if translation_moving_objects is not None:
         pixel_moving_objects.extend(translation_moving_objects)
         already_tracked_objects.extend(translation_already_tracked_objects)
 
