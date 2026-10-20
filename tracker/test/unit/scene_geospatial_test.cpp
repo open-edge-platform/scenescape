@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <array>
+#include <stdexcept>
 #include <string>
 
 namespace tracker {
@@ -39,6 +40,19 @@ TEST(SceneGeospatialTest, RecognizesSupportedImageResources) {
     EXPECT_TRUE(isSupportedImageResource("https://manager/media/map.PNG?version=1"));
     EXPECT_TRUE(isSupportedImageResource("scene.jpeg"));
     EXPECT_FALSE(isSupportedImageResource("scene.glb"));
+}
+
+TEST(SceneGeospatialTest, ConvertsWgs84OriginToEcef) {
+    const auto ecef = convertLlaToEcef({0.0, 0.0, 0.0});
+
+    EXPECT_NEAR(ecef[0], 6378137.0, 1e-6);
+    EXPECT_NEAR(ecef[1], 0.0, 1e-6);
+    EXPECT_NEAR(ecef[2], 0.0, 1e-6);
+}
+
+TEST(SceneGeospatialTest, RejectsInvalidWgs84Coordinates) {
+    EXPECT_THROW(convertLlaToEcef({91.0, 0.0, 0.0}), std::invalid_argument);
+    EXPECT_THROW(convertLlaToEcef({0.0, 181.0, 0.0}), std::invalid_argument);
 }
 
 TEST(SceneGeospatialTest, CalculatesMatrixFromImageAndGeospatialCorners) {

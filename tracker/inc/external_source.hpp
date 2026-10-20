@@ -35,10 +35,6 @@ struct PoseResolution {
     std::string reason;
 };
 
-std::array<double, 3> convertLlaToEcef(const std::array<double, 3>& lla);
-TrsMatrix calculateTrsLocalToEcef(const std::array<std::array<double, 3>, 4>& map_corners,
-                                  const std::array<std::array<double, 3>, 4>& lla_corners,
-                                  double z_shift = 2.0);
 std::array<double, 3> transformExternalPoint(const cv::Matx44d& source_to_scene,
                                              const std::array<double, 3>& point);
 

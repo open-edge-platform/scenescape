@@ -3,9 +3,10 @@
 
 #include "external_source.hpp"
 
+#include "scene_geospatial.hpp"
+
 #include <algorithm>
 #include <cmath>
-#include <numbers>
 #include <stdexcept>
 #include <vector>
 
@@ -15,8 +16,6 @@ namespace tracker {
 
 namespace {
 
-constexpr double kEquatorialRadius = 6378137.0;
-constexpr double kPolarRadius = 6356752.314245;
 constexpr double kMatrixEpsilon = 1e-12;
 
 std::chrono::system_clock::duration secondsToClockDuration(double seconds) {
@@ -91,67 +90,6 @@ size_t combineHash(size_t left, size_t right) {
 }
 
 } // namespace
-
-std::array<double, 3> convertLlaToEcef(const std::array<double, 3>& lla) {
-    if (!finite(lla) || lla[0] < -90.0 || lla[0] > 90.0 || lla[1] < -180.0 || lla[1] > 180.0) {
-        throw std::invalid_argument("Invalid WGS84 latitude, longitude, or altitude");
-    }
-    const double latitude = lla[0] * std::numbers::pi / 180.0;
-    const double longitude = lla[1] * std::numbers::pi / 180.0;
-    const double eccentricity_squared =
-        1.0 - (kPolarRadius * kPolarRadius) / (kEquatorialRadius * kEquatorialRadius);
-    const double normal = kEquatorialRadius /
-                          std::sqrt(1.0 - eccentricity_squared * std::pow(std::sin(latitude), 2.0));
-    return {(normal + lla[2]) * std::cos(latitude) * std::cos(longitude),
-            (normal + lla[2]) * std::cos(latitude) * std::sin(longitude),
-            ((1.0 - eccentricity_squared) * normal + lla[2]) * std::sin(latitude)};
-}
-
-TrsMatrix calculateTrsLocalToEcef(const std::array<std::array<double, 3>, 4>& map_corners,
-                                  const std::array<std::array<double, 3>, 4>& lla_corners,
-                                  double z_shift) {
-    if (!std::isfinite(z_shift) || z_shift <= 0.0) {
-        throw std::invalid_argument("Geospatial z-shift must be finite and greater than zero");
-    }
-
-    std::vector<cv::Point3d> map_points;
-    std::vector<cv::Point3d> ecef_points;
-    map_points.reserve(8);
-    ecef_points.reserve(8);
-    for (size_t index = 0; index < map_corners.size(); ++index) {
-        if (!finite(map_corners[index]) || std::abs(map_corners[index][2]) > kMatrixEpsilon) {
-            throw std::invalid_argument("Map corners must be finite and lie on z=0");
-        }
-        const auto ecef = convertLlaToEcef(lla_corners[index]);
-        map_points.emplace_back(map_corners[index][0], map_corners[index][1], 0.0);
-        ecef_points.emplace_back(ecef[0], ecef[1], ecef[2]);
-    }
-    for (size_t index = 0; index < map_corners.size(); ++index) {
-        auto elevated_lla = lla_corners[index];
-        elevated_lla[2] += z_shift;
-        const auto elevated_ecef = convertLlaToEcef(elevated_lla);
-        map_points.emplace_back(map_corners[index][0], map_corners[index][1], z_shift);
-        ecef_points.emplace_back(elevated_ecef[0], elevated_ecef[1], elevated_ecef[2]);
-    }
-
-    double scale = 1.0;
-    const cv::Mat affine = cv::estimateAffine3D(map_points, ecef_points, &scale, false);
-    if (affine.empty() || affine.rows != 3 || affine.cols != 4 || !std::isfinite(scale) ||
-        scale <= kMatrixEpsilon || !cv::checkRange(affine)) {
-        throw std::runtime_error("Unable to calculate scene geospatial transformation");
-    }
-
-    TrsMatrix result{};
-    for (int row = 0; row < 3; ++row) {
-        for (int column = 0; column < 3; ++column) {
-            result[static_cast<size_t>(row)][static_cast<size_t>(column)] =
-                affine.at<double>(row, column) * scale;
-        }
-        result[static_cast<size_t>(row)][3] = affine.at<double>(row, 3);
-    }
-    result[3][3] = 1.0;
-    return result;
-}
 
 std::array<double, 3> transformExternalPoint(const cv::Matx44d& source_to_scene,
                                              const std::array<double, 3>& point) {
