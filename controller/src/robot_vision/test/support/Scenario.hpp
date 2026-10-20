@@ -183,16 +183,6 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
   return observations;
 }
 
-// Deep copy: TrackedObject copies share cv::Mat buffers that the estimator later overwrites.
-inline TrackedObject snapshot(TrackedObject object)
-{
-  object.predictedMeasurementMean = object.predictedMeasurementMean.clone();
-  object.predictedMeasurementCov = object.predictedMeasurementCov.clone();
-  object.predictedMeasurementCovInv = object.predictedMeasurementCovInv.clone();
-  object.errorCovariance = object.errorCovariance.clone();
-  return object;
-}
-
 // Drives one MultiModelKalmanEstimator the way TrackManager does, without association or lifecycle.
 class FilterRun
 {
@@ -202,7 +192,7 @@ public:
   {
   }
 
-  // Initializes on the first observation, then predict + correct per observation. One snapshot per observation.
+  // Initializes on the first observation, then predict + correct per observation. One state per observation.
   std::vector<TrackedObject> feed(const std::vector<Observation> &observations)
   {
     std::vector<TrackedObject> states;
@@ -234,7 +224,7 @@ public:
 
   TrackedObject state() const
   {
-    return snapshot(estimator.currentState());
+    return estimator.currentState();
   }
 
   MultiModelKalmanEstimator estimator;

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -27,6 +27,12 @@ class MultiModelKalmanEstimator
 {
 public:
   MultiModelKalmanEstimator(double alpha = 1.0, double beta = 2.0);
+
+  // Move-only: a copy would share the per-model filters (cv::Ptr) and probability matrices (cv::Mat).
+  MultiModelKalmanEstimator(const MultiModelKalmanEstimator &) = delete;
+  MultiModelKalmanEstimator &operator=(const MultiModelKalmanEstimator &) = delete;
+  MultiModelKalmanEstimator(MultiModelKalmanEstimator &&) = default;
+  MultiModelKalmanEstimator &operator=(MultiModelKalmanEstimator &&) = default;
 
   /**
    * @brief Initialize the tracker with the current state
@@ -64,12 +70,12 @@ public:
   /**
    * @brief Const access to the current state
    */
-  TrackedObject currentState() const
+  const TrackedObject &currentState() const
   {
     return mCurrentState;
   }
 
-  std::vector<TrackedObject> currentStates() const
+  const std::vector<TrackedObject> &currentStates() const
   {
     return mSystemModelStates;
   }
