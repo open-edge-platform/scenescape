@@ -93,9 +93,10 @@ For image-map scenes, the tracker calculates the scene-local-to-ECEF transform a
 startup from `map_corners_lla`, image dimensions, and the configured pixels-per-metre
 `scale`, matching the Python Controller. API mode retrieves the map from the same
 authenticated Manager origin; file mode reads the configured local map path. For
-3D maps, the tracker uses Manager's generated PNG/JPEG top-view thumbnail and its
-scale instead of downloading or parsing the GLB. A persisted `trs_matrix` remains
-a final compatibility fallback when no usable image or thumbnail is available.
+3D maps, the tracker uses the persisted `trs_matrix` calculated by the Python
+Controller from the GLB mesh's XY bounds. It does not use the padded top-view
+thumbnail as a geographic footprint. If no persisted matrix is available for a
+3D map, the tracker cannot derive a WGS84 transform for that scene.
 Scene-frame poses require an explicit binding and a source listed in
 `CONTROLLER_TRUSTED_POSITIONING_SOURCES`.
 Legacy configured child-scene payloads without `source_id` are not supported by

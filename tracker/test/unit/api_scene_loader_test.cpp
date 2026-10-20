@@ -205,6 +205,33 @@ TEST(ApiSceneLoaderTest, FileSourceCalculatesTrsMatrixFromImageMap) {
     EXPECT_TRUE(loaded[0].trs_matrix.has_value());
 }
 
+TEST(ApiSceneLoaderTest, FileSourceKeepsPersistedTrsMatrixForThreeDimensionalMap) {
+    const std::string scenes = R"([{
+            "uid": "geo-scene", "name": "Geo Scene", "output_lla": true,
+            "map": "scene.glb", "thumbnail": "scene.png", "scale": 5.765182197,
+            "trs_matrix": [
+                [1, 0, 0, 101], [0, 1, 0, 202], [0, 0, 1, 303], [0, 0, 0, 1]
+            ],
+            "map_corners_lla": [
+                [33.842058, -112.136117, 539], [33.842175, -112.134245, 539],
+                [33.843923, -112.134407, 539], [33.843811, -112.136257, 539]
+            ],
+            "cameras": []
+        }])";
+    TempFile scene_file(scenes);
+    ScenesConfig config;
+    config.source = SceneSource::File;
+    config.file_path = scene_file.path().string();
+    auto loader = create_scene_loader(config, scene_file.path().parent_path());
+
+    const auto loaded = loader->load();
+
+    ASSERT_EQ(loaded.size(), 1);
+    ASSERT_TRUE(loaded[0].trs_matrix.has_value());
+    EXPECT_EQ(*loaded[0].trs_matrix,
+              (TrsMatrix{{{1, 0, 0, 101}, {0, 1, 0, 202}, {0, 0, 1, 303}, {0, 0, 0, 1}}}));
+}
+
 TEST(ApiSceneLoaderTest, FileSourceMissingFilePathThrows) {
     ScenesConfig config;
     config.source = SceneSource::File;
@@ -776,11 +803,14 @@ TEST_F(ApiSceneLoaderPipelineTest, CalculatesTrsMatrixFromManagerImageMap) {
     EXPECT_TRUE(scenes[0].trs_matrix.has_value());
 }
 
-TEST_F(ApiSceneLoaderPipelineTest, CalculatesTrsMatrixFromThreeDimensionalMapThumbnail) {
+TEST_F(ApiSceneLoaderPipelineTest, KeepsPersistedTrsMatrixForThreeDimensionalMap) {
     TempFile auth_file(R"({"user": "admin", "password": "pass"})");
     const std::string response = R"({"results": [{
             "uid": "geo-scene", "name": "Geo Scene", "output_lla": true,
             "map": "/media/scene.glb", "thumbnail": "/media/scene.png", "scale": 5.765182197,
+            "trs_matrix": [
+                [1, 0, 0, 101], [0, 1, 0, 202], [0, 0, 1, 303], [0, 0, 0, 1]
+            ],
             "map_corners_lla": [
                 [33.842058, -112.136117, 539], [33.842175, -112.134245, 539],
                 [33.843923, -112.134407, 539], [33.843811, -112.136257, 539]
@@ -795,8 +825,7 @@ TEST_F(ApiSceneLoaderPipelineTest, CalculatesTrsMatrixFromThreeDimensionalMapThu
         EXPECT_CALL(*mock, authenticate(_, _)).Times(1);
         EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(response));
         EXPECT_CALL(*mock, fetchResource("/media/scene.glb")).Times(0);
-        EXPECT_CALL(*mock, fetchResource("/media/scene.png"))
-            .WillOnce(Return(png_header(981, 1112)));
+        EXPECT_CALL(*mock, fetchResource("/media/scene.png")).Times(0);
         return mock;
     };
     ManagerConfig manager;
@@ -808,6 +837,37 @@ TEST_F(ApiSceneLoaderPipelineTest, CalculatesTrsMatrixFromThreeDimensionalMapThu
 
     ASSERT_EQ(scenes.size(), 1);
     EXPECT_TRUE(scenes[0].trs_matrix.has_value());
+    EXPECT_EQ(*scenes[0].trs_matrix,
+              (TrsMatrix{{{1, 0, 0, 101}, {0, 1, 0, 202}, {0, 0, 1, 303}, {0, 0, 0, 1}}}));
+}
+
+TEST_F(ApiSceneLoaderPipelineTest, DoesNotUseThumbnailAsThreeDimensionalMapFootprint) {
+    TempFile auth_file(R"({"user": "admin", "password": "pass"})");
+    const std::string response = R"({"results": [{
+            "uid": "geo-scene", "name": "Geo Scene", "output_lla": true,
+            "map": "/media/scene.glb", "thumbnail": "/media/scene.png", "scale": 5.765182197,
+            "map_corners_lla": [
+                [33.842058, -112.136117, 539], [33.842175, -112.134245, 539],
+                [33.843923, -112.134407, 539], [33.843811, -112.136257, 539]
+            ],
+            "cameras": []
+        }]})";
+    auto factory = [response](const ManagerConfig&) -> std::unique_ptr<IManagerRestClient> {
+        auto mock = std::make_unique<test::MockManagerRestClient>();
+        EXPECT_CALL(*mock, authenticate(_, _)).Times(1);
+        EXPECT_CALL(*mock, fetchScenes()).WillOnce(Return(response));
+        EXPECT_CALL(*mock, fetchResource(_)).Times(0);
+        return mock;
+    };
+    ManagerConfig manager;
+    manager.url = "https://localhost";
+    manager.auth_path = auth_file.path().string();
+    auto loader = create_api_scene_loader(manager, schema_dir_, factory);
+
+    const auto scenes = loader->load();
+
+    ASSERT_EQ(scenes.size(), 1);
+    EXPECT_FALSE(scenes[0].trs_matrix.has_value());
 }
 
 TEST_F(ApiSceneLoaderPipelineTest, SchemaValidationFailureSkipsInvalidScenes) {

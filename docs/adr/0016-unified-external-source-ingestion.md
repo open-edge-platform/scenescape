@@ -156,9 +156,10 @@ this contract. It uses the same `CONTROLLER_EXTERNAL_SOURCE_BINDINGS` and
 `CONTROLLER_TRUSTED_POSITIONING_SOURCES` settings. For image-map scenes it derives
 the local-to-ECEF matrix at startup from image dimensions, pixels-per-metre
 `scale`, and `map_corners_lla`, using the same affine fit as Python. A persisted
-`trs_matrix` remains fallback when neither an image map nor Manager's generated
-top-view thumbnail is usable. Legacy child-hierarchy ingestion remains a Python
-Scene Controller responsibility.
+`trs_matrix` calculated by Python from the GLB mesh's XY bounds is retained for
+3D-map scenes; Manager's padded top-view thumbnail is not used as a geographic
+footprint. Legacy child-hierarchy ingestion remains a Python Scene Controller
+responsibility.
 
 ### Pose resolution and caching
 

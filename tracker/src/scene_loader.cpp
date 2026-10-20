@@ -55,28 +55,27 @@ public:
             if (scene.output_lla && scene.map_corners_lla.has_value() &&
                 scene.map_scale.has_value()) {
                 bool calculated = false;
-                for (const auto& resource : {scene.map_uri, scene.thumbnail_uri}) {
-                    if (resource.empty() || calculated || !isSupportedImageResource(resource)) {
-                        continue;
-                    }
+                const auto& resource = scene.map_uri;
+                if (isSupportedImageResource(resource)) {
                     if (resource.find("://") != std::string::npos) {
                         LOG_WARN("Skipping remote map resource '{}' in file scene mode", resource);
-                        continue;
-                    }
-                    try {
-                        std::filesystem::path map_path(resource);
-                        if (!map_path.is_absolute()) {
-                            map_path = file_path_.parent_path() / map_path;
+                    } else {
+                        try {
+                            std::filesystem::path map_path(resource);
+                            if (!map_path.is_absolute()) {
+                                map_path = file_path_.parent_path() / map_path;
+                            }
+                            calculated =
+                                calculateSceneTrsFromImage(scene, read_binary_file(map_path));
+                        } catch (const std::exception& error) {
+                            LOG_WARN("Failed to read geospatial map resource for scene '{}': {}",
+                                     scene.uid, error.what());
                         }
-                        calculated = calculateSceneTrsFromImage(scene, read_binary_file(map_path));
-                    } catch (const std::exception& error) {
-                        LOG_WARN("Failed to read geospatial map resource for scene '{}': {}",
-                                 scene.uid, error.what());
                     }
                 }
-                if (!calculated) {
-                    LOG_WARN("Cannot derive geospatial transform from map or thumbnail for scene "
-                             "'{}'; using persisted transform if available",
+                if (!calculated && !scene.trs_matrix.has_value()) {
+                    LOG_WARN("Cannot derive geospatial transform from image map for scene '{}'; "
+                             "no persisted transform is available",
                              scene.uid);
                 }
             }

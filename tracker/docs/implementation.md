@@ -13,10 +13,11 @@ transforms source-local observations before adding them to the normal
 scene/category chunk. For image-map scenes, startup derives the local-to-ECEF
 `trs_matrix` from the map dimensions, pixels-per-metre scale, and four
 `map_corners_lla` points using the same elevated-point affine fit as the Python
-Controller. For 3D scenes, Manager's generated top-view thumbnail supplies the
-image dimensions and scale, avoiding GLB parsing. API resource retrieval is
-restricted to the authenticated Manager origin. A persisted matrix is retained
-as fallback when no usable map image or thumbnail exists.
+Controller. For 3D scenes, Tracker retains the persisted matrix that the Python
+Controller calculated from the GLB mesh's XY bounds; it does not fit the padded
+top-view thumbnail. API resource retrieval for image maps is restricted to the
+authenticated Manager origin. Without a usable image map or persisted matrix,
+Tracker cannot derive a WGS84 transform for the scene.
 
 External observations carry authoritative string IDs. `TrackingWorker` keeps
 them in a separate per-scope state map, derives velocity from consecutive
