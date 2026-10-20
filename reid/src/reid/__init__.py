@@ -3,7 +3,7 @@
 
 """Standalone Re-ID service package."""
 
-from reid_service.reid import (
+from reid.reid import (
   ReIDDatabase,
   ReidNoValidVectorsError,
   ReidPartialWriteError,
