@@ -759,6 +759,11 @@ class SceneSerializer(NonNullSerializer):
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
 
+    validated_data.pop('regions', None)
+    validated_data.pop('tripwires', None)
+
+    parent_uid = None
+
     parent_uid = None
     transform = None
     output_lla = validated_data.get('output_lla', None)
