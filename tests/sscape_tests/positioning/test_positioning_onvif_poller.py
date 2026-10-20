@@ -322,6 +322,30 @@ class TestSampleContract(unittest.TestCase):
     self.assertTrue(device.closed)
     self.assertIsNone(poller.device)
 
+  def test_persistent_unexpected_poll_errors_use_bounded_backoff(self):
+    clock = FakeClock()
+    device = ScriptedDevice(clock)
+    device.connect = mock.Mock(wraps=device.connect)
+    device.close = mock.Mock(wraps=device.close)
+    device.get_status = mock.Mock(side_effect=RuntimeError("persistent poll error"))
+    factory = mock.Mock(return_value=device)
+    poller = PTZPoller("cam-a", factory, ListSink(), clock=clock, max_backoff_s=30.0)
+    stop = mock.Mock()
+    stop.is_set.side_effect = [False] * 7 + [True]
+    stop.wait.side_effect = [False] * 6 + [True]
+
+    with self.assertLogs("positioning", level="ERROR"):
+      poller.run(stop)
+
+    self.assertEqual(stop.wait.call_args_list,
+                     [mock.call(delay) for delay in (1.0, 2.0, 4.0, 8.0, 16.0, 30.0, 30.0)])
+    self.assertEqual(stop.is_set.call_count, 7)
+    self.assertEqual(factory.call_count, 7)
+    self.assertEqual(device.connect.call_count, 7)
+    self.assertEqual(device.get_status.call_count, 7)
+    self.assertEqual(device.close.call_count, 7)
+    self.assertIsNone(poller.device)
+
   def test_logging_sink_acknowledges(self):
     sink = LoggingSampleSink()
     sample = build_sample("cam-a", "id", 7, 0, 1, PtzStatus(0, 0, None, GENERIC_SPACE, "IDLE"),
