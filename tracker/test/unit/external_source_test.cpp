@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "external_source.hpp"
+#include "scene_geospatial.hpp"
 
 #include <gtest/gtest.h>
 

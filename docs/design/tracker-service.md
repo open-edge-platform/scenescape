@@ -60,13 +60,13 @@ Explicitly out of scope:
 graph LR
     EXT[External Sources] -->|Pose + observations| MQTT[MQTT Broker]
     DLS[DL Streamer] -->|Detections| MQTT[MQTT Broker]
-    MQTT -->|Camera detections + external observations| TS[Tracker Service]
+    MQTT -->|Detections| TS[Tracker Service]
     TS -->|Tracks| MQTT
     MQTT -->|Tracks| AS[Analytics Service]
     TS -.->|Telemetry| OTEL[OTLP Collector]
 ```
 
-**DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes camera detections and external-source observations, transforms them to scene coordinates, and publishes tracks. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OpenTelemetry Collector.
+**DL Streamer** publishes detections (bounding boxes in camera coordinates) to MQTT. **Tracker Service** consumes detections, transforms them to scene coordinates, and publishes tracks. **Analytics Service** consumes tracks for business logic (counting, dwell time, etc.). Telemetry flows to the OpenTelemetry Collector.
 
 ## Communication
 
