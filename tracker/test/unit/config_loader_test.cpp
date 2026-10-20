@@ -834,12 +834,15 @@ TEST(ConfigLoaderTest, ExternalSourcesFromJsonAcceptMacStylePublisherIds) {
         "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
       },
       "external_sources": {
-        "bindings": {")" + publisher_id + R"(": ["scene-1"]},
-        "trusted_positioning_sources": [")" + publisher_id + R"("]
+        "bindings": {")" + publisher_id +
+                                    R"(": ["scene-1"]},
+        "trusted_positioning_sources": [")" +
+                                    publisher_id + R"("]
       },
       "scenes": {
         "source": "file",
-        "file_path": ")" + empty_scenes_path() + R"("
+        "file_path": ")" + empty_scenes_path() +
+                                    R"("
       }
     })";
     TempFile config_file(config_text);

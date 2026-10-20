@@ -204,8 +204,7 @@ TEST_F(MessageHandlerTest, ExternalTopicAcceptsMacStylePublisherId) {
         [message_time] { return message_time; }, external_config);
     handler.start();
 
-    mock_client_->simulateMessage(
-        "scenescape/external/" + publisher_id + "/person", R"({
+    mock_client_->simulateMessage("scenescape/external/" + publisher_id + "/person", R"({
           "timestamp": "2026-01-27T12:00:00.000Z",
           "source_id": "02:42:ac:11:00:05.1",
           "pose": {"reference_frame": "scene", "translation": [0, 0, 0]},

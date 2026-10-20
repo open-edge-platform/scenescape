@@ -47,8 +47,7 @@ bool isJpegStartOfFrame(uint8_t marker) {
 } // namespace
 
 std::array<double, 3> convertLlaToEcef(const std::array<double, 3>& lla) {
-    if (!finite(lla) || lla[0] < -90.0 || lla[0] > 90.0 || lla[1] < -180.0 ||
-        lla[1] > 180.0) {
+    if (!finite(lla) || lla[0] < -90.0 || lla[0] > 90.0 || lla[1] < -180.0 || lla[1] > 180.0) {
         throw std::invalid_argument("Invalid WGS84 latitude, longitude, or altitude");
     }
     const double latitude = lla[0] * std::numbers::pi / 180.0;

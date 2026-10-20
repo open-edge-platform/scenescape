@@ -145,8 +145,9 @@ TEST(ExternalSourcePoseCacheTest, OutOfOrderPoseDoesNotReplaceNewerPose) {
 TEST(ExternalSourcePoseCacheTest, SweepsSnapshotInConfiguredChunks) {
     ExternalSourcePoseCache cache(1.0, 2);
     for (int index = 0; index < 5; ++index) {
-        ASSERT_TRUE(cache.resolve(makeScene("scene-" + std::to_string(index)), "agent-1",
-                                  makeScenePose(), kNow - 5s, true)
+        ASSERT_TRUE(cache
+                        .resolve(makeScene("scene-" + std::to_string(index)), "agent-1",
+                                 makeScenePose(), kNow - 5s, true)
                         .source_to_scene.has_value());
     }
 
