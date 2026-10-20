@@ -3,7 +3,6 @@
 
 import json
 import os
-import socket
 import threading
 import uuid
 import asyncio
@@ -404,7 +403,8 @@ class CameraManager(APIView):
     try:
       pubsub = PubSub(auth, cert, rootcert, broker)
       pubsub.connect()
-    except socket.gaierror as e:
+    except OSError as e:
+      # Covers DNS failures (socket.gaierror), refused connections, timeouts and TLS errors.
       log.error("Unable to connect", e)
       return Response(status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
