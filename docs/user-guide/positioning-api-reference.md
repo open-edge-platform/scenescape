@@ -90,17 +90,17 @@ itself is stored in the Manager camera record. Unknown properties are rejected.
 
 ### Top-Level Fields
 
-| Field                          | Type   | Required | Description                                                                                                             |
-| ------------------------------ | ------ | -------- | ----------------------------------------------------------------------------------------------------------------------- |
-| `parameterization_version`     | string | Yes      | Must be `"v1"`.                                                                                                         |
-| `calibration_version`          | string | Yes      | Identifier of this calibration, 1 to 128 characters.                                                                    |
-| `position_space`               | object | Yes      | ONVIF position space the calibration was measured in. See [Position Space](#position-space).                            |
-| `settle_angular_threshold_deg` | number | Yes      | Angular change, in degrees, below which the camera is treated as settled. Must be >= 0.                                 |
-| `settle_interval_s`            | number | Yes      | Time, in seconds, the position must stay within the threshold to count as settled. Must be >= 0.                        |
-| `composition_order`            | array  | Yes      | Permutation of `"pan"`, `"home"`, and `"tilt"`. See [Orientation](#orientation).                                        |
-| `axes`                         | object | Yes      | Object with `pan` and `tilt` entries, each an [Axis](#axis) object.                                                     |
-| `quality`                      | object | Yes      | Contains `reprojection_rms_px` (number, >= 0): reprojection RMS error of the calibration, in pixels.                    |
-| `provenance`                   | object | No       | Measurement provenance: instrument and version, camera model and firmware, date, operator, and fitting script revision. |
+| Field                          | Type   | Required | Description                                                                                                                          |
+| ------------------------------ | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `parameterization_version`     | string | Yes      | Must be `"v1"`.                                                                                                                      |
+| `calibration_version`          | string | Yes      | Identifier of this calibration, 1 to 128 characters.                                                                                 |
+| `position_space`               | object | Yes      | ONVIF position space the calibration was measured in. See [Position Space](#position-space).                                         |
+| `settle_angular_threshold_deg` | number | Yes      | Angular change, in degrees, below which the camera is treated as settled. Must be > 0 and within the calibrated travel of each axis. |
+| `settle_interval_s`            | number | Yes      | Time, in seconds, the position must stay within the threshold to count as settled. Must be > 0.                                      |
+| `composition_order`            | array  | Yes      | Permutation of `"pan"`, `"home"`, and `"tilt"`. See [Orientation](#orientation).                                                     |
+| `axes`                         | object | Yes      | Object with `pan` and `tilt` entries, each an [Axis](#axis) object.                                                                  |
+| `quality`                      | object | Yes      | Contains `reprojection_rms_px` (number, >= 0): reprojection RMS error of the calibration, in pixels.                                 |
+| `provenance`                   | object | No       | Measurement provenance: instrument and version, camera model and firmware, date, operator, and fitting script revision.              |
 
 ### Position Space
 
@@ -116,16 +116,16 @@ itself is stored in the Manager camera record. Unknown properties are rejected.
 
 All fields are required.
 
-| Field                         | Type                    | Description                                                                                                                                                                                                            |
-| ----------------------------- | ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `axis`                        | array of 3 numbers      | Rotation axis as a unit vector, expressed in `frame`.                                                                                                                                                                  |
-| `frame`                       | string                  | `"world_home"`: scene frame with the head at home. `"camera_local"`: optical frame of the camera at home.                                                                                                              |
-| `curve`                       | array of 2 to 8 numbers | Polynomial coefficients, in increasing power, that map the raw ONVIF position to degrees. Encodes both scale and sign. The constant term cancels out.                                                                  |
-| `home_position`               | number                  | Raw ONVIF position at the calibrated home pose.                                                                                                                                                                        |
-| `approach_direction`          | string                  | `"increasing"` or `"decreasing"`: direction of travel used to reach home during calibration.                                                                                                                           |
-| `backlash`                    | number or array         | Total gear slack in degrees. Either one value (>= 0), or 1 to 64 `[position, degrees]` nodes interpolated linearly and held constant beyond the end nodes.                                                             |
-| `backlash_home_tolerance_deg` | number                  | When backlash state is unknown, for example after a restart, the service initializes it from `home_position` and `approach_direction` only if the reported position is within this many degrees of home. Must be >= 0. |
-| `backlash_history_s`          | number                  | How far back, in seconds, observed motion is kept to track backlash state. Must be >= 0.                                                                                                                               |
+| Field                         | Type                    | Description                                                                                                                                                                                                                                                        |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `axis`                        | array of 3 numbers      | Rotation axis as a unit vector, expressed in `frame`.                                                                                                                                                                                                              |
+| `frame`                       | string                  | `"world_home"`: scene frame with the head at home. `"camera_local"`: optical frame of the camera at home.                                                                                                                                                          |
+| `curve`                       | array of 2 to 8 numbers | Polynomial coefficients, in increasing power, that map the raw ONVIF position to degrees. Encodes both scale and sign; axis inversion is expressed only by negative coefficients, and there is no separate inversion flag. The constant term cancels out.          |
+| `home_position`               | number                  | Raw ONVIF position at the calibrated home pose.                                                                                                                                                                                                                    |
+| `approach_direction`          | string                  | `"increasing"` or `"decreasing"`: direction of travel used to reach home during calibration.                                                                                                                                                                       |
+| `backlash`                    | number or array         | Total gear slack in degrees. Either one value (>= 0), or 1 to 64 `[position, degrees]` nodes interpolated linearly and held constant beyond the end nodes.                                                                                                         |
+| `backlash_home_tolerance_deg` | number                  | When backlash state is unknown, for example after a restart, the service initializes it from `home_position` and `approach_direction` only if the reported position is within this many degrees of home. Must be > 0 and within the calibrated travel of the axis. |
+| `backlash_history_s`          | number                  | How far back, in seconds, observed motion is kept to track backlash state. Must be > 0.                                                                                                                                                                            |
 
 ### Orientation
 
@@ -147,6 +147,88 @@ Schema cannot express:
 - `home_position` is inside the axis range.
 - Each axis `frame` matches its place in `composition_order`.
 - `backlash` nodes have distinct positions.
+- `settle_angular_threshold_deg` and each `backlash_home_tolerance_deg` do not exceed
+  the calibrated travel: the angular span of the axis `curve` over its
+  `position_space` range.
+
+### Manager Import Threshold
+
+Manager accepts a non-null `ptz_calibration` only when its
+`reprojection_rms_px` does not exceed `PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX`, a
+finite, positive maximum in pixels. The Manager image sets it to `12.0`, which is
+about 1 degree of pointing error at 3 m in a 1080p image. To override
+it, set the variable in the Compose project `.env` file or the environment used to
+launch Compose; for Helm, set `web.ptzCalibrationResidualThresholdPx`, or export
+`PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX` before `make -C kubernetes install`. If the
+configured value is empty, malformed, non-finite, zero, or negative, calibration
+imports and non-null calibration writes are rejected.
+
+### Manager Validation Errors
+
+`POST` and `PUT /api/v1/camera/{uid}` and scene import validate `ptz_calibration`
+with the rules above and return `400` on the first violation. The error is a stable
+`<path>: <code>` string; clients should match on it rather than on free text:
+
+```json
+{ "ptz_calibration": ["axes.pan.axis: not_unit_vector"] }
+```
+
+`<path>` is the dotted field path; backlash nodes use an index, for example
+`axes.tilt.backlash[1]`.
+
+| Code                        | Meaning                                                                           |
+| --------------------------- | --------------------------------------------------------------------------------- |
+| `not_object`                | Value must be a JSON object.                                                      |
+| `required`                  | Required field is missing.                                                        |
+| `unknown_field`             | Field is not part of the v1 schema.                                               |
+| `unsupported_version`       | `parameterization_version` is not `v1`.                                           |
+| `not_string`                | Value must be a string.                                                           |
+| `invalid_length`            | String length is outside the allowed range.                                       |
+| `not_number`                | Value must be a number. Booleans are rejected.                                    |
+| `not_finite`                | Number is NaN or infinite.                                                        |
+| `negative`                  | Number must be >= 0.                                                              |
+| `not_positive`              | Number must be > 0.                                                               |
+| `invalid_range`             | `*_min` is not less than `*_max`.                                                 |
+| `invalid_composition_order` | `composition_order` is not a permutation of `pan`, `home`, and `tilt`.            |
+| `not_array`                 | Value must be an array.                                                           |
+| `invalid_size`              | Array has the wrong number of items.                                              |
+| `not_unit_vector`           | `axis` is not a unit vector.                                                      |
+| `invalid_choice`            | Value is not one of the allowed strings.                                          |
+| `frame_order_mismatch`      | `frame` does not match the axis position in `composition_order`.                  |
+| `constant_curve`            | All non-constant `curve` coefficients are zero.                                   |
+| `out_of_range`              | `home_position` is outside the position-space range.                              |
+| `invalid_node`              | Backlash node is not a `[position, degrees]` pair.                                |
+| `duplicate_position`        | Backlash node repeats a position.                                                 |
+| `exceeds_travel`            | Angular parameter exceeds the calibrated travel.                                  |
+| `threshold_not_configured`  | `PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX` is unset or not a finite positive number. |
+| `exceeds_threshold`         | `reprojection_rms_px` exceeds the configured import threshold.                    |
+
+### Home Pose
+
+The Manager camera record also exposes the read-only `pose_matrix`: the 4x4
+camera-to-scene home pose matrix (row-major, scale included) computed by Manager for
+both Euler and point-correspondence cameras. It is present only when the camera
+belongs to a scene and has a pose. Positioning uses `pose_matrix` as `R_home` and the
+home translation; it does not rebuild the pose from the Euler `rotation` field.
+
+### Camera Configuration Invalidation
+
+After a camera save commits, Manager publishes to
+`scenescape/cmd/camera/config/{camera_id}` at QoS 1, not retained:
+
+```json
+{ "calibration_version": "cam1-2026-10-01" }
+```
+
+`calibration_version` is `null` when the camera has no calibration. Manager publishes
+on every committed camera save, including cameras without calibration and saves that
+change only the home pose or scene. Moving a camera to another scene clears its
+`transforms`, so the home pose must be calibrated again. A rolled-back save publishes
+nothing. The message only invalidates cached state; Positioning reloads the camera
+through the Manager REST API and does not treat the payload as configuration.
+
+To onboard a PTZ camera, follow
+[Onboard PTZ Cameras](./how-to-guides/calibrate-cameras/onboard-ptz-cameras.md).
 
 ### Example
 

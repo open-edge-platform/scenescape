@@ -48,7 +48,7 @@
           "minItems": 2,
           "maxItems": 8,
           "items": { "type": "number" },
-          "description": "Polynomial in increasing power mapping ONVIF position to degrees; encodes scale and sign. Constant term cancels."
+          "description": "Polynomial in increasing power mapping ONVIF position to degrees; encodes scale and sign. Axis inversion is expressed only by the sign of the coefficients. Constant term cancels."
         },
         "home_position": {
           "type": "number",
@@ -60,8 +60,12 @@
           "description": "Direction of travel used to reach home during calibration."
         },
         "backlash": { "$ref": "#/definitions/backlash" },
-        "backlash_home_tolerance_deg": { "type": "number", "minimum": 0 },
-        "backlash_history_s": { "type": "number", "minimum": 0 }
+        "backlash_home_tolerance_deg": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Must not exceed the axis's calibrated angular travel (curve span over the position range)."
+        },
+        "backlash_history_s": { "type": "number", "exclusiveMinimum": 0 }
       },
       "required": [
         "axis",
@@ -95,8 +99,12 @@
       "required": ["uri", "pan_min", "pan_max", "tilt_min", "tilt_max"],
       "additionalProperties": false
     },
-    "settle_angular_threshold_deg": { "type": "number", "minimum": 0 },
-    "settle_interval_s": { "type": "number", "minimum": 0 },
+    "settle_angular_threshold_deg": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Must not exceed the calibrated angular travel of either axis."
+    },
+    "settle_interval_s": { "type": "number", "exclusiveMinimum": 0 },
     "composition_order": {
       "type": "array",
       "minItems": 3,
