@@ -74,6 +74,17 @@ def process_detection(self, detection_data):
     """
 ```
 
+## Design and Complexity
+
+- Keep functions, classes, and modules focused on cohesive responsibilities; prefer composed units over classes with unrelated duties.
+- Prefer guard clauses; avoid nesting deeper than three levels where practical.
+- Treat high branching control flow as a review signal, not an automatic refactor. Extract cohesive steps, not arbitrary helpers to lower a metric.
+- Pass important dependencies explicitly when it helps clarity or testing; follow local patterns and avoid introducing a DI framework for small changes.
+- Prefer composition over inheritance; add abstractions for real domain concepts or meaningful duplication.
+- Handle errors where useful context is available. When adding context, raise a relevant exception with chaining; avoid catching only to log and re-raise unchanged.
+- Prefer reusing existing code and follow DRY rule.
+- Before adding a new dependency or writing new code, check whether existing standard libraries or already imported libraries can be reused.
+
 ## Django Patterns
 
 ### Models
