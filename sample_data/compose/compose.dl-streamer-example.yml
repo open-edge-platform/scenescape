@@ -221,6 +221,7 @@ services:
       - controller.auth
       - browser.auth
       - calibration.auth
+      - positioning.auth
     restart: always
     pids_limit: 1000
 

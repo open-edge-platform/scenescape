@@ -136,8 +136,8 @@ class PositioningService:
     try:
       calibration = self.calibration_loader.load(source_id)
       self.resolver.update_calibration(source_id, calibration)
-    except Exception:
-      log.warning(f"Manager calibration reload failed for {source_id}; source disabled")
+    except Exception as error:
+      log.warning(f"Manager calibration reload failed for {source_id}; source disabled: {error}")
       self.resolver.update_calibration(source_id, None)
 
   def refresh_calibrations(self, stop_event):
@@ -270,8 +270,9 @@ def main():
     for source_id in source_ids:
       try:
         calibrations[source_id] = calibration_loader.load(source_id)
-      except Exception:
-        log.warning(f"Initial Manager calibration load failed for {source_id}; source disabled")
+      except Exception as error:
+        log.warning(f"Initial Manager calibration load failed for {source_id}; "
+                    f"source disabled: {error}")
         calibrations[source_id] = None
     resolver = PTZResolver(
       calibrations, service.client.publish, poll_interval_s,
