@@ -3,9 +3,13 @@
 
 """Routing, filtering and parity counters of TrackIngest."""
 
+import concurrent.futures
 import json
+import threading
 import unittest
+from unittest.mock import patch
 
+from analytics.reid_identity import ReidIdentityMap
 from reid.ingest import TrackIngest
 from reid.matcher import MatcherConfig
 from test_ingest_parse import _object, scene_message
@@ -77,6 +81,50 @@ class TestTrackIngest(unittest.TestCase):
     json.dumps(snap)  # must be serializable for the IngestStats RPC
 
 
+class TestShutdown(unittest.TestCase):
+
+  def test_stop_drains_queries_before_final_enrollment_and_executor_shutdown(self):
+    query_started = threading.Event()
+    release_query = threading.Event()
+    drain_started = threading.Event()
+    original_wait = concurrent.futures.wait
+
+    def query(vectors):
+      query_started.set()
+      if not release_query.wait(timeout=5):
+        raise TimeoutError('Query was not released')
+      return [[] for _ in vectors]
+
+    def wait_for_queries(futures):
+      drain_started.set()
+      return original_wait(futures)
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as workers, \
+         concurrent.futures.ThreadPoolExecutor(max_workers=1) as shutdown_worker:
+      ingest, adapters = make_ingest(query, write_enabled=True, executor=workers)
+      for seed in range(3):
+        ingest.handle_message(TOPIC, scene_message([_object('t1', seed=seed)]))
+      try:
+        self.assertTrue(query_started.wait(timeout=5))
+        with patch('reid.matcher.concurrent.futures.wait', side_effect=wait_for_queries):
+          stopping = shutdown_worker.submit(ingest.stop)
+          try:
+            self.assertTrue(drain_started.wait(timeout=5))
+            self.assertFalse(stopping.done())
+          finally:
+            release_query.set()
+          stopping.result(timeout=5)
+      finally:
+        release_query.set()
+
+      self.assertEqual(len(adapters[0].writes), 1)
+      gid, track_id, category, vectors, _ = adapters[0].writes[0]
+      self.assertEqual((gid, track_id, category), ('t1', 't1', 'person'))
+      self.assertEqual(len(vectors), 1)
+      self.assertEqual(ingest.snapshot()['counters']['writes'], 1)
+      self.assertEqual(ingest._matchers[('scene1', 'person')]._pending, {})
+
+
 class FakePubSub:
   def __init__(self):
     self.published = []
@@ -126,6 +174,58 @@ class TestDecisionPublishing(unittest.TestCase):
     self.assertAlmostEqual(payload["similarity"], 0.8, places=6)
     self.assertEqual(payload["reid_state"], "matched")
     self.assertEqual(payload["unique_id_count"], 0)
+
+  def test_active_identity_republication_recovers_late_and_restarted_consumers(self):
+    for results, expected_gid, expected_state in (
+        (all_match('gid-old', 0.8), 'gid-old', 'matched'),
+        (None, 't1', 'query_no_match')):
+      with self.subTest(state=expected_state):
+        ingest, adapters = make_ingest(results)
+        for seed in range(3):
+          ingest.handle_message(TOPIC, scene_message([_object('t1', seed=seed)]))
+        self.assertEqual(len(adapters[0].queries), 1)
+        ingest.pubsub = FakePubSub()
+
+        for _ in range(2):
+          consumer = ReidIdentityMap()
+          ingest.handle_message(TOPIC, scene_message([_object('t1', metadata={})]))
+          _, payload, qos = ingest.pubsub.published[-1]
+          self.assertEqual(qos, 1)
+          self.assertTrue(consumer.update(payload))
+          objects = [{'id': 't1', 'category': 'person'}]
+
+          consumer.apply('scene1', 'person', objects)
+
+          self.assertEqual(objects[0]['id'], expected_gid)
+          self.assertEqual(objects[0]['reid_state'], expected_state)
+          self.assertEqual(consumer.uniqueDetectionCount('scene1', 'person'),
+                           0 if expected_state == 'matched' else 1)
+          self.assertEqual(len(adapters[0].queries), 1)
+
+  def test_failed_publication_recovers_on_next_frame_and_stops_after_retirement(self):
+    ingest, adapters = make_ingest(all_match('gid-old', 0.8))
+    for seed in range(3):
+      ingest.handle_message(TOPIC, scene_message([_object('t1', seed=seed)]))
+
+    class DisconnectedPubSub:
+      def publish(self, topic, payload, qos=0, retain=False):
+        raise ConnectionError('disconnected')
+
+    ingest.pubsub = DisconnectedPubSub()
+    ingest.handle_message(TOPIC, scene_message([_object('t1', metadata={})]))
+    self.assertEqual(ingest.stats['decision_publish_errors'], 1)
+    ingest.pubsub = FakePubSub()
+    ingest.handle_message(TOPIC, scene_message([_object('t1', metadata={})]))
+    _, payload, _ = ingest.pubsub.published[-1]
+    self.assertEqual(payload['gid'], 'gid-old')
+    self.assertEqual(payload['reid_state'], 'matched')
+    self.assertEqual(len(adapters[0].queries), 1)
+
+    published_count = len(ingest.pubsub.published)
+    ingest.handle_message(TOPIC, scene_message([]))
+    ingest.handle_message(TOPIC, scene_message([]))
+
+    self.assertEqual(len(ingest.pubsub.published), published_count)
 
   def test_decision_message_shape(self):
     msg = TrackIngest._decision_message({"scene_id": "s", "category": "person", "track_id": "t",

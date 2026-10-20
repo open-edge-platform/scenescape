@@ -189,6 +189,20 @@ class TestControllerStateParity(unittest.TestCase):
 
 class TestQueryGating(unittest.TestCase):
 
+  def test_shutdown_rejects_new_observations_without_submitting_more_work(self):
+    matcher, _ = make(write_enabled=True)
+    feed(matcher, 't1', [vec(1, 0), vec(0, 1), vec(1, 1)])
+    self.assertEqual(matcher._query_futures, set())
+
+    matcher.shutdown()
+    matcher.shutdown()
+    feed(matcher, 't2', [None, vec(1, 0), vec(0, 1), vec(1, 1)])
+
+    self.assertEqual(len(matcher.adapter.queries), 1)
+    self.assertEqual(len(matcher.adapter.writes), 1)
+    self.assertNotIn('t2', matcher._tracks)
+    self.assertEqual(matcher.unique_id_count, 1)
+
   def test_no_query_before_threshold(self):
     matcher, decisions = make()
     feed(matcher, "t1", [vec(1, 0, 0, 0), vec(0, 1, 0, 0)])
@@ -348,8 +362,66 @@ class TestWrites(unittest.TestCase):
     # Every query vector is already stored (score 1.0) -> nothing new to write.
     matcher, _ = make(FakeAdapter(all_match("gid-A", 1.0)), write_enabled=True)
     feed(matcher, "t1", [vec(i, 1, 0, 0) for i in range(3)])
+    feed(matcher, "t1", [vec(2, 1, 0, 0)])
     matcher.process_frame([])
     self.assertEqual(matcher.adapter.writes, [])
+
+  def test_exact_rematch_accepts_new_vectors_for_cosine_and_l2(self):
+    for metric, score in (('COSINE', 1.0), ('L2', 0.0)):
+      with self.subTest(metric=metric):
+        matcher, _ = make(FakeAdapter(all_match('gid-A', score)),
+                          write_enabled=True, similarity_metric=metric)
+        query_vectors = [vec(i, 1, 0, 0) for i in range(3)]
+        new_vector = vec(9, 9, 0, 0)
+        feed(matcher, 't1', query_vectors)
+        feed(matcher, 't1', query_vectors + [new_vector, new_vector])
+
+        matcher.process_frame([])
+
+        self.assertEqual(len(matcher.adapter.writes), 1)
+        vectors = matcher.adapter.writes[0][3]
+        self.assertEqual(len(vectors), 1)
+        np.testing.assert_array_equal(vectors[0], new_vector)
+
+  def test_mixed_rematch_keeps_non_exact_and_new_vectors(self):
+    def results(vectors):
+      return [[{'uuid': 'gid-A', '_distance': score}] for score in (1.0, 0.8, 1.0)]
+
+    matcher, _ = make(FakeAdapter(results), write_enabled=True)
+    query_vectors = [vec(i, 1, 0, 0) for i in range(3)]
+    new_vector = vec(9, 9, 0, 0)
+    feed(matcher, 't1', query_vectors)
+    feed(matcher, 't1', query_vectors + [new_vector])
+
+    matcher.process_frame([])
+
+    vectors = matcher.adapter.writes[0][3]
+    self.assertEqual(len(vectors), 2)
+    np.testing.assert_array_equal(vectors[0], query_vectors[1])
+    np.testing.assert_array_equal(vectors[1], new_vector)
+
+  def test_exact_rematch_preserves_local_camera_enrollment(self):
+    matcher, _ = make(FakeAdapter(all_match('gid-A', 1.0)), write_enabled=True)
+    query_vectors = [vec(i, 1, 0, 0) for i in range(3)]
+    feed(matcher, 't1', query_vectors, bbox_px_area=8000)
+    feed(matcher, 't1', [query_vectors[-1]], bbox_px_area=8000)
+
+    matcher.process_frame([])
+
+    self.assertEqual(len(matcher.adapter.writes), 1)
+    self.assertEqual(len(matcher.adapter.writes[0][3]), 3)
+
+  def test_exact_rematch_repeat_is_not_written_on_stale_flush(self):
+    now = [0.0]
+    matcher, _ = make(FakeAdapter(all_match('gid-A', 1.0)), write_enabled=True,
+                      clock=lambda: now[0], stale_feature_timeout_secs=5.0)
+    feed(matcher, 't1', [vec(i, 1, 0, 0) for i in range(3)])
+    now[0] = 6.0
+
+    feed(matcher, 't1', [vec(2, 1, 0, 0)])
+
+    self.assertEqual(matcher.adapter.writes, [])
+    self.assertEqual(matcher._pending, {})
 
   def test_stale_flush(self):
     now = [0.0]

@@ -32,15 +32,24 @@ def _service(visibility_topic='regulated', rewrite_all_time=False):
   return service
 
 
-@pytest.mark.parametrize('state', ['pending_collection', 'matched', 'query_no_match', 'reid_disabled'])
-def test_controller_reid_state_and_count_reach_regulated_output(state):
+@pytest.mark.parametrize(('state', 'gid'), [
+  ('pending_collection', 't1'),
+  ('matched', 't1'),
+  ('matched', 'gid-1'),
+  ('query_no_match', 't1'),
+  ('reid_disabled', 't1'),
+])
+def test_controller_reid_state_and_count_reach_regulated_output(state, gid):
   service = _service()
   scene = AnalyticsScene('Test scene', None)
   scene.uid = 'scene1'
   service.cache_manager.sceneWithID.return_value = scene
+  decided_at = get_iso_time(99.0)
+  similarity = 0.9 if state == 'matched' else None
   service.handleReidDecisionMessage(None, None, SimpleNamespace(payload=orjson.dumps({
-    'scene_id': 'scene1', 'category': 'person', 'track_id': 't1', 'gid': 't1',
+    'scene_id': 'scene1', 'category': 'person', 'track_id': 't1', 'gid': gid,
     'matched': state == 'matched', 'reid_state': state, 'unique_id_count': 3,
+    'similarity': similarity, 'decided_at': decided_at,
   })))
   message = SimpleNamespace(
     topic=PubSub.formatTopic(PubSub.DATA_SCENE, scene_id='scene1', thing_type='person'),
@@ -56,8 +65,16 @@ def test_controller_reid_state_and_count_reach_regulated_output(state):
   topic, payload = service.pubsub.publish.call_args.args
   assert topic == PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id='scene1')
   output = orjson.loads(payload)
-  assert output['objects'][0]['reid_state'] == state
-  assert output['objects'][0]['id'] == 't1'
+  published_object = output['objects'][0]
+  assert published_object['reid_state'] == state
+  assert published_object['id'] == gid
+  assert published_object['similarity'] == similarity
+  if state == 'matched' and gid != 't1':
+    assert published_object['previous_ids_chain'] == [{
+      'id': 't1', 'timestamp': decided_at, 'similarity_score': similarity,
+    }]
+  else:
+    assert 'previous_ids_chain' not in published_object
   assert output['unique_detection_count'] == 3
 
 

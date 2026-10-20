@@ -918,17 +918,18 @@ class TestSceneControllerHandleChildSceneObject:
     return controller
 
   def test_root_scene_hierarchy_echo_is_ignored(self):
-    """Hierarchy publishes from a root scene (no parent) return None, not failure."""
+    """Hierarchy publishes from a root scene (no parent) return (None, None), not failure."""
     scene_controller = self._build_controller()
     root = SimpleNamespace(uid='root-1', parent=None)
     scene_controller.cache_manager.sceneWithID.return_value = root
     # Local roots must not consult remote-child parent recovery.
     scene_controller._parentUidForRemoteChild = MagicMock()
 
-    result = scene_controller._handleChildSceneObject(
+    success, scene = scene_controller._handleChildSceneObject(
       'root-1', {'objects': []}, 'person', 42.0)
 
-    assert result is None
+    assert success is None
+    assert scene is None
     assert root.parent is None
     scene_controller.cache_manager.sceneWithRemoteChildID.assert_not_called()
     scene_controller._parentUidForRemoteChild.assert_not_called()
@@ -1196,12 +1197,12 @@ class TestHandleMovingObjectExternal:
   def test_hierarchy_root_echo_none_is_ignored(
     self, _mock_epoch, _mock_adjust, _mock_metrics
   ):
-    """Hierarchy messages (no source_id) that return None must not invalidate."""
+    """Hierarchy messages (no source_id) that return (None, None) must not invalidate."""
     controller = self._build_controller()
     # Not a local no-parent scene, so the cheap early reject does not fire and
-    # the legacy _handleChildSceneObject None path still applies.
+    # the ignore sentinel from _handleChildSceneObject still applies.
     controller.cache_manager.sceneWithID.return_value = None
-    controller._handleChildSceneObject = MagicMock(return_value=None)
+    controller._handleChildSceneObject = MagicMock(return_value=(None, None))
     message = self._external_message('root-1', {
       'timestamp': '2026-01-01T00:00:00Z',
       'objects': [],
@@ -1425,7 +1426,6 @@ class TestSceneControllerRemoteChildParent:
     assert success is False
     assert scene is remote_sender
     assert remote_sender.parent is None
-
 
 class TestChildSceneControllerCatalogs:
   """Catalog callback wiring for remote children (NEX-T21933)."""

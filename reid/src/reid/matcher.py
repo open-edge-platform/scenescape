@@ -142,6 +142,7 @@ class _TrackState:
   observation_count: int = 0
   enrollment: List[np.ndarray] = field(default_factory=list)
   local_enrollment: List[np.ndarray] = field(default_factory=list)
+  exact_query_vectors: List[np.ndarray] = field(default_factory=list)
   query_submitted: bool = False
   gid: Optional[str] = None
   similarity: Optional[float] = None
@@ -211,6 +212,8 @@ class TrackMatcher:
     self._tracks: Dict[str, _TrackState] = {}
     self._pending: Dict[str, dict] = {}
     self._pending_since: Dict[str, float] = {}
+    self._query_futures = set()
+    self._stopping = False
 
     self._dimensions = None
     self._dimensions_lock = threading.Lock()
@@ -236,6 +239,8 @@ class TrackMatcher:
 
   def observe(self, obs: TrackObservation):
     with self._lock:
+      if self._stopping:
+        return
       is_new = obs.track_id not in self._tracks and not any(
         previous in self._tracks for previous in obs.previous_ids)
       state = self._stateFor(obs)
@@ -287,8 +292,14 @@ class TrackMatcher:
       vectors = list(state.quality)
       metadata = dict(obs.metadata)
 
-    future = self.executor.submit(self._runQuery, obs, state, vectors, metadata)
-    future.add_done_callback(self._logUnhandled)
+      future = self.executor.submit(self._runQuery, obs, state, vectors, metadata)
+      self._query_futures.add(future)
+      future.add_done_callback(self._onQueryComplete)
+
+  def _onQueryComplete(self, future):
+    self._logUnhandled(future)
+    with self._lock:
+      self._query_futures.discard(future)
 
   def _incrementUniqueIdCount(self):
     """Update the cumulative counter while holding the matcher lock."""
@@ -339,7 +350,11 @@ class TrackMatcher:
       self._flush(tid)
 
   def shutdown(self):
-    """Flush every pending write (best effort). The executor is owned by the caller."""
+    """Drain queries before flushing; the caller must then drain the executor's writes."""
+    with self._lock:
+      self._stopping = True
+      queries = list(self._query_futures)
+    concurrent.futures.wait(queries)
     with self._lock:
       pending = list(self._pending)
     for tid in pending:
@@ -410,10 +425,13 @@ class TrackMatcher:
     return not is_upstream_enrollment_claim(obs.provenance)
 
   def _appendPendingEnrollment(self, obs, state):
+    """Accept eligible enhancements without replaying exact forwarded query hits."""
     if not self._mayContributeEnrollment(obs):
       return
     if self._isEnrollable(obs):
       _append_unique(state.local_enrollment, obs.embedding)
+    elif _contains(state.exact_query_vectors, obs.embedding):
+      return
     entry = self._pending.get(obs.track_id)
     if entry is not None:
       _append_unique(entry["reid_vectors"], obs.embedding)
@@ -530,13 +548,18 @@ class TrackMatcher:
     if per_vector is not None:
       for idx, vec in enumerate(state.quality):
         score = per_vector[idx] if idx < len(per_vector) else None
-        if score is None or self._isExactRematchScore(score):
+        if score is None:
+          continue
+        if self._isExactRematchScore(score):
+          _append_unique(state.exact_query_vectors, vec)
           continue
         if not _contains(state.enrollment, vec):
           continue
         _append_unique(vectors, vec)
       return vectors
     if self._isExactRematchScore(similarity):
+      for vec in state.quality:
+        _append_unique(state.exact_query_vectors, vec)
       return vectors
     for vec in state.enrollment:
       _append_unique(vectors, vec)
