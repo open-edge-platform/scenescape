@@ -11,6 +11,10 @@ deployment wiring. With PTZ sources configured, it polls ONVIF PTZ cameras at 5 
 and produces raw `PTZSample` messages in-process. Pose resolution is not yet
 implemented.
 
+Unexpected polling errors disconnect the camera and wait before reconnecting.
+The stop-aware delay doubles from 1 second to a maximum of 30 seconds by default,
+and resets after a successful poll.
+
 ## Documentation
 
 - [Overview and Operations](../docs/user-guide/microservices/positioning/operations.md): Service shell, camera onboarding, deployment, and rollback details.

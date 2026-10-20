@@ -269,6 +269,9 @@ class PTZPoller:
       except Exception:
         log.exception("Unexpected PTZ polling failure for %s", self.source_id)
         self.disconnect()
+        if stop_event.wait(backoff):
+          break
+        backoff = min(backoff * 2, self.max_backoff_s)
         continue
       next_deadline_ns += period_ns
       now_ns = self._clock.monotonic_ns()
