@@ -211,6 +211,7 @@ class Viewport extends THREE.Scene {
       if (intersect.object.name.startsWith("calibrationPoint_")) {
         const objectHit = intersect.object;
         this.remove(objectHit);
+        this.calibrationUpdated = true;
         this.calibrationPointNames.push(objectHit.name.split("_")[1]);
         this.calibrationPointNames.sort((a, b) => {
           const numA = parseInt(a.replace(/\D/g, ""));
@@ -301,6 +302,37 @@ class Viewport extends THREE.Scene {
         acc[point.name] = point.position;
         return acc;
       }, {});
+  }
+
+  setCalibrationPointDiagnostics(rejectedNames, highErrorNames) {
+    const rejected = new Set(rejectedNames);
+    const highError = new Set(highErrorNames);
+    this.children
+      .filter((child) => child.name.startsWith("calibrationPoint_"))
+      .forEach((point) => {
+        const pointName = point.name.replace("calibrationPoint_", "");
+        const outline = point.children.find(
+          (child) => child.name === "calibrationHaloOutline",
+        );
+        const halo = point.children.find(
+          (child) => child.name === "calibrationHalo",
+        );
+        const rejectMark = point.children.find(
+          (child) => child.name === "calibrationRejectMark",
+        );
+        const isRejected = rejected.has(pointName);
+        const isHighError = highError.has(pointName);
+        const showRing = isRejected || isHighError;
+        if (outline) {
+          outline.visible = showRing;
+        }
+        if (halo) {
+          halo.visible = showRing;
+        }
+        if (rejectMark) {
+          rejectMark.visible = isRejected;
+        }
+      });
   }
 
   // Camera image projection functions
