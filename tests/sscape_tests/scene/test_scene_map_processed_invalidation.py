@@ -5,6 +5,7 @@
 
 from unittest.mock import MagicMock, patch
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db.models import Model
 from django.utils import timezone
 
@@ -39,6 +40,27 @@ def test_replacing_map_clears_map_processed(mock_model_save, _mock_cmd):
   scene.map = new_map
 
   scene.save(send_update_command=False)
+
+  assert scene.map_processed is None
+  mock_model_save.assert_called()
+
+
+@patch("manager.models.sendUpdateCommand")
+@patch.object(Model, "save")
+def test_reuploading_same_map_name_clears_map_processed(mock_model_save, _mock_cmd):
+  scene = Scene(name="map_same_name_scene", scale=100.0, camera_calibration=APRILTAG)
+  scene.pk = 1
+  scene.id = 1
+  scene.map = "Queuing.png"
+  scene._original_map = scene.map
+  scene._original_polycam_data = scene.polycam_data
+  scene.map_processed = timezone.now()
+
+  scene.map = SimpleUploadedFile("Queuing.png", b"new map bytes")
+  assert scene.map == scene._original_map
+
+  with patch.object(Scene, "regenerateThumbnail", return_value=False):
+    scene.save(send_update_command=False)
 
   assert scene.map_processed is None
   mock_model_save.assert_called()

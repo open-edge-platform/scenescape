@@ -302,7 +302,9 @@ class Scene(models.Model):
 
       # Clear processed state when calibration inputs or the map file change so
       # AprilTag / markerless registration re-runs (stale markers otherwise stay).
-      if self.changedCalibrationParams() or (self._original_map != self.map):
+      # FieldFile equality is name-based, so a same-name re-upload is only visible as uncommitted.
+      map_reuploaded = bool(self.map) and getattr(self.map, '_committed', True) is False
+      if self.changedCalibrationParams() or (self._original_map != self.map) or map_reuploaded:
         self.map_processed = None
 
       super().save(*args, **kwargs)

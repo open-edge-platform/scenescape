@@ -154,8 +154,12 @@ class ApriltagRegistration(FunctionalTest):
   def _wait_for_map_processed_cleared(self, timeout_s=30):
     deadline = time.time() + timeout_s
     while time.time() < deadline:
-      if self._get_scene().get('map_processed') is None:
-        return
+      try:
+        if self._get_scene().get('map_processed') is None:
+          return
+      except requests.exceptions.ConnectionError:
+        # Poll interval matches Apache KeepAliveTimeout, so reused sockets can be dropped.
+        pass
       time.sleep(POLL_INTERVAL_S)
     raise AssertionError("map_processed was not cleared within timeout")
 
