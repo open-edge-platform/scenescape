@@ -204,6 +204,7 @@ function initializeCalibrationSettings() {
     camera_calibration.setupResetViewButton();
     camera_calibration.setupSaveCameraButton();
     camera_calibration.setupOpacitySlider();
+    camera_calibration.setupCalibrationParameterListeners();
 
     // Set all inputs with the id id_{{ field_name }} and distortion or intrinsic in the name to disabled
     $(

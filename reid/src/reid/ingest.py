@@ -132,6 +132,8 @@ class TrackIngest:
       observation_timestamp = timestamp
       reid_payload = metadata.get("reid") if isinstance(metadata, dict) else None
       if sighting is not None:
+  # A supplied sighting is authoritative, even when malformed; do not fall
+  # back to potentially stale track-level metadata.
         reid_payload = None
         bbox_px_area = 0.0
         if (isinstance(sighting, dict) and isinstance(sighting.get("camera_id"), str)
