@@ -65,10 +65,7 @@
     "path": "/dashboard",
     "appIcon": "",
     "includeClientData": true,
-    "acceptsClientConfig": [
-      "ui-notification",
-      "ui-control"
-    ],
+    "acceptsClientConfig": ["ui-notification", "ui-control"],
     "showPathInSidebar": false,
     "headerContent": "page",
     "navigationStyle": "default",
@@ -172,11 +169,7 @@
     "inputs": 0,
     "x": 70,
     "y": 260,
-    "wires": [
-      [
-        "fff9fa2375438877"
-      ]
-    ]
+    "wires": [["fff9fa2375438877"]]
   },
   {
     "id": "fff9fa2375438877",
@@ -192,11 +185,7 @@
     "libs": [],
     "x": 330,
     "y": 260,
-    "wires": [
-      [
-        "c07a94bf2eac2ac3"
-      ]
-    ]
+    "wires": [["c07a94bf2eac2ac3"]]
   },
   {
     "id": "80db82fc3eec139d",
@@ -212,11 +201,7 @@
     "libs": [],
     "x": 380,
     "y": 360,
-    "wires": [
-      [
-        "961d1a3fa5d6ae70"
-      ]
-    ]
+    "wires": [["961d1a3fa5d6ae70"]]
   },
   {
     "id": "d70a3b5f131f1b39",
@@ -233,11 +218,7 @@
     "inputs": 0,
     "x": 70,
     "y": 360,
-    "wires": [
-      [
-        "80db82fc3eec139d"
-      ]
-    ]
+    "wires": [["80db82fc3eec139d"]]
   },
   {
     "id": "6dde52cc68cf3d68",
@@ -254,11 +235,7 @@
     "inputs": 0,
     "x": 70,
     "y": 460,
-    "wires": [
-      [
-        "51f07a6aa7d630e3"
-      ]
-    ]
+    "wires": [["51f07a6aa7d630e3"]]
   },
   {
     "id": "51f07a6aa7d630e3",
@@ -274,11 +251,7 @@
     "libs": [],
     "x": 380,
     "y": 460,
-    "wires": [
-      [
-        "d8fc080da93385b2"
-      ]
-    ]
+    "wires": [["d8fc080da93385b2"]]
   },
   {
     "id": "c07a94bf2eac2ac3",
@@ -294,11 +267,7 @@
     "libs": [],
     "x": 640,
     "y": 260,
-    "wires": [
-      [
-        "23e8122b41c8e1bd"
-      ]
-    ]
+    "wires": [["23e8122b41c8e1bd"]]
   },
   {
     "id": "961d1a3fa5d6ae70",
@@ -314,11 +283,7 @@
     "libs": [],
     "x": 640,
     "y": 360,
-    "wires": [
-      [
-        "23e8122b41c8e1bd"
-      ]
-    ]
+    "wires": [["23e8122b41c8e1bd"]]
   },
   {
     "id": "d8fc080da93385b2",
@@ -334,11 +299,7 @@
     "libs": [],
     "x": 630,
     "y": 460,
-    "wires": [
-      [
-        "23e8122b41c8e1bd"
-      ]
-    ]
+    "wires": [["23e8122b41c8e1bd"]]
   },
   {
     "id": "23e8122b41c8e1bd",
@@ -354,12 +315,7 @@
     "libs": [],
     "x": 960,
     "y": 360,
-    "wires": [
-      [
-        "9533f7e04e56ae01",
-        "04e139b397a63c5a"
-      ]
-    ]
+    "wires": [["9533f7e04e56ae01", "04e139b397a63c5a"]]
   },
   {
     "id": "9533f7e04e56ae01",
@@ -381,9 +337,7 @@
     "className": "",
     "x": 1270,
     "y": 360,
-    "wires": [
-      []
-    ]
+    "wires": [[]]
   },
   {
     "id": "04e139b397a63c5a",
