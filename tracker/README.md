@@ -99,8 +99,10 @@ thumbnail as a geographic footprint. If no persisted matrix is available for a
 3D map, the tracker cannot derive a WGS84 transform for that scene.
 Scene-frame poses require an explicit binding and a source listed in
 `CONTROLLER_TRUSTED_POSITIONING_SOURCES`.
-Legacy configured child-scene payloads without `source_id` are not supported by
-the C++ tracker.
+The C++ tracker does not ingest the legacy configured child-scene hierarchy
+payloads (messages without `source_id`); that hierarchy ingestion path is
+handled by the Python Scene Controller. This limitation is separate from the
+unified external-source support described above.
 
 **Manual execution:** If not using Make targets, you must source the Conan environment
 first. Conan-managed libraries (e.g., OpenCV) are not installed system-wide, so
