@@ -412,22 +412,34 @@ class CameraManager(APIView):
     return pubsub
 
   def get(self, request, thing_type):
-    pubsub = self.openPubSub()
     query = request.data
     if not query:
       query = request.query_params
 
     camera = query.get('camera', None)
-    if camera is None:
+    if not isinstance(camera, str) or not camera.strip():
       raise ValidationError({'camera': "Must provide camera ID"})
+
+    if thing_type == "frame":
+      timestamp = query.get('timestamp', None)
+      if not isinstance(timestamp, str) or not timestamp.strip():
+        raise ValidationError({'timestamp': "Must provide valid timestamp"})
+      try:
+        get_epoch_time(timestamp)
+      except ValueError:
+        raise ValidationError({'timestamp': "Must provide valid timestamp"})
+    elif thing_type != "video":
+      return Response(status=status.HTTP_404_NOT_FOUND)
+
+    pubsub = self.openPubSub()
+    if isinstance(pubsub, Response):
+      return pubsub
+
     # FIXME - make sure camera exists
 
     if thing_type == "frame":
       return self.getFrame(camera, query, pubsub)
-    elif thing_type == "video":
-      return self.getVideo(camera, query, pubsub)
-
-    return Response(status=status.HTTP_404_NOT_FOUND)
+    return self.getVideo(camera, query, pubsub)
 
   def getFrame(self, camera, params, pubsub):
     timestamp = params.get('timestamp', None)

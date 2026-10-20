@@ -655,6 +655,8 @@ paths:
       responses:
         "200":
           description: Frame data or video file
+        "400":
+          description: Missing or invalid camera or timestamp
         "404":
           description: Not found
         "503":
@@ -1393,6 +1395,8 @@ paths:
       responses:
         "200":
           description: Frame data or video file
+        "400":
+          description: Missing or invalid camera
         "404":
           description: Not found
         "503":
