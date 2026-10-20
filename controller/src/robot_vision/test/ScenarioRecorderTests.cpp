@@ -92,12 +92,12 @@ TEST(ScenarioRecorderJsonTest, FormatsTimestampsAndYaw)
 TEST_F(ScenarioRecorderTest, RecordsScenarioFiles)
 {
   const auto truth = Trajectory({.speed = 2.0, .box = kCar}).straight(1.0).sample(10.0);
-  Sensor lidar{.positionNoise = 0.05, .orienting = true};
+  Sensor lidar{.id = "lidar", .positionNoise = 0.05, .orienting = true};
   {
     ScenarioRecorder recorder("case one", mRoot);
     recorder.truth(truth);
     FilterRun run(productionConfig(), &recorder);
-    run.feed(recorder.detections(observe(truth, lidar), "lidar"));
+    run.feed(observe(truth, lidar));
     run.coast(0.5);
   }
 
@@ -142,12 +142,10 @@ TEST_F(ScenarioRecorderTest, WithoutDirectoryRecordsNothing)
   ScenarioRecorder recorder("off", std::filesystem::path());
   EXPECT_FALSE(recorder.enabled());
   recorder.truth(truth);
-  const auto observations = recorder.detections(observe(truth, camera), "camera");
   FilterRun run(productionConfig(), &recorder);
-  run.feed(observations);
+  run.feed(observe(truth, camera));
   recorder.write();
 
-  EXPECT_EQ(observations.front().detection.attributes.at("camera_id"), "camera");
   EXPECT_FALSE(std::filesystem::exists(mRoot));
 }
 

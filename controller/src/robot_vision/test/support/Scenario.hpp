@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <optional>
 #include <random>
+#include <string>
 #include <string_view>
 #include <utility>
 #include <vector>
@@ -146,6 +148,7 @@ inline std::vector<TruthSample> between(const std::vector<TruthSample> &samples,
 
 struct Sensor
 {
+  std::string id = "camera";  // sensor id of its observations, e.g. "lidar"
   double positionNoise = 0.0; // standard deviation [m]
   double sizeNoise = 0.0;     // standard deviation of length, width and height [m]
   double yawNoise = 0.0;      // standard deviation [rad], orienting sensors only
@@ -157,6 +160,7 @@ struct Observation
 {
   double t;
   TrackedObject detection;
+  std::string sensorId;
 };
 
 inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, Sensor &sensor)
@@ -183,7 +187,7 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
       detection.yaw = std::remainder(sample.heading + yawError, 2.0 * std::numbers::pi);
       orientation::setHasOrientation(detection, true);
     }
-    observations.push_back({sample.t, std::move(detection)});
+    observations.push_back({sample.t, std::move(detection), sensor.id});
   }
   return observations;
 }
@@ -195,10 +199,12 @@ class FilterRunObserver
 {
 public:
   virtual ~FilterRunObserver() = default;
-  virtual void filterStep(const FilterRun &run) = 0;
+  // `observation` is the one used by this step; std::nullopt for coast().
+  virtual void filterStep(const FilterRun &run, const std::optional<Observation> &observation) = 0;
 };
 
 // Drives one MultiModelKalmanEstimator the way TrackManager does, without association or lifecycle.
+// trackId names the estimate and its detections for an observer; use the ground-truth object id.
 class FilterRun
 {
 public:
@@ -215,23 +221,23 @@ public:
   std::vector<TrackedObject> feed(const std::vector<Observation> &observations)
   {
     std::vector<TrackedObject> states;
-    for (const auto &[t, detection] : observations)
+    for (const auto &observation : observations)
     {
       if (mInitialized)
       {
-        estimator.track(detection, atSeconds(t));
+        estimator.track(observation.detection, atSeconds(observation.t));
       }
       else
       {
-        estimator.initialize(detection,
-                             atSeconds(t),
+        estimator.initialize(observation.detection,
+                             atSeconds(observation.t),
                              mConfig.mDefaultProcessNoise,
                              mConfig.mDefaultMeasurementNoise,
                              mConfig.mInitStateCovariance,
                              mConfig.mMotionModels);
         mInitialized = true;
       }
-      notify();
+      notify(observation);
       states.push_back(state());
     }
     return states;
@@ -240,7 +246,7 @@ public:
   void coast(double seconds)
   {
     estimator.predict(seconds);
-    notify();
+    notify(std::nullopt);
   }
 
   TrackedObject state() const
@@ -261,11 +267,11 @@ public:
   MultiModelKalmanEstimator estimator;
 
 private:
-  void notify() const
+  void notify(const std::optional<Observation> &observation) const
   {
     if (mObserver != nullptr)
     {
-      mObserver->filterStep(*this);
+      mObserver->filterStep(*this, observation);
     }
   }
 

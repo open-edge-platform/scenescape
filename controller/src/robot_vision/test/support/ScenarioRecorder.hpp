@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -270,11 +271,12 @@ inline std::array<double, 4> yawQuaternion(double yaw)
 
 // Writes one scenario as JSONL files for tools/tracker/evaluation/visualization:
 //   groundtruth.jsonl  canonical ground truth with size, rotation, velocity and a "truth" object
-//   detections.jsonl   canonical camera-data frames with 3D detections (translation, size, rotation)
+//   detections.jsonl   canonical camera-data frames with the 3D detections fed to FilterRun, one frame per sensor id
 //   tracks.jsonl       canonical tracker output with the estimate after every FilterRun step
 //   estimator.jsonl    one "config" line per track, then one "step" line per FilterRun step
 // Records only when RV_SCENARIO_DIR is set. Files go to $RV_SCENARIO_DIR/<Suite>.<Test>/<caseName>/ and are written
-// on destruction. Reads private estimator members (tests build with -fno-access-control).
+// on destruction. Detection ids are the FilterRun track id. Reads private estimator members (tests build with
+// -fno-access-control).
 class ScenarioRecorder : public FilterRunObserver
 {
 public:
@@ -347,40 +349,15 @@ public:
     mDirty = true;
   }
 
-  // Sets the camera_id attribute to sensorId, so FilterRun steps name their sensor, and records the detections.
-  // Detection ids are the ground-truth object id.
-  std::vector<Observation>
-  detections(std::vector<Observation> observations, std::string_view sensorId, int objectId = 1)
-  {
-    for (auto &observation : observations)
-    {
-      observation.detection.attributes["camera_id"] = std::string(sensorId);
-      if (!enabled())
-      {
-        continue;
-      }
-      const auto &detection = observation.detection;
-      JsonWriter json;
-      json.beginObject();
-      json.key("id").value(objectId);
-      json.key("translation").value(std::array{detection.x, detection.y, detection.z});
-      json.key("size").value(std::array{detection.length, detection.width, detection.height});
-      if (orientation::hasOrientation(detection))
-      {
-        json.key("rotation").value(yawQuaternion(detection.yaw));
-      }
-      json.endObject();
-      mDetections[{toMicroseconds(observation.t), std::string(sensorId)}].push_back({objectId, json.str()});
-    }
-    mDirty = mDirty || enabled();
-    return observations;
-  }
-
-  void filterStep(const FilterRun &run) override
+  void filterStep(const FilterRun &run, const std::optional<Observation> &observation) override
   {
     if (!enabled())
     {
       return;
+    }
+    if (observation)
+    {
+      recordDetection(*observation, run.trackId());
     }
     const auto &estimator = run.estimator;
     const auto time
@@ -428,6 +405,22 @@ private:
     int objectId;
     std::string json;
   };
+
+  void recordDetection(const Observation &observation, int objectId)
+  {
+    const auto &detection = observation.detection;
+    JsonWriter json;
+    json.beginObject();
+    json.key("id").value(objectId);
+    json.key("translation").value(std::array{detection.x, detection.y, detection.z});
+    json.key("size").value(std::array{detection.length, detection.width, detection.height});
+    if (orientation::hasOrientation(detection))
+    {
+      json.key("rotation").value(yawQuaternion(detection.yaw));
+    }
+    json.endObject();
+    mDetections[{toMicroseconds(observation.t), observation.sensorId}].push_back({objectId, json.str()});
+  }
 
   static std::filesystem::path rootFromEnvironment()
   {

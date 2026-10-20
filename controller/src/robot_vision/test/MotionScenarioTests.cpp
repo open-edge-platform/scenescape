@@ -43,13 +43,15 @@ TEST(ScenarioSupportTest, ObserveReportsTruthWithSensorNoise)
 
   Sensor camera;
   const auto exact = observe(truth, camera);
+  EXPECT_EQ(exact.back().sensorId, "camera");
   EXPECT_DOUBLE_EQ(exact.back().detection.x, truth.back().x);
   EXPECT_DOUBLE_EQ(exact.back().detection.height, kCar.height);
   EXPECT_DOUBLE_EQ(exact.back().detection.yaw, 0.0);
   EXPECT_FALSE(rv::tracking::orientation::hasOrientation(exact.back().detection));
 
-  Sensor lidar{.positionNoise = 0.1, .sizeNoise = 0.05, .yawNoise = 0.02, .orienting = true};
+  Sensor lidar{.id = "lidar", .positionNoise = 0.1, .sizeNoise = 0.05, .yawNoise = 0.02, .orienting = true};
   const auto noisy = observe(truth, lidar);
+  EXPECT_EQ(noisy.back().sensorId, "lidar");
   double xSquares = 0.0;
   double heightSquares = 0.0;
   double yawSquares = 0.0;
@@ -117,7 +119,7 @@ TEST(MotionScenarioTest, TracksMotionCases)
     ScenarioRecorder recorder(motion.name);
     recorder.truth(truth);
     FilterRun run(productionConfig(), &recorder);
-    const auto states = run.feed(recorder.detections(observe(truth, camera), "camera"));
+    const auto states = run.feed(observe(truth, camera));
 
     double maxPositionError = 0.0;
     for (size_t i = 0; i < truth.size(); ++i)
@@ -156,7 +158,7 @@ TEST(MotionScenarioTest, ConstantVelocityConvergence)
     ScenarioRecorder recorder(name);
     recorder.truth(truth);
     FilterRun run(config, &recorder);
-    run.feed(recorder.detections(observe(truth, camera), "camera"));
+    run.feed(observe(truth, camera));
 
     EXPECT_NEAR(run.state().vx, 2.0, kTolerance);
     EXPECT_NEAR(run.state().vy, 1.0, kTolerance);
@@ -171,7 +173,7 @@ TEST(MotionScenarioTest, TargetBornMovingAcquiresSpeed)
   ScenarioRecorder recorder;
   recorder.truth(truth);
   FilterRun run(productionConfig(), &recorder);
-  run.feed(recorder.detections(observe(truth, camera), "camera"));
+  run.feed(observe(truth, camera));
 
   EXPECT_GE(std::hypot(run.state().vx, run.state().vy), 4.5);
 }

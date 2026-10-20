@@ -35,8 +35,8 @@ cmake --build build -j
 RV_SCENARIO_DIR=/tmp/rv-scenarios ./build/test/RobotVisionTests --gtest_filter='MotionScenarioTest.*'
 ```
 
-Each run writes `$RV_SCENARIO_DIR/<Suite>.<Test>/[<case>/]` and overwrites earlier files. To record another test, wrap
-its truth, detections and filter run:
+Each run writes `$RV_SCENARIO_DIR/<Suite>.<Test>/[<case>/]` and overwrites earlier files. To record another test, give
+the recorder the truth and pass it to the filter run, which records every detection it is fed and every estimate:
 
 ```cpp
 #include "support/ScenarioRecorder.hpp"
@@ -44,11 +44,12 @@ its truth, detections and filter run:
 ScenarioRecorder recorder("turn");   // case name, optional; no-op unless RV_SCENARIO_DIR is set
 recorder.truth(truth);               // object id 1; category from the truth Box (kCar, kPerson)
 FilterRun run(productionConfig(), &recorder);
-run.feed(recorder.detections(observe(truth, camera), "camera"));
+run.feed(observe(truth, camera));    // detections are recorded under the Sensor id, "camera" by default
 run.coast(1.0);                      // coasts are recorded too
 ```
 
-For several objects, pass the object id to `truth()` and `detections()`, and the track id to `FilterRun`.
+Name other sensors with `Sensor{.id = "lidar", ...}`. For several objects, pass the same id to `truth()` and as the
+`FilterRun` track id.
 
 ### 2. Plot
 
