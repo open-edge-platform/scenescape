@@ -1051,30 +1051,6 @@ paths:
         "400":
           description: "Invalid input"
 
-  /save-geospatial-snapshot:
-    post:
-      tags:
-        - "system"
-      summary: "Save a geospatial map snapshot"
-      security:
-        - tokenAuth: []
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              required:
-                - image_data
-              properties:
-                image_data:
-                  type: string
-      responses:
-        "200":
-          description: "Snapshot saved"
-        "400":
-          description: "Missing image data"
-
 components:
   securitySchemes:
     tokenAuth:
