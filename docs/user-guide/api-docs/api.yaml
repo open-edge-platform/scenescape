@@ -1618,12 +1618,13 @@ paths:
                       - deny
         "401":
           description: Unauthorized
-  /import-scene:
+  /import-scene/:
     post:
       tags:
         - scene
       operationId: import_scene_create
       summary: Import a scene from a ZIP archive
+      description: Call this path with the trailing slash. A POST without the slash is not this operation.
       requestBody:
         content:
           multipart/form-data:
@@ -1649,41 +1650,6 @@ paths:
           description: Method not allowed
         "500":
           description: Internal server error
-  /save-geospatial-snapshot:
-    post:
-      tags:
-        - scene
-      operationId: save_geospatial_snapshot_create
-      summary: Save a geospatial map snapshot as PNG
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                image_data:
-                  type: string
-                  description: Base64-encoded PNG image (data URL or raw base64)
-              required:
-                - image_data
-        required: true
-      security:
-        - tokenAuth: []
-      responses:
-        "200":
-          description: Snapshot saved successfully
-          content:
-            text/html:
-              schema:
-                type: string
-        "400":
-          description: Missing or invalid image data
-        "405":
-          description: Method not allowed
-        "500":
-          description: Internal server error
-        "401":
-          description: Unauthorized
 components:
   schemas:
     AccessEnum:
