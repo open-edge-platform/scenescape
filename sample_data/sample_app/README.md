@@ -6,13 +6,16 @@ This is a Node-RED based sample application that runs on top of the Scenescape p
 
 ## Usage
 
-Start the Application
+To start the Application
 
 ```bash
 make up
 ```
 
-Stop the Application
+Node-RED application will be available at `http://<HOST-IP>:1880`
+Scenescape Dashboard will be available at `http://<HOST-IP>:1880/dashboard`
+
+To stop the Application
 
 ```bash
 make down
