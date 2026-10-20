@@ -50,8 +50,7 @@ bool finiteMatrix(const cv::Matx44d& matrix) {
                        [](double value) { return std::isfinite(value); });
 }
 
-std::optional<std::array<double, 4>> normalizeQuaternion(
-    const std::array<double, 4>& quaternion) {
+std::optional<std::array<double, 4>> normalizeQuaternion(const std::array<double, 4>& quaternion) {
     if (!std::all_of(quaternion.begin(), quaternion.end(),
                      [](double value) { return std::isfinite(value); })) {
         return std::nullopt;
@@ -61,8 +60,8 @@ std::optional<std::array<double, 4>> normalizeQuaternion(
     if (norm <= kMatrixEpsilon) {
         return std::nullopt;
     }
-    return std::array<double, 4>{quaternion[0] / norm, quaternion[1] / norm,
-                                 quaternion[2] / norm, quaternion[3] / norm};
+    return std::array<double, 4>{quaternion[0] / norm, quaternion[1] / norm, quaternion[2] / norm,
+                                 quaternion[3] / norm};
 }
 
 std::optional<cv::Matx33d> quaternionToRotation(const std::array<double, 4>& quaternion) {
@@ -107,9 +106,9 @@ std::array<double, 3> transformExternalPoint(const cv::Matx44d& source_to_scene,
     return {transformed[0], transformed[1], transformed[2]};
 }
 
-std::optional<std::array<double, 4>> composeExternalRotations(
-    const std::array<double, 4>& source_rotation,
-    const std::array<double, 4>& object_rotation) {
+std::optional<std::array<double, 4>>
+composeExternalRotations(const std::array<double, 4>& source_rotation,
+                         const std::array<double, 4>& object_rotation) {
     const auto source = normalizeQuaternion(source_rotation);
     const auto object = normalizeQuaternion(object_rotation);
     if (!source.has_value() || !object.has_value()) {
@@ -124,10 +123,9 @@ std::optional<std::array<double, 4>> composeExternalRotations(
     const double oy = (*object)[1];
     const double oz = (*object)[2];
     const double ow = (*object)[3];
-    return normalizeQuaternion({sw * ox + sx * ow + sy * oz - sz * oy,
-                                sw * oy - sx * oz + sy * ow + sz * ox,
-                                sw * oz + sx * oy - sy * ox + sz * ow,
-                                sw * ow - sx * ox - sy * oy - sz * oz});
+    return normalizeQuaternion(
+        {sw * ox + sx * ow + sy * oz - sz * oy, sw * oy - sx * oz + sy * ow + sz * ox,
+         sw * oz + sx * oy - sy * ox + sz * ow, sw * ow - sx * ox - sy * oy - sz * oz});
 }
 
 ExternalSourcePoseCache::ExternalSourcePoseCache(double ttl_seconds, size_t sweep_chunk_size,

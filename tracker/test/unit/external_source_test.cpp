@@ -41,14 +41,32 @@ TEST(ExternalSourcePoseCacheTest, ResolvesTrustedScenePoseAndTransformsPoint) {
 
 TEST(ExternalSourcePoseCacheTest, ComposesSourceAndObjectRotations) {
     const double half_sqrt = std::sqrt(0.5);
-    const auto rotation = composeExternalRotations(
-        {0.0, 0.0, half_sqrt, half_sqrt}, {0.0, 0.0, half_sqrt, half_sqrt});
+    const auto rotation = composeExternalRotations({0.0, 0.0, half_sqrt, half_sqrt},
+                                                   {0.0, 0.0, half_sqrt, half_sqrt});
 
     ASSERT_TRUE(rotation.has_value());
     EXPECT_NEAR((*rotation)[0], 0.0, 1e-12);
     EXPECT_NEAR((*rotation)[1], 0.0, 1e-12);
     EXPECT_NEAR((*rotation)[2], 1.0, 1e-12);
     EXPECT_NEAR((*rotation)[3], 0.0, 1e-12);
+}
+
+TEST(ExternalSourcePoseCacheTest, CachedResolutionKeepsSourceRotation) {
+    const double half_sqrt = std::sqrt(0.5);
+    ExternalSourcePoseCache cache;
+    auto pose = makeScenePose();
+    pose.rotation = {0.0, 0.0, half_sqrt, half_sqrt};
+    ASSERT_TRUE(cache.resolve(makeScene(), "agent-1", pose, kNow, true).source_to_scene);
+
+    const auto cached = cache.resolve(makeScene(), "agent-1", std::nullopt, kNow + 1s, true);
+
+    ASSERT_TRUE(cached.source_to_scene.has_value());
+    EXPECT_NEAR(cached.source_rotation[2], half_sqrt, 1e-12);
+    EXPECT_NEAR(cached.source_rotation[3], half_sqrt, 1e-12);
+}
+
+TEST(ExternalSourcePoseCacheTest, RejectsZeroNormObjectRotation) {
+    EXPECT_FALSE(composeExternalRotations({0.0, 0.0, 0.0, 1.0}, {0.0, 0.0, 0.0, 0.0}));
 }
 
 TEST(ExternalSourcePoseCacheTest, RejectsUntrustedScenePose) {

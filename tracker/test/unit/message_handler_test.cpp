@@ -8,8 +8,8 @@
 #include "logger.hpp"
 #include "message_handler.hpp"
 #include "mqtt_client.hpp"
-#include "scene_registry.hpp"
 #include "scene_geospatial.hpp"
+#include "scene_registry.hpp"
 #include "time_chunk_buffer.hpp"
 #include "utils/json_schema_validator.hpp"
 
@@ -176,11 +176,11 @@ TEST_F(MessageHandlerTest, ExternalScenePoseTransformsAndBuffersAuthoritativeDet
     const std::string payload = R"({
       "timestamp": "2026-01-27T12:00:00.000Z",
       "source_id": "agent-1",
-            "pose": {"reference_frame": "scene", "translation": [10, 20, 0],
-                             "rotation": [0, 0, 0.7071067811865476, 0.7071067811865476]},
+      "pose": {"reference_frame": "scene", "translation": [10, 20, 0],
+               "rotation": [0, 0, 0.7071067811865476, 0.7071067811865476]},
       "objects": [{
-                "id": "tag-7", "category": "person", "translation": [1, 2, 3],
-                "rotation": [0, 0, 0.7071067811865476, 0.7071067811865476]
+        "id": "tag-7", "category": "person", "translation": [1, 2, 3],
+        "rotation": [0, 0, 0.7071067811865476, 0.7071067811865476]
       }]
     })";
 
@@ -193,7 +193,9 @@ TEST_F(MessageHandlerTest, ExternalScenePoseTransformsAndBuffersAuthoritativeDet
     EXPECT_EQ(batch.source, DetectionBatch::Source::External);
     ASSERT_EQ(batch.external_detections.size(), 1);
     EXPECT_EQ(batch.external_detections[0].id, "tag-7");
-    EXPECT_EQ(batch.external_detections[0].translation, (std::array<double, 3>{8.0, 21.0, 3.0}));
+    EXPECT_NEAR(batch.external_detections[0].translation[0], 8.0, 1e-12);
+    EXPECT_NEAR(batch.external_detections[0].translation[1], 21.0, 1e-12);
+    EXPECT_NEAR(batch.external_detections[0].translation[2], 3.0, 1e-12);
     EXPECT_NEAR(batch.external_detections[0].rotation[0], 0.0, 1e-12);
     EXPECT_NEAR(batch.external_detections[0].rotation[1], 0.0, 1e-12);
     EXPECT_NEAR(batch.external_detections[0].rotation[2], 1.0, 1e-12);
@@ -209,14 +211,12 @@ TEST_F(MessageHandlerTest, ExternalWgs84PoseRotationIsComposedWithObjectRotation
     scene.trs_matrix = std::array<std::array<double, 4>, 4>{
         std::array<double, 4>{1.0, 0.0, 0.0, ecef[0]},
         std::array<double, 4>{0.0, 1.0, 0.0, ecef[1]},
-        std::array<double, 4>{0.0, 0.0, 1.0, ecef[2]},
-        std::array<double, 4>{0.0, 0.0, 0.0, 1.0}};
+        std::array<double, 4>{0.0, 0.0, 1.0, ecef[2]}, std::array<double, 4>{0.0, 0.0, 0.0, 1.0}};
     SceneRegistry registry;
     registry.register_scenes({scene});
     const auto message_time = *parseTimestamp("2026-01-27T12:00:00.000Z");
-    MessageHandler handler(
-        mock_client_, registry, test_buffer_, test_config_, false, TRACKER_SCHEMA_DIR,
-        [message_time] { return message_time; });
+    MessageHandler handler(mock_client_, registry, test_buffer_, test_config_, false,
+                           TRACKER_SCHEMA_DIR, [message_time] { return message_time; });
     handler.start();
 
     const std::string payload = R"({
@@ -238,6 +238,73 @@ TEST_F(MessageHandlerTest, ExternalWgs84PoseRotationIsComposedWithObjectRotation
     EXPECT_NEAR(detections[0].rotation[1], 0.0, 1e-12);
     EXPECT_NEAR(detections[0].rotation[2], 0.7071067811865476, 1e-12);
     EXPECT_NEAR(detections[0].rotation[3], 0.7071067811865476, 1e-12);
+}
+
+TEST_F(MessageHandlerTest, ExternalCachedPoseRotationIsComposedWithObjectRotation) {
+    ExternalSourcesConfig external_config;
+    external_config.bindings["agent-1"] = {TEST_SCENE_ID};
+    external_config.trusted_positioning_sources.insert("agent-1");
+    const auto message_time = *parseTimestamp("2026-01-27T12:00:00.000Z");
+    MessageHandler handler(
+        mock_client_, test_registry_, test_buffer_, test_config_, false, TRACKER_SCHEMA_DIR,
+        [message_time] { return message_time; }, external_config);
+    handler.start();
+
+    mock_client_->simulateMessage("scenescape/external/agent-1/person", R"({
+      "timestamp": "2026-01-27T12:00:00.000Z",
+      "source_id": "agent-1",
+      "pose": {"reference_frame": "scene", "translation": [10, 20, 0],
+               "rotation": [0, 0, 0.7071067811865476, 0.7071067811865476]},
+      "objects": []
+    })");
+    test_buffer_.pop_all();
+    mock_client_->simulateMessage("scenescape/external/agent-1/person", R"({
+      "timestamp": "2026-01-27T12:00:00.000Z",
+      "source_id": "agent-1",
+      "objects": [{"id": "tag-7", "category": "person", "translation": [1, 2, 3],
+                   "rotation": [0, 0, 0.7071067811865476, 0.7071067811865476]}]
+    })");
+
+    const auto buffered = test_buffer_.pop_all();
+    const TrackingScope scope{TEST_SCENE_ID, "person"};
+    ASSERT_TRUE(buffered.contains(scope));
+    const auto& detections = buffered.at(scope).at("agent-1").external_detections;
+    ASSERT_EQ(detections.size(), 1);
+    EXPECT_NEAR(detections[0].translation[0], 8.0, 1e-12);
+    EXPECT_NEAR(detections[0].translation[1], 21.0, 1e-12);
+    EXPECT_NEAR(detections[0].rotation[0], 0.0, 1e-12);
+    EXPECT_NEAR(detections[0].rotation[1], 0.0, 1e-12);
+    EXPECT_NEAR(detections[0].rotation[2], 1.0, 1e-12);
+    EXPECT_NEAR(detections[0].rotation[3], 0.0, 1e-12);
+}
+
+TEST_F(MessageHandlerTest, ExternalObjectWithZeroNormRotationIsRejected) {
+    ExternalSourcesConfig external_config;
+    external_config.bindings["agent-1"] = {TEST_SCENE_ID};
+    external_config.trusted_positioning_sources.insert("agent-1");
+    const auto message_time = *parseTimestamp("2026-01-27T12:00:00.000Z");
+    MessageHandler handler(
+        mock_client_, test_registry_, test_buffer_, test_config_, false, TRACKER_SCHEMA_DIR,
+        [message_time] { return message_time; }, external_config);
+    handler.start();
+
+    mock_client_->simulateMessage("scenescape/external/agent-1/person", R"({
+      "timestamp": "2026-01-27T12:00:00.000Z",
+      "source_id": "agent-1",
+      "pose": {"reference_frame": "scene", "translation": [0, 0, 0]},
+      "objects": [
+        {"id": "tag-bad", "category": "person", "translation": [1, 2, 3],
+         "rotation": [0, 0, 0, 0]},
+        {"id": "tag-good", "category": "person", "translation": [1, 2, 3]}
+      ]
+    })");
+
+    const auto buffered = test_buffer_.pop_all();
+    const TrackingScope scope{TEST_SCENE_ID, "person"};
+    ASSERT_TRUE(buffered.contains(scope));
+    const auto& detections = buffered.at(scope).at("agent-1").external_detections;
+    ASSERT_EQ(detections.size(), 1);
+    EXPECT_EQ(detections[0].id, "tag-good");
 }
 
 TEST_F(MessageHandlerTest, ExternalTopicAcceptsMacStylePublisherId) {

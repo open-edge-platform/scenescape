@@ -39,9 +39,9 @@ struct PoseResolution {
 
 std::array<double, 3> transformExternalPoint(const cv::Matx44d& source_to_scene,
                                              const std::array<double, 3>& point);
-std::optional<std::array<double, 4>> composeExternalRotations(
-    const std::array<double, 4>& source_rotation,
-    const std::array<double, 4>& object_rotation);
+std::optional<std::array<double, 4>>
+composeExternalRotations(const std::array<double, 4>& source_rotation,
+                         const std::array<double, 4>& object_rotation);
 
 class ExternalSourcePoseCache {
 public:

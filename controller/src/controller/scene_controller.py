@@ -715,6 +715,9 @@ class SceneController:
     if not accepted:
       return True
 
+    translation_objects = self._rotateExternalTranslationObjects(
+      translation_objects, camera_pose, source_id, scene.uid)
+
     source_track = jdata.get('track')
     tracked_id_counts = self._countExternalObjectIds(objects)
     route_kwargs = {
@@ -759,6 +762,23 @@ class SceneController:
       else:
         translation_objects.append((index, obj))
     return pixel_objects, translation_objects
+
+  @staticmethod
+  def _rotateExternalTranslationObjects(indexed_objects, camera_pose, source_id, scene_uid):
+    """Compose the source pose rotation into each object's orientation."""
+    source_rotation = Rotation.from_quat(camera_pose.quaternion_rotation)
+    rotated_objects = []
+    for index, obj in indexed_objects:
+      try:
+        object_rotation = Rotation.from_quat(obj.get('rotation', [0.0, 0.0, 0.0, 1.0]))
+      except ValueError:
+        log.warning(f"Rejecting external object id={obj.get('id')} source={source_id} "
+                    f"scene={scene_uid}: invalid rotation")
+        continue
+      rotated_obj = dict(obj)
+      rotated_obj['rotation'] = (source_rotation * object_rotation).as_quat().tolist()
+      rotated_objects.append((index, rotated_obj))
+    return rotated_objects
 
   @staticmethod
   def _countExternalObjectIds(objects):
@@ -905,11 +925,6 @@ class SceneController:
     """
     if not routed_translation_objects:
       return False
-
-    source_rotation = Rotation.from_quat(camera_pose.quaternion_rotation)
-    for obj in routed_translation_objects:
-      object_rotation = Rotation.from_quat(obj.get('rotation', [0.0, 0.0, 0.0, 1.0]))
-      obj['rotation'] = (source_rotation * object_rotation).as_quat().tolist()
 
     routed_jdata = dict(jdata)
     routed_jdata['objects'] = routed_translation_objects
