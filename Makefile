@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid_service
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -221,7 +221,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid_service: build-common
+autocalibration controller manager analytics mapping cluster_analytics reid: build-common
 
 # Helper function to build images in parallel
 define parallel-build

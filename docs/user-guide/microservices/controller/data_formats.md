@@ -193,13 +193,15 @@ publishes over authenticated MQTT, see
 
 ### External Source Top-Level Fields
 
-| Field       | Type                  | Required | Description                                                                                                                                                                                                                                         |
-| ----------- | --------------------- | :------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `timestamp` | string (ISO 8601 UTC) |   Yes    | Time the observations (and pose, if present) were acquired                                                                                                                                                                                          |
-| `source_id` | string                |   Yes    | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                |
-| `objects`   | array                 |   Yes    | Observed objects, in the source's local coordinate frame (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update                                                                   |
-| `pose`      | object                |    No    | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` |
-| `track`     | boolean               |    No    | When present, applies to **all** `objects[*]` in the message. `false` bypasses Scenescape tracking and preserves source object ids; `true` (or lack of this attrtibute) routes all objects through the normal tracking path                         |
+| Field        | Type                  |  Required   | Description                                                                                                                                                                                                                                                                                |
+| ------------ | --------------------- | :---------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `timestamp`  | string (ISO 8601 UTC) |     Yes     | Time the observations (and pose, if present) were acquired                                                                                                                                                                                                                                 |
+| `source_id`  | string                |     Yes     | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                                                       |
+| `objects`    | array                 |     Yes     | Observed objects, in the source's local coordinate frame, or camera-style pixel detections when `bounding_box_px` is used (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update                                         |
+| `pose`       | object                | Conditional | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` (Cartesian and pixel detections alike) |
+| `intrinsics` | object                | Conditional | Camera intrinsics used to localize `bounding_box_px` detections with the same algorithm as camera-ingest payloads; may be omitted to reuse the most recently cached, non-expired intrinsics for this `source_id` (same cache entry and TTL as pose)                                        |
+| `distortion` | object                |     No      | Optional distortion coefficients paired with `intrinsics` for external pixel detections; cached with intrinsics when provided                                                                                                                                                              |
+| `track`      | boolean               |     No      | When present, applies to **all** `objects[*]` in the message. `false` bypasses Scenescape tracking and preserves source object ids; `true` (or lack of this attrtibute) routes all objects through the normal tracking path                                                                |
 
 ### External Source Pose Fields (`pose`)
 
@@ -231,15 +233,16 @@ publishes over authenticated MQTT, see
 
 ### External Detection Object Fields (`objects[*]`)
 
-| Field         | Type               |  Required   | Description                                                                                                                                    |
-| ------------- | ------------------ | :---------: | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `category`    | string             |     Yes     | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                        |
-| `translation` | array[3] of number |     Yes     | Position of the object relative to the source's local origin (`x`, `y`, `z`)                                                                   |
-| `id`          | string             | Conditional | Required when the top-level source `track` value is `false`; optional when the top-level source `track` value is `true` or omitted             |
-| `rotation`    | array[4] of number |     No      | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                    |
-| `size`        | array[3] of number |     No      | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                           |
-| `confidence`  | number > 0         |     No      | Source-reported confidence for this observation                                                                                                |
-| `metadata`    | object             |     No      | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr)) |
+| Field             | Type               |  Required   | Description                                                                                                                                                                               |
+| ----------------- | ------------------ | :---------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `category`        | string             |     Yes     | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                                                                   |
+| `translation`     | array[3] of number | Conditional | Position of the object relative to the source's local origin (`x`, `y`, `z`); exactly one of `translation` or `bounding_box_px` is required                                               |
+| `id`              | string             | Conditional | Required when the top-level source `track` value is `false`; optional when the top-level source `track` value is `true` or omitted                                                        |
+| `rotation`        | array[4] of number |     No      | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                               |
+| `size`            | array[3] of number |     No      | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                      |
+| `confidence`      | number > 0         |     No      | Source-reported confidence for this observation                                                                                                                                           |
+| `bounding_box_px` | object             | Conditional | Pixel-space detection box from a camera-like external source using `x/y/width/height`; mutually exclusive with `translation`; localizes via the same pixel-detection path as camera input |
+| `metadata`        | object             |     No      | Semantic attribute bag; same structure as camera input (see [Semantic Metadata Fields](#semantic-metadata-fields-objectscategorymetadataattr))                                            |
 
 Unlike camera detections, `size` is optional here: a source that cannot estimate an object's
 extent may report a point observation. Point objects (no `size`) remain eligible for
@@ -252,20 +255,38 @@ published object `id` remains the source-provided `id`. When the value is `true`
 omitted, the object follows the normal Scenescape tracking path and the controller assigns the
 published object `id`, so the source message may omit `objects[*].id`.
 
+When an object includes `bounding_box_px`, it is treated as a camera-style pixel detection rather
+than as a source-local Cartesian observation. Do not send both `translation` and `bounding_box_px`
+on the same object. In that case:
+
+- A usable source `pose` and top-level `intrinsics` must be available from this message or from
+  the live `(scene_id, source_id)` cache entry. If either cannot be resolved, the message is
+  dropped and no objects from it are ingested.
+- Scenescape computes the object location with the same pixel-to-location algorithm used for camera
+  detections.
+- With `track=true` or when `track` is omitted, the localized detection enters normal Scenescape
+  tracking. With `track=false`, it bypasses tracking and keeps its source-provided `id`, just like
+  a source-local Cartesian observation.
+
 ### Pose Caching and Message Ordering
 
-A resolved pose is cached per `(scene_id, source_id)` for `30` seconds. Subsequent messages
-from the same source may omit `pose` entirely to reuse the cached transform; a message with a
-`pose` and an empty `objects` array updates the cache without ingesting any observations.
-Messages with a `timestamp` older than the currently cached pose are treated as out-of-order
-and ignored in favor of the newer cached transform. If no usable transform can be resolved
-(no pose supplied and nothing cached, or the cached pose has expired), the message is dropped
-without ingesting objects. Rejection reasons (logged, not published) include:
+A resolved pose is cached per `(scene_id, source_id)` for `30` seconds. Camera `intrinsics`
+(and optional `distortion`) for pixel detections are stored on the same cache entry and preserved
+across pose refreshes until replaced or the entry expires. Subsequent messages from the same
+source may omit `pose` and/or `intrinsics` to reuse the cached values; a message with a `pose`
+and an empty `objects` array updates the cache without ingesting any observations. Messages with
+a `timestamp` older than the currently cached pose are treated as out-of-order and ignored in
+favor of the newer cached transform. If no usable transform can be resolved (no pose supplied and
+nothing cached, or the cached pose has expired), the message is dropped without ingesting
+objects. Pixel detections equally require usable intrinsics (from the message or cache).
+Rejection reasons (logged, not published) include:
 
 | Reason                           | Cause                                                                                       |
 | -------------------------------- | ------------------------------------------------------------------------------------------- |
 | `no_pose_available`              | No `pose` supplied and no prior cached transform for this `(scene_id, source_id)`           |
 | `pose_expired`                   | No `pose` supplied and the cached transform is older than the cache TTL                     |
+| `no_intrinsics_available`        | Pixel detections present, no `intrinsics` supplied, and none cached on the live pose entry  |
+| `invalid_intrinsics`             | `intrinsics` failed construction                                                            |
 | `scene_georeference_unavailable` | `reference_frame: wgs84` but the target scene has no valid geospatial calibration           |
 | `untrusted_scene_pose`           | `reference_frame: scene` from a `source_id` not in `CONTROLLER_TRUSTED_POSITIONING_SOURCES` |
 | `unsupported_reference_frame`    | `reference_frame` is not `wgs84` or `scene`                                                 |

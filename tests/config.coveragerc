@@ -7,7 +7,7 @@
 [run]
 source =
     analytics/src/analytics
-    reid_service/src/reid_service
+    reid/src/reid
     cluster_analytics/src
 omit =
     */.venv/*
@@ -15,7 +15,7 @@ omit =
     */opt/intel/*
     */tests/*
 # below are the units with main functions of services - no point to cover
-    reid_service/src/reid_service/server.py
+    reid/src/reid/server.py
     cluster_analytics/src/cluster_analytics.py
 
 [report]
