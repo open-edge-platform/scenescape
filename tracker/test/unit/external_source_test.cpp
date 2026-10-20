@@ -141,16 +141,16 @@ TEST(ExternalSourcePoseCacheTest, OutOfOrderPoseDoesNotReplaceNewerPose) {
     EXPECT_DOUBLE_EQ(origin[0], 10.0);
 }
 
-TEST(ExternalSourcePoseCacheTest, SweepsOnlyConfiguredChunk) {
-    ExternalSourcePoseCache cache(1.0, 1);
-    ASSERT_TRUE(cache.resolve(makeScene("scene-1"), "agent-1", makeScenePose(), kNow, true)
-                    .source_to_scene.has_value());
-    ASSERT_TRUE(cache.resolve(makeScene("scene-2"), "agent-1", makeScenePose(), kNow, true)
-                    .source_to_scene.has_value());
+TEST(ExternalSourcePoseCacheTest, SweepsSnapshotInConfiguredChunks) {
+    ExternalSourcePoseCache cache(1.0, 2);
+    for (int index = 0; index < 5; ++index) {
+        ASSERT_TRUE(cache.resolve(makeScene("scene-" + std::to_string(index)), "agent-1",
+                                  makeScenePose(), kNow - 5s, true)
+                        .source_to_scene.has_value());
+    }
 
-    EXPECT_EQ(cache.sweepExpired(kNow + 2s), 1);
-    EXPECT_EQ(cache.scenesWithLiveCache("agent-1", kNow + 2s).size(), 0);
-    EXPECT_EQ(cache.sweepExpired(kNow + 2s), 1);
+    EXPECT_EQ(cache.sweepExpired(kNow), 5);
+    EXPECT_EQ(cache.sweepExpired(kNow), 0);
 }
 
 TEST(ExternalSourcePoseCacheTest, SweepAdvancesPastLiveEntries) {
@@ -161,8 +161,8 @@ TEST(ExternalSourcePoseCacheTest, SweepAdvancesPastLiveEntries) {
         cache.resolve(makeScene("scene-expired"), "agent-1", makeScenePose(), kNow - 5s, true)
             .source_to_scene.has_value());
 
-    EXPECT_EQ(cache.sweepExpired(kNow), 0);
     EXPECT_EQ(cache.sweepExpired(kNow), 1);
+    EXPECT_EQ(cache.sweepExpired(kNow), 0);
 }
 
 TEST(IdentityClaimRegistryTest, RejectsDifferentSourceUntilClaimExpires) {
@@ -191,13 +191,26 @@ TEST(IdentityClaimRegistryTest, SameSourceOutOfOrderClaimDoesNotShortenLease) {
     EXPECT_FALSE(registry.claim("scene-1", "person", "agent-2", "tag-1", kNow + 31s).first);
 }
 
+TEST(IdentityClaimRegistryTest, SweepsSnapshotInConfiguredChunks) {
+    IdentityClaimRegistry registry(1.0, 2, 0.0);
+    for (int index = 0; index < 5; ++index) {
+        EXPECT_TRUE(registry
+                        .claim("scene-1", "person", "agent-1", "expired-" + std::to_string(index),
+                               kNow - 5s)
+                        .first);
+    }
+
+    EXPECT_EQ(registry.sweepExpired(kNow), 5);
+    EXPECT_EQ(registry.sweepExpired(kNow), 0);
+}
+
 TEST(IdentityClaimRegistryTest, SweepAdvancesPastLiveClaims) {
     IdentityClaimRegistry registry(1.0, 1, 0.0);
     EXPECT_TRUE(registry.claim("scene-1", "person", "agent-1", "live", kNow).first);
     EXPECT_TRUE(registry.claim("scene-1", "person", "agent-1", "expired", kNow - 5s).first);
 
-    EXPECT_EQ(registry.sweepExpired(kNow), 0);
     EXPECT_EQ(registry.sweepExpired(kNow), 1);
+    EXPECT_EQ(registry.sweepExpired(kNow), 0);
 }
 
 } // namespace

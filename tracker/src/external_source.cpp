@@ -7,6 +7,7 @@
 #include <cmath>
 #include <numbers>
 #include <stdexcept>
+#include <vector>
 
 #include <opencv2/calib3d.hpp>
 
@@ -265,18 +266,34 @@ ExternalSourcePoseCache::scenesWithLiveCache(const std::string& source_id,
 }
 
 size_t ExternalSourcePoseCache::sweepExpired(std::chrono::system_clock::time_point now) {
-    std::lock_guard lock(mutex_);
-    size_t evicted = 0;
-    const size_t entries_to_examine = std::min(sweep_chunk_size_, cache_entries_.size());
-    for (size_t examined = 0; examined < entries_to_examine; ++examined) {
-        auto entry = cache_entries_.begin();
-        if (now > entry->second.expires_at + sweep_grace_) {
-            cache_index_.erase(entry->first);
-            cache_entries_.erase(entry);
-            ++evicted;
-        } else {
-            cache_entries_.splice(cache_entries_.end(), cache_entries_, entry);
+    std::vector<Key> snapshot;
+    {
+        std::lock_guard lock(mutex_);
+        snapshot.reserve(cache_entries_.size());
+        for (const auto& entry : cache_entries_) {
+            snapshot.push_back(entry.first);
         }
+    }
+
+    size_t evicted = 0;
+    for (size_t begin = 0; begin < snapshot.size();) {
+        const size_t end = begin + std::min(sweep_chunk_size_, snapshot.size() - begin);
+        {
+            std::lock_guard lock(mutex_);
+            for (size_t index = begin; index < end; ++index) {
+                const auto indexed = cache_index_.find(snapshot[index]);
+                if (indexed == cache_index_.end()) {
+                    continue;
+                }
+                const auto entry = indexed->second;
+                if (now > entry->second.expires_at + sweep_grace_) {
+                    cache_index_.erase(indexed);
+                    cache_entries_.erase(entry);
+                    ++evicted;
+                }
+            }
+        }
+        begin = end;
     }
     return evicted;
 }
@@ -333,18 +350,34 @@ IdentityClaimRegistry::claim(const std::string& scene_id, const std::string& cat
 }
 
 size_t IdentityClaimRegistry::sweepExpired(std::chrono::system_clock::time_point now) {
-    std::lock_guard lock(mutex_);
-    size_t evicted = 0;
-    const size_t entries_to_examine = std::min(sweep_chunk_size_, claim_entries_.size());
-    for (size_t examined = 0; examined < entries_to_examine; ++examined) {
-        auto entry = claim_entries_.begin();
-        if (now > entry->second.expires_at + sweep_grace_) {
-            claim_index_.erase(entry->first);
-            claim_entries_.erase(entry);
-            ++evicted;
-        } else {
-            claim_entries_.splice(claim_entries_.end(), claim_entries_, entry);
+    std::vector<Key> snapshot;
+    {
+        std::lock_guard lock(mutex_);
+        snapshot.reserve(claim_entries_.size());
+        for (const auto& entry : claim_entries_) {
+            snapshot.push_back(entry.first);
         }
+    }
+
+    size_t evicted = 0;
+    for (size_t begin = 0; begin < snapshot.size();) {
+        const size_t end = begin + std::min(sweep_chunk_size_, snapshot.size() - begin);
+        {
+            std::lock_guard lock(mutex_);
+            for (size_t index = begin; index < end; ++index) {
+                const auto indexed = claim_index_.find(snapshot[index]);
+                if (indexed == claim_index_.end()) {
+                    continue;
+                }
+                const auto entry = indexed->second;
+                if (now > entry->second.expires_at + sweep_grace_) {
+                    claim_index_.erase(indexed);
+                    claim_entries_.erase(entry);
+                    ++evicted;
+                }
+            }
+        }
+        begin = end;
     }
     return evicted;
 }
