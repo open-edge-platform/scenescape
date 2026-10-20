@@ -231,7 +231,8 @@ def test_validateExternalSourceMessage_rejectsBothTranslationAndBoundingBoxPx(sc
   assert result == False
   return
 
-def test_validateExternalSourceMessage_pixelDetectionRequiresIntrinsics(schemaObject):
+def test_validateExternalSourceMessage_pixelDetectionMayOmitIntrinsicsForCacheReuse(schemaObject):
+  """Schema allows omitting intrinsics; runtime reuses the live pose-cache entry."""
   jdata = {
     "timestamp": "1970-01-01T00:00:00.000Z",
     "source_id": "drone-1",
@@ -253,10 +254,11 @@ def test_validateExternalSourceMessage_pixelDetectionRequiresIntrinsics(schemaOb
   }
 
   result = schemaObject.validateMessage("external_source", jdata, True)
-  assert result == False
+  assert result == True
   return
 
-def test_validateExternalSourceMessage_pixelDetectionRequiresPose(schemaObject):
+def test_validateExternalSourceMessage_pixelDetectionMayOmitPoseForCacheReuse(schemaObject):
+  """Schema allows omitting pose; runtime reuses the live pose-cache entry."""
   jdata = {
     "timestamp": "1970-01-01T00:00:00.000Z",
     "source_id": "drone-1",
@@ -280,7 +282,7 @@ def test_validateExternalSourceMessage_pixelDetectionRequiresPose(schemaObject):
   }
 
   result = schemaObject.validateMessage("external_source", jdata, True)
-  assert result == False
+  assert result == True
   return
 
 def test_validateExternalSourceMessage_pixelDetectionRejectsTopLeftShape(schemaObject):

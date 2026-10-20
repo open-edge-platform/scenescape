@@ -383,7 +383,7 @@
         },
         "bounding_box_px": {
           "$ref": "#/definitions/bounding_box_px",
-          "description": "Pixel-space bounding box from a camera-like external source. Mutually exclusive with translation: when this field is used, omit translation and localize from pixels using the message pose and intrinsics."
+          "description": "Pixel-space bounding box from a camera-like external source. Mutually exclusive with translation: when this field is used, omit translation and localize from pixels using the source pose and camera intrinsics (from this message or the live pose-cache entry)."
         }
       },
       "required": ["category"],
@@ -481,11 +481,11 @@
         },
         "intrinsics": {
           "$ref": "#/definitions/camera_intrinsics",
-          "description": "Camera intrinsics for external objects localized from bounding_box_px."
+          "description": "Camera intrinsics for external objects localized from bounding_box_px. May be omitted to reuse the most recently cached, non-expired intrinsics for this source_id (same cache entry and TTL as pose)."
         },
         "distortion": {
           "$ref": "#/definitions/camera_distortion",
-          "description": "Optional camera distortion coefficients paired with intrinsics for external pixel detections."
+          "description": "Optional camera distortion coefficients paired with intrinsics for external pixel detections; cached with intrinsics when provided."
         },
         "objects": {
           "title": "Observed Objects",
@@ -503,20 +503,6 @@
       },
       "required": ["timestamp", "source_id", "objects"],
       "allOf": [
-        {
-          "if": {
-            "properties": {
-              "objects": {
-                "contains": {
-                  "required": ["bounding_box_px"]
-                }
-              }
-            }
-          },
-          "then": {
-            "required": ["pose", "intrinsics"]
-          }
-        },
         {
           "if": {
             "required": ["track"],

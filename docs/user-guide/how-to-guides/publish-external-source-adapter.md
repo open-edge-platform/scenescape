@@ -80,12 +80,13 @@ fields and examples; do not invent alternate shapes.
    - **Cartesian**: `translation` in the **source's local frame** (metres
      relative to the source origin described by `pose`).
    - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
-     `translation`. Include top-level `pose` and `intrinsics` on that same
-     message (pose-cache reuse alone is not enough for pixel detections).
-     Do not put both `translation` and `bounding_box_px` on one object. Include
-     `id` whenever the top-level source `track` value is `false`; when `track`
-     is `true` or omitted, `id` is optional. Optional `size`, `rotation`,
-     `confidence`, and `metadata` follow the same contract. See
+     `translation`. Provide top-level `pose` and `intrinsics` at least once so
+     they can be cached; later pixel messages may omit either field and reuse
+     the live cache entry (same TTL as Cartesian pose reuse). Do not put both
+     `translation` and `bounding_box_px` on one object. Include `id` whenever
+     the top-level source `track` value is `false`; when `track` is `true` or
+     omitted, `id` is optional. Optional `size`, `rotation`, `confidence`, and
+     `metadata` follow the same contract. See
      [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
 
 5. **Choose whether the source message should be tracked by Scenescape**. The
@@ -98,21 +99,22 @@ fields and examples; do not invent alternate shapes.
 6. **Resolve coordinate conventions in the converter**, not in the controller:
    - Quaternions are `(x, y, z, w)`.
    - Object `translation` is metres relative to the source local origin.
-   - Pixel boxes use camera pixel coordinates with message-level `intrinsics`
-     (and optional `distortion`).
+   - Pixel boxes use camera pixel coordinates with `intrinsics` (and optional
+     `distortion`) from the message or the live pose-cache entry.
    - Pose places that origin in either WGS84 (`lat_long_alt`) or scene-local
      (`translation`), matching `reference_frame`.
 
-## Pose Reuse
+## Pose and Intrinsics Reuse
 
 After a successful pose is cached for `(bound_scene_uid, source_id)`, later
-Cartesian messages may omit `pose` and reuse the cached transform. Pixel
-detections still require `pose` (and `intrinsics`) on the same message. A
-message with `pose` and an empty `objects` array refreshes the cache without
-ingesting observations.
+messages may omit `pose` and reuse the cached transform. Camera `intrinsics`
+(and optional `distortion`) for pixel detections are stored on the same cache
+entry, so later pixel messages may omit those fields too. A message with
+`pose` and an empty `objects` array refreshes the cache without ingesting
+observations.
 
-If no usable transform is available, or a pose fails trust/geo checks, the
-controller drops the message and logs a rejection reason. See
+If no usable transform or intrinsics are available, or a pose fails trust/geo
+checks, the controller drops the message and logs a rejection reason. See
 [Pose Caching and Message Ordering](../microservices/controller/data_formats.md#pose-caching-and-message-ordering).
 
 ## Minimal MQTT Publish Skeleton

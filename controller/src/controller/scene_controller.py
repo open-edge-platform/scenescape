@@ -11,7 +11,7 @@ import ntplib
 import orjson
 
 from scene_common.cache_manager import CacheManager
-from scene_common.transform import CameraIntrinsics, CameraPose
+from scene_common.transform import CameraPose
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
@@ -708,7 +708,7 @@ class SceneController:
       return True
 
     accepted, synthetic_intrinsics = self._externalPixelIntrinsics(
-      jdata, pixel_objects, source_id, scene.uid)
+      scene, source_id, jdata, pixel_objects, msg_when)
     if not accepted:
       return True
 
@@ -767,26 +767,32 @@ class SceneController:
         tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
     return tracked_id_counts
 
-  @staticmethod
-  def _externalPixelIntrinsics(jdata, pixel_objects, source_id, scene_uid):
-    """Validate pixel-path fields and build intrinsics.
+  def _externalPixelIntrinsics(self, scene, source_id, jdata, pixel_objects, msg_when):
+    """Resolve intrinsics for pixel detections, caching like pose reuse.
 
-    Returns ``(accepted, intrinsics)``. ``accepted`` is False when the whole
-    message must be discarded; ``intrinsics`` is None when there are no pixel
-    objects.
+    Returns ``(accepted, intrinsics)``. ``accepted`` is False when pixel
+    objects are present but neither the message nor the live pose-cache
+    entry provides usable intrinsics (reject the whole message rather than
+    partially ingesting co-packaged translation objects). ``intrinsics`` is
+    None when there are no pixel objects.
     """
     if not pixel_objects:
+      # Opportunistically refresh cached calibration for later pixel messages.
+      if 'intrinsics' in jdata:
+        self.external_source_pose_cache.resolveIntrinsics(
+          scene.uid, source_id, jdata.get('intrinsics'), jdata.get('distortion'),
+          msg_when)
       return True, None
-    # Match schema: pixel detections require pose and intrinsics on the same
-    # message. Reject the whole message rather than partially ingesting any
-    # co-packaged translation objects.
-    missing = [field for field in ('pose', 'intrinsics') if field not in jdata]
-    if missing:
+
+    intrinsics, reason = self.external_source_pose_cache.resolveIntrinsics(
+      scene.uid, source_id, jdata.get('intrinsics'), jdata.get('distortion'),
+      msg_when)
+    if intrinsics is None:
       log.warning(
-        f"Discarding external message with pixel detections missing "
-        f"{', '.join(missing)}: source={source_id} scene={scene_uid}")
+        f"Discarding external message with pixel detections: "
+        f"source={source_id} scene={scene.uid}: {reason}")
       return False, None
-    return True, CameraIntrinsics(jdata['intrinsics'], jdata.get('distortion'))
+    return True, intrinsics
 
   def _routeExternalObjects(self, indexed_objects, *, source_id, scene_uid,
                             detection_type, source_track, tracked_id_counts,
