@@ -100,6 +100,11 @@ void TimeChunkScheduler::run() {
 
         // Collect all buffered data
         BufferMap snapshot = buffer_.pop_all();
+        std::unordered_set<TrackingScope, TrackingScopeHash> buffered_scopes;
+        buffered_scopes.reserve(snapshot.size());
+        for (const auto& [scope, _] : snapshot) {
+            buffered_scopes.insert(scope);
+        }
 
         if (snapshot.empty()) {
             Metrics::inc_time_chunking_empty_chunks();
@@ -114,6 +119,30 @@ void TimeChunkScheduler::run() {
             }
             Metrics::inc_time_chunking_unique_cameras_n(unique_cameras.size());
             dispatch(std::move(snapshot));
+        }
+        dispatchExternalAgingChunks(buffered_scopes);
+    }
+}
+
+void TimeChunkScheduler::dispatchExternalAgingChunks(
+    const std::unordered_set<TrackingScope, TrackingScopeHash>& buffered_scopes) {
+    std::vector<std::pair<TrackingScope, TrackingWorker*>> workers_to_age;
+    {
+        std::lock_guard lock(workers_mutex_);
+        for (const auto& [scope, worker] : workers_) {
+            if (!buffered_scopes.contains(scope) && worker->has_external_tracks()) {
+                workers_to_age.emplace_back(scope, worker.get());
+            }
+        }
+    }
+
+    for (const auto& [scope, worker] : workers_to_age) {
+        Chunk chunk;
+        chunk.scene_id = scope.scene_id;
+        chunk.category = scope.category;
+        chunk.chunk_time = std::chrono::steady_clock::now();
+        if (worker->try_enqueue(std::move(chunk))) {
+            dispatched_count_.fetch_add(1);
         }
     }
 }

@@ -275,6 +275,33 @@ TEST_F(MessageHandlerTest, ExternalDetectionBuffersForSceneWithoutCameras) {
     ASSERT_EQ(buffered.at(scope).at("agent-1").external_detections.size(), 1);
 }
 
+TEST_F(MessageHandlerTest, EmptyExternalObjectListBuffersAgingBatch) {
+    Scene scene;
+    scene.uid = "external-only-scene";
+    scene.name = "External Only Scene";
+    SceneRegistry registry;
+    registry.register_scenes({scene});
+
+    ExternalSourcesConfig external_config;
+    external_config.bindings["agent-1"] = {scene.uid};
+    external_config.trusted_positioning_sources.insert("agent-1");
+    const auto message_time = *parseTimestamp("2026-01-27T12:00:00.000Z");
+    MessageHandler handler(
+        mock_client_, registry, test_buffer_, test_config_, false, TRACKER_SCHEMA_DIR,
+        [message_time] { return message_time; }, external_config);
+    handler.start();
+
+    mock_client_->simulateMessage(
+        "scenescape/external/agent-1/person",
+        R"({"timestamp":"2026-01-27T12:00:00.000Z","source_id":"agent-1","pose":{"reference_frame":"scene","translation":[0,0,0]},"objects":[]})");
+
+    const auto buffered = test_buffer_.pop_all();
+    const TrackingScope scope{scene.uid, "person"};
+    ASSERT_TRUE(buffered.contains(scope));
+    ASSERT_TRUE(buffered.at(scope).contains("agent-1"));
+    EXPECT_TRUE(buffered.at(scope).at("agent-1").external_detections.empty());
+}
+
 TEST_F(MessageHandlerTest, ExternalTopicSourceMismatchIsRejected) {
     ExternalSourcesConfig external_config;
     external_config.bindings["agent-1"] = {TEST_SCENE_ID};

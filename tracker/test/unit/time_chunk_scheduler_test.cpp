@@ -454,6 +454,51 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_AppliesRotationFromVelocityPerCategory) 
     }
     scheduler.stop();
 
+
+TEST_F(TimeChunkSchedulerTest, ExpiresExternalTracksWhilePublisherIsSilent) {
+    TimeChunkBuffer buffer;
+    SceneRegistry registry;
+    registerScenes(registry);
+    TrackingConfig config = createConfig(100, 10);
+    config.max_unreliable_time_s = 0.05;
+
+    std::mutex mutex;
+    std::condition_variable condition;
+    bool saw_track = false;
+    bool saw_expiration = false;
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mutex);
+        if (!tracks.empty()) {
+            saw_track = true;
+        } else if (saw_track) {
+            saw_expiration = true;
+        }
+        condition.notify_one();
+    };
+
+    TimeChunkScheduler scheduler(buffer, registry, config, callback);
+    const TrackingScope scope{"scene-1", "person"};
+    const auto timestamp = std::chrono::system_clock::now();
+    DetectionBatch batch;
+    batch.source = DetectionBatch::Source::External;
+    batch.camera_id = "agent-1";
+    batch.timestamp = timestamp;
+    batch.timestamp_iso = formatTimestamp(timestamp);
+    batch.external_detections.push_back(
+        ExternalDetection{.id = "tag-1", .translation = {1.0, 2.0, 3.0}});
+    buffer.add(scope, "agent-1", std::move(batch));
+
+    scheduler.start();
+    {
+        std::unique_lock lock(mutex);
+        EXPECT_TRUE(condition.wait_for(lock, std::chrono::seconds(2), [&] { return saw_expiration; }));
+    }
+    scheduler.stop();
+
+    EXPECT_TRUE(saw_track);
+    EXPECT_TRUE(saw_expiration);
+}
     for (const char* category : kCategories) {
         ASSERT_TRUE(last_tracks.contains(category)) << category;
         const auto& v = last_tracks.at(category).velocity;

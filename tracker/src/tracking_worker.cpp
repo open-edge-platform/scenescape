@@ -388,6 +388,7 @@ TrackingWorker::update_external_tracks(const Chunk& chunk,
             ++it;
         }
     }
+    has_external_tracks_.store(!external_tracks_.empty(), std::memory_order_release);
 
     std::vector<Track> tracks;
     tracks.reserve(external_tracks_.size());

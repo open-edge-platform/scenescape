@@ -493,7 +493,7 @@ void MessageHandler::handleExternalSourceMessage(const std::string& topic,
                 transformExternalPoint(*pose.source_to_scene, object.translation);
             batch.external_detections.push_back(std::move(transformed));
         }
-        if (batch.external_detections.empty()) {
+        if (batch.external_detections.empty() && !message->objects.empty()) {
             continue;
         }
 

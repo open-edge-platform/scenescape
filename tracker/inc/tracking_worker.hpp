@@ -114,6 +114,10 @@ public:
      */
     [[nodiscard]] size_t queue_depth() const;
 
+    [[nodiscard]] bool has_external_tracks() const {
+        return has_external_tracks_.load(std::memory_order_acquire);
+    }
+
     /**
      * @brief Get the scope this worker handles.
      */
@@ -204,6 +208,7 @@ private:
     };
     std::unordered_map<std::string, ExternalTrackState> external_tracks_;
     std::chrono::system_clock::duration external_track_max_age_;
+    std::atomic<bool> has_external_tracks_{false};
 
     std::thread worker_thread_;
     mutable std::mutex queue_mutex_;
