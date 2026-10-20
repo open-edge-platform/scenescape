@@ -12,6 +12,12 @@
 
 namespace tracker {
 
+namespace {
+
+constexpr rapidjson::SizeType kSpatialDimensionCount = 3;
+
+} // namespace
+
 TrackPublisher::TrackPublisher(std::shared_ptr<IMqttClient> mqtt_client)
     : mqtt_client_(std::move(mqtt_client)) {}
 
@@ -61,7 +67,7 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
 
         // Translation [x, y, z]
         Value translation(kArrayType);
-        translation.Reserve(3, allocator);
+        translation.Reserve(kSpatialDimensionCount, allocator);
         translation.PushBack(track.translation[0], allocator);
         translation.PushBack(track.translation[1], allocator);
         translation.PushBack(track.translation[2], allocator);
@@ -69,7 +75,7 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
 
         // Velocity [vx, vy, vz]
         Value velocity(kArrayType);
-        velocity.Reserve(3, allocator);
+        velocity.Reserve(kSpatialDimensionCount, allocator);
         velocity.PushBack(track.velocity[0], allocator);
         velocity.PushBack(track.velocity[1], allocator);
         velocity.PushBack(track.velocity[2], allocator);
@@ -78,7 +84,7 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
         // Size [length, width, height] is absent for point observations.
         if (track.size.has_value()) {
             Value size(kArrayType);
-            size.Reserve(3, allocator);
+            size.Reserve(kSpatialDimensionCount, allocator);
             size.PushBack((*track.size)[0], allocator);
             size.PushBack((*track.size)[1], allocator);
             size.PushBack((*track.size)[2], allocator);
