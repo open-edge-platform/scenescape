@@ -73,8 +73,7 @@ TEST(ExternalSourcePoseCacheTest, ResolvesWgs84WithReflectedSceneTrsMatrix) {
     scene.trs_matrix = std::array<std::array<double, 4>, 4>{
         std::array<double, 4>{-1.0, 0.0, 0.0, ecef[0]},
         std::array<double, 4>{0.0, 1.0, 0.0, ecef[1]},
-        std::array<double, 4>{0.0, 0.0, 1.0, ecef[2]},
-        std::array<double, 4>{0.0, 0.0, 0.0, 1.0}};
+        std::array<double, 4>{0.0, 0.0, 1.0, ecef[2]}, std::array<double, 4>{0.0, 0.0, 0.0, 1.0}};
     ExternalPose pose{.reference_frame = "wgs84", .position = lla};
     ExternalSourcePoseCache cache;
 

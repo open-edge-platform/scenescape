@@ -506,7 +506,8 @@ TEST_F(TimeChunkSchedulerTest, ExpiresExternalTracksWhilePublisherIsSilent) {
     scheduler.start();
     {
         std::unique_lock lock(mutex);
-        EXPECT_TRUE(condition.wait_for(lock, std::chrono::seconds(2), [&] { return saw_expiration; }));
+        EXPECT_TRUE(
+            condition.wait_for(lock, std::chrono::seconds(2), [&] { return saw_expiration; }));
     }
     scheduler.stop();
 

@@ -157,7 +157,7 @@ PoseResolution ExternalSourcePoseCache::resolve(const Scene& scene, const std::s
         try {
             const auto scene_to_ecef = toMatrix(*scene.trs_matrix);
             cv::Matx44d ecef_to_scene;
-                if (std::abs(cv::invert(scene_to_ecef, ecef_to_scene, cv::DECOMP_LU)) <=
+            if (std::abs(cv::invert(scene_to_ecef, ecef_to_scene, cv::DECOMP_LU)) <=
                     kMatrixEpsilon ||
                 !finiteMatrix(ecef_to_scene)) {
                 return {.reason = kReasonSceneGeoreferenceUnavailable};

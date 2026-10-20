@@ -369,9 +369,9 @@ TrackingWorker::update_external_tracks(const Chunk& chunk,
 
             if (existing != external_tracks_.end()) {
                 if (batch.timestamp > existing->second.event_time) {
-                    const double elapsed = std::chrono::duration<double>(
-                                               batch.timestamp - existing->second.event_time)
-                                               .count();
+                    const double elapsed =
+                        std::chrono::duration<double>(batch.timestamp - existing->second.event_time)
+                            .count();
                     for (size_t axis = 0; axis < track.velocity.size(); ++axis) {
                         track.velocity[axis] =
                             (track.translation[axis] - existing->second.track.translation[axis]) /
