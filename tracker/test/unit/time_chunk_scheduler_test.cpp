@@ -454,6 +454,20 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_AppliesRotationFromVelocityPerCategory) 
     }
     scheduler.stop();
 
+    for (const char* category : kCategories) {
+        ASSERT_TRUE(last_tracks.contains(category)) << category;
+        const auto& v = last_tracks.at(category).velocity;
+        ASSERT_GT(std::hypot(v[0], v[1]), kRotationSpeedThresholdOn) << category;
+    }
+    const auto& car = last_tracks.at("car");
+    EXPECT_GT(std::abs(2.0 * std::atan2(car.rotation[2], car.rotation[3])), 0.5)
+        << "rotation_from_velocity=true should publish the velocity heading";
+    constexpr std::array<double, 4> kIdentity = {0.0, 0.0, 0.0, 1.0};
+    EXPECT_EQ(last_tracks.at("bike").rotation, kIdentity)
+        << "rotation_from_velocity=false should publish identity rotation";
+    EXPECT_EQ(last_tracks.at("person").rotation, kIdentity)
+        << "Category without an asset entry should publish identity rotation";
+}
 
 TEST_F(TimeChunkSchedulerTest, ExpiresExternalTracksWhilePublisherIsSilent) {
     TimeChunkBuffer buffer;
@@ -498,20 +512,6 @@ TEST_F(TimeChunkSchedulerTest, ExpiresExternalTracksWhilePublisherIsSilent) {
 
     EXPECT_TRUE(saw_track);
     EXPECT_TRUE(saw_expiration);
-}
-    for (const char* category : kCategories) {
-        ASSERT_TRUE(last_tracks.contains(category)) << category;
-        const auto& v = last_tracks.at(category).velocity;
-        ASSERT_GT(std::hypot(v[0], v[1]), kRotationSpeedThresholdOn) << category;
-    }
-    const auto& car = last_tracks.at("car");
-    EXPECT_GT(std::abs(2.0 * std::atan2(car.rotation[2], car.rotation[3])), 0.5)
-        << "rotation_from_velocity=true should publish the velocity heading";
-    constexpr std::array<double, 4> kIdentity = {0.0, 0.0, 0.0, 1.0};
-    EXPECT_EQ(last_tracks.at("bike").rotation, kIdentity)
-        << "rotation_from_velocity=false should publish identity rotation";
-    EXPECT_EQ(last_tracks.at("person").rotation, kIdentity)
-        << "Category without an asset entry should publish identity rotation";
 }
 
 TEST_F(TimeChunkSchedulerTest, WorkerCount_StartsAtZero) {

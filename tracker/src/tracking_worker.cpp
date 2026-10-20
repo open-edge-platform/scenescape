@@ -351,8 +351,9 @@ TrackingWorker::update_external_tracks(const Chunk& chunk,
         }
         for (const auto& detection : batch.external_detections) {
             auto existing = external_tracks_.find(detection.id);
+            // Drop older samples; equal timestamps still refresh position and last_seen.
             if (existing != external_tracks_.end() &&
-                batch.timestamp <= existing->second.event_time) {
+                batch.timestamp < existing->second.event_time) {
                 continue;
             }
 
@@ -366,15 +367,19 @@ TrackingWorker::update_external_tracks(const Chunk& chunk,
             track.metadata_json = detection.metadata_json;
             track.confidence = detection.confidence;
 
-            if (existing != external_tracks_.end() &&
-                batch.timestamp > existing->second.event_time) {
-                const double elapsed =
-                    std::chrono::duration<double>(batch.timestamp - existing->second.event_time)
-                        .count();
-                for (size_t axis = 0; axis < track.velocity.size(); ++axis) {
-                    track.velocity[axis] =
-                        (track.translation[axis] - existing->second.track.translation[axis]) /
-                        elapsed;
+            if (existing != external_tracks_.end()) {
+                if (batch.timestamp > existing->second.event_time) {
+                    const double elapsed = std::chrono::duration<double>(
+                                               batch.timestamp - existing->second.event_time)
+                                               .count();
+                    for (size_t axis = 0; axis < track.velocity.size(); ++axis) {
+                        track.velocity[axis] =
+                            (track.translation[axis] - existing->second.track.translation[axis]) /
+                            elapsed;
+                    }
+                } else {
+                    // Same event time: keep prior velocity (elapsed would be zero).
+                    track.velocity = existing->second.track.velocity;
                 }
             }
             external_tracks_[detection.id] = ExternalTrackState{track, batch.timestamp, now};

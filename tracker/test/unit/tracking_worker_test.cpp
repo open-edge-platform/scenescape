@@ -235,6 +235,61 @@ TEST_F(TrackingWorkerTest, DuplicateExternalObservationPreservesCalculatedVeloci
     EXPECT_DOUBLE_EQ(published_chunks[2][0].velocity[0], 2.0);
 }
 
+TEST_F(TrackingWorkerTest, SameTimestampExternalObservationUpdatesPositionAndKeepsVelocity) {
+    std::mutex mutex;
+    std::condition_variable condition;
+    std::vector<std::vector<Track>> published_chunks;
+    auto now = std::chrono::system_clock::time_point{std::chrono::seconds(1000)};
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mutex);
+        published_chunks.push_back(tracks);
+        condition.notify_one();
+    };
+    TrackingWorker worker(TrackingScope{"scene-1", "person"}, "Test Scene", 2, callback,
+                          tracking_config_, {}, {}, [&now] { return now; });
+
+    const auto enqueue_observation = [&](std::chrono::system_clock::time_point timestamp,
+                                         double x_position) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+
+        DetectionBatch batch;
+        batch.source = DetectionBatch::Source::External;
+        batch.camera_id = "agent-1";
+        batch.timestamp = timestamp;
+        batch.external_detections.push_back(
+            ExternalDetection{.id = "uwb-tag-7", .translation = {x_position, 0.0, 0.0}});
+        chunk.camera_batches.push_back(std::move(batch));
+        return worker.try_enqueue(std::move(chunk));
+    };
+    const auto wait_for_chunks = [&](size_t count) {
+        std::unique_lock lock(mutex);
+        return condition.wait_for(lock, std::chrono::seconds(1),
+                                  [&] { return published_chunks.size() >= count; });
+    };
+
+    const auto event_time = now;
+    ASSERT_TRUE(enqueue_observation(event_time, 0.0));
+    ASSERT_TRUE(wait_for_chunks(1));
+
+    now += std::chrono::seconds(1);
+    ASSERT_TRUE(enqueue_observation(event_time + std::chrono::seconds(1), 2.0));
+    ASSERT_TRUE(wait_for_chunks(2));
+
+    now += std::chrono::seconds(1);
+    ASSERT_TRUE(enqueue_observation(event_time + std::chrono::seconds(1), 5.0));
+    ASSERT_TRUE(wait_for_chunks(3));
+
+    std::lock_guard lock(mutex);
+    ASSERT_EQ(published_chunks[1].size(), 1);
+    EXPECT_DOUBLE_EQ(published_chunks[1][0].velocity[0], 2.0);
+    ASSERT_EQ(published_chunks[2].size(), 1);
+    EXPECT_EQ(published_chunks[2][0].translation, (std::array<double, 3>{5.0, 0.0, 0.0}));
+    EXPECT_DOUBLE_EQ(published_chunks[2][0].velocity[0], 2.0);
+}
+
 // Test queue backpressure (drops when full)
 TEST_F(TrackingWorkerTest, QueueFull_DropsChunk) {
     // Use a blocking callback to fill the queue
