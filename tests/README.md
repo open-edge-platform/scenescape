@@ -203,6 +203,7 @@ messages are written to the per-test log file.
 | `run_standard_tests`         | Full functional and UI test suite      |
 | `run_functional_tests`       | All functional API/MQTT tests          |
 | `run_unit_tests`             | All unit tests (standalone containers) |
+| `run_unit_tests_coverage`    | Unit tests + per-service coverage gate |
 | `run_ui_tests`               | All UI/Selenium tests                  |
 | `run_metric_tests`           | Metric tests (Docker-based)            |
 
