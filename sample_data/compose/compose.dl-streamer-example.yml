@@ -290,6 +290,8 @@ services:
       - /run/secrets/certs/scenescape-positioning.key
       - --rootcert
       - /run/secrets/certs/scenescape-ca.pem
+      - --ntp
+      - ntpserv
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

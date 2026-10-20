@@ -14,6 +14,7 @@ from scipy.spatial.transform import Rotation
 
 from positioning.ptz_model import load_ptz_model
 from positioning.manager_calibration import ManagerCalibrationError, ManagerCalibrationLoader
+from positioning.metrics import PositioningMetrics
 from positioning.resolver import PTZResolver, PTZSourceCalibration
 from positioning.v1 import ptz_pb2
 from positioning.pose_math import apply_backlash, axis_angle_degrees, compose_ptz_rotation
@@ -40,7 +41,7 @@ class FakeClock:
     return self.timestamp_ns
 
 
-def make_resolver(clock, published, calibrations=None, ring_size=RING_SIZE):
+def make_resolver(clock, published, calibrations=None, ring_size=RING_SIZE, **kwargs):
   return PTZResolver(
     calibrations or {SOURCE_ID: CALIBRATION},
     lambda *args, **kwargs: published.append((args, kwargs)),
@@ -50,7 +51,18 @@ def make_resolver(clock, published, calibrations=None, ring_size=RING_SIZE):
     target_reprojection_rms_px=3.0,
     sample_ring_buffer_size=ring_size,
     clock_ns=clock,
+    **kwargs,
   )
+
+
+def submit_stationary(resolver, clock, first_sequence, count):
+  for sequence in range(first_sequence, first_sequence + count):
+    clock.timestamp_ns = START_NS + (sequence - 1) * 200_000_000
+    resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns))
+
+
+def last_context(published):
+  return json.loads(published[-1][0][1])
 
 
 def make_sample(sequence, timestamp_ns, pan=0.0, tilt=0.0, source_id=SOURCE_ID):
@@ -236,3 +248,114 @@ class TestPTZResolver(unittest.TestCase):
 
     with self.assertRaises(ManagerCalibrationError):
       loader.load(SOURCE_ID)
+
+  def test_unsynchronized_clock_publishes_invalid_context_then_recovers(self):
+    clock = FakeClock()
+    published = []
+    synchronized = [False]
+    resolver = make_resolver(clock, published, clock_synchronized=lambda: synchronized[0])
+
+    submit_stationary(resolver, clock, 1, 4)
+    self.assertEqual(len(published), 4)
+    context = last_context(published)
+    self.assertFalse(context["valid"])
+    self.assertEqual(context["motion_state"], "unknown")
+    self.assertEqual(context["invalid_reason"], "invalid_pose")
+    self.assertEqual(context["reason_detail"], "invalid_sample")
+
+    synchronized[0] = True
+    submit_stationary(resolver, clock, 5, 3)
+    self.assertFalse(last_context(published)["valid"])
+    submit_stationary(resolver, clock, 8, 1)
+    self.assertTrue(last_context(published)["valid"])
+
+  def test_invalidation_drops_calibration_until_reload(self):
+    clock = FakeClock()
+    published = []
+    resolver = make_resolver(clock, published)
+    submit_stationary(resolver, clock, 1, 4)
+    self.assertTrue(last_context(published)["valid"])
+
+    resolver.invalidate_calibration(SOURCE_ID)
+    submit_stationary(resolver, clock, 5, 1)
+    self.assertEqual(last_context(published)["reason_detail"], "calibration_changed")
+    submit_stationary(resolver, clock, 6, 1)
+    context = last_context(published)
+    self.assertEqual(context["reason_detail"], "calibration_missing")
+    self.assertEqual(context["calibration_version"], "unknown")
+
+    resolver.update_calibration(SOURCE_ID, CALIBRATION)
+    submit_stationary(resolver, clock, 7, 1)
+    self.assertEqual(last_context(published)["reason_detail"], "calibration_changed")
+    submit_stationary(resolver, clock, 8, 2)
+    self.assertEqual(last_context(published)["reason_detail"], "settling")
+    submit_stationary(resolver, clock, 10, 1)
+    self.assertTrue(last_context(published)["valid"])
+
+  def test_invalidating_unknown_source_is_rejected(self):
+    with self.assertRaises(KeyError):
+      make_resolver(FakeClock(), []).invalidate_calibration("other-camera")
+
+  def test_every_accepted_sample_publishes_exactly_one_context(self):
+    clock = FakeClock()
+    published = []
+    resolver = make_resolver(clock, published)
+    positions = [0.0, 0.0, 0.3, 0.3, 0.3, 0.3, 0.3, 0.0]
+    for sequence, pan in enumerate(positions, start=1):
+      clock.timestamp_ns = START_NS + (sequence - 1) * 200_000_000
+      resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns, pan=pan))
+
+    self.assertEqual([json.loads(item[0][1])["sequence"] for item in published],
+                     list(range(1, len(positions) + 1)))
+
+  def test_duplicate_and_out_of_order_samples_are_not_published(self):
+    clock = FakeClock()
+    published = []
+    resolver = make_resolver(clock, published)
+    resolver.submit_ptz_sample(make_sample(2, START_NS))
+
+    duplicate = resolver.submit_ptz_sample(make_sample(2, START_NS + 1))
+    older = resolver.submit_ptz_sample(make_sample(1, START_NS + 2))
+
+    self.assertEqual(duplicate.result, ptz_pb2.PTZ_SAMPLE_RESULT_DUPLICATE)
+    self.assertEqual(older.result, ptz_pb2.PTZ_SAMPLE_RESULT_OUT_OF_ORDER)
+    self.assertEqual(len(published), 1)
+
+  def test_poller_restart_resets_sequence_and_motion_history(self):
+    clock = FakeClock()
+    published = []
+    resolver = make_resolver(clock, published)
+    submit_stationary(resolver, clock, 1, 4)
+    self.assertTrue(last_context(published)["valid"])
+
+    clock.timestamp_ns += 200_000_000
+    restarted = make_sample(1, clock.timestamp_ns)
+    restarted.adapter_instance_id = "adapter-b"
+    result = resolver.submit_ptz_sample(restarted)
+
+    self.assertEqual(result.result, ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED)
+    context = last_context(published)
+    self.assertEqual(context["sequence"], 1)
+    self.assertFalse(context["valid"])
+
+  def test_metrics_record_gaps_rejections_ages_and_calibration(self):
+    clock = FakeClock()
+    metrics = PositioningMetrics()
+    resolver = make_resolver(clock, [], metrics=metrics)
+    resolver.submit_ptz_sample(make_sample(1, START_NS))
+    clock.timestamp_ns += 200_000_000
+    resolver.submit_ptz_sample(make_sample(3, clock.timestamp_ns, pan=0.5))
+    resolver.submit_ptz_sample(make_sample(3, clock.timestamp_ns + 1))
+
+    snapshot = metrics.snapshot()
+
+    self.assertEqual(snapshot["positioning_pose_sequence_gaps_total"], {SOURCE_ID: 1})
+    self.assertEqual(snapshot["positioning_rejected_samples_total"], [
+      {"source_id": SOURCE_ID, "result": "PTZ_SAMPLE_RESULT_DUPLICATE", "value": 1}])
+    self.assertEqual(snapshot["positioning_pose_age_seconds"][SOURCE_ID]["count"], 2)
+    self.assertEqual(snapshot["positioning_calibration_version_info"], [
+      {"source_id": SOURCE_ID, "calibration_version": MODEL.calibration_version}])
+
+    resolver.invalidate_calibration(SOURCE_ID)
+    self.assertEqual(metrics.snapshot()["positioning_calibration_version_info"], [
+      {"source_id": SOURCE_ID, "calibration_version": None}])

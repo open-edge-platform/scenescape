@@ -18,13 +18,12 @@ hide_directive-->
 
 The Positioning service is the deployment boundary for live source-pose capabilities.
 The service shell connects to MQTT, publishes resolver status, and exposes health
-checks. When PTZ sources are configured, it also polls each ONVIF PTZ camera and
-produces raw `PTZSample` messages in-process.
+checks. When PTZ sources are configured, it polls each ONVIF PTZ camera, passes raw
+`PTZSample` messages in-process to the PTZ Resolver, and publishes one resolved
+`PoseContext` per accepted sample.
 
-> **Note:** The PTZ Pose Resolver is not part of this release. Raw samples go to an
-> interim sink that logs reported motion-state changes without repeating unchanged
-> states. The service does not
-> publish poses or change how detections are tracked.
+> **Note:** Controller and Tracker do not consume resolved poses yet, so publishing
+> poses does not change how detections are tracked.
 
 ## How It Works
 
@@ -42,8 +41,10 @@ The payload contains `resolver_id`, `status` (`online` or `offline`), and
 not the time the connection was lost.
 
 Manager's ACL policy grants the broker identity write access only to its own status
-topic and read access only to camera-configuration change notifications
-(`scenescape/cmd/camera/config/{camera_id}`). The bundled Mosquitto configuration
+topic and to resolved-pose topics (`scenescape/positioning/pose/{source_id}`), and read
+access only to camera-configuration change notifications
+(`scenescape/cmd/camera/config/{camera_id}`). Writes to any other topic, including
+another resolver's status topic, are denied. The bundled Mosquitto configuration
 does not enforce topic ACLs; deployments requiring enforcement must configure broker
 authorization as described in the [hardening guide](../../additional-resources/hardening-guide.md).
 The container reports healthy only while it is connected to the broker.
@@ -110,9 +111,74 @@ credentials are never sent to a different host. Plain `http` sends a digest rath
 than the password; use `https` where the camera supports it, and keep cameras on an
 isolated network.
 
-Future pose resolution is specified in the
-[PTZ pose design](../../../design/ptz-camera-pose-service.md); polling and move-event
-handling are now part of the service.
+The design rationale is in the
+[PTZ pose design](../../../design/ptz-camera-pose-service.md).
+
+### Pose resolution
+
+The Resolver validates every sample before accepting it: finite position and ranges,
+position inside the advertised ranges, a position space URI and ranges matching the
+calibration, timestamp uncertainty within `max_timestamp_uncertainty_s`, and a
+strictly increasing sequence and timestamp. Duplicate, out-of-order, malformed, or
+unassigned samples produce no `PoseContext`; consumers see them as sequence gaps. A
+new `adapter_instance_id` (poller restart) or a sequence gap resets motion and
+backlash history.
+
+Every accepted sample publishes exactly one retained QoS 0 `PoseContext` on
+`scenescape/positioning/pose/{source_id}`. A pose is valid only when all of these hold:
+
+- The clock is synchronized (see [Clock synchronization](#clock-synchronization)).
+- The sample is younger than `max_pose_age_s`; otherwise `sample_stale`.
+- A Manager calibration is loaded; otherwise `calibration_missing`.
+- Backlash is known on both axes. After a restart, gap, or calibration change, an axis
+  becomes known only when the camera reports a position within
+  `backlash_home_tolerance_deg` of its calibrated home; otherwise `backlash_unknown`.
+- The camera is stationary: no axis moved more than `settle_angular_threshold_deg`
+  between samples (`slewing`, reason `moving`), and the history covers a full
+  `settle_interval_s` window without motion (`settling`).
+- The calibration's `reprojection_rms_px` does not exceed `target_reprojection_rms_px`,
+  and the Manager home pose is a rigid transform.
+
+The resolved orientation composes the backlash-corrected pan and tilt deltas about the
+calibrated axes in the calibration's `composition_order`. Translation, intrinsics, and
+distortion stay those of the home calibration.
+
+### Calibration reload
+
+Calibration comes only from Manager. When Manager publishes
+`scenescape/cmd/camera/config/{camera_id}` for an assigned source, the Resolver drops
+the cached calibration immediately: the next pose reports `calibration_changed`, and
+later poses report `calibration_missing` until a reload succeeds. Reloads run on a
+background worker, not in the MQTT callback. Every `calibration_refresh_interval_s`
+the service also rereads all sources, which recovers from a failed reload. A changed
+calibration resets motion and backlash history, so a valid pose again requires a full
+settle window.
+
+### Clock synchronization
+
+Poses are timestamped with the host clock, so the service checks it against the NTP
+server given by `--ntp` (default: the `POSITIONING_NTP_SERVER` environment variable)
+at startup and every 30 s, and logs the measured offset. While the absolute offset
+exceeds `max_clock_offset_s`, no NTP server is configured, or no successful
+measurement is younger than 90 s, every source publishes invalid poses with reason
+`invalid_sample` and motion history is discarded. The service keeps running and
+recovers automatically once synchronization returns.
+
+### Runtime metrics
+
+Every 60 s the service logs one structured `positioning_metrics` JSON record:
+
+| Metric                                 | Type                   | Labels                      |
+| -------------------------------------- | ---------------------- | --------------------------- |
+| `positioning_pose_age_seconds`         | Histogram              | `source_id`                 |
+| `positioning_pose_sequence_gaps_total` | Counter                | `source_id`                 |
+| `positioning_rejected_samples_total`   | Counter                | `source_id`, `result`       |
+| `positioning_motion_state_seconds`     | Histogram (time spent) | `source_id`, `motion_state` |
+| `positioning_calibration_version_info` | Info                   | `source_id`                 |
+| `positioning_clock_offset_seconds`     | Gauge                  | -                           |
+
+Dwell-rejection and projection-drift metrics belong to the Controller and Tracker
+consumers, which see detections; the Positioning service does not.
 
 ## Build
 
@@ -156,6 +222,7 @@ configuration has none:
   "poll_interval_s": 0.2,
   "max_pose_age_s": 0.5,
   "max_timestamp_uncertainty_s": 0.01,
+  "max_clock_offset_s": 0.05,
   "target_reprojection_rms_px": 3.0,
   "sample_ring_buffer_size": 64,
   "calibration_refresh_interval_s": 30.0,
@@ -187,6 +254,7 @@ configuration has none:
 | `move_event`                     | -                     | `topic` (event topic prefix without namespace prefixes) and `data_item` of a boolean move event; when set, `ptz_move_event` records are always logged |
 | `max_pose_age_s`                 | required with sources | Positive maximum sample age; at least `poll_interval_s + max_timestamp_uncertainty_s`                                                                 |
 | `max_timestamp_uncertainty_s`    | required with sources | Finite nonnegative upper bound for poller timestamp uncertainty                                                                                       |
+| `max_clock_offset_s`             | required with sources | Positive bound on the measured NTP offset; larger offsets invalidate all poses                                                                        |
 | `target_reprojection_rms_px`     | required with sources | Positive calibration-quality limit; larger Manager residuals invalidate poses                                                                         |
 | `sample_ring_buffer_size`        | `64`                  | Must cover the largest settle/backlash history: `ceil(max_history_s / poll_interval_s) + 2`                                                           |
 | `calibration_refresh_interval_s` | `30.0`                | Positive retry interval for Manager calibration loads                                                                                                 |
@@ -218,6 +286,7 @@ The service accepts these command-line options:
 | `--rootcert`     | `/run/secrets/certs/scenescape-ca.pem`          |
 | `--manager-url`  | `https://web.scenescape.intel.com/api/v1`       |
 | `--manager-auth` | defaults to `--brokerauth`                      |
+| `--ntp`          | `POSITIONING_NTP_SERVER` environment variable   |
 | `--config`       | `/app/config/positioning.json`                  |
 | `--assignments`  | `/app/deployment/positioning-assignments.json`  |
 
@@ -228,8 +297,9 @@ On Kubernetes, enable the service with `positioning.enabled=true`. See
 for the related Helm values. The chart runs one replica, because only one instance may
 publish poses for a given camera.
 
-To roll back, disable the Positioning deployment or remove its `sources`. The service
-publishes no poses, so either change leaves tracking unchanged.
+To roll back, disable the Positioning deployment or remove its `sources`. Without
+sources the service publishes no poses. Controller and Tracker do not consume poses
+yet, so either change leaves tracking unchanged.
 
 ## Supporting Resources
 

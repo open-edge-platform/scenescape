@@ -4,6 +4,9 @@
 # ONVIF client: in-tree SOAP subset over requests, device XML parsed with defusedxml.
 defusedxml==0.7.1 \
     --hash=sha256:a352e7e428770286cc899e2542b6cdaedb2b4953ff269a210103ec58f6198a61
+# Clock-offset check gating PTZ pose validity.
+ntplib==0.4.0 \
+    --hash=sha256:8d27375329ed7ff38755f7b6d4658b28edc147cadf40338a63a0da8133469d60
 paho-mqtt==2.1.0 \
     --hash=sha256:6db9ba9b34ed5bc6b6e3812718c7e06e2fd7444540df2455d2c51bd58808feee
 # Matches the committed scenescape.ptz.v1 generated code (protobuf 5.29.x runtime).

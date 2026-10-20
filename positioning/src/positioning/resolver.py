@@ -67,9 +67,12 @@ class PTZResolver:
 
   def __init__(self, source_calibrations, publish, poll_interval_s, max_pose_age_s,
                max_timestamp_uncertainty_s, target_reprojection_rms_px,
-               sample_ring_buffer_size=64, clock_ns=None):
+               sample_ring_buffer_size=64, clock_ns=None, clock_synchronized=None,
+               metrics=None):
     self.source_calibrations = dict(source_calibrations)
     self.publish = publish
+    self.clock_synchronized = clock_synchronized or (lambda: True)
+    self.metrics = metrics
     self.poll_interval_s = self._positive(poll_interval_s, "poll_interval_s")
     self.max_pose_age_s = self._positive(max_pose_age_s, "max_pose_age_s")
     self.max_timestamp_uncertainty_s = self._nonnegative(
@@ -98,6 +101,14 @@ class PTZResolver:
       for source_id in self.source_calibrations
     }
     self._locks = {source_id: threading.RLock() for source_id in self.source_calibrations}
+    if self.metrics is not None:
+      for source_id, calibration in self.source_calibrations.items():
+        self._record_calibration_version(source_id, calibration)
+
+  def _record_calibration_version(self, source_id, calibration):
+    if self.metrics is not None:
+      self.metrics.set_calibration_version(
+        source_id, calibration.model.calibration_version if calibration else None)
 
   @staticmethod
   def _positive(value, name):
@@ -146,6 +157,19 @@ class PTZResolver:
       state.reset_motion()
       if state.last_sequence:
         state.pending_reason = "calibration_changed" if calibration else "calibration_missing"
+      self._record_calibration_version(source_id, calibration)
+
+  def invalidate_calibration(self, source_id):
+    """Drop the cached calibration; poses stay invalid until a reload succeeds."""
+    if source_id not in self._states:
+      raise KeyError(source_id)
+    with self._locks[source_id]:
+      state = self._states[source_id]
+      self.source_calibrations[source_id] = None
+      state.reset_motion()
+      if state.last_sequence:
+        state.pending_reason = "calibration_changed"
+      self._record_calibration_version(source_id, None)
 
   def submit_ptz_sample(self, sample):
     """Accept a PTZSample, publishing one valid or invalid PoseContext if accepted."""
@@ -153,7 +177,10 @@ class PTZResolver:
     if source_id not in self._states:
       return self._ack(ptz_pb2.PTZ_SAMPLE_RESULT_UNKNOWN_CAMERA, "unknown camera")
     with self._locks[source_id]:
-      return self._submit_locked(source_id, sample)
+      ack = self._submit_locked(source_id, sample)
+    if self.metrics is not None and ack.result != ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED:
+      self.metrics.inc_rejected_sample(source_id, ptz_pb2.PTZSampleResult.Name(ack.result))
+    return ack
 
   def _submit_locked(self, source_id, sample):
     calibration = self.source_calibrations[source_id]
@@ -174,11 +201,18 @@ class PTZResolver:
     sequence_gap = state.last_sequence > 0 and sample.sequence != state.last_sequence + 1
     if sequence_gap:
       state.reset_motion()
+      if self.metrics is not None:
+        self.metrics.inc_sequence_gap(source_id)
 
     now_ns = self.clock_ns()
     age_s = max(0.0, (now_ns - timestamp_ns) / 1e9)
     uncertainty_s = sample.timestamp_uncertainty_ns / 1e9
-    if age_s > self.max_pose_age_s:
+    if not self.clock_synchronized():
+      # Timestamps cannot be trusted, so neither motion history nor freshness can be.
+      state.reset_motion()
+      motion_state = "unknown"
+      reason_detail = "invalid_sample"
+    elif age_s > self.max_pose_age_s:
       state.reset_motion()
       motion_state = "unknown"
       reason_detail = "sample_stale"
@@ -200,6 +234,9 @@ class PTZResolver:
       reason_detail, calibration, state.physical_angles)
     topic = f"scenescape/positioning/pose/{source_id}"
     self.publish(topic, json.dumps(pose_context, separators=(",", ":")), qos=0, retain=True)
+    if self.metrics is not None:
+      self.metrics.observe_pose_age(source_id, age_s)
+      self.metrics.observe_motion_state(source_id, motion_state, timestamp_ns)
     return self._ack(ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED, "accepted", sample.sequence)
 
   def _validate_sample(self, sample, calibration):

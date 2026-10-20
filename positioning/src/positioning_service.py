@@ -14,7 +14,9 @@ import signal
 import sys
 import threading
 
+from positioning.clock_sync import ClockMonitor
 from positioning.manager_calibration import ManagerCalibrationLoader
+from positioning.metrics import PositioningMetrics
 from positioning.ptz_poller import LoggingSampleSink
 from positioning.resolver import PTZResolver
 from positioning.sources import (
@@ -22,6 +24,11 @@ from positioning.sources import (
 from positioning_status import status_payload, status_topic
 from scene_common import log
 from scene_common.mqtt import PubSub
+
+RESOLVER_REQUIRED_SETTINGS = (
+  "max_pose_age_s", "max_timestamp_uncertainty_s", "max_clock_offset_s",
+  "target_reprojection_rms_px")
+METRICS_LOG_INTERVAL_S = 60.0
 
 
 def load_config(path):
@@ -56,12 +63,14 @@ class PositioningService:
 
   def __init__(self, config, broker, broker_auth, cert, keyfile, root_cert, pollers=(),
                resolver=None, calibration_loader=None, source_ids=(),
-               calibration_refresh_interval_s=30.0):
+               calibration_refresh_interval_s=30.0, clock_monitor=None, metrics=None):
     self.resolver_id = config["resolver_id"]
     self.topic = status_topic(self.resolver_id)
     self.pollers = list(pollers)
     self.resolver = resolver
     self.calibration_loader = calibration_loader
+    self.clock_monitor = clock_monitor
+    self.metrics = metrics
     self.source_ids = tuple(source_ids)
     self.calibration_refresh_interval_s = calibration_refresh_interval_s
     self._calibration_requests = queue.Queue(maxsize=max(len(self.source_ids), 1))
@@ -112,10 +121,12 @@ class PositioningService:
     log.warning("Positioning disconnected from MQTT broker")
 
   def on_camera_config(self, client, userdata, message):
-    """Queue a Manager calibration reload without blocking the MQTT callback."""
+    """Drop the cached calibration and queue a reload without blocking the MQTT callback."""
     parsed = PubSub.parseTopic(message.topic) or {}
     source_id = parsed.get("camera_id")
     if source_id in self.source_ids:
+      if self.resolver is not None:
+        self.resolver.invalidate_calibration(source_id)
       try:
         self._calibration_requests.put_nowait(source_id)
       except queue.Full:
@@ -162,6 +173,18 @@ class PositioningService:
         name="ptz-calibration-refresh", daemon=True)
       worker.start()
       self._workers.append(worker)
+    if self.clock_monitor is not None:
+      worker = threading.Thread(
+        target=self.clock_monitor.run, args=(self._stop_workers,),
+        name="ptz-clock-monitor", daemon=True)
+      worker.start()
+      self._workers.append(worker)
+    if self.metrics is not None:
+      worker = threading.Thread(
+        target=self.metrics.run, args=(self._stop_workers, METRICS_LOG_INTERVAL_S),
+        name="positioning-metrics", daemon=True)
+      worker.start()
+      self._workers.append(worker)
 
   def stop_workers(self, timeout_s=5.0):
     self._stop_workers.set()
@@ -201,6 +224,8 @@ def build_argparser():
                       help="Manager API base URL")
   parser.add_argument("--manager-auth", default=None,
                       help="Manager user:password or JSON auth file; defaults to --brokerauth")
+  parser.add_argument("--ntp", default=os.environ.get("POSITIONING_NTP_SERVER"),
+                      help="NTP server used to verify clock synchronization")
   parser.add_argument("--config", default="/app/config/positioning.json",
                       help="path to deployment-owned Positioning config")
   parser.add_argument("--assignments", default="/app/deployment/positioning-assignments.json",
@@ -226,8 +251,7 @@ def main():
   service = PositioningService(config, args.broker, args.brokerauth, args.cert, args.keyfile,
                                args.rootcert)
   if source_ids:
-    required = ("max_pose_age_s", "max_timestamp_uncertainty_s", "target_reprojection_rms_px")
-    missing = [name for name in required if name not in config]
+    missing = [name for name in RESOLVER_REQUIRED_SETTINGS if name not in config]
     if missing:
       raise ValueError(f"Positioning config missing required Resolver settings: {', '.join(missing)}")
     sample_ring_buffer_size = config.get("sample_ring_buffer_size", 64)
@@ -235,6 +259,11 @@ def main():
     if isinstance(refresh_interval_s, bool) or not isinstance(refresh_interval_s, (int, float)) \
         or not 0 < refresh_interval_s < float("inf"):
       raise ValueError("calibration_refresh_interval_s must be positive and finite")
+    metrics = PositioningMetrics()
+    clock_monitor = ClockMonitor(args.ntp, config["max_clock_offset_s"], metrics=metrics)
+    clock_monitor.check()
+    log.info(f"Clock offset at startup: {clock_monitor.offset_s} s "
+             f"(synchronized={clock_monitor.is_synchronized()})")
     calibration_loader = ManagerCalibrationLoader(
       args.manager_url, args.manager_auth or args.brokerauth, args.rootcert)
     calibrations = {}
@@ -247,9 +276,12 @@ def main():
     resolver = PTZResolver(
       calibrations, service.client.publish, poll_interval_s,
       config["max_pose_age_s"], config["max_timestamp_uncertainty_s"],
-      config["target_reprojection_rms_px"], sample_ring_buffer_size)
+      config["target_reprojection_rms_px"], sample_ring_buffer_size,
+      clock_synchronized=clock_monitor.is_synchronized, metrics=metrics)
     service.resolver = resolver
     service.calibration_loader = calibration_loader
+    service.clock_monitor = clock_monitor
+    service.metrics = metrics
     service.source_ids = source_ids
     service.calibration_refresh_interval_s = refresh_interval_s
   pollers = create_pollers(

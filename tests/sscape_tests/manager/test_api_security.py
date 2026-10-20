@@ -105,3 +105,31 @@ def test_positioning_status_write_is_bound_to_configured_resolver(
 
   assert response.status_code == expected_status
   assert response.data["result"] == expected_result
+
+
+@pytest.mark.parametrize(
+  ("topic", "acls", "expected_status", "expected_result"),
+  [
+    ("scenescape/positioning/pose/cam-a", ["POSITIONING_POSE", "POSITIONING_STATUS"], 200, "allow"),
+    ("scenescape/positioning/pose/cam-a", ["POSITIONING_STATUS"], 403, "deny"),
+    ("scenescape/data/camera/cam-a", ["POSITIONING_POSE", "POSITIONING_STATUS"], 403, "deny"),
+    ("scenescape/positioning/pose/cam-a/extra", ["POSITIONING_POSE"], 403, "deny"),
+  ],
+)
+def test_positioning_pose_write_requires_pose_topic_and_explicit_acl(
+  topic, acls, expected_status, expected_result,
+):
+  request = Mock(data={"username": "positioning", "topic": topic, "acc": api.WRITE_ONLY})
+  user = Mock(is_superuser=False)
+  user_acls = MagicMock()
+  user_acls.exists.return_value = True
+  user_acls.__iter__.return_value = iter(
+    [Mock(topic=name, access=api.WRITE_ONLY) for name in acls])
+
+  with patch.dict("os.environ", {"POSITIONING_RESOLVER_ID": "resolver-a"}), \
+       patch.object(api.User.objects, "get", return_value=user), \
+       patch.object(api.PubSubACL.objects, "filter", return_value=user_acls):
+    response = api.ACLCheck().post(request)
+
+  assert response.status_code == expected_status
+  assert response.data["result"] == expected_result

@@ -21,8 +21,8 @@ SOURCE_TYPE_ONVIF_PTZ = "onvif_ptz"
 
 _TOP_LEVEL_KEYS = {
   "resolver_id", "poll_interval_s", "max_pose_age_s", "max_timestamp_uncertainty_s",
-  "target_reprojection_rms_px", "sample_ring_buffer_size", "calibration_refresh_interval_s",
-  "sources",
+  "max_clock_offset_s", "target_reprojection_rms_px", "sample_ring_buffer_size",
+  "calibration_refresh_interval_s", "sources",
 }
 _SOURCE_KEYS = {
   "type", "host", "port", "scheme", "profile_token", "credentials_file", "tls_ca_file",

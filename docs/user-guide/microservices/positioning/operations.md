@@ -363,8 +363,9 @@ Demo, deploy, and Compose tests include the Positioning service with the Scene
 Controller or Tracker profiles. Helm installs it when `positioning.enabled=true`; it
 has one replica to preserve single-writer source ownership.
 
-The service does not publish poses and does not alter detections. Roll back PTZ
-polling by removing `sources` from the deployment configuration, or roll back the
+The service publishes resolved poses but does not alter detections, because Controller
+and Tracker do not consume them yet. Roll back PTZ polling and pose publishing by
+removing `sources` from the deployment configuration, or roll back the
 whole service by disabling the Positioning deployment. Later PTZ rollout rollback is
 per consumer: disable the corresponding Controller or Tracker PTZ flag and return to
 static projection.
