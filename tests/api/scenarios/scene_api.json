@@ -1282,5 +1282,24 @@
         }
       }
     ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SCENE/34: POST /import-scene/ without zipFile returns 400",
+    "test_steps": [
+      {
+        "step_name": "POST documented import-scene path",
+        "api": "scene",
+        "method": "request",
+        "request": {
+          "method": "POST",
+          "path": "import-scene/",
+          "json": {},
+          "allow_redirects": false
+        },
+        "expected_status": {
+          "status_code": 400
+        }
+      }
+    ]
   }
 ]
