@@ -323,6 +323,30 @@ TEST_F(MessageHandlerTest, ExternalObjectCategoryMustMatchTopic) {
     EXPECT_TRUE(test_buffer_.empty());
 }
 
+TEST_F(MessageHandlerTest, ExternalFutureTimestampBeyondMaxLagIsDropped) {
+    using namespace std::chrono;
+
+    const auto fixed_now = sys_days{2026y / January / 27} + 12h;
+    ClockFn test_clock = [fixed_now]() -> system_clock::time_point { return fixed_now; };
+    TrackingConfig lag_config{.max_lag_s = 1.0, .time_chunking_rate_fps = 15, .max_workers = 50};
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, lag_config, false,
+                           TRACKER_SCHEMA_DIR, test_clock);
+    handler.start();
+
+    const std::string payload = R"({
+        "timestamp":"2026-01-27T12:00:10.000Z",
+        "source_id":"agent-1",
+        "objects":[]
+    })";
+    mock_client_->simulateMessage("scenescape/external/agent-1/person", payload);
+
+    EXPECT_EQ(handler.getReceivedCount(), 1);
+    EXPECT_EQ(handler.getLaggedCount(), 1);
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
+    EXPECT_TRUE(test_buffer_.empty());
+}
+
 // Test subscribing to multiple cameras
 TEST_F(MessageHandlerTest, Start_SubscribesToMultipleCameras) {
     // Create registry with multiple cameras

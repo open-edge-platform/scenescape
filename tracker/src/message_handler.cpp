@@ -810,7 +810,7 @@ bool MessageHandler::validateJson(const rapidjson::Document& doc,
 
 bool MessageHandler::isMessageLagged(std::chrono::system_clock::time_point msg_time) const {
     auto now = clock_fn_();
-    auto lag = std::chrono::duration<double>(now - msg_time).count();
+    auto lag = std::abs(std::chrono::duration<double>(now - msg_time).count());
     if (lag > tracking_config_.max_lag_s) {
         LOG_DEBUG("Message lag check: lag={:.3f}s, max_lag={:.3f}s", lag,
                   tracking_config_.max_lag_s);
