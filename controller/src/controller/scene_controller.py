@@ -516,7 +516,9 @@ class SceneController:
       jdata['debug_hmo_start_time'] = now
       # Camera intrinsics/distortion refresh only applies to camera-originated
       # messages (keyed by 'id'); external-source messages are keyed by
-      # 'source_id' and have no camera parameters to refresh.
+      # 'source_id' and resolve pose/intrinsics via ExternalSourcePoseCache.
+      # TODO(explore): whether camera and external calibration resolution should
+      # share an abstraction — see ADR 0016 Future Work. Do not unify yet.
       if topic['_topic_id'] != PubSub.DATA_EXTERNAL:
         self.cache_manager.refreshScenesForCamParams(jdata)
 
