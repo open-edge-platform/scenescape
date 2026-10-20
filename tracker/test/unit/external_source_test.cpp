@@ -66,6 +66,27 @@ TEST(ExternalSourcePoseCacheTest, ResolvesWgs84OriginThroughSceneTrsMatrix) {
     EXPECT_NEAR(origin[2], 0.0, 1e-9);
 }
 
+TEST(ExternalSourcePoseCacheTest, ResolvesWgs84WithReflectedSceneTrsMatrix) {
+    const std::array<double, 3> lla{37.7749, -122.4194, 15.0};
+    const auto ecef = convertLlaToEcef(lla);
+    auto scene = makeScene();
+    scene.trs_matrix = std::array<std::array<double, 4>, 4>{
+        std::array<double, 4>{-1.0, 0.0, 0.0, ecef[0]},
+        std::array<double, 4>{0.0, 1.0, 0.0, ecef[1]},
+        std::array<double, 4>{0.0, 0.0, 1.0, ecef[2]},
+        std::array<double, 4>{0.0, 0.0, 0.0, 1.0}};
+    ExternalPose pose{.reference_frame = "wgs84", .position = lla};
+    ExternalSourcePoseCache cache;
+
+    const auto result = cache.resolve(scene, "agent-1", pose, kNow, false);
+
+    ASSERT_TRUE(result.source_to_scene.has_value()) << result.reason;
+    const auto origin = transformExternalPoint(*result.source_to_scene, {0.0, 0.0, 0.0});
+    EXPECT_NEAR(origin[0], 0.0, 1e-9);
+    EXPECT_NEAR(origin[1], 0.0, 1e-9);
+    EXPECT_NEAR(origin[2], 0.0, 1e-9);
+}
+
 TEST(GeospatialTransformTest, CalculatesPythonEquivalentMatrixFromMapCorners) {
     constexpr double pixels_per_meter = 5.765182197;
     const double width = 981.0 / pixels_per_meter;
