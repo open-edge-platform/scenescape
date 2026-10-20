@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <gtest/gtest.h>
-#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <string>
@@ -10,97 +9,6 @@
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/Classification.hpp>
 #include <rv/tracking/TrackedObject.hpp>
-
-namespace {
-
-using rv::tracking::TrackedObject;
-using Detections = std::vector<TrackedObject>;
-using DetectionsPerCamera = std::vector<Detections>;
-
-constexpr double kFusionGate = 2.0;
-
-rv::tracking::MultipleObjectTracker makeFusionTracker()
-{
-  rv::tracking::TrackManagerConfig config;
-  config.mMotionModels = {rv::tracking::MotionModel::CV};
-  config.mDefaultProcessNoise = 1e-4;
-  config.mDefaultMeasurementNoise = 0.2;
-  config.mMaxNumberOfUnreliableFrames = 0;
-  return rv::tracking::MultipleObjectTracker(config, rv::tracking::DistanceType::Euclidean, kFusionGate);
-}
-
-TrackedObject makeBox(double x, double y, double z, double length, double width, double height)
-{
-  TrackedObject object;
-  object.x = x;
-  object.y = y;
-  object.z = z;
-  object.length = length;
-  object.width = width;
-  object.height = height;
-  return object;
-}
-
-// Equal-weight average of every fused geometry field.
-TrackedObject averageOf(const Detections &objects)
-{
-  TrackedObject average;
-  for (const auto &object : objects)
-  {
-    average.x += object.x;
-    average.y += object.y;
-    average.z += object.z;
-    average.length += object.length;
-    average.width += object.width;
-    average.height += object.height;
-  }
-  const double n = static_cast<double>(objects.size());
-  average.x /= n;
-  average.y /= n;
-  average.z /= n;
-  average.length /= n;
-  average.width /= n;
-  average.height /= n;
-  return average;
-}
-
-void expectSameState(const TrackedObject &actual, const TrackedObject &expected)
-{
-  constexpr double kTolerance = 1e-9;
-  EXPECT_NEAR(actual.x, expected.x, kTolerance);
-  EXPECT_NEAR(actual.y, expected.y, kTolerance);
-  EXPECT_NEAR(actual.z, expected.z, kTolerance);
-  EXPECT_NEAR(actual.vx, expected.vx, kTolerance);
-  EXPECT_NEAR(actual.vy, expected.vy, kTolerance);
-  EXPECT_NEAR(actual.yaw, expected.yaw, kTolerance);
-  EXPECT_NEAR(actual.length, expected.length, kTolerance);
-  EXPECT_NEAR(actual.width, expected.width, kTolerance);
-  EXPECT_NEAR(actual.height, expected.height, kTolerance);
-}
-
-// The twin is fed the expected fused detections directly, so equal states prove what fusion fed the filter.
-void expectSameSingleTrack(rv::tracking::MultipleObjectTracker &tracker, rv::tracking::MultipleObjectTracker &twin)
-{
-  const auto tracks = tracker.getTracks();
-  const auto twinTracks = twin.getTracks();
-  ASSERT_EQ(tracks.size(), 1U);
-  ASSERT_EQ(twinTracks.size(), 1U);
-  expectSameState(tracks[0], twinTracks[0]);
-}
-
-std::vector<TrackedObject> tracksSortedByX(rv::tracking::MultipleObjectTracker &tracker)
-{
-  auto tracks = tracker.getTracks();
-  std::sort(tracks.begin(), tracks.end(), [](const auto &a, const auto &b) { return a.x < b.x; });
-  return tracks;
-}
-
-std::chrono::system_clock::time_point atMs(int milliseconds)
-{
-  return std::chrono::system_clock::time_point(std::chrono::milliseconds(milliseconds));
-}
-
-} // namespace
 
 TEST(MultipleObjectTrackerTest, SingleDetectionTracking)
 {
