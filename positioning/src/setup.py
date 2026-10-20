@@ -13,6 +13,8 @@ setup(
         'grpcio>=1.71.2',
         'numpy',
         'scipy',
+        'requests',
+        'defusedxml',
     ],
     license='Apache-2.0',
     version='1.0.0',
