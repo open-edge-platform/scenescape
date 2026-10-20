@@ -1466,14 +1466,19 @@ paths:
               properties:
                 mapPoints:
                   type: array
+                  maxItems: 50
+                  minItems: 4
                   items:
                     type: array
                     items:
                       type: number
                       format: float
-                  description: 3D world points (minimum 4)
+                  description: >-
+                    3D world points (minimum 4, maximum 50 correspondences)
                 camPoints:
                   type: array
+                  maxItems: 50
+                  minItems: 4
                   items:
                     type: array
                     items:
@@ -1482,23 +1487,35 @@ paths:
                   description: Corresponding 2D image points (must match mapPoints count)
                 intrinsics:
                   type: array
+                  minItems: 3
+                  maxItems: 3
                   items:
                     type: array
+                    minItems: 3
+                    maxItems: 3
                     items:
                       type: number
                       format: double
-                  description: Initial 3x3 camera intrinsics matrix
+                  description: >-
+                    Initial 3x3 camera intrinsics matrix (finite values; fx and fy
+                    must be positive)
                 distortion:
                   type: array
                   items:
                     type: number
                     format: double
-                  description: Initial distortion coefficients
+                  description: >-
+                    Initial distortion coefficients (OpenCV lengths 4, 5, 8, 12,
+                    or 14; NaN coerced to 0)
                 imageSize:
                   type: array
+                  minItems: 2
+                  maxItems: 2
                   items:
                     type: integer
-                  description: Image dimensions [width, height]
+                    minimum: 1
+                    maximum: 16384
+                  description: Image dimensions [width, height] (positive, max 16384)
                 fixIntrinsics:
                   type: object
                   description: Map of intrinsic parameter names to fix during calibration (e.g. fx, fy, cx, cy, k1, k2, k3, p1, p2)
@@ -1550,6 +1567,7 @@ paths:
                 required:
                   - euler
                   - position
+                  - poseMatrix
                   - mtx
                   - dist
                   - rmsError
@@ -1581,6 +1599,21 @@ paths:
                       type: number
                       format: double
                     description: Camera position [x, y, z]
+                  poseMatrix:
+                    type: array
+                    minItems: 4
+                    maxItems: 4
+                    items:
+                      type: array
+                      minItems: 4
+                      maxItems: 4
+                      items:
+                        type: number
+                        format: double
+                    description: >-
+                      4x4 camera pose matrix in the scene frame used by the
+                      manual-calibration preview (same transform as the UI
+                      setCameraPose path)
                   mtx:
                     type: array
                     items:

@@ -11,6 +11,8 @@ from rest_framework.test import APIRequestFactory, force_authenticate
 
 from manager.calculate_intrinsics_view import (
   CalculateCameraIntrinsics,
+  MAX_CALIBRATION_CORRESPONDENCES,
+  MAX_IMAGE_DIMENSION_PX,
   as_distortion_column,
   assess_calibration_geometry,
   assess_image_point_coverage,
@@ -21,6 +23,9 @@ from manager.calculate_intrinsics_view import (
   parse_pixels_per_meter,
   parse_reject_outliers,
   validate_correspondence_arrays,
+  validate_distortion_coefficients,
+  validate_image_size,
+  validate_intrinsics_matrix,
 )
 from scene_common.transform import (
   RANSAC_REPROJECTION_THRESHOLD_PX,
@@ -70,7 +75,6 @@ def _post_calculate_intrinsics(payload):
   return CalculateCameraIntrinsics.as_view()(request)
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
   ("inlier_mask", "reject_outliers", "expected_applied", "expected_count",
    "expected_rejected"),
@@ -116,9 +120,12 @@ def test_calculate_intrinsics_reports_rejection_and_fit_counts(
   assert "geometryWarnings" in response.data
   assert "imageCoverage" in response.data
   assert "mapInPlaneSpreadRatio" in response.data
+  pose_matrix = response.data["poseMatrix"]
+  assert len(pose_matrix) == 4 and all(len(row) == 4 for row in pose_matrix)
+  assert len(response.data["euler"]) == 3
+  assert len(response.data["position"]) == 3
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_assess_map_point_geometry_flags_collinear_planar_points():
   """Nearly collinear floor-plan points produce a map geometry warning."""
   map_points = [
@@ -135,7 +142,6 @@ def test_assess_map_point_geometry_flags_collinear_planar_points():
              for warning in assessment["warnings"])
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_assess_map_point_geometry_accepts_well_spread_planar_square():
   """A wide planar square should not warn about collinearity."""
   map_points = [
@@ -149,7 +155,6 @@ def test_assess_map_point_geometry_accepts_well_spread_planar_square():
   assert assessment["warnings"] == []
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_assess_image_point_coverage_flags_concentrated_cluster():
   """Camera points bunched in a small patch should warn about coverage."""
   cam_points = [
@@ -164,7 +169,6 @@ def test_assess_image_point_coverage_flags_concentrated_cluster():
              for warning in assessment["warnings"])
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_assess_calibration_geometry_flags_shallow_depth_cluster():
   """Points at similar camera depth should warn even with a planar square."""
   map_points = np.array([
@@ -189,7 +193,6 @@ def test_assess_calibration_geometry_flags_shallow_depth_cluster():
              for warning in geometry["geometryWarnings"])
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
   ("payload", "expected"),
   [
@@ -204,7 +207,6 @@ def test_parse_reject_outliers_accepts_booleans(payload, expected):
   assert value is expected
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
   "reject_outliers",
   ["false", "true", 0, 1, None],
@@ -215,7 +217,6 @@ def test_parse_reject_outliers_rejects_non_booleans(reject_outliers):
   assert "boolean" in error
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
   ("payload", "expected"),
   [
@@ -238,7 +239,6 @@ def test_parse_outlier_threshold_px_accepts_positive_finite(payload, expected):
   assert value == pytest.approx(expected)
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
   "threshold",
   ["10", True, False, 0, -1, float("nan"), float("inf")],
@@ -249,7 +249,6 @@ def test_parse_outlier_threshold_px_rejects_invalid_values(threshold):
   assert "positive finite" in error
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
   "pixels_per_meter",
   ["100", True, False, 0, -1, float("nan"), float("inf")],
@@ -260,7 +259,6 @@ def test_parse_pixels_per_meter_rejects_invalid_values(pixels_per_meter):
   assert "positive finite" in error
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
   ("ppm", "expected"),
   [
@@ -276,7 +274,6 @@ def test_scaled_reprojection_threshold_px(ppm, expected):
   assert scaled_reprojection_threshold_px(ppm) == pytest.approx(expected)
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
   ("overrides", "error_fragment"),
   [
@@ -295,7 +292,6 @@ def test_calculate_intrinsics_rejects_invalid_outlier_controls(
   assert error_fragment in response.data["error"]
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_calculate_intrinsics_scales_threshold_from_pixels_per_meter():
   """When pixelsPerMeter is set, the response reports the scaled threshold."""
   intrinsic_matrix = np.array([
@@ -321,7 +317,6 @@ def test_calculate_intrinsics_scales_threshold_from_pixels_per_meter():
     5.0)
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_solve_pnpransac_uses_sqpnp_for_coplanar_points():
   """Floor-plan (coplanar) map points use SQPNP RANSAC for outlier rejection."""
   obj_points = np.array([
@@ -361,7 +356,6 @@ def test_solve_pnpransac_uses_sqpnp_for_coplanar_points():
   assert mask.tolist() == [True, True, True, True, False]
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_solve_pnpransac_uses_ap3p_for_non_coplanar_points():
   """Non-coplanar map points use AP3P RANSAC via the shared helper."""
   obj_points = np.array([
@@ -424,7 +418,6 @@ def _projected_non_coplanar_correspondences(num_points):
           intrinsics, distortion)
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize("num_points", [4, 5])
 def test_needs_pose_only_fit_for_small_non_coplanar_sets(num_points):
   map_points, _, _, _ = _projected_non_coplanar_correspondences(num_points)
@@ -435,7 +428,6 @@ def test_needs_pose_only_fit_for_small_non_coplanar_sets(num_points):
   assert not needs_pose_only_fit(planar)
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize("num_points", [4, 5])
 def test_calculate_intrinsics_pose_only_path_for_small_non_coplanar_sets(
     num_points):
@@ -465,7 +457,6 @@ def test_calculate_intrinsics_pose_only_path_for_small_non_coplanar_sets(
   np.testing.assert_allclose(dist.ravel(), distortion.ravel(), atol=1e-6)
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_fit_pose_fixed_intrinsics_uses_sqpnp_for_non_coplanar():
   map_points, cam_points, intrinsics, distortion = (
     _projected_non_coplanar_correspondences(4))
@@ -480,13 +471,11 @@ def test_fit_pose_fixed_intrinsics_uses_sqpnp_for_non_coplanar():
   np.testing.assert_allclose(dist.ravel(), distortion)
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_as_distortion_column_normalizes_shapes():
   assert as_distortion_column([1.0, 2.0, 3.0]).shape == (3, 1)
   assert as_distortion_column(np.array([[1.0, 2.0]])).shape == (2, 1)
 
 
-@pytest.mark.test_name("NEX-T10426")
 @pytest.mark.parametrize(
   ("map_points", "cam_points", "expected_error"),
   [
@@ -511,7 +500,6 @@ def test_validate_correspondence_arrays_rejects_bad_input(
   assert expected_error in error
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_validate_correspondence_arrays_pads_2d_map_points():
   obj, img, error = validate_correspondence_arrays(
     [[0, 0], [1, 0], [1, 1], [0, 1]],
@@ -522,7 +510,6 @@ def test_validate_correspondence_arrays_pads_2d_map_points():
   np.testing.assert_array_equal(obj[:, 2], 0)
 
 
-@pytest.mark.test_name("NEX-T10426")
 def test_calculate_intrinsics_rejects_bad_point_dimensions():
   # Keep count matched with default camPoints so the length gate does not fire first.
   payload = _calibration_payload(
@@ -533,3 +520,65 @@ def test_calculate_intrinsics_rejects_bad_point_dimensions():
   response = _post_calculate_intrinsics(payload)
   assert response.status_code == 400
   assert "mapPoints" in response.data["error"]
+
+
+@pytest.mark.parametrize(
+  ("overrides", "expected_error"),
+  [
+    ({"intrinsics": [[800.0, 0.0], [0.0, 800.0]]}, "3x3"),
+    ({"intrinsics": [
+      [-1.0, 0.0, 320.0], [0.0, 800.0, 240.0], [0.0, 0.0, 1.0],
+    ]}, "fx and fy"),
+    ({"distortion": [0.0, 0.0, 0.0]}, "4, 5, 8, 12, or 14"),
+    ({"imageSize": [640]}, "imageSize"),
+    ({"imageSize": [0, 480]}, "positive"),
+    ({"imageSize": [MAX_IMAGE_DIMENSION_PX + 1, 480]},
+     str(MAX_IMAGE_DIMENSION_PX)),
+  ],
+)
+def test_calculate_intrinsics_rejects_invalid_camera_model(overrides, expected_error):
+  response = _post_calculate_intrinsics(_calibration_payload(**overrides))
+  assert response.status_code == 400
+  assert expected_error in response.data["error"]
+
+
+def test_calculate_intrinsics_rejects_too_many_correspondences():
+  point_count = MAX_CALIBRATION_CORRESPONDENCES + 1
+  payload = _calibration_payload(
+    mapPoints=[[float(i), 0.0, 0.0] for i in range(point_count)],
+    camPoints=[[float(i), 0.0] for i in range(point_count)],
+  )
+  response = _post_calculate_intrinsics(payload)
+  assert response.status_code == 400
+  assert "Invalid number of points" in response.data["error"]
+
+
+def test_validate_intrinsics_matrix_accepts_valid_3x3():
+  matrix, error = validate_intrinsics_matrix([
+    [800.0, 0.0, 320.0], [0.0, 800.0, 240.0], [0.0, 0.0, 1.0],
+  ])
+  assert error is None
+  assert matrix.shape == (3, 3)
+
+
+def test_validate_distortion_coefficients_coerces_nan_to_zero():
+  coeffs, error = validate_distortion_coefficients(
+    [float("nan"), 0.1, 0.0, 0.0, 0.0])
+  assert error is None
+  assert coeffs.shape == (5, 1)
+  assert coeffs[0, 0] == 0.0
+  assert coeffs[1, 0] == pytest.approx(0.1)
+
+
+def test_validate_distortion_coefficients_rejects_infinity():
+  # Inf cannot round-trip through JSON request bodies; exercise the helper.
+  coeffs, error = validate_distortion_coefficients(
+    [0.0, 0.0, float("inf"), 0.0, 0.0])
+  assert coeffs is None
+  assert "finite" in error
+
+
+def test_validate_image_size_accepts_positive_pair():
+  size, error = validate_image_size([1920, 1080])
+  assert error is None
+  assert size == (1920, 1080)

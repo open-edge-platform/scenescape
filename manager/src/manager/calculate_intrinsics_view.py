@@ -33,6 +33,12 @@ PLANAR_AXIS_RATIO = 0.02
 MIN_IMAGE_COVERAGE = 0.12
 MIN_IMAGE_AXIS_FRACTION = 0.2
 MIN_DEPTH_RANGE_RATIO = 1.5
+# Match manager/static/js/constants.js MAX_CALIBRATION_POINTS — caps OpenCV work.
+MAX_CALIBRATION_CORRESPONDENCES = 50
+# OpenCV calibrateCamera accepted distortion lengths.
+SUPPORTED_DISTORTION_LENGTHS = (4, 5, 8, 12, 14)
+# Reject absurd image sizes that would allocate huge OpenCV buffers.
+MAX_IMAGE_DIMENSION_PX = 16384
 
 def y_up_to_y_down(rotation_matrix):
   rotate_y = Rotation.from_euler('Y', np.pi).as_matrix()
@@ -40,6 +46,11 @@ def y_up_to_y_down(rotation_matrix):
   return rotation_matrix @ rotate_y @ rotate_z
 
 def calculate_pose(rvec, tvec):
+  """Return scene-frame euler (rad), position, and 4x4 camera pose matrix.
+
+  pose_matrix matches the inverted OpenCV→scene transform used by the
+  calibration UI preview (setCameraPose), so clients can apply one fitted pose.
+  """
   R, _ = cv2.Rodrigues(rvec)
   T = np.array([
     [R[0, 0], R[0, 1], R[0, 2], tvec[0, 0]],
@@ -53,7 +64,7 @@ def calculate_pose(rvec, tvec):
 
   position = T_inv[:3, 3]
 
-  return euler, position
+  return euler, position, T_inv
 
 def per_point_reprojection_errors(obj_points, img_points, rvec, tvec, mtx, dist):
   """Reprojection error (pixels) of every correspondence under the fitted model."""
@@ -112,6 +123,9 @@ def validate_correspondence_arrays(map_points, cam_points):
     return None, None, "camPoints must be an array of 2D image points"
   if len(obj_points) != len(img_points):
     return None, None, "mapPoints and camPoints must have the same length"
+  if len(obj_points) > MAX_CALIBRATION_CORRESPONDENCES:
+    return None, None, (
+      f"At most {MAX_CALIBRATION_CORRESPONDENCES} correspondence pairs are supported")
   if not (np.isfinite(obj_points).all() and np.isfinite(img_points).all()):
     return None, None, "mapPoints and camPoints must contain finite values"
 
@@ -119,6 +133,62 @@ def validate_correspondence_arrays(map_points, cam_points):
     obj_points = np.hstack(
       (obj_points, np.zeros((obj_points.shape[0], 1), dtype=np.float32)))
   return obj_points, img_points, None
+
+
+def validate_intrinsics_matrix(intrinsics):
+  """Validate and coerce a 3x3 camera matrix.
+
+  @return  (matrix, error_message). error_message is None on success.
+  """
+  try:
+    matrix = np.asarray(intrinsics, dtype=np.float64)
+  except (TypeError, ValueError):
+    return None, "intrinsics must be a 3x3 numeric matrix"
+  if matrix.shape != (3, 3):
+    return None, "intrinsics must be a 3x3 matrix"
+  if not np.isfinite(matrix).all():
+    return None, "intrinsics must contain finite values"
+  if matrix[0, 0] <= 0 or matrix[1, 1] <= 0:
+    return None, "intrinsics fx and fy must be positive"
+  return matrix, None
+
+
+def validate_distortion_coefficients(distortion):
+  """Validate distortion coeffs; NaN becomes 0.0 like prior calibrate path.
+
+  @return  (column_vector, error_message). error_message is None on success.
+  """
+  try:
+    coeffs = np.asarray(distortion, dtype=np.float64).reshape(-1)
+  except (TypeError, ValueError):
+    return None, "distortion must be a numeric array"
+  if coeffs.size not in SUPPORTED_DISTORTION_LENGTHS:
+    return None, (
+      "distortion must have 4, 5, 8, 12, or 14 coefficients")
+  if np.isinf(coeffs).any():
+    return None, "distortion must contain finite values"
+  # Preserve historical NaN→0 behavior for unlocked/empty coeff fields.
+  coeffs = np.nan_to_num(coeffs, nan=0.0, posinf=0.0, neginf=0.0)
+  return as_distortion_column(coeffs), None
+
+
+def validate_image_size(image_size):
+  """Validate image width/height as positive ints within a safe bound.
+
+  @return  ((width, height), error_message). error_message is None on success.
+  """
+  try:
+    if not isinstance(image_size, (list, tuple)) or len(image_size) != 2:
+      return None, "imageSize must be [width, height]"
+    width, height = int(image_size[0]), int(image_size[1])
+  except (TypeError, ValueError):
+    return None, "imageSize must be [width, height] integers"
+  if width <= 0 or height <= 0:
+    return None, "imageSize width and height must be positive"
+  if width > MAX_IMAGE_DIMENSION_PX or height > MAX_IMAGE_DIMENSION_PX:
+    return None, (
+      f"imageSize dimensions must be at most {MAX_IMAGE_DIMENSION_PX} pixels")
+  return (width, height), None
 
 
 def fit_pose_fixed_intrinsics(obj_points, img_points, intrinsics, distortion):
@@ -323,7 +393,8 @@ class CalculateCameraIntrinsics(APIView):
                         status=status.HTTP_400_BAD_REQUEST)
 
       if len(request.data['mapPoints']) != len(request.data['camPoints']) \
-          or len(request.data['mapPoints']) < MIN_POINTS_FOR_RANSAC:
+          or len(request.data['mapPoints']) < MIN_POINTS_FOR_RANSAC \
+          or len(request.data['mapPoints']) > MAX_CALIBRATION_CORRESPONDENCES:
         return Response({"error": "Invalid number of points provided for calculation."},
                         status=status.HTTP_400_BAD_REQUEST)
 
@@ -342,10 +413,20 @@ class CalculateCameraIntrinsics(APIView):
                         status=status.HTTP_400_BAD_REQUEST)
       num_points = len(obj_points)
 
-      intrinsics = np.array(request.data['intrinsics'], dtype=np.float64)
-      distortion = np.array(request.data['distortion'], dtype=np.float64)
-      distortion = np.nan_to_num(distortion, nan=0.0)
-      image_size = tuple(map(int, request.data['imageSize']))
+      intrinsics, intrinsics_error = validate_intrinsics_matrix(
+        request.data['intrinsics'])
+      if intrinsics_error:
+        return Response({"error": intrinsics_error},
+                        status=status.HTTP_400_BAD_REQUEST)
+      distortion, distortion_error = validate_distortion_coefficients(
+        request.data['distortion'])
+      if distortion_error:
+        return Response({"error": distortion_error},
+                        status=status.HTTP_400_BAD_REQUEST)
+      image_size, image_size_error = validate_image_size(request.data['imageSize'])
+      if image_size_error:
+        return Response({"error": image_size_error},
+                        status=status.HTTP_400_BAD_REQUEST)
 
       fix_intrinsics = request.data.get("fixIntrinsics", {})
 
@@ -400,13 +481,17 @@ class CalculateCameraIntrinsics(APIView):
       rejected_indices = ([int(i) for i in np.where(~inlier_mask)[0]]
                           if inlier_mask is not None else [])
 
-      euler, position = calculate_pose(rvecs[0], tvecs[0])
+      euler, position, pose_matrix = calculate_pose(rvecs[0], tvecs[0])
       geometry = assess_calibration_geometry(
         fit_obj_points, fit_img_points, image_size, rvecs[0], tvecs[0])
       if geometry["geometryWarnings"]:
         log.info("Calibration geometry warnings: " +
                  "; ".join(geometry["geometryWarnings"]))
-      return Response({"euler": euler, "position": position, "mtx": mtx, "dist": dist,
+      return Response({
+                       "euler": np.asarray(euler, dtype=np.float64).reshape(-1).tolist(),
+                       "position": np.asarray(position, dtype=np.float64).reshape(-1).tolist(),
+                       "poseMatrix": np.asarray(pose_matrix, dtype=np.float64).tolist(),
+                       "mtx": mtx, "dist": dist,
                        "rmsError": float(rms_error),
                        "rejectionRequested": bool(reject_outliers),
                        "rejectionApplied": bool(rejection_applied),

@@ -56,9 +56,9 @@ _controller_src = _REPO_ROOT / "controller" / "src"
 if str(_controller_src) not in sys.path:
   sys.path.insert(0, str(_controller_src))
 
-_reid_service_src = _REPO_ROOT / "reid_service" / "src"
-if str(_reid_service_src) not in sys.path:
-  sys.path.insert(0, str(_reid_service_src))
+_reid_src = _REPO_ROOT / "reid" / "src"
+if str(_reid_src) not in sys.path:
+  sys.path.insert(0, str(_reid_src))
 
 _analytics_src = _REPO_ROOT / "analytics" / "src"
 if str(_analytics_src) not in sys.path:
