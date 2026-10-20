@@ -697,13 +697,9 @@ class SceneController:
     'source_id' in the payload."""
     source_id = jdata['source_id']
     trusted = source_id in self.trusted_positioning_sources
-    pixel_objects = []
-    translation_objects = []
-    for index, obj in enumerate(jdata.get('objects', [])):
-      if isinstance(obj.get('bounding_box_px'), dict):
-        pixel_objects.append((index, obj))
-      else:
-        translation_objects.append((index, obj))
+    objects = jdata.get('objects', [])
+    pixel_objects, translation_objects = self._partitionExternalObjects(objects)
+
     camera_pose, reason = self.external_source_pose_cache.resolve(
       scene, source_id, jdata.get('pose'), msg_when, trusted_scene_pose=trusted)
     if camera_pose is None:
@@ -711,113 +707,34 @@ class SceneController:
                 f"scene={scene.uid}: {reason}")
       return True
 
+    accepted, synthetic_intrinsics = self._externalPixelIntrinsics(
+      jdata, pixel_objects, source_id, scene.uid)
+    if not accepted:
+      return True
+
     source_track = jdata.get('track')
+    tracked_id_counts = self._countExternalObjectIds(objects)
+    route_kwargs = {
+      'source_id': source_id,
+      'scene_uid': scene.uid,
+      'detection_type': detection_type,
+      'source_track': source_track,
+      'tracked_id_counts': tracked_id_counts,
+      'msg_when': msg_when,
+    }
+    routed_translation_objects = self._routeExternalObjects(
+      translation_objects, **route_kwargs)
+    routed_pixel_objects = self._routeExternalObjects(pixel_objects, **route_kwargs)
 
-    tracked_id_counts = {}
-    for obj in jdata.get('objects', []):
-      source_obj_id = obj.get('id')
-      if source_obj_id is not None:
-        tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
+    pixel_moving_objects, already_tracked_objects = self._ingestExternalPixelObjects(
+      scene, routed_pixel_objects, synthetic_intrinsics, camera_pose,
+      source_id, detection_type, source_track, msg_when)
 
-    synthetic_intrinsics = None
-    if pixel_objects:
-      # Match schema: pixel detections require pose and intrinsics on the same
-      # message. Reject the whole message rather than partially ingesting any
-      # co-packaged translation objects.
-      missing = [field for field in ('pose', 'intrinsics') if field not in jdata]
-      if missing:
-        log.warning(
-          f"Discarding external message with pixel detections missing "
-          f"{', '.join(missing)}: source={source_id} scene={scene.uid}")
-        return True
-      synthetic_intrinsics = CameraIntrinsics(
-        jdata['intrinsics'], jdata.get('distortion'))
-
-    def _route_objects(indexed_objects):
-      routed_objects = []
-      for index, obj in indexed_objects:
-        routed_obj = dict(obj)
-        routed_obj.pop('track', None)
-        if source_track is False:
-          obj_id = routed_obj.get('id')
-          if obj_id is None:
-            log.warning(
-              f"Rejecting external-source object without id: source={source_id} "
-              f"scene={scene.uid} category={detection_type} track=false")
-            continue
-          ok, collision_reason = self.identity_claim_registry.claim(
-            scene.uid, detection_type, source_id, obj_id, msg_when)
-          if not ok:
-            log.warning(
-              f"Rejecting external-source object: id={obj_id} from source={source_id} "
-              f"scene={scene.uid} category={detection_type}: {collision_reason}")
-            continue
-        else:
-          source_obj_id = routed_obj.get('id')
-          if source_obj_id is not None:
-            if tracked_id_counts.get(source_obj_id, 0) == 1:
-              routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{source_obj_id}"
-            else:
-              log.warning(
-                f"Duplicate tracked external object id={source_obj_id} from source={source_id} "
-                f"scene={scene.uid} category={detection_type}; ignoring id hint for this message")
-              routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
-          else:
-            routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
-        routed_objects.append(routed_obj)
-      return routed_objects
-
-    routed_translation_objects = _route_objects(translation_objects)
-    routed_pixel_objects = _route_objects(pixel_objects)
-
-    pixel_moving_objects = []
-    already_tracked_objects = []
-    if routed_pixel_objects and synthetic_intrinsics is not None:
-      # Same camera-ingest gate: external pixel crops must not claim another
-      # scene already vetted the embedding provenance.
-      stripReidProvenance(routed_pixel_objects)
-      scene.convertPixelBoundingBoxesToMeters(
-        routed_pixel_objects,
-        synthetic_intrinsics.intrinsics,
-        synthetic_intrinsics.distortion,
-      )
-      pixel_camera = SimpleNamespace(
-        cameraID=source_id,
-        pose=CameraPose(camera_pose.pose_mat, synthetic_intrinsics),
-      )
-      created_pixel_objects = scene.createMovingObjectsForDetection(
-        detection_type, routed_pixel_objects, msg_when, pixel_camera)
-      if source_track is False:
-        for pixel_object in created_pixel_objects:
-          if pixel_object.sceneLoc is None:
-            log.warning(f"Discarding external pixel detection without scene location: "
-                        f"source={source_id} scene={scene.uid}")
-            continue
-          already_tracked_objects.append(pixel_object)
-      else:
-        pixel_moving_objects.extend(created_pixel_objects)
-
-    if routed_translation_objects:
-      routed_jdata = dict(jdata)
-      routed_jdata['objects'] = routed_translation_objects
-      routed_jdata.pop('track', None)
-      routed_source = SimpleNamespace(
-        name=source_id,
-        uid=source_id,
-        retrack=(source_track is not False),
-      )
-      if not pixel_moving_objects and not already_tracked_objects:
-        scene.processSceneData(routed_jdata, routed_source, camera_pose,
-                               detection_type, when=msg_when)
-        return True
-
-      translation_moving_objects, translation_already_tracked_objects = (
-        scene.createMovingObjectsForSceneData(
-          routed_jdata, routed_source, camera_pose, detection_type, when=msg_when))
-      # (None, None) => rejected input; skip merge into pixel path.
-      if translation_moving_objects is not None:
-        pixel_moving_objects.extend(translation_moving_objects)
-        already_tracked_objects.extend(translation_already_tracked_objects)
+    if self._ingestExternalTranslationObjects(
+        scene, jdata, routed_translation_objects, camera_pose, source_id,
+        detection_type, source_track, msg_when,
+        pixel_moving_objects, already_tracked_objects):
+      return True
 
     if pixel_moving_objects or already_tracked_objects:
       scene.finishProcessing(
@@ -827,6 +744,180 @@ class SceneController:
         already_tracked_objects,
       )
     return True
+
+  @staticmethod
+  def _partitionExternalObjects(objects):
+    """Split message objects into pixel vs translation paths by index."""
+    pixel_objects = []
+    translation_objects = []
+    for index, obj in enumerate(objects):
+      if isinstance(obj.get('bounding_box_px'), dict):
+        pixel_objects.append((index, obj))
+      else:
+        translation_objects.append((index, obj))
+    return pixel_objects, translation_objects
+
+  @staticmethod
+  def _countExternalObjectIds(objects):
+    """Count non-None object ids within one external message."""
+    tracked_id_counts = {}
+    for obj in objects:
+      source_obj_id = obj.get('id')
+      if source_obj_id is not None:
+        tracked_id_counts[source_obj_id] = tracked_id_counts.get(source_obj_id, 0) + 1
+    return tracked_id_counts
+
+  @staticmethod
+  def _externalPixelIntrinsics(jdata, pixel_objects, source_id, scene_uid):
+    """Validate pixel-path fields and build intrinsics.
+
+    Returns ``(accepted, intrinsics)``. ``accepted`` is False when the whole
+    message must be discarded; ``intrinsics`` is None when there are no pixel
+    objects.
+    """
+    if not pixel_objects:
+      return True, None
+    # Match schema: pixel detections require pose and intrinsics on the same
+    # message. Reject the whole message rather than partially ingesting any
+    # co-packaged translation objects.
+    missing = [field for field in ('pose', 'intrinsics') if field not in jdata]
+    if missing:
+      log.warning(
+        f"Discarding external message with pixel detections missing "
+        f"{', '.join(missing)}: source={source_id} scene={scene_uid}")
+      return False, None
+    return True, CameraIntrinsics(jdata['intrinsics'], jdata.get('distortion'))
+
+  def _routeExternalObjects(self, indexed_objects, *, source_id, scene_uid,
+                            detection_type, source_track, tracked_id_counts,
+                            msg_when):
+    """Apply track=false identity claims or track=true synthetic ids."""
+    routed_objects = []
+    for index, obj in indexed_objects:
+      routed_obj = self._routeExternalObject(
+        index, obj, source_id=source_id, scene_uid=scene_uid,
+        detection_type=detection_type, source_track=source_track,
+        tracked_id_counts=tracked_id_counts, msg_when=msg_when)
+      if routed_obj is not None:
+        routed_objects.append(routed_obj)
+    return routed_objects
+
+  def _routeExternalObject(self, index, obj, *, source_id, scene_uid,
+                           detection_type, source_track, tracked_id_counts,
+                           msg_when):
+    """Route one external object; return None when the object is rejected."""
+    routed_obj = dict(obj)
+    routed_obj.pop('track', None)
+    if source_track is False:
+      return self._routeUntrackedExternalObject(
+        routed_obj, source_id=source_id, scene_uid=scene_uid,
+        detection_type=detection_type, msg_when=msg_when)
+    return self._routeTrackedExternalObject(
+      index, routed_obj, source_id=source_id, scene_uid=scene_uid,
+      detection_type=detection_type, tracked_id_counts=tracked_id_counts)
+
+  def _routeUntrackedExternalObject(self, routed_obj, *, source_id, scene_uid,
+                                    detection_type, msg_when):
+    obj_id = routed_obj.get('id')
+    if obj_id is None:
+      log.warning(
+        f"Rejecting external-source object without id: source={source_id} "
+        f"scene={scene_uid} category={detection_type} track=false")
+      return None
+    ok, collision_reason = self.identity_claim_registry.claim(
+      scene_uid, detection_type, source_id, obj_id, msg_when)
+    if not ok:
+      log.warning(
+        f"Rejecting external-source object: id={obj_id} from source={source_id} "
+        f"scene={scene_uid} category={detection_type}: {collision_reason}")
+      return None
+    return routed_obj
+
+  @staticmethod
+  def _routeTrackedExternalObject(index, routed_obj, *, source_id, scene_uid,
+                                  detection_type, tracked_id_counts):
+    source_obj_id = routed_obj.get('id')
+    if source_obj_id is not None and tracked_id_counts.get(source_obj_id, 0) == 1:
+      routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{source_obj_id}"
+      return routed_obj
+    if source_obj_id is not None:
+      log.warning(
+        f"Duplicate tracked external object id={source_obj_id} from source={source_id} "
+        f"scene={scene_uid} category={detection_type}; ignoring id hint for this message")
+    routed_obj['id'] = f"tracked:{source_id}:{detection_type}:{index}"
+    return routed_obj
+
+  def _ingestExternalPixelObjects(self, scene, routed_pixel_objects,
+                                  synthetic_intrinsics, camera_pose, source_id,
+                                  detection_type, source_track, msg_when):
+    """Create moving objects from routed pixel detections.
+
+    Returns ``(pixel_moving_objects, already_tracked_objects)``.
+    """
+    if not routed_pixel_objects or synthetic_intrinsics is None:
+      return [], []
+
+    # Same camera-ingest gate: external pixel crops must not claim another
+    # scene already vetted the embedding provenance.
+    stripReidProvenance(routed_pixel_objects)
+    scene.convertPixelBoundingBoxesToMeters(
+      routed_pixel_objects,
+      synthetic_intrinsics.intrinsics,
+      synthetic_intrinsics.distortion,
+    )
+    pixel_camera = SimpleNamespace(
+      cameraID=source_id,
+      pose=CameraPose(camera_pose.pose_mat, synthetic_intrinsics),
+    )
+    created_pixel_objects = scene.createMovingObjectsForDetection(
+      detection_type, routed_pixel_objects, msg_when, pixel_camera)
+
+    if source_track is not False:
+      return list(created_pixel_objects), []
+
+    already_tracked_objects = []
+    for pixel_object in created_pixel_objects:
+      if pixel_object.sceneLoc is None:
+        log.warning(f"Discarding external pixel detection without scene location: "
+                    f"source={source_id} scene={scene.uid}")
+        continue
+      already_tracked_objects.append(pixel_object)
+    return [], already_tracked_objects
+
+  def _ingestExternalTranslationObjects(
+      self, scene, jdata, routed_translation_objects, camera_pose, source_id,
+      detection_type, source_track, msg_when, pixel_moving_objects,
+      already_tracked_objects):
+    """Ingest routed translation objects.
+
+    Returns True when processing is complete (translation-only fast path).
+    Otherwise extends *pixel_moving_objects* / *already_tracked_objects* and
+    returns False so the caller can finishProcessing.
+    """
+    if not routed_translation_objects:
+      return False
+
+    routed_jdata = dict(jdata)
+    routed_jdata['objects'] = routed_translation_objects
+    routed_jdata.pop('track', None)
+    routed_source = SimpleNamespace(
+      name=source_id,
+      uid=source_id,
+      retrack=(source_track is not False),
+    )
+    if not pixel_moving_objects and not already_tracked_objects:
+      scene.processSceneData(routed_jdata, routed_source, camera_pose,
+                             detection_type, when=msg_when)
+      return True
+
+    translation_moving_objects, translation_already_tracked_objects = (
+      scene.createMovingObjectsForSceneData(
+        routed_jdata, routed_source, camera_pose, detection_type, when=msg_when))
+    # (None, None) => rejected input; skip merge into pixel path.
+    if translation_moving_objects is not None:
+      pixel_moving_objects.extend(translation_moving_objects)
+      already_tracked_objects.extend(translation_already_tracked_objects)
+    return False
 
   @staticmethod
   def _withRemoteChildParent(info, parent_uid):
