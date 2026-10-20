@@ -12,6 +12,7 @@ import ipaddress
 from datetime import datetime, timezone
 
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, OperationalError, connection
 from django.http import HttpResponse
 from rest_framework.views import APIView
@@ -71,6 +72,38 @@ def get_class_and_serializer(thing_type):
   return None, None, None
 
 
+_SENSOR_LIST_FILTERS = {'id': 'id', 'name': 'name', 'scene': 'scene'}
+
+# Supported query filters per model: query parameter -> ORM lookup path.
+LIST_FILTERS = {
+  Scene: {'id': 'id', 'name': 'name', 'parent': 'parent__parent'},
+  Cam: _SENSOR_LIST_FILTERS,
+  SingletonSensor: _SENSOR_LIST_FILTERS,
+  Region: _SENSOR_LIST_FILTERS,
+  Tripwire: _SENSOR_LIST_FILTERS,
+  User: {'id': 'id', 'username': 'username'},
+  Asset3D: {'id': 'id', 'name': 'name'},
+  ChildScene: {'id': 'id', 'parent': 'parent'},
+  CalibrationMarker: {'scene': 'scene'},
+}
+
+LIST_PAGINATION_PARAMS = ('page',)
+
+def _clean_filter_value(model, lookup, value):
+  """Coerce and validate a query filter value against the model field it targets.
+
+  Relation lookups are validated against the related model's primary key.
+  Raises django.core.exceptions.ValidationError on invalid input.
+  """
+  field = None
+  for part in lookup.split('__'):
+    field = model._meta.get_field(part)
+    if field.is_relation:
+      model = field.related_model
+  if field.is_relation:
+    field = model._meta.pk
+  return field.clean(value, None)
+
 class ListThings(generics.ListAPIView):
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [permissions.IsAuthenticated]
@@ -80,24 +113,27 @@ class ListThings(generics.ListAPIView):
     queryset = thing_class.objects.all()
     if thing_class is Cam:
       queryset = queryset.select_related('scene')
+
+    allowed_filters = LIST_FILTERS.get(thing_class, {})
     query_params = self.request.query_params
-    if query_params:
-      keys = query_params.keys()
+    unknown_params = [key for key in query_params.keys()
+                      if key not in allowed_filters and key not in LIST_PAGINATION_PARAMS]
+    if unknown_params:
+      raise ValidationError({key: ["Unknown query parameter."] for key in unknown_params})
 
-      bad_keys = [x for x in keys if x not in ('name', 'parent', 'scene', 'username', 'id', 'page')]
-      if bad_keys:
-        log.warning(f"Invalid key(s) in query params: {bad_keys}")
-        return []
+    filter_params = {}
+    errors = {}
+    for key, lookup in allowed_filters.items():
+      if key not in query_params:
+        continue
+      try:
+        filter_params[lookup] = _clean_filter_value(thing_class, lookup, query_params.get(key))
+      except DjangoValidationError as e:
+        errors[key] = e.messages
+    if errors:
+      raise ValidationError(errors)
 
-      filter_params = {}
-      for key in keys:
-        if key == 'page':
-          continue
-        filter_params[key] = query_params.get(key)
-      if 'parent' in filter_params:
-        uid = filter_params['parent']
-        filter_params['parent__pk'] = uid
-        filter_params.pop('parent')
+    if filter_params:
       queryset = queryset.filter(**filter_params)
     return queryset
 
