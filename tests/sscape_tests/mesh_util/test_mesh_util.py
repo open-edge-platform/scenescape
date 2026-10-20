@@ -5,6 +5,7 @@
 
 import base64
 import os
+from io import BytesIO
 from unittest.mock import MagicMock, patch
 
 import numpy as np
@@ -410,5 +411,79 @@ def test_start_mesh_generation_converts_nonzero_euler_rotation_to_quaternion(
   assert result["success"], result.get("error")
   camera_location_order = mesh_generator.mapping_client.startReconstructMesh.call_args[0][2]
   assert camera_location_order[0]["rotation"] == pytest.approx(expected_quat)
+
+
+def _pose_matrix(euler_deg, translation):
+  """Build a 4x4 pose from XYZ Euler angles in degrees and a translation."""
+  pose = np.eye(4)
+  pose[:3, :3] = Rotation.from_euler('XYZ', euler_deg, degrees=True).as_matrix()
+  pose[:3, 3] = translation
+  return pose
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("returned_euler, returned_translation", [
+  pytest.param([10.0, 5.0, -40.0], [0.5, 2.0, 1.0], id="returned-pose-drifted"),
+  pytest.param([20.0, -35.0, 70.0], [3.0, -1.0, 0.5], id="returned-pose-matches-calibration"),
+])
+@patch("manager.mesh_generator.CamSerializer")
+def test_mesh_generator_places_mesh_at_calibrated_pose_of_translated_rotated_anchor(
+    mock_serializer_cls, returned_euler, returned_translation, test_scene_with_cameras):
+  """Anchored camera1 has a translated, non-zero-rotation calibrated pose. The
+  mapping service returns it at a drifted pose, or at exactly its calibrated
+  pose as a boundary case. A point the camera sees at p in its own frame must
+  end up at scene_pose @ p in the saved mesh, checking the final vertex
+  positions and orientation, not just the quaternion sent out. Re-applying the
+  frame flip moves the mesh and fails both cases."""
+  scene = test_scene_with_cameras["scene"]
+  camera2 = test_scene_with_cameras["camera2"]
+
+  scene_translation = [3.0, -1.0, 0.5]
+  scene_euler = [20.0, -35.0, 70.0]
+  scene_pose = _pose_matrix(scene_euler, scene_translation)
+  returned_pose = _pose_matrix(returned_euler, returned_translation)
+
+  # Only camera1 stays anchored, so the mesh is aligned from its pose alone.
+  camera2.transforms = []
+  camera2.save()
+
+  serializer = mock_serializer_cls.return_value
+  serializer.get_translation.side_effect = lambda cam: scene_translation if cam.sensor_id == "camera1" else None
+  serializer.get_rotation.side_effect = lambda cam: scene_euler if cam.sensor_id == "camera1" else None
+
+  # Offset so the box is not symmetric about the origin; a flip would then move it.
+  camera_frame_box = trimesh.creation.box(extents=[1.0, 2.0, 0.5])
+  camera_frame_box.apply_translation([0.7, -0.4, 1.3])
+  mapping_frame_mesh = camera_frame_box.copy()
+  mapping_frame_mesh.apply_transform(returned_pose)
+  glb_data = base64.b64encode(mapping_frame_mesh.export(file_type="glb")).decode("utf-8")
+  expected_vertices = camera_frame_box.vertices @ scene_pose[:3, :3].T + scene_pose[:3, 3]
+
+  returned_quat = Rotation.from_matrix(returned_pose[:3, :3]).as_quat().tolist()
+  mesh_generator = MeshGenerator()
+  mesh_generator.mapping_client.getReconstructionStatus = MagicMock(return_value={
+    "success": True,
+    "state": "complete",
+    "result": {
+      "success": True,
+      "glb_data": glb_data,
+      "camera_poses": [
+        {"camera_id": "camera1", "translation": returned_translation, "rotation": returned_quat},
+      ],
+      "intrinsics": [],
+    },
+  })
+
+  result = mesh_generator.finalizeMeshFromStatus(scene, "req-pose")
+
+  assert result["success"], result.get("error")
+  assert result["unanchored_cameras"] == ["camera2", "atag-qcam1"]
+
+  saved_glb = scene.map.save.call_args[0][1]
+  saved_glb.seek(0)
+  saved_mesh = trimesh.load(BytesIO(saved_glb.read()), file_type="glb").dump(concatenate=True)
+  distances = np.linalg.norm(saved_mesh.vertices[:, None, :] - expected_vertices[None, :, :], axis=2)
+  assert np.all(distances.min(axis=0) < 1e-4)  # every expected corner is in the saved mesh
+  assert np.all(distances.min(axis=1) < 1e-4)  # and no saved vertex sits elsewhere
 
 
