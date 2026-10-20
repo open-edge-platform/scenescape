@@ -153,8 +153,7 @@ class SoapClient:
     # WS-Security UsernameToken PasswordDigest is strictly defined as SHA-1
     # by the OASIS WSS 1.0/1.1 specification and ONVIF Core Specification.
     # codeql[py/weak-sensitive-data-hashing]
-    # nosec B324
-    digest = hashlib.sha1(
+    digest = hashlib.sha1( # nosec B324
       nonce + created.encode() + self._credentials.password.encode()
     ).digest()
     return (
