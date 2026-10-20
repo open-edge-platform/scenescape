@@ -193,6 +193,56 @@ TEST_F(MessageHandlerTest, ExternalScenePoseTransformsAndBuffersAuthoritativeDet
     EXPECT_EQ(batch.external_detections[0].translation, (std::array<double, 3>{11.0, 22.0, 3.0}));
 }
 
+TEST_F(MessageHandlerTest, ExternalTopicAcceptsMacStylePublisherId) {
+    const std::string publisher_id = "02:42:ac:11:00:05.1";
+    ExternalSourcesConfig external_config;
+    external_config.bindings[publisher_id] = {TEST_SCENE_ID};
+    external_config.trusted_positioning_sources.insert(publisher_id);
+    const auto message_time = *parseTimestamp("2026-01-27T12:00:00.000Z");
+    MessageHandler handler(
+        mock_client_, test_registry_, test_buffer_, test_config_, false, TRACKER_SCHEMA_DIR,
+        [message_time] { return message_time; }, external_config);
+    handler.start();
+
+    mock_client_->simulateMessage(
+        "scenescape/external/" + publisher_id + "/person", R"({
+          "timestamp": "2026-01-27T12:00:00.000Z",
+          "source_id": "02:42:ac:11:00:05.1",
+          "pose": {"reference_frame": "scene", "translation": [0, 0, 0]},
+          "objects": [{
+            "id": "tag-7", "category": "person", "translation": [1, 2, 3]
+          }]
+        })");
+
+    EXPECT_EQ(handler.getRejectedCount(), 0);
+    const auto buffered = test_buffer_.pop_all();
+    const TrackingScope scope{TEST_SCENE_ID, "person"};
+    ASSERT_TRUE(buffered.contains(scope));
+    EXPECT_TRUE(buffered.at(scope).contains(publisher_id));
+}
+
+TEST_F(MessageHandlerTest, ExternalTopicRejectsWildcardPublisherId) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    mock_client_->simulateMessage(
+        "scenescape/external/agent+1/person",
+        R"({"timestamp":"2026-01-27T12:00:00.000Z","source_id":"agent+1","objects":[]})");
+
+    EXPECT_EQ(handler.getRejectedCount(), 1);
+}
+
+TEST_F(MessageHandlerTest, ExternalTopicRejectsWildcardCategory) {
+    MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, false);
+    handler.start();
+
+    mock_client_->simulateMessage(
+        "scenescape/external/agent-1/per+son",
+        R"({"timestamp":"2026-01-27T12:00:00.000Z","source_id":"agent-1","objects":[]})");
+
+    EXPECT_EQ(handler.getRejectedCount(), 1);
+}
+
 TEST_F(MessageHandlerTest, ExternalDetectionBuffersForSceneWithoutCameras) {
     Scene scene;
     scene.uid = "external-only-scene";

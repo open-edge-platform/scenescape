@@ -827,6 +827,30 @@ TEST(ConfigLoaderTest, ExternalSourcesFromJson) {
     EXPECT_TRUE(config.external_sources.trusted_positioning_sources.contains("positioner-1"));
 }
 
+TEST(ConfigLoaderTest, ExternalSourcesFromJsonAcceptMacStylePublisherIds) {
+    const std::string publisher_id = "02:42:ac:11:00:05.1";
+    const std::string config_text = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "external_sources": {
+        "bindings": {")" + publisher_id + R"(": ["scene-1"]},
+        "trusted_positioning_sources": [")" + publisher_id + R"("]
+      },
+      "scenes": {
+        "source": "file",
+        "file_path": ")" + empty_scenes_path() + R"("
+      }
+    })";
+    TempFile config_file(config_text);
+
+    const auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_EQ(config.external_sources.bindings.at(publisher_id).size(), 1);
+    EXPECT_EQ(config.external_sources.bindings.at(publisher_id)[0], "scene-1");
+    EXPECT_TRUE(config.external_sources.trusted_positioning_sources.contains(publisher_id));
+}
+
 TEST(ConfigLoaderTest, ExternalSourcesEnvironmentOverridesJson) {
     ScopedEnv bindings(tracker::env::EXTERNAL_SOURCE_BINDINGS, "agent-2:scene-3, agent-2:scene-4");
     ScopedEnv trusted(tracker::env::TRUSTED_POSITIONING_SOURCES, "positioner-2,positioner-3");
@@ -837,6 +861,20 @@ TEST(ConfigLoaderTest, ExternalSourcesEnvironmentOverridesJson) {
     ASSERT_EQ(config.external_sources.bindings.at("agent-2").size(), 2);
     EXPECT_TRUE(config.external_sources.trusted_positioning_sources.contains("positioner-2"));
     EXPECT_TRUE(config.external_sources.trusted_positioning_sources.contains("positioner-3"));
+}
+
+TEST(ConfigLoaderTest, ExternalSourcesEnvironmentAcceptsColonInPublisherId) {
+    const std::string publisher_id = "02:42:ac:11:00:05.1";
+    const std::string binding_value = publisher_id + ":scene-1";
+    ScopedEnv bindings(tracker::env::EXTERNAL_SOURCE_BINDINGS, binding_value.c_str());
+    ScopedEnv trusted(tracker::env::TRUSTED_POSITIONING_SOURCES, publisher_id.c_str());
+    TempFile config_file(MINIMAL_CONFIG());
+
+    const auto config = load_config(config_file.path(), get_schema_path());
+
+    ASSERT_EQ(config.external_sources.bindings.at(publisher_id).size(), 1);
+    EXPECT_EQ(config.external_sources.bindings.at(publisher_id)[0], "scene-1");
+    EXPECT_TRUE(config.external_sources.trusted_positioning_sources.contains(publisher_id));
 }
 
 TEST(ConfigLoaderTest, InvalidExternalBindingEnvironmentThrows) {

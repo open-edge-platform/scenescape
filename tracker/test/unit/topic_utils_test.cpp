@@ -62,6 +62,18 @@ TEST_P(InvalidTopicSegmentTest, RejectsInvalidSegment) {
         << "Expected '" << tc.segment << "' to be rejected";
 }
 
+TEST(PublisherTopicSegmentTest, AcceptsMacStyleIdentifiers) {
+    EXPECT_TRUE(isValidPublisherTopicSegment("02:42:ac:11:00:05.1"));
+}
+
+TEST(PublisherTopicSegmentTest, RejectsEmptyAndMqttSpecialCharacters) {
+    EXPECT_FALSE(isValidPublisherTopicSegment(""));
+    EXPECT_FALSE(isValidPublisherTopicSegment("publisher/1"));
+    EXPECT_FALSE(isValidPublisherTopicSegment("publisher+1"));
+    EXPECT_FALSE(isValidPublisherTopicSegment("publisher#1"));
+    EXPECT_FALSE(isValidPublisherTopicSegment("publisher$1"));
+}
+
 INSTANTIATE_TEST_SUITE_P(
     InvalidSegments, InvalidTopicSegmentTest,
     ::testing::Values(

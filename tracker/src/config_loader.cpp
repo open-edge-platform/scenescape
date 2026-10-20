@@ -167,9 +167,15 @@ void validate_external_id(const std::string& value, const std::string& source) {
     }
 }
 
+void validate_publisher_id(const std::string& value, const std::string& source) {
+    if (!isValidPublisherTopicSegment(value)) {
+        throw std::runtime_error("Invalid " + source + " publisher identifier: " + value);
+    }
+}
+
 void add_binding(ExternalSourcesConfig& config, const std::string& publisher_id,
                  const std::string& scene_id, const std::string& source) {
-    validate_external_id(publisher_id, source);
+    validate_publisher_id(publisher_id, source);
     validate_external_id(scene_id, source);
     auto& scenes = config.bindings[publisher_id];
     if (std::find(scenes.begin(), scenes.end(), scene_id) == scenes.end()) {
@@ -181,8 +187,8 @@ void parse_binding_env(ExternalSourcesConfig& config, const std::string& value,
                        const std::string& source) {
     config.bindings.clear();
     for (const auto& entry : split_csv(value, source)) {
-        const size_t separator = entry.find(':');
-        if (separator == std::string::npos || entry.find(':', separator + 1) != std::string::npos) {
+        const size_t separator = entry.rfind(':');
+        if (separator == std::string::npos) {
             throw std::runtime_error("Invalid " + source + " binding: " + entry);
         }
         const auto publisher_id = trim(std::string_view(entry).substr(0, separator));
@@ -195,7 +201,7 @@ void parse_trusted_sources_env(ExternalSourcesConfig& config, const std::string&
                                const std::string& source) {
     config.trusted_positioning_sources.clear();
     for (const auto& source_id : split_csv(value, source)) {
-        validate_external_id(source_id, source);
+        validate_publisher_id(source_id, source);
         config.trusted_positioning_sources.insert(source_id);
     }
 }
@@ -400,7 +406,7 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
             GetValueByPointer(config_doc, json::EXTERNAL_SOURCE_TRUSTED_POSITIONING_SOURCES)) {
         for (const auto& source : trusted->GetArray()) {
             const std::string source_id = source.GetString();
-            validate_external_id(source_id, "external_sources.trusted_positioning_sources");
+            validate_publisher_id(source_id, "external_sources.trusted_positioning_sources");
             config.external_sources.trusted_positioning_sources.insert(source_id);
         }
     }

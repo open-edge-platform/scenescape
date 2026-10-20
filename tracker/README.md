@@ -69,7 +69,7 @@ make run-debug
 | `TRACKER_MQTT_PORT`                      | `1883`                                       | MQTT broker port                                 |
 | `TRACKER_MQTT_INSECURE`                  | `false`                                      | Disable TLS (for test broker)                    |
 | `TRACKER_MQTT_TLS_CA_CERT`               | `../manager/secrets/certs/scenescape-ca.pem` | CA certificate path                              |
-| `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`    | Empty                                        | Comma-separated `publisher_id:scene_uid` entries |
+| `CONTROLLER_EXTERNAL_SOURCE_BINDINGS`    | Empty                                        | Comma-separated `publisher_id:scene_uid` entries; the final colon separates publisher ID from scene UID |
 | `CONTROLLER_TRUSTED_POSITIONING_SOURCES` | Empty                                        | Sources allowed to publish scene-frame poses     |
 
 Example with insecure test broker:

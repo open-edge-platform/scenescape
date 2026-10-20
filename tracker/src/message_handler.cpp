@@ -303,7 +303,7 @@ MessageHandler::extractExternalTopic(const std::string& topic) {
     }
     std::string publisher_id(remainder.substr(0, separator));
     std::string category(remainder.substr(separator + 1));
-    if (!isValidTopicSegment(publisher_id) || !isValidTopicSegment(category)) {
+    if (!isValidPublisherTopicSegment(publisher_id) || !isValidTopicSegment(category)) {
         return std::nullopt;
     }
     return std::pair{std::move(publisher_id), std::move(category)};

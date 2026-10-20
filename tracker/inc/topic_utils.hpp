@@ -32,4 +32,13 @@ namespace tracker {
  */
 bool isValidTopicSegment(std::string_view segment);
 
+/**
+ * @brief Validate a publisher identifier used as an MQTT topic segment.
+ *
+ * Like isValidTopicSegment, this rejects MQTT separators, wildcards, and
+ * unsupported characters, but also permits colons for identifiers such as MAC
+ * addresses.
+ */
+bool isValidPublisherTopicSegment(std::string_view segment);
+
 } // namespace tracker
