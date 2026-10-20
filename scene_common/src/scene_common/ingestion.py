@@ -180,8 +180,8 @@ class SceneDataIngestion:
       obj.bbMeters = None
 
     metadata = obj_data.get('metadata', {})
-    obj.reid = metadata.get('reid') if metadata else {}
-    obj.metadata = {}
+    obj.metadata = metadata
+    obj.reid = metadata.get('reid', {}) if isinstance(metadata, dict) else {}
     obj.similarity = obj_data.get('similarity')
 
     if obj_data.get('camera_bounds'):
