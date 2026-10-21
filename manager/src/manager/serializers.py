@@ -89,6 +89,8 @@ class CenterSerializerField(serializers.DictField):
     return None
 
   def to_internal_value(self, data):
+    if data is not None:
+      data = _number_list(data, 'center', (2,))
     return {'center': data}
 
 class PointsSerializerField(serializers.DictField):
@@ -102,9 +104,10 @@ class PointsSerializerField(serializers.DictField):
     if not isinstance(data, list):
       raise serializers.ValidationError("Points must be a list.")
     for i, point in enumerate(data):
-      if not isinstance(point, (list, tuple)) or len(point) != 2:
+      if not isinstance(point, (list, tuple)) or len(point) != 2 \
+         or not all(_is_number(coord) for coord in point):
         raise serializers.ValidationError(
-          f"Each point must be a list of 2 coordinates, got {point} at index {i}.")
+          f"Each point must be a list of 2 numbers, got {point} at index {i}.")
     return data
 
   @staticmethod
@@ -1019,6 +1022,18 @@ class Asset3DSerializer(NonNullSerializer):
       raise serializers.ValidationError(f"An object library with the name '{value}' already exists.")
     return value
 
+  # On SQLite these ListFields map to unvalidated JSON fields, so check them here.
+  def _validate_number_list(self, value):
+    if value is None:
+      return value
+    if not isinstance(value, (list, tuple)) or not all(_is_number(item) for item in value):
+      raise serializers.ValidationError("Must be a list of numbers.")
+    return [float(item) for item in value]
+
+  validate_geometric_center = _validate_number_list
+  validate_center_of_mass = _validate_number_list
+  validate_friction_coefficients = _validate_number_list
+
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
     if not is_update:
@@ -1049,6 +1064,16 @@ class ChildSceneSerializer(NonNullSerializer):
 
   def getChildName(self, obj):
     return obj.child.name if obj.child else obj.child_name
+
+  @staticmethod
+  def _validate_cache(value):
+    if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
+      raise serializers.ValidationError("Must be a list of objects.")
+    return value
+
+  validate_cached_rois = _validate_cache
+  validate_cached_tripwires = _validate_cache
+  validate_cached_sensors = _validate_cache
 
   def validate(self, data):
     child_type = data.get('child_type')
