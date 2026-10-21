@@ -794,7 +794,9 @@ class SceneSerializer(NonNullSerializer):
       Scene.objects.filter(pk=instance.pk).update(trs_matrix=trs_matrix)
       instance.trs_matrix = trs_matrix
 
+    glb_map_handled = False
     if map_path:
+      uploaded_map = map_path
       map_path = '/media/' + map_path.name
       ext = os.path.splitext(map_path)[1].lower()
 
@@ -808,11 +810,50 @@ class SceneSerializer(NonNullSerializer):
           raise serializers.ValidationError(f"Error processing .ply file")
 
       if ext == ".glb":
-        # Only auto-align if a new GLB file was uploaded
-        if instance._original_map != instance.map:
+        # Create snapshots _original_map from the upload, so inequality never
+        # fires. On update, assign the new file before align/thumbnail.
+        # Skip auto-align when the caller supplied explicit mesh transforms.
+        explicit_mesh_transform = any(
+            key in validated_data for key in (
+                'rotation_x', 'rotation_y', 'rotation_z',
+                'translation_x', 'translation_y', 'translation_z',
+            )
+        )
+        if is_update:
+          map_changed = (
+              instance._original_map != uploaded_map
+              or getattr(uploaded_map, '_committed', True) is False
+          )
+          if map_changed:
+            instance.map = uploaded_map
+        else:
+          map_changed = True
+
+        if explicit_mesh_transform:
+          for key in (
+              'rotation_x', 'rotation_y', 'rotation_z',
+              'translation_x', 'translation_y', 'translation_z',
+          ):
+            if key in validated_data:
+              setattr(instance, key, validated_data[key])
+        elif map_changed:
           instance.autoAlignSceneMap()
+
         instance.saveThumbnail()
-        Scene.objects.filter(pk=instance.pk).update(thumbnail=instance.thumbnail)
+        # Persist align + thumbnail fields. Create uses bulk_create and never
+        # calls instance.save(), so filter().update must write them or the UI
+        # keeps rotation/translation at 0 while AprilTag localize assumes Rx=90.
+        Scene.objects.filter(pk=instance.pk).update(
+            thumbnail=instance.thumbnail,
+            scale=instance.scale,
+            rotation_x=instance.rotation_x,
+            rotation_y=instance.rotation_y,
+            rotation_z=instance.rotation_z,
+            translation_x=instance.translation_x,
+            translation_y=instance.translation_y,
+            translation_z=instance.translation_z,
+        )
+        glb_map_handled = map_changed
 
     if parent_uid:
       self.link_parent(parent_uid, instance)
@@ -822,6 +863,10 @@ class SceneSerializer(NonNullSerializer):
     if is_update:
       for key, value in validated_data.items():
         setattr(instance, key, value)
+      # Avoid model.save() re-running autoAlign after we already aligned or
+      # applied explicit mesh transforms for this map replacement.
+      if glb_map_handled:
+        instance._original_map = instance.map
       instance.save(send_update_command=send_update_command)
     else:
       instance.notifyDbUpdate()
