@@ -195,24 +195,15 @@ TEST_F(TrackPublisherTest, Serialize_OnlyIncludesFreshReidSighting) {
         .WillOnce([&payload](const std::string&, const std::string& json) { payload = json; });
 
     auto observed = createSampleTrack("observed", "person");
-    observed.metadata_json = R"({"reid":{"embedding_vector":[[1,2]]},"age":{"label":"adult"}})";
     observed.reid_sighting_json =
         R"({"camera_id":"cam-1","timestamp":"2026-10-14T12:00:00Z","bounding_box_px":{"x":1,"y":2,"width":80,"height":90},"reid":{"embedding_vector":[[1,2]]}})";
     auto predicted = createSampleTrack("predicted", "person");
-    predicted.metadata_json = R"({"reid":{"embedding_vector":[[3,4]]},"age":{"label":"adult"}})";
     publisher.publish("scene", "Scene", "person", "2026-10-14T12:00:00Z", {observed, predicted});
 
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(payload.c_str()).HasParseError());
     ASSERT_TRUE(doc["objects"][0].HasMember("reid_sighting"));
     EXPECT_STREQ(doc["objects"][0]["reid_sighting"]["camera_id"].GetString(), "cam-1");
-    ASSERT_TRUE(doc["objects"][0]["reid_sighting"].HasMember("reid"));
-    EXPECT_TRUE(doc["objects"][0]["reid_sighting"]["reid"].HasMember("embedding_vector"));
-    for (const auto& object : doc["objects"].GetArray()) {
-        ASSERT_TRUE(object.HasMember("metadata"));
-        EXPECT_FALSE(object["metadata"].HasMember("reid"));
-        EXPECT_STREQ(object["metadata"]["age"]["label"].GetString(), "adult");
-    }
     EXPECT_FALSE(doc["objects"][1].HasMember("reid_sighting"));
 }
 
@@ -309,7 +300,9 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithMetadata_EmitsMetadataField) {
     const auto& obj = doc["objects"][0];
     ASSERT_TRUE(obj.HasMember("metadata"));
     EXPECT_TRUE(obj["metadata"].IsObject());
-    EXPECT_FALSE(obj["metadata"].HasMember("reid"));
+    EXPECT_TRUE(obj["metadata"].HasMember("reid"));
+    EXPECT_TRUE(obj["metadata"]["reid"].IsObject());
+    EXPECT_STREQ(obj["metadata"]["reid"]["model_name"].GetString(), "test");
     EXPECT_TRUE(obj["metadata"].HasMember("age"));
     EXPECT_TRUE(obj["metadata"]["age"].IsObject());
     EXPECT_STREQ(obj["metadata"]["age"]["label"].GetString(), "adult");

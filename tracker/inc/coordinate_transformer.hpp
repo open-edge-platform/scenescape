@@ -91,7 +91,7 @@ public:
      * @param chunk_id Worker-local freshness token (not published)
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
-     *         metadata.* attributes carry fused values; ReID is a measurement-scoped sighting.
+     *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */
     std::vector<rv::tracking::TrackedObject>
