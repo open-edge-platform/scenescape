@@ -352,6 +352,7 @@ test-load: build-image
 	$(MAKE) -C test/load test VERSION=$(VERSION) \
 		NUM_CAMERAS=$${NUM_CAMERAS:-4} FPS=$${FPS:-15} \
 		NUM_OBJECTS=$${NUM_OBJECTS:-300} DURATION=$${DURATION:-1m} \
+		REID_EMBEDDING_DIMENSIONS=$${REID_EMBEDDING_DIMENSIONS:-0} \
 		METRICS_EXPORT_INTERVAL_S=$${METRICS_EXPORT_INTERVAL_S:-1}
 
 #####################################################################

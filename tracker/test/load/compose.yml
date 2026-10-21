@@ -108,6 +108,7 @@ services:
       - CAMERA_COUNT=${NUM_CAMERAS:-4}
       - CAMERA_FPS=${FPS:-15}
       - OBJECT_COUNT=${NUM_OBJECTS:-300}
+      - REID_EMBEDDING_DIMENSIONS=${REID_EMBEDDING_DIMENSIONS:-0}
       - DEFAULT_TEST_DURATION=${DURATION:-1m}
       - CAMERA_ID_PREFIX=atag-qcam
     command: ["run", "--no-usage-report", "/scripts/simulate-detections.js"]

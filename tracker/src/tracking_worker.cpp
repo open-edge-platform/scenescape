@@ -7,6 +7,7 @@
 #include "metrics.hpp"
 #include "time_utils.hpp"
 
+#include <rv/tracking/MetadataAttributes.hpp>
 #include <rv/tracking/ObjectMatching.hpp>
 #include <rv/tracking/TrackManager.hpp>
 
@@ -31,19 +32,33 @@ namespace {
 // (DEFAULT_TRACKING_RADIUS); we keep the same default here so the tracker
 // service produces identical results.
 constexpr double kTrackingDistanceThreshold = 2.0;
-constexpr std::string_view kMetadataPrefix = "metadata.";
+constexpr std::string_view kMetadataPrefix = rv::tracking::metadata_fusion::ValuePrefix;
 
-std::string metadataJson(const std::unordered_map<std::string, std::string>& attributes) {
+std::string metadataJson(const std::unordered_map<std::string, std::string>& attributes,
+                         const std::string& chunk_id, std::string& reid_sighting_json) {
+    const auto sighting_it = attributes.find(std::string(kMetadataPrefix) + "reid");
+    const auto freshness =
+        attributes.find(std::string(rv::tracking::metadata_fusion::ProvenancePrefix) + "reid");
+    if (sighting_it != attributes.end() && freshness != attributes.end() && !chunk_id.empty() &&
+        freshness->second == chunk_id) {
+        reid_sighting_json = sighting_it->second;
+    }
+
     rapidjson::Document merged;
     merged.SetObject();
     auto& allocator = merged.GetAllocator();
 
+    bool has_metadata_attributes = false;
     std::vector<std::pair<std::string_view, std::string_view>> fields;
     for (const auto& [key, value] : attributes) {
         if (!key.starts_with(kMetadataPrefix)) {
             continue;
         }
-        fields.emplace_back(std::string_view(key).substr(kMetadataPrefix.size()), value);
+        has_metadata_attributes = true;
+        const auto field = std::string_view(key).substr(kMetadataPrefix.size());
+        if (field != "reid") {
+            fields.emplace_back(field, value);
+        }
     }
     std::sort(fields.begin(), fields.end(),
               [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
@@ -59,7 +74,19 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
         merged.AddMember(field_name, field_value, allocator);
     }
 
-    if (merged.ObjectEmpty()) {
+    if (merged.ObjectEmpty() && !has_metadata_attributes) {
+        const auto legacy = attributes.find("metadata_json");
+        if (legacy != attributes.end()) {
+            if (merged.Parse(legacy->second.c_str()).HasParseError() || !merged.IsObject()) {
+                return legacy->second;
+            }
+            if (!merged.HasMember("reid")) {
+                return legacy->second;
+            }
+            merged.RemoveMember("reid");
+        }
+    }
+    if (merged.ObjectEmpty() && !has_metadata_attributes) {
         return {};
     }
 
@@ -308,61 +335,7 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             auto& rotation_state = rotation_states_[rv_track.id];
             track.rotation = update_velocity_rotation(rv_track.vx, rv_track.vy, rotation_state);
         }
-        track.metadata_json = metadataJson(rv_track.attributes);
-
-        // Compatibility fallback for measurements produced by older adapters.
-        if (track.metadata_json.empty()) {
-            auto meta_it = rv_track.attributes.find("metadata_json");
-            if (meta_it != rv_track.attributes.end()) {
-                track.metadata_json = std::move(meta_it->second);
-            }
-        }
-
-        auto sighting_it = rv_track.attributes.find("reid_sighting");
-        if (sighting_it != rv_track.attributes.end()) {
-            rapidjson::Document sighting;
-            if (!sighting.Parse(sighting_it->second.c_str()).HasParseError() &&
-                sighting.IsObject() && sighting.HasMember("chunk_id") &&
-                sighting["chunk_id"].IsString() && chunk_id == sighting["chunk_id"].GetString()) {
-                sighting.RemoveMember("chunk_id");
-                rapidjson::StringBuffer buffer;
-                rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-                sighting.Accept(writer);
-                track.reid_sighting_json = buffer.GetString();
-            }
-        }
-        // Fused metadata can outlive its crop (or retain a higher-confidence
-        // older vector). Publish only the current sighting's embedding, with
-        // provenance from the same detection, and leave other fused fields alone.
-        if (!track.metadata_json.empty()) {
-            rapidjson::Document metadata;
-            if (!metadata.Parse(track.metadata_json.c_str()).HasParseError() &&
-                metadata.IsObject()) {
-                if (metadata.HasMember("reid")) {
-                    metadata.RemoveMember("reid");
-                }
-                if (!track.reid_sighting_json.empty()) {
-                    rapidjson::Document sighting;
-                    if (!sighting.Parse(track.reid_sighting_json.c_str()).HasParseError() &&
-                        sighting.IsObject() && sighting.HasMember("reid") &&
-                        sighting["reid"].IsObject() && sighting.HasMember("camera_id") &&
-                        sighting.HasMember("timestamp") && sighting.HasMember("bounding_box_px")) {
-                        auto& allocator = metadata.GetAllocator();
-                        rapidjson::Value reid(sighting["reid"], allocator);
-                        for (const char* field : {"camera_id", "timestamp", "bounding_box_px"}) {
-                            reid.RemoveMember(field);
-                            reid.AddMember(rapidjson::Value(field, allocator),
-                                           rapidjson::Value(sighting[field], allocator), allocator);
-                        }
-                        metadata.AddMember("reid", reid, allocator);
-                    }
-                }
-                rapidjson::StringBuffer buffer;
-                rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-                metadata.Accept(writer);
-                track.metadata_json = buffer.GetString();
-            }
-        }
+        track.metadata_json = metadataJson(rv_track.attributes, chunk_id, track.reid_sighting_json);
 
         // Retrieve confidence stored in attributes by transformDetections().
         // NOTE: multi-camera last-write-wins — same limitation as metadata_json.
