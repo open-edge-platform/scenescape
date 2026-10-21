@@ -104,21 +104,26 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     return sceneobj.map_processed is None or self.is_map_processed(sceneobj)
 
   def save_to_database(self, scene, atag_points_3d):
-    """! Function stores baseapriltag data into db.
+    """! Replace stored AprilTag markers with the newly detected set.
+
+    Always clear then insert so a smaller scan cannot leave the scene with
+    zero markers, and obsolete IDs from a prior map cannot linger beside
+    the new set before map_processed is marked complete.
+
     @param   scene             Scene database object.
     @param   atag_points_3d   Apriltag centers in 3d plane.
 
     @return  None
     """
-    response = self.calibration_data_interface.calibration_markers_with_scene_id(scene.id)
-    if 'results' in response:
-      apriltags = response['results']
-    if apriltags and len(atag_points_3d) < len(apriltags):
-      self.calibration_data_interface.delete_calibration_markers_for_scene(scene.id)
-    else:
-      for key, value in atag_points_3d.items():
-        post_data = {'marker_id': f"{scene.id}_{str(key)}", 'apriltag_id': key, 'dims': value, 'scene': scene.id}
-        self.calibration_data_interface.update_or_create_calibration_marker(scene.id, post_data)
+    self.calibration_data_interface.delete_calibration_markers_for_scene(scene.id)
+    for key, value in atag_points_3d.items():
+      post_data = {
+          'marker_id': f"{scene.id}_{str(key)}",
+          'apriltag_id': key,
+          'dims': value,
+          'scene': scene.id,
+      }
+      self.calibration_data_interface.update_or_create_calibration_marker(scene.id, post_data)
     self.calibration_data_interface.update_map_processed(scene.id, get_iso_time())
     return
 

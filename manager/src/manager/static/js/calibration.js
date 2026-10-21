@@ -177,10 +177,12 @@ async function manageCalibrationState(msg, scene_id) {
       }
     } else if (msg.status == "error") {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
-      // Keep the button usable so the user can retry after a failed attempt.
-      document.getElementById("auto-autocalibration").disabled = false;
+      // Registration must succeed before camera calibration. Keep the button
+      // disabled; reloading the page re-runs registerScene(). Enabling here
+      // would advertise retry while the click handler only calibrates.
+      document.getElementById("auto-autocalibration").disabled = true;
       document.getElementById("auto-autocalibration").title =
-        msg.message || "Auto camera calibration failed. Click to try again";
+        msg.message || "Auto camera calibration failed";
     } else {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
       document.getElementById("auto-autocalibration").title = msg.status;

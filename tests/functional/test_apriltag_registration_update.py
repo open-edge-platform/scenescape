@@ -197,7 +197,7 @@ class ApriltagRegistration(FunctionalTest):
       self._restore_scene()
 
   def runApriltagRegistrationDelete(self):
-    """when DB has more markers than the scan finds, all markers are deleted"""
+    """Stale extra markers are replaced by the newly detected set on re-registration."""
     try:
       # Ensure the DB has exactly MAP_APRILTAG_COUNT real markers by running
       # a fresh registration, then add 1 extra so DB count exceeds scan count.
@@ -210,9 +210,10 @@ class ApriltagRegistration(FunctionalTest):
       assert real_markers and len(real_markers.get('results', [])) == MAP_APRILTAG_COUNT, \
         f"Expected {MAP_APRILTAG_COUNT} markers after initial registration, got {real_markers}"
 
+      stale_id = "999"
       extra_marker = {
-        'marker_id': f"{self.scene_id}_999",
-        'apriltag_id': "999",
+        'marker_id': f"{self.scene_id}_{stale_id}",
+        'apriltag_id': stale_id,
         'dims': [0.0, 0.0, 0.0],
         'scene': self.scene_id,
       }
@@ -223,17 +224,11 @@ class ApriltagRegistration(FunctionalTest):
       self._trigger_registration()
       self._poll_for_registration()
 
-      # all markers must have been deleted because scan found fewer than DB had
-      markers_response = self.rest.getCalibrationMarkers({'scene': self.scene_id})
-      assert markers_response, (markers_response.statusCode, markers_response.errors)
-      markers = markers_response.get('results', [])
-      assert len(markers) == 0, \
-        f"Expected 0 markers after delete branch, got {len(markers)}"
-
-      # map_processed must still be updated even on the delete path
-      updated_scene = self._get_scene()
-      assert updated_scene.get('map_processed') is not None, \
-        "map_processed was not set after registration"
+      # Re-registration must replace markers, not delete without re-inserting.
+      self._assert_markers_registered()
+      markers = self.rest.getCalibrationMarkers({'scene': self.scene_id}).get('results', [])
+      assert all(str(m.get('apriltag_id')) != stale_id for m in markers), \
+        f"Stale marker {stale_id} remained after re-registration: {markers}"
 
       self.exitCode = 0
     finally:
@@ -241,7 +236,7 @@ class ApriltagRegistration(FunctionalTest):
 
   def runApriltagRegistrationMapReupload(self):
     """Re-uploading the scene map clears map_processed and re-registration
-    recreates calibration markers from the new map."""
+    replaces prior markers from the new map (without clearing them first)."""
     try:
       self._clear_calibration_markers()
       self._force_scene_unregistered()
@@ -258,14 +253,27 @@ class ApriltagRegistration(FunctionalTest):
         "map_processed changed after a name-only update"
       self._update_scene_with_retries({'name': original_name})
 
+      stale_id = "888"
+      stale = {
+        'marker_id': f"{self.scene_id}_{stale_id}",
+        'apriltag_id': stale_id,
+        'dims': [1.0, 1.0, 1.0],
+        'scene': self.scene_id,
+      }
+      response = self.rest.createCalibrationMarker(stale)
+      assert response, (response.statusCode, response.errors)
+
       self._reupload_queuing_map()
       assert self._get_scene().get('map_processed') is None, \
         "map_processed should be None after map re-upload"
 
-      self._clear_calibration_markers()
+      # Keep prior markers so replacement (not empty-DB insert) is exercised.
       self._trigger_registration()
       self._poll_for_registration()
       self._assert_markers_registered()
+      markers = self.rest.getCalibrationMarkers({'scene': self.scene_id}).get('results', [])
+      assert all(str(m.get('apriltag_id')) != stale_id for m in markers), \
+        f"Stale marker {stale_id} remained after map re-upload registration: {markers}"
 
       self.exitCode = 0
     finally:

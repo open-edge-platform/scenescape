@@ -808,8 +808,10 @@ class SceneSerializer(NonNullSerializer):
           raise serializers.ValidationError(f"Error processing .ply file")
 
       if ext == ".glb":
-        # Only auto-align if a new GLB file was uploaded
-        if instance._original_map != instance.map:
+        # Create builds Scene(**validated_data), so __init__ snapshots
+        # _original_map from the uploaded map and inequality never fires.
+        # Align new scenes always; on update only when the map file changed.
+        if (not is_update) or (instance._original_map != instance.map):
           instance.autoAlignSceneMap()
         instance.saveThumbnail()
         # Persist align + thumbnail fields. Create uses bulk_create and never
