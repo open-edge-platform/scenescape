@@ -325,7 +325,10 @@ class PTZResolver:
 
     settle_ns = int(model.settle_interval_s * 1e9)
     window_start_ns = timestamp_ns - settle_ns
-    window = [entry for entry in state.history if entry[0] >= window_start_ns]
+    window = list(state.history)
+    boundary_index = max(
+      (i for i, entry in enumerate(window) if entry[0] <= window_start_ns), default=0)
+    window = window[boundary_index:]
     if not window or window[0][0] > window_start_ns:
       return ("settling", "settling") if state.last_motion_ns is not None else ("unknown", "settling")
     spans = [max(item[1][axis] for item in window) - min(item[1][axis] for item in window)
