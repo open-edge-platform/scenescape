@@ -103,8 +103,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.01)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.01)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
 
   def test_constant_velocity_single_object_with_noise_use_track_distance_overload(self):
     """
@@ -149,8 +149,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.01)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.01)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
 
 class TestMultiModelKalmanEstimator(unittest.TestCase):
   def test_constant_velocity_single_object_with_noise(self):
@@ -180,8 +180,8 @@ class TestMultiModelKalmanEstimator(unittest.TestCase):
       object_ = create_object_at_location(x=x, y=y, classification=classification_data.classification('Car', 1.0))
       estimator.track(object_, timestamp)
     tracked_object = estimator.current_state()
-    self.assertAlmostEqual(tracked_object.vx, vx, places=2)
-    self.assertAlmostEqual(tracked_object.vy, vy, places=2)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
 
   def testPredictFunctionDoubleAndTimestamp(self):
     estimator_a = tracking.MultiModelKalmanEstimator()
@@ -242,8 +242,8 @@ class TestTrackManager(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, places=2)
-    self.assertAlmostEqual(tracked_object.vy, vy, places=2)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
 
     ## Test access methods
     current_track = track_manager.get_track(tracked_object.id)

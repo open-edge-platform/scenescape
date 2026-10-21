@@ -161,6 +161,11 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .value("CTRV", rv::tracking::MotionModel::CTRV, "Constant Turn-Rate and Velocity.")
     .export_values();
 
+  tracking.attr("PRODUCTION_PROCESS_NOISE") = rv::tracking::kProductionProcessNoise;
+  tracking.attr("PRODUCTION_MEASUREMENT_NOISE") = rv::tracking::kProductionMeasurementNoise;
+  tracking.attr("PRODUCTION_INIT_STATE_COVARIANCE") = rv::tracking::kProductionInitStateCovariance;
+  tracking.attr("PRODUCTION_MOTION_MODELS") = py::tuple(py::cast(rv::tracking::kProductionMotionModels));
+
   py::enum_<rv::tracking::DistanceType>(tracking, "DistanceType", "DistanceType enum class.")
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
      "Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
