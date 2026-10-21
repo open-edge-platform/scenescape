@@ -3,11 +3,13 @@
 
 #include <gtest/gtest.h>
 #include <chrono>
+#include <cmath>
 #include <iostream>
 #include <string>
 #include <vector>
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/Classification.hpp>
+#include <rv/tracking/OrientationAttributes.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
 TEST(MultipleObjectTrackerTest, SingleDetectionTracking)
@@ -701,4 +703,55 @@ TEST(MultipleObjectTrackerTest, SingleJumpingDetectionTracking)
       ASSERT_EQ(trackedObjects.size(), 1);
     }
   }
+}
+
+TEST(MultipleObjectTrackerTest, FollowsClimbingZAndYaw)
+{
+  // Non-planar path: filter must track measured z and yaw, not stay on z=0.
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-5;
+  trackerConfig.mDefaultMeasurementNoise = 1e-3;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mNonMeasurementTimeDynamic = 2.0;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig);
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  constexpr double stepS = 0.1;
+  constexpr double totalS = 5.0;
+  constexpr double vx = 0.4;
+  constexpr double vy = 0.2;
+  constexpr double vz = 0.4;
+  constexpr double yawRate = 0.15;
+
+  for (double t = stepS; t < totalS; t += stepS)
+  {
+    timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+    rv::tracking::TrackedObject measurement;
+    measurement.x = vx * t;
+    measurement.y = vy * t;
+    measurement.z = vz * t;
+    measurement.yaw = yawRate * t;
+    measurement.length = 0.5;
+    measurement.width = 0.5;
+    measurement.height = 1.8;
+    measurement.attributes[rv::tracking::orientation::HAS_ORIENTATION] =
+      rv::tracking::orientation::TRUE_VALUE;
+    objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
+                        rv::tracking::DistanceType::Euclidean, 2.0);
+  }
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  const double expectedT = totalS - stepS;
+  const double expectedZ = vz * expectedT;
+  EXPECT_NEAR(tracks[0].x, vx * expectedT, 0.15);
+  EXPECT_NEAR(tracks[0].y, vy * expectedT, 0.15);
+  // No vz in state: z is measurement-driven and lags, but must leave z=0.
+  EXPECT_GT(tracks[0].z, 1.0);
+  EXPECT_LT(std::abs(tracks[0].z - expectedZ), std::abs(0.0 - expectedZ) * 0.5);
+  EXPECT_NEAR(tracks[0].yaw, yawRate * expectedT, 0.25);
 }

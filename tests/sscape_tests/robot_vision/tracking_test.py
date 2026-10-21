@@ -676,3 +676,125 @@ class TestComputePixelsToMeterPlane(unittest.TestCase):
 
     self.assertEqual(len(results), 0, "Empty input should return empty results")
     self.assertIsInstance(results, list, "Result should be a list")
+
+
+class TestNonPlanarTracking(unittest.TestCase):
+  """Tracking beyond the ground plane: filter must follow measured z and yaw."""
+
+  def _tracker_config(self):
+    tracker_config = tracking.TrackManagerConfig()
+    tracker_config.max_number_of_unreliable_frames = 0
+    tracker_config.non_measurement_frames_dynamic = 20
+    tracker_config.non_measurement_frames_static = 30
+    tracker_config.default_process_noise = 1e-5
+    tracker_config.default_measurement_noise = 1e-3
+    tracker_config.init_state_covariance = 1.0
+    tracker_config.motion_models = [tracking.MotionModel.CV]
+    return tracker_config
+
+  def test_mot_follows_climbing_z_and_yaw(self):
+    """Positive: MOT track state tracks a staircase-like (x, y, z, yaw) path."""
+    classification_data = tracking.ClassificationData(['Person'])
+    tracker = tracking.MultipleObjectTracker(
+      self._tracker_config(), tracking.DistanceType.Euclidean, 2.0)
+    initial_timestamp = datetime.now()
+    tracker.track([], initial_timestamp)
+
+    step = 0.1
+    total_time = 5.0
+    # Keep planar speed under orientation yaw-vs-velocity gate (1 m/s).
+    vx, vy, vz = 0.4, 0.2, 0.4
+    yaw_rate = 0.15
+    x0 = y0 = z0 = yaw0 = 0.0
+
+    for t in np.arange(step, total_time, step):
+      timestamp = initial_timestamp + timedelta(seconds=t)
+      x = x0 + vx * t
+      y = y0 + vy * t
+      z = z0 + vz * t
+      yaw = yaw0 + yaw_rate * t
+      obj = create_object_at_location(
+        x=x, y=y, z=z, yaw=yaw,
+        classification=classification_data.classification('Person', 1.0))
+      # Orienting measurement so UKF correct applies yaw (not zero innovation).
+      # Assign the full dict — pybind setitem on the returned map is not sticky.
+      obj.attributes = {'has_orientation': 'true'}
+      tracker.track([obj], timestamp)
+
+    tracks = tracker.get_reliable_tracks()
+    self.assertEqual(len(tracks), 1)
+    tracked = tracks[0]
+    expected_t = total_time - step
+    expected_z = z0 + vz * expected_t
+    self.assertAlmostEqual(tracked.x, x0 + vx * expected_t, delta=0.15)
+    self.assertAlmostEqual(tracked.y, y0 + vy * expected_t, delta=0.15)
+    # State has no vz: z is measurement-driven and lags the ramp, but must
+    # leave the ground plane and stay nearer truth than z=0.
+    self.assertGreater(tracked.z, 1.0, msg="climbed path must leave the ground plane")
+    self.assertLess(abs(tracked.z - expected_z), abs(0.0 - expected_z) * 0.5)
+    self.assertAlmostEqual(tracked.yaw, yaw0 + yaw_rate * expected_t, delta=0.25)
+
+  def test_estimator_updates_z_from_measurements(self):
+    """Positive: UKF correct pulls state z toward changing measurements."""
+    classification_data = tracking.ClassificationData(['Person'])
+    estimator = tracking.MultiModelKalmanEstimator()
+    initial_timestamp = datetime.now()
+    seed = create_object_at_location(
+      x=0.0, y=0.0, z=0.0,
+      classification=classification_data.classification('Person', 1.0))
+    estimator.initialize(
+      seed, initial_timestamp, process_noise=1e-5, measurement_noise=1e-3,
+      motion_models=[tracking.MotionModel.CV])
+
+    step = 0.1
+    vz = 0.5
+    for t in np.arange(step, 4.0, step):
+      timestamp = initial_timestamp + timedelta(seconds=t)
+      measurement = create_object_at_location(
+        x=t, y=0.0, z=vz * t,
+        classification=classification_data.classification('Person', 1.0))
+      estimator.track(measurement, timestamp)
+
+    state = estimator.current_state()
+    expected_z = vz * (4.0 - step)
+    self.assertGreater(state.z, 1.0)
+    self.assertLess(abs(state.z - expected_z), abs(0.0 - expected_z) * 0.5)
+
+  def test_predict_without_measurement_holds_z(self):
+    """Negative / boundary: coasting predict must not invent vertical motion."""
+    classification_data = tracking.ClassificationData(['Person'])
+    estimator = tracking.MultiModelKalmanEstimator()
+    initial_timestamp = datetime.now()
+    seed = create_object_at_location(
+      x=0.0, y=0.0, z=2.5, yaw=0.3,
+      classification=classification_data.classification('Person', 1.0))
+    estimator.initialize(
+      seed, initial_timestamp, process_noise=1e-5, measurement_noise=1e-3,
+      motion_models=[tracking.MotionModel.CV])
+
+    coast_time = initial_timestamp + timedelta(seconds=2.0)
+    estimator.predict(coast_time)
+    state = estimator.current_state()
+    self.assertAlmostEqual(state.z, 2.5, places=3)
+    self.assertAlmostEqual(state.yaw, 0.3, places=3)
+
+  def test_constant_z_does_not_drift_up(self):
+    """Negative: planar measurements with fixed z stay near that height."""
+    classification_data = tracking.ClassificationData(['Person'])
+    tracker = tracking.MultipleObjectTracker(
+      self._tracker_config(), tracking.DistanceType.Euclidean, 2.0)
+    initial_timestamp = datetime.now()
+    tracker.track([], initial_timestamp)
+
+    step = 0.1
+    fixed_z = 0.0
+    for t in np.arange(step, 5.0, step):
+      timestamp = initial_timestamp + timedelta(seconds=t)
+      obj = create_object_at_location(
+        x=t, y=0.1 * t, z=fixed_z,
+        classification=classification_data.classification('Person', 1.0))
+      tracker.track([obj], timestamp)
+
+    tracks = tracker.get_reliable_tracks()
+    self.assertEqual(len(tracks), 1)
+    self.assertAlmostEqual(tracks[0].z, fixed_z, delta=0.05)

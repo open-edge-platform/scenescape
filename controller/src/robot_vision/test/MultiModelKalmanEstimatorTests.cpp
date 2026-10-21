@@ -193,3 +193,23 @@ TEST(MultiModelKalmanEstimatorTest, KinematicProcessNoiseShape)
     EXPECT_DOUBLE_EQ(cv::norm(rest, cv::NORM_INF), 0.0) << "position, z and size must get no direct noise";
   }
 }
+
+TEST(MultiModelKalmanEstimatorTest, PredictHoldsZWithoutMeasurement)
+{
+  rv::tracking::MultiModelKalmanEstimator estimator;
+  rv::tracking::TrackedObject seed;
+  seed.x = 0.0;
+  seed.y = 0.0;
+  seed.z = 2.5;
+  seed.yaw = 0.3;
+  seed.length = 0.5;
+  seed.width = 0.5;
+  seed.height = 1.8;
+
+  auto timestamp = std::chrono::system_clock::now();
+  estimator.initialize(seed, timestamp, 1e-5, 1e-3, 1.0, {rv::tracking::MotionModel::CV});
+  estimator.predict(timestamp + std::chrono::seconds(2));
+  auto state = estimator.currentState();
+  EXPECT_NEAR(state.z, 2.5, 1e-3);
+  EXPECT_NEAR(state.yaw, 0.3, 1e-3);
+}
