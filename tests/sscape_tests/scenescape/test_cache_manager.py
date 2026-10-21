@@ -519,6 +519,56 @@ class TestCacheManagerSensorRestoration:
 
     assert result is old_scene
 
+  @staticmethod
+  def _bare_manager(new_scene, old_scene):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.cached_scenes_by_uid = None
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+    cache_mgr.pose_adjustment_config_data = {}
+    scene_cls = Mock()
+    scene_cls.deserialize.return_value = new_scene
+    cache_mgr._scene_cls = scene_cls
+    cache_mgr._old_scene_cache = {'scene-uid': old_scene}
+    return cache_mgr, scene_cls
+
+  def test_apply_results_restores_sensors_on_fresh_tracker_scene(self):
+    """Test that a tracker-owning scene is re-deserialized (new tracker) and its sensor
+    readings are carried over via _restoreSensorCache, not by reusing the
+    old Scene."""
+    old_sensor = Mock(value=42, lastValue=41, lastWhen=123)
+    old_scene = Mock(uid='scene-uid', tracker=Mock())
+    old_scene.sensors = {'s1': old_sensor}
+
+    new_sensor = Mock(value=None, lastValue=None, lastWhen=None)
+    new_scene = Mock(uid='scene-uid', name='scene', tracker=Mock())
+    new_scene.sensors = {'s1': new_sensor}
+    new_scene.cameras = {}
+
+    cache_mgr, scene_cls = self._bare_manager(new_scene, old_scene)
+
+    retired = cache_mgr._applySceneResults([{'uid': 'scene-uid'}])
+
+    scene_cls.deserialize.assert_called_once()
+    old_scene.updateScene.assert_not_called()
+    assert cache_mgr.cached_scenes_by_uid['scene-uid'] is new_scene
+    assert cache_mgr.cached_scenes_by_uid['scene-uid'].tracker is not old_scene.tracker
+    assert (new_sensor.value, new_sensor.lastValue, new_sensor.lastWhen) == (42, 41, 123)
+    assert [s for s, _ in retired] == [old_scene]
+
+  def test_apply_results_reuses_trackerless_scene(self):
+    """Test that a scene with no tracker (AnalyticsScene) is reused and updated in place."""
+    old_scene = SimpleNamespace(uid='scene-uid', name='scene', sensors={},
+                                cameras={}, updateScene=Mock())
+    cache_mgr, scene_cls = self._bare_manager(Mock(), old_scene)
+
+    retired = cache_mgr._applySceneResults([{'uid': 'scene-uid'}])
+
+    scene_cls.deserialize.assert_not_called()
+    old_scene.updateScene.assert_called_once()
+    assert cache_mgr.cached_scenes_by_uid['scene-uid'] is old_scene
+    assert retired == []
+
 
 class TestCacheManagerRefreshCameras:
   """Test camera refresh functionality."""
