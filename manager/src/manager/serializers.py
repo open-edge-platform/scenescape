@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
+import math
 import os
 
+import cv2
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
@@ -22,6 +24,9 @@ from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
 from scene_common.cam_fields import CAM_SERIALIZER_FIELDS
+
+# Cam.width/height are IntegerFields, keep values within the database integer range.
+MAX_RESOLUTION = 2**31 - 1
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
@@ -67,6 +72,14 @@ def _is_number(value):
     return math.isfinite(float(value))
   except (TypeError, ValueError):
     return False
+
+def _number_list(value, field, lengths=None):
+  """Return value as a list of floats or raise a ValidationError for field."""
+  if not isinstance(value, (list, tuple)) or not all(_is_number(item) for item in value) \
+     or (lengths is not None and len(value) not in lengths):
+    count = " or ".join(str(n) for n in lengths) + " " if lengths else ""
+    raise serializers.ValidationError({field: f"must be a list of {count}numbers"})
+  return [float(item) for item in value]
 
 class CenterSerializerField(serializers.DictField):
   def to_representation(self, obj):
@@ -320,18 +333,23 @@ class CamSerializer(NonNullSerializer):
     self.map_transform_fields(validated_data)
     self.map_resolution_fields(validated_data)
 
-    if not is_update:
-      sensor_id = validated_data.get('sensor_id', None)
-      if sensor_id is None:
-        sensor_id = validated_data.get('name')
-        if sensor_id is not None:
-          sensor_id = sensor_id.replace(" ", "_")
-        validated_data['sensor_id'] = sensor_id
-      instance = super().create(validated_data)
-    else:
-      super().update(instance, validated_data)
+    # Save and pose computation share a transaction so an unusable pose is not persisted.
+    with transaction.atomic():
+      if not is_update:
+        sensor_id = validated_data.get('sensor_id', None)
+        if sensor_id is None:
+          sensor_id = validated_data.get('name')
+          if sensor_id is not None:
+            sensor_id = sensor_id.replace(" ", "_")
+          validated_data['sensor_id'] = sensor_id
+        instance = super().create(validated_data)
+      else:
+        super().update(instance, validated_data)
 
-    self.create_camera_instance(instance)
+      try:
+        self.create_camera_instance(instance)
+      except (ValueError, IndexError, cv2.error) as e:
+        raise serializers.ValidationError({'transforms': f"Cannot compute camera pose: {e}"})
     return instance
 
   def create(self, validated_data):
@@ -356,7 +374,11 @@ class CamSerializer(NonNullSerializer):
         {"resolution": "must be [width, height] or {width, height}"})
     if width is None or height is None:
       raise serializers.ValidationError({"resolution": "must provide both width and height"})
-    validated_data.update({'width': width, 'height': height})
+    if not all(_is_number(value) and 0 < float(value) <= MAX_RESOLUTION
+               for value in (width, height)):
+      raise serializers.ValidationError(
+        {"resolution": f"width and height must be numbers between 1 and {MAX_RESOLUTION}"})
+    validated_data.update({'width': int(float(width)), 'height': int(float(height))})
     return
 
   def map_intrinsics_fields(self, validated_data):
@@ -364,15 +386,20 @@ class CamSerializer(NonNullSerializer):
     if not intrinsics:
       return
 
+    invalid = serializers.ValidationError({"intrinsics": "invalid intrinsics: \""
+                                           + str(intrinsics) + "\""})
+    if not isinstance(intrinsics, dict):
+      raise invalid
     try:
       array = CameraIntrinsics.intrinsicsDictToList(intrinsics)
     except ValueError:
-      raise serializers.ValidationError({"intrinsics": "invalid intrinsics: \""
-                                         + str(intrinsics) + "\""})
+      raise invalid
+    if not all(_is_number(val) for val in array):
+      raise invalid
 
     extended_data = {'intrinsics_' + key: None for key in CameraIntrinsics.INTRINSICS_KEYS}
     for key, val in zip(CameraIntrinsics.INTRINSICS_KEYS, array):
-      extended_data['intrinsics_' + key] = val
+      extended_data['intrinsics_' + key] = float(val)
     validated_data.update(extended_data)
 
     return
@@ -382,18 +409,20 @@ class CamSerializer(NonNullSerializer):
     if not distortion:
       return
 
-    try:
-      array = CameraIntrinsics.distortionDictToList(distortion)
-    except ValueError:
-      raise serializers.ValidationError({"distortion": "invalid distortion: \""
-                                         + str(distortion) + "\""})
+    invalid = serializers.ValidationError({"distortion": "invalid distortion: \""
+                                           + str(distortion) + "\""})
+    if not isinstance(distortion, dict):
+      raise invalid
+    array = CameraIntrinsics.distortionDictToList(distortion)
+    if not all(_is_number(val) for val in array):
+      raise invalid
 
     # Cam only stores k1,k2,p1,p2,k3; CameraIntrinsics.DISTORTION_KEYS has more
     # (k4-k6, s1-s4, taux, tauy) that aren't model fields and would crash create().
     model_keys = CameraIntrinsics.DISTORTION_KEYS[:5]
     extended_data = {'distortion_' + key: None for key in model_keys}
     for key, val in zip(model_keys, array):
-      extended_data['distortion_' + key] = val
+      extended_data['distortion_' + key] = float(val)
     validated_data.update(extended_data)
 
     return
@@ -404,20 +433,24 @@ class CamSerializer(NonNullSerializer):
 
     if transform_type in (EULER, QUATERNION) \
        and all(key in self.initial_data for key in ('translation', 'rotation', 'scale')):
+      translation = _number_list(self.initial_data['translation'], 'translation', (3,))
+      rotation = _number_list(self.initial_data['rotation'], 'rotation',
+                              (4,) if transform_type == QUATERNION else (3,))
+      scale = _number_list(self.initial_data['scale'], 'scale', (3,))
       # Convert quaternion to euler
       if transform_type == QUATERNION:
-        self.initial_data['rotation'] = Rotation.from_quat(
-          self.initial_data['rotation']
-        ).as_euler('XYZ', degrees=True).tolist()
+        try:
+          rotation = Rotation.from_quat(rotation).as_euler('XYZ', degrees=True).tolist()
+        except ValueError:
+          raise serializers.ValidationError({'rotation': "invalid quaternion"})
         transform_type = EULER
-      extended_data['transforms'] = (
-        self.initial_data['translation'] +
-        self.initial_data['rotation'] +
-        self.initial_data['scale']
-      )
+      extended_data['transforms'] = translation + rotation + scale
 
     elif transform_type == POINT_CORRESPONDENCE:
-      extended_data['transforms'] = self.initial_data.get('transforms', None)
+      transforms = self.initial_data.get('transforms', None)
+      if transforms is not None:
+        transforms = _number_list(transforms, 'transforms')
+      extended_data['transforms'] = transforms
 
     if extended_data:
       extended_data.update({
