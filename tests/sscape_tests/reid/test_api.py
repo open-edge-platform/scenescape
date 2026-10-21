@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from reid_service.api import ReIDService
+from reid.api import ReIDService
 
 TEST_NAME = "NEX-T00000"
 
