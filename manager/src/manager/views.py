@@ -948,7 +948,7 @@ class SaveGeospatialSnapshot(APIView):
       log.error("Error saving geospatial snapshot")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
-class PreviewRoisFromOsm(APIView):
+class OsmRoiPreviews(APIView):
   """Preview OSM-derived polygon ROIs before creation.
 
   Derives the query bounding box from the scene's saved map_corners_lla.
@@ -967,13 +967,8 @@ class PreviewRoisFromOsm(APIView):
   authentication_classes = [SessionAuthentication, TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
-  def post(self, request):
+  def post(self, request, scene_uid):
     try:
-      scene_uid = request.data.get('scene')
-
-      if not scene_uid:
-        return JsonResponse({'error': 'scene is required'}, status=400)
-
       bounds = request.data.get('bounds')
       if bounds is not None and (
           not isinstance(bounds, dict)
@@ -1026,8 +1021,8 @@ class PreviewRoisFromOsm(APIView):
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
 
-class AcceptRoisFromOsm(APIView):
-  """Persist chosen OSM ROI previews (from PreviewRoisFromOsm) as new Regions.
+class OsmRois(APIView):
+  """Persist chosen OSM ROI previews (from OsmRoiPreviews) as new Regions.
 
   Unlike the form-based saveROI endpoint, which replaces the scene's entire
   region set with whatever it's given, this only creates the posted ROIs -
@@ -1037,11 +1032,7 @@ class AcceptRoisFromOsm(APIView):
   authentication_classes = [SessionAuthentication, TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
-  def post(self, request):
-    scene_uid = request.data.get('scene')
-    if not scene_uid:
-      return JsonResponse({'error': 'scene is required'}, status=400)
-
+  def post(self, request, scene_uid):
     rois = request.data.get('rois')
     if not isinstance(rois, list) or not rois:
       return JsonResponse({'error': 'rois must be a non-empty list'}, status=400)

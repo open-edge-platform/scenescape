@@ -29,8 +29,16 @@ MAP_CORNERS_LLA = [
 MAP_XYZ_CORNERS = [[0, 0, 0], [100, 0, 0], [100, 100, 0], [0, 100, 0]]
 
 
-class TestPreviewRoisFromOsm(TestCase):
-  """Verifies the preview-rois-from-osm endpoint: auth, calibration check, and geometry conversion."""
+def _post_previews(client, scene_uid, payload=None):
+  return client.post(
+    reverse("osm_roi_previews", kwargs={"scene_uid": scene_uid}),
+    data=json.dumps(payload or {}),
+    content_type="application/json",
+  )
+
+
+class TestOsmRoiPreviews(TestCase):
+  """Verifies the osm-roi-previews endpoint: auth, calibration check, and geometry conversion."""
 
   def setUp(self):
     """Create superuser and geospatial scene with trs_matrix and map_corners_lla."""
@@ -78,11 +86,7 @@ class TestPreviewRoisFromOsm(TestCase):
     ]
 
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=fake_ways):
-      response = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id)}),  # v2: bbox read from scene model
-        content_type="application/json",
-      )
+      response = _post_previews(self.client, self.scene.id)
 
     self.assertEqual(response.status_code, 200)
     result = json.loads(response.content)
@@ -132,11 +136,7 @@ class TestPreviewRoisFromOsm(TestCase):
     ]
 
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=fake_ways):
-      response = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id)}),
-        content_type="application/json",
-      )
+      response = _post_previews(self.client, self.scene.id)
 
     self.assertEqual(response.status_code, 200)
     result = json.loads(response.content)
@@ -166,11 +166,7 @@ class TestPreviewRoisFromOsm(TestCase):
     ]
 
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=fresh_ways) as mock_query:
-      response = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id)}),
-        content_type="application/json",
-      )
+      response = _post_previews(self.client, self.scene.id)
 
     mock_query.assert_called_once()  # Stale cache must not be reused
     self.assertEqual(response.status_code, 200)
@@ -212,11 +208,7 @@ class TestPreviewRoisFromOsm(TestCase):
     ]
 
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=fresh_ways) as mock_query:
-      response = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id)}),
-        content_type="application/json",
-      )
+      response = _post_previews(self.client, self.scene.id)
 
     mock_query.assert_called_once()  # List-format cache must not be reused
     self.assertEqual(response.status_code, 200)
@@ -237,16 +229,8 @@ class TestPreviewRoisFromOsm(TestCase):
     ]
 
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=fake_ways) as mock_query:
-      response1 = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id)}),
-        content_type="application/json",
-      )
-      response2 = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id)}),
-        content_type="application/json",
-      )
+      response1 = _post_previews(self.client, self.scene.id)
+      response2 = _post_previews(self.client, self.scene.id)
 
     self.assertEqual(response1.status_code, 200)
     self.assertEqual(response2.status_code, 200)
@@ -257,19 +241,17 @@ class TestPreviewRoisFromOsm(TestCase):
     self.assertIsNotNone(self.scene.osm_ways_cache)
     self.assertEqual(len(self.scene.osm_ways_cache), len(fake_ways))
 
-  def test_preview_requires_scene_id(self):
-    """Test that preview endpoint rejects missing scene ID."""
+  def test_preview_rejects_malformed_scene_uid_in_path(self):
+    """Test that a non-UUID scene path segment does not resolve to the endpoint."""
     self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
 
     response = self.client.post(
-      reverse("preview_rois_from_osm"),
-      data=json.dumps({}),  # Missing scene
+      "/api/v1/scene/not-a-uuid/osm-roi-previews",
+      data=json.dumps({}),
       content_type="application/json",
     )
 
-    self.assertEqual(response.status_code, 400)
-    result = json.loads(response.content)
-    self.assertIn("error", result)
+    self.assertEqual(response.status_code, 404)
 
   def test_preview_requires_map_corners_lla(self):
     """Test that preview endpoint rejects scene without map_corners_lla set (v3: bbox derived from it)."""
@@ -282,11 +264,7 @@ class TestPreviewRoisFromOsm(TestCase):
       output_lla=True,
     )
 
-    response = self.client.post(
-      reverse("preview_rois_from_osm"),
-      data=json.dumps({"scene": str(scene_no_corners.id)}),
-      content_type="application/json",
-    )
+    response = _post_previews(self.client, scene_no_corners.id)
 
     self.assertEqual(response.status_code, 400)
     result = json.loads(response.content)
@@ -305,11 +283,7 @@ class TestPreviewRoisFromOsm(TestCase):
     )
 
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry") as mock_query:
-      response = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(scene_no_trs.id)}),
-        content_type="application/json",
-      )
+      response = _post_previews(self.client, scene_no_trs.id)
 
     self.assertEqual(response.status_code, 400)
     result = json.loads(response.content)
@@ -328,11 +302,7 @@ class TestPreviewRoisFromOsm(TestCase):
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry") as mock_query:
       mock_query.side_effect = OsmQueryError("API key missing")
 
-      response = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id)}),  # v2: bbox from model
-        content_type="application/json",
-      )
+      response = _post_previews(self.client, self.scene.id)
 
     self.assertEqual(response.status_code, 400)
     result = json.loads(response.content)
@@ -343,11 +313,7 @@ class TestPreviewRoisFromOsm(TestCase):
     """Test that preview endpoint returns 404 for invalid/non-existent scene UUID."""
     self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
 
-    response = self.client.post(
-      reverse("preview_rois_from_osm"),
-      data=json.dumps({"scene": "00000000-0000-0000-0000-000000000000"}),  # v2: bbox from model
-      content_type="application/json",
-    )
+    response = _post_previews(self.client, "00000000-0000-0000-0000-000000000000")
 
     self.assertEqual(response.status_code, 404)
     result = json.loads(response.content)
@@ -355,11 +321,7 @@ class TestPreviewRoisFromOsm(TestCase):
 
   def test_unauthenticated_preview_is_rejected(self):
     """Test that unauthenticated requests to preview endpoint are rejected with 403."""
-    response = self.client.post(
-      reverse("preview_rois_from_osm"),
-      data=json.dumps({"scene": str(self.scene.id)}),  # v2: bbox from model
-      content_type="application/json",
-    )
+    response = _post_previews(self.client, self.scene.id)
 
     self.assertEqual(response.status_code, 403)
 
@@ -381,11 +343,7 @@ class TestPreviewRoisFromOsm(TestCase):
     ]
 
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=fake_ways):
-      response = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id)}),
-        content_type="application/json",
-      )
+      response = _post_previews(self.client, self.scene.id)
 
     self.assertEqual(response.status_code, 200)
     result = json.loads(response.content)
@@ -393,7 +351,7 @@ class TestPreviewRoisFromOsm(TestCase):
     self.assertEqual(result["bearing"], 45.0)
 
 
-class TestPreviewRoisFromOsmBounds(TestCase):
+class TestOsmRoiPreviewsBounds(TestCase):
   """Verifies the "bounds" param: keeps the full shape of any overlapping ROI, unclipped."""
 
   def setUp(self):
@@ -420,11 +378,7 @@ class TestPreviewRoisFromOsmBounds(TestCase):
   def test_bounds_keeps_full_roi_that_only_partially_overlaps(self):
     """A box that only covers a corner of the road's buffer polygon must not clip it."""
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=self.fake_ways):
-      unbounded = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id)}),
-        content_type="application/json",
-      )
+      unbounded = _post_previews(self.client, self.scene.id)
     full_points = json.loads(unbounded.content)["rois"][0]["points"]
     xs = [p[0] for p in full_points]
     ys = [p[1] for p in full_points]
@@ -434,11 +388,7 @@ class TestPreviewRoisFromOsmBounds(TestCase):
     }
 
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=self.fake_ways):
-      response = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id), "bounds": bounds}),
-        content_type="application/json",
-      )
+      response = _post_previews(self.client, self.scene.id, {"bounds": bounds})
 
     self.assertEqual(response.status_code, 200)
     result = json.loads(response.content)
@@ -449,29 +399,21 @@ class TestPreviewRoisFromOsmBounds(TestCase):
     far_away_bounds = {"minX": 10000, "minY": 10000, "maxX": 10001, "maxY": 10001}
 
     with patch("manager.osm_roi.osm_query.query_osm_ways_geometry", return_value=self.fake_ways):
-      response = self.client.post(
-        reverse("preview_rois_from_osm"),
-        data=json.dumps({"scene": str(self.scene.id), "bounds": far_away_bounds}),
-        content_type="application/json",
-      )
+      response = _post_previews(self.client, self.scene.id, {"bounds": far_away_bounds})
 
     self.assertEqual(response.status_code, 200)
     self.assertEqual(json.loads(response.content)["rois"], [])
 
   def test_invalid_bounds_returns_400(self):
-    response = self.client.post(
-      reverse("preview_rois_from_osm"),
-      data=json.dumps({"scene": str(self.scene.id),
-                       "bounds": {"minX": "oops", "minY": 0, "maxX": 10, "maxY": 10}}),
-      content_type="application/json",
-    )
+    response = _post_previews(
+      self.client, self.scene.id, {"bounds": {"minX": "oops", "minY": 0, "maxX": 10, "maxY": 10}})
 
     self.assertEqual(response.status_code, 400)
     self.assertIn("error", json.loads(response.content))
 
 
-class TestAcceptRoisFromOsm(TestCase):
-  """Verifies accept-rois-from-osm persists posted ROIs without touching other regions."""
+class TestOsmRois(TestCase):
+  """Verifies osm-rois persists posted ROIs without touching other regions."""
 
   def setUp(self):
     self.user = User.objects.create_superuser("test_user", "test_user@intel.com", "testpassword")
@@ -482,16 +424,15 @@ class TestAcceptRoisFromOsm(TestCase):
     RegionPoint.objects.create(region=self.existing_region, x=1, y=1, sequence=2)
     self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
 
-  def _post(self, payload):
+  def _post(self, payload, scene_uid=None):
     return self.client.post(
-      reverse("accept_rois_from_osm"),
+      reverse("osm_rois", kwargs={"scene_uid": scene_uid or self.scene.id}),
       data=json.dumps(payload),
       content_type="application/json",
     )
 
   def test_accept_creates_regions_and_leaves_existing_ones_untouched(self):
     response = self._post({
-      "scene": str(self.scene.id),
       "rois": [{"points": [[1, 1], [2, 1], [2, 2]], "name": "Bike Path", "type": "cycleway"}],
     })
 
@@ -510,31 +451,27 @@ class TestAcceptRoisFromOsm(TestCase):
     self.assertTrue(Region.objects.filter(pk=self.existing_region.pk).exists())
     self.assertEqual(Region.objects.filter(scene=self.scene).count(), 2)
 
-  def test_accept_requires_scene(self):
-    response = self._post({"rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]})
-    self.assertEqual(response.status_code, 400)
-
   def test_accept_requires_nonempty_rois_list(self):
-    response = self._post({"scene": str(self.scene.id), "rois": []})
+    response = self._post({"rois": []})
     self.assertEqual(response.status_code, 400)
 
   def test_accept_rejects_roi_with_too_few_points(self):
-    response = self._post({"scene": str(self.scene.id), "rois": [{"points": [[0, 0], [1, 0]]}]})
+    response = self._post({"rois": [{"points": [[0, 0], [1, 0]]}]})
 
     self.assertEqual(response.status_code, 400)
     # Nothing created when one entry in the batch is invalid.
     self.assertEqual(Region.objects.filter(scene=self.scene).count(), 1)
 
   def test_accept_rejects_unknown_scene(self):
-    response = self._post({
-      "scene": "00000000-0000-0000-0000-000000000000",
-      "rois": [{"points": [[0, 0], [1, 0], [1, 1]]}],
-    })
+    response = self._post(
+      {"rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]},
+      scene_uid="00000000-0000-0000-0000-000000000000",
+    )
     self.assertEqual(response.status_code, 404)
 
   def test_unauthenticated_accept_is_rejected(self):
     self.client.logout()
-    response = self._post({"scene": str(self.scene.id), "rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]})
+    response = self._post({"rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]})
     self.assertEqual(response.status_code, 403)
 
   def test_non_superuser_accept_is_rejected(self):
@@ -542,13 +479,12 @@ class TestAcceptRoisFromOsm(TestCase):
     self.client.logout()
     self.client.post(reverse("sign_in"), data={"username": "regular_user", "password": "testpassword"})
 
-    response = self._post({"scene": str(self.scene.id), "rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]})
+    response = self._post({"rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]})
     self.assertEqual(response.status_code, 403)
 
   def test_accept_reusing_existing_uuid_overwrites_that_region(self):
     """Documents a known risk: a posted uuid matching an existing region silently overwrites it."""
     response = self._post({
-      "scene": str(self.scene.id),
       "rois": [{"uuid": str(self.existing_region.uuid), "points": [[5, 5], [6, 5], [6, 6]],
                 "name": "overwritten"}],
     })

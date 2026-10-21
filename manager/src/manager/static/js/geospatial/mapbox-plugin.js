@@ -55,27 +55,36 @@ class MapboxPlugin extends MapInterface {
     // Use saved settings or defaults
     const center = [config.lng, config.lat];
     const zoom = config.zoom;
-    const bearing = config.rotation;
+    const bearing = config.rotation || 0;
 
+    // Rotation is disabled so map corners stay north-up (SW, NW, NE, SE), matching
+    // Google Maps. Scenes saved with a bearing still load rotated until regenerated.
     this.map = new mapboxgl.Map({
       container: containerId,
       style: "mapbox://styles/mapbox/satellite-v9",
       center: center,
       zoom: zoom,
       pitch: 0,
-      bearing: bearing, // Set saved rotation
+      bearing: bearing,
       projection: "mercator",
       pitchWithRotate: false,
-      dragRotate: true,
+      dragRotate: false,
       touchZoomRotate: true,
     });
+    this.map.touchZoomRotate.disableRotation();
+    this.map.keyboard.disableRotation();
 
     console.log("Mapbox initialized with settings:", { center, zoom, bearing });
+    if (bearing !== 0) {
+      console.warn(
+        "Scene was saved with a rotated map; regenerating geospatial bounds will reset it to north-up.",
+      );
+    }
 
-    // Add navigation controls with compass for rotation
+    // Compass is only shown for legacy rotated scenes, where clicking it resets north
     this.map.addControl(
       new mapboxgl.NavigationControl({
-        showCompass: true,
+        showCompass: bearing !== 0,
         showZoom: true,
       }),
     );
@@ -145,6 +154,9 @@ class MapboxPlugin extends MapInterface {
   }
 
   generateBounds() {
+    if (this.map.getBearing() !== 0) {
+      this.map.jumpTo({ bearing: 0 });
+    }
     const bounds = this.map.getBounds();
     if (!bounds) return;
 

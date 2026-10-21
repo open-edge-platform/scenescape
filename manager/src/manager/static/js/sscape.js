@@ -28,6 +28,25 @@ import {
   updateCalibrationView,
   handleAutoCalibrationPose,
 } from "/static/js/calibration.js";
+import {
+  unionPolygons,
+  bridgeRings,
+  closestPointOnSegment,
+} from "/static/js/regions/polygon-geometry.js";
+import {
+  initRoiGroups,
+  regroupRoiFields,
+  roiGroupColorForKey,
+} from "/static/js/regions/roi-groups.js";
+import {
+  beginSelectArea,
+  clearSelectionArea,
+  getSelectionBoundsPx,
+  selectionBoundsToMeters,
+  selectionMouseDown,
+  selectionMouseMove,
+  selectionMouseUp,
+} from "/static/js/regions/area-select.js";
 
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
@@ -47,14 +66,6 @@ var EDGE_INSERT_THRESHOLD_PX = 15;
 var RIGHT_DOUBLE_CLICK_MS = 400;
 // Pointer movement past this is a drag, not a click
 var DRAG_SLOP_PX = 2;
-// True while the user is actively dragging out a new selection-area rectangle
-var selectingArea = false;
-// Pixel coords of the drag's starting corner, while selectingArea is true
-var selectionDragStart = null;
-// The <rect> currently shown for the selection area, or null if none
-var selectionRectEl = null;
-// {minX, minY, maxX, maxY} in canvas pixels for the current selection area, or null
-var selectionBoundsPx = null;
 var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
@@ -65,15 +76,16 @@ var is_coloring_enabled = false; // Default state of the coloring feature
 var roi_color_sectors = {};
 var singleton_color_sectors = {};
 var scene_rotation_translation_config;
-// ROI type-group keys the user has deselected (persists across regroupRoiFields() re-renders)
-var deselectedRoiGroups = new Set();
-// User-picked colors (group key -> "#rrggbb") that override getRoiGroupColor()'s default
-var roiGroupColorOverrides = {};
-// Label shown for the group of ROIs with no type set
-var UNCATEGORIZED_ROI_TYPE_LABEL = "Uncategorized";
 
 points = maps = rois = tripwires = [];
 dragging = drawing = adding = editing = fullscreen = false;
+
+initRoiGroups({
+  onChange: stringifyRois,
+  isColoringEnabled: function () {
+    return is_coloring_enabled;
+  },
+});
 
 const socket = io({
   path: "/api/v1/autocalibration/socket.io",
@@ -432,46 +444,12 @@ function startSelectArea() {
   clearMergeSelection();
   cancelAddPoly();
   cancelAddTripwire();
-  clearSelectionArea();
-
-  $("#svgout").addClass("selecting-area");
-  selectingArea = true;
+  beginSelectArea();
 }
 
-/** Remove the selection-area rectangle (if any) and forget its bounds. */
-function clearSelectionArea() {
-  if (selectionRectEl) {
-    selectionRectEl.remove();
-    selectionRectEl = null;
-  }
-  selectionBoundsPx = null;
-  updateSelectAreaButton();
-}
-
-/** Highlights the "Select Area" button while a selection box is active, grey otherwise. */
-function updateSelectAreaButton() {
-  $("#select-roi-area")
-    .toggleClass("btn-primary", !!selectionBoundsPx)
-    .toggleClass("btn-secondary", !selectionBoundsPx);
-}
-
-/**
- * Current selection area, converted from canvas pixels to scene-local meters,
- * or null if no selection area is active. Used to scope OSM ROI generation.
- */
+/** Selection area in scene-local meters, or null if none is active. Used to scope OSM ROI generation. */
 function getSelectionBoundsMeters() {
-  if (!selectionBoundsPx) return null;
-
-  var b = selectionBoundsPx;
-  var p1 = pixelsToMeters([b.minX, b.minY], scale, scene_y_max);
-  var p2 = pixelsToMeters([b.maxX, b.maxY], scale, scene_y_max);
-
-  return {
-    minX: Math.min(p1[0], p2[0]),
-    maxX: Math.max(p1[0], p2[0]),
-    minY: Math.min(p1[1], p2[1]),
-    maxY: Math.max(p1[1], p2[1]),
-  };
+  return selectionBoundsToMeters(scale, scene_y_max);
 }
 
 /**
@@ -479,9 +457,9 @@ function getSelectionBoundsMeters() {
  * (bound to the Backspace key). No-op if there is no active selection.
  */
 function deleteRoisInSelection() {
-  if (!selectionBoundsPx) return;
+  var bounds = getSelectionBoundsPx();
+  if (!bounds) return;
 
-  var bounds = selectionBoundsPx;
   var matched = [];
 
   svgCanvas.selectAll(".roi").forEach(function (group) {
@@ -515,13 +493,13 @@ function deleteRoisInSelection() {
  * no active selection.
  */
 function createRoiFromSelection() {
-  if (!selectionBoundsPx) return;
+  var b = getSelectionBoundsPx();
+  if (!b) return;
   if (activeEditGroup) {
     exitEditMode(activeEditGroup);
   }
   clearMergeSelection();
 
-  var b = selectionBoundsPx;
   var corners = [
     [b.minX, b.minY],
     [b.maxX, b.minY],
@@ -547,7 +525,7 @@ function createRoiFromSelection() {
 // Backspace deletes every ROI inside the current selection area. Ignored while
 // typing in a form field so it doesn't hijack normal text editing.
 document.addEventListener("keydown", function (e) {
-  if (e.key !== "Backspace" || !selectionBoundsPx) return;
+  if (e.key !== "Backspace" || !getSelectionBoundsPx()) return;
 
   var tag = (document.activeElement && document.activeElement.tagName) || "";
   if (
@@ -630,245 +608,6 @@ function numberRois() {
   regroupRoiFields();
   numberTabs();
 }
-
-// Bold, highly saturated colors assigned per ROI type so a group's box in the
-// Regions tab is relatable to its outline on the map, and each ROI's edges
-// stand out clearly against the (mostly neutral-toned) map background.
-var ROI_GROUP_COLOR_PALETTE = [
-  "#e6194b",
-  "#3cb44b",
-  "#ffe119",
-  "#4363d8",
-  "#f58231",
-  "#911eb4",
-  "#42d4f4",
-  "#f032e6",
-  "#469990",
-  "#000075",
-  "#800000",
-];
-
-/** Last-resort deterministic color for a key, used only once every palette color is already taken by another active group. */
-function getRoiGroupColor(key) {
-  var hash = 0;
-  for (var idx = 0; idx < key.length; idx++) {
-    hash = (hash * 31 + key.charCodeAt(idx)) >>> 0;
-  }
-  return ROI_GROUP_COLOR_PALETTE[hash % ROI_GROUP_COLOR_PALETTE.length];
-}
-
-// Sticky auto-assigned colors (group key -> color), set the first time a key
-// is resolved in regroupRoiFields() so each type keeps its look across re-renders.
-var roiGroupAutoColors = {};
-
-/** Resolve a group key's color: user override, then its previously-assigned sticky color, then a hash fallback. */
-function roiGroupColorForKey(key) {
-  return (
-    roiGroupColorOverrides[key] ||
-    roiGroupAutoColors[key] ||
-    getRoiGroupColor(key)
-  );
-}
-
-/**
- * Like roiGroupColorForKey(), but guarantees a color distinct from every other
- * key already resolved in the same pass (tracked via usedColors), as long as
- * there are enough palette colors to go around. Reassigns a key's sticky
- * color only when it collides with another currently active group's color.
- */
-function resolveUniqueRoiGroupColor(key, usedColors) {
-  if (roiGroupColorOverrides[key]) {
-    return roiGroupColorOverrides[key];
-  }
-
-  var sticky = roiGroupAutoColors[key];
-  if (sticky && !usedColors.has(sticky)) {
-    return sticky;
-  }
-
-  for (var i = 0; i < ROI_GROUP_COLOR_PALETTE.length; i++) {
-    var candidate = ROI_GROUP_COLOR_PALETTE[i];
-    if (!usedColors.has(candidate)) {
-      roiGroupAutoColors[key] = candidate;
-      return candidate;
-    }
-  }
-
-  // More distinct types than palette colors: no free slot left, so a repeat is unavoidable.
-  var fallback = getRoiGroupColor(key);
-  roiGroupAutoColors[key] = fallback;
-  return fallback;
-}
-
-/**
- * Organize ROI form rows in #roi-fields into collapsible boxes keyed by
- * their .roi-type value. Moves existing rows (via appendTo, no clone) so
- * jQuery data/handlers survive. No-op on the read-only (non-superuser) form,
- * which has no .roi-type inputs.
- */
-function regroupRoiFields() {
-  var $container = $("#roi-fields");
-  var $rows = $container.find(".form-roi");
-
-  if ($rows.length === 0 || $rows.find(".roi-type").length === 0) {
-    return;
-  }
-
-  var groupsByKey = {};
-  var orderedKeys = [];
-
-  $rows.each(function () {
-    var $row = $(this);
-    var key = $row.find(".roi-type").val().trim();
-
-    if (!groupsByKey[key]) {
-      groupsByKey[key] = [];
-      orderedKeys.push(key);
-    }
-    groupsByKey[key].push($row.detach());
-  });
-
-  orderedKeys.sort(function (a, b) {
-    if (a === "") return 1;
-    if (b === "") return -1;
-    return a.localeCompare(b);
-  });
-
-  $container.find(".roi-group-box").remove();
-
-  var usedColors = new Set();
-
-  orderedKeys.forEach(function (key) {
-    var rowsInGroup = groupsByKey[key];
-    var selected = !deselectedRoiGroups.has(key);
-    var color = resolveUniqueRoiGroupColor(key, usedColors);
-    usedColors.add(color);
-
-    var $box = $('<div class="roi-group-box"></div>')
-      .data("group-key", key)
-      .css("border-left-color", color);
-    var $header = $('<div class="roi-group-header"></div>');
-    var $toggle = $(
-      '<input type="checkbox" class="roi-group-toggle" title="Show/hide this group on the map and include it when saving">',
-    ).prop("checked", selected);
-    var $colorInput = $(
-      '<input type="color" class="roi-group-color-input" title="Change this group\'s color">',
-    ).val(color);
-    var $typeInput = $(
-      '<input type="text" class="roi-group-type-input" maxlength="150">',
-    )
-      .attr("placeholder", UNCATEGORIZED_ROI_TYPE_LABEL)
-      .val(key);
-    var $count = $('<span class="roi-group-count"></span>').text(
-      "(" + rowsInGroup.length + ")",
-    );
-    var $body = $('<div class="roi-group-body"></div>');
-
-    rowsInGroup.forEach(function ($row) {
-      $row.appendTo($body);
-    });
-
-    $header.append($toggle, $colorInput, $typeInput, $count);
-    $box.append($header, $body);
-    $container.append($box);
-
-    applyRoiGroupSelectionState($box, selected);
-    applyRoiGroupColor($box, color);
-  });
-}
-
-/**
- * Show/hide a group's ROIs on the map and mark them (via SVG group .data())
- * so stringifyRois() excludes deselected ROIs from what gets saved.
- */
-function applyRoiGroupSelectionState($groupBox, selected) {
-  $groupBox.find(".form-roi").each(function () {
-    var $row = $(this);
-    var svgGroup = Snap.select("#" + $row.attr("for"));
-
-    $row.toggleClass("roi-row-deselected", !selected);
-    if (svgGroup) {
-      if (selected) {
-        svgGroup.removeClass("roi-hidden");
-      } else {
-        svgGroup.addClass("roi-hidden");
-      }
-      svgGroup.data("deselected", !selected);
-    }
-  });
-}
-
-/**
- * Tint a group's on-map polygons with its group color (outline always, fill
- * too when occupancy coloring is off) so proposed/saved ROIs on the map are
- * distinguishable by category, matching the Regions tab box.
- */
-function applyRoiGroupColor($groupBox, color) {
-  $groupBox.find(".form-roi").each(function () {
-    var svgGroup = Snap.select("#" + $(this).attr("for"));
-    var poly = svgGroup && svgGroup.select("polygon");
-    if (poly) {
-      poly.node.style.stroke = color;
-      if (!is_coloring_enabled) {
-        poly.node.style.fill = color;
-      }
-    }
-  });
-}
-
-// Toggle a whole group's selection: hides its ROIs on the map and excludes
-// them from the next save, without removing their form rows.
-$(document).on("change", ".roi-group-toggle", function () {
-  var $box = $(this).closest(".roi-group-box");
-  var key = $box.data("group-key");
-  var selected = $(this).is(":checked");
-
-  if (selected) {
-    deselectedRoiGroups.delete(key);
-  } else {
-    deselectedRoiGroups.add(key);
-  }
-  applyRoiGroupSelectionState($box, selected);
-  stringifyRois();
-});
-
-// Let the user override a group's auto-assigned color. Live-updates the box
-// and map outlines as the picker is dragged, without a full regroup/rebuild.
-$(document).on("input", ".roi-group-color-input", function () {
-  var $box = $(this).closest(".roi-group-box");
-  var key = $box.data("group-key");
-  var color = $(this).val();
-
-  roiGroupColorOverrides[key] = color;
-  $box.css("border-left-color", color);
-  applyRoiGroupColor($box, color);
-});
-
-// Renaming a group's type reassigns that type to every ROI currently in it,
-// then regroups so rows move into (or merge with) the matching box.
-$(document).on("change", ".roi-group-type-input", function () {
-  var $box = $(this).closest(".roi-group-box");
-  var oldKey = $box.data("group-key");
-  var newKey = $(this).val().trim();
-
-  $box.find(".form-roi .roi-type").val(newKey);
-
-  if (deselectedRoiGroups.has(oldKey)) {
-    deselectedRoiGroups.delete(oldKey);
-    deselectedRoiGroups.add(newKey);
-  }
-  if (Object.prototype.hasOwnProperty.call(roiGroupColorOverrides, oldKey)) {
-    roiGroupColorOverrides[newKey] = roiGroupColorOverrides[oldKey];
-    delete roiGroupColorOverrides[oldKey];
-  }
-  if (Object.prototype.hasOwnProperty.call(roiGroupAutoColors, oldKey)) {
-    roiGroupAutoColors[newKey] = roiGroupAutoColors[oldKey];
-    delete roiGroupAutoColors[oldKey];
-  }
-
-  regroupRoiFields();
-  stringifyRois();
-});
 
 function numberTripwires() {
   var groups = svgCanvas.selectAll("g.tripwire");
@@ -1565,330 +1304,6 @@ function mergeSelectedVertices() {
 }
 
 /**
- * Outer ring of the union of two overlapping outlines, or null when they are
- * disjoint (nothing to union) or the result can't be trusted.
- */
-function unionPolygons(ringA, ringB) {
-  var areaA = Math.abs(ringSignedArea(ringA));
-  var areaB = Math.abs(ringSignedArea(ringB));
-
-  // A real union covers every input vertex, adds no area beyond A+B, and is simple
-  var acceptable = function (ring) {
-    if (!ring || ring.length < 3) return false;
-
-    var a = Math.abs(ringSignedArea(ring));
-    if (a < Math.max(areaA, areaB) - 0.5 || a > areaA + areaB + 0.5)
-      return false;
-    if (!isSimplePolygon(ring)) return false;
-
-    return ringA.concat(ringB).every(function (p) {
-      return pointInRing(ring, p) || pointOnRingBoundary(ring, p);
-    });
-  };
-
-  var result = unionAttempt(ringA, ringB);
-  if (acceptable(result)) return result;
-
-  // Shared/collinear edges make the walk degenerate; a sub-pixel nudge breaks
-  // the tie without visibly moving the outline.
-  var nudged = ringB.map(function (p) {
-    return [p[0] + 1e-4, p[1] + 1e-4];
-  });
-  result = unionAttempt(ringA, nudged);
-
-  return acceptable(result) ? result : null;
-}
-
-/** One union walk: insert crossings into both rings, then trace the outer boundary. */
-function unionAttempt(ringA, ringB) {
-  var A = ensureCCW(ringA);
-  var B = ensureCCW(ringB);
-
-  var perEdgeA = A.map(function () {
-    return [];
-  });
-  var perEdgeB = B.map(function () {
-    return [];
-  });
-  var found = 0;
-
-  for (var i = 0; i < A.length; i++) {
-    for (var j = 0; j < B.length; j++) {
-      var hit = segmentIntersection(
-        A[i],
-        A[(i + 1) % A.length],
-        B[j],
-        B[(j + 1) % B.length],
-      );
-      if (!hit) continue;
-
-      var key = pointKey(hit.point);
-      perEdgeA[i].push({ t: hit.t, pt: hit.point, key: key });
-      perEdgeB[j].push({ t: hit.u, pt: hit.point, key: key });
-      found++;
-    }
-  }
-
-  if (!found) {
-    if (pointInRing(B, A[0])) return B.slice();
-    if (pointInRing(A, B[0])) return A.slice();
-    return null; // disjoint
-  }
-
-  var augA = augmentRing(A, perEdgeA);
-  var augB = augmentRing(B, perEdgeB);
-  var indexA = crossingIndex(augA);
-  var indexB = crossingIndex(augB);
-
-  // Start somewhere guaranteed to be on the union's outer boundary
-  var start = -1;
-  for (var k = 0; k < augA.length; k++) {
-    if (!augA[k].inter && !pointInRing(B, augA[k].pt)) {
-      start = k;
-      break;
-    }
-  }
-  if (start < 0) return B.slice(); // A lies entirely within B
-
-  var result = [];
-  var onA = true;
-  var idx = start;
-  var maxSteps = (augA.length + augB.length) * 4;
-
-  for (var step = 0; step < maxSteps; step++) {
-    var node = (onA ? augA : augB)[idx];
-
-    if (!result.length || !samePoint(result[result.length - 1], node.pt)) {
-      result.push(node.pt);
-    }
-
-    // At a crossing, hand over to the other outline to stay on the outside
-    if (node.inter) {
-      var target = (onA ? indexB : indexA)[node.key];
-      if (target !== undefined) {
-        onA = !onA;
-        idx = target;
-      }
-    }
-
-    idx = (idx + 1) % (onA ? augA : augB).length;
-
-    if (onA && idx === start) {
-      if (
-        result.length > 1 &&
-        samePoint(result[0], result[result.length - 1])
-      ) {
-        result.pop();
-      }
-      return result.length >= 3 ? result : null;
-    }
-  }
-
-  return null; // walk never closed
-}
-
-/** Ring vertices with crossing points spliced in, in order along each edge. */
-function augmentRing(ring, perEdge) {
-  var out = [];
-
-  for (var i = 0; i < ring.length; i++) {
-    out.push({ pt: ring[i], inter: false, key: null });
-
-    perEdge[i]
-      .slice()
-      .sort(function (a, b) {
-        return a.t - b.t;
-      })
-      .forEach(function (hit) {
-        var last = out[out.length - 1];
-        if (samePoint(last.pt, hit.pt)) {
-          last.inter = true;
-          last.key = hit.key;
-          return;
-        }
-        out.push({ pt: hit.pt, inter: true, key: hit.key });
-      });
-  }
-
-  while (out.length > 1 && samePoint(out[0].pt, out[out.length - 1].pt)) {
-    if (out[out.length - 1].inter) {
-      out[0].inter = true;
-      out[0].key = out[out.length - 1].key;
-    }
-    out.pop();
-  }
-
-  return out;
-}
-
-function crossingIndex(augmented) {
-  var index = {};
-  augmented.forEach(function (node, i) {
-    if (node.inter && index[node.key] === undefined) index[node.key] = i;
-  });
-  return index;
-}
-
-function ensureCCW(ring) {
-  return ringSignedArea(ring) < 0 ? ring.slice().reverse() : ring;
-}
-
-function pointKey(p) {
-  return p[0].toFixed(6) + "|" + p[1].toFixed(6);
-}
-
-function samePoint(a, b) {
-  return Math.abs(a[0] - b[0]) < 1e-6 && Math.abs(a[1] - b[1]) < 1e-6;
-}
-
-/** Intersection of two segments with both parameters, or null if they don't meet. */
-function segmentIntersection(p1, p2, p3, p4) {
-  var d1x = p2[0] - p1[0];
-  var d1y = p2[1] - p1[1];
-  var d2x = p4[0] - p3[0];
-  var d2y = p4[1] - p3[1];
-
-  var denom = d1x * d2y - d1y * d2x;
-  if (Math.abs(denom) < 1e-12) return null; // parallel or collinear
-
-  var t = ((p3[0] - p1[0]) * d2y - (p3[1] - p1[1]) * d2x) / denom;
-  var u = ((p3[0] - p1[0]) * d1y - (p3[1] - p1[1]) * d1x) / denom;
-  if (t < -1e-9 || t > 1 + 1e-9 || u < -1e-9 || u > 1 + 1e-9) return null;
-
-  return { point: [p1[0] + t * d1x, p1[1] + t * d1y], t: t, u: u };
-}
-
-function pointInRing(ring, p) {
-  var inside = false;
-
-  for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-    var xi = ring[i][0],
-      yi = ring[i][1];
-    var xj = ring[j][0],
-      yj = ring[j][1];
-
-    if (yi > p[1] !== yj > p[1]) {
-      var xint = ((xj - xi) * (p[1] - yi)) / (yj - yi) + xi;
-      if (p[0] < xint) inside = !inside;
-    }
-  }
-
-  return inside;
-}
-
-function pointOnRingBoundary(ring, p) {
-  for (var i = 0; i < ring.length; i++) {
-    var a = ring[i];
-    var b = ring[(i + 1) % ring.length];
-    var len = Math.sqrt(
-      (b[0] - a[0]) * (b[0] - a[0]) + (b[1] - a[1]) * (b[1] - a[1]),
-    );
-    if (len < 1e-9) continue;
-
-    var cross = (b[0] - a[0]) * (p[1] - a[1]) - (b[1] - a[1]) * (p[0] - a[0]);
-    if (Math.abs(cross) / len > 1e-3) continue;
-
-    var dot = (p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1]);
-    if (dot >= -1e-6 && dot <= len * len + 1e-6) return true;
-  }
-
-  return false;
-}
-
-/**
- * Build one ring out of two, opening each at the span between its selected
- * vertices and connecting the loose ends. Each outline can open on either of the
- * two spans between its picks, so all combinations are tried and the largest
- * non-self-intersecting result wins (i.e. the one that discards the least area).
- */
-function bridgeRings(A, ai1, ai2, B, bi1, bi2) {
-  if (ai1 < 0 || ai2 < 0 || bi1 < 0 || bi2 < 0) return null;
-  if (ai1 === ai2 || bi1 === bi2) return null;
-
-  var aArcs = [ringArc(A, ai2, ai1), ringArc(A, ai1, ai2)];
-  var bArcs = [];
-  [ringArc(B, bi1, bi2), ringArc(B, bi2, bi1)].forEach(function (arc) {
-    bArcs.push(arc, arc.slice().reverse());
-  });
-
-  var best = null;
-
-  aArcs.forEach(function (aArc) {
-    bArcs.forEach(function (bArc) {
-      var ring = aArc.concat(bArc);
-      if (ring.length < 3 || !isSimplePolygon(ring)) return;
-
-      var area = Math.abs(ringSignedArea(ring));
-      if (!best || area > best.area) {
-        best = { ring: ring, area: area };
-      }
-    });
-  });
-
-  return best ? best.ring : null;
-}
-
-/** Ring vertices from index `from` forward to `to`, both inclusive. */
-function ringArc(pts, from, to) {
-  var arc = [];
-  var i = from;
-
-  for (;;) {
-    arc.push(pts[i]);
-    if (i === to) break;
-    i = (i + 1) % pts.length;
-  }
-
-  return arc;
-}
-
-function ringSignedArea(ring) {
-  var sum = 0;
-  for (var i = 0; i < ring.length; i++) {
-    var next = ring[(i + 1) % ring.length];
-    sum += ring[i][0] * next[1] - next[0] * ring[i][1];
-  }
-  return sum / 2;
-}
-
-/** True when no two non-adjacent edges of the ring cross. */
-function isSimplePolygon(ring) {
-  var n = ring.length;
-
-  for (var i = 0; i < n; i++) {
-    for (var j = i + 1; j < n; j++) {
-      // Skip edges sharing an endpoint (consecutive, plus the closing wrap-around)
-      if (j === i + 1 || (i === 0 && j === n - 1)) continue;
-
-      if (
-        segmentsCross(ring[i], ring[(i + 1) % n], ring[j], ring[(j + 1) % n])
-      ) {
-        return false;
-      }
-    }
-  }
-
-  return true;
-}
-
-/** Proper segment intersection (shared endpoints and collinear touching don't count). */
-function segmentsCross(p1, p2, p3, p4) {
-  var orientation = function (a, b, c) {
-    var v = (b[1] - a[1]) * (c[0] - b[0]) - (b[0] - a[0]) * (c[1] - b[1]);
-    if (v > 1e-9) return 1;
-    if (v < -1e-9) return 2;
-    return 0;
-  };
-
-  var o1 = orientation(p1, p2, p3);
-  var o2 = orientation(p1, p2, p4);
-  var o3 = orientation(p3, p4, p1);
-  var o4 = orientation(p3, p4, p2);
-
-  return o1 !== 0 && o2 !== 0 && o3 !== 0 && o4 !== 0 && o1 !== o2 && o3 !== o4;
-}
-
-/**
  * Insert a new, draggable vertex at the clicked point on the polygon boundary,
  * directly after the preceding vertex in winding order.
  */
@@ -1937,20 +1352,6 @@ function findClosestEdgePoint(group, evt) {
   });
 
   return closest;
-}
-
-/** Project point `p` onto segment [a, b], clamped to the segment's endpoints. */
-function closestPointOnSegment(p, a, b) {
-  var abx = b[0] - a[0];
-  var aby = b[1] - a[1];
-  var lengthSq = abx * abx + aby * aby;
-
-  if (lengthSq === 0) return a;
-
-  var t = ((p[0] - a[0]) * abx + (p[1] - a[1]) * aby) / lengthSq;
-  t = Math.max(0, Math.min(1, t));
-
-  return [a[0] + t * abx, a[1] + t * aby];
 }
 
 function stop1() {
@@ -2243,66 +1644,13 @@ if (svgCanvas) {
 
   // Drag out the selection-area rectangle while the "Select Area" tool is active
   svgCanvas.mousedown(function (e) {
-    if (!selectingArea) return;
-
-    var offset = $("#svgout").offset();
-    selectionDragStart = [
-      parseInt(e.pageX - offset.left),
-      parseInt(e.pageY - offset.top),
-    ];
-
-    if (selectionRectEl) selectionRectEl.remove();
-    selectionRectEl = svgCanvas
-      .rect(selectionDragStart[0], selectionDragStart[1], 0, 0)
-      .addClass("roi-selection-box");
+    selectionMouseDown(svgCanvas, e);
   });
 
-  svgCanvas.mousemove(function (e) {
-    if (!selectingArea || !selectionDragStart || !selectionRectEl) return;
-
-    var offset = $("#svgout").offset();
-    var current = [
-      parseInt(e.pageX - offset.left),
-      parseInt(e.pageY - offset.top),
-    ];
-
-    selectionRectEl.attr({
-      x: Math.min(current[0], selectionDragStart[0]),
-      y: Math.min(current[1], selectionDragStart[1]),
-      width: Math.abs(current[0] - selectionDragStart[0]),
-      height: Math.abs(current[1] - selectionDragStart[1]),
-    });
-  });
+  svgCanvas.mousemove(selectionMouseMove);
 
   svgCanvas.mouseup(function (e) {
-    if (selectingArea && selectionDragStart) {
-      var offset = $("#svgout").offset();
-      var current = [
-        parseInt(e.pageX - offset.left),
-        parseInt(e.pageY - offset.top),
-      ];
-
-      selectionBoundsPx = {
-        minX: Math.min(current[0], selectionDragStart[0]),
-        minY: Math.min(current[1], selectionDragStart[1]),
-        maxX: Math.max(current[0], selectionDragStart[0]),
-        maxY: Math.max(current[1], selectionDragStart[1]),
-      };
-      selectionDragStart = null;
-      $("#svgout").removeClass("selecting-area");
-      selectingArea = false;
-
-      // Treat a near-zero-size drag (a click) as "no selection"
-      if (
-        selectionBoundsPx.maxX - selectionBoundsPx.minX < DRAG_SLOP_PX &&
-        selectionBoundsPx.maxY - selectionBoundsPx.minY < DRAG_SLOP_PX
-      ) {
-        clearSelectionArea();
-      } else {
-        updateSelectAreaButton();
-      }
-      return;
-    }
+    if (selectionMouseUp(e, DRAG_SLOP_PX)) return;
 
     if (dragging || !adding) return;
     drawing = true;
@@ -3325,7 +2673,7 @@ $(document).ready(function () {
       $("#new-roi").on("click", function () {
         // A finished selection box becomes a ready-made rectangular ROI instead
         // of starting the click-by-click polygon tool.
-        if (selectionBoundsPx) {
+        if (getSelectionBoundsPx()) {
           createRoiFromSelection();
         } else {
           addPoly();

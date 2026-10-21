@@ -198,9 +198,8 @@ services:
       - https_proxy=${https_proxy}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - MAPBOX_API_KEY=${MAPBOX_API_KEY}
-      # ohsome API key for the "Query OSM Data" geospatial feature (see
-      # manager/src/manager/osm_query.py); sign up at https://account.heigit.org/signup
       - OHSOME_API_KEY=${OHSOME_API_KEY}
+      - OSM_MAX_ROI_FEATURES=${OSM_MAX_ROI_FEATURES:-200}
       # Max upload size for scene map files (blueprints, .glb meshes). Default
       # 132MB. Raise if uploading large 3D scans or high-res floor plans;
       # lower to reduce per-request memory pressure in constrained deployments.

@@ -4,7 +4,7 @@
 /**
  * OSM ROI generation for Regions tab.
  *
- * Fetches OSM-derived ROIs via the PreviewRoisFromOsm endpoint and draws them directly
+ * Fetches OSM-derived ROIs via the scene's osm-roi-previews endpoint and draws them directly
  * on the main 2D canvas as "proposed" regions (dashed outline, OSM badge).
  *
  * The user can then edit these regions using the same tools as manual ROIs:
@@ -73,17 +73,19 @@ async function generateRoisFromOsm() {
     // ROIs that at least partially overlap it (full shape intact, not clipped).
     const selectionBounds = getSelectionBoundsMeters();
 
-    const previewResponse = await fetch("/api/v1/preview-rois-from-osm/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": csrfToken.value,
+    const previewResponse = await fetch(
+      `/api/v1/scene/${encodeURIComponent(sceneUID.value)}/osm-roi-previews`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": csrfToken.value,
+        },
+        body: JSON.stringify({
+          ...(selectionBounds && { bounds: selectionBounds }),
+        }),
       },
-      body: JSON.stringify({
-        scene: sceneUID.value,
-        ...(selectionBounds && { bounds: selectionBounds }),
-      }),
-    });
+    );
 
     const previewResult = await previewResponse.json();
     if (!previewResponse.ok) {

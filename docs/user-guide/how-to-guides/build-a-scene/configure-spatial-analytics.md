@@ -56,7 +56,7 @@ For scenes using a geospatial map, Scenescape can propose ROIs automatically fro
 1. Click on the `Regions` tab below the scene map view.
 2. **Optional**: Click `Select Area` and drag a box over part of the map to limit suggestions to that area.
 3. Click `Suggest ROIs with OSM`. If the button is disabled, hover over it to see why (scene is not geospatial, or no OSM API key is configured).
-4. Scenescape queries OpenStreetMap for roads and footways in view (or in the selected area), buffers each one into a polygon, and draws the proposed regions with a dashed outline and an `OSM` badge. Names and widths are inferred from OpenStreetMap tags (road name, lane count, or road type).
+4. Scenescape queries OpenStreetMap for roads and footways in view (or in the selected area), buffers each one into a polygon, and draws the proposed regions with a dashed outline and an `OSM` badge. Names and widths are inferred from OpenStreetMap tags (road name, lane count, or road type). If the area contains more ways than the configured limit (`OSM_MAX_ROI_FEATURES`, default 200), select a smaller area and try again.
 5. Proposed regions are editable like any other region (drag vertices, rename, merge, delete).
 6. Click `Save Regions and Tripwires` to persist the proposed regions — they are not saved until you do.
 

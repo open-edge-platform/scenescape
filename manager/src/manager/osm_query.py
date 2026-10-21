@@ -57,7 +57,10 @@ MIN_REQUEST_INTERVAL_S = 1.0
 MAX_RETRIES = 3
 RETRY_BACKOFF_S = 2.0
 MAX_BBOX_SPAN_DEG = 0.05  # ~5.5km at the equator; keeps queries/responses small
-MAX_ROI_FEATURES = 1000  # safety cap on raw ways processed for geometry extraction
+# Safety cap on raw ways processed for geometry extraction; override via OSM_MAX_ROI_FEATURES.
+MAX_ROI_FEATURES_ENV_VAR = "OSM_MAX_ROI_FEATURES"
+DEFAULT_MAX_ROI_FEATURES = 200
+MAX_ROI_FEATURES_LIMIT = 1000
 
 _last_request_time = 0.0
 _THROTTLE_LOCK_PATH = "/tmp/.scenescape_osm_throttle.lock"
@@ -65,6 +68,10 @@ _THROTTLE_LOCK_PATH = "/tmp/.scenescape_osm_throttle.lock"
 
 class OsmQueryError(Exception):
   """Raised when an ohsome request cannot be safely built or completed."""
+
+
+class FeatureLimitError(OsmQueryError):
+  """Raised when a query returns more ways than the configured cap; not retried."""
 
 
 @dataclass(frozen=True)
@@ -112,6 +119,24 @@ def get_api_key() -> str:
   if not api_key:
     raise OsmQueryError(f"Missing ohsome API key: set the {API_KEY_ENV_VAR} environment variable")
   return api_key
+
+
+def get_max_roi_features() -> int:
+  """Read the way-count cap from the environment, falling back to the default if unset or invalid."""
+  raw = os.environ.get(MAX_ROI_FEATURES_ENV_VAR, "").strip()
+  if not raw:
+    return DEFAULT_MAX_ROI_FEATURES
+  try:
+    value = int(raw)
+  except ValueError:
+    value = 0
+  if not 1 <= value <= MAX_ROI_FEATURES_LIMIT:
+    logger.warning(
+      f"Ignoring invalid {MAX_ROI_FEATURES_ENV_VAR}={raw!r}; expected an integer in "
+      f"[1, {MAX_ROI_FEATURES_LIMIT}]. Using {DEFAULT_MAX_ROI_FEATURES}."
+    )
+    return DEFAULT_MAX_ROI_FEATURES
+  return value
 
 
 def _throttle() -> None:
@@ -213,6 +238,7 @@ def query_osm_ways_geometry(
   aoi = bbox.as_aoi()
   body = {"aoi": aoi, "filter": ROAD_FILTER, "time": "latest", "clip": True}
   url = endpoint + EXTRACTION_PATH
+  max_features = get_max_roi_features()
 
   logger.info(f"Querying ohsome for geometries: url={url} aoi={aoi}")
 
@@ -232,9 +258,9 @@ def query_osm_ways_geometry(
       features_df = pd.read_parquet(io.BytesIO(content))
       ways = features_df[features_df["osm_type"] == "way"]
 
-      if len(ways) > MAX_ROI_FEATURES:
-        raise OsmQueryError(
-          f"Query returned {len(ways)} ways, exceeding limit of {MAX_ROI_FEATURES}. "
+      if len(ways) > max_features:
+        raise FeatureLimitError(
+          f"Query returned {len(ways)} ways, exceeding limit of {max_features}. "
           "Please shrink the bounding box."
         )
 
@@ -270,6 +296,8 @@ def query_osm_ways_geometry(
       )
       return results
 
+    except FeatureLimitError:
+      raise
     except (requests.RequestException, OsmQueryError, OSError, ValueError) as exc:
       last_error = exc
       logger.warning(f"ohsome request attempt {attempt}/{MAX_RETRIES} failed: url={url} error={exc}")

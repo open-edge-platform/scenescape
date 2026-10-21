@@ -330,10 +330,10 @@ document.addEventListener("DOMContentLoaded", function () {
     const action = button.getAttribute("data-action");
     button.addEventListener("click", function () {
       if (window.mapManager && typeof mapManager[action] === "function") {
-        // Save current settings before generating bounds/snapshot
+        // Save settings after generating bounds, which may reset the bearing to north-up
         if (action === "generateBounds") {
-          saveCurrentGeospatialSettings();
           mapManager[action]();
+          saveCurrentGeospatialSettings();
           return;
         }
         mapManager[action]();
