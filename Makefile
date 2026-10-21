@@ -133,6 +133,9 @@ help:
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEPLOY_PROFILES selects controller|tracker|mapping|cluster-analytics|reid, default: controller)"
 	@echo ""
+	@echo "  sample-app-up               Start the Node-RED based sample application on top of Scenescape"
+	@echo "  sample-app-down             Stop the Node-RED based sample application"
+	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
 	@echo "  install-models              Install custom OpenVINO Zoo models to models volume"
@@ -902,6 +905,17 @@ video-source-down:
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
 	@echo "SCENESCAPE_ALLOWED_HOSTS=*" >> $@
+
+# =========================== Sample App =============================
+
+.PHONY: sample-app-up sample-app-down
+
+sample-app-up:
+	$(MAKE) -C sample_data/sample_app up
+
+sample-app-down:
+	$(MAKE) -C sample_data/sample_app down
+
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets
