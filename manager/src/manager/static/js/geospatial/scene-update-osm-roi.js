@@ -8,8 +8,8 @@
  * on the main 2D canvas as "proposed" regions (dashed outline, OSM badge).
  *
  * The user can then edit these regions using the same tools as manual ROIs:
- * - Drag vertices to adjust boundaries
- * - Double-click to enter/exit edit mode
+ * - Click a region to select it for editing (click empty canvas to deselect)
+ * - Drag vertices to adjust boundaries; click an edge to insert a vertex
  * - Right-click a vertex to remove that point
  * - Double right-click a polygon/region to delete the entire region
  * - Save via the "Save Regions and Tripwires" button

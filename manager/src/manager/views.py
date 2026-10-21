@@ -56,8 +56,14 @@ def _is_number(v):
 
 
 def _valid_points(points):
-  """True if every [x, y] pair has finite, non-bool numeric coordinates."""
-  return all(_is_number(p[0]) and _is_number(p[1]) for p in points)
+  """True if every point is an [x, y] pair of finite, non-bool numbers."""
+  return isinstance(points, (list, tuple)) and all(
+    isinstance(p, (list, tuple)) and len(p) == 2 and _is_number(p[0]) and _is_number(p[1])
+    for p in points)
+
+
+REGION_NAME_MAX_LENGTH = Region._meta.get_field('name').max_length
+REGION_TYPE_MAX_LENGTH = Region._meta.get_field('roi_type').max_length
 
 
 def _scoped_uuid(model, query_uuid, scene):
@@ -185,8 +191,11 @@ def saveROI(request, scene_id):
     form = ROIForm(request.POST)
     if form.is_valid():
       try:
-        regions_changed = saveRegionData(scene, form)
-        tripwires_changed = saveTripwireData(scene, form)
+        # Inner atomic block so a tripwire validation error also rolls back region changes;
+        # ATOMIC_REQUESTS alone would commit them because the 400 is returned, not raised.
+        with transaction.atomic():
+          regions_changed = saveRegionData(scene, form)
+          tripwires_changed = saveTripwireData(scene, form)
       except ValueError as e:
         form.add_error(None, str(e))
         return render(request, 'sscape/sceneDetail.html', {'form': form, 'scene': scene}, status=400)
@@ -1045,6 +1054,7 @@ class OsmRois(APIView):
     # Validate every roi before creating anything, so a bad entry can't leave
     # a partially-accepted batch behind.
     to_create = []
+    seen_uuids = set()
     for roi in rois:
       if not isinstance(roi, dict):
         return JsonResponse({'error': 'Each roi must be an object'}, status=400)
@@ -1057,31 +1067,37 @@ class OsmRois(APIView):
           {'error': 'Each roi needs a "points" list of at least 3 [x, y] number pairs'}, status=400)
 
       roi_uuid = roi.get('uuid')
-      query_uuid = roi_uuid if isinstance(roi_uuid, str) and validate_uuid(roi_uuid) else uuid.uuid4()
-      query_uuid = _scoped_uuid(Region, query_uuid, scene)
+      query_uuid = roi_uuid if isinstance(roi_uuid, str) and validate_uuid(roi_uuid) else str(uuid.uuid4())
+      if query_uuid in seen_uuids:
+        return JsonResponse({'error': f'Duplicate roi uuid in request: {query_uuid}'}, status=400)
+      seen_uuids.add(query_uuid)
+
       roi_name = str(roi.get('name')) if roi.get('name') else f"roi_{query_uuid}"
       roi_type = str(roi.get('type') or '')
+      if len(roi_name) > REGION_NAME_MAX_LENGTH:
+        return JsonResponse(
+          {'error': f'roi name exceeds {REGION_NAME_MAX_LENGTH} characters'}, status=400)
+      if len(roi_type) > REGION_TYPE_MAX_LENGTH:
+        return JsonResponse(
+          {'error': f'roi type exceeds {REGION_TYPE_MAX_LENGTH} characters'}, status=400)
       to_create.append((query_uuid, roi_name, roi_type, points))
+
+    # Additive only: never overwrite an existing region through a reused uuid.
+    existing = Region.objects.filter(uuid__in=seen_uuids).values_list('uuid', flat=True)
+    if existing:
+      return JsonResponse(
+        {'error': 'Regions with these uuids already exist',
+         'existing': sorted(str(u) for u in existing)}, status=409)
 
     created = []
     try:
       with transaction.atomic():
         for query_uuid, roi_name, roi_type, points in to_create:
-          region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
-            'scene': scene,
-            'name': roi_name,
-            'volumetric': False,
-            'buffer_size': 0,
-            'roi_type': roi_type,
-          })
-          current_point_ids = set()
+          region = Region.objects.create(
+            uuid=query_uuid, scene=scene, name=roi_name, volumetric=False,
+            buffer_size=0, roi_type=roi_type)
           for point_idx, point in enumerate(points):
-            region_point, _ = RegionPoint.objects.update_or_create(
-              region=region, x=point[0], y=point[1], sequence=point_idx)
-            current_point_ids.add(region_point.id)
-          # Reused uuid may belong to a region with more/different points; drop leftovers
-          # (mirrors saveRegionData's cleanup) so the old shape doesn't linger.
-          RegionPoint.objects.filter(region=region).exclude(id__in=current_point_ids).delete()
+            RegionPoint.objects.create(region=region, x=point[0], y=point[1], sequence=point_idx)
           created.append({'uuid': str(region.uuid), 'name': region.name})
 
       transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))

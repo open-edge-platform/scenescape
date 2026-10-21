@@ -4,9 +4,11 @@
 """Pure-function unit tests for OSM ROI bounds filtering and width/geometry
 derivation (no DB needed)."""
 
+import numpy as np
 import pytest
 
 from manager import osm_roi
+from scene_common.earth_lla import convertLLAToECEF
 
 BOUNDS = {"minX": 0, "minY": 0, "maxX": 10, "maxY": 10}
 
@@ -76,3 +78,31 @@ def test_line_to_polygons_then_roi_overlaps_bounds_does_not_raise():
   assert all(len(points) >= 3 for points in polygons)
   for points in polygons:
     osm_roi.roi_overlaps_bounds(points, BOUNDS)
+
+
+def test_bbox_from_map_corners_rejects_antimeridian_crossing():
+  corners = [[10.0, 179.9999, 0], [10.001, 179.9999, 0], [10.001, -179.9999, 0], [10.0, -179.9999, 0]]
+
+  with pytest.raises(osm_roi.OsmRoiError, match="antimeridian"):
+    osm_roi.bbox_from_map_corners(corners)
+
+
+def test_bbox_from_map_corners_regular_scene():
+  corners = [[10.0, 20.0, 0], [10.001, 20.0, 0], [10.001, 20.001, 0], [10.0, 20.001, 0]]
+
+  assert osm_roi.bbox_from_map_corners(corners) == (10.0, 20.0, 10.001, 20.001)
+
+
+def test_lla_to_local_xy_inverts_trs_matrix():
+  trs = np.eye(4)
+  trs[:3, 3] = convertLLAToECEF([10.0, 20.0, 0.0])
+  expected = convertLLAToECEF([10.0001, 20.0001, 0.0]) - trs[:3, 3]
+
+  x, y = osm_roi.lla_to_local_xy(trs.tolist(), 10.0001, 20.0001)
+
+  assert (x, y) == pytest.approx((expected[0], expected[1]))
+
+
+def test_lla_to_local_xy_requires_trs_matrix():
+  with pytest.raises(osm_roi.OsmRoiError):
+    osm_roi.lla_to_local_xy(None, 10.0, 20.0)

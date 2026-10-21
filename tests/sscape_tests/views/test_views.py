@@ -15,7 +15,7 @@ from django.test.client import RequestFactory
 from django.urls import reverse
 
 from manager import views
-from manager.models import Scene, SingletonSensor, Cam
+from manager.models import Scene, SingletonSensor, Cam, Region
 from manager.settings import AXES_FAILURE_LIMIT
 from manager.views import SingletonSensorDeleteView, SingletonSensorCreateView, \
                          SingletonSensorUpdateView, CamCreateView, CamDeleteView, CamUpdateView, \
@@ -108,6 +108,22 @@ class TestRoiViews(TestCase):
     })
     self.assertEqual(response.status_code, 302)
     return
+
+  def test_save_ROIs_rejects_malformed_points_with_400(self):
+    for points in ([[1]], [1], [[1, 2, 3]], [["a", 2]]):
+      with self.subTest(points=points):
+        response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+          data = {'rois': json.dumps([self._generate_roi(points=points)]), 'tripwires': json.dumps([])})
+        self.assertEqual(response.status_code, 400)
+    self.assertFalse(Region.objects.filter(scene_id=self.test_scene_id).exists())
+
+  def test_save_ROIs_rolls_back_regions_when_tripwires_invalid(self):
+    response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+      data = {'rois': json.dumps([self._generate_roi(points=[[1, 2], [3, 4], [5, 6]])]),
+              'tripwires': json.dumps([self._generate_tripwire(points=[[1]])])})
+
+    self.assertEqual(response.status_code, 400)
+    self.assertFalse(Region.objects.filter(scene_id=self.test_scene_id).exists())
 
 class TestRoiSaveNotificationBatching(TestCase):
   """Verifies saveROI batches sendUpdateCommand into exactly one call per save."""

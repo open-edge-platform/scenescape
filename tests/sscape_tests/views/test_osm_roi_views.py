@@ -482,17 +482,36 @@ class TestOsmRois(TestCase):
     response = self._post({"rois": [{"points": [[0, 0], [1, 0], [1, 1]]}]})
     self.assertEqual(response.status_code, 403)
 
-  def test_accept_reusing_existing_uuid_overwrites_that_region(self):
-    """Documents a known risk: a posted uuid matching an existing region silently overwrites it."""
+  def test_accept_rejects_uuid_of_existing_region_without_changes(self):
+    """Additive-only: a posted uuid that already exists is rejected, and nothing in the batch is created."""
     response = self._post({
-      "rois": [{"uuid": str(self.existing_region.uuid), "points": [[5, 5], [6, 5], [6, 6]],
-                "name": "overwritten"}],
+      "rois": [
+        {"points": [[1, 1], [2, 1], [2, 2]], "name": "new"},
+        {"uuid": str(self.existing_region.uuid), "points": [[5, 5], [6, 5], [6, 6]], "name": "overwritten"},
+      ],
     })
 
-    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.status_code, 409)
+    self.assertIn(str(self.existing_region.uuid), json.loads(response.content)["existing"])
     self.existing_region.refresh_from_db()
-    self.assertEqual(self.existing_region.name, "overwritten")
-    # Stale points from the region's previous shape must not linger alongside the new ones.
+    self.assertEqual(self.existing_region.name, "manual_roi")
     self.assertEqual(
-      [(p.x, p.y) for p in self.existing_region.points.order_by("sequence")],
-      [(5, 5), (6, 5), (6, 6)])
+      [(p.x, p.y) for p in self.existing_region.points.order_by("sequence")], [(0, 0), (1, 0), (1, 1)])
+    self.assertEqual(Region.objects.filter(scene=self.scene).count(), 1)
+
+  def test_accept_rejects_duplicate_uuids_in_request(self):
+    dup = "11111111-1111-1111-1111-111111111111"
+    response = self._post({"rois": [
+      {"uuid": dup, "points": [[0, 0], [1, 0], [1, 1]]},
+      {"uuid": dup, "points": [[2, 2], [3, 2], [3, 3]]},
+    ]})
+
+    self.assertEqual(response.status_code, 400)
+    self.assertEqual(Region.objects.filter(scene=self.scene).count(), 1)
+
+  def test_accept_rejects_overlong_name_or_type(self):
+    for field, length in (("name", 201), ("type", 151)):
+      with self.subTest(field=field):
+        response = self._post({"rois": [{"points": [[0, 0], [1, 0], [1, 1]], field: "x" * length}]})
+        self.assertEqual(response.status_code, 400)
+    self.assertEqual(Region.objects.filter(scene=self.scene).count(), 1)

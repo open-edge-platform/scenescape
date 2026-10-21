@@ -664,9 +664,9 @@ function stringifyRois() {
   var groups = svgCanvas.selectAll(".roi");
 
   groups.forEach(function (g) {
-    // Deselected (via its type-group checkbox) ROIs are hidden on the map
-    // and excluded from the save payload entirely.
-    if (g.data("deselected")) {
+    // A hidden (deselected type group) OSM suggestion that was never saved is
+    // dropped; hidden regions that already exist are still saved, not deleted.
+    if (g.data("deselected") && g.data("osm_derived")) {
       return;
     }
 

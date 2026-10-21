@@ -58,17 +58,18 @@ class GoogleMapsPlugin extends MapInterface {
     const zoom = config.zoom;
     const rotation = config.rotation;
 
+    // Rotation is disabled so map corners stay north-up and match the scene axes.
     this.map = new google.maps.Map(document.getElementById(containerId), {
       center: center,
       zoom: zoom,
       mapTypeId: "satellite",
-      rotateControl: true,
+      rotateControl: false,
       streetViewControl: false,
       fullscreenControl: true,
       mapTypeControl: true,
       zoomControl: true,
       tilt: 0,
-      heading: rotation, // Set saved rotation
+      heading: 0,
     });
 
     console.log("Google Maps initialized with settings:", {
@@ -134,6 +135,9 @@ class GoogleMapsPlugin extends MapInterface {
   }
 
   generateBounds() {
+    if (this.map.getHeading()) {
+      this.map.setHeading(0);
+    }
     const bounds = this.map.getBounds();
     if (!bounds) return;
 

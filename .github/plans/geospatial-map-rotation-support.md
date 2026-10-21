@@ -50,8 +50,8 @@ min/max of the corners and is already correct for any rotated rectangle.
 ## Non-goals
 
 - Rotation for Google Maps. Its snapshot is stitched from north-up static
-  tiles and its corners are already consistent; keep it north-up (consider
-  `rotateControl: false` for clarity).
+  tiles; PR #2023 sets `rotateControl: false`, `heading: 0`, and resets the
+  heading before collecting corners. Keep that as is.
 - Pitch/tilt support. Views stay orthographic.
 - Clipping OSM queries to non-rectangular areas on the ohsome side.
 
@@ -178,7 +178,5 @@ together.
 - Do saved `map_center_lat/lng`, `map_zoom`, `map_bearing` reliably match the
   stored snapshot for scenes created before PR #2023? If not, should the
   migration only flag scenes (UI warning) instead of rewriting corners?
-- Should Google Maps explicitly disable `rotateControl`, or is the current
-  behavior (raster satellite stays north-up) sufficient?
 - Is the off-map polygon filter (section 3) wanted in the same PR, or as a
   separate cap-efficiency change?

@@ -28,12 +28,15 @@ function beginSelectArea() {
   selectingArea = true;
 }
 
-/** Remove the selection-area rectangle (if any) and forget its bounds. */
+/** Disarm the tool, remove the selection-area rectangle (if any) and forget its bounds. */
 function clearSelectionArea() {
   if (selectionRectEl) {
     selectionRectEl.remove();
     selectionRectEl = null;
   }
+  selectingArea = false;
+  selectionDragStart = null;
+  $("#svgout").removeClass("selecting-area");
   selectionBoundsPx = null;
   updateSelectAreaButton();
 }

@@ -25,11 +25,12 @@ var ROI_GROUP_COLOR_PALETTE = [
 var UNCATEGORIZED_ROI_TYPE_LABEL = "Uncategorized";
 // ROI type-group keys the user has deselected (persists across regroupRoiFields() re-renders)
 var deselectedRoiGroups = new Set();
-// User-picked colors (group key -> "#rrggbb") that override getRoiGroupColor()'s default
-var roiGroupColorOverrides = {};
+// User-picked colors (group key -> "#rrggbb") that override getRoiGroupColor()'s default.
+// Keys are user-typed ROI types, so the maps have no prototype (e.g. "__proto__" is a plain key).
+var roiGroupColorOverrides = Object.create(null);
 // Sticky auto-assigned colors (group key -> color), set the first time a key
 // is resolved in regroupRoiFields() so each type keeps its look across re-renders.
-var roiGroupAutoColors = {};
+var roiGroupAutoColors = Object.create(null);
 
 var hooks = {
   onChange: function () {},
@@ -105,7 +106,7 @@ function regroupRoiFields() {
     return;
   }
 
-  var groupsByKey = {};
+  var groupsByKey = Object.create(null);
   var orderedKeys = [];
 
   $rows.each(function () {
@@ -140,7 +141,7 @@ function regroupRoiFields() {
       .css("border-left-color", color);
     var $header = $('<div class="roi-group-header"></div>');
     var $toggle = $(
-      '<input type="checkbox" class="roi-group-toggle" title="Show/hide this group on the map and include it when saving">',
+      '<input type="checkbox" class="roi-group-toggle" title="Show/hide this group on the map. Hidden OSM suggestions are not saved; saved regions are kept.">',
     ).prop("checked", selected);
     var $colorInput = $(
       '<input type="color" class="roi-group-color-input" title="Change this group\'s color">',
@@ -248,11 +249,11 @@ $(document).on("change", ".roi-group-type-input", function () {
     deselectedRoiGroups.delete(oldKey);
     deselectedRoiGroups.add(newKey);
   }
-  if (Object.prototype.hasOwnProperty.call(roiGroupColorOverrides, oldKey)) {
+  if (Object.hasOwn(roiGroupColorOverrides, oldKey)) {
     roiGroupColorOverrides[newKey] = roiGroupColorOverrides[oldKey];
     delete roiGroupColorOverrides[oldKey];
   }
-  if (Object.prototype.hasOwnProperty.call(roiGroupAutoColors, oldKey)) {
+  if (Object.hasOwn(roiGroupAutoColors, oldKey)) {
     roiGroupAutoColors[newKey] = roiGroupAutoColors[oldKey];
     delete roiGroupAutoColors[oldKey];
   }

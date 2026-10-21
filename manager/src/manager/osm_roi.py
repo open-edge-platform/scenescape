@@ -117,23 +117,27 @@ def lla_to_local_xy(
   Raises:
     OsmRoiError: if trs_matrix is None/falsy or invalid.
   """
+  return _lla_to_local_xy_with_inverse(_invert_trs(trs_matrix), lat, lng, alt)
+
+
+def _invert_trs(trs_matrix: List[List[float]]) -> np.ndarray:
+  """Inverse of Scene.trs_matrix (ECEF -> local), computed once and reused per point."""
   if not trs_matrix:
     raise OsmRoiError(TRS_MATRIX_NOT_READY_MSG)
-
   try:
-    # Convert LLA to ECEF
-    ecef = convertLLAToECEF([lat, lng, alt])
-
-    # Apply inverse of trs_matrix: local = inv(trs_matrix) @ [ecef, 1]
-    trs_array = np.array(trs_matrix, dtype=float)
-    trs_inv = np.linalg.inv(trs_array)
-    ecef_homogeneous = np.array([*ecef, 1.0])
-    local_homogeneous = trs_inv @ ecef_homogeneous
-    local_xyz = local_homogeneous[:3]
-
-    return float(local_xyz[0]), float(local_xyz[1])
-
+    return np.linalg.inv(np.array(trs_matrix, dtype=float))
   except (ValueError, np.linalg.LinAlgError, TypeError) as exc:
+    raise OsmRoiError(f"Failed to convert LLA to local coordinates: {exc}")
+
+
+def _lla_to_local_xy_with_inverse(
+  trs_inv: np.ndarray, lat: float, lng: float, alt: float = 0.0,
+) -> Tuple[float, float]:
+  try:
+    ecef = convertLLAToECEF([lat, lng, alt])
+    local_homogeneous = trs_inv @ np.array([*ecef, 1.0])
+    return float(local_homogeneous[0]), float(local_homogeneous[1])
+  except (ValueError, TypeError) as exc:
     raise OsmRoiError(f"Failed to convert LLA to local coordinates: {exc}")
 
 
@@ -227,6 +231,10 @@ def bbox_from_map_corners(
     lons = [float(corner[1]) for corner in map_corners_lla]
   except (IndexError, TypeError, ValueError) as exc:
     raise OsmRoiError(f"Invalid map_corners_lla: {exc}")
+
+  # A min/max box across ±180° would span nearly the whole globe.
+  if max(lons) - min(lons) > 180.0:
+    raise OsmRoiError("Scenes crossing the antimeridian (±180° longitude) are not supported for OSM ROIs")
 
   return min(lats), min(lons), max(lats), max(lons)
 
@@ -437,6 +445,7 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
     scene.save(update_fields=["osm_ways_cache", "osm_ways_cache_bbox"])
 
   previews = []
+  trs_inv = _invert_trs(scene.trs_matrix)
   for way in ways:
     way_type = way["type"]
     coords_lla = way["coords"]  # [(lat, lng), ...]
@@ -448,7 +457,7 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
     conversion_failed = False
     for lat, lng in coords_lla:
       try:
-        x, y = lla_to_local_xy(scene.trs_matrix, lat, lng, alt=0.0)
+        x, y = _lla_to_local_xy_with_inverse(trs_inv, lat, lng, alt=0.0)
         local_coords.append((x, y))
       except OsmRoiError as exc:
         logger.error(f"Failed to convert way coordinate [{lat}, {lng}]: {exc}")

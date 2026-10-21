@@ -911,11 +911,14 @@ paths:
                     properties:
                       uuid:
                         type: string
-                        description: Optional. Reusing the previewed UUID updates that region instead of creating a duplicate.
+                        format: uuid
+                        description: Optional UUID for the new region (e.g. the previewed UUID). Must not belong to an existing region.
                       name:
                         type: string
+                        maxLength: 200
                       type:
                         type: string
+                        maxLength: 150
                       points:
                         type: array
                         minItems: 3
@@ -932,7 +935,7 @@ paths:
         - tokenAuth: []
       responses:
         "200":
-          description: Regions created or updated
+          description: Regions created
           content:
             application/json:
               schema:
@@ -948,11 +951,13 @@ paths:
                         name:
                           type: string
         "400":
-          description: Missing rois, or invalid roi points (fewer than 3 [x, y] pairs)
+          description: Missing rois, invalid roi points (fewer than 3 [x, y] pairs), duplicate uuids in the request, or name/type too long
         "401":
           description: Unauthorized
         "404":
           description: Scene not found
+        "409":
+          description: A posted uuid already belongs to an existing region; nothing is created
         "500":
           description: Internal server error
   /scene:
