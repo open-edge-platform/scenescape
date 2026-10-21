@@ -7,6 +7,7 @@ import os
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError
 from django.core.files import File
 from django.db import transaction
 
@@ -652,6 +653,17 @@ class SceneSerializer(NonNullSerializer):
 
     if qs.exists():
       raise serializers.ValidationError(f"A scene with the name '{value}' already exists.")
+    return value
+
+  def validate_parent(self, value):
+    if value is None:
+      return value
+    try:
+      parent_pk = Scene._meta.pk.to_python(value)
+    except ValidationError:
+      raise serializers.ValidationError("Must be a valid scene UUID.")
+    if not Scene.objects.filter(pk=parent_pk).exists():
+      raise serializers.ValidationError("Scene with given UUID does not exist.")
     return value
 
   def get_trs_matrix(self, obj):
