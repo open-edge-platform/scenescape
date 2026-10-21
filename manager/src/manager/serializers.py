@@ -351,8 +351,8 @@ class CamSerializer(NonNullSerializer):
 
       try:
         self.create_camera_instance(instance)
-      except (ValueError, IndexError, cv2.error) as e:
-        raise serializers.ValidationError({'transforms': f"Cannot compute camera pose: {e}"})
+      except (ValueError, IndexError, cv2.error):
+        raise serializers.ValidationError({'transforms': f"Cannot compute camera pose."})
     return instance
 
   def create(self, validated_data):
