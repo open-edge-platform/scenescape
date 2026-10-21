@@ -1,17 +1,27 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""AprilTag save_to_database must replace the stored marker set."""
+"""AprilTag save_to_database must replace the stored marker set atomically."""
 
 from unittest.mock import MagicMock, call, patch
+
+import pytest
 
 from atag_camera_calibration_controller import ApriltagCameraCalibrationController
 
 
+def _controller_with_iface():
+  data_iface = MagicMock()
+  data_iface.delete_calibration_markers_for_scene.return_value = True
+  data_iface.update_or_create_calibration_marker.return_value = {"ok": True}
+  data_iface.update_map_processed.return_value = {"ok": True}
+  controller = ApriltagCameraCalibrationController(calibration_data_interface=data_iface)
+  return controller, data_iface
+
+
 def test_save_to_database_replaces_smaller_and_stale_marker_sets():
   """Fewer or different detected tags must still persist the new set."""
-  data_iface = MagicMock()
-  controller = ApriltagCameraCalibrationController(calibration_data_interface=data_iface)
+  controller, data_iface = _controller_with_iface()
   scene = MagicMock()
   scene.id = "scene-1"
   detected = {
@@ -57,8 +67,7 @@ def test_save_to_database_replaces_smaller_and_stale_marker_sets():
 
 def test_save_to_database_does_not_read_prior_markers_before_replace():
   """Replacement must not branch on prior DB count (old delete-only path)."""
-  data_iface = MagicMock()
-  controller = ApriltagCameraCalibrationController(calibration_data_interface=data_iface)
+  controller, data_iface = _controller_with_iface()
   scene = MagicMock()
   scene.id = "scene-2"
 
@@ -71,3 +80,28 @@ def test_save_to_database_does_not_read_prior_markers_before_replace():
   data_iface.calibration_markers_with_scene_id.assert_not_called()
   data_iface.delete_calibration_markers_for_scene.assert_called_once_with(scene.id)
   data_iface.update_or_create_calibration_marker.assert_called_once()
+
+
+def test_save_to_database_skips_map_processed_when_delete_fails():
+  controller, data_iface = _controller_with_iface()
+  data_iface.delete_calibration_markers_for_scene.return_value = False
+  scene = MagicMock()
+  scene.id = "scene-3"
+
+  with pytest.raises(RuntimeError, match="Failed to clear calibration markers"):
+    controller.save_to_database(scene, {"1": [0.0, 0.0, 0.0]})
+
+  data_iface.update_or_create_calibration_marker.assert_not_called()
+  data_iface.update_map_processed.assert_not_called()
+
+
+def test_save_to_database_skips_map_processed_when_create_fails():
+  controller, data_iface = _controller_with_iface()
+  data_iface.update_or_create_calibration_marker.return_value = None
+  scene = MagicMock()
+  scene.id = "scene-4"
+
+  with pytest.raises(RuntimeError, match="Failed to persist calibration marker"):
+    controller.save_to_database(scene, {"1": [0.0, 0.0, 0.0]})
+
+  data_iface.update_map_processed.assert_not_called()

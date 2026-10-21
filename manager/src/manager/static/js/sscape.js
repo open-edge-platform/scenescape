@@ -27,6 +27,7 @@ import {
   startCameraCalibration,
   updateCalibrationView,
   handleAutoCalibrationPose,
+  registerAutoCameraCalibration,
 } from "/static/js/calibration.js";
 
 var svgCanvas = Snap("#svgout");
@@ -317,8 +318,16 @@ async function checkBrokerConnections() {
 }
 
 $("#auto-autocalibration").on("click", async function () {
+  const btn = document.getElementById("auto-autocalibration");
+  if (btn?.dataset.registrationRetry === "1") {
+    await registerAutoCameraCalibration(scene_id, socket);
+    return;
+  }
+
   const camera_id = $("#sensor_id").val();
-  document.getElementById("auto-autocalibration").disabled = true;
+  if (btn) {
+    btn.disabled = true;
+  }
 
   if (socket.connected) {
     socket.emit("register_camera", { camera_id: camera_id });
@@ -354,7 +363,6 @@ $("#auto-autocalibration").on("click", async function () {
   );
   if (data.status === "error") {
     console.log("Calibration failed");
-    const btn = document.getElementById("auto-autocalibration");
     if (btn) {
       btn.disabled = false;
       btn.title =
