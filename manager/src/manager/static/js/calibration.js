@@ -178,8 +178,7 @@ async function manageCalibrationState(msg, scene_id) {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
       clearRegistrationRetry(btn);
       if (calibration_strategy == "Markerless") {
-        btn.title =
-          "Go to 3D view for Markerless auto camera calibration.";
+        btn.title = "Go to 3D view for Markerless auto camera calibration.";
       } else {
         btn.disabled = false;
         btn.title = "Click to calibrate the camera automatically";
