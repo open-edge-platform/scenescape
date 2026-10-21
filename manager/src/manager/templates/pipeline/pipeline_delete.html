@@ -5,27 +5,27 @@ SPDX-License-Identifier: Apache-2.0
 
 {% extends 'sscape/base.html' %}
 {% block content %}
-  <nav aria-label="breadcrumb">
-    <ol class="breadcrumb">
-      <li class="breadcrumb-item">
-        <a href="{% url 'pipeline_list' %}">Pipelines</a>
-      </li>
-      <li class="breadcrumb-item active" aria-current="page">Delete</li>
-    </ol>
-  </nav>
-  <div class="card width-100">
-    <h5 class="noselect card-header">Delete Pipeline</h5>
-    <div class="card-body">
-      <form method="post">
-        {% csrf_token %}
-        <p>Are you sure you want to delete the "{{ object }}" pipeline?</p>
-        <p>
-          Associated cameras will be kept, but their pipeline selection will be
-          cleared. Video processing will not change.
-        </p>
-        <input class="btn btn-primary" type="submit" value="Delete Pipeline" />
-        <a class="btn btn-secondary" href="{% url 'pipeline_list' %}">Cancel</a>
-      </form>
-    </div>
+<nav aria-label="breadcrumb">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item">
+      <a href="{% url 'pipeline_list' %}">Pipelines</a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">Delete</li>
+  </ol>
+</nav>
+<div class="card width-100">
+  <h5 class="noselect card-header">Delete Pipeline</h5>
+  <div class="card-body">
+    <form method="post">
+      {% csrf_token %}
+      <p>Are you sure you want to delete the "{{ object }}" pipeline?</p>
+      <p>
+        Associated cameras will be kept, but their pipeline selection will be
+        cleared.
+      </p>
+      <input class="btn btn-primary" type="submit" value="Delete Pipeline" />
+      <a class="btn btn-secondary" href="{% url 'pipeline_list' %}">Cancel</a>
+    </form>
   </div>
+</div>
 {% endblock %}
