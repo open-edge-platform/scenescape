@@ -34,6 +34,8 @@ class ManagerCalibrationLoader:
       raise ManagerCalibrationError("Manager camera request failed") from error
 
     if camera.statusCode != 200:
+      if camera.statusCode == 401:
+        self._client = None
       raise ManagerCalibrationError(f"Manager camera request returned {camera.statusCode}")
     if camera.get("uid") != source_id:
       raise ManagerCalibrationError("Manager returned a different camera identity")
