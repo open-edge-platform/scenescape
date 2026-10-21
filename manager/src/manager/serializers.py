@@ -60,6 +60,14 @@ def _validate_scene_exists(data):
     if scene_pk and not Scene.objects.filter(pk=scene_pk).exists():
       raise serializers.ValidationError({"scene": "Scene with given UUID does not exist."})
 
+def _is_number(value):
+  if isinstance(value, bool):
+    return False
+  try:
+    return math.isfinite(float(value))
+  except (TypeError, ValueError):
+    return False
+
 class CenterSerializerField(serializers.DictField):
   def to_representation(self, obj):
     if hasattr(obj, 'map_x') and hasattr(obj, 'map_y') \
@@ -633,6 +641,13 @@ class SceneSerializer(NonNullSerializer):
 
     if attempted:
       raise serializers.ValidationError({field: ["This field is read-only."] for field in attempted})
+
+    trs_matrix = self.initial_data.get('trs_matrix', None)
+    if trs_matrix is not None and (
+        not isinstance(trs_matrix, list) or len(trs_matrix) != 4
+        or not all(isinstance(row, list) and len(row) == 4 and all(_is_number(v) for v in row)
+                   for row in trs_matrix)):
+      raise serializers.ValidationError({'trs_matrix': ['Must be a 4x4 matrix of numbers.']})
 
     if attrs.get('output_lla') is True:
       incoming_map_corners = attrs.get('map_corners_lla', None)
