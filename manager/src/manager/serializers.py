@@ -601,8 +601,8 @@ class SceneSerializer(NonNullSerializer):
   uid = serializers.SerializerMethodField('get_uid')
   cameras = serializers.SerializerMethodField('get_cameras')
   sensors = serializers.SerializerMethodField('get_sensors')
-  regions = RegionSerializer(many=True, required=False)
-  tripwires = TripwireSerializer(many=True, required=False)
+  regions = RegionSerializer(many=True, read_only=True)
+  tripwires = TripwireSerializer(many=True, read_only=True)
   parent = serializers.CharField(source='parent.parent.pk', required=False, allow_null=True)
   transform = TransformSerializerField(source='parent.cameraPose', required=False, allow_null=True)
   mesh_translation = serializers.SerializerMethodField('get_translation')
@@ -785,11 +785,6 @@ class SceneSerializer(NonNullSerializer):
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
-
-    validated_data.pop('regions', None)
-    validated_data.pop('tripwires', None)
-
-    parent_uid = None
 
     parent_uid = None
     transform = None
