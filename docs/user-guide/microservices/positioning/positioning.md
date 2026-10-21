@@ -154,6 +154,11 @@ the service also rereads all sources, which recovers from a failed reload. A cha
 calibration resets motion and backlash history, so a valid pose again requires a full
 settle window.
 
+Positioning applies a 10-second connection and read-inactivity timeout to each
+Manager authentication and camera-read request using a service-local HTTP adapter.
+A timeout follows the existing calibration failure handling and permits a later
+refresh to retry; it is not a total deadline for the complete calibration load.
+
 ### Clock synchronization
 
 Poses are timestamped with the host clock, so the service checks it against the NTP

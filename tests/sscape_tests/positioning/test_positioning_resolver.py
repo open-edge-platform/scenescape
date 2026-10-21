@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest import mock
 
 import numpy as np
+import requests
 from scipy.spatial.transform import Rotation
 
 from positioning.ptz_model import load_ptz_model
@@ -248,6 +249,75 @@ class TestPTZResolver(unittest.TestCase):
 
     with self.assertRaises(ManagerCalibrationError):
       loader.load(SOURCE_ID)
+
+  def test_manager_requests_use_service_timeout_and_reuse_authentication(self):
+    camera = {
+      "uid": SOURCE_ID,
+      "ptz_calibration": FIXTURE["ptz_calibration"],
+      "pose_matrix": HOME_MATRIX.tolist(),
+      "scene": "scene-a",
+    }
+    for scheme in ("http", "https"):
+      with self.subTest(scheme=scheme):
+        loader = ManagerCalibrationLoader(f"{scheme}://manager/api/v1", "test:password", "ca")
+        with mock.patch("requests.adapters.HTTPAdapter.send") as send:
+          send.side_effect = [
+            self._manager_response({"token": "test-token"}),
+            self._manager_response(camera),
+            self._manager_response(camera),
+          ]
+
+          calibration = loader.load(SOURCE_ID)
+          refreshed = loader.load(SOURCE_ID)
+
+        self.assertEqual(calibration.frame_id, "scene:scene-a")
+        self.assertEqual(refreshed.model.calibration_version, MODEL.calibration_version)
+        self.assertEqual(send.call_count, 3)
+        auth_call, camera_call, refresh_call = send.call_args_list
+        self.assertEqual(auth_call.args[0].method, "POST")
+        self.assertEqual(auth_call.args[0].url, f"{scheme}://manager/api/v1/auth")
+        for call in (camera_call, refresh_call):
+          self.assertEqual(call.args[0].method, "GET")
+          self.assertEqual(call.args[0].url, f"{scheme}://manager/api/v1/camera/{SOURCE_ID}")
+          self.assertEqual(call.args[0].headers["Authorization"], "Token test-token")
+        for call in send.call_args_list:
+          self.assertEqual(call.kwargs["timeout"], 10)
+          self.assertEqual(call.kwargs["verify"], "ca")
+
+  def test_manager_timeout_resets_client_and_allows_retry(self):
+    for phase in ("authentication", "camera"):
+      for error_type in (requests.exceptions.ConnectTimeout, requests.exceptions.ReadTimeout):
+        with self.subTest(phase=phase, error_type=error_type):
+          loader = ManagerCalibrationLoader("https://manager/api/v1", "test:password", "ca")
+          replies = [error_type("Manager timed out")]
+          if phase == "camera":
+            replies.insert(0, self._manager_response({"token": "test-token"}))
+          with mock.patch("requests.adapters.HTTPAdapter.send") as send:
+            send.side_effect = replies
+            with self.assertRaisesRegex(ManagerCalibrationError, "Manager camera request failed"):
+              loader.load(SOURCE_ID)
+
+            self.assertIsNone(loader._client)
+            self.assertEqual(send.call_args.kwargs["timeout"], 10)
+            send.reset_mock()
+            send.side_effect = [
+              self._manager_response({"token": "new-token"}),
+              self._manager_response({"uid": SOURCE_ID}),
+            ]
+
+            self.assertIsNone(loader.load(SOURCE_ID))
+
+          self.assertEqual(send.call_count, 2)
+          self.assertEqual(send.call_args_list[0].args[0].method, "POST")
+          self.assertEqual(send.call_args.args[0].headers["Authorization"], "Token new-token")
+
+  @staticmethod
+  def _manager_response(content):
+    response = requests.Response()
+    response.status_code = 200
+    response.headers["Content-Type"] = "application/json"
+    response._content = json.dumps(content).encode("utf-8")
+    return response
 
   def test_unsynchronized_clock_publishes_invalid_context_then_recovers(self):
     clock = FakeClock()

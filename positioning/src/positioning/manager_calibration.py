@@ -3,9 +3,35 @@
 
 """Read Manager-owned PTZ calibration and home pose for the Resolver."""
 
+from requests.adapters import HTTPAdapter
+
 from positioning.ptz_model import PTZCalibrationError, load_ptz_model
 from positioning.resolver import PTZSourceCalibration
 from scene_common.rest_client import RESTClient
+
+
+class _ManagerTimeoutAdapter(HTTPAdapter):
+  """Supply the timeout omitted by the shared REST client's HTTP calls."""
+
+  def __init__(self, timeout):
+    super().__init__()
+    self.timeout = timeout
+
+  def send(self, request, **kwargs):
+    if kwargs.get("timeout") is None:
+      kwargs["timeout"] = self.timeout
+    return super().send(request, **kwargs)
+
+
+class _ManagerRESTClient(RESTClient):
+  """Apply Positioning's Manager timeout before authenticating."""
+
+  def __init__(self, url, auth, rootcert, timeout=10):
+    super().__init__(url, rootcert=rootcert, timeout=timeout)
+    self.session.mount("http://", _ManagerTimeoutAdapter(timeout))
+    self.session.mount("https://", _ManagerTimeoutAdapter(timeout))
+    if auth:
+      self._parseAuth(auth)
 
 
 class ManagerCalibrationError(RuntimeError):
@@ -15,7 +41,7 @@ class ManagerCalibrationError(RuntimeError):
 class ManagerCalibrationLoader:
   """Lazily authenticate to Manager and load camera calibration on demand."""
 
-  def __init__(self, url, auth, root_cert, client_factory=RESTClient):
+  def __init__(self, url, auth, root_cert, client_factory=_ManagerRESTClient):
     self.url = url
     self.auth = auth
     self.root_cert = root_cert
