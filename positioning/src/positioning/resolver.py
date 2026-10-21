@@ -199,10 +199,12 @@ class PTZResolver:
     if sample.sequence < state.last_sequence or timestamp_ns <= state.last_timestamp_ns:
       return self._ack(ptz_pb2.PTZ_SAMPLE_RESULT_OUT_OF_ORDER, "sequence or timestamp decreased")
     sequence_gap = state.last_sequence > 0 and sample.sequence != state.last_sequence + 1
-    if sequence_gap:
+    timestamp_gap = state.last_timestamp_ns > 0 and \
+      timestamp_ns - state.last_timestamp_ns > int(self.max_pose_age_s * 1e9)
+    if sequence_gap or timestamp_gap:
       state.reset_motion()
-      if self.metrics is not None:
-        self.metrics.inc_sequence_gap(source_id)
+    if sequence_gap and self.metrics is not None:
+      self.metrics.inc_sequence_gap(source_id)
 
     now_ns = self.clock_ns()
     age_s = max(0.0, (now_ns - timestamp_ns) / 1e9)
