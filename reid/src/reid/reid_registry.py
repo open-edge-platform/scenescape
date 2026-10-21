@@ -9,13 +9,13 @@ library of the backend it selects.
 
 from importlib import import_module
 
-from reid_service.reid_env import get_reid_database
+from reid.reid_env import get_reid_database
 
 # Backend name -> (module path, adapter class name). Register new backends here;
 # no other production module needs to know the set of available adapters.
 _BACKENDS = {
-  "VDMS": ("reid_service.vdms_adapter", "VDMSDatabase"),
-  "QDRANT": ("reid_service.qdrant_adapter", "QdrantDatabase"),
+  "VDMS": ("reid.vdms_adapter", "VDMSDatabase"),
+  "QDRANT": ("reid.qdrant_adapter", "QdrantDatabase"),
 }
 
 
