@@ -1,0 +1,60 @@
+<!--
+SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+SPDX-License-Identifier: Apache-2.0
+-->
+
+{% extends 'sscape/base.html' %}
+{% block content %}
+  {% if user.is_superuser %}
+    <a class="btn btn-primary float-right" href="{% url 'pipeline_create' %}"
+      >+ New Pipeline</a
+    >
+  {% endif %}
+  <h2 class="form-title">Pipelines</h2>
+  <p>
+    Stored definitions only. These pipelines and their camera associations do
+    not change video processing.
+  </p>
+  <table class="table table-fluid">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Pipeline string</th>
+        {% if user.is_superuser %}
+          <th>Update</th>
+          <th>Delete</th>
+        {% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for pipeline in object_list %}
+        <tr>
+          <td>{{ pipeline.name }}</td>
+          <td><pre>{{ pipeline.pipeline }}</pre></td>
+          {% if user.is_superuser %}
+            <td>
+              <a
+                href="{% url 'pipeline_update' pipeline.pk %}"
+                aria-label="Update {{ pipeline.name }}"
+                ><i class="bi bi-wrench"></i
+              ></a>
+            </td>
+            <td>
+              <a
+                href="{% url 'pipeline_delete' pipeline.pk %}"
+                aria-label="Delete {{ pipeline.name }}"
+                ><i class="bi bi-trash"></i
+              ></a>
+            </td>
+          {% endif %}
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{% if user.is_superuser %}4{% else %}2{% endif %}">
+            No pipelines have been created.
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}

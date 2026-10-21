@@ -206,7 +206,7 @@ SPDX-License-Identifier: Apache-2.0
           {% endif %}
 
           {% for field in form %}
-            {% if field.name in "name sensor_id scene command camerachain" %}
+            {% if field.name in "name sensor_id scene command camerachain pipeline" %}
               <div class="form-group row" id="{{ field.name }}_wrapper">
                 <label
                   class="col-form-label form-label"
@@ -217,6 +217,11 @@ SPDX-License-Identifier: Apache-2.0
                 <div class="col-sm-3">
                   {{ field.errors }}
                   {{ field }}
+                  {% if field.help_text %}
+                    <small class="form-text text-muted"
+                      >{{ field.help_text }}</small
+                    >
+                  {% endif %}
                 </div>
               </div>
             {% elif field.name == "camera_pipeline" %}

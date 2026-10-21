@@ -141,6 +141,31 @@ Using the above example, the form should look like this for the `video0` camera:
 
 Once both cameras are added, the scene is ready to be calibrated. Click on each camera and follow the instructions for [Calibration with the 2D UI](../calibrate-cameras/use-2D-UI-for-calibration.md) or [Calibration with the 3D UI](../calibrate-cameras/use-3D-UI-for-calibration.md) to manually calibrate each one. Test the system by walking around in the camera view and verify that the dots representing each person appear in the correct place on the floor plan. For Auto Calibration of cameras, use one of these methods: [Apriltag Calibration](../calibrate-cameras/autocalibrate-cameras-using-apriltags.md) or [Markerless Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md).
 
+## Store Pipeline Definitions and Associate Cameras
+
+The **Pipelines** tab, between **Object Library** and **Documentation**, stores
+named GStreamer pipeline strings locally. It is available with or without
+Kubernetes.
+
+1. Open **Pipelines**. As a superuser, select **+ New Pipeline**.
+2. Enter a unique **Name** and a **Pipeline string**, then select **Add New Pipeline**.
+   The string is stored as text; it is not checked against installed GStreamer plugins.
+3. Use the update control to edit a definition, or the delete control to remove it
+   after confirmation. Authenticated users who are not superusers can view definitions
+   but cannot change them.
+4. When creating or editing a camera, or using **Manage Camera**, select a definition
+   in the optional **Pipeline** dropdown and save the camera. Choose the blank option
+   to clear an association.
+
+Each camera can reference one pipeline, and multiple cameras can reference the same
+pipeline. Deleting a pipeline clears these references but keeps the cameras.
+
+> **Important:** Pipeline definitions and camera associations are metadata only.
+> They do not configure, start, or redeploy DL Streamer pipelines, and do not replace
+> the existing **Camera Pipeline** string or **Use Camera Pipeline** override.
+> This feature has no REST API, scene import/export support, or external pipeline-tool
+> synchronization yet.
+
 ## Exporting and Importing the scene
 
 Scenescape provides a way to easily transfer a scene configuration from deployment to another through export and import functionality. This greatly reduces time, effort and discrepancies between development and deployment configuration of a scene.

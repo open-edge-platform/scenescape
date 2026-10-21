@@ -28,6 +28,25 @@ docker compose --profile controller down --remove-orphans
 docker compose --profile controller up -d
 ```
 
+## Custom DLSPS 2 Image
+
+The [Dockerfile](Dockerfile) extends
+`ger-is-registry.caas.intel.com/scenescape/dlsps2.0-7:latest` with `ntplib`,
+which the SceneScape timestamp-capture plugin requires. Registry access is
+required to pull the base image.
+
+Build from the repository root:
+
+```sh
+docker build -t scenescape-dlsps2:local dlstreamer-pipeline-server
+docker run --rm --network none --entrypoint python3 scenescape-dlsps2:local \
+  -c "import ntplib; from importlib.metadata import version; print(version('ntplib'))"
+```
+
+To use it, set the relevant video service's `image` to `scenescape-dlsps2:local`
+in its scene Compose file and recreate that service. The image preserves the
+base image's entrypoint and runs as its original `pipeline-server` user.
+
 ## Running on GPU
 
 Running the pipelines on GPU is highly recommended when available on the system. This approach efficiently utilizes available CPU cores for other Scenescape services and provides optimal performance for the visual analytics service. Only Intel GPU devices are supported.

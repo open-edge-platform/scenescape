@@ -671,9 +671,25 @@ class Sensor(models.Model):
       super().delete(*args, **kwargs)
     return
 
+class Pipeline(models.Model):
+  """A locally stored GStreamer definition, not an active runtime pipeline."""
+
+  name = models.CharField(max_length=200, unique=True)
+  pipeline = models.TextField(verbose_name="Pipeline string")
+
+  class Meta:
+    ordering = ['name']
+
+  def __str__(self):
+    return self.name
+
+
 class Cam(Sensor):
   DEFAULT_INTRINSICS = {"fx":570.0,"fy":570.0,"cx":320.0,"cy":240.0}
 
+  pipeline = models.ForeignKey(Pipeline, null=True, blank=True, on_delete=models.SET_NULL,
+                               related_name="cameras",
+                               help_text="Stored association only. Selecting a pipeline does not change video processing.")
   command = models.CharField(default=None, max_length=512, null=True,
                              verbose_name="Camera (Video Source)")
   camerachain = models.CharField(default=None, max_length=64, null=True, verbose_name="Camera Chain")

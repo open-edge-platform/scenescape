@@ -41,6 +41,11 @@ SPDX-License-Identifier: Apache-2.0
             <div class="col-sm-10">
               {{ field.errors }}
               {{ field }}
+              {% if field.help_text %}
+                <small class="form-text text-muted"
+                  >{{ field.help_text }}</small
+                >
+              {% endif %}
             </div>
           </div>
         {% endfor %}

@@ -10,7 +10,7 @@ from django.conf import settings
 from django.db.models import Q
 from django.forms import ModelForm, ValidationError
 
-from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
+from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene, Pipeline
 from manager.validators import validate_zip_file
 from manager.ppl_generator import (
   PipelineGenerationValueError,
@@ -25,10 +25,30 @@ from scene_common.cam_fields import (
     CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
 )
 
+class PipelineForm(forms.ModelForm):
+  pipeline = forms.CharField(label="Pipeline string", strip=False,
+                             widget=forms.Textarea(attrs={
+                               'class': 'form-control text-monospace',
+                               'rows': 12,
+                               'spellcheck': 'false',
+                             }))
+
+  class Meta:
+    model = Pipeline
+    fields = ['name', 'pipeline']
+    widgets = {'name': forms.TextInput(attrs={'class': 'form-control'})}
+
+  def clean_pipeline(self):
+    pipeline = self.cleaned_data['pipeline']
+    if not pipeline.strip():
+      raise ValidationError("Enter a pipeline string.")
+    return pipeline
+
+
 class CamCalibrateForm(forms.ModelForm):
   class Meta:
     model = Cam
-    fields = CAM_FORM_FIELDS
+    fields = CAM_FORM_FIELDS + ['pipeline']
 
   def __init__(self, *args, **kwargs):
     self.advanced_fields = CAM_ADVANCED_FIELDS
@@ -171,7 +191,7 @@ class SingletonForm(forms.Form):
 class CamCreateForm(forms.ModelForm):
   class Meta:
     model = Cam
-    fields = ['sensor_id', 'name', 'scene']
+    fields = ['sensor_id', 'name', 'scene', 'pipeline']
     labels = {
       'sensor_id': 'Camera ID',
     }
