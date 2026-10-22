@@ -78,7 +78,7 @@ def process_detection(self, detection_data):
 
 ### Required Complexity Check
 
-After adding or changing first-party Python application code, run `make complexity-check SERVICE=<name>` for each touched service, or `make complexity-check` when more than one service is touched. Fix a non-zero exit before the change is finished or pushed. The limit is cognitive complexity 12 per function or method.
+After adding or changing first-party Python application code, run `make complexity-check SERVICE=<name>` for each touched service, or `make complexity-check` when more than one service is touched. Fix a non-zero exit before the change is finished or pushed.
 
 Legacy scores live in `.github/resources/cognitive-complexity-baseline.txt` and may only shrink:
 
