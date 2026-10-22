@@ -471,6 +471,56 @@ def test_fit_pose_fixed_intrinsics_uses_sqpnp_for_non_coplanar():
   np.testing.assert_allclose(dist.ravel(), distortion)
 
 
+def test_locked_lens_refit_does_not_jump_to_distant_camera_pose():
+  """Real distorted-camera matches previously produced a 29 m camera height."""
+  payload = _calibration_payload(
+    mapPoints=[
+      [2.61777735, 4.24208915, -0.03628719],
+      [3.37448049, 4.71994710, -0.02743566],
+      [3.49817872, 3.68181109, -0.02463210],
+      [4.70190278, 3.87953186, -0.00904286],
+      [4.03730386, 2.92646688, -0.02610767],
+      [5.67322719, 3.28573954, -0.00307882],
+      [6.15817821, 2.46695340, -0.01420844],
+      [5.27095032, 4.96910203, -0.00833929],
+      [4.85846911, 5.69687748, 1.34161323],
+    ],
+    camPoints=[
+      [59.02857048, 562.53192250], [201.98045787, 453.80903075],
+      [348.12995875, 566.05247378], [609.23864387, 436.67732259],
+      [655.33507440, 618.49582581], [896.66765235, 416.93320042],
+      [1124.99506334, 447.80125573], [563.01541278, 330.78323510],
+      [403.78168204, 41.74686394],
+    ],
+    intrinsics=[[1059.9363, 0, 640], [0, 1059.9363, 360], [0, 0, 1]],
+    distortion=[-0.362086, 0, 0, 0, 0],
+    imageSize=[1280, 720],
+  )
+  with patch("cv2.calibrateCamera", wraps=cv2.calibrateCamera) as calibrate:
+    response = _post_calculate_intrinsics(payload)
+  assert response.status_code == 200, response.data
+  calibrate.assert_not_called()
+  np.testing.assert_allclose(response.data["position"], [2.45, 1.13, 1.65], atol=0.05)
+  assert response.data["rmsError"] < 5
+  assert np.sqrt(np.mean(np.square(response.data["perPointErrors"]))) < 5
+  np.testing.assert_allclose(response.data["mtx"], payload["intrinsics"])
+  np.testing.assert_allclose(np.asarray(response.data["dist"]).ravel(),
+                             payload["distortion"])
+
+
+def test_unlocked_lens_still_uses_calibrate_camera():
+  map_points, cam_points, intrinsics, distortion = (
+    _projected_non_coplanar_correspondences(6))
+  payload = _calibration_payload(
+    mapPoints=map_points.tolist(), camPoints=cam_points.tolist(),
+    intrinsics=intrinsics.tolist(), distortion=distortion.tolist(),
+    fixIntrinsics={"fx": False, "fy": False}, rejectOutliers=False)
+  with patch("cv2.calibrateCamera", wraps=cv2.calibrateCamera) as calibrate:
+    response = _post_calculate_intrinsics(payload)
+  assert response.status_code == 200, response.data
+  calibrate.assert_called_once()
+
+
 def test_as_distortion_column_normalizes_shapes():
   assert as_distortion_column([1.0, 2.0, 3.0]).shape == (3, 1)
   assert as_distortion_column(np.array([[1.0, 2.0]])).shape == (2, 1)

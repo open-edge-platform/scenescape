@@ -194,8 +194,8 @@ def validate_image_size(image_size):
 def fit_pose_fixed_intrinsics(obj_points, img_points, intrinsics, distortion):
   """Pose-only SQPNP fit that keeps the supplied intrinsics and distortion fixed.
 
-  Call only for needs_pose_only_fit sets (sparse non-coplanar correspondences
-  where calibrateCamera cannot initialize).
+  Used when lens parameters are locked, or sparse non-coplanar correspondences
+  prevent calibrateCamera from initializing.
   """
   ok, rvec, tvec = cv2.solvePnP(
     obj_points, img_points, intrinsics, distortion, flags=cv2.SOLVEPNP_SQPNP)
@@ -458,10 +458,12 @@ class CalculateCameraIntrinsics(APIView):
         fit_obj_points = obj_points
         fit_img_points = img_points
 
-      if needs_pose_only_fit(fit_obj_points):
+      lens_locked = all(fix_intrinsics.get(key, True) for key in
+                        ("fx", "fy", "cx", "cy", "k1", "k2", "k3", "p1", "p2"))
+      if lens_locked or needs_pose_only_fit(fit_obj_points):
         # Intrinsics/distortion stay at the request values.
         log.info("Using pose-only SQPNP fit for "
-                 f"{len(fit_obj_points)} non-coplanar correspondences")
+                 f"{len(fit_obj_points)} correspondences")
         rms_error, mtx, dist, rvecs, tvecs = fit_pose_fixed_intrinsics(
           fit_obj_points, fit_img_points, intrinsics, distortion)
       else:

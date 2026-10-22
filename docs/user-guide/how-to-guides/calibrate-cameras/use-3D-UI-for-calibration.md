@@ -101,6 +101,9 @@ Before you begin:
    conditioned. It applies to both manual and AprilTag-generated point matches.
    Inspect reprojection error and the physical camera location before saving;
    a finite pose alone does not establish a correct calibration.
+   The 2D calibration page uses a separate fitting endpoint. With all lens
+   parameters locked, it uses a pose-only SQPNP fit rather than recalibrating
+   the lens with `calibrateCamera`, avoiding its unstable pose initialization.
 
 ## Supporting Resources
 
