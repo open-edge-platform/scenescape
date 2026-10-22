@@ -101,6 +101,7 @@ class PTZResolver:
       for source_id in self.source_calibrations
     }
     self._locks = {source_id: threading.RLock() for source_id in self.source_calibrations}
+    self._calibration_generations = {source_id: 0 for source_id in self.source_calibrations}
     if self.metrics is not None:
       for source_id, calibration in self.source_calibrations.items():
         self._record_calibration_version(source_id, calibration)
@@ -124,8 +125,19 @@ class PTZResolver:
       raise ValueError(f"{name} must be a finite nonnegative number")
     return float(value)
 
-  def update_calibration(self, source_id, calibration):
-    """Replace a source calibration and reset motion/backlash continuity."""
+  def calibration_generation(self, source_id):
+    """Return the invalidation generation to capture before fetching a calibration."""
+    if source_id not in self._states:
+      raise KeyError(source_id)
+    with self._locks[source_id]:
+      return self._calibration_generations[source_id]
+
+  def update_calibration(self, source_id, calibration, generation=None):
+    """Replace a source calibration and reset motion/backlash continuity.
+
+    When ``generation`` is given, the update is applied only if no invalidation
+    happened since it was captured. Returns False when a stale result is discarded.
+    """
     if source_id not in self._states:
       raise KeyError(source_id)
     if calibration is not None and not isinstance(calibration, PTZSourceCalibration):
@@ -138,6 +150,8 @@ class PTZResolver:
       if self.sample_ring_buffer_size < minimum_size:
         raise ValueError(f"sample_ring_buffer_size must be >= {minimum_size}")
     with self._locks[source_id]:
+      if generation is not None and generation != self._calibration_generations[source_id]:
+        return False
       state = self._states[source_id]
       previous = self.source_calibrations[source_id]
       old_version = previous.model.calibration_version if previous else None
@@ -152,18 +166,20 @@ class PTZResolver:
         unchanged = old_version == new_version and previous.model == calibration.model \
           and previous.frame_id == calibration.frame_id and same_matrix
       if unchanged:
-        return
+        return True
       self.source_calibrations[source_id] = calibration
       state.reset_motion()
       if state.last_sequence:
         state.pending_reason = "calibration_changed" if calibration else "calibration_missing"
       self._record_calibration_version(source_id, calibration)
+      return True
 
   def invalidate_calibration(self, source_id):
     """Drop the cached calibration; poses stay invalid until a reload succeeds."""
     if source_id not in self._states:
       raise KeyError(source_id)
     with self._locks[source_id]:
+      self._calibration_generations[source_id] += 1
       state = self._states[source_id]
       self.source_calibrations[source_id] = None
       state.reset_motion()

@@ -133,12 +133,16 @@ class PositioningService:
         pass
 
   def reload_calibration(self, source_id):
+    # Captured before the network read so an invalidation during the fetch makes
+    # the result stale; the resolver compares and applies it under its source lock.
+    generation = self.resolver.calibration_generation(source_id)
     try:
       calibration = self.calibration_loader.load(source_id)
-      self.resolver.update_calibration(source_id, calibration)
+      if not self.resolver.update_calibration(source_id, calibration, generation=generation):
+        log.info(f"Discarded stale Manager calibration for {source_id}; reload pending")
     except Exception as error:
       log.warning(f"Manager calibration reload failed for {source_id}; source disabled: {error}")
-      self.resolver.update_calibration(source_id, None)
+      self.resolver.update_calibration(source_id, None, generation=generation)
 
   def refresh_calibrations(self, stop_event):
     while not stop_event.is_set():

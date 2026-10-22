@@ -463,6 +463,30 @@ class TestPTZResolver(unittest.TestCase):
     with self.assertRaises(KeyError):
       make_resolver(FakeClock(), []).invalidate_calibration("other-camera")
 
+  def test_stale_calibration_generation_is_not_reinstalled_after_invalidation(self):
+    clock = FakeClock()
+    published = []
+    resolver = make_resolver(clock, published)
+    stale_generation = resolver.calibration_generation(SOURCE_ID)
+
+    resolver.invalidate_calibration(SOURCE_ID)
+    self.assertFalse(resolver.update_calibration(
+      SOURCE_ID, CALIBRATION, generation=stale_generation))
+    submit_stationary(resolver, clock, 1, 5)
+    self.assertEqual(last_context(published)["reason_detail"], "calibration_missing")
+    self.assertFalse(last_context(published)["valid"])
+
+    current_generation = resolver.calibration_generation(SOURCE_ID)
+    self.assertNotEqual(current_generation, stale_generation)
+    self.assertTrue(resolver.update_calibration(
+      SOURCE_ID, CALIBRATION, generation=current_generation))
+    submit_stationary(resolver, clock, 6, 4)
+    self.assertTrue(last_context(published)["valid"])
+
+  def test_calibration_generation_of_unknown_source_is_rejected(self):
+    with self.assertRaises(KeyError):
+      make_resolver(FakeClock(), []).calibration_generation("other-camera")
+
   def test_every_accepted_sample_publishes_exactly_one_context(self):
     clock = FakeClock()
     published = []

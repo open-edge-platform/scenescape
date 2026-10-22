@@ -13,7 +13,11 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+import numpy as np
+
+from positioning.ptz_model import load_ptz_model
 from positioning.ptz_poller import LoggingSampleSink
+from positioning.resolver import PTZResolver, PTZSourceCalibration
 from positioning_status import status_payload, status_topic
 
 try:
@@ -24,6 +28,14 @@ except ModuleNotFoundError as error:
     raise
   PositioningService = None
   configure_library_logging = create_pollers = load_config = main = None
+
+
+def _fixture_calibration():
+  fixture_path = Path(__file__).resolve().parents[3] / "tests" / "data" / "ptz" \
+    / "provisional_pose_math.json"
+  fixture = json.loads(fixture_path.read_text())
+  return PTZSourceCalibration(
+    load_ptz_model(fixture["ptz_calibration"]), np.eye(4), "scene:scene-a")
 
 
 class TestPositioningStatus(unittest.TestCase):
@@ -375,7 +387,34 @@ class TestPositioningStatus(unittest.TestCase):
 
       service.reload_calibration("cam-a")
 
-      service.resolver.update_calibration.assert_called_once_with("cam-a", None)
+      service.resolver.update_calibration.assert_called_once_with(
+        "cam-a", None, generation=service.resolver.calibration_generation.return_value)
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_manager_read_completed_after_invalidation_is_discarded(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      service, _, _, _ = self._create_service(temp_dir)
+      service.source_ids = ("cam-a",)
+      calibration = _fixture_calibration()
+      service.resolver = PTZResolver(
+        {"cam-a": calibration}, lambda *args, **kwargs: None, poll_interval_s=0.2,
+        max_pose_age_s=0.5, max_timestamp_uncertainty_s=0.01, target_reprojection_rms_px=3.0)
+      config_message = mock.Mock(topic="scenescape/cmd/camera/config/cam-a")
+
+      def stale_read(source_id):
+        service.on_camera_config(None, None, config_message)
+        return calibration
+
+      service.calibration_loader = mock.Mock()
+      service.calibration_loader.load.side_effect = stale_read
+      service.reload_calibration("cam-a")
+      self.assertIsNone(service.resolver.source_calibrations["cam-a"])
+      self.assertEqual(service._calibration_requests.get_nowait(), "cam-a")
+
+      service.calibration_loader.load.side_effect = None
+      service.calibration_loader.load.return_value = calibration
+      service.reload_calibration("cam-a")
+      self.assertIs(service.resolver.source_calibrations["cam-a"], calibration)
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_periodic_refresh_reloads_every_source_when_idle(self):

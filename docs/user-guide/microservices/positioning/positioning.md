@@ -159,6 +159,11 @@ the service also rereads all sources, which recovers from a failed reload. A cha
 calibration resets motion and backlash history, so a valid pose again requires a full
 settle window.
 
+Each invalidation advances a per-source generation. A reload captures the generation
+before reading from Manager and applies its result only if the generation is still
+current, so a read that was in flight during an invalidation cannot restore the old
+calibration; the queued reload fetches the replacement.
+
 Positioning applies a 10-second connection and read-inactivity timeout to each
 Manager authentication and camera-read request using a service-local HTTP adapter.
 A timeout follows the existing calibration failure handling and permits a later
