@@ -300,7 +300,11 @@ class Scene(models.Model):
       if (self._original_polycam_data != self.polycam_data):
         glb_from_zip = self.polycam_data
 
-      if self.changedCalibrationParams():
+      # Clear processed state when calibration inputs or the map file change so
+      # AprilTag / markerless registration re-runs (stale markers otherwise stay).
+      # FieldFile equality is name-based, so a same-name re-upload is only visible as uncommitted.
+      map_reuploaded = bool(self.map) and getattr(self.map, '_committed', True) is False
+      if self.changedCalibrationParams() or (self._original_map != self.map) or map_reuploaded:
         self.map_processed = None
 
       super().save(*args, **kwargs)
