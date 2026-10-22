@@ -81,19 +81,21 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
   // Velocity starts lower than accel/yaw-rate so early coasts are not dominated by an isotropic P_v=init blob.
   // State: [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
   cv::Mat errorCovInit = cv::Mat::zeros(mDP, mDP, CV_64F);
-  const int measuredIdx[] = {0, 1, 6, 8, 9, 10}; // x, y, z, length, width, height
+  const int measuredIdx[] = {
+    StateIndex::X, StateIndex::Y, StateIndex::Z,
+    StateIndex::LENGTH, StateIndex::WIDTH, StateIndex::HEIGHT};
   for (int idx : measuredIdx)
   {
     errorCovInit.at<double>(idx, idx) = measurementNoise;
   }
   const double velocityInit = std::min(initStateCovariance, 0.05);
-  errorCovInit.at<double>(2, 2) = velocityInit; // vx
-  errorCovInit.at<double>(3, 3) = velocityInit; // vy
-  errorCovInit.at<double>(4, 4) = std::min(initStateCovariance, 0.1);  // ax
-  errorCovInit.at<double>(5, 5) = std::min(initStateCovariance, 0.1);  // ay
-  errorCovInit.at<double>(7, 7) = velocityInit; // vz
-  errorCovInit.at<double>(11, 11) = std::min(initStateCovariance, 0.05); // yaw
-  errorCovInit.at<double>(12, 12) = std::min(initStateCovariance, 0.01); // yaw rate
+  errorCovInit.at<double>(StateIndex::VX, StateIndex::VX) = velocityInit;
+  errorCovInit.at<double>(StateIndex::VY, StateIndex::VY) = velocityInit;
+  errorCovInit.at<double>(StateIndex::AX, StateIndex::AX) = std::min(initStateCovariance, 0.1);
+  errorCovInit.at<double>(StateIndex::AY, StateIndex::AY) = std::min(initStateCovariance, 0.1);
+  errorCovInit.at<double>(StateIndex::VZ, StateIndex::VZ) = velocityInit;
+  errorCovInit.at<double>(StateIndex::YAW, StateIndex::YAW) = std::min(initStateCovariance, 0.05);
+  errorCovInit.at<double>(StateIndex::YAW_RATE, StateIndex::YAW_RATE) = std::min(initStateCovariance, 0.01);
 
   const cv::Mat initialQ = kinematicProcessNoiseCov(processNoise, track.vx, track.vy, 1e-1);
 
@@ -143,17 +145,17 @@ cv::Mat MultiModelKalmanEstimator::kinematicProcessNoiseCov(double processNoise,
 
   cv::Mat Q = cv::Mat::zeros(TrackedObject::StateSize, TrackedObject::StateSize, CV_64F);
   // No direct position/size process noise — position uncertainty grows via f(x) from velocity.
-  Q.at<double>(2, 2) = qxx;
-  Q.at<double>(2, 3) = qxy;
-  Q.at<double>(3, 2) = qxy;
-  Q.at<double>(3, 3) = qyy;
-  Q.at<double>(4, 4) = qxx;
-  Q.at<double>(4, 5) = qxy;
-  Q.at<double>(5, 4) = qxy;
-  Q.at<double>(5, 5) = qyy;
-  Q.at<double>(7, 7) = qVel * dt;                 // vz (independent of planar heading)
-  Q.at<double>(11, 11) = processNoise * 0.01 * dt; // yaw
-  Q.at<double>(12, 12) = processNoise * dt;        // yaw rate
+  Q.at<double>(StateIndex::VX, StateIndex::VX) = qxx;
+  Q.at<double>(StateIndex::VX, StateIndex::VY) = qxy;
+  Q.at<double>(StateIndex::VY, StateIndex::VX) = qxy;
+  Q.at<double>(StateIndex::VY, StateIndex::VY) = qyy;
+  Q.at<double>(StateIndex::AX, StateIndex::AX) = qxx;
+  Q.at<double>(StateIndex::AX, StateIndex::AY) = qxy;
+  Q.at<double>(StateIndex::AY, StateIndex::AX) = qxy;
+  Q.at<double>(StateIndex::AY, StateIndex::AY) = qyy;
+  Q.at<double>(StateIndex::VZ, StateIndex::VZ) = qVel * dt; // vz (independent of planar heading)
+  Q.at<double>(StateIndex::YAW, StateIndex::YAW) = processNoise * 0.01 * dt;
+  Q.at<double>(StateIndex::YAW_RATE, StateIndex::YAW_RATE) = processNoise * dt;
   return Q;
 }
 

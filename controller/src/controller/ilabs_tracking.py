@@ -109,9 +109,10 @@ def association_match_params(association_config=None):
   max_radius_m = config["max_radius_m"]
 
   if method == ASSOCIATION_METHOD_POSITION_MAHALANOBIS:
+    # Gate on (x, y, z) innovation — 3 degrees of freedom.
     return (
       rv.tracking.DistanceType.PositionMahalanobis,
-      rv.tracking.chi2_threshold(gate_probability),
+      rv.tracking.chi2_threshold(gate_probability, 3),
       max_radius_m,
     )
 
@@ -126,7 +127,8 @@ def build_association_window(association_config, measurement_covariance=None):
   """Build MQTT ``association_window`` geometry for UI visualization.
 
   Euclidean association is a circle of radius ``max_radius_m``. Position
-  Mahalanobis is the χ² ellipse of the 2×2 XY block of ``S_pred``.
+  Mahalanobis association gates in 3D (χ² df=3); the published window is the
+  XY projection ellipse of the 2×2 XY block of ``S_pred`` (χ² df=2).
   """
   config = normalize_association_config(association_config)
   method = config["method"]
@@ -139,7 +141,8 @@ def build_association_window(association_config, measurement_covariance=None):
       "radius_m": max_radius_m,
     }
 
-  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"]))
+  # XY ellipse visualization uses 2-DOF chi²; matching uses df=3 for (x,y,z).
+  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"], 2))
   if measurement_covariance is None:
     return {
       "method": method,

@@ -89,7 +89,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("ay", &rv::tracking::TrackedObject::ay, "Acceleration component 'y' (left) in m/s^2.")
     .def_readwrite("corrected", &rv::tracking::TrackedObject::corrected, "Returns True if the TrackedObject was the result of a correction step.")
     .def_readwrite("id", &rv::tracking::TrackedObject::id, "Object's identification number.")
-    .def("isDynamic", &rv::tracking::TrackedObject::isDynamic, "Returns True if the TrackedObject is considered to be moving.")
+    .def("isDynamic", &rv::tracking::TrackedObject::isDynamic,
+         "True when 3D speed squared exceeds 1 m^2/s^2 (includes vertical motion; affects coast aging).")
     .def_readwrite("classification", &rv::tracking::TrackedObject::classification, "Returns a numpy array with classification probabilities.")
     .def_readwrite("attributes", &rv::tracking::TrackedObject::attributes, "Dictionary of attributes. Note: only string types are supported.")
     .def_property("vector",
@@ -397,7 +398,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
           py::arg("max_radius_m") = std::numeric_limits<double>::infinity());
 
      tracking.def("chi2_threshold", &rv::chi2Threshold,
-                  "Chi-squared gate threshold for 2D position innovation gating.",
+                  "Chi-squared gate threshold for position innovation gating (df=2 XY, df=3 XYZ).",
                   py::arg("gate_probability"), py::arg("degrees_of_freedom") = 2);
 
      tracking.def("angle_difference",

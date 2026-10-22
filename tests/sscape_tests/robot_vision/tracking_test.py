@@ -320,6 +320,8 @@ class TestMatchFunction(unittest.TestCase):
 
   def test_chi2_threshold(self):
     self.assertAlmostEqual(tracking.chi2_threshold(0.99), 9.21034, places=3)
+    self.assertAlmostEqual(tracking.chi2_threshold(0.99, 3), 11.3449, places=3)
+    self.assertAlmostEqual(tracking.chi2_threshold(0.95, 3), 7.81473, places=3)
 
   def test_position_mahalanobis_prefers_motion_axis(self):
     tracker_config = tracking.TrackManagerConfig()
@@ -356,7 +358,7 @@ class TestMatchFunction(unittest.TestCase):
     mean = np.array(track.measurement_mean, dtype=float).ravel()
     pred_x = float(mean[0])
     pred_y = float(mean[1])
-    chi2_gate = tracking.chi2_threshold(0.99)
+    chi2_gate = tracking.chi2_threshold(0.99, 3)
 
     ahead = create_object_at_location(x=pred_x + 2.0, y=pred_y)
     lateral = create_object_at_location(x=pred_x, y=pred_y + 2.0)
@@ -393,7 +395,7 @@ class TestMatchFunction(unittest.TestCase):
     tracker_config.default_measurement_noise = 0.2
     tracker_config.init_state_covariance = 1.0
 
-    chi2_gate = tracking.chi2_threshold(0.99)
+    chi2_gate = tracking.chi2_threshold(0.99, 3)
     tracker = tracking.MultipleObjectTracker(
       tracker_config, tracking.DistanceType.PositionMahalanobis, chi2_gate)
     tracker.update_tracker_params(10)
@@ -779,7 +781,7 @@ class TestNonPlanarTracking(unittest.TestCase):
     self.assertAlmostEqual(state.yaw, 0.3, places=3)
 
   def test_constant_z_does_not_drift_up(self):
-    """Negative: planar measurements with fixed z stay near that height."""
+    """Negative: planar measurements with fixed z stay near that height with |vz|≈0."""
     classification_data = tracking.ClassificationData(['Person'])
     tracker = tracking.MultipleObjectTracker(
       self._tracker_config(), tracking.DistanceType.Euclidean, 2.0)
@@ -798,3 +800,64 @@ class TestNonPlanarTracking(unittest.TestCase):
     tracks = tracker.get_reliable_tracks()
     self.assertEqual(len(tracks), 1)
     self.assertAlmostEqual(tracks[0].z, fixed_z, delta=0.05)
+    self.assertAlmostEqual(tracks[0].vz, 0.0, delta=0.05)
+
+  def test_euclidean_association_separates_stacked_floors(self):
+    """Same XY at different Z must not match within a 2 m Euclidean gate."""
+    track = create_object_at_location(x=1.0, y=2.0, z=0.0)
+    same_floor = create_object_at_location(x=1.0, y=2.0, z=0.1)
+    upper_floor = create_object_at_location(x=1.0, y=2.0, z=3.0)
+
+    assignments, _, _ = tracking.match(
+      [track], [same_floor, upper_floor],
+      tracking.DistanceType.Euclidean, 2.0, 2.0)
+    self.assertEqual(len(assignments), 1)
+    self.assertEqual(assignments[0], (0, 0))
+
+    assignments, _, _ = tracking.match(
+      [track], [upper_floor],
+      tracking.DistanceType.Euclidean, 2.0, 2.0)
+    self.assertEqual(len(assignments), 0)
+
+  def test_mot_coasts_climbing_z_without_measurements(self):
+    """After a climb, empty frames continue z via estimated vz."""
+    classification_data = tracking.ClassificationData(['Person'])
+    tracker = tracking.MultipleObjectTracker(
+      self._tracker_config(), tracking.DistanceType.Euclidean, 2.0)
+    initial_timestamp = datetime.now()
+    tracker.track([], initial_timestamp)
+
+    step = 0.1
+    vz = 0.4
+    last_t = step
+    for t in np.arange(step, 3.0, step):
+      last_t = float(t)
+      timestamp = initial_timestamp + timedelta(seconds=last_t)
+      obj = create_object_at_location(
+        x=0.4 * last_t, y=0.0, z=vz * last_t,
+        classification=classification_data.classification('Person', 1.0))
+      tracker.track([obj], timestamp)
+
+    tracks = tracker.get_reliable_tracks()
+    self.assertEqual(len(tracks), 1)
+    z_at_coast = tracks[0].z
+    vz_at_coast = tracks[0].vz
+    self.assertAlmostEqual(vz_at_coast, vz, delta=0.15)
+
+    coast_s = 1.5
+    coast_time = initial_timestamp + timedelta(seconds=last_t + coast_s)
+    tracker.track([], coast_time)
+    tracks = tracker.get_reliable_tracks()
+    self.assertEqual(len(tracks), 1)
+    self.assertAlmostEqual(tracks[0].z, z_at_coast + vz_at_coast * coast_s, delta=0.25)
+    self.assertAlmostEqual(tracks[0].vz, vz_at_coast, delta=0.15)
+
+  def test_is_dynamic_includes_vertical_velocity(self):
+    obj = create_object_at_location()
+    obj.vx = obj.vy = obj.vz = 0.0
+    self.assertFalse(obj.isDynamic())
+    obj.vz = 1.1
+    self.assertTrue(obj.isDynamic())
+    obj.vx = 0.5
+    obj.vz = 0.5
+    self.assertFalse(obj.isDynamic())

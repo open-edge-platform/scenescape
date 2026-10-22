@@ -61,9 +61,25 @@ double inline deltaTheta(double theta1, double theta2)
 }
 
 /**
- * @brief Chi-squared gate threshold for innovation gating (2 DOF position).
+ * @brief CDF of χ² with 3 degrees of freedom.
+ *
+ * F(x) = erf(√(x/2)) - √(2x/π)·exp(-x/2).
+ */
+inline double chi2Cdf3(double x)
+{
+  if (x <= 0.0)
+  {
+    return 0.0;
+  }
+  const double s = std::sqrt(x / 2.0);
+  return std::erf(s) - std::sqrt(2.0 * x / M_PI) * std::exp(-x / 2.0);
+}
+
+/**
+ * @brief Chi-squared gate threshold for innovation gating.
  *
  * For k=2: Q(p) = -2 * ln(1 - p).  E.g. p=0.99 -> ~9.21.
+ * For k=3: numerical inverse of the χ²(3) CDF.  E.g. p=0.99 -> ~11.34.
  */
 inline double chi2Threshold(double gate_probability, int degrees_of_freedom = 2)
 {
@@ -72,7 +88,29 @@ inline double chi2Threshold(double gate_probability, int degrees_of_freedom = 2)
   {
     return -2.0 * std::log(1.0 - gate_probability);
   }
-  throw std::invalid_argument("chi2Threshold: only 2 degrees of freedom supported");
+  if (degrees_of_freedom == 3)
+  {
+    double lo = 0.0;
+    double hi = 1.0;
+    while (chi2Cdf3(hi) < gate_probability)
+    {
+      hi *= 2.0;
+    }
+    for (int i = 0; i < 64; ++i)
+    {
+      const double mid = 0.5 * (lo + hi);
+      if (chi2Cdf3(mid) < gate_probability)
+      {
+        lo = mid;
+      }
+      else
+      {
+        hi = mid;
+      }
+    }
+    return 0.5 * (lo + hi);
+  }
+  throw std::invalid_argument("chi2Threshold: only 2 or 3 degrees of freedom supported");
 }
 
 } // namespace rv

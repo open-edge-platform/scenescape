@@ -16,6 +16,38 @@ namespace tracking {
 using Id = int32_t;
 constexpr Id InvalidObjectId = -1;
 
+/// Indices into TrackedObject::stateVector() / UKF state.
+/// Layout: [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
+struct StateIndex
+{
+  static constexpr int X = 0;
+  static constexpr int Y = 1;
+  static constexpr int VX = 2;
+  static constexpr int VY = 3;
+  static constexpr int AX = 4;
+  static constexpr int AY = 5;
+  static constexpr int Z = 6;
+  static constexpr int VZ = 7;
+  static constexpr int LENGTH = 8;
+  static constexpr int WIDTH = 9;
+  static constexpr int HEIGHT = 10;
+  static constexpr int YAW = 11;
+  static constexpr int YAW_RATE = 12;
+};
+
+/// Indices into TrackedObject::measurementVector() / UKF measurement.
+/// Layout: [x, y, z, length, width, height, yaw]
+struct MeasurementIndex
+{
+  static constexpr int X = 0;
+  static constexpr int Y = 1;
+  static constexpr int Z = 2;
+  static constexpr int LENGTH = 3;
+  static constexpr int WIDTH = 4;
+  static constexpr int HEIGHT = 5;
+  static constexpr int YAW = 6;
+};
+
 class TrackedObject
 {
 public:
@@ -66,6 +98,8 @@ public:
 
   std::unordered_map<std::string, std::string> attributes;
 
+  /// True when 3D speed squared exceeds 1 m²/s² (includes vertical motion).
+  /// Affects track deletion / suspend aging (dynamic vs static coast timeouts).
   bool isDynamic() const;
 
   Eigen::VectorXf getVectorXf() const;

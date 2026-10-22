@@ -78,7 +78,7 @@ def test_association_match_params_mahalanobis_uses_chi2_gate():
     'max_radius_m': 10.0,
   })
   assert distance_type == rv.tracking.DistanceType.PositionMahalanobis
-  assert distance_threshold == pytest.approx(rv.tracking.chi2_threshold(0.99))
+  assert distance_threshold == pytest.approx(rv.tracking.chi2_threshold(0.99, 3))
   assert max_radius_m == pytest.approx(10.0)
 
 
@@ -215,14 +215,14 @@ def test_yaw_to_quaternion_produces_z_axis_only_quaternion(yaw):
   assert quaternion == pytest.approx([0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)])
 
 
-def _make_tracked_object(uuid_value, yaw=0.0, attributes=None, vx=0.1, vy=0.2):
+def _make_tracked_object(uuid_value, yaw=0.0, attributes=None, vx=0.1, vy=0.2, vz=0.0):
   attrs = {'info': uuid_value}
   if attributes:
     attrs.update(attributes)
   return SimpleNamespace(
     attributes=attrs,
     x=1.0, y=2.0, z=0.0,
-    vx=vx, vy=vy,
+    vx=vx, vy=vy, vz=vz,
     yaw=yaw,
     id=42,
     measurement_covariance=np.eye(7) * 0.25,

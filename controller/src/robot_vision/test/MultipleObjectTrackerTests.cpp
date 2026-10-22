@@ -754,3 +754,80 @@ TEST(MultipleObjectTrackerTest, FollowsClimbingZAndYaw)
   EXPECT_NEAR(tracks[0].vz, vz, 0.15);
   EXPECT_NEAR(tracks[0].yaw, yaw, 0.2);
 }
+
+TEST(MultipleObjectTrackerTest, ConstantZKeepsVzNearZero)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-5;
+  trackerConfig.mDefaultMeasurementNoise = 1e-3;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mNonMeasurementTimeDynamic = 2.0;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig);
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  constexpr double stepS = 0.1;
+  for (double t = stepS; t < 5.0; t += stepS)
+  {
+    timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+    rv::tracking::TrackedObject measurement;
+    measurement.x = t;
+    measurement.y = 0.1 * t;
+    measurement.z = 0.0;
+    measurement.length = measurement.width = measurement.height = 0.5;
+    objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
+                        rv::tracking::DistanceType::Euclidean, 2.0);
+  }
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  EXPECT_NEAR(tracks[0].z, 0.0, 0.05);
+  EXPECT_NEAR(tracks[0].vz, 0.0, 0.05);
+}
+
+TEST(MultipleObjectTrackerTest, CoastsClimbingZWithoutMeasurements)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-5;
+  trackerConfig.mDefaultMeasurementNoise = 1e-3;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mNonMeasurementTimeDynamic = 5.0;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig);
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  constexpr double stepS = 0.1;
+  constexpr double vz = 0.4;
+  for (double t = stepS; t < 3.0; t += stepS)
+  {
+    timestamp += std::chrono::milliseconds(static_cast<int>(stepS * 1000));
+    rv::tracking::TrackedObject measurement;
+    measurement.x = 0.4 * t;
+    measurement.y = 0.0;
+    measurement.z = vz * t;
+    measurement.length = measurement.width = measurement.height = 0.5;
+    objectTracker.track(std::vector<rv::tracking::TrackedObject>{measurement}, timestamp,
+                        rv::tracking::DistanceType::Euclidean, 2.0);
+  }
+
+  auto tracksBeforeCoast = objectTracker.getTracks();
+  ASSERT_EQ(tracksBeforeCoast.size(), 1U);
+  const double zAtCoastStart = tracksBeforeCoast[0].z;
+  const double vzAtCoastStart = tracksBeforeCoast[0].vz;
+  EXPECT_NEAR(vzAtCoastStart, vz, 0.15);
+
+  constexpr double coastS = 1.5;
+  timestamp += std::chrono::milliseconds(static_cast<int>(coastS * 1000));
+  objectTracker.track(std::vector<rv::tracking::TrackedObject>{}, timestamp);
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U);
+  EXPECT_NEAR(tracks[0].z, zAtCoastStart + vzAtCoastStart * coastS, 0.25);
+  EXPECT_NEAR(tracks[0].vz, vzAtCoastStart, 0.15);
+}

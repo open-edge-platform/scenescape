@@ -32,44 +32,45 @@ std::string TrackedObject::toString() const
 
 bool TrackedObject::isDynamic() const
 {
+  // 3D speed: vertical motion counts toward dynamic coast / deletion aging.
   return (vx * vx + vy * vy + vz * vz) > 1.0;
 }
 
 Eigen::VectorXf TrackedObject::getVectorXf() const
 {
   Eigen::VectorXf vector(StateSize);
-  vector(0) = x;
-  vector(1) = y;
-  vector(2) = vx;
-  vector(3) = vy;
-  vector(4) = ax;
-  vector(5) = ay;
-  vector(6) = z;
-  vector(7) = vz;
-  vector(8) = length;
-  vector(9) = width;
-  vector(10) = height;
-  vector(11) = yaw;
-  vector(12) = w;
+  vector(StateIndex::X) = x;
+  vector(StateIndex::Y) = y;
+  vector(StateIndex::VX) = vx;
+  vector(StateIndex::VY) = vy;
+  vector(StateIndex::AX) = ax;
+  vector(StateIndex::AY) = ay;
+  vector(StateIndex::Z) = z;
+  vector(StateIndex::VZ) = vz;
+  vector(StateIndex::LENGTH) = length;
+  vector(StateIndex::WIDTH) = width;
+  vector(StateIndex::HEIGHT) = height;
+  vector(StateIndex::YAW) = yaw;
+  vector(StateIndex::YAW_RATE) = w;
 
   return vector;
 }
 
 void TrackedObject::setVectorXf(const Eigen::VectorXf &vector)
 {
-  x = vector(0);
-  y = vector(1);
-  vx = vector(2);
-  vy = vector(3);
-  ax = vector(4);
-  ay = vector(5);
-  z = vector(6);
-  vz = vector(7);
-  length = vector(8);
-  width = vector(9);
-  height = vector(10);
-  yaw = vector(11);
-  w = vector(12);
+  x = vector(StateIndex::X);
+  y = vector(StateIndex::Y);
+  vx = vector(StateIndex::VX);
+  vy = vector(StateIndex::VY);
+  ax = vector(StateIndex::AX);
+  ay = vector(StateIndex::AY);
+  z = vector(StateIndex::Z);
+  vz = vector(StateIndex::VZ);
+  length = vector(StateIndex::LENGTH);
+  width = vector(StateIndex::WIDTH);
+  height = vector(StateIndex::HEIGHT);
+  yaw = vector(StateIndex::YAW);
+  w = vector(StateIndex::YAW_RATE);
 }
 
 /**
@@ -78,19 +79,19 @@ void TrackedObject::setVectorXf(const Eigen::VectorXf &vector)
 cv::Mat TrackedObject::stateVector() const
 {
   cv::Mat vector(StateSize, 1, CV_64F);
-  vector.at<double>(0, 0) = x;
-  vector.at<double>(1, 0) = y;
-  vector.at<double>(2, 0) = vx;
-  vector.at<double>(3, 0) = vy;
-  vector.at<double>(4, 0) = ax;
-  vector.at<double>(5, 0) = ay;
-  vector.at<double>(6, 0) = z;
-  vector.at<double>(7, 0) = vz;
-  vector.at<double>(8, 0) = length;
-  vector.at<double>(9, 0) = width;
-  vector.at<double>(10, 0) = height;
-  vector.at<double>(11, 0) = yaw;
-  vector.at<double>(12, 0) = w;
+  vector.at<double>(StateIndex::X, 0) = x;
+  vector.at<double>(StateIndex::Y, 0) = y;
+  vector.at<double>(StateIndex::VX, 0) = vx;
+  vector.at<double>(StateIndex::VY, 0) = vy;
+  vector.at<double>(StateIndex::AX, 0) = ax;
+  vector.at<double>(StateIndex::AY, 0) = ay;
+  vector.at<double>(StateIndex::Z, 0) = z;
+  vector.at<double>(StateIndex::VZ, 0) = vz;
+  vector.at<double>(StateIndex::LENGTH, 0) = length;
+  vector.at<double>(StateIndex::WIDTH, 0) = width;
+  vector.at<double>(StateIndex::HEIGHT, 0) = height;
+  vector.at<double>(StateIndex::YAW, 0) = yaw;
+  vector.at<double>(StateIndex::YAW_RATE, 0) = w;
 
   return vector;
 }
@@ -100,19 +101,19 @@ cv::Mat TrackedObject::stateVector() const
  */
 void TrackedObject::setStateVector(const cv::Mat &vector)
 {
-  x = vector.at<double>(0, 0);
-  y = vector.at<double>(1, 0);
-  vx = vector.at<double>(2, 0);
-  vy = vector.at<double>(3, 0);
-  ax = vector.at<double>(4, 0);
-  ay = vector.at<double>(5, 0);
-  z = vector.at<double>(6, 0);
-  vz = vector.at<double>(7, 0);
-  length = vector.at<double>(8, 0);
-  width = vector.at<double>(9, 0);
-  height = vector.at<double>(10, 0);
-  yaw = vector.at<double>(11, 0);
-  w = vector.at<double>(12, 0);
+  x = vector.at<double>(StateIndex::X, 0);
+  y = vector.at<double>(StateIndex::Y, 0);
+  vx = vector.at<double>(StateIndex::VX, 0);
+  vy = vector.at<double>(StateIndex::VY, 0);
+  ax = vector.at<double>(StateIndex::AX, 0);
+  ay = vector.at<double>(StateIndex::AY, 0);
+  z = vector.at<double>(StateIndex::Z, 0);
+  vz = vector.at<double>(StateIndex::VZ, 0);
+  length = vector.at<double>(StateIndex::LENGTH, 0);
+  width = vector.at<double>(StateIndex::WIDTH, 0);
+  height = vector.at<double>(StateIndex::HEIGHT, 0);
+  yaw = vector.at<double>(StateIndex::YAW, 0);
+  w = vector.at<double>(StateIndex::YAW_RATE, 0);
 }
 
 /**
@@ -121,13 +122,13 @@ void TrackedObject::setStateVector(const cv::Mat &vector)
 cv::Mat TrackedObject::measurementVector() const
 {
   cv::Mat vector(MeasurementSize, 1, CV_64F);
-  vector.at<double>(0, 0) = x;
-  vector.at<double>(1, 0) = y;
-  vector.at<double>(2, 0) = z;
-  vector.at<double>(3, 0) = length;
-  vector.at<double>(4, 0) = width;
-  vector.at<double>(5, 0) = height;
-  vector.at<double>(6, 0) = yaw;
+  vector.at<double>(MeasurementIndex::X, 0) = x;
+  vector.at<double>(MeasurementIndex::Y, 0) = y;
+  vector.at<double>(MeasurementIndex::Z, 0) = z;
+  vector.at<double>(MeasurementIndex::LENGTH, 0) = length;
+  vector.at<double>(MeasurementIndex::WIDTH, 0) = width;
+  vector.at<double>(MeasurementIndex::HEIGHT, 0) = height;
+  vector.at<double>(MeasurementIndex::YAW, 0) = yaw;
 
   return vector;
 }
