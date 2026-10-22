@@ -9,7 +9,7 @@ import cv2
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.core.files import File
 from django.db import transaction
 
@@ -711,7 +711,7 @@ class SceneSerializer(NonNullSerializer):
       return value
     try:
       parent_pk = Scene._meta.pk.to_python(value)
-    except ValidationError:
+    except DjangoValidationError:
       raise serializers.ValidationError("Must be a valid scene UUID.")
     if not Scene.objects.filter(pk=parent_pk).exists():
       raise serializers.ValidationError("Scene with given UUID does not exist.")
