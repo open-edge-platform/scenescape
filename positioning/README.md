@@ -16,6 +16,10 @@ Unexpected polling errors disconnect the camera and wait before reconnecting.
 The stop-aware delay doubles from 1 second to a maximum of 30 seconds by default,
 and resets after a successful poll.
 
+PTZ connection logs include the source ID and selected profile, but omit ONVIF
+position-space URIs. These URIs are protocol identifiers, not browsable links;
+they remain available in raw `PTZSample` messages.
+
 ## Documentation
 
 - [Overview and Operations](../docs/user-guide/microservices/positioning/operations.md): Service shell, camera onboarding, deployment, and rollback details.

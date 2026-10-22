@@ -190,6 +190,19 @@ class TestSecrets(CameraTestCase):
 
 
 class TestSampleContract(unittest.TestCase):
+  def test_connection_log_omits_position_space_uris(self):
+    device = ScriptedDevice(FakeClock())
+    poller = PTZPoller("cam-a", lambda: device, ListSink())
+    self.addCleanup(poller.disconnect)
+    with self.assertLogs("positioning.ptz_poller", level="DEBUG") as logs:
+      poller.connect()
+    self.assertEqual(
+      [record.getMessage() for record in logs.records],
+      ["PTZ source cam-a connected: profile=profile_ptz"])
+    self.assertTrue(device.connected)
+    self.assertIs(poller.device, device)
+    self.assertEqual(device.position_space(GENERIC_SPACE).uri, GENERIC_SPACE)
+
   def test_poll_interval_must_convert_to_at_least_one_nanosecond(self):
     with self.assertRaisesRegex(ValueError, "at least 1 ns"):
       PTZPoller("cam-a", None, ListSink(), poll_interval_s=0.5e-9)
