@@ -9,11 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
-<<<<<<< HEAD
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker ptz_pose_service
-=======
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid_service
->>>>>>> origin/main
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid_service ptz_pose_service
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -223,11 +219,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-<<<<<<< HEAD
-autocalibration controller manager analytics mapping cluster_analytics ptz_pose_service: build-common
-=======
-autocalibration controller manager analytics mapping cluster_analytics reid_service: build-common
->>>>>>> origin/main
+autocalibration controller manager analytics mapping cluster_analytics ptz_pose_service reid_service: build-common
 
 # Helper function to build images in parallel
 define parallel-build
