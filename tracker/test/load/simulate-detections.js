@@ -42,14 +42,6 @@ const host = getRequiredEnv("MQTT_HOST");
 const port = getRequiredEnv("MQTT_PORT");
 const cameraCount = getRequiredEnv("CAMERA_COUNT");
 const testDuration = getRequiredEnv("DEFAULT_TEST_DURATION");
-const embeddingDimensions = Number(__ENV.REID_EMBEDDING_DIMENSIONS || "0");
-if (
-  !Number.isInteger(embeddingDimensions) ||
-  embeddingDimensions < 0 ||
-  embeddingDimensions > 4096
-) {
-  fail("REID_EMBEDDING_DIMENSIONS must be an integer between 0 and 4096");
-}
 // camera id
 const cameraIdPrefix = getRequiredEnv("CAMERA_ID_PREFIX");
 const cameraId = `${cameraIdPrefix}${__VU}`;
@@ -210,7 +202,7 @@ function createBaseMessage(objectCount) {
     const movementState = initializePersonMovement(i, startTime + i * 500); // Stagger start times
     personMovementState.push(movementState);
 
-    const person = {
+    objectArray.push({
       category: "person",
       confidence: movementState.confidence,
       bounding_box_px: {
@@ -220,25 +212,7 @@ function createBaseMessage(objectCount) {
         height: 360,
       },
       id: i + 1,
-    };
-    if (embeddingDimensions > 0) {
-      const embeddingRandom = new SeededRandom(i + 1);
-      const vector = Array.from(
-        { length: embeddingDimensions },
-        () => embeddingRandom.next() * 2 - 1,
-      );
-      const norm = Math.sqrt(
-        vector.reduce((sum, value) => sum + value * value, 0),
-      );
-      person.metadata = {
-        reid: {
-          embedding_vector: [vector.map((value) => value / norm)],
-          embedding_dimensions: embeddingDimensions,
-          model_name: "load-test",
-        },
-      };
-    }
-    objectArray.push(person);
+    });
   }
 
   return {

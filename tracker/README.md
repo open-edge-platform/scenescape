@@ -14,25 +14,14 @@ When a camera detection contains `metadata.reid`, each scene-track object may
 include `reid_sighting` with that detection's `camera_id`, frame `timestamp`,
 `bounding_box_px`, and `reid` payload. The field is omitted when the current
 chunk supplies no ReID detection for the track; predicted tracks never replay
-an old embedding. The embedding is published only in `reid_sighting.reid`;
-`metadata.reid` is omitted, while other metadata fields keep their normal fusion
-semantics. Legacy Scene Controller messages without `reid_sighting` may still
-carry `metadata.reid`, but the two representations must not coexist. ReID ingest uses the
+an old embedding. The published `metadata.reid` contains the current detection's
+embedding and the same `camera_id`, `timestamp` and `bounding_box_px` fields;
+other metadata fields keep their normal fusion semantics. ReID ingest uses the
 sighting's pixel bbox for its quality
 gate rather than bypassing it via `REID_INGEST_ACCEPT_UNVETTED`. If multiple
 cameras observe the same track, the sighting corresponds to the winning ReID
 metadata observation. See the
 [scene data schema](schema/scene-data.schema.json) for the field contract.
-
-Internally the sighting is stored once as the `metadata.reid` fusion value.
-`metadata_provenance.reid` carries the separate chunk freshness token, so the
-worker forwards a fresh sighting without parsing or rewriting it. Generic
-`metadata_transient.<field>` markers make RobotVision discard measurement-only
-metadata on prediction while preserving persistent fields such as age/gender.
-The prefixes are shared through `rv/tracking/MetadataAttributes.hpp`; RobotVision
-does not special-case ReID. Legacy bare-list/base64 detector embeddings are
-wrapped as `reid.embedding_vector`. No sighting is created without camera ID,
-frame timestamp, and chunk context.
 
 ## Development
 

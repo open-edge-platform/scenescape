@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include "rv/Utils.hpp"
 #include "rv/tracking/Classification.hpp"
-#include "rv/tracking/MetadataAttributes.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
 
 namespace rv {
@@ -17,10 +16,8 @@ namespace tracking {
 
 namespace {
 
-constexpr const char *METADATA_PREFIX = metadata_fusion::ValuePrefix;
-constexpr const char *METADATA_CONFIDENCE_PREFIX = metadata_fusion::ConfidencePrefix;
-constexpr const char *METADATA_PROVENANCE_PREFIX = metadata_fusion::ProvenancePrefix;
-constexpr const char *METADATA_TRANSIENT_PREFIX = metadata_fusion::TransientPrefix;
+constexpr const char *METADATA_PREFIX = "metadata.";
+constexpr const char *METADATA_CONFIDENCE_PREFIX = "metadata_confidence.";
 
 bool startsWith(const std::string &value, const char *prefix)
 {
@@ -46,30 +43,11 @@ std::optional<double> metadataConfidence(const TrackedObject &object, const std:
   return value;
 }
 
-void copyMetadataCompanions(const TrackedObject &source, const std::string &field, TrackedObject &destination)
-{
-  for (const auto prefix : {METADATA_PROVENANCE_PREFIX, METADATA_TRANSIENT_PREFIX})
-  {
-    const std::string key = prefix + field;
-    const auto value = source.attributes.find(key);
-    if (value != source.attributes.end())
-    {
-      destination.attributes[key] = value->second;
-    }
-    else
-    {
-      destination.attributes.erase(key);
-    }
-  }
-}
-
 void clearMetadataAttributes(TrackedObject &object)
 {
   for (auto attribute = object.attributes.begin(); attribute != object.attributes.end();)
   {
-    if (startsWith(attribute->first, METADATA_PREFIX) || startsWith(attribute->first, METADATA_CONFIDENCE_PREFIX)
-        || startsWith(attribute->first, METADATA_PROVENANCE_PREFIX)
-        || startsWith(attribute->first, METADATA_TRANSIENT_PREFIX))
+    if (startsWith(attribute->first, METADATA_PREFIX) || startsWith(attribute->first, METADATA_CONFIDENCE_PREFIX))
     {
       attribute = object.attributes.erase(attribute);
     }
@@ -136,6 +114,7 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
 
   std::unordered_map<std::string, Winner> winners;
   clearMetadataAttributes(measurement);
+  measurement.attributes.erase("reid_sighting");
 
   for (const auto &[cameraIndex, objectIndex] : matches)
   {
@@ -159,7 +138,18 @@ void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
       }
 
       measurement.attributes[key] = value;
-      copyMetadataCompanions(object, field, measurement);
+      if (field == "reid")
+      {
+        const auto sighting = object.attributes.find("reid_sighting");
+        if (sighting != object.attributes.end())
+        {
+          measurement.attributes["reid_sighting"] = sighting->second;
+        }
+        else
+        {
+          measurement.attributes.erase("reid_sighting");
+        }
+      }
       const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
       if (confidence)
       {
@@ -184,12 +174,6 @@ void mergeHistoricalMetadata(const TrackedObject &track, TrackedObject &measurem
     }
 
     const std::string field = key.substr(std::char_traits<char>::length(METADATA_PREFIX));
-    const std::string transientKey = METADATA_TRANSIENT_PREFIX + field;
-    if (track.attributes.find(transientKey) != track.attributes.end()
-        || measurement.attributes.find(transientKey) != measurement.attributes.end())
-    {
-      continue;
-    }
     const auto storedConfidence = metadataConfidence(track, field);
     const auto currentValue = measurement.attributes.find(key);
     const auto currentConfidence = metadataConfidence(measurement, field);
@@ -202,7 +186,6 @@ void mergeHistoricalMetadata(const TrackedObject &track, TrackedObject &measurem
     }
 
     measurement.attributes[key] = value;
-    copyMetadataCompanions(track, field, measurement);
     const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
     if (storedConfidence)
     {
@@ -238,7 +221,8 @@ void applyOrientingYaw(const std::vector<std::pair<size_t, size_t>> &matches,
       continue;
     }
     const double confidence = object.classification.size() > 0 ? object.classification.maxCoeff() : 0.0;
-    if (!found || confidence > bestConfidence || (confidence == bestConfidence && cameraIndex > bestCameraIndex))
+    if (!found || confidence > bestConfidence
+        || (confidence == bestConfidence && cameraIndex > bestCameraIndex))
     {
       found = true;
       bestConfidence = confidence;

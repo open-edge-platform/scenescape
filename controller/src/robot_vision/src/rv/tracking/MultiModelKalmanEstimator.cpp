@@ -7,7 +7,6 @@
 #include "rv/tracking/CVModel.hpp"
 #include "rv/tracking/CPModel.hpp"
 #include "rv/tracking/Classification.hpp"
-#include "rv/tracking/MetadataAttributes.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
 
 namespace rv {
@@ -87,7 +86,6 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
     modelParams.k = mKappa;
     mKalmanFilters.push_back(createUnscentedKalmanFilterMod(modelParams));
     mSystemModelStates.push_back(track);
-    metadata_fusion::clearTransientMetadata(mSystemModelStates.back().attributes);
   }
 
   mCurrentState = std::move(track);
@@ -145,7 +143,6 @@ void MultiModelKalmanEstimator::predict(const double deltaT)
 
 void MultiModelKalmanEstimator::predictState(const double deltaT)
 {
-  metadata_fusion::clearTransientMetadata(mCurrentState.attributes);
   if (mNumberOfModels == 1)
   {
     return singleModelPredict(deltaT);

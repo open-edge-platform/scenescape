@@ -96,9 +96,6 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
         if (!track.metadata_json.empty()) {
             Document meta_doc;
             if (!meta_doc.Parse(track.metadata_json.c_str()).HasParseError()) {
-                if (meta_doc.IsObject()) {
-                    meta_doc.RemoveMember("reid");
-                }
                 Value meta_copy(meta_doc, allocator);
                 obj.AddMember("metadata", meta_copy, allocator);
             }
