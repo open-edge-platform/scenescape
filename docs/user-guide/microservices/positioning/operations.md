@@ -157,6 +157,10 @@ positioning/.local/
    {
      "resolver_id": "positioning-lab",
      "poll_interval_s": 0.2,
+     "max_pose_age_s": 0.5,
+     "max_timestamp_uncertainty_s": 0.01,
+     "max_clock_offset_s": 0.05,
+     "target_reprojection_rms_px": 3.0,
      "sources": {
        "lab-ptz-1": {
          "type": "onvif_ptz",
@@ -181,6 +185,11 @@ positioning/.local/
      }
    }
    ```
+
+   The four Resolver limits are required whenever `sources` is not empty; the
+   service exits at startup if any is missing. `max_pose_age_s` must be at least
+   `poll_interval_s + max_timestamp_uncertainty_s`. See
+   [Configure](positioning.md#configure) for their meaning.
 
    These examples explicitly use HTTP for isolated lab cameras. Production
    configurations should use HTTPS; HTTP is only appropriate on an isolated network
@@ -209,9 +218,10 @@ positioning/.local/
 
 5. Create `positioning/.local/compose.override.yml` to mount the configuration,
    manifest, and credentials into the Positioning service. Compose replaces the
-   whole `command` list, so repeat the broker options. Set `user` to your host
-   user and group IDs (`id -u` and `id -g`) so the service can read the `0600`
-   credential files:
+   whole `command` list, so repeat the broker and NTP options; without `--ntp`,
+   clock synchronization cannot be verified and every pose is invalid. Set `user`
+   to your host user and group IDs (`id -u` and `id -g`) so the service can read
+   the `0600` credential files:
 
    ```yaml
    services:
@@ -228,6 +238,8 @@ positioning/.local/
          - /run/secrets/certs/scenescape-positioning.key
          - --rootcert
          - /run/secrets/certs/scenescape-ca.pem
+         - --ntp
+         - ntpserv
          - --config
          - /run/positioning/positioning.json
          - --assignments
