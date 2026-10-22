@@ -324,6 +324,30 @@ def test_processSceneData_drops_top_level_reid(scene_obj, monkeypatch):
   assert scene_obj.processSceneData(payload, child, camera_pose, 'person', when=1.0) is True
   assert 'reid' not in seen[0]
 
+def test_processSceneData_applies_child_translation(scene_obj, monkeypatch):
+  """Child-frame track XYZ must be transformed into parent by the child link pose."""
+  from scene_common.transform import CameraPose
+
+  seen = []
+
+  def _create_object(detection_type, info, when, child_obj, persist):
+    seen.append(list(info['translation']))
+    return SimpleNamespace(oid='oid-1', sceneLoc=Point(*info['translation']),
+                           chain_data=_make_chain_data())
+
+  scene_obj.tracker = SimpleNamespace(createObject=_create_object)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', Mock())
+  child = SimpleNamespace(name='child', retrack=False)
+  # Distinct per-axis values so X/Y/Z are each exercised in the result.
+  camera_pose = CameraPose(
+    {'translation': [4.0, 5.0, 6.0], 'rotation': [0.0, 0.0, 0.0], 'scale': [1.0, 1.0, 1.0]},
+    None)
+  payload = {'objects': [{'id': 't1', 'translation': [1.0, 2.0, 3.0]}]}
+
+  assert scene_obj.processSceneData(payload, child, camera_pose, 'person', when=1.0) is True
+  assert len(seen) == 1
+  np.testing.assert_allclose(seen[0], [5.0, 7.0, 9.0], atol=1e-6)
+
 def test_processCameraData_strips_claimed_reid_provenance(scene_obj, camera_obj, monkeypatch):
   """A detector cannot claim its crop was vetted elsewhere to skip the pixel bbox gate."""
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
