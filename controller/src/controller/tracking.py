@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from queue import Queue
-from threading import Thread
+from threading import Lock, Thread
+import time
+import traceback
 
 from controller.moving_object import (DEFAULT_EDGE_LENGTH,
                                       DEFAULT_TRACKING_RADIUS, ATagObject,
@@ -24,6 +26,9 @@ NON_MEASUREMENT_TIME_STATIC = 0.5333
 EFFECTIVE_OBJECT_UPDATE_RATE = 15
 DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS = 60.0
 
+# Upper bound for join() to drain and stop all category threads
+JOIN_TIMEOUT_SECS = 5.0
+
 # Queue mode constants for tracking operation
 STREAMING_MODE = False  # (DEFAULT) Objects from one source (camera) at a time are put into the queue
 BATCHED_MODE = True     # Objects from multiple sources are aggregated together and put into the queue
@@ -37,6 +42,8 @@ class Tracking(Thread):
     self.queue = Queue()
     self.reid_config_data = reid_config_data if reid_config_data else {}
     self.uuid_manager = UUIDManager(reid_config_data=self.reid_config_data)
+    self._joined = False
+    self._lifecycle_lock = Lock()
     return
 
   def getUniqueIDCount(self, category):
@@ -62,9 +69,12 @@ class Tracking(Thread):
                    use_tracker=True):
 
     self._createTrackers(categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate)
+    if self._joined:
+      # No work is accepted once join() has run.
+      return
 
     if not categories:
-      categories = self.trackers.keys()
+      categories = list(self.trackers.keys())
     for category in categories:
       new_objects = [obj for obj in objects if obj.category == category]
       if not use_tracker:
@@ -96,18 +106,21 @@ class Tracking(Thread):
 
   def _createTrackers(self, categories, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static, ref_camera_frame_rate):
     """Create a tracker object for each category"""
-    for category in categories:
-      if category not in self.trackers:
-        tracker = self.__class__(
-          max_unreliable_time,
-          non_measurement_time_dynamic,
-          non_measurement_time_static,
-          ref_camera_frame_rate,
-          reid_config_data=self.reid_config_data,
-        )
-        tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
-        self.trackers[category] = tracker
-        tracker.start()
+    with self._lifecycle_lock:
+      if self._joined:
+        return
+      for category in categories:
+        if category not in self.trackers:
+          tracker = self.__class__(
+            max_unreliable_time,
+            non_measurement_time_dynamic,
+            non_measurement_time_static,
+            ref_camera_frame_rate,
+            reid_config_data=self.reid_config_data,
+          )
+          tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
+          self.trackers[category] = tracker
+          tracker.start()
     return
 
   def updateObjectClasses(self, assets):
@@ -162,39 +175,40 @@ class Tracking(Thread):
     self.uuid_manager.connectDatabase()
     while True:
       queue_item = self.queue.get()
+      try:
+        # Queue items always have 4 elements: (objects, when, already_tracked_objects, mode)
+        if len(queue_item) != 4:
+          # Invalid queue item format
+          continue
 
-      # Queue items always have 4 elements: (objects, when, already_tracked_objects, mode)
-      if len(queue_item) != 4:
-        # Invalid queue item format
-        self.queue.task_done()
-        continue
+        objects, when, already_tracked_objects, mode = queue_item
 
-      objects, when, already_tracked_objects, mode = queue_item
+        if objects is None:
+          log.debug("tracking.Tracking: Received shutdown signal, exiting thread")
+          break
 
-      if objects is None:
-        log.debug("tracking.Tracking: Received shutdown signal, exiting thread")
-        self.queue.task_done()
-        break
-
-      # Determine category for metrics
-      if mode == BATCHED_MODE and len(objects) > 0 and len(objects[0]) > 0:
-        category = objects[0][0].category  # First object in first camera list
-      elif mode == STREAMING_MODE and len(objects) > 0:
-        category = objects[0].category
-      else:
-        category = "unknown"
-
-      metrics_attributes = {
-        "category": category,
-      }
-      with metrics.time_tracking(metrics_attributes):
-        if mode == BATCHED_MODE:
-          self.trackCategoryBatched(objects, when, already_tracked_objects)
+        # Determine category for metrics
+        if mode == BATCHED_MODE and len(objects) > 0 and len(objects[0]) > 0:
+          category = objects[0][0].category  # First object in first camera list
+        elif mode == STREAMING_MODE and len(objects) > 0:
+          category = objects[0].category
         else:
-          self.trackCategory(objects, when, already_tracked_objects)
-        # curObjects are the results while all_tracker_objects
-        # is used as a working collection inside the thread
-        self.curObjects = (self.all_tracker_objects).copy()
+          category = "unknown"
+
+        metrics_attributes = {
+          "category": category,
+        }
+        with metrics.time_tracking(metrics_attributes):
+          if mode == BATCHED_MODE:
+            self.trackCategoryBatched(objects, when, already_tracked_objects)
+          else:
+            self.trackCategory(objects, when, already_tracked_objects)
+          # curObjects are the results while all_tracker_objects
+          # is used as a working collection inside the thread
+          self.curObjects = (self.all_tracker_objects).copy()
+      except Exception as err:
+        log.error(f"Tracker {self} failed to process a frame: {err}\n{traceback.format_exc()}")
+      finally:
         self.queue.task_done()
 
     return
@@ -205,17 +219,39 @@ class Tracking(Thread):
       self.queue.join()
     return
 
-  def join(self):
-    log.debug("Joining tracker threads. Trackers count: ", len(self.trackers))
-    for category in self.trackers:
-      tracker = self.trackers[category]
-      tracker.queue.put((None, None, None, STREAMING_MODE))
-      log.debug(f"Waiting for tracker thread category {category} to complete")
-      tracker.waitForComplete()
-      log.debug(f"Joining tracker thread category {category}")
-      tracker.join()
-      tracker.uuid_manager.shutdown()
-    self.uuid_manager.shutdown()
+  def _stopFeeders(self, timeout):
+    """Hook for subclasses to stop whatever enqueues work for the category threads."""
+    return
+
+  def join(self, timeout=JOIN_TIMEOUT_SECS):
+    """Stop the category threads and shut down their UUID managers.
+
+    Safe to call more than once. Queued frames are drained first, but the
+    whole call is bounded by timeout seconds so a stuck thread cannot block
+    the caller.
+    """
+    with self._lifecycle_lock:
+      if self._joined:
+        return
+      self._joined = True
+      trackers = list(self.trackers.items())
+
+    log.debug("Joining tracker threads. Trackers count: ", len(trackers))
+    try:
+      deadline = time.monotonic() + timeout
+      self._stopFeeders(timeout)
+      running = [(category, tracker) for category, tracker in trackers if tracker.is_alive()]
+      for category, tracker in running:
+        tracker.queue.put((None, None, None, STREAMING_MODE))
+      for category, tracker in running:
+        log.debug(f"Joining tracker thread category {category}")
+        Thread.join(tracker, max(0.0, deadline - time.monotonic()))
+        if tracker.is_alive():
+          log.warning(f"Tracker thread category {category} did not stop within {timeout}s")
+    finally:
+      for category, tracker in trackers:
+        tracker.uuid_manager.shutdown()
+      self.uuid_manager.shutdown()
     return
 
   @staticmethod

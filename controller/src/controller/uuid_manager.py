@@ -52,8 +52,9 @@ SUPPORTED_SIMILARITY_METRICS = SUPPORTED_CONFIG_SIMILARITY_METRICS
 
 # One purge worker per process: category trackers each construct a UUIDManager,
 # but they share one ReID store and must not each schedule DeleteExpired /
-# filter-deletes against it.
-_PURGE_OWNER_LOCK = threading.Lock()
+# filter-deletes against it. Reentrant because shutdown() can run from __del__
+# on a thread that already holds the lock.
+_PURGE_OWNER_LOCK = threading.RLock()
 _PURGE_OWNER = None
 
 
@@ -124,6 +125,8 @@ class UUIDManager:
     self.purge_timer = None
     self.purge_interval_secs = None
     self._owns_purge_timer = False
+    # Set by connectDatabase(); only connected managers may take over purging.
+    self._database_connected = False
     self.scene_id = None
     self._shutdown_complete = False
 
@@ -250,10 +253,14 @@ class UUIDManager:
 
   def __del__(self):
     """Clean up resources when the UUIDManager is destroyed"""
-    self.shutdown()
+    self.shutdown(flush_pending=False)
 
-  def shutdown(self):
-    """Explicitly stop the stale feature timer and clean up resources"""
+  def shutdown(self, flush_pending=True):
+    """Explicitly stop the stale feature timer and clean up resources
+
+    @param  flush_pending  Write features not yet flushed to the database before
+                           the pool stops. Skipped when called from __del__.
+    """
     # shutdown() can be called both explicitly and via __del__. Make it
     # idempotent to avoid duplicate cleanup side effects.
     if getattr(self, '_shutdown_complete', False):
@@ -264,6 +271,11 @@ class UUIDManager:
       self.stale_feature_timer.cancel()
       self.stale_feature_timer = None
     self._releasePurgeOwnership()
+    if flush_pending:
+      try:
+        self._flushStaleFeatures(force=True)
+      except Exception as err:
+        log.warning(f"shutdown: Failed to flush pending ReID features: {err}")
     if hasattr(self, 'match_latency_tracker') and self.match_latency_tracker is not None:
       self.match_latency_tracker.shutdown()
     if hasattr(self, 'pool') and self.pool is not None:
@@ -277,9 +289,17 @@ class UUIDManager:
     """Start a background timer to periodically check for and flush stale features"""
     def check_stale_features():
       """Timer callback: check for features older than timeout and flush them"""
+      if self._shutdown_complete:
+        return
       self._flushStaleFeatures()
+      # The owner may have shut down since the last tick
+      if self._database_connected:
+        self._tryStartPurge()
       # Reschedule the timer
       self._scheduleTimer(check_stale_features)
+      if self._shutdown_complete:
+        # shutdown() ran while this callback was executing
+        self.stale_feature_timer.cancel()
 
     self._scheduleTimer(check_stale_features)
 
@@ -293,7 +313,7 @@ class UUIDManager:
     """Return True if this manager became the process-wide purge owner."""
     global _PURGE_OWNER
     with _PURGE_OWNER_LOCK:
-      if _PURGE_OWNER is None:
+      if _PURGE_OWNER is None and not self._shutdown_complete:
         _PURGE_OWNER = self
         self._owns_purge_timer = True
         return True
@@ -305,12 +325,21 @@ class UUIDManager:
     if self.purge_timer is not None:
       self.purge_timer.cancel()
       self.purge_timer = None
-    if not self._owns_purge_timer:
-      return
+    # Always take the lock: a concurrent takeover must either finish first
+    # (and be released here) or see _shutdown_complete and not acquire.
     with _PURGE_OWNER_LOCK:
       if _PURGE_OWNER is self:
         _PURGE_OWNER = None
       self._owns_purge_timer = False
+    return
+
+  def _tryStartPurge(self):
+    """Start the purge timer if retention is on and no other manager owns it."""
+    if self._owns_purge_timer:
+      return
+    if (getattr(self.reid_database, 'retentionEnabled', lambda: False)()
+        and self._tryAcquirePurgeOwnership()):
+      self._startPurgeTimer()
     return
 
   def _startPurgeTimer(self):
@@ -348,8 +377,11 @@ class UUIDManager:
       log.warning(f"_purgeExpiredDescriptors: purgeExpired failed: {e}")
     return
 
-  def _flushStaleFeatures(self):
-    """Check for features older than the configured timeout (from reid-config.json) and flush them to VDMS"""
+  def _flushStaleFeatures(self, force=False):
+    """Flush features older than the configured timeout (from reid-config.json) to the database
+
+    @param  force  Flush every pending feature regardless of age
+    """
     if not self.features_for_database_timestamps:
       return
 
@@ -358,7 +390,7 @@ class UUIDManager:
 
     for track_id, timestamp in list(self.features_for_database_timestamps.items()):
       age = current_time - timestamp
-      if age > self.stale_feature_timeout_secs:
+      if force or age > self.stale_feature_timeout_secs:
         stale_track_ids.append(track_id)
 
     if stale_track_ids:
@@ -368,12 +400,11 @@ class UUIDManager:
 
   def connectDatabase(self):
     self.pool.submit(self.reid_database.connect)
+    self._database_connected = True
     # Start the process-wide reclaim timer only after a manager intends to use
     # the store. Category trackers call this from run(); the idle root manager
-    # does not.
-    if (getattr(self.reid_database, 'retentionEnabled', lambda: False)()
-        and self._tryAcquirePurgeOwnership()):
-      self._startPurgeTimer()
+    # does not. Managers that lose the race retry from their stale-feature tick.
+    self._tryStartPurge()
     return
 
   def _ensureReIDDimensions(self, embedding):
