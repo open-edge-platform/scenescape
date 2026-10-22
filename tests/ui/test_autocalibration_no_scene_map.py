@@ -22,9 +22,8 @@ SCENE_NAME = "Queuing"
 # Queuing scene cameras: atag-qcam1 and atag-qcam2
 CAM_URLS = ("/cam/calibrate/1", "/cam/calibrate/2")
 AUTOCAL_BUTTON_ID = "auto-autocalibration"
-# Static template default or backend registration error, depending on timing.
+# Backend registration error messages for a scene without a map.
 EXPECTED_TITLES = (
-  "Auto Calibrate system not available for this scene",
   "Error: Scene has no map",
   "No map available for scene",
 )
