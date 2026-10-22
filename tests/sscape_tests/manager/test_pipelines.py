@@ -136,7 +136,8 @@ class PipelineTests(TestCase):
     pipeline.refresh_from_db()
     self.assertEqual(pipeline.name, 'Updated')
     response = self.client.get(reverse('pipeline_delete', args=[pipeline.pk]))
-    self.assertContains(response, 'Associated cameras will be kept')
+    self.assertContains(response, "<p>Associated cameras' pipeline selection will be cleared.</p>",
+                        html=True)
     self.assertTrue(Pipeline.objects.filter(pk=pipeline.pk).exists())
     response = self.client.post(reverse('pipeline_delete', args=[pipeline.pk]))
     self.assertRedirects(response, reverse('pipeline_list'))

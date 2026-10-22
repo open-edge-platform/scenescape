@@ -19,7 +19,7 @@ SPDX-License-Identifier: Apache-2.0
       <form method="post">
         {% csrf_token %}
         <p>Are you sure you want to delete the "{{ object }}" pipeline?</p>
-        <p>Associated cameras'pipeline selection will be cleared.</p>
+        <p>Associated cameras' pipeline selection will be cleared.</p>
         <input class="btn btn-primary" type="submit" value="Delete Pipeline" />
         <a class="btn btn-secondary" href="{% url 'pipeline_list' %}">Cancel</a>
       </form>
