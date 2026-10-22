@@ -16,7 +16,7 @@ from scipy.spatial.transform import Rotation
 
 from positioning.pose_math import (
   apply_backlash, axis_angle_degrees, backlash_degrees_at, compose_ptz_rotation,
-  scene_from_camera_matrix)
+  physical_home_angle, scene_from_camera_matrix)
 from positioning.ptz_model import PTZAxisModel
 from positioning.v1 import ptz_pb2
 from scene_common.positioning_quality import calibration_score, score, temporal_score
@@ -299,20 +299,18 @@ class PTZResolver:
     ]
     axes = (model.pan, model.tilt)
     positions = (position.pan, position.tilt)
-    specs = (model.pan, model.tilt)
-    home_angles = [
-      axis_angle_degrees(spec.home_position, spec.curve) for spec in specs
-    ]
     for index, axis in enumerate(axes):
+      backlash = backlash_degrees_at(axis.backlash, positions[index])
       if not state.backlash_known[index]:
-        at_home = abs(raw_angles[index] - home_angles[index]) <= axis.backlash_home_tolerance_deg
+        home_angle = axis_angle_degrees(axis.home_position, axis.curve)
+        at_home = abs(raw_angles[index] - home_angle) <= axis.backlash_home_tolerance_deg
         if at_home:
-          state.physical_angles[index] = raw_angles[index]
+          state.physical_angles[index] = apply_backlash(
+            physical_home_angle(axis), raw_angles[index], backlash)
           state.backlash_known[index] = True
         else:
           state.physical_angles[index] = raw_angles[index]
       else:
-        backlash = backlash_degrees_at(axis.backlash, positions[index])
         state.physical_angles[index] = apply_backlash(
           state.physical_angles[index], raw_angles[index], backlash)
 
@@ -374,10 +372,7 @@ class PTZResolver:
           reason_detail = "calibration_missing"
         else:
           home_rotation = Rotation.from_matrix(home[:3, :3])
-          home_angles = (
-            axis_angle_degrees(model.pan.home_position, model.pan.curve),
-            axis_angle_degrees(model.tilt.home_position, model.tilt.curve),
-          )
+          home_angles = (physical_home_angle(model.pan), physical_home_angle(model.tilt))
           rotation = compose_ptz_rotation(
             model, home_rotation,
             physical_angles[0] - home_angles[0], physical_angles[1] - home_angles[1])

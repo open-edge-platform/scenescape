@@ -18,7 +18,8 @@ from positioning.manager_calibration import ManagerCalibrationError, ManagerCali
 from positioning.metrics import PositioningMetrics
 from positioning.resolver import PTZResolver, PTZSourceCalibration
 from positioning.v1 import ptz_pb2
-from positioning.pose_math import apply_backlash, axis_angle_degrees, compose_ptz_rotation
+from positioning.pose_math import (
+  apply_backlash, axis_angle_degrees, compose_ptz_rotation, physical_home_angle)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 FIXTURE = json.loads(
@@ -184,15 +185,48 @@ class TestPTZResolver(unittest.TestCase):
     context = json.loads(published[-1][0][1])
     self.assertTrue(context["valid"])
     reported_pan = axis_angle_degrees(0.5, MODEL.pan.curve)
-    home_pan = axis_angle_degrees(MODEL.pan.home_position, MODEL.pan.curve)
+    home_pan = physical_home_angle(MODEL.pan)
     physical_pan = apply_backlash(home_pan, reported_pan, 1.68)
-    home_tilt = axis_angle_degrees(MODEL.tilt.home_position, MODEL.tilt.curve)
     home_rotation = Rotation.from_matrix(HOME_MATRIX[:3, :3])
     expected_rotation = compose_ptz_rotation(
       MODEL, home_rotation, physical_pan - home_pan, 0.0)
     actual_rotation = Rotation.from_matrix(np.asarray(context["pose"]["matrix_4x4"])[:3, :3])
     self.assertAlmostEqual(
       (expected_rotation.inv() * actual_rotation).magnitude(), 0.0, delta=1e-9)
+
+  def test_home_backlash_band_follows_calibrated_approach_direction(self):
+    # Fixture pan angle decreases as position increases; 0.1 is about 15.46 deg.
+    cases = [
+      ("increasing", 0.1, 0.0),
+      ("increasing", -0.1, -1.0),
+      ("decreasing", -0.1, 0.0),
+      ("decreasing", 0.1, 1.0),
+    ]
+    for approach, target, slack_correction in cases:
+      with self.subTest(approach=approach, target=target):
+        calibration_data = copy.deepcopy(FIXTURE["ptz_calibration"])
+        calibration_data["axes"]["pan"]["approach_direction"] = approach
+        calibration_data["axes"]["pan"]["backlash"] = 1.0
+        model = load_ptz_model(calibration_data)
+        calibration = PTZSourceCalibration(model, HOME_MATRIX, "scene:scene-a")
+        clock = FakeClock()
+        published = []
+        resolver = make_resolver(clock, published, {SOURCE_ID: calibration})
+
+        resolver.submit_ptz_sample(make_sample(1, START_NS))
+        for sequence in range(2, 7):
+          clock.timestamp_ns = START_NS + (sequence - 1) * 200_000_000
+          resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns, pan=target))
+
+        context = last_context(published)
+        self.assertTrue(context["valid"])
+        reported_delta = axis_angle_degrees(target, model.pan.curve)
+        expected_rotation = compose_ptz_rotation(
+          model, Rotation.from_matrix(HOME_MATRIX[:3, :3]),
+          reported_delta + slack_correction, 0.0)
+        actual_rotation = Rotation.from_matrix(np.asarray(context["pose"]["matrix_4x4"])[:3, :3])
+        self.assertAlmostEqual(
+          (expected_rotation.inv() * actual_rotation).magnitude(), 0.0, delta=1e-9)
 
 
   def test_unassigned_camera_is_not_published(self):

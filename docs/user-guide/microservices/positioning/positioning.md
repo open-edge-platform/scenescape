@@ -141,9 +141,12 @@ Every accepted sample publishes exactly one retained QoS 0 `PoseContext` on
 - The calibration's `reprojection_rms_px` does not exceed `target_reprojection_rms_px`,
   and the Manager home pose is a rigid transform.
 
-The resolved orientation composes the backlash-corrected pan and tilt deltas about the
-calibrated axes in the calibration's `composition_order`. Translation, intrinsics, and
-distortion stay those of the home calibration.
+The resolved orientation composes backlash-corrected pan and tilt deltas about the
+calibrated axes in the calibration's `composition_order`. Each axis's home reference
+uses the calibrated `approach_direction` (ONVIF position travel direction) and the
+curve's angular direction: the physical angle trails the reported home angle by half the
+home backlash. Continuing in that direction moves immediately; a reversal consumes the
+full slack. Translation, intrinsics, and distortion stay those of the home calibration.
 
 ### Calibration reload
 
