@@ -414,7 +414,7 @@ tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
   --output /tmp/reid-evaluation-smoke
 
 PYTHONPATH=. tests/.venv/bin/python -m pytest -q \
-  tests/sscape_tests/reid/test_evaluation.py
+  tools/reid_evaluation/tests
 ```
 
 The bundled vectors are synthetic. Their reports are explicitly marked as smoke

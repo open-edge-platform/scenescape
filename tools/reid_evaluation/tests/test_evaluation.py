@@ -15,7 +15,7 @@ from tools.reid_evaluation.evaluate import (
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-SMOKE = REPO_ROOT / "tools/reid_evaluation/examples/smoke.json"
+SMOKE = Path(__file__).resolve().parents[1] / "examples/smoke.json"
 
 
 def samples():
