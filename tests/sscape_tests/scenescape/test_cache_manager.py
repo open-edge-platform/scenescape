@@ -520,6 +520,143 @@ class TestCacheManagerSensorRestoration:
     assert result is old_scene
 
 
+def _scene_data(uid, name, camera_ids=(), **extra):
+  data = {'uid': uid, 'name': name, 'cameras': [{'uid': cid} for cid in camera_ids]}
+  data.update(extra)
+  return data
+
+
+def _tracker_scene(data):
+  scene = Mock(uid=data['uid'], tracker=Mock())
+  scene.name = data['name']
+  scene.cameras = {cam['uid']: Mock() for cam in data.get('cameras', [])}
+  scene.sensors = {}
+  return scene
+
+
+class TestCacheManagerUnchangedSceneReuse:
+  """invalidate() must only rebuild tracker scenes whose own data changed."""
+
+  @staticmethod
+  def _bare_manager(tracker_config_data=None):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
+    cache_mgr.cached_scenes_by_uid = {}
+    cache_mgr.cached_child_transforms_by_uid = {}
+    cache_mgr.tracker_config_data = tracker_config_data or {}
+    cache_mgr.reid_config_data = {}
+    cache_mgr.pose_adjustment_config_data = {}
+    scene_cls = Mock()
+    scene_cls.deserialize.side_effect = _tracker_scene
+    cache_mgr._scene_cls = scene_cls
+    return cache_mgr, scene_cls
+
+  def _reapply(self, cache_mgr, found):
+    previous = dict(cache_mgr.cached_scenes_by_uid)
+    cache_mgr.invalidate()
+    cache_mgr._applySceneResults(found)
+    return previous
+
+  def test_unchanged_scenes_keep_their_tracker_after_invalidate(self):
+    cache_mgr, scene_cls = self._bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A'), _scene_data('b', 'B')])
+
+    previous = self._reapply(cache_mgr, [_scene_data('a', 'A'), _scene_data('b', 'B')])
+
+    assert scene_cls.deserialize.call_count == 2
+    assert cache_mgr.cached_scenes_by_uid['a'] is previous['a']
+    assert cache_mgr.cached_scenes_by_uid['b'] is previous['b']
+
+  def test_only_the_changed_scene_is_rebuilt(self):
+    cache_mgr, scene_cls = self._bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A'), _scene_data('b', 'B')])
+
+    previous = self._reapply(cache_mgr, [_scene_data('a', 'A-renamed'), _scene_data('b', 'B')])
+
+    assert scene_cls.deserialize.call_count == 3
+    assert cache_mgr.cached_scenes_by_uid['a'] is not previous['a']
+    assert cache_mgr.cached_scenes_by_uid['a'].name == 'A-renamed'
+    assert cache_mgr.cached_scenes_by_uid['b'] is previous['b']
+
+  def test_camera_moved_between_scenes_rebuilds_both_and_reindexes(self):
+    cache_mgr, _ = self._bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A', ['cam-1']), _scene_data('b', 'B')])
+
+    previous = self._reapply(
+      cache_mgr, [_scene_data('a', 'A'), _scene_data('b', 'B', ['cam-1'])])
+
+    assert cache_mgr.cached_scenes_by_uid['a'] is not previous['a']
+    assert cache_mgr.cached_scenes_by_uid['b'] is not previous['b']
+    assert cache_mgr._cached_scenes_by_cameraID['cam-1'] is cache_mgr.cached_scenes_by_uid['b']
+
+  def test_unchanged_scene_stays_indexed_by_camera(self):
+    cache_mgr, _ = self._bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A', ['cam-1'])])
+
+    previous = self._reapply(cache_mgr, [_scene_data('a', 'A', ['cam-1'])])
+
+    assert cache_mgr._cached_scenes_by_cameraID == {'cam-1': previous['a']}
+
+  def test_analytics_owned_fields_do_not_reset_the_tracker(self):
+    cache_mgr, scene_cls = self._bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A', regions=[], tripwires=[], sensors=[])])
+
+    previous = self._reapply(cache_mgr, [_scene_data(
+      'a', 'A', regions=[{'uid': 'r1'}], tripwires=[{'uid': 't1'}], sensors=[{'uid': 's1'}])])
+
+    assert scene_cls.deserialize.call_count == 1
+    assert cache_mgr.cached_scenes_by_uid['a'] is previous['a']
+
+  def test_other_scene_field_change_resets_the_tracker(self):
+    cache_mgr, scene_cls = self._bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A', retrack=True)])
+
+    previous = self._reapply(cache_mgr, [_scene_data('a', 'A', retrack=False)])
+
+    assert scene_cls.deserialize.call_count == 2
+    assert cache_mgr.cached_scenes_by_uid['a'] is not previous['a']
+
+  def test_injected_tracker_config_is_not_part_of_the_comparison(self):
+    tracker_config = {
+      'max_unreliable_time': 5.0, 'non_measurement_time_dynamic': 2.0,
+      'non_measurement_time_static': 10.0, 'effective_object_update_rate': 30,
+      'time_chunking_enabled': False, 'time_chunking_rate_fps': 30,
+      'suspended_track_timeout_secs': 60,
+    }
+    cache_mgr, scene_cls = self._bare_manager(tracker_config)
+    cache_mgr._applySceneResults([_scene_data('a', 'A')])
+
+    previous = self._reapply(cache_mgr, [_scene_data('a', 'A')])
+
+    assert scene_cls.deserialize.call_count == 1
+    assert cache_mgr.cached_scenes_by_uid['a'] is previous['a']
+
+  def test_deleted_scene_is_forgotten_and_rebuilt_when_it_returns(self):
+    cache_mgr, scene_cls = self._bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A'), _scene_data('b', 'B')])
+    self._reapply(cache_mgr, [_scene_data('a', 'A')])
+
+    assert set(cache_mgr._scene_signatures) == {'a'}
+
+    self._reapply(cache_mgr, [_scene_data('a', 'A'), _scene_data('b', 'B')])
+
+    assert scene_cls.deserialize.call_count == 3
+
+  def test_in_place_update_refreshes_the_stored_data(self):
+    cache_mgr, scene_cls = self._bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A')])
+    scene = cache_mgr.cached_scenes_by_uid['a']
+
+    # A refresh that does not follow invalidate() updates the scene in place.
+    cache_mgr._applySceneResults([_scene_data('a', 'A-renamed')])
+    scene.updateScene.assert_called_once()
+
+    previous = self._reapply(cache_mgr, [_scene_data('a', 'A-renamed')])
+
+    assert scene_cls.deserialize.call_count == 1
+    assert cache_mgr.cached_scenes_by_uid['a'] is previous['a']
+
+
 class TestCacheManagerRefreshCameras:
   """Test camera refresh functionality."""
 
