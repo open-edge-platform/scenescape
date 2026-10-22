@@ -102,7 +102,8 @@ class PositioningMetrics:
       }
 
   def log_snapshot(self):
-    log.info(json.dumps({"record": "positioning_metrics", **self.snapshot()}, sort_keys=True))
+    if log.isEnabledFor(logging.DEBUG):
+      log.debug(json.dumps({"record": "positioning_metrics", **self.snapshot()}, sort_keys=True))
 
   def run(self, stop_event, interval_s=60.0):
     while not stop_event.wait(interval_s):

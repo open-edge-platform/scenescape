@@ -564,7 +564,7 @@ class TestMoveEvents(unittest.TestCase):
   def test_monitor_tracks_state_and_emits_records(self):
     monitor = MoveEventMonitor("cam-b", self.factory, "PTZController/Move", "is_moving")
     stop = threading.Event()
-    with self.assertLogs("positioning", level="INFO") as logs:
+    with self.assertLogs("positioning", level="DEBUG") as logs:
       worker = threading.Thread(target=monitor.run, args=(stop,))
       worker.start()
       self.camera.push_move_event(True)

@@ -5,6 +5,7 @@
 
 import datetime
 import json
+import logging
 import math
 import threading
 import time
@@ -20,6 +21,8 @@ from positioning.pose_math import (
 from positioning.ptz_model import PTZAxisModel
 from positioning.v1 import ptz_pb2
 from scene_common.positioning_quality import calibration_score, score, temporal_score
+
+log = logging.getLogger(__name__)
 
 _REASON_TO_INVALID = {
   "no_sample": "no_pose_available",
@@ -53,6 +56,7 @@ class _SourceState:
   backlash_known: list = field(default_factory=lambda: [False, False])
   history: object = field(default_factory=deque)
   pending_reason: object = None
+  last_logged_state: object = None
 
   def reset_motion(self):
     self.last_reported_angles = None
@@ -259,6 +263,15 @@ class PTZResolver:
       reason_detail, calibration, state.physical_angles)
     topic = f"scenescape/positioning/pose/{source_id}"
     self.publish(topic, json.dumps(pose_context, separators=(",", ":")), qos=0, retain=True)
+    logged_state = (
+      pose_context["valid"], pose_context["motion_state"], pose_context.get("reason_detail"),
+      pose_context["calibration_version"])
+    if logged_state != state.last_logged_state:
+      log.info("Camera %s: %s (%s); calibration=%s", source_id,
+               "ready" if pose_context["valid"] else "unavailable",
+               pose_context.get("reason_detail", pose_context["motion_state"]),
+               pose_context["calibration_version"])
+      state.last_logged_state = logged_state
     if self.metrics is not None:
       self.metrics.observe_pose_age(source_id, age_s)
       self.metrics.observe_motion_state(source_id, motion_state, timestamp_ns)

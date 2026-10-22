@@ -88,6 +88,18 @@ def make_sample(sequence, timestamp_ns, pan=0.0, tilt=0.0, source_id=SOURCE_ID):
 
 
 class TestPTZResolver(unittest.TestCase):
+  def test_logs_state_changes_without_repeating_stationary_samples(self):
+    clock = FakeClock()
+    published = []
+    resolver = make_resolver(clock, published)
+    with self.assertLogs("positioning.resolver", level="INFO") as logs:
+      submit_stationary(resolver, clock, 1, 10)
+    messages = [record.getMessage() for record in logs.records]
+    self.assertEqual(len(messages), 2)
+    self.assertIn(f"Camera {SOURCE_ID}: unavailable (settling)", messages[0])
+    self.assertIn(f"Camera {SOURCE_ID}: ready (stationary)", messages[1])
+    self.assertEqual(len(published), 10)
+
   def test_stationary_samples_publish_pose_context_after_full_settle_window(self):
     clock = FakeClock()
     published = []

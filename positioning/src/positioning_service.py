@@ -40,12 +40,12 @@ def load_config(path):
   return config
 
 
-def configure_library_logging():
+def configure_library_logging(level=logging.INFO):
   handler = logging.StreamHandler(sys.stdout)
   handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
   library_logger = logging.getLogger("positioning")
   library_logger.addHandler(handler)
-  library_logger.setLevel(logging.INFO)
+  library_logger.setLevel(level)
   library_logger.propagate = False
 
 
@@ -221,6 +221,8 @@ class PositioningService:
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument("--log-level", choices=("INFO", "DEBUG"), default="INFO",
+                      help="Positioning logs: concise state changes or detailed diagnostics")
   parser.add_argument("--broker", default="broker.scenescape.intel.com",
                       help="hostname or IP of MQTT broker")
   parser.add_argument("--brokerauth", default="/run/secrets/positioning.auth",
@@ -250,7 +252,7 @@ def main():
     raise FileNotFoundError(f"Positioning config not found: {args.config}")
   config = load_config(args.config)
   log.info("Starting Positioning service")
-  configure_library_logging()
+  configure_library_logging(getattr(logging, args.log_level))
   poll_interval_s, sources = parse_sources(config)
   source_ids = tuple(sources)
   if source_ids:

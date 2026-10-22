@@ -113,7 +113,7 @@ class MoveEventMonitor:
     if value is None:
       return
     self._set_state(value)
-    log.info(json.dumps({
+    log.debug(json.dumps({
       "record": "ptz_move_event",
       "source_id": self.source_id,
       "is_moving": value,

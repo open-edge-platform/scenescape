@@ -130,11 +130,16 @@ class TestPositioningMetrics(unittest.TestCase):
   def test_log_snapshot_emits_structured_record(self):
     metrics = PositioningMetrics()
     metrics.inc_sequence_gap("cam-a")
-    with self.assertLogs("positioning.metrics", level="INFO") as logs:
+    with self.assertLogs("positioning.metrics", level="DEBUG") as logs:
       metrics.log_snapshot()
     record = json.loads(logs.records[0].getMessage())
     self.assertEqual(record["record"], "positioning_metrics")
     self.assertEqual(record["positioning_pose_sequence_gaps_total"], {"cam-a": 1})
+
+  def test_metrics_are_quiet_at_info(self):
+    metrics = PositioningMetrics()
+    with self.assertNoLogs("positioning.metrics", level="INFO"):
+      metrics.log_snapshot()
 
   def test_run_logs_until_stopped(self):
     metrics = PositioningMetrics()
