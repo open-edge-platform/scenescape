@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/CTRVModel.hpp"
@@ -19,10 +19,10 @@ void CTRVModel::stateConversionFunction(const cv::Mat &x_k, const cv::Mat &u_k, 
   double y = x_k.at<double>(1, 0);
   double vx = x_k.at<double>(2, 0);
   double vy = x_k.at<double>(3, 0);
-  double ax = x_k.at<double>(4, 0);
-  double ay = x_k.at<double>(5, 0);
-  double w = x_k.at<double>(11, 0);
-  double yaw = x_k.at<double>(10, 0);
+  double z = x_k.at<double>(6, 0);
+  double vz = x_k.at<double>(7, 0);
+  double w = x_k.at<double>(12, 0);
+  double yaw = x_k.at<double>(11, 0);
 
   double v = sqrt(vx * vx + vy * vy);
   double velocityYaw = atan2(vy, vx);     // Velocity yaw
@@ -53,12 +53,13 @@ void CTRVModel::stateConversionFunction(const cv::Mat &x_k, const cv::Mat &u_k, 
   x_kplus1.at<double>(3, 0) = v * sinNextYaw;            // Velocity in Y
   x_kplus1.at<double>(4, 0) = 0.;                     // Acceleration in X
   x_kplus1.at<double>(5, 0) = 0.;                     // Acceleration in Y
-  x_kplus1.at<double>(6, 0) = x_k.at<double>(6, 0);   // Position in Z
-  x_kplus1.at<double>(7, 0) = x_k.at<double>(7, 0);   // Length
-  x_kplus1.at<double>(8, 0) = x_k.at<double>(8, 0);   // Width
-  x_kplus1.at<double>(9, 0) = x_k.at<double>(9, 0);   // Height
-  x_kplus1.at<double>(10, 0) = nextAttitudeYaw;       // Yaw
-  x_kplus1.at<double>(11, 0) = w;                     // Yaw Rate
+  x_kplus1.at<double>(6, 0) = z + vz * deltaT;        // Position in Z
+  x_kplus1.at<double>(7, 0) = vz;                     // Velocity in Z
+  x_kplus1.at<double>(8, 0) = x_k.at<double>(8, 0);   // Length
+  x_kplus1.at<double>(9, 0) = x_k.at<double>(9, 0);   // Width
+  x_kplus1.at<double>(10, 0) = x_k.at<double>(10, 0); // Height
+  x_kplus1.at<double>(11, 0) = nextAttitudeYaw;       // Yaw
+  x_kplus1.at<double>(12, 0) = w;                     // Yaw Rate
 
   x_kplus1 += vk; // additive process noise
 }
@@ -68,10 +69,10 @@ void CTRVModel::measurementFunction(const cv::Mat &x_k, const cv::Mat &n_k, cv::
   z_k.at<double>(0, 0) = x_k.at<double>(0, 0);  // Position in X
   z_k.at<double>(1, 0) = x_k.at<double>(1, 0);  // Position in Y
   z_k.at<double>(2, 0) = x_k.at<double>(6, 0);  // Position in Z
-  z_k.at<double>(3, 0) = x_k.at<double>(7, 0);  // Length
-  z_k.at<double>(4, 0) = x_k.at<double>(8, 0);  // Width
-  z_k.at<double>(5, 0) = x_k.at<double>(9, 0);  // Height
-  z_k.at<double>(6, 0) = x_k.at<double>(10, 0); // Yaw
+  z_k.at<double>(3, 0) = x_k.at<double>(8, 0);  // Length
+  z_k.at<double>(4, 0) = x_k.at<double>(9, 0);  // Width
+  z_k.at<double>(5, 0) = x_k.at<double>(10, 0); // Height
+  z_k.at<double>(6, 0) = x_k.at<double>(11, 0); // Yaw
   z_k += n_k;                                   // additive measurement noise
 }
 } // namespace tracking

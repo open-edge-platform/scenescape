@@ -79,8 +79,9 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
 
   // Structured initial P: measured pose/size start near measurement noise; latent rates use initStateCovariance.
   // Velocity starts lower than accel/yaw-rate so early coasts are not dominated by an isotropic P_v=init blob.
+  // State: [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
   cv::Mat errorCovInit = cv::Mat::zeros(mDP, mDP, CV_64F);
-  const int measuredIdx[] = {0, 1, 6, 7, 8, 9}; // x, y, z, length, width, height
+  const int measuredIdx[] = {0, 1, 6, 8, 9, 10}; // x, y, z, length, width, height
   for (int idx : measuredIdx)
   {
     errorCovInit.at<double>(idx, idx) = measurementNoise;
@@ -90,8 +91,9 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
   errorCovInit.at<double>(3, 3) = velocityInit; // vy
   errorCovInit.at<double>(4, 4) = std::min(initStateCovariance, 0.1);  // ax
   errorCovInit.at<double>(5, 5) = std::min(initStateCovariance, 0.1);  // ay
-  errorCovInit.at<double>(10, 10) = std::min(initStateCovariance, 0.05); // yaw
-  errorCovInit.at<double>(11, 11) = std::min(initStateCovariance, 0.01); // yaw rate
+  errorCovInit.at<double>(7, 7) = velocityInit; // vz
+  errorCovInit.at<double>(11, 11) = std::min(initStateCovariance, 0.05); // yaw
+  errorCovInit.at<double>(12, 12) = std::min(initStateCovariance, 0.01); // yaw rate
 
   const cv::Mat initialQ = kinematicProcessNoiseCov(processNoise, track.vx, track.vy, 1e-1);
 
@@ -149,8 +151,9 @@ cv::Mat MultiModelKalmanEstimator::kinematicProcessNoiseCov(double processNoise,
   Q.at<double>(4, 5) = qxy;
   Q.at<double>(5, 4) = qxy;
   Q.at<double>(5, 5) = qyy;
-  Q.at<double>(10, 10) = processNoise * 0.01 * dt; // yaw
-  Q.at<double>(11, 11) = processNoise * dt;        // yaw rate
+  Q.at<double>(7, 7) = qVel * dt;                 // vz (independent of planar heading)
+  Q.at<double>(11, 11) = processNoise * 0.01 * dt; // yaw
+  Q.at<double>(12, 12) = processNoise * dt;        // yaw rate
   return Q;
 }
 

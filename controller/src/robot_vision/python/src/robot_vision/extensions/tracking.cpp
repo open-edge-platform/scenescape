@@ -84,6 +84,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("w", &rv::tracking::TrackedObject::w, "Turn rate about Z axis in radians/s.")
     .def_readwrite("vx", &rv::tracking::TrackedObject::vx, "Velocity component 'x' (forward) in m/s.")
     .def_readwrite("vy", &rv::tracking::TrackedObject::vy, "Velocity component 'y' (left) in m/s.")
+    .def_readwrite("vz", &rv::tracking::TrackedObject::vz, "Velocity component 'z' (up) in m/s.")
     .def_readwrite("ax", &rv::tracking::TrackedObject::ax, "Acceleration component 'x' (forward) in m/s^2.")
     .def_readwrite("ay", &rv::tracking::TrackedObject::ay, "Acceleration component 'y' (left) in m/s^2.")
     .def_readwrite("corrected", &rv::tracking::TrackedObject::corrected, "Returns True if the TrackedObject was the result of a correction step.")

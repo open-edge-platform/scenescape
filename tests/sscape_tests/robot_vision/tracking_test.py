@@ -702,17 +702,16 @@ class TestNonPlanarTracking(unittest.TestCase):
 
     step = 0.1
     total_time = 5.0
-    # Keep planar speed under orientation yaw-vs-velocity gate (1 m/s).
     vx, vy, vz = 0.4, 0.2, 0.4
-    yaw_rate = 0.15
-    x0 = y0 = z0 = yaw0 = 0.0
+    x0 = y0 = z0 = 0.0
+    # Align measured yaw with velocity heading so orientation gating accepts it.
+    yaw = float(np.arctan2(vy, vx))
 
     for t in np.arange(step, total_time, step):
       timestamp = initial_timestamp + timedelta(seconds=t)
       x = x0 + vx * t
       y = y0 + vy * t
       z = z0 + vz * t
-      yaw = yaw0 + yaw_rate * t
       obj = create_object_at_location(
         x=x, y=y, z=z, yaw=yaw,
         classification=classification_data.classification('Person', 1.0))
@@ -728,11 +727,9 @@ class TestNonPlanarTracking(unittest.TestCase):
     expected_z = z0 + vz * expected_t
     self.assertAlmostEqual(tracked.x, x0 + vx * expected_t, delta=0.15)
     self.assertAlmostEqual(tracked.y, y0 + vy * expected_t, delta=0.15)
-    # State has no vz: z is measurement-driven and lags the ramp, but must
-    # leave the ground plane and stay nearer truth than z=0.
-    self.assertGreater(tracked.z, 1.0, msg="climbed path must leave the ground plane")
-    self.assertLess(abs(tracked.z - expected_z), abs(0.0 - expected_z) * 0.5)
-    self.assertAlmostEqual(tracked.yaw, yaw0 + yaw_rate * expected_t, delta=0.25)
+    self.assertAlmostEqual(tracked.z, expected_z, delta=0.2)
+    self.assertAlmostEqual(tracked.vz, vz, delta=0.15)
+    self.assertAlmostEqual(tracked.yaw, yaw, delta=0.2)
 
   def test_estimator_updates_z_from_measurements(self):
     """Positive: UKF correct pulls state z toward changing measurements."""
@@ -757,25 +754,28 @@ class TestNonPlanarTracking(unittest.TestCase):
 
     state = estimator.current_state()
     expected_z = vz * (4.0 - step)
-    self.assertGreater(state.z, 1.0)
-    self.assertLess(abs(state.z - expected_z), abs(0.0 - expected_z) * 0.5)
+    self.assertAlmostEqual(state.z, expected_z, delta=0.2)
+    self.assertAlmostEqual(state.vz, vz, delta=0.15)
 
-  def test_predict_without_measurement_holds_z(self):
-    """Negative / boundary: coasting predict must not invent vertical motion."""
+  def test_predict_integrates_vz_without_measurement(self):
+    """Coasting predict integrates z via vz (and holds yaw when w=0)."""
     classification_data = tracking.ClassificationData(['Person'])
     estimator = tracking.MultiModelKalmanEstimator()
     initial_timestamp = datetime.now()
     seed = create_object_at_location(
       x=0.0, y=0.0, z=2.5, yaw=0.3,
       classification=classification_data.classification('Person', 1.0))
+    seed.vz = 0.5
     estimator.initialize(
       seed, initial_timestamp, process_noise=1e-5, measurement_noise=1e-3,
       motion_models=[tracking.MotionModel.CV])
 
-    coast_time = initial_timestamp + timedelta(seconds=2.0)
+    coast_dt = 2.0
+    coast_time = initial_timestamp + timedelta(seconds=coast_dt)
     estimator.predict(coast_time)
     state = estimator.current_state()
-    self.assertAlmostEqual(state.z, 2.5, places=3)
+    self.assertAlmostEqual(state.z, 2.5 + 0.5 * coast_dt, delta=0.05)
+    self.assertAlmostEqual(state.vz, 0.5, delta=0.05)
     self.assertAlmostEqual(state.yaw, 0.3, places=3)
 
   def test_constant_z_does_not_drift_up(self):

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include <rv/tracking/CPModel.hpp>
@@ -10,10 +10,7 @@ void CPModel::stateConversionFunction(const cv::Mat &x_k, const cv::Mat &u_k, co
 {
   cv::Mat vk = v_k.clone();
 
-  /*
-   * The time is considered the control input
-   */
-  double deltaT = u_k.at<double>(0, 0);
+  (void)u_k;
 
   x_kplus1.at<double>(0, 0) = x_k.at<double>(0, 0);  // Position in X
   x_kplus1.at<double>(1, 0) = x_k.at<double>(1, 0);  // Position in Y
@@ -22,11 +19,12 @@ void CPModel::stateConversionFunction(const cv::Mat &x_k, const cv::Mat &u_k, co
   x_kplus1.at<double>(4, 0) = 0.;                     // Acceleration in X
   x_kplus1.at<double>(5, 0) = 0.;                     // Acceleration in Y
   x_kplus1.at<double>(6, 0) = x_k.at<double>(6, 0);   // Position in Z
-  x_kplus1.at<double>(7, 0) = x_k.at<double>(7, 0);   // Length
-  x_kplus1.at<double>(8, 0) = x_k.at<double>(8, 0);   // Width
-  x_kplus1.at<double>(9, 0) = x_k.at<double>(9, 0);   // Height
-  x_kplus1.at<double>(10, 0) = x_k.at<double>(10, 0); // Yaw
-  x_kplus1.at<double>(11, 0) = 0.;                    // Yaw Rate
+  x_kplus1.at<double>(7, 0) = 0.;                     // Velocity in Z
+  x_kplus1.at<double>(8, 0) = x_k.at<double>(8, 0);   // Length
+  x_kplus1.at<double>(9, 0) = x_k.at<double>(9, 0);   // Width
+  x_kplus1.at<double>(10, 0) = x_k.at<double>(10, 0); // Height
+  x_kplus1.at<double>(11, 0) = x_k.at<double>(11, 0); // Yaw
+  x_kplus1.at<double>(12, 0) = 0.;                    // Yaw Rate
 
   x_kplus1 += vk; // additive process noise
 }
@@ -36,10 +34,10 @@ void CPModel::measurementFunction(const cv::Mat &x_k, const cv::Mat &n_k, cv::Ma
   z_k.at<double>(0, 0) = x_k.at<double>(0, 0);  // Position in X
   z_k.at<double>(1, 0) = x_k.at<double>(1, 0);  // Position in Y
   z_k.at<double>(2, 0) = x_k.at<double>(6, 0);  // Position in Z
-  z_k.at<double>(3, 0) = x_k.at<double>(7, 0);  // Length
-  z_k.at<double>(4, 0) = x_k.at<double>(8, 0);  // Width
-  z_k.at<double>(5, 0) = x_k.at<double>(9, 0);  // Height
-  z_k.at<double>(6, 0) = x_k.at<double>(10, 0); // Yaw
+  z_k.at<double>(3, 0) = x_k.at<double>(8, 0);  // Length
+  z_k.at<double>(4, 0) = x_k.at<double>(9, 0);  // Width
+  z_k.at<double>(5, 0) = x_k.at<double>(10, 0); // Height
+  z_k.at<double>(6, 0) = x_k.at<double>(11, 0); // Yaw
   z_k += n_k;                                   // additive measurement noise
 }
 } // namespace tracking

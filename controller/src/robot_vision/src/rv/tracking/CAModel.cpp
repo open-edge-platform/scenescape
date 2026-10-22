@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2020 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2020 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/CAModel.hpp"
@@ -21,9 +21,12 @@ void CAModel::stateConversionFunction(const cv::Mat &x_k, const cv::Mat &u_k, co
   double vy = x_k.at<double>(3, 0);
   double ax = x_k.at<double>(4, 0);
   double ay = x_k.at<double>(5, 0);
+  double z = x_k.at<double>(6, 0);
+  double vz = x_k.at<double>(7, 0);
 
   /*
    * The equations for the constant acceleration model are:
+   * Vertical axis uses constant velocity (no az in state).
    */
   x_kplus1.at<double>(0, 0) = x + vx * deltaT + 0.5 * ax * deltaT * deltaT; // Position in X
   x_kplus1.at<double>(1, 0) = y + vy * deltaT + 0.5 * ay * deltaT * deltaT; // Position in Y
@@ -31,12 +34,13 @@ void CAModel::stateConversionFunction(const cv::Mat &x_k, const cv::Mat &u_k, co
   x_kplus1.at<double>(3, 0) = vy + ay * deltaT;                             // Velocity in Y
   x_kplus1.at<double>(4, 0) = ax;                                           // Acceleration in X
   x_kplus1.at<double>(5, 0) = ay;                                           // Acceleration in Y
-  x_kplus1.at<double>(6, 0) = x_k.at<double>(6, 0);                         // Position in Z
-  x_kplus1.at<double>(7, 0) = x_k.at<double>(7, 0);                         // Length
-  x_kplus1.at<double>(8, 0) = x_k.at<double>(8, 0);                         // Width
-  x_kplus1.at<double>(9, 0) = x_k.at<double>(9, 0);                         // Height
-  x_kplus1.at<double>(10, 0) = x_k.at<double>(10, 0);                       // Yaw
-  x_kplus1.at<double>(11, 0) = 0;                                           // Yaw Rate
+  x_kplus1.at<double>(6, 0) = z + vz * deltaT;                              // Position in Z
+  x_kplus1.at<double>(7, 0) = vz;                                           // Velocity in Z
+  x_kplus1.at<double>(8, 0) = x_k.at<double>(8, 0);                         // Length
+  x_kplus1.at<double>(9, 0) = x_k.at<double>(9, 0);                         // Width
+  x_kplus1.at<double>(10, 0) = x_k.at<double>(10, 0);                       // Height
+  x_kplus1.at<double>(11, 0) = x_k.at<double>(11, 0);                       // Yaw
+  x_kplus1.at<double>(12, 0) = 0;                                           // Yaw Rate
 
   x_kplus1 += vk; // additive process noise
 }
@@ -46,10 +50,10 @@ void CAModel::measurementFunction(const cv::Mat &x_k, const cv::Mat &n_k, cv::Ma
   z_k.at<double>(0, 0) = x_k.at<double>(0, 0);  // Position in X
   z_k.at<double>(1, 0) = x_k.at<double>(1, 0);  // Position in Y
   z_k.at<double>(2, 0) = x_k.at<double>(6, 0);  // Position in Z
-  z_k.at<double>(3, 0) = x_k.at<double>(7, 0);  // Length
-  z_k.at<double>(4, 0) = x_k.at<double>(8, 0);  // Width
-  z_k.at<double>(5, 0) = x_k.at<double>(9, 0);  // Height
-  z_k.at<double>(6, 0) = x_k.at<double>(10, 0); // Yaw
+  z_k.at<double>(3, 0) = x_k.at<double>(8, 0);  // Length
+  z_k.at<double>(4, 0) = x_k.at<double>(9, 0);  // Width
+  z_k.at<double>(5, 0) = x_k.at<double>(10, 0); // Height
+  z_k.at<double>(6, 0) = x_k.at<double>(11, 0); // Yaw
   z_k += n_k;                                   // additive measurement noise
 }
 } // namespace tracking

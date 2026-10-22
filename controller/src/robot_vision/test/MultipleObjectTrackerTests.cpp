@@ -725,7 +725,7 @@ TEST(MultipleObjectTrackerTest, FollowsClimbingZAndYaw)
   constexpr double vx = 0.4;
   constexpr double vy = 0.2;
   constexpr double vz = 0.4;
-  constexpr double yawRate = 0.15;
+  const double yaw = std::atan2(vy, vx);
 
   for (double t = stepS; t < totalS; t += stepS)
   {
@@ -734,7 +734,7 @@ TEST(MultipleObjectTrackerTest, FollowsClimbingZAndYaw)
     measurement.x = vx * t;
     measurement.y = vy * t;
     measurement.z = vz * t;
-    measurement.yaw = yawRate * t;
+    measurement.yaw = yaw;
     measurement.length = 0.5;
     measurement.width = 0.5;
     measurement.height = 1.8;
@@ -750,8 +750,7 @@ TEST(MultipleObjectTrackerTest, FollowsClimbingZAndYaw)
   const double expectedZ = vz * expectedT;
   EXPECT_NEAR(tracks[0].x, vx * expectedT, 0.15);
   EXPECT_NEAR(tracks[0].y, vy * expectedT, 0.15);
-  // No vz in state: z is measurement-driven and lags, but must leave z=0.
-  EXPECT_GT(tracks[0].z, 1.0);
-  EXPECT_LT(std::abs(tracks[0].z - expectedZ), std::abs(0.0 - expectedZ) * 0.5);
-  EXPECT_NEAR(tracks[0].yaw, yawRate * expectedT, 0.25);
+  EXPECT_NEAR(tracks[0].z, expectedZ, 0.2);
+  EXPECT_NEAR(tracks[0].vz, vz, 0.15);
+  EXPECT_NEAR(tracks[0].yaw, yaw, 0.2);
 }

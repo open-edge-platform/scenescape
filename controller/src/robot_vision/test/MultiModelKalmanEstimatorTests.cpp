@@ -194,13 +194,14 @@ TEST(MultiModelKalmanEstimatorTest, KinematicProcessNoiseShape)
   }
 }
 
-TEST(MultiModelKalmanEstimatorTest, PredictHoldsZWithoutMeasurement)
+TEST(MultiModelKalmanEstimatorTest, PredictIntegratesVzWithoutMeasurement)
 {
   rv::tracking::MultiModelKalmanEstimator estimator;
   rv::tracking::TrackedObject seed;
   seed.x = 0.0;
   seed.y = 0.0;
   seed.z = 2.5;
+  seed.vz = 0.5;
   seed.yaw = 0.3;
   seed.length = 0.5;
   seed.width = 0.5;
@@ -208,8 +209,10 @@ TEST(MultiModelKalmanEstimatorTest, PredictHoldsZWithoutMeasurement)
 
   auto timestamp = std::chrono::system_clock::now();
   estimator.initialize(seed, timestamp, 1e-5, 1e-3, 1.0, {rv::tracking::MotionModel::CV});
+  constexpr double coastDt = 2.0;
   estimator.predict(timestamp + std::chrono::seconds(2));
   auto state = estimator.currentState();
-  EXPECT_NEAR(state.z, 2.5, 1e-3);
+  EXPECT_NEAR(state.z, 2.5 + 0.5 * coastDt, 0.05);
+  EXPECT_NEAR(state.vz, 0.5, 0.05);
   EXPECT_NEAR(state.yaw, 0.3, 1e-3);
 }

@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -34,6 +34,7 @@ public:
   // Linear Velocity
   double vx{0.};
   double vy{0.};
+  double vz{0.};
 
   // Linear Acceleration
   double ax{0.};

@@ -48,12 +48,11 @@ SCENE_XYZ_ATOL_M = 0.05
 IDENTITY_ROTATION = [0, 0, 0, 1]
 
 # Climb ~2 m over 5 s in the agent frame (identity rotation → scene Z ≈ agent Z).
-# Filter has no vz: tracked z lags the measurement ramp, so tolerances allow lag.
 CLIMB_DURATION_S = 5.0
 CLIMB_VZ_MPS = 0.4
-MIN_Z_GAIN_M = 0.5
-# Live controller lag is larger than unit-test lag; require nearer truth than ground.
-MAX_Z_ERROR_RATIO = 0.65
+MIN_Z_GAIN_M = 1.2
+FINAL_Z_ATOL_M = 0.4
+VELOCITY_Z_ATOL_MPS = 0.25
 
 
 class ZTracking(FunctionalTest):
@@ -217,15 +216,19 @@ class ZTracking(FunctionalTest):
     assert final_z > MIN_Z_GAIN_M, (
       f"Tracked z did not climb off the ground plane: final_z={final_z}, "
       f"samples={z_samples[:3]}..{z_samples[-3:]}")
-    assert abs(final_z - expected_z) < abs(0.0 - expected_z) * MAX_Z_ERROR_RATIO, (
-      f"Tracked z farther from climb truth than allowed: got {final_z}, "
-      f"expected ~{expected_z}")
+    assert abs(final_z - expected_z) < FINAL_Z_ATOL_M, (
+      f"Tracked z inaccurate: got {final_z}, expected ~{expected_z} "
+      f"(atol={FINAL_Z_ATOL_M})")
     q = max(1, len(z_samples) // 4)
-    assert np.mean(z_samples[-q:]) > np.mean(z_samples[:q]) + 0.3, (
+    assert np.mean(z_samples[-q:]) > np.mean(z_samples[:q]) + 0.5, (
       f"Tracked z did not increase over the climb: early={z_samples[:q]} "
       f"late={z_samples[-q:]}")
-    log.info("PASS: climbing z tracked final_z=%.3f expected~%.3f samples=%d",
-             final_z, expected_z, len(z_samples))
+    obj = self._trackedPerson()
+    velocity = obj.get("velocity") or [0.0, 0.0, 0.0]
+    assert abs(float(velocity[2]) - CLIMB_VZ_MPS) < VELOCITY_Z_ATOL_MPS, (
+      f"Tracked vz inaccurate: got {velocity[2]}, expected ~{CLIMB_VZ_MPS}")
+    log.info("PASS: climbing z tracked final_z=%.3f vz=%.3f expected_z~%.3f samples=%d",
+             final_z, velocity[2], expected_z, len(z_samples))
     return
 
   def verifyFunction(self):

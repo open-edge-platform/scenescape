@@ -397,7 +397,7 @@ class IntelLabsTracking(Tracking):
 
     sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
                                             tracked_object.z)
-    sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, 0.0))
+    sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, tracked_object.vz))
 
     # Prefer Kalman yaw whenever the track has received an orienting sensor
     # update (sticky orientation_observed), even if this frame's linked

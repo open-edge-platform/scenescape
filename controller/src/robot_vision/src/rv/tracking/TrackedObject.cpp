@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/TrackedObject.hpp"
@@ -6,7 +6,9 @@
 namespace rv {
 namespace tracking {
 
-const int TrackedObject::StateSize = 12;
+// State: [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
+const int TrackedObject::StateSize = 13;
+// Measurement: [x, y, z, length, width, height, yaw]
 const int TrackedObject::MeasurementSize = 7;
 
 TrackedObject::TrackedObject()
@@ -23,14 +25,14 @@ std::string TrackedObject::toString() const
 {
   return "TrackedObject( id: " + std::to_string(id) + ", x:" + std::to_string(x) + ", y:" + std::to_string(y)
     + ", vx:" + std::to_string(vx) + ", vy:" + std::to_string(vy) + ", ax:" + std::to_string(ax) + ", ay:"
-    + std::to_string(ay) + ", z:" + std::to_string(z) + ", l:" + std::to_string(length) + ", w:"
-    + std::to_string(width) + ", h:" + std::to_string(height) + ", yaw:" + std::to_string(yaw) + ", yaw_rate:"
-    + std::to_string(w) + ")";
+    + std::to_string(ay) + ", z:" + std::to_string(z) + ", vz:" + std::to_string(vz) + ", l:"
+    + std::to_string(length) + ", w:" + std::to_string(width) + ", h:" + std::to_string(height)
+    + ", yaw:" + std::to_string(yaw) + ", yaw_rate:" + std::to_string(w) + ")";
 }
 
 bool TrackedObject::isDynamic() const
 {
-  return (vx * vx + vy * vy) > 1.0;
+  return (vx * vx + vy * vy + vz * vz) > 1.0;
 }
 
 Eigen::VectorXf TrackedObject::getVectorXf() const
@@ -43,11 +45,12 @@ Eigen::VectorXf TrackedObject::getVectorXf() const
   vector(4) = ax;
   vector(5) = ay;
   vector(6) = z;
-  vector(7) = length;
-  vector(8) = width;
-  vector(9) = height;
-  vector(10) = yaw;
-  vector(11) = w;
+  vector(7) = vz;
+  vector(8) = length;
+  vector(9) = width;
+  vector(10) = height;
+  vector(11) = yaw;
+  vector(12) = w;
 
   return vector;
 }
@@ -61,11 +64,12 @@ void TrackedObject::setVectorXf(const Eigen::VectorXf &vector)
   ax = vector(4);
   ay = vector(5);
   z = vector(6);
-  length = vector(7);
-  width = vector(8);
-  height = vector(9);
-  yaw = vector(10);
-  w = vector(11);
+  vz = vector(7);
+  length = vector(8);
+  width = vector(9);
+  height = vector(10);
+  yaw = vector(11);
+  w = vector(12);
 }
 
 /**
@@ -81,11 +85,12 @@ cv::Mat TrackedObject::stateVector() const
   vector.at<double>(4, 0) = ax;
   vector.at<double>(5, 0) = ay;
   vector.at<double>(6, 0) = z;
-  vector.at<double>(7, 0) = length;
-  vector.at<double>(8, 0) = width;
-  vector.at<double>(9, 0) = height;
-  vector.at<double>(10, 0) = yaw;
-  vector.at<double>(11, 0) = w;
+  vector.at<double>(7, 0) = vz;
+  vector.at<double>(8, 0) = length;
+  vector.at<double>(9, 0) = width;
+  vector.at<double>(10, 0) = height;
+  vector.at<double>(11, 0) = yaw;
+  vector.at<double>(12, 0) = w;
 
   return vector;
 }
@@ -102,11 +107,12 @@ void TrackedObject::setStateVector(const cv::Mat &vector)
   ax = vector.at<double>(4, 0);
   ay = vector.at<double>(5, 0);
   z = vector.at<double>(6, 0);
-  length = vector.at<double>(7, 0);
-  width = vector.at<double>(8, 0);
-  height = vector.at<double>(9, 0);
-  yaw = vector.at<double>(10, 0);
-  w = vector.at<double>(11, 0);
+  vz = vector.at<double>(7, 0);
+  length = vector.at<double>(8, 0);
+  width = vector.at<double>(9, 0);
+  height = vector.at<double>(10, 0);
+  yaw = vector.at<double>(11, 0);
+  w = vector.at<double>(12, 0);
 }
 
 /**
