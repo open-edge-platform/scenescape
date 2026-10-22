@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Build the common image and standalone Re-ID image from the repository root:
 
 ```bash
-make reid_service
+make reid
 ```
 
 The service is also included by `make build-all`. It is intentionally excluded

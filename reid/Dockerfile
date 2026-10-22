@@ -26,16 +26,16 @@ RUN apt-get update \
     && groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER
 
-COPY reid_service/requirements-runtime.txt /tmp/
+COPY reid/requirements-runtime.txt /tmp/
 RUN pip install --no-cache-dir -r /tmp/requirements-runtime.txt \
     && rm -f /tmp/requirements-runtime.txt
 
 COPY --from=scenescape-reid-builder \
     /usr/local/lib/python3.11/site-packages/scene_common \
     /usr/local/lib/python3.11/site-packages/scene_common
-COPY --chown=${USER_ID}:${GROUP_ID} reid_service/src /app
+COPY --chown=${USER_ID}:${GROUP_ID} reid/src /app
 
 USER ${USER_ID}:${GROUP_ID}
 WORKDIR /app
 HEALTHCHECK CMD python3 -c "import grpc; print('ready')"
-ENTRYPOINT ["python3", "-m", "reid_service.server"]
+ENTRYPOINT ["python3", "-m", "reid.server"]
