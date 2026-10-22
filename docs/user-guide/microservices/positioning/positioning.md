@@ -314,7 +314,9 @@ The service accepts these command-line options:
 
 ## Deploy
 
-On Kubernetes, enable the service with `positioning.enabled=true`. See
+On Kubernetes, enable the service with `positioning.enabled=true` and configure
+sources, resolver limits, assignments, and ONVIF credential Secrets through the
+`positioning.*` Helm values. See
 [Deploy Scenescape on Kubernetes](../../how-to-guides/deployment/deploy-kubernetes.md#configure-the-positioning-service)
 for the related Helm values. The chart runs one replica, because only one instance may
 publish poses for a given camera.

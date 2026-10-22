@@ -169,6 +169,35 @@ positioning:
   # sources against it, and Manager authorizes pose writes only for sources
   # assigned to resolverId. Empty: no source may publish poses.
   assignments: {}
+  # Rendered as positioning.json (runtime keys; resolver_id comes from resolverId).
+  # Every source must be assigned to resolverId above. A source without
+  # credentials_file reads /run/secrets/onvif/<source_id>.json.
+  config:
+    poll_interval_s: 0.2
+    max_pose_age_s: 0.5
+    max_timestamp_uncertainty_s: 0.1
+    max_clock_offset_s: 0.05
+    target_reprojection_rms_px: 12.0
+    sample_ring_buffer_size: 64
+    calibration_refresh_interval_s: 30.0
+    # <source_id>:
+    #   type: onvif_ptz
+    #   host: 192.0.2.10
+    #   scheme: https
+    #   port: 443
+    #   move_status: get_status
+    sources: {}
+  # ONVIF credentials mounted read-only at /run/secrets/onvif, one
+  # <source_id>.json ({"username": ..., "password": ...}) key per source.
+  # Set either existingSecret or sources (chart-created Secret), not both.
+  onvifCredentials:
+    existingSecret: ""
+    # <source_id>: {username: ..., password: ...}
+    sources: {}
+  # Additional volumes/mounts for the Positioning container, e.g. a camera CA
+  # bundle referenced by a source's tls_ca_file.
+  extraVolumes: []
+  extraVolumeMounts: []
 
 mapping:
   enabled: false

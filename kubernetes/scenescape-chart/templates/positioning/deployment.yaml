@@ -18,6 +18,8 @@ spec:
       labels:
         app: {{ .Release.Name }}-positioning
         {{ include "releaseLabels" . | indent 8 }}
+      annotations:
+        checksum/positioning-config: {{ printf "%s\n%s" (include "positioning.configJson" .) (.Values.positioning.assignments | default dict | toJson) | sha256sum }}
     spec:
       securityContext:
         runAsUser: 1001
@@ -84,6 +86,14 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+            {{- if include "positioning.onvifCredentialsSecretName" . }}
+            - name: onvif-credentials
+              mountPath: {{ include "positioning.onvifCredentialsDir" . }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.positioning.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
         - name: positioning-config
           configMap:
@@ -109,4 +119,12 @@ spec:
                   items:
                     - key: tls.crt
                       path: scenescape-ca.pem
+        {{- if include "positioning.onvifCredentialsSecretName" . }}
+        - name: onvif-credentials
+          secret:
+            secretName: {{ include "positioning.onvifCredentialsSecretName" . }}
+        {{- end }}
+        {{- with .Values.positioning.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
 {{- end }}

@@ -7,6 +7,6 @@ kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-positioning
 data:
-  positioning.json: {{ dict "resolver_id" .Values.positioning.resolverId | toJson | quote }}
+  positioning.json: {{ include "positioning.configJson" . | quote }}
   positioning-assignments.json: {{ .Values.positioning.assignments | default dict | toJson | quote }}
 {{- end }}
