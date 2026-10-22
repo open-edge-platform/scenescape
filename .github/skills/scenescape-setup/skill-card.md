@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Description: <br>
 
-Deploys or resumes an Intel® SceneScape installation on a host, from gathering camera and scene inputs through calibration, reconstruction, and tracking verification. <br>
+Deploys or resumes a Scenescape installation on a host, from gathering camera and scene inputs through calibration, reconstruction, and tracking verification. <br>
 
 ## Owner: Intel Corporation <br>
 
