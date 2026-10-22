@@ -550,12 +550,18 @@ class PoseACLTest(TestCase):
     self.assertEqual(self._check("pose-publisher", "ptz-b", 4).status_code, 403)
     self.assertEqual(self._check("consumer-a", "ptz-a", 2).status_code, 403)
 
-  def test_positioning_identity_pose_write_is_denied(self):
+  def test_positioning_identity_can_write_only_pose_topics(self):
     resolver = User.objects.create_user("positioning", "positioning@example.com", "unused")
     PubSubACL.objects.create(user=resolver, topic="POSITIONING_POSE", access=2)
-    denied = self._check("positioning", "ptz-a", 2)
-    self.assertEqual(denied.status_code, 403)
-    self.assertEqual(denied.data["result"], "deny")
+    allowed = self._check("positioning", "ptz-a", 2)
+    self.assertEqual(allowed.status_code, 200)
+    self.assertEqual(allowed.data["result"], "allow")
+    self.assertEqual(self._check("positioning", "ptz-a", 4).status_code, 403)
+    self.assertEqual(
+      _acl_check(self.client, "positioning", "scenescape/data/camera/ptz-a", 2).status_code, 403)
+    self.assertEqual(
+      _acl_check(self.client, "positioning", "scenescape/positioning/pose/ptz-a/extra", 2)
+      .status_code, 403)
 
 
 class ProvisionedPositioningACLTest(TestCase):
@@ -579,8 +585,9 @@ class ProvisionedPositioningACLTest(TestCase):
     for identity in config.values():
       for acl in identity["acls"]:
         self.assertNotIn("sources", acl)
-    positioning_topics = {acl["topic"] for acl in config["positioning.auth"]["acls"]}
-    self.assertNotIn("POSITIONING_POSE", positioning_topics)
+    positioning_acls = {
+      acl["topic"]: acl["access"] for acl in config["positioning.auth"]["acls"]}
+    self.assertEqual(positioning_acls["POSITIONING_POSE"], 2)
 
   def test_controller_identity_reads_only_scene_assigned_cameras(self):
     self._provision("controller.auth", "scenectrl")
