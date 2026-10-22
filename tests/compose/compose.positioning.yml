@@ -35,6 +35,10 @@ services:
       - /run/secrets/certs/scenescape-positioning.key
       - --rootcert
       - /run/secrets/certs/scenescape-ca.pem
+      - --assignments
+      - /app/deployment/positioning-assignments.json
+    volumes:
+      - ./tests/compose/positioning-assignments.json:/app/deployment/positioning-assignments.json:ro
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
