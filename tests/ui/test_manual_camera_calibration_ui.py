@@ -43,6 +43,52 @@ def test_manual_camera_calibration(params, result_recorder):
     browser.find_element(By.ID, 'cam_calibrate_1').click()
     time.sleep(TEST_WAIT_TIME)
 
+    assert browser.execute_script("""
+      const prototype = Object.getPrototypeOf(window.camera_calibration);
+      const calibration = Object.create(prototype);
+      let matrix;
+      const points = {p0: [0, 0], p1: [1, 0], p2: [1, 1], p3: [0, 1]};
+      calibration.camCanvas = {
+        calibrationUpdated: true,
+        getCalibrationPoints: () => points,
+        getImageSize: () => [1280, 720],
+        updateImageSrc: () => {},
+      };
+      calibration.viewport = {
+        sceneScale: 100,
+        scaleFactor: 0.5,
+        calibrationUpdated: true,
+        getCalibrationPoints: () => points,
+        setCameraPose: (pose) => { matrix = pose; },
+      };
+      calibration.isResolutionUpdated = true;
+      const response = {poseMatrix: [
+        [1, 0, 0, 120], [0, -1, 0, 60], [0, 0, -1, 80], [0, 0, 0, 1],
+      ]};
+      if (!calibration.applyFittedCalibrationPose(response)) return false;
+      const translation = matrix.elements.slice(12, 15);
+      if (translation.some((v, i) => Math.abs(v - [2.4, 1.2, 1.6][i]) > 1e-9))
+        return false;
+      if (calibration.isResolutionUpdated || calibration.camCanvas.calibrationUpdated ||
+          calibration.viewport.calibrationUpdated) return false;
+      let requests = 0;
+      calibration.calibrationFitState = "ready";
+      calibration.calculateCalibrationIntrinsics = () => { requests++; };
+      calibration.getCameraPositionAndRotation = () => {
+        throw new Error("Video updates must not overwrite the API-fitted pose");
+      };
+      calibration.projectImage = () => {};
+      const intrinsics = [[1000, 0, 640], [0, 1000, 360], [0, 0, 1]];
+      calibration.updateCalibrationViews("", intrinsics, [0, 0, 0, 0, 0]);
+      if (requests !== 0) return false;
+      calibration.viewport.calibrationUpdated = true;
+      calibration.updateCalibrationViews("", intrinsics, [0, 0, 0, 0, 0]);
+      if (requests !== 1) return false;
+      calibration.calibrationFitState = "pending";
+      calibration.updateCalibrationViews("", intrinsics, [0, 0, 0, 0, 0]);
+      return requests === 1;
+    """), "Calibration pose scale or video-update handoff is inconsistent"
+
     log.info("Verify distortion coefficient lock controls")
     for coefficient in ('k1', 'k2', 'p1', 'p2', 'k3'):
       lock = browser.find_element(By.ID, f'enabled_distortion_{coefficient}')

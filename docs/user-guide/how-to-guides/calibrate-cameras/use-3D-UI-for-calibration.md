@@ -104,6 +104,9 @@ Before you begin:
    The 2D calibration page uses a separate fitting endpoint. With all lens
    parameters locked, it uses a pose-only SQPNP fit rather than recalibrating
    the lens with `calibrateCamera`, avoiding its unstable pose initialization.
+   A low fit RMS with no visible projection can also indicate a preview
+   handoff error: the 2D page must convert the fitted translation from scaled
+   map coordinates to viewport metres and retain that fit across video frames.
 
 ## Supporting Resources
 
