@@ -151,11 +151,63 @@ cd tracker && make test-unit-coverage
 
 ---
 
+## Non-planar Z / `vz` tracking (controller + tracker)
+
+**Status:** Controller + tracker Z/`vz` tracking on `feature/prob-tracking-extracted-3d`. Tracker 3D detection input (`translation` / `size` / `rotation`) comes separately through main (`ITEP-97104_tracker_3d_detections`).  
+**Out of scope here:** mesh/DEM foot-ray for plain 2D cameras (separate PR). Issue 1 from the `vz` review (ground-plane pixel path) stays deferred.
+
+### Shared (`robot_vision`) — done with controller
+
+Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`), so these apply on tracker rebuild:
+
+| Item | Detail | Commit / notes |
+|------|--------|----------------|
+| State `vz` | Layout `[… z, vz, length, width, height, yaw, yaw_rate]`; CV/CA/CTRV integrate `z += vz·dt`; CP zeros `vz` | `ee393034` |
+| Process noise | Independent `Q[vz,vz]` | same |
+| 3D association | Euclidean + `PositionMahalanobis` on `(x,y,z)`; birth cluster Euclidean is 3D | `0f4c1b5a` |
+| χ² gate | Matching uses `df=3` (~11.34 @ p=0.99); UI XY ellipse stays `df=2` | same |
+| Named indices | `StateIndex` / `MeasurementIndex` | same |
+| `isDynamic` | `vx²+vy²+vz² > 1` (vertical counts toward coast aging) | same |
+| Unit tests | Climb, coast, `|vz|≈0`, stacked-floor association | same |
+
+### Controller-only — done (skip for tracker)
+
+| Item | Location |
+|------|----------|
+| Association params use `chi2_threshold(p, 3)` | `ilabs_tracking.association_match_params` |
+| Association window viz uses `chi2_threshold(p, 2)` | `ilabs_tracking.build_association_window` |
+| Publish `velocity[2]` from UKF `vz` | `ilabs_tracking` |
+| Prefer detection `translation` / 3D bbox Z when present | `moving_object.mapObjectDetectionToWorld` (already) |
+| Functional climb via external-source MQTT | `tests/functional/test_z_tracking.py` |
+
+### Tracker service — implement next
+
+**Do not re-implement** shared filter/association math; rebuild against updated `robot_vision`.
+
+| # | Task | Location | Status |
+|---|------|----------|--------|
+| T1 | χ² `df=3` for match cost; `df=2` for association-window ellipse | `association_config.hpp`, `association_window.hpp` | Done |
+| T2 | Detection `translation` / `size` / `rotation` input, translation path preserves Z | `ITEP-97104_tracker_3d_detections` (PR to main) | Separate PR |
+| T3 | Set `zMeasured = true` on the translation path once T2 reaches this branch through main | `coordinate_transformer.cpp` | TODO after T2 |
+| T5 | Assert published `velocity[2]` / `translation[2]` | `track_publisher_test.cpp` | Done |
+
+**Still deferred (not this slice):** mesh projection for bbox-only cameras; consuming schema `distance` alone without `translation`.
+
+### Tracker validation
+
+```bash
+cd tracker && make test-unit   # 492 passed (local build-debug-z + ctest)
+```
+
+---
+
 ## Rollout checklist
 
 1. [x] Phase 1 default flip (`position_mahalanobis`); `euclidean` rollback retained
 2. [ ] Phase 2 opt-in combined; default stays Phase 1 until sign-off
 3. [ ] Phase 3 default flip to combined
+4. [x] Controller non-planar Z/`vz` + 3D association (`0f4c1b5a` / `ee393034`)
+5. [x] Tracker χ² df=3 parity + `vz` publish tests (3D detection input: `ITEP-97104_tracker_3d_detections`)
 
 ```mermaid
 gantt

@@ -19,7 +19,8 @@ namespace tracker {
  * @brief Association gate geometry for UI visualization (MQTT association_window).
  *
  * Euclidean → circle of radius max_radius_m.
- * Position Mahalanobis → χ² ellipse of the XY block of S_pred.
+ * Position Mahalanobis → χ² (df=2) ellipse of the XY block of S_pred.
+ * Matching itself gates in 3D (df=3); the published window is the XY projection.
  */
 struct AssociationWindow {
     std::string method;
@@ -41,7 +42,7 @@ inline AssociationWindow buildAssociationWindow(const AssociationConfig& config,
         return window;
     }
 
-    const double chi2 = config.chi2Threshold();
+    const double chi2 = config.chi2ThresholdXy();
     const double s00 = track.predictedMeasurementCov.at<double>(0, 0);
     const double s01 = track.predictedMeasurementCov.at<double>(0, 1);
     const double s11 = track.predictedMeasurementCov.at<double>(1, 1);

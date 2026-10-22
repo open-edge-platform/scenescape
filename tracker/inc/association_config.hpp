@@ -31,7 +31,11 @@ struct AssociationConfig {
     /// Euclidean: association distance threshold (m). Mahalanobis: hard ceiling (m).
     double max_radius_m = kDefaultAssociationMaxRadiusCeilingM;
 
-    [[nodiscard]] double chi2Threshold() const { return rv::chi2Threshold(gate_probability, 2); }
+    /// χ² gate for (x,y,z) PositionMahalanobis matching (3 DOF).
+    [[nodiscard]] double chi2Threshold() const { return rv::chi2Threshold(gate_probability, 3); }
+
+    /// χ² gate for XY association-window ellipse visualization (2 DOF).
+    [[nodiscard]] double chi2ThresholdXy() const { return rv::chi2Threshold(gate_probability, 2); }
 
     [[nodiscard]] rv::tracking::DistanceType distanceType() const {
         switch (method) {
