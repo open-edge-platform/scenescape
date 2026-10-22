@@ -142,6 +142,7 @@ docker compose exec manager python manage.py createsuperuser
 - `DEBUG`: Enable debug mode (default: `False`)
 - `ALLOWED_HOSTS`: Comma-separated allowed hostnames
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
+- `DLSPS_URL`: DL Streamer Pipeline Server 2.0 REST endpoint used by `manager.dlsps` (default `http://dlstreamer-pipeline-server:8080`)
 - `SUPASS`: Super user password (for initial setup)
 
 ### Configuration Files
@@ -280,6 +281,16 @@ docker compose exec manager python manage.py showmigrations
 - Manager UI triggers calibration requests through the web-proxied Auto Calibration service
 - Autocalibration endpoints live under `/api/v1/autocalibration/` when accessed through the web container
 - Stores completed calibration parameters in database
+
+### DL Streamer Pipeline Server 2.0
+
+- `manager.dlsps.DLSPSClient` (`src/manager/dlsps/`) wraps the DLSPS 2.0 REST API: `create_pipeline`
+  (`POST /pipelines` with a raw gst-launch string), `get_pipeline`, `get_pipeline_status`,
+  `list_pipeline_statuses`, and `delete_pipeline`
+- Responses are typed dataclasses (`PipelineStatus`, `PipelineSummary`); HTTP failures raise
+  `DLSPSError` subclasses and invalid arguments raise `ValueError` before any request is sent
+- Starting a pipeline is asynchronous: poll `get_pipeline_status` to detect `ERROR` after start
+- Library only; Manager does not yet create DLSPS pipelines automatically
 
 ### PostgreSQL
 
