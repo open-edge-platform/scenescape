@@ -119,10 +119,12 @@ The design rationale is in the
 The Resolver validates every sample before accepting it: finite position and ranges,
 position inside the advertised ranges, a position space URI and ranges matching the
 calibration, timestamp uncertainty within `max_timestamp_uncertainty_s`, and a
-strictly increasing sequence and timestamp. Duplicate, out-of-order, malformed, or
-unassigned samples produce no `PoseContext`; consumers see them as sequence gaps. A
-new `adapter_instance_id` (poller restart) or a sequence gap resets motion and
-backlash history.
+strictly increasing sequence. Duplicate, out-of-order, malformed, or unassigned
+samples produce no `PoseContext`; consumers see them as sequence gaps. A new
+`adapter_instance_id` (poller restart) or a sequence gap resets motion and backlash
+history. A newer sequence whose timestamp does not increase indicates a backward
+host-clock step: the Resolver accepts it as `invalid_sample` and resets timestamp
+continuity together with motion and backlash history.
 
 Every accepted sample publishes exactly one retained QoS 0 `PoseContext` on
 `scenescape/positioning/pose/{source_id}`. A pose is valid only when all of these hold:
@@ -166,8 +168,10 @@ server given by `--ntp` (default: the `POSITIONING_NTP_SERVER` environment varia
 at startup and every 30 s, and logs the measured offset. While the absolute offset
 exceeds `max_clock_offset_s`, no NTP server is configured, or no successful
 measurement is younger than 90 s, every source publishes invalid poses with reason
-`invalid_sample` and motion history is discarded. The service keeps running and
-recovers automatically once synchronization returns.
+`invalid_sample`; motion history and timestamp continuity are discarded, while
+sequence ordering still rejects duplicates and replays. The service keeps running and
+recovers automatically once synchronization returns, including after a backward clock
+correction.
 
 ### Runtime metrics
 

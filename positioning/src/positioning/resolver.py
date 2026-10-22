@@ -196,8 +196,16 @@ class PTZResolver:
       state.reset_motion()
     if sample.sequence == state.last_sequence:
       return self._ack(ptz_pb2.PTZ_SAMPLE_RESULT_DUPLICATE, "duplicate sequence")
-    if sample.sequence < state.last_sequence or timestamp_ns <= state.last_timestamp_ns:
-      return self._ack(ptz_pb2.PTZ_SAMPLE_RESULT_OUT_OF_ORDER, "sequence or timestamp decreased")
+    if sample.sequence < state.last_sequence:
+      return self._ack(ptz_pb2.PTZ_SAMPLE_RESULT_OUT_OF_ORDER, "sequence decreased")
+    clock_synchronized = self.clock_synchronized()
+    # Sequence order still rejects replays; a newer sample with a non-increasing
+    # wall-clock timestamp means the host clock stepped backward.
+    clock_discontinuity = not clock_synchronized or (
+      state.last_timestamp_ns > 0 and timestamp_ns <= state.last_timestamp_ns)
+    if clock_discontinuity:
+      state.last_timestamp_ns = 0
+      state.reset_motion()
     sequence_gap = state.last_sequence > 0 and sample.sequence != state.last_sequence + 1
     timestamp_gap = state.last_timestamp_ns > 0 and \
       timestamp_ns - state.last_timestamp_ns > int(self.max_pose_age_s * 1e9)
@@ -209,9 +217,8 @@ class PTZResolver:
     now_ns = self.clock_ns()
     age_s = max(0.0, (now_ns - timestamp_ns) / 1e9)
     uncertainty_s = sample.timestamp_uncertainty_ns / 1e9
-    if not self.clock_synchronized():
+    if clock_discontinuity:
       # Timestamps cannot be trusted, so neither motion history nor freshness can be.
-      state.reset_motion()
       motion_state = "unknown"
       reason_detail = "invalid_sample"
     elif age_s > self.max_pose_age_s:
@@ -229,7 +236,7 @@ class PTZResolver:
 
     state.adapter_instance_id = adapter_instance_id
     state.last_sequence = sample.sequence
-    state.last_timestamp_ns = timestamp_ns
+    state.last_timestamp_ns = timestamp_ns if clock_synchronized else 0
 
     pose_context = self._build_context(
       source_id, sample.sequence, timestamp_ns, age_s, uncertainty_s, motion_state,

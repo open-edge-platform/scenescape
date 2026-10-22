@@ -339,6 +339,69 @@ class TestPTZResolver(unittest.TestCase):
     submit_stationary(resolver, clock, 8, 1)
     self.assertTrue(last_context(published)["valid"])
 
+  def test_backward_clock_correction_during_recovery_resets_timestamp_continuity(self):
+    clock = FakeClock(START_NS + 3_600_000_000_000)
+    published = []
+    synchronized = [False]
+    resolver = make_resolver(clock, published, clock_synchronized=lambda: synchronized[0])
+    for sequence in range(1, 5):
+      clock.timestamp_ns = START_NS + 3_600_000_000_000 + (sequence - 1) * 200_000_000
+      resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns))
+
+    clock.timestamp_ns = START_NS
+    corrected = resolver.submit_ptz_sample(make_sample(5, clock.timestamp_ns))
+
+    self.assertEqual(corrected.result, ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED)
+    self.assertEqual(last_context(published)["reason_detail"], "invalid_sample")
+    self.assertEqual(
+      resolver.submit_ptz_sample(make_sample(5, clock.timestamp_ns + 1)).result,
+      ptz_pb2.PTZ_SAMPLE_RESULT_DUPLICATE)
+    self.assertEqual(
+      resolver.submit_ptz_sample(make_sample(4, clock.timestamp_ns + 2)).result,
+      ptz_pb2.PTZ_SAMPLE_RESULT_OUT_OF_ORDER)
+
+    synchronized[0] = True
+    results = []
+    for offset, sequence in enumerate(range(6, 10), start=1):
+      clock.timestamp_ns = START_NS + offset * 200_000_000
+      results.append(resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns)).result)
+
+    self.assertEqual(results, [ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED] * 4)
+    self.assertEqual(len(published), 9)
+    self.assertTrue(last_context(published)["valid"])
+
+  def test_backward_clock_step_while_synchronized_resets_continuity_without_replay(self):
+    clock = FakeClock()
+    published = []
+    resolver = make_resolver(clock, published)
+    submit_stationary(resolver, clock, 1, 4)
+    self.assertTrue(last_context(published)["valid"])
+
+    clock.timestamp_ns = START_NS - 3_600_000_000_000
+    stepped = resolver.submit_ptz_sample(make_sample(5, clock.timestamp_ns))
+
+    self.assertEqual(stepped.result, ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED)
+    context = last_context(published)
+    self.assertFalse(context["valid"])
+    self.assertEqual(context["motion_state"], "unknown")
+    self.assertEqual(context["reason_detail"], "invalid_sample")
+    self.assertEqual(
+      resolver.submit_ptz_sample(make_sample(5, clock.timestamp_ns + 1)).result,
+      ptz_pb2.PTZ_SAMPLE_RESULT_DUPLICATE)
+    self.assertEqual(
+      resolver.submit_ptz_sample(make_sample(3, clock.timestamp_ns + 2)).result,
+      ptz_pb2.PTZ_SAMPLE_RESULT_OUT_OF_ORDER)
+
+    for offset, sequence in enumerate(range(6, 9), start=1):
+      clock.timestamp_ns = START_NS - 3_600_000_000_000 + offset * 200_000_000
+      result = resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns))
+      self.assertEqual(result.result, ptz_pb2.PTZ_SAMPLE_RESULT_ACCEPTED)
+      self.assertFalse(last_context(published)["valid"])
+    clock.timestamp_ns += 200_000_000
+    resolver.submit_ptz_sample(make_sample(9, clock.timestamp_ns))
+    self.assertTrue(last_context(published)["valid"])
+    self.assertEqual(len(published), 9)
+
   def test_invalidation_drops_calibration_until_reload(self):
     clock = FakeClock()
     published = []
