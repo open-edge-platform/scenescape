@@ -86,6 +86,10 @@ public:
 
   bool corrected{false};
 
+  /// True when Z came from a measured 3D pose (translation / 3D OD), not ground-plane projection.
+  /// Used by EuclideanBirth: XY-only if either side lacks measured Z; XYZ when both have it.
+  bool zMeasured{false};
+
   std::string toString() const;
 
   // tracked object parameters

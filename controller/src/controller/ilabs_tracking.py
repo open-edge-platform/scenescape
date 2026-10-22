@@ -334,6 +334,8 @@ class IntelLabsTracking(Tracking):
     rv_object.x = pt.x
     rv_object.y = pt.y
     rv_object.z = pt.z
+    # EuclideanBirth: XY unless both detections have measured Z (3D translation).
+    rv_object.zMeasured = bool(getattr(sscape_object, 'has_measured_z', False))
     # length is mapped to x, width is mapped to y and height is to z if intel labs tracker
     size = sscape_object.size if sscape_object.size else [DEFAULT_EDGE_LENGTH] * 3
     rv_object.length = size[0]

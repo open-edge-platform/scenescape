@@ -35,6 +35,19 @@ double calculateEuclideanDistance(const TrackedObject &measurement, const Tracke
                    + pow(measurement.z - track.z, 2));
 }
 
+/// Birth clustering: XY when either detection is planar (no measured Z); full XYZ when both are.
+double calculateEuclideanBirthDistance(const TrackedObject &measurement, const TrackedObject &track)
+{
+  const double dx = measurement.x - track.x;
+  const double dy = measurement.y - track.y;
+  if (!(measurement.zMeasured && track.zMeasured))
+  {
+    return std::hypot(dx, dy);
+  }
+  const double dz = measurement.z - track.z;
+  return std::sqrt(dx * dx + dy * dy + dz * dz);
+}
+
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
   cv::Mat innovation = measurement.measurementVector() - (track.predictedMeasurementMean);
@@ -231,6 +244,16 @@ void match(const std::vector<TrackedObject> &tracks,
         break;
       case DistanceType::MultiClassEuclidean:
         distanceFunction = std::bind(&calculateMulticlassScaledDistance, std::placeholders::_1, std::placeholders::_2);
+        break;
+      case DistanceType::EuclideanBirth:
+        distanceFunction = [max_radius_m](const TrackedObject &measurement, const TrackedObject &track) {
+          const double distance = calculateEuclideanBirthDistance(measurement, track);
+          if (distance > max_radius_m)
+          {
+            return kDefaultClassBoundValue;
+          }
+          return distance;
+        };
         break;
       case DistanceType::Euclidean:
       default:

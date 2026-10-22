@@ -77,6 +77,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("x", &rv::tracking::TrackedObject::x, "Position 'x' in meters.")
     .def_readwrite("y", &rv::tracking::TrackedObject::y, "Position 'y' in meters.")
     .def_readwrite("z", &rv::tracking::TrackedObject::z, "Position 'z' in meters.")
+    .def_readwrite("zMeasured", &rv::tracking::TrackedObject::zMeasured,
+     "True when Z came from a measured 3D pose (translation), not ground-plane projection.")
     .def_readwrite("length", &rv::tracking::TrackedObject::length, "Object's length in meters.")
     .def_readwrite("width", &rv::tracking::TrackedObject::width, "Object's width in meters.")
     .def_readwrite("height", &rv::tracking::TrackedObject::height, "Object's height in meters.")
@@ -180,7 +182,9 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
      "Combination of MultiClassEuclidean and Mahalanobis distances.")
     .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
-     "Squared Mahalanobis distance on the (x, y) position block using predicted measurement covariance.")
+     "Squared Mahalanobis distance on the (x, y, z) position block using predicted measurement covariance.")
+    .value("EuclideanBirth", rv::tracking::DistanceType::EuclideanBirth,
+     "Detection birth clustering: XY if either side lacks zMeasured; XYZ when both measured.")
     .export_values();
 
   py::class_<rv::tracking::TrackManagerConfig>(tracking, "TrackManagerConfig", "Holds all the configuration parameters used by the TrackManager.")

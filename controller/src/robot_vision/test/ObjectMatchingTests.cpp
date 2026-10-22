@@ -130,6 +130,41 @@ TEST(ObjectMatchingTest, EuclideanSeparatesStackedFloors)
   EXPECT_TRUE(assignments.empty());
 }
 
+TEST(ObjectMatchingTest, EuclideanBirthUsesXyUnlessBothZMeasured)
+{
+  rv::tracking::TrackedObject planar;
+  planar.x = 1.0;
+  planar.y = 2.0;
+  planar.z = 0.0;
+  planar.zMeasured = false;
+  planar.length = planar.width = planar.height = 0.5;
+
+  rv::tracking::TrackedObject measured = planar;
+  measured.z = 1.5;
+  measured.zMeasured = true;
+
+  rv::tracking::TrackedObject upperMeasured = planar;
+  upperMeasured.z = 4.0; // Δz > kDefaultBirthClusterRadiusM
+  upperMeasured.zMeasured = true;
+
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+
+  // Mixed planar + measured Z: XY distance (~0) must match within 2 m.
+  rv::tracking::match({planar}, {measured}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::EuclideanBirth, 2.0, 2.0);
+  ASSERT_EQ(assignments.size(), 1U);
+
+  assignments.clear();
+  unassignedTracks.clear();
+  unassignedMeasurements.clear();
+  // Both measured, Δz = 4 m: reject.
+  rv::tracking::match({measured}, {upperMeasured}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::EuclideanBirth, 2.0, 2.0);
+  EXPECT_TRUE(assignments.empty());
+}
+
 TEST(ObjectMatchingTest, PositionMahalanobisSeparatesStackedFloors)
 {
   rv::tracking::TrackManagerConfig trackerConfig;

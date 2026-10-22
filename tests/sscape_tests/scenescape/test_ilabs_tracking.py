@@ -174,6 +174,7 @@ def test_to_rv_object_converts_quaternion_to_yaw():
     frameCount=1,
     metadata={},
     has_detection_rotation=True,
+    has_measured_z=True,
   )
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)
 
@@ -181,6 +182,7 @@ def test_to_rv_object_converts_quaternion_to_yaw():
 
   assert rv_object.yaw == pytest.approx(yaw)
   assert rv_object.attributes.get('has_orientation') == 'true'
+  assert rv_object.zMeasured is True
 
 
 def test_to_rv_object_omits_orientation_without_detection_rotation():
@@ -193,6 +195,7 @@ def test_to_rv_object_omits_orientation_without_detection_rotation():
     frameCount=1,
     metadata={},
     has_detection_rotation=False,
+    has_measured_z=False,
   )
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)
 
@@ -200,6 +203,7 @@ def test_to_rv_object_omits_orientation_without_detection_rotation():
 
   assert rv_object.yaw == 0.0
   assert 'has_orientation' not in rv_object.attributes
+  assert rv_object.zMeasured is False
 
 
 @pytest.mark.parametrize("yaw", [

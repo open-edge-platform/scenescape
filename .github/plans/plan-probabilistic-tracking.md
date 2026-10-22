@@ -191,7 +191,19 @@ Tracker builds `controller/src/robot_vision` in-tree (`tracker/CMakeLists.txt`),
 | T3 | Set `zMeasured = true` on the translation path once T2 reaches this branch through main | `coordinate_transformer.cpp` | TODO after T2 |
 | T5 | Assert published `velocity[2]` / `translation[2]` | `track_publisher_test.cpp` | Done |
 
-**Still deferred (not this slice):** mesh projection for bbox-only cameras; consuming schema `distance` alone without `translation`.
+**Still deferred / follow-ups from Z review:**
+
+| # | Item | Notes |
+|---|------|-------|
+| F1 | 3D detection input (`translation` / `size` / `rotation`, bbox-less detections) | Separate PR to main: `ITEP-97104_tracker_3d_detections`. |
+| F2 | Wildtrack (planar) eval after χ² `df=3` | Gate loosened ~9.21→11.34 at p=0.99 for planar scenes. **Run Wildtrack eval; mitigate from results** (do not pre-mitigate). |
+| F3 | Ingest 3D detection `rotation` into tracker / UKF yaw | Part of F1. |
+| F4 | Size for 3D detections | Part of F1. |
+| F5 | Mesh / DEM foot-ray for bbox-only cameras | Separate PR. |
+| F6 | Schema `distance` alone without `translation` | Deferred. |
+| F7 | Hybrid birth: `EuclideanBirth` + `zMeasured` | **Done:** XY if either planar; XYZ when both measured. Revisit after metrics. Tracker sets `zMeasured` once F1 arrives (T3). |
+
+**Birth clustering note (not association default):** Unmatched detection→detection fusion uses `DistanceType::EuclideanBirth` ~`kDefaultBirthClusterRadiusM` (2 m), even when track→detection association is `position_mahalanobis`. Raw detections lack `predictedMeasurementCov`, so Mahalanobis cannot birth-cluster. `EuclideanBirth` is XY when either side lacks `zMeasured` (planar + 3D OD still fuse); XYZ when both have measured Z (stacked floors stay separate). Revisit after metrics / multi-floor datasets.
 
 ### Tracker validation
 
@@ -208,6 +220,9 @@ cd tracker && make test-unit   # 492 passed (local build-debug-z + ctest)
 3. [ ] Phase 3 default flip to combined
 4. [x] Controller non-planar Z/`vz` + 3D association (`0f4c1b5a` / `ee393034`)
 5. [x] Tracker χ² df=3 parity + `vz` publish tests (3D detection input: `ITEP-97104_tracker_3d_detections`)
+6. [ ] F2: Wildtrack eval post–χ² df=3; mitigate from results
+7. [ ] F1: Tracker 3D detection input through main (`ITEP-97104_tracker_3d_detections`), then T3
+8. [x] F7: Hybrid birth clustering (`EuclideanBirth` / `zMeasured`)
 
 ```mermaid
 gantt

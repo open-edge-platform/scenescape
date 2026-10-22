@@ -26,7 +26,9 @@ enum class DistanceType
   Euclidean,
   Mahalanobis,
   MCEMahalanobis,
-  PositionMahalanobis
+  PositionMahalanobis,
+  /// Detection↔detection birth: XY if either side lacks ``zMeasured``; XYZ when both measured.
+  EuclideanBirth
 };
 
 void match(const std::vector<TrackedObject> &tracks,

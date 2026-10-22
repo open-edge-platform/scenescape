@@ -182,6 +182,8 @@ class MovingObject:
     self.camera = camera
     self.info = info.copy()
     self.has_detection_rotation = 'rotation' in self.info
+    # True when detection carried camera-frame translation (measured Z), not ground-plane only.
+    self.has_measured_z = 'translation' in self.info
 
     self.category = self.info.get('category', 'object')
     self.boundingBox = None
