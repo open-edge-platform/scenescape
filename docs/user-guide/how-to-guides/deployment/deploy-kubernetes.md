@@ -93,7 +93,7 @@ The matching variant must be available to the cluster: either pulled from Docker
 
 ### Configure the Positioning Service
 
-When `positioning.enabled=true`, the chart deploys one Positioning replica with its own broker account and client certificate, and renders `positioning.json` from these values:
+When `positioning.enabled=true`, the chart deploys one Positioning replica with its own broker account and client certificate, and renders `positioning.json` from these values. The deployment reads calibration from Manager at `https://web.<namespace>.svc.cluster.local/api/v1`, verifying TLS against the chart's Scenescape CA:
 
 | Value                    | Default               | Effect                                                                                                                                               |
 | ------------------------ | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |

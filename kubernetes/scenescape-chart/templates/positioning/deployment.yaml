@@ -37,6 +37,8 @@ spec:
             - "/run/secrets/certs/scenescape-positioning.key"
             - "--rootcert"
             - "/run/secrets/certs/scenescape-ca.pem"
+            - "--manager-url"
+            - "https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1"
             - "--config"
             - "/app/config/positioning.json"
           env:
