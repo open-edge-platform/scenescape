@@ -13,6 +13,7 @@ import queue
 import signal
 import sys
 import threading
+import time
 
 from positioning.clock_sync import ClockMonitor
 from positioning.manager_calibration import ManagerCalibrationLoader
@@ -145,15 +146,21 @@ class PositioningService:
       self.resolver.update_calibration(source_id, None, generation=generation)
 
   def refresh_calibrations(self, stop_event):
+    # Queue activity must not postpone the all-source refresh, which retries failed
+    # loads and recovers from missed notifications.
+    next_full_refresh = time.monotonic() + self.calibration_refresh_interval_s
     while not stop_event.is_set():
-      try:
-        source_id = self._calibration_requests.get(
-          timeout=self.calibration_refresh_interval_s)
-      except queue.Empty:
+      remaining = next_full_refresh - time.monotonic()
+      if remaining <= 0:
         for source_id in self.source_ids:
           self.reload_calibration(source_id)
-      else:
-        self.reload_calibration(source_id)
+        next_full_refresh = time.monotonic() + self.calibration_refresh_interval_s
+        continue
+      try:
+        source_id = self._calibration_requests.get(timeout=remaining)
+      except queue.Empty:
+        continue
+      self.reload_calibration(source_id)
 
   def on_sigterm(self, signum, frame):
     raise SystemExit(0)

@@ -5,6 +5,7 @@ import datetime
 import json
 import logging
 import os
+import queue
 import signal
 import sys
 import tempfile
@@ -421,12 +422,50 @@ class TestPositioningStatus(unittest.TestCase):
     with tempfile.TemporaryDirectory() as temp_dir:
       service, _, _, _ = self._create_service(temp_dir)
       service.source_ids = ("cam-a", "cam-b")
-      service.calibration_refresh_interval_s = 0.001
+      service.calibration_refresh_interval_s = 30.0
+      now = [100.0]
+
+      def idle_wait(timeout):
+        self.assertEqual(timeout, 30.0)
+        now[0] += timeout
+        raise queue.Empty
+
+      service._calibration_requests = mock.Mock()
+      service._calibration_requests.get.side_effect = idle_wait
       stop = mock.Mock()
-      stop.is_set.side_effect = [False, True]
-      with mock.patch.object(service, "reload_calibration") as reload_calibration:
+      stop.is_set.side_effect = [False, False, True]
+      with mock.patch("positioning_service.time.monotonic", side_effect=lambda: now[0]), \
+          mock.patch.object(service, "reload_calibration") as reload_calibration:
         service.refresh_calibrations(stop)
       self.assertEqual(reload_calibration.call_args_list, [mock.call("cam-a"), mock.call("cam-b")])
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_frequent_notifications_do_not_starve_full_refresh(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      service, _, _, _ = self._create_service(temp_dir)
+      service.source_ids = ("cam-a", "cam-b")
+      service.calibration_refresh_interval_s = 30.0
+      now = [100.0]
+      waits = []
+
+      def notification(timeout):
+        waits.append(timeout)
+        now[0] += 10.0
+        return "cam-a"
+
+      service._calibration_requests = mock.Mock()
+      service._calibration_requests.get.side_effect = notification
+      stop = mock.Mock()
+      stop.is_set.side_effect = [False] * 5 + [True]
+      with mock.patch("positioning_service.time.monotonic", side_effect=lambda: now[0]), \
+          mock.patch.object(service, "reload_calibration") as reload_calibration:
+        service.refresh_calibrations(stop)
+      self.assertEqual(waits, [30.0, 20.0, 10.0, 30.0])
+      self.assertEqual(reload_calibration.call_args_list, [
+        mock.call("cam-a"), mock.call("cam-a"), mock.call("cam-a"),
+        mock.call("cam-a"), mock.call("cam-b"),
+        mock.call("cam-a"),
+      ])
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_start_workers_runs_calibration_clock_and_metrics_workers(self):

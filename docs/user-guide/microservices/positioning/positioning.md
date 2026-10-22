@@ -155,7 +155,9 @@ Calibration comes only from Manager. When Manager publishes
 the cached calibration immediately: the next pose reports `calibration_changed`, and
 later poses report `calibration_missing` until a reload succeeds. Reloads run on a
 background worker, not in the MQTT callback. Every `calibration_refresh_interval_s`
-the service also rereads all sources, which recovers from a failed reload. A changed
+the service also rereads all sources, which recovers from a failed reload or a missed
+notification. This refresh follows its own monotonic schedule, so frequent
+notifications for one source cannot postpone it. A changed
 calibration resets motion and backlash history, so a valid pose again requires a full
 settle window.
 
