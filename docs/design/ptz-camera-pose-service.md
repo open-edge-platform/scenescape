@@ -581,7 +581,14 @@ In Phase 3a, Positioning is allowed to publish only its own status on the config
 `POSITIONING_POSE` write ACL and permits the registered
 `scenescape/positioning/pose/{source_id}` template in `ACLCheck`; unrelated writes
 and writes to another resolver's status topic remain denied. Source ownership is
-validated by Positioning against the deployment assignment manifest.
+validated by Positioning against the deployment assignment manifest, and `ACLCheck`
+binds every pose write to it: Manager reads the same manifest
+(`POSITIONING_ASSIGNMENTS_FILE`) and allows a write to
+`scenescape/positioning/pose/{source_id}` only when `source_id` is assigned to
+`POSITIONING_RESOLVER_ID`. The `POSITIONING_POSE` ACL grants the topic template, not
+individual sources, so without this check holders of a pose-write identity could
+publish retained poses for any camera. A missing or invalid manifest denies all pose
+writes.
 
 The per-camera procedure is in
 [Onboard PTZ Cameras](../user-guide/how-to-guides/calibrate-cameras/onboard-ptz-cameras.md).

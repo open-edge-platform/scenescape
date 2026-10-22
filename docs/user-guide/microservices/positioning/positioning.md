@@ -286,6 +286,9 @@ as a `source_id` to `resolver_id` mapping. The image contains the empty default 
 `/app/deployment/positioning-assignments.json`; mount the deployment manifest over it.
 At startup, every configured source must be assigned to this `resolver_id`, and every
 entry assigned to this `resolver_id` must be configured; otherwise the service exits.
+Manager reads the same manifest (`POSITIONING_ASSIGNMENTS_FILE`) and allows pose
+writes only for sources assigned to its `POSITIONING_RESOLVER_ID`; see
+[Source Ownership](operations.md#source-ownership).
 Manager remains authoritative for camera-to-scene membership and camera calibration.
 The service loads each camera's `ptz_calibration`, computed `pose_matrix`, and scene
 through the read-only Manager API. It subscribes only to configuration invalidations

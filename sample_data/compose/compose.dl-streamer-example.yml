@@ -201,6 +201,10 @@ services:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - MAPBOX_API_KEY=${MAPBOX_API_KEY}
       - PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX
+      # Positioning pose writes are authorized only for sources the assignment
+      # manifest gives this resolver (the same file Positioning reads).
+      - POSITIONING_RESOLVER_ID=${POSITIONING_RESOLVER_ID:-positioning-default}
+      - POSITIONING_ASSIGNMENTS_FILE=/run/positioning/positioning-assignments.json
       # Max upload size for scene map files (blueprints, .glb meshes). Default
       # 132MB. Raise if uploading large 3D scans or high-res floor plans;
       # lower to reduce per-request memory pressure in constrained deployments.
@@ -210,6 +214,7 @@ services:
     volumes:
       - vol-media:/workspace/media
       - vol-migrations:/workspace/migrations
+      - ./deployment/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -293,6 +298,8 @@ services:
       - /run/secrets/certs/scenescape-ca.pem
       - --ntp
       - ntpserv
+    volumes:
+      - ./deployment/positioning-assignments.json:/app/deployment/positioning-assignments.json:ro
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

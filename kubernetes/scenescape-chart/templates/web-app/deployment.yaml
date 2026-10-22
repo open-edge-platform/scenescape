@@ -111,6 +111,8 @@ spec:
           {{- if .Values.positioning.enabled }}
           - name: POSITIONING_RESOLVER_ID
             value: {{ .Values.positioning.resolverId | quote }}
+          - name: POSITIONING_ASSIGNMENTS_FILE
+            value: /run/positioning/positioning-assignments.json
           {{- end }}
           {{- if .Values.web.allowedHosts }}
           - name: SCENESCAPE_ALLOWED_HOSTS
@@ -193,6 +195,10 @@ spec:
             name: positioning-auth
             subPath: positioning.auth
             readOnly: true
+          - mountPath: /run/positioning/positioning-assignments.json
+            name: positioning-config
+            subPath: positioning-assignments.json
+            readOnly: true
           {{- end }}
           - mountPath: /home/scenescape/Scenescape/media
             name: media-storage
@@ -228,6 +234,9 @@ spec:
       - name: positioning-auth
         secret:
           secretName: {{ .Release.Name }}-positioning.auth
+      - name: positioning-config
+        configMap:
+          name: {{ .Release.Name }}-positioning
       {{- end }}
       - name: media-storage
         persistentVolumeClaim:

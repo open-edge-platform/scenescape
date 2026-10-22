@@ -165,6 +165,10 @@ positioning:
   image: intel/scenescape-positioning
   pullPolicy: IfNotPresent
   resolverId: positioning-default
+  # Source ownership manifest (source_id -> resolver_id). Positioning validates its
+  # sources against it, and Manager authorizes pose writes only for sources
+  # assigned to resolverId. Empty: no source may publish poses.
+  assignments: {}
 
 mapping:
   enabled: false

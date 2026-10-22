@@ -478,6 +478,19 @@ def _pose_topic(source_id):
   return PubSub.formatTopic(PubSub.POSITIONING_POSE, source_id=source_id)
 
 
+def _use_assignment_manifest(test, manifest, resolver_id="positioning-default"):
+  """Point Manager at a temporary `source_id -> resolver_id` manifest for one test."""
+  workdir = tempfile.mkdtemp()
+  test.addCleanup(shutil.rmtree, workdir)
+  path = os.path.join(workdir, "positioning-assignments.json")
+  with open(path, "w", encoding="utf-8") as manifest_file:
+    json.dump(manifest, manifest_file)
+  environ = patch.dict(os.environ, {"POSITIONING_ASSIGNMENTS_FILE": path,
+                                    "POSITIONING_RESOLVER_ID": resolver_id})
+  environ.start()
+  test.addCleanup(environ.stop)
+
+
 class PoseACLTest(TestCase):
 
   def setUp(self):
@@ -489,6 +502,9 @@ class PoseACLTest(TestCase):
     Cam.objects.create(sensor_id="ptz-a", name="PTZ A", type="camera", scene=self.scene_a)
     Cam.objects.create(sensor_id="ptz-b", name="PTZ B", type="camera", scene=self.scene_b)
     Cam.objects.create(sensor_id="ptz-none", name="PTZ None", type="camera")
+    _use_assignment_manifest(
+      self, {"ptz-a": "positioning-default", "ptz-b": "positioning-default",
+             "ptz-other": "another-resolver"})
 
   def _check(self, username, source_id, acc):
     return _acl_check(self.client, username, _pose_topic(source_id), acc)
@@ -549,6 +565,9 @@ class PoseACLTest(TestCase):
     self.assertEqual(allowed.data["result"], "allow")
     self.assertEqual(self._check("pose-publisher", "ptz-b", 4).status_code, 403)
     self.assertEqual(self._check("consumer-a", "ptz-a", 2).status_code, 403)
+    # The topic ACL alone does not let a publisher forge poses for unassigned sources.
+    self.assertEqual(self._check("pose-publisher", "ptz-none", 2).status_code, 403)
+    self.assertEqual(self._check("pose-publisher", "ptz-other", 2).status_code, 403)
 
   def test_positioning_identity_can_write_only_pose_topics(self):
     resolver = User.objects.create_user("positioning", "positioning@example.com", "unused")
@@ -557,6 +576,10 @@ class PoseACLTest(TestCase):
     self.assertEqual(allowed.status_code, 200)
     self.assertEqual(allowed.data["result"], "allow")
     self.assertEqual(self._check("positioning", "ptz-a", 4).status_code, 403)
+    for source_id in ("ptz-none", "ptz-other", "unknown"):
+      denied = self._check("positioning", source_id, 2)
+      self.assertEqual(denied.status_code, 403)
+      self.assertEqual(denied.data["result"], "deny")
     self.assertEqual(
       _acl_check(self.client, "positioning", "scenescape/data/camera/ptz-a", 2).status_code, 403)
     self.assertEqual(

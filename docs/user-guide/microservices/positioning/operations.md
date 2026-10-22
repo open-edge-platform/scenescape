@@ -55,6 +55,14 @@ configured source is not assigned to its `resolver_id`, or if an entry for its
 calibration and camera-to-scene membership. Source configuration is described in
 [Positioning Service](positioning.md#configure).
 
+Manager reads the same manifest (`POSITIONING_ASSIGNMENTS_FILE`) to authorize
+broker writes to `scenescape/positioning/pose/{source_id}`: a pose write is allowed
+only for a source assigned to Manager's `POSITIONING_RESOLVER_ID`, whatever the
+publishing identity's topic ACL grants. A missing or invalid manifest assigns
+nothing, so all pose writes are denied. Mount the deployment manifest into both
+Positioning and Manager (web) and keep `POSITIONING_RESOLVER_ID` equal to the
+service's `resolver_id`.
+
 ## Enable ONVIF Access on the Camera
 
 The Positioning service talks to cameras only through ONVIF over HTTP or HTTPS. It
@@ -217,7 +225,9 @@ positioning/.local/
    ```
 
 5. Create `positioning/.local/compose.override.yml` to mount the configuration,
-   manifest, and credentials into the Positioning service. Compose replaces the
+   manifest, and credentials into the Positioning service, and the same manifest
+   and `resolver_id` into Manager (`web`), which authorizes pose writes only for
+   sources assigned to that resolver. Compose replaces the
    whole `command` list, so repeat the broker and NTP options; without `--ntp`,
    clock synchronization cannot be verified and every pose is invalid. Set `user`
    to your host user and group IDs (`id -u` and `id -g`) so the service can read
@@ -248,6 +258,11 @@ positioning/.local/
          - ./positioning/.local/positioning.json:/run/positioning/positioning.json:ro
          - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
          - ./positioning/.local/secrets:/run/secrets/onvif:ro
+     web:
+       environment:
+         - POSITIONING_RESOLVER_ID=positioning-lab
+       volumes:
+         - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
    ```
 
    The secret files mounted by the base Compose file (broker auth and
@@ -265,12 +280,12 @@ positioning/.local/
 
    ```bash
    docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml \
-     --profile controller up -d positioning
+     --profile controller up -d positioning web
    docker compose logs -f positioning
    ```
 
-   The first command merges the override into the `positioning` service and
-   recreates only that container. The broker and other services keep running. Use
+   The first command merges the override into the `positioning` and `web` services
+   and recreates only those containers. The broker and other services keep running. Use
    `--profile tracker` instead if the stack runs the Tracker profile. Run the
    command again after you edit any file in `positioning/.local/`. The files are
    read only at startup.

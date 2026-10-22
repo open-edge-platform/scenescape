@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+import json
+import os
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -107,6 +109,27 @@ def test_positioning_status_write_is_bound_to_configured_resolver(
   assert response.data["result"] == expected_result
 
 
+def _write_manifest(tmp_path, manifest, name="assignments.json"):
+  path = tmp_path / name
+  path.write_text(manifest if isinstance(manifest, str) else json.dumps(manifest),
+                  encoding="utf-8")
+  return str(path)
+
+
+def _pose_acl_check(username, topic, acls, environ, access=api.WRITE_ONLY):
+  request = Mock(data={"username": username, "topic": topic, "acc": access})
+  user = Mock(is_superuser=False)
+  user_acls = MagicMock()
+  user_acls.exists.return_value = True
+  user_acls.__iter__.return_value = iter(
+    [Mock(topic=name, access=api.WRITE_ONLY) for name in acls])
+
+  with patch.dict("os.environ", environ, clear=False), \
+       patch.object(api.User.objects, "get", return_value=user), \
+       patch.object(api.PubSubACL.objects, "filter", return_value=user_acls):
+    return api.ACLCheck().post(request)
+
+
 @pytest.mark.parametrize(
   ("topic", "acls", "expected_status", "expected_result"),
   [
@@ -117,19 +140,72 @@ def test_positioning_status_write_is_bound_to_configured_resolver(
   ],
 )
 def test_positioning_pose_write_requires_pose_topic_and_explicit_acl(
-  topic, acls, expected_status, expected_result,
+  tmp_path, topic, acls, expected_status, expected_result,
 ):
-  request = Mock(data={"username": "positioning", "topic": topic, "acc": api.WRITE_ONLY})
-  user = Mock(is_superuser=False)
-  user_acls = MagicMock()
-  user_acls.exists.return_value = True
-  user_acls.__iter__.return_value = iter(
-    [Mock(topic=name, access=api.WRITE_ONLY) for name in acls])
-
-  with patch.dict("os.environ", {"POSITIONING_RESOLVER_ID": "resolver-a"}), \
-       patch.object(api.User.objects, "get", return_value=user), \
-       patch.object(api.PubSubACL.objects, "filter", return_value=user_acls):
-    response = api.ACLCheck().post(request)
+  environ = {"POSITIONING_RESOLVER_ID": "resolver-a",
+             "POSITIONING_ASSIGNMENTS_FILE": _write_manifest(tmp_path, {"cam-a": "resolver-a"})}
+  response = _pose_acl_check("positioning", topic, acls, environ)
 
   assert response.status_code == expected_status
   assert response.data["result"] == expected_result
+
+
+@pytest.mark.parametrize("username", ["positioning", "pose-publisher"])
+@pytest.mark.parametrize(
+  ("source_id", "access", "expected_status"),
+  [
+    ("cam-a", api.WRITE_ONLY, 200),
+    ("cam-b", api.WRITE_ONLY, 403),       # assigned to another resolver
+    ("cam-z", api.WRITE_ONLY, 403),       # not in the manifest
+    ("+", api.WRITE_ONLY, 403),
+    ("cam-b", api.READ_AND_WRITE, 403),
+    ("cam-z", api.READ_AND_WRITE, 403),
+  ],
+)
+def test_pose_write_is_bound_to_sources_assigned_to_the_resolver(
+  tmp_path, username, source_id, access, expected_status,
+):
+  manifest = {"$comment": "test", "cam-a": "resolver-a", "cam-b": "resolver-b"}
+  environ = {"POSITIONING_RESOLVER_ID": "resolver-a",
+             "POSITIONING_ASSIGNMENTS_FILE": _write_manifest(tmp_path, manifest)}
+  response = _pose_acl_check(username, f"scenescape/positioning/pose/{source_id}",
+                             ["POSITIONING_POSE"], environ, access=access)
+
+  assert response.status_code == expected_status
+
+
+@pytest.mark.parametrize(
+  "manifest",
+  [
+    None,  # POSITIONING_ASSIGNMENTS_FILE not set
+    "missing",
+    "{not json",
+    '["cam-a"]',
+    '{"cam-a": "resolver/a"}',
+    '{"cam-a": ""}',
+  ],
+)
+def test_pose_write_is_denied_without_a_valid_manifest(tmp_path, monkeypatch, manifest):
+  monkeypatch.delenv("POSITIONING_ASSIGNMENTS_FILE", raising=False)
+  environ = {"POSITIONING_RESOLVER_ID": "resolver-a"}
+  if manifest == "missing":
+    environ["POSITIONING_ASSIGNMENTS_FILE"] = str(tmp_path / "absent.json")
+  elif manifest is not None:
+    environ["POSITIONING_ASSIGNMENTS_FILE"] = _write_manifest(tmp_path, manifest)
+
+  response = _pose_acl_check(
+    "positioning", "scenescape/positioning/pose/cam-a", ["POSITIONING_POSE"], environ)
+
+  assert response.status_code == 403
+  assert response.data["result"] == "deny"
+
+
+def test_pose_write_follows_manifest_changes(tmp_path):
+  path = _write_manifest(tmp_path, {"cam-a": "resolver-a"})
+  environ = {"POSITIONING_RESOLVER_ID": "resolver-a", "POSITIONING_ASSIGNMENTS_FILE": path}
+  topic = "scenescape/positioning/pose/cam-a"
+  assert _pose_acl_check("positioning", topic, ["POSITIONING_POSE"], environ).status_code == 200
+
+  replacement = _write_manifest(tmp_path, {"cam-a": "resolver-b"}, name="next.json")
+  os.replace(replacement, path)
+  assert _pose_acl_check("positioning", topic, ["POSITIONING_POSE"], environ).status_code == 403

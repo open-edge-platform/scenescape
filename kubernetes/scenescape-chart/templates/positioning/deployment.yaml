@@ -62,6 +62,10 @@ spec:
               mountPath: /app/config/positioning.json
               subPath: positioning.json
               readOnly: true
+            - name: positioning-config
+              mountPath: /app/deployment/positioning-assignments.json
+              subPath: positioning-assignments.json
+              readOnly: true
             - name: positioning-auth
               mountPath: /run/secrets/positioning.auth
               subPath: positioning.auth

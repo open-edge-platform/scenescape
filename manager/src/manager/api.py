@@ -25,6 +25,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from manager.models import Scene, Cam, SingletonSensor, Region, Tripwire, Asset3D, ChildScene, CalibrationMarker, DatabaseStatus, PubSubACL
 from manager.serializers import *
 from manager.scene_import import ImportScene
+from manager import positioning_assignments
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
 from scene_common.options import *
@@ -497,16 +498,28 @@ class ACLCheck(APIView):
         status=status.HTTP_400_BAD_REQUEST
       )
 
-    if username == "positioning" and requestedAccess in (WRITE_ONLY, READ_AND_WRITE):
-      resolver_id = os.environ.get("POSITIONING_RESOLVER_ID", "positioning-default")
+    is_write = requestedAccess in (WRITE_ONLY, READ_AND_WRITE)
+    pose_template = PubSub.getTopicByTemplateName("POSITIONING_POSE").template
+    is_positioning_pose_topic = PubSub.match_topic(pose_template, currentTopic)
+    resolver_id = positioning_assignments.configured_resolver_id()
+
+    if username == "positioning" and is_write:
       try:
         positioning_status_topic = PubSub.formatTopic(
           PubSub.POSITIONING_STATUS, resolver_id=resolver_id)
       except (KeyError, ValueError):
         positioning_status_topic = None
-      pose_template = PubSub.getTopicByTemplateName("POSITIONING_POSE").template
-      is_positioning_pose_topic = PubSub.match_topic(pose_template, currentTopic)
       if currentTopic != positioning_status_topic and not is_positioning_pose_topic:
+        return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
+
+    # Pose writes, by any identity, are bound to the sources the deployment
+    # assignment manifest gives this resolver; the POSITIONING_POSE ACL itself
+    # only grants the topic template.
+    if is_write and is_positioning_pose_topic:
+      source_id = (PubSub.parseTopic(currentTopic) or {}).get("source_id")
+      if not positioning_assignments.is_assigned(source_id, resolver_id):
+        log.warning("Access denied: pose write for source '%s' not assigned to resolver '%s'.",
+                    source_id, resolver_id)
         return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
 
     user_acls = PubSubACL.objects.filter(user=user)
