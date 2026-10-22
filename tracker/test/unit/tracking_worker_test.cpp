@@ -625,19 +625,19 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
     ASSERT_GT(all_published_tracks.size(), 0u)
         << "No reliable tracks published - metadata passthrough cannot be verified";
 
-    // Non-ReID fields keep their existing merge behavior; the ReID field now
-    // includes the provenance of the detection that supplied the embedding.
+    // Non-ReID fields keep their merge behavior; ReID is carried only by the sighting.
     for (const auto& track : all_published_tracks) {
         rapidjson::Document metadata;
         ASSERT_FALSE(metadata.Parse(track.metadata_json.c_str()).HasParseError());
         ASSERT_TRUE(metadata.HasMember("score"));
         EXPECT_DOUBLE_EQ(metadata["score"].GetDouble(), 0.95);
-        ASSERT_TRUE(metadata.HasMember("reid"));
-        const auto& reid = metadata["reid"];
-        EXPECT_STREQ(reid["model_name"].GetString(), "test");
-        EXPECT_STREQ(reid["camera_id"].GetString(), "cam-1");
-        EXPECT_DOUBLE_EQ(reid["bounding_box_px"]["width"].GetDouble(), 50.0);
-        EXPECT_TRUE(reid["timestamp"].IsString());
+        EXPECT_FALSE(metadata.HasMember("reid"));
+        rapidjson::Document sighting;
+        ASSERT_FALSE(sighting.Parse(track.reid_sighting_json.c_str()).HasParseError());
+        EXPECT_STREQ(sighting["reid"]["model_name"].GetString(), "test");
+        EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+        EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 50.0);
+        EXPECT_TRUE(sighting["timestamp"].IsString());
     }
 }
 
@@ -695,15 +695,12 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
         EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
         EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 50.0);
         EXPECT_EQ(sighting["reid"]["embedding_vector"][0][0].GetInt(), i + 1);
+        EXPECT_STREQ(sighting["timestamp"].GetString(),
+                     std::format("2026-01-27T12:00:00.{:03d}Z", i * 67).c_str());
         EXPECT_FALSE(sighting.HasMember("chunk_id"));
         rapidjson::Document metadata;
         ASSERT_FALSE(metadata.Parse(frames[i][0].metadata_json.c_str()).HasParseError());
-        ASSERT_TRUE(metadata.HasMember("reid"));
-        EXPECT_EQ(metadata["reid"]["embedding_vector"][0][0].GetInt(), i + 1);
-        EXPECT_STREQ(metadata["reid"]["camera_id"].GetString(), "cam-1");
-        EXPECT_STREQ(metadata["reid"]["timestamp"].GetString(),
-                     std::format("2026-01-27T12:00:00.{:03d}Z", i * 67).c_str());
-        EXPECT_DOUBLE_EQ(metadata["reid"]["bounding_box_px"]["width"].GetDouble(), 50.0);
+        EXPECT_FALSE(metadata.HasMember("reid"));
         EXPECT_STREQ(metadata["age"]["label"].GetString(), "adult");
     }
     EXPECT_TRUE(frames[3][0].reid_sighting_json.empty());
@@ -1139,11 +1136,13 @@ TEST_F(TrackingWorkerTest, Tracking_MultiCamera_ReidProvenanceMatchesWinningDete
     ASSERT_FALSE(tracks.empty());
     rapidjson::Document metadata;
     ASSERT_FALSE(metadata.Parse(tracks.back().metadata_json.c_str()).HasParseError());
-    ASSERT_TRUE(metadata.HasMember("reid"));
-    EXPECT_EQ(metadata["reid"]["embedding_vector"][0][0].GetInt(), 1);
-    EXPECT_STREQ(metadata["reid"]["camera_id"].GetString(), "cam-1");
-    EXPECT_STREQ(metadata["reid"]["timestamp"].GetString(), "2026-01-27T12:00:03.000Z");
-    EXPECT_DOUBLE_EQ(metadata["reid"]["bounding_box_px"]["width"].GetDouble(), 50.0);
+    EXPECT_FALSE(metadata.HasMember("reid"));
+    rapidjson::Document sighting;
+    ASSERT_FALSE(sighting.Parse(tracks.back().reid_sighting_json.c_str()).HasParseError());
+    EXPECT_EQ(sighting["reid"]["embedding_vector"][0][0].GetInt(), 1);
+    EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+    EXPECT_STREQ(sighting["timestamp"].GetString(), "2026-01-27T12:00:03.000Z");
+    EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 50.0);
     EXPECT_STREQ(metadata["gender"]["label"].GetString(), "female");
     EXPECT_STREQ(metadata["age"]["label"].GetString(), "adult");
 }

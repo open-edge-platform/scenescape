@@ -174,6 +174,23 @@ class TestMessage(unittest.TestCase):
     self.assertEqual(obs.cameras, ["cam-1"])
     self.assertEqual(obs.timestamp, "2026-10-14T15:25:15.000Z")
 
+  def test_tracker_sighting_does_not_require_metadata_reid(self):
+    obj = _object("t1", dims=8)
+    reid = obj["metadata"].pop("reid")
+    obj["metadata"]["age"] = {"label": "adult"}
+    obj["reid_sighting"] = {
+      "camera_id": "cam-1", "timestamp": "2026-10-14T15:25:15.000Z",
+      "bounding_box_px": {"x": 5, "y": 6, "width": 80, "height": 90},
+      "reid": reid,
+    }
+
+    _, (observation,) = TrackIngest._parse_scene_message(scene_message([obj]))
+
+    np.testing.assert_allclose(observation.embedding.reshape(-1), _vector(1, 8))
+    self.assertEqual(observation.camera_id, "cam-1")
+    self.assertEqual(observation.bbox_px_area, 7200)
+    self.assertEqual(observation.metadata, {"age": {"label": "adult"}})
+
   def test_malformed_sighting_does_not_use_stale_metadata(self):
     obj = _object("t1", dims=8)
     obj["reid_sighting"] = {"reid": obj["metadata"]["reid"]}
