@@ -15,7 +15,7 @@ Apache-2.0
 
 ## Use Case:
 
-Developers and operators use this skill to bootstrap a SceneScape deployment, resume a prior deployment, or repeat a selected deployment phase using user-provided stream URLs or video files, camera IDs, scene name, and mapping choice.
+Developers and operators use this skill to bootstrap a Scenescape deployment, resume a prior deployment, or repeat a selected deployment phase using user-provided stream URLs or video files, camera IDs, scene name, and mapping choice.
 
 ### Deployment Geography for Use:
 
