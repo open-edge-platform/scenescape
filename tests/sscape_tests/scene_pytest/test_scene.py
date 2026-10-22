@@ -140,7 +140,7 @@ def test_convert_pixel_bbox(scene_obj, objects):
   original_objects = copy.deepcopy(objects)
 
   # Call the method to convert pixel bounding boxes to meters (this modifies 'objects' in place)
-  scene_obj._convertPixelBoundingBoxesToMeters(objects, intrinsics_matrix, distortion_matrix)
+  scene_obj.convertPixelBoundingBoxesToMeters(objects, intrinsics_matrix, distortion_matrix)
 
   # Verify bounding boxes for main objects and sub_detections
   for obj, original_obj in zip(objects or [], original_objects or []):
@@ -192,9 +192,9 @@ def test_processCameraData_camera_without_pose_returns_true(scene_obj):
 def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
   convert_mock = Mock()
-  monkeypatch.setattr(scene_obj, '_convertPixelBoundingBoxesToMeters', convert_mock)
-  monkeypatch.setattr(scene_obj, '_createMovingObjectsForDetection', lambda *args, **kwargs: [])
-  monkeypatch.setattr(scene_obj, '_finishProcessing', lambda *args, **kwargs: None)
+  monkeypatch.setattr(scene_obj, 'convertPixelBoundingBoxesToMeters', convert_mock)
+  monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', lambda *args, **kwargs: [])
+  monkeypatch.setattr(scene_obj, 'finishProcessing', lambda *args, **kwargs: None)
   payload = {
     'id': camera_obj.cameraID,
     'timestamp': '2023-05-16T21:22:58.388Z',
@@ -212,8 +212,8 @@ def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monk
     captured['when'] = when_value
     return []
 
-  monkeypatch.setattr(scene_obj, '_createMovingObjectsForDetection', _capture_create)
-  monkeypatch.setattr(scene_obj, '_finishProcessing', lambda *args, **kwargs: None)
+  monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', _capture_create)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', lambda *args, **kwargs: None)
   payload = {
     'id': camera_obj.cameraID,
     'timestamp': 'not-used',
@@ -246,7 +246,7 @@ def test_createMovingObjectsForDetection_propagates_scene_mesh(scene_obj):
   created = SimpleNamespace()
   scene_obj.tracker = SimpleNamespace(createObject=lambda *args: created)
 
-  result = scene_obj._createMovingObjectsForDetection('person', [{'id': 'x'}], 1.23, SimpleNamespace())
+  result = scene_obj.createMovingObjectsForDetection('person', [{'id': 'x'}], 1.23, SimpleNamespace())
   assert len(result) == 1
   assert result[0].map_triangle_mesh == 'mesh'
   assert result[0].map_translation == [1, 2, 3]
@@ -254,7 +254,7 @@ def test_createMovingObjectsForDetection_propagates_scene_mesh(scene_obj):
 
 def test_processSceneData_rejects_lat_long_alt_plus_translation(scene_obj, monkeypatch):
   finish_mock = Mock()
-  monkeypatch.setattr(scene_obj, '_finishProcessing', finish_mock)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', finish_mock)
   child = SimpleNamespace(name='child', retrack=True)
   camera_pose = SimpleNamespace(pose_mat=np.eye(4))
   payload = {'objects': [{'lat_long_alt': [0, 0, 0], 'translation': [1, 2, 3]}]}
@@ -276,7 +276,7 @@ def test_processSceneData_splits_retracked_vs_child_objects(scene_obj, monkeypat
     calls.append((objects, child_objects))
 
   scene_obj.tracker = SimpleNamespace(createObject=_create_object)
-  monkeypatch.setattr(scene_obj, '_finishProcessing', _capture_finish)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', _capture_finish)
   child = SimpleNamespace(name='child', retrack=False)
   camera_pose = SimpleNamespace(pose_mat=np.eye(4))
   payload = {'objects': [{'translation': [1, 2, 3], 'metadata': {'reid': {'embedding_vector': [0.1, 0.2]}}}]}
@@ -297,7 +297,7 @@ def test_processSceneData_retrack_true_preserves_reid(scene_obj, monkeypatch):
     calls.append((objects, child_objects))
 
   scene_obj.tracker = SimpleNamespace(createObject=_create_object)
-  monkeypatch.setattr(scene_obj, '_finishProcessing', _capture_finish)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', _capture_finish)
   child = SimpleNamespace(name='child', retrack=True)
   camera_pose = SimpleNamespace(pose_mat=np.eye(4))
   payload = {'objects': [{'translation': [1, 2, 3], 'metadata': {'reid': {'embedding_vector': [0.1, 0.2]}}}]}
@@ -316,7 +316,7 @@ def test_processSceneData_drops_top_level_reid(scene_obj, monkeypatch):
     return SimpleNamespace(oid='oid-1', sceneLoc=Point(1.0, 2.0, 0.0), chain_data=_make_chain_data())
 
   scene_obj.tracker = SimpleNamespace(createObject=_create_object)
-  monkeypatch.setattr(scene_obj, '_finishProcessing', Mock())
+  monkeypatch.setattr(scene_obj, 'finishProcessing', Mock())
   child = SimpleNamespace(name='child', retrack=True)
   camera_pose = SimpleNamespace(pose_mat=np.eye(4))
   payload = {'objects': [{'translation': [1, 2, 3], 'reid': {'embedding_vector': [0.1, 0.2]}}]}
@@ -327,9 +327,9 @@ def test_processSceneData_drops_top_level_reid(scene_obj, monkeypatch):
 def test_processCameraData_strips_claimed_reid_provenance(scene_obj, camera_obj, monkeypatch):
   """A detector cannot claim its crop was vetted elsewhere to skip the pixel bbox gate."""
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
-  monkeypatch.setattr(scene_obj, '_convertPixelBoundingBoxesToMeters', Mock())
-  monkeypatch.setattr(scene_obj, '_createMovingObjectsForDetection', Mock(return_value=[]))
-  monkeypatch.setattr(scene_obj, '_finishProcessing', Mock())
+  monkeypatch.setattr(scene_obj, 'convertPixelBoundingBoxesToMeters', Mock())
+  monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', Mock(return_value=[]))
+  monkeypatch.setattr(scene_obj, 'finishProcessing', Mock())
 
   detection = {
     'id': 'p-1',
@@ -356,7 +356,7 @@ def test_finishProcessing_tracks_when_not_analytics_only(scene_obj, monkeypatch)
   monkeypatch.setattr(scene_obj, '_updateVisible', update_visible_mock)
   scene_obj.tracker = SimpleNamespace(trackObjects=track_mock)
 
-  scene_obj._finishProcessing('person', 10.0, [], [])
+  scene_obj.finishProcessing('person', 10.0, [], [])
   update_visible_mock.assert_called_once()
   track_mock.assert_called_once()
 
@@ -372,7 +372,7 @@ def test_finishProcessing_computes_visibility_for_both_retracked_and_already_tra
   retracked = ['retracked-obj']
   already_tracked = ['already-tracked-obj']
 
-  scene_obj._finishProcessing('person', 10.0, retracked, already_tracked)
+  scene_obj.finishProcessing('person', 10.0, retracked, already_tracked)
 
   update_visible_mock.assert_called_once_with(retracked + already_tracked)
 
@@ -482,9 +482,9 @@ def test_processCameraData_processes_each_detection_type(scene_obj, camera_obj, 
   def _capture_finish(detection_type, when, objects, child_objects=[]):
     finished.append((detection_type, objects, child_objects))
 
-  monkeypatch.setattr(scene_obj, '_convertPixelBoundingBoxesToMeters', _capture_convert)
-  monkeypatch.setattr(scene_obj, '_createMovingObjectsForDetection', _capture_create)
-  monkeypatch.setattr(scene_obj, '_finishProcessing', _capture_finish)
+  monkeypatch.setattr(scene_obj, 'convertPixelBoundingBoxesToMeters', _capture_convert)
+  monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', _capture_create)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', _capture_finish)
 
   payload = {
     'id': camera_obj.cameraID,

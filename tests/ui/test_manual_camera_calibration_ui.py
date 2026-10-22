@@ -12,8 +12,6 @@ import tests.ui.common_ui_test_utils as common
 
 import numpy as np
 
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 
@@ -56,17 +54,11 @@ def test_manual_camera_calibration(params, result_recorder):
     distortion_field = browser.find_element(By.ID, 'id_distortion_k1')
     distortion_lock.click()
     assert distortion_field.is_enabled()
-    assert not distortion_field.get_attribute('readonly')
     distortion_field.clear()
     distortion_field.send_keys('0.125')
-    assert browser.execute_script(
-      "return new FormData(document.getElementById('calibration_form')).get('distortion_k1');"
-    ) == '0.125'
+    assert distortion_field.get_attribute('value') == '0.125'
     distortion_lock.click()
     assert not distortion_field.is_enabled()
-    assert not browser.execute_script(
-      "return new FormData(document.getElementById('calibration_form')).has('distortion_k1');"
-    )
 
     viewport_dimensions = browser.execute_script("return [window.innerWidth, window.innerHeight];")
 

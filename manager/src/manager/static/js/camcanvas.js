@@ -10,6 +10,8 @@
 
 import {
   CALIBRATION_BACKGROUND_COLOR,
+  CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR,
+  CALIBRATION_DIAGNOSTIC_RING_COLOR,
   CALIBRATION_POINT_COLORS,
   CALIBRATION_POINT_SCALE,
   CAMERA_SCALE_FACTOR,
@@ -28,6 +30,7 @@ class CamCanvas {
       this.calibrationPointNames.push(`p${i}`);
     }
     this.calibrationPointSize = 0;
+    this.calibrationPointDiagnostics = new Map();
 
     this.camScaleFactor = CAMERA_SCALE_FACTOR;
     this.scale = 1;
@@ -185,6 +188,7 @@ class CamCanvas {
       this.calibrationPoints = this.calibrationPoints.filter(
         (p) => p !== point,
       );
+      this.calibrationUpdated = true;
       this.calibrationPointNames.push(point.name);
       this.calibrationPointNames.sort((a, b) => {
         const numA = parseInt(a.replace(/\D/g, ""));
@@ -212,6 +216,7 @@ class CamCanvas {
         point.y * this.camScaleFactor,
         point.color,
         point.name,
+        this.calibrationPointDiagnostics.get(point.name) || null,
       );
     }
     this.ctx.restore();
@@ -241,13 +246,64 @@ class CamCanvas {
 
   // Calibration Point functions
 
-  drawPoint(x, y, color, name) {
+  drawPoint(x, y, color, name, diagnostic = null) {
     const size = this.calibrationPointSize;
+    const radius = size / 2;
 
     this.ctx.fillStyle = color;
     this.ctx.beginPath();
-    this.ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
     this.ctx.fill();
+
+    if (diagnostic) {
+      // Shape + black/white contrast: readable on any identity fill color.
+      const isRejected = diagnostic === "rejected";
+      const ringRadius = radius + Math.max(3, size * 0.35);
+      const lineWidth = Math.max(2.5, size * 0.28);
+      const dash = Math.max(4, size * 0.45);
+      const gap = Math.max(3, size * 0.3);
+
+      this.ctx.save();
+      this.ctx.lineCap = "butt";
+      this.ctx.setLineDash([]);
+      this.ctx.strokeStyle = CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR;
+      this.ctx.lineWidth = lineWidth + 2.5;
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+      this.ctx.stroke();
+
+      this.ctx.strokeStyle = CALIBRATION_DIAGNOSTIC_RING_COLOR;
+      this.ctx.lineWidth = lineWidth;
+      if (!isRejected) {
+        this.ctx.setLineDash([dash, gap]);
+      }
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, ringRadius, 0, Math.PI * 2);
+      this.ctx.stroke();
+      this.ctx.setLineDash([]);
+
+      if (isRejected) {
+        const arm = radius * 0.9;
+        this.ctx.lineCap = "round";
+        this.ctx.strokeStyle = CALIBRATION_DIAGNOSTIC_RING_COLOR;
+        this.ctx.lineWidth = Math.max(4, size * 0.38);
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - arm, y - arm);
+        this.ctx.lineTo(x + arm, y + arm);
+        this.ctx.moveTo(x + arm, y - arm);
+        this.ctx.lineTo(x - arm, y + arm);
+        this.ctx.stroke();
+        this.ctx.strokeStyle = CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR;
+        this.ctx.lineWidth = Math.max(2, size * 0.22);
+        this.ctx.beginPath();
+        this.ctx.moveTo(x - arm, y - arm);
+        this.ctx.lineTo(x + arm, y + arm);
+        this.ctx.moveTo(x + arm, y - arm);
+        this.ctx.lineTo(x - arm, y + arm);
+        this.ctx.stroke();
+      }
+      this.ctx.restore();
+    }
 
     this.ctx.font = `${Math.max(12, size)}px Arial`;
     this.ctx.fillStyle = "black";
@@ -285,6 +341,19 @@ class CamCanvas {
         acc[point.name] = [point.x, point.y];
         return acc;
       }, {});
+  }
+
+  setCalibrationPointDiagnostics(rejectedNames, highErrorNames) {
+    this.calibrationPointDiagnostics = new Map();
+    rejectedNames.forEach((name) =>
+      this.calibrationPointDiagnostics.set(name, "rejected"),
+    );
+    highErrorNames.forEach((name) => {
+      if (!this.calibrationPointDiagnostics.has(name)) {
+        this.calibrationPointDiagnostics.set(name, "high-error");
+      }
+    });
+    this.drawImage();
   }
 }
 

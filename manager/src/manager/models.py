@@ -313,7 +313,11 @@ class Scene(models.Model):
       if (self._original_polycam_data != self.polycam_data):
         glb_from_zip = self.polycam_data
 
-      if self.changedCalibrationParams():
+      # Clear processed state when calibration inputs or the map file change so
+      # AprilTag / markerless registration re-runs (stale markers otherwise stay).
+      # FieldFile equality is name-based, so a same-name re-upload is only visible as uncommitted.
+      map_reuploaded = bool(self.map) and getattr(self.map, '_committed', True) is False
+      if self.changedCalibrationParams() or (self._original_map != self.map) or map_reuploaded:
         self.map_processed = None
 
       super().save(*args, **kwargs)
@@ -439,6 +443,11 @@ class Scene(models.Model):
            and cam.distortion_k3 != None:
           sInfo['distortion'] = [cam.distortion_k1, cam.distortion_k2,
                                  cam.distortion_p1, cam.distortion_p2, cam.distortion_k3]
+
+        # Propagate scene map scale for the RANSAC map-ppm heuristic (see
+        # scaled_reprojection_threshold_px); not camera-resolution scaling.
+        if getattr(mScene, 'scale', None) is not None and 'pixels per meter' not in sInfo:
+          sInfo['pixels per meter'] = mScene.scale
 
         mScene.cameras[sensor.sensor_id] = ScenescapeCamera(
             sensor.sensor_id, sInfo, resolution=(cam.width, cam.height))

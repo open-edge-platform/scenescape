@@ -12,13 +12,14 @@ from scipy.spatial.transform import Rotation
 from scene_common import log
 from scene_common.transform import (
   CameraPose, convertToTransformMatrix, getPoseMatrix, CameraIntrinsics,
+  scaled_reprojection_threshold_px,
 )
 from scene_common.timestamp import get_iso_time
 
 from atag_camera_calibration import CameraCalibrationApriltag, \
     TILE_SIZE, DEFAULT_ROTATION_MATRIX, DEFAULT_MESH_ROTATION, MIN_APRILTAG_COUNT
 from auto_camera_calibration_controller import CameraCalibrationController
-from calibration_geometry import validate_camera_pose, PLANAR_MAP_EXTENSIONS
+from calibration_geometry import validate_camera_pose
 
 MAX_WAIT_FRAME_COUNT = 10
 
@@ -70,10 +71,15 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       except FileNotFoundError:
         response_dict['status'] = "Error: Glb file not found"
         return response_dict
+      except RuntimeError as err:
+        response_dict['status'] = "error"
+        response_dict['message'] = str(err)
+        self.notify_scene_registration(sceneobj.id, response_dict)
+        return response_dict
 
     apriltags_from_db = []
     response = self.calibration_data_interface.calibration_markers_with_scene_id(sceneobj.id)
-    if 'results' in response:
+    if response and 'results' in response:
       apriltags_from_db = response['results']
     result_data_from_db = {}
     if apriltags_from_db:
@@ -99,26 +105,43 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     if not sceneobj.map:
       self.reset_scene(sceneobj)
       return False
-    else:
-      return (sceneobj.map_processed is None)
+    # map_processed is None (explicit invalidate) or map file is newer than last run
+    return sceneobj.map_processed is None or self.is_map_processed(sceneobj)
 
   def save_to_database(self, scene, atag_points_3d):
-    """! Function stores baseapriltag data into db.
+    """! Replace stored AprilTag markers with the newly detected set.
+
+    Always clear then insert so a smaller scan cannot leave the scene with
+    zero markers, and obsolete IDs from a prior map cannot linger beside
+    the new set. map_processed is updated only after the full replace
+    succeeds; otherwise RuntimeError is raised and processed state is left
+    unset so registration can be retried.
+
     @param   scene             Scene database object.
     @param   atag_points_3d   Apriltag centers in 3d plane.
 
     @return  None
     """
-    response = self.calibration_data_interface.calibration_markers_with_scene_id(scene.id)
-    if 'results' in response:
-      apriltags = response['results']
-    if apriltags and len(atag_points_3d) < len(apriltags):
-      self.calibration_data_interface.delete_calibration_markers_for_scene(scene.id)
-    else:
-      for key, value in atag_points_3d.items():
-        post_data = {'marker_id': f"{scene.id}_{str(key)}", 'apriltag_id': key, 'dims': value, 'scene': scene.id}
-        self.calibration_data_interface.update_or_create_calibration_marker(scene.id, post_data)
-    self.calibration_data_interface.update_map_processed(scene.id, get_iso_time())
+    if not self.calibration_data_interface.delete_calibration_markers_for_scene(scene.id):
+      raise RuntimeError(
+          f"Failed to clear calibration markers for scene {scene.id}")
+    for key, value in atag_points_3d.items():
+      post_data = {
+          'marker_id': f"{scene.id}_{str(key)}",
+          'apriltag_id': key,
+          'dims': value,
+          'scene': scene.id,
+      }
+      created = self.calibration_data_interface.update_or_create_calibration_marker(
+          scene.id, post_data)
+      if not created:
+        raise RuntimeError(
+            f"Failed to persist calibration marker {key} for scene {scene.id}")
+    updated = self.calibration_data_interface.update_map_processed(
+        scene.id, get_iso_time())
+    if not updated:
+      raise RuntimeError(
+          f"Failed to mark map processed for scene {scene.id}")
     return
 
   def decode_image(self, img_data):
@@ -158,6 +181,9 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       log.info(f"Image decoded for camera {cam_frame_data['id']}, shape: {src_2d_image.shape if src_2d_image is not None else 'None'}")
       intrinsic_matrix_2d = np.array(camera_intrinsics)
       cur_cam_calib_obj.intrinsic_matrix_2d = intrinsic_matrix_2d
+      # Map-scale heuristic for the camera-image RANSAC / planar gates (not
+      # camera-resolution scaling). See scaled_reprojection_threshold_px.
+      cur_cam_calib_obj.pixels_per_meter = getattr(sceneobj, "scale", None)
       cur_cam_calib_obj.find_apriltags_in_frame(src_2d_image, True)
       camera_pose = cur_cam_calib_obj.get_camera_pose_in_scene()
       log.info(f"Camera pose computed for camera {cam_frame_data['id']}")
@@ -171,6 +197,7 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         # Get respective 2d and 3d points for representation in UI.
         points_3d, points_2d = cur_cam_calib_obj.get_point_correspondences()
         map_points_3d = np.asarray(points_3d, dtype=float)
+        points_2d_arr = np.asarray(points_2d, dtype=float)
         log.info(f"Point correspondences calculated for calibration UI for camera {cam_frame_data['id']}")
 
         cam_to_world_y_down = convertToTransformMatrix(self.scene_pose_mat,
@@ -183,10 +210,25 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
         points_3d = [np.dot(self.scene_pose_mat, np.append(point, 1))[:3].tolist()
                      for point in points_3d]
 
+        # Pose was solved with RANSAC; score acceptance on inliers only so
+        # rejected outliers cannot inflate planar RMS past the gate.
+        pose_transform = getattr(cur_cam_calib_obj, "last_pose_transform", None)
+        inlier_mask = getattr(pose_transform, "inlier_mask", None)
+        if inlier_mask is not None and int(np.count_nonzero(inlier_mask)) >= MIN_APRILTAG_COUNT:
+          validate_map = map_points_3d[inlier_mask]
+          validate_2d = points_2d_arr[inlier_mask]
+          validate_scene = [points_3d[i] for i in np.flatnonzero(inlier_mask)]
+        else:
+          validate_map = map_points_3d
+          validate_2d = points_2d_arr
+          validate_scene = points_3d
+
+        max_reproj_px = scaled_reprojection_threshold_px(
+            getattr(sceneobj, "scale", None))
         validation = validate_camera_pose(
-            map_points_3d, points_3d, points_2d, camera_pose, trans, intrinsic_matrix_2d,
-            cur_cam_calib_obj.tag_size,
-            os.path.splitext(sceneobj.map)[1].lower() in PLANAR_MAP_EXTENSIONS)
+            validate_map, validate_scene, validate_2d, camera_pose, trans,
+            intrinsic_matrix_2d, cur_cam_calib_obj.tag_size,
+            max_reprojection_error_px=max_reproj_px)
         if not validation.accepted:
           log.error(f"Rejecting calibration for camera {cam_frame_data['id']}: {validation.message}")
           return self._rejection_response(validation, trans, points_3d, points_2d)

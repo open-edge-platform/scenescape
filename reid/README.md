@@ -11,7 +11,7 @@ Scene Controller continues to use the compatibility import paths in-process.
 ## Build
 
 ```bash
-make reid_service
+make reid
 ```
 
 To build all non-core services, including Re-ID:
@@ -25,7 +25,7 @@ make build-all
 Build the image and select one backend override:
 
 ```bash
-make reid_service
+make reid
 
 docker compose \
   -f docker-compose.yml \
