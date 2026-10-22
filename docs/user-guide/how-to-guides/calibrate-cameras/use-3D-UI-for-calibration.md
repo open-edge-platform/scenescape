@@ -92,6 +92,16 @@ Before you begin:
 
 1. **Issue: If you use 3D UI Camera Calibration, the 8-points in 2D UI Camera Calibration will no longer be consistent with the current pose.**
 
+2. **Issue: A point-correspondence camera appears far above or below the scene.**
+
+   Check the saved point matches, lens intrinsics, and distortion coefficients.
+   The shared pose solver rejects outliers with RANSAC and initializes iterative
+   refinement from that estimated pose. This preserves the useful starting
+   solution when removing a point makes the remaining geometry poorly
+   conditioned. It applies to both manual and AprilTag-generated point matches.
+   Inspect reprojection error and the physical camera location before saving;
+   a finite pose alone does not establish a correct calibration.
+
 ## Supporting Resources
 
 - [Scenescape README](https://github.com/open-edge-platform/scenescape/blob/main/README.md)
