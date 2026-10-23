@@ -146,6 +146,38 @@ inline std::vector<TruthSample> between(const std::vector<TruthSample> &samples,
   return slice;
 }
 
+// Horizontal distance between an estimate and the truth [m].
+inline double positionError(const TrackedObject &state, const TruthSample &sample)
+{
+  return std::hypot(state.x - sample.x, state.y - sample.y);
+}
+
+// Position error of each state against its truth sample (states as returned by FilterRun::feed), for t >= from.
+inline std::vector<double>
+positionErrors(const std::vector<TruthSample> &truth, const std::vector<TrackedObject> &states, double from = 0.0)
+{
+  constexpr double kEpsilon = 1e-9;
+  std::vector<double> errors;
+  for (size_t i = 0; i < truth.size(); ++i)
+  {
+    if (truth[i].t > from - kEpsilon)
+    {
+      errors.push_back(positionError(states.at(i), truth[i]));
+    }
+  }
+  return errors;
+}
+
+inline double rms(const std::vector<double> &values)
+{
+  double sumSquares = 0.0;
+  for (double value : values)
+  {
+    sumSquares += value * value;
+  }
+  return std::sqrt(sumSquares / static_cast<double>(values.size()));
+}
+
 struct Sensor
 {
   std::string id = "camera";  // sensor id of its observations, e.g. "lidar"

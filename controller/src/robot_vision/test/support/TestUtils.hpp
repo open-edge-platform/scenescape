@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 
 #include <opencv2/core.hpp>
@@ -50,6 +51,13 @@ inline TrackManagerConfig productionConfig()
   config.mInitStateCovariance = kProductionInitStateCovariance;
   config.mMotionModels = kProductionMotionModels;
   return config;
+}
+
+// Row of a motion model in getModelProbability() and currentStates() for productionConfig().
+inline int modelIndex(MotionModel model)
+{
+  const auto &models = kProductionMotionModels;
+  return static_cast<int>(std::ranges::find(models, model) - models.begin());
 }
 
 inline double minEigenvalue(const cv::Mat &matrix)
