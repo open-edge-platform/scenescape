@@ -112,12 +112,14 @@ class CacheManager:
             # invalidate() superseded this fetch, so its results are stale.
             return
           retired = self._applySceneResults(found)
-        # Joining a tracker waits for its queue to drain, so don't block the
-        # refresh (and its waiters) on it.
+        # Joining a tracker waits for its queue to drain.
         for scene, clear_registries in retired:
-          threading.Thread(
-            target=self._teardownScene, args=(scene, clear_registries),
-            daemon=True).start()
+          if clear_registries:
+            self._teardownScene(scene, clear_registries=True)
+          else:
+            threading.Thread(
+              target=self._teardownScene, args=(scene,),
+              kwargs={'clear_registries': False}, daemon=True).start()
         return
       finally:
         with self._lock:
