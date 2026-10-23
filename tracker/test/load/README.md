@@ -14,7 +14,7 @@ compose up (broker, otel-collector, tracker) → k6 run → pytest → compose d
 
 ```bash
 cd tracker/
-  make test-load                     # Default: 2D, 4 cameras × 15 fps × 300 objects, 1 min
+make test-load                     # Default: 2D, 4 cameras × 15 fps × 300 objects, 1 min
 ```
 
 Override defaults for boundary testing:

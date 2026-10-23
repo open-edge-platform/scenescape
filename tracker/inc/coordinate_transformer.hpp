@@ -83,10 +83,13 @@ public:
      * world position (from foot point) and world size (from corner distances).
      *
      * Detections where any projection fails are silently skipped.
+     * When present, rotation must be a finite sensor-frame [x, y, z, w]
+     * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
      * @return TrackedObjects with world-space position and size fields populated.
-     *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
+     *         id, x, y, z, length, width, height are set. Velocity is zero.
+     *         Supplied rotation sets world yaw and attributes["has_orientation"].
      *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */

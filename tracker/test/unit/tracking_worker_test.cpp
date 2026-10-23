@@ -149,14 +149,18 @@ TEST(VelocityRotationTest, UsesKalmanYawAtYawResidualThreshold) {
 
 TEST(VelocityRotationTest, UsesVelocityHeadingWhenObservedYawDisagrees) {
     rv::tracking::TrackedObject track;
-    track.yaw = 1.0;
-    track.vx = 2.0;
+    track.yaw = 0.0;
+    track.vx = 0.0;
+    track.vy = 2.0;
     rv::tracking::orientation::setHasOrientation(track, true);
     VelocityRotationState state;
 
     const auto rotation = select_track_rotation(track, false, state);
 
-    EXPECT_EQ(rotation, (std::array<double, 4>{0.0, 0.0, 0.0, 1.0}));
+    EXPECT_DOUBLE_EQ(rotation[0], 0.0);
+    EXPECT_DOUBLE_EQ(rotation[1], 0.0);
+    EXPECT_NEAR(rotation[2], std::sin(std::numbers::pi / 4.0), 1e-12);
+    EXPECT_NEAR(rotation[3], std::cos(std::numbers::pi / 4.0), 1e-12);
 }
 
 TEST(VelocityRotationTest, WrapsYawResidualAcrossPi) {

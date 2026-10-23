@@ -319,6 +319,12 @@ picked up through the existing API database update restart path.
 
 ### Detection inputs and coordinate conversion
 
+The camera-data schema uses JSON Schema Draft-04 for RapidJSON compatibility,
+with `#/definitions/...` references and `minimum: 0` plus
+`exclusiveMinimum: true` for strictly positive size components. When schema
+validation is enabled, invalid detections reject the entire message before
+parsing, including mixed pixel-box and sensor-frame geometry.
+
 Detections can provide either `bounding_box_px` or `translation` plus `size`.
 Pixel boxes keep the existing camera-calibrated ground-plane projection. Direct
 3D detections provide sensor-frame position and dimensions in metres; the
@@ -326,6 +332,8 @@ configured camera pose transforms XYZ into world coordinates. An optional
 `rotation` quaternion uses `[x, y, z, w]` order and is composed as camera-to-world
 rotation times detection rotation. RobotVision stores yaw only, so the composed
 world orientation is reduced to Z-yaw and marked with `has_orientation`.
+This also applies to bounding-box detections, whose rotation was previously
+ignored by the tracker; supplied orientation can now change their published rotation.
 
 ### Rotation publishing
 

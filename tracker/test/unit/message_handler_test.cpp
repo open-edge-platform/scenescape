@@ -917,7 +917,7 @@ TEST_F(MessageHandlerTest, SchemaValidation_ZeroNormRotationKeepsDetectionWithou
     EXPECT_FALSE(detections.front().rotation.has_value());
 }
 
-TEST_F(MessageHandlerTest, SchemaValidation_SkipsAmbiguousDetectionGeometry) {
+TEST_F(MessageHandlerTest, SchemaValidation_RejectsAmbiguousDetectionGeometry) {
     auto schema_dir = get_schema_dir();
     MessageHandler handler(mock_client_, test_registry_, test_buffer_, test_config_, true,
                            schema_dir);
@@ -937,10 +937,9 @@ TEST_F(MessageHandlerTest, SchemaValidation_SkipsAmbiguousDetectionGeometry) {
 
     mock_client_->simulateMessage("scenescape/data/camera/cam1", payload);
 
-    EXPECT_EQ(handler.getRejectedCount(), 0);
-    EXPECT_EQ(handler.getBufferedCount(), 1);
-    const auto buffered = test_buffer_.pop_all();
-    EXPECT_TRUE(buffered.at({"test-scene-001", "person"}).at("cam1").detections.empty());
+    EXPECT_EQ(handler.getRejectedCount(), 1);
+    EXPECT_EQ(handler.getBufferedCount(), 0);
+    EXPECT_TRUE(test_buffer_.pop_all().empty());
 }
 
 // Test invalid message is rejected by schema validation

@@ -470,19 +470,6 @@ TEST(TransformDetectionsTest, MissingRotationDoesNotMarkOrientationObserved) {
     EXPECT_FALSE(result[0].attributes.contains("has_orientation"));
 }
 
-TEST(TransformDetectionsTest, ZeroNormRotationKeepsMeasurementWithoutOrientation) {
-    auto transformer = make_transformer(kCameraAtaqQcam1);
-    Detection detection;
-    detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
-    detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
-    detection.rotation = std::array<double, 4>{0.0, 0.0, 0.0, 0.0};
-
-    const auto result = transformer.transformDetections(std::array{detection});
-
-    ASSERT_EQ(result.size(), 1u);
-    EXPECT_FALSE(result[0].attributes.contains("has_orientation"));
-}
-
 TEST(TransformDetectionsTest, PixelDetectionRotationMarksOrientationObserved) {
     auto transformer = make_transformer(kCameraAtaqQcam1);
     auto detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f);

@@ -445,7 +445,7 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
             const bool has_size = det.HasMember("size");
             if ((has_bbox && (has_translation || has_size)) ||
                 (!has_bbox && !(has_translation && has_size))) {
-                LOG_WARN("Detection must contain bounding_box_px or translation and size");
+                LOG_WARN("Detection must contain either bounding_box_px or translation and size");
                 continue;
             }
 

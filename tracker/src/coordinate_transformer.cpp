@@ -4,6 +4,7 @@
 #include "coordinate_transformer.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <charconv>
 #include <cmath>
 #include <string_view>
@@ -56,12 +57,10 @@ void addMetadataAttributes(std::string_view metadataJson,
     }
 }
 
-std::optional<cv::Matx33d> quaternionToRotationMatrix(const std::array<double, 4>& quaternion) {
+cv::Matx33d quaternionToRotationMatrix(const std::array<double, 4>& quaternion) {
     const double norm = std::hypot(std::hypot(quaternion[0], quaternion[1]),
                                    std::hypot(quaternion[2], quaternion[3]));
-    if (!std::isfinite(norm) || norm <= 1e-12) {
-        return std::nullopt;
-    }
+    assert(std::isfinite(norm) && norm > 1e-12);
 
     const double x = quaternion[0] / norm;
     const double y = quaternion[1] / norm;
@@ -72,25 +71,22 @@ std::optional<cv::Matx33d> quaternionToRotationMatrix(const std::array<double, 4
                        2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y));
 }
 
-bool applyDetectionRotation(const Detection& detection, const cv::Matx33d& cameraRotation,
+/**
+ * Normalize sensor-frame [x, y, z, w] rotation, compose with the camera-to-world
+ * rotation, and set world yaw and has_orientation. Missing rotation leaves the
+ * object unchanged. Requires a valid camera rotation and, when present, a finite
+ * quaternion with norm > 1e-12, as guaranteed by the message parser.
+ */
+void applyDetectionRotation(const Detection& detection, const cv::Matx33d& cameraRotation,
                             rv::tracking::TrackedObject& object) {
     if (!detection.rotation) {
-        return true;
+        return;
     }
 
-    auto detectionRotation = quaternionToRotationMatrix(*detection.rotation);
-    if (!detectionRotation) {
-        const auto& quaternion = *detection.rotation;
-        const double norm = std::hypot(std::hypot(quaternion[0], quaternion[1]),
-                                       std::hypot(quaternion[2], quaternion[3]));
-        // A zero quaternion means no orientation was supplied; keep the measurement.
-        return std::isfinite(norm) && norm <= 1e-12;
-    }
-
-    const cv::Matx33d worldRotation = cameraRotation * *detectionRotation;
+    const cv::Matx33d worldRotation =
+        cameraRotation * quaternionToRotationMatrix(*detection.rotation);
     object.yaw = std::atan2(worldRotation(1, 0), worldRotation(0, 0));
     rv::tracking::orientation::setHasOrientation(object, true);
-    return true;
 }
 
 void addDetectionAttributes(const Detection& detection, rv::tracking::TrackedObject& object) {
@@ -238,16 +234,16 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         pixels[base + 1] = {bbox.x + bbox.width, bbox.y + bbox.height};
     }
 
-    const size_t m = bbox_detection_indices.size();
-    pixels.resize(m * kCornersPerDetection);
+    const size_t bbox_detection_number = bbox_detection_indices.size();
+    pixels.resize(bbox_detection_number * kCornersPerDetection);
     std::vector<cv::Point2f> corners(pixels.size());
-    if (m > 0) {
+    if (bbox_detection_number > 0) {
         cv::undistortPoints(pixels, corners, intrinsics_matrix_, distortion_coeffs_);
     }
 
     // Layout per detection: [foot, bottom_left, bottom_right, top_left]
-    std::vector<cv::Point2f> normalized(m * kPointsPerDetection);
-    for (size_t k = 0; k < m; ++k) {
+    std::vector<cv::Point2f> normalized(bbox_detection_number * kPointsPerDetection);
+    for (size_t k = 0; k < bbox_detection_number; ++k) {
         const auto& top_left = corners[k * kCornersPerDetection];
         const auto& bottom_right = corners[k * kCornersPerDetection + 1];
         const size_t base = k * kPointsPerDetection;
@@ -268,8 +264,8 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         const double cam_y = camera_origin_.y;
         const double cam_z = std::abs(camera_origin_.z);
 
-        std::vector<cv::Point2f> type2_feet(m);
-        for (size_t k = 0; k < m; ++k) {
+        std::vector<cv::Point2f> type2_feet(bbox_detection_number);
+        for (size_t k = 0; k < bbox_detection_number; ++k) {
             const size_t base = k * kPointsPerDetection;
 
             const auto& bl = world[base + 1];
@@ -288,7 +284,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         std::vector<cv::Point2d> type2_world;
         std::vector<uint8_t> type2_valid;
         batchNormalizedToWorld(type2_feet, type2_world, type2_valid);
-        for (size_t k = 0; k < m; ++k) {
+        for (size_t k = 0; k < bbox_detection_number; ++k) {
             if (type2_valid[k]) {
                 world[k * kPointsPerDetection] = type2_world[k];
             }
@@ -321,9 +317,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             obj.length = (*detection.size)[0];
             obj.width = (*detection.size)[1];
             obj.height = (*detection.size)[2];
-            if (!applyDetectionRotation(detection, camera_rotation_, obj)) {
-                continue;
-            }
+            applyDetectionRotation(detection, camera_rotation_, obj);
             addDetectionAttributes(detection, obj);
             detection_valid[static_cast<size_t>(i)] = 1;
             continue;
@@ -372,9 +366,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         obj.width = width_m;
         obj.height = height_m;
         addDetectionAttributes(detection, obj);
-        if (!applyDetectionRotation(detection, camera_rotation_, obj)) {
-            continue;
-        }
+        applyDetectionRotation(detection, camera_rotation_, obj);
 
         detection_valid[i] = 1;
     }

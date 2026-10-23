@@ -37,6 +37,11 @@ constexpr double kTrackingDistanceThreshold = 2.0;
 constexpr size_t kOpenMpParallelThreshold = 32;
 constexpr std::string_view kMetadataPrefix = "metadata.";
 
+/**
+ * Temporarily lower the calling task's OpenMP thread setting for subsequent
+ * parallel regions. Create a local guard, e.g. ScopedOpenMpThreadLimit limit(1),
+ * before the work; scope exit restores the previous setting. Never raises it.
+ */
 class ScopedOpenMpThreadLimit {
 public:
     explicit ScopedOpenMpThreadLimit(int thread_limit)

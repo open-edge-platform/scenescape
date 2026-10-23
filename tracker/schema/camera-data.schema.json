@@ -1,6 +1,6 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://scenescape.intel.com/tracker/schema/camera-data.schema.json",
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "https://scenescape.intel.com/tracker/schema/camera-data.schema.json",
   "title": "Camera Data Message",
   "description": "Camera detection payload for MQTT topic scenescape/data/camera/{camera_id}",
   "type": "object",
@@ -35,12 +35,12 @@
       "additionalProperties": {
         "type": "array",
         "items": {
-          "$ref": "#/$defs/detection"
+          "$ref": "#/definitions/detection"
         }
       }
     }
   },
-  "$defs": {
+  "definitions": {
     "detection": {
       "type": "object",
       "properties": {
@@ -50,7 +50,7 @@
           "minimum": 0
         },
         "bounding_box_px": {
-          "$ref": "#/$defs/bounding_box",
+          "$ref": "#/definitions/bounding_box",
           "description": "Bounding box in pixel coordinates"
         },
         "translation": {
@@ -63,7 +63,7 @@
         "size": {
           "type": "array",
           "description": "Object dimensions [x, y, z] in metres",
-          "items": { "type": "number", "exclusiveMinimum": 0 },
+          "items": { "type": "number", "minimum": 0, "exclusiveMinimum": true },
           "minItems": 3,
           "maxItems": 3
         },
