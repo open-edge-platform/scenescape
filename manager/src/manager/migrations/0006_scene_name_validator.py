@@ -18,10 +18,11 @@ def _is_valid_scene_name(name):
 
 def _sanitize_scene_name(name, used_names):
   cleaned = re.sub(r'[^\w \-.]', '_', name or '')
-  cleaned = cleaned.lstrip('.')
   while '..' in cleaned:
     cleaned = cleaned.replace('..', '_')
-  cleaned = cleaned.strip() or 'scene'
+  # Strip leading whitespace and dots together so names like " .hidden"
+  # become "hidden" (lstrip('.') alone leaves a leading dot after strip).
+  cleaned = cleaned.lstrip(' .').strip() or 'scene'
   cleaned = cleaned[:200]
   candidate = cleaned
   suffix = 1
