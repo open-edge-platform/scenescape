@@ -879,7 +879,7 @@ paths:
                     items:
                       type: number
         "400":
-          description: Missing geospatial bounds, invalid bounds, OHSOME_API_KEY not configured on the server, or OSM query error
+          description: Missing geospatial bounds, invalid bounds, OHSOME_API_KEY not configured on the server, too many OSM features in the area (select a smaller area), or OSM query error
         "401":
           description: Unauthorized
         "404":

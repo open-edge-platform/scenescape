@@ -55,9 +55,13 @@ def _is_number(v):
   return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
 
-def _valid_points(points):
-  """True if every point is an [x, y] pair of finite, non-bool numbers."""
-  return isinstance(points, (list, tuple)) and all(
+MIN_REGION_POINTS = 3
+MIN_TRIPWIRE_POINTS = 2
+
+
+def _valid_points(points, min_points):
+  """True if points has at least min_points entries, each an [x, y] pair of finite, non-bool numbers."""
+  return isinstance(points, (list, tuple)) and len(points) >= min_points and all(
     isinstance(p, (list, tuple)) and len(p) == 2 and _is_number(p[0]) and _is_number(p[1])
     for p in points)
 
@@ -218,8 +222,8 @@ def saveTripwireData(scene, form):
   jdata = json.loads(form.cleaned_data['tripwires'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
 
-  if not all(_valid_points(trip.points) for trip in jdata):
-    raise ValueError('Each tripwire needs numeric, finite [x, y] point coordinates')
+  if not all(_valid_points(trip.points, MIN_TRIPWIRE_POINTS) for trip in jdata):
+    raise ValueError(f'Each tripwire needs at least {MIN_TRIPWIRE_POINTS} numeric, finite [x, y] points')
 
   current_tripwire_ids = set()
   changed = False
@@ -271,8 +275,8 @@ def saveRegionData(scene, form):
   jdata = json.loads(form.cleaned_data['rois'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
 
-  if not all(_valid_points(roi.points) for roi in jdata):
-    raise ValueError('Each roi needs numeric, finite [x, y] point coordinates')
+  if not all(_valid_points(roi.points, MIN_REGION_POINTS) for roi in jdata):
+    raise ValueError(f'Each roi needs at least {MIN_REGION_POINTS} numeric, finite [x, y] points')
 
   current_region_ids = set()
   changed = False
@@ -1020,6 +1024,11 @@ class OsmRoiPreviews(APIView):
       log.error(f"OSM ROI preview validation error: {e}")
       log.error(f"Traceback: {traceback.format_exc()}")
       return JsonResponse({'error': 'Unable to preview ROIs from OSM with the provided scene data'}, status=400)
+    except osm_query.FeatureLimitError as e:
+      log.warning(f"OSM feature limit exceeded while previewing ROIs: {e}")
+      return JsonResponse({
+        'error': 'Too many roads and footways in this area. Select a smaller area and try again.'
+      }, status=400)
     except osm_query.OsmQueryError as e:
       log.error(f"OSM query error while previewing ROIs: {e}")
       log.error(f"Traceback: {traceback.format_exc()}")

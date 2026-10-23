@@ -15,7 +15,7 @@ from django.test.client import RequestFactory
 from django.urls import reverse
 
 from manager import views
-from manager.models import Scene, SingletonSensor, Cam, Region
+from manager.models import Scene, SingletonSensor, Cam, Region, Tripwire
 from manager.settings import AXES_FAILURE_LIMIT
 from manager.views import SingletonSensorDeleteView, SingletonSensorCreateView, \
                          SingletonSensorUpdateView, CamCreateView, CamDeleteView, CamUpdateView, \
@@ -80,7 +80,7 @@ class TestRoiViews(TestCase):
     if uuid_str is None:
       uuid_str = str(uuid.uuid4())
     if points is None:
-      points = [[1, 2]]
+      points = [[1, 2], [3, 4], [5, 6]]
     return {'title': title, 'points': points, 'uuid': uuid_str}
 
   def _generate_tripwire(self, title='trip1', uuid_str=None, points=None):
@@ -88,7 +88,7 @@ class TestRoiViews(TestCase):
     if uuid_str is None:
       uuid_str = str(uuid.uuid4())
     if points is None:
-      points = [[1, 2]]
+      points = [[1, 2], [3, 4]]
     return {'title': title, 'points': points, 'uuid': uuid_str}
 
   def test_save_ROI_get(self):
@@ -103,8 +103,8 @@ class TestRoiViews(TestCase):
 
   def test_save_ROIs(self):
     response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
-    data = { 'rois': json.dumps([{'title': 'roi1', 'points': [[1, 2]], 'uuid':'5d03455d-82e6-4d3c-abc2-a496c43e4d53'}]),
-             'tripwires': json.dumps([{'title': 'trip1', 'points': [[1, 2]], 'uuid':'9029524e-b764-438e-912e-9613d43895a0'}])
+    data = { 'rois': json.dumps([{'title': 'roi1', 'points': [[1, 2], [3, 4], [5, 6]], 'uuid':'5d03455d-82e6-4d3c-abc2-a496c43e4d53'}]),
+             'tripwires': json.dumps([{'title': 'trip1', 'points': [[1, 2], [3, 4]], 'uuid':'9029524e-b764-438e-912e-9613d43895a0'}])
     })
     self.assertEqual(response.status_code, 302)
     return
@@ -116,6 +116,30 @@ class TestRoiViews(TestCase):
           data = {'rois': json.dumps([self._generate_roi(points=points)]), 'tripwires': json.dumps([])})
         self.assertEqual(response.status_code, 400)
     self.assertFalse(Region.objects.filter(scene_id=self.test_scene_id).exists())
+
+  def test_save_ROIs_rejects_too_few_region_points_with_400(self):
+    for points in ([], [[1, 2]], [[1, 2], [3, 4]]):
+      with self.subTest(points=points):
+        response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+          data = {'rois': json.dumps([self._generate_roi(points=points)]), 'tripwires': json.dumps([])})
+        self.assertEqual(response.status_code, 400)
+    self.assertFalse(Region.objects.filter(scene_id=self.test_scene_id).exists())
+
+  def test_save_ROIs_rejects_too_few_tripwire_points_with_400(self):
+    for points in ([], [[1, 2]]):
+      with self.subTest(points=points):
+        response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+          data = {'rois': json.dumps([]), 'tripwires': json.dumps([self._generate_tripwire(points=points)])})
+        self.assertEqual(response.status_code, 400)
+    self.assertFalse(Tripwire.objects.filter(scene_id=self.test_scene_id).exists())
+
+  def test_save_ROIs_accepts_minimum_point_counts(self):
+    response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
+      data = {'rois': json.dumps([self._generate_roi(points=[[0, 0], [1, 0], [0, 1]])]),
+              'tripwires': json.dumps([self._generate_tripwire(points=[[0, 0], [1, 1]])])})
+    self.assertEqual(response.status_code, 302)
+    self.assertEqual(Region.objects.filter(scene_id=self.test_scene_id).count(), 1)
+    self.assertEqual(Tripwire.objects.filter(scene_id=self.test_scene_id).count(), 1)
 
   def test_save_ROIs_rolls_back_regions_when_tripwires_invalid(self):
     response = self.client.post(reverse('save-roi', args=[self.test_scene_id]),
@@ -142,7 +166,7 @@ class TestRoiSaveNotificationBatching(TestCase):
     if uuid_str is None:
       uuid_str = str(uuid.uuid4())
     if points is None:
-      points = [[1, 2]]
+      points = [[1, 2], [3, 4], [5, 6]]
     return {'title': title, 'points': points, 'uuid': uuid_str}
 
   def _generate_tripwire(self, title='trip1', uuid_str=None, points=None):
@@ -150,7 +174,7 @@ class TestRoiSaveNotificationBatching(TestCase):
     if uuid_str is None:
       uuid_str = str(uuid.uuid4())
     if points is None:
-      points = [[1, 2]]
+      points = [[1, 2], [3, 4]]
     return {'title': title, 'points': points, 'uuid': uuid_str}
 
   @patch('manager.views.sendUpdateCommand')

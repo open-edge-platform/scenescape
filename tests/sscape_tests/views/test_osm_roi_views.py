@@ -311,6 +311,23 @@ class TestOsmRoiPreviews(TestCase):
     # Message is intentionally generic, no upstream exception text leaked
     self.assertIn("Unable to fetch OSM data", result["error"])
 
+  def test_preview_reports_actionable_message_when_feature_limit_exceeded(self):
+    """Test that exceeding the OSM feature cap tells the user to select a smaller area."""
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
+
+    from manager.osm_query import FeatureLimitError
+
+    with patch("manager.osm_roi.osm_query.query_osm_ways_geometry") as mock_query:
+      mock_query.side_effect = FeatureLimitError("Query returned 5000 ways, exceeding limit of 200.")
+
+      response = _post_previews(self.client, self.scene.id)
+
+    self.assertEqual(response.status_code, 400)
+    error = json.loads(response.content)["error"]
+    self.assertIn("Select a smaller area", error)
+    self.assertNotIn("5000", error)
+    self.assertNotIn("Unable to fetch OSM data", error)
+
   def test_preview_rejects_invalid_scene_uuid(self):
     """Test that preview endpoint returns 404 for invalid/non-existent scene UUID."""
     self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
