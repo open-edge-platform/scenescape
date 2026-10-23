@@ -38,13 +38,13 @@ from rest_framework.authentication import SessionAuthentication
 from manager.api import IsAdminOrReadOnly
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
-  Cam, Asset3D, \
+  Cam, Asset3D, Pipeline, \
   SingletonSensor, SingletonScalarThreshold, \
   Region, RegionPoint, Tripwire, TripwirePoint, \
   SingletonAreaPoint, UserSession, FailedLogin, \
   RegionOccupancyThreshold, SceneImport
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
-  SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
+  SceneUpdateForm, SceneImportForm, CamCreateForm, CamUpdateForm, SingletonCreateForm, ChildSceneForm, PipelineForm
 from manager.validators import add_form_error, validate_uuid
 
 from scene_common.options import *
@@ -308,7 +308,7 @@ class CamListView(LoginRequiredMixin, ListView):
 
 class CamUpdateView(SuperUserCheck, UpdateView):
   model = Cam
-  fields = ['sensor_id', 'name', 'scene']
+  form_class = CamUpdateForm
   template_name = "cam/cam_update.html"
 
   def get_success_url(self):
@@ -477,6 +477,31 @@ class AssetUpdateView(SuperUserCheck, UpdateView):
     'linear_damping', 'angular_damping', 'coefficient_of_restitution', 'friction_coefficients']
   template_name = "asset/asset_update.html"
   success_url = reverse_lazy('asset_list')
+
+class PipelineListView(LoginRequiredMixin, ListView):
+  model = Pipeline
+  template_name = "pipeline/pipeline_list.html"
+
+
+class PipelineCreateView(SuperUserCheck, CreateView):
+  model = Pipeline
+  form_class = PipelineForm
+  template_name = "pipeline/pipeline_form.html"
+  success_url = reverse_lazy('pipeline_list')
+
+
+class PipelineUpdateView(SuperUserCheck, UpdateView):
+  model = Pipeline
+  form_class = PipelineForm
+  template_name = "pipeline/pipeline_form.html"
+  success_url = reverse_lazy('pipeline_list')
+
+
+class PipelineDeleteView(SuperUserCheck, DeleteView):
+  model = Pipeline
+  template_name = "pipeline/pipeline_delete.html"
+  success_url = reverse_lazy('pipeline_list')
+
 
 # Scene Child CRUD
 class ChildCreateView(SuperUserCheck, CreateView):
