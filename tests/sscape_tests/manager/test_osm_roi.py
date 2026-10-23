@@ -50,6 +50,8 @@ def test_filter_by_bounds_keeps_full_unclipped_points():
     ({"width": "inf"}, "secondary", 8.0),  # non-finite width falls back to type default
     ({"lanes": "0"}, "secondary", 8.0),    # zero lanes falls back to type default
     ({"lanes": "-2"}, "secondary", 8.0),   # negative lanes falls back to type default
+    ({"lanes": "1" * 400}, "secondary", 8.0),   # lanes * lane width overflows float; falls back
+    ({"lanes": "1" * 5000}, "secondary", 8.0),  # beyond int parsing limit; falls back
     ({"width": "7.5"}, "secondary", 7.5),  # positive explicit width is honored
     ({"lanes": "2"}, "secondary", 7.0),    # positive lane count is honored (2 * 3.5)
     ({"lanes": "0"}, "footway", 3.0),      # lanes ignored for non-lane-based types

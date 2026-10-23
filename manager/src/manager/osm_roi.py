@@ -280,7 +280,7 @@ def get_width_m(tags: Dict[str, Any], way_type: str) -> float:
       estimated_width = lanes * STANDARD_LANE_WIDTH_M
       if math.isfinite(estimated_width) and estimated_width > 0:
         return estimated_width
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, OverflowError):
       pass
 
   # Priority 3: footway sub-type specific widths
