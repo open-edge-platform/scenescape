@@ -42,49 +42,6 @@ For full metric list, refer to the TrackEval documentation: https://pypi.org/pro
 - **UUID Mapping**: Consistent UUID-to-integer ID mapping for track identity preservation
 - **Timestamp Handling**: Frame synchronization via FPS-based timestamp-to-frame conversion
 
-**Usage Example**:
-
-```python
-import sys
-from pathlib import Path
-
-# Add parent directories to path
-sys.path.insert(0, str(Path(__file__).parent))
-
-from evaluators.trackeval_evaluator import TrackEvalEvaluator
-from datasets.unity_dataset import UnityDataset
-from harnesses.scene_controller_harness import SceneControllerHarness
-
-# Initialize dataset
-dataset = UnityDataset("path/to/dataset")
-dataset.set_cameras(["Cam_x1_0", "Cam_x2_0"]).set_camera_fps(30)
-
-# Initialize and run harness
-harness = SceneControllerHarness(container_image='intel/scenescape-controller:latest')
-harness.set_scene_config(dataset.get_scene_config())
-harness.set_custom_config({'tracker_config_path': '/path/to/tracker-config.json'})
-tracker_outputs = harness.process_inputs(dataset.get_inputs())
-
-# Initialize evaluator
-evaluator = TrackEvalEvaluator()
-
-# Configure metrics
-evaluator.configure_metrics(['HOTA', 'MOTA', 'IDF1'])
-evaluator.set_output_folder(Path('/path/to/results'))
-
-# Process and evaluate
-evaluator.process_tracker_outputs(
-    tracker_outputs=tracker_outputs,
-    ground_truth=dataset.get_ground_truth()
-)
-
-# Get metrics
-metrics = evaluator.evaluate_metrics()
-print(f"HOTA: {metrics['HOTA']:.3f}")
-print(f"MOTA: {metrics['MOTA']:.3f}")
-print(f"IDF1: {metrics['IDF1']:.3f}")
-```
-
 **Current Limitations**:
 
 - Fixed class name ("pedestrian") for all objects
@@ -94,12 +51,11 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 
 **Command Line**:
 
-Computes the metrics for a directory with `tracks.jsonl` (tracker output) and `groundtruth.jsonl` (ground truth), both in
-the canonical formats and named as robot-vision test recordings are (see
-[Scenario Visualization](../visualization/README.md#guide) for generating them). From `tools/tracker/evaluation`, with
-its `.venv` activated:
+Computes the metrics for a directory with `tracks.jsonl` (tracker output) and `groundtruth.jsonl` (ground truth) in
+the canonical formats, as robot-vision test recordings have. From `tools/tracker/evaluation`, with its `.venv` activated:
 
-1. Generate a recording, e.g. `/tmp/rv-scenarios/MotionScenarioTest.TracksMotionCases/turn`.
+1. Generate a recording as described in [Test scenario recordings](../../../../controller/src/robot_vision/README.md#test-scenario-recordings), e.g.
+   `/tmp/rv-scenarios/MotionScenarioTest.TracksMotionCases/turn`.
 2. Run the evaluator on it:
 
    ```bash

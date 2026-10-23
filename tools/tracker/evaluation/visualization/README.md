@@ -17,15 +17,10 @@ Run all commands from `tools/tracker/evaluation`.
 
 2. Get a scenario directory `S` from either source.
 
-   **Robot-vision tests**, with the build dependencies from
-   [controller/src/robot_vision/README.md](../../../../controller/src/robot_vision/README.md). Tests that use
-   `ScenarioRecorder` write `$RV_SCENARIO_DIR/<Suite>.<Test>/[<case>/]` when the variable is set:
+   **Robot-vision tests**: record scenarios as described in [Test scenario recordings](../../../../controller/src/robot_vision/README.md#test-scenario-recordings),
+   then pick one:
 
    ```bash
-   RV=../../../controller/src/robot_vision
-   cmake -S $RV -B $RV/build -DBUILD_TESTING=ON -DBUILD_PYTHON_BINDINGS=OFF -DCMAKE_BUILD_TYPE=Release
-   cmake --build $RV/build -j$(nproc)
-   RV_SCENARIO_DIR=/tmp/rv-scenarios $RV/build/test/RobotVisionTests --gtest_filter='MotionScenarioTest.*'
    S=/tmp/rv-scenarios/MotionScenarioTest.TracksMotionCases/sudden_stop
    ```
 
@@ -49,23 +44,6 @@ Run all commands from `tools/tracker/evaluation`.
    ```bash
    python visualization/render_video.py $S --zoom 1
    ```
-
-## Recording another test
-
-Give the recorder the ground truth and pass it to the `FilterRun`, which then records every detection and estimate.
-The recorder writes nothing unless `RV_SCENARIO_DIR` is set.
-
-```cpp
-#include "support/ScenarioRecorder.hpp"
-
-ScenarioRecorder recorder("turn");  // optional case name
-recorder.truth(truth);              // object id 1, category from the truth Box (kCar, kPerson)
-FilterRun run(productionConfig(), &recorder);
-run.feed(observe(truth, camera));   // detections go under the Sensor id, "camera" unless Sensor{.id = ...}
-run.coast(1.0);
-```
-
-For several objects, pass the same id to `truth()` and as the third `FilterRun` argument.
 
 ## Reference
 
@@ -122,8 +100,8 @@ the tools show seconds since the first timestamp.
 pytest visualization -v
 ```
 
-- [tests/fixtures/target_born_moving](tests/fixtures/target_born_moving): a recording, regenerated with guide step 2 and
-  `--gtest_filter=MotionScenarioTest.TargetBornMovingAcquiresSpeed`.
+- [tests/fixtures/target_born_moving](tests/fixtures/target_born_moving): a recording, regenerated as in
+  [Test scenario recordings](../../../../controller/src/robot_vision/README.md#test-scenario-recordings) with `--gtest_filter=MotionScenarioTest.TargetBornMovingAcquiresSpeed`.
 - [tests/schema/camera-data.schema.json](tests/schema/camera-data.schema.json): copy of
   `tracker/schema/camera-data.schema.json` with 3D detections from branch `ITEP-97104_tracker_3d_detections`; replace it
   with the tracker schema once that is merged.
