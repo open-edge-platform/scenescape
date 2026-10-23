@@ -680,7 +680,7 @@ class Pipeline(models.Model):
 
   name = models.CharField(max_length=200, unique=True)
   pipeline = models.TextField(verbose_name="Pipeline string")
-  dlsps_instance_id = models.UUIDField(null=True, blank=True, editable=False)
+  vippet_pipeline_id = models.TextField(null=True, blank=True, editable=False)
 
   class Meta:
     ordering = ['name']
@@ -692,6 +692,7 @@ class Pipeline(models.Model):
 class Cam(Sensor):
   DEFAULT_INTRINSICS = {"fx":570.0,"fy":570.0,"cx":320.0,"cy":240.0}
 
+  dlsps_instance_id = models.UUIDField(null=True, blank=True, editable=False)
   pipeline = models.ForeignKey(Pipeline, null=True, blank=True, on_delete=models.SET_NULL,
                                related_name="cameras",
                                help_text="Stored association only. Selecting a pipeline does not change video processing.")

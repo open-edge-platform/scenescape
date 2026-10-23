@@ -41,6 +41,9 @@ SPDX-License-Identifier: Apache-2.0
             <div class="col-sm-10">
               {{ field.errors }}
               {{ field }}
+              {% if field.name == "pipeline" %}
+                {% include 'cam/dlsps_instance_id.html' %}
+              {% endif %}
               {% if field.help_text %}
                 <small class="form-text text-muted"
                   >{{ field.help_text }}</small

@@ -2,10 +2,16 @@
 
 ## Stored Pipeline Identifiers
 
-Stored definitions on the **Pipelines** page have an optional internal
+Stored definitions also have an optional internal `vippet_pipeline_id` string
+field for the VIPPET pipelines API's `id` (for example, `pipeline-a3f5d9e1`).
+It is displayed read-only in the Pipelines table,
+excluded from user forms, and populated programmatically. Storing either
+identifier does not change video processing.
+
+Each camera has an optional internal
 `dlsps_instance_id` UUID field for the `instance_id` returned by DLSPS2.
-This UUID is displayed read-only in the Pipelines table and is not editable in
-user forms. It remains unset until
+This UUID is displayed read-only beneath the **Pipeline** selector on camera
+create, management, and calibration forms. It is not editable and remains unset until
 populated programmatically; storing it does not start a pipeline or change video
 processing.
 
