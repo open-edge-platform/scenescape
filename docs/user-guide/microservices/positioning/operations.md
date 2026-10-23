@@ -20,18 +20,18 @@ service with the Docker Compose `controller` or `tracker` profile (`make demo` /
 `make deploy`), the test Compose stack, or the Helm chart. All three mount the CA,
 client certificate, private key, and auth file read-only. The generated Manager account
 has read access to camera configuration invalidations and write access to resolver
-status, and it is not a superuser. The bundled Mosquitto configuration does not
+status and resolved-pose topics, and it is not a superuser. The bundled Mosquitto configuration does not
 enforce service credentials or topic ACLs; deployments requiring enforcement must
 configure broker authentication and authorization as described in the
 [hardening guide](../../additional-resources/hardening-guide.md).
 
-In Phase 3a, Positioning is allowed to publish only its own status on the configured
-`scenescape/positioning/status/{resolver_id}` topic. Manager restricts the
-`positioning` username to writes on that topic and provisions no pose-write ACL.
-Publishing to `scenescape/positioning/pose/{source_id}` is deferred to Phase 3b,
-which will update both the ACL guard and the provisioned
-permissions when the poller and Resolver implement pose publishing. Adding a
-pose-write ACL alone does not override the current guard.
+Positioning may publish only its configured
+`scenescape/positioning/status/{resolver_id}` topic and registered
+`scenescape/positioning/pose/{source_id}` topics. Manager requires explicit ACLs
+for both topic classes; writes to unrelated topics and another resolver's status
+topic are denied. Source ownership is enforced by the Positioning assignment
+manifest and Resolver validation, not by broadening the Manager ACL to unrelated
+topic families.
 
 Demo and deploy Compose include Positioning with the `controller` and `tracker`
 profiles in `sample_data/compose/compose.dl-streamer-example.yml`. Test stacks that
@@ -54,6 +54,14 @@ configured source is not assigned to its `resolver_id`, or if an entry for its
 `resolver_id` is not configured. Manager remains authoritative for camera
 calibration and camera-to-scene membership. Source configuration is described in
 [Positioning Service](positioning.md#configure).
+
+Manager reads the same manifest (`POSITIONING_ASSIGNMENTS_FILE`) to authorize
+broker writes to `scenescape/positioning/pose/{source_id}`: a pose write is allowed
+only for a source assigned to Manager's `POSITIONING_RESOLVER_ID`, whatever the
+publishing identity's topic ACL grants. A missing or invalid manifest assigns
+nothing, so all pose writes are denied. Mount the deployment manifest into both
+Positioning and Manager (web) and keep `POSITIONING_RESOLVER_ID` equal to the
+service's `resolver_id`.
 
 ## Enable ONVIF Access on the Camera
 
@@ -157,6 +165,10 @@ positioning/.local/
    {
      "resolver_id": "positioning-lab",
      "poll_interval_s": 0.2,
+     "max_pose_age_s": 0.5,
+     "max_timestamp_uncertainty_s": 0.01,
+     "max_clock_offset_s": 0.05,
+     "target_reprojection_rms_px": 3.0,
      "sources": {
        "lab-ptz-1": {
          "type": "onvif_ptz",
@@ -181,6 +193,11 @@ positioning/.local/
      }
    }
    ```
+
+   The four Resolver limits are required whenever `sources` is not empty; the
+   service exits at startup if any is missing. `max_pose_age_s` must be at least
+   `poll_interval_s + max_timestamp_uncertainty_s`. See
+   [Configure](positioning.md#configure) for their meaning.
 
    These examples explicitly use HTTP for isolated lab cameras. Production
    configurations should use HTTPS; HTTP is only appropriate on an isolated network
@@ -208,10 +225,13 @@ positioning/.local/
    ```
 
 5. Create `positioning/.local/compose.override.yml` to mount the configuration,
-   manifest, and credentials into the Positioning service. Compose replaces the
-   whole `command` list, so repeat the broker options. Set `user` to your host
-   user and group IDs (`id -u` and `id -g`) so the service can read the `0600`
-   credential files:
+   manifest, and credentials into the Positioning service, and the same manifest
+   and `resolver_id` into Manager (`web`), which authorizes pose writes only for
+   sources assigned to that resolver. Compose replaces the
+   whole `command` list, so repeat the broker and NTP options; without `--ntp`,
+   clock synchronization cannot be verified and every pose is invalid. Set `user`
+   to your host user and group IDs (`id -u` and `id -g`) so the service can read
+   the `0600` credential files:
 
    ```yaml
    services:
@@ -228,6 +248,8 @@ positioning/.local/
          - /run/secrets/certs/scenescape-positioning.key
          - --rootcert
          - /run/secrets/certs/scenescape-ca.pem
+         - --ntp
+         - ntpserv
          - --config
          - /run/positioning/positioning.json
          - --assignments
@@ -236,6 +258,11 @@ positioning/.local/
          - ./positioning/.local/positioning.json:/run/positioning/positioning.json:ro
          - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
          - ./positioning/.local/secrets:/run/secrets/onvif:ro
+     web:
+       environment:
+         - POSITIONING_RESOLVER_ID=positioning-lab
+       volumes:
+         - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
    ```
 
    The secret files mounted by the base Compose file (broker auth and
@@ -253,21 +280,35 @@ positioning/.local/
 
    ```bash
    docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml \
-     --profile controller up -d positioning
+     --profile controller up -d positioning web
    docker compose logs -f positioning
    ```
 
-   The first command merges the override into the `positioning` service and
-   recreates only that container. The broker and other services keep running. Use
+   The first command merges the override into the `positioning` and `web` services
+   and recreates only those containers. The broker and other services keep running. Use
    `--profile tracker` instead if the stack runs the Tracker profile. Run the
    command again after you edit any file in `positioning/.local/`. The files are
    read only at startup.
 
 At startup the service logs `Configured PTZ sources: [...]` and
-`PTZ source <id> connected: ...` for each camera. It logs a `ptz_motion_state`
-record only when the reported state changes, such as IDLE to MOVING and back;
-unchanged states produce no recurring log entries. Event-capable cameras also
-log a `ptz_move_event` record for each `is_moving` change. Configuration errors,
+`PTZ source <id> connected: ...` for each camera. Default INFO logs show a short
+`Camera <id>: ready (stationary)` or `Camera <id>: unavailable (<reason>)`
+message only when the resolved state or calibration version changes. Unchanged
+samples and periodic metrics do not produce INFO entries. Warnings and errors
+remain visible.
+
+The `calibration=...` suffix identifies the PTZ movement-model version loaded
+from Manager's `camera.ptz_calibration.calibration_version`. It is chosen by
+the operator or export tool, not generated by Positioning, and is separate from
+the static AprilTag/manual reference pose. It does not indicate when the latest
+UI calibration was saved or prove current projection accuracy. See
+[Understanding the Model Version](../../positioning-api-reference.md#understanding-the-model-version)
+and the [ideal-camera example](../../positioning-api-reference.md#ideal-camera-example).
+
+Add `--log-level DEBUG` to the Positioning service command to include the
+structured `ptz_move_event` records and full `positioning_metrics` snapshots
+every 60 seconds. Metrics collection and MQTT pose publication are unchanged
+by log verbosity. Configuration errors,
 such as a source missing from the manifest, unknown keys, or an unreadable
 credentials file, stop the service with a message that names the source.
 
@@ -363,8 +404,9 @@ Demo, deploy, and Compose tests include the Positioning service with the Scene
 Controller or Tracker profiles. Helm installs it when `positioning.enabled=true`; it
 has one replica to preserve single-writer source ownership.
 
-The service does not publish poses and does not alter detections. Roll back PTZ
-polling by removing `sources` from the deployment configuration, or roll back the
+The service publishes resolved poses but does not alter detections, because Controller
+and Tracker do not consume them yet. Roll back PTZ polling and pose publishing by
+removing `sources` from the deployment configuration, or roll back the
 whole service by disabling the Positioning deployment. Later PTZ rollout rollback is
 per consumer: disable the corresponding Controller or Tracker PTZ flag and return to
 static projection.

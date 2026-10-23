@@ -3,6 +3,7 @@
 
 """PTZ pose math against the provisional (non-golden) PoC fixture and analytic properties."""
 
+import dataclasses
 import json
 from pathlib import Path
 
@@ -12,7 +13,7 @@ from scipy.spatial.transform import Rotation
 
 from positioning.pose_math import (
   apply_backlash, axis_angle_degrees, axis_rotation, backlash_degrees_at,
-  compose_ptz_rotation, rotation_delta_magnitude, rotation_from_ptz_delta,
+  compose_ptz_rotation, physical_home_angle, rotation_delta_magnitude, rotation_from_ptz_delta,
   scene_from_camera_matrix)
 from positioning.ptz_model import load_ptz_model
 
@@ -52,6 +53,27 @@ def test_apply_backlash_deadband():
   assert apply_backlash(9.5, 10.0, 2.0) == 9.5
   assert apply_backlash(8.0, 10.0, 2.0) == 9.0
   assert apply_backlash(12.0, 10.0, 2.0) == 11.0
+
+
+@pytest.mark.parametrize("curve, approach, expected", [
+  ((0.0, 10.0), "increasing", -1.0),
+  ((0.0, 10.0), "decreasing", 1.0),
+  ((0.0, -10.0), "increasing", 1.0),
+  ((0.0, -10.0), "decreasing", -1.0),
+])
+def test_physical_home_angle_uses_approach_side_of_deadband(curve, approach, expected):
+  spec = dataclasses.replace(
+    MODEL.pan, curve=curve, home_position=0.0, approach_direction=approach, backlash=2.0)
+  physical_home = physical_home_angle(spec)
+
+  assert physical_home == pytest.approx(expected)
+  continuing = 0.5 if approach == "increasing" else -0.5
+  reversing = -continuing
+  continued = apply_backlash(physical_home, axis_angle_degrees(continuing, curve), 2.0)
+  reversed_angle = apply_backlash(physical_home, axis_angle_degrees(reversing, curve), 2.0)
+  assert continued - physical_home == pytest.approx(axis_angle_degrees(continuing, curve))
+  assert reversed_angle - physical_home == pytest.approx(
+    axis_angle_degrees(reversing, curve) - 2.0 * expected)
 
 
 def test_at_home_reproduces_static_pose():
