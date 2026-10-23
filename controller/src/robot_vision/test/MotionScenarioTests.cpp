@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -233,6 +234,32 @@ TEST(MotionScenarioTest, ModelSelection)
 
     EXPECT_GE(expected, selection.minProbability) << "mean model probabilities (CV, CA, CTRV) " << mean.t();
     EXPECT_GT(expected - runnerUp, selection.minMargin) << "mean model probabilities (CV, CA, CTRV) " << mean.t();
+  }
+}
+
+TEST(MotionScenarioTest, CovarianceStaysPositiveDefinite)
+{
+  // CV, CA and CTRV each reset some states to 0; their process noise keeps those variances positive.
+  for (const auto &selection : modelSelectionCases())
+  {
+    SCOPED_TRACE(selection.name);
+    Sensor camera{.positionNoise = 0.05};
+    FilterRun run;
+    std::optional<double> firstFailure;
+    for (const auto &observation : observe(selection.truth, camera))
+    {
+      run.feed({observation});
+      for (const auto &filter : run.estimator.mKalmanFilters)
+      {
+        const cv::Mat covariance = filter->getErrorCov();
+        if (!firstFailure && !(cv::checkRange(covariance) && minEigenvalue(covariance) > 0.0))
+        {
+          firstFailure = observation.t;
+        }
+      }
+    }
+    EXPECT_FALSE(firstFailure) << "a model covariance is not positive definite at t = " << firstFailure.value_or(0.0)
+                               << " s";
   }
 }
 

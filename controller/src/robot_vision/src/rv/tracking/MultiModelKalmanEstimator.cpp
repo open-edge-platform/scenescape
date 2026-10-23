@@ -42,37 +42,31 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
   mMeasurementNoise = measurementNoise;
 
   mSystemModels.clear();
+  mModelTypes.clear();
   mKalmanFilters.clear();
   mSystemModelStates.clear();
 
-  if (motionModels.empty())
+  const std::vector<MotionModel> defaultModels{MotionModel::CTRV, MotionModel::CV, MotionModel::CA};
+  for (auto const &motionModel : motionModels.empty() ? defaultModels : motionModels)
   {
-    mSystemModels.push_back(cv::makePtr<tracking::CTRVModel>());
-    mSystemModels.push_back(cv::makePtr<tracking::CVModel>());
-    mSystemModels.push_back(cv::makePtr<tracking::CAModel>());
-  }
-  else
-  {
-    for (auto const &motionModel : motionModels)
+    switch (motionModel)
     {
-      switch(motionModel)
-      {
-        case MotionModel::CV:
-          mSystemModels.push_back(cv::makePtr<tracking::CVModel>());
-          break;
-        case MotionModel::CA:
-          mSystemModels.push_back(cv::makePtr<tracking::CAModel>());
-          break;
-        case MotionModel::CP:
-          mSystemModels.push_back(cv::makePtr<tracking::CPModel>());
-          break;
-        case MotionModel::CTRV:
-          mSystemModels.push_back(cv::makePtr<tracking::CTRVModel>());
-          break;
-        default:
-          break;
-      }
+      case MotionModel::CV:
+        mSystemModels.push_back(cv::makePtr<tracking::CVModel>());
+        break;
+      case MotionModel::CA:
+        mSystemModels.push_back(cv::makePtr<tracking::CAModel>());
+        break;
+      case MotionModel::CP:
+        mSystemModels.push_back(cv::makePtr<tracking::CPModel>());
+        break;
+      case MotionModel::CTRV:
+        mSystemModels.push_back(cv::makePtr<tracking::CTRVModel>());
+        break;
+      default:
+        continue;
     }
+    mModelTypes.push_back(motionModel);
   }
 
   mNumberOfModels = mSystemModels.size();
@@ -106,16 +100,14 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
   errorCovInit.at<double>(10, 10) = std::min(initStateCovariance, 0.05); // yaw
   errorCovInit.at<double>(11, 11) = std::min(initStateCovariance, 0.01); // yaw rate
 
-  const cv::Mat initialQ = kinematicProcessNoiseCov(processNoise, track.vx, track.vy, 1e-1);
-
-  for (auto &model : mSystemModels)
+  for (std::size_t i = 0; i < mNumberOfModels; ++i)
   {
     cv::detail::tracking::UnscentedKalmanFilterParams modelParams;
-    modelParams = cv::detail::tracking::UnscentedKalmanFilterParams(mDP, mMP, mCP, 0, 0, model);
+    modelParams = cv::detail::tracking::UnscentedKalmanFilterParams(mDP, mMP, mCP, 0, 0, mSystemModels[i]);
     modelParams.stateInit = track.stateVector().clone();
     modelParams.errorCovInit = errorCovInit.clone();
     modelParams.measurementNoiseCov = cv::Mat::eye(mMP, mMP, CV_64F) * measurementNoise;
-    modelParams.processNoiseCov = initialQ.clone();
+    modelParams.processNoiseCov = processNoiseCov(mModelTypes[i], processNoise, track.vx, track.vy, 1e-1);
     modelParams.alpha = mAlpha;
     modelParams.beta = mBeta;
     modelParams.k = mKappa;
@@ -130,55 +122,69 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
   }
 }
 
-
-cv::Mat MultiModelKalmanEstimator::kinematicProcessNoiseCov(double processNoise, double vx, double vy, double deltaT)
+cv::Mat
+MultiModelKalmanEstimator::processNoiseCov(MotionModel model, double processNoise, double vx, double vy, double deltaT)
 {
-  const double dt = std::max(deltaT, 1e-3);
+  // Scales map the legacy scalar (historically applied isotropically to all states,
+  // including position) into spectral densities that yield meter-scale along-track
+  // growth over ~1s coasts without a large isotropic position Q.
+  constexpr double kVelocityNoiseScale = 1000.0; // [(m/s)^2/s]
+  constexpr double kTurnRateNoiseScale = 1000.0; // [(rad/s)^2/s]
+  constexpr double kMinNoiseDensity = 1e-3;
+  constexpr double kCrossTrackRatio = 0.01;
+  constexpr double kYawNoiseRatio = 0.01;
+  // Per second, on the states a model resets to 0: without it their variance is exactly 0
+  // after predict and the Cholesky factorisation for the sigma points fails.
+  constexpr double kResetStateNoise = 1e-6;
+  constexpr double kMinDeltaT = 1e-3;
+
+  const double dt = std::max(deltaT, kMinDeltaT);
   const double speed = std::hypot(vx, vy);
   const double ca = (speed > 1e-3) ? (vx / speed) : 1.0;
   const double sa = (speed > 1e-3) ? (vy / speed) : 0.0;
 
   // Faster tracks carry more along-track model uncertainty; cross-track stays tight.
-  // Scale maps the legacy scalar (historically applied isotropically to all states,
-  // including position) into a velocity spectral density that yields meter-scale
-  // along-track growth over ~1s coasts without a large isotropic position Q.
-  constexpr double kVelocityNoiseScale = 1000.0;
-  constexpr double kCrossTrackRatio = 0.01;
-  const double qVel = std::max(processNoise * kVelocityNoiseScale, 1e-3);
+  const double qVel = std::max(processNoise * kVelocityNoiseScale, kMinNoiseDensity);
   const double qAlong = qVel * (1.0 + speed);
   const double qCross = qVel * kCrossTrackRatio;
 
   const double qxx = (ca * ca * qAlong + sa * sa * qCross) * dt;
   const double qxy = (ca * sa * (qAlong - qCross)) * dt;
   const double qyy = (sa * sa * qAlong + ca * ca * qCross) * dt;
+  const cv::Matx22d alignedNoise(qxx, qxy, qxy, qyy);
+
+  cv::Matx22d accelerationNoise = cv::Matx22d::eye() * (kResetStateNoise * dt);
+  double yawRateNoise = kResetStateNoise * dt;
+  switch (model)
+  {
+    case MotionModel::CV:
+      break;
+    case MotionModel::CA:
+      accelerationNoise = alignedNoise;
+      break;
+    case MotionModel::CTRV:
+      yawRateNoise = std::max(processNoise * kTurnRateNoiseScale, kMinNoiseDensity) * dt;
+      break;
+    case MotionModel::CP: // not used in production; keeps the shape all models shared before
+    default:
+      accelerationNoise = alignedNoise;
+      yawRateNoise = processNoise * dt;
+      break;
+  }
 
   cv::Mat Q = cv::Mat::zeros(TrackedObject::StateSize, TrackedObject::StateSize, CV_64F);
   // No direct position/size process noise — position uncertainty grows via f(x) from velocity.
-  Q.at<double>(2, 2) = qxx;
-  Q.at<double>(2, 3) = qxy;
-  Q.at<double>(3, 2) = qxy;
-  Q.at<double>(3, 3) = qyy;
-  Q.at<double>(4, 4) = qxx;
-  Q.at<double>(4, 5) = qxy;
-  Q.at<double>(5, 4) = qxy;
-  Q.at<double>(5, 5) = qyy;
-  Q.at<double>(10, 10) = processNoise * 0.01 * dt; // yaw
-  Q.at<double>(11, 11) = processNoise * dt;        // yaw rate
+  cv::Mat(alignedNoise).copyTo(Q(cv::Rect(2, 2, 2, 2)));      // vx, vy
+  cv::Mat(accelerationNoise).copyTo(Q(cv::Rect(4, 4, 2, 2))); // ax, ay
+  Q.at<double>(10, 10) = processNoise * kYawNoiseRatio * dt;  // yaw
+  Q.at<double>(11, 11) = yawRateNoise;                        // yaw rate
   return Q;
-}
-
-void MultiModelKalmanEstimator::updateProcessNoiseForPredict(double deltaT)
-{
-  const cv::Mat Q = kinematicProcessNoiseCov(mProcessNoise, mCurrentState.vx, mCurrentState.vy, deltaT);
-  for (auto &kalmanFilter : mKalmanFilters)
-  {
-    kalmanFilter->setProcessNoiseCov(Q);
-  }
 }
 
 void MultiModelKalmanEstimator::singleModelPredict(double deltaT)
 {
-  updateProcessNoiseForPredict(deltaT);
+  mKalmanFilters[0]->setProcessNoiseCov(
+    processNoiseCov(mModelTypes[0], mProcessNoise, mCurrentState.vx, mCurrentState.vy, deltaT));
 
   cv::Mat deltaTVector = cv::Mat(mCP, 1, CV_64F, cv::Scalar(deltaT));
   cv::Mat noiseVector = cv::Mat::zeros(mMP, 1, CV_64F);
@@ -228,8 +234,6 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
     return singleModelPredict(deltaT);
   }
 
-  updateProcessNoiseForPredict(deltaT);
-
   cv::Mat deltaTVector = cv::Mat(mCP, 1, CV_64F, cv::Scalar(deltaT));
   cv::Mat noiseVector = cv::Mat::zeros(mMP, 1, CV_64F);
   cv::Mat conditionalProbability = cv::Mat::zeros(mNumberOfModels, mNumberOfModels, CV_64F);
@@ -259,6 +263,9 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
   for (std::size_t i = 0; i < mNumberOfModels; ++i)
   {
     mKalmanFilters[i]->setStateAndCovariance(stateEstimate[i], covarianceEstimate[i]);
+    // Each model's noise follows its own dynamics and mixed velocity.
+    mKalmanFilters[i]->setProcessNoiseCov(processNoiseCov(
+      mModelTypes[i], mProcessNoise, stateEstimate[i].at<double>(2), stateEstimate[i].at<double>(3), deltaT));
     auto predictedState = mKalmanFilters[i]->predict(deltaTVector);
     predictedStates.push_back(predictedState);
     predictedStateCovariances.push_back(mKalmanFilters[i]->getErrorCov());

@@ -118,17 +118,13 @@ private:
   void singleModelCorrect(const TrackedObject &measurement);
 
   /**
-   * @brief Velocity-aligned, dt-scaled process noise (no direct position noise).
+   * @brief Velocity-aligned, dt-scaled process noise of one motion model (no direct position noise).
    *
-   * Along-track velocity/acceleration noise is larger than cross-track so
-   * predicted measurement covariance elongates in the direction of motion.
+   * Along-track velocity noise is larger than cross-track so the predicted measurement covariance
+   * elongates in the direction of motion. CA repeats it on the acceleration, CTRV adds turn-rate noise.
+   * States the model resets to 0 get a small floor that keeps the covariance positive definite.
    */
-  static cv::Mat kinematicProcessNoiseCov(double processNoise, double vx, double vy, double deltaT);
-
-  /**
-   * @brief Apply kinematic Q for the upcoming predict using the current estimate.
-   */
-  void updateProcessNoiseForPredict(double deltaT);
+  static cv::Mat processNoiseCov(MotionModel model, double processNoise, double vx, double vy, double deltaT);
 
   /**
    * @brief Combines probability coming from the three models and calculates the conditional probability
@@ -178,6 +174,7 @@ private:
 
   std::vector<cv::Ptr<cv::detail::tracking::UnscentedKalmanFilterMod>> mKalmanFilters;
   std::vector<cv::Ptr<cv::detail::tracking::UkfSystemModel>> mSystemModels;
+  std::vector<MotionModel> mModelTypes; // motion model of each filter
 
   double mMaxProbability{1.};
   double mMinProbability{0.95};
