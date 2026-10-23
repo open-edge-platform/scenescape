@@ -142,6 +142,7 @@ docker compose exec manager python manage.py createsuperuser
 - `DEBUG`: Enable debug mode (default: `False`)
 - `ALLOWED_HOSTS`: Comma-separated allowed hostnames
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
+- `VIPPET_URL`: ViPPET REST API root including `/api/v1` (e.g. `http://vippet:7860/api/v1`), used by `manager.vippet`; no default, the client raises `ValueError` when unset
 - `SUPASS`: Super user password (for initial setup)
 
 ### Configuration Files
@@ -280,6 +281,20 @@ docker compose exec manager python manage.py showmigrations
 - Manager UI triggers calibration requests through the web-proxied Auto Calibration service
 - Autocalibration endpoints live under `/api/v1/autocalibration/` when accessed through the web container
 - Stores completed calibration parameters in database
+
+### ViPPET (Visual Pipeline and Platform Evaluation Tool)
+
+- `manager.vippet.ViPPETClient` (`src/manager/vippet/`) pulls pipeline definitions authored in ViPPET:
+  - `get_pipelines()` returns `PipelineSummary` objects (id, name, description, tags, variants with
+    id and name) from `GET /pipelines`, without graphs or GStreamer strings
+  - `get_pipeline_string(pipeline_id, variant_id)` returns the variant's GStreamer launch string
+    (`GET /pipelines/{id}` + `POST /convert/to-description` with the variant's advanced graph)
+- Only `vision` pipelines are exposed; `time_series` pipelines are hidden and reported as not found
+- HTTP failures raise `ViPPETError` subclasses (`ViPPETUnavailableError` also covers ViPPET's 503
+  while it initializes); invalid arguments or base URL raise `ValueError` before any request
+- The returned string is meant to be persisted by value and later submitted to DLSPS 2.0
+  `POST /pipelines`; it still references ViPPET-side model/video paths
+- Library only; Manager views and UI do not call ViPPET yet
 
 ### PostgreSQL
 
