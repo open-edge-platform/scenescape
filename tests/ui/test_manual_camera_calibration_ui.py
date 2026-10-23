@@ -62,6 +62,7 @@ def test_manual_camera_calibration(params, result_recorder):
         setCameraPose: (pose) => { matrix = pose; },
       };
       calibration.isResolutionUpdated = true;
+      calibration.resolutionNeedsRefit = true;
       const response = {poseMatrix: [
         [1, 0, 0, 120], [0, -1, 0, 60], [0, 0, -1, 80], [0, 0, 0, 1],
       ]};
@@ -69,7 +70,8 @@ def test_manual_camera_calibration(params, result_recorder):
       const translation = matrix.elements.slice(12, 15);
       if (translation.some((v, i) => Math.abs(v - [2.4, 1.2, 1.6][i]) > 1e-9))
         return false;
-      if (calibration.isResolutionUpdated || calibration.camCanvas.calibrationUpdated ||
+      if (!calibration.isResolutionUpdated || calibration.resolutionNeedsRefit ||
+          calibration.camCanvas.calibrationUpdated ||
           calibration.viewport.calibrationUpdated) return false;
       let requests = 0;
       calibration.calibrationFitState = "ready";
@@ -86,8 +88,65 @@ def test_manual_camera_calibration(params, result_recorder):
       if (requests !== 1) return false;
       calibration.calibrationFitState = "pending";
       calibration.updateCalibrationViews("", intrinsics, [0, 0, 0, 0, 0]);
+      if (requests !== 1) return false;
+      calibration.calibrationFitState = "stale";
+      calibration.updateCalibrationViews("", intrinsics, [0, 0, 0, 0, 0]);
       return requests === 1;
     """), "Calibration pose scale or video-update handoff is inconsistent"
+
+    assert browser.execute_script("""
+      const originalForm = document.getElementById("calibration_form");
+      const form = originalForm.cloneNode(true);
+      originalForm.parentNode.replaceChild(form, originalForm);
+      try {
+        const calibration = Object.create(Object.getPrototypeOf(window.camera_calibration));
+        const points = {p0: [0, 0, 0], p1: [1, 0, 0], p2: [1, 1, 0], p3: [0, 1, 0]};
+        calibration.camCanvas = {getCalibrationPoints: () => points};
+        calibration.viewport = {
+          sceneScale: 100,
+          scaleFactor: 0.5,
+          getCalibrationPoints: () => points,
+          setCameraPose: () => {},
+        };
+        calibration.rejectedPointIndices = [];
+        calibration.setupSaveCameraButton();
+        let submitted;
+        form.submit = () => { submitted = new FormData(form); };
+        const cx = form.querySelector("#id_intrinsics_cx");
+        const cy = form.querySelector("#id_intrinsics_cy");
+        for (const resolutionChanged of [false, true]) {
+          cx.value = 320;
+          cy.value = 240;
+          cx.disabled = cy.disabled = true;
+          calibration.isResolutionUpdated = false;
+          calibration.resolutionNeedsRefit = false;
+          calibration.calibrationFitState = "ready";
+          calibration.updateCameraOpticalCenter(
+            resolutionChanged ? [1280, 720] : [640, 480],
+            [[800, 0, 320], [0, 800, 240], [0, 0, 1]],
+          );
+          if (!calibration.applyFittedCalibrationPose({poseMatrix: [
+            [1, 0, 0, 120], [0, -1, 0, 60], [0, 0, -1, 80], [0, 0, 0, 1],
+          ]})) return false;
+          if (calibration.resolutionNeedsRefit || !cx.disabled || !cy.disabled)
+            return false;
+          submitted = null;
+          $(form).triggerHandler("submit");
+          if (!submitted) return false;
+          if (resolutionChanged) {
+            if (cx.disabled || cy.disabled ||
+                submitted.get("intrinsics_cx") !== "640" ||
+                submitted.get("intrinsics_cy") !== "360") return false;
+          } else if (submitted.has("intrinsics_cx") || submitted.has("intrinsics_cy")) {
+            return false;
+          }
+        }
+        return true;
+      } finally {
+        $(form).off();
+        form.parentNode.replaceChild(originalForm, form);
+      }
+    """), "Save must submit the updated principal point after a resolution change and fit"
 
     log.info("Verify distortion coefficient lock controls")
     for coefficient in ('k1', 'k2', 'p1', 'p2', 'k3'):

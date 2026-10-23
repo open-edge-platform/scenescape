@@ -45,7 +45,9 @@ export class ConvergedCameraCalibration {
     this.client = null;
     this.isUpdatedInVAService = false;
     this.projectionEnabled = false;
+    // Retain resolution changes for Save even after the preview refit completes.
     this.isResolutionUpdated = false;
+    this.resolutionNeedsRefit = false;
     this.calibrationRequestId = 0;
     this.calibrationFitState = "idle";
     this.rejectedPointIndices = [];
@@ -469,7 +471,7 @@ export class ConvergedCameraCalibration {
     this.projectionEnabled = true;
     this.camCanvas.calibrationUpdated = false;
     this.viewport.calibrationUpdated = false;
-    this.isResolutionUpdated = false;
+    this.resolutionNeedsRefit = false;
     return true;
   }
 
@@ -911,7 +913,7 @@ export class ConvergedCameraCalibration {
       this.isValidCalibration(camPoints, objectPoints) &&
       (this.camCanvas.calibrationUpdated ||
         this.viewport.calibrationUpdated ||
-        this.isResolutionUpdated)
+        this.resolutionNeedsRefit)
     )) {
       return false;
     }
@@ -989,6 +991,7 @@ export class ConvergedCameraCalibration {
       this.projectionEnabled = true;
       this.camCanvas.calibrationUpdated = false;
       this.viewport.calibrationUpdated = false;
+      this.resolutionNeedsRefit = false;
       return true;
     } finally {
       rvec.delete();
@@ -1081,6 +1084,7 @@ export class ConvergedCameraCalibration {
       $("#id_intrinsics_cx").val(width / 2.0);
       cameraMatrix[0][2] = width / 2.0;
       this.isResolutionUpdated = true;
+      this.resolutionNeedsRefit = true;
     }
     if (
       Math.abs(parseFloat($("#id_intrinsics_cy").val()) - height / 2.0) >
@@ -1089,6 +1093,7 @@ export class ConvergedCameraCalibration {
       $("#id_intrinsics_cy").val(height / 2.0);
       cameraMatrix[1][2] = height / 2.0;
       this.isResolutionUpdated = true;
+      this.resolutionNeedsRefit = true;
     }
   }
 
@@ -1098,9 +1103,10 @@ export class ConvergedCameraCalibration {
     if (
       this.calibrationFitState !== "pending" &&
       this.calibrationFitState !== "failed" &&
+      this.calibrationFitState !== "stale" &&
       (this.camCanvas.calibrationUpdated ||
         this.viewport.calibrationUpdated ||
-        this.isResolutionUpdated) &&
+        this.resolutionNeedsRefit) &&
       this.isValidCalibration(
         this.camCanvas.getCalibrationPoints(),
         this.viewport.getCalibrationPoints(),

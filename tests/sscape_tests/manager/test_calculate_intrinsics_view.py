@@ -18,7 +18,6 @@ from manager.calculate_intrinsics_view import (
   assess_image_point_coverage,
   assess_map_point_geometry,
   fit_pose_fixed_intrinsics,
-  needs_pose_only_fit,
   parse_outlier_threshold_px,
   parse_pixels_per_meter,
   parse_reject_outliers,
@@ -419,16 +418,6 @@ def _projected_non_coplanar_correspondences(num_points):
 
 
 @pytest.mark.parametrize("num_points", [4, 5])
-def test_needs_pose_only_fit_for_small_non_coplanar_sets(num_points):
-  map_points, _, _, _ = _projected_non_coplanar_correspondences(num_points)
-  assert needs_pose_only_fit(map_points)
-  planar = np.array([
-    [0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [1.0, 1.0, 0.0], [0.0, 1.0, 0.0],
-  ], dtype=np.float32)
-  assert not needs_pose_only_fit(planar)
-
-
-@pytest.mark.parametrize("num_points", [4, 5])
 def test_calculate_intrinsics_pose_only_path_for_small_non_coplanar_sets(
     num_points):
   """Four/five non-coplanar pairs must succeed without mocking calibrateCamera."""
@@ -457,18 +446,93 @@ def test_calculate_intrinsics_pose_only_path_for_small_non_coplanar_sets(
   np.testing.assert_allclose(dist.ravel(), distortion.ravel(), atol=1e-6)
 
 
-def test_fit_pose_fixed_intrinsics_uses_sqpnp_for_non_coplanar():
+def test_fit_pose_fixed_intrinsics_refines_sqpnp_for_non_coplanar():
   map_points, cam_points, intrinsics, distortion = (
     _projected_non_coplanar_correspondences(4))
   with patch("cv2.solvePnP", wraps=cv2.solvePnP) as spy:
     rms, mtx, dist, rvecs, tvecs = fit_pose_fixed_intrinsics(
       map_points, cam_points, intrinsics, distortion)
-  assert spy.call_args.kwargs["flags"] == cv2.SOLVEPNP_SQPNP
+  assert spy.call_count == 2
+  assert spy.call_args_list[0].kwargs["flags"] == cv2.SOLVEPNP_SQPNP
+  assert spy.call_args_list[1].kwargs["flags"] == cv2.SOLVEPNP_ITERATIVE
+  assert spy.call_args_list[1].kwargs["useExtrinsicGuess"] is True
   assert rms < 1.0
   assert len(rvecs) == 1 and len(tvecs) == 1
   np.testing.assert_allclose(mtx, intrinsics)
   assert dist.shape == (len(distortion), 1)
   np.testing.assert_allclose(dist.ravel(), distortion)
+
+
+def test_fit_pose_fixed_intrinsics_refinement_reduces_reprojection_error():
+  """Noisy distorted correspondences improve on the SQPNP initializer."""
+  map_points, _, intrinsics, _ = _projected_non_coplanar_correspondences(6)
+  distortion = np.array([-0.3, 0.1, 0.01, -0.01, 0.0])
+  projected, _ = cv2.projectPoints(
+    map_points, np.array([0.1, -0.2, 0.05]), np.array([0.0, 0.0, 3.0]),
+    intrinsics, distortion)
+  cam_points = projected.reshape(-1, 2) + np.random.default_rng(42).normal(
+    0.0, 2.0, (len(map_points), 2))
+  ok, initial_rvec, initial_tvec = cv2.solvePnP(
+    map_points, cam_points, intrinsics, distortion, flags=cv2.SOLVEPNP_SQPNP)
+  assert ok
+  initial_projected, _ = cv2.projectPoints(
+    map_points, initial_rvec, initial_tvec, intrinsics, distortion)
+  initial_rms = np.sqrt(np.mean(np.sum(
+    (initial_projected.reshape(-1, 2) - cam_points) ** 2, axis=1)))
+
+  rms, mtx, dist, _, _ = fit_pose_fixed_intrinsics(
+    map_points, cam_points, intrinsics, distortion)
+
+  assert rms < initial_rms
+  np.testing.assert_array_equal(mtx, intrinsics)
+  np.testing.assert_array_equal(dist.ravel(), distortion)
+
+
+@pytest.mark.parametrize("failed_stage", [0, 1])
+def test_fit_pose_fixed_intrinsics_reports_solver_failure(failed_stage):
+  map_points, cam_points, intrinsics, distortion = (
+    _projected_non_coplanar_correspondences(4))
+  results = [(True, np.zeros((3, 1)), np.array([[0.0], [0.0], [5.0]])),
+             (True, np.zeros((3, 1)), np.array([[0.0], [0.0], [5.0]]))]
+  results[failed_stage] = (False, None, None)
+  with patch("cv2.solvePnP", side_effect=results), pytest.raises(cv2.error):
+    fit_pose_fixed_intrinsics(map_points, cam_points, intrinsics, distortion)
+
+
+@pytest.mark.parametrize(
+  ("num_points", "unlocked_keys", "expect_pose_only"),
+  [
+    (5, ("fx", "fy", "cx", "cy", "k1", "k2", "k3", "p1", "p2"), True),
+    (6, ("k1", "k2", "k3", "p1", "p2"), True),
+    (8, ("k1",), False),
+    (6, ("fx",), True),
+    (6, ("fx", "fy"), False),
+  ],
+)
+def test_calculate_intrinsics_uses_effective_lens_locks(
+    num_points, unlocked_keys, expect_pose_only):
+  """Point-count and paired-parameter locks determine the fitting path."""
+  map_points = [[float(i % 3), float(i // 3), 0.0] for i in range(num_points)]
+  intrinsics = np.array(_calibration_payload()["intrinsics"])
+  distortion = np.zeros((5, 1))
+  rotation = np.zeros((3, 1))
+  translation = np.array([[0.0], [0.0], [5.0]])
+  cam_points, _ = cv2.projectPoints(
+    np.array(map_points), rotation, translation, intrinsics, distortion)
+  fit = (0.0, intrinsics, distortion, [rotation], [translation])
+  payload = _calibration_payload(
+    mapPoints=map_points, camPoints=cam_points.reshape(-1, 2).tolist(),
+    fixIntrinsics={key: False for key in unlocked_keys}, rejectOutliers=False)
+
+  with patch(
+      "manager.calculate_intrinsics_view.fit_pose_fixed_intrinsics",
+      return_value=fit) as pose_fit, patch(
+      "cv2.calibrateCamera", return_value=fit) as lens_fit:
+    response = _post_calculate_intrinsics(payload)
+
+  assert response.status_code == 200, response.data
+  assert pose_fit.call_count == int(expect_pose_only)
+  assert lens_fit.call_count == int(not expect_pose_only)
 
 
 def test_locked_lens_refit_does_not_jump_to_distant_camera_pose():

@@ -102,11 +102,15 @@ Before you begin:
    Inspect reprojection error and the physical camera location before saving;
    a finite pose alone does not establish a correct calibration.
    The 2D calibration page uses a separate fitting endpoint. With all lens
-   parameters locked, it uses a pose-only SQPNP fit rather than recalibrating
-   the lens with `calibrateCamera`, avoiding its unstable pose initialization.
+   parameters locked (including locks imposed by the point count), it uses
+   SQPNP to initialize a pose-only iterative reprojection refinement rather
+   than recalibrating the lens with `calibrateCamera`, avoiding its unstable
+   pose initialization.
    A low fit RMS with no visible projection can also indicate a preview
    handoff error: the 2D page must convert the fitted translation from scaled
    map coordinates to viewport metres and retain that fit across video frames.
+   When the image resolution changes, the updated principal point is retained
+   for Save even after the preview fit completes.
 
 ## Supporting Resources
 
