@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 import threading
+import time
 
 import pytest
 from types import SimpleNamespace
@@ -437,87 +438,404 @@ class TestCacheManagerInvalidation:
     assert cache_mgr.cached_scenes_by_uid is not None
 
 
-class TestCacheManagerSensorRestoration:
-  """Test sensor cache restoration functionality."""
+class TestCacheManagerSceneReuse:
+  """Test which scenes survive an invalidate() by being reused."""
 
-  def test_restore_sensor_cache_copies_values(self):
-    """Test that sensor cache values are properly restored."""
-    cache_mgr = CacheManager.__new__(CacheManager)
-
-    # Create mock old and new sensors
-    old_sensor = Mock()
-    old_sensor.value = 42
-    old_sensor.lastValue = 41
-    old_sensor.lastWhen = 1234567890
-
-    new_sensor = Mock()
-    new_sensor.value = None
-    new_sensor.lastValue = None
-    new_sensor.lastWhen = None
-
-    old_scene = Mock()
-    old_scene.sensors = {'sensor-1': old_sensor}
-
-    new_scene = Mock()
-    new_scene.sensors = {'sensor-1': new_sensor}
-
-    cache_mgr._restoreSensorCache('scene-uid', old_scene, new_scene)
-
-    assert new_sensor.value == 42
-    assert new_sensor.lastValue == 41
-    assert new_sensor.lastWhen == 1234567890
-
-  def test_sensor_needs_restoring_returns_none_when_no_cache(self):
-    """Test that sensorNeedsRestoring returns None when no old cache."""
+  def test_scene_needs_full_reuse_returns_none_when_no_cache(self):
+    """No old cache means nothing to reuse."""
     cache_mgr = CacheManager.__new__(CacheManager)
 
     if hasattr(cache_mgr, '_old_scene_cache'):
       delattr(cache_mgr, '_old_scene_cache')
 
-    result = cache_mgr._sensorNeedsRestoring('scene-uid')
+    assert cache_mgr._sceneNeedsFullReuse('scene-uid') is None
 
-    assert result is None
-
-  def test_sensor_needs_restoring_returns_old_scene(self):
-    """Test that sensorNeedsRestoring returns old scene when it has sensors
-    with cached values worth restoring."""
+  def test_scene_needs_full_reuse_returns_none_for_tracker_owning_scene(self):
+    """A scene that owns a tracker is rebuilt, even when it has sensor values."""
     cache_mgr = CacheManager.__new__(CacheManager)
 
     old_scene = Mock()
     old_scene.sensors = {'sensor-1': Mock(value=42)}
     cache_mgr._old_scene_cache = {'scene-uid': old_scene}
 
-    result = cache_mgr._sensorNeedsRestoring('scene-uid')
+    assert cache_mgr._sceneNeedsFullReuse('scene-uid') is None
 
-    assert result == old_scene
-
-  def test_sensor_needs_restoring_returns_none_when_no_sensor_values(self):
-    """Test that sensorNeedsRestoring returns None when the old scene has no
-    sensors, or none with a cached value, so a fresh Scene is deserialized
-    instead of silently reusing stale tracked-object identities."""
+  def test_scene_needs_full_reuse_returns_none_for_unknown_uid(self):
+    """A uid missing from the old cache has no scene to reuse."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._old_scene_cache = {'other-uid': SimpleNamespace(sensors={})}
 
-    old_scene = Mock()
-    old_scene.sensors = {}
-    cache_mgr._old_scene_cache = {'scene-uid': old_scene}
+    assert cache_mgr._sceneNeedsFullReuse('scene-uid') is None
 
-    result = cache_mgr._sensorNeedsRestoring('scene-uid')
-
-    assert result is None
-
-  def test_sensor_needs_restoring_returns_old_scene_when_no_tracker(self):
-    """Test that a scene with no ``tracker`` attribute (e.g. AnalyticsScene)
-    is always reused, since it owns no tracked-object identity of its own
-    and instead needs its ingestion/region/dwell state preserved across the
-    frequent invalidate() calls REST config changes trigger."""
+  def test_scene_needs_full_reuse_returns_old_scene_when_no_tracker(self):
+    """A scene with no ``tracker`` attribute (e.g. AnalyticsScene) is always
+    reused, since it owns no tracked-object identity of its own and instead
+    needs its ingestion/region/dwell state preserved across the frequent
+    invalidate() calls REST config changes trigger."""
     cache_mgr = CacheManager.__new__(CacheManager)
 
     old_scene = SimpleNamespace(sensors={})
     cache_mgr._old_scene_cache = {'scene-uid': old_scene}
 
-    result = cache_mgr._sensorNeedsRestoring('scene-uid')
+    assert cache_mgr._sceneNeedsFullReuse('scene-uid') is old_scene
 
-    assert result is old_scene
+
+def _tracker_scene(uid, name):
+  """Stand-in for a Controller Scene that owns a tracker."""
+  scene = Mock()
+  scene.uid = uid
+  scene.name = name
+  scene.cameras = {}
+  scene.sensors = {}
+  scene.tracker = Mock()
+  return scene
+
+
+def _trackerless_scene(uid, name):
+  """Stand-in for an AnalyticsScene, which has no tracker attribute."""
+  return SimpleNamespace(uid=uid, name=name, cameras={}, sensors={},
+                         updateScene=Mock())
+
+
+def _scene_data(uid, name):
+  return {'uid': uid, 'name': name, 'cameras': []}
+
+
+def _bare_manager(scene_factory=_tracker_scene):
+  cache_mgr = CacheManager.__new__(CacheManager)
+  cache_mgr._refreshLock()
+  cache_mgr.cached_scenes_by_uid = {}
+  cache_mgr.cached_child_transforms_by_uid = {}
+  cache_mgr.camera_parameters = {}
+  cache_mgr.tracker_config_data = {}
+  cache_mgr.reid_config_data = {}
+  cache_mgr.pose_adjustment_config_data = {}
+  scene_cls = Mock()
+  scene_cls.deserialize.side_effect = lambda data: scene_factory(data['uid'], data['name'])
+  cache_mgr._scene_cls = scene_cls
+  cache_mgr.data_source = Mock()
+  return cache_mgr, scene_cls
+
+
+def _rebuild(cache_mgr, found):
+  """Apply results the way a refresh after invalidate() does."""
+  cache_mgr.invalidate()
+  return cache_mgr._applySceneResults(found)
+
+
+class TestCacheManagerSceneRetirement:
+  """Scenes that leave the cache are handed back for teardown."""
+
+  def test_replaced_tracker_scene_is_retired(self):
+    cache_mgr, scene_cls = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A')])
+    old_scene = cache_mgr.cached_scenes_by_uid['a']
+
+    retired = _rebuild(cache_mgr, [_scene_data('a', 'A')])
+
+    assert scene_cls.deserialize.call_count == 2
+    assert cache_mgr.cached_scenes_by_uid['a'] is not old_scene
+    assert retired == [old_scene]
+    old_scene.updateScene.assert_not_called()
+
+  def test_scene_without_tracker_is_reused_not_retired(self):
+    cache_mgr, scene_cls = _bare_manager(_trackerless_scene)
+    cache_mgr._applySceneResults([_scene_data('a', 'A')])
+    old_scene = cache_mgr.cached_scenes_by_uid['a']
+
+    retired = _rebuild(cache_mgr, [_scene_data('a', 'A')])
+
+    assert scene_cls.deserialize.call_count == 1
+    assert cache_mgr.cached_scenes_by_uid['a'] is old_scene
+    old_scene.updateScene.assert_called_once()
+    assert retired == []
+
+  def test_deleted_scene_is_retired_after_invalidate(self):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A'), _scene_data('b', 'B')])
+    old_a = cache_mgr.cached_scenes_by_uid['a']
+    old_b = cache_mgr.cached_scenes_by_uid['b']
+
+    retired = _rebuild(cache_mgr, [_scene_data('a', 'A')])
+
+    assert len(retired) == 2
+    assert {id(scene) for scene in retired} == {id(old_a), id(old_b)}
+    assert set(cache_mgr.cached_scenes_by_uid) == {'a'}
+
+  def test_deleted_scene_is_retired_without_invalidate(self):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A'), _scene_data('b', 'B')])
+    kept = cache_mgr.cached_scenes_by_uid['a']
+    deleted = cache_mgr.cached_scenes_by_uid['b']
+
+    retired = cache_mgr._applySceneResults([_scene_data('a', 'A')])
+
+    assert retired == [deleted]
+    assert cache_mgr.cached_scenes_by_uid == {'a': kept}
+    kept.updateScene.assert_called_once()
+
+  def test_scene_in_both_deleted_set_and_old_cache_is_retired_once(self):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A'), _scene_data('b', 'B')])
+    deleted = cache_mgr.cached_scenes_by_uid['b']
+    cache_mgr._old_scene_cache = {'b': deleted}
+
+    retired = cache_mgr._applySceneResults([_scene_data('a', 'A')])
+
+    assert retired == [deleted]
+
+  def test_apply_results_does_not_tear_down_inline(self):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A'), _scene_data('b', 'B')])
+    deleted = cache_mgr.cached_scenes_by_uid['b']
+
+    with patch.object(cache_mgr, '_teardownScene') as teardown:
+      cache_mgr._applySceneResults([_scene_data('a', 'A')])
+
+    teardown.assert_not_called()
+    deleted.tracker.join.assert_not_called()
+
+  def test_nothing_is_retired_on_first_load(self):
+    cache_mgr, _ = _bare_manager()
+
+    retired = cache_mgr._applySceneResults([_scene_data('a', 'A')])
+
+    assert retired == []
+
+
+def _wait(event, timeout=5):
+  assert event.wait(timeout), "timed out waiting for background teardown"
+
+
+def _wait_for_calls(mock, count, timeout=5):
+  deadline = time.monotonic() + timeout
+  while mock.call_count < count and time.monotonic() < deadline:
+    time.sleep(0.01)
+  assert mock.call_count >= count, "timed out waiting for background teardown"
+
+
+class TestCacheManagerTeardown:
+  """_teardownScene() joins the tracker, then decides about the registries."""
+
+  @pytest.fixture
+  def registries(self):
+    with patch('scene_common.cache_manager.CameraRegistry') as camera, \
+         patch('scene_common.cache_manager.TrackedObjectRegistry') as tracked:
+      yield SimpleNamespace(camera=camera.getInstance.return_value,
+                            tracked=tracked.getInstance.return_value)
+
+  def test_registries_are_cleared_after_the_join(self, registries):
+    cache_mgr, _ = _bare_manager()
+    scene = _tracker_scene('a', 'A')
+    calls = []
+    scene.tracker.join.side_effect = lambda *args: calls.append('join')
+    registries.camera.removeScene.side_effect = lambda name: calls.append('camera')
+    registries.tracked.removeScene.side_effect = lambda name: calls.append('tracked')
+
+    cache_mgr._teardownScene(scene)
+
+    assert calls == ['join', 'camera', 'tracked']
+    registries.camera.removeScene.assert_called_once_with('A')
+    registries.tracked.removeScene.assert_called_once_with('A')
+
+  def test_scene_without_tracker_still_clears_registries(self, registries):
+    cache_mgr, _ = _bare_manager()
+
+    cache_mgr._teardownScene(_trackerless_scene('a', 'A'))
+
+    registries.camera.removeScene.assert_called_once_with('A')
+
+  def test_none_scene_is_a_noop(self, registries):
+    cache_mgr, _ = _bare_manager()
+
+    cache_mgr._teardownScene(None)
+
+    registries.camera.removeScene.assert_not_called()
+
+  def test_same_name_rebuild_keeps_registries(self, registries):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A')])
+    old_scene = cache_mgr.cached_scenes_by_uid['a']
+    retired = _rebuild(cache_mgr, [_scene_data('a', 'A')])
+    assert retired == [old_scene]
+
+    cache_mgr._teardownScene(old_scene)
+
+    old_scene.tracker.join.assert_called_once()
+    registries.camera.removeScene.assert_not_called()
+    registries.tracked.removeScene.assert_not_called()
+
+  def test_rename_clears_the_old_name(self, registries):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A')])
+    old_scene = cache_mgr.cached_scenes_by_uid['a']
+    retired = _rebuild(cache_mgr, [_scene_data('a', 'A-renamed')])
+    assert retired == [old_scene]
+
+    cache_mgr._teardownScene(old_scene)
+
+    registries.camera.removeScene.assert_called_once_with('A')
+    registries.tracked.removeScene.assert_called_once_with('A')
+
+  def test_deleted_scene_clears_its_name(self, registries):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A'), _scene_data('b', 'B')])
+    retired = cache_mgr._applySceneResults([_scene_data('a', 'A')])
+
+    cache_mgr._teardownScene(retired[0])
+
+    registries.camera.removeScene.assert_called_once_with('B')
+
+  def test_same_name_scene_created_during_the_join_is_not_wiped(self, registries):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A')])
+    old_scene = cache_mgr.cached_scenes_by_uid['a']
+    cache_mgr.cached_scenes_by_uid.pop('a')
+
+    def create_same_name_scene(*args):
+      cache_mgr.cached_scenes_by_uid['z'] = _tracker_scene('z', 'A')
+
+    old_scene.tracker.join.side_effect = create_same_name_scene
+
+    cache_mgr._teardownScene(old_scene)
+
+    registries.camera.removeScene.assert_not_called()
+    registries.tracked.removeScene.assert_not_called()
+
+  def test_name_held_by_scene_awaiting_rebuild_is_kept(self, registries):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A')])
+    cache_mgr.invalidate()
+    assert cache_mgr.cached_scenes_by_uid is None
+
+    cache_mgr._teardownScene(_tracker_scene('retired', 'A'))
+    registries.camera.removeScene.assert_not_called()
+
+    cache_mgr._teardownScene(_tracker_scene('retired', 'unrelated'))
+    registries.camera.removeScene.assert_called_once_with('unrelated')
+
+  def test_failing_join_is_logged_and_registries_are_still_cleared(self, registries):
+    cache_mgr, _ = _bare_manager()
+    scene = _tracker_scene('uid-1', 'A')
+    scene.tracker.join.side_effect = RuntimeError("join failed")
+
+    with patch('scene_common.cache_manager.log.error') as log_error:
+      cache_mgr._teardownScene(scene)
+
+    log_error.assert_called_once()
+    message = log_error.call_args.args[0]
+    assert 'uid-1' in message and 'A' in message and 'join failed' in message
+    registries.camera.removeScene.assert_called_once_with('A')
+    registries.tracked.removeScene.assert_called_once_with('A')
+
+  def test_failing_registry_clear_is_logged_not_raised(self, registries):
+    cache_mgr, _ = _bare_manager()
+    scene = _tracker_scene('uid-1', 'A')
+    registries.camera.removeScene.side_effect = RuntimeError("clear failed")
+
+    with patch('scene_common.cache_manager.log.error') as log_error:
+      cache_mgr._teardownScene(scene)
+
+    scene.tracker.join.assert_called_once()
+    log_error.assert_called_once()
+    assert 'uid-1' in log_error.call_args.args[0]
+
+
+class TestCacheManagerRefreshTeardown:
+  """refreshScenes() tears retired scenes down in the background."""
+
+  @pytest.fixture(autouse=True)
+  def registries(self):
+    with patch('scene_common.cache_manager.CameraRegistry') as camera, \
+         patch('scene_common.cache_manager.TrackedObjectRegistry') as tracked:
+      yield SimpleNamespace(camera=camera.getInstance.return_value,
+                            tracked=tracked.getInstance.return_value)
+
+  @staticmethod
+  def _manager_with_old_scenes(*uids):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data(uid, uid.upper()) for uid in uids])
+    old_scenes = dict(cache_mgr.cached_scenes_by_uid)
+    cache_mgr.invalidate()
+    return cache_mgr, old_scenes
+
+  def test_refresh_returns_while_a_join_is_blocked_and_join_runs_without_the_lock(
+      self, registries):
+    cache_mgr, old_scenes = self._manager_with_old_scenes('a')
+    cache_mgr.data_source.getScenes.return_value = {
+      'results': [_scene_data('a', 'A-renamed')]}
+    join_started, release_join = threading.Event(), threading.Event()
+    lock_was_free = []
+
+    def blocked_join(*args):
+      acquired = cache_mgr._lock.acquire(blocking=False)
+      lock_was_free.append(acquired)
+      if acquired:
+        cache_mgr._lock.release()
+      join_started.set()
+      release_join.wait(5)
+
+    old_scenes['a'].tracker.join.side_effect = blocked_join
+
+    try:
+      cache_mgr.refreshScenes()
+
+      _wait(join_started)
+      assert lock_was_free == [True]
+      assert cache_mgr.sceneWithID('a') is not old_scenes['a']
+      registries.camera.removeScene.assert_not_called()
+    finally:
+      release_join.set()
+    _wait_for_calls(registries.tracked.removeScene, 1)
+    registries.camera.removeScene.assert_called_once_with('A')
+
+  def test_deleted_scene_is_torn_down_without_a_preceding_invalidate(self, registries):
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._applySceneResults([_scene_data('a', 'A'), _scene_data('b', 'B')])
+    deleted = cache_mgr.cached_scenes_by_uid['b']
+    cache_mgr.data_source.getScenes.return_value = {'results': [_scene_data('a', 'A')]}
+
+    cache_mgr.refreshScenes(force=True)
+
+    _wait_for_calls(registries.tracked.removeScene, 1)
+    deleted.tracker.join.assert_called_once()
+    registries.camera.removeScene.assert_called_once_with('B')
+
+  def test_deleted_scene_is_torn_down_after_invalidate(self, registries):
+    cache_mgr, old_scenes = self._manager_with_old_scenes('a', 'b')
+    cache_mgr.data_source.getScenes.return_value = {'results': [_scene_data('a', 'A')]}
+
+    cache_mgr.refreshScenes()
+
+    for scene in old_scenes.values():
+      _wait_for_calls(scene.tracker.join, 1)
+    _wait_for_calls(registries.tracked.removeScene, 1)
+    registries.camera.removeScene.assert_called_once_with('B')
+
+  def test_failing_teardown_does_not_stop_the_others(self, registries):
+    cache_mgr, old_scenes = self._manager_with_old_scenes('a', 'b')
+    cache_mgr.data_source.getScenes.return_value = {'results': []}
+    old_scenes['a'].tracker.join.side_effect = RuntimeError("boom")
+
+    with patch('scene_common.cache_manager.log.error') as log_error:
+      cache_mgr.refreshScenes()
+      _wait_for_calls(registries.tracked.removeScene, 2)
+
+    old_scenes['b'].tracker.join.assert_called_once()
+    log_error.assert_called_once()
+    assert 'boom' in log_error.call_args.args[0]
+    assert cache_mgr.allScenes() == []
+
+  def test_trackerless_scene_is_never_torn_down(self, registries):
+    cache_mgr, _ = _bare_manager(_trackerless_scene)
+    cache_mgr._applySceneResults([_scene_data('a', 'A')])
+    cache_mgr.invalidate()
+    cache_mgr.data_source.getScenes.return_value = {'results': [_scene_data('a', 'A')]}
+
+    with patch.object(cache_mgr, '_teardownScene') as teardown:
+      cache_mgr.refreshScenes()
+
+    teardown.assert_not_called()
 
 
 class TestCacheManagerRefreshCameras:

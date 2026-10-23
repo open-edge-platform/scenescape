@@ -49,7 +49,7 @@ class _StubTracking(Tracking):
   def updateReidConfig(self, reid_config_data=None):
     self.reid_config_data = reid_config_data if reid_config_data else {}
 
-  def join(self):
+  def join(self, timeout=None):
     pass
 
 def _mock_set_tracker(self, trackerType):
