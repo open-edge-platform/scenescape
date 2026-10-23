@@ -86,7 +86,4 @@ class Migration(migrations.Migration):
           field=models.JSONField(blank=True, default=dict),
       ),
       migrations.RunPython(forwards, migrations.RunPython.noop),
-      migrations.RemoveConstraint(
-          model_name='scenemaprevision', name='unique_head_map_revision'),
-      migrations.RemoveField(model_name='scenemaprevision', name='head'),
   ]
