@@ -6,6 +6,7 @@
 """Tests for OSM ROI preview and creation endpoints."""
 
 import json
+import os
 from unittest.mock import patch, MagicMock
 
 from django.test import TestCase
@@ -13,6 +14,7 @@ from django.urls import reverse
 from django.contrib.auth.models import User
 
 from manager.models import Scene, Region, RegionPoint
+from manager.osm_query import API_KEY_ENV_VAR
 from manager.osm_roi import STANDARD_LANE_WIDTH_M
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
 
@@ -47,7 +49,7 @@ class TestOsmRoiPreviews(TestCase):
     # Create scene with geospatial setup
     self.scene = Scene.objects.create(
       name="test_scene_geospatial",
-      map_type="geospatial",
+      map_type="geospatial_map",
       output_lla=True,
       # v3: OSM query bbox is derived from map_corners_lla, no separate bbox fields
       map_corners_lla=MAP_CORNERS_LLA,
@@ -260,7 +262,7 @@ class TestOsmRoiPreviews(TestCase):
     # Create scene without map_corners_lla set
     scene_no_corners = Scene.objects.create(
       name="test_scene_no_corners",
-      map_type="geospatial",
+      map_type="geospatial_map",
       output_lla=True,
     )
 
@@ -278,7 +280,7 @@ class TestOsmRoiPreviews(TestCase):
     # Create scene without trs_matrix but with map_corners_lla set
     scene_no_trs = Scene.objects.create(
       name="test_scene_no_trs",
-      map_type="geospatial",
+      map_type="geospatial_map",
       map_corners_lla=MAP_CORNERS_LLA,
     )
 
@@ -358,7 +360,7 @@ class TestOsmRoiPreviewsBounds(TestCase):
     self.user = User.objects.create_superuser("test_user", "test_user@intel.com", "testpassword")
     self.scene = Scene.objects.create(
       name="test_scene_geospatial",
-      map_type="geospatial",
+      map_type="geospatial_map",
       output_lla=True,
       map_corners_lla=MAP_CORNERS_LLA,
     )
@@ -412,12 +414,50 @@ class TestOsmRoiPreviewsBounds(TestCase):
     self.assertIn("error", json.loads(response.content))
 
 
+class TestSceneDetailOsmRoiState(TestCase):
+  """Verifies sceneDetail reports whether the Suggest ROIs with OSM action is enabled."""
+
+  def setUp(self):
+    self.user = User.objects.create_superuser("test_user", "test_user@intel.com", "testpassword")
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "testpassword"})
+
+  def _get_scene_detail(self, map_type):
+    scene = Scene.objects.create(name="test_scene_detail", map_type=map_type)
+    return self.client.get(reverse("sceneDetail", args=[scene.id]))
+
+  def test_geospatial_map_with_api_key_enables_osm_roi(self):
+    """A geospatial_map scene with the OSM API key configured has no disabled reason."""
+    with patch.dict(os.environ, {API_KEY_ENV_VAR: "test-key"}):
+      response = self._get_scene_detail("geospatial_map")
+
+    self.assertEqual(response.status_code, 200)
+    self.assertIsNone(response.context["osm_roi_disabled_reason"])
+
+  def test_geospatial_map_without_api_key_reports_missing_key(self):
+    """A geospatial_map scene without the OSM API key reports the missing key."""
+    with patch.dict(os.environ):
+      os.environ.pop(API_KEY_ENV_VAR, None)
+      response = self._get_scene_detail("geospatial_map")
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.context["osm_roi_disabled_reason"],
+                     f"OSM API key ({API_KEY_ENV_VAR}) is not configured")
+
+  def test_map_upload_scene_reports_not_geospatial(self):
+    """A map_upload scene is reported as not geospatial, even when the API key is configured."""
+    with patch.dict(os.environ, {API_KEY_ENV_VAR: "test-key"}):
+      response = self._get_scene_detail("map_upload")
+
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(response.context["osm_roi_disabled_reason"], "Scene map is not geospatial")
+
+
 class TestOsmRois(TestCase):
   """Verifies osm-rois persists posted ROIs without touching other regions."""
 
   def setUp(self):
     self.user = User.objects.create_superuser("test_user", "test_user@intel.com", "testpassword")
-    self.scene = Scene.objects.create(name="test_scene_accept", map_type="geospatial")
+    self.scene = Scene.objects.create(name="test_scene_accept", map_type="geospatial_map")
     self.existing_region = Region.objects.create(scene=self.scene, name="manual_roi")
     RegionPoint.objects.create(region=self.existing_region, x=0, y=0, sequence=0)
     RegionPoint.objects.create(region=self.existing_region, x=1, y=0, sequence=1)

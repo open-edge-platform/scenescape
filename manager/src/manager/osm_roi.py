@@ -16,8 +16,8 @@ from typing import Any, Dict, List, Optional, Tuple
 import uuid
 
 import numpy as np
+from shapely import BufferCapStyle
 from shapely.geometry import LineString, Polygon, box
-from shapely.geometry.base import BufferCapStyle
 
 from scene_common.earth_lla import convertLLAToECEF
 
