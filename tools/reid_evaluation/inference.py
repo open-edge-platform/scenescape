@@ -29,7 +29,7 @@ def extract_embeddings(samples, manifest_dir, model_path, device="CPU", color_or
     from PIL import Image
   except ImportError as error:
     raise ValueError(
-        "Image inference requires OpenVINO and Pillow; install requirements.txt") from error
+        "Image inference requires OpenVINO and Pillow; install requirements-inference.txt") from error
   if warmup < 0 or not np.isfinite([pixel_scale, *mean, *std]).all() or any(value <= 0 for value in std):
     raise ValueError("Preprocessing must be finite, std positive, and warmup non-negative")
   model_path = Path(model_path).resolve()
