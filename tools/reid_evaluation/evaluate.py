@@ -64,7 +64,8 @@ def score_queries(samples, split="test", metric="COSINE", cross_camera=True):
   for query in queries:
     eligible = [sample for sample in gallery
                 if (not cross_camera or sample["camera"] != query["camera"])
-                and not (query.get("track_id") and sample.get("track_id") == query["track_id"]
+                and not (query.get("track_id") not in (None, "")
+                         and sample.get("track_id") == query["track_id"]
                          and sample["camera"] == query["camera"])]
     known = query["identity"] in gallery_identities
     if not eligible or (known and not any(
