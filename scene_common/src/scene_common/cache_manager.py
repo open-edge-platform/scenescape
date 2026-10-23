@@ -159,7 +159,7 @@ class CacheManager:
 
       uid = scene_data['uid']
       if uid not in self.cached_scenes_by_uid:
-        old_scene = self._sceneNeedsFullReuse(uid)
+        old_scene = self._sensorNeedsRestoring(uid)
         if old_scene is not None:
           # Reuse the existing scene to preserve tracked objects, sensor state,
           # analytics_state and dwell times across DB-triggered refreshes.
@@ -171,9 +171,6 @@ class CacheManager:
             from controller.scene import Scene
             scene_cls = Scene
           scene = scene_cls.deserialize(scene_data)
-          cached_old_scene = (getattr(self, '_old_scene_cache', None) or {}).get(uid)
-          if cached_old_scene is not None:
-            self._restoreSensorCache(uid, cached_old_scene, scene)
       else:
         scene = self.cached_scenes_by_uid[uid]
         scene.updateScene(scene_data)
@@ -226,17 +223,18 @@ class CacheManager:
     TrackedObjectRegistry.getInstance().removeScene(scene.name)
     return
 
-  def _sceneNeedsFullReuse(self, uid):
-    # Reuse the previous Scene instance (tracker included) across a
-    # DB-triggered refresh only when it has no tracker at all -- i.e. it's
-    # an AnalyticsScene, which owns no tracked-object identity of its own
-    # (that comes from the Controller via MQTT) and instead needs its
-    # ingestion cache (chain_data history, region/tripwire/dwell state)
-    # preserved across the frequent invalidate() calls REST config changes
-    # trigger. Otherwise return None so callers deserialize a fresh Scene
-    # (and tracker) for uid -- e.g. after an explicit REST-triggered scene
-    # config update on the Controller, where a blanket reuse would silently
-    # keep stale tracked-object identities.
+  def _sensorNeedsRestoring(self, uid):
+    # Reuse the previous Scene instance across a DB-triggered refresh in two
+    # cases: (1) it has sensors with cache values worth restoring (readings,
+    # dwell state, etc.), or (2) it has no tracker at all -- i.e. it's an
+    # AnalyticsScene, which owns no tracked-object identity of its own (that
+    # comes from the Controller via MQTT) and instead needs its ingestion
+    # cache (chain_data history, region/tripwire/dwell state) preserved
+    # across the frequent invalidate() calls REST config changes trigger.
+    # Otherwise return None so callers deserialize a fresh Scene (and
+    # tracker) for uid -- e.g. after an explicit REST-triggered scene config
+    # update on the Controller, where a blanket reuse would silently keep
+    # stale tracked-object identities.
     if not hasattr(self, '_old_scene_cache') or not self._old_scene_cache:
       return None
     old_scene = self._old_scene_cache.get(uid)
@@ -244,6 +242,9 @@ class CacheManager:
       return None
     if not hasattr(old_scene, 'tracker'):
       return old_scene
+    for sensor in getattr(old_scene, 'sensors', {}).values():
+      if getattr(sensor, 'value', None) is not None:
+        return old_scene
     return None
 
   def _restoreSensorCache(self, uid, old_scene, scene):
