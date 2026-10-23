@@ -10,6 +10,240 @@ Create a repeatable offline scorecard for SceneScape's default
 evaluates labeled person crops or cached vectors without modifying a live gallery.
 It does not infer person identities from Tracker IDs.
 
+## Already-Labeled Datasets: Skip Manual Review
+
+If a dataset already supplies person identities and camera labels, import those
+annotations directly. No detector, contact-sheet review, or identity inference is
+needed. Obtain datasets yourself under their access and usage terms; the importer
+does not download data or generate pseudo-labels.
+
+### Market-1501
+
+Point `--root` at the extracted directory containing `query/` and
+`bounding_box_test/`:
+
+```bash
+tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.datasets market1501 \
+  --root /data/Market-1501-v15.09.15 \
+  --output tools/reid_evaluation/output/market1501/manifest.json
+```
+
+The importer maps query images to `test` and test-gallery images to `gallery`,
+reads person/camera labels from filenames, excludes junk identity `-1`, retains
+gallery distractor identity `0`, and never imports training images. IDs are
+deterministic from the dataset namespace and relative image path. Labels are
+namespaced to prevent accidental identity/camera overlap with other datasets.
+
+**This is not an official Market-1501 benchmark implementation.** The evaluator
+excludes all same-camera gallery observations by default, whereas the official
+protocol excludes same-person/same-camera observations. Neither this setting nor
+`--allow-same-camera` reproduces the official protocol. Use these results for
+comparisons under the recorded SceneScape protocol, not published benchmark claims.
+No calibration split or unknown-person protocol is automatically invented.
+
+### NVIDIA PhysicalAI-SmartSpaces Videos
+
+For the documented 2025/2026 JSON format, the PhysicalAI adapter extracts crops
+directly from ground-truth boxes and uses annotated object IDs as identities.
+Both the actual spaced JSON keys (`object id`, `2d bounding box visible`) and
+the dataset card's underscore variants are supported.
+No detector or manual identity review is required. Obtain one labeled scene's
+RGB videos and `ground_truth.json` from
+[NVIDIA PhysicalAI-SmartSpaces](https://huggingface.co/datasets/nvidia/PhysicalAI-SmartSpaces)
+under its CC BY 4.0 terms; retain attribution. Depth maps are not needed.
+This adapter does not download the dataset. Unlabeled/withheld-ground-truth scenes
+and the older 2024 text format are not supported.
+
+#### Small Hugging Face Download: Lab_000
+
+Download only two RGB videos and their matching labels from the 2025 validation
+scene `Lab_000`, not the whole repository or its depth maps. Camera 0 is about
+137 MB, camera 1 about 93 MB, and the annotations about 13 MB: **243 MB total**.
+The original videos are five minutes at 30 FPS. We keep them intact and sample
+only the first three minutes for evaluation; these are not separate short clips
+published by Hugging Face.
+
+Run from the repository root after installing the tools in step 1:
+
+```bash
+DATA_DIR=tools/reid_evaluation/output/physicalai-lab-data
+BASE_URL=https://huggingface.co/datasets/nvidia/PhysicalAI-SmartSpaces/resolve/main/MTMC_Tracking_2025/val/Lab_000
+mkdir -p "$DATA_DIR"
+for FILE in videos/Camera_0000.mp4 videos/Camera_0001.mp4 ground_truth.json; do
+  curl --fail --location --retry 3 --continue-at - \
+    --output "$DATA_DIR/${FILE##*/}" "$BASE_URL/$FILE?download=true" || break
+done
+```
+
+The command resumes partial downloads. Open either MP4 in a video player such
+as VLC to inspect the footage. The local cache is ignored by Git. Retain NVIDIA
+attribution under the dataset's CC BY 4.0 license.
+
+Create `tools/reid_evaluation/output/physicalai-lab-data/videos.json` with the
+following content. Paths are relative to this mapping file:
+
+```json
+{
+  "Camera_0000": "Camera_0000.mp4",
+  "Camera_0001": "Camera_0001.mp4"
+}
+```
+
+These are the actual camera IDs for this scene. For another scene, use its exact
+annotation IDs and at least two synchronized videos, with annotation frame zero
+corresponding to video frame zero. The person class here is `Person`.
+
+```bash
+tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.physicalai \
+  --ground-truth tools/reid_evaluation/output/physicalai-lab-data/ground_truth.json \
+  --videos tools/reid_evaluation/output/physicalai-lab-data/videos.json \
+  --scene physicalai-2025-Lab_000 \
+  --gallery-camera Camera_0000 --object-type Person \
+  --frame-step 30 --max-frames 180 --query-gap-frames 30 \
+  --output tools/reid_evaluation/output/physicalai-lab-3min
+```
+
+At 30 FPS, this samples frame indices 0, 30, ..., 5370 (seconds 0 through 179),
+not 180 consecutive video frames. The output directory must not exist. The
+command writes `crops/*.png` and `manifest.json`. Once the baseline XML/BIN pair
+is available as described in step 2, evaluate with:
+
+```bash
+tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
+  --manifest tools/reid_evaluation/output/physicalai-lab-3min/manifest.json \
+  --model tools/reid_evaluation/output/models/person-reidentification-retail-0277.xml \
+  --device CPU --metric COSINE --threshold 0.5 \
+  --output tools/reid_evaluation/output/physicalai-lab-3min/omz-0277
+```
+
+The threshold is fixed, not calibrated on these test images. Camera 0 supplies
+gallery references and camera 1 supplies queries; do not use `--allow-same-camera`.
+Only three shared person identities were found in this window before crop-size
+filtering, so this is a small synthetic smoke test, not a robust accuracy benchmark.
+
+Sampling selects up to `--max-frames` annotated frames whose zero-based frame
+index is divisible by `--frame-step`. The earliest valid crop per identity from
+the selected gallery camera becomes its reference. Test crops come only from
+other mapped cameras, at least `--query-gap-frames` later than that reference.
+The minimum clipped crop area is 5000 pixels by default. Invalid boxes fail;
+small or fully outside boxes are excluded and counted. Missing videos, decoding
+failures, and empty gallery/test splits fail visibly. Failed exports may leave
+partial crops; retry in a new directory.
+
+This initial protocol is **closed-set**: people without a gallery reference are
+excluded, not silently labeled unknown. No calibration split is created.
+Metadata records sampling/split rules, exclusions, source hashes, and attribution.
+Use a unique edition/scene namespace for independent recordings. The observations
+are derived from synthetic ground truth, not model-generated pseudo-labels.
+These results measure crop retrieval, **not official multi-camera HOTA** or
+real-world deployment accuracy. The Lab_000 workflow above was also exercised
+with the actual downloaded videos; automated tests use generated videos and
+schema fixtures.
+
+#### Recorded Three-Minute Baseline
+
+The 2026-10-22 CPU run of `person-reidentification-retail-0277` produced 3 gallery
+crops and 537 test queries across 3 identities. No queries were skipped.
+
+| Metric                                           | Result             |
+| ------------------------------------------------ | ------------------ |
+| Rank-1 accuracy                                  | 70.95%             |
+| Mean average precision (mAP)                     | 82.56%             |
+| Correct accepted matches at cosine threshold 0.5 | 216 / 537 (40.22%) |
+| Incorrect accepted matches                       | 0 / 537            |
+| Rejected known-person queries                    | 321 / 537 (59.78%) |
+
+Reports are written under `output/physicalai-lab-3min/omz-0277/`: `report.json`,
+`scorecard.md`, `predictions.csv`, and cached `embeddings.json`. These local
+artifacts record model hashes, preprocessing, dataset provenance, and runtime
+details. The 537 queries are repeated observations of only three synthetic
+people, not independent identities. There are no unknown-person queries, so
+unknown false-accept rate is **not measured**, not zero. Do not tune the threshold
+on these test results; threshold calibration requires a separate labeled split.
+
+#### CLIP-ReID Comparison on the Same Crops
+
+Reuse the locally cached `person_vit_clip_reid.xml` and adjacent `.bin` from the
+earlier CLIP-ReID experiment. This is the 512-dimensional projection of the
+Market-1501-trained ViT-B/16 model, recorded as
+`occurra-96485fbf439a3dea0f28c1309f087c2044de877e`, not a generic CLIP image encoder.
+The command preserves that experiment's RGB, 0-1 pixel scaling, and mean/std
+0.5 preprocessing rather than the OMZ model's BGR 0-255 defaults:
+
+```bash
+tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
+  --manifest tools/reid_evaluation/output/physicalai-lab-3min/manifest.json \
+  --model tools/reid_evaluation/output/models/person_vit_clip_reid.xml \
+  --model-name clip-reid-vit-b16-market1501-projection512 \
+  --model-version occurra-96485fbf439a3dea0f28c1309f087c2044de877e \
+  --device CPU --color-order RGB --layout NCHW \
+  --pixel-scale 0.00392156862745098 --mean 0.5 0.5 0.5 --std 0.5 0.5 0.5 \
+  --output-name embedding --metric COSINE --threshold 0.5 \
+  --baseline tools/reid_evaluation/output/physicalai-lab-3min/omz-0277/report.json \
+  --output tools/reid_evaluation/output/physicalai-lab-3min/clip-reid-512
+```
+
+The completed CPU run evaluated all 537 queries with no skips. The evaluator
+verified that the baseline and CLIP run share the same crop/exclusion protocol.
+
+| Metric                                           | OMZ 0277  | CLIP-ReID |
+| ------------------------------------------------ | --------- | --------- |
+| Rank-1 accuracy                                  | 70.95%    | 65.92%    |
+| Mean average precision (mAP)                     | 82.56%    | 82.71%    |
+| Correct accepted matches at cosine threshold 0.5 | 216 / 537 | 354 / 537 |
+| Incorrect accepted matches                       | 0 / 537   | 183 / 537 |
+| Rejected known-person queries                    | 321 / 537 | 0 / 537   |
+
+CLIP-ReID rank-1 accuracy was 5.03 percentage points lower. At the fixed threshold,
+it accepted every query, including 183 wrong identities. The same numerical
+threshold does not establish equivalent operating points across models; use a
+separate calibration split before comparing threshold-dependent deployment
+behavior. Unknown-person false-accept rate remains unmeasured for both models.
+CLIP mean CPU inference time was about 277 ms per crop (serial, batch one), not
+end-to-end tracking latency. Reports, predictions, model hashes, and cached
+embeddings are saved under `output/physicalai-lab-3min/clip-reid-512/`.
+
+### Other Datasets With CSV Annotations
+
+Supply a UTF-8 CSV with these columns:
+
+```csv
+image,identity,camera,split
+crops/reference.jpg,person-a,cam-1,gallery
+crops/query.jpg,person-a,cam-2,test
+```
+
+```bash
+tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.datasets csv \
+  --annotations /data/labeled/annotations.csv --name labeled-v1 \
+  --output tools/reid_evaluation/output/labeled-v1/manifest.json
+```
+
+Image paths are relative to the CSV or absolute. Optional `id` and `track_id`
+columns preserve source identifiers and track exclusions; without `id`, sample IDs
+are derived from the dataset name and supplied image path. Keep the name stable
+for repeat imports and use different names for independent datasets. Supported
+splits are `gallery`, `calibration`, and `test`; calibration/test query identities
+must be disjoint. Missing images, malformed rows, empty labels, duplicate IDs,
+and repeated image paths are rejected before writing. Image-content duplication
+across splits is additionally checked during inference. Existing manifests are
+never overwritten. Import counts and exclusions are printed and saved in dataset
+metadata.
+
+Pass the generated manifest to the existing evaluator with your chosen model:
+
+```bash
+tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
+  --manifest tools/reid_evaluation/output/market1501/manifest.json \
+  --model tools/reid_evaluation/output/models/person-reidentification-retail-0277.xml \
+  --metric COSINE --threshold 0.5 \
+  --output tools/reid_evaluation/output/market1501/omz-0277
+```
+
+Full datasets can be expensive: the current scorer ranks gallery samples per
+query and this importer does not introduce batching or large-dataset performance
+optimizations. Cached embeddings can avoid repeat model inference.
+
 ## Workflow
 
 Follow steps 1-7 for a first baseline on the bundled Queuing video:
