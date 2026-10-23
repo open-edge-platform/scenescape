@@ -133,7 +133,7 @@ Check `evaluators/README.md` for more details
   - Dataset: [base/tracking_dataset.py](base/tracking_dataset.py)
   - Harness: [base/tracker_harness.py](base/tracker_harness.py)
   - Evaluator: [base/tracker_evaluator.py](base/tracker_evaluator.py)
-- **TrackEval adapter & helpers**: [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py), [utils/format_converters/](./utils/format_converters.py).
+- **TrackEval adapter & helpers**: [evaluators/trackeval_evaluator.py](evaluators/trackeval_evaluator.py) (also a CLI for a `tracks.jsonl` + `groundtruth.jsonl` directory, e.g. a robot-vision recording: `python evaluators/trackeval_evaluator.py <dir>`), [utils/format_converters/](./utils/format_converters.py).
 - **Jitter adapter**: [evaluators/jitter_evaluator.py](evaluators/jitter_evaluator.py).
 - **Diagnostic adapter**: [evaluators/diagnostic_evaluator.py](evaluators/diagnostic_evaluator.py).
 - **Camera projection harness**: [harnesses/camera_projection_harness/camera_projection_harness.py](harnesses/camera_projection_harness/camera_projection_harness.py), container script: [harnesses/camera_projection_harness/run_projection.py](harnesses/camera_projection_harness/run_projection.py).

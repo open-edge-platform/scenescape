@@ -92,9 +92,32 @@ print(f"IDF1: {metrics['IDF1']:.3f}")
 - No parallel processing support
 - Limited configuration options for TrackEval parameters
 
+**Command Line**:
+
+Computes the metrics for a directory with `tracks.jsonl` (tracker output) and `groundtruth.jsonl` (ground truth), both in
+the canonical formats and named as robot-vision test recordings are (see
+[Scenario Visualization](../visualization/README.md#guide) for generating them). From `tools/tracker/evaluation`, with
+its `.venv` activated:
+
+1. Generate a recording, e.g. `/tmp/rv-scenarios/MotionScenarioTest.TracksMotionCases/turn`.
+2. Run the evaluator on it:
+
+   ```bash
+   python evaluators/trackeval_evaluator.py /tmp/rv-scenarios/MotionScenarioTest.TracksMotionCases/turn
+   ```
+
+3. Read the summary printed to stdout, in the same format as `pipeline_engine`; TrackEval result files are in
+   `<input>/metrics/`.
+
+| Option          | Description                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `--metrics A,B` | Comma-separated metrics, default `HOTA,MOTA,IDF1`                                                                         |
+| `--output DIR`  | Output directory, default `<input>/metrics`                                                                               |
+| `--fps N`       | Frame rate for matching timestamps, default the median ground-truth rate; set it to the dataset's `camera_fps` when known |
+
 **Implementation**: [trackeval_evaluator.py](trackeval_evaluator.py)
 
-**Tests**: See [tests/test_trackeval_evaluator.py](tests/test_trackeval_evaluator.py) for comprehensive test suite with 16 test cases covering configuration, processing, evaluation, and integration workflows.
+**Tests**: See [tests/test_trackeval_evaluator.py](tests/test_trackeval_evaluator.py) for the test suite covering configuration, processing, evaluation, integration workflows and the command line.
 
 ### DiagnosticEvaluator
 

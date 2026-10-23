@@ -9,6 +9,7 @@ including HOTA, MOTA, IDF1, and CLEAR MOT metrics for 3D point tracking.
 
 from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
+import argparse
 import sys
 import tempfile
 import numpy as np
@@ -573,3 +574,82 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._uuid_to_id_map = {}
 
     return self
+
+
+# Command line: TrackEval metrics for a directory with robot-vision ScenarioRecorder file names.
+TRACKS_FILE = "tracks.jsonl"
+GROUND_TRUTH_FILE = "groundtruth.jsonl"
+DEFAULT_METRICS = ['HOTA', 'MOTA', 'IDF1']
+
+
+def ground_truth_fps(ground_truth_path: Path) -> float:
+  """Frame rate from the median interval between distinct ground-truth timestamps.
+
+  Raises:
+    ValueError: If the ground truth has fewer than two distinct timestamps.
+  """
+  from utils.format_converters import stream_jsonl
+  from utils.timeline import parse_timestamp
+
+  frames = stream_jsonl(str(ground_truth_path))
+  times = sorted({parse_timestamp(frame["timestamp"]) for frame in frames})
+  if len(times) < 2:
+    raise ValueError(f"Cannot derive the frame rate from {ground_truth_path}; pass --fps")
+  intervals = sorted((later - earlier).total_seconds() for earlier, later in zip(times, times[1:]))
+  return 1.0 / intervals[len(intervals) // 2]
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+  """Compute TrackEval metrics for tracks.jsonl against groundtruth.jsonl and print a summary."""
+  parser = argparse.ArgumentParser(
+    description=f"Compute TrackEval metrics for {TRACKS_FILE} against {GROUND_TRUTH_FILE} in a "
+    "directory, e.g. a robot-vision ScenarioRecorder scenario.")
+  parser.add_argument("input", type=Path,
+                      help=f"directory with {TRACKS_FILE} and {GROUND_TRUTH_FILE}")
+  parser.add_argument("--metrics", default=",".join(DEFAULT_METRICS),
+                      help=f"comma-separated metrics (default: {','.join(DEFAULT_METRICS)}); "
+                      f"supported: {','.join(TrackEvalEvaluator.SUPPORTED_METRICS)}")
+  parser.add_argument("--output", type=Path, help="output directory (default: <input>/metrics)")
+  parser.add_argument("--fps", type=float,
+                      help="frame rate for matching timestamps (default: from the ground truth)")
+  args = parser.parse_args(argv)
+
+  metrics = [name for name in args.metrics.split(",") if name]
+  tracks_path = args.input / TRACKS_FILE
+  ground_truth_path = args.input / GROUND_TRUTH_FILE
+  for path in (tracks_path, ground_truth_path):
+    if not path.is_file():
+      parser.error(f"{path} not found")
+
+  from utils.format_converters import stream_jsonl
+
+  evaluator = TrackEvalEvaluator()
+  try:
+    evaluator.configure_metrics(metrics)
+    fps = args.fps if args.fps is not None else ground_truth_fps(ground_truth_path)
+    evaluator.set_base_fps(fps)
+  except ValueError as error:
+    parser.error(str(error))
+  output = args.output or args.input / "metrics"
+  evaluator.set_output_folder(output)
+
+  print(f"Frame rate: {fps:g} fps")
+  try:
+    evaluator.process_tracker_outputs(list(stream_jsonl(str(tracks_path))), str(ground_truth_path))
+    results = evaluator.evaluate_metrics()
+  except RuntimeError as error:
+    print(f"Error: {error}", file=sys.stderr)
+    return 1
+  finally:
+    evaluator.reset()
+
+  print("=== Evaluation Results ===")
+  print(f"\n[{TrackEvalEvaluator.__name__}]")
+  for name, value in results.items():
+    print(f"  {name}: {value:.4f}")
+  print(f"\nResults saved to: {output}")
+  return 0
+
+
+if __name__ == "__main__":
+  sys.exit(main())
