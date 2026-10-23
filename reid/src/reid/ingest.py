@@ -106,6 +106,71 @@ class TrackIngest:
       return None
 
   @classmethod
+  def _parse_reid_sighting(cls, sighting, timestamp):
+    """Return the authoritative payload and view details from a tracker sighting."""
+    reid_payload = None
+    camera_id = None
+    observation_timestamp = timestamp
+    bbox_px_area = 0.0
+    if (isinstance(sighting, dict) and isinstance(sighting.get("camera_id"), str)
+        and sighting["camera_id"] and isinstance(sighting.get("timestamp"), str)
+        and sighting["timestamp"] and isinstance(sighting.get("reid"), dict)):
+      camera_id = sighting["camera_id"]
+      observation_timestamp = sighting["timestamp"]
+      bbox_px_area = cls._bbox_area(sighting) or 0.0
+      reid_payload = sighting["reid"]
+    return reid_payload, bbox_px_area, camera_id, observation_timestamp
+
+  @staticmethod
+  def _decode_observation_embedding(reid_payload, track_id, stats):
+    embedding = provenance = None
+    if reid_payload is not None:
+      try:
+        embedding, provenance = decode_reid_payload(reid_payload)
+      except ValueError as err:
+        stats["embedding_decode_errors"] += 1
+        log.debug(f"[reid-ingest] bad embedding on {track_id}: {err}")
+    return embedding, provenance
+
+  @classmethod
+  def _parse_scene_object(cls, obj, timestamp, category, stats):
+    track_id = obj.get("id")
+    if track_id is None:
+      stats["objects_without_id"] += 1
+      return None
+
+    metadata = obj.get("metadata") or {}
+    sighting = obj.get("reid_sighting")
+    reid_payload = metadata.get("reid") if isinstance(metadata, dict) else None
+    bbox_px_area = cls._bbox_area(obj)
+    observation_timestamp = timestamp
+    camera_id = None
+    if sighting is not None:
+      # A supplied sighting is authoritative, even when malformed; do not fall
+      # back to potentially stale track-level metadata.
+      sighting_data = cls._parse_reid_sighting(sighting, timestamp)
+      reid_payload, bbox_px_area, camera_id, observation_timestamp = sighting_data
+
+    embedding, provenance = cls._decode_observation_embedding(reid_payload, track_id, stats)
+    semantic = ({key: value for key, value in metadata.items() if key != "reid"}
+                if isinstance(metadata, dict) else {})
+    chain = obj.get("previous_ids_chain") or []
+    return TrackObservation(
+      track_id=str(track_id),
+      category=obj.get("category") or category or "object",
+      embedding=embedding,
+      provenance=provenance,
+      metadata=semantic,
+      bbox_px_area=bbox_px_area,
+      timestamp=observation_timestamp,
+      camera_id=camera_id,
+      cameras=[camera_id] if camera_id else list(obj.get("visibility") or []),
+      upstream_reid_state=obj.get("reid_state"),
+      previous_ids=[str(item["id"]) for item in chain
+                    if isinstance(item, dict) and item.get("id")],
+    )
+
+  @classmethod
   def _parse_scene_message(cls, payload, category=None, stats=None):
     """
     Turn one scene-track message into TrackObservations.
@@ -120,51 +185,9 @@ class TrackIngest:
     timestamp = data.get("timestamp")
     observations = []
     for obj in data.get("objects") or []:
-      track_id = obj.get("id")
-      if track_id is None:
-        stats["objects_without_id"] += 1
-        continue
-      metadata = obj.get("metadata") or {}
-      sighting = obj.get("reid_sighting")
-      embedding = provenance = None
-      camera_id = None
-      bbox_px_area = cls._bbox_area(obj)
-      observation_timestamp = timestamp
-      reid_payload = metadata.get("reid") if isinstance(metadata, dict) else None
-      if sighting is not None:
-  # A supplied sighting is authoritative, even when malformed; do not fall
-  # back to potentially stale track-level metadata.
-        reid_payload = None
-        bbox_px_area = 0.0
-        if (isinstance(sighting, dict) and isinstance(sighting.get("camera_id"), str)
-            and sighting["camera_id"] and isinstance(sighting.get("timestamp"), str)
-            and sighting["timestamp"] and isinstance(sighting.get("reid"), dict)):
-          camera_id = sighting["camera_id"]
-          observation_timestamp = sighting["timestamp"]
-          bbox_px_area = cls._bbox_area(sighting) or 0.0
-          reid_payload = sighting["reid"]
-      if reid_payload is not None:
-        try:
-          embedding, provenance = decode_reid_payload(reid_payload)
-        except ValueError as err:
-          stats["embedding_decode_errors"] += 1
-          log.debug(f"[reid-ingest] bad embedding on {track_id}: {err}")
-      semantic = ({k: v for k, v in metadata.items() if k != "reid"}
-                  if isinstance(metadata, dict) else {})
-      chain = obj.get("previous_ids_chain") or []
-      observations.append(TrackObservation(
-        track_id=str(track_id),
-        category=obj.get("category") or category or "object",
-        embedding=embedding,
-        provenance=provenance,
-        metadata=semantic,
-        bbox_px_area=bbox_px_area,
-        timestamp=observation_timestamp,
-        camera_id=camera_id,
-        cameras=[camera_id] if camera_id else list(obj.get("visibility") or []),
-        upstream_reid_state=obj.get("reid_state"),
-        previous_ids=[str(c["id"]) for c in chain if isinstance(c, dict) and c.get("id")],
-      ))
+      observation = cls._parse_scene_object(obj, timestamp, category, stats)
+      if observation is not None:
+        observations.append(observation)
     return timestamp, observations
 
   @staticmethod
