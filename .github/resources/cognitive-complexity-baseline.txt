@@ -100,7 +100,6 @@ mapping/src/vggt_model.py	VGGTModel::scale_intrinsics_to_original_size	13
 model_download/src/download_models.py	_wait_for_jobs	20
 model_download/src/generate_model_config.py	_build_config_entry	14
 model_download/src/generate_model_config.py	_get_model_config_entries	14
-reid/src/reid/ingest.py	TrackIngest::_parse_scene_message	20
 reid/src/reid/matcher.py	TrackMatcher::_decide	20
 reid/src/reid/matcher.py	TrackMatcher::_enrollmentVectorsForMatch	20
 reid/src/reid/matcher.py	TrackMatcher::observe	21
