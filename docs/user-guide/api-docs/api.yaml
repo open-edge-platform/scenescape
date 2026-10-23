@@ -64,10 +64,16 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset3D"
         "400":
           description: Validation error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /asset/{uid}:
     get:
       tags:
@@ -90,7 +96,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Asset3D"
         "400":
-          description: Bad request - UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
@@ -100,6 +106,9 @@ paths:
         - asset
       operationId: asset_detail_update
       summary: Update an asset by UID
+      description: >-
+        Partial update. Only the fields in the request body are changed.
+        `POST /asset/{uid}` behaves the same.
       parameters:
         - in: path
           name: uid
@@ -110,22 +119,68 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Asset3D"
+              $ref: "#/components/schemas/PatchedAsset3D"
           multipart/form-data:
             schema:
-              $ref: "#/components/schemas/Asset3D"
+              $ref: "#/components/schemas/PatchedAsset3D"
         required: true
       security:
         - tokenAuth: []
       responses:
         "200":
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset3D"
         "400":
-          description: Validation error or UID required
+          description: Validation error or invalid UID
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
+    post:
+      tags:
+        - asset
+      operationId: asset_detail_partial_update
+      summary: Update an asset by UID (POST)
+      description: >-
+        Partial update, same as `PUT /asset/{uid}`. Only the fields in the
+        request body are changed.
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedAsset3D"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PatchedAsset3D"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Asset3D"
+        "400":
+          description: Validation error or invalid UID
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
     delete:
       tags:
         - asset
@@ -142,12 +197,23 @@ paths:
       responses:
         "200":
           description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pk:
+                    type: integer
+                required:
+                  - pk
         "400":
-          description: UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /assets:
     get:
       tags:
@@ -186,6 +252,8 @@ paths:
           description: Invalid or unknown query parameter
         "401":
           description: Unauthorized
+        "404":
+          description: Page number out of range or not an integer
   /auth:
     post:
       tags:
@@ -232,10 +300,16 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationMarker"
         "400":
           description: Validation error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /calibrationmarker/{marker_id}:
     get:
       tags:
@@ -258,7 +332,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/CalibrationMarker"
         "400":
-          description: Bad request - UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
@@ -268,6 +342,9 @@ paths:
         - calibrationmarker
       operationId: calibrationmarker_detail_update
       summary: Update a calibration marker by marker ID
+      description: >-
+        Partial update. Only the fields in the request body are changed.
+        `POST /calibrationmarker/{marker_id}` behaves the same.
       parameters:
         - in: path
           name: marker_id
@@ -278,19 +355,62 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CalibrationMarker"
+              $ref: "#/components/schemas/PatchedCalibrationMarker"
         required: true
       security:
         - tokenAuth: []
       responses:
         "200":
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationMarker"
         "400":
-          description: Validation error or UID required
+          description: Validation error or invalid UID
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
+    post:
+      tags:
+        - calibrationmarker
+      operationId: calibrationmarker_detail_partial_update
+      summary: Update a calibration marker by marker ID (POST)
+      description: >-
+        Partial update, same as `PUT /calibrationmarker/{marker_id}`. Only the fields in the
+        request body are changed.
+      parameters:
+        - in: path
+          name: marker_id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedCalibrationMarker"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalibrationMarker"
+        "400":
+          description: Validation error or invalid UID
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
     delete:
       tags:
         - calibrationmarker
@@ -307,12 +427,23 @@ paths:
       responses:
         "200":
           description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  marker_id:
+                    type: string
+                required:
+                  - marker_id
         "400":
-          description: UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /calibrationmarkers:
     get:
       tags:
@@ -346,6 +477,8 @@ paths:
           description: Invalid or unknown query parameter
         "401":
           description: Unauthorized
+        "404":
+          description: Page number out of range or not an integer
   /camera:
     post:
       tags:
@@ -363,10 +496,16 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cam"
         "400":
           description: Validation error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /camera/{sensor_id}:
     get:
       tags:
@@ -389,7 +528,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Cam"
         "400":
-          description: Bad request - UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
@@ -399,6 +538,9 @@ paths:
         - camera
       operationId: camera_detail_update
       summary: Update a camera by sensor ID
+      description: >-
+        Partial update. Only the fields in the request body are changed.
+        `POST /camera/{sensor_id}` behaves the same.
       parameters:
         - in: path
           name: sensor_id
@@ -409,19 +551,62 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Cam"
+              $ref: "#/components/schemas/PatchedCam"
         required: true
       security:
         - tokenAuth: []
       responses:
         "200":
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cam"
         "400":
-          description: Validation error or UID required
+          description: Validation error or invalid UID
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
+    post:
+      tags:
+        - camera
+      operationId: camera_detail_partial_update
+      summary: Update a camera by sensor ID (POST)
+      description: >-
+        Partial update, same as `PUT /camera/{sensor_id}`. Only the fields in the
+        request body are changed.
+      parameters:
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedCam"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Cam"
+        "400":
+          description: Validation error or invalid UID
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
     delete:
       tags:
         - camera
@@ -438,12 +623,23 @@ paths:
       responses:
         "200":
           description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sensor_id:
+                    type: string
+                required:
+                  - sensor_id
         "400":
-          description: UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /cameras:
     get:
       tags:
@@ -489,6 +685,8 @@ paths:
           description: Invalid or unknown query parameter
         "401":
           description: Unauthorized
+        "404":
+          description: Page number out of range or not an integer
   /child:
     post:
       tags:
@@ -506,10 +704,16 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildScene"
         "400":
           description: Validation error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /child/{uid}:
     get:
       tags:
@@ -532,7 +736,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ChildScene"
         "400":
-          description: Bad request - UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
@@ -542,6 +746,9 @@ paths:
         - child
       operationId: child_detail_update
       summary: Update a child scene by UID
+      description: >-
+        Partial update. Only the fields in the request body are changed.
+        `POST /child/{uid}` behaves the same.
       parameters:
         - in: path
           name: uid
@@ -552,19 +759,62 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ChildScene"
+              $ref: "#/components/schemas/PatchedChildScene"
         required: true
       security:
         - tokenAuth: []
       responses:
         "200":
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildScene"
         "400":
-          description: Validation error or UID required
+          description: Validation error or invalid UID
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
+    post:
+      tags:
+        - child
+      operationId: child_detail_partial_update
+      summary: Update a child scene by UID (POST)
+      description: >-
+        Partial update, same as `PUT /child/{uid}`. Only the fields in the
+        request body are changed.
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedChildScene"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildScene"
+        "400":
+          description: Validation error or invalid UID
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
     delete:
       tags:
         - child
@@ -581,12 +831,23 @@ paths:
       responses:
         "200":
           description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pk:
+                    type: integer
+                required:
+                  - pk
         "400":
-          description: UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /scenes/child:
     get:
       tags:
@@ -626,6 +887,8 @@ paths:
           description: Invalid or unknown query parameter
         "401":
           description: Unauthorized
+        "404":
+          description: Page number out of range or not an integer
   /frame:
     get:
       tags:
@@ -654,11 +917,17 @@ paths:
         - tokenAuth: []
       responses:
         "200":
-          description: Frame data or video file
+          description: Frame data returned by the camera
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Frame payload as published by the camera, for example a base64 image.
+                additionalProperties: {}
         "400":
           description: Missing or invalid camera or timestamp
         "404":
-          description: Not found
+          description: The camera did not return a frame within 3 seconds
         "503":
           description: Broker unavailable
         "401":
@@ -680,10 +949,16 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Region"
         "400":
           description: Validation error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /region/{uid}:
     get:
       tags:
@@ -706,7 +981,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Region"
         "400":
-          description: Bad request - UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
@@ -716,6 +991,9 @@ paths:
         - region
       operationId: region_detail_update
       summary: Update a region by UID
+      description: >-
+        Partial update. Only the fields in the request body are changed.
+        `POST /region/{uid}` behaves the same.
       parameters:
         - in: path
           name: uid
@@ -726,19 +1004,62 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Region"
+              $ref: "#/components/schemas/PatchedRegion"
         required: true
       security:
         - tokenAuth: []
       responses:
         "200":
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Region"
         "400":
-          description: Validation error or UID required
+          description: Validation error or invalid UID
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
+    post:
+      tags:
+        - region
+      operationId: region_detail_partial_update
+      summary: Update a region by UID (POST)
+      description: >-
+        Partial update, same as `PUT /region/{uid}`. Only the fields in the
+        request body are changed.
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedRegion"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Region"
+        "400":
+          description: Validation error or invalid UID
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
     delete:
       tags:
         - region
@@ -755,12 +1076,24 @@ paths:
       responses:
         "200":
           description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                    format: uuid
+                required:
+                  - uuid
         "400":
-          description: UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /regions:
     get:
       tags:
@@ -806,6 +1139,8 @@ paths:
           description: Invalid or unknown query parameter
         "401":
           description: Unauthorized
+        "404":
+          description: Page number out of range or not an integer
   /scene:
     post:
       tags:
@@ -826,10 +1161,16 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
         "400":
           description: Validation error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /scene/{uid}:
     get:
       tags:
@@ -852,7 +1193,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Scene"
         "400":
-          description: Bad request - UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
@@ -862,6 +1203,9 @@ paths:
         - scene
       operationId: scene_detail_update
       summary: Update a scene by UID
+      description: >-
+        Partial update. Only the fields in the request body are changed.
+        `POST /scene/{uid}` behaves the same.
       parameters:
         - in: path
           name: uid
@@ -872,22 +1216,68 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Scene"
+              $ref: "#/components/schemas/PatchedScene"
           multipart/form-data:
             schema:
-              $ref: "#/components/schemas/Scene"
+              $ref: "#/components/schemas/PatchedScene"
         required: true
       security:
         - tokenAuth: []
       responses:
         "200":
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
         "400":
-          description: Validation error or UID required
+          description: Validation error or invalid UID
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
+    post:
+      tags:
+        - scene
+      operationId: scene_detail_partial_update
+      summary: Update a scene by UID (POST)
+      description: >-
+        Partial update, same as `PUT /scene/{uid}`. Only the fields in the
+        request body are changed.
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedScene"
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/PatchedScene"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scene"
+        "400":
+          description: Validation error or invalid UID
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
     delete:
       tags:
         - scene
@@ -904,12 +1294,24 @@ paths:
       responses:
         "200":
           description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pk:
+                    type: string
+                    format: uuid
+                required:
+                  - pk
         "400":
-          description: UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /scenes:
     get:
       tags:
@@ -955,6 +1357,8 @@ paths:
           description: Invalid or unknown query parameter
         "401":
           description: Unauthorized
+        "404":
+          description: Page number out of range or not an integer
   /sensor:
     post:
       tags:
@@ -972,10 +1376,16 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Singleton"
         "400":
           description: Validation error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /sensor/{sensor_id}:
     get:
       tags:
@@ -998,7 +1408,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Singleton"
         "400":
-          description: Bad request - UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
@@ -1008,6 +1418,9 @@ paths:
         - sensor
       operationId: sensor_detail_update
       summary: Update a sensor by sensor ID
+      description: >-
+        Partial update. Only the fields in the request body are changed.
+        `POST /sensor/{sensor_id}` behaves the same.
       parameters:
         - in: path
           name: sensor_id
@@ -1018,19 +1431,62 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Singleton"
+              $ref: "#/components/schemas/PatchedSingleton"
         required: true
       security:
         - tokenAuth: []
       responses:
         "200":
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Singleton"
         "400":
-          description: Validation error or UID required
+          description: Validation error or invalid UID
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
+    post:
+      tags:
+        - sensor
+      operationId: sensor_detail_partial_update
+      summary: Update a sensor by sensor ID (POST)
+      description: >-
+        Partial update, same as `PUT /sensor/{sensor_id}`. Only the fields in the
+        request body are changed.
+      parameters:
+        - in: path
+          name: sensor_id
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedSingleton"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Singleton"
+        "400":
+          description: Validation error or invalid UID
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
     delete:
       tags:
         - sensor
@@ -1047,12 +1503,23 @@ paths:
       responses:
         "200":
           description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sensor_id:
+                    type: string
+                required:
+                  - sensor_id
         "400":
-          description: UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /sensors:
     get:
       tags:
@@ -1098,6 +1565,8 @@ paths:
           description: Invalid or unknown query parameter
         "401":
           description: Unauthorized
+        "404":
+          description: Page number out of range or not an integer
   /tripwire:
     post:
       tags:
@@ -1115,10 +1584,16 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tripwire"
         "400":
           description: Validation error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /tripwire/{uid}:
     get:
       tags:
@@ -1141,7 +1616,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/Tripwire"
         "400":
-          description: Bad request - UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
@@ -1151,6 +1626,9 @@ paths:
         - tripwire
       operationId: tripwire_detail_update
       summary: Update a tripwire by UID
+      description: >-
+        Partial update. Only the fields in the request body are changed.
+        `POST /tripwire/{uid}` behaves the same.
       parameters:
         - in: path
           name: uid
@@ -1161,19 +1639,62 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Tripwire"
+              $ref: "#/components/schemas/PatchedTripwire"
         required: true
       security:
         - tokenAuth: []
       responses:
         "200":
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tripwire"
         "400":
-          description: Validation error or UID required
+          description: Validation error or invalid UID
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
+    post:
+      tags:
+        - tripwire
+      operationId: tripwire_detail_partial_update
+      summary: Update a tripwire by UID (POST)
+      description: >-
+        Partial update, same as `PUT /tripwire/{uid}`. Only the fields in the
+        request body are changed.
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedTripwire"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Tripwire"
+        "400":
+          description: Validation error or invalid UID
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
     delete:
       tags:
         - tripwire
@@ -1190,12 +1711,24 @@ paths:
       responses:
         "200":
           description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uuid:
+                    type: string
+                    format: uuid
+                required:
+                  - uuid
         "400":
-          description: UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /tripwires:
     get:
       tags:
@@ -1241,6 +1774,8 @@ paths:
           description: Invalid or unknown query parameter
         "401":
           description: Unauthorized
+        "404":
+          description: Page number out of range or not an integer
   /user:
     post:
       tags:
@@ -1258,10 +1793,16 @@ paths:
       responses:
         "201":
           description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
         "400":
           description: Validation error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /user/{username}:
     get:
       tags:
@@ -1284,7 +1825,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
         "400":
-          description: Bad request - UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
@@ -1294,6 +1835,9 @@ paths:
         - user
       operationId: user_detail_update
       summary: Update a user by username
+      description: >-
+        Partial update. Only the fields in the request body are changed.
+        `POST /user/{username}` behaves the same.
       parameters:
         - in: path
           name: username
@@ -1304,19 +1848,62 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/User"
+              $ref: "#/components/schemas/PatchedUser"
         required: true
       security:
         - tokenAuth: []
       responses:
         "200":
           description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
         "400":
-          description: Validation error or UID required
+          description: Validation error or invalid UID
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
+    post:
+      tags:
+        - user
+      operationId: user_detail_partial_update
+      summary: Update a user by username (POST)
+      description: >-
+        Partial update, same as `PUT /user/{username}`. Only the fields in the
+        request body are changed.
+      parameters:
+        - in: path
+          name: username
+          schema:
+            type: string
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchedUser"
+        required: true
+      security:
+        - tokenAuth: []
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          description: Validation error or invalid UID
+        "404":
+          description: Not found
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
     delete:
       tags:
         - user
@@ -1333,12 +1920,23 @@ paths:
       responses:
         "200":
           description: Deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  username:
+                    type: string
+                required:
+                  - username
         "400":
-          description: UID required or invalid format
+          description: Invalid UID format
         "404":
           description: Not found
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can create, update or delete
   /users:
     get:
       tags:
@@ -1377,6 +1975,8 @@ paths:
           description: Invalid or unknown query parameter
         "401":
           description: Unauthorized
+        "404":
+          description: Page number out of range or not an integer
   /video:
     get:
       tags:
@@ -1394,7 +1994,17 @@ paths:
         - tokenAuth: []
       responses:
         "200":
-          description: Frame data or video file
+          description: Video file recorded by the camera
+          headers:
+            Content-Disposition:
+              description: attachment; filename=<camera>.mp4
+              schema:
+                type: string
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         "400":
           description: Missing or invalid camera
         "404":
@@ -1418,12 +2028,24 @@ paths:
       responses:
         "200":
           description: Manager is healthy and ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceHealth"
         "202":
           description: Manager is running but dependencies are not ready
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceHealth"
         "403":
           description: Request did not originate from the local container
         "503":
           description: Manager cannot reach a required dependency
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServiceHealth"
   /database-ready:
     get:
       tags:
@@ -1562,6 +2184,8 @@ paths:
           description: Invalid input (mismatched point counts, fewer than 4 points, or calculation error)
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden - only superusers can calculate intrinsics
   /aclcheck:
     post:
       tags:
@@ -1646,6 +2270,10 @@ paths:
       responses:
         "201":
           description: Scene imported successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SceneImportSummary"
         "400":
           description: Missing or invalid zip file
         "401":
@@ -1912,6 +2540,9 @@ components:
           maxLength: 20
         intrinsics:
           type: object
+          description: |-
+            Camera intrinsics. Provide `fx`, `fy`, `cx` and `cy`; or `hfov` and `vfov`;
+            or `fov` (degrees).
           properties:
             fx:
               type: number
@@ -1925,16 +2556,34 @@ components:
             cy:
               type: number
               format: double
-          readOnly: true
+            hfov:
+              type: number
+              format: double
+            vfov:
+              type: number
+              format: double
+            fov:
+              type: number
+              format: double
+          nullable: true
         transform_type:
           type: string
-          readOnly: true
+          description: |-
+            How the camera pose is given. With `euler` or `quaternion`, send `translation`,
+            `rotation` and `scale` together; a quaternion is stored as Euler angles.
+            With `3d-2d point correspondence`, send `transforms`.
+          enum:
+            - matrix
+            - euler
+            - quaternion
+            - 3d-2d point correspondence
         transforms:
           type: array
+          description: Camera pose data in the format given by `transform_type`.
           items:
             type: number
             format: double
-          readOnly: true
+          nullable: true
         distortion:
           type: object
           properties:
@@ -1954,28 +2603,57 @@ components:
               type: number
               format: double
           nullable: true
-          readOnly: true
         translation:
           type: array
+          description: Camera position [x, y, z] in meters. Written only with `transform_type` euler or quaternion.
           items:
             type: number
             format: double
-          readOnly: true
+          minItems: 3
+          maxItems: 3
         rotation:
           type: array
+          description: |-
+            Camera rotation. Euler angles [x, y, z] in degrees, or a quaternion [x, y, z, w]
+            in a request with `transform_type` quaternion.
           items:
             type: number
             format: double
-          readOnly: true
+          minItems: 3
+          maxItems: 4
         scale:
           type: array
+          description: Camera scale [x, y, z]. Written only with `transform_type` euler or quaternion.
           items:
             type: number
             format: double
-          readOnly: true
+          minItems: 3
+          maxItems: 3
         resolution:
-          type: object
-          additionalProperties: {}
+          description: |-
+            Image resolution. Responses use [width, height]; requests also accept
+            {"width": ..., "height": ...}.
+          oneOf:
+            - type: array
+              items:
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+              minItems: 2
+              maxItems: 2
+            - type: object
+              properties:
+                width:
+                  type: integer
+                  minimum: 1
+                  maximum: 2147483647
+                height:
+                  type: integer
+                  minimum: 1
+                  maximum: 2147483647
+              required:
+                - width
+                - height
         scene:
           type: string
           format: uuid
@@ -2176,6 +2854,24 @@ components:
           format: double
           nullable: true
           default: 1.0
+        cached_rois:
+          type: array
+          description: Regions last reported by a remote child scene.
+          items:
+            type: object
+            additionalProperties: {}
+        cached_tripwires:
+          type: array
+          description: Tripwires last reported by a remote child scene.
+          items:
+            type: object
+            additionalProperties: {}
+        cached_sensors:
+          type: array
+          description: Sensors last reported by a remote child scene.
+          items:
+            type: object
+            additionalProperties: {}
       required:
         - parent
     CustomAuthToken:
@@ -2434,6 +3130,979 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/User"
+    PatchedAsset3D:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        x_size:
+          type: number
+          format: double
+          minimum: 0.0
+          default: 1.0
+          title: Object size in x-axis
+        y_size:
+          type: number
+          format: double
+          minimum: 0.0
+          default: 1.0
+          title: Object size in y-axis
+        z_size:
+          type: number
+          format: double
+          minimum: 0.0
+          default: 1.0
+          title: Object size in z-axis
+        tracking_radius:
+          type: number
+          format: double
+          default: 2.0
+          title: Tracking radius (meters)
+        shift_type:
+          oneOf:
+            - $ref: "#/components/schemas/ShiftTypeEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: 1
+        mark_color:
+          type: string
+          maxLength: 20
+          default: "#888888"
+        model_3d:
+          type: string
+          format: uri
+          nullable: true
+          pattern: (?:glb)$
+        scale:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+        project_to_map:
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        rotation_from_velocity:
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        rotation_x:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: X Rotation (degrees)
+        rotation_y:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Y Rotation (degrees)
+        rotation_z:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Z Rotation (degrees)
+        translation_x:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: X Translation (meters)
+        translation_y:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Y Translation (meters)
+        translation_z:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Z Translation (meters)
+        x_buffer_size:
+          type: number
+          format: double
+          default: 0.0
+          title: Object buffer size in x-axis
+        y_buffer_size:
+          type: number
+          format: double
+          default: 0.0
+          title: Object buffer size in y-axis
+        z_buffer_size:
+          type: number
+          format: double
+          default: 0.0
+          title: Object buffer size in z-axis
+        geometric_center:
+          type: array
+          items:
+            type: number
+            format: double
+          nullable: true
+          default: [0.0, 0.0, 0.0]
+          description: Geometric center offset [x, y, z] in meters from bottom center
+        mass:
+          type: number
+          format: double
+          minimum: 0.0
+          nullable: true
+          default: 1.0
+          title: Mass (kg)
+        center_of_mass:
+          type: array
+          items:
+            type: number
+            format: double
+          nullable: true
+          default: [0.0, 0.0, 0.0]
+          description: Center of mass offset [x, y, z] in meters from geometric center
+        is_static:
+          description: |-
+            Whether object can move on its own
+
+            * `True` - Yes
+            * `False` - No
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        ttl:
+          type: number
+          format: double
+          minimum: 0.0
+          nullable: true
+          default: 0.0
+          title: Time to Live (seconds)
+          description: Time to live for track expiration (0 = infinite)
+        linear_damping:
+          type: number
+          format: double
+          maximum: 1.0
+          minimum: 0.0
+          nullable: true
+          default: 0.05
+          description: Resistance to linear motion (0.0 - 1.0)
+        angular_damping:
+          type: number
+          format: double
+          maximum: 1.0
+          minimum: 0.0
+          nullable: true
+          default: 0.05
+          description: Resistance to angular motion (0.0 - 1.0)
+        coefficient_of_restitution:
+          type: number
+          format: double
+          maximum: 1.0
+          minimum: 0.0
+          nullable: true
+          default: 0.5
+          description: Bounciness for collisions (0.0 - 1.0)
+        friction_coefficients:
+          type: array
+          items:
+            type: number
+            format: double
+          nullable: true
+          default: [0.5, 0.4]
+          description: Friction coefficients [static, dynamic]
+    PatchedCalibrationMarker:
+      type: object
+      properties:
+        marker_id:
+          type: string
+          maxLength: 50
+        apriltag_id:
+          type: string
+          maxLength: 10
+        dims:
+          type: array
+          items:
+            type: number
+            format: double
+          default: []
+        scene:
+          type: string
+          format: uuid
+    PatchedCam:
+      type: object
+      description: >-
+        Partial camera update. `name` is required unless the body contains only `scene`,
+        which moves the camera to another scene.
+      anyOf:
+        - required:
+            - name
+        - required:
+            - scene
+          maxProperties: 1
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        sensor_id:
+          type: string
+          writeOnly: true
+          maxLength: 20
+        intrinsics:
+          type: object
+          description: |-
+            Camera intrinsics. Provide `fx`, `fy`, `cx` and `cy`; or `hfov` and `vfov`;
+            or `fov` (degrees).
+          properties:
+            fx:
+              type: number
+              format: double
+            fy:
+              type: number
+              format: double
+            cx:
+              type: number
+              format: double
+            cy:
+              type: number
+              format: double
+            hfov:
+              type: number
+              format: double
+            vfov:
+              type: number
+              format: double
+            fov:
+              type: number
+              format: double
+          nullable: true
+        transform_type:
+          type: string
+          description: |-
+            How the camera pose is given. With `euler` or `quaternion`, send `translation`,
+            `rotation` and `scale` together; a quaternion is stored as Euler angles.
+            With `3d-2d point correspondence`, send `transforms`.
+          enum:
+            - matrix
+            - euler
+            - quaternion
+            - 3d-2d point correspondence
+        transforms:
+          type: array
+          description: Camera pose data in the format given by `transform_type`.
+          items:
+            type: number
+            format: double
+          nullable: true
+        distortion:
+          type: object
+          properties:
+            k1:
+              type: number
+              format: double
+            k2:
+              type: number
+              format: double
+            p1:
+              type: number
+              format: double
+            p2:
+              type: number
+              format: double
+            k3:
+              type: number
+              format: double
+          nullable: true
+        translation:
+          type: array
+          description: Camera position [x, y, z] in meters. Written only with `transform_type` euler or quaternion.
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 3
+        rotation:
+          type: array
+          description: |-
+            Camera rotation. Euler angles [x, y, z] in degrees, or a quaternion [x, y, z, w]
+            in a request with `transform_type` quaternion.
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 4
+        scale:
+          type: array
+          description: Camera scale [x, y, z]. Written only with `transform_type` euler or quaternion.
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 3
+        resolution:
+          description: |-
+            Image resolution. Responses use [width, height]; requests also accept
+            {"width": ..., "height": ...}.
+          oneOf:
+            - type: array
+              items:
+                type: integer
+                minimum: 1
+                maximum: 2147483647
+              minItems: 2
+              maxItems: 2
+            - type: object
+              properties:
+                width:
+                  type: integer
+                  minimum: 1
+                  maximum: 2147483647
+                height:
+                  type: integer
+                  minimum: 1
+                  maximum: 2147483647
+              required:
+                - width
+                - height
+        scene:
+          type: string
+          format: uuid
+          nullable: true
+        threshold:
+          type: number
+          format: double
+          nullable: true
+        aspect:
+          type: string
+          nullable: true
+          maxLength: 64
+        cv_subsystem:
+          title: Decode Device
+          oneOf:
+            - $ref: "#/components/schemas/CvSubsystemEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: AUTO
+        undistort:
+          type: boolean
+          default: false
+        modelconfig:
+          type: string
+          nullable: true
+          title: Model Config
+          maxLength: 512
+          default: model_config.json
+        use_camera_pipeline:
+          type: boolean
+          nullable: true
+          default: false
+          description: Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.
+        detection_labels:
+          type: string
+          nullable: true
+          description: Detection labels to use, one per line
+          maxLength: 2000
+        command:
+          type: string
+          nullable: true
+          title: Camera (Video Source)
+          maxLength: 512
+        camerachain:
+          type: string
+          nullable: true
+          title: Camera Chain
+          maxLength: 64
+        camera_pipeline:
+          type: string
+          nullable: true
+          description:
+            The camera pipeline string in gst-launch-1.0 syntax which will
+            be applied in camera VA pipeline once 'Use Camera Pipeline'
+            is enabled and 'Save Camera' button is clicked.
+            Please review and/or adjust it before applying.
+          maxLength: 5000
+    PatchedChildScene:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        child_type:
+          type: string
+          default: local
+          maxLength: 15
+        transform:
+          type: object
+          additionalProperties: {}
+        name:
+          type: string
+          readOnly: true
+        remote_child_id:
+          type: string
+          format: uuid
+          nullable: true
+        child:
+          type: string
+          format: uuid
+          nullable: true
+        parent:
+          type: string
+          format: uuid
+        host_name:
+          type: string
+          nullable: true
+          title: Hostname or IP
+          maxLength: 200
+        child_name:
+          type: string
+          nullable: true
+          maxLength: 200
+        mqtt_username:
+          type: string
+          nullable: true
+          maxLength: 200
+        mqtt_password:
+          type: string
+          nullable: true
+          maxLength: 200
+        retrack:
+          allOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+          default: true
+          title: Retrack objects
+        transform_type:
+          $ref: "#/components/schemas/TransformTypeEnum"
+          default: matrix
+        transform1:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+        transform2:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform3:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform4:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform5:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform6:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+        transform7:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform8:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform9:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform10:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform11:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+        transform12:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform13:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform14:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform15:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+        transform16:
+          type: number
+          format: double
+          nullable: true
+          default: 1.0
+        cached_rois:
+          type: array
+          description: Regions last reported by a remote child scene.
+          items:
+            type: object
+            additionalProperties: {}
+        cached_tripwires:
+          type: array
+          description: Tripwires last reported by a remote child scene.
+          items:
+            type: object
+            additionalProperties: {}
+        cached_sensors:
+          type: array
+          description: Sensors last reported by a remote child scene.
+          items:
+            type: object
+            additionalProperties: {}
+    PatchedRegion:
+      type: object
+      properties:
+        uid:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        points:
+          type: array
+          description: Polygon or line vertices as [x, y] pairs in meters.
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+            minItems: 2
+            maxItems: 2
+        scene:
+          type: string
+          format: uuid
+        buffer_size:
+          type: number
+          format: double
+          minimum: 0
+          default: 0.0
+        height:
+          type: number
+          format: double
+          minimum: 0.001
+          default: 1.0
+        volumetric:
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        visible:
+          type: boolean
+          default: false
+          description: Whether the region is shown by default in the 3D scene view.
+        color_ranges:
+          $ref: "#/components/schemas/RegionOccupancyThreshold"
+    PatchedScene:
+      type: object
+      properties:
+        uid:
+          type: string
+          nullable: true
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        map_type:
+          oneOf:
+            - $ref: "#/components/schemas/MapTypeEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: map_upload
+        use_tracker:
+          $ref: "#/components/schemas/OutputLlaEnum"
+          default: true
+        output_lla:
+          title: Output geospatial coordinates
+          oneOf:
+            - $ref: "#/components/schemas/OutputLlaEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: false
+        trs_matrix:
+          type: array
+          nullable: true
+          description: |-
+            4x4 transformation matrix (translation, rotation and scale) from scene
+            coordinates to latitude, longitude and altitude. Returned only when
+            `output_lla` is enabled.
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+            minItems: 4
+            maxItems: 4
+          minItems: 4
+          maxItems: 4
+        map_corners_lla:
+          type: array
+          nullable: true
+          title: Geospatial coordinates of the four map corners in JSON format
+          description: |-
+            Provide the array of four map corners geospatial coordinates (lat, long, alt).
+            Required only if 'Output geospatial coordinates' is set to `Yes`.
+            Expected order: starting from the bottom-left corner counterclockwise.
+            Expected JSON format: '[ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]'
+        map:
+          type: string
+          format: uri
+          nullable: true
+          title: Scene map as .glb or .ply or image or .zip or video
+          pattern: (?:glb|png|jpeg|jpg|zip|ply|mp4|mov|mkv|webm|avi)$
+        thumbnail:
+          type: string
+          format: uri
+          readOnly: true
+          nullable: true
+        cameras:
+          type: array
+          items:
+            $ref: "#/components/schemas/Cam"
+          readOnly: true
+        sensors:
+          type: array
+          items:
+            $ref: "#/components/schemas/Singleton"
+          readOnly: true
+        regions:
+          type: array
+          description: Regions in this scene. Manage them through the region endpoints.
+          items:
+            $ref: "#/components/schemas/Region"
+          readOnly: true
+        tripwires:
+          type: array
+          description: Tripwires in this scene. Manage them through the tripwire endpoints.
+          items:
+            $ref: "#/components/schemas/Tripwire"
+          readOnly: true
+        parent:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of an existing scene to link this scene to as a child.
+        transform:
+          type: object
+          additionalProperties: {}
+        mesh_translation:
+          type: array
+          description: Mesh translation [x, y, z] in meters.
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 3
+        mesh_rotation:
+          type: array
+          description: Mesh rotation [x, y, z] in degrees.
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 3
+        mesh_scale:
+          type: array
+          description: Mesh scale [x, y, z].
+          items:
+            type: number
+            format: double
+          minItems: 3
+          maxItems: 3
+        scale:
+          type: number
+          format: double
+          minimum: 4.9e-324
+          nullable: true
+          title: Pixels per meter
+        children:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChildScene"
+          readOnly: true
+        regulated_rate:
+          type: number
+          format: double
+          minimum: 0.001
+          default: 30
+          title: Regulate Rate (Hz)
+        external_update_rate:
+          type: number
+          format: double
+          minimum: 0.001
+          default: 30
+          title: Max External Update Rate (Hz)
+        camera_calibration:
+          allOf:
+            - $ref: "#/components/schemas/CameraCalibrationEnum"
+          default: Manual
+          title: Calibration Type
+        apriltag_size:
+          type: number
+          format: double
+          nullable: true
+          default: 0.162
+          title: AprilTag Size (meters)
+        map_processed:
+          type: string
+          format: date-time
+          nullable: true
+        polycam_data:
+          type: string
+          format: uri
+          nullable: true
+          pattern: (?:zip)$
+        number_of_localizations:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          default: 50
+        global_feature:
+          type: string
+          default: netvlad
+          title: Global Feature Matching Algorithm
+          maxLength: 200
+        local_feature:
+          type: object
+          description: Local feature extraction algorithm and its options.
+          additionalProperties: {}
+          nullable: true
+          default:
+            sift: {}
+        matcher:
+          type: object
+          description: Feature matching algorithm and its options.
+          additionalProperties: {}
+          nullable: true
+          default:
+            NN-ratio: {}
+        minimum_number_of_matches:
+          type: integer
+          maximum: 2147483647
+          minimum: -2147483648
+          nullable: true
+          default: 20
+        inlier_threshold:
+          type: number
+          format: double
+          minimum: 0.0
+          default: 0.5
+          title: Feature Match Confidence Threshold
+        geospatial_provider:
+          title: Geospatial Map Provider
+          description: |-
+            The map provider used for geospatial maps (google or mapbox)
+
+            * `google` - Google Maps
+            * `mapbox` - Mapbox
+          oneOf:
+            - $ref: "#/components/schemas/GeospatialProviderEnum"
+            - $ref: "#/components/schemas/BlankEnum"
+            - $ref: "#/components/schemas/NullEnum"
+          default: google
+        map_zoom:
+          type: number
+          format: double
+          minimum: 0.0
+          nullable: true
+          default: 15.0
+          title: Map Zoom Level
+          description: Zoom level for the geospatial map view
+        map_center_lat:
+          type: number
+          format: double
+          nullable: true
+          title: Map Center Latitude
+          description: Center latitude for the geospatial map view
+        map_center_lng:
+          type: number
+          format: double
+          nullable: true
+          title: Map Center Longitude
+          description: Center longitude for the geospatial map view
+        map_bearing:
+          type: number
+          format: double
+          nullable: true
+          default: 0.0
+          title: Map Bearing/Rotation (degrees)
+          description: Rotation angle for the geospatial map view in degrees
+        calibration_markers:
+          type: array
+          items:
+            $ref: "#/components/schemas/CalibrationMarker"
+          readOnly: true
+    PatchedSingleton:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        scene:
+          type: string
+          format: uuid
+          nullable: true
+        sensor_id:
+          type: string
+          maxLength: 20
+        name:
+          type: string
+          maxLength: 150
+        area:
+          $ref: "#/components/schemas/AreaEnum"
+          default: scene
+        points:
+          type: array
+          description: Polygon or line vertices as [x, y] pairs in meters.
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+            minItems: 2
+            maxItems: 2
+        radius:
+          type: number
+          format: double
+          nullable: true
+        center:
+          type: array
+          description: Circle center [x, y] in meters.
+          items:
+            type: number
+            format: double
+          minItems: 2
+          maxItems: 2
+          nullable: true
+        translation:
+          type: array
+          description: Sensor position [x, y, 0]. x and y are null when no center is set.
+          items:
+            type: number
+            format: double
+            nullable: true
+          readOnly: true
+        singleton_type:
+          allOf:
+            - $ref: "#/components/schemas/SingletonTypeEnum"
+          default: environmental
+          title: Type of Sensor
+        visible:
+          type: boolean
+          default: false
+          description: Whether the sensor area is shown by default in the 3D scene view.
+        color_ranges:
+          $ref: "#/components/schemas/SingletonScalarThreshold"
+    PatchedTripwire:
+      type: object
+      properties:
+        uid:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 150
+        points:
+          type: array
+          description: Polygon or line vertices as [x, y] pairs in meters.
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+            minItems: 2
+            maxItems: 2
+        height:
+          type: number
+          format: double
+          default: 1.0
+        scene:
+          type: string
+          format: uuid
+        visible:
+          type: boolean
+          default: false
+          description: Whether the tripwire is shown by default in the 3D scene view.
+    PatchedUser:
+      type: object
+      properties:
+        uid:
+          type: string
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        password:
+          type: string
+          writeOnly: true
+          maxLength: 128
+        is_active:
+          type: boolean
+          default: true
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect this instead of deleting accounts.
+        is_staff:
+          type: boolean
+          default: false
+          title: Staff status
+          description: Designates whether the user can log into this admin site.
+          readOnly: true
+        is_superuser:
+          type: boolean
+          default: false
+          title: Superuser status
+          description: Designates that this user has all permissions without explicitly assigning them.
+          readOnly: true
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        email:
+          title: Email address
+          description: Email address, or an empty string when not set.
+          anyOf:
+            - type: string
+              format: email
+              maxLength: 254
+            - type: string
+              enum:
+                - ""
+        acls:
+          type: array
+          items:
+            $ref: "#/components/schemas/PubSubACL"
     PubSubACL:
       type: object
       properties:
@@ -2457,9 +4126,14 @@ components:
           maxLength: 150
         points:
           type: array
+          description: Polygon or line vertices as [x, y] pairs in meters.
           items:
-            type: number
-            format: double
+            type: array
+            items:
+              type: number
+              format: double
+            minItems: 2
+            maxItems: 2
         scene:
           type: string
           format: uuid
@@ -2524,12 +4198,19 @@ components:
         trs_matrix:
           type: array
           nullable: true
+          description: |-
+            4x4 transformation matrix (translation, rotation and scale) from scene
+            coordinates to latitude, longitude and altitude. Returned only when
+            `output_lla` is enabled.
           items:
             type: array
             items:
               type: number
               format: double
-          readOnly: true
+            minItems: 4
+            maxItems: 4
+          minItems: 4
+          maxItems: 4
         map_corners_lla:
           type: array
           nullable: true
@@ -2562,36 +4243,48 @@ components:
           readOnly: true
         regions:
           type: array
+          description: Regions in this scene. Manage them through the region endpoints.
           items:
             $ref: "#/components/schemas/Region"
+          readOnly: true
         tripwires:
           type: array
+          description: Tripwires in this scene. Manage them through the tripwire endpoints.
           items:
             $ref: "#/components/schemas/Tripwire"
+          readOnly: true
         parent:
           type: string
           format: uuid
+          nullable: true
+          description: UUID of an existing scene to link this scene to as a child.
         transform:
           type: object
           additionalProperties: {}
         mesh_translation:
           type: array
+          description: Mesh translation [x, y, z] in meters.
           items:
             type: number
             format: double
-          readOnly: true
+          minItems: 3
+          maxItems: 3
         mesh_rotation:
           type: array
+          description: Mesh rotation [x, y, z] in degrees.
           items:
             type: number
             format: double
-          readOnly: true
+          minItems: 3
+          maxItems: 3
         mesh_scale:
           type: array
+          description: Mesh scale [x, y, z].
           items:
             type: number
             format: double
-          readOnly: true
+          minItems: 3
+          maxItems: 3
         scale:
           type: number
           format: double
@@ -2647,13 +4340,19 @@ components:
           title: Global Feature Matching Algorithm
           maxLength: 200
         local_feature:
-          type: string
+          type: object
+          description: Local feature extraction algorithm and its options.
+          additionalProperties: {}
           nullable: true
-          default: '{"sift": {}}'
+          default:
+            sift: {}
         matcher:
-          type: string
+          type: object
+          description: Feature matching algorithm and its options.
+          additionalProperties: {}
           nullable: true
-          default: '{"NN-ratio": {}}'
+          default:
+            NN-ratio: {}
         minimum_number_of_matches:
           type: integer
           maximum: 2147483647
@@ -2712,6 +4411,81 @@ components:
           readOnly: true
       required:
         - name
+    SceneImportSummary:
+      type: object
+      properties:
+        scene:
+          description: Errors from creating or updating the scene, or null.
+        cameras:
+          description: "[errors, item] pairs for cameras that failed, or null."
+        tripwires:
+          description: "[errors, item] pairs for tripwires that failed, or null."
+        regions:
+          description: "[errors, item] pairs for regions that failed, or null."
+        sensors:
+          description: "[errors, item] pairs for sensors that failed, or null."
+        calibration_markers:
+          description: "[errors, item] pairs for calibration markers that failed, or null."
+        cameras_created:
+          description: Cameras created, or null.
+        tripwires_created:
+          description: Tripwires created, or null.
+        regions_created:
+          description: Regions created, or null.
+        sensors_created:
+          description: Sensors created, or null.
+        calibration_markers_created:
+          description: Calibration markers created, or null.
+    ServiceHealth:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+            - unhealthy
+        ready:
+          type: boolean
+        component:
+          type: string
+          enum:
+            - manager
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        details:
+          type: object
+          properties:
+            database:
+              type: object
+              properties:
+                connected:
+                  type: boolean
+                schema_ready:
+                  type: boolean
+              required:
+                - connected
+                - schema_ready
+            users:
+              type: object
+              properties:
+                count:
+                  type: integer
+              required:
+                - count
+          required:
+            - database
+            - users
+      required:
+        - status
+        - ready
+        - component
+        - timestamp
+        - version
+        - details
     ShiftTypeEnum:
       enum:
         - 1
@@ -2741,24 +4515,34 @@ components:
           default: scene
         points:
           type: array
+          description: Polygon or line vertices as [x, y] pairs in meters.
           items:
-            type: number
-            format: double
+            type: array
+            items:
+              type: number
+              format: double
+            minItems: 2
+            maxItems: 2
         radius:
           type: number
           format: double
           nullable: true
         center:
           type: array
+          description: Circle center [x, y] in meters.
           items:
             type: number
             format: double
+          minItems: 2
+          maxItems: 2
           nullable: true
         translation:
           type: array
+          description: Sensor position [x, y, 0]. x and y are null when no center is set.
           items:
             type: number
             format: double
+            nullable: true
           readOnly: true
         singleton_type:
           allOf:
@@ -2850,9 +4634,14 @@ components:
           maxLength: 150
         points:
           type: array
+          description: Polygon or line vertices as [x, y] pairs in meters.
           items:
-            type: number
-            format: double
+            type: array
+            items:
+              type: number
+              format: double
+            minItems: 2
+            maxItems: 2
         height:
           type: number
           format: double
@@ -2907,10 +4696,15 @@ components:
           type: string
           maxLength: 150
         email:
-          type: string
-          format: email
           title: Email address
-          maxLength: 254
+          description: Email address, or an empty string when not set.
+          anyOf:
+            - type: string
+              format: email
+              maxLength: 254
+            - type: string
+              enum:
+                - ""
         acls:
           type: array
           items:
