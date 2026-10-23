@@ -13,8 +13,10 @@ A scenario directory holds up to four JSONL files, written by ScenarioRecorder
 - estimator.jsonl: one "config" line per track, then one "step" line per
   estimator step
 
-Any file may be missing, e.g. estimator.jsonl for real tracker output. Times
-are in seconds since the earliest timestamp in the directory; ids are strings.
+Any file may be missing, e.g. estimator.jsonl for real tracker output. An
+evaluation pipeline run directory (pipeline_engine.py) is read the same way,
+from the files in PIPELINE_RUN_FILES. Times are in seconds since the earliest
+timestamp in the directory; ids are strings.
 """
 
 import math
@@ -35,6 +37,12 @@ DETECTIONS_FILE = "detections.jsonl"
 TRACKS_FILE = "tracks.jsonl"
 ESTIMATOR_FILE = "estimator.jsonl"
 SCENARIO_FILES = (GROUND_TRUTH_FILE, DETECTIONS_FILE, TRACKS_FILE, ESTIMATOR_FILE)
+# Where an evaluation pipeline run directory keeps the scenario files.
+PIPELINE_RUN_FILES = {
+  GROUND_TRUTH_FILE: "dataset/ground_truth.jsonl",
+  DETECTIONS_FILE: "harness/inputs.jsonl",
+  TRACKS_FILE: "harness/outputs.jsonl",
+}
 
 GROUND_TRUTH_COLUMNS = [
   "t", "object_id", "category", "x", "y", "z", "length", "width", "height", "yaw",
@@ -101,16 +109,20 @@ def yaw_from_quaternion(rotation: Optional[Sequence[float]]) -> float:
 
 
 def load_scenario(directory) -> Scenario:
-  """Load a scenario directory.
+  """Load a scenario directory or an evaluation pipeline run directory.
 
   Raises:
     FileNotFoundError: if the directory contains none of the scenario files.
   """
   directory = Path(directory)
-  if not any((directory / name).is_file() for name in SCENARIO_FILES):
-    raise FileNotFoundError(f"No scenario files ({', '.join(SCENARIO_FILES)}) in {directory}")
+  paths = {name: directory / name for name in SCENARIO_FILES}
+  if not any(path.is_file() for path in paths.values()):
+    paths = {name: directory / PIPELINE_RUN_FILES.get(name, name) for name in SCENARIO_FILES}
+  if not any(path.is_file() for path in paths.values()):
+    raise FileNotFoundError(f"No scenario files ({', '.join(SCENARIO_FILES)}) or evaluation "
+                            f"pipeline run files in {directory}")
 
-  raw = {name: _read(directory / name) for name in SCENARIO_FILES}
+  raw = {name: _read(path) for name, path in paths.items()}
   timestamps = [stamp for lines in raw.values() for stamp, _ in lines if stamp is not None]
   start = min(timestamps) if timestamps else None
 

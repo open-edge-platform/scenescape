@@ -20,11 +20,13 @@ from pathlib import Path
 
 import jsonschema
 import numpy as np
+import pandas as pd
 import pytest
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from visualization.scenario_data import (  # noqa: E402 pylint: disable=wrong-import-position
+  PIPELINE_RUN_FILES,
   align_track_to_truth,
   frame_rate,
   load_scenario,
@@ -163,6 +165,20 @@ def test_matches_tracks_to_truth(tmp_path):
 
   (tmp_path / "groundtruth.jsonl").unlink()
   assert not match_tracks_to_truth(load_scenario(tmp_path))
+
+
+def test_loads_pipeline_run_directory(tmp_path):
+  """An evaluation pipeline run directory loads like a scenario directory without estimator."""
+  for name, path in PIPELINE_RUN_FILES.items():
+    (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(FIXTURE / name, tmp_path / path)
+
+  run = load_scenario(tmp_path)
+  recording = load_scenario(FIXTURE)
+
+  for table in ("ground_truth", "detections", "tracks"):
+    pd.testing.assert_frame_equal(getattr(run, table), getattr(recording, table))
+  assert not run.estimator
 
 
 def test_rejects_directory_without_scenario_files(tmp_path):
