@@ -25,6 +25,11 @@ from trackeval.datasets.mot_challenge_2d_box import MotChallenge2DBox
 from trackeval.eval import Evaluator
 from trackeval.metrics import HOTA, CLEAR, Identity, Count
 
+# Distance [m] at which the similarity of a ground-truth and a tracked position drops to 0;
+# TrackEval's similarity threshold alpha accepts position errors up to ZERO_DISTANCE * (1 - alpha).
+ZERO_DISTANCE = 2.0
+TRACKER_NAME = 'tracker_eval'
+
 
 class MotChallenge3DPoint(MotChallenge2DBox):
   """MOTChallenge dataset class for 3D point tracking evaluation.
@@ -179,10 +184,9 @@ class MotChallenge3DPoint(MotChallenge2DBox):
     Returns:
       NxM array of similarity scores (0-1, where 1 is perfect match)
     """
-    # Use Euclidean distance-based similarity with default zero_distance=2.0
-    # (0.5 similarity threshold corresponds to 1m distance threshold)
+    # Euclidean distance-based similarity (0.5 similarity threshold corresponds to 1m distance)
     similarity_scores = self._calculate_euclidean_similarity(
-      gt_dets_t, tracker_dets_t, zero_distance=2.0
+      gt_dets_t, tracker_dets_t, zero_distance=ZERO_DISTANCE
     )
     return similarity_scores
 
@@ -355,7 +359,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
       gt_folder = gt_seq_folder / "gt"
       gt_folder.mkdir(exist_ok=True)
 
-      tracker_folder = temp_path / "trackers" / "tracker_eval"
+      tracker_folder = temp_path / "trackers" / TRACKER_NAME
       tracker_data_folder = tracker_folder / "data"
       tracker_data_folder.mkdir(parents=True, exist_ok=True)
 
@@ -443,7 +447,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
         'GT_FOLDER': str(temp_path / "gt"),
         'TRACKERS_FOLDER': str(temp_path / "trackers"),
         'OUTPUT_FOLDER': str(self._output_folder) if self._output_folder else str(temp_path / "results"),
-        'TRACKERS_TO_EVAL': ['tracker_eval'],
+        'TRACKERS_TO_EVAL': [TRACKER_NAME],
         'CLASSES_TO_EVAL': ['pedestrian'],
         'BENCHMARK': 'MOT17',  # Use MOT17 format (generic)
         'SPLIT_TO_EVAL': 'train',
@@ -514,7 +518,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
       results = {}
       # TrackEval output structure: output_res[dataset_name][tracker_name][seq_name][metric_name]
       dataset_name = dataset.get_name()
-      tracker_name = 'tracker_eval'
+      tracker_name = TRACKER_NAME
 
       if (dataset_name in output_res and
           tracker_name in output_res[dataset_name] and
@@ -549,6 +553,12 @@ class TrackEvalEvaluator(TrackerEvaluator):
 
     except Exception as e:
       raise RuntimeError(f"Failed to evaluate metrics: {str(e)}") from e
+
+  def detailed_results_path(self) -> Optional[Path]:
+    """TrackEval's per-threshold results CSV from evaluate_metrics(); None without output folder."""
+    if self._output_folder is None:
+      return None
+    return self._output_folder / TRACKER_NAME / f"{self._class_name}_detailed.csv"
 
   def reset(self) -> 'TrackEvalEvaluator':
     """Reset evaluator state to initial configuration.

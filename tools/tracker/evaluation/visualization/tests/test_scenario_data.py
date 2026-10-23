@@ -179,6 +179,7 @@ def test_loads_pipeline_run_directory(tmp_path):
   for table in ("ground_truth", "detections", "tracks"):
     pd.testing.assert_frame_equal(getattr(run, table), getattr(recording, table))
   assert not run.estimator
+  assert run.files == {name: tmp_path / path for name, path in PIPELINE_RUN_FILES.items()}
 
 
 def test_rejects_directory_without_scenario_files(tmp_path):

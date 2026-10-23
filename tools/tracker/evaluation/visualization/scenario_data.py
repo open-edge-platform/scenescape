@@ -88,6 +88,7 @@ class Scenario:
   detections: pd.DataFrame
   tracks: pd.DataFrame
   estimator: Dict[str, EstimatorTrace] = field(default_factory=dict)
+  files: Dict[str, Path] = field(default_factory=dict)  # existing files by scenario file name
 
   @property
   def object_ids(self) -> List[str]:
@@ -136,6 +137,7 @@ def load_scenario(directory) -> Scenario:
     detections=_detections(raw[DETECTIONS_FILE], seconds),
     tracks=_tracks(raw[TRACKS_FILE], seconds),
     estimator=_estimator(raw[ESTIMATOR_FILE], seconds),
+    files={name: path for name, path in paths.items() if path.is_file()},
   )
 
 
