@@ -315,15 +315,15 @@ record. The static reference pose remains a separate Manager camera field.
 This hypothetical camera has perfectly aligned axes, linear travel, no backlash,
 and no optical-center translation during pan/tilt:
 
-| Parameter | Assumption |
-| --------- | ---------- |
-| Raw home | Pan `0`, tilt `0`, matching the separately calibrated static pose |
-| Raw position space | The example URI with both ranges `[-1, 1]` |
-| Pan curve | `[0, 180]`: 180 degrees per raw unit, positive rotation about scene Z |
-| Tilt curve | `[0, 90]`: 90 degrees per raw unit, positive rotation about camera X |
-| Axis correction | None: unit axes `[0, 0, 1]` and `[1, 0, 0]` |
-| Backlash | `0` on both axes |
-| Reprojection RMS | `0` for this synthetic example only, not a hardware measurement |
+| Parameter          | Assumption                                                            |
+| ------------------ | --------------------------------------------------------------------- |
+| Raw home           | Pan `0`, tilt `0`, matching the separately calibrated static pose     |
+| Raw position space | The example URI with both ranges `[-1, 1]`                            |
+| Pan curve          | `[0, 180]`: 180 degrees per raw unit, positive rotation about scene Z |
+| Tilt curve         | `[0, 90]`: 90 degrees per raw unit, positive rotation about camera X  |
+| Axis correction    | None: unit axes `[0, 0, 1]` and `[1, 0, 0]`                           |
+| Backlash           | `0` on both axes                                                      |
+| Reprojection RMS   | `0` for this synthetic example only, not a hardware measurement       |
 
 For this model, pan `0.1` and tilt `0.2` give:
 
