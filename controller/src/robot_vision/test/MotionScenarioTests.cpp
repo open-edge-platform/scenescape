@@ -5,6 +5,7 @@
 #include <cmath>
 #include <numbers>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -15,6 +16,76 @@ namespace {
 
 using namespace rv::tracking::test;
 using rv::tracking::MotionModel;
+
+struct SelectionCase
+{
+  const char *name;
+  std::vector<TruthSample> truth;
+  double from; // model probabilities are averaged over [from, to)
+  double to;
+  MotionModel expected;
+  double minProbability; // mean probability of the expected model
+  double minMargin;      // over the runner-up
+};
+
+// Windows start once the probabilities have settled: after the speed pick-up at birth, about 1 s into braking, 2 s into
+// a turn, 3 s after it. Turns at walking speed have no row: CA or CV still win them, as with a measurement noise of
+// 0.2 the turn adds too little information (TracksMotionCases bounds their accuracy).
+std::vector<SelectionCase> modelSelectionCases()
+{
+  constexpr double kFps = 10.0;
+  return {
+    {.name = "constant velocity, person 1.5 m/s",
+     .truth = Trajectory({.speed = 1.5, .box = kPerson}).straight(12.0).sample(kFps),
+     .from = 3.0,
+     .to = 12.0,
+     .expected = MotionModel::CV,
+     .minProbability = 0.0,
+     .minMargin = 0.03},
+    {.name = "constant velocity, car 10 m/s",
+     .truth = Trajectory({.speed = 10.0, .box = kCar}).straight(12.0).sample(kFps),
+     .from = 3.0,
+     .to = 12.0,
+     .expected = MotionModel::CV,
+     .minProbability = 0.0,
+     .minMargin = 0.05},
+    {.name = "pulling away at 2 m/s^2",
+     .truth = Trajectory({.box = kCar}).accelerate(2.0, 8.0).sample(kFps),
+     .from = 2.0,
+     .to = 8.0,
+     .expected = MotionModel::CA,
+     .minProbability = 0.45,
+     .minMargin = 0.0},
+    {.name = "braking at -4 m/s^2 from 10 m/s",
+     .truth = Trajectory({.speed = 10.0, .box = kCar}).straight(3.0).accelerate(-4.0, 2.5).sample(kFps),
+     .from = 4.0,
+     .to = 5.5,
+     .expected = MotionModel::CA,
+     .minProbability = 0.45,
+     .minMargin = 0.0},
+    {.name = "turn, car 5 m/s at 0.5 rad/s",
+     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 10.0).sample(kFps),
+     .from = 4.0,
+     .to = 12.0,
+     .expected = MotionModel::CTRV,
+     .minProbability = 0.45,
+     .minMargin = 0.2},
+    {.name = "turn, car 5 m/s at -0.3 rad/s",
+     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(-0.3, 10.0).sample(kFps),
+     .from = 4.0,
+     .to = 12.0,
+     .expected = MotionModel::CTRV,
+     .minProbability = 0.40,
+     .minMargin = 0.1},
+    {.name = "straight after a 4 s turn",
+     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).straight(6.0).sample(kFps),
+     .from = 9.0,
+     .to = 12.0,
+     .expected = MotionModel::CV,
+     .minProbability = 0.0,
+     .minMargin = 0.03},
+  };
+}
 
 } // namespace
 
@@ -77,7 +148,7 @@ TEST(MotionScenarioTest, TracksMotionCases)
     double maxPositionError;   // after warm-up [m]
     double maxFinalSpeedError; // [m/s]
   };
-  // Bounds are the current errors plus margin; turns stay loose while CTRV does not learn the turn rate.
+  // Bounds are the current errors plus margin.
   constexpr double kFps = 10.0;
   const MotionCase cases[] = {
     {.name = "constant velocity",
@@ -90,7 +161,7 @@ TEST(MotionScenarioTest, TracksMotionCases)
      .maxFinalSpeedError = 0.01},
     {.name = "turn",
      .truth = Trajectory({.speed = 3.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).straight(2.0).sample(kFps),
-     .maxPositionError = 1.0,
+     .maxPositionError = 0.65,
      .maxFinalSpeedError = 0.05},
     {.name = "sudden stop",
      .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(3.0).accelerate(-10.0, 0.5).straight(4.5).sample(kFps),
@@ -105,8 +176,16 @@ TEST(MotionScenarioTest, TracksMotionCases)
                 .accelerate(-2.0, 2.0)
                 .straight(1.0)
                 .sample(kFps),
-     .maxPositionError = 2.1,
-     .maxFinalSpeedError = 0.35},
+     .maxPositionError = 0.6,
+     .maxFinalSpeedError = 0.25},
+    {.name = "circle, car",
+     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 8.0).sample(kFps),
+     .maxPositionError = 0.65,
+     .maxFinalSpeedError = 0.2},
+    {.name = "turn, person",
+     .truth = Trajectory({.speed = 1.5, .box = kPerson}).straight(2.0).turn(0.4, 6.0).sample(kFps),
+     .maxPositionError = 0.5,
+     .maxFinalSpeedError = 0.1},
   };
   constexpr double kWarmUp = 2.0;
 
@@ -118,17 +197,168 @@ TEST(MotionScenarioTest, TracksMotionCases)
     FilterRun run;
     const auto states = run.feed(observe(truth, camera));
 
-    double maxPositionError = 0.0;
-    for (size_t i = 0; i < truth.size(); ++i)
-    {
-      if (truth[i].t >= kWarmUp)
-      {
-        maxPositionError = std::max(maxPositionError, std::hypot(states[i].x - truth[i].x, states[i].y - truth[i].y));
-      }
-    }
-    EXPECT_LE(maxPositionError, motion.maxPositionError);
+    EXPECT_LE(std::ranges::max(positionErrors(truth, states, kWarmUp)), motion.maxPositionError);
     EXPECT_LE(std::fabs(std::hypot(states.back().vx, states.back().vy) - truth.back().speed),
               motion.maxFinalSpeedError);
+  }
+}
+
+// Bug: CTRV did not win sustained car turns, nor CV the straight driving after them; fails on main 5d80db465.
+TEST(MotionScenarioTest, ModelSelection)
+{
+  for (const auto &selection : modelSelectionCases())
+  {
+    SCOPED_TRACE(selection.name);
+    Sensor camera{.positionNoise = 0.05};
+    FilterRun run;
+    run.feed(observe(between(selection.truth, 0.0, selection.from), camera));
+
+    const auto window = observe(between(selection.truth, selection.from, selection.to), camera);
+    cv::Mat probabilitySum = cv::Mat::zeros(static_cast<int>(rv::tracking::kProductionMotionModels.size()), 1, CV_64F);
+    for (const auto &observation : window)
+    {
+      run.feed({observation});
+      probabilitySum += run.estimator.getModelProbability();
+    }
+    const cv::Mat mean = probabilitySum / static_cast<double>(window.size());
+    const double expected = mean.at<double>(modelIndex(selection.expected));
+    double runnerUp = 0.0;
+    for (const auto model : rv::tracking::kProductionMotionModels)
+    {
+      if (model != selection.expected)
+      {
+        runnerUp = std::max(runnerUp, mean.at<double>(modelIndex(model)));
+      }
+    }
+
+    EXPECT_GE(expected, selection.minProbability) << "mean model probabilities (CV, CA, CTRV) " << mean.t();
+    EXPECT_GT(expected - runnerUp, selection.minMargin) << "mean model probabilities (CV, CA, CTRV) " << mean.t();
+  }
+}
+
+// Bug: CTRV's turn rate did not follow the target's turns; fails on main 5d80db465.
+TEST(MotionScenarioTest, TurningTargetLearnsTurnRate)
+{
+  struct TurnCase
+  {
+    const char *name;
+    std::vector<TruthSample> truth;
+    double minTurnRate; // CTRV's own estimate after the last observation [rad/s]
+    double maxTurnRate;
+  };
+  constexpr double kFps = 10.0;
+  const TurnCase cases[] = {
+    {.name = "end of a 10 s turn at 0.5 rad/s",
+     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 10.0).sample(kFps),
+     .minTurnRate = 0.3,
+     .maxTurnRate = 0.6},
+    {.name = "end of a 10 s turn at -0.3 rad/s",
+     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(-0.3, 10.0).sample(kFps),
+     .minTurnRate = -0.45,
+     .maxTurnRate = -0.15},
+    {.name = "2 s after a 4 s turn at 0.5 rad/s",
+     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).straight(2.0).sample(kFps),
+     .minTurnRate = -0.05,
+     .maxTurnRate = 0.05},
+  };
+
+  for (const auto &turn : cases)
+  {
+    SCOPED_TRACE(turn.name);
+    Sensor camera{.positionNoise = 0.05};
+    FilterRun run;
+    run.feed(observe(turn.truth, camera));
+
+    // The combined turn rate is diluted by the CV and CA probabilities.
+    const double turnRate = run.estimator.currentStates()[modelIndex(MotionModel::CTRV)].w;
+    EXPECT_GE(turnRate, turn.minTurnRate);
+    EXPECT_LE(turnRate, turn.maxTurnRate);
+  }
+}
+
+// Bug: a track coasting out of a turn drifted more than 2 m off the path within 1 s; fails on main 5d80db465.
+TEST(MotionScenarioTest, CoastingAfterTurn)
+{
+  // Observed for 8 s of the turn, then 1 s without detections; the tracker predicts every frame.
+  const auto observed = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 8.0).sample(10.0);
+  const auto truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 9.0).sample(10.0).back();
+  Sensor camera{.positionNoise = 0.05};
+  FilterRun run;
+  run.feed(observe(observed, camera));
+
+  for (int frame = 0; frame < 10; ++frame)
+  {
+    run.coast(0.1);
+  }
+  EXPECT_LE(positionError(run.state(), truth), 1.8);
+}
+
+// Bug: yaw drifted away from an orienting sensor's heading in a sustained turn; fails on main 5d80db465.
+TEST(MotionScenarioTest, OrientingSensorFollowsTurningHeading)
+{
+  // More than four laps.
+  const auto truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 58.0).sample(10.0);
+  Sensor lidar{.positionNoise = 0.05, .yawNoise = 0.05, .orienting = true};
+  FilterRun run;
+
+  double maxSpread = 0.0;
+  for (const auto &observation : observe(truth, lidar))
+  {
+    run.feed({observation});
+    const auto &models = run.estimator.currentStates();
+    double lowest = 0.0;
+    double highest = 0.0;
+    for (const auto &model : models)
+    {
+      const double offset = std::remainder(model.yaw - models.front().yaw, 2.0 * std::numbers::pi);
+      lowest = std::min(lowest, offset);
+      highest = std::max(highest, offset);
+    }
+    maxSpread = std::max(maxSpread, highest - lowest);
+  }
+
+  EXPECT_LE(std::fabs(std::remainder(run.state().yaw - truth.back().heading, 2.0 * std::numbers::pi)), 0.2);
+  EXPECT_LE(maxSpread, 0.3) << "largest yaw difference between the models [rad]";
+}
+
+// Bug: a car turning on the spot took more than 5 s to show the orienting sensor's yaw; fails on main 5d80db465.
+TEST(MotionScenarioTest, OrientingSensorFollowsRotationInPlace)
+{
+  constexpr double kFps = 10.0;
+  const auto truth = Trajectory({.box = kCar}).straight(5.0).turn(0.5, 1.0).straight(5.0).sample(kFps);
+  Sensor lidar{.positionNoise = 0.05, .yawNoise = 0.02, .orienting = true};
+  FilterRun run;
+  const auto states = run.feed(observe(truth, lidar));
+
+  const auto yawAt = [&](double t) { return states[static_cast<size_t>(std::lround(t * kFps))].yaw; };
+  EXPECT_GE(yawAt(7.0), 0.35) << "1 s after the rotation";
+  EXPECT_GE(yawAt(11.0), 0.45) << "5 s after the rotation";
+}
+
+TEST(MotionScenarioTest, StraightLineMatchesConstantVelocityFilter)
+{
+  // On straight lines the extra models must cost little accuracy against a CV-only filter. The ratio varies by about
+  // 0.2 between noise seeds, so this catches gross regressions only.
+  constexpr double kFps = 10.0;
+  constexpr double kWarmUp = 3.0;
+  constexpr double kMaxRatio = 1.1;
+  const auto positionRms = [](const std::vector<TruthSample> &truth, const std::vector<MotionModel> &models) {
+    auto config = productionConfig();
+    config.mMotionModels = models;
+    Sensor camera{.positionNoise = 0.05};
+    FilterRun run(config);
+    return rms(positionErrors(truth, run.feed(observe(truth, camera)), kWarmUp));
+  };
+
+  for (const auto &[name, start] : {std::pair{"person 1.5 m/s", TruthSample{.speed = 1.5, .box = kPerson}},
+                                    std::pair{"car 10 m/s", TruthSample{.speed = 10.0, .box = kCar}},
+                                    std::pair{"stationary car", TruthSample{.box = kCar}}})
+  {
+    SCOPED_TRACE(name);
+    const auto truth = Trajectory(start).straight(12.0).sample(kFps);
+    const double imm = positionRms(truth, rv::tracking::kProductionMotionModels);
+    const double cv = positionRms(truth, {MotionModel::CV});
+    EXPECT_LE(imm, kMaxRatio * cv) << "position rms: IMM " << imm << " m, CV only " << cv << " m";
   }
 }
 

@@ -20,13 +20,6 @@ using namespace rv::tracking::test;
 using rv::tracking::MotionModel;
 using rv::tracking::MultiModelKalmanEstimator;
 
-// Row of a motion model in getModelProbability() for productionConfig().
-int modelIndex(MotionModel model)
-{
-  const auto &models = rv::tracking::kProductionMotionModels;
-  return static_cast<int>(std::ranges::find(models, model) - models.begin());
-}
-
 } // namespace
 
 // Bug: MultiModelKalmanEstimator covariance getters returned each other's matrix; fails on main 6b0a3156b.
@@ -242,67 +235,5 @@ TEST(MultiModelKalmanEstimatorTest, KinematicProcessNoiseShape)
     rest.at<double>(idx::Yaw, idx::Yaw) = 0.0;
     rest.at<double>(idx::YawRate, idx::YawRate) = 0.0;
     EXPECT_DOUBLE_EQ(cv::norm(rest, cv::NORM_INF), 0.0) << "position, z and size must get no direct noise";
-  }
-}
-
-// Bug: all models were scored against one shared predicted measurement, so only S could separate them. With IMM mixing
-// working, the models' S are nearly equal and the probabilities stayed near 1/3 for an accelerating target.
-TEST(MultiModelKalmanEstimatorTest, AcceleratingTargetFavoursConstantAcceleration)
-{
-  struct MotionCase
-  {
-    const char *name;
-    std::vector<TruthSample> truth;
-    double from; // model probabilities are averaged over [from, to)
-    double to;
-    bool accelerating;
-  };
-  // Windows start once the probabilities have settled: after the speed pick-up at birth, about 1 s into braking.
-  const MotionCase cases[] = {
-    {.name = "pulling away",
-     .truth = Trajectory({.box = kCar}).accelerate(2.0, 8.0).sample(10.0),
-     .from = 2.0,
-     .to = 8.0,
-     .accelerating = true},
-    {.name = "braking",
-     .truth = Trajectory({.speed = 10.0, .box = kCar}).straight(3.0).accelerate(-4.0, 2.5).sample(10.0),
-     .from = 4.0,
-     .to = 5.5,
-     .accelerating = true},
-    {.name = "constant velocity",
-     .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(8.0).sample(10.0),
-     .from = 3.0,
-     .to = 8.0,
-     .accelerating = false},
-  };
-  constexpr double kFavoured = 0.45;
-
-  for (const auto &motion : cases)
-  {
-    SCOPED_TRACE(motion.name);
-    Sensor camera{.positionNoise = 0.05};
-    FilterRun run;
-    run.feed(observe(between(motion.truth, 0.0, motion.from), camera));
-
-    const auto window = observe(between(motion.truth, motion.from, motion.to), camera);
-    cv::Mat probabilitySum = cv::Mat::zeros(static_cast<int>(rv::tracking::kProductionMotionModels.size()), 1, CV_64F);
-    for (const auto &observation : window)
-    {
-      run.feed({observation});
-      probabilitySum += run.estimator.getModelProbability();
-    }
-    const cv::Mat mean = probabilitySum / static_cast<double>(window.size());
-    const double constantAcceleration = mean.at<double>(modelIndex(MotionModel::CA));
-
-    if (motion.accelerating)
-    {
-      EXPECT_GE(constantAcceleration, kFavoured) << "mean model probabilities " << mean.t();
-      EXPECT_GT(constantAcceleration, mean.at<double>(modelIndex(MotionModel::CV)));
-      EXPECT_GT(constantAcceleration, mean.at<double>(modelIndex(MotionModel::CTRV)));
-    }
-    else
-    {
-      EXPECT_LT(constantAcceleration, kFavoured) << "mean model probabilities " << mean.t();
-    }
   }
 }
