@@ -176,7 +176,7 @@ tools/reid_evaluation/.venv/bin/python -m tools.reid_evaluation.evaluate \
   --model-version omz-0277-fp32 \
   --allow-same-camera \
   --metric COSINE --threshold 0.5 \
-  --output tools/reid_evaluation/output/queuing-qcam1/baseline
+  --output tools/reid_evaluation/output/queuing-qcam1/baseline-default
 ```
 
 The model is not trained or modified. The command extracts embeddings, searches
