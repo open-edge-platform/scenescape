@@ -349,6 +349,11 @@ polygon {
   padding: 0.5rem 0.5rem;
 }
 
+.rate,
+#scene-rate {
+  font-family: monospace;
+}
+
 .camera-card .cam-offline,
 .camera-card {
   width: 329px;

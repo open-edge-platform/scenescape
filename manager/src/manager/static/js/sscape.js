@@ -192,7 +192,8 @@ async function checkBrokerConnections() {
         if (show_telemetry) {
           // Show the FPS for each camera
           for (const [key, value] of Object.entries(msg.rate)) {
-            document.getElementById("rate-" + key).innerText = value + " FPS";
+            document.getElementById("rate-" + key).innerText =
+              value.toFixed(1) + " FPS";
           }
 
           // Show the scene controller update rate
