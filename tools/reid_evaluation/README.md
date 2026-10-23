@@ -104,6 +104,15 @@ Outputs are `crops/*.png`, paginated `contact-sheet-*.jpg`, `review.csv`, and
 directories are not overwritten. Crops contain people: keep them local and
 appropriately access-controlled; the output directory is ignored by Git.
 
+Crop IDs use `<namespace>-f0000000-p00`, where the namespace is the first
+24 hexadecimal characters of a SHA-256 hash of the camera ID and recording
+content hash. Different cameras or recording contents have different namespaces;
+moving or renaming the same recording does not change its IDs. Re-exporting the
+same camera/recording reuses the namespace, so do not combine duplicate exports.
+The namespace is recorded as `id_namespace` in `export.json`. Contact sheets show
+only the readable `f0000000-p00` suffix and timestamp; match these to the full IDs
+in that export's `review.csv`. Preserve the full IDs when combining observations.
+
 For another recording, change `--video`, `--camera`, and `--output`. Use the
 real camera ID, not an arbitrary identity label. `--max-frames` limits the number
 of sampled frames, not the total number of decoded frames or exported crops.
@@ -119,7 +128,7 @@ Only `identity`, `split`, and `include` need to be edited.
 - Set `identity` to the same verified person label across observations.
 - Assign `split` as `gallery`, `calibration`, or `test`.
 - Set `include=no` for false detections, partial/ambiguous crops, or duplicates.
-- Crop IDs (`f...-p...`) are not person IDs and must not be used as ground truth.
+- Crop IDs (`<namespace>-f...-p...`) are not person IDs and must not be used as ground truth.
 
 For a first **fixed-threshold** evaluation, you only need gallery and test rows:
 

@@ -5,6 +5,7 @@
 
 import argparse
 import csv
+import hashlib
 import json
 import math
 from pathlib import Path
@@ -53,7 +54,8 @@ def _contact_sheet(rows, output, page):
     with Image.open(output / row["image"]) as image:
       image = ImageOps.contain(image, (tile_width - 12, tile_height - 42))
       sheet.paste(image, (left + (tile_width - image.width) // 2, top + 4))
-    draw.text((left + 4, top + tile_height - 34), row["id"], fill="black")
+    label = "-".join(row["id"].rsplit("-", 2)[-2:])
+    draw.text((left + 4, top + tile_height - 34), label, fill="black")
     draw.text((left + 4, top + tile_height - 18),
               f"t={row['timestamp_seconds']:.2f}s", fill="black")
   sheet.save(output / f"contact-sheet-{page:03d}.jpg", quality=90)
@@ -83,6 +85,8 @@ def export_crops(args):
     raise ValueError("Provide an existing video and an OpenVINO SSD IR .xml detector")
   hashes = {"video_sha256": file_sha256(video), "detector_xml_sha256": file_sha256(detector),
             "detector_bin_sha256": file_sha256(detector.with_suffix(".bin"))}
+  namespace = hashlib.sha256(
+    json.dumps([args.camera, hashes["video_sha256"]]).encode("utf-8")).hexdigest()[:24]
   if args.output.exists():
     raise ValueError("Crop output already exists; use a new directory")
   compiled = ov.Core().compile_model(str(detector), args.device)
@@ -124,7 +128,7 @@ def export_crops(args):
       boxes = person_boxes(result, frame.shape[1], frame.shape[0], args.confidence,
                            args.minimum_area, args.person_label)
       for index, box in enumerate(boxes):
-        sample_id = f"f{frame_index:07d}-p{index:02d}"
+        sample_id = f"{namespace}-f{frame_index:07d}-p{index:02d}"
         image = f"crops/{sample_id}.png"
         left, top = box["x"], box["y"]
         crop = frame[top:top + box["height"], left:left + box["width"]]
@@ -144,7 +148,8 @@ def export_crops(args):
   for start in range(0, len(rows), 25):
     _contact_sheet(rows[start:start + 25], args.output, start // 25)
   summary = {"status": "needs_human_identity_and_split_labels", "video": video.name,
-             "camera": args.camera, "sampled_frames": sampled_frames, "crop_count": len(rows),
+             "camera": args.camera, "id_namespace": namespace,
+             "sampled_frames": sampled_frames, "crop_count": len(rows),
              "fps": fps, "every_seconds": args.every_seconds, "start_seconds": args.start_seconds,
              "confidence_threshold": args.confidence, "minimum_area": args.minimum_area,
              "detector": detector.name, "device": args.device, **hashes,

@@ -3,11 +3,18 @@
 
 import csv
 import json
+from pathlib import Path
+import sys
+from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 
-from tools.reid_evaluation.crops import REVIEW_FIELDS, person_boxes, reviewed_manifest
+from tools.reid_evaluation.crops import (
+    REVIEW_FIELDS, _contact_sheet, export_crops, person_boxes, reviewed_manifest,
+)
+from tools.reid_evaluation.evaluate import score_queries
 
 
 def test_ssd_person_boxes_filter_clip_and_preserve_scores():
@@ -93,3 +100,82 @@ def test_malformed_review_csv_is_rejected_without_writing_manifest(tmp_path):
   with pytest.raises(ValueError, match='Malformed review'):
     reviewed_manifest(review, tmp_path / 'manifest.json')
   assert not (tmp_path / 'manifest.json').exists()
+
+
+def test_export_ids_namespace_cameras_and_recordings(tmp_path, monkeypatch):
+  cv2, ov = MagicMock(), MagicMock()
+  monkeypatch.setitem(sys.modules, 'cv2', cv2)
+  monkeypatch.setitem(sys.modules, 'openvino', ov)
+  compiled = ov.Core.return_value.compile_model.return_value
+  compiled.inputs = [compiled.input.return_value]
+  compiled.outputs = [compiled.output.return_value]
+  compiled.input.return_value.shape = [1, 3, 2, 2]
+  compiled.input.return_value.element_type.to_dtype.return_value = np.uint8
+  compiled.create_infer_request.return_value.infer.return_value = {
+    compiled.output.return_value: np.array([[0, 1, 0.9, 0, 0, 1, 1]]),
+  }
+  cv2.VideoCapture.return_value.get.return_value = 1.0
+  cv2.VideoCapture.return_value.retrieve.return_value = (True, np.zeros((10, 10, 3)))
+  cv2.resize.return_value = np.zeros((2, 2, 3))
+
+  def save_crop(path, crop):
+    Path(path).write_bytes(b'crop')
+    return True
+
+  cv2.imwrite.side_effect = save_crop
+  sheets = MagicMock()
+  monkeypatch.setattr('tools.reid_evaluation.crops._contact_sheet', sheets)
+  detector = tmp_path / 'detector.xml'
+  detector.write_bytes(b'xml')
+  detector.with_suffix('.bin').write_bytes(b'bin')
+  rows = []
+  namespaces = []
+  for index, (camera, content) in enumerate([
+      ('cam1', b'recording-a'), ('cam2', b'recording-a'),
+      ('cam1', b'recording-b'), ('cam1', b'recording-a')]):
+    video = tmp_path / f'renamed-{index}.mp4'
+    video.write_bytes(content)
+    output = tmp_path / f'export-{index}'
+    result = export_crops(SimpleNamespace(
+      camera=camera, video=video, detector=detector, output=output, device='CPU',
+      every_seconds=1.0, start_seconds=0.0, max_frames=1, confidence=0.7,
+      minimum_area=0, person_label=1))
+    with (output / 'review.csv').open() as stream:
+      row = next(csv.DictReader(stream))
+    assert row['id'] == f"{result['id_namespace']}-f0000000-p00"
+    assert row['image'] == f"crops/{row['id']}.png"
+    row.update(image=str(output / row['image']), identity='person-a',
+               split='gallery' if index == 0 else 'test')
+    rows.append(row)
+    namespaces.append(result['id_namespace'])
+
+  assert len(set(namespaces[:3])) == 3
+  assert rows[0]['id'] == rows[3]['id']
+  review = tmp_path / 'combined.csv'
+  _write_review(review, rows[:3])
+  manifest_path = tmp_path / 'manifest.json'
+  reviewed_manifest(review, manifest_path)
+  samples = json.loads(manifest_path.read_text())['samples']
+  for sample in samples:
+    sample['embedding'] = [1, 0]
+  cross_camera = score_queries(samples)
+  assert cross_camera[0]['correct']
+  assert cross_camera[1]['skipped']
+  scored = score_queries(samples, cross_camera=False)
+  assert len(scored) == 2
+  assert all(row['correct'] for row in scored)
+  assert sheets.call_count == 4
+
+
+def test_contact_sheet_uses_readable_suffix(tmp_path, monkeypatch):
+  image_module = pytest.importorskip('PIL.Image')
+  draw_module = pytest.importorskip('PIL.ImageDraw')
+  image_module.new('RGB', (10, 20)).save(tmp_path / 'crop.png')
+  draw = MagicMock()
+  monkeypatch.setattr(draw_module, 'Draw', lambda image: draw)
+  _contact_sheet([{
+    'id': '0123456789abcdef01234567-f0000000-p00',
+    'image': 'crop.png', 'timestamp_seconds': 0.0,
+  }], tmp_path, 0)
+  assert [call.args[1] for call in draw.text.call_args_list] == ['f0000000-p00', 't=0.00s']
+  assert (tmp_path / 'contact-sheet-000.jpg').is_file()
