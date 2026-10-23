@@ -1117,6 +1117,11 @@ class SceneController:
             continue
 
           child_scene.retrack = info['retrack']
+          # Relying only on SceneSerializer.transform
+          # during refreshScenes can leave a stale/identity cameraPose.
+          transform = info.get('transform')
+          if transform:
+            child_scene.cameraPose = CameraPose(transform, None)
 
           need_subscribe.add((
             PubSub.formatTopic(

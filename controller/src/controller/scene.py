@@ -322,7 +322,9 @@ class Scene(SceneModel):
       translation = Point(info['translation'])
       translation = np.hstack([translation.asNumpyCartesian, [1]])
       translation = np.matmul(cameraPose.pose_mat, translation)
-      info['translation'] = translation[:3]
+      # Materialize a length-3 list so callers do not share a numpy view of the
+      # homogeneous vector, and so Z from the child→parent pose is retained.
+      info['translation'] = translation[:3].tolist()
 
       # Embeddings travel nested under metadata (see detections_builder.prepareObjDict);
       # a top-level 'reid' key is never produced by a child scene and would bypass the
