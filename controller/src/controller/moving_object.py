@@ -165,14 +165,14 @@ class MovingObject:
       self.info.pop('bounding_box_px')
       if not 'bounding_box' in self.info:
         agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
-          self.boundingBoxPixels, self.metric_distance)
+          self.boundingBoxPixels, self._boxDepth(self.boundingBoxPixels))
         self.boundingBox = agnostic
     if 'bounding_box' in self.info:
       self.boundingBox = Rectangle(self.info['bounding_box'])
       self.info.pop('bounding_box')
       if self.metric_distance is not None and not self.boundingBox.origin.is3D:
         self.boundingBox = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
-          self.boundingBox, self.metric_distance)
+          self.boundingBox, self._boxDepth(self.boundingBox))
     self.confidence = self.info['confidence'] if 'confidence' in self.info else None
     self.oid = self.info['id']
     self.info.pop('id')
@@ -325,10 +325,22 @@ class MovingObject:
       self._rotation_from_velocity_active = False
     return
 
+  def _boxDepth(self, pixel_box):
+    """Radial distance along the box centre ray for a sensor-plane depth.
+
+    RealSense reports depth as distance from the sensor plane (optical z).
+    mapPixelToNormalizedImagePlane() scales normalized coordinates by this
+    value, so passing the sensor-plane depth directly places the box at the
+    correct z and at the correct lateral offset for an off-axis object.
+    """
+    return self.metric_distance
+
   @property
   def camLoc(self):
     """Object location in camera coordinate system"""
     bounds = self.boundingBox
+    if self.metric_distance is not None and bounds.origin.is3D:
+      return Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, bounds.origin.z)
     if self.shift_type == TYPE_2:
       if not hasattr(self, 'baseAngle'):
         self._projectBounds()
@@ -362,10 +374,24 @@ class MovingObject:
         self.orig_point = camera.pose.cameraPointToWorldPoint(Point(info['translation']))
     else:
       if camera and hasattr(camera, 'pose'):
-        self.orig_point = camera.pose.cameraPointToWorldPoint(self.camLoc)
-        if not self.camLoc.is3D:
+        cam_loc = self.camLoc
+        self.orig_point = camera.pose.cameraPointToWorldPoint(cam_loc)
+        half_extent = np.mean([self.size[0], self.size[1]]) / 2
+        if cam_loc.is3D:
+          # Depth gave the nearest face; push the centre back along the ray.
+          ray = self.orig_point - camera.pose.translation
+          ray_len = ray.length
+          if ray_len > 1e-9:
+            self.orig_point = self.orig_point + Point(
+              ray.x / ray_len * half_extent,
+              ray.y / ray_len * half_extent,
+              ray.z / ray_len * half_extent)
+          # Scene location is the cuboid's bottom centre, not its geometric centre.
+          self.orig_point = Point(self.orig_point.x, self.orig_point.y,
+                                  self.orig_point.z - self.size[2] / 2)
+        else:
           line1 = Line(camera.pose.translation, self.orig_point)
-          line2 = Line(self.orig_point, Point(np.mean([self.size[0], self.size[1]]) / 2, line1.angle, 0, polar=True), relative=True)
+          line2 = Line(self.orig_point, Point(half_extent, line1.angle, 0, polar=True), relative=True)
           self.orig_point = line2.end
     self.location = [Chronoloc(self.orig_point, when, self.boundingBox)]
     self.vectors = [Vector(camera, self.orig_point, when)]
@@ -385,8 +411,16 @@ class MovingObject:
 
   def _projectBounds(self):
     if hasattr(self.camera, "pose") and self.boundingBox:
-      self.bbMeters, self.bbShadow, self.baseAngle = \
-        self.camera.pose.projectBounds(self.boundingBox)
+      if self.metric_distance is not None and self.boundingBox.origin.is3D:
+        # Box already sits at metric depth: its extents are the metric size.
+        width = self.boundingBox.width
+        height = self.boundingBox.height
+        self.bbMeters = Rectangle(origin=Point(0, 0), size=(width, height))
+        self.bbShadow = None
+        self.baseAngle = 0.0
+      else:
+        self.bbMeters, self.bbShadow, self.baseAngle = \
+          self.camera.pose.projectBounds(self.boundingBox)
       if self.size is None:
         self.size = [self.bbMeters.width, self.bbMeters.width, self.bbMeters.height]
     return

@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import numpy as np
+import pytest
 
 from controller.moving_object import (
   ChainData,
@@ -69,6 +70,52 @@ class TestMovingObject:
       obj.boundingBoxPixels, 2.5)
     assert obj.metric_distance == 2.5
     assert 'distance' not in obj.info
+
+  def test_metric_distance_places_cuboid_half_width_behind_box_centre(self):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    when = datetime.datetime.now(datetime.timezone.utc)
+    intrinsics = CameraIntrinsics({'fx': 100.0, 'fy': 100.0, 'cx': 100.0, 'cy': 100.0})
+    # Camera at origin looking down scene +x; optical z -> +x, optical x -> -y, optical y -> -z.
+    pose = CameraPose({'translation': [0.0, 0.0, 1.0],
+                       'rotation': [0.5, -0.5, 0.5, -0.5],
+                       'scale': [1.0, 1.0, 1.0]}, intrinsics)
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    info = _base_info()
+    info.pop('bounding_box')
+    # 40x60 px box centred on the principal point, 2 m from the sensor plane.
+    info['bounding_box_px'] = {'x': 80.0, 'y': 70.0, 'width': 40.0, 'height': 60.0}
+    info['distance'] = 2.0
+
+    obj = MovingObject(info, when, camera)
+    loc = obj.sceneLoc
+
+    assert obj.size == pytest.approx([0.8, 0.8, 1.2])
+    # Box centre at 2 m along the ray, pushed back by half the width (0.4 m),
+    # then dropped by half the height so the location is the bottom centre.
+    assert loc.x == pytest.approx(2.4)
+    assert loc.y == pytest.approx(0.0, abs=1e-9)
+    assert loc.z == pytest.approx(1.0 - 0.6)
+
+  def test_metric_distance_keeps_library_size_prior(self):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    when = datetime.datetime.now(datetime.timezone.utc)
+    intrinsics = CameraIntrinsics({'fx': 100.0, 'fy': 100.0, 'cx': 100.0, 'cy': 100.0})
+    pose = CameraPose({'translation': [0.0, 0.0, 1.0],
+                       'rotation': [0.5, -0.5, 0.5, -0.5],
+                       'scale': [1.0, 1.0, 1.0]}, intrinsics)
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    info = _base_info()
+    info.pop('bounding_box')
+    info['bounding_box_px'] = {'x': 80.0, 'y': 70.0, 'width': 40.0, 'height': 60.0}
+    info['distance'] = 2.0
+
+    obj = MovingObject(info, when, camera)
+    obj.size = [0.5, 0.5, 1.7]
+    loc = obj.sceneLoc
+
+    assert obj.size == [0.5, 0.5, 1.7]
+    assert loc.x == pytest.approx(2.25)
+    assert loc.z == pytest.approx(1.0 - 0.85)
 
   def test_init_extracts_reid_and_keeps_metadata(self):
     when = datetime.datetime.now(datetime.timezone.utc)
