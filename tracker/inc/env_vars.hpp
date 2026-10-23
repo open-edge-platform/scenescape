@@ -58,6 +58,14 @@ constexpr const char* NON_MEASUREMENT_TIME_DYNAMIC_S = "TRACKER_NON_MEASUREMENT_
 /// seconds, >= 0 - RobotVision tracker parameter
 constexpr const char* NON_MEASUREMENT_TIME_STATIC_S = "TRACKER_NON_MEASUREMENT_TIME_STATIC_S";
 
+// External source overrides shared with the Python Scene Controller
+
+/// Comma-separated publisher_id:scene_uid bindings
+constexpr const char* EXTERNAL_SOURCE_BINDINGS = "CONTROLLER_EXTERNAL_SOURCE_BINDINGS";
+
+/// Comma-separated source IDs authorized to publish scene-frame poses
+constexpr const char* TRUSTED_POSITIONING_SOURCES = "CONTROLLER_TRUSTED_POSITIONING_SOURCES";
+
 // NTP overrides
 
 /// NTP server hostname or IP for clock offset correction (empty = disabled)

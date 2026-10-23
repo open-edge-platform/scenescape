@@ -16,6 +16,9 @@
 #include <mutex>
 #include <thread>
 #include <unordered_map>
+#include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace tracker {
 
@@ -106,6 +109,9 @@ private:
      * @param snapshot Buffer snapshot from pop_all()
      */
     void dispatch(BufferMap&& snapshot);
+
+    void dispatchExternalAgingChunks(
+        const std::unordered_set<TrackingScope, TrackingScopeHash>& buffered_scopes);
 
     /**
      * @brief Get or create a worker for a scope.

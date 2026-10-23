@@ -151,6 +151,16 @@ Messages on the external topic use the `external_source` schema
 `external_detection` definitions when `source_id` is present. Legacy child hierarchy publishes
 (no `source_id`) remain unchanged in payload shape and parent lookup.
 
+The high-performance C++ Tracker also consumes the dynamic `source_id` form of
+this contract. It uses the same `CONTROLLER_EXTERNAL_SOURCE_BINDINGS` and
+`CONTROLLER_TRUSTED_POSITIONING_SOURCES` settings. For image-map scenes it derives
+the local-to-ECEF matrix at startup from image dimensions, pixels-per-metre
+`scale`, and `map_corners_lla`, using the same affine fit as Python. A persisted
+`trs_matrix` calculated by Python from the GLB mesh's XY bounds is retained for
+3D-map scenes; Manager's padded top-view thumbnail is not used as a geographic
+footprint. Legacy child-hierarchy ingestion remains a Python Scene Controller
+responsibility.
+
 ### Pose resolution and caching
 
 A new `ExternalSourcePoseCache` (`controller/src/controller/external_source.py`) resolves and
