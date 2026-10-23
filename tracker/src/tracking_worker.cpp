@@ -7,6 +7,7 @@
 #include "metrics.hpp"
 #include "time_utils.hpp"
 
+#include <rv/tracking/MetadataAttributes.hpp>
 #include <rv/tracking/ObjectMatching.hpp>
 #include <rv/tracking/TrackManager.hpp>
 
@@ -31,19 +32,24 @@ namespace {
 // (DEFAULT_TRACKING_RADIUS); we keep the same default here so the tracker
 // service produces identical results.
 constexpr double kTrackingDistanceThreshold = 2.0;
-constexpr std::string_view kMetadataPrefix = "metadata.";
+constexpr std::string_view kMetadataPrefix = rv::tracking::metadata_fusion::ValuePrefix;
 
 std::string metadataJson(const std::unordered_map<std::string, std::string>& attributes) {
     rapidjson::Document merged;
     merged.SetObject();
     auto& allocator = merged.GetAllocator();
 
+    bool has_metadata_attributes = false;
     std::vector<std::pair<std::string_view, std::string_view>> fields;
     for (const auto& [key, value] : attributes) {
         if (!key.starts_with(kMetadataPrefix)) {
             continue;
         }
-        fields.emplace_back(std::string_view(key).substr(kMetadataPrefix.size()), value);
+        has_metadata_attributes = true;
+        const auto field = std::string_view(key).substr(kMetadataPrefix.size());
+        if (field != "reid") {
+            fields.emplace_back(field, value);
+        }
     }
     std::sort(fields.begin(), fields.end(),
               [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
@@ -59,7 +65,19 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
         merged.AddMember(field_name, field_value, allocator);
     }
 
-    if (merged.ObjectEmpty()) {
+    if (merged.ObjectEmpty() && !has_metadata_attributes) {
+        const auto legacy = attributes.find("metadata_json");
+        if (legacy != attributes.end()) {
+            if (merged.Parse(legacy->second.c_str()).HasParseError() || !merged.IsObject()) {
+                return legacy->second;
+            }
+            if (!merged.HasMember("reid")) {
+                return legacy->second;
+            }
+            merged.RemoveMember("reid");
+        }
+    }
+    if (merged.ObjectEmpty() && !has_metadata_attributes) {
         return {};
     }
 
@@ -228,11 +246,14 @@ void TrackingWorker::process_chunk(Chunk chunk) {
                                     : chunk.camera_batches.back().timestamp_iso;
 
     // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
-    auto objects_per_camera = transform_detections(chunk);
+    const std::string chunk_id = std::to_string(++chunk_sequence_);
+    reid_sightings_.clear();
+    auto objects_per_camera = transform_detections(chunk, chunk_id);
     chunk.obs_ctx.captureTransformTime();
 
     // Run Hungarian matching, Kalman filter, and ID conversion
-    auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp);
+    auto tracks =
+        match_and_convert(std::move(objects_per_camera), chunk, track_timestamp, chunk_id);
     chunk.obs_ctx.captureTrackTime();
 
     // Update active tracks gauge for this scope
@@ -251,9 +272,10 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 }
 
 std::vector<std::vector<rv::tracking::TrackedObject>>
-TrackingWorker::transform_detections(const Chunk& chunk) {
+TrackingWorker::transform_detections(const Chunk& chunk, const std::string& chunk_id) {
     std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera;
     objects_per_camera.reserve(chunk.camera_batches.size());
+    size_t next_reid_index = 0;
 
     for (const auto& batch : chunk.camera_batches) {
         auto transformer_it = transformers_.find(batch.camera_id);
@@ -261,7 +283,9 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
             continue;
         }
-        objects_per_camera.push_back(transformer_it->second.transformDetections(batch.detections));
+        objects_per_camera.push_back(transformer_it->second.transformDetections(
+            batch.detections, batch.camera_id, batch.timestamp_iso, chunk_id, &reid_sightings_,
+            &next_reid_index));
     }
 
     return objects_per_camera;
@@ -269,7 +293,7 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
 
 std::vector<Track>
 TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tracks,
-                               const std::string& category) {
+                               const std::string& category, const std::string& chunk_id) {
     // Extract active RobotVision IDs for map update
     std::vector<int32_t> active_ids;
     active_ids.reserve(rv_tracks.size());
@@ -305,15 +329,18 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             auto& rotation_state = rotation_states_[rv_track.id];
             track.rotation = update_velocity_rotation(rv_track.vx, rv_track.vy, rotation_state);
         }
-        track.metadata_json = metadataJson(rv_track.attributes);
-
-        // Compatibility fallback for measurements produced by older adapters.
-        if (track.metadata_json.empty()) {
-            auto meta_it = rv_track.attributes.find("metadata_json");
-            if (meta_it != rv_track.attributes.end()) {
-                track.metadata_json = std::move(meta_it->second);
+        const auto reid_index = rv_track.attributes.find(std::string(kMetadataPrefix) + "reid");
+        const auto freshness = rv_track.attributes.find(
+            std::string(rv::tracking::metadata_fusion::ProvenancePrefix) + "reid");
+        if (reid_index != rv_track.attributes.end() && freshness != rv_track.attributes.end() &&
+            freshness->second == chunk_id) {
+            const auto sighting = reid_sightings_.find(reid_index->second);
+            if (sighting != reid_sightings_.end()) {
+                track.reid_sighting_json = std::move(sighting->second);
+                reid_sightings_.erase(sighting);
             }
         }
+        track.metadata_json = metadataJson(rv_track.attributes);
 
         // Retrieve confidence stored in attributes by transformDetections().
         // NOTE: multi-camera last-write-wins — same limitation as metadata_json.
@@ -335,7 +362,7 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
 
 std::vector<Track> TrackingWorker::match_and_convert(
     std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_camera, const Chunk& chunk,
-    std::chrono::system_clock::time_point timestamp) {
+    std::chrono::system_clock::time_point timestamp, const std::string& chunk_id) {
     // Feed all cameras as a batch — MOT performs Hungarian matching across cameras,
     // deduplicates objects seen by multiple cameras, and runs Kalman filter update.
     // When no detections are present, track() still advances the Kalman filter and
@@ -346,7 +373,7 @@ std::vector<Track> TrackingWorker::match_and_convert(
     // Get reliable tracks and map RobotVision int IDs to UUID strings
     auto rv_tracks = tracker_.getReliableTracks();
 
-    auto tracks = convert_tracks(std::move(rv_tracks), chunk.category);
+    auto tracks = convert_tracks(std::move(rv_tracks), chunk.category, chunk_id);
 
     LOG_DEBUG("Processed chunk for {}/{}: {} detections -> {} reliable tracks", scope_.scene_id,
               scope_.category,

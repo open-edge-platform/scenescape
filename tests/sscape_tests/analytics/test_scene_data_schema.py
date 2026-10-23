@@ -94,6 +94,32 @@ def test_schema_accepts_detection_passthrough_extra_fields(validator):
   validator.validate(payload)
 
 
+@pytest.mark.parametrize(('include_sighting', 'include_legacy', 'valid'), [
+  (True, False, True),
+  (False, True, True),
+  (True, True, False),
+])
+def test_schema_requires_single_reid_representation(validator, include_sighting, include_legacy, valid):
+  obj = {
+    'id': 'track-1', 'category': 'person', 'translation': [0, 0, 0],
+    'velocity': [0, 0, 0], 'size': [0.5, 0.5, 1.8], 'rotation': [0, 0, 0, 1],
+    'metadata': {'age': {'label': 'adult'}},
+  }
+  reid = {'embedding_vector': [[1, 2]], 'embedding_dimensions': 2}
+  if include_legacy:
+    obj['metadata']['reid'] = reid
+  if include_sighting:
+    obj['reid_sighting'] = {
+      'camera_id': 'cam-1', 'timestamp': '2026-10-14T12:00:00Z',
+      'bounding_box_px': {'x': 1, 'y': 2, 'width': 80, 'height': 90}, 'reid': reid,
+    }
+  payload = {
+    'id': 'scene-1', 'name': 'Retail', 'timestamp': '2026-10-14T12:00:00Z', 'objects': [obj],
+  }
+
+  assert validator.is_valid(payload) == valid
+
+
 def test_schema_rejects_missing_required_top_level_fields(validator):
   payload = {
     "id": "scene-1",

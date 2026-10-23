@@ -79,6 +79,128 @@ TEST(MetadataFusionPolicyTest, CoversEveryWinnerSelectionCase)
   }
 }
 
+TEST(MetadataFusionTest, CompanionProvenanceFollowsWinnerForNewAndExistingTracks)
+{
+  for (const bool existingTrack : {false, true})
+  {
+    SCOPED_TRACE(existingTrack);
+    auto tracker = makeTracker();
+    if (existingTrack)
+    {
+      tracker.track(std::vector<rv::tracking::TrackedObject>{makeObject(0.0, {})},
+                    InitialTimestamp,
+                    rv::tracking::DistanceType::Euclidean,
+                    2.0);
+    }
+    auto high = makeObject(0.0,
+                           {{"metadata.feature", "high"},
+                            {"metadata_confidence.feature", "0.9"},
+                            {"metadata_provenance.feature", "camera-one"}});
+    auto low = makeObject(0.0,
+                          {{"metadata.feature", "low"},
+                           {"metadata_confidence.feature", "0.7"},
+                           {"metadata_provenance.feature", "camera-two"}});
+    tracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{high}, {low}},
+                  InitialTimestamp + std::chrono::milliseconds(100),
+                  rv::tracking::DistanceType::Euclidean,
+                  2.0);
+
+    const auto tracks = tracker.getTracks();
+    ASSERT_EQ(tracks.size(), 1);
+    EXPECT_EQ(tracks[0].attributes.at("metadata.feature"), "high");
+    EXPECT_EQ(tracks[0].attributes.at("metadata_provenance.feature"), "camera-one");
+  }
+}
+
+TEST(MetadataFusionTest, WinnerWithoutCompanionClearsPreviousProvenance)
+{
+  auto tracker = makeTracker();
+  auto initial = makeObject(0.0,
+                            {{"metadata.feature", "old"},
+                             {"metadata_confidence.feature", "0.8"},
+                             {"metadata_provenance.feature", "old-camera"}});
+  tracker.track(
+    std::vector<rv::tracking::TrackedObject>{initial}, InitialTimestamp, rv::tracking::DistanceType::Euclidean, 2.0);
+  auto current = makeObject(0.0, {{"metadata.feature", "new"}, {"metadata_confidence.feature", "0.95"}});
+  tracker.track(std::vector<rv::tracking::TrackedObject>{current},
+                InitialTimestamp + std::chrono::milliseconds(100),
+                rv::tracking::DistanceType::Euclidean,
+                2.0);
+
+  const auto tracks = tracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1);
+  EXPECT_EQ(tracks[0].attributes.at("metadata.feature"), "new");
+  EXPECT_EQ(tracks[0].attributes.count("metadata_provenance.feature"), 0);
+}
+
+TEST(MetadataFusionTest, TransientMetadataCannotReplaceFreshValueAfterPrediction)
+{
+  auto tracker = makeTracker();
+  auto initial = makeObject(0.0,
+                            {{"metadata.feature", "large-payload"},
+                             {"metadata_confidence.feature", "0.9"},
+                             {"metadata_provenance.feature", "frame-1"},
+                             {"metadata_transient.feature", "1"},
+                             {"metadata.age", "adult"}});
+  tracker.track(
+    std::vector<rv::tracking::TrackedObject>{initial}, InitialTimestamp, rv::tracking::DistanceType::Euclidean, 2.0);
+  ASSERT_EQ(tracker.getTracks().size(), 1);
+  EXPECT_EQ(tracker.getTracks()[0].attributes.at("metadata.feature"), "large-payload");
+  tracker.track(std::vector<rv::tracking::TrackedObject>{},
+                InitialTimestamp + std::chrono::milliseconds(100),
+                rv::tracking::DistanceType::Euclidean,
+                2.0);
+
+  auto predictedTracks = tracker.getTracks();
+  ASSERT_EQ(predictedTracks.size(), 1);
+  EXPECT_EQ(predictedTracks[0].attributes.at("metadata.feature"), "large-payload");
+
+  auto fresh = makeObject(0.0,
+                          {{"metadata.feature", "fresh-index"},
+                           {"metadata_confidence.feature", "0.5"},
+                           {"metadata_provenance.feature", "frame-2"},
+                           {"metadata_transient.feature", "1"}});
+  tracker.track(std::vector<rv::tracking::TrackedObject>{fresh},
+                InitialTimestamp + std::chrono::milliseconds(200),
+                rv::tracking::DistanceType::Euclidean,
+                2.0);
+
+  const auto tracks = tracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1);
+  EXPECT_EQ(tracks[0].attributes.at("metadata.feature"), "fresh-index");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_confidence.feature"), "0.5");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_provenance.feature"), "frame-2");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_transient.feature"), "1");
+  EXPECT_EQ(tracks[0].attributes.at("metadata.age"), "adult");
+}
+
+TEST(MetadataFusionTest, ReidTransientCurrentIndexBeatsHigherHistoricalConfidence)
+{
+  auto tracker = makeTracker();
+  auto initial = makeObject(0.0,
+                            {{"metadata.reid", "chunk-1:4"},
+                             {"metadata_confidence.reid", "0.99"},
+                             {"metadata_provenance.reid", "chunk-1"},
+                             {"metadata_transient.reid", "1"}});
+  tracker.track(
+    std::vector<rv::tracking::TrackedObject>{initial}, InitialTimestamp, rv::tracking::DistanceType::Euclidean, 2.0);
+  auto current = makeObject(0.0,
+                            {{"metadata.reid", "chunk-2:7"},
+                             {"metadata_confidence.reid", "0.5"},
+                             {"metadata_provenance.reid", "chunk-2"},
+                             {"metadata_transient.reid", "1"}});
+  tracker.track(std::vector<rv::tracking::TrackedObject>{current},
+                InitialTimestamp + std::chrono::milliseconds(100),
+                rv::tracking::DistanceType::Euclidean,
+                2.0);
+
+  const auto tracks = tracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1);
+  EXPECT_EQ(tracks[0].attributes.at("metadata.reid"), "chunk-2:7");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_confidence.reid"), "0.5");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_provenance.reid"), "chunk-2");
+}
+
 TEST(MetadataFusionTest, HighestConfidenceWinsPerField)
 {
   auto tracker = makeTracker();

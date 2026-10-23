@@ -23,7 +23,59 @@ Override defaults for boundary testing:
 NUM_CAMERAS=8 FPS=30 NUM_OBJECTS=500 DURATION=5m make test-load
 ```
 
+Exercise the metadata hot path with deterministic float-list embeddings:
+
+```bash
+NUM_OBJECTS=50 REID_EMBEDDING_DIMENSIONS=256 make test-load
+NUM_OBJECTS=50 REID_EMBEDDING_DIMENSIONS=512 make test-load
+```
+
+Use identical camera/object counts, FPS, duration, hardware, and vector dimensions
+for before/after runs. Record the image revision and the terminal SLI/stage-latency
+summary for each run; the dropped-message gate remains below 0.1%.
+
 ## Architecture
+
+### ReID Metadata Review Measurements (2026-10-21)
+
+Single runs on an Intel Core i7-1360P (16 logical CPUs), 62.6 GB RAM, Linux
+7.0.0-38-generic. Both images used the same load generator: 4 cameras, 15 FPS,
+50 objects per camera, a 1-minute duration, and float-list embeddings. All runs
+reported 50 active tracks and 59.3-59.4 messages/second.
+
+| Dimensions | Before Drops          | After Drops   | Before p50/p99 (ms) | After p50/p99 (ms) |
+| ---------- | --------------------- | ------------- | ------------------- | ------------------ |
+| 256        | 0 / 3562 (0%)         | 0 / 3563 (0%) | 117.95 / 180.33     | 87.84 / 147.49     |
+| 512        | 969 / 3560 (27.2191%) | 0 / 3560 (0%) | 332.54 / 496.65     | 122.04 / 198.36    |
+
+The after image passed the below-0.1% drop gate for both sizes. Both before and
+after runs still emitted p50/p99 latency warnings; these measurements are not a
+claim that the latency budgets pass or a statistically established speedup.
+The baseline is commit `4ea36bba`; the after image includes the working-tree
+single-copy, shared-parse, generic-provenance, and transient-lifetime changes.
+
+- Before image: `sha256:076f39ec78202c81b848c8266f561b95517c780b577469ae5f6a42c06958a9a9`.
+- After image: `sha256:0d5d5b67635b96d655e85501583206d055eed13b7a315c199d8164765ae49201`.
+
+Both images were built from source. The baseline build used an isolated
+`git archive` context; neither benchmark switched or modified the working tree.
+
+### `main` vs. ReID Branch (2026-10-23)
+
+One run per revision on the same host and 512-dimensional ReID profile:
+4 cameras × 15 FPS × 50 objects, 1 minute. The `main` image uses source commit
+`9c8624e0`; both runs use the same current load generator so the baseline is
+exercised with the 512-dimensional embedding workload.
+
+| Revision    | Track-stage p50/p99 per chunk (ms) | End-to-end p50/p99 (ms) | Messages / drops | Throughput |
+| ----------- | ---------------------------------: | ----------------------: | ---------------: | ---------: |
+| `main`      |                      23.69 / 47.12 |         136.44 / 287.10 |         3560 / 0 | 59.3 msg/s |
+| ReID branch |                      12.80 / 25.00 |         122.08 / 209.70 |         3560 / 0 | 59.3 msg/s |
+
+The branch's per-chunk Track-stage p99 was 22.12 ms (about 47%) lower in these
+runs. Both runs passed the drop and active-track gates, but emitted end-to-end
+latency warnings. These are single-run measurements, not a statistically
+established speedup.
 
 ```mermaid
 graph LR
@@ -112,18 +164,19 @@ The hardware section helps reproduce results across machines. The per-stage brea
 
 All parameters are environment-variable driven:
 
-| Variable          | Default                       | Description                         |
-| ----------------- | ----------------------------- | ----------------------------------- |
-| `NUM_CAMERAS`     | 4                             | Simulated camera count              |
-| `FPS`             | 15                            | Frames per second per camera        |
-| `NUM_OBJECTS`     | 300                           | Detections per message              |
-| `DURATION`        | 1m                            | Nominal test duration (SLI window)  |
-| `LATENCY_P50_MS`  | 1000/FPS                      | p50 warning: 1 chunk period (ms)    |
-| `LATENCY_P99_MS`  | 2000/FPS                      | p99 warning: 2 chunk periods (ms)   |
-| `THROUGHPUT_MIN`  | cameras × FPS × 0.95          | Minimum sustained msg/s             |
-| `DROP_MAX_RATIO`  | 0.001                         | Maximum allowed drop ratio          |
-| `PROMETHEUS_URL`  | http://localhost:8889/metrics | OTel Collector endpoint             |
-| `METRICS_TIMEOUT` | 30                            | Seconds to wait for stable counters |
+| Variable                    | Default                       | Description                                                              |
+| --------------------------- | ----------------------------- | ------------------------------------------------------------------------ |
+| `NUM_CAMERAS`               | 4                             | Simulated camera count                                                   |
+| `FPS`                       | 15                            | Frames per second per camera                                             |
+| `NUM_OBJECTS`               | 300                           | Detections per message                                                   |
+| `REID_EMBEDDING_DIMENSIONS` | 0                             | Float-list vector length per object; 0 disables embeddings, maximum 4096 |
+| `DURATION`                  | 1m                            | Nominal test duration (SLI window)                                       |
+| `LATENCY_P50_MS`            | 1000/FPS                      | p50 warning: 1 chunk period (ms)                                         |
+| `LATENCY_P99_MS`            | 2000/FPS                      | p99 warning: 2 chunk periods (ms)                                        |
+| `THROUGHPUT_MIN`            | cameras × FPS × 0.95          | Minimum sustained msg/s                                                  |
+| `DROP_MAX_RATIO`            | 0.001                         | Maximum allowed drop ratio                                               |
+| `PROMETHEUS_URL`            | http://localhost:8889/metrics | OTel Collector endpoint                                                  |
+| `METRICS_TIMEOUT`           | 30                            | Seconds to wait for stable counters                                      |
 
 ## Simulation Model
 

@@ -99,6 +99,7 @@ struct Track {
         metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
     std::optional<double>
         confidence; ///< Detection confidence score in [0, 1] (absent if not available)
+    std::string reid_sighting_json; ///< Current-chunk detection crop and embedding, if any
 };
 
 /**

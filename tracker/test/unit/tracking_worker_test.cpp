@@ -625,11 +625,98 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
     ASSERT_GT(all_published_tracks.size(), 0u)
         << "No reliable tracks published - metadata passthrough cannot be verified";
 
-    // Every published track must carry the original metadata unchanged
+    // Non-ReID fields keep their merge behavior; ReID is carried only by the sighting.
     for (const auto& track : all_published_tracks) {
-        EXPECT_EQ(track.metadata_json, expected_metadata)
-            << "Track " << track.id << " has wrong or missing metadata_json";
+        rapidjson::Document metadata;
+        ASSERT_FALSE(metadata.Parse(track.metadata_json.c_str()).HasParseError());
+        ASSERT_TRUE(metadata.HasMember("score"));
+        EXPECT_DOUBLE_EQ(metadata["score"].GetDouble(), 0.95);
+        EXPECT_FALSE(metadata.HasMember("reid"));
+        rapidjson::Document sighting;
+        ASSERT_FALSE(sighting.Parse(track.reid_sighting_json.c_str()).HasParseError());
+        EXPECT_STREQ(sighting["reid"]["model_name"].GetString(), "test");
+        EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+        EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 50.0);
+        EXPECT_TRUE(sighting["timestamp"].IsString());
     }
+}
+
+TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    std::vector<std::vector<Track>> frames;
+    std::mutex mutex;
+    std::condition_variable cv;
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Scene", 4,
+        [&](const std::string&, const std::string&, const std::string&, const std::string&,
+            const std::vector<Track>& tracks) {
+            std::lock_guard lock(mutex);
+            frames.push_back(tracks);
+            cv.notify_one();
+        },
+        config, cameras_);
+
+    for (int i = 0; i < 5; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp_iso = std::format("2026-01-27T12:00:00.{:03d}Z", i * 67);
+        batch.timestamp =
+            std::chrono::system_clock::time_point(std::chrono::milliseconds(1000 + i * 67));
+        if (i != 3) {
+            Detection detection;
+            detection.id = 1;
+            detection.bounding_box_px = {100, 200, 50, 100};
+            const int embedding = i < 3 ? i + 1 : 4;
+            const double confidence = i < 3 ? 0.99 : 0.5;
+            detection.metadata_json = std::format(
+                R"({{"reid":{{"embedding_vector":[[{},0]],"confidence":{}}},"age":{{"label":"adult"}}}})",
+                embedding, confidence);
+            batch.detections.push_back(std::move(detection));
+        }
+        chunk.camera_batches.push_back(std::move(batch));
+        ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        std::unique_lock lock(mutex);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3),
+                                [&] { return frames.size() >= static_cast<size_t>(i + 1); }));
+    }
+
+    ASSERT_FALSE(frames[0].empty());
+    ASSERT_FALSE(frames[1].empty());
+    ASSERT_FALSE(frames[2].empty());
+    ASSERT_FALSE(frames[3].empty());
+    ASSERT_FALSE(frames[4].empty());
+    EXPECT_EQ(frames[0][0].id, frames[1][0].id);
+    EXPECT_EQ(frames[1][0].id, frames[2][0].id);
+    EXPECT_EQ(frames[2][0].id, frames[3][0].id);
+    EXPECT_EQ(frames[3][0].id, frames[4][0].id);
+    for (int i = 0; i < 3; ++i) {
+        rapidjson::Document sighting;
+        ASSERT_FALSE(sighting.Parse(frames[i][0].reid_sighting_json.c_str()).HasParseError());
+        EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+        EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 50.0);
+        EXPECT_EQ(sighting["reid"]["embedding_vector"][0][0].GetInt(), i + 1);
+        EXPECT_STREQ(sighting["timestamp"].GetString(),
+                     std::format("2026-01-27T12:00:00.{:03d}Z", i * 67).c_str());
+        EXPECT_FALSE(sighting.HasMember("chunk_id"));
+        rapidjson::Document metadata;
+        ASSERT_FALSE(metadata.Parse(frames[i][0].metadata_json.c_str()).HasParseError());
+        EXPECT_FALSE(metadata.HasMember("reid"));
+        EXPECT_STREQ(metadata["age"]["label"].GetString(), "adult");
+    }
+    EXPECT_TRUE(frames[3][0].reid_sighting_json.empty());
+    rapidjson::Document predicted_metadata;
+    ASSERT_FALSE(predicted_metadata.Parse(frames[3][0].metadata_json.c_str()).HasParseError());
+    EXPECT_FALSE(predicted_metadata.HasMember("reid"));
+    EXPECT_STREQ(predicted_metadata["age"]["label"].GetString(), "adult");
+
+    rapidjson::Document latest_sighting;
+    ASSERT_FALSE(latest_sighting.Parse(frames[4][0].reid_sighting_json.c_str()).HasParseError());
+    EXPECT_EQ(latest_sighting["reid"]["embedding_vector"][0][0].GetInt(), 4);
+    EXPECT_DOUBLE_EQ(latest_sighting["reid"]["confidence"].GetDouble(), 0.5);
 }
 
 // Test that confidence is preserved end-to-end through the tracker pipeline:
@@ -1018,6 +1105,55 @@ DetectionBatch make_batch(const std::string& camera_id, int chunk_index, int rec
     det.confidence = confidence;
     batch.detections.push_back(std::move(det));
     return batch;
+}
+
+// ReID winner's embedding and provenance stay linked; other fields fuse independently.
+
+TEST_F(TrackingWorkerTest, Tracking_MultiCamera_ReidProvenanceMatchesWinningDetection) {
+    std::vector<Track> tracks;
+    std::mutex mutex;
+    std::condition_variable cv;
+    int callbacks = 0;
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Scene", 10,
+        [&](const std::string&, const std::string&, const std::string&, const std::string&,
+            const std::vector<Track>& published) {
+            std::lock_guard lock(mutex);
+            tracks.insert(tracks.end(), published.begin(), published.end());
+            ++callbacks;
+            cv.notify_one();
+        },
+        config, make_two_cameras());
+
+    for (int i = 0; i < 4; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        chunk.camera_batches.push_back(make_batch(
+            "cam-1", i, 0,
+            R"({"reid":{"embedding_vector":[[1,0]],"confidence":0.9},"gender":{"label":"female","confidence":0.9}})"));
+        chunk.camera_batches.push_back(make_batch(
+            "cam-2", i, 1,
+            R"({"reid":{"embedding_vector":[[2,0]],"confidence":0.7},"age":{"label":"adult"}})"));
+        ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        std::unique_lock lock(mutex);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3), [&] { return callbacks > i; }));
+    }
+
+    ASSERT_FALSE(tracks.empty());
+    rapidjson::Document metadata;
+    ASSERT_FALSE(metadata.Parse(tracks.back().metadata_json.c_str()).HasParseError());
+    EXPECT_FALSE(metadata.HasMember("reid"));
+    rapidjson::Document sighting;
+    ASSERT_FALSE(sighting.Parse(tracks.back().reid_sighting_json.c_str()).HasParseError());
+    EXPECT_EQ(sighting["reid"]["embedding_vector"][0][0].GetInt(), 1);
+    EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+    EXPECT_STREQ(sighting["timestamp"].GetString(), "2026-01-27T12:00:03.000Z");
+    EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 50.0);
+    EXPECT_STREQ(metadata["gender"]["label"].GetString(), "female");
+    EXPECT_STREQ(metadata["age"]["label"].GetString(), "adult");
 }
 
 // Scenario 1 - higher confidence wins over lower confidence for the same field.

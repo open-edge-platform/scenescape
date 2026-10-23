@@ -15,17 +15,59 @@
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
+#include <rv/tracking/MetadataAttributes.hpp>
 
 namespace tracker {
 
 namespace {
 
-void addMetadataAttributes(std::string_view metadataJson,
-                           std::unordered_map<std::string, std::string>& attributes) {
-    attributes["metadata_json"] = metadataJson;
+void addReidSighting(const Detection& detection, std::string_view reid_json,
+                     rapidjson::Type reid_type, const std::string& camera_id,
+                     const std::string& timestamp, const std::string& chunk_id,
+                     const std::string& reid_index, std::string& reid_sighting_json,
+                     std::unordered_map<std::string, std::string>& attributes) {
+    rapidjson::Document sighting;
+    sighting.SetObject();
+    auto& allocator = sighting.GetAllocator();
+    sighting.AddMember("camera_id", rapidjson::Value(camera_id.c_str(), allocator), allocator);
+    sighting.AddMember("timestamp", rapidjson::Value(timestamp.c_str(), allocator), allocator);
+    rapidjson::Value bbox(rapidjson::kObjectType);
+    bbox.AddMember("x", detection.bounding_box_px.x, allocator);
+    bbox.AddMember("y", detection.bounding_box_px.y, allocator);
+    bbox.AddMember("width", detection.bounding_box_px.width, allocator);
+    bbox.AddMember("height", detection.bounding_box_px.height, allocator);
+    sighting.AddMember("bounding_box_px", bbox, allocator);
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    writer.StartObject();
+    for (const auto& member : sighting.GetObject()) {
+        writer.Key(member.name.GetString(), member.name.GetStringLength());
+        member.value.Accept(writer);
+    }
+    writer.Key("reid");
+    if (reid_type == rapidjson::kObjectType) {
+        writer.RawValue(reid_json.data(), reid_json.size(), reid_type);
+    } else {
+        writer.StartObject();
+        writer.Key("embedding_vector");
+        writer.RawValue(reid_json.data(), reid_json.size(), reid_type);
+        writer.EndObject();
+    }
+    writer.EndObject();
+    reid_sighting_json = buffer.GetString();
+    attributes[std::string(rv::tracking::metadata_fusion::ValuePrefix) + "reid"] = reid_index;
+    attributes[std::string(rv::tracking::metadata_fusion::ProvenancePrefix) + "reid"] = chunk_id;
+    attributes[std::string(rv::tracking::metadata_fusion::TransientPrefix) + "reid"] = "1";
+}
 
+void addMetadataAttributes(const Detection& detection, const std::string& camera_id,
+                           const std::string& timestamp, const std::string& chunk_id,
+                           const std::string& reid_index, std::string& reid_sighting_json,
+                           std::unordered_map<std::string, std::string>& attributes) {
     rapidjson::Document metadata;
-    if (metadata.Parse(metadataJson.data(), metadataJson.size()).HasParseError() ||
+    if (detection.metadata_json.find('\0') != std::string::npos ||
+        metadata.Parse(detection.metadata_json.data(), detection.metadata_json.size())
+            .HasParseError() ||
         !metadata.IsObject()) {
         return;
     }
@@ -36,7 +78,19 @@ void addMetadataAttributes(std::string_view metadataJson,
         member->value.Accept(value_writer);
 
         const std::string field(member->name.GetString(), member->name.GetStringLength());
-        attributes["metadata." + field] = value_buffer.GetString();
+        if (field == "reid" &&
+            (member->value.IsObject() || member->value.IsArray() || member->value.IsString())) {
+            if (!camera_id.empty() && !timestamp.empty() && !chunk_id.empty() &&
+                !reid_index.empty()) {
+                addReidSighting(detection,
+                                std::string_view(value_buffer.GetString(), value_buffer.GetSize()),
+                                member->value.GetType(), camera_id, timestamp, chunk_id, reid_index,
+                                reid_sighting_json, attributes);
+            }
+        } else if (field != "reid") {
+            attributes[std::string(rv::tracking::metadata_fusion::ValuePrefix) + field] =
+                value_buffer.GetString();
+        }
 
         if (!member->value.IsObject() || !member->value.HasMember("confidence") ||
             !member->value["confidence"].IsNumber()) {
@@ -48,7 +102,12 @@ void addMetadataAttributes(std::string_view metadataJson,
         auto [ptr, ec] = std::to_chars(confidence_buffer,
                                        confidence_buffer + sizeof(confidence_buffer), confidence);
         if (ec == std::errc{}) {
-            attributes["metadata_confidence." + field] = std::string(confidence_buffer, ptr);
+            if (field != "reid" ||
+                attributes.contains(std::string(rv::tracking::metadata_fusion::ValuePrefix) +
+                                    "reid")) {
+                attributes[std::string(rv::tracking::metadata_fusion::ConfidencePrefix) + field] =
+                    std::string(confidence_buffer, ptr);
+            }
         }
     }
 }
@@ -157,11 +216,22 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
     }
 }
 
-std::vector<rv::tracking::TrackedObject>
-CoordinateTransformer::transformDetections(std::span<const Detection> detections) const {
+std::vector<rv::tracking::TrackedObject> CoordinateTransformer::transformDetections(
+    std::span<const Detection> detections, const std::string& camera_id,
+    const std::string& timestamp, const std::string& chunk_id,
+    std::unordered_map<std::string, std::string>* reid_sightings, size_t* next_reid_index) const {
     const auto n = detections.size();
     if (n == 0)
         return {};
+
+    std::vector<std::string> reid_indices(n);
+    std::vector<std::string> reid_payloads(n);
+    if (reid_sightings && next_reid_index && !camera_id.empty() && !timestamp.empty() &&
+        !chunk_id.empty()) {
+        for (auto& reid_index : reid_indices) {
+            reid_index = chunk_id + ":" + std::to_string((*next_reid_index)++);
+        }
+    }
 
     // Phase 1: Undistort opposite corners of each bbox into a normalized rectangle
     std::vector<cv::Point2f> pixels(n * kCornersPerDetection);
@@ -280,7 +350,8 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         obj.width = width_m;
         obj.height = height_m;
         if (!detections[i].metadata_json.empty()) {
-            addMetadataAttributes(detections[i].metadata_json, obj.attributes);
+            addMetadataAttributes(detections[i], camera_id, timestamp, chunk_id, reid_indices[i],
+                                  reid_payloads[i], obj.attributes);
         }
         if (detections[i].confidence.has_value()) {
             char buf[32];
@@ -291,6 +362,14 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         }
 
         detection_valid[i] = 1;
+    }
+
+    if (reid_sightings) {
+        for (size_t i = 0; i < n; ++i) {
+            if (detection_valid[i] && !reid_payloads[i].empty()) {
+                reid_sightings->emplace(std::move(reid_indices[i]), std::move(reid_payloads[i]));
+            }
+        }
     }
 
     // Compact: remove invalid detections (preserves ordering)
