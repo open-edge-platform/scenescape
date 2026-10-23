@@ -680,6 +680,7 @@ class Pipeline(models.Model):
 
   name = models.CharField(max_length=200, unique=True)
   pipeline = models.TextField(verbose_name="Pipeline string")
+  dlsps_instance_id = models.UUIDField(null=True, blank=True, editable=False)
 
   class Meta:
     ordering = ['name']
@@ -758,6 +759,11 @@ class Cam(Sensor):
   detection_labels = models.TextField(max_length=2000, null=True, blank=True,
                                    verbose_name="Detection Labels",
                                    help_text="Detection labels to use, one per line")
+
+  class Meta:
+    constraints = [
+      models.UniqueConstraint(fields=['pipeline'], name='unique_camera_pipeline'),
+    ]
 
   @property
   def transformation(self):

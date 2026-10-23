@@ -19,6 +19,7 @@ SPDX-License-Identifier: Apache-2.0
     <thead>
       <tr>
         <th>Name</th>
+        <th>DLSPS instance UUID</th>
         <th>Pipeline string</th>
         {% if user.is_superuser %}
           <th>Update</th>
@@ -30,6 +31,9 @@ SPDX-License-Identifier: Apache-2.0
       {% for pipeline in object_list %}
         <tr>
           <td>{{ pipeline.name }}</td>
+          <td>
+            {{ pipeline.dlsps_instance_id|default_if_none:"Not assigned" }}
+          </td>
           <td><pre>{{ pipeline.pipeline }}</pre></td>
           {% if user.is_superuser %}
             <td>
@@ -50,7 +54,7 @@ SPDX-License-Identifier: Apache-2.0
         </tr>
         {% empty %}
         <tr>
-          <td colspan="{% if user.is_superuser %}4{% else %}2{% endif %}">
+          <td colspan="{% if user.is_superuser %}5{% else %}3{% endif %}">
             No pipelines have been created.
           </td>
         </tr>

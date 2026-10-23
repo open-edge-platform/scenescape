@@ -3,6 +3,7 @@
 
 from importlib import import_module
 from unittest.mock import patch
+from uuid import UUID
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError, connection, transaction
@@ -12,7 +13,7 @@ from django.urls import reverse
 from rest_framework.test import APIRequestFactory, force_authenticate
 
 from manager.api import ManageThing
-from manager.forms import CamCalibrateForm, CamCreateForm, PipelineForm
+from manager.forms import CamCalibrateForm, CamCreateForm, CamUpdateForm, PipelineForm
 from manager.models import Cam, Pipeline, Scene
 from manager.serializers import CamSerializer
 from manager.views import CamUpdateView
@@ -41,11 +42,15 @@ class PipelineFormTests(TestCase):
   def test_camera_forms_offer_pipeline(self):
     self.assertIn('pipeline', CamCreateForm.base_fields)
     self.assertIn('pipeline', CamCalibrateForm.base_fields)
-    self.assertIn('pipeline', CamUpdateView.fields)
+    self.assertIn('pipeline', CamUpdateView.form_class.base_fields)
     self.assertFalse(CamCreateForm.base_fields['pipeline'].required)
 
   def test_pipeline_not_added_to_camera_api(self):
     self.assertNotIn('pipeline', CamSerializer().fields)
+
+  def test_dlsps_instance_id_is_not_editable(self):
+    self.assertFalse(Pipeline._meta.get_field('dlsps_instance_id').editable)
+    self.assertNotIn('dlsps_instance_id', PipelineForm.base_fields)
 
 
 class PipelineTests(TestCase):
@@ -69,22 +74,76 @@ class PipelineTests(TestCase):
     Pipeline.objects.create(name='Alpha', pipeline='fakesrc ! fakesink')
     self.assertEqual(list(Pipeline.objects.values_list('name', flat=True)), ['Alpha', 'Zebra'])
 
+  def test_dlsps_instance_id_is_optional_and_persisted(self):
+    pipeline = Pipeline.objects.create(name='External', pipeline='fakesrc ! fakesink')
+    pipeline.refresh_from_db()
+    self.assertIsNone(pipeline.dlsps_instance_id)
+    instance_id = UUID('3f1c0d2e-8a4b-4d6c-9e1f-2a3b4c5d6e7f')
+    pipeline.dlsps_instance_id = instance_id
+    pipeline.save(update_fields=['dlsps_instance_id'])
+    pipeline.refresh_from_db()
+    self.assertEqual(pipeline.dlsps_instance_id, instance_id)
+
+  def test_user_cannot_set_or_overwrite_dlsps_instance_id(self):
+    instance_id = UUID('3f1c0d2e-8a4b-4d6c-9e1f-2a3b4c5d6e7f')
+    data = {'name': 'External', 'pipeline': 'fakesrc ! fakesink',
+            'dlsps_instance_id': str(instance_id)}
+    response = self.client.post(reverse('pipeline_create'), data)
+    self.assertRedirects(response, reverse('pipeline_list'))
+    pipeline = Pipeline.objects.get(name='External')
+    self.assertIsNone(pipeline.dlsps_instance_id)
+    pipeline.dlsps_instance_id = instance_id
+    pipeline.save(update_fields=['dlsps_instance_id'])
+    data['dlsps_instance_id'] = '00000000-0000-0000-0000-000000000001'
+    response = self.client.post(reverse('pipeline_update', args=[pipeline.pk]), data)
+    self.assertRedirects(response, reverse('pipeline_list'))
+    pipeline.refresh_from_db()
+    self.assertEqual(pipeline.dlsps_instance_id, instance_id)
+    for url in (reverse('pipeline_create'), reverse('pipeline_update', args=[pipeline.pk])):
+      self.assertNotContains(self.client.get(url), 'name="dlsps_instance_id"')
+
   def test_form_rejects_duplicate_name(self):
     Pipeline.objects.create(name='Shared', pipeline='fakesrc ! fakesink')
     form = PipelineForm(data={'name': 'Shared', 'pipeline': 'videotestsrc ! fakesink'})
     self.assertFalse(form.is_valid())
     self.assertIn('name', form.errors)
 
-  def test_many_cameras_and_delete_clears_references(self):
+  def test_pipeline_is_exclusive_and_delete_clears_reference(self):
     pipeline = Pipeline.objects.create(name='Shared', pipeline='fakesrc ! fakesink')
     with patch('manager.models.sendUpdateCommand'):
       first = Cam.objects.create(sensor_id='pipeline-first', name='First', pipeline=pipeline)
-      second = Cam.objects.create(sensor_id='pipeline-second', name='Second', pipeline=pipeline)
-      self.assertEqual(pipeline.cameras.count(), 2)
+      with self.assertRaises(IntegrityError), transaction.atomic():
+        Cam.objects.create(sensor_id='pipeline-second', name='Second', pipeline=pipeline)
+      self.assertEqual(pipeline.cameras.count(), 1)
       pipeline.delete()
-    for camera in (first, second):
-      camera.refresh_from_db()
-      self.assertIsNone(camera.pipeline_id)
+    first.refresh_from_db()
+    self.assertIsNone(first.pipeline_id)
+
+  def test_camera_selectors_exclude_assigned_pipelines_and_keep_current(self):
+    selected = Pipeline.objects.create(name='Selected', pipeline='fakesrc ! fakesink')
+    free = Pipeline.objects.create(name='Free', pipeline='fakesrc ! fakesink')
+    other = Pipeline.objects.create(name='Other', pipeline='fakesrc ! fakesink')
+    with patch('manager.models.sendUpdateCommand'):
+      camera = Cam.objects.create(sensor_id='selected-camera', name='Selected', pipeline=selected)
+      Cam.objects.create(sensor_id='other-camera', name='Other', pipeline=other)
+    for form_class in (CamCreateForm, CamUpdateForm, CamCalibrateForm):
+      with self.subTest(form=form_class.__name__):
+        self.assertEqual(list(form_class().fields['pipeline'].queryset), [free])
+        self.assertEqual(set(form_class(instance=camera).fields['pipeline'].queryset),
+                         {selected, free})
+        form = form_class(data={'pipeline': other.pk}, instance=camera)
+        self.assertFalse(form.is_valid())
+        self.assertIn('pipeline', form.errors)
+    camera.pipeline = None
+    with patch('manager.models.sendUpdateCommand'):
+      camera.save()
+    self.assertIn(selected, CamCreateForm().fields['pipeline'].queryset)
+
+  def test_pipeline_uuid_is_displayed_read_only(self):
+    instance_id = UUID('3f1c0d2e-8a4b-4d6c-9e1f-2a3b4c5d6e7f')
+    Pipeline.objects.create(name='Visible', pipeline='fakesrc ! fakesink',
+                            dlsps_instance_id=instance_id)
+    self.assertContains(self.client.get(reverse('pipeline_list')), str(instance_id))
 
   def test_pipeline_does_not_change_camera_runtime_data(self):
     pipeline = Pipeline.objects.create(name='Shared', pipeline='fakesrc ! fakesink')
@@ -164,11 +223,11 @@ class PipelineTests(TestCase):
     executor = MigrationExecutor(connection)
     state = executor.loader.project_state()
     historical = state.apps.get_model('manager', 'Pipeline')
-    for name in ('id', 'name', 'pipeline'):
+    for name in ('id', 'name', 'pipeline', 'dlsps_instance_id'):
       self.assertEqual(historical._meta.get_field(name).deconstruct()[1:],
                        Pipeline._meta.get_field(name).deconstruct()[1:])
     module = import_module('manager.migrations.0006_pipeline_cam_pipeline')
-    self.assertEqual(len(module.Migration.operations), 2)
+    self.assertEqual(len(module.Migration.operations), 3)
 
 
 class PipelineMigrationTests(TransactionTestCase):
@@ -190,9 +249,18 @@ class PipelineMigrationTests(TransactionTestCase):
       self.assertIsNone(camera_model.objects.get(pk=camera_pk).pipeline_id)
       pipeline = apps.get_model('manager', 'Pipeline').objects.create(
         name='Migrated', pipeline='fakesrc ! fakesink')
+      self.assertIsNone(pipeline.dlsps_instance_id)
+      pipeline.dlsps_instance_id = UUID('3f1c0d2e-8a4b-4d6c-9e1f-2a3b4c5d6e7f')
+      pipeline.save()
+      pipeline.refresh_from_db()
+      self.assertEqual(str(pipeline.dlsps_instance_id), '3f1c0d2e-8a4b-4d6c-9e1f-2a3b4c5d6e7f')
       camera_model.objects.filter(pk=camera_pk).update(pipeline_id=pipeline.pk)
+      second = camera_model.objects.create(sensor_id='second-migration-camera', name='Second')
+      with self.assertRaises(IntegrityError), transaction.atomic():
+        camera_model.objects.filter(pk=second.pk).update(pipeline_id=pipeline.pk)
       executor = MigrationExecutor(connection)
       executor.migrate(old_target)
       self.assertTrue(old_apps.get_model('manager', 'Cam').objects.filter(pk=camera_pk).exists())
     finally:
-      MigrationExecutor(connection).migrate(new_target)
+      executor = MigrationExecutor(connection)
+      executor.migrate(executor.loader.graph.leaf_nodes())

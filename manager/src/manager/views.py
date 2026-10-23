@@ -44,7 +44,7 @@ from manager.models import Scene, ChildScene, \
   SingletonAreaPoint, UserSession, FailedLogin, \
   RegionOccupancyThreshold, SceneImport
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
-  SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm, PipelineForm
+  SceneUpdateForm, SceneImportForm, CamCreateForm, CamUpdateForm, SingletonCreateForm, ChildSceneForm, PipelineForm
 from manager.validators import add_form_error, validate_uuid
 
 from scene_common.options import *
@@ -308,7 +308,7 @@ class CamListView(LoginRequiredMixin, ListView):
 
 class CamUpdateView(SuperUserCheck, UpdateView):
   model = Cam
-  fields = ['sensor_id', 'name', 'scene', 'pipeline']
+  form_class = CamUpdateForm
   template_name = "cam/cam_update.html"
 
   def get_success_url(self):

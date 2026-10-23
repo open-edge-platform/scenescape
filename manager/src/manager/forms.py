@@ -45,7 +45,23 @@ class PipelineForm(forms.ModelForm):
     return pipeline
 
 
-class CamCalibrateForm(forms.ModelForm):
+class CameraPipelineForm(forms.ModelForm):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    assigned = Cam.objects.filter(pipeline__isnull=False)
+    if self.instance.pk:
+      assigned = assigned.exclude(pk=self.instance.pk)
+    self.fields['pipeline'].queryset = Pipeline.objects.exclude(
+      pk__in=assigned.values('pipeline_id'))
+
+
+class CamUpdateForm(CameraPipelineForm):
+  class Meta:
+    model = Cam
+    fields = ['sensor_id', 'name', 'scene', 'pipeline']
+
+
+class CamCalibrateForm(CameraPipelineForm):
   class Meta:
     model = Cam
     fields = CAM_FORM_FIELDS + ['pipeline']
@@ -188,7 +204,7 @@ class SingletonForm(forms.Form):
           raise ValidationError("The polygon vertex coordinates must be floating point numbers.")
     return cleaned_data
 
-class CamCreateForm(forms.ModelForm):
+class CamCreateForm(CameraPipelineForm):
   class Meta:
     model = Cam
     fields = ['sensor_id', 'name', 'scene', 'pipeline']

@@ -19,6 +19,7 @@ class Migration(migrations.Migration):
                                serialize=False, verbose_name='ID')),
         ('name', models.CharField(max_length=200, unique=True)),
         ('pipeline', models.TextField(verbose_name='Pipeline string')),
+        ('dlsps_instance_id', models.UUIDField(blank=True, editable=False, null=True)),
       ],
       options={'ordering': ['name']},
     ),
@@ -33,5 +34,9 @@ class Migration(migrations.Migration):
         related_name='cameras',
         to='manager.pipeline',
       ),
+    ),
+    migrations.AddConstraint(
+      model_name='cam',
+      constraint=models.UniqueConstraint(fields=('pipeline',), name='unique_camera_pipeline'),
     ),
   ]
