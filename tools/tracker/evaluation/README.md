@@ -245,9 +245,9 @@ The frame rate is **required** and is never inferred from tracker-output timesta
 
 ## Scenario Visualization
 
-[visualization/](visualization/README.md) plots and renders short videos of motion scenarios recorded by the
-robot-vision unit tests (`RV_SCENARIO_DIR`), and of tracker output in the canonical formats: trajectory, position error,
-speed, yaw, size, model probabilities and covariance, plus overview and follow-camera videos.
+[visualization/](visualization/README.md) plots and renders short videos of a pipeline run directory, or of motion
+scenarios recorded by the robot-vision unit tests (`RV_SCENARIO_DIR`): trajectory, position error, speed, yaw, size,
+model probabilities and covariance, plus overview and follow-camera videos.
 
 ## Directory Structure
 

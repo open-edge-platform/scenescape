@@ -38,7 +38,7 @@ SPDX-License-Identifier: Apache-2.0
 - `pipeline_configs/` – sample YAML pipelines used by `pipeline_engine.py` for smoke and regression tests.
 - `tests/` – pytest suites covering pipeline engine plus per-component integration tests.
 - `utils/` – reusable helpers (format converters, stream loaders, timeline, track matching) shared across component groups.
-- `visualization/` – plots and videos of robot-vision scenario recordings and canonical tracker output; see `visualization/README.md`
+- `visualization/` – plots and videos of robot-vision scenario recordings and evaluation pipeline runs; see `visualization/README.md`
   - `visualization/tests/` - unit tests, recorded fixture and a copy of the 3D camera-data schema
 
 ## Datasets
@@ -139,7 +139,7 @@ Check `evaluators/README.md` for more details
 - **Camera projection harness**: [harnesses/camera_projection_harness/camera_projection_harness.py](harnesses/camera_projection_harness/camera_projection_harness.py), container script: [harnesses/camera_projection_harness/run_projection.py](harnesses/camera_projection_harness/run_projection.py).
 - **Camera accuracy evaluator**: [evaluators/camera_accuracy_evaluator.py](evaluators/camera_accuracy_evaluator.py).
 - **Track matching**: [utils/tracks.py](utils/tracks.py) (`match_tracks()`, used by the diagnostic evaluator and the visualization tools).
-- **Scenario visualization**: [visualization/plot_scenario.py](visualization/plot_scenario.py) (PNG plots) and [visualization/render_video.py](visualization/render_video.py) (MP4/GIF videos), both on a scenario directory loaded by [visualization/scenario_data.py](visualization/scenario_data.py); workflow in [visualization/README.md](visualization/README.md).
+- **Scenario visualization**: [visualization/plot_scenario.py](visualization/plot_scenario.py) (PNG plots) and [visualization/render_video.py](visualization/render_video.py) (MP4/GIF videos), both on a scenario directory or pipeline run directory loaded by [visualization/scenario_data.py](visualization/scenario_data.py); workflow in [visualization/README.md](visualization/README.md).
 
 ## Guidelines for Adding New Component or Updating Existing One
 
