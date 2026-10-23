@@ -9,6 +9,7 @@ including HOTA, MOTA, IDF1, and CLEAR MOT metrics for 3D point tracking.
 
 from typing import Iterator, List, Dict, Any, Optional
 from pathlib import Path
+import argparse
 import sys
 import tempfile
 import numpy as np
@@ -23,6 +24,11 @@ from base.tracker_evaluator import TrackerEvaluator
 from trackeval.datasets.mot_challenge_2d_box import MotChallenge2DBox
 from trackeval.eval import Evaluator
 from trackeval.metrics import HOTA, CLEAR, Identity, Count
+
+# Distance [m] at which the similarity of a ground-truth and a tracked position drops to 0;
+# TrackEval's similarity threshold alpha accepts position errors up to ZERO_DISTANCE * (1 - alpha).
+ZERO_DISTANCE = 2.0
+TRACKER_NAME = 'tracker_eval'
 
 
 class MotChallenge3DPoint(MotChallenge2DBox):
@@ -178,10 +184,9 @@ class MotChallenge3DPoint(MotChallenge2DBox):
     Returns:
       NxM array of similarity scores (0-1, where 1 is perfect match)
     """
-    # Use Euclidean distance-based similarity with default zero_distance=2.0
-    # (0.5 similarity threshold corresponds to 1m distance threshold)
+    # Euclidean distance-based similarity (0.5 similarity threshold corresponds to 1m distance)
     similarity_scores = self._calculate_euclidean_similarity(
-      gt_dets_t, tracker_dets_t, zero_distance=2.0
+      gt_dets_t, tracker_dets_t, zero_distance=ZERO_DISTANCE
     )
     return similarity_scores
 
@@ -354,7 +359,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
       gt_folder = gt_seq_folder / "gt"
       gt_folder.mkdir(exist_ok=True)
 
-      tracker_folder = temp_path / "trackers" / "tracker_eval"
+      tracker_folder = temp_path / "trackers" / TRACKER_NAME
       tracker_data_folder = tracker_folder / "data"
       tracker_data_folder.mkdir(parents=True, exist_ok=True)
 
@@ -442,7 +447,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
         'GT_FOLDER': str(temp_path / "gt"),
         'TRACKERS_FOLDER': str(temp_path / "trackers"),
         'OUTPUT_FOLDER': str(self._output_folder) if self._output_folder else str(temp_path / "results"),
-        'TRACKERS_TO_EVAL': ['tracker_eval'],
+        'TRACKERS_TO_EVAL': [TRACKER_NAME],
         'CLASSES_TO_EVAL': ['pedestrian'],
         'BENCHMARK': 'MOT17',  # Use MOT17 format (generic)
         'SPLIT_TO_EVAL': 'train',
@@ -513,7 +518,7 @@ class TrackEvalEvaluator(TrackerEvaluator):
       results = {}
       # TrackEval output structure: output_res[dataset_name][tracker_name][seq_name][metric_name]
       dataset_name = dataset.get_name()
-      tracker_name = 'tracker_eval'
+      tracker_name = TRACKER_NAME
 
       if (dataset_name in output_res and
           tracker_name in output_res[dataset_name] and
@@ -549,6 +554,12 @@ class TrackEvalEvaluator(TrackerEvaluator):
     except Exception as e:
       raise RuntimeError(f"Failed to evaluate metrics: {str(e)}") from e
 
+  def detailed_results_path(self) -> Optional[Path]:
+    """TrackEval's per-threshold results CSV from evaluate_metrics(); None without output folder."""
+    if self._output_folder is None:
+      return None
+    return self._output_folder / TRACKER_NAME / f"{self._class_name}_detailed.csv"
+
   def reset(self) -> 'TrackEvalEvaluator':
     """Reset evaluator state to initial configuration.
 
@@ -573,3 +584,82 @@ class TrackEvalEvaluator(TrackerEvaluator):
     self._uuid_to_id_map = {}
 
     return self
+
+
+# Command line: TrackEval metrics for a directory with robot-vision ScenarioRecorder file names.
+TRACKS_FILE = "tracks.jsonl"
+GROUND_TRUTH_FILE = "groundtruth.jsonl"
+DEFAULT_METRICS = ['HOTA', 'MOTA', 'IDF1']
+
+
+def ground_truth_fps(ground_truth_path: Path) -> float:
+  """Frame rate from the median interval between distinct ground-truth timestamps.
+
+  Raises:
+    ValueError: If the ground truth has fewer than two distinct timestamps.
+  """
+  from utils.format_converters import stream_jsonl
+  from utils.timeline import parse_timestamp
+
+  frames = stream_jsonl(str(ground_truth_path))
+  times = sorted({parse_timestamp(frame["timestamp"]) for frame in frames})
+  if len(times) < 2:
+    raise ValueError(f"Cannot derive the frame rate from {ground_truth_path}; pass --fps")
+  intervals = sorted((later - earlier).total_seconds() for earlier, later in zip(times, times[1:]))
+  return 1.0 / intervals[len(intervals) // 2]
+
+
+def main(argv: Optional[List[str]] = None) -> int:
+  """Compute TrackEval metrics for tracks.jsonl against groundtruth.jsonl and print a summary."""
+  parser = argparse.ArgumentParser(
+    description=f"Compute TrackEval metrics for {TRACKS_FILE} against {GROUND_TRUTH_FILE} in a "
+    "directory, e.g. a robot-vision ScenarioRecorder scenario.")
+  parser.add_argument("input", type=Path,
+                      help=f"directory with {TRACKS_FILE} and {GROUND_TRUTH_FILE}")
+  parser.add_argument("--metrics", default=",".join(DEFAULT_METRICS),
+                      help=f"comma-separated metrics (default: {','.join(DEFAULT_METRICS)}); "
+                      f"supported: {','.join(TrackEvalEvaluator.SUPPORTED_METRICS)}")
+  parser.add_argument("--output", type=Path, help="output directory (default: <input>/metrics)")
+  parser.add_argument("--fps", type=float,
+                      help="frame rate for matching timestamps (default: from the ground truth)")
+  args = parser.parse_args(argv)
+
+  metrics = [name for name in args.metrics.split(",") if name]
+  tracks_path = args.input / TRACKS_FILE
+  ground_truth_path = args.input / GROUND_TRUTH_FILE
+  for path in (tracks_path, ground_truth_path):
+    if not path.is_file():
+      parser.error(f"{path} not found")
+
+  from utils.format_converters import stream_jsonl
+
+  evaluator = TrackEvalEvaluator()
+  try:
+    evaluator.configure_metrics(metrics)
+    fps = args.fps if args.fps is not None else ground_truth_fps(ground_truth_path)
+    evaluator.set_base_fps(fps)
+  except ValueError as error:
+    parser.error(str(error))
+  output = args.output or args.input / "metrics"
+  evaluator.set_output_folder(output)
+
+  print(f"Frame rate: {fps:g} fps")
+  try:
+    evaluator.process_tracker_outputs(list(stream_jsonl(str(tracks_path))), str(ground_truth_path))
+    results = evaluator.evaluate_metrics()
+  except RuntimeError as error:
+    print(f"Error: {error}", file=sys.stderr)
+    return 1
+  finally:
+    evaluator.reset()
+
+  print("=== Evaluation Results ===")
+  print(f"\n[{TrackEvalEvaluator.__name__}]")
+  for name, value in results.items():
+    print(f"  {name}: {value:.4f}")
+  print(f"\nResults saved to: {output}")
+  return 0
+
+
+if __name__ == "__main__":
+  sys.exit(main())

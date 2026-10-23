@@ -4,12 +4,11 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
-#include <string>
 #include <vector>
 
 #include <gtest/gtest.h>
 
-#include "support/Scenario.hpp"
+#include "support/ScenarioRecorder.hpp"
 
 namespace {
 
@@ -44,13 +43,15 @@ TEST(ScenarioSupportTest, ObserveReportsTruthWithSensorNoise)
 
   Sensor camera;
   const auto exact = observe(truth, camera);
+  EXPECT_EQ(exact.back().sensorId, "camera");
   EXPECT_DOUBLE_EQ(exact.back().detection.x, truth.back().x);
   EXPECT_DOUBLE_EQ(exact.back().detection.height, kCar.height);
   EXPECT_DOUBLE_EQ(exact.back().detection.yaw, 0.0);
   EXPECT_FALSE(rv::tracking::orientation::hasOrientation(exact.back().detection));
 
-  Sensor lidar{.positionNoise = 0.1, .sizeNoise = 0.05, .yawNoise = 0.02, .orienting = true};
+  Sensor lidar{.id = "lidar", .positionNoise = 0.1, .sizeNoise = 0.05, .yawNoise = 0.02, .orienting = true};
   const auto noisy = observe(truth, lidar);
+  EXPECT_EQ(noisy.back().sensorId, "lidar");
   double xSquares = 0.0;
   double heightSquares = 0.0;
   double yawSquares = 0.0;
@@ -115,7 +116,9 @@ TEST(MotionScenarioTest, TracksMotionCases)
     SCOPED_TRACE(motion.name);
     const auto &truth = motion.truth;
     Sensor camera{.positionNoise = 0.05};
-    FilterRun run;
+    ScenarioRecorder recorder(motion.name);
+    recorder.truth(truth);
+    FilterRun run(productionConfig(), &recorder);
     const auto states = run.feed(observe(truth, camera));
 
     double maxPositionError = 0.0;
@@ -136,19 +139,26 @@ TEST(MotionScenarioTest, ConstantVelocityConvergence)
 {
   // Same scenario and tolerance as the constant-velocity tests in tests/sscape_tests/robot_vision/tracking_test.py.
   constexpr double kTolerance = 0.05;
-  for (const auto &models :
-       {std::vector{MotionModel::CV}, std::vector{MotionModel::CV, MotionModel::CA, MotionModel::CTRV}})
+  const struct
   {
-    SCOPED_TRACE(std::to_string(models.size()) + " motion model(s)");
+    const char *name;
+    std::vector<MotionModel> models;
+  } modelSets[] = {{"CV", {MotionModel::CV}}, {"CV CA CTRV", {MotionModel::CV, MotionModel::CA, MotionModel::CTRV}}};
+  for (const auto &[name, models] : modelSets)
+  {
+    SCOPED_TRACE(name);
     auto config = productionConfig();
     config.mDefaultProcessNoise = 1e-5;
     config.mDefaultMeasurementNoise = 1e-2;
     config.mMotionModels = models;
     Sensor camera{.positionNoise = 0.01};
-    FilterRun run(config);
-    run.feed(observe(
-      Trajectory({.heading = std::atan2(1.0, 2.0), .speed = std::sqrt(5.0), .box = kPerson}).straight(9.9).sample(10.0),
-      camera));
+    const auto truth = Trajectory({.heading = std::atan2(1.0, 2.0), .speed = std::sqrt(5.0), .box = kPerson})
+                         .straight(9.9)
+                         .sample(10.0);
+    ScenarioRecorder recorder(name);
+    recorder.truth(truth);
+    FilterRun run(config, &recorder);
+    run.feed(observe(truth, camera));
 
     EXPECT_NEAR(run.state().vx, 2.0, kTolerance);
     EXPECT_NEAR(run.state().vy, 1.0, kTolerance);
@@ -159,8 +169,11 @@ TEST(MotionScenarioTest, TargetBornMovingAcquiresSpeed)
 {
   // The 0.05 velocity prior cap slows speed pick-up: about half of the true 10 m/s after 1 s.
   Sensor camera;
-  FilterRun run;
-  run.feed(observe(Trajectory({.speed = 10.0, .box = kCar}).straight(1.0).sample(10.0), camera));
+  const auto truth = Trajectory({.speed = 10.0, .box = kCar}).straight(1.0).sample(10.0);
+  ScenarioRecorder recorder;
+  recorder.truth(truth);
+  FilterRun run(productionConfig(), &recorder);
+  run.feed(observe(truth, camera));
 
   EXPECT_GE(std::hypot(run.state().vx, run.state().vy), 4.5);
 }

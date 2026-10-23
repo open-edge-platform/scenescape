@@ -4,7 +4,6 @@
 #pragma once
 
 #include <chrono>
-#include <string>
 
 #include <opencv2/core.hpp>
 
@@ -62,8 +61,7 @@ inline double minEigenvalue(const cv::Mat &matrix)
   return minValue;
 }
 
-inline TrackedObject makeDetection(
-  double x, double y, double z, double length, double width, double height, const std::string &cameraId = {})
+inline TrackedObject makeDetection(double x, double y, double z, double length, double width, double height)
 {
   TrackedObject object;
   object.x = x;
@@ -72,10 +70,6 @@ inline TrackedObject makeDetection(
   object.length = length;
   object.width = width;
   object.height = height;
-  if (!cameraId.empty())
-  {
-    object.attributes["camera_id"] = cameraId;
-  }
   return object;
 }
 
