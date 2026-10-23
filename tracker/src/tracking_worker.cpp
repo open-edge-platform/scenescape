@@ -34,16 +34,7 @@ namespace {
 constexpr double kTrackingDistanceThreshold = 2.0;
 constexpr std::string_view kMetadataPrefix = rv::tracking::metadata_fusion::ValuePrefix;
 
-std::string metadataJson(const std::unordered_map<std::string, std::string>& attributes,
-                         const std::string& chunk_id, std::string& reid_sighting_json) {
-    const auto sighting_it = attributes.find(std::string(kMetadataPrefix) + "reid");
-    const auto freshness =
-        attributes.find(std::string(rv::tracking::metadata_fusion::ProvenancePrefix) + "reid");
-    if (sighting_it != attributes.end() && freshness != attributes.end() && !chunk_id.empty() &&
-        freshness->second == chunk_id) {
-        reid_sighting_json = sighting_it->second;
-    }
-
+std::string metadataJson(const std::unordered_map<std::string, std::string>& attributes) {
     rapidjson::Document merged;
     merged.SetObject();
     auto& allocator = merged.GetAllocator();
@@ -256,6 +247,7 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 
     // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
     const std::string chunk_id = std::to_string(++chunk_sequence_);
+    reid_sightings_.clear();
     auto objects_per_camera = transform_detections(chunk, chunk_id);
     chunk.obs_ctx.captureTransformTime();
 
@@ -283,6 +275,7 @@ std::vector<std::vector<rv::tracking::TrackedObject>>
 TrackingWorker::transform_detections(const Chunk& chunk, const std::string& chunk_id) {
     std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera;
     objects_per_camera.reserve(chunk.camera_batches.size());
+    size_t next_reid_index = 0;
 
     for (const auto& batch : chunk.camera_batches) {
         auto transformer_it = transformers_.find(batch.camera_id);
@@ -291,7 +284,8 @@ TrackingWorker::transform_detections(const Chunk& chunk, const std::string& chun
             continue;
         }
         objects_per_camera.push_back(transformer_it->second.transformDetections(
-            batch.detections, batch.camera_id, batch.timestamp_iso, chunk_id));
+            batch.detections, batch.camera_id, batch.timestamp_iso, chunk_id, &reid_sightings_,
+            &next_reid_index));
     }
 
     return objects_per_camera;
@@ -335,7 +329,18 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             auto& rotation_state = rotation_states_[rv_track.id];
             track.rotation = update_velocity_rotation(rv_track.vx, rv_track.vy, rotation_state);
         }
-        track.metadata_json = metadataJson(rv_track.attributes, chunk_id, track.reid_sighting_json);
+        const auto reid_index = rv_track.attributes.find(std::string(kMetadataPrefix) + "reid");
+        const auto freshness = rv_track.attributes.find(
+            std::string(rv::tracking::metadata_fusion::ProvenancePrefix) + "reid");
+        if (reid_index != rv_track.attributes.end() && freshness != rv_track.attributes.end() &&
+            freshness->second == chunk_id) {
+            const auto sighting = reid_sightings_.find(reid_index->second);
+            if (sighting != reid_sightings_.end()) {
+                track.reid_sighting_json = std::move(sighting->second);
+                reid_sightings_.erase(sighting);
+            }
+        }
+        track.metadata_json = metadataJson(rv_track.attributes);
 
         // Retrieve confidence stored in attributes by transformDetections().
         // NOTE: multi-camera last-write-wins — same limitation as metadata_json.

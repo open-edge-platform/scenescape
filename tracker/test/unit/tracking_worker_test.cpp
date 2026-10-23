@@ -657,7 +657,7 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
         },
         config, cameras_);
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 5; ++i) {
         Chunk chunk;
         chunk.scene_id = "scene-1";
         chunk.category = "person";
@@ -666,13 +666,15 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
         batch.timestamp_iso = std::format("2026-01-27T12:00:00.{:03d}Z", i * 67);
         batch.timestamp =
             std::chrono::system_clock::time_point(std::chrono::milliseconds(1000 + i * 67));
-        if (i < 3) {
+        if (i != 3) {
             Detection detection;
             detection.id = 1;
             detection.bounding_box_px = {100, 200, 50, 100};
+            const int embedding = i < 3 ? i + 1 : 4;
+            const double confidence = i < 3 ? 0.99 : 0.5;
             detection.metadata_json = std::format(
-                R"({{"reid":{{"embedding_vector":[[{},0]],"camera_id":"wrong"}},"age":{{"label":"adult"}}}})",
-                i + 1);
+                R"({{"reid":{{"embedding_vector":[[{},0]],"confidence":{}}},"age":{{"label":"adult"}}}})",
+                embedding, confidence);
             batch.detections.push_back(std::move(detection));
         }
         chunk.camera_batches.push_back(std::move(batch));
@@ -686,9 +688,11 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
     ASSERT_FALSE(frames[1].empty());
     ASSERT_FALSE(frames[2].empty());
     ASSERT_FALSE(frames[3].empty());
+    ASSERT_FALSE(frames[4].empty());
     EXPECT_EQ(frames[0][0].id, frames[1][0].id);
     EXPECT_EQ(frames[1][0].id, frames[2][0].id);
     EXPECT_EQ(frames[2][0].id, frames[3][0].id);
+    EXPECT_EQ(frames[3][0].id, frames[4][0].id);
     for (int i = 0; i < 3; ++i) {
         rapidjson::Document sighting;
         ASSERT_FALSE(sighting.Parse(frames[i][0].reid_sighting_json.c_str()).HasParseError());
@@ -708,6 +712,11 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
     ASSERT_FALSE(predicted_metadata.Parse(frames[3][0].metadata_json.c_str()).HasParseError());
     EXPECT_FALSE(predicted_metadata.HasMember("reid"));
     EXPECT_STREQ(predicted_metadata["age"]["label"].GetString(), "adult");
+
+    rapidjson::Document latest_sighting;
+    ASSERT_FALSE(latest_sighting.Parse(frames[4][0].reid_sighting_json.c_str()).HasParseError());
+    EXPECT_EQ(latest_sighting["reid"]["embedding_vector"][0][0].GetInt(), 4);
+    EXPECT_DOUBLE_EQ(latest_sighting["reid"]["confidence"].GetDouble(), 0.5);
 }
 
 // Test that confidence is preserved end-to-end through the tracker pipeline:

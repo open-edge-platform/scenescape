@@ -196,6 +196,9 @@ private:
     // RobotVision int ID -> UUID v4 string mapping (single-thread access, no mutex)
     std::unordered_map<int32_t, std::string> id_map_;
 
+    // Current chunk's full ReID sightings, addressed by metadata.reid tokens.
+    std::unordered_map<std::string, std::string> reid_sightings_;
+
     std::unordered_map<int32_t, VelocityRotationState> rotation_states_;
     uint64_t chunk_sequence_ = 0;
 

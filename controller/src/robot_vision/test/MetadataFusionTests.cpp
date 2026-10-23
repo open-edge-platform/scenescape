@@ -133,7 +133,7 @@ TEST(MetadataFusionTest, WinnerWithoutCompanionClearsPreviousProvenance)
   EXPECT_EQ(tracks[0].attributes.count("metadata_provenance.feature"), 0);
 }
 
-TEST(MetadataFusionTest, TransientMetadataDoesNotSurvivePredictionButPersistentMetadataDoes)
+TEST(MetadataFusionTest, TransientMetadataCannotReplaceFreshValueAfterPrediction)
 {
   auto tracker = makeTracker();
   auto initial = makeObject(0.0,
@@ -151,30 +151,44 @@ TEST(MetadataFusionTest, TransientMetadataDoesNotSurvivePredictionButPersistentM
                 rv::tracking::DistanceType::Euclidean,
                 2.0);
 
+  auto predictedTracks = tracker.getTracks();
+  ASSERT_EQ(predictedTracks.size(), 1);
+  EXPECT_EQ(predictedTracks[0].attributes.at("metadata.feature"), "large-payload");
+
+  auto fresh = makeObject(0.0,
+                          {{"metadata.feature", "fresh-index"},
+                           {"metadata_confidence.feature", "0.5"},
+                           {"metadata_provenance.feature", "frame-2"},
+                           {"metadata_transient.feature", "1"}});
+  tracker.track(std::vector<rv::tracking::TrackedObject>{fresh},
+                InitialTimestamp + std::chrono::milliseconds(200),
+                rv::tracking::DistanceType::Euclidean,
+                2.0);
+
   const auto tracks = tracker.getTracks();
   ASSERT_EQ(tracks.size(), 1);
-  EXPECT_EQ(tracks[0].attributes.count("metadata.feature"), 0);
-  EXPECT_EQ(tracks[0].attributes.count("metadata_confidence.feature"), 0);
-  EXPECT_EQ(tracks[0].attributes.count("metadata_provenance.feature"), 0);
-  EXPECT_EQ(tracks[0].attributes.count("metadata_transient.feature"), 0);
+  EXPECT_EQ(tracks[0].attributes.at("metadata.feature"), "fresh-index");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_confidence.feature"), "0.5");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_provenance.feature"), "frame-2");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_transient.feature"), "1");
   EXPECT_EQ(tracks[0].attributes.at("metadata.age"), "adult");
 }
 
-TEST(MetadataFusionTest, TransientCurrentValueIsNotReplacedByHistoricalConfidence)
+TEST(MetadataFusionTest, ReidTransientCurrentIndexBeatsHigherHistoricalConfidence)
 {
   auto tracker = makeTracker();
   auto initial = makeObject(0.0,
-                            {{"metadata.feature", "old"},
-                             {"metadata_confidence.feature", "0.99"},
-                             {"metadata_provenance.feature", "frame-1"},
-                             {"metadata_transient.feature", "1"}});
+                            {{"metadata.reid", "chunk-1:4"},
+                             {"metadata_confidence.reid", "0.99"},
+                             {"metadata_provenance.reid", "chunk-1"},
+                             {"metadata_transient.reid", "1"}});
   tracker.track(
     std::vector<rv::tracking::TrackedObject>{initial}, InitialTimestamp, rv::tracking::DistanceType::Euclidean, 2.0);
   auto current = makeObject(0.0,
-                            {{"metadata.feature", "fresh"},
-                             {"metadata_confidence.feature", "0.5"},
-                             {"metadata_provenance.feature", "frame-2"},
-                             {"metadata_transient.feature", "1"}});
+                            {{"metadata.reid", "chunk-2:7"},
+                             {"metadata_confidence.reid", "0.5"},
+                             {"metadata_provenance.reid", "chunk-2"},
+                             {"metadata_transient.reid", "1"}});
   tracker.track(std::vector<rv::tracking::TrackedObject>{current},
                 InitialTimestamp + std::chrono::milliseconds(100),
                 rv::tracking::DistanceType::Euclidean,
@@ -182,8 +196,9 @@ TEST(MetadataFusionTest, TransientCurrentValueIsNotReplacedByHistoricalConfidenc
 
   const auto tracks = tracker.getTracks();
   ASSERT_EQ(tracks.size(), 1);
-  EXPECT_EQ(tracks[0].attributes.at("metadata.feature"), "fresh");
-  EXPECT_EQ(tracks[0].attributes.at("metadata_provenance.feature"), "frame-2");
+  EXPECT_EQ(tracks[0].attributes.at("metadata.reid"), "chunk-2:7");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_confidence.reid"), "0.5");
+  EXPECT_EQ(tracks[0].attributes.at("metadata_provenance.reid"), "chunk-2");
 }
 
 TEST(MetadataFusionTest, HighestConfidenceWinsPerField)

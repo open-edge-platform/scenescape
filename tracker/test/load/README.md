@@ -60,6 +60,23 @@ single-copy, shared-parse, generic-provenance, and transient-lifetime changes.
 Both images were built from source. The baseline build used an isolated
 `git archive` context; neither benchmark switched or modified the working tree.
 
+### `main` vs. ReID Branch (2026-10-23)
+
+One run per revision on the same host and 512-dimensional ReID profile:
+4 cameras × 15 FPS × 50 objects, 1 minute. The `main` image uses source commit
+`9c8624e0`; both runs use the same current load generator so the baseline is
+exercised with the 512-dimensional embedding workload.
+
+| Revision    | Track-stage p50/p99 per chunk (ms) | End-to-end p50/p99 (ms) | Messages / drops | Throughput |
+| ----------- | ---------------------------------: | ----------------------: | ---------------: | ---------: |
+| `main`      |                      23.69 / 47.12 |         136.44 / 287.10 |         3560 / 0 | 59.3 msg/s |
+| ReID branch |                      12.80 / 25.00 |         122.08 / 209.70 |         3560 / 0 | 59.3 msg/s |
+
+The branch's per-chunk Track-stage p99 was 22.12 ms (about 47%) lower in these
+runs. Both runs passed the drop and active-track gates, but emitted end-to-end
+latency warnings. These are single-run measurements, not a statistically
+established speedup.
+
 ```mermaid
 graph LR
     k6["k6 load generator<br/>(simulate-detections.js)"]

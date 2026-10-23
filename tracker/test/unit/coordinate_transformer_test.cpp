@@ -696,14 +696,18 @@ TEST(TransformDetectionsTest, MetadataAndSightingShareDetectionPayload) {
     Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
     detection.metadata_json =
         R"({"reid":{"embedding_vector":[[1.25,2.5]],"confidence":0.8},"age":{"label":"adult"}})";
+    std::unordered_map<std::string, std::string> reid_sightings;
+    size_t next_reid_index = 0;
 
     auto result = transformer.transformDetections(std::vector<Detection>{detection}, "cam-1",
-                                                  "2026-01-27T12:00:00Z", "chunk-1");
+                                                  "2026-01-27T12:00:00Z", "chunk-1",
+                                                  &reid_sightings, &next_reid_index);
 
     ASSERT_EQ(result.size(), 1u);
     const auto& attributes = result[0].attributes;
     rapidjson::Document sighting;
-    ASSERT_FALSE(sighting.Parse(attributes.at("metadata.reid").c_str()).HasParseError());
+    EXPECT_EQ(attributes.at("metadata.reid"), "chunk-1:0");
+    ASSERT_FALSE(sighting.Parse(reid_sightings.at("chunk-1:0").c_str()).HasParseError());
     EXPECT_DOUBLE_EQ(sighting["reid"]["embedding_vector"][0][0].GetDouble(), 1.25);
     EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
     EXPECT_STREQ(sighting["timestamp"].GetString(), "2026-01-27T12:00:00Z");
@@ -721,18 +725,31 @@ TEST(TransformDetectionsTest, LegacyReidEncodingsAreWrappedWithoutDroppingTheVec
     for (const auto& payload : {R"({"reid":[[1.25,2.5]]})", R"({"reid":"AACAPwAAAEA="})"}) {
         Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
         detection.metadata_json = payload;
+        std::unordered_map<std::string, std::string> reid_sightings;
+        size_t next_reid_index = 0;
         auto result = transformer.transformDetections(std::vector<Detection>{detection}, "cam-1",
-                                                      "2026-01-27T12:00:00Z", "chunk-1");
+                                                      "2026-01-27T12:00:00Z", "chunk-1",
+                                                      &reid_sightings, &next_reid_index);
         ASSERT_EQ(result.size(), 1u);
         rapidjson::Document original;
         ASSERT_FALSE(original.Parse(payload).HasParseError());
         rapidjson::Document sighting;
-        ASSERT_FALSE(
-            sighting.Parse(result[0].attributes.at("metadata.reid").c_str()).HasParseError());
+        ASSERT_FALSE(sighting.Parse(reid_sightings.at("chunk-1:0").c_str()).HasParseError());
         EXPECT_EQ(sighting["reid"]["embedding_vector"], original["reid"]);
         EXPECT_EQ(result[0].attributes.count("metadata_json"), 0u);
         EXPECT_EQ(result[0].attributes.count("reid_sighting"), 0u);
     }
+}
+
+TEST(TransformDetectionsTest, EmbeddedNullSuffixIsRejectedAsInvalidJson) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    detection.metadata_json = R"({"age":{"label":"adult"}})" + std::string("\0junk", 5);
+
+    const auto result = transformer.transformDetections(std::vector<Detection>{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_EQ(result[0].attributes.count("metadata.age"), 0u);
 }
 
 TEST(TransformDetectionsTest, IncompleteSightingContextDoesNotProduceInvalidSightings) {

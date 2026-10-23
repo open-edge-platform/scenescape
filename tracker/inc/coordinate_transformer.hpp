@@ -9,6 +9,7 @@
 #include <optional>
 #include <span>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <opencv2/core.hpp>
@@ -96,7 +97,9 @@ public:
      */
     std::vector<rv::tracking::TrackedObject>
     transformDetections(std::span<const Detection> detections, const std::string& camera_id = {},
-                        const std::string& timestamp = {}, const std::string& chunk_id = {}) const;
+                        const std::string& timestamp = {}, const std::string& chunk_id = {},
+                        std::unordered_map<std::string, std::string>* reid_sightings = nullptr,
+                        size_t* next_reid_index = nullptr) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].
