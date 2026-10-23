@@ -81,6 +81,15 @@ TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics clust
 TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
 DEPLOYMENT_TEST ?= 0
 
+# First-party application trees; this list is the complexity scope of record.
+COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analytics/src \
+	controller/src/controller controller/src/robot_vision/python/src/robot_vision \
+	manager/src/manager mapping/src reid/src/reid scene_common/src/scene_common \
+	model_download/src
+COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
+COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
+COMPLEXITY_TOP ?= 20
+
 # Observability variables
 CONTROLLER_ENABLE_METRICS ?= false
 CONTROLLER_METRICS_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
@@ -164,6 +173,8 @@ help:
 	@echo "  run_unit_tests              Run unit tests"
 	@echo "  run_unit_tests_coverage     Run unit tests and enforce per-service coverage"
 	@echo "  check-unit-coverage         Enforce per-service coverage on existing .coverage data"
+	@echo "  complexity-check            Enforce cognitive complexity <=12 against the legacy baseline (SERVICE=<name> for one service)"
+	@echo "  complexity-check-report     Report per-service and per-function complexity scores (SERVICE=<name> for one service)"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
@@ -643,6 +654,25 @@ velocity-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 10)
 
 # ============================= Lint ==================================
+
+.PHONY: complexity-check
+complexity-check:
+	@case "$(SERVICE)" in \
+		"") services="$(COMPLEXITY_SERVICES)" ;; \
+		*) services="$(filter $(SERVICE),$(COMPLEXITY_SERVICES))"; \
+			[ "$$services" = "$(SERVICE)" ] || { echo "Unknown complexity SERVICE: $(SERVICE)"; exit 1; } ;; \
+	esac; \
+	rc=0; for svc in $$services; do \
+		echo "==> Cognitive complexity: $$svc"; \
+		python3 .github/scripts/check_cognitive_complexity.py \
+			--service "$$svc" --trees $(COMPLEXITY_SOURCES) || rc=1; \
+	done; exit $$rc
+
+.PHONY: complexity-check-report
+complexity-check-report:
+	@python3 .github/scripts/check_cognitive_complexity.py \
+		--report "$(COMPLEXITY_REPORT_DIR)" --top $(COMPLEXITY_TOP) \
+		$(if $(SERVICE),--service "$(SERVICE)") --trees $(COMPLEXITY_SOURCES)
 
 .PHONY: lint-all
 lint-all: lint-python lint-javascript lint-cpp lint-shell lint-dockerfiles prettier-check

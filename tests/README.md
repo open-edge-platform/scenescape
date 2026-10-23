@@ -83,6 +83,61 @@ only for failed tests. Use `--collect-container-logs {failed,all,none}` to
 change this behavior. Test specs are defined in the individual test
 modules as Python dataclasses.
 
+### Cognitive complexity
+
+Install only the pinned analyzer from the repository root, using an activated
+Python 3.11+ virtual environment:
+
+```bash
+python3 -m pip install "$(grep '^complexipy == ' .github/resources/requirements.txt)"
+make complexity-check
+make complexity-check SERVICE=analytics
+```
+
+The root Makefile lists the first-party application trees, grouped by service
+(including both controller trees and model_download). Tests, migrations,
+generated/protobuf code, vendored relocation code and non-application trees are
+excluded via the root `pyproject.toml`. Each service reports independently; the
+full command prints all violations before returning non-zero if any service fails.
+Each violation identifies the service, file, line, function and cognitive
+complexity score. A bare `complexipy` uses the same exclusions and limit, but
+does not apply the repository's legacy baseline.
+
+To see the scores themselves (not only violations), generate a report, similar
+to a coverage report:
+
+```bash
+make complexity-check-report                # all services
+make complexity-check-report SERVICE=controller COMPLEXITY_TOP=50
+```
+
+It prints a per-service table (function count, total, mean and maximum score,
+functions above 12, split into tolerated `Legacy` baseline entries and `Fail`)
+followed by the highest-scoring functions. The full output is written to
+`build/complexity/` (override with `COMPLEXITY_REPORT_DIR`): `summary.txt`
+and `functions.tsv`, which lists every measured function with its service,
+location, score, allowed limit and status. The report is informational and does
+not fail on violations; `make complexity-check` remains the enforcing gate.
+
+The limit is **12 per function or method** (13 fails). The committed
+`.github/resources/cognitive-complexity-baseline.txt` contains tab-separated
+repository-relative paths, complexipy qualified names (`Class::method`) and
+maximum scores for existing offenders only. Scores must match their recorded
+maxima exactly (duplicate qualified names have a `[1]`, `[2]`, etc. suffix):
+new or worsened offenders fail, and deleted or simplified offenders require
+deleting or lowering their baseline entry. If a function drops
+to 12 or below, remove its entry. Never regenerate the baseline to accept new
+violations, add an allowance, raise a maximum, or use inline suppressions.
+Nested functions are also measured independently with complexipy's Python API
+and use qualified names such as `Class::method::inner`; their enclosing functions
+retain complexipy's original scores.
+
+Baseline edits are also compared against committed `HEAD` locally and the pull
+request base commit in CI. To check against a different existing base commit
+locally, use `COMPLEXITY_BASE_REF=<commit> make complexity-check`.
+The reusable Cognitive Complexity workflow runs unconditionally from pre-merge
+and fails on any violation; it is separate from optional lint checks.
+
 ### Residual resource cleanup
 
 Before any setup work, each session removes the containers, networks and volumes of any
