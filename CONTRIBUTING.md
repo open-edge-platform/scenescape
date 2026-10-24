@@ -23,9 +23,7 @@ OpenAPI document (under `docs/user-guide/microservices/*/_assets/*.yaml` or
 `docs/user-guide/api-docs/api.yaml`). Changes to these services' API behavior
 must either match the existing spec or update the spec to match -- never
 both drifting apart silently. `make check-autocalibration-contract`,
-`make check-mapping-contract`, and `make check-manager-schema-drift` verify
-this, see [tests/README.md](tests/README.md#openapi-schema-drift-checks) for
-details. None of these checks ever rewrite a spec file themselves.
+`make check-mapping-contract`. None of these checks ever rewrite a spec file themselves.
 
 ## Sign your work
 

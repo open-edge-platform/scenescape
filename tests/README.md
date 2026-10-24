@@ -113,22 +113,6 @@ make run_unit_tests
 
 ### OpenAPI schema drift checks
 
-The pre-merge Manager API spec review job compares each PR's base and head.
-When Manager source, runtime configuration, or dependencies change without
-`docs/user-guide/api-docs/api.yaml`, it posts a warning and step summary asking
-the author to review the contract, update it if needed, or confirm in the PR
-description that no API change occurred. Documentation-only PRs do not trigger
-the reminder. This is advisory, not an API contract verification gate.
-The same check can be run locally with:
-
-```bash
-PR_BASE_SHA=<base-commit> PR_HEAD_SHA=<head-commit> make check-manager-api-spec-review
-```
-
-These checks fail if a service's behavior drifts from its committed, hand-authored OpenAPI
-document. None of them ever rewrite a spec file -- on drift they only print a
-report and exit non-zero, reconciling code vs. spec is always a manual.
-
 ```bash
 # Autocalibration: Schemathesis contract tests against the in-process Flask app
 make check-autocalibration-contract
