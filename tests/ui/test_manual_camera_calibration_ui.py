@@ -12,8 +12,6 @@ import tests.ui.common_ui_test_utils as common
 
 import numpy as np
 
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 
@@ -44,6 +42,23 @@ def test_manual_camera_calibration(params, result_recorder):
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
     browser.find_element(By.ID, 'cam_calibrate_1').click()
     time.sleep(TEST_WAIT_TIME)
+
+    log.info("Verify distortion coefficient lock controls")
+    for coefficient in ('k1', 'k2', 'p1', 'p2', 'k3'):
+      lock = browser.find_element(By.ID, f'enabled_distortion_{coefficient}')
+      field = browser.find_element(By.ID, f'id_distortion_{coefficient}')
+      assert lock.is_displayed() and lock.is_selected()
+      assert not field.is_enabled()
+
+    distortion_lock = browser.find_element(By.ID, 'enabled_distortion_k1')
+    distortion_field = browser.find_element(By.ID, 'id_distortion_k1')
+    distortion_lock.click()
+    assert distortion_field.is_enabled()
+    distortion_field.clear()
+    distortion_field.send_keys('0.125')
+    assert distortion_field.get_attribute('value') == '0.125'
+    distortion_lock.click()
+    assert not distortion_field.is_enabled()
 
     viewport_dimensions = browser.execute_script("return [window.innerWidth, window.innerHeight];")
 

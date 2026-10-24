@@ -1048,6 +1048,10 @@ paths:
       responses:
         "200":
           description: "Intrinsics calculated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalculateIntrinsicsResponse"
         "400":
           description: "Invalid input"
 
@@ -1502,3 +1506,139 @@ components:
           type: array
           items:
             type: integer
+        fixIntrinsics:
+          type: object
+          additionalProperties:
+            type: boolean
+        rejectOutliers:
+          type: boolean
+          default: true
+          description: >-
+            When true, run RANSAC PnP outlier rejection before calibrating.
+            Must be a JSON boolean.
+        outlierThresholdPx:
+          type: number
+          format: double
+          minimum: 0
+          exclusiveMinimum: true
+          default: 10.0
+          description: >-
+            Positive finite RANSAC reprojection error threshold in pixels.
+
+    CalculateIntrinsicsResponse:
+      type: object
+      required:
+        - euler
+        - position
+        - mtx
+        - dist
+        - rmsError
+        - rejectionRequested
+        - rejectionApplied
+        - ransacInlierCount
+        - fitPointCount
+        - rejectedIndices
+        - outlierThresholdPx
+        - perPointErrors
+        - mapInPlaneSpreadRatio
+        - mapVolumeSpreadRatio
+        - mapNearlyPlanar
+        - imageCoverage
+        - imageWidthFraction
+        - imageHeightFraction
+        - depthRangeRatio
+        - geometryWarnings
+      properties:
+        euler:
+          type: array
+          description: Camera rotation as Euler angles [X, Y, Z] in radians
+          items:
+            type: number
+            format: double
+        position:
+          type: array
+          description: Camera position [x, y, z]
+          items:
+            type: number
+            format: double
+        mtx:
+          type: array
+          description: Calibrated 3x3 camera matrix
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+        dist:
+          type: array
+          description: Calibrated distortion coefficients
+          items:
+            type: array
+            items:
+              type: number
+              format: double
+        rmsError:
+          type: number
+          format: double
+          description: Fit RMS reprojection error in pixels
+        rejectionRequested:
+          type: boolean
+          description: Whether outlier rejection was requested
+        rejectionApplied:
+          type: boolean
+          description: Whether RANSAC inliers were used in the fit
+        ransacInlierCount:
+          type: integer
+          nullable: true
+          description: Number of RANSAC inliers, or null when unavailable
+        fitPointCount:
+          type: integer
+          description: Number of correspondences used in the calibration fit
+        rejectedIndices:
+          type: array
+          description: Zero-based indices of correspondences flagged by RANSAC
+          items:
+            type: integer
+        outlierThresholdPx:
+          type: number
+          format: double
+          description: Reprojection threshold in pixels used for RANSAC
+        perPointErrors:
+          type: array
+          description: Per-correspondence reprojection errors in pixels
+          items:
+            type: number
+            format: double
+        mapInPlaneSpreadRatio:
+          type: number
+          format: double
+          description: Ratio of second to first principal-axis length of map points
+        mapVolumeSpreadRatio:
+          type: number
+          format: double
+          description: Ratio of third to first principal-axis length of map points
+        mapNearlyPlanar:
+          type: boolean
+          description: Whether fitted map points are treated as nearly planar
+        imageCoverage:
+          type: number
+          format: double
+          description: Fraction of image area spanned by camera points
+        imageWidthFraction:
+          type: number
+          format: double
+          description: Fraction of image width spanned by camera points
+        imageHeightFraction:
+          type: number
+          format: double
+          description: Fraction of image height spanned by camera points
+        depthRangeRatio:
+          type: number
+          format: double
+          nullable: true
+          description: Max/min camera-depth ratio, or null when unavailable
+        geometryWarnings:
+          type: array
+          description: Human-readable calibration geometry warnings
+          items:
+            type: string

@@ -52,12 +52,15 @@ When six or more point pairs exist:
 
 When eight or more point pairs exist:
 
-1. Uncheck the lock value box next to `Intrinsics fx`, `Intrinsics fy` and `Distortion K1` to unlock focal length and distortion estimation.
-2. Once the values are unlocked, the focal length and distortion (k1) will be estimated when adding and dragging calibration points.
-3. To set values manually, enter them directly and re-check lock value boxes to prevent overwriting.
+1. Uncheck the lock value boxes next to the distortion coefficients you want to estimate (`K1`, `K2`, `P1`, `P2`, `K3`). You may also unlock `Intrinsics fx` and `Intrinsics fy` to estimate focal length.
+2. Add or drag calibration points to update the unlocked estimates, then click **Save Camera** to persist them. Locked coefficients retain their existing values.
+3. To enter a coefficient manually, unlock its field, type the value, and save before moving the calibration points again (which would recalculate unlocked fields).
 
-**Expected Result**: Accurate focal length and distortion (k1) estimates update in the UI.
-**Note**: Computing distortion is unavailable as the Video Analytics service transitions to using DL Streamer Pipeline Server. File an issue on GitHub with information on proposed usage and priority against other features.
+**Expected Result**: Unlocked coefficients update in the UI and are saved with the camera.
+
+The fit status reports how many point pairs were used, the fit RMS reprojection error, and each pair's final reprojection error in pixels. A high-contrast ✕ mark (with a white/black ring) flags pairs rejected by RANSAC using a reprojection threshold scaled by the scene map resolution (pixels per meter; 10 px at 100 px/m, tighter when the map is coarser and looser when it is finer); a white ring alone (dashed in the camera view) marks pairs that remain in the fit but have a final residual above that threshold. Point fill colors stay as their identity colors so diagnostics stay readable on red or orange points. Rejected pairs are excluded from the preview pose and are not saved with the camera. If RANSAC cannot find at least four usable pairs, all pairs are used in the fit and the status says so; pairs RANSAC still flagged retain the high-contrast ✕ and ring for review. When map or camera points are too concentrated (a thin line on a 2D map, lacking depth on a 3D map, or covering too little of the image), a separate warning block shows concrete layout steps: drag map points into a wide triangle or rectangle, spread camera points toward the corners and edges, and include near and far scene pairs. Fit/RANSAC summary and per-point reprojection details stay in their own block. Low RMS on a small cluster can still misalign the rest of the view and produce poor distortion estimates. Reprojection error is a review aid, not a guarantee of calibration accuracy.
+
+> **Note:** A single view with eight points may not constrain all five distortion coefficients reliably. Spread points across the image and unlock only the parameters the data can support. Saved distortion is used for camera pose and scene projections; it does not automatically undistort the video stream in Docker deployments.
 
 ![Computed Camera Intrinsics](../../_assets/ui/camera-intrinsics.png)
 

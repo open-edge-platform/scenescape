@@ -35,6 +35,7 @@ SUPPORTED_CONFIG_SIMILARITY_METRICS = frozenset({"COSINE", "L2"})
 DEFAULT_MINIMUM_BBOX_AREA = 5000
 # Key under which embedding origin travels inside the serialized metadata.reid payload.
 REID_PROVENANCE_KEY = "provenance"
+REID_STATES = frozenset({"pending_collection", "matched", "query_no_match", "reid_disabled"})
 
 
 def is_vetted_provenance(provenance):
