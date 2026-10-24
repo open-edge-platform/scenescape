@@ -166,6 +166,16 @@ make run_unit_tests
 
 ```
 
+### OpenAPI schema drift checks
+
+```bash
+# Autocalibration: Schemathesis contract tests against the in-process Flask app
+make check-autocalibration-contract
+
+# Mapping: Schemathesis contract tests against the in-process Flask app
+make check-mapping-contract
+```
+
 ### Running tests via pytest directly
 
 Run from the **repository root**:

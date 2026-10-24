@@ -45,7 +45,6 @@ POST_ENTITIES_SINGULAR = [
   "/tripwire",
   "/user",
   "/calculateintrinsics",
-  "/save-geospatial-snapshot/",
 ]
 
 POST_ENTITIES_PLURAL = [

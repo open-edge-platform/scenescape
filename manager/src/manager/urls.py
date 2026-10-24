@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 '''
@@ -83,35 +83,38 @@ if settings.KUBERNETES_SERVICE_HOST:
 
 # REST API
 
+# Collection paths (e.g. api/v1/scene) only create. reading, updating and deleting need a UID.
+COLLECTION_METHODS = ['post', 'options']
+
 urlpatterns += [
   re_path(r'api/v1/(scenes)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(scene)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(scene)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(scene)/([0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})$', api.ManageThing.as_view()),
   re_path(r'api/v1/(cameras)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(camera)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(camera)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(camera)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(sensors)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(sensor)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(sensor)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(sensor)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(regions)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(region)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(region)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(region)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(tripwires)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(tripwire)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(tripwire)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(tripwire)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(users)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(user)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(user)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(user)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(frame)$', api.CameraManager.as_view()),
   re_path(r'api/v1/(video)$', api.CameraManager.as_view()),
   re_path(r'api/v1/(assets)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(asset)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(asset)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(asset)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/scenes/(child)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(child)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(child)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(child)/([^/]+)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(calibrationmarkers)$', api.ListThings.as_view()),
-  re_path(r'api/v1/(calibrationmarker)$', api.ManageThing.as_view()),
+  re_path(r'api/v1/(calibrationmarker)$', api.ManageThing.as_view(http_method_names=COLLECTION_METHODS)),
   re_path(r'api/v1/(calibrationmarker)/([^/]+)$', api.ManageThing.as_view())
 ]
 
