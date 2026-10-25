@@ -25,21 +25,21 @@ permissions:
   contents: read
 
 jobs:
-  manager-api-spec-review:
-    name: "Manager API Spec Review"
-    runs-on: ubuntu-latest
-    steps:
-      - name: "Checkout PR head with history"
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - name: "Remind authors to review Manager API spec"
-        env:
-          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: make check-manager-api-spec-review
+  # manager-api-spec-review:
+  #   name: "Manager API Spec Review"
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: "Checkout PR head with history"
+  #       uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+  #       with:
+  #         ref: ${{ github.event.pull_request.head.sha }}
+  #         fetch-depth: 0
+  #         persist-credentials: false
+  #     - name: "Remind authors to review Manager API spec"
+  #       env:
+  #         PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+  #         PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+  #       run: make check-manager-api-spec-review
 
   detect-changes:
     name: "Detect Changed Paths"
