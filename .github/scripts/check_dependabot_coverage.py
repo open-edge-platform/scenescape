@@ -80,7 +80,10 @@ def is_pyproject_with_deps(path: str) -> bool:
   project = data.get("project", {})
   poetry = data.get("tool", {}).get("poetry", {})
   return bool(project.get("dependencies") or project.get("optional-dependencies")
-              or poetry.get("dependencies"))
+              or data.get("build-system", {}).get("requires")
+              or any(data.get("dependency-groups", {}).values())
+              or poetry.get("dependencies") or poetry.get("dev-dependencies")
+              or any(group.get("dependencies") for group in poetry.get("group", {}).values()))
 
 
 def is_pip_manifest(path: str) -> bool:
