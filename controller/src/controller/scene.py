@@ -34,7 +34,7 @@ MIN_FRAMES_FOR_RELIABLE_TRACK = 3
 
 def stripReidProvenance(detections):
   """
-  Remove claimed embedding provenance from pixel detections (camera or external).
+  Remove claimed embedding provenance from detections arriving on a camera topic.
 
   Provenance means "another scene vetted this crop with a pixel bbox before forwarding
   it". A detector is judged by the bbox it sends, so honoring such a claim from one
@@ -94,6 +94,7 @@ class Scene(SceneModel):
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
 
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     self.use_tracker = True
 
     self.pose_adjustment = PoseAdjustment.from_env(
@@ -199,7 +200,7 @@ class Scene(SceneModel):
   def _get_pose_cache_ttl(self):
     return max(MIN_POSE_CACHE_TTL, self.max_unreliable_time * POSE_CACHE_TTL_MULTIPLIER)
 
-  def createMovingObjectsForDetection(self, detectionType, detections, when, camera):
+  def _createMovingObjectsForDetection(self, detectionType, detections, when, camera):
     objects = []
     scene_map_triangle_mesh = self.map_triangle_mesh
     scene_map_translation = self.mesh_translation
@@ -243,12 +244,12 @@ class Scene(SceneModel):
         when,
       )
       if "intrinsics" not in jdata:
-        self.convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
-      objects = self.createMovingObjectsForDetection(detection_type, detections, when, camera)
-      self.finishProcessing(detection_type, when, objects)
+        self._convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
+      objects = self._createMovingObjectsForDetection(detection_type, detections, when, camera)
+      self._finishProcessing(detection_type, when, objects)
     return True
 
-  def convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
+  def _convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
     """
     Convert pixel bounding boxes to meters for a batch of objects, including nested sub_detections.
 
@@ -297,17 +298,6 @@ class Scene(SceneModel):
 
   def processSceneData(self, jdata, child, cameraPose,
                        detectionType, when=None):
-    objects, child_objects = self.createMovingObjectsForSceneData(
-      jdata, child, cameraPose, detectionType, when)
-    # (None, None) => rejected input (e.g. lat_long_alt + translation).
-    if objects is None:
-      return True
-    self.finishProcessing(detectionType, when, objects, child_objects)
-    return True
-
-  def createMovingObjectsForSceneData(self, jdata, child, cameraPose,
-                                       detectionType, when=None):
-    """Create moving objects from already-localized scene/source observations."""
 
     new = jdata['objects']
 
@@ -317,7 +307,7 @@ class Scene(SceneModel):
       if 'lat_long_alt' in info:
         if 'translation' in info:
           log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
-          return None, None
+          return True
         info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
       translation = Point(info['translation'])
       translation = np.hstack([translation.asNumpyCartesian, [1]])
@@ -351,9 +341,10 @@ class Scene(SceneModel):
       else:
         child_objects.append(mobj)
 
-    return objects, child_objects
+    self._finishProcessing(detectionType, when, objects, child_objects)
+    return True
 
-  def finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
+  def _finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     # Compute camera visibility for both retracked objects (fed into this
     # scene's own tracker) and already-tracked/retrack=False objects (merged
     # in as-is): both are published on this scene's output topics and can be
@@ -421,10 +412,18 @@ class Scene(SceneModel):
     Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
 
     The matrix is calculated lazily on first access and cached for subsequent calls.
+    Returns None when the geospatial inputs are incomplete or invalid. A computation
+    failure is logged once and remembered until the cache is invalidated.
     """
-    if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
-      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
-      self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+    if (self._trs_xyz_to_lla is None and not self._trs_xyz_to_lla_failed
+        and self.output_lla and self.map_corners_lla is not None):
+      try:
+        mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+        self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+      except (TypeError, ValueError, IndexError) as exc:
+        self._trs_xyz_to_lla_failed = True
+        log.error("Scene", self.name, "failed to compute LLA transform, map_file:",
+                  self.map_file, "error:", exc)
     return self._trs_xyz_to_lla
 
   def _invalidate_trs_xyz_to_lla(self):
@@ -433,4 +432,5 @@ class Scene(SceneModel):
     This method should be called when the scene geospatial mapping parameters change.
     """
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     return

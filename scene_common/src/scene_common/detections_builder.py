@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
-import base64
 
 from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
@@ -168,10 +167,13 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     obj_dict['rotation'] = rotation
 
   if scene and scene.output_lla:
-    lat_long_alt = convertXYZToLLA(scene.trs_xyz_to_lla, scene_loc_vector)
-    obj_dict['lat_long_alt'] = lat_long_alt.tolist()
-    heading = calculateHeading(scene.trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector, velocity.asCartesianVector)
-    obj_dict['heading'] = heading.tolist()
+    # The matrix is None when the LLA transform could not be computed; omit LLA fields then.
+    trs_xyz_to_lla = scene.trs_xyz_to_lla
+    if trs_xyz_to_lla is not None:
+      lat_long_alt = convertXYZToLLA(trs_xyz_to_lla, scene_loc_vector)
+      obj_dict['lat_long_alt'] = lat_long_alt.tolist()
+      heading = calculateHeading(trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector, velocity.asCartesianVector)
+      obj_dict['heading'] = heading.tolist()
 
   # Restore semantic metadata (age, gender, clothing, etc.) stripped from info during construction
   if hasattr(aobj, 'metadata') and aobj.metadata:
@@ -209,11 +211,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     if reid_embedding is not None:
       if 'metadata' not in obj_dict:
         obj_dict['metadata'] = {}
-      if isinstance(reid_embedding, str):
-        # Tracker passes the detector's base64 float32 payload through unchanged.
-        reid_vec = np.frombuffer(base64.b64decode(reid_embedding), dtype=np.float32)
-      else:
-        reid_vec = np.asarray(reid_embedding, dtype=np.float32).reshape(-1)
+      reid_vec = np.asarray(reid_embedding, dtype=np.float32)
       obj_dict['metadata']['reid'] = {
         'embedding_vector': reid_vec.tolist(),
         'embedding_dimensions': int(reid_vec.reshape(-1).shape[0]),
@@ -276,8 +274,8 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     obj_dict['first_seen'] = get_iso_time(aobj.first_seen)
 
   # Add reid state for downstream business logic to distinguish "never queried" from "query made"
-  if getattr(aobj, 'reid_state', None) is not None:
-    obj_dict['reid_state'] = getattr(aobj.reid_state, 'value', aobj.reid_state)
+  if hasattr(aobj, 'reid_state'):
+    obj_dict['reid_state'] = aobj.reid_state.value  # Convert enum to string
 
   # Add previous IDs chain for post-mortem object stitching analysis
   if hasattr(aobj, 'previous_ids_chain') and aobj.previous_ids_chain:
