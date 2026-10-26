@@ -113,7 +113,7 @@ def select_transform_mode(browser: Browser, mode: str) -> None:
       const other = mode === 'rotate' ? 'translate' : 'rotate';
       let matchingGizmo = false;
       scene?.traverse(node => {
-        if (!node.gizmo?.rotate || !node.gizmo?.translate || node.mode !== mode) return;
+        if (!node.gizmo?.rotate || !node.gizmo?.translate) return;
         let ancestorsVisible = true;
         for (let parent = node; parent && parent !== scene; parent = parent.parent) {
           if (!parent.visible) ancestorsVisible = false;
