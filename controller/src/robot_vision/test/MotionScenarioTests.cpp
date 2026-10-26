@@ -297,7 +297,9 @@ TEST(MotionScenarioTest, TurningTargetLearnsTurnRate)
   {
     SCOPED_TRACE(turn.name);
     Sensor camera{.positionNoise = 0.05};
-    FilterRun run;
+    ScenarioRecorder recorder(turn.name);
+    recorder.truth(turn.truth);
+    FilterRun run(productionConfig(), &recorder);
     run.feed(observe(turn.truth, camera));
 
     // The combined turn rate is diluted by the CV and CA probabilities.
@@ -314,7 +316,9 @@ TEST(MotionScenarioTest, CoastingAfterTurn)
   const auto observed = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 8.0).sample(10.0);
   const auto truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 9.0).sample(10.0).back();
   Sensor camera{.positionNoise = 0.05};
-  FilterRun run;
+  ScenarioRecorder recorder;
+  recorder.truth(Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 9.0).sample(10.0));
+  FilterRun run(productionConfig(), &recorder);
   run.feed(observe(observed, camera));
 
   for (int frame = 0; frame < 10; ++frame)
@@ -330,7 +334,9 @@ TEST(MotionScenarioTest, OrientingSensorFollowsTurningHeading)
   // More than four laps.
   const auto truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 58.0).sample(10.0);
   Sensor lidar{.positionNoise = 0.05, .yawNoise = 0.05, .orienting = true};
-  FilterRun run;
+  ScenarioRecorder recorder;
+  recorder.truth(truth);
+  FilterRun run(productionConfig(), &recorder);
 
   double maxSpread = 0.0;
   for (const auto &observation : observe(truth, lidar))
@@ -358,7 +364,9 @@ TEST(MotionScenarioTest, OrientingSensorFollowsRotationInPlace)
   constexpr double kFps = 10.0;
   const auto truth = Trajectory({.box = kCar}).straight(5.0).turn(0.5, 1.0).straight(5.0).sample(kFps);
   Sensor lidar{.positionNoise = 0.05, .yawNoise = 0.02, .orienting = true};
-  FilterRun run;
+  ScenarioRecorder recorder;
+  recorder.truth(truth);
+  FilterRun run(productionConfig(), &recorder);
   const auto states = run.feed(observe(truth, lidar));
 
   const auto yawAt = [&](double t) { return states[static_cast<size_t>(std::lround(t * kFps))].yaw; };
