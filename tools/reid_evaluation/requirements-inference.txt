@@ -3,4 +3,4 @@
 
 -r requirements.txt
 openvino>=2025.3,<2027
-Pillow>=11.3,<14
+Pillow>=11.3,<13
