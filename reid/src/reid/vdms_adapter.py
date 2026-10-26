@@ -57,6 +57,15 @@ class VDMSDatabase(ReIDDatabase):
   def _schemaResourceLabel(self):
     return "VDMS descriptor set"
 
+  def backendAvailable(self):
+    """Probe the backend without creating a descriptor set or writing data."""
+    try:
+      response, _ = self.sendQuery([{"FindEntity": {"class": SCHEMA_MARKER_CLASS,
+                                                  "results": {"count": True}}}])
+      return bool(response and response[0].get("status") == 0)
+    except Exception:
+      return False
+
   def sendQuery(self, query, blob=None):
     """
     Helper function for handling the responses from sending queries to VDMS. There are three
@@ -83,6 +92,7 @@ class VDMSDatabase(ReIDDatabase):
           and isinstance(query_response[0][0], dict)
           and 'FailedCommand' in query_response[0][0]):
         log.warning(f"VDMS transaction failed: {query_response[0][0]}")
+        self._backendFailure()
         return responses, response_blob
       for (item, response) in zip(query, query_response[0]):
         query_type = next(iter(item))
@@ -91,9 +101,16 @@ class VDMSDatabase(ReIDDatabase):
           log.debug(f"sendQuery: Non-dict payload for {query_type}: {response_data!r}")
           response_data = {}
         responses.append(response_data)
+      self._validateQueryResponses(query, responses)
     else:
       log.warning(f"Failed to send query to VDMS container: {query}")
+      self._backendFailure()
     return responses, response_blob
+
+  def _validateQueryResponses(self, query, responses):
+    """Reject failed or incomplete transactions for strict network callers."""
+    if len(responses) != len(query) or any(item.get("status") != 0 for item in responses):
+      self._backendFailure()
 
   def connect(self, hostname=None):
     if hostname is None:

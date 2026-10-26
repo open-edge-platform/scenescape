@@ -181,6 +181,13 @@ Thin wrappers over today's methods. No behavior change.
 - **`purgeExpired`** — optional manual trigger. Scheduled purge is internal (5.1).
 - **Health/readiness** — new; the in-process library had none.
 
+The implemented baseline gRPC contract also declares `IngestStats` for local
+live-loop observability. `Health.ready` reflects a fresh, read-only backend
+availability probe rather than a cached connection flag. The proto, request and
+response shapes, client usage, status codes, and test scope are documented in the
+[Re-ID service contract](../user-guide/microservices/reid-service/reid-service.md#baseline-grpc-contract).
+This baseline does not add a general-gallery write RPC.
+
 ### 6.2 Design principles
 
 - **One contract per backend.** Same endpoints, shapes, and success rules. If an adapter lacks a primitive (for example count), the service implements it. Callers do not branch on VDMS vs Qdrant.
