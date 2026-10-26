@@ -1,0 +1,38 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Keys documented in complexipy 8.1.0 docs/usage-guide.md.
+[tool.complexipy]
+max-complexity-allowed = 12
+no-ignore = true
+exclude = [
+  "tests/",
+  "tests/**",
+  "**/tests/**",
+  "**/migrations/**",
+  "**/proto/**",
+  "**/gen/**",
+  "**/generated/**",
+  "**/*_pb2.py",
+  "**/*_pb2_grpc.py",
+  "tracker/**",
+  "scene_common/src/fast_geometry/**",
+  "autocalibration/src/reloc/new-files/**",
+  "autocalibration/src/reloc/tests/**",
+  "manager/src/manager/migrations/**",
+  "reid/proto/**",
+  "reid_service/proto/**",
+  "tools/**",
+  "docs/**",
+  "**/docs/**",
+  "sample_data/**",
+  "**/sample_data/**",
+  "kubernetes/**",
+  "**/kubernetes/**",
+  ".github/**",
+  "**/.github/**",
+  ".venv/**",
+  "**/.venv/**",
+  "site-packages/**",
+  "**/site-packages/**",
+]
