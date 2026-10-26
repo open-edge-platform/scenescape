@@ -132322,7 +132322,7 @@ documentation is licensed as follows:
 
 -------------------------------------------------------------
 209. Software released under the license MIT-CMU:
-    pillow==12.3.0
+    pillow==13.0.0
 
 The Python Imaging Library (PIL) is
 
