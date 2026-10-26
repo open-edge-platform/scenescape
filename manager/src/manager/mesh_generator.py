@@ -567,18 +567,26 @@ class MeshGenerator:
       except Exception:
         pass
 
-  def finalizeMeshFromStatus(self, scene, request_id: str):
+  def _fetchCompletedMappingResult(self, request_id: str):
+    """Return (error_result, mapping_result); exactly one of them is None."""
     status = self.mapping_client.getReconstructionStatus(request_id)
 
     if not status.get("success"):
-      return {"success": False, "error": status.get("error", "status failed")}
+      return {"success": False, "error": status.get("error", "status failed")}, None
 
     if status.get("state") != "complete":
-      return {"success": False, "error": f"not complete (state={status.get('state')})"}
+      return {"success": False, "error": f"not complete (state={status.get('state')})"}, None
 
     mapping_result = (status.get("result") or {})
     if not mapping_result.get("success"):
-      return {"success": False, "error": mapping_result.get("error", "reconstruction failed")}
+      return {"success": False, "error": mapping_result.get("error", "reconstruction failed")}, None
+
+    return None, mapping_result
+
+  def finalizeMeshFromStatus(self, scene, request_id: str):
+    error_result, mapping_result = self._fetchCompletedMappingResult(request_id)
+    if error_result is not None:
+      return error_result
 
     cameras = scene.sensor_set.filter(type="camera").order_by("id")
 
