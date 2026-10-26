@@ -10,6 +10,7 @@ pytest-kubernetes==0.8.0
 python-on-whales==0.81.0
 waiting==1.4.0
 pyyaml==6.0.3
+complexipy == 8.1.0
 
 # Inner test dependencies
 Flask==3.1.3
