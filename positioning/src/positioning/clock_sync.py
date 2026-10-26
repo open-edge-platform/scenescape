@@ -17,7 +17,8 @@ class ClockMonitor:
   """Tracks the host clock offset against an NTP server.
 
   The clock counts as synchronized only while the last successful measurement is
-  recent and its absolute offset is within `max_clock_offset_s`.
+  recent and its absolute offset is within `max_clock_offset_s`. A failed check
+  immediately invalidates synchronization, even if the previous reading is recent.
   """
 
   def __init__(self, server, max_clock_offset_s, check_interval_s=30.0, client=None,
@@ -37,6 +38,7 @@ class ClockMonitor:
     self._lock = threading.Lock()
     self._offset_s = None
     self._measured_at = None
+    self._measurement_valid = False
 
   @property
   def offset_s(self):
@@ -47,18 +49,22 @@ class ClockMonitor:
     """Measure the offset once; returns True when the clock is synchronized."""
     if not self.server:
       log.warning("No NTP server configured; PTZ sources stay invalid")
+      self._mark_measurement_failed()
       return False
     try:
       offset_s = float(self._client.request(self.server, version=3, timeout=1).offset)
     except (ntplib.NTPException, OSError, ValueError) as error:
       log.warning(f"NTP request to {self.server} failed: {error}")
-      return self.is_synchronized()
+      self._mark_measurement_failed()
+      return False
     if not math.isfinite(offset_s):
       log.warning("NTP returned a non-finite clock offset")
-      return self.is_synchronized()
+      self._mark_measurement_failed()
+      return False
     with self._lock:
       self._offset_s = offset_s
       self._measured_at = self._monotonic()
+      self._measurement_valid = True
     if self._metrics is not None:
       self._metrics.set_clock_offset(offset_s)
     synchronized = abs(offset_s) <= self.max_clock_offset_s
@@ -67,9 +73,13 @@ class ClockMonitor:
                   "PTZ sources invalid")
     return synchronized
 
+  def _mark_measurement_failed(self):
+    with self._lock:
+      self._measurement_valid = False
+
   def is_synchronized(self):
     with self._lock:
-      if self._offset_s is None:
+      if not self._measurement_valid or self._offset_s is None:
         return False
       if self._monotonic() - self._measured_at > self.max_measurement_age_s:
         return False

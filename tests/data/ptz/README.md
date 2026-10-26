@@ -5,6 +5,13 @@
 | `dwell_conformance.json`     | Shared dwell-admission vectors. The Controller and Tracker suites load this file unmodified.            |
 | `provisional_pose_math.json` | Development-only pose-math fixture that uses PoC values (`"provisional": true`). It is not golden data. |
 
+The provisional fixture pins its source PoC commit and fitting-script path/revision
+in `ptz_calibration.provenance`. The pinned snapshot is
+`843ea793830dc48383ea0beebee16bd4462f9667`; the fitting script is
+`ptz_pose_service/tools/fit_ptz_curves.py` at that same commit. These pins document
+the development fixture's derivation only and do not make it validated calibration
+data.
+
 ## `dwell_conformance.json` Format
 
 Top-level fields:

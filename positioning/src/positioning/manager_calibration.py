@@ -6,7 +6,7 @@
 from requests.adapters import HTTPAdapter
 
 from positioning.ptz_model import PTZCalibrationError, load_ptz_model
-from positioning.resolver import PTZSourceCalibration
+from positioning.ptz_resolver import PTZSourceCalibration
 from scene_common.rest_client import RESTClient
 
 

@@ -55,17 +55,20 @@ class TestClockMonitor(unittest.TestCase):
     self.assertFalse(monitor.check())
     client.request.assert_not_called()
 
-  def test_failed_request_keeps_recent_measurement_until_it_ages_out(self):
+  def test_failed_request_invalidates_recent_measurement_immediately(self):
     monotonic = FakeMonotonic()
-    client = ntp_client(0.01, ntplib.NTPException("timeout"), OSError("unreachable"))
+    client = ntp_client(0.01, ntplib.NTPException("timeout"), 0.01)
     monitor = ClockMonitor("ntpserv", 0.05, check_interval_s=10, client=client,
                            monotonic=monotonic)
-    monitor.check()
+    self.assertTrue(monitor.check())
 
     monotonic.now += 20
-    self.assertTrue(monitor.check())
-    monotonic.now += 11
     self.assertFalse(monitor.check())
+    self.assertFalse(monitor.is_synchronized())
+    self.assertTrue(monitor.check())
+    self.assertTrue(monitor.is_synchronized())
+    monotonic.now += 31
+    self.assertFalse(monitor.is_synchronized())
 
   def test_non_finite_offset_is_ignored(self):
     monitor = ClockMonitor("ntpserv", 0.05, client=ntp_client(float("nan")))

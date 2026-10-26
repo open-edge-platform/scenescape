@@ -18,7 +18,7 @@ import numpy as np
 
 from positioning.ptz_model import load_ptz_model
 from positioning.ptz_poller import LoggingSampleSink
-from positioning.resolver import PTZResolver, PTZSourceCalibration
+from positioning.ptz_resolver import PTZResolver, PTZSourceCalibration
 from positioning_status import status_payload, status_topic
 
 try:
@@ -123,15 +123,17 @@ class TestPositioningStatus(unittest.TestCase):
           with mock.patch("positioning_service.create_pollers", return_value=[]) as poller_factory:
             with mock.patch("positioning_service.PositioningService") as service_factory:
               main()
-
+              service_factory.call_args.kwargs["poller_factory"](None)
       poller_factory.assert_called_once()
       self.assertEqual(poller_factory.call_args.args[:2], (config, str(assignments_path)))
       self.assertIsInstance(poller_factory.call_args.args[2], LoggingSampleSink)
-      service_factory.assert_called_once_with(
+      service_factory.assert_called_once()
+      self.assertEqual(service_factory.call_args.args, (
         config, "broker.scenescape.intel.com", "/run/secrets/positioning.auth",
         "/run/secrets/certs/scenescape-positioning.crt",
         "/run/secrets/certs/scenescape-positioning.key",
-        "/run/secrets/certs/scenescape-ca.pem")
+        "/run/secrets/certs/scenescape-ca.pem"))
+      self.assertEqual(service_factory.call_args.kwargs["source_ids"], ())
       service_factory.return_value.run.assert_called_once_with()
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
@@ -149,8 +151,10 @@ class TestPositioningStatus(unittest.TestCase):
             with mock.patch("positioning_service.PositioningService") as service_factory:
               main()
 
-      service_factory.assert_called_once_with(
-        {"resolver_id": "resolver-a"}, "broker", "auth", "cert", "key", "ca")
+      service_factory.assert_called_once()
+      self.assertEqual(service_factory.call_args.args,
+                       ({"resolver_id": "resolver-a"}, "broker", "auth", "cert", "key", "ca"))
+      self.assertEqual(service_factory.call_args.kwargs["source_ids"], ())
       service_factory.return_value.run.assert_called_once_with()
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
@@ -191,20 +195,23 @@ class TestPositioningStatus(unittest.TestCase):
                                 return_value=[mock.Mock(source_id="cam-a")]) as factory:
                   with mock.patch("positioning_service.PositioningService") as service_factory:
                     main()
+                    service = service_factory.return_value
+                    resolver = service_factory.call_args.kwargs["resolver_factory"](
+                      service.client.publish)
+                    service_factory.call_args.kwargs["poller_factory"](resolver)
 
       service = service_factory.return_value
       calibration_loader.load.assert_called_once_with("cam-a")
       self.assertEqual(clock_factory.call_args.args, ("ntpserv", 0.05))
       metrics = clock_factory.call_args.kwargs["metrics"]
       clock_monitor.check.assert_called_once_with()
+      self.assertEqual(service_factory.call_args.kwargs["source_ids"], ("cam-a",))
+      self.assertIs(service_factory.call_args.kwargs["calibration_loader"], calibration_loader)
+      self.assertIs(service_factory.call_args.kwargs["clock_monitor"], clock_monitor)
+      self.assertIs(service_factory.call_args.kwargs["metrics"], metrics)
       resolver_factory.assert_called_once_with(
         {"cam-a": None}, service.client.publish, 0.2, 0.5, 0.01, 3.0, 64,
         clock_synchronized=clock_monitor.is_synchronized, metrics=metrics)
-      self.assertIs(service.resolver, resolver)
-      self.assertIs(service.calibration_loader, calibration_loader)
-      self.assertIs(service.clock_monitor, clock_monitor)
-      self.assertIs(service.metrics, metrics)
-      self.assertEqual(service.source_ids, ("cam-a",))
       self.assertEqual(factory.call_args.args, (config, str(assignments_path), resolver))
       service.run.assert_called_once_with()
 
@@ -256,7 +263,7 @@ class TestPositioningStatus(unittest.TestCase):
       with self.assertRaises(ValueError):
         create_pollers(config, str(assignments_path))
 
-  def _create_service(self, temp_dir, tls_error=None):
+  def _create_service(self, temp_dir, tls_error=None, source_ids=()):
     cert = Path(temp_dir) / "client.crt"
     keyfile = Path(temp_dir) / "client.key"
     root_cert = Path(temp_dir) / "root.crt"
@@ -269,7 +276,7 @@ class TestPositioningStatus(unittest.TestCase):
       with mock.patch("positioning_service.PubSub", return_value=fake_pubsub) as pubsub_factory:
         service = PositioningService(
           {"resolver_id": "resolver-a"}, "broker", "positioning:secret",
-          str(cert), str(keyfile), str(root_cert))
+          str(cert), str(keyfile), str(root_cert), source_ids=source_ids)
     return service, fake_pubsub, readiness_file, pubsub_factory
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
@@ -339,8 +346,8 @@ class TestPositioningStatus(unittest.TestCase):
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_on_connect_subscribes_to_config_topics_for_assigned_sources(self):
     with tempfile.TemporaryDirectory() as temp_dir:
-      service, fake_pubsub, _, _ = self._create_service(temp_dir)
-      service.source_ids = ("cam-a", "cam-b")
+      service, fake_pubsub, _, _ = self._create_service(
+        temp_dir, source_ids=("cam-a", "cam-b"))
 
       service.on_connect(fake_pubsub.client, None, None, 0)
 
@@ -356,8 +363,7 @@ class TestPositioningStatus(unittest.TestCase):
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_config_invalidation_is_queued_for_background_reload(self):
     with tempfile.TemporaryDirectory() as temp_dir:
-      service, _, _, _ = self._create_service(temp_dir)
-      service.source_ids = ("cam-a",)
+      service, _, _, _ = self._create_service(temp_dir, source_ids=("cam-a",))
       service.resolver = mock.Mock()
       message = mock.Mock(topic="scenescape/cmd/camera/config/cam-a")
 
@@ -367,10 +373,25 @@ class TestPositioningStatus(unittest.TestCase):
       self.assertEqual(service._calibration_requests.get_nowait(), "cam-a")
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_config_invalidations_for_each_source_fit_the_constructor_sized_queue(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      service, _, _, _ = self._create_service(
+        temp_dir, source_ids=("cam-a", "cam-b"))
+      service.resolver = mock.Mock()
+
+      for source_id in service.source_ids:
+        service.on_camera_config(
+          None, None, mock.Mock(topic=f"scenescape/cmd/camera/config/{source_id}"))
+
+      self.assertEqual(service._calibration_requests.qsize(), 2)
+      self.assertEqual(
+        {service._calibration_requests.get_nowait() for _ in range(2)},
+        {"cam-a", "cam-b"})
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_config_invalidation_for_unassigned_camera_is_ignored(self):
     with tempfile.TemporaryDirectory() as temp_dir:
-      service, _, _, _ = self._create_service(temp_dir)
-      service.source_ids = ("cam-a",)
+      service, _, _, _ = self._create_service(temp_dir, source_ids=("cam-a",))
       service.resolver = mock.Mock()
 
       service.on_camera_config(None, None, mock.Mock(topic="scenescape/cmd/camera/config/cam-b"))
@@ -379,7 +400,7 @@ class TestPositioningStatus(unittest.TestCase):
       self.assertTrue(service._calibration_requests.empty())
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
-  def test_failed_calibration_reload_disables_source(self):
+  def test_failed_calibration_reload_does_not_install_a_result(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       service, _, _, _ = self._create_service(temp_dir)
       service.resolver = mock.Mock()
@@ -388,14 +409,12 @@ class TestPositioningStatus(unittest.TestCase):
 
       service.reload_calibration("cam-a")
 
-      service.resolver.update_calibration.assert_called_once_with(
-        "cam-a", None, generation=service.resolver.calibration_generation.return_value)
+      service.resolver.update_calibration.assert_not_called()
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_manager_read_completed_after_invalidation_is_discarded(self):
     with tempfile.TemporaryDirectory() as temp_dir:
-      service, _, _, _ = self._create_service(temp_dir)
-      service.source_ids = ("cam-a",)
+      service, _, _, _ = self._create_service(temp_dir, source_ids=("cam-a",))
       calibration = _fixture_calibration()
       service.resolver = PTZResolver(
         {"cam-a": calibration}, lambda *args, **kwargs: None, poll_interval_s=0.2,
@@ -409,7 +428,8 @@ class TestPositioningStatus(unittest.TestCase):
       service.calibration_loader = mock.Mock()
       service.calibration_loader.load.side_effect = stale_read
       service.reload_calibration("cam-a")
-      self.assertIsNone(service.resolver.source_calibrations["cam-a"])
+      self.assertIs(service.resolver.source_calibrations["cam-a"], calibration)
+      self.assertTrue(service.resolver._states["cam-a"].calibration_pending)
       self.assertEqual(service._calibration_requests.get_nowait(), "cam-a")
 
       service.calibration_loader.load.side_effect = None
@@ -420,8 +440,8 @@ class TestPositioningStatus(unittest.TestCase):
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_periodic_refresh_reloads_every_source_when_idle(self):
     with tempfile.TemporaryDirectory() as temp_dir:
-      service, _, _, _ = self._create_service(temp_dir)
-      service.source_ids = ("cam-a", "cam-b")
+      service, _, _, _ = self._create_service(
+        temp_dir, source_ids=("cam-a", "cam-b"))
       service.calibration_refresh_interval_s = 30.0
       now = [100.0]
 
@@ -442,8 +462,8 @@ class TestPositioningStatus(unittest.TestCase):
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_frequent_notifications_do_not_starve_full_refresh(self):
     with tempfile.TemporaryDirectory() as temp_dir:
-      service, _, _, _ = self._create_service(temp_dir)
-      service.source_ids = ("cam-a", "cam-b")
+      service, _, _, _ = self._create_service(
+        temp_dir, source_ids=("cam-a", "cam-b"))
       service.calibration_refresh_interval_s = 30.0
       now = [100.0]
       waits = []
