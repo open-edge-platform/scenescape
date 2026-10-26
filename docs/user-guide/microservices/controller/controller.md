@@ -119,7 +119,7 @@ For details on the MQTT message formats accepted and produced by the Scene Contr
 
 ![Scenescape architecture diagram](./_assets/scenescape-architecture-dataflow.drawio.svg)
 
-Figure 1: Architecture Diagram
+_Figure 1: Architecture Diagram_
 
 ## Sequence Diagram: Scene Controller Workflow
 
