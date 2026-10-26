@@ -100,6 +100,7 @@ The **Scene Controller** is the central runtime state management service for Sce
 - `detector/<camera_id>`: Object detection messages (JSON schema validation)
 - `singleton`: Single-object detections (special case for non-standard detectors)
 - `calibration/result/<camera_id>`: Camera calibration updates from Auto Calibration
+- `scenescape/positioning/pose/<camera_id>` and `scenescape/positioning/status/<resolver_id>`: PTZ PoseContext and Resolver status, only when a PTZ mode is on and only for PTZ cameras of the loaded scenes that the assignment manifest names
 - `cluster/result/<scene_id>`: Cluster analysis results from Cluster Analytics
 
 **Publishes**:
@@ -171,6 +172,7 @@ docker compose exec scene bash
 - `TRACKER_CONFIG`: Path to tracker configuration JSON
 - `CONTROLLER_ENABLE_METRICS`: Enable OpenTelemetry metrics (true/false)
 - `CONTROLLER_ENABLE_TRACING`: Enable OpenTelemetry tracing (true/false)
+- `CONTROLLER_PTZ_ENABLED` / `CONTROLLER_PTZ_SHADOW_MODE`: PTZ pose consumption, both off by default and mutually exclusive. Settings and bounds live in `ptz-consumer-config.json` and `positioning-assignments.json` (`--ptz_config_file`, `--positioning_assignments_file`), read only when a mode is on. Startup fails on an invalid combination, including with `--rewriteAllTime` / `--rewriteBadTime`. Code is in `controller/ptz/`; see `docs/user-guide/microservices/controller/ptz-pose-consumption.md`.
 - `REID_DATABASE`: ReID vector backend (`VDMS` default, or `QDRANT`) — the only backend selector
 - Shared connection/tuning (same for every backend): `REID_HOSTNAME` (`reid.scenescape.intel.com`), `REID_PORT` (`55555`), `REID_USE_TLS` (`true`), `REID_API_KEY`, `REID_CONFIDENCE_THRESHOLD`, `REID_CA_CERT`, `REID_CLIENT_CERT`, `REID_CLIENT_KEY`, `REID_DESCRIPTOR_TTL_SECS` (`86400`), `REID_PURGE_INTERVAL_SECS` (`300`) (see `controller.reid_env`)
 - `reid_env` parses strictly: out-of-range ports/thresholds/TTL/purge intervals and unrecognized booleans raise `ValueError` naming the variable and value. Read new typed settings through `_env_int` / `_env_float` / `_env_bool` rather than calling `int()` / `os.getenv` at the call site, so bad config fails at startup instead of degrading behaviour later.
@@ -473,6 +475,7 @@ controller/
 │   │   ├── data_source.py             # Camera feeds
 │   │   ├── detections_builder.py      # Detection parsing
 │   │   ├── time_chunking.py           # Temporal processing
+│   │   ├── ptz/                       # PTZ PoseContext consumption (config, registry, ingress, shadow)
 │   │   ├── uuid_manager.py            # ID generation + ReID tracking state
 │   │   └── observability/             # Metrics/tracing
 │   ├── robot_vision/                  # Robot-specific extensions

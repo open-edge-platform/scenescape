@@ -237,6 +237,22 @@ Literal parent + child Scene Controllers on one host use Compose fragments under
 notes: [multi-controller hierarchy fixtures](../.github/skills/testing/references/functional-tests.md#multi-controller-hierarchy-fixtures).
 Deployment guide: [Deploy Multiple Controllers on One Host](../docs/user-guide/how-to-guides/build-a-scene/deploy-multi-controller-on-one-host.md).
 
+## Controller PTZ pose consumption (functional)
+
+`PTZ_ENFORCE` and `PTZ_SHADOW` run the stack with the Scene Controller in
+enforcing or shadow PTZ mode (`tests/compose/compose.scene-ptz*.yml`, bounds in
+`tests/compose/ptz/`). The tests publish PoseContexts through the broker as the
+Positioning identity for `test-source`, the camera in
+`tests/compose/positioning-assignments.json`, using
+`tests/functional/ptz_pose_publisher.py`:
+
+```bash
+pytest tests/functional/test_controller_ptz_dwell.py tests/functional/test_controller_ptz_shadow.py tests/functional/test_controller_ptz_acl.py
+```
+
+They create PTZ cameras through Manager, which requires
+`PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX` (the test stack defaults it to `10`).
+
 ## Using the VS Code Test Extension
 
 The workspace is pre-configured for the **Python Testing** extension

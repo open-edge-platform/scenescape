@@ -391,8 +391,10 @@ The `UTCDateTime` element in the response is the camera's UTC time.
 
 ## Shadow Validation Artifacts
 
-When Controller and Tracker shadow profiles are implemented, each emits sampled,
-structured JSONL records to stdout only. Records share a `run_id`; the acceptance
+When the Controller and Tracker shadow profiles run, each emits sampled,
+structured JSONL records to stdout only. The Controller's record format is in
+[PTZ Pose Consumption](../controller/ptz-pose-consumption.md#shadow-mode); the Tracker
+profile is not implemented yet. Records share a `run_id`; the acceptance
 harness combines both profiles by that ID into the immutable
 `tests/artifacts/ptz/shadow/<run_id>.jsonl` artifact and publishes it with the CI or
 acceptance run. Services do not write local artifact files or require production

@@ -158,6 +158,15 @@ reported reason:
 
 Consumers drop a rejected detection immediately and never queue it.
 
+### Consumers
+
+The Python Controller implements this on top of `scene_common.positioning_dwell`; see
+[PTZ Pose Consumption](../user-guide/microservices/controller/ptz-pose-consumption.md).
+It routes a PoseContext by its topic's `source_id`, so a payload that names another
+source resets that source's dwell. A PTZ camera without a Resolver in the assignment
+manifest, a clock outside `max_clock_offset_s`, or a clock that has not synchronized
+yet fails closed (`no_sample` or `sample_stale`).
+
 ## Configuration
 
 `scene_common.positioning_config.load_consumer_config` validates only the values that

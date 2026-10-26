@@ -132,6 +132,16 @@ The Scene Controller emits the following OpenTelemetry instruments under the
 - `scenescape_controller_objects_in_mqtt_message` (histogram) — Object
   count per MQTT message.
 
+**PTZ pose consumption counters** (emitted only when a PTZ mode is on — see
+[PTZ Pose Consumption](../microservices/controller/ptz-pose-consumption.md#metrics)):
+
+- `scenescape_controller_ptz_detections_admitted` — PTZ camera messages
+  admitted, by `mode`.
+- `scenescape_controller_ptz_detections_rejected` — PTZ camera messages
+  rejected, by `mode` and `reason_detail`.
+- `scenescape_controller_ptz_pose_messages_rejected` — pose or status
+  messages dropped before use, by `stage`.
+
 **Time-chunking counters** (emitted only when `time_chunking_enabled: true`
 in the tracker configuration — see
 [How to Configure the Tracker](../microservices/controller/how-to-configure-tracker.md)):

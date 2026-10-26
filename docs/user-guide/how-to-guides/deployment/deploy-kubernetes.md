@@ -147,6 +147,13 @@ values and release history. Changes to `positioning.config` or
 `positioning.assignments` roll the Positioning pod automatically; after rotating
 credentials, run `kubectl rollout restart deployment/<release>-positioning`.
 
+To let the Scene Controller consume the resolved poses, set `scene.ptz.enabled` (gate
+and project PTZ detections) or `scene.ptz.shadowMode` (observe and record only); they
+are off by default and mutually exclusive. Both need the four bounds in
+`scene.ptz.config`, and use `positioning.assignments` as the source-to-Resolver
+manifest. Rendering fails if both modes are on or a bound is missing. See
+[PTZ Pose Consumption](../../microservices/controller/ptz-pose-consumption.md#deploy).
+
 See the [Positioning Service](../../microservices/positioning/positioning.md)
 and [PTZ pose design](../../../design/ptz-camera-pose-service.md) for runtime behavior.
 

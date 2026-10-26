@@ -63,6 +63,8 @@ x-controller-base: &controller-base
     CONTROLLER_ENABLE_TRACING: ${CONTROLLER_ENABLE_TRACING}
     CONTROLLER_TRACING_ENDPOINT: ${CONTROLLER_TRACING_ENDPOINT}
     CONTROLLER_TRACING_SAMPLE_RATIO: ${CONTROLLER_TRACING_SAMPLE_RATIO}
+    CONTROLLER_PTZ_ENABLED: ${CONTROLLER_PTZ_ENABLED:-false}
+    CONTROLLER_PTZ_SHADOW_MODE: ${CONTROLLER_PTZ_SHADOW_MODE:-false}
     no_proxy: ${no_proxy},.scenescape.intel.com
     NO_PROXY: ${NO_PROXY},.scenescape.intel.com
   command: >
@@ -75,8 +77,11 @@ x-controller-base: &controller-base
       target: /home/scenescape/Scenescape/tracker-config.json
     - source: reid-config
       target: /home/scenescape/Scenescape/reid-config.json
+    - source: ptz-consumer-config
+      target: /home/scenescape/Scenescape/ptz-consumer-config.json
   volumes:
     - vol-media:/home/scenescape/Scenescape/media
+    - ./deployment/positioning-assignments.json:/home/scenescape/Scenescape/positioning-assignments.json:ro
   secrets:
     - source: root-cert
       target: certs/scenescape-ca.pem
@@ -568,6 +573,8 @@ configs:
     file: ./controller/config/tracker-config.json
   reid-config:
     file: ./controller/config/reid-config.json
+  ptz-consumer-config:
+    file: ./controller/config/ptz-consumer-config.json
 
 volumes:
   vol-db:

@@ -1,0 +1,11 @@
+{
+  "$comment": "SPDX-FileCopyrightText: (C) 2026 Intel Corporation; SPDX-License-Identifier: Apache-2.0. Same bounds as ptz-consumer-config.json; every decision is recorded under a fixed run_id.",
+  "max_pose_age_s": 0.5,
+  "max_clock_offset_s": 0.25,
+  "max_detection_pipeline_latency_s": 1.0,
+  "max_detection_timestamp_uncertainty_s": 0.05,
+  "shadow": {
+    "run_id": "functional-shadow",
+    "sample_every_n": 1
+  }
+}

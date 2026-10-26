@@ -313,7 +313,8 @@ def computeCameraBounds(scene, aobj, obj_dict):
     # For non-source cameras (or source camera without pixel bbox), project
     # 3D/metric object state into each visible camera image plane.
     if bounds is None and scene:
-      camera = scene.cameraWithID(cameraID)
+      camera_lookup = getattr(scene, 'visibilityCameraWithID', scene.cameraWithID)
+      camera = camera_lookup(cameraID)
       if camera is None:
         log.debug(
           f"computeCameraBounds: camera {cameraID} not found in scene; cannot project bounds."

@@ -25,6 +25,9 @@ def keysNotEmpty(info, keys):
 class Camera:
   def __init__(self, anID, info, resolution=None):
     self.cameraID = anID
+    # PTZ cameras carry a Manager-owned calibration block; its presence marks the camera as PTZ
+    ptz_calibration = info.get('ptz_calibration')
+    self.ptz_calibration = ptz_calibration if isinstance(ptz_calibration, dict) else None
 
     if resolution is None and 'width' in info and 'height' in info:
       resolution = (info['width'], info['height'])

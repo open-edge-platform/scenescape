@@ -84,6 +84,16 @@ web:
 scene:
   image: intel/scenescape-controller
   pullPolicy: IfNotPresent
+  # PTZ pose consumption; both modes are off by default and mutually exclusive.
+  # shadowMode only observes and logs; enabled gates PTZ detections and projects them
+  # with the PoseContext. Sources come from positioning.assignments.
+  ptz:
+    enabled: false
+    shadowMode: false
+    # Deployment-owned bounds, all required (no defaults) when either mode is on:
+    # max_pose_age_s, max_clock_offset_s, max_detection_pipeline_latency_s,
+    # max_detection_timestamp_uncertainty_s; optional shadow: {run_id, sample_every_n}.
+    config: {}
 
 analytics:
   image: intel/scenescape-analytics

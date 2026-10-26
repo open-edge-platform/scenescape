@@ -19,10 +19,15 @@ from controller.scene import Scene, stripReidProvenance
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mqtt import PubSub
+from scene_common.positioning_dwell import seconds_to_ns
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
+from controller.ptz import provider as ptz_provider
+from controller.ptz.ingress import PTZIngress
+from controller.ptz.registry import PTZPoseRegistry
+from controller.ptz.shadow import ShadowRecorder
 from controller.reid_env import (
   get_reid_client_cert,
   get_reid_client_key,
@@ -78,7 +83,7 @@ class SceneController:
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
                tracker_config_file, schema_file, visibility_topic, data_source,
-               reid_config_file=None, pose_adjustment_config_file=None):
+               reid_config_file=None, pose_adjustment_config_file=None, ptz_settings=None):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -108,6 +113,17 @@ class SceneController:
     self.time_offset = 0
 
     self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
+
+    self.ptz_settings = ptz_settings
+    self.ptz_registry = None
+    self.ptz_ingress = None
+    if ptz_settings is not None:
+      self.ptz_registry = PTZPoseRegistry(ptz_settings, self.schema_val, self._ptzClock)
+      self.ptz_ingress = PTZIngress(
+        ptz_settings, self.ptz_registry,
+        ShadowRecorder(ptz_settings.run_id, ptz_settings.shadow_sample_every_n))
+      ptz_provider.set_active_registry(self.ptz_registry)
+      log.info(f"PTZ pose consumption: {ptz_settings.mode.upper()} mode")
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
@@ -242,6 +258,51 @@ class SceneController:
     """Return the NTP-corrected time used to accept external-source events."""
     return get_epoch_time() + self.time_offset
 
+  def _ptzClock(self):
+    """Synchronized local time in ns and whether the clock is within the configured bound."""
+    synchronized = (self.last_time_sync is not None
+                    and abs(self.time_offset) <= self.ptz_settings.consumer.max_clock_offset_s)
+    return seconds_to_ns(get_epoch_time() + self.time_offset), synchronized
+
+  def _ptzFilter(self, scene, camera_id, jdata, msg_when):
+    """Apply the PTZ dwell gate; returns (process, pose_context)."""
+    if getattr(self, 'ptz_ingress', None) is None:
+      return True, None
+    return self.ptz_ingress.filter(scene, camera_id, jdata, msg_when)
+
+  def handlePoseMessage(self, client, userdata, message):
+    """PoseContext callback; runs on the MQTT thread and never blocks."""
+    try:
+      self.ptz_registry.on_pose_message(message.topic, message.payload)
+    except Exception as e:
+      log.error(f"Failed to process PoseContext on {message.topic}: {e}")
+    return
+
+  def handlePositioningStatusMessage(self, client, userdata, message):
+    """Resolver status/LWT callback; runs on the MQTT thread and never blocks."""
+    try:
+      self.ptz_registry.on_status_message(message.topic, message.payload)
+    except Exception as e:
+      log.error(f"Failed to process positioning status on {message.topic}: {e}")
+    return
+
+  def _addPTZSubscriptions(self, need_subscribe):
+    """Subscribe only to poses of this Controller's assigned PTZ cameras and their resolvers."""
+    if getattr(self, 'ptz_registry', None) is None:
+      return
+    self.ptz_registry.reconcile(self.scenes)
+    for source_id in self.ptz_registry.pose_source_ids():
+      need_subscribe.add((
+        PubSub.formatTopic(PubSub.POSITIONING_POSE, source_id=source_id),
+        self.handlePoseMessage,
+      ))
+    for resolver_id in self.ptz_registry.resolver_ids():
+      need_subscribe.add((
+        PubSub.formatTopic(PubSub.POSITIONING_STATUS, resolver_id=resolver_id),
+        self.handlePositioningStatusMessage,
+      ))
+    return
+
   def shutdown(self):
     """Stop background maintenance threads owned by this controller.
 
@@ -266,6 +327,9 @@ class SceneController:
 
     self.external_source_pose_cache.stopBackgroundSweep()
     self.identity_claim_registry.stopBackgroundSweep()
+    if getattr(self, 'ptz_registry', None) is not None \
+        and ptz_provider.active_registry() is self.ptz_registry:
+      ptz_provider.set_active_registry(None)
     return
 
   def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
@@ -579,22 +643,11 @@ class SceneController:
           return
         sender_id = publisher_id
       else:
-        detection_types = jdata['objects'].keys()
         camera_id = sender_id = topic['camera_id']
-        sender = self.cache_manager.sceneWithCameraID(sender_id)
-        if sender is None:
-          log.error(f"UNKNOWN SENDER: {sender_id}")
+        outcome = self._processCameraMessage(camera_id, jdata, msg_when, metric_attributes)
+        if outcome is None:
           return
-        scene = sender
-
-        # If no detection types in the message, add empty arrays for all tracked types
-        # This must be done BEFORE processCameraData so the tracker processes them
-        if not detection_types:
-          detection_types = list(scene.tracker.trackers.keys())
-          for dtype in detection_types:
-            jdata['objects'][dtype] = []
-
-        success = scene.processCameraData(jdata, when=msg_when)
+        scene, detection_types, success = outcome
 
       if not success:
         log.error("Camera fail", sender_id, scene.name if scene is not None else "unknown")
@@ -608,6 +661,36 @@ class SceneController:
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
       return
+
+  def _processCameraMessage(self, camera_id, jdata, msg_when, metric_attributes):
+    """Resolve the camera's scene, apply the PTZ gate and feed the detections to tracking.
+
+    @return (scene, detection_types, success), or None when the message was dropped
+    """
+    detection_types = jdata['objects'].keys()
+    scene = self.cache_manager.sceneWithCameraID(camera_id)
+    if scene is None:
+      log.error(f"UNKNOWN SENDER: {camera_id}")
+      return None
+
+    process, pose_context = self._ptzFilter(scene, camera_id, jdata, msg_when)
+    if not process:
+      metric_attributes["reason"] = "ptz_dwell"
+      metrics.inc_dropped(metric_attributes)
+      return None
+
+    # If no detection types in the message, add empty arrays for all tracked types
+    # This must be done BEFORE processCameraData so the tracker processes them
+    if not detection_types:
+      detection_types = list(scene.tracker.trackers.keys())
+      for dtype in detection_types:
+        jdata['objects'][dtype] = []
+
+    if pose_context is None:
+      success = scene.processCameraData(jdata, when=msg_when)
+    else:
+      success = scene.processCameraData(jdata, when=msg_when, pose_context=pose_context)
+    return scene, detection_types, success
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
     is_remote = False
@@ -1065,6 +1148,7 @@ class SceneController:
     need_subscribe = set()
 
     self.scenes = self.cache_manager.allScenes()
+    self._addPTZSubscriptions(need_subscribe)
 
     # One wildcard covers configured children and dynamic agents on:
     # scenescape/external/{publisher_id}/{thing_type}

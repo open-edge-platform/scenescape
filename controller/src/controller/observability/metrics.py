@@ -28,6 +28,7 @@ from scene_common import log
 __all__ = ['init', 'inc_messages', 'inc_dropped', 'record_object_count', 'time_mqtt_handler', 'time_tracking',
            'inc_time_chunking_duplicated_cameras', 'add_time_chunking_unique_cameras',
            'inc_time_chunking_non_empty_chunks', 'inc_time_chunking_empty_chunks',
+           'inc_ptz_admitted', 'inc_ptz_rejected', 'inc_ptz_pose_rejected',
            'record_reid_rolling_avg_match_latency',
            'record_reid_rolling_min_match_latency', 'record_reid_rolling_max_match_latency',
            'record_reid_match_latency',
@@ -44,6 +45,9 @@ METRIC_TIME_CHUNKING_DUPLICATED_CAMERAS = "scenescape_controller_time_chunking_d
 METRIC_TIME_CHUNKING_UNIQUE_CAMERAS = "scenescape_controller_time_chunking_unique_cameras"
 METRIC_TIME_CHUNKING_NON_EMPTY_CHUNKS = "scenescape_controller_time_chunking_non_empty_chunks"
 METRIC_TIME_CHUNKING_EMPTY_CHUNKS = "scenescape_controller_time_chunking_empty_chunks"
+METRIC_PTZ_DETECTIONS_ADMITTED = "scenescape_controller_ptz_detections_admitted"
+METRIC_PTZ_DETECTIONS_REJECTED = "scenescape_controller_ptz_detections_rejected"
+METRIC_PTZ_POSE_MESSAGES_REJECTED = "scenescape_controller_ptz_pose_messages_rejected"
 METRIC_REID_ROLLING_AVG_MATCH_LATENCY = "scenescape_controller_reid_rolling_avg_match_latency"
 METRIC_REID_ROLLING_MIN_MATCH_LATENCY = "scenescape_controller_reid_rolling_min_match_latency"
 METRIC_REID_ROLLING_MAX_MATCH_LATENCY = "scenescape_controller_reid_rolling_max_match_latency"
@@ -104,6 +108,24 @@ METRIC_INSTRUMENTS = [
     {
         "name": METRIC_TIME_CHUNKING_EMPTY_CHUNKS,
         "description": "Time-chunking dispatch intervals with no buffered data",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_PTZ_DETECTIONS_ADMITTED,
+        "description": "PTZ camera messages admitted by the dwell contract, by mode (enforce/shadow)",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_PTZ_DETECTIONS_REJECTED,
+        "description": "PTZ camera messages rejected by the dwell contract, by mode and bounded reason_detail",
+        "unit": "1",
+        "kind": "counter"
+    },
+    {
+        "name": METRIC_PTZ_POSE_MESSAGES_REJECTED,
+        "description": "PoseContext or resolver status messages dropped before use, by bounded stage",
         "unit": "1",
         "kind": "counter"
     },
@@ -225,6 +247,24 @@ def inc_time_chunking_empty_chunks(attributes=None):
   instance = _metrics_instance
   if instance:
     instance.counter_add(METRIC_TIME_CHUNKING_EMPTY_CHUNKS, 1, attributes)
+
+def inc_ptz_admitted(attributes=None):
+  """Increment PTZ camera messages admitted by the dwell contract."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_PTZ_DETECTIONS_ADMITTED, 1, attributes)
+
+def inc_ptz_rejected(attributes=None):
+  """Increment PTZ camera messages rejected by the dwell contract."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_PTZ_DETECTIONS_REJECTED, 1, attributes)
+
+def inc_ptz_pose_rejected(attributes=None):
+  """Increment PoseContext/status messages dropped before use."""
+  instance = _metrics_instance
+  if instance:
+    instance.counter_add(METRIC_PTZ_POSE_MESSAGES_REJECTED, 1, attributes)
 
 def record_reid_rolling_avg_match_latency(latency_s, attributes=None):
   """Report the current rolling-window average ReID match latency, in seconds."""

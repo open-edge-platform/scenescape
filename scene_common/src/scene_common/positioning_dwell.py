@@ -153,6 +153,11 @@ class DwellTracker:
   def stationary_since_ns(self) -> Optional[int]:
     return self._stationary_since_ns
 
+  @property
+  def latest_pose(self) -> Optional[PoseSnapshot]:
+    """Most recently received PoseContext, valid or not."""
+    return self._latest
+
   def set_expected_calibration_version(self, calibration_version: Optional[str]) -> None:
     if calibration_version != self.expected_calibration_version:
       self.expected_calibration_version = calibration_version
