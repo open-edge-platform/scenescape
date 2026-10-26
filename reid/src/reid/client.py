@@ -9,7 +9,8 @@ from google.protobuf import json_format, struct_pb2
 
 
 SERVICE_NAME = "scenescape.reid.ReIDService"
-RPC_METHODS = ("Health", "FindMatches", "FindSchemaMetadata", "PurgeExpired", "IngestStats")
+RPC_METHODS = ("Health", "FindMatches", "FindSchemaMetadata", "PurgeExpired", "IngestStats",
+               "CreateCollection")
 
 
 class ReIDClient:
@@ -27,11 +28,11 @@ class ReIDClient:
         ) for name in RPC_METHODS
     }
 
-  def call(self, method, request=None):
+  def call(self, method, request=None, metadata=None):
     """Call a declared method and preserve grpc.RpcError status codes."""
     message = struct_pb2.Struct()
     json_format.ParseDict({} if request is None else request, message)
-    response = self._methods[method](message, timeout=self.timeout)
+    response = self._methods[method](message, timeout=self.timeout, metadata=metadata)
     return json_format.MessageToDict(response, preserving_proto_field_name=True)
 
   def health(self):
@@ -54,3 +55,11 @@ class ReIDClient:
   def ingest_stats(self):
     """Read live-loop counters, or enabled=false when ingest is disabled."""
     return self.call("IngestStats")
+
+  def create_collection(self, collection_name, dimensions, metric, authorization):
+    """Create a POI schema using a configured bearer token; general gallery is protected."""
+    return self.call(
+      "CreateCollection",
+      {"collection_name": collection_name, "dimensions": dimensions, "metric": metric},
+      metadata=(("authorization", f"Bearer {authorization}"),),
+    )

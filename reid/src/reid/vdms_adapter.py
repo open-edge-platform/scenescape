@@ -109,7 +109,10 @@ class VDMSDatabase(ReIDDatabase):
 
   def _validateQueryResponses(self, query, responses):
     """Reject failed or incomplete transactions for strict network callers."""
-    if len(responses) != len(query) or any(item.get("status") != 0 for item in responses):
+    if len(responses) != len(query) or any(
+      item.get("status") != 0 and next(iter(command)) != "AddDescriptorSet"
+      for command, item in zip(query, responses)
+    ):
       self._backendFailure()
 
   def connect(self, hostname=None):

@@ -12,7 +12,8 @@ adapter behavior unchanged and adds a backend-neutral gRPC boundary.
 ## Current Scope
 
 The service provides health, `FindMatches`, `FindSchemaMetadata`, manual
-`PurgeExpired`, and `IngestStats` wrappers alongside Tracker MQTT ingestion.
+`PurgeExpired`, `IngestStats`, and authorized `CreateCollection` schema
+declaration alongside Tracker MQTT ingestion.
 The Controller still uses compatible `controller.reid*` imports for its
 in-process path. Controller retirement, POI APIs, gallery management, and
 trajectory export are follow-on work.
@@ -20,7 +21,7 @@ trajectory export are follow-on work.
 ## Baseline gRPC Contract
 
 The authoritative declaration is `reid/proto/reid.proto`, service
-`scenescape.reid.ReIDService`. All five RPCs are unary calls with
+`scenescape.reid.ReIDService`. All six RPCs are unary calls with
 `google.protobuf.Struct` requests and responses. Method names and existing
 response fields remain compatible with the initial service. `Health.ready`
 is additive; `IngestStats` is now explicitly declared as well as implemented.
@@ -32,6 +33,7 @@ is additive; `IngestStats` is now explicitly declared as well as implemented.
 | `FindSchemaMetadata` | `{"set_name":"gallery"}` or `{}` for the configured set                  | `{"metadata":[true,3,"IP"]}`; absent set: `{"metadata":[false,null,null]}`                                                      |
 | `PurgeExpired`       | `{}`                                                                     | `{"result":2}` when the reclaimed count is known; `{"result":null}` when it is unknown                                          |
 | `IngestStats`        | `{}`                                                                     | `{"enabled":false}` when disabled; otherwise `{"enabled":true,...snapshot}` with `counters`, `matchers`, and `unique_id_counts` |
+| `CreateCollection`   | `{"collection_name":"poi_person","dimensions":512,"metric":"IP"}`        | `{"collection_name":"poi_person","dimensions":512,"metric":"IP","created":true}`; compatible repeat returns `created:false`     |
 
 The examples use three-element vectors only for brevity. `FindMatches` requires
 a rectangular numeric matrix with 1-1024 rows, 1-4096 dimensions, and finite
@@ -45,9 +47,12 @@ is an object of the existing confidence-bearing metadata filters, for example
 `{"gender":{"label":"female","confidence":0.95}}`. Reserved identity/persist
 fields remain ignored by the adapters; constraints cannot override `object_type`,
 `set_name`, `k_neighbors`, `reid_vectors`, or internal call/threshold controls.
-Unknown top-level request fields are rejected.
-These are queries only: no enrollment, schema creation, or general-gallery
-write RPC is exposed.
+Unknown top-level request fields are rejected. `CreateCollection` accepts a
+name, dimensions from 1 to 4096, and metric `IP` or `L2`. It creates or verifies
+schema only; it does not enroll descriptors. The configured live-gallery,
+default live-gallery, and internal schema-marker names are reserved. Compatible
+repeats return `created:false`; mismatches return `FAILED_PRECONDITION`. No
+general-gallery descriptor-write RPC is exposed.
 
 `matches` preserves the adapter's per-vector result lists and similarity metric
 semantics. An empty per-vector list means no usable match, not backend failure.
@@ -65,13 +70,15 @@ inspect `ready` for readiness. `IngestStats` is local process state and remains
 available during a backend outage. Its counts are process-local, not durable
 gallery statistics.
 
-| gRPC status        | Meaning                                                                                                    |
-| ------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `OK`               | Valid operation completed, including empty matches, disabled ingest/TTL, absent schema, or degraded Health |
-| `INVALID_ARGUMENT` | Missing, unsupported, or malformed request fields                                                          |
-| `UNAVAILABLE`      | Matching, schema lookup, or purge failed against the backend; no fabricated empty success                  |
-| `INTERNAL`         | Unexpected service failure; private exception details are not returned                                     |
-| `UNIMPLEMENTED`    | RPC is not part of the baseline contract, including gallery-write methods                                  |
+| gRPC status           | Meaning                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `OK`                  | Valid operation completed, including empty matches, disabled ingest/TTL, absent schema, or degraded Health |
+| `INVALID_ARGUMENT`    | Missing, unsupported, or malformed request fields                                                          |
+| `PERMISSION_DENIED`   | Collection creation token is missing, invalid, or not configured                                           |
+| `FAILED_PRECONDITION` | Named collection exists with incompatible or unverifiable schema                                           |
+| `UNAVAILABLE`         | Matching, schema lookup, or purge failed against the backend; no fabricated empty success                  |
+| `INTERNAL`            | Unexpected service failure; private exception details are not returned                                     |
+| `UNIMPLEMENTED`       | RPC is not part of the baseline contract, including gallery-write methods                                  |
 
 ### Python Client
 
@@ -82,6 +89,7 @@ connection. For example, when the endpoint has a TLS terminator:
 
 ```python
 from pathlib import Path
+import os
 import grpc
 from reid.client import ReIDClient
 
@@ -91,13 +99,17 @@ with grpc.secure_channel("reid.example.com:443", credentials) as channel:
 	readiness = client.health()
 	metadata = client.find_schema_metadata()
 	statistics = client.ingest_stats()
+	collection_token = os.environ["REID_COLLECTION_CREATE_TOKEN"]
+	collection = client.create_collection(
+	    "poi_person", 512, "IP", collection_token)
 ```
 
-The service's current listener itself remains plaintext on `REID_SERVICE_PORT`;
-it has no application-layer authorization. Do not expose it to untrusted callers.
-Deployment security must restrict access, including to manual purge; use an
-authenticated TLS proxy when remote access is required. Native listener TLS and
-authorization are separate work, not a reason to bypass deployment controls.
+Set `REID_COLLECTION_CREATE_TOKEN` to enable `CreateCollection`; otherwise the
+RPC returns `PERMISSION_DENIED`. Send it as `authorization: Bearer <token>`.
+The service listener itself remains plaintext on `REID_SERVICE_PORT`, so keep it
+on a trusted private network or use an authenticated TLS proxy. The bearer token
+authorizes collection declaration but does not encrypt transport. Restrict
+manual purge at the deployment boundary as well.
 
 ### Contract Verification
 

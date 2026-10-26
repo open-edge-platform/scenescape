@@ -186,7 +186,9 @@ live-loop observability. `Health.ready` reflects a fresh, read-only backend
 availability probe rather than a cached connection flag. The proto, request and
 response shapes, client usage, status codes, and test scope are documented in the
 [Re-ID service contract](../user-guide/microservices/reid-service/reid-service.md#baseline-grpc-contract).
-This baseline does not add a general-gallery write RPC.
+`CreateCollection` is an authorized schema-only operation for POI collections;
+it does not enroll descriptors. This baseline does not add a general-gallery
+descriptor write RPC.
 
 ### 6.2 Design principles
 
@@ -232,7 +234,7 @@ Neither adapter exposes count or list today. `findSchemaMetadata` does not retur
 
 - `GET /collections` — name, dimensions, metric, retention. Not which backend is deployed.
 - `GET /collections/{name}/stats` — `vector_count` and `distinct_object_count` (1–5 embeddings per POI; general gallery also stores more than one vector per UUID). `Gallery_Size_Active_Persons` is the distinct count.
-- `POST /collections` — explicit create for POI collections (name, dimensions, metric, retention). The general gallery keeps lazy `ensureSchema`.
+- **`CreateCollection` gRPC** — authorized declaration for an explicit POI collection name, embedding dimensions, and backend distance metric. Compatible repeat declarations are idempotent; dimension or metric conflicts fail with `FAILED_PRECONDITION`. The configured live-gallery name, default live-gallery name, and internal schema-marker collection are reserved. It creates schema only; the general gallery keeps lazy `ensureSchema` and no descriptor enrollment is exposed.
 
 Whether stats accept `scene_id` / `camera_id` is open (Section 11). Export size as an OTel gauge for `GalleryExtractor`, not only as a REST body (Section 10).
 
@@ -253,7 +255,7 @@ Once POI collections exist (6.4, 6.6):
 
 ### 6.9 Schema declaration
 
-Dimensions are inferred from the first write (`_ensureReIDDimensions` → `ensureSchema`). External callers may query before any write. Add an explicit declare-dimensions-and-metric call for a collection.
+Dimensions are inferred from the first write (`_ensureReIDDimensions` → `ensureSchema`) for the lazy general gallery. External callers may query before any write. `CreateCollection` declares an explicitly named POI collection's dimensions and metric before enrollment and verifies schema markers on repeat declarations.
 
 ### 6.10 POI persistence
 
@@ -351,7 +353,7 @@ OTel, not REST-only: match latency and backend duration (5.3), `Gallery_Size_Act
 
 **Security**
 
-- **authN/authZ mechanism.** How principals and the read-vs-write split in 6.12 are enforced (tokens, mTLS, gateway policy, etc.). Required before `POST /poi` or delete ship (Section 9). MQTT trust for the Tracker subscription is listed under Extraction above.
+- **authN/authZ mechanism.** How principals and the read-vs-write split in 6.12 are enforced (tokens, mTLS, gateway policy, etc.). Baseline collection creation is disabled unless `REID_COLLECTION_CREATE_TOKEN` is configured and the caller supplies its bearer token; deployment transport still requires a trusted network or TLS proxy. Required before `POST /poi` or delete ship (Section 9). MQTT trust for the Tracker subscription is listed under Extraction above.
 
 ## 12. References
 

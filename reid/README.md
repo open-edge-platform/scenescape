@@ -37,10 +37,12 @@ docker compose \
 The service listens on `REID_SERVICE_PORT` (default `50051`) and connects to
 the backend using the existing `REID_*` settings. The baseline API declares
 `Health` (including backend readiness), `FindMatches`, `FindSchemaMetadata`,
-`PurgeExpired`, and `IngestStats`. See the
+`PurgeExpired`, `IngestStats`, and authorized `CreateCollection`. Collection
+creation declares a POI schema only; descriptor enrollment and collection
+statistics remain follow-on work. See the
 [wire contract and Python client example](../docs/user-guide/microservices/reid-service/reid-service.md#baseline-grpc-contract)
 for request/response shapes, validation, and status codes.
 
 Tracker scene streams are currently ingested over MQTT, not gRPC. Controller
-migration, POI management, gallery
-statistics, deletion, and trajectory APIs are follow-on work.
+migration, POI enrollment/management, gallery statistics, deletion, and
+trajectory APIs are follow-on work.

@@ -4,6 +4,7 @@
 """gRPC entry point for the standalone Re-ID service skeleton."""
 
 import json
+import hmac
 import os
 from concurrent import futures
 
@@ -12,7 +13,7 @@ from google.protobuf import json_format
 from google.protobuf import struct_pb2
 
 from scene_common import log
-from reid.api import ReIDService, validate_request
+from reid.api import CollectionSchemaConflictError, ReIDService, validate_request
 from reid.client import SERVICE_NAME
 from reid.ingest import build_from_env
 from reid.reid_registry import create_reid_database
@@ -40,12 +41,26 @@ def _json_safe(value):
   return json.loads(json.dumps(value, default=str))
 
 
-def _handler(function):
+def _authorize_collection_create(token):
+  def authorize(context):
+    authorization = dict(context.invocation_metadata()).get("authorization", "")
+    scheme, separator, supplied_token = authorization.partition(" ")
+    if (not token or scheme.lower() != "bearer" or not separator or
+        not hmac.compare_digest(supplied_token, token)):
+      context.abort(grpc.StatusCode.PERMISSION_DENIED, "Collection creation is not authorized")
+  return authorize
+
+
+def _handler(function, authorize=None):
   def call(request, context):
+    if authorize is not None:
+      authorize(context)
     try:
       return _encode(function(_decode(request)))
     except (KeyError, TypeError, ValueError):
       context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Invalid ReID request")
+    except CollectionSchemaConflictError as error:
+      context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(error))
     except ConnectionError:
       context.abort(grpc.StatusCode.UNAVAILABLE, "ReID backend unavailable")
     except Exception:
@@ -65,9 +80,11 @@ def _empty_request(function):
   return call
 
 
-def create_server(service=None, workers=4):
+def create_server(service=None, workers=4, collection_create_token=None):
   """Create a gRPC server using the baseline Re-ID API methods."""
   service = service or ReIDService()
+  if collection_create_token is None:
+    collection_create_token = os.getenv("REID_COLLECTION_CREATE_TOKEN", "")
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=workers))
   handlers = {
       "Health": _handler(_empty_request(service.health)),
@@ -75,6 +92,8 @@ def create_server(service=None, workers=4):
       "FindSchemaMetadata": _handler(service.find_schema_metadata),
       "PurgeExpired": _handler(_empty_request(lambda: {"result": service.purge_expired()})),
       "IngestStats": _handler(_empty_request(service.ingest_stats)),
+      "CreateCollection": _handler(
+        service.create_collection, authorize=_authorize_collection_create(collection_create_token)),
   }
   server.add_generic_rpc_handlers((
       grpc.method_handlers_generic_handler(SERVICE_NAME, handlers),

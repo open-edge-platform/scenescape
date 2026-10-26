@@ -5,17 +5,22 @@
 
 import numpy as np
 
-from scene_common.reid_constants import is_inner_product_metric
+from scene_common.reid_constants import SCHEMA_MARKER_COLLECTION, SCHEMA_NAME, is_inner_product_metric
 from reid.reid_registry import create_reid_database
+
+
+class CollectionSchemaConflictError(Exception):
+  """The named collection exists with a different or unverifiable schema."""
 
 
 class ReIDService:
   """Delegate baseline Re-ID operations to one configured adapter."""
 
-  def __init__(self, database=None, adapter=None, connect=True, ingest=None):
+  def __init__(self, database=None, adapter=None, connect=True, ingest=None, collection_factory=None):
     self.adapter = adapter or create_reid_database(database, dimensions=None)
     self.adapter.raise_on_backend_error = True
     self.ingest = ingest
+    self.collection_factory = collection_factory or self._new_collection_adapter
     if connect:
       # Adapters log and swallow connection errors; health() reports the result.
       self.adapter.connect()
@@ -68,6 +73,72 @@ class ReIDService:
     validate_name(request.get("set_name"), "set_name", optional=True)
     set_name = request.get("set_name") or self.adapter.set_name
     return {"metadata": self._backend_call(self.adapter.findSchemaMetadata, set_name)}
+
+  def _new_collection_adapter(self, collection_name, metric):
+    """Create an independently configured adapter for a non-live collection."""
+    adapter = type(self.adapter)(
+      set_name=collection_name,
+      similarity_metric=metric,
+      dimensions=None,
+      descriptor_ttl_secs=0,
+    )
+    adapter.raise_on_backend_error = True
+    adapter.connect()
+    return adapter
+
+  def create_collection(self, request):
+    """Create or verify an explicitly named POI collection schema."""
+    collection_name, dimensions, metric = self._validate_collection_declaration(request)
+    adapter = self.collection_factory(collection_name, metric)
+    adapter.raise_on_backend_error = True
+    if not adapter.backendAvailable():
+      raise ConnectionError("ReID backend unavailable")
+    try:
+      exists, current_dimensions, current_metric = adapter.findSchemaMetadata(collection_name)
+      if exists and (current_dimensions != dimensions or
+                     str(current_metric).strip().upper() != metric):
+        raise CollectionSchemaConflictError(
+          f"Collection '{collection_name}' already has an incompatible schema")
+      adapter.ensureSchema(dimensions)
+    except CollectionSchemaConflictError:
+      raise
+    except RuntimeError as error:
+      raise CollectionSchemaConflictError(
+        f"Collection '{collection_name}' schema could not be verified") from error
+    except Exception as error:
+      raise ConnectionError("ReID backend operation failed") from error
+    return {
+      "collection_name": collection_name,
+      "dimensions": dimensions,
+      "metric": metric,
+      "created": not exists,
+    }
+
+  def _validate_collection_declaration(self, request):
+    """Validate and normalize a POI schema declaration without backend access."""
+    validate_request(request, {"collection_name", "dimensions", "metric"},
+                     required=("collection_name", "dimensions", "metric"))
+    collection_name = request["collection_name"]
+    validate_name(collection_name, "collection_name")
+    if collection_name != collection_name.strip():
+      raise ValueError("collection_name cannot contain surrounding whitespace")
+    reserved_names = {
+      str(self.adapter.set_name).casefold(), SCHEMA_NAME.casefold(),
+      SCHEMA_MARKER_COLLECTION.casefold(),
+    }
+    if collection_name.casefold() in reserved_names:
+      raise ValueError("The live gallery and internal schema collections cannot be declared here")
+
+    dimensions = request["dimensions"]
+    if (isinstance(dimensions, bool) or not isinstance(dimensions, (int, float)) or
+      not np.isfinite(dimensions) or not 1 <= dimensions <= 4096 or int(dimensions) != dimensions):
+      raise ValueError("dimensions must be an integer from 1 to 4096")
+    dimensions = int(dimensions)
+    metric = request["metric"]
+    if not isinstance(metric, str) or metric.strip().upper() not in {"IP", "L2"}:
+      raise ValueError("metric must be IP or L2")
+    metric = metric.strip().upper()
+    return collection_name, dimensions, metric
 
   def purge_expired(self):
     """Trigger the existing adapter purge operation."""
