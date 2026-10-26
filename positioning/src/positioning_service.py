@@ -9,16 +9,28 @@ import argparse
 import json
 import logging
 import os
+import queue
 import signal
 import sys
 import threading
+import time
 
+from positioning.clock_sync import ClockMonitor
+from positioning.manager_calibration import (
+  ManagerCalibrationLoader, ManagerCalibrationTransportError)
+from positioning.metrics import PositioningMetrics
 from positioning.ptz_poller import LoggingSampleSink
+from positioning.ptz_resolver import PTZResolver
 from positioning.sources import (
   build_pollers, load_assignments, parse_sources, validate_assignments)
 from positioning_status import status_payload, status_topic
 from scene_common import log
 from scene_common.mqtt import PubSub
+
+RESOLVER_REQUIRED_SETTINGS = (
+  "max_pose_age_s", "max_timestamp_uncertainty_s", "max_clock_offset_s",
+  "target_reprojection_rms_px")
+METRICS_LOG_INTERVAL_S = 60.0
 
 
 def load_config(path):
@@ -29,35 +41,81 @@ def load_config(path):
   return config
 
 
-def configure_library_logging():
+def configure_library_logging(level=logging.INFO):
   handler = logging.StreamHandler(sys.stdout)
   handler.setFormatter(logging.Formatter("%(asctime)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
   library_logger = logging.getLogger("positioning")
   library_logger.addHandler(handler)
-  library_logger.setLevel(logging.INFO)
+  library_logger.setLevel(level)
   library_logger.propagate = False
 
 
-def create_pollers(config, assignments_path):
+def create_pollers(config, assignments_path, sink=None):
   """Validate single-owner assignment and build pollers for this resolver's sources."""
   poll_interval_s, sources = parse_sources(config)
   if os.path.isfile(assignments_path):
     validate_assignments(config["resolver_id"], sources, load_assignments(assignments_path))
   elif sources:
     raise FileNotFoundError(f"Positioning assignment manifest not found: {assignments_path}")
-  # The PTZ Resolver replaces this interim sink.
-  return build_pollers(sources, poll_interval_s, LoggingSampleSink())
+  return build_pollers(sources, poll_interval_s, sink or LoggingSampleSink())
+
+
+def _load_initial_calibrations(calibration_loader, source_ids):
+  calibrations = {}
+  for source_id in source_ids:
+    try:
+      calibrations[source_id] = calibration_loader.load(source_id)
+    except Exception as error:
+      log.warning(f"Initial Manager calibration load failed for {source_id}; "
+                  f"source disabled: {error}")
+      calibrations[source_id] = None
+  return calibrations
+
+
+def _prepare_resolver_runtime(args, config, source_ids):
+  missing = [name for name in RESOLVER_REQUIRED_SETTINGS if name not in config]
+  if missing:
+    raise ValueError(f"Positioning config missing required Resolver settings: {', '.join(missing)}")
+  sample_ring_buffer_size = config.get("sample_ring_buffer_size", 64)
+  refresh_interval_s = config.get("calibration_refresh_interval_s", 30.0)
+  if isinstance(refresh_interval_s, bool) or not isinstance(refresh_interval_s, (int, float)) \
+      or not 0 < refresh_interval_s < float("inf"):
+    raise ValueError("calibration_refresh_interval_s must be positive and finite")
+  metrics = PositioningMetrics()
+  clock_monitor = ClockMonitor(args.ntp, config["max_clock_offset_s"], metrics=metrics)
+  clock_monitor.check()
+  log.info(f"Clock offset at startup: {clock_monitor.offset_s} s "
+           f"(synchronized={clock_monitor.is_synchronized()})")
+  calibration_loader = ManagerCalibrationLoader(
+    args.manager_url, args.manager_auth or args.brokerauth, args.rootcert)
+  calibrations = _load_initial_calibrations(calibration_loader, source_ids)
+  return calibrations, calibration_loader, clock_monitor, metrics, sample_ring_buffer_size, \
+    refresh_interval_s
 
 
 class PositioningService:
   """Owns broker liveness and the lifecycle of source pollers."""
 
-  def __init__(self, config, broker, broker_auth, cert, keyfile, root_cert, pollers=()):
+  def __init__(self, config, broker, broker_auth, cert, keyfile, root_cert, pollers=(),
+               resolver=None, calibration_loader=None, source_ids=(),
+               calibration_refresh_interval_s=30.0, clock_monitor=None, metrics=None,
+               resolver_factory=None, poller_factory=None):
     self.resolver_id = config["resolver_id"]
     self.topic = status_topic(self.resolver_id)
     self.pollers = list(pollers)
+    self.resolver = resolver
+    self.calibration_loader = calibration_loader
+    self.clock_monitor = clock_monitor
+    self.metrics = metrics
+    self.source_ids = tuple(source_ids)
+    self.calibration_refresh_interval_s = calibration_refresh_interval_s
+    self._calibration_requests = queue.Queue(maxsize=max(len(self.source_ids), 1))
+    self._pending_calibration_sources = set()
+    self._calibration_queue_lock = threading.Lock()
     self._stop_workers = threading.Event()
     self._workers = []
+    self._workers_started = False
+    self._workers_lock = threading.Lock()
     for credential_path in (cert, keyfile, root_cert):
       if not os.path.isfile(credential_path):
         raise FileNotFoundError(f"Required MQTT TLS file not found: {credential_path}")
@@ -74,6 +132,10 @@ class PositioningService:
     self.client.client.on_pre_connect = self.on_pre_connect
     self.client.client.on_connect = self.on_connect
     self.client.client.on_disconnect = self.on_disconnect
+    if resolver_factory is not None:
+      self.resolver = resolver_factory(self.client.publish)
+    if poller_factory is not None:
+      self.pollers = list(poller_factory(self.resolver))
 
   def on_pre_connect(self, client, userdata):
     will = json.dumps(status_payload(self.resolver_id, "offline"))
@@ -85,9 +147,13 @@ class PositioningService:
       return
     payload = json.dumps(status_payload(self.resolver_id, "online"))
     client.publish(self.topic, payload, qos=0, retain=True)
+    for source_id in self.source_ids:
+      topic = PubSub.formatTopic(PubSub.CMD_CAMERA_CONFIG, camera_id=source_id)
+      self.client.addCallback(topic, self.on_camera_config, qos=1)
     with open(self.readiness_file, "w", encoding="utf-8") as readiness_file:
       readiness_file.write("ready\n")
     log.info("Positioning connected to MQTT broker")
+    self.start_workers()
 
   def on_disconnect(self, *args):
     try:
@@ -96,10 +162,66 @@ class PositioningService:
       pass
     log.warning("Positioning disconnected from MQTT broker")
 
+  def on_camera_config(self, client, userdata, message):
+    """Mark a source reload-pending and queue work without blocking MQTT."""
+    parsed = PubSub.parseTopic(message.topic) or {}
+    source_id = parsed.get("camera_id")
+    if source_id in self.source_ids:
+      if self.resolver is not None:
+        self.resolver.invalidate_calibration(source_id)
+      self._queue_calibration_reload(source_id)
+
+  def _queue_calibration_reload(self, source_id):
+    with self._calibration_queue_lock:
+      if source_id in self._pending_calibration_sources:
+        return
+      self._calibration_requests.put_nowait(source_id)
+      self._pending_calibration_sources.add(source_id)
+
+  def reload_calibration(self, source_id):
+    # Captured before the network read so an invalidation during the fetch makes
+    # the result stale; the resolver compares and applies it under its source lock.
+    generation = self.resolver.calibration_generation(source_id)
+    try:
+      calibration = self.calibration_loader.load(source_id)
+      if not self.resolver.update_calibration(source_id, calibration, generation=generation):
+        log.info(f"Discarded stale Manager calibration for {source_id}; reload pending")
+    except ManagerCalibrationTransportError as error:
+      log.warning(f"Manager calibration transport error for {source_id}; "
+                  f"calibration state unchanged: {error}")
+    except Exception as error:
+      if self.resolver.update_calibration(source_id, None, generation=generation):
+        log.warning(f"Manager calibration reload rejected for {source_id}; source invalid: {error}")
+      else:
+        log.info(f"Discarded stale Manager calibration rejection for {source_id}: {error}")
+
+  def refresh_calibrations(self, stop_event):
+    # Queue activity must not postpone the all-source refresh, which retries failed
+    # loads and recovers from missed notifications.
+    next_full_refresh = time.monotonic() + self.calibration_refresh_interval_s
+    while not stop_event.is_set():
+      remaining = next_full_refresh - time.monotonic()
+      if remaining <= 0:
+        for source_id in self.source_ids:
+          self.reload_calibration(source_id)
+        next_full_refresh = time.monotonic() + self.calibration_refresh_interval_s
+        continue
+      try:
+        source_id = self._calibration_requests.get(timeout=remaining)
+      except queue.Empty:
+        continue
+      with self._calibration_queue_lock:
+        self._pending_calibration_sources.discard(source_id)
+      self.reload_calibration(source_id)
+
   def on_sigterm(self, signum, frame):
     raise SystemExit(0)
 
   def start_workers(self):
+    with self._workers_lock:
+      if self._workers_started:
+        return
+      self._workers_started = True
     for poller in self.pollers:
       targets = [(poller.run, f"ptz-poll-{poller.source_id}")]
       if poller.move_monitor is not None:
@@ -108,6 +230,24 @@ class PositioningService:
         worker = threading.Thread(target=target, args=(self._stop_workers,), name=name, daemon=True)
         worker.start()
         self._workers.append(worker)
+    if self.resolver is not None and self.calibration_loader is not None:
+      worker = threading.Thread(
+        target=self.refresh_calibrations, args=(self._stop_workers,),
+        name="ptz-calibration-refresh", daemon=True)
+      worker.start()
+      self._workers.append(worker)
+    if self.clock_monitor is not None:
+      worker = threading.Thread(
+        target=self.clock_monitor.run, args=(self._stop_workers,),
+        name="ptz-clock-monitor", daemon=True)
+      worker.start()
+      self._workers.append(worker)
+    if self.metrics is not None:
+      worker = threading.Thread(
+        target=self.metrics.run, args=(self._stop_workers, METRICS_LOG_INTERVAL_S),
+        name="positioning-metrics", daemon=True)
+      worker.start()
+      self._workers.append(worker)
 
   def stop_workers(self, timeout_s=5.0):
     self._stop_workers.set()
@@ -118,7 +258,6 @@ class PositioningService:
   def run(self):
     previous_sigterm_handler = signal.signal(signal.SIGTERM, self.on_sigterm)
     try:
-      self.start_workers()
       try:
         self.client.connect()
         self.client.loopForever()
@@ -134,6 +273,8 @@ class PositioningService:
 
 def build_argparser():
   parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  parser.add_argument("--log-level", choices=("INFO", "DEBUG"), default="INFO",
+                      help="Positioning logs: concise state changes or detailed diagnostics")
   parser.add_argument("--broker", default="broker.scenescape.intel.com",
                       help="hostname or IP of MQTT broker")
   parser.add_argument("--brokerauth", default="/run/secrets/positioning.auth",
@@ -144,6 +285,12 @@ def build_argparser():
                       help="path to client private key")
   parser.add_argument("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
                       help="path to CA certificate")
+  parser.add_argument("--manager-url", default="https://web.scenescape.intel.com/api/v1",
+                      help="Manager API base URL")
+  parser.add_argument("--manager-auth", default=None,
+                      help="Manager user:password or JSON auth file; defaults to --brokerauth")
+  parser.add_argument("--ntp", default=os.environ.get("POSITIONING_NTP_SERVER"),
+                      help="NTP server used to verify clock synchronization")
   parser.add_argument("--config", default="/app/config/positioning.json",
                       help="path to deployment-owned Positioning config")
   parser.add_argument("--assignments", default="/app/deployment/positioning-assignments.json",
@@ -157,11 +304,41 @@ def main():
     raise FileNotFoundError(f"Positioning config not found: {args.config}")
   config = load_config(args.config)
   log.info("Starting Positioning service")
-  configure_library_logging()
-  pollers = create_pollers(config, args.assignments)
-  log.info(f"Configured PTZ sources: {[poller.source_id for poller in pollers]}")
-  PositioningService(config, args.broker, args.brokerauth, args.cert, args.keyfile, args.rootcert,
-                     pollers).run()
+  configure_library_logging(getattr(logging, args.log_level))
+  poll_interval_s, sources = parse_sources(config)
+  source_ids = tuple(sources)
+  if source_ids:
+    if not os.path.isfile(args.assignments):
+      raise FileNotFoundError(f"Positioning assignment manifest not found: {args.assignments}")
+    validate_assignments(config["resolver_id"], sources, load_assignments(args.assignments))
+  resolver_factory = None
+  calibration_loader = None
+  clock_monitor = None
+  metrics = None
+  refresh_interval_s = 30.0
+  if source_ids:
+    (calibrations, calibration_loader, clock_monitor, metrics,
+     sample_ring_buffer_size, refresh_interval_s) = _prepare_resolver_runtime(
+       args, config, source_ids)
+
+    def resolver_factory(publish):
+      return PTZResolver(
+        calibrations, publish, poll_interval_s,
+        config["max_pose_age_s"], config["max_timestamp_uncertainty_s"],
+        config["target_reprojection_rms_px"], sample_ring_buffer_size,
+        clock_synchronized=clock_monitor.is_synchronized, metrics=metrics)
+
+  def poller_factory(resolver):
+    sink = resolver if resolver is not None else LoggingSampleSink()
+    return create_pollers(config, args.assignments, sink)
+
+  service = PositioningService(
+    config, args.broker, args.brokerauth, args.cert, args.keyfile, args.rootcert,
+    source_ids=source_ids, calibration_loader=calibration_loader,
+    calibration_refresh_interval_s=refresh_interval_s, clock_monitor=clock_monitor,
+    metrics=metrics, resolver_factory=resolver_factory, poller_factory=poller_factory)
+  log.info(f"Configured PTZ sources: {[poller.source_id for poller in service.pollers]}")
+  service.run()
 
 
 if __name__ == "__main__":

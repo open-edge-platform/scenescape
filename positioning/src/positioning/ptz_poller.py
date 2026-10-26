@@ -113,7 +113,7 @@ class MoveEventMonitor:
     if value is None:
       return
     self._set_state(value)
-    log.info(json.dumps({
+    log.debug(json.dumps({
       "record": "ptz_move_event",
       "source_id": self.source_id,
       "is_moving": value,
@@ -186,9 +186,7 @@ class PTZPoller:
       device.close()
       raise
     self.device = device
-    log.info("PTZ source %s connected: profile=%s spaces=%s", self.source_id, device.profile_token,
-             [(space.uri, space.pan_min, space.pan_max, space.tilt_min, space.tilt_max)
-              for space in device.position_spaces])
+    log.info("PTZ source %s connected: profile=%s", self.source_id, device.profile_token)
 
   def disconnect(self):
     if self.device is not None:

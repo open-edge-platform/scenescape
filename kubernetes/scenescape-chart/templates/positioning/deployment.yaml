@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 {{- if .Values.positioning.enabled }}
+{{- if not (has .Values.positioning.logLevel (list "INFO" "DEBUG")) }}
+{{- fail "positioning.logLevel must be INFO or DEBUG" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -10,6 +13,9 @@ metadata:
     app: {{ .Release.Name }}-positioning
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: {{ .Release.Name }}-positioning
@@ -18,6 +24,9 @@ spec:
       labels:
         app: {{ .Release.Name }}-positioning
         {{ include "releaseLabels" . | indent 8 }}
+      annotations:
+        checksum/positioning-config: {{ printf "%s\n%s" (include "positioning.configJson" .) (.Values.positioning.assignments | default dict | toJson) | sha256sum }}
+        positioning.scenescape.intel.com/onvif-credentials-revision: {{ .Values.positioning.onvifCredentials.rolloutRevision | default "" | quote }}
     spec:
       securityContext:
         runAsUser: 1001
@@ -27,6 +36,8 @@ spec:
           image: {{ .Values.repository }}/{{ .Values.positioning.image }}:{{ .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.positioning.pullPolicy }}
           args:
+            - "--log-level"
+            - {{ .Values.positioning.logLevel | quote }}
             - "--broker"
             - "broker.{{ .Release.Namespace }}.svc.cluster.local"
             - "--brokerauth"
@@ -37,6 +48,8 @@ spec:
             - "/run/secrets/certs/scenescape-positioning.key"
             - "--rootcert"
             - "/run/secrets/certs/scenescape-ca.pem"
+            - "--manager-url"
+            - "https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1"
             - "--config"
             - "/app/config/positioning.json"
           env:
@@ -60,6 +73,10 @@ spec:
               mountPath: /app/config/positioning.json
               subPath: positioning.json
               readOnly: true
+            - name: positioning-config
+              mountPath: /app/deployment/positioning-assignments.json
+              subPath: positioning-assignments.json
+              readOnly: true
             - name: positioning-auth
               mountPath: /run/secrets/positioning.auth
               subPath: positioning.auth
@@ -78,6 +95,14 @@ spec:
               readOnly: true
             - name: tmp
               mountPath: /tmp
+            {{- if include "positioning.onvifCredentialsSecretName" . }}
+            - name: onvif-credentials
+              mountPath: {{ include "positioning.onvifCredentialsDir" . }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.positioning.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
       volumes:
         - name: positioning-config
           configMap:
@@ -103,4 +128,12 @@ spec:
                   items:
                     - key: tls.crt
                       path: scenescape-ca.pem
+        {{- if include "positioning.onvifCredentialsSecretName" . }}
+        - name: onvif-credentials
+          secret:
+            secretName: {{ include "positioning.onvifCredentialsSecretName" . }}
+        {{- end }}
+        {{- with .Values.positioning.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
 {{- end }}
