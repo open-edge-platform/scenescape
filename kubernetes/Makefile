@@ -7,10 +7,11 @@ CONTROLLERIMAGE=intel/scenescape-controller
 CLUSTERANALYTICSIMAGE=intel/scenescape-cluster-analytics
 MAPPINGIMAGE=intel/scenescape-mapping
 ANALYTICSIMAGE=intel/scenescape-analytics
+TRACKERIMAGE=intel/scenescape-tracker
 
 # Image groupings for flexible builds
 CORE_IMAGES=$(MANAGERIMAGE) $(CAMCALIBIMAGE) $(CONTROLLERIMAGE) $(ANALYTICSIMAGE)
-ALL_IMAGES=$(CORE_IMAGES) $(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE)
+ALL_IMAGES=$(CORE_IMAGES) $(CLUSTERANALYTICSIMAGE) $(MAPPINGIMAGE) $(TRACKERIMAGE)
 
 VERSION:=$(shell cat ../version.txt)
 NAMESPACE=scenescape
@@ -21,7 +22,7 @@ TEST_FLAGS=
 INSTALL_TIMEOUT?=1800s
 
 ifeq ($(DEPLOYMENT_TEST), 1)
-    TEST_FLAGS=--wait --timeout $(INSTALL_TIMEOUT) --debug
+	TEST_FLAGS=--debug
 endif
 
 KINDREG=kind-registry
@@ -34,12 +35,18 @@ REGISTRY=localhost:$(KINDREGPORT)
 
 RELEASE=scenescape-release-1
 FORCE_VAAPI?=0
-CHART_DEBUG?=0
 
-# Demo mode variable for Kubernetes deployments (core, reid or all)
-DEMO_K8S_MODE?=core
-# ReID vector database backend used when ReID is deployed: vdms (default) or qdrant
+# Compose-profile-style selector shared with the root Makefile's DEPLOY_PROFILES:
+# space-separated list of controller|tracker|mapping|cluster-analytics|reid
+DEPLOY_PROFILES?=controller
+# ReID vector database backend used when "reid" is in DEPLOY_PROFILES: vdms (default) or qdrant
 REID_BACKEND?=vdms
+
+TRACKER_ARG := $(if $(filter tracker,$(DEPLOY_PROFILES)),--set tracker.enabled=true,)
+MAPPING_ARG := $(if $(filter mapping,$(DEPLOY_PROFILES)),--set mapping.enabled=true,)
+CLUSTER_ANALYTICS_ARG := $(if $(filter cluster-analytics,$(DEPLOY_PROFILES)),--set clusterAnalytics.enabled=true,)
+REID_ARG := $(if $(filter reid,$(DEPLOY_PROFILES)),--set reid.enabled=true --set reid.backend=$(REID_BACKEND),--set reid.enabled=false)
+MODE_ARG := $(strip $(TRACKER_ARG) $(MAPPING_ARG) $(CLUSTER_ANALYTICS_ARG) $(REID_ARG))
 
 # Directory with one subdirectory per demo scene (each holding a <name>.zip),
 # and the client that uploads them
@@ -53,10 +60,12 @@ UPLOAD_SCENES:=../tools/upload_scenes/upload-scenes
 
 # Proxy settings: if http_proxy, https_proxy, or no_proxy environment variables are set,
 # they will be automatically passed to the Helm chart during installation
-# Chart debug: set CHART_DEBUG=1 to enable chartdebug=true in Helm deployment
 
 # start kind, then install Scenescape with helm
-default: install-deps clean-kind kind load-core video-source-up install
+# Tracker/mapping/cluster-analytics need their own image (load-all); tracker
+# also has no use for the bundled demo cameras, since it replaces the Scene
+# Controller entirely.
+default: check-deploy-profiles install-deps clean-kind kind $(if $(filter tracker mapping cluster-analytics,$(DEPLOY_PROFILES)),load-all,load-core) $(if $(filter tracker,$(DEPLOY_PROFILES)),,video-source-up) install
 
 # publish to ITEP by building, packaging, then pushing
 build-and-package: build-core package
@@ -216,6 +225,7 @@ load-core:
 load-all: load-core
 	$(MAKE) load-image IMAGE=$(CLUSTERANALYTICSIMAGE)
 	$(MAKE) load-image IMAGE=$(MAPPINGIMAGE)
+	$(MAKE) load-image IMAGE=$(TRACKERIMAGE)
 
 SERVICES := $(patsubst scenescape-%,%,$(ALL_IMAGES))
 .PHONY: $(SERVICES)
@@ -250,11 +260,21 @@ copy-files:
 	cp ../model_download/models.json scenescape-chart/files/model-download/models.json
 
 
-check-demo-k8s-mode:
-	@case "$(DEMO_K8S_MODE)" in \
-	  core|reid|all) ;; \
-	  *) echo "Invalid DEMO_K8S_MODE '$(DEMO_K8S_MODE)'. Use core, reid or all."; exit 1 ;; \
-	esac
+.PHONY: check-deploy-profiles
+check-deploy-profiles:
+	@for profile in $(DEPLOY_PROFILES); do \
+		case "$$profile" in \
+		  controller|tracker|mapping|cluster-analytics|reid) ;; \
+		  *) echo "Invalid DEPLOY_PROFILES token '$$profile'. Use any of: controller tracker mapping cluster-analytics reid."; exit 1 ;; \
+		esac; \
+	done
+	@if [ -n "$(filter tracker,$(DEPLOY_PROFILES))" ] && [ -n "$(filter reid,$(DEPLOY_PROFILES))" ]; then \
+		echo "DEPLOY_PROFILES cannot include both tracker and reid: ReID requires the Scene Controller, which Tracker replaces."; \
+		exit 1; \
+	fi
+
+.PHONY: check-reid-backend
+check-reid-backend:
 	@case "$(REID_BACKEND)" in \
 	  vdms|qdrant) ;; \
 	  *) echo "Invalid REID_BACKEND '$(REID_BACKEND)'. Use vdms or qdrant."; exit 1 ;; \
@@ -282,49 +302,34 @@ demo-scenes:
 # to test template rendering
 # helm template -s templates/ingress.yaml kubernetes/scenescape-chart/
 # helm install scenescape-release-1 kubernetes/scenescape-chart/ --dry-run --debug
-install: check-demo-k8s-mode copy-files chart.yaml
-	@VALUES_FILE=""; \
-	if [ -n "$(http_proxy)" ] || [ -n "$(https_proxy)" ]; then \
-		VALUES_FILE="/tmp/scenescape-proxy-values.yaml"; \
-		if [ -n "$(http_proxy)" ]; then \
-			echo "httpProxy: \"$(http_proxy)\"" >> $$VALUES_FILE; \
-		fi; \
-		if [ -n "$(https_proxy)" ]; then \
-			echo "httpsProxy: \"$(https_proxy)\"" >> $$VALUES_FILE; \
-		fi; \
-		if [ -n "$(no_proxy)" ]; then \
-			echo "noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
-		fi; \
-		VALUES_FILE="-f $$VALUES_FILE"; \
+install: check-deploy-profiles check-reid-backend copy-files chart.yaml
+	@VALUES_FILE=$$(mktemp); \
+	trap 'rm -f "$$VALUES_FILE"' EXIT; \
+	if [ -n "$(http_proxy)" ]; then \
+		echo "httpProxy: \"$(http_proxy)\"" >> $$VALUES_FILE; \
 	fi; \
-	DEBUG_ARGS=""; \
-	if [ "$(CHART_DEBUG)" = "1" ]; then \
-		DEBUG_ARGS="--set chartdebug=true"; \
+	if [ -n "$(https_proxy)" ]; then \
+		echo "httpsProxy: \"$(https_proxy)\"" >> $$VALUES_FILE; \
 	fi; \
-	SUPASS_ARG=""; \
+	if [ -n "$(no_proxy)" ]; then \
+		echo "noProxy: \"$(no_proxy)\"" >> $$VALUES_FILE; \
+	fi; \
 	if [ -n "$${SUPASS}" ]; then \
-		SUPASS_ARG="--set supass=$${SUPASS}"; \
+		printf "supass: '%s'\n" "$$(printf '%s' "$${SUPASS}" | sed "s/'/''/g")" >> $$VALUES_FILE; \
 	fi; \
-	PGPASS_ARG=""; \
 	if [ -n "$${PGPASS}" ]; then \
-		PGPASS_ARG="--set pgserver.password=$${PGPASS}"; \
+		printf "pgserver:\n  password: '%s'\n" "$$(printf '%s' "$${PGPASS}" | sed "s/'/''/g")" >> $$VALUES_FILE; \
 	fi; \
 	ALLOWED_HOSTS_ARG=""; \
 	if [ -n "$${SCENESCAPE_ALLOWED_HOSTS}" ]; then \
 		ALLOWED_HOSTS_ARG="--set web.allowedHosts=$${SCENESCAPE_ALLOWED_HOSTS}"; \
 	fi; \
-	MODE_ARG="--set reid.enabled=false"; \
-	if [ "$(DEMO_K8S_MODE)" = "reid" ]; then \
-		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND)"; \
-	elif [ "$(DEMO_K8S_MODE)" = "all" ]; then \
-		MODE_ARG="--set reid.enabled=true --set reid.backend=$(REID_BACKEND) --set mapping.enabled=true --set clusterAnalytics.enabled=true"; \
-	fi; \
 	REPOSITORY_ARG="--set repository=$(REGISTRY)"; \
-	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${DEBUG_ARGS} $${REPOSITORY_ARG} $${SUPASS_ARG} $${PGPASS_ARG} $${ALLOWED_HOSTS_ARG} $${MODE_ARG} $${VALUES_FILE} $(TEST_FLAGS);
-	@if [ -f "/tmp/scenescape-proxy-values.yaml" ]; then \
-		rm -f /tmp/scenescape-proxy-values.yaml; \
+	helm upgrade $(RELEASE) --install scenescape-chart/ -n $(NAMESPACE) --create-namespace --timeout $(INSTALL_TIMEOUT) $${REPOSITORY_ARG} $${ALLOWED_HOSTS_ARG} $(MODE_ARG) --values "$$VALUES_FILE" $(TEST_FLAGS);
+	kubectl rollout status deployment/$(RELEASE)-web-dep -n $(NAMESPACE) --timeout=$(INSTALL_TIMEOUT)
+	@if [ -z "$(strip $(filter tracker,$(DEPLOY_PROFILES)))" ]; then \
+		$(MAKE) demo-scenes; \
 	fi
-	$(MAKE) demo-scenes
 
 uninstall:
 	helm uninstall $(RELEASE) -n $(NAMESPACE) || true
@@ -345,7 +350,7 @@ wait-for-ready:
 rebuild: rebuild-demo
 
 rebuild-demo:
-	@if [ "$(DEMO_K8S_MODE)" = "all" ]; then \
+	@if [ -n "$(strip $(filter tracker mapping cluster-analytics,$(DEPLOY_PROFILES)))" ]; then \
 		$(MAKE) rebuild-all; \
 	else \
 		$(MAKE) rebuild-core; \
@@ -354,6 +359,3 @@ rebuild-demo:
 rebuild-core: uninstall delete-namespace build-core install
 
 rebuild-all: uninstall delete-namespace build-all install
-
-test:
-	@helm test $(RELEASE) -n $(NAMESPACE) --timeout 240s

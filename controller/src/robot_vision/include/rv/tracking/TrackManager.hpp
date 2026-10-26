@@ -15,6 +15,12 @@
 namespace rv {
 namespace tracking {
 
+// Kalman filter settings of the Scene Controller and the Tracker service.
+constexpr double kProductionProcessNoise = 1e-4;
+constexpr double kProductionMeasurementNoise = 0.2;
+constexpr double kProductionInitStateCovariance = 1.0;
+inline const std::vector<MotionModel> kProductionMotionModels{MotionModel::CV, MotionModel::CA, MotionModel::CTRV};
+
 struct TrackManagerConfig
 {
   uint32_t mNonMeasurementFramesDynamic{15};

@@ -8,6 +8,22 @@ For high-level design, goals, SLIs, and observability details, see [Design Docum
 
 ---
 
+## Bounding Box Projection
+
+For each pixel bounding box, the tracker undistorts its top-left and bottom-right
+corners in one batch across detections. These two points define a rectangle in
+normalized image coordinates. The tracker projects that rectangle's bottom-center
+to the ground plane for the foot position; its bottom-left, bottom-right,
+and top-left determine object width and height. The foot is then shifted away
+from the camera by half the estimated object width to approximate the center
+of the object's footprint.
+
+For TYPE_2 objects, the tracker uses the projected bottom corners to calculate
+the base angle, then shifts the foot up within the normalized (undistorted)
+bounding box and projects that shifted point, matching Controller `camLoc`.
+
+---
+
 ## Time-Chunk Processing Pipeline
 
 The tracker aggregates detections into fixed time intervals (chunks) before processing. This enables multi-camera fusion, improves tracker efficiency, and decouples camera FPS from output rate.
@@ -289,6 +305,33 @@ struct Track {
     std::string metadata_json;          // Per-field fused detection metadata
 };
 ```
+
+### Manager asset cache and velocity orientation
+
+API-backed startup authenticates once, fetches scenes, and fetches
+`/api/v1/assets`. Each asset is parsed into a category-keyed `ObjectClassConfig`
+(`shift_type`, footprint size, and the `rotation_from_velocity` Boolean; a
+missing, null, or non-Boolean value disables it). The `ObjectClassMap` is passed
+to the `TimeChunkScheduler`, which resolves `TrackingScope.category` for each
+lazily created `TrackingWorker`. File-backed scene configuration has no Manager
+asset catalog, so velocity orientation remains disabled unless a future local
+asset source is added.
+
+When enabled for a category, each worker keeps orientation state per
+RobotVision track ID. The state turns on when planar speed is strictly greater
+than `kRotationSpeedThresholdOn m/s`, remains on while speed is strictly greater than
+`kRotationSpeedThresholdOff m/s`, and turns off at or below `kRotationSpeedThresholdOff m/s`.
+While off, the last valid quaternion is retained. The heading is `atan2(vy, vx)` and
+is serialized as a Z-axis quaternion. Asset changes are picked up through the existing API database
+update restart path.
+
+Detector-supplied orientation is not supported. Camera detections carry only
+`bounding_box_px`; any `rotation` field is ignored, and RobotVision measurements
+are created with `yaw = 0` and without the `has_orientation` attribute.
+Published rotation is therefore identity, or the velocity heading when
+`rotation_from_velocity` is enabled. The Scene Controller rule that detector or
+orienting-sensor yaw takes precedence over velocity heading
+(`ilabs_tracking.py` `to_rv_object` / `from_tracked_object`) is not ported.
 
 ### ObservabilityContext
 

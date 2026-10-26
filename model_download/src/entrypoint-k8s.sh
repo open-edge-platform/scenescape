@@ -17,10 +17,12 @@ MODEL_DOWNLOADER_WAIT_TIMEOUT=${MODEL_DOWNLOADER_WAIT_TIMEOUT:-720}
 
 mkdir -p "${MODEL_DIR}"
 
-# The model_downloader image stores downloaded files under /opt/models. Keep the existing
-# Scenescape PVC layout by pointing /opt/models to the models subdirectory on the PVC.
-rm -rf /opt/models
-ln -s "${MODEL_DIR}" /opt/models
+# The model_downloader image stores files under /opt/models. Directly mounted
+# model directories cannot be replaced with a symlink, so only link when needed.
+if [[ "${MODEL_DIR}" != "/opt/models" ]]; then
+  rm -rf /opt/models
+  ln -s "${MODEL_DIR}" /opt/models
+fi
 
 read -r -a downloader_args <<< "${MODEL_DOWNLOADER_ARGS}"
 echo "Starting model_downloader service: /opt/entrypoint.sh ${MODEL_DOWNLOADER_ARGS}"

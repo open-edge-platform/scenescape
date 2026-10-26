@@ -246,12 +246,10 @@ class IntelLabsTracking(Tracking):
     self.ref_camera_frame_rate = effective_object_update_rate
     tracker_config = rv.tracking.TrackManagerConfig()
 
-    tracker_config.default_process_noise = 1e-4
-    tracker_config.default_measurement_noise = 2e-1
-    tracker_config.init_state_covariance = 1
-
-    tracker_config.motion_models = [rv.tracking.MotionModel.CV, rv.tracking.MotionModel.CA,
-                                    rv.tracking.MotionModel.CTRV]
+    tracker_config.default_process_noise = rv.tracking.PRODUCTION_PROCESS_NOISE
+    tracker_config.default_measurement_noise = rv.tracking.PRODUCTION_MEASUREMENT_NOISE
+    tracker_config.init_state_covariance = rv.tracking.PRODUCTION_INIT_STATE_COVARIANCE
+    tracker_config.motion_models = list(rv.tracking.PRODUCTION_MOTION_MODELS)
 
     if self.check_valid_time_parameters(max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
       tracker_config.max_unreliable_time = max_unreliable_time
@@ -348,10 +346,6 @@ class IntelLabsTracking(Tracking):
       rv_object.yaw = 0.0
     rv_object.classification = self.rv_classification(sscape_object.confidence)
     attributes.update(self.metadata_to_attributes(sscape_object.metadata))
-    camera = getattr(sscape_object, 'camera', None)
-    camera_id = getattr(camera, 'cameraID', None) or getattr(camera, 'uid', None)
-    if camera_id is not None:
-      attributes['camera_id'] = str(camera_id)
     rv_object.attributes = attributes
     return rv_object
 

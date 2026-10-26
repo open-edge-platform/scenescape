@@ -171,10 +171,10 @@ From the repository root, `make demo-k8s` follows the same tiers as the Compose
 demo:
 
 ```bash
-make demo-k8s                                        # core services, no ReID
-make demo-k8s DEMO_K8S_MODE=reid                     # core plus ReID (VDMS)
-make demo-k8s DEMO_K8S_MODE=reid REID_BACKEND=qdrant # core plus ReID (Qdrant)
-make demo-k8s DEMO_K8S_MODE=all                      # ReID plus mapping and cluster analytics
+make demo-k8s                                           # core services, no ReID
+make demo-k8s DEPLOY_PROFILES=reid                      # core plus ReID (VDMS)
+make demo-k8s DEPLOY_PROFILES=reid REID_BACKEND=qdrant  # core plus ReID (Qdrant)
+make demo-k8s DEPLOY_PROFILES="controller mapping cluster-analytics reid"  # ReID plus mapping and cluster analytics
 ```
 
 **Expected Result**: The Scene Controller connects to Qdrant, creates or verifies the ReID collection, and continues UUID assignment via visual similarity.

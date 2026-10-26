@@ -15,7 +15,11 @@
 #include <rv/tracking/OrientationAttributes.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
+#include "support/TestUtils.hpp"
+
 namespace {
+
+using rv::tracking::test::atMs;
 
 rv::tracking::TrackedObject makeDetection(double x, double y, double yaw, bool hasOrientation,
                                           double confidence = 1.0)
@@ -48,11 +52,6 @@ rv::tracking::MultipleObjectTracker makeTracker()
   config.mDefaultProcessNoise = 1e-4;
   config.mDefaultMeasurementNoise = 1e-4;
   return rv::tracking::MultipleObjectTracker(config);
-}
-
-std::chrono::system_clock::time_point atMs(int milliseconds)
-{
-  return std::chrono::system_clock::time_point(std::chrono::milliseconds(milliseconds));
 }
 
 } // namespace
@@ -99,27 +98,24 @@ TEST(OrientationFusionTest, BatchedFusePrefersOrientingYawOverLastCamera)
   EXPECT_TRUE(rv::tracking::orientation::orientationObserved(tracks[0]));
 }
 
-TEST(OrientationFusionTest, StreamingFusePreservesOrientingYaw)
+TEST(OrientationFusionTest, BirthClusteringPicksGlobalOrientingYawWinner)
 {
+  // The most confident orienting detection across all cameras sets the birth yaw,
+  // even when a less confident one joins the cluster after it.
   auto tracker = makeTracker();
-  const double lidarYaw = 1.2;
-  auto lidar = makeDetection(0.0, 0.0, lidarYaw, true);
-  lidar.attributes["camera_id"] = "lidar";
-  auto camera = makeDetection(0.05, 0.0, 0.0, false);
-  camera.attributes["camera_id"] = "camera";
+  const double winnerYaw = 1.2;
+  std::vector<std::vector<rv::tracking::TrackedObject>> batch = {
+    {makeDetection(0.0, 0.0, 0.3, true, 0.6)},
+    {makeDetection(0.02, 0.0, winnerYaw, true, 0.9)},
+    {makeDetection(0.04, 0.0, 2.0, true, 0.7)},
+  };
 
-  // Alternate inside the streaming hold window so every update sees the other sensor cached.
-  for (int i = 0; i < 20; ++i)
-  {
-    tracker.track({(i % 2 == 0) ? lidar : camera}, atMs(10 + 50 * i));
-  }
+  tracker.track(batch, atMs(10));
 
   auto tracks = tracker.getReliableTracks();
   ASSERT_EQ(tracks.size(), 1u);
-  EXPECT_NEAR(tracks[0].x, 0.5 * (lidar.x + camera.x), 0.02);
-  EXPECT_NEAR(tracks[0].yaw, lidarYaw, 0.1);
-  EXPECT_TRUE(rv::tracking::orientation::orientationObserved(tracks[0]));
-  EXPECT_FALSE(rv::tracking::orientation::hasOrientation(tracks[0]));
+  EXPECT_NEAR(tracks[0].yaw, winnerYaw, 1e-6);
+  EXPECT_TRUE(rv::tracking::orientation::hasOrientation(tracks[0]));
 }
 
 TEST(OrientationFusionTest, OrientationAttributeHelpers)

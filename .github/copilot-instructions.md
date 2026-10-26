@@ -118,11 +118,12 @@ Sensors → MQTT (broker) → Scene Controller → Manager/Web UI
 make build-core                    # Default: core services (autocalibration, controller, manager, analytics)
 make build-all                     # All services (adds mapping, cluster_analytics, tracker)
 make rebuild-core                  # Clean + build (useful after code changes)
+make deploy                        # Start Compose stack; DEPLOY_PROFILES selects profiles (default: controller)
 ```
 
 **Configuration** via environment/Makefile variables:
 
-- `SUPASS`: Super user password (required for demos)
+- `SUPASS`: Super user password (required for `make deploy` and the demo targets)
 - `COMPOSE_PROJECT_NAME`: Container name prefix (default: `scenescape`)
 - `BUILD_DIR`: Output folder for logs, dependency lists
 - `CERTDOMAIN`: Certificate domain (default: `scenescape.intel.com`)
@@ -234,8 +235,9 @@ pubsub.publish(topic, json_payload)
 
 - Helm chart: `kubernetes/scenescape-chart/`
 - Reference: `kubernetes/README.md` for K8s-specific patterns
-- Test via `make demo-k8s DEMO_K8S_MODE=core|reid|all`
+- Test via `make demo-k8s DEPLOY_PROFILES="controller|tracker|mapping|cluster-analytics|reid"` (space-separated, same variable as the Compose `deploy` target, default: `controller`)
 - ReID backend selected by `reid.backend` (`vdms`|`qdrant`), or `REID_BACKEND` for the make targets
+- `tracker.enabled=true` deploys Tracker + Analytics and omits the Scene Controller
 
 ## File Organization Essentials
 
@@ -275,6 +277,7 @@ This skill contains:
 
 - `docs/user-guide/microservices/<service>/<service>.md` - Features and API endpoints
 - `docs/user-guide/microservices/<service>/get-started/build-from-source.md` - Build instructions
+- `docs/user-guide/how-to-guides/deployment/` - Image preparation and deployment guides (Docker, Kubernetes, demo)
 - `<service>/README.md` - Quick start
 - `docs/user-guide/` - Cross-service documentation
 

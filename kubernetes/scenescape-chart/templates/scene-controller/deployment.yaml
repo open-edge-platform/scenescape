@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+{{- if not .Values.tracker.enabled }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -18,6 +19,9 @@ spec:
       labels:
         app: {{ .Release.Name }}-scene
         {{ include "releaseLabels" . | indent 8 }}
+      annotations:
+        checksum/tracker-config: {{ .Files.Get "files/scene-controller/tracker-config.json" | sha256sum }}
+        checksum/reid-config: {{ .Files.Get "files/scene-controller/reid-config.json" | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true
@@ -143,3 +147,4 @@ spec:
         configMap:
           name: {{ .Release.Name }}-reid-config
 status: {}
+{{- end }}

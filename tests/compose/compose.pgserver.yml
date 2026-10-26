@@ -6,7 +6,7 @@ networks:
 
 services:
   pgserver:
-    image: postgres:17.6
+    image: postgres:18.4
     environment:
       POSTGRES_USER: scenescape
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
@@ -14,7 +14,7 @@ services:
     networks:
       - scenescape-test
     volumes:
-      - vol-db:/var/lib/postgresql/data
+      - vol-db:/var/lib/postgresql
 
 volumes:
   vol-db:

@@ -75,9 +75,6 @@ target_compile_definitions(tracker_tests
         TRACKER_CONFIG_DIR="${PROJECT_SOURCE_DIR}/config"
 )
 
-# Use C++20 standard (required for tracking_types.hpp)
-target_compile_features(tracker_tests PRIVATE cxx_std_20)
-
 target_link_libraries(tracker_tests
     PRIVATE
         GTest::gtest

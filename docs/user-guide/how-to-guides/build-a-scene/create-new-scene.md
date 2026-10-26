@@ -99,6 +99,8 @@ There are other methods of determining pixels per meter, such as measuring the d
 
 > **Note:** Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Scenescape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
 
+When generating a top-down preview for an uploaded GLB, Scenescape scales oversized textures for the preview only. The scene map retains its full-resolution textures.
+
 ##### Scene floor plan example
 
 Consider this sample parking lot floor plan image that is modeled off of a [parking lot at Intel Corporation](https://www.google.com/maps/@37.3882958,-121.9644111,44m/data=!3m1!1e3):
@@ -111,7 +113,7 @@ Using a mapping tool, it is possible to measure various distances between points
 
 ##### Adding the new scene and cameras
 
-From the Scenescape working directory on the scene controller, bring up the system with the new configuration (see [Docker Compose Profiles](../../get-started/installation.md#docker-compose-profiles) for details on choosing profiles):
+From the Scenescape working directory on the scene controller, bring up the system with the new configuration (see [Docker Compose Profiles](../deployment/deploy-docker.md#docker-compose-profiles) for details on choosing profiles):
 
 ```bash
 docker compose --profile controller up

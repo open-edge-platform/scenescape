@@ -88,6 +88,19 @@ analytics:
   # regulated, unregulated, or none
   visibilityTopic: regulated
 
+tracker:
+  enabled: false
+  image: intel/scenescape-tracker
+  pullPolicy: IfNotPresent
+  logLevel: info
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "2"
+      memory: 512Mi
+
 autocalibration:
   image: intel/scenescape-autocalibration
   pullPolicy: IfNotPresent
@@ -106,7 +119,7 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.3.0-20260929-weekly-ubuntu24"
+    tag: "2026.3.0-20261006-weekly-ubuntu24"
     pullPolicy: IfNotPresent
 
 models:
@@ -147,7 +160,7 @@ clusterAnalytics:
 mapping:
   enabled: false
   image: intel/scenescape-mapping
-  model: mapanything # one of [mapanything, vggt]
+  model: "" # one of [mapanything, vggt], empty value uses mapanything
   pullPolicy: IfNotPresent
 
 # Used as init container in some deployments to wait for dependent services
@@ -175,7 +188,6 @@ migrations:
 # PVC
 pvc:
   storageClassName: ""
-  hookWeight: "0"
 
 # External access
 service:
@@ -214,13 +226,8 @@ certdomain: ""
 supass: ""
 dbroot: ""
 debug: false
-chartdebug: false
 
 # Proxy configuration
 httpProxy: ""
 httpsProxy: ""
 noProxy: "localhost,127.0.0.1,.local,.svc,.cluster.local,10.244.0.0/16,10.96.0.0/12"
-
-# disable pre-install and post-install hooks for cluster compatibility
-hooks:
-  enabled: true
