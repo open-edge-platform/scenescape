@@ -32,7 +32,6 @@ SAVE_BUTTON = (
   SCENE_FOLDER_XPATH + "//button[.//div[@class='name' and normalize-space()='save']]",
 )
 
-
 def open_scene_controls(browser: Browser) -> None:
   """Expand Scene Settings and its Pose folder after the GLB finishes loading."""
   WebDriverWait(browser, PANEL_WAIT_SEC).until(
