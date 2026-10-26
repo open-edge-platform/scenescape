@@ -1148,7 +1148,8 @@ class OsmRois(APIView):
     try:
       to_create, seen_uuids = _validate_rois(rois)
     except _RoiValidationError as e:
-      return JsonResponse({'error': str(e)}, status=400)
+      log.warning(f"Rejected invalid OSM ROI payload: {e}")
+      return JsonResponse({'error': 'Invalid roi in request'}, status=400)
 
     # Additive only: never overwrite an existing region through a reused uuid.
     existing = Region.objects.filter(uuid__in=seen_uuids).values_list('uuid', flat=True)
