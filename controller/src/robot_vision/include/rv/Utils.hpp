@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <stdint.h>
 #include <algorithm>
+#include <numbers>
 #include <stdexcept>
 
 namespace rv {
@@ -72,7 +73,7 @@ inline double chi2Cdf3(double x)
     return 0.0;
   }
   const double s = std::sqrt(x / 2.0);
-  return std::erf(s) - std::sqrt(2.0 * x / M_PI) * std::exp(-x / 2.0);
+  return std::erf(s) - std::sqrt(2.0 * x / std::numbers::pi) * std::exp(-x / 2.0);
 }
 
 /**
@@ -80,6 +81,7 @@ inline double chi2Cdf3(double x)
  *
  * For k=2: Q(p) = -2 * ln(1 - p).  E.g. p=0.99 -> ~9.21.
  * For k=3: numerical inverse of the χ²(3) CDF.  E.g. p=0.99 -> ~11.34.
+ *      The last result is cached per thread, since callers pass the same probability every frame.
  */
 inline double chi2Threshold(double gate_probability, int degrees_of_freedom = 2)
 {
@@ -90,6 +92,12 @@ inline double chi2Threshold(double gate_probability, int degrees_of_freedom = 2)
   }
   if (degrees_of_freedom == 3)
   {
+    thread_local double cachedProbability = -1.0;
+    thread_local double cachedThreshold = 0.0;
+    if (gate_probability == cachedProbability)
+    {
+      return cachedThreshold;
+    }
     double lo = 0.0;
     double hi = 1.0;
     while (chi2Cdf3(hi) < gate_probability)
@@ -108,7 +116,9 @@ inline double chi2Threshold(double gate_probability, int degrees_of_freedom = 2)
         hi = mid;
       }
     }
-    return 0.5 * (lo + hi);
+    cachedProbability = gate_probability;
+    cachedThreshold = 0.5 * (lo + hi);
+    return cachedThreshold;
   }
   throw std::invalid_argument("chi2Threshold: only 2 or 3 degrees of freedom supported");
 }
