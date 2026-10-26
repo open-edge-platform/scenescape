@@ -18,8 +18,8 @@ namespace {
 using rv::tracking::TrackedObject;
 namespace idx = rv::tracking::test::idx;
 
-const int kStateSize = TrackedObject::StateSize;
-const int kMeasurementSize = TrackedObject::MeasurementSize;
+constexpr int kStateSize = TrackedObject::StateSize;
+constexpr int kMeasurementSize = TrackedObject::MeasurementSize;
 constexpr double kDeltaT = 0.1;
 
 // Same UKF parameters as MultiModelKalmanEstimator.

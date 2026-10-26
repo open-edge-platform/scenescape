@@ -53,8 +53,8 @@ class TrackedObject
 public:
   TrackedObject();
 
-  static const int StateSize;
-  static const int MeasurementSize;
+  static constexpr int StateSize = 13;
+  static constexpr int MeasurementSize = 7;
 
   Id id = InvalidObjectId;
 
@@ -126,7 +126,9 @@ public:
   cv::Mat measurementVector() const;
 };
 
-
+static_assert(TrackedObject::StateSize == StateIndex::YAW_RATE + 1, "StateSize must match the StateIndex layout");
+static_assert(TrackedObject::MeasurementSize == MeasurementIndex::YAW + 1,
+              "MeasurementSize must match the MeasurementIndex layout");
 
 } // namespace tracking
 } // namespace rv

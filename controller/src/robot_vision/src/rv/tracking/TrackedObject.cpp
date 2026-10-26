@@ -6,11 +6,6 @@
 namespace rv {
 namespace tracking {
 
-// State: [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
-const int TrackedObject::StateSize = 13;
-// Measurement: [x, y, z, length, width, height, yaw]
-const int TrackedObject::MeasurementSize = 7;
-
 TrackedObject::TrackedObject()
 {
   classification = Classification::Constant(1,1.0);
