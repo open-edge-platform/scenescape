@@ -1,37 +1,71 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-{{- if and .Values.hooks.enabled .Values.modelDownload.enabled }}
-{{- if not (kindIs "bool" .Values.modelDownload.parallelDownloads) }}
-{{- fail "modelDownload.parallelDownloads must be a boolean (true or false)" }}
-{{- end }}
-{{- if not .Values.modelDownload.commandArgs }}
-{{- fail "modelDownload.commandArgs cannot be empty" }}
-{{- end }}
+{{- if .Values.modelDownload.enabled }}
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ .Release.Name }}-model-download
-  annotations:
-    "helm.sh/hook": pre-install
-    "helm.sh/hook-weight": "2"
-    {{- if not .Values.chartdebug }}
-    "helm.sh/hook-delete-policy": hook-succeeded
-    {{- end }}
+  name: {{ include "modelDownload.jobName" . }}
+  labels:
+    app: {{ .Release.Name }}-model-download
+    {{ include "releaseLabels" . | indent 4 }}
 spec:
+  backoffLimit: 3
   template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-model-download
+        {{ include "releaseLabels" . | indent 8 }}
     spec:
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
         fsGroup: 1000
-      containers:
-      - command: ["/bin/bash", "-c"]
-        args:
-        - |
-          {{ .Files.Get "files/model-download/entrypoint-k8s.sh" | nindent 10 }}
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchLabels:
+                app: {{ .Release.Name }}-web
+            topologyKey: kubernetes.io/hostname
+      initContainers:
+      - name: prepare-model-downloader
         image: {{ .Values.modelDownload.image.repository }}/{{ .Values.modelDownload.image.name }}:{{ .Values.modelDownload.image.tag }}
         imagePullPolicy: {{ .Values.modelDownload.image.pullPolicy }}
-        name: {{ .Release.Name }}-model-download-container
+        command: ["/bin/sh", "-c", "mkdir -p /workspace/models-storage/models && cp -R /opt/. /workspace/opt/"]
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        volumeMounts:
+        - mountPath: /workspace/models-storage
+          name: models-storage
+        - mountPath: /workspace/opt
+          name: opt
+      containers:
+      - name: {{ .Release.Name }}-model-download
+        command: ["/bin/bash", "-c"]
+        args:
+        - |
+          set -euo pipefail
+          marker=/workspace/models-storage/.model-download-config-hash
+          if [ -f "$marker" ] && [ "$(cat "$marker")" = "$MODEL_DOWNLOAD_CONFIG_HASH" ]; then
+            echo "Model download configuration is unchanged; skipping download."
+            exit 0
+          fi
+          /bin/bash /workspace/model-download/entrypoint-k8s.sh
+          printf '%s\n' "$MODEL_DOWNLOAD_CONFIG_HASH" > "$marker"
+        image: {{ .Values.modelDownload.image.repository }}/{{ .Values.modelDownload.image.name }}:{{ .Values.modelDownload.image.tag }}
+        imagePullPolicy: {{ .Values.modelDownload.image.pullPolicy }}
         env:
           - name: HF_HUB_ENABLE_HF_TRANSFER
             value: "1"
@@ -40,9 +74,11 @@ spec:
           - name: MODEL_DOWNLOADER_URL
             value: "http://127.0.0.1:8000"
           - name: MODEL_DIR
-            value: "/workspace/models-storage/models"
+            value: "/opt/models"
           - name: MODEL_CONFIG_FILE
             value: "/workspace/model-download/models.json"
+          - name: MODEL_DOWNLOAD_CONFIG_HASH
+            value: {{ include "modelDownload.configHash" . | quote }}
           - name: PARALLEL_DOWNLOADS
             value: {{ .Values.modelDownload.parallelDownloads | quote }}
           - name: MODEL_DOWNLOADER_INITIAL_WAIT_TIMEOUT
@@ -50,25 +86,47 @@ spec:
           - name: MODEL_DOWNLOADER_WAIT_TIMEOUT
             value: {{ .Values.modelDownload.waitTimeout | quote }}
           {{ include "proxy_envs" . | indent 10 }}
+          - name: HOME
+            value: /tmp
+          - name: TMPDIR
+            value: /tmp
         resources:
           {{- toYaml .Values.modelDownload.resources | nindent 10 }}
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
         volumeMounts:
         - mountPath: /workspace/models-storage
           name: models-storage
+        - mountPath: /opt
+          name: opt
+        - mountPath: /opt/models
+          name: models-storage
+          subPath: models
         - mountPath: /workspace/model-download
           name: model-download-code
+        - mountPath: /tmp
+          name: tmp
       restartPolicy: Never
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       volumes:
+      - name: opt
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}
       - name: models-storage
         persistentVolumeClaim:
           claimName: {{ .Release.Name }}-models-pvc
       - name: model-download-code
         configMap:
           name: {{ .Release.Name }}-model-download
-  backoffLimit: 3
 {{- end }}
-

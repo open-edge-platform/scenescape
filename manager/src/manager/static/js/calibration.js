@@ -90,12 +90,34 @@ async function registerScene(sceneId) {
   }
 }
 
+function clearRegistrationRetry(btn) {
+  if (btn) {
+    delete btn.dataset.registrationRetry;
+  }
+}
+
+function isPermanentRegistrationFailure(message) {
+  // Insufficient tags (and similar) cannot be fixed by re-POSTing registration.
+  return /cannot auto calibrate/i.test(message || "");
+}
+
+async function requestSceneRegistration(scene_id) {
+  try {
+    const response = await registerScene(scene_id);
+    if (response) {
+      await manageCalibrationState(response, scene_id);
+    }
+  } catch (error) {
+    await manageCalibrationState(
+      { status: "error", message: error.message },
+      scene_id,
+    );
+  }
+}
+
 async function initializeCalibration(scene_id, socket) {
   socket.on("service_ready", (notification) => {
     console.log("Calibration service is ready:", notification);
-    if (document.getElementById("lock_distortion_k1")) {
-      document.getElementById("lock_distortion_k1").style.visibility = "hidden";
-    }
 
     calibration_strategy = document.getElementById("calib_strategy").value;
 
@@ -110,13 +132,16 @@ async function initializeCalibration(scene_id, socket) {
 }
 
 async function registerAutoCameraCalibration(scene_id, socket) {
-  if (document.getElementById("auto-autocalibration")) {
-    document.getElementById("auto-autocalibration").disabled = true;
-    document.getElementById("auto-autocalibration").title =
-      "Initializing auto camera calibration";
+  const btn = document.getElementById("auto-autocalibration");
+  if (btn) {
+    clearRegistrationRetry(btn);
+    btn.disabled = true;
+    btn.title = "Initializing auto camera calibration";
     document.getElementById("calib-spinner").classList.remove("hide-spinner");
   }
 
+  // Replace any prior handler so retries do not stack listeners.
+  socket.off("register_result");
   socket.on("register_result", async (notification) => {
     await manageCalibrationState(notification.data, scene_id);
   });
@@ -124,63 +149,60 @@ async function registerAutoCameraCalibration(scene_id, socket) {
   // The registration POST resolves synchronously with an error when the scene
   // map wasn't just updated, in which case no "register_result" socket event
   // is ever emitted, so the response must be handled here too.
-  try {
-    const response = await registerScene(scene_id);
-    if (response) {
-      await manageCalibrationState(response, scene_id);
-    }
-  } catch (error) {
-    await manageCalibrationState(
-      { status: "error", message: error.message },
-      scene_id,
-    );
-  }
+  await requestSceneRegistration(scene_id);
 }
 
 async function manageCalibrationState(msg, scene_id) {
-  if (document.getElementById("auto-autocalibration")) {
+  const btn = document.getElementById("auto-autocalibration");
+  if (btn) {
     if (msg.status == "registering") {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
-      document.getElementById("auto-autocalibration").title =
-        "Registering the scene";
+      clearRegistrationRetry(btn);
+      btn.disabled = true;
+      btn.title = "Registering the scene";
     } else if (msg.status == "busy") {
       document.getElementById("calib-spinner").classList.remove("hide-spinner");
-      document.getElementById("auto-autocalibration").disabled = true;
+      clearRegistrationRetry(btn);
+      btn.disabled = true;
+      // REST uses sceneId; older socket payloads may still send scene_id.
+      const busySceneId = msg?.sceneId ?? msg?.scene_id;
+      const busySceneName = msg?.sceneName ?? msg?.scene_name;
       var button_message =
-        msg?.scene_id == scene_id
+        busySceneId == scene_id
           ? "Scene updated, Registering the scene"
-          : "Unavailable, registering scene : " + msg?.scene_name;
-      document.getElementById("auto-autocalibration").title = button_message;
+          : busySceneName
+            ? "Unavailable, registering scene : " + busySceneName
+            : "Unavailable, another scene is registering";
+      btn.title = button_message;
     } else if (msg.status == "success") {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
+      clearRegistrationRetry(btn);
       if (calibration_strategy == "Markerless") {
-        document.getElementById("auto-autocalibration").title =
-          "Go to 3D view for Markerless auto camera calibration.";
+        btn.title = "Go to 3D view for Markerless auto camera calibration.";
       } else {
-        document.getElementById("auto-autocalibration").disabled = false;
-        document.getElementById("auto-autocalibration").title =
-          "Click to calibrate the camera automatically";
+        btn.disabled = false;
+        btn.title = "Click to calibrate the camera automatically";
       }
     } else if (msg.status == "re-register") {
-      try {
-        const response = await registerScene(scene_id);
-        if (response) {
-          await manageCalibrationState(response, scene_id);
-        }
-      } catch (error) {
-        await manageCalibrationState(
-          { status: "error", message: error.message },
-          scene_id,
-        );
-      }
+      await requestSceneRegistration(scene_id);
     } else if (msg.status == "error") {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
-      document.getElementById("auto-autocalibration").disabled = true;
-      document.getElementById("auto-autocalibration").title =
-        msg.message || "Auto camera calibration failed";
+      const message = msg.message || "Auto camera calibration failed";
+      if (isPermanentRegistrationFailure(message)) {
+        clearRegistrationRetry(btn);
+        btn.disabled = true;
+        btn.title = message;
+      } else {
+        // Retryable registration failure: click re-runs registerScene first.
+        btn.dataset.registrationRetry = "1";
+        btn.disabled = false;
+        btn.title = `${message}. Click to retry registration`;
+      }
     } else {
       document.getElementById("calib-spinner").classList.add("hide-spinner");
-      document.getElementById("auto-autocalibration").title = msg.status;
+      clearRegistrationRetry(btn);
+      btn.disabled = true;
+      btn.title = msg.status;
     }
   }
 }
@@ -207,6 +229,7 @@ function initializeCalibrationSettings() {
     camera_calibration.setupResetViewButton();
     camera_calibration.setupSaveCameraButton();
     camera_calibration.setupOpacitySlider();
+    camera_calibration.setupCalibrationParameterListeners();
 
     // Set all inputs with the id id_{{ field_name }} and distortion or intrinsic in the name to disabled
     $(
@@ -263,7 +286,6 @@ function setMqttForCalibration(client) {
     client,
     APP_NAME + IMAGE_CALIBRATE + $("#sensor_id").val(),
   );
-  document.getElementById("lock_distortion_k1").style.visibility = "visible";
 }
 
 export {
@@ -277,4 +299,5 @@ export {
   getCalibrationServiceStatus,
   startCameraCalibration,
   registerScene,
+  requestSceneRegistration,
 };

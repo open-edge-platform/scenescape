@@ -19,6 +19,9 @@ spec:
       labels:
         app: {{ .Release.Name }}-scene
         {{ include "releaseLabels" . | indent 8 }}
+      annotations:
+        checksum/tracker-config: {{ .Files.Get "files/scene-controller/tracker-config.json" | sha256sum }}
+        checksum/reid-config: {{ .Files.Get "files/scene-controller/reid-config.json" | sha256sum }}
     spec:
       securityContext:
         runAsNonRoot: true

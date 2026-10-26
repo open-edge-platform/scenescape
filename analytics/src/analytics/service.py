@@ -7,6 +7,7 @@ from pathlib import Path
 
 from analytics.adapters.scene_model import AnalyticsScene
 from analytics.event_publisher import publish_events
+from analytics.reid_identity import REID_DECISION_TOPIC, ReidIdentityMap
 from scene_common.cache_manager import CacheManager
 from scene_common.detections_builder import buildDetectionsList, computeCameraBounds
 from scene_common import log
@@ -35,6 +36,8 @@ class AnalyticsService:
     self.rewrite_all_time = rewrite_all_time
     self.regulate_cache = {}
     self.mqtt_auth = mqtt_auth
+    # track_id -> gid decisions from reid-service, applied to scene data.
+    self.reid_identities = ReidIdentityMap()
 
     self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
 
@@ -143,6 +146,8 @@ class AnalyticsService:
         'scene_rate': round(1 / update_rate, 1),
         'rate': scene['rate'],
       }
+      if 'unique_detection_count' in jdata:
+        new_jdata['unique_detection_count'] = jdata['unique_detection_count']
       jstr = orjson.dumps(new_jdata, option=orjson.OPT_SERIALIZE_NUMPY)
       self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid), jstr)
       scene['last'] = now
@@ -199,6 +204,16 @@ class AnalyticsService:
         log.error(f"Scene data validation failed for scene={scene_id}, type={detection_type}")
         return
 
+    # Swap Tracker ids for re-identified gids before regions/events/regulated
+    # output see the objects (the Controller did this in its scene output).
+    self.reid_identities.apply(
+      scene_id, detection_type, jdata.get('objects', []),
+      rename_object=scene.updateTrackedObjectId,
+    )
+    unique_count = self.reid_identities.uniqueDetectionCount(scene_id, detection_type)
+    if unique_count is not None:
+      jdata['unique_detection_count'] = unique_count
+
     scene.updateTrackedObjects(detection_type, jdata.get('objects', []))
     analytics_objects = scene.getTrackedObjects(detection_type)
     msg_when = get_epoch_time(jdata.get('timestamp'))
@@ -209,6 +224,11 @@ class AnalyticsService:
     scene._updateEvents(detection_type, msg_when, analytics_objects,
                         publish_fn=self.pubsub.publish)
     self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
+    return
+
+  def handleReidDecisionMessage(self, client, userdata, message):
+    """Record a reid-service identity decision (scenescape/data/reid/+/+)."""
+    self.reid_identities.update(message.payload)
     return
 
   def handleSensorMessage(self, client, userdata, message):
@@ -355,6 +375,8 @@ class AnalyticsService:
     self.updateSubscriptions()
     self.pubsub.addCallback(PubSub.formatTopic(PubSub.CMD_DATABASE), self.handleDatabaseMessage)
     log.info("Subscribed to", PubSub.formatTopic(PubSub.CMD_DATABASE))
+    self.pubsub.addCallback(REID_DECISION_TOPIC, self.handleReidDecisionMessage)
+    log.info("Subscribed to", REID_DECISION_TOPIC)
     for scene in getattr(self, 'scenes', []):
       self.publishTripwiresForScene(scene)
       self.publishRoisForScene(scene)

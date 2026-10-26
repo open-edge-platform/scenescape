@@ -12,8 +12,6 @@ import tests.ui.common_ui_test_utils as common
 
 import numpy as np
 
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 from tests.utils.spec import FuncTestSpec
 from tests.utils.profiles import FULL_STACK
 
@@ -44,6 +42,128 @@ def test_manual_camera_calibration(demo_scene, params, result_recorder):
     common.navigate_directly_to_page(browser, f"/{common.TEST_SCENE_ID}/")
     common.camera_calibrate_link(browser).click()
     time.sleep(TEST_WAIT_TIME)
+
+    assert browser.execute_script("""
+      const prototype = Object.getPrototypeOf(window.camera_calibration);
+      const calibration = Object.create(prototype);
+      let matrix;
+      const points = {p0: [0, 0], p1: [1, 0], p2: [1, 1], p3: [0, 1]};
+      calibration.camCanvas = {
+        calibrationUpdated: true,
+        getCalibrationPoints: () => points,
+        getImageSize: () => [1280, 720],
+        updateImageSrc: () => {},
+      };
+      calibration.viewport = {
+        sceneScale: 100,
+        scaleFactor: 0.5,
+        calibrationUpdated: true,
+        getCalibrationPoints: () => points,
+        setCameraPose: (pose) => { matrix = pose; },
+      };
+      calibration.isResolutionUpdated = true;
+      calibration.resolutionNeedsRefit = true;
+      const response = {poseMatrix: [
+        [1, 0, 0, 120], [0, -1, 0, 60], [0, 0, -1, 80], [0, 0, 0, 1],
+      ]};
+      if (!calibration.applyFittedCalibrationPose(response)) return false;
+      const translation = matrix.elements.slice(12, 15);
+      if (translation.some((v, i) => Math.abs(v - [2.4, 1.2, 1.6][i]) > 1e-9))
+        return false;
+      if (!calibration.isResolutionUpdated || calibration.resolutionNeedsRefit ||
+          calibration.camCanvas.calibrationUpdated ||
+          calibration.viewport.calibrationUpdated) return false;
+      let requests = 0;
+      calibration.calibrationFitState = "ready";
+      calibration.calculateCalibrationIntrinsics = () => { requests++; };
+      calibration.getCameraPositionAndRotation = () => {
+        throw new Error("Video updates must not overwrite the API-fitted pose");
+      };
+      calibration.projectImage = () => {};
+      const intrinsics = [[1000, 0, 640], [0, 1000, 360], [0, 0, 1]];
+      calibration.updateCalibrationViews("", intrinsics, [0, 0, 0, 0, 0]);
+      if (requests !== 0) return false;
+      calibration.viewport.calibrationUpdated = true;
+      calibration.updateCalibrationViews("", intrinsics, [0, 0, 0, 0, 0]);
+      if (requests !== 1) return false;
+      calibration.calibrationFitState = "pending";
+      calibration.updateCalibrationViews("", intrinsics, [0, 0, 0, 0, 0]);
+      if (requests !== 1) return false;
+      calibration.calibrationFitState = "stale";
+      calibration.updateCalibrationViews("", intrinsics, [0, 0, 0, 0, 0]);
+      return requests === 1;
+    """), "Calibration pose scale or video-update handoff is inconsistent"
+
+    assert browser.execute_script("""
+      const originalForm = document.getElementById("calibration_form");
+      const form = originalForm.cloneNode(true);
+      originalForm.parentNode.replaceChild(form, originalForm);
+      try {
+        const calibration = Object.create(Object.getPrototypeOf(window.camera_calibration));
+        const points = {p0: [0, 0, 0], p1: [1, 0, 0], p2: [1, 1, 0], p3: [0, 1, 0]};
+        calibration.camCanvas = {getCalibrationPoints: () => points};
+        calibration.viewport = {
+          sceneScale: 100,
+          scaleFactor: 0.5,
+          getCalibrationPoints: () => points,
+          setCameraPose: () => {},
+        };
+        calibration.rejectedPointIndices = [];
+        calibration.setupSaveCameraButton();
+        let submitted;
+        form.submit = () => { submitted = new FormData(form); };
+        const cx = form.querySelector("#id_intrinsics_cx");
+        const cy = form.querySelector("#id_intrinsics_cy");
+        for (const resolutionChanged of [false, true]) {
+          cx.value = 320;
+          cy.value = 240;
+          cx.disabled = cy.disabled = true;
+          calibration.isResolutionUpdated = false;
+          calibration.resolutionNeedsRefit = false;
+          calibration.calibrationFitState = "ready";
+          calibration.updateCameraOpticalCenter(
+            resolutionChanged ? [1280, 720] : [640, 480],
+            [[800, 0, 320], [0, 800, 240], [0, 0, 1]],
+          );
+          if (!calibration.applyFittedCalibrationPose({poseMatrix: [
+            [1, 0, 0, 120], [0, -1, 0, 60], [0, 0, -1, 80], [0, 0, 0, 1],
+          ]})) return false;
+          if (calibration.resolutionNeedsRefit || !cx.disabled || !cy.disabled)
+            return false;
+          submitted = null;
+          $(form).triggerHandler("submit");
+          if (!submitted) return false;
+          if (resolutionChanged) {
+            if (cx.disabled || cy.disabled ||
+                submitted.get("intrinsics_cx") !== "640" ||
+                submitted.get("intrinsics_cy") !== "360") return false;
+          } else if (submitted.has("intrinsics_cx") || submitted.has("intrinsics_cy")) {
+            return false;
+          }
+        }
+        return true;
+      } finally {
+        $(form).off();
+        form.parentNode.replaceChild(originalForm, form);
+      }
+    """), "Save must submit the updated principal point after a resolution change and fit"
+
+    log.info("Verify distortion coefficient lock controls")
+    for coefficient in ('k1', 'k2', 'p1', 'p2', 'k3'):
+      lock = browser.find_element(By.ID, f'enabled_distortion_{coefficient}')
+      field = browser.find_element(By.ID, f'id_distortion_{coefficient}')
+      assert lock.is_displayed() and lock.is_selected()
+      assert not field.is_enabled()
+
+    distortion_lock = browser.find_element(By.ID, 'enabled_distortion_k1')
+    distortion_field = browser.find_element(By.ID, 'id_distortion_k1')
+    distortion_lock.click()
+    assert distortion_field.is_enabled()
+    distortion_field.clear()
+    distortion_field.send_keys('0.125')
+    assert distortion_field.get_attribute('value') == '0.125'
+    distortion_lock.click()
+    assert not distortion_field.is_enabled()
 
     viewport_dimensions = browser.execute_script("return [window.innerWidth, window.innerHeight];")
 

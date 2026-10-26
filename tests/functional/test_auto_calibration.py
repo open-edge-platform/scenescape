@@ -127,7 +127,8 @@ class AutoCalibration(FunctionalTest):
       )
       yield detector
     finally:
-      pass
+      if detector is not None:
+        detector.libc.apriltag_detector_clear_families(detector.tag_detector_ptr)
 
   def obscure_detected_apriltag(self, image_path, tag_family="tag36h11",
                                 n_tags=1, random_select=False):

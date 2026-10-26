@@ -77,7 +77,7 @@ Section 5.1 is the target mapping. Today's `_PURGE_OWNER` lock only dedupes purg
 
 ### 4.2 What's coupled to what
 
-- **Stays with detector ingest:** `moving_object.py` `decodeReIDEmbeddingVector` / `serializeReIDPayload` (detector wire format, not storage).
+- **Stays with detector ingest:** embedding wire-format decoding is shared through `scene_common.reid_embedding`. `moving_object.py` retains the `decodeReIDEmbeddingVector` compatibility import and `serializeReIDPayload`; `reid.embedding` handles the scene-track payload wrapper. These are wire-format responsibilities, not storage.
 - **Moves into `reid-service` (5.1):** when to query/write — quality-feature gating, TIER 1 extraction, hierarchy write-health/epoch (`reid_write_healthy`, `reid_write_confirmed`, `reid_write_epoch`, `ReidWriteSupersededError`). The query-latency circuit breaker is not ported.
 - **Extracted library:** `reid.py`, `vdms_adapter.py`, `qdrant_adapter.py`, `reid_registry.py`, `reid_env.py`, `reid_constraints.py`.
 
@@ -105,6 +105,7 @@ Section 5.1 is the target mapping. Today's `_PURGE_OWNER` lock only dedupes purg
 Move the library in 4.2 into `reid-service`. ADR 13: gRPC for synchronous query/response (including Re-ID match/store); MQTT for asynchronous fan-out (including scene tracks).
 
 - **Live `findMatches` / `addEntry` are internal.** Tracker (ADR 7) publishes tracks on MQTT. `reid-service` matches and stores while consuming that stream. Feature gating, TIER 1 extraction, and ADR 15 enroll/query plus write-health/epoch rules move with that orchestration. There is no Controller round trip and no live-loop write endpoint.
+- **Identity state and counting retain Controller semantics.** Publish `pending_collection`, `matched`, `query_no_match`, and `reid_disabled` through Analytics output. Pending includes queries in flight; no additional lifecycle states are introduced. The scene/category matcher owns the cumulative unique-ID counter, including initial registration without embeddings or with ReID disabled, no-match decisions, and late no-match results after track exit. Consumers receive the existing `unique_detection_count`; they must not reconstruct it by counting terminal states. See the [service guide](../user-guide/microservices/reid-service/reid-service.md#identity-state-and-counting) for the wire fields and counting rules.
 - **External match/store is HTTP/gRPC (Section 6).** MQTT request/reply (correlation ID + reply-to) remains an open alternative for this surface only (Section 11): one bus versus a simpler call/return that matches ADR 13.
 - **`purgeExpired` is internal.** Delete the Controller timer and `_PURGE_OWNER`. `reid-service` runs `purgeExpired()` on `REID_PURGE_INTERVAL_SECS`. `REID_DESCRIPTOR_TTL_SECS` moves with it. Adapter expiration fields and reclaim-only semantics stay as ADR 14 defined them.
 

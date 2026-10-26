@@ -83,6 +83,9 @@ If you already have a Kubernetes cluster you can use the Helm chart directly.
 
 1. Install [Cert Manager](https://cert-manager.io/) in your cluster.
 
+The chart requires Kubernetes 1.32 or newer so Helm uninstall removes the
+PostgreSQL StatefulSet's PVC as well as the chart's standalone PVC resources.
+
 2. Copy common scripts to chart folder:
 
 ```sh
@@ -94,7 +97,8 @@ make copy-files
 ```sh
 helm install scenescape scenescape-chart -n <NAMESPACE> --create-namespace \
    --set supass=<YOUR_ADMIN_PASSWORD> \
-   --set pgserver.password=<YOUR_POSTGRES_PASSWORD>
+  --set pgserver.password=<YOUR_POSTGRES_PASSWORD> \
+  --timeout 1800s
 ```
 
 Optionally, prepare updated [values file](scenescape-chart/values.yaml) and save it as `values-custom.yaml`.
@@ -103,8 +107,24 @@ Optionally, prepare updated [values file](scenescape-chart/values.yaml) and save
 helm install scenescape scenescape-chart -n <NAMESPACE> --create-namespace \
    --set supass=<YOUR_ADMIN_PASSWORD> \
    --set pgserver.password=<YOUR_POSTGRES_PASSWORD> \
+  --timeout 1800s \
    --values values-custom.yaml
 ```
+
+Model preparation runs in a separate Job. A lightweight init container in the
+web Deployment waits for its completion marker before web readiness; the
+controller and kubeclient wait for web before starting. Set
+`modelDownload.enabled=false` only when model files and configuration are
+already available on the models volume.
+The Kubernetes Makefile waits for the web Deployment specifically after Helm
+install; direct Helm users should run
+`kubectl rollout status deployment/scenescape-web-dep -n <NAMESPACE> --timeout=1800s`
+to detect model initialization failures without waiting on unrelated services.
+
+The chart manages its PVCs as ordinary release resources. `helm uninstall`
+deletes those claims; whether their PV data remains depends on the storage
+class reclaim policy. A retained PV is not automatically rebound to a new
+claim.
 
 **To uninstall:**
 
@@ -189,13 +209,6 @@ nodePort:
   enabled: true
 ```
 
-### Chart Debug Mode
-
-To enable Helm chart debugging (useful for troubleshooting deployment issues):
-
-```console
-export CHART_DEBUG=1
-make -C kubernetes install
-```
-
-This enables the `chartdebug=true` setting in the Helm chart, which keeps debugging resources after installation.
+Run Kubernetes stability checks with the pytest deployment suite from the
+`tests` directory:
+`pytest kubernetes/test_kubernetes_deployment.py --backend=kubernetes -v`.

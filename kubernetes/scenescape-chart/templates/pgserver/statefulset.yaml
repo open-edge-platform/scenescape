@@ -13,6 +13,9 @@ metadata:
 spec:
   serviceName: {{ .Release.Name }}-pgserver
   replicas: 1
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Delete
+    whenScaled: Retain
   selector:
     matchLabels:
       app: {{ .Release.Name }}-pgserver

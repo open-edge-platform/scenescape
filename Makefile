@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -81,6 +81,15 @@ TEST_IMAGE_FOLDERS := autocalibration controller manager mapping analytics clust
 TEST_IMAGES := $(addsuffix -test, autocalibration controller manager mapping analytics cluster_analytics)
 DEPLOYMENT_TEST ?= 0
 
+# First-party application trees; this list is the complexity scope of record.
+COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analytics/src \
+	controller/src/controller controller/src/robot_vision/python/src/robot_vision \
+	manager/src/manager mapping/src reid/src/reid scene_common/src/scene_common \
+	model_download/src
+COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
+COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
+COMPLEXITY_TOP ?= 20
+
 # Observability variables
 CONTROLLER_ENABLE_METRICS ?= false
 CONTROLLER_METRICS_ENDPOINT ?= otel-collector.scenescape.intel.com:4317
@@ -127,10 +136,14 @@ help:
 	@echo "                              as the super user password for logging into Scenescape)"
 	@echo "  demo-tracker                Start the Scenescape demo with Tracker + Analytics services (no Scene Controller) using Docker Compose"
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
+	@echo "  deploy-close                Stop a deployment without removing its volumes"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEPLOY_PROFILES selects controller|tracker|mapping|cluster-analytics|reid, default: controller)"
+	@echo ""
+	@echo "  sample-app-up               Start the Node-RED based sample application on top of Scenescape"
+	@echo "  sample-app-down             Stop the Node-RED based sample application"
 	@echo ""
 	@echo "  list-dependencies           List all apt/pip dependencies for all microservices"
 	@echo "  build-sources-image         Build the image with 3rd party sources"
@@ -158,6 +171,10 @@ help:
 	@echo "  run_functional_tests        Run functional tests"
 	@echo "  run_ui_tests                Run UI tests"
 	@echo "  run_unit_tests              Run unit tests"
+	@echo "  run_unit_tests_coverage     Run unit tests and enforce per-service coverage"
+	@echo "  check-unit-coverage         Enforce per-service coverage on existing .coverage data"
+	@echo "  complexity-check            Enforce cognitive complexity <=12 against the legacy baseline (SERVICE=<name> for one service)"
+	@echo "  complexity-check-report     Report per-service and per-function complexity scores (SERVICE=<name> for one service)"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
@@ -218,7 +235,7 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics: build-common
+autocalibration controller manager analytics mapping cluster_analytics reid: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -390,6 +407,10 @@ NPROCS ?= $(shell echo $$(nproc) / 3 | bc)
 PYTEST := $(CURDIR)/tests/.venv/bin/pytest
 PYTEST_FLAGS := --rootdir=$(CURDIR)/tests -v --tb=short
 TESTS_DIR := $(CURDIR)/tests
+UNIT_COV_CONFIG := $(TESTS_DIR)/config.coveragerc
+UNIT_COV_FAIL_UNDER ?= 70
+UNIT_COV_SOURCES_CMD := $(CURDIR)/tests/.venv/bin/python -c 'import configparser, sys; \
+	c = configparser.ConfigParser(); c.read(sys.argv[1]); print(c["run"]["source"])' $(UNIT_COV_CONFIG)
 
 .PHONY: setup-tests
 setup-tests: init-secrets .env setup-pytest build-common
@@ -507,6 +528,26 @@ run_unit_tests: init-secrets setup-pytest
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
 	@echo "DONE ==> Running unit tests"
 
+.PHONY: run_unit_tests_coverage
+run_unit_tests_coverage: init-secrets setup-pytest
+	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
+	@echo "Running unit tests with coverage..."
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) \
+		--cov --cov-config=$(UNIT_COV_CONFIG) --cov-report= \
+		|| (echo "Unit tests failed" && exit 1)
+	$(MAKE) check-unit-coverage
+	@echo "DONE ==> Running unit tests with coverage"
+
+.PHONY: check-unit-coverage
+check-unit-coverage:
+	@services=$$($(UNIT_COV_SOURCES_CMD)) || exit 1; \
+	[ -n "$$services" ] || { echo "No [run] source in $(UNIT_COV_CONFIG)"; exit 1; }; \
+	rc=0; for svc in $$services; do \
+		echo "==> $$svc"; \
+		$(CURDIR)/tests/.venv/bin/coverage report --rcfile=$(UNIT_COV_CONFIG) \
+			--include="$(CURDIR)/$$svc/*" --fail-under=$(UNIT_COV_FAIL_UNDER) || rc=1; \
+	done; exit $$rc
+
 .PHONY: run_basic_acceptance_tests
 run_basic_acceptance_tests: setup-tests
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
@@ -613,6 +654,25 @@ velocity-metric: # NEX-T10463
 	$(call metric-recipe, tests/system/metric/test_tracker_metric.py, velocity-metric, velocity, 0.15, 10)
 
 # ============================= Lint ==================================
+
+.PHONY: complexity-check
+complexity-check:
+	@case "$(SERVICE)" in \
+		"") services="$(COMPLEXITY_SERVICES)" ;; \
+		*) services="$(filter $(SERVICE),$(COMPLEXITY_SERVICES))"; \
+			[ "$$services" = "$(SERVICE)" ] || { echo "Unknown complexity SERVICE: $(SERVICE)"; exit 1; } ;; \
+	esac; \
+	rc=0; for svc in $$services; do \
+		echo "==> Cognitive complexity: $$svc"; \
+		python3 .github/scripts/check_cognitive_complexity.py \
+			--service "$$svc" --trees $(COMPLEXITY_SOURCES) || rc=1; \
+	done; exit $$rc
+
+.PHONY: complexity-check-report
+complexity-check-report:
+	@python3 .github/scripts/check_cognitive_complexity.py \
+		--report "$(COMPLEXITY_REPORT_DIR)" --top $(COMPLEXITY_TOP) \
+		$(if $(SERVICE),--service "$(SERVICE)") --trees $(COMPLEXITY_SOURCES)
 
 .PHONY: lint-all
 lint-all: lint-python lint-javascript lint-cpp lint-shell lint-dockerfiles prettier-check
@@ -725,12 +785,12 @@ init-pipeline-runner-videos: convert-dls-videos
 # $(2): extra `docker compose` args for the main stack (e.g. ReID backend override)
 # $(3): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
-	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)"
+	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)" DEPLOY_FROM_DEMO=true
 	@touch .scenescape-demo
 	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)"
 	@$(MAKE) demo-scenes
 	@echo ""
-	@echo "Or use: make demo-close"
+	@echo "To stop the demo, run: make demo-close"
 endef
 
 .PHONY: check-reid-backend
@@ -777,9 +837,26 @@ deploy: docker-compose.yml .env
 		echo "Starting Scenescape services in detached mode..."; \
 		docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) up -d; \
 	fi
-	@echo ""
-	@echo "To stop Scenescape, type:"
-	@echo "    docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) down"
+	@if [ "$(DEPLOY_FROM_DEMO)" != "true" ]; then \
+		echo ""; \
+		echo "To stop Scenescape:"; \
+		echo "  make deploy-close"; \
+		echo "  or stop Compose directly:"; \
+		echo "    docker compose $(DEPLOY_PROFILE_ARGS) $(DEPLOY_COMPOSE_ARGS) down"; \
+	fi
+
+.PHONY: deploy-close
+deploy-close:
+	@if [ -f .scenescape-demo ]; then \
+		echo "Error: this deployment is a demo; use 'make demo-close' to stop both Compose stacks."; \
+		exit 1; \
+	fi
+	@if [ ! -f .scenescape-profile ]; then \
+		echo "Error: .scenescape-profile not found. Was the deployment started with 'make deploy'?"; \
+		exit 1; \
+	fi
+	docker compose $(shell cat .scenescape-profile 2>/dev/null) down
+	@rm -f .scenescape-profile
 
 .PHONY: demo
 demo: $(DEMO_BUILD:build=build-core)
@@ -858,6 +935,17 @@ video-source-down:
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
 	@echo "SCENESCAPE_ALLOWED_HOSTS=*" >> $@
+
+# =========================== Sample App =============================
+
+.PHONY: sample-app-up sample-app-down
+
+sample-app-up:
+	$(MAKE) -C sample_data/sample_app up
+
+sample-app-down:
+	$(MAKE) -C sample_data/sample_app down
+
 # ======================= Secrets Management =========================
 
 .PHONY: init-secrets

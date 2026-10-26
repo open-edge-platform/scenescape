@@ -443,6 +443,14 @@ trust-domain follow-ons:
 - **Cache interpolation/quality gating.** The pose cache currently permits reuse of any
   non-expired cached transform; pose interpolation and stricter age/quality gating beyond the TTL
   are deferred.
+- **Explore unifying camera and external calibration resolution (TODO).** Camera ingest still
+  resolves pose/intrinsics from the configured `Camera` object (DB) with optional message-driven
+  refresh via `refreshScenesForCamParams`, while external ingest uses the TTL
+  `(scene_id, source_id)` pose cache (now including intrinsics for pixel detections). Soft-drop
+  when calibration is unavailable is already aligned, but the stores and refresh paths differ.
+  Do **not** merge the paths yet; treat a shared resolution abstraction (or documenting why they
+  should stay separate) as an exploration item once external pixel/Cartesian handling has more
+  production soak.
 
 ## References
 

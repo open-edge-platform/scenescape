@@ -51,7 +51,20 @@ _Figure 1: Testing AprilTag visibility in camera feed._
 - Avoid occlusions or placing tags too close together.
 - Fix tags in position to avoid movement during calibration.
 
+Layout requirements are based on the matched tag geometry, not the map file type
+(`.png` / `.jpg` / `.glb`):
+
+- Spread tags across the floor (or other support surface) in both directions as seen by
+  each camera; do not place them along a single line.
+- Coplanar layouts are accepted when they are not collinear and the pose reprojects
+  within the pixel threshold. Height or depth variation still improves conditioning when
+  tags can be placed off the floor plane, but it is not required for GLB maps.
+
 > **Note**: The same AprilTags can be visible in multiple camera views, but ensure at least 4 tags are detectable in each camera.
+
+For both map types, calibration rejects a pose when the camera's z-coordinate is more than
+half the configured AprilTag size below the lowest matched tag's z-coordinate. This threshold
+scales with tag size.
 
 ---
 

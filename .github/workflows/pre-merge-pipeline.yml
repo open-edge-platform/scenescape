@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - release-*
+      - feature/*
     types:
       - opened
       - synchronize
@@ -47,6 +48,12 @@ jobs:
   bandit:
     name: "Bandit"
     uses: ./.github/workflows/bandit.yml
+    permissions:
+      contents: read
+
+  cognitive-complexity:
+    name: "Cognitive Complexity"
+    uses: ./.github/workflows/cognitive-complexity.yml
     permissions:
       contents: read
 
@@ -92,6 +99,7 @@ jobs:
     needs:
       - lint
       - bandit
+      - cognitive-complexity
       - codeql
       - zizmor
       - license

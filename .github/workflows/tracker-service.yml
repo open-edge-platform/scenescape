@@ -38,6 +38,7 @@ jobs:
           filters: |
             tracker:
               - 'tracker/**'
+              - 'controller/src/robot_vision/**'
               - '.github/workflows/tracker-service.yml'
 
   lint-cpp-code:
@@ -174,6 +175,9 @@ jobs:
 
       - name: "Build debug with tests"
         run: make -C tracker build-debug
+
+      - name: "Run RobotVision unit tests"
+        run: make -C tracker test-robot-vision
 
       - name: "Run unit tests with coverage"
         run: make -C tracker test-unit-coverage

@@ -20,7 +20,7 @@ def verify_findApriltagsInFrame(autocalibration, src_image, intrinsics, \
   @return None
   """
   img = cv2.imread(src_image)
-  apriltag2d_centers = autocalibration.findApriltagsInFrame(
+  apriltag2d_centers = autocalibration.find_apriltags_in_frame(
       img, store=True, intrinsics=intrinsics)
 
   assert len(apriltag2d_centers) == 5
@@ -44,7 +44,7 @@ def verify_getCameraPoseInScene(autocalibration, apriltags2d, result_data, \
   autocalibration.intrinsic_matrix_2d = intrinsics
   autocalibration.result_data_3d = result_data
   autocalibration.apriltags_2d_data = apriltags2d
-  response = autocalibration.getCameraPoseInScene()
+  response = autocalibration.get_camera_pose_in_scene()
   assert len(response) == len(pose)
   for r, e in zip(response, pose):
     assert len(r) == len(e)
@@ -60,7 +60,7 @@ def verify_getCameraFrustum(autocalibration, frustum, relative_tolerance):
 
   @return None
   """
-  result_2d = autocalibration.getCameraFrustum()
+  result_2d = autocalibration.get_camera_frustum()
   assert len(result_2d) == len(frustum)
   for r, e in zip(result_2d, frustum):
     assert len(r) == len(e)

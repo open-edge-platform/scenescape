@@ -506,6 +506,7 @@ class CameraCalibrationApi:
           register_response = {
               self.OpenApi.STATUS: self.OpenApi.Status.BUSY,
               self.OpenApi.SCENE_ID: sceneId,
+              "sceneName": getattr(scene, "name", None),
               self.OpenApi.MESSAGE: "Registration is currently busy"
           }
         else:
@@ -675,7 +676,7 @@ class CameraCalibrationApi:
       if result.get("status") == self.OpenApi.Status.SUCCESS:
         self._validate_pose_data(result)
         response["pose"] = result.get("pose")
-        for key in ("quaternion", "translation", "calibration_points_3d", "calibration_points_2d"):
+        for key in ("quaternion", "translation", "calibration_points_3d", "calibration_points_2d", "spread_ratio"):
           if key in result:
             response[key] = result[key]
       return jsonify(response), 200
