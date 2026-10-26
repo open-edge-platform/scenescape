@@ -18,8 +18,8 @@ namespace {
 using rv::tracking::TrackedObject;
 namespace idx = rv::tracking::test::idx;
 
-constexpr int kStateSize = 12;
-constexpr int kMeasurementSize = 7;
+const int kStateSize = TrackedObject::StateSize;
+const int kMeasurementSize = TrackedObject::MeasurementSize;
 constexpr double kDeltaT = 0.1;
 
 // Same UKF parameters as MultiModelKalmanEstimator.
@@ -43,6 +43,7 @@ cv::Mat cvTransition(double deltaT)
   cv::Mat transition = cv::Mat::eye(kStateSize, kStateSize, CV_64F);
   transition.at<double>(idx::X, idx::Vx) = deltaT;
   transition.at<double>(idx::Y, idx::Vy) = deltaT;
+  transition.at<double>(idx::Z, idx::Vz) = deltaT;
   transition.at<double>(idx::Ax, idx::Ax) = 0.0;
   transition.at<double>(idx::Ay, idx::Ay) = 0.0;
   transition.at<double>(idx::YawRate, idx::YawRate) = 0.0;
@@ -85,7 +86,7 @@ TEST(UnscentedKalmanFilterTest, LinearModelMatchesExactKalmanFilter)
   start.width = 1.8;
   start.height = 1.5;
   cv::Mat errorCov = cv::Mat::diag(
-    (cv::Mat_<double>(kStateSize, 1) << 0.2, 0.2, 0.05, 0.05, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2, 0.05, 0.01));
+    (cv::Mat_<double>(kStateSize, 1) << 0.2, 0.2, 0.05, 0.05, 0.1, 0.1, 0.2, 0.05, 0.2, 0.2, 0.2, 0.05, 0.01));
   const cv::Mat processNoise = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 1e-3;
   const double measurementNoise = 0.2;
   auto filter = makeCvFilter(start.stateVector(), errorCov, processNoise, measurementNoise);

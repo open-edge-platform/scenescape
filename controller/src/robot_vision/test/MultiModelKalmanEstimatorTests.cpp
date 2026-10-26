@@ -134,6 +134,7 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
                               expected.acceleration,
                               expected.acceleration,
                               kMeasurementNoise,
+                              expected.velocity,
                               kMeasurementNoise,
                               kMeasurementNoise,
                               kMeasurementNoise,
@@ -146,7 +147,7 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
 TEST(MultiModelKalmanEstimatorTest, KinematicProcessNoiseShape)
 {
   // Velocity noise is aligned with the motion (along >> cross), scales linearly with dt and has a floor;
-  // the acceleration block repeats it; position, z and size get no direct noise.
+  // the acceleration block repeats it; vz gets the unscaled velocity noise; position, z and size get no direct noise.
   struct Case
   {
     const char *name;
@@ -158,15 +159,16 @@ TEST(MultiModelKalmanEstimatorTest, KinematicProcessNoiseShape)
     double alongY;
     double along;
     double cross;
+    double vz;
     double yaw;
     double yawRate;
   };
   const Case cases[] = {
-    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-7, 1e-5},
-    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-7, 1e-5},
-    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-7, 2e-5},
-    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-9, 1e-7},
-    {"tiny process noise hits the velocity floor", 1e-8, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-4, 1e-6, 1e-11, 1e-9},
+    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-2, 1e-7, 1e-5},
+    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-2, 1e-7, 1e-5},
+    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-2, 2e-7, 2e-5},
+    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-4, 1e-9, 1e-7},
+    {"tiny process noise hits the velocity floor", 1e-8, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-4, 1e-6, 1e-4, 1e-11, 1e-9},
   };
   constexpr double kTolerance = 1e-12;
 
@@ -183,11 +185,13 @@ TEST(MultiModelKalmanEstimatorTest, KinematicProcessNoiseShape)
     EXPECT_LT(cv::norm(velocityBlock * along, testCase.along * along, cv::NORM_INF), kTolerance);
     EXPECT_LT(cv::norm(velocityBlock * cross, testCase.cross * cross, cv::NORM_INF), kTolerance);
     EXPECT_DOUBLE_EQ(cv::norm(accelerationBlock, velocityBlock, cv::NORM_INF), 0.0);
+    EXPECT_NEAR(noise.at<double>(idx::Vz, idx::Vz), testCase.vz, kTolerance);
     EXPECT_NEAR(noise.at<double>(idx::Yaw, idx::Yaw), testCase.yaw, kTolerance);
     EXPECT_NEAR(noise.at<double>(idx::YawRate, idx::YawRate), testCase.yawRate, kTolerance);
 
     cv::Mat rest = noise.clone();
     rest(cv::Rect(idx::Vx, idx::Vx, 4, 4)).setTo(0.0);
+    rest.at<double>(idx::Vz, idx::Vz) = 0.0;
     rest.at<double>(idx::Yaw, idx::Yaw) = 0.0;
     rest.at<double>(idx::YawRate, idx::YawRate) = 0.0;
     EXPECT_DOUBLE_EQ(cv::norm(rest, cv::NORM_INF), 0.0) << "position, z and size must get no direct noise";
