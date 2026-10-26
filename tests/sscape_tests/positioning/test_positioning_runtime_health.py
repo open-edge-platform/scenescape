@@ -58,13 +58,16 @@ class TestClockMonitor(unittest.TestCase):
   def test_failed_request_invalidates_recent_measurement_immediately(self):
     monotonic = FakeMonotonic()
     client = ntp_client(0.01, ntplib.NTPException("timeout"), 0.01)
+    metrics = PositioningMetrics()
     monitor = ClockMonitor("ntpserv", 0.05, check_interval_s=10, client=client,
-                           monotonic=monotonic)
+                           monotonic=monotonic, metrics=metrics)
     self.assertTrue(monitor.check())
 
     monotonic.now += 20
     self.assertFalse(monitor.check())
     self.assertFalse(monitor.is_synchronized())
+    self.assertIsNone(monitor.offset_s)
+    self.assertIsNone(metrics.snapshot()["positioning_clock_offset_seconds"])
     self.assertTrue(monitor.check())
     self.assertTrue(monitor.is_synchronized())
     monotonic.now += 31
@@ -130,7 +133,7 @@ class TestPositioningMetrics(unittest.TestCase):
     self.assertEqual(states[0]["count"], 1)
     self.assertAlmostEqual(states[0]["sum"], 1.5)
 
-  def test_log_snapshot_emits_structured_record(self):
+  def test_log_snapshot_emits_structured_record_at_debug(self):
     metrics = PositioningMetrics()
     metrics.inc_sequence_gap("cam-a")
     with self.assertLogs("positioning.metrics", level="DEBUG") as logs:

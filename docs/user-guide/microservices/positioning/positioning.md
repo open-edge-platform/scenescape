@@ -151,24 +151,25 @@ full slack. Translation, intrinsics, and distortion stay those of the home calib
 ### Calibration reload
 
 Calibration comes only from Manager. When Manager publishes
-`scenescape/cmd/camera/config/{camera_id}` for an assigned source, the Resolver drops
-the cached calibration immediately: the next pose reports `calibration_changed`, and
-later poses report `calibration_missing` until a reload succeeds. Reloads run on a
+`scenescape/cmd/camera/config/{camera_id}` for an assigned source, the Resolver marks
+that source reload-pending and publishes invalid poses with `calibration_changed`.
+It retains the cached calibration and motion continuity while the read is in flight.
+An identical calibration reload restores valid pose publication without requiring a
+return to home; a changed calibration resets motion and backlash history, so a valid
+pose again requires known backlash and a full settle window. Reloads run on a
 background worker, not in the MQTT callback. Every `calibration_refresh_interval_s`
-the service also rereads all sources, which recovers from a failed reload or a missed
-notification. This refresh follows its own monotonic schedule, so frequent
-notifications for one source cannot postpone it. A changed
-calibration resets motion and backlash history, so a valid pose again requires a full
-settle window.
+the service also rereads all sources, which retries failed reloads and recovers from a
+missed notification. This refresh follows its own monotonic schedule, so frequent
+notifications for one source cannot postpone it.
 
 Each invalidation advances a per-source generation. A reload captures the generation
 before reading from Manager and applies its result only if the generation is still
 current, so a read that was in flight during an invalidation cannot restore the old
 calibration; the queued reload fetches the replacement.
 
-Positioning applies a 10-second connection and read-inactivity timeout to each
-Manager authentication and camera-read request using a service-local HTTP adapter.
-A timeout follows the existing calibration failure handling and permits a later
+Positioning configures a 10-second connection and read-inactivity timeout on its
+Manager `RESTClient`; authentication and camera reads both use that timeout. A
+timeout follows the existing calibration failure handling and permits a later
 refresh to retry; it is not a total deadline for the complete calibration load.
 
 ### Clock synchronization
@@ -179,13 +180,17 @@ at startup and every 30 s, and logs the measured offset. While the absolute offs
 exceeds `max_clock_offset_s`, no NTP server is configured, or no successful
 measurement is younger than 90 s, every source publishes invalid poses with reason
 `invalid_sample`; motion history and timestamp continuity are discarded, while
-sequence ordering still rejects duplicates and replays. The service keeps running and
-recovers automatically once synchronization returns, including after a backward clock
-correction.
+sequence ordering still rejects duplicates and replays. A failed or non-finite NTP
+request also invalidates synchronization immediately, regardless of the age of the
+previous measurement. The service keeps running and recovers automatically once a
+successful in-range measurement returns, including after a backward clock correction.
 
 ### Runtime metrics
 
-Every 60 s the service logs one structured `positioning_metrics` JSON record:
+Every 60 s the service emits one structured `positioning_metrics` JSON record at
+`DEBUG` level. Set the Positioning log level to `DEBUG` to make these records visible;
+at the default `INFO` level they are intentionally quiet. Each histogram snapshot
+contains cumulative bucket counts, observation count, and sum:
 
 | Metric                                 | Type                   | Labels                      |
 | -------------------------------------- | ---------------------- | --------------------------- |

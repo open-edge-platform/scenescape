@@ -164,6 +164,7 @@ positioning:
   enabled: false
   image: intel/scenescape-positioning
   pullPolicy: IfNotPresent
+  logLevel: INFO
   resolverId: positioning-default
   # Source ownership manifest (source_id -> resolver_id). Positioning validates its
   # sources against it, and Manager authorizes pose writes only for sources
@@ -192,6 +193,9 @@ positioning:
   # Set either existingSecret or sources (chart-created Secret), not both.
   onvifCredentials:
     existingSecret: ""
+    # Increment after rotating the referenced Secret to restart pollers without
+    # putting credential values or their hashes into the pod template.
+    rolloutRevision: ""
     # <source_id>: {username: ..., password: ...}
     sources: {}
   # Additional volumes/mounts for the Positioning container, e.g. a camera CA

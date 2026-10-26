@@ -252,10 +252,10 @@ class PTZResolver:
       pose_context["valid"], pose_context["motion_state"], pose_context.get("reason_detail"),
       pose_context["calibration_version"])
     if logged_state != state.last_logged_state:
-      log.info("Camera %s: %s (%s); calibration=%s", source_id,
-               "ready" if pose_context["valid"] else "unavailable",
-               pose_context.get("reason_detail", pose_context["motion_state"]),
-               pose_context["calibration_version"])
+      log.info(f"Camera {source_id}: "
+               f"{'ready' if pose_context['valid'] else 'unavailable'} "
+               f"({pose_context.get('reason_detail', pose_context['motion_state'])}); "
+               f"calibration={pose_context['calibration_version']}")
       state.last_logged_state = logged_state
     if self.metrics is not None:
       self.metrics.observe_pose_age(source_id, pose_context["sample_age_s"])

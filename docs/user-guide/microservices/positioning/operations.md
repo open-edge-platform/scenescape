@@ -312,6 +312,10 @@ by log verbosity. Configuration errors,
 such as a source missing from the manifest, unknown keys, or an unreadable
 credentials file, stop the service with a message that names the source.
 
+For Helm, set `positioning.logLevel=DEBUG` in your deployment values (or use
+`helm upgrade --set positioning.logLevel=DEBUG`). Return to `INFO` after
+diagnostics if the extra event and metrics records are not needed.
+
 To return to the default service shell, recreate the service without the override
 file:
 
@@ -402,7 +406,30 @@ artifact volumes. Field runs export an equivalently named bundle from structured
 
 Demo, deploy, and Compose tests include the Positioning service with the Scene
 Controller or Tracker profiles. Helm installs it when `positioning.enabled=true`; it
-has one replica to preserve single-writer source ownership.
+has one replica and uses a `Recreate` rollout to prevent old and new resolver pods
+from publishing simultaneously for the same source. This preserves single-writer
+ownership at the cost of a brief interruption during upgrades. Do not scale the
+deployment above one replica; the service has no leader election.
+
+For Helm ONVIF credentials, prefer a pre-created Kubernetes Secret and set
+`positioning.onvifCredentials.existingSecret` to its name. Store one key named
+`<source_id>.json` per camera; each file contains its ONVIF username and password.
+For example:
+
+```bash
+kubectl create secret generic positioning-onvif \
+  --from-file='<source_id>.json=./<source_id>.json' -n <NAMESPACE>
+helm upgrade scenescape kubernetes/scenescape-chart -n <NAMESPACE> \
+  --reuse-values --set positioning.onvifCredentials.existingSecret=positioning-onvif
+```
+
+Do not put production credentials in Helm values: Helm release records retain
+provided values, even when a chart renders them into a Kubernetes Secret. The
+chart's `positioning.onvifCredentials.sources` option is intended for disposable
+development installations. After changing or rotating a mounted ONVIF Secret,
+increment `positioning.onvifCredentials.rolloutRevision` in the Helm upgrade so
+the pollers restart and load the new credentials. The pod template records only
+this caller-supplied revision, not credential data or a credential-derived hash.
 
 The service publishes resolved poses but does not alter detections, because Controller
 and Tracker do not consume them yet. Roll back PTZ polling and pose publishing by

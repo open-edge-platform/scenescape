@@ -162,7 +162,7 @@ class PositioningService:
     log.warning("Positioning disconnected from MQTT broker")
 
   def on_camera_config(self, client, userdata, message):
-    """Drop the cached calibration and queue a reload without blocking the MQTT callback."""
+    """Mark a source reload-pending and queue work without blocking MQTT."""
     parsed = PubSub.parseTopic(message.topic) or {}
     source_id = parsed.get("camera_id")
     if source_id in self.source_ids:

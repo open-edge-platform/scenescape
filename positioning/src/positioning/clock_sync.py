@@ -76,6 +76,10 @@ class ClockMonitor:
   def _mark_measurement_failed(self):
     with self._lock:
       self._measurement_valid = False
+      self._offset_s = None
+      self._measured_at = None
+    if self._metrics is not None:
+      self._metrics.set_clock_offset(None)
 
   def is_synchronized(self):
     with self._lock:

@@ -5,6 +5,7 @@
 
 import copy
 import json
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -20,8 +21,13 @@ from positioning.ptz_resolver import PTZResolver, PTZSourceCalibration
 from positioning.v1 import ptz_pb2
 from positioning.pose_math import (
   apply_backlash, axis_angle_degrees, compose_ptz_rotation, physical_home_angle)
+from scene_common.positioning_schema_guards import validate_pose_context_payload
+from scene_common.schema import SchemaValidation
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+POSE_SCHEMA = SchemaValidation(
+  str(REPO_ROOT / "controller" / "src" / "schema" / "metadata.schema.json"),
+  is_multi_message=True)
 FIXTURE = json.loads(
   (REPO_ROOT / "tests" / "data" / "ptz" / "provisional_pose_math.json").read_text())
 MODEL = load_ptz_model(FIXTURE["ptz_calibration"])
@@ -123,6 +129,74 @@ class TestPTZResolver(unittest.TestCase):
     np.testing.assert_allclose(context["pose"]["matrix_4x4"], HOME_MATRIX, atol=1e-12)
     self.assertEqual(set(context["quality"]), {
       "score", "temporal_score", "calibration_score", "reprojection_rms_px"})
+    validate_pose_context_payload(context)
+    self.assertTrue(POSE_SCHEMA.validateMessage("pose_context", context, check_format=True))
+
+  def test_valid_and_invalid_pose_replay_is_schema_valid_and_deterministic(self):
+    def replay():
+      clock = FakeClock()
+      published = []
+      resolver = make_resolver(clock, published)
+      for sequence in range(1, 5):
+        clock.timestamp_ns = START_NS + (sequence - 1) * 200_000_000
+        resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns))
+      clock.timestamp_ns = START_NS + 4 * 200_000_000
+      moving = make_sample(5, clock.timestamp_ns)
+      moving.reported_move_status = ptz_pb2.REPORTED_MOVE_STATUS_MOVING
+      resolver.submit_ptz_sample(moving)
+      contexts = [json.loads(item[0][1]) for item in published]
+      for context in contexts:
+        validate_pose_context_payload(context)
+        self.assertTrue(
+          POSE_SCHEMA.validateMessage("pose_context", context, check_format=True))
+      return contexts
+
+    first_replay = replay()
+    second_replay = replay()
+
+    self.assertEqual(first_replay, second_replay)
+    self.assertTrue(first_replay[3]["valid"])
+    self.assertFalse(first_replay[4]["valid"])
+
+  def test_publish_is_serialized_under_source_lock(self):
+    clock = FakeClock()
+    first_publish_started = threading.Event()
+    release_first_publish = threading.Event()
+    second_publish_started = threading.Event()
+    published_sequences = []
+
+    def publish(topic, payload, **kwargs):
+      sequence = json.loads(payload)["sequence"]
+      published_sequences.append(sequence)
+      if sequence == 1:
+        first_publish_started.set()
+        self.assertTrue(release_first_publish.wait(2))
+      else:
+        second_publish_started.set()
+
+    resolver = PTZResolver(
+      {SOURCE_ID: CALIBRATION}, publish, poll_interval_s=0.2, max_pose_age_s=0.5,
+      max_timestamp_uncertainty_s=0.01, target_reprojection_rms_px=3.0,
+      sample_ring_buffer_size=RING_SIZE, clock_ns=clock)
+    first = threading.Thread(
+      target=resolver.submit_ptz_sample, args=(make_sample(1, START_NS),))
+    second = threading.Thread(
+      target=resolver.submit_ptz_sample, args=(make_sample(2, START_NS + 200_000_000),))
+
+    first.start()
+    self.assertTrue(first_publish_started.wait(2))
+    clock.timestamp_ns = START_NS + 200_000_000
+    second.start()
+    try:
+      self.assertFalse(second_publish_started.wait(0.05))
+    finally:
+      release_first_publish.set()
+      first.join(2)
+      second.join(2)
+
+    self.assertFalse(first.is_alive())
+    self.assertFalse(second.is_alive())
+    self.assertEqual(published_sequences, [1, 2])
 
 
   def test_invalid_position_space_is_rejected_without_pose_publication(self):
