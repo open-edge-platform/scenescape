@@ -99,7 +99,7 @@ jobs:
             printf "🌐 View Online:  https://github.com/%s/releases/tag/%s\n" "${GITHUB_REPOSITORY}" "${TAG_NAME}"
             printf "\n"
             echo "📋 API Response:"
-            cat tag.json | jq '.'
+            jq '.' tag.json
           else
             printf "\n"
             printf "❌ Failed to create tag!\n"
