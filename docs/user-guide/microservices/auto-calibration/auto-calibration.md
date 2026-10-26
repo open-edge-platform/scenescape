@@ -77,7 +77,7 @@ To deploy the auto calibration service, refer to the [Get Started](./get-started
 
 ## Architecture
 
-![Scenescape architecture diagram](./_assets/architecture.png)
+![Scenescape architecture diagram](./_assets/scenescape-architecture-dataflow.drawio)
 
 _Figure 1: Architecture Diagram_
 

@@ -117,7 +117,7 @@ For details on the MQTT message formats accepted and produced by the Scene Contr
 
 ## Architecture
 
-![Scenescape architecture diagram](./_assets/architecture.png)
+![Scenescape architecture diagram](./_assets/scenescape-architecture-dataflow.drawio)
 
 Figure 1: Architecture Diagram
 
