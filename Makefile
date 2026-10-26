@@ -488,16 +488,21 @@ check-zephyr-ids:
 # Contract checks fail on drift, the Manager PR review reminder is advisory.
 # None of these targets rewrites a spec file.
 
+.PHONY: check-manager-contract
+check-manager-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/manager_api/ $(PYTEST_FLAGS) || \
+		(echo "Manager OpenAPI contract check failed" && exit 1)
+		
 .PHONY: check-autocalibration-contract
 check-autocalibration-contract: setup-pytest
-	$(PYTEST) $(TESTS_DIR)/sscape_tests/autocalibration_api/ $(PYTEST_FLAGS) || \
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/autocalibration_api/ $(PYTEST_FLAGS) || \
 		(echo "Autocalibration OpenAPI contract check failed" && exit 1)
 
 .PHONY: check-mapping-contract
 check-mapping-contract: setup-pytest
-	$(PYTEST) mapping/tests/test_openapi_contract.py --rootdir=$(CURDIR)/mapping -v --tb=short || \
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/mapping_api/ $(PYTEST_FLAGS) || \
 		(echo "Mapping OpenAPI contract check failed" && exit 1)
-
+		
 MANAGER_SCHEMA_DRIFT_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_manager_schema_drift.py
 
 .PHONY: check-manager-api-spec-review
