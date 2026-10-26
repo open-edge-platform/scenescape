@@ -4,6 +4,7 @@
 """Unit tests for the standalone Re-ID service facade."""
 
 from pathlib import Path
+import json
 import re
 from types import SimpleNamespace
 from unittest import mock
@@ -119,6 +120,7 @@ def _vdms_response(commands, *args):
 def _configure_vdms_schema_backend(backend):
   schemas = {"gallery": (3, "IP")}
   markers = {"gallery": {"set_name": "gallery", "dimensions": 3, "metric": "IP"}}
+  records = []
 
   def query(commands, *args):
     responses = []
@@ -148,8 +150,19 @@ def _configure_vdms_schema_backend(backend):
         markers[properties["set_name"]] = properties.copy()
         response = {"status": 0, "returned": 1}
       elif operation == "FindDescriptor":
-        response = {"status": 0, "returned": 1,
-                    "entities": [{"uuid": "gid-1", "rvid": "track-1", "_distance": 0.8}]}
+        constraints = values.get("constraints", {})
+        requested = values.get("results", {}).get("list", [])
+        poi_id = constraints.get("uuid", [None, None])[1]
+        if "persist" in requested:
+          entities = [record for record in records if record.get("uuid") == poi_id]
+          entities = [{key: value for key, value in entity.items() if key in requested}
+                      for entity in entities]
+        else:
+          entities = [{"uuid": "gid-1", "rvid": "track-1", "_distance": 0.8}]
+        response = {"status": 0, "returned": len(entities), "entities": entities}
+      elif operation == "AddDescriptor":
+        records.append(values["properties"].copy())
+        response = {"status": 0, "returned": 1}
       elif operation == "DeleteExpired":
         response = {"status": 0, "deleted": 2}
       else:
@@ -158,7 +171,7 @@ def _configure_vdms_schema_backend(backend):
     return responses, []
 
   backend.query.side_effect = query
-  return schemas, markers
+  return schemas, markers, records
 
 
 def _configure_qdrant_schema_backend(backend):
@@ -167,6 +180,8 @@ def _configure_qdrant_schema_backend(backend):
     SCHEMA_MARKER_COLLECTION: (1, models.Distance.EUCLID),
   }
   markers = {"gallery": {"set_name": "gallery", "dimensions": 3, "metric": "IP"}}
+  records = []
+  point_ids = {}
 
   def get_collection(name):
     if name not in schemas:
@@ -183,11 +198,18 @@ def _configure_qdrant_schema_backend(backend):
 
   def upsert(collection_name, points, wait=True):
     for point in points:
-      markers[point.payload["set_name"]] = point.payload.copy()
+      if collection_name == SCHEMA_MARKER_COLLECTION:
+        markers[point.payload["set_name"]] = point.payload.copy()
+        point_ids[str(point.id)] = point.payload["set_name"]
+      else:
+        records.append(SimpleNamespace(id=point.id, payload=point.payload.copy()))
 
   def retrieve(collection_name, ids, with_payload=True):
-    payloads = [markers[name] for name in markers if name in ids]
+    payloads = [markers[point_ids[point_id]] for point_id in ids if point_id in point_ids]
     return [SimpleNamespace(payload=payload) for payload in payloads]
+
+  def scroll(collection_name, **kwargs):
+    return records, None
 
   backend.get_collections.return_value = SimpleNamespace(collections=[])
   backend.get_collection.side_effect = get_collection
@@ -195,8 +217,9 @@ def _configure_qdrant_schema_backend(backend):
   backend.create_payload_index.return_value = None
   backend.upsert.side_effect = upsert
   backend.retrieve.side_effect = retrieve
+  backend.scroll.side_effect = scroll
   backend.delete.return_value = None
-  return schemas, markers
+  return schemas, markers, records
 
 
 @pytest.fixture(params=["VDMS", "QDRANT"])
@@ -207,7 +230,7 @@ def transport(request):
       adapter = VDMSDatabase(set_name="gallery", dimensions=3, descriptor_ttl_secs=60)
     backend = adapter.db
     backend.connected = True
-    schemas, markers = _configure_vdms_schema_backend(backend)
+    schemas, markers, records = _configure_vdms_schema_backend(backend)
 
     def collection_factory(collection_name, metric):
       declared = VDMSDatabase(set_name=collection_name, similarity_metric=metric,
@@ -218,7 +241,7 @@ def transport(request):
     adapter = QdrantDatabase(set_name="gallery", dimensions=3, descriptor_ttl_secs=60)
     backend = adapter.client = mock.Mock()
     adapter.connected = True
-    schemas, markers = _configure_qdrant_schema_backend(backend)
+    schemas, markers, records = _configure_qdrant_schema_backend(backend)
 
     def collection_factory(collection_name, metric):
       declared = QdrantDatabase(set_name=collection_name, similarity_metric=metric,
@@ -229,7 +252,8 @@ def transport(request):
     backend.query_points.return_value = SimpleNamespace(points=[SimpleNamespace(
         payload={"uuid": "gid-1", "rvid": "track-1"}, score=0.8)])
   service = ReIDService(adapter=adapter, connect=False, collection_factory=collection_factory)
-  server = create_server(service, collection_create_token="transport-create-token")
+  server = create_server(service, collection_create_token="transport-create-token",
+                         poi_write_token="transport-poi-write-token")
   port = server.add_insecure_port("127.0.0.1:0")
   server.start()
   channel = grpc.insecure_channel(f"127.0.0.1:{port}")
@@ -237,7 +261,7 @@ def transport(request):
     grpc.channel_ready_future(channel).result(timeout=5)
     yield SimpleNamespace(client=ReIDClient(channel), service=service, backend=backend,
                           adapter=adapter, channel=channel, backend_name=request.param,
-                          schemas=schemas, markers=markers)
+                          schemas=schemas, markers=markers, records=records)
   finally:
     channel.close()
     server.stop(0).wait(timeout=5)
@@ -445,3 +469,82 @@ def test_transport_create_collection_rejects_incompatible_schema(transport, dime
   assert "poi_person" in failure.value.details()
   assert transport.schemas["poi_person"] == (
     3, "IP" if transport.backend_name == "VDMS" else models.Distance.DOT)
+
+
+def _record_payload(transport, record):
+  return record if transport.backend_name == "VDMS" else record.payload
+
+
+def _declare_test_poi_collection(transport):
+  return transport.client.create_collection(
+    "poi_person", 3, "IP", "transport-create-token")
+
+
+def test_transport_enrolls_and_appends_poi_vectors_with_audit(transport):
+  _declare_test_poi_collection(transport)
+  authorization = "transport-poi-write-token"
+  created = transport.client.enroll_poi(
+    "poi_person", "person", [[1, 0, 0], [0, 1, 0]], "high", "red jacket", "alice", authorization)
+  poi_id = created["poi_id"]
+  assert created["vector_count"] == 2
+  records = [_record_payload(transport, record) for record in transport.records]
+  assert len(records) == 2
+  for record in records:
+    assert record["uuid"] == poi_id
+    assert "rvid" not in record
+    assert json.loads(record["persist"])["poi_id"] == poi_id
+    audit = json.loads(record["poi_enrollment_audit"])
+    assert audit["action"] == "enroll"
+    assert audit["enrolled_by"] == "alice", audit
+    assert len(audit["vector_sha256"]) == 2
+
+  appended = transport.client.append_poi_embeddings(
+    "poi_person", poi_id, [[0, 0, 1]], "bob", authorization)
+  assert appended == {"poi_id": poi_id, "collection_name": "poi_person", "vector_count": 1}
+  records = [_record_payload(transport, record) for record in transport.records]
+  assert len(records) == 3
+  append_audit = json.loads(records[-1]["poi_enrollment_audit"])
+  assert append_audit["action"] == "append_embeddings"
+  assert append_audit["enrolled_by"] == "bob"
+  assert len(append_audit["vector_sha256"]) == 1
+
+
+@pytest.mark.parametrize("method", ["EnrollPoi", "AppendPoiEmbeddings"])
+def test_transport_poi_writes_require_separate_writer_token(transport, method):
+  _declare_test_poi_collection(transport)
+  request = {"collection_name": "poi_person", "object_type": "person",
+             "reid_vectors": [[1, 0, 0]], "severity": "high", "notes": "",
+             "enrolled_by": "alice", "poi_id": "p1"}
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.call(method, request)
+  assert failure.value.code() == grpc.StatusCode.PERMISSION_DENIED
+  assert transport.records == []
+
+
+def test_transport_append_requires_existing_poi(transport):
+  _declare_test_poi_collection(transport)
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.append_poi_embeddings(
+      "poi_person", "missing-poi", [[1, 0, 0]], "alice", "transport-poi-write-token")
+  assert failure.value.code() == grpc.StatusCode.NOT_FOUND
+
+
+def test_transport_poi_write_failure_returns_no_poi_id(transport):
+  _declare_test_poi_collection(transport)
+  if transport.backend_name == "VDMS":
+    original = transport.backend.query.side_effect
+
+    def fail_add(commands, *args):
+      if any("AddDescriptor" in command for command in commands):
+        raise RuntimeError("write failed")
+      return original(commands, *args)
+
+    transport.backend.query.side_effect = fail_add
+  else:
+    transport.backend.upsert.side_effect = RuntimeError("write failed")
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.enroll_poi(
+      "poi_person", "person", [[1, 0, 0]], "high", "notes", "alice",
+      "transport-poi-write-token")
+  assert failure.value.code() == grpc.StatusCode.UNAVAILABLE
+  assert "poi_id" not in failure.value.details()

@@ -3,7 +3,11 @@
 
 """Thin, backend-neutral service facade over the Re-ID adapter contract."""
 
+from datetime import datetime, timezone
+import hashlib
 import numpy as np
+import time
+import uuid
 
 from scene_common.reid_constants import SCHEMA_MARKER_COLLECTION, SCHEMA_NAME, is_inner_product_metric
 from reid.reid_registry import create_reid_database
@@ -11,6 +15,10 @@ from reid.reid_registry import create_reid_database
 
 class CollectionSchemaConflictError(Exception):
   """The named collection exists with a different or unverifiable schema."""
+
+
+class PoiNotFoundError(Exception):
+  """No enrolled POI with the requested identifier exists in the collection."""
 
 
 class ReIDService:
@@ -114,6 +122,94 @@ class ReIDService:
       "created": not exists,
     }
 
+  def enroll_poi(self, request):
+    """Enroll precomputed POI vectors with required attribution and an audit record."""
+    validate_request(request, {"collection_name", "object_type", "reid_vectors",
+                               "severity", "notes", "enrolled_by"},
+                     required=("collection_name", "object_type", "reid_vectors",
+                               "severity", "notes", "enrolled_by"))
+    collection_name, adapter, dimensions, metric = self._poi_collection(
+      request["collection_name"])
+    object_type = validate_name(request["object_type"], "object_type")
+    enrolled_by = validate_name(request["enrolled_by"], "enrolled_by")
+    severity = validate_name(request["severity"], "severity")
+    notes = validate_text(request["notes"], "notes", 2048)
+    vectors = validate_poi_vectors(request["reid_vectors"], dimensions, metric)
+    poi_id = str(uuid.uuid4())
+    audit = self._poi_audit("enroll", enrolled_by, vectors)
+    self._write_poi_vectors(adapter, poi_id, object_type, vectors, collection_name,
+                            severity, notes, audit)
+    return {"poi_id": poi_id, "collection_name": collection_name,
+            "vector_count": len(vectors)}
+
+  def append_poi_embeddings(self, request):
+    """Append reference vectors to an enrolled POI without changing its prior audit."""
+    validate_request(request, {"collection_name", "poi_id", "reid_vectors", "enrolled_by"},
+                     required=("collection_name", "poi_id", "reid_vectors", "enrolled_by"))
+    collection_name, adapter, dimensions, metric = self._poi_collection(
+      request["collection_name"])
+    poi_id = validate_name(request["poi_id"], "poi_id")
+    enrolled_by = validate_name(request["enrolled_by"], "enrolled_by")
+    vectors = validate_poi_vectors(request["reid_vectors"], dimensions, metric)
+    profile = self._backend_call(adapter.getPersistedAttributes, poi_id, set_name=collection_name)
+    if not profile or profile.get("poi_id") != poi_id:
+      raise PoiNotFoundError(f"POI '{poi_id}' was not found in collection '{collection_name}'")
+    severity = validate_name(profile.get("severity"), "stored severity")
+    notes = validate_text(profile.get("notes", ""), "stored notes", 2048)
+    object_type = validate_name(profile.get("object_type"), "stored object_type")
+    audit = self._poi_audit("append_embeddings", enrolled_by, vectors)
+    self._write_poi_vectors(adapter, poi_id, object_type, vectors, collection_name,
+                            severity, notes, audit, profile=profile)
+    return {"poi_id": poi_id, "collection_name": collection_name,
+            "vector_count": len(vectors)}
+
+  def _poi_collection(self, collection_name):
+    validate_name(collection_name, "collection_name")
+    if collection_name != collection_name.strip():
+      raise ValueError("collection_name cannot contain surrounding whitespace")
+    reserved = {str(self.adapter.set_name).casefold(), SCHEMA_NAME.casefold(),
+                SCHEMA_MARKER_COLLECTION.casefold()}
+    if collection_name.casefold() in reserved:
+      raise ValueError("POI writes cannot target the live gallery or internal schema collection")
+    adapter = self.collection_factory(collection_name, self.adapter.similarity_metric)
+    adapter.raise_on_backend_error = True
+    if not adapter.backendAvailable():
+      raise ConnectionError("ReID backend unavailable")
+    exists, dimensions, metric = self._backend_call(adapter.findSchemaMetadata, collection_name)
+    if not exists or dimensions is None or metric is None:
+      raise CollectionSchemaConflictError(
+        f"POI collection '{collection_name}' must be declared before enrollment")
+    return collection_name, adapter, int(dimensions), str(metric).strip().upper()
+
+  @staticmethod
+  def _poi_audit(action, enrolled_by, vectors):
+    timestamp = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    return {
+      "action": action,
+      "audit_id": str(uuid.uuid4()),
+      "enrolled_by": enrolled_by,
+      "timestamp": timestamp,
+      "vector_sha256": [hashlib.sha256(vector.tobytes()).hexdigest() for vector in vectors],
+    }
+
+  @staticmethod
+  def _write_poi_vectors(adapter, poi_id, object_type, vectors, collection_name,
+                         severity, notes, audit, profile=None):
+    persist = {
+      "timestamp": time.time(),
+      "poi_id": poi_id,
+      "object_type": object_type,
+      "severity": severity,
+      "notes": notes,
+      "active": True if profile is None else profile.get("active", True),
+    }
+    try:
+      adapter.addEntry(
+        poi_id, None, object_type, vectors, set_name=collection_name, persist=persist,
+        severity=severity, notes=notes, poi_enrollment_audit=audit)
+    except Exception as error:
+      raise ConnectionError("ReID backend operation failed to persist all POI vectors") from error
+
   def _validate_collection_declaration(self, request):
     """Validate and normalize a POI schema declaration without backend access."""
     validate_request(request, {"collection_name", "dimensions", "metric"},
@@ -173,6 +269,7 @@ def validate_name(value, field, optional=False):
     return
   if not isinstance(value, str) or not value.strip() or len(value) > 256 or "\0" in value:
     raise ValueError(f"{field} must be a nonempty string of at most 256 characters")
+  return value
 
 
 def validate_vectors(value, dimensions, metric):
@@ -191,3 +288,19 @@ def validate_vectors(value, dimensions, metric):
   if is_inner_product_metric(metric) and not np.any(vectors != 0, axis=1).all():
     raise ValueError("inner-product reid_vectors must be nonzero")
   return vectors
+
+
+def validate_poi_vectors(value, dimensions, metric):
+  """Validate the bounded 1-5 reference-vector batch allowed for a POI write."""
+  vectors = validate_vectors(value, dimensions, metric)
+  if not 1 <= vectors.shape[0] <= 5:
+    raise ValueError("POI writes require 1 to 5 embedding vectors")
+  return vectors
+
+
+def validate_text(value, field, maximum_length):
+  """Validate bounded human-entered POI text, allowing empty notes only."""
+  if (not isinstance(value, str) or len(value) > maximum_length or "\0" in value or
+      (field != "notes" and not value.strip())):
+    raise ValueError(f"{field} must be a string of at most {maximum_length} characters")
+  return value

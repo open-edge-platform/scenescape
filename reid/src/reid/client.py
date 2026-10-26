@@ -10,7 +10,7 @@ from google.protobuf import json_format, struct_pb2
 
 SERVICE_NAME = "scenescape.reid.ReIDService"
 RPC_METHODS = ("Health", "FindMatches", "FindSchemaMetadata", "PurgeExpired", "IngestStats",
-               "CreateCollection")
+               "CreateCollection", "EnrollPoi", "AppendPoiEmbeddings")
 
 
 class ReIDClient:
@@ -61,5 +61,26 @@ class ReIDClient:
     return self.call(
       "CreateCollection",
       {"collection_name": collection_name, "dimensions": dimensions, "metric": metric},
+      metadata=(("authorization", f"Bearer {authorization}"),),
+    )
+
+  def enroll_poi(self, collection_name, object_type, reid_vectors, severity, notes,
+                 enrolled_by, authorization):
+    """Enroll precomputed vectors and return the server-generated poi_id."""
+    return self.call(
+      "EnrollPoi",
+      {"collection_name": collection_name, "object_type": object_type,
+       "reid_vectors": reid_vectors, "severity": severity, "notes": notes,
+       "enrolled_by": enrolled_by},
+      metadata=(("authorization", f"Bearer {authorization}"),),
+    )
+
+  def append_poi_embeddings(self, collection_name, poi_id, reid_vectors, enrolled_by,
+                            authorization):
+    """Append precomputed reference vectors to an existing POI."""
+    return self.call(
+      "AppendPoiEmbeddings",
+      {"collection_name": collection_name, "poi_id": poi_id,
+       "reid_vectors": reid_vectors, "enrolled_by": enrolled_by},
       metadata=(("authorization", f"Bearer {authorization}"),),
     )

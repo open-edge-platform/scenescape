@@ -203,16 +203,16 @@ Expose `findMatches` to investigator tools, VLM-recall (Epic #120), and POI matc
 
 ### 6.4 POI enrollment (insert and update)
 
-`POST /poi` accepts precomputed embeddings plus `severity`, `notes`, and `enrolled_by`. It does not take raw images or a client `poi_id`. Internally it uses the `addEntry` write path without inventing an `rvid`. Who runs image → embedding for a one-off enrollment (ephemeral DL Streamer pipeline vs a synchronous extract API) is open (Section 11).
+`EnrollPoi` accepts a declared POI collection, object type, 1-5 precomputed embeddings, `severity`, `notes`, and `enrolled_by`. It does not take raw images or a client `poi_id`; the service generates the POI id. `AppendPoiEmbeddings` accepts a POI id, 1-5 additional reference embeddings, and `enrolled_by`. Both use `addEntry` without inventing an `rvid`, and write an audit record containing writer, timestamp, operation, and SHA-256 hashes for the vectors in that operation. They require `REID_POI_WRITE_TOKEN` and cannot target the live gallery. Who runs image → embedding for a one-off enrollment (ephemeral DL Streamer pipeline vs a synchronous extract API) is open (Section 11).
 
-`enrolled_by` is required on every enroll and embedding append. Immutable enrollment audit and write-path rate limits are specified in 6.12; mechanics here: each enroll/append appends an audit record (`enrolled_by`, timestamp, vector id or hash). Metadata PATCH and deactivate do not rewrite or remove prior records. Hard delete (6.7) removes the POI from the matchable gallery but must not erase the audit trail.
+`enrolled_by` is required on every enroll and embedding append. Each descriptor written by an operation contains that operation's immutable audit metadata; the service exposes no operation to edit or erase it. Rate limits remain a deployment requirement (6.12). Metadata PATCH and deactivate do not rewrite or remove prior records. Hard delete (6.7) removes the POI from the matchable gallery but must not erase the audit trail.
 
 Updates:
 
 - `POST /poi/{poi_id}/embeddings` — append a reference embedding (Epic #221: 1–5 per POI).
 - `PATCH /poi/{poi_id}` — metadata only, including active/inactive. Hard delete is 6.7.
 
-**Write contract.** `POST /poi` and embedding appends succeed only when every vector in the request is accepted. Otherwise the call fails and no half-enrolled `poi_id` is returned. That is stricter than general-gallery partial writes (`ReidPartialWriteError`). It is not fsync, quorum, or durability. Persistence is 6.10. Adapter confirmation (Qdrant `wait=True`, VDMS per-descriptor status) stays internal; callers see one outcome.
+**Write contract.** `EnrollPoi` and `AppendPoiEmbeddings` return success only when every vector in the request is accepted. Otherwise the RPC fails and an enrollment returns no `poi_id`. This does not promise rollback of descriptors accepted before a backend partial failure, and it is not fsync, quorum, or durability. Persistence is 6.10. Adapter confirmation (Qdrant `wait=True`, VDMS per-descriptor status) stays internal; callers see one outcome.
 
 POI embeddings use their own collection/`set_name`, not the general gallery: different retention (6.8), and queries name the POI set vs the general set instead of inferring it from `object_type`. Validate with `prepareReidDict` / `prepareReidVector`; reject with `ReidNoValidVectorsError`.
 
@@ -234,7 +234,7 @@ Neither adapter exposes count or list today. `findSchemaMetadata` does not retur
 
 - `GET /collections` — name, dimensions, metric, retention. Not which backend is deployed.
 - `GET /collections/{name}/stats` — `vector_count` and `distinct_object_count` (1–5 embeddings per POI; general gallery also stores more than one vector per UUID). `Gallery_Size_Active_Persons` is the distinct count.
-- **`CreateCollection` gRPC** — authorized declaration for an explicit POI collection name, embedding dimensions, and backend distance metric. Compatible repeat declarations are idempotent; dimension or metric conflicts fail with `FAILED_PRECONDITION`. The configured live-gallery name, default live-gallery name, and internal schema-marker collection are reserved. It creates schema only; the general gallery keeps lazy `ensureSchema` and no descriptor enrollment is exposed.
+- **Collection and POI gRPC writes** — `CreateCollection` declares an explicit POI collection schema; `EnrollPoi` and `AppendPoiEmbeddings` write POI descriptors only after declaration. Compatible schema repeats are idempotent; mismatches fail with `FAILED_PRECONDITION`. The configured live-gallery, default live-gallery, and schema-marker names are reserved from these operations. The general gallery keeps lazy `ensureSchema` and has no external descriptor-write RPC.
 
 Whether stats accept `scene_id` / `camera_id` is open (Section 11). Export size as an OTel gauge for `GalleryExtractor`, not only as a REST body (Section 10).
 
@@ -324,7 +324,7 @@ Ship `reid-service` behind a flag, dual-run against in-Controller ReID until par
 Section 6 sequencing:
 
 - 6.1 before any other API.
-- authN/authZ mechanism (Section 11) before `POST /poi` or delete ship; policy is 6.12. Tracker-subscription trust stays a separate open.
+- `REID_COLLECTION_CREATE_TOKEN` and `REID_POI_WRITE_TOKEN` gate the baseline collection/POI write RPCs. Fine-grained operator roles, write-rate limits, and authorization for future delete APIs remain security follow-up (6.12). Tracker-subscription trust stays a separate open.
 - 6.8 after 6.4 and 6.6 (a collection must exist before it has a TTL).
 - 6.11 after Tracker publishes `camera_id` and per-sighting timestamp (5.4). Stream Manager integration follows that, not the other way around.
 
@@ -353,7 +353,7 @@ OTel, not REST-only: match latency and backend duration (5.3), `Gallery_Size_Act
 
 **Security**
 
-- **authN/authZ mechanism.** How principals and the read-vs-write split in 6.12 are enforced (tokens, mTLS, gateway policy, etc.). Baseline collection creation is disabled unless `REID_COLLECTION_CREATE_TOKEN` is configured and the caller supplies its bearer token; deployment transport still requires a trusted network or TLS proxy. Required before `POST /poi` or delete ship (Section 9). MQTT trust for the Tracker subscription is listed under Extraction above.
+- **authN/authZ mechanism.** Baseline collection creation and POI enrollment/append are gated by separate bearer tokens (`REID_COLLECTION_CREATE_TOKEN`, `REID_POI_WRITE_TOKEN`), but these are not fine-grained principals or roles. Fine-grained query-vs-operator authorization and write-path rate limits remain required before broad deployment. The listener is plaintext, so deployment still requires a trusted private network or TLS proxy. MQTT trust for the Tracker subscription is listed under Extraction above.
 
 ## 12. References
 

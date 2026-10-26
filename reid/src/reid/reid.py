@@ -196,11 +196,7 @@ class ReIDDatabase(ABC):
 
   def _buildEntryProperties(self, uuid_value, rvid, object_type, persist=None, **metadata):
     """Build shared entry properties with reserved-key protection and retention."""
-    properties = {
-      "uuid": f"{uuid_value}",
-      "rvid": f"{rvid}",
-      "type": f"{object_type}",
-    }
+    properties = self._baseEntryProperties(uuid_value, rvid, object_type)
     self._applyRetentionProperties(properties)
 
     if persist:
@@ -231,6 +227,17 @@ class ReIDDatabase(ABC):
       else:
         properties[key] = str(value)
 
+    return properties
+
+  @staticmethod
+  def _baseEntryProperties(uuid_value, rvid, object_type):
+    """Build identity fields while allowing non-Tracker records to omit rvid."""
+    properties = {
+      "uuid": f"{uuid_value}",
+      "type": f"{object_type}",
+    }
+    if rvid is not None:
+      properties["rvid"] = f"{rvid}"
     return properties
 
   def _applyRetentionProperties(self, properties):
