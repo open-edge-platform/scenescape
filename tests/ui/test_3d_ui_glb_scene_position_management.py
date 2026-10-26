@@ -29,8 +29,11 @@ SCENE_FOLDER_XPATH = (
 )
 SAVE_BUTTON = (
   By.XPATH,
-  SCENE_FOLDER_XPATH + "//button[.//div[@class='name' and normalize-space()='save']]",
+  SCENE_FOLDER_XPATH
+  + "//div[contains(concat(' ', normalize-space(@class), ' '), ' controller ')]"
+  "[.//div[@class='name' and normalize-space()='save']]//button",
 )
+
 
 def open_scene_controls(browser: Browser) -> None:
   """Expand Scene Settings and its Pose folder after the GLB finishes loading."""
@@ -106,19 +109,22 @@ def select_transform_mode(browser: Browser, mode: str) -> None:
   def gizmo_matches(driver):
     return driver.execute_script("""
       const scene = window.__testScene;
-      const control = scene?.getObjectByName(arguments[0] + '-transform-controls');
-      if (!control || !control.visible) return false;
-      let gizmo;
-      control.traverse(node => {
-        if (node.gizmo?.rotate && node.gizmo?.translate) gizmo = node;
-      });
-      if (!gizmo) return false;
-      const mode = arguments[1];
+      const mode = arguments[0];
       const other = mode === 'rotate' ? 'translate' : 'rotate';
-      return gizmo.visible && gizmo.mode === mode &&
-        gizmo.gizmo[mode].visible && !gizmo.gizmo[other].visible &&
-        gizmo.gizmo[mode].children.some(handle => handle.visible);
-    """, SCENE_NAME, mode)
+      let matchingGizmo = false;
+      scene?.traverse(node => {
+        if (!node.gizmo?.rotate || !node.gizmo?.translate || node.mode !== mode) return;
+        let ancestorsVisible = true;
+        for (let parent = node; parent && parent !== scene; parent = parent.parent) {
+          if (!parent.visible) ancestorsVisible = false;
+        }
+        matchingGizmo = matchingGizmo || (
+          ancestorsVisible && node.gizmo[mode].visible && !node.gizmo[other].visible &&
+          node.gizmo[mode].children.some(handle => handle.visible)
+        );
+      });
+      return matchingGizmo;
+    """, mode)
 
   WebDriverWait(browser, PANEL_WAIT_SEC).until(
     gizmo_matches, f"Scene {mode} gizmo was not displayed exclusively"
