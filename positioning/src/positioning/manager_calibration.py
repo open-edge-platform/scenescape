@@ -3,6 +3,8 @@
 
 """Read Manager-owned PTZ calibration and home pose for the Resolver."""
 
+from requests.exceptions import ConnectionError, Timeout
+
 from positioning.ptz_model import PTZCalibrationError, load_ptz_model
 from positioning.ptz_resolver import PTZSourceCalibration
 from scene_common.rest_client import RESTClient
@@ -10,6 +12,10 @@ from scene_common.rest_client import RESTClient
 
 class ManagerCalibrationError(RuntimeError):
   """Raised when a Manager camera record cannot be loaded safely."""
+
+
+class ManagerCalibrationTransportError(ManagerCalibrationError):
+  """Raised when a request fails without a definitive Manager response."""
 
 
 class ManagerCalibrationLoader:
@@ -29,6 +35,9 @@ class ManagerCalibrationLoader:
         self._client = self.client_factory(
           self.url, auth=self.auth, rootcert=self.root_cert, timeout=10)
       camera = self._client.getCamera(source_id)
+    except (ConnectionError, Timeout) as error:
+      self._client = None
+      raise ManagerCalibrationTransportError("Manager camera request failed") from error
     except Exception as error:
       self._client = None
       raise ManagerCalibrationError("Manager camera request failed") from error

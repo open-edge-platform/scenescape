@@ -171,6 +171,12 @@ Positioning configures a 10-second connection and read-inactivity timeout on its
 Manager `RESTClient`; authentication and camera reads both use that timeout. A
 timeout follows the existing calibration failure handling and permits a later
 refresh to retry; it is not a total deadline for the complete calibration load.
+Timeouts and connection failures during camera reads preserve the current calibration
+state (a source already pending reload stays invalid). Definitive rejections, including
+a deleted camera, identity mismatch, invalid calibration, or insufficient runtime
+history capacity, clear the calibration and invalidate the source even during a
+periodic refresh without a configuration notification. Rejections use the same
+generation guard as successful reloads, so stale failures cannot clear a newer calibration.
 
 ### Clock synchronization
 

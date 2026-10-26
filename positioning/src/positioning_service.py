@@ -16,7 +16,8 @@ import threading
 import time
 
 from positioning.clock_sync import ClockMonitor
-from positioning.manager_calibration import ManagerCalibrationLoader
+from positioning.manager_calibration import (
+  ManagerCalibrationLoader, ManagerCalibrationTransportError)
 from positioning.metrics import PositioningMetrics
 from positioning.ptz_poller import LoggingSampleSink
 from positioning.ptz_resolver import PTZResolver
@@ -185,8 +186,14 @@ class PositioningService:
       calibration = self.calibration_loader.load(source_id)
       if not self.resolver.update_calibration(source_id, calibration, generation=generation):
         log.info(f"Discarded stale Manager calibration for {source_id}; reload pending")
+    except ManagerCalibrationTransportError as error:
+      log.warning(f"Manager calibration transport error for {source_id}; "
+                  f"calibration state unchanged: {error}")
     except Exception as error:
-      log.warning(f"Manager calibration reload failed for {source_id}; source remains invalid: {error}")
+      if self.resolver.update_calibration(source_id, None, generation=generation):
+        log.warning(f"Manager calibration reload rejected for {source_id}; source invalid: {error}")
+      else:
+        log.info(f"Discarded stale Manager calibration rejection for {source_id}: {error}")
 
   def refresh_calibrations(self, stop_event):
     # Queue activity must not postpone the all-source refresh, which retries failed

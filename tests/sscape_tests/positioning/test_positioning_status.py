@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import datetime
+from dataclasses import replace
 import json
 import logging
 import os
@@ -15,10 +16,13 @@ from pathlib import Path
 from unittest import mock
 
 import numpy as np
+from requests.exceptions import ConnectionError, Timeout
 
+from positioning.manager_calibration import ManagerCalibrationError, ManagerCalibrationLoader
 from positioning.ptz_model import load_ptz_model
 from positioning.ptz_poller import LoggingSampleSink
 from positioning.ptz_resolver import PTZResolver, PTZSourceCalibration
+from positioning.v1 import ptz_pb2
 from positioning_status import status_payload, status_topic
 
 try:
@@ -37,6 +41,23 @@ def _fixture_calibration():
   fixture = json.loads(fixture_path.read_text())
   return PTZSourceCalibration(
     load_ptz_model(fixture["ptz_calibration"]), np.eye(4), "scene:scene-a")
+
+
+def _home_sample(calibration, sequence, timestamp_ns):
+  sample = ptz_pb2.PTZSample(
+    camera_id="cam-a", adapter_instance_id="adapter-a", sequence=sequence,
+    timestamp_uncertainty_ns=5_000_000,
+    reported_move_status=ptz_pb2.REPORTED_MOVE_STATUS_IDLE)
+  sample.measured_at.FromNanoseconds(timestamp_ns)
+  sample.position.pan = calibration.model.pan.home_position
+  sample.position.tilt = calibration.model.tilt.home_position
+  space = calibration.model.position_space
+  sample.position.position_space_uri = space.uri
+  sample.position.pan_min = space.pan_min
+  sample.position.pan_max = space.pan_max
+  sample.position.tilt_min = space.tilt_min
+  sample.position.tilt_max = space.tilt_max
+  return sample
 
 
 class TestPositioningStatus(unittest.TestCase):
@@ -400,16 +421,101 @@ class TestPositioningStatus(unittest.TestCase):
       self.assertTrue(service._calibration_requests.empty())
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
-  def test_failed_calibration_reload_does_not_install_a_result(self):
+  def test_transport_error_during_calibration_reload_does_not_install_a_result(self):
+    for error in (Timeout("manager timed out"), ConnectionError("manager unavailable")):
+      with self.subTest(error=type(error)), tempfile.TemporaryDirectory() as temp_dir:
+        service, _, _, _ = self._create_service(temp_dir)
+        service.resolver = mock.Mock()
+        manager = mock.Mock()
+        manager.getCamera.side_effect = error
+        service.calibration_loader = ManagerCalibrationLoader(
+          "https://manager/api/v1", "auth", "ca", mock.Mock(return_value=manager))
+
+        with mock.patch("positioning_service.log.warning") as warning:
+          service.reload_calibration("cam-a")
+
+        service.resolver.update_calibration.assert_not_called()
+        self.assertIn("calibration state unchanged", warning.call_args.args[0])
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_rejected_calibration_reload_clears_calibration_with_captured_generation(self):
     with tempfile.TemporaryDirectory() as temp_dir:
       service, _, _, _ = self._create_service(temp_dir)
       service.resolver = mock.Mock()
+      service.resolver.calibration_generation.return_value = 7
       service.calibration_loader = mock.Mock()
-      service.calibration_loader.load.side_effect = RuntimeError("manager unavailable")
+      service.calibration_loader.load.side_effect = ManagerCalibrationError("camera deleted")
 
       service.reload_calibration("cam-a")
 
-      service.resolver.update_calibration.assert_not_called()
+      service.resolver.update_calibration.assert_called_once_with("cam-a", None, generation=7)
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_periodic_reload_rejections_remove_installed_calibration_without_notification(self):
+    for rejection in ("deleted", "invalid_model", "wrong_identity", "ring_capacity"):
+      with self.subTest(rejection=rejection), tempfile.TemporaryDirectory() as temp_dir:
+        service, _, _, _ = self._create_service(temp_dir, source_ids=("cam-a",))
+        calibration = _fixture_calibration()
+        clock = mock.Mock(return_value=1_790_000_000_000_000_000)
+        published = []
+        service.resolver = PTZResolver(
+          {"cam-a": calibration}, lambda topic, payload, **kwargs: published.append(
+            json.loads(payload)), poll_interval_s=0.2,
+          max_pose_age_s=0.5, max_timestamp_uncertainty_s=0.01,
+          target_reprojection_rms_px=3.0, clock_ns=clock)
+        for sequence in range(1, 5):
+          clock.return_value += 200_000_000
+          service.resolver.submit_ptz_sample(
+            _home_sample(calibration, sequence, clock.return_value))
+        self.assertTrue(published[-1]["valid"])
+        camera = type("CameraResult", (dict,), {"statusCode": 200})({
+          "uid": "cam-a", "ptz_calibration": {}, "pose_matrix": np.eye(4).tolist(),
+          "scene": "scene-a"})
+        manager = mock.Mock()
+        manager.getCamera.return_value = camera
+        service.calibration_loader = ManagerCalibrationLoader(
+          "https://manager/api/v1", "auth", "ca", mock.Mock(return_value=manager))
+        if rejection == "deleted":
+          camera.statusCode = 404
+        elif rejection == "wrong_identity":
+          camera["uid"] = "cam-b"
+        elif rejection == "ring_capacity":
+          service.calibration_loader = mock.Mock()
+          service.calibration_loader.load.return_value = replace(
+            calibration, model=replace(calibration.model, settle_interval_s=100.0))
+
+        service.reload_calibration("cam-a")
+
+        self.assertIsNone(service.resolver.source_calibrations["cam-a"])
+        self.assertEqual(service.resolver.calibration_generation("cam-a"), 0)
+        clock.return_value += 200_000_000
+        service.resolver.submit_ptz_sample(_home_sample(calibration, 5, clock.return_value))
+        self.assertFalse(published[-1]["valid"])
+        self.assertEqual(published[-1]["reason_detail"], "calibration_missing")
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_stale_calibration_rejection_cannot_clear_newer_calibration(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      service, _, _, _ = self._create_service(temp_dir, source_ids=("cam-a",))
+      calibration = _fixture_calibration()
+      service.resolver = PTZResolver(
+        {"cam-a": calibration}, lambda *args, **kwargs: None, poll_interval_s=0.2,
+        max_pose_age_s=0.5, max_timestamp_uncertainty_s=0.01, target_reprojection_rms_px=3.0)
+
+      def stale_rejection(source_id):
+        service.resolver.invalidate_calibration(source_id)
+        service.resolver.update_calibration(source_id, calibration, generation=1)
+        raise ManagerCalibrationError("stale rejection")
+
+      service.calibration_loader = mock.Mock()
+      service.calibration_loader.load.side_effect = stale_rejection
+
+      with mock.patch("positioning_service.log.info") as info:
+        service.reload_calibration("cam-a")
+
+      self.assertIs(service.resolver.source_calibrations["cam-a"], calibration)
+      self.assertFalse(service.resolver._states["cam-a"].calibration_pending)
+      self.assertIn("Discarded stale Manager calibration rejection", info.call_args.args[0])
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_manager_read_completed_after_invalidation_is_discarded(self):
