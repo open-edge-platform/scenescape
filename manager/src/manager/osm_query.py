@@ -215,6 +215,80 @@ def _normalize_tags(raw_tags: Any) -> Dict[str, Any]:
     return {}
 
 
+def _row_to_geometries(row) -> List[Dict[str, Any]]:
+  """Decode one parquet row into zero or more geometry dicts.
+
+  A MultiLineString row is split into one dict per sub-line (see module
+  docstring for why disconnected segments must not be bridged).
+  """
+  tags = _normalize_tags(row.get("tags"))
+  way_type = _feature_type(tags)
+  geom_bytes = row.get("geom")
+  if geom_bytes is None:
+    return []
+
+  try:
+    geom = wkb.loads(geom_bytes)
+  except Exception as exc:
+    logger.warning(f"Failed to decode WKB geometry for way {row.get('osm_id')}: {exc}")
+    return []
+
+  if geom.geom_type == "LineString":
+    coords = [(lat, lng) for lng, lat in geom.coords]
+    return [{"type": way_type, "coords": coords, "tags": tags}]
+  if geom.geom_type == "MultiLineString":
+    # Emit each line component separately. Concatenating disconnected segments
+    # creates artificial bridges in buffered polygons (e.g., across tunnels/rivers).
+    return [
+      {"type": way_type, "coords": coords, "tags": tags}
+      for line in geom.geoms
+      if (coords := [(lat, lng) for lng, lat in line.coords])
+    ]
+  return []
+
+
+def _rows_to_results(ways) -> List[Dict[str, Any]]:
+  """Decode every way row into its geometry dict(s)."""
+  results: List[Dict[str, Any]] = []
+  for _, row in ways.iterrows():
+    results.extend(_row_to_geometries(row))
+  return results
+
+
+def _fetch_ways(url: str, body: dict, headers: dict, max_features: int) -> List[Dict[str, Any]]:
+  """Perform one throttled ohsome request and decode its ways into geometries.
+
+  Raises FeatureLimitError if the response exceeds max_features (not retried),
+  or OsmQueryError/requests.RequestException on transport/parsing failure
+  (retried by the caller).
+  """
+  _throttle()
+  response = requests.post(
+    url,
+    json=body,
+    headers=headers,
+    timeout=REQUEST_TIMEOUT_S,
+    stream=True,
+  )
+  response.raise_for_status()
+  content = _read_bounded(response)
+  features_df = pd.read_parquet(io.BytesIO(content))
+  ways = features_df[features_df["osm_type"] == "way"]
+
+  if len(ways) > max_features:
+    raise FeatureLimitError(
+      f"Query returned {len(ways)} ways, exceeding limit of {max_features}. "
+      "Please shrink the bounding box."
+    )
+
+  results = _rows_to_results(ways)
+  logger.info(
+    f"ohsome geometry query succeeded: url={url} way_count={len(ways)} "
+    f"geometry_count={len(results)}"
+  )
+  return results
+
+
 def query_osm_ways_geometry(
   south: float, west: float, north: float, east: float,
   endpoint: str = DEFAULT_ENDPOINT,
@@ -237,6 +311,7 @@ def query_osm_ways_geometry(
   api_key = get_api_key()
   aoi = bbox.as_aoi()
   body = {"aoi": aoi, "filter": ROAD_FILTER, "time": "latest", "clip": True}
+  headers = {"Authorization": f"Bearer {api_key}", "User-Agent": USER_AGENT}
   url = endpoint + EXTRACTION_PATH
   max_features = get_max_roi_features()
 
@@ -244,58 +319,8 @@ def query_osm_ways_geometry(
 
   last_error: Optional[Exception] = None
   for attempt in range(1, MAX_RETRIES + 1):
-    _throttle()
     try:
-      response = requests.post(
-        url,
-        json=body,
-        headers={"Authorization": f"Bearer {api_key}", "User-Agent": USER_AGENT},
-        timeout=REQUEST_TIMEOUT_S,
-        stream=True,
-      )
-      response.raise_for_status()
-      content = _read_bounded(response)
-      features_df = pd.read_parquet(io.BytesIO(content))
-      ways = features_df[features_df["osm_type"] == "way"]
-
-      if len(ways) > max_features:
-        raise FeatureLimitError(
-          f"Query returned {len(ways)} ways, exceeding limit of {max_features}. "
-          "Please shrink the bounding box."
-        )
-
-      results = []
-      for _, row in ways.iterrows():
-        tags = _normalize_tags(row.get("tags"))
-        way_type = _feature_type(tags)
-        geom_bytes = row.get("geom")
-        if geom_bytes is None:
-          continue
-
-        try:
-          geom = wkb.loads(geom_bytes)
-        except Exception as exc:
-          logger.warning(f"Failed to decode WKB geometry for way {row.get('osm_id')}: {exc}")
-          continue
-
-        # Handle both LineString and MultiLineString
-        if geom.geom_type == "LineString":
-          coords = [(lat, lng) for lng, lat in geom.coords]
-          results.append({"type": way_type, "coords": coords, "tags": tags})
-        elif geom.geom_type == "MultiLineString":
-          # Emit each line component separately. Concatenating disconnected segments
-          # creates artificial bridges in buffered polygons (e.g., across tunnels/rivers).
-          for line in geom.geoms:
-            coords = [(lat, lng) for lng, lat in line.coords]
-            if coords:
-              results.append({"type": way_type, "coords": coords, "tags": tags})
-
-      logger.info(
-        f"ohsome geometry query succeeded: url={url} way_count={len(ways)} "
-        f"geometry_count={len(results)}"
-      )
-      return results
-
+      return _fetch_ways(url, body, headers, max_features)
     except FeatureLimitError:
       raise
     except (requests.RequestException, OsmQueryError, OSError, ValueError) as exc:

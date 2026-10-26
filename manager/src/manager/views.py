@@ -265,6 +265,50 @@ def saveTripwireData(scene, form):
 
   return changed
 
+def _save_one_region(scene, roi, seen_names):
+  """Create/update one Region (with its points and optional sectors) from a parsed roi.
+
+  Returns the saved Region.
+  """
+  query_uuid = roi.uuid
+
+  # when a new roi is created uuid is invalid
+  if not validate_uuid(roi.uuid):
+    query_uuid = uuid.uuid4()
+  query_uuid = _scoped_uuid(Region, query_uuid, scene)
+
+  # Use the provided title or default to "roi_<query_uuid>"
+  roi_title = roi.title if roi.title else f"roi_{query_uuid}"
+  roi_title = _dedupe_name(roi_title, seen_names)
+
+  region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
+    'scene': scene,
+    'name': roi_title,
+    'volumetric': getattr(roi, 'volumetric', False),
+    'height': getattr(roi, 'height', 1),
+    'buffer_size': getattr(roi, 'buffer_size', 0),
+    'roi_type': getattr(roi, 'type', '')
+    })
+
+  current_region_point_ids = set()
+  # sequence field stores order of points
+  for point_idx, point in enumerate(roi.points):
+    point, _ = RegionPoint.objects.update_or_create(region=region, x=point[0], y=point[1],
+                                                    sequence=point_idx)
+    current_region_point_ids.add(point.id)
+
+  # when roi is modified older points should be deleted
+  RegionPoint.objects.filter(region=region).exclude(id__in=current_region_point_ids).delete()
+
+  if hasattr(roi, 'sectors'):
+    sectors = [{"color": sector.color, "color_min": sector.color_min} for sector in roi.sectors]
+    RegionOccupancyThreshold.objects.update_or_create(region=region, defaults={
+      'sectors': sectors, 'range_max': roi.range_max
+    })
+
+  return region
+
+
 def saveRegionData(scene, form):
   """Save regions (manual or OSM-derived) from the form. Returns True if anything was
   created, updated or deleted.
@@ -284,45 +328,8 @@ def saveRegionData(scene, form):
 
   for roi in jdata:
     changed = True
-    query_uuid = roi.uuid
-
-    # when a new roi is created uuid is invalid
-    if not validate_uuid(roi.uuid):
-      query_uuid = uuid.uuid4()
-    query_uuid = _scoped_uuid(Region, query_uuid, scene)
-
-    # Use the provided title or default to "roi_<query_uuid>"
-    roi_title = roi.title if roi.title else f"roi_{query_uuid}"
-    roi_title = _dedupe_name(roi_title, seen_names)
-
-    region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
-      'scene': scene,
-      'name': roi_title,
-      'volumetric': getattr(roi, 'volumetric', False),
-      'height': getattr(roi, 'height', 1),
-      'buffer_size': getattr(roi, 'buffer_size', 0),
-      'roi_type': getattr(roi, 'type', '')
-      })
+    region = _save_one_region(scene, roi, seen_names)
     current_region_ids.add(region.uuid)
-
-    current_region_point_ids= set()
-    # sequence field stores order of points
-    for point_idx,point in enumerate(roi.points):
-      point, _ = RegionPoint.objects.update_or_create(region=region, x=point[0], y=point[1],
-                                                      sequence=point_idx)
-      current_region_point_ids.add(point.id)
-
-    # when roi is modified older points should be deleted
-    RegionPoint.objects.filter(region = region).exclude(id__in=current_region_point_ids).delete()
-
-    if hasattr(roi, 'sectors'):
-      sectors = []
-      for sector in roi.sectors:
-        sectors.append({"color": sector.color, "color_min": sector.color_min})
-
-      RegionOccupancyThreshold.objects.update_or_create(region=region, defaults={
-        'sectors': sectors, 'range_max': roi.range_max
-      })
 
   # delete older rois; bulk delete (not per-instance) to avoid triggering the
   # model's own per-instance notifydbupdate() on top of the batched notification
@@ -961,6 +968,31 @@ class SaveGeospatialSnapshot(APIView):
       log.error("Error saving geospatial snapshot")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
+
+def _invalid_bounds(bounds):
+  """True if bounds is present but not a dict of 4 numeric minX/minY/maxX/maxY keys."""
+  if bounds is None:
+    return False
+  return (
+    not isinstance(bounds, dict)
+    or not all(k in bounds for k in ('minX', 'minY', 'maxX', 'maxY'))
+    or not all(_is_number(bounds[k]) for k in ('minX', 'minY', 'maxX', 'maxY'))
+  )
+
+
+def _bearing_pivot(scene):
+  """Scene-local (x, y) pivot for the bearing rotation, in the same frame as ROI points.
+
+  Prefers the scene's saved map center; falls back to the map_corners_lla bbox midpoint.
+  """
+  if scene.map_center_lat is not None and scene.map_center_lng is not None:
+    center_lat, center_lng = scene.map_center_lat, scene.map_center_lng
+  else:
+    south, west, north, east = osm_roi.bbox_from_map_corners(scene.map_corners_lla)
+    center_lat, center_lng = (south + north) / 2.0, (west + east) / 2.0
+  return osm_roi.lla_to_local_xy(scene.trs_matrix, center_lat, center_lng)
+
+
 class OsmRoiPreviews(APIView):
   """Preview OSM-derived polygon ROIs before creation.
 
@@ -983,10 +1015,7 @@ class OsmRoiPreviews(APIView):
   def post(self, request, scene_uid):
     try:
       bounds = request.data.get('bounds')
-      if bounds is not None and (
-          not isinstance(bounds, dict)
-          or not all(k in bounds for k in ('minX', 'minY', 'maxX', 'maxY'))
-          or not all(_is_number(bounds[k]) for k in ('minX', 'minY', 'maxX', 'maxY'))):
+      if _invalid_bounds(bounds):
         return JsonResponse({'error': 'bounds must have numeric minX, minY, maxX, maxY'}, status=400)
 
       # Get the scene; 404 if not found or invalid UUID
@@ -1004,19 +1033,12 @@ class OsmRoiPreviews(APIView):
       previews = osm_roi.build_roi_previews(scene)
       if bounds is not None:
         previews = osm_roi.filter_by_bounds(previews, bounds)
-      bearing = scene.map_bearing or 0.0
 
-      # Pivot for the bearing rotation, in the same scene-local frame as the ROI points.
-      if scene.map_center_lat is not None and scene.map_center_lng is not None:
-        center_lat, center_lng = scene.map_center_lat, scene.map_center_lng
-      else:
-        south, west, north, east = osm_roi.bbox_from_map_corners(scene.map_corners_lla)
-        center_lat, center_lng = (south + north) / 2.0, (west + east) / 2.0
-      center_x, center_y = osm_roi.lla_to_local_xy(scene.trs_matrix, center_lat, center_lng)
+      center_x, center_y = _bearing_pivot(scene)
 
       return JsonResponse({
         'rois': previews,
-        'bearing': bearing,  # degrees, for canvas rotation correction
+        'bearing': scene.map_bearing or 0.0,  # degrees, for canvas rotation correction
         'center': [center_x, center_y],  # scene-local meters pivot for the bearing rotation
       })
 
@@ -1037,6 +1059,69 @@ class OsmRoiPreviews(APIView):
       log.error(f"Error previewing OSM ROIs: {e}")
       log.error(f"Traceback: {traceback.format_exc()}")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+
+class _RoiValidationError(ValueError):
+  """Raised for any invalid roi entry in an OsmRois POST body; message is user-facing."""
+
+
+def _validate_roi(roi, seen_uuids):
+  """Validate and normalize one roi dict.
+
+  Returns (uuid, name, roi_type, points) on success. Raises _RoiValidationError
+  (with a user-facing message) on the first problem found.
+  """
+  if not isinstance(roi, dict):
+    raise _RoiValidationError('Each roi must be an object')
+
+  points = roi.get('points')
+  if not _valid_points(points, MIN_REGION_POINTS):
+    raise _RoiValidationError(
+      f'Each roi needs a "points" list of at least {MIN_REGION_POINTS} [x, y] number pairs')
+
+  roi_uuid = roi.get('uuid')
+  query_uuid = roi_uuid if isinstance(roi_uuid, str) and validate_uuid(roi_uuid) else str(uuid.uuid4())
+  if query_uuid in seen_uuids:
+    raise _RoiValidationError(f'Duplicate roi uuid in request: {query_uuid}')
+
+  roi_name = str(roi.get('name')) if roi.get('name') else f"roi_{query_uuid}"
+  roi_type = str(roi.get('type') or '')
+  if len(roi_name) > REGION_NAME_MAX_LENGTH:
+    raise _RoiValidationError(f'roi name exceeds {REGION_NAME_MAX_LENGTH} characters')
+  if len(roi_type) > REGION_TYPE_MAX_LENGTH:
+    raise _RoiValidationError(f'roi type exceeds {REGION_TYPE_MAX_LENGTH} characters')
+
+  return query_uuid, roi_name, roi_type, points
+
+
+def _validate_rois(rois):
+  """Validate every roi up front, so a bad entry can't leave a partially-accepted batch behind.
+
+  Returns (to_create, seen_uuids). Raises _RoiValidationError on the first invalid roi.
+  """
+  to_create = []
+  seen_uuids = set()
+  for roi in rois:
+    query_uuid, roi_name, roi_type, points = _validate_roi(roi, seen_uuids)
+    seen_uuids.add(query_uuid)
+    to_create.append((query_uuid, roi_name, roi_type, points))
+  return to_create, seen_uuids
+
+
+def _create_rois(scene, to_create):
+  """Create all validated ROIs in one transaction and schedule the scene update notification."""
+  created = []
+  with transaction.atomic():
+    for query_uuid, roi_name, roi_type, points in to_create:
+      region = Region.objects.create(
+        uuid=query_uuid, scene=scene, name=roi_name, volumetric=False,
+        buffer_size=0, roi_type=roi_type)
+      for point_idx, point in enumerate(points):
+        RegionPoint.objects.create(region=region, x=point[0], y=point[1], sequence=point_idx)
+      created.append({'uuid': str(region.uuid), 'name': region.name})
+
+  transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
+  return created
 
 
 class OsmRois(APIView):
@@ -1060,36 +1145,10 @@ class OsmRois(APIView):
     except (Scene.DoesNotExist, ValueError):
       return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
 
-    # Validate every roi before creating anything, so a bad entry can't leave
-    # a partially-accepted batch behind.
-    to_create = []
-    seen_uuids = set()
-    for roi in rois:
-      if not isinstance(roi, dict):
-        return JsonResponse({'error': 'Each roi must be an object'}, status=400)
-
-      points = roi.get('points')
-      if (not isinstance(points, list) or len(points) < 3
-          or not all(isinstance(p, (list, tuple)) and len(p) == 2
-                     and all(_is_number(v) for v in p) for p in points)):
-        return JsonResponse(
-          {'error': 'Each roi needs a "points" list of at least 3 [x, y] number pairs'}, status=400)
-
-      roi_uuid = roi.get('uuid')
-      query_uuid = roi_uuid if isinstance(roi_uuid, str) and validate_uuid(roi_uuid) else str(uuid.uuid4())
-      if query_uuid in seen_uuids:
-        return JsonResponse({'error': f'Duplicate roi uuid in request: {query_uuid}'}, status=400)
-      seen_uuids.add(query_uuid)
-
-      roi_name = str(roi.get('name')) if roi.get('name') else f"roi_{query_uuid}"
-      roi_type = str(roi.get('type') or '')
-      if len(roi_name) > REGION_NAME_MAX_LENGTH:
-        return JsonResponse(
-          {'error': f'roi name exceeds {REGION_NAME_MAX_LENGTH} characters'}, status=400)
-      if len(roi_type) > REGION_TYPE_MAX_LENGTH:
-        return JsonResponse(
-          {'error': f'roi type exceeds {REGION_TYPE_MAX_LENGTH} characters'}, status=400)
-      to_create.append((query_uuid, roi_name, roi_type, points))
+    try:
+      to_create, seen_uuids = _validate_rois(rois)
+    except _RoiValidationError as e:
+      return JsonResponse({'error': str(e)}, status=400)
 
     # Additive only: never overwrite an existing region through a reused uuid.
     existing = Region.objects.filter(uuid__in=seen_uuids).values_list('uuid', flat=True)
@@ -1098,18 +1157,8 @@ class OsmRois(APIView):
         {'error': 'Regions with these uuids already exist',
          'existing': sorted(str(u) for u in existing)}, status=409)
 
-    created = []
     try:
-      with transaction.atomic():
-        for query_uuid, roi_name, roi_type, points in to_create:
-          region = Region.objects.create(
-            uuid=query_uuid, scene=scene, name=roi_name, volumetric=False,
-            buffer_size=0, roi_type=roi_type)
-          for point_idx, point in enumerate(points):
-            RegionPoint.objects.create(region=region, x=point[0], y=point[1], sequence=point_idx)
-          created.append({'uuid': str(region.uuid), 'name': region.name})
-
-      transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
+      created = _create_rois(scene, to_create)
     except Exception as e:
       log.error(f"Error accepting OSM ROIs: {e}")
       log.error(f"Traceback: {traceback.format_exc()}")

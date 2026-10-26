@@ -141,6 +141,36 @@ def _lla_to_local_xy_with_inverse(
     raise OsmRoiError(f"Failed to convert LLA to local coordinates: {exc}")
 
 
+def _polygon_ring_coords(poly: Polygon) -> Optional[List[Tuple[float, float]]]:
+  """Extract and truncate one buffered polygon's exterior ring.
+
+  Returns None if the polygon is empty/degenerate (fewer than 3 distinct points).
+  """
+  if not isinstance(poly, Polygon) or poly.is_empty:
+    return None
+
+  # Extract exterior ring coordinates, omit closing duplicate
+  exterior_coords = list(poly.exterior.coords)[:-1]
+
+  # A valid ring needs at least 3 distinct points; skip degenerate slivers
+  # (e.g. from a zero/near-zero buffer width) that would later fail to
+  # round-trip through shapely's Polygon constructor.
+  if len(exterior_coords) < 3:
+    return None
+
+  # Safety check: truncate if too many points
+  if len(exterior_coords) > MAX_POLYGON_POINTS:
+    logger.warning(
+      f"Polygon has {len(exterior_coords)} points, exceeding "
+      f"MAX_POLYGON_POINTS={MAX_POLYGON_POINTS}; truncating"
+    )
+    # Keep evenly-spaced subset using ceiling division to ensure result ≤ MAX_POLYGON_POINTS
+    step = max(1, math.ceil(len(exterior_coords) / MAX_POLYGON_POINTS))
+    exterior_coords = exterior_coords[::step]
+
+  return exterior_coords
+
+
 def line_to_polygons(
   local_coords: List[Tuple[float, float]],
   width_m: float,
@@ -164,8 +194,6 @@ def line_to_polygons(
     buffered = line.buffer(width_m / 2, cap_style=BufferCapStyle.flat)
     simplified = buffered.simplify(0.1, preserve_topology=True)
 
-    polygons = []
-
     if simplified.geom_type == "Polygon":
       geoms = [simplified]
     elif simplified.geom_type == "MultiPolygon":
@@ -174,32 +202,10 @@ def line_to_polygons(
       logger.warning(f"Unexpected geometry type after buffer: {simplified.geom_type}")
       return []
 
-    for poly in geoms:
-      if not isinstance(poly, Polygon) or poly.is_empty:
-        continue
-
-      # Extract exterior ring coordinates, omit closing duplicate
-      exterior_coords = list(poly.exterior.coords)[:-1]
-
-      # A valid ring needs at least 3 distinct points; skip degenerate slivers
-      # (e.g. from a zero/near-zero buffer width) that would later fail to
-      # round-trip through shapely's Polygon constructor.
-      if len(exterior_coords) < 3:
-        continue
-
-      # Safety check: truncate if too many points
-      if len(exterior_coords) > MAX_POLYGON_POINTS:
-        logger.warning(
-          f"Polygon has {len(exterior_coords)} points, exceeding "
-          f"MAX_POLYGON_POINTS={MAX_POLYGON_POINTS}; truncating"
-        )
-        # Keep evenly-spaced subset using ceiling division to ensure result ≤ MAX_POLYGON_POINTS
-        step = max(1, math.ceil(len(exterior_coords) / MAX_POLYGON_POINTS))
-        exterior_coords = exterior_coords[::step]
-
-      polygons.append(exterior_coords)
-
-    return polygons
+    return [
+      coords for poly in geoms
+      if (coords := _polygon_ring_coords(poly)) is not None
+    ]
 
   except Exception as exc:
     logger.error(f"Error buffering line to polygon: {exc}")
@@ -239,6 +245,41 @@ def bbox_from_map_corners(
   return min(lats), min(lons), max(lats), max(lons)
 
 
+def _width_from_tag(tags: Dict[str, Any]) -> Optional[float]:
+  """Priority 1: explicit 'width' tag, if it resolves to a positive, finite meters value."""
+  if "width" not in tags:
+    return None
+  try:
+    width = float(tags["width"])
+  except (ValueError, TypeError):
+    return None
+  return width if math.isfinite(width) and width > 0 else None
+
+
+def _width_from_lanes(tags: Dict[str, Any], way_type: str) -> Optional[float]:
+  """Priority 2: lanes count * standard lane width, for vehicle roads only."""
+  if "lanes" not in tags or way_type not in LANE_BASED_WIDTH_TYPES:
+    return None
+  try:
+    lanes = int(tags["lanes"])
+    estimated_width = lanes * STANDARD_LANE_WIDTH_M
+  except (ValueError, TypeError, OverflowError):
+    return None
+  return estimated_width if math.isfinite(estimated_width) and estimated_width > 0 else None
+
+
+def _width_from_footway_subtype(tags: Dict[str, Any], way_type: str) -> Optional[float]:
+  """Priority 3: footway sub-type specific widths (crossings/sidewalks are narrower)."""
+  if way_type != "footway":
+    return None
+  footway_type = tags.get("footway", "").lower()
+  if footway_type == "crossing":
+    return 2.0  # crossings are narrow
+  if footway_type == "sidewalk":
+    return 1.8  # standard sidewalk narrower than generic footway
+  return None
+
+
 def get_width_m(tags: Dict[str, Any], way_type: str) -> float:
   """Extract road/path width from OSM tags with intelligent fallbacks.
 
@@ -264,36 +305,16 @@ def get_width_m(tags: Dict[str, Any], way_type: str) -> float:
   if not isinstance(tags, dict):
     return ROAD_WIDTH_BY_TYPE_M.get(way_type, DEFAULT_ROAD_WIDTH_M)
 
-  # Priority 1: explicit width tag
-  if "width" in tags:
-    try:
-      width = float(tags["width"])
-      if math.isfinite(width) and width > 0:
-        return width
-    except (ValueError, TypeError):
-      pass
-
-  # Priority 2: lanes-based estimate (for vehicle roads, not footways/cycleways)
-  if "lanes" in tags and way_type in LANE_BASED_WIDTH_TYPES:
-    try:
-      lanes = int(tags["lanes"])
-      estimated_width = lanes * STANDARD_LANE_WIDTH_M
-      if math.isfinite(estimated_width) and estimated_width > 0:
-        return estimated_width
-    except (ValueError, TypeError, OverflowError):
-      pass
-
-  # Priority 3: footway sub-type specific widths
-  if way_type == "footway":
-    footway_type = tags.get("footway", "").lower()
-    if footway_type == "crossing":
-      return 2.0  # crossings are narrow
-    elif footway_type == "sidewalk":
-      return 1.8  # standard sidewalk narrower than generic footway
+  for width in (
+    _width_from_tag(tags),
+    _width_from_lanes(tags, way_type),
+    _width_from_footway_subtype(tags, way_type),
+  ):
+    if width is not None:
+      return width
 
   # Priority 4: type-based default
-  width = ROAD_WIDTH_BY_TYPE_M.get(way_type, DEFAULT_ROAD_WIDTH_M)
-  return width
+  return ROAD_WIDTH_BY_TYPE_M.get(way_type, DEFAULT_ROAD_WIDTH_M)
 
 
 def build_roi_name(tags: Dict[str, Any], way_type: str, ordinal: int = 1) -> str:
@@ -396,6 +417,66 @@ def filter_by_bounds(
   return [p for p in previews if roi_overlaps_bounds(p["points"], bounds)]
 
 
+def _cache_is_current(scene: Scene, current_bbox: List[float]) -> bool:
+  """True if scene.osm_ways_cache has current-format tags and matches current_bbox."""
+  return (
+    scene.osm_ways_cache is not None
+    and all(isinstance(way.get("tags"), dict) for way in scene.osm_ways_cache)
+    and scene.osm_ways_cache_bbox == current_bbox
+  )
+
+
+def _get_or_fetch_ways(scene: Scene) -> List[Dict[str, Any]]:
+  """Return OSM ways for the scene, using the cache when it's still valid for the current bbox."""
+  if not scene.map_corners_lla:
+    raise OsmRoiError(
+      "Scene map corners (map_corners_lla) not set; cannot derive OSM query bounding box"
+    )
+
+  south, west, north, east = bbox_from_map_corners(scene.map_corners_lla)
+  current_bbox = [south, west, north, east]
+
+  if _cache_is_current(scene, current_bbox):
+    return scene.osm_ways_cache
+
+  ways = osm_query.query_osm_ways_geometry(south, west, north, east)
+  scene.osm_ways_cache = ways
+  scene.osm_ways_cache_bbox = current_bbox
+  scene.save(update_fields=["osm_ways_cache", "osm_ways_cache_bbox"])
+  return ways
+
+
+def _way_local_coords(trs_inv, coords_lla) -> Optional[List[Tuple[float, float]]]:
+  """Convert one way's LLA coords to local xy.
+
+  Returns None (skip the whole way) if any coordinate fails to convert or if
+  there were no coordinates to begin with, to avoid a partial/corrupted geometry.
+  """
+  local_coords = []
+  for lat, lng in coords_lla:
+    try:
+      local_coords.append(_lla_to_local_xy_with_inverse(trs_inv, lat, lng, alt=0.0))
+    except OsmRoiError as exc:
+      logger.error(f"Failed to convert way coordinate [{lat}, {lng}]: {exc}")
+      return None
+  return local_coords or None
+
+
+def _previews_for_way(way: Dict[str, Any], trs_inv) -> List[Dict[str, Any]]:
+  """Build zero or more preview dicts for one OSM way; [] if coordinates can't convert."""
+  way_type = way["type"]
+  tags = way.get("tags", {})
+  local_coords = _way_local_coords(trs_inv, way["coords"])
+  if local_coords is None:
+    return []
+
+  width_m = get_width_m(tags, way_type)
+  return [
+    {"type": way_type, "points": polygon_points, "tags": tags, "width_m": width_m}
+    for polygon_points in line_to_polygons(local_coords, width_m)
+  ]
+
+
 def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
   """Fetch OSM ways, convert to local coordinates, buffer to polygons, name them, assign UUID.
 
@@ -418,67 +499,12 @@ def build_roi_previews(scene: Scene) -> List[Dict[str, Any]]:
   if not scene.trs_matrix:
     raise OsmRoiError(TRS_MATRIX_NOT_READY_MSG)
 
-  # Cache is only usable if:
-  # 1. Tags format is current (dict, not raw list-of-pairs from parquet)
-  # 2. The bounding box used to fetch the cache still matches current map corners
-  #    (if map_corners_lla changed, the old ways are stale)
-  if not scene.map_corners_lla:
-    raise OsmRoiError(
-      "Scene map corners (map_corners_lla) not set; cannot derive OSM query bounding box"
-    )
+  ways = _get_or_fetch_ways(scene)
 
-  south, west, north, east = bbox_from_map_corners(scene.map_corners_lla)
-  current_bbox = [south, west, north, east]
-
-  cache_is_current = (
-    scene.osm_ways_cache is not None
-    and all(isinstance(way.get("tags"), dict) for way in scene.osm_ways_cache)
-    and scene.osm_ways_cache_bbox == current_bbox
-  )
-
-  if cache_is_current:
-    ways = scene.osm_ways_cache
-  else:
-    ways = osm_query.query_osm_ways_geometry(south, west, north, east)
-    scene.osm_ways_cache = ways
-    scene.osm_ways_cache_bbox = current_bbox
-    scene.save(update_fields=["osm_ways_cache", "osm_ways_cache_bbox"])
-
-  previews = []
   trs_inv = _invert_trs(scene.trs_matrix)
+  previews = []
   for way in ways:
-    way_type = way["type"]
-    coords_lla = way["coords"]  # [(lat, lng), ...]
-    tags = way.get("tags", {})  # OSM tags for this way
-
-    # Convert LLA coords to local xy. If any coordinate fails, skip the entire way
-    # to avoid silently creating partial/corrupted geometries.
-    local_coords = []
-    conversion_failed = False
-    for lat, lng in coords_lla:
-      try:
-        x, y = _lla_to_local_xy_with_inverse(trs_inv, lat, lng, alt=0.0)
-        local_coords.append((x, y))
-      except OsmRoiError as exc:
-        logger.error(f"Failed to convert way coordinate [{lat}, {lng}]: {exc}")
-        conversion_failed = True
-        break
-
-    # Skip way if any coordinate failed or no coordinates were successfully converted
-    if conversion_failed or not local_coords:
-      continue
-
-    # Extract width intelligently from tags (lanes, explicit width, type default)
-    width_m = get_width_m(tags, way_type)
-    polygons = line_to_polygons(local_coords, width_m)
-
-    for polygon_points in polygons:
-      previews.append({
-        "type": way_type,
-        "points": polygon_points,
-        "tags": tags,
-        "width_m": width_m,
-      })
+    previews.extend(_previews_for_way(way, trs_inv))
 
   # Assign names using full tag information for context
   assign_names(previews)
