@@ -14,6 +14,7 @@ set(TEST_SOURCES
   MultiCameraFusionTests.cpp
   MultiModelKalmanEstimatorTests.cpp
   MultipleObjectTrackerTests.cpp
+  ObjectMatchingTests.cpp
   OrientationFusionTests.cpp
   ScenarioRecorderTests.cpp
   UnscentedKalmanFilterTests.cpp
