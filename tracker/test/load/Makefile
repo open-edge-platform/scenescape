@@ -15,7 +15,10 @@ FPS ?= 15
 NUM_OBJECTS ?= 300
 REID_EMBEDDING_DIMENSIONS ?= 0
 DURATION ?= 1m
+LOAD_MODE ?= 2d
+MIXED_3D_RATIO ?= 0.5
 METRICS_EXPORT_INTERVAL_S ?= 1
+export LOAD_MODE MIXED_3D_RATIO
 
 # Version for docker image tags (inherited from parent)
 VERSION ?= latest
