@@ -494,7 +494,7 @@ class CameraPose:
 
     ll1 = self.translation.distance(far_l)
     ll2 = bl.distance(far_l)
-    al = math.atan2(self.translation.z, ll1)
+    al = math.atan2(abs(self.translation.z), ll1)
     lh = math.sin(al) * ll2
     lw = bl.distance(br)
     # log.log("OBJECT SIZE %0.2fm x %0.2fm" % (lw, lh))
@@ -505,7 +505,7 @@ class CameraPose:
 
     basePoint = bl.midpoint(br)
     baseLen = Point(self.translation.x, self.translation.y, 0, polar=False).distance(basePoint)
-    baseAngle = math.degrees(math.atan2(self.translation.z, baseLen))
+    baseAngle = math.degrees(math.atan2(abs(self.translation.z), baseLen))
     return bounds, shadow, baseAngle
 
   def projectWorldPointToCameraPixels(self, point):

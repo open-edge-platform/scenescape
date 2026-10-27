@@ -163,7 +163,7 @@ private:
     int shift_type_;
     std::optional<double> footprint_half_; // metres
 
-    static constexpr double kFallbackHorizonDistance = 100.0;
+    static constexpr double kFallbackHorizonDistance = 1000.0; // Match legacy Python behavior.
     static constexpr double kEarthRadius = 6371000.0;
     static constexpr double kMinHeightForHorizon = 0.1;
     static constexpr double kRayEpsilon = 1e-6;
