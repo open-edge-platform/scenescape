@@ -7,7 +7,6 @@ import os
 import time
 import uuid
 
-import numpy as np
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from PIL import Image
@@ -20,7 +19,7 @@ from .validators import validate_glb
 
 STAGING_SUBDIR = 'glb_staging'
 STAGING_TTL_SECONDS = 24 * 3600
-MAX_GLB_BYTES = settings.FILE_UPLOAD_MAX_MEMORY_SIZE
+MAX_GLB_BYTES = settings.GLB_UPLOAD_MAX_BYTES
 
 
 def staging_dir():
@@ -42,8 +41,12 @@ def purge_stale_files():
     return
   cutoff = time.time() - STAGING_TTL_SECONDS
   for entry in os.scandir(staging_dir()):
-    if entry.is_file() and entry.stat().st_mtime < cutoff:
-      os.remove(entry.path)
+    try:
+      if entry.is_file() and entry.stat().st_mtime < cutoff:
+        os.remove(entry.path)
+    except FileNotFoundError:
+      # Another request removed the file between scandir and stat/remove
+      pass
 
 
 def remove_staged_files(token):
@@ -70,9 +73,14 @@ def stage_glb(upload):
     raise GlbAlignmentError(400, 'Invalid GLB file')
   token = str(uuid.uuid4())
   os.makedirs(staging_dir(), exist_ok=True)
-  with open(os.path.join(staging_dir(), f'{token}.glb'), 'wb') as f:
-    for chunk in upload.chunks():
-      f.write(chunk)
+  try:
+    with open(os.path.join(staging_dir(), f'{token}.glb'), 'wb') as f:
+      for chunk in upload.chunks():
+        f.write(chunk)
+  except OSError:
+    # The token is never returned, so nothing else would clean up the partial file
+    remove_staged_files(token)
+    raise
   return token
 
 
@@ -82,11 +90,10 @@ def build_preview(token):
   @return  (footprint_m, px_per_m) with footprint_m = {"width": W, "height": H} in metres
   """
   scene = Scene(map=f'{STAGING_SUBDIR}/{token}.glb')
-  scene.autoAlignSceneMap()
+  width, height, _ = scene.autoAlignSceneMap()
   img_data, px_per_m = generateOrthoView(scene, scene.map.path)
-  Image.fromarray(np.uint8(img_data)).save(os.path.join(staging_dir(), f'{token}.png'), format='PNG')
-  # autoAlignSceneMap translates by half the posed size
-  return {'width': float(2 * scene.translation_x), 'height': float(2 * scene.translation_y)}, float(px_per_m)
+  Image.fromarray(img_data).save(os.path.join(staging_dir(), f'{token}.png'), format='PNG')
+  return {'width': float(width), 'height': float(height)}, float(px_per_m)
 
 
 def existing_content(scene):

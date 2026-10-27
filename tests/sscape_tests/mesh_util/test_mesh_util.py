@@ -532,17 +532,18 @@ class TestGetPosedMeshFootprint:
   """Test getPosedMeshFootprint function."""
 
   def test_positive_yup_box_90deg_x_rotation(self):
-    """Test centred Y-up box with rotation [90,0,0] and translation.
+    """Test centred box with rotation [90,0,0] (about X) and translation.
 
-    Y-up box: X=10, Y=4 (up), Z=6
-    After [90,0,0] rotation: Y points up, X becomes horizontal, Z rotates 90°
+    Box: X=10, Y=4, Z=6
+    Rotation maps Y→Z (the 4-unit extent becomes vertical) and Z→-Y (the 6-unit
+    extent lies along the footprint's Y axis).
     Translation = half of posed size
     Expected: size (10, 6), corners at (0, 0)
     """
     # Create box: 10 wide (X), 4 tall (Y), 6 deep (Z)
     mesh = create_centered_box_mesh(10.0, 4.0, 6.0)
 
-    # Rotation [90, 0, 0] rotates around X: Z→Y, -Y→Z
+    # Rotation [90, 0, 0] rotates around X: Y→Z, Z→-Y
     # So after rotation: X stays 10, Y becomes 6, Z becomes 4
     # Posed footprint (X, Y): 10 x 6
     rotation = [90, 0, 0]
@@ -605,7 +606,7 @@ class TestGetPosedMeshFootprint:
     rotation = [0, 0, 0]
     translation = [0, 0, 0]
 
-    corners, (w, h) = getPosedMeshFootprint(tensor_mesh, rotation, translation)
+    _, (w, h) = getPosedMeshFootprint(tensor_mesh, rotation, translation)
 
     # Footprint should be (width, height)
     assert abs(w - width) < 0.01
@@ -619,7 +620,7 @@ class TestGetPosedMeshFootprint:
     translation = [0, 0, 0]
     scale = [2.0, 1.0, 1.0]  # Double X
 
-    corners, (width, height) = getPosedMeshFootprint(mesh, rotation, translation, scale)
+    _, (width, height) = getPosedMeshFootprint(mesh, rotation, translation, scale)
 
     # Width should be 20 (10 * 2), height should be 10 (10 * 1)
     assert abs(width - 20.0) < 0.01
@@ -734,7 +735,7 @@ class TestGetPosedMeshFootprint:
     rotation = [0, 0, 0]
     translation = [10, 10, 0]
 
-    corners, (width, height) = getPosedMeshFootprint(mesh, rotation, translation)
+    corners, _ = getPosedMeshFootprint(mesh, rotation, translation)
     sw, se, ne, nw = corners
 
     # SW is min_x, min_y
@@ -758,8 +759,8 @@ class TestGetPosedMeshFootprint:
     translation = [0, 0, 0]
     scale = [1.0, 0.01, 1.0]  # Very small Y scale
 
-    corners, (width, height) = getPosedMeshFootprint(mesh, rotation, translation, scale)
+    _, (width, height) = getPosedMeshFootprint(mesh, rotation, translation, scale)
 
     # Should still return valid footprint
     assert width > 0
-    assert height > 0 and height < 0.5  # Height should be very small
+    assert 0 < height < 0.5  # Height should be very small

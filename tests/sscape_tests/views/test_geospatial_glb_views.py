@@ -10,7 +10,7 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -45,7 +45,7 @@ class TestGeospatialGlbPreview(TestCase):
     self.addCleanup(self.temp_dir.cleanup)
     render_patch = patch.object(
       glb_alignment, "generateOrthoView",
-      return_value=(np.zeros((8, 8, 3)), 5.0)
+      return_value=(np.zeros((8, 8, 3), dtype=np.uint8), 5.0)
     )
     self.render_mock = render_patch.start()
     self.addCleanup(render_patch.stop)
@@ -211,6 +211,33 @@ class TestGeospatialGlbPreview(TestCase):
     self.assertEqual(response.status_code, 500)
     self.assertIn("error", json.loads(response.content))
     self.assertEqual(len(os.listdir(self.staging_dir)), 0)
+
+
+class TestStageGlbWriteFailure(TestCase):
+  """stage_glb cleans up a partially written GLB when the write fails."""
+
+  def setUp(self):
+    """Point MEDIA_ROOT at a temp dir so staging writes stay isolated."""
+    temp_dir = tempfile.TemporaryDirectory()
+    self.addCleanup(temp_dir.cleanup)
+    override = override_settings(MEDIA_ROOT=temp_dir.name)
+    override.enable()
+    self.addCleanup(override.disable)
+    os.makedirs(glb_alignment.staging_dir(), exist_ok=True)
+
+  def test_write_failure_removes_partial_file_and_reraises(self):
+    """OSError mid-write re-raises and leaves no partial GLB in staging."""
+    upload = Mock(size=7)
+
+    def failing_chunks():
+      yield b"partial"
+      raise OSError("disk full")
+
+    upload.chunks.side_effect = failing_chunks
+    with patch.object(glb_alignment, "validate_glb"):
+      with self.assertRaises(OSError):
+        glb_alignment.stage_glb(upload)
+    self.assertEqual(os.listdir(glb_alignment.staging_dir()), [])
 
 
 

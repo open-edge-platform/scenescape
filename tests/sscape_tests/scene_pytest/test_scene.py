@@ -7,6 +7,8 @@ import cv2
 import pytest
 import numpy as np
 import copy
+import shutil
+import tempfile
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -16,6 +18,8 @@ from controller.tracking import Tracking
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Point
+from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints, convertXYZToLLA, localFootprintCornersLLA
+from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, getPosedMeshFootprint
 
 from tests.sscape_tests.scene_pytest.config import *
 
@@ -507,11 +511,7 @@ def test_mapFootprintCorners_png_characterization():
   """! Characterization/regression test for PNG maps: mapFootprintCorners returns
   the raw mesh footprint (getMeshAxisAlignedProjectionToXY), and pose is ignored.
   """
-  from controller.scene import Scene
-  from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
-  from scene_common.earth_lla import localFootprintCornersLLA, calculateTRSLocal2LLAFromSurfacePoints
-
-  scene = Scene("test", "tests/resources/maps/HazardZoneSceneLarge.png", 1000)
+  scene = scene_module.Scene("test", "tests/resources/maps/HazardZoneSceneLarge.png", 1000)
   assert scene.map_triangle_mesh is not None
 
   # Get raw footprint
@@ -562,12 +562,6 @@ def test_mapFootprintCorners_glb_posed_mesh():
   """! Test GLB maps: mapFootprintCorners returns the posed mesh footprint when
   mesh_rotation and mesh_translation are set.
   """
-  import shutil
-  import tempfile
-  from controller.scene import Scene
-  from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, getPosedMeshFootprint
-  from scene_common.earth_lla import localFootprintCornersLLA, calculateTRSLocal2LLAFromSurfacePoints, convertXYZToLLA
-
   # Create a temporary directory and copy the GLB file
   with tempfile.TemporaryDirectory() as tmp_dir:
     glb_src = "tests/sscape_tests/mesh_util/test_data/scene.glb"
@@ -575,7 +569,7 @@ def test_mapFootprintCorners_glb_posed_mesh():
     shutil.copy(glb_src, glb_dst)
 
     # Create scene from GLB
-    scene = Scene("test", glb_dst)
+    scene = scene_module.Scene("test", glb_dst)
     assert scene.map_triangle_mesh is not None
 
     # Get raw aligned footprint (unposed)
@@ -630,13 +624,12 @@ def test_mapFootprintCorners_glb_posed_mesh():
     assert not np.array_equal(raw_footprint, map_footprint), \
       "Raw and posed footprints should differ for GLB with non-trivial pose"
 
-    # Test fallback: GLB with None rotation/translation uses raw footprint
-    scene2 = Scene("test2", glb_dst)
+    # GLB with no pose cannot be placed in the scene frame: raise instead of returning the unposed footprint
+    scene2 = scene_module.Scene("test2", glb_dst)
     scene2.mesh_rotation = None
     scene2.mesh_translation = None
-    fallback_footprint = scene2.mapFootprintCorners()
-    assert np.array_equal(fallback_footprint, raw_footprint), \
-      "GLB with None pose should use raw footprint"
+    with pytest.raises(ValueError, match="without mesh_rotation/mesh_translation"):
+      scene2.mapFootprintCorners()
 
     # Test invalidation: change mesh_translation and verify matrix changes
     scene._invalidate_trs_xyz_to_lla()

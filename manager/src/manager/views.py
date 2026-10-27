@@ -1182,7 +1182,7 @@ class GeospatialGlbPreview(APIView):
     try:
       try:
         scene = Scene.objects.get(pk=scene_uid)
-      except (Scene.DoesNotExist, ValueError):
+      except Scene.DoesNotExist:
         return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
       if scene.map_type != 'geospatial_map':
         return JsonResponse({'error': 'Scene map type must be geospatial_map'}, status=400)

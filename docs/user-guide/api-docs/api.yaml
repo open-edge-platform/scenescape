@@ -1051,7 +1051,7 @@ paths:
         "404":
           description: Scene not found
         "413":
-          description: File exceeds maximum upload size (FILE_UPLOAD_MAX_MEMORY_SIZE)
+          description: GLB file exceeds the maximum upload size (GLB_UPLOAD_MAX_SIZE_MB, default 132 MB)
         "500":
           description: Internal server error
   /scene:

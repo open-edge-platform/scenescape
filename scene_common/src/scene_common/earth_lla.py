@@ -198,6 +198,22 @@ def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lla_pts, z_shift: float 
   trs_mat = convertLLAToCartesianTRS(map_xyz_pts, lla_pts)
   return trs_mat
 
+def _wrapDegrees180(deg):
+  """! Wrap an angle in degrees into [-180, 180)."""
+  return ((deg + 180.0) % 360.0) - 180.0
+
+def _localTangentRadii(lat_rad):
+  """! WGS-84 meridional radius (M), prime-vertical radius (N), and cos(lat) at a latitude.
+
+  @param      lat_rad         Latitude in radians
+  @returns    tuple           (M, N, cos_lat) in metres and unitless
+  """
+  e_sq = 1.0 - POLAR_RADIUS**2 / EQUATORIAL_RADIUS**2
+  denom = math.sqrt(1.0 - e_sq * math.sin(lat_rad)**2)
+  M = EQUATORIAL_RADIUS * (1.0 - e_sq) / (denom**3)
+  N = EQUATORIAL_RADIUS / denom
+  return M, N, math.cos(lat_rad)
+
 def localFootprintCornersLLA(center_lat, center_lng, heading_deg, width_m, height_m, alt=0.0):
   """! Compute LLA corners of a rectangular footprint from centre, heading, and dimensions.
   Local footprint corners are at SW (-W/2,-H/2), SE (+W/2,-H/2), NE (+W/2,+H/2), NW (-W/2,+H/2).
@@ -224,10 +240,6 @@ def localFootprintCornersLLA(center_lat, center_lng, heading_deg, width_m, heigh
   if height_m <= 0.0:
     raise ValueError(f"Height must be positive, got {height_m}")
 
-  # Compute WGS-84 ellipsoid parameters
-  a = EQUATORIAL_RADIUS
-  e_sq = 1.0 - POLAR_RADIUS**2 / a**2
-
   # Convert heading to radians and compute rotation
   psi_rad = np.deg2rad(heading_deg)
   cos_psi = math.cos(psi_rad)
@@ -244,13 +256,7 @@ def localFootprintCornersLLA(center_lat, center_lng, heading_deg, width_m, heigh
   # Convert centre to radians
   lat_rad = np.deg2rad(center_lat)
   lng_rad = np.deg2rad(center_lng)
-
-  # Compute meridional (M) and prime-vertical (N) radii
-  sin_lat = math.sin(lat_rad)
-  cos_lat = math.cos(lat_rad)
-  denom = math.sqrt(1.0 - e_sq * sin_lat**2)
-  M = a * (1.0 - e_sq) / (denom**3)
-  N = a / denom
+  M, N, cos_lat = _localTangentRadii(lat_rad)
 
   corners_lla = []
   for x_local, y_local in corners_local:
@@ -266,10 +272,9 @@ def localFootprintCornersLLA(center_lat, center_lng, heading_deg, width_m, heigh
     lat_corner = lat_rad + dlat_rad
     lng_corner = lng_rad + dlng_rad
 
-    # Convert back to degrees and normalise longitude to [-180, 180)
+    # Convert back to degrees; normalise longitude to [-180, 180)
     lat_deg = np.rad2deg(lat_corner)
-    lng_deg = np.rad2deg(lng_corner)
-    lng_deg = ((lng_deg + 180.0) % 360.0) - 180.0
+    lng_deg = _wrapDegrees180(np.rad2deg(lng_corner))
 
     corners_lla.append([lat_deg, lng_deg, alt])
 
@@ -277,7 +282,8 @@ def localFootprintCornersLLA(center_lat, center_lng, heading_deg, width_m, heigh
 
 def footprintAnchorFromCornersLLA(corners_lla):
   """! Recover footprint centre, heading, and dimensions from LLA corners.
-  Exact inverse for SW, SE, NE, NW corner ordering.
+  Inverse of localFootprintCornersLLA for SW, SE, NE, NW corner ordering, using the same
+  local-tangent approximation.
 
   @param      corners_lla     Corners as (4,3) array: [lat,lng,alt] for SW, SE, NE, NW
   @returns    tuple           (lat, lng, heading_deg, width_m, height_m)
@@ -285,6 +291,8 @@ def footprintAnchorFromCornersLLA(corners_lla):
   corners_lla = np.asarray(corners_lla)
 
   # Validate input
+  if corners_lla.ndim != 2:
+    raise ValueError(f"Corners must be a 2-D array, got shape {corners_lla.shape}")
   if corners_lla.shape[0] != 4:
     raise ValueError(f"Expected exactly 4 corners, got {corners_lla.shape[0]}")
   if corners_lla.shape[1] < 2:
@@ -298,28 +306,20 @@ def footprintAnchorFromCornersLLA(corners_lla):
   ne = corners_lla[2, :2]
   nw = corners_lla[3, :2]
 
-  # Centre: midpoint of SW and NE in local space
-  # First compute centre lat/lng (mean of SW, SE, NE, NW)
+  # Centre is the mean of the four corners. Longitudes are unwrapped relative to SW before
+  # averaging so a footprint crossing the antimeridian is not centred near 0°.
   center_lat = np.mean([sw[0], se[0], ne[0], nw[0]])
-  center_lng = np.mean([sw[1], se[1], ne[1], nw[1]])
+  lngs_unwrapped = [sw[1]] + [sw[1] + _wrapDegrees180(p[1] - sw[1]) for p in (se, ne, nw)]
+  center_lng = _wrapDegrees180(np.mean(lngs_unwrapped))
 
-  # Compute WGS-84 parameters at centre
-  a = EQUATORIAL_RADIUS
-  e_sq = 1.0 - POLAR_RADIUS**2 / a**2
   lat_rad = np.deg2rad(center_lat)
-  lng_rad = np.deg2rad(center_lng)
-  sin_lat = math.sin(lat_rad)
-  cos_lat = math.cos(lat_rad)
-  denom = math.sqrt(1.0 - e_sq * sin_lat**2)
-  M = a * (1.0 - e_sq) / (denom**3)
-  N = a / denom
+  M, N, cos_lat = _localTangentRadii(lat_rad)
 
   # Helper: convert LLA difference to local (east, north) metres at centre
   def lla_to_local(pt_lla):
     pt_lat_rad = np.deg2rad(pt_lla[0])
-    pt_lng_rad = np.deg2rad(pt_lla[1])
     dlat_rad = pt_lat_rad - lat_rad
-    dlng_rad = pt_lng_rad - lng_rad
+    dlng_rad = np.deg2rad(_wrapDegrees180(pt_lla[1] - center_lng))
     north = dlat_rad * M
     east = dlng_rad * N * cos_lat
     return east, north

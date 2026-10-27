@@ -429,6 +429,15 @@ def extractTriangleMesh(map_info, rotation=None):
     return extractMeshFromGLB(map_info[0], rotation)
   return extractMeshFromImage(map_info), None
 
+def _footprintCornersAtZ0(min_x, min_y, max_x, max_y):
+  """! Build the (4,3) footprint corners at z=0 in [SW, SE, NE, NW] order from XY bounds."""
+  return np.array([
+    [min_x, min_y, 0.0],  # SW
+    [max_x, min_y, 0.0],  # SE
+    [max_x, max_y, 0.0],  # NE
+    [min_x, max_y, 0.0]   # NW
+  ])
+
 def getMeshAxisAlignedProjectionToXY(mesh):
   """! Extract the projection of a mesh to Z=0 plane.
   @param mesh: Open3D triangle mesh
@@ -445,11 +454,7 @@ def getMeshAxisAlignedProjectionToXY(mesh):
   # Get min and max bounds
   min_bound = bbox.min_bound.numpy()  # numpy array [min_x, min_y, min_z]
   max_bound = bbox.max_bound.numpy()  # numpy array [max_x, max_y, max_z]
-  corners = np.array([ [min_bound[0], min_bound[1], 0.0],  # SW
-              [max_bound[0], min_bound[1], 0.0],  # SE
-              [max_bound[0], max_bound[1], 0.0],  # NE
-              [min_bound[0], max_bound[1], 0.0] ])  # NW
-  return corners
+  return _footprintCornersAtZ0(min_bound[0], min_bound[1], max_bound[0], max_bound[1])
 
 def getPosedMeshFootprint(mesh, rotation, translation, scale=None):
   """! Compute the XY footprint of a posed mesh.
@@ -505,14 +510,7 @@ def getPosedMeshFootprint(mesh, rotation, translation, scale=None):
   min_y = np.min(transformed_xyz[:, 1])
   max_y = np.max(transformed_xyz[:, 1])
 
-  # Build corners at z=0: SW, SE, NE, NW
-  corners = np.array([
-    [min_x, min_y, 0.0],  # SW
-    [max_x, min_y, 0.0],  # SE
-    [max_x, max_y, 0.0],  # NE
-    [min_x, max_y, 0.0]   # NW
-  ])
-
+  corners = _footprintCornersAtZ0(min_x, min_y, max_x, max_y)
   width = max_x - min_x
   height = max_y - min_y
 
