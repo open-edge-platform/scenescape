@@ -13,7 +13,6 @@ from scene_common.geometry import Point
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time
 from scene_common.transform import CameraPose
-from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
 
 from scene_common.camera_registry import CameraRegistry
 from scene_common.reid_constants import REID_PROVENANCE_KEY
@@ -423,7 +422,7 @@ class Scene(SceneModel):
     The matrix is calculated lazily on first access and cached for subsequent calls.
     """
     if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
-      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+      mesh_corners_xyz = self.mapFootprintCorners()
       self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
     return self._trs_xyz_to_lla
 
