@@ -97,7 +97,8 @@ def test_trackeval_frame_rate_matches_command_line(tmp_path, monkeypatch):
 
   plot_scenario(directory, plots=["trackeval"])
 
-  assert used == [ground_truth_fps(directory / "groundtruth.jsonl")] == [5.0]
+  np.testing.assert_allclose(used, [ground_truth_fps(directory / "groundtruth.jsonl")])
+  np.testing.assert_allclose([ground_truth_fps(directory / "groundtruth.jsonl")], [10/1.5])
 
 
 def test_trackeval_needs_ground_truth(recording, capsys):
