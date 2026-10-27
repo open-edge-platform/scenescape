@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-    ("manager", "0005_default_asset3d_objects"),
+    ("manager", "0006_osm_roi_support"),
   ]
 
   operations = [

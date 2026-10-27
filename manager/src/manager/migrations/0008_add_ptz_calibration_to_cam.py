@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-    ("manager", "0006_positioning_mqtt_topics"),
+    ("manager", "0007_positioning_mqtt_topics"),
   ]
 
   operations = [
