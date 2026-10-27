@@ -606,7 +606,7 @@ def ground_truth_fps(ground_truth_path: Path) -> float:
   if len(times) < 2:
     raise ValueError(f"Cannot derive the frame rate from {ground_truth_path}; pass --fps")
   intervals = sorted((later - earlier).total_seconds() for earlier, later in zip(times, times[1:]))
-  return 1.0 / intervals[len(intervals) // 2]
+  return 1.0 / float(np.median(intervals))
 
 
 def main(argv: Optional[List[str]] = None) -> int:
