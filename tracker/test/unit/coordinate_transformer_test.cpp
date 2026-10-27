@@ -889,9 +889,9 @@ TEST(TransformDetectionsTest, SensorFrameReidWithoutPixelBoxDoesNotCreateSightin
     std::unordered_map<std::string, std::string> reid_sightings;
     size_t next_reid_index = 0;
 
-    const auto result = transformer.transformDetections(std::array{detection}, "cam-1",
-                                                         "2026-01-27T12:00:00Z", "chunk-1",
-                                                         &reid_sightings, &next_reid_index);
+    const auto result =
+        transformer.transformDetections(std::array{detection}, "cam-1", "2026-01-27T12:00:00Z",
+                                        "chunk-1", &reid_sightings, &next_reid_index);
 
     ASSERT_EQ(result.size(), 1u);
     EXPECT_TRUE(reid_sightings.empty());

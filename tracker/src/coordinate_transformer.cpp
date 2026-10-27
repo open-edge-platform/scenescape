@@ -90,8 +90,7 @@ void addMetadataAttributes(const Detection& detection, const std::string& camera
         if (field == "reid" &&
             (member->value.IsObject() || member->value.IsArray() || member->value.IsString())) {
             if (!detection.translation && !camera_id.empty() && !timestamp.empty() &&
-                !chunk_id.empty() &&
-                !reid_index.empty()) {
+                !chunk_id.empty() && !reid_index.empty()) {
                 addReidSighting(detection,
                                 std::string_view(value_buffer.GetString(), value_buffer.GetSize()),
                                 member->value.GetType(), camera_id, timestamp, chunk_id, reid_index,
@@ -448,7 +447,7 @@ std::vector<rv::tracking::TrackedObject> CoordinateTransformer::transformDetecti
         obj.width = width_m;
         obj.height = height_m;
         addDetectionAttributes(detection, camera_id, timestamp, chunk_id, reid_indices[i],
-                       reid_payloads[i], obj);
+                               reid_payloads[i], obj);
         applyDetectionRotation(detection, camera_rotation_, obj);
 
         detection_valid[i] = 1;
