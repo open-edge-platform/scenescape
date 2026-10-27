@@ -496,11 +496,13 @@ TEST(TransformDetectionsTest, MixedPixelAndWorldSpaceDetectionsPreserveInputOrde
     EXPECT_EQ(result[0].id, 1);
     EXPECT_NEAR(result[0].x, kAtaqQcam1BboxTests.front().world_x, kWorldTolerance);
     EXPECT_NEAR(result[0].y, kAtaqQcam1BboxTests.front().world_y, kWorldTolerance);
+    EXPECT_FALSE(result[0].zMeasured) << "pixel detections are projected to the ground plane";
     EXPECT_EQ(result[1].id, 2);
     const cv::Vec4d expected_position = transformer.getPoseMatrix() * cv::Vec4d(1.0, 2.0, 3.0, 1.0);
     EXPECT_NEAR(result[1].x, expected_position[0], kWorldTolerance);
     EXPECT_NEAR(result[1].y, expected_position[1], kWorldTolerance);
     EXPECT_NEAR(result[1].z, expected_position[2], kWorldTolerance);
+    EXPECT_TRUE(result[1].zMeasured) << "sensor-frame translations carry a measured z";
 }
 
 TEST(TransformDetectionsTest, InterleavedWorldSpaceDetectionsDoNotAffectPixelDetections) {

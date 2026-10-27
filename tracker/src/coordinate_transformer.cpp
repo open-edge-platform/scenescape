@@ -314,6 +314,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             obj.x = worldPosition[0];
             obj.y = worldPosition[1];
             obj.z = worldPosition[2];
+            obj.zMeasured = true;
             obj.length = (*detection.size)[0];
             obj.width = (*detection.size)[1];
             obj.height = (*detection.size)[2];
