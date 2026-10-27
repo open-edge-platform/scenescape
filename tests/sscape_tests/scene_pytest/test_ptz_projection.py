@@ -213,6 +213,31 @@ class TestProcessCameraData:
     static = self._tracked(ptz_scene)[0].sceneLoc.asNumpyCartesian
     np.testing.assert_allclose(dynamic, static, atol=1e-9)
 
+  def test_stored_pose_and_intrinsics_survive_the_dynamic_pipeline(self, schema, ptz_scene,
+                                                                   camera_obj):
+    pose_before = camera_obj.pose
+    pose_mat = camera_obj.pose.pose_mat.copy()
+    translation = camera_obj.pose.translation.asNumpyCartesian.copy()
+    intrinsics_before = camera_obj.pose.intrinsics
+    intrinsics = np.array(camera_obj.pose.intrinsics.intrinsics, copy=True)
+    distortion = np.array(camera_obj.pose.intrinsics.distortion, copy=True)
+    registry = _make_registry(schema, ptz_scene)
+    _feed(registry, rotated_matrix(pose_mat.tolist(), 25.0))
+    context = registry.admit(camera_obj, _ns(OBSERVATION_OFFSET_S)).context
+    assert context is not None
+
+    for _ in range(3):
+      assert ptz_scene.processCameraData(_frame(), when=when, pose_context=context)
+
+    assert ptz_scene.cameras[SOURCE] is camera_obj
+    assert camera_obj.pose is pose_before
+    assert camera_obj.pose.intrinsics is intrinsics_before
+    np.testing.assert_array_equal(camera_obj.pose.pose_mat, pose_mat)
+    np.testing.assert_array_equal(camera_obj.pose.translation.asNumpyCartesian, translation)
+    np.testing.assert_array_equal(camera_obj.pose.intrinsics.intrinsics, intrinsics)
+    np.testing.assert_array_equal(camera_obj.pose.intrinsics.distortion, distortion)
+    assert not context.camera.pose.pose_mat.flags.writeable
+
   def test_unknown_camera_still_fails(self, ptz_scene):
     frame = _frame()
     frame["id"] = "missing"
