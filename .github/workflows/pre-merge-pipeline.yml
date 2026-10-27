@@ -141,6 +141,12 @@ jobs:
     permissions:
       contents: read
 
+  dependabot-coverage:
+    name: "Dependabot Config Coverage"
+    uses: ./.github/workflows/dependabot-coverage.yml
+    permissions:
+      contents: read
+
   renovate-config-validator:
     name: "Renovate Config Validator"
     needs: detect-changes
