@@ -1,0 +1,39 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Updates] Dependabot Config Coverage"
+run-name: "[Updates] Dependabot Config Coverage"
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+
+permissions: {} # No permissions by default
+
+# Hardcoded prefix so this group is stable when called via workflow_call
+concurrency:
+  group: dependabot-coverage-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependabot-coverage:
+    name: "Check Dependabot Config Coverage"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: "Install pinned PyYAML"
+        run: |
+          requirement=$(grep '^PyYAML == ' .github/resources/requirements.txt)
+          test -n "$requirement"
+          venv="$RUNNER_TEMP/dependabot-coverage-venv"
+          python3 -m venv "$venv"
+          "$venv/bin/python3" -m pip install "$requirement"
+          echo "$venv/bin" >> "$GITHUB_PATH"
+      - name: "Check Dependabot config coverage"
+        run: make dependabot-coverage-check
