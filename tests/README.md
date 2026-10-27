@@ -179,6 +179,11 @@ make check-autocalibration-contract
 make check-mapping-contract
 ```
 
+In pre-merge CI, the **Check OpenAPI Contracts** job runs only the checks for
+services whose implementation, contract tests, or committed OpenAPI specifications
+changed. Changes to shared contract dependencies or the BAT workflow run all three
+checks. Spec-only changes do not start the BAT job.
+
 ### Running tests via pytest directly
 
 Run from the **repository root**:

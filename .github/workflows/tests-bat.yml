@@ -74,13 +74,16 @@ jobs:
           echo "PR State \"isDraft\": $PR_STATE"
 
   filter:
-    name: "Filter Changed Code Paths"
+    name: "Filter Changed Code and OpenAPI Paths"
     needs: check-pr-state
     runs-on: ubuntu-latest
     if: ${{ needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch' }}
     outputs:
       code_changed: ${{ steps.filter.outputs.code }}
       bat_workflow_changed: ${{ steps.filter.outputs.bat_workflow }}
+      manager_contract_changed: ${{ steps.contracts.outputs.manager == 'true' || steps.contracts.outputs.shared == 'true' || steps.filter.outputs.bat_workflow == 'true' }}
+      autocalibration_contract_changed: ${{ steps.contracts.outputs.autocalibration == 'true' || steps.contracts.outputs.shared == 'true' || steps.filter.outputs.bat_workflow == 'true' }}
+      mapping_contract_changed: ${{ steps.contracts.outputs.mapping == 'true' || steps.contracts.outputs.shared == 'true' || steps.filter.outputs.bat_workflow == 'true' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Set paths filter
@@ -106,6 +109,66 @@ jobs:
               - '!.github/**'
             bat_workflow:
               - '.github/workflows/tests-bat.yml'
+
+      - name: Filter contract paths
+        id: contracts
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            manager:
+              - 'manager/**'
+              - 'docs/user-guide/api-docs/api.yaml'
+              - 'tests/sscape_tests/api/manager_api/**'
+              - 'tests/sscape_tests/settings_unittest.py'
+            autocalibration:
+              - 'autocalibration/**'
+              - 'docs/user-guide/microservices/auto-calibration/_assets/autocalibration-api.yaml'
+              - 'tests/sscape_tests/api/autocalibration_api/**'
+            mapping:
+              - 'mapping/**'
+              - 'docs/user-guide/microservices/mapping-service/_assets/mapping-api.yaml'
+              - 'tests/sscape_tests/api/mapping_api/**'
+            shared:
+              - 'Makefile'
+              - 'scene_common/**'
+              - 'tests/requirements*.txt'
+              - 'tests/conftest.py'
+              - 'tests/pytest.ini'
+              - 'tests/sscape_tests/conftest.py'
+              - 'tests/sscape_tests/api/common.py'
+              - 'tests/sscape_tests/api/conftest.py'
+              - 'tests/sscape_tests/api/test_openapi_helpers.py'
+
+  check-openapi-contracts:
+    name: "Check OpenAPI Contracts"
+    runs-on: [bat]
+    timeout-minutes: 30
+    needs: [filter, check-pr-state]
+    if: ${{ github.event_name == 'workflow_dispatch' || (needs.check-pr-state.outputs.pr_state != 'true' && (needs.filter.outputs.manager_contract_changed == 'true' || needs.filter.outputs.autocalibration_contract_changed == 'true' || needs.filter.outputs.mapping_contract_changed == 'true')) }}
+    steps:
+      - name: "Checkout Repository"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+
+      - name: Generate secrets
+        id: setup-secrets
+        run: make init-secrets
+
+      - name: "Check Manager OpenAPI Contract"
+        if: ${{ always() && steps.setup-secrets.outcome == 'success' && (github.event_name == 'workflow_dispatch' || needs.filter.outputs.manager_contract_changed == 'true') }}
+        run: make check-manager-contract
+
+      - name: "Check Autocalibration OpenAPI Contract"
+        if: ${{ always() && steps.setup-secrets.outcome == 'success' && (github.event_name == 'workflow_dispatch' || needs.filter.outputs.autocalibration_contract_changed == 'true') }}
+        run: make check-autocalibration-contract
+
+      - name: "Check Mapping OpenAPI Contract"
+        if: ${{ always() && steps.setup-secrets.outcome == 'success' && (github.event_name == 'workflow_dispatch' || needs.filter.outputs.mapping_contract_changed == 'true') }}
+        run: make check-mapping-contract
 
   run-basic-acceptance-tests:
     name: "Run Basic Acceptance Tests"
@@ -139,21 +202,6 @@ jobs:
         if: always() && steps.setup-test-env.outcome == 'success'
         run: |
           make check-zephyr-ids
-
-      - name: "Check Manager OpenAPI Contract"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          make check-manager-contract
-
-      - name: "Check Autocalibration OpenAPI Contract"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          make check-autocalibration-contract
-
-      - name: "Check Mapping OpenAPI Contract"
-        if: always() && steps.setup-test-env.outcome == 'success'
-        run: |
-          make check-mapping-contract
 
       - name: "Run Basic Acceptance Tests (BAT)"
         if: always() && steps.setup-test-env.outcome == 'success'
