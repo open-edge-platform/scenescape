@@ -310,8 +310,10 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     _addChainData(obj_dict, aobj.chain_data, include_sensors, include_region_dwell, current_time)
 
   _addOptionalAttributes(obj_dict, aobj)
-  if len(aobj.chain_data.persist):
-    obj_dict['persistent_data'] = aobj.chain_data.persist
+  if hasattr(aobj, 'chain_data'):
+    persist = getattr(aobj.chain_data, 'persist', None)
+    if persist is not None and len(persist):
+      obj_dict['persistent_data'] = persist
   return obj_dict
 
 def computeCameraBounds(scene, aobj, obj_dict):
