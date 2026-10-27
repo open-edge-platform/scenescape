@@ -54,14 +54,14 @@ All values are deployment-owned and **required**; there are no defaults. Measure
 }
 ```
 
-| Key                                     | Unit | Meaning                                                                                           |
-| --------------------------------------- | ---- | ------------------------------------------------------------------------------------------------- |
-| `max_pose_age_s`                        | s    | A PoseContext older than this, by the Controller's clock, is not used. Must be greater than 0.    |
-| `max_clock_offset_s`                    | s    | PTZ detections are dropped while the measured NTP offset exceeds it. Must be greater than 0.      |
-| `max_detection_pipeline_latency_s`      | s    | Hard bound on camera-to-Controller latency. It is also the minimum dwell. Must be greater than 0. |
-| `max_detection_timestamp_uncertainty_s` | s    | Uncertainty of the detection acquisition timestamp. Must be 0 or greater.                         |
-| `shadow.run_id`                         |      | Label of the run for the shadow records (`A-Z a-z 0-9 . _ -`, up to 128 characters).              |
-| `shadow.sample_every_n`                 |      | Record every Nth decision of a source, and always a change of decision. An integer, 1 or greater. |
+| Key                                     | Unit | Meaning                                                                                                                          |
+| --------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `max_pose_age_s`                        | s    | A PoseContext older than this, by the Controller's clock, is not used. Must be greater than 0.                                   |
+| `max_clock_offset_s`                    | s    | PTZ detections are dropped while the measured NTP offset exceeds it. Must be greater than 0.                                     |
+| `max_detection_pipeline_latency_s`      | s    | Hard bound on camera-to-Controller latency. It is also the minimum dwell. Must be greater than 0.                                |
+| `max_detection_timestamp_uncertainty_s` | s    | Uncertainty of the detection acquisition timestamp. Must be 0 or greater.                                                        |
+| `shadow.run_id`                         |      | Label of the run for the shadow records (`A-Z a-z 0-9 . _ -`, up to 128 characters).                                             |
+| `shadow.sample_every_n`                 |      | Record every Nth decision of a source, and the first occurrence of each other decision within those N. An integer, 1 or greater. |
 
 The image ships an example `ptz-consumer-config.json` and an empty assignment manifest.
 Replace them by mounting your files read-only. The manifest is the same file the
@@ -110,8 +110,8 @@ never queues a detection.
   camera stays parked, the share of admitted frames is therefore bounded by how
   often Positioning publishes compared with the detection latency. For example,
   with a 0.2 s poll interval and a low-latency 15 fps pipeline, most frames can be
-  `no_sample`. Measure it in shadow mode with `shadow.sample_every_n: 1` (the
-  default sampling over-represents decision changes), and lower the Positioning
+  `no_sample`. Measure it in shadow mode with `shadow.sample_every_n: 1` (larger
+  values over-represent the rarer decision), and lower the Positioning
   `poll_interval_s` if too few frames are admitted.
 
 Reasons are the canonical `invalid_reason` values and the bounded `reason_detail`

@@ -11,7 +11,7 @@ its residual against the static home-pose projection.
 
 import copy
 import sys
-from typing import Any, Dict, List, Optional, TextIO
+from typing import Any, Dict, List, Optional, Set, TextIO
 
 import numpy as np
 import orjson
@@ -24,21 +24,32 @@ MAX_RECORD_DETECTIONS = 50
 
 
 class ShadowRecorder:
-  """Deterministic sampling: every Nth decision per source, plus every decision change."""
+  """Deterministic sampling per source: every Nth decision, plus the first occurrence of
+  each distinct decision within that window of N.
+
+  A new state (moving, settling, ...) is recorded as soon as it appears, while
+  decisions that alternate frame by frame (admitted / no_sample on a parked camera)
+  cost at most one record each per window instead of one per frame.
+  """
 
   def __init__(self, run_id: str, sample_every_n: int, stream: Optional[TextIO] = None):
     self.run_id = run_id
     self.sample_every_n = sample_every_n
     self._stream = stream
     self._counts: Dict[str, int] = {}
-    self._last_decision: Dict[str, tuple] = {}
+    self._window_decisions: Dict[str, Set[tuple]] = {}
 
   def _should_emit(self, source_id: str, decision: tuple) -> bool:
     count = self._counts.get(source_id, 0)
     self._counts[source_id] = count + 1
-    changed = self._last_decision.get(source_id) != decision
-    self._last_decision[source_id] = decision
-    return changed or count % self.sample_every_n == 0
+    if count % self.sample_every_n == 0:
+      self._window_decisions[source_id] = {decision}
+      return True
+    seen = self._window_decisions.setdefault(source_id, set())
+    if decision in seen:
+      return False
+    seen.add(decision)
+    return True
 
   def record(self, mode: str, scene: Any, source_id: str, jdata: Dict[str, Any],
              admission: Any, detections: Optional[List[Dict[str, Any]]] = None) -> bool:

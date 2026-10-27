@@ -432,6 +432,15 @@ class TestShadowRecorder:
     assert self._record(recorder, self._Admission(False, "moving")) is False
     assert self._record(recorder, self._Admission(False, "settling")) is True
 
+  def test_alternating_decisions_are_recorded_once_per_window(self):
+    recorder = ShadowRecorder("r", 10, io.StringIO())
+    admitted, no_sample = self._Admission(True), self._Admission(False, "no_sample")
+    emitted = [self._record(recorder, admitted if i % 2 == 0 else no_sample)
+               for i in range(30)]
+    assert sum(emitted) == 6
+    assert [i for i, e in enumerate(emitted) if e] == [0, 1, 10, 11, 20, 21]
+    assert self._record(recorder, self._Admission(False, "moving")) is True
+
   def test_sources_are_sampled_independently(self):
     recorder = ShadowRecorder("r", 100, io.StringIO())
     admitted = self._Admission(True)
