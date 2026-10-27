@@ -36,7 +36,7 @@ controller/src/controller/pose_adjustment/strategies/person/named_keypoints.py	p
 controller/src/controller/scene.py	Scene::convertPixelBoundingBoxesToMeters	23
 controller/src/controller/scene.py	Scene::createMovingObjectsForSceneData	14
 controller/src/controller/scene_controller.py	SceneController::_handleChildSceneObject	13
-controller/src/controller/scene_controller.py	SceneController::_processMovingObjectMessage	55
+controller/src/controller/scene_controller.py	SceneController::_processMovingObjectMessage	50
 controller/src/controller/scene_controller.py	SceneController::_scenesForExternalPublisher	19
 controller/src/controller/scene_controller.py	SceneController::updateSubscriptions	45
 controller/src/controller/time_chunking.py	TimeChunkProcessor::run	20
@@ -51,7 +51,7 @@ controller/src/controller/uuid_manager.py	UUIDManager::_enrollmentVectorsForMatc
 controller/src/controller/uuid_manager.py	UUIDManager::_findBestMetricCandidate	19
 controller/src/controller/uuid_manager.py	UUIDManager::parseQueryResults	26
 controller/src/controller/uuid_manager.py	UUIDManager::updateActiveDict	51
-manager/src/manager/api.py	ACLCheck::post	25
+manager/src/manager/api.py	ACLCheck::post	21
 manager/src/manager/api.py	ListThings::get_queryset	14
 manager/src/manager/calculate_intrinsics_view.py	CalculateCameraIntrinsics::post	26
 manager/src/manager/forms.py	CamCalibrateForm::__init__	15
@@ -71,7 +71,6 @@ manager/src/manager/models.py	Scene::createSceneScapeRegion	17
 manager/src/manager/models.py	Scene::save	25
 manager/src/manager/models.py	Scene::scenescapeSceneUpdateRegions	15
 manager/src/manager/models.py	Scene::scenescapeSceneUpdateSensors	25
-manager/src/manager/models.py	sendUpdateCommand	17
 manager/src/manager/ppl_generator/model_chain.py	parse_model_chain	18
 manager/src/manager/scene_import.py	ImportScene::loadScene	31
 manager/src/manager/serializers.py	ChildSceneSerializer::create_update	18

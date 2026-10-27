@@ -203,6 +203,32 @@ class DwellTracker:
 
   def evaluate(self, observation_timestamp_ns: int, local_now_ns: int) -> AdmissionDecision:
     """Admission decision for a detection acquired at ``observation_timestamp_ns``."""
+    rejection = self._pose_rejection()
+    if rejection is not None:
+      return rejection
+
+    stationary = self._latest_stationary
+    since = self._stationary_since_ns
+    if stationary is None or since is None:
+      return _reject(reasons.DETAIL_DWELL_INCOMPLETE, self._latest)
+    elapsed_ns = stationary.timestamp_ns - since
+    elapsed_s = elapsed_ns / NS_PER_S
+
+    if (local_now_ns >= stationary.valid_until_ns
+        or local_now_ns - stationary.timestamp_ns >= self.config.max_pose_age_ns):
+      return _reject(reasons.DETAIL_SAMPLE_STALE, stationary, elapsed_s)
+    if local_now_ns - observation_timestamp_ns > self.config.max_detection_pipeline_latency_ns:
+      return _reject(reasons.DETAIL_DETECTION_TOO_OLD, stationary, elapsed_s)
+    if observation_timestamp_ns > stationary.timestamp_ns:
+      return _reject(reasons.DETAIL_NO_SAMPLE, stationary, elapsed_s)
+    if (elapsed_ns - stationary.timestamp_uncertainty_ns - self._stationary_since_uncertainty_ns
+        < self.config.max_detection_pipeline_latency_ns):
+      return _reject(reasons.DETAIL_DWELL_INCOMPLETE, stationary, elapsed_s)
+    if observation_timestamp_ns - self.config.max_detection_timestamp_uncertainty_ns < since:
+      return _reject(reasons.DETAIL_OBSERVATION_BEFORE_DWELL, stationary, elapsed_s)
+    return AdmissionDecision(True, pose=stationary, dwell_elapsed_s=elapsed_s)
+
+  def _pose_rejection(self) -> Optional[AdmissionDecision]:
     latest = self._latest
     if latest is None:
       return _reject(reasons.DETAIL_NO_SAMPLE)
@@ -220,23 +246,4 @@ class DwellTracker:
         and latest.calibration_version != self.expected_calibration_version):
       return _reject(reasons.DETAIL_CALIBRATION_CHANGED, latest)
 
-    stationary = self._latest_stationary
-    since = self._stationary_since_ns
-    if stationary is None or since is None:
-      return _reject(reasons.DETAIL_DWELL_INCOMPLETE, latest)
-    elapsed_ns = stationary.timestamp_ns - since
-    elapsed_s = elapsed_ns / NS_PER_S
-
-    if (local_now_ns >= stationary.valid_until_ns
-        or local_now_ns - stationary.timestamp_ns >= self.config.max_pose_age_ns):
-      return _reject(reasons.DETAIL_SAMPLE_STALE, stationary, elapsed_s)
-    if local_now_ns - observation_timestamp_ns > self.config.max_detection_pipeline_latency_ns:
-      return _reject(reasons.DETAIL_DETECTION_TOO_OLD, stationary, elapsed_s)
-    if observation_timestamp_ns > stationary.timestamp_ns:
-      return _reject(reasons.DETAIL_NO_SAMPLE, stationary, elapsed_s)
-    if (elapsed_ns - stationary.timestamp_uncertainty_ns - self._stationary_since_uncertainty_ns
-        < self.config.max_detection_pipeline_latency_ns):
-      return _reject(reasons.DETAIL_DWELL_INCOMPLETE, stationary, elapsed_s)
-    if observation_timestamp_ns - self.config.max_detection_timestamp_uncertainty_ns < since:
-      return _reject(reasons.DETAIL_OBSERVATION_BEFORE_DWELL, stationary, elapsed_s)
-    return AdmissionDecision(True, pose=stationary, dwell_elapsed_s=elapsed_s)
+    return None
