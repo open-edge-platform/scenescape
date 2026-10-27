@@ -153,6 +153,16 @@ class TestMovingObjectToAnalyticsObject:
     assert ao.reid == {'embedding_vector': [0.1, 0.2]}
     assert ao.visibility == ['cam1', 'cam2']
 
+  def test_reid_state_and_lineage_carried_through(self):
+    lineage = [{'id': 'previous', 'timestamp': '2026-01-01T00:00:00Z'}]
+    src = self._source_object(reid_state='matched', similarity=0.9, previous_ids_chain=lineage)
+
+    obj = moving_object_to_analytics_object(src)
+
+    assert obj.reid_state == 'matched'
+    assert obj.similarity == 0.9
+    assert obj.previous_ids_chain is lineage
+
   def test_optional_fields_carried_through_when_present(self):
     sentinel = object()
     src = self._source_object(mesh=sentinel, bbMeters={'width': 0.5}, size=[0.5, 0.5, 1.8])

@@ -1,0 +1,44 @@
+---
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+name: "[Code Analysis] Cognitive Complexity"
+run-name: "[Code Analysis] Cognitive Complexity"
+
+on:
+  workflow_call: {}
+  workflow_dispatch: {}
+
+concurrency:
+  group: cognitive-complexity-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cognitive-complexity:
+    name: "Run Cognitive Complexity Check"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install pinned complexipy
+        run: |
+          requirement=$(grep '^complexipy == ' .github/resources/requirements.txt)
+          test -n "$requirement"
+          venv="$RUNNER_TEMP/complexity-venv"
+          python3 -m venv "$venv"
+          "$venv/bin/python3" -m pip install "$requirement"
+          echo "$venv/bin" >> "$GITHUB_PATH"
+      - name: Enforce cognitive complexity
+        env:
+          COMPLEXITY_BASE_REF: ${{ github.event.pull_request.base.sha || 'HEAD' }}
+        run: |
+          python3 -c 'import complexipy'
+          make complexity-check

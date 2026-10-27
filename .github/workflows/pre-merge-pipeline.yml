@@ -51,6 +51,12 @@ jobs:
     permissions:
       contents: read
 
+  cognitive-complexity:
+    name: "Cognitive Complexity"
+    uses: ./.github/workflows/cognitive-complexity.yml
+    permissions:
+      contents: read
+
   clamav:
     name: "ClamAV"
     uses: ./.github/workflows/clamav.yml
@@ -93,6 +99,7 @@ jobs:
     needs:
       - lint
       - bandit
+      - cognitive-complexity
       - codeql
       - zizmor
       - license
@@ -131,6 +138,12 @@ jobs:
   lint:
     name: "Lint"
     uses: ./.github/workflows/lint.yml
+    permissions:
+      contents: read
+
+  dependabot-coverage:
+    name: "Dependabot Config Coverage"
+    uses: ./.github/workflows/dependabot-coverage.yml
     permissions:
       contents: read
 

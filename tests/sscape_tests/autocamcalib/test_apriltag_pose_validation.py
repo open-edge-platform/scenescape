@@ -76,14 +76,16 @@ def test_generate_calibration_uses_map_spread_when_scene_scale_flattens_tags(mon
 
 
 def test_generate_calibration_uses_map_spread_when_scene_scale_stretches_tags(monkeypatch):
+  # Nearly coplanar in map space; scene mesh_scale stretches Z after validation.
+  # Acceptance uses map-space geometry (planar gates), not the stretched scene points.
   points_3d = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 0.001]]
 
   result = _generate_calibration(monkeypatch, points_3d, [0, 0, 2],
                                  map_name="scene.glb", mesh_scale=(1, 1, 1000))
 
-  assert result["status"] == "error"
-  assert "coplanar" in result["message"]
+  assert result["status"] == "success"
   assert result["spread_ratio"] < MIN_PNP_SPREAD_RATIO
+  assert result["calibration_points_3d"][-1] == [0, 0, 1.0]
 
 
 def test_generate_calibration_accepts_planar_image_tags(monkeypatch, result_data):
@@ -114,13 +116,14 @@ def test_generate_calibration_rejects_bad_planar_reprojection(monkeypatch):
   assert "reprojection error" in result["message"]
 
 
-def test_generate_calibration_rejects_coplanar_mesh_tags(monkeypatch):
+def test_generate_calibration_accepts_planar_mesh_tags(monkeypatch):
+  """Floor tags on a GLB use the same planar gates as an image map."""
   points_3d = [[0, 0, 0], [1, 0, 0], [1, 1, 0], [0, 1, 0]]
 
   result = _generate_calibration(monkeypatch, points_3d, [0, 0, 2], map_name="scene.glb")
 
-  assert result["status"] == "error"
-  assert "coplanar" in result["message"]
+  assert result["status"] == "success"
+  assert result["spread_ratio"] < MIN_PNP_SPREAD_RATIO
 
 
 def test_generate_calibration_rejects_camera_far_below_tags(monkeypatch):

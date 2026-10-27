@@ -46,6 +46,25 @@ def test_ingest_single_object_sets_core_fields():
   assert obj.sceneLoc == Point(1.0, 2.0, 0.0)
 
 
+@pytest.mark.parametrize('state', ['pending_collection', 'matched', 'query_no_match', 'reid_disabled'])
+def test_ingest_preserves_reid_state_and_lineage(state):
+  ingestion = SceneDataIngestion()
+  lineage = [{'id': 'previous', 'timestamp': '2026-01-01T00:00:00Z', 'similarity_score': 0.9}]
+  ingestion.ingest('person', [_person(reid_state=state, previous_ids_chain=lineage)], {})
+
+  obj = ingestion.get_objects('person')[0]
+  assert obj.reid_state == state
+  assert obj.previous_ids_chain == lineage
+
+
+@pytest.mark.parametrize('state', ['unknown', {}, None])
+def test_ingest_does_not_invent_state_for_invalid_or_missing_reid_state(state):
+  ingestion = SceneDataIngestion()
+  ingestion.ingest('person', [_person(reid_state=state)], {})
+
+  assert not hasattr(ingestion.get_objects('person')[0], 'reid_state')
+
+
 def test_ingest_omitted_visibility_is_none():
   """Omitted visibility must stay None so Analytics can FOV-fill."""
   ingestion = SceneDataIngestion()

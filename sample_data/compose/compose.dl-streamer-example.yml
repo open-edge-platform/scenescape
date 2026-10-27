@@ -192,8 +192,14 @@ services:
       - DBPORT=5432
       - no_proxy=${no_proxy},.scenescape.intel.com
       - NO_PROXY=${NO_PROXY},.scenescape.intel.com
+      - HTTP_PROXY=${HTTP_PROXY}
+      - http_proxy=${http_proxy}
+      - HTTPS_PROXY=${HTTPS_PROXY}
+      - https_proxy=${https_proxy}
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - MAPBOX_API_KEY=${MAPBOX_API_KEY}
+      - OHSOME_API_KEY=${OHSOME_API_KEY}
+      - OSM_MAX_ROI_FEATURES=${OSM_MAX_ROI_FEATURES:-200}
       # Max upload size for scene map files (blueprints, .glb meshes). Default
       # 132MB. Raise if uploading large 3D scans or high-res floor plans;
       # lower to reduce per-request memory pressure in constrained deployments.
@@ -463,16 +469,28 @@ services:
   reid-service:
     profiles:
       - reid-service
+      - tracker
     image: intel/scenescape-reid:${VERSION:-latest}
     init: true
     networks:
       scenescape:
+    depends_on:
+      broker:
+        condition: service_started
     environment:
+      PYTHONUNBUFFERED: "1"
       REID_DATABASE: ${REID_DATABASE:-VDMS}
       REID_HOSTNAME: ${REID_HOSTNAME:-reid.scenescape.intel.com}
       REID_PORT: ${REID_PORT:-55555}
       REID_USE_TLS: ${REID_USE_TLS:-true}
       REID_SERVICE_PORT: ${REID_SERVICE_PORT:-50051}
+      REID_CONFIG_PATH: /home/scenescape/Scenescape/reid-config.json
+      REID_MQTT_BROKER: broker.scenescape.intel.com
+      REID_MQTT_AUTH: /run/secrets/controller.auth
+      REID_MQTT_ROOT_CERT: /run/secrets/certs/scenescape-ca.pem
+    configs:
+      - source: reid-config
+        target: /home/scenescape/Scenescape/reid-config.json
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -480,6 +498,7 @@ services:
         target: certs/scenescape-reid.key
       - source: reid-client-cert
         target: certs/scenescape-reid.crt
+      - controller.auth
     restart: always
     pids_limit: 1000
 

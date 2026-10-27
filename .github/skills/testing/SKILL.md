@@ -55,8 +55,26 @@ Read the matching reference under [Additional resources](#additional-resources) 
 
 ## Hard requirements
 
-- **Zephyr ID**: required for every category **except unit tests** (functional, integration, UI, non_functional, BAT) - every **test method** needs its own unique `NEX-T#####` via `@pytest.mark.test_name("NEX-T#####")`, plus `result_recorder` use inside that method referencing the same ID. Never share one NEX ID across multiple test methods in a module.
-- **Unit tests**: `NEX-T#####` is **not required**. Mocked, host-only tests under `tests/sscape_tests/` or service `*/tests/` trees may omit `@pytest.mark.test_name(...)` entirely.
+### Zephyr IDs (`@pytest.mark.test_name`) — CI source of truth
+
+CI enforces this via `make check-zephyr-ids` → `tests/scripts/check_zephyr_mapping.py`.
+That check **excludes** `tests/sscape_tests/` and fails on missing / invalid / duplicate
+`NEX-T#####` markers for every other collected test.
+
+| Category | `@pytest.mark.test_name("NEX-T#####")` |
+| -------- | ------------------------------------- |
+| Unit (`tests/sscape_tests/`, service `*/tests/`) | **Do not add.** CI does not require or check it. |
+| Functional, integration, UI, non_functional, BAT, perf | **Required** — unique per test method |
+
+- **Non-unit**: every test method needs its own unique `NEX-T#####`, plus `result_recorder`
+  using that same ID. Never share one NEX ID across multiple test methods in a module.
+- **Unit (mandatory agent rule)**: **never** add `@pytest.mark.test_name(...)`,
+  `TEST_NAME = "NEX-T…"`, or copy a sibling UI/functional Zephyr ID onto unit cases.
+  Existing unit files that omit markers are correct; do not “fix” them by adding IDs.
+- Details: [Conftest and Zephyr](references/conftest-and-zephyr.md).
+
+### Other requirements
+
 - **Functional/UI**: declare module-level `SCENESCAPE_SPEC = FuncTestSpec(...)` with the correct `ServiceProfile` from `tests/utils/profiles.py`.
 - **Naming**: files `test_*.py`, functions `test_*` (pytest norms).
 - **Markers that matter**:
@@ -68,7 +86,7 @@ Read the matching reference under [Additional resources](#additional-resources) 
 
 Before marking a test-authoring task complete:
 
-- [ ] Unique Zephyr ID present on every test method (all categories except unit)
+- [ ] Non-unit tests: unique Zephyr ID on every test method; unit tests: **no** `test_name` / NEX-T markers
 - [ ] Positive and negative (or boundary) cases; at least one negative unless N/A
 - [ ] Correct category location and markers
 - [ ] Functional/UI declare `SCENESCAPE_SPEC`
