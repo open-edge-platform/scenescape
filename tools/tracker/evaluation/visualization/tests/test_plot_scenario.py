@@ -5,7 +5,9 @@
 
 import json
 import math
+import shutil
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
@@ -20,13 +22,23 @@ from visualization.plot_scenario import (  # noqa: E402
   TrackEvalEvaluator,
   ground_truth_fps,
   main,
+  pair_tracks,
   plot_scenario,
+  plot_size,
+  plot_speed_yaw,
+  plot_trajectory,
   position_errors,
   trackeval_distances,
+)
+from visualization.scenario_data import (  # noqa: E402
+  PIPELINE_RUN_FILES,
+  SCENARIO_FILES,
+  load_scenario,
 )
 # pylint: enable=wrong-import-position
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+FIXTURE = Path(__file__).parent / "fixtures" / "target_born_moving"
 
 
 def assert_png(path):
@@ -164,3 +176,73 @@ def test_position_errors_in_truth_frame():
   np.testing.assert_allclose(errors["cross"][:3], -0.3)
   # Standing still: no direction.
   assert math.isnan(errors["along"][3]) and math.isnan(errors["cross"][3])
+
+
+def test_position_errors_with_repeated_timestamps():
+  """Several rows at one time (Immediate-mode output) still get the truth direction from its positions."""
+  t = [0.0, 0.1, 0.1, 0.2, 0.2, 0.3, 0.3, 0.4]
+  aligned = pd.DataFrame({
+    "t": t,
+    "x": [time - 0.05 for time in t], "y": [0.2] * len(t),
+    "x_gt": t, "y_gt": [0.0] * len(t),
+    "vx_gt": [math.nan] * len(t), "vy_gt": [math.nan] * len(t),
+  })
+
+  with warnings.catch_warnings():
+    warnings.simplefilter("error")
+    errors = position_errors(aligned)
+
+  # Moving along +x at 1 m/s, the estimate 0.05 m behind and 0.2 m to the left.
+  np.testing.assert_allclose(errors["along"], -0.05)
+  np.testing.assert_allclose(errors["cross"], 0.2)
+
+
+def test_position_errors_with_one_distinct_timestamp():
+  """Rows at a single time give no direction, without numerical warnings."""
+  aligned = pd.DataFrame({
+    "t": [0.5, 0.5], "x": [0.1, 0.2], "y": [0.0, 0.0], "x_gt": [0.0, 0.0], "y_gt": [0.0, 0.0],
+    "vx_gt": [math.nan, math.nan], "vy_gt": [math.nan, math.nan],
+  })
+
+  with warnings.catch_warnings():
+    warnings.simplefilter("error")
+    errors = position_errors(aligned)
+
+  assert errors["along"].isna().all() and errors["cross"].isna().all()
+  np.testing.assert_allclose(errors["total"], [0.1, 0.2])
+
+
+def scenario_with_yawed_detections(tmp_path, pipeline):
+  """The recorded scenario, its detections yawed by 1 rad, as a recorder or pipeline run directory.
+
+  The pipeline's detections are in a sensor frame 100 m away from the scene and carry the same ids as the
+  ground truth, which only a recorder guarantees.
+  """
+  directory = tmp_path / ("pipeline" if pipeline else "recorder")
+  layout = PIPELINE_RUN_FILES if pipeline else {name: name for name in SCENARIO_FILES}
+  for name, relative in layout.items():
+    (directory / relative).parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(FIXTURE / name, directory / relative)
+  detections = directory / layout["detections.jsonl"]
+  frames = [json.loads(line) for line in detections.read_text(encoding="utf-8").splitlines()]
+  for frame in frames:
+    for objects in frame["objects"].values():
+      for detection in objects:
+        detection["rotation"] = [0.0, 0.0, math.sin(0.5), math.cos(0.5)]
+        if pipeline:
+          detection["translation"][0] += 100.0
+  detections.write_text("".join(json.dumps(frame) + "\n" for frame in frames), encoding="utf-8")
+  return load_scenario(directory)
+
+
+@pytest.mark.parametrize("pipeline, drawn", [(False, True), (True, False)])
+def test_overlays_detections_only_where_they_are_in_the_scene(tmp_path, pipeline, drawn):
+  """Recorder detections carry ground-truth ids in scene coordinates; a pipeline run's do not."""
+  scenario = scenario_with_yawed_detections(tmp_path, pipeline)
+  pairs = pair_tracks(scenario)
+
+  assert not scenario.detections.empty
+  for plot in (plot_trajectory, plot_size, plot_speed_yaw):
+    figure = plot(scenario, pairs)
+    labels = [line.get_label() for axis in figure.axes for line in axis.lines]
+    assert any(label.startswith("detections") for label in labels) is drawn, (plot.__name__, labels)
