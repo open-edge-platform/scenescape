@@ -6,7 +6,9 @@ version: 2
 updates:
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
-    directory: /
+    directories:
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "monthly"
       time: "04:00"
@@ -55,6 +57,8 @@ updates:
       - "/kubernetes/init-images"
       - "/manager"
       - "/mapping"
+      - "/reid"
+      - "/sample_data/sample_app"
       - "/scene_common"
       - "/tests/security/fuzzing"
       - "/tools/v2x"
@@ -93,6 +97,7 @@ updates:
       - "/sample_data/demo_scenes/Queuing"
       - "/sample_data/demo_scenes/Retail"
       - "/sample_data/lidar_intersection"
+      - "/sample_data/sample_app"
       - "/tests/compose"
       - "/tests/compose/dlstreamer"
       - "/tests/compose/hierarchy"
@@ -136,11 +141,13 @@ updates:
       - "/manager/test"
       - "/mapping"
       - "/mapping/tests"
+      - "/reid"
       - "/scene_common"
       - "/tests"
       - "/tests/pipeline_runner"
       - "/tools/external_source_adapters"
       - "/tools/pipeline_runner"
+      - "/tools/reid_evaluation"
       - "/tools/tracker/evaluation"
       - "/tools/upload_scenes"
       - "/tools/v2x"
@@ -170,9 +177,11 @@ updates:
       - "dmytroye"
       - "tdorauintc"
 
-  # Enable version updates for NPM packages used in CI
+  # Enable version updates for NPM packages
   - package-ecosystem: "npm"
-    directory: "/.github/resources"
+    directories:
+      - "/.github/resources"
+      - "/sample_data/sample_app"
     schedule:
       interval: "monthly"
       time: "04:00"
