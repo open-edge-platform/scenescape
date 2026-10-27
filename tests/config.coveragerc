@@ -14,7 +14,7 @@ omit =
     */site-packages/*
     */opt/intel/*
     */tests/*
-# below are the units with main functions of services - no point to cover 
+# below are the units with main functions of services - no point to cover
     reid/src/reid/server.py
     cluster_analytics/src/cluster_analytics.py
 

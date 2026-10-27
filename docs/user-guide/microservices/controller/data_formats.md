@@ -158,6 +158,14 @@ always the **publisher** (configured child scene uid or agent `source_id`). Scen
 attach via consumer-side **bindings**, not by addressing a scene inbox. See
 [ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md).
 
+The high-performance C++ Tracker consumes the dynamic `source_id` form of the
+same contract. For image maps, it calculates the WGS84 transform at startup from
+the map dimensions, `scale`, and `map_corners_lla`, matching the Python Controller.
+For 3D scenes, it retains the persisted `trs_matrix` calculated by Python from the
+GLB mesh's XY bounds; the padded top-view thumbnail is not used as a geographic
+footprint. A 3D scene without a persisted matrix has no Tracker-derived WGS84
+transform. Configured child-scene payloads remain a Scene Controller-only path.
+
 Two payload contracts share the topic, distinguished by `source_id`:
 
 - **Configured child scene** (no `source_id`): `{publisher_id}` is the sending child's

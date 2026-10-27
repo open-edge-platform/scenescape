@@ -24,4 +24,20 @@ bool isValidTopicSegment(std::string_view segment) {
     return true;
 }
 
+bool isValidPublisherTopicSegment(std::string_view segment) {
+    if (segment.empty()) {
+        return false;
+    }
+
+    for (char c : segment) {
+        if (std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_' || c == '.' ||
+            c == ':') {
+            continue;
+        }
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace tracker
