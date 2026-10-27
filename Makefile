@@ -175,6 +175,7 @@ help:
 	@echo "  check-unit-coverage         Enforce per-service coverage on existing .coverage data"
 	@echo "  complexity-check            Enforce cognitive complexity <=12 against the legacy baseline (SERVICE=<name> for one service)"
 	@echo "  complexity-check-report     Report per-service and per-function complexity scores (SERVICE=<name> for one service)"
+	@echo "  dependabot-coverage-check   Check .github/dependabot.yml tracks every dependency manifest and compose file"
 	@echo "  run_stability_tests         Run stability tests"
 	@echo "  run_performance_tests       Run performance tests"
 	@echo "  run_performance_degradation_test  Run long-run performance degradation test"
@@ -673,6 +674,10 @@ complexity-check-report:
 	@python3 .github/scripts/check_cognitive_complexity.py \
 		--report "$(COMPLEXITY_REPORT_DIR)" --top $(COMPLEXITY_TOP) \
 		$(if $(SERVICE),--service "$(SERVICE)") --trees $(COMPLEXITY_SOURCES)
+
+.PHONY: dependabot-coverage-check
+dependabot-coverage-check:
+	@python3 .github/scripts/check_dependabot_coverage.py
 
 .PHONY: lint-all
 lint-all: lint-python lint-javascript lint-cpp lint-shell lint-dockerfiles prettier-check
