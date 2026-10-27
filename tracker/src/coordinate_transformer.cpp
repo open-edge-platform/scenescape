@@ -22,7 +22,7 @@ namespace tracker {
 
 namespace {
 
-constexpr int kOpenMpParallelThreshold = 64;
+constexpr int kMinIterationsForOpenMpParallelism = 32;
 
 void addMetadataAttributes(std::string_view metadataJson,
                            std::unordered_map<std::string, std::string>& attributes) {
@@ -175,7 +175,7 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
     const double horizon_distance = getHorizonDistance();
 
     // Phase 3: Parallel pose-transform + ray-plane intersection
-#pragma omp parallel for schedule(static) if (n >= kOpenMpParallelThreshold)
+#pragma omp parallel for schedule(static) if (n >= kMinIterationsForOpenMpParallelism)
     for (int i = 0; i < n; ++i) {
         const double nx = normalized[i].x;
         const double ny = normalized[i].y;
@@ -299,7 +299,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     const double cam_y = camera_origin_.y;
     const double cam_z = camera_origin_.z;
 
-#pragma omp parallel for schedule(static) if (n >= kOpenMpParallelThreshold)
+#pragma omp parallel for schedule(static) if (n >= kMinIterationsForOpenMpParallelism)
     for (int i = 0; i < static_cast<int>(n); ++i) {
         const size_t detection_index = static_cast<size_t>(i);
         const auto& detection = detections[static_cast<size_t>(i)];

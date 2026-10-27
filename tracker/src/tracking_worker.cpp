@@ -34,7 +34,7 @@ namespace {
 // (DEFAULT_TRACKING_RADIUS); we keep the same default here so the tracker
 // service produces identical results.
 constexpr double kTrackingDistanceThreshold = 2.0;
-constexpr size_t kOpenMpParallelThreshold = 32;
+constexpr size_t kMinDetectionsForMultiThreadedTracking = 32;
 constexpr std::string_view kMetadataPrefix = "metadata.";
 
 /**
@@ -400,8 +400,9 @@ std::vector<Track> TrackingWorker::match_and_convert(
     // increments non-measurement counters so tracks can age and expire.
     std::vector<rv::tracking::TrackedObject> rv_tracks;
     {
-        const auto thread_limit =
-            transformed_detections < kOpenMpParallelThreshold ? 1 : omp_get_max_threads();
+        const auto thread_limit = transformed_detections < kMinDetectionsForMultiThreadedTracking
+                                      ? 1
+                                      : omp_get_max_threads();
         ScopedOpenMpThreadLimit openmp_thread_limit(thread_limit);
         tracker_.track(std::move(objects_per_camera), timestamp,
                        rv::tracking::DistanceType::Euclidean, kTrackingDistanceThreshold);
