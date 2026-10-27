@@ -179,7 +179,7 @@ def test_position_errors_in_truth_frame():
 
 
 def test_position_errors_with_repeated_timestamps():
-  """Several rows at one time (Immediate-mode output) still get the truth direction from its positions."""
+  """Rows sharing a time (Immediate-mode output) get the truth direction from its positions."""
   t = [0.0, 0.1, 0.1, 0.2, 0.2, 0.3, 0.3, 0.4]
   aligned = pd.DataFrame({
     "t": t,
@@ -213,10 +213,10 @@ def test_position_errors_with_one_distinct_timestamp():
 
 
 def scenario_with_yawed_detections(tmp_path, pipeline):
-  """The recorded scenario, its detections yawed by 1 rad, as a recorder or pipeline run directory.
+  """The recorded scenario with detections yawed by 1 rad, as a recorder or pipeline run directory.
 
-  The pipeline's detections are in a sensor frame 100 m away from the scene and carry the same ids as the
-  ground truth, which only a recorder guarantees.
+  The pipeline's detections are in a sensor frame 100 m off the scene and carry the same ids as
+  the ground truth, which only a recorder guarantees.
   """
   directory = tmp_path / ("pipeline" if pipeline else "recorder")
   layout = PIPELINE_RUN_FILES if pipeline else {name: name for name in SCENARIO_FILES}

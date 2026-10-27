@@ -91,13 +91,18 @@ estimator plots for pipeline runs, are skipped; a TrackEval failure only skips t
 | Recorder file       | Pipeline run file            | Content                                                                                                           |
 | ------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `groundtruth.jsonl` | `dataset/ground_truth.jsonl` | [Ground truth](../README.md#ground-truth-format-canonical-jsonl); the recorder adds size, heading, velocity, etc. |
-| `detections.jsonl`  | `harness/inputs.jsonl`       | [Input detections](../README.md#input-detection-format); only 3D detections are shown                             |
+| `detections.jsonl`  | `harness/inputs.jsonl`       | [Input detections](../README.md#input-detection-format); only 3D detections are shown, in recordings only         |
 | `tracks.jsonl`      | `harness/outputs.jsonl`      | [Tracker output](../README.md#tracker-output-format)                                                              |
 | `estimator.jsonl`   | –                            | Per track a `config` line, then per filter step model probabilities, state, P, predicted measurement and S        |
 
 Any file may be missing. Tracks are paired with ground-truth objects by position with `match_tracks()` from
 [utils/tracks.py](../utils/tracks.py), so their ids may differ. Recorder timestamps start at the `system_clock` epoch;
 the tools show seconds since the first timestamp.
+
+Detections are drawn only for recordings: the recorder writes them in scene coordinates (identity sensor pose) with the
+ground-truth object id as detection id. A pipeline run's detections follow the camera-data schema, with frame-local ids
+and positions in the sensor frame, so they are loaded (`Scenario.detections`, `detections_in_scene` is false) but not
+drawn.
 
 ## Tests
 

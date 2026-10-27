@@ -97,10 +97,15 @@ def position_errors(aligned: pd.DataFrame) -> pd.DataFrame:
   missing = np.isnan(vx) | np.isnan(vy)
   if missing.any():
     valid = aligned["x_gt"].notna().to_numpy()
-    if valid.sum() >= 2:
-      t = aligned["t"].to_numpy()[valid]
-      vx[missing & valid] = np.gradient(aligned["x_gt"].to_numpy()[valid], t)[missing[valid]]
-      vy[missing & valid] = np.gradient(aligned["y_gt"].to_numpy()[valid], t)[missing[valid]]
+    # Rows at one time (Immediate-mode output) share their truth; differentiate over distinct times.
+    times, first, inverse = np.unique(aligned["t"].to_numpy()[valid], return_index=True,
+                                      return_inverse=True)
+    if len(times) >= 2:
+      fill = missing[valid]
+      truth_x = aligned["x_gt"].to_numpy()[valid][first]
+      truth_y = aligned["y_gt"].to_numpy()[valid][first]
+      vx[missing & valid] = np.gradient(truth_x, times)[inverse][fill]
+      vy[missing & valid] = np.gradient(truth_y, times)[inverse][fill]
   speed = np.hypot(vx, vy)
   with np.errstate(invalid="ignore", divide="ignore"):
     ux = np.where(speed > SPEED_FOR_DIRECTION, vx / speed, np.nan)
@@ -117,15 +122,16 @@ def position_errors(aligned: pd.DataFrame) -> pd.DataFrame:
 
 def plot_trajectory(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
   """Top-down view: ground truth, detections and estimates."""
-  if scenario.ground_truth.empty and scenario.detections.empty and scenario.tracks.empty:
+  detections = _scene_detections(scenario)
+  if scenario.ground_truth.empty and detections.empty and scenario.tracks.empty:
     return None
   fig, ax = plt.subplots(figsize=(9, 8))
   for object_id, truth in scenario.ground_truth.groupby("object_id"):
     ax.plot(truth["x"], truth["y"], color="black", label=f"truth {label(object_id)}", **TRUTH_STYLE)
     ax.plot(truth["x"].iloc[0], truth["y"].iloc[0], "o", color="black", markersize=4)
-  for sensor_id, detections in scenario.detections.groupby("sensor_id"):
-    ax.plot(detections["x"], detections["y"], color="gray", label=f"detections {sensor_id}",
-            **DETECTION_STYLE)
+  for sensor_id, sensor_detections in detections.groupby("sensor_id"):
+    ax.plot(sensor_detections["x"], sensor_detections["y"], color="gray",
+            label=f"detections {sensor_id}", **DETECTION_STYLE)
   for track_id, track in _tracks(scenario, pairs):
     color = track_color(pairs, track_id)
     ax.plot(track["x"], track["y"], color=color, linewidth=1.5, label=f"track {label(track_id)}")
@@ -497,10 +503,17 @@ def _truth(scenario: Scenario, object_id: Optional[str]) -> Optional[pd.DataFram
   return scenario.ground_truth[scenario.ground_truth["object_id"] == object_id]
 
 
+def _scene_detections(scenario: Scenario) -> pd.DataFrame:
+  """Detections that can be drawn with tracks and truth: none for pipeline runs (sensor frames)."""
+  return scenario.detections if scenario.detections_in_scene else scenario.detections.iloc[0:0]
+
+
 def _detections(scenario: Scenario, object_id: Optional[str]) -> pd.DataFrame:
+  """Detections of one ground-truth object; ids match only in recordings."""
+  detections = _scene_detections(scenario)
   if object_id is None:
-    return scenario.detections.iloc[0:0]
-  return scenario.detections[scenario.detections["object_id"] == object_id]
+    return detections.iloc[0:0]
+  return detections[detections["object_id"] == object_id]
 
 
 def _near(t: pd.Series, angles: pd.Series, track: pd.DataFrame) -> np.ndarray:

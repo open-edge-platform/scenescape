@@ -17,6 +17,11 @@ Any file may be missing, e.g. estimator.jsonl for real tracker output. An
 evaluation pipeline run directory (pipeline_engine.py) is read the same way,
 from the files in PIPELINE_RUN_FILES. Times are in seconds since the earliest
 timestamp in the directory; ids are strings.
+
+The recorder writes detections in scene coordinates (identity sensor pose) with
+the ground-truth object id as detection id. A pipeline run's detections keep the
+camera-data schema meaning instead: frame-local ids and positions in the sensor
+frame. Scenario.detections_in_scene tells which of the two was loaded.
 """
 
 import math
@@ -89,6 +94,9 @@ class Scenario:
   tracks: pd.DataFrame
   estimator: Dict[str, EstimatorTrace] = field(default_factory=dict)
   files: Dict[str, Path] = field(default_factory=dict)  # existing files by scenario file name
+  # True when detections are in scene coordinates and their ids are ground-truth ids (a recording);
+  # False for pipeline runs, so detections must not be compared with tracks or ground truth.
+  detections_in_scene: bool = True
 
   @property
   def object_ids(self) -> List[str]:
@@ -117,7 +125,9 @@ def load_scenario(directory) -> Scenario:
   """
   directory = Path(directory)
   paths = {name: directory / name for name in SCENARIO_FILES}
+  pipeline_run = False
   if not any(path.is_file() for path in paths.values()):
+    pipeline_run = True
     paths = {name: directory / PIPELINE_RUN_FILES.get(name, name) for name in SCENARIO_FILES}
   if not any(path.is_file() for path in paths.values()):
     raise FileNotFoundError(f"No scenario files ({', '.join(SCENARIO_FILES)}) or evaluation "
@@ -138,6 +148,7 @@ def load_scenario(directory) -> Scenario:
     tracks=_tracks(raw[TRACKS_FILE], seconds),
     estimator=_estimator(raw[ESTIMATOR_FILE], seconds),
     files={name: path for name, path in paths.items() if path.is_file()},
+    detections_in_scene=not pipeline_run,
   )
 
 

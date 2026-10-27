@@ -181,7 +181,7 @@ def test_loads_pipeline_run_directory(tmp_path):
 
 
 def test_detections_are_in_the_scene_only_for_recordings(tmp_path):
-  """Recorder detections use scene coordinates and ground-truth ids; a pipeline run's are in sensor frames."""
+  """Recorder detections have scene coordinates and ground-truth ids; a pipeline run's do not."""
   for name, path in PIPELINE_RUN_FILES.items():
     (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
     shutil.copy(FIXTURE / name, tmp_path / path)
