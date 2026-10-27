@@ -502,15 +502,6 @@ check-autocalibration-contract: setup-pytest
 check-mapping-contract: setup-pytest
 	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/mapping_api/ $(PYTEST_FLAGS) || \
 		(echo "Mapping OpenAPI contract check failed" && exit 1)
-		
-MANAGER_SCHEMA_DRIFT_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_manager_schema_drift.py
-
-.PHONY: check-manager-api-spec-review
-check-manager-api-spec-review:
-	@: "$${PR_BASE_SHA:?Set PR_BASE_SHA to the PR base commit}"
-	@: "$${PR_HEAD_SHA:?Set PR_HEAD_SHA to the PR head commit}"
-	@python3 $(CURDIR)/tests/scripts/check_manager_api_spec_reminder.py \
-		"$$PR_BASE_SHA" "$$PR_HEAD_SHA"
 
 .PHONY: run_tests
 run_tests: setup-tests
