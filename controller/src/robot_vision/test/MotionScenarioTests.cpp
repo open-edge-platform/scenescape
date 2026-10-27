@@ -251,8 +251,9 @@ TEST(MotionScenarioTest, TracksMotionCases)
      .truth = Trajectory({.speed = 1.5, .box = kPerson}).straight(2.0).turn(0.4, 6.0).sample(kFps),
      .maxPositionError = 0.5,
      .maxFinalSpeedError = 0.1},
-    // Error peaks at 0.6-0.8 m in the seconds after a corner, while the estimated speed drops to 0.6-0.8 m/s.
-    {.name = "rectangular path", .truth = rectangle.sample(kFps), .maxPositionError = 0.9, .maxFinalSpeedError = 0.12},
+    // Error peaks at 0.4-0.7 m in the seconds after a corner, while the estimated speed drops to 0.8-1.4 m/s and then
+    // overshoots to 1.8 m/s. The path ends with a corner, so the final speed is taken in that dip.
+    {.name = "rectangular path", .truth = rectangle.sample(kFps), .maxPositionError = 0.8, .maxFinalSpeedError = 0.2},
   };
   constexpr double kWarmUp = 2.0;
 
