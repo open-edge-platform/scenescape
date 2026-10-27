@@ -41,6 +41,7 @@ add_executable(tracker_tests
     healthcheck_server_test.cpp
     healthcheck_command_test.cpp
     mqtt_client_test.cpp
+    camera_data_schema_test.cpp
     message_handler_test.cpp
     scene_registry_test.cpp
     time_chunk_buffer_test.cpp

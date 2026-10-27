@@ -14,6 +14,12 @@ import numpy as np
 import open3d as o3d
 from scipy.spatial.transform import Rotation
 
+from scene_common.reid_embedding import (
+  REID_EMBEDDING_DIMENSIONS_KEY,
+  REID_FLOAT_SIZE_BYTES,
+  decode_embedding_vector as decodeReIDEmbeddingVector,
+  get_embedding_dimensions as _getReIDEmbeddingDimensions,
+)
 from scene_common.reid_constants import REID_PROVENANCE_KEY
 from scene_common.chain_data import ChainData
 from scene_common.geometry import DEFAULTZ, Line, Point, Rectangle
@@ -30,51 +36,6 @@ DEFAULT_TRACKING_RADIUS = 2.0
 LOCATION_LIMIT = 20
 SPEED_THRESHOLD_ON = 1.0
 SPEED_THRESHOLD_OFF = 0.5
-REID_FLOAT_SIZE_BYTES = np.dtype(np.float32).itemsize
-REID_EMBEDDING_DIMENSIONS_KEY = 'embedding_dimensions'
-
-
-def _getReIDEmbeddingDimensions(reid):
-  if not isinstance(reid, dict):
-    return None
-
-  for key in (REID_EMBEDDING_DIMENSIONS_KEY, 'dimensions'):
-    value = reid.get(key)
-    if value is None:
-      continue
-    try:
-      return int(value)
-    except (TypeError, ValueError) as err:
-      raise ValueError(f"Invalid ReID embedding dimensions: {value}") from err
-
-  return None
-
-
-def decodeReIDEmbeddingVector(embedding_data, dimensions=None):
-  if isinstance(embedding_data, str):
-    vector = base64.b64decode(embedding_data, validate=True)
-    if len(vector) % REID_FLOAT_SIZE_BYTES != 0:
-      raise ValueError(
-        f"Packed ReID vector size {len(vector)} is not divisible by {REID_FLOAT_SIZE_BYTES}")
-
-    inferred_dimensions = len(vector) // REID_FLOAT_SIZE_BYTES
-    if dimensions is None:
-      dimensions = inferred_dimensions
-    elif int(dimensions) != inferred_dimensions:
-      raise ValueError(
-        f"Packed ReID vector contains {inferred_dimensions} floats, expected {dimensions}")
-
-    return np.frombuffer(vector, dtype=np.float32).copy().reshape(1, dimensions)
-
-  if isinstance(embedding_data, (np.ndarray, list)):
-    arr = np.asarray(embedding_data, dtype=np.float32).reshape(-1)
-    actual_length = arr.shape[0]
-    if dimensions is not None and int(dimensions) != actual_length:
-      raise ValueError(
-        f"ReID embedding vector has {actual_length} elements, expected {int(dimensions)}")
-    return arr.reshape(1, actual_length)
-
-  return None
 
 
 def serializeReIDPayload(reid):

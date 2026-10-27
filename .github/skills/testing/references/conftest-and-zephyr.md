@@ -21,6 +21,17 @@ Owns session lifecycle:
 
 Adds functional helpers (`rest`, `scene_uid`, etc.) and related setup fixtures.
 
+## CI check (`make check-zephyr-ids`)
+
+`tests/scripts/check_zephyr_mapping.py` collects every pytest under `tests/` **except**
+`tests/sscape_tests/` and fails on:
+
+- `missing_id` — no `@pytest.mark.test_name("NEX-T#####")`
+- `invalid_id` — value not matching `NEX-T` + 5–6 digits
+- `duplicate_id` — same ID on more than one test
+
+Unit tests are out of scope for this check. Do not add markers there to “satisfy” CI.
+
 ## Zephyr IDs: every category except unit tests
 
 Required for any test that isn't a unit test. Each test method must carry its own
@@ -41,8 +52,12 @@ def test_bar(result_recorder):
   result_recorder.success()
 ```
 
-## Unit tests: no Zephyr ID required
+## Unit tests: do not add Zephyr IDs
 
-Unit tests (`tests/sscape_tests/`) do not need a Zephyr ID.
+Unit tests under `tests/sscape_tests/` (and similar host-only unit trees) must **not**
+use `@pytest.mark.test_name(...)` or module-level `TEST_NAME = "NEX-T…"`.
+
+Agents often wrongly copy a related UI/functional `NEX-T#####` onto every unit case
+in the same PR — that is incorrect and adds noise. Omit the marker.
 
 Prefer placing shared path/bootstrap setup in the nearest `conftest.py`, not in individual test modules.
