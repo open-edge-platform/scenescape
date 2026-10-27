@@ -37,7 +37,7 @@ from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 
 from manager.api import IsAdminOrReadOnly
-from manager import osm_query, osm_roi
+from manager import osm_query, osm_roi, glb_alignment
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
@@ -1166,6 +1166,50 @@ class OsmRois(APIView):
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
     return JsonResponse({'created': created})
+
+
+class GeospatialGlbPreview(APIView):
+  """Stage an uploaded GLB and return a top-down preview PNG, its footprint and a default anchor.
+
+  The anchor defaults to the scene's saved map centre with heading 0. Nothing on the scene
+  is modified; the staged files are removed after the TTL or when committed.
+  """
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request, scene_uid):
+    token = None
+    try:
+      try:
+        scene = Scene.objects.get(pk=scene_uid)
+      except (Scene.DoesNotExist, ValueError):
+        return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
+      if scene.map_type != 'geospatial_map':
+        return JsonResponse({'error': 'Scene map type must be geospatial_map'}, status=400)
+      if scene.map_center_lat is None or scene.map_center_lng is None:
+        return JsonResponse({'error': 'Scene map centre is not set'}, status=400)
+      upload = request.FILES.get('file')
+      if upload is None or not upload.name.lower().endswith('.glb'):
+        return JsonResponse({'error': 'A .glb file is required in the "file" field'}, status=400)
+
+      token = glb_alignment.stage_glb(upload)
+      footprint, px_per_m = glb_alignment.build_preview(token)
+      return JsonResponse({
+        'token': token,
+        'preview_url': f'{settings.MEDIA_URL}{glb_alignment.STAGING_SUBDIR}/{token}.png',
+        'footprint_m': footprint,
+        'anchor': {'lat': scene.map_center_lat, 'lng': scene.map_center_lng, 'heading_deg': 0.0},
+        'px_per_m': px_per_m,
+        'existing_content': glb_alignment.existing_content(scene),
+      })
+    except glb_alignment.GlbAlignmentError as e:
+      return JsonResponse({'error': e.message}, status=e.status)
+    except Exception as e:
+      log.error(f"Error in geospatial GLB preview: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      if token:
+        glb_alignment.remove_staged_files(token)
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
 
 @superuser_required

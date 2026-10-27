@@ -962,6 +962,98 @@ paths:
           description: A posted uuid already belongs to an existing region; nothing is created
         "500":
           description: Internal server error
+  /scene/{uid}/geospatial-glb-preview:
+    post:
+      tags:
+        - scene
+      operationId: scene_geospatial_glb_preview_create
+      summary: Stage a GLB file and generate a top-down preview with geospatial anchor
+      description: Accepts a multipart upload with a GLB file, stages it in a temporary directory, generates a PNG preview image, computes the footprint, and returns staging metadata for the frontend.
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+            format: uuid
+          required: true
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: GLB file to stage for preview
+              required:
+                - file
+        required: true
+      security:
+        - tokenAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: GLB staged and preview generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Staging token to reference the GLB and PNG files
+                  preview_url:
+                    type: string
+                    description: Relative URL to the generated preview PNG
+                  footprint_m:
+                    type: object
+                    properties:
+                      width:
+                        type: number
+                        description: Footprint width in meters
+                      height:
+                        type: number
+                        description: Footprint height in meters
+                  anchor:
+                    type: object
+                    properties:
+                      lat:
+                        type: number
+                        description: Latitude of map center
+                      lng:
+                        type: number
+                        description: Longitude of map center
+                      heading_deg:
+                        type: number
+                        description: Default heading in degrees (always 0.0)
+                  px_per_m:
+                    type: number
+                    description: Pixels per meter in the preview image
+                  existing_content:
+                    type: object
+                    properties:
+                      cameras:
+                        type: integer
+                        description: Count of cameras in the scene
+                      regions:
+                        type: integer
+                        description: Count of regions in the scene
+                      sensors:
+                        type: integer
+                        description: Count of sensors in the scene
+        "400":
+          description: Scene is not a geospatial_map, map centre not set, no file in request, file does not end with .glb, or invalid GLB file
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (requires superuser for POST)
+        "404":
+          description: Scene not found
+        "413":
+          description: File exceeds maximum upload size (FILE_UPLOAD_MAX_MEMORY_SIZE)
+        "500":
+          description: Internal server error
   /scene:
     post:
       tags:
