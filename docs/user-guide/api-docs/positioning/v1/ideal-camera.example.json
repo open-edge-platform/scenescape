@@ -1,0 +1,45 @@
+{
+  "parameterization_version": "v1",
+  "calibration_version": "ideal-camera-demo-v1",
+  "position_space": {
+    "uri": "http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace",
+    "pan_min": -1.0,
+    "pan_max": 1.0,
+    "tilt_min": -1.0,
+    "tilt_max": 1.0
+  },
+  "settle_angular_threshold_deg": 0.1,
+  "settle_interval_s": 0.6,
+  "composition_order": ["pan", "home", "tilt"],
+  "axes": {
+    "pan": {
+      "axis": [0, 0, 1],
+      "frame": "world_home",
+      "curve": [0, 180],
+      "home_position": 0,
+      "approach_direction": "increasing",
+      "backlash": 0,
+      "backlash_home_tolerance_deg": 0.2,
+      "backlash_history_s": 1
+    },
+    "tilt": {
+      "axis": [1, 0, 0],
+      "frame": "camera_local",
+      "curve": [0, 90],
+      "home_position": 0,
+      "approach_direction": "increasing",
+      "backlash": 0,
+      "backlash_home_tolerance_deg": 0.2,
+      "backlash_history_s": 1
+    }
+  },
+  "quality": {
+    "reprojection_rms_px": 0
+  },
+  "provenance": {
+    "SPDX-FileCopyrightText": "(C) 2026 Intel Corporation",
+    "SPDX-License-Identifier": "Apache-2.0",
+    "synthetic": true,
+    "notes": "Documentation/simulation only. Scales, signs, ranges, timing and zero residual are assumed, not measured hardware calibration."
+  }
+}

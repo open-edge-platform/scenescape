@@ -59,10 +59,13 @@ services:
       - "HTTPS_PROXY=${HTTPS_PROXY}"
       - "NO_PROXY=${NO_PROXY},.scenescape.intel.com"
       - "EXPOSE_TEST_HOOKS=${EXPOSE_TEST_HOOKS:-false}"
+      - "POSITIONING_RESOLVER_ID=positioning-default"
+      - "POSITIONING_ASSIGNMENTS_FILE=/run/positioning/positioning-assignments.json"
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media
       - vol-migrations:/workspace/migrations
+      - ./tests/compose/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

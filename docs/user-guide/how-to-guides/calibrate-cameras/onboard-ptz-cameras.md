@@ -15,6 +15,35 @@ directly into production; import the result through the validated Manager API. T
 block format is defined in the
 [Positioning API Reference](../../positioning-api-reference.md#ptz-calibration-json).
 
+## Reference Pose, Movement Model, and Version
+
+AprilTag/manual calibration establishes the camera's scene pose at one reference
+pan/tilt position. The separate `ptz_calibration` movement model describes how to
+transform that pose when pan/tilt changes. Its `calibration_version` is an
+operator/export-tool label stored in Manager, not the date of the latest UI
+calibration. Positioning reads this label; it does not create or refit the model.
+See [Understanding the Model Version](../../positioning-api-reference.md#understanding-the-model-version).
+
+For learning or simulation, use the complete
+[ideal-camera example](../../positioning-api-reference.md#ideal-camera-example).
+It demonstrates linear scales with zero backlash and no mounting corrections,
+not an accepted calibration for arbitrary hardware.
+
+### Keeping the Reference Consistent
+
+Normal pan/tilt motion on a fixed mount requires no new static calibration:
+Positioning transforms the saved reference pose. Returning to a device preset
+does not establish or change the PTZ reference automatically.
+
+If you recalibrate and save the pose at the existing recorded home, the reference
+remains consistent. If you save at a different pan/tilt, explicitly prepare and
+import a matching PTZ reference with a new version, including correct axis frames
+and backlash approach state. Reuse measured curves only where still valid;
+Positioning does not automatically rebase or infer home from current telemetry.
+Do not use a static pose saved at one position with home coordinates from another.
+When collecting calibration at other stops, retain the original home record and
+restore the matching pose/model pair before evaluating runtime projection.
+
 ## Prerequisites
 
 - The camera is assigned to its scene in Manager and its static home pose is

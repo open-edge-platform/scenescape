@@ -8,12 +8,17 @@ SPDX-License-Identifier: Apache-2.0
 The Positioning service is the deployment boundary for source pose capabilities.
 The service shell establishes MQTT identity, retained resolver status, liveness, and
 deployment wiring. With PTZ sources configured, it polls ONVIF PTZ cameras at 5 Hz
-and produces raw `PTZSample` messages in-process. Pose resolution is not yet
-implemented.
+loads Manager-owned calibration, resolves each accepted `PTZSample` in-process, and
+publishes one retained valid or invalid `PoseContext` per sample. Missing calibration,
+stale input, motion, settling, or unknown backlash fails closed.
 
 Unexpected polling errors disconnect the camera and wait before reconnecting.
 The stop-aware delay doubles from 1 second to a maximum of 30 seconds by default,
 and resets after a successful poll.
+
+PTZ connection logs include the source ID and selected profile, but omit ONVIF
+position-space URIs. These URIs are protocol identifiers, not browsable links;
+they remain available in raw `PTZSample` messages.
 
 ## Documentation
 

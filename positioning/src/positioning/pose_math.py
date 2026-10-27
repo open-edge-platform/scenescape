@@ -15,7 +15,9 @@ from typing import Optional, Sequence, Tuple
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from positioning.ptz_model import Backlash, PTZAxisModel
+from positioning.ptz_model import AxisSpec, Backlash, PTZAxisModel
+
+_APPROACH_STEP = 1e-6
 
 
 def axis_angle_degrees(position: float, curve: Sequence[float]) -> float:
@@ -60,6 +62,23 @@ def backlash_degrees_at(backlash: Backlash, position: float) -> float:
     if position <= p1:
       return max(0.0, d0 + (d1 - d0) * (position - p0) / (p1 - p0))
   return max(0.0, knots[-1][1])
+
+
+def physical_home_angle(spec: AxisSpec) -> float:
+  """Physical home angle (degrees) implied by the calibrated approach.
+
+  ``approach_direction`` is the ONVIF position travel direction. The curve maps
+  it to the angular travel direction, and the physical axis trails the reported
+  angle by half the home backlash on that side of the deadband.
+  """
+  home_angle = axis_angle_degrees(spec.home_position, spec.curve)
+  half = backlash_degrees_at(spec.backlash, spec.home_position) / 2.0
+  position_direction = 1.0 if spec.approach_direction == "increasing" else -1.0
+  previous_angle = axis_angle_degrees(
+    spec.home_position - position_direction * _APPROACH_STEP, spec.curve)
+  angle_direction = math.copysign(1.0, home_angle - previous_angle) \
+    if home_angle != previous_angle else 0.0
+  return home_angle - angle_direction * half
 
 
 def axis_rotation(axis: Sequence[float], angle_degrees: float) -> Rotation:

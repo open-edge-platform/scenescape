@@ -78,6 +78,9 @@
     },
     "provenance": {
       "source": "PoC config/cameras.json on branch demo-room-igk3-ptz",
+      "poc_snapshot_commit": "843ea793830dc48383ea0beebee16bd4462f9667",
+      "fitting_script_path": "ptz_pose_service/tools/fit_ptz_curves.py",
+      "fitting_script_revision": "843ea793830dc48383ea0beebee16bd4462f9667",
       "golden": false
     }
   },
