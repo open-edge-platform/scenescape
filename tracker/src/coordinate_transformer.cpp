@@ -4,6 +4,7 @@
 #include "coordinate_transformer.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <charconv>
 #include <cmath>
 #include <string_view>
@@ -15,10 +16,13 @@
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
+#include <rv/tracking/OrientationAttributes.hpp>
 
 namespace tracker {
 
 namespace {
+
+constexpr int kMinIterationsForOpenMpParallelism = 32;
 
 void addMetadataAttributes(std::string_view metadataJson,
                            std::unordered_map<std::string, std::string>& attributes) {
@@ -53,6 +57,51 @@ void addMetadataAttributes(std::string_view metadataJson,
     }
 }
 
+cv::Matx33d quaternionToRotationMatrix(const std::array<double, 4>& quaternion) {
+    const double norm = std::hypot(std::hypot(quaternion[0], quaternion[1]),
+                                   std::hypot(quaternion[2], quaternion[3]));
+    assert(std::isfinite(norm) && norm > 1e-12);
+
+    const double x = quaternion[0] / norm;
+    const double y = quaternion[1] / norm;
+    const double z = quaternion[2] / norm;
+    const double w = quaternion[3] / norm;
+    return cv::Matx33d(1.0 - 2.0 * (y * y + z * z), 2.0 * (x * y - z * w), 2.0 * (x * z + y * w),
+                       2.0 * (x * y + z * w), 1.0 - 2.0 * (x * x + z * z), 2.0 * (y * z - x * w),
+                       2.0 * (x * z - y * w), 2.0 * (y * z + x * w), 1.0 - 2.0 * (x * x + y * y));
+}
+
+/**
+ * Normalize sensor-frame [x, y, z, w] rotation, compose with the camera-to-world
+ * rotation, and set world yaw and has_orientation. Missing rotation leaves the
+ * object unchanged. Requires a valid camera rotation and, when present, a finite
+ * quaternion with norm > 1e-12, as guaranteed by the message parser.
+ */
+void applyDetectionRotation(const Detection& detection, const cv::Matx33d& cameraRotation,
+                            rv::tracking::TrackedObject& object) {
+    if (!detection.rotation) {
+        return;
+    }
+
+    const cv::Matx33d worldRotation =
+        cameraRotation * quaternionToRotationMatrix(*detection.rotation);
+    object.yaw = std::atan2(worldRotation(1, 0), worldRotation(0, 0));
+    rv::tracking::orientation::setHasOrientation(object, true);
+}
+
+void addDetectionAttributes(const Detection& detection, rv::tracking::TrackedObject& object) {
+    if (!detection.metadata_json.empty()) {
+        addMetadataAttributes(detection.metadata_json, object.attributes);
+    }
+    if (detection.confidence.has_value()) {
+        char buffer[32];
+        auto [ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), *detection.confidence);
+        if (ec == std::errc{}) {
+            object.attributes["confidence"] = std::string(buffer, ptr);
+        }
+    }
+}
+
 } // namespace
 
 CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
@@ -69,6 +118,7 @@ CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
 
     // Compute rotation matrix from Euler angles (XYZ order, degrees)
     cv::Matx33d rmat = eulerToRotationMatrix(extrinsics.rotation);
+    camera_rotation_ = rmat;
 
     // Build 4x4 pose matrix: [R | t; 0 0 0 1] * diag(scale)
     cv::Matx44d rt_mat(rmat(0, 0), rmat(0, 1), rmat(0, 2), extrinsics.translation[0], rmat(1, 0),
@@ -125,7 +175,7 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
     const double horizon_distance = getHorizonDistance();
 
     // Phase 3: Parallel pose-transform + ray-plane intersection
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) if (n >= kMinIterationsForOpenMpParallelism)
     for (int i = 0; i < n; ++i) {
         const double nx = normalized[i].x;
         const double ny = normalized[i].y;
@@ -165,23 +215,38 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
 
     // Phase 1: Undistort opposite corners of each bbox into a normalized rectangle
     std::vector<cv::Point2f> pixels(n * kCornersPerDetection);
+    // Only bbox detections need pixel projection; direct translations already provide 3D data.
+    std::vector<size_t> bbox_detection_indices;
+    std::vector<size_t> bbox_projection_indices(n, n);
+    bbox_detection_indices.reserve(n);
 
     for (size_t i = 0; i < n; ++i) {
+        if (detections[i].translation) {
+            continue;
+        }
         const auto& bbox = detections[i].bounding_box_px;
-        const size_t base = i * kCornersPerDetection;
+        const size_t k = bbox_detection_indices.size();
+        const size_t base = k * kCornersPerDetection;
+        bbox_projection_indices[i] = k;
+        bbox_detection_indices.push_back(i);
+
         pixels[base] = {bbox.x, bbox.y};
         pixels[base + 1] = {bbox.x + bbox.width, bbox.y + bbox.height};
     }
 
+    const size_t bbox_detection_number = bbox_detection_indices.size();
+    pixels.resize(bbox_detection_number * kCornersPerDetection);
     std::vector<cv::Point2f> corners(pixels.size());
-    cv::undistortPoints(pixels, corners, intrinsics_matrix_, distortion_coeffs_);
+    if (bbox_detection_number > 0) {
+        cv::undistortPoints(pixels, corners, intrinsics_matrix_, distortion_coeffs_);
+    }
 
     // Layout per detection: [foot, bottom_left, bottom_right, top_left]
-    std::vector<cv::Point2f> normalized(n * kPointsPerDetection);
-    for (size_t i = 0; i < n; ++i) {
-        const auto& top_left = corners[i * kCornersPerDetection];
-        const auto& bottom_right = corners[i * kCornersPerDetection + 1];
-        const size_t base = i * kPointsPerDetection;
+    std::vector<cv::Point2f> normalized(bbox_detection_number * kPointsPerDetection);
+    for (size_t k = 0; k < bbox_detection_number; ++k) {
+        const auto& top_left = corners[k * kCornersPerDetection];
+        const auto& bottom_right = corners[k * kCornersPerDetection + 1];
+        const size_t base = k * kPointsPerDetection;
         normalized[base] = {(top_left.x + bottom_right.x) / 2.0f, bottom_right.y};
         normalized[base + 1] = {top_left.x, bottom_right.y};
         normalized[base + 2] = bottom_right;
@@ -199,9 +264,10 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         const double cam_y = camera_origin_.y;
         const double cam_z = std::abs(camera_origin_.z);
 
-        std::vector<cv::Point2f> type2_feet(n);
-        for (size_t i = 0; i < n; ++i) {
-            const size_t base = i * kPointsPerDetection;
+        std::vector<cv::Point2f> type2_feet(bbox_detection_number);
+        for (size_t k = 0; k < bbox_detection_number; ++k) {
+            const size_t base = k * kPointsPerDetection;
+
             const auto& bl = world[base + 1];
             const auto& br = world[base + 2];
             const double base_len =
@@ -212,15 +278,15 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             const auto& top_left = normalized[base + 3];
             const auto& bottom_right = normalized[base + 2];
             const float height = bottom_right.y - top_left.y;
-            type2_feet[i] = {normalized[base].x, bottom_right.y - (height / 2.0f) * angle_fraction};
+            type2_feet[k] = {normalized[base].x, bottom_right.y - (height / 2.0f) * angle_fraction};
         }
 
         std::vector<cv::Point2d> type2_world;
         std::vector<uint8_t> type2_valid;
         batchNormalizedToWorld(type2_feet, type2_world, type2_valid);
-        for (size_t i = 0; i < n; ++i) {
-            if (type2_valid[i]) {
-                world[i * kPointsPerDetection] = type2_world[i];
+        for (size_t k = 0; k < bbox_detection_number; ++k) {
+            if (type2_valid[k]) {
+                world[k * kPointsPerDetection] = type2_world[k];
             }
         }
     }
@@ -233,13 +299,34 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     const double cam_y = camera_origin_.y;
     const double cam_z = camera_origin_.z;
 
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for schedule(static) if (n >= kMinIterationsForOpenMpParallelism)
     for (int i = 0; i < static_cast<int>(n); ++i) {
-        const size_t base = static_cast<size_t>(i) * kPointsPerDetection;
+        const size_t detection_index = static_cast<size_t>(i);
+        const auto& detection = detections[static_cast<size_t>(i)];
+        auto& obj = result[static_cast<size_t>(i)];
+
+        if (detection.translation) {
+            const auto& translation = *detection.translation;
+            const cv::Vec4d sensorPosition(translation[0], translation[1], translation[2], 1.0);
+            const cv::Vec4d worldPosition = pose_matrix_ * sensorPosition;
+
+            obj.id = detection.id.value_or(rv::tracking::InvalidObjectId);
+            obj.x = worldPosition[0];
+            obj.y = worldPosition[1];
+            obj.z = worldPosition[2];
+            obj.length = (*detection.size)[0];
+            obj.width = (*detection.size)[1];
+            obj.height = (*detection.size)[2];
+            applyDetectionRotation(detection, camera_rotation_, obj);
+            addDetectionAttributes(detection, obj);
+            detection_valid[static_cast<size_t>(i)] = 1;
+            continue;
+        }
+
+        const size_t base = bbox_projection_indices[detection_index] * kPointsPerDetection;
 
         // Check all 4 projections succeeded
         if (!valid[base] || !valid[base + 1] || !valid[base + 2] || !valid[base + 3]) {
-            detection_valid[i] = 0;
             continue;
         }
 
@@ -271,24 +358,15 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             offset_y += (foot_dy / bearing_len) * half_size;
         }
 
-        auto& obj = result[i];
-        obj.id = detections[i].id.value_or(rv::tracking::InvalidObjectId);
+        obj.id = detection.id.value_or(rv::tracking::InvalidObjectId);
         obj.x = offset_x;
         obj.y = offset_y;
         obj.z = 0.0;
         obj.length = width_m; // [width, width, height] convention
         obj.width = width_m;
         obj.height = height_m;
-        if (!detections[i].metadata_json.empty()) {
-            addMetadataAttributes(detections[i].metadata_json, obj.attributes);
-        }
-        if (detections[i].confidence.has_value()) {
-            char buf[32];
-            auto [ptr, ec] = std::to_chars(buf, buf + sizeof(buf), *detections[i].confidence);
-            if (ec == std::errc{}) {
-                obj.attributes["confidence"] = std::string(buf, ptr);
-            }
-        }
+        addDetectionAttributes(detection, obj);
+        applyDetectionRotation(detection, camera_rotation_, obj);
 
         detection_valid[i] = 1;
     }

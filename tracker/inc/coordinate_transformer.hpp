@@ -20,7 +20,7 @@
 namespace tracker {
 
 /**
- * @brief Batch-oriented transformer from pixel detections to world-space TrackedObjects.
+ * @brief Transformer from image or sensor-frame detections to world-space TrackedObjects.
  *
  * Converts 2D pixel bounding boxes into 3D world positions and sizes using
  * camera intrinsics/extrinsics. Two opposite bbox corners are undistorted to
@@ -83,10 +83,13 @@ public:
      * world position (from foot point) and world size (from corner distances).
      *
      * Detections where any projection fails are silently skipped.
+     * When present, rotation must be a finite sensor-frame [x, y, z, w]
+     * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
      * @return TrackedObjects with world-space position and size fields populated.
-     *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
+     *         id, x, y, z, length, width, height are set. Velocity is zero.
+     *         Supplied rotation sets world yaw and attributes["has_orientation"].
      *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */
@@ -154,6 +157,7 @@ private:
 
     cv::Matx33d intrinsics_matrix_;
     cv::Vec4d distortion_coeffs_;
+    cv::Matx33d camera_rotation_;
     cv::Matx44d pose_matrix_;
     cv::Point3d camera_origin_;
     int shift_type_;

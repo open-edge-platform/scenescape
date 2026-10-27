@@ -393,15 +393,56 @@ def generate_bbox_size_tests(intrinsics_mat, distortion, pose_mat, camera_origin
   return test_cases
 
 
+def generate_sensor_to_world_tests(tilted_camera_config):
+  """Generate SciPy references for direct sensor-frame positions and rotations."""
+  test_cases = [
+    {
+      'name': 'identity_camera_yaw_pi_over_2',
+      'extrinsics': {
+        'translation': [0.0, 0.0, 0.0],
+        'rotation': [0.0, 0.0, 0.0],
+        'scale': [1.0, 1.0, 1.0]
+      },
+      'translation': [1.0, 2.0, 3.0],
+      'size': [4.0, 5.0, 6.0],
+      'rotation': [0.0, 0.0, math.sin(math.pi / 4), math.cos(math.pi / 4)]
+    },
+    {
+      'name': 'lidar_style_rotation_on_tilted_camera_mount',
+      'extrinsics': tilted_camera_config['extrinsics'],
+      'translation': [1.25, -2.5, 0.75],
+      'size': [4.0, 1.8, 1.6],
+      # lidar_publisher remaps Velodyne Z-yaw into a sensor-frame Y rotation.
+      'rotation': [0.0, -math.sin(0.35), 0.0, math.cos(0.35)]
+    }
+  ]
+
+  for test_case in test_cases:
+    pose_mat = build_pose_matrix(test_case['extrinsics'])
+    sensor_position = np.array([*test_case['translation'], 1.0])
+    world_position = np.matmul(pose_mat, sensor_position)[:3]
+    camera_rotation = Rotation.from_euler(
+        'XYZ', test_case['extrinsics']['rotation'], degrees=True).as_matrix()
+    detection_rotation = Rotation.from_quat(test_case['rotation']).as_matrix()
+    world_rotation = np.matmul(camera_rotation, detection_rotation)
+    test_case['expected_world_position'] = world_position.tolist()
+    test_case['expected_world_yaw'] = float(math.atan2(world_rotation[1, 0], world_rotation[0, 0]))
+
+  return test_cases
+
+
 def main():
   """Generate reference data and write to fixtures file."""
   scenes = load_scenes_config()
+  tilted_camera_config = next(
+      camera for scene in scenes for camera in scene['cameras'] if camera['uid'] == 'atag-qcam1')
 
   output = {
     'description': 'Reference data for C++ CoordinateTransformer unit tests',
     'generated_by': 'generate_reference_data.py',
     'euler_to_rotation': generate_euler_to_rotation_tests(),
     'yaw_to_quaternion': generate_yaw_to_quaternion_tests(),
+    'sensor_to_world': generate_sensor_to_world_tests(tilted_camera_config),
     'cameras': []
   }
 
