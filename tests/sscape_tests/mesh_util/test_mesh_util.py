@@ -18,7 +18,7 @@ import tempfile
 
 from scene_common.geometry import Region, Point
 from scene_common.mesh_util import createRegionMesh, createObjectMesh, mergeMesh, extractMeshFromPointCloud, extractMeshFromGLB
-from scene_common.mesh_util import checkMeshConnectivity, getMeshAxisAlignedProjectionToXY
+from scene_common.mesh_util import checkMeshConnectivity, getMeshAxisAlignedProjectionToXY, getPosedMeshFootprint
 
 from manager.mesh_generator import MeshGenerator
 from manager.models import Cam, Scene
@@ -506,3 +506,260 @@ def test_mesh_generator_places_mesh_at_calibrated_pose_of_translated_rotated_anc
   assert np.all(distances.min(axis=1) < 1e-4)  # and no saved vertex sits elsewhere
 
 
+def create_centered_box_mesh(width, height, depth):
+  """Create a box mesh centered at origin.
+
+  Args:
+    width: extent in X
+    height: extent in Y (up)
+    depth: extent in Z
+
+  Returns:
+    o3d.t.geometry.TriangleMesh centered at origin
+  """
+  # Create box at origin (extents from 0 to width/height/depth)
+  legacy_mesh = o3d.geometry.TriangleMesh.create_box(width, height, depth)
+
+  # Translate so center is at origin: box spans [-w/2, w/2] x [-h/2, h/2] x [-d/2, d/2]
+  legacy_mesh.translate([-width/2, -height/2, -depth/2])
+
+  # Convert to tensor mesh
+  tensor_mesh = o3d.t.geometry.TriangleMesh.from_legacy(legacy_mesh)
+  return tensor_mesh
+
+
+class TestGetPosedMeshFootprint:
+  """Test getPosedMeshFootprint function."""
+
+  def test_positive_yup_box_90deg_x_rotation(self):
+    """Test centred Y-up box with rotation [90,0,0] and translation.
+
+    Y-up box: X=10, Y=4 (up), Z=6
+    After [90,0,0] rotation: Y points up, X becomes horizontal, Z rotates 90°
+    Translation = half of posed size
+    Expected: size (10, 6), corners at (0, 0)
+    """
+    # Create box: 10 wide (X), 4 tall (Y), 6 deep (Z)
+    mesh = create_centered_box_mesh(10.0, 4.0, 6.0)
+
+    # Rotation [90, 0, 0] rotates around X: Z→Y, -Y→Z
+    # So after rotation: X stays 10, Y becomes 6, Z becomes 4
+    # Posed footprint (X, Y): 10 x 6
+    rotation = [90, 0, 0]
+
+    # Translation = half of posed size = (5, 3)
+    translation = [5, 3, 0]
+
+    corners, (width, height) = getPosedMeshFootprint(mesh, rotation, translation)
+
+    # Check size (within tolerance)
+    assert abs(width - 10.0) < 0.01
+    assert abs(height - 6.0) < 0.01
+
+    # Check corners ordered SW, SE, NE, NW at z=0
+    sw, se, ne, nw = corners
+
+    # SW should be at (0, 0)
+    assert abs(sw[0] - 0.0) < 0.01
+    assert abs(sw[1] - 0.0) < 0.01
+    assert abs(sw[2] - 0.0) < 0.01
+
+    # SE should be at (10, 0)
+    assert abs(se[0] - 10.0) < 0.01
+    assert abs(se[1] - 0.0) < 0.01
+
+    # NE should be at (10, 6)
+    assert abs(ne[0] - 10.0) < 0.01
+    assert abs(ne[1] - 6.0) < 0.01
+
+    # NW should be at (0, 6)
+    assert abs(nw[0] - 0.0) < 0.01
+    assert abs(nw[1] - 6.0) < 0.01
+
+  def test_positive_z_up_identity_pose_equals_projection(self):
+    """Test Z-up mesh with identity pose equals getMeshAxisAlignedProjectionToXY."""
+    mesh = create_centered_box_mesh(20.0, 15.0, 8.0)
+
+    rotation = [0, 0, 0]
+    translation = [0, 0, 0]
+    scale = None
+
+    corners_posed, size_posed = getPosedMeshFootprint(mesh, rotation, translation, scale)
+    corners_proj = getMeshAxisAlignedProjectionToXY(mesh)
+
+    # Should match
+    np.testing.assert_array_almost_equal(corners_posed, corners_proj, decimal=2)
+
+    # Size should match
+    assert abs(size_posed[0] - 20.0) < 0.01
+    assert abs(size_posed[1] - 15.0) < 0.01
+
+  def test_positive_image_style_box_identity_pose(self):
+    """Test image-style box (extractMeshFromImage output) with identity pose unchanged."""
+    # extractMeshFromImage creates: create_box(xdim, ydim, zdim) then translate((0, 0, -zdim))
+    width, height, depth = 100.0, 80.0, 5.0
+    legacy_mesh = o3d.geometry.TriangleMesh.create_box(width, height, depth)
+    legacy_mesh.translate([0, 0, -depth])
+    tensor_mesh = o3d.t.geometry.TriangleMesh.from_legacy(legacy_mesh)
+
+    rotation = [0, 0, 0]
+    translation = [0, 0, 0]
+
+    corners, (w, h) = getPosedMeshFootprint(tensor_mesh, rotation, translation)
+
+    # Footprint should be (width, height)
+    assert abs(w - width) < 0.01
+    assert abs(h - height) < 0.01
+
+  def test_positive_scale_doubles_width(self):
+    """Test scale [2,1,1] doubles width."""
+    mesh = create_centered_box_mesh(10.0, 10.0, 10.0)
+
+    rotation = [0, 0, 0]
+    translation = [0, 0, 0]
+    scale = [2.0, 1.0, 1.0]  # Double X
+
+    corners, (width, height) = getPosedMeshFootprint(mesh, rotation, translation, scale)
+
+    # Width should be 20 (10 * 2), height should be 10 (10 * 1)
+    assert abs(width - 20.0) < 0.01
+    assert abs(height - 10.0) < 0.01
+
+  def test_positive_translation_shifts_corners(self):
+    """Test pure translation shifts corners."""
+    mesh = create_centered_box_mesh(10.0, 10.0, 10.0)
+
+    rotation = [0, 0, 0]
+    translation = [5.0, 3.0, 0]
+
+    corners_notrans, _ = getPosedMeshFootprint(
+      mesh, rotation, [0, 0, 0]
+    )
+    corners_trans, _ = getPosedMeshFootprint(
+      mesh, rotation, translation
+    )
+
+    # Translation should shift all corners
+    corner_diff = corners_trans - corners_notrans
+    for i in range(4):
+      assert abs(corner_diff[i, 0] - 5.0) < 0.01
+      assert abs(corner_diff[i, 1] - 3.0) < 0.01
+      assert abs(corner_diff[i, 2] - 0.0) < 0.01
+
+  def test_negative_legacy_mesh_type_error(self):
+    """Test TypeError for a legacy mesh (not tensor)."""
+    legacy_mesh = o3d.geometry.TriangleMesh.create_box(10, 10, 10)
+
+    with pytest.raises(TypeError, match="tensor TriangleMesh"):
+      getPosedMeshFootprint(
+        legacy_mesh, [0, 0, 0], [0, 0, 0]
+      )
+
+  def test_negative_wrong_rotation_length(self):
+    """Test ValueError for bad rotation length."""
+    mesh = create_centered_box_mesh(10, 10, 10)
+
+    with pytest.raises(ValueError, match="Rotation must be length"):
+      getPosedMeshFootprint(mesh, [0, 0], [0, 0, 0])
+
+    with pytest.raises(ValueError, match="Rotation must be length"):
+      getPosedMeshFootprint(mesh, [0, 0, 0, 0, 0], [0, 0, 0])
+
+  def test_negative_wrong_translation_length(self):
+    """Test ValueError for bad translation length."""
+    mesh = create_centered_box_mesh(10, 10, 10)
+
+    with pytest.raises(ValueError, match="Translation must be length 3"):
+      getPosedMeshFootprint(mesh, [0, 0, 0], [0, 0])
+
+    with pytest.raises(ValueError, match="Translation must be length 3"):
+      getPosedMeshFootprint(mesh, [0, 0, 0], [0, 0, 0, 0])
+
+  def test_negative_wrong_scale_length(self):
+    """Test ValueError for bad scale length."""
+    mesh = create_centered_box_mesh(10, 10, 10)
+
+    with pytest.raises(ValueError, match="Scale must be length 3"):
+      getPosedMeshFootprint(mesh, [0, 0, 0], [0, 0, 0], scale=[1, 1])
+
+    with pytest.raises(ValueError, match="Scale must be length 3"):
+      getPosedMeshFootprint(mesh, [0, 0, 0], [0, 0, 0], scale=[1, 1, 1, 1])
+
+  def test_positive_mesh_not_mutated(self):
+    """Test that input mesh is not mutated."""
+    mesh = create_centered_box_mesh(10.0, 10.0, 10.0)
+
+    # Store original vertices
+    original_verts = mesh.vertex.positions.numpy().copy()
+
+    rotation = [45, 30, 60]
+    translation = [10, 20, 30]
+    scale = [2, 1.5, 0.8]
+
+    getPosedMeshFootprint(mesh, rotation, translation, scale)
+
+    # Verify mesh vertices unchanged
+    current_verts = mesh.vertex.positions.numpy()
+    np.testing.assert_array_equal(current_verts, original_verts)
+
+  def test_positive_various_rotations(self):
+    """Test with various rotations."""
+    mesh = create_centered_box_mesh(10.0, 20.0, 5.0)
+    translation = [0, 0, 0]
+
+    rotations = [
+      [0, 0, 0],
+      [90, 0, 0],
+      [0, 90, 0],
+      [0, 0, 90],
+      [45, 45, 45]
+    ]
+
+    for rotation in rotations:
+      corners, (width, height) = getPosedMeshFootprint(
+        mesh, rotation, translation
+      )
+
+      # Footprint should have positive dimensions
+      assert width > 0
+      assert height > 0
+
+      # All corners should be at z=0
+      for corner in corners:
+        assert abs(corner[2]) < 0.01
+
+  def test_positive_corner_order_sw_se_ne_nw(self):
+    """Test corner ordering: SW, SE, NE, NW."""
+    mesh = create_centered_box_mesh(20.0, 15.0, 10.0)
+    rotation = [0, 0, 0]
+    translation = [10, 10, 0]
+
+    corners, (width, height) = getPosedMeshFootprint(mesh, rotation, translation)
+    sw, se, ne, nw = corners
+
+    # SW is min_x, min_y
+    # SE is max_x, min_y
+    # NE is max_x, max_y
+    # NW is min_x, max_y
+
+    assert sw[0] < se[0]  # SW x < SE x
+    assert sw[1] < nw[1]  # SW y < NW y
+
+    assert se[0] == ne[0]  # SE x == NE x
+    assert se[1] < ne[1]   # SE y < NE y
+
+    assert nw[0] < ne[0]   # NW x < NE x
+    assert nw[1] == ne[1]  # NW y == NE y
+
+  def test_positive_zero_scale_component_handling(self):
+    """Test behavior with very small (near-zero) scale component."""
+    mesh = create_centered_box_mesh(10.0, 10.0, 10.0)
+    rotation = [0, 0, 0]
+    translation = [0, 0, 0]
+    scale = [1.0, 0.01, 1.0]  # Very small Y scale
+
+    corners, (width, height) = getPosedMeshFootprint(mesh, rotation, translation, scale)
+
+    # Should still return valid footprint
+    assert width > 0
+    assert height > 0 and height < 0.5  # Height should be very small

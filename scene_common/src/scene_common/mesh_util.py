@@ -451,6 +451,73 @@ def getMeshAxisAlignedProjectionToXY(mesh):
               [min_bound[0], max_bound[1], 0.0] ])  # NW
   return corners
 
+def getPosedMeshFootprint(mesh, rotation, translation, scale=None):
+  """! Compute the XY footprint of a posed mesh.
+  Applies pose transformation (scale, rotation, translation) to mesh vertices,
+  then returns the axis-aligned bounding box in XY at z=0.
+
+  Uses CameraPose._poseToPoseMat with intrinsic XYZ Euler angles (scipy convention).
+  Pose application order: scale first, then rotation, then translation.
+
+  @param      mesh            Open3D tensor mesh (o3d.t.geometry.TriangleMesh)
+  @param      rotation        Rotation as 3 or 4 values (Euler XYZ deg or quaternion)
+  @param      translation     Translation as [tx, ty, tz]
+  @param      scale           Scale as [sx, sy, sz] (default [1, 1, 1])
+  @return     tuple           (corners, (width, height)) where corners is (4,3) array
+                              [SW, SE, NE, NW] at z=0, and (width, height) are extents
+  """
+  # Validate input types
+  if not isinstance(mesh, o3d.t.geometry.TriangleMesh):
+    raise TypeError("Input mesh must be an Open3D tensor TriangleMesh (o3d.t.geometry.TriangleMesh)")
+
+  # Validate rotation length
+  if len(rotation) not in [3, 4]:
+    raise ValueError(f"Rotation must be length 3 (Euler XYZ) or 4 (quaternion), got {len(rotation)}")
+
+  # Validate translation length
+  if len(translation) != 3:
+    raise ValueError(f"Translation must be length 3, got {len(translation)}")
+
+  # Validate scale length
+  if scale is None:
+    scale = [1.0, 1.0, 1.0]
+  if len(scale) != 3:
+    raise ValueError(f"Scale must be length 3, got {len(scale)}")
+
+  # Lazy import to avoid circular dependency
+  from scene_common.transform import CameraPose
+
+  # Build pose matrix using the same method as scenes
+  pose_mat = CameraPose._poseToPoseMat(translation, rotation, scale)
+
+  # Extract vertices and apply pose transformation
+  vertices = mesh.vertex.positions.numpy()  # (N, 3) array
+
+  # Convert to homogeneous coords, apply transformation, extract XYZ
+  ones = np.ones((vertices.shape[0], 1))
+  vertices_homo = np.hstack([vertices, ones])  # (N, 4)
+  transformed_homo = np.matmul(vertices_homo, pose_mat.T)  # (N, 4)
+  transformed_xyz = transformed_homo[:, :3]  # (N, 3)
+
+  # Find XY axis-aligned bounding box
+  min_x = np.min(transformed_xyz[:, 0])
+  max_x = np.max(transformed_xyz[:, 0])
+  min_y = np.min(transformed_xyz[:, 1])
+  max_y = np.max(transformed_xyz[:, 1])
+
+  # Build corners at z=0: SW, SE, NE, NW
+  corners = np.array([
+    [min_x, min_y, 0.0],  # SW
+    [max_x, min_y, 0.0],  # SE
+    [max_x, max_y, 0.0],  # NE
+    [min_x, max_y, 0.0]   # NW
+  ])
+
+  width = max_x - min_x
+  height = max_y - min_y
+
+  return (corners, (width, height))
+
 def createRegionMesh(region):
   """
   Create an extruded polygon mesh from region of interest polygon vertices
