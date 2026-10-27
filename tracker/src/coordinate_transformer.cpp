@@ -64,11 +64,6 @@ void addReidSighting(const Detection& detection, std::string_view reid_json,
     attributes[std::string(rv::tracking::metadata_fusion::TransientPrefix) + "reid"] = "1";
 }
 
-void addLegacyMetadataAttribute(std::string_view metadataJson,
-                                std::unordered_map<std::string, std::string>& attributes) {
-    attributes["metadata_json"] = metadataJson;
-}
-
 void addMetadataAttributes(const Detection& detection, const std::string& camera_id,
                            const std::string& timestamp, const std::string& chunk_id,
                            const std::string& reid_index, std::string& reid_sighting_json,
@@ -158,7 +153,6 @@ void addDetectionAttributes(const Detection& detection, const std::string& camer
                             const std::string& reid_index, std::string& reid_sighting_json,
                             rv::tracking::TrackedObject& object) {
     if (!detection.metadata_json.empty()) {
-        addLegacyMetadataAttribute(detection.metadata_json, object.attributes);
         addMetadataAttributes(detection, camera_id, timestamp, chunk_id, reid_index,
                               reid_sighting_json, object.attributes);
     }
