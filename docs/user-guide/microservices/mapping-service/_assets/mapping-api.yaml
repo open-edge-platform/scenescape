@@ -507,10 +507,7 @@ components:
 
     HealthResponse:
       type: object
-      required:
-        - success
-        - status
-        - model_loaded
+      required: []
       properties:
         success:
           type: boolean
