@@ -429,6 +429,15 @@ def extractTriangleMesh(map_info, rotation=None):
     return extractMeshFromGLB(map_info[0], rotation)
   return extractMeshFromImage(map_info), None
 
+def _footprintCornersAtZ0(min_x, min_y, max_x, max_y):
+  """! Build the (4,3) footprint corners at z=0 in [SW, SE, NE, NW] order from XY bounds."""
+  return np.array([
+    [min_x, min_y, 0.0],  # SW
+    [max_x, min_y, 0.0],  # SE
+    [max_x, max_y, 0.0],  # NE
+    [min_x, max_y, 0.0]   # NW
+  ])
+
 def getMeshAxisAlignedProjectionToXY(mesh):
   """! Extract the projection of a mesh to Z=0 plane.
   @param mesh: Open3D triangle mesh
@@ -445,11 +454,57 @@ def getMeshAxisAlignedProjectionToXY(mesh):
   # Get min and max bounds
   min_bound = bbox.min_bound.numpy()  # numpy array [min_x, min_y, min_z]
   max_bound = bbox.max_bound.numpy()  # numpy array [max_x, max_y, max_z]
-  corners = np.array([ [min_bound[0], min_bound[1], 0.0],  # SW
-              [max_bound[0], min_bound[1], 0.0],  # SE
-              [max_bound[0], max_bound[1], 0.0],  # NE
-              [min_bound[0], max_bound[1], 0.0] ])  # NW
-  return corners
+  return _footprintCornersAtZ0(min_bound[0], min_bound[1], max_bound[0], max_bound[1])
+
+def getPosedMeshFootprint(mesh, rotation, translation, scale=None):
+  """! Compute the XY footprint of a posed mesh.
+  Applies pose transformation (scale, rotation, translation) to mesh vertices,
+  then returns the axis-aligned bounding box in XY at z=0.
+
+  Uses CameraPose._poseToPoseMat with intrinsic XYZ Euler angles (scipy convention).
+  Pose application order: scale first, then rotation, then translation.
+
+  @param      mesh            Open3D tensor mesh (o3d.t.geometry.TriangleMesh)
+  @param      rotation        Rotation as 3 or 4 values (Euler XYZ deg or quaternion)
+  @param      translation     Translation as [tx, ty, tz]
+  @param      scale           Scale as [sx, sy, sz] (default [1, 1, 1])
+  @return     corners         (4,3) array [SW, SE, NE, NW] at z=0
+  """
+  # Validate input types
+  if not isinstance(mesh, o3d.t.geometry.TriangleMesh):
+    raise TypeError("Input mesh must be an Open3D tensor TriangleMesh (o3d.t.geometry.TriangleMesh)")
+
+  # Validate rotation length
+  if len(rotation) not in [3, 4]:
+    raise ValueError(f"Rotation must be length 3 (Euler XYZ) or 4 (quaternion), got {len(rotation)}")
+
+  # Validate translation length
+  if len(translation) != 3:
+    raise ValueError(f"Translation must be length 3, got {len(translation)}")
+
+  # Validate scale length
+  if scale is None:
+    scale = [1.0, 1.0, 1.0]
+  if len(scale) != 3:
+    raise ValueError(f"Scale must be length 3, got {len(scale)}")
+
+  # Lazy import to avoid circular dependency
+  from scene_common.transform import CameraPose
+
+  # Build pose matrix using the same method as scenes
+  pose_mat = CameraPose._poseToPoseMat(translation, rotation, scale)
+
+  # The pose matrix is affine (last row [0, 0, 0, 1]), so apply it without homogeneous coords
+  vertices = mesh.vertex.positions.numpy()  # (N, 3) array
+  transformed_xyz = vertices @ pose_mat[:3, :3].T + pose_mat[:3, 3]
+
+  # Find XY axis-aligned bounding box
+  min_x = np.min(transformed_xyz[:, 0])
+  max_x = np.max(transformed_xyz[:, 0])
+  min_y = np.min(transformed_xyz[:, 1])
+  max_y = np.max(transformed_xyz[:, 1])
+
+  return _footprintCornersAtZ0(min_x, min_y, max_x, max_y)
 
 def createRegionMesh(region):
   """

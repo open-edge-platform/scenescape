@@ -58,6 +58,8 @@ urlpatterns = [
   path('api/v1/save-geospatial-snapshot/', views.SaveGeospatialSnapshot.as_view(), name='save_geospatial_snapshot'),
   path('api/v1/scene/<uuid:scene_uid>/osm-roi-previews', views.OsmRoiPreviews.as_view(), name='osm_roi_previews'),
   path('api/v1/scene/<uuid:scene_uid>/osm-rois', views.OsmRois.as_view(), name='osm_rois'),
+  path('api/v1/scene/<uuid:scene_uid>/geospatial-glb-preview', views.GeospatialGlbPreview.as_view(), name='geospatial_glb_preview'),
+  path('api/v1/scene/<uuid:scene_uid>/geospatial-glb', views.GeospatialGlb.as_view(), name='geospatial_glb'),
   re_path(r'^%s(?P<path>.*)$' % settings.MEDIA_URL[1:],
           views.protected_media,
           {'media_root': settings.MEDIA_ROOT}),

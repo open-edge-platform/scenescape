@@ -88,6 +88,31 @@ class TestHydrateFromSceneData:
     assert scene.regulated_rate == 30
     assert scene.external_update_rate == 30
 
+  def test_mesh_pose_refreshes_on_update(self):
+    scene = _scene()
+    scene._hydrateFromSceneData({
+      'name': 's', 'mesh_translation': [1, 2, 3], 'mesh_rotation': [0, 0, 0], 'mesh_scale': [2, 1, 1],
+    })
+
+    scene.updateScene({
+      'name': 's', 'mesh_translation': [4, 5, 6], 'mesh_rotation': [0, 0, 90], 'mesh_scale': [1, 1, 1],
+    })
+
+    assert scene.mesh_translation == [4, 5, 6]
+    assert scene.mesh_rotation == [0, 0, 90]
+    assert scene.mesh_scale == [1, 1, 1]
+
+  def test_georeference_unavailable_without_pose_logs_error(self):
+    scene = _scene()
+
+    with patch('analytics.adapters.scene_model.log') as mock_log:
+      scene._hydrateFromSceneData({
+        'name': 's', 'output_lla': True, 'map_corners_lla': [[37.0, -121.0, 35.0]] * 4,
+      })
+
+    assert scene.trs_xyz_to_lla is None
+    mock_log.error.assert_called_once()
+
   def test_delegates_to_camera_region_tripwire_updaters(self):
     scene = _scene()
     scene.updateCameras = MagicMock()

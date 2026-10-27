@@ -195,6 +195,85 @@ SPDX-License-Identifier: Apache-2.0
           </div>
         </div>
 
+        <!-- GLB alignment - only visible for geospatial -->
+        <div
+          class="form-group row"
+          id="glbAlignRow"
+          style="display:none;"
+          data-scene-id="{{ scene.id }}"
+        >
+          <label class="col-sm-2 col-form-label" for="glbFileInput"
+            >3D model (GLB)</label
+          >
+          <div class="col-sm-10">
+            <input
+              type="file"
+              id="glbFileInput"
+              class="form-control-file"
+              accept=".glb"
+            />
+            <small id="glbAlignHint" class="form-text text-muted"></small>
+            <div
+              id="glbAlignStatus"
+              role="status"
+              aria-live="polite"
+              class="mt-2"
+            ></div>
+            <div id="glbAlignControls" style="display:none;">
+              <div class="form-group mt-2">
+                <label for="glbOpacity">Opacity</label>
+                <input
+                  type="range"
+                  id="glbOpacity"
+                  min="0.1"
+                  max="1"
+                  step="0.05"
+                  value="0.6"
+                  aria-label="Opacity control"
+                />
+              </div>
+              <div class="form-group">
+                <label for="glbHeadingNumber"
+                  >Heading (degrees clockwise from north)</label
+                >
+                <div class="input-group">
+                  <input
+                    type="number"
+                    class="form-control"
+                    id="glbHeadingNumber"
+                    min="0"
+                    max="359.9"
+                    step="0.1"
+                  />
+                  <input
+                    type="range"
+                    class="form-control-range"
+                    id="glbHeadingRange"
+                    min="0"
+                    max="360"
+                    step="1"
+                    aria-label="Heading slider"
+                  />
+                </div>
+              </div>
+              <div class="form-group">
+                <span id="glbFootprint"></span>
+              </div>
+              <div class="form-group">
+                <button type="button" class="btn btn-primary" id="glbAccept">
+                  Accept
+                </button>
+                <button type="button" class="btn btn-secondary" id="glbReset">
+                  Reset
+                </button>
+                <button type="button" class="btn btn-secondary" id="glbCancel">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- All other scene fields - always visible -->
         {% for field in form %}
           {% if field.name == 'use_tracker' %}
@@ -634,11 +713,13 @@ SPDX-License-Identifier: Apache-2.0
   <!-- API Keys from environment variables (CSP-compliant using json_script) -->
   {{ google_maps_api_key|json_script:"google-maps-api-key" }}
   {{ mapbox_api_key|json_script:"mapbox-api-key" }}
+  <script src="/static/js/geospatial/geo-overlay-math.js"></script>
   <script src="/static/js/geospatial/map-interface.js"></script>
   <script src="/static/js/geospatial/google-maps-plugin.js"></script>
   <script src="/static/js/geospatial/mapbox-plugin.js"></script>
   <script src="/static/js/geospatial/geomanager.js"></script>
   <script src="/static/js/geospatial/scene-form.js"></script>
+  <script src="/static/js/geospatial/glb-alignment.js"></script>
   <div class="display-none">
     <button class="btn btn-secondary" id="connect">Connect</button>
     <button class="btn btn-secondary" id="disconnect">Disconnect</button>

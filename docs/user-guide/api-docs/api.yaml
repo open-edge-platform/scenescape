@@ -962,6 +962,262 @@ paths:
           description: A posted uuid already belongs to an existing region; nothing is created
         "500":
           description: Internal server error
+  /scene/{uid}/geospatial-glb-preview:
+    post:
+      tags:
+        - scene
+      operationId: scene_geospatial_glb_preview_create
+      summary: Stage a GLB file and generate a top-down preview with geospatial anchor
+      description: Accepts a multipart upload with a GLB file, stages it in a temporary directory, generates a PNG preview image, computes the footprint, and returns staging metadata for the frontend.
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+            format: uuid
+          required: true
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: GLB file to stage for preview
+              required:
+                - file
+        required: true
+      security:
+        - tokenAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: GLB staged and preview generated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Staging token to reference the GLB and PNG files
+                  preview_url:
+                    type: string
+                    description: Relative URL to the generated preview PNG
+                  footprint_m:
+                    type: object
+                    properties:
+                      width:
+                        type: number
+                        description: Footprint width in meters
+                      height:
+                        type: number
+                        description: Footprint height in meters
+                  anchor:
+                    type: object
+                    properties:
+                      lat:
+                        type: number
+                        description: Latitude of map center
+                      lng:
+                        type: number
+                        description: Longitude of map center
+                      heading_deg:
+                        type: number
+                        description: Default heading in degrees (always 0.0)
+                  px_per_m:
+                    type: number
+                    description: Pixels per meter in the preview image
+                  existing_content:
+                    type: object
+                    properties:
+                      cameras:
+                        type: integer
+                        description: Count of cameras in the scene
+                      regions:
+                        type: integer
+                        description: Count of regions in the scene
+                      sensors:
+                        type: integer
+                        description: Count of sensors in the scene
+        "400":
+          description: Scene is not a geospatial_map, map centre not set, no file in request, file does not end with .glb, or invalid GLB file
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (requires superuser for POST)
+        "404":
+          description: Scene not found
+        "413":
+          description: GLB file exceeds the maximum upload size (GLB_UPLOAD_MAX_SIZE_MB, default 132 MB)
+        "500":
+          description: Internal server error
+  /scene/{uid}/geospatial-glb:
+    get:
+      tags:
+        - scene
+      operationId: scene_geospatial_glb_retrieve
+      summary: Get geospatial alignment of a committed GLB
+      description: >-
+        Retrieve the geospatial alignment (anchor and footprint) of a GLB that has been
+        committed to a geospatial scene. The anchor specifies the footprint centre latitude
+        and longitude, and heading_deg is the clockwise rotation of the GLB's +Y axis from
+        true north. Corners are derived server-side from the anchor and footprint dimensions.
+        The previous map file is not deleted by this operation.
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+            format: uuid
+          required: true
+      security:
+        - tokenAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: Geospatial alignment retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anchor:
+                    type: object
+                    properties:
+                      lat:
+                        type: number
+                        description: Latitude of footprint centre in degrees
+                      lng:
+                        type: number
+                        description: Longitude of footprint centre in degrees
+                      heading_deg:
+                        type: number
+                        description: Heading in degrees (0 = north, 90 = east), clockwise rotation of GLB +Y from true north
+                  footprint_m:
+                    type: object
+                    properties:
+                      width:
+                        type: number
+                        description: Footprint width in metres (east-west extent)
+                      height:
+                        type: number
+                        description: Footprint height in metres (north-south extent)
+                  preview_url:
+                    type: string
+                    nullable: true
+                    description: Relative URL to the scene's thumbnail PNG, or null if no thumbnail
+        "400":
+          description: Scene is not a geospatial_map
+        "401":
+          description: Unauthorized
+        "404":
+          description: Scene not found or scene map is not an aligned GLB
+        "500":
+          description: Internal server error
+    post:
+      tags:
+        - scene
+      operationId: scene_geospatial_glb_commit
+      summary: Commit a staged GLB to a scene with geospatial anchor
+      description: >-
+        Commit a previously staged GLB file to a scene's map, providing geospatial coordinates
+        for the footprint centre and heading. The anchor specifies the footprint centre latitude
+        and longitude, and heading_deg is the clockwise rotation of the GLB's +Y axis from true north.
+        Server-side, corners are recomputed from the anchor and footprint dimensions. The previous
+        map file is deleted after a successful commit. If the scene already has cameras, regions,
+        or sensors, acknowledge_frame_change must be set to true to proceed (else a 409 error is returned).
+      parameters:
+        - in: path
+          name: uid
+          schema:
+            type: string
+            format: uuid
+          required: true
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                token:
+                  type: string
+                  format: uuid
+                  description: Staging token returned by geospatial-glb-preview POST
+                anchor:
+                  type: object
+                  properties:
+                    lat:
+                      type: number
+                      description: Latitude of footprint centre in degrees (must be in [-90, 90])
+                    lng:
+                      type: number
+                      description: Longitude of footprint centre in degrees (must be in [-180, 180])
+                    heading_deg:
+                      type: number
+                      description: Heading in degrees (0 = north, 90 = east), clockwise rotation of GLB +Y from true north
+                  required:
+                    - lat
+                    - lng
+                    - heading_deg
+                acknowledge_frame_change:
+                  type: boolean
+                  description: Must be true if scene has cameras, regions, or sensors; otherwise ignored
+              required:
+                - token
+                - anchor
+                - acknowledge_frame_change
+        required: true
+      security:
+        - tokenAuth: []
+        - cookieAuth: []
+      responses:
+        "200":
+          description: GLB committed successfully; returns updated alignment
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  anchor:
+                    type: object
+                    properties:
+                      lat:
+                        type: number
+                        description: Latitude of footprint centre in degrees
+                      lng:
+                        type: number
+                        description: Longitude of footprint centre in degrees
+                      heading_deg:
+                        type: number
+                        description: Heading in degrees (0 = north, 90 = east), clockwise rotation of GLB +Y from true north
+                  footprint_m:
+                    type: object
+                    properties:
+                      width:
+                        type: number
+                        description: Footprint width in metres (east-west extent)
+                      height:
+                        type: number
+                        description: Footprint height in metres (north-south extent)
+                  preview_url:
+                    type: string
+                    nullable: true
+                    description: Relative URL to the scene's thumbnail PNG, or null if no thumbnail
+        "400":
+          description: Scene is not a geospatial_map, invalid token, invalid anchor, or invalid acknowledge_frame_change flag
+        "401":
+          description: Unauthorized
+        "403":
+          description: Forbidden (requires superuser)
+        "404":
+          description: Scene not found or staged GLB not found/expired
+        "409":
+          description: Scene has cameras, regions or sensors that would be moved by the new map frame; set acknowledge_frame_change to true to continue
+        "500":
+          description: Internal server error
   /scene:
     post:
       tags:

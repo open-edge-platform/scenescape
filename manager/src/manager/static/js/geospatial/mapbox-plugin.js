@@ -281,6 +281,64 @@ class MapboxPlugin extends MapInterface {
     return this.map.getZoom();
   }
 
+  pointToLatLng(x, y) {
+    const ll = this.map.unproject([x, y]);
+    return { lat: ll.lat, lng: ll.lng };
+  }
+
+  _cornersToMapboxCoordinates(corners) {
+    // corners: [SW, SE, NE, NW] with {lat, lng}
+    // Mapbox order: top-left (NW), top-right (NE), bottom-right (SE), bottom-left (SW)
+    return [
+      [corners[3].lng, corners[3].lat], // NW (top-left)
+      [corners[2].lng, corners[2].lat], // NE (top-right)
+      [corners[1].lng, corners[1].lat], // SE (bottom-right)
+      [corners[0].lng, corners[0].lat], // SW (bottom-left)
+    ];
+  }
+
+  setOverlay(imageUrl, corners, opacity) {
+    this.removeOverlay();
+    const coordinates = this._cornersToMapboxCoordinates(corners);
+    this.map.addSource("glb-overlay", {
+      type: "image",
+      url: imageUrl,
+      coordinates: coordinates,
+    });
+    this.map.addLayer({
+      id: "glb-overlay",
+      type: "raster",
+      source: "glb-overlay",
+      paint: {
+        "raster-opacity": opacity,
+        "raster-fade-duration": 0,
+      },
+    });
+  }
+
+  updateOverlay(corners) {
+    const source = this.map.getSource("glb-overlay");
+    if (source) {
+      const coordinates = this._cornersToMapboxCoordinates(corners);
+      source.setCoordinates(coordinates);
+    }
+  }
+
+  setOverlayOpacity(opacity) {
+    if (this.map.getLayer("glb-overlay")) {
+      this.map.setPaintProperty("glb-overlay", "raster-opacity", opacity);
+    }
+  }
+
+  removeOverlay() {
+    if (this.map.getLayer("glb-overlay")) {
+      this.map.removeLayer("glb-overlay");
+    }
+    if (this.map.getSource("glb-overlay")) {
+      this.map.removeSource("glb-overlay");
+    }
+  }
+
   async saveSnapshotToServer(imageData) {
     try {
       console.log("Saving snapshot to server...");
