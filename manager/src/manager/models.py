@@ -176,6 +176,22 @@ class Scene(models.Model):
     default=None, null=True, blank=True, editable=False,
     help_text="4x4 transformation matrix (translation-rotation-scale) stored as JSON [[...], [...], [...], [...]]"
   )
+  # OSM ways cache (raw ohsome query result, reused across ROI generation
+  # clicks so we don't re-hit the OSM API unless the bbox below is stale).
+  osm_ways_cache = models.JSONField(
+    "Cached OpenStreetMap way geometries for this scene",
+    default=None, null=True, blank=True, editable=False,
+    help_text="Cached raw OSM way geometries fetched for this scene's map corners bounding box"
+  )
+  # Bounding box used to fetch osm_ways_cache: [south, west, north, east].
+  # Not cleared on edit; build_roi_previews() compares it against the scene's
+  # current map_corners_lla and refetches if they no longer match.
+  osm_ways_cache_bbox = models.JSONField(
+    "Cached bounding box for OSM ways query",
+    default=None, null=True, blank=True, editable=False,
+    help_text="Bounding box [south, west, north, east] used to fetch osm_ways_cache; "
+              "stale once it no longer matches the scene's map corners"
+  )
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
   polycam_data = models.FileField(blank=True, null=True, validators=[FileExtensionValidator(["zip"])])
   dataset_dir = models.CharField(blank=True, max_length=200, editable=False)
@@ -310,7 +326,11 @@ class Scene(models.Model):
       if (self._original_polycam_data != self.polycam_data):
         glb_from_zip = self.polycam_data
 
-      if self.changedCalibrationParams():
+      # Clear processed state when calibration inputs or the map file change so
+      # AprilTag / markerless registration re-runs (stale markers otherwise stay).
+      # FieldFile equality is name-based, so a same-name re-upload is only visible as uncommitted.
+      map_reuploaded = bool(self.map) and getattr(self.map, '_committed', True) is False
+      if self.changedCalibrationParams() or (self._original_map != self.map) or map_reuploaded:
         self.map_processed = None
 
       super().save(*args, **kwargs)
@@ -372,7 +392,8 @@ class Scene(models.Model):
     jdata = []
     for region in self.regions.all():
       rdict = {'title': region.name, 'points': [], 'uuid':str(region.uuid),
-               'volumetric': region.volumetric, 'height': region.height, 'buffer_size': region.buffer_size}
+               'volumetric': region.volumetric, 'height': region.height, 'buffer_size': region.buffer_size,
+               'type': region.roi_type}
       thresholds, range_max = region.get_sectors()
       rdict['sectors'] = {'thresholds':thresholds, 'range_max':range_max}
 
@@ -1025,6 +1046,7 @@ class Region(BoundingBox):
   height = models.FloatField(default=1.0, null=False, blank=False, validators=[MinValueValidator(0.001)])
   volumetric = models.BooleanField(choices=BOOLEAN_CHOICES, default=False, null=True)
   visible = models.BooleanField(default=False)
+  roi_type = models.CharField(max_length=150, default='', blank=True, help_text='Type or category of the Region of Interest')
 
   def get_sectors(self):
     if not hasattr(self, 'roi_occupancy_threshold'):

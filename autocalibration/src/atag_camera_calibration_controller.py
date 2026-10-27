@@ -71,10 +71,15 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
       except FileNotFoundError:
         response_dict['status'] = "Error: Glb file not found"
         return response_dict
+      except RuntimeError as err:
+        response_dict['status'] = "error"
+        response_dict['message'] = str(err)
+        self.notify_scene_registration(sceneobj.id, response_dict)
+        return response_dict
 
     apriltags_from_db = []
     response = self.calibration_data_interface.calibration_markers_with_scene_id(sceneobj.id)
-    if 'results' in response:
+    if response and 'results' in response:
       apriltags_from_db = response['results']
     result_data_from_db = {}
     if apriltags_from_db:
@@ -100,26 +105,43 @@ class ApriltagCameraCalibrationController(CameraCalibrationController):
     if not sceneobj.map:
       self.reset_scene(sceneobj)
       return False
-    else:
-      return (sceneobj.map_processed is None)
+    # map_processed is None (explicit invalidate) or map file is newer than last run
+    return sceneobj.map_processed is None or self.is_map_processed(sceneobj)
 
   def save_to_database(self, scene, atag_points_3d):
-    """! Function stores baseapriltag data into db.
+    """! Replace stored AprilTag markers with the newly detected set.
+
+    Always clear then insert so a smaller scan cannot leave the scene with
+    zero markers, and obsolete IDs from a prior map cannot linger beside
+    the new set. map_processed is updated only after the full replace
+    succeeds; otherwise RuntimeError is raised and processed state is left
+    unset so registration can be retried.
+
     @param   scene             Scene database object.
     @param   atag_points_3d   Apriltag centers in 3d plane.
 
     @return  None
     """
-    response = self.calibration_data_interface.calibration_markers_with_scene_id(scene.id)
-    if 'results' in response:
-      apriltags = response['results']
-    if apriltags and len(atag_points_3d) < len(apriltags):
-      self.calibration_data_interface.delete_calibration_markers_for_scene(scene.id)
-    else:
-      for key, value in atag_points_3d.items():
-        post_data = {'marker_id': f"{scene.id}_{str(key)}", 'apriltag_id': key, 'dims': value, 'scene': scene.id}
-        self.calibration_data_interface.update_or_create_calibration_marker(scene.id, post_data)
-    self.calibration_data_interface.update_map_processed(scene.id, get_iso_time())
+    if not self.calibration_data_interface.delete_calibration_markers_for_scene(scene.id):
+      raise RuntimeError(
+          f"Failed to clear calibration markers for scene {scene.id}")
+    for key, value in atag_points_3d.items():
+      post_data = {
+          'marker_id': f"{scene.id}_{str(key)}",
+          'apriltag_id': key,
+          'dims': value,
+          'scene': scene.id,
+      }
+      created = self.calibration_data_interface.update_or_create_calibration_marker(
+          scene.id, post_data)
+      if not created:
+        raise RuntimeError(
+            f"Failed to persist calibration marker {key} for scene {scene.id}")
+    updated = self.calibration_data_interface.update_map_processed(
+        scene.id, get_iso_time())
+    if not updated:
+      raise RuntimeError(
+          f"Failed to mark map processed for scene {scene.id}")
     return
 
   def decode_image(self, img_data):
