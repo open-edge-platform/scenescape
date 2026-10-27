@@ -506,6 +506,7 @@ class CameraCalibrationApi:
           register_response = {
               self.OpenApi.STATUS: self.OpenApi.Status.BUSY,
               self.OpenApi.SCENE_ID: sceneId,
+              "sceneName": getattr(scene, "name", None),
               self.OpenApi.MESSAGE: "Registration is currently busy"
           }
         else:

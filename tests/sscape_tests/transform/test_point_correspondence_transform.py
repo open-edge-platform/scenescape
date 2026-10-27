@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
@@ -9,10 +9,48 @@ import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation
 
-from scene_common.transform import PointCorrespondenceTransform, CameraIntrinsics
+from scene_common.transform import (
+  PointCorrespondenceTransform,
+  CameraIntrinsics,
+  points_are_coplanar,
+)
 from scene_common.geometry import Point
 
 class TestPointCorrespondenceTransform:
+  def test_distorted_camera_inlier_refit_preserves_ransac_solution(self):
+    """Refitting a near-planar inlier set must not jump to a distant pose."""
+    intrinsics = CameraIntrinsics(
+      [1059.9363, 1059.9363, 640, 360], {"k1": -0.362086}, [1280, 720])
+    map_points = np.array([
+      [2.61777735, 4.24208915, -0.03628719],
+      [3.37448049, 4.71994710, -0.02743566],
+      [3.49817872, 3.68181109, -0.02463210],
+      [4.70190278, 3.87953186, -0.00904286],
+      [4.03730386, 2.92646688, -0.02610767],
+      [5.67322719, 3.28573954, -0.00307882],
+      [6.15817821, 2.46695340, -0.01420844],
+      [5.27095032, 4.96910203, -0.00833929],
+      [4.85846911, 5.69687748, 1.34161323],
+      [5.82415301, 4.87672019, 1.39952999],
+    ])
+    camera_points = np.array([
+      [59.00992815, 562.81975168], [201.74596850, 454.15973924],
+      [348.20840838, 566.34121270], [609.20497691, 436.96239686],
+      [655.05658804, 618.83533412], [896.67405195, 417.20935561],
+      [1124.98758609, 448.11283083], [562.96089821, 331.20019250],
+      [403.87011330, 42.11567445], [671.13809863, 29.38141627],
+    ])
+    transform = PointCorrespondenceTransform(
+      {'camera points': camera_points, 'map points': map_points}, intrinsics)
+
+    np.testing.assert_allclose(transform.pose_mat[:3, 3], [2.41, 1.17, 1.63], atol=0.05)
+    rvec, tvec = self._rvec_tvec(transform)
+    projected, _ = cv2.projectPoints(
+      map_points, rvec, tvec, intrinsics.intrinsics, intrinsics.distortion)
+    errors = np.linalg.norm(projected.reshape(-1, 2) - camera_points, axis=1)
+    assert np.sqrt(np.mean(errors ** 2)) < 5.0
+    assert np.all((map_points @ cv2.Rodrigues(rvec)[0].T + tvec.ravel())[:, 2] > 0)
+
   def test_init_with_correspondences(self):
     """Test initialization with point correspondences"""
     intrinsics = CameraIntrinsics([800, 800, 320, 240])
@@ -53,36 +91,14 @@ class TestPointCorrespondenceTransform:
 
   def test_are_points_coplanar_true(self):
     """Test coplanarity check with coplanar points"""
-    intrinsics = CameraIntrinsics([800, 800, 320, 240])
-    pose = {
-        'camera points': np.array([
-            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
-        ]),
-        'map points': np.array([
-            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
-        ])  # All z=0, need at least 6 points
-    }
-    transform = PointCorrespondenceTransform(pose, intrinsics)
-
     coplanar_points = np.array([
         [1.2, 2.3, 0], [3.4, 4.5, 0], [5.6, 6.7, 0], [7.8, 8.9, 0]
     ])
-    assert transform.arePointsCoplanar(coplanar_points)
+    assert points_are_coplanar(coplanar_points)
 
   def test_are_points_coplanar_false(self):
     """Test coplanarity check with non-coplanar points"""
-    intrinsics = CameraIntrinsics([800, 800, 320, 240])
-    pose = {
-        'camera points': np.array([
-            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
-        ]),
-        'map points': np.array([
-            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
-        ])
-    }
-    transform = PointCorrespondenceTransform(pose, intrinsics)
-
-    # Points that definitely violate coplanarity (determinant > 0.1)
+    # Points that definitely violate coplanarity
     # Create a clear tetrahedron with large z differences
     non_coplanar_points = np.array([
         [0.0, 0.0, 0.0],
@@ -90,36 +106,12 @@ class TestPointCorrespondenceTransform:
         [0.0, 1.0, 0.0],
         [0.0, 0.0, 1.0]   # Unit tetrahedron
     ])
-    assert not transform.arePointsCoplanar(non_coplanar_points)
+    assert not points_are_coplanar(non_coplanar_points)
 
-  def test_calculate_determinant(self):
-    """Test determinant calculation for coplanarity"""
-    intrinsics = CameraIntrinsics([800, 800, 320, 240])
-    pose = {
-        'camera points': np.array([
-            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
-        ]),
-        'map points': np.array([
-            [1, 1, 0], [2, 2, 0], [3, 3, 0], [4, 4, 0], [5, 5, 0], [6, 6, 0]
-        ])
-    }
-    transform = PointCorrespondenceTransform(pose, intrinsics)
-
-    # Points forming a tetrahedron
-    points = np.array([
-        [1.2, 2.3, 0.5],
-        [4.7, 5.8, 1.2],
-        [7.9, 8.1, 2.3],
-        [3.4, 6.7, 0.8]
-    ])
-    determinant = transform.calculateDeterminant(points)
-    assert isinstance(determinant, (int, float, np.number))
-    # Non-coplanar points should have non-zero determinant
-    assert not math.isclose(determinant, 0.0, abs_tol=1e-6)
-
+  @patch('cv2.solvePnPRansac', side_effect=cv2.error("RANSAC unavailable"))
   @patch('cv2.solvePnP')
-  def test_calculate_pose_mat(self, mock_solve_pnp):
-    """Test pose matrix calculation from point correspondences"""
+  def test_calculate_pose_mat(self, mock_solve_pnp, mock_solve_pnp_ransac):
+    """Test pose matrix calculation from point correspondences (solvePnP fallback path)"""
     intrinsics = CameraIntrinsics([800, 800, 320, 240])
 
     # Mock cv2.solvePnP return values
@@ -137,6 +129,153 @@ class TestPointCorrespondenceTransform:
     assert hasattr(transform, 'pose_mat')
     assert hasattr(transform, 'translation')
     assert hasattr(transform, 'quaternion_rotation')
+    # RANSAC failed -> fell back to solvePnP, nothing rejected
+    assert transform.rejectedIndices == []
+    mock_solve_pnp.assert_called_once()
+    assert mock_solve_pnp.call_args.kwargs['useExtrinsicGuess'] is False
+
+  @patch('cv2.solvePnPRansac')
+  @patch('cv2.solvePnP')
+  def test_calculate_pose_mat_ransac_success(self, mock_solve_pnp, mock_solve_pnp_ransac):
+    """RANSAC success: inliers identified, pose refit via solvePnP on inliers."""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+
+    mock_rvec = np.array([[0.1], [0.2], [0.3]])
+    mock_tvec = np.array([[1.0], [2.0], [3.0]])
+    inliers = np.array([[0], [1], [2], [4], [5]], dtype=np.int32)  # index 3 rejected
+    mock_solve_pnp_ransac.return_value = (True, mock_rvec, mock_tvec, inliers)
+    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
+
+    # Non-coplanar map points so AP3P RANSAC is eligible.
+    pose = {
+        'camera points': np.array([
+            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
+        ]),
+        'map points': np.array([
+            [0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [1, 0, 1]
+        ])
+    }
+    transform = PointCorrespondenceTransform(pose, intrinsics)
+
+    mock_solve_pnp.assert_called_once()
+    # Five inliers, non-coplanar → SQPNP refine
+    assert mock_solve_pnp.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
+    assert mock_solve_pnp.call_args.kwargs['useExtrinsicGuess'] is False
+    assert transform.rejectedIndices == [3]
+    assert transform.pose_mat.shape == (4, 4)
+    # Default (no scene scale) keeps the reference 10 px threshold.
+    assert mock_solve_pnp_ransac.call_args.kwargs['reprojectionError'] == 10.0
+    assert mock_solve_pnp_ransac.call_args.kwargs['flags'] == cv2.SOLVEPNP_AP3P
+
+  @patch('cv2.solvePnPRansac')
+  @patch('cv2.solvePnP')
+  def test_ransac_threshold_scales_with_pixels_per_meter(
+      self, mock_solve_pnp, mock_solve_pnp_ransac):
+    """Low map ppm uses a stricter RANSAC reprojection threshold."""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    mock_rvec = np.array([[0.1], [0.2], [0.3]])
+    mock_tvec = np.array([[1.0], [2.0], [3.0]])
+    inliers = np.array([[0], [1], [2], [3], [4], [5]], dtype=np.int32)
+    mock_solve_pnp_ransac.return_value = (True, mock_rvec, mock_tvec, inliers)
+    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
+
+    pose = {
+        'camera points': np.array([
+            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
+        ]),
+        'map points': np.array([
+            [0, 0, 0], [1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 1], [1, 0, 1]
+        ]),
+        'pixels per meter': 50.0,
+    }
+    PointCorrespondenceTransform(pose, intrinsics)
+
+    assert mock_solve_pnp_ransac.call_args.kwargs['reprojectionError'] == 5.0
+    mock_solve_pnp.assert_called_once()
+
+  @patch('cv2.solvePnPRansac')
+  @patch('cv2.solvePnP')
+  def test_coplanar_points_use_sqpnp_ransac(self, mock_solve_pnp, mock_solve_pnp_ransac):
+    """Coplanar layouts use SQPNP RANSAC then ITERATIVE refine on inliers."""
+    intrinsics = CameraIntrinsics([800, 800, 320, 240])
+    mock_rvec = np.array([[0.1], [0.2], [0.3]])
+    mock_tvec = np.array([[1.0], [2.0], [3.0]])
+    inliers = np.array([[0], [1], [2], [3], [4], [5]], dtype=np.int32)
+    mock_solve_pnp_ransac.return_value = (True, mock_rvec, mock_tvec, inliers)
+    mock_solve_pnp.return_value = (True, mock_rvec, mock_tvec)
+
+    pose = {
+        'camera points': np.array([
+            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
+        ]),
+        'map points': np.array([
+            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
+        ]),
+    }
+    transform = PointCorrespondenceTransform(pose, intrinsics)
+
+    mock_solve_pnp_ransac.assert_called_once()
+    assert mock_solve_pnp_ransac.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
+    mock_solve_pnp.assert_called_once()
+    assert mock_solve_pnp.call_args.kwargs['flags'] == cv2.SOLVEPNP_ITERATIVE
+    assert mock_solve_pnp.call_args.kwargs['useExtrinsicGuess'] is True
+    np.testing.assert_array_equal(mock_solve_pnp.call_args.kwargs['rvec'], mock_rvec)
+    np.testing.assert_array_equal(mock_solve_pnp.call_args.kwargs['tvec'], mock_tvec)
+    assert transform.rejectedIndices == []
+
+  def test_solve_pnpransac_uses_sqpnp_for_coplanar(self):
+    """Shared helper selects SQPNP flags for coplanar correspondences."""
+    from scene_common.transform import solve_pnpransac
+    map_pts = np.array([
+        [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
+    ], dtype=np.float32)
+    cam_pts = np.array([
+        [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
+    ], dtype=np.float32)
+    k = np.array([[800., 0, 320], [0, 800., 240], [0, 0, 1]])
+    mock_rvec = np.array([[0.1], [0.2], [0.3]])
+    mock_tvec = np.array([[1.0], [2.0], [3.0]])
+    inliers = np.array([[0], [1], [2], [3], [4], [5]], dtype=np.int32)
+    with patch('cv2.solvePnPRansac',
+               return_value=(True, mock_rvec, mock_tvec, inliers)) as mock_ransac:
+      rvec, tvec, mask = solve_pnpransac(map_pts, cam_pts, k, None, 10.0)
+    assert rvec is not None and tvec is not None
+    assert mask is not None and mask.sum() == 6
+    assert mock_ransac.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
+
+  def test_ransac_rejects_gross_outlier(self):
+    """End-to-end: a grossly mis-clicked correspondence is rejected, pose stays accurate"""
+    fx, fy, cx, cy = 800.0, 800.0, 640.0, 360.0
+    intrinsics = CameraIntrinsics([fx, fy, cx, cy])
+    rvec_true = np.array([[0.10], [-0.20], [0.05]])
+    tvec_true = np.array([[0.50], [-0.30], [5.00]])
+    k = np.array([[fx, 0, cx], [0, fy, cy], [0, 0, 1]])
+
+    rng = np.random.default_rng(11)
+    n = 10
+    map_pts = np.column_stack([rng.uniform(-2, 2, n), rng.uniform(-1.5, 1.5, n),
+                               rng.uniform(3, 8, n)]).astype(np.float32)
+    cam_pts, _ = cv2.projectPoints(map_pts, rvec_true, tvec_true, k, np.zeros(4))
+    cam_pts = cam_pts.reshape(-1, 2).astype(np.float32)
+    outlier_idx = 6
+    cam_pts[outlier_idx] += np.array([150.0, -90.0], dtype=np.float32)
+
+    transform = PointCorrespondenceTransform(
+        {'camera points': cam_pts, 'map points': map_pts}, intrinsics)
+
+    assert transform.rejectedIndices == [outlier_idx]
+    # The fitted pose must still explain the inliers (outlier excluded)
+    rvec, tvec = self._rvec_tvec(transform)
+    projected, _ = cv2.projectPoints(map_pts, rvec, tvec, k, np.zeros(4))
+    inlier_err = np.linalg.norm(cam_pts - projected.reshape(-1, 2), axis=1)
+    inlier_err = np.delete(inlier_err, outlier_idx)
+    assert np.all(inlier_err < 2.0)
+
+  def _rvec_tvec(self, transform):
+    # _calculatePoseMat stores pose_mat = inv([R|t]); invert back for projection
+    ext = np.linalg.inv(transform.pose_mat)
+    rvec, _ = cv2.Rodrigues(ext[:3, :3])
+    return rvec, ext[:3, 3:4]
 
   # Negative test cases for PointCorrespondenceTransform
   def test_init_with_insufficient_correspondences(self):
@@ -190,24 +329,9 @@ class TestPointCorrespondenceTransform:
       PointCorrespondenceTransform(pose, None)
 
   def test_are_points_coplanar_insufficient_points(self):
-    """Test coplanarity check with insufficient points - implementation may handle gracefully"""
-    # Create a valid transform first with enough points
-    intrinsics = CameraIntrinsics([800, 800, 320, 240])
-    pose = {
-        'camera points': np.array([
-            [100, 100], [200, 200], [300, 300], [400, 400], [500, 500], [600, 600]
-        ]),
-        'map points': np.array([
-            [1, 2, 0], [3, 4, 0], [5, 6, 0], [7, 8, 0], [9, 10, 0], [11, 12, 0]
-        ])
-    }
-    transform = PointCorrespondenceTransform(pose, intrinsics)
-
-    # Test with insufficient points - implementation may handle by returning False or a default
+    """Fewer than four points are treated as coplanar (too small to judge)."""
     insufficient_points = np.array([[1, 2, 0], [3, 4, 0]])  # Only 2 points
-    result = transform.arePointsCoplanar(insufficient_points)
-    # With only 2 points, coplanarity is undefined, but implementation may return False
-    assert isinstance(result, bool)
+    assert points_are_coplanar(insufficient_points) is True
 
 class TestPointCorrespondenceTransformPrivateMethods:
   """Test private methods of PointCorrespondenceTransform class"""
@@ -225,9 +349,10 @@ class TestPointCorrespondenceTransformPrivateMethods:
     }
     return PointCorrespondenceTransform(pose, intrinsics)
 
+  @patch('cv2.solvePnPRansac', side_effect=cv2.error("RANSAC unavailable"))
   @patch('cv2.solvePnP')
-  def test_calculate_pose_mat_iterative_method(self, mock_solve_pnp):
-    """Test _calculatePoseMat with iterative method (coplanar points)"""
+  def test_calculate_pose_mat_iterative_method(self, mock_solve_pnp, mock_solve_pnp_ransac):
+    """Test _calculatePoseMat with iterative method (coplanar points, RANSAC fallback)"""
     # Mock cv2.solvePnP return values
     mock_rvec = np.array([[0.1], [0.2], [0.3]])
     mock_tvec = np.array([[1.0], [2.0], [3.0]])
@@ -248,8 +373,9 @@ class TestPointCorrespondenceTransformPrivateMethods:
     args, kwargs = mock_solve_pnp.call_args
     assert kwargs['flags'] == cv2.SOLVEPNP_ITERATIVE
 
+  @patch('cv2.solvePnPRansac', side_effect=cv2.error("RANSAC unavailable"))
   @patch('cv2.solvePnP')
-  def test_calculate_pose_mat_sqpnp_method(self, mock_solve_pnp):
+  def test_calculate_pose_mat_sqpnp_method(self, mock_solve_pnp, mock_solve_pnp_ransac):
     """Test _calculatePoseMat with SQPNP method (non-coplanar points, <6 points)"""
     # Mock cv2.solvePnP return values
     mock_rvec = np.array([[0.2], [0.3], [0.4]])
@@ -267,8 +393,7 @@ class TestPointCorrespondenceTransformPrivateMethods:
         ])
     }
 
-    with patch.object(PointCorrespondenceTransform, 'arePointsCoplanar', return_value=False):
-      transform = PointCorrespondenceTransform(pose, intrinsics)
+    transform = PointCorrespondenceTransform(pose, intrinsics)
 
     mock_solve_pnp.assert_called_once()
     args, kwargs = mock_solve_pnp.call_args
@@ -315,17 +440,19 @@ class TestPointCorrespondenceTransformPrivateMethods:
                                          intrinsics.intrinsics, None)
     pose = {'camera points': camera_points.reshape(-1, 2), 'map points': map_points}
 
-    with patch('cv2.solvePnP', wraps=cv2.solvePnP) as spy:
+    with patch('cv2.solvePnPRansac', side_effect=cv2.error("RANSAC unavailable")), \
+         patch('cv2.solvePnP', wraps=cv2.solvePnP) as spy:
       transform = PointCorrespondenceTransform(pose, intrinsics)
 
-    assert not transform.arePointsCoplanar(map_points)
+    assert not points_are_coplanar(map_points)
     assert spy.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
     rmat = cv2.Rodrigues(rvec)[0]
     np.testing.assert_allclose(transform.pose_mat[:3, 3], -rmat.T @ tvec, atol=1e-4)
 
   def test_calculate_pose_mat_properties_set(self):
     """Test that _calculatePoseMat sets all required properties"""
-    with patch('cv2.solvePnP') as mock_solve_pnp:
+    with patch('cv2.solvePnPRansac', side_effect=cv2.error("RANSAC unavailable")), \
+         patch('cv2.solvePnP') as mock_solve_pnp:
       # Mock cv2.solvePnP return values
       mock_rvec = np.array([[0.15], [0.25], [0.35]])
       mock_tvec = np.array([[1.5], [2.5], [3.5]])
