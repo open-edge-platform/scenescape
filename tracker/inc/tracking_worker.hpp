@@ -55,6 +55,13 @@ struct VelocityRotationState {
 std::array<double, 4> update_velocity_rotation(double vx, double vy, VelocityRotationState& state);
 
 /**
+ * @brief Select published yaw, preferring observed orientation over velocity fallback.
+ */
+std::array<double, 4> select_track_rotation(const rv::tracking::TrackedObject& track,
+                                            bool rotation_from_velocity,
+                                            VelocityRotationState& state);
+
+/**
  * @brief Per-scope worker thread for processing detection chunks.
  *
  * Each worker owns a bounded queue and processes chunks independently.
