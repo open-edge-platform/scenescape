@@ -3,12 +3,21 @@
 
 import json
 import os
+import math
 
 import numpy as np
 import pytest
 import scipy.spatial.transform as sstr
 
 from scene_common import earth_lla
+from scene_common.earth_lla import (
+  localFootprintCornersLLA,
+  footprintAnchorFromCornersLLA,
+  calculateTRSLocal2LLAFromSurfacePoints,
+  convertXYZToLLA,
+  EQUATORIAL_RADIUS,
+  POLAR_RADIUS
+)
 
 @pytest.fixture
 def lla_datafile(tmp_path):
@@ -317,3 +326,359 @@ def test_getHeading():
     error = np.linalg.norm(calc_pt - expected_outputs[i])
     assert error < 1  # degrees
   return
+
+
+class TestLocalFootprintCornersLLA:
+  """Test localFootprintCornersLLA function."""
+
+  def test_positive_zero_heading_axis_aligned(self):
+    """Test 0° heading gives axis-aligned quad centred on anchor."""
+    center_lat, center_lng = 45.0, -120.0
+    heading_deg = 0.0
+    width_m, height_m = 100.0, 50.0
+    alt = 0.0
+
+    corners = localFootprintCornersLLA(
+      center_lat, center_lng, heading_deg, width_m, height_m, alt
+    )
+
+    # Corners should be: SW, SE, NE, NW
+    sw, se, ne, nw = corners
+
+    # SW and NW should have same longitude (western edge)
+    assert abs(sw[1] - nw[1]) < 1e-6
+    # SW and SE should have same latitude (southern edge)
+    assert abs(sw[0] - se[0]) < 1e-6
+
+    # Centre should be mean of corners
+    centre_lat = np.mean([sw[0], se[0], ne[0], nw[0]])
+    centre_lng = np.mean([sw[1], se[1], ne[1], nw[1]])
+    assert abs(centre_lat - center_lat) < 1e-6
+    assert abs(centre_lng - center_lng) < 1e-6
+
+  def test_positive_90_heading_east(self):
+    """Test ψ=90: SW->NW vector points east (local +Y east)."""
+    center_lat, center_lng = 45.0, -120.0
+    heading_deg = 90.0
+    width_m, height_m = 100.0, 50.0
+    alt = 0.0
+
+    corners = localFootprintCornersLLA(
+      center_lat, center_lng, heading_deg, width_m, height_m, alt
+    )
+
+    sw, se, ne, nw = corners
+
+    # With ψ=90°, local +Y (north in local footprint) points east in global frame
+    # So: NW-SW should have positive east component
+    # NW is further "north" locally, so should be further east globally
+    nw_lng = nw[1]
+    sw_lng = sw[1]
+
+    # Handle antimeridian wrapping for longitude difference
+    lng_diff = ((nw_lng - sw_lng + 180.0) % 360.0) - 180.0
+    # NW should be east of SW when heading is 90°
+    assert lng_diff > 0.0, f"NW-SW lng diff should be positive (east), got {lng_diff}"
+
+  @pytest.mark.parametrize("heading", [0, 33, 90, 180, 271])
+  def test_positive_various_headings(self, heading):
+    """Test round-trip with various headings."""
+    center_lat, center_lng = 45.0, -120.0
+    width_m, height_m = 200.0, 150.0
+    alt = 100.0
+
+    corners = localFootprintCornersLLA(
+      center_lat, center_lng, heading, width_m, height_m, alt
+    )
+
+    # All altitudes should match
+    for corner in corners:
+      assert abs(corner[2] - alt) < 1e-6
+
+  def test_positive_non_square_dims(self):
+    """Test non-square width and height."""
+    center_lat, center_lng = 30.0, 0.0
+    heading_deg = 45.0
+    width_m, height_m = 500.0, 200.0
+    alt = 50.0
+
+    corners = localFootprintCornersLLA(
+      center_lat, center_lng, heading_deg, width_m, height_m, alt
+    )
+
+    assert corners.shape == (4, 3)
+    for corner in corners:
+      assert abs(corner[2] - alt) < 1e-6
+
+  def test_positive_60_degree_latitude(self):
+    """Test at high latitude (60°)."""
+    center_lat, center_lng = 60.0, 10.0
+    heading_deg = 0.0
+    width_m, height_m = 100.0, 100.0
+    alt = 0.0
+
+    corners = localFootprintCornersLLA(
+      center_lat, center_lng, heading_deg, width_m, height_m, alt
+    )
+
+    assert corners.shape == (4, 3)
+    # At high latitude, longitude distances compress
+    assert all(abs(c[2]) < 1e-6 for c in corners)
+
+  def test_negative_nan_inputs(self):
+    """Test ValueError for NaN inputs."""
+    with pytest.raises(ValueError, match="must be finite"):
+      localFootprintCornersLLA(
+        float('nan'), 0.0, 0.0, 100.0, 100.0
+      )
+    with pytest.raises(ValueError, match="must be finite"):
+      localFootprintCornersLLA(
+        45.0, float('nan'), 0.0, 100.0, 100.0
+      )
+    with pytest.raises(ValueError, match="must be finite"):
+      localFootprintCornersLLA(
+        45.0, 0.0, float('nan'), 100.0, 100.0
+      )
+    with pytest.raises(ValueError, match="must be finite"):
+      localFootprintCornersLLA(
+        45.0, 0.0, 0.0, float('nan'), 100.0
+      )
+    with pytest.raises(ValueError, match="must be finite"):
+      localFootprintCornersLLA(
+        45.0, 0.0, 0.0, 100.0, float('nan')
+      )
+
+  def test_negative_inf_inputs(self):
+    """Test ValueError for inf inputs."""
+    with pytest.raises(ValueError, match="must be finite"):
+      localFootprintCornersLLA(
+        float('inf'), 0.0, 0.0, 100.0, 100.0
+      )
+    with pytest.raises(ValueError, match="must be finite"):
+      localFootprintCornersLLA(
+        45.0, 0.0, 0.0, 100.0, float('inf')
+      )
+
+  def test_negative_latitude_out_of_bounds(self):
+    """Test ValueError for |lat| > 90."""
+    with pytest.raises(ValueError, match="Latitude must be in"):
+      localFootprintCornersLLA(91.0, 0.0, 0.0, 100.0, 100.0)
+    with pytest.raises(ValueError, match="Latitude must be in"):
+      localFootprintCornersLLA(-91.0, 0.0, 0.0, 100.0, 100.0)
+
+  def test_negative_longitude_out_of_bounds(self):
+    """Test ValueError for |lng| > 180."""
+    with pytest.raises(ValueError, match="Longitude must be in"):
+      localFootprintCornersLLA(45.0, 181.0, 0.0, 100.0, 100.0)
+    with pytest.raises(ValueError, match="Longitude must be in"):
+      localFootprintCornersLLA(45.0, -181.0, 0.0, 100.0, 100.0)
+
+  def test_negative_width_zero(self):
+    """Test ValueError for width <= 0."""
+    with pytest.raises(ValueError, match="Width must be positive"):
+      localFootprintCornersLLA(45.0, 0.0, 0.0, 0.0, 100.0)
+    with pytest.raises(ValueError, match="Width must be positive"):
+      localFootprintCornersLLA(45.0, 0.0, 0.0, -50.0, 100.0)
+
+  def test_negative_height_zero(self):
+    """Test ValueError for height <= 0."""
+    with pytest.raises(ValueError, match="Height must be positive"):
+      localFootprintCornersLLA(45.0, 0.0, 0.0, 100.0, 0.0)
+    with pytest.raises(ValueError, match="Height must be positive"):
+      localFootprintCornersLLA(45.0, 0.0, 0.0, 100.0, -50.0)
+
+
+class TestFootprintAnchorFromCornersLLA:
+  """Test footprintAnchorFromCornersLLA function."""
+
+  @pytest.mark.parametrize("heading", [0, 90, 180, 270, 359.9])
+  def test_positive_inverse_round_trip(self, heading):
+    """Test inverse recovers (lat, lng, heading, W, H) for various headings."""
+    center_lat, center_lng = 45.0, -120.0
+    width_m, height_m = 300.0, 200.0
+    alt = 50.0
+
+    # Forward
+    corners = localFootprintCornersLLA(
+      center_lat, center_lng, heading, width_m, height_m, alt
+    )
+
+    # Inverse
+    recovered_lat, recovered_lng, recovered_heading, recovered_w, recovered_h = (
+      footprintAnchorFromCornersLLA(corners)
+    )
+
+    # Check recovery (within 1%)
+    assert abs(recovered_lat - center_lat) < 0.001
+    assert abs(recovered_lng - center_lng) < 0.001
+    assert abs(recovered_w - width_m) / width_m < 0.01
+    assert abs(recovered_h - height_m) / height_m < 0.01
+
+    # Heading comparison (handle 360° wrap)
+    heading_diff = abs(recovered_heading - heading)
+    if heading_diff > 180:
+      heading_diff = 360 - heading_diff
+    assert heading_diff < 1.0
+
+  def test_positive_side_lengths_within_tolerance(self):
+    """Test side lengths (SW-SE, SW-NW) equal W and H within 1%."""
+    center_lat, center_lng = 40.0, -75.0
+    heading_deg = 45.0
+    width_m, height_m = 400.0, 250.0
+    alt = 0.0
+
+    corners = localFootprintCornersLLA(
+      center_lat, center_lng, heading_deg, width_m, height_m, alt
+    )
+
+    sw, se, ne, nw = corners
+
+    # Compute WGS-84 parameters at centre
+    a = EQUATORIAL_RADIUS
+    e_sq = 1.0 - POLAR_RADIUS**2 / a**2
+    lat_rad = np.deg2rad(center_lat)
+    lng_rad = np.deg2rad(center_lng)
+    sin_lat = math.sin(lat_rad)
+    cos_lat = math.cos(lat_rad)
+    denom = math.sqrt(1.0 - e_sq * sin_lat**2)
+    M = a * (1.0 - e_sq) / (denom**3)
+    N = a / denom
+
+    # Convert to local (east, north) metres
+    def lla_to_local(pt_lla):
+      pt_lat_rad = np.deg2rad(pt_lla[0])
+      pt_lng_rad = np.deg2rad(pt_lla[1])
+      dlat_rad = pt_lat_rad - lat_rad
+      dlng_rad = pt_lng_rad - lng_rad
+      north = dlat_rad * M
+      east = dlng_rad * N * cos_lat
+      return east, north
+
+    se_east, se_north = lla_to_local(se)
+    sw_east, sw_north = lla_to_local(sw)
+    nw_east, nw_north = lla_to_local(nw)
+
+    # Width = |SE - SW|
+    width_computed = math.sqrt(
+      (se_east - sw_east)**2 + (se_north - sw_north)**2
+    )
+
+    # Height = |NW - SW|
+    height_computed = math.sqrt(
+      (nw_east - sw_east)**2 + (nw_north - sw_north)**2
+    )
+
+    # Within 1%
+    assert abs(width_computed - width_m) / width_m < 0.01
+    assert abs(height_computed - height_m) / height_m < 0.01
+
+  def test_negative_wrong_corner_count(self):
+    """Test ValueError for wrong corner count."""
+    with pytest.raises(ValueError, match="Expected exactly 4 corners"):
+      footprintAnchorFromCornersLLA(np.array([[45, -120]]))
+    with pytest.raises(ValueError, match="Expected exactly 4 corners"):
+      footprintAnchorFromCornersLLA(np.array([[45, -120], [45.1, -120.1]]))
+
+  def test_negative_insufficient_data_per_corner(self):
+    """Test ValueError for < 2 data per corner."""
+    with pytest.raises(ValueError, match="Each corner must have at least"):
+      footprintAnchorFromCornersLLA(np.array([[45], [45], [45], [45]]))
+
+  def test_negative_nan_corners(self):
+    """Test ValueError for NaN in corners."""
+    corners = np.array([
+      [float('nan'), -120.0, 0.0],
+      [45.1, -119.9, 0.0],
+      [45.2, -120.1, 0.0],
+      [45.1, -120.2, 0.0]
+    ])
+    with pytest.raises(ValueError, match="must be finite"):
+      footprintAnchorFromCornersLLA(corners)
+
+  def test_negative_inf_corners(self):
+    """Test ValueError for inf in corners."""
+    corners = np.array([
+      [45.0, float('inf'), 0.0],
+      [45.1, -119.9, 0.0],
+      [45.2, -120.1, 0.0],
+      [45.1, -120.2, 0.0]
+    ])
+    with pytest.raises(ValueError, match="must be finite"):
+      footprintAnchorFromCornersLLA(corners)
+
+
+class TestRoundTripLocalFootprint:
+  """Test round-trip conversion via TRS matrix."""
+
+  @pytest.mark.parametrize("heading", [0, 33, 90, 180, 271])
+  @pytest.mark.parametrize("width_m,height_m", [(100, 50), (200, 100), (150, 150)])
+  def test_positive_round_trip_via_trs(self, heading, width_m, height_m):
+    """Feed corners into calculateTRSLocal2LLAFromSurfacePoints and apply via
+    convertXYZToLLA; round-trip each corner to <1m."""
+    center_lat, center_lng = 45.0, -120.0
+    alt = 0.0
+
+    # Generate corners
+    corners_lla = localFootprintCornersLLA(
+      center_lat, center_lng, heading, width_m, height_m, alt
+    )
+
+    # Local footprint corners
+    corners_local = np.array([
+      [-width_m / 2.0, -height_m / 2.0, 0.0],  # SW
+      [width_m / 2.0, -height_m / 2.0, 0.0],   # SE
+      [width_m / 2.0, height_m / 2.0, 0.0],    # NE
+      [-width_m / 2.0, height_m / 2.0, 0.0]    # NW
+    ])
+
+    # Compute TRS
+    trs = calculateTRSLocal2LLAFromSurfacePoints(corners_local, corners_lla)
+
+    # Convert each local corner back to LLA
+    for i, local_pt in enumerate(corners_local):
+      recovered_lla = convertXYZToLLA(trs, local_pt)
+
+      # Compare with original
+      lat_diff_m = (recovered_lla[0] - corners_lla[i, 0]) * 111000  # ~111 km per degree
+      lng_diff_m = (recovered_lla[1] - corners_lla[i, 1]) * 111000 * math.cos(
+        np.deg2rad(center_lat)
+      )
+      alt_diff_m = recovered_lla[2] - corners_lla[i, 2]
+
+      distance_m = math.sqrt(lat_diff_m**2 + lng_diff_m**2 + alt_diff_m**2)
+      assert distance_m < 1.0, (
+        f"Corner {i} round-trip error: {distance_m:.2f}m "
+        f"(lat_diff: {lat_diff_m:.2f}m, lng_diff: {lng_diff_m:.2f}m, alt_diff: {alt_diff_m:.2f}m)"
+      )
+
+  def test_positive_60_degree_latitude_round_trip(self):
+    """Test round-trip at 60° latitude."""
+    center_lat, center_lng = 60.0, 10.0
+    heading_deg = 45.0
+    width_m, height_m = 100.0, 100.0
+    alt = 0.0
+
+    corners_lla = localFootprintCornersLLA(
+      center_lat, center_lng, heading_deg, width_m, height_m, alt
+    )
+
+    corners_local = np.array([
+      [-width_m / 2.0, -height_m / 2.0, 0.0],
+      [width_m / 2.0, -height_m / 2.0, 0.0],
+      [width_m / 2.0, height_m / 2.0, 0.0],
+      [-width_m / 2.0, height_m / 2.0, 0.0]
+    ])
+
+    trs = calculateTRSLocal2LLAFromSurfacePoints(corners_local, corners_lla)
+
+    for i, local_pt in enumerate(corners_local):
+      recovered_lla = convertXYZToLLA(trs, local_pt)
+
+      lat_diff_m = (recovered_lla[0] - corners_lla[i, 0]) * 111000
+      lng_diff_m = (recovered_lla[1] - corners_lla[i, 1]) * 111000 * math.cos(
+        np.deg2rad(center_lat)
+      )
+      alt_diff_m = recovered_lla[2] - corners_lla[i, 2]
+
+      distance_m = math.sqrt(lat_diff_m**2 + lng_diff_m**2 + alt_diff_m**2)
+      assert distance_m < 1.0
