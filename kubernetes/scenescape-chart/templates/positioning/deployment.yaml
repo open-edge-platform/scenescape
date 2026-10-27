@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 {{- if .Values.positioning.enabled }}
+{{- if not (has .Values.positioning.logLevel (list "INFO" "DEBUG")) }}
+{{- fail "positioning.logLevel must be INFO or DEBUG" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -10,6 +13,9 @@ metadata:
     app: {{ .Release.Name }}-positioning
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: {{ .Release.Name }}-positioning
@@ -20,6 +26,7 @@ spec:
         {{ include "releaseLabels" . | indent 8 }}
       annotations:
         checksum/positioning-config: {{ printf "%s\n%s" (include "positioning.configJson" .) (.Values.positioning.assignments | default dict | toJson) | sha256sum }}
+        positioning.scenescape.intel.com/onvif-credentials-revision: {{ .Values.positioning.onvifCredentials.rolloutRevision | default "" | quote }}
     spec:
       securityContext:
         runAsUser: 1001
@@ -29,6 +36,8 @@ spec:
           image: {{ .Values.repository }}/{{ .Values.positioning.image }}:{{ .Chart.AppVersion }}
           imagePullPolicy: {{ .Values.positioning.pullPolicy }}
           args:
+            - "--log-level"
+            - {{ .Values.positioning.logLevel | quote }}
             - "--broker"
             - "broker.{{ .Release.Namespace }}.svc.cluster.local"
             - "--brokerauth"

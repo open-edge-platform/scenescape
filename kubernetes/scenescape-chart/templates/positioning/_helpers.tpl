@@ -27,6 +27,9 @@ would reject at startup.
 {{- end -}}
 {{- $source = deepCopy $source -}}
 {{- if not $source.credentials_file -}}
+{{- if and (not $credentials.existingSecret) (not (hasKey ($credentials.sources | default dict) $sourceId)) -}}
+{{- fail (printf "positioning.config.sources.%s requires an ONVIF credentials secret or credentials_file" $sourceId) -}}
+{{- end -}}
 {{- $_ := set $source "credentials_file" (printf "%s/%s.json" (include "positioning.onvifCredentialsDir" $) $sourceId) -}}
 {{- end -}}
 {{- if ne (toString (get $assignments $sourceId)) (toString $values.resolverId) -}}

@@ -5,6 +5,7 @@
 
 import copy
 import json
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -16,12 +17,17 @@ from scipy.spatial.transform import Rotation
 from positioning.ptz_model import load_ptz_model
 from positioning.manager_calibration import ManagerCalibrationError, ManagerCalibrationLoader
 from positioning.metrics import PositioningMetrics
-from positioning.resolver import PTZResolver, PTZSourceCalibration
+from positioning.ptz_resolver import PTZResolver, PTZSourceCalibration
 from positioning.v1 import ptz_pb2
 from positioning.pose_math import (
   apply_backlash, axis_angle_degrees, compose_ptz_rotation, physical_home_angle)
+from scene_common.positioning_schema_guards import validate_pose_context_payload
+from scene_common.schema import SchemaValidation
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+POSE_SCHEMA = SchemaValidation(
+  str(REPO_ROOT / "controller" / "src" / "schema" / "metadata.schema.json"),
+  is_multi_message=True)
 FIXTURE = json.loads(
   (REPO_ROOT / "tests" / "data" / "ptz" / "provisional_pose_math.json").read_text())
 MODEL = load_ptz_model(FIXTURE["ptz_calibration"])
@@ -57,10 +63,10 @@ def make_resolver(clock, published, calibrations=None, ring_size=RING_SIZE, **kw
   )
 
 
-def submit_stationary(resolver, clock, first_sequence, count):
+def submit_stationary(resolver, clock, first_sequence, count, pan=0.0):
   for sequence in range(first_sequence, first_sequence + count):
     clock.timestamp_ns = START_NS + (sequence - 1) * 200_000_000
-    resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns))
+    resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns, pan=pan))
 
 
 def last_context(published):
@@ -92,7 +98,7 @@ class TestPTZResolver(unittest.TestCase):
     clock = FakeClock()
     published = []
     resolver = make_resolver(clock, published)
-    with self.assertLogs("positioning.resolver", level="INFO") as logs:
+    with self.assertLogs("positioning.ptz_resolver", level="INFO") as logs:
       submit_stationary(resolver, clock, 1, 10)
     messages = [record.getMessage() for record in logs.records]
     self.assertEqual(len(messages), 2)
@@ -123,6 +129,74 @@ class TestPTZResolver(unittest.TestCase):
     np.testing.assert_allclose(context["pose"]["matrix_4x4"], HOME_MATRIX, atol=1e-12)
     self.assertEqual(set(context["quality"]), {
       "score", "temporal_score", "calibration_score", "reprojection_rms_px"})
+    validate_pose_context_payload(context)
+    self.assertTrue(POSE_SCHEMA.validateMessage("pose_context", context, check_format=True))
+
+  def test_valid_and_invalid_pose_replay_is_schema_valid_and_deterministic(self):
+    def replay():
+      clock = FakeClock()
+      published = []
+      resolver = make_resolver(clock, published)
+      for sequence in range(1, 5):
+        clock.timestamp_ns = START_NS + (sequence - 1) * 200_000_000
+        resolver.submit_ptz_sample(make_sample(sequence, clock.timestamp_ns))
+      clock.timestamp_ns = START_NS + 4 * 200_000_000
+      moving = make_sample(5, clock.timestamp_ns)
+      moving.reported_move_status = ptz_pb2.REPORTED_MOVE_STATUS_MOVING
+      resolver.submit_ptz_sample(moving)
+      contexts = [json.loads(item[0][1]) for item in published]
+      for context in contexts:
+        validate_pose_context_payload(context)
+        self.assertTrue(
+          POSE_SCHEMA.validateMessage("pose_context", context, check_format=True))
+      return contexts
+
+    first_replay = replay()
+    second_replay = replay()
+
+    self.assertEqual(first_replay, second_replay)
+    self.assertTrue(first_replay[3]["valid"])
+    self.assertFalse(first_replay[4]["valid"])
+
+  def test_publish_is_serialized_under_source_lock(self):
+    clock = FakeClock()
+    first_publish_started = threading.Event()
+    release_first_publish = threading.Event()
+    second_publish_started = threading.Event()
+    published_sequences = []
+
+    def publish(topic, payload, **kwargs):
+      sequence = json.loads(payload)["sequence"]
+      published_sequences.append(sequence)
+      if sequence == 1:
+        first_publish_started.set()
+        self.assertTrue(release_first_publish.wait(2))
+      else:
+        second_publish_started.set()
+
+    resolver = PTZResolver(
+      {SOURCE_ID: CALIBRATION}, publish, poll_interval_s=0.2, max_pose_age_s=0.5,
+      max_timestamp_uncertainty_s=0.01, target_reprojection_rms_px=3.0,
+      sample_ring_buffer_size=RING_SIZE, clock_ns=clock)
+    first = threading.Thread(
+      target=resolver.submit_ptz_sample, args=(make_sample(1, START_NS),))
+    second = threading.Thread(
+      target=resolver.submit_ptz_sample, args=(make_sample(2, START_NS + 200_000_000),))
+
+    first.start()
+    self.assertTrue(first_publish_started.wait(2))
+    clock.timestamp_ns = START_NS + 200_000_000
+    second.start()
+    try:
+      self.assertFalse(second_publish_started.wait(0.05))
+    finally:
+      release_first_publish.set()
+      first.join(2)
+      second.join(2)
+
+    self.assertFalse(first.is_alive())
+    self.assertFalse(second.is_alive())
+    self.assertEqual(published_sequences, [1, 2])
 
 
   def test_invalid_position_space_is_rejected_without_pose_publication(self):
@@ -448,7 +522,7 @@ class TestPTZResolver(unittest.TestCase):
     self.assertTrue(last_context(published)["valid"])
     self.assertEqual(len(published), 9)
 
-  def test_invalidation_drops_calibration_until_reload(self):
+  def test_invalidation_keeps_pose_invalid_until_reload(self):
     clock = FakeClock()
     published = []
     resolver = make_resolver(clock, published)
@@ -459,17 +533,43 @@ class TestPTZResolver(unittest.TestCase):
     submit_stationary(resolver, clock, 5, 1)
     self.assertEqual(last_context(published)["reason_detail"], "calibration_changed")
     submit_stationary(resolver, clock, 6, 1)
-    context = last_context(published)
-    self.assertEqual(context["reason_detail"], "calibration_missing")
-    self.assertEqual(context["calibration_version"], "unknown")
+    self.assertEqual(last_context(published)["reason_detail"], "calibration_changed")
 
     resolver.update_calibration(SOURCE_ID, CALIBRATION)
     submit_stationary(resolver, clock, 7, 1)
-    self.assertEqual(last_context(published)["reason_detail"], "calibration_changed")
-    submit_stationary(resolver, clock, 8, 2)
-    self.assertEqual(last_context(published)["reason_detail"], "settling")
-    submit_stationary(resolver, clock, 10, 1)
     self.assertTrue(last_context(published)["valid"])
+
+  def test_identical_reload_preserves_off_home_backlash_continuity(self):
+    clock = FakeClock()
+    published = []
+    resolver = make_resolver(clock, published)
+    submit_stationary(resolver, clock, 1, 4)
+    submit_stationary(resolver, clock, 5, 10, pan=0.3)
+    self.assertTrue(last_context(published)["valid"])
+
+    resolver.invalidate_calibration(SOURCE_ID)
+    submit_stationary(resolver, clock, 15, 1, pan=0.3)
+    self.assertFalse(last_context(published)["valid"])
+    resolver.update_calibration(SOURCE_ID, CALIBRATION)
+    submit_stationary(resolver, clock, 16, 1, pan=0.3)
+
+    self.assertTrue(last_context(published)["valid"])
+
+  def test_reported_moving_status_prevents_valid_pose_with_unchanged_angles(self):
+    clock = FakeClock()
+    published = []
+    resolver = make_resolver(clock, published)
+    submit_stationary(resolver, clock, 1, 10)
+    self.assertTrue(last_context(published)["valid"])
+
+    clock.timestamp_ns = START_NS + 10 * 200_000_000
+    moving = make_sample(11, clock.timestamp_ns)
+    moving.reported_move_status = ptz_pb2.REPORTED_MOVE_STATUS_MOVING
+    resolver.submit_ptz_sample(moving)
+
+    self.assertFalse(last_context(published)["valid"])
+    self.assertEqual(last_context(published)["reason_detail"], "moving")
+    self.assertEqual(last_context(published)["motion_state"], "slewing")
 
   def test_invalidating_unknown_source_is_rejected(self):
     with self.assertRaises(KeyError):
@@ -485,7 +585,7 @@ class TestPTZResolver(unittest.TestCase):
     self.assertFalse(resolver.update_calibration(
       SOURCE_ID, CALIBRATION, generation=stale_generation))
     submit_stationary(resolver, clock, 1, 5)
-    self.assertEqual(last_context(published)["reason_detail"], "calibration_missing")
+    self.assertEqual(last_context(published)["reason_detail"], "calibration_changed")
     self.assertFalse(last_context(published)["valid"])
 
     current_generation = resolver.calibration_generation(SOURCE_ID)
@@ -561,4 +661,4 @@ class TestPTZResolver(unittest.TestCase):
 
     resolver.invalidate_calibration(SOURCE_ID)
     self.assertEqual(metrics.snapshot()["positioning_calibration_version_info"], [
-      {"source_id": SOURCE_ID, "calibration_version": None}])
+      {"source_id": SOURCE_ID, "calibration_version": MODEL.calibration_version}])

@@ -3,45 +3,25 @@
 
 """Read Manager-owned PTZ calibration and home pose for the Resolver."""
 
-from requests.adapters import HTTPAdapter
+from requests.exceptions import ConnectionError, Timeout
 
 from positioning.ptz_model import PTZCalibrationError, load_ptz_model
-from positioning.resolver import PTZSourceCalibration
+from positioning.ptz_resolver import PTZSourceCalibration
 from scene_common.rest_client import RESTClient
-
-
-class _ManagerTimeoutAdapter(HTTPAdapter):
-  """Supply the timeout omitted by the shared REST client's HTTP calls."""
-
-  def __init__(self, timeout):
-    super().__init__()
-    self.timeout = timeout
-
-  def send(self, request, **kwargs):
-    if kwargs.get("timeout") is None:
-      kwargs["timeout"] = self.timeout
-    return super().send(request, **kwargs)
-
-
-class _ManagerRESTClient(RESTClient):
-  """Apply Positioning's Manager timeout before authenticating."""
-
-  def __init__(self, url, auth, rootcert, timeout=10):
-    super().__init__(url, rootcert=rootcert, timeout=timeout)
-    self.session.mount("http://", _ManagerTimeoutAdapter(timeout))
-    self.session.mount("https://", _ManagerTimeoutAdapter(timeout))
-    if auth:
-      self._parseAuth(auth)
 
 
 class ManagerCalibrationError(RuntimeError):
   """Raised when a Manager camera record cannot be loaded safely."""
 
 
+class ManagerCalibrationTransportError(ManagerCalibrationError):
+  """Raised when a request fails without a definitive Manager response."""
+
+
 class ManagerCalibrationLoader:
   """Lazily authenticate to Manager and load camera calibration on demand."""
 
-  def __init__(self, url, auth, root_cert, client_factory=_ManagerRESTClient):
+  def __init__(self, url, auth, root_cert, client_factory=RESTClient):
     self.url = url
     self.auth = auth
     self.root_cert = root_cert
@@ -55,6 +35,9 @@ class ManagerCalibrationLoader:
         self._client = self.client_factory(
           self.url, auth=self.auth, rootcert=self.root_cert, timeout=10)
       camera = self._client.getCamera(source_id)
+    except (ConnectionError, Timeout) as error:
+      self._client = None
+      raise ManagerCalibrationTransportError("Manager camera request failed") from error
     except Exception as error:
       self._client = None
       raise ManagerCalibrationError("Manager camera request failed") from error
