@@ -75,12 +75,41 @@ graph LR
 
 | Topic                      | Description                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------- |
-| `scenescape/data/camera/+` | Detection messages from AI pipeline with bounding boxes in pixel coordinates |
+| `scenescape/data/camera/+` | Detection messages with pixel bounding boxes or sensor-frame 3D measurements |
 | `scenescape/cmd/database`  | Database change notifications from Manager API (dynamic mode only)           |
 
 **Detection Message:**
 
 See full schema: [`camera-data.schema.json`](../../tracker/schema/camera-data.schema.json)
+
+Each detection must use exactly one geometry form: `bounding_box_px`, or
+`translation` plus `size`. Pixel boxes are projected using the configured
+camera calibration. A 3D position is expressed in the sensor frame associated
+with the registered sensor ID in the topic, in metres; Tracker transforms it
+into world coordinates using that sensor's configured pose. `size` is `[length, width, height]` in
+metres. Optional `rotation` is a sensor-frame quaternion in `[x, y, z, w]`
+order. Tracker composes it with the sensor pose and supplies the resulting
+world Z-yaw to the tracking filter; pitch and roll are not tracked. A zero-norm
+quaternion is treated as absent orientation.
+
+Example sensor-frame 3D detection:
+
+```json
+{
+  "id": "atag-qcam1",
+  "timestamp": "2026-01-20T10:05:01.482Z",
+  "objects": {
+    "vehicle": [
+      {
+        "id": 1,
+        "translation": [1.25, -2.5, 0.75],
+        "size": [4.0, 1.8, 1.6],
+        "rotation": [0.0, -0.3429, 0.0, 0.9394]
+      }
+    ]
+  }
+}
+```
 
 ```json
 {
