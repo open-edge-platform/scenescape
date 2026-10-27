@@ -25,6 +25,8 @@ from .validators import validate_glb
 STAGING_SUBDIR = 'glb_staging'
 STAGING_TTL_SECONDS = 24 * 3600
 MAX_GLB_BYTES = settings.GLB_UPLOAD_MAX_BYTES
+# Staged GLBs are z-up (generated meshes and most exports), so no X rotation is applied
+ALIGN_ROTATION_X = 0.0
 
 
 def staging_dir():
@@ -95,7 +97,7 @@ def build_preview(token):
   @return  (footprint_m, px_per_m) with footprint_m = {"width": W, "height": H} in metres
   """
   scene = Scene(map=f'{STAGING_SUBDIR}/{token}.glb')
-  width, height, _ = scene.autoAlignSceneMap()
+  width, height, _ = scene.autoAlignSceneMap(rotation_x=ALIGN_ROTATION_X)
   img_data, px_per_m = generateOrthoView(scene, scene.map.path)
   Image.fromarray(np.uint8(img_data)).save(os.path.join(staging_dir(), f'{token}.png'), format='PNG')
   return {'width': float(width), 'height': float(height)}, float(px_per_m)
@@ -157,6 +159,14 @@ def parse_anchor(anchor):
   return lat, lng, heading % 360.0
 
 
+def remove_stored_file(storage, name):
+  """Best-effort delete of a file from map storage; failures are ignored."""
+  try:
+    storage.delete(name)
+  except Exception:
+    pass
+
+
 def commit_glb(scene, token, anchor, acknowledged):
   """Make a staged GLB the scene map, with corners computed from the anchor.
 
@@ -180,7 +190,7 @@ def commit_glb(scene, token, anchor, acknowledged):
     with transaction.atomic():
       with open(path, 'rb') as f:
         scene.map.save(f'{scene.name}.glb', File(f), save=False)
-      width, height, _ = scene.autoAlignSceneMap()
+      width, height, _ = scene.autoAlignSceneMap(rotation_x=ALIGN_ROTATION_X)
       scene.map_corners_lla = localFootprintCornersLLA(lat, lng, heading, width, height).tolist()
       scene.trs_matrix = None
       scene.osm_ways_cache = None
@@ -188,18 +198,12 @@ def commit_glb(scene, token, anchor, acknowledged):
       scene.save()
   except Exception:
     if scene.map.name != old_map:
-      try:
-        scene.map.storage.delete(scene.map.name)
-      except Exception:
-        pass
+      remove_stored_file(scene.map.storage, scene.map.name)
     raise
 
   remove_staged_files(str(uuid.UUID(token)))
   if old_map and scene.map and old_map != scene.map.name:
-    try:
-      scene.map.storage.delete(old_map)
-    except Exception:
-      pass
+    remove_stored_file(scene.map.storage, old_map)
 
   return saved_alignment(scene)
 

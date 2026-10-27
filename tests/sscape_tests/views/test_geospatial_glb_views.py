@@ -22,6 +22,8 @@ import numpy as np
 
 from manager import glb_alignment
 from manager.models import Scene, Region, RegionPoint, SingletonSensor
+from scene_common.glb_top_view import getMeshSize
+from scene_common.mesh_util import extractMeshFromGLB
 
 
 TEST_GLB_FILE = Path(__file__).resolve().parent.parent / "mesh_util" / "test_data" / "scene.glb"
@@ -87,6 +89,8 @@ class TestGeospatialGlbPreview(TestCase):
     png_path = os.path.join(self.staging_dir, f"{result['token']}.png")
     self.assertTrue(os.path.exists(glb_path))
     self.assertTrue(os.path.exists(png_path))
+    rendered_scene = self.render_mock.call_args[0][0]
+    self.assertEqual(rendered_scene.rotation_x, 0.0)
 
   def test_uploaded_filename_is_server_token_not_client_name(self):
     """Uploaded file with malicious name saved as <uuid>.glb only."""
@@ -337,7 +341,13 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     self.assertIsNone(self.scene.trs_matrix)
     self.assertIsNone(self.scene.osm_ways_cache)
     self.assertIsNone(self.scene.osm_ways_cache_bbox)
-    self.assertEqual(self.scene.rotation_x, 90.0)
+    self.assertEqual(self.scene.rotation_x, 0.0)
+
+    # Footprint follows the unrotated X/Y extents of the committed GLB
+    mesh, _ = extractMeshFromGLB(self.scene.map.path, rotation=np.zeros(3))
+    extent_w, extent_h, _ = getMeshSize(mesh)
+    self.assertAlmostEqual(result['footprint_m']['width'], extent_w, places=2)
+    self.assertAlmostEqual(result['footprint_m']['height'], extent_h, places=2)
 
     # Staged file removed, old map deleted
     self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
