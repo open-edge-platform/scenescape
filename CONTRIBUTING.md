@@ -22,7 +22,7 @@ The autocalibration, mapping, and manager services each have a hand-authored
 OpenAPI document (under `docs/user-guide/microservices/*/_assets/*.yaml` or
 `docs/user-guide/api-docs/api.yaml`). Changes to these services' API behavior
 must either match the existing spec or update the spec to match -- never
-both drifting apart silently. `make check-autocalibration-contract`,
+both drifting apart silently. `make check-manager-contract`, `make check-autocalibration-contract`,
 `make check-mapping-contract`. None of these checks ever rewrite a spec file themselves.
 
 ## Sign your work
