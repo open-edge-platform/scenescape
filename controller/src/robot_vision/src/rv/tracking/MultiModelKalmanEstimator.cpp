@@ -379,7 +379,7 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   cv::Mat combinedState;
   cv::Mat combinedCovariance;
 
-  updateModelProbability(newMeasurement.measurementVector(),
+  updateModelProbability(cv::Mat(newMeasurement.measurementVector()),
                          predictedMeasurements,
                          measurementCovariances,
                          mModelProbability,

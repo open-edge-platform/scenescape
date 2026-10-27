@@ -105,20 +105,11 @@ void TrackedObject::setStateVector(const cv::Mat &vector)
 }
 
 /**
- * @brief Convert to a cv::Mat vector.
+ * @brief Convert to a fixed-size measurement vector.
  */
-cv::Mat TrackedObject::measurementVector() const
+TrackedObject::MeasurementVector TrackedObject::measurementVector() const
 {
-  cv::Mat vector(MeasurementSize, 1, CV_64F);
-  vector.at<double>(0, 0) = x;
-  vector.at<double>(1, 0) = y;
-  vector.at<double>(2, 0) = z;
-  vector.at<double>(3, 0) = length;
-  vector.at<double>(4, 0) = width;
-  vector.at<double>(5, 0) = height;
-  vector.at<double>(6, 0) = yaw;
-
-  return vector;
+  return MeasurementVector(x, y, z, length, width, height, yaw);
 }
 
 

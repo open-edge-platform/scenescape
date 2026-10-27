@@ -86,9 +86,11 @@ public:
   void setStateVector(const cv::Mat &vector);
 
   /**
-   * @brief Convert to a cv::Mat vector.
+   * @brief Convert to a fixed-size measurement vector (x, y, z, length, width, height, yaw).
+   *
+   * Converts to cv::Mat and cv::InputArray where those are needed.
    */
-  cv::Mat measurementVector() const;
+  MeasurementVector measurementVector() const;
 };
 
 
