@@ -1217,6 +1217,8 @@ paths:
           description: Missing geospatial bounds, invalid bounds, OHSOME_API_KEY not configured on the server, too many OSM features in the area (select a smaller area), or OSM query error
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden
         "404":
           description: Scene not found
         "500":
@@ -1291,6 +1293,8 @@ paths:
           description: Missing rois, invalid roi points (fewer than 3 [x, y] pairs), duplicate uuids in the request, or name/type too long
         "401":
           description: Unauthorized
+        "403":
+          description: Forbidden
         "404":
           description: Scene not found
         "409":

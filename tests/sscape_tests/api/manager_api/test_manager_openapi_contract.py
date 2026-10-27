@@ -10,7 +10,7 @@ with ``api.yaml``. Neither test rewrites the spec.
 """
 
 from pathlib import Path
-
+import re
 import pytest
 from django.core.wsgi import get_wsgi_application
 from hypothesis import HealthCheck, settings
@@ -76,7 +76,7 @@ def _route_to_spec_path(route):
       if depth == 0:
         path += group[1:-1] if group[1:-1].isalpha() else "{}"
         group = ""
-  return path
+  return re.sub(r"<[^>]+>", "{}", path)
 
 
 def _resolver_operations():
