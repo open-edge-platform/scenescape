@@ -11,7 +11,7 @@ from unittest.mock import patch
 
 import pytest
 
-from reid_service import reid_registry
+from reid import reid_registry
 
 
 @pytest.fixture(autouse=True)

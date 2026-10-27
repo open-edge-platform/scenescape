@@ -154,6 +154,13 @@ for containerized test targets.
 Service-specific examples belong in each service guide (for controller, see
 `controller/Agents.md`).
 
+### Required Python Complexity Check
+
+After adding or changing first-party Python application code, run `make complexity-check SERVICE=<name>`
+for each touched service, or `make complexity-check` when more than one service is touched.
+A non-zero exit must be fixed before the change is finished or pushed.
+See the [Python skill](skills/python/SKILL.md#required-complexity-check) for baseline rules.
+
 ## Code Patterns & Conventions
 
 **Python Packaging**:

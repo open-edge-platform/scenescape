@@ -534,7 +534,8 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
     }
 
     let camPoints = calibration.camCanvas.getCalibrationPoints?.() || {};
-    let mapPoints = calibration.viewport.getCalibrationPoints?.(true) || {};
+    // Unscaled world meters — same units addCalibrationPoint / save expect.
+    let mapPoints = calibration.viewport.getCalibrationPoints?.() || {};
 
     // Fallback for environments where init callbacks run but initial points are
     // not populated before tests interact with the page.
@@ -548,7 +549,7 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
       if (transformsValue && transformType) {
         calibration.addInitialCalibrationPoints(transformsValue.split(','), transformType);
         camPoints = calibration.camCanvas.getCalibrationPoints?.() || {};
-        mapPoints = calibration.viewport.getCalibrationPoints?.(true) || {};
+        mapPoints = calibration.viewport.getCalibrationPoints?.() || {};
       }
     }
 
@@ -620,8 +621,10 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
   cam_points = browser.execute_script(
     "return Object.values(window.camera_calibration.camCanvas.getCalibrationPoints());"
   )
+  # Unscaled world meters — must match addCalibrationPoint / form save units.
+  # getCalibrationPoints(true) multiplies by sceneScale and corrupts round-trips.
   map_points = browser.execute_script(
-    "return Object.values(window.camera_calibration.viewport.getCalibrationPoints(true));"
+    "return Object.values(window.camera_calibration.viewport.getCalibrationPoints());"
   )
   if not cam_points or not map_points:
     return False
@@ -634,11 +637,19 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
     const cameraPoints = arguments[0];
     const mapPoints = arguments[1];
     const calibration = window.camera_calibration;
-    calibration.camCanvas.clearCalibrationPoints();
-    calibration.viewport.clearCalibrationPoints();
+    // Reset fit state / rejection set so Save is not gated on a stale result.
+    if (typeof calibration.clearCalibrationPoints === "function") {
+      calibration.clearCalibrationPoints();
+    } else {
+      calibration.camCanvas.clearCalibrationPoints();
+      calibration.viewport.clearCalibrationPoints();
+    }
     cameraPoints.forEach(([x, y]) => calibration.camCanvas.addCalibrationPoint(x, y));
     mapPoints.forEach(([x, y, z]) => calibration.viewport.addCalibrationPoint(x, y, z));
     calibration.camCanvas.drawImage();
+    if (typeof calibration.calculateCalibrationIntrinsics === "function") {
+      calibration.calculateCalibrationIntrinsics();
+    }
     """,
     cam_points,
     map_points,
@@ -646,6 +657,20 @@ def change_cam_calibration(browser, cam_view_x, map_view_x, save_calibration=Tru
 
   print("Changed the Camera Perspective")
   if save_calibration:
+    # Wait for the refit so Save is not blocked by pending/stale/failed state.
+    try:
+      wait.until(
+        lambda drv: drv.execute_script(
+          "const s = window.camera_calibration?.calibrationFitState;"
+          "return s === 'ready' || s === 'idle';"
+        )
+      )
+    except Exception:
+      fit_state = browser.execute_script(
+        "return window.camera_calibration?.calibrationFitState;"
+      )
+      print(f"Calibration fit did not become ready before save (state={fit_state})")
+      return False
     calibration_form = browser.find_element(By.ID, "calibration_form")
     browser.find_element(By.NAME, "calibrate_save").click()
     wait.until(EC.staleness_of(calibration_form))

@@ -6,6 +6,43 @@ from analytics.state import (
   RegionAnalyticsState,
   TripwireAnalyticsState,
 )
+from analytics.tripwire import TripwireEvent
+
+
+def test_rename_updates_retained_identity_references(make_analytics_object):
+  store = AnalyticsStateStore()
+  objects = [make_analytics_object(gid='track-1') for _ in range(4)]
+  other = make_analytics_object(gid='track-1', category='vehicle')
+  region = store.region('roi-1')
+  region.objects['person'] = [objects[0]]
+  region.entered['person'] = [objects[1]]
+  region.exited['person'] = [(objects[2], 7.0)]
+  region.objects['vehicle'] = [other]
+  region.when = 100.0
+  sensor = store.region('sensor-1')
+  sensor.objects['person'] = [objects[0]]
+  tripwire = store.tripwire('tw-1')
+  crossing = TripwireEvent(objects[3], 'forward')
+  tripwire.objects['person'] = [crossing]
+
+  store.update_object_id('person', 'track-1', 'gid-1')
+
+  assert all(obj.gid == 'gid-1' for obj in objects)
+  assert other.gid == 'track-1'
+  assert region.exited['person'][0][1] == 7.0
+  assert region.when == 100.0
+  assert sensor.objects['person'][0] is objects[0]
+  assert crossing.direction == 'forward'
+
+
+def test_rename_missing_identity_is_noop(make_analytics_object):
+  store = AnalyticsStateStore()
+  obj = make_analytics_object(gid='unrelated')
+  store.region('roi-1').objects['person'] = [obj]
+
+  store.update_object_id('person', 'missing', 'gid-1')
+
+  assert obj.gid == 'unrelated'
 
 
 class TestAnalyticsStateStoreRegion:

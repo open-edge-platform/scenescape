@@ -350,6 +350,7 @@ docker stats mapping
 When modifying the service, verify:
 
 - [ ] Unit tests pass: `make run_unit_tests`
+- [ ] Cognitive complexity passes: `make complexity-check SERVICE=mapping`
 - [ ] API endpoints return correct status codes
 - [ ] Model loads successfully on target device (CPU/GPU)
 - [ ] Map creation completes without errors

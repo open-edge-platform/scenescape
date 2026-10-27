@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+services:
+  nodered:
+    image: scenescape-sample-app:${VERSION:-latest}
+    build: .
+    networks:
+      - scenescape_scenescape
+    ports:
+      - "1880:1880"
+    volumes:
+      - nodered_data:/data
+
+networks:
+  scenescape_scenescape:
+    external: true
+
+volumes:
+  nodered_data:
+    driver: local
