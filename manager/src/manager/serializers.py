@@ -81,6 +81,15 @@ def _number_list(value, field, lengths=None):
     raise serializers.ValidationError({field: f"must be a list of {count}numbers"})
   return [float(item) for item in value]
 
+def _normalized_rotation(transform_type, rotation):
+  if transform_type != QUATERNION:
+    return rotation, transform_type
+  try:
+    euler = Rotation.from_quat(rotation).as_euler('XYZ', degrees=True).tolist()
+  except ValueError:
+    raise serializers.ValidationError({'rotation': "invalid quaternion"})
+  return euler, EULER
+
 class CenterSerializerField(serializers.DictField):
   def to_representation(self, obj):
     if hasattr(obj, 'map_x') and hasattr(obj, 'map_y') \
@@ -440,13 +449,7 @@ class CamSerializer(NonNullSerializer):
       rotation = _number_list(self.initial_data['rotation'], 'rotation',
                               (4,) if transform_type == QUATERNION else (3,))
       scale = _number_list(self.initial_data['scale'], 'scale', (3,))
-      # Convert quaternion to euler
-      if transform_type == QUATERNION:
-        try:
-          rotation = Rotation.from_quat(rotation).as_euler('XYZ', degrees=True).tolist()
-        except ValueError:
-          raise serializers.ValidationError({'rotation': "invalid quaternion"})
-        transform_type = EULER
+      rotation, transform_type = _normalized_rotation(transform_type, rotation)
       extended_data['transforms'] = translation + rotation + scale
 
     elif transform_type == POINT_CORRESPONDENCE:
@@ -658,9 +661,7 @@ class SceneSerializer(NonNullSerializer):
     if not self.initial_data:
       raise serializers.ValidationError({'body': ['Request body is required.']})
 
-    name = attrs.get('name', None)
-    if (name is None and not self.partial) or (name is not None and not name.strip()):
-      raise serializers.ValidationError({'name': ['This field is required.']})
+    self._validate_request_name(attrs)
 
     allowed = set(self.fields.keys()) | {
         "mesh_translation",
@@ -679,6 +680,17 @@ class SceneSerializer(NonNullSerializer):
     if attempted:
       raise serializers.ValidationError({field: ["This field is read-only."] for field in attempted})
 
+    self._validate_trs_matrix()
+    self._validate_output_lla(attrs)
+
+    return super().validate(attrs)
+
+  def _validate_request_name(self, attrs):
+    name = attrs.get('name', None)
+    if (name is None and not self.partial) or (name is not None and not name.strip()):
+      raise serializers.ValidationError({'name': ['This field is required.']})
+
+  def _validate_trs_matrix(self):
     trs_matrix = self.initial_data.get('trs_matrix', None)
     if trs_matrix is not None and (
         not isinstance(trs_matrix, list) or len(trs_matrix) != 4
@@ -686,6 +698,7 @@ class SceneSerializer(NonNullSerializer):
                    for row in trs_matrix)):
       raise serializers.ValidationError({'trs_matrix': ['Must be a 4x4 matrix of numbers.']})
 
+  def _validate_output_lla(self, attrs):
     if attrs.get('output_lla') is True:
       incoming_map_corners = attrs.get('map_corners_lla', None)
       existing_map_corners = getattr(self.instance, 'map_corners_lla', None)
@@ -694,8 +707,6 @@ class SceneSerializer(NonNullSerializer):
         raise serializers.ValidationError({
           'map_corners_lla': ['This field must be set when enabling output_lla.']
         })
-
-    return super().validate(attrs)
 
   def validate_name(self, value):
     qs = Scene.objects.filter(name=value)
