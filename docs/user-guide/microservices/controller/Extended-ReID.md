@@ -48,6 +48,14 @@ For `COSINE`, Scenescape uses an inner-product path with normalized vectors (VDM
 
 The controller validates returned similarity scores for the normalized-cosine path (`COSINE` mapped to backend IP/DOT) and discards out-of-range values. For non-cosine distance metrics (for example `L2`), vectors are not force-normalized and this `[-1, 1]` check is not applied.
 
+### Evaluating Replacement Models
+
+Use the [offline ReID evaluator](../../../../tools/reid_evaluation/README.md)
+to establish a labeled-crop baseline for the default model and compare future
+models. It reports retrieval/open-set metrics, calibrated operating points,
+model/preprocessing hashes, and inference timing without changing a live gallery.
+Unique-count error and end-to-end tracking behavior still require temporal replay.
+
 ### Limitations
 
 - Extended ReID is not compatible with the `--pose-adjustment` controller flag. When pose-based bounding box adjustment is enabled, Extended ReID must be disabled.

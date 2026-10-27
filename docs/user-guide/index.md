@@ -38,8 +38,9 @@ A key goal of Scenescape is to make writing applications and business logic fast
 
 Scenescape is built on a collection of containerized services that work together to deliver comprehensive functionality, ensuring seamless integration and operation.
 
-![Scenescape architecture diagram](./_assets/architecture.png "architecture diagram")
-Figure 1: Architecture Diagram
+![Scenescape architecture diagram](./_assets/scenescape-architecture-dataflow.drawio.svg "architecture diagram")
+
+_Figure 1: Architecture Diagram_
 
 ### **Scene Controller**
 

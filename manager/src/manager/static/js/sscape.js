@@ -27,15 +27,46 @@ import {
   startCameraCalibration,
   updateCalibrationView,
   handleAutoCalibrationPose,
+  registerAutoCameraCalibration,
 } from "/static/js/calibration.js";
+import {
+  unionPolygons,
+  bridgeRings,
+  closestPointOnSegment,
+} from "/static/js/regions/polygon-geometry.js";
+import {
+  initRoiGroups,
+  regroupRoiFields,
+  roiGroupColorForKey,
+} from "/static/js/regions/roi-groups.js";
+import {
+  beginSelectArea,
+  clearSelectionArea,
+  getSelectionBoundsPx,
+  selectionBoundsToMeters,
+  selectionMouseDown,
+  selectionMouseMove,
+  selectionMouseUp,
+} from "/static/js/regions/area-select.js";
 
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
 var points, maps, rois, tripwires, child_rois, child_tripwires, child_sensors;
 var dragging, drawing, adding, editing, fullscreen;
+var wasDragging = false;
 var g;
 var radius = 5;
 var scale = 30.0; // Default map scale in pixels/meter
+// The single region currently in edit mode (only one may be edited at a time)
+var activeEditGroup = null;
+// Vertices picked with ctrl+click for merging: two on one region, then two on another
+var mergeVertexSelection = [];
+// Max pixel distance from a polygon edge for a click to be treated as "insert a point here"
+var EDGE_INSERT_THRESHOLD_PX = 15;
+// Window for two right-clicks on a region to count as a double right-click
+var RIGHT_DOUBLE_CLICK_MS = 400;
+// Pointer movement past this is a drag, not a click
+var DRAG_SLOP_PX = 2;
 var scene_id = $("#scene").val();
 var icon_size = 24;
 var show_telemetry = false;
@@ -50,6 +81,13 @@ var scene_rotation_translation_config;
 points = maps = rois = tripwires = [];
 dragging = drawing = adding = editing = fullscreen = false;
 
+initRoiGroups({
+  onChange: stringifyRois,
+  isColoringEnabled: function () {
+    return is_coloring_enabled;
+  },
+});
+
 const socket = io({
   path: "/api/v1/autocalibration/socket.io",
   transports: ["websocket"],
@@ -62,10 +100,10 @@ socket.on("connect", async () => {
 
 socket.on("calibration_result", async (notification) => {
   console.log("Calibration result received:", notification);
-  if (notification.result && notification.result.status === "success") {
+  // handleAutoCalibrationPose re-enables the Auto Calibrate button on both
+  // success and failure so a failed attempt does not lock the user out.
+  if (notification.result) {
     handleAutoCalibrationPose(notification.result);
-  } else if (notification.result) {
-    alert("Calibration failed: " + notification.result.message);
   }
 });
 
@@ -317,8 +355,16 @@ async function checkBrokerConnections() {
 }
 
 $("#auto-autocalibration").on("click", async function () {
+  const btn = document.getElementById("auto-autocalibration");
+  if (btn?.dataset.registrationRetry === "1") {
+    await registerAutoCameraCalibration(scene_id, socket);
+    return;
+  }
+
   const camera_id = $("#sensor_id").val();
-  document.getElementById("auto-autocalibration").disabled = true;
+  if (btn) {
+    btn.disabled = true;
+  }
 
   if (socket.connected) {
     socket.emit("register_camera", { camera_id: camera_id });
@@ -354,6 +400,12 @@ $("#auto-autocalibration").on("click", async function () {
   );
   if (data.status === "error") {
     console.log("Calibration failed");
+    if (btn) {
+      btn.disabled = false;
+      btn.title =
+        data.message ||
+        "Calibration failed. Click to calibrate the camera automatically";
+    }
   } else {
     console.log("Calibration started:", data);
   }
@@ -367,6 +419,14 @@ function plotSingleton(m) {
 }
 
 function addPoly() {
+  // Prevent conflicts with the region being manually drawn: exit edit mode on
+  // whichever region was active and drop any in-progress vertex-merge picks.
+  if (activeEditGroup) {
+    exitEditMode(activeEditGroup);
+  }
+  clearMergeSelection();
+  clearSelectionArea();
+
   $("#svgout").addClass("adding-roi");
   adding = true;
 }
@@ -377,6 +437,7 @@ function cancelAddPoly() {
 }
 
 function addTripwire() {
+  clearSelectionArea();
   $("#svgout").addClass("adding-tripwire");
   adding = true;
 }
@@ -385,6 +446,114 @@ function cancelAddTripwire() {
   $("#svgout").removeClass("adding-tripwire");
   adding = false;
 }
+
+/**
+ * Begin dragging out a rectangular selection area on the map, used to scope
+ * the "delete" and "Suggest ROIs with OSM" actions to a sub-region of the scene.
+ * Exits any other in-progress tool first, since only one can be active at a time.
+ */
+function startSelectArea() {
+  if (activeEditGroup) {
+    exitEditMode(activeEditGroup);
+  }
+  clearMergeSelection();
+  cancelAddPoly();
+  cancelAddTripwire();
+  beginSelectArea();
+}
+
+/** Selection area in scene-local meters, or null if none is active. Used to scope OSM ROI generation. */
+function getSelectionBoundsMeters() {
+  return selectionBoundsToMeters(scale, scene_y_max);
+}
+
+/**
+ * Delete every ROI whose centroid falls inside the current selection area
+ * (bound to the Backspace key). No-op if there is no active selection.
+ */
+function deleteRoisInSelection() {
+  var bounds = getSelectionBoundsPx();
+  if (!bounds) return;
+
+  var matched = [];
+
+  svgCanvas.selectAll(".roi").forEach(function (group) {
+    var center = polyCenter(flattenVertexPoints(group));
+    // shortcut: centroid-in-box test, not full polygon/rectangle intersection;
+    // upgrade if large ROIs that only partially overlap the box should match too.
+    if (
+      center[0] >= bounds.minX &&
+      center[0] <= bounds.maxX &&
+      center[1] >= bounds.minY &&
+      center[1] <= bounds.maxY
+    ) {
+      matched.push(group);
+    }
+  });
+
+  if (matched.length === 0) {
+    clearSelectionArea();
+    return;
+  }
+
+  if (confirm("Delete " + matched.length + " ROI(s) in the selected area?")) {
+    matched.forEach(handleRegionDelete);
+  }
+  clearSelectionArea();
+}
+
+/**
+ * Build a rectangular ROI matching the current selection box, using the same
+ * finish-up path as manually drawn regions (closePolygon). No-op if there's
+ * no active selection.
+ */
+function createRoiFromSelection() {
+  var b = getSelectionBoundsPx();
+  if (!b) return;
+  if (activeEditGroup) {
+    exitEditMode(activeEditGroup);
+  }
+  clearMergeSelection();
+
+  var corners = [
+    [b.minX, b.minY],
+    [b.maxX, b.minY],
+    [b.maxX, b.maxY],
+    [b.minX, b.maxY],
+  ];
+
+  points = [];
+  g = svgCanvas.group();
+  g.addClass("drawPoly");
+  corners.forEach(function (corner, i) {
+    points.push(corner[0], corner[1]);
+    g.circle(corner[0], corner[1], radius).addClass(
+      i === 0 ? "start-point vertex" : "vertex",
+    );
+  });
+  g.polygon(points);
+
+  clearSelectionArea();
+  closePolygon();
+}
+
+// Backspace deletes every ROI inside the current selection area. Ignored while
+// typing in a form field so it doesn't hijack normal text editing.
+document.addEventListener("keydown", function (e) {
+  if (e.key !== "Backspace" || !getSelectionBoundsPx()) return;
+
+  var tag = (document.activeElement && document.activeElement.tagName) || "";
+  if (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    (document.activeElement && document.activeElement.isContentEditable)
+  ) {
+    return;
+  }
+
+  e.preventDefault();
+  deleteRoisInSelection();
+});
 
 function initArea(a) {
   cancelAddPoly();
@@ -451,6 +620,7 @@ function numberRois() {
     $("#no-regions").show();
   }
 
+  regroupRoiFields();
   numberTabs();
 }
 
@@ -509,6 +679,12 @@ function stringifyRois() {
   var groups = svgCanvas.selectAll(".roi");
 
   groups.forEach(function (g) {
+    // A hidden (deselected type group) OSM suggestion that was never saved is
+    // dropped; hidden regions that already exist are still saved, not deleted.
+    if (g.data("deselected") && g.data("osm_derived")) {
+      return;
+    }
+
     var i = g.attr("id");
     var title = $("#form-" + i + " input").val();
     var p = g.select("polygon");
@@ -549,6 +725,12 @@ function stringifyRois() {
       uuid: region_uuid,
     };
 
+    // Get ROI type if present
+    const typeElement = document.querySelector("#form-" + i + " .roi-type");
+    if (typeElement) {
+      entry.type = typeElement.value || "";
+    }
+
     if ($("#form-" + i).length) {
       const $formElement = $("#form-" + i);
       const volumetric =
@@ -570,6 +752,11 @@ function stringifyRois() {
       var range_max = parseInt(range_max_element.value);
       entry.range_max = range_max;
       entry.sectors = roi_sectors;
+    }
+
+    // Include osm_derived flag if this ROI was generated from OSM
+    if (g.data("osm_derived")) {
+      entry.osm_derived = true;
     }
 
     rois.push(entry);
@@ -660,25 +847,119 @@ function polyCenter(pts) {
   return center;
 }
 
+/**
+ * Select a region for editing. Only one region may be edited at a time:
+ * entering edit mode on a group exits it on whichever other group was active.
+ */
 function editPolygon(group) {
-  var circles = group.selectAll("circle");
-  if (editing) {
-    editing = false;
+  if (group.data("editing")) return;
 
-    circles.forEach(function (c) {
-      c.undrag();
-      c.removeClass("is-handle");
-    });
-
-    stringifyRois();
-  } else {
-    editing = true;
-
-    circles.forEach(function (c) {
-      c.drag(move, start, stop);
-      c.addClass("is-handle");
-    });
+  if (activeEditGroup && activeEditGroup.node !== group.node) {
+    exitEditMode(activeEditGroup);
   }
+
+  enterEditMode(group);
+  stringifyRois();
+}
+
+function enterEditMode(group) {
+  group.data("editing", true);
+  activeEditGroup = group;
+  editing = true;
+
+  // Bring the selected region to the front (among other regions) so its
+  // vertices/edges stay reachable, without covering sensor markers (which
+  // must stay on top per the layering drawRoi() establishes on creation)
+  var firstSensor = svgCanvas.selectAll(".sensor")[0];
+  if (firstSensor) {
+    group.insertBefore(firstSensor);
+  } else {
+    group.appendTo(group.parent());
+  }
+
+  group.selectAll("circle").forEach(function (c) {
+    bindVertexHandlers(group, c);
+  });
+}
+
+function exitEditMode(group) {
+  group.selectAll("circle").forEach(unbindVertexHandlers);
+
+  group.data("editing", false);
+  if (activeEditGroup && activeEditGroup.node === group.node) {
+    activeEditGroup = null;
+  }
+  editing = false;
+}
+
+function bindVertexHandlers(group, circle) {
+  circle.addClass("is-handle");
+  circle.drag(move, start, stop);
+
+  circle.click(function (evt) {
+    if (!evt.ctrlKey && !evt.metaKey) return;
+    evt.stopPropagation();
+    if (wasDragging) return;
+    handleVertexMergeClick(group, circle);
+  });
+
+  var onContextMenu = function (evt) {
+    evt.preventDefault();
+    evt.stopPropagation(); // Don't count toward the region's double right-click
+    if (wasDragging) return;
+    handleVertexDelete(circle, group);
+  };
+  circle.node.addEventListener("contextmenu", onContextMenu);
+  circle.data("onContextMenu", onContextMenu);
+}
+
+/** Vertices stay in the DOM but invisible outside edit mode, so unbind to keep them inert. */
+function unbindVertexHandlers(circle) {
+  circle.undrag();
+  circle.unclick();
+  circle.removeClass("is-handle");
+
+  var onContextMenu = circle.data("onContextMenu");
+  if (onContextMenu) {
+    circle.node.removeEventListener("contextmenu", onContextMenu);
+    circle.removeData("onContextMenu");
+  }
+}
+
+/**
+ * Bind the polygon body handlers, for the region's lifetime:
+ *   single click -> select/edit (or insert a point when near an edge while editing),
+ *   double right click -> delete the region.
+ */
+function bindPolygonClickHandler(group, poly) {
+  if (!poly) return;
+
+  poly.click(function (evt) {
+    evt.stopPropagation();
+
+    var closest = group.data("editing")
+      ? findClosestEdgePoint(group, evt)
+      : null;
+    if (closest && closest.distance <= EDGE_INSERT_THRESHOLD_PX) {
+      insertVertexOnEdge(group, closest);
+    } else {
+      editPolygon(group);
+    }
+  });
+
+  poly.node.addEventListener("contextmenu", function (evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+
+    var now = Date.now();
+    if (now - (group.data("lastRightClick") || 0) <= RIGHT_DOUBLE_CLICK_MS) {
+      group.removeData("lastRightClick");
+      handleRegionDelete(group);
+      return;
+    }
+
+    group.data("lastRightClick", now);
+  });
 }
 
 function closePolygon() {
@@ -695,9 +976,7 @@ function closePolygon() {
     .select(".start-point")
     .removeClass("start-point");
 
-  group.dblclick(function () {
-    editPolygon(this);
-  });
+  bindPolygonClickHandler(group, group.select("polygon"));
 
   if ($(".sensor").length) group.insertBefore(svgCanvas.select(".sensor"));
 
@@ -718,32 +997,49 @@ function closePolygon() {
   stringifyRois();
 }
 
+/** Map image extent in pixels, or null if the image isn't rendered yet. */
+function mapBoundsPx() {
+  var image = $("#svgout image")[0];
+  if (!image) return null;
+
+  return {
+    width: image.width.baseVal.value,
+    height: image.height.baseVal.value,
+  };
+}
+
+/**
+ * Clamp a point to the map image. Region vertices outside the map can't be
+ * clicked, which would put parts of a region beyond the user's control.
+ */
+function clampPointToMap(x, y) {
+  var bounds = mapBoundsPx();
+  if (!bounds) return [x, y];
+
+  return [
+    Math.min(Math.max(x, 0), bounds.width),
+    Math.min(Math.max(y, 0), bounds.height),
+  ];
+}
+
 function move(dx, dy) {
   var group = this.parent();
-  var circles = group.selectAll("circle");
-  group.select("polygon").remove();
-  points = [];
+  var clamped = clampPointToMap(
+    this.data("origX") + dx,
+    this.data("origY") + dy,
+  );
+
+  if (Math.abs(dx) > DRAG_SLOP_PX || Math.abs(dy) > DRAG_SLOP_PX) {
+    wasDragging = true;
+  }
 
   this.attr({
-    cx: this.data("origX") + dx,
-    cy: this.data("origY") + dy,
+    cx: clamped[0],
+    cy: clamped[1],
   });
 
-  circles.forEach(function (c) {
-    points.push(c.attr("cx"), c.attr("cy"));
-  });
-
-  var poly = group.polygon(points);
-  poly.prependTo(poly.node.parentElement);
-
-  var text = group.select("text");
-  var center = polyCenter(points);
-  if (text) {
-    text.attr({
-      x: center[0],
-      y: center[1],
-    });
-  }
+  rebuildPolygon(group);
+  updateRegionLabel(group);
 }
 
 function move1(dx, dy) {
@@ -777,6 +1073,7 @@ function move1(dx, dy) {
 
 function start() {
   dragging = true;
+  wasDragging = false;
 
   if (this.type === "circle") {
     this.data("origX", parseInt(this.attr("cx")));
@@ -789,7 +1086,287 @@ function start() {
 
 function stop() {
   dragging = false;
+  // wasDragging is set by move(); clear it once the ensuing click has been handled
+  setTimeout(function () {
+    wasDragging = false;
+  }, 10);
   points = [];
+}
+
+/**
+ * Remove a single vertex (right-clicked). Guards against false positives after a
+ * drag, and falls back to deleting the region when too few vertices would remain.
+ */
+function handleVertexDelete(circle, group) {
+  // Guard: don't delete if we just finished dragging this vertex
+  if (wasDragging) {
+    return;
+  }
+
+  var circleCount = group.selectAll("circle").length;
+
+  // If removing this vertex would leave < 3 points, delete the entire region instead
+  if (circleCount <= 3) {
+    handleRegionDelete(group);
+    return;
+  }
+
+  // Remove the clicked circle from the DOM
+  circle.remove();
+
+  rebuildPolygon(group);
+  updateRegionLabel(group);
+
+  // Sync the hidden #id_rois field (local update only, no form submission)
+  stringifyRois();
+}
+
+/**
+ * Handle whole-region deletion (used by both polygon-click and vertex-underflow paths).
+ * Removes SVG group and form row, updates numbering and hidden field.
+ */
+function handleRegionDelete(group) {
+  var groupId = group.attr("id");
+
+  dropMergeSelectionsFor(group);
+
+  // Remove SVG group
+  group.remove();
+
+  // Remove corresponding form row
+  var formRow = $("#form-" + groupId);
+  if (formRow.length) {
+    formRow.remove();
+  }
+
+  // Update numbering and sync hidden field (local update only)
+  numberRois();
+  stringifyRois();
+}
+
+/**
+ * Rebuild a region's <polygon> from its current circle vertices (in DOM order).
+ * Replacing the element drops its click listener, so the body click handler
+ * (merge / edge-insert / delete) is re-bound. Preserve the polygon's inline
+ * stroke and fill styles so the region color is maintained across vertex edits.
+ */
+function rebuildPolygon(group) {
+  var oldPoly = group.select("polygon");
+  var stroke = oldPoly ? oldPoly.node.style.stroke : "";
+  var fill = oldPoly ? oldPoly.node.style.fill : "";
+  if (oldPoly) oldPoly.remove();
+
+  var poly = group.polygon(flattenVertexPoints(group));
+  poly.prependTo(poly.node.parentElement);
+  if (stroke) poly.node.style.stroke = stroke;
+  if (fill) poly.node.style.fill = fill;
+
+  bindPolygonClickHandler(group, poly);
+
+  return poly;
+}
+
+/** Vertex centers of a region, as [[x, y], ...] in DOM (winding) order. */
+function vertexPoints(group) {
+  var pts = [];
+  group.selectAll("circle").forEach(function (c) {
+    pts.push([parseFloat(c.attr("cx")), parseFloat(c.attr("cy"))]);
+  });
+  return pts;
+}
+
+/** Same as vertexPoints(), flattened to [x1, y1, x2, y2, ...] for <polygon>. */
+function flattenVertexPoints(group) {
+  var flat = [];
+  vertexPoints(group).forEach(function (p) {
+    flat.push(p[0], p[1]);
+  });
+  return flat;
+}
+
+/** Re-center a region's name label on its current vertices. */
+function updateRegionLabel(group) {
+  var text = group.select("text");
+  if (!text) return;
+
+  var center = polyCenter(flattenVertexPoints(group));
+  text.attr({
+    x: center[0],
+    y: center[1],
+  });
+}
+
+/**
+ * Ctrl+click vertex selection for merging: pick two vertices on one region, then
+ * two on another. The picked pairs mark where each outline opens up; the regions
+ * are then joined along those openings into one continuous outline.
+ */
+function handleVertexMergeClick(group, circle) {
+  if (!group.hasClass("roi")) return;
+
+  for (var i = 0; i < mergeVertexSelection.length; i++) {
+    if (mergeVertexSelection[i].circle.node === circle.node) {
+      mergeVertexSelection[i].circle.removeClass("merge-vertex");
+      mergeVertexSelection.splice(i, 1);
+      return;
+    }
+  }
+
+  if (mergeVertexSelection.length >= 4) return;
+
+  // Picks 1-2 must share a region; picks 3-4 must share a different one
+  var expectedGroup = null;
+  if (mergeVertexSelection.length === 1) {
+    expectedGroup = mergeVertexSelection[0].group;
+  } else if (mergeVertexSelection.length === 3) {
+    expectedGroup = mergeVertexSelection[2].group;
+  }
+  if (expectedGroup && expectedGroup.node !== group.node) return;
+
+  if (
+    mergeVertexSelection.length === 2 &&
+    mergeVertexSelection[0].group.node === group.node
+  ) {
+    return;
+  }
+
+  mergeVertexSelection.push({ group: group, circle: circle });
+  circle.addClass("merge-vertex");
+
+  if (mergeVertexSelection.length === 4) {
+    mergeSelectedVertices();
+  }
+}
+
+function clearMergeSelection() {
+  mergeVertexSelection.forEach(function (sel) {
+    sel.circle.removeClass("merge-vertex");
+  });
+  mergeVertexSelection = [];
+}
+
+function dropMergeSelectionsFor(group) {
+  mergeVertexSelection = mergeVertexSelection.filter(function (sel) {
+    if (sel.group.node !== group.node) return true;
+    sel.circle.removeClass("merge-vertex");
+    return false;
+  });
+}
+
+/** Position of a circle within its region's vertex ring, or -1. */
+function vertexIndex(group, circle) {
+  var index = -1;
+  var i = 0;
+  group.selectAll("circle").forEach(function (c) {
+    if (c.node === circle.node) index = i;
+    i++;
+  });
+  return index;
+}
+
+/**
+ * Join the two selected regions into one continuous region. The first region
+ * keeps its form row (name, settings); the second is removed.
+ */
+function mergeSelectedVertices() {
+  var groupA = mergeVertexSelection[0].group;
+  var groupB = mergeVertexSelection[2].group;
+  var A = vertexPoints(groupA);
+  var B = vertexPoints(groupB);
+
+  var ring = unionPolygons(A, B);
+
+  // Overlapping outlines can't be bridged without self-intersecting, so they are
+  // unioned above; separated ones are joined at the picked vertices instead.
+  if (!ring) {
+    ring = bridgeRings(
+      A,
+      vertexIndex(groupA, mergeVertexSelection[0].circle),
+      vertexIndex(groupA, mergeVertexSelection[1].circle),
+      B,
+      vertexIndex(groupB, mergeVertexSelection[2].circle),
+      vertexIndex(groupB, mergeVertexSelection[3].circle),
+    );
+  }
+
+  clearMergeSelection();
+
+  if (!ring) {
+    alert(
+      "Those regions can't be joined into one shape. If they are apart, pick the " +
+        "vertices on the sides that face each other.",
+    );
+    return;
+  }
+
+  if (groupA.data("editing")) exitEditMode(groupA);
+  if (groupB.data("editing")) exitEditMode(groupB);
+
+  groupA.selectAll("circle").forEach(function (c) {
+    c.remove();
+  });
+  ring.forEach(function (p) {
+    groupA.circle(p[0], p[1], radius).addClass("vertex");
+  });
+
+  handleRegionDelete(groupB);
+
+  rebuildPolygon(groupA);
+  updateRegionLabel(groupA);
+
+  numberRois();
+  stringifyRois();
+}
+
+/**
+ * Insert a new, draggable vertex at the clicked point on the polygon boundary,
+ * directly after the preceding vertex in winding order.
+ */
+function insertVertexOnEdge(group, closest) {
+  var clamped = clampPointToMap(closest.point[0], closest.point[1]);
+  var newCircle = group
+    .circle(clamped[0], clamped[1], radius)
+    .addClass("vertex");
+
+  newCircle.insertAfter(closest.before);
+  bindVertexHandlers(group, newCircle);
+
+  rebuildPolygon(group);
+  stringifyRois();
+}
+
+/**
+ * Find the point on the polygon's boundary (nearest edge segment) closest to a click.
+ * Returns {point: [x, y], before: <circle preceding this edge>, distance} or null.
+ */
+function findClosestEdgePoint(group, evt) {
+  var circleArr = [];
+  group.selectAll("circle").forEach(function (c) {
+    circleArr.push(c);
+  });
+
+  if (circleArr.length < 2) return null;
+
+  var offset = $("#svgout").offset();
+  var clickPoint = [evt.pageX - offset.left, evt.pageY - offset.top];
+
+  var closest = null;
+
+  circleArr.forEach(function (circle, i) {
+    var next = circleArr[(i + 1) % circleArr.length];
+    var a = [parseFloat(circle.attr("cx")), parseFloat(circle.attr("cy"))];
+    var b = [parseFloat(next.attr("cx")), parseFloat(next.attr("cy"))];
+    var projected = closestPointOnSegment(clickPoint, a, b);
+    var dx = clickPoint[0] - projected[0];
+    var dy = clickPoint[1] - projected[1];
+    var distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (!closest || distance < closest.distance) {
+      closest = { point: projected, before: circle, distance: distance };
+    }
+  });
+
+  return closest;
 }
 
 function stop1() {
@@ -933,24 +1510,6 @@ function getRoiValues(id, roi) {
   return cur_rois;
 }
 
-function find_duplicates(curr_roi) {
-  const nameCounts = new Map();
-  const duplicates = new Set();
-
-  for (const name of curr_roi) {
-    const trimmedName = name.trim();
-    if (trimmedName) {
-      if (nameCounts.has(trimmedName)) {
-        duplicates.add(trimmedName);
-      } else {
-        nameCounts.set(trimmedName, 1);
-      }
-    }
-  }
-
-  return Array.from(duplicates);
-}
-
 function updateArrow(group) {
   var arrow = group.select(".arrow");
   var label = group.select(".label");
@@ -1085,16 +1644,29 @@ function setupCalibrationType() {
 
 // Function to save roi and tripwires
 function saveRois(roi_values) {
-  var duplicates = find_duplicates(roi_values);
-  if (duplicates.length > 0) {
-    alert(duplicates.toString() + " already exists. Try a different name");
-  } else {
-    $("#roi-form").submit();
-  }
+  $("#roi-form").submit();
 }
 
 if (svgCanvas) {
+  // Clicking empty canvas deselects the region being edited and drops merge picks
+  svgCanvas.click(function () {
+    if (adding || dragging || wasDragging) return;
+    clearMergeSelection();
+    if (!activeEditGroup) return;
+    exitEditMode(activeEditGroup);
+    stringifyRois();
+  });
+
+  // Drag out the selection-area rectangle while the "Select Area" tool is active
+  svgCanvas.mousedown(function (e) {
+    selectionMouseDown(svgCanvas, e);
+  });
+
+  svgCanvas.mousemove(selectionMouseMove);
+
   svgCanvas.mouseup(function (e) {
+    if (selectionMouseUp(e, DRAG_SLOP_PX)) return;
+
     if (dragging || !adding) return;
     drawing = true;
 
@@ -1212,10 +1784,9 @@ function drawRoi(e, index, type) {
     var g = svgCanvas.group();
     g.attr("id", i).addClass(type);
 
-    e.points.forEach(function (m) {
-      var p = metersToPixels(m, scale, scene_y_max);
-      var cir = g.circle(p[0], p[1], radius).addClass("vertex");
-    });
+    for (var pt = 0; pt < roi_points.length; pt += 2) {
+      g.circle(roi_points[pt], roi_points[pt + 1], radius).addClass("vertex");
+    }
 
     var poly = g.polygon(roi_points);
     poly.addClass("poly");
@@ -1223,9 +1794,7 @@ function drawRoi(e, index, type) {
     // Reorder so the polygon is on the bottom
     poly.prependTo(poly.node.parentElement);
 
-    g.dblclick(function () {
-      editPolygon(this);
-    });
+    bindPolygonClickHandler(g, poly);
 
     // Set ROI before (and below) sensor circle if on sensor page
     if ($(".sensor").length) {
@@ -1285,6 +1854,14 @@ function drawRoi(e, index, type) {
           .find(".roi-buffer")
           .val(e.buffer_size);
       }
+
+      // Set ROI type field
+      if (e.type !== undefined) {
+        $("#form-" + i)
+          .find(".roi-type")
+          .val(e.type);
+      }
+
       for (var sector in e.sectors.thresholds) {
         var color = e.sectors.thresholds[sector].color;
         var min = e.sectors.thresholds[sector].color_min;
@@ -1420,7 +1997,12 @@ function setROIColor(roi_id, occupancy) {
       var color = getColorForValue(roi_id, occupancy, roi_color_sectors);
       roi_polygon.style.fill = color;
     } else {
-      roi_polygon.style.fill = "white";
+      var typeInput = document.querySelector(
+        '.form-roi[for="roi_' + roi_id + '"] .roi-type',
+      );
+      roi_polygon.style.fill = typeInput
+        ? roiGroupColorForKey(typeInput.value.trim())
+        : "white";
     }
   }
 }
@@ -2104,13 +2686,27 @@ $(document).ready(function () {
       }
 
       $("#new-roi").on("click", function () {
-        addPoly();
+        // A finished selection box becomes a ready-made rectangular ROI instead
+        // of starting the click-by-click polygon tool.
+        if (getSelectionBoundsPx()) {
+          createRoiFromSelection();
+        } else {
+          addPoly();
+        }
       });
 
       $("#new-tripwire").on("click", function () {
         addTripwire();
       });
 
+      $("#select-roi-area").on("click", function () {
+        startSelectArea();
+      });
+
+      // Single-item removal via the trash icon is a direct, final action (unlike
+      // the staged region-selection/merge/auto-ROI tooling, which uses
+      // handleRegionDelete() for local-only edits pending an explicit Save).
+      // Persist it immediately, as with the rest of the manual ROI/tripwire flow.
       $(".roi-remove").on("click", function () {
         var $group = $(this).closest(".form-roi");
         var r = confirm("Are you sure you wish to remove this ROI?");
@@ -2308,3 +2904,13 @@ $(document).ready(function () {
     return true; // Normally submit the form
   });
 });
+
+// Export functions for ES module consumers (e.g., scene-update-osm-roi.js)
+export {
+  drawRoi,
+  numberRois,
+  stringifyRois,
+  editPolygon,
+  getSelectionBoundsMeters,
+  clearSelectionArea,
+};
