@@ -27,11 +27,12 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 1. Switch the "Map Type" to "Geospatial Map".
 1. Select the provider for which you have configured the API key.
 1. Type the address of interest in the "Location" field and click "Go".
-1. Use the controls on the map frame to zoom in or out as needed.
+1. Use the controls on the map frame to zoom in or out as needed. The map is always north-up; rotation is disabled for every provider so that the generated map corners match the scene axes.
 1. Click "Generate Geospatial Bounds & Snapshot" so that:
    - "Output Geospatial Coordinates" field is set to "Yes".
    - "Map Corners" are autopopulated with the geospatial coordinates of the four corners of the map.
    - "Pixels per meter" field is autopopulated with the scale of the scene.
+   - A scene previously saved with a rotated Mapbox map is reset to north-up.
 1. Click "Save Scene".
 1. For additional details on configuring a scene, follow the [new scene guide](./create-new-scene.md)
 
@@ -74,6 +75,8 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
   - The expected order of the four map corners is counterclockwise starting in the lower left as depicted in the figure below:
 
     ![Map corners convention](../../_assets/geospatial-corners-convention.png "map corners convention")
+
+  - Corners listed clockwise from the same starting corner (lower left, upper left, upper right, lower right) are accepted as well. This is the order written by the built-in geospatial map generation. Scenescape detects the direction automatically, but the first corner must always be the one at the scene origin (lower left).
 
 ## Verify Successful Geospatial Coordinate Configuration
 
