@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# Profile: scene-metadata — Timescale event log + investigator query API.
+# Usage (with core stack):
+#   docker compose -f docker-compose.yml -f sample_data/compose/compose.scene-metadata-override.yml \
+#     --profile scene-metadata up -d scene-metadata-db scene-metadata
+
+services:
+  scene-metadata-db:
+    image: timescale/timescaledb:latest-pg16
+    profiles: [scene-metadata]
+    environment:
+      POSTGRES_USER: scenescape
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-scenescape}
+      POSTGRES_DB: scene_metadata
+    volumes:
+      - vol-scene-metadata-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U scenescape -d scene_metadata']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  scene-metadata:
+    image: intel/scenescape-scene-metadata:${VERSION:-latest}
+    profiles: [scene-metadata]
+    depends_on:
+      scene-metadata-db:
+        condition: service_healthy
+    environment:
+      SCENE_METADATA_DATABASE_URL: postgresql://scenescape:${DATABASE_PASSWORD:-scenescape}@scene-metadata-db:5432/scene_metadata
+      SCENE_METADATA_DEPLOYMENT_ID: ${COMPOSE_PROJECT_NAME:-scenescape}
+      SCENE_METADATA_HTTP_PORT: '8080'
+      SCENE_METADATA_MQTT_ENABLED: 'true'
+      BROKER: ${BROKER:-broker.scenescape.intel.com:8883}
+      BROKERAUTH: ${BROKERAUTH:-/run/secrets/controller.auth}
+      BROKERCERT: ${BROKERCERT:-/run/secrets/certs/scenescape.pem}
+      BROKERROOTCERT: ${BROKERROOTCERT:-/run/secrets/certs/scenescape-ca.pem}
+    ports:
+      - '${SCENE_METADATA_PORT:-8088}:8080'
+
+volumes:
+  vol-scene-metadata-db:

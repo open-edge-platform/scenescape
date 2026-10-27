@@ -27,6 +27,15 @@
       "metadatagenpolicy": "detectionPolicy"
     }
   },
+  "personattr": {
+    "type": "classify",
+    "params": {
+      "model": "omz/person-attributes-recognition-crossroad-0238/FP32/person-attributes-recognition-crossroad-0238.xml"
+    },
+    "adapter-params": {
+      "metadatagenpolicy": "classificationPolicy"
+    }
+  },
   "marsreid": {
     "type": "inference",
     "params": {

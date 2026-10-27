@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+networks:
+  scenescape-test:
+
+services:
+  scene-metadata-mqtt:
+    image: eclipse-mosquitto:2
+    networks:
+      - scenescape-test
+    ports:
+      - '1883:1883'
+    volumes:
+      - ./mosquitto-anonymous.conf:/mosquitto/config/mosquitto.conf:ro
+
+  scene-metadata-db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: scenescape
+      POSTGRES_PASSWORD: scenescape
+      POSTGRES_DB: scene_metadata
+    networks:
+      - scenescape-test
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U scenescape -d scene_metadata']
+      interval: 5s
+      timeout: 5s
+      retries: 10

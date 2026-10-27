@@ -57,6 +57,8 @@ autocalibration/.vendor/
 mapping/.vendor/
 
 model_installer/models
+# IR downloaded by scene_metadata.person_attribute_check (not source)
+scene_metadata/.cache/
 package.json
 package-lock.json
 node_modules

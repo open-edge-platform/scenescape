@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+fastapi==0.115.12
+pydantic>=2.11.0,<3
+uvicorn[standard]==0.34.2
+psycopg[binary,pool]==3.2.9
+orjson==3.10.18
+mcp>=1.12.0,<2
+paho-mqtt==2.1.0

@@ -253,6 +253,8 @@ Once you have an RTSP source reachable from the cluster:
 
 Scenescape uses DL Streamer Pipeline Server as the Video Analytics microservice. The video-source compose files [compose.retail-video.yml](/sample_data/demo_scenes/Retail/compose.retail-video.yml) and [compose.queuing-video.yml](/sample_data/demo_scenes/Queuing/compose.queuing-video.yml) show how a DL Streamer Pipeline Server docker container is configured to stream video analytics data for consumption by Scenescape. It leverages DL Streamer pipelines definitions in [queuing-config.json](/sample_data/demo_scenes/Queuing/queuing-config.json) and [retail-config.json](/sample_data/demo_scenes/Retail/retail-config.json).
 
+The Retail demo pipeline detects people with `person-detection-retail-0013`, then classifies each person with `person-attributes-recognition-crossroad-0238` (`gvaclassify`, `inference-region=1`). Its `metadatagenpolicy` is `classificationPolicy`, so published detections carry whatever attribute names that classifier writes under `metadata`. Camera chains in Kubernetes use the same model through the `personattr` entry (`retail+personattr`).
+
 > **Note:** To run DL Streamer Pipeline Server pipelines on hardware accelerators (GPU or NPU), see the DL Streamer Pipeline Server service [user documentation](/dlstreamer-pipeline-server/README.md).
 
 ### Video Pipeline Configuration

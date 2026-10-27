@@ -64,6 +64,16 @@ _analytics_src = _REPO_ROOT / "analytics" / "src"
 if str(_analytics_src) not in sys.path:
   sys.path.insert(0, str(_analytics_src))
 
+_scene_metadata_src = _REPO_ROOT / "scene_metadata" / "src"
+if str(_scene_metadata_src) not in sys.path:
+  sys.path.insert(0, str(_scene_metadata_src))
+
+# Repo root is on sys.path, and scene_common/ is the service directory.
+# Put the package tree ahead of it so `import scene_common` is the library.
+_scene_common_src = _REPO_ROOT / "scene_common" / "src"
+if str(_scene_common_src) not in sys.path:
+  sys.path.insert(0, str(_scene_common_src))
+
 # ---------------------------------------------------------------------------
 # Environmental dependencies (host-only)
 # ---------------------------------------------------------------------------
