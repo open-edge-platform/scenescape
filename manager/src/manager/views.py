@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import math
 import os
 import random
 import time
@@ -33,19 +34,58 @@ from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
 from rest_framework.views import APIView
-from rest_framework.authentication import SessionAuthentication
+from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 
 from manager.api import IsAdminOrReadOnly
+from manager import osm_query, osm_roi
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
   SingletonSensor, SingletonScalarThreshold, \
   Region, RegionPoint, Tripwire, TripwirePoint, \
   SingletonAreaPoint, UserSession, FailedLogin, \
-  RegionOccupancyThreshold, SceneImport
+  RegionOccupancyThreshold, SceneImport, sendUpdateCommand
 from manager.forms import CamCalibrateForm, ROIForm, SingletonForm, SingletonDetailsForm, \
   SceneUpdateForm, SceneImportForm, CamCreateForm, SingletonCreateForm, ChildSceneForm
 from manager.validators import add_form_error, validate_uuid
+
+
+def _is_number(v):
+  """True for real, finite numbers; rejects bool (an int subclass) and NaN/Infinity."""
+  return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+MIN_REGION_POINTS = 3
+MIN_TRIPWIRE_POINTS = 2
+
+
+def _valid_points(points, min_points):
+  """True if points has at least min_points entries, each an [x, y] pair of finite, non-bool numbers."""
+  return isinstance(points, (list, tuple)) and len(points) >= min_points and all(
+    isinstance(p, (list, tuple)) and len(p) == 2 and _is_number(p[0]) and _is_number(p[1])
+    for p in points)
+
+
+REGION_NAME_MAX_LENGTH = Region._meta.get_field('name').max_length
+REGION_TYPE_MAX_LENGTH = Region._meta.get_field('roi_type').max_length
+
+
+def _scoped_uuid(model, query_uuid, scene):
+  """Force a fresh uuid if the client-supplied one belongs to another scene,
+  so a reused/guessed uuid can't reassign that scene's region/tripwire."""
+  if model.objects.filter(uuid=query_uuid).exclude(scene=scene).exists():
+    return uuid.uuid4()
+  return query_uuid
+
+
+def _dedupe_name(name, seen):
+  """Append a numeric suffix to keep a name unique within one save batch.
+
+  shortcut: silently renames rather than rejecting the save; upgrade to a form
+  error if users need to be told about the collision instead.
+  """
+  seen[name] = seen.get(name, 0) + 1
+  return name if seen[name] == 1 else f"{name}-{seen[name]}"
 
 from scene_common.options import *
 from scene_common.scene_model import SceneModel
@@ -137,8 +177,15 @@ def sceneDetail(request, scene_id):
   scene = get_object_or_404(Scene, pk=scene_id)
   child_rois, child_trips, child_sensors = getAllChildrenMetaData(scene_id)
 
+  osm_roi_disabled_reason = None
+  if scene.map_type != 'geospatial_map':
+    osm_roi_disabled_reason = "Scene map is not geospatial"
+  elif not os.environ.get(osm_query.API_KEY_ENV_VAR):
+    osm_roi_disabled_reason = f"OSM API key ({osm_query.API_KEY_ENV_VAR}) is not configured"
+
   return render(request, 'sscape/sceneDetail.html', {'scene': scene, 'child_rois': child_rois,
-                                                     'child_tripwires': child_trips, 'child_sensors': child_sensors})
+                                                     'child_tripwires': child_trips, 'child_sensors': child_sensors,
+                                                     'osm_roi_disabled_reason': osm_roi_disabled_reason})
 
 @superuser_required
 def saveROI(request, scene_id):
@@ -147,8 +194,18 @@ def saveROI(request, scene_id):
   if request.method == 'POST':
     form = ROIForm(request.POST)
     if form.is_valid():
-      saveRegionData(scene, form)
-      saveTripwireData(scene, form)
+      try:
+        # Inner atomic block so a tripwire validation error also rolls back region changes;
+        # ATOMIC_REQUESTS alone would commit them because the 400 is returned, not raised.
+        with transaction.atomic():
+          regions_changed = saveRegionData(scene, form)
+          tripwires_changed = saveTripwireData(scene, form)
+      except ValueError as e:
+        form.add_error(None, str(e))
+        return render(request, 'sscape/sceneDetail.html', {'form': form, 'scene': scene}, status=400)
+      # Single batched notification per save, regardless of how many regions/tripwires changed.
+      if regions_changed or tripwires_changed:
+        transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
       return redirect('/' + str(scene.id))
     else:
       log.error("Form bad", request.POST)
@@ -157,19 +214,33 @@ def saveROI(request, scene_id):
   return render(request, 'sscape/sceneDetail.html', {'form': form, 'scene': scene})
 
 def saveTripwireData(scene, form):
+  """Save tripwires from the form. Returns True if anything was created, updated or deleted.
+
+  Notification is batched by the caller (saveROI) instead of per-tripwire, to avoid
+  flooding MQTT with one update per tripwire in a single save.
+  """
   jdata = json.loads(form.cleaned_data['tripwires'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
+
+  if not all(_valid_points(trip.points, MIN_TRIPWIRE_POINTS) for trip in jdata):
+    raise ValueError(f'Each tripwire needs at least {MIN_TRIPWIRE_POINTS} numeric, finite [x, y] points')
+
   current_tripwire_ids = set()
+  changed = False
+  seen_names = {}
 
   for trip in jdata:
+    changed = True
     query_uuid = trip.uuid
 
     # when a new tripwire is created uuid is invalid
     if not validate_uuid(trip.uuid):
       query_uuid = uuid.uuid4()
+    query_uuid = _scoped_uuid(Tripwire, query_uuid, scene)
 
     # Use the provided title or default to "tripwire_<query_uuid>"
     trip_title = trip.title if trip.title else f"tripwire_{query_uuid}"
+    trip_title = _dedupe_name(trip_title, seen_names)
 
     tripwire, _ = Tripwire.objects.update_or_create(uuid=query_uuid, defaults={
         'scene':scene, 'name':trip_title,
@@ -184,78 +255,92 @@ def saveTripwireData(scene, form):
     # when tripwire is modified older points should be deleted
     TripwirePoint.objects.filter(tripwire = tripwire).exclude(id__in=current_tripwire_point_ids).delete()
 
-    # notify on mqtt for every tripwire saved
-    # ideally one notification after all tripwires are saved in db
-    tripwire.notifydbupdate()
-
-  # delete older tripwires
+  # delete older tripwires; bulk delete (not per-instance) to avoid triggering
+  # the model's own per-instance notifydbupdate() on top of the batched notification
   tripwires_to_delete = Tripwire.objects.filter(scene=scene).exclude(uuid__in=current_tripwire_ids)
+  if tripwires_to_delete.exists():
+    changed = True
   TripwirePoint.objects.filter(tripwire__in=tripwires_to_delete).delete()
+  tripwires_to_delete.delete()
 
-  # delete tripwires individually to trigger notifydbupdate
-  for tw in tripwires_to_delete:
-    tw.delete()
+  return changed
 
-  return
+def _save_one_region(scene, roi, seen_names):
+  """Create/update one Region (with its points and optional sectors) from a parsed roi.
+
+  Returns the saved Region.
+  """
+  query_uuid = roi.uuid
+
+  # when a new roi is created uuid is invalid
+  if not validate_uuid(roi.uuid):
+    query_uuid = uuid.uuid4()
+  query_uuid = _scoped_uuid(Region, query_uuid, scene)
+
+  # Use the provided title or default to "roi_<query_uuid>"
+  roi_title = roi.title if roi.title else f"roi_{query_uuid}"
+  roi_title = _dedupe_name(roi_title, seen_names)
+
+  region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
+    'scene': scene,
+    'name': roi_title,
+    'volumetric': getattr(roi, 'volumetric', False),
+    'height': getattr(roi, 'height', 1),
+    'buffer_size': getattr(roi, 'buffer_size', 0),
+    'roi_type': getattr(roi, 'type', '')
+    })
+
+  current_region_point_ids = set()
+  # sequence field stores order of points
+  for point_idx, point in enumerate(roi.points):
+    point, _ = RegionPoint.objects.update_or_create(region=region, x=point[0], y=point[1],
+                                                    sequence=point_idx)
+    current_region_point_ids.add(point.id)
+
+  # when roi is modified older points should be deleted
+  RegionPoint.objects.filter(region=region).exclude(id__in=current_region_point_ids).delete()
+
+  if hasattr(roi, 'sectors'):
+    sectors = [{"color": sector.color, "color_min": sector.color_min} for sector in roi.sectors]
+    RegionOccupancyThreshold.objects.update_or_create(region=region, defaults={
+      'sectors': sectors, 'range_max': roi.range_max
+    })
+
+  return region
+
 
 def saveRegionData(scene, form):
+  """Save regions (manual or OSM-derived) from the form. Returns True if anything was
+  created, updated or deleted.
+
+  Notification is batched by the caller (saveROI) instead of per-region, to avoid
+  flooding MQTT with one update per region in a single save (e.g. 50 OSM ROIs).
+  """
   jdata = json.loads(form.cleaned_data['rois'],
                         object_hook=lambda d: namedtuple('X', d.keys())(*d.values()))
 
+  if not all(_valid_points(roi.points, MIN_REGION_POINTS) for roi in jdata):
+    raise ValueError(f'Each roi needs at least {MIN_REGION_POINTS} numeric, finite [x, y] points')
+
   current_region_ids = set()
+  changed = False
+  seen_names = {}
 
   for roi in jdata:
-    query_uuid = roi.uuid
-
-    # when a new roi is created uuid is invalid
-    if not validate_uuid(roi.uuid):
-      query_uuid = uuid.uuid4()
-
-    # Use the provided title or default to "roi_<query_uuid>"
-    roi_title = roi.title if roi.title else f"roi_{query_uuid}"
-
-    region, _ = Region.objects.update_or_create(uuid=query_uuid, defaults={
-      'scene': scene,
-      'name': roi_title,
-      'volumetric': getattr(roi, 'volumetric', False),
-      'height': getattr(roi, 'height', 1),
-      'buffer_size': getattr(roi, 'buffer_size', 0)
-      })
+    changed = True
+    region = _save_one_region(scene, roi, seen_names)
     current_region_ids.add(region.uuid)
 
-    current_region_point_ids= set()
-    # sequence field stores order of points
-    for point_idx,point in enumerate(roi.points):
-      point, _ = RegionPoint.objects.update_or_create(region=region, x=point[0], y=point[1],
-                                                      sequence=point_idx)
-      current_region_point_ids.add(point.id)
-
-    # when roi is modified older points should be deleted
-    RegionPoint.objects.filter(region = region).exclude(id__in=current_region_point_ids).delete()
-
-    if hasattr(roi, 'sectors'):
-      sectors = []
-      for sector in roi.sectors:
-        sectors.append({"color": sector.color, "color_min": sector.color_min})
-
-      RegionOccupancyThreshold.objects.update_or_create(region=region, defaults={
-        'sectors': sectors, 'range_max': roi.range_max
-      })
-
-    # notify on mqtt for every region saved in db
-    # ideally one notification after all regions are saved in db
-    region.notifydbupdate()
-
-  # delete older rois
+  # delete older rois; bulk delete (not per-instance) to avoid triggering the
+  # model's own per-instance notifydbupdate() on top of the batched notification
   regions_to_delete = Region.objects.filter(scene=scene).exclude(uuid__in=current_region_ids)
+  if regions_to_delete.exists():
+    changed = True
   RegionPoint.objects.filter(region__in=regions_to_delete).delete()
   RegionOccupancyThreshold.objects.filter(region__in=regions_to_delete).delete()
+  regions_to_delete.delete()
 
-  # delete regions individually to trigger notifydbupdate
-  for region in regions_to_delete:
-    region.delete()
-
-  return
+  return changed
 
 #Cam CRUD
 class CamCreateView(SuperUserCheck, CreateView):
@@ -882,6 +967,206 @@ class SaveGeospatialSnapshot(APIView):
     except Exception as e:
       log.error("Error saving geospatial snapshot")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+
+def _invalid_bounds(bounds):
+  """True if bounds is present but not a dict of 4 numeric minX/minY/maxX/maxY keys."""
+  if bounds is None:
+    return False
+  return (
+    not isinstance(bounds, dict)
+    or not all(k in bounds for k in ('minX', 'minY', 'maxX', 'maxY'))
+    or not all(_is_number(bounds[k]) for k in ('minX', 'minY', 'maxX', 'maxY'))
+  )
+
+
+def _bearing_pivot(scene):
+  """Scene-local (x, y) pivot for the bearing rotation, in the same frame as ROI points.
+
+  Prefers the scene's saved map center; falls back to the map_corners_lla bbox midpoint.
+  """
+  if scene.map_center_lat is not None and scene.map_center_lng is not None:
+    center_lat, center_lng = scene.map_center_lat, scene.map_center_lng
+  else:
+    south, west, north, east = osm_roi.bbox_from_map_corners(scene.map_corners_lla)
+    center_lat, center_lng = (south + north) / 2.0, (west + east) / 2.0
+  return osm_roi.lla_to_local_xy(scene.trs_matrix, center_lat, center_lng)
+
+
+class OsmRoiPreviews(APIView):
+  """Preview OSM-derived polygon ROIs before creation.
+
+  Derives the query bounding box from the scene's saved map_corners_lla.
+  Fetches line geometries from OSM (cached on the scene after first fetch),
+  converts to scene-local coordinates, buffers to polygons, and returns a
+  preview list with temporary UUIDs without persisting to DB.
+
+  Includes the scene's map_bearing so the frontend can rotate the canvas
+  preview to match the current map orientation.
+
+  Optional "bounds" ({minX, minY, maxX, maxY} in scene-local meters) scopes the
+  preview to a sub-region, keeping any polygon that at least partially overlaps
+  it (full, unclipped shape) - equivalent to dragging a selection box in the
+  Regions tab UI.
+  """
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request, scene_uid):
+    try:
+      bounds = request.data.get('bounds')
+      if _invalid_bounds(bounds):
+        return JsonResponse({'error': 'bounds must have numeric minX, minY, maxX, maxY'}, status=400)
+
+      # Get the scene; 404 if not found or invalid UUID
+      try:
+        scene = Scene.objects.get(pk=scene_uid)
+      except (Scene.DoesNotExist, ValueError):
+        return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
+
+      if not scene.map_corners_lla:
+        return JsonResponse({
+          'error': 'Scene map corners not set. '
+                   'Click "Generate Geospatial Bounds & Snapshot" in scene editor first.'
+        }, status=400)
+
+      previews = osm_roi.build_roi_previews(scene)
+      if bounds is not None:
+        previews = osm_roi.filter_by_bounds(previews, bounds)
+
+      center_x, center_y = _bearing_pivot(scene)
+
+      return JsonResponse({
+        'rois': previews,
+        'bearing': scene.map_bearing or 0.0,  # degrees, for canvas rotation correction
+        'center': [center_x, center_y],  # scene-local meters pivot for the bearing rotation
+      })
+
+    except osm_roi.OsmRoiError as e:
+      log.error(f"OSM ROI preview validation error: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'Unable to preview ROIs from OSM with the provided scene data'}, status=400)
+    except osm_query.FeatureLimitError as e:
+      log.warning(f"OSM feature limit exceeded while previewing ROIs: {e}")
+      return JsonResponse({
+        'error': 'Too many roads and footways in this area. Select a smaller area and try again.'
+      }, status=400)
+    except osm_query.OsmQueryError as e:
+      log.error(f"OSM query error while previewing ROIs: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'Unable to fetch OSM data for ROI preview'}, status=400)
+    except Exception as e:
+      log.error(f"Error previewing OSM ROIs: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+
+class _RoiValidationError(ValueError):
+  """Raised for any invalid roi entry in an OsmRois POST body; message is user-facing."""
+
+
+def _validate_roi(roi, seen_uuids):
+  """Validate and normalize one roi dict.
+
+  Returns (uuid, name, roi_type, points) on success. Raises _RoiValidationError
+  (with a user-facing message) on the first problem found.
+  """
+  if not isinstance(roi, dict):
+    raise _RoiValidationError('Each roi must be an object')
+
+  points = roi.get('points')
+  if not _valid_points(points, MIN_REGION_POINTS):
+    raise _RoiValidationError(
+      f'Each roi needs a "points" list of at least {MIN_REGION_POINTS} [x, y] number pairs')
+
+  roi_uuid = roi.get('uuid')
+  query_uuid = roi_uuid if isinstance(roi_uuid, str) and validate_uuid(roi_uuid) else str(uuid.uuid4())
+  if query_uuid in seen_uuids:
+    raise _RoiValidationError(f'Duplicate roi uuid in request: {query_uuid}')
+
+  roi_name = str(roi.get('name')) if roi.get('name') else f"roi_{query_uuid}"
+  roi_type = str(roi.get('type') or '')
+  if len(roi_name) > REGION_NAME_MAX_LENGTH:
+    raise _RoiValidationError(f'roi name exceeds {REGION_NAME_MAX_LENGTH} characters')
+  if len(roi_type) > REGION_TYPE_MAX_LENGTH:
+    raise _RoiValidationError(f'roi type exceeds {REGION_TYPE_MAX_LENGTH} characters')
+
+  return query_uuid, roi_name, roi_type, points
+
+
+def _validate_rois(rois):
+  """Validate every roi up front, so a bad entry can't leave a partially-accepted batch behind.
+
+  Returns (to_create, seen_uuids). Raises _RoiValidationError on the first invalid roi.
+  """
+  to_create = []
+  seen_uuids = set()
+  for roi in rois:
+    query_uuid, roi_name, roi_type, points = _validate_roi(roi, seen_uuids)
+    seen_uuids.add(query_uuid)
+    to_create.append((query_uuid, roi_name, roi_type, points))
+  return to_create, seen_uuids
+
+
+def _create_rois(scene, to_create):
+  """Create all validated ROIs in one transaction and schedule the scene update notification."""
+  created = []
+  with transaction.atomic():
+    for query_uuid, roi_name, roi_type, points in to_create:
+      region = Region.objects.create(
+        uuid=query_uuid, scene=scene, name=roi_name, volumetric=False,
+        buffer_size=0, roi_type=roi_type)
+      for point_idx, point in enumerate(points):
+        RegionPoint.objects.create(region=region, x=point[0], y=point[1], sequence=point_idx)
+      created.append({'uuid': str(region.uuid), 'name': region.name})
+
+  transaction.on_commit(lambda: sendUpdateCommand(scene_id=scene.id))
+  return created
+
+
+class OsmRois(APIView):
+  """Persist chosen OSM ROI previews (from OsmRoiPreviews) as new Regions.
+
+  Unlike the form-based saveROI endpoint, which replaces the scene's entire
+  region set with whatever it's given, this only creates the posted ROIs -
+  other existing regions in the scene are left untouched. Lets API callers
+  accept previews without first re-submitting every other region in the scene.
+  """
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request, scene_uid):
+    rois = request.data.get('rois')
+    if not isinstance(rois, list) or not rois:
+      return JsonResponse({'error': 'rois must be a non-empty list'}, status=400)
+
+    try:
+      scene = Scene.objects.get(pk=scene_uid)
+    except (Scene.DoesNotExist, ValueError):
+      return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
+
+    try:
+      to_create, seen_uuids = _validate_rois(rois)
+    except _RoiValidationError as e:
+      log.warning(f"Rejected invalid OSM ROI payload: {e}")
+      return JsonResponse({'error': 'Invalid roi in request'}, status=400)
+
+    # Additive only: never overwrite an existing region through a reused uuid.
+    existing = Region.objects.filter(uuid__in=seen_uuids).values_list('uuid', flat=True)
+    if existing:
+      return JsonResponse(
+        {'error': 'Regions with these uuids already exist',
+         'existing': sorted(str(u) for u in existing)}, status=409)
+
+    try:
+      created = _create_rois(scene, to_create)
+    except Exception as e:
+      log.error(f"Error accepting OSM ROIs: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+    return JsonResponse({'created': created})
+
 
 @superuser_required
 def generate_camera_pipeline(request, sensor_id):
