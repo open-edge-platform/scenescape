@@ -151,6 +151,42 @@ def test_convert_pixel_bbox(scene_obj, objects):
         assert_bounding_box(sub_obj, original_sub_obj)
   return
 
+def test_convert_pixel_bbox_skips_objects_with_metric_distance(scene_obj, monkeypatch):
+  converted_inputs = []
+
+  def capture_conversion(boxes, *_args):
+    converted_inputs.extend(boxes)
+    return [(0.1, 0.2, 0.3, 0.4) for _ in boxes]
+
+  monkeypatch.setattr(
+    scene_module.rv.tracking,
+    'compute_pixels_to_meter_plane_batch',
+    capture_conversion,
+  )
+  objects = [
+    {'bounding_box_px': {'x': 1, 'y': 2, 'width': 3, 'height': 4}, 'distance': 1.2},
+    {'bounding_box_px': {'x': 5, 'y': 6, 'width': 7, 'height': 8}},
+    {
+      'sub_detections': ['parts'],
+      'parts': [
+        {'bounding_box_px': {'x': 9, 'y': 10, 'width': 11, 'height': 12}, 'distance': 1.4},
+        {'bounding_box_px': {'x': 13, 'y': 14, 'width': 15, 'height': 16}},
+      ],
+    },
+  ]
+
+  scene_obj.convertPixelBoundingBoxesToMeters(
+    objects, np.eye(3), np.zeros(5),
+  )
+
+  assert converted_inputs == [(5, 6, 7, 8), (13, 14, 15, 16)]
+  assert 'bounding_box' not in objects[0]
+  assert objects[1]['bounding_box'] == {'x': 0.1, 'y': 0.2, 'width': 0.3, 'height': 0.4}
+  assert 'bounding_box' not in objects[2]['parts'][0]
+  assert objects[2]['parts'][1]['bounding_box'] == {
+    'x': 0.1, 'y': 0.2, 'width': 0.3, 'height': 0.4,
+  }
+
 def assert_bounding_box(obj, original_obj):
   """Helper function to assert the presence and immutability of bounding box fields."""
   if 'bounding_box' in original_obj:
@@ -203,6 +239,32 @@ def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, c
   }
   assert scene_obj.processCameraData(payload) is True
   convert_mock.assert_not_called()
+
+
+def test_processCameraData_applies_and_serializes_per_frame_extrinsics(scene_obj, camera_obj, monkeypatch):
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  captured = {}
+
+  def _capture_create(detection_type, detections, when_value, camera):
+    captured['camera'] = camera
+    return []
+
+  monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', _capture_create)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', lambda *args, **kwargs: None)
+  payload = {
+    'id': camera_obj.cameraID,
+    'timestamp': '2023-05-16T21:22:58.388Z',
+    'extrinsics': {
+      'translation': [1.0, 2.0, 3.0],
+      'rotation': [0.0, 0.0, 0.0],
+      'scale': [1.0, 1.0, 1.0],
+    },
+    'objects': {'person': []},
+  }
+
+  assert scene_obj.processCameraData(payload) is True
+  np.testing.assert_allclose(
+    captured['camera'].pose.translation.asNumpyCartesian, [1.0, 2.0, 3.0])
 
 def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj

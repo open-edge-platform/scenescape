@@ -21,4 +21,49 @@ export default class CameraManager extends ThingManager {
       }
     });
   }
+
+  // Reconcile with the database after a CMD_DATABASE notice: build cameras
+  // that appeared (e.g. a handheld registering itself), tear down cameras
+  // that were deleted elsewhere, leave the rest untouched so in-progress
+  // edits survive. Returns { added, removed } uids.
+  async syncWithDatabase(params, client, appName, isVARunning) {
+    const res = await this.restclient.getCameras({ scene: this.sceneID });
+    if (res.statusCode !== 200) return { added: [], removed: [] };
+    const inDB = new Map(res.content.results.map((cam) => [cam.uid, cam]));
+
+    const removed = [];
+    for (const uid of Object.keys(this.sceneCameras)) {
+      if (uid === "undefined" || inDB.has(uid)) continue;
+      const cam = this.sceneCameras[uid];
+      if (cam && cam.isStoredInDB) {
+        cam.detach(params.camerasFolder);
+        delete this.sceneCameras[uid];
+        removed.push(uid);
+      }
+    }
+
+    const added = [];
+    for (const [uid, thing] of inDB) {
+      if (uid in this.sceneCameras) continue;
+      thing.isStoredInDB = true;
+      const cam = this.add(thing);
+      cam.toast = params.toast;
+      params.currentThings = this.sceneCameras;
+      cam.addObject(params);
+      if (client) {
+        cam.setMQTTClient(client, appName);
+        cam.setVARunning(isVARunning);
+      }
+      added.push(uid);
+    }
+    return { added, removed };
+  }
+
+  updatePoses(cameras) {
+    if (!Array.isArray(cameras)) return;
+    for (const camera of cameras) {
+      const sceneCamera = this.sceneCameras[camera.id];
+      if (sceneCamera) sceneCamera.updatePose(camera);
+    }
+  }
 }

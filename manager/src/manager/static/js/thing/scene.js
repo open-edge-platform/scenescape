@@ -4,6 +4,7 @@
 "use strict";
 
 import * as THREE from "/static/assets/three.module.js";
+import { GLTFLoader } from "/static/examples/jsm/loaders/GLTFLoader.js";
 import thingTransformControls from "/static/js/thing/controls/thingtransformcontrols.js";
 import validateInputControls from "/static/js/thing/controls/validateinputcontrols.js";
 import RESTClient from "/static/js/restclient.js";
@@ -251,6 +252,305 @@ export default class Scene {
     }
   }
 
+  // ── Map source ───────────────────────────────────────────────────────
+  // Each source (user upload, handheld SLAM, world model) contributes one
+  // current mesh; a new upload from a source replaces its previous one. The
+  // dropdown previews a source's mesh; "set as default" makes it Scene.map.
+  // Nothing is persisted on selection alone.
+  async addMapSourceControls() {
+    const response = await this.restclient.getSourceMaps(this.sceneID);
+    if (response.statusCode !== SUCCESS) return;
+    const { maps, default: defaultMethod } = response.content;
+    if (!maps || maps.length < 2) return;
+
+    this._sourceMaps = {};
+    const labels = {};
+    for (const map of maps) {
+      const when = map.created
+        ? map.created.replace("T", " ").slice(0, 16)
+        : "";
+      const who = map.contributor ? ` · ${map.contributor}` : "";
+      const tag = map.method === defaultMethod ? " ✓" : "";
+      const label = `${map.method}${who} · ${when}${tag}`;
+      labels[label] = map.method;
+      this._sourceMaps[map.method] = map;
+    }
+    this._defaultMethod = defaultMethod;
+    this._previewMethod = defaultMethod;
+
+    const current =
+      Object.keys(labels).find((k) => labels[k] === defaultMethod) ||
+      Object.keys(labels)[0];
+    const settings = { "map source": current };
+    this._mapSourceSettings = settings;
+    this._sourceMapLabels = Object.fromEntries(
+      Object.entries(labels).map(([label, method]) => [method, label]),
+    );
+    this.mapSourceFolder = this.controlsFolder.addFolder("Map Source");
+    this._mapSourceController = this.mapSourceFolder
+      .add(settings, "map source", Object.keys(labels))
+      .onChange((label) => this.previewSourceMap(labels[label]));
+    this._mapSourceController.$widget.id = "map-source-select";
+
+    if (this.isStaff !== null) {
+      const actions = {
+        "set as default": () => this.activateSourceMap(this._previewMethod),
+        "delete source map": () => this.deleteSourceMap(this._previewMethod),
+      };
+      this.mapSourceFolder.add(actions, "set as default").$widget.id =
+        "map-source-activate";
+      this.mapSourceFolder.add(actions, "delete source map").$widget.id =
+        "map-source-delete";
+    }
+  }
+
+  previewSourceMap(method) {
+    const map = this._sourceMaps && this._sourceMaps[method];
+    if (!map || !map.file || !this.sceneMesh) return;
+    const requestId = (this._previewRequestId =
+      (this._previewRequestId || 0) + 1);
+    if (method === this._defaultMethod) {
+      this._previewLoading = false;
+      this.clearMapPreview();
+      this._previewMethod = method;
+      this.setMapPreviewReadOnly(false);
+      this.updateMapSourceSelection();
+      const progress = document.getElementById("loader-progress-wrapper");
+      if (progress) progress.style.display = "none";
+      return;
+    }
+    this._previewLoading = true;
+    this.setMapPreviewReadOnly(true);
+    // Same progress bar the page shows on first load; a multi-MB GLB can
+    // take seconds and the view must not look frozen meanwhile.
+    const wrapper = document.getElementById("loader-progress-wrapper");
+    const bar = wrapper ? wrapper.querySelector(".progress-bar") : null;
+    let widthClass = "width0";
+    const showProgress = (percent) => {
+      if (!wrapper || !bar) return;
+      wrapper.style.display = "flex";
+      const by5 = Math.min(100, Math.floor(percent / 5) * 5);
+      bar.classList.remove(widthClass);
+      widthClass = "width" + by5;
+      bar.classList.add(widthClass);
+      bar.setAttribute("aria-valuenow", percent);
+      bar.innerText = `${method}: ${percent}%`;
+    };
+    const hideProgress = () => {
+      if (wrapper) wrapper.style.display = "none";
+    };
+    showProgress(0);
+    const loader = new GLTFLoader();
+    loader.load(
+      map.file,
+      (gltf) => {
+        if (requestId !== this._previewRequestId) {
+          this.disposePreviewMesh(gltf.scene);
+          return;
+        }
+        hideProgress();
+        const t = map.transform || {};
+        const rot = t.rotation || [0, 0, 0];
+        const pos = t.translation || [0, 0, 0];
+        const scl = t.scale || [1, 1, 1];
+        gltf.scene.rotation.set(
+          THREE.MathUtils.degToRad(rot[0]),
+          THREE.MathUtils.degToRad(rot[1]),
+          THREE.MathUtils.degToRad(rot[2]),
+        );
+        gltf.scene.position.set(pos[0], pos[1], pos[2]);
+        gltf.scene.scale.set(scl[0], scl[1], scl[2]);
+        gltf.scene.name = "3d_scene";
+        gltf.scene.castShadow = true;
+        this.clearMapPreview();
+        this._previewMesh = gltf.scene;
+        this.scene.add(this._previewMesh);
+        this.sceneMesh.visible = false;
+        this._previewMethod = method;
+        this._previewLoading = false;
+        this.updateMapSourceSelection();
+        this.toast.showToast(
+          method === this._defaultMethod
+            ? `Showing default map (${method})`
+            : `Previewing ${method} map — not the default`,
+          "info",
+        );
+      },
+      (xhr) => {
+        if (requestId === this._previewRequestId && xhr.total) {
+          showProgress(Math.round((xhr.loaded / xhr.total) * 100));
+        }
+      },
+      (error) => {
+        if (requestId !== this._previewRequestId) return;
+        hideProgress();
+        this._previewLoading = false;
+        this.setMapPreviewReadOnly(Boolean(this._previewMesh));
+        this.updateMapSourceSelection();
+        console.log("Error loading source map glTF: " + error);
+        this.toast.showToast("Could not load that source's map", "error");
+      },
+    );
+  }
+
+  updateMapSourceSelection() {
+    if (!this._mapSourceSettings) return;
+    this._mapSourceSettings["map source"] =
+      this._sourceMapLabels[this._previewMethod];
+    this._mapSourceController.updateDisplay();
+  }
+
+  setMapPreviewReadOnly(readOnly) {
+    if (readOnly && !this._previewEditState) {
+      const editable = new Set([
+        "save",
+        "name",
+        "pixels per meter",
+        "Update Cameras",
+        "toggle rotate/translate",
+        "pos X",
+        "pos Y",
+        "pos Z",
+        "rot X",
+        "rot Y",
+        "rot Z",
+      ]);
+      const controls = this.controlsFolder
+        .controllersRecursive()
+        .filter((control) => editable.has(control.property))
+        .map((control) => ({
+          control,
+          disabled: Boolean(
+            control._disabled ||
+            control.domElement?.classList.contains("disabled"),
+          ),
+        }));
+      const cameras = this._getAllSceneCameraWrappers().map((camera) => ({
+        camera,
+        projectFrame: camera.projectFrame,
+        meshVisible: camera.mesh?.visible,
+        captureVisible: camera.cameraCapture?.visible,
+        frameControlDisabled:
+          camera.controllersDict?.["project frame"]?._disabled,
+      }));
+      this._previewEditState = {
+        controls,
+        cameras,
+        meshVisible: this.sceneMesh.visible,
+        transformEnabled: this.transformControl?.enabled,
+        transformVisible: this.transformControl
+          ? this.getTransformControlObject3D().visible
+          : false,
+      };
+      for (const { control } of controls) control.disable();
+      for (const { camera } of cameras) {
+        camera.projectFrame = false;
+        if (camera.mesh) camera.mesh.visible = false;
+        if (camera.cameraCapture) camera.cameraCapture.visible = false;
+        camera.controllersDict?.["project frame"]?.disable();
+      }
+      if (this.transformControl) {
+        this.transformControl.enabled = false;
+        this.transformControl.detach();
+        this.setTransformControlVisibility(false);
+      }
+    } else if (!readOnly && this._previewEditState) {
+      const state = this._previewEditState;
+      this.sceneMesh.visible = state.meshVisible;
+      for (const { control, disabled } of state.controls)
+        control.disable(disabled);
+      for (const {
+        camera,
+        projectFrame,
+        meshVisible,
+        captureVisible,
+        frameControlDisabled,
+      } of state.cameras) {
+        camera.projectFrame = projectFrame;
+        if (camera.mesh) camera.mesh.visible = meshVisible;
+        if (camera.cameraCapture) camera.cameraCapture.visible = captureVisible;
+        camera.controllersDict?.["project frame"]?.disable(
+          Boolean(frameControlDisabled),
+        );
+      }
+      if (this.transformControl) {
+        this.transformControl.attach(this.sceneMesh);
+        this.transformControl.enabled = state.transformEnabled;
+        this.setTransformControlVisibility(state.transformVisible);
+      }
+      this._previewEditState = null;
+    }
+  }
+
+  clearMapPreview() {
+    if (!this._previewMesh) return;
+    this.scene.remove(this._previewMesh);
+    this.disposePreviewMesh(this._previewMesh);
+    this._previewMesh = null;
+  }
+
+  disposePreviewMesh(mesh) {
+    const geometries = new Set();
+    const materials = new Set();
+    const textures = new Set();
+    mesh.traverse((object) => {
+      if (object.geometry) geometries.add(object.geometry);
+      for (const material of Array.isArray(object.material)
+        ? object.material
+        : [object.material]) {
+        if (!material) continue;
+        materials.add(material);
+        for (const value of Object.values(material)) {
+          if (value?.isTexture) textures.add(value);
+        }
+      }
+    });
+    for (const resource of [...textures, ...materials, ...geometries])
+      resource.dispose();
+  }
+
+  async activateSourceMap(method) {
+    if (this._previewLoading || method !== this._previewMethod) return;
+    if (!method || method === this._defaultMethod) return;
+    const response = await this.restclient.activateSourceMap(
+      this.sceneID,
+      method,
+    );
+    if (response.statusCode === SUCCESS) {
+      this.toast.showToast("Default map updated — reloading", "success");
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      const detail =
+        (response.content &&
+          (response.content.error || response.content.detail)) ||
+        "";
+      this.toast.showToast(`Could not set default map. ${detail}`, "error");
+    }
+  }
+
+  async deleteSourceMap(method) {
+    if (this._previewLoading) return;
+    if (!method || method === this._defaultMethod) {
+      this.toast.showToast("The default map cannot be deleted", "warning");
+      return;
+    }
+    if (!window.confirm("Delete this source's map?")) return;
+    const response = await this.restclient.deleteSourceMap(
+      this.sceneID,
+      method,
+    );
+    if (response.statusCode === 204) {
+      this.toast.showToast("Source map deleted — reloading", "success");
+      setTimeout(() => window.location.reload(), 800);
+    } else {
+      const detail =
+        (response.content &&
+          (response.content.error || response.content.detail)) ||
+        "";
+      this.toast.showToast(`Could not delete source map. ${detail}`, "error");
+    }
+  }
+
   initializeScene(cameraZ, center, floorHeight, floorWidth) {
     this.perspectiveCamera.position.set(center.x, center.y, cameraZ);
 
@@ -355,6 +655,7 @@ export default class Scene {
           this.updateCamerasOnSave = value;
         }.bind(this),
       );
+      this.addMapSourceControls();
     }
 
     if (this.isStaff === null) {
@@ -364,6 +665,12 @@ export default class Scene {
         });
       }
     } else {
+      if (document.getElementById("scene-qr-data")) {
+        panelSettings["scene QR code"] = () => {
+          document.dispatchEvent(new Event("scene-qr-open"));
+        };
+        this.controlsFolder.add(panelSettings, "scene QR code");
+      }
       panelSettings = Object.assign(panelSettings, {
         save: function () {
           this.saveSettings();
@@ -379,12 +686,20 @@ export default class Scene {
   }
 
   updateSaveButton() {
+    if (this._previewLoading || this._previewMesh) return;
     this.executeOnControl("save", (control) =>
       control[0].domElement.classList.remove("disabled"),
     );
   }
 
   async saveSettings() {
+    if (this._previewLoading || this._previewMesh) {
+      this.toast.showToast(
+        "Return to the default map before editing scene settings",
+        "warning",
+      );
+      return;
+    }
     let sceneData = {
       name: this.name,
       scale: this.pixelsPerMeter,

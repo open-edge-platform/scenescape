@@ -440,6 +440,73 @@ class TestCacheManagerInvalidation:
 class TestCacheManagerSensorRestoration:
   """Test sensor cache restoration functionality."""
 
+  @pytest.mark.parametrize("has_tracker,sensor_value,replace", [
+    (True, None, True),
+    (True, 42, False),
+    (False, None, False),
+  ])
+  def test_refresh_tears_down_only_replaced_scene(self, has_tracker, sensor_value, replace):
+    events = []
+    tracker = Mock()
+    tracker.join.side_effect = lambda: events.append("join")
+    old_scene = SimpleNamespace(
+      uid="scene-uid", name="scene-name", cameras={},
+      sensors={"sensor-1": SimpleNamespace(value=sensor_value)},
+      updateScene=Mock(),
+    )
+    if has_tracker:
+      old_scene.tracker = tracker
+    replacement = SimpleNamespace(uid=old_scene.uid, name=old_scene.name, cameras={}, sensors={})
+
+    def deserialize(data):
+      assert events == ["join", "cameras", "objects"]
+      return replacement
+
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.cached_scenes_by_uid = {}
+    cache_mgr._old_scene_cache = {old_scene.uid: old_scene}
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+    cache_mgr._scene_cls = SimpleNamespace(deserialize=Mock(side_effect=deserialize))
+    with patch("scene_common.cache_manager.CameraRegistry.getInstance") as cameras, \
+         patch("scene_common.cache_manager.TrackedObjectRegistry.getInstance") as objects:
+      cameras.return_value.removeScene.side_effect = lambda name: events.append("cameras")
+      objects.return_value.removeScene.side_effect = lambda name: events.append("objects")
+      cache_mgr._applySceneResults([{"uid": old_scene.uid, "name": old_scene.name}])
+
+      if replace:
+        tracker.join.assert_called_once_with()
+        cameras.return_value.removeScene.assert_called_once_with(old_scene.name)
+        objects.return_value.removeScene.assert_called_once_with(old_scene.name)
+        assert cache_mgr.cached_scenes_by_uid[old_scene.uid] is replacement
+        old_scene.updateScene.assert_not_called()
+      else:
+        tracker.join.assert_not_called()
+        cameras.return_value.removeScene.assert_not_called()
+        objects.return_value.removeScene.assert_not_called()
+        cache_mgr._scene_cls.deserialize.assert_not_called()
+        assert cache_mgr.cached_scenes_by_uid[old_scene.uid] is old_scene
+        old_scene.updateScene.assert_called_once()
+    assert cache_mgr._old_scene_cache is None
+
+  def test_repeated_replacement_joins_each_retired_tracker_once(self):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+    scenes = [SimpleNamespace(
+      uid="scene-uid", name="scene-name", cameras={}, sensors={}, tracker=Mock(),
+    ) for _ in range(4)]
+    cache_mgr._scene_cls = SimpleNamespace(deserialize=Mock(side_effect=scenes[1:]))
+    with patch("scene_common.cache_manager.CameraRegistry.getInstance"), \
+         patch("scene_common.cache_manager.TrackedObjectRegistry.getInstance"):
+      for previous in scenes[:-1]:
+        cache_mgr.cached_scenes_by_uid = {}
+        cache_mgr._old_scene_cache = {previous.uid: previous}
+        cache_mgr._applySceneResults([{"uid": previous.uid, "name": previous.name}])
+        previous.tracker.join.assert_called_once_with()
+    assert cache_mgr.cached_scenes_by_uid[scenes[-1].uid] is scenes[-1]
+    scenes[-1].tracker.join.assert_not_called()
+
   def test_restore_sensor_cache_copies_values(self):
     """Test that sensor cache values are properly restored."""
     cache_mgr = CacheManager.__new__(CacheManager)

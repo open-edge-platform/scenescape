@@ -206,14 +206,41 @@ export default class SceneCamera extends THREE.Object3D {
     });
   }
 
+  // A camera registered without its true resolution keeps the 640x480 default,
+  // which renders the frustum far narrower than the projected image.
+  // MQTT snapshots are often thumbnails of the same optical frame; FOV must
+  // stay on fx/fy and the calibrated principal point, not the JPEG pixel size.
+  intrinsicsResolution() {
+    const cx = this.cameraMatrix.data64F[CX];
+    const cy = this.cameraMatrix.data64F[CY];
+    return cx > 0 && cy > 0 ? { w: cx * 2, h: cy * 2 } : this.resolution;
+  }
+
+  applyOpticalProjection() {
+    if (!this.sceneCamera) return;
+    const resolution = this.intrinsicsResolution();
+    this.sceneCamera.aspect = resolution.w / resolution.h;
+    this.sceneCamera.fov = computeVerticalFOVFromFy(
+      this.cameraMatrix.data64F[FY],
+      resolution,
+    );
+    this.refreshFrustum();
+  }
+
+  refreshFrustum() {
+    this.sceneCamera.updateProjectionMatrix();
+    if (this.sceneCameraHelper) this.sceneCameraHelper.update();
+  }
+
   addCamera() {
+    const resolution = this.intrinsicsResolution();
     const vfov = computeVerticalFOVFromFy(
       this.cameraMatrix.data64F[FY],
-      this.resolution,
+      resolution,
     );
     this.sceneCamera = new THREE.PerspectiveCamera(
       vfov,
-      this.resolution.w / this.resolution.h,
+      resolution.w / resolution.h,
       0.1,
       10,
     );
@@ -230,11 +257,9 @@ export default class SceneCamera extends THREE.Object3D {
   addObject(params) {
     this.drawObj = params.drawObj;
     if (this.sceneCamera) {
-      this.drawObj
-        .createTextObject(this.name, this.textPos)
-        .then((textMesh) => {
-          this.sceneCamera.add(textMesh);
-        });
+      this.sceneCamera.add(
+        this.drawObj.createThingLabel(this.name, this.textPos, this.cameraUID),
+      );
     }
     this.sceneMesh = params.sceneMesh;
     this.scene = params.scene;
@@ -301,11 +326,9 @@ export default class SceneCamera extends THREE.Object3D {
     this.remove(this.sceneCameraHelper);
     this.addCamera();
     if (this.sceneCamera) {
-      this.drawObj
-        .createTextObject(this.name, this.textPos)
-        .then((textMesh) => {
-          this.sceneCamera.add(textMesh);
-        });
+      this.sceneCamera.add(
+        this.drawObj.createThingLabel(this.name, this.textPos, this.cameraUID),
+      );
     }
     this.resetTransformObject();
     return;
@@ -374,6 +397,21 @@ export default class SceneCamera extends THREE.Object3D {
     });
 
     return;
+  }
+
+  updatePose(pose) {
+    if (!this.sceneCamera || !pose.translation || !pose.rotation) return;
+
+    this.cameraPosition.fromArray(pose.translation);
+    this.cameraRotation.set(
+      ...pose.rotation.map((value) => THREE.MathUtils.degToRad(value)),
+    );
+    this.sceneCamera.position.copy(this.cameraPosition);
+    this.sceneCamera.rotation.copy(this.cameraRotation);
+    if (pose.scale) this.sceneCamera.scale.fromArray(pose.scale);
+    this.togglePoseYupYdown(this.sceneCamera);
+    this.sceneCamera.updateMatrixWorld(true);
+    if (this.transformControl) this.resetTransformObject();
   }
 
   addControlPanel(camerasFolder) {
@@ -476,7 +514,7 @@ export default class SceneCamera extends THREE.Object3D {
             this.projectFrame = visibility;
             if (this.projectFrame && this.mqttClient) {
               this.mqttClient.publish(
-                this.appName + CMD_CAMERA + this.name,
+                this.appName + CMD_CAMERA + (this.cameraUID || this.name),
                 "getimage",
               );
             }
@@ -495,7 +533,7 @@ export default class SceneCamera extends THREE.Object3D {
           this.pauseVideo = visibility;
           if (!this.pauseVideo && this.projectFrame && this.mqttClient) {
             this.mqttClient.publish(
-              this.appName + CMD_CAMERA + this.name,
+              this.appName + CMD_CAMERA + (this.cameraUID || this.name),
               "getimage",
             );
           }
@@ -773,11 +811,7 @@ export default class SceneCamera extends THREE.Object3D {
 
   setCameraVerticalFOV() {
     if (this.resolution) {
-      this.sceneCamera.fov = computeVerticalFOVFromFy(
-        this.cameraMatrix.data64F[FY],
-        this.resolution,
-      );
-      this.sceneCamera.updateProjectionMatrix();
+      this.applyOpticalProjection();
       if (this.cameraCapture) {
         this.cameraCapture.camera = this.sceneCamera;
         this.cameraCapture.project(this.mesh);
@@ -788,7 +822,7 @@ export default class SceneCamera extends THREE.Object3D {
   setCameraAspectRatio() {
     this.sceneCamera.aspect =
       this.cameraMatrix.data64F[CX] / this.cameraMatrix.data64F[CY];
-    this.sceneCamera.updateProjectionMatrix();
+    this.refreshFrustum();
     if (this.cameraCapture) {
       this.cameraCapture.camera = this.sceneCamera;
       this.cameraCapture.project(this.mesh);
@@ -833,18 +867,12 @@ export default class SceneCamera extends THREE.Object3D {
     );
 
     if (isConfirmed) {
-      camerasFolder.unsetSelectedCamera(this);
-      if (this.pointCloudViz) {
-        this.pointCloudViz.clear();
-      }
-      this.scene.remove(this);
-      this.deleteFromSceneCameras(this.name);
+      this.detach(camerasFolder);
 
       if (this.isStoredInDB) {
         let deleteResponse = await this.restclient.deleteCamera(this.cameraUID);
 
         if (deleteResponse.statusCode == "200") {
-          this.controlsFolder.destroy();
           this.toast.showToast(
             "Camera has been deleted from the database!",
             "success",
@@ -857,11 +885,37 @@ export default class SceneCamera extends THREE.Object3D {
           );
         }
       } else {
-        this.controlsFolder.destroy();
         this.toast.showToast("Unsaved camera has been removed!", "success");
       }
     } else {
       this.toast.showToast("Camera removal canceled", "danger");
+    }
+  }
+
+  // Take this camera out of the 3D scene and the control panel without
+  // touching the database (the row may already be gone).
+  detach(camerasFolder) {
+    if (camerasFolder) camerasFolder.unsetSelectedCamera(this);
+    if (this.interval) clearInterval(this.interval);
+    if (this.pointCloudViz) {
+      this.pointCloudViz.clear();
+    }
+    if (this.transformControl) {
+      this.transformControl.detach();
+      this.scene.remove(this.getTransformControlObject3D());
+    }
+    if (this.sceneCamera) {
+      const label = this.sceneCamera.getObjectByName("thingLabel_" + this.name);
+      if (label) {
+        this.drawObj.disposeThingLabel(label);
+        this.sceneCamera.remove(label);
+      }
+    }
+    this.scene.remove(this);
+    this.deleteFromSceneCameras(this.name);
+    if (this.controlsFolder) {
+      this.controlsFolder.destroy();
+      this.controlsFolder = null;
     }
   }
 
@@ -883,7 +937,10 @@ export default class SceneCamera extends THREE.Object3D {
 
     // Subscribe to camera image topic to check if intrinsics have been updated
     this.mqttClient.on("message", (topic, message) => {
-      if (topic === this.appName + IMAGE_CAMERA + this.name) {
+      if (
+        topic ===
+        this.appName + IMAGE_CAMERA + (this.cameraUID || this.name)
+      ) {
         let msg = JSON.parse(message);
 
         // Check if intrinsics and distortion are present in the message
@@ -902,7 +959,7 @@ export default class SceneCamera extends THREE.Object3D {
   requestPointCloud() {
     if (!this.mqttClient || !this.appName) return;
     this.mqttClient.publish(
-      this.appName + CMD_CAMERA + this.name,
+      this.appName + CMD_CAMERA + (this.cameraUID || this.name),
       "getpointcloud",
     );
   }
@@ -1030,6 +1087,8 @@ export default class SceneCamera extends THREE.Object3D {
       ),
       scale: [1, 1, 1],
       transform_type: "euler",
+      // Detected from the incoming frame; without it the camera keeps the 640x480 default.
+      resolution: { width: this.resolution.w, height: this.resolution.h },
     };
 
     if (this.cameraUID && this.mqttClient && this.isVARunning) {
@@ -1062,7 +1121,7 @@ export default class SceneCamera extends THREE.Object3D {
     }
 
     let textObject = this.sceneCamera.getObjectByName(
-      "textObject_" + this.previousName,
+      "thingLabel_" + this.previousName,
     );
     if (this.isStoredInDB) await this.updateExistingCamera(cameraData);
     else {
@@ -1093,12 +1152,15 @@ export default class SceneCamera extends THREE.Object3D {
       }
 
       if (this.sceneCamera) {
+        this.drawObj.disposeThingLabel(textObject);
         this.sceneCamera.remove(textObject);
-        this.drawObj
-          .createTextObject(this.name, this.textPos)
-          .then((textMesh) => {
-            this.sceneCamera.add(textMesh);
-          });
+        this.sceneCamera.add(
+          this.drawObj.createThingLabel(
+            this.name,
+            this.textPos,
+            this.cameraUID,
+          ),
+        );
       }
     }
     this.controlsFolder.title(newCamName);
@@ -1116,12 +1178,15 @@ export default class SceneCamera extends THREE.Object3D {
       this.isStoredInDB = true;
       this.cameraUID = createResponse.content.uid;
       if (this.sceneCamera) {
+        this.drawObj.disposeThingLabel(textObject);
         this.sceneCamera.remove(textObject);
-        this.drawObj
-          .createTextObject(this.name, this.textPos)
-          .then((textMesh) => {
-            this.sceneCamera.add(textMesh);
-          });
+        this.sceneCamera.add(
+          this.drawObj.createThingLabel(
+            this.name,
+            this.textPos,
+            this.cameraUID,
+          ),
+        );
       }
       this.previousName = this.name;
       for (const camObj of this.currentCameras[DEFAULT_CAMERA_UID]) {
@@ -1187,7 +1252,7 @@ export default class SceneCamera extends THREE.Object3D {
         if (control[0]) control[0].destroy();
       });
       this.showCameraOnline();
-      this.updateCameraResolutionUsingInputFrame(image);
+      this.applyOpticalProjection();
     }
 
     if (this.sceneCamera && this.projectFrame && !this.pauseVideo) {
@@ -1195,13 +1260,7 @@ export default class SceneCamera extends THREE.Object3D {
       loader.load(
         image,
         (texture) => {
-          this.resolution = { w: texture.image.width, h: texture.image.height };
-          this.sceneCamera.aspect = texture.image.width / texture.image.height;
-          this.sceneCamera.fov = computeVerticalFOVFromFy(
-            this.cameraMatrix.data64F[FY],
-            this.resolution,
-          );
-          this.sceneCamera.updateProjectionMatrix();
+          this.applyOpticalProjection();
           if (this.cameraCapture === null) {
             [this.cameraCapture, this.mesh] =
               this.drawObj.createProjectionMaterial(
@@ -1227,20 +1286,6 @@ export default class SceneCamera extends THREE.Object3D {
         },
       );
     }
-  }
-
-  updateCameraResolutionUsingInputFrame(image) {
-    const img = new Image();
-    img.src = image;
-    img.onload = (() => {
-      this.resolution = { w: img.width, h: img.height };
-      this.sceneCamera.aspect = this.resolution.w / this.resolution.h;
-      let intrinsics = { ...this.intrinsics };
-      intrinsics.cx = this.resolution.w / 2;
-      intrinsics.cy = this.resolution.h / 2;
-      this.updateIntrinsics(intrinsics);
-      this.sceneCamera.updateProjectionMatrix();
-    }).bind(this);
   }
 
   showCameraOnline() {

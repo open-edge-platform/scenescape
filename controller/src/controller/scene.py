@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Optional
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -233,18 +234,38 @@ class Scene(SceneModel):
       log.info("DISCARDING: camera has no pose")
       return True
 
+    message_camera = camera
+    extrinsics = jdata.get('extrinsics')
+    if isinstance(extrinsics, dict):
+      try:
+        translation = extrinsics.get('translation')
+        rotation = extrinsics.get('rotation')
+        if translation is not None and rotation is not None:
+          override_pose = CameraPose({
+            'translation': translation,
+            'rotation': rotation,
+            'scale': extrinsics.get('scale') or [1, 1, 1],
+          }, camera.pose.intrinsics)
+          message_camera = SimpleNamespace(cameraID=camera.cameraID, pose=override_pose)
+      except (TypeError, ValueError) as exc:
+        log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
+
     for detection_type, detections in jdata['objects'].items():
       stripReidProvenance(detections)
       self.pose_adjustment.adjust_detections(
         detection_type,
         detections,
         self.name,
-        camera,
+        message_camera,
         when,
       )
       if "intrinsics" not in jdata:
-        self.convertPixelBoundingBoxesToMeters(detections, camera.pose.intrinsics.intrinsics, camera.pose.intrinsics.distortion)
-      objects = self.createMovingObjectsForDetection(detection_type, detections, when, camera)
+        self.convertPixelBoundingBoxesToMeters(
+          detections,
+          message_camera.pose.intrinsics.intrinsics,
+          message_camera.pose.intrinsics.distortion,
+        )
+      objects = self.createMovingObjectsForDetection(detection_type, detections, when, message_camera)
       self.finishProcessing(detection_type, when, objects)
     return True
 
@@ -265,7 +286,7 @@ class Scene(SceneModel):
 
     for obj_idx, obj in enumerate(objects):
       # Check main object bounding box
-      if 'bounding_box' not in obj and 'bounding_box_px' in obj:
+      if 'bounding_box' not in obj and 'bounding_box_px' in obj and obj.get('distance') is None:
         bbox_px = obj['bounding_box_px']
         bboxes_to_convert.append((bbox_px['x'], bbox_px['y'], bbox_px['width'], bbox_px['height']))
         bbox_mappings.append(('main', obj_idx, None, None))
@@ -273,7 +294,7 @@ class Scene(SceneModel):
       # Check sub_detections bounding boxes
       for key in obj.get('sub_detections', []):
         for sub_idx, sub_obj in enumerate(obj[key]):
-          if 'bounding_box' not in sub_obj and 'bounding_box_px' in sub_obj:
+          if 'bounding_box' not in sub_obj and 'bounding_box_px' in sub_obj and sub_obj.get('distance') is None:
             bbox_px = sub_obj['bounding_box_px']
             bboxes_to_convert.append((bbox_px['x'], bbox_px['y'], bbox_px['width'], bbox_px['height']))
             bbox_mappings.append(('sub', obj_idx, key, sub_idx))

@@ -570,13 +570,33 @@ function main() {
     }
 
     if (topic.includes(CONSTANTS.DATA_REGULATED)) {
+      cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+      if (cameraManager) {
+        cameraManager.updatePoses(msg.cameras);
+      }
       if (showTrackedObjects) {
         // Plot the marks
         assetManager.plot(msg);
       }
     } else if (topic.includes(CONSTANTS.CMD_DATABASE)) {
       assetManager.loadAssets(gltfLoader, true);
-      cameraManager.refresh(client, appName + CONSTANTS.CMD_CAMERA);
+      cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+      if (cameraManager) {
+        cameraManager
+          .syncWithDatabase(
+            sceneThingManagers.things.camera,
+            client,
+            appName,
+            isVARunning,
+          )
+          .then(({ added, removed }) => {
+            if (added.length || removed.length) {
+              refreshGlobalCameraPanelControls();
+            }
+            cameraManager.refresh(client, appName + CONSTANTS.CMD_CAMERA);
+          })
+          .catch((err) => console.error("Camera sync failed:", err));
+      }
     } else if (topic.includes(CONSTANTS.IMAGE_CAMERA)) {
       const id = topic.split("camera/")[1];
       cameraManager = sceneThingManagers["things"]["camera"]["obj"];

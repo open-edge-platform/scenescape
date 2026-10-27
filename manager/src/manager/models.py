@@ -123,6 +123,12 @@ class Scene(models.Model):
                             validators=[FileExtensionValidator(["glb","png","jpeg","jpg","zip","ply","mp4",
                             "mov", "mkv", "webm", "avi"]),
                                         validate_map_file])
+  map_contributor = models.CharField(
+    "Scene map last contributor", max_length=200, default="", blank=True)
+  # Which source's mesh Scene.map mirrors. Null when the map is not a mesh.
+  default_source_map = models.ForeignKey(
+    "SceneSourceMap", null=True, blank=True, on_delete=models.SET_NULL,
+    related_name="+", editable=False)
   scale = models.FloatField("Pixels per meter", default=None, null=True, blank=True,
                             validators=[MinValueValidator(5e-324)])
   use_tracker = models.BooleanField("Use tracker", choices=BOOLEAN_CHOICES, default=True, blank=True)
@@ -536,6 +542,57 @@ class Scene(models.Model):
   def wssConnection(self):
     log.info("Getting wss connection string.")
     return "wss://localhost/mqtt"
+
+def source_map_upload_to(instance, filename):
+  return f"source-maps/{instance.scene_id}/{instance.id}.glb"
+
+def source_map_thumbnail_upload_to(instance, filename):
+  return f"source-maps/{instance.scene_id}/{instance.id}_2d.png"
+
+def mapping_artifact_upload_to(instance, filename):
+  return f"mapping-artifacts/{instance.scene_id}/{instance.id}.zip"
+
+class SceneSourceMap(models.Model):
+  """The current mesh from one method; a new upload from that method replaces it."""
+
+  USER_METHOD = "user"
+
+  id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+  scene = models.ForeignKey(Scene, on_delete=models.CASCADE, related_name="source_maps")
+  method = models.CharField(max_length=32, default=USER_METHOD)
+  file = models.FileField(upload_to=source_map_upload_to, blank=True)
+  thumbnail = models.ImageField(upload_to=source_map_thumbnail_upload_to, null=True, blank=True)
+  sha256 = models.CharField(max_length=64)
+  contributor = models.CharField(max_length=200, default="", blank=True)
+  created = models.DateTimeField(auto_now_add=True)
+  transform = models.JSONField(default=dict)
+
+  class Meta:
+    constraints = [
+      models.UniqueConstraint(
+        fields=["scene", "method"], name="unique_source_map_per_method"),
+    ]
+
+class SceneMappingArtifact(models.Model):
+  """One method's current resume zip; a new upload replaces it."""
+
+  id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True)
+  scene = models.ForeignKey(
+    Scene, on_delete=models.CASCADE, related_name="mapping_artifacts")
+  method = models.CharField(max_length=32)
+  bundle = models.FileField(upload_to=mapping_artifact_upload_to)
+  sha256 = models.CharField(max_length=64)
+  size = models.PositiveBigIntegerField()
+  fiducials = models.JSONField(default=list)
+  manifest = models.JSONField(default=dict, blank=True)
+  created = models.DateTimeField(auto_now_add=True)
+  contributor = models.CharField(max_length=200, default="", blank=True)
+
+  class Meta:
+    constraints = [
+      models.UniqueConstraint(
+        fields=["scene", "method"], name="unique_mapping_artifact_per_method"),
+    ]
 
 class ChildScene(models.Model):
   child = models.OneToOneField(Scene, default=None, null=True, blank=True,
