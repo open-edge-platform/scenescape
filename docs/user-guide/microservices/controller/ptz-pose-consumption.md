@@ -105,6 +105,14 @@ never queues a detection.
   else is dropped as `frame_mismatch` or `calibration_changed`.
 - **Clock:** while the Controller has not synchronized with the NTP server, or the
   offset exceeds `max_clock_offset_s`, PTZ detections are dropped as `sample_stale`.
+- **Availability:** a detection acquired after the latest PoseContext is dropped as
+  `no_sample`, because the contract never waits for a newer pose. Even while a
+  camera stays parked, the share of admitted frames is therefore bounded by how
+  often Positioning publishes compared with the detection latency. For example,
+  with a 0.2 s poll interval and a low-latency 15 fps pipeline, most frames can be
+  `no_sample`. Measure it in shadow mode with `shadow.sample_every_n: 1` (the
+  default sampling over-represents decision changes), and lower the Positioning
+  `poll_interval_s` if too few frames are admitted.
 
 Reasons are the canonical `invalid_reason` values and the bounded `reason_detail`
 values of the contracts document.
@@ -168,10 +176,49 @@ Controller adds three counters. Labels are bounded; none is an object identifier
 ## Deploy
 
 - **Docker Compose:** the sample stack passes `CONTROLLER_PTZ_ENABLED` and
-  `CONTROLLER_PTZ_SHADOW_MODE` (both `false` by default), mounts
-  `controller/config/ptz-consumer-config.json`, and mounts
-  `deployment/positioning-assignments.json` read-only into the Controller.
-  Set the variables in `.env`.
+  `CONTROLLER_PTZ_SHADOW_MODE` (both `false` by default) and mounts the example
+  `controller/config/ptz-consumer-config.json` and the empty, checked-in
+  `deployment/positioning-assignments.json`. Do not edit the checked-in files. Keep
+  deployment values next to the Positioning configuration in the git-ignored
+  `positioning/.local/` directory (see
+  [Positioning operations](../positioning/operations.md)), so the Controller reads
+  the same manifest as Positioning and Manager:
+
+  1. Add your bounds as `positioning/.local/ptz-consumer-config.json`.
+  2. Add the `scene` service and the configuration to
+     `positioning/.local/compose.override.yml`:
+
+     ```yaml
+     services:
+       scene:
+         volumes:
+           - ./positioning/.local/positioning-assignments.json:/home/scenescape/Scenescape/positioning-assignments.json:ro
+     configs:
+       ptz-consumer-config:
+         file: ./positioning/.local/ptz-consumer-config.json
+     ```
+
+  3. Set one mode in the git-ignored `.env`, for example
+     `CONTROLLER_PTZ_SHADOW_MODE=true`.
+  4. Recreate only the Controller. Pass every Compose file the stack already uses,
+     followed by the override:
+
+     ```bash
+     docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml \
+       --profile controller up -d --no-deps --force-recreate scene
+     docker compose logs scene | grep -E "PTZ pose consumption|positioning/"
+     ```
+
+     The log shows `PTZ pose consumption: SHADOW mode` (or `ENFORCE`) and one
+     `Subscribed to scenescape/positioning/pose/<camera_id>` line per managed camera.
+     `--force-recreate` is required after editing a file in `positioning/.local/`:
+     Compose does not detect content changes in mounted files, and the Controller
+     reads them only at startup.
+
+  A PTZ camera that you later add to a scene in Manager is picked up without a restart
+  if the manifest already names its Resolver. Adding a camera to the manifest requires
+  recreating the Controller, as well as Positioning and Manager.
+
 - **Kubernetes:** set `scene.ptz.enabled` or `scene.ptz.shadowMode`, and supply the four
   bounds in `scene.ptz.config`. The chart renders them, together with
   `positioning.assignments`, into a ConfigMap, and fails to render if both modes are on

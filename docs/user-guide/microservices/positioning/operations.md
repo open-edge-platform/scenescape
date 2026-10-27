@@ -268,6 +268,10 @@ positioning/.local/
    The secret files mounted by the base Compose file (broker auth and
    certificates) must also be readable by the user ID you set.
 
+   Pose consumers read the same manifest. To let the Scene Controller consume
+   poses, add a `scene` service to this file as described in
+   [PTZ Pose Consumption in the Scene Controller](../controller/ptz-pose-consumption.md#deploy).
+
 6. Start the demo stack, then recreate only the Positioning service with the
    override. `make demo` generates the root `docker-compose.yml` and starts
    Positioning with the default configuration, which has no sources:
