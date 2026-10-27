@@ -11,7 +11,8 @@ and missing operations.
 from pathlib import Path
 
 import pytest
-from flask import Flask, escape
+from flask import Flask
+from markupsafe import escape
 
 from tests.sscape_tests.api.common import (
   CONTRACT_CHECKS,
