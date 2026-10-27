@@ -7,9 +7,6 @@ fixtures/target_born_moving is recorder output of MotionScenarioTest.TargetBornM
 (controller/src/robot_vision/test). Regenerate with:
   RV_SCENARIO_DIR=<dir> RobotVisionTests \
     --gtest_filter=MotionScenarioTest.TargetBornMovingAcquiresSpeed
-
-schema/camera-data.schema.json is a copy of tracker/schema/camera-data.schema.json from branch
-ITEP-97104_tracker_3d_detections (3D detections); use the tracker schema once that is merged.
 """
 
 import json
@@ -45,13 +42,14 @@ def write_jsonl(path, records):
 
 
 def validator(schema_path):
-  """JSON schema validator for a schema file."""
-  return jsonschema.Draft202012Validator(json.loads(Path(schema_path).read_text(encoding="utf-8")))
+  """JSON schema validator for a schema file, in the draft its $schema declares."""
+  schema = json.loads(Path(schema_path).read_text(encoding="utf-8"))
+  return jsonschema.validators.validator_for(schema)(schema)
 
 
 @pytest.mark.parametrize("file_name, schema_path", [
   ("tracks.jsonl", REPO_ROOT / "tracker" / "schema" / "scene-data.schema.json"),
-  ("detections.jsonl", TESTS_DIR / "schema" / "camera-data.schema.json"),
+  ("detections.jsonl", REPO_ROOT / "tracker" / "schema" / "camera-data.schema.json"),
 ])
 def test_recorded_files_match_schemas(file_name, schema_path):
   """Recorded tracks and detections follow the canonical schemas."""

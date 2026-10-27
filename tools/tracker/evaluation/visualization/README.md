@@ -107,6 +107,5 @@ pytest visualization -v
 
 - [tests/fixtures/target_born_moving](tests/fixtures/target_born_moving): a recording, regenerated as in
   [Test scenario recordings](../../../../controller/src/robot_vision/README.md#test-scenario-recordings) with `--gtest_filter=MotionScenarioTest.TargetBornMovingAcquiresSpeed`.
-- [tests/schema/camera-data.schema.json](tests/schema/camera-data.schema.json): copy of
-  `tracker/schema/camera-data.schema.json` with 3D detections from branch `ITEP-97104_tracker_3d_detections`; replace it
-  with the tracker schema once that is merged.
+  Its `detections.jsonl` and `tracks.jsonl` are validated against `tracker/schema/camera-data.schema.json` and
+  `tracker/schema/scene-data.schema.json`.
