@@ -27,7 +27,7 @@ from controller.observability import metrics
 from controller.ptz import provider as ptz_provider
 from controller.ptz.ingress import PTZIngress
 from controller.ptz.registry import PTZPoseRegistry
-from controller.ptz.shadow import ShadowRecorder
+from controller.ptz.shadow import ShadowRecorder, SummaryRecorder
 from controller.reid_env import (
   get_reid_client_cert,
   get_reid_client_key,
@@ -119,9 +119,8 @@ class SceneController:
     self.ptz_ingress = None
     if ptz_settings is not None:
       self.ptz_registry = PTZPoseRegistry(ptz_settings, self.schema_val, self._ptzClock)
-      self.ptz_ingress = PTZIngress(
-        ptz_settings, self.ptz_registry,
-        ShadowRecorder(ptz_settings.run_id, ptz_settings.shadow_sample_every_n))
+      self.ptz_ingress = PTZIngress(ptz_settings, self.ptz_registry,
+                                    self._ptzRecorder(ptz_settings))
       ptz_provider.set_active_registry(self.ptz_registry)
       log.info(f"PTZ pose consumption: {ptz_settings.mode.upper()} mode")
 
@@ -257,6 +256,12 @@ class SceneController:
   def _getExternalSourceSweepTime(self):
     """Return the NTP-corrected time used to accept external-source events."""
     return get_epoch_time() + self.time_offset
+
+  @staticmethod
+  def _ptzRecorder(ptz_settings):
+    if ptz_settings.shadow_per_decision:
+      return ShadowRecorder(ptz_settings.run_id, ptz_settings.shadow_sample_every_n)
+    return SummaryRecorder()
 
   def _ptzClock(self):
     """Synchronized local time in ns and whether the clock is within the configured bound."""

@@ -49,6 +49,7 @@ class PTZSettings:
   assignments: Mapping[str, str]
   run_id: str = DEFAULT_SHADOW_RUN_ID
   shadow_sample_every_n: int = DEFAULT_SHADOW_SAMPLE_EVERY_N
+  shadow_per_decision: bool = False
 
   @property
   def enforcing(self) -> bool:
@@ -87,13 +88,14 @@ def load_ptz_settings(enabled: bool, shadow: bool, config_file: Optional[str],
     consumer = load_consumer_config(values)
   except PositioningConfigError as error:
     raise PTZConfigError(f"{config_file}: {error}") from error
-  run_id, sample_every_n = _shadow_settings(values.get("shadow"))
+  run_id, sample_every_n, per_decision = _shadow_settings(values.get("shadow"))
   return PTZSettings(
     mode=MODE_SHADOW if shadow else MODE_ENFORCE,
     consumer=consumer,
     assignments=load_assignments(assignments_file),
     run_id=run_id,
     shadow_sample_every_n=sample_every_n,
+    shadow_per_decision=per_decision,
   )
 
 
@@ -135,7 +137,7 @@ def _read_json_object(path: str) -> dict:
 
 def _shadow_settings(shadow):
   if shadow is None:
-    return DEFAULT_SHADOW_RUN_ID, DEFAULT_SHADOW_SAMPLE_EVERY_N
+    return DEFAULT_SHADOW_RUN_ID, DEFAULT_SHADOW_SAMPLE_EVERY_N, False
   if not isinstance(shadow, dict):
     raise PTZConfigError("'shadow' must be an object")
   run_id = shadow.get("run_id", DEFAULT_SHADOW_RUN_ID)
@@ -144,4 +146,7 @@ def _shadow_settings(shadow):
   every_n = shadow.get("sample_every_n", DEFAULT_SHADOW_SAMPLE_EVERY_N)
   if isinstance(every_n, bool) or not isinstance(every_n, int) or every_n < 1:
     raise PTZConfigError("shadow.sample_every_n must be an integer >= 1")
-  return run_id, every_n
+  per_decision = shadow.get("per_decision", False)
+  if not isinstance(per_decision, bool):
+    raise PTZConfigError("shadow.per_decision must be true or false")
+  return run_id, every_n, per_decision

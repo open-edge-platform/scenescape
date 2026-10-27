@@ -50,18 +50,23 @@ All values are deployment-owned and **required**; there are no defaults. Measure
   "max_clock_offset_s": 0.05,
   "max_detection_pipeline_latency_s": 1.0,
   "max_detection_timestamp_uncertainty_s": 0.05,
-  "shadow": { "run_id": "unspecified", "sample_every_n": 10 }
+  "shadow": {
+    "run_id": "unspecified",
+    "per_decision": false,
+    "sample_every_n": 10
+  }
 }
 ```
 
-| Key                                     | Unit | Meaning                                                                                                                          |
-| --------------------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `max_pose_age_s`                        | s    | A PoseContext older than this, by the Controller's clock, is not used. Must be greater than 0.                                   |
-| `max_clock_offset_s`                    | s    | PTZ detections are dropped while the measured NTP offset exceeds it. Must be greater than 0.                                     |
-| `max_detection_pipeline_latency_s`      | s    | Hard bound on camera-to-Controller latency. It is also the minimum dwell. Must be greater than 0.                                |
-| `max_detection_timestamp_uncertainty_s` | s    | Uncertainty of the detection acquisition timestamp. Must be 0 or greater.                                                        |
-| `shadow.run_id`                         |      | Label of the run for the shadow records (`A-Z a-z 0-9 . _ -`, up to 128 characters).                                             |
-| `shadow.sample_every_n`                 |      | Record every Nth decision of a source, and the first occurrence of each other decision within those N. An integer, 1 or greater. |
+| Key                                     | Unit | Meaning                                                                                                                                               |
+| --------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `max_pose_age_s`                        | s    | A PoseContext older than this, by the Controller's clock, is not used. Must be greater than 0.                                                        |
+| `max_clock_offset_s`                    | s    | PTZ detections are dropped while the measured NTP offset exceeds it. Must be greater than 0.                                                          |
+| `max_detection_pipeline_latency_s`      | s    | Hard bound on camera-to-Controller latency. It is also the minimum dwell. Must be greater than 0.                                                     |
+| `max_detection_timestamp_uncertainty_s` | s    | Uncertainty of the detection acquisition timestamp. Must be 0 or greater.                                                                             |
+| `shadow.run_id`                         |      | Label of the run in per-decision records (`A-Z a-z 0-9 . _ -`, up to 128 characters).                                                                 |
+| `shadow.per_decision`                   |      | `false` (default): one log line per applied pose. `true`: sampled per-decision JSON records.                                                          |
+| `shadow.sample_every_n`                 |      | With `per_decision`: record every Nth decision of a source, and the first occurrence of each other decision within those N. An integer, 1 or greater. |
 
 The image ships an example `ptz-consumer-config.json` and an empty assignment manifest.
 Replace them by mounting your files read-only. The manifest is the same file the
@@ -110,8 +115,7 @@ never queues a detection.
   camera stays parked, the share of admitted frames is therefore bounded by how
   often Positioning publishes compared with the detection latency. For example,
   with a 0.2 s poll interval and a low-latency 15 fps pipeline, most frames can be
-  `no_sample`. Measure it in shadow mode with `shadow.sample_every_n: 1` (larger
-  values over-represent the rarer decision), and lower the Positioning
+  `no_sample`. The summary log lines show the share; lower the Positioning
   `poll_interval_s` if too few frames are admitted.
 
 Reasons are the canonical `invalid_reason` values and the bounded `reason_detail`
@@ -125,7 +129,24 @@ projects a copy of the detections with the PoseContext, and writes the residual 
 the static projection. It never creates tracks or changes track state, and a failure in
 the comparison is logged and ignored.
 
-Each sampled decision is one JSON line on the Controller's standard output:
+By default the Controller logs one line per camera each time a new parked pose is
+applied for tracking: after the camera moved, settled, and completed its dwell, or
+after a dwell reset (sequence gap, Resolver restart, calibration change). A parked
+camera logs nothing more. The line describes the applied pose and summarizes every
+decision since the previous line of the camera, that is, the time at the previous pose
+and the move:
+
+```text
+2026-10-27 16:12:14 PTZ camera ptz-cam-1: pose applied (shadow); 7.75 deg from home, dwell 1.4 s, pose age 0.05 s; calibration=ptz-cam-1-v3; previous 178.1 s: 2671 decisions, 28% admitted (rejected: no_sample 1893, moving 18, settling 10, dwell_incomplete 4), 412 detections, residual median 0.31 m, p95 0.52 m, max 0.88 m
+```
+
+The rotation compares the applied pose with the home calibration; a translation is
+added only when the pose also moved the camera. Residuals appear only when the period
+had detections, and only in shadow mode.
+
+For acceptance runs, set `shadow.per_decision: true`. The Controller then writes a
+sampled JSON record per decision to its standard output instead (every `sample_every_n`-th decision of a camera,
+and the first occurrence of each other decision within those N):
 
 ```json
 {
@@ -156,11 +177,12 @@ Each sampled decision is one JSON line on the Controller's standard output:
 }
 ```
 
-Rejected decisions have `admitted: false`, the reason, and no detections. The Controller
-writes no files and needs no volume. The acceptance harness collects the lines by `run_id`
-into `tests/artifacts/ptz/shadow/<run_id>.jsonl`; for a field run, export the same lines
-from the Controller's logs. Enforcing mode writes the same records, without the
-candidate projection.
+Rejected decisions have `admitted: false`, the reason, and no detections. Per-decision
+records add several lines per second and camera to the Controller log, so use them only
+for bounded runs. The Controller writes no files and needs no volume. The acceptance
+harness collects the lines by `run_id` into `tests/artifacts/ptz/shadow/<run_id>.jsonl`;
+for a field run, export the same lines from the Controller's logs. Enforcing mode writes
+the same records, without the candidate projection.
 
 ## Metrics
 
@@ -233,7 +255,7 @@ scene:
       max_clock_offset_s: 0.05
       max_detection_pipeline_latency_s: 1.0
       max_detection_timestamp_uncertainty_s: 0.05
-      shadow: { run_id: field-run-1, sample_every_n: 10 }
+      shadow: { run_id: field-run-1 }
 ```
 
 ## Roll back

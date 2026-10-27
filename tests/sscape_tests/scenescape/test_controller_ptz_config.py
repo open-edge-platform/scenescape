@@ -66,12 +66,18 @@ class TestLoadSettings:
     assert settings.assignments == {"cam-1": "resolver-a"}
     assert settings.run_id == DEFAULT_SHADOW_RUN_ID
     assert settings.shadow_sample_every_n == DEFAULT_SHADOW_SAMPLE_EVERY_N
+    assert settings.shadow_per_decision is False
 
   def test_shadow_settings_with_run_id_and_sampling(self, files):
     values = dict(VALID_VALUES, shadow={"run_id": "run-1.a_b", "sample_every_n": 3})
     settings = _load(files, enabled=False, shadow=True, values=values)
     assert settings.mode == MODE_SHADOW and settings.shadow and not settings.enforcing
     assert (settings.run_id, settings.shadow_sample_every_n) == ("run-1.a_b", 3)
+    assert settings.shadow_per_decision is False
+
+  def test_per_decision_records_are_opt_in(self, files):
+    values = dict(VALID_VALUES, shadow={"per_decision": True})
+    assert _load(files, enabled=False, shadow=True, values=values).shadow_per_decision is True
 
   def test_both_flags_are_an_error(self, files):
     with pytest.raises(PTZConfigError, match="mutually exclusive"):
@@ -137,6 +143,7 @@ class TestLoadSettings:
   @pytest.mark.parametrize("shadow", [
     "text", {"run_id": ""}, {"run_id": "a/b"}, {"run_id": "x" * 129}, {"run_id": 5},
     {"sample_every_n": 0}, {"sample_every_n": 1.5}, {"sample_every_n": True},
+    {"per_decision": "yes"}, {"per_decision": 1},
   ])
   def test_invalid_shadow_section(self, files, shadow):
     with pytest.raises(PTZConfigError, match="shadow"):

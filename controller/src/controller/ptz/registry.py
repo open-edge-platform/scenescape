@@ -63,6 +63,7 @@ class PTZAdmission:
   pose_age_s: Optional[float] = None
   timestamp_uncertainty_s: Optional[float] = None
   dwell_elapsed_s: Optional[float] = None
+  stationary_since_ns: Optional[int] = None
 
 
 class _SourceState:
@@ -254,6 +255,7 @@ class PTZPoseRegistry:
       pose = decision.pose
       return PTZAdmission(
         admitted=True, dwell_elapsed_s=decision.dwell_elapsed_s,
+        stationary_since_ns=state.tracker.stationary_since_ns,
         context=PTZProjectionContext(
           source_id=pose.source_id, sequence=pose.sequence,
           calibration_version=pose.calibration_version, frame_id=pose.frame_id,

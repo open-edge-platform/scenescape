@@ -22,7 +22,7 @@ from controller.ptz.config import MODE_ENFORCE, MODE_SHADOW, PTZSettings
 from controller.ptz.ingress import PTZIngress
 from controller.ptz.projection import ProjectedCamera
 from controller.ptz.registry import PTZPoseRegistry
-from controller.ptz.shadow import ShadowRecorder, candidate_residuals
+from controller.ptz.shadow import ShadowRecorder, SummaryRecorder, candidate_residuals
 from scene_common.camera import Camera
 from scene_common.detections_builder import computeCameraBounds
 from scene_common.geometry import Point
@@ -314,13 +314,29 @@ class TestIngress:
   def stream(self):
     return io.StringIO()
 
-  def _ingress(self, schema, scene, stream, mode, matrix=None, feed=True, every_n=1):
+  def _ingress(self, schema, scene, stream, mode, matrix=None, feed=True, every_n=1,
+               summary=False):
     registry = _make_registry(schema, scene, mode=mode)
     if feed:
       _feed(registry, matrix or scene.cameras[SOURCE].pose.pose_mat.tolist())
     settings = registry.settings
-    recorder = ShadowRecorder("run-7", every_n, stream)
+    recorder = SummaryRecorder(lambda line: stream.write(line + "\n")) if summary \
+      else ShadowRecorder("run-7", every_n, stream)
     return PTZIngress(settings, registry, recorder)
+
+  def test_summary_is_written_once_when_a_pose_is_applied(self, schema, ptz_scene, stream):
+    rotated = rotated_matrix(ptz_scene.cameras[SOURCE].pose.pose_mat.tolist(), 15.0)
+    ingress = self._ingress(schema, ptz_scene, stream, MODE_SHADOW, matrix=rotated,
+                            summary=True)
+    for _ in range(5):
+      assert ingress.filter(ptz_scene, SOURCE, _frame(), when)[0] is True
+      assert ingress.filter(ptz_scene, SOURCE, _frame(LAST_POSE_OFFSET_S + 0.01), when)[0]
+    lines = stream.getvalue().splitlines()
+    assert len(lines) == 1
+    assert lines[0].startswith(
+      f"PTZ camera {SOURCE}: pose applied (shadow); 15.00 deg from home, ")
+    assert "m from home position" not in lines[0]
+    assert f"calibration={VERSION}; no earlier decisions" in lines[0]
 
   def _records(self, stream):
     return [json.loads(line) for line in stream.getvalue().splitlines()]
@@ -408,6 +424,62 @@ class TestIngress:
     process, _ = ingress.filter(ptz_scene, SOURCE, _frame(LAST_POSE_OFFSET_S + 0.01), when)
     assert process is False
     assert self._records(stream)[0]["reason_detail"] == "no_sample"
+
+
+class TestSummaryRecorder:
+  class _Admission:
+    def __init__(self, admitted, detail=None, since_ns=None):
+      self.admitted, self.reason_detail, self.stationary_since_ns = admitted, detail, since_ns
+      self.managed, self.invalid_reason, self.context = True, None, None
+      self.sequence, self.calibration_version = 7, VERSION
+      self.pose_age_s, self.timestamp_uncertainty_s, self.dwell_elapsed_s = 0.1, 0.01, 2.0
+
+  @staticmethod
+  def _record(recorder, admission, detections=None, offset_s=0.0, source="cam"):
+    scene = type("S", (), {"uid": "s"})()
+    return recorder.record("shadow", scene, source, {"timestamp": iso(_at(offset_s))},
+                           admission, detections)
+
+  def test_parked_camera_logs_nothing_after_the_first_application(self):
+    lines = []
+    recorder = SummaryRecorder(lines.append)
+    parked = self._Admission(True, since_ns=_ns(0))
+    no_sample = self._Admission(False, "no_sample")
+    assert self._record(recorder, parked) is True
+    assert not any(self._record(recorder, admission)
+                   for _ in range(100) for admission in (parked, no_sample))
+    assert len(lines) == 1
+
+  def test_new_pose_summarizes_the_previous_period(self):
+    lines = []
+    recorder = SummaryRecorder(lines.append)
+    self._record(recorder, self._Admission(True, since_ns=_ns(0)),
+                 [{"residual_m": 0.1}, {"residual_m": 0.3}], offset_s=1.0)
+    self._record(recorder, self._Admission(False, "no_sample"), offset_s=2.0)
+    self._record(recorder, self._Admission(False, "no_sample"), offset_s=3.0)
+    self._record(recorder, self._Admission(False, "moving"), offset_s=4.0)
+    self._record(recorder, self._Admission(False, "settling"), offset_s=5.5)
+    assert self._record(recorder, self._Admission(True, since_ns=_ns(5)), offset_s=6.0) is True
+
+    assert lines[-1] == (
+      f"PTZ camera cam: pose applied (shadow); offset from home unknown, dwell 2.0 s, "
+      f"pose age 0.10 s; calibration={VERSION}; previous 4.5 s: 5 decisions, 20% admitted "
+      f"(rejected: no_sample 2, moving 1, settling 1), 2 detections, "
+      f"residual median 0.20 m, p95 0.29 m, max 0.30 m")
+
+  def test_sources_are_summarized_independently(self):
+    recorder = SummaryRecorder([].append)
+    admission = self._Admission(True, since_ns=_ns(0))
+    assert self._record(recorder, admission, source="a") is True
+    assert self._record(recorder, admission, source="b") is True
+    assert self._record(recorder, admission, source="a") is False
+
+  def test_logs_through_the_controller_logger_by_default(self):
+    with patch("controller.ptz.shadow.log.info") as info:
+      SummaryRecorder().record("enforce", None, "cam", {},
+                               self._Admission(True, since_ns=_ns(0)))
+    info.assert_called_once()
+    assert info.call_args.args[0].startswith("PTZ camera cam: pose applied (enforce); ")
 
 
 class TestShadowRecorder:

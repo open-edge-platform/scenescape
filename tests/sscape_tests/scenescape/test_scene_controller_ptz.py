@@ -5,6 +5,7 @@
 
 """SceneController wiring for PTZ pose consumption: gate, subscriptions, callbacks, clock."""
 
+import dataclasses
 import json
 import queue
 import threading
@@ -15,6 +16,7 @@ import pytest
 
 from controller.ptz import provider
 from controller.ptz.config import MODE_ENFORCE, PTZSettings
+from controller.ptz.shadow import ShadowRecorder, SummaryRecorder
 from controller.scene_controller import SceneController
 from scene_common.mqtt import PubSub
 from scene_common.positioning_config import ConsumerPositioningConfig
@@ -48,6 +50,17 @@ def _controller():
   controller._moving_object_queue = queue.Queue()
   controller._moving_object_stop = threading.Event()
   return controller
+
+
+class TestRecorder:
+  def test_summary_records_are_the_default(self):
+    assert isinstance(SceneController._ptzRecorder(_settings()), SummaryRecorder)
+
+  def test_per_decision_records_are_opt_in(self):
+    settings = dataclasses.replace(_settings(), shadow_per_decision=True,
+                                   shadow_sample_every_n=4)
+    recorder = SceneController._ptzRecorder(settings)
+    assert isinstance(recorder, ShadowRecorder) and recorder.sample_every_n == 4
 
 
 class TestClock:

@@ -6,6 +6,7 @@
   "max_detection_timestamp_uncertainty_s": 0.05,
   "shadow": {
     "run_id": "unspecified",
-    "sample_every_n": 10
+    "sample_every_n": 10,
+    "per_decision": false
   }
 }
