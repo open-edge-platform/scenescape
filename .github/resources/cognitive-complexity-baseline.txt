@@ -86,7 +86,6 @@ manager/src/manager/validators.py	validate_map_corners_lla	13
 manager/src/manager/views.py	cameraCalibrate	21
 manager/src/manager/views.py	genericCalibrate	55
 manager/src/manager/views.py	getAllChildrenMetaData	38
-manager/src/manager/views.py	saveRegionData	13
 manager/src/manager/views.py	sign_in	25
 mapping/src/api_service_base.py	reconstruct3D	56
 mapping/src/api_service_base.py	validate_reconstruction_request	29
