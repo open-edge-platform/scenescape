@@ -1172,7 +1172,7 @@ class GeospatialGlbPreview(APIView):
   """Stage an uploaded GLB and return a top-down preview PNG, its footprint and a default anchor.
 
   The anchor defaults to the scene's saved map centre with heading 0. Nothing on the scene
-  is modified; the staged files are removed after the TTL or when committed.
+  is modified; the staged files are removed after the TTL or when the request fails.
   """
   authentication_classes = [SessionAuthentication, TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]

@@ -468,8 +468,7 @@ def getPosedMeshFootprint(mesh, rotation, translation, scale=None):
   @param      rotation        Rotation as 3 or 4 values (Euler XYZ deg or quaternion)
   @param      translation     Translation as [tx, ty, tz]
   @param      scale           Scale as [sx, sy, sz] (default [1, 1, 1])
-  @return     tuple           (corners, (width, height)) where corners is (4,3) array
-                              [SW, SE, NE, NW] at z=0, and (width, height) are extents
+  @return     corners         (4,3) array [SW, SE, NE, NW] at z=0
   """
   # Validate input types
   if not isinstance(mesh, o3d.t.geometry.TriangleMesh):
@@ -495,14 +494,9 @@ def getPosedMeshFootprint(mesh, rotation, translation, scale=None):
   # Build pose matrix using the same method as scenes
   pose_mat = CameraPose._poseToPoseMat(translation, rotation, scale)
 
-  # Extract vertices and apply pose transformation
+  # The pose matrix is affine (last row [0, 0, 0, 1]), so apply it without homogeneous coords
   vertices = mesh.vertex.positions.numpy()  # (N, 3) array
-
-  # Convert to homogeneous coords, apply transformation, extract XYZ
-  ones = np.ones((vertices.shape[0], 1))
-  vertices_homo = np.hstack([vertices, ones])  # (N, 4)
-  transformed_homo = np.matmul(vertices_homo, pose_mat.T)  # (N, 4)
-  transformed_xyz = transformed_homo[:, :3]  # (N, 3)
+  transformed_xyz = vertices @ pose_mat[:3, :3].T + pose_mat[:3, 3]
 
   # Find XY axis-aligned bounding box
   min_x = np.min(transformed_xyz[:, 0])
@@ -510,11 +504,7 @@ def getPosedMeshFootprint(mesh, rotation, translation, scale=None):
   min_y = np.min(transformed_xyz[:, 1])
   max_y = np.max(transformed_xyz[:, 1])
 
-  corners = _footprintCornersAtZ0(min_x, min_y, max_x, max_y)
-  width = max_x - min_x
-  height = max_y - min_y
-
-  return (corners, (width, height))
+  return _footprintCornersAtZ0(min_x, min_y, max_x, max_y)
 
 def createRegionMesh(region):
   """

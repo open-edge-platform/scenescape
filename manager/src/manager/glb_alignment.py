@@ -9,6 +9,7 @@ import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+import numpy as np
 from PIL import Image
 
 from scene_common import log
@@ -92,7 +93,7 @@ def build_preview(token):
   scene = Scene(map=f'{STAGING_SUBDIR}/{token}.glb')
   width, height, _ = scene.autoAlignSceneMap()
   img_data, px_per_m = generateOrthoView(scene, scene.map.path)
-  Image.fromarray(img_data).save(os.path.join(staging_dir(), f'{token}.png'), format='PNG')
+  Image.fromarray(np.uint8(img_data)).save(os.path.join(staging_dir(), f'{token}.png'), format='PNG')
   return {'width': float(width), 'height': float(height)}, float(px_per_m)
 
 

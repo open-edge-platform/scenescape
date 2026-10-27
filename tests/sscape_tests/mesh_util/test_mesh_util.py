@@ -528,6 +528,11 @@ def create_centered_box_mesh(width, height, depth):
   return tensor_mesh
 
 
+def _footprint_size(corners):
+  """! (width, height) XY extents of a (4,3) footprint corner array."""
+  return (corners[:, 0].max() - corners[:, 0].min(), corners[:, 1].max() - corners[:, 1].min())
+
+
 class TestGetPosedMeshFootprint:
   """Test getPosedMeshFootprint function."""
 
@@ -551,7 +556,8 @@ class TestGetPosedMeshFootprint:
     # Translation = half of posed size = (5, 3)
     translation = [5, 3, 0]
 
-    corners, (width, height) = getPosedMeshFootprint(mesh, rotation, translation)
+    corners = getPosedMeshFootprint(mesh, rotation, translation)
+    width, height = _footprint_size(corners)
 
     # Check size (within tolerance)
     assert abs(width - 10.0) < 0.01
@@ -585,7 +591,8 @@ class TestGetPosedMeshFootprint:
     translation = [0, 0, 0]
     scale = None
 
-    corners_posed, size_posed = getPosedMeshFootprint(mesh, rotation, translation, scale)
+    corners_posed = getPosedMeshFootprint(mesh, rotation, translation, scale)
+    size_posed = _footprint_size(corners_posed)
     corners_proj = getMeshAxisAlignedProjectionToXY(mesh)
 
     # Should match
@@ -606,7 +613,7 @@ class TestGetPosedMeshFootprint:
     rotation = [0, 0, 0]
     translation = [0, 0, 0]
 
-    _, (w, h) = getPosedMeshFootprint(tensor_mesh, rotation, translation)
+    w, h = _footprint_size(getPosedMeshFootprint(tensor_mesh, rotation, translation))
 
     # Footprint should be (width, height)
     assert abs(w - width) < 0.01
@@ -620,7 +627,7 @@ class TestGetPosedMeshFootprint:
     translation = [0, 0, 0]
     scale = [2.0, 1.0, 1.0]  # Double X
 
-    _, (width, height) = getPosedMeshFootprint(mesh, rotation, translation, scale)
+    width, height = _footprint_size(getPosedMeshFootprint(mesh, rotation, translation, scale))
 
     # Width should be 20 (10 * 2), height should be 10 (10 * 1)
     assert abs(width - 20.0) < 0.01
@@ -633,10 +640,10 @@ class TestGetPosedMeshFootprint:
     rotation = [0, 0, 0]
     translation = [5.0, 3.0, 0]
 
-    corners_notrans, _ = getPosedMeshFootprint(
+    corners_notrans = getPosedMeshFootprint(
       mesh, rotation, [0, 0, 0]
     )
-    corners_trans, _ = getPosedMeshFootprint(
+    corners_trans = getPosedMeshFootprint(
       mesh, rotation, translation
     )
 
@@ -717,9 +724,10 @@ class TestGetPosedMeshFootprint:
     ]
 
     for rotation in rotations:
-      corners, (width, height) = getPosedMeshFootprint(
+      corners = getPosedMeshFootprint(
         mesh, rotation, translation
       )
+      width, height = _footprint_size(corners)
 
       # Footprint should have positive dimensions
       assert width > 0
@@ -735,7 +743,7 @@ class TestGetPosedMeshFootprint:
     rotation = [0, 0, 0]
     translation = [10, 10, 0]
 
-    corners, _ = getPosedMeshFootprint(mesh, rotation, translation)
+    corners = getPosedMeshFootprint(mesh, rotation, translation)
     sw, se, ne, nw = corners
 
     # SW is min_x, min_y
@@ -759,7 +767,7 @@ class TestGetPosedMeshFootprint:
     translation = [0, 0, 0]
     scale = [1.0, 0.01, 1.0]  # Very small Y scale
 
-    _, (width, height) = getPosedMeshFootprint(mesh, rotation, translation, scale)
+    width, height = _footprint_size(getPosedMeshFootprint(mesh, rotation, translation, scale))
 
     # Should still return valid footprint
     assert width > 0

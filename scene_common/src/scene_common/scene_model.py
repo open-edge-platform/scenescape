@@ -35,6 +35,7 @@ class SceneModel:
 
     self.mesh_translation = None
     self.mesh_rotation = None
+    self.mesh_scale = None
     self.scale = scale
     return
 
@@ -104,9 +105,9 @@ class SceneModel:
     """! Map footprint corners (SW, SE, NE, NW at z=0) in the scene's local frame.
 
     Image maps are already in that frame. A GLB mesh is stored unposed, so the
-    scene's mesh rotation and translation must be applied first. Without them the
-    unposed footprint would be in the wrong frame, so a ValueError is raised rather
-    than returning it silently.
+    scene's mesh scale, rotation and translation must be applied first. Without the
+    rotation and translation the unposed footprint would be in the wrong frame, so a
+    ValueError is raised rather than returning it silently.
     """
     ext = os.path.splitext(self.map_file or "")[1].lower()[1:]
     if ext in IMAGE_MAP_TYPES:
@@ -114,5 +115,5 @@ class SceneModel:
     if self.mesh_rotation is None or self.mesh_translation is None:
       raise ValueError(f"Scene '{self.name}' has a GLB map without mesh_rotation/mesh_translation; "
                        "the footprint cannot be placed in the scene frame")
-    corners, _ = getPosedMeshFootprint(self.map_triangle_mesh, self.mesh_rotation, self.mesh_translation)
-    return corners
+    return getPosedMeshFootprint(self.map_triangle_mesh, self.mesh_rotation, self.mesh_translation,
+                                 self.mesh_scale)
