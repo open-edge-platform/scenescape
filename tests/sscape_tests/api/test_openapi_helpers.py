@@ -11,7 +11,7 @@ and missing operations.
 from pathlib import Path
 
 import pytest
-from flask import Flask
+from flask import Flask, escape
 
 from tests.sscape_tests.api.common import (
   CONTRACT_CHECKS,
@@ -91,7 +91,7 @@ def test_flask_operations_match_rules_and_flag_routes_outside_prefix():
 
   @app.route("/v1/scenes/<sceneId>/registration", methods=["GET", "POST"])
   def registration(sceneId):
-    return sceneId
+    return escape(sceneId)
 
   @app.route("/ready", methods=["GET"])
   def ready():
