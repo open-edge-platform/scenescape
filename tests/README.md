@@ -169,7 +169,7 @@ make run_unit_tests
 ### OpenAPI schema drift checks
 
 ```bash
-# Manager: Schemathesis contract tests against the in-proces Django app 
+# Manager: Schemathesis contract tests against the in-proces Django app
 make check-manager-contract
 
 # Autocalibration: Schemathesis contract tests against the in-process Flask app
