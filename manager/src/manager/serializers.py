@@ -100,6 +100,18 @@ class PointsSerializerField(serializers.DictField):
                                         x=point[0], y=point[1])
     return
 
+class ResolutionSerializerField(serializers.DictField):
+  def to_representation(self, obj):
+    if hasattr(obj, 'width') and hasattr(obj, 'height') \
+       and obj.width is not None and obj.height is not None:
+      return [obj.width, obj.height]
+    return None
+
+  def to_internal_value(self, data):
+    if isinstance(data, (list, tuple)):
+      return {'width': data[0], 'height': data[1]}
+    return None
+
 class RegionOccupancyThresholdSerializer(serializers.ModelSerializer):
   sectors = serializers.JSONField()
   range_max = serializers.IntegerField()
@@ -496,7 +508,8 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
-    if not self.partial and 'name' not in data:
+    is_relink_only = self.partial and set(self.initial_data.keys()) <= {'scene'}
+    if not is_relink_only and 'name' not in data:
       raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):
@@ -515,6 +528,7 @@ class RegionSerializer(NonNullSerializer):
   points = PointsSerializerField()
   scene = serializers.CharField(source='scene.pk')
   color_ranges = RegionOccupancyThresholdSerializer(source='roi_occupancy_threshold', required=False)
+  roi_type = serializers.CharField(max_length=150, required=False, allow_blank=True)
 
   def validate(self, data):
     _validate_scene_exists(data)
@@ -560,7 +574,7 @@ class RegionSerializer(NonNullSerializer):
   class Meta:
     model = Region
     fields = ['uid', 'name', 'points', 'scene', 'buffer_size', 'height', 'volumetric', 'color_ranges',
-              'visible']
+              'visible', 'roi_type']
 
 class TripwireSerializer(RegionSerializer):
   class Meta:
