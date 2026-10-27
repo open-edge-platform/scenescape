@@ -12,6 +12,7 @@ class GoogleMapsPlugin extends MapInterface {
     this.apiKey = this.getGoogleMapsApiKey();
     // Note: Don't show modal in constructor - wait for initialize()
     this.ORTHO_ZOOM_THRESHOLD = 18;
+    this.overlay = null;
   }
 
   getGoogleMapsApiKey() {
@@ -317,6 +318,125 @@ class GoogleMapsPlugin extends MapInterface {
 
   getZoom() {
     return this.map.getZoom();
+  }
+
+  pointToLatLng(x, y) {
+    const proj = this.overlay && this.overlay.getProjection();
+    if (!proj) {
+      throw new Error("Map overlay is not ready");
+    }
+    const ll = proj.fromContainerPixelToLatLng(new google.maps.Point(x, y));
+    return { lat: ll.lat(), lng: ll.lng() };
+  }
+
+  _createOverlayView() {
+    const self = this;
+    if (typeof google === "undefined" || !google.maps) {
+      throw new Error("Google Maps API not loaded");
+    }
+
+    class GroundOverlay extends google.maps.OverlayView {
+      constructor() {
+        super();
+        this.img = null;
+        this.imageUrl = "";
+        this.corners = [];
+        this.opacity = 1.0;
+      }
+
+      setImageUrl(url) {
+        this.imageUrl = url;
+      }
+
+      setCorners(corners) {
+        this.corners = corners;
+      }
+
+      setOpacity(opacity) {
+        this.opacity = opacity;
+        if (this.img) {
+          this.img.style.opacity = opacity;
+        }
+      }
+
+      onAdd() {
+        const panes = this.getPanes();
+        if (!this.img) {
+          this.img = document.createElement("img");
+          this.img.src = this.imageUrl;
+          this.img.style.position = "absolute";
+          this.img.style.transformOrigin = "0 0";
+          this.img.style.pointerEvents = "none";
+          this.img.style.opacity = this.opacity;
+        }
+        panes.overlayLayer.appendChild(this.img);
+      }
+
+      draw() {
+        if (!this.img || this.corners.length === 0) {
+          return;
+        }
+
+        const proj = this.getProjection();
+        const nwPixel = proj.fromLatLngToDivPixel(
+          new google.maps.LatLng(this.corners[3].lat, this.corners[3].lng),
+        );
+        const nePixel = proj.fromLatLngToDivPixel(
+          new google.maps.LatLng(this.corners[2].lat, this.corners[2].lng),
+        );
+        const swPixel = proj.fromLatLngToDivPixel(
+          new google.maps.LatLng(this.corners[0].lat, this.corners[0].lng),
+        );
+
+        const m = GeoOverlayMath.overlayCssMatrix(nwPixel, nePixel, swPixel);
+
+        this.img.style.width = m.width + "px";
+        this.img.style.height = m.height + "px";
+        this.img.style.transform = "matrix(" + m.matrix.join(",") + ")";
+      }
+
+      onRemove() {
+        if (this.img && this.img.parentNode) {
+          this.img.parentNode.removeChild(this.img);
+        }
+        this.img = null;
+      }
+    }
+
+    return new GroundOverlay();
+  }
+
+  setOverlay(imageUrl, corners, opacity) {
+    this.removeOverlay();
+    try {
+      this.overlay = this._createOverlayView();
+      this.overlay.setImageUrl(imageUrl);
+      this.overlay.setCorners(corners);
+      this.overlay.setOpacity(opacity);
+      this.overlay.setMap(this.map);
+    } catch (error) {
+      console.error("Error creating overlay:", error);
+    }
+  }
+
+  updateOverlay(corners) {
+    if (this.overlay) {
+      this.overlay.setCorners(corners);
+      this.overlay.draw();
+    }
+  }
+
+  setOverlayOpacity(opacity) {
+    if (this.overlay) {
+      this.overlay.setOpacity(opacity);
+    }
+  }
+
+  removeOverlay() {
+    if (this.overlay) {
+      this.overlay.setMap(null);
+      this.overlay = null;
+    }
   }
 
   async saveSnapshotToServer(imageData) {

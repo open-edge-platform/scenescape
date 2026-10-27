@@ -3,16 +3,20 @@
 
 """Stage an uploaded GLB and render a top-down preview for geospatial alignment."""
 
+import math
 import os
 import time
 import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files import File
+from django.db import transaction
 import numpy as np
 from PIL import Image
 
 from scene_common import log
+from scene_common.earth_lla import localFootprintCornersLLA, footprintAnchorFromCornersLLA
 from scene_common.glb_top_view import generateOrthoView
 
 from .models import Cam, Scene, SingletonSensor
@@ -103,4 +107,122 @@ def existing_content(scene):
     'cameras': Cam.objects.filter(scene=scene).count(),
     'regions': scene.regions.count(),
     'sensors': SingletonSensor.objects.filter(scene=scene).count(),
+  }
+
+
+def get_geospatial_scene(scene_uid):
+  """Get a scene by UUID, validating it is a geospatial_map.
+
+  Raises GlbAlignmentError(404, 'Scene not found') if scene does not exist.
+  Raises GlbAlignmentError(400, 'Scene map type must be geospatial_map') if map type is wrong.
+  """
+  try:
+    scene = Scene.objects.get(pk=scene_uid)
+  except (Scene.DoesNotExist, ValueError):
+    raise GlbAlignmentError(404, 'Scene not found')
+  if scene.map_type != 'geospatial_map':
+    raise GlbAlignmentError(400, 'Scene map type must be geospatial_map')
+  return scene
+
+
+def staged_glb_path(token):
+  """Get the file path for a staged GLB, validating the token format.
+
+  Token must be a valid UUID string; build path only from canonical form.
+  Raises GlbAlignmentError(400, 'Invalid token') if token is malformed.
+  Raises GlbAlignmentError(404, 'Staged GLB not found or expired') if file does not exist.
+  """
+  if not isinstance(token, str):
+    raise GlbAlignmentError(400, 'Invalid token')
+  try:
+    canonical = str(uuid.UUID(token))
+  except (ValueError, AttributeError):
+    raise GlbAlignmentError(400, 'Invalid token')
+  path = os.path.join(staging_dir(), f'{canonical}.glb')
+  if not os.path.isfile(path):
+    raise GlbAlignmentError(404, 'Staged GLB not found or expired')
+  return path
+
+
+def parse_anchor(anchor):
+  """Validate an anchor dict; returns (lat, lng, heading_deg normalised to [0, 360))."""
+  try:
+    lat, lng, heading = (anchor[key] for key in ('lat', 'lng', 'heading_deg'))
+  except (TypeError, KeyError):
+    raise GlbAlignmentError(400, 'Invalid anchor')
+  numeric = all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+                for v in (lat, lng, heading))
+  if not numeric or abs(lat) > 90.0 or abs(lng) > 180.0:
+    raise GlbAlignmentError(400, 'Invalid anchor')
+  return lat, lng, heading % 360.0
+
+
+def commit_glb(scene, token, anchor, acknowledged):
+  """Make a staged GLB the scene map, with corners computed from the anchor.
+
+  Scene.save() re-aligns the mesh, regenerates the thumbnail and notifies the controller.
+  @return  saved_alignment(scene)
+  """
+  path = staged_glb_path(token)
+  lat, lng, heading = parse_anchor(anchor)
+
+  if not isinstance(acknowledged, bool):
+    raise GlbAlignmentError(400, 'Invalid acknowledge_frame_change')
+  if any(existing_content(scene).values()) and acknowledged is not True:
+    raise GlbAlignmentError(
+      409,
+      'Scene has cameras, regions or sensors that would be moved by the new map frame; '
+      'set acknowledge_frame_change to true to continue'
+    )
+
+  old_map = scene.map.name if scene.map else ''
+  try:
+    with transaction.atomic():
+      with open(path, 'rb') as f:
+        scene.map.save(f'{scene.name}.glb', File(f), save=False)
+      width, height, _ = scene.autoAlignSceneMap()
+      scene.map_corners_lla = localFootprintCornersLLA(lat, lng, heading, width, height).tolist()
+      scene.trs_matrix = None
+      scene.osm_ways_cache = None
+      scene.osm_ways_cache_bbox = None
+      scene.save()
+  except Exception:
+    if scene.map.name != old_map:
+      try:
+        scene.map.storage.delete(scene.map.name)
+      except Exception:
+        pass
+    raise
+
+  remove_staged_files(str(uuid.UUID(token)))
+  if old_map and scene.map and old_map != scene.map.name:
+    try:
+      scene.map.storage.delete(old_map)
+    except Exception:
+      pass
+
+  return saved_alignment(scene)
+
+
+def saved_alignment(scene):
+  """Build alignment response from a scene with a committed geospatial GLB.
+
+  Returns dict with anchor, footprint_m, and preview_url.
+  Raises GlbAlignmentError(404, 'Scene map is not an aligned GLB') if not aligned.
+  """
+  if not scene.map or not scene.map.name.lower().endswith('.glb') or not scene.map_corners_lla:
+    raise GlbAlignmentError(404, 'Scene map is not an aligned GLB')
+  lat, lng, heading, w, h = footprintAnchorFromCornersLLA(scene.map_corners_lla)
+  preview_url = scene.thumbnail.url if scene.thumbnail else None
+  return {
+    'anchor': {
+      'lat': float(lat),
+      'lng': float(lng),
+      'heading_deg': float(heading),
+    },
+    'footprint_m': {
+      'width': float(w),
+      'height': float(h),
+    },
+    'preview_url': preview_url,
   }

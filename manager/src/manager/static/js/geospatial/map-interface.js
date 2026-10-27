@@ -48,6 +48,26 @@ class MapInterface {
     throw new Error("Method 'getZoom' must be implemented");
   }
 
+  pointToLatLng(x, y) {
+    throw new Error("Method 'pointToLatLng' must be implemented");
+  }
+
+  setOverlay(imageUrl, corners, opacity) {
+    throw new Error("Method 'setOverlay' must be implemented");
+  }
+
+  updateOverlay(corners) {
+    throw new Error("Method 'updateOverlay' must be implemented");
+  }
+
+  setOverlayOpacity(opacity) {
+    throw new Error("Method 'setOverlayOpacity' must be implemented");
+  }
+
+  removeOverlay() {
+    throw new Error("Method 'removeOverlay' must be implemented");
+  }
+
   // Common utility methods
   calculateScale(lat, zoom) {
     // Earth's circumference at equator in meters
