@@ -155,12 +155,12 @@ accept them as command-line arguments. Compare the reported space URI and ranges
 the camera's `ptz_calibration.position_space`. If `reported_move_status` is always
 `IDLE` while the camera moves, configure `move_status` as `none` or `event`.
 
-Keep lab configurations and credentials under `positioning/.local/`, which is
+Keep local test configurations and credentials under `positioning/.local/`, which is
 git-ignored. Never place camera endpoints or credentials in tracked files.
 
 ## Configure Your Own PTZ Camera Locally
 
-Use the git-ignored `positioning/.local/` directory for lab cameras. A complete
+Use the git-ignored `positioning/.local/` directory for local test cameras. A complete
 setup looks like this:
 
 ```text
@@ -178,10 +178,10 @@ positioning/.local/
 
    ```bash
    mkdir -p positioning/.local/secrets && chmod 700 positioning/.local/secrets
-   cat > positioning/.local/secrets/lab-ptz-1.json <<'EOF'
+   cat > positioning/.local/secrets/ptz-cam-1.json <<'EOF'
    {"username": "<onvif-user>", "password": "<onvif-password>"}
    EOF
-   chmod 600 positioning/.local/secrets/lab-ptz-1.json
+   chmod 600 positioning/.local/secrets/ptz-cam-1.json
    ```
 
    Edit the file in an editor rather than typing the password into shell history.
@@ -198,27 +198,27 @@ positioning/.local/
 
    ```json
    {
-     "resolver_id": "positioning-lab",
+     "resolver_id": "positioning-dev",
      "poll_interval_s": 0.2,
      "max_pose_age_s": 0.5,
      "max_timestamp_uncertainty_s": 0.01,
      "max_clock_offset_s": 0.05,
      "target_reprojection_rms_px": 3.0,
      "sources": {
-       "lab-ptz-1": {
+       "ptz-cam-1": {
          "type": "onvif_ptz",
          "host": "<camera-1-ip>",
          "scheme": "http",
          "port": 2020,
-         "credentials_file": "/run/secrets/onvif/lab-ptz-1.json",
+         "credentials_file": "/run/secrets/onvif/ptz-cam-1.json",
          "move_status": "get_status"
        },
-       "lab-ptz-2": {
+       "ptz-cam-2": {
          "type": "onvif_ptz",
          "host": "<camera-2-ip>",
          "scheme": "http",
          "port": 80,
-         "credentials_file": "/run/secrets/onvif/lab-ptz-2.json",
+         "credentials_file": "/run/secrets/onvif/ptz-cam-2.json",
          "move_status": "event",
          "move_event": {
            "topic": "PTZController/Move",
@@ -234,7 +234,7 @@ positioning/.local/
    `poll_interval_s + max_timestamp_uncertainty_s`. See
    [Configure](positioning.md#configure) for their meaning.
 
-   These examples explicitly use HTTP for isolated lab cameras. Production
+   These examples explicitly use HTTP for isolated test cameras. Production
    configurations should use HTTPS; HTTP is only appropriate on an isolated network
    or protected tunnel.
 
@@ -254,8 +254,8 @@ positioning/.local/
 
    ```json
    {
-     "lab-ptz-1": "positioning-lab",
-     "lab-ptz-2": "positioning-lab"
+     "ptz-cam-1": "positioning-dev",
+     "ptz-cam-2": "positioning-dev"
    }
    ```
 
@@ -295,7 +295,7 @@ positioning/.local/
          - ./positioning/.local/secrets:/run/secrets/onvif:ro
      web:
        environment:
-         - POSITIONING_RESOLVER_ID=positioning-lab
+         - POSITIONING_RESOLVER_ID=positioning-dev
        volumes:
          - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
    ```
@@ -395,7 +395,7 @@ ONVIF tools that do not compensate for skew may fail where the poller succeeds.
 
 You may still see clock-related failures in these cases:
 
-- **The camera clock drifts quickly.** One lab camera without NTP drifted about
+- **The camera clock drifts quickly.** A camera without NTP can drift about
   7 seconds per hour. Each time the drift exceeds the camera's window, one request
   fails, the clock is resynchronized, and the retry succeeds. That sample has a
   larger timestamp uncertainty. Enable NTP on the camera to avoid this.
@@ -484,12 +484,11 @@ raises the Controller's parked-camera frame admission (see
 40% at 0.1 s and 68% at 0.05 s for a pipeline with about 40 ms detection latency.
 Size `sample_ring_buffer_size` for the shorter interval.
 
-Re-measure and review the budgets whenever the camera, firmware, calibration, or
-Positioning configuration changes. The IGK3 lab harness provides
-`measure_positioning_acceptance.py` (moves the camera; does not change Manager
-calibration) and `build_reprojection_golden.py`. The measurement does not yet cover
-MOT track continuity with people in the scene, Tracker consumption, or the full
-ONVIF travel range. Do not enable a consumer in production until its own profile
+These values apply to the measured camera and configuration only. Before enabling a
+consumer for another camera, firmware, calibration, or Positioning configuration,
+repeat the same held-out measurement on that hardware and review the budgets. The
+measurement does not yet cover MOT track continuity with people in the scene, Tracker
+consumption, or the full ONVIF travel range. Do not enable a consumer in production until its own profile
 passes.
 
 Live recovery checks on the same deployment (camera parked, Controller enforcing,
@@ -497,12 +496,12 @@ observer on the regular broker listener) all failed closed: no PoseContext sampl
 before or during an outage was received as valid afterwards, and the Controller
 rejected frames as `sample_stale` until fresh poses returned.
 
-| Scenario                                  | Observed                                                                 | First fresh valid pose |
-| ----------------------------------------- | ------------------------------------------------------------------------ | ---------------------- |
-| Positioning restart                       | Publishing stops at SIGTERM; status `offline`, then `online`; `settling` | 1.9 s after start      |
-| Broker restart                            | All clients reconnect; Controller resubscribes                           | 0.9 s after restart    |
-| Adapter stall (3 s, no samples)           | No poses; continuity gap restarts settling                               | 0.6 s after resume     |
-| Positioning stopped, late subscriber       | Retained pose already past `valid_until`; retained status `offline`      | 2.0 s after start      |
+| Scenario                             | Observed                                                                 | First fresh valid pose |
+| ------------------------------------ | ------------------------------------------------------------------------ | ---------------------- |
+| Positioning restart                  | Publishing stops at SIGTERM; status `offline`, then `online`; `settling` | 1.9 s after start      |
+| Broker restart                       | All clients reconnect; Controller resubscribes                           | 0.9 s after restart    |
+| Adapter stall (3 s, no samples)      | No poses; continuity gap restarts settling                               | 0.6 s after resume     |
+| Positioning stopped, late subscriber | Retained pose already past `valid_until`; retained status `offline`      | 2.0 s after start      |
 
 Positioning stops publishing poses immediately on SIGTERM, but its retained `offline`
 status follows about 5.6 s later while workers shut down; consumers rely on

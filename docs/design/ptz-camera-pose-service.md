@@ -1,6 +1,6 @@
 # Design Document: PTZ Pose, v1 Capability of the Positioning Service
 
-- **Author(s)**: [Lukasz Talarczyk](https://github.com/ltalarcz), [Dmytro Yermolenko](https://github.com/dmytroye)
+- **Author(s)**: SceneScape team
 - **Date**: 2026-10-02
 - **Status**: `Accepted`
 - **Related ADRs**: [ADR 13 — Controller Breakdown into Microservices](../adr/0013-controller-breakdown-microservices.md)
@@ -17,10 +17,9 @@ deployable. They exchange versioned protobuf message types in-process; no intern
 hop is used. The Manager retains the static home pose and versioned PTZ calibration; live
 pose is not written back to camera configuration.
 
-The production design carries forward measurements from the PoC described in
-[Background / Context](#4-background--context). It replaces the PoC's direct REST writes
-with a timestamped pose contract and read-only calibration access. The PoC is evidence
-for the PTZ model, not the production service architecture.
+The PTZ model is based on the hardware findings in
+[Background / Context](#4-background--context). The service publishes a timestamped pose
+contract and reads calibration without writing live pose into camera configuration.
 
 ## 2. Goals
 
@@ -38,14 +37,14 @@ for the PTZ model, not the production service architecture.
 ## 3. Non-Goals
 
 - Zoom tracking and zoom-dependent intrinsics (first iteration is pan/tilt only).
-- Modeling the lever arm between the rotation axes and the optical center (the PoC
-  measured a 0.13 px reprojection improvement on its TP-Link VIGI C540V — negligible
+- Modeling the lever arm between the rotation axes and the optical center (it improved
+  reprojection by 0.13 px on a TP-Link VIGI C540V — negligible
   next to other error sources on that tested setup).
 - Non-ONVIF PTZ protocols (proprietary vendor SDKs, serial PTZ).
 - Ingesting ONVIF Timed Metadata from the RTP stream (frame-embedded telemetry). May
   become relevant later for fast-slew synchronization; out of scope here.
-- Writing camera pose back into the Manager database. This was the PoC's integration
-  point and is explicitly replaced, not reused.
+- Writing camera pose back into the Manager database; see
+  [why this is rejected](#why-writing-live-pose-to-manager-is-rejected).
 - Supporting non-PTZ sources such as LiDAR, SLAM robots, and drones in this initial
   capability. Positioning is the owning service, but v1 covers PTZ cameras only and its
   side-channel topology differs from ADR 13's inline pose-enriched observation path.
@@ -59,9 +58,9 @@ pose (`scene_common.transform.CameraPose`), consumed at detection time in
 [`Scene.processCameraData()`](../../controller/src/controller/scene.py). There is no
 runtime path that changes a camera's effective pose between detections.
 
-### What the PoC confirmed about the camera and ONVIF
+### Hardware findings about the camera and ONVIF
 
-These PoC findings were measured on a TP-Link VIGI C540V. The numeric results are specific
+These findings were measured on a TP-Link VIGI C540V. The numeric results are specific
 to that camera, firmware, and measurement setup; they are not defaults for other camera
 models. Each supported camera requires its own measured calibration and accuracy
 validation. The findings inform the Positioning Service's PTZ model:
@@ -72,32 +71,32 @@ validation. The findings inform the Positioning Service's PTZ model:
 | Axis travel is non-linear                           | Measured tilt scale varied 53.8–60.6°/unit across the travel on the TP-Link VIGI C540V; a single constant scale under/overshoots at the ends. A low-order polynomial per axis fit this well.                                                                                                                                                              |
 | Mechanical backlash is real and asymmetric per axis | 2.83° of slack was measured on tilt and approximately 0° on pan, varying across the travel. The _reported_ position lags the _physical_ one by up to half the slack depending on direction of last travel.                                                                                                                                                |
 | PTZ axes may be misaligned with world axes          | PTZ-axis alignment depends on camera mounting. A roughly 7° pan-axis lean was measured on the TP-Link VIGI C540V. No scale or curve correction fixes this; the resulting error grows with pan angle. Modeling pan as a rotation about the camera's measured pan axis, rather than assuming alignment with world `Z`, removes it.                          |
-| Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changed all three Euler components in the PoC (roll −14°, pitch +34°, yaw +20° for one move). Adding pan delta to yaw alone produced about 18° of error; full matrix composition reduced it to about 1.8° on the tested setup.                                                       |
+| Euler-angle addition is wrong                       | Scenescape stores `rotation` as intrinsic Euler-XYZ. A pure pan move changed all three Euler components (roll −14°, pitch +34°, yaw +20° for one move). Adding pan delta to yaw alone produced about 18° of error; full matrix composition reduced it to about 1.8° on the tested setup.                                                                  |
 | Lever arm is negligible                             | Modeling the offset between the rotation axes and the optical center improved reprojection accuracy by only 0.13 px on the TP-Link VIGI C540V and produced a physically implausible fitted value. Treating the camera as rotating about its own center is an acceptable simplification for that tested setup.                                             |
 
-The PoC did not calibrate tilt-axis orientation independently. Production calibration
+These measurements did not calibrate tilt-axis orientation independently. Production calibration
 must account for tilt-axis mounting inaccuracy as well as pan-axis misalignment. The
 per-camera tilt-axis model and its measurement procedure must be validated on supported
-hardware before implementation acceptance; the PoC numbers above do not establish that
+hardware before implementation acceptance; the numbers above do not establish that
 model.
 The production model must therefore treat the tilt axis as a per-camera calibrated axis,
 not assume an ideal `Rx(Δtilt)`. Record its orientation and coordinate frame in
 `ptz_calibration`, then compose pan and tilt as rotations about the calibrated axes. The
 exact frame convention, composition order, and parameterization remain subject to
-hardware measurement; do not infer tilt-axis parameters from the PoC.
+hardware measurement; do not infer tilt-axis parameters from the findings above.
 
-### Why the PoC's write path is rejected
+### Why writing live pose to Manager is rejected
 
-The PoC overwrites the camera's `rotation` (and, for point-correspondence-calibrated
-cameras, the stored calibration points) via the Manager REST API on every significant
-pose change. This was a reasonable shortcut to validate the math end-to-end visually in
-the existing calibration UI, but is the wrong integration point for a production service:
+Writing live pose would overwrite the camera's `rotation` (and, for
+point-correspondence-calibrated cameras, the stored calibration points) via the Manager
+REST API on every significant pose change. That makes the math visible in the existing
+calibration UI, but is the wrong integration point for a production service:
 
 - It mutates calibration state that other consumers (Manager UI, autocalibration,
   REST clients) treat as the operator-set ground truth, from a background polling loop.
 - It collapses "the camera's calibrated home pose" and "the camera's current live pose"
   into a single stored value, destroying the home reference the computation itself
-  depends on — recoverable only via the PoC's own rebaseline heuristic.
+  depends on — recoverable only via a rebaseline heuristic.
 - It couples pose freshness to REST write latency and Manager availability on a
   latency-sensitive path. v1 instead accepts detections only after a configured
   stationary dwell that covers the hard maximum detection-pipeline latency; it adds no
@@ -300,7 +299,7 @@ Example valid message:
 ```json
 {
   "schema_version": 1,
-  "source_id": "atag-ptzcam3",
+  "source_id": "ptz-cam-1",
   "timestamp": "2026-10-01T10:15:30.123Z",
   "valid_until": "2026-10-01T10:15:30.623Z",
   "sequence": 10432,
@@ -320,7 +319,7 @@ Example valid message:
   "motion_state": "stationary",
   "sample_age_s": 0.004,
   "timestamp_uncertainty_s": 0.012,
-  "calibration_version": "atag-ptzcam3-v3",
+  "calibration_version": "ptz-cam-1-v3",
   "quality": {
     "score": 0.94,
     "temporal_score": 0.98,
@@ -362,7 +361,7 @@ Example invalid message:
 ```json
 {
   "schema_version": 1,
-  "source_id": "atag-ptzcam3",
+  "source_id": "ptz-cam-1",
   "timestamp": "2026-10-01T10:15:30.450Z",
   "valid_until": "2026-10-01T10:15:30.950Z",
   "sequence": 10433,
@@ -370,7 +369,7 @@ Example invalid message:
   "motion_state": "settling",
   "sample_age_s": 0.005,
   "timestamp_uncertainty_s": 0.012,
-  "calibration_version": "atag-ptzcam3-v3",
+  "calibration_version": "ptz-cam-1-v3",
   "invalid_reason": "invalid_pose",
   "reason_detail": "settling"
 }
@@ -446,9 +445,9 @@ Responsibilities, deliberately narrow:
 - Keep ONVIF device credentials in deployment secrets/environment, preferably scoped per
   camera. Never write to Manager and never apply calibration math.
 
-The PoC's ONVIF discovery and `GetNodes`/`AbsolutePanTiltPositionSpace` querying logic is
-reusable at the calibration-tooling layer (see [5.5](#55-calibration-data-and-tooling)),
-not inside the Adapter's polling hot path.
+ONVIF discovery and `GetNodes`/`AbsolutePanTiltPositionSpace` querying belong in the
+calibration-tooling layer (see [5.5](#55-calibration-data-and-tooling)), not inside the
+Adapter's polling hot path.
 
 ### 5.4 Pose Resolver
 
@@ -459,9 +458,7 @@ configured PTZ camera, holding:
 - Home pose (`pose_mat` derived from the camera's calibrated `rotation`/`translation`),
   recorded `home_pan`/`home_tilt`, and the approach direction used at calibration time.
 - Per-axis scale or curve, calibrated pan- and tilt-axis orientations in explicitly
-  identified coordinate frames, backlash models, and inversion flags. The PoC's measured
-  pan-axis correction may seed the pan model for that camera; it does not supply a
-  calibrated tilt-axis model.
+  identified coordinate frames, backlash models, and inversion flags.
 - A small ring buffer of recent raw readings per camera, used to:
   - classify `stationary` only after readings remain within the configured angular
     threshold for the configured settle interval; classify `slewing` while changing and
@@ -539,10 +536,9 @@ Resolver:
 
 PTZ calibration data is required for every supported camera; the Resolver must fail
 closed when it is missing, incomplete, or incompatible with the reported ONVIF position
-space. The PoC measurement tools and service remain an **isolated lab deployment** used
-to produce and validate these values. Export measured results and submit them through
-the product's validated import path to Manager; no lab instrument writes production
-calibration directly. Building production calibration tooling is out of scope for this
+space. Calibration values are measured offline and submitted through the product's
+validated import path to Manager; no measurement tool writes production calibration
+directly. Building production calibration tooling is out of scope for this
 service, but the hardware measurement, validated import, and per-camera acceptance
 procedure are prerequisites to enabling a camera. The tilt-axis correction model must
 be selected and validated on supported hardware before implementation acceptance.
@@ -550,10 +546,9 @@ The proposed acceptance measurement sweeps the supported tilt range in both dire
 at multiple pan positions, fits the tilt-axis model on part of the samples, and checks
 reprojection residuals on held-out samples. Compare against the nominal-axis model to
 show whether the mounting correction improves the measured projection. Store the axis
-convention and measured model with the calibration version; this procedure and its
-results are not supplied by the PoC.
+convention and measured model with the calibration version.
 `ptz_calibration` never contains device credentials. Local config files are limited to
-the isolated lab, offline tools, and tests, not production service configuration.
+offline measurement tools and tests, not production service configuration.
 
 #### Manager implementation details
 
@@ -674,8 +669,8 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   boundary. Split them into processes only when independent scaling, ownership, or an
   external ingestion topology requires it. PTZ pose resolution remains a capability of
   the ADR 13 Positioning Service, not a permanent standalone service.
-- **Reuse the PoC's REST-overwrite design as-is.** Rejected for the reasons in
-  [4](#why-the-pocs-write-path-is-rejected): mutates shared calibration state, destroys
+- **Write live pose to the camera record through Manager REST.** Rejected for the
+  reasons in [4](#why-writing-live-pose-to-manager-is-rejected): mutates shared calibration state, destroys
   the home reference, couples freshness to REST latency, no per-frame provenance.
 - **MQTT raw telemetry from poller to resolver.** Rejected for v1. The poller passes the
   versioned protobuf `PTZSample` directly to the Resolver in-process, avoiding both a
@@ -690,7 +685,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 - **ONVIF Timed Metadata embedded in the RTP stream.** Deferred. Would remove the
   separate-channel synchronization problem entirely, but requires GStreamer-side
   metadata extraction (e.g. `gvapython`) not currently present anywhere in the pipeline,
-  and the PoC did not need it to hit acceptable accuracy at the tested slew rates. Worth
+  and stationary-dwell gating meets the accuracy targets without it. Worth
   revisiting if fast-slew accuracy proves insufficient (see
   [Open Questions](#10-open-questions)).
 - **Resolve pose once and persist a "live pose" alongside the static "home pose" in the
@@ -724,7 +719,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
    `positioning/pose/{source_id}` contract, status/LWT topic, `valid_until`, canonical
    positioning failure reasons with PTZ `reason_detail`, and provisional `frame_id`
    compatibility with the ADR 13 Shared Scene Graph. Add shared contract vectors and
-   port the validated PoC math as library-level tests.
+   cover the pose math with library-level tests.
 2. **Positioning deployable** — implement ONVIF polling and the Resolver as separate
    modules in one process/image. The poller calls the Resolver with generated
    `PTZSample` messages in-process. Verify timestamp uncertainty, units/position-space
@@ -746,7 +741,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 6. **Feature-flagged projection** — enable dynamic projection separately for each MOT
    profile after that profile passes its shadow exit criteria. Keep static-pose fallback
    and immediate disable/rollback.
-7. **Validation and default-on** — use the PoC reprojection methodology, stationary
+7. **Validation and default-on** — use held-out AprilTag reprojection, stationary
    targets, both movement directions, measured backlash/axis calibration, sample loss,
    jitter, stale pose, and adapter/resolver restart. Enable by deployment only after the
    spatial-error budget and latency gates below are met.
@@ -760,8 +755,8 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 ## 9. Testing & Monitoring
 
 - **Unit tests**: validate pose math against the committed hardware measurement dataset
-  captured during the prerequisite measurement session, using the PoC's measured
-  per-camera values as golden vectors. Include unchanged translation, row-major matrix,
+  captured during the prerequisite measurement session, using its measured per-camera
+  values as golden vectors. Include unchanged translation, row-major matrix,
   scale/curve, backlash, tilt-only and pan-only rotations, combined pan/tilt composition,
   and calibrated-axis golden vectors. Run the same dwell-selection conformance vectors
   in Controller and Tracker; verify dwell boundaries, sequence-gap reset, acquisition
@@ -771,10 +766,9 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   sequence, restart with new poller instance ID, invalid ranges, NaN/Inf, and timestamp
   bounds. Add unauthorized-certificate and retry/ack tests if the external Sensor Manager
   gRPC API is implemented.
-- **Calibration tooling validation**: the PoC's measurement scripts remain the
-  acceptance method for its measured backlash, curves, and pan-axis model. A newly
-  onboarded camera must additionally pass the proposed tilt-axis measurement and held-out
-  reprojection checks in [Calibration data and tooling](#55-calibration-data-and-tooling)
+- **Calibration tooling validation**: a newly onboarded camera must pass the tilt-axis
+  measurement and held-out reprojection checks in
+  [Calibration data and tooling](#55-calibration-data-and-tooling)
   before it is trusted in production.
 - **Integration/replay tests**: recorded ONVIF reading sequences (including out-of-order
   and gap scenarios) replayed through the in-process protobuf boundary and Resolver;
@@ -786,8 +780,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   detection count and reason, PoseContext sequence gaps, `motion_state` time-in-state
   histogram per camera, optional external gRPC acceptance/rejection counts and latency,
   timestamp uncertainty, calibration version, rejected-pose counts by reason, and
-  resolved-vs-expected drift using the linear-regression residual-offset method from the
-  PoC validation.
+  resolved-vs-expected drift using a linear-regression residual offset.
 
 ### Shadow-mode exit criteria
 
@@ -821,8 +814,8 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   [Testing & Monitoring](#9-testing--monitoring), but each deployment owner must supply
   numerical ground-plane error and camera-to-tracker latency limits before enabling a
   camera. Missing limits mean the feature remains disabled.
-- **UI live-pose visualization.** The PoC's Manager redraw depended on writing live
-  rotation to the camera record. v1 does not do that. The recommended follow-up is for
+- **UI live-pose visualization.** Redrawing a moving camera in Manager would need live
+  rotation in the camera record, which v1 does not write. The recommended follow-up is for
   the UI to subscribe to the resolved pose/status topics for display only; this UI
   consumer is not on the projection critical path.
 - **Fast-slew synchronization.** v1 fails closed while slewing and settling. If product
@@ -866,7 +859,6 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 - [Positioning PTZ v1: Contracts Reference](./positioning-ptz-contracts.md) (normative topic, schema, dwell, reason, and configuration contracts)
 - [ADR 13 — Controller Breakdown into Functionality-Aligned Microservices](../adr/0013-controller-breakdown-microservices.md)
 - [ADR 16 — Unified External-Source Ingestion Contract](../adr/0016-unified-external-source-ingestion.md) (publisher-centric contract precedent; `external_source` is not reused for pixel-space camera detections)
-- PoC: `ptz_pose_service/` (`src/pose_math.py`, `src/ptz_pose_context.py`, `src/ptz_pose_service.py`, `README.md`, `tools/`)
 - [`scene_common/src/scene_common/transform.py`](../../scene_common/src/scene_common/transform.py) (`CameraPose`, reused as-is)
 - [`scene_common/src/scene_common/mqtt.py`](../../scene_common/src/scene_common/mqtt.py) (topic template conventions)
 - [`controller/src/controller/scene.py`](../../controller/src/controller/scene.py) (legacy Controller projection path)

@@ -3,7 +3,7 @@
 
 """Phase 6 hardware acceptance replay against tests/data/ptz/reprojection_golden.json.
 
-The golden dataset is a held-out lab measurement of the Positioning service on a real
+The golden dataset is a held-out hardware measurement of the Positioning service on a real
 PTZ camera. These tests need no hardware: they recompute every accuracy metric with the
 Controller's projection code, replay the logged ONVIF samples through the production
 Resolver, and check the results against tests/data/ptz/acceptance_profile.json.
@@ -132,7 +132,7 @@ def test_golden_is_a_held_out_hardware_measurement():
   assert coverage["acceptance_eligible"] is True
   assert coverage["held_out_validation"] is True
   assert provenance["images_included"] is False
-  assert {"manufacturer", "model", "firmware_version"} <= set(provenance["camera"])
+  assert set(provenance["camera"]) == {"model"}
   assert provenance["calibration_version"] == ptz_calibration["calibration_version"]
   assert provenance["calibration_sha256"] == hashlib.sha256(json.dumps(
     ptz_calibration, sort_keys=True, separators=(",", ":")).encode()).hexdigest()

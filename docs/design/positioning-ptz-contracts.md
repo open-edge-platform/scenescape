@@ -213,7 +213,7 @@ range, frame consistency with the composition order, and distinct backlash nodes
 
 ## Golden Data
 
-`tests/data/ptz/provisional_pose_math.json` uses PoC values and placeholders. It is
+`tests/data/ptz/provisional_pose_math.json` uses early measured values and placeholders. It is
 for development only. `tests/data/ptz/reprojection_golden.json` is the hardware
 measurement session: measured calibration and home pose, held-out residuals in both
 travel directions and all dual-axis directions, the ONVIF samples and published

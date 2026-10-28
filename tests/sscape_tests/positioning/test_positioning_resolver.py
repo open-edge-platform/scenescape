@@ -36,7 +36,7 @@ HOME_MATRIX[:3, :3] = Rotation.from_euler(
   "XYZ", FIXTURE["home_pose"]["rotation_euler_xyz_deg"], degrees=True).as_matrix()
 HOME_MATRIX[:3, 3] = FIXTURE["home_pose"]["translation_m"]
 CALIBRATION = PTZSourceCalibration(MODEL, HOME_MATRIX, "scene:scene-a")
-SOURCE_ID = "atag-ptzcam3"
+SOURCE_ID = "ptz-cam-1"
 START_NS = 1_790_000_000_000_000_000
 RING_SIZE = 52
 

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""PTZ pose math against the provisional (non-golden) PoC fixture and analytic properties."""
+"""PTZ pose math against the provisional (non-golden) development fixture and analytic properties."""
 
 import dataclasses
 import json
@@ -163,7 +163,7 @@ def test_generated_protobuf_stubs():
   # pylint: disable=no-member  # protobuf builds message classes at runtime
   from positioning.v1 import ptz_pb2, ptz_pb2_grpc
 
-  sample = ptz_pb2.PTZSample(camera_id="atag-ptzcam3", adapter_instance_id="a1", sequence=7,
+  sample = ptz_pb2.PTZSample(camera_id="ptz-cam-1", adapter_instance_id="a1", sequence=7,
                              timestamp_uncertainty_ns=5_000_000,
                              reported_move_status=ptz_pb2.REPORTED_MOVE_STATUS_IDLE)
   sample.position.pan = 0.25

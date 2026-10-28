@@ -13,10 +13,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -49,10 +49,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -67,7 +67,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -75,7 +75,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -100,7 +100,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -108,7 +108,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -133,7 +133,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -141,7 +141,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -166,7 +166,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -174,7 +174,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -199,7 +199,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -207,7 +207,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -232,7 +232,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -240,7 +240,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -265,7 +265,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -273,7 +273,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -314,10 +314,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -332,7 +332,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -340,7 +340,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -365,7 +365,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -373,7 +373,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -398,7 +398,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -406,7 +406,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -431,7 +431,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -439,7 +439,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -464,7 +464,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -472,7 +472,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -497,7 +497,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -505,7 +505,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -530,7 +530,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -538,7 +538,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -581,10 +581,10 @@
         "max_detection_timestamp_uncertainty_s": 0.3
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -599,7 +599,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -607,7 +607,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -632,7 +632,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -640,7 +640,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -665,7 +665,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -673,7 +673,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -698,7 +698,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -706,7 +706,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -731,7 +731,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -739,7 +739,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -764,7 +764,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -772,7 +772,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -797,7 +797,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -805,7 +805,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -856,10 +856,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -874,7 +874,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -882,7 +882,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -907,7 +907,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -915,7 +915,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -940,7 +940,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -948,7 +948,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -973,7 +973,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -981,7 +981,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1006,7 +1006,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -1014,7 +1014,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1039,7 +1039,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -1047,7 +1047,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1090,10 +1090,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -1108,7 +1108,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -1116,7 +1116,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.0,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1141,7 +1141,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -1149,7 +1149,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.0,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1174,7 +1174,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -1182,7 +1182,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.0,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1207,7 +1207,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -1215,7 +1215,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.0,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1240,7 +1240,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -1248,7 +1248,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.0,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1273,7 +1273,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -1281,7 +1281,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.0,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1322,10 +1322,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -1340,7 +1340,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -1348,7 +1348,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1373,7 +1373,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -1381,7 +1381,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1406,7 +1406,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -1414,7 +1414,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1439,7 +1439,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -1447,7 +1447,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1472,7 +1472,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -1480,7 +1480,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1505,7 +1505,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -1513,7 +1513,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1538,7 +1538,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.020000Z",
             "valid_until": "2026-10-01T10:00:01.520000Z",
             "sequence": 1006,
@@ -1546,7 +1546,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1587,10 +1587,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -1605,7 +1605,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -1613,7 +1613,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1638,7 +1638,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -1646,7 +1646,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1671,7 +1671,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -1679,7 +1679,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1704,7 +1704,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -1712,7 +1712,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1737,7 +1737,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -1745,7 +1745,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1770,7 +1770,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -1778,7 +1778,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1803,7 +1803,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.019999Z",
             "valid_until": "2026-10-01T10:00:01.519999Z",
             "sequence": 1006,
@@ -1811,7 +1811,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1854,10 +1854,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -1872,7 +1872,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -1880,7 +1880,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1905,7 +1905,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -1913,7 +1913,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1938,7 +1938,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -1946,7 +1946,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -1971,7 +1971,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -1979,7 +1979,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2004,7 +2004,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -2012,7 +2012,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2037,7 +2037,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -2045,7 +2045,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2070,7 +2070,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.400000Z",
             "valid_until": "2026-10-01T10:00:01.900000Z",
             "sequence": 1007,
@@ -2078,7 +2078,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2103,7 +2103,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.600000Z",
             "valid_until": "2026-10-01T10:00:02.100000Z",
             "sequence": 1008,
@@ -2111,7 +2111,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2136,7 +2136,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.800000Z",
             "valid_until": "2026-10-01T10:00:02.300000Z",
             "sequence": 1009,
@@ -2144,7 +2144,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2179,7 +2179,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:02.000000Z",
             "valid_until": "2026-10-01T10:00:02.500000Z",
             "sequence": 1010,
@@ -2187,7 +2187,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2212,7 +2212,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:02.200000Z",
             "valid_until": "2026-10-01T10:00:02.700000Z",
             "sequence": 1011,
@@ -2220,7 +2220,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2261,10 +2261,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -2279,7 +2279,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -2287,7 +2287,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2312,7 +2312,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -2320,7 +2320,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2345,7 +2345,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -2353,7 +2353,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2378,7 +2378,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -2386,7 +2386,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2411,7 +2411,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -2419,7 +2419,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2444,7 +2444,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -2452,7 +2452,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2477,7 +2477,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -2485,7 +2485,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2510,7 +2510,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.400000Z",
             "valid_until": "2026-10-01T10:00:01.900000Z",
             "sequence": 1006,
@@ -2518,7 +2518,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2561,10 +2561,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -2579,7 +2579,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -2587,7 +2587,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2612,7 +2612,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -2620,7 +2620,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2645,7 +2645,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -2653,7 +2653,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2678,7 +2678,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -2686,7 +2686,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2711,7 +2711,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -2719,7 +2719,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2744,7 +2744,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -2752,7 +2752,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2777,7 +2777,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -2785,7 +2785,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2810,7 +2810,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1007,
@@ -2818,7 +2818,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2861,10 +2861,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -2879,7 +2879,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -2887,7 +2887,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2912,7 +2912,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -2920,7 +2920,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2945,7 +2945,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -2953,7 +2953,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -2978,7 +2978,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -2986,7 +2986,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3011,7 +3011,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -3019,7 +3019,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3044,7 +3044,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -3052,7 +3052,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3085,7 +3085,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -3093,7 +3093,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3118,7 +3118,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.400000Z",
             "valid_until": "2026-10-01T10:00:01.900000Z",
             "sequence": 1007,
@@ -3126,7 +3126,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3169,10 +3169,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -3187,7 +3187,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -3195,7 +3195,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3220,7 +3220,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -3228,7 +3228,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3253,7 +3253,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -3261,7 +3261,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3286,7 +3286,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -3294,7 +3294,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3319,7 +3319,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -3327,7 +3327,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3352,7 +3352,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -3360,7 +3360,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3393,7 +3393,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -3401,7 +3401,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3442,10 +3442,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -3460,7 +3460,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -3468,7 +3468,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3493,7 +3493,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -3501,7 +3501,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3526,7 +3526,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -3534,7 +3534,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3559,7 +3559,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -3567,7 +3567,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3592,7 +3592,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -3600,7 +3600,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3625,7 +3625,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -3633,7 +3633,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3674,7 +3674,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -3682,7 +3682,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3707,7 +3707,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.400000Z",
             "valid_until": "2026-10-01T10:00:01.900000Z",
             "sequence": 1007,
@@ -3715,7 +3715,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3758,10 +3758,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -3776,7 +3776,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -3784,7 +3784,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3809,7 +3809,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -3817,7 +3817,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3842,7 +3842,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -3850,7 +3850,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3875,7 +3875,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -3883,7 +3883,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3908,7 +3908,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -3916,7 +3916,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3941,7 +3941,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -3949,7 +3949,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -3974,7 +3974,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -3982,7 +3982,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4015,7 +4015,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.400000Z",
             "valid_until": "2026-10-01T10:00:01.900000Z",
             "sequence": 1007,
@@ -4023,7 +4023,7 @@
             "motion_state": "slewing",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "invalid_pose",
             "reason_detail": "moving"
           }
@@ -4042,7 +4042,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.600000Z",
             "valid_until": "2026-10-01T10:00:02.100000Z",
             "sequence": 1008,
@@ -4050,7 +4050,7 @@
             "motion_state": "settling",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "invalid_pose",
             "reason_detail": "settling"
           }
@@ -4069,7 +4069,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.800000Z",
             "valid_until": "2026-10-01T10:00:02.300000Z",
             "sequence": 1009,
@@ -4077,7 +4077,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4102,7 +4102,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:02.000000Z",
             "valid_until": "2026-10-01T10:00:02.500000Z",
             "sequence": 1010,
@@ -4110,7 +4110,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4135,7 +4135,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:02.200000Z",
             "valid_until": "2026-10-01T10:00:02.700000Z",
             "sequence": 1011,
@@ -4143,7 +4143,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4168,7 +4168,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:02.400000Z",
             "valid_until": "2026-10-01T10:00:02.900000Z",
             "sequence": 1012,
@@ -4176,7 +4176,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4201,7 +4201,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:02.600000Z",
             "valid_until": "2026-10-01T10:00:03.100000Z",
             "sequence": 1013,
@@ -4209,7 +4209,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4234,7 +4234,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:02.800000Z",
             "valid_until": "2026-10-01T10:00:03.300000Z",
             "sequence": 1014,
@@ -4242,7 +4242,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4277,7 +4277,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:03.000000Z",
             "valid_until": "2026-10-01T10:00:03.500000Z",
             "sequence": 1015,
@@ -4285,7 +4285,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4326,10 +4326,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -4344,7 +4344,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -4352,7 +4352,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4377,7 +4377,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -4385,7 +4385,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4410,7 +4410,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -4418,7 +4418,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4443,7 +4443,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -4451,7 +4451,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4476,7 +4476,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -4484,7 +4484,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4509,7 +4509,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -4517,7 +4517,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4542,7 +4542,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -4550,7 +4550,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4575,7 +4575,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.400000Z",
             "valid_until": "2026-10-01T10:00:01.900000Z",
             "sequence": 1007,
@@ -4583,7 +4583,7 @@
             "motion_state": "slewing",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4618,7 +4618,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.600000Z",
             "valid_until": "2026-10-01T10:00:02.100000Z",
             "sequence": 1008,
@@ -4626,7 +4626,7 @@
             "motion_state": "settling",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4661,7 +4661,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.800000Z",
             "valid_until": "2026-10-01T10:00:02.300000Z",
             "sequence": 1009,
@@ -4669,7 +4669,7 @@
             "motion_state": "unknown",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4712,10 +4712,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -4730,7 +4730,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -4738,7 +4738,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4763,7 +4763,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -4771,7 +4771,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4796,7 +4796,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -4804,7 +4804,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4829,7 +4829,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -4837,7 +4837,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4862,7 +4862,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -4870,7 +4870,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4895,7 +4895,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -4903,7 +4903,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4936,7 +4936,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -4961,7 +4961,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -4969,7 +4969,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5012,10 +5012,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -5030,7 +5030,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -5038,7 +5038,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:other",
               "transform_direction": "scene_from_camera",
@@ -5063,7 +5063,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -5071,7 +5071,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:other",
               "transform_direction": "scene_from_camera",
@@ -5096,7 +5096,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -5104,7 +5104,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:other",
               "transform_direction": "scene_from_camera",
@@ -5129,7 +5129,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -5137,7 +5137,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:other",
               "transform_direction": "scene_from_camera",
@@ -5162,7 +5162,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -5170,7 +5170,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:other",
               "transform_direction": "scene_from_camera",
@@ -5195,7 +5195,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -5203,7 +5203,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:other",
               "transform_direction": "scene_from_camera",
@@ -5228,7 +5228,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -5236,7 +5236,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:other",
               "transform_direction": "scene_from_camera",
@@ -5279,10 +5279,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -5297,7 +5297,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -5305,7 +5305,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v2",
+            "calibration_version": "ptz-cam-1-v2",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5330,7 +5330,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -5338,7 +5338,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v2",
+            "calibration_version": "ptz-cam-1-v2",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5363,7 +5363,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -5371,7 +5371,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v2",
+            "calibration_version": "ptz-cam-1-v2",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5396,7 +5396,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -5404,7 +5404,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v2",
+            "calibration_version": "ptz-cam-1-v2",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5429,7 +5429,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -5437,7 +5437,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v2",
+            "calibration_version": "ptz-cam-1-v2",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5462,7 +5462,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -5470,7 +5470,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v2",
+            "calibration_version": "ptz-cam-1-v2",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5495,7 +5495,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -5503,7 +5503,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v2",
+            "calibration_version": "ptz-cam-1-v2",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5546,7 +5546,7 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
         "expected_calibration_version": null
@@ -5564,7 +5564,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -5572,7 +5572,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5597,7 +5597,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -5605,7 +5605,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5630,7 +5630,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -5638,7 +5638,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5663,7 +5663,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -5671,7 +5671,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5696,7 +5696,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -5704,7 +5704,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5729,7 +5729,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -5737,7 +5737,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5762,7 +5762,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -5770,7 +5770,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v4",
+            "calibration_version": "ptz-cam-1-v4",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5795,7 +5795,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.400000Z",
             "valid_until": "2026-10-01T10:00:01.900000Z",
             "sequence": 1007,
@@ -5803,7 +5803,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v4",
+            "calibration_version": "ptz-cam-1-v4",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5846,10 +5846,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -5864,7 +5864,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -5872,7 +5872,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5897,7 +5897,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -5905,7 +5905,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5930,7 +5930,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -5938,7 +5938,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5963,7 +5963,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -5971,7 +5971,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -5996,7 +5996,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -6004,7 +6004,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6029,7 +6029,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -6037,7 +6037,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6062,7 +6062,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -6070,7 +6070,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6121,10 +6121,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -6139,7 +6139,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:02.000000Z",
             "sequence": 1000,
@@ -6147,7 +6147,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6172,7 +6172,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:02.200000Z",
             "sequence": 1001,
@@ -6180,7 +6180,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6205,7 +6205,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:02.400000Z",
             "sequence": 1002,
@@ -6213,7 +6213,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6238,7 +6238,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:02.600000Z",
             "sequence": 1003,
@@ -6246,7 +6246,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6271,7 +6271,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:02.800000Z",
             "sequence": 1004,
@@ -6279,7 +6279,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6304,7 +6304,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:03.000000Z",
             "sequence": 1005,
@@ -6312,7 +6312,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6337,7 +6337,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:03.200000Z",
             "sequence": 1006,
@@ -6345,7 +6345,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6396,10 +6396,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -6414,7 +6414,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -6422,7 +6422,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6447,7 +6447,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -6455,7 +6455,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6480,7 +6480,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -6488,7 +6488,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6513,7 +6513,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -6521,7 +6521,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6546,7 +6546,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -6554,7 +6554,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6579,7 +6579,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -6587,7 +6587,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6612,7 +6612,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -6620,7 +6620,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "pose": {
               "frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
               "transform_direction": "scene_from_camera",
@@ -6671,10 +6671,10 @@
         "max_detection_timestamp_uncertainty_s": 0.05
       },
       "consumer": {
-        "source_id": "atag-ptzcam3",
+        "source_id": "ptz-cam-1",
         "resolver_id": "positioning",
         "expected_frame_id": "scene:3bc091c7-e449-46a0-9540-29c499bca18c",
-        "expected_calibration_version": "atag-ptzcam3-v3"
+        "expected_calibration_version": "ptz-cam-1-v3"
       },
       "events": [
         {
@@ -6689,7 +6689,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.000000Z",
             "valid_until": "2026-10-01T10:00:00.500000Z",
             "sequence": 1000,
@@ -6697,7 +6697,7 @@
             "motion_state": "unknown",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "no_pose_available",
             "reason_detail": "no_sample"
           }
@@ -6716,7 +6716,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.200000Z",
             "valid_until": "2026-10-01T10:00:00.700000Z",
             "sequence": 1001,
@@ -6724,7 +6724,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "pose_expired",
             "reason_detail": "sample_stale"
           }
@@ -6743,7 +6743,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.400000Z",
             "valid_until": "2026-10-01T10:00:00.900000Z",
             "sequence": 1002,
@@ -6751,7 +6751,7 @@
             "motion_state": "slewing",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "invalid_pose",
             "reason_detail": "moving"
           }
@@ -6770,7 +6770,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.600000Z",
             "valid_until": "2026-10-01T10:00:01.100000Z",
             "sequence": 1003,
@@ -6778,7 +6778,7 @@
             "motion_state": "settling",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "invalid_pose",
             "reason_detail": "settling"
           }
@@ -6797,7 +6797,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:00.800000Z",
             "valid_until": "2026-10-01T10:00:01.300000Z",
             "sequence": 1004,
@@ -6805,7 +6805,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "invalid_pose",
             "reason_detail": "calibration_missing"
           }
@@ -6824,7 +6824,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.000000Z",
             "valid_until": "2026-10-01T10:00:01.500000Z",
             "sequence": 1005,
@@ -6832,7 +6832,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "invalid_pose",
             "reason_detail": "calibration_changed"
           }
@@ -6851,7 +6851,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.200000Z",
             "valid_until": "2026-10-01T10:00:01.700000Z",
             "sequence": 1006,
@@ -6859,7 +6859,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "invalid_pose",
             "reason_detail": "invalid_sample"
           }
@@ -6878,7 +6878,7 @@
           "type": "pose",
           "payload": {
             "schema_version": 1,
-            "source_id": "atag-ptzcam3",
+            "source_id": "ptz-cam-1",
             "timestamp": "2026-10-01T10:00:01.400000Z",
             "valid_until": "2026-10-01T10:00:01.900000Z",
             "sequence": 1007,
@@ -6886,7 +6886,7 @@
             "motion_state": "stationary",
             "sample_age_s": 0.004,
             "timestamp_uncertainty_s": 0.01,
-            "calibration_version": "atag-ptzcam3-v3",
+            "calibration_version": "ptz-cam-1-v3",
             "invalid_reason": "invalid_pose",
             "reason_detail": "backlash_unknown"
           }
