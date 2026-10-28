@@ -6,7 +6,7 @@
       "model": "AXIS M5526-E"
     },
     "calibration_version": "ptz-cam-1-v1",
-    "calibration_sha256": "d92940c971c4d5a576105350d610d2841aa5efd5419cece1d8c67960871cbd04",
+    "calibration_sha256": "49a19e99aad10c45b4bb0303771604adf34323d9bc95b24a2ade01fc0874282c",
     "method": "Held-out: residuals score the PoseContext published by the Positioning service against AprilTags detected after each stop; no fit uses this run.",
     "images_included": false
   },
@@ -97,8 +97,7 @@
       },
       "provenance": {
         "camera_model": "AXIS M5526-E",
-        "pose_calibration_method": "AprilTag auto-calibration at the home position",
-        "notes": "Tilt axis [1,0,0] camera_local is nominal (not fitted). AprilTag validity is limited to the tag-visible coverage, not the full mechanical range."
+        "pose_calibration_method": "AprilTag auto-calibration at the home position"
       },
       "position_space": {
         "uri": "http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace",
