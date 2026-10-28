@@ -18,21 +18,12 @@ import pandas as pd
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from scipy.optimize import linear_sum_assignment
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracker_evaluator import TrackerEvaluator
-
-# Minimum number of overlapping frames required for a valid track match.
-# Pairs with fewer overlapping frames receive infinite cost and are excluded.
-MIN_OVERLAP_FRAMES = 10
-
-# Large finite sentinel substituted for infinite cost entries so that
-# ``linear_sum_assignment`` always has a feasible solution.  Matched pairs that
-# resolve to this sentinel are discarded after solving.
-_INFEASIBLE_SENTINEL = 1e9
+from utils.tracks import match_tracks
 
 
 class DiagnosticEvaluator(TrackerEvaluator):
@@ -175,7 +166,7 @@ class DiagnosticEvaluator(TrackerEvaluator):
         "No metrics configured. Call configure_metrics() first."
       )
 
-    matches = self._match_tracks()
+    matches = match_tracks(self._output_tracks, self._gt_tracks)
 
     loc_x_rows = []
     loc_y_rows = []
@@ -282,50 +273,6 @@ class DiagnosticEvaluator(TrackerEvaluator):
 
     ingest_frames(tracker_output_list, self._output_tracks, reference, camera_fps)
     ingest_frames(gt_frames, self._gt_tracks, reference, camera_fps)
-
-  def _match_tracks(self):
-    """Bipartite assignment minimizing mean Euclidean distance.
-
-    Returns:
-      List of (output_track_id, gt_track_id) tuples.
-    """
-    output_ids = list(self._output_tracks.keys())
-    gt_ids = list(self._gt_tracks.keys())
-    n = len(output_ids)
-    m = len(gt_ids)
-
-    if n == 0 or m == 0:
-      return []
-
-    cost = np.full((n, m), np.inf)
-    for i, oid in enumerate(output_ids):
-      out_frames = set(self._output_tracks[oid])
-      for j, gid in enumerate(gt_ids):
-        overlap = out_frames & set(self._gt_tracks[gid])
-        if len(overlap) >= MIN_OVERLAP_FRAMES:
-          dists = []
-          for f in overlap:
-            ox, oy = self._output_tracks[oid][f]
-            gx, gy = self._gt_tracks[gid][f]
-            dists.append(math.sqrt((ox - gx) ** 2 + (oy - gy) ** 2))
-          cost[i, j] = np.mean(dists)
-
-    if not np.any(np.isfinite(cost)):
-      return []
-
-    # ``linear_sum_assignment`` raises "cost matrix is infeasible" when the
-    # finite entries do not admit a complete matching of size min(n, m).  This
-    # happens with large, sparse track populations where most output/GT pairs
-    # never share frames.  Solve on a matrix where infinities are replaced by a
-    # large finite sentinel, then discard any matched pair whose original cost
-    # was non-finite.
-    solve_cost = np.where(np.isfinite(cost), cost, _INFEASIBLE_SENTINEL)
-    row_ind, col_ind = linear_sum_assignment(solve_cost)
-    matches = []
-    for r, c in zip(row_ind, col_ind):
-      if np.isfinite(cost[r, c]):
-        matches.append((output_ids[r], gt_ids[c]))
-    return matches
 
   def _write_outputs(self, loc_x_rows, loc_y_rows, dist_rows):
     """Write CSV files and plots for configured metrics."""

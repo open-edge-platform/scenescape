@@ -50,39 +50,43 @@ double calculateEuclideanBirthDistance(const TrackedObject &measurement, const T
 
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  cv::Mat innovation = measurement.measurementVector() - (track.predictedMeasurementMean);
+  TrackedObject::MeasurementVector innovation = measurement.measurementVector() - track.predictedMeasurementMean;
 
   // Use yaw in the gate only when both sides have orientation. Camera detections
   // and tracks that have never seen an orienting sensor leave yaw out.
   if (!(orientation::hasOrientation(measurement) && orientation::orientationObserved(track)))
   {
-    innovation.at<double>(MeasurementIndex::YAW, 0) = 0.;
+    innovation(MeasurementIndex::YAW) = 0.;
   }
 
-  cv::Mat mahalanobisDistance = innovation.t() * (track.predictedMeasurementCovInv) * innovation;
+  // innovation' * S^-1 * innovation
+  const double squaredDistance = innovation.dot(track.predictedMeasurementCovInv * innovation);
 
-  return 0.5 * std::sqrt(mahalanobisDistance.at<double>(0, 0));
+  return 0.5 * std::sqrt(squaredDistance);
 }
+
+namespace {
+
+/// XYZ block of the predicted measurement covariance S.
+cv::Matx33d positionCovariance(const TrackedObject &track)
+{
+  static_assert(MeasurementIndex::Y == MeasurementIndex::X + 1 && MeasurementIndex::Z == MeasurementIndex::X + 2,
+                "x, y, z must be adjacent in the measurement vector");
+  return track.predictedMeasurementCov.get_minor<3, 3>(MeasurementIndex::X, MeasurementIndex::X);
+}
+
+} // namespace
 
 double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  const double pred_x = track.predictedMeasurementMean.at<double>(MeasurementIndex::X, 0);
-  const double pred_y = track.predictedMeasurementMean.at<double>(MeasurementIndex::Y, 0);
-  const double pred_z = track.predictedMeasurementMean.at<double>(MeasurementIndex::Z, 0);
+  const double pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
+  const double pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
+  const double pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
   const double dx = measurement.x - pred_x;
   const double dy = measurement.y - pred_y;
   const double dz = measurement.z - pred_z;
 
-  cv::Mat S = (cv::Mat_<double>(3, 3) <<
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::X, MeasurementIndex::X),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::X, MeasurementIndex::Y),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::X, MeasurementIndex::Z),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Y, MeasurementIndex::X),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Y, MeasurementIndex::Y),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Y, MeasurementIndex::Z),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Z, MeasurementIndex::X),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Z, MeasurementIndex::Y),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Z, MeasurementIndex::Z));
+  const cv::Matx33d S = positionCovariance(track);
 
   cv::Mat Sinv;
   if (cv::invert(S, Sinv, cv::DECOMP_LU) == 0)
@@ -122,20 +126,11 @@ struct PositionMahalanobisTrackCache
 PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedObject &track)
 {
   PositionMahalanobisTrackCache cache;
-  cache.pred_x = track.predictedMeasurementMean.at<double>(MeasurementIndex::X, 0);
-  cache.pred_y = track.predictedMeasurementMean.at<double>(MeasurementIndex::Y, 0);
-  cache.pred_z = track.predictedMeasurementMean.at<double>(MeasurementIndex::Z, 0);
+  cache.pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
+  cache.pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
+  cache.pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
 
-  cv::Mat S = (cv::Mat_<double>(3, 3) <<
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::X, MeasurementIndex::X),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::X, MeasurementIndex::Y),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::X, MeasurementIndex::Z),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Y, MeasurementIndex::X),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Y, MeasurementIndex::Y),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Y, MeasurementIndex::Z),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Z, MeasurementIndex::X),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Z, MeasurementIndex::Y),
-    track.predictedMeasurementCov.at<double>(MeasurementIndex::Z, MeasurementIndex::Z));
+  const cv::Matx33d S = positionCovariance(track);
 
   cv::Mat Sinv;
   if (cv::invert(S, Sinv, cv::DECOMP_LU) == 0)

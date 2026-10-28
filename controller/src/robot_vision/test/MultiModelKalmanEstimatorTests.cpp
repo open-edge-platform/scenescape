@@ -3,7 +3,12 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
+#include <iterator>
 #include <string>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -83,6 +88,39 @@ TEST(MultiModelKalmanEstimatorTest, PredictMixesModelStates)
   }
 }
 
+// Bug: all model states shared one predicted-measurement buffer, so every model reported the last model's (CTRV)
+// prediction; fails on main 6b0a3156b.
+TEST(MultiModelKalmanEstimatorTest, PredictKeepsPerModelPredictedMeasurements)
+{
+  // An accelerating, turning target makes CV, CA and CTRV predict different positions.
+  Sensor camera;
+  FilterRun run;
+  run.feed(observe(Trajectory({.speed = 2.0, .box = kCar}).accelerate(1.0, 1.5).turn(0.6, 1.5).sample(10.0), camera));
+  run.coast(0.5);
+
+  // Reference: each filter's own predicted measurement, the mean that goes with its S in the model likelihood.
+  // Reading the private mKalmanFilters and measurementEstimate requires -fno-access-control (test/CMakeLists.txt).
+  const auto &filters = run.estimator.mKalmanFilters;
+  double spread = 0.0;
+  for (const auto &filter : filters)
+  {
+    spread = std::max(spread, cv::norm(filter->measurementEstimate, filters[0]->measurementEstimate, cv::NORM_INF));
+  }
+  ASSERT_GT(spread, 1e-2) << "models must predict different measurements";
+
+  // The combined predicted measurement is the probability-weighted mean of the model predictions.
+  const auto models = run.estimator.currentStates();
+  const cv::Mat probability = run.estimator.getModelProbability();
+  cv::Mat mixture = cv::Mat::zeros(rv::tracking::TrackedObject::MeasurementSize, 1, CV_64F);
+  for (size_t i = 0; i < filters.size(); ++i)
+  {
+    EXPECT_LT(cv::norm(models[i].predictedMeasurementMean, filters[i]->measurementEstimate, cv::NORM_INF), 1e-9)
+      << "model " << i;
+    mixture += probability.at<double>(static_cast<int>(i)) * filters[i]->measurementEstimate;
+  }
+  EXPECT_LT(cv::norm(run.state().predictedMeasurementMean, mixture, cv::NORM_INF), 1e-9);
+}
+
 // Bug: MultiModelKalmanEstimator::initialize cleared only mSystemModels, so filters piled up; fails on main 6b0a3156b.
 TEST(MultiModelKalmanEstimatorTest, ReinitializeDoesNotDuplicateFilters)
 {
@@ -101,6 +139,15 @@ TEST(MultiModelKalmanEstimatorTest, ReinitializeDoesNotDuplicateFilters)
   EXPECT_EQ(estimator.mSystemModels.size(), 3U);
   EXPECT_EQ(estimator.mKalmanFilters.size(), 3U);
   EXPECT_EQ(estimator.mSystemModelStates.size(), 3U);
+}
+
+TEST(MultiModelKalmanEstimatorTest, IsMoveOnly)
+{
+  // A copy would share the per-model filters and probability matrices with the original.
+  static_assert(!std::is_copy_constructible_v<MultiModelKalmanEstimator>);
+  static_assert(!std::is_copy_assignable_v<MultiModelKalmanEstimator>);
+  static_assert(std::is_move_constructible_v<MultiModelKalmanEstimator>);
+  static_assert(std::is_move_assignable_v<MultiModelKalmanEstimator>);
 }
 
 TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps)
@@ -144,10 +191,11 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
   }
 }
 
-TEST(MultiModelKalmanEstimatorTest, KinematicProcessNoiseShape)
+TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
 {
-  // Velocity noise is aligned with the motion (along >> cross), scales linearly with dt and has a floor;
-  // the acceleration block repeats it; vz gets the unscaled velocity noise; position, z and size get no direct noise.
+  // Velocity noise is aligned with the motion (along >> cross), scales linearly with dt and has a floor. CA repeats it
+  // on the acceleration and CTRV adds turn-rate noise; states a model resets to 0 get a small floor. vz gets the
+  // unscaled velocity noise in every model. Position, z and size get no direct noise.
   struct Case
   {
     const char *name;
@@ -161,40 +209,129 @@ TEST(MultiModelKalmanEstimatorTest, KinematicProcessNoiseShape)
     double cross;
     double vz;
     double yaw;
-    double yawRate;
+    double turnRate; // CTRV only
+    double reset;    // states the model resets to 0
   };
   const Case cases[] = {
-    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-2, 1e-7, 1e-5},
-    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-2, 1e-7, 1e-5},
-    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-2, 2e-7, 2e-5},
-    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-4, 1e-9, 1e-7},
-    {"tiny process noise hits the velocity floor", 1e-8, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-4, 1e-6, 1e-4, 1e-11, 1e-9},
+    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
+    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
+    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-2, 2e-7, 2e-2, 2e-7},
+    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-4, 1e-9, 1e-4, 1e-9},
+    {"tiny process noise hits the velocity and turn-rate floor",
+     1e-8,
+     0.0,
+     0.0,
+     0.1,
+     1.0,
+     0.0,
+     1e-4,
+     1e-6,
+     1e-4,
+     1e-11,
+     1e-4,
+     1e-7},
   };
   constexpr double kTolerance = 1e-12;
 
   for (const auto &testCase : cases)
   {
-    SCOPED_TRACE(testCase.name);
-    const cv::Mat noise = MultiModelKalmanEstimator::kinematicProcessNoiseCov(
-      testCase.processNoise, testCase.vx, testCase.vy, testCase.deltaT);
-    const cv::Mat velocityBlock = noise(cv::Rect(idx::Vx, idx::Vx, 2, 2));
-    const cv::Mat accelerationBlock = noise(cv::Rect(idx::Ax, idx::Ax, 2, 2));
-    const cv::Mat along = (cv::Mat_<double>(2, 1) << testCase.alongX, testCase.alongY);
-    const cv::Mat cross = (cv::Mat_<double>(2, 1) << -testCase.alongY, testCase.alongX);
+    for (const auto &[model, modelName] :
+         {std::pair{MotionModel::CV, "CV"}, std::pair{MotionModel::CA, "CA"}, std::pair{MotionModel::CTRV, "CTRV"}})
+    {
+      SCOPED_TRACE(std::string(modelName) + ": " + testCase.name);
+      const cv::Mat noise = MultiModelKalmanEstimator::processNoiseCov(
+        model, testCase.processNoise, testCase.vx, testCase.vy, testCase.deltaT);
+      const cv::Mat velocityBlock = noise(cv::Rect(idx::Vx, idx::Vx, 2, 2));
+      const cv::Mat accelerationBlock = noise(cv::Rect(idx::Ax, idx::Ax, 2, 2));
+      const cv::Mat along = (cv::Mat_<double>(2, 1) << testCase.alongX, testCase.alongY);
+      const cv::Mat cross = (cv::Mat_<double>(2, 1) << -testCase.alongY, testCase.alongX);
 
-    EXPECT_LT(cv::norm(velocityBlock * along, testCase.along * along, cv::NORM_INF), kTolerance);
-    EXPECT_LT(cv::norm(velocityBlock * cross, testCase.cross * cross, cv::NORM_INF), kTolerance);
-    EXPECT_DOUBLE_EQ(cv::norm(accelerationBlock, velocityBlock, cv::NORM_INF), 0.0);
-    EXPECT_NEAR(noise.at<double>(idx::Vz, idx::Vz), testCase.vz, kTolerance);
-    EXPECT_NEAR(noise.at<double>(idx::Yaw, idx::Yaw), testCase.yaw, kTolerance);
-    EXPECT_NEAR(noise.at<double>(idx::YawRate, idx::YawRate), testCase.yawRate, kTolerance);
+      EXPECT_LT(cv::norm(velocityBlock * along, testCase.along * along, cv::NORM_INF), kTolerance);
+      EXPECT_LT(cv::norm(velocityBlock * cross, testCase.cross * cross, cv::NORM_INF), kTolerance);
+      EXPECT_NEAR(noise.at<double>(idx::Vz, idx::Vz), testCase.vz, kTolerance);
+      EXPECT_NEAR(noise.at<double>(idx::Yaw, idx::Yaw), testCase.yaw, kTolerance);
 
-    cv::Mat rest = noise.clone();
-    rest(cv::Rect(idx::Vx, idx::Vx, 4, 4)).setTo(0.0);
-    rest.at<double>(idx::Vz, idx::Vz) = 0.0;
-    rest.at<double>(idx::Yaw, idx::Yaw) = 0.0;
-    rest.at<double>(idx::YawRate, idx::YawRate) = 0.0;
-    EXPECT_DOUBLE_EQ(cv::norm(rest, cv::NORM_INF), 0.0) << "position, z and size must get no direct noise";
+      const cv::Mat expectedAcceleration
+        = model == MotionModel::CA ? velocityBlock : cv::Mat(cv::Mat::eye(2, 2, CV_64F) * testCase.reset);
+      const double expectedTurnRate = model == MotionModel::CTRV ? testCase.turnRate : testCase.reset;
+      EXPECT_LT(cv::norm(accelerationBlock, expectedAcceleration, cv::NORM_INF), kTolerance);
+      EXPECT_NEAR(noise.at<double>(idx::YawRate, idx::YawRate), expectedTurnRate, kTolerance);
+
+      cv::Mat rest = noise.clone();
+      rest(cv::Rect(idx::Vx, idx::Vx, 2, 2)).setTo(0.0);
+      rest(cv::Rect(idx::Ax, idx::Ax, 2, 2)).setTo(0.0);
+      rest.at<double>(idx::Vz, idx::Vz) = 0.0;
+      rest.at<double>(idx::Yaw, idx::Yaw) = 0.0;
+      rest.at<double>(idx::YawRate, idx::YawRate) = 0.0;
+      EXPECT_DOUBLE_EQ(cv::norm(rest, cv::NORM_INF), 0.0) << "position, z and size must get no direct noise";
+    }
+  }
+}
+
+TEST(MultiModelKalmanEstimatorTest, PredictAppliesPerModelProcessNoise)
+{
+  constexpr double kDeltaT = 0.1;
+  const auto config = productionConfig();
+  const auto truth = Trajectory({.speed = 2.0, .box = kCar}).accelerate(1.0, 1.5).turn(0.6, 1.5).sample(10.0);
+
+  // An accelerating, turning target makes the models' velocities differ. Each model's noise follows its own mixed
+  // velocity, built as in PredictMixesModelStates.
+  Sensor camera;
+  FilterRun run(config);
+  run.feed(observe(truth, camera));
+  const auto before = run.estimator.currentStates();
+  const cv::Mat mixing = run.estimator.getConditionalProbability();
+  run.estimator.predict(kDeltaT);
+
+  double spread = 0.0;
+  for (const auto &state : before)
+  {
+    spread = std::max(spread, std::hypot(state.vx - before[0].vx, state.vy - before[0].vy));
+  }
+  ASSERT_GT(spread, 1e-2) << "models must disagree on the velocity";
+  for (size_t j = 0; j < before.size(); ++j)
+  {
+    double vx = 0.0;
+    double vy = 0.0;
+    for (size_t i = 0; i < before.size(); ++i)
+    {
+      vx += mixing.at<double>(static_cast<int>(i), static_cast<int>(j)) * before[i].vx;
+      vy += mixing.at<double>(static_cast<int>(i), static_cast<int>(j)) * before[i].vy;
+    }
+    const cv::Mat expected = MultiModelKalmanEstimator::processNoiseCov(
+      config.mMotionModels[j], config.mDefaultProcessNoise, vx, vy, kDeltaT);
+    EXPECT_LT(cv::norm(run.estimator.mKalmanFilters[j]->getProcessNoiseCov(), expected, cv::NORM_INF), 1e-12)
+      << "model " << j;
+  }
+
+  // A single model uses its own state.
+  auto singleConfig = config;
+  singleConfig.mMotionModels = {MotionModel::CV};
+  Sensor singleCamera;
+  FilterRun single(singleConfig);
+  single.feed(observe(truth, singleCamera));
+  const auto state = single.state();
+  single.estimator.predict(kDeltaT);
+  const cv::Mat expected = MultiModelKalmanEstimator::processNoiseCov(
+    MotionModel::CV, config.mDefaultProcessNoise, state.vx, state.vy, kDeltaT);
+  EXPECT_LT(cv::norm(single.estimator.mKalmanFilters[0]->getProcessNoiseCov(), expected, cv::NORM_INF), 1e-12);
+
+  // Without a model list the estimator runs CTRV, CV and CA, in that order.
+  MultiModelKalmanEstimator defaults;
+  defaults.initialize(makeDetection(truth[0]),
+                      atSeconds(0.0),
+                      config.mDefaultProcessNoise,
+                      config.mDefaultMeasurementNoise,
+                      config.mInitStateCovariance);
+  defaults.predict(kDeltaT);
+  const MotionModel defaultModels[] = {MotionModel::CTRV, MotionModel::CV, MotionModel::CA};
+  ASSERT_EQ(defaults.mKalmanFilters.size(), std::size(defaultModels));
+  for (size_t i = 0; i < std::size(defaultModels); ++i)
+  {
+    const cv::Mat stationary
+      = MultiModelKalmanEstimator::processNoiseCov(defaultModels[i], config.mDefaultProcessNoise, 0.0, 0.0, kDeltaT);
+    EXPECT_LT(cv::norm(defaults.mKalmanFilters[i]->getProcessNoiseCov(), stationary, cv::NORM_INF), 1e-12)
+      << "model " << i;
   }
 }
 

@@ -56,6 +56,10 @@ public:
   static constexpr int StateSize = 13;
   static constexpr int MeasurementSize = 7;
 
+  using MeasurementVector = cv::Matx<double, MeasurementSize, 1>;
+  using MeasurementMatrix = cv::Matx<double, MeasurementSize, MeasurementSize>;
+  using StateMatrix = cv::Matx<double, StateSize, StateSize>;
+
   Id id = InvalidObjectId;
 
   // Position
@@ -92,11 +96,11 @@ public:
 
   std::string toString() const;
 
-  // tracked object parameters
-  cv::Mat predictedMeasurementMean;
-  cv::Mat predictedMeasurementCov;
-  cv::Mat predictedMeasurementCovInv;
-  cv::Mat errorCovariance;
+  // tracked object parameters; fixed-size matrices, so copies never share them
+  MeasurementVector predictedMeasurementMean;
+  MeasurementMatrix predictedMeasurementCov;
+  MeasurementMatrix predictedMeasurementCovInv;
+  StateMatrix errorCovariance;
 
   Classification classification;
 
@@ -121,9 +125,11 @@ public:
   void setStateVector(const cv::Mat &vector);
 
   /**
-   * @brief Convert to a cv::Mat vector.
+   * @brief Convert to a fixed-size measurement vector (x, y, z, length, width, height, yaw).
+   *
+   * Converts to cv::Mat and cv::InputArray where those are needed.
    */
-  cv::Mat measurementVector() const;
+  MeasurementVector measurementVector() const;
 };
 
 static_assert(TrackedObject::StateSize == StateIndex::YAW_RATE + 1, "StateSize must match the StateIndex layout");

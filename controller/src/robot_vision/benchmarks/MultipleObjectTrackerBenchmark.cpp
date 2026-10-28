@@ -31,6 +31,12 @@ namespace tracking {
 namespace benchmark {
 namespace {
 
+constexpr double kScoreThreshold = 0.7;
+constexpr double kFrameTimeS = 0.033;
+constexpr int kFramesPerTrackerReset = 100;
+// Per-camera ground-plane projection disagreement in the overlap layout.
+constexpr double kCameraNoiseStdM = 0.1;
+
 struct AssociationParams
 {
   bool configured = false;
@@ -44,6 +50,7 @@ struct WorkloadConfig
 {
   std::vector<int> people_counts{50};
   std::vector<int> camera_counts{1, 2};
+  std::vector<int> overlap_modes{0, 1};
   AssociationParams association;
 };
 
@@ -152,7 +159,12 @@ AssociationParams loadAssociationConfig(const std::string &path)
 class PeopleTrackingBenchmarkFixture
 {
 public:
-  PeopleTrackingBenchmarkFixture() : gen(42), pos_dist(-25.0, 25.0), walking_speed_dist(0.5, 2.0)
+  PeopleTrackingBenchmarkFixture()
+    : gen(42)
+    , pos_dist(-25.0, 25.0)
+    , walking_speed_dist(0.5, 2.0)
+    , heading_noise(0.0, 0.1)
+    , camera_noise(0.0, kCameraNoiseStdM)
   {
     baseTimestamp = std::chrono::system_clock::now();
   }
@@ -184,68 +196,61 @@ public:
     person.classification[3] = 0.05 * std::uniform_real_distribution<double>(0, 1)(gen);
     person.classification[4] = 0.05 * std::uniform_real_distribution<double>(0, 1)(gen);
     person.classification.normalize();
-
-    person.predictedMeasurementMean = cv::Mat::zeros(7, 1, CV_64F);
-    person.predictedMeasurementMean.at<double>(0, 0) = person.x;
-    person.predictedMeasurementMean.at<double>(1, 0) = person.y;
-    person.predictedMeasurementMean.at<double>(2, 0) = person.width;
-    person.predictedMeasurementMean.at<double>(3, 0) = person.height;
-    person.predictedMeasurementMean.at<double>(4, 0) = person.vx;
-    person.predictedMeasurementMean.at<double>(5, 0) = person.vy;
-    person.predictedMeasurementMean.at<double>(6, 0) = person.yaw;
-
-    person.predictedMeasurementCov = cv::Mat::eye(7, 7, CV_64F) * 0.2;
-    cv::invert(person.predictedMeasurementCov, person.predictedMeasurementCovInv);
-    person.errorCovariance = cv::Mat::eye(7, 7, CV_64F) * 0.1;
+    // No Kalman matrices: like Scene Controller detections, and copies would alias the tracker's buffers.
     return person;
   }
 
-  std::vector<TrackedObject> generateMovingPeopleScenario(size_t numPeople, double deltaTime = 0.0)
+  void resetPeople(size_t numPeople)
   {
-    std::vector<TrackedObject> people;
+    people.clear();
     people.reserve(numPeople);
     for (size_t i = 0; i < numPeople; ++i)
     {
-      auto person = generateRandomPerson(static_cast<Id>(i + 1));
-      if (deltaTime > 0.0)
-      {
-        person.x += person.vx * deltaTime;
-        person.y += person.vy * deltaTime;
-        double direction_change = std::normal_distribution<double>(0.0, 0.1)(gen);
-        person.yaw += direction_change;
-        const double speed = std::sqrt(person.vx * person.vx + person.vy * person.vy);
-        person.vx = speed * std::cos(person.yaw);
-        person.vy = speed * std::sin(person.yaw);
-        person.predictedMeasurementMean.at<double>(0, 0) = person.x;
-        person.predictedMeasurementMean.at<double>(1, 0) = person.y;
-        person.predictedMeasurementMean.at<double>(4, 0) = person.vx;
-        person.predictedMeasurementMean.at<double>(5, 0) = person.vy;
-        person.predictedMeasurementMean.at<double>(6, 0) = person.yaw;
-      }
-      people.push_back(std::move(person));
+      people.push_back(generateRandomPerson(static_cast<Id>(i + 1)));
     }
-    return people;
   }
 
-  std::vector<std::vector<TrackedObject>> splitAcrossCameras(std::vector<TrackedObject> people,
-                                                             int numCameras)
+  void advancePeople(double deltaTime)
   {
-    std::vector<std::vector<TrackedObject>> per_camera(static_cast<size_t>(std::max(1, numCameras)));
-    if (numCameras <= 1)
+    for (auto &person : people)
     {
-      per_camera[0] = std::move(people);
-      return per_camera;
+      person.x += person.vx * deltaTime;
+      person.y += person.vy * deltaTime;
+      person.yaw += heading_noise(gen);
+      const double speed = std::hypot(person.vx, person.vy);
+      person.vx = speed * std::cos(person.yaw);
+      person.vy = speed * std::sin(person.yaw);
     }
+  }
+
+  // split: each person seen by one camera (round-robin); overlap: every camera sees every person.
+  std::vector<std::vector<TrackedObject>> cameraViews(int numCameras, bool overlap)
+  {
+    const size_t cameras = static_cast<size_t>(std::max(1, numCameras));
+    while (cameraIds.size() < cameras)
+    {
+      cameraIds.push_back("camera_" + std::to_string(cameraIds.size()));
+    }
+    std::vector<std::vector<TrackedObject>> perCamera(cameras);
     for (size_t i = 0; i < people.size(); ++i)
     {
-      per_camera[i % static_cast<size_t>(numCameras)].push_back(std::move(people[i]));
+      for (size_t camera = 0; camera < cameras; ++camera)
+      {
+        if (!overlap && i % cameras != camera)
+        {
+          continue;
+        }
+        auto detection = people[i];
+        detection.attributes["camera_id"] = cameraIds[camera];
+        if (overlap && cameras > 1)
+        {
+          detection.x += camera_noise(gen);
+          detection.y += camera_noise(gen);
+        }
+        perCamera[camera].push_back(std::move(detection));
+      }
     }
-    return per_camera;
-  }
-
-  std::unique_ptr<MultipleObjectTracker> createPeopleTracker()
-  {
-    return std::make_unique<MultipleObjectTracker>();
+    return perCamera;
   }
 
   std::chrono::system_clock::time_point getTimestamp(int frameNumber = 0)
@@ -257,73 +262,110 @@ private:
   std::mt19937 gen;
   std::uniform_real_distribution<double> pos_dist;
   std::uniform_real_distribution<double> walking_speed_dist;
+  std::normal_distribution<double> heading_noise;
+  std::normal_distribution<double> camera_noise;
   std::chrono::system_clock::time_point baseTimestamp;
+  std::vector<TrackedObject> people;
+  std::vector<std::string> cameraIds;
 };
 
+// Objects is either one camera's detections or the per-camera batch; both overloads share this signature.
+template <typename Objects>
 void callTrack(MultipleObjectTracker &tracker,
-               std::vector<std::vector<TrackedObject>> objectsPerCamera,
+               Objects objects,
                const std::chrono::system_clock::time_point &timestamp,
                const AssociationParams &association)
 {
-  constexpr double kScoreThreshold = 0.7;
   if (!association.configured)
   {
-    tracker.track(std::move(objectsPerCamera), timestamp, kScoreThreshold);
+    tracker.track(std::move(objects), timestamp, kScoreThreshold);
     return;
   }
 #ifdef RV_HAS_ASSOCIATION_MAX_RADIUS
-  tracker.track(std::move(objectsPerCamera), timestamp, association.distance_type,
+  tracker.track(std::move(objects), timestamp, association.distance_type,
                 association.distance_threshold, kScoreThreshold, association.max_radius_m);
 #else
-  tracker.track(std::move(objectsPerCamera), timestamp, association.distance_type,
+  tracker.track(std::move(objects), timestamp, association.distance_type,
                 association.distance_threshold, kScoreThreshold);
 #endif
 }
 
-static void BM_Track(::benchmark::State &state)
+// immediate=false: one batched track() per frame (time-chunking, Tracker Service).
+// immediate=true: one track() per camera message (Scene Controller Immediate mode).
+void runTrack(::benchmark::State &state, bool immediate)
 {
   const int numPeople = static_cast<int>(state.range(0));
   const int numCameras = static_cast<int>(state.range(1));
+  const bool overlap = state.range(2) != 0;
   PeopleTrackingBenchmarkFixture fixture;
-  auto tracker = fixture.createPeopleTracker();
-  const double frameTime = 0.033;
+  fixture.resetPeople(static_cast<size_t>(numPeople));
+  auto tracker = std::make_unique<MultipleObjectTracker>();
   int frameCount = 0;
-  auto timestamp = fixture.getTimestamp();
+  int64_t detections = 0;
 
   for (auto _ : state)
   {
-    auto people = fixture.generateMovingPeopleScenario(static_cast<size_t>(numPeople),
-                                                       frameCount * frameTime);
-    auto per_camera = fixture.splitAcrossCameras(std::move(people), numCameras);
-    callTrack(*tracker, std::move(per_camera), timestamp, g_workload.association);
+    auto perCamera = fixture.cameraViews(numCameras, overlap);
+    const auto timestamp = fixture.getTimestamp(frameCount);
+    for (const auto &cameraObjects : perCamera)
+    {
+      detections += static_cast<int64_t>(cameraObjects.size());
+    }
 
-    frameCount++;
-    timestamp = fixture.getTimestamp(frameCount);
-    if (frameCount >= 100)
+    if (immediate)
+    {
+      const int cameras = static_cast<int>(perCamera.size());
+      for (int camera = 0; camera < cameras; ++camera)
+      {
+        // Cameras publish staggered within the frame period.
+        const auto offset = std::chrono::milliseconds(33 * camera / cameras);
+        callTrack(*tracker, std::move(perCamera[static_cast<size_t>(camera)]), timestamp + offset,
+                  g_workload.association);
+      }
+    }
+    else
+    {
+      callTrack(*tracker, std::move(perCamera), timestamp, g_workload.association);
+    }
+
+    fixture.advancePeople(kFrameTimeS);
+    if (++frameCount >= kFramesPerTrackerReset)
     {
       frameCount = 0;
-      tracker = fixture.createPeopleTracker();
+      fixture.resetPeople(static_cast<size_t>(numPeople));
+      tracker = std::make_unique<MultipleObjectTracker>();
     }
   }
 
-  // iterations / total_seconds => 1 / mean_seconds_per_track => peak FPS.
+  // iterations / total_seconds => scene frames (all cameras) per second => peak FPS.
   state.counters["peak_fps"] =
     ::benchmark::Counter(static_cast<double>(state.iterations()), ::benchmark::Counter::kIsRate);
-  state.SetItemsProcessed(state.iterations() * numPeople);
-  state.SetLabel(g_workload.association.label + " people=" + std::to_string(numPeople) +
-                 " cameras=" + std::to_string(numCameras));
+  state.SetItemsProcessed(detections);
+  state.SetLabel(g_workload.association.label);
 }
 
 void registerBenchmarks()
 {
-  for (int people : g_workload.people_counts)
+  for (const bool immediate : {false, true})
   {
-    for (int cameras : g_workload.camera_counts)
+    for (int people : g_workload.people_counts)
     {
-      ::benchmark::RegisterBenchmark("BM_Track", BM_Track)
-        ->Args({people, cameras})
-        ->Unit(::benchmark::kMillisecond)
-        ->UseRealTime();
+      for (int cameras : g_workload.camera_counts)
+      {
+        for (int overlap : g_workload.overlap_modes)
+        {
+          if (cameras <= 1 && overlap != 0)
+          {
+            continue;
+          }
+          ::benchmark::RegisterBenchmark(immediate ? "BM_Immediate" : "BM_TimeChunking",
+                                         [immediate](::benchmark::State &state) { runTrack(state, immediate); })
+            ->Args({people, cameras, overlap})
+            ->ArgNames({"people", "cameras", "overlap"})
+            ->Unit(::benchmark::kMillisecond)
+            ->UseRealTime();
+        }
+      }
     }
   }
 }
@@ -332,9 +374,10 @@ void printUsage(const char *argv0)
 {
   std::cerr
     << "Usage: " << argv0
-    << " [--people N[,N...]] [--cameras N[,N...]] [--association-config path.json] "
+    << " [--people N[,N...]] [--cameras N[,N...]] [--overlap 0|1[,...]] [--association-config path.json] "
        "[google-benchmark flags...]\n"
-    << "  peak_fps counter = 1 / mean seconds per track() call (real time).\n";
+    << "  BM_TimeChunking: one batched track() per frame; BM_Immediate: one track() per camera.\n"
+    << "  peak_fps counter = scene frames (all cameras) per second (real time).\n";
 }
 
 std::vector<int> parseIntList(const std::string &value)
@@ -382,6 +425,10 @@ bool parseWorkloadArgs(int &argc, char **argv)
     else if (arg == "--cameras")
     {
       g_workload.camera_counts = parseIntList(requireValue("--cameras"));
+    }
+    else if (arg == "--overlap")
+    {
+      g_workload.overlap_modes = parseIntList(requireValue("--overlap"));
     }
     else if (arg == "--association-config")
     {

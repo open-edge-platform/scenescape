@@ -43,9 +43,9 @@ inline AssociationWindow buildAssociationWindow(const AssociationConfig& config,
     }
 
     const double chi2 = config.chi2ThresholdXy();
-    const double s00 = track.predictedMeasurementCov.at<double>(0, 0);
-    const double s01 = track.predictedMeasurementCov.at<double>(0, 1);
-    const double s11 = track.predictedMeasurementCov.at<double>(1, 1);
+    const double s00 = track.predictedMeasurementCov(0, 0);
+    const double s01 = track.predictedMeasurementCov(0, 1);
+    const double s11 = track.predictedMeasurementCov(1, 1);
 
     cv::Matx22d s_xy(s00, s01, s01, s11);
     cv::Mat eigenvalues;

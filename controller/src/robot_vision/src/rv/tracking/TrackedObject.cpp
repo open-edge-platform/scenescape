@@ -7,13 +7,11 @@ namespace rv {
 namespace tracking {
 
 TrackedObject::TrackedObject()
+  : predictedMeasurementCov(1e-4 * MeasurementMatrix::eye())
+  , predictedMeasurementCovInv(1e4 * MeasurementMatrix::eye())
+  , errorCovariance(1e-4 * StateMatrix::eye())
 {
   classification = Classification::Constant(1,1.0);
-
-  predictedMeasurementMean = cv::Mat::zeros(TrackedObject::MeasurementSize, 1, CV_64F);
-  predictedMeasurementCov = 1e-4 * cv::Mat::eye(TrackedObject::MeasurementSize, TrackedObject::MeasurementSize, CV_64F);
-  predictedMeasurementCovInv = 1e4 * cv::Mat::eye(TrackedObject::MeasurementSize, TrackedObject::MeasurementSize, CV_64F);
-  errorCovariance = 1e-4 * cv::Mat::eye(TrackedObject::StateSize, TrackedObject::StateSize, CV_64F);
 }
 
 std::string TrackedObject::toString() const
@@ -112,18 +110,18 @@ void TrackedObject::setStateVector(const cv::Mat &vector)
 }
 
 /**
- * @brief Convert to a cv::Mat vector.
+ * @brief Convert to a fixed-size measurement vector.
  */
-cv::Mat TrackedObject::measurementVector() const
+TrackedObject::MeasurementVector TrackedObject::measurementVector() const
 {
-  cv::Mat vector(MeasurementSize, 1, CV_64F);
-  vector.at<double>(MeasurementIndex::X, 0) = x;
-  vector.at<double>(MeasurementIndex::Y, 0) = y;
-  vector.at<double>(MeasurementIndex::Z, 0) = z;
-  vector.at<double>(MeasurementIndex::LENGTH, 0) = length;
-  vector.at<double>(MeasurementIndex::WIDTH, 0) = width;
-  vector.at<double>(MeasurementIndex::HEIGHT, 0) = height;
-  vector.at<double>(MeasurementIndex::YAW, 0) = yaw;
+  MeasurementVector vector;
+  vector(MeasurementIndex::X) = x;
+  vector(MeasurementIndex::Y) = y;
+  vector(MeasurementIndex::Z) = z;
+  vector(MeasurementIndex::LENGTH) = length;
+  vector(MeasurementIndex::WIDTH) = width;
+  vector(MeasurementIndex::HEIGHT) = height;
+  vector(MeasurementIndex::YAW) = yaw;
 
   return vector;
 }
