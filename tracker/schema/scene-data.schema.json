@@ -66,12 +66,16 @@
     "tracked_object": {
       "type": "object",
       "required": ["id", "translation", "velocity", "size", "rotation"],
-      "not": {
-        "required": ["metadata", "reid_sighting"],
-        "properties": {
-          "metadata": { "required": ["reid"] }
+      "allOf": [
+        {
+          "not": {
+            "required": ["metadata", "reid_sighting"],
+            "properties": {
+              "metadata": { "required": ["reid"] }
+            }
+          }
         }
-      },
+      ],
       "properties": {
         "id": {
           "type": "string",

@@ -20,7 +20,9 @@ retirement step after Tracker (ADR 7 / ADR 13): ReID gets a durable home outside
 so that responsibility can leave the monolith.
 
 **Live loop:** `reid-service` consumes the Tracker MQTT track stream and matches/stores
-internally — no cross-service round trip for live tracking. **External surface:** Section 6 is an
+internally — no cross-service round trip for live tracking. Analytics consumes the same track
+stream independently and applies asynchronous ReID identity decisions before computing spatial
+analytics and publishing regulated output (Section 5.1.1). **External surface:** Section 6 is an
 HTTP/gRPC API (query, POI, gallery, trajectory). MQTT request/reply for that external surface
 remains open (Section 5.1 / Section 11); it does not reopen the live-loop model.
 
@@ -112,8 +114,14 @@ Move the library in 4.2 into `reid-service`. ADR 13: gRPC for synchronous query/
 ```mermaid
 flowchart LR
   subgraph Live["Live loop (MQTT)"]
-    TRK[Tracker] -->|tracks| MQTT[MQTT Broker]
-    MQTT -->|scene tracks| REID[reid-service]
+    TRK[Tracker] --> TRACKS["Scene-track topic<br/>scenescape/data/scene/..."]
+    TRACKS -->|tracks + available embeddings| REID[reid-service]
+    TRACKS -->|tracks: positions / motion / local IDs| AN[Analytics service]
+    REID --> IDS["Identity-update topic<br/>scenescape/data/reid/..."]
+    IDS -->|ID mapping / state / count ONLY; no scene tracks| AN
+    SEN[Sensor readings] --> SENSORS["Sensor topic<br/>scenescape/data/sensor/..."]
+    SENSORS --> AN
+    AN -->|regulated / region detections / events| OUT[Manager UI / subscribers]
   end
 
   subgraph Store["Descriptor store"]
@@ -140,9 +148,77 @@ flowchart LR
   OPS -.->|no write path| GEN
 ```
 
-**Live loop:** Tracker publishes scene tracks; `reid-service` matches and stores into the general gallery with no Controller round trip. **External API:** investigator clients query only (6.12); POI operators write only the POI gallery and enrollment audit; the correlation daemon queries like any client and publishes `poi_match` events (6.5). There is no general-gallery write endpoint.
+**Live loop:** Tracker publishes scene tracks to both `reid-service` and Analytics through MQTT.
+The topic boxes above are separate streams on the MQTT broker. **Tracker is the scene-track
+producer; `reid-service` does not republish scene tracks.** ReID matches and stores into the
+general gallery, then publishes identity updates on a different topic. Analytics combines
+Tracker's positions and motion with ReID's ID mappings and states, and owns spatial analytics
+and downstream output. Neither Tracker nor Analytics waits for a synchronous ReID response.
+**External API:** investigator clients query only (6.12); POI operators write only the POI gallery and enrollment audit; the correlation daemon queries like any client and publishes `poi_match` events (6.5). There is no general-gallery write endpoint. The POI gallery, enrollment audit, and external capabilities shown above include proposed follow-on work; see the [service guide](../user-guide/microservices/reid-service/reid-service.md#current-scope) for current scope.
 
 The Controller circuit breaker is not ported: live matching is inside `reid-service`. Degradation signaling (stop using matches; recommend purge/compaction when volume is the cause) is a follow-on and does not block extraction (Section 11).
+
+#### 5.1.1 Analytics integration and identity continuity
+
+**Analytics receives two different kinds of messages, not two copies of the scene tracks:**
+
+| Producer       | MQTT topic                                      | What Analytics receives                                                                    |
+| -------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Tracker        | `scenescape/data/scene/{scene_id}/{thing_type}` | Scene frames: tracked objects with local IDs, positions, motion, and other track fields.   |
+| `reid-service` | `scenescape/data/reid/{scene_id}/{category}`    | Identity updates: which `gid` belongs to a `track_id`, ReID state, similarity, and counts. |
+
+Tracker answers **"where is this tracked object now?"** ReID answers **"which identity does
+this track belong to?"** Analytics combines those answers; ReID updates do not supply a new
+position or trigger a replacement scene frame.
+
+The services have separate responsibilities: `reid-service` owns embedding collection,
+matching, descriptor storage, identity decisions, and cumulative unique-ID counts. Analytics
+owns camera visibility, region entry/exit and dwell, tripwire crossings, sensor correlation,
+and regulated/event publishing. Analytics does not query the descriptor store or perform
+embedding matching.
+
+The MQTT integration is asynchronous:
+
+1. **Parallel track ingestion.** Both services subscribe to
+   `scenescape/data/scene/{scene_id}/{thing_type}`. ReID uses the available embeddings and
+   sighting metadata; Analytics uses the tracked objects and scene configuration.
+2. **Identity updates.** ReID publishes on
+   `scenescape/data/reid/{scene_id}/{category}`. Analytics caches the latest decision by
+   `(scene_id, category, track_id)`, including the assigned `gid`, identity state, similarity,
+   and decision time. It also caches the matcher-owned `unique_id_count` per scene/category.
+   The [service guide](../user-guide/microservices/reid-service/reid-service.md#identity-state-and-counting)
+   defines the states and counting semantics.
+3. **Apply before spatial analytics.** For each subsequent scene message, Analytics applies
+   cached identity updates before updating tracked objects, visibility, and events. An object
+   without a decision keeps its track ID and defaults to `pending_collection` unless its
+   producer already supplied a state. Processing continues while ReID gathers features or
+   queries the store; a decision arriving after a frame affects subsequent frames, not
+   previously published output.
+4. **Preserve continuity on delayed matches.** When a decision changes an object's ID,
+   Analytics migrates the existing tracked object and its region, dwell, tripwire, and
+   location-history state to the assigned gid rather than creating a new object. A rename
+   that would overwrite another live identity is deferred and logged. Matched renames
+   include the prior track ID in `previous_ids_chain`.
+5. **Publish enriched output.** Regulated and per-region detections carry the applied
+   identities and ReID states, and spatial events use those identities. When a matcher
+   count is available, Analytics forwards it as `unique_detection_count`; it does not
+   recompute it from active tracks or terminal states. Outputs include
+   `scenescape/regulated/scene/{scene_id}`, per-region detections, and region/tripwire/sensor
+   event topics.
+
+**Example:** Tracker publishes `track-7` at position `[1, 2, 0]`. Analytics processes that
+position using `track-7` while its identity is pending. ReID later publishes a match mapping
+`track-7` to `person-42`; this message contains an identity decision, not a new position.
+When Tracker next publishes `track-7` at `[2, 2, 0]`, Analytics uses that new position but
+publishes the object as `person-42`, preserving its existing dwell and crossing history.
+Tracker continues to publish its local ID; Analytics applies the mapping to downstream output.
+
+Analytics also consumes `scenescape/data/sensor/{sensor_id}` and loads scene configuration
+from Manager REST or local JSON files. See the [Analytics overview](../user-guide/microservices/analytics/analytics.md)
+and [data formats](../user-guide/microservices/analytics/data_formats.md) for those inputs and
+the downstream output contracts. The legacy Scene Controller may also produce scene tracks
+with identities already applied; Analytics preserves producer-supplied ReID state when no
+standalone-service decision is available.
 
 ### 5.2 What doesn't change
 
