@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -137,7 +137,7 @@ def mergeMesh(scene):
     return scene
 
   if any(mesh.visual.kind == "texture" for mesh in transformed_meshes) and merged_mesh.visual.kind != "texture":
-      raise ValueError("Mesh merge lost materials or textures during visual concatenation.")
+    raise ValueError("Mesh merge lost materials or textures during visual concatenation.")
 
   # Sanitize out-of-bounds face indices before any operation that builds a
   # vertex-indexed structure (e.g. fix_normals' sparse adjacency matrix).
@@ -387,6 +387,7 @@ def extractMeshFromGLB(glb_file, rotation=None):
   """
   if (not os.path.isfile(glb_file)
       or glb_file.split('/')[-1].split('.')[-1] != "glb"):
+
     raise FileNotFoundError("Glb file not found.")
   mesh = o3d.io.read_triangle_model(glb_file)
   if len(mesh.meshes) == 0:
@@ -399,6 +400,7 @@ def extractMeshFromGLB(glb_file, rotation=None):
     mesh =  o3d.io.read_triangle_model(glb_file)
 
   tensor_mesh = getTensorMeshesFromModel(mesh)
+
   triangle_mesh = o3d.t.geometry.TriangleMesh.from_legacy(
                                               mesh.meshes[0].mesh)
   # reorient the model so z is up (this will need to be adjusted for different models)

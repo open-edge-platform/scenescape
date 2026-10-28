@@ -68,7 +68,7 @@ manager/src/manager/model_directory_view.py	ModelDirectory::loadDirectory	27
 manager/src/manager/models.py	BoundingBox::boundingBox	14
 manager/src/manager/models.py	Cam::save	18
 manager/src/manager/models.py	Scene::createSceneScapeRegion	17
-manager/src/manager/models.py	Scene::save	25
+manager/src/manager/models.py	Scene::save	21
 manager/src/manager/models.py	Scene::scenescapeSceneUpdateRegions	15
 manager/src/manager/models.py	Scene::scenescapeSceneUpdateSensors	25
 manager/src/manager/models.py	sendUpdateCommand	17
@@ -127,7 +127,6 @@ scene_common/src/scene_common/json_track_data.py	Simcam::getImage	14
 scene_common/src/scene_common/mesh_util.py	checkMeshConnectivity	31
 scene_common/src/scene_common/mesh_util.py	createBasePolygon	15
 scene_common/src/scene_common/mesh_util.py	extractMeshFromPointCloud	13
-scene_common/src/scene_common/mesh_util.py	mergeMesh	41
 scene_common/src/scene_common/mqtt.py	PubSub::__init__	26
 scene_common/src/scene_common/mqtt.py	PubSub::parseTopic	15
 scene_common/src/scene_common/rest_client.py	RESTClient::decodeReply	16
