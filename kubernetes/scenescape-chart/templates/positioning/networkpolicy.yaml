@@ -52,6 +52,9 @@ spec:
     - to:
         - ipBlock:
             cidr: {{ . | quote }}
+{{- if not $.Values.positioning.networkPolicy.cameraPorts }}
+{{- fail "positioning.networkPolicy.cameraPorts must not be empty when cameraCIDRs is set" }}
+{{- end }}
       ports:
 {{- range $.Values.positioning.networkPolicy.cameraPorts }}
         - protocol: TCP
