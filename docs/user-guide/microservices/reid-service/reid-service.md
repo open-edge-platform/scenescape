@@ -36,8 +36,12 @@ is additive; `IngestStats` is now explicitly declared as well as implemented.
 The examples use three-element vectors only for brevity. `FindMatches` requires
 a rectangular numeric matrix with 1-1024 rows, 1-4096 dimensions, and finite
 float32 vectors. Inner-product normalization additionally requires nonzero
-vectors; L2 permits zero vectors. If the adapter has configured dimensions, every row
-must match them. `object_type` and an optional `set_name` must be nonempty
+vectors; L2 permits zero vectors. Every row must match the selected gallery's
+schema dimensions, including when the service adapter starts with
+`dimensions=None`. Existing schema dimensions are cached per set for
+30 seconds (up to 128 sets); absence and failed lookups are not cached. A schema
+whose dimensions cannot be read produces `UNAVAILABLE`, not an unchecked query.
+`object_type` and an optional `set_name` must be nonempty
 strings of at most 256 characters without NUL bytes. An omitted or null
 `set_name` selects the configured set. Optional `k_neighbors` is an integer
 from 1 to 1000; omitting it preserves the adapter default. Optional `constraints`
@@ -51,6 +55,12 @@ write RPC is exposed.
 
 `matches` preserves the adapter's per-vector result lists and similarity metric
 semantics. An empty per-vector list means no usable match, not backend failure.
+An absent gallery also returns one empty list per query vector. VDMS's explicit
+not-found responses are treated as empty lookups; unknown nonzero statuses,
+malformed/incomplete transactions, and transport failures remain `UNAVAILABLE`.
+VDMS schema lookup uses a read-only descriptor-set entity query to avoid the
+v2.12 `FindDescriptorSet` missing-set error, and reads the schema marker for
+the metric when available.
 Schema metadata remains an array of existence, dimensions, and metric; unknown
 backend metadata values may be null. Manual purge uses the existing TTL reclaim
 semantics, not arbitrary deletion. Disabled TTL returns `result: 0`; successful
@@ -64,6 +74,13 @@ gRPC status. A successful Health RPC establishes process liveness; callers must
 inspect `ready` for readiness. `IngestStats` is local process state and remains
 available during a backend outage. Its counts are process-local, not durable
 gallery statistics.
+
+VDMS readiness probes use a read-only entity lookup that succeeds on an empty
+database. After a failed probe, the adapter closes the stale connection and
+attempts to reconnect, rate-limited to once every five seconds. This supports
+recovery from startup outages and backend restarts without restarting the
+service. Reconnect does not create schemas or write markers. Connected VDMS
+sockets use a five-second I/O timeout.
 
 | gRPC status        | Meaning                                                                                                    |
 | ------------------ | ---------------------------------------------------------------------------------------------------------- |
