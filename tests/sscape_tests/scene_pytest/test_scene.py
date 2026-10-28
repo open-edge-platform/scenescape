@@ -265,6 +265,39 @@ def test_processCameraData_applies_and_serializes_per_frame_extrinsics(scene_obj
   assert scene_obj.processCameraData(payload) is True
   np.testing.assert_allclose(
     captured['camera'].pose.translation.asNumpyCartesian, [1.0, 2.0, 3.0])
+  assert captured['camera'] is not camera_obj
+  assert scene_obj.cameras[camera_obj.cameraID] is camera_obj
+
+
+@pytest.mark.parametrize("extrinsics", [
+  {'translation': [0, 0], 'rotation': [0, 0, 0]},
+  {'translation': [0, 0, 0], 'rotation': [0, 0, 0, 0]},
+  {'translation': [0, float('nan'), 0], 'rotation': [0, 0, 0]},
+  {'translation': [0, 0, 0], 'rotation': [0, 0, 0], 'scale': [1, 0, 1]},
+])
+def test_processCameraData_rejects_invalid_extrinsics(
+    scene_obj, camera_obj, monkeypatch, extrinsics):
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  create = Mock(return_value=[])
+  monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', create)
+  monkeypatch.setattr(scene_obj, 'finishProcessing', Mock())
+  assert scene_obj.processCameraData({
+    'id': camera_obj.cameraID, 'extrinsics': extrinsics, 'objects': {'person': []},
+  }, when=1.0)
+  assert create.call_args.args[3] is camera_obj
+
+
+@pytest.mark.parametrize("visible", [True, False])
+def test_visibility_uses_observation_camera_without_changing_calibration(scene_obj, visible):
+  configured = SimpleNamespace(cameraID='mobile', pose=SimpleNamespace(
+    regionOfView=SimpleNamespace(isPointWithin=lambda pt: not visible)))
+  observation = SimpleNamespace(cameraID='mobile', pose=SimpleNamespace(
+    regionOfView=SimpleNamespace(isPointWithin=lambda pt: visible)))
+  scene_obj.cameras = {'mobile': configured}
+  obj = SimpleNamespace(camera=observation, sceneLoc=Point(1, 2, 0))
+  scene_obj._updateVisible([obj])
+  assert obj.visibility == (['mobile'] if visible else [])
+  assert scene_obj.cameras['mobile'] is configured
 
 def test_processCameraData_ignore_time_flag_uses_now(scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj

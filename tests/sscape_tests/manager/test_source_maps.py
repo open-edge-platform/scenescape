@@ -123,6 +123,68 @@ def test_delete_source_map_refuses_default_and_removes_its_artifact(scene, tmp_p
   assert scene.default_source_map_id == _source_map(scene, "arkit").id
 
 
+def test_delete_source_map_checks_default_after_lock(scene):
+  source_map = _upload_mesh(scene, "orbslam3")
+  _upload_mesh(scene, "arkit")
+  stale_scene = Scene.objects.get(pk=scene.pk)
+  mapping_store.activate_source_map(scene, source_map)
+  with pytest.raises(mapping_store.MappingStoreError, match="Cannot delete the default"):
+    mapping_store.delete_source_map(stale_scene, source_map)
+  assert SceneSourceMap.objects.filter(pk=source_map.pk).exists()
+  assert os.path.isfile(source_map.file.path)
+
+
+def test_delete_source_map_rejects_replaced_row(scene):
+  source_map = _upload_mesh(scene, "orbslam3")
+  _upload_mesh(scene, "orbslam3", 2.0)
+  with pytest.raises(mapping_store.MappingStoreError) as exc:
+    mapping_store.delete_source_map(scene, source_map)
+  assert exc.value.status == 404
+
+
+@pytest.mark.parametrize("limit,value,members", [
+  ("MAX_ARTIFACT_BYTES", 1, {"frames.bin": b"x"}),
+  ("MAX_ARCHIVE_MEMBERS", 1, {"a": b"x", "b": b"x"}),
+  ("MAX_MEMBER_BYTES", 1, {"frames.bin": b"xx"}),
+  ("MAX_EXPANDED_BYTES", 2, {"a": b"xx", "b": b"x"}),
+  ("MAX_MANIFEST_BYTES", 1, {"manifest.json": b"{}"}),
+])
+def test_artifact_limits_are_checked_before_decompression(scene, tmp_path, monkeypatch, limit, value, members):
+  monkeypatch.setattr(mapping_store, limit, value)
+  path = tmp_path / "keyframes.zip"
+  sha = _zip(path, members)
+  with patch.object(zipfile.ZipFile, "open", side_effect=AssertionError("Must reject before reading")):
+    with pytest.raises(mapping_store.MappingStoreError, match="exceeds"):
+      mapping_store.store_artifact(scene, "keyframes", str(path), sha, None, "tester")
+  assert not SceneMappingArtifact.objects.filter(scene=scene).exists()
+
+
+def test_artifact_accepts_size_boundaries_and_checks_crc(scene, tmp_path, monkeypatch):
+  path = tmp_path / "keyframes.zip"
+  _zip(path, {"frames.bin": b"xy"})
+  monkeypatch.setattr(mapping_store, "MAX_ARTIFACT_BYTES", path.stat().st_size)
+  monkeypatch.setattr(mapping_store, "MAX_ARCHIVE_MEMBERS", 1)
+  monkeypatch.setattr(mapping_store, "MAX_MEMBER_BYTES", 2)
+  monkeypatch.setattr(mapping_store, "MAX_EXPANDED_BYTES", 2)
+  mapping_store.validate_artifact_zip(path, "keyframes")
+  data = path.read_bytes()
+  path.write_bytes(data.replace(b"xy", b"xz", 1))
+  with pytest.raises(mapping_store.ValidationError, match="Invalid"):
+    mapping_store.validate_artifact_zip(path, "keyframes")
+
+
+def test_corrupt_deflate_stream_is_a_validation_error(tmp_path):
+  path = tmp_path / "corrupt.zip"
+  with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    archive.writestr("frames.bin", b"x" * 1000)
+    info = archive.getinfo("frames.bin")
+  content = bytearray(path.read_bytes())
+  content[info.header_offset + 30 + len(info.filename)] = 0x07
+  path.write_bytes(content)
+  with pytest.raises(mapping_store.ValidationError, match="Invalid"):
+    mapping_store.validate_artifact_zip(path, "keyframes")
+
+
 def test_mesh_upload_keeps_methods_artifact(scene, tmp_path):
   artifact = _store(scene, "orbslam3", tmp_path, {"orbslam3.osa": b"x"})
   _upload_mesh(scene, "orbslam3")

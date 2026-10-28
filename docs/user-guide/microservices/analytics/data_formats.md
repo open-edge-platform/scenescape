@@ -93,6 +93,12 @@ in the integration guide.
 
 ## Regulated Scene Output Message Format
 
+The `cameras` list includes configured cameras and their latest valid per-message
+poses. Entries with `dynamic_pose: true` drive live camera movement in the 3D UI;
+static entries do not overwrite unsaved camera edits. Invalid extrinsics are
+logged and leave the last valid pose (or configured pose) intact. Dynamic poses
+also apply to projected camera bounds without changing stored calibration.
+
 Published on MQTT topic: `scenescape/regulated/scene/{scene_id}`
 
 The Analytics service publishes regulated (rate-controlled) tracking results aggregating all

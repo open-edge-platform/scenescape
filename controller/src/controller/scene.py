@@ -13,7 +13,7 @@ from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSu
 from scene_common.geometry import Point
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time
-from scene_common.transform import CameraPose
+from scene_common.transform import CameraPose, validate_camera_extrinsics
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
 
 from scene_common.camera_registry import CameraRegistry
@@ -234,21 +234,7 @@ class Scene(SceneModel):
       log.info("DISCARDING: camera has no pose")
       return True
 
-    message_camera = camera
-    extrinsics = jdata.get('extrinsics')
-    if isinstance(extrinsics, dict):
-      try:
-        translation = extrinsics.get('translation')
-        rotation = extrinsics.get('rotation')
-        if translation is not None and rotation is not None:
-          override_pose = CameraPose({
-            'translation': translation,
-            'rotation': rotation,
-            'scale': extrinsics.get('scale') or [1, 1, 1],
-          }, camera.pose.intrinsics)
-          message_camera = SimpleNamespace(cameraID=camera.cameraID, pose=override_pose)
-      except (TypeError, ValueError) as exc:
-        log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
+    message_camera = self._camera_for_observation(camera, jdata.get('extrinsics'))
 
     for detection_type, detections in jdata['objects'].items():
       stripReidProvenance(detections)
@@ -268,6 +254,17 @@ class Scene(SceneModel):
       objects = self.createMovingObjectsForDetection(detection_type, detections, when, message_camera)
       self.finishProcessing(detection_type, when, objects)
     return True
+
+  @staticmethod
+  def _camera_for_observation(camera, extrinsics):
+    if extrinsics is None:
+      return camera
+    try:
+      pose = CameraPose(validate_camera_extrinsics(extrinsics), camera.pose.intrinsics)
+      return SimpleNamespace(cameraID=camera.cameraID, pose=pose)
+    except (TypeError, ValueError) as exc:
+      log.warning(f"Ignoring invalid camera metadata for {camera.cameraID}: {exc}")
+      return camera
 
   def convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
     """
@@ -397,6 +394,9 @@ class Scene(SceneModel):
 
       for sname in self.cameras:
         camera = self.cameras[sname]
+        observation_camera = getattr(obj, 'camera', None)
+        if getattr(observation_camera, 'cameraID', None) == camera.cameraID:
+          camera = observation_camera
         if hasattr(camera, 'pose') and hasattr(camera.pose, 'regionOfView') \
            and camera.pose.regionOfView.isPointWithin(obj.sceneLoc):
           vis.append(camera.cameraID)

@@ -79,7 +79,15 @@ def test_controller_reid_state_and_count_reach_regulated_output(state, gid):
   assert output['unique_detection_count'] == 3
 
 
-def test_regulated_output_uses_latest_dynamic_camera_pose():
+@pytest.mark.parametrize("invalid", [
+  {'translation': [1, 2], 'rotation': [0, 0, 0]},
+  {'translation': [1, 2, 3], 'rotation': [0, 0, 0, 0]},
+  {'translation': [1, float('inf'), 3], 'rotation': [0, 0, 0]},
+  {'translation': [1, 2, 3], 'rotation': [0, 0]},
+  {'translation': [1, 2, 3], 'rotation': [0, 0, 0], 'scale': [1, 0, 1]},
+  "invalid",
+])
+def test_regulated_output_uses_latest_dynamic_camera_pose(invalid):
   service = _service()
   service.calculateRate = MagicMock(return_value=10.0)
   service.shouldPublish = MagicMock(return_value=True)
@@ -114,6 +122,28 @@ def test_regulated_output_uses_latest_dynamic_camera_pose():
   assert payload['cameras'][0]['dynamic_pose'] is True
   assert payload['cameras'][0]['translation'] == [4.0, 5.0, 6.0]
   assert payload['cameras'][0]['rotation'] == [0.0, 0.0, 0.0]
+  jdata['extrinsics'] = invalid
+  with patch('analytics.service.buildDetectionsList', return_value=[]):
+    service.publishRegulatedDetections(scene, [], 'person', jdata, 'handheld-01')
+  assert orjson.loads(service.pubsub.publish.call_args.args[1])['cameras'] == payload['cameras']
+
+
+def test_projection_scene_uses_dynamic_pose_without_mutating_configured_camera():
+  from scene_common.camera import Camera
+  configured = Camera('mobile', {
+    'intrinsics': {'fx': 500, 'fy': 600, 'cx': 320, 'cy': 240},
+    'translation': [0, 0, 2], 'rotation': [45, 0, 0], 'scale': [1, 1, 1],
+  }, resolution=[640, 480])
+  scene = AnalyticsScene('projection-test', None)
+  scene.cameras = {'mobile': configured}
+  observation = AnalyticsService._scene_for_camera_poses(scene, {
+    'mobile': {'translation': [10, 20, 3], 'rotation': [45, 0, 90], 'scale': [1, 1, 1]},
+  })
+  assert observation is not scene
+  assert scene.cameraWithID('mobile') is configured
+  assert observation.cameraWithID('mobile') is not configured
+  assert observation.cameraWithID('mobile').pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+  assert configured.pose.translation.asNumpyCartesian == pytest.approx([0, 0, 2])
 
 
 def test_delayed_reid_match_preserves_region_dwell_and_crossing(make_region, make_tripwire):

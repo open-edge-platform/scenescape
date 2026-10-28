@@ -222,7 +222,7 @@ class Scene(models.Model):
 
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
-    self._original_map = self.map
+    self._original_map = self.map.name
     self._original_scale = self.scale
     self._original_rotation_x = self.rotation_x
     self._original_rotation_y = self.rotation_y
@@ -230,6 +230,7 @@ class Scene(models.Model):
     self._original_translation_x = self.translation_x
     self._original_translation_y = self.translation_y
     self._original_translation_z = self.translation_z
+    self._original_mesh_scale = (self.scale_x, self.scale_y, self.scale_z)
     self._original_calibration_mode = self.camera_calibration
     self._original_polycam_data = self.polycam_data
     self._original_matcher = self.matcher
@@ -256,6 +257,7 @@ class Scene(models.Model):
 
   def regenerateThumbnail(self):
     return self.map != self._original_map or \
+           self._original_mesh_scale != (self.scale_x, self.scale_y, self.scale_z) or \
            self._original_rotation_x != self.rotation_x or \
            self._original_rotation_y != self.rotation_y or \
            self._original_rotation_z != self.rotation_z or \

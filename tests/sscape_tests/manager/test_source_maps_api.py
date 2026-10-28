@@ -102,6 +102,101 @@ def test_artifact_put_list_get_delete(client, scene):
   assert client.get(f"/api/v1/scene/{scene.pk}/mapping-artifacts/keyframes").status_code == 404
 
 
+def test_artifact_writes_require_superuser_but_reads_allow_authenticated(client, scene):
+  assert _put(client, scene, "keyframes", {"frames.bin": b"x"}).status_code == 200
+  reader = User.objects.create_user("reader")
+  token = Token.objects.create(user=reader)
+  client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+  url = f"/api/v1/scene/{scene.pk}/mapping-artifacts/keyframes"
+  response = client.get(url)
+  assert response.status_code == 200
+  response.close()
+  assert _put(client, scene, "keyframes", {"frames.bin": b"changed"}).status_code == 403
+  assert client.delete(url).status_code == 403
+  client.credentials()
+  assert client.get(url).status_code == 401
+
+
+def test_artifact_upload_size_limit(client, scene, monkeypatch):
+  monkeypatch.setattr("manager.api.MAX_ARTIFACT_BYTES", 1)
+  response = _put(client, scene, "keyframes", {"frames.bin": b"x"})
+  assert response.status_code == 413
+  assert not scene.mapping_artifacts.exists()
+
+
+@pytest.mark.parametrize("create", [False, True])
+def test_zip_map_upload_extracts_glb_and_invalidates_processed_state(client, scene, create):
+  if not create:
+    assert _put_mesh(client, scene, "rtabmap").status_code == 200
+    Scene.objects.filter(pk=scene.pk).update(map_processed="2026-10-28T00:00:00Z")
+  upload, _ = _bundle({
+    "capture/raw.glb": _glb(),
+    "capture/mesh_info.json": b"{}",
+    "capture/keyframes/images/0.jpg": b"image",
+    "capture/keyframes/depth/0.png": b"depth",
+    "capture/keyframes/cameras/0.json": b"{}",
+  })
+  data = {"name": "zip-created" if create else scene.name, "map": upload}
+  url = "/api/v1/scene" if create else f"/api/v1/scene/{scene.pk}"
+  response = client.post(url, data, format="multipart")
+  assert response.status_code in (200, 201), response.content
+  saved = Scene.objects.get(pk=response.json()["uid"])
+  assert saved.map.name.endswith(".glb")
+  assert saved.map_processed is None
+  assert saved.default_source_map.file.name == saved.map.name
+
+
+def test_non_glb_replacement_resets_map_state(client, scene):
+  from PIL import Image
+  assert _put_mesh(client, scene, "rtabmap").status_code == 200
+  Scene.objects.filter(pk=scene.pk).update(map_processed="2026-10-28T00:00:00Z", translation_x=12)
+  upload = io.BytesIO()
+  Image.new("RGB", (4, 4)).save(upload, format="PNG")
+  upload.seek(0)
+  upload.name = "floor.png"
+  response = client.post(f"/api/v1/scene/{scene.pk}", {"map": upload}, format="multipart")
+  assert response.status_code == 200, response.content
+  scene.refresh_from_db()
+  assert scene.map.name.endswith(".png")
+  assert scene.map_processed is None
+  assert scene.translation_x == 0
+  assert not scene.thumbnail
+  assert scene.default_source_map_id is None
+
+
+@pytest.mark.parametrize("scale_only", [False, True])
+def test_placement_only_save_updates_active_source_map(client, scene, monkeypatch, scale_only):
+  assert _put_mesh(client, scene, "rtabmap").status_code == 200
+  scene.refresh_from_db()
+  source_id = scene.default_source_map_id
+  thumbnail_calls = []
+
+  def save_thumbnail(instance):
+    thumbnail_calls.append(instance.pk)
+    instance.thumbnail = f"edited-{instance.pk}.png"
+
+  monkeypatch.setattr(Scene, "saveThumbnail", save_thumbnail)
+  transform = mapping_store.scene_transform(scene)
+  edits = {"scale": [2, 3, 4]} if scale_only else {
+    "translation": [2, 3, 4], "rotation": [10, 20, 30], "scale": [2, 3, 4],
+  }
+  transform.update(edits)
+  response = client.post(f"/api/v1/scene/{scene.pk}", {
+    f"mesh_{key}": value for key, value in edits.items()
+  }, format="json")
+  assert response.status_code == 200, response.content
+  scene.refresh_from_db()
+  assert scene.default_source_map_id == source_id
+  assert scene.default_source_map.transform == transform
+  assert scene.thumbnail.name
+  assert scene.default_source_map.thumbnail.name == scene.thumbnail.name
+  assert thumbnail_calls
+  assert _put_mesh(client, scene, "arkit").status_code == 200
+  assert client.post(f"/api/v1/scene/{scene.pk}/maps/rtabmap/activate").status_code == 200
+  scene.refresh_from_db()
+  assert mapping_store.scene_transform(scene) == transform
+
+
 def test_mesh_upload_then_list_activate_delete(client, scene):
   resp = _put_mesh(client, scene, "orbslam3", name="handheld.glb")
   assert resp.status_code == 200, resp.content

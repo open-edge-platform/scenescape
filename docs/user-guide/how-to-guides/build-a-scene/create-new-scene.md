@@ -200,3 +200,34 @@ For the full field reference (accepted `map` file types, `map_type`/`camera_cali
 values, defaults, and all other scene fields), see the canonical OpenAPI spec: [API
 Reference](../../api-reference.md) (source: `docs/user-guide/api-docs/api.yaml`, `Scene` schema).
 Don't restate those fields elsewhere — link here instead.
+
+### Mapping source meshes and resume artifacts
+
+Each mapping method has one current source mesh and one optional resume ZIP.
+Scene Settings placement changes update the active source mesh's saved transform
+and thumbnail, so switching away and reactivating it restores the edited placement.
+The default mesh cannot be deleted; activate another source before deleting it.
+
+Use `/api/v1/scene/{scene_id}/mapping-artifacts/{method}` to upload (`PUT`),
+download (`GET`), or delete (`DELETE`) a method's resume ZIP. Upload multipart
+fields `bundle` and `sha256` (the ZIP's hexadecimal SHA-256 digest); optional fields
+are `fiducials` and `contributor`. Writes require a superuser token, just like
+scene-map writes. Authenticated read-only users may list and download artifacts.
+
+Artifact validation limits are 512 MiB for the uploaded ZIP, 4,096 members,
+1 GiB per expanded member, 2 GiB total expanded data, and 4 MiB for `manifest.json`.
+Oversized uploads return HTTP 413; invalid archives or expanded-size limit
+violations return HTTP 400. Limits are checked before decompressing members,
+and content reads are bounded while checking ZIP integrity.
+
+### Mobile camera frame dimensions
+
+Register cameras with the full sensor resolution used by their calibrated
+intrinsics. A camera image reply on `scenescape/image/camera/{camera_id}` may
+include `resolution: [width, height]` or
+`resolution: {"width": width, "height": height}` to update that metadata in the
+3D UI. These dimensions must describe the full calibrated sensor frame, not
+the transmitted thumbnail. Saved camera settings preserve the sensor dimensions;
+only when metadata is absent does the UI estimate dimensions from twice the
+principal point. Off-center principal points and unequal `fx`/`fy` are reflected
+in the projected frustum.

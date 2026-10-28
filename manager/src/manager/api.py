@@ -30,7 +30,7 @@ from manager.scene_import import ImportScene
 from manager.mapping_store import (
   DIGEST_HEADER, MappingStoreError, activate_source_map, delete_artifact,
   delete_source_map, download_digest, isoformat_z, source_map_for_method,
-  store_artifact, validate_slug,
+  store_artifact, validate_slug, MAX_ARTIFACT_BYTES,
 )
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
@@ -144,7 +144,7 @@ class SceneMappingArtifactView(APIView):
   keys are ignored. Meshes are uploaded separately via the scene ``map``.
   """
   authentication_classes = [authentication.TokenAuthentication]
-  permission_classes = [permissions.IsAuthenticated]
+  permission_classes = [IsAdminOrReadOnly]
 
   def get(self, request, scene_id, method):
     """!Download the current zip for ``method``, or 404 if this method has none."""
@@ -212,10 +212,20 @@ class SceneMappingArtifactView(APIView):
 
 
 def _spool_upload(upload):
+  if upload.size > MAX_ARTIFACT_BYTES:
+    raise MappingStoreError(f"Mapping artifact exceeds {MAX_ARTIFACT_BYTES} bytes", 413)
   handle = tempfile.NamedTemporaryFile(prefix="mapping-artifact-", suffix=".zip", delete=False)
   try:
+    size = 0
     for chunk in upload.chunks():
+      size += len(chunk)
+      if size > MAX_ARTIFACT_BYTES:
+        raise MappingStoreError(f"Mapping artifact exceeds {MAX_ARTIFACT_BYTES} bytes", 413)
       handle.write(chunk)
+  except BaseException:
+    handle.close()
+    os.remove(handle.name)
+    raise
   finally:
     handle.close()
   return handle.name

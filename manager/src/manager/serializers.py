@@ -817,13 +817,7 @@ class SceneSerializer(NonNullSerializer):
         Scene.objects.bulk_create([instance])
         instance.refresh_from_db()
 
-    if output_lla:
-      instance.scenescapeScene.output_lla = output_lla
     map_corners_lla = validated_data.get('map_corners_lla', None)
-    if map_corners_lla:
-      instance.scenescapeScene.map_corners_lla = map_corners_lla
-    if use_tracker:
-      instance.scenescapeScene.use_tracker = use_tracker
 
     if trs_matrix is not None:
       Scene.objects.filter(pk=instance.pk).update(trs_matrix=trs_matrix)
@@ -894,24 +888,37 @@ class SceneSerializer(NonNullSerializer):
     if transform and hasattr(instance, 'parent') and instance.parent:
       self.update_child_transform(instance.parent, transform)
 
+    # Avoid model.save() re-running autoAlign after explicit GLB placement.
+    if glb_map_handled:
+      instance._original_map = instance.map.name
     if is_update:
       for key, value in validated_data.items():
         setattr(instance, key, value)
-      # Avoid model.save() re-running autoAlign after we already aligned or
-      # applied explicit mesh transforms for this map replacement.
-      if glb_map_handled:
-        instance._original_map = instance.map
       instance.save(send_update_command=send_update_command)
     else:
+      if map_path:
+        instance.save(send_update_command=False)
       instance.notifyDbUpdate()
+    if output_lla:
+      instance.scenescapeScene.output_lla = output_lla
+    if map_corners_lla:
+      instance.scenescapeScene.map_corners_lla = map_corners_lla
+    if use_tracker:
+      instance.scenescapeScene.use_tracker = use_tracker
     self._record_source_map(instance, map_path, map_source)
     return instance
 
   def _record_source_map(self, instance, map_path, map_source):
-    if not map_path or not instance.map:
+    from manager.mapping_store import (
+      MappingStoreError, clear_default_source_map, record_glb_source_map, update_active_source_map,
+    )
+    if not map_path:
+      if instance.map:
+        update_active_source_map(instance)
+      return
+    if not instance.map:
       return
     Scene.objects.filter(pk=instance.pk).update(map=instance.map.name)
-    from manager.mapping_store import MappingStoreError, clear_default_source_map, record_glb_source_map
     try:
       ext = os.path.splitext(instance.map.name)[1].lower()
       if ext == ".glb":

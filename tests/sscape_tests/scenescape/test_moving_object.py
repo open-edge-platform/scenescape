@@ -48,6 +48,30 @@ class TestChainData:
 
 
 class TestMovingObject:
+  def test_normalized_depth_box_matches_pixel_box_off_axis(self):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    intrinsics = CameraIntrinsics({'fx': 100.0, 'fy': 100.0, 'cx': 100.0, 'cy': 100.0})
+    pose = CameraPose({'translation': [0.0, 0.0, 1.0],
+                      'rotation': [0.5, -0.5, 0.5, -0.5], 'scale': [1, 1, 1]}, intrinsics)
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    normalized = {**_base_info(), 'distance': 2.0}
+    pixels = {**normalized, 'bounding_box_px': {
+      'x': 110.0, 'y': 120.0, 'width': 30.0, 'height': 40.0,
+    }}
+    pixels.pop('bounding_box')
+    expected = MovingObject(pixels, 1.0, camera)
+    actual = MovingObject(normalized, 1.0, camera)
+    assert actual.boundingBox.origin.asNumpyCartesian == pytest.approx([0.2, 0.4, 2.0])
+    assert actual.boundingBox.opposite.asNumpyCartesian == pytest.approx([0.8, 1.2, 2.0])
+    assert actual.sceneLoc.asNumpyCartesian == pytest.approx(expected.sceneLoc.asNumpyCartesian)
+    assert actual.size == pytest.approx(expected.size)
+
+  def test_three_dimensional_depth_box_is_not_scaled_again(self):
+    info = {**_base_info(), 'distance': 2.0,
+            'bounding_box': {'x': 1.0, 'y': 2.0, 'z': 3.0, 'width': 0.5, 'height': 0.8}}
+    obj = MovingObject(info, 1.0, _camera())
+    assert obj.boundingBox.origin.asNumpyCartesian == pytest.approx([1.0, 2.0, 3.0])
+
   def test_metric_distance_is_used_to_project_two_dimensional_boxes(self):
     when = datetime.datetime.now(datetime.timezone.utc)
     projected = Rectangle({'x': 1.0, 'y': 2.0, 'width': 0.3, 'height': 0.4})

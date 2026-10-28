@@ -49,6 +49,18 @@ against the `detector` definition in
 
 ### Detection Object Fields (`objects.<category>[*]`)
 
+Mobile cameras may include per-frame `extrinsics`: a `translation` array of three
+finite numbers, a `rotation` array of three intrinsic XYZ Euler angles in degrees
+or four quaternion components `[x, y, z, w]` with nonzero norm, and an optional
+positive three-component `scale` (defaults to `[1, 1, 1]`). Invalid poses are logged
+and ignored. The observation pose is used for detections, source-camera visibility,
+and projected bounds without overwriting registered camera calibration.
+
+For a 2D box, `distance` is depth along the optical axis in metres, not radial
+range. A normalized `bounding_box` is already on the normalized image plane:
+its coordinates are scaled by depth, not unprojected through intrinsics again.
+Only `bounding_box_px` requires pixel unprojection. Existing 3D boxes are unchanged.
+
 | Field                  | Type               | Required | Description                                                                                                                                                    |
 | ---------------------- | ------------------ | :------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `category`             | string             |   Yes    | Object class label (e.g. `"person"`, `"car"`)                                                                                                                  |

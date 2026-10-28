@@ -19,6 +19,7 @@ import json
 import os
 import re
 import uuid
+import zlib
 from datetime import timezone
 from functools import partial
 from zipfile import BadZipFile, ZipFile
@@ -42,6 +43,10 @@ METHOD_REQUIRED_FILES = {
 }
 MANIFEST_MEMBER = "manifest.json"
 MAX_MANIFEST_BYTES = 4 * 1024 * 1024
+MAX_ARTIFACT_BYTES = 512 * 1024 * 1024
+MAX_ARCHIVE_MEMBERS = 4096
+MAX_MEMBER_BYTES = 1024 * 1024 * 1024
+MAX_EXPANDED_BYTES = 2 * 1024 * 1024 * 1024
 MAX_FIDUCIALS = 100
 FIDUCIAL_TYPES = ("apriltag", "aruco")
 USER_METHOD = SceneSourceMap.USER_METHOD
@@ -161,12 +166,19 @@ def _vec(value, length, name):
 
 def validate_artifact_zip(path, method):
   """Check the zip, and the required member when this method lists one."""
+  if os.path.getsize(path) > MAX_ARTIFACT_BYTES:
+    raise ValidationError(f"Mapping artifact exceeds {MAX_ARTIFACT_BYTES} bytes")
   required = METHOD_REQUIRED_FILES.get(method)
   try:
     with ZipFile(path, "r") as archive:
-      bad_entry = archive.testzip()
-      if bad_entry is not None:
-        raise ValidationError(f"Corrupt entry in mapping artifact: {bad_entry}")
+      _validate_archive_limits(archive)
+      for info in archive.infolist():
+        with archive.open(info) as member:
+          expanded = 0
+          for chunk in iter(lambda: member.read(1024 * 1024), b""):
+            expanded += len(chunk)
+            if expanded > min(info.file_size, MAX_MEMBER_BYTES):
+              raise ValidationError("Mapping artifact member exceeds its size limit")
       if required is None:
         return
       try:
@@ -178,8 +190,22 @@ def validate_artifact_zip(path, method):
         raise ValidationError(f"{required} is empty")
   except ValidationError:
     raise
-  except BadZipFile as exc:
-    raise ValidationError(f"Invalid zip file: {exc}") from exc
+  except (BadZipFile, RuntimeError, NotImplementedError, zlib.error, EOFError) as exc:
+    raise ValidationError("Invalid or unsupported mapping artifact zip") from exc
+
+
+def _validate_archive_limits(archive):
+  members = archive.infolist()
+  if len(members) > MAX_ARCHIVE_MEMBERS:
+    raise ValidationError(f"Mapping artifact exceeds {MAX_ARCHIVE_MEMBERS} members")
+  total = 0
+  for info in members:
+    limit = MAX_MANIFEST_BYTES if info.filename == MANIFEST_MEMBER else MAX_MEMBER_BYTES
+    if info.file_size > limit:
+      raise ValidationError(f"Mapping artifact member exceeds {limit} bytes")
+    total += info.file_size
+  if total > MAX_EXPANDED_BYTES:
+    raise ValidationError(f"Mapping artifact exceeds {MAX_EXPANDED_BYTES} expanded bytes")
 
 
 def download_digest(artifact):
@@ -250,7 +276,10 @@ def read_zip_manifest(zip_path):
         return {}
       if info.file_size > MAX_MANIFEST_BYTES:
         raise ValidationError(f"{MANIFEST_MEMBER} exceeds {MAX_MANIFEST_BYTES} bytes")
-      raw = archive.read(info)
+      with archive.open(info) as member:
+        raw = member.read(MAX_MANIFEST_BYTES + 1)
+      if len(raw) > MAX_MANIFEST_BYTES:
+        raise ValidationError(f"{MANIFEST_MEMBER} exceeds {MAX_MANIFEST_BYTES} bytes")
   except BadZipFile as exc:
     raise ValidationError(f"Invalid zip file: {exc}") from exc
   try:
@@ -318,6 +347,16 @@ def clear_default_source_map(scene):
     scene.default_source_map = None
 
 
+def update_active_source_map(scene):
+  """Keep the active mesh's placement and thumbnail in sync with Scene Settings."""
+  with transaction.atomic():
+    locked_scene = _lock_scene(scene.pk, nowait=False)
+    SceneSourceMap.objects.filter(
+      pk=locked_scene.default_source_map_id, file=scene.map.name,
+    ).update(transform=scene_transform(scene),
+             thumbnail=scene.thumbnail.name if scene.thumbnail else "")
+
+
 def activate_source_map(scene, source_map):
   """Make this source's mesh the scene default and mirror it into ``Scene.map``."""
   if source_map.scene_id != scene.pk:
@@ -368,13 +407,16 @@ def delete_source_map(scene, source_map):
   """
   if source_map.scene_id != scene.pk:
     raise MappingStoreError("source map does not belong to this scene", 400)
-  if scene.default_source_map_id == source_map.pk:
-    raise MappingStoreError("Cannot delete the default map", 409)
   with transaction.atomic():
-    _lock_scene(scene.pk, nowait=False)
-    _replace_artifact(scene, source_map.method)
-    _delete_source_map_files(scene, source_map)
-    source_map.delete()
+    locked_scene = _lock_scene(scene.pk, nowait=False)
+    current = SceneSourceMap.objects.filter(pk=source_map.pk, scene=locked_scene).first()
+    if current is None:
+      raise MappingStoreError("Source map no longer exists", 404)
+    if locked_scene.default_source_map_id == current.pk:
+      raise MappingStoreError("Cannot delete the default map", 409)
+    _replace_artifact(locked_scene, current.method)
+    _delete_source_map_files(locked_scene, current)
+    current.delete()
 
 
 def _delete_source_map_files(scene, source_map):
@@ -382,10 +424,10 @@ def _delete_source_map_files(scene, source_map):
   shared = SceneSourceMap.objects.filter(
     scene=scene, file=source_map.file.name).exclude(pk=source_map.pk).exists()
   if source_map.file and source_map.file.name and source_map.file.name != live_name and not shared:
-    source_map.file.delete(save=False)
+    transaction.on_commit(partial(source_map.file.storage.delete, source_map.file.name))
   thumb_live = scene.thumbnail.name if scene.thumbnail else ""
   if source_map.thumbnail and source_map.thumbnail.name and source_map.thumbnail.name != thumb_live:
-    source_map.thumbnail.delete(save=False)
+    transaction.on_commit(partial(source_map.thumbnail.storage.delete, source_map.thumbnail.name))
 
 
 def delete_artifact(scene, method):

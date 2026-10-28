@@ -170,11 +170,7 @@ class MovingObject:
           self.boundingBoxPixels, self.metric_distance)
         self.boundingBox = agnostic
     if 'bounding_box' in self.info:
-      self.boundingBox = Rectangle(self.info['bounding_box'])
-      self.info.pop('bounding_box')
-      if self.metric_distance is not None and not self.boundingBox.origin.is3D:
-        self.boundingBox = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
-          self.boundingBox, self.metric_distance)
+      self.boundingBox = self._normalized_box_at_depth(self.info.pop('bounding_box'))
     self.confidence = self.info['confidence'] if 'confidence' in self.info else None
     self.oid = self.info['id']
     self.info.pop('id')
@@ -201,6 +197,15 @@ class MovingObject:
     else:
       log.debug(f"MovingObject.__init__: No metadata in info dict")
     return
+
+  def _normalized_box_at_depth(self, data):
+    box = Rectangle(data)
+    depth = self.metric_distance
+    if depth is None or box.origin.is3D:
+      return box
+    return Rectangle(
+      origin=Point(box.origin.x * depth, box.origin.y * depth, depth),
+      opposite=Point(box.opposite.x * depth, box.opposite.y * depth, depth))
 
   def _decodeReIDVector(self, reid):
     """

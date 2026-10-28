@@ -154,6 +154,7 @@ export default class SceneCamera extends THREE.Object3D {
       "resolution" in params
         ? { w: params.resolution[0], h: params.resolution[1] }
         : DEFAULT_RESOLUTION;
+    this.hasAuthoritativeResolution = "resolution" in params;
     this.cameraMatrix = cv.matFromArray(
       3,
       3,
@@ -206,11 +207,10 @@ export default class SceneCamera extends THREE.Object3D {
     });
   }
 
-  // A camera registered without its true resolution keeps the 640x480 default,
-  // which renders the frustum far narrower than the projected image.
-  // MQTT snapshots are often thumbnails of the same optical frame; FOV must
-  // stay on fx/fy and the calibrated principal point, not the JPEG pixel size.
+  // Only infer frame size from the principal point when sensor metadata is absent.
+  // Snapshot JPEG dimensions may be thumbnails, not the calibrated sensor frame.
   intrinsicsResolution() {
+    if (this.hasAuthoritativeResolution) return this.resolution;
     const cx = this.cameraMatrix.data64F[CX];
     const cy = this.cameraMatrix.data64F[CY];
     return cx > 0 && cy > 0 ? { w: cx * 2, h: cy * 2 } : this.resolution;
@@ -219,11 +219,21 @@ export default class SceneCamera extends THREE.Object3D {
   applyOpticalProjection() {
     if (!this.sceneCamera) return;
     const resolution = this.intrinsicsResolution();
-    this.sceneCamera.aspect = resolution.w / resolution.h;
     this.sceneCamera.fov = computeVerticalFOVFromFy(
       this.cameraMatrix.data64F[FY],
       resolution,
     );
+    this.sceneCamera.setViewOffset(
+      resolution.w,
+      resolution.h,
+      resolution.w / 2 - this.cameraMatrix.data64F[CX],
+      resolution.h / 2 - this.cameraMatrix.data64F[CY],
+      resolution.w,
+      resolution.h,
+    );
+    this.sceneCamera.aspect =
+      (resolution.w * this.cameraMatrix.data64F[FY]) /
+      (resolution.h * this.cameraMatrix.data64F[FX]);
     this.refreshFrustum();
   }
 
@@ -244,6 +254,7 @@ export default class SceneCamera extends THREE.Object3D {
       0.1,
       10,
     );
+    this.applyOpticalProjection();
     this.sceneCamera.position.copy(this.cameraPosition);
     this.sceneCamera.rotation.copy(this.cameraRotation); //in Radians
     this.textPos = new THREE.Vector3(0, 0, 0);
@@ -820,9 +831,7 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   setCameraAspectRatio() {
-    this.sceneCamera.aspect =
-      this.cameraMatrix.data64F[CX] / this.cameraMatrix.data64F[CY];
-    this.refreshFrustum();
+    this.applyOpticalProjection();
     if (this.cameraCapture) {
       this.cameraCapture.camera = this.sceneCamera;
       this.cameraCapture.project(this.mesh);
@@ -867,24 +876,33 @@ export default class SceneCamera extends THREE.Object3D {
     );
 
     if (isConfirmed) {
-      this.detach(camerasFolder);
-
       if (this.isStoredInDB) {
-        let deleteResponse = await this.restclient.deleteCamera(this.cameraUID);
+        let deleteResponse;
+        try {
+          deleteResponse = await this.restclient.deleteCamera(this.cameraUID);
+        } catch (error) {
+          console.error("Failed to delete camera:", error);
+          this.toast.showToast(
+            "Failed to delete the camera from the database!",
+            "danger",
+          );
+          return;
+        }
 
         if (deleteResponse.statusCode == "200") {
+          this.detach(camerasFolder);
           this.toast.showToast(
             "Camera has been deleted from the database!",
             "success",
           );
         } else {
-          this.scene.add(this);
           this.toast.showToast(
             "Failed to delete the camera from the database!",
             "danger",
           );
         }
       } else {
+        this.detach(camerasFolder);
         this.toast.showToast("Unsaved camera has been removed!", "success");
       }
     } else {
@@ -895,6 +913,16 @@ export default class SceneCamera extends THREE.Object3D {
   // Take this camera out of the 3D scene and the control panel without
   // touching the database (the row may already be gone).
   detach(camerasFolder) {
+    if (this.detached) return;
+    this.detached = true;
+    if (this.mqttClient && this.mqttMessageHandler) {
+      this.mqttClient.removeListener("message", this.mqttMessageHandler);
+      this.mqttMessageHandler = null;
+    }
+    if (this.socket) {
+      this.socket.removeAllListeners();
+      this.socket.disconnect();
+    }
     if (camerasFolder) camerasFolder.unsetSelectedCamera(this);
     if (this.interval) clearInterval(this.interval);
     if (this.pointCloudViz) {
@@ -932,11 +960,14 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   setMQTTClient(client, appName) {
+    if (this.mqttClient && this.mqttMessageHandler) {
+      this.mqttClient.removeListener("message", this.mqttMessageHandler);
+    }
     this.mqttClient = client;
     this.appName = appName;
 
     // Subscribe to camera image topic to check if intrinsics have been updated
-    this.mqttClient.on("message", (topic, message) => {
+    this.mqttMessageHandler = (topic, message) => {
       if (
         topic ===
         this.appName + IMAGE_CAMERA + (this.cameraUID || this.name)
@@ -953,7 +984,8 @@ export default class SceneCamera extends THREE.Object3D {
           );
         }
       }
-    });
+    };
+    this.mqttClient.on("message", this.mqttMessageHandler);
   }
 
   requestPointCloud() {
@@ -1087,8 +1119,11 @@ export default class SceneCamera extends THREE.Object3D {
       ),
       scale: [1, 1, 1],
       transform_type: "euler",
-      // Detected from the incoming frame; without it the camera keeps the 640x480 default.
-      resolution: { width: this.resolution.w, height: this.resolution.h },
+      // Sensor-frame metadata, never thumbnail JPEG dimensions.
+      resolution: {
+        width: this.intrinsicsResolution().w,
+        height: this.intrinsicsResolution().h,
+      },
     };
 
     if (this.cameraUID && this.mqttClient && this.isVARunning) {
@@ -1134,8 +1169,16 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   deleteFromSceneCameras(cameraName) {
-    if (this.currentCameras[cameraName]) {
+    if (this.currentCameras[this.cameraUID] === this) {
+      delete this.currentCameras[this.cameraUID];
+    }
+    if (this.currentCameras[cameraName] === this) {
       delete this.currentCameras[cameraName];
+    }
+    const drafts = this.currentCameras[undefined];
+    if (Array.isArray(drafts)) {
+      const index = drafts.indexOf(this);
+      if (index !== -1) drafts.splice(index, 1);
     }
   }
   updateCameras(oldCamName, newCamName, textObject) {
@@ -1243,6 +1286,7 @@ export default class SceneCamera extends THREE.Object3D {
   //image: input frame to be projection mapped
   //scene: mesh onto which we will project
   projectCameraCapture(image, data, online = true) {
+    if (this.detached) return;
     if (online) {
       clearInterval(this.interval);
       this.executeOnControl("aspect ratio", (control) => {
@@ -1252,6 +1296,7 @@ export default class SceneCamera extends THREE.Object3D {
         if (control[0]) control[0].destroy();
       });
       this.showCameraOnline();
+      this.updateCameraResolutionUsingInputFrame(data);
       this.applyOpticalProjection();
     }
 
@@ -1260,6 +1305,10 @@ export default class SceneCamera extends THREE.Object3D {
       loader.load(
         image,
         (texture) => {
+          if (this.detached) {
+            texture.dispose();
+            return;
+          }
           this.applyOpticalProjection();
           if (this.cameraCapture === null) {
             [this.cameraCapture, this.mesh] =
@@ -1286,6 +1335,19 @@ export default class SceneCamera extends THREE.Object3D {
         },
       );
     }
+  }
+
+  updateCameraResolutionUsingInputFrame(data) {
+    const resolution = data.resolution;
+    if (!resolution) return;
+    const w = Array.isArray(resolution) ? resolution[0] : resolution.width;
+    const h = Array.isArray(resolution) ? resolution[1] : resolution.height;
+    if (![w, h].every((v) => Number.isInteger(v) && v > 0)) {
+      console.warn("Ignoring invalid sensor resolution:", resolution);
+      return;
+    }
+    this.resolution = { w, h };
+    this.hasAuthoritativeResolution = true;
   }
 
   showCameraOnline() {
