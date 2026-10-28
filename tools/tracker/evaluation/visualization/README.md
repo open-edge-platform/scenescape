@@ -63,15 +63,18 @@ Run all commands from `tools/tracker/evaluation`.
 
 Along-track and cross-track values are projected onto the ground truth's direction of motion; cross-track is positive
 to the left. d is the position error TrackEval accepts at each similarity threshold α, d = 2 m · (1 − α); the
-comparison shows HOTA and LocA over d and HOTA, MOTA, IDF1 and LocA per directory. Plots without data, e.g. the
-estimator plots for pipeline runs, are skipped; a TrackEval failure only skips the TrackEval plots, with a warning.
+comparison shows HOTA and LocA over d and HOTA, MOTA, IDF1 and LocA per directory; its score axis extends below zero
+for a negative MOTA. Plots without data, e.g. the estimator plots for pipeline runs, are skipped; a TrackEval failure
+only skips the TrackEval plots, with a warning.
 
 ### Videos
 
 - `overview`: the whole scene, ground-truth boxes (black, dashed) and track boxes with heading and trail. Objects
   without a size are points.
-- `zoom_<ID>`: follows one object and adds the track's predicted position, its χ² gate ellipse (p = 0.99, as in
-  production association) from the predicted measurement covariance S, and its velocity arrow (1 s of motion).
+- `zoom_<ID>`: follows one object and adds the track's predicted position, the 99% confidence ellipse of that position
+  (XY block of the predicted measurement covariance S of the most probable model) and its velocity arrow (1 s of
+  motion). The ellipse is not the association gate: the Controller and the Tracker associate by a Euclidean radius
+  (2 m in the Tracker).
 
 ### Options
 

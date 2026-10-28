@@ -187,7 +187,7 @@ def plot_speed_yaw(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
     if truth is not None:
       axes[0].plot(truth["t"], truth["speed"], color=color, label=f"truth {name}", **TRUTH_STYLE)
       if truth["yaw"].notna().any():
-        axes[1].plot(truth["t"], np.unwrap(truth["yaw"].fillna(0.0)), color=color,
+        axes[1].plot(truth["t"], _near(truth["t"], truth["yaw"], track), color=color,
                      label=f"truth {name}", **TRUTH_STYLE)
       detections = _detections(scenario, pairs.get(track_id))
       if detections["yaw"].notna().any():
@@ -344,15 +344,21 @@ def plot_comparison(results: Dict[str, pd.Series], output, title: str = "") -> O
   fig, axes = plt.subplots(3, 1, figsize=(10, 12))
   width = 0.8 / len(results)
   positions = np.arange(len(TRACKEVAL_SCORES))
+  scores = np.array([[result[column] for column in TRACKEVAL_SCORES.values()]
+                     for result in results.values()], dtype=float)
   for index, (name, result) in enumerate(results.items()):
     axes[0].plot(distance, trackeval_curve(result, "HOTA"), marker=".")
     axes[1].plot(distance, trackeval_curve(result, "LocA"), marker=".")
-    axes[2].bar(positions - 0.4 + (index + 0.5) * width,
-                [result[column] for column in TRACKEVAL_SCORES.values()], width, label=name)
+    axes[2].bar(positions - 0.4 + (index + 0.5) * width, scores[index], width, label=name)
   for ax, ylabel in zip(axes, ("HOTA", "LocA", "score")):
     ax.set_ylabel(ylabel)
     ax.set_ylim(0.0, 1.02)
     ax.grid(True, alpha=0.3)
+  # MOTA is negative when false positives and ID switches exceed the true positives.
+  lowest = scores[np.isfinite(scores)].min(initial=0.0)
+  if lowest < 0.0:
+    axes[2].set_ylim(lowest - 0.05, 1.02)
+    axes[2].axhline(0.0, color="black", linewidth=0.5)
   for ax in axes[:2]:
     ax.set_xlabel("accepted position error d [m]")
   axes[2].set_xticks(positions, list(TRACKEVAL_SCORES))

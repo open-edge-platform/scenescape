@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from visualization.render_video import (  # noqa: E402
   RenderError,
   box_corners,
-  gate_ellipse,
+  confidence_ellipse,
   main,
   render_video,
   sample_index,
@@ -61,13 +61,13 @@ def test_sample_index_holds_latest_sample():
 
 
 @pytest.mark.parametrize("angle", [0.0, 30.0, -60.0])
-def test_gate_ellipse(angle):
+def test_confidence_ellipse(angle):
   """Axes are 2 sqrt(χ² λ) with χ²(0.99, 2 DOF) = 9.21, rotated with the major eigenvector."""
   rotation = np.array([[math.cos(math.radians(angle)), -math.sin(math.radians(angle))],
                        [math.sin(math.radians(angle)), math.cos(math.radians(angle))]])
   covariance = rotation @ np.diag([4.0, 1.0]) @ rotation.T
 
-  width, height, ellipse_angle = gate_ellipse(covariance)
+  width, height, ellipse_angle = confidence_ellipse(covariance)
 
   assert width == pytest.approx(2 * math.sqrt(9.2103404 * 4.0))
   assert height == pytest.approx(2 * math.sqrt(9.2103404 * 1.0))
@@ -101,7 +101,7 @@ def test_renders_mp4(recording, tmp_path):
 
 
 def test_renders_tracker_output(tracker_output):
-  """Without estimator and ground-truth size, objects are points and the zoom has no gate."""
+  """Without estimator and ground-truth size, objects are points and the zoom has no ellipse."""
   written = render_video(tracker_output, zoom=["0"], gif=True, trail=0.5)
 
   assert [path.name for path in written] == ["overview.gif", "zoom_0.gif"]

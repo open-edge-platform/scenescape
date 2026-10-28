@@ -11,7 +11,9 @@ Writes <scenario dir>/videos/overview.mp4: all ground-truth objects (black, dash
 and tracks (one colour each) as boxes with position, size and heading, and their
 trails. Each --zoom ID (ground-truth object id or track id) adds zoom_<ID>.mp4, a
 follow camera on that object that also shows the track's predicted position, the
-χ² gate ellipse from the predicted measurement covariance S and the velocity arrow.
+99% confidence ellipse of that position (XY block of the predicted measurement
+covariance S of the most probable model) and the velocity arrow. The ellipse is not
+the association gate: the Controller and the Tracker associate by a Euclidean radius.
 Objects without a size are drawn as points.
 """
 
@@ -44,7 +46,7 @@ from visualization.scenario_data import (  # noqa: E402
 # pylint: enable=wrong-import-position
 
 MAX_VIDEO_FPS = 30.0
-GATE_PROBABILITY = 0.99  # production association gate_probability
+CONFIDENCE_PROBABILITY = 0.99  # share of the predicted position distribution inside the ellipse
 MIN_ZOOM_SIZE = 4.0  # [m]
 ZOOM_SIZE_FACTOR = 4.0  # zoom window per largest object dimension
 FIGURE_SIZE = (8, 8)  # inches; with DPI an even pixel size, as H.264 requires
@@ -103,9 +105,9 @@ def video_timing(start: float, end: float, data_fps: float,
   return video_fps, start + step * np.arange(count)
 
 
-def gate_ellipse(covariance: np.ndarray,
-                 probability: float = GATE_PROBABILITY) -> Tuple[float, float, float]:
-  """Width, height and angle [deg] of the χ² gate ellipse of a 2x2 covariance (2 DOF)."""
+def confidence_ellipse(covariance: np.ndarray,
+                       probability: float = CONFIDENCE_PROBABILITY) -> Tuple[float, float, float]:
+  """Width, height and angle [deg] of the χ² confidence ellipse of a 2x2 covariance (2 DOF)."""
   threshold = -2.0 * math.log(1.0 - probability)
   eigenvalues, eigenvectors = np.linalg.eigh(covariance)
   eigenvalues = np.clip(eigenvalues, 0.0, None)
@@ -159,16 +161,16 @@ class BoxArtist:  # pylint: disable=too-few-public-methods
 
 
 class ZoomArtist:  # pylint: disable=too-few-public-methods
-  """Velocity arrow of a track, plus its predicted position and gate ellipse from the estimator."""
+  """Velocity arrow of a track, plus its predicted position and confidence ellipse (estimator)."""
 
   def __init__(self, ax, color: str, trace: Optional[EstimatorTrace]):
     self.trace = trace
     if trace is not None:
       (self.prediction,) = ax.plot([], [], "+", color=color, markersize=12, markeredgewidth=2,
                                    label="predicted position")
-      self.gate = Ellipse((0, 0), 0, 0, fill=False, edgecolor=color, linestyle=":",
-                          linewidth=1.5, label=f"gate p={GATE_PROBABILITY}")
-      ax.add_patch(self.gate)
+      self.ellipse = Ellipse((0, 0), 0, 0, fill=False, edgecolor=color, linestyle=":",
+                             linewidth=1.5, label=f"{CONFIDENCE_PROBABILITY:.0%} position ellipse")
+      ax.add_patch(self.ellipse)
     self.velocity = ax.quiver([0], [0], [0], [0], color=color, angles="xy", scale_units="xy",
                               scale=1.0, width=0.004, label="velocity (1 s)")
 
@@ -186,14 +188,14 @@ class ZoomArtist:  # pylint: disable=too-few-public-methods
     prediction = trace.predicted_measurement[step, :2] if step is not None else None
     visible = prediction is not None and bool(np.all(np.isfinite(prediction)))
     self.prediction.set_visible(visible)
-    self.gate.set_visible(visible)
+    self.ellipse.set_visible(visible)
     if visible:
       self.prediction.set_data([prediction[0]], [prediction[1]])
-      width, height, angle = gate_ellipse(trace.predicted_measurement_cov[step, :2, :2])
-      self.gate.set_center(prediction)
-      self.gate.set_width(width)
-      self.gate.set_height(height)
-      self.gate.set_angle(angle)
+      width, height, angle = confidence_ellipse(trace.predicted_measurement_cov[step, :2, :2])
+      self.ellipse.set_center(prediction)
+      self.ellipse.set_width(width)
+      self.ellipse.set_height(height)
+      self.ellipse.set_angle(angle)
 
 
 def render_video(directory, *, output=None,  # pylint: disable=too-many-arguments,too-many-locals
