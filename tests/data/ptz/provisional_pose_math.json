@@ -1,7 +1,7 @@
 {
   "fixture_version": 1,
   "provisional": true,
-  "description": "Provisional PTZ pose-math fixture for unit tests only. Not a validated golden measurement dataset; Phase 1 math acceptance still requires tests/data/ptz/reprojection_golden.json from a hardware measurement session.",
+  "description": "Provisional PTZ pose-math fixture for unit tests only. Not a validated golden measurement dataset; hardware acceptance uses tests/data/ptz/reprojection_golden.json.",
   "source": {
     "poc_branch": "demo-room-igk3-ptz",
     "poc_path": "ptz_pose_service/config/cameras.json",

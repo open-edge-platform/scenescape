@@ -451,12 +451,46 @@ pytest -q tests/sscape_tests/positioning
 
 These tests exercise reconnect/backoff, poller and Resolver session changes,
 sequence gaps, retained stale-pose admission, calibration invalidation/reload,
-settling, and pose math. They are software replay checks, not substitutes for
-the hardware acceptance run. The acceptance gate also requires
-`tests/data/ptz/reprojection_golden.json` and deployment-approved numeric limits
-for reprojection RMS, 95th-percentile ground-plane error, camera-to-tracker
-latency, and post-motion eligibility/recovery. Do not invent these values or
-enable a consumer while any required evidence is absent.
+settling, and pose math.
+
+### Hardware Acceptance Evidence
+
+`tests/data/ptz/reprojection_golden.json` is a held-out hardware measurement of the
+Positioning service: the PoseContexts it published for an AXIS M5526-E at 56 stops
+(pan, tilt and all four dual-axis directions, each approached from both sides, two
+repetitions), scored against AprilTags detected after each stop. It contains the
+Manager calibration and home pose, each stop's ONVIF trace, the published
+PoseContext, and the tag correspondences; no images or credentials.
+`tests/data/ptz/acceptance_profile.json` holds the budgets per MOT profile.
+`test_positioning_hardware_golden.py` recomputes the accuracy metrics with the
+Controller's projection code, replays the ONVIF traces through the production
+Resolver (which must reproduce every published pose exactly and never validate a
+moving sample), and checks the results against the profile:
+
+| Metric (`controller-enforce` profile)                | Budget          | Measured            |
+| ---------------------------------------------------- | --------------- | ------------------- |
+| Ground-plane error, p95 / max                        | 0.25 m / 0.25 m | 0.031 m / 0.045 m   |
+| Reprojection error, p95 / max (2688x1512)             | 20 px / 25 px   | 14.9 px / 18.4 px   |
+| PoseContext latency (sample to MQTT receipt), p95 / max | 0.1 s / 0.2 s   | 0.026 s / 0.052 s   |
+| Post-motion availability after mechanical stop, p95 / max | < 1 s / < 1 s   | 0.69 s / 0.71 s     |
+| Valid PoseContexts sampled while moving              | 0               | 0                   |
+
+The static home calibration alone measures 14.7 px p95, so PTZ motion adds little
+error. The budgets apply to `poll_interval_s` 0.05 and `move_status: get_status`;
+on this camera the `PTZController/Move` event reported the stop about 0.5 s late,
+which raised post-motion availability to 1.13 s mean. Lower `poll_interval_s` also
+raises the Controller's parked-camera frame admission (see
+[PTZ Pose Consumption](../controller/ptz-pose-consumption.md)): 20% at 0.2 s,
+40% at 0.1 s and 68% at 0.05 s for a pipeline with about 40 ms detection latency.
+Size `sample_ring_buffer_size` for the shorter interval.
+
+Re-measure and review the budgets whenever the camera, firmware, calibration, or
+Positioning configuration changes. The IGK3 lab harness provides
+`measure_positioning_acceptance.py` (moves the camera; does not change Manager
+calibration) and `build_reprojection_golden.py`. The measurement does not yet cover
+MOT track continuity with people in the scene, Tracker consumption, or the full
+ONVIF travel range. Do not enable a consumer in production until its own profile
+passes.
 
 ## Deployments and Rollback
 
