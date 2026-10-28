@@ -18,8 +18,14 @@ runs:
       shell: bash
       continue-on-error: true
       run: |
-        # Merge into the existing config to keep host settings (data-root, log-opts, ...)
-        # and restart Docker only when the config actually changes.
+        # The runtime state is authoritative: the config file may contain the flag
+        # while the daemon still runs the old image store (e.g. a failed restart).
+        snapshotter_active() {
+          docker info -f '{{json .DriverStatus}}' 2>/dev/null | grep -q 'io.containerd.snapshotter.v1'
+        }
+
+        # Merge into the existing config to keep host settings (data-root, proxies, ...).
+        # Exit codes: 0 = file updated, 3 = flag already set, other = error.
         set +e
         sudo python3 - /etc/docker/daemon.json <<'PY'
         import json, os, sys
@@ -38,10 +44,31 @@ runs:
         rc=$?
         set -e
         case "$rc" in
-          0) sudo systemctl restart docker ;;
-          3) echo "containerd-snapshotter already enabled, skipping Docker restart" ;;
+          0) echo "Enabled containerd-snapshotter in /etc/docker/daemon.json" ;;
+          3) echo "containerd-snapshotter already set in /etc/docker/daemon.json" ;;
           *) echo "::warning title=Docker config::Could not update /etc/docker/daemon.json"; exit 1 ;;
         esac
+
+        if snapshotter_active; then
+          echo "Docker daemon is running with the containerd image store, no restart needed"
+          exit 0
+        fi
+
+        echo "Docker daemon is not running with the containerd image store, (re)starting Docker"
+        sudo systemctl reset-failed docker 2>/dev/null || true
+        sudo systemctl restart docker || true
+        for _ in $(seq 1 30); do
+          if docker info >/dev/null 2>&1; then break; fi
+          sleep 2
+        done
+
+        if snapshotter_active; then
+          echo "Docker daemon is now running with the containerd image store"
+        else
+          echo "::warning title=Docker config::Docker is not running with the containerd image store after restart"
+          sudo systemctl status docker --no-pager -l 2>&1 | tail -20 || true
+          exit 1
+        fi
     - name: Setup Cache Targets
       id: cache
       shell: bash
