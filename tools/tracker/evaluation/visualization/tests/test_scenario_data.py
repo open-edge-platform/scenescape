@@ -165,6 +165,18 @@ def test_matches_tracks_to_truth(tmp_path):
   assert not match_tracks_to_truth(load_scenario(tmp_path))
 
 
+@pytest.mark.parametrize("fps", [None, 10.0])
+def test_matches_tracks_when_an_earlier_detection_sets_the_time_origin(early_detection, fps):
+  """Frames count from the first track or truth sample, as in the evaluators, not a detection.
+
+  Without an explicit rate, float noise in the derived rate happens to break the rounding ties.
+  """
+  assert match_tracks_to_truth(load_scenario(early_detection), fps) == [("1", "0")]
+
+  (early_detection / "detections.jsonl").unlink()
+  assert match_tracks_to_truth(load_scenario(early_detection), fps) == [("1", "0")]
+
+
 def test_loads_pipeline_run_directory(tmp_path):
   """An evaluation pipeline run directory loads like a scenario directory without estimator."""
   for name, path in PIPELINE_RUN_FILES.items():

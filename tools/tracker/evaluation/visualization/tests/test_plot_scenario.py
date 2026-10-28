@@ -334,3 +334,11 @@ def test_comparison_score_axis_starts_at_zero_without_negative_scores(tmp_path, 
   limits = comparison_limits({"run": trackeval_result(MOTA=mota)}, tmp_path, monkeypatch)
 
   assert limits[2] == pytest.approx((0.0, 1.02))
+
+
+def test_position_error_plot_with_an_earlier_detection(early_detection):
+  """With --fps 10, a track pairs with its truth when a detection precedes both by 0.05 s."""
+  written = plot_scenario(early_detection, plots=["position_error"], fps=10.0)
+
+  assert written["position_error"] is not None
+  assert_png(written["position_error"])
