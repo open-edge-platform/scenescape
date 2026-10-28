@@ -3,6 +3,7 @@
 
 from collections import OrderedDict
 import json
+import logging
 import math
 import os
 
@@ -24,6 +25,9 @@ from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
 from scene_common.cam_fields import CAM_SERIALIZER_FIELDS
 from scene_common import log
+
+
+logger = logging.getLogger(__name__)
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
@@ -942,7 +946,10 @@ class SceneSerializer(NonNullSerializer):
       else:
         clear_default_source_map(instance)
     except MappingStoreError as exc:
-      raise serializers.ValidationError({"source": [str(exc)]})
+      logger.exception("Failed to record source map for scene id=%s", instance.pk, exc_info=exc)
+      raise serializers.ValidationError({
+        "source": ["Unable to process source map metadata."]
+      })
 
   def create(self, validated_data):
     return self.create_update(validated_data)
