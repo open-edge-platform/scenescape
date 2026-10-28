@@ -137,12 +137,14 @@ decision since the previous line of the camera, that is, the time at the previou
 and the move:
 
 ```text
-2026-10-27 16:12:14 PTZ camera ptz-cam-1: pose applied (shadow); 7.75 deg from home, dwell 1.4 s, pose age 0.05 s; calibration=ptz-cam-1-v3; previous 178.1 s: 2671 decisions, 28% admitted (rejected: no_sample 1893, moving 18, settling 10, dwell_incomplete 4), 412 detections, residual median 0.31 m, p95 0.52 m, max 0.88 m
+2026-10-27 16:12:14 PTZ camera ptz-cam-1: pose applied (shadow); 7.75 deg from home, dwell 1.4 s, pose age 0.05 s; calibration=ptz-cam-1-v3; previous 178.1 s: 2671 decisions, 28% admitted (rejected: no_sample 1893, moving 18, settling 10, dwell_incomplete 4), 1530 detections (412 admitted), residual median 0.31 m, p95 0.52 m, max 0.88 m
 ```
 
 The rotation compares the applied pose with the home calibration; a translation is
-added only when the pose also moved the camera. Residuals appear only when the period
-had detections, and only in shadow mode.
+added only when the pose also moved the camera. The detection count covers every
+frame of the period; the admitted part is what reached tracking (enforcing mode) or was
+compared (shadow mode). Residuals appear only when admitted frames had detections, and
+only in shadow mode.
 
 For acceptance runs, set `shadow.per_decision: true`. The Controller then writes a
 sampled JSON record per decision to its standard output instead (every `sample_every_n`-th decision of a camera,

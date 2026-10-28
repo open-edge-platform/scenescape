@@ -102,17 +102,21 @@ class _Period:
     self.decisions: collections.Counter = collections.Counter()
     self.residuals = collections.deque(maxlen=MAX_SUMMARY_SAMPLES)
     self.detections = 0
+    self.admitted_detections = 0
 
-  def add(self, observation: Any, admission: Any,
+  def add(self, jdata: Dict[str, Any], admission: Any,
           detections: Optional[List[Dict[str, Any]]]) -> None:
-    observation_ns = _timestamp_ns(observation)
+    observation_ns = _timestamp_ns(jdata.get("timestamp"))
     if observation_ns is not None:
       if self.first_ns is None:
         self.first_ns = observation_ns
       self.last_ns = observation_ns
     self.decisions[ADMITTED_KEY if admission.admitted else str(admission.reason_detail)] += 1
+    count = _detection_count(jdata)
+    self.detections += count
+    if admission.admitted:
+      self.admitted_detections += count
     for detection in detections or []:
-      self.detections += 1
       self.residuals.append(detection["residual_m"])
 
   def describe(self) -> str:
@@ -129,7 +133,7 @@ class _Period:
             f"{100.0 * admitted / total:.0f}% admitted")
     if rejected:
       text += f" (rejected: {rejected})"
-    text += f", {self.detections} detections"
+    text += f", {self.detections} detections ({self.admitted_detections} admitted)"
     if self.residuals:
       data = np.asarray(self.residuals, dtype=float)
       text += (f", residual median {np.median(data):.2f} m, "
@@ -162,7 +166,7 @@ class SummaryRecorder:
       self._periods[source_id] = _Period()
       written = True
     period = self._periods.setdefault(source_id, _Period())
-    period.add(jdata.get("timestamp"), admission, detections)
+    period.add(jdata, admission, detections)
     return written
 
   def _summary(self, mode: str, source_id: str, admission: Any) -> str:
@@ -176,6 +180,13 @@ class SummaryRecorder:
             f"dwell {_number(admission.dwell_elapsed_s, 1)} s, "
             f"pose age {_number(admission.pose_age_s, 2)} s; "
             f"calibration={admission.calibration_version}; {period.describe()}")
+
+
+def _detection_count(jdata: Dict[str, Any]) -> int:
+  objects = jdata.get("objects")
+  if not isinstance(objects, dict):
+    return 0
+  return sum(len(items) for items in objects.values() if isinstance(items, list))
 
 
 def _number(value: Optional[float], digits: int) -> str:

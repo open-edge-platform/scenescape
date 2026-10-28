@@ -435,10 +435,11 @@ class TestSummaryRecorder:
       self.pose_age_s, self.timestamp_uncertainty_s, self.dwell_elapsed_s = 0.1, 0.01, 2.0
 
   @staticmethod
-  def _record(recorder, admission, detections=None, offset_s=0.0, source="cam"):
+  def _record(recorder, admission, detections=None, offset_s=0.0, source="cam", objects=0,
+              mode="shadow"):
     scene = type("S", (), {"uid": "s"})()
-    return recorder.record("shadow", scene, source, {"timestamp": iso(_at(offset_s))},
-                           admission, detections)
+    jdata = {"timestamp": iso(_at(offset_s)), "objects": {"person": [{}] * objects}}
+    return recorder.record(mode, scene, source, jdata, admission, detections)
 
   def test_parked_camera_logs_nothing_after_the_first_application(self):
     lines = []
@@ -454,8 +455,8 @@ class TestSummaryRecorder:
     lines = []
     recorder = SummaryRecorder(lines.append)
     self._record(recorder, self._Admission(True, since_ns=_ns(0)),
-                 [{"residual_m": 0.1}, {"residual_m": 0.3}], offset_s=1.0)
-    self._record(recorder, self._Admission(False, "no_sample"), offset_s=2.0)
+                 [{"residual_m": 0.1}, {"residual_m": 0.3}], offset_s=1.0, objects=2)
+    self._record(recorder, self._Admission(False, "no_sample"), offset_s=2.0, objects=3)
     self._record(recorder, self._Admission(False, "no_sample"), offset_s=3.0)
     self._record(recorder, self._Admission(False, "moving"), offset_s=4.0)
     self._record(recorder, self._Admission(False, "settling"), offset_s=5.5)
@@ -464,8 +465,19 @@ class TestSummaryRecorder:
     assert lines[-1] == (
       f"PTZ camera cam: pose applied (shadow); offset from home unknown, dwell 2.0 s, "
       f"pose age 0.10 s; calibration={VERSION}; previous 4.5 s: 5 decisions, 20% admitted "
-      f"(rejected: no_sample 2, moving 1, settling 1), 2 detections, "
+      f"(rejected: no_sample 2, moving 1, settling 1), 5 detections (2 admitted), "
       f"residual median 0.20 m, p95 0.29 m, max 0.30 m")
+
+  def test_enforcing_counts_detections_without_residuals(self):
+    lines = []
+    recorder = SummaryRecorder(lines.append)
+    self._record(recorder, self._Admission(True, since_ns=_ns(0)), objects=3, mode="enforce")
+    self._record(recorder, self._Admission(False, "no_sample"), offset_s=1.0, objects=4,
+                 mode="enforce")
+    self._record(recorder, self._Admission(True, since_ns=_ns(5)), offset_s=6.0, mode="enforce")
+    assert lines[-1].endswith(
+      "previous 1.0 s: 2 decisions, 50% admitted (rejected: no_sample 1), "
+      "7 detections (3 admitted)")
 
   def test_sources_are_summarized_independently(self):
     recorder = SummaryRecorder([].append)
