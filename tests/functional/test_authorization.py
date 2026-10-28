@@ -190,7 +190,7 @@ def test_authz_superuser_can_check_acl(rest, params, result_recorder):
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29948")
+@pytest.mark.test_name("NEX-T#####")
 def test_positioning_auth_publish_scope(rest, params, result_recorder):
   """Allow status and resolved-pose writes, but deny unrelated Positioning writes.
 

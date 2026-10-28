@@ -57,7 +57,7 @@ def wait_for_record(scenescape_env, harness, predicate, timeout=RECORD_TIMEOUT_S
   raise AssertionError(f"No matching shadow record within {timeout}s: {shadow_records(scenescape_env)[-3:]}")
 
 
-@pytest.mark.test_name("NEX-T29970")
+@pytest.mark.test_name("NEX-T#####")
 def test_shadow_mode_keeps_the_static_projection_and_records_the_candidate(
     scenescape_env, ptz_harness, tmp_path, result_recorder):
   """Tracking stays on the static pose while the candidate projection is recorded."""
@@ -100,7 +100,7 @@ def test_shadow_mode_keeps_the_static_projection_and_records_the_candidate(
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29971")
+@pytest.mark.test_name("NEX-T#####")
 def test_shadow_mode_does_not_gate_detections_of_a_moving_camera(
     scenescape_env, ptz_harness, result_recorder):
   """A moving PTZ camera is recorded as rejected but its detections still reach tracking."""
