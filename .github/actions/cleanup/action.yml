@@ -10,7 +10,7 @@ inputs:
     required: false
     default: "false"
   disk-usage-threshold:
-    description: "Disk usage (%) of Docker storage or workspace at which a full docker system prune is forced"
+    description: "Disk usage (%) at which Docker storage is fully pruned, or workspace disk pressure is reported"
     required: false
     default: "80"
 runs:
@@ -49,18 +49,19 @@ runs:
         SYSTEM_PRUNE: ${{ inputs.system-prune }}
         THRESHOLD: ${{ inputs.disk-usage-threshold }}
       run: |
+        # Only Docker's backing filesystems decide; pruning cannot relieve other filesystems.
         usage() { df --output=pcent "$1" 2>/dev/null | tail -1 | tr -dc '0-9'; }
         max=0
-        for path in "$(docker info -f '{{.DockerRootDir}}' 2>/dev/null)" /var/lib/containerd "$GITHUB_WORKSPACE"; do
+        for path in "$(docker info -f '{{.DockerRootDir}}' 2>/dev/null)" /var/lib/containerd; do
           if [ -z "$path" ] || [ ! -e "$path" ]; then continue; fi
           u=$(usage "$path")
-          echo "Disk usage of $path: ${u:-?}%"
+          echo "Disk usage of Docker storage $path: ${u:-?}%"
           if [ -n "$u" ] && [ "$u" -gt "$max" ]; then max=$u; fi
         done
         if [ "$SYSTEM_PRUNE" = "true" ] || [ "$max" -ge "$THRESHOLD" ]; then
           echo "Running full docker system prune (requested=$SYSTEM_PRUNE, usage=${max}%, threshold=${THRESHOLD}%)"
           docker system prune --force --volumes --all || true
-          df -h "$GITHUB_WORKSPACE" || true
+          df -h "$(docker info -f '{{.DockerRootDir}}' 2>/dev/null)" /var/lib/containerd 2>/dev/null || true
         fi
 
     - name: "Clean runner"
@@ -70,3 +71,27 @@ runs:
         sudo git -c safe.directory="$GITHUB_WORKSPACE" -C "$GITHUB_WORKSPACE" clean -ffdx \
           || echo "::warning title=Runner cleanup::git clean failed in $GITHUB_WORKSPACE"
         sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
+
+    - name: "Check workspace disk pressure"
+      if: always()
+      shell: bash
+      env:
+        THRESHOLD: ${{ inputs.disk-usage-threshold }}
+      run: |
+        usage() { df --output=pcent "$1" 2>/dev/null | tail -1 | tr -dc '0-9'; }
+        u=$(usage "$GITHUB_WORKSPACE")
+        echo "Disk usage of workspace filesystem $GITHUB_WORKSPACE: ${u:-?}%"
+        if [ -z "$u" ] || [ "$u" -lt "$THRESHOLD" ]; then exit 0; fi
+        PIP_CACHE=$(python3 -m pip cache dir 2>/dev/null || true)
+        if [ -n "$PIP_CACHE" ] && [ -d "$PIP_CACHE" ] \
+          && [ "$(stat -c %d "$PIP_CACHE")" = "$(stat -c %d "$GITHUB_WORKSPACE")" ]; then
+          echo "Workspace filesystem above ${THRESHOLD}%, purging pip cache $PIP_CACHE"
+          python3 -m pip cache purge >/dev/null 2>&1 || true
+        fi
+        u=$(usage "$GITHUB_WORKSPACE")
+        if [ -n "$u" ] && [ "$u" -ge "$THRESHOLD" ]; then
+          echo "::warning title=Runner disk pressure::Workspace filesystem is ${u}% full after cleanup (threshold ${THRESHOLD}%). Manual cleanup of the runner work directory may be needed."
+          WORK_ROOT=$(dirname "${RUNNER_WORKSPACE:-$GITHUB_WORKSPACE}")
+          echo "Largest entries under $WORK_ROOT:"
+          sudo du -xsh "$WORK_ROOT"/* "$WORK_ROOT"/.[!.]* 2>/dev/null | sort -rh | head -15 || true
+        fi
