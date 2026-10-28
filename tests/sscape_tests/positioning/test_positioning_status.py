@@ -10,6 +10,7 @@ import queue
 import signal
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
@@ -655,10 +656,13 @@ class TestPositioningStatus(unittest.TestCase):
     with tempfile.TemporaryDirectory() as temp_dir:
       service, fake_pubsub, _, _ = self._create_service(temp_dir)
       fake_pubsub.isConnected.return_value = False
+      fake_pubsub.loopStart.side_effect = service.stop
       service.run()
 
       fake_pubsub.connect.assert_called_once_with()
-      fake_pubsub.loopForever.assert_called_once_with()
+      fake_pubsub.loopStart.assert_called_once_with()
+      fake_pubsub.loopForever.assert_not_called()
+      fake_pubsub.loopStop.assert_called_once_with()
       fake_pubsub.publish.assert_not_called()
       fake_pubsub.disconnect.assert_not_called()
 
@@ -674,7 +678,7 @@ class TestPositioningStatus(unittest.TestCase):
       fake_pubsub.isConnected.return_value = True
       fake_pubsub.connect.side_effect = lambda: fake_pubsub.client.on_pre_connect(
         fake_pubsub.client, None)
-      fake_pubsub.loopForever.side_effect = lambda: os.kill(os.getpid(), signal.SIGTERM)
+      fake_pubsub.loopStart.side_effect = lambda: os.kill(os.getpid(), signal.SIGTERM)
       with mock.patch("positioning_service.status_payload", side_effect=[will_payload, shutdown_payload]):
         with self.assertRaises(SystemExit) as exit_info:
           service.run()
@@ -685,7 +689,9 @@ class TestPositioningStatus(unittest.TestCase):
         "scenescape/positioning/status/resolver-a", json.dumps(will_payload), qos=0, retain=True)
       fake_pubsub.publish.assert_called_once_with(
         "scenescape/positioning/status/resolver-a", json.dumps(shutdown_payload), qos=0, retain=True)
+      fake_pubsub.publish.return_value.wait_for_publish.assert_called_once_with(timeout=2.0)
       fake_pubsub.disconnect.assert_called_once_with()
+      fake_pubsub.loopStop.assert_called_once_with()
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_run_starts_and_stops_poller_workers(self):
@@ -697,12 +703,46 @@ class TestPositioningStatus(unittest.TestCase):
       poller.move_monitor.run.side_effect = lambda stop: (started.append("events"), stop.wait(5))
       service.pollers = [poller]
       fake_pubsub.isConnected.return_value = False
-      fake_pubsub.loopForever.side_effect = lambda: (
-        service.on_connect(fake_pubsub.client, None, None, 0), time.sleep(0.1), None)[2]
+      fake_pubsub.loopStart.side_effect = lambda: (
+        service.on_connect(fake_pubsub.client, None, None, 0), time.sleep(0.1), service.stop())
       service.run()
       self.assertEqual(sorted(started), ["events", "poll"])
       self.assertTrue(service._stop_workers.is_set())
       self.assertEqual(service._workers, [])
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_offline_status_not_confirmed_still_disconnects(self):
+    with tempfile.TemporaryDirectory() as temp_dir:
+      service, fake_pubsub, _, _ = self._create_service(temp_dir)
+      fake_pubsub.isConnected.return_value = True
+      fake_pubsub.loopStart.side_effect = service.stop
+      fake_pubsub.publish.return_value.wait_for_publish.side_effect = RuntimeError("lost")
+      service.run()
+      fake_pubsub.disconnect.assert_called_once_with()
+      fake_pubsub.loopStop.assert_called_once_with()
+
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
+  def test_worker_thread_publish_never_writes_the_socket_with_a_network_thread(self):
+    """Pins the paho behavior run() depends on: only its network thread writes the socket.
+
+    Without a paho network thread (loop_forever), a publish from a poller thread calls
+    loop_write() directly while the loop reads the same TLS socket, which corrupts records.
+    """
+    import paho.mqtt.client as mqtt
+
+    def direct_writes(network_thread):
+      client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+      client._state = mqtt._ConnectionState.MQTT_CS_CONNECTED
+      client._sock = mock.Mock()
+      client._thread = network_thread
+      with mock.patch.object(client, "loop_write", return_value=mqtt.MQTT_ERR_SUCCESS) as write:
+        worker = threading.Thread(target=client.publish, args=("topic", b"payload"))
+        worker.start()
+        worker.join()
+      return write.call_count
+
+    self.assertEqual(direct_writes(threading.Thread(target=lambda: None)), 0)
+    self.assertEqual(direct_writes(None), 1)
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_configured_sources_require_assignment_manifest(self):

@@ -31,6 +31,7 @@ RESOLVER_REQUIRED_SETTINGS = (
   "max_pose_age_s", "max_timestamp_uncertainty_s", "max_clock_offset_s",
   "target_reprojection_rms_px")
 METRICS_LOG_INTERVAL_S = 60.0
+SHUTDOWN_PUBLISH_TIMEOUT_S = 2.0
 
 
 def load_config(path):
@@ -113,6 +114,7 @@ class PositioningService:
     self._pending_calibration_sources = set()
     self._calibration_queue_lock = threading.Lock()
     self._stop_workers = threading.Event()
+    self._shutdown = threading.Event()
     self._workers = []
     self._workers_started = False
     self._workers_lock = threading.Lock()
@@ -255,18 +257,31 @@ class PositioningService:
       worker.join(timeout_s)
     self._workers = []
 
+  def stop(self):
+    """Ask run() to shut down as SIGTERM does, without raising SystemExit."""
+    self._shutdown.set()
+
   def run(self):
     previous_sigterm_handler = signal.signal(signal.SIGTERM, self.on_sigterm)
     try:
       try:
         self.client.connect()
-        self.client.loopForever()
+        # Pollers publish from their own threads. Only paho's network thread may touch
+        # the TLS socket: with loop_forever(), paho 2.x writes a publish directly from
+        # the calling thread, concurrently with the loop's reads, corrupting records.
+        self.client.loopStart()
+        self._shutdown.wait()
       finally:
         self.stop_workers()
         if self.client.isConnected():
           payload = json.dumps(status_payload(self.resolver_id, "offline"))
-          self.client.publish(self.topic, payload, qos=0, retain=True)
+          message = self.client.publish(self.topic, payload, qos=0, retain=True)
+          try:
+            message.wait_for_publish(timeout=SHUTDOWN_PUBLISH_TIMEOUT_S)
+          except (RuntimeError, ValueError) as error:
+            log.warning(f"Offline status not confirmed before disconnect: {error}")
           self.client.disconnect()
+        self.client.loopStop()
     finally:
       signal.signal(signal.SIGTERM, previous_sigterm_handler)
 
