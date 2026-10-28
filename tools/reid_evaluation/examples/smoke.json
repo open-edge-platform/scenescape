@@ -1,0 +1,59 @@
+{
+  "SPDX-FileCopyrightText": "(C) 2026 Intel Corporation",
+  "SPDX-License-Identifier": "Apache-2.0",
+  "dataset": {
+    "name": "synthetic-smoke-only",
+    "synthetic": true
+  },
+  "model": {
+    "name": "synthetic-unit-vectors-not-a-trained-model",
+    "version": "1",
+    "preprocessing": {
+      "source": "hand-authored vectors; no images or inference"
+    }
+  },
+  "samples": [
+    {
+      "id": "gallery-a",
+      "identity": "person-a",
+      "camera": "reference",
+      "split": "gallery",
+      "embedding": [1, 0, 0, 0]
+    },
+    {
+      "id": "gallery-b",
+      "identity": "person-b",
+      "camera": "reference",
+      "split": "gallery",
+      "embedding": [0, 1, 0, 0]
+    },
+    {
+      "id": "calibration-a",
+      "identity": "person-a",
+      "camera": "camera-cal",
+      "split": "calibration",
+      "embedding": [0.9, 0.1, 0, 0]
+    },
+    {
+      "id": "calibration-unknown",
+      "identity": "unknown-cal",
+      "camera": "camera-cal",
+      "split": "calibration",
+      "embedding": [0, 0, 1, 0]
+    },
+    {
+      "id": "test-b",
+      "identity": "person-b",
+      "camera": "camera-test",
+      "split": "test",
+      "embedding": [0.1, 0.9, 0, 0]
+    },
+    {
+      "id": "test-unknown",
+      "identity": "unknown-test",
+      "camera": "camera-test",
+      "split": "test",
+      "embedding": [0, 0, 0, 1]
+    }
+  ]
+}
