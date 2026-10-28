@@ -68,7 +68,7 @@ manager/src/manager/model_directory_view.py	ModelDirectory::loadDirectory	27
 manager/src/manager/models.py	BoundingBox::boundingBox	14
 manager/src/manager/models.py	Cam::save	18
 manager/src/manager/models.py	Scene::createSceneScapeRegion	17
-manager/src/manager/models.py	Scene::save	21
+manager/src/manager/models.py	Scene::save	25
 manager/src/manager/models.py	Scene::scenescapeSceneUpdateRegions	15
 manager/src/manager/models.py	Scene::scenescapeSceneUpdateSensors	25
 manager/src/manager/models.py	sendUpdateCommand	17
