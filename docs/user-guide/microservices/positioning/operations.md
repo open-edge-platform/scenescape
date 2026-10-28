@@ -467,13 +467,13 @@ Controller's projection code, replays the ONVIF traces through the production
 Resolver (which must reproduce every published pose exactly and never validate a
 moving sample), and checks the results against the profile:
 
-| Metric (`controller-enforce` profile)                | Budget          | Measured            |
-| ---------------------------------------------------- | --------------- | ------------------- |
-| Ground-plane error, p95 / max                        | 0.25 m / 0.25 m | 0.031 m / 0.045 m   |
-| Reprojection error, p95 / max (2688x1512)             | 20 px / 25 px   | 14.9 px / 18.4 px   |
-| PoseContext latency (sample to MQTT receipt), p95 / max | 0.1 s / 0.2 s   | 0.026 s / 0.052 s   |
-| Post-motion availability after mechanical stop, p95 / max | < 1 s / < 1 s   | 0.69 s / 0.71 s     |
-| Valid PoseContexts sampled while moving              | 0               | 0                   |
+| Metric (`controller-enforce` profile)                     | Budget          | Measured          |
+| --------------------------------------------------------- | --------------- | ----------------- |
+| Ground-plane error, p95 / max                             | 0.25 m / 0.25 m | 0.031 m / 0.045 m |
+| Reprojection error, p95 / max (2688x1512)                 | 20 px / 25 px   | 14.9 px / 18.4 px |
+| PoseContext latency (sample to MQTT receipt), p95 / max   | 0.1 s / 0.2 s   | 0.026 s / 0.052 s |
+| Post-motion availability after mechanical stop, p95 / max | < 1 s / < 1 s   | 0.69 s / 0.71 s   |
+| Valid PoseContexts sampled while moving                   | 0               | 0                 |
 
 The static home calibration alone measures 14.7 px p95, so PTZ motion adds little
 error. The budgets apply to `poll_interval_s` 0.05 and `move_status: get_status`;

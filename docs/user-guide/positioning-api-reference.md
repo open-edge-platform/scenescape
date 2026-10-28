@@ -15,11 +15,11 @@ Source files:
 
 ## MQTT Pose and Status Contracts
 
-| Topic | Publisher | QoS / retain | Payload |
-| --- | --- | --- | --- |
-| `scenescape/positioning/pose/{source_id}` | Positioning | 0 / retained | `pose_context` from `controller/src/schema/metadata.schema.json` |
-| `scenescape/positioning/status/{resolver_id}` | Positioning | 0 / retained with offline LWT | `positioning_status` from the same schema |
-| `scenescape/cmd/camera/config/{camera_id}` | Manager | 1 / not retained | Calibration-version invalidation |
+| Topic                                         | Publisher   | QoS / retain                  | Payload                                                          |
+| --------------------------------------------- | ----------- | ----------------------------- | ---------------------------------------------------------------- |
+| `scenescape/positioning/pose/{source_id}`     | Positioning | 0 / retained                  | `pose_context` from `controller/src/schema/metadata.schema.json` |
+| `scenescape/positioning/status/{resolver_id}` | Positioning | 0 / retained with offline LWT | `positioning_status` from the same schema                        |
+| `scenescape/cmd/camera/config/{camera_id}`    | Manager     | 1 / not retained              | Calibration-version invalidation                                 |
 
 `source_id` is the Manager camera UID. Raw PTZ samples stay in-process and are
 never published to MQTT. Each accepted sample produces one valid or invalid
