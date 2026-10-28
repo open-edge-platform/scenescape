@@ -103,6 +103,17 @@ When `positioning.enabled=true`, the chart deploys one Positioning replica with 
 | `positioning.onvifCredentials.sources`                      | `{}`                          | `<source_id>: {username, password}` entries; the chart creates a Secret with one `<source_id>.json` key per source and mounts it read-only at `/run/secrets/onvif`.                                                   |
 | `positioning.onvifCredentials.existingSecret`               | `""`                          | Name of an existing Secret with the same `<source_id>.json` keys, mounted at `/run/secrets/onvif`. Mutually exclusive with `onvifCredentials.sources`.                                                                |
 | `positioning.extraVolumes`, `positioning.extraVolumeMounts` | `[]`                          | Additional pod volumes and Positioning container mounts, for example a camera CA bundle referenced by a source's `tls_ca_file`.                                                                                       |
+| `positioning.networkPolicy.cameraCIDRs`                    | `[]`                          | Camera IP/CIDR allowlist for Positioning egress. Required when PTZ sources are configured.                                                                                                                            |
+| `positioning.networkPolicy.cameraPorts`                    | `[80, 443]`                    | ONVIF TCP ports allowed to the camera CIDRs; include each configured custom port.                                                                                                                                     |
+| `scene.ptzEnabled`, `scene.ptzShadowMode`                   | `false`, `false`              | Controller feature flags; leave disabled until that profile independently passes shadow acceptance.                                                                                                                 |
+| `tracker.ptzEnabled`, `tracker.ptzShadowMode`               | `false`, `false`              | Tracker feature flags; leave disabled until Phase 5 is integrated and its profile passes shadow acceptance.                                                                                                           |
+
+The broker exposes a dedicated Positioning mTLS listener on port 8883. It requires
+the Positioning client certificate, uses its common name for ACL matching, and loads
+an ACL rendered from the same ownership assignments. Positioning egress is isolated
+by a NetworkPolicy: only broker mTLS, Manager HTTPS, NTP, cluster DNS, and the
+configured camera CIDRs/ports are allowed. The policy blocks all inbound traffic to
+the Positioning pod. Ensure the cluster CNI enforces Kubernetes NetworkPolicy.
 
 PTZ resolution runs only when `positioning.config.sources` is not empty. A source
 without `credentials_file` reads `/run/secrets/onvif/<source_id>.json`. Rendering
@@ -117,6 +128,10 @@ positioning:
   resolverId: positioning-default
   assignments:
     <manager-camera-uid>: positioning-default
+  networkPolicy:
+    cameraCIDRs:
+      - <camera-ip>/32
+    cameraPorts: [443]
   config:
     target_reprojection_rms_px: 3.0
     sources:

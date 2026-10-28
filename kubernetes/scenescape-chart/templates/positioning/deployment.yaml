@@ -5,6 +5,9 @@
 {{- if not (has .Values.positioning.logLevel (list "INFO" "DEBUG")) }}
 {{- fail "positioning.logLevel must be INFO or DEBUG" }}
 {{- end }}
+{{- if and .Values.positioning.config.sources (not .Values.positioning.networkPolicy.cameraCIDRs) }}
+{{- fail "positioning.networkPolicy.cameraCIDRs must allowlist the configured camera networks" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,6 +34,7 @@ spec:
       securityContext:
         runAsUser: 1001
         runAsGroup: 1001
+        fsGroup: 1001
       containers:
         - name: positioning
           image: {{ .Values.repository }}/{{ .Values.positioning.image }}:{{ .Chart.AppVersion }}
@@ -39,7 +43,7 @@ spec:
             - "--log-level"
             - {{ .Values.positioning.logLevel | quote }}
             - "--broker"
-            - "broker.{{ .Release.Namespace }}.svc.cluster.local"
+            - "broker.{{ .Release.Namespace }}.svc.cluster.local:8883"
             - "--brokerauth"
             - "/run/secrets/positioning.auth"
             - "--cert"
@@ -110,9 +114,11 @@ spec:
         - name: positioning-auth
           secret:
             secretName: {{ .Release.Name }}-positioning.auth
+            defaultMode: 0440
         - name: positioning-tls
           secret:
             secretName: {{ .Release.Name }}-positioning-tls
+            defaultMode: 0440
             items:
               - key: tls.crt
                 path: scenescape-positioning.crt
@@ -132,6 +138,7 @@ spec:
         - name: onvif-credentials
           secret:
             secretName: {{ include "positioning.onvifCredentialsSecretName" . }}
+            defaultMode: 0440
         {{- end }}
         {{- with .Values.positioning.extraVolumes }}
         {{- toYaml . | nindent 8 }}

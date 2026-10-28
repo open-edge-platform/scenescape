@@ -70,6 +70,18 @@ The following profiles are available:
 | `cluster-analytics` | Enables cluster-analytics service.                                                         |
 | `tracker`           | Tracker + Analytics + Positioning (no Scene Controller). Used by `make demo-tracker`.      |
 
+The production Compose broker provides a dedicated Positioning mTLS listener on
+port 8883. Its startup helper renders the Positioning ACL from
+`deployment/positioning-assignments.json`; the service can publish only the status
+and pose topics assigned to its resolver and read only those cameras' configuration
+invalidations. Protect ONVIF camera traffic with the host firewall: Compose does not
+provide portable egress CIDR policies.
+
+`CONTROLLER_PTZ_ENABLED`, `CONTROLLER_PTZ_SHADOW_MODE`,
+`TRACKER_PTZ_ENABLED`, and `TRACKER_PTZ_SHADOW_MODE` all default to `false`.
+Do not enable either profile until its own shadow acceptance gate passes. Tracker
+consumption remains deferred to Phase 5.
+
 > **ReID backends:** For raw Compose, add exactly one of `sample_data/compose/compose.vdms-override.yml` or `sample_data/compose/compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](../../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
 
 Profiles can be specified on the command line with `--profile`:

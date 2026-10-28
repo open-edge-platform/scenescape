@@ -22,13 +22,15 @@ checks. When PTZ sources are configured, it polls each ONVIF PTZ camera, passes 
 `PTZSample` messages in-process to the PTZ Resolver, and publishes one resolved
 `PoseContext` per accepted sample.
 
-> **Note:** Controller and Tracker do not consume resolved poses yet, so publishing
-> poses does not change how detections are tracked.
+> **Rollout gate:** PTZ consumer flags are disabled in production by default.
+> Controller shadow/enforcement is a separate profile gate. Tracker consumption
+> is deferred to Phase 5; do not claim cross-consumer parity before it is integrated.
 
 ## How It Works
 
-The service connects to the MQTT broker over TLS with its own broker account
-(`positioning.auth`) and client certificate (`scenescape-positioning`). After it
+The service connects to the dedicated MQTT mTLS listener on port 8883 with its
+client certificate (`scenescape-positioning`). The broker requires that certificate
+and uses its common name as the ACL identity. After it
 connects, it publishes a retained status message and registers an offline last-will
 message on:
 
@@ -40,13 +42,14 @@ The payload contains `resolver_id`, `status` (`online` or `offline`), and
 `timestamp`. For the last-will message, the timestamp is the session start time,
 not the time the connection was lost.
 
-Manager's ACL policy grants the broker identity write access only to its own status
-topic and to resolved-pose topics (`scenescape/positioning/pose/{source_id}`), and read
-access only to camera-configuration change notifications
-(`scenescape/cmd/camera/config/{camera_id}`). Writes to any other topic, including
-another resolver's status topic, are denied. The bundled Mosquitto configuration
-does not enforce topic ACLs; deployments requiring enforcement must configure broker
-authorization as described in the [hardening guide](../../additional-resources/hardening-guide.md).
+The broker's generated ACL grants the certificate identity write access only to
+its resolver status topic and its assigned resolved-pose topics
+(`scenescape/positioning/pose/{source_id}`), and read access only to camera
+configuration invalidations for those assigned sources
+(`scenescape/cmd/camera/config/{camera_id}`). Other topic writes and another
+resolver's status topic are denied. Manager independently validates source
+ownership using the shared assignment manifest. The container reports healthy
+only while connected to the broker.
 The container reports healthy only while it is connected to the broker.
 
 ### PTZ polling
@@ -326,15 +329,16 @@ The service accepts these command-line options:
 ## Deploy
 
 On Kubernetes, enable the service with `positioning.enabled=true` and configure
-sources, resolver limits, assignments, and ONVIF credential Secrets through the
+sources, resolver limits, assignments, ONVIF credential Secrets, and camera
+network allowlists through the
 `positioning.*` Helm values. See
 [Deploy Scenescape on Kubernetes](../../how-to-guides/deployment/deploy-kubernetes.md#configure-the-positioning-service)
 for the related Helm values. The chart runs one replica, because only one instance may
 publish poses for a given camera.
 
 To roll back, disable the Positioning deployment or remove its `sources`. Without
-sources the service publishes no poses. Controller and Tracker do not consume poses
-yet, so either change leaves tracking unchanged.
+sources the service publishes no poses. Consumer PTZ flags remain independently
+disabled until their own shadow acceptance criteria pass.
 
 ## Supporting Resources
 

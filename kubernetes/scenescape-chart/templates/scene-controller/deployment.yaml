@@ -2,6 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 {{- if not .Values.tracker.enabled }}
+{{- if and .Values.scene.ptzEnabled .Values.scene.ptzShadowMode }}
+{{- fail "scene.ptzEnabled and scene.ptzShadowMode are mutually exclusive" }}
+{{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -55,6 +58,10 @@ spec:
           env:
           - name: REID_HOSTNAME
             value: reid.{{ .Release.Namespace }}.svc.cluster.local
+          - name: CONTROLLER_PTZ_ENABLED
+            value: {{ .Values.scene.ptzEnabled | quote }}
+          - name: CONTROLLER_PTZ_SHADOW_MODE
+            value: {{ .Values.scene.ptzShadowMode | quote }}
           {{- if .Values.reid.enabled }}
           - name: REID_DATABASE
             value: {{ include "reid.backend" . | upper | quote }}

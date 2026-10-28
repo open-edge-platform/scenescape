@@ -109,9 +109,14 @@ def test_naive_euler_addition_diverges_from_matrix_composition():
   assert rotation_delta_magnitude(naive, composed) > 5.0
 
 
-def test_composition_matches_poc_formula():
-  """PoC: R_new = R_pan(axis) @ R_home @ Rx(tilt)."""
-  delta_pan, delta_tilt = -31.0, 12.5
+@pytest.mark.parametrize("delta_pan,delta_tilt", [
+  (-31.0, -12.5),
+  (-31.0, 12.5),
+  (31.0, -12.5),
+  (31.0, 12.5),
+])
+def test_bidirectional_pan_tilt_sweep_matches_axis_composition(delta_pan, delta_tilt):
+  """Exercise the calibrated dual-axis composition in all travel directions."""
   pan_axis = np.array(MODEL.pan.axis)
   expected = (Rotation.from_rotvec(np.radians(delta_pan) * pan_axis / np.linalg.norm(pan_axis))
               * HOME * Rotation.from_euler("x", delta_tilt, degrees=True))

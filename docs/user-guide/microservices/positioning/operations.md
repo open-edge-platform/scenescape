@@ -17,13 +17,17 @@ only after a successful broker connection.
 Use `make positioning` to build the runtime image and `make init-secrets` to create
 the broker identity and `scenescape-positioning` client certificate/key. Start the
 service with the Docker Compose `controller` or `tracker` profile (`make demo` /
-`make deploy`), the test Compose stack, or the Helm chart. All three mount the CA,
-client certificate, private key, and auth file read-only. The generated Manager account
-has read access to camera configuration invalidations and write access to resolver
-status and resolved-pose topics, and it is not a superuser. The bundled Mosquitto configuration does not
-enforce service credentials or topic ACLs; deployments requiring enforcement must
-configure broker authentication and authorization as described in the
-[hardening guide](../../additional-resources/hardening-guide.md).
+`make deploy`), the test Compose stack, or the Helm chart. Production Compose and
+Helm mount the CA, client certificate, private key, and auth file read-only.
+Certificate-generation targets restrict all local private-key files to mode `0600`;
+Compose runs Positioning as the host UID/GID so it can read those secret mounts
+without making the key world-readable. Kubernetes mounts the client key with
+group-readable mode only for the Positioning pod's `fsGroup`.
+Production Positioning connections use the broker's dedicated TLS listener on
+port 8883, which requires a client certificate and uses its certificate identity
+as the ACL principal. The source-scoped ACL grants only the configured Resolver's
+retained status write, assigned camera-configuration reads, and assigned pose
+writes. The regular broker listener remains separate for existing services.
 
 Positioning may publish only its configured
 `scenescape/positioning/status/{resolver_id}` topic and registered
@@ -32,6 +36,37 @@ for both topic classes; writes to unrelated topics and another resolver's status
 topic are denied. Source ownership is enforced by the Positioning assignment
 manifest and Resolver validation, not by broadening the Manager ACL to unrelated
 topic families.
+
+The Compose stack generates `/mosquitto/acl/positioning.acl` from
+`deployment/positioning-assignments.json` before the broker starts. Helm renders the
+same source-specific rules from `positioning.assignments`; an unassigned source
+gets no pose-write rule. Keep `POSITIONING_RESOLVER_ID` and the Positioning
+`resolver_id` aligned. Production broker ACL verification and the assignment
+validator are part of the PTZ deployment acceptance tests. The automated test
+checks the generated topic list; before release, also verify an authorized
+certificate can publish/subscribe only on its assigned topics against the
+deployed broker.
+
+After changing a Compose assignment, regenerate the ACL and restart the broker so
+Mosquitto reloads it:
+
+```bash
+docker compose --profile controller run --rm --no-deps positioning-acl-init
+docker compose --profile controller restart broker
+```
+
+For Tracker mode, use `--profile tracker` instead. Helm rolls the broker
+automatically when the assignments or Resolver ID change.
+
+```mermaid
+flowchart LR
+  Camera[ONVIF PTZ camera] -->|HTTPS status poll| Poller[Positioning poller]
+  Poller -->|in-process PTZSample| Resolver[Single Positioning Resolver]
+  Manager[Manager: home pose and calibration] -->|read-only API + invalidation| Resolver
+  Resolver -->|mTLS 8883: retained pose and status| Broker[MQTT broker]
+  Broker -->|pose side channel| Controller[Controller consumer: off by default]
+  Broker -->|pose side channel| Tracker[Tracker consumer: off by default; Phase 5 deferred]
+```
 
 Demo and deploy Compose include Positioning with the `controller` and `tracker`
 profiles in `sample_data/compose/compose.dl-streamer-example.yml`. Test stacks that
@@ -395,12 +430,28 @@ The `UTCDateTime` element in the response is the camera's UTC time.
 
 ## Shadow Validation Artifacts
 
-When Controller and Tracker shadow profiles are implemented, each emits sampled,
-structured JSONL records to stdout only. Records share a `run_id`; the acceptance
-harness combines both profiles by that ID into the immutable
+Controller shadow records are sampled structured JSONL on stdout. The Tracker
+consumer is deferred with Phase 5; do not report dual-consumer agreement until
+that implementation is integrated. When both profiles are available, records
+share a `run_id`; the acceptance harness combines them into the immutable
 `tests/artifacts/ptz/shadow/<run_id>.jsonl` artifact and publishes it with the CI or
 acceptance run. Services do not write local artifact files or require production
 artifact volumes. Field runs export an equivalently named bundle from structured logs.
+
+Run the deterministic Positioning replay and deployment checks with:
+
+```bash
+pytest -q tests/sscape_tests/positioning
+```
+
+These tests exercise reconnect/backoff, poller and Resolver session changes,
+sequence gaps, retained stale-pose admission, calibration invalidation/reload,
+settling, and pose math. They are software replay checks, not substitutes for
+the hardware acceptance run. The acceptance gate also requires
+`tests/data/ptz/reprojection_golden.json` and deployment-approved numeric limits
+for reprojection RMS, 95th-percentile ground-plane error, camera-to-tracker
+latency, and post-motion eligibility/recovery. Do not invent these values or
+enable a consumer while any required evidence is absent.
 
 ## Deployments and Rollback
 
@@ -410,6 +461,21 @@ has one replica and uses a `Recreate` rollout to prevent old and new resolver po
 from publishing simultaneously for the same source. This preserves single-writer
 ownership at the cost of a brief interruption during upgrades. Do not scale the
 deployment above one replica; the service has no leader election.
+
+All consumer flags are `false` by default:
+`CONTROLLER_PTZ_ENABLED`, `CONTROLLER_PTZ_SHADOW_MODE`,
+`TRACKER_PTZ_ENABLED`, and `TRACKER_PTZ_SHADOW_MODE`. Keep both Controller flags
+off until its independent shadow gate passes; the Tracker flags must remain off
+while Phase 5 is deferred and until its own gate passes. Enforcing and shadow
+modes are mutually exclusive within each consumer.
+
+When Positioning sources are configured in Helm, set
+`positioning.networkPolicy.cameraCIDRs` to the exact camera address ranges and
+`positioning.networkPolicy.cameraPorts` to the ONVIF TCP ports. The chart denies
+all Positioning ingress and restricts egress to DNS, Manager HTTPS, broker mTLS,
+NTP, and those camera addresses. Helm fails closed if sources are configured
+without camera CIDRs. Docker Compose does not provide equivalent egress ACLs;
+apply the same restrictions with the host firewall or deployment network policy.
 
 For Helm ONVIF credentials, prefer a pre-created Kubernetes Secret and set
 `positioning.onvifCredentials.existingSecret` to its name. Store one key named
@@ -431,8 +497,8 @@ increment `positioning.onvifCredentials.rolloutRevision` in the Helm upgrade so
 the pollers restart and load the new credentials. The pod template records only
 this caller-supplied revision, not credential data or a credential-derived hash.
 
-The service publishes resolved poses but does not alter detections, because Controller
-and Tracker do not consume them yet. Roll back PTZ polling and pose publishing by
+The Positioning service publishes resolved poses independently of consumer flags.
+Roll back PTZ polling and pose publishing by
 removing `sources` from the deployment configuration, or roll back the
 whole service by disabling the Positioning deployment. Later PTZ rollout rollback is
 per consumer: disable the corresponding Controller or Tracker PTZ flag and return to
