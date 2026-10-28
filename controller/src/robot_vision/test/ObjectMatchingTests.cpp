@@ -50,19 +50,19 @@ TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
     trackManager.setMeasurement(trackId, seed);
     trackManager.predict(timestamp);
     trackManager.correct();
-    seed = trackManager.getTrack(trackId);
+    seed = trackManager.getTracks().front();
   }
 
   timestamp += std::chrono::milliseconds(1000);
   trackManager.predict(timestamp);
-  auto track = trackManager.getTrack(trackId);
+  auto track = trackManager.getTracks().front();
 
-  const double s00 = track.predictedMeasurementCov.at<double>(0, 0);
-  const double s11 = track.predictedMeasurementCov.at<double>(1, 1);
+  const double s00 = track.predictedMeasurementCov(0, 0);
+  const double s11 = track.predictedMeasurementCov(1, 1);
   EXPECT_GT(s00, 1.5 * s11) << "expected along-track (x) uncertainty to dominate after +x motion coast";
 
-  const double pred_x = track.predictedMeasurementMean.at<double>(0, 0);
-  const double pred_y = track.predictedMeasurementMean.at<double>(1, 0);
+  const double pred_x = track.predictedMeasurementMean(0);
+  const double pred_y = track.predictedMeasurementMean(1);
 
   rv::tracking::TrackedObject ahead = seed;
   ahead.x = pred_x + 2.0;

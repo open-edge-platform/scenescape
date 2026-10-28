@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --help|-h)
-      echo "Usage: $0 [--json] [--people N[,N...]] [--cameras N[,N...]] [--association-config path.json] [benchmark flags...]"
+      echo "Usage: $0 [--json] [--people N[,N...]] [--cameras N[,N...]] [--overlap 0|1[,...]] [--association-config path.json] [benchmark flags...]"
       exit 0
       ;;
     *)

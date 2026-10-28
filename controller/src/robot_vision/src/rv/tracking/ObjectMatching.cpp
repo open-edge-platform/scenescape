@@ -52,14 +52,14 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
 
 double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  const double pred_x = track.predictedMeasurementMean.at<double>(0, 0);
-  const double pred_y = track.predictedMeasurementMean.at<double>(1, 0);
+  const double pred_x = track.predictedMeasurementMean(0);
+  const double pred_y = track.predictedMeasurementMean(1);
   const double dx = measurement.x - pred_x;
   const double dy = measurement.y - pred_y;
 
-  const double s00 = track.predictedMeasurementCov.at<double>(0, 0);
-  const double s01 = track.predictedMeasurementCov.at<double>(0, 1);
-  const double s11 = track.predictedMeasurementCov.at<double>(1, 1);
+  const double s00 = track.predictedMeasurementCov(0, 0);
+  const double s01 = track.predictedMeasurementCov(0, 1);
+  const double s11 = track.predictedMeasurementCov(1, 1);
 
   const double det = s00 * s11 - s01 * s01;
   if (std::abs(det) < 1e-12)
@@ -90,12 +90,12 @@ struct PositionMahalanobisTrackCache
 PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedObject &track)
 {
   PositionMahalanobisTrackCache cache;
-  cache.pred_x = track.predictedMeasurementMean.at<double>(0, 0);
-  cache.pred_y = track.predictedMeasurementMean.at<double>(1, 0);
+  cache.pred_x = track.predictedMeasurementMean(0);
+  cache.pred_y = track.predictedMeasurementMean(1);
 
-  const double s00 = track.predictedMeasurementCov.at<double>(0, 0);
-  const double s01 = track.predictedMeasurementCov.at<double>(0, 1);
-  const double s11 = track.predictedMeasurementCov.at<double>(1, 1);
+  const double s00 = track.predictedMeasurementCov(0, 0);
+  const double s01 = track.predictedMeasurementCov(0, 1);
+  const double s11 = track.predictedMeasurementCov(1, 1);
   const double det = s00 * s11 - s01 * s01;
   if (std::abs(det) < 1e-12)
   {
