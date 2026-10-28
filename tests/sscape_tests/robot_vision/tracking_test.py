@@ -329,11 +329,11 @@ class TestMatchFunction(unittest.TestCase):
       manager.set_measurement(track_id, seed)
       manager.predict(timestamp)
       manager.correct()
-      seed = manager.get_track(track_id)
+      seed = manager.get_tracks()[0]
 
     timestamp += timedelta(milliseconds=1000)
     manager.predict(timestamp)
-    track = manager.get_track(track_id)
+    track = manager.get_tracks()[0]
 
     cov = np.array(track.measurement_covariance, dtype=float)
     s00 = float(cov[0, 0])
