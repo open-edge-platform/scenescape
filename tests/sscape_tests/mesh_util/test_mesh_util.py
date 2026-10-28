@@ -13,6 +13,7 @@ import open3d as o3d
 import pytest
 import trimesh
 from scipy.spatial.transform import Rotation
+from PIL import Image
 from plyfile import PlyData, PlyElement
 import tempfile
 
@@ -66,6 +67,116 @@ def test_merge_mesh(input, expected):
   mesh =  o3d.io.read_triangle_model(input)
   assert len(mesh.meshes) == expected
   return
+
+@pytest.mark.parametrize("instance_count", [1, 2, 46])
+def test_merge_mesh_preserves_instances_and_source(instance_count):
+  """Every placement is merged without modifying the shared source mesh."""
+  scene = trimesh.Scene()
+  source = trimesh.creation.box()
+  source.visual = trimesh.visual.texture.TextureVisuals(
+      uv=np.zeros((len(source.vertices), 2)))
+  source.metadata['materials'] = [{'baseColorTexture': 'test-texture'}]
+  scene.geometry['shared'] = source
+  original_vertices = source.vertices.copy()
+  original_faces = source.faces.copy()
+  original_uv = source.visual.uv.copy()
+  original_metadata = source.metadata.copy()
+  expected_vertices = []
+  for index in range(instance_count):
+    transform = trimesh.transformations.translation_matrix([index * 2, 0, 0])
+    scene.graph.update(frame_to=f'instance_{index}', geometry='shared', matrix=transform)
+    expected_vertices.append(trimesh.transform_points(original_vertices, transform))
+
+  merged = mergeMesh(scene)
+
+  np.testing.assert_allclose(merged.vertices, np.vstack(expected_vertices))
+  assert len(merged.faces) == instance_count * len(original_faces)
+  np.testing.assert_array_equal(merged.visual.uv, np.tile(original_uv, (instance_count, 1)))
+  np.testing.assert_array_equal(source.vertices, original_vertices)
+  np.testing.assert_array_equal(source.faces, original_faces)
+  np.testing.assert_array_equal(source.visual.uv, original_uv)
+  assert source.metadata == original_metadata
+  assert merged.metadata['name'] == 'mesh_0'
+
+def test_merge_mesh_resolves_nested_transforms():
+  """Parent rotation and child translation are composed into the base frame."""
+  scene = trimesh.Scene()
+  source = trimesh.creation.box()
+  scene.geometry['shared'] = source
+  parent = trimesh.transformations.rotation_matrix(np.pi / 2, [0, 0, 1])
+  parent[:3, 3] = [10, 20, 30]
+  child = trimesh.transformations.translation_matrix([2, 0, 0])
+  scene.graph.update(frame_to='group', matrix=parent)
+  scene.graph.update(frame_to='instance', frame_from='group', geometry='shared', matrix=child)
+
+  merged = mergeMesh(scene)
+
+  expected = trimesh.transform_points(source.vertices, parent @ child)
+  np.testing.assert_allclose(merged.vertices, expected)
+  assert len(merged.faces) == len(source.faces)
+
+def test_merge_mesh_missing_geometry_raises():
+  """An invalid geometry reference fails visibly rather than dropping the instance."""
+  scene = MagicMock()
+  scene.geometry = {}
+  scene.graph.nodes = ['instance']
+  scene.graph.nodes_geometry = ['instance']
+  scene.graph.__getitem__.return_value = (np.eye(4), 'missing')
+
+  with pytest.raises(KeyError, match='missing'):
+    mergeMesh(scene)
+
+@pytest.mark.parametrize("cutoff", [None, 0.0, 0.7])
+@pytest.mark.parametrize("factor, expected_colors", [
+  ([1.0, 1.0, 1.0, 1.0], [(255, 255, 0, 255), (0, 0, 255, 255)]),
+  ([0.5, 0.5, 0.5, 1.0], [(188, 188, 0, 255), (0, 0, 188, 255)]),
+])
+def test_merge_mesh_preserves_masked_material_colors(tmp_path, cutoff, factor, expected_colors):
+  """Masked textures retain colors through merging and GLB export/reload."""
+  scene = trimesh.Scene()
+  colors = [(255, 255, 0, 255), (0, 0, 255, 255)]
+  materials = []
+  for index, color in enumerate(colors):
+    material = trimesh.visual.material.PBRMaterial(
+        baseColorTexture=Image.new('RGBA', (2, 2), color),
+        baseColorFactor=factor,
+        alphaMode='MASK', alphaCutoff=cutoff)
+    materials.append(material)
+    mesh = trimesh.creation.box()
+    mesh.visual = trimesh.visual.texture.TextureVisuals(
+        uv=np.full((len(mesh.vertices), 2), 0.5), material=material)
+    scene.add_geometry(mesh, transform=trimesh.transformations.translation_matrix([index * 3, 0, 0]))
+
+  merged = mergeMesh(scene)
+
+  assert merged.visual.kind == 'texture'
+  expected = np.repeat(np.array(expected_colors), 8, axis=0)
+  np.testing.assert_array_equal(merged.visual.to_color().vertex_colors, expected)
+  assert all(material.alphaCutoff == cutoff for material in materials)
+  for material, color in zip(materials, colors):
+    np.testing.assert_array_equal(np.array(material.baseColorTexture)[0, 0], color)
+    np.testing.assert_allclose(material.baseColorFactor / 255.0, factor, atol=1 / 255.0)
+  output = tmp_path / 'merged.glb'
+  merged.export(output)
+  reloaded = trimesh.load(output)
+  assert len(reloaded.geometry) == 1
+  mesh = next(iter(reloaded.geometry.values()))
+  assert mesh.visual.kind == 'texture'
+  np.testing.assert_array_equal(mesh.visual.to_color().vertex_colors, expected)
+
+def test_merge_mesh_rejects_lost_textures():
+  """A Trimesh visual merge failure must not silently export an untextured mesh."""
+  scene = trimesh.Scene()
+  for index in range(2):
+    mesh = trimesh.creation.box()
+    mesh.visual = trimesh.visual.texture.TextureVisuals(
+        uv=np.full((len(mesh.vertices), 2), 0.5))
+    scene.add_geometry(mesh, geom_name=f'mesh_{index}')
+
+  with patch.object(trimesh.visual.texture.TextureVisuals, 'concatenate',
+                    side_effect=ValueError('synthetic material failure')):
+    with pytest.raises(ValueError, match='lost materials or textures'):
+      mergeMesh(scene)
 
 class TestObject:
   def __init__(self, loc, size, rotation):
@@ -376,6 +487,7 @@ def test_mesh_generator_rejected_when_unanchored_camera_lands_far_from_anchors(
   assert qcam.intrinsics_fx == Cam.DEFAULT_INTRINSICS["fx"]
 
 
+
 @pytest.mark.django_db
 @patch("manager.mesh_generator.CamSerializer")
 def test_mesh_generator_accepts_far_patches_when_all_cameras_anchored(
@@ -504,5 +616,3 @@ def test_mesh_generator_places_mesh_at_calibrated_pose_of_translated_rotated_anc
   distances = np.linalg.norm(saved_mesh.vertices[:, None, :] - expected_vertices[None, :, :], axis=2)
   assert np.all(distances.min(axis=0) < 1e-4)  # every expected corner is in the saved mesh
   assert np.all(distances.min(axis=1) < 1e-4)  # and no saved vertex sits elsewhere
-
-
