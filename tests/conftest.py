@@ -701,7 +701,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   # pass-through (e.g. environment: [SUPASS]). Keep them in sync.
   from tests.utils.compose_env import sync_supass_for_compose
   sync_supass_for_compose(supass)
-  (tmp_path / "db").mkdir(exist_ok=True)
+  # Pre-create bind-mount sources so Docker does not create them as root.
+  (tmp_path / "db" / "media").mkdir(parents=True, exist_ok=True)
   if hierarchy_ports:
     for role in ("parent", "child1", "child2"):
       (tmp_path / "db" / role / "media").mkdir(parents=True, exist_ok=True)

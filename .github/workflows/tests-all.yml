@@ -58,9 +58,10 @@ jobs:
       packages: write # For using GHCR as cache registry
     timeout-minutes: 300
     steps:
-      - name: Remove test_data folder
+      - name: "Pre-clean workspace"
         run: |
-          sudo rm -rf test_data || true
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
 
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -107,9 +108,10 @@ jobs:
       packages: write # For using GHCR as cache registry
     timeout-minutes: 60
     steps:
-      - name: Remove test_data folder
+      - name: "Pre-clean workspace"
         run: |
-          sudo rm -rf test_data || true
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
 
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -156,9 +158,10 @@ jobs:
       packages: write # For using GHCR as cache registry
     timeout-minutes: 90
     steps:
-      - name: Remove test_data folder
+      - name: "Pre-clean workspace"
         run: |
-          sudo rm -rf test_data || true
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
 
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -205,9 +208,10 @@ jobs:
       packages: write # For using GHCR as cache registry
     timeout-minutes: 300
     steps:
-      - name: Remove test_data folder
+      - name: "Pre-clean workspace"
         run: |
-          sudo rm -rf test_data || true
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
 
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -254,9 +258,10 @@ jobs:
       packages: write # For using GHCR as cache registry
     timeout-minutes: 70
     steps:
-      - name: Remove test_data folder
+      - name: "Pre-clean workspace"
         run: |
-          sudo rm -rf test_data || true
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
 
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

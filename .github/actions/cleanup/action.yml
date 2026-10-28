@@ -1,5 +1,5 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 name: "Cleanup Action"
@@ -9,35 +9,64 @@ inputs:
     description: "Whether to run docker system prune"
     required: false
     default: "false"
+  disk-usage-threshold:
+    description: "Disk usage (%) of Docker storage or workspace at which a full docker system prune is forced"
+    required: false
+    default: "80"
 runs:
   using: "composite"
   steps:
-    - name: Remove test_data folder
+    - name: Remove root-owned test data
       if: always()
       shell: bash
       run: |
-        sudo rm -rf test_data || true
+        sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+        sudo rm -rf "/tmp/pytest-of-$(id -un)" || true
 
     - name: "Stop all running Docker containers"
       if: always()
       shell: bash
       run: |
-        docker ps -aq | xargs docker rm -f  || true
+        docker ps -aq | xargs -r docker rm -f || true
 
     - name: "Remove all volumes used in test"
       if: always()
       shell: bash
       run: |
-        docker volume ls -q | xargs docker volume rm -f  || true
+        docker volume ls -q | xargs -r docker volume rm -f || true
 
-    - name: "Run docker system prune"
-      if: ${{ always() && inputs.system-prune == 'true' }}
+    - name: "Prune dangling images and old build cache"
+      if: always()
       shell: bash
       run: |
-        docker system prune --force --volumes --all || true
+        docker image prune --force || true
+        docker builder prune --force --filter until=48h || true
+
+    - name: "Run docker system prune"
+      if: always()
+      shell: bash
+      env:
+        SYSTEM_PRUNE: ${{ inputs.system-prune }}
+        THRESHOLD: ${{ inputs.disk-usage-threshold }}
+      run: |
+        usage() { df --output=pcent "$1" 2>/dev/null | tail -1 | tr -dc '0-9'; }
+        max=0
+        for path in "$(docker info -f '{{.DockerRootDir}}' 2>/dev/null)" /var/lib/containerd "$GITHUB_WORKSPACE"; do
+          if [ -z "$path" ] || [ ! -e "$path" ]; then continue; fi
+          u=$(usage "$path")
+          echo "Disk usage of $path: ${u:-?}%"
+          if [ -n "$u" ] && [ "$u" -gt "$max" ]; then max=$u; fi
+        done
+        if [ "$SYSTEM_PRUNE" = "true" ] || [ "$max" -ge "$THRESHOLD" ]; then
+          echo "Running full docker system prune (requested=$SYSTEM_PRUNE, usage=${max}%, threshold=${THRESHOLD}%)"
+          docker system prune --force --volumes --all || true
+          df -h "$GITHUB_WORKSPACE" || true
+        fi
 
     - name: "Clean runner"
       if: always()
       shell: bash
       run: |
-        sudo git clean -fxd || true
+        sudo git -c safe.directory="$GITHUB_WORKSPACE" -C "$GITHUB_WORKSPACE" clean -ffdx \
+          || echo "::warning title=Runner cleanup::git clean failed in $GITHUB_WORKSPACE"
+        sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true

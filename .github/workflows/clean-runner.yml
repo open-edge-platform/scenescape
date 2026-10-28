@@ -1,24 +1,30 @@
 ---
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025-2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 name: "[CI] Clean self-hosted runner"
 run-name: "[CI] Clean self-hosted runner"
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      runner_label:
+        description: "Label of the self-hosted runner to clean"
+        required: false
+        default: "to-be-cleaned"
+        type: string
 
 permissions:
   contents: read
 
 jobs:
   clean-runner:
-    name: "Clean self-hosted runner"
-    runs-on: [to-be-cleaned]
+    name: "Clean self-hosted runner (${{ inputs.runner_label }})"
+    runs-on: ${{ inputs.runner_label }}
     steps:
       - name: "Clean workdir before checkout"
         run: |
-          sudo rm -rf $GITHUB_WORKSPACE/* || true
+          sudo find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf {} + || true
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
