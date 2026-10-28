@@ -16,6 +16,7 @@ set(TEST_SOURCES
   MultipleObjectTrackerTests.cpp
   ObjectMatchingTests.cpp
   OrientationFusionTests.cpp
+  ScenarioRecorderTests.cpp
   UnscentedKalmanFilterTests.cpp
 )
 

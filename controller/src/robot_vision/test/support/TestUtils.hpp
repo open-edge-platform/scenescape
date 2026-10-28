@@ -3,8 +3,8 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
-#include <string>
 
 #include <opencv2/core.hpp>
 
@@ -53,6 +53,13 @@ inline TrackManagerConfig productionConfig()
   return config;
 }
 
+// Row of a motion model in getModelProbability() and currentStates() for productionConfig().
+inline int modelIndex(MotionModel model)
+{
+  const auto &models = kProductionMotionModels;
+  return static_cast<int>(std::ranges::find(models, model) - models.begin());
+}
+
 inline double minEigenvalue(const cv::Mat &matrix)
 {
   cv::Mat eigenvalues;
@@ -62,8 +69,7 @@ inline double minEigenvalue(const cv::Mat &matrix)
   return minValue;
 }
 
-inline TrackedObject makeDetection(
-  double x, double y, double z, double length, double width, double height, const std::string &cameraId = {})
+inline TrackedObject makeDetection(double x, double y, double z, double length, double width, double height)
 {
   TrackedObject object;
   object.x = x;
@@ -72,10 +78,6 @@ inline TrackedObject makeDetection(
   object.length = length;
   object.width = width;
   object.height = height;
-  if (!cameraId.empty())
-  {
-    object.attributes["camera_id"] = cameraId;
-  }
   return object;
 }
 

@@ -6,7 +6,10 @@
 #include <algorithm>
 #include <cmath>
 #include <numbers>
+#include <optional>
 #include <random>
+#include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -24,10 +27,11 @@ struct Box
   double length = 0.0;
   double width = 0.0;
   double height = 0.0;
+  std::string_view category;
 };
 
-inline constexpr Box kCar{.length = 4.5, .width = 1.8, .height = 1.5};
-inline constexpr Box kPerson{.length = 0.5, .width = 0.5, .height = 1.7};
+inline constexpr Box kCar{.length = 4.5, .width = 1.8, .height = 1.5, .category = "vehicle"};
+inline constexpr Box kPerson{.length = 0.5, .width = 0.5, .height = 1.7, .category = "person"};
 
 struct TruthSample
 {
@@ -37,6 +41,7 @@ struct TruthSample
   double heading = 0.0;
   double speed = 0.0;
   double yawRate = 0.0;
+  double acceleration = 0.0;
   Box box;
 
   double vx() const
@@ -100,6 +105,8 @@ public:
         }
         state.t = mStart.t + ++frame / fps;
         state.yawRate = segment.yawRate;
+        // Braking ends once the object stands still.
+        state.acceleration = (state.speed > 0.0 || segment.acceleration > 0.0) ? segment.acceleration : 0.0;
         samples.push_back(state);
       }
     }
@@ -139,8 +146,41 @@ inline std::vector<TruthSample> between(const std::vector<TruthSample> &samples,
   return slice;
 }
 
+// Horizontal distance between an estimate and the truth [m].
+inline double positionError(const TrackedObject &state, const TruthSample &sample)
+{
+  return std::hypot(state.x - sample.x, state.y - sample.y);
+}
+
+// Position error of each state against its truth sample (states as returned by FilterRun::feed), for t >= from.
+inline std::vector<double>
+positionErrors(const std::vector<TruthSample> &truth, const std::vector<TrackedObject> &states, double from = 0.0)
+{
+  constexpr double kEpsilon = 1e-9;
+  std::vector<double> errors;
+  for (size_t i = 0; i < truth.size(); ++i)
+  {
+    if (truth[i].t > from - kEpsilon)
+    {
+      errors.push_back(positionError(states.at(i), truth[i]));
+    }
+  }
+  return errors;
+}
+
+inline double rms(const std::vector<double> &values)
+{
+  double sumSquares = 0.0;
+  for (double value : values)
+  {
+    sumSquares += value * value;
+  }
+  return std::sqrt(sumSquares / static_cast<double>(values.size()));
+}
+
 struct Sensor
 {
+  std::string id = "camera";  // sensor id of its observations, e.g. "lidar"
   double positionNoise = 0.0; // standard deviation [m]
   double sizeNoise = 0.0;     // standard deviation of length, width and height [m]
   double yawNoise = 0.0;      // standard deviation [rad], orienting sensors only
@@ -152,6 +192,7 @@ struct Observation
 {
   double t;
   TrackedObject detection;
+  std::string sensorId;
 };
 
 inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, Sensor &sensor)
@@ -178,50 +219,57 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
       detection.yaw = std::remainder(sample.heading + yawError, 2.0 * std::numbers::pi);
       orientation::setHasOrientation(detection, true);
     }
-    observations.push_back({sample.t, std::move(detection)});
+    observations.push_back({sample.t, std::move(detection), sensor.id});
   }
   return observations;
 }
 
-// Deep copy: TrackedObject copies share cv::Mat buffers that the estimator later overwrites.
-inline TrackedObject snapshot(TrackedObject object)
+class FilterRun;
+
+// Notified by FilterRun after initialize(), every track() and every coast(), e.g. by ScenarioRecorder.
+class FilterRunObserver
 {
-  object.predictedMeasurementMean = object.predictedMeasurementMean.clone();
-  object.predictedMeasurementCov = object.predictedMeasurementCov.clone();
-  object.predictedMeasurementCovInv = object.predictedMeasurementCovInv.clone();
-  object.errorCovariance = object.errorCovariance.clone();
-  return object;
-}
+public:
+  virtual ~FilterRunObserver() = default;
+  // `observation` is the one used by this step; std::nullopt for coast().
+  virtual void filterStep(const FilterRun &run, const std::optional<Observation> &observation) = 0;
+};
 
 // Drives one MultiModelKalmanEstimator the way TrackManager does, without association or lifecycle.
+// trackId names the estimate and its detections for an observer; use the ground-truth object id.
 class FilterRun
 {
 public:
-  explicit FilterRun(TrackManagerConfig config = productionConfig())
+  explicit FilterRun(TrackManagerConfig config = productionConfig(),
+                     FilterRunObserver *observer = nullptr,
+                     int trackId = 1)
     : mConfig(std::move(config))
+    , mObserver(observer)
+    , mTrackId(trackId)
   {
   }
 
-  // Initializes on the first observation, then predict + correct per observation. One snapshot per observation.
+  // Initializes on the first observation, then predict + correct per observation. One state per observation.
   std::vector<TrackedObject> feed(const std::vector<Observation> &observations)
   {
     std::vector<TrackedObject> states;
-    for (const auto &[t, detection] : observations)
+    for (const auto &observation : observations)
     {
       if (mInitialized)
       {
-        estimator.track(detection, atSeconds(t));
+        estimator.track(observation.detection, atSeconds(observation.t));
       }
       else
       {
-        estimator.initialize(detection,
-                             atSeconds(t),
+        estimator.initialize(observation.detection,
+                             atSeconds(observation.t),
                              mConfig.mDefaultProcessNoise,
                              mConfig.mDefaultMeasurementNoise,
                              mConfig.mInitStateCovariance,
                              mConfig.mMotionModels);
         mInitialized = true;
       }
+      notify(observation);
       states.push_back(state());
     }
     return states;
@@ -230,17 +278,38 @@ public:
   void coast(double seconds)
   {
     estimator.predict(seconds);
+    notify(std::nullopt);
   }
 
   TrackedObject state() const
   {
-    return snapshot(estimator.currentState());
+    return estimator.currentState();
+  }
+
+  const TrackManagerConfig &config() const
+  {
+    return mConfig;
+  }
+
+  int trackId() const
+  {
+    return mTrackId;
   }
 
   MultiModelKalmanEstimator estimator;
 
 private:
+  void notify(const std::optional<Observation> &observation) const
+  {
+    if (mObserver != nullptr)
+    {
+      mObserver->filterStep(*this, observation);
+    }
+  }
+
   TrackManagerConfig mConfig;
+  FilterRunObserver *mObserver = nullptr;
+  int mTrackId = 1;
   bool mInitialized = false;
 };
 

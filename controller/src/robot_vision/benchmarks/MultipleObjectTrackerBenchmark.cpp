@@ -184,19 +184,7 @@ public:
     person.classification[3] = 0.05 * std::uniform_real_distribution<double>(0, 1)(gen);
     person.classification[4] = 0.05 * std::uniform_real_distribution<double>(0, 1)(gen);
     person.classification.normalize();
-
-    person.predictedMeasurementMean = cv::Mat::zeros(7, 1, CV_64F);
-    person.predictedMeasurementMean.at<double>(0, 0) = person.x;
-    person.predictedMeasurementMean.at<double>(1, 0) = person.y;
-    person.predictedMeasurementMean.at<double>(2, 0) = person.width;
-    person.predictedMeasurementMean.at<double>(3, 0) = person.height;
-    person.predictedMeasurementMean.at<double>(4, 0) = person.vx;
-    person.predictedMeasurementMean.at<double>(5, 0) = person.vy;
-    person.predictedMeasurementMean.at<double>(6, 0) = person.yaw;
-
-    person.predictedMeasurementCov = cv::Mat::eye(7, 7, CV_64F) * 0.2;
-    cv::invert(person.predictedMeasurementCov, person.predictedMeasurementCovInv);
-    person.errorCovariance = cv::Mat::eye(7, 7, CV_64F) * 0.1;
+    // No Kalman matrices: the tracker overwrites a track's matrices before using them.
     return person;
   }
 
@@ -216,11 +204,6 @@ public:
         const double speed = std::sqrt(person.vx * person.vx + person.vy * person.vy);
         person.vx = speed * std::cos(person.yaw);
         person.vy = speed * std::sin(person.yaw);
-        person.predictedMeasurementMean.at<double>(0, 0) = person.x;
-        person.predictedMeasurementMean.at<double>(1, 0) = person.y;
-        person.predictedMeasurementMean.at<double>(4, 0) = person.vx;
-        person.predictedMeasurementMean.at<double>(5, 0) = person.vy;
-        person.predictedMeasurementMean.at<double>(6, 0) = person.yaw;
       }
       people.push_back(std::move(person));
     }
