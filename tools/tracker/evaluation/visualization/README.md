@@ -99,8 +99,9 @@ only skips the TrackEval plots, with a warning.
 | `estimator.jsonl`   | –                            | Per track a `config` line, then per filter step model probabilities, state, P, predicted measurement and S        |
 
 Any file may be missing. Tracks are paired with ground-truth objects by position with `match_tracks()` from
-[utils/tracks.py](../utils/tracks.py), so their ids may differ. Recorder timestamps start at the `system_clock` epoch;
-the tools show seconds since the first timestamp.
+[utils/tracks.py](../utils/tracks.py), so their ids may differ; frames count from the first track or ground-truth
+sample, as in the evaluators. Recorder timestamps start at the `system_clock` epoch; the tools show seconds since the
+first timestamp.
 
 Detections are drawn only for recordings: the recorder writes them in scene coordinates (identity sensor pose) with the
 ground-truth object id as detection id. A pipeline run's detections follow the camera-data schema, with frame-local ids

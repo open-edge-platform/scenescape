@@ -163,17 +163,21 @@ def frame_rate(table: pd.DataFrame) -> Optional[float]:
 def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None) -> List[Tuple[str, str]]:
   """(track_id, object_id) pairs from utils.tracks.match_tracks.
 
-  Times are quantized to frames at `fps`, by default the ground-truth frame rate.
+  Times are quantized to frames at `fps`, by default the ground-truth frame rate. Frames
+  count from the first track or ground-truth sample, as in the evaluators
+  (utils.timeline.reference_timestamp); an earlier detection must not shift the grid.
   Pairs need utils.tracks.MIN_OVERLAP_FRAMES shared frames.
   """
   fps = fps or frame_rate(scenario.ground_truth)
   if fps is None or scenario.tracks.empty:
     return []
+  origin = min(table["t"].min() for table in (scenario.tracks, scenario.ground_truth)
+               if not table.empty)
 
   def positions(table: pd.DataFrame, id_column: str) -> Dict[str, Dict[int, tuple]]:
     result: Dict[str, Dict[int, tuple]] = {}
     for item_id, t, x, y in zip(table[id_column], table["t"], table["x"], table["y"]):
-      result.setdefault(item_id, {})[round(t * fps)] = (x, y)
+      result.setdefault(item_id, {})[round((t - origin) * fps)] = (x, y)
     return result
 
   return match_tracks(positions(scenario.tracks, "track_id"),
