@@ -19,10 +19,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 # pylint: disable=wrong-import-position
 from visualization.plot_scenario import (  # noqa: E402
   PLOTS,
+  TRACKEVAL_ALPHAS,
   TrackEvalEvaluator,
   ground_truth_fps,
   main,
   pair_tracks,
+  plot_comparison,
   plot_scenario,
   plot_size,
   plot_speed_yaw,
@@ -36,6 +38,7 @@ from visualization.scenario_data import (  # noqa: E402
   load_scenario,
 )
 # pylint: enable=wrong-import-position
+import matplotlib.pyplot as plt  # noqa: E402 (after plot_scenario, which selects the Agg backend)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 FIXTURE = Path(__file__).parent / "fixtures" / "target_born_moving"
@@ -246,3 +249,88 @@ def test_overlays_detections_only_where_they_are_in_the_scene(tmp_path, pipeline
     figure = plot(scenario, pairs)
     labels = [line.get_label() for axis in figure.axes for line in axis.lines]
     assert any(label.startswith("detections") for label in labels) is drawn, (plot.__name__, labels)
+
+
+def quaternion(yaw):
+  """Rotation about z as a quaternion [x, y, z, w]."""
+  return [0.0, 0.0, math.sin(yaw / 2.0), math.cos(yaw / 2.0)]
+
+
+def yaw_curves(directory, start, step, error):
+  """Truth and track yaw as drawn by plot_speed_yaw, for a truth heading start + step * frame.
+
+  The track follows the same positions with its heading `error` rad off.
+  """
+  truth, tracks = [], []
+  for frame in range(8):
+    timestamp = f"2014-09-08T04:00:00.{frame}00Z"
+    heading = start + step * frame
+    position = [0.1 * frame, 0.0, 0.0]
+    truth.append({"timestamp": timestamp, "objects": [
+      {"id": 0, "category": "person", "translation": position, "rotation": quaternion(heading)}]})
+    tracks.append({"timestamp": timestamp, "objects": [
+      {"id": "1", "category": "person", "translation": position,
+       "rotation": quaternion(heading + error)}]})
+  for name, records in (("groundtruth.jsonl", truth), ("tracks.jsonl", tracks)):
+    (directory / name).write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+
+  figure = plot_speed_yaw(load_scenario(directory), {"1": "0"})
+  lines = {line.get_label(): np.asarray(line.get_ydata(), dtype=float)
+           for line in figure.axes[1].lines}
+  plt.close(figure)
+  return lines["truth 1"], lines["track 1"]  # both labelled with the track id
+
+
+@pytest.mark.parametrize("start, step", [
+  (math.pi - 0.01, 0.0),    # truth just below +pi, the estimate wraps to -pi
+  (-math.pi + 0.01, 0.0),
+  (math.pi - 0.01, 0.05),   # turning through +-pi with the first samples on opposite sides
+  (math.pi - 0.2, 0.05),    # turning through +-pi with the first samples on the same side
+])
+def test_speed_yaw_draws_truth_on_the_track_branch(tmp_path, start, step):
+  """Equivalent headings on opposite sides of +-pi are drawn together, not 2 pi apart."""
+  error = 0.02 if start > 0 else -0.02
+
+  truth, track = yaw_curves(tmp_path, start, step, error)
+
+  np.testing.assert_allclose(track - truth, error, atol=1e-9)
+
+
+def trackeval_result(**scores):
+  """A TrackEval COMBINED row with the columns the comparison plot reads."""
+  row = {f"{name}___{alpha}": 0.5 for name in ("HOTA", "LocA") for alpha in TRACKEVAL_ALPHAS}
+  row.update({"HOTA___AUC": 0.5, "MOTA": 0.5, "IDF1": 0.5, "LocA___AUC": 0.5})
+  row.update(scores)
+  return pd.Series(row)
+
+
+def comparison_limits(results, directory, monkeypatch):
+  """y-limits of the three axes of the comparison plot."""
+  figures = []
+  with monkeypatch.context() as patch:
+    patch.setattr(plt, "close", figures.append)  # keeps the figure to read its axes
+    plot_comparison(results, directory)
+  (figure,) = figures
+  limits = [axis.get_ylim() for axis in figure.axes]
+  plt.close(figure)
+  return limits
+
+
+def test_comparison_score_axis_includes_negative_mota(tmp_path, monkeypatch):
+  """MOTA is negative when false positives and ID switches exceed the true positives."""
+  results = {"poor": trackeval_result(MOTA=-0.5), "good": trackeval_result()}
+
+  curves_hota, curves_loca, scores = comparison_limits(results, tmp_path, monkeypatch)
+
+  assert scores[0] < -0.5
+  assert scores[1] == pytest.approx(1.02)
+  assert curves_hota == pytest.approx((0.0, 1.02))
+  assert curves_loca == pytest.approx((0.0, 1.02))
+
+
+@pytest.mark.parametrize("mota", [0.3, math.nan])
+def test_comparison_score_axis_starts_at_zero_without_negative_scores(tmp_path, monkeypatch, mota):
+  """Non-negative and missing scores keep the 0..1 axis."""
+  limits = comparison_limits({"run": trackeval_result(MOTA=mota)}, tmp_path, monkeypatch)
+
+  assert limits[2] == pytest.approx((0.0, 1.02))
