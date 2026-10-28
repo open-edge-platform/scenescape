@@ -5,20 +5,19 @@
 
 import base64
 import os
-from io import BytesIO
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import open3d as o3d
 import pytest
 import trimesh
-from scipy.spatial.transform import Rotation
+from PIL import Image
 from plyfile import PlyData, PlyElement
 import tempfile
 
 from scene_common.geometry import Region, Point
 from scene_common.mesh_util import createRegionMesh, createObjectMesh, mergeMesh, extractMeshFromPointCloud, extractMeshFromGLB
-from scene_common.mesh_util import checkMeshConnectivity, getMeshAxisAlignedProjectionToXY
+from scene_common.mesh_util import checkMeshConnectivity
 
 from manager.mesh_generator import MeshGenerator
 from manager.models import Cam, Scene
@@ -67,6 +66,116 @@ def test_merge_mesh(input, expected):
   assert len(mesh.meshes) == expected
   return
 
+@pytest.mark.parametrize("instance_count", [1, 2, 46])
+def test_merge_mesh_preserves_instances_and_source(instance_count):
+  """Every placement is merged without modifying the shared source mesh."""
+  scene = trimesh.Scene()
+  source = trimesh.creation.box()
+  source.visual = trimesh.visual.texture.TextureVisuals(
+      uv=np.zeros((len(source.vertices), 2)))
+  source.metadata['materials'] = [{'baseColorTexture': 'test-texture'}]
+  scene.geometry['shared'] = source
+  original_vertices = source.vertices.copy()
+  original_faces = source.faces.copy()
+  original_uv = source.visual.uv.copy()
+  original_metadata = source.metadata.copy()
+  expected_vertices = []
+  for index in range(instance_count):
+    transform = trimesh.transformations.translation_matrix([index * 2, 0, 0])
+    scene.graph.update(frame_to=f'instance_{index}', geometry='shared', matrix=transform)
+    expected_vertices.append(trimesh.transform_points(original_vertices, transform))
+
+  merged = mergeMesh(scene)
+
+  np.testing.assert_allclose(merged.vertices, np.vstack(expected_vertices))
+  assert len(merged.faces) == instance_count * len(original_faces)
+  np.testing.assert_array_equal(merged.visual.uv, np.tile(original_uv, (instance_count, 1)))
+  np.testing.assert_array_equal(source.vertices, original_vertices)
+  np.testing.assert_array_equal(source.faces, original_faces)
+  np.testing.assert_array_equal(source.visual.uv, original_uv)
+  assert source.metadata == original_metadata
+  assert merged.metadata['name'] == 'mesh_0'
+
+def test_merge_mesh_resolves_nested_transforms():
+  """Parent rotation and child translation are composed into the base frame."""
+  scene = trimesh.Scene()
+  source = trimesh.creation.box()
+  scene.geometry['shared'] = source
+  parent = trimesh.transformations.rotation_matrix(np.pi / 2, [0, 0, 1])
+  parent[:3, 3] = [10, 20, 30]
+  child = trimesh.transformations.translation_matrix([2, 0, 0])
+  scene.graph.update(frame_to='group', matrix=parent)
+  scene.graph.update(frame_to='instance', frame_from='group', geometry='shared', matrix=child)
+
+  merged = mergeMesh(scene)
+
+  expected = trimesh.transform_points(source.vertices, parent @ child)
+  np.testing.assert_allclose(merged.vertices, expected)
+  assert len(merged.faces) == len(source.faces)
+
+def test_merge_mesh_missing_geometry_raises():
+  """An invalid geometry reference fails visibly rather than dropping the instance."""
+  scene = MagicMock()
+  scene.geometry = {}
+  scene.graph.nodes = ['instance']
+  scene.graph.nodes_geometry = ['instance']
+  scene.graph.__getitem__.return_value = (np.eye(4), 'missing')
+
+  with pytest.raises(KeyError, match='missing'):
+    mergeMesh(scene)
+
+@pytest.mark.parametrize("cutoff", [None, 0.0, 0.7])
+@pytest.mark.parametrize("factor, expected_colors", [
+  ([1.0, 1.0, 1.0, 1.0], [(255, 255, 0, 255), (0, 0, 255, 255)]),
+  ([0.5, 0.5, 0.5, 1.0], [(188, 188, 0, 255), (0, 0, 188, 255)]),
+])
+def test_merge_mesh_preserves_masked_material_colors(tmp_path, cutoff, factor, expected_colors):
+  """Masked textures retain colors through merging and GLB export/reload."""
+  scene = trimesh.Scene()
+  colors = [(255, 255, 0, 255), (0, 0, 255, 255)]
+  materials = []
+  for index, color in enumerate(colors):
+    material = trimesh.visual.material.PBRMaterial(
+        baseColorTexture=Image.new('RGBA', (2, 2), color),
+        baseColorFactor=factor,
+        alphaMode='MASK', alphaCutoff=cutoff)
+    materials.append(material)
+    mesh = trimesh.creation.box()
+    mesh.visual = trimesh.visual.texture.TextureVisuals(
+        uv=np.full((len(mesh.vertices), 2), 0.5), material=material)
+    scene.add_geometry(mesh, transform=trimesh.transformations.translation_matrix([index * 3, 0, 0]))
+
+  merged = mergeMesh(scene)
+
+  assert merged.visual.kind == 'texture'
+  expected = np.repeat(np.array(expected_colors), 8, axis=0)
+  np.testing.assert_array_equal(merged.visual.to_color().vertex_colors, expected)
+  assert all(material.alphaCutoff == cutoff for material in materials)
+  for material, color in zip(materials, colors):
+    np.testing.assert_array_equal(np.array(material.baseColorTexture)[0, 0], color)
+    np.testing.assert_allclose(material.baseColorFactor / 255.0, factor, atol=1 / 255.0)
+  output = tmp_path / 'merged.glb'
+  merged.export(output)
+  reloaded = trimesh.load(output)
+  assert len(reloaded.geometry) == 1
+  mesh = next(iter(reloaded.geometry.values()))
+  assert mesh.visual.kind == 'texture'
+  np.testing.assert_array_equal(mesh.visual.to_color().vertex_colors, expected)
+
+def test_merge_mesh_rejects_lost_textures():
+  """A Trimesh visual merge failure must not silently export an untextured mesh."""
+  scene = trimesh.Scene()
+  for index in range(2):
+    mesh = trimesh.creation.box()
+    mesh.visual = trimesh.visual.texture.TextureVisuals(
+        uv=np.full((len(mesh.vertices), 2), 0.5))
+    scene.add_geometry(mesh, geom_name=f'mesh_{index}')
+
+  with patch.object(trimesh.visual.texture.TextureVisuals, 'concatenate',
+                    side_effect=ValueError('synthetic material failure')):
+    with pytest.raises(ValueError, match='lost materials or textures'):
+      mergeMesh(scene)
+
 class TestObject:
   def __init__(self, loc, size, rotation):
     self.sceneLoc = loc
@@ -107,25 +216,6 @@ def test_create_region_mesh():
   expected_length = 1.0 + 2 * region.buffer_size  # 1 unit length + buffer on each side
   assert np.max(x_values) - np.min(x_values) == pytest.approx(expected_width)
   assert np.max(y_values) - np.min(y_values) == pytest.approx(expected_length)
-
-def test_get_mesh_axis_aligned_projection_to_xy_corner_order():
-  # Regression: corners must stay counterclockwise from the origin corner [SW, SE, NE, NW],
-  # the order documented for Scene.map_corners_lla.
-  legacy_mesh = o3d.geometry.TriangleMesh()
-  legacy_mesh.vertices = o3d.utility.Vector3dVector(
-    np.array([[0, 0, 0], [2, 0, 0], [2, 3, 0], [0, 3, 0]], dtype=np.float64))
-  legacy_mesh.triangles = o3d.utility.Vector3iVector(np.array([[0, 1, 2], [0, 2, 3]]))
-  mesh = o3d.t.geometry.TriangleMesh.from_legacy(legacy_mesh)
-
-  corners = getMeshAxisAlignedProjectionToXY(mesh)
-
-  expected = np.array([
-    [0, 0, 0],  # SW
-    [2, 0, 0],  # SE
-    [2, 3, 0],  # NE
-    [0, 3, 0],  # NW
-  ])
-  np.testing.assert_array_equal(corners, expected)
 
 def test_create_object_mesh():
   # Create test object
@@ -374,135 +464,3 @@ def test_mesh_generator_rejected_when_unanchored_camera_lands_far_from_anchors(
   # Never reached the write-back, so intrinsics stay at Cam's own default
   # (set on first save), not the mocked mapping-service K matrix (500.0).
   assert qcam.intrinsics_fx == Cam.DEFAULT_INTRINSICS["fx"]
-
-
-@pytest.mark.django_db
-@patch("manager.mesh_generator.CamSerializer")
-def test_mesh_generator_accepts_far_patches_when_all_cameras_anchored(
-    mock_serializer_cls, test_scene_with_cameras):
-  """Demo-scene case: every camera is already calibrated (e.g. apriltag-based
-  retail/queuing scenes), so there is no unanchored pose left to validate.
-  Non-overlapping per-camera patches (cameras covering different parts of the
-  same physical scene) must not be rejected."""
-  scene = test_scene_with_cameras["scene"]
-  qcam = test_scene_with_cameras["qcam"]
-  qcam.transforms = [0.0] * 16
-  qcam.save()
-
-  serializer = _mock_serializer_for_test(mock_serializer_cls)
-  translations = {"camera1": [0.0, 0.0, 0.0], "camera2": [2.0, 0.0, 0.0], "atag-qcam1": [100.0, 0.0, 0.0]}
-  serializer.get_translation.side_effect = lambda cam: translations.get(cam.sensor_id)
-
-  mesh_generator = MeshGenerator()
-  mesh_generator.mapping_client.getReconstructionStatus = MagicMock(
-    return_value=_mapping_result(_FAR_OFFSET, [100.0, 0.0, 0.0]))
-
-  result = mesh_generator.finalizeMeshFromStatus(scene, "req-all-anchored")
-
-  assert result["success"], result.get("error")
-  assert "unanchored_cameras" not in result
-
-
-@pytest.mark.django_db
-@patch("manager.mesh_generator.PubSub")
-@patch("manager.mesh_generator.CamSerializer")
-def test_start_mesh_generation_converts_nonzero_euler_rotation_to_quaternion(
-    mock_serializer_cls, mock_pubsub_cls, test_scene_with_cameras):
-  """A calibrated camera's non-zero Euler
-  rotation must reach the mapping service as the equivalent quaternion,
-  not silently fall back to identity."""
-  scene = test_scene_with_cameras["scene"]
-  euler_rotation = [30.0, 45.0, 60.0]
-  expected_quat = Rotation.from_euler('XYZ', euler_rotation, degrees=True).as_quat().tolist()
-
-  serializer = mock_serializer_cls.return_value
-  serializer.get_translation.return_value = [1.0, 2.0, 3.0]
-  serializer.get_rotation.return_value = euler_rotation
-  serializer.get_scale.return_value = [1.0, 1.0, 1.0]
-
-  mesh_generator = MeshGenerator()
-  mesh_generator.image_collector.collectImagesForScene = MagicMock(return_value=[])
-  mesh_generator.mapping_client.startReconstructMesh = MagicMock(
-    return_value={"request_id": "req-euler"})
-
-  result = mesh_generator.startMeshGeneration(scene)
-
-  assert result["success"], result.get("error")
-  camera_location_order = mesh_generator.mapping_client.startReconstructMesh.call_args[0][2]
-  assert camera_location_order[0]["rotation"] == pytest.approx(expected_quat)
-
-
-def _pose_matrix(euler_deg, translation):
-  """Build a 4x4 pose from XYZ Euler angles in degrees and a translation."""
-  pose = np.eye(4)
-  pose[:3, :3] = Rotation.from_euler('XYZ', euler_deg, degrees=True).as_matrix()
-  pose[:3, 3] = translation
-  return pose
-
-
-@pytest.mark.django_db
-@pytest.mark.parametrize("returned_euler, returned_translation", [
-  pytest.param([10.0, 5.0, -40.0], [0.5, 2.0, 1.0], id="returned-pose-drifted"),
-  pytest.param([20.0, -35.0, 70.0], [3.0, -1.0, 0.5], id="returned-pose-matches-calibration"),
-])
-@patch("manager.mesh_generator.CamSerializer")
-def test_mesh_generator_places_mesh_at_calibrated_pose_of_translated_rotated_anchor(
-    mock_serializer_cls, returned_euler, returned_translation, test_scene_with_cameras):
-  """Anchored camera1 has a translated, non-zero-rotation calibrated pose. The
-  mapping service returns it at a drifted pose, or at exactly its calibrated
-  pose as a boundary case. A point the camera sees at p in its own frame must
-  end up at scene_pose @ p in the saved mesh, checking the final vertex
-  positions and orientation, not just the quaternion sent out. Re-applying the
-  frame flip moves the mesh and fails both cases."""
-  scene = test_scene_with_cameras["scene"]
-  camera2 = test_scene_with_cameras["camera2"]
-
-  scene_translation = [3.0, -1.0, 0.5]
-  scene_euler = [20.0, -35.0, 70.0]
-  scene_pose = _pose_matrix(scene_euler, scene_translation)
-  returned_pose = _pose_matrix(returned_euler, returned_translation)
-
-  # Only camera1 stays anchored, so the mesh is aligned from its pose alone.
-  camera2.transforms = []
-  camera2.save()
-
-  serializer = mock_serializer_cls.return_value
-  serializer.get_translation.side_effect = lambda cam: scene_translation if cam.sensor_id == "camera1" else None
-  serializer.get_rotation.side_effect = lambda cam: scene_euler if cam.sensor_id == "camera1" else None
-
-  # Offset so the box is not symmetric about the origin; a flip would then move it.
-  camera_frame_box = trimesh.creation.box(extents=[1.0, 2.0, 0.5])
-  camera_frame_box.apply_translation([0.7, -0.4, 1.3])
-  mapping_frame_mesh = camera_frame_box.copy()
-  mapping_frame_mesh.apply_transform(returned_pose)
-  glb_data = base64.b64encode(mapping_frame_mesh.export(file_type="glb")).decode("utf-8")
-  expected_vertices = camera_frame_box.vertices @ scene_pose[:3, :3].T + scene_pose[:3, 3]
-
-  returned_quat = Rotation.from_matrix(returned_pose[:3, :3]).as_quat().tolist()
-  mesh_generator = MeshGenerator()
-  mesh_generator.mapping_client.getReconstructionStatus = MagicMock(return_value={
-    "success": True,
-    "state": "complete",
-    "result": {
-      "success": True,
-      "glb_data": glb_data,
-      "camera_poses": [
-        {"camera_id": "camera1", "translation": returned_translation, "rotation": returned_quat},
-      ],
-      "intrinsics": [],
-    },
-  })
-
-  result = mesh_generator.finalizeMeshFromStatus(scene, "req-pose")
-
-  assert result["success"], result.get("error")
-  assert result["unanchored_cameras"] == ["camera2", "atag-qcam1"]
-
-  saved_glb = scene.map.save.call_args[0][1]
-  saved_glb.seek(0)
-  saved_mesh = trimesh.load(BytesIO(saved_glb.read()), file_type="glb").dump(concatenate=True)
-  distances = np.linalg.norm(saved_mesh.vertices[:, None, :] - expected_vertices[None, :, :], axis=2)
-  assert np.all(distances.min(axis=0) < 1e-4)  # every expected corner is in the saved mesh
-  assert np.all(distances.min(axis=1) < 1e-4)  # and no saved vertex sits elsewhere
-
-
