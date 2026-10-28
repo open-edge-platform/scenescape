@@ -93,9 +93,18 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
                   &rv::tracking::TrackedObject::getVectorXf,
                   &rv::tracking::TrackedObject::setVectorXf,
                   py::return_value_policy::take_ownership, "Returns this object's state vector as numpy array.")
-    .def_readwrite("measurement_mean", &rv::tracking::TrackedObject::predictedMeasurementMean, "Returns this object's measurement vector as numpy array.")
-    .def_readwrite("measurement_covariance", &rv::tracking::TrackedObject::predictedMeasurementCov, "Measurement covariance matrix, convert to numpy using np.array(tracked_object.measurement_covariance).")
-    .def_readwrite("error_covariance", &rv::tracking::TrackedObject::errorCovariance, "Error covariance matrix, convert to numpy using np.array(tracked_object.error_covariance).")
+    .def_property("measurement_mean",
+                  [](const rv::tracking::TrackedObject &object) { return cv::Mat(object.predictedMeasurementMean); },
+                  [](rv::tracking::TrackedObject &object, const cv::Mat &mean) { object.predictedMeasurementMean = mean; },
+                  "Copy of this object's predicted measurement vector, convert to numpy using np.array(tracked_object.measurement_mean).")
+    .def_property("measurement_covariance",
+                  [](const rv::tracking::TrackedObject &object) { return cv::Mat(object.predictedMeasurementCov); },
+                  [](rv::tracking::TrackedObject &object, const cv::Mat &covariance) { object.predictedMeasurementCov = covariance; },
+                  "Copy of the measurement covariance matrix, convert to numpy using np.array(tracked_object.measurement_covariance).")
+    .def_property("error_covariance",
+                  [](const rv::tracking::TrackedObject &object) { return cv::Mat(object.errorCovariance); },
+                  [](rv::tracking::TrackedObject &object, const cv::Mat &covariance) { object.errorCovariance = covariance; },
+                  "Copy of the error covariance matrix, convert to numpy using np.array(tracked_object.error_covariance).")
     .def("__repr__", &rv::tracking::TrackedObject::toString, "String representation.");
 
 
@@ -248,14 +257,6 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
      .def("get_drifting_tracks",
           &rv::tracking::TrackManager::getDriftingTracks,
           "Returns a list of tracks in risk of being deleted. Objects that have not been visible for config.non_measurement_frames_dynamic / 2.")
-     .def("get_track",
-          &rv::tracking::TrackManager::getTrack,
-          "Returns the TrackedObject stored for the given id.",
-          py::arg("id"))
-     .def("get_kalman_estimator",
-          &rv::tracking::TrackManager::getKalmanEstimator,
-          "Returns the MultiModelKalmanEstimator  stored for the given id.",
-          py::arg("id"))
      .def("has_id",
          &rv::tracking::TrackManager::hasId,
          "Check wether the given Id is registered in the track manager.",

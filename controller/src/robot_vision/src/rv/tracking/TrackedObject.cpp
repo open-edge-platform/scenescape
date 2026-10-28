@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include "rv/tracking/TrackedObject.hpp"
@@ -6,17 +6,12 @@
 namespace rv {
 namespace tracking {
 
-const int TrackedObject::StateSize = 12;
-const int TrackedObject::MeasurementSize = 7;
-
 TrackedObject::TrackedObject()
+  : predictedMeasurementCov(1e-4 * MeasurementMatrix::eye())
+  , predictedMeasurementCovInv(1e4 * MeasurementMatrix::eye())
+  , errorCovariance(1e-4 * StateMatrix::eye())
 {
   classification = Classification::Constant(1,1.0);
-
-  predictedMeasurementMean = cv::Mat::zeros(TrackedObject::MeasurementSize, 1, CV_64F);
-  predictedMeasurementCov = 1e-4 * cv::Mat::eye(TrackedObject::MeasurementSize, TrackedObject::MeasurementSize, CV_64F);
-  predictedMeasurementCovInv = 1e4 * cv::Mat::eye(TrackedObject::MeasurementSize, TrackedObject::MeasurementSize, CV_64F);
-  errorCovariance = 1e-4 * cv::Mat::eye(TrackedObject::StateSize, TrackedObject::StateSize, CV_64F);
 }
 
 std::string TrackedObject::toString() const
@@ -110,20 +105,11 @@ void TrackedObject::setStateVector(const cv::Mat &vector)
 }
 
 /**
- * @brief Convert to a cv::Mat vector.
+ * @brief Convert to a fixed-size measurement vector.
  */
-cv::Mat TrackedObject::measurementVector() const
+TrackedObject::MeasurementVector TrackedObject::measurementVector() const
 {
-  cv::Mat vector(MeasurementSize, 1, CV_64F);
-  vector.at<double>(0, 0) = x;
-  vector.at<double>(1, 0) = y;
-  vector.at<double>(2, 0) = z;
-  vector.at<double>(3, 0) = length;
-  vector.at<double>(4, 0) = width;
-  vector.at<double>(5, 0) = height;
-  vector.at<double>(6, 0) = yaw;
-
-  return vector;
+  return MeasurementVector(x, y, z, length, width, height, yaw);
 }
 
 

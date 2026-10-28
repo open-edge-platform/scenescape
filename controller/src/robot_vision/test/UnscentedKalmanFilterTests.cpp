@@ -100,7 +100,7 @@ TEST(UnscentedKalmanFilterTest, LinearModelMatchesExactKalmanFilter)
   {
     TrackedObject target = start;
     target.x = 1.0 * kDeltaT * update;
-    const cv::Mat measurement = target.measurementVector();
+    const cv::Mat measurement(target.measurementVector());
 
     filter->predict(control);
     filter->correct(measurement);
