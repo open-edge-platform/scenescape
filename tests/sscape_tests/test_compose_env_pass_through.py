@@ -106,16 +106,35 @@ def _compose_config(project_dir, env_file, process_env):
   )
 
 
-def test_relative_process_dbroot_breaks_bind_mounts_without_override(dbroot_probe):
-  """Documents the compose behaviour: a relative shell DBROOT beats the env-file."""
-  project_dir, env_file, _ = dbroot_probe
-  process_env = {**os.environ, "DBROOT": "test_data/scene_perf_full"}
+def _media_bind_sources(project_dir, env_file, process_env):
   result = _compose_config(project_dir, env_file, process_env)
-  assert result.returncode != 0
-  assert "test_data/scene_perf_full/media" in result.stderr
+  assert result.returncode == 0, result.stderr
+  services = json.loads(result.stdout)["services"]
+  return {
+    name: os.path.normpath(service["volumes"][0]["source"])
+    for name, service in services.items()
+  }
 
 
-@pytest.mark.parametrize("previous", [None, "test_data/scene_perf_full"])
+# "./"-prefixed so every Compose version resolves it as a bind path against the
+# project directory (bare relative paths may be rejected as named volumes).
+_STALE_RELATIVE_DBROOT = "./test_data/scene_perf_full"
+
+
+def test_relative_process_dbroot_overrides_env_file_without_override(dbroot_probe):
+  """Documents the compose behaviour: a relative shell DBROOT beats the env-file."""
+  project_dir, env_file, db_root = dbroot_probe
+  process_env = {**os.environ, "DBROOT": _STALE_RELATIVE_DBROOT}
+  sources = _media_bind_sources(project_dir, env_file, process_env)
+  stale_root = project_dir.resolve() / "test_data" / "scene_perf_full"
+  assert sources == {
+    "scene": str(stale_root / "media"),
+    "child1": str(stale_root / "child1" / "media"),
+  }
+  assert not any(src.startswith(str(db_root)) for src in sources.values())
+
+
+@pytest.mark.parametrize("previous", [None, _STALE_RELATIVE_DBROOT])
 def test_override_compose_env_scopes_dbroot_and_restores(dbroot_probe, previous):
   """Scoped DBROOT yields absolute bind mounts; the previous value is restored."""
   project_dir, env_file, db_root = dbroot_probe
@@ -128,11 +147,11 @@ def test_override_compose_env_scopes_dbroot_and_restores(dbroot_probe, previous)
 
     restore = override_compose_env("DBROOT", str(db_root))
     try:
-      result = _compose_config(project_dir, env_file, os.environ.copy())
-      assert result.returncode == 0, result.stderr
-      services = json.loads(result.stdout)["services"]
-      assert services["scene"]["volumes"][0]["source"] == f"{db_root}/media"
-      assert services["child1"]["volumes"][0]["source"] == f"{db_root}/child1/media"
+      sources = _media_bind_sources(project_dir, env_file, os.environ.copy())
+      assert sources == {
+        "scene": str(db_root / "media"),
+        "child1": str(db_root / "child1" / "media"),
+      }
     finally:
       restore()
 
