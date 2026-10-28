@@ -4,7 +4,9 @@
 """Deployment and security gates for the PTZ acceptance profile."""
 
 import json
+import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 
@@ -56,6 +58,33 @@ def test_positioning_acl_renders_the_tracked_default_manifest(tmp_path):
     "user positioning.scenescape.intel.com",
     "topic write scenescape/positioning/status/positioning-default",
   ]
+
+
+def test_positioning_acl_is_never_world_readable(tmp_path):
+  """Mosquitto 2.1 crashes on, and will later refuse, world-readable ACL files."""
+  script = REPO_ROOT / "tools/positioning/render_mosquitto_acl.py"
+  manifest = REPO_ROOT / "deployment/positioning-assignments.json"
+  for group, mode in ((None, 0o600), (os.getgid(), 0o640)):
+    output = tmp_path / f"{mode:o}.acl"
+    command = [sys.executable, str(script), "--assignments", str(manifest),
+               "--resolver-id", "positioning-default", "--output", str(output)]
+    if group is not None:
+      command += ["--group", str(group)]
+    subprocess.run(command, check=True)
+    assert stat.S_IMODE(output.stat().st_mode) == mode
+    assert output.stat().st_gid == os.getgid()
+
+
+def test_positioning_acl_rendered_with_the_broker_group():
+  compose = yaml.safe_load(
+    (REPO_ROOT / "sample_data/compose/compose.dl-streamer-example.yml").read_text())
+  entrypoint = compose["services"]["positioning-acl-init"]["entrypoint"]
+  assert entrypoint[entrypoint.index("--group") + 1] == "${GID:-1000}"
+  assert compose["services"]["broker"]["user"] == "${UID:-1000}:${GID:-1000}"
+
+  broker = (REPO_ROOT / "kubernetes/scenescape-chart/templates/broker/deployment.yaml").read_text()
+  assert "fsGroup: {{ .Values.broker.gid }}" in broker
+  assert "- key: positioning.acl\n                path: positioning.acl\n                mode: 0440" in broker
 
 
 def test_positioning_acl_ignores_comment_keys_like_the_shared_loader():

@@ -114,6 +114,8 @@ services:
       - ${POSITIONING_RESOLVER_ID:-positioning-default}
       - --output
       - /output/positioning.acl
+      - --group
+      - ${GID:-1000}
     volumes:
       - ./deployment/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
       - vol-positioning-acl:/output

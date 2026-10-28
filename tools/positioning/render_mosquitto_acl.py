@@ -54,6 +54,9 @@ def main():
   parser.add_argument("--assignments", required=True, help="source_id -> resolver_id JSON file")
   parser.add_argument("--resolver-id", required=True)
   parser.add_argument("--output", required=True, help="ACL file destination")
+  parser.add_argument("--group", type=int,
+                      help="broker group ID; the ACL becomes group-readable (0640) instead of "
+                           "owner-only (0600). Never world-readable: Mosquitto 2.1 rejects it")
   args = parser.parse_args()
 
   with open(args.assignments, encoding="utf-8") as assignments_file:
@@ -68,7 +71,9 @@ def main():
         mode="w", encoding="utf-8", dir=os.path.dirname(output), delete=False) as acl_file:
       temporary = acl_file.name
       acl_file.write(acl)
-    os.chmod(temporary, 0o644)
+    if args.group is not None:
+      os.chown(temporary, -1, args.group)
+    os.chmod(temporary, 0o600 if args.group is None else 0o640)
     os.replace(temporary, output)
   finally:
     if temporary and os.path.exists(temporary):

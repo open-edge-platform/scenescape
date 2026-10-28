@@ -24,6 +24,8 @@ spec:
       securityContext:
         runAsUser: {{ .Values.broker.uid }}
         runAsGroup: {{ .Values.broker.gid }}
+        # Group-owns the projected ACL: Mosquitto 2.1 must not read it as world-readable.
+        fsGroup: {{ .Values.broker.gid }}
       containers:
         - name: broker
           image: {{ .Values.broker.image }}:{{ .Values.broker.tag }}
@@ -72,4 +74,7 @@ spec:
             items:
               - key: mosquitto-secure.conf
                 path: mosquitto-secure.conf
+              - key: positioning.acl
+                path: positioning.acl
+                mode: 0440
         {{- include "certs_volume" . | nindent 8 }}
