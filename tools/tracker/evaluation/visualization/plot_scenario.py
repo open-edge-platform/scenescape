@@ -289,7 +289,7 @@ def run_trackeval(scenario: Scenario, fps: Optional[float] = None) -> Optional[p
   raises when TrackEval fails.
   """
   tracks, truth = scenario.files.get(TRACKS_FILE), scenario.files.get(GROUND_TRUTH_FILE)
-  if tracks is None or truth is None or scenario.tracks.empty:
+  if tracks is None or truth is None:
     return None
   fps = fps or ground_truth_fps(truth)
   evaluator = TrackEvalEvaluator().configure_metrics(list(TRACKEVAL_SCORES)[:3]).set_base_fps(fps)
