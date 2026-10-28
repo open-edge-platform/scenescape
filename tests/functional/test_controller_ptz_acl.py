@@ -60,7 +60,7 @@ def cameras(rest, scene_uid):
     rest.deleteCamera(camera_id)
 
 
-@pytest.mark.test_name("NEX-T29972")
+@pytest.mark.test_name("NEX-T#####")
 def test_controller_may_read_poses_of_cameras_in_a_scene(rest, params, cameras, result_recorder):
   """Pose reads are allowed for a camera that belongs to a scene."""
   for access in (READ_ONLY, CAN_SUBSCRIBE):
@@ -70,7 +70,7 @@ def test_controller_may_read_poses_of_cameras_in_a_scene(rest, params, cameras, 
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29973")
+@pytest.mark.test_name("NEX-T#####")
 def test_controller_cannot_read_poses_of_unknown_or_scene_less_cameras(
     rest, params, cameras, result_recorder):
   """Pose reads are denied for an unknown camera and for a camera outside every scene."""
@@ -82,7 +82,7 @@ def test_controller_cannot_read_poses_of_unknown_or_scene_less_cameras(
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29974")
+@pytest.mark.test_name("NEX-T#####")
 def test_controller_cannot_publish_poses_and_may_read_resolver_status(
     rest, params, cameras, result_recorder):
   """The Controller consumes poses and status; it can never publish them."""

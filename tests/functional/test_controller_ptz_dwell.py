@@ -41,7 +41,7 @@ def _admitted(harness):
   return bool(harness.output_with_objects())
 
 
-@pytest.mark.test_name("NEX-T29961")
+@pytest.mark.test_name("NEX-T#####")
 def test_ptz_detections_wait_for_the_dwell_and_use_the_pose_projection(
     ptz_harness, result_recorder):
   """No detection is admitted before the dwell completes, then it projects with the pose."""
@@ -66,7 +66,7 @@ def test_ptz_detections_wait_for_the_dwell_and_use_the_pose_projection(
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29962")
+@pytest.mark.test_name("NEX-T#####")
 def test_ptz_at_home_pose_matches_the_static_projection(ptz_harness, result_recorder):
   """The home pose published as a PoseContext projects like the static camera pose."""
   harness = ptz_harness
@@ -99,21 +99,21 @@ def _assert_motion_blocks_until_dwell_restarts(harness, state, reason):
     "detections resumed before a new dwell could have completed"
 
 
-@pytest.mark.test_name("NEX-T29963")
+@pytest.mark.test_name("NEX-T#####")
 def test_ptz_slewing_blocks_detections_until_the_dwell_restarts(ptz_harness, result_recorder):
   """A moving camera drops detections; they resume only after a new dwell."""
   _assert_motion_blocks_until_dwell_restarts(ptz_harness, MOTION_SLEWING, "moving")
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29969")
+@pytest.mark.test_name("NEX-T#####")
 def test_ptz_settling_blocks_detections_until_the_dwell_restarts(ptz_harness, result_recorder):
   """A settling camera drops detections; they resume only after a new dwell."""
   _assert_motion_blocks_until_dwell_restarts(ptz_harness, MOTION_SETTLING, "settling")
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29964")
+@pytest.mark.test_name("NEX-T#####")
 def test_ptz_stale_pose_drops_detections_and_recovers(ptz_harness, result_recorder):
   """Without fresh poses the Controller stops admitting; it recovers after a new dwell."""
   harness = ptz_harness
@@ -146,7 +146,7 @@ def _assert_dwell_restarts(harness, trigger):
     "detections resumed before a new dwell could have completed"
 
 
-@pytest.mark.test_name("NEX-T29965")
+@pytest.mark.test_name("NEX-T#####")
 def test_ptz_sequence_gap_resets_the_dwell(ptz_harness, result_recorder):
   """A missing sample means the camera may have moved: the dwell restarts."""
   harness = ptz_harness
@@ -158,7 +158,7 @@ def test_ptz_sequence_gap_resets_the_dwell(ptz_harness, result_recorder):
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29966")
+@pytest.mark.test_name("NEX-T#####")
 def test_ptz_resolver_session_change_resets_the_dwell(ptz_harness, result_recorder):
   """A new Resolver session invalidates the accumulated dwell even if poses continue."""
   harness = ptz_harness
@@ -170,7 +170,7 @@ def test_ptz_resolver_session_change_resets_the_dwell(ptz_harness, result_record
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29967")
+@pytest.mark.test_name("NEX-T#####")
 def test_ptz_frame_or_calibration_mismatch_drops_detections(ptz_harness, result_recorder):
   """Poses for another frame or calibration version never admit detections."""
   harness = ptz_harness
@@ -189,7 +189,7 @@ def test_ptz_frame_or_calibration_mismatch_drops_detections(ptz_harness, result_
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T29968")
+@pytest.mark.test_name("NEX-T#####")
 def test_ptz_camera_without_resolver_assignment_fails_closed(ptz_harness, result_recorder):
   """A PTZ camera missing from the assignment manifest is dropped; static cameras still track."""
   harness = ptz_harness
