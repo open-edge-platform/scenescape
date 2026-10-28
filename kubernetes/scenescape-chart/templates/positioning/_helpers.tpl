@@ -76,6 +76,7 @@ Broker ACL principal and topic segments must not permit wildcards or newlines.
 {{- $lines := list "user positioning.scenescape.intel.com" (printf "topic write scenescape/positioning/status/%s" $resolverId) -}}
 {{- range $sourceId, $owner := (.Values.positioning.assignments | default dict) -}}
 {{- $sourceId = toString $sourceId -}}
+{{- if not (hasPrefix "$" $sourceId) -}}
 {{- $owner = toString $owner -}}
 {{- if not (regexMatch "^[A-Za-z0-9_.-]+$" $sourceId) -}}
 {{- fail (printf "positioning.assignments key %q must be a single safe MQTT topic segment" $sourceId) -}}
@@ -86,6 +87,7 @@ Broker ACL principal and topic segments must not permit wildcards or newlines.
 {{- if eq $owner $resolverId -}}
 {{- $lines = append $lines (printf "topic read scenescape/cmd/camera/config/%s" $sourceId) -}}
 {{- $lines = append $lines (printf "topic write scenescape/positioning/pose/%s" $sourceId) -}}
+{{- end -}}
 {{- end -}}
 {{- end -}}
 {{- join "\n" $lines -}}

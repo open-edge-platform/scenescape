@@ -29,6 +29,9 @@ def render_acl(assignments, resolver_id):
 
   sources = []
   for source_id, owner in assignments.items():
+    # Matches the Positioning, Manager and Controller loaders: `$` keys are comments.
+    if isinstance(source_id, str) and source_id.startswith("$"):
+      continue
     source_id = _topic_segment(source_id, "source_id")
     owner = _topic_segment(owner, f"assignment for {source_id}")
     if owner == resolver_id:

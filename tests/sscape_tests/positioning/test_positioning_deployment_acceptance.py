@@ -5,10 +5,13 @@
 
 import json
 from pathlib import Path
+import subprocess
+import sys
 
 import pytest
 import yaml
 
+from scene_common.positioning_assignments import parse_assignments
 from tools.positioning.render_mosquitto_acl import render_acl
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -38,6 +41,31 @@ def test_positioning_acl_rejects_topic_wildcards_and_delimiters(bad_segment):
 
   with pytest.raises(ValueError):
     render_acl({}, bad_segment)
+
+
+def test_positioning_acl_renders_the_tracked_default_manifest(tmp_path):
+  """The Compose broker depends on this succeeding for the shipped manifest."""
+  output = tmp_path / "positioning.acl"
+  subprocess.run(
+    [sys.executable, str(REPO_ROOT / "tools/positioning/render_mosquitto_acl.py"),
+     "--assignments", str(REPO_ROOT / "deployment/positioning-assignments.json"),
+     "--resolver-id", "positioning-default", "--output", str(output)],
+    check=True)
+
+  assert output.read_text().splitlines() == [
+    "user positioning.scenescape.intel.com",
+    "topic write scenescape/positioning/status/positioning-default",
+  ]
+
+
+def test_positioning_acl_ignores_comment_keys_like_the_shared_loader():
+  manifest = {"$comment": "x", "camera-a": "resolver-a"}
+
+  assert render_acl(manifest, "resolver-a").splitlines()[2:] == [
+    "topic read scenescape/cmd/camera/config/camera-a",
+    "topic write scenescape/positioning/pose/camera-a",
+  ]
+  assert list(parse_assignments(manifest)) == ["camera-a"]
 
 
 def test_production_compose_and_helm_flags_default_off():
