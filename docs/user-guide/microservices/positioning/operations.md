@@ -268,6 +268,10 @@ positioning/.local/
    The secret files mounted by the base Compose file (broker auth and
    certificates) must also be readable by the user ID you set.
 
+   Pose consumers read the same manifest. To let the Scene Controller consume
+   poses, add a `scene` service to this file as described in
+   [PTZ Pose Consumption in the Scene Controller](../controller/ptz-pose-consumption.md#deploy).
+
 6. Start the demo stack, then recreate only the Positioning service with the
    override. `make demo` generates the root `docker-compose.yml` and starts
    Positioning with the default configuration, which has no sources:
@@ -395,8 +399,10 @@ The `UTCDateTime` element in the response is the camera's UTC time.
 
 ## Shadow Validation Artifacts
 
-When Controller and Tracker shadow profiles are implemented, each emits sampled,
-structured JSONL records to stdout only. Records share a `run_id`; the acceptance
+When the Controller and Tracker shadow profiles run, each emits sampled,
+structured JSONL records to stdout only. The Controller's record format is in
+[PTZ Pose Consumption](../controller/ptz-pose-consumption.md#shadow-mode); the Tracker
+profile is not implemented yet. Records share a `run_id`; the acceptance
 harness combines both profiles by that ID into the immutable
 `tests/artifacts/ptz/shadow/<run_id>.jsonl` artifact and publishes it with the CI or
 acceptance run. Services do not write local artifact files or require production
@@ -431,9 +437,9 @@ increment `positioning.onvifCredentials.rolloutRevision` in the Helm upgrade so
 the pollers restart and load the new credentials. The pod template records only
 this caller-supplied revision, not credential data or a credential-derived hash.
 
-The service publishes resolved poses but does not alter detections, because Controller
-and Tracker do not consume them yet. Roll back PTZ polling and pose publishing by
-removing `sources` from the deployment configuration, or roll back the
-whole service by disabling the Positioning deployment. Later PTZ rollout rollback is
-per consumer: disable the corresponding Controller or Tracker PTZ flag and return to
-static projection.
+The service publishes resolved poses but does not alter detections itself. The Scene
+Controller consumes poses only when its PTZ mode is enabled; Tracker does not consume
+them yet. Roll back PTZ polling and pose publishing by removing `sources` from the
+deployment configuration, or disable the Positioning deployment. To return the
+Controller to static projection, disable its PTZ mode; see
+[PTZ Pose Consumption](../controller/ptz-pose-consumption.md#roll-back).

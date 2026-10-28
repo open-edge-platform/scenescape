@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
   dependencies = [
-    ("manager", "0007_add_ptz_calibration_to_cam"),
+    ("manager", "0008_add_ptz_calibration_to_cam"),
   ]
 
   operations = [

@@ -69,6 +69,14 @@ Example `pose-adjustment-route.json`:
 
 Resolution order is: exact label, then configured route labels. Routes are flattened at startup so message-time dispatch remains a direct lookup.
 
+`--ptz` / `--ptz-shadow`: Consume the Positioning service's resolved PTZ poses. `--ptz` drops PTZ camera detections the dwell contract rejects and projects the rest with the camera's pose; `--ptz-shadow` only observes and records. Both are disabled by default, can also be set with `CONTROLLER_PTZ_ENABLED` / `CONTROLLER_PTZ_SHADOW_MODE`, and are mutually exclusive. They cannot be combined with `--rewriteAllTime` or `--rewriteBadTime`, and they require `--ntp`.
+
+`--ptz_config_file`: JSON file with the required PTZ consumer bounds. The default file is `ptz-consumer-config.json` next to the controller executable. It is read only when a PTZ mode is on.
+
+`--positioning_assignments_file`: JSON manifest that maps each PTZ `source_id` to the Positioning resolver that owns it. The default file is `positioning-assignments.json` next to the controller executable.
+
+See [PTZ Pose Consumption](./ptz-pose-consumption.md) for the configuration keys, behavior, and rollback.
+
 `CONTROLLER_TRUSTED_POSITIONING_SOURCES`: Comma-separated list of external `source_id`s (see
 [External Source Input Message Format](./data_formats.md#external-source-input-message-format))
 authorized to publish poses already expressed in a target scene's local coordinates (the
@@ -148,6 +156,7 @@ Get Started <./get-started.md>
 Configure the Tracker <./how-to-configure-tracker.md>
 Extended-ReID.md
 Pose Adjustment <./pose_adjustment.md>
+PTZ Pose Consumption <./ptz-pose-consumption.md>
 Data Formats <./data_formats.md>
 API Reference <./api-reference.md>
 

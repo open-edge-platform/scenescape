@@ -502,6 +502,46 @@ SCENE_NO_DB = ServiceProfile(
   },
 )
 
+PTZ_ENFORCE = ServiceProfile(
+  name="ptz_enforce",
+  compose_files=(
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.scene-ptz.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "analytics": _ANALYTICS,
+  },
+)
+
+PTZ_SHADOW = ServiceProfile(
+  name="ptz_shadow",
+  compose_files=(
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.scene-ptz-shadow.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "analytics": _ANALYTICS,
+  },
+)
+
 MARKERLESS = ServiceProfile(
   name="markerless",
   compose_files=(
@@ -626,6 +666,8 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_AUTOCALIBRATION,
     FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
     SCENE_NO_DB,
+    PTZ_ENFORCE,
+    PTZ_SHADOW,
     MARKERLESS,
     INFERENCE_PERF,
     STABILITY,
