@@ -63,7 +63,11 @@ def objData():
 @pytest.fixture(scope="function")
 def rest(params):
   client = RESTClient(params['resturl'], rootcert=params['rootcert'])
-  assert client.authenticate(params['user'], params['password'])
+  res = client.authenticate(params['user'], params['password'])
+  assert res, (
+    f"REST authentication against {params['resturl']} failed: "
+    f"status={res.statusCode}, errors={res.errors}"
+  )
   return client
 
 @pytest.fixture(scope="function")

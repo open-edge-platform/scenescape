@@ -24,7 +24,7 @@ SCALE = 1000
 
 
 @pytest.mark.test_name("NEX-T29234")
-def test_persistence_on_page_navigate(params, result_recorder):
+def test_persistence_on_page_navigate(demo_scene, params, result_recorder):
   """! Checks that a scene can be created and a camera added.
   @param    params                  Dict of test parameters.
   """
@@ -76,7 +76,7 @@ _RESTART_LOGIN_POLL_INTERVAL = 2
 
 
 @pytest.mark.test_name("NEX-T29235")
-def test_persistence_on_restart(params, scenescape_env, result_recorder):
+def test_persistence_on_restart(demo_scene, params, scenescape_env, result_recorder):
   """! Checks that a scene and camera created via the UI are still present
   after the manager (web) service itself is restarted, proving the data is
   persisted in the database rather than only held in memory.
@@ -114,7 +114,11 @@ def test_persistence_on_restart(params, scenescape_env, result_recorder):
     log.info("Restarting manager (web) service to verify database persistence...")
     browser.close()
     browser = None
-    scenescape_env.docker.compose.restart("web")
+    # The Kubernetes env carries its own restart hook; Compose restarts via the docker client.
+    if getattr(scenescape_env, "restart_web", None):
+      scenescape_env.restart_web()
+    else:
+      scenescape_env.docker.compose.restart("web")
 
     # Wait for the manager to come back up and accept logins again.
     browser = Browser()
