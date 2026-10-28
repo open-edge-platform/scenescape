@@ -15,7 +15,7 @@ opencv-python-headless==4.13.0.92
 orjson==3.11.6
 paho-mqtt==2.1.0
 scipy==1.17.1
-setuptools==83.0.0
+setuptools==84.1.0
 shapely==2.1.1
 trimesh==4.11.5
 wheel==0.47.0

@@ -29,7 +29,7 @@ dt-apriltags==3.1.7
 Django==5.2.17
 django-axes==8.0.0
 django-session-timeout==0.1.0
-djangorestframework==3.16.1
+djangorestframework==3.18.2
 jsonschema==4.25.1
 plyfile==1.0.3
 trimesh==4.11.5
