@@ -126,7 +126,6 @@ scene_common/src/scene_common/json_track_data.py	Simcam::getImage	14
 scene_common/src/scene_common/mesh_util.py	checkMeshConnectivity	31
 scene_common/src/scene_common/mesh_util.py	createBasePolygon	15
 scene_common/src/scene_common/mesh_util.py	extractMeshFromPointCloud	13
-scene_common/src/scene_common/mesh_util.py	mergeMesh	41
 scene_common/src/scene_common/mqtt.py	PubSub::__init__	26
 scene_common/src/scene_common/mqtt.py	PubSub::parseTopic	15
 scene_common/src/scene_common/rest_client.py	RESTClient::decodeReply	16
