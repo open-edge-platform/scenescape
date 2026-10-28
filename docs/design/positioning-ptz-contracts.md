@@ -211,12 +211,10 @@ from the home pose.
 cannot express: finite values, unit axes, ordered ranges, home position inside the
 range, frame consistency with the composition order, and distinct backlash nodes.
 
-## Golden Data
+## Golden Data Prerequisite
 
-`tests/data/ptz/provisional_pose_math.json` uses early measured values and placeholders. It is
-for development only. `tests/data/ptz/reprojection_golden.json` is the hardware
-measurement session: measured calibration and home pose, held-out residuals in both
-travel directions and all dual-axis directions, the ONVIF samples and published
-PoseContexts needed to replay the Resolver, and full provenance. Its acceptance
-budgets are in `tests/data/ptz/acceptance_profile.json`; see the Positioning
-[operations guide](../user-guide/microservices/positioning/operations.md#hardware-acceptance-evidence).
+`tests/data/ptz/provisional_pose_math.json` uses PoC values and placeholders. It is
+for development only. Phase 1 math acceptance closes only after
+`tests/data/ptz/reprojection_golden.json` is committed. That file comes from a
+hardware measurement session and contains measured calibration, held-out residuals
+in both travel directions, and full provenance.
