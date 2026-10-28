@@ -122,8 +122,9 @@ def test_positioning_production_transport_and_single_replica_gates():
   dockerfile = (REPO_ROOT / "positioning/Dockerfile").read_text()
   certificates = (REPO_ROOT / "tools/certificates/Makefile").read_text()
 
-  scene_env = compose["services"]["scene"]["environment"]
-  assert scene_env["BROKER_URL"] == "${BROKER_URL:-broker.scenescape.intel.com:8883}"
+  positioning_command = compose["services"]["positioning"]["command"]
+  assert positioning_command[positioning_command.index("--broker") + 1] == (
+    "broker.scenescape.intel.com:8883")
   assert "require_certificate true" in broker
   assert "use_identity_as_username true" in broker
   assert "acl_file /mosquitto/acl/positioning.acl" in broker
