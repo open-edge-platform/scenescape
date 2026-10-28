@@ -492,6 +492,23 @@ MOT track continuity with people in the scene, Tracker consumption, or the full
 ONVIF travel range. Do not enable a consumer in production until its own profile
 passes.
 
+Live recovery checks on the same deployment (camera parked, Controller enforcing,
+observer on the regular broker listener) all failed closed: no PoseContext sampled
+before or during an outage was received as valid afterwards, and the Controller
+rejected frames as `sample_stale` until fresh poses returned.
+
+| Scenario                                  | Observed                                                                 | First fresh valid pose |
+| ----------------------------------------- | ------------------------------------------------------------------------ | ---------------------- |
+| Positioning restart                       | Publishing stops at SIGTERM; status `offline`, then `online`; `settling` | 1.9 s after start      |
+| Broker restart                            | All clients reconnect; Controller resubscribes                           | 0.9 s after restart    |
+| Adapter stall (3 s, no samples)           | No poses; continuity gap restarts settling                               | 0.6 s after resume     |
+| Positioning stopped, late subscriber       | Retained pose already past `valid_until`; retained status `offline`      | 2.0 s after start      |
+
+Positioning stops publishing poses immediately on SIGTERM, but its retained `offline`
+status follows about 5.6 s later while workers shut down; consumers rely on
+`valid_until` rather than that status. Calibration invalidation and reload are covered
+by the software replay tests above.
+
 ## Deployments and Rollback
 
 Demo, deploy, and Compose tests include the Positioning service with the Scene
