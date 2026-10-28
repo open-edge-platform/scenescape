@@ -77,6 +77,11 @@ and pose topics assigned to its resolver and read only those cameras' configurat
 invalidations. Protect ONVIF camera traffic with the host firewall: Compose does not
 provide portable egress CIDR policies.
 
+The broker logs that `per_listener_settings` is deprecated. This is expected:
+Mosquitto 2.1 still needs that option to apply the Positioning ACL to port 8883 only,
+without restricting clients on the other listeners. The option is scheduled for
+removal in Mosquitto 3.0, so keep the broker image on 2.x until the ACL is migrated.
+
 `CONTROLLER_PTZ_ENABLED` and `CONTROLLER_PTZ_SHADOW_MODE` default to `false`.
 Do not enable either mode until the Controller's shadow acceptance gate passes. The
 Tracker does not consume poses yet.
