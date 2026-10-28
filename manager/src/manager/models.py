@@ -46,47 +46,53 @@ def sendUpdateCommand(scene_id=None, camera_data=None, camera_config_update=None
   if rootcert is None:
     rootcert = "/run/secrets/certs/scenescape-ca.pem"
   cert = os.environ.get("BROKERCERT")
-  if broker is not None:
-    try:
-      client = PubSub(auth, cert, rootcert, broker)
-      client.connect()
-    except (socket.gaierror, ConnectionRefusedError) as e:
-      log.error("Unable to connect: %s", e)
-    else:
-      if scene_id:
-        client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
-        url = f"https://{autocalibration}/v1/scenes/{scene_id}/registration"
-        headers = {
-          "Content-Type": "application/json"
-        }
-        try:
-          response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
-          log.info("Status code: %s", response.status_code)
-          try:
-            log.info("Response: %s", response.json())
-          except ValueError:
-            log.info("Non-JSON response: %s", response.text)
-        except requests.exceptions.RequestException as e:
-          log.warning("Failed to send update command to autocalibration service: %s", e)
+  if broker is None:
+    return
+  try:
+    client = PubSub(auth, cert, rootcert, broker)
+    client.connect()
+  except (socket.gaierror, ConnectionRefusedError) as e:
+    log.error("Unable to connect: %s", e)
+    return
 
-      if camera_data:
-        client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
-      if camera_config_update:
-        try:
-          topic = PubSub.formatTopic(
-            PubSub.CMD_CAMERA_CONFIG, camera_id=camera_config_update['camera_id'])
-        except (TypeError, ValueError) as e:
-          log.warning(f"Skipping camera configuration invalidation: {e}")
-        else:
-          client.publish(topic, json.dumps({
-            'calibration_version': camera_config_update['calibration_version']
-          }), qos=1)
-      msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
-      if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
-        client.loopStart()
-        msg.wait_for_publish()
-        client.loopStop()
+  if scene_id:
+    client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
+    url = f"https://{autocalibration}/v1/scenes/{scene_id}/registration"
+    headers = {
+      "Content-Type": "application/json"
+    }
+    try:
+      response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
+      log.info("Status code: %s", response.status_code)
+      try:
+        log.info("Response: %s", response.json())
+      except ValueError:
+        log.info("Non-JSON response: %s", response.text)
+    except requests.exceptions.RequestException as e:
+      log.warning("Failed to send update command to autocalibration service: %s", e)
+
+  if camera_data:
+    client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
+  if camera_config_update:
+    publishCameraConfigUpdate(client, camera_config_update)
+  msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
+  if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
+    client.loopStart()
+    msg.wait_for_publish()
+    client.loopStop()
   return
+
+def publishCameraConfigUpdate(client, camera_config_update):
+  """Publish calibration invalidation only for a topic-safe camera identity."""
+  try:
+    topic = PubSub.formatTopic(
+      PubSub.CMD_CAMERA_CONFIG, camera_id=camera_config_update['camera_id'])
+  except (TypeError, ValueError) as e:
+    log.warning(f"Skipping camera configuration invalidation: {e}")
+  else:
+    client.publish(topic, json.dumps({
+      'calibration_version': camera_config_update['calibration_version']
+    }), qos=1)
 
 def invalidate_scene_cache(current_scene, old_scene=None):
   """Invalidate SceneLoader cache for given scenes."""
@@ -888,14 +894,10 @@ class Cam(Sensor):
       except Cam.DoesNotExist:
         pass
 
-    if self.intrinsics_cx is None:
-      self.intrinsics_cx = self.DEFAULT_INTRINSICS['cx']
-    if self.intrinsics_cy is None:
-      self.intrinsics_cy = self.DEFAULT_INTRINSICS['cy']
-    if self.intrinsics_fx is None:
-      self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
-    if self.intrinsics_fy is None:
-      self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
+    for key in ('cx', 'cy', 'fx', 'fy'):
+      field = f'intrinsics_{key}'
+      if getattr(self, field) is None:
+        setattr(self, field, self.DEFAULT_INTRINSICS[key])
     if self.cv_subsystem is None:
       self.cv_subsystem = 'AUTO'
 

@@ -77,10 +77,9 @@ and pose topics assigned to its resolver and read only those cameras' configurat
 invalidations. Protect ONVIF camera traffic with the host firewall: Compose does not
 provide portable egress CIDR policies.
 
-`CONTROLLER_PTZ_ENABLED`, `CONTROLLER_PTZ_SHADOW_MODE`,
-`TRACKER_PTZ_ENABLED`, and `TRACKER_PTZ_SHADOW_MODE` all default to `false`.
-Do not enable either profile until its own shadow acceptance gate passes. Tracker
-consumption remains deferred to Phase 5.
+`CONTROLLER_PTZ_ENABLED` and `CONTROLLER_PTZ_SHADOW_MODE` default to `false`.
+Do not enable either mode until the Controller's shadow acceptance gate passes. The
+Tracker does not consume poses yet.
 
 > **ReID backends:** For raw Compose, add exactly one of `sample_data/compose/compose.vdms-override.yml` or `sample_data/compose/compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](../../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
 

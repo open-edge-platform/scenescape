@@ -90,3 +90,21 @@ def test_resolve_compose_files_adds_positioning_for_tracker(tmp_path):
   tracker = "tests/compose/compose.tracker.yml"
   files = resolve_compose_files((tracker,), dri_path=str(tmp_path / "missing-dri"))
   assert files == (tracker, _POSITIONING)
+
+
+def test_ptz_profiles_layer_the_controller_override_after_the_scene_service(tmp_path):
+  """PTZ Controller profiles override compose.scene.yml and still get the Positioning service."""
+  from tests.utils.profiles import PROFILE_REGISTRY, PTZ_ENFORCE, PTZ_SHADOW
+  expected = {
+    PTZ_ENFORCE.name: (PTZ_ENFORCE, "tests/compose/compose.scene-ptz.yml",
+                       "CONTROLLER_PTZ_ENABLED"),
+    PTZ_SHADOW.name: (PTZ_SHADOW, "tests/compose/compose.scene-ptz-shadow.yml",
+                      "CONTROLLER_PTZ_SHADOW_MODE"),
+  }
+  for name, (profile, override, flag) in expected.items():
+    assert PROFILE_REGISTRY[name] is profile
+    files = resolve_compose_files(profile.compose_files, dri_path=str(tmp_path / "missing-dri"))
+    assert files.index(_OTHER) < files.index(override)
+    assert _POSITIONING in files
+    with open(override, encoding="utf-8") as compose_file:
+      assert flag in compose_file.read()

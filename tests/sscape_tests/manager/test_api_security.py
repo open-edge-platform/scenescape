@@ -80,6 +80,35 @@ def test_service_health_allows_loopback_request():
 
 
 @pytest.mark.parametrize(
+  ("acl_access", "requested_access", "expected_access"),
+  [
+    (api.READ_ONLY, api.READ_ONLY, api.READ_ONLY),
+    (api.READ_ONLY, api.WRITE_ONLY, None),
+    (api.READ_ONLY, api.READ_AND_WRITE, None),
+    (api.READ_ONLY, api.CAN_SUBSCRIBE, api.CAN_SUBSCRIBE),
+    (api.WRITE_ONLY, api.READ_ONLY, None),
+    (api.WRITE_ONLY, api.WRITE_ONLY, api.WRITE_ONLY),
+    (api.WRITE_ONLY, api.READ_AND_WRITE, None),
+    (api.WRITE_ONLY, api.CAN_SUBSCRIBE, None),
+    (api.READ_AND_WRITE, api.READ_ONLY, api.CAN_SUBSCRIBE),
+    (api.READ_AND_WRITE, api.WRITE_ONLY, api.WRITE_ONLY),
+    (api.READ_AND_WRITE, api.READ_AND_WRITE, api.READ_AND_WRITE),
+    (api.READ_AND_WRITE, api.CAN_SUBSCRIBE, api.CAN_SUBSCRIBE),
+    (api.CAN_SUBSCRIBE, api.READ_ONLY, api.CAN_SUBSCRIBE),
+    (api.CAN_SUBSCRIBE, api.WRITE_ONLY, None),
+    (api.CAN_SUBSCRIBE, api.READ_AND_WRITE, None),
+    (api.CAN_SUBSCRIBE, api.CAN_SUBSCRIBE, api.CAN_SUBSCRIBE),
+    (api.READ_AND_WRITE, -1, None),
+    (-1, api.READ_ONLY, None),
+  ],
+)
+def test_acl_access_preserves_broker_permission_mapping(
+  acl_access, requested_access, expected_access,
+):
+  assert api.ACLCheck.allowedAccess(acl_access, requested_access) == expected_access
+
+
+@pytest.mark.parametrize(
   ("resolver_id", "expected_status", "expected_result"),
   [
     ("resolver-a", 200, "allow"),

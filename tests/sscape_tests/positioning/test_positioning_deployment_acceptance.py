@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import pytest
+import yaml
 
 from tools.positioning.render_mosquitto_acl import render_acl
 
@@ -40,21 +41,18 @@ def test_positioning_acl_rejects_topic_wildcards_and_delimiters(bad_segment):
 
 
 def test_production_compose_and_helm_flags_default_off():
-  compose = (REPO_ROOT / "sample_data/compose/compose.dl-streamer-example.yml").read_text()
-  values = (REPO_ROOT / "kubernetes/scenescape-chart/values.yaml").read_text()
-  controller = (REPO_ROOT / "kubernetes/scenescape-chart/templates/scene-controller/deployment.yaml").read_text()
-  tracker = (REPO_ROOT / "kubernetes/scenescape-chart/templates/tracker/deployment.yaml").read_text()
+  compose = yaml.safe_load(
+    (REPO_ROOT / "sample_data/compose/compose.dl-streamer-example.yml").read_text())
+  values = yaml.safe_load((REPO_ROOT / "kubernetes/scenescape-chart/values.yaml").read_text())
 
-  assert "CONTROLLER_PTZ_ENABLED: ${CONTROLLER_PTZ_ENABLED:-false}" in compose
-  assert "CONTROLLER_PTZ_SHADOW_MODE: ${CONTROLLER_PTZ_SHADOW_MODE:-false}" in compose
-  assert "TRACKER_PTZ_ENABLED=${TRACKER_PTZ_ENABLED:-false}" in compose
-  assert "TRACKER_PTZ_SHADOW_MODE=${TRACKER_PTZ_SHADOW_MODE:-false}" in compose
-  assert "ptzEnabled: false" in values
-  assert "ptzShadowMode: false" in values
-  assert "CONTROLLER_PTZ_ENABLED" in controller
-  assert "CONTROLLER_PTZ_SHADOW_MODE" in controller
-  assert "TRACKER_PTZ_ENABLED" in tracker
-  assert "TRACKER_PTZ_SHADOW_MODE" in tracker
+  scene_env = compose["services"]["scene"]["environment"]
+  assert scene_env["CONTROLLER_PTZ_ENABLED"] == "${CONTROLLER_PTZ_ENABLED:-false}"
+  assert scene_env["CONTROLLER_PTZ_SHADOW_MODE"] == "${CONTROLLER_PTZ_SHADOW_MODE:-false}"
+  assert values["scene"]["ptz"]["enabled"] is False
+  assert values["scene"]["ptz"]["shadowMode"] is False
+  assert values["positioning"]["enabled"] is False
+  assert values["positioning"]["assignments"] == {}
+  assert values["positioning"]["config"]["sources"] == {}
 
 
 def test_positioning_production_transport_and_single_replica_gates():

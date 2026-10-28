@@ -105,8 +105,7 @@ When `positioning.enabled=true`, the chart deploys one Positioning replica with 
 | `positioning.extraVolumes`, `positioning.extraVolumeMounts` | `[]`                          | Additional pod volumes and Positioning container mounts, for example a camera CA bundle referenced by a source's `tls_ca_file`.                                                                                       |
 | `positioning.networkPolicy.cameraCIDRs`                    | `[]`                          | Camera IP/CIDR allowlist for Positioning egress. Required when PTZ sources are configured.                                                                                                                            |
 | `positioning.networkPolicy.cameraPorts`                    | `[80, 443]`                    | ONVIF TCP ports allowed to the camera CIDRs; include each configured custom port.                                                                                                                                     |
-| `scene.ptzEnabled`, `scene.ptzShadowMode`                   | `false`, `false`              | Controller feature flags; leave disabled until that profile independently passes shadow acceptance.                                                                                                                 |
-| `tracker.ptzEnabled`, `tracker.ptzShadowMode`               | `false`, `false`              | Tracker feature flags; leave disabled until Phase 5 is integrated and its profile passes shadow acceptance.                                                                                                           |
+| `scene.ptz.enabled`, `scene.ptz.shadowMode`                 | `false`, `false`              | Controller PTZ modes; leave disabled until that profile independently passes shadow acceptance. See below.                                                                                                          |
 
 The broker exposes a dedicated Positioning mTLS listener on port 8883. It requires
 the Positioning client certificate, uses its common name for ACL matching, and loads
@@ -161,6 +160,13 @@ where the file contains `{"username": "...", "password": "..."}`. Prefer
 values and release history. Changes to `positioning.config` or
 `positioning.assignments` roll the Positioning pod automatically; after rotating
 credentials, run `kubectl rollout restart deployment/<release>-positioning`.
+
+To let the Scene Controller consume the resolved poses, set `scene.ptz.enabled` (gate
+and project PTZ detections) or `scene.ptz.shadowMode` (observe and record only); they
+are off by default and mutually exclusive. Both need the four bounds in
+`scene.ptz.config`, and use `positioning.assignments` as the source-to-Resolver
+manifest. Rendering fails if both modes are on or a bound is missing. See
+[PTZ Pose Consumption](../../microservices/controller/ptz-pose-consumption.md#deploy).
 
 See the [Positioning Service](../../microservices/positioning/positioning.md)
 and [PTZ pose design](../../../design/ptz-camera-pose-service.md) for runtime behavior.

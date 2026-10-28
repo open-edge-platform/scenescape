@@ -34,19 +34,22 @@ def validate_pose_context_payload(payload: Mapping[str, Any]) -> None:
   """@raises PoseContextGuardError when any guard fails"""
   if not isinstance(payload, Mapping):
     raise PoseContextGuardError("PoseContext must be an object")
-  for key in _FINITE_SCALARS:
-    if key in payload:
-      _finite(payload[key], key)
+  _check_finite_fields(payload, _FINITE_SCALARS)
   quality = payload.get("quality")
   if isinstance(quality, Mapping):
-    for key in _QUALITY_FIELDS:
-      if key in quality:
-        _finite(quality[key], f"quality.{key}")
+    _check_finite_fields(quality, _QUALITY_FIELDS, "quality.")
   if payload.get("valid") is True:
     pose = payload.get("pose")
     if not isinstance(pose, Mapping):
       raise PoseContextGuardError("valid PoseContext requires a pose object")
     _check_rigid_matrix(pose.get("matrix_4x4"))
+
+
+def _check_finite_fields(payload: Mapping[str, Any], fields: tuple[str, ...],
+                         prefix: str = "") -> None:
+  for key in fields:
+    if key in payload:
+      _finite(payload[key], f"{prefix}{key}")
 
 
 def _check_rigid_matrix(rows) -> None:

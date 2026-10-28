@@ -465,6 +465,41 @@ class ACLCheck(APIView):
       return False
     return acl.all_scenes or acl.scenes.filter(pk=camera.scene_id).exists()
 
+  @staticmethod
+  def allowedAccess(acl_access, requested_access):
+    """Return the broker access code granted by an ACL, or None when denied."""
+    if acl_access == requested_access:
+      return requested_access
+    if acl_access == READ_AND_WRITE:
+      return {
+        CAN_SUBSCRIBE: CAN_SUBSCRIBE,
+        WRITE_ONLY: WRITE_ONLY,
+        READ_ONLY: CAN_SUBSCRIBE,
+      }.get(requested_access)
+    if (acl_access, requested_access) in (
+        (CAN_SUBSCRIBE, READ_ONLY), (READ_ONLY, CAN_SUBSCRIBE)):
+      return CAN_SUBSCRIBE
+    return None
+
+  @staticmethod
+  def positioningWriteAllowed(username, topic, is_pose_topic, resolver_id):
+    """Constrain Positioning writers to the deployment's resolver and sources."""
+    if username == "positioning":
+      try:
+        status_topic = PubSub.formatTopic(
+          PubSub.POSITIONING_STATUS, resolver_id=resolver_id)
+      except (KeyError, ValueError):
+        status_topic = None
+      if topic != status_topic and not is_pose_topic:
+        return False
+    if is_pose_topic:
+      source_id = (PubSub.parseTopic(topic) or {}).get("source_id")
+      if not positioning_assignments.is_assigned(source_id, resolver_id):
+        log.warning("Access denied: pose write for source '%s' not assigned to resolver '%s'.",
+                    source_id, resolver_id)
+        return False
+    return True
+
   def post(self, request):
     if not isinstance(request.data, Mapping):
       log.warning('Request body must be a JSON object')
@@ -503,24 +538,12 @@ class ACLCheck(APIView):
     is_positioning_pose_topic = PubSub.match_topic(pose_template, currentTopic)
     resolver_id = positioning_assignments.configured_resolver_id()
 
-    if username == "positioning" and is_write:
-      try:
-        positioning_status_topic = PubSub.formatTopic(
-          PubSub.POSITIONING_STATUS, resolver_id=resolver_id)
-      except (KeyError, ValueError):
-        positioning_status_topic = None
-      if currentTopic != positioning_status_topic and not is_positioning_pose_topic:
-        return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
-
     # Pose writes, by any identity, are bound to the sources the deployment
     # assignment manifest gives this resolver; the POSITIONING_POSE ACL itself
     # only grants the topic template.
-    if is_write and is_positioning_pose_topic:
-      source_id = (PubSub.parseTopic(currentTopic) or {}).get("source_id")
-      if not positioning_assignments.is_assigned(source_id, resolver_id):
-        log.warning("Access denied: pose write for source '%s' not assigned to resolver '%s'.",
-                    source_id, resolver_id)
-        return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
+    if is_write and not self.positioningWriteAllowed(
+        username, currentTopic, is_positioning_pose_topic, resolver_id):
+      return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
 
     user_acls = PubSubACL.objects.filter(user=user)
 
@@ -548,19 +571,7 @@ class ACLCheck(APIView):
         return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
 
     if matchedACL:
-      if matchedACL.access == requestedAccess:
-        return Response({'result': 'allow', 'acc': requestedAccess}, status=status.HTTP_200_OK)
-      elif matchedACL.access == READ_AND_WRITE and requestedAccess == CAN_SUBSCRIBE:
-        return Response({'result': 'allow', 'acc': CAN_SUBSCRIBE}, status=status.HTTP_200_OK)
-      elif matchedACL.access == READ_AND_WRITE and requestedAccess == WRITE_ONLY:
-        return Response({'result': 'allow', 'acc': WRITE_ONLY}, status=status.HTTP_200_OK)
-      elif matchedACL.access == READ_AND_WRITE and requestedAccess == READ_ONLY:
-        return Response({'result': 'allow', 'acc': CAN_SUBSCRIBE}, status=status.HTTP_200_OK)
-      elif matchedACL.access == CAN_SUBSCRIBE and requestedAccess == READ_ONLY:
-        return Response({'result': 'allow', 'acc': CAN_SUBSCRIBE}, status=status.HTTP_200_OK)
-      elif matchedACL.access == READ_ONLY and requestedAccess == CAN_SUBSCRIBE:
-        return Response({'result': 'allow', 'acc': CAN_SUBSCRIBE}, status=status.HTTP_200_OK)
-      else:
-        return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
-    else:
-      return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)
+      allowed_access = self.allowedAccess(matchedACL.access, requestedAccess)
+      if allowed_access is not None:
+        return Response({'result': 'allow', 'acc': allowed_access}, status=status.HTTP_200_OK)
+    return Response({'result': 'deny'}, status=status.HTTP_403_FORBIDDEN)

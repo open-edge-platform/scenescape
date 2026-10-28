@@ -22,9 +22,10 @@ checks. When PTZ sources are configured, it polls each ONVIF PTZ camera, passes 
 `PTZSample` messages in-process to the PTZ Resolver, and publishes one resolved
 `PoseContext` per accepted sample.
 
-> **Rollout gate:** PTZ consumer flags are disabled in production by default.
-> Controller shadow/enforcement is a separate profile gate. Tracker consumption
-> is deferred to Phase 5; do not claim cross-consumer parity before it is integrated.
+> **Note:** The Scene Controller can consume resolved poses when you enable its PTZ
+> mode; see [PTZ Pose Consumption](../controller/ptz-pose-consumption.md). The
+> Tracker does not consume poses yet. With the Controller mode off, publishing poses
+> does not change how detections are tracked.
 
 ## How It Works
 
@@ -337,8 +338,10 @@ for the related Helm values. The chart runs one replica, because only one instan
 publish poses for a given camera.
 
 To roll back, disable the Positioning deployment or remove its `sources`. Without
-sources the service publishes no poses. Consumer PTZ flags remain independently
-disabled until their own shadow acceptance criteria pass.
+sources the service publishes no poses. With the Controller PTZ mode off (the default),
+either change leaves tracking unchanged; Tracker does not consume poses yet. To roll
+back the Controller consumer, turn off its PTZ mode instead; see
+[PTZ Pose Consumption](../controller/ptz-pose-consumption.md#roll-back).
 
 ## Supporting Resources
 

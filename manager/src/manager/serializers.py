@@ -318,19 +318,17 @@ class CamSerializer(NonNullSerializer):
       if error:
         raise serializers.ValidationError(error)
 
-    if not self.instance:
-      qs = Cam.objects.filter(name=value)
+    if self.instance:
+      return value
 
-      if self.instance:
-        qs = qs.exclude(pk=self.instance.pk)
+    qs = Cam.objects.filter(name=value)
+    if not qs.exists():
+      return value
 
-      if qs.exists():
-        cam = qs.first()
-        if hasattr(cam, 'scene') and cam.scene is not None:
-          raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
-        else:
-          raise serializers.ValidationError(f"orphaned camera with the name '{value}' already exists.")
-    return value
+    cam = qs.first()
+    if hasattr(cam, 'scene') and cam.scene is not None:
+      raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
+    raise serializers.ValidationError(f"orphaned camera with the name '{value}' already exists.")
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None

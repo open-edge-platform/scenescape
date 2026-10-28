@@ -180,6 +180,31 @@ class PTZCalibrationValidatorTest(TestCase):
     self.assertFalse(serializer.is_valid())
     self.assertIn("name", serializer.errors)
 
+  def test_duplicate_camera_name_preserves_scene_specific_errors(self):
+    scene = Scene.objects.create(name="camera-name-scene")
+    camera = Cam.objects.create(sensor_id="named-camera", name="Camera", scene=scene)
+    for current_scene, message in (
+        (scene, "A camera with the name 'Camera' already exists."),
+        (None, "orphaned camera with the name 'Camera' already exists.")):
+      with self.subTest(scene=current_scene):
+        camera.scene = current_scene
+        camera.save()
+        serializer = CamSerializer(data={"name": "Camera"})
+        self.assertFalse(serializer.is_valid())
+        self.assertEqual(str(serializer.errors["name"][0]), message)
+        update = CamSerializer(camera, data={"name": "Camera"}, partial=True)
+        self.assertTrue(update.is_valid(), update.errors)
+
+  def test_camera_save_defaults_only_missing_intrinsics(self):
+    camera = Cam.objects.create(
+      sensor_id="intrinsics-defaults", name="Intrinsics defaults",
+      intrinsics_cx=None, intrinsics_cy=0.0, intrinsics_fx=800.0, intrinsics_fy=None)
+    camera.refresh_from_db()
+    self.assertEqual(camera.intrinsics_cx, Cam.DEFAULT_INTRINSICS["cx"])
+    self.assertEqual(camera.intrinsics_cy, 0.0)
+    self.assertEqual(camera.intrinsics_fx, 800.0)
+    self.assertEqual(camera.intrinsics_fy, Cam.DEFAULT_INTRINSICS["fy"])
+
   def test_valid_calibration_is_accepted(self):
     self.assertEqual(validate_ptz_calibration(PTZ_CALIBRATION, "1.5"), PTZ_CALIBRATION)
     serializer = CamSerializer()

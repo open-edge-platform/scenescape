@@ -4,9 +4,6 @@
 {{- if and .Values.tracker.enabled .Values.reid.enabled }}
 {{- fail "tracker.enabled=true is incompatible with reid.enabled=true; ReID requires the Scene Controller, which Tracker replaces." }}
 {{- end }}
-{{- if and .Values.tracker.ptzEnabled .Values.tracker.ptzShadowMode }}
-{{- fail "tracker.ptzEnabled and tracker.ptzShadowMode are mutually exclusive" }}
-{{- end }}
 {{- if .Values.tracker.enabled }}
 ---
 apiVersion: apps/v1
@@ -69,10 +66,6 @@ spec:
           value: /run/secrets/certs/scenescape-ca.pem
         - name: TRACKER_SCENES_SOURCE
           value: api
-        - name: TRACKER_PTZ_ENABLED
-          value: {{ .Values.tracker.ptzEnabled | quote }}
-        - name: TRACKER_PTZ_SHADOW_MODE
-          value: {{ .Values.tracker.ptzShadowMode | quote }}
         # Paho MQTT ignores no_proxy; tracker unsets these empty vars at startup (proxy_utils.cpp)
         - name: http_proxy
           value: ""
