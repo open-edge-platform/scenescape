@@ -12,6 +12,7 @@ from unittest.mock import patch
 import pytest
 import trimesh
 from django.core.files.base import ContentFile
+from django.db import transaction
 
 from manager import mapping_store
 from manager.models import Scene, SceneMappingArtifact, SceneSourceMap
@@ -104,7 +105,70 @@ def test_activate_mirrors_source_map_into_scene_map(scene):
   assert (scene.translation_x, scene.translation_y, scene.translation_z) == (1.0, 2.0, 3.0)
   assert (scene.rotation_x, scene.rotation_y, scene.rotation_z) == (90.0, 0.0, 0.0)
   assert scene.map_contributor == "handheld"
-  assert scene.map_processed is not None
+  assert scene.map_processed is None
+
+
+def test_activation_uses_fresh_source_and_scene_state(scene):
+  source = _upload_mesh(scene, "orbslam3", contributor="")
+  _upload_mesh(scene, "arkit")
+  SceneSourceMap.objects.filter(pk=source.pk).update(
+    transform={"translation": [4, 5, 6], "rotation": [0, 0, 0], "scale": [2, 2, 2]})
+  Scene.objects.filter(pk=scene.pk).update(map_contributor="latest", map_processed="2026-10-28T00:00:00Z")
+  activated = mapping_store.activate_source_map(scene, source)
+  scene.refresh_from_db()
+  assert activated.transform["translation"] == [4, 5, 6]
+  assert scene.translation_x == 4
+  assert scene.scale_x == 2
+  assert scene.map_contributor == "latest"
+  assert scene.map_processed is None
+
+
+def test_activation_rejects_replaced_source(scene):
+  source = _upload_mesh(scene, "orbslam3")
+  replacement = _upload_mesh(scene, "orbslam3", 2)
+  with pytest.raises(mapping_store.MappingStoreError) as exc:
+    mapping_store.activate_source_map(scene, source)
+  assert exc.value.status == 404
+  scene.refresh_from_db()
+  assert scene.default_source_map_id == replacement.pk
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.parametrize("change", ["delete", "replace", "placement"])
+def test_activation_conflicts_with_concurrent_source_change(scene, change):
+  from concurrent.futures import ThreadPoolExecutor
+  from django.db import connection, connections
+  if connection.vendor != "postgresql":
+    pytest.skip("Requires PostgreSQL row locking")
+  source = _upload_mesh(scene, "orbslam3")
+  _upload_mesh(scene, "arkit")
+
+  def activate():
+    try:
+      return mapping_store.activate_source_map(scene, source)
+    finally:
+      connections.close_all()
+
+  with ThreadPoolExecutor(max_workers=1) as pool:
+    with transaction.atomic():
+      mapping_store._lock_scene(scene.pk, nowait=False)
+      if change == "delete":
+        mapping_store.delete_source_map(scene, source)
+      elif change == "replace":
+        _upload_mesh(scene, "orbslam3", 2)
+      else:
+        SceneSourceMap.objects.filter(pk=source.pk).update(
+          transform={"translation": [7, 8, 9]})
+      with pytest.raises(mapping_store.MappingConflict):
+        pool.submit(activate).result(timeout=10)
+  if change == "placement":
+    mapping_store.activate_source_map(scene, source)
+    scene.refresh_from_db()
+    assert scene.translation_x == 7
+  else:
+    with pytest.raises(mapping_store.MappingStoreError) as exc:
+      mapping_store.activate_source_map(scene, source)
+    assert exc.value.status == 404
 
 
 def test_delete_source_map_refuses_default_and_removes_its_artifact(scene, tmp_path):
@@ -260,3 +324,111 @@ def test_delete_artifact_keeps_methods_mesh(scene, tmp_path):
   assert not SceneMappingArtifact.objects.filter(scene=scene, method="rtabmap").exists()
   assert _source_map(scene, "rtabmap") is not None
   assert mapping_store.delete_artifact(scene, "rtabmap") is False
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -float("inf"), 10 ** 400])
+@pytest.mark.parametrize("field", ["size_m", "t", "q"])
+def test_fiducial_numbers_must_be_finite(value, field):
+  fiducial = {"type": "apriltag", "family": "tag36h11", "id": "7",
+              "size_m": 0.16, "t": [0, 0, 0]}
+  fiducial[field] = value if field == "size_m" else [value] * (3 if field == "t" else 4)
+  with pytest.raises(mapping_store.ValidationError, match="finite"):
+    mapping_store.parse_fiducials([fiducial])
+
+
+@pytest.mark.parametrize("literal", ["NaN", "Infinity", "-Infinity", "1e999"])
+def test_nonfinite_json_rejected_anywhere_in_manifest(scene, tmp_path, literal):
+  first = _store(scene, "keyframes", tmp_path, {"frames.bin": b"old"})
+  with pytest.raises(mapping_store.MappingStoreError) as exc:
+    _store(scene, "keyframes", tmp_path, {
+      "manifest.json": '{"metadata": {"nested": [' + literal + ']}}'})
+  assert exc.value.status == 400
+  assert SceneMappingArtifact.objects.filter(pk=first.pk).exists()
+  assert os.path.isfile(first.bundle.path)
+  with pytest.raises(mapping_store.ValidationError, match="finite"):
+    mapping_store.parse_fiducials('[' + literal + ']')
+
+
+@pytest.mark.parametrize("contributor", [123, False, [], {}])
+def test_manifest_contributor_requires_string_before_replacement(scene, tmp_path, contributor):
+  first = _store(scene, "keyframes", tmp_path, {"frames.bin": b"old"})
+  with pytest.raises(mapping_store.MappingStoreError) as exc:
+    _store(scene, "keyframes", tmp_path, {
+      "manifest.json": json.dumps({"contributor": contributor})}, contributor="")
+  assert exc.value.status == 400
+  assert SceneMappingArtifact.objects.filter(pk=first.pk).exists()
+  assert os.path.isfile(first.bundle.path)
+
+
+def test_form_contributor_overrides_manifest_and_is_truncated(scene, tmp_path):
+  artifact = _store(scene, "keyframes", tmp_path, {
+    "manifest.json": json.dumps({"contributor": 123})}, contributor="a" * 201)
+  assert artifact.contributor == "a" * 200
+
+
+@pytest.mark.parametrize("queryset", [False, True])
+def test_scene_cascade_cleans_all_mapping_files_after_commit(
+    scene, tmp_path, django_capture_on_commit_callbacks, queryset):
+  first = _upload_mesh(scene, "orbslam3")
+  first.thumbnail.save("old.png", ContentFile(b"thumbnail"), save=True)
+  second = _upload_mesh(scene, "arkit")
+  artifact = _store(scene, "keyframes", tmp_path, {"frames.bin": b"x"})
+  scene.thumbnail = first.thumbnail.name
+  Scene.objects.filter(pk=scene.pk).update(thumbnail=scene.thumbnail.name)
+  paths = [first.file.path, first.thumbnail.path, second.file.path, artifact.bundle.path]
+  with django_capture_on_commit_callbacks(execute=True):
+    if queryset:
+      Scene.objects.filter(pk=scene.pk).delete()
+    else:
+      scene.delete()
+    assert all(os.path.isfile(path) for path in paths)
+  assert all(not os.path.exists(path) for path in paths)
+
+
+def test_mapping_deletions_preserve_files_on_rollback(
+    scene, tmp_path, django_capture_on_commit_callbacks):
+  source = _upload_mesh(scene, "orbslam3")
+  artifact = _store(scene, "keyframes", tmp_path, {"frames.bin": b"x"})
+  with django_capture_on_commit_callbacks(execute=True):
+    with pytest.raises(RuntimeError):
+      with transaction.atomic():
+        scene.delete()
+        raise RuntimeError("rollback")
+  assert os.path.isfile(source.file.path)
+  assert os.path.isfile(artifact.bundle.path)
+  assert SceneSourceMap.objects.filter(pk=source.pk).exists()
+  assert SceneMappingArtifact.objects.filter(pk=artifact.pk).exists()
+
+
+def test_shared_mapping_files_survive_until_last_reference_deleted(
+    scene, django_capture_on_commit_callbacks):
+  source = _upload_mesh(scene, "orbslam3")
+  source.thumbnail.save("shared.png", ContentFile(b"thumbnail"), save=True)
+  other = Scene.objects.create(name="sharing")
+  shared = SceneSourceMap.objects.create(
+    scene=other, method="arkit", file=source.file.name, thumbnail=source.thumbnail.name,
+    sha256=source.sha256)
+  paths = [source.file.path, source.thumbnail.path]
+  with django_capture_on_commit_callbacks(execute=True):
+    scene.delete()
+  assert all(os.path.isfile(path) for path in paths)
+  with django_capture_on_commit_callbacks(execute=True):
+    shared.delete()
+  assert all(not os.path.exists(path) for path in paths)
+
+
+def test_explicit_artifact_delete_is_deferred_and_rollback_safe(
+    scene, tmp_path, django_capture_on_commit_callbacks):
+  artifact = _store(scene, "keyframes", tmp_path, {"frames.bin": b"x"})
+  path = artifact.bundle.path
+  with django_capture_on_commit_callbacks(execute=True):
+    with pytest.raises(RuntimeError):
+      with transaction.atomic():
+        mapping_store.delete_artifact(scene, "keyframes")
+        raise RuntimeError("rollback")
+  assert SceneMappingArtifact.objects.filter(pk=artifact.pk).exists()
+  assert os.path.isfile(path)
+  with django_capture_on_commit_callbacks(execute=True):
+    mapping_store.delete_artifact(scene, "keyframes")
+    assert os.path.isfile(path)
+  assert not os.path.exists(path)

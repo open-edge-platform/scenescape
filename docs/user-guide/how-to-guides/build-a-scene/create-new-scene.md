@@ -207,6 +207,10 @@ Each mapping method has one current source mesh and one optional resume ZIP.
 Scene Settings placement changes update the active source mesh's saved transform
 and thumbnail, so switching away and reactivating it restores the edited placement.
 The default mesh cannot be deleted; activate another source before deleting it.
+Activating a source mesh invalidates its processed calibration state so AprilTag
+markers are regenerated for the selected mesh. If a source is replaced or deleted
+before activation completes, refresh the source list and retry. Concurrent
+mapping changes can return HTTP 409.
 
 Use `/api/v1/scene/{scene_id}/mapping-artifacts/{method}` to upload (`PUT`),
 download (`GET`), or delete (`DELETE`) a method's resume ZIP. Upload multipart
@@ -219,6 +223,11 @@ Artifact validation limits are 512 MiB for the uploaded ZIP, 4,096 members,
 Oversized uploads return HTTP 413; invalid archives or expanded-size limit
 violations return HTTP 400. Limits are checked before decompressing members,
 and content reads are bounded while checking ZIP integrity.
+Manifest JSON and fiducial numeric fields must contain only finite numbers.
+The optional contributor must be a string (at most 200 characters are stored);
+an explicit form contributor takes precedence over the manifest value.
+Deleting a scene also removes its source meshes, thumbnails, and resume ZIPs
+after the database transaction commits, except files still referenced elsewhere.
 
 ### Mobile camera frame dimensions
 

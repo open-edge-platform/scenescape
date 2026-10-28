@@ -120,7 +120,8 @@ class TestMovingObject:
     assert loc.y == pytest.approx(0.0, abs=1e-9)
     assert loc.z == pytest.approx(1.0 - 0.6)
 
-  def test_three_dimensional_box_without_distance_is_not_offset(self):
+  @pytest.mark.parametrize("distance", [None, 2.0])
+  def test_three_dimensional_box_is_not_offset(self, distance):
     from scene_common.transform import CameraIntrinsics, CameraPose
     when = datetime.datetime.now(datetime.timezone.utc)
     intrinsics = CameraIntrinsics({'fx': 100.0, 'fy': 100.0, 'cx': 100.0, 'cy': 100.0})
@@ -130,6 +131,8 @@ class TestMovingObject:
     camera = SimpleNamespace(cameraID='cam-1', pose=pose)
     info = _base_info()
     info['bounding_box'] = {'x': -0.2, 'y': -0.3, 'z': 2.0, 'width': 0.4, 'height': 0.6}
+    if distance is not None:
+      info['distance'] = distance
 
     obj = MovingObject(info, when, camera)
     obj.size = [0.5, 0.5, 1.7]
@@ -145,6 +148,20 @@ class TestMovingObject:
     assert loc.x == pytest.approx(expected.x)
     assert loc.y == pytest.approx(expected.y)
     assert loc.z == pytest.approx(expected.z)
+
+  def test_native_3d_distance_does_not_change_projected_size(self):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    pose = CameraPose({'translation': [0, 0, 1],
+                      'rotation': [0.5, -0.5, 0.5, -0.5], 'scale': [1, 1, 1]},
+                     CameraIntrinsics({'fx': 100, 'fy': 100, 'cx': 100, 'cy': 100}))
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    info = {**_base_info(), 'bounding_box': {
+      'x': -0.2, 'y': -0.3, 'z': 2, 'width': 0.4, 'height': 0.6}}
+    baseline = MovingObject(info, 1, camera)
+    with_distance = MovingObject({**info, 'distance': 9}, 1, camera)
+    assert with_distance.sceneLoc.asNumpyCartesian == pytest.approx(baseline.sceneLoc.asNumpyCartesian)
+    assert with_distance.size == pytest.approx(baseline.size)
+    assert not with_distance.depth_expanded_box
 
   def test_metric_distance_keeps_library_size_prior(self):
     from scene_common.transform import CameraIntrinsics, CameraPose

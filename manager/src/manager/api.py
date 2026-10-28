@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import logging
 import os
 import socket
 import tempfile
@@ -36,6 +37,8 @@ from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
 from scene_common.options import *
 from scene_common import log
+
+logger = logging.getLogger(__name__)
 
 
 class IsAdminOrReadOnly(permissions.BasePermission):
@@ -187,7 +190,7 @@ class SceneMappingArtifactView(APIView):
         str(request.data.get("contributor") or ""),
       )
     except MappingStoreError as exc:
-      log.exception("Failed to store mapping artifact for scene=%s method=%s", scene_id, method)
+      logger.exception("Failed to store mapping artifact for scene=%s method=%s", scene_id, method)
       return Response({"error": "Failed to store mapping artifact"}, status=exc.status)
     finally:
       if tmp_path:
@@ -324,7 +327,7 @@ class SceneSourceMapView(APIView):
     if source_map is None:
       return Response(status=status.HTTP_404_NOT_FOUND)
     try:
-      activate_source_map(scene, source_map)
+      source_map = activate_source_map(scene, source_map)
     except MappingStoreError as exc:
       log.error("Failed to activate source map", scene_id, method, exc)
       return Response(

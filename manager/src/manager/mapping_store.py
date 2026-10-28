@@ -16,6 +16,7 @@ the zip is the method's own business.
 
 import hashlib
 import json
+import math
 import os
 import re
 import uuid
@@ -30,7 +31,6 @@ from django.db import IntegrityError, OperationalError, connection, transaction
 from django.utils import timezone as dj_timezone
 
 from manager.models import Scene, SceneMappingArtifact, SceneSourceMap, sendUpdateCommand
-from scene_common.timestamp import get_iso_time
 
 DIGEST_HEADER = "X-Scenescape-Sha256"
 METHOD_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
@@ -100,9 +100,9 @@ def parse_fiducials(raw):
     return []
   if isinstance(raw, str):
     try:
-      raw = json.loads(raw)
-    except json.JSONDecodeError as exc:
-      raise ValidationError(f"fiducials is not valid JSON: {exc}") from exc
+      raw = _load_json(raw)
+    except ValueError as exc:
+      raise ValidationError("fiducials must be valid JSON with finite numbers") from exc
   if not isinstance(raw, list):
     raise ValidationError("fiducials must be a list")
   if len(raw) > MAX_FIDUCIALS:
@@ -139,20 +139,28 @@ def _one_fiducial(entry, seen):
     "size_m": _number(entry.get("size_m"), "size_m", positive=True),
     "t": _vec(entry.get("t"), 3, "t"),
   }
-  if "q" in entry and entry["q"] is not None:
+  if entry.get("q") is not None:
     item["q"] = _vec(entry["q"], 4, "q")
-  if "observations" in entry and entry["observations"] is not None:
-    count = entry["observations"]
-    if isinstance(count, bool) or not isinstance(count, int) or count < 0:
-      raise ValidationError("Fiducial observations must be a non-negative integer")
-    item["observations"] = count
+  if entry.get("observations") is not None:
+    item["observations"] = _fiducial_observations(entry["observations"])
   return item
+
+
+def _fiducial_observations(count):
+  if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+    raise ValidationError("Fiducial observations must be a non-negative integer")
+  return count
 
 
 def _number(value, name, positive=False):
   if isinstance(value, bool) or not isinstance(value, (int, float)):
     raise ValidationError(f"Fiducial {name} must be a number")
-  value = float(value)
+  try:
+    value = float(value)
+  except OverflowError as exc:
+    raise ValidationError(f"Fiducial {name} must be finite") from exc
+  if not math.isfinite(value):
+    raise ValidationError(f"Fiducial {name} must be finite")
   if positive and value <= 0:
     raise ValidationError(f"Fiducial {name} must be positive")
   return value
@@ -162,6 +170,21 @@ def _vec(value, length, name):
   if not isinstance(value, (list, tuple)) or len(value) != length:
     raise ValidationError(f"Fiducial {name} must have {length} numbers")
   return [_number(item, name) for item in value]
+
+
+def _reject_json_constant(value):
+  raise ValueError("Non-finite JSON number")
+
+
+def _finite_json_float(value):
+  number = float(value)
+  if not math.isfinite(number):
+    raise ValueError("Non-finite JSON number")
+  return number
+
+
+def _load_json(raw):
+  return json.loads(raw, parse_constant=_reject_json_constant, parse_float=_finite_json_float)
 
 
 def validate_artifact_zip(path, method):
@@ -237,10 +260,9 @@ def store_artifact(scene, method, zip_path, sha256, fiducials, contributor):
     if fiducials is None or fiducials == "":
       fiducials = manifest.get("fiducials")
     fiducials = parse_fiducials(fiducials)
+    contributor = _artifact_contributor(contributor, manifest)
   except ValidationError as exc:
     raise MappingStoreError("; ".join(exc.messages), 400) from exc
-  if not contributor:
-    contributor = manifest.get("contributor") or ""
   size = os.path.getsize(zip_path)
   try:
     with transaction.atomic():
@@ -266,6 +288,16 @@ def store_artifact(scene, method, zip_path, sha256, fiducials, contributor):
   return artifact
 
 
+def _artifact_contributor(contributor, manifest):
+  if contributor is None or contributor == "":
+    contributor = manifest.get("contributor", "")
+  if contributor is None:
+    return ""
+  if not isinstance(contributor, str):
+    raise ValidationError("contributor must be a string")
+  return contributor[:200]
+
+
 def read_zip_manifest(zip_path):
   """The standard ``manifest.json`` member as a dict, or {} when absent."""
   try:
@@ -283,9 +315,9 @@ def read_zip_manifest(zip_path):
   except BadZipFile as exc:
     raise ValidationError(f"Invalid zip file: {exc}") from exc
   try:
-    manifest = json.loads(raw.decode("utf-8"))
-  except (UnicodeDecodeError, json.JSONDecodeError) as exc:
-    raise ValidationError(f"{MANIFEST_MEMBER} is not valid JSON: {exc}") from exc
+    manifest = _load_json(raw.decode("utf-8"))
+  except (UnicodeDecodeError, ValueError) as exc:
+    raise ValidationError(f"{MANIFEST_MEMBER} must be valid JSON with finite numbers") from exc
   if not isinstance(manifest, dict):
     raise ValidationError(f"{MANIFEST_MEMBER} must be a JSON object")
   return manifest
@@ -361,12 +393,17 @@ def activate_source_map(scene, source_map):
   """Make this source's mesh the scene default and mirror it into ``Scene.map``."""
   if source_map.scene_id != scene.pk:
     raise MappingStoreError("source map does not belong to this scene", 400)
-  if not source_map.file or not source_map.file.name:
-    raise MappingStoreError("source map has no GLB file", 409)
   try:
     with transaction.atomic():
-      _lock_scene(scene.pk, nowait=True)
-      _activate_locked(scene, source_map)
+      locked_scene = _lock_scene(scene.pk, nowait=True)
+      source_map = SceneSourceMap.objects.filter(pk=source_map.pk, scene=locked_scene).first()
+      if source_map is None:
+        raise MappingStoreError("Source map no longer exists", 404)
+      if not source_map.file:
+        raise MappingStoreError("source map has no GLB file", 409)
+      _activate_locked(locked_scene, source_map)
+  except Scene.DoesNotExist as exc:
+    raise MappingStoreError("Scene no longer exists", 404) from exc
   except OperationalError as exc:
     raise MappingConflict() from exc
   return source_map
@@ -382,7 +419,7 @@ def _activate_locked(scene, source_map):
   scene.rotation_x, scene.rotation_y, scene.rotation_z = rot
   scene.scale_x, scene.scale_y, scene.scale_z = sc
   scene.map_contributor = source_map.contributor or scene.map_contributor
-  scene.map_processed = get_iso_time()
+  scene.map_processed = None
   # saveThumbnail() also derives the scene's pixels-per-meter scale.
   scene.saveThumbnail()
   scene.default_source_map = source_map
@@ -395,6 +432,7 @@ def _activate_locked(scene, source_map):
     default_source_map=source_map,
   )
   if not source_map.thumbnail and scene.thumbnail:
+    source_map.thumbnail.name = scene.thumbnail.name
     SceneSourceMap.objects.filter(pk=source_map.pk).update(thumbnail=scene.thumbnail.name)
   transaction.on_commit(partial(sendUpdateCommand, scene_id=scene.pk))
 
@@ -415,19 +453,7 @@ def delete_source_map(scene, source_map):
     if locked_scene.default_source_map_id == current.pk:
       raise MappingStoreError("Cannot delete the default map", 409)
     _replace_artifact(locked_scene, current.method)
-    _delete_source_map_files(locked_scene, current)
     current.delete()
-
-
-def _delete_source_map_files(scene, source_map):
-  live_name = scene.map.name if scene.map else ""
-  shared = SceneSourceMap.objects.filter(
-    scene=scene, file=source_map.file.name).exclude(pk=source_map.pk).exists()
-  if source_map.file and source_map.file.name and source_map.file.name != live_name and not shared:
-    transaction.on_commit(partial(source_map.file.storage.delete, source_map.file.name))
-  thumb_live = scene.thumbnail.name if scene.thumbnail else ""
-  if source_map.thumbnail and source_map.thumbnail.name and source_map.thumbnail.name != thumb_live:
-    transaction.on_commit(partial(source_map.thumbnail.storage.delete, source_map.thumbnail.name))
 
 
 def delete_artifact(scene, method):
@@ -436,8 +462,6 @@ def delete_artifact(scene, method):
   artifact = SceneMappingArtifact.objects.filter(scene=scene, method=method).first()
   if artifact is None:
     return False
-  if artifact.bundle:
-    artifact.bundle.delete(save=False)
   artifact.delete()
   return True
 
@@ -457,25 +481,9 @@ def _lock_scene(scene_id, *, nowait):
 
 def _replace_artifact(scene, method):
   """Drop ``method``'s current zip; its file is deleted after commit."""
-  for artifact in SceneMappingArtifact.objects.filter(scene=scene, method=method):
-    if artifact.bundle:
-      transaction.on_commit(partial(artifact.bundle.storage.delete, artifact.bundle.name))
-    artifact.delete()
+  SceneMappingArtifact.objects.filter(scene=scene, method=method).delete()
 
 
 def _replace_source_map(scene, method):
   """Drop ``method``'s previous mesh row. The caller makes the replacement default."""
-  previous = SceneSourceMap.objects.filter(scene=scene, method=method)
-  default_id = Scene.objects.filter(pk=scene.pk).values_list(
-    "default_source_map_id", flat=True).first()
-  was_default = previous.filter(pk=default_id).exists()
-  # The old default's file is no longer live once the replacement is activated.
-  live_name = "" if was_default else (scene.map.name if scene.map else "")
-  for old in previous:
-    shared = SceneSourceMap.objects.filter(file=old.file.name).exclude(pk=old.pk).exists()
-    if old.file and old.file.name != live_name and not shared:
-      transaction.on_commit(partial(old.file.storage.delete, old.file.name))
-    live_thumbnail = scene.thumbnail.name if scene.thumbnail else ""
-    if old.thumbnail and old.thumbnail.name != live_thumbnail:
-      transaction.on_commit(partial(old.thumbnail.storage.delete, old.thumbnail.name))
-    old.delete()
+  SceneSourceMap.objects.filter(scene=scene, method=method).delete()

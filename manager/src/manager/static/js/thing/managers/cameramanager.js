@@ -10,6 +10,7 @@ export default class CameraManager extends ThingManager {
     super(sceneID, "camera");
     this.currentCameras = [];
     this.sceneCameras = this.sceneThings;
+    this.syncGeneration = 0;
   }
 
   refresh(client, topic) {
@@ -28,7 +29,9 @@ export default class CameraManager extends ThingManager {
   // pose edits survive. Refresh optics only when their persisted values change.
   // Returns { added, removed } uids.
   async syncWithDatabase(params, client, appName, isVARunning) {
+    const generation = ++this.syncGeneration;
     const res = await this.restclient.getCameras({ scene: this.sceneID });
+    if (generation !== this.syncGeneration) return { added: [], removed: [] };
     if (res.statusCode !== 200) return { added: [], removed: [] };
     const inDB = new Map(res.content.results.map((cam) => [cam.uid, cam]));
 

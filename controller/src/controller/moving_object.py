@@ -156,6 +156,7 @@ class MovingObject:
     self.camera = camera
     self.info = info.copy()
     self.metric_distance = _parse_metric_distance(self.info)
+    self.depth_expanded_box = False
     self.has_detection_rotation = 'rotation' in self.info
 
     self.category = self.info.get('category', 'object')
@@ -169,6 +170,7 @@ class MovingObject:
         agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
           self.boundingBoxPixels, self.metric_distance)
         self.boundingBox = agnostic
+        self.depth_expanded_box = self.metric_distance is not None
     if 'bounding_box' in self.info:
       self.boundingBox = self._normalized_box_at_depth(self.info.pop('bounding_box'))
     self.confidence = self.info['confidence'] if 'confidence' in self.info else None
@@ -203,6 +205,7 @@ class MovingObject:
     depth = self.metric_distance
     if depth is None or box.origin.is3D:
       return box
+    self.depth_expanded_box = True
     return Rectangle(
       origin=Point(box.origin.x * depth, box.origin.y * depth, depth),
       opposite=Point(box.opposite.x * depth, box.opposite.y * depth, depth))
@@ -336,7 +339,7 @@ class MovingObject:
   def camLoc(self):
     """Object location in camera coordinate system"""
     bounds = self.boundingBox
-    if self.metric_distance is not None and bounds.origin.is3D:
+    if self.depth_expanded_box:
       return Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, bounds.origin.z)
     if self.shift_type == TYPE_2:
       if not hasattr(self, 'baseAngle'):
@@ -374,27 +377,28 @@ class MovingObject:
         cam_loc = self.camLoc
         self.orig_point = camera.pose.cameraPointToWorldPoint(cam_loc)
         half_extent = np.mean([self.size[0], self.size[1]]) / 2
-        if self.metric_distance is not None:
-          # Depth gave the nearest face; push the centre back along the ray.
-          ray = self.orig_point - camera.pose.translation
-          ray_len = ray.length
-          if ray_len > 1e-9:
-            self.orig_point = self.orig_point + Point(
-              ray.x / ray_len * half_extent,
-              ray.y / ray_len * half_extent,
-              ray.z / ray_len * half_extent)
-          # Scene location is the cuboid's bottom centre, not its geometric centre.
-          self.orig_point = Point(self.orig_point.x, self.orig_point.y,
-                                  self.orig_point.z - self.size[2] / 2)
+        if self.depth_expanded_box:
+          self.orig_point = self._depth_box_bottom_center(
+            self.orig_point, camera.pose.translation, half_extent)
         elif not cam_loc.is3D:
           line1 = Line(camera.pose.translation, self.orig_point)
           line2 = Line(self.orig_point, Point(half_extent, line1.angle, 0, polar=True), relative=True)
           self.orig_point = line2.end
     self.location = [Chronoloc(self.orig_point, when, self.boundingBox)]
     self.vectors = [Vector(camera, self.orig_point, when)]
-    if hasattr(self, 'buffer_size') and self.buffer_size is not None:
+    if getattr(self, 'buffer_size', None) is not None:
       self.size = [x + y for x, y in zip(self.size, self.buffer_size)]
     return
+
+  def _depth_box_bottom_center(self, center, camera_position, half_extent):
+    # Depth measures the nearest face; scene location is the cuboid's bottom centre.
+    ray = center - camera_position
+    ray_len = ray.length
+    if ray_len > 1e-9:
+      center = center + Point(ray.x / ray_len * half_extent,
+                              ray.y / ray_len * half_extent,
+                              ray.z / ray_len * half_extent)
+    return Point(center.x, center.y, center.z - self.size[2] / 2)
 
   @property
   def sceneLoc(self):
@@ -408,7 +412,7 @@ class MovingObject:
 
   def _projectBounds(self):
     if hasattr(self.camera, "pose") and self.boundingBox:
-      if self.metric_distance is not None and self.boundingBox.origin.is3D:
+      if self.depth_expanded_box:
         # Box already sits at metric depth: its extents are the metric size.
         width = self.boundingBox.width
         height = self.boundingBox.height

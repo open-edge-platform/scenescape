@@ -96,12 +96,29 @@ def test_artifact_put_list_get_delete(client, scene):
 
   resp = _put(client, scene, "orbslam3", {"nope.bin": b"x"})
   assert resp.status_code == 400
-  assert "orbslam3.osa" in resp.json()["error"]
+  assert resp.json() == {"error": "Failed to store mapping artifact"}
 
+
+@pytest.mark.parametrize("manifest", [
+  '{"contributor": 123}',
+  '{"metadata": NaN}',
+  '{"metadata": 1e999}',
+])
+def test_invalid_artifact_metadata_returns_controlled_400(client, scene, manifest, caplog):
+  response = _put(client, scene, "keyframes", {"manifest.json": manifest})
+  assert response.status_code == 400
+  assert response.json() == {"error": "Failed to store mapping artifact"}
+  assert "Failed to store mapping artifact" in caplog.text
+  assert not scene.mapping_artifacts.exists()
+
+
+def test_artifact_delete_and_missing_get(client, scene):
+  assert _put(client, scene, "keyframes", {"frames.bin": b"x"}).status_code == 200
   assert client.delete(f"/api/v1/scene/{scene.pk}/mapping-artifacts/keyframes").status_code == 204
   assert client.get(f"/api/v1/scene/{scene.pk}/mapping-artifacts/keyframes").status_code == 404
 
 
+@pytest.mark.django_db(transaction=True)
 def test_artifact_writes_require_superuser_but_reads_allow_authenticated(client, scene):
   assert _put(client, scene, "keyframes", {"frames.bin": b"x"}).status_code == 200
   reader = User.objects.create_user("reader")
@@ -234,6 +251,21 @@ def test_scene_map_upload_without_source_is_user_method(client, scene):
   maps = client.get(f"/api/v1/scene/{scene.pk}/maps").json()
   assert maps["default"] == "user"
   assert sorted(m["method"] for m in maps["maps"]) == ["rtabmap", "user"]
+
+
+def test_activation_response_uses_refreshed_source_transform(client, scene, monkeypatch):
+  assert _put_mesh(client, scene, "orbslam3").status_code == 200
+  source = scene.source_maps.get(method="orbslam3")
+  assert _put_mesh(client, scene, "arkit").status_code == 200
+  transform = {"translation": [7, 8, 9], "rotation": [0, 0, 0], "scale": [1, 1, 1]}
+  scene.source_maps.filter(pk=source.pk).update(transform=transform)
+  monkeypatch.setattr("manager.api.source_map_for_method", lambda *args: source)
+  response = client.post(f"/api/v1/scene/{scene.pk}/maps/orbslam3/activate")
+  assert response.status_code == 200
+  assert response.json()["transform"] == transform
+  scene.refresh_from_db()
+  assert scene.map_processed is None
+  assert scene.translation_x == 7
 
 
 @pytest.mark.parametrize("create", [False, True])

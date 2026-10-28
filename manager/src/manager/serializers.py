@@ -958,50 +958,37 @@ class SceneSerializer(NonNullSerializer):
     return self.create_update(validated_data, instance)
 
   def handleMeshTransform(self, data, validated_data):
-    axes = {'x': 0, 'y': 1, 'z': 2}
-    transform_types = ['translation', 'rotation', 'scale']
-
-    for trans_type in transform_types:
+    for trans_type in ('translation', 'rotation', 'scale'):
       key = f'mesh_{trans_type}'
       popped_data = data.pop(key, None)
-
-      # Skip if not provided
       if popped_data is None:
         continue
-
-      # Multipart QueryDict.pop returns a one-element list of the form string.
-      # JSON bodies arrive as a list of three numbers.
-      if (isinstance(popped_data, (list, tuple)) and len(popped_data) == 1
-          and isinstance(popped_data[0], str)):
-        popped_data = popped_data[0]
-      if isinstance(popped_data, str):
-        try:
-          popped_data = json.loads(popped_data)
-        except json.JSONDecodeError:
-          raise serializers.ValidationError({
-            key: 'Must be a list of exactly 3 numeric values [x, y, z].'
-          })
-
-      # Must be a list or tuple of exactly 3 elements
-      if not isinstance(popped_data, (list, tuple)) or len(popped_data) != 3:
-        raise serializers.ValidationError({
-          key: 'Must be a list of exactly 3 numeric values [x, y, z].'
-        })
-      if len(popped_data) != 3:
-        raise serializers.ValidationError({
-          key: f'Must have exactly 3 values, got {len(popped_data)}.'
-        })
-
-      for axis, index in axes.items():
-        value = popped_data[index]
-
-        # Must be int or float
+      values = self._meshTransformValues(popped_data, key)
+      for axis, value in zip(('x', 'y', 'z'), values):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
           raise serializers.ValidationError({
             key: f'Axis "{axis}" must be a finite number.'
           })
         validated_data[f'{trans_type}_{axis}'] = float(value)
     return
+
+  @staticmethod
+  def _meshTransformValues(value, key):
+    # QueryDict.pop wraps the form string; JSON bodies already contain the vector.
+    if isinstance(value, (list, tuple)) and len(value) == 1 and isinstance(value[0], str):
+      value = value[0]
+    if isinstance(value, str):
+      try:
+        value = json.loads(value)
+      except json.JSONDecodeError as exc:
+        raise serializers.ValidationError({
+          key: 'Must be a list of exactly 3 numeric values [x, y, z].'
+        }) from exc
+    if not isinstance(value, (list, tuple)) or len(value) != 3:
+      raise serializers.ValidationError({
+        key: 'Must be a list of exactly 3 numeric values [x, y, z].'
+      })
+    return value
 
   class Meta:
     model = Scene

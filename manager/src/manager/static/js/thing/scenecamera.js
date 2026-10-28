@@ -368,7 +368,7 @@ export default class SceneCamera extends THREE.Object3D {
     return;
   }
 
-  updateIntrinsics(intrinsics) {
+  updateIntrinsics(intrinsics, resolutionChanged = false) {
     if (!intrinsics) return;
     let newIntrinsics = intrinsics;
     if (Array.isArray(intrinsics) && Array.isArray(intrinsics[0])) {
@@ -379,7 +379,10 @@ export default class SceneCamera extends THREE.Object3D {
         cy: intrinsics[1][2],
       };
     }
-    if (JSON.stringify(newIntrinsics) !== JSON.stringify(this.intrinsics)) {
+    if (
+      JSON.stringify(newIntrinsics) !== JSON.stringify(this.intrinsics) ||
+      (resolutionChanged && newIntrinsics.fov !== undefined)
+    ) {
       this.intrinsics = newIntrinsics;
       this.cameraMatrix = cv.matFromArray(
         3,
@@ -434,8 +437,12 @@ export default class SceneCamera extends THREE.Object3D {
   updateOptics(data) {
     this.updateDistortion(data.distortion);
     if (this.fovEnabled || (!data.intrinsics && !data.resolution)) return;
+    const previousResolution = JSON.stringify(this.resolution);
     this.updateCameraResolutionUsingInputFrame(data);
-    this.updateIntrinsics(data.intrinsics);
+    this.updateIntrinsics(
+      data.intrinsics || this.intrinsics,
+      previousResolution !== JSON.stringify(this.resolution),
+    );
     this.applyOpticalProjection();
   }
 

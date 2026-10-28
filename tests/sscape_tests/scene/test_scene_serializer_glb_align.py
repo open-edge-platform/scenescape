@@ -6,8 +6,42 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.http import QueryDict
+from rest_framework.exceptions import ValidationError
 
 from manager.serializers import SceneSerializer
+
+
+@pytest.mark.parametrize("value", [[1, 2.5, -3], (1, 2.5, -3), "[1, 2.5, -3]"])
+def test_mesh_transform_accepts_json_vector_forms(value):
+  data = {"mesh_translation": value, "name": "untouched"}
+  validated = {}
+  SceneSerializer().handleMeshTransform(data, validated)
+  assert validated == {"translation_x": 1.0, "translation_y": 2.5, "translation_z": -3.0}
+  assert data == {"name": "untouched"}
+
+
+def test_mesh_transform_accepts_multipart_vector():
+  data = QueryDict("mesh_rotation=%5B1%2C2%2C3%5D", mutable=True)
+  validated = {}
+  SceneSerializer().handleMeshTransform(data, validated)
+  assert validated == {"rotation_x": 1.0, "rotation_y": 2.0, "rotation_z": 3.0}
+
+
+@pytest.mark.parametrize("value", [
+  "not-json", "[1,2]", {"x": 1}, [1, 2, 3, 4], [True, 2, 3], [1, "2", 3],
+  [float("nan"), 2, 3], [1, float("inf"), 3],
+])
+def test_mesh_transform_rejects_malformed_vectors(value):
+  with pytest.raises(ValidationError) as exc:
+    SceneSerializer().handleMeshTransform({"mesh_scale": value}, {})
+  assert "mesh_scale" in exc.value.detail
+
+
+def test_mesh_transform_omission_preserves_validated_data():
+  validated = {"name": "unchanged"}
+  SceneSerializer().handleMeshTransform({}, validated)
+  assert validated == {"name": "unchanged"}
 
 
 @pytest.fixture(autouse=True)

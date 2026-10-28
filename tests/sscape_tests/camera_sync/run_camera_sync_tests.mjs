@@ -189,6 +189,50 @@ test("database notifications refresh existing optics without applying saved pose
   assert.deepEqual(calls, []);
 });
 
+test("superseded camera responses cannot resurrect or remove cameras", async () => {
+  const { manager, calls } = await harness(() => [{ uid: "old", name: "Old" }]);
+  await manager.load(params);
+  const pending = [];
+  manager.restclient.getCameras = () =>
+    new Promise((resolve) => pending.push(resolve));
+  calls.length = 0;
+  const oldRequest = manager.syncWithDatabase(params, {}, "app", true);
+  const newRequest = manager.syncWithDatabase(params, {}, "app", true);
+  pending[1]({
+    statusCode: 200,
+    content: { results: [{ uid: "new", name: "New" }] },
+  });
+  await newRequest;
+  const appliedCalls = calls.length;
+  pending[0]({
+    statusCode: 200,
+    content: { results: [{ uid: "old", name: "Old" }] },
+  });
+  assert.deepEqual(plain(await oldRequest), { added: [], removed: [] });
+  assert.deepEqual(
+    Object.keys(manager.sceneCameras).filter((uid) => uid !== "undefined"),
+    ["new"],
+  );
+  assert.equal(calls.length, appliedCalls);
+});
+
+test("a failed latest listing does not allow an older snapshot to apply", async () => {
+  const { manager, calls } = await harness(() => [{ uid: "a", name: "A" }]);
+  await manager.load(params);
+  const pending = [];
+  manager.restclient.getCameras = () =>
+    new Promise((resolve) => pending.push(resolve));
+  calls.length = 0;
+  const first = manager.syncWithDatabase(params, {}, "app", false);
+  const latest = manager.syncWithDatabase(params, {}, "app", false);
+  pending[1]({ statusCode: 500 });
+  await latest;
+  pending[0]({ statusCode: 200, content: { results: [] } });
+  await first;
+  assert.ok("a" in manager.sceneCameras);
+  assert.deepEqual(calls, []);
+});
+
 test("only explicitly dynamic poses overwrite camera edits", async () => {
   const { manager, calls } = await harness(() => [{ uid: "a", name: "A" }]);
   await manager.load(params);
@@ -376,6 +420,35 @@ test("database diagonal FOV calibration is accepted as well as pixel intrinsics"
   camera.syncOptics({ intrinsics: { fov: 70 }, resolution: [640, 480] });
   assert.ok(Number.isFinite(camera.sceneCamera.fov));
   assert.deepEqual(plain(camera.intrinsics), { fov: 70 });
+});
+
+test("FOV calibration rebuilds pixel intrinsics for resolution-only and same-FOV updates", async () => {
+  for (const includeIntrinsics of [false, true]) {
+    const camera = await sceneCameraHarness();
+    camera.updateOptics({ intrinsics: { fov: 70 }, resolution: [640, 480] });
+    const focalLength = camera.cameraMatrix.data64F[0];
+    const verticalFov = camera.sceneCamera.fov;
+    camera.updateOptics({
+      resolution: [1280, 960],
+      ...(includeIntrinsics ? { intrinsics: { fov: 70 } } : {}),
+    });
+    assert.ok(
+      Math.abs(camera.cameraMatrix.data64F[0] - 2 * focalLength) < 1e-10,
+    );
+    assert.equal(camera.cameraMatrix.data64F[2], 640);
+    assert.equal(camera.cameraMatrix.data64F[5], 480);
+    assert.ok(Math.abs(camera.sceneCamera.fov - verticalFov) < 1e-10);
+    camera.updateOptics({ resolution: [0, 960] });
+    assert.equal(camera.cameraMatrix.data64F[2], 640);
+  }
+});
+
+test("resolution-only updates retain explicit pixel intrinsics", async () => {
+  const camera = await sceneCameraHarness();
+  const matrix = camera.cameraMatrix;
+  camera.updateOptics({ resolution: [1920, 1080] });
+  assert.equal(camera.cameraMatrix, matrix);
+  assert.deepEqual(plain(camera.sceneCamera.offset), { x: 160, y: 40 });
 });
 
 test("save persists sensor dimensions or inferred fallback, never the default", async () => {

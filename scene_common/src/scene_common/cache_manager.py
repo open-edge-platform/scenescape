@@ -18,6 +18,7 @@ from scene_common.tracking_object_registry import TrackedObjectRegistry
 
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
+from scene_common.transform import CameraIntrinsics
 
 REFRESH_TIME = 60
 
@@ -118,7 +119,7 @@ class CacheManager:
 
   def _applySceneResults(self, found):
     """Apply fetched scene results. Caller must hold self._lock."""
-    if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
+    if getattr(self, 'cached_scenes_by_uid', None) is None:
       self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
@@ -130,44 +131,8 @@ class CacheManager:
       self._teardownScene(self.cached_scenes_by_uid.pop(uid, None))
 
     for scene_data in found:
-      if self.tracker_config_data:
-        scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
-                                      self.tracker_config_data["non_measurement_time_dynamic"],
-                                      self.tracker_config_data["non_measurement_time_static"],
-                                      self.tracker_config_data["effective_object_update_rate"],
-                                      self.tracker_config_data["time_chunking_enabled"],
-                                      self.tracker_config_data["time_chunking_rate_fps"],
-                                      self.tracker_config_data["suspended_track_timeout_secs"]]
-        scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
-      if self.reid_config_data:
-        scene_data["reid_config_data"] = self.reid_config_data
-      if getattr(self, 'pose_adjustment_config_data', {}):
-        scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
-
-      uid = scene_data['uid']
-      if uid not in self.cached_scenes_by_uid:
-        old_scene = self._sensorNeedsRestoring(uid)
-        if old_scene is not None:
-          # Reuse the existing scene to preserve tracked objects, sensor state,
-          # analytics_state and dwell times across DB-triggered refreshes.
-          scene = old_scene
-          scene.updateScene(scene_data)
-        else:
-          # A fresh Scene replaces the previous instance for this uid; stop
-          # the old tracker (thread pools, stale-feature timers) or every
-          # DB-triggered refresh leaks them until the pids limit is hit.
-          previous = (getattr(self, '_old_scene_cache', None) or {}).get(uid)
-          if previous is not None:
-            self._teardownScene(previous)
-          scene_cls = getattr(self, '_scene_cls', None)
-          if scene_cls is None:
-            from controller.scene import Scene
-            scene_cls = Scene
-          scene = scene_cls.deserialize(scene_data)
-      else:
-        scene = self.cached_scenes_by_uid[uid]
-        scene.updateScene(scene_data)
-
+      self._configureSceneData(scene_data)
+      scene = self._sceneFromData(scene_data)
       for cameraID in scene.cameras.keys():
         self._cached_scenes_by_cameraID[cameraID] = scene
       for sensorID in scene.sensors.keys():
@@ -179,6 +144,39 @@ class CacheManager:
       self._old_scene_cache = None
 
     self._cache_refreshed = get_epoch_time()
+
+  def _configureSceneData(self, scene_data):
+    if self.tracker_config_data:
+      scene_data["tracker_config"] = [self.tracker_config_data[key] for key in (
+        "max_unreliable_time", "non_measurement_time_dynamic", "non_measurement_time_static",
+        "effective_object_update_rate", "time_chunking_enabled", "time_chunking_rate_fps",
+        "suspended_track_timeout_secs",
+      )]
+      scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
+    if self.reid_config_data:
+      scene_data["reid_config_data"] = self.reid_config_data
+    if getattr(self, 'pose_adjustment_config_data', {}):
+      scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
+
+  def _sceneFromData(self, scene_data):
+    uid = scene_data['uid']
+    if uid in self.cached_scenes_by_uid:
+      scene = self.cached_scenes_by_uid[uid]
+      scene.updateScene(scene_data)
+      return scene
+    old_scene = self._sensorNeedsRestoring(uid)
+    if old_scene is not None:
+      # Preserve sensor and analytics state across DB-triggered refreshes.
+      old_scene.updateScene(scene_data)
+      return old_scene
+    previous = (getattr(self, '_old_scene_cache', None) or {}).get(uid)
+    if previous is not None:
+      self._teardownScene(previous)
+    scene_cls = getattr(self, '_scene_cls', None)
+    if scene_cls is None:
+      from controller.scene import Scene
+      scene_cls = Scene
+    return scene_cls.deserialize(scene_data)
 
   def _teardownScene(self, scene):
     """
@@ -315,10 +313,24 @@ class CacheManager:
   def cameraParametersChanged(self, message, parameter_type):
     message_parameters = message.get(parameter_type)
     stored_parameters = self.camera_parameters.get(message['id'], {}).get(parameter_type)
+    if parameter_type == 'distortion' and message_parameters:
+      message_parameters = self._persistedDistortion(message_parameters)
+      stored_parameters = self._persistedDistortion(stored_parameters or {})
     if message_parameters and message_parameters != stored_parameters:
-      self.camera_parameters.setdefault(message['id'], {})[parameter_type] = message[parameter_type]
+      self.camera_parameters.setdefault(message['id'], {})[parameter_type] = message_parameters
       return True
     return False
+
+  @staticmethod
+  def _persistedDistortion(distortion):
+    if isinstance(distortion, dict):
+      coefficients = CameraIntrinsics.distortionDictToList(distortion)
+    elif isinstance(distortion, (list, tuple)) and len(distortion) in (4, 5, 8, 12, 14):
+      coefficients = list(distortion)
+    else:
+      log.warning("Ignoring invalid camera distortion:", distortion)
+      return None
+    return dict(zip(CameraIntrinsics.DISTORTION_KEYS[:5], coefficients + [0.0] * 5))
 
   def checkRefresh(self):
     self._refreshLock()

@@ -7,6 +7,7 @@ import socket
 import traceback
 import uuid
 import zipfile
+from functools import partial
 import requests
 
 import numpy as np
@@ -16,6 +17,9 @@ from PIL import Image
 from django.core.files.base import ContentFile
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.db import models, transaction
+from django.db.models import Q
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
@@ -381,9 +385,6 @@ class Scene(models.Model):
   def delete(self, *args, **kwargs):
     super(Scene, self).delete(*args, **kwargs)
     transaction.on_commit(sendUpdateCommand)
-    if self.map:
-      storage, path = self.map.storage, self.map.path
-      storage.delete(path)
     return
 
   def roiJSON(self):
@@ -595,6 +596,37 @@ class SceneMappingArtifact(models.Model):
       models.UniqueConstraint(
         fields=["scene", "method"], name="unique_mapping_artifact_per_method"),
     ]
+
+
+def _delete_unreferenced_mapping_file(storage, name, using):
+  if Scene.objects.using(using).filter(Q(map=name) | Q(thumbnail=name)).exists():
+    return
+  if SceneSourceMap.objects.using(using).filter(Q(file=name) | Q(thumbnail=name)).exists():
+    return
+  if SceneMappingArtifact.objects.using(using).filter(bundle=name).exists():
+    return
+  if storage.exists(name):
+    storage.delete(name)
+
+
+@receiver(post_delete, sender=Scene)
+@receiver(post_delete, sender=SceneSourceMap)
+@receiver(post_delete, sender=SceneMappingArtifact)
+def delete_mapping_files_after_commit(sender, instance, using, **kwargs):
+  """Cascade deletions must not remove shared files or survive a rollback."""
+  fields = {
+    Scene: ("map", "thumbnail"),
+    SceneSourceMap: ("file", "thumbnail"),
+    SceneMappingArtifact: ("bundle",),
+  }
+  for field in fields[sender]:
+    stored_file = getattr(instance, field)
+    if stored_file:
+      transaction.on_commit(
+        partial(_delete_unreferenced_mapping_file, stored_file.storage, stored_file.name, using),
+        using=using,
+      )
+
 
 class ChildScene(models.Model):
   child = models.OneToOneField(Scene, default=None, null=True, blank=True,

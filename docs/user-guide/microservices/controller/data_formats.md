@@ -37,16 +37,16 @@ against the `detector` definition in
 
 ### Top-Level Message Fields
 
-| Field            | Type                  | Required | Description                                                                                                                         |
-| ---------------- | --------------------- | :------: | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic identifier                                                |
-| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                                       |
-| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                                 |
-| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                                  |
-| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                                   |
-| `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`) in calibrated sensor pixels; updates calibration independently of resolution |
+| Field            | Type                  | Required | Description                                                                                                                               |
+| ---------------- | --------------------- | :------: | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic identifier                                                      |
+| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                                             |
+| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                                       |
+| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                                        |
+| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                                         |
+| `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`) in calibrated sensor pixels; updates calibration independently of resolution         |
 | `resolution`     | array or object       |    No    | Full calibrated sensor dimensions, `[width, height]` or `{"width": width, "height": height}`; positive integers, not thumbnail dimensions |
-| `distortion`     | object                |    No    | Lens distortion coefficients keyed by name (`k1`, `k2`, `p1`, `p2`, `k3`); used alongside `intrinsics` to update camera calibration |
+| `distortion`     | object                |    No    | Lens distortion coefficients keyed by name (`k1`, `k2`, `p1`, `p2`, `k3`); used alongside `intrinsics` to update camera calibration       |
 
 ### Detection Object Fields (`objects.<category>[*]`)
 
