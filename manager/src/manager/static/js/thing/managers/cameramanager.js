@@ -25,7 +25,8 @@ export default class CameraManager extends ThingManager {
   // Reconcile with the database after a CMD_DATABASE notice: build cameras
   // that appeared (e.g. a handheld registering itself), tear down cameras
   // that were deleted elsewhere, leave the rest untouched so in-progress
-  // edits survive. Returns { added, removed } uids.
+  // pose edits survive. Refresh optics only when their persisted values change.
+  // Returns { added, removed } uids.
   async syncWithDatabase(params, client, appName, isVARunning) {
     const res = await this.restclient.getCameras({ scene: this.sceneID });
     if (res.statusCode !== 200) return { added: [], removed: [] };
@@ -44,7 +45,10 @@ export default class CameraManager extends ThingManager {
 
     const added = [];
     for (const [uid, thing] of inDB) {
-      if (uid in this.sceneCameras) continue;
+      if (uid in this.sceneCameras) {
+        this.sceneCameras[uid].syncOptics(thing);
+        continue;
+      }
       thing.isStoredInDB = true;
       const cam = this.add(thing);
       cam.toast = params.toast;

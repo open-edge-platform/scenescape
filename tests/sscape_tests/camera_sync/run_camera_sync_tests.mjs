@@ -49,6 +49,9 @@ async function harness(dbCameras) {
     updatePose(pose) {
       calls.push(["pose", this.uid, pose]);
     }
+    syncOptics(data) {
+      this.optics = data;
+    }
   }
   class FakeREST {
     async getCameras() {
@@ -165,6 +168,27 @@ test("a failed camera listing changes nothing", async () => {
   assert.ok("a" in manager.sceneCameras);
 });
 
+test("database notifications refresh existing optics without applying saved poses", async () => {
+  let cameras = [{ uid: "a", name: "A", intrinsics: { fx: 500 } }];
+  const { manager, calls } = await harness(() => cameras);
+  await manager.load(params);
+  const camera = manager.sceneCameras.a;
+  calls.length = 0;
+  cameras = [
+    {
+      uid: "a",
+      name: "A",
+      intrinsics: { fx: 1300 },
+      resolution: [1920, 1440],
+      translation: [0, 0, 0],
+    },
+  ];
+  await manager.syncWithDatabase(params, {}, "app", false);
+  assert.equal(manager.sceneCameras.a, camera);
+  assert.deepEqual(camera.optics, cameras[0]);
+  assert.deepEqual(calls, []);
+});
+
 test("only explicitly dynamic poses overwrite camera edits", async () => {
   const { manager, calls } = await harness(() => [{ uid: "a", name: "A" }]);
   await manager.load(params);
@@ -189,6 +213,10 @@ async function sceneCameraHarness() {
     console,
     clearInterval,
     window: { confirm: () => true },
+    cv: {
+      CV_64F: 0,
+      matFromArray: (rows, cols, type, data64F) => ({ data64F }),
+    },
   });
   const entry = new vm.SourceTextModule(source, { context });
   await entry.link(async (specifier) => {
@@ -239,6 +267,8 @@ async function sceneCameraHarness() {
     name: "mobile",
     resolution: { w: 640, h: 480 },
     hasAuthoritativeResolution: false,
+    databaseOptics: {},
+    intrinsics: { fx: 900, fy: 1000, cx: 800, cy: 500 },
     cameraMatrix: { data64F: [900, 0, 800, 0, 1000, 500, 0, 0, 1] },
     sceneCamera: {
       setViewOffset(w, h, x, y) {
@@ -279,6 +309,73 @@ test("missing resolution uses intrinsics fallback; invalid metadata is ignored",
   assert.equal(camera.hasAuthoritativeResolution, false);
   camera.updateCameraResolutionUsingInputFrame({ resolution: [1920, 1080] });
   assert.deepEqual(plain(camera.intrinsicsResolution()), { w: 1920, h: 1080 });
+});
+
+test("latest optics update the existing camera without resetting its live pose", async () => {
+  const camera = await sceneCameraHarness();
+  const sceneCamera = camera.sceneCamera;
+  sceneCamera.position = { x: 4, y: 5, z: 6 };
+  camera.updateOptics({
+    intrinsics: { fx: 1339, fy: 1340, cx: 956, cy: 726 },
+    resolution: [1920, 1440],
+  });
+  assert.equal(camera.sceneCamera, sceneCamera);
+  assert.deepEqual(sceneCamera.position, { x: 4, y: 5, z: 6 });
+  assert.deepEqual(plain(sceneCamera.offset), { x: 4, y: -6 });
+  assert.ok(
+    Math.abs(
+      sceneCamera.fov - (2 * Math.atan(1440 / (2 * 1340)) * 180) / Math.PI,
+    ) < 1e-10,
+  );
+  camera.updateOptics({ extrinsics: { translation: [1, 2, 3] } });
+  camera.updateIntrinsics(undefined);
+  assert.equal(camera.intrinsics.fx, 1339);
+});
+
+test("database optics snapshots preserve local edits on unrelated notices", async () => {
+  const camera = await sceneCameraHarness();
+  const original = {
+    intrinsics: { ...camera.intrinsics },
+    resolution: [1600, 1000],
+  };
+  camera.syncOptics(original);
+  camera.updateIntrinsics({ ...camera.intrinsics, fx: 950 });
+  camera.syncOptics(original);
+  assert.equal(camera.intrinsics.fx, 950);
+  camera.syncOptics({
+    intrinsics: { ...camera.intrinsics, fx: 1100 },
+    resolution: [1920, 1080],
+  });
+  assert.equal(camera.intrinsics.fx, 1100);
+  assert.deepEqual(plain(camera.intrinsicsResolution()), { w: 1920, h: 1080 });
+});
+
+test("image metadata updates optics but a manual FOV override is retained", async () => {
+  const camera = await sceneCameraHarness();
+  camera.projectCameraCapture("thumbnail.png", {
+    intrinsics: [
+      [700, 0, 320],
+      [0, 710, 240],
+      [0, 0, 1],
+    ],
+    resolution: [640, 480],
+  });
+  assert.equal(camera.intrinsics.fx, 700);
+  assert.equal(camera.intrinsics.fy, 710);
+  camera.fovEnabled = true;
+  camera.updateOptics({
+    intrinsics: { fx: 1200, fy: 1200, cx: 960, cy: 540 },
+    resolution: [1920, 1080],
+  });
+  assert.equal(camera.intrinsics.fx, 700);
+  assert.deepEqual(plain(camera.intrinsicsResolution()), { w: 640, h: 480 });
+});
+
+test("database diagonal FOV calibration is accepted as well as pixel intrinsics", async () => {
+  const camera = await sceneCameraHarness();
+  camera.syncOptics({ intrinsics: { fov: 70 }, resolution: [640, 480] });
+  assert.ok(Number.isFinite(camera.sceneCamera.fov));
+  assert.deepEqual(plain(camera.intrinsics), { fov: 70 });
 });
 
 test("save persists sensor dimensions or inferred fallback, never the default", async () => {

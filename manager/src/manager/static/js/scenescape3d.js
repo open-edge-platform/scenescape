@@ -398,10 +398,8 @@ function main() {
         );
         client.subscribe(appName + CONSTANTS.CMD_DATABASE);
         console.log("Subscribed to " + (appName + CONSTANTS.CMD_DATABASE));
-        client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+/+");
-        console.log(
-          "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+"),
-        );
+        client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+");
+        console.log("Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+"));
 
         // Subscribe to singleton sensor data - only for sensors in this scene
         const sensorManager = sceneThingManagers["things"]["sensor"]["obj"];
@@ -620,13 +618,10 @@ function main() {
         cameraManager.sceneCameras[id].projectPointCloudCapture(msg);
       }
     } else if (topic.includes(CONSTANTS.DATA_CAMERA)) {
-      const id = topic.split("/")[4];
+      const id = topic.split("/data/camera/")[1];
       cameraManager = sceneThingManagers["things"]["camera"]["obj"];
       if (cameraManager && cameraManager.sceneCameras.hasOwnProperty(id)) {
-        cameraManager.sceneCameras[id].updateDistortion(msg.distortion);
-        if (cameraManager.sceneCameras[id].fovEnabled === false) {
-          cameraManager.sceneCameras[id].updateIntrinsics(msg.intrinsics);
-        }
+        cameraManager.sceneCameras[id].updateOptics(msg);
       }
     } else if (topic.includes(CONSTANTS.EVENT)) {
       let analyticsName = topic.split("/")[2];

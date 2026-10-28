@@ -103,14 +103,12 @@ class CacheManager:
           return
         found = result.get("results", [])
 
-        # _refreshCameras also does REST calls; keep those outside the lock too.
-        for scene_data in found:
-          self._refreshCameras(scene_data)
-
         with self._lock:
           if epoch != self._cache_epoch:
             # invalidate() superseded this fetch, so its results are stale.
             return
+          for scene_data in found:
+            self._refreshCameras(scene_data)
           self._applySceneResults(found)
         return
       finally:
@@ -250,41 +248,23 @@ class CacheManager:
       log.debug(f"Restored sensor cache for {restored_count} sensor(s) in scene {uid}")
 
   def _refreshCameras(self, scene_data):
+    # REST is persisted state, not a target for replaying an older MQTT snapshot.
     for camera in scene_data.get('cameras', []):
-      update_data = {}
-      supported_distortion_values = ('k1','k2','p1','p2','k3')
-
-      if camera['uid'] in self.camera_parameters:
-        intrinsics = self.camera_parameters[camera['uid']].get('intrinsics')
-        if intrinsics and camera.get('intrinsics') != intrinsics:
-          update_data['intrinsics'] = intrinsics
-
-        # FIXME: Only use supported distortion values until more are supported by database
-        distortion_values = {
-          dist_coeff: self.camera_parameters[camera['uid']].get('distortion')[dist_coeff]
-          for dist_coeff in supported_distortion_values
-        }
-        if camera.get('distortion') != distortion_values:
-          update_data['distortion'] = self.camera_parameters[camera['uid']]['distortion']
-
-      if update_data:
-        res = self.data_source.updateCamera(camera['uid'], update_data)
-        if not res:
-          log.warning(f"Failed to update camera {camera['uid']}")
-
-        # Make a get request to pull the updated camera information
-        # from db and store it to existing camera dictionary
-        camera = self.data_source.getCamera(camera['uid'])
+      self.camera_parameters[camera['uid']] = {
+        key: camera[key] for key in ('intrinsics', 'distortion', 'resolution') if key in camera
+      }
     return
 
   def refreshScenesForCamParams(self, jdata):
     if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
       return
 
-    intrinsics_changed = self.cameraParametersChanged(jdata, 'intrinsics')
-    distortion_changed = self.cameraParametersChanged(jdata, 'distortion')
-
-    if not (intrinsics_changed or distortion_changed):
+    parameters = dict(jdata)
+    if 'resolution' in parameters:
+      parameters['resolution'] = self._cameraResolution(parameters['resolution'])
+    changed = [self.cameraParametersChanged(parameters, key)
+               for key in ('intrinsics', 'distortion', 'resolution')]
+    if not any(changed):
       return
 
     self.checkRefresh()
@@ -294,19 +274,9 @@ class CacheManager:
         log.warning("refreshScenesForCamParams: cache still None after refresh attempt, skipping")
         return
       for scene in self.cached_scenes_by_uid.values():
-        for camera in scene.cameras:
-          if jdata['id'] == camera:
-            intrinsics = jdata.get('intrinsics', {})
-            cx = intrinsics.get('cx')
-            cy = intrinsics.get('cy')
-
-            if cx is not None and cy is not None:
-              width = cx * 2
-              height = cy * 2
-              current_resolution = scene.cameras[camera].pose.resolution if hasattr(scene.cameras[camera].pose, 'resolution') else None
-              if current_resolution != [width, height]:
-                self.camera_parameters[camera]['resolution'] = [width, height]
-                cameras_to_update.append(scene.cameras[camera])
+        camera = scene.cameras.get(jdata['id'])
+        if camera is not None:
+          cameras_to_update.append(camera)
 
     # updateCamera does REST; keep it outside the lock so lookups aren't blocked.
     for cam in cameras_to_update:
@@ -315,18 +285,22 @@ class CacheManager:
     self.refreshScenes(force=True)
     return
 
+  @staticmethod
+  def _cameraResolution(resolution):
+    if isinstance(resolution, dict):
+      resolution = [resolution.get('width'), resolution.get('height')]
+    if not isinstance(resolution, (list, tuple)) or len(resolution) != 2 \
+        or not all(type(v) is int and v > 0 for v in resolution):
+      log.warning("Ignoring invalid camera sensor resolution: %r", resolution)
+      return None
+    return list(resolution)
+
   def updateCamera(self, cam):
     if cam.cameraID not in self.camera_parameters:
       return
     params = self.camera_parameters[cam.cameraID]
-    intrinsics = params.get('intrinsics')
-    distortion = params.get('distortion')
     resolution = params.get('resolution')
-
-    payload = {
-      'intrinsics': intrinsics,
-      'distortion': distortion
-    }
+    payload = {key: params[key] for key in ('intrinsics', 'distortion') if key in params}
     if resolution is not None:
       payload['resolution'] = {
         'width': resolution[0],

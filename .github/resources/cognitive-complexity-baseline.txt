@@ -111,10 +111,8 @@ reid/src/reid/vdms_adapter.py	VDMSDatabase::_extractSchemaDimensions	18
 reid/src/reid/vdms_adapter.py	VDMSDatabase::_extractSchemaMetric	15
 reid/src/reid/vdms_adapter.py	VDMSDatabase::sendQuery	13
 scene_common/src/scene_common/cache_manager.py	CacheManager::_applySceneResults	27
-scene_common/src/scene_common/cache_manager.py	CacheManager::_refreshCameras	18
 scene_common/src/scene_common/cache_manager.py	CacheManager::_restoreSensorCache	17
 scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenes	16
-scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenesForCamParams	27
 scene_common/src/scene_common/detections_builder.py	computeCameraBounds	22
 scene_common/src/scene_common/detections_builder.py	prepareObjDict	92
 scene_common/src/scene_common/geometry.py	Region::isPointWithin	14

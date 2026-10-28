@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from django.test import TestCase
+from unittest.mock import patch
 
 from manager.models import Cam, Scene
 from manager.serializers import CamSerializer
@@ -105,3 +106,45 @@ class SceneCameraCacheTestCase(TestCase):
     self.assertEqual(persisted.scene, self.scene)
     self.assertEqual(persisted.transforms, INITIAL_TRANSFORMS)
     return
+
+
+class CameraOpticsRegistrationTestCase(TestCase):
+  def register(self, **fields):
+    serializer = CamSerializer(data={'name': 'handheld-optics', **fields})
+    self.assertTrue(serializer.is_valid(), serializer.errors)
+    return serializer.save()
+
+  def test_registration_without_dimensions_estimates_full_sensor_frame(self):
+    with patch('manager.serializers.log.warning') as warning:
+      camera = self.register(intrinsics={'fx': 1339, 'fy': 1339, 'cx': 956.14, 'cy': 725.87})
+    camera.refresh_from_db()
+    self.assertEqual(CamSerializer(camera).data['resolution'], [1912, 1452])
+    warning.assert_called_once()
+
+  def test_explicit_off_center_resolution_is_not_inferred(self):
+    camera = self.register(
+      intrinsics={'fx': 1339, 'fy': 1339, 'cx': 956.14, 'cy': 725.87},
+      resolution=[1920, 1440],
+    )
+    self.assertEqual(CamSerializer(camera).data['resolution'], [1920, 1440])
+
+  def test_intrinsics_only_update_preserves_registered_resolution(self):
+    camera = self.register(resolution={'width': 1920, 'height': 1080})
+    serializer = CamSerializer(camera, partial=True, data={
+      'intrinsics': {'fx': 1000, 'fy': 1010, 'cx': 800, 'cy': 500},
+    })
+    self.assertTrue(serializer.is_valid(), serializer.errors)
+    serializer.save()
+    camera.refresh_from_db()
+    self.assertEqual([camera.width, camera.height], [1920, 1080])
+    self.assertEqual(camera.intrinsics_fx, 1000)
+
+  def test_registration_without_pixel_intrinsics_retains_default(self):
+    camera = self.register(intrinsics={'fov': 70})
+    self.assertEqual([camera.width, camera.height], [640, 480])
+
+  def test_non_optical_updates_still_require_name(self):
+    camera = self.register()
+    serializer = CamSerializer(camera, partial=True, data={'threshold': 0.6})
+    self.assertFalse(serializer.is_valid())
+    self.assertIn('name', serializer.errors)

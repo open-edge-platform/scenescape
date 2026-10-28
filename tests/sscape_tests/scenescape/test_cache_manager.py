@@ -590,6 +590,52 @@ class TestCacheManagerSensorRestoration:
 class TestCacheManagerRefreshCameras:
   """Test camera refresh functionality."""
 
+  @pytest.mark.parametrize("metadata", [
+    {'intrinsics': {'cx': 320, 'cy': 240, 'fx': 700, 'fy': 710}},
+    {'distortion': {'k1': 0.1}},
+    {'resolution': [1920, 1080]},
+    {'resolution': {'width': 1920, 'height': 1080}},
+  ])
+  def test_optics_are_persisted_independently_of_frame_size(self, metadata):
+    """Same-size focal changes and resolution-only messages must reach REST."""
+    cache_mgr = CacheManager.__new__(CacheManager)
+    camera = SimpleNamespace(cameraID='cam-1')
+    cache_mgr.cached_scenes_by_uid = {
+      'scene-1': SimpleNamespace(cameras={'cam-1': camera}),
+    }
+    cache_mgr._lock = threading.RLock()
+    cache_mgr.camera_parameters = {'cam-1': {'resolution': [640, 480]}}
+    cache_mgr.data_source = Mock()
+    cache_mgr.checkRefresh = Mock()
+    cache_mgr.refreshScenes = Mock()
+    cache_mgr.refreshScenesForCamParams({'id': 'cam-1', **metadata})
+    payload = dict(metadata)
+    resolution = payload.pop('resolution', [640, 480])
+    if isinstance(resolution, list):
+      resolution = dict(zip(('width', 'height'), resolution))
+    payload['resolution'] = resolution
+    cache_mgr.data_source.updateCamera.assert_called_once_with('cam-1', payload)
+    cache_mgr.refreshScenes.assert_called_once_with(force=True)
+
+  @pytest.mark.parametrize("resolution", [[0, 480], [True, 480], [640], None, "640x480"])
+  def test_invalid_sensor_resolution_does_not_replace_registered_size(self, resolution):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.cached_scenes_by_uid = {}
+    cache_mgr.camera_parameters = {'cam-1': {'resolution': [640, 480]}}
+    cache_mgr.data_source = Mock()
+    cache_mgr.refreshScenesForCamParams({'id': 'cam-1', 'resolution': resolution})
+    assert cache_mgr.camera_parameters['cam-1']['resolution'] == [640, 480]
+    cache_mgr.data_source.updateCamera.assert_not_called()
+
+  def test_rest_refresh_does_not_replay_stale_mqtt_optics(self):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr.data_source = Mock()
+    cache_mgr.camera_parameters = {'cam-1': {'intrinsics': {'fx': 500}}}
+    latest = {'uid': 'cam-1', 'intrinsics': {'fx': 900}, 'resolution': [1920, 1080]}
+    cache_mgr._refreshCameras({'cameras': [latest]})
+    assert cache_mgr.camera_parameters['cam-1']['intrinsics'] == {'fx': 900}
+    cache_mgr.data_source.updateCamera.assert_not_called()
+
   def test_refresh_cameras_processes_all_cameras(self):
     """Test that _refreshCameras processes camera data."""
     cache_mgr = CacheManager.__new__(CacheManager)

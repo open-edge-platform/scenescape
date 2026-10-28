@@ -23,6 +23,7 @@ from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
 from scene_common.cam_fields import CAM_SERIALIZER_FIELDS
+from scene_common import log
 
 
 class CustomAuthTokenSerializer(serializers.Serializer):
@@ -336,6 +337,8 @@ class CamSerializer(NonNullSerializer):
   def map_resolution_fields(self, validated_data):
     resolution = self.initial_data.get('resolution', None)
     if not resolution:
+      if self.instance is None:
+        self.infer_initial_resolution(validated_data)
       return
     # Exports emit [width, height]; the UI form posts {"width": .., "height": ..}.
     if isinstance(resolution, (list, tuple)):
@@ -351,6 +354,17 @@ class CamSerializer(NonNullSerializer):
       raise serializers.ValidationError({"resolution": "must provide both width and height"})
     validated_data.update({'width': width, 'height': height})
     return
+
+  def infer_initial_resolution(self, validated_data):
+    """Estimate a centered sensor frame only when registration omits its dimensions."""
+    center = [validated_data.get('intrinsics_cx'), validated_data.get('intrinsics_cy')]
+    if not all(isinstance(v, (int, float)) and math.isfinite(v) and v >= 0.5
+               for v in center):
+      return
+    width, height = (round(v * 2) for v in center)
+    validated_data.update({'width': width, 'height': height})
+    log.warning("Camera registration omitted resolution; estimating %sx%s from intrinsics",
+                width, height)
 
   def map_intrinsics_fields(self, validated_data):
     intrinsics = self.initial_data.get('intrinsics', None)
@@ -510,8 +524,10 @@ class CamSerializer(NonNullSerializer):
     return camera.pose.scale if camera and hasattr(camera, 'pose') else None
 
   def validate(self, data):
-    is_relink_only = self.partial and set(self.initial_data.keys()) <= {'scene'}
-    if not is_relink_only and 'name' not in data:
+    fields = set(self.initial_data)
+    is_metadata_only = self.partial and (
+      fields <= {'scene'} or fields <= {'intrinsics', 'distortion', 'resolution'})
+    if not is_metadata_only and 'name' not in data:
       raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)
     if data.get('use_camera_pipeline') and not data.get('camera_pipeline'):

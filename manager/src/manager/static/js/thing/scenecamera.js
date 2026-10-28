@@ -155,6 +155,12 @@ export default class SceneCamera extends THREE.Object3D {
         ? { w: params.resolution[0], h: params.resolution[1] }
         : DEFAULT_RESOLUTION;
     this.hasAuthoritativeResolution = "resolution" in params;
+    this.databaseOptics = Object.fromEntries(
+      ["intrinsics", "distortion", "resolution"].map((key) => [
+        key,
+        JSON.stringify(params[key]),
+      ]),
+    );
     this.cameraMatrix = cv.matFromArray(
       3,
       3,
@@ -347,23 +353,25 @@ export default class SceneCamera extends THREE.Object3D {
 
   updateDistortion(distortion) {
     if (distortion) {
+      this.distortion = distortion;
       this.distCoeffs = cv.matFromArray(
         1,
         5,
         cv.CV_64F,
         constructDistortionArray(distortion),
       );
-      this.distortionFolder.children[0].$input.value =
-        this.distCoeffs.data64F[K1];
+      if (this.distortionFolder) {
+        this.distortionFolder.children[0].$input.value =
+          this.distCoeffs.data64F[K1];
+      }
     }
     return;
   }
 
   updateIntrinsics(intrinsics) {
-    let newIntrinsics = this.intrinsics;
-    if ("fx" in intrinsics) {
-      newIntrinsics = intrinsics;
-    } else {
+    if (!intrinsics) return;
+    let newIntrinsics = intrinsics;
+    if (Array.isArray(intrinsics) && Array.isArray(intrinsics[0])) {
       newIntrinsics = {
         fx: intrinsics[0][0],
         fy: intrinsics[1][1],
@@ -379,15 +387,17 @@ export default class SceneCamera extends THREE.Object3D {
         cv.CV_64F,
         constructIntrinsicsMatrix(this.intrinsics, this.resolution).flat(),
       );
-      this.reloadCamera();
-      this.intrinsicsFolder.children[0].$input.value =
-        this.cameraMatrix.data64F[FX];
-      this.intrinsicsFolder.children[1].$input.value =
-        this.cameraMatrix.data64F[FY];
-      this.intrinsicsFolder.children[2].$input.value =
-        this.cameraMatrix.data64F[CX];
-      this.intrinsicsFolder.children[3].$input.value =
-        this.cameraMatrix.data64F[CY];
+      this.applyOpticalProjection();
+      if (this.intrinsicsFolder) {
+        this.intrinsicsFolder.children[0].$input.value =
+          this.cameraMatrix.data64F[FX];
+        this.intrinsicsFolder.children[1].$input.value =
+          this.cameraMatrix.data64F[FY];
+        this.intrinsicsFolder.children[2].$input.value =
+          this.cameraMatrix.data64F[CX];
+        this.intrinsicsFolder.children[3].$input.value =
+          this.cameraMatrix.data64F[CY];
+      }
     }
 
     this.executeOnControl("fov", (control) => {
@@ -408,6 +418,25 @@ export default class SceneCamera extends THREE.Object3D {
     });
 
     return;
+  }
+
+  syncOptics(data) {
+    const changed = {};
+    for (const key of ["intrinsics", "distortion", "resolution"]) {
+      if (!(key in data)) continue;
+      const value = JSON.stringify(data[key]);
+      if (value !== this.databaseOptics[key]) changed[key] = data[key];
+      this.databaseOptics[key] = value;
+    }
+    this.updateOptics(changed);
+  }
+
+  updateOptics(data) {
+    this.updateDistortion(data.distortion);
+    if (this.fovEnabled || (!data.intrinsics && !data.resolution)) return;
+    this.updateCameraResolutionUsingInputFrame(data);
+    this.updateIntrinsics(data.intrinsics);
+    this.applyOpticalProjection();
   }
 
   updatePose(pose) {
@@ -1296,7 +1325,7 @@ export default class SceneCamera extends THREE.Object3D {
         if (control[0]) control[0].destroy();
       });
       this.showCameraOnline();
-      this.updateCameraResolutionUsingInputFrame(data);
+      this.updateOptics(data);
       this.applyOpticalProjection();
     }
 
