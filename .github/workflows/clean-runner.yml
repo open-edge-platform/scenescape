@@ -6,21 +6,17 @@ name: "[CI] Clean self-hosted runner"
 run-name: "[CI] Clean self-hosted runner"
 
 on:
-  workflow_dispatch:
-    inputs:
-      runner_label:
-        description: "Label of the self-hosted runner to clean"
-        required: false
-        default: "to-be-cleaned"
-        type: string
+  # Manual only: add the "to-be-cleaned" label to the runner that needs cleanup,
+  # run this workflow, then remove the label again.
+  workflow_dispatch: {}
 
 permissions:
   contents: read
 
 jobs:
   clean-runner:
-    name: "Clean self-hosted runner (${{ inputs.runner_label }})"
-    runs-on: ${{ inputs.runner_label }}
+    name: "Clean self-hosted runner"
+    runs-on: [to-be-cleaned]
     steps:
       - name: "Clean workdir before checkout"
         run: |
