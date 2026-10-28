@@ -76,4 +76,4 @@ def test_positioning_production_transport_and_single_replica_gates():
   assert "cameraCIDRs" in network_policy
   assert set(assignments) == {"$comment"}
   assert "tools/positioning/render_mosquitto_acl.py" in dockerfile
-  assert "chmod 0600 $(SECRETSDIR)/certs/*.key" in certificates
+  assert "chmod 0600 $(CASECRETSDIR)/ca/scenescape-ca.key" in certificates

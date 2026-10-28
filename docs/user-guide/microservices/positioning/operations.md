@@ -19,10 +19,10 @@ the broker identity and `scenescape-positioning` client certificate/key. Start t
 service with the Docker Compose `controller` or `tracker` profile (`make demo` /
 `make deploy`), the test Compose stack, or the Helm chart. Production Compose and
 Helm mount the CA, client certificate, private key, and auth file read-only.
-Certificate-generation targets restrict all local private-key files to mode `0600`;
-Compose runs Positioning as the host UID/GID so it can read those secret mounts
-without making the key world-readable. Kubernetes mounts the client key with
-group-readable mode only for the Positioning pod's `fsGroup`.
+Compose runs Positioning as the host UID/GID so it can read `0600` ONVIF
+credential files. Certificate generation keeps the CA private key at mode `0600`;
+it is only used on the host to sign certificates. Kubernetes mounts the client key
+with group-readable mode only for the Positioning pod's `fsGroup`.
 Production Positioning connections use the broker's dedicated TLS listener on
 port 8883, which requires a client certificate and uses its certificate identity
 as the ACL principal. The source-scoped ACL grants only the configured Resolver's

@@ -17,7 +17,6 @@ secrets:
 services:
   positioning:
     image: intel/scenescape-positioning:${VERSION:-latest}
-    user: "${UID:-1000}:${GID:-1000}"
     networks:
       scenescape-test:
         aliases:

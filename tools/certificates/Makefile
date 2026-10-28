@@ -19,10 +19,9 @@ default: deploy-certificates
 .SECONDARY:
 
 deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert positioning-cert
-	@chmod 0600 $(SECRETSDIR)/certs/*.key $(CASECRETSDIR)/ca/scenescape-ca.key
+	@chmod 0600 $(CASECRETSDIR)/ca/scenescape-ca.key
 
 deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr positioning-csr
-	@chmod 0600 $(SECRETSDIR)/certs/*.key
 
 # EXTRA_HOSTS: optional additional DNS SANs (space-separated host labels, no
 # domain). Empty by default. Hierarchy tests pass values via the root
@@ -140,7 +139,7 @@ $(SECRETSDIR)/certs/%.key:
 	@echo Generating $*.key
 	@mkdir -p $(SECRETSDIR)/certs
 	@openssl ecparam -name secp384r1 -genkey -noout -out $@
-	@chmod 0600 $@
+	@chmod 0644 $@
 
 $(SECRETSDIR)/certs/%.csr: $(SECRETSDIR)/certs/%.key
 	@SUBJECT_ALT_NAMES="DNS.1=$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)" ; \
