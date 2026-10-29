@@ -91,23 +91,26 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
         rotation.PushBack(track.rotation[3], allocator);
         obj.AddMember("rotation", rotation, allocator);
 
-        // Optional metadata - re-parse stored JSON string and embed as object
+        // Parse fragments into the output allocator so ownership transfers without a deep copy.
         if (!track.metadata_json.empty()) {
-            Document meta_doc;
+            Document meta_doc(&allocator);
             if (!meta_doc.Parse(track.metadata_json.c_str()).HasParseError()) {
                 if (meta_doc.IsObject()) {
                     meta_doc.RemoveMember("reid");
                 }
-                Value meta_copy(meta_doc, allocator);
-                obj.AddMember("metadata", meta_copy, allocator);
+                obj.AddMember("metadata", meta_doc.Move(), allocator);
+            } else {
+                LOG_WARN("Omitting invalid track metadata JSON");
             }
         }
 
         if (!track.reid_sighting_json.empty()) {
-            Document sighting;
+            Document sighting(&allocator);
             if (!sighting.Parse(track.reid_sighting_json.c_str()).HasParseError() &&
                 sighting.IsObject()) {
-                obj.AddMember("reid_sighting", Value(sighting, allocator), allocator);
+                obj.AddMember("reid_sighting", sighting.Move(), allocator);
+            } else {
+                LOG_WARN("Omitting invalid track ReID sighting JSON");
             }
         }
 

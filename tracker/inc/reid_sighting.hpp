@@ -31,7 +31,7 @@ struct ReidSightingContext {
     const std::string& chunk_id;
     size_t index_offset;
 
-    /// Called in parallel with a span of this batch's detections.
+    /// Called in parallel for a pixel-box detection in the validated batch span.
     void tag(size_t detection_index,
              std::unordered_map<std::string, std::string>& attributes) const;
 };

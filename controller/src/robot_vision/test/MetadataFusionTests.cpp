@@ -161,18 +161,6 @@ TEST(MetadataFusionTest, HistoricalWinnerWithoutCompanionsClearsCurrentCompanion
   EXPECT_EQ(measurement.attributes.count("metadata_provenance.feature"), 0);
 }
 
-TEST(MetadataFusionTest, ClearingTransientMetadataKeepsPersistentAndUnrelatedFields)
-{
-  std::unordered_map<std::string, std::string> attributes = {{"metadata.feature", "token"},
-                                                             {"metadata_confidence.feature", "0.9"},
-                                                             {"metadata_provenance.feature", "chunk-1"},
-                                                             {"metadata_transient.feature", "1"},
-                                                             {"metadata.age", "adult"},
-                                                             {"other", "value"}};
-  rv::tracking::metadata_fusion::clearTransientMetadata(attributes);
-  EXPECT_EQ(attributes, (std::unordered_map<std::string, std::string>{{"metadata.age", "adult"}, {"other", "value"}}));
-}
-
 TEST(MetadataFusionTest, TransientMetadataCannotReplaceFreshValueAfterPrediction)
 {
   auto tracker = makeTracker();

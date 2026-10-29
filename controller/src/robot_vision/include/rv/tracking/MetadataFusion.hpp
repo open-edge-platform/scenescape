@@ -28,7 +28,6 @@ bool shouldReplace(bool winnerExists,
                    const std::optional<double> &winnerConfidence,
                    size_t winnerCameraIndex);
 
-void clearTransientMetadata(std::unordered_map<std::string, std::string> &attributes);
 void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
                   const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
                   TrackedObject &measurement);

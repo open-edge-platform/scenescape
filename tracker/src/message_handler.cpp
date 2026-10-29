@@ -504,7 +504,7 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                 detection.confidence = det["confidence"].GetDouble();
             }
 
-            detections.push_back(detection);
+            detections.push_back(std::move(detection));
         }
 
         message.objects[category] = std::move(detections);

@@ -24,6 +24,7 @@
 #include <numbers>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -867,7 +868,7 @@ TEST(TransformDetectionsTest, MetadataAndSightingShareDetectionPayload) {
     reid_sightings.reset("chunk-1");
     const auto context = reid_sightings.add_batch(batch);
 
-    auto result = transformer.transformDetections(batch.detections, &context);
+    auto result = transformer.transformDetections(batch.detections, context);
 
     ASSERT_EQ(result.size(), 1u);
     const auto& attributes = result[0].attributes;
@@ -900,12 +901,29 @@ TEST(TransformDetectionsTest, SensorFrameReidWithoutPixelBoxDoesNotCreateSightin
     reid_sightings.reset("chunk-1");
     const auto context = reid_sightings.add_batch(batch);
 
-    const auto result = transformer.transformDetections(batch.detections, &context);
+    const auto result = transformer.transformDetections(batch.detections, context);
 
     ASSERT_EQ(result.size(), 1u);
     EXPECT_TRUE(reid_sightings.take(result[0].attributes).empty());
     EXPECT_EQ(result[0].attributes.count("metadata.reid"), 0u);
     EXPECT_EQ(result[0].attributes.count("metadata_provenance.reid"), 0u);
+}
+
+TEST(TransformDetectionsTest, MismatchedSightingSpanIsRejectedBeforeParallelWork) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    DetectionBatch batch;
+    batch.detections.resize(64);
+    ReidSightingIndex index;
+    index.reset("chunk");
+    const auto context = index.add_batch(batch);
+    const auto detections = std::span<const Detection>(batch.detections);
+    const auto other_detections = batch.detections;
+
+    EXPECT_THROW(transformer.transformDetections(detections.first(32), context),
+                 std::invalid_argument);
+    EXPECT_THROW(transformer.transformDetections(other_detections, context), std::invalid_argument);
+    EXPECT_THROW(transformer.transformDetections(detections.subspan(1), context),
+                 std::invalid_argument);
 }
 
 TEST(TransformDetectionsTest, LegacyReidEncodingsAreWrappedWithoutDroppingTheVector) {
@@ -922,7 +940,7 @@ TEST(TransformDetectionsTest, LegacyReidEncodingsAreWrappedWithoutDroppingTheVec
         ReidSightingIndex reid_sightings;
         reid_sightings.reset("chunk-1");
         const auto context = reid_sightings.add_batch(batch);
-        auto result = transformer.transformDetections(batch.detections, &context);
+        auto result = transformer.transformDetections(batch.detections, context);
         ASSERT_EQ(result.size(), 1u);
         rapidjson::Document sighting;
         ASSERT_FALSE(
@@ -960,7 +978,7 @@ TEST(TransformDetectionsTest, IncompleteSightingContextDoesNotProduceInvalidSigh
         ReidSightingIndex index;
         index.reset(context[2]);
         const auto sightings = index.add_batch(batch);
-        auto result = transformer.transformDetections(batch.detections, &sightings);
+        auto result = transformer.transformDetections(batch.detections, sightings);
         ASSERT_EQ(result.size(), 1u);
         EXPECT_EQ(result[0].attributes.count("metadata.reid"), 0u);
         EXPECT_EQ(result[0].attributes.count("metadata_provenance.reid"), 0u);

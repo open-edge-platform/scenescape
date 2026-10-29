@@ -41,9 +41,9 @@ void parse_detection_metadata(const rapidjson::Value& metadata, Detection& detec
 
 void ReidSightingContext::tag(size_t detection_index,
                               std::unordered_map<std::string, std::string>& attributes) const {
-    const auto& detection = batch.detections.at(detection_index);
-    if (detection.reid_json.empty() || detection.translation || batch.camera_id.empty() ||
-        batch.timestamp_iso.empty() || chunk_id.empty()) {
+    const auto& detection = batch.detections[detection_index];
+    if (detection.reid_json.empty() || batch.camera_id.empty() || batch.timestamp_iso.empty() ||
+        chunk_id.empty()) {
         return;
     }
     attributes[kReidValueKey] = chunk_id + ":" + std::to_string(index_offset + detection_index);

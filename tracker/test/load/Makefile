@@ -7,21 +7,27 @@
 # Override defaults for boundary testing:
 #   NUM_CAMERAS=8 FPS=30 NUM_OBJECTS=500 DURATION=5m make test
 
-.PHONY: test setup clean
+.PHONY: test test-generator setup clean
 
 # Default test parameters
 NUM_CAMERAS ?= 4
 FPS ?= 15
 NUM_OBJECTS ?= 300
 REID_EMBEDDING_DIMENSIONS ?= 0
+REID_EMBEDDING_ENCODING ?= float_list
+EXTRA_METADATA ?= none
 DURATION ?= 1m
 LOAD_MODE ?= 2d
 MIXED_3D_RATIO ?= 0.5
 METRICS_EXPORT_INTERVAL_S ?= 1
 export LOAD_MODE MIXED_3D_RATIO
+export REID_EMBEDDING_DIMENSIONS REID_EMBEDDING_ENCODING EXTRA_METADATA
 
 # Version for docker image tags (inherited from parent)
 VERSION ?= latest
+
+test-generator:
+	node --experimental-vm-modules --test simulate-detections.test.mjs
 
 setup:
 	@echo "Setting up load test virtual environment..."

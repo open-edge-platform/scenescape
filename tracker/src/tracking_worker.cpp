@@ -70,13 +70,11 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
     merged.SetObject();
     auto& allocator = merged.GetAllocator();
 
-    bool has_metadata_attributes = false;
     std::vector<std::pair<std::string_view, std::string_view>> fields;
     for (const auto& [key, value] : attributes) {
         if (!key.starts_with(kMetadataPrefix)) {
             continue;
         }
-        has_metadata_attributes = true;
         const auto field = std::string_view(key).substr(kMetadataPrefix.size());
         if (field != "reid") {
             fields.emplace_back(field, value);
@@ -96,19 +94,7 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
         merged.AddMember(field_name, field_value, allocator);
     }
 
-    if (merged.ObjectEmpty() && !has_metadata_attributes) {
-        const auto legacy = attributes.find("metadata_json");
-        if (legacy != attributes.end()) {
-            if (merged.Parse(legacy->second.c_str()).HasParseError() || !merged.IsObject()) {
-                return legacy->second;
-            }
-            if (!merged.HasMember("reid")) {
-                return legacy->second;
-            }
-            merged.RemoveMember("reid");
-        }
-    }
-    if (merged.ObjectEmpty() && !has_metadata_attributes) {
+    if (merged.ObjectEmpty()) {
         return {};
     }
 
@@ -334,7 +320,7 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
         }
         const auto sightings = reid_sightings_.add_batch(batch);
         objects_per_camera.push_back(
-            transformer_it->second.transformDetections(batch.detections, &sightings));
+            transformer_it->second.transformDetections(batch.detections, sightings));
     }
 
     return objects_per_camera;

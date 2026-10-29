@@ -333,8 +333,37 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithInvalidMetadataJson_OmitsMetadata
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
 
-    // Invalid JSON must be silently dropped — no crash, no metadata field emitted
+    // Invalid JSON is logged and omitted without corrupting the output.
     EXPECT_FALSE(doc["objects"][0].HasMember("metadata"));
+}
+
+TEST_F(TrackPublisherTest, Serialize_FragmentOwnershipAndEscapingSurviveMultipleTracks) {
+    auto mqtt = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mqtt);
+    std::string payload;
+    EXPECT_CALL(*mqtt, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mqtt, publish(_, _))
+        .WillOnce([&payload](const std::string&, const std::string& json) { payload = json; });
+
+    auto first = createSampleTrack("first", "person");
+    first.metadata_json = R"({"label":"quoted\"\\\u0000","values":[1,2.5,null]})";
+    first.reid_sighting_json =
+        R"({"camera_id":"cam\"1","reid":{"embedding_vector":[[0.123456789012345,1e-20]]}})";
+    auto second = createSampleTrack("second", "person");
+    second.metadata_json = R"({"label":"second"})";
+    second.reid_sighting_json = "{invalid";
+    publisher.publish("scene", "Scene", "person", "2026-10-29T12:00:00Z", {first, second});
+
+    rapidjson::Document output;
+    ASSERT_FALSE(output.Parse(payload.c_str()).HasParseError());
+    rapidjson::Document metadata;
+    metadata.Parse(first.metadata_json.c_str());
+    rapidjson::Document sighting;
+    sighting.Parse(first.reid_sighting_json.c_str());
+    EXPECT_EQ(output["objects"][0]["metadata"], metadata);
+    EXPECT_EQ(output["objects"][0]["reid_sighting"], sighting);
+    EXPECT_STREQ(output["objects"][1]["metadata"]["label"].GetString(), "second");
+    EXPECT_FALSE(output["objects"][1].HasMember("reid_sighting"));
 }
 
 // =============================================================================

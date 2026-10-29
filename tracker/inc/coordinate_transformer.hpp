@@ -16,12 +16,11 @@
 #include <rv/tracking/TrackedObject.hpp>
 
 #include "object_class.hpp"
+#include "reid_sighting.hpp"
 #include "scene_loader.hpp"
 #include "tracking_types.hpp"
 
 namespace tracker {
-
-struct ReidSightingContext;
 
 /**
  * @brief Transformer from image or sensor-frame detections to world-space TrackedObjects.
@@ -92,6 +91,7 @@ public:
      *
      * @param detections Span of pixel-space detections (bounding boxes)
      * @param sightings Optional chunk-local context for tagging ReID observations
+     * @throws std::invalid_argument if the context does not reference the exact detection span.
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity is zero.
      *         Supplied rotation sets world yaw and attributes["has_orientation"].
@@ -100,7 +100,7 @@ public:
      */
     std::vector<rv::tracking::TrackedObject>
     transformDetections(std::span<const Detection> detections,
-                        const ReidSightingContext* sightings = nullptr) const;
+                        std::optional<ReidSightingContext> sightings = std::nullopt) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].

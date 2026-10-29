@@ -120,23 +120,6 @@ bool shouldReplace(bool winnerExists,
   return candidateCameraIndex > winnerCameraIndex;
 }
 
-void clearTransientMetadata(std::unordered_map<std::string, std::string> &attributes)
-{
-  for (auto attribute = attributes.begin(); attribute != attributes.end();)
-  {
-    if (!startsWith(attribute->first, TransientPrefix))
-    {
-      ++attribute;
-      continue;
-    }
-    const auto field = attribute->first.substr(std::char_traits<char>::length(TransientPrefix));
-    attributes.erase(ValuePrefix + field);
-    attributes.erase(ConfidencePrefix + field);
-    attributes.erase(ProvenancePrefix + field);
-    attribute = attributes.erase(attribute);
-  }
-}
-
 void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
                   const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
                   TrackedObject &measurement)

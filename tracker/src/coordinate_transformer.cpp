@@ -9,6 +9,7 @@
 #include <cassert>
 #include <charconv>
 #include <cmath>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -208,8 +209,12 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
 
 std::vector<rv::tracking::TrackedObject>
 CoordinateTransformer::transformDetections(std::span<const Detection> detections,
-                                           const ReidSightingContext* sightings) const {
+                                           std::optional<ReidSightingContext> sightings) const {
     const auto n = detections.size();
+    if (sightings && (sightings->batch.detections.size() != n ||
+                      sightings->batch.detections.data() != detections.data())) {
+        throw std::invalid_argument("ReID sighting context must reference the detection span");
+    }
     if (n == 0)
         return {};
 
