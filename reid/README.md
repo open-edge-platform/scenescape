@@ -9,6 +9,13 @@ The Re-ID service is the standalone home for the existing VDMS and Qdrant
 adapters. The service exposes a backend-neutral gRPC boundary while the
 Scene Controller continues to use the compatibility import paths in-process.
 
+VDMS queries use a five-second socket timeout. A query exception or incomplete
+response disconnects the client before releasing the query lock, discarding
+pending replies. Normal queries and readiness probes share a rate-limited
+reconnect path (at most one attempt every five seconds), so in-process Controller
+callers recover without polling readiness. Failed queries are not automatically
+replayed: a timed-out write may already have been applied by the backend.
+
 ## Build
 
 ```bash

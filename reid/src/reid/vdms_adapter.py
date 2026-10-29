@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import socket
-import threading
 import time
 
 import vdms
@@ -56,7 +55,6 @@ class VDMSDatabase(ReIDDatabase):
     )
     self.hostname = get_reid_hostname()
     self.port = get_reid_port()
-    self._reconnect_lock = threading.Lock()
     self._last_connect_attempt = float("-inf")
     return
 
@@ -67,23 +65,32 @@ class VDMSDatabase(ReIDDatabase):
     """Probe read-only, reconnecting at most once per retry interval."""
     if self._probeBackend():
       return True
-    with self._reconnect_lock:
-      now = time.monotonic()
-      if now - self._last_connect_attempt < RECONNECT_INTERVAL_SECS:
+    with self.lock:
+      if not self._reconnectClient():
         return False
-      self._last_connect_attempt = now
-      try:
-        with self.lock:
-          self.db.disconnect()
-          self._connectClient(self.hostname)
-      except (OSError, RuntimeError) as error:
-        log.warning(f"VDMS readiness reconnect failed: {error}")
-        return False
-      return self._probeBackend()
+    return self._probeBackend()
+
+  def _reconnectClient(self):
+    """Reconnect under self.lock, sharing the retry budget with normal queries."""
+    now = time.monotonic()
+    if now - self._last_connect_attempt < RECONNECT_INTERVAL_SECS:
+      return False
+    self._last_connect_attempt = now
+    try:
+      self.db.disconnect()
+      self._connectClient(self.hostname)
+    except (OSError, RuntimeError) as error:
+      log.warning(f"VDMS reconnect failed: {error}")
+      return False
+    return True
 
   def _connectClient(self, hostname):
-    self.db.connect(hostname, port=self.port)
-    self.db.conn.settimeout(BACKEND_TIMEOUT_SECS)
+    try:
+      self.db.connect(hostname, port=self.port)
+      self.db.conn.settimeout(BACKEND_TIMEOUT_SECS)
+    except Exception:
+      self.db.disconnect()
+      raise
 
   def _probeBackend(self):
     try:
@@ -107,14 +114,25 @@ class VDMSDatabase(ReIDDatabase):
     @return  responses  The response dict from VDMS
     """
     with self.lock:
-      if blob:
-        query_response = self.db.query(query, blob)
-      else:
-        query_response = self.db.query(query)
-    if not query_response or query_response == "NOT CONNECTED":
-      log.warning(f"Failed to send query to VDMS container: {query}")
-      self._backendFailure()
-      return [], []
+      if not self.db.connected and not self._reconnectClient():
+        log.warning("Cannot send query to VDMS: reconnect unavailable")
+        self._backendFailure()
+        return [], []
+      try:
+        if blob:
+          query_response = self.db.query(query, blob)
+        else:
+          query_response = self.db.query(query)
+      except Exception:
+        # A late or partial reply must never be consumed by the next query.
+        self.db.disconnect()
+        log.warning("VDMS query raised; disconnected to discard pending replies")
+        raise
+      if not query_response or query_response == "NOT CONNECTED":
+        self.db.disconnect()
+        log.warning("Failed to receive a complete VDMS query response")
+        self._backendFailure()
+        return [], []
     return self._parseQueryResponses(query, query_response[0]), query_response[1]
 
   def _parseQueryResponses(self, query, raw_responses):

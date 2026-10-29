@@ -443,6 +443,7 @@ def test_vdms_readiness_reconnects_with_rate_limiting(monkeypatch):
   with mock.patch("reid.vdms_adapter.vdms.vdms"):
     adapter = VDMSDatabase()
   adapter.raise_on_backend_error = True
+  adapter.db.connected = False
   adapter.db.connect.side_effect = OSError("offline")
   adapter.db.query.return_value = "NOT CONNECTED"
   adapter.connect()
@@ -454,8 +455,10 @@ def test_vdms_readiness_reconnects_with_rate_limiting(monkeypatch):
   assert adapter.backendAvailable() is False
   assert adapter.db.connect.call_count == 2
   now[0] = 10.0
-  adapter.db.connect.side_effect = lambda *a, **k: setattr(
-      adapter.db.query, "return_value", ([{"FindEntity": {"status": 0, "returned": 0}}], []))
+  def reconnect(*args, **kwargs):
+    adapter.db.connected = True
+    adapter.db.query.return_value = ([{"FindEntity": {"status": 0, "returned": 0}}], [])
+  adapter.db.connect.side_effect = reconnect
   assert adapter.backendAvailable() is True
   assert adapter.db.connect.call_count == 3
   assert adapter.backendAvailable() is True
@@ -473,5 +476,6 @@ def test_vdms_readiness_reconnects_stale_active_socket():
       ConnectionResetError("restarted"), ([{"FindEntity": {"status": 0, "returned": 0}}], []),
   ]
   assert adapter.backendAvailable() is True
-  adapter.db.disconnect.assert_called_once()
+  # Discard the failed stream first, then reset the client before reconnecting.
+  assert adapter.db.disconnect.call_count == 2
   adapter.db.connect.assert_called_once()
