@@ -397,10 +397,20 @@ def update_active_source_map(scene):
   """Keep the active mesh's placement and thumbnail in sync with Scene Settings."""
   with transaction.atomic():
     locked_scene = _lock_scene(scene.pk, nowait=False)
-    SceneSourceMap.objects.filter(
+    source_map = SceneSourceMap.objects.filter(
       pk=locked_scene.default_source_map_id, file=scene.map.name,
-    ).update(transform=scene_transform(scene),
-             thumbnail=scene.thumbnail.name if scene.thumbnail else "")
+    ).first()
+    if source_map is None:
+      return
+    previous_thumbnail = source_map.thumbnail.name
+    new_thumbnail = scene.thumbnail.name if scene.thumbnail else ""
+    source_map.thumbnail.name = new_thumbnail
+    source_map.transform = scene_transform(scene)
+    source_map.save(update_fields=["transform", "thumbnail"])
+    if previous_thumbnail and previous_thumbnail != new_thumbnail:
+      transaction.on_commit(partial(
+        _delete_unreferenced_mapping_file, source_map.thumbnail.storage, previous_thumbnail,
+        locked_scene._state.db or "default"))
 
 
 def activate_source_map(scene, source_map):

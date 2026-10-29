@@ -686,9 +686,11 @@ class TestCacheManagerRefreshCameras:
   @pytest.mark.parametrize("resolution", [[0, 480], [True, 480], [640], None, "640x480"])
   def test_invalid_sensor_resolution_does_not_replace_registered_size(self, resolution):
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr.camera_parameters = {'cam-1': {'resolution': [640, 480]}}
     cache_mgr.data_source = Mock()
+    cache_mgr.checkRefresh = Mock()
     cache_mgr.refreshScenesForCamParams({'id': 'cam-1', 'resolution': resolution})
     assert cache_mgr.camera_parameters['cam-1']['resolution'] == [640, 480]
     cache_mgr.data_source.updateCamera.assert_not_called()
@@ -701,6 +703,37 @@ class TestCacheManagerRefreshCameras:
     cache_mgr._refreshCameras({'cameras': [latest]})
     assert cache_mgr.camera_parameters['cam-1']['intrinsics'] == {'fx': 900}
     cache_mgr.data_source.updateCamera.assert_not_called()
+
+  def test_refresh_before_comparing_and_writing_camera_parameters(self):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    camera = SimpleNamespace(cameraID='cam-1')
+    cache_mgr._lock = threading.RLock()
+    cache_mgr.cached_scenes_by_uid = {
+      'scene-1': SimpleNamespace(cameras={'cam-1': camera}),
+    }
+    cache_mgr.camera_parameters = {'cam-1': {'intrinsics': {'fx': 100}}}
+    cache_mgr.data_source = Mock()
+    cache_mgr.refreshScenes = Mock()
+
+    def refresh_cache():
+      cache_mgr.camera_parameters['cam-1'] = {'intrinsics': {'fx': 400}}
+
+    cache_mgr.checkRefresh = Mock(side_effect=refresh_cache)
+    update_camera = cache_mgr.updateCamera
+
+    def update_with_stale_cache(cam, payload=None):
+      cache_mgr.camera_parameters['cam-1'] = {'intrinsics': {'fx': 400}}
+      return update_camera(cam, payload)
+
+    cache_mgr.updateCamera = update_with_stale_cache
+    cache_mgr.refreshScenesForCamParams({
+      'id': 'cam-1', 'intrinsics': {'fx': 900},
+    })
+
+    cache_mgr.data_source.updateCamera.assert_called_once_with(
+      'cam-1', {'intrinsics': {'fx': 900}})
+    cache_mgr.checkRefresh.assert_called_once_with()
+    cache_mgr.refreshScenes.assert_called_once_with(force=True)
 
   def test_refresh_cameras_processes_all_cameras(self):
     """Test that _refreshCameras processes camera data."""
@@ -769,8 +802,10 @@ class TestCacheManagerRefreshCameras:
   def test_refresh_scenes_for_cam_params_tolerates_invalidated_cache(self):
     """After invalidate(), refreshScenesForCamParams must not touch None.values()."""
     cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = None
     cache_mgr.camera_parameters = {}
+    cache_mgr.checkRefresh = Mock()
 
     cache_mgr.refreshScenesForCamParams({
       'id': 'cam-1',

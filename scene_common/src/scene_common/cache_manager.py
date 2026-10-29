@@ -5,6 +5,7 @@
 # module level) isn't installed in the analytics image, so keep all
 # controller.* imports lazy to allow CacheManager (and therefore
 # AnalyticsService) to be imported there.
+import copy
 import threading
 
 # Scene (and robot_vision, imported by controller.scene at module level)
@@ -254,23 +255,22 @@ class CacheManager:
     return
 
   def refreshScenesForCamParams(self, jdata):
-    if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
-      return
-
+    self.checkRefresh()
     parameters = dict(jdata)
     if 'resolution' in parameters:
       parameters['resolution'] = self._cameraResolution(parameters['resolution'])
-    changed = [self.cameraParametersChanged(parameters, key)
-               for key in ('intrinsics', 'distortion', 'resolution')]
-    if not any(changed):
-      return
-
-    self.checkRefresh()
     cameras_to_update = []
+    payload = None
     with self._lock:
       if self.cached_scenes_by_uid is None:
         log.warning("refreshScenesForCamParams: cache still None after refresh attempt, skipping")
         return
+      changed = [self.cameraParametersChanged(parameters, key)
+                 for key in ('intrinsics', 'distortion', 'resolution')]
+      if not any(changed):
+        return
+      payload = self._cameraUpdatePayload(
+        copy.deepcopy(self.camera_parameters[parameters['id']]))
       for scene in self.cached_scenes_by_uid.values():
         camera = scene.cameras.get(jdata['id'])
         if camera is not None:
@@ -278,7 +278,7 @@ class CacheManager:
 
     # updateCamera does REST; keep it outside the lock so lookups aren't blocked.
     for cam in cameras_to_update:
-      self.updateCamera(cam)
+      self.updateCamera(cam, payload)
 
     self.refreshScenes(force=True)
     return
@@ -293,10 +293,8 @@ class CacheManager:
       return None
     return list(resolution)
 
-  def updateCamera(self, cam):
-    if cam.cameraID not in self.camera_parameters:
-      return
-    params = self.camera_parameters[cam.cameraID]
+  @staticmethod
+  def _cameraUpdatePayload(params):
     resolution = params.get('resolution')
     payload = {key: params[key] for key in ('intrinsics', 'distortion') if key in params}
     if resolution is not None:
@@ -304,6 +302,16 @@ class CacheManager:
         'width': resolution[0],
         'height': resolution[1]
       }
+    return payload
+
+  def updateCamera(self, cam, payload=None):
+    if payload is None:
+      self._refreshLock()
+      with self._lock:
+        params = self.camera_parameters.get(cam.cameraID)
+        if params is None:
+          return
+        payload = self._cameraUpdatePayload(copy.deepcopy(params))
 
     res = self.data_source.updateCamera(cam.cameraID, payload)
     if not res:

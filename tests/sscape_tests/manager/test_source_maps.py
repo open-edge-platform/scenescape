@@ -208,6 +208,24 @@ def test_source_switches_cleanup_only_unreferenced_thumbnails(
         raise RuntimeError("rollback")
   assert os.path.exists(before_rollback)
 
+def test_placement_edit_cleans_up_replaced_source_thumbnail(
+    scene, django_capture_on_commit_callbacks):
+  source = _upload_mesh(scene, "orbslam3")
+  scene.thumbnail.save("old.png", ContentFile(b"old thumbnail"), save=False)
+  old_thumbnail = scene.thumbnail.name
+  source.thumbnail.name = old_thumbnail
+  source.save(update_fields=["thumbnail"])
+  scene.thumbnail.save("new.png", ContentFile(b"new thumbnail"), save=False)
+  Scene.objects.filter(pk=scene.pk).update(thumbnail=scene.thumbnail.name)
+
+  with django_capture_on_commit_callbacks(execute=True):
+    mapping_store.update_active_source_map(scene)
+
+  assert not scene.thumbnail.storage.exists(old_thumbnail)
+  assert scene.thumbnail.storage.exists(scene.thumbnail.name)
+  source.refresh_from_db()
+  assert source.thumbnail.name == scene.thumbnail.name
+
 
 @pytest.mark.django_db(transaction=True)
 def test_repeated_activation_commits_keep_only_referenced_thumbnails(scene, monkeypatch, settings):

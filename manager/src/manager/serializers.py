@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import os
+import tempfile
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
@@ -883,16 +884,22 @@ class SceneSerializer(NonNullSerializer):
   @staticmethod
   def _save_map_upload(instance, upload):
     upload.seek(0)
-    instance.map.save(os.path.basename(upload.name), upload, save=False)
-    ext = os.path.splitext(instance.map.name)[1].lower()
+    filename = os.path.basename(upload.name)
+    ext = os.path.splitext(filename)[1].lower()
     if ext == ".ply":
       from scene_common.mesh_util import extractMeshFromPointCloud
-      glb_file = extractMeshFromPointCloud(instance.map.path)
-      if not glb_file or not os.path.exists(glb_file):
-        raise serializers.ValidationError("Error processing .ply file")
-      with open(glb_file, 'rb') as handle:
-        instance.map.save(os.path.basename(glb_file), File(handle), save=False)
-      ext = ".glb"
+      with tempfile.TemporaryDirectory() as temp_dir:
+        ply_path = os.path.join(temp_dir, filename)
+        with open(ply_path, 'wb') as handle:
+          for chunk in upload.chunks():
+            handle.write(chunk)
+        glb_file = extractMeshFromPointCloud(ply_path)
+        if not glb_file or not os.path.exists(glb_file):
+          raise serializers.ValidationError("Error processing .ply file")
+        with open(glb_file, 'rb') as handle:
+          instance.map.save(os.path.basename(glb_file), File(handle), save=False)
+      return ".glb"
+    instance.map.save(filename, upload, save=False)
     return ext
 
   @staticmethod
@@ -952,12 +959,20 @@ class SceneSerializer(NonNullSerializer):
         continue
       values = self._meshTransformValues(data[key], key)
       for axis, value in zip(('x', 'y', 'z'), values):
-        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
-          raise serializers.ValidationError({
-            key: f'Axis "{axis}" must be a finite number.'
-          })
+        self._validateMeshTransformAxis(trans_type, key, axis, value)
         validated_data[f'{trans_type}_{axis}'] = float(value)
     return
+
+  @staticmethod
+  def _validateMeshTransformAxis(trans_type, key, axis, value):
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+      raise serializers.ValidationError({
+        key: f'Axis "{axis}" must be a finite number.'
+      })
+    if trans_type == 'scale' and value == 0:
+      raise serializers.ValidationError({
+        key: f'Axis "{axis}" must be non-zero.'
+      })
 
   @staticmethod
   def _meshTransformValues(value, key):

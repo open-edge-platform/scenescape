@@ -291,22 +291,30 @@ def test_zip_map_upload_preserves_explicit_placement(client, scene, create, scal
     assert placement["translation"] == [0, 0, 0]
 
 
-def test_ply_replacement_converts_before_reading_generated_glb(client, scene, monkeypatch, tmp_path):
-  assert _put_mesh(client, scene, "rtabmap").status_code == 200
-  generated = tmp_path / "converted.glb"
+def test_ply_upload_converts_in_temporary_directory(
+    client, scene, monkeypatch, settings):
+  from pathlib import Path
   calls = []
+
   def convert(path):
     assert path.endswith(".ply")
+    generated = Path(path).with_suffix(".glb")
     assert not generated.exists()
     generated.write_bytes(_glb())
-    calls.append(path)
+    calls.append((Path(path), generated))
     return str(generated)
+
   monkeypatch.setattr("scene_common.mesh_util.extractMeshFromPointCloud", convert)
   upload = io.BytesIO(b"ply\nformat ascii 1.0\nend_header\n")
   upload.name = "new.ply"
   response = client.put(f"/api/v1/scene/{scene.pk}", {"map": upload}, format="multipart")
   assert response.status_code == 200, response.content
   assert len(calls) == 1
+  assert not calls[0][0].exists()
+  assert not calls[0][1].exists()
+  media_files = list(Path(settings.MEDIA_ROOT).rglob("*"))
+  assert len([path for path in media_files if path.suffix == ".glb"]) == 1
+  assert not any(path.suffix == ".ply" for path in media_files)
   scene.refresh_from_db()
   assert scene.map.name.endswith(".glb")
   assert scene.default_source_map.file.name == scene.map.name
@@ -486,6 +494,7 @@ def test_map_upload_scale_only_bypasses_auto_alignment(client, scene, monkeypatc
   ("mesh_rotation", "[NaN, 0, 0]"),
   ("mesh_translation", "[Infinity, 0, 0]"),
   ("mesh_scale", "[true, 1, 1]"),
+  ("mesh_scale", "[0, 1, 1]"),
 ])
 def test_invalid_upload_transform_keeps_current_source_map(client, scene, field, value):
   initial = _put_mesh(client, scene, "rtabmap", name="initial.glb")
