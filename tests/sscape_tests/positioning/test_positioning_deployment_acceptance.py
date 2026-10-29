@@ -161,10 +161,91 @@ def test_production_compose_and_helm_flags_default_off():
   assert values["positioning"]["config"]["sources"] == {}
 
 
+MOSQUITTO_DIR = REPO_ROOT / "dlstreamer-pipeline-server/mosquitto"
+SHARED_BROKER_CONFIG = "mosquitto-secure.conf"
+POSITIONING_BROKER_CONFIG = "mosquitto-secure-positioning.conf"
+
+
+def _broker_config_consumers():
+  """Yield (compose file, service, config file name) for every Mosquitto config mount.
+
+  Config sources resolve within the same Compose file first, then within sibling files
+  of the same directory (the hierarchy stacks define configs in compose.common.yml).
+  """
+  tracked = subprocess.run(["git", "ls-files", "*compose*.yml", "*compose*.yaml"],
+                           cwd=REPO_ROOT, capture_output=True, text=True, check=True)
+  documents = {}
+  for name in tracked.stdout.split():
+    document = yaml.safe_load((REPO_ROOT / name).read_text())
+    if isinstance(document, dict):
+      documents[Path(name)] = document
+
+  def config_file(path, source):
+    candidates = [path] + sorted(p for p in documents if p.parent == path.parent and p != path)
+    for candidate in candidates:
+      definition = (documents[candidate].get("configs") or {}).get(source)
+      if isinstance(definition, dict) and "file" in definition:
+        return Path(definition["file"]).name
+    return None
+
+  for path, document in documents.items():
+    for service_name, service in (document.get("services") or {}).items():
+      for config in (service or {}).get("configs") or []:
+        source = config["source"] if isinstance(config, dict) else config
+        file_name = config_file(path, source)
+        if file_name in (SHARED_BROKER_CONFIG, POSITIONING_BROKER_CONFIG):
+          yield path, service_name, service, file_name
+
+
+def _listener_blocks(text):
+  """Listener 1883/1884 settings, normalizing the global vs per-listener anonymous flag."""
+  blocks, current, anonymous = {}, None, None
+  for line in text.splitlines():
+    line = line.split("#", 1)[0].strip()
+    if not line:
+      continue
+    key, _, value = line.partition(" ")
+    if key == "allow_anonymous" and current is None:
+      anonymous = value
+    elif key == "listener":
+      current = value
+      blocks[current] = {"listener_allow_anonymous": anonymous} if anonymous else {}
+    elif current is not None:
+      blocks[current][key] = value
+  return {port: settings for port, settings in blocks.items() if port in ("1883", "1884")}
+
+
+def test_shared_broker_config_needs_no_positioning_acl():
+  """Test, hierarchy, perf and pipeline-runner brokers mount only the secrets directory."""
+  shared = (MOSQUITTO_DIR / SHARED_BROKER_CONFIG).read_text()
+  assert "acl_file" not in shared
+  assert "8883" not in shared
+  assert "per_listener_settings" not in shared
+
+
+def test_every_broker_loading_the_positioning_acl_mounts_it():
+  consumers = list(_broker_config_consumers())
+  assert {file_name for *_, file_name in consumers} == {
+    SHARED_BROKER_CONFIG, POSITIONING_BROKER_CONFIG}
+  for path, service_name, service, file_name in consumers:
+    if file_name != POSITIONING_BROKER_CONFIG:
+      continue
+    targets = [volume.split(":")[1] if isinstance(volume, str) else volume.get("target")
+               for volume in service.get("volumes") or []]
+    assert "/mosquitto/acl" in targets, f"{path}:{service_name} loads the Positioning ACL"
+
+
+def test_positioning_broker_config_keeps_the_shared_listeners():
+  shared = _listener_blocks((MOSQUITTO_DIR / SHARED_BROKER_CONFIG).read_text())
+  positioning = _listener_blocks((MOSQUITTO_DIR / POSITIONING_BROKER_CONFIG).read_text())
+  assert set(shared) == {"1883", "1884"}
+  assert positioning == shared
+
+
 def test_positioning_production_transport_and_single_replica_gates():
   compose = yaml.safe_load(
     (REPO_ROOT / "sample_data/compose/compose.dl-streamer-example.yml").read_text())
-  broker = (REPO_ROOT / "dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf").read_text()
+  broker = (REPO_ROOT / "dlstreamer-pipeline-server/mosquitto/mosquitto-secure-positioning.conf").read_text()
   deployment = (REPO_ROOT / "kubernetes/scenescape-chart/templates/positioning/deployment.yaml").read_text()
   network_policy = (REPO_ROOT / "kubernetes/scenescape-chart/templates/positioning/networkpolicy.yaml").read_text()
   assignments = json.loads((REPO_ROOT / "deployment/positioning-assignments.json").read_text())

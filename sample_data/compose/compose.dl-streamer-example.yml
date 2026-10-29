@@ -598,7 +598,8 @@ services:
 
 configs:
   mosquitto-secure:
-    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+    # Adds the Positioning mTLS listener; requires the positioning-acl-init ACL.
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure-positioning.conf
   tracker-config:
     # Use this configuration file to run tracking in immediate mode
     # file: ./controller/config/tracker-config-immediate.json

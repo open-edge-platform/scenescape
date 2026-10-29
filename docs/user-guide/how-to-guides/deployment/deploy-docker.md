@@ -77,6 +77,14 @@ and pose topics assigned to its resolver and read only those cameras' configurat
 invalidations. Protect ONVIF camera traffic with the host firewall: Compose does not
 provide portable egress CIDR policies.
 
+This listener lives in
+`dlstreamer-pipeline-server/mosquitto/mosquitto-secure-positioning.conf`, which the
+production Compose file and the Helm chart load. Mosquitto exits if that
+configuration cannot open `/mosquitto/acl/positioning.acl`, so mount the generated
+ACL wherever you use it. Test, performance, and hierarchy stacks keep loading
+`mosquitto-secure.conf`, which has no Positioning listener. Keep the 1883 and 1884
+listeners identical in both files.
+
 The ACL names the Positioning client certificate's common name,
 `positioning.<CERTDOMAIN>`, which the broker uses as the MQTT username. `make .env`
 writes it as `POSITIONING_CERT_IDENTITY` from the same `CERTDOMAIN` used to generate
