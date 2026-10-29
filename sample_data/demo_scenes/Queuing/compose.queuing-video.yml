@@ -36,7 +36,7 @@ configs:
 
 services:
   mediaserver:
-    image: bluenviron/mediamtx:1.21.1
+    image: bluenviron/mediamtx:1.21.2
     networks:
       scenescape:
         aliases:
