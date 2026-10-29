@@ -99,6 +99,9 @@ There are other methods of determining pixels per meter, such as measuring the d
 
 > **Note:** Creating accurate scale floor plans and calibrating cameras can be challenging. To assist with this process, Scenescape supports importing a scene that was scanned with a mobile device or uploading a glTF (.glb) 3D asset of the scene. For more information on scene scanning and using scene scans for automated camera calibration, see [Markerless Camera Calibration](../calibrate-cameras/autocalibrate-cameras-using-visual-features.md#1-generate-polycam-dataset).
 
+For the workflow to create and manage a scene mapped from a handheld
+application, see [Manage Scenes with Handheld Devices](./manage-scenes-from-handheld-devices.md).
+
 When generating a top-down preview for an uploaded GLB, Scenescape scales oversized textures for the preview only. The scene map retains its full-resolution textures.
 
 ##### Scene floor plan example
@@ -200,73 +203,3 @@ For the full field reference (accepted `map` file types, `map_type`/`camera_cali
 values, defaults, and all other scene fields), see the canonical OpenAPI spec: [API
 Reference](../../api-reference.md) (source: `docs/user-guide/api-docs/api.yaml`, `Scene` schema).
 Don't restate those fields elsewhere — link here instead.
-
-### Mapping source meshes and resume artifacts
-
-Each mapping method has one current source mesh and one optional resume ZIP.
-Scene Settings placement changes update the active source mesh's saved transform
-and thumbnail, so switching away and reactivating it restores the edited placement.
-The default mesh cannot be deleted; activate another source before deleting it.
-Activating a source mesh invalidates its processed calibration state so AprilTag
-markers are regenerated for the selected mesh. If a source is replaced or deleted
-before activation completes, refresh the source list and retry. Concurrent
-mapping changes can return HTTP 409.
-An uploaded GLB or ZIP mesh honors explicit mesh placement, including scale-only
-placement; omitted placement is auto-aligned. Mesh placement vectors cannot be
-`null`. Replacing a mesh without recording a source (for example, through a form
-or generated mesh) clears the default-source selection until a source is activated.
-Recorded sources remain available for preview even when the current map has no
-recorded source. Select **Current map** to leave preview and restore editing without
-activating a source or changing the saved map.
-This also applies when the current map is a 2D image or the scene has no map.
-Legacy 2D scene thumbnails apply mesh scale before rotation and translation, with
-pixels-per-metre derived from the transformed geometry. Their existing
-first-quadrant XY framing is unchanged; camera elevation and clipping follow the
-transformed Z bounds so vertical placement does not clip the preview.
-Switching sources removes superseded
-thumbnails after commit only when no scene or source still references them.
-Placement-only multipart updates do not require a replacement map upload.
-For ZIP map uploads, the original archive remains available as `polycam_data`
-while `map` references the extracted GLB.
-
-Use `/api/v1/scene/{scene_id}/mapping-artifacts/{method}` to upload (`PUT`),
-download (`GET`), or delete (`DELETE`) a method's resume ZIP. Upload multipart
-fields `bundle` and `sha256` (the ZIP's hexadecimal SHA-256 digest); optional fields
-are `fiducials` and `contributor`. Writes require a superuser token, just like
-scene-map writes. Authenticated read-only users may list and download artifacts.
-
-Artifact validation limits are 512 MiB for the uploaded ZIP, 4,096 members,
-1 GiB per expanded member, 2 GiB total expanded data, and 4 MiB for `manifest.json`.
-Oversized uploads return HTTP 413; invalid archives or expanded-size limit
-violations return HTTP 400. Limits are checked before decompressing members,
-and content reads are bounded while checking ZIP integrity.
-Upload errors describe validation failures without exposing internal paths or
-parser exception details. Retry HTTP 409 uploads after refreshing scene state.
-Artifact uploads own their database commit boundary rather than sharing a
-request-wide transaction. Internal callers must invoke `store_artifact` outside
-an enclosing database transaction. A failed row save or commit removes the newly
-written ZIP and preserves the previous artifact.
-Manifest JSON and fiducial numeric fields must contain only finite numbers.
-The optional contributor must be a string (at most 200 characters are stored);
-an explicit form contributor takes precedence over the manifest value.
-Deleting a scene also removes its source meshes, thumbnails, and resume ZIPs
-after the database transaction commits, except files still referenced elsewhere.
-
-### Mobile camera frame dimensions
-
-Register cameras with the full sensor resolution used by their calibrated
-intrinsics. A camera image reply on `scenescape/image/camera/{camera_id}` may
-include `resolution: [width, height]` or
-`resolution: {"width": width, "height": height}` to update that metadata in the
-3D UI. These dimensions must describe the full calibrated sensor frame, not
-the transmitted thumbnail. Saved camera settings preserve the sensor dimensions;
-only when metadata is absent does the UI estimate dimensions from twice the
-principal point. Off-center principal points and unequal `fx`/`fy` are reflected
-in the projected frustum.
-Incoming optics refresh the FOV display without enabling the manual FOV override.
-Distortion accepts named coefficients or arrays in `[k1, k2, p1, p2, k3]`
-order; a four-element array implies `k3 = 0`. Omitted named coefficients are zero.
-The calibration page also preserves registered sensor dimensions and off-center
-intrinsics when displaying a smaller JPEG preview. Preview coordinates are
-converted to sensor pixels for calibration and persistence; only explicit sensor
-resolution metadata updates the saved dimensions.
