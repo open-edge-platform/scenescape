@@ -8,7 +8,7 @@
       {
         "name": "bball-cam1",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/bball-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/public/yolov8s-worldv2-person-basketball/yolov8s-worldv2-person-basketball.xml model-proc=/home/pipeline-server/models/public/yolov8s-worldv2-person-basketball/yolo-world-person-basketball.json threshold=0.25 ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/bball-cam1 latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=bball-yoloworld model=/home/pipeline-server/models/public/yolov8s-worldv2-person-basketball/yolov8s-worldv2-person-basketball.xml model-proc=/home/pipeline-server/models/public/yolov8s-worldv2-person-basketball/yolo-world-person-basketball.json device=GPU pre-process-backend=va-surface-sharing threshold=0.25 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",
@@ -65,7 +65,7 @@
       {
         "name": "bball-cam2",
         "source": "gstreamer",
-        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/bball-cam2 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect model=/home/pipeline-server/models/public/yolov8s-worldv2-person-basketball/yolov8s-worldv2-person-basketball.xml model-proc=/home/pipeline-server/models/public/yolov8s-worldv2-person-basketball/yolo-world-person-basketball.json threshold=0.25 ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_post_inference_data_publish name=datapublisher ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/bball-cam2 latency=200 ! decodebin3 ! video/x-raw(memory:VAMemory) ! sscape_timestamp_capture name=timesync ntp-server=ntpserv ! gvadetect scheduling-policy=latency batch-size=2 inference-interval=1 model-instance-id=bball-yoloworld model=/home/pipeline-server/models/public/yolov8s-worldv2-person-basketball/yolov8s-worldv2-person-basketball.xml model-proc=/home/pipeline-server/models/public/yolov8s-worldv2-person-basketball/yolo-world-person-basketball.json device=GPU pre-process-backend=va-surface-sharing threshold=0.25 ! queue ! gvametaconvert add-tensor-data=true name=metaconvert ! vapostproc ! video/x-raw,format=BGRA ! videoconvert ! video/x-raw,format=BGR ! sscape_post_inference_data_publish name=datapublisher ! appsink sync=true",
         "auto_start": true,
         "parameters": {
           "type": "object",

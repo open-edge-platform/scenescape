@@ -23,3 +23,5 @@ args:
   dynamic: false
 channels: 3
 end2end: false
+precision: FP16
+note: OpenVINO compress_to_fp16 from Ultralytics YOLO-Worldv2 person+basketball
