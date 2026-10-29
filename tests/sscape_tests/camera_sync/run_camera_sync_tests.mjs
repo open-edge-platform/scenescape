@@ -370,6 +370,7 @@ test("only explicitly dynamic poses overwrite camera edits", async () => {
 });
 
 async function sceneCameraHarness() {
+  const pendingTextures = [];
   const source = await readFile(
     new URL("thing/scenecamera.js", STATIC),
     "utf8",
@@ -380,7 +381,7 @@ async function sceneCameraHarness() {
     window: { confirm: () => true },
     cv: {
       CV_64F: 0,
-      matFromArray: (rows, cols, type, data64F) => ({ data64F }),
+      matFromArray: (rows, cols, type, data64F) => ({ data64F, delete() {} }),
     },
   });
   const entry = new vm.SourceTextModule(source, { context });
@@ -389,6 +390,11 @@ async function sceneCameraHarness() {
     if (specifier.includes("three.module")) {
       exports = {
         Object3D: class {},
+        TextureLoader: class {
+          load(url, callback) {
+            pendingTextures.push(callback);
+          }
+        },
         MathUtils: {
           radToDeg: (v) => (v * 180) / Math.PI,
           degToRad: (v) => (v * Math.PI) / 180,
@@ -429,13 +435,17 @@ async function sceneCameraHarness() {
   await entry.evaluate();
   const camera = Object.create(entry.namespace.default.prototype);
   Object.assign(camera, {
+    pendingTextures,
     cameraUID: "mobile",
     name: "mobile",
     resolution: { w: 640, h: 480 },
     hasAuthoritativeResolution: false,
     databaseOptics: {},
     intrinsics: { fx: 900, fy: 1000, cx: 800, cy: 500 },
-    cameraMatrix: { data64F: [900, 0, 800, 0, 1000, 500, 0, 0, 1] },
+    cameraMatrix: {
+      data64F: [900, 0, 800, 0, 1000, 500, 0, 0, 1],
+      delete() {},
+    },
     sceneCamera: {
       setViewOffset(w, h, x, y) {
         this.aspect = w / h;
@@ -684,6 +694,390 @@ test("saving and renaming a camera keeps UID keys and removes only its own draft
   camera.updateCameras("Front Camera", "Renamed Camera", null);
   assert.equal(camera.currentCameras.Front_Camera, camera);
   assert.ok(!("Renamed Camera" in camera.currentCameras));
+});
+
+test("a POST response detaches a wrapper created by an earlier database notice", async () => {
+  const camera = await sceneCameraHarness();
+  camera.sceneCamera = null;
+  camera.toast = { showToast() {} };
+  camera.currentCameras = { undefined: [camera] };
+  let respond;
+  camera.restclient = {
+    createCamera: () =>
+      new Promise((resolve) => {
+        respond = resolve;
+      }),
+  };
+  const saving = camera.createNewCamera({}, null);
+  let detached = 0;
+  const synchronized = {
+    detach() {
+      detached++;
+      delete camera.currentCameras.mobile;
+    },
+  };
+  camera.currentCameras.mobile = synchronized;
+  respond({ statusCode: 201, content: { uid: "mobile" } });
+  await saving;
+  assert.equal(detached, 1);
+  assert.equal(camera.currentCameras.mobile, camera);
+  assert.deepEqual(camera.currentCameras.undefined, []);
+});
+
+test("detach disposes camera-owned GPU and WASM resources exactly once", async () => {
+  const camera = await sceneCameraHarness();
+  const counts = {};
+  const resource = (name) => ({
+    dispose() {
+      counts[name] = (counts[name] || 0) + 1;
+    },
+  });
+  const texture = { ...resource("texture"), isTexture: true };
+  const material = {
+    ...resource("material"),
+    texture,
+    uniforms: { map: { value: texture } },
+  };
+  const geometry = resource("geometry");
+  camera.mesh = {
+    traverse(callback) {
+      callback({ geometry, material: [material, material] });
+    },
+  };
+  camera.cameraCapture = { texture };
+  camera.sceneCameraHelper = resource("helper");
+  camera.sceneMesh = { geometry: resource("shared") };
+  for (const key of ["cameraMatrix", "distCoeffs", "imagePoints"])
+    camera[key] = {
+      delete() {
+        counts[key] = (counts[key] || 0) + 1;
+      },
+    };
+  camera.scene = { remove() {} };
+  camera.currentCameras = { mobile: camera, undefined: [] };
+  camera.detach();
+  camera.detach();
+  assert.deepEqual(counts, {
+    texture: 1,
+    material: 1,
+    geometry: 1,
+    helper: 1,
+    cameraMatrix: 1,
+    distCoeffs: 1,
+    imagePoints: 1,
+  });
+});
+
+test("optics replacement releases superseded OpenCV matrices", async () => {
+  const camera = await sceneCameraHarness();
+  let deleted = 0;
+  camera.cameraMatrix.delete = () => {
+    deleted++;
+  };
+  camera.distCoeffs = {
+    delete() {
+      deleted++;
+    },
+  };
+  camera.updateIntrinsics({ fx: 1000, fy: 1100, cx: 800, cy: 500 });
+  camera.updateDistortion({ k1: 0.1 });
+  assert.equal(deleted, 2);
+});
+
+test("a late frame texture is released rather than recreating a detached projection", async () => {
+  const camera = await sceneCameraHarness();
+  camera.projectFrame = true;
+  camera.projectCameraCapture("frame", {}, false);
+  assert.equal(camera.pendingTextures.length, 1);
+  camera.scene = { remove() {} };
+  camera.currentCameras = { mobile: camera, undefined: [] };
+  camera.detach();
+  let disposed = 0;
+  camera.pendingTextures[0]({
+    dispose() {
+      disposed++;
+    },
+  });
+  assert.equal(disposed, 1);
+  assert.equal(camera.mesh, null);
+});
+
+async function calibrationHarness() {
+  const values = {
+    "#id_width": 1920,
+    "#id_height": 1440,
+    "#id_intrinsics_cx": 950,
+    "#id_intrinsics_cy": 710,
+  };
+  const handlers = {};
+  const submitted = [];
+  const context = vm.createContext({
+    console,
+    document: { getElementById: () => ({}) },
+    $: (selector) => ({
+      0: {
+        submit() {
+          submitted.push({ ...values });
+        },
+      },
+      on(event, handler) {
+        handlers[event] = handler;
+      },
+      val(value) {
+        if (value !== undefined) values[selector] = value;
+        return values[selector];
+      },
+    }),
+  });
+  const source = await readFile(new URL("cameracalibrate.js", STATIC), "utf8");
+  const module = new vm.SourceTextModule(source, { context });
+  await module.link(async (specifier) => {
+    const names = specifier.includes("constants")
+      ? [
+          "APP_NAME",
+          "CALIBRATION_MIN_POINTS_FOR_FIT",
+          "CALIBRATION_OUTLIER_THRESHOLD_PX",
+          "CMD_CAMERA",
+          "INITIAL_PROJECTION_OPACITY",
+          "MAX_COPLANAR_DETERMINANT",
+          "MAX_INTRINSICS_UPDATE_WAIT_TIME",
+          "FX",
+          "FY",
+          "CX",
+          "CY",
+          "K1",
+          "K2",
+          "P1",
+          "P2",
+          "K3",
+          "REST_URL",
+        ]
+      : specifier.includes("utils")
+        ? ["compareIntrinsics", "resizeRendererToDisplaySize", "waitUntil"]
+        : specifier.includes("camcanvas")
+          ? ["CamCanvas"]
+          : specifier.includes("viewport")
+            ? ["Viewport"]
+            : specifier.includes("GLTFLoader")
+              ? ["GLTFLoader"]
+              : [];
+    return new vm.SyntheticModule(
+      names,
+      function () {
+        for (const name of names) this.setExport(name, class {});
+      },
+      { context },
+    );
+  });
+  await module.evaluate();
+  const calibration = Object.create(
+    module.namespace.ConvergedCameraCalibration.prototype,
+  );
+  calibration.camCanvas = {
+    getImageSize: () => [320, 240],
+    updateImageSrc(image, onLoad) {
+      onLoad();
+    },
+    getCalibrationPoints: () => ({ p0: [160, 120] }),
+  };
+  calibration.viewport = { calibrationUpdated: false };
+  calibration.calibrationFitState = "idle";
+  calibration.projections = [];
+  calibration.projectImage = (image, matrix) =>
+    calibration.projections.push(plain(matrix));
+  calibration.undistortAndProjectImage = calibration.projectImage;
+  return { calibration, values, handlers, submitted };
+}
+
+test("calibration JPEGs preserve sensor dimensions and off-center intrinsics", async () => {
+  const { calibration, values } = await calibrationHarness();
+  const matrix = [
+    [1200, 0, 950],
+    [0, 1200, 710],
+    [0, 0, 1],
+  ];
+  calibration.updateCalibrationViews("jpeg", matrix, [0, 0, 0, 0, 0]);
+  assert.equal(values["#id_width"], 1920);
+  assert.equal(values["#id_height"], 1440);
+  assert.equal(values["#id_intrinsics_cx"], 950);
+  assert.equal(values["#id_intrinsics_cy"], 710);
+  assert.deepEqual(matrix, [
+    [1200, 0, 950],
+    [0, 1200, 710],
+    [0, 0, 1],
+  ]);
+  const expected = [
+    [200, 0, 950 / 6],
+    [0, 200, 710 / 6],
+    [0, 0, 1],
+  ];
+  calibration.projections[0]
+    .flat()
+    .forEach((value, index) =>
+      assert.ok(Math.abs(value - expected.flat()[index]) < 1e-10),
+    );
+  assert.deepEqual(plain(calibration.getSensorCalibrationPoints()), {
+    p0: [960, 720],
+  });
+  assert.equal(calibration.resolutionNeedsRefit, undefined);
+});
+
+test("saving after a JPEG preview preserves the registered sensor fields", async () => {
+  const { calibration, handlers, submitted } = await calibrationHarness();
+  calibration.camCanvas.getCalibrationPoints = () => ({});
+  calibration.viewport.getCalibrationPoints = () => ({});
+  calibration.updateCalibrationViews(
+    "jpeg",
+    [
+      [1200, 0, 950],
+      [0, 1200, 710],
+      [0, 0, 1],
+    ],
+    [0, 0, 0, 0, 0],
+  );
+  calibration.setupSaveCameraButton();
+  handlers.submit({ preventDefault() {} });
+  assert.equal(submitted.length, 1);
+  assert.equal(submitted[0]["#id_width"], 1920);
+  assert.equal(submitted[0]["#id_height"], 1440);
+  assert.equal(submitted[0]["#id_intrinsics_cx"], 950);
+});
+
+test("calibration accepts explicit sensor metadata but rejects invalid dimensions", async () => {
+  const { calibration, values } = await calibrationHarness();
+  calibration.updateSensorResolution({ width: 1280, height: 960 });
+  assert.equal(values["#id_width"], 1280);
+  assert.equal(values["#id_height"], 960);
+  assert.equal(calibration.resolutionNeedsRefit, true);
+  calibration.updateSensorResolution([0, 240]);
+  assert.equal(values["#id_width"], 1280);
+  assert.equal(values["#id_intrinsics_cx"], 950);
+  const points = [];
+  calibration.camCanvas.addCalibrationPoint = (...point) => points.push(point);
+  calibration.addSensorCalibrationPoint(640, 480);
+  assert.deepEqual(points, [[160, 120]]);
+});
+
+test("calibration canvas rescales existing point coordinates when preview dimensions change", async () => {
+  const context = vm.createContext({});
+  const module = new vm.SourceTextModule(
+    await readFile(new URL("camcanvas.js", STATIC), "utf8"),
+    { context },
+  );
+  await module.link(async () => {
+    const names = [
+      "CALIBRATION_BACKGROUND_COLOR",
+      "CALIBRATION_DIAGNOSTIC_OUTLINE_COLOR",
+      "CALIBRATION_DIAGNOSTIC_RING_COLOR",
+      "CALIBRATION_POINT_COLORS",
+      "CALIBRATION_POINT_SCALE",
+      "CAMERA_SCALE_FACTOR",
+      "MAX_CALIBRATION_POINTS",
+    ];
+    return new vm.SyntheticModule(
+      names,
+      function () {
+        for (const name of names) this.setExport(name, 1);
+      },
+      { context },
+    );
+  });
+  await module.evaluate();
+  const canvas = Object.create(module.namespace.CamCanvas.prototype);
+  Object.assign(canvas, {
+    image: { width: 320, height: 240 },
+    canvas: { clientWidth: 320 },
+    scale: 1,
+    calibrationPoints: [{ x: 160, y: 120 }],
+    drawImage() {},
+  });
+  canvas.handleImageLoad();
+  canvas.image.width = 640;
+  canvas.image.height = 480;
+  canvas.handleImageLoad();
+  assert.deepEqual(canvas.calibrationPoints, [{ x: 320, y: 240 }]);
+  canvas.handleImageLoad();
+  assert.deepEqual(canvas.calibrationPoints, [{ x: 320, y: 240 }]);
+  let observed;
+  canvas.updateImageSrc("next", () => {
+    observed = canvas.getImageSize();
+  });
+  canvas.image.width = 320;
+  canvas.image.height = 240;
+  canvas.image.onload();
+  assert.deepEqual(plain(observed), [320, 240]);
+  assert.deepEqual(canvas.calibrationPoints, [{ x: 160, y: 120 }]);
+});
+
+test("calibration projection preserves unequal focal lengths and principal-point offset", async () => {
+  const context = vm.createContext({});
+  const module = new vm.SourceTextModule(
+    await readFile(new URL("viewport.js", STATIC), "utf8"),
+    { context },
+  );
+  await module.link(async (specifier) => {
+    const exports = specifier.includes("three.module")
+      ? {
+          Scene: class {},
+          Vector3: class {},
+          MathUtils: { radToDeg: (value) => (value * 180) / Math.PI },
+        }
+      : specifier.includes("constants")
+        ? Object.fromEntries(
+            [
+              "CALIBRATION_POINT_COLORS",
+              "CALIBRATION_SCALE_FACTOR",
+              "CALIBRATION_TEXT_SIZE",
+              "CAMERA_FOV",
+              "CAMERA_ASPECT",
+              "CAMERA_NEAR",
+              "CAMERA_FAR",
+              "MAX_CALIBRATION_POINTS",
+              "SCENE_MAX_TEXTURE_SIZE",
+              "SPHERE_RADIUS",
+              "REST_URL",
+            ].map((name) => [name, 1]),
+          )
+        : specifier.includes("OrbitControls")
+          ? { OrbitControls: class {} }
+          : specifier.includes("draw.js")
+            ? { Draw: class {} }
+            : specifier.includes("interactions")
+              ? { isMeshToProjectOn() {} }
+              : { default: class {} };
+    return new vm.SyntheticModule(
+      Object.keys(exports),
+      function () {
+        for (const [name, value] of Object.entries(exports))
+          this.setExport(name, value);
+      },
+      { context },
+    );
+  });
+  await module.evaluate();
+  const viewport = Object.create(module.namespace.Viewport.prototype);
+  const offsets = [];
+  viewport.sceneMesh = {};
+  viewport.textureLoader = {
+    load(image, callback) {
+      callback({ image: { width: 320, height: 240 } });
+    },
+  };
+  viewport.projectionCamera = {
+    setViewOffset(...args) {
+      offsets.push(args);
+    },
+    updateProjectionMatrix() {},
+  };
+  viewport.projectedMaterial = { project() {} };
+  viewport.setProjectionVisibility = () => {};
+  viewport.projectImage("jpeg", [
+    [200, 0, 150],
+    [0, 220, 110],
+    [0, 0, 1],
+  ]);
+  assert.deepEqual(offsets, [[320, 240, 10, 10, 320, 240]]);
+  assert.equal(viewport.projectionCamera.aspect, (320 * 220) / (240 * 200));
 });
 
 async function regionHarness() {

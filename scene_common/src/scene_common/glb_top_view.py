@@ -140,8 +140,15 @@ def generateOrthoView(scene_obj, glb_file):
   rotation_vector = np.float64([scene_obj.rotation_x,
                                 scene_obj.rotation_y,
                                 scene_obj.rotation_z])
-  triangle_mesh, tensor_mesh = extractMeshFromGLB(glb_file, rotation_vector)
-  triangle_mesh.translate((scene_obj.translation_x, scene_obj.translation_y, 0.0))
+  triangle_mesh, tensor_mesh = extractMeshFromGLB(glb_file)
+  scale = np.float64([
+    getattr(scene_obj, f"scale_{axis}", 1.0) if getattr(scene_obj, f"scale_{axis}", 1.0) is not None else 1.0
+    for axis in "xyz"])
+  transform = np.eye(4)
+  transform[:3, :3] = o3d.geometry.get_rotation_matrix_from_xyz(
+    np.deg2rad(rotation_vector)) @ np.diag(scale)
+  triangle_mesh.transform(transform)
+  triangle_mesh.translate((scene_obj.translation_x, scene_obj.translation_y, scene_obj.translation_z))
 
   glb_size = getMeshSize(triangle_mesh)
   img, pixels_per_meter = renderTopView(triangle_mesh,

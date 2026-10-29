@@ -424,6 +424,8 @@ def activate_source_map(scene, source_map):
 
 
 def _activate_locked(scene, source_map):
+  previous_thumbnail = scene.thumbnail.name
+  thumbnail_storage = scene.thumbnail.storage
   t = source_map.transform or {}
   tr = t.get("translation", [0.0, 0.0, 0.0])
   rot = t.get("rotation", [0.0, 0.0, 0.0])
@@ -448,6 +450,10 @@ def _activate_locked(scene, source_map):
   if not source_map.thumbnail and scene.thumbnail:
     source_map.thumbnail.name = scene.thumbnail.name
     SceneSourceMap.objects.filter(pk=source_map.pk).update(thumbnail=scene.thumbnail.name)
+  if previous_thumbnail and previous_thumbnail != scene.thumbnail.name:
+    transaction.on_commit(partial(
+      _delete_unreferenced_mapping_file, thumbnail_storage, previous_thumbnail,
+      scene._state.db or "default"))
   transaction.on_commit(partial(sendUpdateCommand, scene_id=scene.pk))
 
 

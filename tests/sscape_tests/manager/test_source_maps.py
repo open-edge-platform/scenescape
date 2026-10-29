@@ -178,6 +178,56 @@ def test_activation_rejects_replaced_source(scene):
   assert scene.default_source_map_id == replacement.pk
 
 
+def test_source_switches_cleanup_only_unreferenced_thumbnails(
+    scene, monkeypatch, django_capture_on_commit_callbacks):
+  first = _upload_mesh(scene, "orbslam3")
+  second = _upload_mesh(scene, "arkit")
+  def thumbnail(instance):
+    instance.thumbnail.save("switch.png", ContentFile(b"thumbnail"), save=False)
+  monkeypatch.setattr(Scene, "saveThumbnail", thumbnail)
+  with django_capture_on_commit_callbacks(execute=True):
+    mapping_store.activate_source_map(scene, first)
+  scene.refresh_from_db()
+  retained = scene.thumbnail.path
+  with django_capture_on_commit_callbacks(execute=True):
+    mapping_store.activate_source_map(scene, second)
+    mapping_store.activate_source_map(scene, first)
+  scene.refresh_from_db()
+  intermediate = scene.thumbnail.path
+  with django_capture_on_commit_callbacks(execute=True):
+    mapping_store.activate_source_map(scene, second)
+    assert os.path.exists(intermediate)
+  assert not os.path.exists(intermediate)
+  assert os.path.exists(retained)
+  scene.refresh_from_db()
+  before_rollback = scene.thumbnail.path
+  with django_capture_on_commit_callbacks(execute=True):
+    with pytest.raises(RuntimeError):
+      with transaction.atomic():
+        mapping_store.activate_source_map(scene, first)
+        raise RuntimeError("rollback")
+  assert os.path.exists(before_rollback)
+
+
+@pytest.mark.django_db(transaction=True)
+def test_repeated_activation_commits_keep_only_referenced_thumbnails(scene, monkeypatch, settings):
+  from pathlib import Path
+  first = _upload_mesh(scene, "orbslam3")
+  second = _upload_mesh(scene, "arkit")
+  def thumbnail(instance):
+    instance.thumbnail.save("switch.png", ContentFile(b"thumbnail"), save=False)
+  monkeypatch.setattr(Scene, "saveThumbnail", thumbnail)
+  for source in [first, second] * 4:
+    mapping_store.activate_source_map(scene, source)
+  scene.refresh_from_db()
+  referenced = {source.thumbnail.name for source in SceneSourceMap.objects.filter(scene=scene)}
+  referenced.add(scene.thumbnail.name)
+  files = {str(path.relative_to(settings.MEDIA_ROOT))
+           for path in Path(settings.MEDIA_ROOT).rglob("*.png")}
+  assert files == referenced
+  assert len(files) == 3
+
+
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.parametrize("change", ["delete", "replace", "placement"])
 def test_activation_conflicts_with_concurrent_source_change(scene, change):

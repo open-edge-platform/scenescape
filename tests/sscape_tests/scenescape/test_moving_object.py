@@ -149,19 +149,24 @@ class TestMovingObject:
     assert loc.y == pytest.approx(expected.y)
     assert loc.z == pytest.approx(expected.z)
 
-  def test_native_3d_distance_does_not_change_projected_size(self):
+  @pytest.mark.parametrize("box_key", ["bounding_box", "bounding_box_px"])
+  @pytest.mark.parametrize("distance", [9, -1, "invalid", None])
+  def test_native_3d_distance_does_not_change_projected_size(self, box_key, distance):
     from scene_common.transform import CameraIntrinsics, CameraPose
     pose = CameraPose({'translation': [0, 0, 1],
                       'rotation': [0.5, -0.5, 0.5, -0.5], 'scale': [1, 1, 1]},
                      CameraIntrinsics({'fx': 100, 'fy': 100, 'cx': 100, 'cy': 100}))
     camera = SimpleNamespace(cameraID='cam-1', pose=pose)
-    info = {**_base_info(), 'bounding_box': {
+    info = {**_base_info(), box_key: {
       'x': -0.2, 'y': -0.3, 'z': 2, 'width': 0.4, 'height': 0.6}}
+    if box_key == 'bounding_box_px':
+      info.pop('bounding_box')
     baseline = MovingObject(info, 1, camera)
-    with_distance = MovingObject({**info, 'distance': 9}, 1, camera)
+    with_distance = MovingObject({**info, 'distance': distance}, 1, camera)
     assert with_distance.sceneLoc.asNumpyCartesian == pytest.approx(baseline.sceneLoc.asNumpyCartesian)
     assert with_distance.size == pytest.approx(baseline.size)
     assert not with_distance.depth_expanded_box
+    assert with_distance.metric_distance is None
 
   def test_metric_distance_keeps_library_size_prior(self):
     from scene_common.transform import CameraIntrinsics, CameraPose

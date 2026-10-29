@@ -74,9 +74,19 @@ async function harness() {
     "rot X",
   ].map((property) => ({
     property,
+    domElement: {
+      classList: {
+        add() {},
+        remove() {},
+        contains() {
+          return false;
+        },
+      },
+    },
     _disabled: property === "save",
     disable(value = true) {
       this._disabled = value;
+      this.buttonDisabled = value;
     },
   }));
   const progress = {
@@ -170,7 +180,9 @@ async function harness() {
       transformControl: { enabled: true, attach() {}, detach() {} },
       getTransformControlObject3D: () => ({ visible: true }),
       setTransformControlVisibility() {},
-      executeOnControl() {},
+      executeOnControl(property, callback) {
+        callback(controls.filter((control) => control.property === property));
+      },
       updateCamerasOnSave: true,
       async _applyMeshDeltaToCamerasAndSave() {
         writes.push("cameras");
@@ -516,4 +528,68 @@ test("unknown sources do not change the preview or load state", async () => {
   assert.equal(state.loads.length, 0);
   assert.equal(state.scene._previewMethod, "active");
   assert.equal(state.active.visible, true);
+});
+
+for (const mapType of ["image", "empty"]) {
+  test(`source preview can activate or return to an unrecorded ${mapType} map`, async () => {
+    const state = await sourceControlsHarness(["one"], null);
+    state.scene.sceneMesh = null;
+    state.scene.transformControl = null;
+    const floor = mapType === "image" ? mesh() : null;
+    state.scene.floorMesh = floor;
+    const selector = state.widgets["map source"];
+    selector.change(state.scene._sourceMapLabels.one);
+    const preview = mesh();
+    state.loads[0].success({ scene: preview });
+    if (floor) assert.equal(floor.visible, false);
+    await state.scene.activateSourceMap("one");
+    assert.deepEqual(state.writes, [["scene", "one"]]);
+    selector.change(state.scene._sourceMapLabels[null]);
+    if (floor) assert.equal(floor.visible, true);
+    assert.equal(state.scene._previewMesh, null);
+    assert.equal(preview.geometry.disposed, 1);
+    assert.equal(state.camera.projectFrame, true);
+  });
+}
+
+test("editing after returning from preview re-enables the actual Save button", async () => {
+  const state = await harness();
+  state.scene.previewSourceMap("one");
+  state.loads[0].success({ scene: mesh() });
+  state.scene.previewSourceMap("active");
+  const save = state.controls.find((control) => control.property === "save");
+  assert.equal(save.buttonDisabled, true);
+  state.scene.updateSaveButton();
+  assert.equal(save.buttonDisabled, false);
+  state.scene.previewSourceMap("one");
+  state.scene.updateSaveButton();
+  assert.equal(save.buttonDisabled, true);
+  state.scene.previewSourceMap("active");
+  state.scene.isStaff = null;
+  save.disable();
+  state.scene.updateSaveButton();
+  assert.equal(save.buttonDisabled, true);
+});
+
+test("non-mesh scene settings initialize the retained source selector", async () => {
+  const { scene } = await harness();
+  let initialized = 0;
+  scene.addMapSourceControls = () => {
+    initialized++;
+  };
+  scene.parentFolder = {
+    addFolder: () => ({
+      add() {
+        return {
+          onChange() {
+            return this;
+          },
+        };
+      },
+      close() {},
+    }),
+  };
+  scene.executeOnControl = () => {};
+  scene.addControlPanel(false);
+  assert.equal(initialized, 1);
 });

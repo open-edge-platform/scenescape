@@ -42,6 +42,9 @@ def _parse_metric_distance(info):
   if 'distance' not in info:
     return None
   distance = info.pop('distance')
+  box = info.get('bounding_box', info.get('bounding_box_px'))
+  if box is not None and Rectangle(box).is3D:
+    return None
   try:
     distance = float(distance)
   except (TypeError, ValueError) as err:
@@ -170,7 +173,8 @@ class MovingObject:
         agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
           self.boundingBoxPixels, self.metric_distance)
         self.boundingBox = agnostic
-        self.depth_expanded_box = self.metric_distance is not None
+        self.depth_expanded_box = (
+          self.metric_distance is not None and not self.boundingBoxPixels.is3D)
     if 'bounding_box' in self.info:
       self.boundingBox = self._normalized_box_at_depth(self.info.pop('bounding_box'))
     self.confidence = self.info['confidence'] if 'confidence' in self.info else None

@@ -79,7 +79,9 @@ service on port **443**; no external TCP MQTT port is required.
 For a 2D box, `distance` is depth along the optical axis in metres, not radial
 range. A normalized `bounding_box` is already on the normalized image plane:
 its coordinates are scaled by depth, not unprojected through intrinsics again.
-Only `bounding_box_px` requires pixel unprojection. Existing 3D boxes are unchanged.
+Only `bounding_box_px` requires pixel unprojection. Native 3D boxes already supply
+their camera-frame geometry and pose; an accompanying `distance` is ignored for
+both bounding-box forms, without changing their placement or size.
 
 | Field                  | Type               | Required | Description                                                                                                                                                    |
 | ---------------------- | ------------------ | :------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |

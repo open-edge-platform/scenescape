@@ -19,7 +19,7 @@ import {
 } from "/static/js/constants.js";
 
 class CamCanvas {
-  constructor(canvas, initialImageSrc) {
+  constructor(canvas, initialImageSrc, onLoad) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
     this.image = new Image();
@@ -43,12 +43,8 @@ class CamCanvas {
     this.draggingPoint = null;
     this.calibrationUpdated = false;
 
-    this.image.onload = () => {
-      this.handleImageLoad();
-    };
-
     this.initializeEventListeners();
-    this.updateImageSrc(initialImageSrc);
+    this.updateImageSrc(initialImageSrc, onLoad);
   }
 
   getImageSize() {
@@ -223,6 +219,14 @@ class CamCanvas {
   }
 
   handleImageLoad() {
+    const size = this.getImageSize();
+    if (this.previousImageSize) {
+      for (const point of this.calibrationPoints) {
+        point.x *= size[0] / this.previousImageSize[0];
+        point.y *= size[1] / this.previousImageSize[1];
+      }
+    }
+    this.previousImageSize = size;
     // Do resizing and find the new width and height
     const aspectRatio = this.image.width / this.image.height;
     this.camScaleFactor = this.canvas.clientWidth / this.image.width;
@@ -233,7 +237,11 @@ class CamCanvas {
     this.drawImage(newWidth, newHeight);
   }
 
-  updateImageSrc(base64Image) {
+  updateImageSrc(base64Image, onLoad) {
+    this.image.onload = () => {
+      this.handleImageLoad();
+      onLoad?.();
+    };
     this.image.src = base64Image;
   }
 

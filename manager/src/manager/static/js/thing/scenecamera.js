@@ -291,6 +291,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.addControlPanel(params.camerasFolder);
     this.addDragControls(params.sceneViewCamera, params.orbitControls, () => {
       this.calibPoints.clear();
+      this.imagePoints?.delete();
       this.imagePoints = null;
       this.syncPointCloudPose();
       this.executeOnControl("fov", (control) => {
@@ -339,6 +340,7 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   reloadCamera() {
+    this.sceneCameraHelper?.dispose();
     this.remove(this.sceneCamera);
     this.remove(this.sceneCameraHelper);
     this.addCamera();
@@ -354,6 +356,7 @@ export default class SceneCamera extends THREE.Object3D {
   updateDistortion(distortion) {
     if (distortion) {
       this.distortion = distortion;
+      this.distCoeffs?.delete();
       this.distCoeffs = cv.matFromArray(
         1,
         5,
@@ -384,6 +387,7 @@ export default class SceneCamera extends THREE.Object3D {
       (resolutionChanged && newIntrinsics.fov !== undefined)
     ) {
       this.intrinsics = newIntrinsics;
+      this.cameraMatrix?.delete();
       this.cameraMatrix = cv.matFromArray(
         3,
         3,
@@ -978,11 +982,40 @@ export default class SceneCamera extends THREE.Object3D {
       }
     }
     this.scene.remove(this);
+    this.disposeCameraResources();
     this.deleteFromSceneCameras(this.name);
     if (this.controlsFolder) {
       this.controlsFolder.destroy();
       this.controlsFolder = null;
     }
+  }
+
+  disposeCameraResources() {
+    const resources = new Set();
+    for (const root of [this.mesh, this.calibPoints]) {
+      root?.traverse((object) => {
+        if (object.geometry) resources.add(object.geometry);
+        for (const material of Array.isArray(object.material)
+          ? object.material
+          : [object.material]) {
+          if (!material) continue;
+          resources.add(material);
+          for (const value of Object.values(material))
+            if (value?.isTexture) resources.add(value);
+          for (const uniform of Object.values(material.uniforms || {}))
+            if (uniform.value?.isTexture) resources.add(uniform.value);
+        }
+      });
+    }
+    if (this.cameraCapture?.texture) resources.add(this.cameraCapture.texture);
+    for (const resource of resources) resource.dispose();
+    this.sceneCameraHelper?.dispose();
+    this.cameraMatrix?.delete();
+    this.distCoeffs?.delete();
+    this.imagePoints?.delete();
+    this.mesh = this.cameraCapture = this.sceneCameraHelper = null;
+    this.cameraMatrix = this.distCoeffs = null;
+    this.imagePoints = null;
   }
 
   updateSaveButton() {
@@ -1254,6 +1287,8 @@ export default class SceneCamera extends THREE.Object3D {
     let createResponse = await this.restclient.createCamera(cameraData);
 
     if (createResponse.statusCode === 201) {
+      const existing = this.currentCameras[createResponse.content.uid];
+      if (existing && existing !== this) existing.detach(this.camerasFolder);
       this.isStoredInDB = true;
       this.cameraUID = createResponse.content.uid;
       if (this.sceneCamera) {
@@ -1355,8 +1390,10 @@ export default class SceneCamera extends THREE.Object3D {
               }
             });
           } else {
+            const previousTexture = this.cameraCapture.texture;
             this.cameraCapture.texture = texture;
             this.cameraCapture.project(this.mesh);
+            if (previousTexture !== texture) previousTexture?.dispose();
           }
         },
         undefined,
@@ -1407,6 +1444,7 @@ export default class SceneCamera extends THREE.Object3D {
       imgPoints.push(calibVec.x, calibVec.y);
     }
 
+    this.imagePoints?.delete();
     this.imagePoints = cv.matFromArray(
       MAX_CALIB_POINTS,
       2,

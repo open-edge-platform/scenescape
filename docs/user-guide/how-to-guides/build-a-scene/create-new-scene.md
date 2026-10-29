@@ -218,6 +218,11 @@ or generated mesh) clears the default-source selection until a source is activat
 Recorded sources remain available for preview even when the current map has no
 recorded source. Select **Current map** to leave preview and restore editing without
 activating a source or changing the saved map.
+This also applies when the current map is a 2D image or the scene has no map.
+Legacy 2D scene thumbnails apply mesh scale before rotation and translation, with
+pixels-per-metre derived from the transformed geometry. Their existing
+first-quadrant framing is unchanged. Switching sources removes superseded
+thumbnails after commit only when no scene or source still references them.
 
 Use `/api/v1/scene/{scene_id}/mapping-artifacts/{method}` to upload (`PUT`),
 download (`GET`), or delete (`DELETE`) a method's resume ZIP. Upload multipart
@@ -253,3 +258,7 @@ the transmitted thumbnail. Saved camera settings preserve the sensor dimensions;
 only when metadata is absent does the UI estimate dimensions from twice the
 principal point. Off-center principal points and unequal `fx`/`fy` are reflected
 in the projected frustum.
+The calibration page also preserves registered sensor dimensions and off-center
+intrinsics when displaying a smaller JPEG preview. Preview coordinates are
+converted to sensor pixels for calibration and persistence; only explicit sensor
+resolution metadata updates the saved dimensions.

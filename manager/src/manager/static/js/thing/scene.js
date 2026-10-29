@@ -216,6 +216,7 @@ export default class Scene {
         });
 
         const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+        this.floorMesh = floor;
         floor.name = "floor";
 
         // Set the origin to the bottom left corner of the scene
@@ -305,7 +306,6 @@ export default class Scene {
   }
 
   previewSourceMap(method) {
-    if (!this.sceneMesh) return;
     if (method === this._defaultMethod) {
       this._previewRequestId = (this._previewRequestId || 0) + 1;
       this._previewLoading = false;
@@ -367,7 +367,8 @@ export default class Scene {
         this.clearMapPreview();
         this._previewMesh = gltf.scene;
         this.scene.add(this._previewMesh);
-        this.sceneMesh.visible = false;
+        const activeMap = this.sceneMesh || this.floorMesh;
+        if (activeMap) activeMap.visible = false;
         this._previewMethod = method;
         this._previewLoading = false;
         this.updateMapSourceSelection();
@@ -438,7 +439,8 @@ export default class Scene {
       this._previewEditState = {
         controls,
         cameras,
-        meshVisible: this.sceneMesh.visible,
+        meshVisible: this.sceneMesh?.visible,
+        floorVisible: this.floorMesh?.visible,
         transformEnabled: this.transformControl?.enabled,
         transformVisible: this.transformControl
           ? this.getTransformControlObject3D().visible
@@ -458,7 +460,8 @@ export default class Scene {
       }
     } else if (!readOnly && this._previewEditState) {
       const state = this._previewEditState;
-      this.sceneMesh.visible = state.meshVisible;
+      if (this.sceneMesh) this.sceneMesh.visible = state.meshVisible;
+      if (this.floorMesh) this.floorMesh.visible = state.floorVisible;
       for (const { control, disabled } of state.controls)
         control.disable(disabled);
       for (const {
@@ -476,7 +479,7 @@ export default class Scene {
         );
       }
       if (this.transformControl) {
-        this.transformControl.attach(this.sceneMesh);
+        if (this.sceneMesh) this.transformControl.attach(this.sceneMesh);
         this.transformControl.enabled = state.transformEnabled;
         this.setTransformControlVisibility(state.transformVisible);
       }
@@ -657,8 +660,8 @@ export default class Scene {
           this.updateCamerasOnSave = value;
         }.bind(this),
       );
-      this.addMapSourceControls();
     }
+    this.addMapSourceControls();
 
     if (this.isStaff === null) {
       for (const field of Object.keys(panelSettings)) {
@@ -688,10 +691,9 @@ export default class Scene {
   }
 
   updateSaveButton() {
-    if (this._previewLoading || this._previewMesh) return;
-    this.executeOnControl("save", (control) =>
-      control[0].domElement.classList.remove("disabled"),
-    );
+    if (this.isStaff === null || this._previewLoading || this._previewMesh)
+      return;
+    this.executeOnControl("save", (control) => control[0].disable(false));
   }
 
   async saveSettings() {
