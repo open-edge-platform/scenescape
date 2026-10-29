@@ -330,8 +330,8 @@ class Scene(models.Model):
       # use glb from zip uploaded in map and copy zip to polycam data
       if (self._original_map != self.map) and \
                       os.path.splitext(self.map.name)[1].lower() == ".zip":
-        glb_from_zip = self.map
-        self.polycam_data = self.map
+        self.polycam_data = self.map.name
+        glb_from_zip = self.polycam_data
         self.camera_calibration = MARKERLESS
       # use glb from zip uploaded in polycam data
       if (self._original_polycam_data != self.polycam_data):

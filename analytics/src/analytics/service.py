@@ -4,6 +4,7 @@
 import orjson
 from collections import defaultdict
 from copy import copy
+from itertools import chain
 from pathlib import Path
 
 from analytics.adapters.scene_model import AnalyticsScene
@@ -78,12 +79,12 @@ class AnalyticsService:
   # Publication
   # ------------------------------------------------------------------
 
-  def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
+  def publishDetections(self, scene, objects, ts, otype, jdata, camera_id, observation_scene=None):
     if not hasattr(scene, 'lastPubCount'):
       scene.lastPubCount = {}
     if not hasattr(scene, 'last_published_detection'):
       scene.last_published_detection = defaultdict(lambda: None)
-    self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id)
+    self.publishRegulatedDetections(scene, objects, otype, jdata, camera_id, observation_scene)
     self.publishRegionDetections(scene, objects, otype, jdata)
     return
 
@@ -170,19 +171,24 @@ class AnalyticsService:
       observation_scene.cameras[cid] = observation_camera
     return observation_scene
 
-  def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id):
-    update_rate = self.calculateRate()
+  def _prepare_observation_scene(self, scene_obj, jdata, camera_id):
     scene_uid = scene_obj.uid
-
     if scene_uid not in self.regulate_cache:
       self.regulate_cache[scene_uid] = {
         'objects': {}, 'rate': {}, 'last': None,
         'camera_states': {}, 'dynamic_camera_poses': {},
       }
     scene = self.regulate_cache[scene_uid]
-
     self._update_camera_states(scene, scene_obj.cameras, jdata, camera_id)
-    observation_scene = self._scene_for_camera_poses(scene_obj, scene['dynamic_camera_poses'])
+    return self._scene_for_camera_poses(scene_obj, scene['dynamic_camera_poses'])
+
+  def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id,
+                                observation_scene=None):
+    update_rate = self.calculateRate()
+    scene_uid = scene_obj.uid
+    if observation_scene is None:
+      observation_scene = self._prepare_observation_scene(scene_obj, jdata, camera_id)
+    scene = self.regulate_cache[scene_uid]
 
     scene['objects'][otype] = buildDetectionsList(
       msg_objects, observation_scene,
@@ -203,17 +209,8 @@ class AnalyticsService:
 
     now = get_epoch_time()
     if self.shouldPublish(scene['last'], now, 1 / scene_obj.regulated_rate):
-      objects = []
-      is_regulated = self.visibility_topic == 'regulated'
-      msg_objects_lookup = {obj.gid: obj for obj in msg_objects} if is_regulated else {}
-
-      for key in scene['objects']:
-        for obj in scene['objects'][key]:
-          if is_regulated:
-            aobj = msg_objects_lookup.get(obj['id'], None)
-            if aobj is not None:
-              computeCameraBounds(observation_scene, aobj, obj)
-          objects.append(obj)
+      objects = self._reproject_cached_objects(
+        scene['objects'], scene_obj, observation_scene, otype, msg_objects)
 
       new_jdata = {
         'timestamp': jdata['timestamp'],
@@ -230,6 +227,19 @@ class AnalyticsService:
       self.pubsub.publish(PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid), jstr)
       scene['last'] = now
     return
+
+  def _reproject_cached_objects(self, cached, scene, observation_scene, otype, msg_objects):
+    objects = list(chain.from_iterable(cached.values()))
+    if self.visibility_topic != 'regulated':
+      return objects
+    for category, detections in cached.items():
+      tracked = msg_objects if category == otype else scene.getTrackedObjects(category)
+      lookup = {obj.gid: obj for obj in tracked}
+      for detection in detections:
+        obj = lookup.get(detection['id'])
+        if obj is not None:
+          computeCameraBounds(observation_scene, obj, detection)
+    return objects
 
   def publishRegionDetections(self, scene, objects, otype, jdata):
     current_time = get_epoch_time(jdata['timestamp'])
@@ -298,10 +308,12 @@ class AnalyticsService:
 
     # Prefer producer-supplied visibility; fill gaps before events so event
     # payloads and regulated output share the same camera ID lists.
-    scene._updateVisible(analytics_objects)
+    observation_scene = self._prepare_observation_scene(scene, jdata, None)
+    observation_scene._updateVisible(analytics_objects)
     scene._updateEvents(detection_type, msg_when, analytics_objects,
                         publish_fn=self.pubsub.publish)
-    self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None)
+    self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None,
+                           observation_scene)
     return
 
   def handleReidDecisionMessage(self, client, userdata, message):

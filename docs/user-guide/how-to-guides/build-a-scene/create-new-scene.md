@@ -221,8 +221,13 @@ activating a source or changing the saved map.
 This also applies when the current map is a 2D image or the scene has no map.
 Legacy 2D scene thumbnails apply mesh scale before rotation and translation, with
 pixels-per-metre derived from the transformed geometry. Their existing
-first-quadrant framing is unchanged. Switching sources removes superseded
+first-quadrant XY framing is unchanged; camera elevation and clipping follow the
+transformed Z bounds so vertical placement does not clip the preview.
+Switching sources removes superseded
 thumbnails after commit only when no scene or source still references them.
+Placement-only multipart updates do not require a replacement map upload.
+For ZIP map uploads, the original archive remains available as `polycam_data`
+while `map` references the extracted GLB.
 
 Use `/api/v1/scene/{scene_id}/mapping-artifacts/{method}` to upload (`PUT`),
 download (`GET`), or delete (`DELETE`) a method's resume ZIP. Upload multipart
@@ -258,6 +263,9 @@ the transmitted thumbnail. Saved camera settings preserve the sensor dimensions;
 only when metadata is absent does the UI estimate dimensions from twice the
 principal point. Off-center principal points and unequal `fx`/`fy` are reflected
 in the projected frustum.
+Incoming optics refresh the FOV display without enabling the manual FOV override.
+Distortion accepts named coefficients or arrays in `[k1, k2, p1, p2, k3]`
+order; a four-element array implies `k3 = 0`. Omitted named coefficients are zero.
 The calibration page also preserves registered sensor dimensions and off-center
 intrinsics when displaying a smaller JPEG preview. Preview coordinates are
 converted to sensor pixels for calibration and persistence; only explicit sensor

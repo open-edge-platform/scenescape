@@ -120,6 +120,34 @@ class TestMovingObject:
     assert loc.y == pytest.approx(0.0, abs=1e-9)
     assert loc.z == pytest.approx(1.0 - 0.6)
 
+  @pytest.mark.parametrize("scale", [[2, 2, 2], [2, 3, 4]])
+  @pytest.mark.parametrize("yaw", [0, 37])
+  @pytest.mark.parametrize("prior", [None, [0.5, 0.5, 1.7]])
+  def test_depth_box_world_dimensions_and_offsets(self, scale, yaw, prior):
+    from scipy.spatial.transform import Rotation
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    optical_rotation = Rotation.from_quat([0.5, -0.5, 0.5, -0.5])
+    rotation = Rotation.from_euler('z', yaw, degrees=True) * optical_rotation
+    pose = CameraPose({'translation': [10, 20, 3], 'rotation': rotation.as_quat().tolist(),
+                      'scale': scale},
+                     CameraIntrinsics({'fx': 100, 'fy': 100, 'cx': 100, 'cy': 100}))
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    obj = MovingObject({
+      'id': 'box', 'category': 'person', 'distance': 2,
+      'bounding_box_px': {'x': 80, 'y': 70, 'width': 40, 'height': 60},
+    }, 1, camera)
+    obj.size = prior
+    loc = obj.sceneLoc
+    expected_size = prior or [0.8 * scale[0], 0.8 * scale[2], 1.2 * scale[1]]
+    assert obj.size == pytest.approx(expected_size)
+    assert obj.bbMeters.width == pytest.approx(0.8 * scale[0])
+    assert obj.bbMeters.height == pytest.approx(1.2 * scale[1])
+    center = pose.cameraPointToWorldPoint(Point(0, 0, 2)).asNumpyCartesian
+    ray = center - np.array([10, 20, 3])
+    expected = center + ray / np.linalg.norm(ray) * np.mean(expected_size[:2]) / 2
+    expected[2] -= expected_size[2] / 2
+    assert loc.asNumpyCartesian == pytest.approx(expected)
+
   @pytest.mark.parametrize("distance", [None, 2.0])
   def test_three_dimensional_box_is_not_offset(self, distance):
     from scene_common.transform import CameraIntrinsics, CameraPose

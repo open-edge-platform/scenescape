@@ -214,6 +214,41 @@ def test_zip_map_upload_extracts_glb_and_invalidates_processed_state(client, sce
   assert saved.map.name.endswith(".glb")
   assert saved.map_processed is None
   assert saved.default_source_map.file.name == saved.map.name
+  assert saved.polycam_data.name.endswith(".zip")
+  assert saved.polycam_data.name != saved.map.name
+  with zipfile.ZipFile(saved.polycam_data.path) as archive:
+    assert archive.read("capture/raw.glb") == _glb()
+  # A second save must not re-extract the archive or change its reference.
+  archive_name, map_name = saved.polycam_data.name, saved.map.name
+  saved.save(send_update_command=False)
+  saved.refresh_from_db()
+  assert saved.polycam_data.name == archive_name
+  assert saved.map.name == map_name
+
+
+@pytest.mark.parametrize("method", ["post", "put"])
+def test_placement_only_multipart_preserves_map_and_updates_source(client, scene, method):
+  assert _put_mesh(client, scene, "rtabmap").status_code == 200
+  scene.refresh_from_db()
+  map_name = scene.map.name
+  transform = {"translation": [1, 2, 300], "rotation": [12, 23, 34], "scale": [2, 3, 4]}
+  response = getattr(client, method)(
+    f"/api/v1/scene/{scene.pk}",
+    {f"mesh_{key}": json.dumps(value) for key, value in transform.items()}, format="multipart")
+  assert response.status_code == 200, response.content
+  scene.refresh_from_db()
+  assert scene.map.name == map_name
+  assert mapping_store.scene_transform(scene) == transform
+  assert scene.default_source_map.transform == transform
+
+
+def test_invalid_placement_only_multipart_leaves_transform_unchanged(client, scene):
+  original = mapping_store.scene_transform(scene)
+  response = client.put(f"/api/v1/scene/{scene.pk}", {"mesh_scale": "[1,2]"}, format="multipart")
+  assert response.status_code == 400
+  assert "mesh_scale" in response.json()
+  scene.refresh_from_db()
+  assert mapping_store.scene_transform(scene) == original
 
 
 @pytest.mark.parametrize("create", [False, True])

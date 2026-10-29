@@ -82,6 +82,10 @@ its coordinates are scaled by depth, not unprojected through intrinsics again.
 Only `bounding_box_px` requires pixel unprojection. Native 3D boxes already supply
 their camera-frame geometry and pose; an accompanying `distance` is ignored for
 both bounding-box forms, without changing their placement or size.
+For depth-expanded 2D boxes, inferred cuboid dimensions include the observation
+pose's scale. The upright cuboid uses sensor X for width, optical Z for depth,
+and sensor Y for height; rotation changes edge directions, not their lengths.
+Explicit detection sizes and library size priors remain unchanged.
 
 | Field                  | Type               | Required | Description                                                                                                                                                    |
 | ---------------------- | ------------------ | :------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |

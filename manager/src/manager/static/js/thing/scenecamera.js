@@ -23,7 +23,7 @@ import {
   P2,
   K3,
 } from "/static/js/constants.js";
-import { compareIntrinsics } from "/static/js/utils.js";
+import { compareIntrinsics, normalizeDistortion } from "/static/js/utils.js";
 import { startCameraCalibration } from "/static/js/calibration.js";
 import PointCloudVisualizer from "/static/js/pointcloud.js";
 
@@ -148,8 +148,9 @@ export default class SceneCamera extends THREE.Object3D {
 
     this.intrinsics =
       "intrinsics" in params ? params.intrinsics : DEFAULT_INTRINSICS;
-    this.distortion =
-      "distortion" in params ? params.distortion : DEFAULT_DISTORTION;
+    this.distortion = normalizeDistortion(
+      "distortion" in params ? params.distortion : DEFAULT_DISTORTION,
+    );
     this.resolution =
       "resolution" in params
         ? { w: params.resolution[0], h: params.resolution[1] }
@@ -355,13 +356,13 @@ export default class SceneCamera extends THREE.Object3D {
 
   updateDistortion(distortion) {
     if (distortion) {
-      this.distortion = distortion;
+      this.distortion = normalizeDistortion(distortion);
       this.distCoeffs?.delete();
       this.distCoeffs = cv.matFromArray(
         1,
         5,
         cv.CV_64F,
-        constructDistortionArray(distortion),
+        constructDistortionArray(this.distortion),
       );
       if (this.distortionFolder) {
         this.distortionFolder.children[0].$input.value =
@@ -414,13 +415,8 @@ export default class SceneCamera extends THREE.Object3D {
         this.cameraMatrix.data64F[FY],
       );
       if (dfov !== control[0].getValue()) {
-        control[0].setValue(
-          computeDiagonalFOV(
-            this.cameraMatrix.data64F[CX],
-            this.cameraMatrix.data64F[CY],
-            this.cameraMatrix.data64F[FY],
-          ),
-        );
+        control[0].object[control[0].property] = dfov;
+        control[0].updateDisplay();
       }
     });
 

@@ -417,9 +417,10 @@ class MovingObject:
   def _projectBounds(self):
     if hasattr(self.camera, "pose") and self.boundingBox:
       if self.depth_expanded_box:
-        # Box already sits at metric depth: its extents are the metric size.
-        width = self.boundingBox.width
-        height = self.boundingBox.height
+        # Convert camera-frame edges to world lengths, without an AABB rotation.
+        scale = np.linalg.norm(self.camera.pose.pose_mat[:3, :3], axis=0)
+        width = self.boundingBox.width * scale[0]
+        height = self.boundingBox.height * scale[1]
         self.bbMeters = Rectangle(origin=Point(0, 0), size=(width, height))
         self.bbShadow = None
         self.baseAngle = 0.0
@@ -428,6 +429,9 @@ class MovingObject:
           self.camera.pose.projectBounds(self.boundingBox)
       if self.size is None:
         self.size = [self.bbMeters.width, self.bbMeters.width, self.bbMeters.height]
+        if self.depth_expanded_box:
+          # The upright cuboid uses optical z for depth and sensor y for height.
+          self.size[1] = self.boundingBox.width * scale[2]
     return
 
   @property

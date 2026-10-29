@@ -10,7 +10,6 @@ analytics/src/analytics/event_serializer.py	serialize_for_event	48
 analytics/src/analytics/region.py	update_region_events	94
 analytics/src/analytics/reid_identity.py	ReidIdentityMap::apply	20
 analytics/src/analytics/sensors.py	update_environmental_sensor_readings	13
-analytics/src/analytics/service.py	AnalyticsService::publishRegulatedDetections	31
 analytics/src/analytics/state.py	AnalyticsStateStore::update_object_id	14
 autocalibration/src/atag_camera_calibration_controller.py	ApriltagCameraCalibrationController::generate_calibration	20
 autocalibration/src/atag_camera_calibration_controller.py	ApriltagCameraCalibrationController::process_scene_for_calibration	19

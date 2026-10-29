@@ -950,8 +950,7 @@ class SceneSerializer(NonNullSerializer):
       key = f'mesh_{trans_type}'
       if key not in data:
         continue
-      popped_data = data.pop(key, None)
-      values = self._meshTransformValues(popped_data, key)
+      values = self._meshTransformValues(data[key], key)
       for axis, value in zip(('x', 'y', 'z'), values):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
           raise serializers.ValidationError({
@@ -962,7 +961,7 @@ class SceneSerializer(NonNullSerializer):
 
   @staticmethod
   def _meshTransformValues(value, key):
-    # QueryDict.pop wraps the form string; JSON bodies already contain the vector.
+    # Accept legacy wrapped form strings as well as JSON vectors.
     if isinstance(value, (list, tuple)) and len(value) == 1 and isinstance(value[0], str):
       value = value[0]
     if isinstance(value, str):

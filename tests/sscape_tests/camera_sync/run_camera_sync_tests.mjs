@@ -385,7 +385,7 @@ async function sceneCameraHarness() {
     },
   });
   const entry = new vm.SourceTextModule(source, { context });
-  await entry.link(async (specifier) => {
+  await entry.link(async function link(specifier) {
     let exports;
     if (specifier.includes("three.module")) {
       exports = {
@@ -415,9 +415,17 @@ async function sceneCameraHarness() {
         P1: 2,
         P2: 3,
         K3: 4,
+        REST_URL: "",
+        POINT_CORRESPONDENCE: 0,
+        EULER: 0,
       };
     } else if (specifier.endsWith("/utils.js")) {
-      exports = { compareIntrinsics: () => true };
+      const utils = new vm.SourceTextModule(
+        await readFile(new URL("utils.js", STATIC), "utf8"),
+        { context },
+      );
+      await utils.link(link);
+      return utils;
     } else if (specifier.endsWith("/calibration.js")) {
       exports = { startCameraCalibration: () => {} };
     } else {
@@ -459,6 +467,104 @@ async function sceneCameraHarness() {
   });
   return camera;
 }
+
+test("received optics refresh FOV display without invoking manual edits", async () => {
+  const camera = await sceneCameraHarness();
+  const settings = { fov: 70 };
+  let displays = 0;
+  const control = {
+    object: settings,
+    property: "fov",
+    getValue: () => settings.fov,
+    setValue() {
+      camera.fovEnabled = true;
+      assert.fail(
+        "Programmatic optics must not invoke the manual FOV callback",
+      );
+    },
+    updateDisplay() {
+      displays++;
+    },
+  };
+  camera.executeOnControl = (name, callback) => {
+    if (name === "fov") callback([control]);
+  };
+  for (const fx of [700, 900]) {
+    const intrinsics = { fx, fy: 710, cx: 300, cy: 210 };
+    camera.updateOptics({ intrinsics, resolution: [640, 480] });
+    assert.deepEqual(plain(camera.intrinsics), intrinsics);
+    assert.deepEqual(plain(camera.cameraMatrix.data64F), [
+      fx,
+      0,
+      300,
+      0,
+      710,
+      210,
+      0,
+      0,
+      1,
+    ]);
+    assert.notEqual(camera.fovEnabled, true);
+  }
+  assert.ok(displays > 0);
+});
+
+for (const distortion of [
+  [0.1, 0.2, 0.03, 0.04],
+  [0.1, 0.2, 0.03, 0.04, 0.5],
+  { k1: 0.1, k2: 0.2, p1: 0.03, p2: 0.04, k3: 0.5 },
+]) {
+  test(`image distortion is finite and acknowledges calibration: ${JSON.stringify(distortion)}`, async () => {
+    const camera = await sceneCameraHarness();
+    const matrix = [
+      [700, 0, 300],
+      [0, 710, 210],
+      [0, 0, 1],
+    ];
+    camera.projectCameraCapture("thumbnail.png", {
+      intrinsics: matrix,
+      distortion,
+      resolution: [640, 480],
+    });
+    const k3 = Array.isArray(distortion) ? (distortion[4] ?? 0) : distortion.k3;
+    assert.deepEqual(plain(camera.distortion), {
+      k1: 0.1,
+      k2: 0.2,
+      p1: 0.03,
+      p2: 0.04,
+      k3,
+    });
+    assert.deepEqual(plain(camera.distCoeffs.data64F), [
+      0.1,
+      0.2,
+      0.03,
+      0.04,
+      k3,
+    ]);
+    const client = new EventEmitter();
+    camera.setMQTTClient(client, "scenescape/");
+    const acknowledge = (value) =>
+      client.emit(
+        "message",
+        "scenescape/image/camera/mobile",
+        JSON.stringify({ intrinsics: matrix, distortion: value }),
+      );
+    acknowledge(distortion);
+    assert.equal(camera.isUpdatedInVAService, true);
+    acknowledge([0.9, 0.2, 0.03, 0.04, k3]);
+    assert.equal(camera.isUpdatedInVAService, false);
+  });
+}
+
+test("invalid distortion does not replace valid calibration", async () => {
+  const camera = await sceneCameraHarness();
+  camera.updateDistortion([0, 0, 0, 0]);
+  const coefficients = camera.distCoeffs;
+  for (const invalid of [[1, 2], [0, 0, 0, 0, Infinity], { k1: "0" }]) {
+    assert.throws(() => camera.updateDistortion(invalid), /Distortion/);
+    assert.equal(camera.distCoeffs, coefficients);
+  }
+});
 
 test("known sensor dimensions and off-center intrinsics define projection", async () => {
   const camera = await sceneCameraHarness();

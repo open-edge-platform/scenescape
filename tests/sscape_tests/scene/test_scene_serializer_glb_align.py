@@ -18,11 +18,11 @@ def test_mesh_transform_accepts_json_vector_forms(value):
   validated = {}
   SceneSerializer().handleMeshTransform(data, validated)
   assert validated == {"translation_x": 1.0, "translation_y": 2.5, "translation_z": -3.0}
-  assert data == {"name": "untouched"}
+  assert data == {"name": "untouched", "mesh_translation": value}
 
 
 def test_mesh_transform_accepts_multipart_vector():
-  data = QueryDict("mesh_rotation=%5B1%2C2%2C3%5D", mutable=True)
+  data = QueryDict("mesh_rotation=%5B1%2C2%2C3%5D")
   validated = {}
   SceneSerializer().handleMeshTransform(data, validated)
   assert validated == {"rotation_x": 1.0, "rotation_y": 2.0, "rotation_z": 3.0}

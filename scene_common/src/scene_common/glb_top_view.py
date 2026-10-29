@@ -107,14 +107,18 @@ def renderTopView(triangle_mesh, tensor_mesh, glb_size, res_x, res_y):
     right = (floor_height) * aspect_ratio
     top = floor_height
 
+  bounds = triangle_mesh.get_axis_aligned_bounding_box()
+  min_z = float(bounds.min_bound[2].item())
+  max_z = float(bounds.max_bound[2].item())
+  margin = max(float(glb_size.max()), 1e-3)
   renderer.scene.camera.look_at(
-    [0.0, 0.0, 0.0],
-    [0.0, 0.0, glb_size.max()],
+    [0.0, 0.0, min_z],
+    [0.0, 0.0, max_z + margin],
     [0.0, 1.0, 0.0]
   )
 
   renderer.scene.camera.set_projection(renderer.scene.camera.Projection.Ortho,
-                                       0.0, right, 0.0, top, 0.0, glb_size.max()*2)
+                                       0.0, right, 0.0, top, 0.0, max_z - min_z + 2 * margin)
   # We use the vertical resolution as the base for all computations
   pixels_per_meter = res_y / top
   img = renderer.render_to_image()

@@ -26,12 +26,13 @@ from scene_common.glb_top_view import (
 )
 
 @pytest.mark.parametrize("scale", [(1, 1, 1), (2, 3, 4)])
-def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_path, scale):
+@pytest.mark.parametrize("z", [0, 1000, -1000])
+def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_path, scale, z):
   import trimesh
   from manager.models import Scene
   path = tmp_path / "box.glb"
   trimesh.creation.box(extents=(2, 4, 6)).export(path)
-  scene = Scene(name="transformed", rotation_z=90, translation_x=10, translation_y=20, translation_z=5,
+  scene = Scene(name="transformed", rotation_z=90, translation_x=10, translation_y=20, translation_z=z,
                 scale_x=scale[0], scale_y=scale[1], scale_z=scale[2])
   with patch("scene_common.glb_top_view.rendering.OffscreenRenderer") as renderer_class:
     renderer = _mock_offscreen_renderer()
@@ -41,8 +42,20 @@ def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_pa
     extents = rendered_mesh.get_axis_aligned_bounding_box().get_extent().numpy()
     np.testing.assert_allclose(extents, [4 * scale[1], 2 * scale[0], 6 * scale[2]])
     np.testing.assert_allclose(
-      rendered_mesh.get_axis_aligned_bounding_box().get_center().numpy(), [10, 20, 5])
+      rendered_mesh.get_axis_aligned_bounding_box().get_center().numpy(), [10, 20, z])
     assert ppm == pytest.approx(min(1024 / extents[0], 768 / extents[1]))
+    target, eye, up = renderer.scene.camera.look_at.call_args.args
+    bounds = rendered_mesh.get_axis_aligned_bounding_box()
+    min_z, max_z = bounds.min_bound[2].item(), bounds.max_bound[2].item()
+    assert target == [0, 0, min_z]
+    assert eye[2] > max_z
+    assert up == [0, 1, 0]
+    _, left, right, bottom, top, near, far = renderer.scene.camera.set_projection.call_args.args
+    assert left == bottom == 0
+    assert right == pytest.approx(1024 / ppm)
+    assert top == pytest.approx(768 / ppm)
+    assert near < eye[2] - max_z
+    assert far > eye[2] - min_z
 
 
 @pytest.mark.django_db

@@ -98,6 +98,10 @@ poses. Entries with `dynamic_pose: true` drive live camera movement in the 3D UI
 static entries do not overwrite unsaved camera edits. Invalid extrinsics are
 logged and leave the last valid pose (or configured pose) intact. Dynamic poses
 also apply to projected camera bounds without changing stored calibration.
+Missing or empty object visibility is filled using the latest valid observation
+poses before events are evaluated; nonempty producer visibility is preserved.
+Each regulated publication reprojects camera bounds for all cached categories
+against the same observation poses, including categories absent from that input frame.
 
 Published on MQTT topic: `scenescape/regulated/scene/{scene_id}`
 
