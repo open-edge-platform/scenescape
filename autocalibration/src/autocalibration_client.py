@@ -1,6 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from http import HTTPStatus
+from urllib.parse import urljoin
+
 from scene_common.rest_client import RESTClient
 
 
@@ -21,7 +24,11 @@ class AutoCalibrationClient(RESTClient):
 
   def updateSceneRegistration(self, sceneId, data):
     """Updates scene registration."""
-    return self._update(f"scenes/{sceneId}/registration", data)
+    # PATCH: POST on this route starts a new registration instead.
+    full_path = urljoin(self.url, f"scenes/{sceneId}/registration")
+    headers = {'Authorization': f"Token {self.token}"}
+    reply = self.session.patch(full_path, json=data, headers=headers, verify=self.verify_ssl)
+    return self.decodeReply(reply, HTTPStatus.OK)
 
   def calibrateCamera(self, cameraId, data):
     """Calibrate a camera."""
