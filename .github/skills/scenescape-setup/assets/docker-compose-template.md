@@ -110,6 +110,12 @@ services:
   web:
     image: intel/scenescape-manager:${VERSION:-2026.2.0}
     init: true
+    devices:
+      - /dev/fuse
+    cap_add:
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
     networks:
       scenescape:
         aliases:
@@ -135,7 +141,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl --cacert /run/secrets/certs/scenescape-ca.pem -fsS https://web.scenescape.intel.com:443/api/v1/health | grep -Eq '\"ready\"[[:space:]]*:[[:space:]]*true'",
+          "CA=/run/secrets/certs/scenescape-ca.pem; B=https://web.scenescape.intel.com:443; curl --cacert $$CA -fsS $$B/api/v1/health | grep -Eq '\"ready\"[[:space:]]*:[[:space:]]*true' || curl --cacert $$CA -fsS $$B/api/v1/database-ready | grep -Eq '\"databaseReady\"[[:space:]]*:[[:space:]]*true'",
         ]
       interval: 10s
       timeout: 120s

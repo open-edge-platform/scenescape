@@ -12,7 +12,12 @@ scene_uid=${2:?scene_uid required}
 timeout_s=${3:-120}
 cd "$deploy_dir"
 
-NET_NAME=$(docker network ls --format '{{.Name}}' | grep '_scenescape$' | head -1)
+__ss_project=$(awk '/^name:[[:space:]]*/{v=$2; gsub(/[[:space:]]/,"",v); print v; exit}' docker-compose.yml 2>/dev/null || true)
+NET_NAME=""
+if [[ -n "${__ss_project:-}" ]]; then
+  NET_NAME=$(docker network ls --format '{{.Name}}' | grep -E "^${__ss_project}_scenescape$" | head -1 || true)
+fi
+[[ -n "$NET_NAME" ]] || NET_NAME=$(docker network ls --format '{{.Name}}' | grep '_scenescape$' | head -1 || true)
 ca_file="$deploy_dir/secrets/certs/scenescape-ca.pem"
 topic="scenescape/regulated/scene/$scene_uid"
 
