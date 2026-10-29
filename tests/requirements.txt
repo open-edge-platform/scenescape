@@ -31,6 +31,7 @@ django-axes==8.0.0
 django-session-timeout==0.1.0
 djangorestframework==3.18.2
 jsonschema==4.25.1
+segno==1.6.6
 plyfile==1.0.3
 trimesh==4.11.5
 shapely==2.1.1

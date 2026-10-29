@@ -142,7 +142,9 @@ class TestMovingObject:
     assert obj.size == pytest.approx(expected_size)
     assert obj.bbMeters.width == pytest.approx(0.8 * scale[0])
     assert obj.bbMeters.height == pytest.approx(1.2 * scale[1])
-    center = pose.cameraPointToWorldPoint(Point(0, 0, 2)).asNumpyCartesian
+    camera_center = Point([0.0, 0.0, 2.0])
+    assert camera_center.is3D
+    center = pose.cameraPointToWorldPoint(camera_center).asNumpyCartesian
     ray = center - np.array([10, 20, 3])
     expected = center + ray / np.linalg.norm(ray) * np.mean(expected_size[:2]) / 2
     expected[2] -= expected_size[2] / 2
