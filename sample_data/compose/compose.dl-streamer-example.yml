@@ -112,6 +112,8 @@ services:
       - /run/positioning/positioning-assignments.json
       - --resolver-id
       - ${POSITIONING_RESOLVER_ID:-positioning-default}
+      - --identity
+      - ${POSITIONING_CERT_IDENTITY:-positioning.scenescape.intel.com}
       - --output
       - /output/positioning.acl
       - --group

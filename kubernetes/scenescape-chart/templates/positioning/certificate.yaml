@@ -11,9 +11,9 @@ spec:
   issuerRef:
     name: {{ .Release.Name }}-ca-issuer
     kind: Issuer
-  commonName: "positioning.scenescape.intel.com"
+  commonName: {{ include "positioning.certIdentity" . | quote }}
   dnsNames:
-    - "positioning.scenescape.intel.com"
+    - {{ include "positioning.certIdentity" . | quote }}
     - "positioning"
     - "positioning.{{ .Release.Namespace }}"
     - "positioning.{{ .Release.Namespace }}.svc.cluster.local"

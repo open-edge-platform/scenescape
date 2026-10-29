@@ -25,7 +25,8 @@ it is only used on the host to sign certificates. Kubernetes mounts the client k
 with group-readable mode only for the Positioning pod's `fsGroup`.
 Production Positioning connections use the broker's dedicated TLS listener on
 port 8883, which requires a client certificate and uses its certificate identity
-as the ACL principal. The source-scoped ACL grants only the configured Resolver's
+(`positioning.<CERTDOMAIN>`) as the ACL principal. Compose passes it to the ACL
+renderer as `POSITIONING_CERT_IDENTITY`. The source-scoped ACL grants only the configured Resolver's
 retained status write, assigned camera-configuration reads, and assigned pose
 writes. The regular broker listener remains separate for existing services.
 

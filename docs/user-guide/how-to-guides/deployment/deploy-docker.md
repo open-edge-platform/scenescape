@@ -77,6 +77,15 @@ and pose topics assigned to its resolver and read only those cameras' configurat
 invalidations. Protect ONVIF camera traffic with the host firewall: Compose does not
 provide portable egress CIDR policies.
 
+The ACL names the Positioning client certificate's common name,
+`positioning.<CERTDOMAIN>`, which the broker uses as the MQTT username. `make .env`
+writes it as `POSITIONING_CERT_IDENTITY` from the same `CERTDOMAIN` used to generate
+the certificates. When you run Compose directly with certificates for a custom
+domain, set `POSITIONING_CERT_IDENTITY` yourself; otherwise the default
+`positioning.scenescape.intel.com` matches no certificate and the broker denies all
+Positioning status, pose, and configuration traffic. After changing it, rerun
+`positioning-acl-init` and restart the broker.
+
 The broker logs that `per_listener_settings` is deprecated. This is expected:
 Mosquitto 2.1 still needs that option to apply the Positioning ACL to port 8883 only,
 without restricting clients on the other listeners. The option is scheduled for

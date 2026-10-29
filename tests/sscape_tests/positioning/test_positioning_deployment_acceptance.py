@@ -60,6 +60,55 @@ def test_positioning_acl_renders_the_tracked_default_manifest(tmp_path):
   ]
 
 
+def test_positioning_acl_principal_is_the_configured_certificate_identity(tmp_path):
+  """A custom CERTDOMAIN issues positioning.<CERTDOMAIN>; the ACL must name that CN."""
+  assert render_acl({}, "resolver-a", "positioning.example.org").splitlines()[0] == (
+    "user positioning.example.org")
+
+  output = tmp_path / "positioning.acl"
+  subprocess.run(
+    [sys.executable, str(REPO_ROOT / "tools/positioning/render_mosquitto_acl.py"),
+     "--assignments", str(REPO_ROOT / "deployment/positioning-assignments.json"),
+     "--resolver-id", "positioning-default", "--identity", "positioning.example.org",
+     "--output", str(output)],
+    check=True)
+  assert output.read_text().splitlines()[0] == "user positioning.example.org"
+
+
+@pytest.mark.parametrize("bad_identity", (
+  "", "positioning example.org", "positioning.example.org\ntopic readwrite #",
+  "positioning+", "positioning#", "positioning/example", "a" * 254, None))
+def test_positioning_acl_rejects_unsafe_certificate_identity(bad_identity):
+  with pytest.raises(ValueError):
+    render_acl({}, "resolver-a", bad_identity)
+
+
+def test_compose_acl_identity_follows_the_certificate_domain():
+  compose = yaml.safe_load(
+    (REPO_ROOT / "sample_data/compose/compose.dl-streamer-example.yml").read_text())
+  entrypoint = compose["services"]["positioning-acl-init"]["entrypoint"]
+  assert entrypoint[entrypoint.index("--identity") + 1] == (
+    "${POSITIONING_CERT_IDENTITY:-positioning.scenescape.intel.com}")
+
+  env_target = subprocess.run(
+    ["make", "--no-print-directory", "-s", "-n", "-C", str(REPO_ROOT), ".env",
+     "CERTDOMAIN=example.org", "SECRETSDIR=/nonexistent"],
+    capture_output=True, text=True, check=True).stdout
+  assert '"POSITIONING_CERT_IDENTITY=positioning.example.org"' in env_target
+  certificates = (REPO_ROOT / "tools/certificates/Makefile").read_text()
+  assert "positioning-cert: HOST=positioning\n" in certificates
+  assert 's/##CN##/$(HOST)$(HOSTSUFFIX).$(CERTDOMAIN)/' in certificates
+
+
+def test_helm_certificate_and_acl_share_one_identity():
+  templates = REPO_ROOT / "kubernetes/scenescape-chart/templates/positioning"
+  certificate = (templates / "certificate.yaml").read_text()
+  helpers = (templates / "_helpers.tpl").read_text()
+  assert 'commonName: {{ include "positioning.certIdentity" . | quote }}' in certificate
+  assert '(printf "user %s" (include "positioning.certIdentity" .))' in helpers
+  assert "positioning.scenescape.intel.com" not in certificate
+
+
 def test_positioning_acl_is_never_world_readable(tmp_path):
   """Mosquitto 2.1 crashes on, and will later refuse, world-readable ACL files."""
   script = REPO_ROOT / "tools/positioning/render_mosquitto_acl.py"
