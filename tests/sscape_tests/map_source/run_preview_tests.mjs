@@ -199,6 +199,138 @@ async function harness() {
   };
 }
 
+async function sourceControlsHarness(methods, defaultMethod) {
+  const state = await harness();
+  const widgets = {};
+  const folders = [];
+  state.scene.restclient.getSourceMaps = async () => ({
+    statusCode: 200,
+    content: {
+      maps: methods.map((method) => state.scene._sourceMaps[method]),
+      default: defaultMethod,
+    },
+  });
+  state.scene.controlsFolder.addFolder = (name) => {
+    folders.push(name);
+    return {
+      add(settings, property, options) {
+        const widget = {
+          $widget: {},
+          settings,
+          options,
+          onChange(callback) {
+            this.change = (value) => {
+              settings[property] = value;
+              callback(value);
+            };
+            return this;
+          },
+          updateDisplay() {},
+        };
+        widgets[property] = widget;
+        return widget;
+      },
+    };
+  };
+  await state.scene.addMapSourceControls();
+  return { ...state, widgets, folders };
+}
+
+for (const { methods, defaultMethod, visible } of [
+  { methods: [], defaultMethod: null, visible: false },
+  { methods: ["active"], defaultMethod: "active", visible: false },
+  { methods: ["one"], defaultMethod: null, visible: true },
+  { methods: ["one", "two"], defaultMethod: null, visible: true },
+  { methods: ["active", "one"], defaultMethod: "active", visible: true },
+]) {
+  test(`source controls visibility with ${methods.length} sources and default ${defaultMethod}`, async () => {
+    const { scene, widgets, folders, loads } = await sourceControlsHarness(
+      methods,
+      defaultMethod,
+    );
+    assert.equal(folders.length, visible ? 1 : 0);
+    if (!visible) return;
+    const selector = widgets["map source"];
+    assert.equal(
+      selector.options.length,
+      methods.length + (defaultMethod === null ? 1 : 0),
+    );
+    assert.equal(scene._previewMethod, defaultMethod);
+    assert.equal(
+      scene._sourceMapLabels[defaultMethod],
+      selector.settings["map source"],
+    );
+    assert.equal(loads.length, 0);
+    if (defaultMethod === null)
+      assert.equal(selector.settings["map source"], "Current map ✓");
+  });
+}
+
+for (const methods of [["one"], ["one", "two"]]) {
+  test(`returning to an unrecorded current map restores editing with ${methods.length} retained sources`, async () => {
+    const state = await sourceControlsHarness(methods, null);
+    const selector = state.widgets["map source"];
+    const originalDisabled = state.controls.map((control) => control._disabled);
+    selector.change(state.scene._sourceMapLabels.one);
+    const preview = mesh();
+    state.loads[0].success({ scene: preview });
+    assert.ok(state.controls.every((control) => control._disabled));
+    selector.change(state.scene._sourceMapLabels[null]);
+    assert.equal(state.loads.length, 1);
+    assert.equal(state.scene._previewMethod, null);
+    assert.equal(state.scene._previewMesh, null);
+    assert.equal(state.active.visible, true);
+    assert.equal(state.camera.projectFrame, true);
+    assert.equal(state.projection.visible, true);
+    assert.equal(state.scene.transformControl.enabled, true);
+    assert.deepEqual(
+      state.controls.map((control) => control._disabled),
+      originalDisabled,
+    );
+    assert.equal(preview.geometry.disposed, 1);
+    assert.equal(preview.material.map.disposed, 1);
+    assert.equal(selector.settings["map source"], "Current map ✓");
+    assert.deepEqual(state.writes, []);
+    await state.scene.activateSourceMap(null);
+    await state.scene.deleteSourceMap(null);
+    assert.deepEqual(state.writes, []);
+    await state.scene.saveSettings();
+    assert.deepEqual(state.writes, ["cameras", "scene"]);
+  });
+}
+
+test("returning to the unrecorded current map cancels a pending source preview", async () => {
+  const state = await sourceControlsHarness(["one"], null);
+  const selector = state.widgets["map source"];
+  selector.change(state.scene._sourceMapLabels.one);
+  selector.change(state.scene._sourceMapLabels[null]);
+  const late = mesh();
+  state.loads[0].success({ scene: late });
+  assert.equal(late.geometry.disposed, 1);
+  assert.equal(state.scene._previewMethod, null);
+  assert.equal(state.scene._previewLoading, false);
+  assert.equal(state.active.visible, true);
+  assert.equal(state.progress.style.display, "none");
+  assert.equal(selector.settings["map source"], "Current map ✓");
+  assert.equal(state.scene.transformControl.enabled, true);
+  assert.deepEqual(state.writes, []);
+});
+
+test("a failed preview restores the unrecorded current-map selection and controls", async () => {
+  const state = await sourceControlsHarness(["one"], null);
+  const selector = state.widgets["map source"];
+  selector.change(state.scene._sourceMapLabels.one);
+  state.loads[0].failure(new Error("download failed"));
+  assert.equal(state.scene._previewMethod, null);
+  assert.equal(selector.settings["map source"], "Current map ✓");
+  assert.equal(state.active.visible, true);
+  assert.equal(state.scene.transformControl.enabled, true);
+  assert.equal(
+    state.controls.find((control) => control.property === "pos X")._disabled,
+    false,
+  );
+});
+
 test("preview is read-only and leaves the active mesh and camera references intact", async () => {
   const state = await harness();
   state.scene.previewSourceMap("one");

@@ -261,10 +261,10 @@ export default class Scene {
     const response = await this.restclient.getSourceMaps(this.sceneID);
     if (response.statusCode !== SUCCESS) return;
     const { maps, default: defaultMethod } = response.content;
-    if (!maps || maps.length < 2) return;
+    if (!maps?.some((map) => map.method !== defaultMethod)) return;
 
     this._sourceMaps = {};
-    const labels = {};
+    const labels = defaultMethod === null ? { "Current map ✓": null } : {};
     for (const map of maps) {
       const when = map.created
         ? map.created.replace("T", " ").slice(0, 16)
@@ -305,11 +305,9 @@ export default class Scene {
   }
 
   previewSourceMap(method) {
-    const map = this._sourceMaps && this._sourceMaps[method];
-    if (!map || !map.file || !this.sceneMesh) return;
-    const requestId = (this._previewRequestId =
-      (this._previewRequestId || 0) + 1);
+    if (!this.sceneMesh) return;
     if (method === this._defaultMethod) {
+      this._previewRequestId = (this._previewRequestId || 0) + 1;
       this._previewLoading = false;
       this.clearMapPreview();
       this._previewMethod = method;
@@ -319,6 +317,10 @@ export default class Scene {
       if (progress) progress.style.display = "none";
       return;
     }
+    const map = this._sourceMaps && this._sourceMaps[method];
+    if (!map || !map.file) return;
+    const requestId = (this._previewRequestId =
+      (this._previewRequestId || 0) + 1);
     this._previewLoading = true;
     this.setMapPreviewReadOnly(true);
     // Same progress bar the page shows on first load; a multi-MB GLB can

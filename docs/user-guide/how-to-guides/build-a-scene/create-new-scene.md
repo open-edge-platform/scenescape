@@ -215,6 +215,9 @@ An uploaded GLB or ZIP mesh honors explicit mesh placement, including scale-only
 placement; omitted placement is auto-aligned. Mesh placement vectors cannot be
 `null`. Replacing a mesh without recording a source (for example, through a form
 or generated mesh) clears the default-source selection until a source is activated.
+Recorded sources remain available for preview even when the current map has no
+recorded source. Select **Current map** to leave preview and restore editing without
+activating a source or changing the saved map.
 
 Use `/api/v1/scene/{scene_id}/mapping-artifacts/{method}` to upload (`PUT`),
 download (`GET`), or delete (`DELETE`) a method's resume ZIP. Upload multipart
