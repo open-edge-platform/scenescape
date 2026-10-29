@@ -3,11 +3,12 @@
 
 #include "tracking_worker.hpp"
 
+#include "json_utils.hpp"
 #include "logger.hpp"
 #include "metrics.hpp"
 #include "time_utils.hpp"
 
-#include <rv/tracking/MetadataAttributes.hpp>
+#include <rv/tracking/MetadataFusion.hpp>
 #include <rv/tracking/ObjectMatching.hpp>
 #include <rv/tracking/OrientationAttributes.hpp>
 #include <rv/tracking/TrackManager.hpp>
@@ -20,8 +21,6 @@
 #include <cmath>
 #include <numeric>
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <string_view>
 #include <unordered_set>
 
@@ -113,10 +112,7 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
         return {};
     }
 
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    merged.Accept(writer);
-    return buffer.GetString();
+    return detail::to_json_string(merged);
 }
 
 /**
@@ -301,14 +297,13 @@ void TrackingWorker::process_chunk(Chunk chunk) {
                                     : chunk.camera_batches.back().timestamp_iso;
 
     // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
-    const std::string chunk_id = std::to_string(++chunk_sequence_);
-    reid_sightings_.clear();
-    auto objects_per_camera = transform_detections(chunk, chunk_id);
+    reid_sightings_.reset(std::to_string(++chunk_sequence_));
+    auto objects_per_camera = transform_detections(chunk);
     chunk.obs_ctx.captureTransformTime();
 
     // Run Hungarian matching, Kalman filter, and ID conversion
-    auto tracks =
-        match_and_convert(std::move(objects_per_camera), chunk, track_timestamp, chunk_id);
+    auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp);
+    reid_sightings_.clear();
     chunk.obs_ctx.captureTrackTime();
 
     // Update active tracks gauge for this scope
@@ -327,10 +322,9 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 }
 
 std::vector<std::vector<rv::tracking::TrackedObject>>
-TrackingWorker::transform_detections(const Chunk& chunk, const std::string& chunk_id) {
+TrackingWorker::transform_detections(const Chunk& chunk) {
     std::vector<std::vector<rv::tracking::TrackedObject>> objects_per_camera;
     objects_per_camera.reserve(chunk.camera_batches.size());
-    size_t next_reid_index = 0;
 
     for (const auto& batch : chunk.camera_batches) {
         auto transformer_it = transformers_.find(batch.camera_id);
@@ -338,9 +332,9 @@ TrackingWorker::transform_detections(const Chunk& chunk, const std::string& chun
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
             continue;
         }
-        objects_per_camera.push_back(transformer_it->second.transformDetections(
-            batch.detections, batch.camera_id, batch.timestamp_iso, chunk_id, &reid_sightings_,
-            &next_reid_index));
+        const auto sightings = reid_sightings_.add_batch(batch);
+        objects_per_camera.push_back(
+            transformer_it->second.transformDetections(batch.detections, &sightings));
     }
 
     return objects_per_camera;
@@ -348,7 +342,7 @@ TrackingWorker::transform_detections(const Chunk& chunk, const std::string& chun
 
 std::vector<Track>
 TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tracks,
-                               const std::string& category, const std::string& chunk_id) {
+                               const std::string& category) {
     // Extract active RobotVision IDs for map update
     std::vector<int32_t> active_ids;
     active_ids.reserve(rv_tracks.size());
@@ -384,17 +378,7 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             rotation_state = &rotation_states_[rv_track.id];
         }
         track.rotation = select_track_rotation(rv_track, rotation_from_velocity_, *rotation_state);
-        const auto reid_index = rv_track.attributes.find(std::string(kMetadataPrefix) + "reid");
-        const auto freshness = rv_track.attributes.find(
-            std::string(rv::tracking::metadata_fusion::ProvenancePrefix) + "reid");
-        if (reid_index != rv_track.attributes.end() && freshness != rv_track.attributes.end() &&
-            freshness->second == chunk_id) {
-            const auto sighting = reid_sightings_.find(reid_index->second);
-            if (sighting != reid_sightings_.end()) {
-                track.reid_sighting_json = std::move(sighting->second);
-                reid_sightings_.erase(sighting);
-            }
-        }
+        track.reid_sighting_json = reid_sightings_.take(rv_track.attributes);
         track.metadata_json = metadataJson(rv_track.attributes);
 
         // Retrieve confidence stored in attributes by transformDetections().
@@ -417,7 +401,7 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
 
 std::vector<Track> TrackingWorker::match_and_convert(
     std::vector<std::vector<rv::tracking::TrackedObject>>&& objects_per_camera, const Chunk& chunk,
-    std::chrono::system_clock::time_point timestamp, const std::string& chunk_id) {
+    std::chrono::system_clock::time_point timestamp) {
     const auto transformed_detections = std::accumulate(
         objects_per_camera.begin(), objects_per_camera.end(), size_t{0},
         [](size_t sum, const auto& camera_objects) { return sum + camera_objects.size(); });
@@ -436,7 +420,7 @@ std::vector<Track> TrackingWorker::match_and_convert(
         // Get reliable tracks and map RobotVision int IDs to UUID strings
         rv_tracks = tracker_.getReliableTracks();
     }
-    auto tracks = convert_tracks(std::move(rv_tracks), chunk.category, chunk_id);
+    auto tracks = convert_tracks(std::move(rv_tracks), chunk.category);
 
     const auto input_detections = std::accumulate(
         chunk.camera_batches.begin(), chunk.camera_batches.end(), size_t{0},

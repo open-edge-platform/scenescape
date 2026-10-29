@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 
 #include <rv/tracking/Classification.hpp>
+#include <rv/tracking/MetadataFusion.hpp>
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
@@ -131,6 +132,45 @@ TEST(MetadataFusionTest, WinnerWithoutCompanionClearsPreviousProvenance)
   ASSERT_EQ(tracks.size(), 1);
   EXPECT_EQ(tracks[0].attributes.at("metadata.feature"), "new");
   EXPECT_EQ(tracks[0].attributes.count("metadata_provenance.feature"), 0);
+}
+
+TEST(MetadataFusionTest, SameFrameWinnerWithoutCompanionsClearsEarlierCompanions)
+{
+  auto withCompanions = makeObject(0.0,
+                                   {{"metadata.feature", "old"},
+                                    {"metadata_confidence.feature", "0.8"},
+                                    {"metadata_provenance.feature", "old-camera"},
+                                    {"metadata_transient.feature", "1"}});
+  auto withoutCompanions = makeObject(0.0, {{"metadata.feature", "new"}, {"metadata_confidence.feature", "0.9"}});
+  auto measurement = withCompanions;
+  rv::tracking::metadata_fusion::fuseMetadata({{0, 0}, {1, 0}}, {{withCompanions}, {withoutCompanions}}, measurement);
+  EXPECT_EQ(measurement.attributes.at("metadata.feature"), "new");
+  EXPECT_EQ(measurement.attributes.count("metadata_provenance.feature"), 0);
+  EXPECT_EQ(measurement.attributes.count("metadata_transient.feature"), 0);
+}
+
+TEST(MetadataFusionTest, HistoricalWinnerWithoutCompanionsClearsCurrentCompanions)
+{
+  auto track = makeObject(0.0, {{"metadata.feature", "old"}, {"metadata_confidence.feature", "0.9"}});
+  auto measurement = makeObject(0.0,
+                                {{"metadata.feature", "new"},
+                                 {"metadata_confidence.feature", "0.8"},
+                                 {"metadata_provenance.feature", "current-camera"}});
+  rv::tracking::metadata_fusion::mergeHistoricalMetadata(track, measurement);
+  EXPECT_EQ(measurement.attributes.at("metadata.feature"), "old");
+  EXPECT_EQ(measurement.attributes.count("metadata_provenance.feature"), 0);
+}
+
+TEST(MetadataFusionTest, ClearingTransientMetadataKeepsPersistentAndUnrelatedFields)
+{
+  std::unordered_map<std::string, std::string> attributes = {{"metadata.feature", "token"},
+                                                             {"metadata_confidence.feature", "0.9"},
+                                                             {"metadata_provenance.feature", "chunk-1"},
+                                                             {"metadata_transient.feature", "1"},
+                                                             {"metadata.age", "adult"},
+                                                             {"other", "value"}};
+  rv::tracking::metadata_fusion::clearTransientMetadata(attributes);
+  EXPECT_EQ(attributes, (std::unordered_map<std::string, std::string>{{"metadata.age", "adult"}, {"other", "value"}}));
 }
 
 TEST(MetadataFusionTest, TransientMetadataCannotReplaceFreshValueAfterPrediction)

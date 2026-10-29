@@ -26,15 +26,19 @@ cameras observe the same track, the sighting corresponds to the winning ReID
 metadata observation. See the
 [scene data schema](schema/scene-data.schema.json) for the field contract.
 
-Internally the sighting is stored once as the `metadata.reid` fusion value.
-`metadata_provenance.reid` carries the separate chunk freshness token, so the
-worker forwards a fresh sighting without parsing or rewriting it. Generic
-`metadata_transient.<field>` markers make RobotVision discard measurement-only
-metadata on prediction while preserving persistent fields such as age/gender.
-The prefixes are shared through `rv/tracking/MetadataAttributes.hpp`; RobotVision
-does not special-case ReID. Legacy bare-list/base64 detector embeddings are
-wrapped as `reid.embedding_vector`. No sighting is created without camera ID,
-frame timestamp, and chunk context.
+The parser separates `Detection::reid_json` from semantic `metadata_json`.
+`ReidSightingIndex` owns chunk-local references to the original batches and
+detections; coordinate transformation attaches only a `<chunk>:<index>` token.
+RobotVision fuses that token as `metadata.reid`, with freshness in
+`metadata_provenance.reid`. Only published winners are serialized into complete
+sightings, before the owning chunk is destroyed. Generic
+`metadata_transient.<field>` markers prevent measurement-only fields from
+overriding fresh observations with historical data; predictions cannot resolve
+previous-chunk sightings. Fusion policy and prefixes live together in
+`rv/tracking/MetadataFusion.hpp`; RobotVision does not special-case ReID.
+Legacy bare-list/base64 detector embeddings are wrapped as
+`reid.embedding_vector`. No sighting is created without camera ID, frame timestamp,
+and chunk context.
 Detections using direct sensor-frame `translation` and `size` have no pixel box,
 so their ReID payload is omitted rather than publishing an invalid sighting.
 

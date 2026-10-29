@@ -3,12 +3,11 @@
 
 #include "track_publisher.hpp"
 
+#include "json_utils.hpp"
 #include "logger.hpp"
 
 #include <format>
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 
 namespace tracker {
 
@@ -122,12 +121,7 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
 
     doc.AddMember("objects", objects_array, allocator);
 
-    // Serialize to string
-    StringBuffer buffer;
-    Writer<StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    return std::string(buffer.GetString(), buffer.GetSize());
+    return detail::to_json_string(doc);
 }
 
 std::string TrackPublisher::build_topic(const std::string& scene_id, const std::string& category) {

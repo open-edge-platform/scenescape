@@ -29,8 +29,9 @@ struct Detection {
     std::optional<std::array<double, 3>> translation; ///< Sensor-frame position in metres
     std::optional<std::array<double, 3>> size;        ///< Object dimensions [x, y, z] in metres
     std::optional<std::array<double, 4>> rotation;    ///< Sensor-frame quaternion [x, y, z, w]
-    std::string
-        metadata_json; ///< Raw JSON string of the detection's metadata object (empty if absent)
+    std::string metadata_json; ///< Semantic metadata, excluding ReID (empty if absent)
+    std::string reid_json;     ///< ReID payload, normalized to an object at the parse boundary
+    std::optional<double> reid_confidence;
     std::optional<double>
         confidence; ///< Detection confidence score in [0, 1] (absent if not provided)
 };

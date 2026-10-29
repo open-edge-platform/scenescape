@@ -21,6 +21,8 @@
 
 namespace tracker {
 
+struct ReidSightingContext;
+
 /**
  * @brief Transformer from image or sensor-frame detections to world-space TrackedObjects.
  *
@@ -89,21 +91,16 @@ public:
      * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
-     * @param camera_id Originating camera for ReID sightings
-     * @param timestamp Originating camera-frame timestamp
-     * @param chunk_id Worker-local freshness token (not published)
+     * @param sightings Optional chunk-local context for tagging ReID observations
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity is zero.
      *         Supplied rotation sets world yaw and attributes["has_orientation"].
-     *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
      *         metadata.* attributes carry fused semantic values; ReID is a current-chunk sighting.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */
     std::vector<rv::tracking::TrackedObject>
-    transformDetections(std::span<const Detection> detections, const std::string& camera_id = {},
-                        const std::string& timestamp = {}, const std::string& chunk_id = {},
-                        std::unordered_map<std::string, std::string>* reid_sightings = nullptr,
-                        size_t* next_reid_index = nullptr) const;
+    transformDetections(std::span<const Detection> detections,
+                        const ReidSightingContext* sightings = nullptr) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].

@@ -670,7 +670,7 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
     TrackingScope scope{"scene-1", "person"};
     TrackingWorker worker(scope, "Test Scene", 10, callback, config, cameras_);
 
-    const std::string expected_metadata = R"({"reid":{"model_name":"test"},"score":0.95})";
+    const std::string expected_metadata = R"({"score":0.95})";
 
     for (int i = 0; i < kChunksToSend; ++i) {
         Chunk chunk;
@@ -686,6 +686,7 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
         det.id = 1;
         det.bounding_box_px = cv::Rect2f(100.0f, 200.0f, 50.0f, 100.0f);
         det.metadata_json = expected_metadata;
+        det.reid_json = R"({"model_name":"test"})";
         batch.detections.push_back(std::move(det));
 
         chunk.camera_batches.push_back(std::move(batch));
@@ -752,9 +753,10 @@ TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
             detection.bounding_box_px = {100, 200, 50, 100};
             const int embedding = i < 3 ? i + 1 : 4;
             const double confidence = i < 3 ? 0.99 : 0.5;
-            detection.metadata_json = std::format(
-                R"({{"reid":{{"embedding_vector":[[{},0]],"confidence":{}}},"age":{{"label":"adult"}}}})",
-                embedding, confidence);
+            detection.metadata_json = R"({"age":{"label":"adult"}})";
+            detection.reid_json = std::format(R"({{"embedding_vector":[[{},0]],"confidence":{}}})",
+                                              embedding, confidence);
+            detection.reid_confidence = confidence;
             batch.detections.push_back(std::move(detection));
         }
         chunk.camera_batches.push_back(std::move(batch));
@@ -1291,7 +1293,9 @@ DetectionBatch make_batch(const std::string& camera_id, int chunk_index, int rec
         std::format("2026-01-27T12:00:{:02d}.{:03d}Z", chunk_index, receive_time_offset_ms);
     Detection det;
     det.bounding_box_px = cv::Rect2f(100.0f, 200.0f, 50.0f, 100.0f);
-    det.metadata_json = metadata_json;
+    rapidjson::Document metadata;
+    metadata.Parse(metadata_json.c_str());
+    parse_detection_metadata(metadata, det);
     det.confidence = confidence;
     batch.detections.push_back(std::move(det));
     return batch;
