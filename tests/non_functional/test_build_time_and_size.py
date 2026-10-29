@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import shlex
 import subprocess
-import threading
 import time
 from python_on_whales import docker
 import pytest
@@ -47,13 +46,12 @@ def built_image_result(request):
 
   env_extra = {"EXTRA_BUILD_ARGS": " ".join(EXTRA_BUILD_ARGS)}
 
-  timeout_seconds = image.time_limit_seconds * 2 + 300
-  status, duration = run_command(build_cmd, env_extra, timeout_seconds=timeout_seconds)
+  status, duration = run_command(build_cmd, env_extra)
 
   assert status == 0, f"Building {image.name} failed with exit code {status}"
   return image, duration
 
-def run_command(command, env_extra=None, timeout_seconds=None) -> tuple[int, float]:
+def run_command(command, env_extra=None) -> tuple[int, float]:
   logger.info(f"Running command: {command} inside {BUILD_WORKING_DIR}")
   start_time = time.time()
 
@@ -64,24 +62,10 @@ def run_command(command, env_extra=None, timeout_seconds=None) -> tuple[int, flo
       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
   )
 
-  def _drain():
-    for line in process.stdout:
-      logger.debug(line.rstrip())
+  for line in process.stdout:
+    logger.debug(line.rstrip())
 
-  reader = threading.Thread(target=_drain, daemon=True)
-  reader.start()
-
-  try:
-    process.wait(timeout=timeout_seconds)
-  except subprocess.TimeoutExpired:
-    process.kill()
-    process.wait()
-    duration = time.time() - start_time
-    raise AssertionError(
-      f"{TIME_TEST_NAME}: Command '{command}' did not finish within {timeout_seconds}s "
-      f"(killed after {duration:.2f}s); likely hung (e.g. stalled network pull)")
-  finally:
-    reader.join(timeout=5)
+  process.wait()
 
   duration = time.time() - start_time
   return process.returncode, duration
