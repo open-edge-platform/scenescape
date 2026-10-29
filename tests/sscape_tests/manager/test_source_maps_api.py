@@ -56,6 +56,15 @@ def _glb():
   return trimesh.creation.box().export(file_type="glb")
 
 
+def _polycam_bundle():
+  return _bundle({
+    "capture/raw.glb": _glb(), "capture/mesh_info.json": b"{}",
+    "capture/keyframes/images/0.jpg": b"image",
+    "capture/keyframes/depth/0.png": b"depth",
+    "capture/keyframes/cameras/0.json": b"{}",
+  })[0]
+
+
 def _put(client, scene, method, members, **extra):
   upload, sha = _bundle(members)
   data = {"bundle": upload, "sha256": sha, **extra}
@@ -96,20 +105,64 @@ def test_artifact_put_list_get_delete(client, scene):
 
   resp = _put(client, scene, "orbslam3", {"nope.bin": b"x"})
   assert resp.status_code == 400
-  assert resp.json() == {"error": "Failed to store mapping artifact"}
+  assert resp.json() == {"error": "Mapping artifact must contain orbslam3.osa"}
 
 
-@pytest.mark.parametrize("manifest", [
-  '{"contributor": 123}',
-  '{"metadata": NaN}',
-  '{"metadata": 1e999}',
+@pytest.mark.parametrize("manifest,error", [
+  ('{"contributor": 123}', "contributor must be a string"),
+  ('{"metadata": NaN}', "manifest.json must be valid JSON with finite numbers"),
+  ('{"metadata": 1e999}', "manifest.json must be valid JSON with finite numbers"),
 ])
-def test_invalid_artifact_metadata_returns_controlled_400(client, scene, manifest, caplog):
+def test_invalid_artifact_metadata_returns_controlled_400(client, scene, manifest, error, caplog):
   response = _put(client, scene, "keyframes", {"manifest.json": manifest})
   assert response.status_code == 400
-  assert response.json() == {"error": "Failed to store mapping artifact"}
+  assert response.json() == {"error": error}
   assert "Failed to store mapping artifact" in caplog.text
   assert not scene.mapping_artifacts.exists()
+
+
+def test_unclassified_mapping_errors_do_not_disclose_internal_details(client, scene, monkeypatch):
+  def fail(*args):
+    raise mapping_store.MappingStoreError("/private/internal/file: database failure", 409)
+  monkeypatch.setattr("manager.api.store_artifact", fail)
+  response = _put(client, scene, "keyframes", {"frames.bin": b"x"})
+  assert response.status_code == 409
+  assert response.json() == {"error": "Unable to store mapping artifact"}
+
+
+def test_corrupt_archive_returns_safe_error_without_parser_details(client, scene):
+  from unittest.mock import patch
+  with patch.object(mapping_store.ZipFile, "infolist",
+                    side_effect=zipfile.BadZipFile("secret filename /internal/path")):
+    response = _put(client, scene, "keyframes", {"frames.bin": b"x"})
+  assert response.status_code == 400
+  assert response.json() == {"error": "Invalid or unsupported mapping artifact zip"}
+
+
+def test_digest_mismatch_and_conflict_return_actionable_errors(client, scene, monkeypatch):
+  response = _put(client, scene, "keyframes", {"frames.bin": b"x"}, sha256="0" * 64)
+  assert response.status_code == 400
+  assert response.json() == {"error": "sha256 does not match the uploaded zip"}
+  def conflict(*args):
+    raise mapping_store.MappingConflict()
+  monkeypatch.setattr("manager.api.store_artifact", conflict)
+  response = _put(client, scene, "keyframes", {"frames.bin": b"x"})
+  assert response.status_code == 409
+  assert response.json() == {"error": "Concurrent mapping change; retry the upload"}
+
+
+@pytest.mark.django_db(transaction=True)
+def test_artifact_upload_owns_transaction_even_with_atomic_requests(client, scene, settings, monkeypatch):
+  from django.db import connection
+  settings.DATABASES["default"]["ATOMIC_REQUESTS"] = True
+  original = mapping_store.store_artifact
+  states = []
+  def store(*args):
+    states.append(connection.in_atomic_block)
+    return original(*args)
+  monkeypatch.setattr("manager.api.store_artifact", store)
+  assert _put(client, scene, "keyframes", {"frames.bin": b"x"}).status_code == 200
+  assert states == [False]
 
 
 def test_artifact_delete_and_missing_get(client, scene):
@@ -161,6 +214,77 @@ def test_zip_map_upload_extracts_glb_and_invalidates_processed_state(client, sce
   assert saved.map.name.endswith(".glb")
   assert saved.map_processed is None
   assert saved.default_source_map.file.name == saved.map.name
+
+
+@pytest.mark.parametrize("create", [False, True])
+@pytest.mark.parametrize("extension", ["glb", "zip"])
+def test_map_create_and_update_store_upload_once(client, scene, settings, create, extension):
+  from pathlib import Path
+  if extension == "zip":
+    upload = _polycam_bundle()
+  else:
+    upload = io.BytesIO(_glb())
+    upload.name = "single.glb"
+  data = {"name": "single-created" if create else scene.name, "map": upload}
+  response = client.post("/api/v1/scene" if create else f"/api/v1/scene/{scene.pk}",
+                         data, format="multipart")
+  assert response.status_code in (200, 201), response.content
+  files = [path for path in Path(settings.MEDIA_ROOT).rglob("*") if path.is_file()]
+  assert sum(path.suffix == ".glb" for path in files) == 1
+  assert sum(path.suffix == ".zip" for path in files) == (1 if extension == "zip" else 0)
+
+
+@pytest.mark.parametrize("create", [False, True])
+@pytest.mark.parametrize("scale_only", [False, True])
+def test_zip_map_upload_preserves_explicit_placement(client, scene, create, scale_only):
+  upload = _polycam_bundle()
+  transform = {"translation": [1, 2, 3], "rotation": [12, 23, 34], "scale": [2, 3, 4]}
+  if scale_only:
+    transform = {"scale": [2, 3, 4]}
+  data = {"name": "placed-zip" if create else scene.name, "map": upload,
+          **{f"mesh_{key}": json.dumps(value) for key, value in transform.items()}}
+  response = client.post("/api/v1/scene" if create else f"/api/v1/scene/{scene.pk}",
+                         data, format="multipart")
+  assert response.status_code in (200, 201), response.content
+  saved = Scene.objects.get(pk=response.json()["uid"])
+  placement = mapping_store.scene_transform(saved)
+  for key, value in transform.items():
+    assert placement[key] == value
+  assert saved.default_source_map.transform == placement
+  if scale_only:
+    assert placement["rotation"] == [0, 0, 0]
+    assert placement["translation"] == [0, 0, 0]
+
+
+def test_ply_replacement_converts_before_reading_generated_glb(client, scene, monkeypatch, tmp_path):
+  assert _put_mesh(client, scene, "rtabmap").status_code == 200
+  generated = tmp_path / "converted.glb"
+  calls = []
+  def convert(path):
+    assert path.endswith(".ply")
+    assert not generated.exists()
+    generated.write_bytes(_glb())
+    calls.append(path)
+    return str(generated)
+  monkeypatch.setattr("scene_common.mesh_util.extractMeshFromPointCloud", convert)
+  upload = io.BytesIO(b"ply\nformat ascii 1.0\nend_header\n")
+  upload.name = "new.ply"
+  response = client.put(f"/api/v1/scene/{scene.pk}", {"map": upload}, format="multipart")
+  assert response.status_code == 200, response.content
+  assert len(calls) == 1
+  scene.refresh_from_db()
+  assert scene.map.name.endswith(".glb")
+  assert scene.default_source_map.file.name == scene.map.name
+
+
+def test_invalid_ply_is_rejected_without_writing_files(client, scene, settings):
+  from pathlib import Path
+  upload = io.BytesIO(b"not a PLY file")
+  upload.name = "invalid.ply"
+  response = client.put(f"/api/v1/scene/{scene.pk}", {"map": upload}, format="multipart")
+  assert response.status_code == 400
+  assert response.json() == {"map": ["Invalid PLY file"]}
+  assert not list(Path(settings.MEDIA_ROOT).rglob("*.ply"))
 
 
 def test_non_glb_replacement_resets_map_state(client, scene):

@@ -129,7 +129,7 @@ class Scene(models.Model):
                                         validate_map_file])
   map_contributor = models.CharField(
     "Scene map last contributor", max_length=200, default="", blank=True)
-  # Which source's mesh Scene.map mirrors. Null when the map is not a mesh.
+  # Which recorded source Scene.map mirrors; null for maps without a recorded source.
   default_source_map = models.ForeignKey(
     "SceneSourceMap", null=True, blank=True, on_delete=models.SET_NULL,
     related_name="+", editable=False)
@@ -276,7 +276,7 @@ class Scene(models.Model):
       already aligned by the mapping service).
     """
     # Skip alignment if mesh is from generateMesh flow (already aligned by mapping service)
-    if getattr(self, '_from_generate_mesh', False):
+    if getattr(self, '_from_generate_mesh', False) or getattr(self, '_explicit_mesh_transform', False):
       return
 
     if self.map and os.path.splitext(self.map.path)[1].lower() == ".glb":
@@ -311,6 +311,15 @@ class Scene(models.Model):
       self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
     return
 
+  def _invalidateMapState(self, glb_from_zip):
+    # FieldFile equality is name-based; detect same-name uploads before storage saves them.
+    map_reuploaded = bool(self.map) and getattr(self.map, '_committed', True) is False
+    map_changed = self._original_map != self.map or map_reuploaded or bool(glb_from_zip)
+    if map_changed:
+      self.default_source_map_id = None
+    if self.changedCalibrationParams() or map_changed:
+      self.map_processed = None
+
   def save(self, *args, **kwargs):
     updated_scene = self.id
     send_update_command = kwargs.pop("send_update_command", True)
@@ -328,13 +337,7 @@ class Scene(models.Model):
       if (self._original_polycam_data != self.polycam_data):
         glb_from_zip = self.polycam_data
 
-      # Clear processed state when calibration inputs or the map file change so
-      # AprilTag / markerless registration re-runs (stale markers otherwise stay).
-      # FieldFile equality is name-based, so a same-name re-upload is only visible as uncommitted.
-      map_reuploaded = bool(self.map) and getattr(self.map, '_committed', True) is False
-      if self.changedCalibrationParams() or (self._original_map != self.map) or map_reuploaded:
-        self.map_processed = None
-
+      self._invalidateMapState(glb_from_zip)
       super().save(*args, **kwargs)
 
       if glb_from_zip:

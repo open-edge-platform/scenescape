@@ -58,6 +58,7 @@ def test_reuploading_same_map_name_clears_map_processed(mock_model_save, _mock_c
   scene._original_map = scene.map.name
   scene._original_polycam_data = scene.polycam_data
   scene.map_processed = timezone.now()
+  scene.default_source_map_id = 1
 
   scene.map = SimpleUploadedFile("Queuing.png", b"new map bytes")
   assert scene.map == scene._original_map
@@ -66,6 +67,7 @@ def test_reuploading_same_map_name_clears_map_processed(mock_model_save, _mock_c
     scene.save(send_update_command=False)
 
   assert scene.map_processed is None
+  assert scene.default_source_map_id is None
   mock_model_save.assert_called()
 
 

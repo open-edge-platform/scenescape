@@ -211,6 +211,10 @@ Activating a source mesh invalidates its processed calibration state so AprilTag
 markers are regenerated for the selected mesh. If a source is replaced or deleted
 before activation completes, refresh the source list and retry. Concurrent
 mapping changes can return HTTP 409.
+An uploaded GLB or ZIP mesh honors explicit mesh placement, including scale-only
+placement; omitted placement is auto-aligned. Mesh placement vectors cannot be
+`null`. Replacing a mesh without recording a source (for example, through a form
+or generated mesh) clears the default-source selection until a source is activated.
 
 Use `/api/v1/scene/{scene_id}/mapping-artifacts/{method}` to upload (`PUT`),
 download (`GET`), or delete (`DELETE`) a method's resume ZIP. Upload multipart
@@ -223,6 +227,12 @@ Artifact validation limits are 512 MiB for the uploaded ZIP, 4,096 members,
 Oversized uploads return HTTP 413; invalid archives or expanded-size limit
 violations return HTTP 400. Limits are checked before decompressing members,
 and content reads are bounded while checking ZIP integrity.
+Upload errors describe validation failures without exposing internal paths or
+parser exception details. Retry HTTP 409 uploads after refreshing scene state.
+Artifact uploads own their database commit boundary rather than sharing a
+request-wide transaction. Internal callers must invoke `store_artifact` outside
+an enclosing database transaction. A failed row save or commit removes the newly
+written ZIP and preserves the previous artifact.
 Manifest JSON and fiducial numeric fields must contain only finite numbers.
 The optional contributor must be a string (at most 200 characters are stored);
 an explicit form contributor takes precedence over the manifest value.

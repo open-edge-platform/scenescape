@@ -189,6 +189,93 @@ test("database notifications refresh existing optics without applying saved pose
   assert.deepEqual(calls, []);
 });
 
+test("camera loading and reconciliation include all pages beyond 100 cameras", async () => {
+  const { manager, calls } = await harness(() => []);
+  const cameras = Array.from({ length: 101 }, (_, index) => ({
+    uid: `camera-${index}`,
+    name: `Camera ${index}`,
+  }));
+  const pages = [];
+  manager.restclient.getCameras = async ({ scene, page }) => {
+    assert.equal(scene, "scene-1");
+    pages.push(page);
+    return {
+      statusCode: 200,
+      content: {
+        results: cameras.slice((page - 1) * 100, page * 100),
+        next: page === 1 ? "/api/v1/cameras?page=2" : null,
+      },
+    };
+  };
+  await manager.load(params);
+  assert.deepEqual(pages, [1, 2]);
+  const last = manager.sceneCameras["camera-100"];
+  calls.length = 0;
+  await manager.syncWithDatabase(params, {}, "app", true);
+  assert.equal(manager.sceneCameras["camera-100"], last);
+  assert.deepEqual(calls, []);
+  const published = [];
+  await manager.refresh(
+    { publish: (...args) => published.push(args) },
+    "image/",
+  );
+  // refresh returns after scheduling its callback.
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(published.length, 101);
+});
+
+test("failure of a later camera page leaves membership and optics untouched", async () => {
+  const { manager, calls } = await harness(() => [{ uid: "a", name: "A" }]);
+  await manager.load(params);
+  const original = manager.sceneCameras.a;
+  calls.length = 0;
+  manager.restclient.getCameras = async ({ page }) =>
+    page === 1
+      ? {
+          statusCode: 200,
+          content: { results: [{ uid: "new" }], next: "page2" },
+        }
+      : { statusCode: 503 };
+  assert.deepEqual(
+    plain(await manager.syncWithDatabase(params, {}, "app", true)),
+    { added: [], removed: [] },
+  );
+  assert.equal(manager.sceneCameras.a, original);
+  assert.equal(original.optics, undefined);
+  assert.deepEqual(calls, []);
+});
+
+test("reconciliation normalizes legacy name keys without recreating saved cameras", async () => {
+  const { manager, calls } = await harness(() => [
+    { uid: "Front_Camera", name: "Front Camera" },
+  ]);
+  await manager.load(params);
+  const camera = manager.sceneCameras.Front_Camera;
+  manager.sceneCameras["Front Camera"] = camera;
+  delete manager.sceneCameras.Front_Camera;
+  camera.localEdit = [7, 8, 9];
+  calls.length = 0;
+  await manager.syncWithDatabase(params, {}, "app", true);
+  assert.equal(manager.sceneCameras.Front_Camera, camera);
+  assert.ok(!("Front Camera" in manager.sceneCameras));
+  assert.deepEqual(camera.localEdit, [7, 8, 9]);
+  assert.deepEqual(calls, []);
+});
+
+test("legacy camera names colliding with other UIDs are rekeyed without losing objects", async () => {
+  const { manager } = await harness(() => [{ uid: "a" }, { uid: "b" }]);
+  await manager.load(params);
+  const first = manager.sceneCameras.a;
+  const second = manager.sceneCameras.b;
+  delete manager.sceneCameras.a;
+  manager.sceneCameras.b = first;
+  manager.sceneCameras.legacy = second;
+  await manager.syncWithDatabase(params, {}, "app", true);
+  assert.equal(manager.sceneCameras.a, first);
+  assert.equal(manager.sceneCameras.b, second);
+  assert.ok(!manager.sceneCameras.legacy);
+});
+
 test("superseded camera responses cannot resurrect or remove cameras", async () => {
   const { manager, calls } = await harness(() => [{ uid: "old", name: "Old" }]);
   await manager.load(params);
@@ -202,6 +289,7 @@ test("superseded camera responses cannot resurrect or remove cameras", async () 
     statusCode: 200,
     content: { results: [{ uid: "new", name: "New" }] },
   });
+
   await newRequest;
   const appliedCalls = calls.length;
   pending[0]({
@@ -214,6 +302,39 @@ test("superseded camera responses cannot resurrect or remove cameras", async () 
     ["new"],
   );
   assert.equal(calls.length, appliedCalls);
+});
+
+test("a superseded multi-page response cannot overwrite a newer complete snapshot", async () => {
+  const { manager } = await harness(() => []);
+  let releaseOldPage;
+  const oldPage = new Promise((resolve) => {
+    releaseOldPage = resolve;
+  });
+  let requests = 0;
+  manager.restclient.getCameras = async ({ page }) => {
+    requests += 1;
+    if (requests === 1)
+      return {
+        statusCode: 200,
+        content: { results: [{ uid: "old" }], next: "page2" },
+      };
+    if (page === 2) return oldPage;
+    return {
+      statusCode: 200,
+      content: { results: [{ uid: "new" }], next: null },
+    };
+  };
+  const older = manager.syncWithDatabase(params, {}, "app", true);
+  await new Promise((resolve) => setImmediate(resolve));
+  await manager.syncWithDatabase(params, {}, "app", true);
+  releaseOldPage({
+    statusCode: 200,
+    content: { results: [{ uid: "old2" }], next: null },
+  });
+  assert.deepEqual(plain(await older), { added: [], removed: [] });
+  assert.equal(manager.sceneCameras.new.cameraUID, "new");
+  assert.ok(!manager.sceneCameras.old);
+  assert.ok(!manager.sceneCameras.old2);
 });
 
 test("a failed latest listing does not allow an older snapshot to apply", async () => {
@@ -278,6 +399,7 @@ async function sceneCameraHarness() {
         CMD_CAMERA: "cmd/camera/",
         IMAGE_CAMERA: "image/camera/",
         MAX_INTRINSICS_UPDATE_WAIT_TIME: 0,
+        DEFAULT_CAMERA_UID: undefined,
         FX: 0,
         FY: 4,
         CX: 2,
@@ -507,6 +629,7 @@ test("rebinding and detaching releases only this camera's MQTT listener and sock
   assert.equal(client.listenerCount("message"), 2);
   let disconnected = 0;
   let removed = 0;
+  let disposed = 0;
   camera.socket = {
     removeAllListeners() {
       removed += 1;
@@ -516,6 +639,13 @@ test("rebinding and detaching releases only this camera's MQTT listener and sock
     },
   };
   camera.scene = { remove() {} };
+  camera.transformControl = {
+    detach() {},
+    dispose() {
+      disposed += 1;
+    },
+  };
+  camera.getTransformControlObject3D = () => ({});
   camera.currentCameras = { mobile: camera, undefined: [] };
   camera.controlsFolder = { destroy() {} };
   camera.detach();
@@ -525,5 +655,152 @@ test("rebinding and detaching releases only this camera's MQTT listener and sock
   assert.equal(disconnected, 1);
   assert.equal(removed, 1);
   assert.equal(camera.controlsFolder, null);
+  assert.equal(camera.transformControl, null);
+  assert.equal(disposed, 1);
   assert.ok(!("mobile" in camera.currentCameras));
+});
+
+test("saving and renaming a camera keeps UID keys and removes only its own draft", async () => {
+  const camera = await sceneCameraHarness();
+  camera.name = "Front Camera";
+  camera.sceneCamera = null;
+  camera.toast = { showToast() {} };
+  const otherDraft = { name: "Front Camera" };
+  camera.currentCameras = { undefined: [otherDraft, camera] };
+  camera.restclient = {
+    createCamera: async () => ({
+      statusCode: 201,
+      content: { uid: "Front_Camera" },
+    }),
+  };
+  await camera.createNewCamera({}, null);
+  assert.equal(camera.currentCameras.Front_Camera, camera);
+  assert.deepEqual(camera.currentCameras.undefined, [otherDraft]);
+  assert.ok(!("Front Camera" in camera.currentCameras));
+  camera.controlsFolder = { title() {}, $title: { setAttribute() {} } };
+  camera.addStatusIndicator = () => {};
+  camera.isUpdatedInDB = true;
+  camera.name = "Renamed Camera";
+  camera.updateCameras("Front Camera", "Renamed Camera", null);
+  assert.equal(camera.currentCameras.Front_Camera, camera);
+  assert.ok(!("Renamed Camera" in camera.currentCameras));
+});
+
+async function regionHarness() {
+  const context = vm.createContext({ console });
+  const modules = new Map();
+  const linker = async (specifier) => {
+    if (modules.has(specifier)) return modules.get(specifier);
+    let module;
+    if (
+      specifier.endsWith("/sceneregion.js") ||
+      specifier.endsWith("/thingcontrols.js")
+    ) {
+      module = new vm.SourceTextModule(
+        await readFile(
+          new URL(specifier.replace("/static/js/", ""), STATIC),
+          "utf8",
+        ),
+        { context },
+      );
+    } else {
+      const exports = specifier.includes("three.module")
+        ? {
+            Object3D: class {
+              constructor() {
+                this.children = [];
+              }
+              add(child) {
+                child.parent = this;
+                this.children.push(child);
+              }
+              remove(child) {
+                this.children = this.children.filter(
+                  (value) => value !== child,
+                );
+              }
+            },
+          }
+        : { default: () => ({}) };
+      module = new vm.SyntheticModule(
+        Object.keys(exports),
+        function () {
+          for (const [key, value] of Object.entries(exports))
+            this.setExport(key, value);
+        },
+        { context },
+      );
+    }
+    modules.set(specifier, module);
+    return module;
+  };
+  const entry = await linker("/static/js/thing/sceneregion.js");
+  await entry.link(linker);
+  await entry.evaluate();
+  const region = new entry.namespace.default({
+    uid: "region",
+    name: "Region",
+    area: "poly",
+  });
+  const controls = modules.get("/static/js/thing/controls/thingcontrols.js");
+  region.regionControls = new controls.namespace.default(region);
+  const disposed = [];
+  region.drawObj = {
+    createThingLabel(name) {
+      return { name: "thingLabel_" + name };
+    },
+    disposeThingLabel(label) {
+      disposed.push(label);
+    },
+  };
+  return { region, disposed };
+}
+
+test("region teardown removes labels even after rename and geometry rebuild", async () => {
+  const { region, disposed } = await regionHarness();
+  const initial = region.drawObj.createThingLabel("Original");
+  region.add(initial);
+  region.name = "Renamed";
+  region.createGeometry = () => {
+    region.points = [
+      { x: 1, y: 2 },
+      { x: 3, y: 4 },
+    ];
+  };
+  region.regionControls.updateGeometry({ area: "poly" });
+  assert.equal(disposed[0], initial);
+  assert.equal(region.children.length, 1);
+  const replacement = region.children[0];
+  assert.equal(replacement.name, "thingLabel_Renamed");
+  region.disposeResources();
+  region.disposeResources();
+  assert.deepEqual(disposed, [initial, replacement]);
+  assert.equal(region.children.length, 0);
+});
+
+test("region teardown releases the initial DOM label and preserves unrelated children", async () => {
+  const { region, disposed } = await regionHarness();
+  const parent = {
+    removeChild(child) {
+      assert.equal(child, label.element);
+    },
+  };
+  const label = { name: "thingLabel_Region", element: { parentNode: parent } };
+  let removed = 0;
+  parent.removeChild = () => {
+    removed += 1;
+    label.element.parentNode = null;
+  };
+  region.drawObj.disposeThingLabel = (child) => {
+    disposed.push(child);
+    child.element.parentNode.removeChild(child.element);
+  };
+  const unrelated = { name: "marker", geometry: { dispose() {} } };
+  region.add(label);
+  region.add(unrelated);
+  region.disposeResources();
+  region.disposeResources();
+  assert.equal(removed, 1);
+  assert.deepEqual(disposed, [label]);
+  assert.deepEqual(region.children, [unrelated]);
 });

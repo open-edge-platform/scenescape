@@ -148,6 +148,7 @@ export default class SceneRegion extends THREE.Object3D {
     // TEXT_MATERIAL (draw.js) is shared across labels; only the geometry is per-instance.
     this.disposeMesh(this.textMesh, { disposeMaterial: false });
     this.textMesh = null;
+    this.regionControls.removeThingLabels();
   }
 
   // Perceptual sensors only (region.isSensor); cameras/regions/tripwires are unaffected.

@@ -74,6 +74,51 @@ def test_direct_glb_upload_is_user_method_and_default(scene):
   assert scene.default_source_map_id == source_map.id
 
 
+@pytest.mark.parametrize("writer", ["form", "generated"])
+def test_non_serializer_map_replacement_clears_stale_default(scene, writer):
+  from django.core.files.uploadedfile import SimpleUploadedFile
+  from manager.forms import SceneUpdateForm
+  from manager.mesh_generator import MeshGenerator
+  source = _upload_mesh(scene, "orbslam3")
+  scene = Scene.objects.get(pk=scene.pk)
+  if writer == "form":
+    from django.forms.models import model_to_dict
+    data = model_to_dict(scene)
+    data["name"] = scene.name
+    form = SceneUpdateForm(data=data, files={
+      "map": SimpleUploadedFile("form.glb", _glb_bytes(2))}, instance=scene)
+    assert form.is_valid(), form.errors
+    form.save()
+  else:
+    generator = MeshGenerator.__new__(MeshGenerator)
+    generator._saveMeshToScene(scene, trimesh.creation.box(extents=(2, 2, 2)), align=False)
+  scene.refresh_from_db()
+  assert scene.map.name != source.file.name
+  assert scene.default_source_map_id is None
+  assert SceneSourceMap.objects.filter(pk=source.pk).exists()
+
+
+def test_non_map_model_save_preserves_default_source(scene):
+  source = _upload_mesh(scene, "orbslam3")
+  scene = Scene.objects.get(pk=scene.pk)
+  scene.name = "renamed"
+  scene.save(send_update_command=False)
+  scene.refresh_from_db()
+  assert scene.default_source_map_id == source.pk
+
+
+def test_polycam_data_replacement_clears_stale_default(scene, tmp_path):
+  source = _upload_mesh(scene, "orbslam3")
+  scene = Scene.objects.get(pk=scene.pk)
+  archive_path = tmp_path / "capture.zip"
+  _zip(archive_path, {"capture/raw.glb": _glb_bytes(2)})
+  scene.polycam_data = ContentFile(archive_path.read_bytes(), name="capture.zip")
+  scene.save(send_update_command=False)
+  scene.refresh_from_db()
+  assert scene.map.name != source.file.name
+  assert scene.default_source_map_id is None
+
+
 def test_mesh_upload_replaces_only_its_method(scene):
   first = _upload_mesh(scene, "orbslam3", 1.0)
   other = _upload_mesh(scene, "arkit", 2.0)
@@ -279,14 +324,42 @@ def test_artifact_replacement_removes_old_zip_after_commit(scene, tmp_path, djan
 
 
 def test_failed_artifact_replacement_keeps_row_and_file(scene, tmp_path, django_capture_on_commit_callbacks):
+  from pathlib import Path
   first = _store(scene, "orbslam3", tmp_path, {"orbslam3.osa": b"a"})
   old_zip = first.bundle.path
+  files_before = set(Path(old_zip).parent.iterdir())
   with django_capture_on_commit_callbacks(execute=True):
     with patch.object(SceneMappingArtifact, "save", side_effect=RuntimeError("write failed")):
       with pytest.raises(RuntimeError, match="write failed"):
         _store(scene, "orbslam3", tmp_path, {"orbslam3.osa": b"b"})
   assert SceneMappingArtifact.objects.filter(pk=first.pk).exists()
   assert os.path.isfile(old_zip)
+  assert set(Path(old_zip).parent.iterdir()) == files_before
+
+
+@pytest.mark.django_db(transaction=True)
+def test_artifact_store_rejects_enclosing_transaction_before_writing(scene, tmp_path):
+  from pathlib import Path
+  first = _store(scene, "orbslam3", tmp_path, {"orbslam3.osa": b"a"})
+  files_before = set(Path(first.bundle.path).parent.iterdir())
+  with transaction.atomic():
+    with pytest.raises(RuntimeError, match="durable atomic block"):
+      _store(scene, "orbslam3", tmp_path, {"orbslam3.osa": b"b"})
+  assert SceneMappingArtifact.objects.get(pk=first.pk).sha256 == first.sha256
+  assert set(Path(first.bundle.path).parent.iterdir()) == files_before
+
+
+@pytest.mark.django_db(transaction=True)
+def test_commit_failure_removes_new_artifact_file_and_preserves_old(scene, tmp_path):
+  from pathlib import Path
+  from django.db import connection
+  first = _store(scene, "orbslam3", tmp_path, {"orbslam3.osa": b"a"})
+  files_before = set(Path(first.bundle.path).parent.iterdir())
+  with patch.object(connection, "commit", side_effect=mapping_store.OperationalError("commit failed")):
+    with pytest.raises(mapping_store.MappingConflict):
+      _store(scene, "orbslam3", tmp_path, {"orbslam3.osa": b"b"})
+  assert SceneMappingArtifact.objects.filter(pk=first.pk).exists()
+  assert set(Path(first.bundle.path).parent.iterdir()) == files_before
 
 
 def test_invalid_artifact_preserves_existing_set(scene, tmp_path):

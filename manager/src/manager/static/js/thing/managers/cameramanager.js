@@ -13,8 +13,31 @@ export default class CameraManager extends ThingManager {
     this.syncGeneration = 0;
   }
 
+  async load(params) {
+    await this.syncWithDatabase(params, null, null, false);
+  }
+
+  async getAllCameras() {
+    const cameras = [];
+    let page = 1;
+    let response;
+    do {
+      response = await this.restclient.getCameras({
+        scene: this.sceneID,
+        page,
+      });
+      if (response.statusCode !== 200) {
+        console.error("Failed to fetch camera page", page, response.statusCode);
+        return response;
+      }
+      cameras.push(...response.content.results);
+      page += 1;
+    } while (response.content.next);
+    return { ...response, content: { ...response.content, results: cameras } };
+  }
+
   refresh(client, topic) {
-    this.restclient.getCameras({ scene: this.sceneID }).then((res) => {
+    this.getAllCameras().then((res) => {
       if (res.statusCode == 200) {
         for (const cam of res.content.results) {
           client.publish(topic + cam.uid, "getimage");
@@ -30,10 +53,20 @@ export default class CameraManager extends ThingManager {
   // Returns { added, removed } uids.
   async syncWithDatabase(params, client, appName, isVARunning) {
     const generation = ++this.syncGeneration;
-    const res = await this.restclient.getCameras({ scene: this.sceneID });
+    const res = await this.getAllCameras();
     if (generation !== this.syncGeneration) return { added: [], removed: [] };
     if (res.statusCode !== 200) return { added: [], removed: [] };
     const inDB = new Map(res.content.results.map((cam) => [cam.uid, cam]));
+    const renamedKeys = Object.entries(this.sceneCameras).filter(
+      ([key, camera]) =>
+        key !== "undefined" &&
+        camera?.isStoredInDB &&
+        camera.cameraUID &&
+        key !== camera.cameraUID,
+    );
+    for (const [key] of renamedKeys) delete this.sceneCameras[key];
+    for (const [, camera] of renamedKeys)
+      this.sceneCameras[camera.cameraUID] = camera;
 
     const removed = [];
     for (const uid of Object.keys(this.sceneCameras)) {

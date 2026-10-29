@@ -967,6 +967,8 @@ export default class SceneCamera extends THREE.Object3D {
     if (this.transformControl) {
       this.transformControl.detach();
       this.scene.remove(this.getTransformControlObject3D());
+      this.transformControl.dispose();
+      this.transformControl = null;
     }
     if (this.sceneCamera) {
       const label = this.sceneCamera.getObjectByName("thingLabel_" + this.name);
@@ -1219,16 +1221,14 @@ export default class SceneCamera extends THREE.Object3D {
   }
   updateCameras(oldCamName, newCamName, textObject) {
     if (this.isUpdatedInDB) {
-      let camName = this.name;
-      if (this.currentCameras[oldCamName] && oldCamName !== newCamName) {
-        camName = newCamName;
-        oldCamName = newCamName;
-
-        this.currentCameras[newCamName] = this.currentCameras[oldCamName];
+      if (
+        this.currentCameras[oldCamName] === this &&
+        oldCamName !== this.cameraUID
+      ) {
         delete this.currentCameras[oldCamName];
-      } else {
-        this.previousName = this.name;
       }
+      this.currentCameras[this.cameraUID] = this;
+      this.previousName = this.name;
 
       if (this.sceneCamera) {
         this.drawObj.disposeThingLabel(textObject);
@@ -1268,16 +1268,10 @@ export default class SceneCamera extends THREE.Object3D {
         );
       }
       this.previousName = this.name;
-      for (const camObj of this.currentCameras[DEFAULT_CAMERA_UID]) {
-        if (this.name === camObj.name) {
-          this.currentCameras[this.name] = camObj;
-          var index = this.currentCameras[DEFAULT_CAMERA_UID].indexOf(camObj);
-          if (index > -1) {
-            this.currentCameras[DEFAULT_CAMERA_UID].splice(index, 1);
-          }
-          break;
-        }
-      }
+      this.currentCameras[this.cameraUID] = this;
+      const drafts = this.currentCameras[DEFAULT_CAMERA_UID];
+      const index = drafts.indexOf(this);
+      if (index !== -1) drafts.splice(index, 1);
       this.toast.showToast("Camera setting has been saved!", "success");
     } else if (createResponse.statusCode === 400) {
       console.log(createResponse.errors);

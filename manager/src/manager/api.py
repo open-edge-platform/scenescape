@@ -15,8 +15,9 @@ from datetime import datetime, timezone
 
 from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import IntegrityError, OperationalError, connection
+from django.db import IntegrityError, OperationalError, connection, transaction
 from django.http import FileResponse, HttpResponse
+from django.utils.decorators import method_decorator
 from rest_framework.views import APIView
 from rest_framework import authentication, permissions
 from rest_framework.response import Response
@@ -138,6 +139,7 @@ class SceneImportAPIView(APIView):
     return Response(errors, status=status.HTTP_201_CREATED)
 
 
+@method_decorator(transaction.non_atomic_requests, name="dispatch")
 class SceneMappingArtifactView(APIView):
   """!Upload, download, or delete one mapping method's resume zip.
 
@@ -191,7 +193,7 @@ class SceneMappingArtifactView(APIView):
       )
     except MappingStoreError as exc:
       logger.exception("Failed to store mapping artifact for scene=%s method=%s", scene_id, method)
-      return Response({"error": "Failed to store mapping artifact"}, status=exc.status)
+      return Response({"error": exc.public_message}, status=exc.status)
     finally:
       if tmp_path:
         try:
@@ -217,14 +219,16 @@ class SceneMappingArtifactView(APIView):
 
 def _spool_upload(upload):
   if upload.size > MAX_ARTIFACT_BYTES:
-    raise MappingStoreError(f"Mapping artifact exceeds {MAX_ARTIFACT_BYTES} bytes", 413)
+    raise MappingStoreError("Mapping artifact upload is too large", 413,
+                            public_message=f"Mapping artifact exceeds {MAX_ARTIFACT_BYTES} bytes")
   handle = tempfile.NamedTemporaryFile(prefix="mapping-artifact-", suffix=".zip", delete=False)
   try:
     size = 0
     for chunk in upload.chunks():
       size += len(chunk)
       if size > MAX_ARTIFACT_BYTES:
-        raise MappingStoreError(f"Mapping artifact exceeds {MAX_ARTIFACT_BYTES} bytes", 413)
+        raise MappingStoreError("Mapping artifact upload is too large", 413,
+                                public_message=f"Mapping artifact exceeds {MAX_ARTIFACT_BYTES} bytes")
       handle.write(chunk)
   except BaseException:
     handle.close()

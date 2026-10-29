@@ -29,7 +29,7 @@ def test_mesh_transform_accepts_multipart_vector():
 
 
 @pytest.mark.parametrize("value", [
-  "not-json", "[1,2]", {"x": 1}, [1, 2, 3, 4], [True, 2, 3], [1, "2", 3],
+  None, "not-json", "[1,2]", {"x": 1}, [1, 2, 3, 4], [True, 2, 3], [1, "2", 3],
   [float("nan"), 2, 3], [1, float("inf"), 3],
 ])
 def test_mesh_transform_rejects_malformed_vectors(value):

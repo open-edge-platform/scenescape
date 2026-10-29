@@ -30,7 +30,10 @@ from django.core.files import File
 from django.db import IntegrityError, OperationalError, connection, transaction
 from django.utils import timezone as dj_timezone
 
-from manager.models import Scene, SceneMappingArtifact, SceneSourceMap, sendUpdateCommand
+from manager.models import (
+  Scene, SceneMappingArtifact, SceneSourceMap, sendUpdateCommand,
+  _delete_unreferenced_mapping_file,
+)
 
 DIGEST_HEADER = "X-Scenescape-Sha256"
 METHOD_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
@@ -55,16 +58,18 @@ USER_METHOD = SceneSourceMap.USER_METHOD
 class MappingStoreError(Exception):
   """Request cannot be stored. ``status`` is the HTTP status to return."""
 
-  def __init__(self, message, status):
+  def __init__(self, message, status, *, public_message="Unable to store mapping artifact"):
     super().__init__(message)
     self.status = status
+    self.public_message = public_message
 
 
 class MappingConflict(MappingStoreError):
   """Another upload for this scene and method is in progress."""
 
   def __init__(self):
-    super().__init__("Concurrent upload for this scene and method", 409)
+    super().__init__("Concurrent upload for this scene and method", 409,
+                     public_message="Concurrent mapping change; retry the upload")
 
 
 def validate_slug(value):
@@ -244,16 +249,19 @@ def download_digest(artifact):
 
 
 def store_artifact(scene, method, zip_path, sha256, fiducials, contributor):
-  """Replace ``method``'s current artifact zip. The method's mesh is untouched."""
+  """Replace an artifact in an upload-owned durable transaction; nesting is unsupported."""
   try:
     validate_slug(method)
   except ValidationError as exc:
-    raise MappingStoreError("; ".join(exc.messages), 400) from exc
+    raise MappingStoreError("; ".join(exc.messages), 400,
+                            public_message="Invalid mapping method") from exc
   if not isinstance(sha256, str) or SHA_RE.fullmatch(sha256.lower()) is None:
-    raise MappingStoreError("sha256 must be a lowercase hex digest", 400)
+    raise MappingStoreError("Invalid sha256", 400,
+                            public_message="sha256 must be a 64-character hexadecimal digest")
   digest = sha256_file(zip_path)
   if digest != sha256.lower():
-    raise MappingStoreError("sha256 does not match the uploaded zip", 400)
+    raise MappingStoreError("sha256 does not match the uploaded zip", 400,
+                            public_message="sha256 does not match the uploaded zip")
   try:
     validate_artifact_zip(zip_path, method)
     manifest = read_zip_manifest(zip_path)
@@ -262,30 +270,36 @@ def store_artifact(scene, method, zip_path, sha256, fiducials, contributor):
     fiducials = parse_fiducials(fiducials)
     contributor = _artifact_contributor(contributor, manifest)
   except ValidationError as exc:
-    raise MappingStoreError("; ".join(exc.messages), 400) from exc
+    message = "; ".join(exc.messages)
+    raise MappingStoreError(message, 400, public_message=message) from exc
   size = os.path.getsize(zip_path)
+  artifact = SceneMappingArtifact(
+    id=uuid.uuid4(), scene=scene, method=method, sha256=digest, size=size,
+    fiducials=fiducials, manifest=manifest, contributor=contributor,
+  )
   try:
-    with transaction.atomic():
+    _save_artifact(artifact, zip_path)
+  except (OperationalError, IntegrityError) as exc:
+    raise MappingConflict() from exc
+  return artifact
+
+
+def _save_artifact(artifact, zip_path):
+  """Own the commit boundary: an enclosing rollback cannot orphan the new ZIP."""
+  try:
+    with transaction.atomic(durable=True):
+      scene = artifact.scene
+      method = artifact.method
       _lock_scene(scene.pk, nowait=True)
       _replace_artifact(scene, method)
-      artifact = SceneMappingArtifact(
-        id=uuid.uuid4(),
-        scene=scene,
-        method=method,
-        sha256=digest,
-        size=size,
-        fiducials=fiducials,
-        manifest=manifest,
-        contributor=(contributor or "")[:200],
-      )
       with open(zip_path, "rb") as handle:
         artifact.bundle.save(f"{artifact.id}.zip", File(handle), save=False)
       artifact.save()
-  except OperationalError as exc:
-    raise MappingConflict() from exc
-  except IntegrityError as exc:
-    raise MappingConflict() from exc
-  return artifact
+  except BaseException:
+    if artifact.bundle:
+      _delete_unreferenced_mapping_file(
+        artifact.bundle.storage, artifact.bundle.name, artifact._state.db or "default")
+    raise
 
 
 def _artifact_contributor(contributor, manifest):
@@ -313,7 +327,7 @@ def read_zip_manifest(zip_path):
       if len(raw) > MAX_MANIFEST_BYTES:
         raise ValidationError(f"{MANIFEST_MEMBER} exceeds {MAX_MANIFEST_BYTES} bytes")
   except BadZipFile as exc:
-    raise ValidationError(f"Invalid zip file: {exc}") from exc
+    raise ValidationError("Invalid mapping artifact zip") from exc
   try:
     manifest = _load_json(raw.decode("utf-8"))
   except (UnicodeDecodeError, ValueError) as exc:

@@ -96,16 +96,19 @@ export default class ThingControls {
     this.scene.add(this.object3D);
   }
 
+  removeThingLabels() {
+    for (const child of [...this.object3D.children]) {
+      if (child.name.startsWith("thingLabel_")) {
+        this.object3D.drawObj.disposeThingLabel(child);
+        this.object3D.remove(child);
+      }
+    }
+  }
+
   updateGeometry(data) {
     this.object3D.points = [];
     this.object3D.createGeometry(data);
-    const label = this.object3D.getObjectByName(
-      "thingLabel_" + this.object3D.name,
-    );
-    if (label) {
-      this.object3D.drawObj.disposeThingLabel(label);
-      if (label.parent) label.parent.remove(label);
-    }
+    this.removeThingLabels();
     if (this.object3D.points.length > 0) {
       let x = this.object3D.points[0].x;
       let y = this.object3D.points[1].y;

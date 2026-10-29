@@ -832,7 +832,7 @@ class SceneSerializer(NonNullSerializer):
         transform = child_data['cameraPose']
 
     if not is_update:
-      instance = Scene(**validated_data)
+      instance = Scene(**{key: value for key, value in validated_data.items() if key != 'map'})
       with transaction.atomic():
         Scene.objects.bulk_create([instance])
         instance.refresh_from_db()
@@ -845,63 +845,15 @@ class SceneSerializer(NonNullSerializer):
 
     glb_map_handled = False
     if map_path:
-      uploaded_map = map_path
       validated_data.pop('map', None)
-      try:
-        uploaded_map.seek(0)
-      except (AttributeError, OSError):
-        pass
-      instance.map.save(os.path.basename(uploaded_map.name), uploaded_map, save=False)
-      ext = os.path.splitext(instance.map.name)[1].lower()
-
-      if ext == ".ply":
-        glb_file = instance.map.path.replace(".ply", ".glb")
-        if os.path.exists(glb_file):
-          with open(glb_file, 'rb') as f:
-            instance.map.save(os.path.basename(glb_file), File(f), save=False)
-          ext = os.path.splitext(glb_file)[1].lower()
-        else:
-          raise serializers.ValidationError(f"Error processing .ply file")
-
+      ext = self._save_map_upload(instance, map_path)
+      explicit_mesh_transform = any(
+        key in request_keys for key in ('mesh_rotation', 'mesh_translation', 'mesh_scale'))
       if ext == ".glb":
-        # Create snapshots _original_map from the upload, so inequality never
-        # fires. On update, assign the new file before align/thumbnail.
-        # Explicit placement is authoritative, including scale-only placement.
-        explicit_mesh_transform = any(
-          key in request_keys for key in (
-            'mesh_rotation', 'mesh_translation', 'mesh_scale',
-            )
-        )
-        map_changed = True
-
-        if explicit_mesh_transform:
-          for key in (
-              'rotation_x', 'rotation_y', 'rotation_z',
-              'translation_x', 'translation_y', 'translation_z',
-              'scale_x', 'scale_y', 'scale_z',
-          ):
-            if key in validated_data:
-              setattr(instance, key, validated_data[key])
-        elif map_changed:
-          instance.autoAlignSceneMap()
-        if map_changed:
-          instance.map_processed = None
-
-        instance.saveThumbnail()
-        # Persist align + thumbnail fields. Create uses bulk_create and never
-        # calls instance.save(), so filter().update must write them or the UI
-        # keeps rotation/translation at 0 while AprilTag localize assumes Rx=90.
-        Scene.objects.filter(pk=instance.pk).update(
-            thumbnail=instance.thumbnail,
-            scale=instance.scale,
-            rotation_x=instance.rotation_x,
-            rotation_y=instance.rotation_y,
-            rotation_z=instance.rotation_z,
-            translation_x=instance.translation_x,
-            translation_y=instance.translation_y,
-            translation_z=instance.translation_z,
-        )
-        glb_map_handled = map_changed
+        self._prepare_glb_upload(instance, validated_data, explicit_mesh_transform)
+        glb_map_handled = True
+      else:
+        instance._explicit_mesh_transform = explicit_mesh_transform
 
     if parent_uid:
       self.link_parent(parent_uid, instance)
@@ -927,6 +879,42 @@ class SceneSerializer(NonNullSerializer):
       instance.scenescapeScene.use_tracker = use_tracker
     self._record_source_map(instance, map_path, map_source)
     return instance
+
+  @staticmethod
+  def _save_map_upload(instance, upload):
+    upload.seek(0)
+    instance.map.save(os.path.basename(upload.name), upload, save=False)
+    ext = os.path.splitext(instance.map.name)[1].lower()
+    if ext == ".ply":
+      from scene_common.mesh_util import extractMeshFromPointCloud
+      glb_file = extractMeshFromPointCloud(instance.map.path)
+      if not glb_file or not os.path.exists(glb_file):
+        raise serializers.ValidationError("Error processing .ply file")
+      with open(glb_file, 'rb') as handle:
+        instance.map.save(os.path.basename(glb_file), File(handle), save=False)
+      ext = ".glb"
+    return ext
+
+  @staticmethod
+  def _prepare_glb_upload(instance, validated_data, explicit_mesh_transform):
+    if explicit_mesh_transform:
+      for key in (
+          'rotation_x', 'rotation_y', 'rotation_z',
+          'translation_x', 'translation_y', 'translation_z',
+          'scale_x', 'scale_y', 'scale_z',
+      ):
+        if key in validated_data:
+          setattr(instance, key, validated_data[key])
+    else:
+      instance.autoAlignSceneMap()
+    instance.map_processed = None
+    instance.saveThumbnail()
+    Scene.objects.filter(pk=instance.pk).update(
+      thumbnail=instance.thumbnail, scale=instance.scale,
+      rotation_x=instance.rotation_x, rotation_y=instance.rotation_y, rotation_z=instance.rotation_z,
+      translation_x=instance.translation_x, translation_y=instance.translation_y,
+      translation_z=instance.translation_z,
+    )
 
   def _record_source_map(self, instance, map_path, map_source):
     from manager.mapping_store import (
@@ -960,9 +948,9 @@ class SceneSerializer(NonNullSerializer):
   def handleMeshTransform(self, data, validated_data):
     for trans_type in ('translation', 'rotation', 'scale'):
       key = f'mesh_{trans_type}'
-      popped_data = data.pop(key, None)
-      if popped_data is None:
+      if key not in data:
         continue
+      popped_data = data.pop(key, None)
       values = self._meshTransformValues(popped_data, key)
       for axis, value in zip(('x', 'y', 'z'), values):
         if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
