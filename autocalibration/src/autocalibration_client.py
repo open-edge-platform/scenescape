@@ -28,7 +28,7 @@ class AutoCalibrationClient(RESTClient):
     full_path = urljoin(self.url, f"scenes/{sceneId}/registration")
     headers = {'Authorization': f"Token {self.token}"}
     reply = self.session.patch(full_path, json=data, headers=headers, verify=self.verify_ssl)
-    return self.decodeReply(reply, HTTPStatus.OK)
+    return self.decodeReply(reply, HTTPStatus.ACCEPTED)
 
   def calibrateCamera(self, cameraId, data):
     """Calibrate a camera."""
