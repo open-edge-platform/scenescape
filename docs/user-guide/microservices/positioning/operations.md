@@ -260,14 +260,22 @@ positioning/.local/
    }
    ```
 
-5. Create `positioning/.local/compose.override.yml` to mount the configuration,
-   manifest, and credentials into the Positioning service, and the same manifest
-   and `resolver_id` into Manager (`web`), which authorizes pose writes only for
-   sources assigned to that resolver. Compose replaces the
-   whole `command` list, so repeat the broker and NTP options; without `--ntp`,
-   clock synchronization cannot be verified and every pose is invalid. Set `user`
-   to your host user and group IDs (`id -u` and `id -g`) so the service can read
-   the `0600` credential files:
+5. Create `positioning/.local/compose.override.yml`. It supplies the same manifest
+   and `resolver_id` to three services:
+
+   - **`positioning`**: the configuration, manifest, and credentials. Connect to the
+     broker's mTLS listener on port 8883; the regular 1883 listener bypasses the
+     Positioning ACL.
+   - **`positioning-acl-init`**: renders the broker ACL from the manifest. It must
+     use the same manifest and `resolver_id`, or the broker denies your status and
+     pose topics.
+   - **`web`** (Manager): authorizes pose writes only for sources assigned to that
+     resolver.
+
+   Compose replaces a whole `command` or `entrypoint` list, so repeat every option.
+   Without `--ntp`, clock synchronization cannot be verified and every pose is
+   invalid. Set `user` to your host user and group IDs (`id -u` and `id -g`) so the
+   service can read the `0600` credential files:
 
    ```yaml
    services:
@@ -275,7 +283,7 @@ positioning/.local/
        user: "1000:1000"
        command:
          - --broker
-         - broker.scenescape.intel.com
+         - broker.scenescape.intel.com:8883
          - --brokerauth
          - /run/secrets/positioning.auth
          - --cert
@@ -294,12 +302,31 @@ positioning/.local/
          - ./positioning/.local/positioning.json:/run/positioning/positioning.json:ro
          - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
          - ./positioning/.local/secrets:/run/secrets/onvif:ro
+     positioning-acl-init:
+       entrypoint:
+         - python3
+         - /app/tools/render_mosquitto_acl.py
+         - --assignments
+         - /run/positioning/positioning-assignments.json
+         - --resolver-id
+         - positioning-dev
+         - --identity
+         - ${POSITIONING_CERT_IDENTITY:-positioning.scenescape.intel.com}
+         - --output
+         - /output/positioning.acl
+         - --group
+         - ${GID:-1000}
+       volumes:
+         - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
      web:
        environment:
          - POSITIONING_RESOLVER_ID=positioning-dev
        volumes:
          - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
    ```
+
+   The `positioning-acl-init` volume replaces the base file's mount of the tracked
+   `deployment/positioning-assignments.json` at the same container path.
 
    The secret files mounted by the base Compose file (broker auth and
    certificates) must also be readable by the user ID you set.
@@ -308,27 +335,41 @@ positioning/.local/
    poses, add a `scene` service to this file as described in
    [PTZ Pose Consumption in the Scene Controller](../controller/ptz-pose-consumption.md#deploy).
 
-6. Start the demo stack, then recreate only the Positioning service with the
-   override. `make demo` generates the root `docker-compose.yml` and starts
-   Positioning with the default configuration, which has no sources:
+6. Start the demo stack, then apply the override. `make demo` generates the root
+   `docker-compose.yml` and starts Positioning with the default configuration, which
+   has no sources, and a broker ACL rendered from the tracked default manifest:
 
    ```bash
    SUPASS=<password> make build-core demo
    ```
 
-   From the repository root, apply the override and follow the service logs:
+   From the repository root, regenerate the ACL, restart the broker so it loads the
+   ACL, recreate Positioning and Manager, and follow the service logs:
 
    ```bash
-   docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml \
-     --profile controller up -d positioning web
+   COMPOSE="docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml --profile controller"
+   $COMPOSE up --force-recreate --exit-code-from positioning-acl-init positioning-acl-init \
+     && $COMPOSE up -d --no-deps --force-recreate broker \
+     && $COMPOSE up -d positioning web
    docker compose logs -f positioning
    ```
 
-   The first command merges the override into the `positioning` and `web` services
-   and recreates only those containers. The broker and other services keep running. Use
-   `--profile tracker` instead if the stack runs the Tracker profile. Run the
-   command again after you edit any file in `positioning/.local/`. The files are
-   read only at startup.
+   The broker reads its ACL only at startup, so it must be recreated after the ACL
+   changes. Restarting it briefly disconnects all MQTT clients; they reconnect
+   automatically. Other services keep running. `--exit-code-from` makes the chain
+   stop if the ACL cannot be rendered, for example because the manifest has an
+   invalid source ID; the broker then keeps its previous ACL. Use `--profile tracker`
+   instead if the stack runs the Tracker profile.
+
+   Run the same commands again after you edit any file in `positioning/.local/`; the
+   files are read only at startup. Always pass the override file to `docker compose`
+   for this stack. A command without it recreates `positioning-acl-init` from the
+   default manifest, and the broker denies your resolver's topics after its next
+   restart.
+
+   On startup, the broker logs
+   `New client connected ... on port 8883 ... u'positioning.<CERTDOMAIN>'`, and
+   Positioning publishes `online` on `scenescape/positioning/status/<resolver_id>`.
 
 At startup the service logs `Configured PTZ sources: [...]` and
 `PTZ source <id> connected: ...` for each camera. Default INFO logs show a short
