@@ -230,7 +230,7 @@ class AprilTagCalibrationTest(UserInterfaceTest):
     MAX_WAIT_TIME = 15
     assert self.login()
 
-    self.navigateDirectlyToPage(f"/{common.TEST_SCENE_ID}/")
+    assert common.navigate_to_scene(self.browser, "Queuing")
     cam_url = common.camera_calibrate_url(self.browser, "atag-qcam1")
     test_case_1 = self.checkForMalfunctions(cam_url, "Queuing", MAX_WAIT_TIME)
 
