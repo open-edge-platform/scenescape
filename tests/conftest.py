@@ -1585,15 +1585,14 @@ def demo_scene(request, scene_factory, params, monkeypatch):
   The scene reproduces the seeded demo fixture (map, scale and the
   "camera1"-"camera3" cameras) and is removed again during teardown.
 
-  Because "Scene.id" is "editable=False" the manager always assigns a
-  random UID, so the historical hardcoded demo UID cannot be recreated.
-  This fixture therefore publishes the real UID to every place tests read a
-  scene id from, and restores the previous values on teardown:
+  This fixture publishes the generated UID to every location that resolves
+  the current demo scene identifier:
 
-  * "--scene_id" on the pytest config, which is what the "Diagnostic"
-    based functional and UI test classes resolve "params['scene_id']" from.
-  * "common_ui_test_utils.TEST_SCENE_ID", used by UI tests to build scene
-    URLs and element selectors.
+  * "--scene_id" on the pytest config.
+  * "common_ui_test_utils.TEST_SCENE_ID".
+
+  Values are patched for the duration of the test and automatically
+  restored afterwards.
 
   A test only has to declare this fixture; no other wiring is needed.
   """
