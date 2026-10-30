@@ -93,6 +93,7 @@ class UnscentedKalmanFilterMod : public UnscentedKalmanFilter
   Mat gain;  // Kalman gain matrix (K), DP x MP
   Mat xyCov; // estimate of the covariance between x* and y* (Sxy), DP x MP
   Mat yyCov; // estimate of the y* cross-covariance matrix (Syy), MP x MP
+  Mat defaultYyCov; // Syy with the default R from predict, kept while a per-measurement R overrides yyCov
 
   Mat r; // zero vector of process noise for getting transitionSPFuncVals,
   Mat q; // zero vector of measurement noise for getting measurementSPFuncVals
@@ -111,11 +112,17 @@ public:
   // measurement - current measurement vector, MP x 1
   Mat correct(InputArray measurement) override;
 
+  // perform correction step with a per-measurement noise R (MP x MP). Syy is rebuilt as
+  // Pyy + R for this update only; an empty R falls back to the default measurementNoiseCov.
+  Mat correct(InputArray measurement, InputArray measurementNoise);
+
   //  Get system parameters
   Mat getProcessNoiseCov() const override;
   Mat getMeasurementNoiseCov() const override;
   Mat getErrorCov() const override;
   Mat getMeasurementCov() const;
+  // Pyy = H P H^T from the last predict (predicted measurement covariance without R)
+  Mat getPredictedMeasurementCovWithoutNoise() const;
 
   void setStateAndCovariance(const cv::Mat &newState, const cv::Mat &newErrorCov)
   {

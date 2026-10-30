@@ -492,6 +492,72 @@ class TestMatchFunction(unittest.TestCase):
     self.assertAlmostEqual(track.x, mid_x, delta=0.15)
     self.assertAlmostEqual(track.y, mid_y, delta=0.15)
 
+class TestMeasurementNoiseCovariance(unittest.TestCase):
+  """Per-detection measurement noise R exposed as TrackedObject.measurement_noise_covariance."""
+
+  @staticmethod
+  def _diagonal_noise(var_x, var_y, rest=0.2):
+    noise = np.eye(7) * rest
+    noise[0, 0] = var_x
+    noise[1, 1] = var_y
+    return noise
+
+  def test_defaults_to_none_and_round_trips(self):
+    object_ = tracking.TrackedObject()
+    self.assertIsNone(object_.measurement_noise_covariance)
+
+    noise = self._diagonal_noise(0.5, 2.0)
+    noise[0, 1] = 0.2
+    noise[1, 0] = 0.1  # slightly asymmetric input is stored symmetrized
+    object_.measurement_noise_covariance = noise
+
+    stored = object_.measurement_noise_covariance
+    expected = 0.5 * (noise + noise.T)
+    np.testing.assert_allclose(stored, expected)
+    stored[0, 0] = 99.0  # the getter returns a copy
+    np.testing.assert_allclose(object_.measurement_noise_covariance, expected)
+
+    object_.measurement_noise_covariance = None
+    self.assertIsNone(object_.measurement_noise_covariance)
+
+  def test_rejects_invalid_matrices(self):
+    object_ = tracking.TrackedObject()
+    valid = np.eye(7)
+    object_.measurement_noise_covariance = valid
+    with self.assertRaisesRegex(ValueError, 'finite'):
+      object_.measurement_noise_covariance = np.full((7, 7), np.nan)
+    with self.assertRaisesRegex(ValueError, 'positive definite'):
+      object_.measurement_noise_covariance = -np.eye(7)
+    with self.assertRaisesRegex(ValueError, 'positive definite'):
+      object_.measurement_noise_covariance = np.zeros((7, 7))
+    with self.assertRaisesRegex(ValueError, '7x7'):
+      object_.measurement_noise_covariance = np.eye(3)
+    # A rejected assignment leaves the previous R in place.
+    np.testing.assert_allclose(object_.measurement_noise_covariance, valid)
+
+  def test_multi_camera_birth_fuses_by_measurement_noise(self):
+    tracker_config = tracking.TrackManagerConfig()
+    tracker_config.motion_models = [tracking.MotionModel.CV]
+    tracker_config.default_process_noise = 1e-4
+    tracker_config.default_measurement_noise = 0.2
+    tracker_config.max_number_of_unreliable_frames = 0
+    tracker = tracking.MultipleObjectTracker(
+      tracker_config, tracking.DistanceType.Euclidean, 2.0)
+
+    # cam0 is sharp along x and blurry along y, cam1 the opposite.
+    cam0 = create_object_at_location(x=7.11, y=7.67)
+    cam0.measurement_noise_covariance = self._diagonal_noise(0.01, 4.0)
+    cam1 = create_object_at_location(x=7.91, y=6.69)
+    cam1.measurement_noise_covariance = self._diagonal_noise(4.0, 0.01)
+
+    tracker.track([[cam0], [cam1]], datetime.now(), tracking.DistanceType.Euclidean, 2.0, 0.5, 10.0)
+
+    tracks = tracker.get_tracks()
+    self.assertEqual(len(tracks), 1)
+    self.assertAlmostEqual(tracks[0].x, (7.11 / 0.01 + 7.91 / 4.0) / (1 / 0.01 + 1 / 4.0), places=9)
+    self.assertAlmostEqual(tracks[0].y, (7.67 / 4.0 + 6.69 / 0.01) / (1 / 4.0 + 1 / 0.01), places=9)
+    self.assertIsNone(tracks[0].measurement_noise_covariance)
+
 class TestClassification(unittest.TestCase):
   def test_classification_functions(self):
     classification_data = tracking.ClassificationData(['Car', 'Bike', 'Pedestrian'])

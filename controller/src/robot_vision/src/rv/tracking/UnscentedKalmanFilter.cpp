@@ -181,6 +181,7 @@ Mat UnscentedKalmanFilterMod::predict(InputArray _control)
   // compute the estimate of the y* cross-covariance matrix
   // Syy = SUM_{i=0}^{2*DP}( Wc[i]*hc_i*hc_i.t ) + R
   yyCov = measurementSPFuncValsCenter * Wc * measurementSPFuncValsCenter.t() + measurementNoiseCov;
+  defaultYyCov.release();
 
 
   return state.clone();
@@ -209,6 +210,36 @@ Mat UnscentedKalmanFilterMod::correct(InputArray _measurement)
   errorCov = errorCov - gain * xyCov.t();
 
   return state.clone();
+}
+
+Mat UnscentedKalmanFilterMod::correct(InputArray _measurement, InputArray _measurementNoise)
+{
+  if (_measurementNoise.empty())
+  {
+    if (!defaultYyCov.empty())
+    {
+      // An earlier correct since the last predict used its own R; this one uses the default.
+      yyCov = defaultYyCov;
+      defaultYyCov.release();
+    }
+    return correct(_measurement);
+  }
+
+  CV_Assert(_measurementNoise.rows() == MP && _measurementNoise.cols() == MP);
+  Mat noise;
+  _measurementNoise.getMat().convertTo(noise, dataType);
+  if (defaultYyCov.empty())
+  {
+    defaultYyCov = yyCov.clone();
+  }
+  // Syy was built in predict() with the default R; use this measurement's R instead.
+  yyCov = getPredictedMeasurementCovWithoutNoise() + noise;
+  return correct(_measurement);
+}
+
+Mat UnscentedKalmanFilterMod::getPredictedMeasurementCovWithoutNoise() const
+{
+  return measurementSPFuncValsCenter * Wc * measurementSPFuncValsCenter.t();
 }
 
 Mat UnscentedKalmanFilterMod::getProcessNoiseCov() const

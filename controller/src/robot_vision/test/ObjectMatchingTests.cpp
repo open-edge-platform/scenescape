@@ -217,6 +217,7 @@ TEST(ObjectMatchingTest, PositionMahalanobisSeparatesStackedFloors)
 // Defined in ObjectMatching.cpp, not declared in its header.
 namespace rv::tracking {
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track);
+double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track);
 } // namespace rv::tracking
 
 namespace {
@@ -355,6 +356,105 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesYawOnlyWhenBothSidesHaveOrientat
                 expectedDistance(measurement, track, scenario.expectYaw),
                 1e-12);
   }
+}
+
+TEST(ObjectMatchingTest, MahalanobisDistanceUsesMeasurementNoise)
+{
+  // With R on the detection, S = H P H^T + R replaces the track's cached S^-1 for this pair.
+  auto track = makeTrack();
+  track.predictedStateMeasurementCov = TrackedObject::MeasurementMatrix::eye() * 0.5;
+  auto measurement = makeMeasurement();
+  measurement.measurementNoiseCov
+    = TrackedObject::MeasurementMatrix::diag(TrackedObject::MeasurementVector(0.5, 1.5, 3.5, 0.5, 0.5, 0.5, 0.5));
+  const Vector variance{1.0, 2.0, 4.0, 1.0, 1.0, 1.0, 1.0};
+
+  const auto innovation = measurement.measurementVector() - track.predictedMeasurementMean;
+  double squared = 0.0;
+  for (int i = 0; i < TrackedObject::MeasurementSize; ++i)
+  {
+    if (i != kYaw) // neither side has orientation
+    {
+      squared += innovation(i) * innovation(i) / variance[i];
+    }
+  }
+  EXPECT_NEAR(calculateMahalanobisDistance(measurement, track), 0.5 * std::sqrt(squared), 1e-12);
+
+  measurement.measurementNoiseCov.reset();
+  EXPECT_NEAR(calculateMahalanobisDistance(measurement, track), expectedDistance(measurement, track, false), 1e-12);
+}
+
+TrackedObject predictedStaticTrack()
+{
+  TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  TrackManager trackManager(trackerConfig);
+
+  const auto seed = makeDetection(0.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+  auto timestamp = std::chrono::system_clock::now();
+  const auto trackId = trackManager.createTrack(seed, timestamp);
+  for (int i = 0; i < 5; ++i)
+  {
+    timestamp += std::chrono::milliseconds(100);
+    trackManager.setMeasurement(trackId, seed);
+    trackManager.predict(timestamp);
+    trackManager.correct();
+  }
+  timestamp += std::chrono::milliseconds(100);
+  trackManager.predict(timestamp);
+  return trackManager.getTracks().front();
+}
+
+bool isGated(const TrackedObject &track, const TrackedObject &detection, double maxRadius = 10.0)
+{
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+  match({track},
+        {detection},
+        assignments,
+        unassignedTracks,
+        unassignedMeasurements,
+        DistanceType::PositionMahalanobis,
+        rv::chi2Threshold(0.99, 3),
+        maxRadius);
+  return assignments.size() == 1U;
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGateUsesMeasurementNoise)
+{
+  const auto track = predictedStaticTrack();
+  // Predict publishes H P H^T next to S = H P H^T + R_default.
+  ASSERT_NEAR(track.predictedStateMeasurementCov(MeasurementIndex::X, MeasurementIndex::X),
+              track.predictedMeasurementCov(MeasurementIndex::X, MeasurementIndex::X) - 0.2,
+              1e-12);
+  ASSERT_GT(track.predictedStateMeasurementCov(MeasurementIndex::X, MeasurementIndex::X), 0.0);
+
+  // 3 m off along x: outside the default-R gate, inside when the detection's own R is wide along x.
+  const auto defaultR = makeDetection(3.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+  auto wideAlongX = defaultR;
+  wideAlongX.measurementNoiseCov = test::diagonalMeasurementNoise(25.0, 0.2, 0.2);
+  auto wideAlongY = defaultR;
+  wideAlongY.measurementNoiseCov = test::diagonalMeasurementNoise(0.2, 25.0, 0.2);
+
+  EXPECT_FALSE(isGated(track, defaultR));
+  EXPECT_TRUE(isGated(track, wideAlongX));
+  EXPECT_FALSE(isGated(track, wideAlongY)) << "R must act along its own axes, not inflate the gate isotropically";
+  EXPECT_NEAR(calculatePositionMahalanobisSquaredDistance(wideAlongX, track),
+              9.0 / (track.predictedStateMeasurementCov(MeasurementIndex::X, MeasurementIndex::X) + 25.0),
+              1e-9);
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisGateWithMeasurementNoiseKeepsRadiusCeiling)
+{
+  const auto track = predictedStaticTrack();
+  auto farButVague = makeDetection(12.0, 0.0, 0.0, 0.5, 0.5, 0.5);
+  farButVague.measurementNoiseCov = test::diagonalMeasurementNoise(1000.0, 0.2, 0.2);
+
+  EXPECT_TRUE(isGated(track, farButVague, 20.0));
+  EXPECT_FALSE(isGated(track, farButVague, 10.0)) << "max_radius_m must still cap a wide R";
 }
 
 } // namespace
