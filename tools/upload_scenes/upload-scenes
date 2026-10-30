@@ -39,6 +39,10 @@ def build_argparser():
   parser.add_argument("--restauth", required=True,
                       help="path to an auth file, or a user:password string")
   parser.add_argument("--rootcert", help="CA certificate used to verify the server")
+  parser.add_argument("--restore-ids", action="store_true",
+                      help="restore original scene UUIDs; reject collisions")
+  parser.add_argument("--remote-credentials",
+                      help="JSON credentials file keyed by remote scene UUID (never included in scene ZIPs)")
   parser.add_argument("--insecure", action="store_true",
                       help="do not verify the server certificate")
   parser.add_argument("--wait", type=int, default=DEFAULT_WAIT_SECONDS, metavar="SECONDS",
@@ -72,7 +76,11 @@ def main():
   if args.insecure:
     log.warning("Server certificate verification is disabled")
     requests.packages.urllib3.disable_warnings()
-  client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True))
+  if args.remote_credentials and not os.path.isfile(args.remote_credentials):
+    log.error("Remote credentials file does not exist")
+    return 1
+  client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True),
+                           restore_ids=args.restore_ids, remote_credentials=args.remote_credentials)
 
   if args.wait and not is_application_ready(client, args.wait, user, password):
     log.error(f"{args.url} was not ready after {args.wait} seconds")

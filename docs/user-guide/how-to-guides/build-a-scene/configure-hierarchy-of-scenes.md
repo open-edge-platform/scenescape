@@ -53,6 +53,58 @@ _Figure 2: Local Child scene on scene detail page._
 
 ## Steps to Add a Remote Child Scene
 
+### Exporting and Restoring a Hierarchy
+
+**Export Scene** includes all local descendants and their maps, plus remote
+child references (scene UUID, broker hostname, transform, and **Retrack**
+setting). Remote scenes themselves live on another deployment and are not
+embedded in the ZIP. MQTT credentials and cached remote catalogs are not exported.
+
+On **Import Scene**, optionally select **Restore original scene IDs** when
+restoring or migrating a deployment. Leave it unchecked to generate new UUIDs.
+Restoration rejects existing names and UUID collisions rather than overwriting
+scenes. When restoring both deployments, restore the remote child with its
+original UUID so its parent's reference continues to match its MQTT topics.
+If you instead clone the child with a new UUID, update the parent's remote link.
+Exporting a child alone cannot capture incoming links stored on another deployment.
+
+For archives containing remote children, provide a separate **Remote MQTT
+credentials (JSON)** file keyed by each remote scene UUID:
+
+```json
+{
+  "<remote-scene-uuid>": {
+    "mqtt_username": "<deployment-mqtt-username>",
+    "mqtt_password": "<deployment-mqtt-password>"
+  }
+}
+```
+
+Populate this file securely from deployment credentials, restrict its permissions,
+and do not commit it or put it in the scene ZIP. Missing or invalid credentials
+are reported before any scenes are created. The destination must also trust the
+remote broker's certificate and be able to reach its exported hostname.
+
+The standalone uploader supports the same options:
+
+```bash
+tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \
+  --restauth manager/secrets/controller.auth \
+  --rootcert manager/secrets/certs/scenescape-ca.pem \
+  --restore-ids --remote-credentials /secure/path/remote-credentials.json \
+  https://<deployment-host>/api/v1 ./my-scenes
+```
+
+The API accepts `restore_ids=true` and a `remote_credentials` file alongside
+`zipFile` at `POST /api/v1/import-scene/`. Metadata for ZIP creation is available
+at `GET /api/v1/scene/<uuid>/export`; the ordinary scene API is unchanged.
+
+Older ZIPs with name-only remote children cannot be repaired automatically:
+re-export them from the source deployment. Legacy local-only archives remain
+supported. Import is not a full database restore or an update operation;
+hierarchy uploads to existing scenes fail explicitly. Other runtime resource
+errors can leave a partial import, which must be removed before retrying.
+
 ### 1. Configure NTP for Synchronization
 
 **On Parent System**:

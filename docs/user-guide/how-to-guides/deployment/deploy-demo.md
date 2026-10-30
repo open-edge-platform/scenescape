@@ -56,6 +56,9 @@ Connect and sign in as described in [Deploy on Docker](./deploy-docker.md#verify
 
 ### Uploading Your Own Scenes
 
+For scene hierarchies, UUID restoration, and supplying remote MQTT credentials,
+see [Exporting and Restoring a Hierarchy](../build-a-scene/configure-hierarchy-of-scenes.md#exporting-and-restoring-a-hierarchy).
+
 Scenes that already exist are skipped, so re-running `make demo-scenes` is safe. `make demo`/`make demo-scenes` create and reuse a virtual environment at `tools/upload_scenes/.venv`; create or reuse it directly if you have not run either target yet, since the system Python on the supported Ubuntu setup is externally managed and rejects a bare `pip install`:
 
 ```bash

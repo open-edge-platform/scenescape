@@ -43,6 +43,7 @@ def scene_zip(tmp_path):
 def fake_client():
   """A SceneScapeClient double with the defaults most tests want."""
   client = MagicMock(spec=SceneScapeClient)
+  client.restore_ids = False
   client.asset_exists.return_value = False
   client.scene_uid.return_value = None
   client.calibration_marker_exists.return_value = False

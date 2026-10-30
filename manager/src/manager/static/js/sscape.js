@@ -21,6 +21,7 @@ import {
 } from "/static/js/utils.js";
 import { plot } from "/static/js/marks.js";
 import { setupChildScene } from "/static/js/childscene.js";
+import { addSceneMaps } from "/static/js/scene-archive.js";
 import {
   initializeCalibration,
   initializeCalibrationSettings,
@@ -2444,33 +2445,15 @@ $(document).ready(function () {
       const authToken = `Token ${tokenElement.value}`;
       const restclient = new RESTClient(REST_URL, authToken);
       try {
-        const response = await restclient.getScene(scene_id);
+        const response = await restclient.exportScene(scene_id);
         if (response.statusCode !== 200)
           throw new Error("Failed to fetch scenes");
 
         const scene = response.content;
         const zip = new JSZip();
 
-        zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
-        const sceneName = scene.name.replace(/\s+/g, "_");
-
-        if (scene.map) {
-          try {
-            const mapBlob = await fetchFileAsBlob(scene.map);
-            const mapExt = scene.map.split(".").pop();
-            zip.file(`${sceneName}.${mapExt}`, mapBlob);
-
-            if (Array.isArray(scene.children)) {
-              for (const child of scene.children) {
-                const mapBlob = await fetchFileAsBlob(child.map);
-                const mapExt = child.map.split(".").pop();
-                zip.file(`${child.name}.${mapExt}`, mapBlob);
-              }
-            }
-          } catch (err) {
-            console.warn(`Skipping map for ${sceneName}:`, err);
-          }
-        }
+        await addSceneMaps(zip, scene);
+        zip.file(scene.uid + ".json", JSON.stringify(scene, null, 2));
 
         // Download the zip
         const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -2481,15 +2464,10 @@ $(document).ready(function () {
         URL.revokeObjectURL(link.href);
       } catch (error) {
         console.error("Error exporting scene:", error);
+        window.alert(`Scene export failed: ${error.message}`);
       }
     };
   }
-  async function fetchFileAsBlob(url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
-    return await response.blob();
-  }
-
   if ($("#scale").val() !== "") {
     scale = $("#scale").val();
   }

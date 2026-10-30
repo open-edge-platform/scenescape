@@ -2,7 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
+import json
 import os
+from uuid import UUID
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
@@ -1149,6 +1151,19 @@ class CalibrationMarkerSerializer(NonNullSerializer):
 
 class SceneImportSerializer(serializers.Serializer):
   zipFile = serializers.FileField()
+  restore_ids = serializers.BooleanField(default=False)
+  remote_credentials = serializers.FileField(required=False, write_only=True)
+
+  def validate_remote_credentials(self, value):
+    if value.size > 1024 * 1024:
+      raise serializers.ValidationError("Credentials file exceeds 1 MiB")
+    try:
+      data = json.load(value)
+      if not isinstance(data, dict):
+        raise ValueError
+      return {str(UUID(key)): credentials for key, credentials in data.items()}
+    except (ValueError, TypeError, UnicodeDecodeError):
+      raise serializers.ValidationError("Expected a JSON object keyed by remote scene UUID")
 
   def validate_zipFile(self, value):
     if not value.name.endswith(".zip"):

@@ -12,13 +12,14 @@ import logging
 import os
 import time
 import zipfile
+from contextlib import ExitStack
 
 import requests
 
 DEFAULT_WAIT_SECONDS = 300
 POLL_INTERVAL_SECONDS = 5
 REQUEST_TIMEOUT_SECONDS = 60
-RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors")
+RESOURCE_KEYS = ("cameras", "regions", "tripwires", "sensors", "calibration_markers")
 # Each scene lives in its own directory: <scene>/<scene>.zip. The archived
 # JSON carries the scene's calibration_markers directly, plus each camera's
 # "command"/"camerachain" fields; on Kubernetes, kubeclient builds each
@@ -33,10 +34,12 @@ log = logging.getLogger("upload-scenes")
 class SceneScapeClient:
   """The handful of REST calls needed to import a scene and its dependencies."""
 
-  def __init__(self, url, verify):
+  def __init__(self, url, verify, restore_ids=False, remote_credentials=None):
     self.url = url.rstrip("/")
     self.session = requests.Session()
     self.session.verify = verify
+    self.restore_ids = restore_ids
+    self.remote_credentials = remote_credentials
     return
 
   def _request(self, method, path, **kwargs):
@@ -75,9 +78,16 @@ class SceneScapeClient:
 
   def import_scene(self, zip_path):
     """Posts a scene archive and returns the server's import summary."""
-    with open(zip_path, "rb") as archive:
+    with ExitStack() as stack:
+      archive = stack.enter_context(open(zip_path, "rb"))
       files = {"zipFile": (os.path.basename(zip_path), archive, "application/zip")}
-      return self._request("POST", "/import-scene/", files=files)
+      data = {}
+      if self.restore_ids:
+        data["restore_ids"] = "true"
+      if self.remote_credentials:
+        credentials = stack.enter_context(open(self.remote_credentials, "rb"))
+        files["remote_credentials"] = ("credentials.json", credentials, "application/json")
+      return self._request("POST", "/import-scene/", files=files, data=data)
 
 
 def parse_auth(auth):
@@ -234,6 +244,9 @@ def upload_one(client, zip_path):
   name = scene["name"]
   existing_uid = client.scene_uid(name)
   if existing_uid:
+    if client.restore_ids or scene.get("remote_children") or scene.get("children"):
+      log.error(f"Scene '{name}' already exists; hierarchy import requires a fresh destination")
+      return None
     log.info(f"Scene '{name}' already exists, reconciling markers for {zip_path}")
     if not upload_calibration_markers(client, scene):
       return None

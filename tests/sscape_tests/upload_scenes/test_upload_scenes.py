@@ -169,6 +169,20 @@ class TestImportScene:
     assert name == "scene.zip"
     assert content_type == "application/zip"
 
+  def test_restore_options_and_credentials_are_uploaded_separately(self, tmp_path):
+    zip_path = tmp_path / "scene.zip"
+    zip_path.write_bytes(b"zip")
+    credentials = tmp_path / "credentials.json"
+    credentials.write_text("{}")
+    client = SceneScapeClient("https://localhost", True, restore_ids=True,
+                              remote_credentials=str(credentials))
+    client.session = MagicMock()
+    client.session.request.return_value.json.return_value = {}
+    client.import_scene(str(zip_path))
+    kwargs = client.session.request.call_args.kwargs
+    assert kwargs["data"] == {"restore_ids": "true"}
+    assert set(kwargs["files"]) == {"zipFile", "remote_credentials"}
+
 
 class TestIsApplicationReady:
   def test_ready_immediately(self, fake_client, monkeypatch):
@@ -278,6 +292,16 @@ class TestUploadScene:
 
 
 class TestUploadOne:
+  @pytest.mark.parametrize("restore_ids, hierarchy", [(True, False), (False, True)])
+  def test_existing_hierarchy_or_restore_fails(self, fake_client, scene_zip, restore_ids, hierarchy):
+    fake_client.restore_ids = restore_ids
+    fake_client.scene_uid.return_value = "existing"
+    scene = {"name": "Demo"}
+    if hierarchy:
+      scene["remote_children"] = [{"remote_child_id": "remote"}]
+    assert upload_one(fake_client, str(scene_zip(scene))) is None
+    fake_client.import_scene.assert_not_called()
+
   def test_new_scene_uploads_and_returns_uid(self, fake_client, scene_zip):
     zip_path = scene_zip({"name": "Demo"})
     fake_client.scene_uid.side_effect = [None, "new-uid"]

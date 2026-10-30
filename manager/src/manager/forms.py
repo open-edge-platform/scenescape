@@ -100,6 +100,10 @@ class SingletonDetailsForm(ModelForm):
     fields = ('__all__')
 
 class SceneImportForm(ModelForm):
+  restore_ids = forms.BooleanField(required=False, label="Restore original scene IDs",
+                                  help_text="Rejects UUID collisions; leave unchecked to create new IDs.")
+  remote_credentials = forms.FileField(required=False, label="Remote MQTT credentials (JSON)",
+                                      help_text="Required for remote children; keyed by remote scene UUID.")
   class Meta:
     model = SceneImport
     fields = ('__all__')

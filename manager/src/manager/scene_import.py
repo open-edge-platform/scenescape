@@ -6,24 +6,33 @@ import zipfile
 import json
 import asyncio
 import aiofiles
+from uuid import UUID
 from typing import Any, Callable
 
-from scene_common.rest_client import RESTClient
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
+from rest_framework.exceptions import ValidationError
+
+from manager.scene_archive import LINK_FIELDS, remote_link_data, scene_map_path, validate_archive
+from manager.serializers import SceneSerializer
+from scene_common.rest_client import RESTClient, RESTResult
 from scene_common.options import POINT_CORRESPONDENCE, EULER
 from scene_common.cam_fields import CAM_COMMON_FIELDS
 from scene_common import log
 
 
 class ImportScene:
-  def __init__(self, zip_path, token):
+  def __init__(self, zip_path, token, restore_ids=False, remote_credentials=None):
     self.zip_path = zip_path
+    self.badZipfile = False
+    self.restore_ids = restore_ids
+    self.remote_credentials = remote_credentials or {}
     self.extractZip()
     self.rootcert = '/run/secrets/certs/scenescape-ca.pem'
     self.baseUrl = os.getenv("WEBSERVER_URL", "https://web.scenescape.intel.com")
     self.restUrl = self.baseUrl + '/api/v1'
     self.rest = RESTClient(self.restUrl, rootcert=self.rootcert)
     self.rest.token = token
-    self.badZipfile = False
     return
 
   def build_camera_items(self, json_data):
@@ -77,10 +86,46 @@ class ImportScene:
 
   def createSceneMap(self, json_data, resource_path):
     with open(resource_path, "rb") as f:
-      map_data = f.read()
-      return self.rest.createScene({"name": json_data["name"],
-                                  "scale": json_data['scale'],
-                                  "map": (resource_path, map_data)})
+      scene_data = {"name": json_data["name"], "scale": json_data.get("scale"),
+                    "map": SimpleUploadedFile(os.path.basename(resource_path), f.read())}
+    serializer = SceneSerializer(data=scene_data)
+    if not serializer.is_valid():
+      return RESTResult(400, errors=serializer.errors)
+    extra = {"id": UUID(str(json_data["uid"]))} if self.restore_ids else {}
+    try:
+      scene = serializer.save(**extra)
+    except (IntegrityError, ValidationError):
+      return RESTResult(400, errors={"scene": ["Scene creation failed; check name and UUID collisions"]})
+    result = RESTResult(201)
+    result["uid"] = str(scene.pk)
+    return result
+
+  def preflight(self, json_data):
+    try:
+      validate_archive(json_data, self.extract_dir, self.restore_ids, self.remote_credentials)
+    except (ValueError, TypeError, KeyError) as error:
+      return {"scene": [str(error)]}
+    return None
+
+  def restore_local_link(self, child, scene_id, parent):
+    data = {key: child.get("link", {})[key] for key in LINK_FIELDS if key in child.get("link", {})}
+    data.update({"child_type": "local", "child": scene_id, "parent": parent})
+    return self.rest.createChildScene(data)
+
+  async def restore_remote_links(self, json_data, scene_id):
+    for link in json_data.get("remote_children", []):
+      data = remote_link_data(link, self.remote_credentials)
+      data["parent"] = scene_id
+      response = await asyncio.to_thread(self.rest.createChildScene, data)
+      if response.errors:
+        return {"scene": [f"Failed to restore remote child {link['remote_child_id']}"]}
+    return None
+
+  async def update_scene_settings(self, scene_id, data):
+    if data:
+      response = await asyncio.to_thread(self.rest.updateScene, scene_id, data)
+      return response.errors
+    return None
 
   async def loadScene(self, child=None, parent=None):
     import_summary = {
@@ -127,22 +172,11 @@ class ImportScene:
         import_summary["scene"] = {"scene": ["Failed to parse JSON"]}
         return import_summary
 
-    # find resource (non-json) files
-    resource_files = [
-      f for f in os.listdir(self.extract_dir)
-      if os.path.isfile(os.path.join(self.extract_dir, f)) and not f.lower().endswith(".json")
-    ]
-    if not resource_files:
-      import_summary["scene"] = {"scene": ["No resource files found"]}
-      return import_summary
-
-    # match resource with scene name
-    matched = next((f for f in resource_files if json_data["name"] in f), None)
-    if not matched:
-      import_summary["scene"] = {"scene": ["No matching resource file"]}
-      return import_summary
-
-    resource_path = os.path.join(self.extract_dir, matched)
+    if not child:
+      import_summary["scene"] = await asyncio.to_thread(self.preflight, json_data)
+      if import_summary["scene"]:
+        return import_summary
+    resource_path = scene_map_path(json_data, self.extract_dir)
 
     # Upload scene (wrap sync REST call)
     resp = await asyncio.to_thread(self.createSceneMap, json_data, resource_path)
@@ -164,25 +198,19 @@ class ImportScene:
       "geospatial_provider", "map_zoom", "map_center_lat", "map_center_lng", "map_bearing",
       "mesh_translation", "mesh_rotation", "mesh_scale"
     ] if json_data.get(k) is not None}
-    if child:
-      scene_data["parent"] = parent
-
-    update_response = await asyncio.to_thread(self.rest.updateScene, scene_id, scene_data)
-    if update_response.errors:
-      import_summary["scene"] = update_response.errors
+    import_summary["scene"] = await self.update_scene_settings(scene_id, scene_data)
+    if import_summary["scene"]:
       return import_summary
 
     # Child link handling
-    if child and "link" in child:
-      link = child["link"]
-      link.pop("uid", None)
-      link.pop("transform", None)
-      child_uid = update_response.content["uid"]
-      parent_uid = update_response.content["parent"]
-      link["child"] = child_uid
-      link["parent"] = parent_uid
-      update_response = await asyncio.to_thread(self.rest.updateChildScene, child_uid, link)
-      log.info("Child link updated:", update_response)
+    if child:
+      link_response = await asyncio.to_thread(self.restore_local_link, child, scene_id, parent)
+      if link_response.errors:
+        import_summary["scene"] = {"scene": ["Failed to restore local child link"]}
+        return import_summary
+    import_summary["scene"] = await self.restore_remote_links(json_data, scene_id)
+    if import_summary["scene"]:
+      return import_summary
 
     # Bulk create cameras with transform handling
     cam_items = self.build_camera_items(json_data)
