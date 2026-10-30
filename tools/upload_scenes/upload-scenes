@@ -41,6 +41,8 @@ def build_argparser():
   parser.add_argument("--rootcert", help="CA certificate used to verify the server")
   parser.add_argument("--restore-ids", action="store_true",
                       help="restore original scene UUIDs; reject collisions")
+  parser.add_argument("--reuse-existing", action="store_true",
+                      help="reuse matching scenes without overwriting resources; reconcile missing links")
   parser.add_argument("--remote-credentials",
                       help="JSON credentials file keyed by remote scene UUID (never included in scene ZIPs)")
   parser.add_argument("--insecure", action="store_true",
@@ -80,7 +82,8 @@ def main():
     log.error("Remote credentials file does not exist")
     return 1
   client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True),
-                           restore_ids=args.restore_ids, remote_credentials=args.remote_credentials)
+                           restore_ids=args.restore_ids, remote_credentials=args.remote_credentials,
+                           reuse_existing=args.reuse_existing)
 
   if args.wait and not is_application_ready(client, args.wait, user, password):
     log.error(f"{args.url} was not ready after {args.wait} seconds")

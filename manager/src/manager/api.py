@@ -139,6 +139,7 @@ class SceneImportAPIView(APIView):
       zip_path, user_token,
       restore_ids=options.validated_data.get("restore_ids", False),
       remote_credentials=options.validated_data.get("remote_credentials", {}),
+      reuse_existing=options.validated_data.get("reuse_existing", False),
     )
     coroutine = scene.loadScene()
     errors = asyncio.run(coroutine)

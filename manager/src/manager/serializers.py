@@ -1152,6 +1152,7 @@ class CalibrationMarkerSerializer(NonNullSerializer):
 class SceneImportSerializer(serializers.Serializer):
   zipFile = serializers.FileField()
   restore_ids = serializers.BooleanField(default=False)
+  reuse_existing = serializers.BooleanField(default=False)
   remote_credentials = serializers.FileField(required=False, write_only=True)
 
   def validate_remote_credentials(self, value):

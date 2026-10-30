@@ -5,15 +5,19 @@ import os
 import zipfile
 import json
 import asyncio
-import aiofiles
 from uuid import UUID
 from typing import Any, Callable
 
+import aiofiles
+import requests
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import IntegrityError
 from rest_framework.exceptions import ValidationError
 
-from manager.scene_archive import LINK_FIELDS, remote_link_data, scene_map_path, validate_archive
+from manager.models import ChildScene
+from manager.scene_archive import (
+  LINK_FIELDS, remote_link_data, scene_map_path, validate_archive, validate_existing_link,
+)
 from manager.serializers import SceneSerializer
 from scene_common.rest_client import RESTClient, RESTResult
 from scene_common.options import POINT_CORRESPONDENCE, EULER
@@ -22,10 +26,12 @@ from scene_common import log
 
 
 class ImportScene:
-  def __init__(self, zip_path, token, restore_ids=False, remote_credentials=None):
+  def __init__(self, zip_path, token, restore_ids=False, remote_credentials=None, reuse_existing=False):
     self.zip_path = zip_path
     self.badZipfile = False
     self.restore_ids = restore_ids
+    self.reuse_existing = reuse_existing
+    self.existing_scenes = {}
     self.remote_credentials = remote_credentials or {}
     self.extractZip()
     self.rootcert = '/run/secrets/certs/scenescape-ca.pem'
@@ -102,7 +108,8 @@ class ImportScene:
 
   def preflight(self, json_data):
     try:
-      validate_archive(json_data, self.extract_dir, self.restore_ids, self.remote_credentials)
+      self.existing_scenes = validate_archive(
+        json_data, self.extract_dir, self.restore_ids, self.remote_credentials, self.reuse_existing)
     except (ValueError, TypeError, KeyError) as error:
       return {"scene": [str(error)]}
     return None
@@ -110,16 +117,46 @@ class ImportScene:
   def restore_local_link(self, child, scene_id, parent):
     data = {key: child.get("link", {})[key] for key in LINK_FIELDS if key in child.get("link", {})}
     data.update({"child_type": "local", "child": scene_id, "parent": parent})
-    return self.rest.createChildScene(data)
+    return self.restore_link(data)
+
+  def restore_link(self, data):
+    try:
+      if self.reuse_existing:
+        lookup = {"child_id": data["child"]} if data["child_type"] == "local" else {
+          "remote_child_id": data["remote_child_id"]}
+        existing = ChildScene.objects.filter(**lookup).first()
+        if existing is not None:
+          validate_existing_link(existing, data, data["parent"])
+          return RESTResult(200)
+      return self.rest.createChildScene(data)
+    except (ValueError, requests.RequestException) as error:
+      log.error(f"Scene link restoration failed ({type(error).__name__})")
+      message = str(error) if isinstance(error, ValueError) else "Cannot contact child-link API"
+      return RESTResult(400, errors={"scene": [message]})
 
   async def restore_remote_links(self, json_data, scene_id):
     for link in json_data.get("remote_children", []):
       data = remote_link_data(link, self.remote_credentials)
       data["parent"] = scene_id
-      response = await asyncio.to_thread(self.rest.createChildScene, data)
+      response = await asyncio.to_thread(self.restore_link, data)
       if response.errors:
         return {"scene": [f"Failed to restore remote child {link['remote_child_id']}"]}
     return None
+
+  async def prepare_scene(self, json_data, summary):
+    """Create scene resources only for missing scenes; reused scenes remain untouched."""
+    existing_id = self.existing_scenes.get(json_data["name"])
+    if existing_id is not None:
+      log.info(f"Reusing scene '{json_data['name']}' without changing its resources")
+      return existing_id
+    resource_path = scene_map_path(json_data, self.extract_dir)
+    response = await asyncio.to_thread(self.createSceneMap, json_data, resource_path)
+    if response.errors:
+      summary["scene"] = response.errors
+      return None
+    scene_id = response.get("uid")
+    await self.populate_scene(json_data, scene_id, summary)
+    return scene_id
 
   async def update_scene_settings(self, scene_id, data):
     if data:
@@ -176,16 +213,28 @@ class ImportScene:
       import_summary["scene"] = await asyncio.to_thread(self.preflight, json_data)
       if import_summary["scene"]:
         return import_summary
-    resource_path = scene_map_path(json_data, self.extract_dir)
-
-    # Upload scene (wrap sync REST call)
-    resp = await asyncio.to_thread(self.createSceneMap, json_data, resource_path)
-    if resp.errors:
-      import_summary["scene"] = resp.errors
+    scene_id = await self.prepare_scene(json_data, import_summary)
+    if import_summary["scene"]:
       return import_summary
 
-    scene_id = resp.get("uid")
+    if child:
+      link_response = await asyncio.to_thread(self.restore_local_link, child, scene_id, parent)
+      if link_response.errors:
+        import_summary["scene"] = link_response.errors
+        return import_summary
+    import_summary["scene"] = await self.restore_remote_links(json_data, scene_id)
+    if import_summary["scene"]:
+      return import_summary
 
+    error_fields = ("scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")
+    for child_data in json_data.get("children", []):
+      child_summary = await self.loadScene(child=child_data, parent=scene_id)
+      if any(child_summary[key] for key in error_fields):
+        return child_summary
+
+    return import_summary
+
+  async def populate_scene(self, json_data, scene_id, import_summary):
     # Scene update. Omit keys absent from the export: several of these model
     # fields are non-nullable, so sending an explicit null for one missing key
     # would reject the whole partial update (including camera_calibration).
@@ -199,16 +248,6 @@ class ImportScene:
       "mesh_translation", "mesh_rotation", "mesh_scale"
     ] if json_data.get(k) is not None}
     import_summary["scene"] = await self.update_scene_settings(scene_id, scene_data)
-    if import_summary["scene"]:
-      return import_summary
-
-    # Child link handling
-    if child:
-      link_response = await asyncio.to_thread(self.restore_local_link, child, scene_id, parent)
-      if link_response.errors:
-        import_summary["scene"] = {"scene": ["Failed to restore local child link"]}
-        return import_summary
-    import_summary["scene"] = await self.restore_remote_links(json_data, scene_id)
     if import_summary["scene"]:
       return import_summary
 
@@ -243,22 +282,12 @@ class ImportScene:
     import_summary["calibration_markers"] = marker_errors
     import_summary["calibration_markers_created"] = markers_created
 
-    # children recursion
-    for child_data in json_data.get("children", []):
-      child_summary = await self.loadScene(child=child_data, parent=scene_id)
-      if any(child_summary[key] for key in (
-          "scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")):
-        return child_summary
-
-    return import_summary
-
   async def bulk_create(
       self,
       items: list[dict[str, Any]] | None,
       scene_id: str,
-      create_fn: Callable[[dict[str, Any]], Any]) -> tuple[
-        list[dict[str, Any]] | None,
-        list[tuple[Any, dict[str, Any]]] | None]:
+      create_fn: Callable[[dict[str, Any]], Any],
+  ) -> tuple[list[dict[str, Any]] | None, list[tuple[Any, dict[str, Any]]] | None]:
     """Creates many scene resources and returns (created_items, errors)."""
     errors = []
     created = []
@@ -271,5 +300,6 @@ class ImportScene:
         else:
           created.append(dict(resp))
       except Exception as e:
-        errors.append((e, item))
+        log.error(f"Scene resource creation failed ({type(e).__name__})")
+        errors.append(({"error": [f"Resource creation failed ({type(e).__name__})"]}, item))
     return created or None, errors or None

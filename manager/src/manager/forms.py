@@ -100,6 +100,8 @@ class SingletonDetailsForm(ModelForm):
     fields = ('__all__')
 
 class SceneImportForm(ModelForm):
+  reuse_existing = forms.BooleanField(required=False, label="Reuse existing scenes",
+                                     help_text="Keep existing resources and restore missing hierarchy links.")
   restore_ids = forms.BooleanField(required=False, label="Restore original scene IDs",
                                   help_text="Rejects UUID collisions; leave unchecked to create new IDs.")
   remote_credentials = forms.FileField(required=False, label="Remote MQTT credentials (JSON)",

@@ -175,12 +175,12 @@ class TestImportScene:
     credentials = tmp_path / "credentials.json"
     credentials.write_text("{}")
     client = SceneScapeClient("https://localhost", True, restore_ids=True,
-                              remote_credentials=str(credentials))
+                              remote_credentials=str(credentials), reuse_existing=True)
     client.session = MagicMock()
     client.session.request.return_value.json.return_value = {}
     client.import_scene(str(zip_path))
     kwargs = client.session.request.call_args.kwargs
-    assert kwargs["data"] == {"restore_ids": "true"}
+    assert kwargs["data"] == {"restore_ids": "true", "reuse_existing": "true"}
     assert set(kwargs["files"]) == {"zipFile", "remote_credentials"}
 
 
@@ -292,6 +292,18 @@ class TestUploadScene:
 
 
 class TestUploadOne:
+  def test_reuse_sends_existing_parent_to_server_for_link_reconciliation(self, fake_client, scene_zip):
+    fake_client.reuse_existing = True
+    fake_client.restore_ids = True
+    fake_client.scene_uid.return_value = "existing"
+    archive = scene_zip({
+      "name": "Parent", "children": [{"name": "Child"}],
+      "calibration_markers": [{"apriltag_id": 1, "dims": 0.2}],
+    })
+    assert upload_one(fake_client, str(archive)) == "existing"
+    fake_client.import_scene.assert_called_once_with(str(archive))
+    fake_client.create_calibration_marker.assert_not_called()
+
   @pytest.mark.parametrize("restore_ids, hierarchy", [(True, False), (False, True)])
   def test_existing_hierarchy_or_restore_fails(self, fake_client, scene_zip, restore_ids, hierarchy):
     fake_client.restore_ids = restore_ids

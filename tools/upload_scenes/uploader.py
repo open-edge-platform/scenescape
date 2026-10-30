@@ -34,11 +34,12 @@ log = logging.getLogger("upload-scenes")
 class SceneScapeClient:
   """The handful of REST calls needed to import a scene and its dependencies."""
 
-  def __init__(self, url, verify, restore_ids=False, remote_credentials=None):
+  def __init__(self, url, verify, restore_ids=False, remote_credentials=None, reuse_existing=False):
     self.url = url.rstrip("/")
     self.session = requests.Session()
     self.session.verify = verify
     self.restore_ids = restore_ids
+    self.reuse_existing = reuse_existing
     self.remote_credentials = remote_credentials
     return
 
@@ -84,6 +85,8 @@ class SceneScapeClient:
       data = {}
       if self.restore_ids:
         data["restore_ids"] = "true"
+      if self.reuse_existing:
+        data["reuse_existing"] = "true"
       if self.remote_credentials:
         credentials = stack.enter_context(open(self.remote_credentials, "rb"))
         files["remote_credentials"] = ("credentials.json", credentials, "application/json")
@@ -243,7 +246,7 @@ def upload_one(client, zip_path):
 
   name = scene["name"]
   existing_uid = client.scene_uid(name)
-  if existing_uid:
+  if existing_uid and not client.reuse_existing:
     if client.restore_ids or scene.get("remote_children") or scene.get("children"):
       log.error(f"Scene '{name}' already exists; hierarchy import requires a fresh destination")
       return None
@@ -252,8 +255,9 @@ def upload_one(client, zip_path):
       return None
     return existing_uid
 
-  if not upload_scene(client, scene, zip_path) \
-      or not upload_calibration_markers(client, scene):
+  if not upload_scene(client, scene, zip_path):
+    return None
+  if not client.reuse_existing and not upload_calibration_markers(client, scene):
     return None
 
   log.info(f"Uploaded scene '{name}' from {zip_path}")
