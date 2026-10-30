@@ -59,14 +59,56 @@ Connect and sign in as described in [Deploy on Docker](./deploy-docker.md#verify
 For scene hierarchies, UUID restoration, and supplying remote MQTT credentials,
 see [Exporting and Restoring a Hierarchy](../build-a-scene/configure-hierarchy-of-scenes.md#exporting-and-restoring-a-hierarchy).
 
-Scenes that already exist are skipped, so re-running `make demo-scenes` is safe. `make demo`/`make demo-scenes` create and reuse a virtual environment at `tools/upload_scenes/.venv`; create or reuse it directly if you have not run either target yet, since the system Python on the supported Ubuntu setup is externally managed and rejects a bare `pip install`:
+The Manager image includes the `upload-scenes` CLI for batch imports and automation; no host-side Python setup is needed. It runs only when explicitly invoked and does not change Manager startup.
+
+Use `--reuse-existing` when importing overlapping hierarchies or retrying an import. Existing scenes are kept unchanged while missing scenes and hierarchy links are restored; conflicting identities or links are rejected. Without this option, existing standalone scenes are skipped and their calibration markers are reconciled, but existing hierarchies or imports using `--restore-ids` are rejected.
+
+Prepare a directory of per-scene subdirectories, each containing its own `<scene>.zip` as produced by the **Export Scene** button of the Web UI.
+
+For a local hierarchy, the parent ZIP includes its local descendants, so importing only that ZIP creates the scenes and their links in one invocation.
+
+#### Using the Manager Image
+
+For an already-running Docker Compose deployment, run a one-off uploader container using the web service's image, network, and mounted credentials:
+
+```bash
+docker compose run --rm --no-deps --entrypoint upload-scenes \
+  --volume "$PWD/my-scenes:/scenes:ro" \
+  web \
+  --restauth /run/secrets/controller.auth \
+  --rootcert /run/secrets/certs/scenescape-ca.pem \
+  --reuse-existing \
+  https://web.scenescape.intel.com/api/v1 /scenes
+```
+
+Without Compose, use the same Manager image version as your deployment and mount the scene directory, auth file, and CA certificate read-only. For example, with `controller.auth` and `scenescape-ca.pem` securely provisioned in the current directory:
+
+```bash
+export MANAGER_IMAGE='intel/scenescape-manager:<deployed-version>'
+export SCENESCAPE_API_URL='https://<deployment-host>/api/v1'
+docker run --rm --entrypoint upload-scenes \
+  --mount "type=bind,src=$PWD/my-scenes,dst=/scenes,readonly" \
+  --mount "type=bind,src=$PWD/controller.auth,dst=/run/secrets/controller.auth,readonly" \
+  --mount "type=bind,src=$PWD/scenescape-ca.pem,dst=/run/secrets/scenescape-ca.pem,readonly" \
+  "$MANAGER_IMAGE" \
+  --restauth /run/secrets/controller.auth \
+  --rootcert /run/secrets/scenescape-ca.pem \
+  --reuse-existing \
+  "$SCENESCAPE_API_URL" /scenes
+```
+
+Replace the image version and deployment hostname above. The API URL must be reachable from inside the uploader container and match the server certificate. The image's default non-root user must be able to read the mounted files. This command can target either a Docker or Kubernetes deployment with a reachable API endpoint.
+
+#### Host-Side Alternative
+
+The standalone uploader remains available in a repository checkout. `make demo`/`make demo-scenes` create and reuse a virtual environment at `tools/upload_scenes/.venv`; create or reuse it directly if you have not run either target yet, since the system Python on the supported Ubuntu setup is externally managed and rejects a bare `pip install`:
 
 ```bash
 python3 -m venv tools/upload_scenes/.venv
 tools/upload_scenes/.venv/bin/pip install -r tools/upload_scenes/requirements.txt
 ```
 
-To load your own scenes into an already-running deployment, point the tool at a different directory of per-scene subdirectories, each with its own `<scene>.zip` as produced by the "Export Scene" button of the web UI:
+Point the tool at your scene directory:
 
 ```bash
 tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \
