@@ -86,6 +86,8 @@ def apply_model(config, bundle, verification, backup_path):
   if before["scene"] != bundle["camera_before"]["scene"]:
     raise ValueError("Camera was moved to a different scene after measurement")
   backup = {key: before[key] for key in SNAPSHOT_KEYS if key in before}
+  backup.setdefault("ptz_calibration", None)
+  backup.setdefault("distortion", dict.fromkeys(("k1", "k2", "p1", "p2", "k3"), 0.0))
   write_json(backup_path, backup)
   calibration = copy.deepcopy(bundle["ptz_calibration"])
   calibration["quality"]["reprojection_rms_px"] = checked["rms_px"]
