@@ -21,7 +21,7 @@ spec:
               app: {{ .Release.Name }}-broker
       ports:
         - protocol: TCP
-          port: 8883
+          port: 1883
     - to:
         - podSelector:
             matchLabels:

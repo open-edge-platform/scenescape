@@ -9,5 +9,3 @@ metadata:
 data:
   mosquitto-secure.conf: |
 {{ .Files.Get "files/broker/mosquitto-secure.conf" | indent 4 }}
-  positioning.acl: |
-{{ include "positioning.brokerACL" . | indent 4 }}

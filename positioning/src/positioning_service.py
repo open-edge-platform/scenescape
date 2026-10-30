@@ -119,7 +119,7 @@ class PositioningService:
     self._workers_started = False
     self._workers_lock = threading.Lock()
     for credential_path in (cert, keyfile, root_cert):
-      if not os.path.isfile(credential_path):
+      if credential_path is not None and not os.path.isfile(credential_path):
         raise FileNotFoundError(f"Required MQTT TLS file not found: {credential_path}")
     self.readiness_file = os.environ.get("POSITIONING_READINESS_FILE", "/tmp/positioning-ready")
     try:
@@ -294,10 +294,10 @@ def build_argparser():
                       help="hostname or IP of MQTT broker")
   parser.add_argument("--brokerauth", default="/run/secrets/positioning.auth",
                       help="user:password or JSON file for MQTT authentication")
-  parser.add_argument("--cert", default="/run/secrets/certs/scenescape-positioning.crt",
-                      help="path to client certificate")
-  parser.add_argument("--keyfile", default="/run/secrets/certs/scenescape-positioning.key",
-                      help="path to client private key")
+  parser.add_argument("--cert", default=None,
+                      help="optional path to client certificate")
+  parser.add_argument("--keyfile", default=None,
+                      help="optional path to client private key")
   parser.add_argument("--rootcert", default="/run/secrets/certs/scenescape-ca.pem",
                       help="path to CA certificate")
   parser.add_argument("--manager-url", default="https://web.scenescape.intel.com/api/v1",

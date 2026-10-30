@@ -61,8 +61,7 @@ class Command(BaseCommand):
         PubSubACL.objects.update_or_create(
             user=current_user,
             topic=acl.get('topic'),
-            defaults={'access':acl.get('access', 0),
-                      'all_scenes':acl.get('all_scenes') is True}
+            defaults={'access':acl.get('access', 0)}
         )
 
   def loadUserAccessConfig(self):

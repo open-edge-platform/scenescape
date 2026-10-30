@@ -43,13 +43,9 @@ spec:
             - "--log-level"
             - {{ .Values.positioning.logLevel | quote }}
             - "--broker"
-            - "broker.{{ .Release.Namespace }}.svc.cluster.local:8883"
+            - "broker.{{ .Release.Namespace }}.svc.cluster.local"
             - "--brokerauth"
             - "/run/secrets/positioning.auth"
-            - "--cert"
-            - "/run/secrets/certs/scenescape-positioning.crt"
-            - "--keyfile"
-            - "/run/secrets/certs/scenescape-positioning.key"
             - "--rootcert"
             - "/run/secrets/certs/scenescape-ca.pem"
             - "--manager-url"
@@ -89,14 +85,6 @@ spec:
               mountPath: /run/secrets/certs/scenescape-ca.pem
               subPath: scenescape-ca.pem
               readOnly: true
-            - name: positioning-tls
-              mountPath: /run/secrets/certs/scenescape-positioning.crt
-              subPath: scenescape-positioning.crt
-              readOnly: true
-            - name: positioning-tls
-              mountPath: /run/secrets/certs/scenescape-positioning.key
-              subPath: scenescape-positioning.key
-              readOnly: true
             - name: tmp
               mountPath: /tmp
             {{- if include "positioning.onvifCredentialsSecretName" . }}
@@ -115,15 +103,6 @@ spec:
           secret:
             secretName: {{ .Release.Name }}-positioning.auth
             defaultMode: 0440
-        - name: positioning-tls
-          secret:
-            secretName: {{ .Release.Name }}-positioning-tls
-            defaultMode: 0440
-            items:
-              - key: tls.crt
-                path: scenescape-positioning.crt
-              - key: tls.key
-                path: scenescape-positioning.key
         - name: tmp
           emptyDir: {}
         - name: certs
