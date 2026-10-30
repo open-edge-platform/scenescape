@@ -22,7 +22,7 @@ SCENE_NAME = "Queuing"
 # Queuing scene cameras: atag-qcam1 and atag-qcam2
 CAM_URLS = ("/cam/calibrate/1", "/cam/calibrate/2")
 AUTOCAL_BUTTON_ID = "auto-autocalibration"
-EXPECTED_TITLE = "No map available for scene. Click to retry registration"
+EXPECTED_TITLE = "No map available for scene"
 TITLE_TIMEOUT_S = 60
 
 
@@ -38,7 +38,7 @@ def open_scene_edit(browser):
 
 
 def wait_for_expected_title(browser):
-  """! Waits until the autocalibration button shows one of the no-map messages.
+  """! Waits until the autocalibration button shows the no-map message.
   @return   str    Final button title.
   """
   last = {"title": None}
@@ -59,7 +59,7 @@ def wait_for_expected_title(browser):
 @common.mock_display
 @pytest.mark.test_name("NEX-T12748")
 def test_autocalibration_no_scene_map(params, result_recorder):
-  """! Verify autocalibration offers retry when the scene map is deleted.
+  """! Verify autocalibration is disabled when the scene map is deleted.
   @param    params                  Dict of test parameters.
   @param    result_recorder         Pytest fixture recording the test result.
   """
@@ -91,8 +91,8 @@ def test_autocalibration_no_scene_map(params, result_recorder):
 
       title = wait_for_expected_title(browser)
       log.info(f"Autocalibration button tooltip: {title!r}")
-      assert button.is_enabled(), \
-        f"Autocalibration retry should be enabled when scene has no map ({cam_url})"
+      assert not button.is_enabled(), \
+        f"Autocalibration should be disabled when scene has no map ({cam_url})"
 
     result_recorder.success()
 
