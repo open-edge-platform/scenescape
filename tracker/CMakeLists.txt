@@ -99,6 +99,13 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/telemetry.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/metrics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/observability_context.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ptz_config.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ptz_consumer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ptz_dwell.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ptz_pose_parser.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ptz_registry.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ptz_shadow.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/ptz_time.cpp
 )
 
 add_executable(${PROJECT_NAME}

@@ -436,12 +436,24 @@ services:
       - TRACKER_MANAGER_AUTH_PATH=/run/secrets/controller.auth
       - TRACKER_MANAGER_CA_CERT_PATH=/run/secrets/certs/scenescape-ca.pem
       - TRACKER_SCENES_SOURCE=api
+      # PTZ PoseContext consumption: both modes off by default and mutually exclusive.
+      # The four bounds are deployment-owned and required when either mode is on.
+      - TRACKER_PTZ_ENABLED=${TRACKER_PTZ_ENABLED:-false}
+      - TRACKER_PTZ_SHADOW_MODE=${TRACKER_PTZ_SHADOW_MODE:-false}
+      - TRACKER_PTZ_MAX_POSE_AGE_S=${TRACKER_PTZ_MAX_POSE_AGE_S:-}
+      - TRACKER_PTZ_MAX_CLOCK_OFFSET_S=${TRACKER_PTZ_MAX_CLOCK_OFFSET_S:-}
+      - TRACKER_PTZ_MAX_DETECTION_PIPELINE_LATENCY_S=${TRACKER_PTZ_MAX_DETECTION_PIPELINE_LATENCY_S:-}
+      - TRACKER_PTZ_MAX_DETECTION_TIMESTAMP_UNCERTAINTY_S=${TRACKER_PTZ_MAX_DETECTION_TIMESTAMP_UNCERTAINTY_S:-}
+      - TRACKER_PTZ_SHADOW_RUN_ID=${TRACKER_PTZ_SHADOW_RUN_ID:-}
+      - TRACKER_PTZ_SHADOW_PER_DECISION=${TRACKER_PTZ_SHADOW_PER_DECISION:-}
       # Override host proxy settings - Paho MQTT dont respect no_proxy var, so as a WA
       # tracker code detects empty vars and unsets them (see proxy_utils.cpp clearEmptyProxyEnvVars)
       - http_proxy=
       - https_proxy=
       - HTTP_PROXY=
       - HTTPS_PROXY=
+    volumes:
+      - ./deployment/positioning-assignments.json:/scenescape/config/positioning-assignments.json:ro
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

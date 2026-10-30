@@ -5,6 +5,7 @@
 
 #include "logger.hpp"
 #include "metrics.hpp"
+#include "ptz_dwell.hpp"
 #include "time_utils.hpp"
 
 #include <rv/tracking/ObjectMatching.hpp>
@@ -315,7 +316,12 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
             continue;
         }
-        objects_per_camera.push_back(transformer_it->second.transformDetections(batch.detections));
+        const auto& transformer = transformer_it->second;
+        // An admitted PTZ batch projects with the PoseContext that admitted it; the
+        // transformer keeps the camera's static intrinsics.
+        const PoseView& pose = (batch.ptz_pose && batch.ptz_pose->view) ? *batch.ptz_pose->view
+                                                                        : transformer.staticPose();
+        objects_per_camera.push_back(transformer.transformDetections(batch.detections, pose));
     }
 
     return objects_per_camera;

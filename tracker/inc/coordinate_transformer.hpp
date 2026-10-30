@@ -14,6 +14,7 @@
 #include <rv/tracking/TrackedObject.hpp>
 
 #include "object_class.hpp"
+#include "pose_view.hpp"
 #include "scene_loader.hpp"
 #include "tracking_types.hpp"
 
@@ -97,6 +98,21 @@ public:
     transformDetections(std::span<const Detection> detections) const;
 
     /**
+     * @brief Batch-transform detections with an explicit camera pose.
+     *
+     * Same as transformDetections(detections), but projects with @p pose instead of the
+     * static extrinsics. Intrinsics, distortion, shift type, and footprint stay those of
+     * this transformer. Used for PTZ batches admitted with a per-frame PoseContext.
+     */
+    std::vector<rv::tracking::TrackedObject>
+    transformDetections(std::span<const Detection> detections, const PoseView& pose) const;
+
+    /**
+     * @brief Static (home) pose built from the configured extrinsics.
+     */
+    [[nodiscard]] const PoseView& staticPose() const { return static_pose_; }
+
+    /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].
      *
      * Computes a pure Z-axis rotation quaternion:
@@ -115,7 +131,7 @@ public:
     /**
      * @brief Get the 4x4 pose matrix (camera-to-world transformation).
      */
-    const cv::Matx44d& getPoseMatrix() const { return pose_matrix_; }
+    const cv::Matx44d& getPoseMatrix() const { return static_pose_.pose_matrix; }
 
     /**
      * @brief Get the 3x3 camera intrinsics matrix.
@@ -134,11 +150,13 @@ private:
      * Parallel pose-transform + ray-plane intersection.
      *
      * @param normalized Undistorted normalized image-plane coordinates
+     * @param pose Camera pose to project with
      * @param[out] world Output world coordinates (same size as normalized)
      * @param[out] valid Output validity flags (same size as normalized)
      */
-    void batchNormalizedToWorld(const std::vector<cv::Point2f>& normalized,
-                                std::vector<cv::Point2d>& world, std::vector<uint8_t>& valid) const;
+    static void batchNormalizedToWorld(const std::vector<cv::Point2f>& normalized,
+                                       const PoseView& pose, std::vector<cv::Point2d>& world,
+                                       std::vector<uint8_t>& valid);
 
     /**
      * @brief Compute 3x3 rotation matrix from Euler angles (XYZ intrinsic, degrees).
@@ -150,22 +168,12 @@ private:
      */
     static double degToRad(double degrees) { return degrees * std::numbers::pi / 180.0; }
 
-    /**
-     * @brief Calculate horizon distance based on camera height (Earth curvature).
-     */
-    double getHorizonDistance() const;
-
     cv::Matx33d intrinsics_matrix_;
     cv::Vec4d distortion_coeffs_;
-    cv::Matx33d camera_rotation_;
-    cv::Matx44d pose_matrix_;
-    cv::Point3d camera_origin_;
+    PoseView static_pose_;
     int shift_type_;
     std::optional<double> footprint_half_; // metres
 
-    static constexpr double kFallbackHorizonDistance = 100.0;
-    static constexpr double kEarthRadius = 6371000.0;
-    static constexpr double kMinHeightForHorizon = 0.1;
     static constexpr double kRayEpsilon = 1e-6;
 
     static constexpr size_t kCornersPerDetection = 2;

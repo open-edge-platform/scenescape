@@ -1,0 +1,26 @@
+{
+  "$schema": "http://json-schema.org/draft-04/schema#",
+  "id": "https://scenescape.intel.com/tracker/schema/positioning-status.schema.json",
+  "$comment": "Verbatim copy of definitions.positioning_status in controller/src/schema/metadata.schema.json; ptz_schema_sync_test fails on drift.",
+  "title": "Positioning resolver status",
+  "description": "Retained status/LWT published on scenescape/positioning/status/{resolver_id}. timestamp is the session start time. Draft-04 compatible and self-contained (no $ref).",
+  "type": "object",
+  "properties": {
+    "resolver_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 256
+    },
+    "status": {
+      "type": "string",
+      "enum": ["online", "offline"]
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "maxLength": 64
+    }
+  },
+  "required": ["resolver_id", "status", "timestamp"],
+  "additionalProperties": false
+}

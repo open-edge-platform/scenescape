@@ -278,6 +278,18 @@ pipeline:
 - `tracker.time_chunking.non_empty_chunks`
 - `tracker.time_chunking.empty_chunks`
 
+**PTZ pose consumption counters** (emitted only when a Tracker PTZ mode is on — see
+[PTZ Pose Consumption in the Tracker](https://github.com/open-edge-platform/scenescape/blob/main/tracker/docs/ptz-pose-consumption.md#metrics)):
+
+- `tracker.ptz.detections.admitted` — PTZ camera messages admitted, by `mode`.
+- `tracker.ptz.detections.rejected` — PTZ camera messages rejected, by `mode`
+  and `reason_detail`.
+- `tracker.ptz.pose_messages.rejected` — pose or status messages dropped
+  before use, by `stage`.
+
+Rejected messages in enforcing mode are also counted in `tracker.mqtt.dropped`
+with `reason=ptz_dwell`.
+
 **Tracing.** Spans are created for MQTT message handling
 (`tracker.mqtt_handler`), tracking (`tracker.tracking`), publishing
 (`tracker.publish`), and end-to-end detection processing

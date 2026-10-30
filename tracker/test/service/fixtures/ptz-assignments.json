@@ -1,0 +1,4 @@
+{
+  "$comment": "Service-test assignment manifest: only ptz-cam has a Resolver.",
+  "ptz-cam": "positioning"
+}

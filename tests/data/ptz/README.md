@@ -1,9 +1,9 @@
 # PTZ Test Data
 
-| File                         | Purpose                                                                                                                                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dwell_conformance.json`     | Shared dwell-admission vectors. The Controller and Tracker suites load this file unmodified. The Controller replays it in `tests/sscape_tests/scenescape/test_controller_ptz_conformance.py`. |
-| `provisional_pose_math.json` | Development-only pose-math fixture that uses PoC values (`"provisional": true`). It is not golden data.                                                                                       |
+| File                         | Purpose                                                                                                                                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dwell_conformance.json`     | Shared dwell-admission vectors. The Controller and Tracker suites load this file unmodified. The Controller replays it in `tests/sscape_tests/scenescape/test_controller_ptz_conformance.py`, and the Tracker in `tracker/test/unit/ptz_conformance_test.cpp`. |
+| `provisional_pose_math.json` | Development-only pose-math fixture that uses PoC values (`"provisional": true`). It is not golden data.                                                                                                                                                        |
 
 The provisional fixture pins its source PoC commit and fitting-script path/revision
 in `ptz_calibration.provenance`. The pinned snapshot is

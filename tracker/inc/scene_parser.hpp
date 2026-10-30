@@ -99,6 +99,12 @@ inline Scene parse_scene(const rapidjson::Value& scene_val) {
         camera.extrinsics.scale =
             require_array3(cam_val, scene_json::CAMERA_EXTRINSICS_SCALE, cam_context);
 
+        if (const auto* ptz = Pointer(scene_json::CAMERA_PTZ_CALIBRATION).Get(cam_val);
+            ptz != nullptr && ptz->IsObject()) {
+            camera.ptz = PtzCalibrationRef{
+                get_value<std::string>(cam_val, scene_json::CAMERA_PTZ_CALIBRATION_VERSION)};
+        }
+
         scene.cameras.push_back(std::move(camera));
     }
 

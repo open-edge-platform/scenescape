@@ -5,6 +5,7 @@
 
 #include "config_loader.hpp"
 #include "mqtt_client.hpp"
+#include "ptz_consumer.hpp"
 #include "scene_registry.hpp"
 #include "time_chunk_buffer.hpp"
 #include "time_utils.hpp"
@@ -26,15 +27,6 @@
 #include <rapidjson/schema.h>
 
 namespace tracker {
-
-/**
- * @brief Parsed camera detection message.
- */
-struct CameraMessage {
-    std::string id;
-    std::string timestamp;
-    std::map<std::string, std::vector<Detection>> objects; // category -> detections
-};
 
 /**
  * @brief Handles MQTT message routing for the tracker service.
@@ -80,12 +72,14 @@ public:
      * @param clock_fn Callable returning the current time (defaults to system_clock::now).
      *                 Inject a lambda in tests to control time, or pass NtpClock::asClockFn()
      *                 to use NTP-adjusted time.
+     * @param ptz PTZ PoseContext consumer; null when PTZ consumption is off (no extra work)
      */
     explicit MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
                             const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
                             const TrackingConfig& tracking_config, bool schema_validation = true,
                             const std::filesystem::path& schema_dir = "/scenescape/schema",
-                            ClockFn clock_fn = makeSystemClock());
+                            ClockFn clock_fn = makeSystemClock(),
+                            std::shared_ptr<ptz::PtzConsumer> ptz = nullptr);
 
     /**
      * @brief Enable dynamic mode for database update notifications.
@@ -128,6 +122,11 @@ public:
      * @brief Get count of messages dropped due to lag.
      */
     [[nodiscard]] int getLaggedCount() const { return lagged_count_; }
+
+    /**
+     * @brief Get count of PTZ messages rejected by the dwell contract (enforcing mode).
+     */
+    [[nodiscard]] int getPtzGatedCount() const { return ptz_gated_count_; }
 
 private:
     /**
@@ -197,9 +196,13 @@ private:
      *
      * Routes by topic:
      * - scenescape/cmd/database -> handleDatabaseUpdateMessage
+     * - scenescape/positioning/ -> PTZ consumer (pose/status, when PTZ is on)
      * - scenescape/data/camera/ -> handleCameraMessage (default)
      */
     void routeMessage(const std::string& topic, const std::string& payload);
+
+    /// PTZ pose/status topics to (un)subscribe; empty when PTZ is off.
+    [[nodiscard]] std::vector<std::string> ptzTopics() const;
 
     std::shared_ptr<IMqttClient> mqtt_client_;
     const SceneRegistry& scene_registry_;
@@ -215,8 +218,10 @@ private:
     std::atomic<int> buffered_count_{0};
     std::atomic<int> rejected_count_{0};
     std::atomic<int> lagged_count_{0};
+    std::atomic<int> ptz_gated_count_{0};
 
     ClockFn clock_fn_; ///< Provides current time (NTP-adjusted or system clock)
+    std::shared_ptr<ptz::PtzConsumer> ptz_; ///< Null when PTZ consumption is off
 
     /// Cache of validated category names (validated once on first use)
     /// Active scopes accumulated as new (scene, category) pairs are seen.

@@ -8,6 +8,8 @@
 #include <array>
 #include <chrono>
 #include <functional>
+#include <map>
+#include <memory>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -36,6 +38,19 @@ struct Detection {
 };
 
 /**
+ * @brief Parsed camera detection message.
+ */
+struct CameraMessage {
+    std::string id;
+    std::string timestamp;
+    std::map<std::string, std::vector<Detection>> objects; // category -> detections
+};
+
+namespace ptz {
+struct PoseSnapshot;
+} // namespace ptz
+
+/**
  * @brief Composite key for worker routing.
  *
  * Each scope (scene+category combination) gets its own tracker instance.
@@ -59,6 +74,28 @@ struct DetectionBatch {
     std::chrono::system_clock::time_point timestamp; ///< Parsed UTC timestamp
     std::vector<Detection> detections;
     ObservabilityContext obs_ctx; ///< Pipeline observability context
+
+    /// PoseContext that admitted this PTZ batch; projection uses it instead of the static
+    /// extrinsics. Null for static cameras, shadow mode, and gated batches.
+    std::shared_ptr<const ptz::PoseSnapshot> ptz_pose;
+    /// PTZ batch (enforcing mode): kept alongside earlier same-camera batches with distinct
+    /// timestamps in one chunk, because each carries its own dwell decision and pose.
+    bool ptz_preserve = false;
+    /// Detection-less heartbeat for a rejected PTZ batch: ages tracks, never displaces data.
+    bool ptz_gated = false;
+};
+
+/**
+ * @brief Buffered batches of one camera within a scope for the current chunk.
+ *
+ * Static cameras keep only `latest` (keep-latest semantics). PTZ batches with distinct
+ * timestamps move the previous batch into `earlier` (bounded), so a later dwell decision
+ * can never be applied to another batch's detections. `earlier` stays empty (no
+ * allocation) for static cameras.
+ */
+struct CameraSlot {
+    DetectionBatch latest;
+    std::vector<DetectionBatch> earlier;
 };
 
 /**
@@ -131,7 +168,7 @@ struct TrackingScopeHash {
 };
 
 // Type aliases for buffer structures
-using CameraMap = std::unordered_map<std::string, DetectionBatch>; ///< camera_id → batch
+using CameraMap = std::unordered_map<std::string, CameraSlot>; ///< camera_id → batches
 using BufferMap =
     std::unordered_map<TrackingScope, CameraMap, TrackingScopeHash>; ///< scope → cameras
 

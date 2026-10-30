@@ -162,6 +162,18 @@
             }
           },
           "additionalProperties": true
+        },
+        "ptz_calibration": {
+          "type": ["object", "null"],
+          "description": "Manager PTZ calibration; non-null marks a PTZ camera. The Tracker uses only calibration_version (to pin PoseContexts); the Positioning service interprets the rest.",
+          "properties": {
+            "calibration_version": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            }
+          },
+          "additionalProperties": true
         }
       },
       "additionalProperties": true
