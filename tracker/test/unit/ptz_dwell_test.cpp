@@ -54,6 +54,28 @@ TEST(PtzTimeTest, RejectsInvalidTimestamps) {
     }
 }
 
+TEST(PtzTimeTest, RejectsTimestampsOutsideInt64NanosecondRange) {
+    for (const char* text :
+         {"9999-12-31T23:59:59Z", "2262-04-12T00:00:00Z", "2262-04-11T23:47:16.854776Z",
+          "2262-04-11T23:47:17Z", "1677-09-21T00:12:43.145224Z", "1677-09-21T00:12:43Z",
+          "0000-01-01T00:00:00Z", "2262-04-11T23:47:16-01:00"}) {
+        EXPECT_FALSE(parseIsoTimestampNs(text).has_value()) << text;
+    }
+}
+
+TEST(PtzTimeTest, AcceptsLastAndFirstRepresentableInstants) {
+    // Microsecond precision: the int64 ns limits are ...16.854775807 s and ...-43.145224192 s.
+    auto last = parseIsoTimestampNs("2262-04-11T23:47:16.854775Z");
+    ASSERT_TRUE(last.has_value());
+    EXPECT_EQ(*last, 9'223'372'036'854'775'000);
+    auto first = parseIsoTimestampNs("1677-09-21T00:12:43.145225Z");
+    ASSERT_TRUE(first.has_value());
+    EXPECT_EQ(*first, -9'223'372'036'854'775'000);
+    // An offset can bring a late local time back into range.
+    auto shifted = parseIsoTimestampNs("2262-04-12T00:00:00+01:00");
+    ASSERT_TRUE(shifted.has_value());
+}
+
 TEST(PtzTimeTest, SecondsToNsRoundsHalfToEven) {
     EXPECT_EQ(secondsToNs(0.05), 50'000'000);
     EXPECT_EQ(secondsToNs(1.0), kNsPerS);

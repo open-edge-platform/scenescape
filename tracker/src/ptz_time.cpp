@@ -4,6 +4,7 @@
 #include "ptz_time.hpp"
 
 #include <cmath>
+#include <limits>
 
 namespace tracker::ptz {
 
@@ -144,7 +145,13 @@ std::optional<int64_t> parseIsoTimestampNs(std::string_view text) {
     }
     const int64_t days = std::chrono::sys_days{date}.time_since_epoch().count();
     const int64_t seconds = days * 86400 + *hour * 3600 + *minute * 60 + *second - *offset_s;
-    return seconds * kNsPerS + micros * kNsPerUs;
+    // Reject instants outside the int64 nanosecond range (about 1677..2262) instead of overflowing.
+    // Widen first: seconds alone may sit just past the limit while the microseconds bring it back.
+    const __int128 ns = static_cast<__int128>(seconds) * kNsPerS + micros * kNsPerUs;
+    if (ns > std::numeric_limits<int64_t>::max() || ns < std::numeric_limits<int64_t>::min()) {
+        return std::nullopt;
+    }
+    return static_cast<int64_t>(ns);
 }
 
 int64_t secondsToNs(double seconds) {
