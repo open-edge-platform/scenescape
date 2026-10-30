@@ -192,7 +192,7 @@ class SceneMappingArtifactView(APIView):
         str(request.data.get("contributor") or ""),
       )
     except MappingStoreError as exc:
-      logger.exception("Failed to store mapping artifact for scene=%s method=%s", scene_id, method)
+      logger.warning(f"Failed to store mapping artifact for scene={scene_id} method={method}: {exc}")
       return Response({"error": exc.public_message}, status=exc.status)
     finally:
       if tmp_path:
@@ -335,7 +335,7 @@ class SceneSourceMapView(APIView):
     except MappingStoreError as exc:
       log.error("Failed to activate source map", scene_id, method, exc)
       return Response(
-        {"error": "Unable to complete the requested operation."},
+        {"error": exc.public_message},
         status=exc.status,
       )
     scene.refresh_from_db()
@@ -351,7 +351,7 @@ class SceneSourceMapView(APIView):
     except MappingStoreError as exc:
       log.error("Failed to delete source map", scene_id, method, exc)
       return Response(
-        {"error": "Unable to complete the requested operation."},
+        {"error": exc.public_message},
         status=exc.status,
       )
     return Response(status=status.HTTP_204_NO_CONTENT)

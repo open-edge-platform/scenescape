@@ -118,6 +118,9 @@ def test_invalid_artifact_metadata_returns_controlled_400(client, scene, manifes
   assert response.status_code == 400
   assert response.json() == {"error": error}
   assert "Failed to store mapping artifact" in caplog.text
+  records = [record for record in caplog.records if record.name == "manager.api"]
+  assert records
+  assert all(record.levelname == "WARNING" and record.exc_info is None for record in records)
   assert not scene.mapping_artifacts.exists()
 
 
@@ -169,6 +172,28 @@ def test_artifact_delete_and_missing_get(client, scene):
   assert _put(client, scene, "keyframes", {"frames.bin": b"x"}).status_code == 200
   assert client.delete(f"/api/v1/scene/{scene.pk}/mapping-artifacts/keyframes").status_code == 204
   assert client.get(f"/api/v1/scene/{scene.pk}/mapping-artifacts/keyframes").status_code == 404
+  assert client.delete(f"/api/v1/scene/{scene.pk}/mapping-artifacts/keyframes").status_code == 404
+
+
+@pytest.mark.django_db(transaction=True)
+def test_artifact_delete_resolves_current_method_after_scene_lock(client, scene, monkeypatch):
+  from django.db import connection
+  assert _put(client, scene, "keyframes", {"frames.bin": b"old"}).status_code == 200
+  original_lock = mapping_store._lock_scene
+  locks = []
+
+  def lock(scene_id, *, nowait):
+    assert connection.in_atomic_block
+    locks.append((scene_id, nowait))
+    scene.mapping_artifacts.all().delete()
+    scene.mapping_artifacts.create(method="keyframes", sha256="0" * 64, size=1)
+    return original_lock(scene_id, nowait=nowait)
+
+  monkeypatch.setattr(mapping_store, "_lock_scene", lock)
+  response = client.delete(f"/api/v1/scene/{scene.pk}/mapping-artifacts/keyframes")
+  assert response.status_code == 204
+  assert locks == [(scene.pk, False)]
+  assert not scene.mapping_artifacts.exists()
 
 
 @pytest.mark.django_db(transaction=True)
@@ -401,7 +426,9 @@ def test_mesh_upload_then_list_activate_delete(client, scene):
   assert scene_body["map_source"] == "orbslam3"
   assert scene_body["map"].endswith("handheld.glb")
 
-  assert client.delete(f"/api/v1/scene/{scene.pk}/maps/orbslam3").status_code == 409
+  response = client.delete(f"/api/v1/scene/{scene.pk}/maps/orbslam3")
+  assert response.status_code == 409
+  assert response.json() == {"error": "Cannot delete the default map"}
   assert client.delete(f"/api/v1/scene/{scene.pk}/maps/arkit").status_code == 204
   assert client.get(f"/api/v1/scene/{scene.pk}/maps/arkit").status_code == 404
   assert client.get(f"/api/v1/scene/{scene.pk}/maps").json()["default"] == "orbslam3"
@@ -418,6 +445,24 @@ def test_scene_map_upload_without_source_is_user_method(client, scene):
   maps = client.get(f"/api/v1/scene/{scene.pk}/maps").json()
   assert maps["default"] == "user"
   assert sorted(m["method"] for m in maps["maps"]) == ["rtabmap", "user"]
+
+
+@pytest.mark.parametrize("operation", ["activate", "delete"])
+@pytest.mark.parametrize("conflict", [False, True])
+def test_source_map_errors_use_safe_public_messages(client, scene, monkeypatch, operation, conflict):
+  assert _put_mesh(client, scene, "rtabmap").status_code == 200
+
+  def fail(*args):
+    if conflict:
+      raise mapping_store.MappingConflict()
+    raise mapping_store.MappingStoreError("/private/internal/file: database failure", 409)
+
+  monkeypatch.setattr(f"manager.api.{operation}_source_map", fail)
+  url = f"/api/v1/scene/{scene.pk}/maps/rtabmap"
+  response = client.post(f"{url}/activate") if operation == "activate" else client.delete(url)
+  assert response.status_code == 409
+  expected = "Concurrent mapping change; retry the upload" if conflict else "Unable to store mapping artifact"
+  assert response.json() == {"error": expected}
 
 
 def test_activation_response_uses_refreshed_source_transform(client, scene, monkeypatch):

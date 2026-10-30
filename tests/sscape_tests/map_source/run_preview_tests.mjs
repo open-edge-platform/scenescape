@@ -14,6 +14,58 @@ const source = await readFile(
   "utf8",
 );
 
+const validationSource = await readFile(
+  new URL(
+    "../../../manager/src/manager/static/js/thing/controls/validateinputcontrols.js",
+    import.meta.url,
+  ),
+  "utf8",
+);
+
+function element() {
+  const classes = new Set();
+  return {
+    classList: {
+      add: (value) => classes.add(value),
+      remove: (value) => classes.delete(value),
+      contains: (value) => classes.has(value),
+      toggle(value, enabled) {
+        if (enabled) classes.add(value);
+        else classes.delete(value);
+      },
+    },
+    setAttribute() {},
+  };
+}
+
+function controller(property) {
+  return {
+    property,
+    domElement: element(),
+    $input: element(),
+    $widget: element(),
+    _disabled: false,
+    buttonDisabled: false,
+    disable(value = true) {
+      if (value === this._disabled) return this;
+      this._disabled = value;
+      this.domElement.classList.toggle("disabled", value);
+      this.buttonDisabled = value;
+      return this;
+    },
+    onChange(callback) {
+      this.change = callback;
+      return this;
+    },
+  };
+}
+
+function assertDisabled(control, disabled) {
+  assert.equal(control._disabled, disabled);
+  assert.equal(control.domElement.classList.contains("disabled"), disabled);
+  assert.equal(control.buttonDisabled, disabled);
+}
+
 function mesh() {
   const object = {
     visible: true,
@@ -72,23 +124,8 @@ async function harness() {
     "Update Cameras",
     "pos X",
     "rot X",
-  ].map((property) => ({
-    property,
-    domElement: {
-      classList: {
-        add() {},
-        remove() {},
-        contains() {
-          return false;
-        },
-      },
-    },
-    _disabled: property === "save",
-    disable(value = true) {
-      this._disabled = value;
-      this.buttonDisabled = value;
-    },
-  }));
+  ].map(controller);
+  controls[0].disable(true);
   const progress = {
     style: {},
     querySelector: () => ({
@@ -131,6 +168,9 @@ async function harness() {
     );
   });
   await module.evaluate();
+  const validation = new vm.SourceTextModule(validationSource, { context });
+  await validation.link(() => {});
+  await validation.evaluate();
   const active = mesh();
   const projection = mesh();
   const camera = {
@@ -155,6 +195,7 @@ async function harness() {
   );
   const scene = Object.assign(
     Object.create(module.namespace.default.prototype),
+    validation.namespace.default,
     {
       sceneID: "scene",
       sceneMesh: active,
@@ -176,7 +217,10 @@ async function harness() {
           notices.push(args);
         },
       },
-      controlsFolder: { controllersRecursive: () => controls },
+      controlsFolder: {
+        controllersRecursive: () => controls,
+        $title: element(),
+      },
       transformControl: { enabled: true, attach() {}, detach() {} },
       getTransformControlObject3D: () => ({ visible: true }),
       setTransformControlVisibility() {},
@@ -593,3 +637,53 @@ test("non-mesh scene settings initialize the retained source selector", async ()
   scene.addControlPanel(false);
   assert.equal(initialized, 1);
 });
+
+test("initial Save state, pose edits, and post-save reset stay synchronized", async () => {
+  const { scene, controls } = await harness();
+  controls.length = 0;
+  scene.addMapSourceControls = () => {};
+  const folder = {
+    add(settings, property) {
+      const control = controller(property);
+      controls.push(control);
+      return control;
+    },
+    controllersRecursive: () => controls,
+    close() {},
+  };
+  scene.parentFolder = { addFolder: () => folder };
+  scene.addControlPanel(false);
+  const save = controls.find((control) => control.property === "save");
+  assertDisabled(save, true);
+  scene.updateSaveButton();
+  assertDisabled(save, false);
+  await scene.saveSettings();
+  assertDisabled(save, true);
+  scene.updateSaveButton();
+  assertDisabled(save, false);
+});
+
+for (const field of ["name", "pixels per meter"]) {
+  for (const initiallyDisabled of [false, true]) {
+    test(`${field} validation after preview restores Save from disabled=${initiallyDisabled}`, async () => {
+      const { scene, controls, loads } = await harness();
+      const save = controls.find((control) => control.property === "save");
+      save.disable(initiallyDisabled);
+      scene.previewSourceMap("one");
+      loads[0].success({ scene: mesh() });
+      assertDisabled(save, true);
+      scene.previewSourceMap("active");
+      assertDisabled(save, initiallyDisabled);
+      scene.validateField(field, () => false);
+      assertDisabled(save, false);
+      scene.validateField(field, () => true);
+      assertDisabled(save, true);
+      scene.validateField(field, () => false);
+      assertDisabled(save, false);
+      await scene.saveSettings();
+      assertDisabled(save, true);
+      scene.validateField(field, () => false);
+      assertDisabled(save, false);
+    });
+  }
+}

@@ -1,5 +1,15 @@
 # API Reference
 
+## Source Map Errors
+
+Source-map activation (`POST /api/v1/scene/{scene_id}/maps/{method}/activate`)
+and deletion (`DELETE /api/v1/scene/{scene_id}/maps/{method}`) return safe,
+actionable messages in the JSON `error` field for rejected operations, while
+preserving the HTTP status code. For example, deleting the default map returns
+HTTP 409 with `{"error": "Cannot delete the default map"}`. Concurrent mapping
+changes also return HTTP 409, with a distinct retry message. Unclassified errors
+return a generic message without internal implementation details.
+
 ## API Specification Viewing Instructions
 
 Follow the steps below, or see the [Swagger UI Installation Guide](https://github.com/swagger-api/swagger-ui/blob/main/docs/usage/installation.md) for full instructions.

@@ -1016,9 +1016,7 @@ export default class SceneCamera extends THREE.Object3D {
 
   updateSaveButton() {
     if (this.validateInputs()) {
-      this.executeOnControl("save", (control) =>
-        control[0].domElement.classList.remove("disabled"),
-      );
+      this.executeOnControl("save", (control) => control[0].disable(false));
     }
   }
 
@@ -1230,9 +1228,7 @@ export default class SceneCamera extends THREE.Object3D {
       await this.createNewCamera(cameraData, textObject);
     }
     this.updateCameras(this.previousName, this.name, textObject);
-    this.executeOnControl("save", (control) =>
-      control[0].domElement.classList.add("disabled"),
-    );
+    this.executeOnControl("save", (control) => control[0].disable(true));
   }
 
   deleteFromSceneCameras(cameraName) {

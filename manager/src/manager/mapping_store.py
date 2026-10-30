@@ -416,18 +416,22 @@ def update_active_source_map(scene):
 def activate_source_map(scene, source_map):
   """Make this source's mesh the scene default and mirror it into ``Scene.map``."""
   if source_map.scene_id != scene.pk:
-    raise MappingStoreError("source map does not belong to this scene", 400)
+    raise MappingStoreError("source map does not belong to this scene", 400,
+                            public_message="source map does not belong to this scene")
   try:
     with transaction.atomic():
       locked_scene = _lock_scene(scene.pk, nowait=True)
       source_map = SceneSourceMap.objects.filter(pk=source_map.pk, scene=locked_scene).first()
       if source_map is None:
-        raise MappingStoreError("Source map no longer exists", 404)
+        raise MappingStoreError("Source map no longer exists", 404,
+                                public_message="Source map no longer exists")
       if not source_map.file:
-        raise MappingStoreError("source map has no GLB file", 409)
+        raise MappingStoreError("source map has no GLB file", 409,
+                                public_message="source map has no GLB file")
       _activate_locked(locked_scene, source_map)
   except Scene.DoesNotExist as exc:
-    raise MappingStoreError("Scene no longer exists", 404) from exc
+    raise MappingStoreError("Scene no longer exists", 404,
+                            public_message="Scene no longer exists") from exc
   except OperationalError as exc:
     raise MappingConflict() from exc
   return source_map
@@ -474,14 +478,17 @@ def delete_source_map(scene, source_map):
   with the GLB. The default map cannot be deleted.
   """
   if source_map.scene_id != scene.pk:
-    raise MappingStoreError("source map does not belong to this scene", 400)
+    raise MappingStoreError("source map does not belong to this scene", 400,
+                            public_message="source map does not belong to this scene")
   with transaction.atomic():
     locked_scene = _lock_scene(scene.pk, nowait=False)
     current = SceneSourceMap.objects.filter(pk=source_map.pk, scene=locked_scene).first()
     if current is None:
-      raise MappingStoreError("Source map no longer exists", 404)
+      raise MappingStoreError("Source map no longer exists", 404,
+                              public_message="Source map no longer exists")
     if locked_scene.default_source_map_id == current.pk:
-      raise MappingStoreError("Cannot delete the default map", 409)
+      raise MappingStoreError("Cannot delete the default map", 409,
+                              public_message="Cannot delete the default map")
     _replace_artifact(locked_scene, current.method)
     current.delete()
 
@@ -489,11 +496,10 @@ def delete_source_map(scene, source_map):
 def delete_artifact(scene, method):
   """Delete the current ZIP for ``method`` without removing its mesh."""
   validate_slug(method)
-  artifact = SceneMappingArtifact.objects.filter(scene=scene, method=method).first()
-  if artifact is None:
-    return False
-  artifact.delete()
-  return True
+  with transaction.atomic():
+    locked_scene = _lock_scene(scene.pk, nowait=False)
+    deleted, _ = SceneMappingArtifact.objects.filter(scene=locked_scene, method=method).delete()
+  return deleted > 0
 
 
 def source_map_for_method(scene, method):

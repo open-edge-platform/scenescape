@@ -423,10 +423,7 @@ export default class Scene {
         .filter((control) => editable.has(control.property))
         .map((control) => ({
           control,
-          disabled: Boolean(
-            control._disabled ||
-            control.domElement?.classList.contains("disabled"),
-          ),
+          disabled: control._disabled,
         }));
       const cameras = this._getAllSceneCameraWrappers().map((camera) => ({
         camera,
@@ -666,7 +663,7 @@ export default class Scene {
     if (this.isStaff === null) {
       for (const field of Object.keys(panelSettings)) {
         this.executeOnControl(field, (control) => {
-          control[0].domElement.classList.add("disabled");
+          control[0].disable(true);
         });
       }
     } else {
@@ -682,9 +679,7 @@ export default class Scene {
         }.bind(this),
       });
       control = this.controlsFolder.add(panelSettings, "save");
-      this.executeOnControl("save", (control) =>
-        control[0].domElement.classList.add("disabled"),
-      );
+      this.executeOnControl("save", (control) => control[0].disable(true));
     }
 
     this.controlsFolder.close();
@@ -733,9 +728,7 @@ export default class Scene {
     }
 
     this.updateScene(sceneData);
-    this.executeOnControl("save", (control) =>
-      control[0].domElement.classList.add("disabled"),
-    );
+    this.executeOnControl("save", (control) => control[0].disable(true));
   }
 
   async updateScene(sceneData) {
