@@ -1,9 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from copy import deepcopy
 from typing import Optional
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 import robot_vision as rv
 from scene_common import log
@@ -313,29 +315,21 @@ class Scene(SceneModel):
 
     objects = []
     child_objects = []
-    for info in new:
-      if 'lat_long_alt' in info:
-        if 'translation' in info:
-          log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
-          return None, None
-        info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
-      translation = Point(info['translation'])
-      translation = np.hstack([translation.asNumpyCartesian, [1]])
-      translation = np.matmul(cameraPose.pose_mat, translation)
-      info['translation'] = translation[:3]
+    for observation in new:
+      info = self._sceneObservationToWorld(observation, cameraPose)
+      if info is None:
+        return None, None
 
       # Embeddings travel nested under metadata (see detections_builder.prepareObjDict);
       # a top-level 'reid' key is never produced by a child scene and would bypass the
       # provenance the receiving scope relies on, so drop it.
       info.pop('reid', None)
 
-      if not child.retrack:
+      if not child.retrack and isinstance(info.get('metadata'), dict):
         # retrack=False: the child's own gid/identity resolution is trusted as-is and carried
         # forward via setGID/setPrevious in mergeAlreadyTrackedObjects. These objects never
         # reach uuid_manager.assignID, so a forwarded embedding would be dead weight here.
-        metadata = info.get('metadata')
-        if isinstance(metadata, dict):
-          metadata.pop('reid', None)
+        info['metadata'].pop('reid', None)
       # retrack=True: leave metadata.reid intact. The parent re-runs its own tracker and
       # UUIDManager over these detections so that observations of one person arriving from
       # several children (and from the parent's own cameras) collapse into a single track.
@@ -344,6 +338,8 @@ class Scene(SceneModel):
       # originating scene already owns that crop's contribution to the shared database.
 
       mobj = self.tracker.createObject(detectionType, info, when, child, self.persist_attributes.get(detectionType, {}))
+      if 'rotation' in info:
+        mobj.rotation = info['rotation']
       log.debug("RX SCENE OBJECT",
               "id=%s" % (mobj.oid), mobj.sceneLoc)
       if child.retrack:
@@ -352,6 +348,22 @@ class Scene(SceneModel):
         child_objects.append(mobj)
 
     return objects, child_objects
+
+  @staticmethod
+  def _sceneObservationToWorld(observation: dict, pose: CameraPose) -> Optional[dict]:
+    """Transform an independent observation copy once, including its local orientation."""
+    info = deepcopy(observation)
+    if 'lat_long_alt' in info:
+      if 'translation' in info:
+        log.warning("Input data must have only one of 'lat_long_alt' and 'translation'")
+        return None
+      info['translation'] = convertLLAToECEF(info.pop('lat_long_alt'))
+    point = Point(info['translation'])
+    info['translation'] = (pose.pose_mat @ np.hstack([point.asNumpyCartesian, [1]]))[:3]
+    if 'rotation' in info:
+      rotation = Rotation.from_matrix(pose.pose_mat[:3, :3]) * Rotation.from_quat(info['rotation'])
+      info['rotation'] = rotation.as_quat().tolist()
+    return info
 
   def finishProcessing(self, detectionType, when, objects, already_tracked_objects=[]):
     # Compute camera visibility for both retracked objects (fed into this

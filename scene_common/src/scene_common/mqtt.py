@@ -33,6 +33,7 @@ class _Topic(Enum):
   DATA_REGULATED = auto()
   DATA_SCENE = auto()
   DATA_SENSOR = auto()
+  DATA_SOURCE = auto()
   EVENT = auto()
   IMAGE_CALIBRATE = auto()
   IMAGE_CAMERA = auto()
@@ -65,6 +66,7 @@ class PubSub(_PubSubTopicBase):
     _Topic.DATA_REGULATED: Template(TOPIC_BASE + "/regulated/scene/${scene_id}"),
     _Topic.DATA_SCENE: Template(TOPIC_BASE + "/data/scene/${scene_id}/${thing_type}"),
     _Topic.DATA_SENSOR: Template(TOPIC_BASE + "/data/sensor/${sensor_id}"),
+    _Topic.DATA_SOURCE: Template(TOPIC_BASE + "/data/source/${scene_id}/${source_id}"),
     _Topic.EVENT: Template(TOPIC_BASE + "/event/${region_type}/${scene_id}/${region_id}/${event_type}"),
     _Topic.IMAGE_CALIBRATE: Template(TOPIC_BASE + "/image/calibration/camera/${camera_id}"),
     _Topic.IMAGE_CAMERA: Template(TOPIC_BASE + "/image/camera/${camera_id}"),
@@ -152,6 +154,7 @@ class PubSub(_PubSubTopicBase):
     regex = regex.replace(r'\$\{scene_name\}', r'([^/]+)')
     regex = regex.replace(r'\$\{region_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{sensor_id\}', r'([^/]+)')
+    regex = regex.replace(r'\$\{source_id\}', r'([^/]+)')
     regex = regex.replace(r'\$\{region_type\}', r'([^/]+)')
     regex = regex.replace(r'\$\{event_type\}', r'([^/]+)')
     pattern = re.compile(f'^{regex}$', re.IGNORECASE)

@@ -142,3 +142,15 @@ def test_schema_rejects_confidence_out_of_range(validator):
   }
   errors = list(validator.iter_errors(payload))
   assert errors
+
+
+@pytest.mark.parametrize("source_id,valid", [("drone-1", True), (None, False), (123, False)])
+def test_external_observation_source_id_is_a_string(validator, source_id, valid):
+  payload = {
+    "id": "scene-1", "name": "Scene", "timestamp": "2026-01-20T10:05:01.590Z",
+    "objects": [{
+      "id": "tag-1", "translation": [1, 2, 3], "velocity": [0, 0, 0],
+      "size": [1, 1, 1], "rotation": [0, 0, 0, 1], "source_id": source_id,
+    }],
+  }
+  assert validator.is_valid(payload) is valid

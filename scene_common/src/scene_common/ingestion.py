@@ -152,6 +152,14 @@ class SceneDataIngestion:
   # Internal helpers
   # ------------------------------------------------------------------
 
+  @staticmethod
+  def _set_observation_info(obj: SimpleNamespace, obj_data: dict) -> None:
+    obj.info = {'category': obj.category, 'confidence': obj.confidence}
+    if 'source_id' in obj_data:
+      obj.info['source_id'] = obj_data['source_id']
+    # Sensor modality is distinct from an external publisher's identity.
+    obj.source = obj_data.get('source')
+
   def _build_one(self, obj_data: dict, sensors: dict) -> SimpleNamespace:
     """Build or update a single live object from an MQTT dict.
 
@@ -185,10 +193,7 @@ class SceneDataIngestion:
     # None when omitted so Analytics can FOV-fill. Explicit [] is preserved here
     # but Analytics _updateVisible also treats empty as fill-eligible.
     obj.visibility = obj_data.get('visibility')
-    obj.info = {'category': obj.category, 'confidence': obj.confidence}
-    # Debug aid carried through from the publisher (e.g. "lidar"/"camera");
-    # not part of the curated obj.info reconstruction above.
-    obj.source = obj_data.get('source')
+    self._set_observation_info(obj, obj_data)
 
     # Reconstruct bbMeters from size when available
     if obj.size and len(obj.size) == 3:

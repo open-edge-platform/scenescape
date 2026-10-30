@@ -28,6 +28,7 @@ export default function AssetManager(
   let activeCamera = camera;
   let objectCache = {};
   let marks = {};
+  let selectedSource = null;
 
   const labelRenderer = createLabelRenderer(domElement);
   const { setLabelVisible, setLabelMode, getLabelMode } = SetupMarkHover(
@@ -90,6 +91,34 @@ export default function AssetManager(
       if (obj) {
         obj.visible = shouldShow;
       }
+      if (mark.highlight) mark.highlight.visible = shouldShow;
+    }
+  }
+
+  function updateSourceHighlight(mark, object) {
+    if (selectedSource !== null && mark.sourceID === selectedSource) {
+      object.updateWorldMatrix(true, true);
+      if (!mark.highlight) {
+        mark.highlight = new THREE.BoxHelper(
+          object.getObjectByName("model"),
+          0xffff00,
+        );
+        mark.highlight.name = "source-object-highlight";
+        scene.add(mark.highlight);
+      }
+      mark.highlight.update();
+      mark.highlight.visible = object.visible;
+    } else if (mark.highlight) {
+      scene.remove(mark.highlight);
+      mark.highlight.dispose();
+      delete mark.highlight;
+    }
+  }
+
+  function selectSource(sourceID) {
+    selectedSource = sourceID;
+    for (const mark of Object.values(marks)) {
+      updateSourceHighlight(mark, scene.getObjectById(mark.id));
     }
   }
 
@@ -112,6 +141,10 @@ export default function AssetManager(
     function deleteMark(markId) {
       let val = marks[markId];
       let del = scene.getObjectById(val.id);
+      if (val.highlight) {
+        scene.remove(val.highlight);
+        val.highlight.dispose();
+      }
 
       // Clean up CSS2D label DOM element before removing from scene
       // Delete from the marks object
@@ -166,6 +199,8 @@ export default function AssetManager(
       }
       thisMark.translateZ(translate);
       thisMark.scale.copy(scale);
+      mark.sourceID = obj.source_id;
+      updateSourceHighlight(mark, thisMark);
       const model = thisMark.getObjectByName("model");
       const indicator = thisMark.getObjectByName("indicator");
       const labelObj = thisMark.getObjectByName("css2dLabel");
@@ -306,5 +341,6 @@ export default function AssetManager(
     renderLabels,
     setLabelMode,
     setCamera,
+    selectSource,
   };
 }

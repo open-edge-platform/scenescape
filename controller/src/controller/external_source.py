@@ -20,16 +20,15 @@ the transform that maps that local frame into a bound scene:
 
 A message may omit ``pose`` entirely, in which case the most recent
 non-expired cached transform for that ``(scene_id, source_id)`` pair is
-reused. Camera ``intrinsics`` (and optional ``distortion``) for pixel
-detections are cached on the same entry and may likewise be omitted on
-later messages. A message with a pose and an empty ``objects`` list updates
-the cache without ingesting any observations.
+reused. Legacy single-camera calibration and multi-camera configurations are
+cached on the same entry; camera observations remain scoped to their camera.
 """
 
 import threading
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, replace
 from typing import Callable, Optional
 
 import numpy as np
@@ -76,10 +75,10 @@ class _CachedPose:
   provider: Optional[str]
   when: float
   expires_at: float
-  # Optional camera calibration for pixel detections from this source.
-  # Preserved across pose refreshes until replaced or the entry expires.
+  # Legacy single-camera calibration is kept separately from multi-camera state.
   intrinsics: Optional[dict] = None
   distortion: Optional[dict] = None
+  cameras: Optional[list[dict]] = None
 
 
 class ExternalSourcePoseCache:
@@ -99,12 +98,15 @@ class ExternalSourcePoseCache:
                sweep_interval_seconds: Optional[float] = None,
                sweep_chunk_size: int = DEFAULT_SWEEP_CHUNK_SIZE,
                sweep_grace_seconds: float = 0.0,
-               sweep_time_provider: Optional[Callable[[], float]] = None):
+               sweep_time_provider: Optional[Callable[[], float]] = None,
+               on_remove: Optional[Callable[[str, str], None]] = None):
     self._ttl_seconds = ttl_seconds
     self._sweep_interval_seconds = sweep_interval_seconds or ttl_seconds
     self._sweep_chunk_size = sweep_chunk_size
     self._sweep_grace_seconds = sweep_grace_seconds
     self._sweep_time_provider = sweep_time_provider or time.time
+    # Called under the cache lock: callbacks must not re-enter the cache.
+    self._on_remove = on_remove
     # OrderedDict supports rotating a bounded sweep chunk without scanning
     # the entire cache while holding `_lock`.
     self._cache = OrderedDict()
@@ -130,16 +132,92 @@ class ExternalSourcePoseCache:
     @returns  (CameraPose or None, reason or None) tuple. ``reason`` is only
               set when the returned transform is None.
     """
+    pose, _, reason = self.resolveMessage(
+      scene, source_id, {'pose': pose_data}, when, trusted_scene_pose)
+    return pose, reason
+
+  def resolveMessage(self, scene, source_id, message: dict, when: float,
+                     trusted_scene_pose: bool = False):
+    """Return (pose, cached state, reason), updating source and camera state."""
     key = (scene.uid, source_id)
     with self._lock:
+      pose_data = message.get('pose')
+      existing = self._cache.get(key)
+      reason = self._validateCameraUpdate(key, message, existing)
+      if reason is not None:
+        return None, None, reason
       if pose_data is not None:
-        return self._resolveFromPose(scene, key, pose_data, when, trusted_scene_pose)
-      return self._resolveFromCache(key, when)
+        pose, reason = self._resolveFromPose(
+          scene, key, pose_data, when, trusted_scene_pose)
+      else:
+        pose, reason = self._resolveFromCache(key, when)
+      if pose is None:
+        return None, None, reason
+      state = self._cache[key]
+      self._cacheCameraConfiguration(message, state, when)
+      return pose, state, None
 
-  def _resolveFromPose(self, scene, key, pose_data, when, trusted_scene_pose):
+  def _validateCameraUpdate(self, key, message, existing):
+    """Reject invalid camera snapshots and incomplete camera-source pose updates."""
+    if 'cameras' in message:
+      if not self._validCameraConfiguration(key, message['cameras']):
+        return REASON_INVALID_INTRINSICS
+      return None
+    if existing is not None and existing.cameras is not None and message.get('pose') is not None:
+      log.error(f"Camera pose update for {key} is missing the complete cameras list")
+      return REASON_INVALID_INTRINSICS
+    return None
+
+  @staticmethod
+  def _cacheCameraConfiguration(message, state, when):
+    if 'cameras' not in message:
+      return
+    if when < state.when:
+      log.warning(
+        f"Ignoring stale external camera configuration: incoming_time={when} "
+        f"cached_time={state.when} cached_camera_ids="
+        f"{[camera['id'] for camera in state.cameras or []]}")
+      return
+    cameras = deepcopy(message['cameras'])
+    for camera in cameras:
+      camera.pop('objects', None)
+    state.cameras = cameras
+    state.intrinsics = None
+    state.distortion = None
+
+  def _validCameraConfiguration(self, key, cameras: list) -> bool:
+    try:
+      if not isinstance(cameras, list):
+        raise ValueError("cameras must be an array")
+      camera_ids = [self._validateCamera(camera) for camera in cameras]
+      if len(camera_ids) != len(set(camera_ids)):
+        raise ValueError("Camera ids must be unique within the source")
+    except (KeyError, ValueError, TypeError) as error:
+      log.error(f"Invalid external camera configuration for {key}: {error}")
+      return False
+    return True
+
+  def _validateCamera(self, camera):
+    if not isinstance(camera, dict) or not all(
+        field in camera for field in ('id', 'mount', 'intrinsics', 'objects')):
+      raise ValueError("Each camera requires id, mount, intrinsics, and objects")
+    camera_id = camera['id']
+    if not isinstance(camera_id, str) or not camera_id:
+      raise ValueError("Camera ids must be non-empty strings")
+    mount = camera['mount']
+    CameraPose({
+      'translation': mount['translation'],
+      'rotation': mount['rotation'],
+      'scale': [1.0, 1.0, 1.0],
+    }, None)
+    if not isinstance(camera['objects'], list):
+      raise ValueError(f"Objects for camera {camera_id} must be an array")
+    self._validateIntrinsics(camera['intrinsics'], camera.get('distortion'))
+    return camera_id
+
+  def _poseTranslation(self, scene, pose_data, trusted_scene_pose):
+    """Resolve position while enforcing frame-specific trust requirements."""
     reference_frame = pose_data.get('reference_frame')
-    rotation = pose_data.get('rotation', [0, 0, 0, 1])
-
     if reference_frame == POSE_REFERENCE_FRAME_SCENE:
       if not trusted_scene_pose:
         return None, REASON_UNTRUSTED_SCENE_POSE
@@ -154,6 +232,13 @@ class ExternalSourcePoseCache:
       translation = self._wgs84ToScene(scene, pose_data['lat_long_alt'])
     else:
       return None, REASON_UNSUPPORTED_REFERENCE_FRAME
+    return translation, None
+
+  def _resolveFromPose(self, scene, key, pose_data, when, trusted_scene_pose):
+    translation, reason = self._poseTranslation(scene, pose_data, trusted_scene_pose)
+    if reason is not None:
+      return None, reason
+    rotation = pose_data.get('rotation', [0, 0, 0, 1])
 
     existing = self._cache.get(key)
     if existing is not None and when < existing.when:
@@ -169,18 +254,17 @@ class ExternalSourcePoseCache:
       log.error(f"Invalid external source pose for {key}: {e}")
       return None, REASON_INVALID_POSE
 
-    # Carry forward camera calibration across pose refreshes so later pixel
-    # detections can omit intrinsics the same way Cartesian messages omit pose.
-    prior_intrinsics = existing.intrinsics if existing is not None else None
-    prior_distortion = existing.distortion if existing is not None else None
-    self._cache[key] = _CachedPose(
+    pose_update = dict(
       pose_mat=camera_pose.pose_mat,
-      reference_frame=reference_frame,
+      reference_frame=pose_data['reference_frame'],
       provider=pose_data.get('provider'),
       when=when,
-      expires_at=when + self._ttl_seconds,
-      intrinsics=prior_intrinsics,
-      distortion=prior_distortion)
+      expires_at=when + self._ttl_seconds)
+    # A live pose refresh preserves calibration; a new lifetime starts clean.
+    if existing is None or when > existing.expires_at:
+      self._cache[key] = _CachedPose(**pose_update)
+    else:
+      self._cache[key] = replace(existing, **pose_update)
     # Keep recently refreshed entries at the end so bounded sweep chunks
     # spread work fairly over entries that are not being updated.
     self._cache.move_to_end(key)
@@ -213,14 +297,14 @@ class ExternalSourcePoseCache:
       if when > cached.expires_at:
         return None, REASON_POSE_EXPIRED
 
-      if intrinsics_data is not None:
+      if intrinsics_data is not None and when >= cached.when:
         try:
-          resolved = CameraIntrinsics(intrinsics_data, distortion_data)
+          resolved = self._validateIntrinsics(intrinsics_data, distortion_data)
         except (ValueError, TypeError) as e:
           log.error(f"Invalid external source intrinsics for {key}: {e}")
           return None, REASON_INVALID_INTRINSICS
-        cached.intrinsics = intrinsics_data
-        cached.distortion = distortion_data
+        cached.intrinsics = deepcopy(intrinsics_data)
+        cached.distortion = deepcopy(distortion_data)
         self._cache.move_to_end(key)
         return resolved, None
 
@@ -231,6 +315,14 @@ class ExternalSourcePoseCache:
       except (ValueError, TypeError) as e:
         log.error(f"Invalid cached external source intrinsics for {key}: {e}")
         return None, REASON_INVALID_INTRINSICS
+
+  @staticmethod
+  def _validateIntrinsics(intrinsics_data, distortion_data):
+    resolved = CameraIntrinsics(intrinsics_data, distortion_data)
+    if not np.isfinite(resolved.intrinsics).all() or \
+       resolved.intrinsics[0, 0] <= 0 or resolved.intrinsics[1, 1] <= 0:
+      raise ValueError("Focal lengths must be positive and intrinsics finite")
+    return resolved
 
   @staticmethod
   def _wgs84ToScene(scene, lat_long_alt):
@@ -250,13 +342,12 @@ class ExternalSourcePoseCache:
   def invalidate(self, scene_uid=None, source_id=None):
     """Clear cached transforms, optionally scoped to a scene and/or source."""
     with self._lock:
-      if scene_uid is None and source_id is None:
-        self._cache.clear()
-        return
       for key in list(self._cache.keys()):
         if (scene_uid is None or key[0] == scene_uid) and \
            (source_id is None or key[1] == source_id):
           self._cache.pop(key, None)
+          if self._on_remove is not None:
+            self._on_remove(*key)
     return
 
   def scenesWithLiveCache(self, source_id, when):
@@ -287,6 +378,8 @@ class ExternalSourcePoseCache:
         examined += 1
         if now > cached.expires_at + self._sweep_grace_seconds:
           evicted += 1
+          if self._on_remove is not None:
+            self._on_remove(*key)
         else:
           self._cache[key] = cached
     return evicted, examined
@@ -377,25 +470,24 @@ class _IdentityClaim:
 
 
 class IdentityClaimRegistry:
-  """Arbitrates ownership of external-source ``objects[*].id`` values used
-  directly as global track identity (``gid``).
+  """Arbitrates ownership of external-source object identities used as a
+  global track identity (``gid``).
 
   External sources are not pre-registered or centrally provisioned: any
   source may publish observations carrying whatever per-object ``id`` it
   chooses (see the ``external_detection`` schema definition). Requiring an
   operator to pre-configure, per deployment, which sources' ids are safe to
-  trust does not scale with the number of sources/integrations. Instead,
-  every external-source object's ``id`` is trusted as its global track
-  identity by default -- used directly as ``gid``, bypassing Scenescape's
-  kinematic tracker/ReID association -- as long as no other source
-  currently holds a live claim on that same id within the same scene and
-  object category.
+  trust does not scale with the number of sources/integrations. An object's
+  source-local ``id`` is used directly as ``gid`` when no shared
+  ``global_id`` is supplied, as long as no other source currently holds a
+  live claim on that id in the same scene and category. A shared ``global_id``
+  uses a separate identity namespace and permits multiple sources to claim
+  the agreed identity.
 
-  If two different sources publish the same id concurrently, accepting both
-  would silently merge two distinct physical objects under one identity.
-  This registry detects exactly that case; the caller is expected to reject
-  (drop) the newly arriving, colliding object rather than corrupt the
-  existing track.
+  If two different sources publish the same source-local id concurrently,
+  accepting both would silently merge two distinct physical objects. The
+  caller rejects that collision unless both observations explicitly share a
+  ``global_id``.
 
   Scope and limitation: this only protects against two *different* sources
   colliding on the same id at the same time. It does not, and cannot,
@@ -443,7 +535,7 @@ class IdentityClaimRegistry:
 
     @param  scene_uid   Target scene's UID.
     @param  category    Object category/thing_type (the message's detection type).
-    @param  source_id   Identifier of the publishing source.
+    @param  source_id   Claim owner: publisher id or shared global-identity key.
     @param  obj_id      The object's source-local ``id`` from the payload.
     @param  when        Epoch timestamp of the message.
     @returns  (bool ok, reason or None) tuple. ``ok`` is False only when a
