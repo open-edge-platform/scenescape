@@ -39,7 +39,7 @@ class FakeAdapter:
              "set_name": set_name, "constraints": constraints}]
 
   def findSchemaMetadata(self, set_name):
-    return True, 256, "IP"
+    return True, 2, "IP"
 
   def purgeExpired(self):
     return 2
@@ -58,7 +58,7 @@ def test_facade_delegates_baseline_operations():
   assert result == {"object_type": "person", "count": 1,
                     "set_name": "gallery", "constraints": {"camera_id": "cam1"}}
   assert service.find_schema_metadata({"set_name": "gallery"})["metadata"] == (
-      True, 256, "IP")
+      True, 2, "IP")
   assert service.purge_expired() == 2
 
 
@@ -114,6 +114,8 @@ def _vdms_response(commands, *args):
                          "entities": [{"uuid": "gid-1", "rvid": "track-1", "_distance": 0.8}]},
       "DeleteExpired": {"status": 0, "deleted": 2},
   }
+  if commands[0].get("FindEntity", {}).get("class") == "VD:DESCSET":
+    responses["FindEntity"] = {"status": 0, "returned": 1, "dimensions": 3, "metric": "IP"}
   return [{name: responses[name]} for command in commands for name in command], []
 
 
@@ -127,12 +129,19 @@ def _configure_vdms_schema_backend(backend):
     for command in commands:
       operation, values = next(iter(command.items()))
       if operation == "FindEntity":
-        set_filter = values.get("constraints", {}).get("set_name")
-        set_name = set_filter[1] if set_filter else None
-        marker = markers.get(set_name) if set_name else None
-        response = {"status": 0, "returned": int(marker is not None)}
-        if marker is not None:
-          response["entities"] = [marker]
+        if values.get("class") == "VD:DESCSET":
+          set_name = values["constraints"]["VD:name"][1]
+          schema = schemas.get(set_name)
+          response = {"status": 0, "returned": int(schema is not None)}
+          if schema:
+            response["entities"] = [{"VD:name": set_name, "VD:dimensions": schema[0]}]
+        else:
+          set_filter = values.get("constraints", {}).get("set_name")
+          set_name = set_filter[1] if set_filter else None
+          marker = markers.get(set_name) if set_name else None
+          response = {"status": 0, "returned": int(marker is not None)}
+          if marker is not None:
+            response["entities"] = [marker]
       elif operation == "FindDescriptorSet":
         schema = schemas.get(values.get("set"))
         response = {"status": 0, "returned": int(schema is not None)}
@@ -367,7 +376,7 @@ def test_transport_readiness_outage_and_recovery(transport):
 def test_transport_missing_schema_is_not_backend_failure(transport):
   if transport.backend_name == "VDMS":
     transport.backend.query.side_effect = None
-    transport.backend.query.return_value = ([{"FindDescriptorSet": {"status": 0, "returned": 0}}], [])
+    transport.backend.query.return_value = ([{"FindEntity": {"status": 0, "returned": 0}}], [])
   else:
     transport.backend.get_collection.side_effect = UnexpectedResponse(404, "Not Found", b"", {})
   assert transport.client.find_schema_metadata("missing")["metadata"] == [False, None, None]
@@ -548,3 +557,167 @@ def test_transport_poi_write_failure_returns_no_poi_id(transport):
       "transport-poi-write-token")
   assert failure.value.code() == grpc.StatusCode.UNAVAILABLE
   assert "poi_id" not in failure.value.details()
+
+
+def test_transport_infers_query_dimensions_without_configured_model(transport):
+  """Production adapters start without dimensions; schema lookup must validate width."""
+  transport.adapter.dimensions = None
+  assert transport.client.find_matches(QUERY)["matches"][0][0]["uuid"] == "gid-1"
+  transport.backend.reset_mock()
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.find_matches({**QUERY, "reid_vectors": [[1, 2]]})
+  assert failure.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+  assert transport.backend.mock_calls == []
+
+
+def test_transport_validates_override_schema_dimensions(transport):
+  transport.adapter.dimensions = None
+  with mock.patch.object(transport.adapter, "findSchemaMetadata",
+                         return_value=(True, 4, "IP")) as metadata:
+    with pytest.raises(grpc.RpcError) as failure:
+      transport.client.find_matches({**QUERY, "set_name": "other"})
+    assert failure.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+    metadata.assert_called_once_with("other")
+    assert transport.client.find_matches(
+        {**QUERY, "set_name": "other", "reid_vectors": [[1, 2, 3, 4]]})["matches"]
+    metadata.assert_called_once()
+
+
+def test_transport_missing_gallery_returns_empty_matches_without_search(transport):
+  with mock.patch.object(transport.adapter, "findSchemaMetadata",
+                         return_value=(False, None, None)), \
+       mock.patch.object(transport.adapter, "findMatches") as search:
+    result = transport.client.find_matches({**QUERY, "reid_vectors": [[1, 0, 0], [0, 1, 0]]})
+    assert result == {"matches": [[], []]}
+    search.assert_not_called()
+
+
+def test_transport_missing_dimensions_is_unavailable_not_unvalidated_query(transport):
+  transport.adapter.dimensions = None
+  with mock.patch.object(transport.adapter, "findSchemaMetadata",
+                         return_value=(True, None, None)), \
+       mock.patch.object(transport.adapter, "findMatches") as search:
+    with pytest.raises(grpc.RpcError) as failure:
+      transport.client.find_matches(QUERY)
+    assert failure.value.code() == grpc.StatusCode.UNAVAILABLE
+    search.assert_not_called()
+
+
+def test_schema_cache_expires_and_does_not_cache_absence(monkeypatch):
+  now = [0.0]
+  monkeypatch.setattr("reid.api.time.monotonic", lambda: now[0])
+  adapter = FakeAdapter()
+  adapter.findSchemaMetadata = mock.Mock(side_effect=[
+      (False, None, None), (True, 2, "IP"), (True, 3, "IP")])
+  service = ReIDService(adapter=adapter)
+  query = {"object_type": "person", "reid_vectors": [[1, 0]]}
+  assert service.find_matches(query) == {"matches": [[]]}
+  assert service.find_matches(query)["matches"]
+  assert service.find_matches(query)["matches"]
+  assert adapter.findSchemaMetadata.call_count == 2
+  now[0] = 30.0
+  with pytest.raises(ValueError, match="dimensions"):
+    service.find_matches(query)
+  assert adapter.findSchemaMetadata.call_count == 3
+
+
+@pytest.mark.parametrize("info", [
+    "DescriptorSet Not Found!", "Set Not Found", "Not Found!",
+    "Descriptors Not Found", "Descriptor Not Found in graph!",
+])
+def test_transport_vdms_documented_empty_status_is_success(transport, info):
+  if transport.backend_name != "VDMS":
+    pytest.skip("VDMS-specific response codes")
+  original = _vdms_response
+
+  def respond(commands, *args):
+    if "FindDescriptor" in commands[0]:
+      return [{"FindDescriptor": {"status": -1, "info": info}} for _ in commands], []
+    return original(commands, *args)
+
+  transport.backend.query.side_effect = respond
+  assert transport.client.find_matches(QUERY) == {"matches": [[]]}
+
+
+def test_vdms_missing_set_transaction_returns_one_empty_result_per_vector():
+  with mock.patch("reid.vdms_adapter.vdms.vdms"):
+    adapter = VDMSDatabase(dimensions=3)
+  adapter.raise_on_backend_error = True
+  command = {"FindDescriptor": {"set": adapter.set_name}}
+  adapter.db.query.return_value = ([{
+      "FailedCommand": command, "status": -1, "info": "DescriptorSet Not Found!",
+  }], [])
+  responses, _ = adapter.sendQuery([command, command], [b"one", b"two"])
+  assert len(responses) == 2
+  assert all(item["status"] == -1 for item in responses)
+
+
+@pytest.mark.parametrize("responses", [
+    [], [{"FindDescriptor": {"status": 0}}, {"FindDescriptor": {"status": 0}}],
+    [{"FindDescriptor": {"status": -1, "info": "Blob (required) is null or size invalid"}}],
+    [{"FindDescriptor": {"status": -1, "info": "Internal Server Error"}}],
+    [{"FailedCommand": "Transaction", "status": -1, "info": "bad query"}],
+    [{"FindDescriptor": {"info": "Not Found!"}}],
+])
+def test_vdms_strict_query_rejects_failures_and_incomplete_responses(responses):
+  with mock.patch("reid.vdms_adapter.vdms.vdms"):
+    adapter = VDMSDatabase()
+  adapter.raise_on_backend_error = True
+  adapter.db.query.return_value = (responses, [])
+  with pytest.raises(ConnectionError):
+    adapter.sendQuery([{"FindDescriptor": {"set": adapter.set_name}}])
+
+
+def test_vdms_empty_lookup_status_does_not_hide_write_failure():
+  with mock.patch("reid.vdms_adapter.vdms.vdms"):
+    adapter = VDMSDatabase()
+  adapter.raise_on_backend_error = True
+  adapter.db.query.return_value = ([{
+      "AddDescriptor": {"status": -1, "info": "DescriptorSet Not Found!"},
+  }], [])
+  with pytest.raises(ConnectionError):
+    adapter.sendQuery([{"AddDescriptor": {"set": adapter.set_name}}])
+
+
+def test_vdms_readiness_reconnects_with_rate_limiting(monkeypatch):
+  now = [0.0]
+  monkeypatch.setattr("reid.vdms_adapter.time.monotonic", lambda: now[0])
+  with mock.patch("reid.vdms_adapter.vdms.vdms"):
+    adapter = VDMSDatabase()
+  adapter.raise_on_backend_error = True
+  adapter.db.connected = False
+  adapter.db.connect.side_effect = OSError("offline")
+  adapter.db.query.return_value = "NOT CONNECTED"
+  adapter.connect()
+  assert adapter.backendAvailable() is False
+  adapter.db.connect.assert_called_once()
+  now[0] = 5.0
+  assert adapter.backendAvailable() is False
+  assert adapter.db.connect.call_count == 2
+  assert adapter.backendAvailable() is False
+  assert adapter.db.connect.call_count == 2
+  now[0] = 10.0
+  def reconnect(*args, **kwargs):
+    adapter.db.connected = True
+    adapter.db.query.return_value = ([{"FindEntity": {"status": 0, "returned": 0}}], [])
+  adapter.db.connect.side_effect = reconnect
+  assert adapter.backendAvailable() is True
+  assert adapter.db.connect.call_count == 3
+  assert adapter.backendAvailable() is True
+  assert adapter.db.connect.call_count == 3
+  query = adapter.db.query.call_args.args[0]
+  assert query == [{"FindEntity": {"class": "ReidSchemaMarker",
+                                 "results": {"list": ["set_name"]}}}]
+
+
+def test_vdms_readiness_reconnects_stale_active_socket():
+  with mock.patch("reid.vdms_adapter.vdms.vdms"):
+    adapter = VDMSDatabase()
+  adapter.db.connected = True
+  adapter.db.query.side_effect = [
+      ConnectionResetError("restarted"), ([{"FindEntity": {"status": 0, "returned": 0}}], []),
+  ]
+  assert adapter.backendAvailable() is True
+  # Discard the failed stream first, then reset the client before reconnecting.
+  assert adapter.db.disconnect.call_count == 2
+  adapter.db.connect.assert_called_once()

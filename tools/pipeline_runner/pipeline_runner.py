@@ -46,7 +46,7 @@ DLS_METADATA_OUTPUT_FILE = "dls_metadata.jsonl"
 SCENESCAPE_METADATA_FILE = "scenescape_metadata.jsonl"
 COMPOSE_FILE = Path(__file__).parent / "compose.ppl.yml"
 NPU_DEVICE = "/dev/accel"
-NPU_OVERRIDE_FILE = Path(__file__).parent / "compose.ppl.npu.yml"
+NPU_OVERRIDE_FILE = Path(__file__).parent / "compose.ppl-npu.yml"
 
 BROKER_HOST = "localhost"
 BROKER_PORT = 1884

@@ -8,19 +8,22 @@
 #include <numbers>
 #include <optional>
 #include <span>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <opencv2/core.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
 #include "object_class.hpp"
+#include "reid_sighting.hpp"
 #include "scene_loader.hpp"
 #include "tracking_types.hpp"
 
 namespace tracker {
 
 /**
- * @brief Batch-oriented transformer from pixel detections to world-space TrackedObjects.
+ * @brief Transformer from image or sensor-frame detections to world-space TrackedObjects.
  *
  * Converts 2D pixel bounding boxes into 3D world positions and sizes using
  * camera intrinsics/extrinsics. Two opposite bbox corners are undistorted to
@@ -83,15 +86,21 @@ public:
      * world position (from foot point) and world size (from corner distances).
      *
      * Detections where any projection fails are silently skipped.
+     * When present, rotation must be a finite sensor-frame [x, y, z, w]
+     * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
+     * @param sightings Optional chunk-local context for tagging ReID observations
+     * @throws std::invalid_argument if the context does not reference the exact detection span.
      * @return TrackedObjects with world-space position and size fields populated.
-     *         id, x, y, z, length, width, height are set. Velocity/yaw are zero.
-     *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
+     *         id, x, y, z, length, width, height are set. Velocity is zero.
+     *         Supplied rotation sets world yaw and attributes["has_orientation"].
+     *         metadata.* attributes carry fused semantic values; ReID is a current-chunk sighting.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */
     std::vector<rv::tracking::TrackedObject>
-    transformDetections(std::span<const Detection> detections) const;
+    transformDetections(std::span<const Detection> detections,
+                        std::optional<ReidSightingContext> sightings = std::nullopt) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].
@@ -154,6 +163,7 @@ private:
 
     cv::Matx33d intrinsics_matrix_;
     cv::Vec4d distortion_coeffs_;
+    cv::Matx33d camera_rotation_;
     cv::Matx44d pose_matrix_;
     cv::Point3d camera_origin_;
     int shift_type_;

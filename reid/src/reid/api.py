@@ -3,14 +3,20 @@
 
 """Thin, backend-neutral service facade over the Re-ID adapter contract."""
 
+from collections import OrderedDict
 from datetime import datetime, timezone
 import hashlib
-import numpy as np
+import threading
 import time
 import uuid
 
+import numpy as np
+
 from scene_common.reid_constants import SCHEMA_MARKER_COLLECTION, SCHEMA_NAME, is_inner_product_metric
 from reid.reid_registry import create_reid_database
+
+SCHEMA_CACHE_TTL_SECS = 30.0
+SCHEMA_CACHE_MAX_SETS = 128
 
 
 class CollectionSchemaConflictError(Exception):
@@ -29,6 +35,8 @@ class ReIDService:
     self.adapter.raise_on_backend_error = True
     self.ingest = ingest
     self.collection_factory = collection_factory or self._new_collection_adapter
+    self._schema_cache = OrderedDict()
+    self._schema_lock = threading.Lock()
     if connect:
       # Adapters log and swallow connection errors; health() reports the result.
       self.adapter.connect()
@@ -58,8 +66,10 @@ class ReIDService:
                      required=("reid_vectors", "object_type"))
     validate_name(request["object_type"], "object_type")
     validate_name(request.get("set_name"), "set_name", optional=True)
-    vectors = validate_vectors(request["reid_vectors"], getattr(self.adapter, "dimensions", None),
-                   getattr(self.adapter, "similarity_metric", "IP"))
+    set_name = request.get("set_name") or self.adapter.set_name
+    dimensions = (self.adapter.dimensions if set_name == self.adapter.set_name else None)
+    metric = getattr(self.adapter, "similarity_metric", "IP")
+    vectors = validate_vectors(request["reid_vectors"], dimensions, metric)
     constraints = request.get("constraints", {})
     reserved = {"set_name", "k_neighbors", "object_type", "reid_vectors", "operation", "confidence_threshold"}
     if not isinstance(constraints, dict) or reserved & constraints.keys():
@@ -71,9 +81,31 @@ class ReIDService:
               or not 1 <= neighbors <= 1000 or int(neighbors) != neighbors):
         raise ValueError("k_neighbors must be an integer from 1 to 1000")
       options["k_neighbors"] = int(neighbors)
+    dimensions = self._queryDimensions(set_name)
+    if dimensions is None:
+      return {"matches": [[] for _ in vectors]}
+    vectors = validate_vectors(vectors, dimensions, metric)
     matches = self._backend_call(self.adapter.findMatches, request["object_type"], vectors,
                                  set_name=request.get("set_name"), **options, **constraints)
     return {"matches": matches}
+
+  def _queryDimensions(self, set_name):
+    """Cache existing schema widths; never cache absence or backend failures."""
+    with self._schema_lock:
+      now = time.monotonic()
+      cached = self._schema_cache.get(set_name)
+      if cached is not None and now - cached[0] < SCHEMA_CACHE_TTL_SECS:
+        return cached[1]
+      self._schema_cache.pop(set_name, None)
+      exists, dimensions, _ = self._backend_call(self.adapter.findSchemaMetadata, set_name)
+      if not exists:
+        return None
+      if type(dimensions) is not int or dimensions <= 0:
+        raise ConnectionError("ReID backend schema dimensions unavailable")
+      self._schema_cache[set_name] = (now, dimensions)
+      if len(self._schema_cache) > SCHEMA_CACHE_MAX_SETS:
+        self._schema_cache.popitem(last=False)
+      return dimensions
 
   def find_schema_metadata(self, request):
     """Return existing adapter schema metadata for a descriptor set."""
