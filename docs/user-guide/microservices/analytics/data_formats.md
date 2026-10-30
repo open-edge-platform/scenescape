@@ -103,6 +103,15 @@ poses before events are evaluated; nonempty producer visibility is preserved.
 Each regulated publication reprojects camera bounds for all cached categories
 against the same observation poses, including categories absent from that input frame.
 
+Each camera entry contains `id`, `translation`, `rotation`, `scale`, and
+`dynamic_pose`. Published `rotation` is always a normalized quaternion in
+`[x, y, z, w]` order, mapping camera-local axes into the scene coordinate system.
+Configured and incoming intrinsic XYZ Euler rotations (degrees) remain supported
+as inputs and are converted to quaternions for publication. Consumers must not
+interpret the published rotation as Euler angles; display-specific conversion
+belongs in the client. Translation and scale retain their existing scene units
+and per-axis conventions.
+
 Published on MQTT topic: `scenescape/regulated/scene/{scene_id}`
 
 The Analytics service publishes regulated (rate-controlled) tracking results aggregating all

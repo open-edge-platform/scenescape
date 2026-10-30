@@ -468,6 +468,63 @@ async function sceneCameraHarness() {
   return camera;
 }
 
+test("live poses apply XYZW quaternions and keep Euler conversion in the viewer", async () => {
+  const camera = await sceneCameraHarness();
+  const applied = {};
+  camera.cameraPosition = {
+    fromArray: (value) => {
+      applied.translation = value;
+    },
+  };
+  camera.cameraRotation = {
+    setFromQuaternion(value, order) {
+      assert.equal(value, camera.sceneCamera.quaternion);
+      applied.order = order;
+    },
+  };
+  camera.sceneCamera.position = { copy() {} };
+  camera.sceneCamera.quaternion = {
+    fromArray: (value) => {
+      applied.rotation = value;
+    },
+  };
+  camera.sceneCamera.scale = {
+    fromArray: (value) => {
+      applied.scale = value;
+    },
+  };
+  camera.sceneCamera.updateMatrixWorld = () => {
+    applied.updated = true;
+  };
+  camera.togglePoseYupYdown = (value) => {
+    assert.equal(value, camera.sceneCamera);
+  };
+  camera.updatePose({
+    translation: [1, 2, 3],
+    rotation: [1, 1, 1, 1],
+    scale: [2, 3, 4],
+  });
+  assert.deepEqual(plain(applied), {
+    translation: [1, 2, 3],
+    rotation: [0.5, 0.5, 0.5, 0.5],
+    scale: [2, 3, 4],
+    order: "XYZ",
+    updated: true,
+  });
+  for (const invalid of [
+    null,
+    { translation: [1, 2, 3], rotation: [0, 0, 90] },
+    { translation: [1, 2, 3], rotation: [0, 0, 0, 0] },
+    { translation: [1, Infinity, 3], rotation: [0, 0, 0, 1] },
+    { translation: [1, 2, 3], rotation: [0, 0, NaN, 1] },
+    { translation: [1, 2, 3], rotation: [0, 0, 0, 1], scale: [1, 0, 1] },
+  ]) {
+    camera.cameraPosition.fromArray = () =>
+      assert.fail("Invalid pose must not mutate the camera");
+    camera.updatePose(invalid);
+  }
+});
+
 test("received optics refresh FOV display without invoking manual edits", async () => {
   const camera = await sceneCameraHarness();
   const settings = { fov: 70 };

@@ -92,18 +92,6 @@ class AnalyticsService:
     return last is None or now - last >= max_delay
 
   @staticmethod
-  def _as_euler_deg(rotation):
-    """3D UI updatePose expects intrinsic XYZ Euler degrees, not quaternion."""
-    if rotation is None:
-      return [0.0, 0.0, 0.0]
-    if hasattr(rotation, "tolist"):
-      rotation = rotation.tolist()
-    rot = [float(v) for v in rotation]
-    if len(rot) == 4:
-      return SciRotation.from_quat(rot).as_euler("XYZ", degrees=True).tolist()
-    return rot
-
-  @staticmethod
   def _camera_state(camera):
     pose = camera.pose
     scale = pose.scale
@@ -112,7 +100,7 @@ class AnalyticsService:
     return {
       'id': camera.cameraID,
       'translation': pose.translation.asNumpyCartesian.tolist(),
-      'rotation': AnalyticsService._as_euler_deg(pose.euler_rotation),
+      'rotation': pose.quaternion_rotation.tolist(),
       'scale': list(scale),
     }
 
@@ -131,7 +119,8 @@ class AnalyticsService:
   def _cache_dynamic_camera_pose(self, scene, camera_id, message_pose):
     try:
       state = validate_camera_extrinsics(message_pose)
-      state['rotation'] = self._as_euler_deg(state['rotation'])
+      if len(state['rotation']) == 3:
+        state['rotation'] = SciRotation.from_euler('XYZ', state['rotation'], degrees=True).as_quat().tolist()
     except (TypeError, ValueError) as exc:
       log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
     else:

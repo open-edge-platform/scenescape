@@ -447,14 +447,31 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   updatePose(pose) {
-    if (!this.sceneCamera || !pose.translation || !pose.rotation) return;
+    const vectors = [
+      [pose?.translation, 3],
+      [pose?.rotation, 4],
+    ];
+    if (pose?.scale !== undefined) vectors.push([pose.scale, 3]);
+    if (
+      !this.sceneCamera ||
+      vectors.some(
+        ([values, length]) =>
+          !Array.isArray(values) ||
+          values.length !== length ||
+          !values.every(Number.isFinite),
+      ) ||
+      pose.scale?.some((value) => value <= 0)
+    )
+      return;
+    const norm = Math.hypot(...pose.rotation);
+    if (!Number.isFinite(norm) || norm === 0) return;
 
     this.cameraPosition.fromArray(pose.translation);
-    this.cameraRotation.set(
-      ...pose.rotation.map((value) => THREE.MathUtils.degToRad(value)),
-    );
     this.sceneCamera.position.copy(this.cameraPosition);
-    this.sceneCamera.rotation.copy(this.cameraRotation);
+    this.sceneCamera.quaternion.fromArray(
+      pose.rotation.map((value) => value / norm),
+    );
+    this.cameraRotation.setFromQuaternion(this.sceneCamera.quaternion, "XYZ");
     if (pose.scale) this.sceneCamera.scale.fromArray(pose.scale);
     this.togglePoseYupYdown(this.sceneCamera);
     this.sceneCamera.updateMatrixWorld(true);

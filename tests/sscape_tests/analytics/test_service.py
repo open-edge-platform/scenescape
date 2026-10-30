@@ -79,6 +79,7 @@ def test_controller_reid_state_and_count_reach_regulated_output(state, gid):
   assert output['unique_detection_count'] == 3
 
 
+@pytest.mark.parametrize("rotation", [[0, 0, 90], [0, 0, 2 ** 0.5, 2 ** 0.5]])
 @pytest.mark.parametrize("invalid", [
   {'translation': [1, 2], 'rotation': [0, 0, 0]},
   {'translation': [1, 2, 3], 'rotation': [0, 0, 0, 0]},
@@ -87,7 +88,7 @@ def test_controller_reid_state_and_count_reach_regulated_output(state, gid):
   {'translation': [1, 2, 3], 'rotation': [0, 0, 0], 'scale': [1, 0, 1]},
   "invalid",
 ])
-def test_regulated_output_uses_latest_dynamic_camera_pose(invalid):
+def test_regulated_output_uses_latest_dynamic_camera_pose(invalid, rotation):
   service = _service()
   service.calculateRate = MagicMock(return_value=10.0)
   service.shouldPublish = MagicMock(return_value=True)
@@ -95,7 +96,7 @@ def test_regulated_output_uses_latest_dynamic_camera_pose(invalid):
     cameraID='handheld-01',
     pose=SimpleNamespace(
       translation=SimpleNamespace(asNumpyCartesian=np.array([0.0, 0.0, 0.0])),
-      euler_rotation=[0.0, 0.0, 0.0],
+      quaternion_rotation=np.array([0.0, 0.0, 0.0, 1.0]),
       scale=[1.0, 1.0, 1.0],
     ),
   )
@@ -107,7 +108,7 @@ def test_regulated_output_uses_latest_dynamic_camera_pose(invalid):
     'camera_id': 'handheld-01',
     'extrinsics': {
       'translation': [4.0, 5.0, 6.0],
-      'rotation': [0.0, 0.0, 0.0, 1.0],
+      'rotation': rotation,
       'scale': [1.0, 1.0, 1.0],
     },
     'objects': [],
@@ -121,11 +122,17 @@ def test_regulated_output_uses_latest_dynamic_camera_pose(invalid):
   assert payload['cameras'][0]['id'] == 'handheld-01'
   assert payload['cameras'][0]['dynamic_pose'] is True
   assert payload['cameras'][0]['translation'] == [4.0, 5.0, 6.0]
-  assert payload['cameras'][0]['rotation'] == [0.0, 0.0, 0.0]
+  assert payload['cameras'][0]['rotation'] == pytest.approx([0, 0, 0.5 ** 0.5, 0.5 ** 0.5])
   jdata['extrinsics'] = invalid
   with patch('analytics.service.buildDetectionsList', return_value=[]):
     service.publishRegulatedDetections(scene, [], 'person', jdata, 'handheld-01')
   assert orjson.loads(service.pubsub.publish.call_args.args[1])['cameras'] == payload['cameras']
+
+
+def test_configured_camera_state_publishes_quaternion():
+  state = AnalyticsService._camera_state(_mobile_scene().cameras['mobile'])
+  assert state['rotation'] == pytest.approx([1, 0, 0, 0])
+  assert state['translation'] == [0, 0, 3]
 
 
 def test_projection_scene_uses_dynamic_pose_without_mutating_configured_camera():
@@ -1000,7 +1007,7 @@ class TestHandleSceneDataMessageSchemaAndVisibility:
       pose=SimpleNamespace(
         regionOfView=SimpleNamespace(isPointWithin=lambda pt: True),
         translation=SimpleNamespace(asNumpyCartesian=np.zeros(3)),
-        euler_rotation=[0, 0, 0], scale=[1, 1, 1]),
+        quaternion_rotation=np.array([0, 0, 0, 1]), scale=[1, 1, 1]),
     )
     service.cache_manager.sceneWithID.return_value = scene
     service.publishDetections = MagicMock()
