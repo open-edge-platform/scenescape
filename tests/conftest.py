@@ -1579,7 +1579,7 @@ def scene_factory(params):
 
 
 @pytest.fixture(scope="function")
-def demo_scene(request, scene_factory, params):
+def demo_scene(request, scene_factory, params, monkeypatch):
   """Provide a freshly created Demo scene and return its UID.
 
   The scene reproduces the seeded demo fixture (map, scale and the
@@ -1606,27 +1606,25 @@ def demo_scene(request, scene_factory, params):
   )
   uid = scene['uid']
 
-  # Prove the controller's tracker for this scene is actually warmed up
-  # before handing the UID to the test.
   from tests.utils.scene_ready import wait_for_tracker_ready
-  if not wait_for_tracker_ready(params, uid, camera_id=DEMO_SCENE_CAMERAS[0]):
-    logger.warning(
-      "demo_scene: tracker for scene '%s' (%s) did not confirm readiness; "
-      "proceeding anyway, test may need to retry on its own", uid,
-      params['scene_name'])
 
-  previous_option = getattr(request.config.option, "scene_id", None)
-  request.config.option.scene_id = uid
+  if not wait_for_tracker_ready(
+    params, uid, camera_id=DEMO_SCENE_CAMERAS[0]):
+      logger.error(
+        "Tracker for scene '%s' (%s) did not confirm readiness.",
+        uid,
+        params['scene_name'])
 
-  # Only patch the UI helpers when a UI test already imported them.
-  ui_utils = (sys.modules.get("tests.ui.common_ui_test_utils")
-              or sys.modules.get("common_ui_test_utils"))
-  previous_ui_id = getattr(ui_utils, "TEST_SCENE_ID", None) if ui_utils else None
-  if ui_utils is not None:
-    ui_utils.TEST_SCENE_ID = uid
+  monkeypatch.setattr(request.config.option, "scene_id", uid)
+
+  try:
+      from tests.ui import common_ui_test_utils
+      monkeypatch.setattr(
+          common_ui_test_utils,
+          "TEST_SCENE_ID",
+          uid,
+      )
+  except ImportError:
+      pass
 
   yield uid
-
-  request.config.option.scene_id = previous_option
-  if ui_utils is not None:
-    ui_utils.TEST_SCENE_ID = previous_ui_id

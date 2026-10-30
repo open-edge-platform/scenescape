@@ -25,12 +25,14 @@ from tests.utils.log import get_logger
 
 log = get_logger(__name__)
 
-# Seconds to wait for the broker handshake before giving up on a connection.
 MQTT_CONNECT_TIMEOUT_S = 10
-# Default probe budget; a freshly created scene's tracker should come up well
-# within this, but it is deliberately generous to absorb CI load/jitter.
 DEFAULT_TIMEOUT_S = 30
+DEFAULT_DRAIN_TIMEOUT_S = 10
 PROBE_FRAME_RATE = 10
+
+# Requiring more than one empty result avoids returning on a transient
+# empty scene update while the probe track is still being finalized.
+EMPTY_SCENE_CONFIRMATIONS = 2
 
 
 def _probe_detection(camera_id):
@@ -46,68 +48,183 @@ def _probe_detection(camera_id):
   }
 
 
+def _empty_detection(camera_id):
+  return {
+    "id": camera_id,
+    "objects": {
+      "person": [],
+    },
+    "rate": 9.8,
+  }
+
+
+def _person_count(scene_data):
+  """Return the number of active person tracks in a DATA_SCENE payload."""
+  if not isinstance(scene_data, dict):
+    log.warning(
+      "Unexpected DATA_SCENE payload type: %s",
+      type(scene_data).__name__,
+    )
+    return None
+
+  objects = scene_data.get("objects")
+  if not isinstance(objects, list):
+    log.warning(
+      "DATA_SCENE objects is not a list; top-level keys=%s",
+      list(scene_data.keys()),
+    )
+    return None
+
+  return sum(
+    1
+    for obj in objects
+    if isinstance(obj, dict) and obj.get("category") == "person"
+  )
+
+
 def wait_for_tracker_ready(params, scene_uid, camera_id="camera1",
-                          timeout=DEFAULT_TIMEOUT_S):
-  """Block until the scene controller publishes DATA_SCENE for *scene_uid*.
+                           timeout=DEFAULT_TIMEOUT_S,
+                           drain_timeout=DEFAULT_DRAIN_TIMEOUT_S):
+  """Wait until the tracker responds and the readiness-probe track ages out.
 
-  Repeatedly publishes a synthetic "person" detection on `camera_id`'s
-  DATA_CAMERA topic until a DATA_SCENE message for *scene_uid* is observed,
-  or *timeout* elapses.
+  The probe first publishes a synthetic person until DATA_SCENE reports
+  tracking output. It then publishes empty camera frames until DATA_SCENE
+  reports no active person tracks for multiple consecutive updates.
 
-  @param    params      Dict of functional-test connection parameters
-                        (resturl/rootcert/auth/broker_url/broker_port, as
-                        provided by the `params` fixture).
-  @param    scene_uid   UID of the scene expected to report tracking data.
-  @param    camera_id   Name/sensor_id of a calibrated camera in the scene.
-  @param    timeout     Seconds to probe before giving up.
-  @return               True if DATA_SCENE was observed in time, else False.
+  @return True when the tracker responded and the probe track drained.
   """
-  ready_event = threading.Event()
+  tracker_seen_event = threading.Event()
+  probe_drained_event = threading.Event()
+
+  callback_lock = threading.Lock()
+  state = {
+    "draining": False,
+    "empty_confirmations": 0,
+  }
 
   def _on_scene_data(mqttc, obj, msg):
     try:
-      data = json.loads(msg.payload.decode('utf-8'))
+      data = json.loads(msg.payload.decode("utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError):
       return
-    if data is not None:
-      ready_event.set()
-    return
 
-  pubsub = PubSub(params['auth'], None, params['rootcert'],
-                  params['broker_url'], port=int(params['broker_port']))
-  wait_topic = PubSub.formatTopic(PubSub.DATA_SCENE, scene_id=scene_uid,
-                                  thing_type="person")
-  publish_topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera_id)
+    person_count = _person_count(data)
+    if person_count is None:
+      log.debug(
+        "Ignoring DATA_SCENE payload with unexpected schema for scene %s",
+        scene_uid,
+      )
+      return
+
+    with callback_lock:
+      if not state["draining"]:
+        if person_count > 0:
+          tracker_seen_event.set()
+        return
+
+      if person_count == 0:
+        state["empty_confirmations"] += 1
+        if state["empty_confirmations"] >= EMPTY_SCENE_CONFIRMATIONS:
+          probe_drained_event.set()
+      else:
+        state["empty_confirmations"] = 0
+
+  pubsub = PubSub(
+    params["auth"],
+    None,
+    params["rootcert"],
+    params["broker_url"],
+    port=int(params["broker_port"]),
+  )
+
+  wait_topic = PubSub.formatTopic(
+    PubSub.DATA_SCENE,
+    scene_id=scene_uid,
+    thing_type="person",
+  )
+  publish_topic = PubSub.formatTopic(
+    PubSub.DATA_CAMERA,
+    camera_id=camera_id,
+  )
 
   pubsub.connect()
   pubsub.loopStart()
+
   try:
-    deadline = get_epoch_time() + MQTT_CONNECT_TIMEOUT_S
-    while not pubsub.isConnected() and get_epoch_time() < deadline:
-      ready_event.wait(0.05)
+    connect_deadline = get_epoch_time() + MQTT_CONNECT_TIMEOUT_S
+    while (not pubsub.isConnected()
+           and get_epoch_time() < connect_deadline):
+      tracker_seen_event.wait(0.05)
+
     if not pubsub.isConnected():
       log.warning(
-        "wait_for_tracker_ready: timed out connecting to the broker for "
-        "scene %s", scene_uid)
+        "wait_for_tracker_ready: timed out connecting to the broker "
+        "for scene %s",
+        scene_uid,
+      )
       return False
 
     pubsub.addCallback(wait_topic, _on_scene_data)
-    detection = _probe_detection(camera_id)
-    interval = 1.0 / PROBE_FRAME_RATE
-    begin = get_epoch_time()
-    count = 0
-    max_count = max(1, int(timeout / interval))
-    while not ready_event.is_set() and count < max_count:
-      detection['timestamp'] = get_iso_time(begin + count * interval)
-      pubsub.publish(publish_topic, json.dumps(detection))
-      ready_event.wait(interval)
-      count += 1
-    pubsub.removeCallback(wait_topic)
 
-    if not ready_event.is_set():
+    interval = 1.0 / PROBE_FRAME_RATE
+    timestamp_epoch = get_epoch_time()
+
+    # Prove that the tracker processes the synthetic detection.
+    probe = _probe_detection(camera_id)
+    ready_deadline = get_epoch_time() + timeout
+
+    while (not tracker_seen_event.is_set()
+           and get_epoch_time() < ready_deadline):
+      probe["timestamp"] = get_iso_time(timestamp_epoch)
+      pubsub.publish(publish_topic, json.dumps(probe))
+
+      tracker_seen_event.wait(interval)
+      timestamp_epoch += interval
+
+    if not tracker_seen_event.is_set():
       log.warning(
-        "wait_for_tracker_ready: no DATA_SCENE observed for scene %s within "
-        "%ss", scene_uid, timeout)
-    return ready_event.is_set()
+        "wait_for_tracker_ready: no tracked person observed for scene %s "
+        "within %ss",
+        scene_uid,
+        timeout,
+      )
+      return False
+
+    # Switch callback interpretation before publishing the first empty frame,
+    # so an immediate empty DATA_SCENE update cannot be missed.
+    with callback_lock:
+      state["draining"] = True
+      state["empty_confirmations"] = 0
+
+    # Advance the tracker with empty frames until the probe track disappears from scene output.
+    empty_frame = _empty_detection(camera_id)
+    drain_deadline = get_epoch_time() + drain_timeout
+
+    while (not probe_drained_event.is_set()
+           and get_epoch_time() < drain_deadline):
+      empty_frame["timestamp"] = get_iso_time(timestamp_epoch)
+      pubsub.publish(publish_topic, json.dumps(empty_frame))
+
+      probe_drained_event.wait(interval)
+      timestamp_epoch += interval
+
+    if not probe_drained_event.is_set():
+      log.warning(
+        "wait_for_tracker_ready: probe track did not age out for scene %s "
+        "within %ss",
+        scene_uid,
+        drain_timeout,
+      )
+      return False
+
+    log.debug(
+      "Tracker ready and readiness-probe track drained for scene %s",
+      scene_uid,
+    )
+    return True
+
   finally:
-    pubsub.loopStop()
+    try:
+      pubsub.removeCallback(wait_topic)
+    finally:
+      pubsub.loopStop()
