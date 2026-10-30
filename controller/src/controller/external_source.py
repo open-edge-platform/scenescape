@@ -532,7 +532,7 @@ class IdentityClaimRegistry:
 
     @param  scene_uid   Target scene's UID.
     @param  category    Object category/thing_type (the message's detection type).
-    @param  source_id   Claim owner: publisher id or shared global-identity key.
+    @param  source_id   Claim owner: the publisher's id.
     @param  obj_id      The object's source-local ``id`` from the payload.
     @param  when        Epoch timestamp of the message.
     @returns  (bool ok, reason or None) tuple. ``ok`` is False only when a
