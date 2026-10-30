@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import socket
+import time
 
 import vdms
 
@@ -25,6 +26,8 @@ from scene_common import log
 # Retained for tests/tools that historically imported this module constant.
 DIMENSIONS = 256
 SCHEMA_MARKER_CLASS = "ReidSchemaMarker"
+RECONNECT_INTERVAL_SECS = 5.0
+BACKEND_TIMEOUT_SECS = 5.0
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
@@ -52,10 +55,51 @@ class VDMSDatabase(ReIDDatabase):
     )
     self.hostname = get_reid_hostname()
     self.port = get_reid_port()
+    self._last_connect_attempt = float("-inf")
     return
 
   def _schemaResourceLabel(self):
     return "VDMS descriptor set"
+
+  def backendAvailable(self):
+    """Probe read-only, reconnecting at most once per retry interval."""
+    if self._probeBackend():
+      return True
+    with self.lock:
+      if not self._reconnectClient():
+        return False
+    return self._probeBackend()
+
+  def _reconnectClient(self):
+    """Reconnect under self.lock, sharing the retry budget with normal queries."""
+    now = time.monotonic()
+    if now - self._last_connect_attempt < RECONNECT_INTERVAL_SECS:
+      return False
+    self._last_connect_attempt = now
+    try:
+      self.db.disconnect()
+      self._connectClient(self.hostname)
+    except (OSError, RuntimeError) as error:
+      log.warning(f"VDMS reconnect failed: {error}")
+      return False
+    return True
+
+  def _connectClient(self, hostname):
+    try:
+      self.db.connect(hostname, port=self.port)
+      self.db.conn.settimeout(BACKEND_TIMEOUT_SECS)
+    except Exception:
+      self.db.disconnect()
+      raise
+
+  def _probeBackend(self):
+    try:
+      response, _ = self.sendQuery([{"FindEntity": {"class": SCHEMA_MARKER_CLASS,
+                                                  "results": {"list": ["set_name"]}}}])
+      return bool(response and response[0].get("status") == 0)
+    except Exception as error:
+      log.warning(f"VDMS readiness probe failed: {error}")
+      return False
 
   def sendQuery(self, query, blob=None):
     """
@@ -69,37 +113,77 @@ class VDMSDatabase(ReIDDatabase):
     @param   blob       Blobs of data to send with queries (optional)
     @return  responses  The response dict from VDMS
     """
-    responses = []
-    response_blob = []
     with self.lock:
-      if blob:
-        query_response = self.db.query(query, blob)
-      else:
-        query_response = self.db.query(query)
-    if query_response and query_response != "NOT CONNECTED":
-      response_blob = query_response[1]
-      # Check for transaction-level failure
-      if (len(query_response[0]) == 1
-          and isinstance(query_response[0][0], dict)
-          and 'FailedCommand' in query_response[0][0]):
-        log.warning(f"VDMS transaction failed: {query_response[0][0]}")
-        return responses, response_blob
-      for (item, response) in zip(query, query_response[0]):
-        query_type = next(iter(item))
-        response_data = response.get(query_type, {})
-        if not isinstance(response_data, dict):
-          log.debug(f"sendQuery: Non-dict payload for {query_type}: {response_data!r}")
-          response_data = {}
-        responses.append(response_data)
-    else:
-      log.warning(f"Failed to send query to VDMS container: {query}")
-    return responses, response_blob
+      if not self.db.connected and not self._reconnectClient():
+        log.warning("Cannot send query to VDMS: reconnect unavailable")
+        self._backendFailure()
+        return [], []
+      try:
+        if blob:
+          query_response = self.db.query(query, blob)
+        else:
+          query_response = self.db.query(query)
+      except Exception:
+        # A late or partial reply must never be consumed by the next query.
+        self.db.disconnect()
+        log.warning("VDMS query raised; disconnected to discard pending replies")
+        raise
+      if not query_response or query_response == "NOT CONNECTED":
+        self.db.disconnect()
+        log.warning("Failed to receive a complete VDMS query response")
+        self._backendFailure()
+        return [], []
+    return self._parseQueryResponses(query, query_response[0]), query_response[1]
+
+  def _parseQueryResponses(self, query, raw_responses):
+    if len(raw_responses) == 1 and 'FailedCommand' in raw_responses[0]:
+      return self._transactionResponses(query, raw_responses[0])
+    if len(raw_responses) != len(query):
+      self._backendFailure()
+      return []
+    responses = [response.get(next(iter(command)), {})
+                 for command, response in zip(query, raw_responses)]
+    responses = [item if isinstance(item, dict) else {} for item in responses]
+    self._validateQueryResponses(query, responses)
+    return responses
+
+  def _transactionResponses(self, query, failure):
+    if (query and all(item == failure["FailedCommand"] for item in query)
+        and self._isEmptyLookup(query[0], failure)):
+      return [failure.copy() for _ in query]
+    log.warning(f"VDMS transaction failed: {failure}")
+    self._backendFailure()
+    return []
+
+  def _validateQueryResponses(self, query, responses):
+    """Distinguish documented empty lookups from failed transactions."""
+    if len(responses) != len(query):
+      self._backendFailure()
+      return
+    if any(item.get("status") != 0 and not self._isEmptyLookup(command, item)
+           for command, item in zip(query, responses)):
+      self._backendFailure()
+
+  @staticmethod
+  def _isEmptyLookup(command, response):
+    name = next(iter(command))
+    absent = {
+      "FindDescriptor": {
+        "DescriptorSet Not Found!", "Set Not Found", "Not Found!",
+        "Descriptors Not Found", "Descriptor Not Found in graph!",
+      },
+      "FindDescriptorSet": {"DescriptorSet Not Found!", "Set Not Found"},
+    }
+    return response.get("status") == -1 and response.get("info") in absent.get(name, set())
 
   def connect(self, hostname=None):
     if hostname is None:
       hostname = self.hostname
+    self.hostname = hostname
+    self._last_connect_attempt = time.monotonic()
     try:
-      self.db.connect(hostname, port=self.port)
+      with self.lock:
+        self._connectClient(hostname)
       self._initializeSchemaOnConnect()
     except RuntimeError as e:
       log.error(f"Failed to initialize VDMS schema: {e}")
@@ -149,7 +233,7 @@ class VDMSDatabase(ReIDDatabase):
       raise RuntimeError(
         f"Failed to write schema marker for '{self.set_name}'. Response: {response}")
 
-  def _readSchemaMarker(self):
+  def _readSchemaMarker(self, set_name=None):
     """
     Read the schema marker entity for this descriptor set to verify
     dimensions/metric reliably, bypassing FindDescriptorSet.
@@ -159,7 +243,7 @@ class VDMSDatabase(ReIDDatabase):
     query = [{
       "FindEntity": {
         "class": SCHEMA_MARKER_CLASS,
-        "constraints": {"set_name": ["==", self.set_name]},
+        "constraints": {"set_name": ["==", self._resolveSetName(set_name)]},
         "results": {"list": ["set_name", "dimensions", "metric"]}
       }
     }]
@@ -282,9 +366,12 @@ class VDMSDatabase(ReIDDatabase):
       missing_sentinels=("Missing property",))
 
   def findSchemaMetadata(self, set_name):
+    # FindDescriptorSet raises an internal JSON error for absent sets in VDMS 2.12.
     query = [{
-      "FindDescriptorSet": {
-        "set": f"{set_name}"
+      "FindEntity": {
+        "class": "VD:DESCSET",
+        "constraints": {"VD:name": ["==", set_name]},
+        "results": {"list": ["VD:name", "VD:dimensions"]}
       }
     }]
     response, _ = self.sendQuery(query)
@@ -297,6 +384,10 @@ class VDMSDatabase(ReIDDatabase):
 
     schema_dimensions = self._extractSchemaDimensions(first_response)
     schema_metric = self._extractSchemaMetric(first_response)
+    if schema_metric is None:
+      marker_exists, _, schema_metric = self._readSchemaMarker(set_name)
+      if not marker_exists:
+        schema_metric = None
     return True, schema_dimensions, schema_metric
 
   def _extractSchemaDimensions(self, find_descriptor_set_response):
