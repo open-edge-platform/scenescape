@@ -53,6 +53,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/TrackManager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/Classification.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/MultipleObjectTracker.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/MetadataFusion.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/TrackTracker.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/CameraUtils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/apollo/connected_component_analysis.cpp

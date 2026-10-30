@@ -3,60 +3,17 @@
 
 #include "rv/tracking/MultipleObjectTracker.hpp"
 #include <algorithm>
-#include <charconv>
 #include <cmath>
-#include <optional>
 #include <unordered_map>
 #include "rv/Utils.hpp"
 #include "rv/tracking/Classification.hpp"
+#include "rv/tracking/MetadataFusion.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
 
 namespace rv {
 namespace tracking {
 
 namespace {
-
-constexpr const char *METADATA_PREFIX = "metadata.";
-constexpr const char *METADATA_CONFIDENCE_PREFIX = "metadata_confidence.";
-
-bool startsWith(const std::string &value, const char *prefix)
-{
-  return value.rfind(prefix, 0) == 0;
-}
-
-std::optional<double> metadataConfidence(const TrackedObject &object, const std::string &field)
-{
-  const auto confidence = object.attributes.find(METADATA_CONFIDENCE_PREFIX + field);
-  if (confidence == object.attributes.end())
-  {
-    return std::nullopt;
-  }
-
-  double value{};
-  const auto *begin = confidence->second.data();
-  const auto *end = begin + confidence->second.size();
-  const auto [ptr, error] = std::from_chars(begin, end, value);
-  if (error != std::errc{} || ptr != end || !std::isfinite(value))
-  {
-    return std::nullopt;
-  }
-  return value;
-}
-
-void clearMetadataAttributes(TrackedObject &object)
-{
-  for (auto attribute = object.attributes.begin(); attribute != object.attributes.end();)
-  {
-    if (startsWith(attribute->first, METADATA_PREFIX) || startsWith(attribute->first, METADATA_CONFIDENCE_PREFIX))
-    {
-      attribute = object.attributes.erase(attribute);
-    }
-    else
-    {
-      ++attribute;
-    }
-  }
-}
 
 /**
  * @brief Average world position and size across multi-camera matches into measurement.
@@ -102,89 +59,6 @@ void fuseGeometry(const std::vector<std::pair<size_t, size_t>> &matches,
   measurement.height = sumHeight / n;
 }
 
-void fuseMetadata(const std::vector<std::pair<size_t, size_t>> &matches,
-                  const std::vector<std::vector<TrackedObject>> &objectsPerCamera,
-                  TrackedObject &measurement)
-{
-  struct Winner
-  {
-    std::optional<double> confidence;
-    size_t cameraIndex;
-  };
-
-  std::unordered_map<std::string, Winner> winners;
-  clearMetadataAttributes(measurement);
-
-  for (const auto &[cameraIndex, objectIndex] : matches)
-  {
-    const auto &object = objectsPerCamera[cameraIndex][objectIndex];
-    for (const auto &[key, value] : object.attributes)
-    {
-      if (!startsWith(key, METADATA_PREFIX))
-      {
-        continue;
-      }
-
-      const std::string field = key.substr(std::char_traits<char>::length(METADATA_PREFIX));
-      const auto confidence = metadataConfidence(object, field);
-      const auto winner = winners.find(field);
-      const bool winnerExists = winner != winners.end();
-      const std::optional<double> winnerConfidence = winnerExists ? winner->second.confidence : std::optional<double>{};
-      const size_t winnerCameraIndex = winnerExists ? winner->second.cameraIndex : 0;
-      if (!metadata_fusion::shouldReplace(winnerExists, confidence, cameraIndex, winnerConfidence, winnerCameraIndex))
-      {
-        continue;
-      }
-
-      measurement.attributes[key] = value;
-      const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
-      if (confidence)
-      {
-        measurement.attributes[confidenceKey] = object.attributes.at(confidenceKey);
-      }
-      else
-      {
-        measurement.attributes.erase(confidenceKey);
-      }
-      winners[field] = Winner{confidence, cameraIndex};
-    }
-  }
-}
-
-void mergeHistoricalMetadata(const TrackedObject &track, TrackedObject &measurement)
-{
-  for (const auto &[key, value] : track.attributes)
-  {
-    if (!startsWith(key, METADATA_PREFIX))
-    {
-      continue;
-    }
-
-    const std::string field = key.substr(std::char_traits<char>::length(METADATA_PREFIX));
-    const auto storedConfidence = metadataConfidence(track, field);
-    const auto currentValue = measurement.attributes.find(key);
-    const auto currentConfidence = metadataConfidence(measurement, field);
-
-    const bool currentIsHigher = currentValue != measurement.attributes.end() && currentConfidence
-      && (!storedConfidence || *currentConfidence > *storedConfidence);
-    if (currentIsHigher)
-    {
-      continue;
-    }
-
-    measurement.attributes[key] = value;
-    const std::string confidenceKey = METADATA_CONFIDENCE_PREFIX + field;
-    if (storedConfidence)
-    {
-      measurement.attributes[confidenceKey] = track.attributes.at(confidenceKey);
-    }
-    else
-    {
-      measurement.attributes.erase(confidenceKey);
-    }
-  }
-}
-
 /**
  * Prefer yaw from an orienting detection among matches. Position and size are
  * averaged separately by fuseGeometry. When several orienting
@@ -208,8 +82,7 @@ void applyOrientingYaw(const std::vector<std::pair<size_t, size_t>> &matches,
       continue;
     }
     const double confidence = object.classification.size() > 0 ? object.classification.maxCoeff() : 0.0;
-    if (!found || confidence > bestConfidence
-        || (confidence == bestConfidence && cameraIndex > bestCameraIndex))
+    if (!found || confidence > bestConfidence || (confidence == bestConfidence && cameraIndex > bestCameraIndex))
     {
       found = true;
       bestConfidence = confidence;
@@ -280,7 +153,7 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
   {
     auto const &track = tracks[assignment.first];
     auto &measurement = objects[assignment.second];
-    mergeHistoricalMetadata(track, measurement);
+    metadata_fusion::mergeHistoricalMetadata(track, measurement);
     mTrackManager.setMeasurement(track.id, measurement);
   }
 
@@ -416,8 +289,8 @@ MultipleObjectTracker::matchAndAssignMeasurements(const std::vector<tracking::Tr
     auto fusedObject = objectsPerCamera[lastMatch.first][lastMatch.second];
     fuseGeometry(matches, objectsPerCamera, fusedObject);
     applyOrientingYaw(matches, objectsPerCamera, fusedObject);
-    fuseMetadata(matches, objectsPerCamera, fusedObject);
-    mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
+    metadata_fusion::fuseMetadata(matches, objectsPerCamera, fusedObject);
+    metadata_fusion::mergeHistoricalMetadata(tracks[trackIdx], fusedObject);
 
     mTrackManager.setMeasurement(tracks[trackIdx].id, fusedObject);
     isTrackAssigned[trackIdx] = true;
@@ -544,7 +417,7 @@ void MultipleObjectTracker::track(std::vector<std::vector<tracking::TrackedObjec
       auto &fusedObject = newObjects[newObjectIndex];
       fuseGeometry(members, objectsPerCamera, fusedObject);
       applyOrientingYaw(members, objectsPerCamera, fusedObject);
-      fuseMetadata(members, objectsPerCamera, fusedObject);
+      metadata_fusion::fuseMetadata(members, objectsPerCamera, fusedObject);
     }
 
     for (const auto objectIndex : unassignedObjects)

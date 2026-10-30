@@ -187,6 +187,36 @@ TEST_F(TrackPublisherTest, Serialize_TrackHasCorrectFields) {
     EXPECT_DOUBLE_EQ(obj["rotation"][3].GetDouble(), 0.707);
 }
 
+TEST_F(TrackPublisherTest, Serialize_OnlyIncludesFreshReidSighting) {
+    auto mqtt = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mqtt);
+    std::string payload;
+    EXPECT_CALL(*mqtt, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mqtt, publish(_, _))
+        .WillOnce([&payload](const std::string&, const std::string& json) { payload = json; });
+
+    auto observed = createSampleTrack("observed", "person");
+    observed.metadata_json = R"({"reid":{"embedding_vector":[[1,2]]},"age":{"label":"adult"}})";
+    observed.reid_sighting_json =
+        R"({"camera_id":"cam-1","timestamp":"2026-10-14T12:00:00Z","bounding_box_px":{"x":1,"y":2,"width":80,"height":90},"reid":{"embedding_vector":[[1,2]]}})";
+    auto predicted = createSampleTrack("predicted", "person");
+    predicted.metadata_json = R"({"reid":{"embedding_vector":[[3,4]]},"age":{"label":"adult"}})";
+    publisher.publish("scene", "Scene", "person", "2026-10-14T12:00:00Z", {observed, predicted});
+
+    rapidjson::Document doc;
+    ASSERT_FALSE(doc.Parse(payload.c_str()).HasParseError());
+    ASSERT_TRUE(doc["objects"][0].HasMember("reid_sighting"));
+    EXPECT_STREQ(doc["objects"][0]["reid_sighting"]["camera_id"].GetString(), "cam-1");
+    ASSERT_TRUE(doc["objects"][0]["reid_sighting"].HasMember("reid"));
+    EXPECT_TRUE(doc["objects"][0]["reid_sighting"]["reid"].HasMember("embedding_vector"));
+    for (const auto& object : doc["objects"].GetArray()) {
+        ASSERT_TRUE(object.HasMember("metadata"));
+        EXPECT_FALSE(object["metadata"].HasMember("reid"));
+        EXPECT_STREQ(object["metadata"]["age"]["label"].GetString(), "adult");
+    }
+    EXPECT_FALSE(doc["objects"][1].HasMember("reid_sighting"));
+}
+
 TEST_F(TrackPublisherTest, Serialize_HandlesEmptyTracks) {
     auto mock_client = std::make_shared<MockMqttClient>();
     TrackPublisher publisher(mock_client);
@@ -280,9 +310,7 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithMetadata_EmitsMetadataField) {
     const auto& obj = doc["objects"][0];
     ASSERT_TRUE(obj.HasMember("metadata"));
     EXPECT_TRUE(obj["metadata"].IsObject());
-    EXPECT_TRUE(obj["metadata"].HasMember("reid"));
-    EXPECT_TRUE(obj["metadata"]["reid"].IsObject());
-    EXPECT_STREQ(obj["metadata"]["reid"]["model_name"].GetString(), "test");
+    EXPECT_FALSE(obj["metadata"].HasMember("reid"));
     EXPECT_TRUE(obj["metadata"].HasMember("age"));
     EXPECT_TRUE(obj["metadata"]["age"].IsObject());
     EXPECT_STREQ(obj["metadata"]["age"]["label"].GetString(), "adult");
@@ -306,8 +334,37 @@ TEST_F(TrackPublisherTest, Serialize_Track_WithInvalidMetadataJson_OmitsMetadata
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(captured_payload.c_str()).HasParseError());
 
-    // Invalid JSON must be silently dropped — no crash, no metadata field emitted
+    // Invalid JSON is logged and omitted without corrupting the output.
     EXPECT_FALSE(doc["objects"][0].HasMember("metadata"));
+}
+
+TEST_F(TrackPublisherTest, Serialize_FragmentOwnershipAndEscapingSurviveMultipleTracks) {
+    auto mqtt = std::make_shared<MockMqttClient>();
+    TrackPublisher publisher(mqtt);
+    std::string payload;
+    EXPECT_CALL(*mqtt, isConnected()).WillOnce(Return(true));
+    EXPECT_CALL(*mqtt, publish(_, _))
+        .WillOnce([&payload](const std::string&, const std::string& json) { payload = json; });
+
+    auto first = createSampleTrack("first", "person");
+    first.metadata_json = R"({"label":"quoted\"\\\u0000","values":[1,2.5,null]})";
+    first.reid_sighting_json =
+        R"({"camera_id":"cam\"1","reid":{"embedding_vector":[[0.123456789012345,1e-20]]}})";
+    auto second = createSampleTrack("second", "person");
+    second.metadata_json = R"({"label":"second"})";
+    second.reid_sighting_json = "{invalid";
+    publisher.publish("scene", "Scene", "person", "2026-10-29T12:00:00Z", {first, second});
+
+    rapidjson::Document output;
+    ASSERT_FALSE(output.Parse(payload.c_str()).HasParseError());
+    rapidjson::Document metadata;
+    metadata.Parse(first.metadata_json.c_str());
+    rapidjson::Document sighting;
+    sighting.Parse(first.reid_sighting_json.c_str());
+    EXPECT_EQ(output["objects"][0]["metadata"], metadata);
+    EXPECT_EQ(output["objects"][0]["reid_sighting"], sighting);
+    EXPECT_STREQ(output["objects"][1]["metadata"]["label"].GetString(), "second");
+    EXPECT_FALSE(output["objects"][1].HasMember("reid_sighting"));
 }
 
 // =============================================================================

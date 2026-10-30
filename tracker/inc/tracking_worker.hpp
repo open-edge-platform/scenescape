@@ -7,6 +7,7 @@
 #include "coordinate_transformer.hpp"
 #include "id_map.hpp"
 #include "object_class.hpp"
+#include "reid_sighting.hpp"
 #include "time_utils.hpp"
 #include "tracking_types.hpp"
 
@@ -14,6 +15,7 @@
 
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <deque>
 #include <functional>
 #include <mutex>
@@ -207,7 +209,10 @@ private:
     // RobotVision int ID -> UUID v4 string mapping (single-thread access, no mutex)
     std::unordered_map<int32_t, std::string> id_map_;
 
+    ReidSightingIndex reid_sightings_;
+
     std::unordered_map<int32_t, VelocityRotationState> rotation_states_;
+    uint64_t chunk_sequence_ = 0;
 
     std::thread worker_thread_;
     mutable std::mutex queue_mutex_;
