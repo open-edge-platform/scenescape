@@ -136,136 +136,123 @@ def _reidProvenance(scene, aobj, minimum_bbox_area, will_enroll=False, enrolled=
     provenance['enrolled'] = True
   return provenance
 
-def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
-                   include_region_dwell=False, current_time=None,
-                   attach_reid_provenance=False, minimum_bbox_area=None,
-                   will_enroll_reid=False, withhold_reid=False,
-                   reid_enrolled_fn=None):
-  aobj = obj
-  otype = aobj.category
-
-  scene_loc_vector = aobj.sceneLoc.asCartesianVector
-
+def _normalizedVelocity(aobj):
   velocity = aobj.velocity
   if velocity is None:
     velocity = Point([0, 0, 0])
   if not velocity.is3D:
     velocity = Point([velocity.x, velocity.y, DEFAULTZ])
+  return velocity
 
-  # Build a fresh top-level dict per serialization so optional fields like
-  # sensors do not leak between scene, regulated, and external outputs.
-  obj_dict = dict(aobj.info or {})
-  obj_dict.update({
-    'id': aobj.gid, # gid is the global ID - computed by Scenescape server.
-    'type': otype,
-    'translation': scene_loc_vector,
-    'size': aobj.size,
-    'velocity': velocity.asCartesianVector
-  })
+def _addLLA(obj_dict, scene, aobj, scene_loc_vector, velocity):
+  if not (scene and scene.output_lla):
+    return
+  # The matrix is None when the LLA transform could not be computed; omit LLA fields then.
+  trs_xyz_to_lla = scene.trs_xyz_to_lla
+  if trs_xyz_to_lla is None:
+    return
+  lat_long_alt = convertXYZToLLA(trs_xyz_to_lla, scene_loc_vector)
+  obj_dict['lat_long_alt'] = lat_long_alt.tolist()
+  heading = calculateHeading(trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector, velocity.asCartesianVector)
+  obj_dict['heading'] = heading.tolist()
 
-  rotation = aobj.rotation
-  if rotation is not None:
-    obj_dict['rotation'] = rotation
-
-  if scene and scene.output_lla:
-    lat_long_alt = convertXYZToLLA(scene.trs_xyz_to_lla, scene_loc_vector)
-    obj_dict['lat_long_alt'] = lat_long_alt.tolist()
-    heading = calculateHeading(scene.trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector, velocity.asCartesianVector)
-    obj_dict['heading'] = heading.tolist()
-
+def _addSemanticMetadata(obj_dict, aobj):
   # Restore semantic metadata (age, gender, clothing, etc.) stripped from info during construction
-  if hasattr(aobj, 'metadata') and aobj.metadata:
-    if 'metadata' not in obj_dict:
-      obj_dict['metadata'] = {}
-    for key, value in aobj.metadata.items():
-      if key != 'reid':
-        obj_dict['metadata'][key] = value
+  if not (hasattr(aobj, 'metadata') and aobj.metadata):
+    return
+  metadata = obj_dict.setdefault('metadata', {})
+  for key, value in aobj.metadata.items():
+    if key != 'reid':
+      metadata[key] = value
 
+def _gateReidEmbedding(scene, aobj, minimum_bbox_area, will_enroll_reid, withhold_reid,
+                       reid_enrolled_fn):
+  """Apply hierarchy-output gating to the embedding.
+
+  @return  tuple  (embedding, provenance); embedding is None when it must be withheld
+  """
+  # Hierarchy output: a receiving scene has no pixel bbox of its own to judge the
+  # crop by, so it can only use embeddings that state where they were vetted.
+  # ReID-enabled publishers withhold *local* crops until schema ready so parents
+  # neither race sole-enroll nor honor a will_enroll claim the child cannot fulfill.
+  # Already-vetted inherited embeddings still forward (multi-hop relays).
+  if withhold_reid and not is_vetted_provenance(getattr(aobj, 'reid_provenance', None)):
+    return None, None
+  # Process-level will_enroll_reid only enables claims; stamp will_enroll when
+  # this track actually owns (or is accumulating) a write so short-lived crops
+  # without enrollment activity remain parent-enrollable.
+  enrolled = bool(reid_enrolled_fn(aobj)) if reid_enrolled_fn is not None else False
+  provenance = _reidProvenance(
+    scene, aobj, minimum_bbox_area,
+    will_enroll=bool(will_enroll_reid and enrolled), enrolled=enrolled)
+  if provenance is None:
+    return None, None
+  return aobj.reid['embedding_vector'], provenance
+
+def _reidVector(reid_embedding):
+  if isinstance(reid_embedding, str):
+    # Tracker passes the detector's base64 float32 payload through unchanged.
+    return np.frombuffer(base64.b64decode(reid_embedding), dtype=np.float32)
+  return np.asarray(reid_embedding, dtype=np.float32).reshape(-1)
+
+def _addReid(obj_dict, scene, aobj, attach_reid_provenance, minimum_bbox_area,
+             will_enroll_reid, withhold_reid, reid_enrolled_fn):
   # Output reid in metadata structure.
   # embedding_vector is always a (1, N) ndarray after decodeReIDEmbeddingVector.
-  if aobj.reid and 'embedding_vector' in aobj.reid:
-    reid_embedding = aobj.reid['embedding_vector']
-    provenance = None
-    if attach_reid_provenance:
-      # Hierarchy output: a receiving scene has no pixel bbox of its own to judge the
-      # crop by, so it can only use embeddings that state where they were vetted.
-      # ReID-enabled publishers withhold *local* crops until schema ready so parents
-      # neither race sole-enroll nor honor a will_enroll claim the child cannot fulfill.
-      # Already-vetted inherited embeddings still forward (multi-hop relays).
-      if withhold_reid and not is_vetted_provenance(
-          getattr(aobj, 'reid_provenance', None)):
-        provenance = None
-        reid_embedding = None
-      else:
-        # Process-level will_enroll_reid only enables claims; stamp will_enroll when
-        # this track actually owns (or is accumulating) a write so short-lived crops
-        # without enrollment activity remain parent-enrollable.
-        enrolled = bool(reid_enrolled_fn(aobj)) if reid_enrolled_fn is not None else False
-        provenance = _reidProvenance(
-          scene, aobj, minimum_bbox_area,
-          will_enroll=bool(will_enroll_reid and enrolled), enrolled=enrolled)
-        if provenance is None:
-          reid_embedding = None
-    if reid_embedding is not None:
-      if 'metadata' not in obj_dict:
-        obj_dict['metadata'] = {}
-      if isinstance(reid_embedding, str):
-        # Tracker passes the detector's base64 float32 payload through unchanged.
-        reid_vec = np.frombuffer(base64.b64decode(reid_embedding), dtype=np.float32)
-      else:
-        reid_vec = np.asarray(reid_embedding, dtype=np.float32).reshape(-1)
-      obj_dict['metadata']['reid'] = {
-        'embedding_vector': reid_vec.tolist(),
-        'embedding_dimensions': int(reid_vec.reshape(-1).shape[0]),
-      }
-      if 'model_name' in aobj.reid:
-        obj_dict['metadata']['reid']['model_name'] = aobj.reid['model_name']
-      if provenance is not None:
-        obj_dict['metadata']['reid'][REID_PROVENANCE_KEY] = provenance
+  if not (aobj.reid and 'embedding_vector' in aobj.reid):
+    return
+  reid_embedding = aobj.reid['embedding_vector']
+  provenance = None
+  if attach_reid_provenance:
+    reid_embedding, provenance = _gateReidEmbedding(
+      scene, aobj, minimum_bbox_area, will_enroll_reid, withhold_reid, reid_enrolled_fn)
+  if reid_embedding is None:
+    return
+  reid_vec = _reidVector(reid_embedding)
+  reid_output = {
+    'embedding_vector': reid_vec.tolist(),
+    'embedding_dimensions': int(reid_vec.shape[0]),
+  }
+  if 'model_name' in aobj.reid:
+    reid_output['model_name'] = aobj.reid['model_name']
+  if provenance is not None:
+    reid_output[REID_PROVENANCE_KEY] = provenance
+  obj_dict.setdefault('metadata', {})['reid'] = reid_output
 
-  if hasattr(aobj, 'visibility'):
-    obj_dict['visibility'] = aobj.visibility
-    if update_visibility:
-      computeCameraBounds(scene, aobj, obj_dict)
+def _buildSensorsOutput(chain_data):
+  # Copy sensor data while holding lock, then release
+  with chain_data._lock:
+    env_state_copy = dict(chain_data.env_sensor_state)
+    attr_events_copy = dict(chain_data.attr_sensor_events)
 
-  if hasattr(aobj, 'chain_data'):
-    chain_data = aobj.chain_data
-    if len(chain_data.publishedLocations) > 1:
-      obj_dict['prev_translation'] = chain_data.publishedLocations[1].asCartesianVector
-    if len(chain_data.regions):
-      if include_region_dwell:
-        if current_time is None:
-          current_time = get_epoch_time()
-        obj_dict['regions'] = _buildRegionOutput(chain_data.regions, include_region_dwell, current_time)
-      else:
-        obj_dict['regions'] = chain_data.regions
+  sensors_output = {}
+  # Environmental sensors: timestamped readings
+  for sensor_id, state in env_state_copy.items():
+    sensors_output[sensor_id] = {'values': state.get('readings') or []}
 
-    if include_sensors:
-      sensors_output = {}
+  # Attribute sensors: events as structured object
+  for sensor_id, events in attr_events_copy.items():
+    if events:
+      sensors_output[sensor_id] = {'values': events}
+  return sensors_output
 
-      # Copy sensor data while holding lock, then release
-      with chain_data._lock:
-        env_state_copy = dict(chain_data.env_sensor_state)
-        attr_events_copy = dict(chain_data.attr_sensor_events)
+def _addChainData(obj_dict, chain_data, include_sensors, include_region_dwell, current_time):
+  if len(chain_data.publishedLocations) > 1:
+    obj_dict['prev_translation'] = chain_data.publishedLocations[1].asCartesianVector
+  if len(chain_data.regions):
+    if include_region_dwell:
+      if current_time is None:
+        current_time = get_epoch_time()
+      obj_dict['regions'] = _buildRegionOutput(chain_data.regions, include_region_dwell, current_time)
+    else:
+      obj_dict['regions'] = chain_data.regions
 
-      # Environmental sensors: timestamped readings
-      for sensor_id, state in env_state_copy.items():
-        values = state['readings'] if 'readings' in state and state['readings'] else []
+  if include_sensors:
+    sensors_output = _buildSensorsOutput(chain_data)
+    if sensors_output:
+      obj_dict['sensors'] = sensors_output
 
-        sensors_output[sensor_id] = {
-          'values': values
-        }
-
-      # Attribute sensors: events as structured object
-      for sensor_id, events in attr_events_copy.items():
-        if events:
-          sensors_output[sensor_id] = {
-            'values': events
-          }
-
-      if sensors_output:
-        obj_dict['sensors'] = sensors_output
-
+def _addOptionalAttributes(obj_dict, aobj):
   if hasattr(aobj, 'confidence'):
     obj_dict['confidence'] = aobj.confidence
   if getattr(aobj, 'source', None):
@@ -285,8 +272,48 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   if hasattr(aobj, 'asset_scale'):
     obj_dict['asset_scale'] = aobj.asset_scale
-  if len(aobj.chain_data.persist):
-    obj_dict['persistent_data'] = aobj.chain_data.persist
+
+def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
+                   include_region_dwell=False, current_time=None,
+                   attach_reid_provenance=False, minimum_bbox_area=None,
+                   will_enroll_reid=False, withhold_reid=False,
+                   reid_enrolled_fn=None):
+  aobj = obj
+  scene_loc_vector = aobj.sceneLoc.asCartesianVector
+  velocity = _normalizedVelocity(aobj)
+
+  # Build a fresh top-level dict per serialization so optional fields like
+  # sensors do not leak between scene, regulated, and external outputs.
+  obj_dict = dict(aobj.info or {})
+  obj_dict.update({
+    'id': aobj.gid, # gid is the global ID - computed by Scenescape server.
+    'type': aobj.category,
+    'translation': scene_loc_vector,
+    'size': aobj.size,
+    'velocity': velocity.asCartesianVector
+  })
+
+  if aobj.rotation is not None:
+    obj_dict['rotation'] = aobj.rotation
+
+  _addLLA(obj_dict, scene, aobj, scene_loc_vector, velocity)
+  _addSemanticMetadata(obj_dict, aobj)
+  _addReid(obj_dict, scene, aobj, attach_reid_provenance, minimum_bbox_area,
+           will_enroll_reid, withhold_reid, reid_enrolled_fn)
+
+  if hasattr(aobj, 'visibility'):
+    obj_dict['visibility'] = aobj.visibility
+    if update_visibility:
+      computeCameraBounds(scene, aobj, obj_dict)
+
+  if hasattr(aobj, 'chain_data'):
+    _addChainData(obj_dict, aobj.chain_data, include_sensors, include_region_dwell, current_time)
+
+  _addOptionalAttributes(obj_dict, aobj)
+  if hasattr(aobj, 'chain_data'):
+    persist = getattr(aobj.chain_data, 'persist', None)
+    if persist is not None and len(persist):
+      obj_dict['persistent_data'] = persist
   return obj_dict
 
 def computeCameraBounds(scene, aobj, obj_dict):

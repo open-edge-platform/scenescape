@@ -266,6 +266,20 @@ class TestDetectionsBuilder:
     mock_convert_xyz_to_lla.assert_called_once_with('trs-transform', [1.0, 2.0, 3.0])
     mock_calculate_heading.assert_called_once_with('trs-transform', [1.0, 2.0, 3.0], [4.0, 5.0, 6.0])
 
+  @patch('scene_common.detections_builder.calculateHeading')
+  @patch('scene_common.detections_builder.convertXYZToLLA')
+  def test_prepare_obj_dict_skips_lla_when_transform_unavailable(self, mock_convert_xyz_to_lla, mock_calculate_heading):
+    obj = _build_object(velocity=Point(4.0, 5.0, 6.0), include_sensor_payload=False)
+    scene = SimpleNamespace(output_lla=True, trs_xyz_to_lla=None)
+
+    detection = prepareObjDict(scene, obj, update_visibility=False)
+
+    assert 'lat_long_alt' not in detection
+    assert 'heading' not in detection
+    assert detection['translation'] == [1.0, 2.0, 3.0]
+    mock_convert_xyz_to_lla.assert_not_called()
+    mock_calculate_heading.assert_not_called()
+
   def test_prepare_obj_dict_serializes_reid_state_enum_to_string(self):
     """Verify that reid_state enum is converted to its string value in serialization."""
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)

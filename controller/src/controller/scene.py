@@ -94,6 +94,7 @@ class Scene(SceneModel):
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
 
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     self.use_tracker = True
 
     self.pose_adjustment = PoseAdjustment.from_env(
@@ -421,10 +422,18 @@ class Scene(SceneModel):
     Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
 
     The matrix is calculated lazily on first access and cached for subsequent calls.
+    Returns None when the geospatial inputs are incomplete or invalid. A computation
+    failure is logged once and remembered until the cache is invalidated.
     """
-    if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
-      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
-      self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+    if (self._trs_xyz_to_lla is None and not self._trs_xyz_to_lla_failed
+        and self.output_lla and self.map_corners_lla is not None):
+      try:
+        mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+        self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+      except (TypeError, ValueError, IndexError) as exc:
+        self._trs_xyz_to_lla_failed = True
+        log.error("Scene", self.name, "failed to compute LLA transform, map_file:",
+                  self.map_file, "error:", exc)
     return self._trs_xyz_to_lla
 
   def _invalidate_trs_xyz_to_lla(self):
@@ -433,4 +442,5 @@ class Scene(SceneModel):
     This method should be called when the scene geospatial mapping parameters change.
     """
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     return

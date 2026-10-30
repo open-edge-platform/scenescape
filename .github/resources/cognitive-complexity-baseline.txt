@@ -116,7 +116,6 @@ scene_common/src/scene_common/cache_manager.py	CacheManager::_restoreSensorCache
 scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenes	16
 scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenesForCamParams	27
 scene_common/src/scene_common/detections_builder.py	computeCameraBounds	23
-scene_common/src/scene_common/detections_builder.py	prepareObjDict	92
 scene_common/src/scene_common/geometry.py	Region::isPointWithin	14
 scene_common/src/scene_common/geometry.py	Region::updatePoints	33
 scene_common/src/scene_common/glb_top_view.py	renderTopView	30
