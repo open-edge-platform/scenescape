@@ -71,7 +71,8 @@ def serialize_for_event(obj, include_sensors=False, include_region_dwell=False, 
       if key != 'reid':
         obj_dict['metadata'][key] = value
 
-  # Reid embedding — carry through as metadata for downstream consumers
+  # Legacy Scene Controller embedding pass-through only; Tracker sightings go to
+  # reid-service and are not reconstructed as ao.reid by Analytics ingestion.
   reid = ao.reid
   if reid and 'embedding_vector' in reid:
     reid_embedding = reid['embedding_vector']
