@@ -23,6 +23,35 @@ Override defaults for boundary testing:
 NUM_CAMERAS=8 FPS=30 NUM_OBJECTS=500 DURATION=5m make test-load
 ```
 
+Exercise the metadata hot path with deterministic float-list embeddings:
+
+```bash
+NUM_OBJECTS=50 REID_EMBEDDING_DIMENSIONS=256 make test-load
+NUM_OBJECTS=50 REID_EMBEDDING_DIMENSIONS=512 make test-load
+NUM_OBJECTS=300 REID_EMBEDDING_DIMENSIONS=512 REID_EMBEDDING_ENCODING=base64 make test-load
+NUM_OBJECTS=300 EXTRA_METADATA=age_gender make test-load
+```
+
+`REID_EMBEDDING_ENCODING` accepts `float_list` (default) or `base64`
+(little-endian float32). Base64 reduces message size and generator serialization
+cost for high object counts. `EXTRA_METADATA=age_gender` adds deterministic age
+and gender fields independently of embeddings; both options can be combined.
+
+Run generator unit tests without Docker or k6 (Node.js required):
+
+```bash
+make -C test/load test-generator
+```
+
+ReID load-test embeddings are generated for pixel-box detections, since a
+`reid_sighting` requires the source frame's pixel bounding box. In mixed mode,
+3D detections exercise geometry without an embedding; the 2D detections carry
+the configured ReID payload.
+
+Use identical camera/object counts, FPS, duration, hardware, and vector dimensions
+for before/after runs. Record the image revision and the terminal SLI/stage-latency
+summary for each run; the dropped-message gate remains below 0.1%.
+
 Select the detection geometry to exercise:
 
 ```bash
@@ -132,20 +161,23 @@ The hardware section helps reproduce results across machines. The per-stage brea
 
 All parameters are environment-variable driven:
 
-| Variable          | Default                       | Description                                         |
-| ----------------- | ----------------------------- | --------------------------------------------------- |
-| `NUM_CAMERAS`     | 4                             | Simulated camera count                              |
-| `FPS`             | 15                            | Frames per second per camera                        |
-| `NUM_OBJECTS`     | 300                           | Detections per message                              |
-| `DURATION`        | 1m                            | Nominal test duration (SLI window)                  |
-| `LOAD_MODE`       | 2d                            | `2d`, `3d`, or `mixed` geometry                     |
-| `MIXED_3D_RATIO`  | 0.5                           | Fraction of mixed-mode detections using 3D geometry |
-| `LATENCY_P50_MS`  | 1000/FPS                      | p50 warning: 1 chunk period (ms)                    |
-| `LATENCY_P99_MS`  | 2000/FPS                      | p99 warning: 2 chunk periods (ms)                   |
-| `THROUGHPUT_MIN`  | cameras × FPS × 0.95          | Minimum sustained msg/s                             |
-| `DROP_MAX_RATIO`  | 0.001                         | Maximum allowed drop ratio                          |
-| `PROMETHEUS_URL`  | http://localhost:8889/metrics | OTel Collector endpoint                             |
-| `METRICS_TIMEOUT` | 30                            | Seconds to wait for stable counters                 |
+| Variable                    | Default                       | Description                                                          |
+| --------------------------- | ----------------------------- | -------------------------------------------------------------------- |
+| `NUM_CAMERAS`               | 4                             | Simulated camera count                                               |
+| `FPS`                       | 15                            | Frames per second per camera                                         |
+| `NUM_OBJECTS`               | 300                           | Detections per message                                               |
+| `REID_EMBEDDING_DIMENSIONS` | 0                             | Vector length per 2D object; 0 disables embeddings, maximum 4096     |
+| `REID_EMBEDDING_ENCODING`   | float_list                    | Embedding encoding: `float_list` or `base64` (little-endian float32) |
+| `EXTRA_METADATA`            | none                          | Semantic metadata profile: `none` or `age_gender`                    |
+| `DURATION`                  | 1m                            | Nominal test duration (SLI window)                                   |
+| `LOAD_MODE`                 | 2d                            | `2d`, `3d`, or `mixed` geometry                                      |
+| `MIXED_3D_RATIO`            | 0.5                           | Fraction of mixed-mode detections using 3D geometry                  |
+| `LATENCY_P50_MS`            | 1000/FPS                      | p50 warning: 1 chunk period (ms)                                     |
+| `LATENCY_P99_MS`            | 2000/FPS                      | p99 warning: 2 chunk periods (ms)                                    |
+| `THROUGHPUT_MIN`            | cameras × FPS × 0.95          | Minimum sustained msg/s                                              |
+| `DROP_MAX_RATIO`            | 0.001                         | Maximum allowed drop ratio                                           |
+| `PROMETHEUS_URL`            | http://localhost:8889/metrics | OTel Collector endpoint                                              |
+| `METRICS_TIMEOUT`           | 30                            | Seconds to wait for stable counters                                  |
 
 ## Simulation Model
 
