@@ -200,8 +200,8 @@ class SceneDataIngestion:
       obj.bbMeters = None
 
     metadata = obj_data.get('metadata', {})
-    obj.reid = metadata.get('reid') if metadata else {}
-    obj.metadata = {}
+    obj.metadata = metadata
+    obj.reid = metadata.get('reid', {}) if isinstance(metadata, dict) else {}
     obj.similarity = obj_data.get('similarity')
     reid_state = obj_data.get('reid_state')
     if isinstance(reid_state, str) and reid_state in REID_STATES:
