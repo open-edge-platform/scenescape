@@ -3,12 +3,31 @@
     "test_name": "Vision_AI/SSCAPE/API/CALIB/01: Register scene for calibration",
     "test_steps": [
       {
+        "step_name": "Create AprilTag scene for autocalibration tests",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "API_Autocalib_Test_Scene",
+            "use_tracker": true,
+            "output_lla": false,
+            "camera_calibration": "AprilTag"
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "AUTOCALIB_SCENE_UID": "uid"
+        }
+      },
+      {
         "step_name": "Register scene for auto-calibration",
         "api": "autocalibration",
         "method": "registerScene",
         "request": {
           "path_params": {
-            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b"
+            "sceneId": "${AUTOCALIB_SCENE_UID}"
           },
           "body": {}
         },
@@ -27,7 +46,7 @@
         "method": "getSceneRegistrationStatus",
         "request": {
           "path_params": {
-            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b"
+            "sceneId": "${AUTOCALIB_SCENE_UID}"
           }
         },
         "expected_status": {
@@ -63,7 +82,7 @@
         "method": "updateSceneRegistration",
         "request": {
           "path_params": {
-            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b"
+            "sceneId": "${AUTOCALIB_SCENE_UID}"
           },
           "body": {}
         },
@@ -276,7 +295,7 @@
             "sensorId": "lidar-1"
           },
           "body": {
-            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "sceneId": "${AUTOCALIB_SCENE_UID}",
             "pointcloud": "base64:test_media/sample-point-cloud.pcd",
             "format": "pcd"
           }
@@ -322,7 +341,7 @@
             "sensorId": "lidar-1"
           },
           "body": {
-            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b"
+            "sceneId": "${AUTOCALIB_SCENE_UID}"
           }
         },
         "expected_status": {
@@ -343,7 +362,7 @@
             "sensorId": "lidar-1"
           },
           "body": {
-            "sceneId": "302cf49a-97ec-402d-a324-c5077b280b7b",
+            "sceneId": "${AUTOCALIB_SCENE_UID}",
             "pointcloud": "INVALID_BASE64"
           }
         },
@@ -364,6 +383,22 @@
           "path_params": {
             "sensorId": "lidar-1"
           }
+        },
+        "expected_status": {
+          "status_code": 200
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/CALIB/19: Delete scene created for autocalibration tests",
+    "test_steps": [
+      {
+        "step_name": "Delete scene created for autocalibration tests",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "uid": "${AUTOCALIB_SCENE_UID}"
         },
         "expected_status": {
           "status_code": 200
