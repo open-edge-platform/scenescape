@@ -348,8 +348,7 @@ void expectMatchesReferences(CoordinateTransformer& transformer,
         EXPECT_NEAR(result[0].length, size_case.world_width_m, kWorldTolerance)
             << foot_case.name << " world width (length) mismatch";
         EXPECT_NEAR(result[0].width, size_case.world_width_m, kWorldTolerance) << foot_case.name;
-        EXPECT_NEAR(result[0].height, size_case.world_height_m, kWorldTolerance)
-            << foot_case.name;
+        EXPECT_NEAR(result[0].height, size_case.world_height_m, kWorldTolerance) << foot_case.name;
     }
 }
 
@@ -366,8 +365,7 @@ TEST(TransformDetectionsTest, MatchesSecondSceneCameraReference) {
         {"top_left_person", 10.0, 10.0, 80.0, 160.0, 0.5752524319687982, 0.9392733356293548},
         {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 0.2617340118469209,
          0.41154563340532324},
-        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 0.1688113470659148,
-         0.24963759741688274},
+        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 0.1688113470659148, 0.24963759741688274},
     }};
 
     expectMatchesReferences(transformer, reference_cases, size_cases);

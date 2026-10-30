@@ -6,8 +6,11 @@
 """Functional test: objects detected by a camera positioned below ground level
 (translation z < 0) are published with a non-negative height.
 
-Regression test for CameraPose.projectBounds, which derived the projected
-object height from the signed camera z coordinate.
+Covers CameraPose.projectBounds, which derived the projected object height
+from the signed camera z coordinate. Note: tracked categories publish the size
+from their asset defaults, so this test checks the end-to-end flow for a
+below-ground camera; the height/base angle fix itself is asserted by the unit
+test in tests/sscape_tests/transform/test_camera_pose.py.
 """
 
 import json
@@ -51,17 +54,6 @@ def _detection():
     "rate": float(FRAME_RATE),
     "timestamp": get_iso_time(),
   }
-
-
-def _first_object_size(tester):
-  with tester._lock:
-    for msg in tester._messages:
-      if not isinstance(msg['data'], dict):
-        continue
-      for obj in msg['data'].get('objects', []):
-        if obj.get('size'):
-          return obj['size']
-  return None
 
 
 @pytest.fixture
@@ -114,16 +106,17 @@ def test_below_ground_camera_object_has_nonnegative_height(
 
   mqtt_tester.connect([reg_topic])
   end = time.time() + mqtt_tester.MAX_WAIT_S
-  size = None
-  while time.time() < end and size is None:
+  sizes = []
+  while time.time() < end and not sizes:
     mqtt_tester.publish(cam_topic, json.dumps(_detection()))
     time.sleep(1.0 / FRAME_RATE)
-    size = _first_object_size(mqtt_tester)
+    sizes = mqtt_tester.get_object_sizes()
 
-  assert size is not None, (
+  assert sizes, (
     f"No tracked object with size received on {reg_topic} "
     f"within {mqtt_tester.MAX_WAIT_S}s"
   )
+  size = sizes[0]
   log.info(f"Published object size: {size}")
   assert all(dim >= 0 for dim in size), f"Negative object size: {size}"
   assert size[2] > 0, f"Object height is not positive: {size}"
