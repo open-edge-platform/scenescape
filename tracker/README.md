@@ -313,6 +313,10 @@ These settings are configured via the JSON config file or environment variables 
 | `LOG_LEVEL`        | `info`  | trace/debug/info/warn/error |
 | `HEALTHCHECK_PORT` | `8080`  | Health endpoint HTTP port   |
 
+PTZ PoseContext consumption (`ptz` block, `TRACKER_PTZ_*` variables) is off by default.
+See [PTZ Pose Consumption](docs/ptz-pose-consumption.md) for its modes, required bounds,
+deployment, and rollback.
+
 ### Command-Line Options
 
 Run `tracker --help` for the full list of options:

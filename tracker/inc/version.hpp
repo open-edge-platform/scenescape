@@ -31,5 +31,7 @@ namespace tracker {
 constexpr const char* SERVICE_NAME = TRACKER_SERVICE_NAME;
 constexpr const char* SERVICE_VERSION = TRACKER_SERVICE_VERSION;
 constexpr const char* GIT_COMMIT = TRACKER_GIT_COMMIT;
+/// Logger for verbatim lines (no JSON envelope) sharing the service log sink
+constexpr const char* RAW_LOGGER_NAME = TRACKER_SERVICE_NAME "-raw";
 
 } // namespace tracker

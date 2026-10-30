@@ -155,6 +155,8 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
 
     ServiceConfig config;
 
+    detail::load_ptz_section(config_doc, config.ptz);
+
     // Infrastructure - MQTT (required)
     if (auto* host = GetValueByPointer(config_doc, json::INFRASTRUCTURE_MQTT_HOST)) {
         config.infrastructure.mqtt.host = host->GetString();
@@ -532,6 +534,9 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
             tls.verify_server =
                 parse_bool(env_tls_verify.value(), tracker::env::MQTT_TLS_VERIFY_SERVER);
     }
+
+    detail::apply_ptz_env_overrides(config.ptz);
+    detail::validate_ptz_config(config);
 
     return config;
 }

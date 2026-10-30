@@ -21,6 +21,9 @@ inline constexpr const char* kAttrScene = "scene";
 inline constexpr const char* kAttrCategory = "category";
 inline constexpr const char* kAttrCameraId = "camera_id";
 inline constexpr const char* kAttrReason = "reason";
+inline constexpr const char* kAttrMode = "mode";
+inline constexpr const char* kAttrReasonDetail = "reason_detail";
+inline constexpr const char* kAttrStage = "stage";
 
 // Reason attribute values
 inline constexpr const char* kReasonAccepted = "accepted";
@@ -31,6 +34,7 @@ inline constexpr const char* kReasonRejectedLag = "rejected_lag";
 inline constexpr const char* kReasonRejectedInvalidCategory = "rejected_invalid_category";
 inline constexpr const char* kReasonDroppedQueueFull = "dropped_queue_full";
 inline constexpr const char* kReasonDroppedMaxWorkers = "dropped_max_workers";
+inline constexpr const char* kReasonDroppedPtzDwell = "ptz_dwell";
 
 // Metric name constants
 inline constexpr const char* kMetricMqttLatency = "tracker.mqtt.latency";
@@ -56,6 +60,11 @@ inline constexpr const char* kMetricTimeChunkingNonEmptyChunks =
 inline constexpr const char* kMetricTimeChunkingEmptyChunks = "tracker.time_chunking.empty_chunks";
 
 // Meter scope name
+// PTZ PoseContext consumption counters (bounded labels: mode, reason_detail, stage)
+inline constexpr const char* kMetricPtzDetectionsAdmitted = "tracker.ptz.detections.admitted";
+inline constexpr const char* kMetricPtzDetectionsRejected = "tracker.ptz.detections.rejected";
+inline constexpr const char* kMetricPtzPoseMessagesRejected = "tracker.ptz.pose_messages.rejected";
+
 inline constexpr const char* kMeterName = "tracker";
 
 /**
@@ -175,6 +184,24 @@ public:
      */
     static void set_active_tracks(const std::string& scene_id, const std::string& category,
                                   int64_t count);
+
+    /**
+     * @brief Count a PTZ detection message admitted by the dwell contract.
+     * @param attrs Attributes (mode)
+     */
+    static void inc_ptz_admitted(MetricAttributes attrs = {});
+
+    /**
+     * @brief Count a PTZ detection message rejected by the dwell contract.
+     * @param attrs Attributes (mode, reason_detail)
+     */
+    static void inc_ptz_rejected(MetricAttributes attrs = {});
+
+    /**
+     * @brief Count a PoseContext or resolver status payload rejected before use.
+     * @param attrs Attributes (stage)
+     */
+    static void inc_ptz_pose_rejected(MetricAttributes attrs = {});
 
     /**
      * @brief Reset all cached instruments and gauge state.

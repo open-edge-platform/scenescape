@@ -59,11 +59,22 @@ struct CameraExtrinsics {
 /**
  * @brief Camera configuration with calibration data.
  */
+/**
+ * @brief The part of a camera's Manager `ptz_calibration` the Tracker needs.
+ *
+ * Presence marks a PTZ camera. The Positioning service interprets the full calibration;
+ * consumers only pin its version (unpinned when absent, as in the Controller).
+ */
+struct PtzCalibrationRef {
+    std::optional<std::string> calibration_version;
+};
+
 struct Camera {
-    std::string uid;             ///< Camera identifier (matches MQTT topic camera_id)
-    std::string name;            ///< Human-readable camera name
-    CameraIntrinsics intrinsics; ///< Intrinsic parameters (including distortion)
-    CameraExtrinsics extrinsics; ///< Extrinsic parameters (pose in world)
+    std::string uid;                      ///< Camera identifier (matches MQTT topic camera_id)
+    std::string name;                     ///< Human-readable camera name
+    CameraIntrinsics intrinsics;          ///< Intrinsic parameters (including distortion)
+    CameraExtrinsics extrinsics;          ///< Extrinsic parameters (pose in world)
+    std::optional<PtzCalibrationRef> ptz; ///< Set for PTZ cameras (non-null ptz_calibration)
 };
 
 /**
@@ -161,6 +172,10 @@ constexpr char CAMERA_INTRINSICS_DISTORTION_P2[] = "/intrinsics/distortion/p2";
 constexpr char CAMERA_EXTRINSICS_TRANSLATION[] = "/extrinsics/translation";
 constexpr char CAMERA_EXTRINSICS_ROTATION[] = "/extrinsics/rotation";
 constexpr char CAMERA_EXTRINSICS_SCALE[] = "/extrinsics/scale";
+
+// PTZ calibration (optional object; null for static cameras)
+constexpr char CAMERA_PTZ_CALIBRATION[] = "/ptz_calibration";
+constexpr char CAMERA_PTZ_CALIBRATION_VERSION[] = "/ptz_calibration/calibration_version";
 } // namespace scene_json
 
 /// Internal helpers for API scene loading (exposed for testability).

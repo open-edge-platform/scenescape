@@ -32,6 +32,13 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/telemetry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/metrics.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/observability_context.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/ptz_config.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/ptz_consumer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/ptz_dwell.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/ptz_pose_parser.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/ptz_registry.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/ptz_shadow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/ptz_time.cpp
 )
 
 add_executable(tracker_tests
@@ -61,6 +68,15 @@ add_executable(tracker_tests
     object_class_test.cpp
     telemetry_test.cpp
     metrics_test.cpp
+    ptz_conformance_test.cpp
+    ptz_dwell_test.cpp
+    ptz_pose_parser_test.cpp
+    ptz_registry_test.cpp
+    ptz_config_test.cpp
+    ptz_message_handler_test.cpp
+    ptz_shadow_test.cpp
+    ptz_pipeline_test.cpp
+    ptz_allocation_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 
@@ -76,6 +92,9 @@ target_compile_definitions(tracker_tests
         TRACKER_SCHEMA_DIR="${PROJECT_SOURCE_DIR}/schema"
         TRACKER_TEST_DIR="${PROJECT_SOURCE_DIR}/test/unit"
         TRACKER_CONFIG_DIR="${PROJECT_SOURCE_DIR}/config"
+        # Shared with the Controller; loaded unmodified (see tests/data/ptz/README.md)
+        TRACKER_PTZ_CONFORMANCE_FILE="${PROJECT_SOURCE_DIR}/../tests/data/ptz/dwell_conformance.json"
+        TRACKER_CONTROLLER_SCHEMA_FILE="${PROJECT_SOURCE_DIR}/../controller/src/schema/metadata.schema.json"
 )
 
 # Use C++20 standard (required for tracking_types.hpp)

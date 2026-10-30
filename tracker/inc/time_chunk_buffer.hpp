@@ -9,12 +9,20 @@
 
 namespace tracker {
 
+/// Bound on same-camera PTZ batches kept in one chunk (oldest dropped beyond it).
+constexpr size_t kMaxPtzBatchesPerCameraPerChunk = 8;
+
 /**
  * @brief Thread-safe buffer for aggregating detections into time-aligned chunks.
  *
  * Implements keep-latest semantics: each camera slot within a scope holds only
  * the most recent detection batch. When multiple frames arrive from the same
  * camera before a chunk is dispatched, only the latest is retained.
+ *
+ * PTZ batches (DetectionBatch::ptz_preserve) are the exception: batches with distinct
+ * timestamps are all kept (up to kMaxPtzBatchesPerCameraPerChunk), because each one
+ * carries its own dwell decision and pose. A gated (rejected) PTZ heartbeat never
+ * displaces a buffered batch, and is replaced by any batch with data.
  *
  * Thread-safety: All methods are thread-safe. Uses mutex protection with
  * atomic swap for efficient bulk retrieval.
@@ -54,6 +62,8 @@ public:
     [[nodiscard]] size_t scope_count() const;
 
 private:
+    static void addPtzBatch(const TrackingScope& scope, CameraSlot& slot, DetectionBatch&& batch);
+
     mutable std::mutex mutex_;
     BufferMap buffer_;
 };

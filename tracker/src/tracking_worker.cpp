@@ -6,6 +6,7 @@
 #include "json_utils.hpp"
 #include "logger.hpp"
 #include "metrics.hpp"
+#include "ptz_dwell.hpp"
 #include "time_utils.hpp"
 
 #include <rv/tracking/MetadataFusion.hpp>
@@ -318,9 +319,21 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
             continue;
         }
+        const auto& transformer = transformer_it->second;
+        // An admitted PTZ batch projects with the PoseContext that admitted it; the
+        // transformer keeps the camera's static intrinsics. A PTZ batch without a pose is
+        // never projected with the home pose: it only ages tracks.
+        const bool has_pose = batch.ptz_pose && batch.ptz_pose->view;
+        if (batch.ptz_preserve && !batch.ptz_gated && !has_pose) {
+            LOG_ERROR("Admitted PTZ batch for camera '{}' has no pose, treating as gated",
+                      batch.camera_id);
+            objects_per_camera.emplace_back();
+            continue;
+        }
         const auto sightings = reid_sightings_.add_batch(batch);
+        const PoseView& pose = has_pose ? *batch.ptz_pose->view : transformer.staticPose();
         objects_per_camera.push_back(
-            transformer_it->second.transformDetections(batch.detections, sightings));
+            transformer.transformDetections(batch.detections, pose, sightings));
     }
 
     return objects_per_camera;

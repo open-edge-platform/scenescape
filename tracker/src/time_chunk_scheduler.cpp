@@ -194,8 +194,11 @@ Chunk TimeChunkScheduler::build_chunk(const TrackingScope& scope, CameraMap&& ca
 
     // Convert map to vector
     chunk.camera_batches.reserve(cameras.size());
-    for (auto& [camera_id, batch] : cameras) {
-        chunk.camera_batches.push_back(std::move(batch));
+    for (auto& [camera_id, slot] : cameras) {
+        for (auto& batch : slot.earlier) {
+            chunk.camera_batches.push_back(std::move(batch));
+        }
+        chunk.camera_batches.push_back(std::move(slot.latest));
     }
 
     // Sort by timestamp for deterministic processing order

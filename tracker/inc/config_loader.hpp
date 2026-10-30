@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include <rapidjson/fwd.h>
+
 namespace tracker {
 
 /**
@@ -143,6 +145,48 @@ struct TrackingConfig {
         kDefaultNonMeasurementTimeStaticS; ///< Time before static track dropped
 };
 
+/// PTZ PoseContext consumption mode; both flags off means Off.
+enum class PtzMode {
+    Off,
+    Enforce,
+    Shadow
+};
+
+inline constexpr const char* kDefaultPtzShadowRunId = "unspecified";
+constexpr int kDefaultPtzShadowSampleEveryN = 10;
+inline constexpr const char* kDefaultPtzAssignmentsPath =
+    "/scenescape/config/positioning-assignments.json";
+
+struct PtzShadowConfig {
+    std::string run_id = kDefaultPtzShadowRunId;        ///< Joins records into one run artifact
+    int sample_every_n = kDefaultPtzShadowSampleEveryN; ///< Record every Nth decision per source
+    bool per_decision = false; ///< Sampled JSONL records instead of the summary log line
+};
+
+/**
+ * @brief PTZ PoseContext consumer settings (see tracker-ptz-pose-consumption.md).
+ *
+ * The four deployment-owned bounds have no defaults; they are required and validated only
+ * when enabled or shadow_mode is set.
+ */
+struct PtzConfig {
+    bool enabled = false;     ///< Gate PTZ batches with the dwell contract, project with the pose
+    bool shadow_mode = false; ///< Observe and record only; tracking is unchanged
+    std::optional<double> max_pose_age_s;
+    std::optional<double> max_clock_offset_s;
+    std::optional<double> max_detection_pipeline_latency_s;
+    std::optional<double> max_detection_timestamp_uncertainty_s;
+    std::string assignments_path = kDefaultPtzAssignmentsPath;
+    PtzShadowConfig shadow;
+
+    [[nodiscard]] PtzMode mode() const {
+        if (enabled) {
+            return PtzMode::Enforce;
+        }
+        return shadow_mode ? PtzMode::Shadow : PtzMode::Off;
+    }
+};
+
 /**
  * @brief Service configuration loaded from JSON config file.
  *
@@ -153,6 +197,7 @@ struct ServiceConfig {
     ObservabilityConfig observability;
     TrackingConfig tracking;
     ScenesConfig scenes;
+    PtzConfig ptz;
 };
 
 /// JSON Pointer paths (RFC6901) for extracting ServiceConfig values
@@ -211,6 +256,19 @@ constexpr char OBSERVABILITY_TRACING_EXPORT_INTERVAL_S[] =
 // Scenes
 constexpr char SCENES_SOURCE[] = "/scenes/source";
 constexpr char SCENES_FILE_PATH[] = "/scenes/file_path";
+
+// PTZ PoseContext consumption
+constexpr char PTZ_ENABLED[] = "/ptz/enabled";
+constexpr char PTZ_SHADOW_MODE[] = "/ptz/shadow_mode";
+constexpr char PTZ_MAX_POSE_AGE_S[] = "/ptz/max_pose_age_s";
+constexpr char PTZ_MAX_CLOCK_OFFSET_S[] = "/ptz/max_clock_offset_s";
+constexpr char PTZ_MAX_DETECTION_PIPELINE_LATENCY_S[] = "/ptz/max_detection_pipeline_latency_s";
+constexpr char PTZ_MAX_DETECTION_TIMESTAMP_UNCERTAINTY_S[] =
+    "/ptz/max_detection_timestamp_uncertainty_s";
+constexpr char PTZ_ASSIGNMENTS_PATH[] = "/ptz/assignments_path";
+constexpr char PTZ_SHADOW_RUN_ID[] = "/ptz/shadow/run_id";
+constexpr char PTZ_SHADOW_SAMPLE_EVERY_N[] = "/ptz/shadow/sample_every_n";
+constexpr char PTZ_SHADOW_PER_DECISION[] = "/ptz/shadow/per_decision";
 } // namespace json
 
 /**
@@ -228,5 +286,14 @@ constexpr char SCENES_FILE_PATH[] = "/scenes/file_path";
  */
 ServiceConfig load_config(const std::filesystem::path& config_path,
                           const std::filesystem::path& schema_path);
+
+namespace detail {
+/// Read the ptz block of a schema-valid config document (defaults when absent).
+void load_ptz_section(const rapidjson::Document& config_doc, PtzConfig& ptz);
+/// Apply TRACKER_PTZ_* environment overrides. @throws std::runtime_error on invalid values
+void apply_ptz_env_overrides(PtzConfig& ptz);
+/// Validate an active PTZ configuration. @throws std::runtime_error when unusable
+void validate_ptz_config(const ServiceConfig& config);
+} // namespace detail
 
 } // namespace tracker

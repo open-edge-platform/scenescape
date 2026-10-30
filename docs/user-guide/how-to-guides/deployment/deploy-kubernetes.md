@@ -167,6 +167,12 @@ are off by default and mutually exclusive. Both need the four bounds in
 manifest. Rendering fails if both modes are on or a bound is missing. See
 [PTZ Pose Consumption](../../microservices/controller/ptz-pose-consumption.md#deploy).
 
+With `tracker.enabled=true`, the Tracker consumes the same poses through
+`tracker.ptz.enabled` or `tracker.ptz.shadowMode`, with the four bounds in
+`tracker.ptz.config` and the same `positioning.assignments` manifest. The same render
+checks apply. See
+[PTZ Pose Consumption in the Tracker](https://github.com/open-edge-platform/scenescape/blob/main/tracker/docs/ptz-pose-consumption.md#deploy).
+
 See the [Positioning Service](../../microservices/positioning/positioning.md)
 and [PTZ pose design](../../../design/ptz-camera-pose-service.md) for runtime behavior.
 

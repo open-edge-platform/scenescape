@@ -118,7 +118,6 @@ CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
 
     // Compute rotation matrix from Euler angles (XYZ order, degrees)
     cv::Matx33d rmat = eulerToRotationMatrix(extrinsics.rotation);
-    camera_rotation_ = rmat;
 
     // Build 4x4 pose matrix: [R | t; 0 0 0 1] * diag(scale)
     cv::Matx44d rt_mat(rmat(0, 0), rmat(0, 1), rmat(0, 2), extrinsics.translation[0], rmat(1, 0),
@@ -128,10 +127,11 @@ CoordinateTransformer::CoordinateTransformer(const CameraIntrinsics& intrinsics,
     cv::Matx44d scale_mat(extrinsics.scale[0], 0.0, 0.0, 0.0, 0.0, extrinsics.scale[1], 0.0, 0.0,
                           0.0, 0.0, extrinsics.scale[2], 0.0, 0.0, 0.0, 0.0, 1.0);
 
-    pose_matrix_ = rt_mat * scale_mat;
-
-    camera_origin_ = cv::Point3d(extrinsics.translation[0], extrinsics.translation[1],
-                                 extrinsics.translation[2]);
+    static_pose_.pose_matrix = rt_mat * scale_mat;
+    static_pose_.rotation = rmat;
+    static_pose_.origin = cv::Point3d(extrinsics.translation[0], extrinsics.translation[1],
+                                      extrinsics.translation[2]);
+    static_pose_.horizon_distance = PoseView::horizonDistanceFor(static_pose_.origin.z);
 }
 
 cv::Matx33d
@@ -153,8 +153,9 @@ CoordinateTransformer::eulerToRotationMatrix(const std::array<double, 3>& euler_
 }
 
 void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f>& normalized,
+                                                   const PoseView& pose,
                                                    std::vector<cv::Point2d>& world,
-                                                   std::vector<uint8_t>& valid) const {
+                                                   std::vector<uint8_t>& valid) {
     const auto n = static_cast<int>(normalized.size());
     if (n == 0)
         return;
@@ -163,16 +164,14 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
     valid.resize(n);
 
     // Cache pose matrix elements and camera origin for tight loop access
-    const double p00 = pose_matrix_(0, 0), p01 = pose_matrix_(0, 1), p02 = pose_matrix_(0, 2);
-    const double p03 = pose_matrix_(0, 3);
-    const double p10 = pose_matrix_(1, 0), p11 = pose_matrix_(1, 1), p12 = pose_matrix_(1, 2);
-    const double p13 = pose_matrix_(1, 3);
-    const double p20 = pose_matrix_(2, 0), p21 = pose_matrix_(2, 1), p22 = pose_matrix_(2, 2);
-    const double p23 = pose_matrix_(2, 3);
-    const double start_x = camera_origin_.x;
-    const double start_y = camera_origin_.y;
-    const double start_z = camera_origin_.z;
-    const double horizon_distance = getHorizonDistance();
+    const auto& m = pose.pose_matrix;
+    const double p00 = m(0, 0), p01 = m(0, 1), p02 = m(0, 2), p03 = m(0, 3);
+    const double p10 = m(1, 0), p11 = m(1, 1), p12 = m(1, 2), p13 = m(1, 3);
+    const double p20 = m(2, 0), p21 = m(2, 1), p22 = m(2, 2), p23 = m(2, 3);
+    const double start_x = pose.origin.x;
+    const double start_y = pose.origin.y;
+    const double start_z = pose.origin.z;
+    const double horizon_distance = pose.horizon_distance;
 
     // Phase 3: Parallel pose-transform + ray-plane intersection
 #pragma omp parallel for schedule(static) if (n >= kMinIterationsForOpenMpParallelism)
@@ -209,6 +208,13 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
 
 std::vector<rv::tracking::TrackedObject>
 CoordinateTransformer::transformDetections(std::span<const Detection> detections,
+                                           std::optional<ReidSightingContext> sightings) const {
+    return transformDetections(detections, static_pose_, sightings);
+}
+
+std::vector<rv::tracking::TrackedObject>
+CoordinateTransformer::transformDetections(std::span<const Detection> detections,
+                                           const PoseView& pose,
                                            std::optional<ReidSightingContext> sightings) const {
     const auto n = detections.size();
     if (sightings && (sightings->batch.detections.size() != n ||
@@ -261,13 +267,13 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     // Phase 2: Parallel ray-plane projection of normalized rectangle points
     std::vector<cv::Point2d> world;
     std::vector<uint8_t> valid;
-    batchNormalizedToWorld(normalized, world, valid);
+    batchNormalizedToWorld(normalized, pose, world, valid);
 
     // Phase 3: TYPE_2 shifts the foot in normalized space, matching Controller camLoc.
     if (shift_type_ == ObjectClassConfig::kShiftType2) {
-        const double cam_x = camera_origin_.x;
-        const double cam_y = camera_origin_.y;
-        const double cam_z = std::abs(camera_origin_.z);
+        const double cam_x = pose.origin.x;
+        const double cam_y = pose.origin.y;
+        const double cam_z = std::abs(pose.origin.z);
 
         std::vector<cv::Point2f> type2_feet(bbox_detection_number);
         for (size_t k = 0; k < bbox_detection_number; ++k) {
@@ -288,7 +294,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
 
         std::vector<cv::Point2d> type2_world;
         std::vector<uint8_t> type2_valid;
-        batchNormalizedToWorld(type2_feet, type2_world, type2_valid);
+        batchNormalizedToWorld(type2_feet, pose, type2_world, type2_valid);
         for (size_t k = 0; k < bbox_detection_number; ++k) {
             if (type2_valid[k]) {
                 world[k * kPointsPerDetection] = type2_world[k];
@@ -300,9 +306,11 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
     std::vector<rv::tracking::TrackedObject> result(n);
     std::vector<uint8_t> detection_valid(n);
 
-    const double cam_x = camera_origin_.x;
-    const double cam_y = camera_origin_.y;
-    const double cam_z = camera_origin_.z;
+    const double cam_x = pose.origin.x;
+    const double cam_y = pose.origin.y;
+    const double cam_z = pose.origin.z;
+    const auto& pose_matrix = pose.pose_matrix;
+    const auto& camera_rotation = pose.rotation;
 
 #pragma omp parallel for schedule(static) if (n >= kMinIterationsForOpenMpParallelism)
     for (int i = 0; i < static_cast<int>(n); ++i) {
@@ -313,7 +321,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         if (detection.translation) {
             const auto& translation = *detection.translation;
             const cv::Vec4d sensorPosition(translation[0], translation[1], translation[2], 1.0);
-            const cv::Vec4d worldPosition = pose_matrix_ * sensorPosition;
+            const cv::Vec4d worldPosition = pose_matrix * sensorPosition;
 
             obj.id = detection.id.value_or(rv::tracking::InvalidObjectId);
             obj.x = worldPosition[0];
@@ -322,7 +330,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
             obj.length = (*detection.size)[0];
             obj.width = (*detection.size)[1];
             obj.height = (*detection.size)[2];
-            applyDetectionRotation(detection, camera_rotation_, obj);
+            applyDetectionRotation(detection, camera_rotation, obj);
             addDetectionAttributes(detection, obj);
             detection_valid[static_cast<size_t>(i)] = 1;
             continue;
@@ -374,7 +382,7 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         if (sightings) {
             sightings->tag(detection_index, obj.attributes);
         }
-        applyDetectionRotation(detection, camera_rotation_, obj);
+        applyDetectionRotation(detection, camera_rotation, obj);
 
         detection_valid[i] = 1;
     }
@@ -400,17 +408,7 @@ std::array<double, 4> CoordinateTransformer::yawToQuaternion(double yaw_radians)
 }
 
 cv::Point3d CoordinateTransformer::getCameraOrigin() const {
-    return camera_origin_;
-}
-
-double CoordinateTransformer::getHorizonDistance() const {
-    const double camera_height = std::abs(camera_origin_.z);
-
-    if (camera_height > kMinHeightForHorizon) {
-        return std::sqrt(2.0 * kEarthRadius * camera_height);
-    }
-
-    return kFallbackHorizonDistance;
+    return static_pose_.origin;
 }
 
 } // namespace tracker

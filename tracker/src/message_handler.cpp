@@ -68,10 +68,11 @@ std::optional<std::array<double, N>> parseNumericArray(const rapidjson::Value& v
 MessageHandler::MessageHandler(std::shared_ptr<IMqttClient> mqtt_client,
                                const SceneRegistry& scene_registry, TimeChunkBuffer& buffer,
                                const TrackingConfig& tracking_config, bool schema_validation,
-                               const std::filesystem::path& schema_dir, ClockFn clock_fn)
+                               const std::filesystem::path& schema_dir, ClockFn clock_fn,
+                               std::shared_ptr<ptz::PtzConsumer> ptz)
     : mqtt_client_(std::move(mqtt_client)), scene_registry_(scene_registry), buffer_(buffer),
       tracking_config_(tracking_config), schema_validation_(schema_validation),
-      clock_fn_(std::move(clock_fn)) {
+      clock_fn_(std::move(clock_fn)), ptz_(std::move(ptz)) {
     if (schema_validation_) {
         auto camera_schema_path = schema_dir / CAMERA_SCHEMA_FILE;
         auto scene_schema_path = schema_dir / SCENE_SCHEMA_FILE;
@@ -138,6 +139,17 @@ void MessageHandler::start() {
                            .operation(TOPIC_DATABASE_UPDATE));
     }
 
+    // PTZ pose/status first, so retained PoseContexts are applied before detections arrive
+    const auto ptz_topics = ptzTopics();
+    for (const auto& topic : ptz_topics) {
+        mqtt_client_->subscribe(topic);
+    }
+    if (!ptz_topics.empty()) {
+        LOG_INFO_ENTRY(LogEntry("Queued PTZ positioning subscriptions")
+                           .component("mqtt")
+                           .operation(std::format("{} topics", ptz_topics.size())));
+    }
+
     // Subscribe to each registered camera's topic
     auto camera_ids = scene_registry_.get_all_camera_ids();
     if (camera_ids.empty()) {
@@ -183,6 +195,10 @@ void MessageHandler::stop() {
         mqtt_client_->unsubscribe(topic);
     }
 
+    for (const auto& topic : ptzTopics()) {
+        mqtt_client_->unsubscribe(topic);
+    }
+
     // Unsubscribe from database update topic (dynamic mode)
     if (dynamic_mode_) {
         mqtt_client_->unsubscribe(TOPIC_DATABASE_UPDATE);
@@ -194,9 +210,30 @@ void MessageHandler::stop() {
 void MessageHandler::routeMessage(const std::string& topic, const std::string& payload) {
     if (dynamic_mode_ && topic == TOPIC_DATABASE_UPDATE) {
         handleDatabaseUpdateMessage(topic, payload);
+    } else if (ptz_ && topic.starts_with(ptz::kPositioningTopicPrefix)) {
+        ptz_->onPositioningMessage(topic, payload);
     } else {
         handleCameraMessage(topic, payload);
     }
+}
+
+std::vector<std::string> MessageHandler::ptzTopics() const {
+    std::vector<std::string> topics;
+    if (!ptz_) {
+        return topics;
+    }
+    for (auto& topic : ptz_->subscriptionTopics()) {
+        const auto slash = topic.rfind('/');
+        if (!isValidTopicSegment(std::string_view(topic).substr(slash + 1))) {
+            LOG_ERROR_ENTRY(
+                LogEntry("PTZ source or resolver ID contains invalid characters, skipping")
+                    .component("mqtt")
+                    .operation(topic));
+            continue;
+        }
+        topics.push_back(std::move(topic));
+    }
+    return topics;
 }
 
 void MessageHandler::handleDatabaseUpdateMessage(const std::string& topic,
@@ -296,6 +333,13 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
 
     obs_ctx.scene_id = scene->uid;
 
+    // PTZ dwell gate: decided per message, from its acquisition timestamp, never queued.
+    ptz::GateResult ptz_gate;
+    if (ptz_ && ptz_->isPtzCamera(camera_id)) {
+        ptz_gate = ptz_->gate(*scene, camera_id, *message, *msg_time);
+    }
+    const bool ptz_gated = ptz_gate.action == ptz::GateAction::Gated;
+
     // Push detections to buffer for each active scope in this scene.
     // Active scopes are accumulated as new (scene, category) pairs are seen in messages.
     // Empty batches (no detections) are created for scopes not present in the current message,
@@ -341,9 +385,15 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
         batch.obs_ctx.category = category;
 
         // Use detections from the message if present; empty batch otherwise (enables track aging).
+        // A gated PTZ batch carries no detections: it only lets tracks age.
         auto det_it = message->objects.find(category);
-        if (det_it != message->objects.end()) {
+        if (det_it != message->objects.end() && !ptz_gated) {
             batch.detections = std::move(det_it->second);
+        }
+        if (ptz_gate.action != ptz::GateAction::Static) {
+            batch.ptz_preserve = true;
+            batch.ptz_gated = ptz_gated;
+            batch.ptz_pose = ptz_gate.pose;
         }
 
         buffer_.add(scope, camera_id, std::move(batch));
@@ -354,6 +404,12 @@ void MessageHandler::handleCameraMessage(const std::string& topic, const std::st
                 .component("message_handler")
                 .domain(
                     {.camera_id = camera_id, .scene_id = scene->uid, .object_category = category}));
+    }
+
+    if (ptz_gated) {
+        ptz_gated_count_++;
+        obs_ctx.abort(kReasonDroppedPtzDwell);
+        return;
     }
 
     // Record message accepted
