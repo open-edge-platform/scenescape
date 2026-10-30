@@ -82,4 +82,15 @@ inline TrackedObject makeDetection(double x, double y, double z, double length, 
   return object;
 }
 
+// Diagonal per-detection R with the given x/y/z variances and `rest` on length, width, height and yaw.
+inline TrackedObject::MeasurementMatrix
+diagonalMeasurementNoise(double varX, double varY, double varZ, double rest = 0.2)
+{
+  TrackedObject::MeasurementMatrix noise = TrackedObject::MeasurementMatrix::eye() * rest;
+  noise(MeasurementIndex::X, MeasurementIndex::X) = varX;
+  noise(MeasurementIndex::Y, MeasurementIndex::Y) = varY;
+  noise(MeasurementIndex::Z, MeasurementIndex::Z) = varZ;
+  return noise;
+}
+
 } // namespace rv::tracking::test

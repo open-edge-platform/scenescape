@@ -98,7 +98,7 @@ Residual: Controller-TC `rms_jerk_ratio` +17% vs +10% budget; Wildtrack IDSW. Ac
 |------|----------|
 | Pixel→world Σ_xy in `CoordinateTransformer` | `tracker/src/coordinate_transformer.cpp` |
 | `position_covariance_xy` on `Detection` | `tracker/inc/tracking_types.hpp` |
-| Optional `measurementCovariance` on `TrackedObject` | `robot_vision` |
+| Optional `measurementCovariance` on `TrackedObject` — **done** as 7×7 `measurementNoiseCov` (Python `measurement_noise_covariance`) | `robot_vision` |
 | `DistanceType::PositionMahalanobisCombined` | `ObjectMatching.cpp` |
 | `measurement_uncertainty.*` config | schema, loader, controller |
 | Calibrate α offline; record default | eval harness + design/plan appendix |
@@ -130,11 +130,13 @@ cd tracker && make test-unit-coverage
 
 | Task | Location |
 |------|----------|
-| `correct(measurement, R_optional)` | `MultiModelKalmanEstimator.*` |
+| `correct(measurement, R_optional)` — **done**: R is read from the measurement's `measurementNoiseCov` | `MultiModelKalmanEstimator.*`, `UnscentedKalmanFilter.*` |
 | Thread R onto `TrackedObject` before correct | `tracking_worker.cpp`, `ilabs_tracking.py` |
 | Global filter noise knobs in config | schema, loader |
 | Deprecate `tracking_radius` in manager + user guide | `manager/`, `docs/user-guide/` |
 | (Later) multi-cam class/confidence fusion | `fuseMetadata` |
+
+**Status (robot_vision, `feature/prob-tracking-extracted-3d-R`):** a detection that carries R gets information-weighted multi-camera fusion (`fuseGeometry`), association with S = H P Hᵀ + R in `PositionMahalanobis` and `Mahalanobis`, the UKF / IMM update (gain and model likelihood) with its R, and a birth P seeded from it. Without R every path is unchanged. Nothing sets R yet (Controller, Tracker Service), so production behaviour is unchanged. The gate becomes R-aware whenever R is present, not through a separate `position_mahalanobis_combined` method.
 
 ### Phase 3 validation
 

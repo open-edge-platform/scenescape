@@ -59,20 +59,33 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
     innovation(MeasurementIndex::YAW) = 0.;
   }
 
-  // innovation' * S^-1 * innovation
-  const double squaredDistance = innovation.dot(track.predictedMeasurementCovInv * innovation);
+  // innovation' * S^-1 * innovation; S = H P H^T + R when the detection carries its own R
+  const TrackedObject::MeasurementMatrix covarianceInv = measurement.measurementNoiseCov
+    ? (track.predictedStateMeasurementCov + *measurement.measurementNoiseCov).inv(cv::DECOMP_SVD)
+    : track.predictedMeasurementCovInv;
+  const double squaredDistance = innovation.dot(covarianceInv * innovation);
 
   return 0.5 * std::sqrt(squaredDistance);
 }
 
 namespace {
 
-/// XYZ block of the predicted measurement covariance S.
-cv::Matx33d positionCovariance(const TrackedObject &track)
+/// XYZ block of a measurement-space covariance.
+cv::Matx33d positionBlock(const TrackedObject::MeasurementMatrix &covariance)
 {
   static_assert(MeasurementIndex::Y == MeasurementIndex::X + 1 && MeasurementIndex::Z == MeasurementIndex::X + 2,
                 "x, y, z must be adjacent in the measurement vector");
-  return track.predictedMeasurementCov.get_minor<3, 3>(MeasurementIndex::X, MeasurementIndex::X);
+  return covariance.get_minor<3, 3>(MeasurementIndex::X, MeasurementIndex::X);
+}
+
+/// XYZ block of S: the track's predicted S, or H P H^T + R when the detection carries its own R.
+cv::Matx33d positionCovariance(const TrackedObject &measurement, const TrackedObject &track)
+{
+  if (!measurement.measurementNoiseCov)
+  {
+    return positionBlock(track.predictedMeasurementCov);
+  }
+  return positionBlock(track.predictedStateMeasurementCov) + positionBlock(*measurement.measurementNoiseCov);
 }
 
 } // namespace
@@ -86,7 +99,7 @@ double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurem
   const double dy = measurement.y - pred_y;
   const double dz = measurement.z - pred_z;
 
-  const cv::Matx33d S = positionCovariance(track);
+  const cv::Matx33d S = positionCovariance(measurement, track);
 
   cv::Mat Sinv;
   if (cv::invert(S, Sinv, cv::DECOMP_LU) == 0)
@@ -130,7 +143,7 @@ PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedOb
   cache.pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
   cache.pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
 
-  const cv::Matx33d S = positionCovariance(track);
+  const cv::Matx33d S = positionBlock(track.predictedMeasurementCov);
 
   cv::Mat Sinv;
   if (cv::invert(S, Sinv, cv::DECOMP_LU) == 0)
@@ -164,6 +177,22 @@ double positionMahalanobisCostFromCache(double measurement_x, double measurement
   return dx * (cache.inv00 * dx + cache.inv01 * dy + cache.inv02 * dz)
        + dy * (cache.inv01 * dx + cache.inv11 * dy + cache.inv12 * dz)
        + dz * (cache.inv02 * dx + cache.inv12 * dy + cache.inv22 * dz);
+}
+
+/// Per-pair S = H P H^T + R_detection: the per-track cached S^-1 does not apply.
+double positionMahalanobisCostWithMeasurementNoise(const TrackedObject &measurement,
+                                                   const TrackedObject &track,
+                                                   const PositionMahalanobisTrackCache &cache,
+                                                   double max_radius_m)
+{
+  const double dx = measurement.x - cache.pred_x;
+  const double dy = measurement.y - cache.pred_y;
+  const double dz = measurement.z - cache.pred_z;
+  if (std::sqrt(dx * dx + dy * dy + dz * dz) > max_radius_m)
+  {
+    return kDefaultClassBoundValue;
+  }
+  return calculatePositionMahalanobisSquaredDistance(measurement, track);
 }
 
 } // namespace
@@ -221,8 +250,10 @@ void match(const std::vector<TrackedObject> &tracks,
     {
       for (size_t j = 0; j < measurements.size(); ++j)
       {
-        (*costMatrix)(i, j) = positionMahalanobisCostFromCache(
-          measurements[j].x, measurements[j].y, measurements[j].z, track_caches[i], max_radius_m);
+        (*costMatrix)(i, j) = measurements[j].measurementNoiseCov
+          ? positionMahalanobisCostWithMeasurementNoise(measurements[j], tracks[i], track_caches[i], max_radius_m)
+          : positionMahalanobisCostFromCache(
+              measurements[j].x, measurements[j].y, measurements[j].z, track_caches[i], max_radius_m);
       }
     }
   }
