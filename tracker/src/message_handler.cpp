@@ -5,10 +5,14 @@
 #include "logger.hpp"
 #include "metrics.hpp"
 #include "observability_context.hpp"
+#include "reid_sighting.hpp"
 #include "time_utils.hpp"
 #include "topic_utils.hpp"
 
+#include <algorithm>
+#include <array>
 #include <chrono>
+#include <cmath>
 #include <format>
 #include <fstream>
 #include <string_view>
@@ -38,6 +42,26 @@ static const rapidjson::Pointer PTR_BBOX_X("/bounding_box_px/x");
 static const rapidjson::Pointer PTR_BBOX_Y("/bounding_box_px/y");
 static const rapidjson::Pointer PTR_BBOX_WIDTH("/bounding_box_px/width");
 static const rapidjson::Pointer PTR_BBOX_HEIGHT("/bounding_box_px/height");
+
+template <size_t N>
+std::optional<std::array<double, N>> parseNumericArray(const rapidjson::Value& value) {
+    if (!value.IsArray() || value.Size() != N) {
+        return std::nullopt;
+    }
+
+    std::array<double, N> result{};
+    for (size_t i = 0; i < N; ++i) {
+        const auto index = static_cast<rapidjson::SizeType>(i);
+        if (!value[index].IsNumber()) {
+            return std::nullopt;
+        }
+        result[i] = value[index].GetDouble();
+        if (!std::isfinite(result[i])) {
+            return std::nullopt;
+        }
+    }
+    return result;
+}
 
 } // namespace
 
@@ -417,29 +441,62 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                 detection.id = det["id"].GetInt();
             }
 
-            // Required bounding_box_px - use JSON Pointers for nested field extraction
-            const auto* bbox_x = PTR_BBOX_X.Get(det);
-            const auto* bbox_y = PTR_BBOX_Y.Get(det);
-            const auto* bbox_width = PTR_BBOX_WIDTH.Get(det);
-            const auto* bbox_height = PTR_BBOX_HEIGHT.Get(det);
-
-            if (!bbox_x || !bbox_y || !bbox_width || !bbox_height) {
-                LOG_WARN("Missing bounding_box_px fields in detection");
+            const bool has_bbox = det.HasMember("bounding_box_px");
+            const bool has_translation = det.HasMember("translation");
+            const bool has_size = det.HasMember("size");
+            if ((has_bbox && (has_translation || has_size)) ||
+                (!has_bbox && !(has_translation && has_size))) {
+                LOG_WARN("Detection must contain either bounding_box_px or translation and size");
                 continue;
             }
-            // Note: Type checking (IsNumber) omitted - schema validation ensures correct types
 
-            detection.bounding_box_px = cv::Rect2f(static_cast<float>(bbox_x->GetDouble()),
-                                                   static_cast<float>(bbox_y->GetDouble()),
-                                                   static_cast<float>(bbox_width->GetDouble()),
-                                                   static_cast<float>(bbox_height->GetDouble()));
+            if (has_bbox) {
+                // Required bounding_box_px - use JSON Pointers for nested field extraction
+                const auto* bbox_x = PTR_BBOX_X.Get(det);
+                const auto* bbox_y = PTR_BBOX_Y.Get(det);
+                const auto* bbox_width = PTR_BBOX_WIDTH.Get(det);
+                const auto* bbox_height = PTR_BBOX_HEIGHT.Get(det);
 
-            // Optional metadata - serialize the entire metadata object as a raw JSON string
+                if (!bbox_x || !bbox_y || !bbox_width || !bbox_height) {
+                    LOG_WARN("Missing or invalid bounding_box_px fields in detection");
+                    continue;
+                }
+                // Note: Type checking (IsNumber) omitted - schema validation ensures correct types
+                detection.bounding_box_px =
+                    cv::Rect2f(static_cast<float>(bbox_x->GetDouble()),
+                               static_cast<float>(bbox_y->GetDouble()),
+                               static_cast<float>(bbox_width->GetDouble()),
+                               static_cast<float>(bbox_height->GetDouble()));
+            } else {
+                auto translation = parseNumericArray<3>(det["translation"]);
+                auto size = parseNumericArray<3>(det["size"]);
+                if (!translation || !size ||
+                    !std::all_of(size->begin(), size->end(),
+                                 [](double value) { return value > 0.0; })) {
+                    LOG_WARN("Invalid translation or size fields in detection");
+                    continue;
+                }
+                detection.translation = *translation;
+                detection.size = *size;
+            }
+
+            if (det.HasMember("rotation")) {
+                auto rotation = parseNumericArray<4>(det["rotation"]);
+                if (!rotation || !std::all_of(rotation->begin(), rotation->end(), [](double value) {
+                        return value >= -1.0 && value <= 1.0;
+                    })) {
+                    LOG_WARN("Invalid rotation quaternion in detection");
+                    continue;
+                }
+                const double norm = std::hypot(std::hypot((*rotation)[0], (*rotation)[1]),
+                                               std::hypot((*rotation)[2], (*rotation)[3]));
+                if (norm > 1e-12) {
+                    detection.rotation = *rotation;
+                }
+            }
+
             if (det.HasMember("metadata") && det["metadata"].IsObject()) {
-                rapidjson::StringBuffer meta_buf;
-                rapidjson::Writer<rapidjson::StringBuffer> meta_writer(meta_buf);
-                det["metadata"].Accept(meta_writer);
-                detection.metadata_json = meta_buf.GetString();
+                parse_detection_metadata(det["metadata"], detection);
             }
 
             // Optional confidence score
@@ -447,7 +504,7 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                 detection.confidence = det["confidence"].GetDouble();
             }
 
-            detections.push_back(detection);
+            detections.push_back(std::move(detection));
         }
 
         message.objects[category] = std::move(detections);

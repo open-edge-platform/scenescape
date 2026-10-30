@@ -4,7 +4,7 @@
 ARG RUNTIME_OS_IMAGE=gcr.io/distroless/cc-debian13@sha256:4594d59540d1948417f6ca2829ddd9294493a7c68b7528f4dd459de7f203a750
 
 # --- Build stage ---
-FROM debian:13-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd AS builder
+FROM debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS builder
 
 WORKDIR /scenescape
 
@@ -96,7 +96,7 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=10s --retries=3 \
 CMD ["/scenescape/tracker", "--config", "/scenescape/config/tracker.json", "--schema", "/scenescape/schema/config.schema.json"]
 
 # --- Debug stage (for development with gdbserver) ---
-FROM debian:13-slim@sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd AS debug
+FROM debian:13-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad AS debug
 
 # hadolint ignore=DL3008
 RUN apt-get update -qq \
