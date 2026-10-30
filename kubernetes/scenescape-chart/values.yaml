@@ -177,8 +177,7 @@ positioning:
   logLevel: INFO
   resolverId: positioning-default
   # Source ownership manifest (source_id -> resolver_id). Positioning validates its
-  # sources against it, and Manager authorizes pose writes only for sources
-  # assigned to resolverId. Empty: no source may publish poses.
+  # sources against it. Empty: no source may publish poses.
   assignments: {}
   # Rendered as positioning.json (runtime keys; resolver_id comes from resolverId).
   # Every source must be assigned to resolverId above. A source without

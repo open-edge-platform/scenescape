@@ -38,10 +38,6 @@ secrets:
     file: ${SECRETSDIR}/certs/scenescape-mapping.key
   positioning.auth:
     file: ${SECRETSDIR}/positioning.auth
-  positioning-client-cert:
-    file: ${SECRETSDIR}/certs/scenescape-positioning.crt
-  positioning-client-key:
-    file: ${SECRETSDIR}/certs/scenescape-positioning.key
 
 x-controller-base: &controller-base
   image: intel/scenescape-controller:${VERSION:-latest}
@@ -102,27 +98,6 @@ x-controller-base: &controller-base
 # - tracker: Tracker service + Analytics + Positioning (no Scene Controller)
 
 services:
-  positioning-acl-init:
-    image: intel/scenescape-positioning:${VERSION:-latest}
-    user: "0:0"
-    entrypoint:
-      - python3
-      - /app/tools/render_mosquitto_acl.py
-      - --assignments
-      - /run/positioning/positioning-assignments.json
-      - --resolver-id
-      - ${POSITIONING_RESOLVER_ID:-positioning-default}
-      - --identity
-      - ${POSITIONING_CERT_IDENTITY:-positioning.scenescape.intel.com}
-      - --output
-      - /output/positioning.acl
-      - --group
-      - ${GID:-1000}
-    volumes:
-      - ./deployment/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
-      - vol-positioning-acl:/output
-    restart: "no"
-
   ntpserv:
     image: dockurr/chrony:4.9
     networks:
@@ -158,14 +133,10 @@ services:
         target: /mosquitto/config/mosquitto.conf
     volumes:
       - ${SECRETSDIR}:/mosquitto/secrets
-      - vol-positioning-acl:/mosquitto/acl:ro
     networks:
       scenescape:
         aliases:
           - broker.scenescape.intel.com
-    depends_on:
-      positioning-acl-init:
-        condition: service_completed_successfully
     user: "${UID:-1000}:${GID:-1000}"
     restart: always
     pids_limit: 1000
@@ -235,10 +206,6 @@ services:
       - GOOGLE_MAPS_API_KEY=${GOOGLE_MAPS_API_KEY}
       - MAPBOX_API_KEY=${MAPBOX_API_KEY}
       - PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX
-      # Positioning pose writes are authorized only for sources the assignment
-      # manifest gives this resolver (the same file Positioning reads).
-      - POSITIONING_RESOLVER_ID=${POSITIONING_RESOLVER_ID:-positioning-default}
-      - POSITIONING_ASSIGNMENTS_FILE=/run/positioning/positioning-assignments.json
       - OHSOME_API_KEY=${OHSOME_API_KEY}
       - OSM_MAX_ROI_FEATURES=${OSM_MAX_ROI_FEATURES:-200}
       # Max upload size for scene map files (blueprints, .glb meshes). Default
@@ -250,7 +217,6 @@ services:
     volumes:
       - vol-media:/workspace/media
       - vol-migrations:/workspace/migrations
-      - ./deployment/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
@@ -324,13 +290,9 @@ services:
         condition: service_started
     command:
       - --broker
-      - broker.scenescape.intel.com:8883
+      - broker.scenescape.intel.com
       - --brokerauth
       - /run/secrets/positioning.auth
-      - --cert
-      - /run/secrets/certs/scenescape-positioning.crt
-      - --keyfile
-      - /run/secrets/certs/scenescape-positioning.key
       - --rootcert
       - /run/secrets/certs/scenescape-ca.pem
       - --ntp
@@ -340,10 +302,6 @@ services:
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem
-      - source: positioning-client-cert
-        target: certs/scenescape-positioning.crt
-      - source: positioning-client-key
-        target: certs/scenescape-positioning.key
       - positioning.auth
     healthcheck:
       test:
@@ -598,8 +556,7 @@ services:
 
 configs:
   mosquitto-secure:
-    # Adds the Positioning mTLS listener; requires the positioning-acl-init ACL.
-    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure-positioning.conf
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
   tracker-config:
     # Use this configuration file to run tracking in immediate mode
     # file: ./controller/config/tracker-config-immediate.json
@@ -611,7 +568,6 @@ configs:
 
 volumes:
   vol-db:
-  vol-positioning-acl:
   vol-media:
   vol-migrations:
   vol-datasets:

@@ -966,12 +966,9 @@ class SceneSerializer(NonNullSerializer):
               'map_center_lat', 'map_center_lng', 'map_bearing', 'calibration_markers']
 
 class PubSubACLSerializer(NonNullSerializer):
-  scenes = serializers.PrimaryKeyRelatedField(
-    queryset=Scene.objects.all(), many=True, required=False)
-
   class Meta:
     model = PubSubACL
-    fields = ['topic', 'access', 'scenes', 'all_scenes']
+    fields = ['topic', 'access']
 
 class UserSerializer(NonNullSerializer):
   uid = serializers.CharField(source="pk", read_only=True)
@@ -1019,8 +1016,7 @@ class UserSerializer(NonNullSerializer):
       if is_update:
         instance.acls.all().delete()
       for acl in acl_data:
-        scenes = acl.pop('scenes', [])
-        PubSubACL.objects.create(user=instance, **acl).scenes.set(scenes)
+        PubSubACL.objects.create(user=instance, **acl)
     return instance
 
   def create(self, validated_data):

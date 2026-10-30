@@ -296,13 +296,13 @@ Deployment guide: [Deploy Multiple Controllers on One Host](../docs/user-guide/h
 
 `PTZ_ENFORCE` and `PTZ_SHADOW` run the stack with the Scene Controller in
 enforcing or shadow PTZ mode (`tests/compose/compose.scene-ptz*.yml`, bounds in
-`tests/compose/ptz/`). The tests publish PoseContexts through the broker as the
-Positioning identity for `test-source`, the camera in
+`tests/compose/ptz/`). The tests publish PoseContexts through the broker with the
+Positioning credentials for `test-source`, the camera in
 `tests/compose/positioning-assignments.json`, using
 `tests/functional/ptz_pose_publisher.py`:
 
 ```bash
-pytest tests/functional/test_controller_ptz_dwell.py tests/functional/test_controller_ptz_shadow.py tests/functional/test_controller_ptz_acl.py
+pytest tests/functional/test_controller_ptz_dwell.py tests/functional/test_controller_ptz_shadow.py
 ```
 
 They create PTZ cameras through Manager, which requires

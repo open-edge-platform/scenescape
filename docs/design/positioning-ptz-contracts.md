@@ -58,7 +58,7 @@ produces identical output.
 ## MQTT Topics
 
 The topic names are defined in this phase. They are registered in
-`scene_common.mqtt.PubSub` and the ACLs in Phase 2.
+`scene_common.mqtt.PubSub` in Phase 2.
 
 | Topic                                         | Publisher   | QoS / retain      | Payload schema       |
 | --------------------------------------------- | ----------- | ----------------- | -------------------- |

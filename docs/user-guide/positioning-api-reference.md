@@ -29,12 +29,12 @@ Retained messages are not proof of freshness: consumers must apply `valid_until`
 pose age, session, sequence, timestamp, calibration, frame, and dwell checks from
 the shared dwell contract.
 
-The production Positioning broker connection uses TLS 1.3 with a required client
-certificate on port 8883. Its broker ACL is rendered from the single-owner
-`source_id -> resolver_id` manifest; the certificate identity can publish only the
-matching status and assigned pose topics and can subscribe only to assigned camera
-configuration topics. Manager remains authoritative for camera-to-scene membership
-and consumer read scopes.
+The production Positioning broker connection uses TLS 1.3 on the standard broker
+listener (port 1883) with the `positioning.auth` credentials. Positioning validates
+its sources against the single-owner `source_id -> resolver_id` manifest at startup,
+publishes only the matching status and assigned pose topics, and subscribes only to
+assigned camera configuration topics. Manager remains authoritative for
+camera-to-scene membership.
 
 Within v1, fields are only ever added. Existing fields keep their numbers, names,
 types, and meaning.
