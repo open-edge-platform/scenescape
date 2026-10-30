@@ -47,6 +47,9 @@ def load_config(request):
     "mixed_3d_ratio": mixed_3d_ratio,
     "num_objects": int(os.getenv("NUM_OBJECTS", "300")),
     "duration": os.getenv("DURATION", "1m"),
+    "embedding_dimensions": int(os.getenv("REID_EMBEDDING_DIMENSIONS", "0")),
+    "embedding_encoding": os.getenv("REID_EMBEDDING_ENCODING", "float_list"),
+    "extra_metadata": os.getenv("EXTRA_METADATA", "none"),
     "latency_p50_ms": float(os.getenv("LATENCY_P50_MS", str(1000.0 / fps))),
     "latency_p99_ms": float(os.getenv("LATENCY_P99_MS", str(2000.0 / fps))),
     "throughput_min": float(os.getenv("THROUGHPUT_MIN",
@@ -302,6 +305,8 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
   w.line(f"  Load:     {load_cfg['num_cameras']} cam \u00d7 {load_cfg['fps']} FPS "
          f"\u00d7 {load_cfg['num_objects']} obj = {input_rate} msg/s "
          f"for {load_cfg['duration']} ({duration_s}s)")
+  w.line(f"  ReID:     {load_cfg['embedding_dimensions']} dimensions per 2D detection "
+         f"({load_cfg['embedding_encoding']}); extra metadata: {load_cfg['extra_metadata']}")
   mode_description = load_cfg["load_mode"]
   if mode_description == "mixed":
     mode_description += f" ({load_cfg['mixed_3d_ratio']:.0%} 3D)"

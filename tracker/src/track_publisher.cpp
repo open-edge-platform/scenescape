@@ -3,12 +3,11 @@
 
 #include "track_publisher.hpp"
 
+#include "json_utils.hpp"
 #include "logger.hpp"
 
 #include <format>
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 
 namespace tracker {
 
@@ -92,12 +91,26 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
         rotation.PushBack(track.rotation[3], allocator);
         obj.AddMember("rotation", rotation, allocator);
 
-        // Optional metadata - re-parse stored JSON string and embed as object
+        // Parse fragments into the output allocator so ownership transfers without a deep copy.
         if (!track.metadata_json.empty()) {
-            Document meta_doc;
+            Document meta_doc(&allocator);
             if (!meta_doc.Parse(track.metadata_json.c_str()).HasParseError()) {
-                Value meta_copy(meta_doc, allocator);
-                obj.AddMember("metadata", meta_copy, allocator);
+                if (meta_doc.IsObject()) {
+                    meta_doc.RemoveMember("reid");
+                }
+                obj.AddMember("metadata", meta_doc.Move(), allocator);
+            } else {
+                LOG_WARN("Omitting invalid track metadata JSON");
+            }
+        }
+
+        if (!track.reid_sighting_json.empty()) {
+            Document sighting(&allocator);
+            if (!sighting.Parse(track.reid_sighting_json.c_str()).HasParseError() &&
+                sighting.IsObject()) {
+                obj.AddMember("reid_sighting", sighting.Move(), allocator);
+            } else {
+                LOG_WARN("Omitting invalid track ReID sighting JSON");
             }
         }
 
@@ -111,12 +124,7 @@ std::string TrackPublisher::serialize(const std::string& scene_id, const std::st
 
     doc.AddMember("objects", objects_array, allocator);
 
-    // Serialize to string
-    StringBuffer buffer;
-    Writer<StringBuffer> writer(buffer);
-    doc.Accept(writer);
-
-    return std::string(buffer.GetString(), buffer.GetSize());
+    return detail::to_json_string(doc);
 }
 
 std::string TrackPublisher::build_topic(const std::string& scene_id, const std::string& category) {
