@@ -29,9 +29,9 @@ checks. When PTZ sources are configured, it polls each ONVIF PTZ camera, passes 
 
 ## How It Works
 
-The service connects to the standard MQTT broker TLS listener on port 1883 with its
-`positioning.auth` credentials, verifying the broker against the SceneScape CA
-certificate. No client certificate is required. After it
+The service connects to the standard MQTT broker TLS listener on port 1883 and
+verifies the broker against the SceneScape CA certificate. It uses
+`positioning.auth` like other SceneScape services. After it
 connects, it publishes a retained status message and registers an offline last-will
 message on:
 

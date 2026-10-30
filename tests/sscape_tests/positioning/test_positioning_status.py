@@ -311,20 +311,6 @@ class TestPositioningStatus(unittest.TestCase):
         keyfile=str(Path(temp_dir) / "client.key"))
 
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
-  def test_service_connects_without_client_certificate(self):
-    with tempfile.TemporaryDirectory() as temp_dir:
-      root_cert = Path(temp_dir) / "root.crt"
-      root_cert.write_text("", encoding="utf-8")
-      fake_pubsub = mock.Mock()
-      with mock.patch.dict(os.environ, {
-          "POSITIONING_READINESS_FILE": str(Path(temp_dir) / "positioning-ready")}):
-        with mock.patch("positioning_service.PubSub", return_value=fake_pubsub):
-          PositioningService(
-            {"resolver_id": "resolver-a"}, "broker", "positioning:secret",
-            None, None, str(root_cert))
-      fake_pubsub.client.tls_set.assert_called_once_with(
-        ca_certs=str(root_cert), certfile=None, keyfile=None)
-
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_missing_client_credential_is_rejected(self):
     with tempfile.TemporaryDirectory() as temp_dir:
