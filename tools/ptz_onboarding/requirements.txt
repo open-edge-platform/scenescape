@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+numpy>=1.26,<3
+onvif-zeep==0.2.12
+opencv-python-headless>=4.10,<5
+paho-mqtt==2.1.0
+requests>=2.32,<3
+scipy>=1.13,<2

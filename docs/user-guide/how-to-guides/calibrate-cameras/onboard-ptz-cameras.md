@@ -15,6 +15,12 @@ directly into production; import the result through the validated Manager API. T
 block format is defined in the
 [Positioning API Reference](../../positioning-api-reference.md#ptz-calibration-json).
 
+## Optional AprilTag Tooling
+
+The standalone [AprilTag PTZ onboarding tools](../../../../tools/ptz_onboarding/README.md)
+provide camera lens/model measurement and explicit calibration import. Their setup
+and usage instructions are separate from the Positioning implementation.
+
 ## Reference Pose, Movement Model, and Version
 
 AprilTag/manual calibration establishes the camera's scene pose at one reference
