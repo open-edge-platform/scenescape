@@ -4,7 +4,9 @@
 """Unit tests for tools/upload_scenes/uploader.py."""
 
 import json
+import subprocess
 import zipfile
+from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -17,6 +19,31 @@ from uploader import (
   upload_scene, is_application_ready,
   upload_object_library, upload_one, upload_scene
 )
+
+
+class TestUploadScenesCLI:
+  @pytest.mark.parametrize(
+    "arguments, expected_code, expected_output",
+    [
+      (["--help"], 0, "--restauth"),
+      ([], 2, "the following arguments are required"),
+      (["--restauth", "unused.auth", "https://localhost/api/v1", "missing"], 1,
+       "Not a directory: missing"),
+      (["--restauth", "unused.auth", "https://localhost/api/v1", "."], 1,
+       "No scene archives found"),
+    ],
+  )
+  def test_symlinked_command(self, tmp_path, arguments, expected_code, expected_output):
+    """The installed-style CLI resolves its module and reports usage errors."""
+    command = tmp_path / "upload-scenes"
+    command.symlink_to(Path(uploader.__file__).with_name("upload-scenes"))
+
+    result = subprocess.run(
+      [str(command), *arguments], cwd=tmp_path, capture_output=True, text=True, timeout=10,
+    )
+
+    assert result.returncode == expected_code
+    assert expected_output in result.stdout + result.stderr
 
 
 class TestParseAuth:
