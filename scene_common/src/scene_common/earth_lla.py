@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 # This file contains functions for conversion between various geospatial data formats
@@ -126,6 +126,39 @@ def calculateHeading(trs_mat, map_pt, velocity):
   bearing = math.atan2(x, y)
   return np.rad2deg(bearing) % 360
 
+def _signedArea(xs, ys):
+  """! Shoelace signed area of the polygon with vertices (xs[i], ys[i]).
+  @returns    float    Positive when the vertices run counterclockwise, negative when clockwise
+  """
+  return 0.5 * np.sum(xs * np.roll(ys, -1) - np.roll(xs, -1) * ys)
+
+def alignCornerWinding(map_xyz_pts, lla_pts):
+  """! Orders four geographic map corners so they run in the same rotational direction as the
+  local map corners they are paired with.
+
+  The documented convention lists the corners counterclockwise from the map origin, but the
+  geospatial map generation in the UI lists them clockwise (SW, NW, NE, SE). A map cannot be
+  mirrored on the globe, so the local XY polygon and the longitude/latitude polygon must wind the
+  same way. If they do not, the second to fourth geographic corners are reversed and the first
+  corner stays in place. Anything other than four points, or a degenerate (zero area) polygon,
+  is returned unchanged.
+
+  @param      map_xyz_pts      Four local corners on the map surface, in traversal order
+  @param      lla_pts          The respective geographic corners in Latitude, Longitude, Altitude format
+  @returns    numpy.ndarray    Geographic corners paired index-by-index with map_xyz_pts
+  """
+  map_xyz_pts = np.asarray(map_xyz_pts)
+  lla_pts = np.asarray(lla_pts)
+  if map_xyz_pts.shape[0] != 4 or lla_pts.shape[0] != 4:
+    return lla_pts
+  local_area = _signedArea(map_xyz_pts[:, 0], map_xyz_pts[:, 1])
+  # Wrap longitude differences to [-180, 180) so a map crossing the antimeridian keeps its winding
+  lon_diff = (lla_pts[:, 1] - lla_pts[0, 1] + 180.0) % 360.0 - 180.0
+  geo_area = _signedArea(lon_diff, lla_pts[:, 0])
+  if np.sign(local_area) * np.sign(geo_area) < 0:
+    return lla_pts[[0, 3, 2, 1]]
+  return lla_pts
+
 def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lla_pts, z_shift: float = DEFAULT_Z_SHIFT_METERS) -> np.ndarray:
   """! Calculates a transformation matrix from local Cartesian coordinates
   to Latitude, Longitude, Altitude (LLA) coordinates based on the map surface points
@@ -134,6 +167,9 @@ def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lla_pts, z_shift: float 
   This function provides a good aproximation for a horizontal and relatively flat
   scene map. Assuming the slope is neglible, the resulting approximation is
   accurate enough for most applications (~1m for scene dimensions below 500m).
+
+  When four corner points are given, the geographic corners may be listed in either direction
+  around the map (see alignCornerWinding).
 
   @param      map_xyz_pts      Points on the map surface (z=0) in local Cartesian coordinates
   @param      lla_pts          The Respective geographic coordinates in Latitude (degrees), Longitude (degrees), Altitude format
@@ -148,6 +184,7 @@ def calculateTRSLocal2LLAFromSurfacePoints(map_xyz_pts, lla_pts, z_shift: float 
     raise ValueError("Needs at least 3 points to calculate transformation matrix")
   if any(map_xyz_pts[:, 2] != 0.0):
     raise ValueError("All map points must be on the surface (z=0)")
+  lla_pts = alignCornerWinding(map_xyz_pts, lla_pts)
   # Extend point arrays with the same points but shifted along z-axis (altitude). This way we
   # provide additional synthetic points to augment the data and provide points that are not
   # coplanar to the map surface. This is necessary for the transformation matrix to be well-defined
