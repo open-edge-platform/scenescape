@@ -37,9 +37,13 @@ def read_camera_pose(browser):
 
 
 def set_pose_value(browser, field_id, value):
-  """Enter and commit a numeric camera Pose value through its UI field."""
+  """Enter and commit a numeric camera Pose value without a pointer click."""
   field = browser.find_element(By.ID, f"{CAMERA_NAME}-{field_id}")
-  field.click()
+  browser.execute_script(
+    "arguments[0].scrollIntoView({block: 'center', inline: 'nearest'});"
+    "arguments[0].focus();",
+    field,
+  )
   field.send_keys(Keys.CONTROL, "a")
   field.send_keys(f"{value:.4f}")
   field.send_keys(Keys.TAB)
