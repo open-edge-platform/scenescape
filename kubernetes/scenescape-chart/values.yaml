@@ -142,7 +142,7 @@ kubeclient:
   vaPipeline:
     repository: docker.io
     image: intel/dlstreamer-pipeline-server
-    tag: "2026.3.0-20261020-weekly-ubuntu24"
+    tag: "2026.3.0-20261027-weekly-ubuntu24"
     pullPolicy: IfNotPresent
 
 models:
@@ -187,8 +187,7 @@ positioning:
   logLevel: INFO
   resolverId: positioning-default
   # Source ownership manifest (source_id -> resolver_id). Positioning validates its
-  # sources against it, and Manager authorizes pose writes only for sources
-  # assigned to resolverId. Empty: no source may publish poses.
+  # sources against it. Empty: no source may publish poses.
   assignments: {}
   # Rendered as positioning.json (runtime keys; resolver_id comes from resolverId).
   # Every source must be assigned to resolverId above. A source without
@@ -222,6 +221,13 @@ positioning:
   # bundle referenced by a source's tls_ca_file.
   extraVolumes: []
   extraVolumeMounts: []
+  # Positioning egress is limited to broker, Manager, NTP, DNS and these
+  # deployment-owned camera address ranges. Custom ONVIF ports must be added.
+  networkPolicy:
+    cameraCIDRs: []
+    cameraPorts:
+      - 80
+      - 443
 
 mapping:
   enabled: false

@@ -3,13 +3,31 @@
     "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/01: Create Tripwire with Valid Required properties",
     "test_steps": [
       {
+        "step_name": "Create scene for tripwire tests",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "API_Tripwire_Test_Scene",
+            "use_tracker": true,
+            "output_lla": false
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "TRIPWIRE_SCENE_UID": "uid"
+        }
+      },
+      {
         "step_name": "Create tripwire",
         "api": "tripwire",
         "method": "createTripwire",
         "request": {
           "body": {
             "name": "tripwire_minimal",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${TRIPWIRE_SCENE_UID}",
             "points": [
               [0.0, 0.0],
               [1.0, 0.0]
@@ -35,7 +53,7 @@
         "request": {
           "body": {
             "name": "tripwire_full",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${TRIPWIRE_SCENE_UID}",
             "points": [
               [2.0, 0.0],
               [1.0, 1.0]
@@ -60,7 +78,7 @@
         "method": "createTripwire",
         "request": {
           "body": {
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+            "scene": "${TRIPWIRE_SCENE_UID}"
           }
         },
         "expected_status": {
@@ -111,7 +129,11 @@
         "step_name": "Get all tripwires",
         "api": "tripwire",
         "method": "getTripwires",
-        "request": {},
+        "request": {
+          "filter": {
+            "scene": "${TRIPWIRE_SCENE_UID}"
+          }
+        },
         "expected_status": {
           "status_code": 200
         },
@@ -128,7 +150,7 @@
                 [1.0, 0.0]
               ],
               "height": 1.0,
-              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "scene": "${TRIPWIRE_SCENE_UID}",
               "visible": false
             },
             {
@@ -139,7 +161,7 @@
                 [1.0, 1.0]
               ],
               "height": 1.0,
-              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "scene": "${TRIPWIRE_SCENE_UID}",
               "visible": false
             }
           ]
@@ -158,7 +180,7 @@
           "uid": "${TRIPWIRE_UID_MINIMAL}",
           "body": {
             "name": "tripwire_minimal_updated",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${TRIPWIRE_SCENE_UID}",
             "points": [
               [0.0, 0.0],
               [1.0, 0.0]
@@ -196,7 +218,7 @@
           "uid": "${TRIPWIRE_UID_MINIMAL}",
           "body": {
             "name": "tripwire_minimal_updated",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${TRIPWIRE_SCENE_UID}",
             "points": [
               [1.0, 1.0],
               [1.0, 0.0]
@@ -274,6 +296,22 @@
         },
         "expected_status": {
           "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/TRIPWIRE/11: Delete scene created for tripwire tests",
+    "test_steps": [
+      {
+        "step_name": "Delete scene created for tripwire tests",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "uid": "${TRIPWIRE_SCENE_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
         }
       }
     ]

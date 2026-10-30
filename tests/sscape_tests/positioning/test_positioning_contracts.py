@@ -29,7 +29,7 @@ SCHEMA_DOC = json.loads(SCHEMA_PATH.read_text())
 
 VALID_POSE = {
   "schema_version": 1,
-  "source_id": "atag-ptzcam3",
+  "source_id": "ptz-cam-1",
   "timestamp": "2026-10-01T10:15:30.123Z",
   "valid_until": "2026-10-01T10:15:30.623Z",
   "sequence": 10432,
@@ -44,13 +44,13 @@ VALID_POSE = {
   "motion_state": "stationary",
   "sample_age_s": 0.004,
   "timestamp_uncertainty_s": 0.012,
-  "calibration_version": "atag-ptzcam3-v3",
+  "calibration_version": "ptz-cam-1-v3",
   "quality": {"score": 0.94, "temporal_score": 0.98, "calibration_score": 0.96,
               "reprojection_rms_px": 1.2},
 }
 INVALID_POSE = {
   "schema_version": 1,
-  "source_id": "atag-ptzcam3",
+  "source_id": "ptz-cam-1",
   "timestamp": "2026-10-01T10:15:30.450Z",
   "valid_until": "2026-10-01T10:15:30.950Z",
   "sequence": 10433,
@@ -58,7 +58,7 @@ INVALID_POSE = {
   "motion_state": "settling",
   "sample_age_s": 0.005,
   "timestamp_uncertainty_s": 0.012,
-  "calibration_version": "atag-ptzcam3-v3",
+  "calibration_version": "ptz-cam-1-v3",
   "invalid_reason": "invalid_pose",
   "reason_detail": "settling",
 }

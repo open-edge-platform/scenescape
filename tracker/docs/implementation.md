@@ -262,6 +262,9 @@ struct BoundingBoxPx { double x, y, width, height; };
 struct Detection {
     std::optional<int64_t> id;  // Frame-local detection ID (optional)
     BoundingBoxPx bounding_box_px;
+    std::string metadata_json;  // Semantic metadata only
+    std::string reid_json;      // Normalized ReID object, separate from semantic metadata
+    std::optional<double> reid_confidence;
 };
 ```
 
@@ -296,6 +299,21 @@ When detections from multiple camera batches match one track, RobotVision merges
 
 RobotVision retains the selected metadata for the lifetime of the track. A value from a later chunk replaces the stored value only when it has strictly higher confidence. Missing fields, lower or equal confidence, and values without confidence do not replace stored metadata. If the stored value has no confidence, a new value with confidence replaces it.
 
+Transient fields are the exception: historical values never replace fresh
+measurements, and old ReID tokens cannot resolve into a later chunk's sighting.
+The generic policy, confidence selection, and companion-attribute handling live
+in RobotVision's `MetadataFusion.hpp` / `MetadataFusion.cpp` (C++17-compatible).
+
+At ingestion, `parse_detection_metadata` separates `Detection::reid_json` and
+its confidence from semantic `metadata_json`. `ReidSightingIndex` stores a vector
+of pointers to batches/detections owned by the current `Chunk`. Its optional
+`ReidSightingContext` lets coordinate transformation tag bbox detections with a
+`<chunk>:<index>` token, without serializing embeddings or complete sightings.
+After fusion, the worker resolves only published winners and lazily writes the
+sighting directly to a JSON writer. Each index can be consumed once; it is
+cleared before the chunk is destroyed. This lifetime is confined to
+`process_chunk`, including all OpenMP work and track conversion.
+
 ```cpp
 struct Chunk {
     std::string scene_id;
@@ -320,6 +338,7 @@ struct Track {
     std::array<double, 3> size;         // Object size [length, width, height] meters
     std::array<double, 4> rotation;     // Orientation quaternion [x, y, z, w]
     std::string metadata_json;          // Per-field fused detection metadata
+    std::string reid_sighting_json;     // Selected current-chunk sighting, if any
 };
 ```
 

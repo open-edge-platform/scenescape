@@ -38,7 +38,7 @@ def _replay(vector, schema):
   tracker = DwellTracker(consumer["source_id"], consumer["resolver_id"], config,
                          expected_frame_id=consumer["expected_frame_id"],
                          expected_calibration_version=consumer["expected_calibration_version"])
-  checked = 0
+  decisions = []
   for index, event in enumerate(vector["events"]):
     if event["type"] == "status":
       payload = event["payload"]
@@ -61,13 +61,18 @@ def _replay(vector, schema):
         actual["invalid_reason"] = decision.invalid_reason
         actual["reason_detail"] = decision.reason_detail
       assert actual == expected, f"{vector['name']} event #{index}"
-      checked += 1
-  return checked
+      decisions.append(actual)
+  return decisions
 
 
 @pytest.mark.parametrize("vector", VECTORS, ids=[v["name"] for v in VECTORS])
 def test_dwell_conformance_vector(vector, schema):
-  assert _replay(vector, schema) > 0
+  assert _replay(vector, schema)
+
+
+def test_shared_replay_vectors_are_deterministic(schema):
+  for vector in VECTORS:
+    assert _replay(vector, schema) == _replay(vector, schema), vector["name"]
 
 
 def test_fixture_metadata():

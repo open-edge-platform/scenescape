@@ -5,6 +5,9 @@
 {{- if not (has .Values.positioning.logLevel (list "INFO" "DEBUG")) }}
 {{- fail "positioning.logLevel must be INFO or DEBUG" }}
 {{- end }}
+{{- if and .Values.positioning.config.sources (not .Values.positioning.networkPolicy.cameraCIDRs) }}
+{{- fail "positioning.networkPolicy.cameraCIDRs must allowlist the configured camera networks" }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,6 +34,7 @@ spec:
       securityContext:
         runAsUser: 1001
         runAsGroup: 1001
+        fsGroup: 1001
       containers:
         - name: positioning
           image: {{ .Values.repository }}/{{ .Values.positioning.image }}:{{ .Chart.AppVersion }}
@@ -42,10 +46,6 @@ spec:
             - "broker.{{ .Release.Namespace }}.svc.cluster.local"
             - "--brokerauth"
             - "/run/secrets/positioning.auth"
-            - "--cert"
-            - "/run/secrets/certs/scenescape-positioning.crt"
-            - "--keyfile"
-            - "/run/secrets/certs/scenescape-positioning.key"
             - "--rootcert"
             - "/run/secrets/certs/scenescape-ca.pem"
             - "--manager-url"
@@ -85,14 +85,6 @@ spec:
               mountPath: /run/secrets/certs/scenescape-ca.pem
               subPath: scenescape-ca.pem
               readOnly: true
-            - name: positioning-tls
-              mountPath: /run/secrets/certs/scenescape-positioning.crt
-              subPath: scenescape-positioning.crt
-              readOnly: true
-            - name: positioning-tls
-              mountPath: /run/secrets/certs/scenescape-positioning.key
-              subPath: scenescape-positioning.key
-              readOnly: true
             - name: tmp
               mountPath: /tmp
             {{- if include "positioning.onvifCredentialsSecretName" . }}
@@ -110,14 +102,7 @@ spec:
         - name: positioning-auth
           secret:
             secretName: {{ .Release.Name }}-positioning.auth
-        - name: positioning-tls
-          secret:
-            secretName: {{ .Release.Name }}-positioning-tls
-            items:
-              - key: tls.crt
-                path: scenescape-positioning.crt
-              - key: tls.key
-                path: scenescape-positioning.key
+            defaultMode: 0440
         - name: tmp
           emptyDir: {}
         - name: certs
@@ -132,6 +117,7 @@ spec:
         - name: onvif-credentials
           secret:
             secretName: {{ include "positioning.onvifCredentialsSecretName" . }}
+            defaultMode: 0440
         {{- end }}
         {{- with .Values.positioning.extraVolumes }}
         {{- toYaml . | nindent 8 }}

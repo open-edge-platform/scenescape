@@ -3,11 +3,13 @@
 
 #include "tracking_worker.hpp"
 
+#include "json_utils.hpp"
 #include "logger.hpp"
 #include "metrics.hpp"
 #include "ptz_dwell.hpp"
 #include "time_utils.hpp"
 
+#include <rv/tracking/MetadataFusion.hpp>
 #include <rv/tracking/ObjectMatching.hpp>
 #include <rv/tracking/OrientationAttributes.hpp>
 #include <rv/tracking/TrackManager.hpp>
@@ -20,8 +22,6 @@
 #include <cmath>
 #include <numeric>
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <string_view>
 #include <unordered_set>
 
@@ -36,7 +36,7 @@ namespace {
 // service produces identical results.
 constexpr double kTrackingDistanceThreshold = 2.0;
 constexpr size_t kMinDetectionsForMultiThreadedTracking = 32;
-constexpr std::string_view kMetadataPrefix = "metadata.";
+constexpr std::string_view kMetadataPrefix = rv::tracking::metadata_fusion::ValuePrefix;
 
 /**
  * Temporarily lower the calling task's OpenMP thread setting for subsequent
@@ -76,7 +76,10 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
         if (!key.starts_with(kMetadataPrefix)) {
             continue;
         }
-        fields.emplace_back(std::string_view(key).substr(kMetadataPrefix.size()), value);
+        const auto field = std::string_view(key).substr(kMetadataPrefix.size());
+        if (field != "reid") {
+            fields.emplace_back(field, value);
+        }
     }
     std::sort(fields.begin(), fields.end(),
               [](const auto& lhs, const auto& rhs) { return lhs.first < rhs.first; });
@@ -96,10 +99,7 @@ std::string metadataJson(const std::unordered_map<std::string, std::string>& att
         return {};
     }
 
-    rapidjson::StringBuffer buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    merged.Accept(writer);
-    return buffer.GetString();
+    return detail::to_json_string(merged);
 }
 
 /**
@@ -283,11 +283,14 @@ void TrackingWorker::process_chunk(Chunk chunk) {
                                     ? formatTimestamp(now)
                                     : chunk.camera_batches.back().timestamp_iso;
 
+    // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
+    reid_sightings_.reset(std::to_string(++chunk_sequence_));
     auto objects_per_camera = transform_detections(chunk);
     chunk.obs_ctx.captureTransformTime();
 
     // Run Hungarian matching, Kalman filter, and ID conversion
     auto tracks = match_and_convert(std::move(objects_per_camera), chunk, track_timestamp);
+    reid_sightings_.clear();
     chunk.obs_ctx.captureTrackTime();
 
     // Update active tracks gauge for this scope
@@ -317,11 +320,13 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             continue;
         }
         const auto& transformer = transformer_it->second;
+        const auto sightings = reid_sightings_.add_batch(batch);
         // An admitted PTZ batch projects with the PoseContext that admitted it; the
         // transformer keeps the camera's static intrinsics.
         const PoseView& pose = (batch.ptz_pose && batch.ptz_pose->view) ? *batch.ptz_pose->view
                                                                         : transformer.staticPose();
-        objects_per_camera.push_back(transformer.transformDetections(batch.detections, pose));
+        objects_per_camera.push_back(
+            transformer.transformDetections(batch.detections, pose, sightings));
     }
 
     return objects_per_camera;
@@ -365,15 +370,8 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             rotation_state = &rotation_states_[rv_track.id];
         }
         track.rotation = select_track_rotation(rv_track, rotation_from_velocity_, *rotation_state);
+        track.reid_sighting_json = reid_sightings_.take(rv_track.attributes);
         track.metadata_json = metadataJson(rv_track.attributes);
-
-        // Compatibility fallback for measurements produced by older adapters.
-        if (track.metadata_json.empty()) {
-            auto meta_it = rv_track.attributes.find("metadata_json");
-            if (meta_it != rv_track.attributes.end()) {
-                track.metadata_json = std::move(meta_it->second);
-            }
-        }
 
         // Retrieve confidence stored in attributes by transformDetections().
         // NOTE: multi-camera last-write-wins — same limitation as metadata_json.
@@ -399,7 +397,6 @@ std::vector<Track> TrackingWorker::match_and_convert(
     const auto transformed_detections = std::accumulate(
         objects_per_camera.begin(), objects_per_camera.end(), size_t{0},
         [](size_t sum, const auto& camera_objects) { return sum + camera_objects.size(); });
-
     // Feed all cameras as a batch — MOT performs Hungarian matching across cameras,
     // deduplicates objects seen by multiple cameras, and runs Kalman filter update.
     // When no detections are present, track() still advances the Kalman filter and

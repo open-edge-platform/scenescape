@@ -12,15 +12,16 @@ default: deploy-certificates
 
 #.PHONY targets won't be skipped if files with these names happen to exist
 .PHONY: default ca deploy-certificates deploy-csr
-.PHONY: broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert positioning-cert
-.PHONY: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr positioning-csr
+.PHONY: broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert
+.PHONY: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
 
 #.SECONDARY prevents make from deleting files created by intermediate targets
 .SECONDARY:
 
-deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert positioning-cert
+deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert
+	@chmod 0600 $(CASECRETSDIR)/ca/scenescape-ca.key
 
-deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr positioning-csr
+deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
 
 # EXTRA_HOSTS: optional additional DNS SANs (space-separated host labels, no
 # domain). Empty by default. Hierarchy tests pass values via the root
@@ -69,12 +70,6 @@ mapping-cert: \
 	$(SECRETSDIR)/certs/scenescape-mapping.key \
 	$(SECRETSDIR)/certs/scenescape-mapping.crt \
 
-positioning-cert: HOST=positioning
-positioning-cert: KEY_USAGE=clientAuth
-positioning-cert: \
-	$(SECRETSDIR)/certs/scenescape-positioning.key \
-	$(SECRETSDIR)/certs/scenescape-positioning.crt \
-
 broker-csr: HOST=broker
 broker-csr: KEY_USAGE=serverAuth
 broker-csr: \
@@ -111,12 +106,6 @@ mapping-csr: \
 	$(SECRETSDIR)/certs/scenescape-mapping.key \
 	$(SECRETSDIR)/certs/scenescape-mapping.csr \
 
-positioning-csr: HOST=positioning
-positioning-csr: KEY_USAGE=clientAuth
-positioning-csr: \
-	$(SECRETSDIR)/certs/scenescape-positioning.key \
-	$(SECRETSDIR)/certs/scenescape-positioning.csr \
-
 ca: $(CASECRETSDIR)/certs/scenescape-ca.pem
 
 $(CASECRETSDIR)/ca/scenescape-ca.key:
@@ -124,7 +113,7 @@ $(CASECRETSDIR)/ca/scenescape-ca.key:
 	@mkdir -p $(CASECRETSDIR)/ca
 	@if [ -n "$(CERTPASS)" ] ; then PASSFLAGS="-passout pass:$(CERTPASS)" ; fi ; \
 	openssl ecparam -name secp384r1 -genkey | openssl ec -aes256 $${PASSFLAGS} -out $@
-	@chmod 0644 $@
+	@chmod 0600 $@
 
 $(CASECRETSDIR)/certs/scenescape-ca.pem: $(CASECRETSDIR)/ca/scenescape-ca.key
 	@echo Generating root CA certificate

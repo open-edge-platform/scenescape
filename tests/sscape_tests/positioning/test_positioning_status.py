@@ -152,9 +152,7 @@ class TestPositioningStatus(unittest.TestCase):
       service_factory.assert_called_once()
       self.assertEqual(service_factory.call_args.args, (
         config, "broker.scenescape.intel.com", "/run/secrets/positioning.auth",
-        "/run/secrets/certs/scenescape-positioning.crt",
-        "/run/secrets/certs/scenescape-positioning.key",
-        "/run/secrets/certs/scenescape-ca.pem"))
+        None, None, "/run/secrets/certs/scenescape-ca.pem"))
       self.assertEqual(service_factory.call_args.kwargs["source_ids"], ())
       service_factory.return_value.run.assert_called_once_with()
 
@@ -312,6 +310,7 @@ class TestPositioningStatus(unittest.TestCase):
         certfile=str(Path(temp_dir) / "client.crt"),
         keyfile=str(Path(temp_dir) / "client.key"))
 
+  @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   @unittest.skipIf(PositioningService is None, "paho-mqtt is installed in the service test image")
   def test_missing_client_credential_is_rejected(self):
     with tempfile.TemporaryDirectory() as temp_dir:

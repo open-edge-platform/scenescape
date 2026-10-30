@@ -31,7 +31,7 @@ services:
       - load-test
 
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:0.161.0-386
+    image: otel/opentelemetry-collector-contrib:0.163.2-386
     hostname: otel-collector
     command: ["--config=/etc/otel-config.yaml"]
     ports:
@@ -108,6 +108,9 @@ services:
       - CAMERA_COUNT=${NUM_CAMERAS:-4}
       - CAMERA_FPS=${FPS:-15}
       - OBJECT_COUNT=${NUM_OBJECTS:-300}
+      - REID_EMBEDDING_DIMENSIONS=${REID_EMBEDDING_DIMENSIONS:-0}
+      - REID_EMBEDDING_ENCODING=${REID_EMBEDDING_ENCODING:-float_list}
+      - EXTRA_METADATA=${EXTRA_METADATA:-none}
       - DEFAULT_TEST_DURATION=${DURATION:-1m}
       - CAMERA_ID_PREFIX=atag-qcam
       - LOAD_MODE=${LOAD_MODE:-2d}

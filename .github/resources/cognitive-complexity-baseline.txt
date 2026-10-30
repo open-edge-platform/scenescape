@@ -51,7 +51,7 @@ controller/src/controller/uuid_manager.py	UUIDManager::_enrollmentVectorsForMatc
 controller/src/controller/uuid_manager.py	UUIDManager::_findBestMetricCandidate	19
 controller/src/controller/uuid_manager.py	UUIDManager::parseQueryResults	26
 controller/src/controller/uuid_manager.py	UUIDManager::updateActiveDict	51
-manager/src/manager/api.py	ACLCheck::post	21
+manager/src/manager/api.py	ACLCheck::post	25
 manager/src/manager/api.py	ListThings::get_queryset	14
 manager/src/manager/calculate_intrinsics_view.py	CalculateCameraIntrinsics::post	26
 manager/src/manager/forms.py	CamCalibrateForm::__init__	15
@@ -98,7 +98,6 @@ mapping/src/vggt_model.py	VGGTModel::scale_intrinsics_to_original_size	13
 model_download/src/download_models.py	_wait_for_jobs	20
 model_download/src/generate_model_config.py	_build_config_entry	14
 model_download/src/generate_model_config.py	_get_model_config_entries	14
-reid/src/reid/ingest.py	TrackIngest::_parse_scene_message	20
 reid/src/reid/matcher.py	TrackMatcher::_decide	20
 reid/src/reid/matcher.py	TrackMatcher::_enrollmentVectorsForMatch	20
 reid/src/reid/matcher.py	TrackMatcher::observe	21

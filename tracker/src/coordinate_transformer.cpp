@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "coordinate_transformer.hpp"
+#include "json_utils.hpp"
+#include "reid_sighting.hpp"
 
 #include <algorithm>
 #include <cassert>
 #include <charconv>
 #include <cmath>
+#include <stdexcept>
 #include <string_view>
 #include <unordered_map>
 #include <vector>
@@ -14,8 +17,7 @@
 #include <omp.h>
 #include <opencv2/calib3d.hpp>
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
+#include <rv/tracking/MetadataFusion.hpp>
 #include <rv/tracking/OrientationAttributes.hpp>
 
 namespace tracker {
@@ -24,23 +26,20 @@ namespace {
 
 constexpr int kMinIterationsForOpenMpParallelism = 32;
 
-void addMetadataAttributes(std::string_view metadataJson,
+void addMetadataAttributes(const Detection& detection,
                            std::unordered_map<std::string, std::string>& attributes) {
-    attributes["metadata_json"] = metadataJson;
-
     rapidjson::Document metadata;
-    if (metadata.Parse(metadataJson.data(), metadataJson.size()).HasParseError() ||
+    if (detection.metadata_json.find('\0') != std::string::npos ||
+        metadata.Parse(detection.metadata_json.data(), detection.metadata_json.size())
+            .HasParseError() ||
         !metadata.IsObject()) {
         return;
     }
 
     for (auto member = metadata.MemberBegin(); member != metadata.MemberEnd(); ++member) {
-        rapidjson::StringBuffer value_buffer;
-        rapidjson::Writer<rapidjson::StringBuffer> value_writer(value_buffer);
-        member->value.Accept(value_writer);
-
         const std::string field(member->name.GetString(), member->name.GetStringLength());
-        attributes["metadata." + field] = value_buffer.GetString();
+        attributes[std::string(rv::tracking::metadata_fusion::ValuePrefix) + field] =
+            detail::to_json_string(member->value);
 
         if (!member->value.IsObject() || !member->value.HasMember("confidence") ||
             !member->value["confidence"].IsNumber()) {
@@ -52,7 +51,8 @@ void addMetadataAttributes(std::string_view metadataJson,
         auto [ptr, ec] = std::to_chars(confidence_buffer,
                                        confidence_buffer + sizeof(confidence_buffer), confidence);
         if (ec == std::errc{}) {
-            attributes["metadata_confidence." + field] = std::string(confidence_buffer, ptr);
+            attributes[std::string(rv::tracking::metadata_fusion::ConfidencePrefix) + field] =
+                std::string(confidence_buffer, ptr);
         }
     }
 }
@@ -91,7 +91,7 @@ void applyDetectionRotation(const Detection& detection, const cv::Matx33d& camer
 
 void addDetectionAttributes(const Detection& detection, rv::tracking::TrackedObject& object) {
     if (!detection.metadata_json.empty()) {
-        addMetadataAttributes(detection.metadata_json, object.attributes);
+        addMetadataAttributes(detection, object.attributes);
     }
     if (detection.confidence.has_value()) {
         char buffer[32];
@@ -207,14 +207,20 @@ void CoordinateTransformer::batchNormalizedToWorld(const std::vector<cv::Point2f
 }
 
 std::vector<rv::tracking::TrackedObject>
-CoordinateTransformer::transformDetections(std::span<const Detection> detections) const {
-    return transformDetections(detections, static_pose_);
+CoordinateTransformer::transformDetections(std::span<const Detection> detections,
+                                           std::optional<ReidSightingContext> sightings) const {
+    return transformDetections(detections, static_pose_, sightings);
 }
 
 std::vector<rv::tracking::TrackedObject>
 CoordinateTransformer::transformDetections(std::span<const Detection> detections,
-                                           const PoseView& pose) const {
+                                           const PoseView& pose,
+                                           std::optional<ReidSightingContext> sightings) const {
     const auto n = detections.size();
+    if (sightings && (sightings->batch.detections.size() != n ||
+                      sightings->batch.detections.data() != detections.data())) {
+        throw std::invalid_argument("ReID sighting context must reference the detection span");
+    }
     if (n == 0)
         return {};
 
@@ -373,6 +379,9 @@ CoordinateTransformer::transformDetections(std::span<const Detection> detections
         obj.width = width_m;
         obj.height = height_m;
         addDetectionAttributes(detection, obj);
+        if (sightings) {
+            sightings->tag(detection_index, obj.attributes);
+        }
         applyDetectionRotation(detection, camera_rotation, obj);
 
         detection_valid[i] = 1;

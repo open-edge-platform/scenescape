@@ -29,8 +29,9 @@ checks. When PTZ sources are configured, it polls each ONVIF PTZ camera, passes 
 
 ## How It Works
 
-The service connects to the MQTT broker over TLS with its own broker account
-(`positioning.auth`) and client certificate (`scenescape-positioning`). After it
+The service connects to the standard MQTT broker TLS listener on port 1883 and
+verifies the broker against the SceneScape CA certificate. It uses
+`positioning.auth` like other SceneScape services. After it
 connects, it publishes a retained status message and registers an offline last-will
 message on:
 
@@ -42,14 +43,12 @@ The payload contains `resolver_id`, `status` (`online` or `offline`), and
 `timestamp`. For the last-will message, the timestamp is the session start time,
 not the time the connection was lost.
 
-Manager's ACL policy grants the broker identity write access only to its own status
-topic and to resolved-pose topics (`scenescape/positioning/pose/{source_id}`), and read
-access only to camera-configuration change notifications
-(`scenescape/cmd/camera/config/{camera_id}`). Writes to any other topic, including
-another resolver's status topic, are denied. The bundled Mosquitto configuration
-does not enforce topic ACLs; deployments requiring enforcement must configure broker
-authorization as described in the [hardening guide](../../additional-resources/hardening-guide.md).
-The container reports healthy only while it is connected to the broker.
+The service writes only its resolver status topic and the resolved-pose topics of
+its assigned sources (`scenescape/positioning/pose/{source_id}`), and subscribes
+only to camera configuration invalidations for those assigned sources
+(`scenescape/cmd/camera/config/{camera_id}`). Source ownership is validated at
+startup against the shared assignment manifest. The container reports healthy
+only while it is connected to the broker.
 
 ### PTZ polling
 
@@ -98,7 +97,7 @@ unsubscribe operations. These alternatives were evaluated:
 
 | Option                                                             | Decision and reason                                                                                                                                                                                                                              |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `onvif-zeep` 0.2.12 (MIT)                                          | Rejected: last released in 2018 and unmaintained. The PoC needed monkey patches for drifting device clocks and Axis subscription reference parameters.                                                                                           |
+| `onvif-zeep` 0.2.12 (MIT)                                          | Rejected: last released in 2018 and unmaintained. It needs monkey patches for drifting device clocks and Axis subscription reference parameters.                                                                                                 |
 | `onvif-zeep-async` (MIT)                                           | Not selected: it is maintained, but it is async-only and pulls in zeep, lxml, httpx, and their transitive tree, which must all be hash-pinned. It also loads WSDLs at startup, while the poller needs fewer than ten operations.                 |
 | `dlstreamer.onvif`                                                 | Rejected: it is not published as a package, and the plan forbids cloning or vendoring source during an image build.                                                                                                                              |
 | In-tree SOAP (`requests`, `defusedxml`) (Apache-2.0, MIT, PSF-2.0) | Selected: two small, actively maintained dependencies that support Python 3.11. Device XML is parsed with DTDs and entities forbidden, and responses are limited to 1 MiB. The client times the actual HTTP exchange for the midpoint timestamp. |
@@ -221,15 +220,14 @@ make positioning
 ```
 
 The image is also built by `make build-core` and `make build-all`. Generate the
-broker account and client certificate with:
+broker account with:
 
 ```bash
 make init-secrets
 ```
 
-This creates `manager/secrets/positioning.auth`,
-`manager/secrets/certs/scenescape-positioning.crt`, and
-`manager/secrets/certs/scenescape-positioning.key`.
+This creates `manager/secrets/positioning.auth`, which is also used as the Manager
+REST API credential.
 
 ## Configure
 
@@ -299,8 +297,7 @@ as a `source_id` to `resolver_id` mapping. The image contains the empty default 
 `/app/deployment/positioning-assignments.json`; mount the deployment manifest over it.
 At startup, every configured source must be assigned to this `resolver_id`, and every
 entry assigned to this `resolver_id` must be configured; otherwise the service exits.
-Manager reads the same manifest (`POSITIONING_ASSIGNMENTS_FILE`) and allows pose
-writes only for sources assigned to its `POSITIONING_RESOLVER_ID`; see
+The Scene Controller reads the same manifest; see
 [Source Ownership](operations.md#source-ownership).
 Manager remains authoritative for camera-to-scene membership and camera calibration.
 The service loads each camera's `ptz_calibration`, computed `pose_matrix`, and scene
@@ -312,23 +309,24 @@ fallback. Accepted samples publish retained QoS 0 contexts on
 
 The service accepts these command-line options:
 
-| Option           | Default                                         |
-| ---------------- | ----------------------------------------------- |
-| `--broker`       | `broker.scenescape.intel.com`                   |
-| `--brokerauth`   | `/run/secrets/positioning.auth`                 |
-| `--cert`         | `/run/secrets/certs/scenescape-positioning.crt` |
-| `--keyfile`      | `/run/secrets/certs/scenescape-positioning.key` |
-| `--rootcert`     | `/run/secrets/certs/scenescape-ca.pem`          |
-| `--manager-url`  | `https://web.scenescape.intel.com/api/v1`       |
-| `--manager-auth` | defaults to `--brokerauth`                      |
-| `--ntp`          | `POSITIONING_NTP_SERVER` environment variable   |
-| `--config`       | `/app/config/positioning.json`                  |
-| `--assignments`  | `/app/deployment/positioning-assignments.json`  |
+| Option           | Default                                        |
+| ---------------- | ---------------------------------------------- |
+| `--broker`       | `broker.scenescape.intel.com`                  |
+| `--brokerauth`   | `/run/secrets/positioning.auth`                |
+| `--cert`         | none (optional client certificate)             |
+| `--keyfile`      | none (optional client private key)             |
+| `--rootcert`     | `/run/secrets/certs/scenescape-ca.pem`         |
+| `--manager-url`  | `https://web.scenescape.intel.com/api/v1`      |
+| `--manager-auth` | defaults to `--brokerauth`                     |
+| `--ntp`          | `POSITIONING_NTP_SERVER` environment variable  |
+| `--config`       | `/app/config/positioning.json`                 |
+| `--assignments`  | `/app/deployment/positioning-assignments.json` |
 
 ## Deploy
 
 On Kubernetes, enable the service with `positioning.enabled=true` and configure
-sources, resolver limits, assignments, and ONVIF credential Secrets through the
+sources, resolver limits, assignments, ONVIF credential Secrets, and camera
+network allowlists through the
 `positioning.*` Helm values. See
 [Deploy Scenescape on Kubernetes](../../how-to-guides/deployment/deploy-kubernetes.md#configure-the-positioning-service)
 for the related Helm values. The chart runs one replica, because only one instance may

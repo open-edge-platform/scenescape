@@ -2814,16 +2814,6 @@ components:
           allOf:
             - $ref: "#/components/schemas/AccessEnum"
           default: 0
-        scenes:
-          type: array
-          items:
-            type: string
-            format: uuid
-          description: For POSITIONING_POSE reads, scenes whose cameras (by current Cam.scene) may be read.
-        all_scenes:
-          type: boolean
-          default: false
-          description: For POSITIONING_POSE reads, allow every camera assigned to any scene.
       required:
         - topic
     Region:

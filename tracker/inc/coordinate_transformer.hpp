@@ -8,6 +8,8 @@
 #include <numbers>
 #include <optional>
 #include <span>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <opencv2/core.hpp>
@@ -15,6 +17,7 @@
 
 #include "object_class.hpp"
 #include "pose_view.hpp"
+#include "reid_sighting.hpp"
 #include "scene_loader.hpp"
 #include "tracking_types.hpp"
 
@@ -88,24 +91,28 @@ public:
      * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
+     * @param sightings Optional chunk-local context for tagging ReID observations
+     * @throws std::invalid_argument if the context does not reference the exact detection span.
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity is zero.
      *         Supplied rotation sets world yaw and attributes["has_orientation"].
-     *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
+     *         metadata.* attributes carry fused semantic values; ReID is a current-chunk sighting.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */
     std::vector<rv::tracking::TrackedObject>
-    transformDetections(std::span<const Detection> detections) const;
+    transformDetections(std::span<const Detection> detections,
+                        std::optional<ReidSightingContext> sightings = std::nullopt) const;
 
     /**
      * @brief Batch-transform detections with an explicit camera pose.
      *
-     * Same as transformDetections(detections), but projects with @p pose instead of the
-     * static extrinsics. Intrinsics, distortion, shift type, and footprint stay those of
-     * this transformer. Used for PTZ batches admitted with a per-frame PoseContext.
+     * Same as transformDetections(detections, sightings), but projects with @p pose instead
+     * of the static extrinsics. Intrinsics, distortion, shift type, and footprint stay those
+     * of this transformer. Used for PTZ batches admitted with a per-frame PoseContext.
      */
     std::vector<rv::tracking::TrackedObject>
-    transformDetections(std::span<const Detection> detections, const PoseView& pose) const;
+    transformDetections(std::span<const Detection> detections, const PoseView& pose,
+                        std::optional<ReidSightingContext> sightings = std::nullopt) const;
 
     /**
      * @brief Static (home) pose built from the configured extrinsics.
