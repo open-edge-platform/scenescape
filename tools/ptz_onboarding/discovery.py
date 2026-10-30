@@ -3,6 +3,7 @@
 """Find a sampled tag-visible rectangle without exceeding operator-approved limits."""
 
 import copy
+from itertools import product
 
 import numpy as np
 
@@ -31,19 +32,21 @@ def select_rectangle(pans, tilts, observations, motion):
     before = home + (1 if motion["approach"][i] == "decreasing" else -1) * motion["approach_offset"][i]
     required.append(sorted((values.index(home), values.index(before))))
   candidates = []
-  for left in range(required[0][0] + 1):
-    for right in range(max(left + 2, required[0][1]), len(pans)):
-      for bottom in range(required[1][0] + 1):
-        for top in range(max(bottom + 2, required[1][1]), len(tilts)):
-          xs, ys = pans[left:right + 1], tilts[bottom:top + 1]
-          if all((x, y) in usable for x in xs for y in ys):
-            area = (xs[-1] - xs[0]) * (ys[-1] - ys[0])
-            candidates.append((area, len(xs) * len(ys), xs, ys))
+  for xs, ys in product(_intervals(pans, required[0]), _intervals(tilts, required[1])):
+    if all((x, y) in usable for x in xs for y in ys):
+      area = (xs[-1] - xs[0]) * (ys[-1] - ys[0])
+      candidates.append((area, len(xs) * len(ys), xs, ys))
   if not candidates:
     raise ValueError("No sampled 3x3 tag-visible rectangle includes home and its approach. "
                      "Improve tags, choose another home, or refine the safe discovery grid.")
   _, _, xs, ys = max(candidates)
   return xs, ys
+
+
+def _intervals(values, required):
+  return [values[left:right + 1]
+          for left in range(required[0] + 1)
+          for right in range(max(left + 2, required[1]), len(values))]
 
 
 def discover(config, output_dir, steps):

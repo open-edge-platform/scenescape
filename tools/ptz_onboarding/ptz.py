@@ -188,10 +188,14 @@ def execute(args, config):
     print(f"Verified RMS {verification['rms_px']:.3f}px. Manager unchanged. Results: {directory}")
   elif args.command == "check":
     from devices import Camera, Manager, Tags
-    Manager(config).camera(config["camera_uid"])
+    source = Manager(config).camera(config["camera_uid"])
     camera = Camera(config, validate_limits=False)
     stop = Tags(config).collect()
-    print(f"Connected; {len(stop['points_2d'])} matched points; position space: {camera.space}")
+    print(f"Connected; {len(stop['points_2d'])} matched points; "
+          f"frame resolution: {stop['resolution']}; position space: {camera.space}")
+    if source["resolution"] != stop["resolution"]:
+      print(f"WARNING: Manager resolution {source['resolution']} differs from the "
+            "calibration stream; use matching approximate pixel intrinsics before fitting.")
   elif args.command.startswith("capture-"):
     write_json(args.output, capture(config, args.command.removeprefix("capture-")))
   elif args.command == "fit-lens":

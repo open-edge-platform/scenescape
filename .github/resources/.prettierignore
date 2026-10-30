@@ -6,6 +6,9 @@
 **/.reuse/templates/template.jinja2
 .venv
 
+# Private camera accounts, stream configs and measurement output.
+**/ptz_onboarding/local/
+
 # Agent plan drafts (not product formatting surface)
 # This ignore file lives in .github/resources/, so plans is ../plans/.
 ../plans/
