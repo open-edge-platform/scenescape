@@ -194,6 +194,9 @@ class Tags:
       reply = self.session.get(url, timeout=15)
       reply.raise_for_status()
       result = reply.json()
+      if result.get("status") == "pending":
+        raise TagCoverageError(
+          f"AprilTag coverage unavailable: {result.get('message', 'no details')}")
       if result.get("status") in ("success", "error"):
         if result.get("status") == "error":
           raise TagCoverageError(
