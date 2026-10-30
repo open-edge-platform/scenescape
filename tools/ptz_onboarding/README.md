@@ -284,6 +284,9 @@ with `verify=False` or `--insecure`.
 .venv/bin/python ptz.py --config local/camera.json onboard \
   --output-dir local/run-01 --yes
 
+# STOP: review the saved captures, lens.json, model.json and verification.json.
+# Nothing has been imported into Manager by check/onboard.
+
 # Review local/run-01/verification.json, then explicitly replace this camera's
 # lens settings, home pose and PTZ calibration in ONE Manager request.
 # Camera must still be at the approached home with the measured zoom.
@@ -297,6 +300,28 @@ with `verify=False` or `--insecure`.
 lens fit (square pixels, centered principal point, one radial coefficient) and
 linear PTZ curves by default. It reuses the lab's numerical solvers without
 running its legacy pose-tracking implementation.
+
+### Review before importing
+
+`onboard` saves each completed capture **before fitting** it. If a later fit
+fails, earlier files remain available for inspection and offline retries.
+Neither capture, fitting nor verification writes camera calibration to Manager.
+Only the separate, explicitly confirmed `apply` command imports the result.
+
+| Saved file                                 | Review                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------ |
+| `lens-capture.json`, `ptz-capture.json`    | Measured positions, frame timestamps and image/world correspondences           |
+| `lens.json`                                | Resolution, fitted intrinsics/distortion, fit error and uncertainty acceptance |
+| `model.json`                               | Home pose, axis curves, backlash, provenance and pre-run camera settings       |
+| `verify-capture.json`, `verification.json` | Independent observations, model hash, point count, RMS and maximum point error |
+
+The configured `max_rms_px` gates **held-out RMS**, not the maximum individual
+point error; inspect both before import. A passing run validates its sampled
+region at the measured zoom, not the full advertised mechanical range.
+Backend pose acceptance during raw collection and final held-out model
+acceptance are separate gates. Raising a collection gate for an isolated
+bootstrap experiment does not justify raising the final verification limit,
+ignoring backend errors or importing an unverified result.
 
 `apply` re-evaluates held-out points without refitting and refuses a different
 model/camera/scene/position space, changed zoom, non-home position, missing data,

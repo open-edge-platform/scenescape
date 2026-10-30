@@ -392,6 +392,22 @@ class DiscoveryTests(unittest.TestCase):
 
 
 class DeviceWorkflowTests(unittest.TestCase):
+  def test_onboard_saves_raw_capture_before_fit_failure_without_manager_writes(self):
+    data, _, _ = synthetic()
+    data["kind"] = "lens"
+    with tempfile.TemporaryDirectory() as directory:
+      path = Path(directory) / "camera.json"
+      config.write_json(path, settings())
+      output = Path(directory) / "run"
+      with patch("ptz.capture", return_value=data), \
+           patch("model.solve_lens", side_effect=ValueError("Lens fit is poorly constrained")), \
+           patch("devices.Manager") as manager:
+        with self.assertRaisesRegex(ValueError, "poorly constrained"):
+          ptz.main(["--config", str(path), "onboard", "--output-dir", str(output), "--yes"])
+        manager.assert_not_called()
+      self.assertEqual(config.read_json(output / "lens-capture.json"), data)
+      self.assertEqual({p.name for p in output.iterdir()}, {"lens-capture.json"})
+
   def test_onboard_persists_all_steps_without_manager_writes(self):
     data, _, _ = synthetic()
     views = copy.deepcopy(data)
