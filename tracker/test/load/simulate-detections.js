@@ -21,6 +21,9 @@ Environment configuration (all set via k6 --env or OS environment):
     CAMERA_ID_PREFIX      Prefix for camera IDs; each VU becomes {prefix}{VU}
     LOAD_MODE             Detection geometry: 2d (default), 3d, or mixed
     MIXED_3D_RATIO        Fraction of detections using 3D geometry in mixed mode
+    REID_EMBEDDING_DIMENSIONS  Vector length (0 disables embeddings)
+    REID_EMBEDDING_ENCODING    float_list (default) or base64 (little-endian float32)
+    EXTRA_METADATA            none (default) or age_gender
 
   Required when MQTT_HOST starts with ssl://, mqtts://, or wss://:
     CA_ROOT               Path to CA root certificate
@@ -44,6 +47,22 @@ const host = getRequiredEnv("MQTT_HOST");
 const port = getRequiredEnv("MQTT_PORT");
 const cameraCount = getRequiredEnv("CAMERA_COUNT");
 const testDuration = getRequiredEnv("DEFAULT_TEST_DURATION");
+const embeddingDimensions = Number(__ENV.REID_EMBEDDING_DIMENSIONS || "0");
+const embeddingEncoding = __ENV.REID_EMBEDDING_ENCODING || "float_list";
+const extraMetadata = __ENV.EXTRA_METADATA || "none";
+if (!["float_list", "base64"].includes(embeddingEncoding)) {
+  fail("REID_EMBEDDING_ENCODING must be float_list or base64");
+}
+if (!["none", "age_gender"].includes(extraMetadata)) {
+  fail("EXTRA_METADATA must be none or age_gender");
+}
+if (
+  !Number.isInteger(embeddingDimensions) ||
+  embeddingDimensions < 0 ||
+  embeddingDimensions > 4096
+) {
+  fail("REID_EMBEDDING_DIMENSIONS must be an integer between 0 and 4096");
+}
 const loadMode = __ENV.LOAD_MODE || "2d";
 const mixed3dRatio = Number(__ENV.MIXED_3D_RATIO || "0.5");
 if (!["2d", "3d", "mixed"].includes(loadMode)) {
@@ -85,6 +104,7 @@ export const options = {
 
 import { fail, sleep } from "k6";
 import mqtt from "k6/x/mqtt";
+import encoding from "k6/encoding";
 // create publisher client
 const mqttTimeoutMs = 100;
 const cleanSession = false;
@@ -299,7 +319,46 @@ function createBaseMessage(objectCount) {
   for (let i = 0; i < objectCount; i++) {
     const movementState = initializePersonMovement(i, startTime + i * 500); // Stagger start times
     personMovementState.push(movementState);
-    objectArray.push(createDetection(i, movementState));
+    const person = createDetection(i, movementState);
+    if (extraMetadata === "age_gender") {
+      person.metadata = {
+        age: { label: String(20 + (i % 50)), model_name: "age_gender" },
+        gender: {
+          label: i % 2 === 0 ? "Male" : "Female",
+          confidence: 0.95,
+          model_name: "age_gender",
+        },
+      };
+    }
+    if (embeddingDimensions > 0 && !uses3dGeometry(i)) {
+      const embeddingRandom = new SeededRandom(i + 1);
+      const vector = Array.from(
+        { length: embeddingDimensions },
+        () => embeddingRandom.next() * 2 - 1,
+      );
+      const norm = Math.sqrt(
+        vector.reduce((sum, value) => sum + value * value, 0),
+      );
+      const normalized = vector.map((value) => value / norm);
+      let embedding = [normalized];
+      if (embeddingEncoding === "base64") {
+        const bytes = new ArrayBuffer(embeddingDimensions * 4);
+        const floats = new DataView(bytes);
+        normalized.forEach((value, dimension) =>
+          floats.setFloat32(dimension * 4, value, true),
+        );
+        embedding = encoding.b64encode(bytes);
+      }
+      person.metadata = {
+        ...person.metadata,
+        reid: {
+          embedding_vector: embedding,
+          embedding_dimensions: embeddingDimensions,
+          model_name: "load-test",
+        },
+      };
+    }
+    objectArray.push(person);
   }
 
   return {
