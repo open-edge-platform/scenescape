@@ -38,7 +38,7 @@ services:
       --ntp ntpserv
     volumes:
       - ./:/workspace
-      - ./${DBROOT}/media:/workspace/media
+      - ${DBROOT}/media:/workspace/media
       - ./controller/config/tracker-config-persist-attr.json:/home/scenescape/Scenescape/tracker-config.json
       - ${REID_CONFIG_FILE:-./controller/config/reid-config.json}:/home/scenescape/Scenescape/reid-config.json
     secrets:
