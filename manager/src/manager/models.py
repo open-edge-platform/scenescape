@@ -305,6 +305,39 @@ class Scene(models.Model):
       self.thumbnail.save(self.name + '_2d.png', imgfile, save=False)
     return
 
+  def replaceMapFromZip(self, glb_from_zip):
+    try:
+      with zipfile.ZipFile(glb_from_zip.path, 'r') as zf:
+        base_file_name = zf.namelist()[0].split("/")[0]
+        glb_content = zf.read(os.path.join(base_file_name, "raw.glb"))
+        self.map.save(f"{self.name}.glb", ContentFile(glb_content), save=False)
+    except KeyError as e:
+      log.info(f"Using old map file {self.map.path} as glb not found in zip file {glb_from_zip.name}.")
+
+  def refreshMapMedia(self):
+    if not self.map:
+      self.thumbnail = None
+      self.map_processed = None
+      return
+    ext = os.path.splitext(self.map.path)[1].lower()
+    if ext == ".ply":
+      glb_file = extractMeshFromPointCloud(self.map.path)
+      with open(glb_file, 'rb') as f:
+        self.map.save(os.path.basename(glb_file), File(f), save=False)
+      self.saveThumbnail()
+    elif ext == ".glb":
+      # Note: autoAlignSceneMap() only performs alignment for uploaded GLB files.
+      # For generated meshes (_from_generate_mesh == True), autoAlignSceneMap() returns early.
+      # This asymmetry is intentional; see method implementation for details.
+      # Only auto-align if a new GLB file was uploaded
+      if self._original_map != self.map:
+        self.autoAlignSceneMap()
+      self.saveThumbnail()
+    else:
+      self.thumbnail = None
+      self.resetRotation()
+      self.resetTranslation()
+
   def save(self, *args, **kwargs):
     updated_scene = self.id
     send_update_command = kwargs.pop("send_update_command", True)
@@ -332,33 +365,10 @@ class Scene(models.Model):
       super().save(*args, **kwargs)
 
       if glb_from_zip:
-        try:
-          with zipfile.ZipFile(glb_from_zip.path, 'r') as zf:
-            base_file_name = zf.namelist()[0].split("/")[0]
-            glb_content = zf.read(os.path.join(base_file_name, "raw.glb"))
-            self.map.save(f"{self.name}.glb", ContentFile(glb_content), save=False)
-        except KeyError as e:
-          log.info(f"Using old map file {self.map.path} as glb not found in zip file {glb_from_zip.name}.")
+        self.replaceMapFromZip(glb_from_zip)
         self.autoAlignSceneMap()
       if self.regenerateThumbnail() or glb_from_zip:
-        if not self.map:
-          self.thumbnail = None
-          self.map_processed = None
-        else:
-          ext = os.path.splitext(self.map.path)[1].lower()
-          if ext == ".ply":
-            glb_file = extractMeshFromPointCloud(self.map.path)
-            with open(glb_file, 'rb') as f:
-              self.map.save(os.path.basename(glb_file), File(f), save=False)
-            self.saveThumbnail()
-
-          elif ext == ".glb":
-            # Uploaded GLBs keep the rotation and translation from the form; Y-up files need X rotation 90 set manually.
-            self.saveThumbnail()
-          else:
-            self.thumbnail = None
-            self.resetRotation()
-            self.resetTranslation()
+        self.refreshMapMedia()
         super().save(*args, **kwargs)
     except FileNotFoundError as e:
       log.error(f"Failed to save scene , {str(e)}")
