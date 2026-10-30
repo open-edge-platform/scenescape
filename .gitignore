@@ -68,3 +68,10 @@ kubernetes/scenescape-chart/files/*
 .venv
 test_db.sqlite3
 tests/ui/test_media/Empty.zip
+
+# Basketball fine-tune regenerable artifacts
+sample_data/demo_scenes/Basketball/models/finetune/dataset/
+sample_data/demo_scenes/Basketball/models/finetune/runs/
+sample_data/demo_scenes/Basketball/models/tracknet/dataset/
+sample_data/demo_scenes/Basketball/models/tracknet-basketball/*.pt
+sample_data/demo_scenes/Basketball/models/tracknet-basketball/*.onnx

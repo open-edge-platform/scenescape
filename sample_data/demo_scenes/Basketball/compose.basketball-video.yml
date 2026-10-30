@@ -3,9 +3,10 @@
 
 # Self-contained video source for the Basketball demo scene: its own mediamtx +
 # ffmpeg loopers publish cam1/cam2 over RTSP, and DL Streamer Pipeline Server
-# runs YOLO-World (person + basketball) on GPU via gvadetect and publishes
-# detections over MQTT. Both cameras share model-instance-id so inference stays
-# rate-aligned (no CPU sidecar).
+# runs fine-tuned YOLOv8s (person + basketball) on GPU via gvadetect, then
+# sscape_tracknet_ball fills YOLO misses with a TrackNet heatmap center while
+# locking bbox size to the last YOLO ball box (no Kalman stretch). Both cameras
+# share model-instance-id so inference stays rate-aligned.
 # Run alongside the main Scenescape stack (same COMPOSE_PROJECT_NAME so the
 # "scenescape" Docker network and vol-models volume are shared), e.g.:
 #   make demo-basketball
@@ -103,8 +104,10 @@ services:
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins:/home/sscape/python:ro
       - vol-dlstreamer-pipeline-server-pipeline-root-basketball:/var/cache/pipeline_root:uid=1999,gid=1999
       - vol-models:/home/pipeline-server/models
-      # OpenVINO FP16 YOLO-World IR (person + basketball) for gvadetect on GPU
-      - ./sample_data/demo_scenes/Basketball/models/yolov8s-worldv2-person-basketball:/home/pipeline-server/models/public/yolov8s-worldv2-person-basketball:ro
+      # OpenVINO FP16 fine-tuned YOLOv8s (person + basketball) for gvadetect on GPU
+      - ./sample_data/demo_scenes/Basketball/models/yolov8s-ft-person-basketball:/home/pipeline-server/models/public/yolov8s-ft-person-basketball:ro
+      # TrackNet ball heatmap (fills YOLO misses; size locked to last YOLO box)
+      - ./sample_data/demo_scenes/Basketball/models/tracknet-basketball:/home/pipeline-server/models/public/tracknet-basketball:ro
     secrets:
       - source: root-cert
         target: certs/scenescape-ca.pem

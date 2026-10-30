@@ -1,0 +1,6 @@
+description: 'Fine-tuned YOLOv8s person+basketball (OpenVINO FP16)'
+base: yolov8s.pt
+epochs: 50
+dataset: /home/spoluri/open-edge-platform/alexlam/scenescape/sample_data/demo_scenes/Basketball/models/finetune/dataset
+precision: FP16
+best_pt: /home/spoluri/open-edge-platform/alexlam/scenescape/sample_data/demo_scenes/Basketball/models/finetune/runs/bball_ft_gdino/weights/best.pt

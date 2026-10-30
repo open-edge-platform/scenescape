@@ -15,12 +15,13 @@ metric depth (Depth Anything V2).
 |------|---------|
 | `video/cam{1,2}.mp4` | Concatenated set-1 + set-2 clips (1280×720 @ 15 fps, ~78 s) |
 | `Basketball.zip` | Scene import (placeholder floor map; cameras `bball-cam1` / `bball-cam2`, uncalibrated) |
-| `basketball-config.json` | DL Streamer GPU pipelines (`gvadetect` + YOLO-World person/basketball) |
+| `basketball-config.json` | DL Streamer GPU pipelines (`gvadetect` + TrackNet ball fill) |
 | `compose.basketball-video.yml` | Private mediaserver + ffmpeg loopers + DL Streamer (`/dev/dri`) |
-| `models/yolov8s-worldv2-person-basketball/` | OpenVINO **FP16** IR + `yolo_v8` model-proc |
+| `models/yolov8s-coco-person-basketball/` | OpenVINO **FP16** COCO IR + model-proc |
 | `object-library.json` | Person + basketball Asset3D priors (FREE_3D; no `project_to_map`) |
 
-**Not included:** Retail / Queuing scenes or pipelines. No CPU detection sidecar.
+**Not included:** Retail / Queuing scenes or pipelines. Detector is closed-set
+COCO YOLO (not YOLO-World).
 
 ## Start
 
@@ -41,23 +42,24 @@ Stop with `make demo-close`.
 
 - `decodebin3` → `video/x-raw(memory:VAMemory)` (VA decode)
 - `gvadetect device=GPU pre-process-backend=va-surface-sharing`
-- shared `model-instance-id=bball-yoloworld` + `batch-size=2` so both streams
-  hit the same OpenVINO FP16 YOLO-World instance at a common rate
+- shared `model-instance-id=bball-yolococo` + `batch-size=2`
+- COCO YOLOv8s FP16; model-proc renames class 32 (`sports ball`) → `basketball`
+  so `detection_labels=person,basketball` and the object library match
 
-`compose.basketball-video.yml` mounts `/dev/dri` into `basketball-video`. After
-changing the config or model, recreate that service:
+`compose.basketball-video.yml` mounts `/dev/dri` and host GIDs `video=44` /
+`render=992`. After changing the config or model, recreate:
 
 ```bash
-SCENESCAPE_NETWORK=$(docker network ls --format '{{.Name}}' | grep -E '_scenescape$' | head -1) \
-  docker compose --project-directory . -f sample_data/demo_scenes/Basketball/compose.basketball-video.yml \
-  up -d --force-recreate basketball-video
+make basketball-video-source-down && make basketball-video-source-up
 ```
 
-Confirm GPU is in use (look for `GPU` / `va-surface-sharing` / no long CPU
-inference stalls):
+Safe GPU check (avoid `intel_gpu_top` / Mission Center on this host):
 
 ```bash
-docker logs scenescape-basketball-video-1 2>&1 | tail -50
+docker exec scenescape-basketball-video-1 python3 -c \
+  'from openvino import Core; print(Core().available_devices)'
+docker exec scenescape-basketball-video-1 \
+  curl -s http://localhost:8080/pipelines/status
 ```
 
 ## Map + calibration (required once)
@@ -75,19 +77,30 @@ are no extrinsics. After `demo-basketball` is up:
 Observation conditioning is gated on scene name `Basketball` (same allow-list
 path as Stairs).
 
-## Regenerate YOLO-World FP16 IR (optional)
+## Detector models
 
-No OpenVINO YOLO-World FP16 IR is published on Hugging Face for this use case.
-Convert Ultralytics → OpenVINO FP16 locally (corporate proxy for weight download):
+- **Deployed default:** closed-set COCO YOLOv8s FP16 (`models/yolov8s-coco-person-basketball/`).
+  Rebuild IR: `bash sample_data/demo_scenes/Basketball/models/prepare_yolo_coco.sh`
+- **Fine-tune (recommended for ball quality):** see
+  [`models/finetune/README.md`](models/finetune/README.md) — sample frames,
+  teacher-label, train 2-class YOLOv8s, export FP16, swap into
+  `basketball-config.json`.
+
+Keep `gvadetect` threshold around **0.25**; lowering it for the ball hurt
+person precision without fixing ball quality on COCO sports-ball.
+
+### TrackNet bounce fill
+
+Fast bounces still drop YOLO boxes. `sscape_tracknet_ball` runs a 3-frame
+heatmap model and, on misses, publishes a **fixed-size** square box (last YOLO
+ball diameter) at the TrackNet peak — size is never inflated by tracking.
 
 ```bash
-bash sample_data/demo_scenes/Basketball/models/prepare_yolo_world.sh
+bash sample_data/demo_scenes/Basketball/models/tracknet/train_and_export.sh
+make basketball-video-source-down && make basketball-video-source-up
 ```
 
-That writes FP16 `.xml`/`.bin` plus `yolo-world-person-basketball.json`
-(`converter: yolo_v8`, labels `person,basketball`) under
-`models/yolov8s-worldv2-person-basketball/`, which `gvadetect device=GPU` already
-references.
+See [`models/tracknet/README.md`](models/tracknet/README.md).
 
 ## Frustum vs DA-V2 depth compare
 
@@ -95,9 +108,3 @@ references.
 PYTHONPATH=scene_common/src tests/.venv/bin/python tmp_bball_dav2_compare.py \
   --out tmp_zverify_out/bball_depth_dynamics.json
 ```
-
-## DA-V2 comparison
-
-Reuse the Stairs offline method (`tmp_zverify_mono_depth_compare.py`): same
-detector BBs → frustum `depth_est` vs Depth-Anything-V2-Metric-Indoor median in
-the BB core → world Z via camera pose.
