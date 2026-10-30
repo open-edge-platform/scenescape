@@ -24,6 +24,7 @@ jobs:
       contents: read
     outputs:
       run-jobs: ${{ steps.changes.outputs.tracker }}
+      robot-vision: ${{ steps.changes.outputs.robot_vision }}
     steps:
       - name: "Checkout code"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -38,6 +39,9 @@ jobs:
           filters: |
             tracker:
               - 'tracker/**'
+              - 'controller/src/robot_vision/**'
+              - '.github/workflows/tracker-service.yml'
+            robot_vision:
               - 'controller/src/robot_vision/**'
               - '.github/workflows/tracker-service.yml'
 
@@ -263,3 +267,24 @@ jobs:
 
       - name: "Run service tests"
         run: make -C tracker test-service
+
+  # robot_vision is also compiled into the Controller image (Python bindings, different toolchain).
+  controller-docker-build:
+    name: "Controller image build (robot_vision)"
+    needs: detect-changes
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.robot-vision == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Build common base image"
+        run: make -C scene_common
+
+      - name: "Build Controller image"
+        run: make -C controller
+
+      - name: "Import robot_vision in Controller image"
+        run: docker run --rm --entrypoint python3 intel/scenescape-controller:latest -c "from robot_vision import tracking"

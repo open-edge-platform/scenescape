@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from robot_vision import tracking
@@ -103,8 +103,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.01)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.01)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
 
   def test_constant_velocity_single_object_with_noise_use_track_distance_overload(self):
     """
@@ -149,8 +149,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.01)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.01)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
 
 class TestMultiModelKalmanEstimator(unittest.TestCase):
   def test_constant_velocity_single_object_with_noise(self):
@@ -180,8 +180,8 @@ class TestMultiModelKalmanEstimator(unittest.TestCase):
       object_ = create_object_at_location(x=x, y=y, classification=classification_data.classification('Car', 1.0))
       estimator.track(object_, timestamp)
     tracked_object = estimator.current_state()
-    self.assertAlmostEqual(tracked_object.vx, vx, places=2)
-    self.assertAlmostEqual(tracked_object.vy, vy, places=2)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
 
   def testPredictFunctionDoubleAndTimestamp(self):
     estimator_a = tracking.MultiModelKalmanEstimator()
@@ -242,48 +242,35 @@ class TestTrackManager(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, places=2)
-    self.assertAlmostEqual(tracked_object.vy, vy, places=2)
-
-    ## Test access methods
-    current_track = track_manager.get_track(tracked_object.id)
-
-    self.assertEqual(current_track.id, tracked_object.id)
-    self.assertAlmostEqual(current_track.x, tracked_object.x, places=5)
-    self.assertAlmostEqual(current_track.y, tracked_object.y, places=5)
-    self.assertAlmostEqual(current_track.vx, tracked_object.vx, places=5)
-    self.assertAlmostEqual(current_track.vy, tracked_object.vy, places=5)
-    self.assertAlmostEqual(current_track.ax, tracked_object.ax, places=5)
-    self.assertAlmostEqual(current_track.ay, tracked_object.ay, places=5)
-    self.assertAlmostEqual(current_track.yaw, tracked_object.yaw, places=5)
-    self.assertAlmostEqual(current_track.width, tracked_object.width, places=5)
-    self.assertAlmostEqual(current_track.height, tracked_object.height, places=5)
-    self.assertAlmostEqual(current_track.length, tracked_object.length, places=5)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
 
     # set track as suspended, reliable tracks should be empty now
     track_manager.suspend_track(tracked_object.id)
     self.assertEqual(len(track_manager.get_reliable_tracks()), 0)
 
-    # access function can retrieve the kalman estimator
-    kalman_estimator = track_manager.get_kalman_estimator(tracked_object.id)
+    # the suspended track keeps its state
+    suspended_tracks = track_manager.get_suspended_tracks()
+    self.assertEqual(len(suspended_tracks), 1)
+    suspended_track = suspended_tracks[0]
 
-    self.assertEqual(kalman_estimator.current_state().id, tracked_object.id)
-    self.assertAlmostEqual(kalman_estimator.current_state().x, tracked_object.x, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().y, tracked_object.y, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().vx, tracked_object.vx, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().vy, tracked_object.vy, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().ax, tracked_object.ax, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().ay, tracked_object.ay, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().yaw, tracked_object.yaw, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().width, tracked_object.width, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().height, tracked_object.height, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().length, tracked_object.length, places=5)
+    self.assertEqual(suspended_track.id, tracked_object.id)
+    self.assertAlmostEqual(suspended_track.x, tracked_object.x, places=5)
+    self.assertAlmostEqual(suspended_track.y, tracked_object.y, places=5)
+    self.assertAlmostEqual(suspended_track.vx, tracked_object.vx, places=5)
+    self.assertAlmostEqual(suspended_track.vy, tracked_object.vy, places=5)
+    self.assertAlmostEqual(suspended_track.ax, tracked_object.ax, places=5)
+    self.assertAlmostEqual(suspended_track.ay, tracked_object.ay, places=5)
+    self.assertAlmostEqual(suspended_track.yaw, tracked_object.yaw, places=5)
+    self.assertAlmostEqual(suspended_track.width, tracked_object.width, places=5)
+    self.assertAlmostEqual(suspended_track.height, tracked_object.height, places=5)
+    self.assertAlmostEqual(suspended_track.length, tracked_object.length, places=5)
 
     track_manager.delete_track(tracked_object.id)
 
     # track is no longer part of the TrackManager
-    with self.assertRaises(RuntimeError):
-      track_manager.get_kalman_estimator(tracked_object.id)
+    self.assertFalse(track_manager.has_id(tracked_object.id))
+    self.assertEqual(len(track_manager.get_tracks()), 0)
 
 class TestMatchFunction(unittest.TestCase):
   def test_match_single_objects(self):

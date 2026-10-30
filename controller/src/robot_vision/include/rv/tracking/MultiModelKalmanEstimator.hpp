@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -27,6 +27,12 @@ class MultiModelKalmanEstimator
 {
 public:
   MultiModelKalmanEstimator(double alpha = 1.0, double beta = 2.0);
+
+  // Move-only: a copy would share the per-model filters (cv::Ptr) and probability matrices (cv::Mat).
+  MultiModelKalmanEstimator(const MultiModelKalmanEstimator &) = delete;
+  MultiModelKalmanEstimator &operator=(const MultiModelKalmanEstimator &) = delete;
+  MultiModelKalmanEstimator(MultiModelKalmanEstimator &&) = default;
+  MultiModelKalmanEstimator &operator=(MultiModelKalmanEstimator &&) = default;
 
   /**
    * @brief Initialize the tracker with the current state
@@ -64,12 +70,12 @@ public:
   /**
    * @brief Const access to the current state
    */
-  TrackedObject currentState() const
+  const TrackedObject &currentState() const
   {
     return mCurrentState;
   }
 
-  std::vector<TrackedObject> currentStates() const
+  const std::vector<TrackedObject> &currentStates() const
   {
     return mSystemModelStates;
   }
@@ -110,6 +116,15 @@ private:
    * The input is a measurement of the current state of the object.
    */
   void singleModelCorrect(const TrackedObject &measurement);
+
+  /**
+   * @brief Velocity-aligned, dt-scaled process noise of one motion model (no direct position noise).
+   *
+   * Along-track velocity noise is larger than cross-track so the predicted measurement covariance
+   * elongates in the direction of motion. CA repeats it on the acceleration, CTRV adds turn-rate noise.
+   * States the model resets to 0 get a small floor that keeps the covariance positive definite.
+   */
+  static cv::Mat processNoiseCov(MotionModel model, double processNoise, double vx, double vy, double deltaT);
 
   /**
    * @brief Combines probability coming from the three models and calculates the conditional probability
@@ -159,6 +174,7 @@ private:
 
   std::vector<cv::Ptr<cv::detail::tracking::UnscentedKalmanFilterMod>> mKalmanFilters;
   std::vector<cv::Ptr<cv::detail::tracking::UkfSystemModel>> mSystemModels;
+  std::vector<MotionModel> mModelTypes; // motion model of each filter
 
   double mMaxProbability{1.};
   double mMinProbability{0.95};
@@ -170,6 +186,9 @@ private:
   cv::Mat mModelProbability;
 
   std::size_t mNumberOfModels{0u};
+
+  double mProcessNoise{1e-4};
+  double mMeasurementNoise{1e-2};
 };
 } // namespace tracking
 } // namespace rv

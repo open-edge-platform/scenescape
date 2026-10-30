@@ -15,7 +15,11 @@
 #include <rv/tracking/OrientationAttributes.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
+#include "support/TestUtils.hpp"
+
 namespace {
+
+using rv::tracking::test::atMs;
 
 rv::tracking::TrackedObject makeDetection(double x, double y, double yaw, bool hasOrientation,
                                           double confidence = 1.0)
@@ -48,11 +52,6 @@ rv::tracking::MultipleObjectTracker makeTracker()
   config.mDefaultProcessNoise = 1e-4;
   config.mDefaultMeasurementNoise = 1e-4;
   return rv::tracking::MultipleObjectTracker(config);
-}
-
-std::chrono::system_clock::time_point atMs(int milliseconds)
-{
-  return std::chrono::system_clock::time_point(std::chrono::milliseconds(milliseconds));
 }
 
 } // namespace

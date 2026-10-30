@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include <functional>
@@ -33,18 +33,19 @@ double calculateEuclideanDistance(const TrackedObject &measurement, const Tracke
 
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  cv::Mat innovation = measurement.measurementVector() - (track.predictedMeasurementMean);
+  TrackedObject::MeasurementVector innovation = measurement.measurementVector() - track.predictedMeasurementMean;
 
   // Use yaw in the gate only when both sides have orientation. Camera detections
   // and tracks that have never seen an orienting sensor leave yaw out.
   if (!(orientation::hasOrientation(measurement) && orientation::orientationObserved(track)))
   {
-    innovation.at<double>(6, 0) = 0.;
+    innovation(6) = 0.;
   }
 
-  cv::Mat mahalanobisDistance = innovation.t() * (track.predictedMeasurementCovInv) * innovation;
+  // innovation' * S^-1 * innovation
+  const double squaredDistance = innovation.dot(track.predictedMeasurementCovInv * innovation);
 
-  return 0.5 * std::sqrt(mahalanobisDistance.at<double>(0, 0));
+  return 0.5 * std::sqrt(squaredDistance);
 }
 
 double calculateCompundDistance(const TrackedObject &measurement, const TrackedObject &track)

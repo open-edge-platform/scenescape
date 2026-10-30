@@ -1,4 +1,4 @@
-//# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+//# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 //# SPDX-License-Identifier: Apache-2.0
 
 #include <benchmark/benchmark.h>
@@ -64,21 +64,7 @@ public:
         person.classification[3] = 0.05 * std::uniform_real_distribution<double>(0, 1)(gen);      // Low confidence truck
         person.classification[4] = 0.05 * std::uniform_real_distribution<double>(0, 1)(gen);      // Low confidence unknown
         person.classification.normalize();
-        
-        // Kalman filter matrices for person tracking
-        person.predictedMeasurementMean = cv::Mat::zeros(7, 1, CV_64F);
-        person.predictedMeasurementMean.at<double>(0, 0) = person.x;
-        person.predictedMeasurementMean.at<double>(1, 0) = person.y;
-        person.predictedMeasurementMean.at<double>(2, 0) = person.width;
-        person.predictedMeasurementMean.at<double>(3, 0) = person.height;
-        person.predictedMeasurementMean.at<double>(4, 0) = person.vx;
-        person.predictedMeasurementMean.at<double>(5, 0) = person.vy;
-        person.predictedMeasurementMean.at<double>(6, 0) = person.yaw;
-        
-        // Higher uncertainty for people (more erratic movement than vehicles)
-        person.predictedMeasurementCov = cv::Mat::eye(7, 7, CV_64F) * 0.2;
-        cv::invert(person.predictedMeasurementCov, person.predictedMeasurementCovInv);
-        person.errorCovariance = cv::Mat::eye(7, 7, CV_64F) * 0.1;
+        // No Kalman matrices: the tracker overwrites a track's matrices before using them.
         
         return person;
     }
@@ -103,13 +89,6 @@ public:
                 person.yaw += direction_change;
                 person.vx = std::sqrt(person.vx * person.vx + person.vy * person.vy) * std::cos(person.yaw);
                 person.vy = std::sqrt(person.vx * person.vx + person.vy * person.vy) * std::sin(person.yaw);
-                
-                // Update predicted measurement mean
-                person.predictedMeasurementMean.at<double>(0, 0) = person.x;
-                person.predictedMeasurementMean.at<double>(1, 0) = person.y;
-                person.predictedMeasurementMean.at<double>(4, 0) = person.vx;
-                person.predictedMeasurementMean.at<double>(5, 0) = person.vy;
-                person.predictedMeasurementMean.at<double>(6, 0) = person.yaw;
             }
             
             people.push_back(std::move(person));
