@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import json
@@ -9,8 +9,6 @@ from datetime import datetime
 from pathlib import Path
 
 from auto_camera_calibration_controller import CameraCalibrationController
-from markerless_camera_calibration import \
-    CameraCalibrationMonocularPoseEstimate
 from polycam_to_images import transform_dataset
 from pytz import timezone
 
@@ -81,9 +79,9 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     log.info("processing markerless scene for calibration")
     try:
       preprocess = self.preprocess_polycam_dataset(sceneobj)
-    except FileNotFoundError as fnfe:
-      log.error(fnfe)
-      response_dict['status'] = str(fnfe)
+    except (FileNotFoundError, ValueError) as exc:
+      log.error(exc)
+      response_dict['status'] = str(exc)
       return response_dict
 
     response_dict['status'] = preprocess['status']
@@ -97,6 +95,8 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
     if sceneobj.id not in self.cam_calib_objs or map_update:
       try:
+        from markerless_camera_calibration import \
+            CameraCalibrationMonocularPoseEstimate
         self.cam_calib_objs[sceneobj.id] = \
             CameraCalibrationMonocularPoseEstimate(sceneobj,
                                                    preprocess['dataset_dir'],
@@ -165,10 +165,34 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
   def reset_scene(self, scene):
     self.cam_calib_objs.pop(scene.id, None)
-    if (hasattr(scene, 'output_dir') and os.path.exists(scene.output_dir)
-            and os.path.isdir(scene.output_dir)):
+    if hasattr(scene, 'output_dir') and self._is_within_datasets_root(scene.output_dir) \
+            and os.path.isdir(scene.output_dir):
       shutil.rmtree(scene.output_dir)
     return
+
+  def _is_within_datasets_root(self, path):
+    """! Reject paths escaping datasets/, regardless of how they were derived (e.g. a legacy/tampered name).
+
+    The datasets root itself is not an allowed target (only proper descendants).
+    """
+    datasets_root = (Path(os.getcwd()) / "datasets").resolve()
+    resolved = Path(path).resolve()
+    return datasets_root in resolved.parents
+
+  def _is_within_directory(self, path, directory):
+    """! True if path resolves to directory or a descendant of directory."""
+    directory = Path(directory).resolve()
+    resolved = Path(path).resolve()
+    return resolved == directory or directory in resolved.parents
+
+  def _resolve_member_path(self, member, base_dataset_path):
+    """! Resolve a zip member path and reject entries that escape base_dataset_path."""
+    if not member or member.startswith(('/', '\\')) or '\0' in member:
+      raise ValueError(f"Unsafe zip member path: {member!r}")
+    resolved = (Path(base_dataset_path) / member).resolve()
+    if not self._is_within_directory(resolved, base_dataset_path):
+      raise ValueError(f"Zip member escapes dataset directory: {member!r}")
+    return resolved
 
   def preprocess_polycam_dataset(self, scene_obj):
     """! Preprocess the polycam zip file uploaded via UI, extracts data
@@ -183,15 +207,21 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
     if not scene_obj.polycam_data:
       raise FileNotFoundError("Polycam zip file not found")
     base_dataset_path = Path(os.getcwd()) / "datasets" / scene_obj.name
+    if not self._is_within_datasets_root(base_dataset_path):
+      raise ValueError(f"Invalid scene name: {scene_obj.name!r}")
     with zipfile.ZipFile(scene_obj.polycam_data) as zf:
-      zf.extractall(base_dataset_path)
       extracted_files = zf.namelist()
-    file_name = self._find_dataset_dir(extracted_files)
+      for member in extracted_files:
+        self._resolve_member_path(member, base_dataset_path)
+      zf.extractall(base_dataset_path)
+    file_name = self._find_dataset_dir(extracted_files, base_dataset_path)
     if not file_name:
       file_name = self.restructure_dataset_dir(extracted_files, base_dataset_path, scene_obj.polycam_data)
-    dataset_dir = base_dataset_path / file_name
+    dataset_dir = self._resolve_member_path(file_name, base_dataset_path) if file_name else base_dataset_path
     if dataset_dir.is_file():
       dataset_dir = dataset_dir.parent
+    if not self._is_within_directory(dataset_dir, base_dataset_path):
+      raise ValueError(f"Resolved dataset directory escapes scene path: {dataset_dir}")
     output_dir = base_dataset_path / "output_dir"
     transform_dataset(str(dataset_dir), str(output_dir))
     response_dict["dataset_dir"] = str(dataset_dir)
@@ -200,22 +230,23 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
 
     return response_dict
 
-  def _find_dataset_dir(self, extracted_files):
+  def _find_dataset_dir(self, extracted_files, base_dataset_path):
     for file_path in extracted_files:
       parts = file_path.split('/')
       if len(parts) > 1 and parts[0] and parts[0] != "keyframes":
+        self._resolve_member_path(parts[0], base_dataset_path)
         return parts[0]
     return ""
 
   def restructure_dataset_dir(self, extracted_files, base_dataset_path, polycam_data_path):
     zip_base_name = Path(polycam_data_path).stem
-    target_dir = base_dataset_path / zip_base_name
+    target_dir = self._resolve_member_path(zip_base_name, base_dataset_path)
     target_dir.mkdir(exist_ok=True)
 
     for file_path in extracted_files:
-      src_path = base_dataset_path / file_path
+      src_path = self._resolve_member_path(file_path, base_dataset_path)
       if src_path.is_file():
-        dst_path = target_dir / file_path
+        dst_path = self._resolve_member_path(str(Path(zip_base_name) / file_path), base_dataset_path)
         dst_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(src_path), str(dst_path))
     return zip_base_name
