@@ -329,61 +329,67 @@ TEST(TransformDetectionsTest, MatchesPythonReference_Position) {
     }
 }
 
-TEST(TransformDetectionsTest, MatchesSecondSceneCameraReference) {
-    auto transformer = make_transformer(kCameraAtaqQcam2);
-    const std::array<BboxFootTestCase, 3> reference_cases = {{
-        {"center_person", 590.0, 260.0, 100.0, 200.0, 1.959296760776368, 4.29117629098634},
-        {"top_left_person", 10.0, 10.0, 80.0, 160.0, 2.603882633984143, 9.363146702752928},
-        {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 1.7067459752900183, 1.8343335390585203},
-    }};
-    const std::array<BboxSizeTestCase, 3> size_cases = {{
-        {"center_person", 590.0, 260.0, 100.0, 200.0, 0.43956806046040897, 0.7639868449216659},
-        {"top_left_person", 10.0, 10.0, 80.0, 160.0, 0.5752524319687982, 0.9392733356293548},
-        {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 0.2617340118469209,
-         0.41154563340532324},
-    }};
-
-    for (size_t i = 0; i < reference_cases.size(); ++i) {
-        const auto& foot_case = reference_cases[i];
+// Reference values for the second-camera and synthetic cases are copied by hand from
+// tracker/test/tools/transformation_reference.json; update both together.
+template <size_t N>
+void expectMatchesReferences(CoordinateTransformer& transformer,
+                             const std::array<BboxFootTestCase, N>& foot_cases,
+                             const std::array<BboxSizeTestCase, N>& size_cases) {
+    for (size_t i = 0; i < N; ++i) {
+        const auto& foot_case = foot_cases[i];
+        const auto& size_case = size_cases[i];
         const auto result = transformer.transformDetections(std::vector{make_detection(
             static_cast<float>(foot_case.bbox_x), static_cast<float>(foot_case.bbox_y),
             static_cast<float>(foot_case.bbox_width), static_cast<float>(foot_case.bbox_height))});
         ASSERT_EQ(result.size(), 1u) << foot_case.name;
         EXPECT_NEAR(result[0].x, foot_case.world_x, kWorldTolerance) << foot_case.name;
         EXPECT_NEAR(result[0].y, foot_case.world_y, kWorldTolerance) << foot_case.name;
-        EXPECT_NEAR(result[0].width, size_cases[i].world_width_m, kWorldTolerance)
-            << foot_case.name;
-        EXPECT_NEAR(result[0].height, size_cases[i].world_height_m, kWorldTolerance)
+        EXPECT_NEAR(result[0].z, 0.0, kWorldTolerance) << foot_case.name << " world Z should be 0";
+        EXPECT_NEAR(result[0].length, size_case.world_width_m, kWorldTolerance)
+            << foot_case.name << " world width (length) mismatch";
+        EXPECT_NEAR(result[0].width, size_case.world_width_m, kWorldTolerance) << foot_case.name;
+        EXPECT_NEAR(result[0].height, size_case.world_height_m, kWorldTolerance)
             << foot_case.name;
     }
 }
 
+TEST(TransformDetectionsTest, MatchesSecondSceneCameraReference) {
+    auto transformer = make_transformer(kCameraAtaqQcam2);
+    const std::array<BboxFootTestCase, 4> reference_cases = {{
+        {"center_person", 590.0, 260.0, 100.0, 200.0, 1.959296760776368, 4.29117629098634},
+        {"top_left_person", 10.0, 10.0, 80.0, 160.0, 2.603882633984143, 9.363146702752928},
+        {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 1.7067459752900183, 1.8343335390585203},
+        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 0.7655961191534599, 3.6835345363128296},
+    }};
+    const std::array<BboxSizeTestCase, 4> size_cases = {{
+        {"center_person", 590.0, 260.0, 100.0, 200.0, 0.43956806046040897, 0.7639868449216659},
+        {"top_left_person", 10.0, 10.0, 80.0, 160.0, 0.5752524319687982, 0.9392733356293548},
+        {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 0.2617340118469209,
+         0.41154563340532324},
+        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 0.1688113470659148,
+         0.24963759741688274},
+    }};
+
+    expectMatchesReferences(transformer, reference_cases, size_cases);
+}
+
 TEST(TransformDetectionsTest, MatchesDistortedAnisotropicScaleReference) {
     auto transformer = make_transformer(kCameraDistortedAnisotropic);
-    const std::array<BboxFootTestCase, 3> reference_cases = {{
+    const std::array<BboxFootTestCase, 4> reference_cases = {{
         {"center_person", 590.0, 260.0, 100.0, 200.0, 3.8097579266945796, 2.8548572331233983},
         {"top_left_person", 10.0, 10.0, 80.0, 160.0, 1.6702276658143294, 4.9674184735061875},
         {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 5.33418346185146, 1.438049590473241},
+        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 3.588077705008413, 2.2912793856310945},
     }};
-    const std::array<BboxSizeTestCase, 3> size_cases = {{
+    const std::array<BboxSizeTestCase, 4> size_cases = {{
         {"center_person", 590.0, 260.0, 100.0, 200.0, 0.3156590673937088, 0.2614026967992417},
         {"top_left_person", 10.0, 10.0, 80.0, 160.0, 0.5606088751714102, 0.3383460064069711},
         {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 0.335215164464982, 0.2048284359176233},
+        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 0.14637468409819965,
+         0.11761867128785713},
     }};
 
-    for (size_t i = 0; i < reference_cases.size(); ++i) {
-        const auto& foot_case = reference_cases[i];
-        const auto result = transformer.transformDetections(std::vector{make_detection(
-            static_cast<float>(foot_case.bbox_x), static_cast<float>(foot_case.bbox_y),
-            static_cast<float>(foot_case.bbox_width), static_cast<float>(foot_case.bbox_height))});
-        ASSERT_EQ(result.size(), 1u) << foot_case.name;
-        EXPECT_NEAR(result[0].x, foot_case.world_x, kWorldTolerance) << foot_case.name;
-        EXPECT_NEAR(result[0].y, foot_case.world_y, kWorldTolerance) << foot_case.name;
-        EXPECT_NEAR(result[0].width, size_cases[i].world_width_m, kWorldTolerance)
-            << foot_case.name;
-        EXPECT_NEAR(result[0].height, size_cases[i].world_height_m, kWorldTolerance)
-            << foot_case.name;
-    }
+    expectMatchesReferences(transformer, reference_cases, size_cases);
 }
 
 TEST(TransformDetectionsTest, DistortedBboxMatchesTwoCornerControllerProjection) {

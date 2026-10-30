@@ -394,7 +394,11 @@ def generate_bbox_size_tests(intrinsics_mat, distortion, pose_mat, camera_origin
 
 
 def generate_synthetic_bbox_tests():
-  """Generate references for distorted pixels and anisotropic camera scale."""
+  """Generate references for distorted pixels and anisotropic camera scale.
+
+  The C++ unit tests do not load this block; they copy the values by hand into
+  coordinate_transformer_test.cpp, so update both after regenerating.
+  """
   camera_config = {
     'uid': 'synthetic-distorted-anisotropic',
     'name': 'synthetic-distorted-anisotropic',

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
@@ -207,26 +207,26 @@ class TestCameraPose:
     assert isinstance(base_angle, (int, float))
 
   def test_project_bounds_below_ground_camera_has_nonnegative_height(self):
-    """Keep projected object height positive for a camera below ground."""
+    """Keep projected object height and base angle positive for a camera below ground."""
     intrinsics = CameraIntrinsics([500, 500, 320, 240])
-    pose = {
-        'translation': [0.0, 0.0, -3.0],
-        'rotation': [0.0, 0.0, 0.0],
-        'scale': [1.0, 1.0, 1.0]
-    }
-    camera_pose = CameraPose(pose, intrinsics)
     rect = Rectangle(origin=Point(-0.1, -0.1), size=(0.2, 0.2))
 
-    bounds, shadow, _ = camera_pose.projectBounds(rect)
-    far_left = shadow[0]
-    bottom_left = shadow[3]
-    ll1 = camera_pose.translation.distance(far_left)
-    ll2 = bottom_left.distance(far_left)
-    expected_height = math.sin(math.atan2(abs(camera_pose.translation.z), ll1)) * ll2
+    def project(z):
+      pose = {
+          'translation': [0.0, 0.0, z],
+          'rotation': [0.0, 0.0, 0.0],
+          'scale': [1.0, 1.0, 1.0]
+      }
+      return CameraPose(pose, intrinsics).projectBounds(rect)
+
+    bounds, _, base_angle = project(-3.0)
+    mirror_bounds, _, mirror_base_angle = project(3.0)
 
     assert bounds.size.height > 0
     assert math.isclose(bounds.size.height, 4.242639688224483, rel_tol=1e-6)
-    assert math.isclose(bounds.size.height, expected_height, rel_tol=1e-6)
+    assert base_angle >= 0
+    assert math.isclose(bounds.size.height, mirror_bounds.size.height, rel_tol=1e-6)
+    assert math.isclose(base_angle, mirror_base_angle, rel_tol=1e-6)
 
   def test_as_dict_property(self):
     """Test asDict property returns correct format"""
