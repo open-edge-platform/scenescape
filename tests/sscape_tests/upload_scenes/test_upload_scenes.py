@@ -4,7 +4,9 @@
 """Unit tests for tools/upload_scenes/uploader.py."""
 
 import json
+import os
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -37,9 +39,12 @@ class TestUploadScenesCLI:
     """The installed-style CLI resolves its module and reports usage errors."""
     command = tmp_path / "upload-scenes"
     command.symlink_to(Path(uploader.__file__).with_name("upload-scenes"))
+    env = os.environ.copy()
+    env["PATH"] = os.pathsep.join([str(Path(sys.executable).parent), env.get("PATH", "")])
 
     result = subprocess.run(
       [str(command), *arguments], cwd=tmp_path, capture_output=True, text=True, timeout=10,
+      env=env,
     )
 
     assert result.returncode == expected_code
