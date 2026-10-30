@@ -328,6 +328,7 @@
           "height": 1.0,
           "volumetric": false,
           "visible": false,
+          "roi_type": "",
           "color_ranges": {
             "sectors": [
               {
