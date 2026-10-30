@@ -13,4 +13,7 @@ service ReIDService {
   rpc FindSchemaMetadata(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc PurgeExpired(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc IngestStats(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc CreateCollection(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc EnrollPoi(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc AppendPoiEmbeddings(google.protobuf.Struct) returns (google.protobuf.Struct);
 }

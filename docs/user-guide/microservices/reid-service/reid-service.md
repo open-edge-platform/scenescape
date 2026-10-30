@@ -12,7 +12,8 @@ adapter behavior unchanged and adds a backend-neutral gRPC boundary.
 ## Current Scope
 
 The service provides health, `FindMatches`, `FindSchemaMetadata`, manual
-`PurgeExpired`, and `IngestStats` wrappers alongside Tracker MQTT ingestion.
+`PurgeExpired`, `IngestStats`, authorized `CreateCollection`, `EnrollPoi`, and
+`AppendPoiEmbeddings` alongside Tracker MQTT ingestion.
 The Controller still uses compatible `controller.reid*` imports for its
 in-process path. Controller retirement, POI APIs, gallery management, and
 trajectory export are follow-on work.
@@ -20,18 +21,21 @@ trajectory export are follow-on work.
 ## Baseline gRPC Contract
 
 The authoritative declaration is `reid/proto/reid.proto`, service
-`scenescape.reid.ReIDService`. All five RPCs are unary calls with
+`scenescape.reid.ReIDService`. All eight RPCs are unary calls with
 `google.protobuf.Struct` requests and responses. Method names and existing
 response fields remain compatible with the initial service. `Health.ready`
 is additive; `IngestStats` is now explicitly declared as well as implemented.
 
-| RPC                  | Request                                                                  | Response                                                                                                                        |
-| -------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
-| `Health`             | `{}`                                                                     | `{"status":"ok","ready":true,"connected":true,"backend":"VDMSDatabase","ingest_enabled":false}`                                 |
-| `FindMatches`        | `{"object_type":"person","reid_vectors":[[1,0,0]],"set_name":"gallery"}` | `{"matches":[[{"uuid":"gid-1","rvid":"track-1","_distance":0.8}]]}`                                                             |
-| `FindSchemaMetadata` | `{"set_name":"gallery"}` or `{}` for the configured set                  | `{"metadata":[true,3,"IP"]}`; absent set: `{"metadata":[false,null,null]}`                                                      |
-| `PurgeExpired`       | `{}`                                                                     | `{"result":2}` when the reclaimed count is known; `{"result":null}` when it is unknown                                          |
-| `IngestStats`        | `{}`                                                                     | `{"enabled":false}` when disabled; otherwise `{"enabled":true,...snapshot}` with `counters`, `matchers`, and `unique_id_counts` |
+| RPC                   | Request                                                                                                                                           | Response                                                                                                                        |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `Health`              | `{}`                                                                                                                                              | `{"status":"ok","ready":true,"connected":true,"backend":"VDMSDatabase","ingest_enabled":false}`                                 |
+| `FindMatches`         | `{"object_type":"person","reid_vectors":[[1,0,0]],"set_name":"gallery"}`                                                                          | `{"matches":[[{"uuid":"gid-1","rvid":"track-1","_distance":0.8}]]}`                                                             |
+| `FindSchemaMetadata`  | `{"set_name":"gallery"}` or `{}` for the configured set                                                                                           | `{"metadata":[true,3,"IP"]}`; absent set: `{"metadata":[false,null,null]}`                                                      |
+| `PurgeExpired`        | `{}`                                                                                                                                              | `{"result":2}` when the reclaimed count is known; `{"result":null}` when it is unknown                                          |
+| `IngestStats`         | `{}`                                                                                                                                              | `{"enabled":false}` when disabled; otherwise `{"enabled":true,...snapshot}` with `counters`, `matchers`, and `unique_id_counts` |
+| `CreateCollection`    | `{"collection_name":"poi_person","dimensions":512,"metric":"IP"}`                                                                                 | `{"collection_name":"poi_person","dimensions":512,"metric":"IP","created":true}`; compatible repeat returns `created:false`     |
+| `EnrollPoi`           | `{"collection_name":"poi_person","object_type":"person","reid_vectors":[[0.1,0.2]],"severity":"high","notes":"red jacket","enrolled_by":"alice"}` | `{"poi_id":"<server-generated UUID>","collection_name":"poi_person","vector_count":1}`                                          |
+| `AppendPoiEmbeddings` | `{"collection_name":"poi_person","poi_id":"<poi-id>","reid_vectors":[[0.2,0.3]],"enrolled_by":"alice"}`                                           | `{"poi_id":"<poi-id>","collection_name":"poi_person","vector_count":1}`                                                         |
 
 The examples use three-element vectors only for brevity. `FindMatches` requires
 a rectangular numeric matrix with 1-1024 rows, 1-4096 dimensions, and finite
@@ -49,9 +53,18 @@ is an object of the existing confidence-bearing metadata filters, for example
 `{"gender":{"label":"female","confidence":0.95}}`. Reserved identity/persist
 fields remain ignored by the adapters; constraints cannot override `object_type`,
 `set_name`, `k_neighbors`, `reid_vectors`, or internal call/threshold controls.
-Unknown top-level request fields are rejected.
-These are queries only: no enrollment, schema creation, or general-gallery
-write RPC is exposed.
+Unknown top-level request fields are rejected. `CreateCollection` accepts a
+name, dimensions from 1 to 4096, and metric `IP` or `L2`. It creates or verifies
+schema only; it does not enroll descriptors. The configured live-gallery,
+default live-gallery, and internal schema-marker names are reserved. Compatible
+repeats return `created:false`; mismatches return `FAILED_PRECONDITION`.
+`EnrollPoi` requires a declared collection, object type, 1-5 valid vectors,
+severity, notes, and `enrolled_by`; the service generates the POI id.
+`AppendPoiEmbeddings` requires an existing POI and `enrolled_by`, and accepts
+1-5 additional vectors. Each successful operation stores an immutable audit
+record with writer, timestamp, operation, and vector hashes. A failed batch
+returns no POI id or success count; this is not a storage transaction or
+durability guarantee. No general-gallery descriptor-write RPC is exposed.
 
 `matches` preserves the adapter's per-vector result lists and similarity metric
 semantics. An empty per-vector list means no usable match, not backend failure.
@@ -82,13 +95,16 @@ recovery from startup outages and backend restarts without restarting the
 service. Reconnect does not create schemas or write markers. Connected VDMS
 sockets use a five-second I/O timeout.
 
-| gRPC status        | Meaning                                                                                                    |
-| ------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `OK`               | Valid operation completed, including empty matches, disabled ingest/TTL, absent schema, or degraded Health |
-| `INVALID_ARGUMENT` | Missing, unsupported, or malformed request fields                                                          |
-| `UNAVAILABLE`      | Matching, schema lookup, or purge failed against the backend; no fabricated empty success                  |
-| `INTERNAL`         | Unexpected service failure; private exception details are not returned                                     |
-| `UNIMPLEMENTED`    | RPC is not part of the baseline contract, including gallery-write methods                                  |
+| gRPC status           | Meaning                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `OK`                  | Valid operation completed, including empty matches, disabled ingest/TTL, absent schema, or degraded Health |
+| `INVALID_ARGUMENT`    | Missing, unsupported, or malformed request fields                                                          |
+| `PERMISSION_DENIED`   | Collection-creation or POI-writer token is missing, invalid, or not configured                             |
+| `FAILED_PRECONDITION` | Named collection exists with incompatible or unverifiable schema                                           |
+| `NOT_FOUND`           | POI id does not exist in the named collection                                                              |
+| `UNAVAILABLE`         | Matching, schema lookup, or purge failed against the backend; no fabricated empty success                  |
+| `INTERNAL`            | Unexpected service failure; private exception details are not returned                                     |
+| `UNIMPLEMENTED`       | RPC is not part of the baseline contract, including gallery-write methods                                  |
 
 ### Python Client
 
@@ -99,6 +115,7 @@ connection. For example, when the endpoint has a TLS terminator:
 
 ```python
 from pathlib import Path
+import os
 import grpc
 from reid.client import ReIDClient
 
@@ -108,13 +125,22 @@ with grpc.secure_channel("reid.example.com:443", credentials) as channel:
 	readiness = client.health()
 	metadata = client.find_schema_metadata()
 	statistics = client.ingest_stats()
+	collection_token = os.environ["REID_COLLECTION_CREATE_TOKEN"]
+	collection = client.create_collection(
+	    "poi_person", 512, "IP", collection_token)
+	poi_token = os.environ["REID_POI_WRITE_TOKEN"]
+	enrollment = client.enroll_poi(
+	    "poi_person", "person", [[0.1, 0.2, 0.3]], "high", "red jacket", "alice", poi_token)
 ```
 
-The service's current listener itself remains plaintext on `REID_SERVICE_PORT`;
-it has no application-layer authorization. Do not expose it to untrusted callers.
-Deployment security must restrict access, including to manual purge; use an
-authenticated TLS proxy when remote access is required. Native listener TLS and
-authorization are separate work, not a reason to bypass deployment controls.
+Set `REID_COLLECTION_CREATE_TOKEN` to enable `CreateCollection` and
+`REID_POI_WRITE_TOKEN` to enable `EnrollPoi` and `AppendPoiEmbeddings`; otherwise
+the corresponding RPC returns `PERMISSION_DENIED`. Send each as
+`authorization: Bearer <token>`.
+The service listener itself remains plaintext on `REID_SERVICE_PORT`, so keep it
+on a trusted private network or use an authenticated TLS proxy. The bearer token
+authorizes collection declaration but does not encrypt transport. Restrict
+manual purge at the deployment boundary as well.
 
 ### Contract Verification
 
@@ -162,8 +188,9 @@ the existing `unique_detection_count` field in regulated scene messages.
 
 The service uses `REID_DATABASE` (`VDMS` or `QDRANT`), `REID_HOSTNAME`,
 `REID_PORT`, `REID_USE_TLS`, the existing Re-ID certificate variables, and
-`REID_DESCRIPTOR_TTL_SECS`. `REID_SERVICE_PORT` selects the gRPC port and
-defaults to `50051`.
+`REID_DESCRIPTOR_TTL_SECS`. `REID_COLLECTION_CREATE_TOKEN` and
+`REID_POI_WRITE_TOKEN` enable their respective write operations. `REID_SERVICE_PORT`
+selects the gRPC port and defaults to `50051`.
 
 The backend remains the Compose service `reid`; the extracted application is
 `reid-service` so existing backend overrides continue to work.

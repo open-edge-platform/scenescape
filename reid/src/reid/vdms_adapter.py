@@ -160,7 +160,8 @@ class VDMSDatabase(ReIDDatabase):
     if len(responses) != len(query):
       self._backendFailure()
       return
-    if any(item.get("status") != 0 and not self._isEmptyLookup(command, item)
+    if any(item.get("status") != 0 and next(iter(command)) != "AddDescriptorSet"
+           and not self._isEmptyLookup(command, item)
            for command, item in zip(query, responses)):
       self._backendFailure()
 
