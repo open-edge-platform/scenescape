@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include "healthcheck_server.hpp"
+#include "json_utils.hpp"
 
 #include <chrono>
 #include <ctime>
@@ -9,8 +10,6 @@
 #include <iomanip>
 #include <iostream>
 #include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
 #include <sstream>
 
 namespace tracker {
@@ -35,27 +34,23 @@ std::string get_timestamp() {
 } // namespace
 
 std::pair<int, std::string> HealthcheckServer::handle_healthz(bool is_healthy) {
-    rapidjson::StringBuffer json_buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(json_buffer);
-    writer.StartObject();
-    writer.Key("status");
-    writer.String(is_healthy ? "healthy" : "unhealthy");
-    writer.EndObject();
+    rapidjson::Document status(rapidjson::kObjectType);
+    status.AddMember("status",
+                     rapidjson::Value(is_healthy ? "healthy" : "unhealthy", status.GetAllocator()),
+                     status.GetAllocator());
 
     int status_code = is_healthy ? 200 : 503;
-    return {status_code, json_buffer.GetString()};
+    return {status_code, detail::to_json_string(status)};
 }
 
 std::pair<int, std::string> HealthcheckServer::handle_readyz(bool is_ready) {
-    rapidjson::StringBuffer json_buffer;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(json_buffer);
-    writer.StartObject();
-    writer.Key("status");
-    writer.String(is_ready ? "ready" : "notready");
-    writer.EndObject();
+    rapidjson::Document status(rapidjson::kObjectType);
+    status.AddMember("status",
+                     rapidjson::Value(is_ready ? "ready" : "notready", status.GetAllocator()),
+                     status.GetAllocator());
 
     int status_code = is_ready ? 200 : 503;
-    return {status_code, json_buffer.GetString()};
+    return {status_code, detail::to_json_string(status)};
 }
 
 HealthcheckServer::HealthcheckServer(int port, std::atomic<bool>& liveness,

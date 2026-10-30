@@ -140,6 +140,11 @@ Example sensor-frame 3D detection:
 
 See full schema: [`scene-data.schema.json`](../../tracker/schema/scene-data.schema.json)
 
+Objects may omit ReID fields or carry either `reid_sighting` or legacy
+`metadata.reid`, but never both. The schema isolates this mutual-exclusion
+rule in `allOf` to support both JSON Schema contract validation and Analytics'
+`fastjsonschema` runtime validation.
+
 ```json
 {
   "id": "3bc091c7-e449-46a0-9540-29c499bca18c",

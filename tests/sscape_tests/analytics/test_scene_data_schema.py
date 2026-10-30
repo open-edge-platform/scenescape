@@ -9,6 +9,8 @@ from pathlib import Path
 import jsonschema
 import pytest
 
+from scene_common.schema import SchemaValidation
+
 SCHEMA_PATH = (
   Path(__file__).resolve().parents[3]
   / "tracker"
@@ -25,6 +27,11 @@ def scene_data_schema():
 @pytest.fixture(scope="module")
 def validator(scene_data_schema):
   return jsonschema.Draft202012Validator(scene_data_schema)
+
+
+@pytest.fixture(scope="module")
+def runtime_validator():
+  return SchemaValidation(str(SCHEMA_PATH), is_multi_message=False)
 
 
 def test_schema_accepts_minimal_tracker_envelope(validator):
@@ -92,6 +99,39 @@ def test_schema_accepts_detection_passthrough_extra_fields(validator):
     ],
   }
   validator.validate(payload)
+
+
+@pytest.mark.parametrize(('metadata', 'include_sighting', 'valid'), [
+  (None, False, True),
+  (None, True, True),
+  ({}, False, True),
+  ({}, True, True),
+  ({'age': {'label': 'adult'}}, False, True),
+  ({'age': {'label': 'adult'}}, True, True),
+  ({'reid': {'embedding_vector': [[1, 2]], 'embedding_dimensions': 2}}, False, True),
+  ({'reid': {'embedding_vector': [[1, 2]], 'embedding_dimensions': 2}}, True, False),
+])
+def test_schema_requires_single_reid_representation(
+    validator, runtime_validator, metadata, include_sighting, valid):
+  """Both validation engines accept optional ReID fields but reject duplicates."""
+  obj = {
+    'id': 'track-1', 'category': 'person', 'translation': [0, 0, 0],
+    'velocity': [0, 0, 0], 'size': [0.5, 0.5, 1.8], 'rotation': [0, 0, 0, 1],
+  }
+  reid = {'embedding_vector': [[1, 2]], 'embedding_dimensions': 2}
+  if metadata is not None:
+    obj['metadata'] = metadata
+  if include_sighting:
+    obj['reid_sighting'] = {
+      'camera_id': 'cam-1', 'timestamp': '2026-10-14T12:00:00Z',
+      'bounding_box_px': {'x': 1, 'y': 2, 'width': 80, 'height': 90}, 'reid': reid,
+    }
+  payload = {
+    'id': 'scene-1', 'name': 'Retail', 'timestamp': '2026-10-14T12:00:00Z', 'objects': [obj],
+  }
+
+  assert validator.is_valid(payload) == valid
+  assert runtime_validator.validate(payload, check_format=True) == valid
 
 
 def test_schema_rejects_missing_required_top_level_fields(validator):
