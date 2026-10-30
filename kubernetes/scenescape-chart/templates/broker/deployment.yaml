@@ -18,14 +18,10 @@ spec:
       labels:
         app: {{ .Release.Name }}-broker
         {{ include "releaseLabels" . | indent 8 }}
-      annotations:
-        checksum/broker-config: {{ printf "%s\n%s\n%s" (.Files.Get "files/broker/mosquitto-secure.conf") (.Values.positioning.assignments | default dict | toJson) .Values.positioning.resolverId | sha256sum }}
     spec:
       securityContext:
         runAsUser: {{ .Values.broker.uid }}
         runAsGroup: {{ .Values.broker.gid }}
-        # Group-owns the projected ACL: Mosquitto 2.1 must not read it as world-readable.
-        fsGroup: {{ .Values.broker.gid }}
       containers:
         - name: broker
           image: {{ .Values.broker.image }}:{{ .Values.broker.tag }}
@@ -35,7 +31,6 @@ spec:
           ports:
             - containerPort: 1883
             - containerPort: 1884
-            - containerPort: 8883
           readinessProbe:
             tcpSocket:
               port: 1883
@@ -53,10 +48,6 @@ spec:
           volumeMounts:
             - name: config-volume
               mountPath: /mosquitto/config
-            - name: config-volume
-              mountPath: /mosquitto/acl/positioning.acl
-              subPath: positioning.acl
-              readOnly: true
             - name: certs
               mountPath: /mosquitto/secrets/certs
           command: ["/usr/sbin/mosquitto", "-c", "/mosquitto/config/mosquitto-secure.conf"]
@@ -74,7 +65,4 @@ spec:
             items:
               - key: mosquitto-secure.conf
                 path: mosquitto-secure.conf
-              - key: positioning.acl
-                path: positioning.acl
-                mode: 0440
         {{- include "certs_volume" . | nindent 8 }}

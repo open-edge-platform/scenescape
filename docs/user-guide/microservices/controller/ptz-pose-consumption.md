@@ -70,7 +70,7 @@ All values are deployment-owned and **required**; there are no defaults. Measure
 
 The image ships an example `ptz-consumer-config.json` and an empty assignment manifest.
 Replace them by mounting your files read-only. The manifest is the same file the
-Positioning service and Manager read; it only maps a PTZ camera to the Resolver that
+Positioning service reads; it only maps a PTZ camera to the Resolver that
 owns it. A camera belongs to the scenes Manager says it does.
 
 ## Which cameras are managed
@@ -80,8 +80,7 @@ PTZ camera in a scene that the Controller loads:
 
 - If the manifest names a Resolver for it, the Controller subscribes to
   `scenescape/positioning/pose/{camera_id}` and to the status topic of that Resolver
-  `scenescape/positioning/status/{resolver_id}`. It never subscribes with a wildcard, and
-  Manager's ACL allows pose reads only for cameras that belong to a scene. The
+  `scenescape/positioning/status/{resolver_id}`. It never subscribes with a wildcard. The
   subscriptions follow scene and camera changes.
 - If the manifest does not name a Resolver, the camera **fails closed**. Its detections
   are dropped, and the Controller logs an error once for the camera.
@@ -206,7 +205,7 @@ Controller adds three counters. Labels are bounded; none is an object identifier
   deployment values next to the Positioning configuration in the git-ignored
   `positioning/.local/` directory (see
   [Positioning operations](../positioning/operations.md)), so the Controller reads
-  the same manifest as Positioning and Manager:
+  the same manifest as Positioning:
 
   1. Add your bounds as `positioning/.local/ptz-consumer-config.json`.
   2. Add the `scene` service and the configuration to
@@ -241,7 +240,7 @@ Controller adds three counters. Labels are bounded; none is an object identifier
 
   A PTZ camera that you later add to a scene in Manager is picked up without a restart
   if the manifest already names its Resolver. Adding a camera to the manifest requires
-  recreating the Controller, as well as Positioning and Manager.
+  recreating the Controller, as well as Positioning.
 
 - **Kubernetes:** set `scene.ptz.enabled` or `scene.ptz.shadowMode`, and supply the four
   bounds in `scene.ptz.config`. The chart renders them, together with

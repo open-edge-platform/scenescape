@@ -568,27 +568,14 @@ computed home pose for both Euler and point-correspondence cameras. Saving a cam
 publishes a versioned configuration invalidation only after the transaction commits;
 the Resolver then reloads the calibration through its read-only Manager client.
 
-Pose-read ACLs are enforced from `Cam.scene` at check time: a `POSITIONING_POSE` read
-is allowed only when the camera is assigned to a scene in the identity's ACL scope
-(`scenes`, or `all_scenes` for the deployment-wide Controller/Tracker identity).
-Positioning topics bypass the superuser shortcut, so every identity, including
-`controller.auth`, needs an explicit ACL. Pose writes are limited at topic level to the
-named publisher; the deployment manifest remains the only `source_id -> resolver_id`
-mapping.
-
-In Phase 3a, Positioning is allowed to publish only its own status on the configured
-`scenescape/positioning/status/{resolver_id}` topic. Phase 3b adds an explicit
-`POSITIONING_POSE` write ACL and permits the registered
-`scenescape/positioning/pose/{source_id}` template in `ACLCheck`; unrelated writes
-and writes to another resolver's status topic remain denied. Source ownership is
-validated by Positioning against the deployment assignment manifest, and `ACLCheck`
-binds every pose write to it: Manager reads the same manifest
-(`POSITIONING_ASSIGNMENTS_FILE`) and allows a write to
-`scenescape/positioning/pose/{source_id}` only when `source_id` is assigned to
-`POSITIONING_RESOLVER_ID`. The `POSITIONING_POSE` ACL grants the topic template, not
-individual sources, so without this check holders of a pose-write identity could
-publish retained poses for any camera. A missing or invalid manifest denies all pose
-writes.
+Manager does not apply Positioning-specific MQTT topic authorization. Positioning
+connects to the standard broker TLS listener with its `positioning.auth` identity and
+publishes only its own status on the configured
+`scenescape/positioning/status/{resolver_id}` topic and poses on the registered
+`scenescape/positioning/pose/{source_id}` topics of its assigned sources. Source
+ownership is validated by Positioning at startup against the deployment assignment
+manifest, which remains the only `source_id -> resolver_id` mapping; consumers use
+the same manifest to select the owning Resolver's status topic.
 
 The per-camera procedure is in
 [Onboard PTZ Cameras](../user-guide/how-to-guides/calibrate-cameras/onboard-ptz-cameras.md).

@@ -29,9 +29,9 @@ checks. When PTZ sources are configured, it polls each ONVIF PTZ camera, passes 
 
 ## How It Works
 
-The service connects to the dedicated MQTT mTLS listener on port 8883 with its
-client certificate (`scenescape-positioning`). The broker requires that certificate
-and uses its common name as the ACL identity. After it
+The service connects to the standard MQTT broker TLS listener on port 1883 and
+verifies the broker against the SceneScape CA certificate. It uses
+`positioning.auth` like other SceneScape services. After it
 connects, it publishes a retained status message and registers an offline last-will
 message on:
 
@@ -43,15 +43,12 @@ The payload contains `resolver_id`, `status` (`online` or `offline`), and
 `timestamp`. For the last-will message, the timestamp is the session start time,
 not the time the connection was lost.
 
-The broker's generated ACL grants the certificate identity write access only to
-its resolver status topic and its assigned resolved-pose topics
-(`scenescape/positioning/pose/{source_id}`), and read access only to camera
-configuration invalidations for those assigned sources
-(`scenescape/cmd/camera/config/{camera_id}`). Other topic writes and another
-resolver's status topic are denied. Manager independently validates source
-ownership using the shared assignment manifest. The container reports healthy
-only while connected to the broker.
-The container reports healthy only while it is connected to the broker.
+The service writes only its resolver status topic and the resolved-pose topics of
+its assigned sources (`scenescape/positioning/pose/{source_id}`), and subscribes
+only to camera configuration invalidations for those assigned sources
+(`scenescape/cmd/camera/config/{camera_id}`). Source ownership is validated at
+startup against the shared assignment manifest. The container reports healthy
+only while it is connected to the broker.
 
 ### PTZ polling
 
@@ -223,15 +220,14 @@ make positioning
 ```
 
 The image is also built by `make build-core` and `make build-all`. Generate the
-broker account and client certificate with:
+broker account with:
 
 ```bash
 make init-secrets
 ```
 
-This creates `manager/secrets/positioning.auth`,
-`manager/secrets/certs/scenescape-positioning.crt`, and
-`manager/secrets/certs/scenescape-positioning.key`.
+This creates `manager/secrets/positioning.auth`, which is also used as the Manager
+REST API credential.
 
 ## Configure
 
@@ -301,8 +297,7 @@ as a `source_id` to `resolver_id` mapping. The image contains the empty default 
 `/app/deployment/positioning-assignments.json`; mount the deployment manifest over it.
 At startup, every configured source must be assigned to this `resolver_id`, and every
 entry assigned to this `resolver_id` must be configured; otherwise the service exits.
-Manager reads the same manifest (`POSITIONING_ASSIGNMENTS_FILE`) and allows pose
-writes only for sources assigned to its `POSITIONING_RESOLVER_ID`; see
+The Scene Controller reads the same manifest; see
 [Source Ownership](operations.md#source-ownership).
 Manager remains authoritative for camera-to-scene membership and camera calibration.
 The service loads each camera's `ptz_calibration`, computed `pose_matrix`, and scene
@@ -314,18 +309,18 @@ fallback. Accepted samples publish retained QoS 0 contexts on
 
 The service accepts these command-line options:
 
-| Option           | Default                                         |
-| ---------------- | ----------------------------------------------- |
-| `--broker`       | `broker.scenescape.intel.com`                   |
-| `--brokerauth`   | `/run/secrets/positioning.auth`                 |
-| `--cert`         | `/run/secrets/certs/scenescape-positioning.crt` |
-| `--keyfile`      | `/run/secrets/certs/scenescape-positioning.key` |
-| `--rootcert`     | `/run/secrets/certs/scenescape-ca.pem`          |
-| `--manager-url`  | `https://web.scenescape.intel.com/api/v1`       |
-| `--manager-auth` | defaults to `--brokerauth`                      |
-| `--ntp`          | `POSITIONING_NTP_SERVER` environment variable   |
-| `--config`       | `/app/config/positioning.json`                  |
-| `--assignments`  | `/app/deployment/positioning-assignments.json`  |
+| Option           | Default                                        |
+| ---------------- | ---------------------------------------------- |
+| `--broker`       | `broker.scenescape.intel.com`                  |
+| `--brokerauth`   | `/run/secrets/positioning.auth`                |
+| `--cert`         | none (optional client certificate)             |
+| `--keyfile`      | none (optional client private key)             |
+| `--rootcert`     | `/run/secrets/certs/scenescape-ca.pem`         |
+| `--manager-url`  | `https://web.scenescape.intel.com/api/v1`      |
+| `--manager-auth` | defaults to `--brokerauth`                     |
+| `--ntp`          | `POSITIONING_NTP_SERVER` environment variable  |
+| `--config`       | `/app/config/positioning.json`                 |
+| `--assignments`  | `/app/deployment/positioning-assignments.json` |
 
 ## Deploy
 

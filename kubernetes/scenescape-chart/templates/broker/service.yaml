@@ -19,10 +19,6 @@ spec:
     protocol: TCP
     port: 1884
     targetPort: 1884
-  - name: "8883"
-    protocol: TCP
-    port: 8883
-    targetPort: 8883
 {{- if .Values.mqttService.nodePort.enabled }}
 ---
 apiVersion: v1
