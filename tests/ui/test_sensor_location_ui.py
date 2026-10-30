@@ -73,7 +73,7 @@ def verify_sensor_location(browser, sensor_name):
   return retVal
 
 @pytest.mark.test_name("NEX-T10400")
-def test_sensor_location_main(params, record_xml_attribute):
+def test_sensor_location_main(demo_scene, params, record_xml_attribute):
   """! Checks that a sensor can be created and it location changed.
   @param    params                  Dict of test parameters.
   @param    record_xml_attribute    Pytest fixture recording the test name.

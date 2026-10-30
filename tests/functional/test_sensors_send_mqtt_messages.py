@@ -39,9 +39,9 @@ IMG_H = 480
 ANALYTICS = os.environ.get('ANALYTICS', 'false').lower() == 'true'
 
 class SensorMqttMessageFlowTest(FunctionalTest):
-  def __init__(self, testName, request, recordXMLAttribute):
+  def __init__(self, testName, request, recordXMLAttribute, scene_uid=None):
     super().__init__(testName, request, recordXMLAttribute)
-    self.sceneUID = self.params['scene_id']
+    self.sceneUID = scene_uid if scene_uid is not None else self.params['scene_id']
     self.cameraId = "camera1"
 
     self.rest = RESTClient(self.params['resturl'], rootcert=self.params['rootcert'])
@@ -82,14 +82,21 @@ class SensorMqttMessageFlowTest(FunctionalTest):
 
   def eventReceived(self, pahoClient, userdata, message):
     topic = PubSub.parseTopic(message.topic)
-    region_id = topic['region_id']
-    if region_id not in self.sensors:
+    region_uid = topic['region_id']
+    sensor_name = self._sensorNameForUid(region_uid)
+    if sensor_name is None:
       return
 
     payload = json.loads(message.payload.decode("utf-8"))
-    self.sensors[region_id]['received'] = get_epoch_time()
-    self.regionEvents.setdefault(region_id, []).append(payload)
+    self.sensors[sensor_name]['received'] = get_epoch_time()
+    self.regionEvents.setdefault(sensor_name, []).append(payload)
     return
+
+  def _sensorNameForUid(self, uid):
+    for name, info in self.sensors.items():
+      if info.get('uid') == uid:
+        return name
+    return None
 
   def sceneReceived(self, pahoClient, userdata, message):
     payload = json.loads(message.payload.decode("utf-8"))
@@ -139,7 +146,8 @@ class SensorMqttMessageFlowTest(FunctionalTest):
         'singleton_type': "environmental",
       },
       'cleanup_env_sensor': {
-        'area': "scene",
+        'area': "poly",
+        'points': ((-100, 100), (100, 100), (100, -100), (-100, -100)),
         'singleton_type': "environmental",
       },
     }
@@ -357,7 +365,9 @@ class SensorMqttMessageFlowTest(FunctionalTest):
     event_sensor_names = ['circle_env_sensor', 'poly_env_sensor', 'cleanup_env_sensor']
     sensorsReceived = [name for name in event_sensor_names if 'received' in self.sensors[name]]
     assert len(sensorsReceived) == len(event_sensor_names), (
-      "Expected region sensor events", sensorsReceived, event_sensor_names
+      "Expected region sensor events", sensorsReceived, event_sensor_names,
+      f"regionEvents keys={list(self.regionEvents.keys())}",
+      f"cleanupUpdateTimes={self.cleanupUpdateTimes}",
     )
 
     for sensor_name in event_sensor_names:
@@ -663,6 +673,6 @@ class SensorMqttMessageFlowTest(FunctionalTest):
 
 @pytest.mark.test_name("NEX-T10456")
 def test_sensor_mqtt_message_flow(scenescape_env, demo_scene, request, record_xml_attribute):
-  test = SensorMqttMessageFlowTest(TEST_NAME, request, record_xml_attribute)
+  test = SensorMqttMessageFlowTest(TEST_NAME, request, record_xml_attribute, scene_uid=demo_scene)
   test.checkForMalfunctions()
   assert test.exitCode == 0

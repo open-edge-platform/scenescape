@@ -25,9 +25,10 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   @param    step                Step size to increment from the initial value.
   @return   BOOL                Boolean representing successfully entering the camera parameters.
   """
-  camera1_element_id = "//a[@href = '/cam/calibrate/1']"
-  assert common.wait_for_elements(browser, camera1_element_id)
-  assert common.click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+  camera1_element_id = (
+    f'a.snapshot-image[topic="{common.CAMERA_TOPIC_PREFIX}{common.TEST_CAMERA_ID}"]')
+  assert common.wait_for_elements(browser, camera1_element_id, findBy=By.CSS_SELECTOR)
+  assert common.click_when_clickable(browser, (By.CSS_SELECTOR, camera1_element_id)), (
     f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
   )
 
@@ -48,8 +49,8 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
     f"Timed out waiting for button {button_id!r} to become clickable."
   )
 
-  assert common.wait_for_elements(browser, camera1_element_id)
-  assert common.click_when_clickable(browser, (By.XPATH, camera1_element_id)), (
+  assert common.wait_for_elements(browser, camera1_element_id, findBy=By.CSS_SELECTOR)
+  assert common.click_when_clickable(browser, (By.CSS_SELECTOR, camera1_element_id)), (
     f"Timed out waiting for camera link {camera1_element_id!r} to become clickable."
   )
 
@@ -69,7 +70,7 @@ def enter_and_validate_parameters(browser, button_id, initial_value, step):
   return True
 
 @pytest.mark.test_name("NEX-T10415")
-def test_camera_intrinsics_main(params, record_xml_attribute):
+def test_camera_intrinsics_main(demo_scene, params, record_xml_attribute):
   """! Checks that the camera parameters in the web UI can be updated and
   that they persist after saving, for both Camera Save buttons.
   @param    params                  Dict of test parameters.
@@ -79,6 +80,7 @@ def test_camera_intrinsics_main(params, record_xml_attribute):
   TEST_NAME = "NEX-T10415"
   exit_code = 1
 
+  browser = None
   try:
     log.info("Executing: " + TEST_NAME)
     browser = Browser()
@@ -95,7 +97,8 @@ def test_camera_intrinsics_main(params, record_xml_attribute):
     exit_code = 0
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

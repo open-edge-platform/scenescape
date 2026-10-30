@@ -56,6 +56,7 @@ services:
       - "HTTP_PROXY=${HTTP_PROXY}"
       - "HTTPS_PROXY=${HTTPS_PROXY}"
       - "NO_PROXY=127.0.0.1,localhost,${NO_PROXY},.scenescape.intel.com"
+      - "EXPOSE_TEST_HOOKS=${EXPOSE_TEST_HOOKS:-false}"
     # web interface needs access to the media files
     volumes:
       - vol-media:/workspace/media

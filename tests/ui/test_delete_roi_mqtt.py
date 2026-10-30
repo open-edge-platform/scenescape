@@ -49,7 +49,7 @@ def getRegionUid(rest, re_name):
   return res["results"][0]['uid']
 
 @pytest.mark.test_name("NEX-T10430")
-def test_roi_mqtt(params, result_recorder):
+def test_roi_mqtt(demo_scene, params, result_recorder):
   """! Test the deletion of ROI and verify that the deleted ROI is not publishing any data to MQTT.
   @param    params                  List of test parameters.
   @param    result_recorder         Pytest fixture recording the test result.
@@ -59,6 +59,7 @@ def test_roi_mqtt(params, result_recorder):
   rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
   assert rest.authenticate(params['user'], params['password'])
 
+  browser = None
   try:
     client = PubSub(params['auth'], None, params['rootcert'],
                     params['broker_url'], params['broker_port'])
@@ -115,6 +116,7 @@ def test_roi_mqtt(params, result_recorder):
     result_recorder.success()
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
 
   return

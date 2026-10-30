@@ -23,10 +23,17 @@ POSITION_THRESHOLD = 0.001
 ROTATION_THRESHOLD = 0.001
 TEST_NAME = "NEX-T10473"
 WAIT_SEC = 3
+# Vertical distance, in pixels, the last calibration point is dragged.
+DRAG_OFFSET_PX = 50
+# Margin, in pixels, around the dragged point's path used for image comparison.
+DRAG_REGION_MARGIN_PX = 30
 
 class WillOurShipGo(UserInterfaceTest):
+  BROWSER_WEBGL = True
+
   def __init__(self, testName, request, recordXMLAttribute):
     super().__init__(testName, request, recordXMLAttribute)
+    self.params['scene'] = "Retail"
 
   def setUpCalibrationTest(self):
     """! Sets up the scene for testing the 3D UI calibration by navigating to the page,
@@ -91,6 +98,44 @@ class WillOurShipGo(UserInterfaceTest):
     action.move_by_offset(xOffset, yOffset).double_click().pause(waitTime).perform()
     if resetPosition:
       action.move_by_offset(xOffset * -1, yOffset * -1).perform()
+
+  def movePointerTo(self, x: int, y: int) -> None:
+    """! Move the pointer to an absolute viewport position."""
+
+    action = self.browser.actionChains()
+    action.w3c_actions.pointer_action.move_to_location(x, y)
+    action.perform()
+
+  def getCalibrationPointScreenPositions(self, cameraName):
+    """! Project the camera's calibration point spheres to viewport pixels using
+    the window.__testScene hook.
+    @param    cameraName    name of the camera owning the calibration points
+    @return   list of (x, y) viewport coordinates, in calibration point order
+    """
+    script = """
+      const testScene = window.__testScene;
+      if (!testScene) return null;
+      const camera = testScene.getObjectByName(arguments[0]);
+      if (!camera || !camera.calibPoints) return [];
+      const viewCamera = testScene.children.find((c) => c.isPerspectiveCamera);
+      const canvas = document.querySelector("#scene canvas") ||
+        document.querySelector("canvas");
+      const rect = canvas.getBoundingClientRect();
+      viewCamera.updateMatrixWorld();
+      return camera.calibPoints.children
+        .filter((c) => c.name.includes("drag_sphere"))
+        .map((sphere) => {
+          const v = sphere.getWorldPosition(sphere.position.clone()).project(viewCamera);
+          return [
+            Math.round(rect.left + (v.x + 1) / 2 * rect.width),
+            Math.round(rect.top + (1 - v.y) / 2 * rect.height),
+          ];
+        });
+    """
+    positions = self.executeScript(script, cameraName)
+    assert positions is not None, "window.__testScene hook is not available"
+    log.info(f"Calibration point screen positions: {positions}")
+    return positions
 
   def clickAndDrag3DScene(self, xOffset: int = 0, yOffset: int = 0,
                           dragBack: bool = False, waitTime: int = 1) -> None:
@@ -188,15 +233,28 @@ class WillOurShipGo(UserInterfaceTest):
 
       log.info("Check dragging calibration point to side changes camera pose")
       position_initial, rotation_initial = self.getCameraPose("camera1")
-      self.clickAndDrag3DScene(0, 50)
+      # Re-anchor the pointer on the last calibration point before dragging it
+      points = self.getCalibrationPointScreenPositions("camera1")
+      assert len(points) == 4, f"Expected 4 calibration points, found {points}"
+      drag_x, drag_y = points[-1]
+      self.movePointerTo(drag_x, drag_y)
+      self.clickAndDrag3DScene(0, DRAG_OFFSET_PX)
       ss_drag_four_points = self.getPageScreenshot()
       position_dragged, rotation_dragged = self.getCameraPose("camera1")
       assert not self.comparePoses(
         position_initial, position_dragged, rotation_initial, rotation_dragged)
-      assert not self.compareImages(ss_four_points, ss_drag_four_points)
+      # Compare only the area the dragged point moved through; a fixed region
+      # is mostly static background, which hides the moved point from SSIM.
+      y_min = max(drag_y - DRAG_REGION_MARGIN_PX, 0)
+      y_max = drag_y + DRAG_OFFSET_PX + DRAG_REGION_MARGIN_PX
+      x_min = max(drag_x - DRAG_REGION_MARGIN_PX, 0)
+      x_max = drag_x + DRAG_REGION_MARGIN_PX
+      assert not self.compareImages(
+        ss_four_points[y_min:y_max, x_min:x_max, :],
+        ss_drag_four_points[y_min:y_max, x_min:x_max, :])
 
       log.info("Check returning to original point preserves camera pose")
-      self.clickAndDrag3DScene(0, -50)
+      self.clickAndDrag3DScene(0, -DRAG_OFFSET_PX)
       position_final, rotation_final = self.getCameraPose("camera1")
       ss_drag_four_points_return = self.getPageScreenshot()
       assert self.compareImages(ss_four_points, ss_drag_four_points_return)

@@ -17,7 +17,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T10394")
-def test_scenes_summary_main(params, record_xml_attribute):
+def test_scenes_summary_main(demo_scene, params, record_xml_attribute):
   """! Creates a second scene and checks that both scenes are both visible in
   the scene summary view.
   @param    params                  Dict of test parameters.
@@ -37,18 +37,23 @@ def test_scenes_summary_main(params, record_xml_attribute):
     scene_name_1 = "Scene-1"
     scale = 1000
     map_image = os.path.join(common.TEST_MEDIA_PATH, "SampleJpegMap.jpeg")
+
+    browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(1) > .nav-link").click()
+    scenes_before = [el.text for el in browser.find_elements(By.CLASS_NAME, "card-header")]
+    print(f"Scenes visible before creation: {scenes_before}")
+
     print("Creating Scene " + scene_name_1)
-    common.create_scene(browser, scene_name_1, scale, map_image)
+    assert common.create_scene(browser, scene_name_1, scale, map_image)
 
     time.sleep(1)
     browser.find_element(By.CSS_SELECTOR, ".navbar-nav > .nav-item:nth-child(1) > .nav-link").click()
     scenes_name = browser.find_elements(By.CLASS_NAME, "card-header")
-    element1 = scenes_name[0].text
-    element2 = scenes_name[1].text
-    nr_scenes = len(scenes_name)
-    print(f"The page shows {nr_scenes} scenes: {element1}, {element2}")
-    assert element1 == scene_name_0 and element2 == scene_name_1
-    assert nr_scenes == 2
+    scene_names = [el.text for el in scenes_name]
+    nr_scenes = len(scene_names)
+    print(f"The page shows {nr_scenes} scenes: {scene_names}")
+    assert scene_name_0 in scene_names and scene_name_1 in scene_names
+    assert nr_scenes == len(scenes_before) + 1, (
+      f"Expected exactly one new scene, before={scenes_before}, after={scene_names}")
     print("Test conditions met, deleting " + scene_name_1)
     exit_code = 0
 

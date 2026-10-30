@@ -16,6 +16,7 @@ import json
 import logging
 import os
 import re
+import socket
 import subprocess
 import time
 from dataclasses import dataclass
@@ -24,7 +25,7 @@ from python_on_whales import docker
 from pytest_kubernetes.providers.kind import KindManagerBase
 from pytest_kubernetes.options import ClusterOptions
 
-from tests.utils.scene_baseline import BASELINE_PATH, dumpdata_command, upload_baseline_scenes
+from tests.utils.scene_baseline import upload_baseline_scenes
 
 logger = logging.getLogger("test.k8s")
 
@@ -44,6 +45,8 @@ _CERTMANAGER_URL = (
 
 _RELEASE_NAME = "scenescape"
 _NAMESPACE = "scenescape"
+_CERTMANAGER_READY_TIMEOUT = 600
+_WEB_RESTART_TIMEOUT = 600
 
 # Core images required by the default k8s test Helm values (reid enabled;
 # mapping / clusterAnalytics remain disabled). Matches `make build-core`.
@@ -114,42 +117,8 @@ class K8sScenescapeEnv:
   secrets_dir: str
   supass: str
   scene_uids: dict = None  # {scene name: uid}, populated by K8sManager.setup()
+  restart_web: object = None  # callable; K8sManager.restart_web
 
-  def restore_db(self):
-    """Restore the database to baseline state via kubectl exec."""
-    web_pod = _get_pod_name(self.kubeconfig, self.namespace, f"{self.release_name}-web")
-    manage = "$SCENESCAPE_HOME/manage.py"
-
-    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} flush --no-input")
-    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} loaddata {BASELINE_PATH}")
-    _kubectl_exec(
-      self.kubeconfig, self.namespace, web_pod,
-      # cd first: createuser reads user_access_config.json (is_superuser,
-      # ACLs) from the cwd, and only $SCENESCAPE_HOME has a copy of it.
-      f"cd $SCENESCAPE_HOME && find -L /run/secrets -name '*.auth'"
-      f"  -exec python {manage} createuser --skip-existing {{}} \\;"
-      f" && DJANGO_SUPERUSER_PASSWORD=$SUPASS"
-      f"    python {manage} createsuperuser"
-      f"    --no-input --username=admin"
-      f"    --email=admin@domain.com 2>/dev/null || true",
-    )
-    _kubectl_exec(self.kubeconfig, self.namespace, web_pod, f"python {manage} updatedbstatus --ready")
-    logger.info("Database restored.")
-
-    # Restart scene controller to refresh cache.
-    logger.info("Restarting scene controller...")
-    _run([
-      "kubectl", "rollout", "restart",
-      f"deployment/{self.release_name}-scene-dep",
-      "-n", self.namespace, "--kubeconfig", self.kubeconfig,
-    ])
-    _run([
-      "kubectl", "rollout", "status",
-      f"deployment/{self.release_name}-scene-dep",
-      "-n", self.namespace, "--kubeconfig", self.kubeconfig,
-      "--timeout=120s",
-    ])
-    logger.info("Scene controller restarted and ready.")
 
 def _image_exists(ref: str) -> bool:
   try:
@@ -170,7 +139,7 @@ class K8sManager:
     self._supass = supass
     self._tmp_path_factory = tmp_path_factory
     self._cluster = None
-    self._port_forwards = []  # PortForwarding objects
+    self._port_forwards = {}  # {target: (PortForwarding, local_port, remote_port)}
     self._env = None
     self._secrets_dir = None
     self._scene_uids = {}
@@ -277,6 +246,7 @@ class K8sManager:
       secrets_dir=self._secrets_dir,
       supass=self._supass,
       scene_uids=self._scene_uids,
+      restart_web=self.restart_web,
     )
 
     logger.info("=" * 60)
@@ -288,6 +258,7 @@ class K8sManager:
     so the ServiceProfile is used only for informational purposes."""
     if self._env is None:
       raise RuntimeError("K8sManager.setup() has not been called")
+    self._ensure_port_forwards()
     return self._env
 
   def teardown(self):
@@ -299,7 +270,7 @@ class K8sManager:
       check=False,
     )
 
-    for pf in self._port_forwards:
+    for pf, _, _ in self._port_forwards.values():
       try:
         pf.stop()
       except Exception:
@@ -325,6 +296,16 @@ class K8sManager:
 
     logger.info("Kubernetes teardown complete.")
 
+  def restart_web(self):
+    """Roll the web Deployment and re-establish its port-forward."""
+    dep = f"deployment/{_RELEASE_NAME}-web-dep"
+    self._cluster.kubectl(["rollout", "restart", dep, "-n", _NAMESPACE], as_dict=False)
+    self._cluster.kubectl([
+      "rollout", "status", dep, "-n", _NAMESPACE,
+      f"--timeout={_WEB_RESTART_TIMEOUT}s",
+    ], as_dict=False, timeout=_WEB_RESTART_TIMEOUT + 60)
+    self._port_forward("svc/web", self.web_port, 443)
+
   def _wait_for_cert_manager(self):
     """Wait for cert-manager pods to be ready."""
     logger.info("Waiting for cert-manager to be ready...")
@@ -334,8 +315,8 @@ class K8sManager:
       "deployment/cert-manager-webhook",
       "deployment/cert-manager-cainjector",
       "-n", "cert-manager",
-      "--timeout=120s",
-    ], as_dict=False, timeout=180)
+      f"--timeout={_CERTMANAGER_READY_TIMEOUT}s",
+    ], as_dict=False, timeout=_CERTMANAGER_READY_TIMEOUT + 60)
     # Give cert-manager webhook a moment to become fully operational.
     time.sleep(5)
 
@@ -514,12 +495,6 @@ class K8sManager:
     self._scene_uids = upload_baseline_scenes(
       resturl, self.cert_file, self.auth_file, scene_archives,
     )
-    logger.info("Snapshotting baseline database...")
-    web_pod = _get_pod_name(self.kubeconfig, _NAMESPACE, f"{_RELEASE_NAME}-web")
-    _kubectl_exec(
-      self.kubeconfig, _NAMESPACE, web_pod,
-      dumpdata_command("$SCENESCAPE_HOME/manage.py"),
-    )
     return
 
   def _log_resource_failure(self, resource: str):
@@ -672,7 +647,13 @@ class K8sManager:
     return output_path
 
   def _port_forward(self, target, local_port, remote_port):
-    """Start port-forwarding using pytest-kubernetes's PortForwarding. Returns local port."""
+    """Start port-forwarding using pytest-kubernetes's PortForwarding. Returns local port.
+
+    Replaces any existing forward to the same target.
+    """
+    stale = self._port_forwards.pop(target, None)
+    if stale is not None:
+      stale[0].stop()
     pf = self._cluster.port_forwarding(
       target=target,
       namespace=_NAMESPACE,
@@ -680,6 +661,15 @@ class K8sManager:
       target_port=remote_port,
     )
     pf.start()
-    self._port_forwards.append(pf)
+    self._port_forwards[target] = (pf, local_port, remote_port)
     logger.info("Port-forward: localhost:%d → %s:%d", local_port, target, remote_port)
     return local_port
+
+  def _ensure_port_forwards(self):
+    """Restart forwards that no longer accept connections."""
+    for target, (_, local_port, remote_port) in list(self._port_forwards.items()):
+      try:
+        socket.create_connection(("127.0.0.1", local_port), timeout=2).close()
+      except OSError:
+        logger.warning("Port-forward to %s is down; restarting", target)
+        self._port_forward(target, local_port, remote_port)

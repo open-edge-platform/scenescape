@@ -36,7 +36,7 @@ const DEFAULT_INTRINSICS = {
   cy: DEFAULT_RESOLUTION.h / 2,
 };
 
-const DEFAULT_DISTORTION = [0, 0, 0, 0, 0];
+const DEFAULT_DISTORTION = { k1: 0, k2: 0, p1: 0, p2: 0, k3: 0 };
 const MAX_CALIB_POINTS = 4;
 const DEFAULT_CAMERA_NAME = "new-camera";
 const DEFAULT_CAMERA_UID = undefined;
@@ -117,13 +117,12 @@ function constructIntrinsicsMatrix(intrinsics, resolution) {
 }
 
 function constructDistortionArray(distortion) {
-  return [
-    distortion["k1"],
-    distortion["k2"],
-    distortion["p1"],
-    distortion["p2"],
-    distortion["k3"],
-  ];
+  if (Array.isArray(distortion)) {
+    return [0, 1, 2, 3, 4].map((i) => Number(distortion[i]) || 0);
+  }
+  return ["k1", "k2", "p1", "p2", "k3"].map(
+    (key) => Number(distortion?.[key]) || 0,
+  );
 }
 
 //we need multiple instances of scenecamera and hence need a class
@@ -148,8 +147,7 @@ export default class SceneCamera extends THREE.Object3D {
 
     this.intrinsics =
       "intrinsics" in params ? params.intrinsics : DEFAULT_INTRINSICS;
-    this.distortion =
-      "distortion" in params ? params.distortion : DEFAULT_DISTORTION;
+    this.distortion = params.distortion ?? DEFAULT_DISTORTION;
     this.resolution =
       "resolution" in params
         ? { w: params.resolution[0], h: params.resolution[1] }

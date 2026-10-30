@@ -25,6 +25,7 @@ def test_add_delete_3d_object(params, repo_root, result_recorder):
   PAGE_NAME = "Object Library"
   OBJECT_NAME = '3D Object'
   FILE_TO_UPLOAD = f"{repo_root}/tests/ui/test_media/box.glb"
+  browser = None
   try:
     print("Test that the user can create and delete 3D objects.")
     browser = Browser()
@@ -40,5 +41,6 @@ def test_add_delete_3d_object(params, repo_root, result_recorder):
     result_recorder.success()
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.close()
   return

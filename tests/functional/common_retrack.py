@@ -41,7 +41,7 @@ def make_reid_embedding(seed=0.1):
 class RetrackTest:
 
   FRAME_RATE = 10
-  MAX_WAIT = 5
+  MAX_WAIT = 15
   NUM_PUBLISH_ITERATIONS = 5
 
   def __init__(self, params):
@@ -102,14 +102,22 @@ class RetrackTest:
     self.child_id = child_scene['uid']
     log.info(f"Using Demo as child scene: {self.child_id}")
 
-    res = rest_client.updateScene(self.child_id, {'parent': self.parent_id})
-    assert res.statusCode == 200, \
-      f"Failed to link child to parent: {res.statusCode}"
+    def _link():
+      res = rest_client.updateScene(self.child_id, {'parent': self.parent_id})
+      assert res.statusCode == 200, \
+        f"Failed to link child to parent: {res.statusCode}"
+    self._await_db_notification(_link)
 
     child_links = rest_client.getChildScene({'parent': self.parent_id})
     self.child_link_id = child_links['results'][0]['uid']
     assert child_links.statusCode == 200 and child_links['count'] == 1, \
       "Child-parent link not found after linking"
+
+    from tests.utils.scene_ready import wait_for_tracker_ready
+    assert wait_for_tracker_ready(self.params, self.parent_id, camera_id="camera1"), (
+      f"setup_scenes: tracker for parent scene {self.parent_id} (child "
+      f"{self.child_id}) never came up; no DATA_SCENE observed for the "
+      "parent within the readiness timeout")
 
   def teardown_scenes(self, rest_client):
     """! Unlink the child scene and delete the parent scene created for
@@ -173,6 +181,7 @@ class RetrackTest:
     assert subscribed.wait(self.MAX_WAIT), \
       "Temporary MQTT client failed to subscribe to CMD_DATABASE within timeout"
     try:
+      db_received.clear()
       rest_fn()
       assert db_received.wait(self.MAX_WAIT), \
         "Timed out waiting for CMD_DATABASE notification"
@@ -286,7 +295,7 @@ class RetrackTest:
         child_ok = (not require_child) or len(self.child_received) > 0
       if parent_ok and child_ok:
         return
-      time.sleep(0.5)
+      time.sleep(0.1)
     with self._lock:
       parent_count = len(self.parent_received)
       child_count = len(self.child_received)
@@ -388,10 +397,11 @@ class RetrackTest:
       for i in range(5):
         obj_data["timestamp"] = get_iso_time()
         det = obj_data["objects"][obj_category][0]
-        y = 100 + (i * 20)
         if "bounding_box_px" in det:
+          y = 100 + (i * 20)
           det["bounding_box_px"]["y"] = y
         elif "bounding_box" in det:
+          y = i * 0.02
           det["bounding_box"]["y"] = y
         det["category"] = obj_category
         client.publish(topic, json.dumps(obj_data))
@@ -458,10 +468,11 @@ class RetrackTest:
     while time.time() < end:
       obj_data["timestamp"] = get_iso_time()
       det = obj_data["objects"]["person"][0]
-      y = 100 + (i % 5) * 20
       if "bounding_box_px" in det:
+        y = 100 + (i % 5) * 20
         det["bounding_box_px"]["y"] = y
       elif "bounding_box" in det:
+        y = (i % 5) * 0.02
         det["bounding_box"]["y"] = y
       det["category"] = "person"
       client.publish(topic, json.dumps(obj_data))

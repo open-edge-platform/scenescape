@@ -206,19 +206,23 @@ class RotationFromVelocityTest(FunctionalTest):
       # enable rotation-from-velocity
       self.set_rotation_from_velocity(True)
 
-      # wait until feature is active (first non-identity rotation appears)
+      # wait until feature is active (several consecutive non-identity rotations appear,
+      # since individual tracks can briefly report a stale/identity rotation while their
+      # rotation estimate converges after the feature is toggled on)
       log.info("Waiting for rotation-from-velocity to take effect (warmup)...")
       self.collect_target = "enabled"
+      STABLE_SAMPLES_REQUIRED = 3
       start = time.time()
       while time.time() - start < WARMUP_TIMEOUT:
-        if self.rotations_enabled:
-          quat, _ = self.rotations_enabled[-1]
-          if not all(abs(a - b) < 1e-6 for a, b in zip(quat, IDENTITY_QUAT)):
-            log.info(f"Feature active after {time.time() - start:.2f}s — first non-identity rotation: {quat}")
+        if len(self.rotations_enabled) >= STABLE_SAMPLES_REQUIRED:
+          recent = [quat for quat, _ in self.rotations_enabled[-STABLE_SAMPLES_REQUIRED:]]
+          if all(not all(abs(a - b) < 1e-6 for a, b in zip(quat, IDENTITY_QUAT)) for quat in recent):
+            log.info(f"Feature active after {time.time() - start:.2f}s — "
+                     f"last {STABLE_SAMPLES_REQUIRED} rotations non-identity: {recent[-1]}")
             break
         time.sleep(0.1)
       else:
-        log.info("WARNING: warmup timed out without observing a non-identity rotation")
+        log.info("WARNING: warmup timed out without observing sustained non-identity rotations")
       self.collect_target = None
 
       # collect AFTER enabling rotation
@@ -232,6 +236,10 @@ class RotationFromVelocityTest(FunctionalTest):
       aligned = 0
 
       for quat, velocity in list(self.rotations_enabled):
+        # Skip samples whose rotation hasn't converged yet.
+        if all(abs(a - b) < 1e-6 for a, b in zip(quat, IDENTITY_QUAT)):
+          continue
+
         speed = math.sqrt(sum(x * x for x in velocity))
         if speed < MIN_SPEED:
           continue
