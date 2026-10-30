@@ -22,11 +22,7 @@ SCENE_NAME = "Queuing"
 # Queuing scene cameras: atag-qcam1 and atag-qcam2
 CAM_URLS = ("/cam/calibrate/1", "/cam/calibrate/2")
 AUTOCAL_BUTTON_ID = "auto-autocalibration"
-# Backend registration error messages for a scene without a map.
-EXPECTED_TITLES = (
-  "Error: Scene has no map",
-  "No map available for scene",
-)
+EXPECTED_TITLE = "No map available for scene. Click to retry registration"
 TITLE_TIMEOUT_S = 60
 
 
@@ -49,13 +45,13 @@ def wait_for_expected_title(browser):
 
   def has_expected_title(_):
     last["title"] = browser.find_element(By.ID, AUTOCAL_BUTTON_ID).get_attribute("title")
-    return last["title"] in EXPECTED_TITLES
+    return last["title"] == EXPECTED_TITLE
 
   try:
     WebDriverWait(browser, TITLE_TIMEOUT_S).until(has_expected_title)
   except TimeoutException:
     raise AssertionError(
-      f"Autocalibration button title {last['title']!r} not in {EXPECTED_TITLES!r} "
+      f"Autocalibration button title {last['title']!r} did not match {EXPECTED_TITLE!r} "
       f"after {TITLE_TIMEOUT_S}s")
   return last["title"]
 
@@ -63,7 +59,7 @@ def wait_for_expected_title(browser):
 @common.mock_display
 @pytest.mark.test_name("NEX-T12748")
 def test_autocalibration_no_scene_map(params, result_recorder):
-  """! Verify autocalibration is disabled and reports a message when the scene map is deleted.
+  """! Verify autocalibration offers retry when the scene map is deleted.
   @param    params                  Dict of test parameters.
   @param    result_recorder         Pytest fixture recording the test result.
   """
@@ -95,8 +91,8 @@ def test_autocalibration_no_scene_map(params, result_recorder):
 
       title = wait_for_expected_title(browser)
       log.info(f"Autocalibration button tooltip: {title!r}")
-      assert not button.is_enabled(), \
-        f"Autocalibration button should be disabled when scene has no map ({cam_url})"
+      assert button.is_enabled(), \
+        f"Autocalibration retry should be enabled when scene has no map ({cam_url})"
 
     result_recorder.success()
 
