@@ -83,10 +83,7 @@ to these topics:
 - `scenescape/positioning/status/{resolver_id}` for each of those Resolvers.
 
 A PTZ camera without a Resolver assignment is logged once, and its detections are rejected
-as `no_sample` (`managed: false`). The Tracker uses `controller.auth` as its deployment
-identity. For that identity, Manager's broker ACL allows pose reads only for cameras that
-belong to a scene, and denies any pose or status publish
-(`tests/functional/test_tracker_ptz_acl.py`).
+as `no_sample` (`managed: false`). The Tracker never subscribes with a wildcard.
 
 The Tracker pins the PoseContext frame to `scene:{scene_uid}` of the camera's scene. It
 also pins `calibration_version` when Manager provides one. A pose in any other frame,
