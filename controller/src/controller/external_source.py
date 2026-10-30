@@ -478,16 +478,13 @@ class IdentityClaimRegistry:
   chooses (see the ``external_detection`` schema definition). Requiring an
   operator to pre-configure, per deployment, which sources' ids are safe to
   trust does not scale with the number of sources/integrations. An object's
-  source-local ``id`` is used directly as ``gid`` when no shared
-  ``global_id`` is supplied, as long as no other source currently holds a
-  live claim on that id in the same scene and category. A shared ``global_id``
-  uses a separate identity namespace and permits multiple sources to claim
-  the agreed identity.
+  source-provided ``id`` is used directly as ``gid``, as long as no other
+  source currently holds a live claim on that id in the same scene and
+  category.
 
   If two different sources publish the same source-local id concurrently,
   accepting both would silently merge two distinct physical objects. The
-  caller rejects that collision unless both observations explicitly share a
-  ``global_id``.
+  caller rejects that collision.
 
   Scope and limitation: this only protects against two *different* sources
   colliding on the same id at the same time. It does not, and cannot,

@@ -154,3 +154,23 @@ def test_camera_observations_allow_camera_local_cartesian_positions(
     "translation": [1.0, 2.0, 3.0],
   }]
   assert schemaObject.validateMessage("external_source", drone_message, True)
+
+
+@pytest.mark.parametrize("check_format", [False, True])
+@pytest.mark.parametrize("camera_observation", [False, True])
+def test_untracked_observations_require_id_even_with_extra_identity_field(
+    schemaObject, drone_message, check_format, camera_observation):
+  """An unsupported identity field cannot replace the source-provided id."""
+  observation = {
+    "global_id": "obsolete-identity",
+    "category": "person",
+    "translation": [1.0, 2.0, 3.0],
+  }
+  if camera_observation:
+    del drone_message["objects"]
+    drone_message["cameras"][0]["objects"] = [observation]
+  else:
+    drone_message["objects"] = [observation]
+  assert not schemaObject.validateMessage("external_source", drone_message, check_format)
+  observation["id"] = "person-1"
+  assert schemaObject.validateMessage("external_source", drone_message, check_format)

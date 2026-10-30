@@ -195,7 +195,7 @@ publishes over authenticated MQTT, see
 | `intrinsics` | object                | Conditional | Legacy single-view calibration for pixel detections in top-level `objects`; newer multi-camera sources put calibration in each camera entry                                                                                                                                   |
 | `distortion` | object                |     No      | Optional distortion coefficients paired with top-level `intrinsics` for legacy external pixel detections                                                                                                                                                                      |
 | `cameras`    | array                 |     No      | Camera configurations and the observations captured by each camera. Each entry has a stable `id`, body-relative mount, calibration, and its own `objects` array. See [Drone Coordinate and Camera Contract](#drone-coordinate-and-camera-contract)                            |
-| `track`      | boolean               |     No      | Applies to source-level and all camera-level objects. `false` uses supplied identity (`global_id` when present, otherwise exclusive source-local `id`); `true` (or omitted) routes observations through Scenescape tracking                                                   |
+| `track`      | boolean               |     No      | Applies to source-level and all camera-level objects. `false` uses the source-provided `id` as an exclusive identity claim; `true` (or omitted) routes observations through Scenescape tracking                                                                               |
 
 ### Drone Coordinate and Camera Contract
 
@@ -206,31 +206,9 @@ frustum per camera. Multiple cameras may report the same object; use a consisten
 `id` across those entries when `track=false`, or let Scenescape associate the observations
 when `track=true`.
 
-When independent publishers report the same physical object with `track=false`, they must
-provide the same `global_id` on that object's observations. The controller then assigns
-those observations one shared scene/category identity and uses the newest accepted
-timestamp for its position. A source-local `id` may still be included for that publisher's
-own bookkeeping, but it does not establish cross-source identity. Without `global_id`,
-reusing the same `id` from different sources remains a collision and the later observation
-is rejected. `global_id` is not valid when `track` is true or omitted.
-
-For example, both publishers use `"global_id": "person-42"` for the same person, even
-though each has its own source-local `id`:
-
-```json
-{
-  "source_id": "drone-2",
-  "track": false,
-  "objects": [
-    {
-      "id": "local-track-9",
-      "global_id": "person-42",
-      "category": "person",
-      "translation": [1.0, 0.5, 0.0]
-    }
-  ]
-}
-```
+With `track=false`, reusing the same `id` from different publishers is an identity
+collision and the later observation is rejected. Use `track=true` or omit `track`
+to let Scenescape associate observations through its normal tracking path.
 
 For a drone using this contract:
 
@@ -375,8 +353,7 @@ estimates frustum field of view from the camera intrinsics assuming a centered p
 | ----------------- | ------------------ | :---------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `category`        | string             |     Yes     | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                                                                   |
 | `translation`     | array[3] of number | Conditional | Position of the object relative to the source's local origin (`x`, `y`, `z`); exactly one of `translation` or `bounding_box_px` is required                                               |
-| `id`              | string             | Conditional | Source-local identifier; required for `track=false` unless `global_id` is present, optional when `track` is true or omitted                                                               |
-| `global_id`       | string             | Conditional | Shared identity agreed by independent publishers; allowed only with `track=false`, and may replace `id` for identity                                                                      |
+| `id`              | string             | Conditional | Source-provided identifier; required for `track=false`, optional when `track` is true or omitted                                                                                          |
 | `rotation`        | array[4] of number |     No      | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                               |
 | `size`            | array[3] of number |     No      | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                      |
 | `confidence`      | number > 0         |     No      | Source-reported confidence for this observation                                                                                                                                           |
@@ -390,11 +367,9 @@ volume/occupancy/collision analytics.
 
 The top-level source `track` field determines the tracking mode for every object in the message.
 When that value is `false`, the object bypasses the kinematic tracker/ReID path and the
-published object identity is derived from the source-provided `id`, unless a `global_id` is
-provided. Shared `global_id` values associate observations across sources; the newest accepted
-timestamp supplies the object's position. When `track` is true or omitted, the object follows
+published object identity is the source-provided `id`. When `track` is true or omitted, the object follows
 the normal Scenescape tracking path and the controller assigns the published object `id`, so the
-source message may omit `objects[*].id`; `global_id` is not accepted on this path.
+source message may omit `objects[*].id`.
 
 When an object includes `bounding_box_px`, it is treated as a camera-style pixel detection rather
 than as a source-local Cartesian observation. Do not send both `translation` and `bounding_box_px`
@@ -433,30 +408,23 @@ Rejection reasons (logged, not published) include:
 | `unsupported_reference_frame`    | `reference_frame` is not `wgs84` or `scene`                                                 |
 | `invalid_pose`                   | `pose` failed schema validation or transform construction                                   |
 
-### Untracked External Objects Preserve or Share Identity
+### Source-Identity Trust for Untracked Objects, with Collision Detection
 
 When an external source message sets `track` to `false`, the controller bypasses Scenescape's
 kinematic multi-object tracker/ReID association and merges the object through the already-tracked
-path used for child scenes with `retrack=false`. Without `global_id`, its source-provided `id`
+path used for child scenes with `retrack=false`. Its source-provided `id`
 is used as the published object identity.
 
-Independent sources that agree they observe the same physical object can provide the same
-`global_id`. The controller maps it to one identity scoped by scene and category, so observations
-from those sources update the same object. The newest accepted observation timestamp controls
-its position; an older observation may add provenance but cannot revert the position. The
-object's `source_ids` accumulates contributors until the track expires.
-
-Without an agreed `global_id`, two different sources publishing the same source-local `id` could
+Two different sources publishing the same source-provided `id` could
 silently merge distinct objects. The controller therefore allows only one source to hold a live
 claim on that `id` within a `(scene, category)` pair. A colliding object is dropped and logged;
 other objects from the same message are still ingested.
 
-Identity is trusted based on the `source_id`, `id`, and `global_id` values in the payload, not a
+Identity is trusted based on the `source_id` and `id` values in the payload, not a
 cryptographically verified per-device credential. Scenescape's current MQTT authentication does
 not bind individual publishers to individual source IDs (see
 [ADR 16](https://github.com/open-edge-platform/scenescape/blob/main/docs/adr/0016-unified-external-source-ingestion.md#future-work)).
-A publisher that can reach the broker can claim any of these values; use a shared `global_id`
-only when publishers are authorized to assert that common identity.
+A publisher that can reach the broker can claim either of these values.
 
 ### Tracked External Objects Use Controller-Assigned IDs
 
@@ -472,8 +440,8 @@ track identity.
 camera or sensor `id`, which must match a scene/sensor already configured in the database, an
 external source simply announces itself by choosing a `source_id` string and publishing with it.
 For messages using `track=false`, choose a persistent `source_id` and per-object `id`.
-The `id` becomes the published identity unless `global_id` is supplied; shared IDs must be
-deliberately coordinated between publishers. For tracked messages, a stable source-provided
+The `id` becomes the published identity and must not collide with another publisher's live
+identity. For tracked messages, a stable source-provided
 object `id` can improve observation correlation even though Scenescape assigns the published
 identity. The deployer/integrator should choose values that are:
 

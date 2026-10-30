@@ -375,7 +375,7 @@
         "id": {
           "title": "Source-Local Object ID",
           "type": "string",
-          "description": "Identifier the source uses to correlate this observation across messages. Without global_id, track=false treats it as an exclusive identity claim."
+          "description": "Identifier the source uses to correlate this observation across messages. Required when track=false, which treats it as an exclusive identity claim."
         },
         "metadata": {
           "$ref": "#/definitions/semantic_metadata",
@@ -584,7 +584,7 @@
         "track": {
           "title": "Track All Source Objects",
           "type": "boolean",
-          "description": "When false, all objects bypass Scenescape tracking and use source-local id or shared global_id. When true or omitted, all objects go through normal tracking and global_id is not allowed."
+          "description": "When false, all objects bypass Scenescape tracking and use the source-provided id. When true or omitted, all objects go through normal tracking."
         }
       },
       "required": ["timestamp", "source_id"],
@@ -638,10 +638,7 @@
             "properties": {
               "objects": {
                 "items": {
-                  "anyOf": [
-                    { "required": ["id"] },
-                    { "required": ["global_id"] }
-                  ]
+                  "required": ["id"]
                 }
               },
               "cameras": {
@@ -649,46 +646,7 @@
                   "properties": {
                     "objects": {
                       "items": {
-                        "anyOf": [
-                          { "required": ["id"] },
-                          { "required": ["global_id"] }
-                        ]
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "not": {
-              "required": ["track"],
-              "properties": {
-                "track": {
-                  "const": false
-                }
-              }
-            }
-          },
-          "then": {
-            "properties": {
-              "objects": {
-                "items": {
-                  "not": {
-                    "required": ["global_id"]
-                  }
-                }
-              },
-              "cameras": {
-                "items": {
-                  "properties": {
-                    "objects": {
-                      "items": {
-                        "not": {
-                          "required": ["global_id"]
-                        }
+                        "required": ["id"]
                       }
                     }
                   }
