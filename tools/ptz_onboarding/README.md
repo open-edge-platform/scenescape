@@ -130,10 +130,14 @@ steps during measurement. After ONVIF arrival and `settle_s`, the tool records
 the image-request time. It accepts a frame only if its timestamp **minus this
 skew bound** is at or after that request, and the timestamp is no more than
 the skew bound ahead of receipt. This is a conservative safety margin, not
-permission to accept older frames. Retained/pre-request messages are ignored;
-missing, invalid, stale or implausibly future timestamps abort capture/discovery
-rather than becoming visibility gaps. Fix backlog or synchronization before
-retrying; increase settling time if needed. Captures save `frame_timestamp`.
+permission to accept older frames. Retained/pre-request messages are ignored.
+Stale frames are discarded with a diagnostic and another image is requested
+while the camera stays stationary, keeping the original freshness boundary.
+Retries share the existing 20-second subscription/image timeout. Missing,
+invalid or implausibly future timestamps, or failure to obtain a fresh frame,
+abort capture/discovery rather than becoming visibility gaps. Fix backlog or
+synchronization before retrying; increase settling time if needed.
+Captures save `frame_timestamp`.
 Post-decode timestamps cannot reveal buffering upstream of the decoder; keep
 that buffering bounded and include it in your settling delay.
 

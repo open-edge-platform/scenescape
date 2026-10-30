@@ -18,6 +18,10 @@ class TagCoverageError(ValueError):
   """A valid calibration request completed without usable AprilTag coverage."""
 
 
+class StaleFrameError(ValueError):
+  """A timestamped frame cannot prove freshness at the stationary capture boundary."""
+
+
 def _validate_frame_timestamp(payload, requested_at, received_at, skew):
   """Prove freshness even when the publisher clock leads the runner by skew."""
   timestamp = payload.get("timestamp")
@@ -33,7 +37,7 @@ def _validate_frame_timestamp(payload, requested_at, received_at, skew):
   if seconds > received_at + skew:
     raise ValueError("Calibration frame timestamp is in the future; check clock synchronization")
   if seconds < requested_at + skew:
-    raise ValueError("Stale calibration frame; check pipeline backlog and clock synchronization")
+    raise StaleFrameError("Stale calibration frame; check pipeline backlog and clock synchronization")
 
 
 class Manager:
@@ -158,7 +162,7 @@ class Tags:
     account = read_json(config["mqtt"]["auth"])
     client.username_pw_set(account["user"], account["password"])
     client.tls_set(ca_certs=config["ca_cert"])
-    received, state = [], {"subscribed": False, "requested_at": None}
+    received, state = [], {"subscribed": False, "requested_at": None, "retry": False}
 
     def connected(client, userdata, flags, reason, properties):
       if reason.is_failure:
@@ -173,9 +177,19 @@ class Tags:
     def message(client, userdata, msg):
       if not msg.retain and state["requested_at"] is not None:
         payload = json.loads(msg.payload)
-        _validate_frame_timestamp(payload, state["requested_at"], time.time(),
-                                  config["mqtt"].get("max_clock_skew_s", 0.1))
+        try:
+          _validate_frame_timestamp(payload, state["requested_at"], time.time(),
+                                    config["mqtt"].get("max_clock_skew_s", 0.1))
+        except StaleFrameError as error:
+          print(f"{error}; discarding and requesting another frame", flush=True)
+          state["retry"] = True
+          return
         received.append(payload)
+
+    def request_image():
+      info = client.publish(f"scenescape/cmd/camera/{uid}", "getcalibrationimage", qos=1)
+      if info.rc != mqtt.MQTT_ERR_SUCCESS:
+        raise RuntimeError("Could not publish calibration-image request")
 
     client.on_connect, client.on_subscribe, client.on_message = connected, subscribed, message
     client.connect(config["mqtt"]["host"], config["mqtt"]["port"], keepalive=30)
@@ -189,14 +203,15 @@ class Tags:
       # Drain any pre-request traffic received with SUBACK.
       received.clear()
       state["requested_at"] = time.time()
-      info = client.publish(f"scenescape/cmd/camera/{uid}", "getcalibrationimage", qos=1)
-      if info.rc != mqtt.MQTT_ERR_SUCCESS:
-        raise RuntimeError("Could not publish calibration-image request")
+      request_image()
       while not received:
         if time.monotonic() >= deadline:
           raise TimeoutError("No fresh calibration image; check the camera pipeline")
         if client.loop(timeout=0.2) != mqtt.MQTT_ERR_SUCCESS:
           raise RuntimeError("MQTT connection lost while waiting for image")
+        if state["retry"] and not received:
+          state["retry"] = False
+          request_image()
       return received[-1]
     finally:
       client.disconnect()

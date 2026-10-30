@@ -360,14 +360,14 @@ class DiscoveryTests(unittest.TestCase):
       self.assertEqual(config.read_json(output / "coverage.json")["observations"], [])
       self.assertFalse((output / "camera.discovered.json").exists())
 
-  def test_stale_frame_aborts_discovery_instead_of_becoming_a_visibility_gap(self):
+  def test_fresh_frame_timeout_aborts_discovery_instead_of_becoming_a_visibility_gap(self):
     stop = {"points_2d": [[1, 2]] * 6, "resolution": [1280, 960]}
     with tempfile.TemporaryDirectory() as directory, \
          patch("discovery.Camera") as camera, patch("discovery.Manager"), \
          patch("discovery.Tags") as tags:
-      tags.return_value.collect.side_effect = [stop, ValueError("Stale calibration frame")]
+      tags.return_value.collect.side_effect = [stop, TimeoutError("No fresh calibration image")]
       output = Path(directory) / "coverage"
-      with self.assertRaisesRegex(ValueError, "Stale calibration frame"):
+      with self.assertRaisesRegex(TimeoutError, "No fresh calibration image"):
         discovery.discover(settings(), output, 3)
       camera.return_value.move.assert_called_once()
       self.assertEqual(camera.return_value.home.call_count, 2)
@@ -473,7 +473,7 @@ class DeviceWorkflowTests(unittest.TestCase):
         "scenescape/cmd/camera/my-camera", "getcalibrationimage", qos=1)
       client.disconnect.assert_called_once()
 
-  def test_mqtt_rejects_stale_unverifiable_and_future_frames_before_calibration(self):
+  def test_mqtt_rejects_unverifiable_and_future_frames_before_calibration(self):
     import json
     import paho.mqtt.client as mqtt
 
@@ -487,8 +487,6 @@ class DeviceWorkflowTests(unittest.TestCase):
       ({"timestamp": "invalid"}, "Invalid"),
       ({"timestamp": "NaN"}, "Invalid"),
       ({"timestamp": "1970-01-01T00:16:40.500"}, "timezone"),
-      ({"timestamp": timestamp(999.99)}, "Stale"),
-      ({"timestamp": timestamp(1000.249999)}, "Stale"),
       ({"timestamp": timestamp(1001.250001)}, "future"),
     ]
     for payload, reason in cases:
@@ -517,6 +515,47 @@ class DeviceWorkflowTests(unittest.TestCase):
         self.assertNotIsInstance(raised.exception, devices.TagCoverageError)
         tags.session.post.assert_not_called()
         client.disconnect.assert_called_once()
+
+  def test_mqtt_discards_stale_frames_without_advancing_the_freshness_boundary(self):
+    import json
+    import paho.mqtt.client as mqtt
+    stale = {"image": "stale", "timestamp": "1970-01-01T00:16:39.999Z"}
+    fresh = {"image": "fresh", "timestamp": "1970-01-01T00:16:40.500Z"}
+    for frames, succeeds in (([stale, fresh], True), ([stale, stale], False)):
+      with self.subTest(succeeds=succeeds), \
+           patch("paho.mqtt.client.Client") as factory, patch("devices.read_json") as account, \
+           patch("devices.time.time", side_effect=[1000, 1001, 1001.1]), \
+           patch("devices.time.monotonic", side_effect=[0, 0, 0, 0, 21]), \
+           contextlib.redirect_stdout(io.StringIO()):
+        account.return_value = {"user": "unused", "password": "unused"}
+        client = factory.return_value
+        client.publish.return_value.rc = mqtt.MQTT_ERR_SUCCESS
+        pending = iter(frames)
+
+        def network_loop(**kwargs):
+          if not client.publish.called:
+            client.on_subscribe(client, None, 1, [SimpleNamespace(is_failure=False)], None)
+          else:
+            client.on_message(client, None, SimpleNamespace(
+              retain=False, payload=json.dumps(next(pending)).encode()))
+          return mqtt.MQTT_ERR_SUCCESS
+
+        client.loop.side_effect = network_loop
+        tags = devices.Tags(settings())
+        tags.session = Mock()
+        if succeeds:
+          self.assertEqual(tags.image(), fresh)
+          self.assertEqual(client.publish.call_count, 2)
+        else:
+          with self.assertRaisesRegex(TimeoutError, "No fresh calibration image"):
+            tags.collect()
+          tags.session.post.assert_not_called()
+        client.disconnect.assert_called_once()
+
+  def test_timestamp_policy_rejects_even_slightly_stale_frames(self):
+    for timestamp in ("1970-01-01T00:16:39.999Z", "1970-01-01T00:16:40.249999Z"):
+      with self.subTest(timestamp=timestamp), self.assertRaises(devices.StaleFrameError):
+        devices._validate_frame_timestamp({"timestamp": timestamp}, 1000, 1001, 0.25)
 
   def test_timestamp_policy_accepts_exact_boundaries_and_explicit_timezones(self):
     for timestamp in ("1970-01-01T00:16:40.250Z", "1970-01-01T00:16:41.250+00:00",
