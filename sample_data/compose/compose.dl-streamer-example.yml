@@ -102,6 +102,27 @@ x-controller-base: &controller-base
 # - tracker: Tracker service + Analytics + Positioning (no Scene Controller)
 
 services:
+  positioning-acl-init:
+    image: intel/scenescape-positioning:${VERSION:-latest}
+    user: "0:0"
+    entrypoint:
+      - python3
+      - /app/tools/render_mosquitto_acl.py
+      - --assignments
+      - /run/positioning/positioning-assignments.json
+      - --resolver-id
+      - ${POSITIONING_RESOLVER_ID:-positioning-default}
+      - --identity
+      - ${POSITIONING_CERT_IDENTITY:-positioning.scenescape.intel.com}
+      - --output
+      - /output/positioning.acl
+      - --group
+      - ${GID:-1000}
+    volumes:
+      - ./deployment/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
+      - vol-positioning-acl:/output
+    restart: "no"
+
   ntpserv:
     image: dockurr/chrony:4.9
     networks:
@@ -137,10 +158,14 @@ services:
         target: /mosquitto/config/mosquitto.conf
     volumes:
       - ${SECRETSDIR}:/mosquitto/secrets
+      - vol-positioning-acl:/mosquitto/acl:ro
     networks:
       scenescape:
         aliases:
           - broker.scenescape.intel.com
+    depends_on:
+      positioning-acl-init:
+        condition: service_completed_successfully
     user: "${UID:-1000}:${GID:-1000}"
     restart: always
     pids_limit: 1000
@@ -284,6 +309,7 @@ services:
   positioning:
     image: intel/scenescape-positioning:${VERSION:-latest}
     init: true
+    user: "${UID:-1000}:${GID:-1000}"
     networks:
       scenescape:
         aliases:
@@ -298,7 +324,7 @@ services:
         condition: service_started
     command:
       - --broker
-      - broker.scenescape.intel.com
+      - broker.scenescape.intel.com:8883
       - --brokerauth
       - /run/secrets/positioning.auth
       - --cert
@@ -572,7 +598,8 @@ services:
 
 configs:
   mosquitto-secure:
-    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure.conf
+    # Adds the Positioning mTLS listener; requires the positioning-acl-init ACL.
+    file: ./dlstreamer-pipeline-server/mosquitto/mosquitto-secure-positioning.conf
   tracker-config:
     # Use this configuration file to run tracking in immediate mode
     # file: ./controller/config/tracker-config-immediate.json
@@ -584,6 +611,7 @@ configs:
 
 volumes:
   vol-db:
+  vol-positioning-acl:
   vol-media:
   vol-migrations:
   vol-datasets:

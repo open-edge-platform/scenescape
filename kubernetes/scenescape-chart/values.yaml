@@ -212,6 +212,13 @@ positioning:
   # bundle referenced by a source's tls_ca_file.
   extraVolumes: []
   extraVolumeMounts: []
+  # Positioning egress is limited to broker, Manager, NTP, DNS and these
+  # deployment-owned camera address ranges. Custom ONVIF ports must be added.
+  networkPolicy:
+    cameraCIDRs: []
+    cameraPorts:
+      - 80
+      - 443
 
 mapping:
   enabled: false

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""PTZ pose math against the provisional (non-golden) PoC fixture and analytic properties."""
+"""PTZ pose math against the provisional (non-golden) development fixture and analytic properties."""
 
 import dataclasses
 import json
@@ -109,9 +109,14 @@ def test_naive_euler_addition_diverges_from_matrix_composition():
   assert rotation_delta_magnitude(naive, composed) > 5.0
 
 
-def test_composition_matches_poc_formula():
-  """PoC: R_new = R_pan(axis) @ R_home @ Rx(tilt)."""
-  delta_pan, delta_tilt = -31.0, 12.5
+@pytest.mark.parametrize("delta_pan,delta_tilt", [
+  (-31.0, -12.5),
+  (-31.0, 12.5),
+  (31.0, -12.5),
+  (31.0, 12.5),
+])
+def test_bidirectional_pan_tilt_sweep_matches_axis_composition(delta_pan, delta_tilt):
+  """Exercise the calibrated dual-axis composition in all travel directions."""
   pan_axis = np.array(MODEL.pan.axis)
   expected = (Rotation.from_rotvec(np.radians(delta_pan) * pan_axis / np.linalg.norm(pan_axis))
               * HOME * Rotation.from_euler("x", delta_tilt, degrees=True))
@@ -158,7 +163,7 @@ def test_generated_protobuf_stubs():
   # pylint: disable=no-member  # protobuf builds message classes at runtime
   from positioning.v1 import ptz_pb2, ptz_pb2_grpc
 
-  sample = ptz_pb2.PTZSample(camera_id="atag-ptzcam3", adapter_instance_id="a1", sequence=7,
+  sample = ptz_pb2.PTZSample(camera_id="ptz-cam-1", adapter_instance_id="a1", sequence=7,
                              timestamp_uncertainty_ns=5_000_000,
                              reported_move_status=ptz_pb2.REPORTED_MOVE_STATUS_IDLE)
   sample.position.pan = 0.25

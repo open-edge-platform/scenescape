@@ -1,13 +1,10 @@
 {
   "fixture_version": 1,
   "provisional": true,
-  "description": "Provisional PTZ pose-math fixture for unit tests only. Not a validated golden measurement dataset; Phase 1 math acceptance still requires tests/data/ptz/reprojection_golden.json from a hardware measurement session.",
+  "description": "Provisional PTZ pose-math fixture for unit tests only. Not a validated golden measurement dataset; hardware acceptance uses tests/data/ptz/reprojection_golden.json.",
   "source": {
-    "poc_branch": "demo-room-igk3-ptz",
-    "poc_path": "ptz_pose_service/config/cameras.json",
-    "camera_uid": "atag-ptzcam3",
     "camera_model": "TP-Link VIGI C540V",
-    "from_poc": [
+    "measured": [
       "axes.pan.curve",
       "axes.tilt.curve",
       "axes.pan.axis",
@@ -36,7 +33,7 @@
   },
   "ptz_calibration": {
     "parameterization_version": "v1",
-    "calibration_version": "atag-ptzcam3-provisional",
+    "calibration_version": "ptz-cam-1-provisional",
     "position_space": {
       "uri": "http://www.onvif.org/ver10/tptz/PanTiltSpaces/PositionGenericSpace",
       "pan_min": -1.0,
@@ -77,10 +74,7 @@
       "reprojection_rms_px": 1.2
     },
     "provenance": {
-      "source": "PoC config/cameras.json on branch demo-room-igk3-ptz",
-      "poc_snapshot_commit": "843ea793830dc48383ea0beebee16bd4462f9667",
-      "fitting_script_path": "ptz_pose_service/tools/fit_ptz_curves.py",
-      "fitting_script_revision": "843ea793830dc48383ea0beebee16bd4462f9667",
+      "source": "development measurement",
       "golden": false
     }
   },

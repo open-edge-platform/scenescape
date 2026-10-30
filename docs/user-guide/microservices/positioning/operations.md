@@ -17,13 +17,18 @@ only after a successful broker connection.
 Use `make positioning` to build the runtime image and `make init-secrets` to create
 the broker identity and `scenescape-positioning` client certificate/key. Start the
 service with the Docker Compose `controller` or `tracker` profile (`make demo` /
-`make deploy`), the test Compose stack, or the Helm chart. All three mount the CA,
-client certificate, private key, and auth file read-only. The generated Manager account
-has read access to camera configuration invalidations and write access to resolver
-status and resolved-pose topics, and it is not a superuser. The bundled Mosquitto configuration does not
-enforce service credentials or topic ACLs; deployments requiring enforcement must
-configure broker authentication and authorization as described in the
-[hardening guide](../../additional-resources/hardening-guide.md).
+`make deploy`), the test Compose stack, or the Helm chart. Production Compose and
+Helm mount the CA, client certificate, private key, and auth file read-only.
+Compose runs Positioning as the host UID/GID so it can read `0600` ONVIF
+credential files. Certificate generation keeps the CA private key at mode `0600`;
+it is only used on the host to sign certificates. Kubernetes mounts the client key
+with group-readable mode only for the Positioning pod's `fsGroup`.
+Production Positioning connections use the broker's dedicated TLS listener on
+port 8883, which requires a client certificate and uses its certificate identity
+(`positioning.<CERTDOMAIN>`) as the ACL principal. Compose passes it to the ACL
+renderer as `POSITIONING_CERT_IDENTITY`. The source-scoped ACL grants only the configured Resolver's
+retained status write, assigned camera-configuration reads, and assigned pose
+writes. The regular broker listener remains separate for existing services.
 
 Positioning may publish only its configured
 `scenescape/positioning/status/{resolver_id}` topic and registered
@@ -32,6 +37,37 @@ for both topic classes; writes to unrelated topics and another resolver's status
 topic are denied. Source ownership is enforced by the Positioning assignment
 manifest and Resolver validation, not by broadening the Manager ACL to unrelated
 topic families.
+
+The Compose stack generates `/mosquitto/acl/positioning.acl` from
+`deployment/positioning-assignments.json` before the broker starts. Helm renders the
+same source-specific rules from `positioning.assignments`; an unassigned source
+gets no pose-write rule. Keep `POSITIONING_RESOLVER_ID` and the Positioning
+`resolver_id` aligned. Production broker ACL verification and the assignment
+validator are part of the PTZ deployment acceptance tests. The automated test
+checks the generated topic list; before release, also verify an authorized
+certificate can publish/subscribe only on its assigned topics against the
+deployed broker.
+
+After changing a Compose assignment, regenerate the ACL and restart the broker so
+Mosquitto reloads it:
+
+```bash
+docker compose --profile controller run --rm --no-deps positioning-acl-init
+docker compose --profile controller restart broker
+```
+
+For Tracker mode, use `--profile tracker` instead. Helm rolls the broker
+automatically when the assignments or Resolver ID change.
+
+```mermaid
+flowchart LR
+  Camera[ONVIF PTZ camera] -->|HTTPS status poll| Poller[Positioning poller]
+  Poller -->|in-process PTZSample| Resolver[Single Positioning Resolver]
+  Manager[Manager: home pose and calibration] -->|read-only API + invalidation| Resolver
+  Resolver -->|mTLS 8883: retained pose and status| Broker[MQTT broker]
+  Broker -->|pose side channel| Controller[Controller consumer: off by default]
+  Broker -->|pose side channel| Tracker[Tracker consumer: off by default; Phase 5 deferred]
+```
 
 Demo and deploy Compose include Positioning with the `controller` and `tracker`
 profiles in `sample_data/compose/compose.dl-streamer-example.yml`. Test stacks that
@@ -120,12 +156,12 @@ accept them as command-line arguments. Compare the reported space URI and ranges
 the camera's `ptz_calibration.position_space`. If `reported_move_status` is always
 `IDLE` while the camera moves, configure `move_status` as `none` or `event`.
 
-Keep lab configurations and credentials under `positioning/.local/`, which is
+Keep local test configurations and credentials under `positioning/.local/`, which is
 git-ignored. Never place camera endpoints or credentials in tracked files.
 
 ## Configure Your Own PTZ Camera Locally
 
-Use the git-ignored `positioning/.local/` directory for lab cameras. A complete
+Use the git-ignored `positioning/.local/` directory for local test cameras. A complete
 setup looks like this:
 
 ```text
@@ -143,10 +179,10 @@ positioning/.local/
 
    ```bash
    mkdir -p positioning/.local/secrets && chmod 700 positioning/.local/secrets
-   cat > positioning/.local/secrets/lab-ptz-1.json <<'EOF'
+   cat > positioning/.local/secrets/ptz-cam-1.json <<'EOF'
    {"username": "<onvif-user>", "password": "<onvif-password>"}
    EOF
-   chmod 600 positioning/.local/secrets/lab-ptz-1.json
+   chmod 600 positioning/.local/secrets/ptz-cam-1.json
    ```
 
    Edit the file in an editor rather than typing the password into shell history.
@@ -163,27 +199,27 @@ positioning/.local/
 
    ```json
    {
-     "resolver_id": "positioning-lab",
+     "resolver_id": "positioning-dev",
      "poll_interval_s": 0.2,
      "max_pose_age_s": 0.5,
      "max_timestamp_uncertainty_s": 0.01,
      "max_clock_offset_s": 0.05,
      "target_reprojection_rms_px": 3.0,
      "sources": {
-       "lab-ptz-1": {
+       "ptz-cam-1": {
          "type": "onvif_ptz",
          "host": "<camera-1-ip>",
          "scheme": "http",
          "port": 2020,
-         "credentials_file": "/run/secrets/onvif/lab-ptz-1.json",
+         "credentials_file": "/run/secrets/onvif/ptz-cam-1.json",
          "move_status": "get_status"
        },
-       "lab-ptz-2": {
+       "ptz-cam-2": {
          "type": "onvif_ptz",
          "host": "<camera-2-ip>",
          "scheme": "http",
          "port": 80,
-         "credentials_file": "/run/secrets/onvif/lab-ptz-2.json",
+         "credentials_file": "/run/secrets/onvif/ptz-cam-2.json",
          "move_status": "event",
          "move_event": {
            "topic": "PTZController/Move",
@@ -199,7 +235,7 @@ positioning/.local/
    `poll_interval_s + max_timestamp_uncertainty_s`. See
    [Configure](positioning.md#configure) for their meaning.
 
-   These examples explicitly use HTTP for isolated lab cameras. Production
+   These examples explicitly use HTTP for isolated test cameras. Production
    configurations should use HTTPS; HTTP is only appropriate on an isolated network
    or protected tunnel.
 
@@ -219,19 +255,27 @@ positioning/.local/
 
    ```json
    {
-     "lab-ptz-1": "positioning-lab",
-     "lab-ptz-2": "positioning-lab"
+     "ptz-cam-1": "positioning-dev",
+     "ptz-cam-2": "positioning-dev"
    }
    ```
 
-5. Create `positioning/.local/compose.override.yml` to mount the configuration,
-   manifest, and credentials into the Positioning service, and the same manifest
-   and `resolver_id` into Manager (`web`), which authorizes pose writes only for
-   sources assigned to that resolver. Compose replaces the
-   whole `command` list, so repeat the broker and NTP options; without `--ntp`,
-   clock synchronization cannot be verified and every pose is invalid. Set `user`
-   to your host user and group IDs (`id -u` and `id -g`) so the service can read
-   the `0600` credential files:
+5. Create `positioning/.local/compose.override.yml`. It supplies the same manifest
+   and `resolver_id` to three services:
+
+   - **`positioning`**: the configuration, manifest, and credentials. Connect to the
+     broker's mTLS listener on port 8883; the regular 1883 listener bypasses the
+     Positioning ACL.
+   - **`positioning-acl-init`**: renders the broker ACL from the manifest. It must
+     use the same manifest and `resolver_id`, or the broker denies your status and
+     pose topics.
+   - **`web`** (Manager): authorizes pose writes only for sources assigned to that
+     resolver.
+
+   Compose replaces a whole `command` or `entrypoint` list, so repeat every option.
+   Without `--ntp`, clock synchronization cannot be verified and every pose is
+   invalid. Set `user` to your host user and group IDs (`id -u` and `id -g`) so the
+   service can read the `0600` credential files:
 
    ```yaml
    services:
@@ -239,7 +283,7 @@ positioning/.local/
        user: "1000:1000"
        command:
          - --broker
-         - broker.scenescape.intel.com
+         - broker.scenescape.intel.com:8883
          - --brokerauth
          - /run/secrets/positioning.auth
          - --cert
@@ -258,12 +302,31 @@ positioning/.local/
          - ./positioning/.local/positioning.json:/run/positioning/positioning.json:ro
          - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
          - ./positioning/.local/secrets:/run/secrets/onvif:ro
+     positioning-acl-init:
+       entrypoint:
+         - python3
+         - /app/tools/render_mosquitto_acl.py
+         - --assignments
+         - /run/positioning/positioning-assignments.json
+         - --resolver-id
+         - positioning-dev
+         - --identity
+         - ${POSITIONING_CERT_IDENTITY:-positioning.scenescape.intel.com}
+         - --output
+         - /output/positioning.acl
+         - --group
+         - ${GID:-1000}
+       volumes:
+         - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
      web:
        environment:
-         - POSITIONING_RESOLVER_ID=positioning-lab
+         - POSITIONING_RESOLVER_ID=positioning-dev
        volumes:
          - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
    ```
+
+   The `positioning-acl-init` volume replaces the base file's mount of the tracked
+   `deployment/positioning-assignments.json` at the same container path.
 
    The secret files mounted by the base Compose file (broker auth and
    certificates) must also be readable by the user ID you set.
@@ -272,27 +335,41 @@ positioning/.local/
    poses, add a `scene` service to this file as described in
    [PTZ Pose Consumption in the Scene Controller](../controller/ptz-pose-consumption.md#deploy).
 
-6. Start the demo stack, then recreate only the Positioning service with the
-   override. `make demo` generates the root `docker-compose.yml` and starts
-   Positioning with the default configuration, which has no sources:
+6. Start the demo stack, then apply the override. `make demo` generates the root
+   `docker-compose.yml` and starts Positioning with the default configuration, which
+   has no sources, and a broker ACL rendered from the tracked default manifest:
 
    ```bash
    SUPASS=<password> make build-core demo
    ```
 
-   From the repository root, apply the override and follow the service logs:
+   From the repository root, regenerate the ACL, restart the broker so it loads the
+   ACL, recreate Positioning and Manager, and follow the service logs:
 
    ```bash
-   docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml \
-     --profile controller up -d positioning web
+   COMPOSE="docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml --profile controller"
+   $COMPOSE up --force-recreate --exit-code-from positioning-acl-init positioning-acl-init \
+     && $COMPOSE up -d --no-deps --force-recreate broker \
+     && $COMPOSE up -d positioning web
    docker compose logs -f positioning
    ```
 
-   The first command merges the override into the `positioning` and `web` services
-   and recreates only those containers. The broker and other services keep running. Use
-   `--profile tracker` instead if the stack runs the Tracker profile. Run the
-   command again after you edit any file in `positioning/.local/`. The files are
-   read only at startup.
+   The broker reads its ACL only at startup, so it must be recreated after the ACL
+   changes. Restarting it briefly disconnects all MQTT clients; they reconnect
+   automatically. Other services keep running. `--exit-code-from` makes the chain
+   stop if the ACL cannot be rendered, for example because the manifest has an
+   invalid source ID; the broker then keeps its previous ACL. Use `--profile tracker`
+   instead if the stack runs the Tracker profile.
+
+   Run the same commands again after you edit any file in `positioning/.local/`; the
+   files are read only at startup. Always pass the override file to `docker compose`
+   for this stack. A command without it recreates `positioning-acl-init` from the
+   default manifest, and the broker denies your resolver's topics after its next
+   restart.
+
+   On startup, the broker logs
+   `New client connected ... on port 8883 ... u'positioning.<CERTDOMAIN>'`, and
+   Positioning publishes `online` on `scenescape/positioning/status/<resolver_id>`.
 
 At startup the service logs `Configured PTZ sources: [...]` and
 `PTZ source <id> connected: ...` for each camera. Default INFO logs show a short
@@ -360,7 +437,7 @@ ONVIF tools that do not compensate for skew may fail where the poller succeeds.
 
 You may still see clock-related failures in these cases:
 
-- **The camera clock drifts quickly.** One lab camera without NTP drifted about
+- **The camera clock drifts quickly.** A camera without NTP can drift about
   7 seconds per hour. Each time the drift exceeds the camera's window, one request
   fails, the clock is resynchronized, and the retry succeeds. That sample has a
   larger timestamp uncertainty. Enable NTP on the camera to avoid this.
@@ -408,6 +485,71 @@ harness combines both profiles by that ID into the immutable
 acceptance run. Services do not write local artifact files or require production
 artifact volumes. Field runs export an equivalently named bundle from structured logs.
 
+Run the deterministic Positioning replay and deployment checks with:
+
+```bash
+pytest -q tests/sscape_tests/positioning
+```
+
+These tests exercise reconnect/backoff, poller and Resolver session changes,
+sequence gaps, retained stale-pose admission, calibration invalidation/reload,
+settling, and pose math.
+
+### Hardware Acceptance Evidence
+
+`tests/data/ptz/reprojection_golden.json` is a held-out hardware measurement of the
+Positioning service: the PoseContexts it published for an AXIS M5526-E at 56 stops
+(pan, tilt and all four dual-axis directions, each approached from both sides, two
+repetitions), scored against AprilTags detected after each stop. It contains the
+Manager calibration and home pose, each stop's ONVIF trace, the published
+PoseContext, and the tag correspondences; no images or credentials.
+`tests/data/ptz/acceptance_profile.json` holds the budgets per MOT profile.
+`test_positioning_hardware_golden.py` recomputes the accuracy metrics with the
+Controller's projection code, replays the ONVIF traces through the production
+Resolver (which must reproduce every published pose exactly and never validate a
+moving sample), and checks the results against the profile:
+
+| Metric (`controller-enforce` profile)                     | Budget          | Measured          |
+| --------------------------------------------------------- | --------------- | ----------------- |
+| Ground-plane error, p95 / max                             | 0.25 m / 0.25 m | 0.031 m / 0.045 m |
+| Reprojection error, p95 / max (2688x1512)                 | 20 px / 25 px   | 14.9 px / 18.4 px |
+| PoseContext latency (sample to MQTT receipt), p95 / max   | 0.1 s / 0.2 s   | 0.026 s / 0.052 s |
+| Post-motion availability after mechanical stop, p95 / max | < 1 s / < 1 s   | 0.69 s / 0.71 s   |
+| Valid PoseContexts sampled while moving                   | 0               | 0                 |
+
+The static home calibration alone measures 14.7 px p95, so PTZ motion adds little
+error. The budgets apply to `poll_interval_s` 0.05 and `move_status: get_status`;
+on this camera the `PTZController/Move` event reported the stop about 0.5 s late,
+which raised post-motion availability to 1.13 s mean. Lower `poll_interval_s` also
+raises the Controller's parked-camera frame admission (see
+[PTZ Pose Consumption](../controller/ptz-pose-consumption.md)): 20% at 0.2 s,
+40% at 0.1 s and 68% at 0.05 s for a pipeline with about 40 ms detection latency.
+Size `sample_ring_buffer_size` for the shorter interval.
+
+These values apply to the measured camera and configuration only. Before enabling a
+consumer for another camera, firmware, calibration, or Positioning configuration,
+repeat the same held-out measurement on that hardware and review the budgets. The
+measurement does not yet cover MOT track continuity with people in the scene, Tracker
+consumption, or the full ONVIF travel range. Do not enable a consumer in production until its own profile
+passes.
+
+Live recovery checks on the same deployment (camera parked, Controller enforcing,
+observer on the regular broker listener) all failed closed: no PoseContext sampled
+before or during an outage was received as valid afterwards, and the Controller
+rejected frames as `sample_stale` until fresh poses returned.
+
+| Scenario                             | Observed                                                                 | First fresh valid pose |
+| ------------------------------------ | ------------------------------------------------------------------------ | ---------------------- |
+| Positioning restart                  | Publishing stops at SIGTERM; status `offline`, then `online`; `settling` | 1.9 s after start      |
+| Broker restart                       | All clients reconnect; Controller resubscribes                           | 0.9 s after restart    |
+| Adapter stall (3 s, no samples)      | No poses; continuity gap restarts settling                               | 0.6 s after resume     |
+| Positioning stopped, late subscriber | Retained pose already past `valid_until`; retained status `offline`      | 2.0 s after start      |
+
+Positioning stops publishing poses immediately on SIGTERM, but its retained `offline`
+status follows about 5.6 s later while workers shut down; consumers rely on
+`valid_until` rather than that status. Calibration invalidation and reload are covered
+by the software replay tests above.
+
 ## Deployments and Rollback
 
 Demo, deploy, and Compose tests include the Positioning service with the Scene
@@ -416,6 +558,19 @@ has one replica and uses a `Recreate` rollout to prevent old and new resolver po
 from publishing simultaneously for the same source. This preserves single-writer
 ownership at the cost of a brief interruption during upgrades. Do not scale the
 deployment above one replica; the service has no leader election.
+
+The Controller PTZ modes, `CONTROLLER_PTZ_ENABLED` and `CONTROLLER_PTZ_SHADOW_MODE`
+(Helm: `scene.ptz.enabled`, `scene.ptz.shadowMode`), are `false` by default and
+mutually exclusive. Keep both off until the Controller's shadow gate passes. The
+Tracker does not consume poses yet.
+
+When Positioning sources are configured in Helm, set
+`positioning.networkPolicy.cameraCIDRs` to the exact camera address ranges and
+`positioning.networkPolicy.cameraPorts` to the ONVIF TCP ports. The chart denies
+all Positioning ingress and restricts egress to DNS, Manager HTTPS, broker mTLS,
+NTP, and those camera addresses. Helm fails closed if sources are configured
+without camera CIDRs. Docker Compose does not provide equivalent egress ACLs;
+apply the same restrictions with the host firewall or deployment network policy.
 
 For Helm ONVIF credentials, prefer a pre-created Kubernetes Secret and set
 `positioning.onvifCredentials.existingSecret` to its name. Store one key named

@@ -70,6 +70,39 @@ The following profiles are available:
 | `cluster-analytics` | Enables cluster-analytics service.                                                         |
 | `tracker`           | Tracker + Analytics + Positioning (no Scene Controller). Used by `make demo-tracker`.      |
 
+The production Compose broker provides a dedicated Positioning mTLS listener on
+port 8883. Its startup helper renders the Positioning ACL from
+`deployment/positioning-assignments.json`; the service can publish only the status
+and pose topics assigned to its resolver and read only those cameras' configuration
+invalidations. Protect ONVIF camera traffic with the host firewall: Compose does not
+provide portable egress CIDR policies.
+
+This listener lives in
+`dlstreamer-pipeline-server/mosquitto/mosquitto-secure-positioning.conf`, which the
+production Compose file and the Helm chart load. Mosquitto exits if that
+configuration cannot open `/mosquitto/acl/positioning.acl`, so mount the generated
+ACL wherever you use it. Test, performance, and hierarchy stacks keep loading
+`mosquitto-secure.conf`, which has no Positioning listener. Keep the 1883 and 1884
+listeners identical in both files.
+
+The ACL names the Positioning client certificate's common name,
+`positioning.<CERTDOMAIN>`, which the broker uses as the MQTT username. `make .env`
+writes it as `POSITIONING_CERT_IDENTITY` from the same `CERTDOMAIN` used to generate
+the certificates. When you run Compose directly with certificates for a custom
+domain, set `POSITIONING_CERT_IDENTITY` yourself; otherwise the default
+`positioning.scenescape.intel.com` matches no certificate and the broker denies all
+Positioning status, pose, and configuration traffic. After changing it, rerun
+`positioning-acl-init` and restart the broker.
+
+The broker logs that `per_listener_settings` is deprecated. This is expected:
+Mosquitto 2.1 still needs that option to apply the Positioning ACL to port 8883 only,
+without restricting clients on the other listeners. The option is scheduled for
+removal in Mosquitto 3.0, so keep the broker image on 2.x until the ACL is migrated.
+
+`CONTROLLER_PTZ_ENABLED` and `CONTROLLER_PTZ_SHADOW_MODE` default to `false`.
+Do not enable either mode until the Controller's shadow acceptance gate passes. The
+Tracker does not consume poses yet.
+
 > **ReID backends:** For raw Compose, add exactly one of `sample_data/compose/compose.vdms-override.yml` or `sample_data/compose/compose.qdrant-override.yml`. Both overrides provide the same logical `reid` service, shared host `reid.scenescape.intel.com`, port `55555`, TLS settings, and certificates. See [Selecting the ReID Vector Database Backend](../../other-topics/how-to-enable-reidentification.md#selecting-the-reid-vector-database-backend).
 
 Profiles can be specified on the command line with `--profile`:

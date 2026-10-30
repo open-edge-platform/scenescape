@@ -29,8 +29,9 @@ checks. When PTZ sources are configured, it polls each ONVIF PTZ camera, passes 
 
 ## How It Works
 
-The service connects to the MQTT broker over TLS with its own broker account
-(`positioning.auth`) and client certificate (`scenescape-positioning`). After it
+The service connects to the dedicated MQTT mTLS listener on port 8883 with its
+client certificate (`scenescape-positioning`). The broker requires that certificate
+and uses its common name as the ACL identity. After it
 connects, it publishes a retained status message and registers an offline last-will
 message on:
 
@@ -42,13 +43,14 @@ The payload contains `resolver_id`, `status` (`online` or `offline`), and
 `timestamp`. For the last-will message, the timestamp is the session start time,
 not the time the connection was lost.
 
-Manager's ACL policy grants the broker identity write access only to its own status
-topic and to resolved-pose topics (`scenescape/positioning/pose/{source_id}`), and read
-access only to camera-configuration change notifications
-(`scenescape/cmd/camera/config/{camera_id}`). Writes to any other topic, including
-another resolver's status topic, are denied. The bundled Mosquitto configuration
-does not enforce topic ACLs; deployments requiring enforcement must configure broker
-authorization as described in the [hardening guide](../../additional-resources/hardening-guide.md).
+The broker's generated ACL grants the certificate identity write access only to
+its resolver status topic and its assigned resolved-pose topics
+(`scenescape/positioning/pose/{source_id}`), and read access only to camera
+configuration invalidations for those assigned sources
+(`scenescape/cmd/camera/config/{camera_id}`). Other topic writes and another
+resolver's status topic are denied. Manager independently validates source
+ownership using the shared assignment manifest. The container reports healthy
+only while connected to the broker.
 The container reports healthy only while it is connected to the broker.
 
 ### PTZ polling
@@ -98,7 +100,7 @@ unsubscribe operations. These alternatives were evaluated:
 
 | Option                                                             | Decision and reason                                                                                                                                                                                                                              |
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `onvif-zeep` 0.2.12 (MIT)                                          | Rejected: last released in 2018 and unmaintained. The PoC needed monkey patches for drifting device clocks and Axis subscription reference parameters.                                                                                           |
+| `onvif-zeep` 0.2.12 (MIT)                                          | Rejected: last released in 2018 and unmaintained. It needs monkey patches for drifting device clocks and Axis subscription reference parameters.                                                                                                 |
 | `onvif-zeep-async` (MIT)                                           | Not selected: it is maintained, but it is async-only and pulls in zeep, lxml, httpx, and their transitive tree, which must all be hash-pinned. It also loads WSDLs at startup, while the poller needs fewer than ten operations.                 |
 | `dlstreamer.onvif`                                                 | Rejected: it is not published as a package, and the plan forbids cloning or vendoring source during an image build.                                                                                                                              |
 | In-tree SOAP (`requests`, `defusedxml`) (Apache-2.0, MIT, PSF-2.0) | Selected: two small, actively maintained dependencies that support Python 3.11. Device XML is parsed with DTDs and entities forbidden, and responses are limited to 1 MiB. The client times the actual HTTP exchange for the midpoint timestamp. |
@@ -328,7 +330,8 @@ The service accepts these command-line options:
 ## Deploy
 
 On Kubernetes, enable the service with `positioning.enabled=true` and configure
-sources, resolver limits, assignments, and ONVIF credential Secrets through the
+sources, resolver limits, assignments, ONVIF credential Secrets, and camera
+network allowlists through the
 `positioning.*` Helm values. See
 [Deploy Scenescape on Kubernetes](../../how-to-guides/deployment/deploy-kubernetes.md#configure-the-positioning-service)
 for the related Helm values. The chart runs one replica, because only one instance may

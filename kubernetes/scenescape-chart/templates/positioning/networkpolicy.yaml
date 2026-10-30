@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.positioning.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-positioning
+spec:
+  podSelector:
+    matchLabels:
+      app: {{ .Release.Name }}-positioning
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Release.Name }}-broker
+      ports:
+        - protocol: TCP
+          port: 8883
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Release.Name }}-web
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - podSelector:
+            matchLabels:
+              app: {{ .Release.Name }}-ntpserv
+      ports:
+        - protocol: UDP
+          port: 123
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- range .Values.positioning.networkPolicy.cameraCIDRs }}
+    - to:
+        - ipBlock:
+            cidr: {{ . | quote }}
+{{- if not $.Values.positioning.networkPolicy.cameraPorts }}
+{{- fail "positioning.networkPolicy.cameraPorts must not be empty when cameraCIDRs is set" }}
+{{- end }}
+      ports:
+{{- range $.Values.positioning.networkPolicy.cameraPorts }}
+        - protocol: TCP
+          port: {{ . }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -950,6 +950,7 @@ video-source-down:
 	@echo "CONTROLLER_TRACING_ENDPOINT=$(CONTROLLER_TRACING_ENDPOINT)" >> $@
 	@echo "CONTROLLER_TRACING_SAMPLE_RATIO=$(CONTROLLER_TRACING_SAMPLE_RATIO)" >> $@
 	@echo "SCENESCAPE_ALLOWED_HOSTS=*" >> $@
+	@echo "POSITIONING_CERT_IDENTITY=positioning.$(CERTDOMAIN)" >> $@
 
 # =========================== Sample App =============================
 

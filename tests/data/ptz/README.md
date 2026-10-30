@@ -3,14 +3,12 @@
 | File                         | Purpose                                                                                                                                                                                       |
 | ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dwell_conformance.json`     | Shared dwell-admission vectors. The Controller and Tracker suites load this file unmodified. The Controller replays it in `tests/sscape_tests/scenescape/test_controller_ptz_conformance.py`. |
-| `provisional_pose_math.json` | Development-only pose-math fixture that uses PoC values (`"provisional": true`). It is not golden data.                                                                                       |
+| `provisional_pose_math.json` | Development-only pose-math fixture with early measured values and placeholders (`"provisional": true`). It is not golden data.                                                                |
+| `reprojection_golden.json`   | Held-out hardware measurement used by `test_positioning_hardware_golden.py`: calibration, ONVIF traces, published PoseContexts and AprilTag correspondences. No images.                       |
+| `acceptance_profile.json`    | Acceptance budgets per MOT profile, checked against the golden measurement.                                                                                                                   |
 
-The provisional fixture pins its source PoC commit and fitting-script path/revision
-in `ptz_calibration.provenance`. The pinned snapshot is
-`843ea793830dc48383ea0beebee16bd4462f9667`; the fitting script is
-`ptz_pose_service/tools/fit_ptz_curves.py` at that same commit. These pins document
-the development fixture's derivation only and do not make it validated calibration
-data.
+`source.measured` and `source.placeholders` list which provisional values were
+measured and which are placeholders. The fixture is not validated calibration data.
 
 ## `dwell_conformance.json` Format
 
