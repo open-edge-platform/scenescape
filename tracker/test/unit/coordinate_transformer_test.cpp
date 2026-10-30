@@ -12,16 +12,20 @@
  */
 
 #include "coordinate_transformer.hpp"
+#include "reid_sighting.hpp"
 #include "tracking_types.hpp"
 
 #include <gtest/gtest.h>
 #include <opencv2/calib3d.hpp>
+#include <rapidjson/document.h>
 
 #include <array>
 #include <cmath>
 #include <numbers>
 #include <optional>
 #include <span>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 namespace tracker {
@@ -834,18 +838,151 @@ TEST(CoordinateTransformerTest, FixedFootprintHalfOverridesProjectedWidthOffset)
 // metadata_json passthrough tests
 //
 
-TEST(TransformDetectionsTest, MetadataJson_PreservedThroughTransform) {
+TEST(TransformDetectionsTest, MissingSightingContextPreservesOnlyNonReidFields) {
     auto transformer = make_transformer(kCameraAtaqQcam1);
 
     Detection det = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
-    det.metadata_json = R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})";
+    det.metadata_json = R"({"age":{"label":"adult"}})";
+    det.reid_json = R"({"model_name":"test"})";
 
     auto result = transformer.transformDetections(std::vector<Detection>{det});
 
     ASSERT_EQ(result.size(), 1u);
-    ASSERT_TRUE(result[0].attributes.count("metadata_json"));
-    EXPECT_EQ(result[0].attributes.at("metadata_json"),
-              R"({"reid":{"model_name":"test"},"age":{"label":"adult"}})");
+    EXPECT_EQ(result[0].attributes.count("metadata_json"), 0u);
+    EXPECT_EQ(result[0].attributes.count("metadata.reid"), 0u);
+    EXPECT_EQ(result[0].attributes.count("metadata_provenance.reid"), 0u);
+    EXPECT_EQ(result[0].attributes.at("metadata.age"), R"({"label":"adult"})");
+}
+
+TEST(TransformDetectionsTest, MetadataAndSightingShareDetectionPayload) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    detection.metadata_json = R"({"age":{"label":"adult"}})";
+    detection.reid_json = R"({"embedding_vector":[[1.25,2.5]],"confidence":0.8})";
+    detection.reid_confidence = 0.8;
+    DetectionBatch batch;
+    batch.camera_id = "cam-1";
+    batch.timestamp_iso = "2026-01-27T12:00:00Z";
+    batch.detections.push_back(detection);
+    ReidSightingIndex reid_sightings;
+    reid_sightings.reset("chunk-1");
+    const auto context = reid_sightings.add_batch(batch);
+
+    auto result = transformer.transformDetections(batch.detections, context);
+
+    ASSERT_EQ(result.size(), 1u);
+    const auto& attributes = result[0].attributes;
+    rapidjson::Document sighting;
+    EXPECT_EQ(attributes.at("metadata.reid"), "chunk-1:0");
+    ASSERT_FALSE(sighting.Parse(reid_sightings.take(attributes).c_str()).HasParseError());
+    EXPECT_DOUBLE_EQ(sighting["reid"]["embedding_vector"][0][0].GetDouble(), 1.25);
+    EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+    EXPECT_STREQ(sighting["timestamp"].GetString(), "2026-01-27T12:00:00Z");
+    EXPECT_FALSE(sighting.HasMember("chunk_id"));
+    EXPECT_EQ(attributes.at("metadata_provenance.reid"), "chunk-1");
+    EXPECT_EQ(attributes.at("metadata_transient.reid"), "1");
+    EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 100.0);
+    EXPECT_DOUBLE_EQ(std::stod(attributes.at("metadata_confidence.reid")), 0.8);
+    EXPECT_EQ(attributes.count("metadata_json"), 0u);
+    EXPECT_EQ(attributes.count("reid_sighting"), 0u);
+}
+
+TEST(TransformDetectionsTest, SensorFrameReidWithoutPixelBoxDoesNotCreateSighting) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection;
+    detection.translation = std::array<double, 3>{1.0, 2.0, 3.0};
+    detection.size = std::array<double, 3>{4.0, 5.0, 6.0};
+    detection.reid_json = R"({"embedding_vector":[[1,2]]})";
+    DetectionBatch batch;
+    batch.camera_id = "cam-1";
+    batch.timestamp_iso = "2026-01-27T12:00:00Z";
+    batch.detections.push_back(detection);
+    ReidSightingIndex reid_sightings;
+    reid_sightings.reset("chunk-1");
+    const auto context = reid_sightings.add_batch(batch);
+
+    const auto result = transformer.transformDetections(batch.detections, context);
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_TRUE(reid_sightings.take(result[0].attributes).empty());
+    EXPECT_EQ(result[0].attributes.count("metadata.reid"), 0u);
+    EXPECT_EQ(result[0].attributes.count("metadata_provenance.reid"), 0u);
+}
+
+TEST(TransformDetectionsTest, MismatchedSightingSpanIsRejectedBeforeParallelWork) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    DetectionBatch batch;
+    batch.detections.resize(64);
+    ReidSightingIndex index;
+    index.reset("chunk");
+    const auto context = index.add_batch(batch);
+    const auto detections = std::span<const Detection>(batch.detections);
+    const auto other_detections = batch.detections;
+
+    EXPECT_THROW(transformer.transformDetections(detections.first(32), context),
+                 std::invalid_argument);
+    EXPECT_THROW(transformer.transformDetections(other_detections, context), std::invalid_argument);
+    EXPECT_THROW(transformer.transformDetections(detections.subspan(1), context),
+                 std::invalid_argument);
+}
+
+TEST(TransformDetectionsTest, LegacyReidEncodingsAreWrappedWithoutDroppingTheVector) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    for (const auto& payload : {R"({"reid":[[1.25,2.5]]})", R"({"reid":"AACAPwAAAEA="})"}) {
+        Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+        rapidjson::Document original;
+        ASSERT_FALSE(original.Parse(payload).HasParseError());
+        parse_detection_metadata(original, detection);
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp_iso = "2026-01-27T12:00:00Z";
+        batch.detections.push_back(detection);
+        ReidSightingIndex reid_sightings;
+        reid_sightings.reset("chunk-1");
+        const auto context = reid_sightings.add_batch(batch);
+        auto result = transformer.transformDetections(batch.detections, context);
+        ASSERT_EQ(result.size(), 1u);
+        rapidjson::Document sighting;
+        ASSERT_FALSE(
+            sighting.Parse(reid_sightings.take(result[0].attributes).c_str()).HasParseError());
+        EXPECT_EQ(sighting["reid"]["embedding_vector"], original["reid"]);
+        EXPECT_EQ(result[0].attributes.count("metadata_json"), 0u);
+        EXPECT_EQ(result[0].attributes.count("reid_sighting"), 0u);
+    }
+}
+
+TEST(TransformDetectionsTest, EmbeddedNullSuffixIsRejectedAsInvalidJson) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    detection.metadata_json = R"({"age":{"label":"adult"}})" + std::string("\0junk", 5);
+
+    const auto result = transformer.transformDetections(std::vector<Detection>{detection});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_EQ(result[0].attributes.count("metadata.age"), 0u);
+}
+
+TEST(TransformDetectionsTest, IncompleteSightingContextDoesNotProduceInvalidSightings) {
+    auto transformer = make_transformer(kCameraAtaqQcam1);
+    Detection detection = make_detection(590.0f, 260.0f, 100.0f, 200.0f, 1);
+    detection.reid_json = R"({"embedding_vector":[[1,2]]})";
+    const std::vector<std::array<std::string, 3>> contexts = {
+        {"", "2026-01-27T12:00:00Z", "chunk-1"},
+        {"cam-1", "", "chunk-1"},
+        {"cam-1", "2026-01-27T12:00:00Z", ""}};
+    for (const auto& context : contexts) {
+        DetectionBatch batch;
+        batch.camera_id = context[0];
+        batch.timestamp_iso = context[1];
+        batch.detections.push_back(detection);
+        ReidSightingIndex index;
+        index.reset(context[2]);
+        const auto sightings = index.add_batch(batch);
+        auto result = transformer.transformDetections(batch.detections, sightings);
+        ASSERT_EQ(result.size(), 1u);
+        EXPECT_EQ(result[0].attributes.count("metadata.reid"), 0u);
+        EXPECT_EQ(result[0].attributes.count("metadata_provenance.reid"), 0u);
+    }
 }
 
 //

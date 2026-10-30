@@ -3,13 +3,31 @@
     "test_name": "Vision_AI/SSCAPE/API/SENSOR/01: Create sensor with valid required properties",
     "test_steps": [
       {
+        "step_name": "Create scene for sensor tests",
+        "api": "scene",
+        "method": "createScene",
+        "request": {
+          "body": {
+            "name": "API_Sensor_Test_Scene",
+            "use_tracker": true,
+            "output_lla": false
+          }
+        },
+        "expected_status": {
+          "status_code": 201
+        },
+        "save": {
+          "SENSOR_SCENE_UID": "uid"
+        }
+      },
+      {
         "step_name": "Create minimal sensor",
         "api": "sensor",
         "method": "createSensor",
         "request": {
           "body": {
             "name": "sensor_minimal",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "sensor_id": "sensor_minimal",
             "area": "circle",
             "radius": 2.5,
@@ -36,7 +54,7 @@
         "request": {
           "body": {
             "name": "sensor_full",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "sensor_id": "sensor_full",
             "area": "circle",
             "radius": 2.5,
@@ -81,7 +99,7 @@
         "request": {
           "body": {
             "name": "sensor_entire_scene",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "sensor_id": "sensor_entire_scene",
             "area": "scene",
             "translation": [1, 1, 1],
@@ -124,7 +142,7 @@
         "request": {
           "body": {
             "name": "sensor_polygon",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "sensor_id": "sensor_polygon",
             "area": "poly",
             "points": [
@@ -171,7 +189,7 @@
         "method": "createSensor",
         "request": {
           "body": {
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "sensor_id": "sensor_missing_name",
             "area": "circle",
             "radius": 2.5,
@@ -216,7 +234,7 @@
             "name": "bad_points",
             "area": "poly",
             "points": [[1]],
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+            "scene": "${SENSOR_SCENE_UID}"
           }
         },
         "expected_status": {
@@ -235,7 +253,7 @@
         "request": {
           "body": {
             "name": "circle_no_radius",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "area": "circle",
             "center": [1, 2]
           }
@@ -256,7 +274,7 @@
         "request": {
           "body": {
             "name": "polygon_no_points",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "area": "poly"
           }
         },
@@ -276,7 +294,7 @@
         "request": {
           "body": {
             "name": "bad_center",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "area": "circle",
             "center": [1]
           }
@@ -297,7 +315,7 @@
         "request": {
           "body": {
             "name": "bad_color_range",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "color_ranges": {}
           }
         },
@@ -322,7 +340,7 @@
         },
         "expected_body": {
           "uid": "${SENSOR_UID_MINIMAL}",
-          "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+          "scene": "${SENSOR_SCENE_UID}",
           "sensor_id": "sensor_minimal",
           "name": "sensor_minimal",
           "area": "circle",
@@ -360,7 +378,7 @@
         "method": "getSensors",
         "request": {
           "filter": {
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+            "scene": "${SENSOR_SCENE_UID}"
           }
         },
         "expected_status": {
@@ -373,7 +391,7 @@
           "results": [
             {
               "uid": "${SENSOR_UID_MINIMAL}",
-              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "scene": "${SENSOR_SCENE_UID}",
               "sensor_id": "sensor_minimal",
               "name": "sensor_minimal",
               "area": "circle",
@@ -385,7 +403,7 @@
             },
             {
               "uid": "${SENSOR_UID_FULL}",
-              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "scene": "${SENSOR_SCENE_UID}",
               "sensor_id": "sensor_full",
               "name": "sensor_full",
               "area": "circle",
@@ -414,7 +432,7 @@
             },
             {
               "uid": "${SENSOR_UID_ENTIRE}",
-              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "scene": "${SENSOR_SCENE_UID}",
               "sensor_id": "sensor_entire_scene",
               "name": "sensor_entire_scene",
               "area": "scene",
@@ -441,7 +459,7 @@
             },
             {
               "uid": "${SENSOR_UID_POLYGON}",
-              "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+              "scene": "${SENSOR_SCENE_UID}",
               "sensor_id": "sensor_polygon",
               "name": "sensor_polygon",
               "area": "poly",
@@ -487,7 +505,7 @@
           "uid": "${SENSOR_UID_MINIMAL}",
           "body": {
             "name": "sensor_minimal_updated",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c"
+            "scene": "${SENSOR_SCENE_UID}"
           }
         },
         "expected_status": {
@@ -554,7 +572,7 @@
           "uid": "${SENSOR_UID_MINIMAL}",
           "body": {
             "name": "sensor_minimal_updated",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "area": "poly",
             "points": [
               [1, 1],
@@ -580,7 +598,7 @@
           "uid": "${SENSOR_UID_FULL}",
           "body": {
             "name": "sensor_full",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "sensor_id": "sensor_full",
             "area": "circle",
             "radius": 2.5,
@@ -623,7 +641,7 @@
           "uid": "${SENSOR_UID_MINIMAL}",
           "body": {
             "name": "sensor_minimal_updated",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "area": "poly",
             "points": [[2]]
           }
@@ -645,7 +663,7 @@
           "uid": "${SENSOR_UID_FULL}",
           "body": {
             "name": "sensor_full",
-            "scene": "3bc091c7-e449-46a0-9540-29c499bca18c",
+            "scene": "${SENSOR_SCENE_UID}",
             "sensor_id": "sensor_full",
             "area": "circle",
             "radius": 2.5,
@@ -793,6 +811,22 @@
         },
         "expected_status": {
           "status_code": 404
+        }
+      }
+    ]
+  },
+  {
+    "test_name": "Vision_AI/SSCAPE/API/SENSOR/24: Delete scene created for sensor tests",
+    "test_steps": [
+      {
+        "step_name": "Delete scene created for sensor tests",
+        "api": "scene",
+        "method": "deleteScene",
+        "request": {
+          "uid": "${SENSOR_SCENE_UID}"
+        },
+        "expected_status": {
+          "status_code": 200
         }
       }
     ]
