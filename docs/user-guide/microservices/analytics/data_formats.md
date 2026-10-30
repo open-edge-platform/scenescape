@@ -103,6 +103,14 @@ poses before events are evaluated; nonempty producer visibility is preserved.
 Each regulated publication reprojects camera bounds for all cached categories
 against the same observation poses, including categories absent from that input frame.
 
+Configured calibration and the effective live pose belong to the same runtime
+camera entry. Configuration refreshes update calibration and optics while
+preserving a camera's last valid live pose; static cameras adopt the refreshed
+configured pose. Visibility, projected bounds, and published camera poses use
+one observation snapshot. Live poses do not expire on missing or invalid input.
+Removing a camera discards its live pose, so re-registering it starts from its
+configured calibration.
+
 Each camera entry contains `id`, `translation`, `rotation`, `scale`, and
 `dynamic_pose`. Published `rotation` is always a normalized quaternion in
 `[x, y, z, w]` order, mapping camera-local axes into the scene coordinate system.

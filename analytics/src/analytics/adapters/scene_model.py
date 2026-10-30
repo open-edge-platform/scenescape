@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
+from copy import copy
+from threading import RLock
 from typing import Optional
 
 import numpy as np
@@ -12,7 +14,7 @@ from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mesh_util import createObjectMesh, createRegionMesh, getMeshAxisAlignedProjectionToXY
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_iso_time
-from scene_common.transform import CameraPose
+from scene_common.transform import CameraPose, validate_camera_extrinsics
 
 from scene_common.ingestion import SceneDataIngestion
 from analytics.analytics_models import moving_object_to_analytics_object
@@ -47,6 +49,7 @@ class AnalyticsScene(SceneModel):
     self.regulated_rate = 30
     self.external_update_rate = 30
     self._trs_xyz_to_lla = None
+    self._camera_lock = RLock()
     return
 
   def _hydrateFromSceneData(self, scene_data):
@@ -105,15 +108,39 @@ class AnalyticsScene(SceneModel):
     return
 
   def updateCameras(self, newCameras):
-    old = set(self.cameras.keys())
-    new = set([x['uid'] for x in newCameras])
-    for cameraData in newCameras:
-      camID = cameraData['uid']
-      self.cameras[camID] = Camera(camID, cameraData, resolution=cameraData['resolution'])
-    deleted = old - new
-    for camID in deleted:
-      self.cameras.pop(camID)
+    with self._camera_lock:
+      cameras = {}
+      for cameraData in newCameras:
+        camID = cameraData['uid']
+        camera = Camera(camID, cameraData, resolution=cameraData['resolution'])
+        camera.configured_pose = getattr(camera, 'pose', None)
+        previous = self.cameras.get(camID)
+        camera.dynamic_pose = getattr(previous, 'dynamic_pose', False) and camera.configured_pose is not None
+        if camera.dynamic_pose:
+          camera.pose = CameraPose(previous.pose.pose_mat.copy(), camera.configured_pose.intrinsics)
+        cameras[camID] = camera
+      self.cameras = cameras
     return
+
+  def updateCameraPose(self, camera_id, extrinsics):
+    """Apply a valid observation without changing the camera's configured calibration."""
+    with self._camera_lock:
+      current = self.cameras.get(camera_id)
+      if current is None or getattr(current, 'pose', None) is None:
+        return
+      pose = CameraPose(validate_camera_extrinsics(extrinsics), current.pose.intrinsics)
+      camera = copy(current)
+      camera.configured_pose = getattr(current, 'configured_pose', current.pose)
+      camera.pose = pose
+      camera.dynamic_pose = True
+      self.cameras[camera_id] = camera
+
+  def cameraSnapshot(self):
+    """Capture stable camera entries for one observation's projection and publication."""
+    with self._camera_lock:
+      observation = copy(self)
+      observation.cameras = dict(self.cameras)
+      return observation
 
   def _updateRegions(self, existingRegions, newRegions):
     _NOTSET = object()

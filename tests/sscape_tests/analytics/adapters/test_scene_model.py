@@ -111,6 +111,69 @@ class TestHydrateFromSceneData:
 
 class TestUpdateCameras:
 
+  @staticmethod
+  def _camera_data(uid='cam1', translation=None, focal_length=500):
+    return {
+      'uid': uid, 'resolution': [640, 480],
+      'intrinsics': {'fx': focal_length, 'fy': focal_length, 'cx': 320, 'cy': 240},
+      'translation': translation or [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
+    }
+
+  def test_refresh_preserves_live_pose_and_updates_configured_pose_and_optics(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data(), self._camera_data('static')])
+    scene.updateCameraPose('cam1', {
+      'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0], 'scale': [2, 3, 4],
+    })
+    snapshot = scene.cameraSnapshot()
+    scene.updateCameras([
+      self._camera_data(translation=[5, 6, 7], focal_length=900),
+      self._camera_data('static', translation=[8, 9, 10]),
+    ])
+    camera = scene.cameras['cam1']
+    assert camera.dynamic_pose is True
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+    assert camera.pose.scale == pytest.approx([2, 3, 4])
+    assert camera.pose.quaternion_rotation == pytest.approx([1, 0, 0, 0])
+    assert camera.configured_pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
+    assert camera.pose.intrinsics is camera.configured_pose.intrinsics
+    assert camera.pose.intrinsics is not snapshot.cameras['cam1'].pose.intrinsics
+    assert scene.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([8, 9, 10])
+    assert scene.cameras['static'].dynamic_pose is False
+    assert snapshot.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
+  def test_snapshot_retains_pose_when_next_observation_arrives(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    snapshot = scene.cameraSnapshot()
+    scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
+    assert snapshot.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+    assert scene.cameras['cam1'].configured_pose is snapshot.cameras['cam1'].pose
+
+  @pytest.mark.parametrize('observed', [False, True])
+  def test_invalid_observation_preserves_current_camera(self, observed):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    if observed:
+      scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
+    current = scene.cameras['cam1']
+    with pytest.raises(ValueError):
+      scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [0, 0, 0, 0]})
+    assert scene.cameras['cam1'] is current
+    assert current.dynamic_pose is observed
+
+  def test_deleted_and_recreated_camera_does_not_inherit_live_pose(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
+    scene.updateCameras([])
+    scene.updateCameraPose('cam1', {'translation': [99, 99, 3], 'rotation': [1, 0, 0, 0]})
+    assert scene.cameras == {}
+    scene.updateCameras([self._camera_data()])
+    assert scene.cameras['cam1'].dynamic_pose is False
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
   def test_adds_new_camera(self):
     scene = _scene()
     stub_camera = SimpleNamespace(cameraID='cam1')

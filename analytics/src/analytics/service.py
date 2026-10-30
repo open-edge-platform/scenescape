@@ -3,7 +3,6 @@
 
 import orjson
 from collections import defaultdict
-from copy import copy
 from itertools import chain
 from pathlib import Path
 
@@ -16,8 +15,6 @@ from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import get_epoch_time, get_iso_time
-from scene_common.transform import CameraPose, validate_camera_extrinsics
-from scipy.spatial.transform import Rotation as SciRotation
 
 AVG_FRAMES = 100
 
@@ -102,7 +99,13 @@ class AnalyticsService:
       'translation': pose.translation.asNumpyCartesian.tolist(),
       'rotation': pose.quaternion_rotation.tolist(),
       'scale': list(scale),
+      'dynamic_pose': getattr(camera, 'dynamic_pose', False),
     }
+
+  @staticmethod
+  def _serialize_cameras(scene):
+    return [AnalyticsService._camera_state(camera) for camera in scene.cameras.values()
+            if getattr(camera, 'pose', None) is not None]
 
   def calculateRate(self):
     now = get_epoch_time()
@@ -116,60 +119,19 @@ class AnalyticsService:
     self.regulate_last = now
     return self.regulate_rate
 
-  def _cache_dynamic_camera_pose(self, scene, camera_id, message_pose):
-    try:
-      state = validate_camera_extrinsics(message_pose)
-      if len(state['rotation']) == 3:
-        state['rotation'] = SciRotation.from_euler('XYZ', state['rotation'], degrees=True).as_quat().tolist()
-    except (TypeError, ValueError) as exc:
-      log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
-    else:
-      scene['dynamic_camera_poses'][camera_id] = state
-
-  def _update_camera_states(self, scene, cameras, jdata, camera_id):
-    scene['dynamic_camera_poses'] = {
-      cid: pose for cid, pose in scene['dynamic_camera_poses'].items() if cid in cameras
-    }
-    message_camera_id = jdata.get('camera_id') or camera_id
-    if message_camera_id in cameras and jdata.get('extrinsics') is not None:
-      self._cache_dynamic_camera_pose(scene, message_camera_id, jdata['extrinsics'])
-    states = {}
-    for cid, camera in cameras.items():
-      if getattr(camera, 'pose', None) is None:
-        continue
-      state = self._camera_state(camera)
-      dynamic_pose = scene['dynamic_camera_poses'].get(cid)
-      state['dynamic_pose'] = dynamic_pose is not None
-      if dynamic_pose:
-        state.update(dynamic_pose)
-      states[cid] = state
-    scene['camera_states'] = states
-
-  @staticmethod
-  def _scene_for_camera_poses(scene, dynamic_poses):
-    if not dynamic_poses:
-      return scene
-    observation_scene = copy(scene)
-    observation_scene.cameras = dict(scene.cameras)
-    for cid, pose in dynamic_poses.items():
-      camera = scene.cameras.get(cid)
-      if camera is None or not hasattr(camera.pose, 'intrinsics'):
-        continue
-      observation_camera = copy(camera)
-      observation_camera.pose = CameraPose(pose, camera.pose.intrinsics)
-      observation_scene.cameras[cid] = observation_camera
-    return observation_scene
-
   def _prepare_observation_scene(self, scene_obj, jdata, camera_id):
     scene_uid = scene_obj.uid
     if scene_uid not in self.regulate_cache:
       self.regulate_cache[scene_uid] = {
         'objects': {}, 'rate': {}, 'last': None,
-        'camera_states': {}, 'dynamic_camera_poses': {},
       }
-    scene = self.regulate_cache[scene_uid]
-    self._update_camera_states(scene, scene_obj.cameras, jdata, camera_id)
-    return self._scene_for_camera_poses(scene_obj, scene['dynamic_camera_poses'])
+    message_camera_id = jdata.get('camera_id') or camera_id
+    if jdata.get('extrinsics') is not None:
+      try:
+        scene_obj.updateCameraPose(message_camera_id, jdata['extrinsics'])
+      except (TypeError, ValueError) as exc:
+        log.warning(f"Ignoring invalid camera metadata for {message_camera_id}: {exc}")
+    return scene_obj.cameraSnapshot()
 
   def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id,
                                 observation_scene=None):
@@ -191,7 +153,7 @@ class AnalyticsService:
       for obj in jdata.get('objects', []):
         camera_ids.update(obj.get('visibility', []))
       scene_rate = jdata['rate']
-      configured_cameras = set(scene_obj.cameras.keys())
+      configured_cameras = set(observation_scene.cameras.keys())
       for cam_id in camera_ids:
         if cam_id in configured_cameras:
           scene['rate'][cam_id] = scene_rate
@@ -208,7 +170,7 @@ class AnalyticsService:
         'name': jdata['name'],
         'scene_rate': round(1 / update_rate, 1),
         'rate': scene['rate'],
-        'cameras': list(scene['camera_states'].values()),
+        'cameras': self._serialize_cameras(observation_scene),
       }
       if 'unique_detection_count' in jdata:
         new_jdata['unique_detection_count'] = jdata['unique_detection_count']
