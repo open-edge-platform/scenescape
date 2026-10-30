@@ -3,6 +3,7 @@
 """Find a sampled tag-visible rectangle without exceeding operator-approved limits."""
 
 import copy
+import math
 from itertools import product
 
 import numpy as np
@@ -92,7 +93,14 @@ def discover(config, output_dir, steps):
   for i, (axis, values) in enumerate((("pan", xs), ("tilt", ys))):
     home = motion["home"][i]
     selected[f"lens_{axis}"] = values
-    offsets = [v - home for v in values]
+    low, high = motion[f"{axis}_range"]
+    offsets = []
+    for value in values:
+      offset = value - home
+      if not low <= home + offset <= high:
+        # Subtraction followed by addition can round an endpoint outside its limit.
+        offset = math.nextafter(offset, 0.0)
+      offsets.append(offset)
     selected[f"{axis}_path"] = [0, *offsets, *reversed(offsets), 0]
   path = directory / "camera.discovered.json"
   write_json(path, proposed)

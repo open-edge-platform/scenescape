@@ -116,10 +116,26 @@ Configure your deployment's pipeline server with:
 - Your deployment's SceneScape image/metadata publisher, TLS CA and broker
   connection. The publisher must subscribe to
   `scenescape/cmd/camera/<uid>` and respond to `getcalibrationimage` by
-  publishing a JSON message with a base64 `image` on
+  publishing a JSON message with a base64 `image` and timezone-aware ISO 8601
+  `timestamp` (post-decode buffer time, not publication time) on
   `scenescape/image/calibration/camera/<uid>`.
 - A stable stream resolution, fixed zoom and a reachable NTP service for
   timestamped image delivery.
+
+Synchronize the runner and timestamp-producing host (or camera when using frame
+NTP timestamps). `mqtt.max_clock_skew_s` is the maximum absolute difference
+between their clocks in seconds (default `0.1`, finite and non-negative).
+Choose a bound that your time synchronization actually guarantees; avoid clock
+steps during measurement. After ONVIF arrival and `settle_s`, the tool records
+the image-request time. It accepts a frame only if its timestamp **minus this
+skew bound** is at or after that request, and the timestamp is no more than
+the skew bound ahead of receipt. This is a conservative safety margin, not
+permission to accept older frames. Retained/pre-request messages are ignored;
+missing, invalid, stale or implausibly future timestamps abort capture/discovery
+rather than becoming visibility gaps. Fix backlog or synchronization before
+retrying; increase settling time if needed. Captures save `frame_timestamp`.
+Post-decode timestamps cannot reveal buffering upstream of the decoder; keep
+that buffering bounded and include it in your settling delay.
 
 Verify that its pipeline reports `RUNNING` and Manager shows live video,
 then run the tool's `check` command. A plain RTSP preview or successful person
@@ -216,6 +232,8 @@ per axis that includes home and the approach coordinates. It writes:
 
 Review these files, then use `camera.discovered.json` as `--config` for
 `onboard` and `apply`. The original config and safe travel limits are unchanged.
+If floating-point reconstruction would put a generated path endpoint outside
+those limits, its offset is moved one representable step toward zero.
 Only sampled grid points are checked; visibility between points, image-edge
 coverage and lens-fit conditioning are not guaranteed. If no suitable rectangle
 exists, discovery fails explicitly. Improve the scene, change the home or refine

@@ -5,6 +5,7 @@
 import base64
 import contextlib
 import copy
+from datetime import datetime, timezone
 import io
 import tempfile
 import unittest
@@ -134,6 +135,20 @@ class ConfigurationTests(unittest.TestCase):
       self.assertEqual(path.stat().st_mode & 0o777, 0o600)
       with self.assertRaises(FileExistsError):
         config.write_json(path, {"value": 2})
+
+  def test_clock_skew_must_be_finite_nonnegative_even_without_motion(self):
+    for skew in (-0.1, True, "0.1", float("inf"), float("nan")):
+      with self.subTest(skew=skew), tempfile.TemporaryDirectory() as directory:
+        value = settings()
+        value["mqtt"]["max_clock_skew_s"] = skew
+        path = Path(directory) / "camera.json"
+        # Non-finite JSON is already forbidden by write_json.
+        with patch("config.read_json", return_value=value), self.assertRaises(ValueError):
+          config.load_config(path, motion_mode="probe")
+    for skew in (0, 0.1):
+      value = settings()
+      value["mqtt"]["max_clock_skew_s"] = skew
+      self.assertEqual(self.load(value)["mqtt"]["max_clock_skew_s"], skew)
 
 
 class GeometryTests(unittest.TestCase):
@@ -274,6 +289,49 @@ class DiscoveryTests(unittest.TestCase):
       self.assertGreaterEqual(len(proposed["motion"]["lens_pan"]), 3)
       self.assertEqual(proposed["motion"]["pan_path"][-1], 0)
 
+  def test_discovered_offsets_round_inward_without_relaxing_move_bounds(self):
+    value = settings()
+    value["motion"].update(home=[-0.2, 0.2], pan_range=[-0.4, 0.1], tilt_range=[-0.1, 0.4])
+    stop = {"points_2d": [[1, 2]] * 6, "resolution": [1280, 960]}
+    with tempfile.TemporaryDirectory() as directory, \
+         patch("discovery.Camera") as camera, patch("discovery.Manager"), \
+         patch("discovery.Tags") as tags, contextlib.redirect_stdout(io.StringIO()):
+      camera.return_value.move.side_effect = lambda p, t: [p, t]
+      tags.return_value.collect.return_value = stop
+      output = Path(directory) / "coverage"
+      discovery.discover(value, output, 3)
+      proposed = config.load_config(output / "camera.discovered.json")
+    mover = devices.Camera.__new__(devices.Camera)
+    mover.motion = proposed["motion"]
+    mover.token, mover.zoom = "profile", None
+    mover.space, mover.ptz = {"uri": "native"}, Mock()
+
+    def feedback(*args):
+      position = mover.ptz.AbsoluteMove.call_args.args[0]["Position"]["PanTilt"]
+      return SimpleNamespace(Position=SimpleNamespace(
+        PanTilt=SimpleNamespace(x=position["x"], y=position["y"]), Zoom=None), MoveStatus=None)
+
+    mover.ptz.GetStatus.side_effect = feedback
+    for i, axis in enumerate(("pan", "tilt")):
+      original = value["motion"]
+      low, high = original[f"{axis}_range"]
+      home = original["home"][i]
+      endpoint = high if i == 0 else low
+      raw_offset = endpoint - home
+      self.assertFalse(low <= home + raw_offset <= high)
+      self.assertEqual(proposed["motion"][f"{axis}_range"], [low, high])
+      offsets = proposed["motion"][f"{axis}_path"]
+      self.assertIn(np.nextafter(raw_offset, 0.0), offsets)
+      for offset in offsets:
+        target = original["home"].copy()
+        target[i] += offset
+        with patch("devices.time.sleep"):
+          self.assertEqual(mover.move(*target), target)
+      unsafe = original["home"].copy()
+      unsafe[i] = home + raw_offset
+      with self.assertRaisesRegex(ValueError, "outside configured safe limits"):
+        mover.move(*unsafe)
+
   def test_transport_failure_aborts_discovery_but_returns_home_and_saves_report(self):
     with tempfile.TemporaryDirectory() as directory, \
          patch("discovery.Camera") as camera, patch("discovery.Manager"), \
@@ -296,6 +354,20 @@ class DiscoveryTests(unittest.TestCase):
         stop, RuntimeError("AprilTag calibration failed: Missing internal state")]
       output = Path(directory) / "coverage"
       with self.assertRaisesRegex(RuntimeError, "Missing internal state"):
+        discovery.discover(settings(), output, 3)
+      camera.return_value.move.assert_called_once()
+      self.assertEqual(camera.return_value.home.call_count, 2)
+      self.assertEqual(config.read_json(output / "coverage.json")["observations"], [])
+      self.assertFalse((output / "camera.discovered.json").exists())
+
+  def test_stale_frame_aborts_discovery_instead_of_becoming_a_visibility_gap(self):
+    stop = {"points_2d": [[1, 2]] * 6, "resolution": [1280, 960]}
+    with tempfile.TemporaryDirectory() as directory, \
+         patch("discovery.Camera") as camera, patch("discovery.Manager"), \
+         patch("discovery.Tags") as tags:
+      tags.return_value.collect.side_effect = [stop, ValueError("Stale calibration frame")]
+      output = Path(directory) / "coverage"
+      with self.assertRaisesRegex(ValueError, "Stale calibration frame"):
         discovery.discover(settings(), output, 3)
       camera.return_value.move.assert_called_once()
       self.assertEqual(camera.return_value.home.call_count, 2)
@@ -375,7 +447,8 @@ class DeviceWorkflowTests(unittest.TestCase):
 
   def test_mqtt_waits_for_suback_and_ignores_retained_frames(self):
     import paho.mqtt.client as mqtt
-    with patch("paho.mqtt.client.Client") as factory, patch("devices.read_json") as account:
+    with patch("paho.mqtt.client.Client") as factory, patch("devices.read_json") as account, \
+         patch("devices.time.time", side_effect=[1000, 1001]):
       account.return_value = {"user": "unused", "password": "unused"}
       client = factory.return_value
       client.publish.return_value.rc = mqtt.MQTT_ERR_SUCCESS
@@ -384,23 +457,79 @@ class DeviceWorkflowTests(unittest.TestCase):
         if not client.publish.called:
           client.on_connect(client, None, None, SimpleNamespace(is_failure=False), None)
           client.on_subscribe(client, None, 1, [SimpleNamespace(is_failure=False)], None)
+          client.on_message(client, None, SimpleNamespace(
+            retain=False, payload=b'{"image":"pre-request"}'))
         else:
           client.on_message(client, None, SimpleNamespace(retain=True, payload=b'{"image":"old"}'))
-          client.on_message(client, None, SimpleNamespace(retain=False, payload=b'{"image":"fresh"}'))
+          client.on_message(client, None, SimpleNamespace(
+            retain=False, payload=b'{"image":"fresh","timestamp":"1970-01-01T00:16:40.500Z"}'))
         return mqtt.MQTT_ERR_SUCCESS
 
       client.loop.side_effect = network_loop
       tags = devices.Tags(settings())
-      self.assertEqual(tags.image(), "fresh")
+      self.assertEqual(tags.image(), {"image": "fresh", "timestamp": "1970-01-01T00:16:40.500Z"})
       client.tls_set.assert_called_once_with(ca_certs=settings()["ca_cert"])
       client.publish.assert_called_once_with(
         "scenescape/cmd/camera/my-camera", "getcalibrationimage", qos=1)
       client.disconnect.assert_called_once()
 
+  def test_mqtt_rejects_stale_unverifiable_and_future_frames_before_calibration(self):
+    import json
+    import paho.mqtt.client as mqtt
+
+    def timestamp(seconds):
+      return datetime.fromtimestamp(seconds, timezone.utc).isoformat()
+
+    cases = [
+      ({}, "requires"),
+      ({"timestamp": None}, "requires"),
+      ({"timestamp": 1000.5}, "requires"),
+      ({"timestamp": "invalid"}, "Invalid"),
+      ({"timestamp": "NaN"}, "Invalid"),
+      ({"timestamp": "1970-01-01T00:16:40.500"}, "timezone"),
+      ({"timestamp": timestamp(999.99)}, "Stale"),
+      ({"timestamp": timestamp(1000.249999)}, "Stale"),
+      ({"timestamp": timestamp(1001.250001)}, "future"),
+    ]
+    for payload, reason in cases:
+      with self.subTest(payload=payload), \
+           patch("paho.mqtt.client.Client") as factory, patch("devices.read_json") as account, \
+           patch("devices.time.time", side_effect=[1000, 1001]):
+        account.return_value = {"user": "unused", "password": "unused"}
+        client = factory.return_value
+        client.publish.return_value.rc = mqtt.MQTT_ERR_SUCCESS
+
+        def network_loop(**kwargs):
+          if not client.publish.called:
+            client.on_subscribe(client, None, 1, [SimpleNamespace(is_failure=False)], None)
+          else:
+            client.on_message(client, None, SimpleNamespace(
+              retain=False, payload=json.dumps({"image": "unused", **payload}).encode()))
+          return mqtt.MQTT_ERR_SUCCESS
+
+        client.loop.side_effect = network_loop
+        value = settings()
+        value["mqtt"]["max_clock_skew_s"] = 0.25
+        tags = devices.Tags(value)
+        tags.session = Mock()
+        with self.assertRaisesRegex(ValueError, reason) as raised:
+          tags.collect()
+        self.assertNotIsInstance(raised.exception, devices.TagCoverageError)
+        tags.session.post.assert_not_called()
+        client.disconnect.assert_called_once()
+
+  def test_timestamp_policy_accepts_exact_boundaries_and_explicit_timezones(self):
+    for timestamp in ("1970-01-01T00:16:40.250Z", "1970-01-01T00:16:41.250+00:00",
+                      "1970-01-01T01:16:40.500+01:00"):
+      with self.subTest(timestamp=timestamp):
+        devices._validate_frame_timestamp({"timestamp": timestamp}, 1000, 1001, 0.25)
+    devices._validate_frame_timestamp({"timestamp": "1970-01-01T00:16:40Z"}, 1000, 1001, 0)
+
   def test_calibration_polls_and_errors_are_not_success_shaped(self):
     import cv2
     _, image = cv2.imencode(".jpg", np.zeros((48, 64, 3), dtype=np.uint8))
-    with patch("devices.Tags.image", return_value=base64.b64encode(image).decode()), \
+    frame = {"image": base64.b64encode(image).decode(), "timestamp": "2026-10-30T12:00:00Z"}
+    with patch("devices.Tags.image", return_value=frame), \
          patch("devices.time.sleep"):
       tags = devices.Tags(settings())
       tags.session = Mock()
@@ -410,7 +539,9 @@ class DeviceWorkflowTests(unittest.TestCase):
                                 "calibration_points_2d": [[1, 2]] * 6,
                                 "calibration_points_3d": [[1, 2, 3]] * 6}
       tags.session.get.side_effect = [busy, done]
-      self.assertEqual(tags.collect()["resolution"], [64, 48])
+      stop = tags.collect()
+      self.assertEqual(stop["resolution"], [64, 48])
+      self.assertEqual(stop["frame_timestamp"], frame["timestamp"])
       done.json.return_value = {"status": "error", "message": "no tags"}
       tags.session.get.side_effect = [done]
       with self.assertRaisesRegex(RuntimeError, "no tags"):
@@ -419,7 +550,8 @@ class DeviceWorkflowTests(unittest.TestCase):
   def test_backend_errors_never_become_coverage_gaps(self):
     import cv2
     _, image = cv2.imencode(".jpg", np.zeros((48, 64, 3), dtype=np.uint8))
-    with patch("devices.Tags.image", return_value=base64.b64encode(image).decode()):
+    frame = {"image": base64.b64encode(image).decode(), "timestamp": "2026-10-30T12:00:00Z"}
+    with patch("devices.Tags.image", return_value=frame):
       tags = devices.Tags(settings())
       tags.session = Mock()
       for message in ("Missing calibration state", "Unexpected error: solver failed",

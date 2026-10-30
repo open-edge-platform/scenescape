@@ -3,6 +3,7 @@
 """ONVIF movement and existing SceneScape calibration APIs, not a pose service."""
 
 import base64
+from datetime import datetime
 import json
 import time
 
@@ -15,6 +16,24 @@ from config import read_json, validate_points
 
 class TagCoverageError(ValueError):
   """A valid calibration request completed without usable AprilTag coverage."""
+
+
+def _validate_frame_timestamp(payload, requested_at, received_at, skew):
+  """Prove freshness even when the publisher clock leads the runner by skew."""
+  timestamp = payload.get("timestamp")
+  if not isinstance(timestamp, str):
+    raise ValueError("Calibration frame requires a timezone-aware ISO 8601 timestamp")
+  try:
+    parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+  except ValueError as error:
+    raise ValueError("Invalid calibration frame timestamp") from error
+  if parsed.tzinfo is None or parsed.utcoffset() is None:
+    raise ValueError("Calibration frame timestamp must include a timezone")
+  seconds = parsed.timestamp()
+  if seconds > received_at + skew:
+    raise ValueError("Calibration frame timestamp is in the future; check clock synchronization")
+  if seconds < requested_at + skew:
+    raise ValueError("Stale calibration frame; check pipeline backlog and clock synchronization")
 
 
 class Manager:
@@ -129,7 +148,7 @@ class Tags:
     self.session.verify = config["ca_cert"]
 
   def image(self):
-    """Wait for SUBACK before requesting an image; retained frames are not fresh."""
+    """Require a timestamp proving the frame was decoded after the settled request."""
     import paho.mqtt.client as mqtt
 
     config = self.config
@@ -139,7 +158,7 @@ class Tags:
     account = read_json(config["mqtt"]["auth"])
     client.username_pw_set(account["user"], account["password"])
     client.tls_set(ca_certs=config["ca_cert"])
-    received, state = [], {"subscribed": False}
+    received, state = [], {"subscribed": False, "requested_at": None}
 
     def connected(client, userdata, flags, reason, properties):
       if reason.is_failure:
@@ -152,8 +171,11 @@ class Tags:
       state["subscribed"] = True
 
     def message(client, userdata, msg):
-      if not msg.retain:
-        received.append(json.loads(msg.payload)["image"])
+      if not msg.retain and state["requested_at"] is not None:
+        payload = json.loads(msg.payload)
+        _validate_frame_timestamp(payload, state["requested_at"], time.time(),
+                                  config["mqtt"].get("max_clock_skew_s", 0.1))
+        received.append(payload)
 
     client.on_connect, client.on_subscribe, client.on_message = connected, subscribed, message
     client.connect(config["mqtt"]["host"], config["mqtt"]["port"], keepalive=30)
@@ -166,6 +188,7 @@ class Tags:
           raise RuntimeError("MQTT connection lost")
       # Drain any pre-request traffic received with SUBACK.
       received.clear()
+      state["requested_at"] = time.time()
       info = client.publish(f"scenescape/cmd/camera/{uid}", "getcalibrationimage", qos=1)
       if info.rc != mqtt.MQTT_ERR_SUCCESS:
         raise RuntimeError("Could not publish calibration-image request")
@@ -180,7 +203,8 @@ class Tags:
 
   def collect(self):
     """Return matched raw image/world points and actual frame resolution."""
-    image = self.image()
+    frame = self.image()
+    image = frame["image"]
     decoded = cv2.imdecode(np.frombuffer(base64.b64decode(image, validate=True), np.uint8),
                            cv2.IMREAD_COLOR)
     if decoded is None:
@@ -209,6 +233,7 @@ class Tags:
           raise TagCoverageError("Fewer than six matched AprilTag points")
         validate_points(stop)
         stop["resolution"] = [int(decoded.shape[1]), int(decoded.shape[0])]
+        stop["frame_timestamp"] = frame["timestamp"]
         return stop
       time.sleep(0.5)
     raise TimeoutError("AprilTag calibration did not finish in 90 seconds")

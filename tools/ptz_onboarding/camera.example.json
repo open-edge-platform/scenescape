@@ -8,6 +8,7 @@
   "mqtt": {
     "host": "broker.example",
     "port": 1883,
+    "max_clock_skew_s": 0.1,
     "auth": "/absolute/path/to/browser.auth"
   },
   "onvif": {

@@ -50,6 +50,10 @@ def load_config(path, motion_mode="full"):
   for section in ("mqtt", "onvif"):
     config[section]["auth"] = str(
       (Path(path).resolve().parent / config[section]["auth"]).resolve())
+  skew = config["mqtt"].get("max_clock_skew_s", 0.1)
+  numbers([skew], 1)
+  if skew < 0:
+    raise ValueError("mqtt.max_clock_skew_s must be non-negative")
   if motion_mode == "probe":
     return config
   motion = config["motion"]
