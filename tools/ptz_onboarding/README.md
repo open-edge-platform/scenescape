@@ -200,6 +200,12 @@ those extra coordinates; runtime grows with their product. It requires usable
 tags at home before probing, records explicit tag-coverage rejections and
 returns to approached home. Transport/API failures abort rather than being
 silently treated as missing tags.
+The current service does not distinguish internal failures from calibration
+rejections with structured error codes. Therefore every `status: "error"`
+response aborts discovery, even if its message mentions tags. Only the known
+`pending` coverage status or a successful response with fewer than six matched
+points is treated as a visibility gap. Unknown statuses time out and abort;
+error-message text is never used to decide whether movement should continue.
 
 It selects the largest fully observed rectangle with at least three positions
 per axis that includes home and the approach coordinates. It writes:

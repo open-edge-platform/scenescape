@@ -286,6 +286,22 @@ class DiscoveryTests(unittest.TestCase):
       self.assertTrue((output / "coverage.json").exists())
       self.assertFalse((output / "camera.discovered.json").exists())
 
+  def test_backend_failure_during_grid_aborts_without_visiting_later_points(self):
+    stop = {"points_2d": [[1, 2]] * 6, "resolution": [1280, 960]}
+    with tempfile.TemporaryDirectory() as directory, \
+         patch("discovery.Camera") as camera, patch("discovery.Manager"), \
+         patch("discovery.Tags") as tags, contextlib.redirect_stdout(io.StringIO()):
+      camera.return_value.move.return_value = [0, 0]
+      tags.return_value.collect.side_effect = [
+        stop, RuntimeError("AprilTag calibration failed: Missing internal state")]
+      output = Path(directory) / "coverage"
+      with self.assertRaisesRegex(RuntimeError, "Missing internal state"):
+        discovery.discover(settings(), output, 3)
+      camera.return_value.move.assert_called_once()
+      self.assertEqual(camera.return_value.home.call_count, 2)
+      self.assertEqual(config.read_json(output / "coverage.json")["observations"], [])
+      self.assertFalse((output / "camera.discovered.json").exists())
+
   def test_no_coverage_can_be_recorded_but_not_network_failure(self):
     stop = {"points_2d": [[1, 2]] * 6, "resolution": [1280, 960]}
     with tempfile.TemporaryDirectory() as directory, \
@@ -397,7 +413,29 @@ class DeviceWorkflowTests(unittest.TestCase):
       self.assertEqual(tags.collect()["resolution"], [64, 48])
       done.json.return_value = {"status": "error", "message": "no tags"}
       tags.session.get.side_effect = [done]
-      with self.assertRaisesRegex(devices.TagCoverageError, "no tags"):
+      with self.assertRaisesRegex(RuntimeError, "no tags"):
+        tags.collect()
+
+  def test_backend_errors_never_become_coverage_gaps(self):
+    import cv2
+    _, image = cv2.imencode(".jpg", np.zeros((48, 64, 3), dtype=np.uint8))
+    with patch("devices.Tags.image", return_value=base64.b64encode(image).decode()):
+      tags = devices.Tags(settings())
+      tags.session = Mock()
+      for message in ("Missing calibration state", "Unexpected error: solver failed",
+                      "Fewer than 4 tags found", "Unknown backend failure"):
+        with self.subTest(message=message):
+          tags.session.get.return_value.json.return_value = {
+            "status": "error", "message": message}
+          with self.assertRaisesRegex(RuntimeError, "AprilTag calibration failed") as raised:
+            tags.collect()
+          self.assertNotIsInstance(raised.exception, devices.TagCoverageError)
+      tags.session.get.return_value.json.return_value = {"status": "pending", "message": "no tags"}
+      with self.assertRaises(devices.TagCoverageError):
+        tags.collect()
+      tags.session.get.return_value.json.return_value = {
+        "status": "success", "calibration_points_2d": [], "calibration_points_3d": []}
+      with self.assertRaises(devices.TagCoverageError):
         tags.collect()
 
   def test_motion_requires_confirmation_before_device_access(self):

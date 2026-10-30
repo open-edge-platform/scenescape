@@ -199,8 +199,10 @@ class Tags:
           f"AprilTag coverage unavailable: {result.get('message', 'no details')}")
       if result.get("status") in ("success", "error"):
         if result.get("status") == "error":
-          raise TagCoverageError(
-            f"AprilTag calibration rejected: {result.get('message', 'no details')}")
+          # The service uses this status for internal failures too; no structured
+          # coverage error code is currently available to classify it safely.
+          raise RuntimeError(
+            f"AprilTag calibration failed: {result.get('message', 'no details')}")
         stop = {"points_2d": result.get("calibration_points_2d", []),
                 "points_3d": result.get("calibration_points_3d", [])}
         if len(stop["points_2d"]) < 6:
