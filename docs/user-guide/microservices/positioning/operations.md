@@ -8,63 +8,38 @@ SPDX-License-Identifier: Apache-2.0
 ## Service Shell
 
 The current service shell runs without PTZ configuration. It connects to MQTT with the dedicated
-`positioning.auth` identity and client certificate, publishes retained
+`positioning.auth` identity, publishes retained
 `scenescape/positioning/status/{resolver_id}` status at QoS 0, and registers an
 offline last will. Its status payload contains only `resolver_id`, `status`, and
 `timestamp`; an LWT timestamp describes the MQTT session start. Health becomes ready
 only after a successful broker connection.
 
 Use `make positioning` to build the runtime image and `make init-secrets` to create
-the broker identity and `scenescape-positioning` client certificate/key. Start the
+the `positioning.auth` broker identity. Start the
 service with the Docker Compose `controller` or `tracker` profile (`make demo` /
 `make deploy`), the test Compose stack, or the Helm chart. Production Compose and
-Helm mount the CA, client certificate, private key, and auth file read-only.
+Helm mount the CA certificate and auth file read-only.
 Compose runs Positioning as the host UID/GID so it can read `0600` ONVIF
 credential files. Certificate generation keeps the CA private key at mode `0600`;
-it is only used on the host to sign certificates. Kubernetes mounts the client key
-with group-readable mode only for the Positioning pod's `fsGroup`.
-Production Positioning connections use the broker's dedicated TLS listener on
-port 8883, which requires a client certificate and uses its certificate identity
-(`positioning.<CERTDOMAIN>`) as the ACL principal. Compose passes it to the ACL
-renderer as `POSITIONING_CERT_IDENTITY`. The source-scoped ACL grants only the configured Resolver's
-retained status write, assigned camera-configuration reads, and assigned pose
-writes. The regular broker listener remains separate for existing services.
+it is only used on the host to sign certificates.
+Positioning connects to the standard broker TLS listener on port 1883, like other
+SceneScape services. It verifies the broker with the CA certificate (`--rootcert`)
+and connects with the `positioning.auth` credentials; no client certificate is
+required.
 
-Positioning may publish only its configured
-`scenescape/positioning/status/{resolver_id}` topic and registered
-`scenescape/positioning/pose/{source_id}` topics. Manager requires explicit ACLs
-for both topic classes; writes to unrelated topics and another resolver's status
-topic are denied. Source ownership is enforced by the Positioning assignment
-manifest and Resolver validation, not by broadening the Manager ACL to unrelated
-topic families.
-
-The Compose stack generates `/mosquitto/acl/positioning.acl` from
-`deployment/positioning-assignments.json` before the broker starts. Helm renders the
-same source-specific rules from `positioning.assignments`; an unassigned source
-gets no pose-write rule. Keep `POSITIONING_RESOLVER_ID` and the Positioning
-`resolver_id` aligned. Production broker ACL verification and the assignment
-validator are part of the PTZ deployment acceptance tests. The automated test
-checks the generated topic list; before release, also verify an authorized
-certificate can publish/subscribe only on its assigned topics against the
-deployed broker.
-
-After changing a Compose assignment, regenerate the ACL and restart the broker so
-Mosquitto reloads it:
-
-```bash
-docker compose --profile controller run --rm --no-deps positioning-acl-init
-docker compose --profile controller restart broker
-```
-
-For Tracker mode, use `--profile tracker` instead. Helm rolls the broker
-automatically when the assignments or Resolver ID change.
+Positioning publishes only its configured
+`scenescape/positioning/status/{resolver_id}` topic and the
+`scenescape/positioning/pose/{source_id}` topics of its assigned sources. Source
+ownership is enforced by the Positioning assignment manifest and Resolver
+validation at startup; Manager and the broker do not apply Positioning-specific
+topic authorization.
 
 ```mermaid
 flowchart LR
   Camera[ONVIF PTZ camera] -->|HTTPS status poll| Poller[Positioning poller]
   Poller -->|in-process PTZSample| Resolver[Single Positioning Resolver]
   Manager[Manager: home pose and calibration] -->|read-only API + invalidation| Resolver
-  Resolver -->|mTLS 8883: retained pose and status| Broker[MQTT broker]
+  Resolver -->|TLS 1883: retained pose and status| Broker[MQTT broker]
   Broker -->|pose side channel| Controller[Controller consumer: off by default]
   Broker -->|pose side channel| Tracker[Tracker consumer: off by default; Phase 5 deferred]
 ```
@@ -91,13 +66,10 @@ configured source is not assigned to its `resolver_id`, or if an entry for its
 calibration and camera-to-scene membership. Source configuration is described in
 [Positioning Service](positioning.md#configure).
 
-Manager reads the same manifest (`POSITIONING_ASSIGNMENTS_FILE`) to authorize
-broker writes to `scenescape/positioning/pose/{source_id}`: a pose write is allowed
-only for a source assigned to Manager's `POSITIONING_RESOLVER_ID`, whatever the
-publishing identity's topic ACL grants. A missing or invalid manifest assigns
-nothing, so all pose writes are denied. Mount the deployment manifest into both
-Positioning and Manager (web) and keep `POSITIONING_RESOLVER_ID` equal to the
-service's `resolver_id`.
+The Scene Controller reads the same manifest to find the Resolver that owns each
+PTZ camera and subscribes to that Resolver's status topic; see
+[PTZ Pose Consumption in the Scene Controller](../controller/ptz-pose-consumption.md).
+Mount the same deployment manifest into Positioning and the Scene Controller.
 
 ## Enable ONVIF Access on the Camera
 
@@ -260,17 +232,9 @@ positioning/.local/
    }
    ```
 
-5. Create `positioning/.local/compose.override.yml`. It supplies the same manifest
-   and `resolver_id` to three services:
-
-   - **`positioning`**: the configuration, manifest, and credentials. Connect to the
-     broker's mTLS listener on port 8883; the regular 1883 listener bypasses the
-     Positioning ACL.
-   - **`positioning-acl-init`**: renders the broker ACL from the manifest. It must
-     use the same manifest and `resolver_id`, or the broker denies your status and
-     pose topics.
-   - **`web`** (Manager): authorizes pose writes only for sources assigned to that
-     resolver.
+5. Create `positioning/.local/compose.override.yml`. It supplies the
+   configuration, manifest, and credentials to the `positioning` service, which
+   connects to the standard broker TLS listener on port 1883.
 
    Compose replaces a whole `command` or `entrypoint` list, so repeat every option.
    Without `--ntp`, clock synchronization cannot be verified and every pose is
@@ -283,13 +247,9 @@ positioning/.local/
        user: "1000:1000"
        command:
          - --broker
-         - broker.scenescape.intel.com:8883
+         - broker.scenescape.intel.com
          - --brokerauth
          - /run/secrets/positioning.auth
-         - --cert
-         - /run/secrets/certs/scenescape-positioning.crt
-         - --keyfile
-         - /run/secrets/certs/scenescape-positioning.key
          - --rootcert
          - /run/secrets/certs/scenescape-ca.pem
          - --ntp
@@ -302,34 +262,10 @@ positioning/.local/
          - ./positioning/.local/positioning.json:/run/positioning/positioning.json:ro
          - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
          - ./positioning/.local/secrets:/run/secrets/onvif:ro
-     positioning-acl-init:
-       entrypoint:
-         - python3
-         - /app/tools/render_mosquitto_acl.py
-         - --assignments
-         - /run/positioning/positioning-assignments.json
-         - --resolver-id
-         - positioning-dev
-         - --identity
-         - ${POSITIONING_CERT_IDENTITY:-positioning.scenescape.intel.com}
-         - --output
-         - /output/positioning.acl
-         - --group
-         - ${GID:-1000}
-       volumes:
-         - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
-     web:
-       environment:
-         - POSITIONING_RESOLVER_ID=positioning-dev
-       volumes:
-         - ./positioning/.local/positioning-assignments.json:/run/positioning/positioning-assignments.json:ro
    ```
 
-   The `positioning-acl-init` volume replaces the base file's mount of the tracked
-   `deployment/positioning-assignments.json` at the same container path.
-
-   The secret files mounted by the base Compose file (broker auth and
-   certificates) must also be readable by the user ID you set.
+   The secret files mounted by the base Compose file (broker auth and CA
+   certificate) must also be readable by the user ID you set.
 
    Pose consumers read the same manifest. To let the Scene Controller consume
    poses, add a `scene` service to this file as described in
@@ -337,39 +273,27 @@ positioning/.local/
 
 6. Start the demo stack, then apply the override. `make demo` generates the root
    `docker-compose.yml` and starts Positioning with the default configuration, which
-   has no sources, and a broker ACL rendered from the tracked default manifest:
+   has no sources:
 
    ```bash
    SUPASS=<password> make build-core demo
    ```
 
-   From the repository root, regenerate the ACL, restart the broker so it loads the
-   ACL, recreate Positioning and Manager, and follow the service logs:
+   From the repository root, recreate Positioning with the override and follow the
+   service logs:
 
    ```bash
    COMPOSE="docker compose -f docker-compose.yml -f positioning/.local/compose.override.yml --profile controller"
-   $COMPOSE up --force-recreate --exit-code-from positioning-acl-init positioning-acl-init \
-     && $COMPOSE up -d --no-deps --force-recreate broker \
-     && $COMPOSE up -d positioning web
+   $COMPOSE up -d --force-recreate positioning
    docker compose logs -f positioning
    ```
 
-   The broker reads its ACL only at startup, so it must be recreated after the ACL
-   changes. Restarting it briefly disconnects all MQTT clients; they reconnect
-   automatically. Other services keep running. `--exit-code-from` makes the chain
-   stop if the ACL cannot be rendered, for example because the manifest has an
-   invalid source ID; the broker then keeps its previous ACL. Use `--profile tracker`
-   instead if the stack runs the Tracker profile.
+   Use `--profile tracker` instead if the stack runs the Tracker profile. Run the
+   same commands again after you edit any file in `positioning/.local/`; the files
+   are read only at startup.
 
-   Run the same commands again after you edit any file in `positioning/.local/`; the
-   files are read only at startup. Always pass the override file to `docker compose`
-   for this stack. A command without it recreates `positioning-acl-init` from the
-   default manifest, and the broker denies your resolver's topics after its next
-   restart.
-
-   On startup, the broker logs
-   `New client connected ... on port 8883 ... u'positioning.<CERTDOMAIN>'`, and
-   Positioning publishes `online` on `scenescape/positioning/status/<resolver_id>`.
+   On startup, Positioning publishes `online` on
+   `scenescape/positioning/status/<resolver_id>`.
 
 At startup the service logs `Configured PTZ sources: [...]` and
 `PTZ source <id> connected: ...` for each camera. Default INFO logs show a short
@@ -567,9 +491,9 @@ Tracker does not consume poses yet.
 When Positioning sources are configured in Helm, set
 `positioning.networkPolicy.cameraCIDRs` to the exact camera address ranges and
 `positioning.networkPolicy.cameraPorts` to the ONVIF TCP ports. The chart denies
-all Positioning ingress and restricts egress to DNS, Manager HTTPS, broker mTLS,
-NTP, and those camera addresses. Helm fails closed if sources are configured
-without camera CIDRs. Docker Compose does not provide equivalent egress ACLs;
+all Positioning ingress and restricts egress to DNS, Manager HTTPS, the broker TLS
+listener (port 1883), NTP, and those camera addresses. Helm fails closed if sources
+are configured without camera CIDRs. Docker Compose does not provide equivalent egress ACLs;
 apply the same restrictions with the host firewall or deployment network policy.
 
 For Helm ONVIF credentials, prefer a pre-created Kubernetes Secret and set

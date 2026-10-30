@@ -65,38 +65,3 @@ would reject at startup.
 {{- end -}}
 {{- end -}}
 
-{{/*
-Positioning client certificate CN. The broker uses it as the MQTT username, so the
-Certificate and the broker ACL must both use this value.
-*/}}
-{{- define "positioning.certIdentity" -}}
-positioning.scenescape.intel.com
-{{- end -}}
-
-{{/*
-Broker ACL principal and topic segments must not permit wildcards or newlines.
-*/}}
-{{- define "positioning.brokerACL" -}}
-{{- $resolverId := toString .Values.positioning.resolverId -}}
-{{- if not (regexMatch "^[A-Za-z0-9_.-]+$" $resolverId) -}}
-{{- fail "positioning.resolverId must be a single safe MQTT topic segment" -}}
-{{- end -}}
-{{- $lines := list (printf "user %s" (include "positioning.certIdentity" .)) (printf "topic write scenescape/positioning/status/%s" $resolverId) -}}
-{{- range $sourceId, $owner := (.Values.positioning.assignments | default dict) -}}
-{{- $sourceId = toString $sourceId -}}
-{{- if not (hasPrefix "$" $sourceId) -}}
-{{- $owner = toString $owner -}}
-{{- if not (regexMatch "^[A-Za-z0-9_.-]+$" $sourceId) -}}
-{{- fail (printf "positioning.assignments key %q must be a single safe MQTT topic segment" $sourceId) -}}
-{{- end -}}
-{{- if not (regexMatch "^[A-Za-z0-9_.-]+$" $owner) -}}
-{{- fail (printf "positioning.assignments.%s must name a safe resolver topic segment" $sourceId) -}}
-{{- end -}}
-{{- if eq $owner $resolverId -}}
-{{- $lines = append $lines (printf "topic read scenescape/cmd/camera/config/%s" $sourceId) -}}
-{{- $lines = append $lines (printf "topic write scenescape/positioning/pose/%s" $sourceId) -}}
-{{- end -}}
-{{- end -}}
-{{- end -}}
-{{- join "\n" $lines -}}
-{{- end -}}

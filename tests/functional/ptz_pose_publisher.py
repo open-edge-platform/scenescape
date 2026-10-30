@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Publishes synthetic PTZ PoseContexts through the broker as the Positioning identity.
+"""Publishes synthetic PTZ PoseContexts through the broker with the Positioning credentials.
 
-The Positioning ACL allows only pose writes for sources in the deployment assignment
-manifest (tests/compose/positioning-assignments.json) and status writes for its own
-resolver, so functional tests can drive Controller consumption without a camera.
+Poses are published for the source in the deployment assignment manifest
+(tests/compose/positioning-assignments.json) and status for its resolver, so
+functional tests can drive Controller consumption without a camera.
 """
 
 import json

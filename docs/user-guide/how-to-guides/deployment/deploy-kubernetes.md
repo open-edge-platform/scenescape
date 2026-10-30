@@ -93,12 +93,12 @@ The matching variant must be available to the cluster: either pulled from Docker
 
 ### Configure the Positioning Service
 
-When `positioning.enabled=true`, the chart deploys one Positioning replica with its own broker account and client certificate, and renders `positioning.json` from these values. The deployment reads calibration from Manager at `https://web.<namespace>.svc.cluster.local/api/v1`, verifying TLS against the chart's Scenescape CA:
+When `positioning.enabled=true`, the chart deploys one Positioning replica with its own broker account, and renders `positioning.json` from these values. The deployment reads calibration from Manager at `https://web.<namespace>.svc.cluster.local/api/v1`, verifying TLS against the chart's Scenescape CA:
 
 | Value                                                       | Default                       | Effect                                                                                                                                                                                                                |
 | ----------------------------------------------------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `positioning.resolverId`                                    | `positioning-default`         | Identifies the instance in its status topic `scenescape/positioning/status/{resolverId}` and is rendered as `resolver_id`. Must be a single MQTT topic segment (no `/`, `+`, or `#`).                                 |
-| `positioning.assignments`                                   | `{}`                          | Source ownership manifest (`source_id` to `resolver_id`), mounted into Positioning and Manager. Manager allows pose writes only for sources assigned to `resolverId`.                                                 |
+| `positioning.assignments`                                   | `{}`                          | Source ownership manifest (`source_id` to `resolver_id`), mounted into Positioning and the Scene Controller. Positioning exits if its sources are not assigned to `resolverId`.                                       |
 | `positioning.config`                                        | resolver limits, no `sources` | Rendered as `positioning.json` using the runtime keys described in [Configure](../../microservices/positioning/positioning.md#configure); do not set `resolver_id` here. The chart defaults the four resolver limits. |
 | `positioning.onvifCredentials.sources`                      | `{}`                          | `<source_id>: {username, password}` entries; the chart creates a Secret with one `<source_id>.json` key per source and mounts it read-only at `/run/secrets/onvif`.                                                   |
 | `positioning.onvifCredentials.existingSecret`               | `""`                          | Name of an existing Secret with the same `<source_id>.json` keys, mounted at `/run/secrets/onvif`. Mutually exclusive with `onvifCredentials.sources`.                                                                |
@@ -107,10 +107,9 @@ When `positioning.enabled=true`, the chart deploys one Positioning replica with 
 | `positioning.networkPolicy.cameraPorts`                     | `[80, 443]`                   | ONVIF TCP ports allowed to the camera CIDRs; include each configured custom port.                                                                                                                                     |
 | `scene.ptz.enabled`, `scene.ptz.shadowMode`                 | `false`, `false`              | Controller PTZ modes; leave disabled until that profile independently passes shadow acceptance. See below.                                                                                                            |
 
-The broker exposes a dedicated Positioning mTLS listener on port 8883. It requires
-the Positioning client certificate, uses its common name for ACL matching, and loads
-an ACL rendered from the same ownership assignments. Positioning egress is isolated
-by a NetworkPolicy: only broker mTLS, Manager HTTPS, NTP, cluster DNS, and the
+Positioning connects to the standard broker TLS listener on port 1883 with its
+`positioning.auth` credentials. Positioning egress is isolated by a NetworkPolicy:
+only the broker TLS listener, Manager HTTPS, NTP, cluster DNS, and the
 configured camera CIDRs/ports are allowed. The policy blocks all inbound traffic to
 the Positioning pod. Ensure the cluster CNI enforces Kubernetes NetworkPolicy.
 

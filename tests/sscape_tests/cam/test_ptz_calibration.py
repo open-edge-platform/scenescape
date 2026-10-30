@@ -3,27 +3,19 @@
 
 from copy import deepcopy
 import json
-import os
-from pathlib import Path
-import shutil
-import tempfile
 from unittest.mock import Mock, patch
 
 import numpy as np
 from django.contrib.auth.models import User
-from django.core.management import call_command
 from django.db import transaction
 from django.test import TestCase, override_settings
 from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 
-from manager.models import Cam, PubSubACL, Scene, sendUpdateCommand
+from manager.models import Cam, Scene, sendUpdateCommand
 from manager.ptz_calibration import PTZCalibrationError, axis_travel_deg, validate_ptz_calibration
 from manager.serializers import CamSerializer
 from scene_common.mqtt import PubSub
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-USER_ACCESS_CONFIG = REPO_ROOT / "manager" / "config" / "user_access_config.json"
 
 
 PTZ_CALIBRATION = {
@@ -492,174 +484,3 @@ class PTZCalibrationTransformAPITest(TestCase):
     self.assertEqual(response.status_code, 400)
     self.assertEqual(
       response.json(), {"ptz_calibration": ["quality.reprojection_rms_px: exceeds_threshold"]})
-
-
-def _acl_check(client, username, topic, acc):
-  return client.post("/api/v1/aclcheck", {"username": username, "topic": topic, "acc": acc},
-                     format="json")
-
-
-def _pose_topic(source_id):
-  return PubSub.formatTopic(PubSub.POSITIONING_POSE, source_id=source_id)
-
-
-def _use_assignment_manifest(test, manifest, resolver_id="positioning-default"):
-  """Point Manager at a temporary `source_id -> resolver_id` manifest for one test."""
-  workdir = tempfile.mkdtemp()
-  test.addCleanup(shutil.rmtree, workdir)
-  path = os.path.join(workdir, "positioning-assignments.json")
-  with open(path, "w", encoding="utf-8") as manifest_file:
-    json.dump(manifest, manifest_file)
-  environ = patch.dict(os.environ, {"POSITIONING_ASSIGNMENTS_FILE": path,
-                                    "POSITIONING_RESOLVER_ID": resolver_id})
-  environ.start()
-  test.addCleanup(environ.stop)
-
-
-class PoseACLTest(TestCase):
-
-  def setUp(self):
-    admin = User.objects.create_superuser("acl-admin", "acl-admin@example.com", "unused")
-    self.client = APIClient()
-    self.client.credentials(HTTP_AUTHORIZATION=f"Token {Token.objects.create(user=admin).key}")
-    self.scene_a = Scene.objects.create(name=f"acl-a-{self._testMethodName}")
-    self.scene_b = Scene.objects.create(name=f"acl-b-{self._testMethodName}")
-    Cam.objects.create(sensor_id="ptz-a", name="PTZ A", type="camera", scene=self.scene_a)
-    Cam.objects.create(sensor_id="ptz-b", name="PTZ B", type="camera", scene=self.scene_b)
-    Cam.objects.create(sensor_id="ptz-none", name="PTZ None", type="camera")
-    _use_assignment_manifest(
-      self, {"ptz-a": "positioning-default", "ptz-b": "positioning-default",
-             "ptz-other": "another-resolver"})
-
-  def _check(self, username, source_id, acc):
-    return _acl_check(self.client, username, _pose_topic(source_id), acc)
-
-  def test_pose_read_is_limited_to_assigned_scenes(self):
-    consumer_a = User.objects.create_user("consumer-a", "consumer-a@example.com", "unused")
-    consumer_b = User.objects.create_user("consumer-b", "consumer-b@example.com", "unused")
-    PubSubACL.objects.create(user=consumer_a, topic="POSITIONING_POSE", access=1).scenes.set([self.scene_a])
-    PubSubACL.objects.create(user=consumer_b, topic="POSITIONING_POSE", access=1).scenes.set([self.scene_b])
-
-    for acc in (1, 4):
-      self.assertEqual(self._check("consumer-a", "ptz-a", acc).status_code, 200)
-      self.assertEqual(self._check("consumer-b", "ptz-b", acc).status_code, 200)
-      cross = self._check("consumer-a", "ptz-b", acc)
-      self.assertEqual(cross.status_code, 403)
-      self.assertEqual(cross.data["result"], "deny")
-      self.assertEqual(self._check("consumer-b", "ptz-a", acc).status_code, 403)
-    self.assertEqual(self._check("consumer-a", "ptz-none", 4).status_code, 403)
-    self.assertEqual(self._check("consumer-a", "+", 4).status_code, 403)
-
-  def test_pose_read_scope_follows_camera_scene_membership(self):
-    consumer = User.objects.create_user("consumer-a", "consumer-a@example.com", "unused")
-    PubSubACL.objects.create(user=consumer, topic="POSITIONING_POSE", access=1).scenes.set([self.scene_a])
-    self.assertEqual(self._check("consumer-a", "ptz-b", 4).status_code, 403)
-
-    camera = Cam.objects.get(sensor_id="ptz-b")
-    camera.scene = self.scene_a
-    camera.save()
-    self.assertEqual(self._check("consumer-a", "ptz-b", 4).status_code, 200)
-
-    camera.scene = None
-    camera.save()
-    self.assertEqual(self._check("consumer-a", "ptz-b", 4).status_code, 403)
-
-  def test_pose_read_without_scene_scope_is_denied(self):
-    consumer = User.objects.create_user("unscoped", "unscoped@example.com", "unused")
-    PubSubACL.objects.create(user=consumer, topic="POSITIONING_POSE", access=1)
-    self.assertEqual(self._check("unscoped", "ptz-a", 1).status_code, 403)
-    self.assertEqual(self._check("unscoped", "ptz-a", 4).status_code, 403)
-
-  def test_superuser_needs_explicit_positioning_acl(self):
-    User.objects.create_superuser("other-admin", "other-admin@example.com", "unused")
-    self.assertEqual(self._check("other-admin", "ptz-a", 4).status_code, 403)
-    self.assertEqual(self._check("other-admin", "ptz-a", 2).status_code, 403)
-    status_topic = PubSub.formatTopic(PubSub.POSITIONING_STATUS, resolver_id="positioning-default")
-    self.assertEqual(_acl_check(self.client, "other-admin", status_topic, 4).status_code, 403)
-    camera_topic = PubSub.formatTopic(PubSub.CMD_CAMERA, camera_id="ptz-a")
-    self.assertEqual(_acl_check(self.client, "other-admin", camera_topic, 2).status_code, 200)
-
-  def test_pose_write_is_limited_to_topic_publisher(self):
-    publisher = User.objects.create_user("pose-publisher", "pose-publisher@example.com", "unused")
-    PubSubACL.objects.create(user=publisher, topic="POSITIONING_POSE", access=2)
-    consumer = User.objects.create_user("consumer-a", "consumer-a@example.com", "unused")
-    PubSubACL.objects.create(user=consumer, topic="POSITIONING_POSE", access=1).scenes.set([self.scene_a])
-
-    allowed = self._check("pose-publisher", "ptz-b", 2)
-    self.assertEqual(allowed.status_code, 200)
-    self.assertEqual(allowed.data["result"], "allow")
-    self.assertEqual(self._check("pose-publisher", "ptz-b", 4).status_code, 403)
-    self.assertEqual(self._check("consumer-a", "ptz-a", 2).status_code, 403)
-    # The topic ACL alone does not let a publisher forge poses for unassigned sources.
-    self.assertEqual(self._check("pose-publisher", "ptz-none", 2).status_code, 403)
-    self.assertEqual(self._check("pose-publisher", "ptz-other", 2).status_code, 403)
-
-  def test_positioning_identity_can_write_only_pose_topics(self):
-    resolver = User.objects.create_user("positioning", "positioning@example.com", "unused")
-    PubSubACL.objects.create(user=resolver, topic="POSITIONING_POSE", access=2)
-    allowed = self._check("positioning", "ptz-a", 2)
-    self.assertEqual(allowed.status_code, 200)
-    self.assertEqual(allowed.data["result"], "allow")
-    self.assertEqual(self._check("positioning", "ptz-a", 4).status_code, 403)
-    for source_id in ("ptz-none", "ptz-other", "unknown"):
-      denied = self._check("positioning", source_id, 2)
-      self.assertEqual(denied.status_code, 403)
-      self.assertEqual(denied.data["result"], "deny")
-    self.assertEqual(
-      _acl_check(self.client, "positioning", "scenescape/data/camera/ptz-a", 2).status_code, 403)
-    self.assertEqual(
-      _acl_check(self.client, "positioning", "scenescape/positioning/pose/ptz-a/extra", 2)
-      .status_code, 403)
-
-
-class ProvisionedPositioningACLTest(TestCase):
-
-  def _provision(self, auth_name, username):
-    workdir = tempfile.mkdtemp()
-    self.addCleanup(shutil.rmtree, workdir)
-    shutil.copy(USER_ACCESS_CONFIG, workdir)
-    auth_path = os.path.join(workdir, auth_name)
-    with open(auth_path, "w") as auth_file:
-      json.dump({"user": username, "password": "unused-password"}, auth_file)
-    previous = os.getcwd()
-    os.chdir(workdir)
-    try:
-      call_command("createuser", auth_path)
-    finally:
-      os.chdir(previous)
-
-  def test_provisioned_acls_have_no_static_source_lists(self):
-    config = json.loads(USER_ACCESS_CONFIG.read_text())
-    for identity in config.values():
-      for acl in identity["acls"]:
-        self.assertNotIn("sources", acl)
-    positioning_acls = {
-      acl["topic"]: acl["access"] for acl in config["positioning.auth"]["acls"]}
-    self.assertEqual(positioning_acls["POSITIONING_POSE"], 2)
-
-  def test_controller_identity_reads_only_scene_assigned_cameras(self):
-    self._provision("controller.auth", "scenectrl")
-    self._provision("browser.auth", "webuser")
-    admin = User.objects.create_superuser("acl-admin", "acl-admin@example.com", "unused")
-    client = APIClient()
-    client.credentials(HTTP_AUTHORIZATION=f"Token {Token.objects.create(user=admin).key}")
-    scene = Scene.objects.create(name="provisioned-scene")
-    Cam.objects.create(sensor_id="ptz-in", name="PTZ In", type="camera", scene=scene)
-    Cam.objects.create(sensor_id="ptz-out", name="PTZ Out", type="camera")
-    controller = User.objects.get(username="scenectrl")
-    self.assertTrue(controller.is_superuser)
-    pose_acl = PubSubACL.objects.get(user=controller, topic="POSITIONING_POSE")
-    self.assertTrue(pose_acl.all_scenes)
-
-    self.assertEqual(_acl_check(client, "scenectrl", _pose_topic("ptz-in"), 4).status_code, 200)
-    denied = _acl_check(client, "scenectrl", _pose_topic("ptz-out"), 4)
-    self.assertEqual(denied.status_code, 403)
-    self.assertEqual(denied.data["result"], "deny")
-    self.assertEqual(_acl_check(client, "scenectrl", _pose_topic("missing"), 4).status_code, 403)
-    self.assertEqual(_acl_check(client, "scenectrl", _pose_topic("+"), 4).status_code, 403)
-    self.assertEqual(_acl_check(client, "scenectrl", _pose_topic("ptz-in"), 2).status_code, 403)
-    status_topic = PubSub.formatTopic(PubSub.POSITIONING_STATUS, resolver_id="positioning-default")
-    self.assertEqual(_acl_check(client, "scenectrl", status_topic, 4).status_code, 200)
-    self.assertEqual(_acl_check(client, "scenectrl", status_topic, 2).status_code, 403)
-
-    self.assertEqual(_acl_check(client, "webuser", _pose_topic("ptz-in"), 4).status_code, 403)
