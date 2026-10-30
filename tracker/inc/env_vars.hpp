@@ -58,6 +58,15 @@ constexpr const char* NON_MEASUREMENT_TIME_DYNAMIC_S = "TRACKER_NON_MEASUREMENT_
 /// seconds, >= 0 - RobotVision tracker parameter
 constexpr const char* NON_MEASUREMENT_TIME_STATIC_S = "TRACKER_NON_MEASUREMENT_TIME_STATIC_S";
 
+/// euclidean|position_mahalanobis
+constexpr const char* ASSOCIATION_METHOD = "TRACKER_ASSOCIATION_METHOD";
+
+/// (0, 1) - chi-squared gate probability for position Mahalanobis
+constexpr const char* ASSOCIATION_GATE_PROBABILITY = "TRACKER_ASSOCIATION_GATE_PROBABILITY";
+
+/// meters - Euclidean threshold or Mahalanobis ceiling
+constexpr const char* ASSOCIATION_MAX_RADIUS_M = "TRACKER_ASSOCIATION_MAX_RADIUS_M";
+
 // NTP overrides
 
 /// NTP server hostname or IP for clock offset correction (empty = disabled)

@@ -9,6 +9,7 @@
 
 #include <gtest/gtest.h>
 
+#include <rv/Utils.hpp>
 #include <rv/tracking/MultipleObjectTracker.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
@@ -260,3 +261,46 @@ TEST(MultipleObjectTrackerTest, MultiCameraTrackUpdateUsesOnlyMatchedCameras)
   expectSameState(tracks[0], twinTracks[0]);
   expectSameState(tracks[1], farB);
 }
+
+TEST(MultipleObjectTrackerTest, PositionMahalanobisFusesMultiCameraDetectionsIntoOneTrack)
+{
+  // Same world object seen by two cameras with ~1.3 m projection disagreement.
+  // Track association uses PositionMahalanobis; cross-camera birth clustering
+  // must still fuse in meters so we do not create duplicate frozen tracks.
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0; // reliable immediately for assertion
+  trackerConfig.mNonMeasurementTimeDynamic = 1.0;
+  trackerConfig.mNonMeasurementTimeStatic = 1.6;
+
+  const double chi2_gate = rv::chi2Threshold(0.99, 2);
+  rv::tracking::MultipleObjectTracker objectTracker(
+    trackerConfig, rv::tracking::DistanceType::PositionMahalanobis, chi2_gate);
+  objectTracker.updateTrackerParams(10);
+
+  rv::tracking::TrackedObject cam0;
+  cam0.x = 7.11;
+  cam0.y = 7.67;
+  cam0.width = cam0.length = cam0.height = 0.5;
+
+  rv::tracking::TrackedObject cam1 = cam0;
+  cam1.x = 7.91;
+  cam1.y = 6.69;
+
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{cam0}, {cam1}},
+                      timestamp,
+                      rv::tracking::DistanceType::PositionMahalanobis,
+                      chi2_gate,
+                      0.5,
+                      10.0);
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U) << "cross-camera detections of one object must birth a single track";
+  EXPECT_NEAR(tracks[0].x, 0.5 * (cam0.x + cam1.x), 1e-6);
+  EXPECT_NEAR(tracks[0].y, 0.5 * (cam0.y + cam1.y), 1e-6);
+}
+

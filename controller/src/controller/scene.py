@@ -20,7 +20,7 @@ from scene_common.reid_constants import REID_PROVENANCE_KEY
 from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
                                         POSE_CACHE_TTL_MULTIPLIER)
-from controller.ilabs_tracking import IntelLabsTracking
+from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
@@ -89,6 +89,7 @@ class Scene(SceneModel):
     self.tracker = None
     self.trackerType = None
     self.persist_attributes = {}
+    self.association_config = normalize_association_config()
     self.time_chunking_rate_fps = time_chunking_rate_fps
 
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
@@ -124,8 +125,16 @@ class Scene(SceneModel):
       args += (self.ref_camera_frame_rate, self.suspended_track_timeout_secs, self.reid_config_data)
     elif trackerType == "time_chunked_intel_labs":
       args += (self.time_chunking_rate_fps, self.suspended_track_timeout_secs, self.reid_config_data)
-    self.tracker = self.available_trackers[self.trackerType](*args)
+    self.tracker = self.available_trackers[self.trackerType](
+      *args, association_config=self.association_config)
     self.tracker.uuid_manager.scene_id = self.name
+    return
+
+  def applyAssociationConfig(self, association_config):
+    """Apply association settings to the scene and the live tracker hierarchy."""
+    self.association_config = normalize_association_config(association_config)
+    if self.tracker is not None and hasattr(self.tracker, 'applyAssociationConfig'):
+      self.tracker.applyAssociationConfig(self.association_config)
     return
 
   def _hydrateFromSceneData(self, scene_data, reid_runtime_update=True):
@@ -152,6 +161,8 @@ class Scene(SceneModel):
     self.map_corners_lla = scene_data.get('map_corners_lla', None)
     self.retrack = scene_data.get('retrack', True)
     self.persist_attributes = scene_data.get('persist_attributes', {})
+    if 'association_config' in scene_data:
+      self.applyAssociationConfig(scene_data['association_config'])
     self._updateChildren(scene_data.get('children', []))
     self.updateCameras(scene_data.get('cameras', []))
     # Regions, tripwires, and sensors are owned by the Analytics service;
