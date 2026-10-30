@@ -17,8 +17,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 # pylint: disable-next=wrong-import-position
 from visualization.render_video import (  # noqa: E402
   RenderError,
+  association_gate,
   box_corners,
   confidence_ellipse,
+  gate_label,
   main,
   render_video,
   sample_index,
@@ -73,6 +75,21 @@ def test_confidence_ellipse(angle):
   assert height == pytest.approx(2 * math.sqrt(9.2103404 * 1.0))
   # An ellipse is symmetric under 180° rotation.
   assert (ellipse_angle - angle + 90.0) % 180.0 - 90.0 == pytest.approx(0.0, abs=1e-9)
+
+
+def test_association_gate_follows_method():
+  """Mahalanobis: χ² ellipse with the gate probability; Euclidean: circle; no config: 99% ellipse."""
+  covariance = np.diag([4.0, 1.0])
+  mahalanobis = {"method": "position_mahalanobis", "gate_probability": 0.95, "max_radius_m": 10.0}
+  euclidean = {"method": "euclidean", "max_radius_m": 2.0}
+
+  assert association_gate(mahalanobis, covariance) == pytest.approx(
+    confidence_ellipse(covariance, 0.95))
+  assert association_gate(euclidean, covariance) == (4.0, 4.0, 0.0)
+  assert association_gate(None, covariance) == pytest.approx(confidence_ellipse(covariance))
+  assert gate_label(mahalanobis) == "association gate (χ² 0.95)"
+  assert gate_label(euclidean) == "association gate (2 m)"
+  assert gate_label(None) == "99% position ellipse"
 
 
 def test_box_corners_follow_yaw():
