@@ -42,6 +42,7 @@ compiled = json.loads(compiled_path.read_text())
 custom   = json.loads(custom_path.read_text())
 
 compiled.update(custom)
+compiled.setdefault("restler_custom_payload_uuid4_suffix", {})["child_scene_name"] = "child_scene_"
 
 compiled_path.write_text(json.dumps(compiled, indent=2) + "\n")
 print("dictionary merged")
@@ -144,20 +145,30 @@ def patch_scene_and_points_in_post(marker: str):
 
     text = text[:start] + block + text[end:]
 
-def patch_string_field_dependency_in_post(marker: str, field_name: str, dependency_expr: str):
+def patch_string_field_dependency_in_post(
+    marker: str, field_name: str, dependency_expr: str, required: bool = False
+):
     global text
     start, end, block = get_endpoint_block(text, marker)
     if block is None:
+        if required:
+            raise RuntimeError(f"Unable to find {marker} for required {field_name} dependency")
         return
 
+    # The first field starts with a newline; subsequent fields start with a
+    # comma and newline inside the generated triple-quoted static string.
     pattern = re.compile(
-        rf'(primitives\.restler_static_string\(""",\\n\s*"{field_name}":"""\),\n\s*)'
+        rf'(primitives\.restler_static_string\(""",?\n\s*"{re.escape(field_name)}":\s*"""\),\n\s*)'
         r'primitives\.[^\n]+,'
     )
-    block = pattern.sub(
+    block, replacement_count = pattern.subn(
         rf'\1primitives.restler_static_string({dependency_expr}, quoted=True),',
         block,
     )
+    if required and replacement_count != 1:
+        raise RuntimeError(
+            f"Expected one {field_name} dependency in {marker}; found {replacement_count}"
+        )
 
     text = text[:start] + block + text[end:]
 
@@ -193,10 +204,15 @@ patch_string_field_dependency_in_post("# Endpoint: /sensor, method: Post", "scen
 patch_string_field_dependency_in_post("# Endpoint: /camera, method: Post", "scene", "_scene_post_uid.reader()")
 patch_post_scene_uuid_dependency("# Endpoint: /sensor, method: Post")
 patch_post_scene_uuid_dependency("# Endpoint: /camera, method: Post")
-patch_post_scene_uuid_dependency("# Endpoint: /child, method: Post")
 patch_post_scene_uuid_dependency("# Endpoint: /calibrationmarker, method: Post")
-# Leave the child field fuzzable instead of seeding a pre-created scene or
-# setting it to the parent UID, which would violate parent != child.
+# Bind each relationship field explicitly; a blanket UUID replacement would
+# give parent and child the same scene ID.
+patch_string_field_dependency_in_post(
+    "# Endpoint: /child, method: Post", "parent", "_scene_post_uid.reader()", required=True
+)
+patch_string_field_dependency_in_post(
+    "# Endpoint: /child, method: Post", "child", "_child_scene_post_uid.reader()", required=True
+)
 patch_points_to_2d("# Endpoint: /region/{uid}, method: Put")
 patch_points_to_2d("# Endpoint: /tripwire/{uid}, method: Put")
 
@@ -286,6 +302,84 @@ text, camera_parser_count = re.subn(
 )
 if camera_parser_count != 1:
     raise RuntimeError("Unable to find the POST /camera response parser")
+
+# Add a separate POST /scene producer and matching DELETE for RESTler GC.
+# Only request identities differ: the HTTP routes remain /scene and /scene/{uid}.
+scene_parser = re.search(
+    r'def parse_scenepost\(.*?(?=\ndef |\n# Endpoint:|\Z)', text, re.DOTALL
+)
+if scene_parser is None:
+    raise RuntimeError("Unable to find the POST /scene response parser")
+child_scene_parser = scene_parser.group(0).replace(
+    "parse_scenepost", "parse_child_scenepost"
+).replace("_scene_post_uid", "_child_scene_post_uid")
+# Ordering-only variable: it is never given a value or rendered into a request.
+# Unlike reading _scene_post_uid, it does not make the child scene producer look
+# like a consumer of parent scenes, which would produce misleading
+# UseAfterFreeChecker findings after DELETE /scene/{uid}.
+scene_ordering_variable = "__ordering____scene_post_child_scene_post"
+text = text[:scene_parser.start()] + (
+    '_child_scene_post_uid = dependencies.DynamicVariable("_child_scene_post_uid")\n\n'
+    f'{scene_ordering_variable} = dependencies.DynamicVariable("{scene_ordering_variable}")\n\n'
+    + child_scene_parser + "\n\n"
+) + text[scene_parser.start():]
+
+for method, request_id in (("Post", "/scene"), ("Delete", "/scene/{uid}")):
+    marker = f"# Endpoint: {request_id}, method: {method}"
+    start, end, block = get_endpoint_block(text, marker)
+    if block is None:
+        raise RuntimeError(f"Unable to find {marker}")
+    original = block
+    clone = block.replace("_scene_post_uid", "_child_scene_post_uid")
+    clone = clone.replace("parse_scenepost", "parse_child_scenepost")
+    # Separate identities prevent RESTler's sequence cache merging producers.
+    clone = clone.replace(f'requestId="{request_id}"', f'requestId="{request_id}#child-scene"')
+    clone = clone.replace(marker, marker + " (child-scene variant)", 1)
+    if method == "Post":
+        # Linearize the prerequisites: parent scene -> child scene -> link.
+        # Independent producers form a diamond that RESTler's coverage reporter
+        # incorrectly treats as a chain when reconstructing prefix rendering IDs.
+        # Native ordering metadata enforces this without adding HTTP data: the
+        # parent producer writes the token and the child producer reads it.
+        writer = "_scene_post_uid.writer()"
+        if original.count(writer) != 1:
+            raise RuntimeError("Unable to add ordering writer to the POST /scene producer")
+        original = original.replace(
+            writer, f"{writer},\n                {scene_ordering_variable}.writer()"
+        )
+        clone, ordering_count = re.subn(
+            r"(?m)^(\s*)'post_send':",
+            lambda match: (
+                f"{match.group(1)}'pre_send': {{'dependencies': [{scene_ordering_variable}.reader()]}},\n"
+                f"{match.group(1)}'post_send':"
+            ),
+            clone,
+        )
+        if ordering_count != 1:
+            raise RuntimeError("Unable to order child scene creation after parent scene creation")
+        # A distinct prefix also prevents name collisions when values are reused.
+        clone = clone.replace(
+            'primitives.restler_custom_payload_uuid4_suffix("scene_name", quoted=True)',
+            'primitives.restler_custom_payload_uuid4_suffix("child_scene_name", quoted=True)',
+            1,
+        )
+    text = text[:start] + original + clone + text[end:]
+
+# RESTler extends sequences request-by-request in grammar order. The child
+# operations are the deepest chain (scene -> child scene -> link -> operation),
+# so list them first; otherwise the final generation can exhaust the time budget
+# on tens of thousands of other sequences before reaching them. This changes
+# exploration order only, not requests, payloads, or enabled checkers.
+child_blocks = []
+for method in ("Get", "Put", "Delete"):
+    marker = f"# Endpoint: /child/{{uid}}, method: {method}"
+    start, end, block = get_endpoint_block(text, marker)
+    if block is None:
+        raise RuntimeError(f"Unable to find {marker}")
+    child_blocks.append(block if block.endswith("\n") else block + "\n")
+    text = text[:start] + text[end:]
+first_endpoint = text.index("# Endpoint:")
+text = text[:first_endpoint] + "".join(child_blocks) + text[first_endpoint:]
 
 grammar_path.write_text(text)
 print("grammar.py patched successfully")
