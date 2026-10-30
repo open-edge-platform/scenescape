@@ -163,6 +163,11 @@ def verify_model(bundle, data, max_rms):
     raise ValueError("Verification must use the model's camera, position space and approached home")
   adapted = measurement_data(data, bundle["lens"], bundle["rotation"], bundle["translation"])
   calibration = bundle["ptz_calibration"]
+  if (calibration["composition_order"] != ["pan", "home", "tilt"] or
+      calibration["axes"]["pan"]["frame"] != "world_home" or
+      calibration["axes"]["tilt"]["frame"] != "camera_local" or
+      calibration["axes"]["tilt"]["axis"] != [1.0, 0.0, 0.0]):
+    raise ValueError("Verification supports only pan/home/tilt with camera-local X tilt")
   deltas = {}
   for axis in fitting.AXES:
     spec = calibration["axes"][axis]
