@@ -78,7 +78,6 @@ manager/src/manager/serializers.py	ChildSceneSerializer::create_update	18
 manager/src/manager/serializers.py	ChildSceneSerializer::validate	23
 manager/src/manager/serializers.py	SceneSerializer::create_update	54
 manager/src/manager/serializers.py	SceneSerializer::handleMeshTransform	13
-manager/src/manager/serializers.py	SceneSerializer::validate	15
 manager/src/manager/serializers.py	SingletonSerializer::validate	17
 manager/src/manager/serializers.py	UserSerializer::validate	19
 manager/src/manager/validators.py	is_polycam_dataset	17

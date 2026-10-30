@@ -166,6 +166,24 @@ make run_unit_tests
 
 ```
 
+### OpenAPI schema drift checks
+
+```bash
+# Manager: Schemathesis contract tests against the in-proces Django app
+make check-manager-contract
+
+# Autocalibration: Schemathesis contract tests against the in-process Flask app
+make check-autocalibration-contract
+
+# Mapping: Schemathesis contract tests against the in-process Flask app
+make check-mapping-contract
+```
+
+In pre-merge CI, the **Check OpenAPI Contracts** job runs only the checks for
+services whose implementation, contract tests, or committed OpenAPI specifications
+changed. Changes to shared contract dependencies or the BAT workflow run all three
+checks. Spec-only changes do not start the BAT job.
+
 ### Running tests via pytest directly
 
 Run from the **repository root**:

@@ -184,6 +184,10 @@ help:
 	@echo ""
 	@echo "  check-zephyr-ids            Check every non-unit test declares a Zephyr test ID"
 	@echo ""
+	@echo "  check-autocalibration-contract  Check autocalibration behavior vs. its committed OpenAPI spec"
+	@echo "  check-mapping-contract          Check mapping behavior vs. its committed OpenAPI spec"
+	@echo "  check-manager-api-spec-review   Remind PR authors to review Manager API spec changes"
+	@echo ""
 	@echo "  lint-all                    Lint entire code base"
 	@echo "  lint-python                 Lint python files"
 	@echo "  lint-python-pylint          Lint python files using pylint"
@@ -480,6 +484,25 @@ ZEPHYR_CHECK := $(CURDIR)/tests/.venv/bin/python $(CURDIR)/tests/scripts/check_z
 .PHONY: check-zephyr-ids
 check-zephyr-ids:
 	@$(ZEPHYR_CHECK) || (echo "Zephyr ID check failed" && exit 1)
+
+# ============================== OpenAPI schema drift checks ==============================
+# Contract checks fail on drift, the Manager PR review reminder is advisory.
+# None of these targets rewrites a spec file.
+
+.PHONY: check-manager-contract
+check-manager-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/manager_api/ $(PYTEST_FLAGS) || \
+		(echo "Manager OpenAPI contract check failed" && exit 1)
+		
+.PHONY: check-autocalibration-contract
+check-autocalibration-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/autocalibration_api/ $(PYTEST_FLAGS) || \
+		(echo "Autocalibration OpenAPI contract check failed" && exit 1)
+
+.PHONY: check-mapping-contract
+check-mapping-contract: setup-pytest
+	$(PYTEST) $(TESTS_DIR)/sscape_tests/api/mapping_api/ $(PYTEST_FLAGS) || \
+		(echo "Mapping OpenAPI contract check failed" && exit 1)
 
 .PHONY: run_tests
 run_tests: setup-tests
