@@ -121,7 +121,8 @@ private:
     struct Period {
         std::optional<int64_t> first_ns;
         std::optional<int64_t> last_ns;
-        std::vector<std::pair<std::string, uint64_t>> decisions; ///< Insertion order
+        std::vector<std::pair<std::string_view, uint64_t>>
+            decisions; ///< Insertion order, static keys
         std::deque<double> residuals;
         uint64_t detections = 0;
         uint64_t admitted_detections = 0;
@@ -130,16 +131,29 @@ private:
         [[nodiscard]] std::string describe() const;
     };
 
+    struct Source {
+        Period period;
+        std::optional<int64_t> applied_since_ns;
+    };
+
+    struct StringHash {
+        using is_transparent = void;
+        size_t operator()(std::string_view value) const {
+            return std::hash<std::string_view>{}(value);
+        }
+    };
+
     [[nodiscard]] std::string summary(const DecisionContext& context, const PtzAdmission& admission,
                                       const Period& period) const;
-    void add(Period& period, const DecisionContext& context, const PtzAdmission& admission,
-             const ResidualSource* residuals) const;
+    /// Counts the decision into @p period; returns true when residuals should be sampled.
+    [[nodiscard]] bool add(Period& period, const DecisionContext& context,
+                           const PtzAdmission& admission, bool has_residuals) const;
+    Source& sourceFor(std::string_view source_id);
 
     uint64_t sample_every_n_;
     LineSink sink_;
     std::mutex mutex_;
-    std::unordered_map<std::string, Period> periods_;
-    std::unordered_map<std::string, int64_t> applied_;
+    std::unordered_map<std::string, Source, StringHash, std::equal_to<>> sources_;
 };
 
 /// Rotation (deg) and translation (m) of @p applied relative to @p home.

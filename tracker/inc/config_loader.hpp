@@ -145,11 +145,6 @@ struct TrackingConfig {
         kDefaultNonMeasurementTimeStaticS; ///< Time before static track dropped
 };
 
-/**
- * @brief Service configuration loaded from JSON config file.
- *
- * Values can be overridden by environment variables with TRACKER_ prefix.
- */
 /// PTZ PoseContext consumption mode; both flags off means Off.
 enum class PtzMode {
     Off,
@@ -192,6 +187,11 @@ struct PtzConfig {
     }
 };
 
+/**
+ * @brief Service configuration loaded from JSON config file.
+ *
+ * Values can be overridden by environment variables with TRACKER_ prefix.
+ */
 struct ServiceConfig {
     InfrastructureConfig infrastructure;
     ObservabilityConfig observability;

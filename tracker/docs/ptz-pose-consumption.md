@@ -186,7 +186,8 @@ nothing when it is off and close to nothing for static cameras when it is on.
 - **PTZ on, static camera:** one hash lookup per message.
 - **PTZ camera:** one timestamp parse, an uncontended lock, and an integer-nanosecond
   dwell evaluation per message. A unit test (`ptz_allocation_test.cpp`) asserts that this
-  path does not allocate.
+  path does not allocate. The decision recorder (which also runs in enforce mode) adds one
+  short mutex hold and one heterogeneous map lookup per message, without string copies.
 - **Each PoseContext:** size-bounded, schema-validated, and checked for finite, rigid
   matrices once. Its projection pose, including the precomputed rotation, origin, and
   horizon, is built once and shared by every batch it admits.

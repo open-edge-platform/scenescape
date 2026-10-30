@@ -320,11 +320,18 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             continue;
         }
         const auto& transformer = transformer_it->second;
-        const auto sightings = reid_sightings_.add_batch(batch);
         // An admitted PTZ batch projects with the PoseContext that admitted it; the
-        // transformer keeps the camera's static intrinsics.
-        const PoseView& pose = (batch.ptz_pose && batch.ptz_pose->view) ? *batch.ptz_pose->view
-                                                                        : transformer.staticPose();
+        // transformer keeps the camera's static intrinsics. A PTZ batch without a pose is
+        // never projected with the home pose: it only ages tracks.
+        const bool has_pose = batch.ptz_pose && batch.ptz_pose->view;
+        if (batch.ptz_preserve && !batch.ptz_gated && !has_pose) {
+            LOG_ERROR("Admitted PTZ batch for camera '{}' has no pose, treating as gated",
+                      batch.camera_id);
+            objects_per_camera.emplace_back();
+            continue;
+        }
+        const auto sightings = reid_sightings_.add_batch(batch);
+        const PoseView& pose = has_pose ? *batch.ptz_pose->view : transformer.staticPose();
         objects_per_camera.push_back(
             transformer.transformDetections(batch.detections, pose, sightings));
     }

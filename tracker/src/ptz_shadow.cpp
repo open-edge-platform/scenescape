@@ -17,7 +17,7 @@ namespace tracker::ptz {
 
 namespace {
 
-constexpr const char* kAdmittedKey = "admitted";
+constexpr std::string_view kAdmittedKey = "admitted";
 
 LineSink defaultRawSink() {
     return [](std::string_view line) { Logger::raw_line(line); };
@@ -68,7 +68,7 @@ void writeDetections(JsonWriter& writer, const ShadowDetections& detections) {
     writer.EndArray();
 }
 
-std::string decisionKey(const PtzAdmission& admission) {
+std::string_view decisionKey(const PtzAdmission& admission) {
     if (admission.admitted) {
         return kAdmittedKey;
     }
@@ -183,21 +183,40 @@ SummaryRecorder::SummaryRecorder(int sample_every_n, LineSink sink)
     : sample_every_n_(static_cast<uint64_t>(std::max(sample_every_n, 1))),
       sink_(sink ? std::move(sink) : defaultInfoSink()) {}
 
+SummaryRecorder::Source& SummaryRecorder::sourceFor(std::string_view source_id) {
+    auto it = sources_.find(source_id);
+    if (it == sources_.end()) {
+        it = sources_.emplace(std::string(source_id), Source{}).first;
+    }
+    return it->second;
+}
+
 bool SummaryRecorder::record(const DecisionContext& context, const PtzAdmission& admission,
                              const ResidualSource* residuals) {
     std::string line;
+    bool sample = false;
     {
         std::lock_guard lock(mutex_);
-        const std::string source_id(context.source_id);
+        auto& source = sourceFor(context.source_id);
         const auto since_ns = admission.stationary_since_ns;
-        auto applied = applied_.find(source_id);
-        if (admission.admitted && since_ns &&
-            (applied == applied_.end() || applied->second != *since_ns)) {
-            applied_[source_id] = *since_ns;
-            line = summary(context, admission, periods_[source_id]);
-            periods_[source_id] = Period{};
+        if (admission.admitted && since_ns && source.applied_since_ns != since_ns) {
+            source.applied_since_ns = since_ns;
+            line = summary(context, admission, source.period);
+            source.period = Period{};
         }
-        add(periods_[source_id], context, admission, residuals);
+        sample = add(source.period, context, admission, residuals != nullptr);
+    }
+    // Projection can take its own locks, so it runs outside the recorder mutex.
+    if (sample) {
+        const auto detections = residuals->compute();
+        std::lock_guard lock(mutex_);
+        auto& period = sourceFor(context.source_id).period;
+        for (const auto& detection : detections) {
+            if (period.residuals.size() == kMaxSummarySamples) {
+                period.residuals.pop_front();
+            }
+            period.residuals.push_back(detection.residual_m);
+        }
     }
     if (line.empty()) {
         return false;
@@ -206,17 +225,17 @@ bool SummaryRecorder::record(const DecisionContext& context, const PtzAdmission&
     return true;
 }
 
-void SummaryRecorder::add(Period& period, const DecisionContext& context,
-                          const PtzAdmission& admission, const ResidualSource* residuals) const {
+bool SummaryRecorder::add(Period& period, const DecisionContext& context,
+                          const PtzAdmission& admission, bool has_residuals) const {
     if (context.observation_ns) {
         if (!period.first_ns) {
             period.first_ns = context.observation_ns;
         }
         period.last_ns = context.observation_ns;
     }
-    const std::string key = decisionKey(admission);
+    const std::string_view key = decisionKey(admission);
     auto it = std::find_if(period.decisions.begin(), period.decisions.end(),
-                           [&key](const auto& entry) { return entry.first == key; });
+                           [key](const auto& entry) { return entry.first == key; });
     if (it == period.decisions.end()) {
         period.decisions.emplace_back(key, 1);
     } else {
@@ -224,17 +243,10 @@ void SummaryRecorder::add(Period& period, const DecisionContext& context,
     }
     period.detections += context.detection_count;
     if (!admission.admitted) {
-        return;
+        return false;
     }
     period.admitted_detections += context.detection_count;
-    if (residuals && period.admitted_decisions++ % sample_every_n_ == 0) {
-        for (const auto& detection : residuals->compute()) {
-            if (period.residuals.size() == kMaxSummarySamples) {
-                period.residuals.pop_front();
-            }
-            period.residuals.push_back(detection.residual_m);
-        }
-    }
+    return has_residuals && period.admitted_decisions++ % sample_every_n_ == 0;
 }
 
 std::string SummaryRecorder::summary(const DecisionContext& context, const PtzAdmission& admission,
