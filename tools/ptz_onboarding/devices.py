@@ -13,6 +13,10 @@ import requests
 from config import read_json, validate_points
 
 
+class TagCoverageError(ValueError):
+  """A valid calibration request completed without usable AprilTag coverage."""
+
+
 class Manager:
   """Authenticated HTTPS access; writes are only used by the apply command."""
 
@@ -38,7 +42,7 @@ class Manager:
 class Camera:
   """Bounded absolute ONVIF moves preserving zoom."""
 
-  def __init__(self, config):
+  def __init__(self, config, validate_limits=True):
     from onvif import ONVIFCamera
     from zeep.transports import Transport
 
@@ -73,7 +77,7 @@ class Camera:
     self.space = {"uri": space.URI, "pan_min": space.XRange.Min,
                   "pan_max": space.XRange.Max, "tilt_min": space.YRange.Min,
                   "tilt_max": space.YRange.Max}
-    for axis in ("pan", "tilt"):
+    for axis in ("pan", "tilt") if validate_limits else ():
       low, high = self.motion[f"{axis}_range"]
       if low < self.space[f"{axis}_min"] or high > self.space[f"{axis}_max"]:
         raise ValueError(f"{axis}_range exceeds this profile's advertised position space")
@@ -192,9 +196,12 @@ class Tags:
       result = reply.json()
       if result.get("status") in ("success", "error"):
         if result.get("status") == "error":
-          raise RuntimeError(f"AprilTag calibration rejected: {result.get('message', 'no details')}")
+          raise TagCoverageError(
+            f"AprilTag calibration rejected: {result.get('message', 'no details')}")
         stop = {"points_2d": result.get("calibration_points_2d", []),
                 "points_3d": result.get("calibration_points_3d", [])}
+        if len(stop["points_2d"]) < 6:
+          raise TagCoverageError("Fewer than six matched AprilTag points")
         validate_points(stop)
         stop["resolution"] = [int(decoded.shape[1]), int(decoded.shape[0])]
         return stop

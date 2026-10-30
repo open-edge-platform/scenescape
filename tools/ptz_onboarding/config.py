@@ -36,7 +36,7 @@ def numbers(value, count=None):
   return value
 
 
-def load_config(path):
+def load_config(path, motion_mode="full"):
   """Validate explicit safe motion limits before any camera connection."""
   config = read_json(path)
   uid = config["camera_uid"]
@@ -50,6 +50,8 @@ def load_config(path):
   for section in ("mqtt", "onvif"):
     config[section]["auth"] = str(
       (Path(path).resolve().parent / config[section]["auth"]).resolve())
+  if motion_mode == "probe":
+    return config
   motion = config["motion"]
   home = numbers(motion["home"], 2)
   offsets = numbers(motion["approach_offset"], 2)
@@ -61,10 +63,14 @@ def load_config(path):
     if low >= high or offsets[i] <= 0:
       raise ValueError(f"{axis}: ordered limits and a positive approach_offset are required")
     before = home[i] + (offsets[i] if motion["approach"][i] == "decreasing" else -offsets[i])
-    targets = [home[i], before, *numbers(motion[f"lens_{axis}"]),
-               *(home[i] + d for d in numbers(motion[f"{axis}_path"]))]
+    targets = [home[i], before]
+    if motion_mode == "full":
+      targets += [*numbers(motion[f"lens_{axis}"]),
+                  *(home[i] + d for d in numbers(motion[f"{axis}_path"]))]
     if any(not low <= v <= high for v in targets):
       raise ValueError(f"{axis}: home, approach, lens and path targets must be inside safe limits")
+    if motion_mode != "full":
+      continue
     if len(set(motion[f"lens_{axis}"])) < 2:
       raise ValueError(f"lens_{axis} needs at least two distinct positions")
     if len(set(motion[f"{axis}_path"])) < 3 or motion[f"{axis}_path"][-1] != 0:
@@ -76,7 +82,7 @@ def load_config(path):
     numbers([motion[key]], 1)
     if motion[key] <= 0:
       raise ValueError(f"{key} must be positive")
-  if len(set(motion["lens_pan"])) * len(set(motion["lens_tilt"])) < 6:
+  if motion_mode == "full" and len(set(motion["lens_pan"])) * len(set(motion["lens_tilt"])) < 6:
     raise ValueError("The lens grid needs at least six distinct views")
   if motion["tolerance"] >= min(offsets) / 2:
     raise ValueError("tolerance must be less than half the home approach offsets")

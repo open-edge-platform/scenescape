@@ -17,6 +17,7 @@ from scipy.spatial.transform import Rotation
 
 import config
 import devices
+import discovery
 import fitting
 import model
 import ptz
@@ -214,6 +215,94 @@ class GeometryTests(unittest.TestCase):
     self.assertLess(model.verify_model(fitted, value, 0.01)["rms_px"], 0.01)
 
 
+class DiscoveryTests(unittest.TestCase):
+  def test_probe_and_planning_allow_empty_measurement_paths_but_not_unsafe_limits(self):
+    value = settings()
+    for key in ("lens_pan", "lens_tilt", "pan_path", "tilt_path"):
+      value["motion"][key] = []
+    with tempfile.TemporaryDirectory() as directory:
+      path = Path(directory) / "config.json"
+      config.write_json(path, value)
+      config.load_config(path, motion_mode="planning")
+      with self.assertRaises(ValueError):
+        config.load_config(path)
+      value["motion"]["pan_range"] = []
+      other = Path(directory) / "probe.json"
+      config.write_json(other, value)
+      config.load_config(other, motion_mode="probe")
+      with self.assertRaises(ValueError):
+        config.load_config(other, motion_mode="planning")
+
+  def test_discovery_grid_stays_inside_limits_and_includes_exact_approach(self):
+    motion = settings()["motion"]
+    pans, tilts = discovery.grid(motion, 3)
+    for i, values in enumerate((pans, tilts)):
+      low, high = motion[f"{('pan', 'tilt')[i]}_range"]
+      self.assertTrue(all(low <= value <= high for value in values))
+      self.assertIn(motion["home"][i], values)
+      before = motion["home"][i] + (1 if motion["approach"][i] == "decreasing" else -1) * motion["approach_offset"][i]
+      self.assertIn(before, values)
+
+  def test_rectangle_does_not_bridge_tag_visibility_holes(self):
+    motion = settings()["motion"]
+    pans, tilts = discovery.grid(motion, 3)
+    observations = [{"requested_pan": p, "requested_tilt": t, "usable": True}
+                    for p in pans for t in tilts]
+    observations[0]["usable"] = False
+    xs, ys = discovery.select_rectangle(pans, tilts, observations, motion)
+    self.assertFalse(pans[0] in xs and tilts[0] in ys)
+    self.assertIn(motion["home"][0], xs)
+    self.assertIn(motion["home"][1], ys)
+    for observation in observations:
+      observation["usable"] = False
+    with self.assertRaisesRegex(ValueError, "No sampled"):
+      discovery.select_rectangle(pans, tilts, observations, motion)
+
+  def test_discovery_records_coverage_and_proposes_valid_config(self):
+    value = settings()
+    stop = {"points_2d": [[1, 2]] * 6, "resolution": [1280, 960]}
+    with tempfile.TemporaryDirectory() as directory, \
+         patch("discovery.Camera") as camera, patch("discovery.Manager"), \
+         patch("discovery.Tags") as tags, contextlib.redirect_stdout(io.StringIO()):
+      camera.return_value.move.side_effect = lambda p, t: [p, t]
+      tags.return_value.collect.return_value = stop
+      output = Path(directory) / "coverage"
+      discovery.discover(value, output, 3)
+      self.assertEqual(camera.return_value.home.call_count, 2)
+      proposed = config.load_config(output / "camera.discovered.json")
+      self.assertEqual(proposed["motion"]["pan_range"], value["motion"]["pan_range"])
+      self.assertGreaterEqual(len(proposed["motion"]["lens_pan"]), 3)
+      self.assertEqual(proposed["motion"]["pan_path"][-1], 0)
+
+  def test_transport_failure_aborts_discovery_but_returns_home_and_saves_report(self):
+    with tempfile.TemporaryDirectory() as directory, \
+         patch("discovery.Camera") as camera, patch("discovery.Manager"), \
+         patch("discovery.Tags") as tags:
+      tags.return_value.collect.side_effect = TimeoutError("broker unavailable")
+      output = Path(directory) / "coverage"
+      with self.assertRaises(TimeoutError):
+        discovery.discover(settings(), output, 3)
+      self.assertEqual(camera.return_value.home.call_count, 2)
+      self.assertTrue((output / "coverage.json").exists())
+      self.assertFalse((output / "camera.discovered.json").exists())
+
+  def test_no_coverage_can_be_recorded_but_not_network_failure(self):
+    stop = {"points_2d": [[1, 2]] * 6, "resolution": [1280, 960]}
+    with tempfile.TemporaryDirectory() as directory, \
+         patch("discovery.Camera") as camera, patch("discovery.Manager"), \
+         patch("discovery.Tags") as tags, contextlib.redirect_stdout(io.StringIO()):
+      value = settings()
+      pans, tilts = discovery.grid(value["motion"], 3)
+      camera.return_value.move.side_effect = lambda p, t: [p, t]
+      tags.return_value.collect.side_effect = [
+        stop, *[devices.TagCoverageError("no tags") for _ in range(len(pans) * len(tilts))]]
+      output = Path(directory) / "coverage"
+      with self.assertRaisesRegex(ValueError, "No sampled"):
+        discovery.discover(value, output, 3)
+      self.assertTrue(all(not s["usable"] for s in config.read_json(
+        output / "coverage.json")["observations"]))
+
+
 class DeviceWorkflowTests(unittest.TestCase):
   def test_onboard_persists_all_steps_without_manager_writes(self):
     data, _, _ = synthetic()
@@ -308,7 +397,7 @@ class DeviceWorkflowTests(unittest.TestCase):
       self.assertEqual(tags.collect()["resolution"], [64, 48])
       done.json.return_value = {"status": "error", "message": "no tags"}
       tags.session.get.side_effect = [done]
-      with self.assertRaisesRegex(RuntimeError, "no tags"):
+      with self.assertRaisesRegex(devices.TagCoverageError, "no tags"):
         tags.collect()
 
   def test_motion_requires_confirmation_before_device_access(self):

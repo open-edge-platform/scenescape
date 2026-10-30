@@ -5,6 +5,7 @@
 
 import argparse
 import copy
+import json
 import sys
 from pathlib import Path
 
@@ -111,7 +112,13 @@ def main(argv=None):
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument("--config", required=True, help="Local camera JSON; see camera.example.json")
   commands = parser.add_subparsers(dest="command", required=True)
+  commands.add_parser("inspect", help="Read ONVIF profile, position and advertised limits; no movement")
   commands.add_parser("check", help="Validate configuration, API, ONVIF and fresh tag visibility; no moves")
+  sub = commands.add_parser("discover", help="MOVE inside approved limits; propose tag-visible paths")
+  sub.add_argument("--output-dir", required=True, help="New directory for coverage and proposed config")
+  sub.add_argument("--steps", type=int, choices=range(3, 10), default=5,
+                   help="Grid points per axis plus home/approach points (3-9; default 5)")
+  sub.add_argument("--yes", action="store_true")
   sub = commands.add_parser("onboard", help="MOVE camera; collect, fit and verify locally; no Manager writes")
   sub.add_argument("--output-dir", required=True, help="New directory for all results")
   sub.add_argument("--yes", action="store_true")
@@ -137,8 +144,9 @@ def main(argv=None):
   sub.add_argument("--backup", required=True)
   sub.add_argument("--yes", action="store_true", help="Confirm Manager calibration replacement")
   args = parser.parse_args(argv)
-  config = load_config(args.config)
-  if args.command in ("onboard", "capture-lens", "capture-ptz", "verify", "apply") and not args.yes:
+  mode = {"inspect": "probe", "discover": "planning", "check": "probe"}.get(args.command, "full")
+  config = load_config(args.config, motion_mode=mode)
+  if args.command in ("discover", "onboard", "capture-lens", "capture-ptz", "verify", "apply") and not args.yes:
     parser.error("Explicit --yes is required; read the motion/write warnings in README.md")
   for name in ("output", "backup"):
     path = getattr(args, name, None)
@@ -151,7 +159,18 @@ def execute(args, config):
   """Dispatch commands; fitting imports do not depend on running services."""
   from model import solve_lens, solve_model, verify_model
 
-  if args.command == "onboard":
+  if args.command == "inspect":
+    from devices import Camera
+    camera = Camera(config, validate_limits=False)
+    position = camera.status().Position
+    print(json.dumps({"profile_token": camera.token, "pan": position.PanTilt.x,
+                      "tilt": position.PanTilt.y,
+                      "zoom": position.Zoom.x if position.Zoom is not None else None,
+                      "position_space": camera.space}, indent=2))
+  elif args.command == "discover":
+    from discovery import discover
+    discover(config, Path(args.output_dir), args.steps)
+  elif args.command == "onboard":
     directory = Path(args.output_dir)
     directory.mkdir(mode=0o700)
     data = capture(config, "lens")
@@ -170,7 +189,7 @@ def execute(args, config):
   elif args.command == "check":
     from devices import Camera, Manager, Tags
     Manager(config).camera(config["camera_uid"])
-    camera = Camera(config)
+    camera = Camera(config, validate_limits=False)
     stop = Tags(config).collect()
     print(f"Connected; {len(stop['points_2d'])} matched points; position space: {camera.space}")
   elif args.command.startswith("capture-"):

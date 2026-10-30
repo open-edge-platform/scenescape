@@ -56,6 +56,36 @@ Edit `local/camera.json`. All camera/scene choices are yours; **there are no
 default measurement ranges**. Relative credential/CA paths resolve relative
 to this configuration file, not your working directory.
 
+### Create the camera credential file
+
+Create a new file, for example `local/camera-onvif.json`, in your editor:
+
+```json
+{
+  "username": "<your camera ONVIF username>",
+  "password": "<your camera ONVIF password>"
+}
+```
+
+Replace the placeholders **locally**, then restrict access:
+
+```sh
+chmod 700 local
+chmod 600 local/camera-onvif.json
+```
+
+Set `"auth": "camera-onvif.json"` inside the `onvif` section of
+`local/camera.json`. Both files are in the same directory. This is the
+camera's ONVIF account, not a SceneScape login; enable ONVIF in the camera UI
+and grant status/absolute-movement access. Use its actual ONVIF port.
+Do not paste accounts into chat, command-line flags, screenshots or Git.
+
+SceneScape accounts are separate: `manager_auth` points to the deployed
+checkout's `manager/secrets/controller.auth`, and `mqtt.auth` typically
+points to `manager/secrets/browser.auth`. Both use `user`/`password` keys
+(not ONVIF's `username`/`password`). RTSP accounts are configured separately
+in the video pipeline.
+
 | Setting                              | What to provide                                                                      |
 | ------------------------------------ | ------------------------------------------------------------------------------------ |
 | `camera_uid`                         | Existing camera's UID from Manager, not its display name                             |
@@ -73,6 +103,34 @@ actual configured port. Run on a trusted host/network that can reach all four
 endpoints. Set `NO_PROXY` appropriately for local service/camera addresses.
 The tool verifies TLS; do not disable certificate checks or expose services
 publicly just to run calibration.
+
+### Configure the camera stream first
+
+Adding a camera in Manager does **not** create a DLStreamer pipeline.
+Configure your deployment's pipeline server with:
+
+- The camera's actual RTSP URI and RTSP account. Obtain the URI for the
+  selected ONVIF profile using `GetStreamUri`, or from the camera documentation.
+  ONVIF and RTSP accounts can differ.
+- The **exact same camera UID** as `camera_uid` in Manager and the tool config.
+- Your deployment's SceneScape image/metadata publisher, TLS CA and broker
+  connection. The publisher must subscribe to
+  `scenescape/cmd/camera/<uid>` and respond to `getcalibrationimage` by
+  publishing a JSON message with a base64 `image` on
+  `scenescape/image/calibration/camera/<uid>`.
+- A stable stream resolution, fixed zoom and a reachable NTP service for
+  timestamped image delivery.
+
+Verify that its pipeline reports `RUNNING` and Manager shows live video,
+then run the tool's `check` command. A plain RTSP preview or successful person
+detection is not sufficient: the calibration-image request must work too.
+Avoid a second publisher for the same UID. Generated stream configurations
+contain RTSP credentials: keep them in a private ignored directory, and grant
+read access only to the pipeline container UID. Do not copy them into tool
+examples or print unredacted pipeline logs.
+
+The onboarding tools do not create or alter video pipelines automatically.
+Keep stream deployment separate from camera measurement and Positioning.
 
 Keep accounts outside tracked files, restrict them with `chmod 600`, and use
 least-privilege accounts: ONVIF status/absolute movement, Manager camera
@@ -110,6 +168,82 @@ The reported position-space limits are device limits, **not evidence that the
 whole mechanical range was validated**. Accuracy is only measured where tags
 were visible. Recalibrate after changing camera placement, lens, zoom,
 resolution or scene geometry.
+
+### Discover AprilTag-covered positions automatically
+
+You must still choose **safe hardware limits**. Tag visibility cannot tell the
+tool which mechanical moves are safe. Advertised ONVIF limits alone are not
+permission to sweep the whole head.
+
+1. Run `inspect` to read profile/position/advertised limits without moving.
+   Set an explicit `onvif.profile_token` if the device has several PTZ profiles.
+2. Choose a well-observed `motion.home`, operator-approved `pan_range` and
+   `tilt_range`, home approach directions and positive `approach_offset`.
+   Also set settling time, arrival timeout and native-unit tolerance.
+   Keep the approach position inside the safe limits.
+3. Leave `lens_pan`, `lens_tilt`, `pan_path` and `tilt_path` empty for now.
+   Run `check`: it requests a fresh frame and verifies tags at the current
+   position, but performs no movement.
+4. Reserve the camera, then run bounded discovery:
+
+```sh
+.venv/bin/python ptz.py --config local/camera.json inspect
+.venv/bin/python ptz.py --config local/camera.json check
+# MOVES CAMERA, only after approving the safe limits in camera.json:
+.venv/bin/python ptz.py --config local/camera.json discover \
+  --output-dir local/coverage-01 --steps 5 --yes
+```
+
+Discovery samples a Cartesian grid inside your limits, including exact home
+and approach coordinates. `--steps` accepts 3–9 grid points per axis, plus
+those extra coordinates; runtime grows with their product. It requires usable
+tags at home before probing, records explicit tag-coverage rejections and
+returns to approached home. Transport/API failures abort rather than being
+silently treated as missing tags.
+
+It selects the largest fully observed rectangle with at least three positions
+per axis that includes home and the approach coordinates. It writes:
+
+- `coverage.json`: sampled positions, point counts and rejection reasons.
+- `camera.discovered.json`: a **new proposed configuration**, containing lens
+  grid positions and reversing PTZ paths. Credentials remain file references.
+
+Review these files, then use `camera.discovered.json` as `--config` for
+`onboard` and `apply`. The original config and safe travel limits are unchanged.
+Only sampled grid points are checked; visibility between points, image-edge
+coverage and lens-fit conditioning are not guaranteed. If no suitable rectangle
+exists, discovery fails explicitly. Improve the scene, change the home or refine
+the grid **inside** your approved safe limits instead of widening them blindly.
+
+### Optional Docker runner for Compose deployments
+
+When broker/autocalibration are reachable only inside the Compose network, run
+the tools on that existing network. This also supplies a consistent Python 3.12
+runtime. `.dockerignore` excludes local accounts, generated RTSP configs and
+measurements from the image build.
+
+```sh
+docker build -t scenescape-ptz-onboarding:local .
+docker run --rm --user "$(id -u):$(id -g)" \
+  --network <your-existing-compose-network> \
+  --mount type=bind,src="$PWD/local",dst=/work \
+  --mount type=bind,src=/absolute/path/to/manager/secrets,dst=/run/secrets,readonly \
+  scenescape-ptz-onboarding:local --config /work/camera.json check
+```
+
+For this layout, set config paths to `/run/secrets/controller.auth`,
+`/run/secrets/browser.auth` and `/run/secrets/certs/scenescape-ca.pem`, and keep
+ONVIF auth relative to the config. Use the services' certificate DNS names for
+URLs/broker host, not container IP addresses. Results belong under `/work`.
+Replace `check` with `inspect`, `discover --output-dir /work/coverage-01 --yes`,
+or the other documented commands. The local-directory mount is writable for
+results; service secrets are read-only.
+
+Newer host Python/OpenSSL versions may reject older demo CAs missing required
+extensions. Prefer correctly issued deployment certificates. The provided
+runner uses its standard verified TLS behavior; no command disables
+certificate or hostname verification. Do not work around certificate errors
+with `verify=False` or `--insecure`.
 
 ## 3. Check, onboard, apply
 
