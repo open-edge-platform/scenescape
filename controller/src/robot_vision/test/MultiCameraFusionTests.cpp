@@ -276,7 +276,7 @@ TEST(MultipleObjectTrackerTest, PositionMahalanobisFusesMultiCameraDetectionsInt
   trackerConfig.mNonMeasurementTimeDynamic = 1.0;
   trackerConfig.mNonMeasurementTimeStatic = 1.6;
 
-  const double chi2_gate = rv::chi2Threshold(0.99, 2);
+  const double chi2_gate = rv::chi2Threshold(0.99, 3);
   rv::tracking::MultipleObjectTracker objectTracker(
     trackerConfig, rv::tracking::DistanceType::PositionMahalanobis, chi2_gate);
   objectTracker.updateTrackerParams(10);
@@ -304,3 +304,68 @@ TEST(MultipleObjectTrackerTest, PositionMahalanobisFusesMultiCameraDetectionsInt
   EXPECT_NEAR(tracks[0].y, 0.5 * (cam0.y + cam1.y), 1e-6);
 }
 
+
+TEST(MultipleObjectTrackerTest, BirthClusteringDoesNotFuseStackedFloors)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mNonMeasurementTimeDynamic = 1.0;
+  trackerConfig.mNonMeasurementTimeStatic = 1.6;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig, rv::tracking::DistanceType::Euclidean, 2.0);
+  objectTracker.updateTrackerParams(10);
+
+  rv::tracking::TrackedObject floor0;
+  floor0.x = 5.0;
+  floor0.y = 5.0;
+  floor0.z = 0.0;
+  floor0.zMeasured = true;
+  floor0.width = floor0.length = floor0.height = 0.5;
+
+  rv::tracking::TrackedObject floor1 = floor0;
+  floor1.z = 3.0; // beyond kDefaultBirthClusterRadiusM (2 m)
+
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{floor0}, {floor1}},
+                      timestamp, rv::tracking::DistanceType::Euclidean, 2.0, 0.5);
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 2U) << "measured-Z detections stacked in Z must not birth-cluster into one track";
+}
+
+TEST(MultipleObjectTrackerTest, BirthClusteringFusesMixedPlanarAndMeasuredZ)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  trackerConfig.mMaxUnreliableTime = 0.0;
+  trackerConfig.mNonMeasurementTimeDynamic = 1.0;
+  trackerConfig.mNonMeasurementTimeStatic = 1.6;
+
+  rv::tracking::MultipleObjectTracker objectTracker(trackerConfig, rv::tracking::DistanceType::Euclidean, 2.0);
+  objectTracker.updateTrackerParams(10);
+
+  rv::tracking::TrackedObject planar;
+  planar.x = 5.0;
+  planar.y = 5.0;
+  planar.z = 0.0;
+  planar.zMeasured = false;
+  planar.width = planar.length = planar.height = 0.5;
+
+  rv::tracking::TrackedObject measured = planar;
+  measured.z = 1.5;
+  measured.zMeasured = true;
+
+  auto timestamp = std::chrono::system_clock::now();
+  objectTracker.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{planar}, {measured}},
+                      timestamp, rv::tracking::DistanceType::Euclidean, 2.0, 0.5);
+
+  auto tracks = objectTracker.getTracks();
+  ASSERT_EQ(tracks.size(), 1U) << "planar + measured-Z at same XY should birth-cluster via XY distance";
+}

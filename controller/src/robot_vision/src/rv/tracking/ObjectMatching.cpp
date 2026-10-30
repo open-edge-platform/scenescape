@@ -23,14 +23,29 @@ double calculateMulticlassScaledDistance(const TrackedObject &measurement, const
 {
   auto conflict = rv::tracking::classification::distance(measurement.classification, track.classification);
 
-  double distance = sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2));
+  double distance = std::sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2)
+                              + pow(measurement.z - track.z, 2));
 
   return distance * (1.0 + conflict);
 }
 
 double calculateEuclideanDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  return sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2));
+  return std::sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2)
+                   + pow(measurement.z - track.z, 2));
+}
+
+/// Birth clustering: XY when either detection is planar (no measured Z); full XYZ when both are.
+double calculateEuclideanBirthDistance(const TrackedObject &measurement, const TrackedObject &track)
+{
+  const double dx = measurement.x - track.x;
+  const double dy = measurement.y - track.y;
+  if (!(measurement.zMeasured && track.zMeasured))
+  {
+    return std::hypot(dx, dy);
+  }
+  const double dz = measurement.z - track.z;
+  return std::sqrt(dx * dx + dy * dy + dz * dz);
 }
 
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
@@ -41,7 +56,7 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
   // and tracks that have never seen an orienting sensor leave yaw out.
   if (!(orientation::hasOrientation(measurement) && orientation::orientationObserved(track)))
   {
-    innovation(6) = 0.;
+    innovation(MeasurementIndex::YAW) = 0.;
   }
 
   // innovation' * S^-1 * innovation
@@ -50,28 +65,45 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
   return 0.5 * std::sqrt(squaredDistance);
 }
 
+namespace {
+
+/// XYZ block of the predicted measurement covariance S.
+cv::Matx33d positionCovariance(const TrackedObject &track)
+{
+  static_assert(MeasurementIndex::Y == MeasurementIndex::X + 1 && MeasurementIndex::Z == MeasurementIndex::X + 2,
+                "x, y, z must be adjacent in the measurement vector");
+  return track.predictedMeasurementCov.get_minor<3, 3>(MeasurementIndex::X, MeasurementIndex::X);
+}
+
+} // namespace
+
 double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  const double pred_x = track.predictedMeasurementMean(0);
-  const double pred_y = track.predictedMeasurementMean(1);
+  const double pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
+  const double pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
+  const double pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
   const double dx = measurement.x - pred_x;
   const double dy = measurement.y - pred_y;
+  const double dz = measurement.z - pred_z;
 
-  const double s00 = track.predictedMeasurementCov(0, 0);
-  const double s01 = track.predictedMeasurementCov(0, 1);
-  const double s11 = track.predictedMeasurementCov(1, 1);
+  const cv::Matx33d S = positionCovariance(track);
 
-  const double det = s00 * s11 - s01 * s01;
-  if (std::abs(det) < 1e-12)
+  cv::Mat Sinv;
+  if (cv::invert(S, Sinv, cv::DECOMP_LU) == 0)
   {
     return kDefaultClassBoundValue;
   }
 
-  const double inv00 = s11 / det;
-  const double inv01 = -s01 / det;
-  const double inv11 = s00 / det;
+  const double inv00 = Sinv.at<double>(0, 0);
+  const double inv01 = Sinv.at<double>(0, 1);
+  const double inv02 = Sinv.at<double>(0, 2);
+  const double inv11 = Sinv.at<double>(1, 1);
+  const double inv12 = Sinv.at<double>(1, 2);
+  const double inv22 = Sinv.at<double>(2, 2);
 
-  return dx * (inv00 * dx + inv01 * dy) + dy * (inv01 * dx + inv11 * dy);
+  return dx * (inv00 * dx + inv01 * dy + inv02 * dz)
+       + dy * (inv01 * dx + inv11 * dy + inv12 * dz)
+       + dz * (inv02 * dx + inv12 * dy + inv22 * dz);
 }
 
 namespace {
@@ -81,39 +113,47 @@ struct PositionMahalanobisTrackCache
 {
   double pred_x = 0.0;
   double pred_y = 0.0;
+  double pred_z = 0.0;
   double inv00 = 0.0;
   double inv01 = 0.0;
+  double inv02 = 0.0;
   double inv11 = 0.0;
+  double inv12 = 0.0;
+  double inv22 = 0.0;
   bool valid = false;
 };
 
 PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedObject &track)
 {
   PositionMahalanobisTrackCache cache;
-  cache.pred_x = track.predictedMeasurementMean(0);
-  cache.pred_y = track.predictedMeasurementMean(1);
+  cache.pred_x = track.predictedMeasurementMean(MeasurementIndex::X);
+  cache.pred_y = track.predictedMeasurementMean(MeasurementIndex::Y);
+  cache.pred_z = track.predictedMeasurementMean(MeasurementIndex::Z);
 
-  const double s00 = track.predictedMeasurementCov(0, 0);
-  const double s01 = track.predictedMeasurementCov(0, 1);
-  const double s11 = track.predictedMeasurementCov(1, 1);
-  const double det = s00 * s11 - s01 * s01;
-  if (std::abs(det) < 1e-12)
+  const cv::Matx33d S = positionCovariance(track);
+
+  cv::Mat Sinv;
+  if (cv::invert(S, Sinv, cv::DECOMP_LU) == 0)
   {
     return cache;
   }
-  cache.inv00 = s11 / det;
-  cache.inv01 = -s01 / det;
-  cache.inv11 = s00 / det;
+  cache.inv00 = Sinv.at<double>(0, 0);
+  cache.inv01 = Sinv.at<double>(0, 1);
+  cache.inv02 = Sinv.at<double>(0, 2);
+  cache.inv11 = Sinv.at<double>(1, 1);
+  cache.inv12 = Sinv.at<double>(1, 2);
+  cache.inv22 = Sinv.at<double>(2, 2);
   cache.valid = true;
   return cache;
 }
 
-double positionMahalanobisCostFromCache(double measurement_x, double measurement_y,
+double positionMahalanobisCostFromCache(double measurement_x, double measurement_y, double measurement_z,
                                         const PositionMahalanobisTrackCache &cache, double max_radius_m)
 {
   const double dx = measurement_x - cache.pred_x;
   const double dy = measurement_y - cache.pred_y;
-  if (std::hypot(dx, dy) > max_radius_m)
+  const double dz = measurement_z - cache.pred_z;
+  if (std::sqrt(dx * dx + dy * dy + dz * dz) > max_radius_m)
   {
     return kDefaultClassBoundValue;
   }
@@ -121,7 +161,9 @@ double positionMahalanobisCostFromCache(double measurement_x, double measurement
   {
     return kDefaultClassBoundValue;
   }
-  return dx * (cache.inv00 * dx + cache.inv01 * dy) + dy * (cache.inv01 * dx + cache.inv11 * dy);
+  return dx * (cache.inv00 * dx + cache.inv01 * dy + cache.inv02 * dz)
+       + dy * (cache.inv01 * dx + cache.inv11 * dy + cache.inv12 * dz)
+       + dz * (cache.inv02 * dx + cache.inv12 * dy + cache.inv22 * dz);
 }
 
 } // namespace
@@ -167,7 +209,7 @@ void match(const std::vector<TrackedObject> &tracks,
 
   if (distanceType == DistanceType::PositionMahalanobis)
   {
-    // Invert the 2x2 position covariance once per track, not once per (track, detection).
+    // Invert the 3x3 position covariance once per track, not once per (track, detection).
     std::vector<PositionMahalanobisTrackCache> track_caches(tracks.size());
     for (size_t i = 0; i < tracks.size(); ++i)
     {
@@ -180,7 +222,7 @@ void match(const std::vector<TrackedObject> &tracks,
       for (size_t j = 0; j < measurements.size(); ++j)
       {
         (*costMatrix)(i, j) = positionMahalanobisCostFromCache(
-          measurements[j].x, measurements[j].y, track_caches[i], max_radius_m);
+          measurements[j].x, measurements[j].y, measurements[j].z, track_caches[i], max_radius_m);
       }
     }
   }
@@ -197,6 +239,16 @@ void match(const std::vector<TrackedObject> &tracks,
         break;
       case DistanceType::MultiClassEuclidean:
         distanceFunction = std::bind(&calculateMulticlassScaledDistance, std::placeholders::_1, std::placeholders::_2);
+        break;
+      case DistanceType::EuclideanBirth:
+        distanceFunction = [max_radius_m](const TrackedObject &measurement, const TrackedObject &track) {
+          const double distance = calculateEuclideanBirthDistance(measurement, track);
+          if (distance > max_radius_m)
+          {
+            return kDefaultClassBoundValue;
+          }
+          return distance;
+        };
         break;
       case DistanceType::Euclidean:
       default:

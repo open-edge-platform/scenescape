@@ -144,7 +144,7 @@ AssociationParams loadAssociationConfig(const std::string &path)
       "association method position_mahalanobis is not available in this robot_vision build");
 #else
     params.distance_type = DistanceType::PositionMahalanobis;
-    params.distance_threshold = rv::chi2Threshold(gate_probability, 2);
+    params.distance_threshold = rv::chi2Threshold(gate_probability, 3);
     params.label = "position_mahalanobis_p" + std::to_string(gate_probability) + "_r" +
                    std::to_string(params.max_radius_m);
 #endif

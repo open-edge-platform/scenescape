@@ -51,13 +51,13 @@ PIPELINE_RUN_FILES = {
 
 GROUND_TRUTH_COLUMNS = [
   "t", "object_id", "category", "x", "y", "z", "length", "width", "height", "yaw",
-  "vx", "vy", "speed", "yaw_rate", "acceleration",
+  "vx", "vy", "vz", "speed", "yaw_rate", "acceleration",
 ]
 DETECTION_COLUMNS = [
   "t", "sensor_id", "object_id", "category", "x", "y", "z", "length", "width", "height", "yaw",
 ]
 TRACK_COLUMNS = [
-  "t", "track_id", "category", "x", "y", "z", "length", "width", "height", "yaw", "vx", "vy",
+  "t", "track_id", "category", "x", "y", "z", "length", "width", "height", "yaw", "vx", "vy", "vz",
 ]
 
 
@@ -68,8 +68,8 @@ class EstimatorTrace:
   config: Dict[str, Any]
   t: np.ndarray                          # (N,) [s]
   model_probability: np.ndarray          # (N, models)
-  state: np.ndarray                      # (N, 12)
-  covariance: np.ndarray                 # (N, 12, 12)
+  state: np.ndarray                      # (N, states), in config["state_names"] order
+  covariance: np.ndarray                 # (N, states, states)
   predicted_measurement: np.ndarray      # (N, 7), NaN at init
   predicted_measurement_cov: np.ndarray  # (N, 7, 7), NaN at init
 
@@ -225,12 +225,12 @@ def _ground_truth(lines, seconds) -> pd.DataFrame:
     for obj in frame.get("objects", []):
       x, y, z = _vector(obj.get("translation"), 3)
       length, width, height = _vector(obj.get("size"), 3)
-      vx, vy, _ = _vector(obj.get("velocity"), 3)
+      vx, vy, vz = _vector(obj.get("velocity"), 3)
       truth = obj.get("truth", {})
       rows.append({
         "t": seconds(stamp), "object_id": str(obj["id"]), "category": obj.get("category", ""),
         "x": x, "y": y, "z": z, "length": length, "width": width, "height": height,
-        "yaw": yaw_from_quaternion(obj.get("rotation")), "vx": vx, "vy": vy,
+        "yaw": yaw_from_quaternion(obj.get("rotation")), "vx": vx, "vy": vy, "vz": vz,
         "speed": truth.get("speed", math.hypot(vx, vy)),
         "yaw_rate": truth.get("yaw_rate", math.nan),
         "acceleration": truth.get("acceleration", math.nan),
@@ -263,12 +263,12 @@ def _tracks(lines, seconds) -> pd.DataFrame:
     for obj in frame.get("objects", []):
       x, y, z = obj["translation"]
       length, width, height = _vector(obj.get("size"), 3)
-      vx, vy, _ = _vector(obj.get("velocity"), 3)
+      vx, vy, vz = _vector(obj.get("velocity"), 3)
       rows.append({
         "t": seconds(stamp), "track_id": str(obj["id"]),
         "category": obj.get("category", obj.get("type", "")),
         "x": x, "y": y, "z": z, "length": length, "width": width, "height": height,
-        "yaw": yaw_from_quaternion(obj.get("rotation")), "vx": vx, "vy": vy,
+        "yaw": yaw_from_quaternion(obj.get("rotation")), "vx": vx, "vy": vy, "vz": vz,
       })
   return _table(rows, TRACK_COLUMNS)
 

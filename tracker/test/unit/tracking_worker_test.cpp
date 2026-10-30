@@ -10,6 +10,7 @@
 #include <rv/tracking/OrientationAttributes.hpp>
 #include <rv/Utils.hpp>
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -19,6 +20,7 @@
 #include <numbers>
 #include <optional>
 #include <thread>
+#include <utility>
 
 namespace tracker {
 namespace {
@@ -1090,6 +1092,115 @@ TEST_F(TrackingWorkerTest, Tracking_Mixed2DAnd3DMeasurementsPublishSingleTrackWi
     EXPECT_NEAR(yaw, kDetectorYaw, 1e-3);
 }
 
+TEST_F(TrackingWorkerTest, Tracking_StackedFloor3DDetectionsFromTwoCamerasPublishSeparateTracks) {
+    // Same XY, 3 m apart in z: birth clustering must use XYZ because both detections carry measured
+    // z.
+    constexpr int kFrames = 10;
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+
+    auto cameras = make_test_cameras();
+    cameras.at("cam-1").extrinsics.translation = {0.0, 0.0, 0.0};
+    cameras.at("cam-1").extrinsics.rotation = {0.0, 0.0, 0.0};
+    Camera second_camera = cameras.at("cam-1");
+    second_camera.uid = "cam-2";
+    cameras.emplace("cam-2", std::move(second_camera));
+
+    std::vector<Track> published_tracks;
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        if (!tracks.empty()) {
+            published_tracks = tracks;
+        }
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    {
+        TrackingWorker worker({"scene-1", "person"}, "Test Scene", kFrames, callback, config,
+                              cameras);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "person";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+            const auto timestamp = std::chrono::system_clock::time_point{} + frame * kFramePeriod;
+
+            for (const auto& [camera_id, z] : {std::pair{"cam-1", 0.9}, std::pair{"cam-2", 3.9}}) {
+                DetectionBatch batch;
+                batch.camera_id = camera_id;
+                batch.timestamp = timestamp;
+                batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+                batch.detections.push_back(
+                    Detection{.id = 1,
+                              .translation = std::array<double, 3>{1.0, 2.0, z},
+                              .size = std::array<double, 3>{0.5, 0.5, 1.8}});
+                chunk.camera_batches.push_back(std::move(batch));
+            }
+            ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    }
+
+    ASSERT_EQ(published_tracks.size(), 2u) << "stacked 3D detections must not fuse into one track";
+    std::array<double, 2> heights = {published_tracks[0].translation[2],
+                                     published_tracks[1].translation[2]};
+    std::ranges::sort(heights);
+    EXPECT_NEAR(heights[0], 0.9, 0.05);
+    EXPECT_NEAR(heights[1], 3.9, 0.05);
+}
+
+TEST_F(TrackingWorkerTest, Tracking_Climbing3DDetectionPublishesHeightAndVerticalVelocity) {
+    constexpr int kFrames = 45;
+    constexpr double kFrameSeconds = 1.0 / 15.0;
+    constexpr double kClimbRate = 0.5; // m/s
+
+    auto cameras = make_test_cameras();
+    cameras.at("cam-1").extrinsics.translation = {0.0, 0.0, 0.0};
+    cameras.at("cam-1").extrinsics.rotation = {0.0, 0.0, 0.0};
+
+    std::optional<Track> published_track;
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        if (!tracks.empty()) {
+            published_track = tracks.front();
+        }
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    double last_z = 0.0;
+    {
+        TrackingWorker worker({"scene-1", "drone"}, "Test Scene", kFrames, callback, config,
+                              cameras);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            const double t = frame * kFrameSeconds;
+            last_z = 1.0 + kClimbRate * t;
+
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "drone";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp = std::chrono::system_clock::time_point{} +
+                              std::chrono::duration_cast<std::chrono::system_clock::duration>(
+                                  std::chrono::duration<double>(t));
+            batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            batch.detections.push_back(
+                Detection{.id = 1,
+                          .translation = std::array<double, 3>{1.0, 2.0, last_z},
+                          .size = std::array<double, 3>{0.5, 0.5, 0.3}});
+            chunk.camera_batches.push_back(std::move(batch));
+            ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    }
+
+    ASSERT_TRUE(published_track.has_value()) << "No reliable 3D track published";
+    EXPECT_NEAR(published_track->translation[2], last_z, 0.2);
+    EXPECT_NEAR(published_track->velocity[2], kClimbRate, 0.2);
+    EXPECT_LT(std::hypot(published_track->velocity[0], published_track->velocity[1]), 0.1);
+}
+
 TEST_F(TrackingWorkerTest, Tracking_RotationFromVelocityEnabled_PublishesVelocityHeading) {
     constexpr int kChunksToSend = 30;
     constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
@@ -1668,7 +1779,7 @@ TEST_F(TrackingWorkerTest, AssociationConfigSelectsDistanceType) {
     EXPECT_EQ(worker.associationConfig().method, AssociationMethod::PositionMahalanobis);
     EXPECT_EQ(worker.associationConfig().distanceType(),
               rv::tracking::DistanceType::PositionMahalanobis);
-    EXPECT_NEAR(worker.associationConfig().costThreshold(), rv::chi2Threshold(0.99, 2), 1e-6);
+    EXPECT_NEAR(worker.associationConfig().costThreshold(), rv::chi2Threshold(0.99, 3), 1e-6);
     EXPECT_DOUBLE_EQ(worker.associationConfig().max_radius_m, 10.0);
 }
 
@@ -1682,7 +1793,7 @@ TEST_F(TrackingWorkerTest, AssociationConfigDefaultsToPositionMahalanobis) {
     EXPECT_EQ(worker.associationConfig().method, AssociationMethod::PositionMahalanobis);
     EXPECT_EQ(worker.associationConfig().distanceType(),
               rv::tracking::DistanceType::PositionMahalanobis);
-    EXPECT_NEAR(worker.associationConfig().costThreshold(), rv::chi2Threshold(0.99, 2), 1e-6);
+    EXPECT_NEAR(worker.associationConfig().costThreshold(), rv::chi2Threshold(0.99, 3), 1e-6);
     EXPECT_DOUBLE_EQ(worker.associationConfig().max_radius_m, 10.0);
 }
 

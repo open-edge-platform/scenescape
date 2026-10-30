@@ -109,9 +109,10 @@ def association_match_params(association_config=None):
   max_radius_m = config["max_radius_m"]
 
   if method == ASSOCIATION_METHOD_POSITION_MAHALANOBIS:
+    # Gate on (x, y, z) innovation — 3 degrees of freedom.
     return (
       rv.tracking.DistanceType.PositionMahalanobis,
-      rv.tracking.chi2_threshold(gate_probability),
+      rv.tracking.chi2_threshold(gate_probability, 3),
       max_radius_m,
     )
 
@@ -126,7 +127,8 @@ def build_association_window(association_config, measurement_covariance=None):
   """Build MQTT ``association_window`` geometry for UI visualization.
 
   Euclidean association is a circle of radius ``max_radius_m``. Position
-  Mahalanobis is the χ² ellipse of the 2×2 XY block of ``S_pred``.
+  Mahalanobis association gates in 3D (χ² df=3); the published window is the
+  XY projection ellipse of the 2×2 XY block of ``S_pred`` (χ² df=2).
   """
   config = normalize_association_config(association_config)
   method = config["method"]
@@ -139,7 +141,8 @@ def build_association_window(association_config, measurement_covariance=None):
       "radius_m": max_radius_m,
     }
 
-  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"]))
+  # XY ellipse visualization uses 2-DOF chi²; matching uses df=3 for (x,y,z).
+  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"], 2))
   if measurement_covariance is None:
     return {
       "method": method,
@@ -331,6 +334,8 @@ class IntelLabsTracking(Tracking):
     rv_object.x = pt.x
     rv_object.y = pt.y
     rv_object.z = pt.z
+    # EuclideanBirth: XY unless both detections have measured Z (3D translation).
+    rv_object.zMeasured = bool(getattr(sscape_object, 'has_measured_z', False))
     # length is mapped to x, width is mapped to y and height is to z if intel labs tracker
     size = sscape_object.size if sscape_object.size else [DEFAULT_EDGE_LENGTH] * 3
     rv_object.length = size[0]
@@ -397,7 +402,7 @@ class IntelLabsTracking(Tracking):
 
     sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
                                             tracked_object.z)
-    sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, 0.0))
+    sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, tracked_object.vz))
 
     # Prefer Kalman yaw whenever the track has received an orienting sensor
     # update (sticky orientation_observed), even if this frame's linked

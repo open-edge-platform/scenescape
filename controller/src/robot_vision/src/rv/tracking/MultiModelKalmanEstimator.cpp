@@ -86,19 +86,23 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
 
   // Structured initial P: measured pose/size start near measurement noise; latent rates use initStateCovariance.
   // Velocity starts lower than accel/yaw-rate so early coasts are not dominated by an isotropic P_v=init blob.
+  // State: [x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw, yaw_rate]
   cv::Mat errorCovInit = cv::Mat::zeros(mDP, mDP, CV_64F);
-  const int measuredIdx[] = {0, 1, 6, 7, 8, 9}; // x, y, z, length, width, height
+  const int measuredIdx[] = {
+    StateIndex::X, StateIndex::Y, StateIndex::Z,
+    StateIndex::LENGTH, StateIndex::WIDTH, StateIndex::HEIGHT};
   for (int idx : measuredIdx)
   {
     errorCovInit.at<double>(idx, idx) = measurementNoise;
   }
   const double velocityInit = std::min(initStateCovariance, 0.05);
-  errorCovInit.at<double>(2, 2) = velocityInit; // vx
-  errorCovInit.at<double>(3, 3) = velocityInit; // vy
-  errorCovInit.at<double>(4, 4) = std::min(initStateCovariance, 0.1);  // ax
-  errorCovInit.at<double>(5, 5) = std::min(initStateCovariance, 0.1);  // ay
-  errorCovInit.at<double>(10, 10) = std::min(initStateCovariance, 0.05); // yaw
-  errorCovInit.at<double>(11, 11) = std::min(initStateCovariance, 0.01); // yaw rate
+  errorCovInit.at<double>(StateIndex::VX, StateIndex::VX) = velocityInit;
+  errorCovInit.at<double>(StateIndex::VY, StateIndex::VY) = velocityInit;
+  errorCovInit.at<double>(StateIndex::AX, StateIndex::AX) = std::min(initStateCovariance, 0.1);
+  errorCovInit.at<double>(StateIndex::AY, StateIndex::AY) = std::min(initStateCovariance, 0.1);
+  errorCovInit.at<double>(StateIndex::VZ, StateIndex::VZ) = velocityInit;
+  errorCovInit.at<double>(StateIndex::YAW, StateIndex::YAW) = std::min(initStateCovariance, 0.05);
+  errorCovInit.at<double>(StateIndex::YAW_RATE, StateIndex::YAW_RATE) = std::min(initStateCovariance, 0.01);
 
   for (std::size_t i = 0; i < mNumberOfModels; ++i)
   {
@@ -174,10 +178,14 @@ MultiModelKalmanEstimator::processNoiseCov(MotionModel model, double processNois
 
   cv::Mat Q = cv::Mat::zeros(TrackedObject::StateSize, TrackedObject::StateSize, CV_64F);
   // No direct position/size process noise — position uncertainty grows via f(x) from velocity.
-  cv::Mat(alignedNoise).copyTo(Q(cv::Rect(2, 2, 2, 2)));      // vx, vy
-  cv::Mat(accelerationNoise).copyTo(Q(cv::Rect(4, 4, 2, 2))); // ax, ay
-  Q.at<double>(10, 10) = processNoise * kYawNoiseRatio * dt;  // yaw
-  Q.at<double>(11, 11) = yawRateNoise;                        // yaw rate
+  static_assert(StateIndex::VY == StateIndex::VX + 1 && StateIndex::AY == StateIndex::AX + 1,
+                "vx/vy and ax/ay must be adjacent for the 2x2 noise blocks");
+  cv::Mat(alignedNoise).copyTo(Q(cv::Rect(StateIndex::VX, StateIndex::VX, 2, 2)));
+  cv::Mat(accelerationNoise).copyTo(Q(cv::Rect(StateIndex::AX, StateIndex::AX, 2, 2)));
+  // vz: independent of the planar heading and the same for every model
+  Q.at<double>(StateIndex::VZ, StateIndex::VZ) = qVel * dt;
+  Q.at<double>(StateIndex::YAW, StateIndex::YAW) = processNoise * kYawNoiseRatio * dt;
+  Q.at<double>(StateIndex::YAW_RATE, StateIndex::YAW_RATE) = yawRateNoise;
   return Q;
 }
 
@@ -264,8 +272,11 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
   {
     mKalmanFilters[i]->setStateAndCovariance(stateEstimate[i], covarianceEstimate[i]);
     // Each model's noise follows its own dynamics and mixed velocity.
-    mKalmanFilters[i]->setProcessNoiseCov(processNoiseCov(
-      mModelTypes[i], mProcessNoise, stateEstimate[i].at<double>(2), stateEstimate[i].at<double>(3), deltaT));
+    mKalmanFilters[i]->setProcessNoiseCov(processNoiseCov(mModelTypes[i],
+                                                          mProcessNoise,
+                                                          stateEstimate[i].at<double>(StateIndex::VX),
+                                                          stateEstimate[i].at<double>(StateIndex::VY),
+                                                          deltaT));
     auto predictedState = mKalmanFilters[i]->predict(deltaTVector);
     predictedStates.push_back(predictedState);
     predictedStateCovariances.push_back(mKalmanFilters[i]->getErrorCov());

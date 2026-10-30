@@ -20,6 +20,8 @@
 TEST(ObjectMatchingTest, Chi2ThresholdMatchesExpectedQuantile)
 {
   EXPECT_NEAR(rv::chi2Threshold(0.99, 2), 9.21034, 1e-3);
+  EXPECT_NEAR(rv::chi2Threshold(0.99, 3), 11.3449, 1e-3);
+  EXPECT_NEAR(rv::chi2Threshold(0.95, 3), 7.81473, 1e-3);
 }
 
 TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
@@ -72,7 +74,7 @@ TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
   lateral.x = pred_x;
   lateral.y = pred_y + 2.0;
 
-  const double chi2_gate = rv::chi2Threshold(0.99, 2);
+  const double chi2_gate = rv::chi2Threshold(0.99, 3);
   const double max_radius = 10.0;
 
   std::vector<rv::tracking::TrackedObject> tracks = {track};
@@ -102,6 +104,116 @@ TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
   EXPECT_LT(d2_ahead, d2_lateral);
 }
 
+TEST(ObjectMatchingTest, EuclideanSeparatesStackedFloors)
+{
+  rv::tracking::TrackedObject track;
+  track.x = 1.0;
+  track.y = 2.0;
+  track.z = 0.0;
+  track.length = track.width = track.height = 0.5;
+
+  rv::tracking::TrackedObject sameFloor = track;
+  sameFloor.z = 0.1;
+
+  rv::tracking::TrackedObject upperFloor = track;
+  upperFloor.z = 3.0; // > 2 m birth / Euclidean gate
+
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+
+  rv::tracking::match({track}, {sameFloor, upperFloor}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::Euclidean, 2.0, 2.0);
+  ASSERT_EQ(assignments.size(), 1U);
+  EXPECT_EQ(assignments[0].second, 0U);
+
+  assignments.clear();
+  unassignedTracks.clear();
+  unassignedMeasurements.clear();
+  rv::tracking::match({track}, {upperFloor}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::Euclidean, 2.0, 2.0);
+  EXPECT_TRUE(assignments.empty());
+}
+
+TEST(ObjectMatchingTest, EuclideanBirthUsesXyUnlessBothZMeasured)
+{
+  rv::tracking::TrackedObject planar;
+  planar.x = 1.0;
+  planar.y = 2.0;
+  planar.z = 0.0;
+  planar.zMeasured = false;
+  planar.length = planar.width = planar.height = 0.5;
+
+  rv::tracking::TrackedObject measured = planar;
+  measured.z = 1.5;
+  measured.zMeasured = true;
+
+  rv::tracking::TrackedObject upperMeasured = planar;
+  upperMeasured.z = 4.0; // Δz > kDefaultBirthClusterRadiusM
+  upperMeasured.zMeasured = true;
+
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+
+  // Mixed planar + measured Z: XY distance (~0) must match within 2 m.
+  rv::tracking::match({planar}, {measured}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::EuclideanBirth, 2.0, 2.0);
+  ASSERT_EQ(assignments.size(), 1U);
+
+  assignments.clear();
+  unassignedTracks.clear();
+  unassignedMeasurements.clear();
+  // Both measured, Δz = 4 m: reject.
+  rv::tracking::match({measured}, {upperMeasured}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::EuclideanBirth, 2.0, 2.0);
+  EXPECT_TRUE(assignments.empty());
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisSeparatesStackedFloors)
+{
+  rv::tracking::TrackManagerConfig trackerConfig;
+  trackerConfig.mMotionModels = {rv::tracking::MotionModel::CV};
+  trackerConfig.mDefaultProcessNoise = 1e-4;
+  trackerConfig.mDefaultMeasurementNoise = 0.2;
+  trackerConfig.mInitStateCovariance = 1.0;
+  rv::tracking::TrackManager trackManager(trackerConfig);
+
+  rv::tracking::TrackedObject seed;
+  seed.x = 0.0;
+  seed.y = 0.0;
+  seed.z = 0.0;
+  seed.length = seed.width = seed.height = 0.5;
+
+  auto timestamp = std::chrono::system_clock::now();
+  auto trackId = trackManager.createTrack(seed, timestamp);
+  for (int i = 0; i < 5; ++i)
+  {
+    timestamp += std::chrono::milliseconds(100);
+    trackManager.setMeasurement(trackId, seed);
+    trackManager.predict(timestamp);
+    trackManager.correct();
+  }
+  timestamp += std::chrono::milliseconds(100);
+  trackManager.predict(timestamp);
+  auto track = trackManager.getTracks().front();
+
+  rv::tracking::TrackedObject sameFloor = seed;
+  sameFloor.z = 0.05;
+  rv::tracking::TrackedObject upperFloor = seed;
+  upperFloor.z = 4.0;
+
+  const double chi2_gate = rv::chi2Threshold(0.99, 3);
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+
+  rv::tracking::match({track}, {sameFloor, upperFloor}, assignments, unassignedTracks, unassignedMeasurements,
+                      rv::tracking::DistanceType::PositionMahalanobis, chi2_gate, 10.0);
+  ASSERT_EQ(assignments.size(), 1U);
+  EXPECT_EQ(assignments[0].second, 0U);
+}
+
 // Defined in ObjectMatching.cpp, not declared in its header.
 namespace rv::tracking {
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track);
@@ -113,7 +225,7 @@ using namespace rv::tracking;
 using test::makeDetection;
 using Vector = std::array<double, TrackedObject::MeasurementSize>;
 
-constexpr int kYaw = 6;
+constexpr int kYaw = MeasurementIndex::YAW;
 
 // Symmetric positive definite, with every measurement coupled to every other, yaw included.
 TrackedObject makeTrack()

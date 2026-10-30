@@ -181,6 +181,7 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
                               expected.acceleration,
                               expected.acceleration,
                               kMeasurementNoise,
+                              expected.velocity,
                               kMeasurementNoise,
                               kMeasurementNoise,
                               kMeasurementNoise,
@@ -193,8 +194,8 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
 TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
 {
   // Velocity noise is aligned with the motion (along >> cross), scales linearly with dt and has a floor. CA repeats it
-  // on the acceleration and CTRV adds turn-rate noise; states a model resets to 0 get a small floor. Position, z and
-  // size get no direct noise.
+  // on the acceleration and CTRV adds turn-rate noise; states a model resets to 0 get a small floor. vz gets the
+  // unscaled velocity noise in every model. Position, z and size get no direct noise.
   struct Case
   {
     const char *name;
@@ -206,15 +207,16 @@ TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
     double alongY;
     double along;
     double cross;
+    double vz;
     double yaw;
     double turnRate; // CTRV only
     double reset;    // states the model resets to 0
   };
   const Case cases[] = {
-    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-7, 1e-2, 1e-7},
-    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-7, 1e-2, 1e-7},
-    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-7, 2e-2, 2e-7},
-    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-9, 1e-4, 1e-9},
+    {"stationary falls back to the x axis", 1e-4, 0.0, 0.0, 0.1, 1.0, 0.0, 1e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
+    {"diagonal motion rotates the noise", 1e-4, 3.0, 4.0, 0.1, 0.6, 0.8, 6e-2, 1e-4, 1e-2, 1e-7, 1e-2, 1e-7},
+    {"noise grows linearly with dt", 1e-4, 3.0, 4.0, 0.2, 0.6, 0.8, 12e-2, 2e-4, 2e-2, 2e-7, 2e-2, 2e-7},
+    {"zero dt is treated as 1 ms", 1e-4, 0.0, 0.0, 0.0, 1.0, 0.0, 1e-4, 1e-6, 1e-4, 1e-9, 1e-4, 1e-9},
     {"tiny process noise hits the velocity and turn-rate floor",
      1e-8,
      0.0,
@@ -224,6 +226,7 @@ TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
      0.0,
      1e-4,
      1e-6,
+     1e-4,
      1e-11,
      1e-4,
      1e-7},
@@ -245,6 +248,7 @@ TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
 
       EXPECT_LT(cv::norm(velocityBlock * along, testCase.along * along, cv::NORM_INF), kTolerance);
       EXPECT_LT(cv::norm(velocityBlock * cross, testCase.cross * cross, cv::NORM_INF), kTolerance);
+      EXPECT_NEAR(noise.at<double>(idx::Vz, idx::Vz), testCase.vz, kTolerance);
       EXPECT_NEAR(noise.at<double>(idx::Yaw, idx::Yaw), testCase.yaw, kTolerance);
 
       const cv::Mat expectedAcceleration
@@ -256,6 +260,7 @@ TEST(MultiModelKalmanEstimatorTest, ProcessNoisePerModelShape)
       cv::Mat rest = noise.clone();
       rest(cv::Rect(idx::Vx, idx::Vx, 2, 2)).setTo(0.0);
       rest(cv::Rect(idx::Ax, idx::Ax, 2, 2)).setTo(0.0);
+      rest.at<double>(idx::Vz, idx::Vz) = 0.0;
       rest.at<double>(idx::Yaw, idx::Yaw) = 0.0;
       rest.at<double>(idx::YawRate, idx::YawRate) = 0.0;
       EXPECT_DOUBLE_EQ(cv::norm(rest, cv::NORM_INF), 0.0) << "position, z and size must get no direct noise";
@@ -328,4 +333,27 @@ TEST(MultiModelKalmanEstimatorTest, PredictAppliesPerModelProcessNoise)
     EXPECT_LT(cv::norm(defaults.mKalmanFilters[i]->getProcessNoiseCov(), stationary, cv::NORM_INF), 1e-12)
       << "model " << i;
   }
+}
+
+TEST(MultiModelKalmanEstimatorTest, PredictIntegratesVzWithoutMeasurement)
+{
+  rv::tracking::MultiModelKalmanEstimator estimator;
+  rv::tracking::TrackedObject seed;
+  seed.x = 0.0;
+  seed.y = 0.0;
+  seed.z = 2.5;
+  seed.vz = 0.5;
+  seed.yaw = 0.3;
+  seed.length = 0.5;
+  seed.width = 0.5;
+  seed.height = 1.8;
+
+  auto timestamp = std::chrono::system_clock::now();
+  estimator.initialize(seed, timestamp, 1e-5, 1e-3, 1.0, {rv::tracking::MotionModel::CV});
+  constexpr double coastDt = 2.0;
+  estimator.predict(timestamp + std::chrono::seconds(2));
+  auto state = estimator.currentState();
+  EXPECT_NEAR(state.z, 2.5 + 0.5 * coastDt, 0.05);
+  EXPECT_NEAR(state.vz, 0.5, 0.05);
+  EXPECT_NEAR(state.yaw, 0.3, 1e-3);
 }

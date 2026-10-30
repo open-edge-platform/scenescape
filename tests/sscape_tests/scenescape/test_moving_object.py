@@ -23,7 +23,7 @@ def _camera():
   return SimpleNamespace(cameraID='cam-1')
 
 
-def _base_info(*, object_id='obj-1', metadata=None, rotation=None):
+def _base_info(*, object_id='obj-1', metadata=None, rotation=None, translation=None):
   info = {
     'id': object_id,
     'category': 'person',
@@ -34,6 +34,8 @@ def _base_info(*, object_id='obj-1', metadata=None, rotation=None):
     info['metadata'] = metadata
   if rotation is not None:
     info['rotation'] = rotation
+  if translation is not None:
+    info['translation'] = translation
   return info
 
 
@@ -200,6 +202,15 @@ class TestMovingObject:
     assert current_obj.rotation_from_velocity
     assert current_obj.has_detection_rotation
     assert current_obj.rotation == detector_rotation
+
+  def test_has_measured_z_from_detection_translation(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    with_translation = MovingObject(
+      _base_info(translation=[1.0, 2.0, 0.5]), when, _camera())
+    without_translation = MovingObject(_base_info(), when, _camera())
+
+    assert with_translation.has_measured_z
+    assert not without_translation.has_measured_z
 
   def test_infer_rotation_from_velocity_preserves_detector_rotation(self):
     when = datetime.datetime.now(datetime.timezone.utc)

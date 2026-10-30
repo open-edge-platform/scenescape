@@ -77,6 +77,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("x", &rv::tracking::TrackedObject::x, "Position 'x' in meters.")
     .def_readwrite("y", &rv::tracking::TrackedObject::y, "Position 'y' in meters.")
     .def_readwrite("z", &rv::tracking::TrackedObject::z, "Position 'z' in meters.")
+    .def_readwrite("zMeasured", &rv::tracking::TrackedObject::zMeasured,
+     "True when Z came from a measured 3D pose (translation), not ground-plane projection.")
     .def_readwrite("length", &rv::tracking::TrackedObject::length, "Object's length in meters.")
     .def_readwrite("width", &rv::tracking::TrackedObject::width, "Object's width in meters.")
     .def_readwrite("height", &rv::tracking::TrackedObject::height, "Object's height in meters.")
@@ -84,11 +86,13 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("w", &rv::tracking::TrackedObject::w, "Turn rate about Z axis in radians/s.")
     .def_readwrite("vx", &rv::tracking::TrackedObject::vx, "Velocity component 'x' (forward) in m/s.")
     .def_readwrite("vy", &rv::tracking::TrackedObject::vy, "Velocity component 'y' (left) in m/s.")
+    .def_readwrite("vz", &rv::tracking::TrackedObject::vz, "Velocity component 'z' (up) in m/s.")
     .def_readwrite("ax", &rv::tracking::TrackedObject::ax, "Acceleration component 'x' (forward) in m/s^2.")
     .def_readwrite("ay", &rv::tracking::TrackedObject::ay, "Acceleration component 'y' (left) in m/s^2.")
     .def_readwrite("corrected", &rv::tracking::TrackedObject::corrected, "Returns True if the TrackedObject was the result of a correction step.")
     .def_readwrite("id", &rv::tracking::TrackedObject::id, "Object's identification number.")
-    .def("isDynamic", &rv::tracking::TrackedObject::isDynamic, "Returns True if the TrackedObject is considered to be moving.")
+    .def("isDynamic", &rv::tracking::TrackedObject::isDynamic,
+         "True when 3D speed squared exceeds 1 m^2/s^2 (includes vertical motion; affects coast aging).")
     .def_readwrite("classification", &rv::tracking::TrackedObject::classification, "Returns a numpy array with classification probabilities.")
     .def_readwrite("attributes", &rv::tracking::TrackedObject::attributes, "Dictionary of attributes. Note: only string types are supported.")
     .def_property("vector",
@@ -187,7 +191,9 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
      "Combination of MultiClassEuclidean and Mahalanobis distances.")
     .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
-     "Squared Mahalanobis distance on the (x, y) position block using predicted measurement covariance.")
+     "Squared Mahalanobis distance on the (x, y, z) position block using predicted measurement covariance.")
+    .value("EuclideanBirth", rv::tracking::DistanceType::EuclideanBirth,
+     "Detection birth clustering: XY if either side lacks zMeasured; XYZ when both measured.")
     .export_values();
 
   py::class_<rv::tracking::TrackManagerConfig>(tracking, "TrackManagerConfig", "Holds all the configuration parameters used by the TrackManager.")
@@ -397,7 +403,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
           py::arg("max_radius_m") = std::numeric_limits<double>::infinity());
 
      tracking.def("chi2_threshold", &rv::chi2Threshold,
-                  "Chi-squared gate threshold for 2D position innovation gating.",
+                  "Chi-squared gate threshold for position innovation gating (df=2 XY, df=3 XYZ).",
                   py::arg("gate_probability"), py::arg("degrees_of_freedom") = 2);
 
      tracking.def("angle_difference",

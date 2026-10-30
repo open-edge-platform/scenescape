@@ -87,13 +87,14 @@ def test_loads_recorded_scenario():
   trace = scenario.estimator["1"]
   assert trace.motion_models == ["CV", "CA", "CTRV"]
   assert trace.t.tolist() == scenario.tracks["t"].tolist()
-  assert trace.state.shape == (11, 12)
-  assert trace.covariance.shape == (11, 12, 12)
+  assert trace.state.shape == (11, 13)
+  assert trace.covariance.shape == (11, 13, 13)
   assert trace.predicted_measurement_cov.shape == (11, 7, 7)
   assert np.isnan(trace.predicted_measurement[0]).all()
   assert np.isfinite(trace.predicted_measurement[1:]).all()
   np.testing.assert_allclose(trace.model_probability.sum(axis=1), 1.0)
   np.testing.assert_array_equal(trace.state[:, trace.state_index("vx")], scenario.tracks["vx"])
+  np.testing.assert_array_equal(trace.state[:, trace.state_index("vz")], scenario.tracks["vz"])
 
 
 def test_loads_several_objects_and_sensors(tmp_path):

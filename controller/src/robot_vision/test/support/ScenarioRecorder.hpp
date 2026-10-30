@@ -12,6 +12,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <string>
@@ -478,6 +479,13 @@ private:
     return found != mCategories.end() && !found->second.empty() ? found->second : "unknown";
   }
 
+  // In StateIndex / MeasurementIndex order.
+  static constexpr const char *kStateNames[]
+    = {"x", "y", "vx", "vy", "ax", "ay", "z", "vz", "length", "width", "height", "yaw", "yaw_rate"};
+  static constexpr const char *kMeasurementNames[] = {"x", "y", "z", "length", "width", "height", "yaw"};
+  static_assert(std::size(kStateNames) == TrackedObject::StateSize);
+  static_assert(std::size(kMeasurementNames) == TrackedObject::MeasurementSize);
+
   static std::string configLine(const FilterRun &run)
   {
     const auto &estimator = run.estimator;
@@ -504,13 +512,13 @@ private:
     json.key("min_probability").value(estimator.mMinProbability);
     json.key("max_probability").value(estimator.mMaxProbability);
     json.key("state_names").beginArray();
-    for (const char *name : {"x", "y", "vx", "vy", "ax", "ay", "z", "length", "width", "height", "yaw", "yaw_rate"})
+    for (const char *name : kStateNames)
     {
       json.value(name);
     }
     json.endArray();
     json.key("measurement_names").beginArray();
-    for (const char *name : {"x", "y", "z", "length", "width", "height", "yaw"})
+    for (const char *name : kMeasurementNames)
     {
       json.value(name);
     }
@@ -620,7 +628,7 @@ private:
         json.key("id").value(std::to_string(trackId));
         json.key("category").value(category(trackId));
         json.key("translation").value(std::array{state.x, state.y, state.z});
-        json.key("velocity").value(std::array{state.vx, state.vy, 0.0});
+        json.key("velocity").value(std::array{state.vx, state.vy, state.vz});
         json.key("size").value(std::array{state.length, state.width, state.height});
         json.key("rotation").value(yawQuaternion(state.yaw));
         json.endObject();
