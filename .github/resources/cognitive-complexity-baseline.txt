@@ -51,7 +51,7 @@ controller/src/controller/uuid_manager.py	UUIDManager::_enrollmentVectorsForMatc
 controller/src/controller/uuid_manager.py	UUIDManager::_findBestMetricCandidate	19
 controller/src/controller/uuid_manager.py	UUIDManager::parseQueryResults	26
 controller/src/controller/uuid_manager.py	UUIDManager::updateActiveDict	51
-manager/src/manager/api.py	ACLCheck::post	25
+manager/src/manager/api.py	ACLCheck::post	21
 manager/src/manager/api.py	ListThings::get_queryset	14
 manager/src/manager/calculate_intrinsics_view.py	CalculateCameraIntrinsics::post	26
 manager/src/manager/forms.py	CamCalibrateForm::__init__	15
