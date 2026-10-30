@@ -67,6 +67,13 @@ Prepare a directory of per-scene subdirectories, each containing its own `<scene
 
 For a local hierarchy, the parent ZIP includes its local descendants, so importing only that ZIP creates the scenes and their links in one invocation.
 
+For large maps or hierarchies, pass `--import-timeout 600` to allow a longer
+response wait for each scene import. The default is 60 seconds; the value must
+be a positive integer. This is a read timeout, not a total import deadline.
+Other API requests retain their 60-second timeout. `--wait` controls startup
+readiness only. A timeout does not cancel or roll back the server-side import:
+check Manager logs and the imported resources before retrying.
+
 #### Using the Manager Image
 
 For an already-running Docker Compose deployment, run a one-off uploader container using the web service's image, network, and mounted credentials:
@@ -78,6 +85,7 @@ docker compose run --rm --no-deps --entrypoint upload-scenes \
   --restauth /run/secrets/controller.auth \
   --rootcert /run/secrets/certs/scenescape-ca.pem \
   --reuse-existing \
+  --import-timeout 600 \
   https://web.scenescape.intel.com/api/v1 /scenes
 ```
 

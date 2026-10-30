@@ -34,18 +34,23 @@ log = logging.getLogger("upload-scenes")
 class SceneScapeClient:
   """The handful of REST calls needed to import a scene and its dependencies."""
 
-  def __init__(self, url, verify, restore_ids=False, remote_credentials=None, reuse_existing=False):
+  def __init__(self, url, verify, restore_ids=False, remote_credentials=None, reuse_existing=False,
+               import_timeout=REQUEST_TIMEOUT_SECONDS):
+    if not isinstance(import_timeout, int) or isinstance(import_timeout, bool) or import_timeout <= 0:
+      raise ValueError("import_timeout must be a positive integer number of seconds")
     self.url = url.rstrip("/")
     self.session = requests.Session()
     self.session.verify = verify
     self.restore_ids = restore_ids
     self.reuse_existing = reuse_existing
     self.remote_credentials = remote_credentials
+    self.import_timeout = import_timeout
     return
 
   def _request(self, method, path, **kwargs):
+    timeout = kwargs.pop("timeout", REQUEST_TIMEOUT_SECONDS)
     reply = self.session.request(method, f"{self.url}{path}",
-                                 timeout=REQUEST_TIMEOUT_SECONDS, **kwargs)
+                                 timeout=timeout, **kwargs)
     reply.raise_for_status()
     return reply.json()
 
@@ -90,7 +95,14 @@ class SceneScapeClient:
       if self.remote_credentials:
         credentials = stack.enter_context(open(self.remote_credentials, "rb"))
         files["remote_credentials"] = ("credentials.json", credentials, "application/json")
-      return self._request("POST", "/import-scene/", files=files, data=data)
+      try:
+        return self._request("POST", "/import-scene/", files=files, data=data,
+                             timeout=self.import_timeout)
+      except requests.Timeout:
+        log.error("Scene import timed out; the server may still be processing it. "
+                  "Check Manager logs and scene resources before retrying. "
+                  "Use --import-timeout to allow more time.")
+        raise
 
 
 def parse_auth(auth):
