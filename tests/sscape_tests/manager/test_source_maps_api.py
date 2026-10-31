@@ -114,6 +114,7 @@ def test_artifact_put_list_get_delete(client, scene):
   ('{"metadata": 1e999}', "manifest.json must be valid JSON with finite numbers"),
 ])
 def test_invalid_artifact_metadata_returns_controlled_400(client, scene, manifest, error, caplog):
+  caplog.set_level("WARNING", logger="manager.api")
   response = _put(client, scene, "keyframes", {"manifest.json": manifest})
   assert response.status_code == 400
   assert response.json() == {"error": error}
