@@ -125,7 +125,8 @@ class SceneImportAPIView(APIView):
       return Response({"error": "zipFile is required"}, status=status.HTTP_400_BAD_REQUEST)
 
     options = SceneImportSerializer(data=request.data)
-    options.is_valid(raise_exception=True)
+    if not options.is_valid():
+      return Response({"scene": options.errors}, status=status.HTTP_400_BAD_REQUEST)
     zip_file = options.validated_data["zipFile"]
     scene_import_instance = SceneImport.objects.create(zipFile=zip_file)
 
