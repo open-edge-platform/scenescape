@@ -108,7 +108,6 @@ reid/src/reid/reid.py	ReIDDatabase::ensureSchemaInner	13
 reid/src/reid/reid_constraints.py	build_query_constraints	26
 reid/src/reid/vdms_adapter.py	VDMSDatabase::_extractSchemaDimensions	18
 reid/src/reid/vdms_adapter.py	VDMSDatabase::_extractSchemaMetric	15
-reid/src/reid/vdms_adapter.py	VDMSDatabase::sendQuery	13
 scene_common/src/scene_common/cache_manager.py	CacheManager::_applySceneResults	27
 scene_common/src/scene_common/cache_manager.py	CacheManager::_refreshCameras	18
 scene_common/src/scene_common/cache_manager.py	CacheManager::_restoreSensorCache	17

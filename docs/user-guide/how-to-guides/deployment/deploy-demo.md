@@ -61,7 +61,7 @@ see [Exporting and Restoring a Hierarchy](../build-a-scene/configure-hierarchy-o
 
 The Manager image includes the `upload-scenes` CLI for batch imports and automation; no host-side Python setup is needed. It runs only when explicitly invoked and does not change Manager startup.
 
-Use `--reuse-existing` when importing overlapping hierarchies or retrying an import. Existing scenes are kept unchanged while missing scenes and hierarchy links are restored; conflicting identities or links are rejected. Without this option, existing standalone scenes are skipped and their calibration markers are reconciled, but existing hierarchies or imports using `--restore-ids` are rejected.
+Existing standalone scenes are not re-imported by default; their calibration markers are reconciled, so re-running the uploader or `make demo-scenes` is safe. Use `--reuse-existing` when importing overlapping hierarchies or retrying an import. Existing scenes are kept unchanged while missing scenes and hierarchy links are restored; conflicting identities or links are rejected. Without this option, existing hierarchies or imports using `--restore-ids` are rejected.
 
 Prepare a directory of per-scene subdirectories, each containing its own `<scene>.zip` as produced by the **Export Scene** button of the Web UI.
 
