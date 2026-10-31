@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2024 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -8,11 +8,6 @@ import {
   FY,
   CX,
   CY,
-  K1,
-  K2,
-  P1,
-  P2,
-  K3,
   REST_URL,
   POINT_CORRESPONDENCE,
   EULER,
@@ -54,22 +49,42 @@ function metersToPixels(meters, scale, scene_y_max) {
   return pixels;
 }
 
+function normalizeDistortion(distortion) {
+  const keys = ["k1", "k2", "p1", "p2", "k3"];
+  if (!distortion || typeof distortion !== "object") {
+    throw new TypeError("Distortion must be an object or coefficient array");
+  }
+  if (Array.isArray(distortion) && ![4, 5].includes(distortion.length)) {
+    throw new TypeError("Distortion must contain four or five coefficients");
+  }
+  const values = keys.map((key, index) =>
+    Array.isArray(distortion)
+      ? distortion[index]
+      : distortion[key] === undefined
+        ? 0
+        : distortion[key],
+  );
+  if (values[4] === undefined) values[4] = 0;
+  if (!values.every(Number.isFinite)) {
+    throw new TypeError("Distortion coefficients must be finite numbers");
+  }
+  return Object.fromEntries(keys.map((key, index) => [key, values[index]]));
+}
+
 function compareIntrinsics(
   intrinsics,
   msgIntrinsics,
   distortion,
   msgDistortion,
 ) {
+  const expected = normalizeDistortion(distortion);
+  const received = normalizeDistortion(msgDistortion);
   if (
     intrinsics["fx"] === msgIntrinsics[FX] &&
     intrinsics["fy"] === msgIntrinsics[FY] &&
     intrinsics["cx"] === msgIntrinsics[CX] &&
     intrinsics["cy"] === msgIntrinsics[CY] &&
-    distortion["k1"] === msgDistortion[K1] &&
-    distortion["k2"] === msgDistortion[K2] &&
-    distortion["p1"] === msgDistortion[P1] &&
-    distortion["p2"] === msgDistortion[P2] &&
-    distortion["k3"] === msgDistortion[K3]
+    Object.keys(expected).every((key) => expected[key] === received[key])
   ) {
     return true;
   }
@@ -166,6 +181,7 @@ export {
   pixelsToMeters,
   metersToPixels,
   compareIntrinsics,
+  normalizeDistortion,
   waitUntil,
   initializeOpencv,
   resizeRendererToDisplaySize,

@@ -10,7 +10,6 @@ analytics/src/analytics/event_serializer.py	serialize_for_event	48
 analytics/src/analytics/region.py	update_region_events	94
 analytics/src/analytics/reid_identity.py	ReidIdentityMap::apply	20
 analytics/src/analytics/sensors.py	update_environmental_sensor_readings	13
-analytics/src/analytics/service.py	AnalyticsService::publishRegulatedDetections	31
 analytics/src/analytics/state.py	AnalyticsStateStore::update_object_id	14
 autocalibration/src/atag_camera_calibration_controller.py	ApriltagCameraCalibrationController::generate_calibration	20
 autocalibration/src/atag_camera_calibration_controller.py	ApriltagCameraCalibrationController::process_scene_for_calibration	19
@@ -68,7 +67,7 @@ manager/src/manager/model_directory_view.py	ModelDirectory::loadDirectory	27
 manager/src/manager/models.py	BoundingBox::boundingBox	14
 manager/src/manager/models.py	Cam::save	18
 manager/src/manager/models.py	Scene::createSceneScapeRegion	17
-manager/src/manager/models.py	Scene::save	25
+manager/src/manager/models.py	Scene::save	22
 manager/src/manager/models.py	Scene::scenescapeSceneUpdateRegions	15
 manager/src/manager/models.py	Scene::scenescapeSceneUpdateSensors	25
 manager/src/manager/models.py	sendUpdateCommand	17
@@ -76,8 +75,7 @@ manager/src/manager/ppl_generator/model_chain.py	parse_model_chain	18
 manager/src/manager/scene_import.py	ImportScene::loadScene	31
 manager/src/manager/serializers.py	ChildSceneSerializer::create_update	18
 manager/src/manager/serializers.py	ChildSceneSerializer::validate	23
-manager/src/manager/serializers.py	SceneSerializer::create_update	54
-manager/src/manager/serializers.py	SceneSerializer::handleMeshTransform	13
+manager/src/manager/serializers.py	SceneSerializer::create_update	30
 manager/src/manager/serializers.py	SceneSerializer::validate	15
 manager/src/manager/serializers.py	SingletonSerializer::validate	17
 manager/src/manager/serializers.py	UserSerializer::validate	19
@@ -108,12 +106,9 @@ reid/src/reid/reid.py	ReIDDatabase::ensureSchemaInner	13
 reid/src/reid/reid_constraints.py	build_query_constraints	26
 reid/src/reid/vdms_adapter.py	VDMSDatabase::_extractSchemaDimensions	18
 reid/src/reid/vdms_adapter.py	VDMSDatabase::_extractSchemaMetric	15
-scene_common/src/scene_common/cache_manager.py	CacheManager::_applySceneResults	27
-scene_common/src/scene_common/cache_manager.py	CacheManager::_refreshCameras	18
 scene_common/src/scene_common/cache_manager.py	CacheManager::_restoreSensorCache	17
 scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenes	16
-scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenesForCamParams	27
-scene_common/src/scene_common/detections_builder.py	computeCameraBounds	23
+scene_common/src/scene_common/detections_builder.py	computeCameraBounds	22
 scene_common/src/scene_common/detections_builder.py	prepareObjDict	92
 scene_common/src/scene_common/geometry.py	Region::isPointWithin	14
 scene_common/src/scene_common/geometry.py	Region::updatePoints	33

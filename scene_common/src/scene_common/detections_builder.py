@@ -295,10 +295,8 @@ def computeCameraBounds(scene, aobj, obj_dict):
   for cameraID in obj_dict.get('visibility', []):
     bounds = None
     projected = False
-    is_source_camera = (
-      aobj and len(aobj.vectors) > 0 and hasattr(aobj.vectors[0].camera, 'cameraID')
-      and cameraID == aobj.vectors[0].camera.cameraID
-    )
+    source_camera = _source_camera(aobj, cameraID)
+    is_source_camera = source_camera is not None
 
     # Prefer source detector pixel bbox when available. This preserves the
     # detector-provided 2D box instead of a reprojected estimate.
@@ -334,8 +332,8 @@ def computeCameraBounds(scene, aobj, obj_dict):
       else:
         obj_translation = Point(obj_dict['translation'])
         obj_size = Size(obj_dict['bb_meters']['width'], obj_dict['bb_meters']['height'])
-      bounds = camera.pose.projectEstimatedBoundsToCameraPixels(obj_translation,
-                                                                obj_size)
+      pose = getattr(source_camera, 'pose', camera.pose)
+      bounds = pose.projectEstimatedBoundsToCameraPixels(obj_translation, obj_size)
       projected = True
 
     if bounds:
@@ -344,3 +342,10 @@ def computeCameraBounds(scene, aobj, obj_dict):
       camera_bounds[cameraID] = bound_dict
   obj_dict['camera_bounds'] = camera_bounds
   return
+
+
+def _source_camera(aobj, camera_id):
+  vectors = getattr(aobj, 'vectors', [])
+  if vectors and getattr(vectors[0].camera, 'cameraID', None) == camera_id:
+    return vectors[0].camera
+  return None

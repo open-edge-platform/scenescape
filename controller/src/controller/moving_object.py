@@ -38,6 +38,22 @@ SPEED_THRESHOLD_ON = 1.0
 SPEED_THRESHOLD_OFF = 0.5
 
 
+def _parse_metric_distance(info):
+  if 'distance' not in info:
+    return None
+  distance = info.pop('distance')
+  box = info.get('bounding_box', info.get('bounding_box_px'))
+  if box is not None and Rectangle(box).is3D:
+    return None
+  try:
+    distance = float(distance)
+  except (TypeError, ValueError) as err:
+    raise ValueError("Invalid distance", distance) from err
+  if distance <= 0:
+    raise ValueError("Invalid distance", distance)
+  return distance
+
+
 def serializeReIDPayload(reid):
   if reid is None:
     return None
@@ -142,6 +158,8 @@ class MovingObject:
     self.last_seen = None
     self.camera = camera
     self.info = info.copy()
+    self.metric_distance = _parse_metric_distance(self.info)
+    self.depth_expanded_box = False
     self.has_detection_rotation = 'rotation' in self.info
 
     self.category = self.info.get('category', 'object')
@@ -150,11 +168,15 @@ class MovingObject:
       self.boundingBoxPixels = Rectangle(self.info['bounding_box_px'])
       self.info.pop('bounding_box_px')
       if not 'bounding_box' in self.info:
-        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(self.boundingBoxPixels)
+        # Sensor-plane depth scales the normalized box, which places an
+        # off-axis object at the correct lateral offset without a radial fix-up.
+        agnostic = self.camera.pose.intrinsics.mapPixelToNormalizedImagePlane(
+          self.boundingBoxPixels, self.metric_distance)
         self.boundingBox = agnostic
+        self.depth_expanded_box = (
+          self.metric_distance is not None and not self.boundingBoxPixels.is3D)
     if 'bounding_box' in self.info:
-      self.boundingBox = Rectangle(self.info['bounding_box'])
-      self.info.pop('bounding_box')
+      self.boundingBox = self._normalized_box_at_depth(self.info.pop('bounding_box'))
     self.confidence = self.info['confidence'] if 'confidence' in self.info else None
     self.oid = self.info['id']
     self.info.pop('id')
@@ -181,6 +203,16 @@ class MovingObject:
     else:
       log.debug(f"MovingObject.__init__: No metadata in info dict")
     return
+
+  def _normalized_box_at_depth(self, data):
+    box = Rectangle(data)
+    depth = self.metric_distance
+    if depth is None or box.origin.is3D:
+      return box
+    self.depth_expanded_box = True
+    return Rectangle(
+      origin=Point(box.origin.x * depth, box.origin.y * depth, depth),
+      opposite=Point(box.opposite.x * depth, box.opposite.y * depth, depth))
 
   def _decodeReIDVector(self, reid):
     """
@@ -311,6 +343,8 @@ class MovingObject:
   def camLoc(self):
     """Object location in camera coordinate system"""
     bounds = self.boundingBox
+    if self.depth_expanded_box:
+      return Point(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2, bounds.origin.z)
     if self.shift_type == TYPE_2:
       if not hasattr(self, 'baseAngle'):
         self._projectBounds()
@@ -344,16 +378,31 @@ class MovingObject:
         self.orig_point = camera.pose.cameraPointToWorldPoint(Point(info['translation']))
     else:
       if camera and hasattr(camera, 'pose'):
-        self.orig_point = camera.pose.cameraPointToWorldPoint(self.camLoc)
-        if not self.camLoc.is3D:
+        cam_loc = self.camLoc
+        self.orig_point = camera.pose.cameraPointToWorldPoint(cam_loc)
+        half_extent = np.mean([self.size[0], self.size[1]]) / 2
+        if self.depth_expanded_box:
+          self.orig_point = self._depth_box_bottom_center(
+            self.orig_point, camera.pose.translation, half_extent)
+        elif not cam_loc.is3D:
           line1 = Line(camera.pose.translation, self.orig_point)
-          line2 = Line(self.orig_point, Point(np.mean([self.size[0], self.size[1]]) / 2, line1.angle, 0, polar=True), relative=True)
+          line2 = Line(self.orig_point, Point(half_extent, line1.angle, 0, polar=True), relative=True)
           self.orig_point = line2.end
     self.location = [Chronoloc(self.orig_point, when, self.boundingBox)]
     self.vectors = [Vector(camera, self.orig_point, when)]
-    if hasattr(self, 'buffer_size') and self.buffer_size is not None:
+    if getattr(self, 'buffer_size', None) is not None:
       self.size = [x + y for x, y in zip(self.size, self.buffer_size)]
     return
+
+  def _depth_box_bottom_center(self, center, camera_position, half_extent):
+    # Depth measures the nearest face; scene location is the cuboid's bottom centre.
+    ray = center - camera_position
+    ray_len = ray.length
+    if ray_len > 1e-9:
+      center = center + Point(ray.x / ray_len * half_extent,
+                              ray.y / ray_len * half_extent,
+                              ray.z / ray_len * half_extent)
+    return Point(center.x, center.y, center.z - self.size[2] / 2)
 
   @property
   def sceneLoc(self):
@@ -367,10 +416,22 @@ class MovingObject:
 
   def _projectBounds(self):
     if hasattr(self.camera, "pose") and self.boundingBox:
-      self.bbMeters, self.bbShadow, self.baseAngle = \
-        self.camera.pose.projectBounds(self.boundingBox)
+      if self.depth_expanded_box:
+        # Convert camera-frame edges to world lengths, without an AABB rotation.
+        scale = np.linalg.norm(self.camera.pose.pose_mat[:3, :3], axis=0)
+        width = self.boundingBox.width * scale[0]
+        height = self.boundingBox.height * scale[1]
+        self.bbMeters = Rectangle(origin=Point(0, 0), size=(width, height))
+        self.bbShadow = None
+        self.baseAngle = 0.0
+      else:
+        self.bbMeters, self.bbShadow, self.baseAngle = \
+          self.camera.pose.projectBounds(self.boundingBox)
       if self.size is None:
         self.size = [self.bbMeters.width, self.bbMeters.width, self.bbMeters.height]
+        if self.depth_expanded_box:
+          # The upright cuboid uses optical z for depth and sensor y for height.
+          self.size[1] = self.boundingBox.width * scale[2]
     return
 
   @property

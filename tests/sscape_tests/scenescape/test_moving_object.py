@@ -4,9 +4,10 @@
 import base64
 import datetime
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import numpy as np
+import pytest
 
 from controller.moving_object import (
   ChainData,
@@ -47,6 +48,177 @@ class TestChainData:
 
 
 class TestMovingObject:
+  def test_normalized_depth_box_matches_pixel_box_off_axis(self):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    intrinsics = CameraIntrinsics({'fx': 100.0, 'fy': 100.0, 'cx': 100.0, 'cy': 100.0})
+    pose = CameraPose({'translation': [0.0, 0.0, 1.0],
+                      'rotation': [0.5, -0.5, 0.5, -0.5], 'scale': [1, 1, 1]}, intrinsics)
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    normalized = {**_base_info(), 'distance': 2.0}
+    pixels = {**normalized, 'bounding_box_px': {
+      'x': 110.0, 'y': 120.0, 'width': 30.0, 'height': 40.0,
+    }}
+    pixels.pop('bounding_box')
+    expected = MovingObject(pixels, 1.0, camera)
+    actual = MovingObject(normalized, 1.0, camera)
+    assert actual.boundingBox.origin.asNumpyCartesian == pytest.approx([0.2, 0.4, 2.0])
+    assert actual.boundingBox.opposite.asNumpyCartesian == pytest.approx([0.8, 1.2, 2.0])
+    assert actual.sceneLoc.asNumpyCartesian == pytest.approx(expected.sceneLoc.asNumpyCartesian)
+    assert actual.size == pytest.approx(expected.size)
+
+  def test_three_dimensional_depth_box_is_not_scaled_again(self):
+    info = {**_base_info(), 'distance': 2.0,
+            'bounding_box': {'x': 1.0, 'y': 2.0, 'z': 3.0, 'width': 0.5, 'height': 0.8}}
+    obj = MovingObject(info, 1.0, _camera())
+    assert obj.boundingBox.origin.asNumpyCartesian == pytest.approx([1.0, 2.0, 3.0])
+
+  def test_metric_distance_is_used_to_project_two_dimensional_boxes(self):
+    when = datetime.datetime.now(datetime.timezone.utc)
+    projected = Rectangle({'x': 1.0, 'y': 2.0, 'width': 0.3, 'height': 0.4})
+    intrinsics = SimpleNamespace(
+      mapPixelToNormalizedImagePlane=Mock(return_value=projected),
+      intrinsics=np.eye(3),
+      distortion=np.zeros(5),
+    )
+    camera = SimpleNamespace(
+      pose=SimpleNamespace(intrinsics=intrinsics),
+    )
+    info = _base_info()
+    info.pop('bounding_box')
+    info['bounding_box_px'] = {'x': 10, 'y': 20, 'width': 30, 'height': 40}
+    info['distance'] = 2.5
+
+    obj = MovingObject(info, when, camera)
+
+    intrinsics.mapPixelToNormalizedImagePlane.assert_called_once_with(
+      obj.boundingBoxPixels, 2.5)
+    assert obj.metric_distance == 2.5
+    assert 'distance' not in obj.info
+
+  def test_metric_distance_places_cuboid_half_width_behind_box_centre(self):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    when = datetime.datetime.now(datetime.timezone.utc)
+    intrinsics = CameraIntrinsics({'fx': 100.0, 'fy': 100.0, 'cx': 100.0, 'cy': 100.0})
+    # Camera at origin looking down scene +x; optical z -> +x, optical x -> -y, optical y -> -z.
+    pose = CameraPose({'translation': [0.0, 0.0, 1.0],
+                       'rotation': [0.5, -0.5, 0.5, -0.5],
+                       'scale': [1.0, 1.0, 1.0]}, intrinsics)
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    info = _base_info()
+    info.pop('bounding_box')
+    # 40x60 px box centred on the principal point, 2 m from the sensor plane.
+    info['bounding_box_px'] = {'x': 80.0, 'y': 70.0, 'width': 40.0, 'height': 60.0}
+    info['distance'] = 2.0
+
+    obj = MovingObject(info, when, camera)
+    loc = obj.sceneLoc
+
+    assert obj.size == pytest.approx([0.8, 0.8, 1.2])
+    # Box centre at 2 m along the ray, pushed back by half the width (0.4 m),
+    # then dropped by half the height so the location is the bottom centre.
+    assert loc.x == pytest.approx(2.4)
+    assert loc.y == pytest.approx(0.0, abs=1e-9)
+    assert loc.z == pytest.approx(1.0 - 0.6)
+
+  @pytest.mark.parametrize("scale", [[2, 2, 2], [2, 3, 4]])
+  @pytest.mark.parametrize("yaw", [0, 37])
+  @pytest.mark.parametrize("prior", [None, [0.5, 0.5, 1.7]])
+  def test_depth_box_world_dimensions_and_offsets(self, scale, yaw, prior):
+    from scipy.spatial.transform import Rotation
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    optical_rotation = Rotation.from_quat([0.5, -0.5, 0.5, -0.5])
+    rotation = Rotation.from_euler('z', yaw, degrees=True) * optical_rotation
+    pose = CameraPose({'translation': [10, 20, 3], 'rotation': rotation.as_quat().tolist(),
+                      'scale': scale},
+                     CameraIntrinsics({'fx': 100, 'fy': 100, 'cx': 100, 'cy': 100}))
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    obj = MovingObject({
+      'id': 'box', 'category': 'person', 'distance': 2,
+      'bounding_box_px': {'x': 80, 'y': 70, 'width': 40, 'height': 60},
+    }, 1, camera)
+    obj.size = prior
+    loc = obj.sceneLoc
+    expected_size = prior or [0.8 * scale[0], 0.8 * scale[2], 1.2 * scale[1]]
+    assert obj.size == pytest.approx(expected_size)
+    assert obj.bbMeters.width == pytest.approx(0.8 * scale[0])
+    assert obj.bbMeters.height == pytest.approx(1.2 * scale[1])
+    camera_center = Point([0.0, 0.0, 2.0])
+    assert camera_center.is3D
+    center = pose.cameraPointToWorldPoint(camera_center).asNumpyCartesian
+    ray = center - np.array([10, 20, 3])
+    expected = center + ray / np.linalg.norm(ray) * np.mean(expected_size[:2]) / 2
+    expected[2] -= expected_size[2] / 2
+    assert loc.asNumpyCartesian == pytest.approx(expected)
+
+  @pytest.mark.parametrize("distance", [None, 2.0])
+  def test_three_dimensional_box_is_not_offset(self, distance):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    when = datetime.datetime.now(datetime.timezone.utc)
+    intrinsics = CameraIntrinsics({'fx': 100.0, 'fy': 100.0, 'cx': 100.0, 'cy': 100.0})
+    pose = CameraPose({'translation': [0.0, 0.0, 1.0],
+                       'rotation': [0.5, -0.5, 0.5, -0.5],
+                       'scale': [1.0, 1.0, 1.0]}, intrinsics)
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    info = _base_info()
+    info['bounding_box'] = {'x': -0.2, 'y': -0.3, 'z': 2.0, 'width': 0.4, 'height': 0.6}
+    if distance is not None:
+      info['distance'] = distance
+
+    obj = MovingObject(info, when, camera)
+    obj.size = [0.5, 0.5, 1.7]
+    loc = obj.sceneLoc
+
+    # Same as main: bottom centre of the box at the box's own depth, no
+    # half-extent push and no vertical size offset.
+    bottom_centre = Point(0.0, 0.3, 2.0)
+    assert obj.camLoc.x == pytest.approx(bottom_centre.x)
+    assert obj.camLoc.y == pytest.approx(bottom_centre.y)
+    assert obj.camLoc.z == pytest.approx(bottom_centre.z)
+    expected = pose.cameraPointToWorldPoint(bottom_centre)
+    assert loc.x == pytest.approx(expected.x)
+    assert loc.y == pytest.approx(expected.y)
+    assert loc.z == pytest.approx(expected.z)
+
+  @pytest.mark.parametrize("box_key", ["bounding_box", "bounding_box_px"])
+  @pytest.mark.parametrize("distance", [9, -1, "invalid", None])
+  def test_native_3d_distance_does_not_change_projected_size(self, box_key, distance):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    pose = CameraPose({'translation': [0, 0, 1],
+                      'rotation': [0.5, -0.5, 0.5, -0.5], 'scale': [1, 1, 1]},
+                     CameraIntrinsics({'fx': 100, 'fy': 100, 'cx': 100, 'cy': 100}))
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    info = {**_base_info(), box_key: {
+      'x': -0.2, 'y': -0.3, 'z': 2, 'width': 0.4, 'height': 0.6}}
+    if box_key == 'bounding_box_px':
+      info.pop('bounding_box')
+    baseline = MovingObject(info, 1, camera)
+    with_distance = MovingObject({**info, 'distance': distance}, 1, camera)
+    assert with_distance.sceneLoc.asNumpyCartesian == pytest.approx(baseline.sceneLoc.asNumpyCartesian)
+    assert with_distance.size == pytest.approx(baseline.size)
+    assert not with_distance.depth_expanded_box
+    assert with_distance.metric_distance is None
+
+  def test_metric_distance_keeps_library_size_prior(self):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    when = datetime.datetime.now(datetime.timezone.utc)
+    intrinsics = CameraIntrinsics({'fx': 100.0, 'fy': 100.0, 'cx': 100.0, 'cy': 100.0})
+    pose = CameraPose({'translation': [0.0, 0.0, 1.0],
+                       'rotation': [0.5, -0.5, 0.5, -0.5],
+                       'scale': [1.0, 1.0, 1.0]}, intrinsics)
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    info = _base_info()
+    info.pop('bounding_box')
+    info['bounding_box_px'] = {'x': 80.0, 'y': 70.0, 'width': 40.0, 'height': 60.0}
+    info['distance'] = 2.0
+
+    obj = MovingObject(info, when, camera)
+    obj.size = [0.5, 0.5, 1.7]
+    loc = obj.sceneLoc
+
+    assert obj.size == [0.5, 0.5, 1.7]
+    assert loc.x == pytest.approx(2.25)
+    assert loc.z == pytest.approx(1.0 - 0.85)
+
   def test_init_extracts_reid_and_keeps_metadata(self):
     when = datetime.datetime.now(datetime.timezone.utc)
     metadata = {

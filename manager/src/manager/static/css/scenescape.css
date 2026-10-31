@@ -318,3 +318,33 @@ body {
   color: #fff;
   font-weight: 500;
 }
+
+/* Thing Labels (cameras, regions, tripwires) - always visible */
+.thing-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-family: system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.4;
+  padding: 3px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translateX(-50%);
+  border: 1px solid var(--thing-label-accent, rgba(255, 255, 255, 0.15));
+}
+
+.thing-label-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--thing-label-accent, #fff);
+  flex: 0 0 auto;
+}
+
+.thing-label-text {
+  font-weight: 500;
+}

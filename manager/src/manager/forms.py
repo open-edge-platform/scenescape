@@ -25,7 +25,15 @@ from scene_common.cam_fields import (
     CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
 )
 
-class CamCalibrateForm(forms.ModelForm):
+class CameraPolicyForm(forms.ModelForm):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    if self.is_bound and 'pose_policy' not in self.data:
+      self.data = self.data.copy()
+      self.data['pose_policy'] = self.instance.pose_policy
+
+
+class CamCalibrateForm(CameraPolicyForm):
   class Meta:
     model = Cam
     fields = CAM_FORM_FIELDS
@@ -62,6 +70,8 @@ class CamCalibrateForm(forms.ModelForm):
         del self.fields[field]
     self.fields['intrinsics_cx'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
     self.fields['intrinsics_cy'].widget = forms.TextInput(attrs={'disabled': 'disabled'})
+    self.fields['width'].widget = forms.HiddenInput()
+    self.fields['height'].widget = forms.HiddenInput()
     self.fields['transform_type'].widget = forms.HiddenInput()
     self.fields['sensor_id'].label = "Camera ID"
     if settings.KUBERNETES_SERVICE_HOST:
@@ -168,10 +178,10 @@ class SingletonForm(forms.Form):
           raise ValidationError("The polygon vertex coordinates must be floating point numbers.")
     return cleaned_data
 
-class CamCreateForm(forms.ModelForm):
+class CamCreateForm(CameraPolicyForm):
   class Meta:
     model = Cam
-    fields = ['sensor_id', 'name', 'scene']
+    fields = ['sensor_id', 'name', 'scene', 'pose_policy']
     labels = {
       'sensor_id': 'Camera ID',
     }

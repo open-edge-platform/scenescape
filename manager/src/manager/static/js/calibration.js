@@ -261,7 +261,12 @@ function updateCalibrationView(msg) {
     $("#id_distortion_p2").val(),
     $("#id_distortion_k3").val(),
   ];
-  camera_calibration.updateCalibrationViews(image, cameraMatrix, distCoeffs);
+  camera_calibration.updateCalibrationViews(
+    image,
+    cameraMatrix,
+    distCoeffs,
+    msg.resolution,
+  );
   $("#snapshot").trigger("click");
 }
 

@@ -362,10 +362,19 @@ class Viewport extends THREE.Scene {
   projectImage(image, cameraMtx) {
     if (this.sceneMesh !== null) {
       this.textureLoader.load(image, (texture) => {
+        const { width, height } = texture.image;
+        this.projectionCamera.setViewOffset(
+          width,
+          height,
+          width / 2 - cameraMtx[0][2],
+          height / 2 - cameraMtx[1][2],
+          width,
+          height,
+        );
         this.projectionCamera.aspect =
-          texture.image.width / texture.image.height;
+          (width * cameraMtx[1][1]) / (height * cameraMtx[0][0]);
         this.projectionCamera.fov = THREE.MathUtils.radToDeg(
-          2 * Math.atan(texture.image.height / (2 * cameraMtx[1][1])),
+          2 * Math.atan(height / (2 * cameraMtx[1][1])),
         );
         this.projectionCamera.updateProjectionMatrix();
         if (this.projectedMaterial === null) {

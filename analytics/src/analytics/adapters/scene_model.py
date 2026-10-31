@@ -6,7 +6,6 @@ from typing import Optional
 import numpy as np
 
 from scene_common import log
-from scene_common.camera import Camera
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mesh_util import createObjectMesh, createRegionMesh, getMeshAxisAlignedProjectionToXY
@@ -102,17 +101,6 @@ class AnalyticsScene(SceneModel):
 
   def _updateChildren(self, newChildren):
     self.children = [x['name'] for x in newChildren]
-    return
-
-  def updateCameras(self, newCameras):
-    old = set(self.cameras.keys())
-    new = set([x['uid'] for x in newCameras])
-    for cameraData in newCameras:
-      camID = cameraData['uid']
-      self.cameras[camID] = Camera(camID, cameraData, resolution=cameraData['resolution'])
-    deleted = old - new
-    for camID in deleted:
-      self.cameras.pop(camID)
     return
 
   def _updateRegions(self, existingRegions, newRegions):

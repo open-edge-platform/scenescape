@@ -21,6 +21,13 @@ EULER = 'euler'
 QUATERNION = 'quaternion'
 POINT_CORRESPONDENCE = '3d-2d point correspondence'
 
+POSE_CONFIGURED = 'configured'
+POSE_OBSERVATION = 'observation'
+POSE_POLICY_CHOICES = (
+  (POSE_CONFIGURED, 'Configured'),
+  (POSE_OBSERVATION, 'Observation-driven'),
+)
+
 ENVIRONMENTAL = 'environmental'
 ATTRIBUTE = 'attribute'
 

@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import logging
 import os
 import socket
+import tempfile
 import threading
 import uuid
 import asyncio
@@ -12,8 +14,10 @@ import ipaddress
 from datetime import datetime, timezone
 
 from django.contrib.auth.models import User
-from django.db import IntegrityError, OperationalError, connection
-from django.http import HttpResponse
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import IntegrityError, OperationalError, connection, transaction
+from django.http import FileResponse, HttpResponse
+from django.utils.decorators import method_decorator
 from rest_framework.views import APIView
 from rest_framework import authentication, permissions
 from rest_framework.response import Response
@@ -22,13 +26,20 @@ from rest_framework import status
 from rest_framework import generics
 from rest_framework.authtoken.views import ObtainAuthToken
 
-from manager.models import Scene, Cam, SingletonSensor, Region, Tripwire, Asset3D, ChildScene, CalibrationMarker, DatabaseStatus, PubSubACL
+from manager.models import Scene, Cam, SingletonSensor, Region, Tripwire, Asset3D, ChildScene, CalibrationMarker, DatabaseStatus, PubSubACL, SceneMappingArtifact
 from manager.serializers import *
 from manager.scene_import import ImportScene
+from manager.mapping_store import (
+  DIGEST_HEADER, MappingStoreError, activate_source_map, delete_artifact,
+  delete_source_map, download_digest, isoformat_z, source_map_for_method,
+  store_artifact, validate_slug, MAX_ARTIFACT_BYTES,
+)
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
 from scene_common.options import *
 from scene_common import log
+
+logger = logging.getLogger(__name__)
 
 
 class IsAdminOrReadOnly(permissions.BasePermission):
@@ -126,6 +137,224 @@ class SceneImportAPIView(APIView):
     coroutine = scene.loadScene()
     errors = asyncio.run(coroutine)
     return Response(errors, status=status.HTTP_201_CREATED)
+
+
+@method_decorator(transaction.non_atomic_requests, name="dispatch")
+class SceneMappingArtifactView(APIView):
+  """!Upload, download, or delete one mapping method's resume zip.
+
+  The zip is one method's opaque blob plus an optional ``manifest.json``
+  (method metadata, fiducials, proposed cameras). Form fields ``sha256``,
+  ``fiducials`` and ``contributor`` arrive on the same request; unknown form
+  keys are ignored. Meshes are uploaded separately via the scene ``map``.
+  """
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def get(self, request, scene_id, method):
+    """!Download the current zip for ``method``, or 404 if this method has none."""
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    try:
+      validate_slug(method)
+    except DjangoValidationError as exc:
+      return Response({"error": "; ".join(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+    artifact = SceneMappingArtifact.objects.filter(scene=scene, method=method).first()
+    if artifact is None or not artifact.bundle:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    filename = os.path.basename(artifact.bundle.name) or f"{method}.zip"
+    response = FileResponse(artifact.bundle.open("rb"), content_type="application/zip")
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response[DIGEST_HEADER] = download_digest(artifact)
+    return response
+
+  def put(self, request, scene_id, method):
+    """!Store the current zip for ``method``, replacing any previous one. Multipart file field: ``bundle``."""
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    upload = request.FILES.get("bundle")
+    if upload is None:
+      return Response({"error": "bundle file is required"}, status=status.HTTP_400_BAD_REQUEST)
+    sha256 = request.data.get("sha256")
+    if sha256 is None or sha256 == "":
+      return Response({"error": "sha256 is required"}, status=status.HTTP_400_BAD_REQUEST)
+    tmp_path = None
+    try:
+      tmp_path = _spool_upload(upload)
+      artifact = store_artifact(
+        scene,
+        method,
+        tmp_path,
+        str(sha256),
+        request.data.get("fiducials"),
+        str(request.data.get("contributor") or ""),
+      )
+    except MappingStoreError as exc:
+      logger.warning(f"Failed to store mapping artifact for scene={scene_id} method={method}: {exc}")
+      return Response({"error": exc.public_message}, status=exc.status)
+    finally:
+      if tmp_path:
+        try:
+          os.remove(tmp_path)
+        except OSError:
+          pass
+    log.info("Mapping artifact uploaded", scene.pk, method, artifact.sha256)
+    return Response(_artifact_payload(artifact), status=status.HTTP_200_OK)
+
+  def delete(self, request, scene_id, method):
+    """!Delete this method's current ZIP without removing its mesh."""
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    try:
+      removed = delete_artifact(scene, method)
+    except DjangoValidationError as exc:
+      return Response({"error": "; ".join(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+    if not removed:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+def _spool_upload(upload):
+  if upload.size > MAX_ARTIFACT_BYTES:
+    raise MappingStoreError("Mapping artifact upload is too large", 413,
+                            public_message=f"Mapping artifact exceeds {MAX_ARTIFACT_BYTES} bytes")
+  handle = tempfile.NamedTemporaryFile(prefix="mapping-artifact-", suffix=".zip", delete=False)
+  try:
+    size = 0
+    for chunk in upload.chunks():
+      size += len(chunk)
+      if size > MAX_ARTIFACT_BYTES:
+        raise MappingStoreError("Mapping artifact upload is too large", 413,
+                                public_message=f"Mapping artifact exceeds {MAX_ARTIFACT_BYTES} bytes")
+      handle.write(chunk)
+  except BaseException:
+    handle.close()
+    os.remove(handle.name)
+    raise
+  finally:
+    handle.close()
+  return handle.name
+
+
+def _artifact_payload(artifact):
+  created = isoformat_z(artifact.created)
+  return {
+    "id": artifact.id,
+    "method": artifact.method,
+    "created": created,
+    "contributor": artifact.contributor,
+    "sha256": artifact.sha256,
+    "size": artifact.size,
+    "fiducials": artifact.fiducials or [],
+    "manifest": artifact.manifest or {},
+  }
+
+
+def _source_map_payload(scene, source_map, request=None):
+  def _url(field):
+    if not field or not field.name:
+      return None
+    url = field.url
+    return request.build_absolute_uri(url) if request is not None else url
+
+  return {
+    "method": source_map.method,
+    "contributor": source_map.contributor,
+    "created": isoformat_z(source_map.created),
+    "sha256": source_map.sha256,
+    "transform": source_map.transform or {},
+    "is_default": scene.default_source_map_id == source_map.id,
+    "file": _url(source_map.file),
+    "thumbnail": _url(source_map.thumbnail),
+  }
+
+
+def _lookup_scene(scene_id):
+  try:
+    return Scene.objects.get(pk=scene_id)
+  except (Scene.DoesNotExist, ValueError, DjangoValidationError):
+    return None
+
+
+class SceneMappingArtifactListView(APIView):
+  """!Every method's live artifact for a scene, with manifest metadata."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAuthenticated]
+
+  def get(self, request, scene_id):
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    rows = SceneMappingArtifact.objects.filter(scene=scene).order_by("method")
+    return Response([_artifact_payload(row) for row in rows])
+
+
+class SceneSourceMapListView(APIView):
+  """!The current mesh from each method for a scene, with the default method."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [permissions.IsAuthenticated]
+
+  def get(self, request, scene_id):
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    rows = scene.source_maps.order_by("method")
+    default = scene.default_source_map
+    return Response({
+      "default": default.method if default else None,
+      "maps": [_source_map_payload(scene, row, request) for row in rows],
+    })
+
+
+class SceneSourceMapView(APIView):
+  """!Inspect or delete one method's mesh; POST ``…/activate`` makes it default."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def _lookup(self, scene_id, method):
+    scene = _lookup_scene(scene_id)
+    if scene is None:
+      return None, None
+    return scene, source_map_for_method(scene, method)
+
+  def get(self, request, scene_id, method):
+    scene, source_map = self._lookup(scene_id, method)
+    if source_map is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    return Response(_source_map_payload(scene, source_map, request))
+
+  def post(self, request, scene_id, method):
+    scene, source_map = self._lookup(scene_id, method)
+    if source_map is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    try:
+      source_map = activate_source_map(scene, source_map)
+    except MappingStoreError as exc:
+      log.error("Failed to activate source map", scene_id, method, exc)
+      return Response(
+        {"error": exc.public_message},
+        status=exc.status,
+      )
+    scene.refresh_from_db()
+    log.info("Source map activated", scene.pk, method)
+    return Response(_source_map_payload(scene, source_map, request))
+
+  def delete(self, request, scene_id, method):
+    scene, source_map = self._lookup(scene_id, method)
+    if source_map is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    try:
+      delete_source_map(scene, source_map)
+    except MappingStoreError as exc:
+      log.error("Failed to delete source map", scene_id, method, exc)
+      return Response(
+        {"error": exc.public_message},
+        status=exc.status,
+      )
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ManageThing(APIView):
   authentication_classes = [authentication.TokenAuthentication]

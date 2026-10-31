@@ -5,6 +5,7 @@
 # module level) isn't installed in the analytics image, so keep all
 # controller.* imports lazy to allow CacheManager (and therefore
 # AnalyticsService) to be imported there.
+import copy
 import threading
 
 # Scene (and robot_vision, imported by controller.scene at module level)
@@ -18,6 +19,7 @@ from scene_common.tracking_object_registry import TrackedObjectRegistry
 
 from scene_common import log
 from scene_common.timestamp import get_epoch_time
+from scene_common.transform import CameraIntrinsics
 
 REFRESH_TIME = 60
 
@@ -103,14 +105,12 @@ class CacheManager:
           return
         found = result.get("results", [])
 
-        # _refreshCameras also does REST calls; keep those outside the lock too.
-        for scene_data in found:
-          self._refreshCameras(scene_data)
-
         with self._lock:
           if epoch != self._cache_epoch:
             # invalidate() superseded this fetch, so its results are stale.
             return
+          for scene_data in found:
+            self._refreshCameras(scene_data)
           self._applySceneResults(found)
         return
       finally:
@@ -120,7 +120,7 @@ class CacheManager:
 
   def _applySceneResults(self, found):
     """Apply fetched scene results. Caller must hold self._lock."""
-    if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
+    if getattr(self, 'cached_scenes_by_uid', None) is None:
       self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
@@ -132,38 +132,8 @@ class CacheManager:
       self._teardownScene(self.cached_scenes_by_uid.pop(uid, None))
 
     for scene_data in found:
-      if self.tracker_config_data:
-        scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
-                                      self.tracker_config_data["non_measurement_time_dynamic"],
-                                      self.tracker_config_data["non_measurement_time_static"],
-                                      self.tracker_config_data["effective_object_update_rate"],
-                                      self.tracker_config_data["time_chunking_enabled"],
-                                      self.tracker_config_data["time_chunking_rate_fps"],
-                                      self.tracker_config_data["suspended_track_timeout_secs"]]
-        scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
-      if self.reid_config_data:
-        scene_data["reid_config_data"] = self.reid_config_data
-      if getattr(self, 'pose_adjustment_config_data', {}):
-        scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
-
-      uid = scene_data['uid']
-      if uid not in self.cached_scenes_by_uid:
-        old_scene = self._sensorNeedsRestoring(uid)
-        if old_scene is not None:
-          # Reuse the existing scene to preserve tracked objects, sensor state,
-          # analytics_state and dwell times across DB-triggered refreshes.
-          scene = old_scene
-          scene.updateScene(scene_data)
-        else:
-          scene_cls = getattr(self, '_scene_cls', None)
-          if scene_cls is None:
-            from controller.scene import Scene
-            scene_cls = Scene
-          scene = scene_cls.deserialize(scene_data)
-      else:
-        scene = self.cached_scenes_by_uid[uid]
-        scene.updateScene(scene_data)
-
+      self._configureSceneData(scene_data)
+      scene = self._sceneFromData(scene_data)
       for cameraID in scene.cameras.keys():
         self._cached_scenes_by_cameraID[cameraID] = scene
       for sensorID in scene.sensors.keys():
@@ -175,6 +145,39 @@ class CacheManager:
       self._old_scene_cache = None
 
     self._cache_refreshed = get_epoch_time()
+
+  def _configureSceneData(self, scene_data):
+    if self.tracker_config_data:
+      scene_data["tracker_config"] = [self.tracker_config_data[key] for key in (
+        "max_unreliable_time", "non_measurement_time_dynamic", "non_measurement_time_static",
+        "effective_object_update_rate", "time_chunking_enabled", "time_chunking_rate_fps",
+        "suspended_track_timeout_secs",
+      )]
+      scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
+    if self.reid_config_data:
+      scene_data["reid_config_data"] = self.reid_config_data
+    if getattr(self, 'pose_adjustment_config_data', {}):
+      scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
+
+  def _sceneFromData(self, scene_data):
+    uid = scene_data['uid']
+    if uid in self.cached_scenes_by_uid:
+      scene = self.cached_scenes_by_uid[uid]
+      scene.updateScene(scene_data)
+      return scene
+    old_scene = self._sensorNeedsRestoring(uid)
+    if old_scene is not None:
+      # Preserve sensor and analytics state across DB-triggered refreshes.
+      old_scene.updateScene(scene_data)
+      return old_scene
+    previous = (getattr(self, '_old_scene_cache', None) or {}).get(uid)
+    if previous is not None:
+      self._teardownScene(previous)
+    scene_cls = getattr(self, '_scene_cls', None)
+    if scene_cls is None:
+      from controller.scene import Scene
+      scene_cls = Scene
+    return scene_cls.deserialize(scene_data)
 
   def _teardownScene(self, scene):
     """
@@ -244,88 +247,71 @@ class CacheManager:
       log.debug(f"Restored sensor cache for {restored_count} sensor(s) in scene {uid}")
 
   def _refreshCameras(self, scene_data):
+    # REST is persisted state, not a target for replaying an older MQTT snapshot.
     for camera in scene_data.get('cameras', []):
-      update_data = {}
-      supported_distortion_values = ('k1','k2','p1','p2','k3')
-
-      if camera['uid'] in self.camera_parameters:
-        intrinsics = self.camera_parameters[camera['uid']].get('intrinsics')
-        if intrinsics and camera.get('intrinsics') != intrinsics:
-          update_data['intrinsics'] = intrinsics
-
-        # FIXME: Only use supported distortion values until more are supported by database
-        distortion_values = {
-          dist_coeff: self.camera_parameters[camera['uid']].get('distortion')[dist_coeff]
-          for dist_coeff in supported_distortion_values
-        }
-        if camera.get('distortion') != distortion_values:
-          update_data['distortion'] = self.camera_parameters[camera['uid']]['distortion']
-
-      if update_data:
-        res = self.data_source.updateCamera(camera['uid'], update_data)
-        if not res:
-          log.warning(f"Failed to update camera {camera['uid']}")
-
-        # Make a get request to pull the updated camera information
-        # from db and store it to existing camera dictionary
-        camera = self.data_source.getCamera(camera['uid'])
+      self.camera_parameters[camera['uid']] = {
+        key: camera[key] for key in ('intrinsics', 'distortion', 'resolution') if key in camera
+      }
     return
 
   def refreshScenesForCamParams(self, jdata):
-    if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
-      return
-
-    intrinsics_changed = self.cameraParametersChanged(jdata, 'intrinsics')
-    distortion_changed = self.cameraParametersChanged(jdata, 'distortion')
-
-    if not (intrinsics_changed or distortion_changed):
-      return
-
     self.checkRefresh()
+    parameters = dict(jdata)
+    if 'resolution' in parameters:
+      parameters['resolution'] = self._cameraResolution(parameters['resolution'])
     cameras_to_update = []
+    payload = None
     with self._lock:
       if self.cached_scenes_by_uid is None:
         log.warning("refreshScenesForCamParams: cache still None after refresh attempt, skipping")
         return
+      changed = [self.cameraParametersChanged(parameters, key)
+                 for key in ('intrinsics', 'distortion', 'resolution')]
+      if not any(changed):
+        return
+      payload = self._cameraUpdatePayload(
+        copy.deepcopy(self.camera_parameters[parameters['id']]))
       for scene in self.cached_scenes_by_uid.values():
-        for camera in scene.cameras:
-          if jdata['id'] == camera:
-            intrinsics = jdata.get('intrinsics', {})
-            cx = intrinsics.get('cx')
-            cy = intrinsics.get('cy')
-
-            if cx is not None and cy is not None:
-              width = cx * 2
-              height = cy * 2
-              current_resolution = scene.cameras[camera].pose.resolution if hasattr(scene.cameras[camera].pose, 'resolution') else None
-              if current_resolution != [width, height]:
-                self.camera_parameters[camera]['resolution'] = [width, height]
-                cameras_to_update.append(scene.cameras[camera])
+        camera = scene.cameras.get(jdata['id'])
+        if camera is not None:
+          cameras_to_update.append(camera)
 
     # updateCamera does REST; keep it outside the lock so lookups aren't blocked.
     for cam in cameras_to_update:
-      self.updateCamera(cam)
+      self.updateCamera(cam, payload)
 
     self.refreshScenes(force=True)
     return
 
-  def updateCamera(self, cam):
-    if cam.cameraID not in self.camera_parameters:
-      return
-    params = self.camera_parameters[cam.cameraID]
-    intrinsics = params.get('intrinsics')
-    distortion = params.get('distortion')
-    resolution = params.get('resolution')
+  @staticmethod
+  def _cameraResolution(resolution):
+    if isinstance(resolution, dict):
+      resolution = [resolution.get('width'), resolution.get('height')]
+    if not isinstance(resolution, (list, tuple)) or len(resolution) != 2 \
+        or not all(type(v) is int and v > 0 for v in resolution):
+      log.warning("Ignoring invalid camera sensor resolution: %r", resolution)
+      return None
+    return list(resolution)
 
-    payload = {
-      'intrinsics': intrinsics,
-      'distortion': distortion
-    }
+  @staticmethod
+  def _cameraUpdatePayload(params):
+    resolution = params.get('resolution')
+    payload = {key: params[key] for key in ('intrinsics', 'distortion') if key in params}
     if resolution is not None:
       payload['resolution'] = {
         'width': resolution[0],
         'height': resolution[1]
       }
+    return payload
+
+  def updateCamera(self, cam, payload=None):
+    if payload is None:
+      self._refreshLock()
+      with self._lock:
+        params = self.camera_parameters.get(cam.cameraID)
+        if params is None:
+          return
+        payload = self._cameraUpdatePayload(copy.deepcopy(params))
 
     res = self.data_source.updateCamera(cam.cameraID, payload)
     if not res:
@@ -335,10 +321,24 @@ class CacheManager:
   def cameraParametersChanged(self, message, parameter_type):
     message_parameters = message.get(parameter_type)
     stored_parameters = self.camera_parameters.get(message['id'], {}).get(parameter_type)
+    if parameter_type == 'distortion' and message_parameters:
+      message_parameters = self._persistedDistortion(message_parameters)
+      stored_parameters = self._persistedDistortion(stored_parameters or {})
     if message_parameters and message_parameters != stored_parameters:
-      self.camera_parameters.setdefault(message['id'], {})[parameter_type] = message[parameter_type]
+      self.camera_parameters.setdefault(message['id'], {})[parameter_type] = message_parameters
       return True
     return False
+
+  @staticmethod
+  def _persistedDistortion(distortion):
+    if isinstance(distortion, dict):
+      coefficients = CameraIntrinsics.distortionDictToList(distortion)
+    elif isinstance(distortion, (list, tuple)) and len(distortion) in (4, 5, 8, 12, 14):
+      coefficients = list(distortion)
+    else:
+      log.warning("Ignoring invalid camera distortion:", distortion)
+      return None
+    return dict(zip(CameraIntrinsics.DISTORTION_KEYS[:5], coefficients + [0.0] * 5))
 
   def checkRefresh(self):
     self._refreshLock()

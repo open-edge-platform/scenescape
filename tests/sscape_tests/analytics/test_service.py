@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, call, patch
 from pathlib import Path
 
 import orjson
+import numpy as np
 import pytest
 
 from analytics.adapters.scene_model import AnalyticsScene
@@ -76,6 +77,216 @@ def test_controller_reid_state_and_count_reach_regulated_output(state, gid):
   else:
     assert 'previous_ids_chain' not in published_object
   assert output['unique_detection_count'] == 3
+
+
+@pytest.mark.parametrize("rotation", [[0, 0, 90], [0, 0, 2 ** 0.5, 2 ** 0.5]])
+@pytest.mark.parametrize("invalid", [
+  {'translation': [1, 2], 'rotation': [0, 0, 0]},
+  {'translation': [1, 2, 3], 'rotation': [0, 0, 0, 0]},
+  {'translation': [1, float('inf'), 3], 'rotation': [0, 0, 0]},
+  {'translation': [1, 2, 3], 'rotation': [0, 0]},
+  {'translation': [1, 2, 3], 'rotation': [0, 0, 0], 'scale': [1, 0, 1]},
+  "invalid",
+])
+def test_regulated_output_uses_latest_dynamic_camera_pose(invalid, rotation):
+  service = _service()
+  service.calculateRate = MagicMock(return_value=10.0)
+  service.shouldPublish = MagicMock(return_value=True)
+  scene = AnalyticsScene('Test scene', None)
+  scene.uid = 'scene1'
+  scene.updateCameras([{
+    'uid': 'handheld-01', 'resolution': [640, 480],
+    'intrinsics': {'fx': 500, 'fy': 600, 'cx': 320, 'cy': 240},
+    'translation': [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
+  }])
+  jdata = {
+    'timestamp': get_iso_time(100.0),
+    'id': 'scene1',
+    'name': 'Test scene',
+    'camera_id': 'handheld-01',
+    'extrinsics': {
+      'translation': [4.0, 5.0, 6.0],
+      'rotation': rotation,
+      'scale': [1.0, 1.0, 1.0],
+    },
+    'objects': [],
+  }
+
+  with patch('analytics.service.buildDetectionsList', return_value=[]), \
+       patch('analytics.service.get_epoch_time', return_value=100.0):
+    service.publishRegulatedDetections(scene, [], 'person', jdata, 'handheld-01')
+
+  payload = orjson.loads(service.pubsub.publish.call_args.args[1])
+  assert payload['cameras'][0]['id'] == 'handheld-01'
+  assert payload['cameras'][0]['dynamic_pose'] is True
+  assert payload['cameras'][0]['translation'] == [4.0, 5.0, 6.0]
+  assert payload['cameras'][0]['rotation'] == pytest.approx([0, 0, 0.5 ** 0.5, 0.5 ** 0.5])
+  jdata['extrinsics'] = invalid
+  with patch('analytics.service.buildDetectionsList', return_value=[]):
+    service.publishRegulatedDetections(scene, [], 'person', jdata, 'handheld-01')
+  assert orjson.loads(service.pubsub.publish.call_args.args[1])['cameras'] == payload['cameras']
+  assert set(service.regulate_cache['scene1']) == {'objects', 'rate', 'last'}
+
+
+def test_configured_camera_state_publishes_quaternion():
+  state = AnalyticsService._camera_state(_mobile_scene().cameras['mobile'])
+  assert state['rotation'] == pytest.approx([1, 0, 0, 0])
+  assert state['translation'] == [0, 0, 3]
+  assert state['pose_policy'] == 'observation'
+  assert state['dynamic_pose'] is False
+
+
+def test_configured_policy_ignores_observation_and_publishes_static_provenance():
+  scene = _mobile_scene()
+  scene.cameras['mobile'].pose_policy = 'configured'
+  original = scene.cameras['mobile']
+  observation = _service()._prepare_observation_scene(scene, {
+    'camera_id': 'mobile',
+    'extrinsics': {'translation': [10, 20, 3], 'rotation': [0, 0, 0, 1]},
+  }, None)
+  assert observation.cameras['mobile'] is original
+  state = AnalyticsService._camera_state(original)
+  assert state['pose_policy'] == 'configured'
+  assert state['dynamic_pose'] is False
+  assert state['translation'] == [0, 0, 3]
+
+
+def test_projection_scene_uses_dynamic_pose_without_mutating_configured_camera():
+  from scene_common.camera import Camera
+  configured = Camera('mobile', {
+    'intrinsics': {'fx': 500, 'fy': 600, 'cx': 320, 'cy': 240},
+    'translation': [0, 0, 2], 'rotation': [45, 0, 0], 'scale': [1, 1, 1],
+  }, resolution=[640, 480])
+  scene = AnalyticsScene('projection-test', None)
+  scene.uid = 'scene1'
+  scene.cameras = {'mobile': configured}
+  observation = _service()._prepare_observation_scene(scene, {
+    'camera_id': 'mobile',
+    'extrinsics': {'translation': [10, 20, 3], 'rotation': [45, 0, 90], 'scale': [1, 1, 1]},
+  }, None)
+  assert observation is not scene
+  assert not hasattr(scene.cameraWithID('mobile'), 'configured_pose')
+  assert observation.cameraWithID('mobile') is scene.cameraWithID('mobile')
+  assert observation.cameraWithID('mobile') is not configured
+  assert observation.cameraWithID('mobile').pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+  assert configured.pose.translation.asNumpyCartesian == pytest.approx([0, 0, 2])
+
+
+def _mobile_scene():
+  from scene_common.camera import Camera
+  scene = AnalyticsScene('mobile-test', None)
+  scene.uid = 'scene1'
+  scene.cameras = {'mobile': Camera('mobile', {
+    'intrinsics': {'fx': 500, 'fy': 600, 'cx': 320, 'cy': 240},
+    'translation': [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
+  }, resolution=[640, 480])}
+  return scene
+
+
+@pytest.mark.parametrize("visibility", [None, [], ['mobile']])
+def test_visibility_and_events_use_current_or_cached_dynamic_pose(visibility):
+  from scene_common.geometry import Point
+  service = _service()
+  service.shouldPublish = MagicMock(return_value=True)
+  scene = _mobile_scene()
+  configured = scene.cameras['mobile']
+  assert configured.pose.regionOfView.isPointWithin(Point(0, 0, 0))
+  service.cache_manager.sceneWithID.return_value = scene
+  scene._updateEvents = MagicMock()
+  obj = {'id': 'person-1', 'category': 'person', 'translation': [0, 0, 0], 'size': [1, 1, 2]}
+  if visibility is not None:
+    obj['visibility'] = visibility
+  for index, extrinsics in enumerate([
+    {'translation': [1000, 0, 3], 'rotation': [180, 0, 0]},
+    None,
+    {'translation': [1], 'rotation': [180, 0, 0]},
+  ]):
+    payload = {'id': 'scene1', 'name': scene.name, 'timestamp': get_iso_time(100 + index),
+               'camera_id': 'mobile', 'objects': [obj]}
+    if extrinsics is not None:
+      payload['extrinsics'] = extrinsics
+    service.handleSceneDataMessage(None, None, SimpleNamespace(
+      topic=PubSub.formatTopic(PubSub.DATA_SCENE, scene_id='scene1', thing_type='person'),
+      payload=orjson.dumps(payload),
+    ))
+    expected = visibility or []
+    assert scene._updateEvents.call_args.args[2][0].visibility == expected
+    output = orjson.loads(service.pubsub.publish.call_args.args[1])
+    assert output['objects'][0]['visibility'] == expected
+    assert output['cameras'][0]['translation'] == [1000, 0, 3]
+    assert configured.pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
+
+def test_dynamic_pose_reprojects_other_categories_and_empty_category_frames():
+  from scene_common.detections_builder import computeCameraBounds
+  service = _service()
+  service.shouldPublish = MagicMock(return_value=True)
+  scene = _mobile_scene()
+  scene._updateEvents = MagicMock()
+  service.cache_manager.sceneWithID.return_value = scene
+
+  def frame(category, x, objects):
+    service.handleSceneDataMessage(None, None, SimpleNamespace(
+      topic=PubSub.formatTopic(PubSub.DATA_SCENE, scene_id='scene1', thing_type=category),
+      payload=orjson.dumps({
+        'id': 'scene1', 'name': scene.name, 'timestamp': get_iso_time(100 + x),
+        'camera_id': 'mobile',
+        'extrinsics': {'translation': [x, 0, 3], 'rotation': [180, 0, 0]},
+        'objects': objects,
+      }),
+    ))
+    return orjson.loads(service.pubsub.publish.call_args.args[1])
+
+  person = {'id': 'p1', 'category': 'person', 'translation': [0, 0, 0],
+            'size': [0.5, 0.5, 1.7], 'visibility': ['mobile']}
+  vehicle = {'id': 'v1', 'category': 'vehicle', 'translation': [0.5, 0, 0],
+             'size': [1, 1, 1], 'visibility': ['mobile']}
+  first = frame('person', 0, [person])
+  with patch('analytics.service.computeCameraBounds', wraps=computeCameraBounds) as bounds:
+    second = frame('vehicle', 0.2, [vehicle])
+  assert {call.args[1].category for call in bounds.call_args_list} == {'person', 'vehicle'}
+  for call in bounds.call_args_list:
+    assert call.args[0].cameras['mobile'].pose.translation.x == pytest.approx(0.2)
+  p1 = next(obj for obj in second['objects'] if obj['id'] == 'p1')
+  assert p1['camera_bounds'] != first['objects'][0]['camera_bounds']
+  third = frame('vehicle', 0.4, [])
+  assert [obj['id'] for obj in third['objects']] == ['p1']
+  assert third['objects'][0]['camera_bounds'] != p1['camera_bounds']
+  assert scene.cameras['mobile'].pose.translation.x == pytest.approx(0.4)
+  assert scene.cameras['mobile'].pose_source == 'observation'
+
+
+def test_camera_publication_uses_projection_snapshot_during_configuration_refresh():
+  service = _service()
+  service.shouldPublish = MagicMock(return_value=True)
+  scene = _mobile_scene()
+  message = {
+    'id': scene.uid, 'name': scene.name, 'timestamp': get_iso_time(100),
+    'camera_id': 'mobile',
+    'extrinsics': {'translation': [10, 20, 3], 'rotation': [180, 0, 0]},
+  }
+
+  def refresh_during_projection(objects, snapshot, *args, **kwargs):
+    scene.updateCameras([{
+      'uid': 'mobile', 'resolution': [1280, 960],
+      'intrinsics': {'fx': 900, 'fy': 1000, 'cx': 640, 'cy': 480},
+      'translation': [5, 6, 7], 'rotation': [0, 0, 0], 'scale': [1, 1, 1],
+    }])
+    assert scene.cameras['mobile'].pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+    assert snapshot.cameras['mobile'].pose.intrinsics is not scene.cameras['mobile'].pose.intrinsics
+    scene.updateCameraPose('mobile', {'translation': [30, 40, 3], 'rotation': [180, 0, 0]})
+    assert snapshot.cameras['mobile'].pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+    return []
+
+  with patch('analytics.service.buildDetectionsList', side_effect=refresh_during_projection):
+    service.publishRegulatedDetections(scene, [], 'person', message, None)
+  payload = orjson.loads(service.pubsub.publish.call_args.args[1])
+  assert payload['cameras'][0]['translation'] == [10, 20, 3]
+  assert payload['cameras'][0]['dynamic_pose'] is True
+  message.pop('extrinsics')
+  service.publishRegulatedDetections(scene, [], 'person', message, None)
+  payload = orjson.loads(service.pubsub.publish.call_args.args[1])
+  assert payload['cameras'][0]['translation'] == [30, 40, 3]
 
 
 def test_delayed_reid_match_preserves_region_dwell_and_crossing(make_region, make_tripwire):
@@ -268,7 +479,7 @@ class TestPublishDetections:
     assert scene.lastPubCount == {}
     assert scene.last_published_detection['anything'] is None
     service.publishRegulatedDetections.assert_called_once_with(
-      scene, ['obj'], 'person', {'id': 'x'}, 'cam1')
+      scene, ['obj'], 'person', {'id': 'x'}, 'cam1', None)
     service.publishRegionDetections.assert_called_once_with(
       scene, ['obj'], 'person', {'id': 'x'})
 
@@ -286,7 +497,11 @@ class TestPublishDetections:
 class TestPublishRegulatedDetections:
 
   def _scene_obj(self, uid='scene1', cameras=None, regulated_rate=30):
-    return SimpleNamespace(uid=uid, cameras=cameras or {}, regulated_rate=regulated_rate)
+    scene = AnalyticsScene('Test scene', None)
+    scene.uid = uid
+    scene.cameras = cameras or {}
+    scene.regulated_rate = regulated_rate
+    return scene
 
   def test_first_publish_sends_message_and_records_last(self):
     service = _service()
@@ -330,7 +545,12 @@ class TestPublishRegulatedDetections:
          patch('analytics.service.get_epoch_time', return_value=100.0):
       service.publishRegulatedDetections(scene_obj, [msg_obj], 'person', jdata, None)
 
-    mock_bounds.assert_called_once_with(scene_obj, msg_obj, {'id': 'obj-1'})
+    mock_bounds.assert_called_once()
+    snapshot, projected_object, detection = mock_bounds.call_args.args
+    assert snapshot is not scene_obj
+    assert snapshot.cameras == scene_obj.cameras
+    assert projected_object is msg_obj
+    assert detection == {'id': 'obj-1'}
 
   def test_unregulated_topic_does_not_compute_camera_bounds(self):
     service = _service(visibility_topic='unregulated')
@@ -496,10 +716,10 @@ class TestHandleSceneDataMessage:
 
     scene.updateTrackedObjects.assert_called_once_with('person', [])
     scene.getTrackedObjects.assert_called_once_with('person')
-    scene._updateVisible.assert_called_once_with(['analytics-obj'])
+    scene.cameraSnapshot.return_value._updateVisible.assert_called_once_with(['analytics-obj'])
     scene._updateEvents.assert_called_once()
-    method_names = [name for name, _, _ in scene.method_calls]
-    assert method_names.index('_updateVisible') < method_names.index('_updateEvents')
+    method_names = [name for name, _, _ in scene.mock_calls]
+    assert method_names.index('cameraSnapshot()._updateVisible') < method_names.index('_updateEvents')
     args, kwargs = scene._updateEvents.call_args
     assert args[0] == 'person'
     assert args[2] == ['analytics-obj']
@@ -806,7 +1026,7 @@ class TestHandleSceneDataMessageSchemaAndVisibility:
     service.handleSceneDataMessage(None, None, self._message(payload))
 
     scene.updateTrackedObjects.assert_called_once()
-    scene._updateVisible.assert_called_once()
+    scene.cameraSnapshot.return_value._updateVisible.assert_called_once()
     scene._updateEvents.assert_called_once()
     service.publishDetections.assert_called_once()
 
@@ -847,7 +1067,9 @@ class TestHandleSceneDataMessageSchemaAndVisibility:
     scene.cameras['cam1'] = SimpleNamespace(
       cameraID='cam1',
       pose=SimpleNamespace(
-        regionOfView=SimpleNamespace(isPointWithin=lambda pt: True)),
+        regionOfView=SimpleNamespace(isPointWithin=lambda pt: True),
+        translation=SimpleNamespace(asNumpyCartesian=np.zeros(3)),
+        quaternion_rotation=np.array([0, 0, 0, 1]), scale=[1, 1, 1]),
     )
     service.cache_manager.sceneWithID.return_value = scene
     service.publishDetections = MagicMock()

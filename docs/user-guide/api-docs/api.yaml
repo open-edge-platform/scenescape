@@ -2253,6 +2253,19 @@ components:
     Cam:
       type: object
       properties:
+        pose_policy:
+          type: string
+          enum: [configured, observation]
+          default: observation
+          description: >-
+            Camera pose authority. Configured ignores observation extrinsics and
+            reloads stored calibration on configuration refresh. Observation
+            initializes from calibration and retains the latest valid observed
+            pose across frames and refreshes, while refreshing optics. Missing or
+            invalid extrinsics do not reset that pose. Switching to configured
+            resets it to stored calibration. Omitted updates preserve the current
+            policy. Runtime retention ends on removal, scene reassignment, or
+            process restart; observations never modify stored calibration.
         uid:
           type: string
           readOnly: true

@@ -22,7 +22,71 @@ from scene_common.glb_top_view import (
   MAX_THUMBNAIL_TEXTURE_SIZE,
   materialToMaterialRecord,
   renderTopView,
+  generateOrthoView,
 )
+
+@pytest.mark.parametrize("scale", [(1, 1, 1), (2, 3, 4)])
+@pytest.mark.parametrize("z", [0, 1000, -1000])
+def test_thumbnail_applies_scale_before_rotation_and_derives_metric_scale(tmp_path, scale, z):
+  import trimesh
+  from manager.models import Scene
+  path = tmp_path / "box.glb"
+  trimesh.creation.box(extents=(2, 4, 6)).export(path)
+  scene = Scene(name="transformed", rotation_z=90, translation_x=10, translation_y=20, translation_z=z,
+                scale_x=scale[0], scale_y=scale[1], scale_z=scale[2])
+  with patch("scene_common.glb_top_view.rendering.OffscreenRenderer") as renderer_class:
+    renderer = _mock_offscreen_renderer()
+    renderer_class.return_value = renderer
+    _, ppm = generateOrthoView(scene, str(path))
+    rendered_mesh = renderer.scene.add_geometry.call_args.args[1]
+    extents = rendered_mesh.get_axis_aligned_bounding_box().get_extent().numpy()
+    np.testing.assert_allclose(extents, [4 * scale[1], 2 * scale[0], 6 * scale[2]])
+    np.testing.assert_allclose(
+      rendered_mesh.get_axis_aligned_bounding_box().get_center().numpy(), [10, 20, z])
+    assert ppm == pytest.approx(min(1024 / extents[0], 768 / extents[1]))
+    target, eye, up = renderer.scene.camera.look_at.call_args.args
+    bounds = rendered_mesh.get_axis_aligned_bounding_box()
+    min_z, max_z = bounds.min_bound[2].item(), bounds.max_bound[2].item()
+    assert target == [0, 0, min_z]
+    assert eye[2] > max_z
+    assert up == [0, 1, 0]
+    _, left, right, bottom, top, near, far = renderer.scene.camera.set_projection.call_args.args
+    assert left == bottom == 0
+    assert right == pytest.approx(1024 / ppm)
+    assert top == pytest.approx(768 / ppm)
+    assert near < eye[2] - max_z
+    assert far > eye[2] - min_z
+
+
+@pytest.mark.django_db
+def test_scaled_upload_and_activation_persist_correct_thumbnail_scale(tmp_path, settings):
+  import trimesh
+  from django.core.files.base import ContentFile
+  from manager.models import Scene, SceneSourceMap
+  from manager.mapping_store import activate_source_map
+  settings.MEDIA_ROOT = str(tmp_path)
+  scene = Scene.objects.create(name="scaled-thumbnail")
+  scene.map.save("box.glb", ContentFile(
+    trimesh.creation.box(extents=(2, 4, 6)).export(file_type="glb")), save=False)
+  scene.scale_x, scene.scale_y, scene.scale_z = 2, 3, 4
+  scene.rotation_z = 90
+  scene.translation_x, scene.translation_y = 10, 20
+  scene._explicit_mesh_transform = True
+  with patch("scene_common.glb_top_view.rendering.OffscreenRenderer") as renderer_class:
+    renderer = _mock_offscreen_renderer()
+    renderer.render_to_image.return_value = np.full((768, 1024, 3), 255, dtype=np.uint8)
+    renderer_class.return_value = renderer
+    scene.save(send_update_command=False)
+    scene.refresh_from_db()
+    assert scene.scale == pytest.approx(1024 / 12)
+    assert scene.thumbnail.storage.exists(scene.thumbnail.name)
+    source = SceneSourceMap.objects.create(
+      scene=scene, method="scaled", file=scene.map.name,
+      transform={"translation": [10, 20, 0], "rotation": [0, 0, 90], "scale": [3, 4, 2]})
+    activate_source_map(scene, source)
+    scene.refresh_from_db()
+    assert scene.scale == pytest.approx(1024 / 16)
+    assert scene.thumbnail.storage.exists(scene.thumbnail.name)
 
 # Wide atlas mirrors the multi-mesh GLB that triggered the crash; tall covers
 # the rows > columns orientation of the same longest-side cap.

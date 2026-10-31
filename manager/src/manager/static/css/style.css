@@ -30,6 +30,21 @@ body {
   margin-right: 4px !important;
 }
 
+.scene-qr-image {
+  display: inline-block;
+  overflow: visible;
+}
+
+.scene-qr-image svg {
+  display: block;
+  outline: none;
+}
+
+#scene-qr-modal .modal-dialog {
+  width: max-content;
+  max-width: calc(100vw - 2rem);
+}
+
 .left-buffer {
   margin-left: 1rem !important;
 }
