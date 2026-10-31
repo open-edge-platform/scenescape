@@ -132,6 +132,23 @@ def test_configured_camera_state_publishes_quaternion():
   state = AnalyticsService._camera_state(_mobile_scene().cameras['mobile'])
   assert state['rotation'] == pytest.approx([1, 0, 0, 0])
   assert state['translation'] == [0, 0, 3]
+  assert state['pose_policy'] == 'observation'
+  assert state['dynamic_pose'] is False
+
+
+def test_configured_policy_ignores_observation_and_publishes_static_provenance():
+  scene = _mobile_scene()
+  scene.cameras['mobile'].pose_policy = 'configured'
+  original = scene.cameras['mobile']
+  observation = _service()._prepare_observation_scene(scene, {
+    'camera_id': 'mobile',
+    'extrinsics': {'translation': [10, 20, 3], 'rotation': [0, 0, 0, 1]},
+  }, None)
+  assert observation.cameras['mobile'] is original
+  state = AnalyticsService._camera_state(original)
+  assert state['pose_policy'] == 'configured'
+  assert state['dynamic_pose'] is False
+  assert state['translation'] == [0, 0, 3]
 
 
 def test_projection_scene_uses_dynamic_pose_without_mutating_configured_camera():
@@ -148,7 +165,7 @@ def test_projection_scene_uses_dynamic_pose_without_mutating_configured_camera()
     'extrinsics': {'translation': [10, 20, 3], 'rotation': [45, 0, 90], 'scale': [1, 1, 1]},
   }, None)
   assert observation is not scene
-  assert scene.cameraWithID('mobile').configured_pose is configured.pose
+  assert not hasattr(scene.cameraWithID('mobile'), 'configured_pose')
   assert observation.cameraWithID('mobile') is scene.cameraWithID('mobile')
   assert observation.cameraWithID('mobile') is not configured
   assert observation.cameraWithID('mobile').pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
@@ -236,7 +253,7 @@ def test_dynamic_pose_reprojects_other_categories_and_empty_category_frames():
   assert [obj['id'] for obj in third['objects']] == ['p1']
   assert third['objects'][0]['camera_bounds'] != p1['camera_bounds']
   assert scene.cameras['mobile'].pose.translation.x == pytest.approx(0.4)
-  assert scene.cameras['mobile'].configured_pose.translation.x == 0
+  assert scene.cameras['mobile'].pose_source == 'observation'
 
 
 def test_camera_publication_uses_projection_snapshot_during_configuration_refresh():

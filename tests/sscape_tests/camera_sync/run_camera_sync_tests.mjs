@@ -6,6 +6,10 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import test from "node:test";
 import { EventEmitter } from "node:events";
+import {
+  Euler,
+  Quaternion,
+} from "../../../manager/src/manager/static/assets/three.module.js";
 
 const STATIC = new URL(
   "../../../manager/src/manager/static/js/",
@@ -32,6 +36,7 @@ async function harness(dbCameras) {
     constructor(thing) {
       Object.assign(this, thing);
       this.cameraUID = thing.uid;
+      this.posePolicy = thing.pose_policy ?? "observation";
       calls.push(["construct", thing.uid]);
     }
     addObject(params) {
@@ -51,6 +56,9 @@ async function harness(dbCameras) {
     }
     syncOptics(data) {
       this.optics = data;
+    }
+    syncPosePolicy(data) {
+      this.posePolicy = data.pose_policy ?? "observation";
     }
   }
   class FakeREST {
@@ -354,6 +362,36 @@ test("a failed latest listing does not allow an older snapshot to apply", async 
   assert.deepEqual(calls, []);
 });
 
+test("known configured authority blocks queued live poses", async () => {
+  let cameras = [{ uid: "a", pose_policy: "observation" }];
+  const { manager, calls } = await harness(() => cameras);
+  await manager.load(params);
+  calls.length = 0;
+  manager.updatePoses([
+    { id: "a", pose_policy: "observation", dynamic_pose: false },
+  ]);
+  assert.equal(calls.length, 0);
+  manager.updatePoses([
+    { id: "a", pose_policy: "observation", dynamic_pose: true },
+  ]);
+  assert.equal(calls.length, 1);
+  cameras = [{ uid: "a", pose_policy: "configured" }];
+  await manager.syncWithDatabase(params, {}, "app", true);
+  manager.updatePoses([
+    { id: "a", pose_policy: "observation", dynamic_pose: true },
+  ]);
+  manager.updatePoses([{ id: "a", dynamic_pose: true }]);
+  assert.equal(calls.length, 1);
+  cameras = [{ uid: "a", pose_policy: "observation" }];
+  await manager.syncWithDatabase(params, {}, "app", true);
+  manager.updatePoses([
+    { id: "a", pose_policy: "configured", dynamic_pose: true },
+  ]);
+  assert.equal(calls.length, 1);
+  manager.updatePoses([{ id: "a", dynamic_pose: true }]);
+  assert.equal(calls.length, 2);
+});
+
 test("only explicitly dynamic poses overwrite camera edits", async () => {
   const { manager, calls } = await harness(() => [{ uid: "a", name: "A" }]);
   await manager.load(params);
@@ -389,6 +427,8 @@ async function sceneCameraHarness() {
     let exports;
     if (specifier.includes("three.module")) {
       exports = {
+        Euler,
+        Quaternion,
         Object3D: class {},
         TextureLoader: class {
           load(url, callback) {
@@ -467,6 +507,28 @@ async function sceneCameraHarness() {
   });
   return camera;
 }
+
+test("switching to configured policy applies stored calibration only once", async () => {
+  const camera = await sceneCameraHarness();
+  camera.posePolicy = "observation";
+  const poses = [];
+  camera.updatePose = (pose) => poses.push(plain(pose));
+  const configuration = {
+    pose_policy: "configured",
+    translation: [1, 2, 3],
+    rotation: [0, 0, 90],
+    scale: [1, 1, 1],
+  };
+  camera.syncPosePolicy(configuration);
+  assert.equal(camera.posePolicy, "configured");
+  assert.deepEqual(poses[0].translation, [1, 2, 3]);
+  const expected = new Quaternion().setFromEuler(new Euler(0, 0, Math.PI / 2));
+  assert.deepEqual(poses[0].rotation, expected.toArray());
+  camera.syncPosePolicy(configuration);
+  camera.syncPosePolicy({ ...configuration, pose_policy: "observation" });
+  assert.equal(poses.length, 1);
+  assert.equal(camera.posePolicy, "observation");
+});
 
 test("live poses apply XYZW quaternions and keep Euler conversion in the viewer", async () => {
   const camera = await sceneCameraHarness();

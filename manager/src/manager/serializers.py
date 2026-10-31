@@ -531,7 +531,7 @@ class CamSerializer(NonNullSerializer):
   def validate(self, data):
     fields = set(self.initial_data)
     is_metadata_only = self.partial and (
-      fields <= {'scene'} or fields <= {'intrinsics', 'distortion', 'resolution'})
+      fields <= {'scene', 'pose_policy'} or fields <= {'intrinsics', 'distortion', 'resolution'})
     if not is_metadata_only and 'name' not in data:
       raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)

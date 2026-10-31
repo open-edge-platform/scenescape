@@ -2,18 +2,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from typing import Optional
-from types import SimpleNamespace
 
 import numpy as np
 
 import robot_vision as rv
 from scene_common import log
-from scene_common.camera import Camera
 from scene_common.earth_lla import convertLLAToECEF, calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time
-from scene_common.transform import CameraPose, validate_camera_extrinsics
+from scene_common.transform import CameraPose
 from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
 
 from scene_common.camera_registry import CameraRegistry
@@ -224,8 +222,9 @@ class Scene(SceneModel):
       else:
         when = get_epoch_time(jdata['timestamp'])
 
-    if camera_id in self.cameras:
-      camera = self.cameras[camera_id]
+    observation = self.cameraSnapshot(camera_id, jdata.get('extrinsics'))
+    if camera_id in observation.cameras:
+      camera = observation.cameras[camera_id]
     else:
       log.error("Unknown camera", camera_id, self.cameras)
       return False
@@ -234,7 +233,7 @@ class Scene(SceneModel):
       log.info("DISCARDING: camera has no pose")
       return True
 
-    message_camera = self._camera_for_observation(camera, jdata.get('extrinsics'))
+    message_camera = camera
 
     for detection_type, detections in jdata['objects'].items():
       stripReidProvenance(detections)
@@ -254,17 +253,6 @@ class Scene(SceneModel):
       objects = self.createMovingObjectsForDetection(detection_type, detections, when, message_camera)
       self.finishProcessing(detection_type, when, objects)
     return True
-
-  @staticmethod
-  def _camera_for_observation(camera, extrinsics):
-    if extrinsics is None:
-      return camera
-    try:
-      pose = CameraPose(validate_camera_extrinsics(extrinsics), camera.pose.intrinsics)
-      return SimpleNamespace(cameraID=camera.cameraID, pose=pose)
-    except (TypeError, ValueError) as exc:
-      log.warning(f"Ignoring invalid camera metadata for {camera.cameraID}: {exc}")
-      return camera
 
   def convertPixelBoundingBoxesToMeters(self, objects: list[dict], intrinsics_matrix: np.ndarray, distortion_matrix: np.ndarray) -> None:
     """
@@ -425,14 +413,7 @@ class Scene(SceneModel):
     return
 
   def updateCameras(self, newCameras):
-    old = set(self.cameras.keys())
-    new = set([x['uid'] for x in newCameras])
-    for cameraData in newCameras:
-      camID = cameraData['uid']
-      self.cameras[camID] = Camera(camID, cameraData, resolution=cameraData['resolution'])
-    deleted = old - new
-    for camID in deleted:
-      self.cameras.pop(camID)
+    super().updateCameras(newCameras)
     CameraRegistry.getInstance().updateCameras(self.name, self.cameras.keys())
     return
 

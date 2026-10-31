@@ -103,16 +103,27 @@ poses before events are evaluated; nonempty producer visibility is preserved.
 Each regulated publication reprojects camera bounds for all cached categories
 against the same observation poses, including categories absent from that input frame.
 
-Configured calibration and the effective live pose belong to the same runtime
-camera entry. Configuration refreshes update calibration and optics while
-preserving a camera's last valid live pose; static cameras adopt the refreshed
-configured pose. Visibility, projected bounds, and published camera poses use
-one observation snapshot. Live poses do not expire on missing or invalid input.
-Removing a camera discards its live pose, so re-registering it starts from its
-configured calibration.
+Each runtime camera retains one effective pose, its `pose_policy`, and pose
+provenance. Durable calibration belongs to Manager, not a second runtime pose.
+The default `observation` policy accepts valid observation extrinsics and retains
+them across configuration refreshes while updating optics. Before the first
+observation it uses configured calibration. The `configured` policy ignores
+observation extrinsics and reloads stored calibration on refresh.
+
+Switching to `configured` resets the effective pose when configuration refreshes;
+switching back starts from calibration until the next valid observation. Saving
+calibration alone under observation policy does not reset a live pose. Visibility,
+projected bounds, and published camera poses use one atomic observation snapshot.
+Live poses do not expire on missing or invalid input. Removing a camera, moving
+it to another scene, or restarting the process discards its live pose.
+See [Camera Pose Policy](../../api-reference.md#camera-pose-policy) for configuration
+and upgrade requirements.
 
 Each camera entry contains `id`, `translation`, `rotation`, `scale`, and
-`dynamic_pose`. Published `rotation` is always a normalized quaternion in
+`pose_policy`, plus the backward-compatible `dynamic_pose` flag. That flag is
+derived from accepted observation provenance, not simply from observation policy:
+it remains false until the first valid observed pose. Published `rotation` is
+always a normalized quaternion in
 `[x, y, z, w]` order, mapping camera-local axes into the scene coordinate system.
 Configured and incoming intrinsic XYZ Euler rotations (degrees) remain supported
 as inputs and are converted to quaternions for publication. Consumers must not

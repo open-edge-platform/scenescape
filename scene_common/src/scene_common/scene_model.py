@@ -3,9 +3,14 @@
 
 import cv2
 import os
+from copy import copy
+from threading import RLock
 
 from scene_common import log
+from scene_common.camera import Camera
 from scene_common.mesh_util import extractTriangleMesh
+from scene_common.options import POSE_CONFIGURED, POSE_OBSERVATION
+from scene_common.transform import CameraPose, validate_camera_extrinsics
 
 
 class SceneModel:
@@ -23,6 +28,7 @@ class SceneModel:
         self.extractMapTriangleMesh(map_file, scale)
     self.children = []
     self.cameras = {}
+    self._camera_lock = RLock()
     self.regions = {}
     self.tripwires = {}
     self.sensors = {}
@@ -56,6 +62,53 @@ class SceneModel:
     if anID in self.cameras:
       return self.cameras[anID]
     return None
+
+  def updateCameras(self, newCameras):
+    with self._camera_lock:
+      cameras = {}
+      for cameraData in newCameras:
+        camera_id = cameraData['uid']
+        camera = Camera(camera_id, cameraData, resolution=cameraData['resolution'])
+        previous = self.cameras.get(camera_id)
+        self._retainObservedPose(camera, previous)
+        cameras[camera_id] = camera
+      self.cameras = cameras
+
+  @staticmethod
+  def _retainObservedPose(camera, previous):
+    if (getattr(camera, 'pose_policy', POSE_OBSERVATION) == POSE_OBSERVATION
+        and getattr(previous, 'pose_policy', None) == POSE_OBSERVATION
+        and getattr(previous, 'pose_source', None) == POSE_OBSERVATION
+        and getattr(camera, 'pose', None) is not None):
+      camera.pose = CameraPose(previous.pose.pose_mat.copy(), camera.pose.intrinsics)
+      camera.pose_source = POSE_OBSERVATION
+
+  def updateCameraPose(self, camera_id, extrinsics):
+    """Replace an observation-authorized pose without changing durable calibration."""
+    with self._camera_lock:
+      current = self.cameras.get(camera_id)
+      if (current is None or getattr(current, 'pose', None) is None
+          or getattr(current, 'pose_policy', POSE_OBSERVATION) == POSE_CONFIGURED
+          or extrinsics is None):
+        return
+      pose = CameraPose(validate_camera_extrinsics(extrinsics), current.pose.intrinsics)
+      camera = copy(current)
+      camera.pose = pose
+      camera.pose_policy = POSE_OBSERVATION
+      camera.pose_source = POSE_OBSERVATION
+      self.cameras[camera_id] = camera
+
+  def cameraSnapshot(self, camera_id=None, extrinsics=None):
+    """Apply an observation and capture stable camera entries under one lock."""
+    with self._camera_lock:
+      if camera_id is not None:
+        try:
+          self.updateCameraPose(camera_id, extrinsics)
+        except (TypeError, ValueError) as exc:
+          log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
+      observation = copy(self)
+      observation.cameras = dict(self.cameras)
+      return observation
 
   def serialize(self):
     data = {

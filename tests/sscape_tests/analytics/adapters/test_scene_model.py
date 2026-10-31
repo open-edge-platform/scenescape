@@ -9,6 +9,7 @@ import pytest
 from analytics.adapters.scene_model import AnalyticsScene
 from analytics.state import AnalyticsStateStore
 from scene_common.geometry import Point, Region
+from scene_common.scene_model import SceneModel
 
 
 def _scene():
@@ -119,7 +120,7 @@ class TestUpdateCameras:
       'translation': translation or [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
     }
 
-  def test_refresh_preserves_live_pose_and_updates_configured_pose_and_optics(self):
+  def test_refresh_preserves_live_pose_and_updates_optics(self):
     scene = _scene()
     scene.updateCameras([self._camera_data(), self._camera_data('static')])
     scene.updateCameraPose('cam1', {
@@ -131,16 +132,57 @@ class TestUpdateCameras:
       self._camera_data('static', translation=[8, 9, 10]),
     ])
     camera = scene.cameras['cam1']
-    assert camera.dynamic_pose is True
+    assert camera.pose_source == 'observation'
     assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
     assert camera.pose.scale == pytest.approx([2, 3, 4])
     assert camera.pose.quaternion_rotation == pytest.approx([1, 0, 0, 0])
-    assert camera.configured_pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
-    assert camera.pose.intrinsics is camera.configured_pose.intrinsics
+    assert not hasattr(camera, 'configured_pose')
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 900
     assert camera.pose.intrinsics is not snapshot.cameras['cam1'].pose.intrinsics
     assert scene.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([8, 9, 10])
-    assert scene.cameras['static'].dynamic_pose is False
+    assert scene.cameras['static'].pose_source == 'configured'
     assert snapshot.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
+  @pytest.mark.parametrize('policy', ['configured', 'observation'])
+  def test_shared_pose_policy_transitions(self, policy):
+    scene = SceneModel('policy', None)
+    data = self._camera_data()
+    data['pose_policy'] = policy
+    scene.updateCameras([data])
+    initial = scene.cameraSnapshot()
+    observed = scene.cameraSnapshot('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
+    expected = [10, 20, 3] if policy == 'observation' else [0, 0, 3]
+    assert observed.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx(expected)
+    assert initial.cameras['cam1'].pose_source == 'configured'
+    refreshed = self._camera_data(translation=[5, 6, 7], focal_length=900)
+    refreshed['pose_policy'] = policy
+    scene.updateCameras([refreshed])
+    camera = scene.cameras['cam1']
+    expected = [10, 20, 3] if policy == 'observation' else [5, 6, 7]
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx(expected)
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 900
+    assert not hasattr(camera, 'configured_pose')
+    assert not hasattr(camera, 'dynamic_pose')
+    invalid = {'translation': [1, 2, 3], 'rotation': [0, 0, 0, 0]}
+    assert scene.cameraSnapshot('cam1', invalid).cameras['cam1'] is camera
+    assert scene.cameraSnapshot('cam1').cameras['cam1'] is camera
+    refreshed['pose_policy'] = 'configured'
+    scene.updateCameras([refreshed])
+    assert scene.cameras['cam1'].pose_source == 'configured'
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
+    refreshed['pose_policy'] = 'observation'
+    scene.updateCameras([refreshed])
+    assert scene.cameras['cam1'].pose_source == 'configured'
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
+
+  @pytest.mark.parametrize('policy', [None, '', 'unknown', True, 1, []])
+  def test_shared_pose_policy_rejects_invalid_configuration_atomically(self, policy):
+    scene = SceneModel('policy', None)
+    scene.updateCameras([self._camera_data()])
+    previous = scene.cameras
+    with pytest.raises(ValueError, match='pose_policy'):
+      scene.updateCameras([self._camera_data('new'), {**self._camera_data(), 'pose_policy': policy}])
+    assert scene.cameras is previous
 
   def test_snapshot_retains_pose_when_next_observation_arrives(self):
     scene = _scene()
@@ -149,7 +191,7 @@ class TestUpdateCameras:
     scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
     assert snapshot.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
     assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
-    assert scene.cameras['cam1'].configured_pose is snapshot.cameras['cam1'].pose
+    assert not hasattr(scene.cameras['cam1'], 'configured_pose')
 
   @pytest.mark.parametrize('observed', [False, True])
   def test_invalid_observation_preserves_current_camera(self, observed):
@@ -161,7 +203,7 @@ class TestUpdateCameras:
     with pytest.raises(ValueError):
       scene.updateCameraPose('cam1', {'translation': [10, 20, 3], 'rotation': [0, 0, 0, 0]})
     assert scene.cameras['cam1'] is current
-    assert current.dynamic_pose is observed
+    assert current.pose_source == ('observation' if observed else 'configured')
 
   def test_deleted_and_recreated_camera_does_not_inherit_live_pose(self):
     scene = _scene()
@@ -171,14 +213,14 @@ class TestUpdateCameras:
     scene.updateCameraPose('cam1', {'translation': [99, 99, 3], 'rotation': [1, 0, 0, 0]})
     assert scene.cameras == {}
     scene.updateCameras([self._camera_data()])
-    assert scene.cameras['cam1'].dynamic_pose is False
+    assert scene.cameras['cam1'].pose_source == 'configured'
     assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
 
   def test_adds_new_camera(self):
     scene = _scene()
     stub_camera = SimpleNamespace(cameraID='cam1')
 
-    with patch('analytics.adapters.scene_model.Camera', return_value=stub_camera) as mock_camera:
+    with patch('scene_common.scene_model.Camera', return_value=stub_camera) as mock_camera:
       scene.updateCameras([{'uid': 'cam1', 'resolution': (640, 480)}])
 
     mock_camera.assert_called_once_with('cam1', {'uid': 'cam1', 'resolution': (640, 480)},
@@ -187,7 +229,7 @@ class TestUpdateCameras:
 
   def test_removes_deleted_camera(self):
     scene = _scene()
-    with patch('analytics.adapters.scene_model.Camera', return_value=SimpleNamespace(cameraID='cam1')):
+    with patch('scene_common.scene_model.Camera', return_value=SimpleNamespace(cameraID='cam1')):
       scene.updateCameras([{'uid': 'cam1', 'resolution': (640, 480)}])
 
     scene.updateCameras([])

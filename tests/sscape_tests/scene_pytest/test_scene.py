@@ -241,7 +241,10 @@ def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, c
   convert_mock.assert_not_called()
 
 
-def test_processCameraData_applies_and_serializes_per_frame_extrinsics(scene_obj, camera_obj, monkeypatch):
+@pytest.mark.parametrize('policy', ['configured', 'observation'])
+def test_processCameraData_applies_pose_policy_across_frames(scene_obj, camera_obj, monkeypatch, policy):
+  camera_obj.pose_policy = policy
+  initial_pose = camera_obj.pose
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
   captured = {}
 
@@ -263,10 +266,50 @@ def test_processCameraData_applies_and_serializes_per_frame_extrinsics(scene_obj
   }
 
   assert scene_obj.processCameraData(payload) is True
-  np.testing.assert_allclose(
-    captured['camera'].pose.translation.asNumpyCartesian, [1.0, 2.0, 3.0])
-  assert captured['camera'] is not camera_obj
-  assert scene_obj.cameras[camera_obj.cameraID] is camera_obj
+  effective = captured['camera']
+  assert scene_obj.cameras[camera_obj.cameraID] is effective
+  if policy == 'observation':
+    np.testing.assert_allclose(effective.pose.translation.asNumpyCartesian, [1.0, 2.0, 3.0])
+    assert effective is not camera_obj
+  else:
+    assert effective is camera_obj
+  assert camera_obj.pose is initial_pose
+  payload.pop('extrinsics')
+  assert scene_obj.processCameraData(payload) is True
+  assert captured['camera'] is effective
+  payload['extrinsics'] = {'translation': [1], 'rotation': [0, 0, 0, 0]}
+  assert scene_obj.processCameraData(payload) is True
+  assert captured['camera'] is effective
+
+
+def test_camera_policy_refresh_preserves_observed_pose_until_policy_switch(scene_obj):
+  configuration = {
+    'uid': 'mobile', 'resolution': [640, 480],
+    'intrinsics': {'fx': 500, 'fy': 600, 'cx': 320, 'cy': 240},
+    'translation': [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
+    'pose_policy': 'observation',
+  }
+  scene_obj.updateCameras([configuration])
+  snapshot = scene_obj.cameraSnapshot('mobile', {
+    'translation': [10, 20, 3], 'rotation': [0, 0, 0, 1],
+  })
+  refreshed = dict(configuration, translation=[7, 8, 9], intrinsics={
+    'fx': 900, 'fy': 900, 'cx': 320, 'cy': 240,
+  })
+  scene_obj.updateCameras([refreshed])
+  camera = scene_obj.cameras['mobile']
+  np.testing.assert_allclose(camera.pose.translation.asNumpyCartesian, [10, 20, 3])
+  assert camera.pose.intrinsics.intrinsics[0, 0] == 900
+  assert snapshot.cameras['mobile'].pose.intrinsics.intrinsics[0, 0] == 500
+  scene_obj.updateCameras([dict(refreshed, pose_policy='configured')])
+  camera = scene_obj.cameras['mobile']
+  np.testing.assert_allclose(camera.pose.translation.asNumpyCartesian, [7, 8, 9])
+  assert camera.pose_source == 'configured'
+  scene_obj.updateCameras([refreshed])
+  assert scene_obj.cameras['mobile'].pose_source == 'configured'
+  scene_obj.updateCameras([])
+  scene_obj.updateCameras([configuration])
+  np.testing.assert_allclose(scene_obj.cameras['mobile'].pose.translation.asNumpyCartesian, [0, 0, 3])
 
 
 @pytest.mark.parametrize("extrinsics", [

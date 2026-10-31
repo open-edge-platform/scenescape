@@ -13,6 +13,7 @@ from scene_common.cache_manager import CacheManager
 from scene_common.detections_builder import buildDetectionsList, computeCameraBounds
 from scene_common import log
 from scene_common.mqtt import PubSub
+from scene_common.options import POSE_OBSERVATION
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
@@ -99,7 +100,9 @@ class AnalyticsService:
       'translation': pose.translation.asNumpyCartesian.tolist(),
       'rotation': pose.quaternion_rotation.tolist(),
       'scale': list(scale),
-      'dynamic_pose': getattr(camera, 'dynamic_pose', False),
+      'pose_policy': getattr(camera, 'pose_policy', POSE_OBSERVATION),
+      'dynamic_pose': (getattr(camera, 'pose_policy', POSE_OBSERVATION) == POSE_OBSERVATION
+               and getattr(camera, 'pose_source', None) == POSE_OBSERVATION),
     }
 
   @staticmethod
@@ -126,12 +129,7 @@ class AnalyticsService:
         'objects': {}, 'rate': {}, 'last': None,
       }
     message_camera_id = jdata.get('camera_id') or camera_id
-    if jdata.get('extrinsics') is not None:
-      try:
-        scene_obj.updateCameraPose(message_camera_id, jdata['extrinsics'])
-      except (TypeError, ValueError) as exc:
-        log.warning(f"Ignoring invalid camera metadata for {message_camera_id}: {exc}")
-    return scene_obj.cameraSnapshot()
+    return scene_obj.cameraSnapshot(message_camera_id, jdata.get('extrinsics'))
 
   def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id,
                                 observation_scene=None):

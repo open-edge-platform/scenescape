@@ -133,6 +133,7 @@ export default class SceneCamera extends THREE.Object3D {
     Object.assign(this, thingTransformControls);
     Object.assign(this, validateInputControls);
     this.cameraUID = params.uid;
+    this.posePolicy = params.pose_policy ?? "observation";
     this.name = params.name;
     this.fovEnabled = false;
     this.isStoredInDB = params.isStoredInDB;
@@ -476,6 +477,24 @@ export default class SceneCamera extends THREE.Object3D {
     this.togglePoseYupYdown(this.sceneCamera);
     this.sceneCamera.updateMatrixWorld(true);
     if (this.transformControl) this.resetTransformObject();
+  }
+
+  syncPosePolicy(data) {
+    const policy = data.pose_policy ?? "observation";
+    if (!["configured", "observation"].includes(policy)) return;
+    const changed = policy !== this.posePolicy;
+    this.posePolicy = policy;
+    if (!changed || policy !== "configured") return;
+    if (
+      !Array.isArray(data.rotation) ||
+      data.rotation.length !== 3 ||
+      !data.rotation.every(Number.isFinite)
+    )
+      return;
+    const rotation = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(...data.rotation.map(THREE.MathUtils.degToRad), "XYZ"),
+    );
+    this.updatePose({ ...data, rotation: rotation.toArray() });
   }
 
   addControlPanel(camerasFolder) {
