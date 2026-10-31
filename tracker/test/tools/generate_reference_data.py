@@ -29,7 +29,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 # Constants matching transform.py
-FALLBACK_HORIZON_DISTANCE = 100.0  # meters
+FALLBACK_HORIZON_DISTANCE = 1000.0  # meters
 EARTH_RADIUS = 6371000  # meters
 MIN_HEIGHT_FOR_HORIZON = 0.1  # meters
 RAY_EPSILON = 1e-6
@@ -393,6 +393,42 @@ def generate_bbox_size_tests(intrinsics_mat, distortion, pose_mat, camera_origin
   return test_cases
 
 
+def generate_synthetic_bbox_tests():
+  """Generate references for distorted pixels and anisotropic camera scale.
+
+  The C++ unit tests do not load this block; they copy the values by hand into
+  coordinate_transformer_test.cpp, so update both after regenerating.
+  """
+  camera_config = {
+    'uid': 'synthetic-distorted-anisotropic',
+    'name': 'synthetic-distorted-anisotropic',
+    'intrinsics': {
+      'fx': 905.0,
+      'fy': 905.0,
+      'cx': 640.0,
+      'cy': 360.0,
+      'distortion': {'k1': -0.25, 'k2': 0.08, 'p1': 0.015, 'p2': -0.01}
+    },
+    'extrinsics': {
+      'translation': [2.985857104493509, 0.2054078898442529, 2.7150546825598902],
+      'rotation': [-135.08718965001765, 12.682032394455131, 19.24508172546946],
+      'scale': [1.5, 0.75, 2.0]
+    }
+  }
+  intrinsics_mat = build_intrinsics_matrix(camera_config['intrinsics'])
+  distortion = build_distortion_coeffs(camera_config['intrinsics'])
+  pose_mat = build_pose_matrix(camera_config['extrinsics'])
+  camera_origin = np.array(camera_config['extrinsics']['translation'])
+
+  return {
+    **camera_config,
+    'bbox_foot_to_world': generate_bbox_foot_tests(
+        intrinsics_mat, distortion, pose_mat, camera_origin, camera_config),
+    'bbox_size_to_world': generate_bbox_size_tests(
+        intrinsics_mat, distortion, pose_mat, camera_origin, camera_config)
+  }
+
+
 def generate_sensor_to_world_tests(tilted_camera_config):
   """Generate SciPy references for direct sensor-frame positions and rotations."""
   test_cases = [
@@ -443,6 +479,7 @@ def main():
     'euler_to_rotation': generate_euler_to_rotation_tests(),
     'yaw_to_quaternion': generate_yaw_to_quaternion_tests(),
     'sensor_to_world': generate_sensor_to_world_tests(tilted_camera_config),
+    'synthetic_bbox_tests': generate_synthetic_bbox_tests(),
     'cameras': []
   }
 
@@ -479,6 +516,7 @@ def main():
   print(f'Generated reference data: {output_path}')
   print(f'  - {len(output["euler_to_rotation"])} Euler-to-rotation test cases')
   print(f'  - {len(output["cameras"])} cameras with transformation tests')
+  print('  - synthetic distorted/anisotropic-scale bbox references')
 
 
 if __name__ == '__main__':

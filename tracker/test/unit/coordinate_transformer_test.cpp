@@ -116,6 +116,34 @@ const CameraTestConfig kCameraAtaqQcam1 = {
     {-135.08718965001765, 12.682032394455131, 19.24508172546946},
     {1.0, 1.0, 1.0}};
 
+const CameraTestConfig kCameraAtaqQcam2 = {
+    "atag-qcam2",
+    905.0,
+    905.0,
+    640.0,
+    360.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    {-0.6544951215349519, 2.8628274940885503, 2.894955006060443},
+    {-150.5988934259539, 42.35138027480063, 52.29263795544898},
+    {1.0, 1.0, 1.0}};
+
+const CameraTestConfig kCameraDistortedAnisotropic = {
+    "synthetic-distorted-anisotropic",
+    905.0,
+    905.0,
+    640.0,
+    360.0,
+    -0.25,
+    0.08,
+    0.015,
+    -0.01,
+    {2.985857104493509, 0.2054078898442529, 2.7150546825598902},
+    {-135.08718965001765, 12.682032394455131, 19.24508172546946},
+    {1.5, 0.75, 2.0}};
+
 // Bbox foot-to-world reference data for atag-qcam1
 // NOTE: world positions include footprint offset (foot shifted away from camera
 // by width_m/2 along the camera→foot bearing) to approximate object center.
@@ -303,6 +331,67 @@ TEST(TransformDetectionsTest, MatchesPythonReference_Position) {
         EXPECT_NEAR(result[0].z, 0.0, kWorldTolerance)
             << "Test " << tc.name << " world Z should be 0";
     }
+}
+
+// Reference values for the second-camera and synthetic cases are copied by hand from
+// tracker/test/tools/transformation_reference.json; update both together.
+template <size_t N>
+void expectMatchesReferences(CoordinateTransformer& transformer,
+                             const std::array<BboxFootTestCase, N>& foot_cases,
+                             const std::array<BboxSizeTestCase, N>& size_cases) {
+    for (size_t i = 0; i < N; ++i) {
+        const auto& foot_case = foot_cases[i];
+        const auto& size_case = size_cases[i];
+        const auto result = transformer.transformDetections(std::vector{make_detection(
+            static_cast<float>(foot_case.bbox_x), static_cast<float>(foot_case.bbox_y),
+            static_cast<float>(foot_case.bbox_width), static_cast<float>(foot_case.bbox_height))});
+        ASSERT_EQ(result.size(), 1u) << foot_case.name;
+        EXPECT_NEAR(result[0].x, foot_case.world_x, kWorldTolerance) << foot_case.name;
+        EXPECT_NEAR(result[0].y, foot_case.world_y, kWorldTolerance) << foot_case.name;
+        EXPECT_NEAR(result[0].z, 0.0, kWorldTolerance) << foot_case.name << " world Z should be 0";
+        EXPECT_NEAR(result[0].length, size_case.world_width_m, kWorldTolerance)
+            << foot_case.name << " world width (length) mismatch";
+        EXPECT_NEAR(result[0].width, size_case.world_width_m, kWorldTolerance) << foot_case.name;
+        EXPECT_NEAR(result[0].height, size_case.world_height_m, kWorldTolerance) << foot_case.name;
+    }
+}
+
+TEST(TransformDetectionsTest, MatchesSecondSceneCameraReference) {
+    auto transformer = make_transformer(kCameraAtaqQcam2);
+    const std::array<BboxFootTestCase, 4> reference_cases = {{
+        {"center_person", 590.0, 260.0, 100.0, 200.0, 1.959296760776368, 4.29117629098634},
+        {"top_left_person", 10.0, 10.0, 80.0, 160.0, 2.603882633984143, 9.363146702752928},
+        {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 1.7067459752900183, 1.8343335390585203},
+        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 0.7655961191534599, 3.6835345363128296},
+    }};
+    const std::array<BboxSizeTestCase, 4> size_cases = {{
+        {"center_person", 590.0, 260.0, 100.0, 200.0, 0.43956806046040897, 0.7639868449216659},
+        {"top_left_person", 10.0, 10.0, 80.0, 160.0, 0.5752524319687982, 0.9392733356293548},
+        {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 0.2617340118469209,
+         0.41154563340532324},
+        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 0.1688113470659148, 0.24963759741688274},
+    }};
+
+    expectMatchesReferences(transformer, reference_cases, size_cases);
+}
+
+TEST(TransformDetectionsTest, MatchesDistortedAnisotropicScaleReference) {
+    auto transformer = make_transformer(kCameraDistortedAnisotropic);
+    const std::array<BboxFootTestCase, 4> reference_cases = {{
+        {"center_person", 590.0, 260.0, 100.0, 200.0, 3.8097579266945796, 2.8548572331233983},
+        {"top_left_person", 10.0, 10.0, 80.0, 160.0, 1.6702276658143294, 4.9674184735061875},
+        {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 5.33418346185146, 1.438049590473241},
+        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 3.588077705008413, 2.2912793856310945},
+    }};
+    const std::array<BboxSizeTestCase, 4> size_cases = {{
+        {"center_person", 590.0, 260.0, 100.0, 200.0, 0.3156590673937088, 0.2614026967992417},
+        {"top_left_person", 10.0, 10.0, 80.0, 160.0, 0.5606088751714102, 0.3383460064069711},
+        {"bottom_right_person", 1190.0, 550.0, 80.0, 160.0, 0.335215164464982, 0.2048284359176233},
+        {"bottom_center_small", 615.0, 620.0, 50.0, 100.0, 0.14637468409819965,
+         0.11761867128785713},
+    }};
+
+    expectMatchesReferences(transformer, reference_cases, size_cases);
 }
 
 TEST(TransformDetectionsTest, DistortedBboxMatchesTwoCornerControllerProjection) {
@@ -731,6 +820,53 @@ TEST(CoordinateTransformerTest, UpwardRayReturnsValidResult) {
 
     // Should return a valid result (horizon culling, not failure)
     EXPECT_EQ(result.size(), 1u);
+}
+
+TEST(CoordinateTransformerTest, HorizonDistanceMatchesEarthCurvatureAndFallback) {
+    CameraTestConfig config = {
+        "horizon-camera", 500.0,           500.0,          320.0, 240.0, 0.0, 0.0, 0.0, 0.0,
+        {0.0, 0.0, 0.0},  {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}};
+    const std::array<double, 5> heights = {0.0, 0.1, 0.100001, 0.5, 2.0};
+
+    for (const double height : heights) {
+        config.translation[2] = height;
+        const auto transformer = make_transformer(config, ObjectClassConfig::kShiftType1, 0.0);
+        const auto result = transformer.transformDetections(
+            std::vector{make_detection(420.0f, 240.0f, 0.0f, 0.0f)});
+        const double expected = height > 0.1 ? std::sqrt(2.0 * 6371000.0 * height) : 1000.0;
+
+        ASSERT_EQ(result.size(), 1u) << "camera height " << height;
+        EXPECT_NEAR(result[0].x, expected, kWorldTolerance) << "camera height " << height;
+        EXPECT_NEAR(result[0].y, 0.0, kWorldTolerance) << "camera height " << height;
+    }
+}
+
+TEST(CoordinateTransformerTest, AllUpwardBboxRemainsValidViaHorizonCulling) {
+    CameraTestConfig config = {
+        "upward-camera", 500.0,           500.0,          320.0, 240.0, 0.0, 0.0, 0.0, 0.0,
+        {0.0, 0.0, 3.0}, {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}};
+    const auto transformer = make_transformer(config, ObjectClassConfig::kShiftType1, 0.0);
+    const auto result = transformer.transformDetections(
+        std::vector{make_detection(270.0f, 190.0f, 100.0f, 100.0f)});
+
+    // All four rays point upward; horizon culling projects the foot to this distance.
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_NEAR(result[0].x, 0.0, kWorldTolerance);
+    EXPECT_NEAR(result[0].y, 6182.717848972246, kWorldTolerance);
+    EXPECT_TRUE(std::isfinite(result[0].length));
+    EXPECT_TRUE(std::isfinite(result[0].height));
+}
+
+TEST(CoordinateTransformerTest, BelowGroundCameraProducesNonnegativeObjectHeight) {
+    CameraTestConfig config = {
+        "below-ground-camera", 500.0,           500.0,          320.0, 240.0, 0.0, 0.0, 0.0, 0.0,
+        {0.0, 0.0, -3.0},      {0.0, 0.0, 0.0}, {1.0, 1.0, 1.0}};
+    const auto transformer = make_transformer(config);
+    const auto result = transformer.transformDetections(
+        std::vector{make_detection(270.0f, 190.0f, 100.0f, 100.0f)});
+
+    ASSERT_EQ(result.size(), 1u);
+    EXPECT_NEAR(result[0].height, 4.242639688224483, kWorldTolerance);
 }
 
 // Zero distortion makes the pixel-space shift equal to the normalized one
