@@ -243,7 +243,7 @@ _BACKENDS = {
 - **`findMatches`**: Return a list (one entry per valid query vector) of entity dicts with at least `uuid`, `rvid`, and `_distance` (canonical float scores for the active metric). Preserve empty inner lists for failed/empty searches so majority voting keeps a stable denominator. Convert store-native scores in the adapter before `_entitiesFromNormalizedScores` — Qdrant's `_toSimilarityScore` is the reference example. Expired-but-not-yet-purged descriptors remain eligible for matching.
 - **`getPersistedAttributes`**: Return the latest persist payload for a UUID (by `persist_timestamp`), or `{}` if none. Prefer `_decodeLatestPersist` on normalized dict records. Expired-but-not-yet-purged entries remain visible.
 - **`addEntry` / persist**: Use `_buildEntryProperties`. Persist dicts must include `timestamp`. Reserved keys (`uuid`, `rvid`, `type`, `persist`, `persist_timestamp`, `expires_at`, `_expiration`) cannot be overwritten by metadata.
-- **`purgeExpired`**: Safe to call periodically from the process-wide purge owner in `UUIDManager` (started on `connectDatabase`). Return a deleted count when known, else `0`/`None`. No-op when TTL is disabled (`descriptor_ttl_secs == 0`).
+- **`purgeExpired`**: Safe to call periodically from the process-wide purge owner in `UUIDManager`. A manager that called `connectDatabase` takes ownership and starts the timer; when the owner shuts down, another connected manager takes over on its next stale-feature tick (the root manager never connects, so never owns). Return a deleted count when known, else `0`/`None`. No-op when TTL is disabled (`descriptor_ttl_secs == 0`).
 - **Metrics**: Controller config uses `L2` / `COSINE`; adapters map to store-native distance (e.g. Qdrant DOT for IP/COSINE path). Keep score validation consistent with `uuid_manager` thresholds via `reid_constants.normalize_similarity_score`.
 - **Schema markers / versioning**: Implement the create/marker hooks so the shared `ensureSchemaInner` create-first + marker/metadata verification pattern keeps multi-instance controllers from silently diverging on dimensions/metric. Marker write failures must raise.
 
@@ -461,7 +461,6 @@ controller/
 │   │   ├── scene.py                   # Scene state
 │   │   ├── tracking.py                # Tracking engine
 │   │   ├── moving_object.py           # Object representation
-│   │   ├── cache_manager.py           # State caching
 │   │   ├── child_scene_controller.py  # Hierarchical scenes
 │   │   ├── reid.py                    # ReIDDatabase ABC + embedding helpers
 │   │   ├── reid_constants.py          # Shared ReID constants

@@ -5,6 +5,7 @@ from collections import defaultdict
 import os
 import queue
 import threading
+import time
 from types import SimpleNamespace
 
 import ntplib
@@ -34,6 +35,31 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
+# Window for failure-driven cache invalidation (global) and error logs (per publisher).
+FAILURE_RATE_LIMIT_WINDOW_SECS = 10
+
+
+class RateLimiter:
+  """Allows an action at most once per window for each key."""
+
+  def __init__(self, window_secs, max_keys=1024):
+    self._window_secs = window_secs
+    self._max_keys = max_keys
+    self._last_allowed = {}
+
+  def allow(self, key=None):
+    now = time.monotonic()
+    last = self._last_allowed.get(key)
+    if last is not None and now - last < self._window_secs:
+      return False
+    if len(self._last_allowed) >= self._max_keys:
+      # Keys come from untrusted topics; keep the table bounded.
+      self._last_allowed = {k: t for k, t in self._last_allowed.items()
+                            if now - t < self._window_secs}
+      if len(self._last_allowed) >= self._max_keys:
+        self._last_allowed.clear()
+    self._last_allowed[key] = now
+    return True
 
 
 def _parseTrustedSources(value):
@@ -144,6 +170,8 @@ class SceneController:
     if self.external_source_bindings:
       log.info("Loaded %s manual external-source bindings for %s publishers",
                EXTERNAL_SOURCE_BINDINGS_ENV_VAR, len(self.external_source_bindings))
+    self._failure_invalidate_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_SECS)
+    self._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_SECS)
     self._moving_object_queue = queue.Queue(maxsize=1000)
     self._moving_object_stop = threading.Event()
     self._moving_object_worker = threading.Thread(
@@ -559,8 +587,10 @@ class SceneController:
             success = self._handleExternalSourceObject(
               scene, jdata_scene, detection_types[0], msg_when)
             if not success:
-              log.error("Camera fail publisher_id=%s scene=%s", publisher_id, getattr(scene, 'name', None))
-              self.cache_manager.invalidate()
+              self._logFailure(
+                publisher_id,
+                f"Camera fail publisher_id={publisher_id} scene={getattr(scene, 'name', None)}")
+              self._invalidateAfterFailure()
               return
             jdata_scene['id'] = scene.uid
             jdata_scene['name'] = scene.name
@@ -597,8 +627,9 @@ class SceneController:
         success = scene.processCameraData(jdata, when=msg_when)
 
       if not success:
-        log.error("Camera fail", sender_id, scene.name if scene is not None else "unknown")
-        self.cache_manager.invalidate()
+        self._logFailure(sender_id, "Camera fail", sender_id,
+                         scene.name if scene is not None else "unknown")
+        self._invalidateAfterFailure()
         return
 
       jdata['id'] = scene.uid
@@ -609,13 +640,29 @@ class SceneController:
                               msg_when, detection_type, jdata, camera_id)
       return
 
+  def _logFailure(self, publisher_id, *args):
+    """Log an ingest failure at most once per window for each publisher."""
+    if self._failure_log_limiter.allow(publisher_id):
+      log.error(*args)
+    return
+
+  def _invalidateAfterFailure(self):
+    """Invalidate the scene cache after a failed message, at most once per window.
+
+    A publisher that fails every message must not force a REST fetch and a full
+    scene rebuild per message. CMD_DATABASE updates invalidate immediately.
+    """
+    if self._failure_invalidate_limiter.allow():
+      self.cache_manager.invalidate()
+    return
+
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
     is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error(f"UNKNOWN SENDER: {sender_id}")
+        self._logFailure(sender_id, f"UNKNOWN SENDER: {sender_id}")
         return False, None
       sender = remote_sender
       is_remote = True
@@ -627,7 +674,7 @@ class SceneController:
           sender.parent = recovered
           log.info(f"Recovered parent={recovered} for remote child {sender_id}")
         else:
-          log.error("UNKNOWN PARENT", sender_id)
+          self._logFailure(sender_id, "UNKNOWN PARENT", sender_id)
           return False, sender
       else:
         # Hierarchy publishes (no source_id) from a root scene are not destined
@@ -639,7 +686,8 @@ class SceneController:
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
-      log.error("PARENT SCENE NOT FOUND", sender.parent, "for sender", sender.name)
+      self._logFailure(sender_id, "PARENT SCENE NOT FOUND", sender.parent,
+                       "for sender", sender.name)
       return False, None
 
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
