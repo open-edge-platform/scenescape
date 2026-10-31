@@ -21,6 +21,26 @@ from controller.scene_controller import SceneController
 from scene_common.mqtt import PubSub
 
 
+class TestSceneControllerInitialization:
+  """Constructor setup that must happen before the MQTT loop starts."""
+
+  def test_connects_pubsub_to_configured_broker(self):
+    with (
+      patch('controller.scene_controller.PubSub') as pubsub_class,
+      patch('controller.scene_controller.SchemaValidation'),
+      patch('controller.scene_controller.CacheManager'),
+      patch('controller.scene_controller.SourceStatePublisher'),
+      patch('controller.scene_controller.ExternalSourcePoseCache'),
+      patch('controller.scene_controller.IdentityClaimRegistry'),
+      patch('controller.scene_controller.threading.Thread'),
+    ):
+      SceneController(
+        False, False, 30, 'broker.example', None, 'https://manager/api',
+        None, None, None, 'ntp.example', None, 'schema.json', 'regulated', None)
+
+    pubsub_class.return_value.connect.assert_called_once_with()
+
+
 class TestSceneControllerExtractTrackerRate:
   """Unit tests for SceneController._extractTrackerRate."""
 
@@ -731,6 +751,7 @@ class TestSceneControllerHandleExternalSourceObject:
   def _build_controller(self):
     controller = SceneController.__new__(SceneController)
     controller.external_source_pose_cache = MagicMock()
+    controller.source_state_publisher = MagicMock()
     controller.identity_claim_registry = IdentityClaimRegistry()
     controller.trusted_positioning_sources = frozenset({'positioning-svc-1'})
     return controller
@@ -739,7 +760,9 @@ class TestSceneControllerHandleExternalSourceObject:
     """Omitted track uses tracking and source ids as internal hints."""
     scene_controller = self._build_controller()
     fake_camera_pose = MagicMock()
-    scene_controller.external_source_pose_cache.resolve.return_value = (fake_camera_pose, None)
+    source_state = SimpleNamespace(cameras=None)
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      fake_camera_pose, source_state, None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
     jdata = {
       'source_id': 'drone-1',
@@ -749,8 +772,8 @@ class TestSceneControllerHandleExternalSourceObject:
     result = scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
 
     assert result is True
-    scene_controller.external_source_pose_cache.resolve.assert_called_once_with(
-      scene, 'drone-1', None, 42.0, trusted_scene_pose=False)
+    scene_controller.external_source_pose_cache.resolveMessage.assert_called_once_with(
+      scene, 'drone-1', jdata, 42.0, trusted_scene_pose=False)
     scene.processSceneData.assert_called_once()
     args, kwargs = scene.processSceneData.call_args
     assert args[0] is not jdata
@@ -759,6 +782,7 @@ class TestSceneControllerHandleExternalSourceObject:
         'id': 'tracked:drone-1:vehicle:agent-track-1',
         'category': 'vehicle',
         'translation': [1.0, 2.0, 0.0],
+        'source_id': 'drone-1',
       },
     ]
     assert jdata['objects'][0]['id'] == 'agent-track-1'
@@ -771,19 +795,21 @@ class TestSceneControllerHandleExternalSourceObject:
   def test_trusted_scene_pose_flag_is_passed_through(self):
     """Only allowlisted source_ids are marked trusted for scene-frame poses."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
     jdata = {'source_id': 'positioning-svc-1', 'objects': []}
 
     scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
 
-    scene_controller.external_source_pose_cache.resolve.assert_called_once_with(
-      scene, 'positioning-svc-1', None, 42.0, trusted_scene_pose=True)
+    scene_controller.external_source_pose_cache.resolveMessage.assert_called_once_with(
+      scene, 'positioning-svc-1', jdata, 42.0, trusted_scene_pose=True)
 
   def test_skips_ingestion_without_crashing_when_pose_unavailable(self):
     """When no transform can be resolved, ingestion is skipped but not treated as failure."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (None, 'no_pose_available')
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      None, None, 'no_pose_available')
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock())
     jdata = {'source_id': 'drone-1', 'objects': []}
 
@@ -795,7 +821,8 @@ class TestSceneControllerHandleExternalSourceObject:
   def test_omitted_track_uses_tracking_without_identity_claim(self):
     """Tracking is the default and does not claim source ids as global ids."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
     jdata = {'source_id': 'never-before-seen-source', 'objects': [
       {'id': 'tag-1', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
@@ -815,7 +842,8 @@ class TestSceneControllerHandleExternalSourceObject:
     category, the newly arriving, colliding object is dropped rather than merged
     into an unrelated track; non-colliding objects in the same message still pass."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
 
     first_jdata = {'source_id': 'source-a', 'track': False, 'objects': [
@@ -837,7 +865,8 @@ class TestSceneControllerHandleExternalSourceObject:
     """A source repeatedly reporting the same id for the same object is not a
     collision; the object is accepted on every message."""
     scene_controller = self._build_controller()
-    scene_controller.external_source_pose_cache.resolve.return_value = (MagicMock(), None)
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
     scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
     jdata_1 = {'source_id': 'uwb-hub-1', 'track': False, 'objects': [
       {'id': 'tag-aa:bb:cc', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
@@ -1009,7 +1038,9 @@ class TestTrustedScenePoseWithManualBinding:
     controller.identity_claim_registry = IdentityClaimRegistry()
     fake_pose = MagicMock()
     controller.external_source_pose_cache = MagicMock()
-    controller.external_source_pose_cache.resolve.return_value = (fake_pose, None)
+    controller.external_source_pose_cache.resolveMessage.return_value = (
+      fake_pose, SimpleNamespace(cameras=None), None)
+    controller.source_state_publisher = MagicMock()
     scene = SimpleNamespace(uid='scene-a', processSceneData=MagicMock(return_value=True))
     controller.cache_manager = MagicMock()
     controller.cache_manager.sceneWithID.return_value = scene
@@ -1027,8 +1058,8 @@ class TestTrustedScenePoseWithManualBinding:
     assert scenes == [scene]
 
     assert controller._handleExternalSourceObject(scene, jdata, 'person', 5.0) is True
-    controller.external_source_pose_cache.resolve.assert_called_once_with(
-      scene, 'pos-1', jdata['pose'], 5.0, trusted_scene_pose=True)
+    controller.external_source_pose_cache.resolveMessage.assert_called_once_with(
+      scene, 'pos-1', jdata, 5.0, trusted_scene_pose=True)
     scene.processSceneData.assert_called_once()
 
 

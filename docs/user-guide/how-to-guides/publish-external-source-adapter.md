@@ -63,8 +63,8 @@ fields and examples; do not invent alternate shapes.
    Prefer a hardware-rooted or MAC-based identifier. See
    [Choosing a `source_id`](../microservices/controller/data_formats.md#choosing-a-source_id-self-identification-for-agents).
 
-2. **Build the top-level message** with `timestamp`, `source_id`, and `objects`
-   (pose is optional once cached). See
+2. **Build the top-level message** following the canonical contract; camera-only
+   messages do not need an empty top-level `objects` array. See
    [External Source Top-Level Fields](../microservices/controller/data_formats.md#external-source-top-level-fields).
 
 3. **Decide the pose reference frame**:
@@ -75,19 +75,23 @@ fields and examples; do not invent alternate shapes.
      Details:
      [External Source Pose Fields](../microservices/controller/data_formats.md#external-source-pose-fields-pose).
 
-4. **Map each native observation** to an `objects[*]` entry with `category`
-   and exactly one location form:
+4. **Map each native observation** to an `objects[*]` entry for body-relative
+   observations or to a camera entry's `objects[*]` for camera observations,
+   with `category` and exactly one location form:
    - **Cartesian**: `translation` in the **source's local frame** (metres
-     relative to the source origin described by `pose`).
+     relative to the source origin described by `pose` for top-level objects;
+     camera-local metres for observations nested under a camera).
    - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
-     `translation`. Provide top-level `pose` and `intrinsics` at least once so
-     they can be cached; later pixel messages may omit either field and reuse
-     the live cache entry (same TTL as Cartesian pose reuse). Do not put both
-     `translation` and `bounding_box_px` on one object. Include `id` whenever
-     the top-level source `track` value is `false`; when `track` is `true` or
-     omitted, `id` is optional. Optional `size`, `rotation`, `confidence`, and
-     `metadata` follow the same contract. See
+     `translation`. For camera observations, use that camera entry's own
+     calibration and resolution. Do not put both `translation` and
+     `bounding_box_px` on one object. Include `id` whenever the top-level
+     source `track` value is `false`; when `track` is `true` or omitted, `id`
+     is optional. Optional `size`, `rotation`, `confidence`, and `metadata`
+     follow the same contract. See
      [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
+     For a mobile source with cameras, include a complete `cameras` array;
+     each camera carries its own calibration and detections.
+     See [Drone Coordinate and Camera Contract](../microservices/controller/data_formats.md#drone-coordinate-and-camera-contract).
 
 5. **Choose whether the source message should be tracked by Scenescape**. The
    top-level source `track` value applies to all objects in that message,
@@ -107,11 +111,10 @@ fields and examples; do not invent alternate shapes.
 ## Pose and Intrinsics Reuse
 
 After a successful pose is cached for `(bound_scene_uid, source_id)`, later
-messages may omit `pose` and reuse the cached transform. Camera `intrinsics`
-(and optional `distortion`) for pixel detections are stored on the same cache
-entry, so later pixel messages may omit those fields too. A message with
-`pose` and an empty `objects` array refreshes the cache without ingesting
-observations.
+messages may omit `pose` and reuse the cached transform. Each camera entry
+includes the calibration needed to interpret that camera's observations. A
+message with `pose`, an empty top-level `objects` array, and cameras with empty
+observation arrays refreshes the source snapshot without ingesting observations.
 
 If no usable transform or intrinsics are available, or a pose fails trust/geo
 checks, the controller drops the message and logs a rejection reason. See

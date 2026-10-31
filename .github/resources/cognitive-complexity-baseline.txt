@@ -22,7 +22,6 @@ autocalibration/src/markerless_camera_calibration_controller.py	MarkerlessCamera
 autocalibration/src/polycam_to_images.py	transform_dataset	14
 cluster_analytics/src/cluster_analytics_context.py	ClusterAnalyticsContext::_publishTrackedClusters	15
 cluster_analytics/src/cluster_analytics_context.py	ClusterAnalyticsContext::analyze_object_clusters	33
-controller/src/controller/external_source.py	ExternalSourcePoseCache::_resolveFromPose	16
 controller/src/controller/ilabs_tracking.py	IntelLabsTracking::from_tracked_object	21
 controller/src/controller/ilabs_tracking.py	IntelLabsTracking::mergeAlreadyTrackedObjects	16
 controller/src/controller/moving_object.py	MovingObject::mapObjectDetectionToWorld	25
@@ -34,7 +33,6 @@ controller/src/controller/pose_adjustment/strategies/person/bbox_adjuster.py	Per
 controller/src/controller/pose_adjustment/strategies/person/bbox_adjuster.py	PersonPoseAdjuster::_estimate_foot_from_rules	14
 controller/src/controller/pose_adjustment/strategies/person/named_keypoints.py	parse_named_keypoints	18
 controller/src/controller/scene.py	Scene::convertPixelBoundingBoxesToMeters	23
-controller/src/controller/scene.py	Scene::createMovingObjectsForSceneData	14
 controller/src/controller/scene_controller.py	SceneController::_handleChildSceneObject	13
 controller/src/controller/scene_controller.py	SceneController::_processMovingObjectMessage	55
 controller/src/controller/scene_controller.py	SceneController::_scenesForExternalPublisher	19

@@ -13,6 +13,7 @@ from controller.external_source import (
   ExternalSourcePoseCache,
   IdentityClaimRegistry,
   REASON_IDENTITY_COLLISION,
+  REASON_INVALID_INTRINSICS,
   REASON_INVALID_POSE,
   REASON_NO_INTRINSICS_AVAILABLE,
   REASON_NO_POSE_AVAILABLE,
@@ -186,6 +187,62 @@ class TestExternalSourcePoseCacheReuse:
 
     assert reason is None
     np.testing.assert_allclose(camera_pose.pose_mat[:3, 3], [5.0, 6.0, 0.0])
+
+  def test_camera_configuration_is_cached_without_observations_or_aliases(self):
+    cache = ExternalSourcePoseCache()
+    scene = _makeScene()
+    camera = {
+      'id': 'front',
+      'mount': {'translation': [1.0, 2.0, 3.0], 'rotation': IDENTITY_ROTATION},
+      'intrinsics': {'fx': 900.0, 'fy': 900.0, 'cx': 640.0, 'cy': 360.0},
+      'objects': [{'id': 'person-1', 'category': 'person'}],
+    }
+    message = {
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [5.0, 6.0, 0.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'cameras': [camera],
+    }
+
+    _, state, reason = cache.resolveMessage(
+      scene, 'drone-1', message, 100.0, trusted_scene_pose=True)
+
+    assert reason is None
+    assert state.cameras == [{
+      key: value for key, value in camera.items() if key != 'objects'
+    }]
+    camera['mount']['translation'][0] = 99.0
+    camera['intrinsics']['fx'] = 1.0
+    camera['objects'][0]['id'] = 'mutated'
+    assert state.cameras[0]['mount']['translation'] == [1.0, 2.0, 3.0]
+    assert state.cameras[0]['intrinsics']['fx'] == 900.0
+    assert 'objects' not in state.cameras[0]
+
+  def test_duplicate_camera_ids_do_not_create_cached_pose(self):
+    cache = ExternalSourcePoseCache()
+    scene = _makeScene()
+    camera = {
+      'id': 'front',
+      'mount': {'translation': [0.0, 0.0, 0.0], 'rotation': IDENTITY_ROTATION},
+      'intrinsics': {'fx': 900.0, 'fy': 900.0, 'cx': 640.0, 'cy': 360.0},
+      'objects': [],
+    }
+    message = {
+      'pose': {'reference_frame': 'scene', 'translation': [0, 0, 0]},
+      'cameras': [camera, dict(camera)],
+    }
+
+    pose, state, reason = cache.resolveMessage(
+      scene, 'drone-1', message, 100.0, trusted_scene_pose=True)
+
+    assert pose is None
+    assert state is None
+    assert reason == REASON_INVALID_INTRINSICS
+    pose, reason = cache.resolve(scene, 'drone-1', None, 100.0)
+    assert pose is None
+    assert reason == REASON_NO_POSE_AVAILABLE
 
   def test_intrinsics_are_cached_and_reused(self):
     cache = ExternalSourcePoseCache(ttl_seconds=30.0)
@@ -546,7 +603,12 @@ class TestExternalSourceTrackRouting:
 
   def _makeController(self):
     controller = SceneController.__new__(SceneController)
+    controller.source_state_publisher = MagicMock()
     controller.external_source_pose_cache = MagicMock()
+    controller.external_source_pose_cache.resolveMessage.side_effect = (
+      lambda *args, **kwargs: (controller.external_source_pose_cache.resolve(*args, **kwargs)[0],
+                               SimpleNamespace(cameras=None),
+                               controller.external_source_pose_cache.resolve.return_value[1]))
     controller.external_source_pose_cache.resolve.return_value = (
       CameraPose({'translation': [0.0, 0.0, 0.0],
                   'rotation': [0.0, 0.0, 0.0, 1.0],
@@ -723,6 +785,172 @@ class TestExternalSourceTrackRouting:
     scene.finishProcessing.assert_called_once_with('person', 10.0, [pixel_moving_object], [])
     controller.identity_claim_registry.claim.assert_not_called()
 
+  def test_camera_pixel_detection_composes_mount_with_source_pose(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    body_pose = CameraPose({
+      'translation': [1.0, 2.0, 3.0],
+      'rotation': [0.0, 0.0, np.sqrt(0.5), np.sqrt(0.5)],
+      'scale': [1.0, 1.0, 1.0],
+    }, None)
+    mount = {
+      'translation': [1.0, 0.0, 0.0],
+      'rotation': [np.sqrt(0.5), 0.0, 0.0, np.sqrt(0.5)],
+    }
+    controller.external_source_pose_cache.resolveMessage.side_effect = None
+    controller.external_source_pose_cache.resolveMessage.return_value = (
+      body_pose, SimpleNamespace(cameras=[{'id': 'front'}]), None)
+    scene.createMovingObjectsForDetection.return_value = [object()]
+    jdata = {
+      'source_id': 'drone-1',
+      'track': True,
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 3.0],
+        'rotation': [0.0, 0.0, np.sqrt(0.5), np.sqrt(0.5)],
+      },
+      'objects': [],
+      'cameras': [{
+        'id': 'front',
+        'mount': mount,
+        'intrinsics': {'fx': 905.0, 'fy': 905.0, 'cx': 640.0, 'cy': 360.0},
+        'objects': [{
+          'id': 'obj-1',
+          'category': 'person',
+          'bounding_box_px': {'x': 221, 'y': 157, 'width': 108, 'height': 259},
+        }],
+      }],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    pixel_camera = scene.createMovingObjectsForDetection.call_args[0][3]
+    mount_pose = CameraPose({
+      'translation': mount['translation'],
+      'rotation': mount['rotation'],
+      'scale': [1.0, 1.0, 1.0],
+    }, None)
+    expected_pose = body_pose.pose_mat @ mount_pose.pose_mat
+    np.testing.assert_allclose(pixel_camera.pose.pose_mat, expected_pose)
+    np.testing.assert_allclose(
+      pixel_camera.pose.pose_mat @ np.array([0.0, 0.0, 1.0, 1.0]),
+      [2.0, 3.0, 3.0, 1.0],
+      atol=1e-7,
+    )
+
+  def test_camera_pixels_use_camera_intrinsics_without_top_level_objects(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+
+    def resolve_intrinsics(scene_uid, source_id, intrinsics, distortion, when):
+      if intrinsics == {'invalid': True}:
+        return None, REASON_INVALID_INTRINSICS
+      return self._resolve_intrinsics(
+        scene_uid, source_id, intrinsics, distortion, when)
+
+    controller.external_source_pose_cache.resolveIntrinsics.side_effect = resolve_intrinsics
+    scene.createMovingObjectsForDetection.return_value = [object()]
+    jdata = {
+      'source_id': 'drone-1',
+      'track': True,
+      'intrinsics': {'invalid': True},
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 3.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'cameras': [{
+        'id': 'front',
+        'mount': {
+          'translation': [0.0, 0.0, 0.0],
+          'rotation': IDENTITY_ROTATION,
+        },
+        'intrinsics': {'fx': 905.0, 'fy': 905.0, 'cx': 640.0, 'cy': 360.0},
+        'objects': [{
+          'id': 'obj-1',
+          'category': 'person',
+          'bounding_box_px': {'x': 221, 'y': 157, 'width': 108, 'height': 259},
+        }],
+      }],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    pixel_camera = scene.createMovingObjectsForDetection.call_args.args[3]
+    assert pixel_camera.cameraID == 'drone-1:front'
+    assert pixel_camera.pose.intrinsics.intrinsics[0, 0] == 905.0
+    scene.finishProcessing.assert_called_once()
+
+  def test_multiple_cameras_ingest_independent_observations_in_one_update(self):
+    controller = self._makeController()
+    scene = self._makeScene()
+    body_pose = CameraPose({
+      'translation': [10.0, 0.0, 0.0],
+      'rotation': IDENTITY_ROTATION,
+      'scale': [1.0, 1.0, 1.0],
+    }, None)
+    controller.external_source_pose_cache.resolveMessage.side_effect = None
+    controller.external_source_pose_cache.resolveMessage.return_value = (
+      body_pose, SimpleNamespace(cameras=[]), None)
+    first_object = SimpleNamespace(sceneLoc=object())
+    second_object = SimpleNamespace(sceneLoc=object())
+    scene.createMovingObjectsForDetection.side_effect = [
+      [first_object], [second_object]]
+    camera_config = {
+      'intrinsics': {'fx': 900, 'fy': 900, 'cx': 640, 'cy': 360},
+    }
+    jdata = {
+      'source_id': 'drone-1',
+      'track': False,
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [10.0, 0.0, 0.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'objects': [],
+      'cameras': [
+        {
+          **camera_config,
+          'id': 'front',
+          'mount': {
+            'translation': [1.0, 0.0, 0.0],
+            'rotation': IDENTITY_ROTATION,
+          },
+          'objects': [{
+            'id': 'person-1',
+            'category': 'person',
+            'bounding_box_px': {'x': 10, 'y': 20, 'width': 30, 'height': 40},
+          }],
+        },
+        {
+          **camera_config,
+          'id': 'rear',
+          'mount': {
+            'translation': [-1.0, 0.0, 0.0],
+            'rotation': IDENTITY_ROTATION,
+          },
+          'objects': [{
+            'id': 'person-1',
+            'category': 'person',
+            'bounding_box_px': {'x': 100, 'y': 20, 'width': 30, 'height': 40},
+          }],
+        },
+      ],
+    }
+
+    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+
+    pixel_calls = scene.createMovingObjectsForDetection.call_args_list
+    assert [call.args[3].cameraID for call in pixel_calls] == [
+      'drone-1:front', 'drone-1:rear']
+    np.testing.assert_allclose(
+      pixel_calls[0].args[3].pose.pose_mat[:3, 3], [11.0, 0.0, 0.0])
+    np.testing.assert_allclose(
+      pixel_calls[1].args[3].pose.pose_mat[:3, 3], [9.0, 0.0, 0.0])
+    scene.finishProcessing.assert_called_once_with(
+      'person', 10.0, [], [first_object, second_object])
+    assert controller.identity_claim_registry.claim.call_count == 2
+
   def test_pixel_detection_strips_reid_provenance(self):
     controller = self._makeController()
     scene = self._makeScene()
@@ -896,8 +1124,8 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    controller.external_source_pose_cache.resolve.assert_called_once_with(
-      scene, 'drone-1', None, 10.0, trusted_scene_pose=False)
+    controller.external_source_pose_cache.resolveMessage.assert_called_once_with(
+      scene, 'drone-1', jdata, 10.0, trusted_scene_pose=False)
     controller.external_source_pose_cache.resolveIntrinsics.assert_called_once_with(
       'scene-1', 'drone-1', None, None, 10.0)
     scene.createMovingObjectsForDetection.assert_called_once()

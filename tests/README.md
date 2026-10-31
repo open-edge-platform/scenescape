@@ -83,6 +83,19 @@ only for failed tests. Use `--collect-container-logs {failed,all,none}` to
 change this behavior. Test specs are defined in the individual test
 modules as Python dataclasses.
 
+### Dynamic-source renderer unit tests
+
+These tests use Node.js 18+ and the same Three.js asset as the browser, without
+a running deployment. Fetch the asset if it is not already present:
+
+```bash
+make -C manager src/manager/static/assets/three.module.js
+pytest tests/sscape_tests/dynamic_sources/test_dynamic_sources.py
+```
+
+To run the JavaScript harness directly:
+`node --test tests/sscape_tests/dynamic_sources/run_renderer_tests.mjs`.
+
 ### Cognitive complexity
 
 Install only the pinned analyzer from the repository root, using an activated
