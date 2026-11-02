@@ -650,3 +650,41 @@ class TestSetBaseFps:
     evaluator.set_base_fps(30.0)
     evaluator.reset()
     assert evaluator._base_fps is None
+
+
+class TestSpace:
+  """Jitter over x, y and z by default, or over the plane or the height only."""
+
+  @staticmethod
+  def _jerk(evaluator, space=None):
+    """rms_jerk of a track that moves straight in the plane and jumps up and down in z."""
+    outputs = [
+      {"timestamp": f"2024-01-01T00:00:00.{100 * i:03d}Z", "objects": [
+        {"id": "track-A", "translation": [float(i), 0.0, 0.5 * (i % 2)], "category": "person"}]}
+      for i in range(8)
+    ]
+    if space:
+      evaluator.set_space(space)
+    evaluator.configure_metrics(['rms_jerk'])
+    evaluator.process_tracker_outputs(outputs, ground_truth=None)
+    return evaluator.evaluate_metrics()['rms_jerk']
+
+  def test_default_is_3d(self, evaluator):
+    """The vertical jitter counts by default and is the only one with --z-only."""
+    both = self._jerk(evaluator)
+
+    assert both > 0.0
+    assert self._jerk(JitterEvaluator().set_base_fps(30.0), 'z') == pytest.approx(both)
+
+  def test_plane_only_ignores_the_height(self, evaluator):
+    """A straight path at constant speed has next to no jitter in the plane."""
+    both = self._jerk(JitterEvaluator().set_base_fps(30.0))
+
+    assert self._jerk(evaluator, 'xy') < 0.01 * both
+
+  def test_set_space(self, evaluator):
+    """set_space validates and reset() restores x, y and z."""
+    with pytest.raises(ValueError, match="space"):
+      evaluator.set_space('xz')
+    assert evaluator.set_space('z')._space == 'z'
+    assert evaluator.reset()._space == 'xyz'

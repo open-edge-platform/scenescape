@@ -23,6 +23,7 @@ build_objects_list(objects, include_sensors, include_region_dwell, current_time)
 
 import numpy as np
 
+from scene_common.association import add_association_window
 from scene_common.geometry import DEFAULTZ, Point
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
@@ -65,8 +66,7 @@ def serialize_for_event(obj, include_sensors=False, include_region_dwell=False, 
 
   # Semantic metadata (age, gender, clothing, etc.) — exclude reid key
   if ao.metadata:
-    if 'metadata' not in obj_dict:
-      obj_dict['metadata'] = {}
+    obj_dict.setdefault('metadata', {})
     for key, value in ao.metadata.items():
       if key != 'reid':
         obj_dict['metadata'][key] = value
@@ -77,8 +77,7 @@ def serialize_for_event(obj, include_sensors=False, include_region_dwell=False, 
   if reid and 'embedding_vector' in reid:
     reid_embedding = reid['embedding_vector']
     if reid_embedding is not None:
-      if 'metadata' not in obj_dict:
-        obj_dict['metadata'] = {}
+      obj_dict.setdefault('metadata', {})
       reid_vec = np.asarray(reid_embedding, dtype=np.float32)
       obj_dict['metadata']['reid'] = {
         'embedding_vector': reid_vec.tolist(),
@@ -118,9 +117,7 @@ def serialize_for_event(obj, include_sensors=False, include_region_dwell=False, 
   if hasattr(ao, 'first_seen'):
     obj_dict['first_seen'] = get_iso_time(ao.first_seen)
 
-  association_window = getattr(ao, 'association_window', None)
-  if association_window:
-    obj_dict['association_window'] = association_window
+  add_association_window(obj_dict, ao)
 
   if isinstance(obj, TripwireEvent):
     obj_dict['direction'] = obj.direction

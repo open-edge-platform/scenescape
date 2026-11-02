@@ -5,6 +5,7 @@ import numpy as np
 import base64
 
 from scene_common import log
+from scene_common.association import add_association_window
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
 from scene_common.geometry import DEFAULTZ, Point, Size
 from scene_common.timestamp import get_epoch_time, get_iso_time
@@ -175,8 +176,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   # Restore semantic metadata (age, gender, clothing, etc.) stripped from info during construction
   if hasattr(aobj, 'metadata') and aobj.metadata:
-    if 'metadata' not in obj_dict:
-      obj_dict['metadata'] = {}
+    obj_dict.setdefault('metadata', {})
     for key, value in aobj.metadata.items():
       if key != 'reid':
         obj_dict['metadata'][key] = value
@@ -208,8 +208,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
         if provenance is None:
           reid_embedding = None
     if reid_embedding is not None:
-      if 'metadata' not in obj_dict:
-        obj_dict['metadata'] = {}
+      obj_dict.setdefault('metadata', {})
       if isinstance(reid_embedding, str):
         # Legacy publishers may pass base64 float32 embeddings through unchanged.
         reid_vec = np.frombuffer(base64.b64decode(reid_embedding), dtype=np.float32)
@@ -286,9 +285,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   if hasattr(aobj, 'asset_scale'):
     obj_dict['asset_scale'] = aobj.asset_scale
-  association_window = getattr(aobj, 'association_window', None)
-  if association_window:
-    obj_dict['association_window'] = association_window
+  add_association_window(obj_dict, aobj)
   if len(aobj.chain_data.persist):
     obj_dict['persistent_data'] = aobj.chain_data.persist
   return obj_dict

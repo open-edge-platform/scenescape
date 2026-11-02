@@ -186,13 +186,15 @@ def frame_rate(table: pd.DataFrame) -> Optional[float]:
   return 1.0 / float(np.median(np.diff(times)))
 
 
-def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None) -> List[Tuple[str, str]]:
+def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None,
+                          space: str = "xyz") -> List[Tuple[str, str]]:
   """(track_id, object_id) pairs from utils.tracks.match_tracks.
 
   Times are quantized to frames at `fps`, by default the ground-truth frame rate. Frames
   count from the first track or ground-truth sample, as in the evaluators
   (utils.timeline.reference_timestamp); an earlier detection must not shift the grid.
-  Pairs need utils.tracks.MIN_OVERLAP_FRAMES shared frames.
+  Pairs need utils.tracks.MIN_OVERLAP_FRAMES shared frames. `space` selects the axes of the
+  distance ("xyz", "xy" or "z"); a position without a z is compared in the plane.
   """
   fps = fps or frame_rate(scenario.ground_truth)
   if fps is None or scenario.tracks.empty:
@@ -202,12 +204,14 @@ def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None) -> Li
 
   def positions(table: pd.DataFrame, id_column: str) -> Dict[str, Dict[int, tuple]]:
     result: Dict[str, Dict[int, tuple]] = {}
-    for item_id, t, x, y in zip(table[id_column], table["t"], table["x"], table["y"]):
-      result.setdefault(item_id, {})[round((t - origin) * fps)] = (x, y)
+    for item_id, t, x, y, z in zip(table[id_column], table["t"], table["x"], table["y"],
+                                   table["z"]):
+      point = (x, y) if math.isnan(z) else (x, y, z)
+      result.setdefault(item_id, {})[round((t - origin) * fps)] = point
     return result
 
   return match_tracks(positions(scenario.tracks, "track_id"),
-                      positions(scenario.ground_truth, "object_id"))
+                      positions(scenario.ground_truth, "object_id"), space)
 
 
 def align_track_to_truth(scenario: Scenario, track_id: str, object_id: Optional[str] = None,

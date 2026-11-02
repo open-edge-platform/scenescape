@@ -31,12 +31,6 @@ namespace tracker {
 
 namespace {
 
-// Maximum Euclidean distance (meters) for matching a detection to an existing
-// track.  Pairs farther apart than this are never associated by the Hungarian
-// matcher.  The controller used a per-category value defaulting to 2.0 m
-// (DEFAULT_TRACKING_RADIUS); we keep the same default here so the tracker
-// service produces identical results.
-constexpr double kTrackingDistanceThreshold = 2.0;
 constexpr size_t kMinDetectionsForMultiThreadedTracking = 32;
 constexpr std::string_view kMetadataPrefix = rv::tracking::metadata_fusion::ValuePrefix;
 

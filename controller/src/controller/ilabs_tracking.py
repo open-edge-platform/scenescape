@@ -21,7 +21,6 @@ from scene_common import log
 from scene_common.association import (
   ASSOCIATION_METHOD_EUCLIDEAN,
   ASSOCIATION_METHOD_POSITION_MAHALANOBIS,
-  DEFAULT_ASSOCIATION_CONFIG,
   DEFAULT_ASSOCIATION_EUCLIDEAN_MAX_RADIUS_M,
   DEFAULT_ASSOCIATION_GATE_PROBABILITY,
   DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M,
@@ -45,12 +44,13 @@ def _default_max_radius_for_method(method):
 def normalize_association_config(association_config=None):
   """Return a validated association config dict with defaults filled in.
 
+  A missing ``max_radius_m`` defaults per method: 2 m for ``euclidean``, the
+  10 m ceiling for ``position_mahalanobis``.
+
   Raises:
     ValueError: If ``method`` is present and not a supported association method.
   """
-  config = DEFAULT_ASSOCIATION_CONFIG.copy()
-  if association_config:
-    config.update(association_config)
+  config = dict(association_config or {})
 
   method = config.get("method", ASSOCIATION_METHOD_POSITION_MAHALANOBIS)
   if method not in VALID_ASSOCIATION_METHODS:

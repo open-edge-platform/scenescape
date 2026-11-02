@@ -8,6 +8,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <optional>
 #include <stdexcept>
 
 #include <rapidjson/document.h>
@@ -322,10 +323,13 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         GetValueByPointerWithDefault(config_doc, json::TRACKING_ASSOCIATION_GATE_PROBABILITY,
                                      kDefaultAssociationGateProbability)
             .GetDouble();
-    config.tracking.association.max_radius_m =
-        GetValueByPointerWithDefault(config_doc, json::TRACKING_ASSOCIATION_MAX_RADIUS_M,
-                                     kDefaultAssociationMaxRadiusCeilingM)
-            .GetDouble();
+    // Without max_radius_m the default depends on the method, so it is resolved after the env
+    // overrides below.
+    std::optional<double> association_max_radius_m;
+    if (auto* max_radius_m =
+            GetValueByPointer(config_doc, json::TRACKING_ASSOCIATION_MAX_RADIUS_M)) {
+        association_max_radius_m = max_radius_m->GetDouble();
+    }
 
     // NTP configuration (optional; server empty/missing = use OS clock)
     if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP)) {
@@ -436,8 +440,10 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                       throw std::runtime_error("Value out of range for " + s + ": " + v);
                   }
               });
-    apply_env(config.tracking.association.max_radius_m, tracker::env::ASSOCIATION_MAX_RADIUS_M,
+    apply_env(association_max_radius_m, tracker::env::ASSOCIATION_MAX_RADIUS_M,
               parse_positive_double);
+    config.tracking.association.max_radius_m =
+        association_max_radius_m.value_or(defaultMaxRadiusM(config.tracking.association.method));
 
     // NTP overrides: env vars take precedence;
     if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {

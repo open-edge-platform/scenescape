@@ -5,8 +5,7 @@
 
 set -e
 
-REPO_ROOT="/home/elukasiuk/scenescape"
-cd "$REPO_ROOT"
+cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 
 echo "=== STEP 0: Building with CMake ==="
 cmake -S controller/src/robot_vision -B controller/src/robot_vision/build -G Ninja -DBUILD_TESTING=ON -DBUILD_PYTHON_BINDINGS=OFF -DCMAKE_BUILD_TYPE=Release

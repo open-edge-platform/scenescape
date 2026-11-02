@@ -17,6 +17,7 @@ from utils.timeline import (
   parse_timestamp,
   resolve_ground_truth_path,
 )
+from utils.tracks import SPACE_AXES, space_axes
 
 
 class JitterEvaluator(TrackerEvaluator):
@@ -77,6 +78,17 @@ class JitterEvaluator(TrackerEvaluator):
     # Ground-truth per-track histories (populated when GT JSONL is provided)
     self._gt_track_histories: Dict[str, List[tuple]] = {}
     self._base_fps: Optional[float] = None
+    self._space: str = 'xyz'
+
+  def set_space(self, space: str) -> 'JitterEvaluator':
+    """Set the axes of the position derivatives: "xyz" (default), "xy" or "z".
+
+    Raises:
+      ValueError: If space is not supported.
+    """
+    space_axes(space)
+    self._space = space
+    return self
 
   # ------------------------------------------------------------------
   # TrackerEvaluator interface
@@ -300,6 +312,7 @@ class JitterEvaluator(TrackerEvaluator):
     self._rotation_histories = {}
     self._gt_track_histories = {}
     self._base_fps = None
+    self._space = 'xyz'
     return self
 
   # ------------------------------------------------------------------
@@ -346,10 +359,10 @@ class JitterEvaluator(TrackerEvaluator):
 
       positions = np.array(
         [pos for _, pos in history], dtype=float
-      )  # shape (n, 3)
+      )[:, list(SPACE_AXES[self._space])]  # shape (n, axes of the space)
 
       # --- velocity: forward difference on positions ---
-      # v[i] = (p[i+1] - p[i]) / dt[i],  shape (n-1, 3)
+      # v[i] = (p[i+1] - p[i]) / dt[i],  shape (n-1, axes)
       dt_pos = np.diff(times)              # shape (n-1,)
       velocity = np.diff(positions, axis=0) / dt_pos[:, np.newaxis]
 

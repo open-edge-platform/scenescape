@@ -508,6 +508,13 @@ private:
     return found != mCategories.end() && !found->second.empty() ? found->second : "unknown";
   }
 
+  // FilterRun track ids are object ids; TrackerRun tracks take the category of the object that last updated them.
+  std::string trackCategory(int trackId) const
+  {
+    const auto found = mTrackCategories.find(trackId);
+    return found != mTrackCategories.end() ? found->second : category(trackId);
+  }
+
   // In StateIndex / MeasurementIndex order.
   static constexpr const char *kStateNames[]
     = {"x", "y", "vx", "vy", "ax", "ay", "z", "vz", "length", "width", "height", "yaw", "yaw_rate"};
@@ -515,7 +522,11 @@ private:
   static_assert(std::size(kStateNames) == TrackedObject::StateSize);
   static_assert(std::size(kMeasurementNames) == TrackedObject::MeasurementSize);
 
-  static std::string configLine(const FilterRun &run)
+  // `association` is set for TrackerRun tracks, the gate the tracker matched them with.
+  static std::string configLine(const MultiModelKalmanEstimator &estimator,
+                                const TrackManagerConfig &config,
+                                int trackId,
+                                const Association *association)
   {
     JsonWriter json;
     json.beginObject();
