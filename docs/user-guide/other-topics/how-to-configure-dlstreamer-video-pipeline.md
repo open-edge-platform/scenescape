@@ -343,6 +343,22 @@ This section describes the metadata schema and the format that the payload needs
             },
             "type": "string",
             "description": "Comma-separated allow-list of detection categories (e.g. \"person,car\"). Empty publishes all."
+        },
+        "live_view_width": {
+            "element": {
+                "name": "datapublisher",
+                "property": "live-view-width"
+            },
+            "type": "integer",
+            "description": "Maximum width in pixels of the Live View preview (default 960)"
+        },
+        "live_view_quality": {
+            "element": {
+                "name": "datapublisher",
+                "property": "live-view-quality"
+            },
+            "type": "integer",
+            "description": "JPEG quality (1-100) of the Live View preview (default 65)"
         }
     }
 },
@@ -364,6 +380,8 @@ This section describes the metadata schema and the format that the payload needs
   - `classificationPolicy`: Metadata for classification.
 - **publish_frame** (boolean): Indicates whether to publish the video frame to MQTT.
 - **detection_labels** (array of strings): Optional list of detection labels to filter. When specified, only detected objects matching these labels will be published. If omitted or empty, all detected objects are published. In the UI, labels can be provided as newline-separated, space-separated, or comma-separated values. In JSON configuration, provide as an array. Example: `["person", "car"]`.
+- **live_view_width** (integer): Optional. Maximum width in pixels of the Live View preview published to `scenescape/image/camera/<cameraid>`. Wider frames are downscaled to this width, narrower ones are sent as they are. Defaults to `960`. The message's `resolution` field still reports the native frame size, and calibration images are never downscaled.
+- **live_view_quality** (integer): Optional. JPEG quality (1-100) of the Live View preview. Lower values reduce the payload size. Defaults to `65`.
 
 The payload section is the actual values for the specific pipeline being configured:
 

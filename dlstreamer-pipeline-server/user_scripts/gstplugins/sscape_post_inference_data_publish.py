@@ -154,6 +154,21 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       1, 65535, 1883,
       GObject.ParamFlags.READWRITE,
     ),
+    "live-view-width": (
+      int,
+      "Live View maximum width",
+      "Live View preview frames wider than this many pixels are downscaled "
+      "to it; narrower frames are sent as they are.",
+      1, 65535, LIVE_VIEW_MAX_WIDTH,
+      GObject.ParamFlags.READWRITE,
+    ),
+    "live-view-quality": (
+      int,
+      "Live View JPEG quality",
+      "JPEG quality (1-100) of Live View preview frames.",
+      1, 100, LIVE_VIEW_JPEG_QUALITY,
+      GObject.ParamFlags.READWRITE,
+    ),
   }
 
   def __init__(self):
@@ -172,7 +187,8 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       "MQTT_HOST", "broker.scenescape.intel.com"
     )
     self._mqtt_port: int = 1883
-
+    self._live_view_width: int = LIVE_VIEW_MAX_WIDTH
+    self._live_view_quality: int = LIVE_VIEW_JPEG_QUALITY
     # Runtime state
     self._sink_caps = None
     self._policy = METADATA_POLICIES[self._policy_name]
@@ -201,6 +217,10 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       return self._mqtt_host
     if name == "mqtt-port":
       return self._mqtt_port
+    if name == "live-view-width":
+      return self._live_view_width
+    if name == "live-view-quality":
+      return self._live_view_quality
     raise AttributeError(f"Unknown property {name}")
 
   def do_set_property(self, prop, value):  # pylint: disable=arguments-differ
@@ -229,6 +249,10 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         self._mqtt_host = value
     elif name == "mqtt-port":
       self._mqtt_port = int(value)
+    elif name == "live-view-width":
+      self._live_view_width = int(value)
+    elif name == "live-view-quality":
+      self._live_view_quality = int(value)
     else:
       raise AttributeError(f"Unknown property {name}")
 
@@ -561,14 +585,14 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       # Downscale first so annotations are drawn once, at preview size.
       scale = 1.0
       width = image.shape[1]
-      if width > LIVE_VIEW_MAX_WIDTH:
-        scale = LIVE_VIEW_MAX_WIDTH / width
+      if width > self._live_view_width:
+        scale = self._live_view_width / width
         image = cv2.resize(
           image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
         )
       self._annotate_objects(image, scale)
       self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
-      params = [cv2.IMWRITE_JPEG_QUALITY, LIVE_VIEW_JPEG_QUALITY]
+      params = [cv2.IMWRITE_JPEG_QUALITY, self._live_view_quality]
     _, jpeg = cv2.imencode(".jpg", image, params)
     imgdatadict["image"] = base64.b64encode(jpeg).decode("utf-8")
 

@@ -75,7 +75,19 @@ class TestProperties:
     assert element.do_get_property(make_prop("publish-image")) is False
     assert element.do_get_property(make_prop("detection-labels")) == ""
     assert element.do_get_property(make_prop("mqtt-port")) == 1883
+    assert element.do_get_property(make_prop("live-view-width")) == 960
+    assert element.do_get_property(make_prop("live-view-quality")) == 65
 
+  def test_set_and_get_live_view_settings(self, element):
+    element.do_set_property(make_prop("live-view-width"), "1280")
+    element.do_set_property(make_prop("live-view-quality"), "80")
+    assert element.do_get_property(make_prop("live-view-width")) == 1280
+    assert element.do_get_property(make_prop("live-view-quality")) == 80
+
+  def test_live_view_properties_are_bounded(self):
+    props = SscapePostInferenceDataPublish.__gproperties__
+    assert props["live-view-width"][3:5] == (1, 65535)
+    assert props["live-view-quality"][3:5] == (1, 100)
   def test_set_and_get_cameraid(self, element):
     element.do_set_property(make_prop("cameraid"), "cam-42")
     assert element.do_get_property(make_prop("cameraid")) == "cam-42"
@@ -526,6 +538,20 @@ class TestBuildImageData:
     _, full_size = self._build(element, monkeypatch, annotate=False)
     assert image.shape[:2] == (540, 960)
     assert live_size < full_size / 10
+
+  def test_live_view_settings_change_the_preview(self, element, monkeypatch):
+    element.do_set_property(make_prop("live-view-width"), 1280)
+    image, default_quality_size = self._build(element, monkeypatch, annotate=True)
+    element.do_set_property(make_prop("live-view-quality"), 20)
+    _, low_quality_size = self._build(element, monkeypatch, annotate=True)
+
+    assert image.shape[:2] == (720, 1280)
+    assert low_quality_size < default_quality_size
+
+  def test_calibration_image_ignores_live_view_settings(self, element, monkeypatch):
+    element.do_set_property(make_prop("live-view-width"), 640)
+    image, _ = self._build(element, monkeypatch, annotate=False)
+    assert image.shape[:2] == (2160, 3840)
 
   def test_live_view_image_smaller_than_limit_is_not_resized(self, element, monkeypatch):
     image, _ = self._build(element, monkeypatch, annotate=True, width=640, height=480)
