@@ -1658,21 +1658,21 @@ def demo_scene(request, scene_factory, params, monkeypatch):
 
   if not wait_for_tracker_ready(
     params, uid, camera_id=DEMO_SCENE_CAMERAS[0]):
-      logger.error(
-        "Tracker for scene '%s' (%s) did not confirm readiness.",
-        uid,
-        params['scene_name'])
+    logger.error(
+      "Tracker for scene '%s' (%s) did not confirm readiness.",
+      uid,
+      params['scene_name'])
 
   monkeypatch.setattr(request.config.option, "scene_id", uid)
 
   try:
-      from tests.ui import common_ui_test_utils
-      monkeypatch.setattr(
-          common_ui_test_utils,
-          "TEST_SCENE_ID",
-          uid,
-      )
+    from tests.ui import common_ui_test_utils
+    monkeypatch.setattr(
+      common_ui_test_utils,
+      "TEST_SCENE_ID",
+      uid,
+    )
   except ImportError:
-      pass
+    pass
 
   yield uid
