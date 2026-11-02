@@ -325,7 +325,7 @@ Your new pipeline will now be used by the DL Streamer Pipeline Server on startup
 
 ## Using Authenticated MQTT Broker
 
-- The current DL Streamer Pipeline Server does not support Mosquitto connections with authentication by default. If authentication is required, configure a custom MQTT client with authentication support in [sscape_post_inference_data_publish.py](./user_scripts/gstplugins/sscape_post_inference_data_publish.py).
+- The current DL Streamer Pipeline Server does not support Mosquitto connections with authentication by default. If authentication is required, configure a custom MQTT client with authentication support in [sscape_post_inference_data_publish.py](./user_scripts/gstplugins/sscape_post_inference_data_publish.py). The element opens two connections per camera (one for detections and commands, one for images); both are created in `_connect_client`, so apply the credentials there.
 
 ## Additional Resources
 
