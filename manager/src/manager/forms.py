@@ -10,7 +10,7 @@ from django.conf import settings
 from django.db.models import Q
 from django.forms import ModelForm, ValidationError
 
-from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene
+from manager.models import SingletonSensor, Scene, SceneImport, Cam, ChildScene, Pipeline
 from manager.validators import validate_zip_file
 from manager.ppl_generator import (
   PipelineGenerationValueError,
@@ -25,10 +25,46 @@ from scene_common.cam_fields import (
     CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
 )
 
-class CamCalibrateForm(forms.ModelForm):
+class PipelineForm(forms.ModelForm):
+  pipeline = forms.CharField(label="Pipeline string", strip=False,
+                             widget=forms.Textarea(attrs={
+                               'class': 'form-control text-monospace',
+                               'rows': 12,
+                               'spellcheck': 'false',
+                             }))
+
+  class Meta:
+    model = Pipeline
+    fields = ['name', 'pipeline']
+    widgets = {'name': forms.TextInput(attrs={'class': 'form-control'})}
+
+  def clean_pipeline(self):
+    pipeline = self.cleaned_data['pipeline']
+    if not pipeline.strip():
+      raise ValidationError("Enter a pipeline string.")
+    return pipeline
+
+
+class CameraPipelineForm(forms.ModelForm):
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    assigned = Cam.objects.filter(pipeline__isnull=False)
+    if self.instance.pk:
+      assigned = assigned.exclude(pk=self.instance.pk)
+    self.fields['pipeline'].queryset = Pipeline.objects.exclude(
+      pk__in=assigned.values('pipeline_id'))
+
+
+class CamUpdateForm(CameraPipelineForm):
   class Meta:
     model = Cam
-    fields = CAM_FORM_FIELDS
+    fields = ['sensor_id', 'name', 'scene', 'pipeline']
+
+
+class CamCalibrateForm(CameraPipelineForm):
+  class Meta:
+    model = Cam
+    fields = CAM_FORM_FIELDS + ['pipeline']
 
   def __init__(self, *args, **kwargs):
     self.advanced_fields = CAM_ADVANCED_FIELDS
@@ -168,10 +204,10 @@ class SingletonForm(forms.Form):
           raise ValidationError("The polygon vertex coordinates must be floating point numbers.")
     return cleaned_data
 
-class CamCreateForm(forms.ModelForm):
+class CamCreateForm(CameraPipelineForm):
   class Meta:
     model = Cam
-    fields = ['sensor_id', 'name', 'scene']
+    fields = ['sensor_id', 'name', 'scene', 'pipeline']
     labels = {
       'sensor_id': 'Camera ID',
     }
