@@ -201,6 +201,9 @@ def _build_tracker_service_config(
           "max_lag_s": 1e15,
       },
   }
+  association = tracking_cfg.get("association")
+  if association is not None:
+    config["tracking"]["association"] = association
   if otlp_endpoint:
     config["infrastructure"]["otlp"] = {
         "endpoint": otlp_endpoint,
