@@ -16,15 +16,18 @@ WORKDIR /tmp
 
 # Copy the patch files
 COPY mapping/0001-Run-it-on-CPU.patch /tmp/
+COPY mapping/mapanything-runtime-dependencies.patch mapping/vggt-runtime-dependencies.patch /tmp/
 
 # Model source is fetched on the host by `make vendor-deps` (see mapping/Makefile) into
 # .vendor/model, keyed off MODEL_TYPE, to avoid GitHub's unauthenticated-download rate limiting.
 COPY mapping/.vendor/model /tmp/vendor-model
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
-        cp -r /tmp/vendor-model ./map-anything; \
+        cp -r /tmp/vendor-model ./map-anything && \
+        cd ./map-anything && git apply /tmp/mapanything-runtime-dependencies.patch; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         cp -r /tmp/vendor-model ./vggt && \
-        cd ./vggt && git apply /tmp/0001-Run-it-on-CPU.patch; \
+        cd ./vggt && git apply /tmp/0001-Run-it-on-CPU.patch && \
+        git apply /tmp/vggt-runtime-dependencies.patch; \
     else \
         echo "Invalid MODEL_TYPE: $MODEL_TYPE. Must be 'mapanything' or 'vggt'" && exit 1; \
     fi && \
@@ -100,20 +103,24 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
     rm -rf /tmp/models
 
 # Install all Python dependencies in one layer
-RUN pip install --no-cache-dir -r $SCENESCAPE_HOME/requirements_api.txt && \
-    if [ "$MODEL_TYPE" = "mapanything" ]; then \
+RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_mapanything.txt && \
-        pip install --no-cache-dir --no-deps -e .; \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r $SCENESCAPE_HOME/requirements_api.txt \
+            -r $SCENESCAPE_HOME/requirements_mapanything.txt -e .; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r /workspace/vggt/requirements.txt -r /workspace/vggt/requirements_demo.txt && \
-        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r $SCENESCAPE_HOME/requirements_vggt.txt && \
         cd /workspace/vggt && \
-        pip install --no-cache-dir -e .; \
+        pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
+            -r $SCENESCAPE_HOME/requirements_api.txt \
+            -r $SCENESCAPE_HOME/requirements_vggt.txt -e .; \
+    else \
+        echo "Invalid MODEL_TYPE: $MODEL_TYPE. Must be 'mapanything' or 'vggt'" >&2; \
+        exit 1; \
     fi && \
+    pip check && \
     rm -rf /usr/local/lib/python3.11/site-packages/torch/test \
            /usr/local/lib/python3.11/site-packages/torch/share \
-           /usr/local/lib/python3.11/site-packages/torchvision/test 2>/dev/null || true && \
+           /usr/local/lib/python3.11/site-packages/torchvision/test && \
     chown -R $WSUSER:$WSUSER $SCENESCAPE_HOME /workspace
 
 # Create startup script
