@@ -22,10 +22,6 @@ from scene_common.timestamp import get_epoch_time
 
 REFRESH_TIME = 60
 
-# Scene fields the Controller never reads (Analytics owns them), so changing
-# them must not reset a scene's tracker.
-UNUSED_SCENE_KEYS = ('regions', 'tripwires', 'sensors')
-
 class CacheManager:
   def __init__(self, data_source=None, rest_url=None, rest_auth=None,
                root_cert=None, tracker_config_data={}, reid_config_data={},
@@ -142,6 +138,7 @@ class CacheManager:
       del self._scene_signatures[uid]
 
     for scene_data in found:
+      scene_data = dict(scene_data)
       signature = self._sceneSignature(scene_data)
       if self.tracker_config_data:
         scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
@@ -241,8 +238,18 @@ class CacheManager:
 
   def _sceneSignature(self, scene_data):
     # Taken before tracker/reid config is injected into scene_data.
-    return copy.deepcopy({key: value for key, value in scene_data.items()
-                          if key not in UNUSED_SCENE_KEYS})
+    ignored = getattr(getattr(self, '_scene_cls', None), 'UNUSED_SCENE_KEYS', ())
+    return self._withoutKeys(scene_data, ignored)
+
+  @staticmethod
+  def _withoutKeys(scene_data, ignored):
+    signature = {key: copy.deepcopy(value) for key, value in scene_data.items()
+                 if key not in ignored and key != 'children'}
+    if 'children' in scene_data:
+      # SceneSerializer embeds each whole child scene (itself with children).
+      signature['children'] = [CacheManager._withoutKeys(child, ignored)
+                               for child in scene_data['children']]
+    return signature
 
   def _unchangedScene(self, uid, signature):
     """Return the previous Scene for uid if its data is identical to signature."""

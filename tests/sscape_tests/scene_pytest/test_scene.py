@@ -392,6 +392,41 @@ def test_deserialize_sets_core_fields(monkeypatch):
   assert scene.scale == 123
   assert scene.children == ['child-1']
 
+class _ReadRecordingDict(dict):
+  """dict that records every key looked up through it."""
+
+  def __init__(self, *args, **kwargs):
+    super().__init__(*args, **kwargs)
+    self.read = set()
+
+  def __getitem__(self, key):
+    self.read.add(key)
+    return super().__getitem__(key)
+
+  def get(self, key, default=None):
+    self.read.add(key)
+    return super().get(key, default)
+
+  def __contains__(self, key):
+    self.read.add(key)
+    return super().__contains__(key)
+
+def test_scene_never_reads_keys_cache_manager_ignores():
+  """CacheManager leaves Scene.UNUSED_SCENE_KEYS out of its change signature, so an
+  edit to them keeps the old Scene. Fails when Scene starts reading one of them."""
+  unused = {key: [] for key in scene_module.Scene.UNUSED_SCENE_KEYS}
+  child = _ReadRecordingDict(name='child-1', **unused)
+  data = _ReadRecordingDict(
+    uid='scene-1', name='scene-name', map=mapFile, scale=scale,
+    children=[child], cameras=[], use_tracker=True, tracker_config=[1.0, 2.0, 3.0], **unused)
+
+  scene = scene_module.Scene.deserialize(data)
+  scene.updateScene(data)
+
+  assert {'name', 'cameras', 'children'} <= data.read
+  assert data.read.isdisjoint(scene_module.Scene.UNUSED_SCENE_KEYS)
+  assert child.read.isdisjoint(scene_module.Scene.UNUSED_SCENE_KEYS)
+
 def test_updateScene_updates_fields_and_invokes_helpers(scene_obj, monkeypatch):
   update_children_mock = Mock()
   update_cameras_mock = Mock()

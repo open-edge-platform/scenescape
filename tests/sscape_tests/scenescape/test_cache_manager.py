@@ -1,5 +1,6 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
+import json
 import threading
 
 import pytest
@@ -538,15 +539,18 @@ class TestCacheManagerUnchangedSceneReuse:
   """invalidate() must only rebuild tracker scenes whose own data changed."""
 
   @staticmethod
-  def _bare_manager(tracker_config_data=None):
+  def _bare_manager(tracker_config_data=None, scene_cls=None):
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = {}
     cache_mgr.cached_child_transforms_by_uid = {}
+    cache_mgr.camera_parameters = {}
     cache_mgr.tracker_config_data = tracker_config_data or {}
     cache_mgr.reid_config_data = {}
     cache_mgr.pose_adjustment_config_data = {}
-    scene_cls = Mock()
+    if scene_cls is None:
+      scene_cls = Mock()
+      scene_cls.UNUSED_SCENE_KEYS = ('regions', 'tripwires', 'sensors')
     scene_cls.deserialize.side_effect = _tracker_scene
     cache_mgr._scene_cls = scene_cls
     return cache_mgr, scene_cls
@@ -655,6 +659,83 @@ class TestCacheManagerUnchangedSceneReuse:
 
     assert scene_cls.deserialize.call_count == 1
     assert cache_mgr.cached_scenes_by_uid['a'] is previous['a']
+
+  def test_scene_class_declares_which_keys_are_ignored(self):
+    scene_cls = Mock()
+    scene_cls.UNUSED_SCENE_KEYS = ('custom',)
+    cache_mgr, _ = self._bare_manager(scene_cls=scene_cls)
+    cache_mgr._applySceneResults([_scene_data('a', 'A', custom=1, regions=[])])
+
+    previous = self._reapply(cache_mgr, [_scene_data('a', 'A', custom=2, regions=[])])
+    assert cache_mgr.cached_scenes_by_uid['a'] is previous['a']
+
+    # A key the class does not declare is compared, even if another class ignores it.
+    previous = self._reapply(cache_mgr, [_scene_data('a', 'A', custom=2, regions=[{'uid': 'r1'}])])
+    assert cache_mgr.cached_scenes_by_uid['a'] is not previous['a']
+
+  def test_scene_class_without_declaration_compares_every_key(self):
+    scene_cls = Mock(spec=['deserialize'])
+    cache_mgr, _ = self._bare_manager(scene_cls=scene_cls)
+    cache_mgr._applySceneResults([_scene_data('a', 'A', regions=[])])
+
+    previous = self._reapply(cache_mgr, [_scene_data('a', 'A', regions=[{'uid': 'r1'}])])
+
+    assert cache_mgr.cached_scenes_by_uid['a'] is not previous['a']
+
+  @staticmethod
+  def _hierarchy(grandchild_regions=(), child_name='C'):
+    # SceneSerializer embeds each whole child scene, recursively, under 'children'.
+    grandchild = _scene_data('g', 'G', regions=list(grandchild_regions), children=[])
+    child = _scene_data('c', child_name, children=[grandchild])
+    parent = _scene_data('p', 'P', children=[{'name': 'unlinked'}, child])
+    return [parent, child, grandchild]
+
+  def test_nested_child_analytics_edit_does_not_reset_any_ancestor(self):
+    cache_mgr, scene_cls = self._bare_manager()
+    cache_mgr._applySceneResults(self._hierarchy())
+
+    previous = self._reapply(cache_mgr, self._hierarchy([{'uid': 'r1'}]))
+
+    assert scene_cls.deserialize.call_count == 3
+    for uid in ('p', 'c', 'g'):
+      assert cache_mgr.cached_scenes_by_uid[uid] is previous[uid]
+
+  def test_nested_child_controller_field_edit_resets_ancestors_but_not_siblings(self):
+    cache_mgr, scene_cls = self._bare_manager()
+    cache_mgr._applySceneResults(self._hierarchy())
+
+    previous = self._reapply(cache_mgr, self._hierarchy(child_name='C-renamed'))
+
+    assert scene_cls.deserialize.call_count == 5
+    assert cache_mgr.cached_scenes_by_uid['p'] is not previous['p']
+    assert cache_mgr.cached_scenes_by_uid['c'] is not previous['c']
+    assert cache_mgr.cached_scenes_by_uid['g'] is previous['g']
+
+  def test_repeated_refresh_of_the_same_source_dicts_keeps_unchanged_scenes(self, tmp_path):
+    scenes_file = tmp_path / 'scenes.json'
+    scenes_file.write_text(json.dumps({'results': [_scene_data('a', 'A')]}))
+    tracker_config = {
+      'max_unreliable_time': 5.0, 'non_measurement_time_dynamic': 2.0,
+      'non_measurement_time_static': 10.0, 'effective_object_update_rate': 30,
+      'time_chunking_enabled': False, 'time_chunking_rate_fps': 30,
+      'suspended_track_timeout_secs': 60,
+    }
+    cache_mgr, scene_cls = self._bare_manager(tracker_config)
+    cache_mgr.reid_config_data = {'threshold': 0.5}
+    cache_mgr.pose_adjustment_config_data = {'person': ['pedestrian']}
+    cache_mgr.data_source = FileSceneDataSource([scenes_file])
+
+    cache_mgr.refreshScenes()
+    first = cache_mgr.cached_scenes_by_uid['a']
+    for _ in range(2):
+      cache_mgr.invalidate()
+      cache_mgr.refreshScenes()
+
+    assert scene_cls.deserialize.call_count == 1
+    assert cache_mgr.cached_scenes_by_uid['a'] is first
+    injected = {'tracker_config', 'persist_attributes', 'reid_config_data',
+                'pose_adjustment_config_data'}
+    assert injected.isdisjoint(cache_mgr.data_source.scenes[0])
 
 
 class TestCacheManagerRefreshCameras:
