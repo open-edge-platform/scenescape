@@ -49,10 +49,10 @@ def _parse_metric_distance(info):
   try:
     distance = float(distance)
   except (TypeError, ValueError):
-    log.warning("Ignoring invalid detection distance: %r", distance)
+    log.warning("Ignoring invalid detection distance:", distance)
     return None
   if not math.isfinite(distance) or distance <= 0:
-    log.warning("Ignoring invalid detection distance: %r", distance)
+    log.warning("Ignoring invalid detection distance:", distance)
     return None
   return distance
 

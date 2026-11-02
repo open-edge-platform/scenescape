@@ -209,7 +209,7 @@ class Scene(SceneModel):
         mobj = self.tracker.createObject(
           detectionType, info, when, camera, self.persist_attributes.get(detectionType, {}))
       except (TypeError, ValueError) as exc:
-        log.warning("Skipping invalid %s detection: %s", detectionType, exc)
+        log.warning("Skipping invalid", detectionType, "detection:", exc)
         continue
       mobj.map_triangle_mesh = scene_map_triangle_mesh
       mobj.map_translation = scene_map_translation
