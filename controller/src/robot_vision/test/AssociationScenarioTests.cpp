@@ -48,6 +48,41 @@ TruthSample startAt(double x, double y, double heading, double speed, Box box)
   return {.x = x, .y = y, .heading = heading, .speed = speed, .box = box};
 }
 
+struct PassingCar
+{
+  std::vector<TruthSample> truth;
+  double passTime; // first frame at x >= 0 [s]
+};
+
+// A car on the x axis that starts at rest, accelerates at 2.5 m/s^2 to `speed` and passes x = 0 2 s later, so its
+// track has the velocity by then; it drives on for 4 s.
+PassingCar passingCar(double speed)
+{
+  constexpr double kAcceleration = 2.5;
+  const double accelerationTime = speed / kAcceleration;
+  const double start = -(speed * speed / (2.0 * kAcceleration) + 2.0 * speed);
+  PassingCar car{.truth = Trajectory(startAt(start, 0.0, 0.0, 0.0, kCar))
+                            .straight(1.0)
+                            .accelerate(kAcceleration, accelerationTime)
+                            .straight(6.0)
+                            .sample(kFps),
+                 .passTime = 0.0};
+  car.passTime = std::ranges::find_if(car.truth, [](const TruthSample &sample) { return sample.x >= 0.0; })->t;
+  return car;
+}
+
+// A person walking with `heading` who passes (0, lateral) at time `t`; sampled from 0 to `duration`.
+std::vector<TruthSample> personPassing(double lateral, double heading, double t, double duration)
+{
+  return Trajectory(startAt(-kWalkingSpeed * t * std::cos(heading),
+                            lateral - kWalkingSpeed * t * std::sin(heading),
+                            heading,
+                            kWalkingSpeed,
+                            kPerson))
+    .straight(duration)
+    .sample(kFps);
+}
+
 // Identity errors (TrackerRun::identityErrors) per seed. The first seed is recorded to <caseName>/.
 std::vector<int>
 identityErrorsPerSeed(const Scene &scene, const Association &association, double fps = kFps, std::string caseName = {})
@@ -261,6 +296,25 @@ TEST(AssociationScenarioTest, FastCarKeepsOneTrack)
     const auto car
       = Trajectory(startAt(0.0, 0.0, 0.0, 0.0, kCar)).straight(1.0).accelerate(2.0, 12.5).straight(4.0).sample(fps);
     expectIdentitiesKeptByBoth({{.id = 1, .truth = car}}, fps, std::to_string(static_cast<int>(fps)) + "fps");
+  }
+}
+
+TEST(AssociationScenarioTest, CarPassingPersonKeepsBothTracks)
+{
+  // A car at 10 m/s passes a person walking 1.5 m beside its path, in the same and in the opposite direction, and
+  // hides the person for 0.8 s. The car's detections pass within 2 m of the person's coasting track, but the car's
+  // own track is closer and takes them, with either gate.
+  const auto car = passingCar(10.0);
+  const double duration = car.truth.back().t;
+  for (const auto &[name, heading] : {std::pair{"overtaking", 0.0}, std::pair{"oncoming", pi}})
+  {
+    SCOPED_TRACE(name);
+    expectIdentitiesKeptByBoth({{.id = 1, .truth = car.truth},
+                                {.id = 2,
+                                 .truth = personPassing(1.5, heading, car.passTime, duration),
+                                 .occlusions = {{car.passTime - 0.4, car.passTime + 0.4}}}},
+                               kFps,
+                               name);
   }
 }
 
