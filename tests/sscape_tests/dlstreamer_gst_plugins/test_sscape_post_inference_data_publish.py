@@ -10,11 +10,14 @@ gi/GstBase/gstgva (see conftest.py) and the paho MQTT client, without a real
 PyGObject/GStreamer installation and without any production code changes.
 """
 
+import base64
 import json
 import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import cv2
+import numpy as np
 import pytest
 
 from sscape_post_inference_data_publish import (  # noqa: E402
@@ -61,7 +64,6 @@ def connected_element(element):
   fake_client = MagicMock()
   fake_client.is_connected.return_value = True
   element._client = fake_client
-  element._image_client = MagicMock()
   return element
 
 
@@ -141,24 +143,15 @@ class TestEnsureMqtt:
     element._mqtt_host = "broker.local"
     element._mqtt_port = 4321
     fake_mqtt = MagicMock()
-    image_client, command_client = MagicMock(), MagicMock()
-    fake_mqtt.Client.side_effect = [image_client, command_client]
     monkeypatch.setattr(pubmod, "mqtt", fake_mqtt)
     monkeypatch.setattr(pubmod.os.path, "exists", lambda _p: False)
 
     element._ensure_mqtt()
 
-    command_client.connect.assert_called_once_with("broker.local", 4321, 120)
-    image_client.connect.assert_called_once_with("broker.local", 4321, 120)
-    command_client.loop_start.assert_called_once()
-    image_client.loop_start.assert_called_once()
-    assert element._client is command_client
-    assert element._image_client is image_client
-    # Only the command connection handles getimage and friends
-    assert command_client.on_message == element._handle_camera_message
-    assert command_client.on_connect == element._on_connect
-    assert "on_message" not in vars(image_client)
-    assert "on_connect" not in vars(image_client)
+    client = fake_mqtt.Client.return_value
+    client.connect.assert_called_once_with("broker.local", 4321, 120)
+    client.loop_start.assert_called_once()
+    assert element._client is client
     assert element._frame_level_data["id"] == "cam-7"
 
   def test_only_connects_once(self, element, monkeypatch):
@@ -170,7 +163,7 @@ class TestEnsureMqtt:
     element._ensure_mqtt()
     element._ensure_mqtt()
 
-    assert fake_mqtt.Client.call_count == 2  # image + command, not 4
+    fake_mqtt.Client.assert_called_once()
 
   def test_connect_failure_leaves_client_unset(self, element, monkeypatch):
     element._cameraid = "cam-7"
@@ -182,32 +175,6 @@ class TestEnsureMqtt:
     element._ensure_mqtt()  # must not raise
 
     assert element._client is None
-    assert element._image_client is None
-
-  def test_command_connect_failure_stops_image_client(self, element, monkeypatch):
-    element._cameraid = "cam-7"
-    fake_mqtt = MagicMock()
-    image_client, command_client = MagicMock(), MagicMock()
-    command_client.connect.side_effect = OSError("unreachable")
-    fake_mqtt.Client.side_effect = [image_client, command_client]
-    monkeypatch.setattr(pubmod, "mqtt", fake_mqtt)
-    monkeypatch.setattr(pubmod.os.path, "exists", lambda _p: False)
-
-    element._ensure_mqtt()
-
-    image_client.loop_stop.assert_called_once()
-    assert element._client is None
-    assert element._image_client is None
-
-  def test_do_stop_disconnects_both_clients(self, connected_element):
-    client, image_client = connected_element._client, connected_element._image_client
-
-    connected_element.do_stop()
-
-    client.disconnect.assert_called_once()
-    image_client.disconnect.assert_called_once()
-    assert connected_element._client is None
-    assert connected_element._image_client is None
 
 
 class TestOnConnect:
@@ -483,12 +450,9 @@ class TestProcessBuffer:
 
     connected_element.do_transform_ip(MagicMock())
 
-    topics = [call.args[0] for call in connected_element._image_client.publish.call_args_list]
+    topics = [call.args[0] for call in connected_element._client.publish.call_args_list]
     assert "scenescape/image/camera/cam-1" in topics
     assert connected_element._publish_image is False
-    # Images must never share the connection used for detections
-    data_topics = [call.args[0] for call in connected_element._client.publish.call_args_list]
-    assert data_topics == ["scenescape/data/camera/cam-1"]
 
   def test_calibration_image_flag_publishes_calibration_topic_once(
     self, connected_element, monkeypatch,
@@ -501,7 +465,7 @@ class TestProcessBuffer:
 
     connected_element.do_transform_ip(MagicMock())
 
-    topics = [call.args[0] for call in connected_element._image_client.publish.call_args_list]
+    topics = [call.args[0] for call in connected_element._client.publish.call_args_list]
     assert "scenescape/image/calibration/camera/cam-1" in topics
     assert connected_element._is_publish_calibration_image is False
 
@@ -522,7 +486,7 @@ class TestProcessBuffer:
 
     assert connected_element._cam_auto_calibrate is False
     # Locate the calibration publish
-    publishes = connected_element._image_client.publish.call_args_list
+    publishes = connected_element._client.publish.call_args_list
     calib = next(
       c for c in publishes
       if c.args[0] == "scenescape/image/calibration/camera/cam-1"
@@ -542,3 +506,31 @@ class TestProcessBuffer:
     result = connected_element.do_transform_ip(MagicMock())
 
     assert result == pubmod.Gst.FlowReturn.OK
+
+
+class TestBuildImageData:
+
+  @staticmethod
+  def _build(element, monkeypatch, annotate, width=3840, height=2160):
+    frame = np.random.default_rng(0).integers(
+      0, 255, (height, width, 3), dtype=np.uint8
+    )
+    monkeypatch.setattr(element, "_try_convert_to_bgr", lambda *_a: frame)
+    out = {}
+    element._build_image_data(out, MagicMock(), annotate)
+    jpeg = base64.b64decode(out["image"])
+    return cv2.imdecode(np.frombuffer(jpeg, np.uint8), cv2.IMREAD_COLOR), len(jpeg)
+
+  def test_live_view_image_is_downscaled(self, element, monkeypatch):
+    image, live_size = self._build(element, monkeypatch, annotate=True)
+    _, full_size = self._build(element, monkeypatch, annotate=False)
+    assert image.shape[:2] == (540, 960)
+    assert live_size < full_size / 10
+
+  def test_live_view_image_smaller_than_limit_is_not_resized(self, element, monkeypatch):
+    image, _ = self._build(element, monkeypatch, annotate=True, width=640, height=480)
+    assert image.shape[:2] == (480, 640)
+
+  def test_calibration_image_keeps_full_resolution(self, element, monkeypatch):
+    image, _ = self._build(element, monkeypatch, annotate=False)
+    assert image.shape[:2] == (2160, 3840)
