@@ -6,7 +6,7 @@ analytics/src/analytics/adapters/scene_model.py	AnalyticsScene::_updateRegions	1
 analytics/src/analytics/adapters/scene_model.py	AnalyticsScene::processSensorData	16
 analytics/src/analytics/event_publisher.py	_clear_sensor_values_on_exit	19
 analytics/src/analytics/event_publisher.py	publish_events	14
-analytics/src/analytics/event_serializer.py	serialize_for_event	44
+analytics/src/analytics/event_serializer.py	serialize_for_event	43
 analytics/src/analytics/region.py	update_region_events	94
 analytics/src/analytics/reid_identity.py	ReidIdentityMap::apply	20
 analytics/src/analytics/sensors.py	update_environmental_sensor_readings	13
@@ -114,7 +114,7 @@ scene_common/src/scene_common/cache_manager.py	CacheManager::_restoreSensorCache
 scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenes	16
 scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenesForCamParams	27
 scene_common/src/scene_common/detections_builder.py	computeCameraBounds	23
-scene_common/src/scene_common/detections_builder.py	prepareObjDict	88
+scene_common/src/scene_common/detections_builder.py	prepareObjDict	87
 scene_common/src/scene_common/geometry.py	Region::isPointWithin	14
 scene_common/src/scene_common/geometry.py	Region::updatePoints	33
 scene_common/src/scene_common/glb_top_view.py	renderTopView	30

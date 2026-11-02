@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from base.tracker_evaluator import TrackerEvaluator
 from utils.tracks import SPACE_AXES, add_space_arguments, space_axes
+
 # TrackEval imports
 from trackeval.datasets.mot_challenge_2d_box import MotChallenge2DBox
 from trackeval.eval import Evaluator

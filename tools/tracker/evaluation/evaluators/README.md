@@ -115,7 +115,7 @@ the canonical formats, as robot-vision test recordings have. From `tools/tracker
   - LOC_T_X / LOC_T_Y / LOC_T_Z: `[frame_id, track_id, gt_id, value_track, value_gt]`
   - DIST_T: `[frame_id, track_id, gt_id, distance]`
 - **Plot Output**: One matplotlib figure per metric with all matched pairs overlaid.
-- **Summary Scalars**: `evaluate_metrics()` returns `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `LOC_T_Z_mae` (each for the configured metrics), and `num_matches`.
+- **Summary Scalars**: `evaluate_metrics()` returns `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `LOC_T_Z_mae` (each for the configured metrics), and `num_matches`. `LOC_T_Z_mae` is NaN when no matched pair has a z (planar data).
 
 **Usage Example**:
 

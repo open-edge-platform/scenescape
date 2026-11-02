@@ -176,7 +176,8 @@ class DiagnosticEvaluator(TrackerEvaluator):
         - DIST_T_mean: Overall mean Euclidean distance (if DIST_T configured)
         - LOC_T_X_mae: Overall mean absolute X error (if LOC_T_X configured)
         - LOC_T_Y_mae: Overall mean absolute Y error (if LOC_T_Y configured)
-        - LOC_T_Z_mae: Overall mean absolute Z error (if LOC_T_Z configured)
+        - LOC_T_Z_mae: Overall mean absolute Z error (if LOC_T_Z configured);
+          NaN when no matched pair has a z
 
     Raises:
       RuntimeError: If evaluation fails or no data has been processed.
@@ -239,8 +240,10 @@ class DiagnosticEvaluator(TrackerEvaluator):
       )
     for axis, name in enumerate('XYZ'):
       if f'LOC_T_{name}' in self._metrics:
+        # Z has no samples for planar data: NaN, not a perfect 0.0.
+        empty = float('nan') if name == 'Z' else 0.0
         results[f'LOC_T_{name}_mae'] = (
-          float(np.mean(axis_errors[axis])) if axis_errors[axis] else 0.0
+          float(np.mean(axis_errors[axis])) if axis_errors[axis] else empty
         )
     return results
 
@@ -307,6 +310,7 @@ class DiagnosticEvaluator(TrackerEvaluator):
         df.to_csv(self._output_folder / f'{metric}.csv', index=False)
         if not df.empty:
           self._plot_location_metric(df, metric, f'{name} Position')
+
     if 'DIST_T' in self._metrics:
       df = pd.DataFrame(dist_rows,
                          columns=['frame_id', 'track_id', 'gt_id',

@@ -200,7 +200,7 @@ TEST(ScenarioSupportTest, ObserveReportsTruthWithSensorNoise)
   EXPECT_TRUE(rv::tracking::orientation::hasOrientation(noisy.back().detection));
 }
 
-// PART A: Support tests for vertical motion infrastructure
+// Support tests for vertical motion infrastructure
 
 TEST(ScenarioSupportTest, TrajectoryClimb)
 {
@@ -262,7 +262,7 @@ TEST(ScenarioSupportTest, TrajectoryClimb)
 
 TEST(ScenarioSupportTest, ObserveReportsTruthWithZNoise)
 {
-  // A2: zNoise = 0.1 -> RMS z error within 10% of 0.1
+  // zNoise = 0.1 -> RMS z error within 10% of 0.1
   // Use a long trajectory (~1000 samples) for statistical significance, like ObserveReportsTruthWithSensorNoise
   const auto truth = Trajectory({.speed = 1.0, .box = kCar}).straight(40.0).climb(0.5, 60.0).sample(10.0);
 
@@ -302,7 +302,7 @@ TEST(ScenarioSupportTest, ObserveReportsTruthWithZNoise)
 
 namespace {
 
-// Helper for PART B: runs a trajectory with a sensor and returns key metrics.
+// Helper for the diagnostic scenarios: runs a trajectory with a sensor and returns key metrics.
 struct VerticalMotionMetrics
 {
   double maxHorizontalError = 0.0;    // [m], after warm-up
@@ -862,11 +862,11 @@ TEST(MotionScenarioTest, SteadyCircleHasNoConstantOffset)
   }
 }
 
-// PART B: Diagnostic scenarios for vertical motion
+// Diagnostic scenarios for vertical motion
 
 TEST(MotionScenarioTest, ZOffsetInvariance)
 {
-  // S1: constant-velocity, accelerating, and turning trajectories each started at z = 0 and at z = 10 with zNoise = 0:
+  // Constant-velocity, accelerating, and turning trajectories each started at z = 0 and at z = 10 with zNoise = 0:
   // x/y/vx/vy/yaw estimates and model probabilities equal between the two runs (tight tolerance).
   constexpr double kFps = 10.0;
   constexpr double kTolerance = 1e-6;
@@ -938,7 +938,7 @@ TEST(MotionScenarioTest, ZOffsetInvariance)
 
 TEST(MotionScenarioTest, ClimbDuringStraightMotion)
 {
-  // S2: straight + climb (and the equivalent combined segment) vs same planar trajectory without climb:
+  // Straight + climb (and the equivalent combined segment) vs same planar trajectory without climb:
   // horizontal error and final horizontal speed error within baseline + margin;
   // vertical error and final vz error within measured bounds.
   constexpr double kFps = 10.0;
@@ -989,7 +989,7 @@ TEST(MotionScenarioTest, ClimbDuringStraightMotion)
 
 TEST(MotionScenarioTest, ClimbWhileTurning)
 {
-  // S3: segment(0, 0.5, 0.3, 6) vs the same turn without climb: horizontal error within baseline + margin;
+  // segment(0, 0.5, 0.3, 6) vs the same turn without climb: horizontal error within baseline + margin;
   // mean probability of CTRV not lower than baseline minus margin.
   constexpr double kFps = 10.0;
   constexpr double kWarmUp = 2.0;
@@ -1036,7 +1036,7 @@ TEST(MotionScenarioTest, ClimbWhileTurning)
 
 TEST(MotionScenarioTest, VerticalOnlyMotion)
 {
-  // S4: speed = 0, climb up 3 s, level 2 s, descend 3 s: x/y stay near start, estimated horizontal speed near 0,
+  // Speed = 0, climb up 3 s, level 2 s, descend 3 s: x/y stay near start, estimated horizontal speed near 0,
   // z follows, yaw estimate bounded.
   constexpr double kFps = 10.0;
 
@@ -1074,7 +1074,7 @@ TEST(MotionScenarioTest, VerticalOnlyMotion)
 
 TEST(MotionScenarioTest, TargetBornClimbing)
 {
-  // S5: stationary in x/y, vz = 0.5 from t = 0: record vz estimate after 1 s and 3 s; assert measured behaviour;
+  // Stationary in x/y, vz = 0.5 from t = 0: record vz estimate after 1 s and 3 s; assert measured behaviour;
   // z error converges. Note: vz picks up slowly (initial variance capped at 0.05).
   constexpr double kFps = 10.0;
 
@@ -1128,7 +1128,7 @@ TEST(MotionScenarioTest, TargetBornClimbing)
 
 TEST(MotionScenarioTest, VerticalRateChanges)
 {
-  // S6: climb -> level -> descend while moving straight: vertical overshoot after each change below a measured bound;
+  // Climb -> level -> descend while moving straight: vertical overshoot after each change below a measured bound;
   // planar error within baseline + margin; vz settles to truth after each change.
   constexpr double kFps = 10.0;
   constexpr double kWarmUp = 2.0;
@@ -1177,7 +1177,7 @@ TEST(MotionScenarioTest, VerticalRateChanges)
 
 TEST(MotionScenarioTest, RectangularHelixWithStops)
 {
-  // S8: constant climb along a rectangular path with 90 degree corners within one frame; twice the target brakes to a
+  // Constant climb along a rectangular path with 90 degree corners within one frame; twice the target brakes to a
   // standstill (also vertically) and resumes. Planar results equal the same path flat; z and vz recover after each
   // stop.
   constexpr double kFps = 10.0;
@@ -1253,7 +1253,7 @@ TEST(MotionScenarioTest, RectangularHelixWithStops)
 
 TEST(MotionScenarioTest, SteppedVerticalSpeedJumpAndFall)
 {
-  // S9: constant x/y velocity; vz steps by 0.2 m/s every second up to a peak and back to zero (slow jump), then the
+  // Constant x/y velocity; vz steps by 0.2 m/s every second up to a peak and back to zero (slow jump), then the
   // same downwards (fall). Planar results equal the same path flat; z follows with a bounded lag and returns to its
   // start height.
   const auto run = runSteppedJumpAndFall("SteppedVerticalSpeedJumpAndFall", 0.2, 1.0);
@@ -1274,7 +1274,7 @@ TEST(MotionScenarioTest, SteppedVerticalSpeedJumpAndFall)
 
 TEST(MotionScenarioTest, FastSteppedJumpAndFallInXAndZ)
 {
-  // S10: as S9 with vz steps of 0.4 m/s every 0.5 s (four times the vertical acceleration, the same peak height of
+  // Same as SteppedVerticalSpeedJumpAndFall with vz steps of 0.4 m/s every 0.5 s (four times the vertical acceleration, the same peak height of
   // 1.8 m), and the x velocity doing the same steps, so the horizontal and vertical errors of one run can be compared.
   // Planar results equal the same path flat.
   const auto run = runSteppedJumpAndFall("FastSteppedJumpAndFallInXAndZ", 0.4, 0.5, true);
@@ -1301,7 +1301,7 @@ TEST(MotionScenarioTest, FastSteppedJumpAndFallInXAndZ)
 
 TEST(MotionScenarioTest, VerticalAccelerationIsOnlyApproximated)
 {
-  // S11: the filter has no vertical acceleration (z + vz*dt, vz constant), so real z acceleration is followed through
+  // The filter has no vertical acceleration (z + vz*dt, vz constant), so real z acceleration is followed through
   // the process noise only. Smooth z acceleration of increasing size, each with a constant 2 m/s in x/y: how far the
   // estimate drifts from the truth. Planar results equal the same path flat.
   struct AccelerationCase
@@ -1363,7 +1363,7 @@ TEST(MotionScenarioTest, VerticalAccelerationIsOnlyApproximated)
 
 TEST(MotionScenarioTest, CoastWhileClimbing)
 {
-  // S7: climb, then run.coast(1.0): z extrapolates by about vz*dt (tolerance ~0.25);
+  // Climb, then run.coast(1.0): z extrapolates by about vz*dt (tolerance ~0.25);
   // x/y extrapolation as in the planar baseline; z variance grows.
   constexpr double kFps = 10.0;
 
@@ -1412,7 +1412,7 @@ TEST(MotionScenarioTest, CoastWhileClimbing)
 
 TEST(MotionScenarioTest, AnisotropicNoiseDoesNotLeakIntoPlane)
 {
-  // S8: positionNoise = 0.05 with zNoise = 0.3 vs zNoise = 0: horizontal error not worse than baseline + margin;
+  // positionNoise = 0.05 with zNoise = 0.3 vs zNoise = 0: horizontal error not worse than baseline + margin;
   // z error reflects the larger noise.
   constexpr double kFps = 10.0;
   constexpr double kWarmUp = 2.0;
@@ -1458,7 +1458,7 @@ TEST(MotionScenarioTest, AnisotropicNoiseDoesNotLeakIntoPlane)
 
 TEST(MotionScenarioTest, CovarianceStaysPositiveDefiniteWhileClimbing)
 {
-  // S9: min eigenvalue of P > 0 for all steps including vz.
+  // Min eigenvalue of P > 0 for all steps including vz.
   constexpr double kFps = 10.0;
 
   const auto climbingTrajectory = Trajectory({.speed = 3.0, .box = kCar})

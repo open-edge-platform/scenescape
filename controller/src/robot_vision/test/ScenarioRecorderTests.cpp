@@ -41,7 +41,7 @@ size_t countContaining(const std::vector<std::string> &lines, std::string_view t
 std::vector<double> numbersAfter(const std::string &line, std::string_view key)
 {
   std::vector<double> result;
-  std::string keyPattern = std::string(key) + "\":[";
+  std::string keyPattern = "\"" + std::string(key) + "\":[";
   size_t keyPos = line.find(keyPattern);
   if (keyPos == std::string::npos)
   {
@@ -257,7 +257,7 @@ TEST_F(ScenarioRecorderTest, DirectoryComesFromEnvironment)
   EXPECT_FALSE(disabled.enabled());
 }
 
-// PART A3: Records vertical motion data
+// Records vertical motion data
 TEST_F(ScenarioRecorderTest, RecordsVerticalMotion)
 {
   // Verify that climbing truth and estimated vertical states are recorded correctly.

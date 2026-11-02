@@ -631,7 +631,7 @@ class TestSpace:
     results = ev.evaluate_metrics()
 
     assert results['DIST_T_mean'] == pytest.approx(0.5)
-    assert results['LOC_T_Z_mae'] == 0.0
+    assert math.isnan(results['LOC_T_Z_mae'])
 
   def test_height_only_needs_heights(self, tmp_path):
     """Without a z on both sides the height cannot be measured."""
