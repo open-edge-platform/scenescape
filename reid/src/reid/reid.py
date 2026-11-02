@@ -64,7 +64,13 @@ class ReIDDatabase(ABC):
     self._schema_lock = threading.Lock()
     self._schema_ready = False
     self._schema_metric = None
+    self.raise_on_backend_error = False
     return
+
+  def _backendFailure(self):
+    """Report failures to network callers without changing legacy adapter behavior."""
+    if self.raise_on_backend_error:
+      raise ConnectionError("ReID backend operation failed")
 
   def _resolveSetName(self, set_name=None):
     """Resolve an optional set_name override to the adapter's configured set."""
