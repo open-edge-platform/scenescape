@@ -69,5 +69,5 @@ jobs:
           RENOVATE_DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && github.event.inputs.dry-run == 'true') && 'full' || null }}
           RENOVATE_PLATFORM: github
           RENOVATE_REPOSITORIES: ${{ github.repository }}
-          # Automerge is opt-in; set RENOVATE_AUTOMERGE_ENABLED to 'true' to enable it.
-          RENOVATE_AUTOMERGE: ${{ vars.RENOVATE_AUTOMERGE_ENABLED == 'true' }}
+          # Require manual merging for all dependency updates.
+          RENOVATE_AUTOMERGE: "false"

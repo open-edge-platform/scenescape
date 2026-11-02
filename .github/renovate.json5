@@ -50,6 +50,7 @@
   prHourlyLimit: 2,
   commitMessagePrefix: "Tracker Conan:",
   semanticCommits: "enabled",
+  automerge: false,
   platformAutomerge: false,
   rebaseWhen: "behind-base-branch",
   separateMajorMinor: true,
