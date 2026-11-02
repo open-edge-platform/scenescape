@@ -581,7 +581,6 @@ function main() {
       const id = topic.split("camera/")[1];
       cameraManager = sceneThingManagers["things"]["camera"]["obj"];
       if (cameraManager && cameraManager.sceneCameras.hasOwnProperty(id)) {
-        cameraManager.sceneCameras[id].currentFrame = msg.image;
         cameraManager.sceneCameras[id].projectCameraCapture(
           "data:image/png;base64," + msg.image,
           msg,
