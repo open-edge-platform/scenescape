@@ -77,6 +77,25 @@ const auto metrics = climbing.metrics();             // horizontal/vertical max 
 const auto diff = maxDifference(flat, climbing);     // largest |x|, |y|, |z|, |vx|, |vy|, |vz|, |yaw|, |probability|
 ```
 
+### Measurement noise R
+
+`Sensor::positionCovariance` draws the position error from a covariance per detection and reports it as the
+detection's R (`measurementNoiseCov`), replacing `positionNoise` and `zNoise`. `groundPlaneCamera(position, sigma)`
+models a camera that projects the ground point (long along the ground range, z exact), `depthCamera(position, sigma,
+depthFraction)` one that also estimates depth (long along the viewing ray, measured z), and `fixedCovariance(covariance)`
+any constant covariance. Axes the sensor does not model get `defaultNoise`, the tracker's default measurement noise.
+`reported = false` keeps the same noise without R, and `reportedScale` a wrongly confident R; both are paired runs of
+the same noise. `Observation::trueCovariance` is the covariance the error was drawn from. Covariances are computed from
+the truth sample, a production producer computes R from the noisy detection.
+
+```cpp
+Sensor camera{.positionCovariance = groundPlaneCamera({0.0, -12.0, 4.0}, 0.01)};  // 4 m high, 0.01 rad
+auto withoutR = camera;
+withoutR.positionCovariance->reported = false;
+const auto aware = runScenario(truth, camera);
+const auto legacy = runScenario(truth, withoutR);  // same detections, default R
+```
+
 ### Plots and videos
 
 See [Scenario Visualization](../../../tools/tracker/evaluation/visualization/README.md).
