@@ -71,7 +71,11 @@ only skips the TrackEval plots, with a warning.
 ### Videos
 
 - `overview`: the whole scene, ground-truth boxes (black, dashed) and track boxes with heading and trail. Objects
-  without a size are points.
+  without a size are points. For recordings with vertical motion it also shows two side views under the top-down view:
+  the x–z view (looking along y) and the y–z view (looking along x). Each body is drawn as the extent of its box along
+  that axis by its height, centred on z, with a z trail and a line at z = 0, so the difference between truth and track
+  can be read in all three planes. The horizontal axes have the scale of the top-down view and the vertical axis is
+  scaled to the heights, so the side views are not to scale. Planar recordings keep the top-down view only.
 - `zoom_<ID>`: follows one object and adds the track's predicted position, an ellipse around it and its velocity arrow
   (1 s of motion). For tracker-level recordings (`AssociationScenarioTest`) the ellipse is the track's association
   gate: the χ² ellipse of the XY block of the predicted measurement covariance S (most probable model) for
@@ -89,6 +93,7 @@ only skips the TrackEval plots, with a warning.
 | `--speed F`     | video | Playback speed, default 1 (real time); at most 30 video frames per second                        |
 | `--trail S`     | video | Trail length in seconds, default 2                                                               |
 | `--zoom-size M` | video | Zoom window width in metres, default 4× the object's largest dimension, at least 4               |
+| `--side-views M`| video | x–z and y–z views under the overview: `auto` (default, only with vertical motion), `always`, `never` |
 | `--gif`         | video | GIF instead of MP4                                                                               |
 
 ### Input files

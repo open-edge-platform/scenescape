@@ -24,6 +24,8 @@ from visualization.render_video import (  # noqa: E402
   main,
   render_video,
   sample_index,
+  side_box_corners,
+  side_extent,
   video_timing,
 )
 
@@ -35,6 +37,12 @@ def gif_frames(path):
   """Number of frames in a GIF file."""
   with Image.open(path) as image:
     return image.n_frames
+
+
+def gif_size(path):
+  """Width and height of a GIF file."""
+  with Image.open(path) as image:
+    return image.size
 
 
 @pytest.mark.parametrize("data_fps, speed, video_fps, frames", [
@@ -143,3 +151,58 @@ def test_command_line(recording, capsys):
     str(recording / "videos" / "overview.gif"),
     str(recording / "videos" / "zoom_1.gif"),
   ]
+
+
+def test_side_extent_follows_yaw():
+  """A box seen along x or y covers its footprint projected on that axis."""
+  assert side_extent("x", 0.0, 4.0, 2.0) == pytest.approx(4.0)
+  assert side_extent("y", 0.0, 4.0, 2.0) == pytest.approx(2.0)
+  assert side_extent("x", math.pi / 2, 4.0, 2.0) == pytest.approx(2.0)
+  assert side_extent("y", math.pi / 2, 4.0, 2.0) == pytest.approx(4.0)
+  assert side_extent("x", math.pi / 4, 4.0, 2.0) == pytest.approx(side_extent("y", math.pi / 4, 4.0, 2.0))
+
+
+def test_side_box_is_centred_on_z():
+  """The side view of a box spans its extent horizontally and its height around z."""
+  corners = side_box_corners(10.0, 2.0, 4.0, 1.5)
+
+  np.testing.assert_allclose(corners.min(axis=0), [8.0, 1.25])
+  np.testing.assert_allclose(corners.max(axis=0), [12.0, 2.75])
+
+
+def test_side_views_follow_vertical_motion(recording, climbing_recording, tmp_path):
+  """Auto adds the x-z and y-z views for vertical motion only; zoom videos stay top-down."""
+  planar = render_video(recording, output=tmp_path / "planar", gif=True)[0]
+  climbing = render_video(climbing_recording, output=tmp_path / "climbing", gif=True, zoom=["1"])
+
+  assert gif_size(planar) == (800, 800)
+  assert gif_size(climbing[0]) == (1000, 1000)
+  assert gif_size(climbing[1]) == (800, 800)
+  assert gif_frames(climbing[0]) == gif_frames(climbing[1])
+
+
+def test_side_views_can_be_forced_or_disabled(recording, climbing_recording, tmp_path):
+  """`always` also draws them for planar data (at z = 0), `never` omits them."""
+  forced = render_video(recording, output=tmp_path / "forced", gif=True, side_views="always")[0]
+  disabled = render_video(climbing_recording, output=tmp_path / "disabled", gif=True,
+                          side_views="never")[0]
+
+  assert gif_size(forced) == (1000, 1000)
+  assert gif_size(disabled) == (800, 800)
+
+
+def test_rejects_unknown_side_views_mode(recording, capsys):
+  """The mode is checked in the API and by the command line."""
+  with pytest.raises(RenderError, match="side_views"):
+    render_video(recording, gif=True, side_views="sideways")
+  with pytest.raises(SystemExit):
+    main([str(recording), "--gif", "--side-views", "sideways"])
+  assert "invalid choice" in capsys.readouterr().err
+
+
+def test_side_views_without_size_or_z(tracker_output, tmp_path):
+  """Objects without a size are points; tracker output with z = 0 still renders."""
+  written = render_video(tracker_output, output=tmp_path / "out", gif=True, side_views="always")
+
+  assert gif_size(written[0]) == (1000, 1000)
+  assert gif_frames(written[0]) == 20

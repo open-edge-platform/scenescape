@@ -175,8 +175,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
 
   # Restore semantic metadata (age, gender, clothing, etc.) stripped from info during construction
   if hasattr(aobj, 'metadata') and aobj.metadata:
-    if 'metadata' not in obj_dict:
-      obj_dict['metadata'] = {}
+    obj_dict.setdefault('metadata', {})
     for key, value in aobj.metadata.items():
       if key != 'reid':
         obj_dict['metadata'][key] = value
@@ -208,8 +207,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
         if provenance is None:
           reid_embedding = None
     if reid_embedding is not None:
-      if 'metadata' not in obj_dict:
-        obj_dict['metadata'] = {}
+      obj_dict.setdefault('metadata', {})
       if isinstance(reid_embedding, str):
         # Legacy publishers may pass base64 float32 embeddings through unchanged.
         reid_vec = np.frombuffer(base64.b64decode(reid_embedding), dtype=np.float32)
