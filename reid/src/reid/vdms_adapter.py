@@ -380,7 +380,9 @@ class VDMSDatabase(ReIDDatabase):
       raise ConnectionError("VDMS POI deletion failed")
     remaining, _ = self.sendQuery([{"FindDescriptor": {
       "set": set_name, "constraints": constraints, "results": results}}])
-    if not remaining or remaining[0].get("returned") != 0:
+    if (not remaining or
+        (remaining[0].get("returned") != 0 and
+         not self._isEmptyLookup({"FindDescriptor": {}}, remaining[0]))):
       raise ConnectionError("VDMS POI deletion could not be verified")
 
   def findSchemaMetadata(self, set_name):
