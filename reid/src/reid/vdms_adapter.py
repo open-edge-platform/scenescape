@@ -492,7 +492,8 @@ class VDMSDatabase(ReIDDatabase):
                                     "k_neighbors": search_neighbors}}
       response, _ = self.sendQuery([command] * len(blob), blob)
       result = self._responseMatches(response, len(blob))
-      retry = any(len(matches) < neighbors for matches in result)
+      retry = any(len(matches) < neighbors and len(item.get("entities", [])) > len(matches)
+                  for item, matches in zip(response or [], result))
       if not retry or search_neighbors >= 1000:
         return [matches[:neighbors] for matches in result]
       search_neighbors = 1000
