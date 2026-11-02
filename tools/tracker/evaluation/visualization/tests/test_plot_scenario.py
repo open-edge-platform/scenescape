@@ -30,10 +30,12 @@ from visualization.plot_scenario import (  # noqa: E402
   plot_size,
   plot_speed_yaw,
   plot_std_dev,
+  plot_position_error,
   plot_trajectory,
   position_errors,
   trackeval_distances,
 )
+from visualization.plot_scenario import _position_sigma  # noqa: E402 pylint: disable=protected-access
 from visualization.scenario_data import (  # noqa: E402
   PIPELINE_RUN_FILES,
   SCENARIO_FILES,
@@ -454,3 +456,111 @@ def test_plot_std_dev_on_legacy_12_state_recording_skips_vz(legacy_estimator_rec
   assert not vz_labels, "Should not have vz entries in velocity panel"
 
   plt.close(fig)
+
+
+def test_position_errors_with_height():
+  """The total covers x, y and z by default, the plane or the height on request."""
+  aligned = pd.DataFrame({
+    "t": [0.0, 0.1],
+    "x": [0.3, 0.3], "y": [0.4, 0.4], "z": [1.2, -1.2],
+    "x_gt": [0.0, 0.0], "y_gt": [0.0, 0.0], "z_gt": [0.0, 0.0],
+    "vx_gt": [1.0, 1.0], "vy_gt": [0.0, 0.0],
+  })
+
+  np.testing.assert_allclose(position_errors(aligned)["total"], 1.3)
+  np.testing.assert_allclose(position_errors(aligned, "xy")["total"], 0.5)
+  np.testing.assert_allclose(position_errors(aligned, "z")["total"], 1.2)
+  np.testing.assert_allclose(position_errors(aligned)["vertical"], [1.2, -1.2])
+  with pytest.raises(ValueError, match="space"):
+    position_errors(aligned, "xz")
+
+
+def test_position_errors_without_height_are_planar():
+  """Without z columns or values the total stays the planar error."""
+  planar = pd.DataFrame({
+    "t": [0.0], "x": [0.3], "y": [0.4], "x_gt": [0.0], "y_gt": [0.0],
+    "vx_gt": [1.0], "vy_gt": [0.0],
+  })
+  nan_z = planar.assign(z=math.nan, z_gt=math.nan)
+
+  np.testing.assert_allclose(position_errors(planar)["total"], 0.5)
+  np.testing.assert_allclose(position_errors(nan_z)["total"], 0.5)
+  assert math.isnan(position_errors(nan_z)["vertical"][0])
+
+
+@pytest.mark.parametrize("space, panels", [
+  ("xyz", ["total", "along-track", "cross-track", "vertical"]),
+  ("xy", ["total", "along-track", "cross-track"]),
+  ("z", ["total", "vertical"]),
+])
+def test_position_error_panels_follow_the_space(climbing_recording, space, panels):
+  """With vertical motion: a vertical panel in x, y, z and in z; no plane panels for z."""
+  scenario = load_scenario(climbing_recording)
+
+  fig = plot_position_error(scenario, pair_tracks(scenario, space=space), space)
+
+  assert [ax.get_ylabel().split(" [")[0] for ax in fig.get_axes()] == panels
+  plt.close(fig)
+
+
+def test_planar_recording_has_no_vertical_panel(recording):
+  """Planar data keeps the three planar panels by default."""
+  scenario = load_scenario(recording)
+
+  fig = plot_position_error(scenario, pair_tracks(scenario))
+
+  assert len(fig.get_axes()) == 3
+  plt.close(fig)
+
+
+def test_vertical_error_band_from_the_estimator(recording):
+  """The vertical ±2σ comes from the z variance of the estimator state."""
+  scenario = load_scenario(recording)
+  track_id = next(iter(scenario.estimator))
+  errors = pd.DataFrame({"t": scenario.estimator[track_id].t, "ux": 1.0, "uy": 0.0})
+
+  sigma = _position_sigma(scenario, track_id, errors, tolerance=0.05)
+
+  assert sigma["vertical"].notna().all() and (sigma["vertical"] > 0).all()
+
+
+@pytest.fixture(name="stacked_tracks")
+def fixture_stacked_tracks(tmp_path):
+  """Tracks a and b above each other's truth: a=(0,0,0), b=(1,0,5); objects 1=(1,0,0), 2=(0,0,5)."""
+  directory = tmp_path / "stacked"
+  directory.mkdir()
+  stamps = [f"2014-09-08T04:00:{frame // 10:02d}.{frame % 10}00Z" for frame in range(12)]
+  truth = [{"timestamp": stamp, "objects": [
+    {"id": 1, "category": "person", "translation": [1.0, 0.0, 0.0]},
+    {"id": 2, "category": "person", "translation": [0.0, 0.0, 5.0]}]} for stamp in stamps]
+  tracks = [{"id": "scene", "name": "scene", "timestamp": stamp, "objects": [
+    {"id": "a", "category": "person", "translation": [0.0, 0.0, 0.0]},
+    {"id": "b", "category": "person", "translation": [1.0, 0.0, 5.0]}]} for stamp in stamps]
+  for name, records in (("groundtruth.jsonl", truth), ("tracks.jsonl", tracks)):
+    (directory / name).write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+  return directory
+
+
+@pytest.mark.parametrize("space, pairs", [
+  ("xyz", {"a": "1", "b": "2"}),
+  ("xy", {"a": "2", "b": "1"}),
+  ("z", {"a": "1", "b": "2"}),
+])
+def test_pairing_follows_the_space(stacked_tracks, space, pairs):
+  """Pairs differ when the height or the plane decides."""
+  assert pair_tracks(load_scenario(stacked_tracks), space=space) == pairs
+
+
+def test_command_line_space_flags(climbing_recording, capsys):
+  """--xy-only and --z-only restrict the position error and TrackEval; both together are rejected."""
+  for flag in ("--xy-only", "--z-only"):
+    assert main([str(climbing_recording), "--plots", "position_error,trackeval", flag]) == 0
+  assert "position_error" in capsys.readouterr().out
+  with pytest.raises(SystemExit):
+    main([str(climbing_recording), "--xy-only", "--z-only"])
+
+
+def test_plot_scenario_rejects_unknown_space(recording):
+  """The space is checked before anything is written."""
+  with pytest.raises(ValueError, match="space"):
+    plot_scenario(recording, space="xz")

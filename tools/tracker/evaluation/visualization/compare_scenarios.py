@@ -7,6 +7,7 @@ Usage (from tools/tracker/evaluation):
   python visualization/compare_scenarios.py BEFORE_DIR AFTER_DIR [--warm-up SECONDS] [--fps FPS]
                                             [--rel-tol 0.05] [--abs-tol 0.01]
                                             [--metrics NAME,...] [--fail-on-worse]
+                                            [--xy-only | --z-only]
 
 BEFORE_DIR and AFTER_DIR are roots of recordings, $RV_SCENARIO_DIR/<Suite>.<Test>/<case>/, made
 by two builds. Every directory below a root that holds groundtruth.jsonl is a scenario, named by
@@ -15,7 +16,8 @@ only listed. Only groundtruth.jsonl and tracks.jsonl are read, so builds with di
 state sizes can be compared.
 
 Per scenario each track is paired with a ground-truth object as in plot_scenario.py
-(utils.tracks.match_tracks) and its rows are matched to the ground truth in time. Rows before the
+(utils.tracks.match_tracks, by x, y and z distance; --xy-only: the ground plane, --z-only: the
+height) and its rows are matched to the ground truth in time. Rows before the
 warm-up and rows without ground truth are ignored. Metrics, all errors (lower is better):
 
 - horizontal_rms, horizontal_max: distance in x/y only [m].
@@ -41,6 +43,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # pylint: disable=wrong-import-position
+from utils.tracks import add_space_arguments  # noqa: E402
 from visualization.scenario_data import (  # noqa: E402
   GROUND_TRUTH_FILE,
   Scenario,
@@ -61,11 +64,12 @@ DEFAULT_ABS_TOL = 0.01
 TABLE_COLUMNS = ["metric", "before", "after", "delta", "verdict"]
 
 
-def _pair_frames(scenario: Scenario, warm_up: float, fps: Optional[float]) -> List[pd.DataFrame]:
+def _pair_frames(scenario: Scenario, warm_up: float, fps: Optional[float],
+                 space: str = "xyz") -> List[pd.DataFrame]:
   """Aligned rows of every paired track after the warm-up that have ground truth."""
   tolerance = 0.5 / (frame_rate(scenario.ground_truth) or 1.0)
   frames = []
-  for track_id, object_id in match_tracks_to_truth(scenario, fps):
+  for track_id, object_id in match_tracks_to_truth(scenario, fps, space):
     rows = align_track_to_truth(scenario, track_id, object_id, tolerance)
     rows = rows[(rows["t"] >= warm_up) & rows["x_gt"].notna()]
     if not rows.empty:
@@ -89,14 +93,15 @@ def _final_error(frames: List[pd.DataFrame], column: str, estimate) -> float:
 
 
 def scenario_metrics(directory, warm_up: float = DEFAULT_WARM_UP,
-                     fps: Optional[float] = None) -> Dict[str, float]:
+                     fps: Optional[float] = None, space: str = "xyz") -> Dict[str, float]:
   """Accuracy metrics of one recording; NaN where nothing can be computed.
 
-  Tracks are paired with ground-truth objects as in plot_scenario.py. `warm_up` seconds from the
-  first timestamp are skipped. `fps` defaults to the ground-truth frame rate. `tracks` is the
-  number of paired tracks.
+  Tracks are paired with ground-truth objects as in plot_scenario.py, by the distance over the
+  axes of `space` ("xyz", "xy" or "z"); the metrics themselves are per plane or height. `warm_up`
+  seconds from the first timestamp are skipped. `fps` defaults to the ground-truth frame rate.
+  `tracks` is the number of paired tracks.
   """
-  frames = _pair_frames(load_scenario(directory), warm_up, fps)
+  frames = _pair_frames(load_scenario(directory), warm_up, fps, space)
   metrics = {name: math.nan for name in METRICS}
   metrics["tracks"] = float(len(frames))
   if not frames:
@@ -123,17 +128,17 @@ def find_scenarios(root) -> Dict[str, Path]:
 
 
 def compare_recordings(before, after, warm_up: float = DEFAULT_WARM_UP,
-                       fps: Optional[float] = None) -> pd.DataFrame:
+                       fps: Optional[float] = None, space: str = "xyz") -> pd.DataFrame:
   """Metrics of the scenarios present in both roots.
 
   One row per scenario and metric, with the columns scenario, metric, before, after and
-  delta (after - before).
+  delta (after - before). `space` selects the axes of the track pairing.
   """
   before_scenarios, after_scenarios = find_scenarios(before), find_scenarios(after)
   rows = []
   for name in sorted(before_scenarios.keys() & after_scenarios.keys()):
-    old = scenario_metrics(before_scenarios[name], warm_up, fps)
-    new = scenario_metrics(after_scenarios[name], warm_up, fps)
+    old = scenario_metrics(before_scenarios[name], warm_up, fps, space)
+    new = scenario_metrics(after_scenarios[name], warm_up, fps, space)
     for metric in METRICS:
       rows.append({"scenario": name, "metric": metric, "before": old[metric],
                    "after": new[metric], "delta": new[metric] - old[metric]})
@@ -199,6 +204,7 @@ def _build_parser() -> argparse.ArgumentParser:
                       help="metrics to show, default all: %(default)s")
   parser.add_argument("--fail-on-worse", action="store_true",
                       help="exit with 1 if any metric is WORSE")
+  add_space_arguments(parser)
   return parser
 
 
@@ -224,7 +230,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.error(f"no scenario in common: {len(before)} in {args.before}, {len(after)} in "
                  f"{args.after}; a scenario is a directory with {GROUND_TRUTH_FILE}, matched by "
                  "its path relative to the root")
-  comparison = compare_recordings(args.before, args.after, args.warm_up, args.fps)
+  comparison = compare_recordings(args.before, args.after, args.warm_up, args.fps, args.space)
   comparison = comparison[comparison["metric"].isin(args.metrics)]
   worse = better = scenarios_worse = 0
   for name, rows in comparison.groupby("scenario", sort=True):

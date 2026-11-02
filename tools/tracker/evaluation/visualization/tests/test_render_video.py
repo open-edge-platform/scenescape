@@ -226,6 +226,17 @@ def test_zoom_side_command_line(climbing_recording, capsys):
     "overview.gif", "zoom_1.gif", "zoom_1_xz.gif", "zoom_1_yz.gif"]
 
 
+def test_pairing_space_flags(recording, capsys):
+  """--xy-only and --z-only reach the pairing; the space is checked and the flags exclude each other."""
+  assert main([str(recording), "--gif", "--xy-only"]) == 0
+  assert main([str(recording), "--gif", "--z-only"]) == 0
+  assert capsys.readouterr().out.count("overview.gif") == 2
+  with pytest.raises(ValueError, match="space"):
+    render_video(recording, gif=True, space="xz")
+  with pytest.raises(SystemExit):
+    main([str(recording), "--gif", "--xy-only", "--z-only"])
+
+
 def test_side_views_without_size_or_z(tracker_output, tmp_path):
   """Objects without a size are points; tracker output with z = 0 still renders."""
   written = render_video(tracker_output, output=tmp_path / "out", gif=True, side_views="always")

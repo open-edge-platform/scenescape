@@ -76,6 +76,7 @@ evaluators:
   - class: evaluators.trackeval_evaluator.TrackEvalEvaluator
     config:
       metrics: [HOTA, MOTA, IDF1]
+      # space: xy   # optional: measure the ground plane (xy) or the height (z) only, default x, y and z
   - class: evaluators.diagnostic_evaluator.DiagnosticEvaluator
     config:
       metrics: [LOC_T_X, LOC_T_Y, DIST_T]
@@ -285,7 +286,7 @@ evaluation/
 | Evaluator                 | Metrics                                                                                                                                                     | Description                                                                                                                                                                                                                         |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TrackEvalEvaluator`      | HOTA, MOTA, IDF1, and more                                                                                                                                  | Industry-standard tracking accuracy metrics via the TrackEval library                                                                                                                                                               |
-| `DiagnosticEvaluator`     | `LOC_T_X`, `LOC_T_Y`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `num_matches`                                                | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames                                                                  |
+| `DiagnosticEvaluator`     | `LOC_T_X`, `LOC_T_Y`, `LOC_T_Z`, `DIST_T` → summary scalars: `DIST_T_mean`, `LOC_T_X_mae`, `LOC_T_Y_mae`, `LOC_T_Z_mae`, `num_matches`                                                | Per-frame location and distance error between matched tracker output tracks and ground-truth tracks; uses bipartite (Hungarian) assignment over overlapping frames; x, y and z by default                                                                  |
 | `JitterEvaluator`         | `rms_jerk`, `rms_jerk_gt`, `rms_jerk_ratio`, `acceleration_variance`, `acceleration_variance_gt`, `acceleration_variance_ratio`, `rms_angular_displacement` | Trajectory smoothness metrics based on numerical differentiation of 3D positions and frame-to-frame quaternion angular displacement; GT and ratio variants allow comparing tracker-added positional jitter against test-data jitter |
 | `CameraAccuracyEvaluator` | `DIST_T` → `dist_mean_all`, `dist_mean_{cam}`, `dist_mean_{cam}_{obj}`; `VISIBILITY` → `visibility_{cam}_{obj}` (frames + %)                                | Per-camera, per-object projection accuracy: mean distance error and visibility frame count. Designed to pair with `CameraProjectionHarness`.                                                                                        |
 

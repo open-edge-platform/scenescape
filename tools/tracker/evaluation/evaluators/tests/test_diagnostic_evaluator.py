@@ -566,3 +566,98 @@ class TestSetBaseFps:
     ev.set_output_folder(temp_output_folder)
     with pytest.raises(RuntimeError, match="Frame rate is required"):
       ev.process_tracker_outputs(iter(tracker_outputs), gt_file)
+
+
+def _write_gt(tmp_path, num_frames, objects):
+  """Ground-truth JSONL with objects standing still at (x, y, z): {id: (x, y, z)}."""
+  import json
+  lines = [json.dumps({
+    "timestamp": _make_timestamp(frame),
+    "objects": [{"id": oid, "category": "person", "translation": list(position)}
+                for oid, position in objects.items()],
+  }) for frame in range(num_frames)]
+  path = tmp_path / "ground_truth_3d.jsonl"
+  path.write_text("\n".join(lines))
+  return str(path)
+
+
+class TestSpace:
+  """x, y and z by default; the ground plane or the height only on request."""
+
+  NUM_FRAMES = MIN_OVERLAP_FRAMES + 5
+
+  def _evaluate(self, tmp_path, space=None, metrics=('DIST_T', 'LOC_T_X', 'LOC_T_Z')):
+    """Track 0.3, 0.4, 1.2 m off a standing truth: planar error 0.5, vertical 1.2, total 1.3."""
+    ev = DiagnosticEvaluator().configure_metrics(list(metrics)).set_base_fps(10.0)
+    if space:
+      ev.set_space(space)
+    outputs = _make_tracker_outputs(self.NUM_FRAMES, {"t": lambda i: (0.3, 0.4, 1.2)})
+    ev.process_tracker_outputs(iter(outputs), _write_gt(tmp_path, self.NUM_FRAMES, {1: (0, 0, 0)}))
+    return ev.evaluate_metrics()
+
+  def test_default_is_3d(self, tmp_path):
+    """The distance covers x, y and z, and LOC_T_Z is the per-axis height error."""
+    results = self._evaluate(tmp_path)
+
+    assert results['DIST_T_mean'] == pytest.approx(1.3)
+    assert results['LOC_T_X_mae'] == pytest.approx(0.3)
+    assert results['LOC_T_Z_mae'] == pytest.approx(1.2)
+
+  def test_plane_and_height_only(self, tmp_path):
+    """The split flags leave out the other axes; the per-axis metrics do not change."""
+    plane = self._evaluate(tmp_path, 'xy')
+    height = self._evaluate(tmp_path, 'z')
+
+    assert plane['DIST_T_mean'] == pytest.approx(0.5)
+    assert height['DIST_T_mean'] == pytest.approx(1.2)
+    assert plane['LOC_T_Z_mae'] == pytest.approx(1.2)
+
+  def test_matching_uses_the_height(self, tmp_path):
+    """Tracks at the same x, y but other heights are paired by height, not swapped."""
+    ev = DiagnosticEvaluator().configure_metrics(['DIST_T']).set_base_fps(10.0)
+    outputs = _make_tracker_outputs(
+      self.NUM_FRAMES, {"a": lambda i: (1.0, 0.0, 0.0), "b": lambda i: (1.0, 0.0, 5.0)})
+    gt = _write_gt(tmp_path, self.NUM_FRAMES, {1: (1.0, 0.0, 5.0), 2: (1.0, 0.0, 0.0)})
+    ev.process_tracker_outputs(iter(outputs), gt)
+
+    assert ev.evaluate_metrics()['DIST_T_mean'] == pytest.approx(0.0)
+
+  def test_planar_data_is_unchanged(self, tmp_path):
+    """Positions without a z are compared in the plane."""
+    ev = DiagnosticEvaluator().configure_metrics(['DIST_T', 'LOC_T_Z']).set_base_fps(10.0)
+    outputs = _make_tracker_outputs(self.NUM_FRAMES, {"t": lambda i: (0.3, 0.4)})
+    ev.process_tracker_outputs(iter(outputs), _write_gt(tmp_path, self.NUM_FRAMES, {1: (0, 0)}))
+
+    results = ev.evaluate_metrics()
+
+    assert results['DIST_T_mean'] == pytest.approx(0.5)
+    assert results['LOC_T_Z_mae'] == 0.0
+
+  def test_height_only_needs_heights(self, tmp_path):
+    """Without a z on both sides the height cannot be measured."""
+    ev = DiagnosticEvaluator().configure_metrics(['DIST_T']).set_base_fps(10.0).set_space('z')
+    outputs = _make_tracker_outputs(self.NUM_FRAMES, {"t": lambda i: (0.3, 0.4)})
+    ev.process_tracker_outputs(iter(outputs), _write_gt(tmp_path, self.NUM_FRAMES, {1: (0, 0)}))
+
+    with pytest.raises(ValueError, match="needs positions with a z"):
+      ev.evaluate_metrics()
+
+  def test_set_space(self, evaluator):
+    """set_space validates, chains and is cleared by reset()."""
+    assert evaluator.set_space('xy') is evaluator
+    with pytest.raises(ValueError, match="space"):
+      evaluator.set_space('xz')
+    assert evaluator._space == 'xy'
+    assert evaluator.reset()._space == 'xyz'
+
+  def test_loc_t_z_files(self, tmp_path, temp_output_folder):
+    """LOC_T_Z writes its CSV like the other axes."""
+    ev = DiagnosticEvaluator().configure_metrics(['LOC_T_Z']).set_base_fps(10.0)
+    ev.set_output_folder(temp_output_folder)
+    outputs = _make_tracker_outputs(self.NUM_FRAMES, {"t": lambda i: (0.0, 0.0, 1.2)})
+    ev.process_tracker_outputs(iter(outputs), _write_gt(tmp_path, self.NUM_FRAMES, {1: (0, 0, 0)}))
+    ev.evaluate_metrics()
+
+    table = pd.read_csv(temp_output_folder / 'LOC_T_Z.csv')
+    assert list(table['value_track']) == [1.2] * self.NUM_FRAMES
+    assert list(table['value_gt']) == [0.0] * self.NUM_FRAMES

@@ -54,7 +54,7 @@ Run all commands from `tools/tracker/evaluation`.
 | Plot                | Content                                                                                            |
 | ------------------- | -------------------------------------------------------------------------------------------------- |
 | `trajectory`        | Top-down view: ground truth, detections and tracks                                                 |
-| `position_error`    | Total, along-track and cross-track error against the matched ground truth, ±2σ from P              |
+| `position_error`    | Total error (x, y, z), along-track and cross-track error in the plane, and the vertical error (with vertical motion) against the matched ground truth, ±2σ from P |
 | `speed_yaw`         | Speed, yaw and yaw rate: estimate vs truth and orienting detections                                |
 | `altitude`          | z and vz of truth, detections and estimate; only for recordings with vertical motion               |
 | `size`              | Length, width and height: estimate vs truth vs detections                                          |
@@ -62,8 +62,12 @@ Run all commands from `tools/tracker/evaluation`.
 | `std_dev`           | √diag P: position (x, y, z), velocity (vx, vy, vz), yaw, yaw rate and size (log scale)             |
 | `trackeval`         | [TrackEval](../evaluators/README.md#trackevalevaluator) HOTA, DetA, AssA, LocA and TP/FN/FP over d |
 
-Along-track and cross-track values are projected onto the ground truth's direction of motion; cross-track is positive
-to the left. d is the position error TrackEval accepts at each similarity threshold α, d = 2 m · (1 − α); the
+Along-track and cross-track values are projected onto the ground truth's direction of motion in the plane; cross-track
+is positive to the left. The total error is the distance over x, y and z, over the plane with `--xy-only` and the
+height with `--z-only` (see [Axes](../evaluators/README.md#axes-of-the-position-measures)); the same space selects the
+axes of the pairing of tracks with ground truth and of TrackEval's distance. With `--xy-only` the plot has the planar
+panels, with `--z-only` the total and the vertical panel. d is the position error TrackEval accepts at each similarity
+threshold α, d = 2 m · (1 − α); the
 comparison shows HOTA and LocA over d and HOTA, MOTA, IDF1 and LocA per directory; its score axis extends below zero
 for a negative MOTA. Plots without data, e.g. the estimator plots for pipeline runs, are skipped; a TrackEval failure
 only skips the TrackEval plots, with a warning.
@@ -92,6 +96,8 @@ only skips the TrackEval plots, with a warning.
 | --------------- | ----- | ------------------------------------------------------------------------------------------------ |
 | `--output DIR`  | both  | Output directory, default `$S/plots` or `$S/videos`; one directory only                          |
 | `--fps N`       | both  | Frame rate for pairing tracks with ground truth and for TrackEval, default the ground-truth rate |
+| `--xy-only`     | both  | Pair, measure and score over the ground plane (x, y) only; default x, y and z                    |
+| `--z-only`      | both  | Pair, measure and score over the height (z) only; default x, y and z                             |
 | `--plots A,B`   | plot  | Subset of the plots                                                                              |
 | `--zoom ID`     | video | Ground-truth object id or track id to follow; repeatable                                         |
 | `--speed F`     | video | Playback speed, default 1 (real time); at most 30 video frames per second                        |
@@ -110,7 +116,7 @@ only skips the TrackEval plots, with a warning.
 | `tracks.jsonl`      | `harness/outputs.jsonl`      | [Tracker output](../README.md#tracker-output-format)                                                                                            |
 | `estimator.jsonl`   | –                            | Per track a `config` line (with `association` for tracker-level runs), then per step model probabilities, state, P, predicted measurement and S |
 
-Any file may be missing. Tracks are paired with ground-truth objects by position with `match_tracks()` from
+Any file may be missing. Tracks are paired with ground-truth objects by position (x, y and z) with `match_tracks()` from
 [utils/tracks.py](../utils/tracks.py), so their ids may differ; frames count from the first track or ground-truth
 sample, as in the evaluators. Recorder timestamps start at the `system_clock` epoch; the tools show seconds since the
 first timestamp.
@@ -129,7 +135,7 @@ the two roots:
 
 ```bash
 python visualization/compare_scenarios.py $BEFORE $AFTER [--warm-up S] [--fps N] [--rel-tol 0.05] [--abs-tol 0.01] \
-  [--metrics A,B] [--fail-on-worse]
+  [--metrics A,B] [--fail-on-worse] [--xy-only | --z-only]
 ```
 
 A scenario is a directory below a root that holds `groundtruth.jsonl`, named by its path relative to the root, e.g.

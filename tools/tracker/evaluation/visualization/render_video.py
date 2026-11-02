@@ -6,7 +6,7 @@
 Usage (from tools/tracker/evaluation):
   python visualization/render_video.py <scenario dir> [--zoom ID] [--speed F] [--trail S]
                                        [--zoom-size M] [--side-views MODE] [--zoom-side] [--gif]
-                                       [--output DIR] [--fps FPS]
+                                       [--output DIR] [--fps FPS] [--xy-only | --z-only]
 
 Writes <scenario dir>/videos/overview.mp4: all ground-truth objects (black, dashed)
 and tracks (one colour each) as boxes with position, size and heading, and their
@@ -22,9 +22,10 @@ the association gate from the track's estimator config: the χ² ellipse of the 
 of the predicted measurement covariance S (most probable model) for
 position_mahalanobis, without the max_radius_m ceiling, or a circle of max_radius_m for
 euclidean. Without an association config it is the 99% confidence ellipse of S.
-objects without a size are drawn as points. With --zoom-side each --zoom ID also adds
+Objects without a size are drawn as points. With --zoom-side each --zoom ID also adds
 zoom_<ID>_xz.mp4 and zoom_<ID>_yz.mp4: the x-z and y-z side views, true to scale, following
-the object.
+the object. Tracks are paired with ground-truth objects by x, y and z distance (--xy-only: the
+ground plane, --z-only: the height).
 """
 
 import argparse
@@ -47,6 +48,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # pylint: disable=wrong-import-position
 from visualization.plot_scenario import Pairs, label, pair_tracks, track_color  # noqa: E402
+from utils.tracks import add_space_arguments  # noqa: E402
 from visualization.scenario_data import (  # noqa: E402
   EstimatorTrace,
   Scenario,
@@ -292,7 +294,7 @@ def render_video(directory, *, output=None,  # pylint: disable=too-many-argument
                  zoom: Optional[Sequence[str]] = None, speed: float = 1.0, trail: float = 2.0,
                  zoom_size: Optional[float] = None, gif: bool = False,
                  fps: Optional[float] = None, side_views: str = "auto",
-                 zoom_side: bool = False) -> List[Path]:
+                 zoom_side: bool = False, space: str = "xyz") -> List[Path]:
   """Render the overview video and one zoom video per id in `zoom`.
 
   Args:
@@ -308,6 +310,7 @@ def render_video(directory, *, output=None,  # pylint: disable=too-many-argument
       x-z and y-z views under the top-down view of the overview video.
     zoom_side: Also write zoom_<ID>_xz and zoom_<ID>_yz, the x-z and y-z side views following
       each zoom target.
+    space: Axes of the pairing of tracks with ground truth: "xyz" (default), "xy" or "z".
 
   Returns:
     Written files.
@@ -324,7 +327,7 @@ def render_video(directory, *, output=None,  # pylint: disable=too-many-argument
   scenario = load_scenario(directory)
   if scenario.ground_truth.empty and scenario.tracks.empty:
     raise RenderError(f"No ground truth or tracks in {directory}")
-  pairs = pair_tracks(scenario, fps)
+  pairs = pair_tracks(scenario, fps, space)
   targets = [_zoom_target(scenario, pairs, item_id) for item_id in (zoom or [])]
   if not gif and not animation.writers.is_available("ffmpeg"):
     raise RenderError("ffmpeg is not available; install it or use --gif")
@@ -555,6 +558,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                       help="with --zoom, also write zoom_<ID>_xz and zoom_<ID>_yz: the x-z and "
                       "y-z side views following the object")
   parser.add_argument("--output", type=Path, help="output directory (default: <directory>/videos)")
+  add_space_arguments(parser)
   parser.add_argument("--fps", type=float,
                       help="frame rate for pairing tracks with ground truth "
                       "(default: from ground truth)")
@@ -562,7 +566,8 @@ def main(argv: Optional[List[str]] = None) -> int:
   try:
     written = render_video(args.directory, output=args.output, zoom=args.zoom, speed=args.speed,
                            trail=args.trail, zoom_size=args.zoom_size, gif=args.gif,
-                           fps=args.fps, side_views=args.side_views, zoom_side=args.zoom_side)
+                           fps=args.fps, side_views=args.side_views, zoom_side=args.zoom_side,
+                           space=args.space)
   except (FileNotFoundError, RenderError) as error:
     parser.error(str(error))
   for path in written:
