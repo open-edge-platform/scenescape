@@ -51,16 +51,16 @@ Run all commands from `tools/tracker/evaluation`.
 
 ### Plots
 
-| Plot                | Content                                                                                            |
-| ------------------- | -------------------------------------------------------------------------------------------------- |
-| `trajectory`        | Top-down view: ground truth, detections and tracks                                                 |
+| Plot                | Content                                                                                                                                                           |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `trajectory`        | Top-down view: ground truth, detections and tracks                                                                                                                |
 | `position_error`    | Total error (x, y, z), along-track and cross-track error in the plane, and the vertical error (with vertical motion) against the matched ground truth, ±2σ from P |
-| `speed_yaw`         | Speed, yaw and yaw rate: estimate vs truth and orienting detections                                |
-| `altitude`          | z and vz of truth, detections and estimate; only for recordings with vertical motion               |
-| `size`              | Length, width and height: estimate vs truth vs detections                                          |
-| `model_probability` | Motion model probabilities per track                                                               |
-| `std_dev`           | √diag P: position (x, y, z), velocity (vx, vy, vz), yaw, yaw rate and size (log scale)             |
-| `trackeval`         | [TrackEval](../evaluators/README.md#trackevalevaluator) HOTA, DetA, AssA, LocA and TP/FN/FP over d |
+| `speed_yaw`         | Speed, yaw and yaw rate: estimate vs truth and orienting detections                                                                                               |
+| `altitude`          | z and vz of truth, detections and estimate; only for recordings with vertical motion                                                                              |
+| `size`              | Length, width and height: estimate vs truth vs detections                                                                                                         |
+| `model_probability` | Motion model probabilities per track                                                                                                                              |
+| `std_dev`           | √diag P: position (x, y, z), velocity (vx, vy, vz), yaw, yaw rate and size (log scale)                                                                            |
+| `trackeval`         | [TrackEval](../evaluators/README.md#trackevalevaluator) HOTA, DetA, AssA, LocA and TP/FN/FP over d                                                                |
 
 Along-track and cross-track values are projected onto the ground truth's direction of motion in the plane; cross-track
 is positive to the left. The total error is the distance over x, y and z, over the plane with `--xy-only` and the
@@ -92,20 +92,20 @@ only skips the TrackEval plots, with a warning.
 
 ### Options
 
-| Option          | Tool  | Description                                                                                      |
-| --------------- | ----- | ------------------------------------------------------------------------------------------------ |
-| `--output DIR`  | both  | Output directory, default `$S/plots` or `$S/videos`; one directory only                          |
-| `--fps N`       | both  | Frame rate for pairing tracks with ground truth and for TrackEval, default the ground-truth rate |
-| `--xy-only`     | both  | Pair, measure and score over the ground plane (x, y) only; default x, y and z                    |
-| `--z-only`      | both  | Pair, measure and score over the height (z) only; default x, y and z                             |
-| `--plots A,B`   | plot  | Subset of the plots                                                                              |
-| `--zoom ID`     | video | Ground-truth object id or track id to follow; repeatable                                         |
-| `--speed F`     | video | Playback speed, default 1 (real time); at most 30 video frames per second                        |
-| `--trail S`     | video | Trail length in seconds, default 2                                                               |
-| `--zoom-size M` | video | Zoom window width in metres, default 4× the object's largest dimension, at least 4               |
-| `--side-views M`| video | x–z and y–z views under the overview: `auto` (default, only with vertical motion), `always`, `never` |
-| `--zoom-side`   | video | With `--zoom`, also write `zoom_<ID>_xz` and `zoom_<ID>_yz`, the side views following the object  |
-| `--gif`         | video | GIF instead of MP4                                                                               |
+| Option           | Tool  | Description                                                                                          |
+| ---------------- | ----- | ---------------------------------------------------------------------------------------------------- |
+| `--output DIR`   | both  | Output directory, default `$S/plots` or `$S/videos`; one directory only                              |
+| `--fps N`        | both  | Frame rate for pairing tracks with ground truth and for TrackEval, default the ground-truth rate     |
+| `--xy-only`      | both  | Pair, measure and score over the ground plane (x, y) only; default x, y and z                        |
+| `--z-only`       | both  | Pair, measure and score over the height (z) only; default x, y and z                                 |
+| `--plots A,B`    | plot  | Subset of the plots                                                                                  |
+| `--zoom ID`      | video | Ground-truth object id or track id to follow; repeatable                                             |
+| `--speed F`      | video | Playback speed, default 1 (real time); at most 30 video frames per second                            |
+| `--trail S`      | video | Trail length in seconds, default 2                                                                   |
+| `--zoom-size M`  | video | Zoom window width in metres, default 4× the object's largest dimension, at least 4                   |
+| `--side-views M` | video | x–z and y–z views under the overview: `auto` (default, only with vertical motion), `always`, `never` |
+| `--zoom-side`    | video | With `--zoom`, also write `zoom_<ID>_xz` and `zoom_<ID>_yz`, the side views following the object     |
+| `--gif`          | video | GIF instead of MP4                                                                                   |
 
 ### Input files
 

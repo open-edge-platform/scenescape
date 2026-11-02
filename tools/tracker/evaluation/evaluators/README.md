@@ -88,7 +88,7 @@ the canonical formats, as robot-vision test recordings have. From `tools/tracker
 | `--output DIR`  | Output directory, default `<input>/metrics`                                                                               |
 | `--fps N`       | Frame rate for matching timestamps, default the median ground-truth rate; set it to the dataset's `camera_fps` when known |
 | `--xy-only`     | Measure the ground plane only, default x, y and z, see [Axes](#axes-of-the-position-measures)                             |
-| `--z-only`      | Measure the height only, default x, y and z                                                                                |
+| `--z-only`      | Measure the height only, default x, y and z                                                                               |
 
 **Implementation**: [trackeval_evaluator.py](trackeval_evaluator.py)
 
