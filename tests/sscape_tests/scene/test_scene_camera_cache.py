@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from django.test import TestCase
+from django.contrib.auth.models import User
+from django.urls import reverse
 from unittest.mock import patch
 
 from manager.models import Cam, Scene
@@ -96,6 +98,16 @@ class SceneCameraCacheTestCase(TestCase):
     form = CamCreateForm(data={'sensor_id': 'new-policy', 'name': 'New policy'})
     self.assertTrue(form.is_valid(), form.errors)
     self.assertEqual(form.save().pose_policy, 'observation')
+
+  def test_calibration_page_renders_pose_policy_selector(self):
+    user = User.objects.create_superuser('pose-policy-user', 'pose@example.com', 'password')
+    self.client.force_login(user)
+
+    response = self.client.get(reverse('cam_calibrate', args=[self.cam.pk]))
+
+    self.assertEqual(response.status_code, 200)
+    self.assertContains(response, 'id="pose_policy_wrapper"')
+    self.assertContains(response, 'id="id_pose_policy"')
 
   def test_same_scene_api_update_preserves_pose(self):
     """A 3D UI save in the current scene must persist its Euler pose."""

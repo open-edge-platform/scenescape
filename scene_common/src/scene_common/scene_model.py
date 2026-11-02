@@ -83,6 +83,13 @@ class SceneModel:
       camera.pose = CameraPose(previous.pose.pose_mat.copy(), camera.pose.intrinsics)
       camera.pose_source = POSE_OBSERVATION
 
+  def retainObservedCameraPoses(self, previous_scene):
+    """Transfer eligible observed poses from a replaced scene instance."""
+    with self._camera_lock:
+      previous_cameras = getattr(previous_scene, 'cameras', {})
+      for camera_id, camera in self.cameras.items():
+        self._retainObservedPose(camera, previous_cameras.get(camera_id))
+
   def updateCameraPose(self, camera_id, extrinsics):
     """Replace an observation-authorized pose without changing durable calibration."""
     with self._camera_lock:

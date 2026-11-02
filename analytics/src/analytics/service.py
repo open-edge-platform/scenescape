@@ -188,8 +188,14 @@ class AnalyticsService:
       for detection in detections:
         obj = lookup.get(detection['id'])
         if obj is not None:
+          self._refresh_cached_visibility(obj, detection)
           computeCameraBounds(observation_scene, obj, detection)
     return objects
+
+  @staticmethod
+  def _refresh_cached_visibility(obj, detection):
+    if getattr(obj, '_visibility_from_producer', None) is False:
+      detection['visibility'] = getattr(obj, 'visibility', None) or []
 
   def publishRegionDetections(self, scene, objects, otype, jdata):
     current_time = get_epoch_time(jdata['timestamp'])
@@ -259,7 +265,7 @@ class AnalyticsService:
     # Prefer producer-supplied visibility; fill gaps before events so event
     # payloads and regulated output share the same camera ID lists.
     observation_scene = self._prepare_observation_scene(scene, jdata, None)
-    observation_scene._updateVisible(analytics_objects)
+    observation_scene._updateVisible(scene.getAllTrackedObjects())
     scene._updateEvents(detection_type, msg_when, analytics_objects,
                         publish_fn=self.pubsub.publish)
     self.publishDetections(scene, analytics_objects, msg_when, detection_type, jdata, None,

@@ -166,6 +166,9 @@ class AnalyticsScene(SceneModel):
   def getTrackedObjects(self, detection_type):
     return self._ingestion.get_objects(detection_type)
 
+  def getAllTrackedObjects(self):
+    return self._ingestion.get_all_objects()
+
   def _deserializeTrackedObjects(self, serialized_objects):
     return self._ingestion.deserialize(serialized_objects, self.sensors)
 
@@ -255,7 +258,7 @@ class AnalyticsScene(SceneModel):
     """
     for obj in curObjects:
       existing = getattr(obj, 'visibility', None)
-      if existing:
+      if getattr(obj, '_visibility_from_producer', bool(existing)):
         continue
       vis = []
       for sname in self.cameras:

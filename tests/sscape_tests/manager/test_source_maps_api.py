@@ -252,6 +252,40 @@ def test_zip_map_upload_extracts_glb_and_invalidates_processed_state(client, sce
   assert saved.map.name == map_name
 
 
+def test_zip_map_reupload_uses_storage_resolved_archive_name(client, scene):
+  first_upload, _ = _bundle({
+    "capture/raw.glb": _glb(), "capture/mesh_info.json": b"{}",
+    "capture/keyframes/images/0.jpg": b"image",
+    "capture/keyframes/depth/0.png": b"depth",
+    "capture/keyframes/cameras/0.json": b"{}",
+  })
+  response = client.post(f"/api/v1/scene/{scene.pk}", {
+    "name": scene.name, "map": first_upload,
+  }, format="multipart")
+  assert response.status_code == 200, response.content
+  scene.refresh_from_db()
+  first_archive = scene.polycam_data.name
+
+  replacement_glb = trimesh.creation.box(extents=(2, 2, 2)).export(file_type="glb")
+  replacement_upload, _ = _bundle({
+    "capture/raw.glb": replacement_glb, "capture/mesh_info.json": b"{}",
+    "capture/keyframes/images/0.jpg": b"image",
+    "capture/keyframes/depth/0.png": b"depth",
+    "capture/keyframes/cameras/0.json": b"{}",
+  })
+  response = client.post(f"/api/v1/scene/{scene.pk}", {
+    "name": scene.name, "map": replacement_upload,
+  }, format="multipart")
+
+  assert response.status_code == 200, response.content
+  scene.refresh_from_db()
+  assert scene.polycam_data.name != first_archive
+  with zipfile.ZipFile(scene.polycam_data.path) as archive:
+    assert archive.read("capture/raw.glb") == replacement_glb
+  with open(scene.map.path, "rb") as map_file:
+    assert map_file.read() == replacement_glb
+
+
 @pytest.mark.parametrize("method", ["post", "put"])
 def test_placement_only_multipart_preserves_map_and_updates_source(client, scene, method):
   assert _put_mesh(client, scene, "rtabmap").status_code == 200

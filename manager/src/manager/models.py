@@ -320,6 +320,13 @@ class Scene(models.Model):
     if self.changedCalibrationParams() or map_changed:
       self.map_processed = None
 
+  def _storeMapArchiveReference(self, glb_from_zip, map_zip_upload):
+    if not map_zip_upload:
+      return glb_from_zip
+    self.polycam_data = self.map.name
+    type(self).objects.filter(pk=self.pk).update(polycam_data=self.map.name)
+    return self.polycam_data
+
   def save(self, *args, **kwargs):
     updated_scene = self.id
     send_update_command = kwargs.pop("send_update_command", True)
@@ -327,11 +334,13 @@ class Scene(models.Model):
     self.output_dir = f"{os.getcwd()}/datasets/{self.name}/output_dir"
     try:
       glb_from_zip = None
+      map_zip_upload = False
       # use glb from zip uploaded in map and copy zip to polycam data
       if (self._original_map != self.map) and \
                       os.path.splitext(self.map.name)[1].lower() == ".zip":
         self.polycam_data = self.map.name
         glb_from_zip = self.polycam_data
+        map_zip_upload = True
         self.camera_calibration = MARKERLESS
       # use glb from zip uploaded in polycam data
       if (self._original_polycam_data != self.polycam_data):
@@ -339,6 +348,7 @@ class Scene(models.Model):
 
       self._invalidateMapState(glb_from_zip)
       super().save(*args, **kwargs)
+      glb_from_zip = self._storeMapArchiveReference(glb_from_zip, map_zip_upload)
 
       if glb_from_zip:
         try:

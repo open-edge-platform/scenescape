@@ -466,6 +466,53 @@ class TestCacheManagerInvalidation:
 class TestCacheManagerSensorRestoration:
   """Test sensor cache restoration functionality."""
 
+  def test_replacement_scene_retains_observed_camera_pose_only(self):
+    from scene_common.scene_model import SceneModel
+
+    camera_data = {
+      'uid': 'camera-1', 'resolution': [640, 480],
+      'intrinsics': {'fx': 500, 'fy': 500, 'cx': 320, 'cy': 240},
+      'translation': [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
+      'pose_policy': 'observation',
+    }
+    previous = SceneModel('scene-name', None)
+    previous.uid = 'scene-uid'
+    previous.sensors = {}
+    previous.tracker = Mock()
+    previous.updateCameras([camera_data])
+    previous.updateCameraPose('camera-1', {
+      'translation': [10, 20, 3], 'rotation': [180, 0, 0],
+    })
+
+    replacement = SceneModel('scene-name', None)
+    replacement.uid = 'scene-uid'
+    replacement.sensors = {}
+    replacement.updateCameras([dict(camera_data, intrinsics={
+      'fx': 900, 'fy': 900, 'cx': 320, 'cy': 240,
+    })])
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._old_scene_cache = {'scene-uid': previous}
+    cache_mgr.cached_scenes_by_uid = {}
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+    cache_mgr._scene_cls = SimpleNamespace(deserialize=Mock(return_value=replacement))
+
+    with patch('scene_common.cache_manager.CameraRegistry.getInstance'), \
+         patch('scene_common.cache_manager.TrackedObjectRegistry.getInstance'):
+      cache_mgr._applySceneResults([{'uid': 'scene-uid', 'name': 'scene-name'}])
+
+    camera = cache_mgr.cached_scenes_by_uid['scene-uid'].cameras['camera-1']
+    assert previous.tracker.join.call_count == 1
+    assert camera.pose_source == 'observation'
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 900
+
+    replacement.updateCameras([dict(camera_data, pose_policy='configured')])
+    replacement.retainObservedCameraPoses(previous)
+    configured = replacement.cameras['camera-1']
+    assert configured.pose_source == 'configured'
+    assert configured.pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
   @pytest.mark.parametrize("has_tracker,sensor_value,replace", [
     (True, None, True),
     (True, 42, False),

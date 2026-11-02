@@ -237,22 +237,25 @@ def test_dynamic_pose_reprojects_other_categories_and_empty_category_frames():
     ))
     return orjson.loads(service.pubsub.publish.call_args.args[1])
 
-  person = {'id': 'p1', 'category': 'person', 'translation': [0, 0, 0],
-            'size': [0.5, 0.5, 1.7], 'visibility': ['mobile']}
+  person = {'id': 'p1', 'category': 'person', 'translation': [2.5, 0, 0],
+            'size': [0.5, 0.5, 1.7]}
   vehicle = {'id': 'v1', 'category': 'vehicle', 'translation': [0.5, 0, 0],
              'size': [1, 1, 1], 'visibility': ['mobile']}
   first = frame('person', 0, [person])
+  first_person = next(obj for obj in first['objects'] if obj['id'] == 'p1')
+  assert first_person['visibility'] == []
   with patch('analytics.service.computeCameraBounds', wraps=computeCameraBounds) as bounds:
-    second = frame('vehicle', 0.2, [vehicle])
+    second = frame('vehicle', 2.5, [vehicle])
   assert {call.args[1].category for call in bounds.call_args_list} == {'person', 'vehicle'}
   for call in bounds.call_args_list:
-    assert call.args[0].cameras['mobile'].pose.translation.x == pytest.approx(0.2)
+    assert call.args[0].cameras['mobile'].pose.translation.x == pytest.approx(2.5)
   p1 = next(obj for obj in second['objects'] if obj['id'] == 'p1')
-  assert p1['camera_bounds'] != first['objects'][0]['camera_bounds']
-  third = frame('vehicle', 0.4, [])
+  assert p1['visibility'] == ['mobile']
+  assert p1['camera_bounds']
+  third = frame('vehicle', 2.7, [])
   assert [obj['id'] for obj in third['objects']] == ['p1']
   assert third['objects'][0]['camera_bounds'] != p1['camera_bounds']
-  assert scene.cameras['mobile'].pose.translation.x == pytest.approx(0.4)
+  assert scene.cameras['mobile'].pose.translation.x == pytest.approx(2.7)
   assert scene.cameras['mobile'].pose_source == 'observation'
 
 
@@ -716,7 +719,8 @@ class TestHandleSceneDataMessage:
 
     scene.updateTrackedObjects.assert_called_once_with('person', [])
     scene.getTrackedObjects.assert_called_once_with('person')
-    scene.cameraSnapshot.return_value._updateVisible.assert_called_once_with(['analytics-obj'])
+    scene.cameraSnapshot.return_value._updateVisible.assert_called_once_with(
+      scene.getAllTrackedObjects.return_value)
     scene._updateEvents.assert_called_once()
     method_names = [name for name, _, _ in scene.mock_calls]
     assert method_names.index('cameraSnapshot()._updateVisible') < method_names.index('_updateEvents')

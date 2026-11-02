@@ -177,7 +177,12 @@ class CacheManager:
     if scene_cls is None:
       from controller.scene import Scene
       scene_cls = Scene
-    return scene_cls.deserialize(scene_data)
+    scene = scene_cls.deserialize(scene_data)
+    if previous is not None:
+      retain_poses = getattr(scene, 'retainObservedCameraPoses', None)
+      if retain_poses is not None:
+        retain_poses(previous)
+    return scene
 
   def _teardownScene(self, scene):
     """
