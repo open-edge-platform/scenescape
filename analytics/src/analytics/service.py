@@ -123,6 +123,7 @@ class AnalyticsService:
     return self.regulate_rate
 
   def _prepare_observation_scene(self, scene_obj, jdata, camera_id):
+    """Return a scene snapshot with this message's effective camera pose."""
     scene_uid = scene_obj.uid
     if scene_uid not in self.regulate_cache:
       self.regulate_cache[scene_uid] = {
