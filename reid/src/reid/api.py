@@ -238,7 +238,9 @@ class ReIDService:
     if not exists or dimensions is None or metric is None:
       raise CollectionSchemaConflictError(
         f"POI collection '{collection_name}' must be declared before enrollment")
-    return collection_name, adapter, int(dimensions), str(metric).strip().upper()
+    metric = str(metric).strip().upper()
+    adapter.similarity_metric = metric
+    return collection_name, adapter, int(dimensions), metric
 
   @staticmethod
   def _poi_audit(action, enrolled_by, vectors):
