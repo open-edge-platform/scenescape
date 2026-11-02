@@ -89,6 +89,20 @@ function computeVerticalFOVFromFy(fy, resolution) {
   return THREE.MathUtils.radToDeg(2 * Math.atan(resolution.h / (2 * fy)));
 }
 
+// Native frame size reported by the publisher; the image itself may be a
+// downscaled preview, so its pixel size must not be used with calibrated intrinsics.
+function getNativeResolution(data) {
+  const res = data && data.resolution;
+  if (
+    Array.isArray(res) &&
+    res.length === 2 &&
+    res.every((v) => Number.isFinite(v) && v > 0)
+  ) {
+    return { w: res[0], h: res[1] };
+  }
+  return null;
+}
+
 function computeFyFromDFOV(dFOV, resolution) {
   const vfov = computeVerticalFOVFromDiagonal(dFOV, resolution);
   return resolution.h / 2 / Math.tan(THREE.MathUtils.degToRad(vfov / 2));
@@ -1178,6 +1192,7 @@ export default class SceneCamera extends THREE.Object3D {
   //image: input frame to be projection mapped
   //scene: mesh onto which we will project
   projectCameraCapture(image, data, online = true) {
+    const nativeResolution = getNativeResolution(data);
     if (online) {
       clearInterval(this.interval);
       this.executeOnControl("aspect ratio", (control) => {
@@ -1187,7 +1202,7 @@ export default class SceneCamera extends THREE.Object3D {
         if (control[0]) control[0].destroy();
       });
       this.showCameraOnline();
-      this.updateCameraResolutionUsingInputFrame(image);
+      this.updateCameraResolutionUsingInputFrame(image, nativeResolution);
     }
 
     if (this.sceneCamera && this.projectFrame && !this.pauseVideo) {
@@ -1195,7 +1210,10 @@ export default class SceneCamera extends THREE.Object3D {
       loader.load(
         image,
         (texture) => {
-          this.resolution = { w: texture.image.width, h: texture.image.height };
+          this.resolution = nativeResolution || {
+            w: texture.image.width,
+            h: texture.image.height,
+          };
           this.sceneCamera.aspect = texture.image.width / texture.image.height;
           this.sceneCamera.fov = computeVerticalFOVFromFy(
             this.cameraMatrix.data64F[FY],
@@ -1229,11 +1247,11 @@ export default class SceneCamera extends THREE.Object3D {
     }
   }
 
-  updateCameraResolutionUsingInputFrame(image) {
+  updateCameraResolutionUsingInputFrame(image, nativeResolution = null) {
     const img = new Image();
     img.src = image;
     img.onload = (() => {
-      this.resolution = { w: img.width, h: img.height };
+      this.resolution = nativeResolution || { w: img.width, h: img.height };
       this.sceneCamera.aspect = this.resolution.w / this.resolution.h;
       let intrinsics = { ...this.intrinsics };
       intrinsics.cx = this.resolution.w / 2;

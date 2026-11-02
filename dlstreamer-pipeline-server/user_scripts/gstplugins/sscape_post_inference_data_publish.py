@@ -555,6 +555,9 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       self._annotate_objects(image)
       self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
     params = []
+    # Native size lets consumers keep using calibrated pixel intrinsics even
+    # when the image itself is downscaled below.
+    imgdatadict["resolution"] = [image.shape[1], image.shape[0]]
     if annotate:
       # Live View frames share the MQTT connection with detections; keep them
       # small so they neither delay detections nor exceed broker packet limits.

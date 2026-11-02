@@ -534,3 +534,11 @@ class TestBuildImageData:
   def test_calibration_image_keeps_full_resolution(self, element, monkeypatch):
     image, _ = self._build(element, monkeypatch, annotate=False)
     assert image.shape[:2] == (2160, 3840)
+
+  @pytest.mark.parametrize("annotate", [True, False])
+  def test_message_reports_native_resolution(self, element, monkeypatch, annotate):
+    frame = np.zeros((2160, 3840, 3), dtype=np.uint8)
+    monkeypatch.setattr(element, "_try_convert_to_bgr", lambda *_a: frame)
+    out = {}
+    element._build_image_data(out, MagicMock(), annotate)
+    assert out["resolution"] == [3840, 2160]
