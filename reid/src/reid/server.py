@@ -12,12 +12,10 @@ from google.protobuf import json_format
 from google.protobuf import struct_pb2
 
 from scene_common import log
-from reid.api import ReIDService
+from reid.api import ReIDService, validate_request
+from reid.client import SERVICE_NAME
 from reid.ingest import build_from_env
 from reid.reid_registry import create_reid_database
-
-
-SERVICE_NAME = "scenescape.reid.ReIDService"
 
 
 def _decode(request):
@@ -46,16 +44,25 @@ def _handler(function):
   def call(request, context):
     try:
       return _encode(function(_decode(request)))
-    except (KeyError, TypeError, ValueError) as error:
-      context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(error))
-    except Exception as error:
-      context.abort(grpc.StatusCode.INTERNAL, str(error))
+    except (KeyError, TypeError, ValueError):
+      context.abort(grpc.StatusCode.INVALID_ARGUMENT, "Invalid ReID request")
+    except ConnectionError:
+      context.abort(grpc.StatusCode.UNAVAILABLE, "ReID backend unavailable")
+    except Exception:
+      context.abort(grpc.StatusCode.INTERNAL, "ReID operation failed")
 
   return grpc.unary_unary_rpc_method_handler(
-    call,
-    request_deserializer=struct_pb2.Struct.FromString,
-    response_serializer=struct_pb2.Struct.SerializeToString,
+      call,
+      request_deserializer=struct_pb2.Struct.FromString,
+      response_serializer=struct_pb2.Struct.SerializeToString,
   )
+
+
+def _empty_request(function):
+  def call(request):
+    validate_request(request, set())
+    return function()
+  return call
 
 
 def create_server(service=None, workers=4):
@@ -63,14 +70,14 @@ def create_server(service=None, workers=4):
   service = service or ReIDService()
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=workers))
   handlers = {
-    "Health": _handler(lambda request: service.health()),
-    "FindMatches": _handler(service.find_matches),
-    "FindSchemaMetadata": _handler(service.find_schema_metadata),
-    "PurgeExpired": _handler(lambda request: {"result": service.purge_expired()}),
-    "IngestStats": _handler(lambda request: service.ingest_stats()),
+      "Health": _handler(_empty_request(service.health)),
+      "FindMatches": _handler(service.find_matches),
+      "FindSchemaMetadata": _handler(service.find_schema_metadata),
+      "PurgeExpired": _handler(_empty_request(lambda: {"result": service.purge_expired()})),
+      "IngestStats": _handler(_empty_request(service.ingest_stats)),
   }
   server.add_generic_rpc_handlers((
-    grpc.method_handlers_generic_handler(SERVICE_NAME, handlers),
+      grpc.method_handlers_generic_handler(SERVICE_NAME, handlers),
   ))
   return server
 
