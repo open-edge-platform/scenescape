@@ -129,65 +129,79 @@ class CacheManager:
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
 
-    old = set(self.cached_scenes_by_uid.keys())
-    new = set(x['uid'] for x in found)
-    deleted = old - new
-    for uid in deleted:
-      self._teardownScene(self.cached_scenes_by_uid.pop(uid, None))
-    for uid in set(self._scene_signatures) - new:
-      del self._scene_signatures[uid]
-
+    self._dropDeletedScenes({x['uid'] for x in found})
     for scene_data in found:
-      scene_data = dict(scene_data)
+      # Taken before runtime config is injected, so it only reflects the scene's own data.
       signature = self._sceneSignature(scene_data)
-      if self.tracker_config_data:
-        scene_data["tracker_config"] = [self.tracker_config_data["max_unreliable_time"],
-                                      self.tracker_config_data["non_measurement_time_dynamic"],
-                                      self.tracker_config_data["non_measurement_time_static"],
-                                      self.tracker_config_data["effective_object_update_rate"],
-                                      self.tracker_config_data["time_chunking_enabled"],
-                                      self.tracker_config_data["time_chunking_rate_fps"],
-                                      self.tracker_config_data["suspended_track_timeout_secs"]]
-        scene_data["persist_attributes"] = self.tracker_config_data.get("persist_attributes", {})
-      if self.reid_config_data:
-        scene_data["reid_config_data"] = self.reid_config_data
-      if getattr(self, 'pose_adjustment_config_data', {}):
-        scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
-
-      uid = scene_data['uid']
-      if uid not in self.cached_scenes_by_uid:
-        old_scene = self._sensorNeedsRestoring(uid)
-        unchanged_scene = self._unchangedScene(uid, signature)
-        if old_scene is not None:
-          # Reuse the existing scene to preserve tracked objects, sensor state,
-          # analytics_state and dwell times across DB-triggered refreshes.
-          scene = old_scene
-          scene.updateScene(scene_data)
-        elif unchanged_scene is not None:
-          # Only a scene whose own data changed gets a new tracker.
-          scene = unchanged_scene
-        else:
-          scene_cls = getattr(self, '_scene_cls', None)
-          if scene_cls is None:
-            from controller.scene import Scene
-            scene_cls = Scene
-          scene = scene_cls.deserialize(scene_data)
-      else:
-        scene = self.cached_scenes_by_uid[uid]
-        scene.updateScene(scene_data)
-      self._scene_signatures[uid] = signature
-
-      for cameraID in scene.cameras.keys():
-        self._cached_scenes_by_cameraID[cameraID] = scene
-      for sensorID in scene.sensors.keys():
-        self._cached_scenes_by_sensorID[sensorID] = scene
-      self.cached_scenes_by_uid[scene.uid] = scene
+      scene = self._sceneForData(self._withRuntimeConfig(scene_data), signature)
+      self._scene_signatures[scene_data['uid']] = signature
+      self._indexScene(scene)
 
     # Clear old scene cache after processing all scenes
     if hasattr(self, '_old_scene_cache'):
       self._old_scene_cache = None
 
     self._cache_refreshed = get_epoch_time()
+
+  def _dropDeletedScenes(self, current_uids):
+    """Tear down and forget every cached scene whose uid is no longer in current_uids."""
+    for uid in set(self.cached_scenes_by_uid) - current_uids:
+      self._teardownScene(self.cached_scenes_by_uid.pop(uid, None))
+    for uid in set(self._scene_signatures) - current_uids:
+      del self._scene_signatures[uid]
+
+  def _withRuntimeConfig(self, scene_data):
+    """Return a copy of scene_data with this manager's tracker/reid/pose settings added."""
+    scene_data = dict(scene_data)
+    if self.tracker_config_data:
+      tracker = self.tracker_config_data
+      scene_data["tracker_config"] = [tracker["max_unreliable_time"],
+                                      tracker["non_measurement_time_dynamic"],
+                                      tracker["non_measurement_time_static"],
+                                      tracker["effective_object_update_rate"],
+                                      tracker["time_chunking_enabled"],
+                                      tracker["time_chunking_rate_fps"],
+                                      tracker["suspended_track_timeout_secs"]]
+      scene_data["persist_attributes"] = tracker.get("persist_attributes", {})
+    if self.reid_config_data:
+      scene_data["reid_config_data"] = self.reid_config_data
+    if getattr(self, 'pose_adjustment_config_data', {}):
+      scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
+    return scene_data
+
+  def _sceneForData(self, scene_data, signature):
+    """Pick the Scene to use for scene_data: update, reuse or build one."""
+    uid = scene_data['uid']
+    live_scene = self.cached_scenes_by_uid.get(uid)
+    if live_scene is not None:
+      live_scene.updateScene(scene_data)
+      return live_scene
+
+    old_scene = self._sensorNeedsRestoring(uid)
+    if old_scene is not None:
+      # Reuse the existing scene to preserve tracked objects, sensor state,
+      # analytics_state and dwell times across DB-triggered refreshes.
+      old_scene.updateScene(scene_data)
+      return old_scene
+
+    # Only a scene whose own data changed gets a new tracker.
+    unchanged_scene = self._unchangedScene(uid, signature)
+    if unchanged_scene is not None:
+      return unchanged_scene
+
+    scene_cls = getattr(self, '_scene_cls', None)
+    if scene_cls is None:
+      from controller.scene import Scene
+      scene_cls = Scene
+    return scene_cls.deserialize(scene_data)
+
+  def _indexScene(self, scene):
+    """Make scene findable by uid, and by each of its camera and sensor IDs."""
+    for cameraID in scene.cameras.keys():
+      self._cached_scenes_by_cameraID[cameraID] = scene
+    for sensorID in scene.sensors.keys():
+      self._cached_scenes_by_sensorID[sensorID] = scene
+    self.cached_scenes_by_uid[scene.uid] = scene
 
   def _teardownScene(self, scene):
     """
