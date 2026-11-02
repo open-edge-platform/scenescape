@@ -17,6 +17,7 @@ WORKDIR /tmp
 # Copy the patch files
 COPY mapping/0001-Run-it-on-CPU.patch /tmp/
 COPY mapping/mapanything-runtime-dependencies.patch mapping/vggt-runtime-dependencies.patch /tmp/
+COPY mapping/uniception-runtime-dependencies.patch /tmp/
 
 # Model source is fetched on the host by `make vendor-deps` (see mapping/Makefile) into
 # .vendor/model, keyed off MODEL_TYPE, to avoid GitHub's unauthenticated-download rate limiting.
@@ -32,6 +33,18 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
         echo "Invalid MODEL_TYPE: $MODEL_TYPE. Must be 'mapanything' or 'vggt'" && exit 1; \
     fi && \
     rm -rf /tmp/vendor-model
+
+# Patch the pinned source rather than bypassing dependency checks on an installed wheel.
+RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
+        curl --fail --location --retry 3 \
+            https://files.pythonhosted.org/packages/9c/c1/ddba9a8b165cdf0294229e2110af0360a6dcea2a54f48551505f54fd76a8/uniception-0.1.6.tar.gz \
+            -o /tmp/uniception.tar.gz && \
+        echo "ef92120fe1949d7af57b9bf01eed2051a143801b346b0fb19580a6be4191d11f  /tmp/uniception.tar.gz" | sha256sum -c - && \
+        mkdir /tmp/uniception && \
+        tar -xzf /tmp/uniception.tar.gz --strip-components=1 -C /tmp/uniception && \
+        cd /tmp/uniception && git apply /tmp/uniception-runtime-dependencies.patch && \
+        rm /tmp/uniception.tar.gz; \
+    fi
 
 # =========================
 # STAGE 2: RUNTIME STAGE
@@ -96,7 +109,8 @@ COPY --chown=$WSUSER:$WSUSER --from=mapping-builder \
 # Copy the selected model directory based on MODEL_TYPE
 COPY --from=mapping-builder /tmp/ /tmp/models/
 RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
-        mv /tmp/models/map-anything /workspace/map-anything && rm -rf /tmp/models/vggt; \
+        mv /tmp/models/map-anything /workspace/map-anything && \
+        mv /tmp/models/uniception /workspace/uniception && rm -rf /tmp/models/vggt; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         mv /tmp/models/vggt /workspace/vggt && rm -rf /tmp/models/map-anything; \
     fi && \
@@ -107,7 +121,8 @@ RUN if [ "$MODEL_TYPE" = "mapanything" ]; then \
         cd /workspace/map-anything && \
         pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \
             -r $SCENESCAPE_HOME/requirements_api.txt \
-            -r $SCENESCAPE_HOME/requirements_mapanything.txt -e .; \
+            -r $SCENESCAPE_HOME/requirements_mapanything.txt /workspace/uniception -e . && \
+        rm -rf /workspace/uniception; \
     elif [ "$MODEL_TYPE" = "vggt" ]; then \
         cd /workspace/vggt && \
         pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu \

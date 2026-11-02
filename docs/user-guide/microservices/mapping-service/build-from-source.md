@@ -108,6 +108,12 @@ pin, align VGGT's NumPy metadata with its runtime requirements, and remove an un
 Gradio import from VGGT's visualization helper. Review these patches when updating
 the upstream model commits.
 
+For MapAnything, the build also verifies the SHA-256 of the UniCeption 0.1.6 source
+archive and patches out its unused TorchAudio dependency. This keeps Torch 2.13
+without installing TorchAudio for a different Torch release. The patched package
+participates in normal dependency resolution; dependency checks are not bypassed.
+Review the archive hash and patch when updating UniCeption.
+
 Dependency installation and `pip check` must succeed or the build fails. Before
 publishing, verify model imports, image preprocessing and mesh export in both
 variants, run the Mapping tests, and scan the final runtime images with Trivy.

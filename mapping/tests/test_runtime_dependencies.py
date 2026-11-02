@@ -43,6 +43,10 @@ def test_demo_ui_not_installed():
   assert importlib.util.find_spec("gradio") is None
 
 
+def test_audio_dependency_not_installed():
+  assert importlib.util.find_spec("torchaudio") is None
+
+
 @pytest.mark.parametrize("size", [(64, 64), (96, 64), (64, 96)])
 def test_model_preprocessing_with_patched_pillow(runtime_model, size):
   image = Image.new("RGB", size, color=(20, 40, 60))
