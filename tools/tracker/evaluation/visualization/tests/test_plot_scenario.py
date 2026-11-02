@@ -24,10 +24,12 @@ from visualization.plot_scenario import (  # noqa: E402
   ground_truth_fps,
   main,
   pair_tracks,
+  plot_altitude,
   plot_comparison,
   plot_scenario,
   plot_size,
   plot_speed_yaw,
+  plot_std_dev,
   plot_trajectory,
   position_errors,
   trackeval_distances,
@@ -50,11 +52,16 @@ def assert_png(path):
 
 
 def test_writes_all_plots(recording):
-  """A recording with all four files produces every plot in <directory>/plots."""
+  """A recording with all four files produces every plot in PLOTS; altitude is skipped for planar."""
   written = plot_scenario(recording)
 
   assert list(written) == list(PLOTS)
+  # For the planar recording, altitude should be None (no vertical motion)
+  assert written["altitude"] is None
+  # All other plots should be PNG files
   for name, path in written.items():
+    if name == "altitude":
+      continue  # Already checked as None
     assert path == recording / "plots" / f"{name}.png"
     assert_png(path)
   assert (recording / "metrics" / "tracker_eval" / "pedestrian_detailed.csv").is_file()
@@ -78,6 +85,7 @@ def test_tracker_output_skips_estimator_plots(tracker_output):
 
   assert written["model_probability"] is None
   assert written["std_dev"] is None
+  assert written["altitude"] is None  # No vertical motion in planar tracker output
   for name in ("trajectory", "position_error", "speed_yaw", "size", "trackeval"):
     assert_png(written[name])
 
@@ -342,3 +350,107 @@ def test_position_error_plot_with_an_earlier_detection(early_detection):
 
   assert written["position_error"] is not None
   assert_png(written["position_error"])
+
+
+def test_climbing_recording_writes_altitude(climbing_recording):
+  """A recording with vertical motion writes altitude.png and all other plots."""
+  written = plot_scenario(climbing_recording)
+
+  assert list(written) == list(PLOTS)
+  # altitude should exist for climbing recording
+  assert written["altitude"] is not None
+  assert_png(written["altitude"])
+  # All other plots should be PNGs (except those without estimator)
+  for name, path in written.items():
+    if name in ("altitude", "model_probability", "std_dev", "trackeval"):
+      continue  # Already checked or may vary
+    if path is not None:
+      assert_png(path)
+
+
+def test_plot_altitude_on_climbing_recording(climbing_recording):
+  """plot_altitude returns a figure with z and vz panels containing track, truth, detections."""
+  scenario = load_scenario(climbing_recording)
+  pairs = pair_tracks(scenario)
+
+  fig = plot_altitude(scenario, pairs)
+
+  assert fig is not None
+  axes = fig.get_axes()
+  assert len(axes) == 2
+  assert axes[0].get_ylabel() == "z [m]"
+  assert axes[1].get_ylabel() == "vz [m/s]"
+
+  # Check that z axis has lines for track, truth, and detections
+  handles, labels = axes[0].get_legend_handles_labels()
+  label_starts = set(label.split()[0] for label in labels)
+  assert "track" in label_starts or any("track" in label for label in labels)
+  assert "truth" in label_starts or any("truth" in label for label in labels)
+  assert "detections" in label_starts or any("detections" in label for label in labels)
+
+  # Check vz axis has track and truth
+  handles, labels = axes[1].get_legend_handles_labels()
+  label_starts = set(label.split()[0] for label in labels)
+  assert "track" in label_starts or any("track" in label for label in labels)
+  assert "truth" in label_starts or any("truth" in label for label in labels)
+
+  plt.close(fig)
+
+
+def test_plot_altitude_on_planar_recording_is_none(recording):
+  """plot_altitude returns None for planar (no vertical motion) recordings."""
+  scenario = load_scenario(recording)
+  pairs = pair_tracks(scenario)
+
+  fig = plot_altitude(scenario, pairs)
+
+  assert fig is None
+
+
+def test_plot_std_dev_on_climbing_recording(climbing_recording):
+  """plot_std_dev includes z and vz entries for climbing recording with vertical motion."""
+  scenario = load_scenario(climbing_recording)
+  pairs = pair_tracks(scenario)
+
+  fig = plot_std_dev(scenario, pairs)
+
+  assert fig is not None
+  axes = fig.get_axes()
+  assert len(axes) == 5  # position, velocity, yaw, yaw_rate, size
+
+  # Position axis (first) should have z entries
+  handles, labels = axes[0].get_legend_handles_labels()
+  z_labels = [label for label in labels if label.startswith("z ")]
+  assert z_labels, "Expected z entries in position panel"
+
+  # Velocity axis (second) should have vz entries
+  handles, labels = axes[1].get_legend_handles_labels()
+  vz_labels = [label for label in labels if label.startswith("vz ")]
+  assert vz_labels, "Expected vz entries in velocity panel"
+
+  plt.close(fig)
+
+
+def test_plot_std_dev_on_legacy_12_state_recording_skips_vz(legacy_estimator_recording):
+  """plot_std_dev on 12-state recording skips vz silently, no crash."""
+  scenario = load_scenario(legacy_estimator_recording)
+  pairs = pair_tracks(scenario)
+
+  fig = plot_std_dev(scenario, pairs)
+
+  assert fig is not None
+  axes = fig.get_axes()
+
+  # Position axis should have z but not vz
+  handles, labels = axes[0].get_legend_handles_labels()
+  z_labels = [label for label in labels if label.startswith("z ")]
+  vz_labels = [label for label in labels if label.startswith("vz ")]
+  assert z_labels, "Expected z entries in position panel"
+  assert not vz_labels, "Should not have vz entries in 12-state recording"
+
+  # Velocity axis should not have vz
+  handles, labels = axes[1].get_legend_handles_labels()
+  vz_labels = [label for label in labels if label.startswith("vz ")]
+  assert not vz_labels, "Should not have vz entries in velocity panel"
+
+  plt.close(fig)

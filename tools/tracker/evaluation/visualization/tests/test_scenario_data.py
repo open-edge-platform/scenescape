@@ -218,3 +218,118 @@ def test_yaw_from_quaternion(yaw):
 def test_yaw_from_missing_quaternion_is_nan():
   """No rotation gives NaN yaw."""
   assert math.isnan(yaw_from_quaternion(None))
+
+
+def test_loads_climbing_recording(climbing_recording):
+  """Climbing recording loads with vz and z vertical motion data."""
+  scenario = load_scenario(climbing_recording)
+
+  # Ground truth
+  truth = scenario.ground_truth
+  assert len(truth) == 11
+  assert scenario.object_ids == ["1"]
+  assert set(truth["category"]) == {"vehicle"}
+  assert truth["t"].iloc[0] == 0.0
+  assert truth["t"].iloc[-1] == pytest.approx(1.0)
+  # Check z and vz follow the expected pattern: z = 0.5*t, vz = 0.5 m/s
+  for i, z in enumerate(truth["z"]):
+    t = i * 0.1
+    assert z == pytest.approx(0.5 * t, abs=1e-6)
+  assert truth["vz"].iloc[0] == pytest.approx(0.5, abs=1e-6)
+  np.testing.assert_allclose(truth["vz"].to_numpy(), 0.5, atol=1e-6)
+
+  # Detections
+  detections = scenario.detections
+  assert len(detections) == 11
+  assert set(detections["sensor_id"]) == {"camera"}
+  assert set(detections["object_id"]) == {"1"}
+  # Check detections also have z
+  for i, z in enumerate(detections["z"]):
+    t = i * 0.1
+    assert z == pytest.approx(0.5 * t, abs=1e-6)
+
+  # Tracks
+  assert scenario.track_ids == ["1"]
+  assert len(scenario.tracks) == 11
+  # Check z and vz in tracks
+  for i, z in enumerate(scenario.tracks["z"]):
+    t = i * 0.1
+    assert z == pytest.approx(0.5 * t, abs=1e-6)
+  assert scenario.tracks["vz"].iloc[0] == pytest.approx(0.5, abs=1e-6)
+
+  # Estimator trace
+  trace = scenario.estimator["1"]
+  assert trace.motion_models == ["CV", "CA", "CTRV"]
+  assert trace.has_state("vz")
+  assert trace.state_index("vz") == 7
+  assert trace.state.shape == (11, 13)
+  assert trace.covariance.shape == (11, 13, 13)
+  # Check that vz in the state vector matches tracks
+  np.testing.assert_array_almost_equal(trace.state[:, trace.state_index("vz")],
+                                       scenario.tracks["vz"].values, decimal=5)
+
+  # Scenario has_vertical_motion should be True
+  assert scenario.has_vertical_motion
+
+
+def test_planar_recording_has_no_vertical_motion(recording):
+  """The planar fixture has z=0 and vz=NaN or 0, so has_vertical_motion is False."""
+  scenario = load_scenario(recording)
+  assert not scenario.has_vertical_motion
+
+
+def test_tracker_output_has_no_vertical_motion(tracker_output):
+  """Tracker output (no estimator) with z=0 has has_vertical_motion False."""
+  scenario = load_scenario(tracker_output)
+  assert not scenario.has_vertical_motion
+
+
+def test_legacy_12_state_recording_loads(legacy_estimator_recording):
+  """A recording with 12-state estimator (no vz) loads and behaves correctly."""
+  scenario = load_scenario(legacy_estimator_recording)
+
+  trace = scenario.estimator["1"]
+  # The trace should not have vz in state_names
+  assert not trace.has_state("vz")
+  assert trace.has_state("z")
+  assert trace.state.shape == (11, 12)  # 12 states now
+  assert trace.covariance.shape == (11, 12, 12)
+
+  # state_index("vz") should raise ValueError
+  with pytest.raises(ValueError):
+    trace.state_index("vz")
+
+
+def test_trace_has_state():
+  """EstimatorTrace.has_state() returns True only for states in config."""
+  from visualization.scenario_data import EstimatorTrace
+
+  config_13 = {"state_names": ["x", "y", "vx", "vy", "ax", "ay", "z", "vz",
+                               "length", "width", "height", "yaw", "yaw_rate"]}
+  trace_13 = EstimatorTrace(
+    config=config_13,
+    t=np.array([0.0]),
+    model_probability=np.array([[0.5, 0.3, 0.2]]),
+    state=np.zeros((1, 13)),
+    covariance=np.zeros((1, 13, 13)),
+    predicted_measurement=np.zeros((1, 7)),
+    predicted_measurement_cov=np.zeros((1, 7, 7)),
+  )
+  assert trace_13.has_state("vz")
+  assert trace_13.has_state("x")
+  assert not trace_13.has_state("foo")
+
+  config_12 = {"state_names": ["x", "y", "vx", "vy", "ax", "ay",
+                               "z", "length", "width", "height", "yaw", "yaw_rate"]}
+  trace_12 = EstimatorTrace(
+    config=config_12,
+    t=np.array([0.0]),
+    model_probability=np.array([[0.5, 0.3, 0.2]]),
+    state=np.zeros((1, 12)),
+    covariance=np.zeros((1, 12, 12)),
+    predicted_measurement=np.zeros((1, 7)),
+    predicted_measurement_cov=np.zeros((1, 7, 7)),
+  )
+  assert not trace_12.has_state("vz")
+  assert trace_12.has_state("z")
+

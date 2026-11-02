@@ -28,7 +28,7 @@ pip3 install dist/robot_vision-X.X.X-cpXX-cpXXm-linux_x86_64.whl
 
 Tests that use `ScenarioRecorder` ([test/support/ScenarioRecorder.hpp](test/support/ScenarioRecorder.hpp)) write the
 ground truth, detections, tracks and estimator steps of their runs as JSONL files when `RV_SCENARIO_DIR` is set, and
-nothing otherwise. `MotionScenarioTests.cpp` records all its scenarios.
+nothing otherwise. `MotionScenarioTests.cpp` and `AssociationScenarioTests.cpp` record all their scenarios.
 
 1. Build the tests, with the build dependencies above:
 
@@ -58,6 +58,24 @@ run.coast(1.0);
 
 For several objects, pass the same id to `truth()` and as the third `FilterRun` argument. The files are described in
 [Input files](../../../tools/tracker/evaluation/visualization/README.md#input-files).
+
+### Vertical motion and paired runs
+
+`Trajectory::climb(vz, seconds)` and `segment(acceleration, yawRate, vz, seconds)` add a constant vertical rate per
+segment (`speed` stays the horizontal speed), and `Sensor::zNoise` adds z noise without changing the x/y noise. A planar
+case gets a 3D twin without changing its definition: `VerticalProfile().climb(...).apply(truth)` lays a vertical motion
+over any truth, `atHeight(truth, z)` places it at a constant height. `runScenario` runs the filter and returns the
+estimates and model probabilities; its `Sensor` is taken by value, so two runs with the same sensor see the same noise
+(`seeded(sensor, seed)` repeats a scenario with other noise).
+
+```cpp
+const auto planar = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.3, 6.0).sample(10.0);
+const Sensor camera{.positionNoise = 0.3};
+const auto flat = runScenario(planar, camera);
+const auto climbing = runScenario(VerticalProfile().climb(0.5, 4.0).apply(planar), camera);  // 3rd argument: RunOptions
+const auto metrics = climbing.metrics();             // horizontal/vertical max and rms error, final speed and vz error
+const auto diff = maxDifference(flat, climbing);     // largest |x|, |y|, |z|, |vx|, |vy|, |vz|, |yaw|, |probability|
+```
 
 ### Plots and videos
 

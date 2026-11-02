@@ -12,4 +12,5 @@ service ReIDService {
   rpc FindMatches(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc FindSchemaMetadata(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc PurgeExpired(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc IngestStats(google.protobuf.Struct) returns (google.protobuf.Struct);
 }

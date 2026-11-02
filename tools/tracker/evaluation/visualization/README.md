@@ -56,9 +56,10 @@ Run all commands from `tools/tracker/evaluation`.
 | `trajectory`        | Top-down view: ground truth, detections and tracks                                                 |
 | `position_error`    | Total, along-track and cross-track error against the matched ground truth, ±2σ from P              |
 | `speed_yaw`         | Speed, yaw and yaw rate: estimate vs truth and orienting detections                                |
+| `altitude`          | z and vz of truth, detections and estimate; only for recordings with vertical motion               |
 | `size`              | Length, width and height: estimate vs truth vs detections                                          |
 | `model_probability` | Motion model probabilities per track                                                               |
-| `std_dev`           | √diag P: position, velocity, yaw, yaw rate and size (log scale)                                    |
+| `std_dev`           | √diag P: position (x, y, z), velocity (vx, vy, vz), yaw, yaw rate and size (log scale)             |
 | `trackeval`         | [TrackEval](../evaluators/README.md#trackevalevaluator) HOTA, DetA, AssA, LocA and TP/FN/FP over d |
 
 Along-track and cross-track values are projected onto the ground truth's direction of motion; cross-track is positive
@@ -71,10 +72,11 @@ only skips the TrackEval plots, with a warning.
 
 - `overview`: the whole scene, ground-truth boxes (black, dashed) and track boxes with heading and trail. Objects
   without a size are points.
-- `zoom_<ID>`: follows one object and adds the track's predicted position, the 99% confidence ellipse of that position
-  (XY block of the predicted measurement covariance S of the most probable model) and its velocity arrow (1 s of
-  motion). The ellipse is not the association gate: the Controller and the Tracker associate by a Euclidean radius
-  (2 m in the Tracker).
+- `zoom_<ID>`: follows one object and adds the track's predicted position, an ellipse around it and its velocity arrow
+  (1 s of motion). For tracker-level recordings (`AssociationScenarioTest`) the ellipse is the track's association
+  gate: the χ² ellipse of the XY block of the predicted measurement covariance S (most probable model) for
+  `position_mahalanobis`, without the `max_radius_m` ceiling, or a circle of `max_radius_m` for `euclidean`. Otherwise
+  it is the 99% confidence ellipse of S.
 
 ### Options
 
@@ -91,12 +93,12 @@ only skips the TrackEval plots, with a warning.
 
 ### Input files
 
-| Recorder file       | Pipeline run file            | Content                                                                                                           |
-| ------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `groundtruth.jsonl` | `dataset/ground_truth.jsonl` | [Ground truth](../README.md#ground-truth-format-canonical-jsonl); the recorder adds size, heading, velocity, etc. |
-| `detections.jsonl`  | `harness/inputs.jsonl`       | [Input detections](../README.md#input-detection-format); only 3D detections are shown, in recordings only         |
-| `tracks.jsonl`      | `harness/outputs.jsonl`      | [Tracker output](../README.md#tracker-output-format)                                                              |
-| `estimator.jsonl`   | –                            | Per track a `config` line, then per filter step model probabilities, state, P, predicted measurement and S        |
+| Recorder file       | Pipeline run file            | Content                                                                                                                                         |
+| ------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `groundtruth.jsonl` | `dataset/ground_truth.jsonl` | [Ground truth](../README.md#ground-truth-format-canonical-jsonl); the recorder adds size, heading, velocity, etc.                               |
+| `detections.jsonl`  | `harness/inputs.jsonl`       | [Input detections](../README.md#input-detection-format); only 3D detections are shown, in recordings only                                       |
+| `tracks.jsonl`      | `harness/outputs.jsonl`      | [Tracker output](../README.md#tracker-output-format)                                                                                            |
+| `estimator.jsonl`   | –                            | Per track a `config` line (with `association` for tracker-level runs), then per step model probabilities, state, P, predicted measurement and S |
 
 Any file may be missing. Tracks are paired with ground-truth objects by position with `match_tracks()` from
 [utils/tracks.py](../utils/tracks.py), so their ids may differ; frames count from the first track or ground-truth
@@ -107,6 +109,45 @@ Detections are drawn only for recordings: the recorder writes them in scene coor
 ground-truth object id as detection id. A pipeline run's detections follow the camera-data schema, with frame-local ids
 and positions in the sensor frame, so they are loaded (`Scenario.detections`, `detections_in_scene` is false) but not
 drawn.
+
+## Comparing two sets of recordings
+
+To check whether a change, e.g. adding the z axis to the filter, altered the tracking accuracy, record the robot-vision
+scenarios with both builds, each into its own directory (see
+[Test scenario recordings](../../../../controller/src/robot_vision/README.md#test-scenario-recordings)), and compare
+the two roots:
+
+```bash
+python visualization/compare_scenarios.py $BEFORE $AFTER [--warm-up S] [--fps N] [--rel-tol 0.05] [--abs-tol 0.01] \
+  [--metrics A,B] [--fail-on-worse]
+```
+
+A scenario is a directory below a root that holds `groundtruth.jsonl`, named by its path relative to the root, e.g.
+`MotionScenarioTest.TracksMotionCases/turn`. Scenarios present in both roots are compared, one table each; those present
+in only one root, e.g. new tests, are listed after the tables. The last line counts the compared scenarios, the metric
+values marked `WORSE` (and in how many scenarios) and those marked `better`.
+
+Tracks are paired with ground truth as for the plots; rows before `--warm-up` seconds (default 2) and rows without
+ground truth are ignored, so a recording shorter than that needs `--warm-up 0`; its metrics are `nan` otherwise, which
+the table points out.
+
+| Metric              | Content                                                                        |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `horizontal_rms`    | RMS of the x/y position error [m]                                              |
+| `horizontal_max`    | Largest x/y position error [m]                                                 |
+| `vertical_rms`      | RMS of the z error [m]                                                         |
+| `vertical_max`      | Largest z error [m]                                                            |
+| `final_speed_error` | Horizontal speed error at the last row of each pair, mean over the pairs [m/s] |
+| `final_vz_error`    | Vertical speed error at the last row of each pair, mean over the pairs [m/s]   |
+
+All metrics are errors, so lower is better. `delta` is `after` − `before`. A value is marked `WORSE` when
+`after > before · (1 + rel_tol) + abs_tol` and `better` when `after < before · (1 − rel_tol) − abs_tol`; the defaults
+absorb noise from a few percent or a centimetre. A value that was computed before but is `nan` after (the track or the
+ground truth is gone) is also `WORSE`; `nan` before is not judged. With `--fail-on-worse` the exit code is 1 if any
+value is `WORSE`, for scripts. An empty common set of scenarios or a missing root is an error.
+
+Only `groundtruth.jsonl` and `tracks.jsonl` are read, never `estimator.jsonl`, so recordings of builds with different
+filter state sizes, e.g. 12 and 13 states, compare directly.
 
 ## Tests
 
