@@ -38,10 +38,12 @@ struct TruthSample
   double t = 0.0;
   double x = 0.0;
   double y = 0.0;
+  double z = 0.0;
   double heading = 0.0;
   double speed = 0.0;
   double yawRate = 0.0;
   double acceleration = 0.0;
+  double vz = 0.0;
   Box box;
 
   double vx() const
@@ -56,10 +58,10 @@ struct TruthSample
 
 inline TrackedObject makeDetection(const TruthSample &sample)
 {
-  return makeDetection(sample.x, sample.y, 0.0, sample.box.length, sample.box.width, sample.box.height);
+  return makeDetection(sample.x, sample.y, sample.z, sample.box.length, sample.box.width, sample.box.height);
 }
 
-// Unicycle ground truth: segments of constant acceleration and turn rate; speed never goes below 0.
+// Unicycle ground truth: segments of constant acceleration, turn rate, and vertical rate; speed never goes below 0, vz unrestricted.
 class Trajectory
 {
 public:
@@ -70,15 +72,25 @@ public:
 
   Trajectory &straight(double seconds)
   {
-    return addSegment(0.0, 0.0, seconds);
+    return segment(0.0, 0.0, 0.0, seconds);
   }
   Trajectory &accelerate(double acceleration, double seconds)
   {
-    return addSegment(acceleration, 0.0, seconds);
+    return segment(acceleration, 0.0, 0.0, seconds);
   }
   Trajectory &turn(double yawRate, double seconds)
   {
-    return addSegment(0.0, yawRate, seconds);
+    return segment(0.0, yawRate, 0.0, seconds);
+  }
+
+  Trajectory &segment(double acceleration, double yawRate, double vz, double seconds)
+  {
+    return addSegment(acceleration, yawRate, vz, seconds);
+  }
+
+  Trajectory &climb(double vz, double seconds)
+  {
+    return segment(0.0, 0.0, vz, seconds);
   }
 
   // Segment durations are rounded to whole frames.
@@ -100,11 +112,13 @@ public:
           const double midHeading = state.heading + 0.5 * segment.yawRate * dt;
           state.x += midSpeed * std::cos(midHeading) * dt;
           state.y += midSpeed * std::sin(midHeading) * dt;
+          state.z += segment.vz * dt;
           state.speed = std::max(state.speed + segment.acceleration * dt, 0.0);
           state.heading += segment.yawRate * dt;
         }
         state.t = mStart.t + ++frame / fps;
         state.yawRate = segment.yawRate;
+        state.vz = segment.vz;
         // Braking ends once the object stands still.
         state.acceleration = (state.speed > 0.0 || segment.acceleration > 0.0) ? segment.acceleration : 0.0;
         samples.push_back(state);
@@ -118,12 +132,13 @@ private:
   {
     double acceleration;
     double yawRate;
+    double vz;
     double seconds;
   };
 
-  Trajectory &addSegment(double acceleration, double yawRate, double seconds)
+  Trajectory &addSegment(double acceleration, double yawRate, double vz, double seconds)
   {
-    mSegments.push_back({acceleration, yawRate, seconds});
+    mSegments.push_back({acceleration, yawRate, vz, seconds});
     return *this;
   }
 
@@ -152,6 +167,12 @@ inline double positionError(const TrackedObject &state, const TruthSample &sampl
   return std::hypot(state.x - sample.x, state.y - sample.y);
 }
 
+// Vertical distance between an estimate and the truth [m].
+inline double verticalError(const TrackedObject &state, const TruthSample &sample)
+{
+  return std::abs(state.z - sample.z);
+}
+
 // Position error of each state against its truth sample (states as returned by FilterRun::feed), for t >= from.
 inline std::vector<double>
 positionErrors(const std::vector<TruthSample> &truth, const std::vector<TrackedObject> &states, double from = 0.0)
@@ -163,6 +184,22 @@ positionErrors(const std::vector<TruthSample> &truth, const std::vector<TrackedO
     if (truth[i].t > from - kEpsilon)
     {
       errors.push_back(positionError(states.at(i), truth[i]));
+    }
+  }
+  return errors;
+}
+
+// Vertical error of each state against its truth sample (states as returned by FilterRun::feed), for t >= from.
+inline std::vector<double>
+verticalErrors(const std::vector<TruthSample> &truth, const std::vector<TrackedObject> &states, double from = 0.0)
+{
+  constexpr double kEpsilon = 1e-9;
+  std::vector<double> errors;
+  for (size_t i = 0; i < truth.size(); ++i)
+  {
+    if (truth[i].t > from - kEpsilon)
+    {
+      errors.push_back(verticalError(states.at(i), truth[i]));
     }
   }
   return errors;
@@ -186,6 +223,8 @@ struct Sensor
   double yawNoise = 0.0;      // standard deviation [rad], orienting sensors only
   bool orienting = false;     // reports heading as yaw and sets has_orientation, like a LiDAR
   std::mt19937 rng{1};
+  double zNoise = 0.0;        // standard deviation of z [m]; 0 keeps z exact
+  std::mt19937 zRng{2};       // own generator so z noise never changes the x/y/size/yaw noise
 };
 
 struct Observation
@@ -198,6 +237,7 @@ struct Observation
 inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, Sensor &sensor)
 {
   std::normal_distribution<double> noise(0.0, 1.0);
+  std::normal_distribution<double> zNoiseDistribution(0.0, 1.0);
   std::vector<Observation> observations;
   for (const auto &sample : truth)
   {
@@ -206,6 +246,10 @@ inline std::vector<Observation> observe(const std::vector<TruthSample> &truth, S
     {
       detection.x += sensor.positionNoise * noise(sensor.rng);
       detection.y += sensor.positionNoise * noise(sensor.rng);
+    }
+    if (sensor.zNoise > 0.0)
+    {
+      detection.z += sensor.zNoise * zNoiseDistribution(sensor.zRng);
     }
     if (sensor.sizeNoise > 0.0)
     {

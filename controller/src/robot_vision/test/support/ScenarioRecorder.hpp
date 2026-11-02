@@ -335,10 +335,10 @@ public:
       json.beginObject();
       json.key("id").value(objectId);
       json.key("category").value(sample.box.category);
-      json.key("translation").value(std::array{sample.x, sample.y, 0.0});
+      json.key("translation").value(std::array{sample.x, sample.y, sample.z});
       json.key("size").value(std::array{sample.box.length, sample.box.width, sample.box.height});
       json.key("rotation").value(yawQuaternion(sample.heading));
-      json.key("velocity").value(std::array{sample.vx(), sample.vy(), 0.0});
+      json.key("velocity").value(std::array{sample.vx(), sample.vy(), sample.vz});
       json.key("truth").beginObject();
       json.key("speed").value(sample.speed);
       json.key("yaw_rate").value(sample.yawRate);
