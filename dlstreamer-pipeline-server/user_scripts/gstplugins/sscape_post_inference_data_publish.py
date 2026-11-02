@@ -177,6 +177,9 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     self._sub_detector = Object3DChainedDataProcessor()
     self._frame_level_data = {"debug_mac": _get_mac_address()}
     self._client = None
+    # Images get their own connection so large JPEGs never queue ahead of
+    # detections on the same TCP stream.
+    self._image_client = None
     self._is_publish_calibration_image = False
     self._cam_auto_calibrate = False
     self._cam_auto_calibrate_intrinsics = None
@@ -243,14 +246,20 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     return True
 
   def do_stop(self):  # pylint: disable=arguments-differ
-    if self._client is not None:
+    self._disconnect_clients()
+    return True
+
+  def _disconnect_clients(self) -> None:
+    for client in (self._client, self._image_client):
+      if client is None:
+        continue
       try:
-        self._client.loop_stop()
-        self._client.disconnect()
+        client.loop_stop()
+        client.disconnect()
       except Exception:  # pylint: disable=broad-except
         self._log.exception("Error shutting down MQTT client")
-      self._client = None
-    return True
+    self._client = None
+    self._image_client = None
 
   def do_transform_ip(self, buffer):  # pylint: disable=arguments-differ
     try:
@@ -270,21 +279,26 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       # Defer until cameraid is set (e.g. via DLSPS parameters payload).
       return
     self._frame_level_data["id"] = self._cameraid
-    client = mqtt.Client()
-    client.on_connect = self._on_connect
-    client.on_message = self._handle_camera_message
-    if ROOT_CA and os.path.exists(ROOT_CA):
-      client.tls_set(ca_certs=ROOT_CA)
     try:
-      client.connect(self._mqtt_host, self._mqtt_port, 120)
+      self._image_client = self._connect_client(handle_commands=False)
+      self._client = self._connect_client(handle_commands=True)
     except Exception:  # pylint: disable=broad-except
       self._log.exception(
         f"Failed to connect to MQTT broker "
         f"{self._mqtt_host}:{self._mqtt_port}"
       )
-      return
+      self._disconnect_clients()
+
+  def _connect_client(self, handle_commands: bool):
+    client = mqtt.Client()
+    if handle_commands:
+      client.on_connect = self._on_connect
+      client.on_message = self._handle_camera_message
+    if ROOT_CA and os.path.exists(ROOT_CA):
+      client.tls_set(ca_certs=ROOT_CA)
+    client.connect(self._mqtt_host, self._mqtt_port, 120)
     client.loop_start()
-    self._client = client
+    return client
 
   def _on_connect(self, client, _userdata, _flags, rc):
     if rc == 0:
@@ -335,7 +349,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
 
     if self._publish_image:
       self._build_image_data(annotated_img, frame, True, original_image_base64)
-      self._client.publish(
+      self._image_client.publish(
         f"scenescape/image/camera/{self._cameraid}",
         json.dumps(annotated_img),
       )
@@ -346,7 +360,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         self._build_image_data(
           unannotated_img, frame, False, original_image_base64
         )
-      self._client.publish(
+      self._image_client.publish(
         f"scenescape/image/calibration/camera/{self._cameraid}",
         json.dumps(unannotated_img),
       )
@@ -359,7 +373,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       unannotated_img["calibrate"] = True
       if self._cam_auto_calibrate_intrinsics:
         unannotated_img["intrinsics"] = self._cam_auto_calibrate_intrinsics
-      self._client.publish(
+      self._image_client.publish(
         f"scenescape/image/calibration/camera/{self._cameraid}",
         json.dumps(unannotated_img),
       )
