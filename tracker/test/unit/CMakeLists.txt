@@ -16,6 +16,7 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/manager_rest_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/object_class.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/coordinate_transformer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/reid_sighting.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/mqtt_client.cpp
@@ -38,9 +39,11 @@ add_executable(tracker_tests
     cli_test.cpp
     config_loader_test.cpp
     coordinate_transformer_test.cpp
+    reid_sighting_test.cpp
     healthcheck_server_test.cpp
     healthcheck_command_test.cpp
     mqtt_client_test.cpp
+    camera_data_schema_test.cpp
     message_handler_test.cpp
     scene_registry_test.cpp
     time_chunk_buffer_test.cpp

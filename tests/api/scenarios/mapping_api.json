@@ -419,10 +419,11 @@
         "expected_status": {
           "status_code": 200
         },
-        "expected_body": {
-          "success": true,
-          "status": "healthy",
-          "model_loaded": true
+        "validate": {
+          "component": "mapping",
+          "model_loaded": true,
+          "ready": true,
+          "status": "healthy"
         }
       }
     ]
