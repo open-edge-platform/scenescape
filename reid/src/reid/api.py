@@ -194,7 +194,7 @@ class ReIDService:
     if not profile or profile.get("poi_id") != poi_id:
       raise PoiNotFoundError(f"POI '{poi_id}' was not found in collection '{collection_name}'")
     severity = validate_name(profile.get("severity"), "stored severity")
-    notes = validate_text(profile.get("notes", ""), "stored notes", 2048)
+    notes = validate_text(profile.get("notes", ""), "notes", 2048)
     object_type = validate_name(profile.get("object_type"), "stored object_type")
     audit = self._poi_audit("append_embeddings", enrolled_by, vectors)
     self._write_poi_vectors(adapter, poi_id, object_type, vectors, collection_name,
