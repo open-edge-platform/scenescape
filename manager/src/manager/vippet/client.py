@@ -161,11 +161,9 @@ def _validate_id(value: Any, name: str) -> str:
 
 def _error_from_response(method: str, path: str, response: requests.Response) -> ViPPETError:
   detail = _extract_error_detail(response)
-  message_detail = str(detail)[:MAX_ERROR_DETAIL_LENGTH]
   error_cls = _ERRORS_BY_STATUS.get(response.status_code, ViPPETError)
   return error_cls(
-    f"ViPPET {method} {path} failed with HTTP {response.status_code}: "
-    f"{message_detail}",
+    f"ViPPET {method} {path} failed with HTTP {response.status_code}",
     status_code=response.status_code,
     detail=detail)
 
