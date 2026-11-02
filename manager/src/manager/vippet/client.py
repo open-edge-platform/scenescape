@@ -137,7 +137,10 @@ def _resolve_base_url(base_url: Optional[str]) -> str:
   url = (base_url or os.getenv(VIPPET_URL_ENV) or "").strip()
   if not url:
     raise ValueError(f"ViPPET base URL is not configured: pass base_url or set ${VIPPET_URL_ENV}")
-  parsed = urlparse(url)
+  try:
+    parsed = urlparse(url)
+  except ValueError:
+    raise ValueError("ViPPET base URL must be an absolute http(s) URL") from None
   # The URL itself is not echoed because it may contain credentials.
   if parsed.scheme not in ("http", "https") or not parsed.netloc:
     raise ValueError("ViPPET base URL must be an absolute http(s) URL")
