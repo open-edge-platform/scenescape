@@ -27,7 +27,7 @@ from .schemas import (
 )
 
 VIPPET_URL_ENV = "VIPPET_URL"
-DEFAULT_TIMEOUT = 10
+DEFAULT_TIMEOUT_S = 10
 MAX_ERROR_DETAIL_LENGTH = 512
 MAX_ID_LENGTH = 128
 
@@ -35,7 +35,6 @@ _ID_PATTERN = re.compile(r"[A-Za-z0-9._-]+")
 
 _ERRORS_BY_STATUS = {
   HTTPStatus.BAD_REQUEST: ViPPETBadRequestError,
-  HTTPStatus.UNPROCESSABLE_ENTITY: ViPPETBadRequestError,
   HTTPStatus.NOT_FOUND: ViPPETNotFoundError,
   HTTPStatus.SERVICE_UNAVAILABLE: ViPPETUnavailableError,
 }
@@ -49,9 +48,13 @@ class ViPPETClient:
   ``get_pipeline_string`` resolves one variant at a time. Time-series pipelines are never
   exposed. Non-2xx responses raise ``ViPPETError`` subclasses; invalid arguments raise
   ``ValueError`` before any request is sent.
+
+  Create a client per request and use it as a context manager to close its session. Do not
+  cache or share a client across Manager's mod_wsgi worker threads because ``requests.Session``
+  is not guaranteed to be thread-safe.
   """
 
-  def __init__(self, base_url: Optional[str] = None, timeout: float = DEFAULT_TIMEOUT,
+  def __init__(self, base_url: Optional[str] = None, timeout: float = DEFAULT_TIMEOUT_S,
                verify: Union[bool, str] = True, session: Optional[requests.Session] = None):
     """
     Args:
@@ -115,13 +118,13 @@ class ViPPETClient:
     url = f"{self.base_url}{path}"
     try:
       response = self.session.request(method, url, json=json, timeout=self.timeout,
-                                      verify=self.verify)
+                                      verify=self.verify, allow_redirects=False)
     except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
       raise ViPPETUnavailableError(f"ViPPET {method} {path} failed: {e}") from e
     except requests.exceptions.RequestException as e:
       raise ViPPETError(f"ViPPET {method} {path} failed: {e}") from e
 
-    if not response.ok:
+    if not 200 <= response.status_code < 300:
       raise _error_from_response(method, path, response)
     try:
       return response.json()
@@ -155,9 +158,13 @@ def _validate_id(value: Any, name: str) -> str:
 
 def _error_from_response(method: str, path: str, response: requests.Response) -> ViPPETError:
   detail = _extract_error_detail(response)
+  message_detail = str(detail)[:MAX_ERROR_DETAIL_LENGTH]
   error_cls = _ERRORS_BY_STATUS.get(response.status_code, ViPPETError)
-  return error_cls(f"ViPPET {method} {path} failed with HTTP {response.status_code}: {detail}",
-                   status_code=response.status_code, detail=detail)
+  return error_cls(
+    f"ViPPET {method} {path} failed with HTTP {response.status_code}: "
+    f"{message_detail}",
+    status_code=response.status_code,
+    detail=detail)
 
 
 def _extract_error_detail(response: requests.Response) -> Any:

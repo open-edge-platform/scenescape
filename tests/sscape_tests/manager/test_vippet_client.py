@@ -101,7 +101,8 @@ def _response(status_code, payload=None, raw=None):
 
 
 def _call(method, path, body=None):
-  return call(method, BASE_URL + path, json=body, timeout=10, verify=True)
+  return call(method, BASE_URL + path, json=body, timeout=10, verify=True,
+              allow_redirects=False)
 
 
 @pytest.fixture
@@ -114,7 +115,7 @@ def client(session):
   return ViPPETClient(base_url=BASE_URL + "/", session=session)
 
 
-class TestConfiguration:
+class TestViPPETClientConfiguration:
   def test_base_url_argument_strips_trailing_slash(self, session):
     vippet = ViPPETClient(base_url="http://host:7860/api/v1/", session=session)
     assert vippet.base_url == "http://host:7860/api/v1"
@@ -160,7 +161,8 @@ class TestConfiguration:
                           session=session)
     vippet.get_pipelines()
     session.request.assert_called_once_with(
-      "GET", BASE_URL + "/pipelines", json=None, timeout=2.5, verify="/run/secrets/ca.pem")
+      "GET", BASE_URL + "/pipelines", json=None, timeout=2.5, verify="/run/secrets/ca.pem",
+      allow_redirects=False)
 
   def test_context_manager_closes_session(self, session):
     with ViPPETClient(base_url=BASE_URL, session=session) as vippet:
@@ -168,7 +170,7 @@ class TestConfiguration:
     session.close.assert_called_once_with()
 
 
-class TestGetPipelines:
+class TestViPPETGetPipelines:
   def test_returns_vision_summaries_and_hides_time_series(self, client, session):
     session.request.return_value = _response(200, [
       _pipeline(),
@@ -222,7 +224,7 @@ class TestGetPipelines:
       client.get_pipelines()
 
 
-class TestGetPipelineString:
+class TestViPPETGetPipelineString:
   def test_converts_advanced_graph_of_selected_variant(self, client, session):
     session.request.side_effect = [
       _response(200, _pipeline()),
@@ -335,11 +337,12 @@ class TestGetPipelineString:
       client.get_pipeline_string(PIPELINE_ID, "cpu")
 
 
-class TestErrorMapping:
+class TestViPPETErrorMapping:
   @pytest.mark.parametrize("status_code, error_cls", [
     (400, ViPPETBadRequestError),
-    (422, ViPPETBadRequestError),
+    (422, ViPPETError),
     (404, ViPPETNotFoundError),
+    (302, ViPPETError),
     (503, ViPPETUnavailableError),
     (401, ViPPETError),
     (500, ViPPETError),
@@ -361,9 +364,18 @@ class TestErrorMapping:
   def test_fastapi_validation_detail_is_preserved(self, client, session):
     detail = [{"loc": ["body", "nodes"], "msg": "Field required", "type": "missing"}]
     session.request.return_value = _response(422, {"detail": detail})
-    with pytest.raises(ViPPETBadRequestError) as exc_info:
+    with pytest.raises(ViPPETError) as exc_info:
+      client.get_pipelines()
+    assert exc_info.type is ViPPETError
+    assert exc_info.value.detail == detail
+
+  def test_long_json_error_detail_is_truncated_in_message(self, client, session):
+    detail = "x" * (client_module.MAX_ERROR_DETAIL_LENGTH + 1)
+    session.request.return_value = _response(500, {"message": detail})
+    with pytest.raises(ViPPETError) as exc_info:
       client.get_pipelines()
     assert exc_info.value.detail == detail
+    assert str(exc_info.value).endswith(detail[:client_module.MAX_ERROR_DETAIL_LENGTH])
 
   def test_error_body_without_known_keys_is_returned_whole(self, client, session):
     session.request.return_value = _response(500, {"error": "boom"})

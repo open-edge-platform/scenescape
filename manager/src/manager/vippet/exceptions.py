@@ -21,7 +21,7 @@ class ViPPETError(Exception):
 
 
 class ViPPETBadRequestError(ViPPETError):
-  """ViPPET rejected the request (HTTP 400 or 422), e.g. a graph it cannot convert."""
+  """ViPPET rejected a request (HTTP 400), e.g. a graph it cannot convert."""
 
 
 class ViPPETNotFoundError(ViPPETError):

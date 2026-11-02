@@ -142,7 +142,11 @@ docker compose exec manager python manage.py createsuperuser
 - `DEBUG`: Enable debug mode (default: `False`)
 - `ALLOWED_HOSTS`: Comma-separated allowed hostnames
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
-- `VIPPET_URL`: ViPPET REST API root including `/api/v1` (e.g. `http://vippet:7860/api/v1`), used by `manager.vippet`; no default, the client raises `ValueError` when unset
+- `VIPPET_URL`: ViPPET REST API root including `/api/v1` (e.g. `http://vippet:7860/api/v1`).
+  The `manager.vippet` library reads it when explicitly instantiated; there is no default, and
+  construction raises `ValueError` if neither this variable nor `base_url` is provided.
+  Library-only for now: it is not passed through Docker Compose or Helm and has no Manager
+  caller yet. Add deployment wiring and a user-guide entry with the first caller.
 - `SUPASS`: Super user password (for initial setup)
 
 ### Configuration Files
