@@ -22,13 +22,11 @@ from .exceptions import (
 from .schemas import PipelineStatus, PipelineSummary, RestartConfig, StartPipelineRequest
 
 DLSPS_URL_ENV = "DLSPS_URL"
-DEFAULT_DLSPS_URL = "http://dlstreamer-pipeline-server:8080"
-DEFAULT_TIMEOUT = 10
+DEFAULT_TIMEOUT_S = 10
 MAX_ERROR_DETAIL_LENGTH = 512
 
 _ERRORS_BY_STATUS = {
   HTTPStatus.BAD_REQUEST: DLSPSBadRequestError,
-  HTTPStatus.UNPROCESSABLE_ENTITY: DLSPSBadRequestError,
   HTTPStatus.NOT_FOUND: DLSPSNotFoundError,
   HTTPStatus.CONFLICT: DLSPSConflictError,
   HTTPStatus.SERVICE_UNAVAILABLE: DLSPSUnavailableError,
@@ -46,17 +44,21 @@ class DLSPSClient:
   raise ``ValueError`` before any request is sent.
   """
 
-  def __init__(self, base_url: Optional[str] = None, timeout: float = DEFAULT_TIMEOUT,
+  def __init__(self, base_url: Optional[str] = None, timeout: float = DEFAULT_TIMEOUT_S,
                verify: Union[bool, str] = True, session: Optional[requests.Session] = None):
     """
     Args:
-      base_url: DLSPS root URL. Defaults to ``$DLSPS_URL``, then ``DEFAULT_DLSPS_URL``.
+      base_url: DLSPS root URL. Defaults to ``$DLSPS_URL``.
       timeout: Per-request timeout in seconds.
       verify: TLS verification flag or CA bundle path (only relevant for https URLs).
       session: Optional pre-configured ``requests.Session`` (e.g. for tests).
     """
-    url = base_url or os.getenv(DLSPS_URL_ENV) or DEFAULT_DLSPS_URL
-    self.base_url = url.rstrip("/")
+    url = base_url or os.getenv(DLSPS_URL_ENV)
+    if not isinstance(url, str) or not url.strip():
+      raise ValueError(f"Provide base_url or set the {DLSPS_URL_ENV} environment variable")
+    self.base_url = url.strip().rstrip("/")
+    if not self.base_url:
+      raise ValueError(f"Provide a valid base_url or set the {DLSPS_URL_ENV} environment variable")
     self.timeout = timeout
     self.verify = verify
     self.session = session if session is not None else requests.Session()
@@ -75,6 +77,10 @@ class DLSPSClient:
                       cpu_cores: Optional[Sequence[int]] = None, warmup_frames: int = 0,
                       restart_config: Optional[RestartConfig] = None) -> str:
     """Start a pipeline instance from a gst-launch-1.0 string (``POST /pipelines``).
+
+    Only use trusted, server-side pipeline strings: DLSPS executes them as-is, and pipeline
+    elements may access files or networks available inside its container. Any API exposing this
+    operation must be restricted to administrators.
 
     Returns:
       The instance id (UUID string) assigned by DLSPS.
@@ -102,7 +108,11 @@ class DLSPSClient:
     return PipelineStatus.from_dict(self._request("GET", path))
 
   def list_pipeline_statuses(self) -> List[PipelineStatus]:
-    """Return status of every pipeline instance known to DLSPS (``GET /pipelines/status``)."""
+    """Return statuses of all DLSPS instances (``GET /pipelines/status``).
+
+    Raises:
+      DLSPSError: The response is not a list, or any item is malformed or has an unknown state.
+    """
     data = self._request("GET", "/pipelines/status")
     if not isinstance(data, list):
       raise DLSPSError(f"Expected a list of pipeline statuses, got {type(data).__name__}")
@@ -163,7 +173,8 @@ def _parse_instance_id_response(data: Any) -> str:
 def _error_from_response(method: str, path: str, response: requests.Response) -> DLSPSError:
   detail = _extract_error_detail(response)
   error_cls = _ERRORS_BY_STATUS.get(response.status_code, DLSPSError)
-  return error_cls(f"DLSPS {method} {path} failed with HTTP {response.status_code}: {detail}",
+  message_detail = str(detail)[:MAX_ERROR_DETAIL_LENGTH]
+  return error_cls(f"DLSPS {method} {path} failed with HTTP {response.status_code}: {message_detail}",
                    status_code=response.status_code, detail=detail)
 
 

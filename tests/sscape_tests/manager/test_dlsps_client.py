@@ -11,7 +11,6 @@ import pytest
 import requests
 
 from manager.dlsps import (
-  DEFAULT_DLSPS_URL,
   DLSPS_URL_ENV,
   DLSPSBadRequestError,
   DLSPSClient,
@@ -79,7 +78,7 @@ def _assert_request(session, method, path, body=None):
     method, BASE_URL + path, json=body, timeout=10, verify=True)
 
 
-class TestConfiguration:
+class TestDLSPSClientConfiguration:
   def test_base_url_argument_strips_trailing_slash(self, session):
     assert DLSPSClient(base_url="http://host:1234/", session=session).base_url == "http://host:1234"
 
@@ -91,9 +90,10 @@ class TestConfiguration:
     monkeypatch.setenv(DLSPS_URL_ENV, "http://from-env:8080")
     assert DLSPSClient(base_url=BASE_URL, session=session).base_url == BASE_URL
 
-  def test_base_url_default(self, monkeypatch, session):
+  def test_base_url_must_be_configured(self, monkeypatch, session):
     monkeypatch.delenv(DLSPS_URL_ENV, raising=False)
-    assert DLSPSClient(session=session).base_url == DEFAULT_DLSPS_URL
+    with pytest.raises(ValueError, match="base_url or set the DLSPS_URL"):
+      DLSPSClient(session=session)
 
   def test_timeout_and_verify_are_forwarded(self, session):
     session.request.return_value = _response(200, [])
@@ -108,7 +108,7 @@ class TestConfiguration:
     session.close.assert_called_once()
 
 
-class TestCreatePipeline:
+class TestDLSPSCreatePipeline:
   def test_sends_default_body_and_returns_instance_id(self, client, session):
     session.request.return_value = _response(200, {"instance_id": INSTANCE_ID})
 
@@ -170,7 +170,7 @@ class TestCreatePipeline:
       client.create_pipeline(PIPELINE)
 
 
-class TestRequestSchemas:
+class TestDLSPSRequestSchemas:
   def test_restart_config_defaults(self):
     assert RestartConfig(enabled=True).to_dict() == {
       "enabled": True, "max_attempts": 5, "backoff_seconds": 30}
@@ -191,7 +191,7 @@ class TestRequestSchemas:
     assert request.to_dict()["cpu_cores"] == [1, 3]
 
 
-class TestGetPipeline:
+class TestDLSPSGetPipeline:
   def test_returns_summary_for_inline_pipeline(self, client, session):
     payload = dict(RUNNING_STATUS, type="GStreamer", launch_command=PIPELINE,
                    name=None, version=None, request=None)
@@ -225,7 +225,7 @@ class TestGetPipeline:
       client.get_pipeline(INSTANCE_ID)
 
 
-class TestPipelineStatus:
+class TestDLSPSPipelineStatus:
   def test_get_pipeline_status(self, client, session):
     session.request.return_value = _response(200, RUNNING_STATUS)
 
@@ -257,6 +257,12 @@ class TestPipelineStatus:
     with pytest.raises(DLSPSError, match="list"):
       client.list_pipeline_statuses()
 
+  def test_list_pipeline_statuses_rejects_unknown_state(self, client, session):
+    session.request.return_value = _response(
+      200, [RUNNING_STATUS, dict(RUNNING_STATUS, state="PAUSED")])
+    with pytest.raises(DLSPSError, match="Unknown pipeline state"):
+      client.list_pipeline_statuses()
+
   def test_unknown_fields_are_ignored(self, client, session):
     session.request.return_value = _response(200, dict(RUNNING_STATUS, new_field=1))
     assert client.get_pipeline_status(INSTANCE_ID).state is PipelineState.RUNNING
@@ -283,7 +289,7 @@ class TestPipelineStatus:
       client.get_pipeline_status(INSTANCE_ID)
 
 
-class TestDeletePipeline:
+class TestDLSPSDeletePipeline:
   def test_delete_pipeline(self, client, session):
     session.request.return_value = _response(200, {"instance_id": INSTANCE_ID})
 
@@ -300,7 +306,7 @@ class TestDeletePipeline:
     assert exc_info.value.detail == detail
 
 
-class TestInstanceIdValidation:
+class TestDLSPSInstanceIdValidation:
   @pytest.mark.parametrize("instance_id", [INSTANCE_ID.upper(), uuid.UUID(INSTANCE_ID)])
   def test_instance_id_is_normalized(self, client, session, instance_id):
     session.request.return_value = _response(200, RUNNING_STATUS)
@@ -316,10 +322,10 @@ class TestInstanceIdValidation:
     session.request.assert_not_called()
 
 
-class TestErrorMapping:
+class TestDLSPSErrorMapping:
   @pytest.mark.parametrize("status_code, error_cls", [
     (400, DLSPSBadRequestError),
-    (422, DLSPSBadRequestError),
+    (422, DLSPSError),
     (404, DLSPSNotFoundError),
     (409, DLSPSConflictError),
     (503, DLSPSUnavailableError),
@@ -338,9 +344,19 @@ class TestErrorMapping:
     detail = [{"loc": ["body", "pipeline"], "msg": "Field required", "type": "missing"}]
     session.request.return_value = _response(422, {"detail": detail})
 
-    with pytest.raises(DLSPSBadRequestError) as exc_info:
+    with pytest.raises(DLSPSError) as exc_info:
       client.create_pipeline(PIPELINE)
     assert exc_info.value.detail == detail
+
+  def test_json_error_message_truncates_detail_but_preserves_full_value(
+      self, client, session):
+    detail = "x" * 2000
+    session.request.return_value = _response(500, {"detail": detail})
+
+    with pytest.raises(DLSPSError) as exc_info:
+      client.get_pipeline(INSTANCE_ID)
+    assert exc_info.value.detail == detail
+    assert str(exc_info.value).endswith(detail[:512])
 
   def test_non_json_error_body_uses_truncated_text(self, client, session):
     session.request.return_value = _response(502, raw=b"<html>" + b"x" * 2000)

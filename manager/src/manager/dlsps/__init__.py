@@ -3,7 +3,7 @@
 
 """Manager adapter for the DL Streamer Pipeline Server 2.0 (DLSPS) REST API."""
 
-from .client import DEFAULT_DLSPS_URL, DLSPS_URL_ENV, DLSPSClient
+from .client import DLSPS_URL_ENV, DLSPSClient
 from .exceptions import (
   DLSPSBadRequestError,
   DLSPSConflictError,
@@ -20,7 +20,6 @@ from .schemas import (
 )
 
 __all__ = [
-  'DEFAULT_DLSPS_URL',
   'DLSPS_URL_ENV',
   'DLSPSClient',
   'DLSPSBadRequestError',

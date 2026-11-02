@@ -59,7 +59,12 @@ class RestartConfig:
 
 @dataclass(frozen=True)
 class StartPipelineRequest:
-  """Body of ``POST /pipelines``; ``pipeline`` is a gst-launch-1.0 string run as-is."""
+  """Body of ``POST /pipelines``.
+
+  ``pipeline`` is a gst-launch-1.0 string run as-is by DLSPS. Only trusted, server-side pipeline
+  strings should be used because elements may access files or networks inside the DLSPS container.
+  Any API exposing this request must be restricted to administrators.
+  """
 
   pipeline: str
   validate_pipeline: bool = True

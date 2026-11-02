@@ -142,7 +142,6 @@ docker compose exec manager python manage.py createsuperuser
 - `DEBUG`: Enable debug mode (default: `False`)
 - `ALLOWED_HOSTS`: Comma-separated allowed hostnames
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
-- `DLSPS_URL`: DL Streamer Pipeline Server 2.0 REST endpoint used by `manager.dlsps` (default `http://dlstreamer-pipeline-server:8080`)
 - `SUPASS`: Super user password (for initial setup)
 
 ### Configuration Files
@@ -290,6 +289,10 @@ docker compose exec manager python manage.py showmigrations
 - Responses are typed dataclasses (`PipelineStatus`, `PipelineSummary`); HTTP failures raise
   `DLSPSError` subclasses and invalid arguments raise `ValueError` before any request is sent
 - Starting a pipeline is asynchronous: poll `get_pipeline_status` to detect `ERROR` after start
+- Pipeline strings are executed as-is; use trusted server-side templates only because elements can
+  access files and networks inside the DLSPS container, and restrict exposing APIs to administrators
+- `DLSPS_URL` is supported by the client when explicitly set, but is not currently wired through
+  Manager's Compose or Helm deployment configuration
 - Library only; Manager does not yet create DLSPS pipelines automatically
 
 ### PostgreSQL

@@ -21,7 +21,7 @@ class DLSPSError(Exception):
 
 
 class DLSPSBadRequestError(DLSPSError):
-  """DLSPS rejected the request body (HTTP 400 or 422)."""
+  """DLSPS rejected a request body with HTTP 400."""
 
 
 class DLSPSNotFoundError(DLSPSError):
