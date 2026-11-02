@@ -70,8 +70,12 @@ def _is_number(value):
     return False
   try:
     return math.isfinite(float(value))
-  except (TypeError, ValueError):
+  except (TypeError, ValueError, OverflowError):
     return False
+
+def _is_json_number(value):
+  """True for a non-bool JSON number that converts to a finite float."""
+  return isinstance(value, (int, float)) and _is_number(value)
 
 def _number_list(value, field, lengths=None):
   """Return value as a list of floats or raise a ValidationError for field."""
@@ -979,7 +983,7 @@ class SceneSerializer(NonNullSerializer):
         value = popped_data[index]
 
         # Must be int or float
-        if not isinstance(value, (int, float)):
+        if not _is_json_number(value):
           raise serializers.ValidationError({
             key: f'Axis "{axis}" must be a number, got {type(value).__name__}.'
           })
