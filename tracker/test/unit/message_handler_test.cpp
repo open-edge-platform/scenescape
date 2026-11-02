@@ -1176,8 +1176,11 @@ TEST_F(MessageHandlerTest, Detection_MetadataJson_ParsedWhenPresent) {
     EXPECT_FALSE(det.metadata_json.empty());
     rapidjson::Document doc;
     ASSERT_FALSE(doc.Parse(det.metadata_json.c_str()).HasParseError());
-    EXPECT_TRUE(doc.HasMember("reid"));
+    EXPECT_FALSE(doc.HasMember("reid"));
     EXPECT_TRUE(doc.HasMember("age"));
+    rapidjson::Document reid;
+    ASSERT_FALSE(reid.Parse(det.reid_json.c_str()).HasParseError());
+    EXPECT_DOUBLE_EQ(reid["embedding_vector"][0].GetDouble(), 0.1);
 }
 
 // Test that metadata field that is not a JSON object is ignored

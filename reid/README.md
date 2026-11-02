@@ -1,3 +1,4 @@
+<!--
 SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
@@ -5,8 +6,15 @@ SPDX-License-Identifier: Apache-2.0
 # Re-ID Service
 
 The Re-ID service is the standalone home for the existing VDMS and Qdrant
-adapters. This initial service skeleton exposes a thin gRPC boundary while the
+adapters. The service exposes a backend-neutral gRPC boundary while the
 Scene Controller continues to use the compatibility import paths in-process.
+
+VDMS queries use a five-second socket timeout. A query exception or incomplete
+response disconnects the client before releasing the query lock, discarding
+pending replies. Normal queries and readiness probes share a rate-limited
+reconnect path (at most one attempt every five seconds), so in-process Controller
+callers recover without polling readiness. Failed queries are not automatically
+replayed: a timed-out write may already have been applied by the backend.
 
 ## Build
 
@@ -34,8 +42,12 @@ docker compose \
 ```
 
 The service listens on `REID_SERVICE_PORT` (default `50051`) and connects to
-the backend using the existing `REID_*` settings. The current API surface is a
-skeleton for health, matching, schema metadata, and manual purge operations.
+the backend using the existing `REID_*` settings. The baseline API declares
+`Health` (including backend readiness), `FindMatches`, `FindSchemaMetadata`,
+`PurgeExpired`, and `IngestStats`. See the
+[wire contract and Python client example](../docs/user-guide/microservices/reid-service/reid-service.md#baseline-grpc-contract)
+for request/response shapes, validation, and status codes.
 
-Controller migration, Tracker stream ingestion, POI management, gallery
+Tracker scene streams are currently ingested over MQTT, not gRPC. Controller
+migration, POI management, gallery
 statistics, deletion, and trajectory APIs are follow-on work.

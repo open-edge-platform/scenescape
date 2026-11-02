@@ -128,6 +128,7 @@ class TrackObservation:
   metadata: Dict[str, Any] = field(default_factory=dict)
   bbox_px_area: Optional[float] = None
   timestamp: Optional[str] = None
+  camera_id: Optional[str] = None
   cameras: List[str] = field(default_factory=list)
   # Present when the stream is Controller output (already ReID-resolved);
   # used for shadow-mode parity, never for decisions.

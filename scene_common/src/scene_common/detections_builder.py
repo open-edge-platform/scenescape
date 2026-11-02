@@ -181,7 +181,8 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
       if key != 'reid':
         obj_dict['metadata'][key] = value
 
-  # Output reid in metadata structure.
+  # Scene Controller compatibility: carry embeddings into regulated/hierarchy output.
+  # Tracker supplies only reid_sighting to reid-service, leaving aobj.reid empty in Analytics.
   # embedding_vector is always a (1, N) ndarray after decodeReIDEmbeddingVector.
   if aobj.reid and 'embedding_vector' in aobj.reid:
     reid_embedding = aobj.reid['embedding_vector']
@@ -210,7 +211,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
       if 'metadata' not in obj_dict:
         obj_dict['metadata'] = {}
       if isinstance(reid_embedding, str):
-        # Tracker passes the detector's base64 float32 payload through unchanged.
+        # Legacy publishers may pass base64 float32 embeddings through unchanged.
         reid_vec = np.frombuffer(base64.b64decode(reid_embedding), dtype=np.float32)
       else:
         reid_vec = np.asarray(reid_embedding, dtype=np.float32).reshape(-1)

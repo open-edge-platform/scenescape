@@ -52,6 +52,19 @@ class QdrantDatabase(ReIDDatabase):
   def _schemaResourceLabel(self):
     return "Qdrant collection"
 
+  def backendAvailable(self):
+    """Probe current backend availability rather than trusting a cached flag."""
+    if self.client is None:
+      return False
+    try:
+      with self.lock:
+        self.client.get_collections()
+      self.connected = True
+      return True
+    except Exception:
+      self.connected = False
+      return False
+
   def _qdrantDistance(self, metric=None):
     """Map descriptor metric to Qdrant distance function."""
     if self._usesInnerProductMetric(metric):
@@ -112,7 +125,12 @@ class QdrantDatabase(ReIDDatabase):
     try:
       self.client.get_collection(collection_name)
       return True
-    except (UnexpectedResponse, ValueError):
+    except UnexpectedResponse as error:
+      if error.status_code != 404:
+        self._backendFailure()
+      return False
+    except ValueError:
+      self._backendFailure()
       return False
 
   def _createCollection(self, collection_name, dimensions, metric):
@@ -335,6 +353,7 @@ class QdrantDatabase(ReIDDatabase):
       return True, int(schema_dimensions), schema_metric
     except Exception as e:
       log.warning(f"findSchemaMetadata: Failed to read collection '{set_name}': {e}")
+      self._backendFailure()
       return False, None, None
 
   def _buildQdrantFilter(self, query_constraints):
@@ -387,6 +406,7 @@ class QdrantDatabase(ReIDDatabase):
         )
     except Exception as e:
       log.warning(f"purgeExpired: Failed to delete expired Qdrant points: {e}")
+      self._backendFailure()
       return None
     log.debug(f"purgeExpired: Qdrant delete-by-expires_at completed set={self.set_name}")
     return None
@@ -422,6 +442,7 @@ class QdrantDatabase(ReIDDatabase):
           hits = response.points
       except Exception as e:
         log.warning(f"[Qdrant] findMatches search failed: {e}")
+        self._backendFailure()
         result.append([])
         continue
 
