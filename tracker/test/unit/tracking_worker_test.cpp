@@ -6,6 +6,8 @@
 #include "logger.hpp"
 #include "tracking_worker.hpp"
 
+#include <rv/tracking/OrientationAttributes.hpp>
+
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -97,6 +99,84 @@ TEST(VelocityRotationTest, DeactivatesAtOffThresholdAndRetainsLastRotation) {
 
     EXPECT_FALSE(state.active);
     EXPECT_EQ(stopped_rotation, first_rotation);
+}
+
+TEST(VelocityRotationTest, UsesConfiguredFallbackOnlyWhenOrientationWasNeverObserved) {
+    rv::tracking::TrackedObject track;
+    track.vx = 0.0;
+    track.vy = 1.1;
+    VelocityRotationState state;
+
+    const auto inferred = select_track_rotation(track, true, state);
+    EXPECT_TRUE(state.active);
+    EXPECT_NEAR(inferred[2], std::sin(std::numbers::pi / 4.0), 1e-12);
+    EXPECT_NEAR(inferred[3], std::cos(std::numbers::pi / 4.0), 1e-12);
+
+    state = {};
+    const auto identity = select_track_rotation(track, false, state);
+    EXPECT_FALSE(state.active);
+    EXPECT_EQ(identity, (std::array<double, 4>{0.0, 0.0, 0.0, 1.0}));
+}
+
+TEST(VelocityRotationTest, UsesKalmanYawForObservedTrackBelowSpeedGate) {
+    rv::tracking::TrackedObject track;
+    track.yaw = 0.4;
+    track.vx = 0.99;
+    rv::tracking::orientation::setHasOrientation(track, true);
+    VelocityRotationState state;
+
+    const auto rotation = select_track_rotation(track, true, state);
+    const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
+
+    EXPECT_EQ(rotation, expected);
+    EXPECT_FALSE(state.active);
+}
+
+TEST(VelocityRotationTest, UsesKalmanYawAtYawResidualThreshold) {
+    rv::tracking::TrackedObject track;
+    track.yaw = 0.6;
+    track.vx = 1.0;
+    track.attributes[rv::tracking::orientation::ORIENTATION_OBSERVED] =
+        rv::tracking::orientation::TRUE_VALUE;
+    VelocityRotationState state;
+
+    const auto rotation = select_track_rotation(track, true, state);
+    const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
+
+    EXPECT_NEAR(rotation[2], expected[2], 1e-12);
+    EXPECT_NEAR(rotation[3], expected[3], 1e-12);
+}
+
+TEST(VelocityRotationTest, UsesVelocityHeadingWhenObservedYawDisagrees) {
+    rv::tracking::TrackedObject track;
+    track.yaw = 0.0;
+    track.vx = 0.0;
+    track.vy = 2.0;
+    rv::tracking::orientation::setHasOrientation(track, true);
+    VelocityRotationState state;
+
+    const auto rotation = select_track_rotation(track, false, state);
+
+    EXPECT_DOUBLE_EQ(rotation[0], 0.0);
+    EXPECT_DOUBLE_EQ(rotation[1], 0.0);
+    EXPECT_NEAR(rotation[2], std::sin(std::numbers::pi / 4.0), 1e-12);
+    EXPECT_NEAR(rotation[3], std::cos(std::numbers::pi / 4.0), 1e-12);
+}
+
+TEST(VelocityRotationTest, WrapsYawResidualAcrossPi) {
+    rv::tracking::TrackedObject track;
+    const double velocity_heading = -std::numbers::pi + 0.2;
+    track.yaw = std::numbers::pi - 0.2;
+    track.vx = 2.0 * std::cos(velocity_heading);
+    track.vy = 2.0 * std::sin(velocity_heading);
+    rv::tracking::orientation::setHasOrientation(track, true);
+    VelocityRotationState state;
+
+    const auto rotation = select_track_rotation(track, false, state);
+    const auto expected = CoordinateTransformer::yawToQuaternion(track.yaw);
+
+    EXPECT_NEAR(rotation[2], expected[2], 1e-12);
+    EXPECT_NEAR(rotation[3], expected[3], 1e-12);
 }
 
 // Test that worker processes chunks and calls publish callback
@@ -590,7 +670,7 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
     TrackingScope scope{"scene-1", "person"};
     TrackingWorker worker(scope, "Test Scene", 10, callback, config, cameras_);
 
-    const std::string expected_metadata = R"({"reid":{"model_name":"test"},"score":0.95})";
+    const std::string expected_metadata = R"({"score":0.95})";
 
     for (int i = 0; i < kChunksToSend; ++i) {
         Chunk chunk;
@@ -606,6 +686,7 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
         det.id = 1;
         det.bounding_box_px = cv::Rect2f(100.0f, 200.0f, 50.0f, 100.0f);
         det.metadata_json = expected_metadata;
+        det.reid_json = R"({"model_name":"test"})";
         batch.detections.push_back(std::move(det));
 
         chunk.camera_batches.push_back(std::move(batch));
@@ -625,11 +706,99 @@ TEST_F(TrackingWorkerTest, Tracking_MetadataJson_PreservedThroughTracker) {
     ASSERT_GT(all_published_tracks.size(), 0u)
         << "No reliable tracks published - metadata passthrough cannot be verified";
 
-    // Every published track must carry the original metadata unchanged
+    // Non-ReID fields keep their merge behavior; ReID is carried only by the sighting.
     for (const auto& track : all_published_tracks) {
-        EXPECT_EQ(track.metadata_json, expected_metadata)
-            << "Track " << track.id << " has wrong or missing metadata_json";
+        rapidjson::Document metadata;
+        ASSERT_FALSE(metadata.Parse(track.metadata_json.c_str()).HasParseError());
+        ASSERT_TRUE(metadata.HasMember("score"));
+        EXPECT_DOUBLE_EQ(metadata["score"].GetDouble(), 0.95);
+        EXPECT_FALSE(metadata.HasMember("reid"));
+        rapidjson::Document sighting;
+        ASSERT_FALSE(sighting.Parse(track.reid_sighting_json.c_str()).HasParseError());
+        EXPECT_STREQ(sighting["reid"]["model_name"].GetString(), "test");
+        EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+        EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 50.0);
+        EXPECT_TRUE(sighting["timestamp"].IsString());
     }
+}
+
+TEST_F(TrackingWorkerTest, ReidSighting_ThreeFreshEmbeddingsThenPrediction) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    std::vector<std::vector<Track>> frames;
+    std::mutex mutex;
+    std::condition_variable cv;
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Scene", 4,
+        [&](const std::string&, const std::string&, const std::string&, const std::string&,
+            const std::vector<Track>& tracks) {
+            std::lock_guard lock(mutex);
+            frames.push_back(tracks);
+            cv.notify_one();
+        },
+        config, cameras_);
+
+    for (int i = 0; i < 5; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp_iso = std::format("2026-01-27T12:00:00.{:03d}Z", i * 67);
+        batch.timestamp =
+            std::chrono::system_clock::time_point(std::chrono::milliseconds(1000 + i * 67));
+        if (i != 3) {
+            Detection detection;
+            detection.id = 1;
+            detection.bounding_box_px = {100, 200, 50, 100};
+            const int embedding = i < 3 ? i + 1 : 4;
+            const double confidence = i < 3 ? 0.99 : 0.5;
+            detection.metadata_json = R"({"age":{"label":"adult"}})";
+            detection.reid_json = std::format(R"({{"embedding_vector":[[{},0]],"confidence":{}}})",
+                                              embedding, confidence);
+            detection.reid_confidence = confidence;
+            batch.detections.push_back(std::move(detection));
+        }
+        chunk.camera_batches.push_back(std::move(batch));
+        ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        std::unique_lock lock(mutex);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3),
+                                [&] { return frames.size() >= static_cast<size_t>(i + 1); }));
+    }
+
+    ASSERT_FALSE(frames[0].empty());
+    ASSERT_FALSE(frames[1].empty());
+    ASSERT_FALSE(frames[2].empty());
+    ASSERT_FALSE(frames[3].empty());
+    ASSERT_FALSE(frames[4].empty());
+    EXPECT_EQ(frames[0][0].id, frames[1][0].id);
+    EXPECT_EQ(frames[1][0].id, frames[2][0].id);
+    EXPECT_EQ(frames[2][0].id, frames[3][0].id);
+    EXPECT_EQ(frames[3][0].id, frames[4][0].id);
+    for (int i = 0; i < 3; ++i) {
+        rapidjson::Document sighting;
+        ASSERT_FALSE(sighting.Parse(frames[i][0].reid_sighting_json.c_str()).HasParseError());
+        EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+        EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 50.0);
+        EXPECT_EQ(sighting["reid"]["embedding_vector"][0][0].GetInt(), i + 1);
+        EXPECT_STREQ(sighting["timestamp"].GetString(),
+                     std::format("2026-01-27T12:00:00.{:03d}Z", i * 67).c_str());
+        EXPECT_FALSE(sighting.HasMember("chunk_id"));
+        rapidjson::Document metadata;
+        ASSERT_FALSE(metadata.Parse(frames[i][0].metadata_json.c_str()).HasParseError());
+        EXPECT_FALSE(metadata.HasMember("reid"));
+        EXPECT_STREQ(metadata["age"]["label"].GetString(), "adult");
+    }
+    EXPECT_TRUE(frames[3][0].reid_sighting_json.empty());
+    rapidjson::Document predicted_metadata;
+    ASSERT_FALSE(predicted_metadata.Parse(frames[3][0].metadata_json.c_str()).HasParseError());
+    EXPECT_FALSE(predicted_metadata.HasMember("reid"));
+    EXPECT_STREQ(predicted_metadata["age"]["label"].GetString(), "adult");
+
+    rapidjson::Document latest_sighting;
+    ASSERT_FALSE(latest_sighting.Parse(frames[4][0].reid_sighting_json.c_str()).HasParseError());
+    EXPECT_EQ(latest_sighting["reid"]["embedding_vector"][0][0].GetInt(), 4);
+    EXPECT_DOUBLE_EQ(latest_sighting["reid"]["confidence"].GetDouble(), 0.5);
 }
 
 // Test that confidence is preserved end-to-end through the tracker pipeline:
@@ -807,6 +976,116 @@ TEST_F(TrackingWorkerTest, Tracking_CameraOnlyTurningTrack_PublishesIdentityRota
     ASSERT_GT(published_tracks, 0u) << "No reliable tracks published";
     EXPECT_LT(max_abs_yaw, 1e-6) << "Camera-only track published yaw of " << max_abs_yaw
                                  << " rad (expected identity rotation)";
+}
+
+TEST_F(TrackingWorkerTest, Tracking_StationaryRotated3DTrack_PublishesDetectorYaw) {
+    constexpr int kFrames = 10;
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+    constexpr double kDetectorYaw = 0.8;
+
+    auto cameras = make_test_cameras();
+    cameras.at("cam-1").extrinsics.translation = {0.0, 0.0, 0.0};
+    cameras.at("cam-1").extrinsics.rotation = {0.0, 0.0, 0.0};
+
+    std::optional<Track> published_track;
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        if (!tracks.empty()) {
+            published_track = tracks.front();
+        }
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    {
+        TrackingWorker worker({"scene-1", "vehicle"}, "Test Scene", kFrames, callback, config,
+                              cameras);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "vehicle";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+
+            DetectionBatch batch;
+            batch.camera_id = "cam-1";
+            batch.timestamp = std::chrono::system_clock::time_point{} + frame * kFramePeriod;
+            batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            batch.detections.push_back(
+                Detection{.id = 1,
+                          .translation = std::array<double, 3>{1.0, 2.0, 3.0},
+                          .size = std::array<double, 3>{4.0, 2.0, 1.0},
+                          .rotation = std::array<double, 4>{0.0, 0.0, std::sin(kDetectorYaw / 2.0),
+                                                            std::cos(kDetectorYaw / 2.0)}});
+            chunk.camera_batches.push_back(std::move(batch));
+            ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    }
+
+    ASSERT_TRUE(published_track.has_value()) << "No reliable 3D track published";
+    EXPECT_LT(std::hypot(published_track->velocity[0], published_track->velocity[1]), 0.1);
+    const double yaw = 2.0 * std::atan2(published_track->rotation[2], published_track->rotation[3]);
+    EXPECT_NEAR(yaw, kDetectorYaw, 1e-3);
+}
+
+TEST_F(TrackingWorkerTest, Tracking_Mixed2DAnd3DMeasurementsPublishSingleTrackWith3DYaw) {
+    constexpr int kFrames = 10;
+    constexpr auto kFramePeriod = std::chrono::microseconds(66'667);
+    constexpr double kDetectorYaw = 0.8;
+
+    auto cameras = make_test_cameras();
+    cameras.at("cam-1").extrinsics.translation = {0.0, 0.0, 3.0};
+    cameras.at("cam-1").extrinsics.rotation = {180.0, 0.0, 0.0};
+    Camera second_camera = cameras.at("cam-1");
+    second_camera.uid = "cam-2";
+    cameras.emplace("cam-2", std::move(second_camera));
+
+    std::vector<Track> published_tracks;
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        if (!tracks.empty()) {
+            published_tracks = tracks;
+        }
+    };
+
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    {
+        TrackingWorker worker({"scene-1", "vehicle"}, "Test Scene", kFrames, callback, config,
+                              cameras);
+        for (int frame = 0; frame < kFrames; ++frame) {
+            Chunk chunk;
+            chunk.scene_id = "scene-1";
+            chunk.category = "vehicle";
+            chunk.chunk_time = std::chrono::steady_clock::now();
+            const auto timestamp = std::chrono::system_clock::time_point{} + frame * kFramePeriod;
+
+            DetectionBatch pixel_batch;
+            pixel_batch.camera_id = "cam-1";
+            pixel_batch.timestamp = timestamp;
+            pixel_batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            pixel_batch.detections.push_back(
+                Detection{.id = 1, .bounding_box_px = cv::Rect2f(600.0f, 280.0f, 80.0f, 80.0f)});
+            chunk.camera_batches.push_back(std::move(pixel_batch));
+
+            DetectionBatch sensor_batch;
+            sensor_batch.camera_id = "cam-2";
+            sensor_batch.timestamp = timestamp;
+            sensor_batch.timestamp_iso = "2026-01-27T12:00:00.000Z";
+            sensor_batch.detections.push_back(
+                Detection{.id = 2,
+                          .translation = std::array<double, 3>{0.0, 0.0, 3.0},
+                          .size = std::array<double, 3>{1.0, 1.0, 1.0},
+                          .rotation = std::array<double, 4>{0.0, 0.0, -std::sin(kDetectorYaw / 2.0),
+                                                            std::cos(kDetectorYaw / 2.0)}});
+            chunk.camera_batches.push_back(std::move(sensor_batch));
+            ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        }
+    }
+
+    ASSERT_EQ(published_tracks.size(), 1u);
+    const double yaw = 2.0 * std::atan2(published_tracks.front().rotation[2],
+                                        published_tracks.front().rotation[3]);
+    EXPECT_NEAR(yaw, kDetectorYaw, 1e-3);
 }
 
 TEST_F(TrackingWorkerTest, Tracking_RotationFromVelocityEnabled_PublishesVelocityHeading) {
@@ -1014,10 +1293,61 @@ DetectionBatch make_batch(const std::string& camera_id, int chunk_index, int rec
         std::format("2026-01-27T12:00:{:02d}.{:03d}Z", chunk_index, receive_time_offset_ms);
     Detection det;
     det.bounding_box_px = cv::Rect2f(100.0f, 200.0f, 50.0f, 100.0f);
-    det.metadata_json = metadata_json;
+    rapidjson::Document metadata;
+    metadata.Parse(metadata_json.c_str());
+    parse_detection_metadata(metadata, det);
     det.confidence = confidence;
     batch.detections.push_back(std::move(det));
     return batch;
+}
+
+// ReID winner's embedding and provenance stay linked; other fields fuse independently.
+
+TEST_F(TrackingWorkerTest, Tracking_MultiCamera_ReidProvenanceMatchesWinningDetection) {
+    std::vector<Track> tracks;
+    std::mutex mutex;
+    std::condition_variable cv;
+    int callbacks = 0;
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Scene", 10,
+        [&](const std::string&, const std::string&, const std::string&, const std::string&,
+            const std::vector<Track>& published) {
+            std::lock_guard lock(mutex);
+            tracks.insert(tracks.end(), published.begin(), published.end());
+            ++callbacks;
+            cv.notify_one();
+        },
+        config, make_two_cameras());
+
+    for (int i = 0; i < 4; ++i) {
+        Chunk chunk;
+        chunk.scene_id = "scene-1";
+        chunk.category = "person";
+        chunk.camera_batches.push_back(make_batch(
+            "cam-1", i, 0,
+            R"({"reid":{"embedding_vector":[[1,0]],"confidence":0.9},"gender":{"label":"female","confidence":0.9}})"));
+        chunk.camera_batches.push_back(make_batch(
+            "cam-2", i, 1,
+            R"({"reid":{"embedding_vector":[[2,0]],"confidence":0.7},"age":{"label":"adult"}})"));
+        ASSERT_TRUE(worker.try_enqueue(std::move(chunk)));
+        std::unique_lock lock(mutex);
+        ASSERT_TRUE(cv.wait_for(lock, std::chrono::seconds(3), [&] { return callbacks > i; }));
+    }
+
+    ASSERT_FALSE(tracks.empty());
+    rapidjson::Document metadata;
+    ASSERT_FALSE(metadata.Parse(tracks.back().metadata_json.c_str()).HasParseError());
+    EXPECT_FALSE(metadata.HasMember("reid"));
+    rapidjson::Document sighting;
+    ASSERT_FALSE(sighting.Parse(tracks.back().reid_sighting_json.c_str()).HasParseError());
+    EXPECT_EQ(sighting["reid"]["embedding_vector"][0][0].GetInt(), 1);
+    EXPECT_STREQ(sighting["camera_id"].GetString(), "cam-1");
+    EXPECT_STREQ(sighting["timestamp"].GetString(), "2026-01-27T12:00:03.000Z");
+    EXPECT_DOUBLE_EQ(sighting["bounding_box_px"]["width"].GetDouble(), 50.0);
+    EXPECT_STREQ(metadata["gender"]["label"].GetString(), "female");
+    EXPECT_STREQ(metadata["age"]["label"].GetString(), "adult");
 }
 
 // Scenario 1 - higher confidence wins over lower confidence for the same field.

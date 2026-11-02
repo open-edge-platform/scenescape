@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: (C) 2024 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-FROM debian:13@sha256:fac46bff2e02f51425b6e33b0e1169f55dfb053d83511ca28aa50c09fd5ed7a4 AS source-grabber
+FROM debian:13@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308 AS source-grabber
 
 RUN echo "deb-src http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware" >> /etc/apt/sources.list \
     && echo "deb-src http://security.debian.org/debian-security bookworm-security main" >> /etc/apt/sources.list \
@@ -221,7 +221,7 @@ RUN : \
     ; git clone --depth 1 https://github.com/mozilla/geckodriver \
     ; git clone --depth 1 https://github.com/mirror/busybox
 
-FROM debian:13@sha256:fac46bff2e02f51425b6e33b0e1169f55dfb053d83511ca28aa50c09fd5ed7a4
+FROM debian:13@sha256:4c25275446ca371766b8b093c696782eabce06263fccacb8d5d813b3dc44b308
 
 COPY --from=source-grabber /sources /sources
 COPY third-party-programs.txt /sources

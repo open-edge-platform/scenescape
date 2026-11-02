@@ -6,7 +6,41 @@ High-performance C++ service for multi-object tracking with coordinate transform
 
 Transforms camera detections to world coordinates and maintains persistent object identities across frames and cameras. Built for real-time performance with horizontal scalability.
 
+Each detection may provide either `bounding_box_px` for calibrated pixel-to-world projection, or `translation` and `size` in the sensor coordinate frame (metres). An optional `[x, y, z, w]` quaternion supplies sensor-frame orientation; Tracker transforms it into world coordinates and tracks its Z-axis yaw. Tracks with observed orientation publish Kalman yaw unless motion is at least `rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE` and disagrees by more than `rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL`, in which case velocity heading is published. For tracks without observed orientation, the Manager asset's `rotation_from_velocity` setting controls the existing velocity-heading fallback.
+
 See [design document](../docs/design/tracker-service.md) for architecture details.
+
+### ReID sightings
+
+When a camera detection contains `metadata.reid`, each scene-track object may
+include `reid_sighting` with that detection's `camera_id`, frame `timestamp`,
+`bounding_box_px`, and `reid` payload. The field is omitted when the current
+chunk supplies no ReID detection for the track; predicted tracks never replay
+an old embedding. The embedding is published only in `reid_sighting.reid`;
+`metadata.reid` is omitted, while other metadata fields keep their normal fusion
+semantics. Legacy Scene Controller messages without `reid_sighting` may still
+carry `metadata.reid`, but the two representations must not coexist. ReID ingest uses the
+sighting's pixel bbox for its quality
+gate rather than bypassing it via `REID_INGEST_ACCEPT_UNVETTED`. If multiple
+cameras observe the same track, the sighting corresponds to the winning ReID
+metadata observation. See the
+[scene data schema](schema/scene-data.schema.json) for the field contract.
+
+The parser separates `Detection::reid_json` from semantic `metadata_json`.
+`ReidSightingIndex` owns chunk-local references to the original batches and
+detections; coordinate transformation attaches only a `<chunk>:<index>` token.
+RobotVision fuses that token as `metadata.reid`, with freshness in
+`metadata_provenance.reid`. Only published winners are serialized into complete
+sightings, before the owning chunk is destroyed. Generic
+`metadata_transient.<field>` markers prevent measurement-only fields from
+overriding fresh observations with historical data; predictions cannot resolve
+previous-chunk sightings. Fusion policy and prefixes live together in
+`rv/tracking/MetadataFusion.hpp`; RobotVision does not special-case ReID.
+Legacy bare-list/base64 detector embeddings are wrapped as
+`reid.embedding_vector`. No sighting is created without camera ID, frame timestamp,
+and chunk context.
+Detections using direct sensor-frame `translation` and `size` have no pixel box,
+so their ReID payload is omitted rather than publishing an invalid sighting.
 
 ## Development
 
