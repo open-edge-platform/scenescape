@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
@@ -25,7 +27,7 @@ from argparse import ArgumentParser
 
 import requests
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from uploader import (  # noqa: E402
   DEFAULT_WAIT_SECONDS, SceneScapeClient, log, parse_auth, read_object_library, upload_all,
   upload_object_library, is_application_ready

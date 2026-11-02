@@ -31,7 +31,7 @@ services:
       --maxlag 5
     volumes:
       - ./:/workspace
-      - ./${DBROOT}/media:/home/scenescape/Scenescape/media
+      - ${DBROOT}/media:/home/scenescape/Scenescape/media
       - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json
     secrets:
       - source: root-cert
