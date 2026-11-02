@@ -264,6 +264,15 @@ jpeg = base64.b64encode(jpeg).decode('utf-8')
 
 The command topic is `scenescape/cmd/camera/<sensorID>`. If the message "getimage" is published to this topic then the snapshot should be published to `scenescape/image/sensor/cam/<sensorID>`.
 
+The snapshot message is a JSON object with the following fields:
+
+- `id` (string, required): camera ID.
+- `timestamp` (string, required): time the frame was captured.
+- `image` (string, required): base64-encoded JPEG. For a "live" preview it may be downscaled and annotated, so its pixel size can be smaller than the camera frame.
+- `resolution` (array of two integers, optional): `[width, height]` in pixels of the **native** camera frame, not of `image`. Camera intrinsics (`fx`, `fy`, `cx`, `cy`) are calibrated in native pixels, so consumers must use `resolution` with them. If it is absent or invalid, the size of `image` is used.
+
+The DL Streamer `sscape_post_inference_data_publish` element scales the "live" preview (reply to "getimage") down to at most 960 pixels wide and always reports the native frame size in `resolution`. For camera calibration the user interface instead publishes "getcalibrationimage" to the same command topic. The element replies on `scenescape/image/calibration/camera/<sensorID>` with the native-resolution, unannotated frame.
+
 **Snapshot sample code**
 For a complete example with MQTT connectivity, see [snapshot.py](https://github.com/open-edge-platform/scenescape/blob/main/tools/snapshot.py). It can be run by providing the required arguments from within an Scenescape container or you can adapt it for your own code.
 
