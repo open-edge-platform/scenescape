@@ -109,6 +109,45 @@ ground-truth object id as detection id. A pipeline run's detections follow the c
 and positions in the sensor frame, so they are loaded (`Scenario.detections`, `detections_in_scene` is false) but not
 drawn.
 
+## Comparing two sets of recordings
+
+To check whether a change, e.g. adding the z axis to the filter, altered the tracking accuracy, record the robot-vision
+scenarios with both builds, each into its own directory (see
+[Test scenario recordings](../../../../controller/src/robot_vision/README.md#test-scenario-recordings)), and compare
+the two roots:
+
+```bash
+python visualization/compare_scenarios.py $BEFORE $AFTER [--warm-up S] [--fps N] [--rel-tol 0.05] [--abs-tol 0.01] \
+  [--metrics A,B] [--fail-on-worse]
+```
+
+A scenario is a directory below a root that holds `groundtruth.jsonl`, named by its path relative to the root, e.g.
+`MotionScenarioTest.TracksMotionCases/turn`. Scenarios present in both roots are compared, one table each; those present
+in only one root, e.g. new tests, are listed after the tables. The last line counts the compared scenarios, the metric
+values marked `WORSE` (and in how many scenarios) and those marked `better`.
+
+Tracks are paired with ground truth as for the plots; rows before `--warm-up` seconds (default 2) and rows without
+ground truth are ignored, so a recording shorter than that needs `--warm-up 0`; its metrics are `nan` otherwise, which
+the table points out.
+
+| Metric              | Content                                                                              |
+| ------------------- | ------------------------------------------------------------------------------------ |
+| `horizontal_rms`    | RMS of the x/y position error [m]                                                    |
+| `horizontal_max`    | Largest x/y position error [m]                                                       |
+| `vertical_rms`      | RMS of the z error [m]                                                               |
+| `vertical_max`      | Largest z error [m]                                                                  |
+| `final_speed_error` | Horizontal speed error at the last row of each pair, mean over the pairs [m/s]       |
+| `final_vz_error`    | Vertical speed error at the last row of each pair, mean over the pairs [m/s]         |
+
+All metrics are errors, so lower is better. `delta` is `after` − `before`. A value is marked `WORSE` when
+`after > before · (1 + rel_tol) + abs_tol` and `better` when `after < before · (1 − rel_tol) − abs_tol`; the defaults
+absorb noise from a few percent or a centimetre. A value that was computed before but is `nan` after (the track or the
+ground truth is gone) is also `WORSE`; `nan` before is not judged. With `--fail-on-worse` the exit code is 1 if any
+value is `WORSE`, for scripts. An empty common set of scenarios or a missing root is an error.
+
+Only `groundtruth.jsonl` and `tracks.jsonl` are read, never `estimator.jsonl`, so recordings of builds with different
+filter state sizes, e.g. 12 and 13 states, compare directly.
+
 ## Tests
 
 ```bash

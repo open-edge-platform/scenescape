@@ -5,9 +5,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <numbers>
 #include <optional>
 #include <random>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -162,6 +164,92 @@ inline std::vector<TruthSample> between(const std::vector<TruthSample> &samples,
   return slice;
 }
 
+// The samples with a constant height and no vertical motion.
+inline std::vector<TruthSample> atHeight(std::vector<TruthSample> samples, double z)
+{
+  for (auto &sample : samples)
+  {
+    sample.z = z;
+    sample.vz = 0.0;
+  }
+  return samples;
+}
+
+// Vertical motion as segments of constant rate, to lay over any planar truth (see apply()).
+class VerticalProfile
+{
+public:
+  explicit VerticalProfile(double startHeight = 0.0)
+    : mStartHeight(startHeight)
+  {
+  }
+
+  VerticalProfile &climb(double vz, double seconds)
+  {
+    mSegments.push_back({vz, seconds});
+    return *this;
+  }
+
+  VerticalProfile &level(double seconds)
+  {
+    return climb(0.0, seconds);
+  }
+
+  // Stays at the final height after the last segment.
+  double heightAt(double seconds) const
+  {
+    double height = mStartHeight;
+    double remaining = std::max(seconds, 0.0);
+    for (const auto &segment : mSegments)
+    {
+      const double used = std::min(remaining, segment.seconds);
+      height += segment.vz * used;
+      remaining -= used;
+    }
+    return height;
+  }
+
+  // 0 after the last segment. On a boundary between two segments the later one counts.
+  double rateAt(double seconds) const
+  {
+    double start = 0.0;
+    const double time = std::max(seconds, 0.0);
+    for (const auto &segment : mSegments)
+    {
+      if (time < start + segment.seconds)
+      {
+        return segment.vz;
+      }
+      start += segment.seconds;
+    }
+    return 0.0;
+  }
+
+  // Replaces z and vz of every sample, with times counted from the first one. Like Trajectory::sample(), sample 0 has
+  // vz = 0 and a later sample carries the rate of the frame that ended there: the rate at the middle of that frame, so
+  // a segment boundary inside a frame gives the frame the rate of the segment that holds its middle.
+  std::vector<TruthSample> apply(std::vector<TruthSample> samples) const
+  {
+    for (size_t i = 0; i < samples.size(); ++i)
+    {
+      const double t = samples[i].t - samples.front().t;
+      samples[i].z = heightAt(t);
+      samples[i].vz = i == 0 ? 0.0 : rateAt(0.5 * ((samples[i - 1].t - samples.front().t) + t));
+    }
+    return samples;
+  }
+
+private:
+  struct Segment
+  {
+    double vz;
+    double seconds;
+  };
+
+  double mStartHeight;
+  std::vector<Segment> mSegments;
+};
+
 // Horizontal distance between an estimate and the truth [m].
 inline double positionError(const TrackedObject &state, const TruthSample &sample)
 {
@@ -227,6 +315,14 @@ struct Sensor
   double zNoise = 0.0;  // standard deviation of z [m]; 0 keeps z exact
   std::mt19937 zRng{2}; // own generator so z noise never changes the x/y/size/yaw noise
 };
+
+// Lets a test repeat a scenario with different noise; seed 1 reproduces the defaults.
+inline Sensor seeded(Sensor sensor, unsigned seed)
+{
+  sensor.rng.seed(seed);
+  sensor.zRng.seed(seed + 1);
+  return sensor;
+}
 
 struct Observation
 {
@@ -357,5 +453,168 @@ private:
   int mTrackId = 1;
   bool mInitialized = false;
 };
+
+inline const char *motionModelName(MotionModel model)
+{
+  switch (model)
+  {
+    case MotionModel::CV:
+      return "CV";
+    case MotionModel::CA:
+      return "CA";
+    case MotionModel::CTRV:
+      return "CTRV";
+    case MotionModel::CP:
+      return "CP";
+  }
+  return "unknown";
+}
+
+struct RunOptions
+{
+  double warmUp = 2.0;                   // errors are measured from this time on [s]
+  FilterRunObserver *observer = nullptr; // e.g. a ScenarioRecorder
+  TrackManagerConfig config = productionConfig();
+  int trackId = 1;
+};
+
+struct ScenarioMetrics
+{
+  double maxHorizontalError = 0.0; // [m] from warmUp on
+  double rmsHorizontalError = 0.0;
+  double maxVerticalError = 0.0;
+  double rmsVerticalError = 0.0;
+  double finalSpeedError = 0.0; // |horizontal speed estimate - truth speed| at the last step [m/s]
+  double finalVzError = 0.0;    // |vz estimate - truth vz| at the last step [m/s]
+};
+
+struct ScenarioResult
+{
+  std::vector<TruthSample> truth;
+  std::vector<TrackedObject> states;                   // estimate after each observation, in truth order
+  std::vector<MotionModel> models;                     // order of the model probabilities
+  std::vector<std::vector<double>> modelProbabilities; // after each observation
+  double warmUp = 0.0;
+
+  // Throws std::invalid_argument when no step is at or after warmUp.
+  ScenarioMetrics metrics() const
+  {
+    const auto horizontal = positionErrors(truth, states, warmUp);
+    if (horizontal.empty())
+    {
+      throw std::invalid_argument("no step at or after warmUp");
+    }
+    const auto vertical = verticalErrors(truth, states, warmUp);
+    ScenarioMetrics result;
+    result.maxHorizontalError = *std::ranges::max_element(horizontal);
+    result.rmsHorizontalError = rms(horizontal);
+    result.maxVerticalError = *std::ranges::max_element(vertical);
+    result.rmsVerticalError = rms(vertical);
+    result.finalSpeedError = std::abs(std::hypot(states.back().vx, states.back().vy) - truth.back().speed);
+    result.finalVzError = std::abs(states.back().vz - truth.back().vz);
+    return result;
+  }
+
+  // Mean over all steps; throws std::invalid_argument for a model not in `models` or a run without steps.
+  double meanProbability(MotionModel model) const
+  {
+    const auto found = std::ranges::find(models, model);
+    if (found == models.end())
+    {
+      throw std::invalid_argument(std::string("model not in the run: ") + motionModelName(model));
+    }
+    if (modelProbabilities.empty())
+    {
+      throw std::invalid_argument("run has no steps");
+    }
+    const auto index = static_cast<size_t>(found - models.begin());
+    double sum = 0.0;
+    for (const auto &probabilities : modelProbabilities)
+    {
+      sum += probabilities.at(index);
+    }
+    return sum / static_cast<double>(modelProbabilities.size());
+  }
+
+  // Estimate at the truth sample nearest to t (the earlier one on a tie); throws std::invalid_argument when the run is
+  // empty.
+  const TrackedObject &stateAt(double t) const
+  {
+    if (truth.empty() || states.size() != truth.size())
+    {
+      throw std::invalid_argument("run has no steps");
+    }
+    const auto nearest = std::ranges::min_element(
+      truth, [t](const TruthSample &a, const TruthSample &b) { return std::abs(a.t - t) < std::abs(b.t - t); });
+    return states[static_cast<size_t>(nearest - truth.begin())];
+  }
+};
+
+// The sensor is taken by value: two runs given the same sensor see identical noise, which makes paired comparisons
+// possible. Observations are fed one at a time.
+inline ScenarioResult runScenario(const std::vector<TruthSample> &truth, Sensor sensor, const RunOptions &options = {})
+{
+  ScenarioResult result;
+  result.truth = truth;
+  result.warmUp = options.warmUp;
+  result.models.assign(options.config.mMotionModels.begin(), options.config.mMotionModels.end());
+
+  FilterRun run(options.config, options.observer, options.trackId);
+  for (const auto &observation : observe(truth, sensor))
+  {
+    result.states.push_back(run.feed({observation}).front());
+    const cv::Mat probability = run.estimator.getModelProbability();
+    std::vector<double> row;
+    for (int i = 0; i < probability.rows; ++i)
+    {
+      row.push_back(probability.at<double>(i, 0));
+    }
+    result.modelProbabilities.push_back(std::move(row));
+  }
+  return result;
+}
+
+// Largest absolute difference between two runs over all steps; for paired "same case with and without z" checks.
+struct StateDifference
+{
+  double x = 0.0;
+  double y = 0.0;
+  double z = 0.0;
+  double vx = 0.0;
+  double vy = 0.0;
+  double vz = 0.0;
+  double yaw = 0.0;         // wrapped to [-pi, pi]
+  double probability = 0.0; // over all models
+};
+
+// Throws std::invalid_argument when the runs differ in step count or models.
+inline StateDifference maxDifference(const ScenarioResult &a, const ScenarioResult &b)
+{
+  if (a.states.size() != b.states.size() || a.modelProbabilities.size() != b.modelProbabilities.size()
+      || a.models != b.models)
+  {
+    throw std::invalid_argument("runs differ in step count or models");
+  }
+  StateDifference diff;
+  for (size_t i = 0; i < a.states.size(); ++i)
+  {
+    const auto &p = a.states[i];
+    const auto &q = b.states[i];
+    diff.x = std::max(diff.x, std::abs(p.x - q.x));
+    diff.y = std::max(diff.y, std::abs(p.y - q.y));
+    diff.z = std::max(diff.z, std::abs(p.z - q.z));
+    diff.vx = std::max(diff.vx, std::abs(p.vx - q.vx));
+    diff.vy = std::max(diff.vy, std::abs(p.vy - q.vy));
+    diff.vz = std::max(diff.vz, std::abs(p.vz - q.vz));
+    diff.yaw = std::max(diff.yaw, std::abs(std::remainder(p.yaw - q.yaw, 2.0 * std::numbers::pi)));
+    const auto &pa = a.modelProbabilities[i];
+    const auto &pb = b.modelProbabilities.at(i);
+    for (size_t m = 0; m < pa.size(); ++m)
+    {
+      diff.probability = std::max(diff.probability, std::abs(pa[m] - pb.at(m)));
+    }
+  }
+  return diff;
+}
 
 } // namespace rv::tracking::test

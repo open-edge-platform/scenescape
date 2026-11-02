@@ -314,47 +314,27 @@ struct VerticalMotionMetrics
   rv::tracking::TrackedObject finalState;
 };
 
+// Adapter over the support tool runScenario(): the metrics and the final state of one run.
 VerticalMotionMetrics runVerticalScenario(const std::vector<TruthSample> &truth,
                                           Sensor sensor,
                                           double warmUpTime = 2.0,
                                           FilterRunObserver *observer = nullptr)
 {
-  FilterRun run(productionConfig(), observer);
-  const auto observations = observe(truth, sensor);
+  const auto result = runScenario(truth, std::move(sensor), {.warmUp = warmUpTime, .observer = observer});
+  const auto measured = result.metrics();
 
-  // Feed observations one at a time and accumulate model probabilities
-  cv::Mat probSum = cv::Mat::zeros(static_cast<int>(rv::tracking::kProductionMotionModels.size()), 1, CV_64F);
-  std::vector<rv::tracking::TrackedObject> states;
-
-  for (const auto &observation : observations)
-  {
-    run.feed({observation});
-    states.push_back(run.state());
-    probSum += run.estimator.getModelProbability();
-  }
-
-  // Compute metrics
   VerticalMotionMetrics metrics;
-  const auto horizontalErrs = positionErrors(truth, states, warmUpTime);
-  const auto verticalErrs = verticalErrors(truth, states, warmUpTime);
-
-  metrics.maxHorizontalError = horizontalErrs.empty() ? 0.0 : *std::ranges::max_element(horizontalErrs);
-  metrics.rmsHorizontalError = horizontalErrs.empty() ? 0.0 : rms(horizontalErrs);
-  metrics.maxVerticalError = verticalErrs.empty() ? 0.0 : *std::ranges::max_element(verticalErrs);
-  metrics.rmsVerticalError = verticalErrs.empty() ? 0.0 : rms(verticalErrs);
-  metrics.finalSpeedError = std::fabs(std::hypot(states.back().vx, states.back().vy) - truth.back().speed);
-
-  // Compute finalVzError from estimator state vz vs truth vz
-  metrics.finalVzError = std::fabs(states.back().vz - truth.back().vz);
-
-  // Mean model probabilities
-  const cv::Mat meanProb = probSum / static_cast<double>(observations.size());
-  for (int i = 0; i < meanProb.rows; ++i)
+  metrics.maxHorizontalError = measured.maxHorizontalError;
+  metrics.rmsHorizontalError = measured.rmsHorizontalError;
+  metrics.maxVerticalError = measured.maxVerticalError;
+  metrics.rmsVerticalError = measured.rmsVerticalError;
+  metrics.finalSpeedError = measured.finalSpeedError;
+  metrics.finalVzError = measured.finalVzError;
+  for (const auto model : result.models)
   {
-    metrics.meanModelProbs.push_back(meanProb.at<double>(i, 0));
+    metrics.meanModelProbs.push_back(result.meanProbability(model));
   }
-
-  metrics.finalState = states.back();
+  metrics.finalState = result.states.back();
   return metrics;
 }
 
@@ -886,7 +866,7 @@ TEST(MotionScenarioTest, ZOffsetInvariance)
 
     for (size_t i = 0; i < states0.meanModelProbs.size(); ++i)
     {
-      const auto modelName = i == 0 ? "CV" : (i == 1 ? "CA" : "CTRV");
+      const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
       RecordProperty(std::string("probDiff_") + caseItem.name + "_" + modelName,
                      std::to_string(std::fabs(states0.meanModelProbs[i] - states10.meanModelProbs[i])));
     }
@@ -914,9 +894,11 @@ TEST(MotionScenarioTest, ClimbDuringStraightMotion)
   recorder.truth(climbTrajectory);
   const auto climbMetrics = runVerticalScenario(climbTrajectory, sensor, kWarmUp, &recorder);
 
-  // Horizontal error within baseline + 20% margin
-  EXPECT_LE(climbMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError * 1.2 + 0.05);
-  EXPECT_LE(climbMetrics.finalSpeedError, baselineMetrics.finalSpeedError * 1.2 + 0.02);
+  // z does not enter the planar filtering: same x/y noise, same planar results (measured differences ~1e-13).
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(climbMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(climbMetrics.rmsHorizontalError, baselineMetrics.rmsHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(climbMetrics.finalSpeedError, baselineMetrics.finalSpeedError, kPlanarTolerance);
 
   // Vertical error should converge
   EXPECT_LT(climbMetrics.maxVerticalError, 0.2);
@@ -937,7 +919,7 @@ TEST(MotionScenarioTest, ClimbDuringStraightMotion)
   RecordProperty("climb_finalVzError", std::to_string(climbMetrics.finalVzError));
   for (size_t i = 0; i < climbMetrics.meanModelProbs.size(); ++i)
   {
-    const auto modelName = i == 0 ? "CV" : (i == 1 ? "CA" : "CTRV");
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
     RecordProperty(std::string("climb_prob_") + modelName, std::to_string(climbMetrics.meanModelProbs[i]));
   }
 }
@@ -961,13 +943,16 @@ TEST(MotionScenarioTest, ClimbWhileTurning)
   recorder.truth(turnWithClimb);
   const auto climbMetrics = runVerticalScenario(turnWithClimb, sensor, kWarmUp, &recorder);
 
-  // Horizontal error within baseline + 20% margin (turning is inherently less accurate)
-  EXPECT_LE(climbMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError * 1.2 + 0.05);
-
-  // CTRV probability should not drop significantly (model index 2 in production config)
-  const double baselineCTRVProb = baselineMetrics.meanModelProbs[2];
-  const double climbCTRVProb = climbMetrics.meanModelProbs[2];
-  EXPECT_GE(climbCTRVProb, baselineCTRVProb - 0.05);
+  // z does not enter the planar filtering or the model selection: results equal the planar baseline.
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(climbMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(climbMetrics.rmsHorizontalError, baselineMetrics.rmsHorizontalError, kPlanarTolerance);
+  ASSERT_EQ(climbMetrics.meanModelProbs.size(), baselineMetrics.meanModelProbs.size());
+  for (size_t i = 0; i < climbMetrics.meanModelProbs.size(); ++i)
+  {
+    SCOPED_TRACE(motionModelName(rv::tracking::kProductionMotionModels[i]));
+    EXPECT_NEAR(climbMetrics.meanModelProbs[i], baselineMetrics.meanModelProbs[i], kPlanarTolerance);
+  }
 
   // Record measurements for paired comparison
   RecordProperty("baseline_rmsHorizontalError", std::to_string(baselineMetrics.rmsHorizontalError));
@@ -981,7 +966,7 @@ TEST(MotionScenarioTest, ClimbWhileTurning)
   RecordProperty("turn_finalVzError", std::to_string(climbMetrics.finalVzError));
   for (size_t i = 0; i < climbMetrics.meanModelProbs.size(); ++i)
   {
-    const auto modelName = i == 0 ? "CV" : (i == 1 ? "CA" : "CTRV");
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
     RecordProperty(std::string("turn_prob_") + modelName, std::to_string(climbMetrics.meanModelProbs[i]));
   }
 }
@@ -1000,8 +985,8 @@ TEST(MotionScenarioTest, VerticalOnlyMotion)
   const auto metrics = runVerticalScenario(verticalOnly, sensor, 0.0, &recorder);
 
   // x/y should stay near origin (bounded by position noise)
-  EXPECT_LT(metrics.finalState.x, 0.2);
-  EXPECT_LT(metrics.finalState.y, 0.2);
+  EXPECT_LT(std::fabs(metrics.finalState.x), 0.2);
+  EXPECT_LT(std::fabs(metrics.finalState.y), 0.2);
 
   // Horizontal speed should be near zero
   const double horizontalSpeed = std::hypot(metrics.finalState.vx, metrics.finalState.vy);
@@ -1019,7 +1004,7 @@ TEST(MotionScenarioTest, VerticalOnlyMotion)
   RecordProperty("verticalOnly_finalVzError", std::to_string(metrics.finalVzError));
   for (size_t i = 0; i < metrics.meanModelProbs.size(); ++i)
   {
-    const auto modelName = i == 0 ? "CV" : (i == 1 ? "CA" : "CTRV");
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
     RecordProperty(std::string("verticalOnly_prob_") + modelName, std::to_string(metrics.meanModelProbs[i]));
   }
 }
@@ -1066,25 +1051,16 @@ TEST(MotionScenarioTest, TargetBornClimbing)
   // Final z error should be bounded
   EXPECT_LT(std::fabs(states.back().z - climbingFromBirth.back().z), 0.3);
 
-  // Record measurements including vz estimates at t=1s and t=3s
-  if (state1s)
-  {
-    RecordProperty("born_vz_estimate_1s", std::to_string(state1s->vz));
-    RecordProperty("born_vz_truth_1s", std::to_string(0.5));
-  }
-  if (state3s)
-  {
-    RecordProperty("born_vz_estimate_3s", std::to_string(state3s->vz));
-    RecordProperty("born_vz_truth_3s", std::to_string(0.5));
-  }
-  RecordProperty("born_rmsVerticalError", std::to_string(0.0));
-  RecordProperty("born_maxVerticalError", std::to_string(0.0));
+  // Known slow start: the initial vz variance is capped (0.05), so after 1 s vz is still far from the true 0.5
+  // m/s (measured 0.22); after 3 s it has caught up (measured 0.535).
+  EXPECT_LT(state1s->vz, 0.35);
+  EXPECT_GT(state1s->vz, 0.1);
+  EXPECT_NEAR(state3s->vz, 0.5, 0.1);
+
+  RecordProperty("born_vz_estimate_1s", std::to_string(state1s->vz));
+  RecordProperty("born_vz_estimate_3s", std::to_string(state3s->vz));
+  RecordProperty("born_vz_truth", std::to_string(climbingFromBirth.back().vz));
   RecordProperty("born_finalVzError", std::to_string(std::fabs(states.back().vz - climbingFromBirth.back().vz)));
-  for (size_t i = 0; i < 3; ++i)
-  {
-    const auto modelName = i == 0 ? "CV" : (i == 1 ? "CA" : "CTRV");
-    RecordProperty(std::string("born_prob_") + modelName, std::to_string(0.0));
-  }
 }
 
 TEST(MotionScenarioTest, VerticalRateChanges)
@@ -1107,9 +1083,11 @@ TEST(MotionScenarioTest, VerticalRateChanges)
   recorder.truth(rateChanges);
   const auto changeMetrics = runVerticalScenario(rateChanges, sensor, kWarmUp, &recorder);
 
-  // Planar error should be similar to baseline
-  EXPECT_LE(changeMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError * 1.2 + 0.05);
-  EXPECT_LE(changeMetrics.finalSpeedError, baselineMetrics.finalSpeedError * 1.2 + 0.02);
+  // Planar results equal the planar baseline: the climb and its sensor noise do not enter x/y.
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(changeMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(changeMetrics.rmsHorizontalError, baselineMetrics.rmsHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(changeMetrics.finalSpeedError, baselineMetrics.finalSpeedError, kPlanarTolerance);
 
   // Vertical overshoot after rate changes should be bounded
   EXPECT_LT(changeMetrics.maxVerticalError, 0.3);
@@ -1129,7 +1107,7 @@ TEST(MotionScenarioTest, VerticalRateChanges)
   RecordProperty("changes_finalVzError", std::to_string(changeMetrics.finalVzError));
   for (size_t i = 0; i < changeMetrics.meanModelProbs.size(); ++i)
   {
-    const auto modelName = i == 0 ? "CV" : (i == 1 ? "CA" : "CTRV");
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
     RecordProperty(std::string("changes_prob_") + modelName, std::to_string(changeMetrics.meanModelProbs[i]));
   }
 }
@@ -1178,15 +1156,9 @@ TEST(MotionScenarioTest, CoastWhileClimbing)
   // z variance should grow during coasting (uncertainty increases when not observing)
   EXPECT_GT(zVarAfter, zVarBefore);
 
-  // Record measurements
-  RecordProperty("coast_rmsVerticalError", std::to_string(0.0));
-  RecordProperty("coast_maxVerticalError", std::to_string(0.0));
-  RecordProperty("coast_finalVzError", std::to_string(std::fabs(after.vz - trajectory.back().vz)));
-  for (size_t i = 0; i < 3; ++i)
-  {
-    const auto modelName = i == 0 ? "CV" : (i == 1 ? "CA" : "CTRV");
-    RecordProperty(std::string("coast_prob_") + modelName, std::to_string(0.0));
-  }
+  RecordProperty("coast_zChange", std::to_string(after.z - before.z));
+  RecordProperty("coast_vzBefore", std::to_string(before.vz));
+  RecordProperty("coast_vzErrorAfter", std::to_string(std::fabs(after.vz - trajectory.back().vz)));
 }
 
 TEST(MotionScenarioTest, AnisotropicNoiseDoesNotLeakIntoPlane)
@@ -1209,8 +1181,10 @@ TEST(MotionScenarioTest, AnisotropicNoiseDoesNotLeakIntoPlane)
   recorder.truth(trajectory);
   const auto noisyMetrics = runVerticalScenario(trajectory, noisySensor, kWarmUp, &recorder);
 
-  // Horizontal error should not be worse than baseline + 15% (within margin)
-  EXPECT_LE(noisyMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError * 1.15 + 0.05);
+  // z noise does not leak into the plane: the planar results are those of the noise-free-z baseline.
+  constexpr double kPlanarTolerance = 1e-9;
+  EXPECT_NEAR(noisyMetrics.maxHorizontalError, baselineMetrics.maxHorizontalError, kPlanarTolerance);
+  EXPECT_NEAR(noisyMetrics.rmsHorizontalError, baselineMetrics.rmsHorizontalError, kPlanarTolerance);
 
   // Vertical error should reflect the larger noise
   EXPECT_GT(noisyMetrics.rmsVerticalError, baselineMetrics.rmsVerticalError);
@@ -1228,7 +1202,7 @@ TEST(MotionScenarioTest, AnisotropicNoiseDoesNotLeakIntoPlane)
   RecordProperty("noisy_finalVzError", std::to_string(noisyMetrics.finalVzError));
   for (size_t i = 0; i < noisyMetrics.meanModelProbs.size(); ++i)
   {
-    const auto modelName = i == 0 ? "CV" : (i == 1 ? "CA" : "CTRV");
+    const auto modelName = motionModelName(rv::tracking::kProductionMotionModels[i]);
     RecordProperty(std::string("noisy_prob_") + modelName, std::to_string(noisyMetrics.meanModelProbs[i]));
   }
 }
@@ -1271,14 +1245,5 @@ TEST(MotionScenarioTest, CovarianceStaysPositiveDefiniteWhileClimbing)
   EXPECT_FALSE(firstFailure) << "a model covariance is not positive definite at t = " << firstFailure.value_or(0.0)
                              << " s";
 
-  // Record measurements
-  RecordProperty("cov_rmsVerticalError", std::to_string(0.0));
-  RecordProperty("cov_maxVerticalError", std::to_string(0.0));
-  RecordProperty("cov_finalVzError", std::to_string(0.0));
   RecordProperty("cov_minEigenvalue", std::to_string(minEigenvalueFound));
-  for (size_t i = 0; i < 3; ++i)
-  {
-    const auto modelName = i == 0 ? "CV" : (i == 1 ? "CA" : "CTRV");
-    RecordProperty(std::string("cov_prob_") + modelName, std::to_string(0.0));
-  }
 }
