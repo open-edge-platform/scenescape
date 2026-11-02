@@ -59,7 +59,7 @@ Run all commands from `tools/tracker/evaluation`.
 | `altitude`          | z and vz of truth, detections and estimate; only for recordings with vertical motion               |
 | `size`              | Length, width and height: estimate vs truth vs detections                                          |
 | `model_probability` | Motion model probabilities per track                                                               |
-| `std_dev`           | √diag P: position (x, y, z), velocity (vx, vy, vz), yaw, yaw rate and size (log scale)            |
+| `std_dev`           | √diag P: position (x, y, z), velocity (vx, vy, vz), yaw, yaw rate and size (log scale)             |
 | `trackeval`         | [TrackEval](../evaluators/README.md#trackevalevaluator) HOTA, DetA, AssA, LocA and TP/FN/FP over d |
 
 Along-track and cross-track values are projected onto the ground truth's direction of motion; cross-track is positive
@@ -131,14 +131,14 @@ Tracks are paired with ground truth as for the plots; rows before `--warm-up` se
 ground truth are ignored, so a recording shorter than that needs `--warm-up 0`; its metrics are `nan` otherwise, which
 the table points out.
 
-| Metric              | Content                                                                              |
-| ------------------- | ------------------------------------------------------------------------------------ |
-| `horizontal_rms`    | RMS of the x/y position error [m]                                                    |
-| `horizontal_max`    | Largest x/y position error [m]                                                       |
-| `vertical_rms`      | RMS of the z error [m]                                                               |
-| `vertical_max`      | Largest z error [m]                                                                  |
-| `final_speed_error` | Horizontal speed error at the last row of each pair, mean over the pairs [m/s]       |
-| `final_vz_error`    | Vertical speed error at the last row of each pair, mean over the pairs [m/s]         |
+| Metric              | Content                                                                        |
+| ------------------- | ------------------------------------------------------------------------------ |
+| `horizontal_rms`    | RMS of the x/y position error [m]                                              |
+| `horizontal_max`    | Largest x/y position error [m]                                                 |
+| `vertical_rms`      | RMS of the z error [m]                                                         |
+| `vertical_max`      | Largest z error [m]                                                            |
+| `final_speed_error` | Horizontal speed error at the last row of each pair, mean over the pairs [m/s] |
+| `final_vz_error`    | Vertical speed error at the last row of each pair, mean over the pairs [m/s]   |
 
 All metrics are errors, so lower is better. `delta` is `after` − `before`. A value is marked `WORSE` when
 `after > before · (1 + rel_tol) + abs_tol` and `better` when `after < before · (1 − rel_tol) − abs_tol`; the defaults
