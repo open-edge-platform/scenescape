@@ -18,7 +18,7 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 from reid.api import ReIDService
 from reid.client import ReIDClient, RPC_METHODS, SERVICE_NAME
 from reid.qdrant_adapter import QdrantDatabase
-from reid.server import create_server
+from reid.server import _authorize_token, create_server
 from reid.vdms_adapter import VDMSDatabase
 from scene_common.reid_constants import SCHEMA_MARKER_COLLECTION, SCHEMA_NAME
 
@@ -650,6 +650,17 @@ def test_transport_delete_requires_writer_authorization(transport, token):
       metadata=None if token is None else (("authorization", f"Bearer {token}"),))
   assert failure.value.code() == grpc.StatusCode.PERMISSION_DENIED
   assert transport.records == []
+
+
+def test_authorize_token_fail_closed_for_incomparable_values():
+  authorize = _authorize_token("caf\u00e9", "POI deletion")
+  context = mock.Mock()
+  context.invocation_metadata.return_value = (("authorization", "Bearer ascii-token"),)
+  context.abort.side_effect = RuntimeError("aborted")
+  with pytest.raises(RuntimeError, match="aborted"):
+    authorize(context)
+  context.abort.assert_called_once_with(
+    grpc.StatusCode.PERMISSION_DENIED, "POI deletion is not authorized")
 
 
 @pytest.mark.parametrize("field,value", [

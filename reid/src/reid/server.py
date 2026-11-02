@@ -45,14 +45,21 @@ def _authorize_token(token, action):
   def authorize(context):
     authorization = dict(context.invocation_metadata()).get("authorization", "")
     scheme, separator, supplied_token = authorization.partition(" ")
-    if (not token or scheme.lower() != "bearer" or not separator or
-        not hmac.compare_digest(supplied_token, token)):
+    authorized = False
+    if token and scheme.lower() == "bearer" and separator:
+      try:
+        authorized = hmac.compare_digest(supplied_token, token)
+      except (TypeError, ValueError):
+        # Non-ASCII or otherwise incomparable tokens are never authorized.
+        authorized = False
+    if not authorized:
       context.abort(grpc.StatusCode.PERMISSION_DENIED, f"{action} is not authorized")
   return authorize
 
 
 def _handler(function, authorize=None):
   def call(request, context):
+    # Authorize before the request try/except so abort stays PERMISSION_DENIED.
     if authorize is not None:
       authorize(context)
     try:
