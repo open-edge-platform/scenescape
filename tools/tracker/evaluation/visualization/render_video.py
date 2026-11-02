@@ -10,10 +10,12 @@ Usage (from tools/tracker/evaluation):
 Writes <scenario dir>/videos/overview.mp4: all ground-truth objects (black, dashed)
 and tracks (one colour each) as boxes with position, size and heading, and their
 trails. Each --zoom ID (ground-truth object id or track id) adds zoom_<ID>.mp4, a
-follow camera on that object that also shows the track's predicted position, the
-99% confidence ellipse of that position (XY block of the predicted measurement
-covariance S of the most probable model) and the velocity arrow. The ellipse is not
-the association gate: the Controller and the Tracker associate by a Euclidean radius.
+follow camera on that object that also shows the track's predicted position, an
+ellipse around it and the velocity arrow. For tracker-level recordings the ellipse is
+the association gate from the track's estimator config: the χ² ellipse of the XY block
+of the predicted measurement covariance S (most probable model) for
+position_mahalanobis, without the max_radius_m ceiling, or a circle of max_radius_m for
+euclidean. Without an association config it is the 99% confidence ellipse of S.
 Objects without a size are drawn as points.
 """
 
@@ -23,7 +25,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import matplotlib
 matplotlib.use("Agg")
@@ -116,6 +118,32 @@ def confidence_ellipse(covariance: np.ndarray,
           angle)
 
 
+def association_gate(association: Optional[Dict[str, Any]],
+                     covariance: np.ndarray) -> Tuple[float, float, float]:
+  """Width, height and angle [deg] of the association gate around the predicted position.
+
+  position_mahalanobis: χ² ellipse with the gate probability, without the max_radius_m
+  ceiling. euclidean: circle of max_radius_m. No association config: the
+  CONFIDENCE_PROBABILITY ellipse.
+  """
+  if association and association.get("method") == "euclidean":
+    diameter = 2.0 * float(association["max_radius_m"])
+    return diameter, diameter, 0.0
+  probability = CONFIDENCE_PROBABILITY
+  if association and "gate_probability" in association:
+    probability = float(association["gate_probability"])
+  return confidence_ellipse(covariance, probability)
+
+
+def gate_label(association: Optional[Dict[str, Any]]) -> str:
+  """Legend entry for association_gate()."""
+  if association and association.get("method") == "euclidean":
+    return f"association gate ({float(association['max_radius_m']):g} m)"
+  if association and "gate_probability" in association:
+    return f"association gate (χ² {float(association['gate_probability']):g})"
+  return f"{CONFIDENCE_PROBABILITY:.0%} position ellipse"
+
+
 def box_corners(x: float, y: float, yaw: float, length: float, width: float) -> np.ndarray:
   """Corners of a box with its length along the yaw direction."""
   c, s = math.cos(yaw), math.sin(yaw)
@@ -161,15 +189,16 @@ class BoxArtist:  # pylint: disable=too-few-public-methods
 
 
 class ZoomArtist:  # pylint: disable=too-few-public-methods
-  """Velocity arrow of a track, plus its predicted position and confidence ellipse (estimator)."""
+  """Velocity arrow of a track, plus its predicted position and gate ellipse (estimator)."""
 
   def __init__(self, ax, color: str, trace: Optional[EstimatorTrace]):
     self.trace = trace
+    self.association = trace.config.get("association") if trace is not None else None
     if trace is not None:
       (self.prediction,) = ax.plot([], [], "+", color=color, markersize=12, markeredgewidth=2,
                                    label="predicted position")
       self.ellipse = Ellipse((0, 0), 0, 0, fill=False, edgecolor=color, linestyle=":",
-                             linewidth=1.5, label=f"{CONFIDENCE_PROBABILITY:.0%} position ellipse")
+                             linewidth=1.5, label=gate_label(self.association))
       ax.add_patch(self.ellipse)
     self.velocity = ax.quiver([0], [0], [0], [0], color=color, angles="xy", scale_units="xy",
                               scale=1.0, width=0.004, label="velocity (1 s)")
@@ -191,7 +220,8 @@ class ZoomArtist:  # pylint: disable=too-few-public-methods
     self.ellipse.set_visible(visible)
     if visible:
       self.prediction.set_data([prediction[0]], [prediction[1]])
-      width, height, angle = confidence_ellipse(trace.predicted_measurement_cov[step, :2, :2])
+      width, height, angle = association_gate(self.association,
+                                              trace.predicted_measurement_cov[step, :2, :2])
       self.ellipse.set_center(prediction)
       self.ellipse.set_width(width)
       self.ellipse.set_height(height)

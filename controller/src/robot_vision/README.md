@@ -28,7 +28,7 @@ pip3 install dist/robot_vision-X.X.X-cpXX-cpXXm-linux_x86_64.whl
 
 Tests that use `ScenarioRecorder` ([test/support/ScenarioRecorder.hpp](test/support/ScenarioRecorder.hpp)) write the
 ground truth, detections, tracks and estimator steps of their runs as JSONL files when `RV_SCENARIO_DIR` is set, and
-nothing otherwise. `MotionScenarioTests.cpp` records all its scenarios.
+nothing otherwise. `MotionScenarioTests.cpp` and `AssociationScenarioTests.cpp` record all their scenarios.
 
 1. Build the tests, with the build dependencies above:
 
