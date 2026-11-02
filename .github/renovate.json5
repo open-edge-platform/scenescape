@@ -4,8 +4,11 @@
 {
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   extends: ["config:base"],
-  description: "Renovate configuration for Tracker Service Conan C++ dependencies",
-  enabledManagers: ["conan"],
+  description: "Renovate configuration for Tracker Service Conan C++ dependencies and Renovate self-updates",
+  enabledManagers: ["conan", "custom.regex"],
+  // Keep notifications in PRs and workflow logs instead of creating issues.
+  dependencyDashboard: false,
+  suppressNotifications: ["configErrorIssue"],
   labels: ["dependencies", "renovate", "tracker"],
   schedule: ["before 10am on the first day of the month"],
   timezone: "UTC",
@@ -46,10 +49,34 @@
     enabled: true,
     fileMatch: ["tracker/conanfile.txt$"],
   },
+  // Dependabot updates action references; these rules update only Renovate's pinned versions.
+  customManagers: [
+    {
+      customType: "regex",
+      managerFilePatterns: ["/^\\.github/workflows/renovate\\.yml$/"],
+      matchStrings: [
+        "# renovate: datasource=github-releases depName=renovatebot/renovate\\s+renovate-version: (?<currentValue>\\d+\\.\\d+\\.\\d+)\\s",
+      ],
+      datasourceTemplate: "github-releases",
+      depNameTemplate: "renovatebot/renovate",
+    },
+    {
+      customType: "regex",
+      managerFilePatterns: [
+        "/^\\.github/workflows/renovate-config-validator\\.yml$/",
+      ],
+      matchStrings: [
+        "# renovate: datasource=docker\\s+export RENOVATE_IMAGE=renovate/renovate:(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)\\s",
+      ],
+      datasourceTemplate: "docker",
+      depNameTemplate: "renovate/renovate",
+    },
+  ],
   prConcurrentLimit: 5,
   prHourlyLimit: 2,
   commitMessagePrefix: "Tracker Conan:",
   semanticCommits: "enabled",
+  automerge: false,
   platformAutomerge: false,
   rebaseWhen: "behind-base-branch",
   separateMajorMinor: true,
