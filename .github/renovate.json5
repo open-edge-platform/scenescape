@@ -62,7 +62,9 @@
     },
     {
       customType: "regex",
-      managerFilePatterns: ["/^\\.github/workflows/renovate-config-validator\\.yml$/"],
+      managerFilePatterns: [
+        "/^\\.github/workflows/renovate-config-validator\\.yml$/",
+      ],
       matchStrings: [
         "# renovate: datasource=docker\\s+export RENOVATE_IMAGE=renovate/renovate:(?<currentValue>\\d+\\.\\d+(?:\\.\\d+)?)\\s",
       ],
