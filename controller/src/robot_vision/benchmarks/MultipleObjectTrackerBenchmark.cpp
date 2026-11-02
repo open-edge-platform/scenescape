@@ -24,6 +24,7 @@
 #include "rv/Utils.hpp"
 #include "rv/tracking/MultipleObjectTracker.hpp"
 #include "rv/tracking/ObjectMatching.hpp"
+#include "rv/tracking/TrackManager.hpp"
 #include "rv/tracking/TrackedObject.hpp"
 
 namespace rv {
@@ -37,13 +38,34 @@ constexpr int kFramesPerTrackerReset = 100;
 // Per-camera ground-plane projection disagreement in the overlap layout.
 constexpr double kCameraNoiseStdM = 0.1;
 
+// Filter and track lifecycle settings of the Scene Controller and Tracker Service default configs.
+TrackManagerConfig productionTrackerConfig()
+{
+  TrackManagerConfig config;
+  config.mDefaultProcessNoise = kProductionProcessNoise;
+  config.mDefaultMeasurementNoise = kProductionMeasurementNoise;
+  config.mInitStateCovariance = kProductionInitStateCovariance;
+  config.mMotionModels = kProductionMotionModels;
+  config.mMaxUnreliableTime = 1.0;
+  config.mNonMeasurementTimeDynamic = 0.8;
+  config.mNonMeasurementTimeStatic = 1.6;
+  return config;
+}
+
+// Lifecycle times are converted to frames at the benchmark's frame rate, as the services do at theirs.
+std::unique_ptr<MultipleObjectTracker> makeTracker()
+{
+  auto tracker = std::make_unique<MultipleObjectTracker>(productionTrackerConfig());
+  tracker->updateTrackerParams(static_cast<int>(std::lround(1.0 / kFrameTimeS)));
+  return tracker;
+}
+
 struct AssociationParams
 {
-  bool configured = false;
-  DistanceType distance_type = DistanceType::Euclidean;
-  double distance_threshold = 2.0;
-  double max_radius_m = 2.0;
-  std::string label = "default_track_path";
+  DistanceType distance_type = DistanceType::PositionMahalanobis;
+  double distance_threshold = 0.0;
+  double max_radius_m = 0.0;
+  std::string label;
 };
 
 struct WorkloadConfig
@@ -51,7 +73,8 @@ struct WorkloadConfig
   std::vector<int> people_counts{50};
   std::vector<int> camera_counts{1, 2};
   std::vector<int> overlap_modes{0, 1};
-  AssociationParams association;
+  // Set by parseWorkloadArgs: --association-config, or the production association.
+  std::optional<AssociationParams> association;
 };
 
 WorkloadConfig g_workload;
@@ -113,27 +136,18 @@ std::optional<double> jsonNumberField(const std::string &json, const std::string
   return std::stod(json.substr(i, j - i));
 }
 
-AssociationParams loadAssociationConfig(const std::string &path)
+// Association parameters as the Scene Controller and the Tracker Service derive them from their association config,
+// with the same defaults: method position_mahalanobis, gate_probability 0.99, max_radius_m 2 m for euclidean and
+// 10 m for position_mahalanobis.
+AssociationParams makeAssociationParams(const std::string &method,
+                                        std::optional<double> gate_probability,
+                                        std::optional<double> max_radius_m)
 {
-  std::ifstream in(path);
-  if (!in)
-  {
-    throw std::runtime_error("Failed to open association config: " + path);
-  }
-  std::ostringstream ss;
-  ss << in.rdbuf();
-  const std::string json = ss.str();
-
   AssociationParams params;
-  params.configured = true;
-
-  const auto method = jsonStringField(json, "method").value_or("euclidean");
-  const double gate_probability = jsonNumberField(json, "gate_probability").value_or(0.99);
-  params.max_radius_m = jsonNumberField(json, "max_radius_m").value_or(2.0);
-
   if (method == "euclidean")
   {
     params.distance_type = DistanceType::Euclidean;
+    params.max_radius_m = max_radius_m.value_or(2.0);
     params.distance_threshold = params.max_radius_m;
     params.label = "euclidean_r" + std::to_string(params.max_radius_m);
   }
@@ -143,6 +157,7 @@ AssociationParams loadAssociationConfig(const std::string &path)
     throw std::runtime_error(
       "association method position_mahalanobis is not available in this robot_vision build");
 #else
+    const double probability = gate_probability.value_or(0.99);
     params.distance_type = DistanceType::PositionMahalanobis;
     params.distance_threshold = rv::chi2Threshold(gate_probability, 3);
     params.label = "position_mahalanobis_p" + std::to_string(gate_probability) + "_r" +
@@ -154,6 +169,22 @@ AssociationParams loadAssociationConfig(const std::string &path)
     throw std::runtime_error("Unsupported association method: " + method);
   }
   return params;
+}
+
+AssociationParams loadAssociationConfig(const std::string &path)
+{
+  std::ifstream in(path);
+  if (!in)
+  {
+    throw std::runtime_error("Failed to open association config: " + path);
+  }
+  std::ostringstream ss;
+  ss << in.rdbuf();
+  const std::string json = ss.str();
+
+  return makeAssociationParams(jsonStringField(json, "method").value_or("position_mahalanobis"),
+                               jsonNumberField(json, "gate_probability"),
+                               jsonNumberField(json, "max_radius_m"));
 }
 
 class PeopleTrackingBenchmarkFixture
@@ -196,7 +227,7 @@ public:
     person.classification[3] = 0.05 * std::uniform_real_distribution<double>(0, 1)(gen);
     person.classification[4] = 0.05 * std::uniform_real_distribution<double>(0, 1)(gen);
     person.classification.normalize();
-    // No Kalman matrices: like Scene Controller detections, and copies would alias the tracker's buffers.
+    // No Kalman matrices, like Scene Controller and Tracker Service detections.
     return person;
   }
 
@@ -276,11 +307,6 @@ void callTrack(MultipleObjectTracker &tracker,
                const std::chrono::system_clock::time_point &timestamp,
                const AssociationParams &association)
 {
-  if (!association.configured)
-  {
-    tracker.track(std::move(objects), timestamp, kScoreThreshold);
-    return;
-  }
 #ifdef RV_HAS_ASSOCIATION_MAX_RADIUS
   tracker.track(std::move(objects), timestamp, association.distance_type,
                 association.distance_threshold, kScoreThreshold, association.max_radius_m);
@@ -299,7 +325,7 @@ void runTrack(::benchmark::State &state, bool immediate)
   const bool overlap = state.range(2) != 0;
   PeopleTrackingBenchmarkFixture fixture;
   fixture.resetPeople(static_cast<size_t>(numPeople));
-  auto tracker = std::make_unique<MultipleObjectTracker>();
+  auto tracker = makeTracker();
   int frameCount = 0;
   int64_t detections = 0;
 
@@ -320,12 +346,12 @@ void runTrack(::benchmark::State &state, bool immediate)
         // Cameras publish staggered within the frame period.
         const auto offset = std::chrono::milliseconds(33 * camera / cameras);
         callTrack(*tracker, std::move(perCamera[static_cast<size_t>(camera)]), timestamp + offset,
-                  g_workload.association);
+                  *g_workload.association);
       }
     }
     else
     {
-      callTrack(*tracker, std::move(perCamera), timestamp, g_workload.association);
+      callTrack(*tracker, std::move(perCamera), timestamp, *g_workload.association);
     }
 
     fixture.advancePeople(kFrameTimeS);
@@ -333,7 +359,7 @@ void runTrack(::benchmark::State &state, bool immediate)
     {
       frameCount = 0;
       fixture.resetPeople(static_cast<size_t>(numPeople));
-      tracker = std::make_unique<MultipleObjectTracker>();
+      tracker = makeTracker();
     }
   }
 
@@ -341,7 +367,7 @@ void runTrack(::benchmark::State &state, bool immediate)
   state.counters["peak_fps"] =
     ::benchmark::Counter(static_cast<double>(state.iterations()), ::benchmark::Counter::kIsRate);
   state.SetItemsProcessed(detections);
-  state.SetLabel(g_workload.association.label);
+  state.SetLabel(g_workload.association->label);
 }
 
 void registerBenchmarks()
@@ -438,6 +464,10 @@ bool parseWorkloadArgs(int &argc, char **argv)
     {
       kept.push_back(argv[i]);
     }
+  }
+  if (!g_workload.association)
+  {
+    g_workload.association = makeAssociationParams("position_mahalanobis", std::nullopt, std::nullopt);
   }
   argc = static_cast<int>(kept.size());
   for (int i = 0; i < argc; ++i)

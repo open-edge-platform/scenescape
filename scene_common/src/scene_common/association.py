@@ -22,3 +22,10 @@ DEFAULT_ASSOCIATION_CONFIG = {
   "gate_probability": DEFAULT_ASSOCIATION_GATE_PROBABILITY,
   "max_radius_m": DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M,
 }
+
+
+def add_association_window(obj_dict, obj):
+  """Copy the tracker's ``association_window`` of ``obj`` into ``obj_dict`` when it has one."""
+  association_window = getattr(obj, 'association_window', None)
+  if association_window:
+    obj_dict['association_window'] = association_window

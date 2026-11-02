@@ -210,6 +210,14 @@ class TestDetectionsBuilder:
 
     assert detection['association_window'] == obj.association_window
 
+  def test_prepare_obj_dict_omits_empty_association_window(self):
+    obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
+    obj.association_window = None
+
+    detection = prepareObjDict(SimpleNamespace(output_lla=False), obj, update_visibility=False)
+
+    assert 'association_window' not in detection
+
   def test_prepare_obj_dict_handles_chain_data_without_sensor_fields(self):
     obj = _build_object(velocity=Point(4.0, 5.0), include_sensor_payload=False)
     obj.chain_data = ChainData(regions=[], persist={}, publishedLocations=[])

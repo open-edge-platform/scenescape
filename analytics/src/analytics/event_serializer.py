@@ -23,6 +23,7 @@ build_objects_list(objects, include_sensors, include_region_dwell, current_time)
 
 import numpy as np
 
+from scene_common.association import add_association_window
 from scene_common.geometry import DEFAULTZ, Point
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
@@ -116,9 +117,7 @@ def serialize_for_event(obj, include_sensors=False, include_region_dwell=False, 
   if hasattr(ao, 'first_seen'):
     obj_dict['first_seen'] = get_iso_time(ao.first_seen)
 
-  association_window = getattr(ao, 'association_window', None)
-  if association_window:
-    obj_dict['association_window'] = association_window
+  add_association_window(obj_dict, ao)
 
   if isinstance(obj, TripwireEvent):
     obj_dict['direction'] = obj.direction

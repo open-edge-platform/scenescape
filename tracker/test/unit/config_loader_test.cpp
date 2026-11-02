@@ -839,6 +839,43 @@ TEST(ConfigLoaderTest, AssociationGateProbabilityEnvOverride_InvalidAndDomain) {
     }
 }
 
+TEST(ConfigLoaderTest, AssociationEuclideanWithoutMaxRadiusUsesLegacyGate) {
+    const std::string json = R"({
+      "infrastructure": {
+        "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+      },
+      "tracking": {
+        "association": {"method": "euclidean"}
+      },
+      "scenes": {
+        "source": "file",
+        "file_path": ")" + empty_scenes_path() +
+                             R"("
+      }
+    })";
+    TempFile config_file(json);
+    auto config = load_config(config_file.path(), get_schema_path());
+    EXPECT_EQ(config.tracking.association.method, AssociationMethod::Euclidean);
+    EXPECT_DOUBLE_EQ(config.tracking.association.max_radius_m, kDefaultAssociationMaxRadiusM);
+    EXPECT_DOUBLE_EQ(config.tracking.association.costThreshold(), kDefaultAssociationMaxRadiusM);
+}
+
+TEST(ConfigLoaderTest, AssociationMaxRadiusDefaultFollowsEnvMethod) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    {
+        ScopedEnv method_env(tracker::env::ASSOCIATION_METHOD, "euclidean");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_DOUBLE_EQ(config.tracking.association.max_radius_m, kDefaultAssociationMaxRadiusM);
+    }
+    {
+        ScopedEnv method_env(tracker::env::ASSOCIATION_METHOD, "euclidean");
+        ScopedEnv radius_env(tracker::env::ASSOCIATION_MAX_RADIUS_M, "3.5");
+        auto config = load_config(config_file.path(), get_schema_path());
+        EXPECT_DOUBLE_EQ(config.tracking.association.max_radius_m, 3.5);
+    }
+}
+
 //
 // TLS config from JSON file tests (covers lines 193-210)
 //

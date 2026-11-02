@@ -59,13 +59,16 @@ def _mock_set_tracker(self, trackerType):
   self.trackerType = trackerType
   self.tracker = _StubTracking(reid_config_data=self.reid_config_data)
 
-@pytest.fixture(scope='session', autouse=True)
+# Module scope: active before this directory's module-scoped Scene fixtures, and
+# undone after each module. Session scope would leave the patches in place for
+# test directories that run later and use the real tracker.
+@pytest.fixture(scope='module', autouse=True)
 def mock_tracker_init():
   """Mock _setTracker to avoid robot_vision.tracking dependency."""
   with patch.object(Scene, '_setTracker', _mock_set_tracker):
     yield
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='module', autouse=True)
 def mock_rv_tracking():
   """Mock rv.tracking.compute_pixels_to_meter_plane_batch."""
   def fake_compute(bboxes, intrinsics, distortion):
@@ -75,7 +78,7 @@ def mock_rv_tracking():
   with patch.object(scene_module, 'rv', MagicMock(tracking=mock_tracking)):
     yield
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope='module', autouse=True)
 def mock_ilabs_rv():
   """Mock robot_vision usage inside controller.ilabs_tracking."""
   with patch("controller.ilabs_tracking.rv", MagicMock()):

@@ -275,8 +275,7 @@
             },
             "max_radius_m": {
               "type": "number",
-              "description": "Euclidean distance threshold (m) or hard Mahalanobis ceiling (m). Default 10 m supports the position_mahalanobis chi-squared gate; use ~2 m when method is euclidean.",
-              "default": 10.0,
+              "description": "Euclidean distance threshold (m) or hard Mahalanobis ceiling (m). Default: 2 m for euclidean, 10 m for position_mahalanobis.",
               "minimum": 0
             }
           },
