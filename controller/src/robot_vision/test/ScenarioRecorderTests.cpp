@@ -54,7 +54,7 @@ std::vector<double> numbersAfter(const std::string &line, std::string_view key)
     return result;
   }
   std::string content = line.substr(start, end - start);
-  
+
   // Parse comma-separated numbers
   size_t pos = 0;
   while (pos < content.length())
@@ -218,12 +218,9 @@ TEST_F(ScenarioRecorderTest, DirectoryComesFromEnvironment)
 TEST_F(ScenarioRecorderTest, RecordsVerticalMotion)
 {
   // Verify that climbing truth and estimated vertical states are recorded correctly.
-  const auto climbingTruth = Trajectory({.speed = 1.0, .box = kCar})
-    .straight(1.0)
-    .climb(0.5, 2.0)
-    .straight(1.0)
-    .sample(10.0);
-  
+  const auto climbingTruth
+    = Trajectory({.speed = 1.0, .box = kCar}).straight(1.0).climb(0.5, 2.0).straight(1.0).sample(10.0);
+
   Sensor camera{.positionNoise = 0.05};
   {
     ScenarioRecorder recorder("vertical motion", mRoot);
@@ -233,11 +230,11 @@ TEST_F(ScenarioRecorderTest, RecordsVerticalMotion)
   }
 
   const auto directory = mRoot / "ScenarioRecorderTest.RecordsVerticalMotion" / "vertical_motion";
-  
+
   // groundtruth.jsonl: find a line with translation[2] (z) > 0.5 and velocity[2] (vz) == 0.5
   const auto groundTruth = readLines(directory / "groundtruth.jsonl");
   ASSERT_GT(groundTruth.size(), 0U);
-  
+
   bool foundNonZeroZ = false;
   bool foundNonZeroVz = false;
   for (const auto &line : groundTruth)
@@ -255,21 +252,21 @@ TEST_F(ScenarioRecorderTest, RecordsVerticalMotion)
   }
   EXPECT_TRUE(foundNonZeroZ) << "groundtruth.jsonl should contain translation[2] > 0.5";
   EXPECT_TRUE(foundNonZeroVz) << "groundtruth.jsonl should contain velocity[2] == 0.5";
-  
+
   // detections.jsonl: check that it has translation arrays (detections recorded)
   const auto detections = readLines(directory / "detections.jsonl");
   ASSERT_GT(detections.size(), 0U);
   EXPECT_TRUE(detections.front().find("\"translation\":[") != std::string::npos);
-  
+
   // estimator.jsonl: check config line has state_names with "z","vz" substring
   // and check that step lines have x array with 13 entries (StateSize)
   const auto estimator = readLines(directory / "estimator.jsonl");
   ASSERT_GT(estimator.size(), 0U);
-  
+
   // First line is config and should contain "z","vz" substring
   EXPECT_TRUE(estimator.front().find("\"z\",\"vz\"") != std::string::npos)
     << "estimator config should have state_names containing z and vz in sequence";
-  
+
   // Check state lines have x array with 13 entries (TrackedObject::StateSize)
   bool foundValidStateArray = false;
   for (size_t i = 1; i < estimator.size(); ++i)
@@ -285,11 +282,11 @@ TEST_F(ScenarioRecorderTest, RecordsVerticalMotion)
     }
   }
   EXPECT_TRUE(foundValidStateArray) << "estimator.jsonl should have step entries with x array of 13 elements";
-  
+
   // tracks.jsonl: find a late line (last line) with velocity[2] (vz) with |third| > 0.05
   const auto tracks = readLines(directory / "tracks.jsonl");
-  ASSERT_GT(tracks.size(), 1U);  // Should have at least init + one track update
-  
+  ASSERT_GT(tracks.size(), 1U); // Should have at least init + one track update
+
   bool foundTrackWithVerticalVelocity = false;
   // Check from near the end (late in the run)
   for (int i = static_cast<int>(tracks.size()) - 1; i >= static_cast<int>(tracks.size()) - 5 && i >= 1; --i)
@@ -301,6 +298,6 @@ TEST_F(ScenarioRecorderTest, RecordsVerticalMotion)
       break;
     }
   }
-  EXPECT_TRUE(foundTrackWithVerticalVelocity) 
+  EXPECT_TRUE(foundTrackWithVerticalVelocity)
     << "tracks.jsonl should have late entries with velocity[2] (vz) with |third| > 0.05";
 }

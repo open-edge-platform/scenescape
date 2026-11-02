@@ -208,6 +208,40 @@ def plot_speed_yaw(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
   return fig
 
 
+def plot_altitude(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
+  """z and vz of truth, detections and estimate; only for recordings with vertical motion."""
+  if not scenario.has_vertical_motion:
+    return None
+  fig, axes = plt.subplots(2, 1, figsize=(10, 7), sharex=True)
+  for track_id, track in _tracks(scenario, pairs):
+    _plot_altitude_track(scenario, track_id, track, pairs, axes)
+  for ax, ylabel in zip(axes, ("z [m]", "vz [m/s]")):
+    _finish(ax, None, ylabel)
+  axes[-1].set_xlabel("t [s]")
+  axes[0].set_title(_title(scenario, "Altitude"))
+  return fig
+
+
+def _plot_altitude_track(scenario: Scenario, track_id: str, track: pd.DataFrame,
+                         pairs: Pairs, axes: np.ndarray) -> None:
+  """Plot z and vz for one track: estimate (solid), truth (dashed), detections (dots on z)."""
+  color = track_color(pairs, track_id)
+  name = label(track_id)
+  # z panel
+  axes[0].plot(track["t"], track["z"], color=color, label=f"track {name}")
+  truth = _truth(scenario, pairs.get(track_id))
+  if truth is not None and truth["z"].notna().any():
+    axes[0].plot(truth["t"], truth["z"], color=color, label=f"truth {name}", **TRUTH_STYLE)
+  detections = _detections(scenario, pairs.get(track_id))
+  if detections["z"].notna().any():
+    axes[0].plot(detections["t"], detections["z"], color=color, label=f"detections {name}",
+                 **DETECTION_STYLE)
+  # vz panel
+  axes[1].plot(track["t"], track["vz"], color=color, label=f"track {name}")
+  if truth is not None and truth["vz"].notna().any():
+    axes[1].plot(truth["t"], truth["vz"], color=color, label=f"truth {name}", **TRUTH_STYLE)
+
+
 def plot_size(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
   """Length, width and height: estimate vs truth vs detections."""
   if scenario.tracks.empty:
@@ -252,8 +286,8 @@ def plot_model_probability(scenario: Scenario, pairs: Pairs) -> Optional[plt.Fig
 
 
 STD_DEV_GROUPS = (
-  ("position [m]", ("x", "y")),
-  ("velocity [m/s]", ("vx", "vy")),
+  ("position [m]", ("x", "y", "z")),
+  ("velocity [m/s]", ("vx", "vy", "vz")),
   ("yaw [rad]", ("yaw",)),
   ("yaw rate [rad/s]", ("yaw_rate",)),
   ("size [m]", ("length", "width", "height")),
@@ -270,6 +304,8 @@ def plot_std_dev(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure]:
     color = track_color(pairs, track_id)
     for ax, (_, states) in zip(axes, STD_DEV_GROUPS):
       for style, state in zip(styles, states):
+        if not trace.has_state(state):
+          continue
         index = trace.state_index(state)
         ax.plot(trace.t, np.sqrt(np.clip(trace.covariance[:, index, index], 0.0, None)), style,
                 color=color, label=f"{state} {label(track_id)}")
@@ -378,6 +414,7 @@ PLOTS: Dict[str, Callable[..., Optional[plt.Figure]]] = {
   "trajectory": plot_trajectory,
   "position_error": plot_position_error,
   "speed_yaw": plot_speed_yaw,
+  "altitude": plot_altitude,
   "size": plot_size,
   "model_probability": plot_model_probability,
   "std_dev": plot_std_dev,

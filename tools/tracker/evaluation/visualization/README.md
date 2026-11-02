@@ -56,9 +56,10 @@ Run all commands from `tools/tracker/evaluation`.
 | `trajectory`        | Top-down view: ground truth, detections and tracks                                                 |
 | `position_error`    | Total, along-track and cross-track error against the matched ground truth, ±2σ from P              |
 | `speed_yaw`         | Speed, yaw and yaw rate: estimate vs truth and orienting detections                                |
+| `altitude`          | z and vz of truth, detections and estimate; only for recordings with vertical motion               |
 | `size`              | Length, width and height: estimate vs truth vs detections                                          |
 | `model_probability` | Motion model probabilities per track                                                               |
-| `std_dev`           | √diag P: position, velocity, yaw, yaw rate and size (log scale)                                    |
+| `std_dev`           | √diag P: position (x, y, z), velocity (vx, vy, vz), yaw, yaw rate and size (log scale)            |
 | `trackeval`         | [TrackEval](../evaluators/README.md#trackevalevaluator) HOTA, DetA, AssA, LocA and TP/FN/FP over d |
 
 Along-track and cross-track values are projected onto the ground truth's direction of motion; cross-track is positive

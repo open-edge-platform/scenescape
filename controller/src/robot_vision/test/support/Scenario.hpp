@@ -61,7 +61,8 @@ inline TrackedObject makeDetection(const TruthSample &sample)
   return makeDetection(sample.x, sample.y, sample.z, sample.box.length, sample.box.width, sample.box.height);
 }
 
-// Unicycle ground truth: segments of constant acceleration, turn rate, and vertical rate; speed never goes below 0, vz unrestricted.
+// Unicycle ground truth: segments of constant acceleration, turn rate, and vertical rate; speed never goes below 0, vz
+// unrestricted.
 class Trajectory
 {
 public:
@@ -223,8 +224,8 @@ struct Sensor
   double yawNoise = 0.0;      // standard deviation [rad], orienting sensors only
   bool orienting = false;     // reports heading as yaw and sets has_orientation, like a LiDAR
   std::mt19937 rng{1};
-  double zNoise = 0.0;        // standard deviation of z [m]; 0 keeps z exact
-  std::mt19937 zRng{2};       // own generator so z noise never changes the x/y/size/yaw noise
+  double zNoise = 0.0;  // standard deviation of z [m]; 0 keeps z exact
+  std::mt19937 zRng{2}; // own generator so z noise never changes the x/y/size/yaw noise
 };
 
 struct Observation

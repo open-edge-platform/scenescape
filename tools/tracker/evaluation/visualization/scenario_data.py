@@ -37,6 +37,8 @@ from utils.format_converters import stream_jsonl
 from utils.timeline import parse_timestamp
 from utils.tracks import match_tracks
 
+VERTICAL_EPSILON = 1e-6  # [m] and [m/s] below this a z or vz value counts as no vertical motion
+
 GROUND_TRUTH_FILE = "groundtruth.jsonl"
 DETECTIONS_FILE = "detections.jsonl"
 TRACKS_FILE = "tracks.jsonl"
@@ -82,6 +84,10 @@ class EstimatorTrace:
     """Index of a state such as "vx" or "yaw_rate" in the state vector."""
     return list(self.config["state_names"]).index(name)
 
+  def has_state(self, name: str) -> bool:
+    """True if `name` is in the state vector (e.g., old 12-state recordings lack "vz")."""
+    return name in self.config.get("state_names", [])
+
 
 @dataclass
 class Scenario:
@@ -107,6 +113,26 @@ class Scenario:
   def track_ids(self) -> List[str]:
     """Track ids in tracks.jsonl."""
     return sorted(self.tracks["track_id"].unique())
+
+  @property
+  def has_vertical_motion(self) -> bool:
+    """True if any |z| or |vz| exceeds VERTICAL_EPSILON in ground truth, tracks or detections."""
+    columns = []
+    for table in (self.ground_truth, self.tracks, self.detections):
+      for col_name in ("z", "vz"):
+        if col_name in table.columns:
+          columns.append(table[col_name])
+    return _has_values_above(columns)
+
+
+def _has_values_above(columns: List[pd.Series]) -> bool:
+  """True if any column has values exceeding VERTICAL_EPSILON in absolute value, ignoring NaN."""
+  for col in columns:
+    if col.empty or col.isna().all():
+      continue
+    if np.nanmax(np.abs(col.to_numpy())) > VERTICAL_EPSILON:
+      return True
+  return False
 
 
 def yaw_from_quaternion(rotation: Optional[Sequence[float]]) -> float:
