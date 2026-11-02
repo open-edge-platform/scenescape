@@ -489,6 +489,24 @@ def test_transport_create_collection_is_idempotent_for_compatible_schema(transpo
     3, "IP" if transport.backend_name == "VDMS" else models.Distance.DOT)
 
 
+def test_transport_reuses_collection_adapter_across_poi_operations(transport):
+  original = transport.service.collection_factory
+  wrapped = mock.Mock(side_effect=original)
+  transport.service.collection_factory = wrapped
+  transport.service._collection_adapters.clear()
+  create_token = "transport-create-token"
+  write_token = "transport-poi-write-token"
+  transport.client.create_collection("poi_person", 3, "IP", create_token)
+  created = transport.client.enroll_poi(
+    "poi_person", "person", [[1, 0, 0]], "high", "", "alice", write_token)
+  transport.client.append_poi_embeddings(
+    "poi_person", created["poi_id"], [[0, 1, 0]], "alice", write_token)
+  transport.client.find_matches({
+    "object_type": "person", "set_name": "poi_person", "reid_vectors": [[1, 0, 0]]})
+  assert wrapped.call_count == 1
+  assert wrapped.call_args.args == ("poi_person", "IP")
+
+
 @pytest.mark.parametrize("dimensions, metric", [(4, "IP"), (3, "L2")])
 def test_transport_create_collection_rejects_incompatible_schema(transport, dimensions, metric):
   token = "transport-create-token"

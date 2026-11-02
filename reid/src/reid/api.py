@@ -39,6 +39,8 @@ class ReIDService:
     self.collection_factory = collection_factory or self._new_collection_adapter
     self._schema_cache = OrderedDict()
     self._schema_lock = threading.Lock()
+    self._collection_adapters = OrderedDict()
+    self._collection_adapters_lock = threading.Lock()
     self._poi_write_lock = threading.Lock()
     if connect:
       # Adapters log and swallow connection errors; health() reports the result.
@@ -106,11 +108,24 @@ class ReIDService:
     """Use a collection-scoped adapter when the query targets a non-live set."""
     if set_name == self.adapter.set_name:
       return self.adapter
-    adapter = self.collection_factory(set_name, metric)
-    adapter.raise_on_backend_error = True
-    adapter.similarity_metric = metric
+    adapter = self._collectionAdapter(set_name, metric)
     adapter.dimensions = dimensions
     return adapter
+
+  def _collectionAdapter(self, collection_name, metric):
+    """Reuse one connected adapter per collection name within this process."""
+    with self._collection_adapters_lock:
+      adapter = self._collection_adapters.get(collection_name)
+      if adapter is not None:
+        self._collection_adapters.move_to_end(collection_name)
+        adapter.similarity_metric = metric
+        return adapter
+      adapter = self.collection_factory(collection_name, metric)
+      adapter.raise_on_backend_error = True
+      self._collection_adapters[collection_name] = adapter
+      if len(self._collection_adapters) > SCHEMA_CACHE_MAX_SETS:
+        self._collection_adapters.popitem(last=False)
+      return adapter
 
   def _querySchema(self, set_name):
     """Cache existing schema width and metric; never cache absence or failures."""
@@ -155,8 +170,7 @@ class ReIDService:
   def create_collection(self, request):
     """Create or verify an explicitly named POI collection schema."""
     collection_name, dimensions, metric = self._validate_collection_declaration(request)
-    adapter = self.collection_factory(collection_name, metric)
-    adapter.raise_on_backend_error = True
+    adapter = self._collectionAdapter(collection_name, metric)
     if not adapter.backendAvailable():
       raise ConnectionError("ReID backend unavailable")
     try:
@@ -256,8 +270,8 @@ class ReIDService:
                 SCHEMA_MARKER_COLLECTION.casefold()}
     if collection_name.casefold() in reserved:
       raise ValueError("POI writes cannot target the live gallery or internal schema collection")
-    adapter = self.collection_factory(collection_name, self.adapter.similarity_metric)
-    adapter.raise_on_backend_error = True
+    adapter = self._collectionAdapter(
+      collection_name, getattr(self.adapter, "similarity_metric", "IP"))
     if not adapter.backendAvailable():
       raise ConnectionError("ReID backend unavailable")
     exists, dimensions, metric = self._backend_call(adapter.findSchemaMetadata, collection_name)
