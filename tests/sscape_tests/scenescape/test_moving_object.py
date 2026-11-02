@@ -179,6 +179,21 @@ class TestMovingObject:
     assert loc.y == pytest.approx(expected.y)
     assert loc.z == pytest.approx(expected.z)
 
+  @pytest.mark.parametrize("distance", [None, -1, 0, "invalid", float("nan"), float("inf")])
+  def test_invalid_2d_distance_is_ignored(self, distance):
+    from scene_common.transform import CameraIntrinsics, CameraPose
+    pose = CameraPose({'translation': [0, 0, 1],
+                      'rotation': [0.5, -0.5, 0.5, -0.5], 'scale': [1, 1, 1]},
+                     CameraIntrinsics({'fx': 100, 'fy': 100, 'cx': 100, 'cy': 100}))
+    camera = SimpleNamespace(cameraID='cam-1', pose=pose)
+    info = {**_base_info(), 'distance': distance}
+    baseline = MovingObject(_base_info(), 1, camera)
+    obj = MovingObject(info, 1, camera)
+    assert obj.metric_distance is None
+    assert not obj.depth_expanded_box
+    assert 'distance' not in obj.info
+    assert obj.sceneLoc.asNumpyCartesian == pytest.approx(baseline.sceneLoc.asNumpyCartesian)
+
   @pytest.mark.parametrize("box_key", ["bounding_box", "bounding_box_px"])
   @pytest.mark.parametrize("distance", [9, -1, "invalid", None])
   def test_native_3d_distance_does_not_change_projected_size(self, box_key, distance):

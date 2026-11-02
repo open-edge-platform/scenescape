@@ -330,6 +330,25 @@ def test_processCameraData_rejects_invalid_extrinsics(
   assert create.call_args.args[3] is camera_obj
 
 
+def test_createMovingObjectsForDetection_skips_invalid_siblings(scene_obj, camera_obj):
+  scene_obj.cameras[camera_obj.cameraID] = camera_obj
+  good = {
+    'id': 1, 'category': 'person', 'confidence': 0.9,
+    'bounding_box': {'x': 0.1, 'y': 0.2, 'width': 0.3, 'height': 0.4},
+  }
+  bad_distance = {**good, 'id': 2, 'distance': -1}
+  objects = scene_obj.createMovingObjectsForDetection(
+    'person', [bad_distance, good], when=1.0, camera=camera_obj)
+  assert [obj.oid for obj in objects] == [2, 1]
+  assert objects[0].metric_distance is None
+
+  kept = SimpleNamespace(oid=1)
+  scene_obj.tracker.createObject = Mock(side_effect=[ValueError("broken"), kept])
+  objects = scene_obj.createMovingObjectsForDetection(
+    'person', [good, good], when=1.0, camera=camera_obj)
+  assert objects == [kept]
+
+
 @pytest.mark.parametrize("visible", [True, False])
 def test_visibility_uses_observation_camera_without_changing_calibration(scene_obj, visible):
   configured = SimpleNamespace(cameraID='mobile', pose=SimpleNamespace(

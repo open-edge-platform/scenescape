@@ -4,6 +4,7 @@
 import base64
 import binascii
 import datetime
+import math
 import uuid
 import warnings
 from enum import Enum
@@ -47,10 +48,12 @@ def _parse_metric_distance(info):
     return None
   try:
     distance = float(distance)
-  except (TypeError, ValueError) as err:
-    raise ValueError("Invalid distance", distance) from err
-  if distance <= 0:
-    raise ValueError("Invalid distance", distance)
+  except (TypeError, ValueError):
+    log.warning("Ignoring invalid detection distance: %r", distance)
+    return None
+  if not math.isfinite(distance) or distance <= 0:
+    log.warning("Ignoring invalid detection distance: %r", distance)
+    return None
   return distance
 
 

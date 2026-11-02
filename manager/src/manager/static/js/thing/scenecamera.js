@@ -463,9 +463,9 @@ export default class SceneCamera extends THREE.Object3D {
       ) ||
       pose.scale?.some((value) => value <= 0)
     )
-      return;
+      return false;
     const norm = Math.hypot(...pose.rotation);
-    if (!Number.isFinite(norm) || norm === 0) return;
+    if (!Number.isFinite(norm) || norm === 0) return false;
 
     this.cameraPosition.fromArray(pose.translation);
     this.sceneCamera.position.copy(this.cameraPosition);
@@ -477,24 +477,32 @@ export default class SceneCamera extends THREE.Object3D {
     this.togglePoseYupYdown(this.sceneCamera);
     this.sceneCamera.updateMatrixWorld(true);
     if (this.transformControl) this.resetTransformObject();
+    // Keep pose-folder controllers in sync so a later axis edit does not
+    // rebuild orientation from stale GUI values.
+    if (typeof this.setPose === "function") {
+      this.setPose("translate", false);
+      this.setPose("rotate", false);
+    }
+    return true;
   }
 
   syncPosePolicy(data) {
     const policy = data.pose_policy ?? "observation";
     if (!["configured", "observation"].includes(policy)) return;
-    const changed = policy !== this.posePolicy;
+    if (policy === this.posePolicy) return;
+    if (policy === "configured") {
+      if (
+        !Array.isArray(data.rotation) ||
+        data.rotation.length !== 3 ||
+        !data.rotation.every(Number.isFinite)
+      )
+        return;
+      const rotation = new THREE.Quaternion().setFromEuler(
+        new THREE.Euler(...data.rotation.map(THREE.MathUtils.degToRad), "XYZ"),
+      );
+      if (!this.updatePose({ ...data, rotation: rotation.toArray() })) return;
+    }
     this.posePolicy = policy;
-    if (!changed || policy !== "configured") return;
-    if (
-      !Array.isArray(data.rotation) ||
-      data.rotation.length !== 3 ||
-      !data.rotation.every(Number.isFinite)
-    )
-      return;
-    const rotation = new THREE.Quaternion().setFromEuler(
-      new THREE.Euler(...data.rotation.map(THREE.MathUtils.degToRad), "XYZ"),
-    );
-    this.updatePose({ ...data, rotation: rotation.toArray() });
   }
 
   addControlPanel(camerasFolder) {

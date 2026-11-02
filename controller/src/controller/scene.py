@@ -205,7 +205,12 @@ class Scene(SceneModel):
     scene_map_rotation = self.mesh_rotation
 
     for info in detections:
-      mobj = self.tracker.createObject(detectionType, info, when, camera, self.persist_attributes.get(detectionType, {}))
+      try:
+        mobj = self.tracker.createObject(
+          detectionType, info, when, camera, self.persist_attributes.get(detectionType, {}))
+      except (TypeError, ValueError) as exc:
+        log.warning("Skipping invalid %s detection: %s", detectionType, exc)
+        continue
       mobj.map_triangle_mesh = scene_map_triangle_mesh
       mobj.map_translation = scene_map_translation
       mobj.map_rotation = scene_map_rotation

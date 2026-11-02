@@ -512,7 +512,10 @@ test("switching to configured policy applies stored calibration only once", asyn
   const camera = await sceneCameraHarness();
   camera.posePolicy = "observation";
   const poses = [];
-  camera.updatePose = (pose) => poses.push(plain(pose));
+  camera.updatePose = (pose) => {
+    poses.push(plain(pose));
+    return true;
+  };
   const configuration = {
     pose_policy: "configured",
     translation: [1, 2, 3],
@@ -528,6 +531,49 @@ test("switching to configured policy applies stored calibration only once", asyn
   camera.syncPosePolicy({ ...configuration, pose_policy: "observation" });
   assert.equal(poses.length, 1);
   assert.equal(camera.posePolicy, "observation");
+});
+
+test("configured policy is not locked when stored pose cannot be applied", async () => {
+  const camera = await sceneCameraHarness();
+  camera.posePolicy = "observation";
+  camera.updatePose = () => false;
+  camera.syncPosePolicy({
+    pose_policy: "configured",
+    translation: [1, 2, 3],
+    rotation: [0, 0, 90],
+    scale: [1, 1, 1],
+  });
+  assert.equal(camera.posePolicy, "observation");
+  camera.syncPosePolicy({
+    pose_policy: "configured",
+    translation: [1, 2, 3],
+    rotation: [0, 0],
+    scale: [1, 1, 1],
+  });
+  assert.equal(camera.posePolicy, "observation");
+});
+
+test("live poses refresh translate and rotate controllers", async () => {
+  const camera = await sceneCameraHarness();
+  const modes = [];
+  camera.cameraPosition = { fromArray() {} };
+  camera.cameraRotation = { setFromQuaternion() {} };
+  camera.sceneCamera.position = { copy() {} };
+  camera.sceneCamera.quaternion = { fromArray() {} };
+  camera.sceneCamera.scale = { fromArray() {} };
+  camera.sceneCamera.updateMatrixWorld = () => {};
+  camera.togglePoseYupYdown = () => {};
+  camera.transformControl = null;
+  camera.setPose = (mode) => modes.push(mode);
+  assert.equal(
+    camera.updatePose({
+      translation: [1, 2, 3],
+      rotation: [0, 0, 0, 1],
+      scale: [1, 1, 1],
+    }),
+    true,
+  );
+  assert.deepEqual(modes, ["translate", "rotate"]);
 });
 
 test("live poses apply XYZW quaternions and keep Euler conversion in the viewer", async () => {
@@ -561,11 +607,14 @@ test("live poses apply XYZW quaternions and keep Euler conversion in the viewer"
   camera.togglePoseYupYdown = (value) => {
     assert.equal(value, camera.sceneCamera);
   };
-  camera.updatePose({
-    translation: [1, 2, 3],
-    rotation: [1, 1, 1, 1],
-    scale: [2, 3, 4],
-  });
+  assert.equal(
+    camera.updatePose({
+      translation: [1, 2, 3],
+      rotation: [1, 1, 1, 1],
+      scale: [2, 3, 4],
+    }),
+    true,
+  );
   assert.deepEqual(plain(applied), {
     translation: [1, 2, 3],
     rotation: [0.5, 0.5, 0.5, 0.5],
@@ -583,7 +632,7 @@ test("live poses apply XYZW quaternions and keep Euler conversion in the viewer"
   ]) {
     camera.cameraPosition.fromArray = () =>
       assert.fail("Invalid pose must not mutate the camera");
-    camera.updatePose(invalid);
+    assert.equal(camera.updatePose(invalid), false);
   }
 });
 
