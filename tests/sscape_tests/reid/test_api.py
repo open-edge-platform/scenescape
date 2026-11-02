@@ -572,6 +572,28 @@ def test_transport_append_requires_existing_poi(transport):
   assert failure.value.code() == grpc.StatusCode.NOT_FOUND
 
 
+def test_transport_append_rejects_more_than_five_embeddings_per_poi(transport):
+  _declare_test_poi_collection(transport)
+  token = "transport-poi-write-token"
+  created = transport.client.enroll_poi(
+    "poi_person", "person",
+    [[1, 0, 0], [0, 1, 0], [0, 0, 1], [1, 1, 0], [1, 0, 1]],
+    "high", "", "alice", token)
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.append_poi_embeddings(
+      "poi_person", created["poi_id"], [[0, 1, 1]], "alice", token)
+  assert failure.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+  assert len(transport.records) == 5
+  created = transport.client.enroll_poi(
+    "poi_person", "person", [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "high", "", "bob", token)
+  assert transport.client.append_poi_embeddings(
+    "poi_person", created["poi_id"], [[1, 1, 0], [1, 0, 1]], "bob", token)["vector_count"] == 2
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.append_poi_embeddings(
+      "poi_person", created["poi_id"], [[0, 1, 1]], "bob", token)
+  assert failure.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+
+
 def test_transport_delete_removes_all_poi_vectors_but_preserves_other_records(transport):
   _declare_test_poi_collection(transport)
   token = "transport-poi-write-token"

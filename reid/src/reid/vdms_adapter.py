@@ -366,6 +366,27 @@ class VDMSDatabase(ReIDDatabase):
       uuid,
       missing_sentinels=("Missing property",))
 
+  def countDescriptors(self, uuid, set_name=None):
+    """Return how many stored descriptors belong to one object UUID."""
+    set_name = self._resolveSetName(set_name)
+    response, _ = self.sendQuery([{
+      "FindDescriptor": {
+        "set": set_name,
+        "constraints": {"uuid": ["==", f"{uuid}"]},
+        "results": {"list": ["uuid"], "blob": False},
+      }
+    }])
+    if not response:
+      raise ConnectionError("VDMS descriptor count failed")
+    if self._isEmptyLookup({"FindDescriptor": {}}, response[0]):
+      return 0
+    if response[0].get("status") != 0:
+      raise ConnectionError("VDMS descriptor count failed")
+    returned = response[0].get("returned")
+    if returned is not None:
+      return int(returned)
+    return len(response[0].get("entities") or [])
+
   def deletePoi(self, poi_id, set_name=None):
     """Delete only the named POI's graph records and verify they are no longer searchable."""
     set_name = self._resolveSetName(set_name)

@@ -336,6 +336,16 @@ class QdrantDatabase(ReIDDatabase):
       point.payload for point in points if isinstance(point.payload, dict)]
     return self._decodeLatestPersist(payloads, uuid)
 
+  def countDescriptors(self, uuid, set_name=None):
+    """Return how many stored points belong to one object UUID."""
+    self._ensureClient()
+    set_name = self._resolveSetName(set_name)
+    query_filter = self._buildQdrantFilter({"uuid": ["==", f"{uuid}"]})
+    with self.lock:
+      result = self.client.count(
+        collection_name=set_name, count_filter=query_filter, exact=True)
+    return int(result.count)
+
   def deletePoi(self, poi_id, set_name=None):
     """Delete every point for one POI, wait for completion, then verify absence."""
     self._ensureClient()

@@ -216,6 +216,9 @@ class ReIDService:
     profile = self._backend_call(adapter.getPersistedAttributes, poi_id, set_name=collection_name)
     if not profile or profile.get("poi_id") != poi_id:
       raise PoiNotFoundError(f"POI '{poi_id}' was not found in collection '{collection_name}'")
+    existing = self._backend_call(adapter.countDescriptors, poi_id, set_name=collection_name)
+    if existing + len(vectors) > 5:
+      raise ValueError("A POI may store at most 5 embedding vectors")
     severity = validate_name(profile.get("severity"), "stored severity")
     notes = validate_text(profile.get("notes", ""), "notes", 2048)
     object_type = validate_name(profile.get("object_type"), "stored object_type")
