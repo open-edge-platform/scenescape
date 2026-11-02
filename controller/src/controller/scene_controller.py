@@ -18,7 +18,6 @@ from controller.external_source import ExternalSourcePoseCache, IdentityClaimReg
 from controller.ilabs_tracking import normalize_association_config
 from controller.scene import Scene, stripReidProvenance
 from scene_common import log
-from scene_common.association import DEFAULT_ASSOCIATION_CONFIG
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mqtt import PubSub
 from scene_common.schema import SchemaValidation
@@ -177,11 +176,7 @@ class SceneController:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
 
-      association = tracker_config.get("association", {})
-      association_input = {
-        **DEFAULT_ASSOCIATION_CONFIG,
-        **association,
-      }
+      association_input = dict(tracker_config.get("association", {}))
       try:
         self.tracker_config_data["association"] = normalize_association_config(
           association_input)
