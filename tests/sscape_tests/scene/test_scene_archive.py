@@ -230,9 +230,7 @@ def test_import_options_parse_restore_and_credentials(archive):
   assert serializer.validated_data["remote_credentials"] == credentials
 
 
-@pytest.mark.parametrize("superuser", [True, False])
-def test_import_api_passes_options_only_for_superusers(archive, tmp_path, superuser):
-  _, credentials = archive
+def _import_api_request(tmp_path, credentials, user, summary):
   archive_path = tmp_path / "scene.zip"
   archive_path.write_bytes(b"zip")
   request = APIRequestFactory().post("/", {
@@ -241,13 +239,21 @@ def test_import_api_passes_options_only_for_superusers(archive, tmp_path, superu
     "reuse_existing": "true",
     "remote_credentials": SimpleUploadedFile("credentials.json", json.dumps(credentials).encode()),
   }, format="multipart")
-  user = SimpleNamespace(is_authenticated=True, is_superuser=superuser)
   force_authenticate(request, user=user, token=SimpleNamespace(key=secrets.token_hex(16)))
   with patch("manager.api.SceneImport.objects.create") as store, \
        patch("manager.api.ImportScene") as importer:
     store.return_value.zipFile.path = str(archive_path)
-    importer.return_value.loadScene = AsyncMock(return_value={"scene": None})
+    importer.return_value.loadScene = AsyncMock(return_value=summary)
     response = SceneImportAPIView.as_view()(request)
+  return response, store, importer
+
+
+@pytest.mark.parametrize("superuser", [True, False])
+def test_import_api_passes_options_only_for_superusers(archive, tmp_path, superuser):
+  _, credentials = archive
+  user = SimpleNamespace(is_authenticated=True, is_superuser=superuser)
+  response, store, importer = _import_api_request(
+    tmp_path, credentials, user, {"scene": None})
   if superuser:
     assert response.status_code == 201
     assert importer.call_args.kwargs == {
@@ -257,6 +263,20 @@ def test_import_api_passes_options_only_for_superusers(archive, tmp_path, superu
     assert response.status_code == 403
     store.assert_not_called()
     importer.assert_not_called()
+
+
+@pytest.mark.parametrize("summary, status_code", [
+  ({"scene": {"scene": ["Missing MQTT credentials"]}}, 400),
+  ({"scene": None, "cameras": [({"name": ["taken"]}, {"name": "cam"})]}, 400),
+  ({"scene": None, "cameras": None, "regions": None, "tripwires": None,
+    "sensors": None, "calibration_markers": None}, 201),
+])
+def test_import_api_status_reflects_summary_errors(archive, tmp_path, summary, status_code):
+  _, credentials = archive
+  user = SimpleNamespace(is_authenticated=True, is_superuser=True)
+  response, _, _ = _import_api_request(tmp_path, credentials, user, summary)
+  assert response.status_code == status_code
+  assert response.data == summary
 
 
 @pytest.mark.parametrize("restore_ids", [False, True])

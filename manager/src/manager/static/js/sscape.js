@@ -2414,7 +2414,38 @@ $(document).ready(function () {
         });
 
         importSpinner.style.display = "none";
-        const result = await response.json();
+        let result;
+        try {
+          result = await response.json();
+        } catch {
+          showError({
+            error: [`Import failed (${response.status})`],
+          });
+          return;
+        }
+
+        if (!response.ok) {
+          if (result.scene) {
+            showError(result.scene);
+            return;
+          }
+          if (
+            result.cameras ||
+            result.calibration_markers ||
+            result.tripwires ||
+            result.regions ||
+            result.sensors
+          ) {
+            await showWarnings(result, restclient);
+            return;
+          }
+          const message = result.error || `Import failed (${response.status})`;
+          showError(
+            typeof message === "string" ? { error: [message] } : message,
+          );
+          return;
+        }
+
         if (result.scene) {
           showError(result.scene);
           return;

@@ -142,9 +142,13 @@ class SceneImportAPIView(APIView):
       remote_credentials=options.validated_data.get("remote_credentials", {}),
       reuse_existing=options.validated_data.get("reuse_existing", False),
     )
-    coroutine = scene.loadScene()
-    errors = asyncio.run(coroutine)
-    return Response(errors, status=status.HTTP_201_CREATED)
+    summary = asyncio.run(scene.loadScene())
+    error_fields = ("scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")
+    failed = any(summary.get(key) for key in error_fields)
+    return Response(
+      summary,
+      status=status.HTTP_400_BAD_REQUEST if failed else status.HTTP_201_CREATED,
+    )
 
 class ManageThing(APIView):
   authentication_classes = [authentication.TokenAuthentication]

@@ -213,12 +213,20 @@ class TestCalibrationMarkerExists:
 
 
 class TestImportScene:
+  @staticmethod
+  def _reply(payload, status_code=201):
+    reply = MagicMock()
+    reply.status_code = status_code
+    reply.json.return_value = payload
+    return reply
+
   @pytest.mark.parametrize("timeout", [60, 600])
   def test_import_timeout_does_not_change_other_requests(self, tmp_path, timeout):
     zip_path = tmp_path / "scene.zip"
     zip_path.write_bytes(b"zip")
     client = SceneScapeClient("http://host", True, import_timeout=timeout)
     client.session = MagicMock()
+    client.session.request.return_value = self._reply({"scene": None})
     client.import_scene(str(zip_path))
     assert client.session.request.call_args.kwargs["timeout"] == timeout
     client.scene_uid("Demo")
@@ -244,7 +252,7 @@ class TestImportScene:
     zip_path.write_bytes(b"fake zip contents")
     client = SceneScapeClient("http://host", True)
     client.session = MagicMock()
-    client.session.request.return_value.json.return_value = {"scene": None}
+    client.session.request.return_value = self._reply({"scene": None})
     result = client.import_scene(str(zip_path))
     assert result == {"scene": None}
     _, kwargs = client.session.request.call_args
@@ -260,11 +268,32 @@ class TestImportScene:
     client = SceneScapeClient("https://localhost", True, restore_ids=True,
                               remote_credentials=str(credentials), reuse_existing=True)
     client.session = MagicMock()
-    client.session.request.return_value.json.return_value = {}
+    client.session.request.return_value = self._reply({})
     client.import_scene(str(zip_path))
     kwargs = client.session.request.call_args.kwargs
     assert kwargs["data"] == {"restore_ids": "true", "reuse_existing": "true"}
     assert set(kwargs["files"]) == {"zipFile", "remote_credentials"}
+
+  def test_import_summary_errors_are_returned_on_http_400(self, tmp_path):
+    zip_path = tmp_path / "scene.zip"
+    zip_path.write_bytes(b"zip")
+    summary = {"scene": {"scene": ["Missing MQTT credentials"]}}
+    client = SceneScapeClient("http://host", True)
+    client.session = MagicMock()
+    client.session.request.return_value = self._reply(summary, status_code=400)
+    assert client.import_scene(str(zip_path)) == summary
+    client.session.request.return_value.raise_for_status.assert_not_called()
+
+  def test_non_summary_http_400_still_raises(self, tmp_path):
+    zip_path = tmp_path / "scene.zip"
+    zip_path.write_bytes(b"zip")
+    client = SceneScapeClient("http://host", True)
+    client.session = MagicMock()
+    reply = self._reply({"error": "zipFile is required"}, status_code=400)
+    reply.raise_for_status.side_effect = requests.HTTPError("400")
+    client.session.request.return_value = reply
+    with pytest.raises(requests.HTTPError):
+      client.import_scene(str(zip_path))
 
 
 class TestIsApplicationReady:

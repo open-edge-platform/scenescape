@@ -83,7 +83,13 @@ class SceneScapeClient:
       raise
 
   def import_scene(self, zip_path):
-    """Posts a scene archive and returns the server's import summary."""
+    """Posts a scene archive and returns the server's import summary.
+
+    HTTP 400 responses that carry an import summary (scene/resource error
+    fields) are returned for the caller to inspect, matching the Manager API.
+    Other non-success statuses still raise.
+    """
+    summary_keys = ("scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")
     with ExitStack() as stack:
       archive = stack.enter_context(open(zip_path, "rb"))
       files = {"zipFile": (os.path.basename(zip_path), archive, "application/zip")}
@@ -96,13 +102,24 @@ class SceneScapeClient:
         credentials = stack.enter_context(open(self.remote_credentials, "rb"))
         files["remote_credentials"] = ("credentials.json", credentials, "application/json")
       try:
-        return self._request("POST", "/import-scene/", files=files, data=data,
-                             timeout=self.import_timeout)
+        reply = self.session.request(
+          "POST", f"{self.url}/import-scene/", files=files, data=data,
+          timeout=self.import_timeout)
       except requests.Timeout:
         log.error("Scene import timed out; the server may still be processing it. "
                   "Check Manager logs and scene resources before retrying. "
                   "Use --import-timeout to allow more time.")
         raise
+      try:
+        payload = reply.json()
+      except ValueError:
+        reply.raise_for_status()
+        raise
+      if reply.status_code == 201 or (
+          reply.status_code == 400 and any(key in payload for key in summary_keys)):
+        return payload
+      reply.raise_for_status()
+      return payload
 
 
 def parse_auth(auth):
