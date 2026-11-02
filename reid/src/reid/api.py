@@ -70,9 +70,15 @@ class ReIDService:
     validate_name(request["object_type"], "object_type")
     validate_name(request.get("set_name"), "set_name", optional=True)
     set_name = request.get("set_name") or self.adapter.set_name
-    dimensions = (self.adapter.dimensions if set_name == self.adapter.set_name else None)
-    metric = getattr(self.adapter, "similarity_metric", "IP")
-    vectors = validate_vectors(request["reid_vectors"], dimensions, metric)
+    live_query = set_name == self.adapter.set_name
+    # Live-gallery metric comes from the configured adapter; other collections use schema.
+    live_metric = getattr(self.adapter, "similarity_metric", "IP")
+    early_dimensions = self.adapter.dimensions if live_query else None
+    early_metric = live_metric if live_query else None
+    if live_query:
+      vectors = validate_vectors(request["reid_vectors"], early_dimensions, early_metric)
+    else:
+      vectors = validate_vector_matrix(request["reid_vectors"])
     constraints = request.get("constraints", {})
     reserved = {"set_name", "k_neighbors", "object_type", "reid_vectors", "operation", "confidence_threshold"}
     if not isinstance(constraints, dict) or reserved & constraints.keys():
@@ -84,31 +90,48 @@ class ReIDService:
               or not 1 <= neighbors <= 1000 or int(neighbors) != neighbors):
         raise ValueError("k_neighbors must be an integer from 1 to 1000")
       options["k_neighbors"] = int(neighbors)
-    dimensions = self._queryDimensions(set_name)
+    dimensions, schema_metric = self._querySchema(set_name)
     if dimensions is None:
+      if not live_query:
+        validate_vectors(vectors, None, live_metric)
       return {"matches": [[] for _ in vectors]}
+    metric = live_metric if live_query else schema_metric
     vectors = validate_vectors(vectors, dimensions, metric)
-    matches = self._backend_call(self.adapter.findMatches, request["object_type"], vectors,
+    search_adapter = self._searchAdapter(set_name, metric, dimensions)
+    matches = self._backend_call(search_adapter.findMatches, request["object_type"], vectors,
                                  set_name=request.get("set_name"), **options, **constraints)
     return {"matches": matches}
 
-  def _queryDimensions(self, set_name):
-    """Cache existing schema widths; never cache absence or backend failures."""
+  def _searchAdapter(self, set_name, metric, dimensions):
+    """Use a collection-scoped adapter when the query targets a non-live set."""
+    if set_name == self.adapter.set_name:
+      return self.adapter
+    adapter = self.collection_factory(set_name, metric)
+    adapter.raise_on_backend_error = True
+    adapter.similarity_metric = metric
+    adapter.dimensions = dimensions
+    return adapter
+
+  def _querySchema(self, set_name):
+    """Cache existing schema width and metric; never cache absence or failures."""
     with self._schema_lock:
       now = time.monotonic()
       cached = self._schema_cache.get(set_name)
       if cached is not None and now - cached[0] < SCHEMA_CACHE_TTL_SECS:
-        return cached[1]
+        return cached[1], cached[2]
       self._schema_cache.pop(set_name, None)
-      exists, dimensions, _ = self._backend_call(self.adapter.findSchemaMetadata, set_name)
+      exists, dimensions, metric = self._backend_call(self.adapter.findSchemaMetadata, set_name)
       if not exists:
-        return None
+        return None, None
       if type(dimensions) is not int or dimensions <= 0:
         raise ConnectionError("ReID backend schema dimensions unavailable")
-      self._schema_cache[set_name] = (now, dimensions)
+      if metric is None or not str(metric).strip():
+        raise ConnectionError("ReID backend schema metric unavailable")
+      metric = str(metric).strip().upper()
+      self._schema_cache[set_name] = (now, dimensions, metric)
       if len(self._schema_cache) > SCHEMA_CACHE_MAX_SETS:
         self._schema_cache.popitem(last=False)
-      return dimensions
+      return dimensions, metric
 
   def find_schema_metadata(self, request):
     """Return existing adapter schema metadata for a descriptor set."""
@@ -333,19 +356,26 @@ def validate_name(value, field, optional=False):
   return value
 
 
-def validate_vectors(value, dimensions, metric):
-  """Require a bounded finite float32 batch respecting metric normalization."""
+def validate_vector_matrix(value):
+  """Require a bounded finite float32 matrix before schema-dependent checks."""
   raw = np.asarray(value)
   if raw.dtype.kind not in "iuf" or raw.ndim != 2:
     raise ValueError("reid_vectors must be a rectangular numeric matrix")
   if not 1 <= raw.shape[0] <= 1024 or not 1 <= raw.shape[1] <= 4096:
     raise ValueError("reid_vectors supports 1-1024 rows and 1-4096 dimensions")
-  if dimensions is not None and raw.shape[1] != dimensions:
-    raise ValueError("reid_vectors dimensions do not match the configured model")
   with np.errstate(over="ignore", invalid="ignore"):
     vectors = raw.astype(np.float32)
   if not np.isfinite(vectors).all():
     raise ValueError("reid_vectors must contain finite float32 vectors")
+  return vectors
+
+
+def validate_vectors(value, dimensions, metric):
+  """Require a bounded finite float32 batch respecting metric normalization."""
+  vectors = value if isinstance(value, np.ndarray) and value.dtype == np.float32 else (
+    validate_vector_matrix(value))
+  if dimensions is not None and vectors.shape[1] != dimensions:
+    raise ValueError("reid_vectors dimensions do not match the configured model")
   if is_inner_product_metric(metric) and not np.any(vectors != 0, axis=1).all():
     raise ValueError("inner-product reid_vectors must be nonzero")
   return vectors

@@ -501,6 +501,19 @@ def test_transport_create_collection_rejects_incompatible_schema(transport, dime
     3, "IP" if transport.backend_name == "VDMS" else models.Distance.DOT)
 
 
+def test_transport_find_matches_uses_target_collection_metric(transport):
+  """POI collections may use L2 while the live gallery stays IP."""
+  assert transport.adapter.similarity_metric == "IP"
+  transport.client.create_collection("poi_l2", 3, "L2", "transport-create-token")
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.find_matches({**QUERY, "reid_vectors": [[0, 0, 0]]})
+  assert failure.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+  result = transport.client.find_matches({
+    "object_type": "person", "set_name": "poi_l2", "reid_vectors": [[0, 0, 0]]})
+  assert "matches" in result
+  assert len(result["matches"]) == 1
+
+
 def _record_payload(transport, record):
   return record if transport.backend_name == "VDMS" else record.payload
 
