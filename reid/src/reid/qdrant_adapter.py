@@ -325,6 +325,7 @@ class QdrantDatabase(ReIDDatabase):
         log.debug(
           f"[Qdrant] getPersistedAttributes: Query failed for uuid={uuid}: "
           f"{fallback_error}")
+        self._backendFailure()
         return {}
 
     if not points:
@@ -334,6 +335,24 @@ class QdrantDatabase(ReIDDatabase):
     payloads = [
       point.payload for point in points if isinstance(point.payload, dict)]
     return self._decodeLatestPersist(payloads, uuid)
+
+  def deletePoi(self, poi_id, set_name=None):
+    """Delete every point for one POI, wait for completion, then verify absence."""
+    self._ensureClient()
+    set_name = self._resolveSetName(set_name)
+    if not isinstance(poi_id, str) or not poi_id:
+      raise ValueError("A POI id is required for deletion")
+    query_filter = self._buildQdrantFilter({"uuid": ["==", poi_id]})
+    with self.lock:
+      result = self.client.delete(
+        collection_name=set_name, points_selector=models.FilterSelector(filter=query_filter),
+        wait=True)
+      if result.status != models.UpdateStatus.COMPLETED:
+        raise ConnectionError("Qdrant POI deletion did not complete")
+      remaining = self.client.count(
+        collection_name=set_name, count_filter=query_filter, exact=True)
+    if remaining.count != 0:
+      raise ConnectionError("Qdrant POI deletion could not be verified")
 
   def findSchemaMetadata(self, set_name):
     if not self._collectionExists(set_name):

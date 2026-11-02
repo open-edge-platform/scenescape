@@ -16,4 +16,5 @@ service ReIDService {
   rpc CreateCollection(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc EnrollPoi(google.protobuf.Struct) returns (google.protobuf.Struct);
   rpc AppendPoiEmbeddings(google.protobuf.Struct) returns (google.protobuf.Struct);
+  rpc DeletePoi(google.protobuf.Struct) returns (google.protobuf.Struct);
 }

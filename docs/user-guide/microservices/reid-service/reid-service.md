@@ -13,7 +13,7 @@ adapter behavior unchanged and adds a backend-neutral gRPC boundary.
 
 The service provides health, `FindMatches`, `FindSchemaMetadata`, manual
 `PurgeExpired`, `IngestStats`, authorized `CreateCollection`, `EnrollPoi`, and
-`AppendPoiEmbeddings` alongside Tracker MQTT ingestion.
+`AppendPoiEmbeddings`, and `DeletePoi` alongside Tracker MQTT ingestion.
 The Controller still uses compatible `controller.reid*` imports for its
 in-process path. Controller retirement, POI APIs, gallery management, and
 trajectory export are follow-on work.
@@ -21,7 +21,7 @@ trajectory export are follow-on work.
 ## Baseline gRPC Contract
 
 The authoritative declaration is `reid/proto/reid.proto`, service
-`scenescape.reid.ReIDService`. All eight RPCs are unary calls with
+`scenescape.reid.ReIDService`. All nine RPCs are unary calls with
 `google.protobuf.Struct` requests and responses. Method names and existing
 response fields remain compatible with the initial service. `Health.ready`
 is additive; `IngestStats` is now explicitly declared as well as implemented.
@@ -36,6 +36,7 @@ is additive; `IngestStats` is now explicitly declared as well as implemented.
 | `CreateCollection`    | `{"collection_name":"poi_person","dimensions":512,"metric":"IP"}`                                                                                 | `{"collection_name":"poi_person","dimensions":512,"metric":"IP","created":true}`; compatible repeat returns `created:false`     |
 | `EnrollPoi`           | `{"collection_name":"poi_person","object_type":"person","reid_vectors":[[0.1,0.2]],"severity":"high","notes":"red jacket","enrolled_by":"alice"}` | `{"poi_id":"<server-generated UUID>","collection_name":"poi_person","vector_count":1}`                                          |
 | `AppendPoiEmbeddings` | `{"collection_name":"poi_person","poi_id":"<poi-id>","reid_vectors":[[0.2,0.3]],"enrolled_by":"alice"}`                                           | `{"poi_id":"<poi-id>","collection_name":"poi_person","vector_count":1}`                                                         |
+| `DeletePoi`           | `{"collection_name":"poi_person","poi_id":"<canonical UUID>","deleted_by":"alice"}`                                                               | `{"collection_name":"poi_person","poi_id":"<canonical UUID>","deleted":true}`                                                   |
 
 The examples use three-element vectors only for brevity. `FindMatches` requires
 a rectangular numeric matrix with 1-1024 rows, 1-4096 dimensions, and finite
@@ -65,6 +66,36 @@ severity, notes, and `enrolled_by`; the service generates the POI id.
 record with writer, timestamp, operation, and vector hashes. A failed batch
 returns no POI id or success count; this is not a storage transaction or
 durability guarantee. No general-gallery descriptor-write RPC is exposed.
+
+`DeletePoi` requires the POI writer token, a declared non-live collection, a
+canonical lowercase UUID, and nonempty `deleted_by` attribution. It removes
+**all** searchable descriptors for that POI, including appended embeddings,
+while retaining the collection, schema markers, and all other identities.
+The stored profile must identify the UUID as a POI; ordinary gallery entries
+cannot be deleted through this RPC. A missing or already-deleted POI returns
+`NOT_FOUND`. Successful deletion is verified by an exact UUID lookup before
+returning `deleted:true`; backend failures or unverifiable deletion return
+`UNAVAILABLE`. A timed-out deletion may already have completed: inspect the
+collection before retrying. Append and delete operations are serialized within
+one service process; concurrent external backend writers or multiple service
+replicas are not coordinated.
+
+Deletion is irreversible removal from searchable records, **not secure erasure**.
+VDMS v2.12 uses a collection-linked `FindDescriptor` query with exact UUID and
+the native `_deletion` constraint to remove graph records. It may retain vector
+bytes in descriptor index files; this API does not reclaim those files.
+Qdrant uses a UUID-filtered point deletion with `wait=true` and verifies zero
+remaining points. Backend backups and storage reclamation remain deployment
+responsibilities. A JSON deletion audit event (action, UUID, collection,
+`deleted_by`, audit ID, and timestamp) is emitted to service logs; deleted
+descriptor audit properties are removed with their records. Retain the service
+logs externally if a durable deletion audit is required.
+
+VDMS can still rank deleted index vectors before graph lookup. Score-only hits
+without an identity are discarded. The adapter expands the candidate search
+up to 1000 index hits per vector to backfill usable matches, then returns at
+most `k_neighbors`. If deleted hits exhaust that budget, fewer matches can be
+returned. Index compaction/reclamation is not implemented by this service.
 
 `matches` preserves the adapter's per-vector result lists and similarity metric
 semantics. An empty per-vector list means no usable match, not backend failure.
@@ -134,7 +165,7 @@ with grpc.secure_channel("reid.example.com:443", credentials) as channel:
 ```
 
 Set `REID_COLLECTION_CREATE_TOKEN` to enable `CreateCollection` and
-`REID_POI_WRITE_TOKEN` to enable `EnrollPoi` and `AppendPoiEmbeddings`; otherwise
+`REID_POI_WRITE_TOKEN` to enable `EnrollPoi`, `AppendPoiEmbeddings`, and `DeletePoi`; otherwise
 the corresponding RPC returns `PERMISSION_DENIED`. Send each as
 `authorization: Bearer <token>`.
 The service listener itself remains plaintext on `REID_SERVICE_PORT`, so keep it

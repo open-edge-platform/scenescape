@@ -102,6 +102,8 @@ def create_server(service=None, workers=4, collection_create_token=None, poi_wri
         service.enroll_poi, authorize=_authorize_token(poi_write_token, "POI enrollment")),
       "AppendPoiEmbeddings": _handler(
         service.append_poi_embeddings, authorize=_authorize_token(poi_write_token, "POI enrollment")),
+      "DeletePoi": _handler(
+        service.delete_poi, authorize=_authorize_token(poi_write_token, "POI deletion")),
   }
   server.add_generic_rpc_handlers((
       grpc.method_handlers_generic_handler(SERVICE_NAME, handlers),

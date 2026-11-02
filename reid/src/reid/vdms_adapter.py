@@ -366,6 +366,23 @@ class VDMSDatabase(ReIDDatabase):
       uuid,
       missing_sentinels=("Missing property",))
 
+  def deletePoi(self, poi_id, set_name=None):
+    """Delete only the named POI's graph records and verify they are no longer searchable."""
+    set_name = self._resolveSetName(set_name)
+    if not isinstance(poi_id, str) or not poi_id:
+      raise ValueError("A POI id is required for deletion")
+    constraints = {"uuid": ["==", poi_id]}
+    results = {"list": ["uuid"], "blob": False}
+    response, _ = self.sendQuery([{"FindDescriptor": {
+      "set": set_name, "constraints": {**constraints, "_deletion": ["==", True]},
+      "results": results}}])
+    if not response or response[0].get("status") != 0:
+      raise ConnectionError("VDMS POI deletion failed")
+    remaining, _ = self.sendQuery([{"FindDescriptor": {
+      "set": set_name, "constraints": constraints, "results": results}}])
+    if not remaining or remaining[0].get("returned") != 0:
+      raise ConnectionError("VDMS POI deletion could not be verified")
+
   def findSchemaMetadata(self, set_name):
     # FindDescriptorSet raises an internal JSON error for absent sets in VDMS 2.12.
     query = [{
@@ -463,28 +480,41 @@ class VDMSDatabase(ReIDDatabase):
       log.warning("findMatches: No valid vectors for similarity search")
       return None
 
-    query = [find_query] * len(blob)
-    response, _ = self.sendQuery(query, blob)
+    result = self._queryIdentifiedMatches(find_query, blob, k_neighbors)
+    log.debug(f"[VDMS] findMatches returned {len(result)} per-vector result lists")
+    return result
 
-    log.debug(
-      f"[VDMS] Raw VDMS response (truncated): "
-      f"status={response[0].get('status') if response else 'None'}, "
-      f"returned={response[0].get('returned') if response else 'None'}")
-    if response and len(response) > 0:
-      log.debug(f"[VDMS] Full first response: {response[0]}")
+  def _queryIdentifiedMatches(self, find_query, blob, neighbors):
+    """Backfill orphaned index hits, with a bounded 1000-candidate search budget."""
+    search_neighbors = neighbors
+    while True:
+      command = {"FindDescriptor": {**find_query["FindDescriptor"],
+                                    "k_neighbors": search_neighbors}}
+      response, _ = self.sendQuery([command] * len(blob), blob)
+      result = self._responseMatches(response, len(blob))
+      retry = any(len(matches) < neighbors for matches in result)
+      if not retry or search_neighbors >= 1000:
+        return [matches[:neighbors] for matches in result]
+      search_neighbors = 1000
 
+  def _responseMatches(self, response, count):
+    """Preserve one list per query vector while dropping unusable identities."""
     result = []
     for item in (response or []):
       if item.get('status') != 0 or item.get('returned', 0) <= 0:
         result.append([])
         continue
-      result.append(self._entitiesFromNormalizedScores(item.get('entities', [])))
+      result.append(self._identifiedMatches(item.get('entities', [])))
 
-    while len(result) < len(blob):
+    while len(result) < count:
       result.append([])
-
-    log.debug(
-      "[VDMS] findMatches returned %d per-vector result item(s) from %d valid "
-      "query vector(s); VDMS response items=%d, input vectors=%d",
-      len(result), len(blob), len(response or []), len(reid_vectors))
     return result
+
+  def _identifiedMatches(self, entities):
+    """VDMS may return score-only index hits after their graph records were deleted."""
+    identified = [entity for entity in entities
+                  if isinstance(entity.get("uuid"), str) and entity["uuid"] and
+                  entity["uuid"] != "Missing property"]
+    if len(identified) != len(entities):
+      log.debug("findMatches: Discarding VDMS index hits without a searchable identity")
+    return self._entitiesFromNormalizedScores(identified)

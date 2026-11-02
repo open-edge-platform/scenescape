@@ -162,15 +162,18 @@ def _configure_vdms_schema_backend(backend):
         constraints = values.get("constraints", {})
         requested = values.get("results", {}).get("list", [])
         poi_id = constraints.get("uuid", [None, None])[1]
-        if "persist" in requested:
-          entities = [record for record in records if record.get("uuid") == poi_id]
+        if poi_id is not None:
+          entities = [record for record in records
+                      if record.get("uuid") == poi_id and record.get("_set") == values["set"]]
+          if "_deletion" in constraints:
+            records[:] = [record for record in records if record not in entities]
           entities = [{key: value for key, value in entity.items() if key in requested}
                       for entity in entities]
         else:
           entities = [{"uuid": "gid-1", "rvid": "track-1", "_distance": 0.8}]
         response = {"status": 0, "returned": len(entities), "entities": entities}
       elif operation == "AddDescriptor":
-        records.append(values["properties"].copy())
+        records.append({**values["properties"], "_set": values["set"]})
         response = {"status": 0, "returned": 1}
       elif operation == "DeleteExpired":
         response = {"status": 0, "deleted": 2}
@@ -211,14 +214,31 @@ def _configure_qdrant_schema_backend(backend):
         markers[point.payload["set_name"]] = point.payload.copy()
         point_ids[str(point.id)] = point.payload["set_name"]
       else:
-        records.append(SimpleNamespace(id=point.id, payload=point.payload.copy()))
+        records.append(SimpleNamespace(id=point.id, payload=point.payload.copy(),
+                                       collection=collection_name))
 
   def retrieve(collection_name, ids, with_payload=True):
     payloads = [markers[point_ids[point_id]] for point_id in ids if point_id in point_ids]
     return [SimpleNamespace(payload=payload) for payload in payloads]
 
   def scroll(collection_name, **kwargs):
-    return records, None
+    query_filter = kwargs.get("scroll_filter")
+    poi_id = query_filter.must[0].match.value if query_filter else None
+    return [record for record in records if record.collection == collection_name and
+            (poi_id is None or record.payload["uuid"] == poi_id)], None
+
+  def count(collection_name, count_filter, exact=True):
+    poi_id = count_filter.must[0].match.value
+    return SimpleNamespace(count=sum(record.collection == collection_name and
+                                     record.payload["uuid"] == poi_id for record in records))
+
+  def delete(collection_name, points_selector, wait=True):
+    if points_selector.filter.must[0].match is None:
+      return SimpleNamespace(status=models.UpdateStatus.COMPLETED)
+    poi_id = points_selector.filter.must[0].match.value
+    records[:] = [record for record in records if record.collection != collection_name or
+                  record.payload["uuid"] != poi_id]
+    return SimpleNamespace(status=models.UpdateStatus.COMPLETED)
 
   backend.get_collections.return_value = SimpleNamespace(collections=[])
   backend.get_collection.side_effect = get_collection
@@ -227,7 +247,8 @@ def _configure_qdrant_schema_backend(backend):
   backend.upsert.side_effect = upsert
   backend.retrieve.side_effect = retrieve
   backend.scroll.side_effect = scroll
-  backend.delete.return_value = None
+  backend.delete.side_effect = delete
+  backend.count.side_effect = count
   return schemas, markers, records
 
 
@@ -536,6 +557,161 @@ def test_transport_append_requires_existing_poi(transport):
     transport.client.append_poi_embeddings(
       "poi_person", "missing-poi", [[1, 0, 0]], "alice", "transport-poi-write-token")
   assert failure.value.code() == grpc.StatusCode.NOT_FOUND
+
+
+def test_transport_delete_removes_all_poi_vectors_but_preserves_other_records(transport):
+  _declare_test_poi_collection(transport)
+  token = "transport-poi-write-token"
+  first = transport.client.enroll_poi(
+    "poi_person", "person", [[1, 0, 0], [0, 1, 0]], "demo", "visitor", "alice", token)
+  second = transport.client.enroll_poi(
+    "poi_person", "person", [[0, 0, 1]], "demo", "", "alice", token)
+  transport.client.append_poi_embeddings(
+    "poi_person", first["poi_id"], [[0, 0, 1]], "alice", token)
+  with mock.patch("reid.api.log.info") as audit:
+    result = transport.client.delete_poi("poi_person", first["poi_id"], "alice", token)
+  assert result == {"collection_name": "poi_person", "poi_id": first["poi_id"], "deleted": True}
+  payloads = [_record_payload(transport, record) for record in transport.records]
+  assert [record["uuid"] for record in payloads] == [second["poi_id"]]
+  assert transport.schemas["poi_person"][0] == 3
+  assert "gallery" in transport.schemas
+  logged = json.loads(audit.call_args.args[0])
+  assert logged["action"] == "delete_poi"
+  assert logged["deleted_by"] == "alice"
+  assert logged["poi_id"] == first["poi_id"]
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.delete_poi("poi_person", first["poi_id"], "alice", token)
+  assert failure.value.code() == grpc.StatusCode.NOT_FOUND
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.append_poi_embeddings(
+      "poi_person", first["poi_id"], [[1, 0, 0]], "alice", token)
+  assert failure.value.code() == grpc.StatusCode.NOT_FOUND
+
+
+@pytest.mark.parametrize("token", [None, "", "wrong", "transport-create-token"])
+def test_transport_delete_requires_writer_authorization(transport, token):
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.call(
+      "DeletePoi", {"collection_name": "poi_person",
+                    "poi_id": "f6b597cb-710e-43c1-9cb1-568b78093f47", "deleted_by": "alice"},
+      metadata=None if token is None else (("authorization", f"Bearer {token}"),))
+  assert failure.value.code() == grpc.StatusCode.PERMISSION_DENIED
+  assert transport.records == []
+
+
+@pytest.mark.parametrize("field,value", [
+  ("collection_name", "gallery"), ("collection_name", SCHEMA_NAME),
+  ("collection_name", SCHEMA_MARKER_COLLECTION), ("poi_id", ""),
+  ("poi_id", "not-a-uuid"), ("poi_id", True), ("deleted_by", ""), ("extra", True),
+])
+def test_transport_delete_rejects_bad_or_reserved_requests(transport, field, value):
+  payload = {"collection_name": "poi_person",
+             "poi_id": "f6b597cb-710e-43c1-9cb1-568b78093f47", "deleted_by": "alice"}
+  payload[field] = value
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.call("DeletePoi", payload,
+                          metadata=(("authorization", "Bearer transport-poi-write-token"),))
+  assert failure.value.code() == grpc.StatusCode.INVALID_ARGUMENT
+  assert not transport.records
+
+
+def test_transport_delete_failure_is_not_reported_as_success(transport):
+  _declare_test_poi_collection(transport)
+  token = "transport-poi-write-token"
+  created = transport.client.enroll_poi(
+    "poi_person", "person", [[1, 0, 0]], "demo", "", "alice", token)
+  if transport.backend_name == "VDMS":
+    original = transport.backend.query.side_effect
+
+    def fail_delete(commands, *args):
+      if "_deletion" in commands[0].get("FindDescriptor", {}).get("constraints", {}):
+        raise OSError("backend write failed")
+      return original(commands, *args)
+    transport.backend.query.side_effect = fail_delete
+  else:
+    transport.backend.delete.side_effect = OSError("backend write failed")
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.delete_poi("poi_person", created["poi_id"], "alice", token)
+  assert failure.value.code() == grpc.StatusCode.UNAVAILABLE
+  assert len(transport.records) == 1
+
+
+def test_transport_delete_must_verify_absence(transport):
+  _declare_test_poi_collection(transport)
+  token = "transport-poi-write-token"
+  created = transport.client.enroll_poi(
+    "poi_person", "person", [[1, 0, 0]], "demo", "", "alice", token)
+  if transport.backend_name == "VDMS":
+    original = transport.backend.query.side_effect
+
+    def no_delete(commands, *args):
+      if "_deletion" in commands[0].get("FindDescriptor", {}).get("constraints", {}):
+        return [{"FindDescriptor": {"status": 0, "returned": 1}}], []
+      return original(commands, *args)
+    transport.backend.query.side_effect = no_delete
+  else:
+    transport.backend.delete.side_effect = None
+    transport.backend.delete.return_value = SimpleNamespace(status=models.UpdateStatus.COMPLETED)
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.delete_poi("poi_person", created["poi_id"], "alice", token)
+  assert failure.value.code() == grpc.StatusCode.UNAVAILABLE
+
+
+def test_transport_delete_is_scoped_to_collection_even_for_same_uuid(transport):
+  _declare_test_poi_collection(transport)
+  token = "transport-poi-write-token"
+  created = transport.client.enroll_poi(
+    "poi_person", "person", [[1, 0, 0]], "demo", "visitor", "alice", token)
+  record = transport.records[0]
+  if transport.backend_name == "VDMS":
+    other = {**record, "_set": "other_collection"}
+  else:
+    other = SimpleNamespace(id="other-point", payload=record.payload.copy(),
+                            collection="other_collection")
+  transport.records.append(other)
+  transport.client.delete_poi("poi_person", created["poi_id"], "alice", token)
+  assert transport.records == [other]
+
+
+def test_transport_delete_refuses_non_poi_record(transport):
+  _declare_test_poi_collection(transport)
+  token = "transport-poi-write-token"
+  created = transport.client.enroll_poi(
+    "poi_person", "person", [[1, 0, 0]], "demo", "", "alice", token)
+  payload = _record_payload(transport, transport.records[0])
+  payload["persist"] = json.dumps({"timestamp": 1, "active": True})
+  with pytest.raises(grpc.RpcError) as failure:
+    transport.client.delete_poi("poi_person", created["poi_id"], "alice", token)
+  assert failure.value.code() == grpc.StatusCode.NOT_FOUND
+  assert len(transport.records) == 1
+
+
+def test_vdms_deleted_index_hits_are_not_returned_as_candidates():
+  with mock.patch("reid.vdms_adapter.vdms.vdms"):
+    adapter = VDMSDatabase(dimensions=3)
+  adapter.db.connected = True
+  adapter.db.query.return_value = ([{"FindDescriptor": {
+    "status": 0, "returned": 4, "entities": [
+      {"_distance": 1.0}, {"uuid": "Missing property", "_distance": 0.9},
+      {"uuid": None, "_distance": 0.8}, {"uuid": "survivor", "_distance": 0.7}]}}], [])
+  assert adapter.findMatches("person", [[1, 0, 0]]) == [
+    [{"uuid": "survivor", "_distance": 0.7}]]
+
+
+def test_vdms_backfills_deleted_top_hit_without_exceeding_requested_results():
+  with mock.patch("reid.vdms_adapter.vdms.vdms"):
+    adapter = VDMSDatabase(dimensions=3)
+  adapter.db.connected = True
+  adapter.db.query.side_effect = [
+    ([{"FindDescriptor": {"status": 0, "returned": 1,
+                          "entities": [{"_distance": 1.0}]}}], []),
+    ([{"FindDescriptor": {"status": 0, "returned": 2, "entities": [
+      {"_distance": 1.0}, {"uuid": "survivor", "_distance": 0.7}]}}], []),
+  ]
+  assert adapter.findMatches("person", [[1, 0, 0]], k_neighbors=1) == [
+    [{"uuid": "survivor", "_distance": 0.7}]]
+  assert [call.args[0][0]["FindDescriptor"]["k_neighbors"]
+          for call in adapter.db.query.call_args_list] == [1, 1000]
 
 
 def test_transport_poi_write_failure_returns_no_poi_id(transport):

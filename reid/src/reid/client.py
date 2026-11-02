@@ -10,7 +10,7 @@ from google.protobuf import json_format, struct_pb2
 
 SERVICE_NAME = "scenescape.reid.ReIDService"
 RPC_METHODS = ("Health", "FindMatches", "FindSchemaMetadata", "PurgeExpired", "IngestStats",
-               "CreateCollection", "EnrollPoi", "AppendPoiEmbeddings")
+               "CreateCollection", "EnrollPoi", "AppendPoiEmbeddings", "DeletePoi")
 
 
 class ReIDClient:
@@ -82,5 +82,13 @@ class ReIDClient:
       "AppendPoiEmbeddings",
       {"collection_name": collection_name, "poi_id": poi_id,
        "reid_vectors": reid_vectors, "enrolled_by": enrolled_by},
+      metadata=(("authorization", f"Bearer {authorization}"),),
+    )
+
+  def delete_poi(self, collection_name, poi_id, deleted_by, authorization):
+    """Permanently remove a POI's searchable descriptors using the POI writer token."""
+    return self.call(
+      "DeletePoi",
+      {"collection_name": collection_name, "poi_id": poi_id, "deleted_by": deleted_by},
       metadata=(("authorization", f"Bearer {authorization}"),),
     )

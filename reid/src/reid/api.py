@@ -6,6 +6,7 @@
 from collections import OrderedDict
 from datetime import datetime, timezone
 import hashlib
+import json
 import threading
 import time
 import uuid
@@ -13,6 +14,7 @@ import uuid
 import numpy as np
 
 from scene_common.reid_constants import SCHEMA_MARKER_COLLECTION, SCHEMA_NAME, is_inner_product_metric
+from scene_common import log
 from reid.reid_registry import create_reid_database
 
 SCHEMA_CACHE_TTL_SECS = 30.0
@@ -37,6 +39,7 @@ class ReIDService:
     self.collection_factory = collection_factory or self._new_collection_adapter
     self._schema_cache = OrderedDict()
     self._schema_lock = threading.Lock()
+    self._poi_write_lock = threading.Lock()
     if connect:
       # Adapters log and swallow connection errors; health() reports the result.
       self.adapter.connect()
@@ -176,6 +179,10 @@ class ReIDService:
 
   def append_poi_embeddings(self, request):
     """Append reference vectors to an enrolled POI without changing its prior audit."""
+    with self._poi_write_lock:
+      return self._append_poi_embeddings(request)
+
+  def _append_poi_embeddings(self, request):
     validate_request(request, {"collection_name", "poi_id", "reid_vectors", "enrolled_by"},
                      required=("collection_name", "poi_id", "reid_vectors", "enrolled_by"))
     collection_name, adapter, dimensions, metric = self._poi_collection(
@@ -194,6 +201,26 @@ class ReIDService:
                             severity, notes, audit, profile=profile)
     return {"poi_id": poi_id, "collection_name": collection_name,
             "vector_count": len(vectors)}
+
+  def delete_poi(self, request):
+    """Remove all descriptors for one POI; never delete a gallery or collection."""
+    validate_request(request, {"collection_name", "poi_id", "deleted_by"},
+                     required=("collection_name", "poi_id", "deleted_by"))
+    poi_id = validate_name(request["poi_id"], "poi_id")
+    if str(uuid.UUID(poi_id)) != poi_id:
+      raise ValueError("poi_id must be a canonical UUID")
+    deleted_by = validate_name(request["deleted_by"], "deleted_by")
+    with self._poi_write_lock:
+      collection_name, adapter, _, _ = self._poi_collection(request["collection_name"])
+      profile = self._backend_call(adapter.getPersistedAttributes, poi_id, set_name=collection_name)
+      if not profile or profile.get("poi_id") != poi_id:
+        raise PoiNotFoundError(f"POI '{poi_id}' was not found in collection '{collection_name}'")
+      self._backend_call(adapter.deletePoi, poi_id, set_name=collection_name)
+      audit = {"action": "delete_poi", "audit_id": str(uuid.uuid4()),
+               "collection_name": collection_name, "poi_id": poi_id, "deleted_by": deleted_by,
+               "timestamp": datetime.now(timezone.utc).isoformat(timespec="milliseconds")}
+      log.info(json.dumps(audit, sort_keys=True))
+    return {"collection_name": collection_name, "poi_id": poi_id, "deleted": True}
 
   def _poi_collection(self, collection_name):
     validate_name(collection_name, "collection_name")
