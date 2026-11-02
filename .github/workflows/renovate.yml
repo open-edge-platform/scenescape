@@ -45,13 +45,10 @@ jobs:
           private-key: ${{ secrets.RENOVATE_APP_PEM }}
           repositories: ${{ github.event.repository.name }}
           owner: ${{ github.repository_owner }}
-          # These permissions must also be granted to the installed GitHub App.
-          permission-administration: read
-          permission-checks: write
-          permission-statuses: write
+          permission-checks: read
+          permission-statuses: read
           permission-contents: write
           permission-vulnerability-alerts: read
-          permission-issues: write
           permission-metadata: read
           permission-pull-requests: write
           permission-workflows: write

@@ -6,6 +6,9 @@
   extends: ["config:base"],
   description: "Renovate configuration for Tracker Service Conan C++ dependencies and Renovate self-updates",
   enabledManagers: ["conan", "custom.regex"],
+  // Keep notifications in PRs and workflow logs instead of creating issues.
+  dependencyDashboard: false,
+  suppressNotifications: ["configErrorIssue"],
   labels: ["dependencies", "renovate", "tracker"],
   schedule: ["before 10am on the first day of the month"],
   timezone: "UTC",
