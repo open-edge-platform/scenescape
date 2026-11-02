@@ -24,6 +24,7 @@
 #include "rv/Utils.hpp"
 #include "rv/tracking/MultipleObjectTracker.hpp"
 #include "rv/tracking/ObjectMatching.hpp"
+#include "rv/tracking/TrackManager.hpp"
 #include "rv/tracking/TrackedObject.hpp"
 
 namespace rv {
@@ -36,6 +37,28 @@ constexpr double kFrameTimeS = 0.033;
 constexpr int kFramesPerTrackerReset = 100;
 // Per-camera ground-plane projection disagreement in the overlap layout.
 constexpr double kCameraNoiseStdM = 0.1;
+
+// Filter and track lifecycle settings of the Scene Controller and Tracker Service default configs.
+TrackManagerConfig productionTrackerConfig()
+{
+  TrackManagerConfig config;
+  config.mDefaultProcessNoise = kProductionProcessNoise;
+  config.mDefaultMeasurementNoise = kProductionMeasurementNoise;
+  config.mInitStateCovariance = kProductionInitStateCovariance;
+  config.mMotionModels = kProductionMotionModels;
+  config.mMaxUnreliableTime = 1.0;
+  config.mNonMeasurementTimeDynamic = 0.8;
+  config.mNonMeasurementTimeStatic = 1.6;
+  return config;
+}
+
+// Lifecycle times are converted to frames at the benchmark's frame rate, as the services do at theirs.
+std::unique_ptr<MultipleObjectTracker> makeTracker()
+{
+  auto tracker = std::make_unique<MultipleObjectTracker>(productionTrackerConfig());
+  tracker->updateTrackerParams(static_cast<int>(std::lround(1.0 / kFrameTimeS)));
+  return tracker;
+}
 
 struct AssociationParams
 {
@@ -303,7 +326,7 @@ void runTrack(::benchmark::State &state, bool immediate)
   const bool overlap = state.range(2) != 0;
   PeopleTrackingBenchmarkFixture fixture;
   fixture.resetPeople(static_cast<size_t>(numPeople));
-  auto tracker = std::make_unique<MultipleObjectTracker>();
+  auto tracker = makeTracker();
   int frameCount = 0;
   int64_t detections = 0;
 
@@ -337,7 +360,7 @@ void runTrack(::benchmark::State &state, bool immediate)
     {
       frameCount = 0;
       fixture.resetPeople(static_cast<size_t>(numPeople));
-      tracker = std::make_unique<MultipleObjectTracker>();
+      tracker = makeTracker();
     }
   }
 

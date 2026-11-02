@@ -4,7 +4,7 @@ Performance benchmarks for `MultipleObjectTracker::track` (Scene Controller / Tr
 
 ## Workload
 
-People walk persistently across a 50 m x 50 m area (0.5-2.0 m/s, random heading drift). Association uses the production setting of the Scene Controller and the Tracker Service (`position_mahalanobis`, gate probability 0.99, `max_radius_m` 10) unless `--association-config` selects another one (see below). The tracker and people are reset every 100 frames.
+People walk persistently across a 50 m x 50 m area (0.5-2.0 m/s, random heading drift). Association uses the production setting of the Scene Controller and the Tracker Service (`position_mahalanobis`, gate probability 0.99, `max_radius_m` 10) unless `--association-config` selects another one (see below). The tracker uses the production filter and track lifecycle settings of both services, with the lifecycle times converted to frames at the benchmark's 30 fps. The tracker and people are reset every 100 frames.
 
 | Benchmark         | `track()` calls per frame | Matches                                   |
 | ----------------- | ------------------------- | ----------------------------------------- |
