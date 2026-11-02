@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Integrate External Applications
 
-External applications use Scenescape's scene data to build dashboards, trigger alerts, or drive business workflows. Instead of processing each camera feed independently, your application consumes tracked objects and spatial events in a shared scene coordinate system.
+This guide explains how to connect an application to Scenescape, subscribe to scene data and spatial events over MQTT, and deploy the bundled sample application.
 
 ## Prerequisites
 
@@ -15,6 +15,8 @@ A running deployment alone does not produce object data. Configure a scene and a
 
 ## Concepts and Integration Interfaces
 
+MQTT is the shared transport for camera and sensor inputs, tracked-object data, scene updates, and spatial analytics events. Applications subscribe through the broker and parse JSON payloads using the [Controller Data Formats](../microservices/controller/data_formats.md) and [Analytics Data Formats](../microservices/analytics/data_formats.md). Use the REST API over HTTPS for configuration and discovery.
+
 | Topic                  | What your application needs to know                                                                                                                                  | Learn more                                                                                                                                               |
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Scenes and coordinates | A scene represents a physical space with a shared coordinate system. Cameras and sensors contribute data to that space.                                              | [Build a Scene](./build-a-scene/index.md)                                                                                                                |
@@ -22,7 +24,6 @@ A running deployment alone does not produce object data. Configure a scene and a
 | Object tracking        | The Scene Controller combines detections into tracked objects and publishes per-category scene updates.                                                              | [Scene Controller](../microservices/controller/controller.md), [Controller Data Formats](../microservices/controller/data_formats.md)                    |
 | Spatial analytics      | Analytics publishes rate-controlled scene updates and events for regions of interest (ROIs) and tripwires. ROIs describe areas; tripwires detect boundary crossings. | [Configure Spatial Analytics](./build-a-scene/configure-spatial-analytics.md), [Work with Spatial Analytics Data](./work-with-spatial-analytics-data.md) |
 | REST API               | Discover scene, region, and tripwire identifiers and manage configuration over HTTPS. REST is not the live object-data stream.                                       | [API Reference](../api-reference.md), [REST Discovery Examples](./work-with-spatial-analytics-data.md#discovering-existing-rois-and-tripwires-via-api)   |
-| MQTT                   | Subscribe to live scene updates and analytics events through the broker. Parse JSON payloads according to the corresponding data-format reference.                   | [Analytics Data Formats](../microservices/analytics/data_formats.md)                                                                                     |
 
 If your application supplies detections rather than consuming results, see [Publish an External Source Adapter](./publish-external-source-adapter.md).
 
@@ -30,8 +31,7 @@ If your application supplies detections rather than consuming results, see [Publ
 
 1. Use the REST API or web UI to identify the scenes, regions, and tripwires your application needs. See [REST API Authentication](./work-with-spatial-analytics-data.md#rest-api-authentication).
 2. Connect an MQTT client over TLS to a reachable Scenescape broker endpoint. Within the Docker network, the bundled broker is `broker.scenescape.intel.com` on port `1883`; this listener uses TLS despite the port number. A client outside that network needs an explicitly configured, reachable endpoint, not the container hostname.
-3. Trust the deployment's CA certificate and verify the server certificate and hostname. Configure dedicated credentials and topic permissions where broker authentication and authorization are enabled. See the [Hardening Guide](../additional-resources/hardening-guide.md) for networking, certificate management, and the bundled broker's authentication limitations.
-4. Subscribe only to the topics needed by your application:
+3. Subscribe to the topics needed by your application:
 
    | Data                                      | MQTT topic                                                        | Payload reference                                                                                          |
    | ----------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -42,11 +42,11 @@ If your application supplies detections rather than consuming results, see [Publ
 
    Replace the placeholders with identifiers from your deployment. MQTT `+` matches one topic level and `#` matches the remaining levels. The sample uses wildcards to monitor multiple scenes; production applications should narrow subscriptions to their intended scope.
 
-5. Handle incoming messages in your application and implement your business logic. For discovery requests, event payloads, and Python and JavaScript examples, see [Work with Spatial Analytics Data](./work-with-spatial-analytics-data.md).
+4. Handle incoming messages in your application and implement your business logic. For discovery requests, event payloads, and Python and JavaScript examples, see [Work with Spatial Analytics Data](./work-with-spatial-analytics-data.md).
 
 ## Example: Deploy the Sample Application
 
-The repository includes a [Node-RED sample application](../../../sample_data/sample_app/README.md) under `sample_data/sample_app`. Its bundled [flows](../../../sample_data/sample_app/flows/flows.json) subscribe to:
+The repository includes a [Node-RED sample application](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/sample_app/README.md) under `sample_data/sample_app`. Its bundled [flows](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/sample_app/flows/flows.json) subscribe to:
 
 - `scenescape/regulated/scene/#` for object counts by category.
 - `scenescape/event/region/+/#` for ROI occupancy.
@@ -58,7 +58,7 @@ The flows aggregate these messages into a dashboard. This demonstrates consuming
 
 Complete the [Docker deployment](./deployment/deploy-docker.md) and configure active inputs, or follow [Deploy the Demo](./deployment/deploy-demo.md) for ready-made scenes and video sources.
 
-The sample's Compose file joins the existing Docker network `scenescape_scenescape`, created by a Scenescape deployment using the default Compose project name `scenescape`. If you use another project name, update the sample's [Compose network configuration](../../../sample_data/sample_app/compose.app.yml) to match your deployment before starting it. The bundled sample deployment does not target Kubernetes.
+The sample's Compose file joins the existing Docker network `scenescape_scenescape`, created by a Scenescape deployment using the default Compose project name `scenescape`. If you use another project name, update the sample's [Compose network configuration](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/sample_app/compose.app.yml) to match your deployment before starting it. The bundled sample deployment does not target Kubernetes.
 
 Port `1880` on the host must be available.
 
