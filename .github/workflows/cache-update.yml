@@ -23,6 +23,10 @@ jobs:
       packages: write # For using GHCR as cache registry
     timeout-minutes: 60
     steps:
+      - name: "Pre-clean workspace"
+        run: |
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
       - name: "Checkout Repository"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -52,3 +56,7 @@ jobs:
           GHCR_CACHE: ${{ steps.setup-cache.outputs.ghcr_cache }}
         run: |
           make build-all
+
+      - name: Cleanup
+        if: always()
+        uses: ./.github/actions/cleanup
