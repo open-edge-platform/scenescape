@@ -542,3 +542,39 @@ class TestBuildImageData:
     out = {}
     element._build_image_data(out, MagicMock(), annotate)
     assert out["resolution"] == [3840, 2160]
+
+  @staticmethod
+  def _live_view(element, monkeypatch, objects, **frame_data):
+    frame = np.zeros((2160, 3840, 3), dtype=np.uint8)
+    monkeypatch.setattr(element, "_try_convert_to_bgr", lambda *_a: frame)
+    element._frame_level_data = {"objects": objects, "rate": 0.0, **frame_data}
+    out = {}
+    element._build_image_data(out, MagicMock(), True)
+    return cv2.imdecode(np.frombuffer(base64.b64decode(out["image"]), np.uint8), cv2.IMREAD_COLOR)
+
+  def test_live_view_annotations_follow_the_downscale(self, element, monkeypatch):
+    box = {"x": 1920, "y": 1080, "width": 800, "height": 400}
+    image = self._live_view(element, monkeypatch, {"person": [{"bounding_box_px": box}]})
+
+    # Native (1920, 1080) maps to (480, 270) at 960 px wide; the box is red (BGR 0, 0, 255).
+    top_edge = image[266:275, 500:600]
+    assert top_edge[..., 2].max() > 150
+    assert image[200:260, 500:600].max() < 60
+    assert image[100:, 700:].max() < 60
+
+  def test_live_view_car_annotations_follow_the_downscale(self, element, monkeypatch):
+    car = {
+      "translation": [0.0, 0.0, 10.0],
+      "size": [2.0, 2.0, 4.0],
+      "license_plates": [{"bounding_box_px": {"x": 1000, "y": 1500, "width": 200, "height": 100}}],
+    }
+    image = self._live_view(
+      element, monkeypatch, {"car": [car]},
+      initial_intrinsics=[1000, 0, 1920, 0, 1000, 1080, 0, 0, 1],
+    )
+
+    # Cuboid centre (1920, 1080) -> (480, 270); plate (1000, 1500) -> (250, 375).
+    assert image[170:370, 380:580].max() > 100
+    assert image[372:380, 260:290].max() > 100
+    assert image[100:, 700:].max() < 60
+

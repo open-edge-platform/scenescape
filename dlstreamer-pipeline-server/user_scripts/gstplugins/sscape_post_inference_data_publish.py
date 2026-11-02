@@ -551,9 +551,6 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         video_meta = gvaframe.video_meta()
         image = self._try_convert_to_bgr(img, video_meta)
 
-    if annotate:
-      self._annotate_objects(image)
-      self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
     params = []
     # Native size lets consumers keep using calibrated pixel intrinsics even
     # when the image itself is downscaled below.
@@ -561,23 +558,29 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     if annotate:
       # Live View frames share the MQTT connection with detections; keep them
       # small so they neither delay detections nor exceed broker packet limits.
+      # Downscale first so annotations are drawn once, at preview size.
+      scale = 1.0
       width = image.shape[1]
       if width > LIVE_VIEW_MAX_WIDTH:
         scale = LIVE_VIEW_MAX_WIDTH / width
         image = cv2.resize(
           image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
         )
+      self._annotate_objects(image, scale)
+      self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
       params = [cv2.IMWRITE_JPEG_QUALITY, LIVE_VIEW_JPEG_QUALITY]
     _, jpeg = cv2.imencode(".jpg", image, params)
     imgdatadict["image"] = base64.b64encode(jpeg).decode("utf-8")
 
-  def _annotate_objects(self, img) -> None:
+  def _annotate_objects(self, img, scale: float = 1.0) -> None:
+    # `scale` maps native-resolution detection coordinates onto `img`.
     obj_colors = ((0, 0, 255), (66, 186, 150), (207, 83, 255), (31, 156, 238))
     objects = self._frame_level_data.get("objects", {})
     if "car" in objects:
       intrinsics = self._frame_level_data.get("initial_intrinsics")
       self._sub_detector.annotateObjectAssociations(
-        img, objects, obj_colors, "car", "license_plate", intrinsics=intrinsics
+        img, objects, obj_colors, "car", "license_plate",
+        intrinsics=intrinsics, scale=scale,
       )
       return
     for otype, obj_list in objects.items():
@@ -589,10 +592,10 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         cindex = 2
       for obj in obj_list:
         bbox = obj["bounding_box_px"]
-        topleft = (int(bbox["x"]), int(bbox["y"]))
+        topleft = (int(bbox["x"] * scale), int(bbox["y"] * scale))
         bottomright = (
-          int(bbox["x"] + bbox["width"]),
-          int(bbox["y"] + bbox["height"]),
+          int((bbox["x"] + bbox["width"]) * scale),
+          int((bbox["y"] + bbox["height"]) * scale),
         )
         cv2.rectangle(img, topleft, bottomright, obj_colors[cindex], 4)
 
