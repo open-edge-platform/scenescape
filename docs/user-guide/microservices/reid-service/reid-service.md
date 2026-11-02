@@ -76,9 +76,9 @@ cannot be deleted through this RPC. A missing or already-deleted POI returns
 `NOT_FOUND`. Successful deletion is verified by an exact UUID lookup before
 returning `deleted:true`; backend failures or unverifiable deletion return
 `UNAVAILABLE`. A timed-out deletion may already have completed: inspect the
-collection before retrying. Append and delete operations are serialized within
-one service process; concurrent external backend writers or multiple service
-replicas are not coordinated.
+collection before retrying. Enroll, append, and delete operations are serialized
+within one service process; concurrent external backend writers or multiple
+service replicas are not coordinated.
 
 Deletion is irreversible removal from searchable records, **not secure erasure**.
 VDMS v2.12 uses a collection-linked `FindDescriptor` query with exact UUID and

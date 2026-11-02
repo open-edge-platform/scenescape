@@ -196,6 +196,10 @@ class ReIDService:
 
   def enroll_poi(self, request):
     """Enroll precomputed POI vectors with required attribution and an audit record."""
+    with self._poi_write_lock:
+      return self._enroll_poi(request)
+
+  def _enroll_poi(self, request):
     validate_request(request, {"collection_name", "object_type", "reid_vectors",
                                "severity", "notes", "enrolled_by"},
                      required=("collection_name", "object_type", "reid_vectors",
