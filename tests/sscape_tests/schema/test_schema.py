@@ -52,6 +52,23 @@ def test_validate3DDetectionMessage(schemaObject, data, expected, format, reques
   assert result == expected
   return
 
+
+@pytest.mark.parametrize("extrinsics, expected", [
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 90.0]}, True),
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0, 1.0],
+    "scale": [1.0, 1.0, 1.0]}, True),
+  ({"translation": [1.0, 2.0], "rotation": [0.0, 0.0, 0.0]}, False),
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0]}, False),
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0, 1.0],
+    "scale": [1.0, 0.0, 1.0]}, False),
+  ({"rotation": [0.0, 0.0, 0.0]}, False),
+  ("not-an-object", False),
+])
+def test_validateDetectorExtrinsics(schemaObject, objData, extrinsics, expected):
+  objData["extrinsics"] = extrinsics
+  assert schemaObject.validateMessage("detector", objData, False) is expected
+
+
 @pytest.mark.parametrize("data, expected, format", [("singletonData", True, False),
                                             ("singletonData", False, False),
                                             ("singletonData", True, True),

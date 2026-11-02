@@ -110,6 +110,42 @@
       },
       "required": ["fx", "fy", "cx", "cy"]
     },
+    "camera_extrinsics": {
+      "title": "Camera Extrinsics",
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-frame camera pose for observation-driven cameras. Translation is scene meters; rotation is intrinsic XYZ Euler degrees (length 3) or a quaternion [x, y, z, w] (length 4); scale defaults to [1, 1, 1] when omitted. Semantic checks (finite values, nonzero quaternion norm, positive scale) and normalization remain in runtime validate_camera_extrinsics.",
+      "properties": {
+        "translation": {
+          "title": "Translation",
+          "type": "array",
+          "description": "Camera position in scene coordinates (x, y, z).",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "title": "Rotation",
+          "type": "array",
+          "description": "Camera orientation as intrinsic XYZ Euler degrees (3) or quaternion [x, y, z, w] (4).",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 4
+        },
+        "scale": {
+          "title": "Scale",
+          "type": "array",
+          "description": "Optional positive axis scales; defaults to [1, 1, 1] when omitted.",
+          "items": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": ["translation", "rotation"]
+    },
     "camera_distortion": {
       "title": "Camera Distortion",
       "type": "object",
@@ -579,6 +615,10 @@
             "type": "string"
           },
           "examples": [["license_plate"], ["person", "vest", "apriltag"]]
+        },
+        "extrinsics": {
+          "$ref": "#/definitions/camera_extrinsics",
+          "description": "Optional per-frame camera pose. Used when the camera pose_policy is observation; ignored when configured. Invalid poses that pass structural checks are soft-ignored at runtime."
         }
       },
       "required": ["timestamp", "id", "objects"]

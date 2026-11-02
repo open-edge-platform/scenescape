@@ -37,23 +37,21 @@ against the `detector` definition in
 
 ### Top-Level Message Fields
 
-| Field            | Type                  | Required | Description                                                                                                                               |
-| ---------------- | --------------------- | :------: | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic identifier                                                      |
-| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                                             |
-| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                                       |
-| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                                        |
-| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                                         |
-| `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`) in calibrated sensor pixels; updates calibration independently of resolution         |
-| `resolution`     | array or object       |    No    | Full calibrated sensor dimensions, `[width, height]` or `{"width": width, "height": height}`; positive integers, not thumbnail dimensions |
-| `distortion`     | object                |    No    | Lens distortion coefficients keyed by name (`k1`, `k2`, `p1`, `p2`, `k3`); used alongside `intrinsics` to update camera calibration       |
+| Field            | Type                  | Required | Description                                                                                                                                                                                                                                                                   |
+| ---------------- | --------------------- | :------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic identifier                                                                                                                                                                                          |
+| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                                                                                                                                                                                 |
+| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                                                                                                                                                                           |
+| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                                                                                                                                                                            |
+| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                                                                                                                                                                             |
+| `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`) in calibrated sensor pixels; updates calibration independently of resolution                                                                                                                                             |
+| `resolution`     | array or object       |    No    | Full calibrated sensor dimensions, `[width, height]` or `{"width": width, "height": height}`; positive integers, not thumbnail dimensions                                                                                                                                     |
+| `distortion`     | object                |    No    | Lens distortion coefficients keyed by name (`k1`, `k2`, `p1`, `p2`, `k3`); used alongside `intrinsics` to update camera calibration                                                                                                                                           |
+| `extrinsics`     | object                |    No    | Per-frame camera pose: `translation` `[x,y,z]`, `rotation` Euler degrees (3) or quaternion `[x,y,z,w]` (4), optional positive `scale` (defaults to `[1,1,1]`). Declared in `metadata.schema.json`; semantic checks and normalization use runtime `validate_camera_extrinsics` |
 
-### Detection Object Fields (`objects.<category>[*]`)
-
-Mobile cameras may include per-frame `extrinsics`: a `translation` array of three
-finite numbers, a `rotation` array of three intrinsic XYZ Euler angles in degrees
-or four quaternion components `[x, y, z, w]` with nonzero norm, and an optional
-positive three-component `scale` (defaults to `[1, 1, 1]`). Invalid poses are logged
+Mobile cameras may include per-frame `extrinsics`. Structurally invalid payloads
+fail detector schema validation. Poses that pass the schema but fail semantic
+checks (non-finite values, zero-norm quaternion, non-positive scale) are logged
 and ignored. The observation pose is used for detections, source-camera visibility,
 and projected bounds without overwriting registered camera calibration.
 
@@ -89,6 +87,8 @@ optics from camera metadata and image responses without replacing the camera pos
 The DL Streamer demo Compose stack keeps broker port **1883** internal. External
 handheld publishers use authenticated MQTT over secure WebSockets through the web
 service on port **443**; no external TCP MQTT port is required.
+
+### Detection Object Fields (`objects.<category>[*]`)
 
 For a 2D box, `distance` is depth along the optical axis in metres, not radial
 range. A normalized `bounding_box` is already on the normalized image plane:
