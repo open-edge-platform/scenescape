@@ -26,7 +26,8 @@ def source_setup():
   pubsub.publish.return_value.rc = 0
   publisher = SourceStatePublisher(pubsub)
   cache = ExternalSourcePoseCache(on_remove=publisher.remove)
-  scene = SimpleNamespace(uid='scene-1', trs_xyz_to_lla=None)
+  scene = SimpleNamespace(uid='scene-1', trs_xyz_to_lla=None,
+                          finishProcessing=MagicMock())
   camera = {
     'id': 'front',
     'mount': {'translation': [0.2, 0, -0.1],

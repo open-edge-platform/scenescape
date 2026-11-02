@@ -797,13 +797,29 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolveMessage.return_value = (
       MagicMock(), SimpleNamespace(cameras=None), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True),
+                            finishProcessing=MagicMock())
     jdata = {'source_id': 'positioning-svc-1', 'objects': []}
 
     scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
 
     scene_controller.external_source_pose_cache.resolveMessage.assert_called_once_with(
       scene, 'positioning-svc-1', jdata, 42.0, trusted_scene_pose=True)
+
+  def test_empty_message_still_ticks_tracker(self):
+    """A resolved message with zero observations is an empty measurement: the
+    tracker still runs so departed objects age out of the published state."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
+    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True),
+                            finishProcessing=MagicMock())
+    jdata = {'source_id': 'drone-1', 'objects': []}
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'person', 42.0)
+
+    scene.processSceneData.assert_not_called()
+    scene.finishProcessing.assert_called_once_with('person', 42.0, [], [])
 
   def test_skips_ingestion_without_crashing_when_pose_unavailable(self):
     """When no transform can be resolved, ingestion is skipped but not treated as failure."""

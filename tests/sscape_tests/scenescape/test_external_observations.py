@@ -153,7 +153,9 @@ def test_collision_still_drops_second_sources_observation():
   scene.finishProcessing.reset_mock()
   message['source_id'] = 'drone-2'
   controller._handleExternalSourceObject(scene, message, 'unknown', 101)
-  scene.finishProcessing.assert_not_called()
+  # The colliding observation is dropped, but the accepted message still ticks
+  # the tracker as an empty measurement so unobserved objects age out.
+  scene.finishProcessing.assert_called_once_with('unknown', 101, [], [])
 
 
 @pytest.mark.parametrize('track', [False, True])
