@@ -18,3 +18,23 @@ def sync_supass_for_compose(supass):
   session value.
   """
   os.environ["SUPASS"] = supass
+
+
+def override_compose_env(key, value):
+  """Set a process-environment variable for Compose and return a restore callable.
+
+  Compose interpolation prefers the process environment over ``--env-file``,
+  so a stale shell export (e.g. a relative ``DBROOT``) would otherwise replace
+  the fixture's value. Call the returned function during teardown to restore
+  the previous value, or remove the variable if it was not set.
+  """
+  previous = os.environ.get(key)
+  os.environ[key] = value
+
+  def restore():
+    if previous is None:
+      os.environ.pop(key, None)
+    else:
+      os.environ[key] = previous
+
+  return restore
