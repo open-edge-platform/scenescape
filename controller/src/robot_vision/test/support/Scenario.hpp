@@ -313,9 +313,11 @@ struct PositionCovariance
   // Covariance of the position error [m^2] in world axes for a detection of `sample`. Built from the truth sample: a
   // production producer computes R from the noisy detection, which differs noticeably only close to the sensor.
   std::function<cv::Matx33d(const TruthSample &)> covariance;
-  double reportedScale = 1.0; // position block of the reported R = reportedScale * covariance; != 1: wrong confidence
-  bool reported = true;       // false: the same noise, but detections carry no R, so the tracker uses its default R
-  bool zMeasured = false;     // sets TrackedObject::zMeasured, e.g. for a sensor that measures depth
+  // Reported position covariance = reportedScale * covariance; the drawn error does not change. 1: calibrated; below 1
+  // the sensor claims to be more precise than it is (0.25 reports half the true sigma), above 1 less precise.
+  double reportedScale = 1.0;
+  bool reported = true;   // false: the same noise, but detections carry no R, so the tracker uses its default R
+  bool zMeasured = false; // sets TrackedObject::zMeasured, e.g. for a sensor that measures depth
   // Reported variance of every axis the sensor does not model (zero variance); keep it the tracker's
   // mDefaultMeasurementNoise, which also applies to detections without R.
   double defaultNoise = kProductionMeasurementNoise;
