@@ -142,6 +142,9 @@ SPDX-License-Identifier: Apache-2.0
     {% if user.is_staff %}
       <input type="hidden" name="is-staff" id="is-staff" />
     {% endif %}
+    {% if user.is_superuser %}
+      <input type="hidden" name="is-superuser" id="is-superuser" />
+    {% endif %}
     <script src="{% static 'assets/jquery-3.6.0.min.js' %}"></script>
     <script src="{% static 'assets/mqtt.min.js' %}"></script>
     <script src="{% static 'bootstrap/js/bootstrap.bundle.min.js' %}"></script>

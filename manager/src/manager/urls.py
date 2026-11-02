@@ -103,8 +103,12 @@ urlpatterns += [
       api.SceneSourceMapListView.as_view(), name='scene_source_maps'),
   re_path(
       r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
-      r'maps/(?P<method>[a-z][a-z0-9_-]{0,31})(?:/activate)?$',
+      r'maps/(?P<method>[a-z][a-z0-9_-]{0,31})$',
       api.SceneSourceMapView.as_view(), name='scene_source_map'),
+  re_path(
+      r'api/v1/scene/(?P<scene_id>[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12})/'
+      r'maps/(?P<method>[a-z][a-z0-9_-]{0,31})/activate$',
+      api.SceneSourceMapActivateView.as_view(), name='scene_source_map_activate'),
   re_path(r'api/v1/(cameras)$', api.ListThings.as_view()),
   re_path(r'api/v1/(camera)$', api.ManageThing.as_view()),
   re_path(r'api/v1/(camera)/([^/]+)$', api.ManageThing.as_view()),

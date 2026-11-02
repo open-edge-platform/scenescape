@@ -309,25 +309,48 @@ class SceneSourceMapListView(APIView):
     })
 
 
+def _lookup_source_map(scene_id, method):
+  scene = _lookup_scene(scene_id)
+  if scene is None:
+    return None, None
+  return scene, source_map_for_method(scene, method)
+
+
 class SceneSourceMapView(APIView):
-  """!Inspect or delete one method's mesh; POST ``…/activate`` makes it default."""
+  """!Inspect or delete one method's mesh."""
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
-
-  def _lookup(self, scene_id, method):
-    scene = _lookup_scene(scene_id)
-    if scene is None:
-      return None, None
-    return scene, source_map_for_method(scene, method)
+  http_method_names = ['get', 'delete', 'head', 'options']
 
   def get(self, request, scene_id, method):
-    scene, source_map = self._lookup(scene_id, method)
+    scene, source_map = _lookup_source_map(scene_id, method)
     if source_map is None:
       return Response(status=status.HTTP_404_NOT_FOUND)
     return Response(_source_map_payload(scene, source_map, request))
 
+  def delete(self, request, scene_id, method):
+    scene, source_map = _lookup_source_map(scene_id, method)
+    if source_map is None:
+      return Response(status=status.HTTP_404_NOT_FOUND)
+    try:
+      delete_source_map(scene, source_map)
+    except MappingStoreError as exc:
+      log.error("Failed to delete source map", scene_id, method, exc)
+      return Response(
+        {"error": exc.public_message},
+        status=exc.status,
+      )
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class SceneSourceMapActivateView(APIView):
+  """!POST ``…/maps/{method}/activate`` makes that mesh the scene default."""
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+  http_method_names = ['post', 'options']
+
   def post(self, request, scene_id, method):
-    scene, source_map = self._lookup(scene_id, method)
+    scene, source_map = _lookup_source_map(scene_id, method)
     if source_map is None:
       return Response(status=status.HTTP_404_NOT_FOUND)
     try:
@@ -341,20 +364,6 @@ class SceneSourceMapView(APIView):
     scene.refresh_from_db()
     log.info("Source map activated", scene.pk, method)
     return Response(_source_map_payload(scene, source_map, request))
-
-  def delete(self, request, scene_id, method):
-    scene, source_map = self._lookup(scene_id, method)
-    if source_map is None:
-      return Response(status=status.HTTP_404_NOT_FOUND)
-    try:
-      delete_source_map(scene, source_map)
-    except MappingStoreError as exc:
-      log.error("Failed to delete source map", scene_id, method, exc)
-      return Response(
-        {"error": exc.public_message},
-        status=exc.status,
-      )
-    return Response(status=status.HTTP_204_NO_CONTENT)
 
 class ManageThing(APIView):
   authentication_classes = [authentication.TokenAuthentication]

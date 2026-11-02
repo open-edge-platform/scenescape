@@ -213,6 +213,25 @@ def test_artifact_writes_require_superuser_but_reads_allow_authenticated(client,
   assert client.get(url).status_code == 401
 
 
+def test_source_map_activate_requires_explicit_activate_path(client, scene):
+  assert _put_mesh(client, scene, "orbslam3").status_code == 200
+  url = f"/api/v1/scene/{scene.pk}/maps/orbslam3"
+  assert client.post(url).status_code == 405
+  assert client.post(f"{url}/activate").status_code == 200
+
+
+def test_source_map_writes_require_superuser_not_staff(client, scene):
+  assert _put_mesh(client, scene, "orbslam3").status_code == 200
+  assert _put_mesh(client, scene, "arkit").status_code == 200
+  staff = User.objects.create_user("staff-maps", is_staff=True)
+  token = Token.objects.create(user=staff)
+  client.credentials(HTTP_AUTHORIZATION=f"Token {token.key}")
+  url = f"/api/v1/scene/{scene.pk}/maps/orbslam3"
+  assert client.get(url).status_code == 200
+  assert client.post(f"{url}/activate").status_code == 403
+  assert client.delete(f"/api/v1/scene/{scene.pk}/maps/arkit").status_code == 403
+
+
 def test_artifact_upload_size_limit(client, scene, monkeypatch):
   monkeypatch.setattr("manager.api.MAX_ARTIFACT_BYTES", 1)
   response = _put(client, scene, "keyframes", {"frames.bin": b"x"})

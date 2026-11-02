@@ -15,9 +15,10 @@ scene responses, expose `pose_policy`:
 Choose **Pose policy** on the camera creation or calibration/settings form, or
 send a policy-only update such as `{"pose_policy": "configured"}` to
 `/api/v1/camera/{id}`. Omitted fields on updates preserve the current policy;
-explicit null, blank, or unknown values are rejected. Existing cameras and
-older registrations without this field default to `observation`. Scene archives
-preserve the field; older archives use the same default.
+explicit null, blank, or unknown values are rejected. The additive migration
+backfills existing database cameras as `configured`; new creates and older
+registrations or archives that omit the field default to `observation`. Scene
+archives preserve the field when present.
 
 Controller and Analytics use the same rules. Switching to `configured` reloads
 stored calibration when each consumer refreshes configuration. Switching back
@@ -30,13 +31,15 @@ cutover for queued messages.
 
 Upgrade Manager, the shared library, Controller, and Analytics together before
 relying on configured-only enforcement. Apply the additive camera-policy migration
-to existing databases; no calibration values are migrated. Older workers ignore
-the policy, and rolling back to them restores their prior observation behavior.
+to existing databases; it backfills existing cameras as `configured` and does not
+migrate calibration values. Older workers ignore the policy.
 
 ## Source Map Errors
 
-Source-map activation (`POST /api/v1/scene/{scene_id}/maps/{method}/activate`)
-and deletion (`DELETE /api/v1/scene/{scene_id}/maps/{method}`) return safe,
+Source-map activation requires the explicit
+`POST /api/v1/scene/{scene_id}/maps/{method}/activate` path; `POST` on the map
+resource itself returns HTTP 405. Activation and deletion
+(`DELETE /api/v1/scene/{scene_id}/maps/{method}`) return safe,
 actionable messages in the JSON `error` field for rejected operations, while
 preserving the HTTP status code. For example, deleting the default map returns
 HTTP 409 with `{"error": "Cannot delete the default map"}`. Concurrent mapping

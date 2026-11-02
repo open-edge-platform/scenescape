@@ -42,6 +42,7 @@ function main() {
   const canvas = document.getElementById("scene");
   const sceneID = document.getElementById("scene-id").value;
   const isStaff = document.getElementById("is-staff");
+  const isSuperuser = document.getElementById("is-superuser");
   const sceneName = document.getElementById("scene-name").value;
   const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
@@ -312,6 +313,7 @@ function main() {
     orbitControls,
     axesHelper,
     isStaff,
+    isSuperuser,
   );
   sceneThing.loadMap(gltfLoader, loadThings, sceneBoundingBox);
 

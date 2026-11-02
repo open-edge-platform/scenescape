@@ -228,6 +228,7 @@ async function harness() {
         callback(controls.filter((control) => control.property === property));
       },
       updateCamerasOnSave: true,
+      isSuperuser: {},
       async _applyMeshDeltaToCamerasAndSave() {
         writes.push("cameras");
       },

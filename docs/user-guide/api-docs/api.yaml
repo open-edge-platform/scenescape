@@ -2264,8 +2264,10 @@ components:
             pose across frames and refreshes, while refreshing optics. Missing or
             invalid extrinsics do not reset that pose. Switching to configured
             resets it to stored calibration. Omitted updates preserve the current
-            policy. Runtime retention ends on removal, scene reassignment, or
-            process restart; observations never modify stored calibration.
+            policy. The additive migration backfills existing database cameras as
+            configured; new creates default to observation. Runtime retention ends
+            on removal, scene reassignment, or process restart; observations never
+            modify stored calibration.
         uid:
           type: string
           readOnly: true

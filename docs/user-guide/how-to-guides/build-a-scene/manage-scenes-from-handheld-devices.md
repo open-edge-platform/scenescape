@@ -6,7 +6,8 @@ resulting map.
 
 ## Create and connect a scene
 
-1. Log in to Scenescape as a user with edit access.
+1. Log in to Scenescape as a superuser (required for scene QR pairing and
+   map-source activate/delete).
 2. Create a new scene. Leave the map blank and enter a starting **pixels per
    meter** value. If you do not know the value yet, use a guess such as `100`.
 3. Open the scene's **3D** view.

@@ -25,6 +25,7 @@ export default class Scene {
     orbitControls,
     axesHelper,
     isStaff,
+    isSuperuser = null,
   ) {
     let authToken = `Token ${document.getElementById("auth-token").value}`;
     this.restclient = new RESTClient(REST_URL, authToken);
@@ -40,6 +41,7 @@ export default class Scene {
     this.toast = toast;
     this.axesHelper = axesHelper;
     this.isStaff = isStaff;
+    this.isSuperuser = isSuperuser;
     this.isParent = false;
     this.updateCamerasOnSave = false;
     this._lastSavedMeshPose = null; // { position: THREE.Vector3, quaternion: THREE.Quaternion }
@@ -293,7 +295,8 @@ export default class Scene {
       .onChange((label) => this.previewSourceMap(labels[label]));
     this._mapSourceController.$widget.id = "map-source-select";
 
-    if (this.isStaff !== null) {
+    // Activate/delete match API IsAdminOrReadOnly (superuser writes).
+    if (this.isSuperuser !== null) {
       const actions = {
         "set as default": () => this.activateSourceMap(this._previewMethod),
         "delete source map": () => this.deleteSourceMap(this._previewMethod),
