@@ -180,6 +180,10 @@ COPY --chown=$WSUSER:$WSUSER ./manager/config/webserver-init \
      ./manager/config/scenescape-init \
      /usr/local/bin/
 
+COPY --chmod=0755 ./tools/upload_scenes/upload-scenes /usr/local/lib/scenescape/upload_scenes/upload-scenes
+COPY --chmod=0644 ./tools/upload_scenes/uploader.py /usr/local/lib/scenescape/upload_scenes/uploader.py
+RUN ln -s /usr/local/lib/scenescape/upload_scenes/upload-scenes /usr/local/bin/upload-scenes
+
 RUN chown -R $WSUSER:$WSUSER /home/scenescape/ \
     && chown -R $WSUSER:$WSUSER /etc/apache2/ \
     && mkdir -p /workspace /workspace/media /workspace/migrations \

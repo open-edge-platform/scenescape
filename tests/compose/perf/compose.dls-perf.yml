@@ -75,7 +75,7 @@ services:
     pids_limit: 1000
 
   pgserver:
-    image: postgres:18.4
+    image: postgres:18.6
     environment:
       POSTGRES_USER: scenescape
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
@@ -183,7 +183,7 @@ services:
     pids_limit: 1000
 
   mediaserver:
-    image: bluenviron/mediamtx:1.21.1
+    image: bluenviron/mediamtx:1.21.2
     networks:
       scenescape:
         aliases:
@@ -213,7 +213,7 @@ services:
     pids_limit: 1000
 
   retail-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261020-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261027-weekly-ubuntu24
     privileged: true
     networks:
       scenescape:

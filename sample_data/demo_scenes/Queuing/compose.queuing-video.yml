@@ -36,7 +36,7 @@ configs:
 
 services:
   mediaserver:
-    image: bluenviron/mediamtx:1.21.1
+    image: bluenviron/mediamtx:1.21.2
     networks:
       scenescape:
         aliases:
@@ -61,7 +61,7 @@ services:
     pids_limit: 1000
 
   queuing-video:
-    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261020-weekly-ubuntu24
+    image: docker.io/intel/dlstreamer-pipeline-server:2026.3.0-20261027-weekly-ubuntu24
     networks:
       scenescape:
     tty: true

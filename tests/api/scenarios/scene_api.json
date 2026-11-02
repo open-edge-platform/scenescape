@@ -602,7 +602,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
+          "uid": "${CHILD_LINK_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -658,6 +658,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_UID": "uid"
         }
       },
       {
@@ -680,7 +683,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
+          "uid": "${CHILD_LINK_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -716,6 +719,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_UID": "uid"
         }
       },
       {
@@ -731,6 +737,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_BC_UID": "uid"
         }
       },
       {
@@ -753,7 +762,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_C_UID}"
+          "uid": "${CHILD_LINK_BC_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -764,7 +773,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
+          "uid": "${CHILD_LINK_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -800,6 +809,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_UID": "uid"
         }
       },
       {
@@ -822,7 +834,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
+          "uid": "${CHILD_LINK_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -858,6 +870,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_UID": "uid"
         }
       },
       {
@@ -873,6 +888,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_BC_UID": "uid"
         }
       },
       {
@@ -892,7 +910,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_C_UID}"
+          "uid": "${CHILD_LINK_BC_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -903,7 +921,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
+          "uid": "${CHILD_LINK_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -939,6 +957,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_UID": "uid"
         }
       },
       {
@@ -954,6 +975,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_AC_UID": "uid"
         }
       },
       {
@@ -993,7 +1017,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_C_UID}"
+          "uid": "${CHILD_LINK_AC_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -1004,7 +1028,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
+          "uid": "${CHILD_LINK_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -1040,6 +1064,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_UID": "uid"
         }
       },
       {
@@ -1055,6 +1082,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_BC_UID": "uid"
         }
       },
       {
@@ -1062,7 +1092,7 @@
         "api": "child",
         "method": "updateChildScene",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}",
+          "uid": "${CHILD_LINK_UID}",
           "body": {
             "child_type": "local",
             "parent": "${CIRC_SCENE_C_UID}",
@@ -1078,7 +1108,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_C_UID}"
+          "uid": "${CHILD_LINK_BC_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -1089,7 +1119,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
+          "uid": "${CHILD_LINK_UID}"
         },
         "expected_status": {
           "status_code": 200
@@ -1125,6 +1155,9 @@
         },
         "expected_status": {
           "status_code": 201
+        },
+        "save": {
+          "CHILD_LINK_UID": "uid"
         }
       },
       {
@@ -1132,7 +1165,7 @@
         "api": "child",
         "method": "updateChildScene",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}",
+          "uid": "${CHILD_LINK_UID}",
           "body": {
             "child_type": "local",
             "parent": "${CIRC_SCENE_D_UID}",
@@ -1160,7 +1193,7 @@
         "api": "child",
         "method": "deleteChildSceneLink",
         "request": {
-          "uid": "${CIRC_SCENE_B_UID}"
+          "uid": "${CHILD_LINK_UID}"
         },
         "expected_status": {
           "status_code": 200

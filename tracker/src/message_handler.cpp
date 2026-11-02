@@ -5,6 +5,7 @@
 #include "logger.hpp"
 #include "metrics.hpp"
 #include "observability_context.hpp"
+#include "reid_sighting.hpp"
 #include "time_utils.hpp"
 #include "topic_utils.hpp"
 
@@ -494,12 +495,8 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                 }
             }
 
-            // Optional metadata - serialize the entire metadata object as a raw JSON string
             if (det.HasMember("metadata") && det["metadata"].IsObject()) {
-                rapidjson::StringBuffer meta_buf;
-                rapidjson::Writer<rapidjson::StringBuffer> meta_writer(meta_buf);
-                det["metadata"].Accept(meta_writer);
-                detection.metadata_json = meta_buf.GetString();
+                parse_detection_metadata(det["metadata"], detection);
             }
 
             // Optional confidence score
@@ -507,7 +504,7 @@ std::optional<CameraMessage> MessageHandler::parseCameraMessage(const std::strin
                 detection.confidence = det["confidence"].GetDouble();
             }
 
-            detections.push_back(detection);
+            detections.push_back(std::move(detection));
         }
 
         message.objects[category] = std::move(detections);
