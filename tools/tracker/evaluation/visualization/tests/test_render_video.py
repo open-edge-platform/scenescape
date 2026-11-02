@@ -200,6 +200,32 @@ def test_rejects_unknown_side_views_mode(recording, capsys):
   assert "invalid choice" in capsys.readouterr().err
 
 
+def test_zoom_side_writes_x_z_and_y_z_follow_views(climbing_recording, tmp_path):
+  """--zoom-side adds one true-to-scale side view per axis next to the top-down zoom."""
+  written = render_video(climbing_recording, output=tmp_path / "out", gif=True, zoom=["1"],
+                         zoom_side=True)
+
+  assert [path.name for path in written] == ["overview.gif", "zoom_1.gif", "zoom_1_xz.gif",
+                                             "zoom_1_yz.gif"]
+  assert gif_size(written[2]) == gif_size(written[3]) == (800, 800)
+  assert gif_frames(written[2]) == gif_frames(written[3]) == gif_frames(written[0])
+
+
+def test_zoom_side_is_off_by_default(climbing_recording, tmp_path):
+  """Without the flag only the top-down zoom is written."""
+  written = render_video(climbing_recording, output=tmp_path / "out", gif=True, zoom=["1"])
+
+  assert [path.name for path in written] == ["overview.gif", "zoom_1.gif"]
+
+
+def test_zoom_side_command_line(climbing_recording, capsys):
+  """The CLI lists the side zoom videos."""
+  assert main([str(climbing_recording), "--gif", "--zoom", "1", "--zoom-side"]) == 0
+
+  assert [Path(line).name for line in capsys.readouterr().out.splitlines()] == [
+    "overview.gif", "zoom_1.gif", "zoom_1_xz.gif", "zoom_1_yz.gif"]
+
+
 def test_side_views_without_size_or_z(tracker_output, tmp_path):
   """Objects without a size are points; tracker output with z = 0 still renders."""
   written = render_video(tracker_output, output=tmp_path / "out", gif=True, side_views="always")

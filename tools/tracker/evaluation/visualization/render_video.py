@@ -5,7 +5,7 @@
 
 Usage (from tools/tracker/evaluation):
   python visualization/render_video.py <scenario dir> [--zoom ID] [--speed F] [--trail S]
-                                       [--zoom-size M] [--side-views MODE] [--gif]
+                                       [--zoom-size M] [--side-views MODE] [--zoom-side] [--gif]
                                        [--output DIR] [--fps FPS]
 
 Writes <scenario dir>/videos/overview.mp4: all ground-truth objects (black, dashed)
@@ -22,7 +22,9 @@ the association gate from the track's estimator config: the χ² ellipse of the 
 of the predicted measurement covariance S (most probable model) for
 position_mahalanobis, without the max_radius_m ceiling, or a circle of max_radius_m for
 euclidean. Without an association config it is the 99% confidence ellipse of S.
-Objects without a size are drawn as points.
+objects without a size are drawn as points. With --zoom-side each --zoom ID also adds
+zoom_<ID>_xz.mp4 and zoom_<ID>_yz.mp4: the x-z and y-z side views, true to scale, following
+the object.
 """
 
 import argparse
@@ -289,7 +291,8 @@ class ZoomArtist:  # pylint: disable=too-few-public-methods
 def render_video(directory, *, output=None,  # pylint: disable=too-many-arguments,too-many-locals
                  zoom: Optional[Sequence[str]] = None, speed: float = 1.0, trail: float = 2.0,
                  zoom_size: Optional[float] = None, gif: bool = False,
-                 fps: Optional[float] = None, side_views: str = "auto") -> List[Path]:
+                 fps: Optional[float] = None, side_views: str = "auto",
+                 zoom_side: bool = False) -> List[Path]:
   """Render the overview video and one zoom video per id in `zoom`.
 
   Args:
@@ -303,6 +306,8 @@ def render_video(directory, *, output=None,  # pylint: disable=too-many-argument
     fps: Frame rate for pairing tracks with ground truth, by default the ground-truth rate.
     side_views: "always", "never" or "auto" (only for recordings with vertical motion) for the
       x-z and y-z views under the top-down view of the overview video.
+    zoom_side: Also write zoom_<ID>_xz and zoom_<ID>_yz, the x-z and y-z side views following
+      each zoom target.
 
   Returns:
     Written files.
@@ -335,6 +340,9 @@ def render_video(directory, *, output=None,  # pylint: disable=too-many-argument
     name = re.sub(r"[^A-Za-z0-9_-]", "_", item_id)
     written.append(renderer.render(output / f"zoom_{name}{suffix}", gif, object_id, track_id,
                                    zoom_size))
+    for axis in ("x", "y") if zoom_side else ():
+      written.append(renderer.render(output / f"zoom_{name}_{axis}z{suffix}", gif, object_id,
+                                     track_id, zoom_size, axis))
   return written
 
 
@@ -356,24 +364,31 @@ class _Renderer:  # pylint: disable=too-many-instance-attributes,too-few-public-
     self.hold = 1.5 / data_fps
     self.video_fps, self.times = video_timing(times.min(), times.max(), data_fps, speed)
 
-  def render(self, path: Path, gif: bool,  # pylint: disable=too-many-locals
+  def render(self, path: Path, gif: bool,  # pylint: disable=too-many-locals,too-many-arguments
              object_id: Optional[str] = None, track_id: Optional[str] = None,
-             zoom_size: Optional[float] = None) -> Path:
-    """Write one video; with an object or track id it follows that object."""
+             zoom_size: Optional[float] = None, side_axis: Optional[str] = None) -> Path:
+    """Write one video; with an object or track id it follows that object.
+
+    With side_axis "x" or "y" the followed view is the x-z or y-z side view instead of top-down.
+    """
     zoomed = object_id is not None or track_id is not None
-    fig, ax, side_axes = self._figure(label(object_id or track_id) if zoomed else None,
-                                      self.side_views and not zoomed)
+    if side_axis:
+      fig, ax, side_axes = self._side_zoom_figure(label(object_id or track_id), side_axis)
+      truth_artists, track_artists, zoom_artist = {}, {}, None
+    else:
+      fig, ax, side_axes = self._figure(label(object_id or track_id) if zoomed else None,
+                                        self.side_views and not zoomed)
+      truth_artists = {key: BoxArtist(ax, TRUTH_COLOR, "--", f"truth {label(key)}")
+                       for key in self.truth}
+      track_artists = {key: BoxArtist(ax, track_color(self.pairs, key), "-", f"track {label(key)}")
+                       for key in self.tracks}
+      zoom_artist = (ZoomArtist(ax, track_color(self.pairs, track_id),
+                                self.scenario.estimator.get(track_id)) if track_id else None)
+      handles, _ = ax.get_legend_handles_labels()
+      if len(handles) <= 12:
+        ax.legend(loc="upper right", fontsize="small")
     side_artists = self._side_artists(side_axes)
-    truth_artists = {key: BoxArtist(ax, TRUTH_COLOR, "--", f"truth {label(key)}")
-                     for key in self.truth}
-    track_artists = {key: BoxArtist(ax, track_color(self.pairs, key), "-", f"track {label(key)}")
-                     for key in self.tracks}
-    zoom_artist = (ZoomArtist(ax, track_color(self.pairs, track_id),
-                              self.scenario.estimator.get(track_id)) if track_id else None)
     clock = ax.text(0.02, 0.97, "", transform=ax.transAxes, va="top", family="monospace")
-    handles, _ = ax.get_legend_handles_labels()
-    if len(handles) <= 12:
-      ax.legend(loc="upper right", fontsize="small")
     target = self.truth.get(object_id) if object_id else None
     track = self.tracks.get(track_id) if track_id else None
     window = (zoom_size or self._zoom_size(target, track)) if zoomed else None
@@ -391,7 +406,7 @@ class _Renderer:  # pylint: disable=too-many-instance-attributes,too-few-public-
         if zoom_artist is not None:
           zoom_artist.update(track, t, self.hold)
         if zoomed:
-          self._follow(ax, target, track, t, window)
+          self._follow(ax, target, track, t, window, side_axis)
         clock.set_text(f"t = {t:6.2f} s")
         writer.grab_frame()
     plt.close(fig)
@@ -432,6 +447,18 @@ class _Renderer:  # pylint: disable=too-many-instance-attributes,too-few-public-
       side_ax.set_xlim(*self._bounds("xy".index(axis)))
       side_ax.set_ylim(*self._z_bounds())
     return fig, ax, side_axes
+
+  def _side_zoom_figure(self, zoom_label: str, axis: str):
+    """Figure with one true-to-scale side view that follows its target; same return as _figure."""
+    fig, ax = plt.subplots(figsize=FIGURE_SIZE)
+    ax.set_aspect("equal")
+    ax.grid(True, alpha=0.3)
+    ax.axhline(0.0, color="gray", linewidth=0.8)
+    ax.set_xlabel(f"{axis} [m]")
+    ax.set_ylabel("z [m]")
+    ax.set_title(f"{self.scenario.directory.parent.name}/{self.scenario.directory.name}: "
+                 f"{zoom_label} ({axis}-z view)")
+    return fig, ax, {axis: ax}
 
   def _side_artists(self, side_axes) -> List[Tuple[Series, SideBoxArtist]]:
     """One side-view artist per object and track in each side-view axes."""
@@ -478,16 +505,22 @@ class _Renderer:  # pylint: disable=too-many-instance-attributes,too-few-public-
     return MIN_ZOOM_SIZE
 
   def _follow(self, ax, target: Optional[Series], track: Optional[Series], t: float,
-              window: float) -> None:
-    """Centre the view on the target's latest position, or the track's without ground truth."""
+              window: float, side_axis: Optional[str] = None) -> None:
+    """Centre the view on the target's latest position, or the track's without ground truth.
+
+    A side view is centred on (x or y, z); a series without a z is skipped.
+    """
     for series in (target, track):
       if series is None:
         continue
       index = sample_index(series.t, t, math.inf)
-      if index is not None:
-        x, y = series.x[index], series.y[index]
-        ax.set_xlim(x - window / 2, x + window / 2)
-        ax.set_ylim(y - window / 2, y + window / 2)
+      if index is None:
+        continue
+      horizontal = getattr(series, side_axis or "x")[index]
+      vertical = series.z[index] if side_axis else series.y[index]
+      if np.isfinite(vertical):
+        ax.set_xlim(horizontal - window / 2, horizontal + window / 2)
+        ax.set_ylim(vertical - window / 2, vertical + window / 2)
         return
 
 
@@ -518,6 +551,9 @@ def main(argv: Optional[List[str]] = None) -> int:
   parser.add_argument("--side-views", choices=SIDE_VIEW_MODES, default="auto",
                       help="x-z and y-z views under the overview: only for recordings with "
                       "vertical motion (auto, default), always or never")
+  parser.add_argument("--zoom-side", action="store_true",
+                      help="with --zoom, also write zoom_<ID>_xz and zoom_<ID>_yz: the x-z and "
+                      "y-z side views following the object")
   parser.add_argument("--output", type=Path, help="output directory (default: <directory>/videos)")
   parser.add_argument("--fps", type=float,
                       help="frame rate for pairing tracks with ground truth "
@@ -526,7 +562,7 @@ def main(argv: Optional[List[str]] = None) -> int:
   try:
     written = render_video(args.directory, output=args.output, zoom=args.zoom, speed=args.speed,
                            trail=args.trail, zoom_size=args.zoom_size, gif=args.gif,
-                           fps=args.fps, side_views=args.side_views)
+                           fps=args.fps, side_views=args.side_views, zoom_side=args.zoom_side)
   except (FileNotFoundError, RenderError) as error:
     parser.error(str(error))
   for path in written:
