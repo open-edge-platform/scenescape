@@ -36,6 +36,9 @@ def moving_object_to_analytics_object(obj) -> "AnalyticsObject":
     reid=getattr(obj, 'reid', None),
     visibility=getattr(obj, 'visibility', None),
     source=getattr(obj, 'source', None),
+    reid_state=getattr(obj, 'reid_state', None),
+    similarity=getattr(obj, 'similarity', None),
+    previous_ids_chain=getattr(obj, 'previous_ids_chain', None),
   )
 
 
@@ -79,3 +82,6 @@ class AnalyticsObject:
   # Debug aid: which sensor produced this detection (e.g. "lidar"/"camera"),
   # carried through from the track producer.
   source: Optional[Any] = None
+  reid_state: Optional[Any] = None
+  similarity: Optional[float] = None
+  previous_ids_chain: Optional[Any] = None

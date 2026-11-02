@@ -36,8 +36,7 @@
             "email": "user_full@example.com",
             "is_active": true,
             "first_name": "John",
-            "last_name": "Doe",
-            "scene": "16fd2706-8baf-433b-82eb-8c7fada847da"
+            "last_name": "Doe"
           }
         },
         "expected_status": {
@@ -209,6 +208,10 @@
                   "access": 1
                 },
                 {
+                  "topic": "POINTCLOUD_CAMERA",
+                  "access": 1
+                },
+                {
                   "topic": "CMD_DATABASE",
                   "access": 3
                 },
@@ -331,6 +334,10 @@
                 {
                   "topic": "DATA_CAMERA",
                   "access": 1
+                },
+                {
+                  "topic": "POINTCLOUD_CAMERA",
+                  "access": 2
                 }
               ]
             },

@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+-r requirements.txt
+openvino>=2025.3,<2027
+Pillow>=11.3,<13

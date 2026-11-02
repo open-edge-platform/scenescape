@@ -112,8 +112,10 @@ class CameraIntrinsicsTest(FunctionalTest):
       'k3': float(initialValue + 8 * step)
     }
 
-    # Update camera with new intrinsics
+    # Update camera with new intrinsics. CamSerializer requires name on
+    # every non-relink update (ITEP-94755).
     updateData = {
+      'name': self.testCameraName,
       'intrinsics': newIntrinsics,
       'distortion': newDistortion
     }

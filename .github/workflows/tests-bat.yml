@@ -116,6 +116,10 @@ jobs:
     needs: [filter, check-pr-state]
     if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
+      - name: "Pre-clean workspace"
+        run: |
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
       - name: "Checkout Repository"
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -152,7 +156,12 @@ jobs:
         run: |
           source tests/.venv/bin/activate
           mkdir -p reports
-          pytest tests/sscape_tests/ --junitxml=reports/unit_results.xml --log-level=ERROR
+          pytest tests/sscape_tests/ --junitxml=reports/unit_results.xml --log-level=ERROR \
+            --cov --cov-config=tests/config.coveragerc --cov-report=
+
+      - name: "Check per-service unit coverage"
+        if: always() && steps.setup-test-env.outcome == 'success'
+        run: make check-unit-coverage
 
       - name: Run Mapping Service tests
         if: always() && steps.setup-test-env.outcome == 'success'
@@ -185,7 +194,7 @@ jobs:
           pytest . --confcutdir=. --junitxml=../../reports/pipeline_runner_results.xml --log-level=ERROR
 
       - name: Upload Test Report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: bat-report
           path: |
@@ -206,6 +215,10 @@ jobs:
     timeout-minutes: 90
     if: ${{ (needs.filter.outputs.code_changed == 'true' || needs.filter.outputs.bat_workflow_changed == 'true') && (needs.check-pr-state.outputs.pr_state != 'true' || github.event_name == 'workflow_dispatch') }}
     steps:
+      - name: "Pre-clean workspace"
+        run: |
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -233,7 +246,7 @@ jobs:
           pytest tests/kubernetes --backend=kubernetes --junitxml=reports/k8s_results.xml --log-level=ERROR
 
       - name: Upload Test Report
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: k8s-report
           path: |

@@ -72,13 +72,17 @@ class CameraCalibrationController(ABC):
 
     @return  True/False
     """
-    if not sceneobj.map or not getattr(sceneobj.map, 'path', None):
+    if not sceneobj.map:
+      return False
+
+    # CalibrationScene stores map as a filesystem path string; Django Scene uses FileField.
+    map_path = getattr(sceneobj.map, 'path', None) or sceneobj.map
+    if not isinstance(map_path, str):
       return False
 
     try:
-      map_path = sceneobj.map.path
       map_mtime = datetime.fromtimestamp(os.path.getmtime(map_path), tz=timezone(TIMEZONE))
-    except (FileNotFoundError, ValueError, TypeError) as e:
+    except (FileNotFoundError, ValueError, TypeError, OSError) as e:
       log.warning(f"Map file missing or invalid for scene {sceneobj.id}: {e}")
       return False
 

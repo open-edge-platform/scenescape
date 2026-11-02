@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+import base64
 
 from scene_common import log
 from scene_common.earth_lla import convertXYZToLLA, calculateHeading
@@ -180,7 +181,8 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
       if key != 'reid':
         obj_dict['metadata'][key] = value
 
-  # Output reid in metadata structure.
+  # Scene Controller compatibility: carry embeddings into regulated/hierarchy output.
+  # Tracker supplies only reid_sighting to reid-service, leaving aobj.reid empty in Analytics.
   # embedding_vector is always a (1, N) ndarray after decodeReIDEmbeddingVector.
   if aobj.reid and 'embedding_vector' in aobj.reid:
     reid_embedding = aobj.reid['embedding_vector']
@@ -208,7 +210,11 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     if reid_embedding is not None:
       if 'metadata' not in obj_dict:
         obj_dict['metadata'] = {}
-      reid_vec = np.asarray(reid_embedding, dtype=np.float32)
+      if isinstance(reid_embedding, str):
+        # Legacy publishers may pass base64 float32 embeddings through unchanged.
+        reid_vec = np.frombuffer(base64.b64decode(reid_embedding), dtype=np.float32)
+      else:
+        reid_vec = np.asarray(reid_embedding, dtype=np.float32).reshape(-1)
       obj_dict['metadata']['reid'] = {
         'embedding_vector': reid_vec.tolist(),
         'embedding_dimensions': int(reid_vec.reshape(-1).shape[0]),
@@ -271,8 +277,8 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
     obj_dict['first_seen'] = get_iso_time(aobj.first_seen)
 
   # Add reid state for downstream business logic to distinguish "never queried" from "query made"
-  if hasattr(aobj, 'reid_state'):
-    obj_dict['reid_state'] = aobj.reid_state.value  # Convert enum to string
+  if getattr(aobj, 'reid_state', None) is not None:
+    obj_dict['reid_state'] = getattr(aobj.reid_state, 'value', aobj.reid_state)
 
   # Add previous IDs chain for post-mortem object stitching analysis
   if hasattr(aobj, 'previous_ids_chain') and aobj.previous_ids_chain:

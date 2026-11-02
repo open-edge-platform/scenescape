@@ -6,7 +6,7 @@
 
 import pytest
 
-from reid_service import reid_env
+from reid import reid_env
 
 _REID_ENV_NAMES = (
   "REID_DATABASE", "REID_HOSTNAME", "REID_PORT", "REID_USE_TLS", "REID_API_KEY",

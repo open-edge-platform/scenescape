@@ -84,7 +84,7 @@ def _distortion_to_array(distortion):
 
 
 def _are_coplanar(points):
-  """Mirrors PointCorrespondenceTransform.arePointsCoplanar."""
+  """Mirrors scene_common.transform.points_are_coplanar."""
   points = np.asarray(points, dtype=float)
   if len(points) < 4:
     return True
