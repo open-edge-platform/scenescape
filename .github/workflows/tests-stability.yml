@@ -53,9 +53,10 @@ jobs:
       packages: read # For pulling GHCR cache layers
     timeout-minutes: ${{ fromJSON(needs.compute_timeout.outputs.timeout_minutes) }}
     steps:
-      - name: Remove test_data folder
+      - name: "Pre-clean workspace"
         run: |
-          sudo rm -rf test_data || true
+          sudo rm -rf "$GITHUB_WORKSPACE/test_data" "$GITHUB_WORKSPACE/tmp" || true
+          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
 
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

@@ -667,12 +667,13 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   tmp_path = tmp_path_factory.mktemp(profile.name)
 
   env_file = tmp_path / ".env"
+  db_root = tmp_path / "db"
   env_lines = (
     f"SECRETSDIR={secrets_dir}\n"
     f"SUPASS={supass}\n"
     f"VERSION={image_version}\n"
     f"CONTROLLER_AUTH={controller_auth}\n"
-    f"DBROOT={tmp_path / 'db'}\n"
+    f"DBROOT={db_root}\n"
     f"DATABASE_PASSWORD={database_password}\n"
     f"UID={os.getuid()}\n"
     f"GID={os.getgid()}\n"
@@ -701,10 +702,11 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   # pass-through (e.g. environment: [SUPASS]). Keep them in sync.
   from tests.utils.compose_env import sync_supass_for_compose
   sync_supass_for_compose(supass)
-  (tmp_path / "db").mkdir(exist_ok=True)
+  # Pre-create bind-mount sources so Docker does not create them as root.
+  (db_root / "media").mkdir(parents=True, exist_ok=True)
   if hierarchy_ports:
     for role in ("parent", "child1", "child2"):
-      (tmp_path / "db" / role / "media").mkdir(parents=True, exist_ok=True)
+      (db_root / role / "media").mkdir(parents=True, exist_ok=True)
 
   docker = DockerClient(
     compose_files=compose_file_paths,
@@ -716,6 +718,10 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   network = f"{project_name}_scenescape-test"
 
   lifecycle_failed = False
+  # Bind mounts use ${DBROOT}; keep a shell-exported (possibly relative) DBROOT
+  # from overriding the fixture's absolute path for the lifetime of this stack.
+  from tests.utils.compose_env import override_compose_env
+  restore_dbroot = override_compose_env("DBROOT", str(db_root))
   try:
     logger.info("=" * 60)
     logger.info("Starting test environment: %s", project_name)
@@ -808,6 +814,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       docker.compose.down(remove_orphans=True, volumes=True)
     except Exception as exc:
       logger.warning("compose down failed: %s", exc)
+    finally:
+      restore_dbroot()
 
     if hierarchy_ports:
       from tests.functional.hierarchy_ports import clear_hierarchy_port_env
