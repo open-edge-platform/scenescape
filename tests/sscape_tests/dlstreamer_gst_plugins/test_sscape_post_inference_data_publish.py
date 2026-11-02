@@ -156,7 +156,9 @@ class TestEnsureMqtt:
     assert element._image_client is image_client
     # Only the command connection handles getimage and friends
     assert command_client.on_message == element._handle_camera_message
-    assert image_client.on_message != element._handle_camera_message
+    assert command_client.on_connect == element._on_connect
+    assert "on_message" not in vars(image_client)
+    assert "on_connect" not in vars(image_client)
     assert element._frame_level_data["id"] == "cam-7"
 
   def test_only_connects_once(self, element, monkeypatch):
