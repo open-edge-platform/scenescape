@@ -61,6 +61,7 @@ def connected_element(element):
   fake_client = MagicMock()
   fake_client.is_connected.return_value = True
   element._client = fake_client
+  element._image_client = MagicMock()
   return element
 
 
@@ -140,15 +141,22 @@ class TestEnsureMqtt:
     element._mqtt_host = "broker.local"
     element._mqtt_port = 4321
     fake_mqtt = MagicMock()
+    image_client, command_client = MagicMock(), MagicMock()
+    fake_mqtt.Client.side_effect = [image_client, command_client]
     monkeypatch.setattr(pubmod, "mqtt", fake_mqtt)
     monkeypatch.setattr(pubmod.os.path, "exists", lambda _p: False)
 
     element._ensure_mqtt()
 
-    client = fake_mqtt.Client.return_value
-    client.connect.assert_called_once_with("broker.local", 4321, 120)
-    client.loop_start.assert_called_once()
-    assert element._client is client
+    command_client.connect.assert_called_once_with("broker.local", 4321, 120)
+    image_client.connect.assert_called_once_with("broker.local", 4321, 120)
+    command_client.loop_start.assert_called_once()
+    image_client.loop_start.assert_called_once()
+    assert element._client is command_client
+    assert element._image_client is image_client
+    # Only the command connection handles getimage and friends
+    assert command_client.on_message == element._handle_camera_message
+    assert image_client.on_message != element._handle_camera_message
     assert element._frame_level_data["id"] == "cam-7"
 
   def test_only_connects_once(self, element, monkeypatch):
@@ -160,7 +168,7 @@ class TestEnsureMqtt:
     element._ensure_mqtt()
     element._ensure_mqtt()
 
-    fake_mqtt.Client.assert_called_once()
+    assert fake_mqtt.Client.call_count == 2  # image + command, not 4
 
   def test_connect_failure_leaves_client_unset(self, element, monkeypatch):
     element._cameraid = "cam-7"
@@ -172,6 +180,32 @@ class TestEnsureMqtt:
     element._ensure_mqtt()  # must not raise
 
     assert element._client is None
+    assert element._image_client is None
+
+  def test_command_connect_failure_stops_image_client(self, element, monkeypatch):
+    element._cameraid = "cam-7"
+    fake_mqtt = MagicMock()
+    image_client, command_client = MagicMock(), MagicMock()
+    command_client.connect.side_effect = OSError("unreachable")
+    fake_mqtt.Client.side_effect = [image_client, command_client]
+    monkeypatch.setattr(pubmod, "mqtt", fake_mqtt)
+    monkeypatch.setattr(pubmod.os.path, "exists", lambda _p: False)
+
+    element._ensure_mqtt()
+
+    image_client.loop_stop.assert_called_once()
+    assert element._client is None
+    assert element._image_client is None
+
+  def test_do_stop_disconnects_both_clients(self, connected_element):
+    client, image_client = connected_element._client, connected_element._image_client
+
+    connected_element.do_stop()
+
+    client.disconnect.assert_called_once()
+    image_client.disconnect.assert_called_once()
+    assert connected_element._client is None
+    assert connected_element._image_client is None
 
 
 class TestOnConnect:
@@ -447,9 +481,12 @@ class TestProcessBuffer:
 
     connected_element.do_transform_ip(MagicMock())
 
-    topics = [call.args[0] for call in connected_element._client.publish.call_args_list]
+    topics = [call.args[0] for call in connected_element._image_client.publish.call_args_list]
     assert "scenescape/image/camera/cam-1" in topics
     assert connected_element._publish_image is False
+    # Images must never share the connection used for detections
+    data_topics = [call.args[0] for call in connected_element._client.publish.call_args_list]
+    assert data_topics == ["scenescape/data/camera/cam-1"]
 
   def test_calibration_image_flag_publishes_calibration_topic_once(
     self, connected_element, monkeypatch,
@@ -462,7 +499,7 @@ class TestProcessBuffer:
 
     connected_element.do_transform_ip(MagicMock())
 
-    topics = [call.args[0] for call in connected_element._client.publish.call_args_list]
+    topics = [call.args[0] for call in connected_element._image_client.publish.call_args_list]
     assert "scenescape/image/calibration/camera/cam-1" in topics
     assert connected_element._is_publish_calibration_image is False
 
@@ -483,7 +520,7 @@ class TestProcessBuffer:
 
     assert connected_element._cam_auto_calibrate is False
     # Locate the calibration publish
-    publishes = connected_element._client.publish.call_args_list
+    publishes = connected_element._image_client.publish.call_args_list
     calib = next(
       c for c in publishes
       if c.args[0] == "scenescape/image/calibration/camera/cam-1"
