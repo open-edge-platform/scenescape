@@ -37,6 +37,24 @@ for old, new in replacements:
     elif source.count(old) != 0 or source.count(new) != 1:
         raise RuntimeError("RESTler coverage source changed; review rendering-ID compatibility fix")
 path.write_text(source)
+
+path = Path("src/driver/Program.fs")
+source = path.read_text()
+old = 'logFiles |> Array.iter (fun filePath -> File.Copy(filePath, taskWorkingDirectory ++ Path.GetFileName(filePath)))'
+new = '''logFiles |> Array.iter (fun filePath ->
+                let targetPath = taskWorkingDirectory ++ Path.GetFileName(filePath)
+                let targetPath =
+                    if File.Exists targetPath then
+                        taskWorkingDirectory ++ (sprintf "%s-driver%s"
+                            (Path.GetFileNameWithoutExtension filePath)
+                            (Path.GetExtension filePath))
+                    else targetPath
+                File.Copy(filePath, targetPath))'''
+if source.count(old) == 1:
+    source = source.replace(old, new, 1)
+elif source.count(old) != 0 or source.count(new) != 1:
+    raise RuntimeError("RESTler log-copy source changed; review collision handling")
+path.write_text(source)
 PY
 
 # Build RESTler output into /build
