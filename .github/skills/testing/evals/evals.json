@@ -86,6 +86,35 @@
         "Does not require SCENESCAPE_SPEC, Zephyr NEX-T IDs, or pytest verification for this docs-only change",
         "Does not claim the testing skill authoring checklist must be completed for this task"
       ]
+    },
+    {
+      "id": 7,
+      "prompt": "The CI job running tests/functional/test_roi_mqtt.py::test_roi_create is failing with an assertion error on the expected ROI MQTT event. Diagnose why it fails and propose a fix.",
+      "expected_output": "Agent selects the testing skill for a failing-test diagnosis, classifies the test as functional from its path, loads only the functional-tests reference (plus running-tests if needed) rather than every reference, and uses the test-verification-gate for the runtime re-run: narrow pytest invocation, image freshness check before code-level debugging, per-test log inspection, and exact command plus pass/fail (or blocker) report. Note: if the harness forbids starting containers, expectations grade the proposed diagnosis steps and commands rather than a live re-run.",
+      "should_trigger": true,
+      "files": [],
+      "expectations": [
+        "Uses the testing skill for this failing-test diagnosis rather than treating it as a generic code-debugging task",
+        "Classifies the failing test as functional (tests/functional/) and reads only the functional-tests reference, optionally with running-tests or conftest-and-zephyr",
+        "Does not load unrelated references such as unit-tests.md or ui-and-bat-tests.md",
+        "Re-runs the narrowest invocation, e.g. pytest tests/functional/test_roi_mqtt.py::test_roi_create, rather than only a broad make run_* target",
+        "Follows test-verification-gate: confirms or rebuilds impacted service images (e.g. make rebuild-controller / make rebuild-manager) before code-level debugging when service code changed",
+        "Inspects per-test logs under tests/.test_logs/ (including the containers log directory for failures)",
+        "Reports the exact command and a concise pass/fail summary or an explicit blocker, and does not treat lint or syntax checks as verification"
+      ]
+    },
+    {
+      "id": 8,
+      "prompt": "CI failed on the prettier-check and indent-check jobs for my PR: a markdown file under docs/ is not prettier-formatted and controller/src/controller/scene.py has a block indented with 4 spaces. No tests are failing. Fix the formatting so the jobs pass.",
+      "expected_output": "Agent handles a formatting-only CI failure using the Makefile/Python formatting guidance (make prettier-write, 2-space Python indentation via make indent-check) and does not load the testing skill, its references, or the test-verification-gate.",
+      "should_trigger": false,
+      "files": [],
+      "expectations": [
+        "Does not load or apply the testing skill or any of its references/*.md",
+        "Does not invoke the test-verification-gate or require rebuilding images / running pytest for this formatting-only change",
+        "Does not require SCENESCAPE_SPEC, Zephyr NEX-T IDs, or the test authoring checklist",
+        "Fixes the markdown with prettier (e.g. make prettier-write) and the Python block to 2-space indentation, verified with make prettier-check and make indent-check"
+      ]
     }
   ]
 }
