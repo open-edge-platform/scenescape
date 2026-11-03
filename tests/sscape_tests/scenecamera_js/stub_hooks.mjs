@@ -60,5 +60,9 @@ export async function load(url, context, nextLoad) {
       shortCircuit: true,
     };
   }
+  // Browser sources are ES modules but have no package "type"; Node < 22 would treat them as CommonJS.
+  if (url.startsWith(pathToFileURL(STATIC_JS).href) && url.endsWith(".js")) {
+    return nextLoad(url, { ...context, format: "module" });
+  }
   return nextLoad(url, context);
 }

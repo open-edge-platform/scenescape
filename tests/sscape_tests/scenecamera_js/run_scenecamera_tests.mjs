@@ -144,7 +144,11 @@ test("requestCalibrationFrame ignores other topics and unusable messages", async
 });
 
 test("requestCalibrationFrame times out and cleans up", async (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+  try {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+  } catch {
+    t.mock.timers.enable(["setTimeout"]); // Node 18 takes an array
+  }
   const camera = makeCamera();
   const client = camera.mqttClient;
   const pending = camera.requestCalibrationFrame();
