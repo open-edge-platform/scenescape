@@ -138,6 +138,7 @@ class TestRemoteProjector:
     assert request.scene_id == "scene-uid"
     assert request.camera_id == "cam-1"
     assert request.mode == pb.CONDITIONING_MODE_AUTO
+    assert not request.include_diagnostics
     assert request.timestamp.seconds == 1_700_000_000
     assert request.timestamp.nanos == 250_000_000
     assert [d.detection_id for d in request.detections] == ["0", "1"]

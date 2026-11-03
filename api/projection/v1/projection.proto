@@ -51,6 +51,9 @@ message ProjectDetectionsRequest {
   // Detections from this frame. Categories may be mixed. An empty list is valid and returns
   // no measurements.
   repeated CameraDetection detections = 5;
+  // true: every DetectionMeasurement also carries the diagnostics `frustum` and `amodal`.
+  // Default false: they are omitted, which keeps the response small for tracking clients.
+  bool include_diagnostics = 6;
 }
 
 // One 2D camera detection: the per-detection input of the frustum Gaussian library
@@ -119,10 +122,11 @@ message DetectionMeasurement {
   Measurement measurement = 3;
   // How the depth of `measurement` was obtained. Set when status is MEASUREMENT_STATUS_OK.
   DepthSource depth_source = 4;
-  // Frustum Gaussian library output. Always set.
+  // Frustum Gaussian library output (diagnostics). Set when the request has
+  // include_diagnostics.
   FrustumGaussian frustum = 5;
-  // Amodal reasoner output. Set when status is MEASUREMENT_STATUS_OK and the mode is
-  // CONDITIONING_MODE_FULL.
+  // Amodal reasoner output (diagnostics). Set when the request has include_diagnostics, the
+  // status is MEASUREMENT_STATUS_OK and the mode is CONDITIONING_MODE_FULL.
   AmodalConditioning amodal = 6;
 }
 

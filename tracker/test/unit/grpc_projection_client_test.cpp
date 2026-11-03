@@ -129,6 +129,7 @@ TEST_F(GrpcProjectionClientTest, SendsRequestAndConvertsReply) {
     EXPECT_EQ(request.timestamp().seconds(), 1'700'000'000);
     EXPECT_EQ(request.timestamp().nanos(), 250'000'000);
     EXPECT_EQ(request.mode(), pb::CONDITIONING_MODE_FULL);
+    EXPECT_FALSE(request.include_diagnostics());
     ASSERT_EQ(request.detections_size(), 2);
     EXPECT_EQ(request.detections(1).detection_id(), "1");
     EXPECT_EQ(request.detections(1).category(), "person");
