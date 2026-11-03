@@ -6,10 +6,48 @@ import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 import test from "node:test";
 import { EventEmitter } from "node:events";
-import {
-  Euler,
-  Quaternion,
-} from "../../../manager/src/manager/static/assets/three.module.js";
+
+// Minimal XYZ Euler/Quaternion stand-ins so this harness does not import the
+// vendored three.module.js. Node treats that .js asset as CommonJS whenever an
+// ancestor package.json lacks "type":"module", which breaks named ESM imports
+// on CI runners.
+class Euler {
+  constructor(x = 0, y = 0, z = 0, order = "XYZ") {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.order = order;
+  }
+}
+
+class Quaternion {
+  constructor(x = 0, y = 0, z = 0, w = 1) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.w = w;
+  }
+
+  setFromEuler(euler) {
+    const { x, y, z } = euler;
+    const c1 = Math.cos(x / 2);
+    const c2 = Math.cos(y / 2);
+    const c3 = Math.cos(z / 2);
+    const s1 = Math.sin(x / 2);
+    const s2 = Math.sin(y / 2);
+    const s3 = Math.sin(z / 2);
+    // Matches THREE.Quaternion.setFromEuler for the XYZ order used by SceneCamera.
+    this.x = s1 * c2 * c3 + c1 * s2 * s3;
+    this.y = c1 * s2 * c3 - s1 * c2 * s3;
+    this.z = c1 * c2 * s3 + s1 * s2 * c3;
+    this.w = c1 * c2 * c3 - s1 * s2 * s3;
+    return this;
+  }
+
+  toArray() {
+    return [this.x, this.y, this.z, this.w];
+  }
+}
 
 const STATIC = new URL(
   "../../../manager/src/manager/static/js/",
