@@ -27,7 +27,13 @@ import {
 import { compareIntrinsics } from "/static/js/utils.js";
 import { startCameraCalibration } from "/static/js/calibration.js";
 import PointCloudVisualizer from "/static/js/pointcloud.js";
-import { ptzPoseToCameraMatrix, ptzMatricesClose } from "/static/js/ptzpose.js";
+import {
+  PTZ_AWAY_MESSAGE,
+  PTZ_HOME_ANGLE_TOLERANCE_RAD,
+  isPTZMoving,
+  ptzMatricesClose,
+  ptzPoseToCameraMatrix,
+} from "/static/js/ptzpose.js";
 
 const DEFAULT_DIAGONAL_FOV = 70;
 const DEFAULT_RESOLUTION = { w: 640, h: 480 };
@@ -200,6 +206,7 @@ export default class SceneCamera extends THREE.Object3D {
       : null;
     this.ptzSceneID = params.scene;
     this.ptzPoseValid = null;
+    this.ptzMoving = false;
     this.ptzLiveMatrix = null;
     this.ptzHomeMatrix = null;
     if (this.cameraPosition && this.cameraRotation) {
@@ -924,11 +931,15 @@ export default class SceneCamera extends THREE.Object3D {
     } catch (error) {
       return;
     }
-    const matrix = ptzPoseToCameraMatrix(
+    const livePose = ptzPoseToCameraMatrix(
       msg,
       this.ptzSceneID,
       this.ptzCalibrationVersion,
     );
+    this.ptzMoving = isPTZMoving(msg);
+    // Position unknown but not moving (e.g. backlash not yet learned): show the home pose.
+    const matrix =
+      livePose || (this.ptzMoving ? null : this.ptzHomeMatrix?.clone() || null);
     this.ptzPoseValid = matrix !== null;
     if (!this.sceneCamera || ptzMatricesClose(matrix, this.ptzLiveMatrix)) {
       return;
@@ -943,6 +954,22 @@ export default class SceneCamera extends THREE.Object3D {
     );
     this.sceneCamera.updateMatrix();
     this.ptzLiveMatrix = this.sceneCamera.matrix.clone();
+  }
+
+  // Calibration and pose edits are for the home pose; block them while the PTZ is away.
+  isPTZAwayFromHome() {
+    if (!this.ptzCalibrationVersion) return false;
+    if (this.ptzMoving) return true;
+    if (!this.ptzPoseValid || !this.ptzLiveMatrix || !this.ptzHomeMatrix) {
+      return false;
+    }
+    const home = new THREE.Quaternion().setFromRotationMatrix(
+      this.ptzHomeMatrix,
+    );
+    const live = new THREE.Quaternion().setFromRotationMatrix(
+      this.ptzLiveMatrix,
+    );
+    return home.angleTo(live) > PTZ_HOME_ANGLE_TOLERANCE_RAD;
   }
 
   requestPointCloud() {
@@ -982,6 +1009,10 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   async autoCalibrate() {
+    if (this.isPTZAwayFromHome()) {
+      this.toast.showToast(PTZ_AWAY_MESSAGE, "warning");
+      return;
+    }
     this.enableAutoCalibration(false);
     this.toast.showToast(
       "Performing auto camera calibration for " + this.name + "...",
@@ -1060,6 +1091,10 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   async saveSettings() {
+    if (this.isPTZAwayFromHome()) {
+      this.toast.showToast(PTZ_AWAY_MESSAGE, "warning");
+      return;
+    }
     this.sceneCamera.updateMatrix();
     let camera = this.sceneCamera.clone();
     const showsLivePTZPose =

@@ -166,10 +166,20 @@ visually:
 
 - After the camera stops and the pose is valid again, the camera frustum and the
   projected frame show the new orientation. Turn on **project frame** in the 3D view.
-- While the camera is moving or settling, and when the pose is for another scene or
-  `calibration_version`, the projected frame is hidden.
-- The live pose is for display only. Saving the camera in the 3D view keeps the stored
-  home pose unless you edit the pose after the camera moves. The calibration page saves
-  only its calibration points.
+- While the camera is moving or settling, the projected frame is hidden. A pose for
+  another scene or `calibration_version` is ignored.
+- On the calibration page, the stored calibration points are drawn where they appear in
+  the moved camera frame, using the camera intrinsics and lens distortion. They are
+  display-only and cannot be edited until the camera returns home; the stored points
+  and the saved calibration do not change. The points are hidden while the camera is
+  moving.
+- While the camera is away from home or moving, Auto Calibrate and Save are blocked in
+  the 3D view and on the calibration page, and so is saving the scene with **update
+  cameras on save**. Auto Calibrate detects points in the current frame, and saving
+  away from home would store the moved orientation as the home pose. Move the camera
+  home and wait until it stops first.
+- The live pose is for display only and is never saved as the home pose.
 - Reload the page after you import a new `calibration_version`.
-- Without Positioning, the views use the stored home pose, as for other cameras.
+- Without Positioning, or while the camera is not moving and Positioning has no usable
+  pose for it (for example `backlash_unknown` until the camera first visits home after a
+  restart), the views use the stored home pose, as for other cameras.

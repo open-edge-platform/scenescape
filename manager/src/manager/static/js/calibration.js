@@ -270,6 +270,7 @@ function updateCalibrationPTZPose(msg) {
     msg,
     $("#scene").val(),
     $("#ptz_calibration_version").val(),
+    $("#sensor_id").val(),
   );
 }
 

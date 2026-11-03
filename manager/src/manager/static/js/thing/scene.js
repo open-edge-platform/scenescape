@@ -8,6 +8,7 @@ import thingTransformControls from "/static/js/thing/controls/thingtransformcont
 import validateInputControls from "/static/js/thing/controls/validateinputcontrols.js";
 import RESTClient from "/static/js/restclient.js";
 import { REST_URL, SUCCESS } from "/static/js/constants.js";
+import { PTZ_AWAY_MESSAGE } from "/static/js/ptzpose.js";
 
 const DEFAULT_FLOOR_WIDTH = 1280;
 const DEFAULT_FLOOR_HEIGHT = 720;
@@ -385,6 +386,17 @@ export default class Scene {
   }
 
   async saveSettings() {
+    // Moving cameras with the mesh rewrites their home pose; PTZ must be at home.
+    if (
+      this.updateCamerasOnSave &&
+      this.sceneMesh &&
+      this._getAllSceneCameraWrappers().some(
+        (cam) => cam.isPTZAwayFromHome && cam.isPTZAwayFromHome(),
+      )
+    ) {
+      this.toast.showToast(PTZ_AWAY_MESSAGE, "warning");
+      return;
+    }
     let sceneData = {
       name: this.name,
       scale: this.pixelsPerMeter,

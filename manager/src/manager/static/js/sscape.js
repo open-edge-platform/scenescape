@@ -50,6 +50,7 @@ import {
   selectionMouseMove,
   selectionMouseUp,
 } from "/static/js/regions/area-select.js";
+import { PTZ_AWAY_MESSAGE } from "/static/js/ptzpose.js";
 
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
@@ -371,6 +372,10 @@ $("#auto-autocalibration").on("click", async function () {
   }
 
   const camera_id = $("#sensor_id").val();
+  if (camera_calibration.isPTZAwayFromHome()) {
+    alert(PTZ_AWAY_MESSAGE);
+    return;
+  }
   if (btn) {
     btn.disabled = true;
   }
