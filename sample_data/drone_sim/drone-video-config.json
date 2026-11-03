@@ -1,0 +1,79 @@
+{
+  "config": {
+    "logging": {
+      "C_LOG_LEVEL": "INFO",
+      "PY_LOG_LEVEL": "INFO"
+    },
+    "pipelines": [
+      {
+        "name": "drone-cam1",
+        "source": "gstreamer",
+        "pipeline": "rtspsrc location=rtsp://mediaserver:8554/drone-cam1 latency=200 ! rtph264depay ! h264parse ! avdec_h264 ! videoconvert ! video/x-raw,format=BGR ! sscape_drone_motion_sim name=dronesim config=/home/dronesim/drone_sim_config.json ! gvadetect name=detector threshold=0.9 model=/home/pipeline-server/models/omz/person-detection-retail-0013/FP32/person-detection-retail-0013.xml model-proc=/home/pipeline-server/models/object_detection/person/person-detection-retail-0013.json ! gvametaconvert add-tensor-data=true name=metaconvert ! sscape_external_source_publish name=extpub ! gvametapublish name=destination method=file file-path=/dev/null ! appsink sync=true",
+        "auto_start": true,
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "detection_threshold": {
+              "element": {
+                "name": "detector",
+                "property": "threshold"
+              },
+              "type": "number",
+              "description": "Minimum detection confidence. Keep high enough to reject static false positives on furniture, which localize far into the scene"
+            },
+            "show_hud": {
+              "element": {
+                "name": "dronesim",
+                "property": "show-hud"
+              },
+              "type": "boolean",
+              "description": "Draw the simulated yaw/pitch/roll/zoom onto each warped frame"
+            },
+            "thing_type": {
+              "element": {
+                "name": "extpub",
+                "property": "thing-type"
+              },
+              "type": "string",
+              "description": "Object category segment of scenescape/external/{source_id}/{thing_type}"
+            },
+            "detection_labels": {
+              "element": {
+                "name": "extpub",
+                "property": "detection-labels"
+              },
+              "type": "string",
+              "description": "Comma-separated allow-list of detection categories (empty publishes all)"
+            },
+            "track": {
+              "element": {
+                "name": "extpub",
+                "property": "track"
+              },
+              "type": "boolean",
+              "description": "Route observations through Scenescape tracking"
+            },
+            "cameraid": {
+              "element": {
+                "name": "extpub",
+                "property": "cameraid"
+              },
+              "type": "string",
+              "description": "Camera ID registered in the web UI for live view of the drone frames (empty disables)"
+            }
+          }
+        },
+        "payload": {
+          "parameters": {
+            "detection_threshold": 0.9,
+            "show_hud": false,
+            "thing_type": "person",
+            "detection_labels": "person",
+            "track": true,
+            "cameraid": "sim-drone-view"
+          }
+        }
+      }
+    ]
+  }
+}

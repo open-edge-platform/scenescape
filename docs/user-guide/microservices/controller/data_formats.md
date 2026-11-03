@@ -390,7 +390,10 @@ A resolved pose is cached per `(scene_id, source_id)` for `30` seconds. Camera `
 (and optional `distortion`) for pixel detections are stored on the same cache entry and preserved
 across pose refreshes until replaced or the entry expires. Subsequent messages from the same
 source may omit `pose` and/or `intrinsics` to reuse the cached values; a message with a `pose`
-and an empty `objects` array updates the cache without ingesting any observations. Messages with
+and an empty `objects` array updates the cache without ingesting any observations. Every
+successfully resolved message, including one with zero observations, still advances the bound
+scene's tracker for that object category: an accepted empty update is an empty measurement, so
+objects that are no longer observed age out of the published scene state. Messages with
 a `timestamp` older than the currently cached pose are treated as out-of-order and ignored in
 favor of the newer cached transform. If no usable transform can be resolved (no pose supplied and
 nothing cached, or the cached pose has expired), the message is dropped without ingesting

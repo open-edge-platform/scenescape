@@ -816,9 +816,13 @@ class SceneController:
         pixel_moving_objects.extend(moving)
         already_tracked_objects.extend(already_tracked)
 
-    if pixel_moving_objects or already_tracked_objects:
-      scene.finishProcessing(
-        detection_type, msg_when, pixel_moving_objects, already_tracked_objects)
+    # Always run the tracker, even with zero observations: an accepted message
+    # with no detections is an empty measurement (mirroring how empty camera
+    # frames are processed), so departed objects age out and the published
+    # current-objects state clears instead of freezing until the next
+    # detection arrives.
+    scene.finishProcessing(
+      detection_type, msg_when, pixel_moving_objects, already_tracked_objects)
 
   @staticmethod
   def _countExternalObjectIds(objects):
