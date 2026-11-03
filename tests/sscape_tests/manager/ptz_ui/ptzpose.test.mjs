@@ -7,9 +7,13 @@ import test from "node:test";
 import * as THREE from "/static/assets/three.module.js";
 import {
   PTZ_HOME_ANGLE_TOLERANCE_RAD,
+  PTZ_VIDEO_LATENCY_MS,
+  PTZFrameGate,
+  PTZPoseExpiry,
   createPTZPointMapper,
   isPTZAwayFromHomePose,
   isPTZMoving,
+  isPTZPoseExpired,
   ptzMatricesClose,
   ptzPoseToCameraMatrix,
   sceneFromCameraToCameraMatrix,
@@ -20,10 +24,12 @@ import {
   INTRINSICS,
   SCENE_ID,
   VERSION,
+  isoAt,
   movedPose,
   poseContext,
   project,
   rotationXYZ,
+  spy,
   withRotation,
 } from "./helpers.mjs";
 
@@ -237,4 +243,73 @@ test("missing distortion coefficients are treated as zero", () => {
   ]);
   const none = createPTZPointMapper(HOME, live, INTRINSICS, LENSES.none);
   assert.deepEqual(missing(800, 600), none(800, 600));
+});
+
+test("retained poses past valid_until are rejected on receipt", () => {
+  const now = Date.parse(isoAt(0));
+  const accepted = (context) =>
+    ptzPoseToCameraMatrix(context, SCENE_ID, VERSION, now) !== null;
+  assert.equal(accepted(poseContext({ timestamp: isoAt(-0.1) })), true);
+  assert.equal(
+    accepted(poseContext({ timestamp: isoAt(-2) })),
+    true,
+    "within the browser clock skew tolerance",
+  );
+  assert.equal(accepted(poseContext({ timestamp: isoAt(-60) })), false);
+  const withoutExpiry = poseContext();
+  delete withoutExpiry.valid_until;
+  assert.equal(accepted(withoutExpiry), false);
+  assert.equal(isPTZPoseExpired(poseContext({ lifetimeMs: 0 }), now), true);
+});
+
+test("frame gate holds frames until the video shows the stopped camera", () => {
+  const gate = new PTZFrameGate();
+  const stopped = poseContext({ timestamp: isoAt(10) });
+  assert.equal(gate.accepts(isoAt(0)), true, "no PTZ pose yet");
+
+  gate.update(stopped, true, false);
+  assert.equal(gate.accepts(isoAt(0)), true, "no move observed");
+
+  gate.update(poseContext({ motionState: "slewing" }), false, true);
+  assert.equal(gate.accepts(isoAt(20)), false, "moving");
+  gate.update(stopped, true, false);
+  const cutoff = 10 + PTZ_VIDEO_LATENCY_MS / 1000;
+  assert.equal(gate.accepts(isoAt(cutoff - 0.01)), false);
+  assert.equal(gate.accepts(isoAt(cutoff)), true);
+  assert.equal(gate.accepts(undefined), true, "frames without a timestamp");
+
+  gate.update(poseContext({ timestamp: isoAt(11) }), true, false);
+  assert.equal(gate.accepts(isoAt(cutoff - 0.01)), false, "cutoff kept");
+
+  gate.update(poseContext({ motionState: "unknown" }), false, false);
+  assert.equal(gate.accepts(isoAt(0)), true, "home pose fallback");
+});
+
+test("frame gate rejects work started for an earlier pose", () => {
+  const gate = new PTZFrameGate();
+  const generation = gate.generation;
+  assert.equal(gate.accepts(isoAt(0), generation), true);
+  gate.invalidate();
+  assert.equal(gate.accepts(isoAt(0), generation), false);
+  assert.equal(gate.accepts(isoAt(0)), true);
+});
+
+test("a live pose expires unless a newer one arrives in its lifetime", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const expiry = new PTZPoseExpiry();
+  const onExpire = spy();
+  const live = poseContext({ lifetimeMs: 500 });
+
+  expiry.arm(live, onExpire);
+  t.mock.timers.tick(400);
+  expiry.arm(live, onExpire);
+  t.mock.timers.tick(400);
+  assert.equal(onExpire.calls.length, 0, "re-armed by the newer pose");
+  t.mock.timers.tick(100);
+  assert.equal(onExpire.calls.length, 1);
+
+  expiry.arm(live, onExpire);
+  expiry.arm(null, onExpire);
+  t.mock.timers.tick(1000);
+  assert.equal(onExpire.calls.length, 1, "cancelled without a live pose");
 });

@@ -30,6 +30,9 @@ import PointCloudVisualizer from "/static/js/pointcloud.js";
 import {
   PTZ_AWAY_MESSAGE,
   PTZ_HOME_ANGLE_TOLERANCE_RAD,
+  PTZFrameGate,
+  PTZPoseExpiry,
+  expiredPTZPoseContext,
   isPTZMoving,
   ptzMatricesClose,
   ptzPoseToCameraMatrix,
@@ -208,6 +211,8 @@ export default class SceneCamera extends THREE.Object3D {
     this.ptzSceneID = params.scene;
     this.ptzPoseValid = null;
     this.ptzMoving = false;
+    this.ptzFrameGate = new PTZFrameGate();
+    this.ptzPoseExpiry = new PTZPoseExpiry();
     this.ptzLiveMatrix = null;
     this.ptzHomeMatrix = null;
     this.transformType = params.transform_type;
@@ -939,6 +944,10 @@ export default class SceneCamera extends THREE.Object3D {
       this.ptzCalibrationVersion,
     );
     this.ptzMoving = isPTZMoving(msg);
+    this.ptzFrameGate.update(msg, Boolean(livePose), this.ptzMoving);
+    this.ptzPoseExpiry.arm(livePose ? msg : null, () =>
+      this.updatePTZPose(JSON.stringify(expiredPTZPoseContext())),
+    );
     // Position unknown but not moving (e.g. backlash not yet learned): show the home pose.
     const matrix =
       livePose || (this.ptzMoving ? null : this.ptzHomeMatrix?.clone() || null);
@@ -947,6 +956,7 @@ export default class SceneCamera extends THREE.Object3D {
       return;
     }
     // The projected frame belongs to the previous pose; hide it until a new frame arrives.
+    this.ptzFrameGate.invalidate();
     if (this.mesh) this.mesh.visible = false;
     if (matrix === null) return;
     matrix.decompose(
@@ -1302,10 +1312,18 @@ export default class SceneCamera extends THREE.Object3D {
 
     if (this.sceneCamera && this.projectFrame && !this.pauseVideo) {
       const loader = new THREE.TextureLoader();
+      const generation = this.ptzFrameGate.generation;
+      const frameTimestamp = data && data.timestamp;
       loader.load(
         image,
         (texture) => {
-          if (this.ptzPoseValid === false) return;
+          // Drop frames from before the PTZ stopped or for an earlier pose.
+          if (
+            this.ptzPoseValid === false ||
+            !this.ptzFrameGate.accepts(frameTimestamp, generation)
+          ) {
+            return;
+          }
           this.resolution = { w: texture.image.width, h: texture.image.height };
           this.sceneCamera.aspect = texture.image.width / texture.image.height;
           this.sceneCamera.fov = computeVerticalFOVFromFy(

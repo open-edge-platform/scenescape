@@ -39,8 +39,10 @@ import {
 } from "/static/js/utils.js";
 import {
   PTZ_AWAY_MESSAGE,
-  PTZ_VIDEO_LATENCY_MS,
+  PTZFrameGate,
+  PTZPoseExpiry,
   createPTZPointMapper,
+  expiredPTZPoseContext,
   isPTZAwayFromHomePose,
   isPTZMoving,
   ptzMatricesClose,
@@ -71,8 +73,11 @@ export class ConvergedCameraCalibration {
     this.ptzHomeRequested = false;
     this.ptzPointMapperKey = null;
     this.ptzPendingPoints = null;
-    this.ptzStationarySince = null;
-    this.ptzMotionSeen = false;
+    // Frame admission and expiry for the live PTZ pose.
+    this.ptzFrameGate = new PTZFrameGate();
+    this.ptzPoseExpiry = new PTZPoseExpiry();
+    // Calibration (home) pose last set by calibration fitting or the stored pose.
+    this.calibrationPoseMatrix = null;
 
     // Used for storing undistorted image for projection
     this.projectionImage = new Image();
@@ -490,6 +495,7 @@ export class ConvergedCameraCalibration {
       flat[15],
     );
     this.viewport.setCameraPose(pose);
+    this.rememberCalibrationPose();
     this.projectionEnabled = true;
     this.camCanvas.calibrationUpdated = false;
     this.viewport.calibrationUpdated = false;
@@ -701,6 +707,7 @@ export class ConvergedCameraCalibration {
           pose.slice(0, 3),
           pose.slice(3, 6),
         );
+        this.rememberCalibrationPose();
         this.projectionEnabled = true;
       }
       return;
@@ -1014,6 +1021,7 @@ export class ConvergedCameraCalibration {
       );
       T.invert(); //Format of T is column-major. Hence, T.transpose lines up with transform.py values.
       this.viewport.setCameraPose(T);
+      this.rememberCalibrationPose();
       this.projectionEnabled = true;
       this.camCanvas.calibrationUpdated = false;
       this.viewport.calibrationUpdated = false;
@@ -1030,9 +1038,17 @@ export class ConvergedCameraCalibration {
     }
   }
 
-  undistortAndProjectImage(image, cameraMatrix, distCoeffs) {
+  undistortAndProjectImage(
+    image,
+    cameraMatrix,
+    distCoeffs,
+    frameTimestamp,
+    generation,
+  ) {
     this.projectionImage.src = image;
     this.projectionImage.onload = () => {
+      // Skip frames invalidated by PTZ motion while the image was decoding.
+      if (!this.ptzFrameGate.accepts(frameTimestamp, generation)) return;
       this.projectionCanvas.width = this.projectionImage.width;
       this.projectionCanvas.height = this.projectionImage.height;
       this.projectionCtx.drawImage(this.projectionImage, 0, 0);
@@ -1081,6 +1097,8 @@ export class ConvergedCameraCalibration {
       this.projectImage(
         this.projectionCanvas.toDataURL("image/jpeg"),
         cameraMatrix,
+        frameTimestamp,
+        generation,
       );
 
       distortedImage.delete();
@@ -1093,20 +1111,56 @@ export class ConvergedCameraCalibration {
     };
   }
 
-  projectImage(image, cameraMatrix) {
+  /**
+   * Projects a camera frame onto the scene.
+   * @param {string} image - Frame image URL.
+   * @param {number[][]} cameraMatrix - Camera intrinsics matrix.
+   * @param {string} frameTimestamp - Acquisition timestamp of the frame.
+   * @param {number} generation - PTZ frame-gate generation when the frame arrived.
+   */
+  projectImage(
+    image,
+    cameraMatrix,
+    frameTimestamp,
+    generation = this.ptzFrameGate.generation,
+  ) {
     if (this.projectionEnabled === false || this.ptzPoseValid === false) {
       this.viewport.setProjectionVisibility(false);
       return;
     }
-    // For PTZ cameras the frame is captured at the live pose, not the fitted home pose.
+    const accepts = () =>
+      this.ptzPoseValid !== false &&
+      this.ptzFrameGate.accepts(frameTimestamp, generation);
+    // Frames from before the camera stopped, or for an earlier pose, are dropped.
+    if (!accepts()) return;
     if (this.ptzLiveMatrix) {
-      this.viewport.setCameraPose(this.ptzLiveMatrix);
+      this.viewport.setCameraPose(this.ptzProjectionPose());
     }
-    this.viewport.projectImage(
-      image,
-      cameraMatrix,
-      () => this.ptzPoseValid !== false,
-    );
+    this.viewport.projectImage(image, cameraMatrix, accepts);
+  }
+
+  /**
+   * The frame was captured at the live PTZ pose. Apply its offset from the stored
+   * home pose to the calibration pose being previewed, so a newly fitted home
+   * calibration stays visible while calibrating.
+   * @returns {THREE.Matrix4} Projection camera matrix.
+   */
+  ptzProjectionPose() {
+    const home =
+      this.ptzHomePoseMatrix &&
+      sceneFromCameraToCameraMatrix(this.ptzHomePoseMatrix);
+    if (!this.calibrationPoseMatrix || !home) return this.ptzLiveMatrix;
+    return this.calibrationPoseMatrix
+      .clone()
+      .multiply(home.invert())
+      .multiply(this.ptzLiveMatrix);
+  }
+
+  // Records the calibration (home) pose just set on the projection camera.
+  rememberCalibrationPose() {
+    const camera = this.viewport.projectionCamera;
+    camera.updateMatrix();
+    this.calibrationPoseMatrix = camera.matrix.clone();
   }
 
   /**
@@ -1120,17 +1174,15 @@ export class ConvergedCameraCalibration {
     this.loadPTZHomePose(cameraUID);
     this.ptzMoving = isPTZMoving(msg);
     let matrix = ptzPoseToCameraMatrix(msg, sceneID, calibrationVersion);
-    // Acquisition time of the first stationary pose after an observed move;
-    // -Infinity when no move was seen (e.g. page load), so nothing is held back.
-    if (!matrix) {
-      this.ptzStationarySince = null;
-      this.ptzMotionSeen ||= this.ptzMoving;
-    } else if (this.ptzStationarySince === null) {
-      const poseTime = Date.parse(msg.timestamp);
-      this.ptzStationarySince =
-        this.ptzMotionSeen && Number.isFinite(poseTime) ? poseTime : -Infinity;
-      this.ptzMotionSeen = false;
-    }
+    this.ptzFrameGate.update(msg, Boolean(matrix), this.ptzMoving);
+    this.ptzPoseExpiry.arm(matrix ? msg : null, () =>
+      this.updatePTZPose(
+        expiredPTZPoseContext(),
+        sceneID,
+        calibrationVersion,
+        cameraUID,
+      ),
+    );
     let poseRows = matrix ? msg.pose.matrix_4x4 : null;
     if (!matrix && !this.ptzMoving) {
       // Position unknown but not moving (e.g. backlash not yet learned).
@@ -1152,10 +1204,11 @@ export class ConvergedCameraCalibration {
       return;
     }
     // Hide the previous frame until one is captured at the new pose.
+    this.ptzFrameGate.invalidate();
     this.viewport.setProjectionVisibility(false);
     if (!matrix) return;
     this.ptzLiveMatrix = matrix.clone();
-    this.viewport.setCameraPose(matrix);
+    this.viewport.setCameraPose(this.ptzProjectionPose());
   }
 
   // The stored home pose is the reference the calibration points were placed in.
@@ -1217,7 +1270,7 @@ export class ConvergedCameraCalibration {
       intrinsics,
       distortion,
     );
-    if (!Number.isFinite(this.ptzStationarySince)) {
+    if (!Number.isFinite(this.ptzFrameGate.notBefore)) {
       this.setPTZPointMapper(key, mapper, true);
       return;
     }
@@ -1227,7 +1280,7 @@ export class ConvergedCameraCalibration {
     this.ptzPendingPoints = {
       key,
       mapper,
-      notBefore: this.ptzStationarySince + PTZ_VIDEO_LATENCY_MS,
+      notBefore: this.ptzFrameGate.notBefore,
     };
   }
 
@@ -1284,6 +1337,7 @@ export class ConvergedCameraCalibration {
   }
 
   updateCalibrationViews(image, cameraMatrix, distCoeffs, frameTimestamp) {
+    const generation = this.ptzFrameGate.generation;
     this.camCanvas.updateImageSrc(image);
     this.applyPendingPTZPoints(frameTimestamp);
     this.updateCameraOpticalCenter(this.camCanvas.getImageSize(), cameraMatrix);
@@ -1302,9 +1356,15 @@ export class ConvergedCameraCalibration {
       this.calculateCalibrationIntrinsics();
     }
     if (distCoeffs.some((coeff) => coeff !== 0)) {
-      this.undistortAndProjectImage(image, cameraMatrix, distCoeffs);
+      this.undistortAndProjectImage(
+        image,
+        cameraMatrix,
+        distCoeffs,
+        frameTimestamp,
+        generation,
+      );
     } else {
-      this.projectImage(image, cameraMatrix);
+      this.projectImage(image, cameraMatrix, frameTimestamp, generation);
     }
   }
 }

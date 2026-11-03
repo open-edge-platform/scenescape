@@ -166,14 +166,17 @@ visually:
 
 - After the camera stops and the pose is valid again, the camera frustum and the
   projected frame show the new orientation. Turn on **project frame** in the 3D view.
-- While the camera is moving or settling, the projected frame is hidden. A pose for
-  another scene or `calibration_version` is ignored.
+- While the camera is moving or settling, the projected frame is hidden. After a move,
+  frames are projected again from the first frame captured at least 0.5 s after the
+  camera stopped, so that a delayed frame from the move is never shown at the new
+  orientation. A pose for another scene or `calibration_version` is ignored.
 - On the calibration page, the stored calibration points are drawn where they appear in
   the moved camera frame, using the camera intrinsics and lens distortion. They are
   display-only and cannot be edited until the camera returns home; the stored points
-  and the saved calibration do not change. The points are hidden while the camera is
-  moving, and reappear at their new position with the first frame captured at least
-  0.5 s after the camera stopped, so that they match the delayed video.
+  and the saved calibration do not change. The points follow the same timing as the
+  projected frame.
+- On the calibration page, the projection previews the calibration you are fitting.
+  When the camera is away from home, the live pan and tilt are applied to that preview.
 - While the camera is away from home or moving, Auto Calibrate and Save are blocked in
   the 3D view and on the calibration page, and so is saving the scene with **update
   cameras on save**. Auto Calibrate detects points in the current frame, and saving
@@ -184,4 +187,8 @@ visually:
 - Reload the page after you import a new `calibration_version`.
 - Without Positioning, or while the camera is not moving and Positioning has no usable
   pose for it (for example `backlash_unknown` until the camera first visits home after a
-  restart), the views use the stored home pose, as for other cameras.
+  restart), the views use the stored home pose, as for other cameras. A pose is no
+  longer used after its `valid_until`, so the views also return to the home pose when
+  Positioning stops publishing. A retained pose that has already expired when a page
+  opens is ignored; the check allows for 2 s of difference between the browser and
+  Positioning clocks.

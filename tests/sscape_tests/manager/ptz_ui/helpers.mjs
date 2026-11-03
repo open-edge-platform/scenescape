@@ -79,12 +79,14 @@ export function poseContext({
   matrix = HOME,
   motionState = "stationary",
   valid = motionState === "stationary",
-  timestamp = "2026-11-03T13:00:00.000Z",
+  timestamp = new Date().toISOString(),
+  lifetimeMs = 500,
   version = VERSION,
   frameId = `scene:${SCENE_ID}`,
 } = {}) {
   const context = {
     timestamp,
+    valid_until: new Date(Date.parse(timestamp) + lifetimeMs).toISOString(),
     valid,
     motion_state: motionState,
     calibration_version: version,
@@ -118,10 +120,12 @@ export function project(pose, point, [k1, k2, p1, p2, k3], [fx, fy, cx, cy]) {
   ];
 }
 
+// Test times are relative to the real clock, because received poses are checked
+// for expiry against it.
+const BASE_TIME_MS = Date.now();
+
 export function isoAt(seconds) {
-  return new Date(
-    Date.UTC(2026, 10, 3, 13, 0, 0) + seconds * 1000,
-  ).toISOString();
+  return new Date(BASE_TIME_MS + seconds * 1000).toISOString();
 }
 
 export function spy(implementation = () => undefined) {

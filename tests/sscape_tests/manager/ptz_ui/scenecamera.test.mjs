@@ -7,6 +7,9 @@ import test from "node:test";
 import * as THREE from "/static/assets/three.module.js";
 import {
   PTZ_AWAY_MESSAGE,
+  PTZ_VIDEO_LATENCY_MS,
+  PTZFrameGate,
+  PTZPoseExpiry,
   ptzMatricesClose,
   sceneFromCameraToCameraMatrix,
 } from "/static/js/ptzpose.js";
@@ -14,6 +17,7 @@ import {
   HOME,
   SCENE_ID,
   VERSION,
+  isoAt,
   movedPose,
   poseContext,
   spy,
@@ -49,6 +53,8 @@ function makeCamera({ ptz = true, transformType = POINTS } = {}) {
     ptzCalibrationVersion: ptz ? VERSION : null,
     ptzPoseValid: null,
     ptzMoving: false,
+    ptzFrameGate: new PTZFrameGate(),
+    ptzPoseExpiry: new PTZPoseExpiry(),
     ptzLiveMatrix: null,
     ptzHomeMatrix: sceneCamera.matrix.clone(),
     transformType,
@@ -215,4 +221,79 @@ test("saving a scene that moves cameras is blocked while a PTZ is away", async (
   assert.equal(allowed.toast.showToast.calls.length, 0);
   assert.equal(allowed._applyMeshDeltaToCamerasAndSave.calls.length, 1);
   assert.equal(allowed.updateScene.calls.length, 1);
+});
+
+// Texture loads complete when the test resolves them, like a slow image decode.
+const pendingTextures = [];
+THREE.TextureLoader.prototype.load = function (url, onLoad) {
+  pendingTextures.push(onLoad);
+};
+
+function makeProjectingCamera() {
+  const camera = makeCamera();
+  return Object.assign(camera, {
+    projectFrame: true,
+    pauseVideo: false,
+    cameraCapture: null,
+    mesh: null,
+    cameraMatrix: { data64F: [1000, 0, 960, 0, 1000, 540, 0, 0, 1] },
+    sceneMesh: {},
+    add: spy(),
+    drawObj: {
+      createProjectionMaterial: spy(() => [
+        { opacity: 1, project: spy() },
+        { visible: true },
+      ]),
+    },
+  });
+}
+
+function captureFrame(camera, seconds) {
+  pendingTextures.length = 0;
+  camera.projectCameraCapture("data:", { timestamp: isoAt(seconds) }, false);
+  return () =>
+    pendingTextures.forEach((onLoad) =>
+      onLoad({ image: { width: 1920, height: 1080 } }),
+    );
+}
+
+const projected = (camera) =>
+  camera.drawObj.createProjectionMaterial.calls.length;
+
+test("3D frames captured before the stop are not projected", () => {
+  const camera = makeProjectingCamera();
+  pose(camera, { motionState: "slewing", timestamp: isoAt(1) });
+  pose(camera, { matrix: movedPose(0.2), timestamp: isoAt(2) });
+  const cutoff = 2 + PTZ_VIDEO_LATENCY_MS / 1000;
+  captureFrame(camera, cutoff - 0.01)();
+  assert.equal(projected(camera), 0);
+  captureFrame(camera, cutoff)();
+  assert.equal(projected(camera), 1);
+  assert.equal(camera.mesh.visible, true);
+});
+
+test("3D texture loads started for an earlier pose are dropped", () => {
+  const camera = makeProjectingCamera();
+  pose(camera, { matrix: HOME, timestamp: isoAt(0) });
+  const finishLoad = captureFrame(camera, 0.1);
+  pose(camera, { matrix: movedPose(0.2), timestamp: isoAt(1) });
+  finishLoad();
+  assert.equal(projected(camera), 0);
+});
+
+test("an expired retained pose shows the stored home pose in 3D", () => {
+  const camera = makeCamera();
+  pose(camera, { matrix: movedPose(0.2), timestamp: isoAt(-60) });
+  assert.ok(ptzMatricesClose(cameraMatrix(camera), HOME_CAMERA));
+  assert.equal(camera.isPTZAwayFromHome(), false);
+});
+
+test("the 3D live pose expires when Positioning stops publishing", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const camera = makeCamera();
+  pose(camera, { matrix: movedPose(0.2), timestamp: isoAt(0) });
+  assert.equal(camera.isPTZAwayFromHome(), true);
+  t.mock.timers.tick(500);
+  assert.ok(ptzMatricesClose(cameraMatrix(camera), HOME_CAMERA));
+  assert.equal(camera.isPTZAwayFromHome(), false);
 });

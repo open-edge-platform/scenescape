@@ -4,6 +4,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import * as THREE from "/static/assets/three.module.js";
 import {
   HOME,
   INTRINSICS,
@@ -12,7 +13,9 @@ import {
   isoAt,
   movedPose,
   poseContext,
+  rotationXYZ,
   spy,
+  withRotation,
 } from "./helpers.mjs";
 
 const FORM = {
@@ -42,8 +45,12 @@ globalThis.alert = spy();
 const { ConvergedCameraCalibration } =
   await import("/static/js/cameracalibrate.js");
 const { Viewport } = await import("/static/js/viewport.js");
-const { PTZ_AWAY_MESSAGE, PTZ_VIDEO_LATENCY_MS } =
-  await import("/static/js/ptzpose.js");
+const {
+  PTZ_AWAY_MESSAGE,
+  PTZ_VIDEO_LATENCY_MS,
+  ptzMatricesClose,
+  sceneFromCameraToCameraMatrix,
+} = await import("/static/js/ptzpose.js");
 
 function makeCalibration({ homeResponse } = {}) {
   const calibration = new ConvergedCameraCalibration();
@@ -64,8 +71,14 @@ function makeCalibration({ homeResponse } = {}) {
       getCamera: async () =>
         homeResponse ?? { statusCode: 200, content: { pose_matrix: HOME } },
     },
+    projectionCamera: new THREE.PerspectiveCamera(),
+    sceneScale: 1,
+    scaleFactor: 1,
     setProjectionVisibility: spy(),
-    setCameraPose: spy(),
+    setCameraPose: spy((matrix) => {
+      const camera = calibration.viewport.projectionCamera;
+      matrix.decompose(camera.position, camera.quaternion, camera.scale);
+    }),
     projectImage: spy(),
     getCalibrationPoints: () => ({}),
     calibrationUpdated: false,
@@ -254,4 +267,98 @@ test("viewport drops a texture that loads after projection became invalid", () =
   Viewport.prototype.projectImage.call(fake, "data:", intrinsics);
   assert.equal(fake.drawObject.createProjectionMaterial.calls.length, 1);
   assert.deepEqual(fake.setProjectionVisibility.calls, [[true]]);
+});
+
+// A fitted home pose slightly different from the stored home pose.
+const FITTED = withRotation(rotationXYZ([-2.33, 0.53, 0.46]), [3.4, 0.6, 2.6]);
+
+// The fit endpoint returns poseMatrix in the three.js camera convention.
+function applyFit(calibration, rows) {
+  const elements = sceneFromCameraToCameraMatrix(rows)
+    .clone()
+    .transpose().elements;
+  const poseMatrix = [0, 4, 8, 12].map((i) => elements.slice(i, i + 4));
+  assert.ok(calibration.applyFittedCalibrationPose({ poseMatrix }));
+}
+
+const lastProjectionPose = (calibration) =>
+  calibration.viewport.setCameraPose.calls.at(-1)[0];
+
+test("a fitted home calibration stays previewed at the home pose", async () => {
+  const { calibration } = await loadedAtHome();
+  applyFit(calibration, FITTED);
+  frame(calibration, 0.2);
+  frame(calibration, 0.3);
+  assert.ok(
+    ptzMatricesClose(
+      lastProjectionPose(calibration),
+      sceneFromCameraToCameraMatrix(FITTED),
+    ),
+    "the stored home pose replaced the fitted preview",
+  );
+});
+
+test("a moved camera previews the live offset applied to the fitted pose", async () => {
+  const { calibration } = await loadedAtHome();
+  applyFit(calibration, FITTED);
+  pose(calibration, { matrix: movedPose(0.2), timestamp: isoAt(1) });
+  frame(calibration, 1.1);
+  const home = sceneFromCameraToCameraMatrix(HOME);
+  const live = sceneFromCameraToCameraMatrix(movedPose(0.2));
+  const expected = sceneFromCameraToCameraMatrix(FITTED)
+    .multiply(home.invert())
+    .multiply(live);
+  assert.ok(ptzMatricesClose(lastProjectionPose(calibration), expected));
+});
+
+test("frames captured before the stop are not projected", async () => {
+  const { calibration } = await loadedAtHome();
+  const viewport = calibration.viewport;
+  pose(calibration, { motionState: "slewing", timestamp: isoAt(1) });
+  pose(calibration, { matrix: movedPose(0.2), timestamp: isoAt(2) });
+  const cutoff = 2 + PTZ_VIDEO_LATENCY_MS / 1000;
+  const before = viewport.projectImage.calls.length;
+  frame(calibration, cutoff - 0.01);
+  assert.equal(viewport.projectImage.calls.length, before);
+  frame(calibration, cutoff);
+  assert.equal(viewport.projectImage.calls.length, before + 1);
+});
+
+test("asynchronous projection work for an earlier pose is dropped", async () => {
+  const { calibration } = await loadedAtHome();
+  const viewport = calibration.viewport;
+  const generation = calibration.ptzFrameGate.generation;
+  frame(calibration, 0.2);
+  const [, , canProject] = viewport.projectImage.calls.at(-1);
+
+  pose(calibration, { matrix: movedPose(0.2), timestamp: isoAt(1) });
+  assert.equal(canProject(), false, "texture load started at the old pose");
+  const before = viewport.projectImage.calls.length;
+  calibration.projectImage("data:", [[1]], isoAt(5), generation);
+  assert.equal(viewport.projectImage.calls.length, before, "late undistortion");
+});
+
+test("an expired retained pose is treated as an unknown position", async () => {
+  const { calibration, shown } = await loadedAtHome();
+  pose(calibration, { matrix: movedPose(0.2), timestamp: isoAt(-60) });
+  assert.equal(shown.state, "home");
+  assert.equal(calibration.isPTZAwayFromHome(), false);
+});
+
+test("the live pose expires when Positioning stops publishing", async (t) => {
+  const { calibration, shown } = await loadedAtHome();
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  pose(calibration, { matrix: movedPose(0.2), timestamp: isoAt(0.1) });
+  assert.equal(calibration.isPTZAwayFromHome(), true);
+  t.mock.timers.tick(499);
+  assert.equal(calibration.isPTZAwayFromHome(), true);
+  t.mock.timers.tick(1);
+  assert.equal(calibration.isPTZAwayFromHome(), false);
+  assert.equal(shown.state, "home");
+  assert.ok(
+    ptzMatricesClose(
+      calibration.ptzLiveMatrix,
+      sceneFromCameraToCameraMatrix(HOME),
+    ),
+  );
 });

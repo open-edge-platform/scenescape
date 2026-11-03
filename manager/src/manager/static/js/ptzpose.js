@@ -11,20 +11,55 @@
 import * as THREE from "/static/assets/three.module.js";
 
 const MATRIX_TOLERANCE = 1e-6;
+// The browser clock is not NTP-disciplined like Positioning; allow this much skew
+// before a retained PoseContext is treated as expired on receipt.
+const PTZ_CLOCK_SKEW_TOLERANCE_MS = 2000;
+
+/**
+ * Lifetime of a PoseContext (valid_until - timestamp) in milliseconds.
+ * @param {Object} msg - Parsed PoseContext payload.
+ * @returns {number} Positive lifetime, or 0 when the timestamps are unusable.
+ */
+function ptzPoseLifetimeMs(msg) {
+  const lifetime = Date.parse(msg?.valid_until) - Date.parse(msg?.timestamp);
+  return Number.isFinite(lifetime) && lifetime > 0 ? lifetime : 0;
+}
+
+/**
+ * Whether a PoseContext is already past its exclusive valid_until on receipt,
+ * for example a retained pose left behind by a stopped Positioning service.
+ * @param {Object} msg - Parsed PoseContext payload.
+ * @param {number} now - Receipt time in milliseconds since the epoch.
+ * @returns {boolean}
+ */
+function isPTZPoseExpired(msg, now = Date.now()) {
+  if (ptzPoseLifetimeMs(msg) === 0) return true;
+  return now - PTZ_CLOCK_SKEW_TOLERANCE_MS >= Date.parse(msg.valid_until);
+}
 
 /**
  * Converts a PoseContext into a three.js (y-up) camera matrix.
  * @param {Object} msg - Parsed PoseContext payload.
  * @param {string} sceneID - UID of the scene that owns the camera.
  * @param {string} calibrationVersion - PTZ calibration version known to the UI.
+ * @param {number} now - Receipt time in milliseconds since the epoch.
  * @returns {THREE.Matrix4|null} The camera matrix, or null when the camera has no
- * usable stationary pose (moving, settling, stale, or for another scene/calibration).
+ * usable stationary pose (moving, settling, expired, or for another
+ * scene/calibration).
  */
-function ptzPoseToCameraMatrix(msg, sceneID, calibrationVersion) {
+function ptzPoseToCameraMatrix(
+  msg,
+  sceneID,
+  calibrationVersion,
+  now = Date.now(),
+) {
   if (!msg || msg.valid !== true || msg.motion_state !== "stationary") {
     return null;
   }
   if (msg.calibration_version !== calibrationVersion) {
+    return null;
+  }
+  if (isPTZPoseExpired(msg, now)) {
     return null;
   }
   const pose = msg.pose;
@@ -37,6 +72,97 @@ function ptzPoseToCameraMatrix(msg, sceneID, calibrationVersion) {
     return null;
   }
   return sceneFromCameraToCameraMatrix(pose.matrix_4x4);
+}
+
+/**
+ * Decides which camera frames may be projected with the current PTZ pose.
+ *
+ * Frames are rejected while the camera moves, and after an observed move until
+ * one is captured PTZ_VIDEO_LATENCY_MS after the first stationary pose, because
+ * the video lags the pose. The generation changes whenever the displayed pose
+ * changes, so asynchronous work (decoding, undistortion, texture loading)
+ * started for an earlier pose can be rejected when it completes.
+ */
+class PTZFrameGate {
+  constructor() {
+    this.generation = 0;
+    this.notBefore = -Infinity;
+    this.motionSeen = false;
+    this.stationary = false;
+  }
+
+  /**
+   * @param {Object} msg - Parsed PoseContext payload.
+   * @param {boolean} live - Whether msg is a usable live stationary pose.
+   * @param {boolean} moving - Whether msg reports slewing or settling.
+   */
+  update(msg, live, moving) {
+    if (moving) {
+      this.motionSeen = true;
+      this.stationary = false;
+      this.notBefore = Infinity;
+    } else if (!live) {
+      // No live pose: the stored home pose is shown as for other cameras.
+      this.stationary = false;
+      this.notBefore = -Infinity;
+    } else if (!this.stationary) {
+      const poseTime = Date.parse(msg.timestamp);
+      this.notBefore =
+        this.motionSeen && Number.isFinite(poseTime)
+          ? poseTime + PTZ_VIDEO_LATENCY_MS
+          : -Infinity;
+      this.motionSeen = false;
+      this.stationary = true;
+    }
+  }
+
+  invalidate() {
+    this.generation += 1;
+  }
+
+  /**
+   * @param {string} frameTimestamp - Acquisition timestamp of the frame.
+   * @param {number} generation - Generation captured when the frame arrived.
+   * @returns {boolean} Whether the frame may be projected.
+   */
+  accepts(frameTimestamp, generation = this.generation) {
+    if (generation !== this.generation || this.notBefore === Infinity) {
+      return false;
+    }
+    if (this.notBefore === -Infinity) return true;
+    const frameTime = Date.parse(frameTimestamp);
+    return !Number.isFinite(frameTime) || frameTime >= this.notBefore;
+  }
+}
+
+/**
+ * Expires a cached live pose when no newer one arrives within its lifetime, for
+ * example when Positioning stops after publishing a valid retained pose.
+ */
+class PTZPoseExpiry {
+  constructor() {
+    this.timer = null;
+  }
+
+  /**
+   * @param {Object|null} msg - Live PoseContext now displayed, or null for none.
+   * @param {Function} onExpire - Called when msg expires without a successor.
+   */
+  arm(msg, onExpire) {
+    clearTimeout(this.timer);
+    this.timer = msg ? setTimeout(onExpire, ptzPoseLifetimeMs(msg)) : null;
+  }
+}
+
+// Stands in for the PoseContext a consumer would see for an expired pose.
+function expiredPTZPoseContext() {
+  return {
+    timestamp: new Date().toISOString(),
+    valid: false,
+    motion_state: "unknown",
+    invalid_reason: "pose_expired",
+    reason_detail: "sample_stale",
+  };
 }
 
 /**
@@ -207,6 +333,11 @@ export {
   PTZ_AWAY_MESSAGE,
   PTZ_HOME_ANGLE_TOLERANCE_RAD,
   PTZ_VIDEO_LATENCY_MS,
+  PTZFrameGate,
+  PTZPoseExpiry,
+  expiredPTZPoseContext,
+  isPTZPoseExpired,
+  ptzPoseLifetimeMs,
   ptzPoseToCameraMatrix,
   sceneFromCameraToCameraMatrix,
   ptzMatricesClose,
