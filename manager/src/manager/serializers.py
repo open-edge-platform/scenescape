@@ -320,7 +320,11 @@ class CamSerializer(NonNullSerializer):
         validated_data['sensor_id'] = sensor_id
       instance = super().create(validated_data)
     else:
-      super().update(instance, validated_data)
+      instance._pose_supplied = 'transforms' in validated_data
+      try:
+        super().update(instance, validated_data)
+      finally:
+        instance._pose_supplied = False
 
     self.create_camera_instance(instance)
     return instance

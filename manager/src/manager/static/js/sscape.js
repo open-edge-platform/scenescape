@@ -2349,9 +2349,12 @@ $(document).ready(function () {
                   try {
                     let updateResponse;
                     if (isCamera) {
+                      // Send the exported camera (minus its sensor_id) so the
+                      // calibration is applied along with the scene link.
+                      const { sensor_id: _ignored, ...cameraData } = msg[1];
                       updateResponse = await restClient.updateCamera(
                         msg[1].sensor_id,
-                        { scene: msg[1].scene },
+                        cameraData,
                       );
                     } else {
                       let sensorData = {

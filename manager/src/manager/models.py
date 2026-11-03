@@ -865,8 +865,10 @@ class Cam(Sensor):
         scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
         if original.scene_id != scene_id:
           original_scene = original.scene
-          # Scene has changed, clear pose-related fields
-          self.transforms = []
+          # Scene has changed: drop the previous scene's pose unless this save
+          # explicitly supplies a new one (e.g. scene import re-linking a camera).
+          if not getattr(self, "_pose_supplied", False):
+            self.transforms = []
           self.scene_x = None
           self.scene_y = None
           self.scene_z = None
