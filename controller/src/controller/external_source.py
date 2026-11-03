@@ -20,8 +20,10 @@ the transform that maps that local frame into a bound scene:
 
 A message may omit ``pose`` entirely, in which case the most recent
 non-expired cached transform for that ``(scene_id, source_id)`` pair is
-reused. A message with a pose and an empty ``objects`` list updates the
-cache without ingesting any observations.
+reused. Camera ``intrinsics`` (and optional ``distortion``) for pixel
+detections are cached on the same entry and may likewise be omitted on
+later messages. A message with a pose and an empty ``objects`` list updates
+the cache without ingesting any observations.
 """
 
 import threading
@@ -34,7 +36,7 @@ import numpy as np
 
 from scene_common import log
 from scene_common.earth_lla import convertLLAToECEF
-from scene_common.transform import CameraPose
+from scene_common.transform import CameraIntrinsics, CameraPose
 
 DEFAULT_POSE_CACHE_TTL_SECONDS = 30.0
 DEFAULT_IDENTITY_CLAIM_TTL_SECONDS = 30.0
@@ -59,6 +61,8 @@ REASON_SCENE_GEOREFERENCE_UNAVAILABLE = "scene_georeference_unavailable"
 REASON_UNTRUSTED_SCENE_POSE = "untrusted_scene_pose"
 REASON_UNSUPPORTED_REFERENCE_FRAME = "unsupported_reference_frame"
 REASON_INVALID_POSE = "invalid_pose"
+REASON_NO_INTRINSICS_AVAILABLE = "no_intrinsics_available"
+REASON_INVALID_INTRINSICS = "invalid_intrinsics"
 
 # Reason returned by IdentityClaimRegistry.claim() when a different source
 # currently holds a live claim on the requested id.
@@ -72,17 +76,21 @@ class _CachedPose:
   provider: Optional[str]
   when: float
   expires_at: float
+  # Optional camera calibration for pixel detections from this source.
+  # Preserved across pose refreshes until replaced or the entry expires.
+  intrinsics: Optional[dict] = None
+  distortion: Optional[dict] = None
 
 
 class ExternalSourcePoseCache:
   """Resolves and caches source-to-scene transforms for external sources.
 
-  ``resolve()`` runs on the MQTT message-handling thread (the ingestion
-  critical path) and must stay O(1): it only ever touches the single entry
-  for its own ``key``, and holds ``_lock`` only for that brief dict access.
-  Expired-entry cleanup is handled separately by a background daemon timer
-  (``startBackgroundSweep()``); each tick evicts at most
-  ``DEFAULT_SWEEP_CHUNK_SIZE`` entries so a sweep's lock acquisition is
+  ``resolve()`` / ``resolveIntrinsics()`` run on the MQTT message-handling
+  thread (the ingestion critical path) and must stay O(1): each only ever
+  touches the single entry for its own ``key``, and holds ``_lock`` only for
+  that brief dict access. Expired-entry cleanup is handled separately by a
+  background daemon timer (``startBackgroundSweep()``); each tick evicts at
+  most ``DEFAULT_SWEEP_CHUNK_SIZE`` entries so a sweep's lock acquisition is
   itself bounded and never makes ``resolve()`` wait on a large O(n) pass --
   see ``sweepExpired()``.
   """
@@ -161,12 +169,18 @@ class ExternalSourcePoseCache:
       log.error(f"Invalid external source pose for {key}: {e}")
       return None, REASON_INVALID_POSE
 
+    # Carry forward camera calibration across pose refreshes so later pixel
+    # detections can omit intrinsics the same way Cartesian messages omit pose.
+    prior_intrinsics = existing.intrinsics if existing is not None else None
+    prior_distortion = existing.distortion if existing is not None else None
     self._cache[key] = _CachedPose(
       pose_mat=camera_pose.pose_mat,
       reference_frame=reference_frame,
       provider=pose_data.get('provider'),
       when=when,
-      expires_at=when + self._ttl_seconds)
+      expires_at=when + self._ttl_seconds,
+      intrinsics=prior_intrinsics,
+      distortion=prior_distortion)
     # Keep recently refreshed entries at the end so bounded sweep chunks
     # spread work fairly over entries that are not being updated.
     self._cache.move_to_end(key)
@@ -179,6 +193,44 @@ class ExternalSourcePoseCache:
     if when > cached.expires_at:
       return None, REASON_POSE_EXPIRED
     return CameraPose(cached.pose_mat, None), None
+
+  def resolveIntrinsics(self, scene_uid, source_id, intrinsics_data, distortion_data, when):
+    """Resolve camera intrinsics for pixel detections from this source.
+
+    When ``intrinsics_data`` is provided, validates it and stores it on the
+    live pose-cache entry for ``(scene_uid, source_id)``. Otherwise reuses
+    the most recently cached non-expired intrinsics for that key.
+
+    Intrinsics are attached to the pose-cache entry, so a live pose must
+    already exist (from this message or a prior one). Returns
+    ``(CameraIntrinsics or None, reason or None)``.
+    """
+    key = (scene_uid, source_id)
+    with self._lock:
+      cached = self._cache.get(key)
+      if cached is None:
+        return None, REASON_NO_POSE_AVAILABLE
+      if when > cached.expires_at:
+        return None, REASON_POSE_EXPIRED
+
+      if intrinsics_data is not None:
+        try:
+          resolved = CameraIntrinsics(intrinsics_data, distortion_data)
+        except (ValueError, TypeError) as e:
+          log.error(f"Invalid external source intrinsics for {key}: {e}")
+          return None, REASON_INVALID_INTRINSICS
+        cached.intrinsics = intrinsics_data
+        cached.distortion = distortion_data
+        self._cache.move_to_end(key)
+        return resolved, None
+
+      if cached.intrinsics is None:
+        return None, REASON_NO_INTRINSICS_AVAILABLE
+      try:
+        return CameraIntrinsics(cached.intrinsics, cached.distortion), None
+      except (ValueError, TypeError) as e:
+        log.error(f"Invalid cached external source intrinsics for {key}: {e}")
+        return None, REASON_INVALID_INTRINSICS
 
   @staticmethod
   def _wgs84ToScene(scene, lat_long_alt):

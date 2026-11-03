@@ -73,6 +73,22 @@ class AnalyticsStateStore:
       self._tripwires[key] = TripwireAnalyticsState()
     return self._tripwires[key]
 
+  def update_object_id(self, detection_type: str, old_id: str, new_id: str) -> None:
+    """Update identity references retained by region, sensor, and tripwire analytics."""
+    def updateId(obj):
+      if obj.category == detection_type and obj.gid == old_id:
+        obj.gid = new_id
+
+    for state in self._regions.values():
+      for registry in (state.objects, state.entered):
+        for obj in registry.get(detection_type, []):
+          updateId(obj)
+      for obj, _ in state.exited.get(detection_type, []):
+        updateId(obj)
+    for state in self._tripwires.values():
+      for event in state.objects.get(detection_type, []):
+        updateId(event.object)
+
   def remove_region(self, key: str) -> None:
     """Drop state for a deleted region or sensor."""
     self._regions.pop(key, None)

@@ -33,12 +33,23 @@ def load_config(request):
   """
   fps = int(os.getenv("FPS", "15"))
   num_cameras = int(os.getenv("NUM_CAMERAS", "4"))
+  load_mode = os.getenv("LOAD_MODE", "2d")
+  mixed_3d_ratio = float(os.getenv("MIXED_3D_RATIO", "0.5"))
+  if load_mode not in {"2d", "3d", "mixed"}:
+    pytest.fail(f"LOAD_MODE must be one of 2d, 3d, or mixed; got {load_mode}")
+  if not 0.0 <= mixed_3d_ratio <= 1.0:
+    pytest.fail(f"MIXED_3D_RATIO must be between 0 and 1; got {mixed_3d_ratio}")
 
   cfg = {
     "num_cameras": num_cameras,
     "fps": fps,
+    "load_mode": load_mode,
+    "mixed_3d_ratio": mixed_3d_ratio,
     "num_objects": int(os.getenv("NUM_OBJECTS", "300")),
     "duration": os.getenv("DURATION", "1m"),
+    "embedding_dimensions": int(os.getenv("REID_EMBEDDING_DIMENSIONS", "0")),
+    "embedding_encoding": os.getenv("REID_EMBEDDING_ENCODING", "float_list"),
+    "extra_metadata": os.getenv("EXTRA_METADATA", "none"),
     "latency_p50_ms": float(os.getenv("LATENCY_P50_MS", str(1000.0 / fps))),
     "latency_p99_ms": float(os.getenv("LATENCY_P99_MS", str(2000.0 / fps))),
     "throughput_min": float(os.getenv("THROUGHPUT_MIN",
@@ -294,6 +305,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
   w.line(f"  Load:     {load_cfg['num_cameras']} cam \u00d7 {load_cfg['fps']} FPS "
          f"\u00d7 {load_cfg['num_objects']} obj = {input_rate} msg/s "
          f"for {load_cfg['duration']} ({duration_s}s)")
+  w.line(f"  ReID:     {load_cfg['embedding_dimensions']} dimensions per 2D detection "
+         f"({load_cfg['embedding_encoding']}); extra metadata: {load_cfg['extra_metadata']}")
+  mode_description = load_cfg["load_mode"]
+  if mode_description == "mixed":
+    mode_description += f" ({load_cfg['mixed_3d_ratio']:.0%} 3D)"
+  w.line(f"  Geometry: {mode_description}")
   w.line("")
 
   # -- KPI results -----------------------------------------------------------

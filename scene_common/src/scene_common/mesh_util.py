@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -8,6 +8,7 @@ from typing import Tuple
 import numpy as np
 import open3d as o3d
 import trimesh
+from PIL import Image
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import connected_components
 from scipy.spatial import cKDTree
@@ -82,40 +83,61 @@ def getAlbedoTexture(mesh):
         break
   return albedo_texture
 
+def _prepareMeshMaterial(material: trimesh.visual.material.PBRMaterial) -> None:
+  """Apply glTF defaults and bake color factors before Trimesh atlas packing."""
+  if material.alphaMode == "MASK" and material.alphaCutoff is None:
+    material.alphaCutoff = 0.5
+
+  if material.baseColorTexture is not None and material.baseColorFactor is not None:
+    # Trimesh 4.11.5's packer multiplies byte-valued factors without normalizing them.
+    rgba = np.array(material.baseColorTexture.convert("RGBA"), dtype=np.float64) / 255.0
+    factor = trimesh.visual.color.to_float(material.baseColorFactor)
+    linear_rgb = trimesh.visual.color.srgb_to_linear(rgba[..., :3])
+    rgba[..., :3] = trimesh.visual.color.linear_to_srgb(linear_rgb * factor[:3])
+    rgba[..., 3] *= factor[3]
+    material.baseColorTexture = Image.fromarray(
+        np.round(np.clip(rgba, 0.0, 1.0) * 255).astype(np.uint8))
+    material.baseColorFactor = None
+
+def _transformMeshInstance(mesh: trimesh.Trimesh, transform: np.ndarray) -> trimesh.Trimesh:
+  """Copy and transform an instance, preserving visuals and glTF material defaults."""
+  transformed_mesh = mesh.copy()
+  transformed_mesh.apply_transform(transform)
+
+  if transformed_mesh.visual.kind == "texture":
+    material = transformed_mesh.visual.material
+    if isinstance(material, trimesh.visual.material.PBRMaterial):
+      _prepareMeshMaterial(material)
+
+  if hasattr(transformed_mesh.visual, "uv") and transformed_mesh.visual.uv is not None:
+    transformed_mesh.visual.uv = transformed_mesh.visual.uv.copy()
+
+  if 'materials' in mesh.metadata:
+    transformed_mesh.metadata['materials'] = mesh.metadata['materials']
+
+  albedo_texture = getAlbedoTexture(mesh)
+  if albedo_texture:
+    transformed_mesh.metadata['albedo_texture'] = albedo_texture
+  return transformed_mesh
+
 def mergeMesh(scene):
-  # Create a list to store transformed meshes
+  """Flatten all geometry instances into the scene base frame and merge them."""
   transformed_meshes = []
-  visited_nodes = set()
+  geometry_nodes = scene.graph.nodes_geometry
 
-  # Apply transformations and collect meshes
-  for geometry_name, mesh in scene.geometry.items():
-    for node_name in scene.graph.nodes:
-      node_data = scene.graph[node_name]
-      if not isinstance(node_data, tuple) or len(node_data) != 2:
-        continue
+  for instance_index, node_name in enumerate(geometry_nodes, start=1):
+    transform, geometry_name = scene.graph[node_name]
+    mesh = scene.geometry[geometry_name]
 
-      for item in scene.graph.nodes_geometry:
-        if item == node_name:
-          if node_name == scene.graph.geometry_nodes[geometry_name][0]:
-            transform = getCumulativeTransform(scene.graph, node_name, visited_nodes)
-            transformed_mesh = mesh.copy()
-            transformed_mesh.apply_transform(transform)
-
-            if hasattr(transformed_mesh.visual, "uv") and transformed_mesh.visual.uv is not None:
-              transformed_mesh.visual.uv = transformed_mesh.visual.uv.copy()
-
-            if 'materials' in mesh.metadata:
-              transformed_mesh.metadata['materials'] = mesh.metadata['materials']
-
-            albedo_texture = getAlbedoTexture(mesh)
-            if albedo_texture:
-              transformed_mesh.metadata['albedo_texture'] = albedo_texture
-            transformed_meshes.append(transformed_mesh)
+    transformed_meshes.append(_transformMeshInstance(mesh, transform))
 
   merged_mesh = trimesh.util.concatenate(transformed_meshes)
   if isinstance(merged_mesh, trimesh.PointCloud):
     log.warning("Merged mesh is a PointCloud, returning original scene.")
     return scene
+
+  if any(mesh.visual.kind == "texture" for mesh in transformed_meshes) and merged_mesh.visual.kind != "texture":
+    raise ValueError("Mesh merge lost materials or textures during visual concatenation.")
 
   # Sanitize out-of-bounds face indices before any operation that builds a
   # vertex-indexed structure (e.g. fix_normals' sparse adjacency matrix).
@@ -365,8 +387,8 @@ def extractMeshFromGLB(glb_file, rotation=None):
   """
   if (not os.path.isfile(glb_file)
       or glb_file.split('/')[-1].split('.')[-1] != "glb"):
-    raise FileNotFoundError("Glb file not found.")
 
+    raise FileNotFoundError("Glb file not found.")
   mesh = o3d.io.read_triangle_model(glb_file)
   if len(mesh.meshes) == 0:
     raise ValueError("Loaded mesh is empty or invalid.")
@@ -432,7 +454,10 @@ def extractTriangleMesh(map_info, rotation=None):
 def getMeshAxisAlignedProjectionToXY(mesh):
   """! Extract the projection of a mesh to Z=0 plane.
   @param mesh: Open3D triangle mesh
-  @return: list of the projection corners in Z=0 plane, starting from (min_x, min_y, 0) along x-axis.
+  @return: list of the projection corners in Z=0 plane in counterclockwise order
+           starting from the origin corner (min_x, min_y): [SW, SE, NE, NW]. This is the
+           order documented for Scene.map_corners_lla; calculateTRSLocal2LLAFromSurfacePoints
+           also accepts the geographic corners in clockwise order.
   """
   if not isinstance(mesh, o3d.t.geometry.TriangleMesh):
     raise TypeError("Input must be an Open3D TriangleMesh.")
@@ -442,10 +467,10 @@ def getMeshAxisAlignedProjectionToXY(mesh):
   # Get min and max bounds
   min_bound = bbox.min_bound.numpy()  # numpy array [min_x, min_y, min_z]
   max_bound = bbox.max_bound.numpy()  # numpy array [max_x, max_y, max_z]
-  corners = np.array([ [min_bound[0], min_bound[1], 0.0],
-              [max_bound[0], min_bound[1], 0.0],
-              [max_bound[0], max_bound[1], 0.0],
-              [min_bound[0], max_bound[1], 0.0] ])
+  corners = np.array([ [min_bound[0], min_bound[1], 0.0],  # SW
+              [max_bound[0], min_bound[1], 0.0],  # SE
+              [max_bound[0], max_bound[1], 0.0],  # NE
+              [min_bound[0], max_bound[1], 0.0] ])  # NW
   return corners
 
 def createRegionMesh(region):

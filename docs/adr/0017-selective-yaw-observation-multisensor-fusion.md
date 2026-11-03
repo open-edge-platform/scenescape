@@ -41,8 +41,8 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 
 ### Multi-sensor fuse in one time chunk
 
-- Keep last-match (or existing policy) for **position and size**.
-- For **yaw**: if any matched detection in the chunk has `has_orientation`, prefer that yaw (highest classification confidence; later camera index breaks ties) and set fused `has_orientation`.
+- Keep existing policy for **position and size**.
+- For **yaw**: if any matched detection in the chunk has `has_orientation`, prefer that yaw (highest classification confidence; later camera index breaks ties) and set fused `has_orientation`. Yaw is never averaged across detections.
 - Sticky track attribute `orientation_observed=true` after any orienting correct (and at track create when the seed detection is orienting).
 
 ### Association
@@ -99,7 +99,6 @@ flowchart LR
 
 ### Negative / limitations
 
-- Position/size fusion policy remains last-match; only yaw is preferential among orienting sensors.
 - Tracks that never see an orienting sensor still rely on velocity heading (and hysteresis thresholds).
 - Pitch/roll remain display/default constants until a future ADR if 6-DOF measurements appear.
 - Sticky `orientation_observed` does not currently expire; a long camera-only gap after an orienting sensor still prefers Kalman yaw unless velocity heading disagrees while moving (publish fallback).
@@ -107,9 +106,27 @@ flowchart LR
 
 ## Implementation notes
 
-- C++: `OrientationAttributes.hpp` (`prepareYawMeasurement` kinematic gate), selective correct in `MultiModelKalmanEstimator`, `applyOrientingYaw` in `MultipleObjectTracker`, conditional Mahalanobis yaw in `ObjectMatching`.
+- C++:
+  - `OrientationAttributes.hpp` (`prepareYawMeasurement` kinematic gate), selective correct
+    in `MultiModelKalmanEstimator`, `fuseGeometry` (position/size only) and `applyOrientingYaw` in `MultipleObjectTracker`,
+    conditional Mahalanobis yaw in `ObjectMatching`.
+  - `tracker/src/message_handler.cpp::MessageHandler::parseCameraMessage`
+    enforces one geometry form per detection (`bounding_box_px` or
+    `translation` + `size`) and parses optional `[x, y, z, w]` rotation. A
+    zero-norm quaternion leaves rotation unset but keeps the detection.
+  - `tracker/src/coordinate_transformer.cpp::CoordinateTransformer::transformDetections`
+    projects pixel boxes or transforms sensor-frame XYZ with `pose_matrix_`,
+    and copies 3D `size` into the RobotVision measurement. Its
+    `applyDetectionRotation` helper normalizes the quaternion, composes
+    `camera_rotation_ * detection_rotation`, extracts world Z-yaw, and sets
+    `has_orientation`; zero norm does not discard the measurement.
+  - `tracker/src/tracking_worker.cpp::select_track_rotation`, called by
+    `convert_tracks`, publishes velocity heading when speed ≥ `rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE` and
+    the wrapped residual > `rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL`; otherwise Kalman yaw. Tracks without observed
+    orientation use the asset-controlled `rotation_from_velocity` fallback
+    (with hysteresis), or identity when disabled.
 - Python: `IntelLabsTracking.to_rv_object` / `from_tracked_object` in `controller/ilabs_tracking.py` (unified ~0.6 rad publish disagreement for all linked sensors).
-- Tests: `OrientationFusionTests.cpp`, `tests/sscape_tests/scenescape/test_ilabs_tracking.py`.
+- Tests: `OrientationFusionTests.cpp`, `test_mqtt.py`, `tracking_worker_test.cpp`, `coordinate_transformer_test.cpp`, `tests/sscape_tests/scenescape/test_ilabs_tracking.py`.
 - Publishers (LiDAR demo, external sources, etc.) forward detector rotation without modality-specific yaw smoothing.
 
 ## References

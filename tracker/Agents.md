@@ -31,6 +31,7 @@ Uses dedicated Makefile with Conan 2.x + CMake + Ninja. All builds run inside Do
 | `make build-image-debug`  | Debug image with gdbserver         |
 | `make test-unit`          | Run unit tests                     |
 | `make test-unit-coverage` | Coverage with enforced thresholds  |
+| `make test-robot-vision`  | RobotVision unit tests             |
 | `make test-service`       | pytest integration tests           |
 | `make test-load`          | k6 load test + drop-rate assertion |
 | `make lint-all`           | C++, Python, Dockerfile linting    |
@@ -81,9 +82,17 @@ Run `make test-unit-coverage` to verify locally. New code MUST maintain these th
 
 When `scenes.source=api`, the service also loads Manager `/api/v1/assets` for
 per-category projection (`shift_type`, footprint sizes) used by
-`CoordinateTransformer` and the `rotation_from_velocity` flag used by
-`TrackingWorker`. Missing assets soft-falls back to TYPE_1 defaults with
-velocity rotation disabled.
+`CoordinateTransformer` and the `rotation_from_velocity` fallback used by
+`TrackingWorker` only for tracks without observed orientation. Missing assets
+soft-falls back to TYPE_1 defaults with velocity rotation disabled. Orienting
+detections use the Kalman-versus-velocity yaw publishing rule regardless of
+this asset flag.
+
+Tracker camera detections accept either `bounding_box_px` or sensor-frame
+`translation` plus `size`; optional `[x, y, z, w]` rotation is transformed to
+world Z-yaw and passed to RobotVision as an orienting measurement. Keep the
+camera-data schema, parser validation, and both transform paths aligned when
+changing this input contract.
 
 ## Development Workflows
 
@@ -94,6 +103,7 @@ cd tracker
 make build                    # Release build
 make test-unit                # Run unit tests
 make test-unit-coverage       # Verify coverage thresholds
+make test-robot-vision        # RobotVision unit tests
 make test-service             # Integration tests (requires running services)
 make test-load                # k6 load test + drop-rate assertion
 make lint-all                 # All linting checks

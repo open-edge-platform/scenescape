@@ -22,12 +22,13 @@
     {
       "id": 2,
       "prompt": "Write a unit test for scene_common.geometry.Point that covers valid 2D construction and invalid None coordinates. Put it with the other geometry unit tests.",
-      "expected_output": "Agent classifies this as a unit test: places it under tests/sscape_tests/geometry/, uses mocks only if needed for externals (geometry needs none), does not declare SCENESCAPE_SPEC or start containers, includes positive and negative cases, and verifies with a narrow host pytest path.",
+      "expected_output": "Agent classifies this as a unit test: places it under tests/sscape_tests/geometry/, uses mocks only if needed for externals (geometry needs none), does not declare SCENESCAPE_SPEC or start containers, does not add @pytest.mark.test_name / NEX-T Zephyr IDs (CI excludes unit tests), includes positive and negative cases, and verifies with a narrow host pytest path.",
       "should_trigger": true,
       "files": [],
       "expectations": [
         "Places the test under tests/sscape_tests/geometry/ (or an existing geometry unit-test path), not tests/functional/ or tests/ui/",
         "Does not declare SCENESCAPE_SPEC / FuncTestSpec / scenescape_env for this unit test",
+        "Does not add @pytest.mark.test_name, TEST_NAME, or any NEX-T##### Zephyr ID (unit tests are excluded from make check-zephyr-ids)",
         "Does not instruct rebuilding controller/manager images or starting Docker Compose for verification",
         "Includes a positive valid 2D Point construction case and a negative invalid None-coordinates case (e.g. pytest.raises)",
         "Uses a narrow verification command like pytest tests/sscape_tests/geometry/<file>.py (or the specific test node), not a broad make run_* suite sweep"

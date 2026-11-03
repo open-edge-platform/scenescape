@@ -5,6 +5,6 @@
 
 import sys
 
-from reid_service import reid_registry as _implementation
+from reid import reid_registry as _implementation
 
 sys.modules[__name__] = _implementation

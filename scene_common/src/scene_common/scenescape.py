@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import os
@@ -38,6 +38,10 @@ class SceneLoader:
         if 'map points' in info:
           if SceneLoader.scene.areCoordinatesInPixels(info['map points']):
             info['map points'] = SceneLoader.scene.mapPixelsToMetric(info['map points'])
+        # Propagate scene map scale for the RANSAC map-ppm heuristic (see
+        # scaled_reprojection_threshold_px); not camera-resolution scaling.
+        if SceneLoader.scene.scale is not None and 'pixels per meter' not in info:
+          info['pixels per meter'] = SceneLoader.scene.scale
         camera = Camera(name, info)
         SceneLoader.scene.cameras[name] = camera
         idx += 1

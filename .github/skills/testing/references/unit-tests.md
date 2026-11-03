@@ -13,6 +13,9 @@ SPDX-License-Identifier: Apache-2.0
 - Mock external dependencies
 - Prefer fixtures in the nearest `conftest.py`
 - Real examples: `tests/sscape_tests/geometry/`, `tests/sscape_tests/schema/`
+- **No Zephyr IDs**: do **not** add `@pytest.mark.test_name("NEX-T#####")` or
+  `TEST_NAME = "NEX-T…"`. `make check-zephyr-ids` ignores `tests/sscape_tests/`
+  and does not enforce markers here. Do not copy IDs from related UI/functional tests.
 
 ## Minimal pattern
 
@@ -44,3 +47,4 @@ def test_external_client_mocked():
 ```
 
 Mock external I/O (MQTT, REST, OpenCV, DB). Prefer fixtures in the nearest `conftest.py`.
+No `test_name` marker in the example — that is intentional for unit tests.
