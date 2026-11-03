@@ -10,17 +10,90 @@ gi/GstBase/gstgva (see conftest.py) and the paho MQTT client, without a real
 PyGObject/GStreamer installation and without any production code changes.
 """
 
+import base64
 import json
 import os
+from threading import Event
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import cv2
+import numpy as np
 import pytest
 
 from sscape_post_inference_data_publish import (  # noqa: E402
   SscapePostInferenceDataPublish,
 )
 import sscape_post_inference_data_publish as pubmod  # noqa: E402
+
+
+class TestTrackImages:
+  """Exercise the real worker and JPEG encoder without GStreamer or a broker."""
+
+  @pytest.mark.parametrize('with_tracks', [True, False])
+  def test_requested_image(self, connected_element, monkeypatch, with_tracks):
+    element = connected_element
+    element.do_set_property(make_prop('annotate-track-ids'), True)
+    element.do_set_property(make_prop('track-wait-ms'), 0)
+    timestamp = '2026-11-02T12:00:00.000Z'
+    gid = '12345678-abcd-1234-abcd-123456789012'
+    image = np.zeros((240, 320, 3), dtype=np.uint8)
+    monkeypatch.setattr(element, '_image_pixels', lambda *_args: image)
+    element._frame_level_data.update(timestamp=timestamp, objects={})
+    if with_tracks:
+      message = {'timestamp': timestamp, 'objects': [
+        {'id': gid, 'camera_bounds': {'cam-1': {'x': 10, 'y': 80, 'width': 60, 'height': 80}}}
+      ]}
+      element._handle_camera_message(None, None, SimpleNamespace(
+        topic='scenescape/regulated/scene/scene-1', payload=json.dumps(message).encode()))
+    published = Event()
+    element._client.publish.side_effect = lambda *_args: published.set()
+    try:
+      element._publish_requested_image({}, None, None)
+      assert published.wait(2), 'Image worker did not publish'
+      topic, encoded = element._client.publish.call_args.args
+      payload = json.loads(encoded)
+      assert topic == 'scenescape/image/camera/cam-1'
+      assert payload['timestamp'] == timestamp
+      assert payload['track_ids'] == ([gid] if with_tracks else [])
+      jpeg = np.frombuffer(base64.b64decode(payload['image']), dtype=np.uint8)
+      assert cv2.imdecode(jpeg, cv2.IMREAD_COLOR).shape == image.shape
+      assert not np.any(image), 'Capture must not modify the source image'
+    finally:
+      worker = element._image_worker
+      element.do_stop()
+      assert not worker.is_alive()
+
+  def test_subscriptions_and_commands(self, connected_element):
+    element = connected_element
+    element.do_set_property(make_prop('annotate-track-ids'), True)
+    client = element._client
+    client.subscribe.assert_called_with('scenescape/regulated/scene/+')
+    element.do_set_property(make_prop('track-topic'), 'scenescape/regulated/scene/scene-1')
+    client.unsubscribe.assert_called_with('scenescape/regulated/scene/+')
+    client.subscribe.assert_called_with('scenescape/regulated/scene/scene-1')
+    element._handle_camera_message(None, None, SimpleNamespace(
+      topic='scenescape/cmd/camera/cam-1', payload=b'getimage'))
+    assert element._publish_image
+    element._publish_image = False
+    element._handle_camera_message(None, None, SimpleNamespace(
+      topic='scenescape/regulated/scene/scene-1', payload=b'getimage'))
+    assert not element._publish_image
+    element.do_set_property(make_prop('annotate-track-ids'), False)
+    client.unsubscribe.assert_called_with('scenescape/regulated/scene/scene-1')
+
+  def test_disabled_payload_unchanged(self, connected_element, monkeypatch):
+    monkeypatch.setattr(connected_element, '_build_image_data',
+                        lambda payload, *_args: payload.update(image='original'))
+    connected_element._publish_requested_image({}, None, None)
+    assert json.loads(connected_element._client.publish.call_args.args[1]) == {'image': 'original'}
+    assert connected_element._image_worker is None
+
+  def test_wait_limits(self, element):
+    element.do_set_property(make_prop('track-wait-ms'), 9999)
+    element.do_set_property(make_prop('track-max-age-ms'), -1)
+    assert element.do_get_property(make_prop('track-wait-ms')) == 2000
+    assert element.do_get_property(make_prop('track-max-age-ms')) == 0
 
 def make_prop(name):
   return SimpleNamespace(name=name)
