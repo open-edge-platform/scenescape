@@ -3,11 +3,13 @@
 
 """Opt-in track annotation uses the existing DLSPS parameter mapping."""
 
+import json
 from unittest.mock import MagicMock
 
 import pytest
 
 from manager.ppl_generator import config_generator
+from manager.kubeclient import KubeClient
 
 
 @pytest.mark.parametrize('enabled', [None, False, True])
@@ -38,3 +40,31 @@ def test_track_annotation_parameter(monkeypatch, enabled, scene_uid):
     assert payload['annotate_track_ids'] is True
   else:
     assert 'annotate_track_ids' not in payload
+
+
+@pytest.mark.parametrize('scene_uid', [None, 'scene-a', 'scene-b'])
+def test_startup_camera_track_topic(monkeypatch, scene_uid):
+  generator = MagicMock()
+  generator.generate.return_value = 'sscape_post_inference_data_publish name=datapublisher'
+  generator.get_metadata_policy.return_value = 'detectionPolicy'
+  monkeypatch.setattr(config_generator, 'create_pipeline_generator_from_dict',
+                      lambda _settings: generator)
+  camera = {'name': 'Camera', 'uid': 'cam-1', 'scene': scene_uid,
+            'annotate_track_ids': True}
+  kubeclient = KubeClient.__new__(KubeClient)
+  kubeclient.rest = MagicMock()
+  kubeclient.rest.getCameras.return_value = {'results': [camera]}
+  kubeclient.save = MagicMock(side_effect=kubeclient.generatePipelineConfiguration)
+
+  kubeclient.initializeCameras()
+
+  kubeclient.save.assert_called_once()
+  settings = kubeclient.save.call_args.args[0]
+  assert settings['scene_uid'] == scene_uid
+  config = json.loads(kubeclient.generatePipelineConfiguration(settings))
+  payload = config['config']['pipelines'][0]['payload']['parameters']
+  assert payload['annotate_track_ids'] is True
+  if scene_uid:
+    assert payload['track_topic'] == f'scenescape/regulated/scene/{scene_uid}'
+  else:
+    assert 'track_topic' not in payload
