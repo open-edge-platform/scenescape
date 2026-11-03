@@ -172,8 +172,8 @@ visually:
   the moved camera frame, using the camera intrinsics and lens distortion. They are
   display-only and cannot be edited until the camera returns home; the stored points
   and the saved calibration do not change. The points are hidden while the camera is
-  moving, and reappear at their new position with the first frame captured at least 1 s
-  after the camera stopped, so that they match the delayed video.
+  moving, and reappear at their new position with the first frame captured at least
+  0.5 s after the camera stopped, so that they match the delayed video.
 - While the camera is away from home or moving, Auto Calibrate and Save are blocked in
   the 3D view and on the calibration page, and so is saving the scene with **update
   cameras on save**. Auto Calibrate detects points in the current frame, and saving

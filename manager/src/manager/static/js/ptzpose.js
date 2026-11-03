@@ -82,8 +82,8 @@ function ptzMatricesClose(a, b) {
 // Below this pan/tilt offset from home, image points are used as stored.
 const PTZ_HOME_ANGLE_TOLERANCE_RAD = 1e-3;
 // Frame timestamps are post-decode; camera encoding and streaming latency is not in
-// them. Matches the Controller's default max_detection_pipeline_latency_s.
-const PTZ_VIDEO_LATENCY_MS = 1000;
+// them. Margin for that latency before frames are treated as captured after a stop.
+const PTZ_VIDEO_LATENCY_MS = 500;
 const UNDISTORT_ITERATIONS = 50;
 const UNDISTORT_TOLERANCE = 1e-9;
 
