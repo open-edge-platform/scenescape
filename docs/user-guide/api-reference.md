@@ -10,8 +10,9 @@ scene responses, expose `pose_locked`:
   extrinsics retain the last valid pose. Configuration refreshes preserve
   observed transforms while updating optics.
 - `true` (default for calibrated cameras in the UI, and for existing cameras
-  after migration): only stored calibration controls the runtime pose.
-  Observation extrinsics cannot override it.
+  after migration): only stored calibration controls the runtime pose and
+  optics. Incoming camera-message extrinsics and optics (`intrinsics`,
+  `distortion`, `resolution`) cannot override it.
 
 Use the **Locked** checkbox on the camera creation or calibration form, or send
 a lock-only update such as `{"pose_locked": true}` to `/api/v1/camera/{id}`.

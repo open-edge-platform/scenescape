@@ -107,8 +107,9 @@ Each runtime camera retains one effective pose, its `pose_locked` flag, and pose
 provenance. Durable calibration belongs to Manager, not a second runtime pose.
 When unlocked, Analytics accepts valid observation extrinsics and retains them
 across configuration refreshes while updating optics. Before the first
-observation it uses stored calibration. When locked, observation extrinsics are
-ignored and stored calibration reloads on refresh.
+observation it uses stored calibration. When locked, observation extrinsics and
+incoming camera-message optics are ignored and stored calibration reloads on
+refresh.
 
 Locking resets the effective pose when configuration refreshes; unlocking starts
 from calibration until the next valid observation. Saving calibration alone while

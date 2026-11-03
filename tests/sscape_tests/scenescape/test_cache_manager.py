@@ -820,10 +820,8 @@ class TestCacheManagerRefreshCameras:
     cache_mgr._lock = threading.RLock()
 
     mock_scene = Mock(spec=Scene)
-    mock_camera = Mock()
-    mock_camera.cameraID = 'cam-1'
-    mock_camera.pose = Mock()
-    mock_camera.pose.resolution = [640, 480]
+    mock_camera = SimpleNamespace(
+      cameraID='cam-1', pose_locked=False, pose=SimpleNamespace(resolution=[640, 480]))
 
     mock_scene.cameras = {'cam-1': mock_camera}
     cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
@@ -845,6 +843,29 @@ class TestCacheManagerRefreshCameras:
     cache_mgr.refreshScenesForCamParams(jdata)
 
     # Should not raise any errors
+
+  def test_locked_camera_ignores_mqtt_optics_updates(self):
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._lock = threading.RLock()
+    locked = SimpleNamespace(cameraID='cam-1', pose_locked=True)
+    cache_mgr.cached_scenes_by_uid = {
+      'scene-1': SimpleNamespace(cameras={'cam-1': locked}),
+    }
+    cache_mgr.camera_parameters = {
+      'cam-1': {'intrinsics': {'fx': 500, 'fy': 500, 'cx': 320, 'cy': 240}},
+    }
+    cache_mgr.data_source = Mock()
+    cache_mgr.checkRefresh = Mock()
+    cache_mgr.refreshScenes = Mock()
+
+    cache_mgr.refreshScenesForCamParams({
+      'id': 'cam-1',
+      'intrinsics': {'fx': 900, 'fy': 900, 'cx': 320, 'cy': 240},
+    })
+
+    assert cache_mgr.camera_parameters['cam-1']['intrinsics']['fx'] == 500
+    cache_mgr.data_source.updateCamera.assert_not_called()
+    cache_mgr.refreshScenes.assert_not_called()
 
   def test_refresh_scenes_for_cam_params_tolerates_invalidated_cache(self):
     """After invalidate(), refreshScenesForCamParams must not touch None.values()."""

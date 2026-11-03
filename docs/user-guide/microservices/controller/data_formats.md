@@ -55,13 +55,15 @@ checks (non-finite values, zero-norm quaternion, non-positive scale) are logged
 and ignored. The observation pose is used for detections, source-camera visibility,
 and projected bounds without overwriting registered camera calibration.
 
-The persisted camera `pose_locked` controls whether these extrinsics are used.
-When unlocked (`pose_locked` is false, the default for new cameras), Controller retains the latest valid observed
-pose across subsequent frames and configuration refreshes, matching Analytics.
-Missing or invalid extrinsics keep the previous pose; refreshes still update
-intrinsics, distortion, and resolution. Before the first valid observation,
-stored calibration initializes the pose. When locked, incoming
-extrinsics are ignored and configuration refreshes reload stored calibration.
+The persisted camera `pose_locked` controls whether incoming camera-message
+extrinsics and optics are used. When unlocked (`pose_locked` is false, the
+default for new cameras), Controller retains the latest valid observed pose
+across subsequent frames and configuration refreshes, matching Analytics.
+Missing or invalid extrinsics keep the previous pose; unlocked cameras still
+accept MQTT `intrinsics`, `distortion`, and `resolution` updates (persisted
+and refreshed). Before the first valid observation, stored calibration
+initializes the pose. When locked, incoming extrinsics and optics from camera
+messages are ignored; configuration refreshes reload stored calibration.
 
 Locking the pose resets the runtime pose on configuration refresh.
 Changing back does not resurrect an earlier observed pose. There is no expiry;

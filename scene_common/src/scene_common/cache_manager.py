@@ -270,6 +270,9 @@ class CacheManager:
       if self.cached_scenes_by_uid is None:
         log.warning("refreshScenesForCamParams: cache still None after refresh attempt, skipping")
         return
+      # Locked cameras ignore MQTT optics the same way they ignore extrinsics.
+      if self._cameraPoseLocked(jdata.get('id')):
+        return
       changed = [self.cameraParametersChanged(parameters, key)
                  for key in ('intrinsics', 'distortion', 'resolution')]
       if not any(changed):
@@ -287,6 +290,15 @@ class CacheManager:
 
     self.refreshScenes(force=True)
     return
+
+  def _cameraPoseLocked(self, camera_id):
+    if not camera_id or self.cached_scenes_by_uid is None:
+      return False
+    for scene in self.cached_scenes_by_uid.values():
+      camera = getattr(scene, 'cameras', {}).get(camera_id)
+      if camera is not None:
+        return bool(getattr(camera, 'pose_locked', False))
+    return False
 
   @staticmethod
   def _cameraResolution(resolution):
