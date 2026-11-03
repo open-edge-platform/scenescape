@@ -200,6 +200,8 @@ class SceneDataIngestion:
       obj.bbMeters = None
 
     metadata = obj_data.get('metadata', {})
+    # Legacy Scene Controller embeddings only. Tracker sightings go to reid-service;
+    # Analytics applies identity decisions without matching embeddings or querying the store.
     obj.reid = metadata.get('reid') if metadata else {}
     obj.metadata = {}
     obj.similarity = obj_data.get('similarity')

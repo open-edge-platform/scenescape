@@ -8,12 +8,15 @@
 #include <numbers>
 #include <optional>
 #include <span>
+#include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <opencv2/core.hpp>
 #include <rv/tracking/TrackedObject.hpp>
 
 #include "object_class.hpp"
+#include "reid_sighting.hpp"
 #include "scene_loader.hpp"
 #include "tracking_types.hpp"
 
@@ -87,14 +90,17 @@ public:
      * quaternion with norm > 1e-12, as guaranteed by the message parser.
      *
      * @param detections Span of pixel-space detections (bounding boxes)
+     * @param sightings Optional chunk-local context for tagging ReID observations
+     * @throws std::invalid_argument if the context does not reference the exact detection span.
      * @return TrackedObjects with world-space position and size fields populated.
      *         id, x, y, z, length, width, height are set. Velocity is zero.
      *         Supplied rotation sets world yaw and attributes["has_orientation"].
-     *         attributes["metadata_json"] is set from Detection::metadata_json when non-empty.
+     *         metadata.* attributes carry fused semantic values; ReID is a current-chunk sighting.
      *         attributes["confidence"] is set from Detection::confidence when present.
      */
     std::vector<rv::tracking::TrackedObject>
-    transformDetections(std::span<const Detection> detections) const;
+    transformDetections(std::span<const Detection> detections,
+                        std::optional<ReidSightingContext> sightings = std::nullopt) const;
 
     /**
      * @brief Convert yaw angle (radians) to quaternion [x, y, z, w].
