@@ -5,11 +5,14 @@
 
 When CONTROLLER_EXPERIMENTAL_REMOTE_PROJECTION is true and CONTROLLER_REMOTE_PROJECTION_HOST and
 CONTROLLER_REMOTE_PROJECTION_PORT are set, the tracker threads send the pixel boxes of camera
-detections to the remote projection service (api/projection/v1/projection.proto) and give the
-robot_vision tracker its world measurement and measurement noise covariance R.
+detections to the remote projection service (api/projection/v1/projection.proto) and replace the
+local projection of their robot_vision inputs with its world measurement and measurement noise
+covariance R.
 
 A detection keeps the local projection when it is not a pixel box from a calibrated scene camera,
-when the call fails, or when its measurement is unobservable or invalid. Failed calls and invalid
+when the call fails, or when its measurement is unobservable or invalid. R is validated by the
+robot_vision measurement_noise_covariance setter (finite, symmetrized, positive definite). Failed
+calls and invalid
 replies are counted (scenescape_controller_remote_projection_failed_calls) and logged at most once
 per WARNING_INTERVAL_S per scene and category; they never raise into the tracker thread.
 
@@ -59,13 +62,6 @@ class RemoteProjectionSettings:
   ca_cert: str = ""
   timeout_ms: int = DEFAULT_TIMEOUT_MS
   mode: str = DEFAULT_MODE
-
-
-@dataclass(frozen=True)
-class Measurement:
-  """Accepted remote measurement: mean [x, y, z (centre), length, width, height, yaw], 7x7 R."""
-  mean: np.ndarray
-  noise: np.ndarray
 
 
 def _env_bool(environ, name, default):
@@ -183,32 +179,6 @@ def _pixel_box(sscape_object):
   return values
 
 
-def _accept_measurement(detection_measurement, ok_status):
-  """Return (Measurement or None, invalid).
-
-  None with invalid=False: the depth is unobservable. None with invalid=True: the measurement
-  breaks the contract (sizes, finite values, positive size, symmetric positive definite R).
-  """
-  if detection_measurement.status != ok_status or \
-     not detection_measurement.HasField('measurement'):
-    return None, False
-  values = detection_measurement.measurement
-  mean = np.asarray(values.mean, dtype=float)
-  covariance = np.asarray(values.noise_covariance, dtype=float)
-  if mean.shape != (MEASUREMENT_SIZE,) or covariance.shape != (MEASUREMENT_SIZE ** 2,):
-    return None, True
-  if not np.all(np.isfinite(mean)) or not np.all(np.isfinite(covariance)) or \
-     not np.all(mean[3:6] > 0.0):
-    return None, True
-  covariance = covariance.reshape(MEASUREMENT_SIZE, MEASUREMENT_SIZE)
-  noise = 0.5 * (covariance + covariance.T)
-  try:
-    np.linalg.cholesky(noise)
-  except np.linalg.LinAlgError:
-    return None, True
-  return Measurement(mean=mean, noise=noise), False
-
-
 class RemoteProjector:
   """Projects camera detections with the remote projection service; shared by all scenes."""
 
@@ -224,18 +194,20 @@ class RemoteProjector:
     self._warning_lock = threading.Lock()
     self._warnings = {}
 
-  def project(self, scene_id, objects_per_camera):
-    """Remote Measurement per object, in the input layout; None keeps the local projection."""
-    results = [[None] * len(objects) for objects in objects_per_camera]
+  def project(self, scene_id, objects_per_camera, rv_objects_per_camera):
+    """Replace the local projection of rv_objects_per_camera with valid remote measurements.
+
+    rv_objects_per_camera holds the robot_vision inputs of objects_per_camera, in the same
+    layout; objects without a valid remote measurement are left unchanged.
+    """
     frames = self._buildFrames(scene_id, objects_per_camera)
     if not frames:
-      return results
+      return
     replies = self._call(scene_id, [request for request, _, _ in frames.values()])
     for (camera_id, (request, indices, category)), (response, error) in \
         zip(frames.items(), replies):
       self._applyReply(scene_id, category, camera_id, request, indices, response, error,
-                       results)
-    return results
+                       rv_objects_per_camera)
 
   def _buildFrames(self, scene_id, objects_per_camera):
     """One request per camera: {camera_id: (request, [(i, j) per detection], category)}."""
@@ -281,7 +253,7 @@ class RemoteProjector:
     return request
 
   def _applyReply(self, scene_id, category, camera_id, request, indices, response, error,
-                  results):
+                  rv_objects_per_camera):
     if error:
       self._reportFailure(scene_id, category, camera_id, error)
       return
@@ -290,12 +262,14 @@ class RemoteProjector:
        any(m.detection_id != str(k) for k, m in enumerate(measurements)):
       self._reportFailure(scene_id, category, camera_id, REASON_INVALID_RESPONSE)
       return
+    ok_status = self._pb.MEASUREMENT_STATUS_OK
     invalid = False
     for (i, j), detection_measurement in zip(indices, measurements):
-      measurement, is_invalid = _accept_measurement(detection_measurement,
-                                                    self._pb.MEASUREMENT_STATUS_OK)
-      invalid = invalid or is_invalid
-      results[i][j] = measurement
+      if detection_measurement.status != ok_status or \
+         not detection_measurement.HasField('measurement'):
+        continue  # depth unobservable: keep the local projection
+      if not apply_measurement(rv_objects_per_camera[i][j], detection_measurement.measurement):
+        invalid = True
     if invalid:
       self._reportFailure(scene_id, category, camera_id, REASON_INVALID_MEASUREMENT)
 
@@ -322,27 +296,35 @@ class SceneProjection:
     self._projector = projector
     self.scene_id = scene_id
 
-  def project(self, objects_per_camera):
-    return self._projector.project(self.scene_id, objects_per_camera)
+  def project(self, objects_per_camera, rv_objects_per_camera):
+    self._projector.project(self.scene_id, objects_per_camera, rv_objects_per_camera)
 
 
 def apply_measurement(rv_object, measurement):
-  """Set a remote Measurement on a robot_vision TrackedObject; False leaves it unchanged.
+  """Set a remote measurement (projection.v1 Measurement) on a robot_vision TrackedObject.
 
-  The centre z is lowered by half the height, to the object base used by the tracker.
+  Requires a finite 7-value mean with a positive size and 49 R values; the tracker's
+  measurement_noise_covariance setter symmetrizes R and rejects it unless finite and positive
+  definite. The centre z is lowered by half the height, to the object base used by the tracker.
+  @return False, leaving the object unchanged, for an invalid measurement
   """
-  try:
-    rv_object.measurement_noise_covariance = measurement.noise
-  except ValueError as error:
-    log.debug(f"Remote measurement noise rejected by the tracker: {error}")
+  mean = tuple(measurement.mean)
+  covariance_size = MEASUREMENT_SIZE * MEASUREMENT_SIZE
+  if len(mean) != MEASUREMENT_SIZE or len(measurement.noise_covariance) != covariance_size:
     return False
-  mean = measurement.mean
-  rv_object.x = float(mean[0])
-  rv_object.y = float(mean[1])
-  rv_object.z = float(mean[2] - mean[5] / 2.0)
-  rv_object.length = float(mean[3])
-  rv_object.width = float(mean[4])
-  rv_object.height = float(mean[5])
+  if not all(map(math.isfinite, mean)) or not (mean[3] > 0.0 and mean[4] > 0.0 and mean[5] > 0.0):
+    return False
+  covariance = np.fromiter(measurement.noise_covariance, float, covariance_size)
+  try:
+    rv_object.measurement_noise_covariance = covariance.reshape(MEASUREMENT_SIZE, MEASUREMENT_SIZE)
+  except ValueError:
+    return False
+  rv_object.x = mean[0]
+  rv_object.y = mean[1]
+  rv_object.z = mean[2] - mean[5] / 2.0
+  rv_object.length = mean[3]
+  rv_object.width = mean[4]
+  rv_object.height = mean[5]
   rv_object.zMeasured = True
   return True
 

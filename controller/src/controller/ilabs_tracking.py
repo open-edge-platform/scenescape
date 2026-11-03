@@ -9,7 +9,6 @@ from datetime import datetime
 import numpy as np
 import robot_vision as rv
 
-from controller import remote_projection
 from controller.moving_object import (DEFAULT_EDGE_LENGTH,
                                       DEFAULT_TRACKING_RADIUS,
                                       SPEED_THRESHOLD_ON)
@@ -327,12 +326,8 @@ class IntelLabsTracking(Tracking):
         log.warning(f"Unable to deserialize fused metadata field '{field}': {error}")
     return metadata
 
-  def to_rv_object(self, sscape_object, remote_measurement=None):
-    """Convert sscape detected object to robot vision tracking input object format.
-
-    A remote_measurement (experimental remote projection) replaces the local position and size
-    and sets zMeasured and the measurement noise covariance; yaw stays as detected.
-    """
+  def to_rv_object(self, sscape_object):
+    """Convert sscape detected object to robot vision tracking input object format"""
     sscape_object.uuid = str(uuid.uuid4())
     rv_object = rv.tracking.TrackedObject()
     pt = sscape_object.sceneLoc
@@ -357,16 +352,15 @@ class IntelLabsTracking(Tracking):
     rv_object.classification = self.rv_classification(sscape_object.confidence)
     attributes.update(self.metadata_to_attributes(sscape_object.metadata))
     rv_object.attributes = attributes
-    if remote_measurement is not None:
-      remote_projection.apply_measurement(rv_object, remote_measurement)
     return rv_object
 
-  def _remoteMeasurements(self, objects_per_camera):
-    """Remote measurements in the layout of objects_per_camera, or None without remote projection."""
+  def _applyRemoteProjection(self, objects_per_camera, rv_objects_per_camera):
+    """Experimental remote projection: replace the local position, size and zMeasured of the
+    rv objects with valid remote measurements and their noise covariance; yaw stays as detected.
+    """
     projection = getattr(self, 'remote_projection', None)
-    if projection is None:
-      return None
-    return projection.project(objects_per_camera)
+    if projection is not None:
+      projection.project(objects_per_camera, rv_objects_per_camera)
 
   def _warn_deprecated_tracking_radius(self, objects):
     if self.association_config.get("method", ASSOCIATION_METHOD_POSITION_MAHALANOBIS) == ASSOCIATION_METHOD_EUCLIDEAN:
@@ -382,9 +376,8 @@ class IntelLabsTracking(Tracking):
         return
 
   def update_tracks(self, objects, timestamp):
-    remote = self._remoteMeasurements([objects])
-    rv_objects = [self.to_rv_object(sscape_object, remote[0][k] if remote else None)
-                  for k, sscape_object in enumerate(objects)]
+    rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
+    self._applyRemoteProjection([objects], [rv_objects])
     self._warn_deprecated_tracking_radius(objects)
 
     distance_type, distance_threshold, max_radius_m = association_match_params(self.association_config)
@@ -536,14 +529,13 @@ class IntelLabsTracking(Tracking):
     """Update tracks using batched per-camera object data"""
     rv_objects_per_camera = []
     flat_objects = []
-    remote = self._remoteMeasurements(objects_per_camera)
 
-    for i, camera_objects in enumerate(objects_per_camera):
-      rv_camera_objects = [self.to_rv_object(sscape_object, remote[i][k] if remote else None)
-                           for k, sscape_object in enumerate(camera_objects)]
+    for camera_objects in objects_per_camera:
+      rv_camera_objects = [self.to_rv_object(sscape_object) for sscape_object in camera_objects]
       rv_objects_per_camera.append(rv_camera_objects)
       flat_objects.extend(camera_objects)
 
+    self._applyRemoteProjection(objects_per_camera, rv_objects_per_camera)
     self._warn_deprecated_tracking_radius(flat_objects)
 
     distance_type, distance_threshold, max_radius_m = association_match_params(self.association_config)

@@ -19,7 +19,7 @@ from scenescape_api.projection.v1 import projection_pb2_grpc as pb_grpc
 
 from controller import remote_projection
 from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
-from controller.remote_projection import (GrpcProjectionClient, Measurement, RemoteProjectionSettings,
+from controller.remote_projection import (GrpcProjectionClient, RemoteProjectionSettings,
                                           RemoteProjector, SceneProjection, apply_measurement,
                                           settings_from_env)
 from controller.scene import Scene
@@ -30,6 +30,7 @@ from scene_common.geometry import Point
 HEIGHT = 1.7
 NOISE = np.diag([0.04, 0.04, 0.25, 0.2, 0.2, 0.2, 0.2])
 WHEN = 1_700_000_000.25
+LOCAL_X = -1.0
 
 
 def make_camera(camera_id="cam-1"):
@@ -86,23 +87,51 @@ def failures(monkeypatch):
   return captured
 
 
-def assert_remote(measurement, k):
-  assert isinstance(measurement, Measurement)
-  assert measurement.mean == pytest.approx([10.0 + k, 20.0 + k, HEIGHT / 2.0, 0.5, 0.6, HEIGHT,
-                                            0.0])
-  np.testing.assert_allclose(measurement.noise, NOISE)
+def local_rv_objects(objects_per_camera):
+  """robot_vision inputs as left by the local projection (x = LOCAL_X), in the same layout."""
+  rv_objects_per_camera = []
+  for objects in objects_per_camera:
+    rv_objects = []
+    for _ in objects:
+      rv_object = rv.tracking.TrackedObject()
+      rv_object.x = LOCAL_X
+      rv_objects.append(rv_object)
+    rv_objects_per_camera.append(rv_objects)
+  return rv_objects_per_camera
+
+
+def project(projector, objects_per_camera):
+  """Run the projector over local rv inputs; return them after remote projection."""
+  rv_objects_per_camera = local_rv_objects(objects_per_camera)
+  projector.project("scene-uid", objects_per_camera, rv_objects_per_camera)
+  return rv_objects_per_camera
+
+
+def assert_remote(rv_object, k):
+  """Measurement k of good_response(), with the centre z lowered to the object base."""
+  assert (rv_object.x, rv_object.y) == (10.0 + k, 20.0 + k)
+  assert rv_object.z == pytest.approx(0.0)
+  assert (rv_object.length, rv_object.width, rv_object.height) == (0.5, 0.6, HEIGHT)
+  assert rv_object.zMeasured is True
+  np.testing.assert_allclose(np.array(rv_object.measurement_noise_covariance), NOISE)
+
+
+def assert_local(rv_object):
+  assert rv_object.x == LOCAL_X
+  assert rv_object.zMeasured is False
+  assert rv_object.measurement_noise_covariance is None
 
 
 class TestRemoteProjector:
 
-  def test_builds_one_request_per_camera_and_returns_measurements_in_layout(self, failures):
+  def test_builds_one_request_per_camera_and_applies_measurements_in_layout(self, failures):
     client = FakeClient()
     projector = RemoteProjector(client, "auto")
     cam1, cam2 = make_camera("cam-1"), make_camera("cam-2")
     objects_per_camera = [[make_object(cam1), make_object(cam1, box=(1.5, 2.5, 3.5, 4.5))],
                           [make_object(cam2, category="person")]]
 
-    results = projector.project("scene-uid", objects_per_camera)
+    rv_objects = project(projector, objects_per_camera)
 
     assert len(client.requests) == 2
     request = client.requests[0]
@@ -118,9 +147,9 @@ class TestRemoteProjector:
     assert not request.detections[0].HasField("axis_aware_sizing")
     assert not request.detections[0].HasField("project_to_map")
     assert client.requests[1].camera_id == "cam-2"
-    assert_remote(results[0][0], 0)
-    assert_remote(results[0][1], 1)
-    assert_remote(results[1][0], 0)
+    assert_remote(rv_objects[0][0], 0)
+    assert_remote(rv_objects[0][1], 1)
+    assert_remote(rv_objects[1][0], 0)
     assert not failures.metrics
 
   @pytest.mark.parametrize("when, seconds, nanos", [
@@ -132,7 +161,7 @@ class TestRemoteProjector:
     client = FakeClient()
     sscape_object = make_object(make_camera())
     sscape_object.first_seen = when
-    RemoteProjector(client).project("scene-uid", [[sscape_object]])
+    project(RemoteProjector(client), [[sscape_object]])
     assert client.requests[0].timestamp.seconds == seconds
     assert client.requests[0].timestamp.nanos == pytest.approx(nanos, abs=1)
 
@@ -143,7 +172,7 @@ class TestRemoteProjector:
   ])
   def test_requests_configured_mode(self, mode, expected):
     client = FakeClient()
-    RemoteProjector(client, mode).project("scene-uid", [[make_object(make_camera())]])
+    project(RemoteProjector(client, mode), [[make_object(make_camera())]])
     assert client.requests[0].mode == expected
 
   def test_sends_only_pixel_boxes_of_scene_cameras(self, failures):
@@ -162,19 +191,21 @@ class TestRemoteProjector:
       make_object(camera),
     ]
 
-    results = projector.project("scene-uid", [objects])
+    rv_objects = project(projector, [objects])
 
     assert len(client.requests) == 1
     assert len(client.requests[0].detections) == 1
-    assert results[0][:5] == [None] * 5
-    assert_remote(results[0][5], 0)
+    for rv_object in rv_objects[0][:5]:
+      assert_local(rv_object)
+    assert_remote(rv_objects[0][5], 0)
 
   def test_makes_no_call_without_sendable_detections(self):
     client = FakeClient()
-    results = RemoteProjector(client).project(
-      "scene-uid", [[make_object(make_camera(), measured_z=True)], []])
+    rv_objects = project(RemoteProjector(client),
+                         [[make_object(make_camera(), measured_z=True)], []])
     assert client.requests == []
-    assert results == [[None], []]
+    assert_local(rv_objects[0][0])
+    assert rv_objects[1] == []
 
   def test_failed_call_keeps_local_projection_counts_and_rate_limits_warnings(
       self, failures, monkeypatch):
@@ -185,9 +216,9 @@ class TestRemoteProjector:
     monkeypatch.setattr(remote_projection.time, "monotonic", lambda: now[0])
 
     for _ in range(3):
-      assert projector.project("scene-uid", objects) == [[None]]
+      assert_local(project(projector, objects)[0][0])
     now[0] += remote_projection.WARNING_INTERVAL_S
-    projector.project("scene-uid", objects)
+    project(projector, objects)
 
     assert failures.metrics == [{"scene": "scene-uid", "category": "person", "camera": "cam-1",
                                  "reason": "UNAVAILABLE"}] * 4
@@ -198,17 +229,19 @@ class TestRemoteProjector:
   def test_client_exception_keeps_local_projection(self, failures):
     client = FakeClient()
     client.error = RuntimeError("transport broke")
-    results = RemoteProjector(client).project(
-      "scene-uid", [[make_object(make_camera("cam-1"))], [make_object(make_camera("cam-2"))]])
-    assert results == [[None], [None]]
+    rv_objects = project(RemoteProjector(client),
+                         [[make_object(make_camera("cam-1"))], [make_object(make_camera("cam-2"))]])
+    assert_local(rv_objects[0][0])
+    assert_local(rv_objects[1][0])
     assert [m["reason"] for m in failures.metrics] == ["client_error"] * 2
 
   def test_missing_reply_keeps_local_projection(self, failures):
     client = FakeClient()
     client.drop_last_reply = True
-    results = RemoteProjector(client).project(
-      "scene-uid", [[make_object(make_camera("cam-1"))], [make_object(make_camera("cam-2"))]])
-    assert results == [[None], [None]]
+    rv_objects = project(RemoteProjector(client),
+                         [[make_object(make_camera("cam-1"))], [make_object(make_camera("cam-2"))]])
+    assert_local(rv_objects[0][0])
+    assert_local(rv_objects[1][0])
     assert [m["reason"] for m in failures.metrics] == ["invalid_response"] * 2
 
   @pytest.mark.parametrize("corrupt", [
@@ -221,9 +254,10 @@ class TestRemoteProjector:
       corrupt(response)
       return response, ""
     camera = make_camera()
-    results = RemoteProjector(FakeClient(reply)).project(
-      "scene-uid", [[make_object(camera), make_object(camera)]])
-    assert results == [[None, None]]
+    rv_objects = project(RemoteProjector(FakeClient(reply)),
+                         [[make_object(camera), make_object(camera)]])
+    assert_local(rv_objects[0][0])
+    assert_local(rv_objects[0][1])
     assert [m["reason"] for m in failures.metrics] == ["invalid_response"]
 
   def test_unobservable_depth_keeps_local_projection_without_failure(self, failures):
@@ -233,10 +267,10 @@ class TestRemoteProjector:
       response.measurements[0].ClearField("measurement")
       return response, ""
     camera = make_camera()
-    results = RemoteProjector(FakeClient(reply)).project(
-      "scene-uid", [[make_object(camera), make_object(camera)]])
-    assert results[0][0] is None
-    assert_remote(results[0][1], 1)
+    rv_objects = project(RemoteProjector(FakeClient(reply)),
+                         [[make_object(camera), make_object(camera)]])
+    assert_local(rv_objects[0][0])
+    assert_remote(rv_objects[0][1], 1)
     assert not failures.metrics
 
   @pytest.mark.parametrize("corrupt", [
@@ -256,10 +290,10 @@ class TestRemoteProjector:
       corrupt(response.measurements[0].measurement)
       return response, ""
     camera = make_camera()
-    results = RemoteProjector(FakeClient(reply)).project(
-      "scene-uid", [[make_object(camera), make_object(camera)]])
-    assert results[0][0] is None
-    assert_remote(results[0][1], 1)
+    rv_objects = project(RemoteProjector(FakeClient(reply)),
+                         [[make_object(camera), make_object(camera)]])
+    assert_local(rv_objects[0][0])
+    assert_remote(rv_objects[0][1], 1)
     assert [m["reason"] for m in failures.metrics] == ["invalid_measurement"]
 
   def test_symmetrizes_noise_covariance(self):
@@ -268,17 +302,24 @@ class TestRemoteProjector:
       response.measurements[0].measurement.noise_covariance[1] = 0.010
       response.measurements[0].measurement.noise_covariance[7] = 0.012
       return response, ""
-    results = RemoteProjector(FakeClient(reply)).project("scene-uid",
-                                                         [[make_object(make_camera())]])
-    assert results[0][0].noise[0, 1] == pytest.approx(0.011)
-    assert results[0][0].noise[1, 0] == pytest.approx(0.011)
+    rv_objects = project(RemoteProjector(FakeClient(reply)), [[make_object(make_camera())]])
+    noise = np.array(rv_objects[0][0].measurement_noise_covariance)
+    assert noise[0, 1] == pytest.approx(0.011)
+    assert noise[1, 0] == pytest.approx(0.011)
 
   def test_scene_projection_binds_scene(self):
     client = FakeClient()
     scene_projection = SceneProjection(RemoteProjector(client), "scene-uid")
-    scene_projection.project([[make_object(make_camera())]])
+    objects_per_camera = [[make_object(make_camera())]]
+    rv_objects = local_rv_objects(objects_per_camera)
+    scene_projection.project(objects_per_camera, rv_objects)
     assert scene_projection.scene_id == "scene-uid"
     assert client.requests[0].scene_id == "scene-uid"
+    assert_remote(rv_objects[0][0], 0)
+
+
+def measurement_message(mean, noise):
+  return pb.Measurement(mean=list(mean), noise_covariance=np.asarray(noise).flatten().tolist())
 
 
 class TestApplyMeasurement:
@@ -286,9 +327,9 @@ class TestApplyMeasurement:
   def test_sets_base_position_size_and_noise(self):
     rv_object = rv.tracking.TrackedObject()
     rv_object.yaw = 0.3
-    mean = np.array([1.0, 2.0, HEIGHT / 2.0, 0.5, 0.6, HEIGHT, 0.0])
+    mean = [1.0, 2.0, HEIGHT / 2.0, 0.5, 0.6, HEIGHT, 0.0]
 
-    assert apply_measurement(rv_object, Measurement(mean=mean, noise=NOISE))
+    assert apply_measurement(rv_object, measurement_message(mean, NOISE))
 
     assert (rv_object.x, rv_object.y) == (1.0, 2.0)
     assert rv_object.z == pytest.approx(0.0)
@@ -297,12 +338,17 @@ class TestApplyMeasurement:
     assert rv_object.yaw == pytest.approx(0.3)
     np.testing.assert_allclose(np.array(rv_object.measurement_noise_covariance), NOISE)
 
-  def test_rejected_noise_leaves_object_unchanged(self):
+  @pytest.mark.parametrize("mean, noise", [
+    ([1.0, 2.0, 0.85, 0.5, 0.6, HEIGHT, 0.0], -NOISE),
+    ([1.0, 2.0, math.nan, 0.5, 0.6, HEIGHT, 0.0], NOISE),
+    ([1.0, 2.0, 0.85, 0.5, 0.0, HEIGHT, 0.0], NOISE),
+    ([1.0, 2.0, 0.85, 0.5, 0.6, HEIGHT], NOISE),
+  ], ids=["rejected_noise", "nan_mean", "zero_width", "short_mean"])
+  def test_invalid_measurement_leaves_object_unchanged(self, mean, noise):
     rv_object = rv.tracking.TrackedObject()
     rv_object.x = 7.0
-    mean = np.array([1.0, 2.0, 0.85, 0.5, 0.6, HEIGHT, 0.0])
 
-    assert not apply_measurement(rv_object, Measurement(mean=mean, noise=-NOISE))
+    assert not apply_measurement(rv_object, measurement_message(mean, noise))
 
     assert rv_object.x == 7.0
     assert rv_object.zMeasured is False
@@ -521,22 +567,26 @@ def detected_object(camera):
 
 class TestTrackerIntegration:
 
-  def remote_measurement(self):
-    return Measurement(mean=np.array([1.0, 2.0, HEIGHT / 2.0, 0.5, 0.6, HEIGHT, 0.0]),
-                       noise=NOISE)
+  @staticmethod
+  def projection(unobservable_camera):
+    """Scene projection with good replies, except unobservable depth for one camera."""
+    def reply(request):
+      response = good_response(request)
+      if request.camera_id == unobservable_camera:
+        response.measurements[-1].status = pb.MEASUREMENT_STATUS_DEPTH_UNOBSERVABLE
+        response.measurements[-1].ClearField("measurement")
+      return response, ""
+    return SceneProjection(RemoteProjector(FakeClient(reply)), "scene-uid")
 
   def test_update_tracks_uses_remote_measurements(self):
     camera = make_camera()
     objects = [detected_object(camera), detected_object(camera)]
-    projection = Mock()
-    projection.project.return_value = [[self.remote_measurement(), None]]
-    tracker = tracker_with_projection(projection)
+    tracker = tracker_with_projection(self.projection(unobservable_camera="cam-1"))
 
     tracker.update_tracks(objects, WHEN)
 
-    projection.project.assert_called_once_with([objects])
     rv_objects = tracker.tracker.track.call_args.args[0]
-    assert (rv_objects[0].x, rv_objects[0].y, rv_objects[0].z) == (1.0, 2.0, pytest.approx(0.0))
+    assert (rv_objects[0].x, rv_objects[0].y, rv_objects[0].z) == (10.0, 20.0, pytest.approx(0.0))
     assert rv_objects[0].zMeasured is True
     assert rv_objects[0].measurement_noise_covariance is not None
     assert (rv_objects[1].x, rv_objects[1].y) == (4.0, 5.0)
@@ -546,16 +596,14 @@ class TestTrackerIntegration:
   def test_update_tracks_batched_uses_remote_measurements(self):
     objects_per_camera = [[detected_object(make_camera("cam-1"))],
                           [detected_object(make_camera("cam-2"))]]
-    projection = Mock()
-    projection.project.return_value = [[None], [self.remote_measurement()]]
-    tracker = tracker_with_projection(projection)
+    tracker = tracker_with_projection(self.projection(unobservable_camera="cam-1"))
 
     tracker.update_tracks_batched(objects_per_camera, WHEN)
 
-    projection.project.assert_called_once_with(objects_per_camera)
     rv_objects_per_camera = tracker.tracker.track.call_args.args[0]
     assert rv_objects_per_camera[0][0].x == 4.0
-    assert rv_objects_per_camera[1][0].x == 1.0
+    assert rv_objects_per_camera[0][0].measurement_noise_covariance is None
+    assert rv_objects_per_camera[1][0].x == 10.0
     assert rv_objects_per_camera[1][0].measurement_noise_covariance is not None
 
   @pytest.mark.parametrize("batched", [False, True])
