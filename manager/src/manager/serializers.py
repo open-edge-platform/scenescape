@@ -679,10 +679,12 @@ class SceneSerializer(NonNullSerializer):
     return SingletonSerializer(queryset, many=True).data
 
   def get_rotation(self, obj):
-    return [obj.rotation_x, obj.rotation_y, obj.rotation_z] if obj.rotation_x else [0, 0, 0]
+    # Fields are nullable; map null to 0 per component
+    return [obj.rotation_x or 0, obj.rotation_y or 0, obj.rotation_z or 0]
 
   def get_translation(self, obj):
-    return [obj.translation_x, obj.translation_y, obj.translation_z] if obj.translation_x else [0, 0, 0]
+    # Fields are nullable; map null to 0 per component
+    return [obj.translation_x or 0, obj.translation_y or 0, obj.translation_z or 0]
 
   def get_scale(self, obj):
     return [obj.scale_x, obj.scale_y, obj.scale_z] if obj.scale_x else [1, 1, 1]

@@ -613,6 +613,9 @@ def test_mesh_generator_places_mesh_at_calibrated_pose_of_translated_rotated_anc
   saved_glb = scene.map.save.call_args[0][1]
   saved_glb.seek(0)
   saved_mesh = trimesh.load(BytesIO(saved_glb.read()), file_type="glb").dump(concatenate=True)
-  distances = np.linalg.norm(saved_mesh.vertices[:, None, :] - expected_vertices[None, :, :], axis=2)
+  # The file is y-up; the scene's stored rotation brings it into the scene frame
+  saved_vertices = saved_mesh.vertices @ Rotation.from_euler(
+    'XYZ', [scene.rotation_x, scene.rotation_y, scene.rotation_z], degrees=True).as_matrix().T
+  distances = np.linalg.norm(saved_vertices[:, None, :] - expected_vertices[None, :, :], axis=2)
   assert np.all(distances.min(axis=0) < 1e-4)  # every expected corner is in the saved mesh
   assert np.all(distances.min(axis=1) < 1e-4)  # and no saved vertex sits elsewhere

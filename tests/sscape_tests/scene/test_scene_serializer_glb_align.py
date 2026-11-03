@@ -160,3 +160,43 @@ def test_update_with_new_glb_preserves_explicit_mesh_transforms(
   assert instance.rotation_x == 45.0
   assert instance.translation_x == 1.25
   assert instance._original_map is instance.map
+
+
+def test_get_translation_keeps_nonzero_y_z_when_x_is_zero():
+  """Zero X must not hide nonzero Y/Z offsets in the serialized translation."""
+  instance = _scene_instance(_glb_map_file())
+  instance.translation_x = 0.0
+  instance.translation_y = 3.0
+  instance.translation_z = -2.0
+
+  assert SceneSerializer().get_translation(instance) == [0.0, 3.0, -2.0]
+
+
+def test_get_translation_serializes_null_components_as_zero():
+  """Nullable translation fields must serialize as 0 instead of null."""
+  instance = _scene_instance(_glb_map_file())
+  instance.translation_x = None
+  instance.translation_y = 3.0
+  instance.translation_z = None
+
+  assert SceneSerializer().get_translation(instance) == [0, 3.0, 0]
+
+
+def test_get_rotation_keeps_nonzero_y_z_when_x_is_zero():
+  """Zero X must not hide nonzero Y/Z rotations in the serialized rotation."""
+  instance = _scene_instance(_glb_map_file())
+  instance.rotation_x = 0.0
+  instance.rotation_y = 45.0
+  instance.rotation_z = -90.0
+
+  assert SceneSerializer().get_rotation(instance) == [0.0, 45.0, -90.0]
+
+
+def test_get_rotation_serializes_null_components_as_zero():
+  """Nullable rotation fields must serialize as 0 instead of null."""
+  instance = _scene_instance(_glb_map_file())
+  instance.rotation_x = None
+  instance.rotation_y = 45.0
+  instance.rotation_z = None
+
+  assert SceneSerializer().get_rotation(instance) == [0, 45.0, 0]
