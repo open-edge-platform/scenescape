@@ -60,7 +60,24 @@ def wait_for_record(scenescape_env, harness, predicate, timeout=RECORD_TIMEOUT_S
 @pytest.mark.test_name("NEX-T#####")
 def test_shadow_mode_keeps_the_static_projection_and_records_the_candidate(
     scenescape_env, ptz_harness, tmp_path, result_recorder):
-  """Tracking stays on the static pose while the candidate projection is recorded."""
+  """
+  ## Name
+  PTZ Shadow Mode Preserves Static Projection and Records Candidate
+
+  ## Objective
+  Verify that shadow mode keeps tracking with the static pose while recording PTZ candidate
+  projections and their residuals.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Create a PTZ camera and publish a valid pose away from its home position.
+  2. Verify tracking continues to use the static home projection.
+  3. Verify shadow records include rejected pre-dwell and admitted candidate projections.
+  4. Verify the candidate projection and residual against the static projection.
+  5. Write the shadow records to an artifact and verify it is non-empty.
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   off_home = harness.off_home_matrix_for(camera)
@@ -103,7 +120,22 @@ def test_shadow_mode_keeps_the_static_projection_and_records_the_candidate(
 @pytest.mark.test_name("NEX-T#####")
 def test_shadow_mode_does_not_gate_detections_of_a_moving_camera(
     scenescape_env, ptz_harness, result_recorder):
-  """A moving PTZ camera is recorded as rejected but its detections still reach tracking."""
+  """
+  ## Name
+  PTZ Shadow Mode Does Not Gate Moving Camera Detections
+
+  ## Objective
+  Verify that shadow mode records a moving PTZ camera as rejected without blocking its
+  detections from tracking.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Create a PTZ camera and publish a slewing pose marked invalid.
+  2. Verify detections are still admitted to tracking in shadow mode.
+  3. Verify the shadow record marks the moving pose as not admitted with an invalid-pose reason.
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   publisher = harness.start_poses(camera)

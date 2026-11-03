@@ -44,7 +44,22 @@ def _admitted(harness):
 @pytest.mark.test_name("NEX-T#####")
 def test_ptz_detections_wait_for_the_dwell_and_use_the_pose_projection(
     ptz_harness, result_recorder):
-  """No detection is admitted before the dwell completes, then it projects with the pose."""
+  """
+  ## Name
+  PTZ Detection Dwell and Pose Projection
+
+  ## Objective
+  Verify that detections are admitted only after the dwell completes and use the PTZ pose
+  rather than the camera's static home pose.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Create a PTZ camera and publish a valid pose away from its home position.
+  2. Wait for detections to be admitted and verify admission occurs after the minimum dwell.
+  3. Verify the tracked location matches the PTZ pose projection and differs from the home projection.
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   off_home = harness.off_home_matrix_for(camera)
@@ -68,7 +83,21 @@ def test_ptz_detections_wait_for_the_dwell_and_use_the_pose_projection(
 
 @pytest.mark.test_name("NEX-T#####")
 def test_ptz_at_home_pose_matches_the_static_projection(ptz_harness, result_recorder):
-  """The home pose published as a PoseContext projects like the static camera pose."""
+  """
+  ## Name
+  PTZ Home Pose Matches Static Projection
+
+  ## Objective
+  Verify that publishing a PTZ pose at home produces the same projection as the static camera pose.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Create a PTZ camera and calculate its expected static home projection.
+  2. Publish the camera's home pose and wait for detections to be admitted.
+  3. Verify the tracked location matches the expected home projection.
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   expected_home = harness.expected_location(camera["pose_matrix"])
@@ -101,21 +130,65 @@ def _assert_motion_blocks_until_dwell_restarts(harness, state, reason):
 
 @pytest.mark.test_name("NEX-T#####")
 def test_ptz_slewing_blocks_detections_until_the_dwell_restarts(ptz_harness, result_recorder):
-  """A moving camera drops detections; they resume only after a new dwell."""
+  """
+  ## Name
+  Slewing Blocks PTZ Detections Until Dwell Restarts
+
+  ## Objective
+  Verify that detections are blocked while a PTZ camera is slewing and resume only after a
+  fresh stationary dwell.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Publish stationary poses and wait for detections to be admitted.
+  2. Mark the camera as slewing and verify detections are blocked.
+  3. Mark the camera stationary again and verify detections resume only after a new dwell.
+  """
   _assert_motion_blocks_until_dwell_restarts(ptz_harness, MOTION_SLEWING, "moving")
   result_recorder.success()
 
 
 @pytest.mark.test_name("NEX-T#####")
 def test_ptz_settling_blocks_detections_until_the_dwell_restarts(ptz_harness, result_recorder):
-  """A settling camera drops detections; they resume only after a new dwell."""
+  """
+  ## Name
+  Settling Blocks PTZ Detections Until Dwell Restarts
+
+  ## Objective
+  Verify that detections are blocked while a PTZ camera is settling and resume only after a
+  fresh stationary dwell.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Publish stationary poses and wait for detections to be admitted.
+  2. Mark the camera as settling and verify detections are blocked.
+  3. Mark the camera stationary again and verify detections resume only after a new dwell.
+  """
   _assert_motion_blocks_until_dwell_restarts(ptz_harness, MOTION_SETTLING, "settling")
   result_recorder.success()
 
 
 @pytest.mark.test_name("NEX-T#####")
 def test_ptz_stale_pose_drops_detections_and_recovers(ptz_harness, result_recorder):
-  """Without fresh poses the Controller stops admitting; it recovers after a new dwell."""
+  """
+  ## Name
+  Stale PTZ Pose Blocks Detections and Recovers
+
+  ## Objective
+  Verify that detections stop when PTZ poses become stale and resume after fresh poses return.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Publish fresh poses and wait for detections to be admitted.
+  2. Pause pose publication and verify detections are blocked.
+  3. Resume publication and verify detections recover after the dwell.
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   publisher = harness.start_poses(camera)
@@ -148,7 +221,21 @@ def _assert_dwell_restarts(harness, trigger):
 
 @pytest.mark.test_name("NEX-T#####")
 def test_ptz_sequence_gap_resets_the_dwell(ptz_harness, result_recorder):
-  """A missing sample means the camera may have moved: the dwell restarts."""
+  """
+  ## Name
+  PTZ Sequence Gap Resets Dwell
+
+  ## Objective
+  Verify that a missing pose sample resets the dwell because the camera may have moved.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Publish stationary poses and wait for detections to be admitted.
+  2. Skip pose sequence numbers to create a sample gap.
+  3. Verify detections are blocked while the dwell restarts and resume only after it completes.
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   publisher = harness.start_poses(camera)
@@ -160,7 +247,21 @@ def test_ptz_sequence_gap_resets_the_dwell(ptz_harness, result_recorder):
 
 @pytest.mark.test_name("NEX-T#####")
 def test_ptz_resolver_session_change_resets_the_dwell(ptz_harness, result_recorder):
-  """A new Resolver session invalidates the accumulated dwell even if poses continue."""
+  """
+  ## Name
+  Resolver Session Change Resets PTZ Dwell
+
+  ## Objective
+  Verify that a new Resolver session invalidates the accumulated dwell even while poses continue.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Publish stationary poses and wait for detections to be admitted.
+  2. Start a new Resolver session.
+  3. Verify detections are blocked while the dwell restarts and resume only after it completes.
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   publisher = harness.start_poses(camera)
@@ -172,7 +273,22 @@ def test_ptz_resolver_session_change_resets_the_dwell(ptz_harness, result_record
 
 @pytest.mark.test_name("NEX-T#####")
 def test_ptz_frame_or_calibration_mismatch_drops_detections(ptz_harness, result_recorder):
-  """Poses for another frame or calibration version never admit detections."""
+  """
+  ## Name
+  PTZ Frame or Calibration Mismatch Blocks Detections
+
+  ## Objective
+  Verify that poses with a mismatched frame or calibration version cannot admit detections.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Publish valid stationary poses and wait for detections to be admitted.
+  2. Change the pose frame and verify detections are blocked.
+  3. Restore the matching frame and verify detections resume.
+  4. Publish a stale calibration version and verify detections are blocked again.
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   publisher = harness.start_poses(camera)
@@ -191,7 +307,22 @@ def test_ptz_frame_or_calibration_mismatch_drops_detections(ptz_harness, result_
 
 @pytest.mark.test_name("NEX-T#####")
 def test_ptz_camera_without_resolver_assignment_fails_closed(ptz_harness, result_recorder):
-  """A PTZ camera missing from the assignment manifest is dropped; static cameras still track."""
+  """
+  ## Name
+  Unassigned PTZ Camera Fails Closed
+
+  ## Objective
+  Verify that a PTZ camera without a Resolver assignment is blocked while a static camera
+  continues tracking.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Create a PTZ camera that is absent from the Resolver assignment manifest.
+  2. Verify that detections from the unassigned PTZ camera are blocked.
+  3. Verify that detections from the static Demo camera are still admitted.
+  """
   harness = ptz_harness
   harness.create_ptz_camera(ORPHAN_CAMERA_ID)
 
