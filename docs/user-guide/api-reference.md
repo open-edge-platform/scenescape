@@ -14,8 +14,8 @@ scene responses, expose `pose_locked`:
   optics. Incoming camera-message extrinsics and optics (`intrinsics`,
   `distortion`, `resolution`) cannot override it.
 
-Use the **Locked** checkbox on the camera creation or calibration form, or send
-a lock-only update such as `{"pose_locked": true}` to `/api/v1/camera/{id}`.
+Use the **Pose locked** checkbox on the camera creation or calibration form, or
+send a lock-only update such as `{"pose_locked": true}` to `/api/v1/camera/{id}`.
 Omitted fields on updates preserve the current value; non-boolean values are
 rejected. Legacy payloads that still send `pose_policy` (`configured` /
 `observation`) are accepted on input and mapped to `pose_locked`. The additive

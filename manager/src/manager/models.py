@@ -811,7 +811,7 @@ class Cam(Sensor):
   undistort = models.BooleanField(default=False, null=False, blank=False, verbose_name="Undistort")
 
   transforms = ListField(blank=True, default=list)
-  pose_locked = models.BooleanField(default=False, verbose_name="Locked")
+  pose_locked = models.BooleanField(default=False, verbose_name="Pose locked")
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
                                     default=POINT_CORRESPONDENCE)
   width = models.IntegerField(default=640, null=False, blank=False)

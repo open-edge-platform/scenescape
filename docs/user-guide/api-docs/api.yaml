@@ -2257,7 +2257,8 @@ components:
           type: boolean
           default: false
           description: >-
-            When true, live observation extrinsics are ignored and configuration
+            When true (Pose locked), live MQTT extrinsics and optics
+            (intrinsics, distortion, resolution) are ignored and configuration
             refreshes reload stored calibration. When false, calibration
             initializes the runtime pose and the latest valid observed pose is
             retained in cache across frames and refreshes while optics refresh;

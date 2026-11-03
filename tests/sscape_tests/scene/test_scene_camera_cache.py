@@ -118,6 +118,9 @@ class SceneCameraCacheTestCase(TestCase):
     self.assertEqual(response.status_code, 200)
     self.assertContains(response, 'id="pose_locked_wrapper"')
     self.assertContains(response, 'id="id_pose_locked"')
+    self.assertContains(response, 'Pose locked')
+    self.assertContains(response, 'live MQTT extrinsics and optics')
+    self.assertNotContains(response, 'Pose policy')
 
   def test_same_scene_api_update_preserves_pose(self):
     """A 3D UI save in the current scene must persist its Euler pose."""

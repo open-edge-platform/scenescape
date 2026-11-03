@@ -16,12 +16,12 @@ class Migration(migrations.Migration):
     migrations.AddField(
       model_name='cam',
       name='pose_locked',
-      field=models.BooleanField(default=True, verbose_name='Locked'),
+      field=models.BooleanField(default=True, verbose_name='Pose locked'),
     ),
     # New cameras default unlocked until calibrated; calibrate UI defaults locked.
     migrations.AlterField(
       model_name='cam',
       name='pose_locked',
-      field=models.BooleanField(default=False, verbose_name='Locked'),
+      field=models.BooleanField(default=False, verbose_name='Pose locked'),
     ),
   ]

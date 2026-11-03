@@ -114,7 +114,7 @@
       "title": "Camera Extrinsics",
       "type": "object",
       "additionalProperties": false,
-      "description": "Per-frame camera pose for observation-driven cameras. Translation is scene meters; rotation is intrinsic XYZ Euler degrees (length 3) or a quaternion [x, y, z, w] (length 4); scale defaults to [1, 1, 1] when omitted. Semantic checks (finite values, nonzero quaternion norm, positive scale) and normalization remain in runtime validate_camera_extrinsics.",
+      "description": "Per-frame camera pose for unlocked cameras (pose_locked is false). Translation is scene meters; rotation is intrinsic XYZ Euler degrees (length 3) or a quaternion [x, y, z, w] (length 4); scale defaults to [1, 1, 1] when omitted. Semantic checks (finite values, nonzero quaternion norm, positive scale) and normalization remain in runtime validate_camera_extrinsics.",
       "properties": {
         "translation": {
           "title": "Translation",

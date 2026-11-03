@@ -37,8 +37,10 @@ class CamCalibrateForm(ModelForm):
     super().__init__(*args, **kwargs)
 
     if 'pose_locked' in self.fields:
+      self.fields['pose_locked'].label = 'Pose locked'
       self.fields['pose_locked'].help_text = (
-        'When locked, live extrinsics are ignored and stored calibration is used.'
+        'When locked, live MQTT extrinsics and optics are ignored and stored '
+        'calibration is used.'
       )
       # Calibrate UI recommends locked; existing rows keep their stored value.
       if not self.instance.pk:
@@ -105,8 +107,10 @@ class SingletonCreateForm(forms.ModelForm):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
     if 'pose_locked' in self.fields:
+      self.fields['pose_locked'].label = 'Pose locked'
       self.fields['pose_locked'].help_text = (
-        'When locked, live extrinsics are ignored and stored calibration is used.'
+        'When locked, live MQTT extrinsics and optics are ignored and stored '
+        'calibration is used.'
       )
       self.fields['pose_locked'].initial = False
 
@@ -200,8 +204,10 @@ class CamCreateForm(ModelForm):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
     if 'pose_locked' in self.fields:
+      self.fields['pose_locked'].label = 'Pose locked'
       self.fields['pose_locked'].help_text = (
-        'When locked, live extrinsics are ignored and stored calibration is used.'
+        'When locked, live MQTT extrinsics and optics are ignored and stored '
+        'calibration is used.'
       )
       self.fields['pose_locked'].initial = False
 
