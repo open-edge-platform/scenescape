@@ -14,6 +14,7 @@ import subprocess
 from pathlib import Path
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.admin.views.decorators import user_passes_test
 from django.contrib.auth import REDIRECT_FIELD_NAME
 from django.contrib.auth import authenticate, login, logout
@@ -29,6 +30,7 @@ from django.http import FileResponse, HttpResponse, HttpResponseNotFound, HttpRe
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 from django.utils.http import url_has_allowed_host_and_scheme
+from django.views import View
 from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
@@ -39,6 +41,8 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from manager.api import IsAdminOrReadOnly
 from manager import osm_query, osm_roi
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
+from manager.pipeline_runtime import PipelineSyncError, apply_camera_pipeline, \
+  restart_pipeline_cameras, sync_vippet_pipelines
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, Pipeline, \
   SingletonSensor, SingletonScalarThreshold, \
@@ -361,7 +365,9 @@ class CamCreateView(SuperUserCheck, CreateView):
 
   def form_valid(self, form):
     form.instance.type = 'camera'
-    return super(CamCreateView, self).form_valid(form)
+    response = super(CamCreateView, self).form_valid(form)
+    _apply_camera_pipeline(self.request, self.object, form)
+    return response
 
   # Return 400 Bad Request when form validation fails
   def form_invalid(self, form):
@@ -395,6 +401,11 @@ class CamUpdateView(SuperUserCheck, UpdateView):
   model = Cam
   form_class = CamUpdateForm
   template_name = "cam/cam_update.html"
+
+  def form_valid(self, form):
+    response = super().form_valid(form)
+    _apply_camera_pipeline(self.request, self.object, form)
+    return response
 
   def get_success_url(self):
     if self.object.scene is not None:
@@ -581,11 +592,44 @@ class PipelineUpdateView(SuperUserCheck, UpdateView):
   template_name = "pipeline/pipeline_form.html"
   success_url = reverse_lazy('pipeline_list')
 
+  def form_valid(self, form):
+    response = super().form_valid(form)
+    if 'pipeline' in form.changed_data:
+      _add_warnings(self.request, restart_pipeline_cameras(self.object))
+    return response
+
 
 class PipelineDeleteView(SuperUserCheck, DeleteView):
   model = Pipeline
   template_name = "pipeline/pipeline_delete.html"
   success_url = reverse_lazy('pipeline_list')
+
+
+class PipelineSyncView(SuperUserCheck, View):
+  http_method_names = ['post']
+
+  def post(self, request):
+    try:
+      result = sync_vippet_pipelines()
+    except PipelineSyncError as e:
+      messages.error(request, str(e))
+      return redirect('pipeline_list')
+    messages.success(request, f"Synced with ViPPET: {len(result.created)} created, "
+                     f"{len(result.updated)} updated, {result.unchanged} unchanged.")
+    if result.skipped:
+      messages.warning(request, "Skipped: " + "; ".join(result.skipped))
+    _add_warnings(request, result.warnings)
+    return redirect('pipeline_list')
+
+
+def _add_warnings(request, warnings):
+  for warning in warnings:
+    messages.warning(request, warning)
+
+
+def _apply_camera_pipeline(request, cam, form):
+  _add_warnings(request, apply_camera_pipeline(
+    cam.pk, pipeline_changed='pipeline' in form.changed_data))
 
 
 # Scene Child CRUD
@@ -767,6 +811,7 @@ def cameraCalibrate(request, sensor_id):
           })
 
       instance = form.save()
+      _apply_camera_pipeline(request, instance, form)
       return redirect(sceneDetail, scene_id=instance.scene_id)
     else:
       log.warning('Form not valid!')

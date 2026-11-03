@@ -143,10 +143,11 @@ docker compose exec manager python manage.py createsuperuser
 - `ALLOWED_HOSTS`: Comma-separated allowed hostnames
 - `SCENE_CONTROLLER_URL`: REST endpoint for Scene Controller
 - `VIPPET_URL`: ViPPET REST API root including `/api/v1` (e.g. `http://vippet:7860/api/v1`).
-  The `manager.vippet` library reads it when explicitly instantiated; there is no default, and
-  construction raises `ValueError` if neither this variable nor `base_url` is provided.
-  Library-only for now: it is not passed through Docker Compose or Helm and has no Manager
-  caller yet. Add deployment wiring and a user-guide entry with the first caller.
+  Enables **Sync with ViPPET** on the Pipelines page. Passed through Docker Compose
+  (`VIPPET_URL`) and Helm (`web.vippetUrl`); empty disables the feature.
+- `DLSPS_URL`: DL Streamer Pipeline Server 2.0 REST root (e.g. `http://dlsps:8080`). Enables
+  starting/stopping camera pipelines. Passed through Docker Compose (`DLSPS_URL`) and Helm
+  (`web.dlspsUrl`); empty disables the feature.
 - `SUPASS`: Super user password (for initial setup)
 
 ### Configuration Files
@@ -296,9 +297,12 @@ docker compose exec manager python manage.py showmigrations
 - Only `vision` pipelines are exposed; `time_series` pipelines are hidden and reported as not found
 - HTTP failures raise `ViPPETError` subclasses (`ViPPETUnavailableError` also covers ViPPET's 503
   while it initializes); invalid arguments or base URL raise `ValueError` before any request
-- The returned string is meant to be persisted by value and later submitted to DLSPS 2.0
+- The returned string is persisted by value in `Pipeline.pipeline` and later submitted to DLSPS 2.0
   `POST /pipelines`; it still references ViPPET-side model/video paths
-- Library only; Manager views and UI do not call ViPPET yet
+- Used by `manager.pipeline_runtime.sync_vippet_pipelines()` (Pipelines page **Sync with ViPPET**,
+  `PipelineSyncView`, superuser + POST only): one `Pipeline` row per variant, named
+  `"<pipeline name> (<variant name>)"`, matched on `vippet_pipeline_id = "<pipeline id>/<variant id>"`.
+  Rows gone from ViPPET are kept; name clashes with other rows are skipped and reported
 
 ### DL Streamer Pipeline Server 2.0
 
@@ -310,9 +314,15 @@ docker compose exec manager python manage.py showmigrations
 - Starting a pipeline is asynchronous: poll `get_pipeline_status` to detect `ERROR` after start
 - Pipeline strings are executed as-is; use trusted server-side templates only because elements can
   access files and networks inside the DLSPS container, and restrict exposing APIs to administrators
-- `DLSPS_URL` is supported by the client when explicitly set, but is not currently wired through
-  Manager's Compose or Helm deployment configuration
-- Library only; Manager does not yet create DLSPS pipelines automatically
+- `manager.pipeline_runtime.apply_camera_pipeline()` runs after a camera is saved on the create,
+  update and calibrate pages: selecting/changing the `Cam.pipeline` starts an instance with
+  `restart_config` enabled (stopping the previous one), clearing it stops the instance, and an
+  unchanged selection without a recorded instance is retried. The id is stored in
+  `Cam.dlsps_instance_id`; the camera row is locked (`select_for_update`) during DLSPS calls.
+  DLSPS failures never block the save; they are logged and shown as `messages` warnings
+- Editing an assigned pipeline's string (UI or ViPPET sync) restarts the camera's instance; a
+  `post_delete` signal on `Cam` stops the instance after commit. Deleting a `Pipeline` does not
+  call DLSPS. Instances are not reconciled after a DLSPS restart
 
 ### PostgreSQL
 

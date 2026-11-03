@@ -77,6 +77,12 @@ web:
   # SCENESCAPE_ALLOWED_HOSTS. If empty - defaults to:
   # ['127.0.0.1', 'localhost', 'web.scenescape.svc.cluster.local', 'web.scenescape.intel.com']
   allowedHosts: ""
+  # ViPPET REST API root including /api/v1 (e.g. http://vippet:7860/api/v1).
+  # Enables "Sync with ViPPET" on the Pipelines page. Empty disables it.
+  vippetUrl: ""
+  # DL Streamer Pipeline Server 2.0 REST root (e.g. http://dlsps:8080).
+  # Enables starting camera pipelines on DLSPS. Empty disables it.
+  dlspsUrl: ""
 
 scene:
   image: intel/scenescape-controller

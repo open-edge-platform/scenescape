@@ -6,20 +6,33 @@ SPDX-License-Identifier: Apache-2.0
 {% extends 'sscape/base.html' %}
 {% block content %}
   {% if user.is_superuser %}
-    <a class="btn btn-primary float-right" href="{% url 'pipeline_create' %}"
-      >+ New Pipeline</a
-    >
+    <div class="float-right">
+      <form
+        class="d-inline"
+        method="post"
+        action="{% url 'pipeline_sync' %}"
+        id="pipeline-sync-form"
+      >
+        {% csrf_token %}
+        <button type="submit" class="btn btn-secondary" id="pipeline-sync">
+          Sync with ViPPET
+        </button>
+      </form>
+      <a class="btn btn-primary" href="{% url 'pipeline_create' %}"
+        >+ New Pipeline</a
+      >
+    </div>
   {% endif %}
   <h2 class="form-title">Pipelines</h2>
   <p>
-    Stored definitions only. These pipelines and their camera associations do
-    not change video processing.
+    Pipelines imported from ViPPET are refreshed by "Sync with ViPPET".
+    Selecting a pipeline on a camera starts it on DL Streamer Pipeline Server.
   </p>
   <table class="table table-fluid">
     <thead>
       <tr>
         <th>Name</th>
-        <th>VIPPET pipeline ID</th>
+        <th>ViPPET pipeline / variant ID</th>
         <th>Pipeline string</th>
         {% if user.is_superuser %}
           <th>Update</th>

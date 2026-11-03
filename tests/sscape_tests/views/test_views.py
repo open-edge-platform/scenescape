@@ -408,9 +408,12 @@ class TestCameraViews(TestCase):
     mock_form = Mock()
     mock_form.instance = Mock()
     mock_form.instance.type = 'camera'
+    mock_form.changed_data = []
 
-    form_valid = create_view.form_valid(mock_form)
+    with patch('manager.views.apply_camera_pipeline', return_value=[]) as apply_pipeline:
+      form_valid = create_view.form_valid(mock_form)
     self.assertEqual(form_valid.status_code, 302)
+    apply_pipeline.assert_called_once_with(create_view.object.pk, pipeline_changed=False)
     return
 
   def test_success_url_update(self):
