@@ -16,7 +16,7 @@ stack is only restarted when the required profile changes.
 """
 
 import contextlib
-from copy import copy
+import copy
 import logging
 import os
 import re
