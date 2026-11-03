@@ -831,9 +831,17 @@ class MeshGenerator:
         log.info("Anchored camera(s) present, saving mesh as returned by mapping service")
         aligned_mesh, mesh_transform = merged_mesh, None
 
-      # Export the aligned mesh as GLB
+      # Export y-up like every uploaded GLB, so a downloaded map can be re-uploaded as is.
+      # The scene's X rotation of 90 puts it back in the z-up scene frame.
+      exported_mesh = aligned_mesh.copy()
+      exported_mesh.apply_transform(
+        trimesh.transformations.rotation_matrix(-np.radians(scene.DEFAULT_MESH_ROTATION), [1, 0, 0]))
+      scene.resetRotation()
+      scene.rotation_x = scene.DEFAULT_MESH_ROTATION
+      scene.resetTranslation()
+
       glb_filename = f"{scene.name}_generated_mesh.glb"
-      glb_exported_bytes = aligned_mesh.export(file_type='glb')
+      glb_exported_bytes = exported_mesh.export(file_type='glb')
 
       log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
       # Save to scene's map field without triggering save yet
