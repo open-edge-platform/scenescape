@@ -332,9 +332,10 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
             continue;
         }
         if (!geometry->covers(batch.detections.size())) {
-            LOG_ERROR("Projector returned geometry of {} detections for {} detections of camera "
-                      "'{}', skipping",
-                      geometry->objects.size(), batch.detections.size(), batch.camera_id);
+            LOG_ERROR("Projector returned {} objects and {} geometry flags for {} detections of "
+                      "camera '{}', skipping",
+                      geometry->objects.size(), geometry->has_geometry.size(),
+                      batch.detections.size(), batch.camera_id);
             continue;
         }
         const auto sightings = reid_sightings_.add_batch(batch);
