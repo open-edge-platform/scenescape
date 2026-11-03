@@ -141,7 +141,24 @@ def _requested_image(client, images, snapshots, enabled):
 ], indirect=True)
 def test_requested_image_track_ids(
     _env_matrix_setup, annotation_pipeline, rest, params, result_recorder):
-  """Requested GIDs match camera bounds; disabled annotation preserves legacy images."""
+  """
+  ## Name
+  Requested camera images contain GIDs matching regulated tracks in both tracking modes
+
+  ## Objective
+  Requested GIDs match camera bounds; disabled annotation preserves legacy images.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Start Scene Controller + Analytics. Enable annotate-track-ids and set track-topic to the scene's regulated topic.
+  2. Subscribe to regulated tracks and camera images.
+  3. Send getimage to scenescape/cmd/camera/atag-qcam1.
+  4. Compare image GIDs with regulated messages.
+  5. Disable annotation and request another image.
+  6. Repeat with C++ Tracker + Analytics, without Scene Controller running.
+  """
   scenes = rest.getScenes({'name': 'Queuing'})['results']
   assert scenes, 'Queuing baseline scene is missing'
   scene = scenes[0]
