@@ -12,6 +12,9 @@ from threading import Condition
 import cv2
 
 
+MAX_TRACK_PAYLOAD_BYTES = 4 * 1024 * 1024 # 4 MiB
+
+
 def frame_timestamp(value: str) -> float:
   """Parse an ISO timestamp with an explicit timezone."""
   timestamp = datetime.fromisoformat(value.replace('Z', '+00:00'))
@@ -41,7 +44,7 @@ def _track_entry(obj: dict, camera_id: str) -> tuple | None:
 def parse_track_message(payload: bytes, camera_id: str) -> tuple | None:
   """Return timestamp and usable camera bounds, or None for malformed input."""
   try:
-    if len(payload) > 4 * 1024 * 1024:
+    if len(payload) > MAX_TRACK_PAYLOAD_BYTES:
       return None
     message = json.loads(payload)
     if not isinstance(message, dict) or not isinstance(message.get('objects'), list):
