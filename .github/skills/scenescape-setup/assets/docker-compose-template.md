@@ -135,7 +135,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "curl --cacert /run/secrets/certs/scenescape-ca.pem -fsS https://web.scenescape.intel.com:443/api/v1/health | grep -Eq '\"ready\"[[:space:]]*:[[:space:]]*true'",
+          'curl --cacert /run/secrets/certs/scenescape-ca.pem -fsS https://web.scenescape.intel.com:443/api/v1/health | grep -Eq ''"ready"[[:space:]]*:[[:space:]]*true''',
         ]
       interval: 10s
       timeout: 120s
@@ -263,6 +263,7 @@ services:
       # must live on the GStreamer python plugin path — not under /home/pipeline-server/user_scripts.
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_decode_timestamp_capture.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_decode_timestamp_capture.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_post_inference_data_publish.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_post_inference_data_publish.py
+      - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_track_annotation.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_track_annotation.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_policies.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_policies.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_3d_detector.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_3d_detector.py
       - ./dlstreamer-pipeline-server/user_scripts/gstplugins/sscape_gst_log.py:/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/sscape_gst_log.py

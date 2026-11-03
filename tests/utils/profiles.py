@@ -209,6 +209,30 @@ FULL_STACK_WITH_VIDEO_AND_RETAIL = ServiceProfile(
   },
 )
 
+TRACK_ANNOTATION_CONTROLLER = ServiceProfile(
+  name="track_annotation_controller",
+  compose_files=FULL_STACK_WITH_VIDEO_AND_RETAIL.compose_files + (
+    f"{DLS}/compose.track-annotation.yml",
+  ),
+  wait_for=FULL_STACK_WITH_VIDEO_AND_RETAIL.wait_for,
+)
+
+TRACK_ANNOTATION_TRACKER = ServiceProfile(
+  name="track_annotation_tracker",
+  compose_files=tuple(
+    path for path in TRACK_ANNOTATION_CONTROLLER.compose_files
+    if path != f"{COMPOSE}/compose.scene.yml"
+  ) + (f"{COMPOSE}/compose.tracker.yml",),
+  wait_for={
+    **{
+      service: readiness
+      for service, readiness in TRACK_ANNOTATION_CONTROLLER.wait_for.items()
+      if service != "scene"
+    },
+    "tracker": WaitConfig(log_pattern="MQTT connected"),
+  },
+)
+
 REID_NO_VIDEO = ServiceProfile(
   name="reid_no_video",
   compose_files=(
@@ -604,6 +628,8 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_WITH_MAPPING_AND_VIDEO,
     FULL_STACK_WITH_RETAIL_VIDEO,
     FULL_STACK_WITH_VIDEO_AND_RETAIL,
+    TRACK_ANNOTATION_CONTROLLER,
+    TRACK_ANNOTATION_TRACKER,
     REID,
     REID_CORE,
     REID_QDRANT,

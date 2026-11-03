@@ -84,6 +84,20 @@ only for failed tests. Use `--collect-container-logs {failed,all,none}` to
 change this behavior. Test specs are defined in the individual test
 modules as Python dataclasses.
 
+### GID re-annotation
+
+```bash
+tests/.venv/bin/pytest tests/functional/test_track_annotation.py --backend=docker
+```
+
+Runs once with Scene Controller and once with C++ Tracker, using Analytics and
+the Queuing video pipeline. The test requests a JPEG via `getimage`, checks
+non-empty `track_ids` against the same camera's regulated bounds within the
+one-second timestamp tolerance, and verifies that disabling annotation omits
+`track_ids` while image publishing continues. Pipeline settings are restored
+on teardown. The Docker stacks use the standard test ports; stop any manual
+deployment occupying those ports before running.
+
 ### Cognitive complexity
 
 Install only the pinned analyzer from the repository root, using an activated

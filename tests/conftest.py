@@ -844,6 +844,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 _PROFILE_SCENE_ARCHIVES = {
   "full_stack_autocalibration": ("calibration",),
   "full_stack_with_video_and_retail": ("retail_and_queuing",),
+  "track_annotation_controller": ("retail_and_queuing",),
+  "track_annotation_tracker": ("retail_and_queuing",),
   "reid_no_video": ("retail_and_queuing",),
   "reid": ("retail_and_queuing",),
   "reid_qdrant": ("retail_and_queuing",),
