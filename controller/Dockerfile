@@ -39,6 +39,16 @@ RUN pip3 install --no-cache-dir build \
     && cd \
     && rm -rf /tmp/controller
 
+# Generate the remote projection gRPC stubs (package scenescape_api). This grpcio-tools emits
+# protobuf 5.29 gencode, which the runtime protobuf (same or newer) accepts.
+COPY ./api/projection /tmp/api/projection
+RUN pip3 install --no-cache-dir grpcio-tools==1.71.2 \
+    && python3 -m grpc_tools.protoc -Iscenescape_api=/tmp/api \
+        --python_out=/usr/local/lib/python3.11/site-packages \
+        --grpc_python_out=/usr/local/lib/python3.11/site-packages \
+        scenescape_api/projection/v1/projection.proto \
+    && rm -rf /tmp/api
+
 # -------------- Controller Runtime Stage --------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-controller-runtime
 
@@ -105,6 +115,7 @@ COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common /usr/local/lib/${PY_LIB_DIR}/site-packages/scene_common
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/controller /usr/local/lib/${PY_LIB_DIR}/site-packages/controller
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/reid /usr/local/lib/${PY_LIB_DIR}/site-packages/reid
+COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/scenescape_api /usr/local/lib/${PY_LIB_DIR}/site-packages/scenescape_api
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision /usr/local/lib/${PY_LIB_DIR}/site-packages/robot_vision
 
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json

@@ -281,6 +281,53 @@ Tracker service. Without `max_radius_m` it uses the legacy 2 m gate.
 Invalid `method` values fail startup (Controller raises; Tracker throws). Omitting the
 `association` block uses the defaults above.
 
+## Experimental Remote Projection
+
+> **⚠️ Experimental.** Settings, behavior and metric names may change between releases.
+
+By default, the Scene Controller and the Tracker service project each pixel bounding box onto the
+ground plane with the camera calibration. With remote projection, they instead send the pixel boxes
+of each camera frame to an external projection service
+([`api/projection/v1/projection.proto`](https://github.com/open-edge-platform/scenescape/blob/main/api/projection/v1/projection.proto)).
+For each box, the service returns a world position, a size and a measurement noise covariance (R)
+that describes the uncertainty of that position, for example a long uncertainty along the camera's
+viewing ray. The tracker uses R for multi-camera fusion, association gating and the Kalman update.
+
+Remote projection is used only when the experimental flag is set **and** the service host and port
+are configured:
+
+| Setting            | Scene Controller (environment)                                                    | Tracker service (`tracker.json` / environment)                                         | Default      |
+| ------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------ |
+| Experimental flag  | `CONTROLLER_EXPERIMENTAL_REMOTE_PROJECTION` or `--experimental-remote-projection` | `tracking.experimental_remote_projection` / `TRACKER_EXPERIMENTAL_REMOTE_PROJECTION`   | `false`      |
+| Host               | `CONTROLLER_REMOTE_PROJECTION_HOST`                                               | `infrastructure.remote_projection.host` / `TRACKER_REMOTE_PROJECTION_HOST`             | —            |
+| Port               | `CONTROLLER_REMOTE_PROJECTION_PORT`                                               | `infrastructure.remote_projection.port` / `TRACKER_REMOTE_PROJECTION_PORT`             | —            |
+| Conditioning mode  | `CONTROLLER_REMOTE_PROJECTION_MODE`                                               | `tracking.remote_projection_mode` / `TRACKER_REMOTE_PROJECTION_MODE`                   | `auto`       |
+| Call deadline (ms) | `CONTROLLER_REMOTE_PROJECTION_TIMEOUT_MS`                                         | `infrastructure.remote_projection.timeout_ms` / `TRACKER_REMOTE_PROJECTION_TIMEOUT_MS` | `50`         |
+| Plaintext channel  | `CONTROLLER_REMOTE_PROJECTION_INSECURE`                                           | `infrastructure.remote_projection.insecure` / `TRACKER_REMOTE_PROJECTION_INSECURE`     | `false`      |
+| CA certificates    | `CONTROLLER_REMOTE_PROJECTION_CA_CERT`                                            | `infrastructure.remote_projection.ca_cert_path` / `TRACKER_REMOTE_PROJECTION_CA_CERT`  | system roots |
+
+Conditioning modes: `auto` uses full conditioning (frustum Gaussian and amodal reasoning against the
+scene mesh) when the scene has a mesh and frustum-only conditioning otherwise; `full` and
+`frustum_only` force one of them. The channel uses TLS unless the plaintext option is set; use
+plaintext only for development.
+
+Each camera frame is one call, and the calls for one tracking step run concurrently under the
+deadline. A detection keeps the local projection when:
+
+- it is not a pixel box from a calibrated scene camera (for example a 3D detection with
+  `translation`, or an external source);
+- the call fails (service unavailable, deadline exceeded, error status) or the reply is invalid;
+- its depth is unobservable or its measurement is invalid.
+
+Failed calls and invalid replies do not stop the service. They are counted in
+`scenescape_controller_remote_projection_failed_calls` (Scene Controller) or
+`tracker.remote_projection.failed_calls` (Tracker service), with the gRPC status name or the
+validation failure in the `reason` attribute, and logged as a warning at most every 10 seconds per
+scene and category. See [How to Enable Observability](../../other-topics/how-to-enable-observability.md).
+
+The returned position is the object centre; it is lowered by half the object height to the object
+base used by the trackers. Detector yaw is kept.
+
 ## Persisting Object Attributes Across Detection Gaps
 
 Detection pipelines do not always re-report every attribute (e.g., shirt color, license plate,

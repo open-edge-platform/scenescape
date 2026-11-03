@@ -20,6 +20,7 @@ from scene_common.reid_constants import REID_PROVENANCE_KEY
 from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
                                         POSE_CACHE_TTL_MULTIPLIER)
+from controller import remote_projection
 from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
@@ -128,6 +129,12 @@ class Scene(SceneModel):
     self.tracker = self.available_trackers[self.trackerType](
       *args, association_config=self.association_config)
     self.tracker.uuid_manager.scene_id = self.name
+    self._bindRemoteProjection()
+    return
+
+  def _bindRemoteProjection(self):
+    """Bind experimental remote projection to the tracker once the scene UID is known."""
+    self.tracker.remote_projection = remote_projection.for_scene(getattr(self, 'uid', None))
     return
 
   def applyAssociationConfig(self, association_config):
@@ -405,6 +412,7 @@ class Scene(SceneModel):
                 reid_config_data=reid_config_data,
                 pose_adjustment_config_data=pose_adjustment_config_data)
     scene.uid = data['uid']
+    scene._bindRemoteProjection()
     scene.mesh_translation = data.get('mesh_translation', None)
     scene.mesh_rotation = data.get('mesh_rotation', None)
     scene._hydrateFromSceneData(data, reid_runtime_update=False)

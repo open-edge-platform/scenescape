@@ -137,6 +137,40 @@
           },
           "required": ["endpoint"]
         },
+        "remote_projection": {
+          "type": "object",
+          "description": "Experimental remote projection service (gRPC, api/projection/v1/projection.proto). Used only when tracking.experimental_remote_projection is true.",
+          "properties": {
+            "host": {
+              "type": "string",
+              "description": "Service hostname or IP address",
+              "minLength": 1
+            },
+            "port": {
+              "type": "integer",
+              "description": "Service gRPC port",
+              "minimum": 1,
+              "maximum": 65535
+            },
+            "insecure": {
+              "type": "boolean",
+              "description": "Use a plaintext channel instead of TLS (development only)",
+              "default": false
+            },
+            "ca_cert_path": {
+              "type": "string",
+              "description": "Path to PEM CA certificates that verify the service. When unset, the system roots are used."
+            },
+            "timeout_ms": {
+              "type": "integer",
+              "description": "Deadline in milliseconds for the calls of one chunk. Frames without a response in time keep the local projection.",
+              "default": 50,
+              "minimum": 1
+            }
+          },
+          "required": ["host", "port"],
+          "additionalProperties": false
+        },
         "tracker": {
           "type": "object",
           "description": "Tracker service internal settings",
@@ -280,6 +314,17 @@
             }
           },
           "additionalProperties": false
+        },
+        "experimental_remote_projection": {
+          "type": "boolean",
+          "description": "Experimental: project camera detections with the remote projection service (infrastructure.remote_projection) and feed its measurement and noise covariance to the tracker. Detections without a valid remote measurement keep the local projection.",
+          "default": false
+        },
+        "remote_projection_mode": {
+          "type": "string",
+          "description": "Conditioning requested from the remote projection service: auto (full when the scene has a mesh, frustum only otherwise), full or frustum_only.",
+          "enum": ["auto", "full", "frustum_only"],
+          "default": "auto"
         }
       }
     },

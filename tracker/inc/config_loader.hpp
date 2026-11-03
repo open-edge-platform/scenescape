@@ -4,6 +4,7 @@
 #pragma once
 
 #include "association_config.hpp"
+#include "remote_projection_config.hpp"
 #include "scenes_config.hpp"
 
 #include <filesystem>
@@ -84,6 +85,7 @@ struct InfrastructureConfig {
     std::optional<NtpConfig> ntp;         ///< Optional NTP clock synchronisation
     std::optional<ManagerConfig> manager; ///< Required when scenes.source='api'
     std::optional<OtlpConfig> otlp;       ///< Required when metrics or tracing enabled
+    std::optional<RemoteProjectionConfig> remote_projection; ///< Experimental remote projection
 };
 
 /**
@@ -144,6 +146,11 @@ struct TrackingConfig {
         kDefaultNonMeasurementTimeStaticS; ///< Time before static track dropped
 
     AssociationConfig association; ///< Data association method and gating (ADR-0017)
+
+    /// Experimental: project detections with the remote projection service when its endpoint is
+    /// configured (infrastructure.remote_projection).
+    bool experimental_remote_projection = false;
+    ConditioningMode remote_projection_mode = ConditioningMode::Auto;
 };
 
 /**
@@ -187,6 +194,20 @@ constexpr char TRACKING_NON_MEASUREMENT_TIME_STATIC_S[] = "/tracking/non_measure
 constexpr char TRACKING_ASSOCIATION_METHOD[] = "/tracking/association/method";
 constexpr char TRACKING_ASSOCIATION_GATE_PROBABILITY[] = "/tracking/association/gate_probability";
 constexpr char TRACKING_ASSOCIATION_MAX_RADIUS_M[] = "/tracking/association/max_radius_m";
+constexpr char TRACKING_EXPERIMENTAL_REMOTE_PROJECTION[] =
+    "/tracking/experimental_remote_projection";
+constexpr char TRACKING_REMOTE_PROJECTION_MODE[] = "/tracking/remote_projection_mode";
+
+// Remote projection
+constexpr char INFRASTRUCTURE_REMOTE_PROJECTION[] = "/infrastructure/remote_projection";
+constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_HOST[] = "/infrastructure/remote_projection/host";
+constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_PORT[] = "/infrastructure/remote_projection/port";
+constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_INSECURE[] =
+    "/infrastructure/remote_projection/insecure";
+constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_CA_CERT_PATH[] =
+    "/infrastructure/remote_projection/ca_cert_path";
+constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_TIMEOUT_MS[] =
+    "/infrastructure/remote_projection/timeout_ms";
 
 // NTP
 constexpr char INFRASTRUCTURE_NTP[] = "/infrastructure/ntp";

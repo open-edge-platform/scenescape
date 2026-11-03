@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from controller.scene_controller import SceneController
 from controller.observability import metrics, tracing
 from controller.pose_adjustment import POSE_ADJUSTMENT_ENV_VAR
+from controller.remote_projection import ENV_ENABLED as REMOTE_PROJECTION_ENV_VAR
 from scene_common import log
 
 _ANALYTICS_ONLY_REMOVED = (
@@ -111,6 +112,13 @@ def build_argparser():
                       action=argparse.BooleanOptionalAction,
                       default=_pose_adjustment_default_enabled(),
                       help="Enable pose-based person bounding box adjustment before world projection.")
+  parser.add_argument("--experimental-remote-projection",
+                      dest="experimental_remote_projection",
+                      action=argparse.BooleanOptionalAction,
+                      default=_env_bool(REMOTE_PROJECTION_ENV_VAR, False),
+                      help="Experimental: project camera detections with the remote projection "
+                           "service at CONTROLLER_REMOTE_PROJECTION_HOST and "
+                           "CONTROLLER_REMOTE_PROJECTION_PORT.")
   return parser
 
 def main():
@@ -125,6 +133,9 @@ def main():
   log.info(
     f"Controller pose adjustment: "
     f"{'ENABLED' if args.pose_adjustment else 'DISABLED'}"
+  )
+  os.environ[REMOTE_PROJECTION_ENV_VAR] = (
+    "true" if args.experimental_remote_projection else "false"
   )
   metrics.init()
   tracing.init()

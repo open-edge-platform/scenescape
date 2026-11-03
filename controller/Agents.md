@@ -171,6 +171,7 @@ docker compose exec scene bash
 - `TRACKER_CONFIG`: Path to tracker configuration JSON
 - `CONTROLLER_ENABLE_METRICS`: Enable OpenTelemetry metrics (true/false)
 - `CONTROLLER_ENABLE_TRACING`: Enable OpenTelemetry tracing (true/false)
+- `CONTROLLER_EXPERIMENTAL_REMOTE_PROJECTION` (or `--experimental-remote-projection`) with `CONTROLLER_REMOTE_PROJECTION_HOST` / `_PORT`: experimental remote projection (`controller.remote_projection`); optional `_MODE` (`auto`), `_TIMEOUT_MS` (`50`), `_INSECURE` (`false`), `_CA_CERT`. gRPC stubs (`scenescape_api`) are generated at image build time and in `tests/sscape_tests/remote_projection/conftest.py`
 - `REID_DATABASE`: ReID vector backend (`VDMS` default, or `QDRANT`) — the only backend selector
 - Shared connection/tuning (same for every backend): `REID_HOSTNAME` (`reid.scenescape.intel.com`), `REID_PORT` (`55555`), `REID_USE_TLS` (`true`), `REID_API_KEY`, `REID_CONFIDENCE_THRESHOLD`, `REID_CA_CERT`, `REID_CLIENT_CERT`, `REID_CLIENT_KEY`, `REID_DESCRIPTOR_TTL_SECS` (`86400`), `REID_PURGE_INTERVAL_SECS` (`300`) (see `controller.reid_env`)
 - `reid_env` parses strictly: out-of-range ports/thresholds/TTL/purge intervals and unrecognized booleans raise `ValueError` naming the variable and value. Read new typed settings through `_env_int` / `_env_float` / `_env_bool` rather than calling `int()` / `os.getenv` at the call site, so bad config fails at startup instead of degrading behaviour later.
@@ -597,6 +598,10 @@ Enable with: `CONTROLLER_ENABLE_METRICS=true`
 - `scenescape_controller_time_chunking_unique_cameras`: distinct cameras dispatched per non-empty chunk
 - `scenescape_controller_time_chunking_non_empty_chunks`: dispatch intervals that had buffered data
 - `scenescape_controller_time_chunking_empty_chunks`: dispatch intervals with no buffered data
+
+**Remote projection counter** (experimental remote projection only):
+
+- `scenescape_controller_remote_projection_failed_calls`: camera frames whose remote projection call failed or returned an invalid response (`scene`, `category`, `camera`, `reason`)
 
 ### Tracing (OpenTelemetry)
 

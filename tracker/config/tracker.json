@@ -51,7 +51,9 @@
       "method": "position_mahalanobis",
       "gate_probability": 0.99,
       "max_radius_m": 10.0
-    }
+    },
+    "experimental_remote_projection": false,
+    "remote_projection_mode": "auto"
   },
   "scenes": {
     "source": "api"

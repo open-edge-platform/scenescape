@@ -39,6 +39,7 @@ jobs:
           filters: |
             tracker:
               - 'tracker/**'
+              - 'api/projection/**'
               - 'controller/src/robot_vision/**'
               - '.github/workflows/tracker-service.yml'
             robot_vision:
@@ -207,6 +208,7 @@ jobs:
               --root tracker \
               --exclude '.*test.*' \
               --exclude '.*/build-debug/.*' \
+              --exclude '.*\.pb\.(cc|h)$' \
               --exclude '.*/usr/.*' \
               --exclude '.*/.conan.*' \
               --exclude '.*/.conan2/.*' \

@@ -37,6 +37,8 @@ class Tracking(Thread):
     self.queue = Queue()
     self.reid_config_data = reid_config_data if reid_config_data else {}
     self.uuid_manager = UUIDManager(reid_config_data=self.reid_config_data)
+    # Experimental remote projection bound to the scene (remote_projection.SceneProjection)
+    self.remote_projection = None
     return
 
   def getUniqueIDCount(self, category):
@@ -109,6 +111,7 @@ class Tracking(Thread):
           **kwargs,
         )
         tracker.uuid_manager.scene_id = self.uuid_manager.scene_id
+        tracker.remote_projection = getattr(self, 'remote_projection', None)
         self.trackers[category] = tracker
         tracker.start()
     return

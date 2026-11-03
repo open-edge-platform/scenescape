@@ -33,6 +33,34 @@ measurement. `toTrackerInputs` then attaches the detection's own data (id,
 metadata, confidence, ReID sighting token) and drops detections without
 geometry, the same way for every projector.
 
+### Experimental remote projection
+
+With `tracking.experimental_remote_projection` set and
+`infrastructure.remote_projection` defining host and port, the scheduler builds
+each worker's projector with a `ProjectorFactory`
+([`remote_projector.hpp`](../inc/remote_projector.hpp)): a `RemoteProjector`
+around the worker's `CameraModelProjector`. All workers share one
+`ProjectionClient` and its gRPC channel
+([`grpc_projection_client.hpp`](../inc/grpc_projection_client.hpp)).
+
+`RemoteProjector` first projects locally, then sends the pixel boxes of each
+camera frame in one `ProjectDetections` call
+([`projection.proto`](../../api/projection/v1/projection.proto)); the
+`detection_id` of a box is its index in the request. The calls of one chunk
+run concurrently on a completion queue under one deadline (`timeout_ms`).
+Each valid measurement replaces the local position and size, sets
+`zMeasured` and `measurementNoiseCov` (R), and lowers the returned centre z
+by half the height to the object base. Yaw and `has_orientation` stay as set
+locally. Sensor-frame translations, boxes the service would reject, cameras
+the local projector cannot project, unobservable depths and invalid
+measurements keep the local projection. A failed call, a malformed reply or
+an invalid measurement increments `tracker.remote_projection.failed_calls`
+and logs a warning at most every 10 s per worker; `project()` does not throw
+for remote failures, so the worker never stops on them.
+
+The gRPC C++ code is generated at build time from `api/projection` into the
+`tracker_projection_proto` library (protobuf and `grpc_cpp_plugin` from Conan).
+
 ---
 
 ## Time-Chunk Processing Pipeline

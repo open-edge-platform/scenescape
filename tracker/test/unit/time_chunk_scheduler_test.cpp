@@ -18,7 +18,11 @@
 #include <format>
 #include <map>
 #include <mutex>
+#include <optional>
+#include <span>
 #include <thread>
+#include <utility>
+#include <vector>
 
 namespace tracker {
 namespace {
@@ -384,6 +388,80 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_AppliesObjectClassPerCategory) {
     const auto& person = positions.at("person");
     EXPECT_GT(std::hypot(plane[0] - person[0], plane[1] - person[1]), 0.1)
         << "TYPE_2 'plane' should project differently from TYPE_1 'person'";
+}
+
+// A projector factory supplies the projector of each new worker.
+TEST_F(TimeChunkSchedulerTest, Dispatch_UsesProjectorFactoryForNewWorkers) {
+    TimeChunkBuffer buffer;
+    SceneRegistry registry;
+    registerScenes(registry);
+
+    TrackingConfig config = createConfig(100, 10);
+    config.max_unreliable_time_s = 0.0;
+
+    // The factory's projector puts every detection at (7, 8).
+    class FixedProjector final : public DetectionProjector {
+    public:
+        std::vector<std::optional<ProjectedDetections>>
+        project(std::span<const DetectionBatch> batches) override {
+            std::vector<std::optional<ProjectedDetections>> projected;
+            for (const auto& batch : batches) {
+                ProjectedDetections geometry{
+                    std::vector<rv::tracking::TrackedObject>(batch.detections.size()),
+                    std::vector<uint8_t>(batch.detections.size(), 1)};
+                for (auto& object : geometry.objects) {
+                    object.x = 7.0;
+                    object.y = 8.0;
+                    object.length = object.width = 0.5;
+                    object.height = 1.7;
+                }
+                projected.emplace_back(std::move(geometry));
+            }
+            return projected;
+        }
+    };
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::vector<std::pair<TrackingScope, size_t>> factory_calls;
+    std::optional<std::array<double, 3>> position;
+    ProjectorFactory factory = [&](const TrackingScope& scope,
+                                   const std::unordered_map<std::string, Camera>& cameras,
+                                   const ObjectClassConfig&) {
+        std::lock_guard lock(mtx);
+        factory_calls.emplace_back(scope, cameras.size());
+        return std::make_unique<FixedProjector>();
+    };
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        if (!tracks.empty() && !position) {
+            position = tracks.front().translation;
+            cv.notify_one();
+        }
+    };
+
+    TimeChunkScheduler scheduler(buffer, registry, config, callback, makeSystemClock(), {},
+                                 factory);
+    scheduler.start();
+
+    std::unique_lock lock(mtx);
+    for (int i = 0; i < 20 && !position; ++i) {
+        lock.unlock();
+        buffer.add({"scene-1", "person"}, "cam-1",
+                   createBatch("cam-1", std::format("2026-01-27T12:00:{:02d}.000Z", i)));
+        lock.lock();
+        cv.wait_for(lock, std::chrono::milliseconds(100), [&] { return position.has_value(); });
+    }
+    lock.unlock();
+    scheduler.stop();
+
+    ASSERT_TRUE(position.has_value());
+    EXPECT_NEAR((*position)[0], 7.0, 1e-6);
+    EXPECT_NEAR((*position)[1], 8.0, 1e-6);
+    ASSERT_EQ(factory_calls.size(), 1u) << "one projector per worker";
+    EXPECT_EQ(factory_calls[0].first, (TrackingScope{"scene-1", "person"}));
+    EXPECT_EQ(factory_calls[0].second, 1u) << "the scene's cameras";
 }
 
 // Scheduler reads rotation_from_velocity per category: true, false, and no asset entry.
