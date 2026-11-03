@@ -216,16 +216,20 @@ patch_string_field_dependency_in_post(
 patch_points_to_2d("# Endpoint: /region/{uid}, method: Put")
 patch_points_to_2d("# Endpoint: /tripwire/{uid}, method: Put")
 
-# /video and /frame use the camera query param; wire it to the created camera ID.
+# /video and /frame require a configured camera with an active video pipeline.
 def patch_camera_query_param(marker: str):
     global text
     start, end, block = get_endpoint_block(text, marker)
     if block is None:
-        return
+        raise RuntimeError(f"Unable to find {marker}")
 
+    camera_parameter = 'primitives.restler_fuzzable_string("fuzzstring", quoted=False),'
+    if block.count(camera_parameter) != 1:
+        raise RuntimeError(f"Expected one camera query parameter in {marker}")
     block = block.replace(
-        'primitives.restler_fuzzable_string("fuzzstring", quoted=False),\n    primitives.restler_static_string(" HTTP/1.1\\r\\n"),',
-        'primitives.restler_static_string(_camera_post_sensor_id.reader(), quoted=False),\n    primitives.restler_static_string(" HTTP/1.1\\r\\n"),'
+        camera_parameter,
+        'primitives.restler_custom_payload("live_camera_id", quoted=False),',
+        1,
     )
 
     text = text[:start] + block + text[end:]

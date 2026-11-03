@@ -2,5 +2,8 @@
   "restler_custom_payload_uuid4_suffix": {
     "scene_name": "scene_",
     "scene_uid": "scene_uid_"
+  },
+  "restler_custom_payload": {
+    "live_camera_id": ["atag-qcam1", "atag-qcam2"]
   }
 }
