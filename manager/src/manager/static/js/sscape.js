@@ -10,6 +10,7 @@ import {
   DATA_REGULATED,
   IMAGE_CALIBRATE,
   IMAGE_CAMERA,
+  POSITIONING_POSE,
   SYS_CHILDSCENE_STATUS,
   REST_URL,
 } from "/static/js/constants.js";
@@ -26,6 +27,7 @@ import {
   initializeCalibrationSettings,
   startCameraCalibration,
   updateCalibrationView,
+  updateCalibrationPTZPose,
   handleAutoCalibrationPose,
   registerAutoCameraCalibration,
 } from "/static/js/calibration.js";
@@ -162,6 +164,11 @@ async function checkBrokerConnections() {
         console.log("Subscribed to " + $("#topic").val());
       }
 
+      // PTZ cameras: follow the live pose on the calibration page.
+      if ($("#ptz_calibration_version").val()) {
+        client.subscribe(APP_NAME + POSITIONING_POSE + $("#sensor_id").val());
+      }
+
       client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
       console.log(
         "Subscribed to " + APP_NAME + "/event/" + "+/" + scene_id + "/+/+",
@@ -288,6 +295,8 @@ async function checkBrokerConnections() {
         plotSingleton(msg);
       } else if (topic.includes(IMAGE_CALIBRATE)) {
         updateCalibrationView(msg);
+      } else if (topic.includes(POSITIONING_POSE)) {
+        updateCalibrationPTZPose(msg);
       } else if (topic.includes(IMAGE_CAMERA)) {
         // Skip processing regular camera images on calibration page
         if (window.location.href.includes("/cam/calibrate/")) {

@@ -156,3 +156,20 @@ travel of the axis.
 Manager publishes a camera configuration invalidation after the import commits, and
 Positioning reloads the calibration. Keep the dataset, the fit output, and the
 held-out residuals together with the `calibration_version` for shadow validation.
+
+## 8. Check the Live Pose in the UI
+
+For a camera with a `ptz_calibration` block, the 3D scene view and the camera
+calibration page follow the live pose that Positioning publishes on
+`scenescape/positioning/pose/<camera_uid>`. Use them to check the calibration
+visually:
+
+- After the camera stops and the pose is valid again, the camera frustum and the
+  projected frame show the new orientation. Turn on **project frame** in the 3D view.
+- While the camera is moving or settling, and when the pose is for another scene or
+  `calibration_version`, the projected frame is hidden.
+- The live pose is for display only. Saving the camera in the 3D view keeps the stored
+  home pose unless you edit the pose after the camera moves. The calibration page saves
+  only its calibration points.
+- Reload the page after you import a new `calibration_version`.
+- Without Positioning, the views use the stored home pose, as for other cameras.

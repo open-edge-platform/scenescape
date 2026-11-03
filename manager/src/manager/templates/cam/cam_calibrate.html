@@ -329,6 +329,11 @@ SPDX-License-Identifier: Apache-2.0
   <input type="hidden" id="sensor_id" value="{{ caminst.sensor_id }}" />
   <input
     type="hidden"
+    id="ptz_calibration_version"
+    value="{{ caminst.ptz_calibration.calibration_version|default:'' }}"
+  />
+  <input
+    type="hidden"
     id="generate-pipeline-url"
     value="{{ generated_pipeline_url }}"
   />

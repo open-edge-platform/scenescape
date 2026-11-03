@@ -265,6 +265,14 @@ function updateCalibrationView(msg) {
   $("#snapshot").trigger("click");
 }
 
+function updateCalibrationPTZPose(msg) {
+  camera_calibration.updatePTZPose(
+    msg,
+    $("#scene").val(),
+    $("#ptz_calibration_version").val(),
+  );
+}
+
 function handleAutoCalibrationPose(msg) {
   if (msg.status == "success") {
     camera_calibration.clearCalibrationPoints();
@@ -294,6 +302,7 @@ export {
   manageCalibrationState,
   initializeCalibrationSettings,
   updateCalibrationView,
+  updateCalibrationPTZPose,
   handleAutoCalibrationPose,
   setMqttForCalibration,
   getCalibrationServiceStatus,

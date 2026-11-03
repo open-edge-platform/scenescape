@@ -37,6 +37,7 @@ import {
   resizeRendererToDisplaySize,
   waitUntil,
 } from "/static/js/utils.js";
+import { ptzPoseToCameraMatrix, ptzMatricesClose } from "/static/js/ptzpose.js";
 
 export class ConvergedCameraCalibration {
   constructor() {
@@ -51,6 +52,9 @@ export class ConvergedCameraCalibration {
     this.calibrationRequestId = 0;
     this.calibrationFitState = "idle";
     this.rejectedPointIndices = [];
+    // Live PTZ pose state; null until a PoseContext is received.
+    this.ptzPoseValid = null;
+    this.ptzLiveMatrix = null;
 
     // Used for storing undistorted image for projection
     this.projectionImage = new Image();
@@ -1068,11 +1072,38 @@ export class ConvergedCameraCalibration {
   }
 
   projectImage(image, cameraMatrix) {
-    if (this.projectionEnabled === false) {
+    if (this.projectionEnabled === false || this.ptzPoseValid === false) {
       this.viewport.setProjectionVisibility(false);
       return;
     }
-    this.viewport.projectImage(image, cameraMatrix);
+    // For PTZ cameras the frame is captured at the live pose, not the fitted home pose.
+    if (this.ptzLiveMatrix) {
+      this.viewport.setCameraPose(this.ptzLiveMatrix);
+    }
+    this.viewport.projectImage(
+      image,
+      cameraMatrix,
+      () => this.ptzPoseValid !== false,
+    );
+  }
+
+  /**
+   * Shows the frame from the live PTZ pose (display only; Save uses calibration points).
+   * @param {Object} msg - Parsed PoseContext payload.
+   * @param {string} sceneID - UID of the scene that owns the camera.
+   * @param {string} calibrationVersion - PTZ calibration version of the camera.
+   */
+  updatePTZPose(msg, sceneID, calibrationVersion) {
+    const matrix = ptzPoseToCameraMatrix(msg, sceneID, calibrationVersion);
+    this.ptzPoseValid = matrix !== null;
+    if (!this.viewport || ptzMatricesClose(matrix, this.ptzLiveMatrix)) {
+      return;
+    }
+    // Hide the previous frame until one is captured at the new pose.
+    this.viewport.setProjectionVisibility(false);
+    if (matrix === null) return;
+    this.ptzLiveMatrix = matrix.clone();
+    this.viewport.setCameraPose(matrix);
   }
 
   updateCameraOpticalCenter(resolution, cameraMatrix) {
