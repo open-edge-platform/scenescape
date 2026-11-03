@@ -116,7 +116,9 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     py::arg("beta") = 1.0)
     .def("initialize",
         &rv::tracking::MultiModelKalmanEstimator::initialize,
-         "Initialize the MultiModelKalmanEstimator with the given tracked object.",
+         "Initialize the MultiModelKalmanEstimator with the given tracked object. process_noise, measurement_noise and "
+         "init_state_covariance mean the same as default_process_noise, default_measurement_noise and "
+         "init_state_covariance of TrackManagerConfig.",
          py::arg("tracked_object"),
          py::arg("timestamp"),
          py::arg("process_noise") = 1e-6,
@@ -203,11 +205,16 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("max_unreliable_time", &rv::tracking::TrackManagerConfig::mMaxUnreliableTime,
      "Amount of time (seconds) to measure an object before considering it a reliable object.")
     .def_readwrite("default_process_noise", &rv::tracking::TrackManagerConfig::mDefaultProcessNoise,
-     "Default process noise passed to the KalmanEstimator init function.")
+     "Process noise scale q (production: PRODUCTION_PROCESS_NOISE). Sets the velocity noise along and across the motion, "
+     "the CA acceleration and CTRV turn-rate noise, scaled by the time step; no direct position or size noise. Every q up "
+     "to 1e-6 gives the same velocity and turn-rate noise, and 0 does not turn it off. See 'Kalman filter settings' in the "
+     "robot_vision README.")
     .def_readwrite("default_measurement_noise", &rv::tracking::TrackManagerConfig::mDefaultMeasurementNoise,
-     "Default measurement noise passed to the KalmanEstimator init function.")
+     "Measurement noise r (production: PRODUCTION_MEASUREMENT_NOISE): r * I on x, y, z, length, width, height and yaw, "
+     "and the initial variance of position and size.")
     .def_readwrite("init_state_covariance", &rv::tracking::TrackManagerConfig::mInitStateCovariance,
-     "Default init state covariance passed to the KalmanEstimator init function.")
+     "Upper bound on the initial variance of velocity (0.05), acceleration (0.1), yaw (0.05) and yaw rate (0.01); every "
+     "value from 0.1 up gives the same filter (production: PRODUCTION_INIT_STATE_COVARIANCE).")
     .def_readwrite("motion_models", &rv::tracking::TrackManagerConfig::mMotionModels,
      "List of motion models to use. It defaults to [CV, CA, CTRV]")
      .def_readwrite("suspended_track_timeout_secs", &rv::tracking::TrackManagerConfig::mSuspendedTrackMaxAgeSecs,

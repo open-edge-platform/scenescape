@@ -24,6 +24,46 @@ python3 -m build --wheel
 pip3 install dist/robot_vision-X.X.X-cpXX-cpXXm-linux_x86_64.whl
 ```
 
+## Kalman filter settings
+
+`TrackManagerConfig` passes three settings to `MultiModelKalmanEstimator.initialize()` for every new track. The Scene
+Controller and the Tracker service do not read them from their configuration files: both use the production values
+`kProduction*` in [TrackManager.hpp](include/rv/tracking/TrackManager.hpp) (`tracking.PRODUCTION_*` in Python).
+
+| Python / C++ setting                                     | Production | Meaning                                                     |
+| -------------------------------------------------------- | ---------- | ----------------------------------------------------------- |
+| `default_process_noise` / `mDefaultProcessNoise`         | `1e-4`     | Scale `q` of the process noise                              |
+| `default_measurement_noise` / `mDefaultMeasurementNoise` | `0.2`      | Measurement noise `r`; initial variance of position, size   |
+| `init_state_covariance` / `mInitStateCovariance`         | `1.0`      | Upper bound `p` on the initial variance of the other states |
+
+The state is x, y, vx, vy, ax, ay, z, length, width, height, yaw and yaw rate; a detection measures x, y, z, length,
+width, height and yaw. Units are m, rad and s.
+
+**Process noise.** Before every predict, each motion model gets its own process noise from its velocity and the time
+step `dt` (at least 1 ms), with `q_v = max(1000 * q, 1e-3)`:
+
+- Position, z and size get no direct noise: the position uncertainty grows only through the velocity.
+- Velocity: `q_v * (1 + speed) * dt` along the direction of motion, `q_v / 100 * dt` across it. Below 1 mm/s the
+  along-track direction is world x.
+- Acceleration: CA gets the same 2×2 block as the velocity.
+- Turn rate: CTRV gets `q_v * dt`.
+- Yaw: `q / 100 * dt`.
+- A state the model resets to 0 (acceleration in CV and CTRV, turn rate in CV and CA) gets `1e-6 * dt`, which keeps the
+  covariance positive definite. CP, which is not a production model, gets the velocity block on the acceleration and
+  `q * dt` on the turn rate.
+
+Because of the floor in `q_v`, every `q` up to `1e-6` gives the same velocity and turn-rate noise, and `q = 0` does not
+turn the process noise off.
+
+**Measurement noise.** The measurement noise covariance is `r` times the identity on the seven measured values.
+
+**Initial covariance.** The initial covariance is diagonal: `r` for x, y, z, length, width and height, and `min(p, cap)`
+for the other states, with caps of 0.05 for velocity, 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. Every
+`p` from 0.1 up therefore gives the same filter as the production value.
+
+Earlier versions added `q` times the identity to all twelve states at every predict, independent of `dt`, and started
+from `p` times the identity. Values tuned for them do not carry over.
+
 ## Test scenario recordings
 
 Tests that use `ScenarioRecorder` ([test/support/ScenarioRecorder.hpp](test/support/ScenarioRecorder.hpp)) write the
