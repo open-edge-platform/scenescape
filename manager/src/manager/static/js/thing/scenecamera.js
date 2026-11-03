@@ -1216,6 +1216,7 @@ export default class SceneCamera extends THREE.Object3D {
     //convert to y-down before saving
     this.togglePoseYupYdown(camera);
 
+    const resolution = this.intrinsicsResolution();
     let cameraData = {
       sensor_id: this.cameraUID,
       name: this.name,
@@ -1230,10 +1231,17 @@ export default class SceneCamera extends THREE.Object3D {
       transform_type: "euler",
       // Sensor-frame metadata, never thumbnail JPEG dimensions.
       resolution: {
-        width: this.intrinsicsResolution().w,
-        height: this.intrinsicsResolution().h,
+        width: resolution.w,
+        height: resolution.h,
       },
     };
+    // On first save, persist the panel principal point with the sensor frame
+    // (centered when resolution came from the live stream). Updates keep the
+    // prior pose-only payload so calibrated optics are not overwritten here.
+    if (!this.isStoredInDB) {
+      cameraData.intrinsics = this.intrinsics;
+      cameraData.distortion = this.distortion;
+    }
 
     if (this.cameraUID && this.mqttClient && this.isVARunning) {
       // Publish intrinsics to MQTT to update Video Analytics
@@ -1449,8 +1457,20 @@ export default class SceneCamera extends THREE.Object3D {
       console.warn("Ignoring invalid sensor resolution:", resolution);
       return;
     }
+    const previous = this.resolution || DEFAULT_RESOLUTION;
+    const wasCentered =
+      this.intrinsics &&
+      Math.abs(this.intrinsics.cx - previous.w / 2) < 1e-6 &&
+      Math.abs(this.intrinsics.cy - previous.h / 2) < 1e-6;
     this.resolution = { w, h };
     this.hasAuthoritativeResolution = true;
+    // When the principal point was still centered on the previous frame (the
+    // 640x480 defaults 320/240, or any prior center), follow the new sensor
+    // size so a 1280x720 stream persists cx/cy = 640/360. Off-center
+    // calibrations are left alone.
+    if (wasCentered) {
+      this.intrinsics = { ...this.intrinsics, cx: w / 2, cy: h / 2 };
+    }
   }
 
   showCameraOnline() {

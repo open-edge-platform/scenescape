@@ -981,10 +981,15 @@ class Cam(Sensor):
       except Cam.DoesNotExist:
         pass
 
+    # Prefer a principal point centered on the registered sensor frame so a
+    # create with resolution 1280x720 (and no explicit cx/cy) stores 640,360
+    # instead of the 640x480-era defaults 320,240.
     if self.intrinsics_cx is None:
-      self.intrinsics_cx = self.DEFAULT_INTRINSICS['cx']
+      self.intrinsics_cx = (
+        float(self.width) / 2.0 if self.width else self.DEFAULT_INTRINSICS['cx'])
     if self.intrinsics_cy is None:
-      self.intrinsics_cy = self.DEFAULT_INTRINSICS['cy']
+      self.intrinsics_cy = (
+        float(self.height) / 2.0 if self.height else self.DEFAULT_INTRINSICS['cy'])
     if self.intrinsics_fx is None:
       self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
     if self.intrinsics_fy is None:

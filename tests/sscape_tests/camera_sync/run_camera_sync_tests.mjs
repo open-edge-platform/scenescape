@@ -791,6 +791,37 @@ test("missing resolution uses intrinsics fallback; invalid metadata is ignored",
   assert.deepEqual(plain(camera.intrinsicsResolution()), { w: 1920, h: 1080 });
 });
 
+test("1280x720 stream recenters default principal point before first save", async () => {
+  const camera = await sceneCameraHarness();
+  camera.isStoredInDB = false;
+  camera.resolution = { w: 640, h: 480 };
+  camera.intrinsics = { fx: 570, fy: 570, cx: 320, cy: 240 };
+  camera.hasAuthoritativeResolution = false;
+  camera.updateCameraResolutionUsingInputFrame({ resolution: [1280, 720] });
+  assert.deepEqual(plain(camera.resolution), { w: 1280, h: 720 });
+  assert.equal(camera.intrinsics.cx, 640);
+  assert.equal(camera.intrinsics.cy, 360);
+  const payload = {
+    resolution: { width: camera.resolution.w, height: camera.resolution.h },
+    intrinsics: camera.intrinsics,
+  };
+  assert.equal(payload.resolution.width, 1280);
+  assert.equal(payload.resolution.height, 720);
+  assert.equal(payload.intrinsics.cx, 640);
+  assert.equal(payload.intrinsics.cy, 360);
+});
+
+test("off-center principal point is not recentered when resolution updates", async () => {
+  const camera = await sceneCameraHarness();
+  camera.resolution = { w: 640, h: 480 };
+  camera.intrinsics = { fx: 900, fy: 1000, cx: 800, cy: 500 };
+  camera.updateCameraResolutionUsingInputFrame({
+    resolution: { width: 1920, height: 1080 },
+  });
+  assert.equal(camera.intrinsics.cx, 800);
+  assert.equal(camera.intrinsics.cy, 500);
+});
+
 test("latest optics update the existing camera without resetting its live pose", async () => {
   const camera = await sceneCameraHarness();
   const sceneCamera = camera.sceneCamera;

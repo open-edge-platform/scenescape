@@ -224,6 +224,58 @@ class CameraOpticsRegistrationTestCase(TestCase):
   def test_registration_without_pixel_intrinsics_retains_default(self):
     camera = self.register(intrinsics={'fov': 70})
     self.assertEqual([camera.width, camera.height], [640, 480])
+    self.assertEqual(camera.intrinsics_cx, 320.0)
+    self.assertEqual(camera.intrinsics_cy, 240.0)
+
+  def test_api_create_with_1280x720_centers_principal_point(self):
+    """API create with demo video resolution and no cx/cy centers the frame."""
+    camera = self.register(resolution=[1280, 720])
+    camera.refresh_from_db()
+    self.assertEqual([camera.width, camera.height], [1280, 720])
+    self.assertEqual(camera.intrinsics_cx, 640.0)
+    self.assertEqual(camera.intrinsics_cy, 360.0)
+    self.assertEqual(
+      CamSerializer(camera).data['intrinsics']['cx'], 640.0)
+    self.assertEqual(
+      CamSerializer(camera).data['intrinsics']['cy'], 360.0)
+
+  def test_api_create_with_resolution_object_centers_principal_point(self):
+    camera = self.register(resolution={'width': 1280, 'height': 720})
+    self.assertEqual([camera.intrinsics_cx, camera.intrinsics_cy], [640.0, 360.0])
+
+  def test_orm_create_with_resolution_centers_principal_point(self):
+    """UI/ORM create path (Cam.save) centers cx/cy on the registered frame."""
+    scene = Scene.objects.create(name="cxcy_scene", scale=100.0)
+    camera = Cam.objects.create(
+      sensor_id="cxcy_cam",
+      name="CxCy Cam",
+      type="camera",
+      scene=scene,
+      width=1280,
+      height=720,
+    )
+    camera.refresh_from_db()
+    self.assertEqual([camera.intrinsics_cx, camera.intrinsics_cy], [640.0, 360.0])
+
+  def test_create_form_default_resolution_keeps_legacy_center(self):
+    scene = Scene.objects.create(name="form_cxcy_scene", scale=100.0)
+    form = CamCreateForm(data={
+      'sensor_id': 'form_cxcy',
+      'name': 'Form CxCy',
+      'scene': scene.pk,
+      'pose_locked': False,
+    })
+    self.assertTrue(form.is_valid(), form.errors)
+    camera = form.save()
+    self.assertEqual([camera.width, camera.height], [640, 480])
+    self.assertEqual([camera.intrinsics_cx, camera.intrinsics_cy], [320.0, 240.0])
+
+  def test_explicit_off_center_principal_point_is_preserved(self):
+    camera = self.register(
+      resolution=[1280, 720],
+      intrinsics={'fx': 900, 'fy': 900, 'cx': 610, 'cy': 350},
+    )
+    self.assertEqual([camera.intrinsics_cx, camera.intrinsics_cy], [610.0, 350.0])
 
   def test_non_optical_updates_still_require_name(self):
     camera = self.register()

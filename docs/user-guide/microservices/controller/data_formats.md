@@ -81,8 +81,12 @@ frame dimensions change. Intrinsics and distortion updates are persisted even wh
 resolution does not change. Omitted dimensions preserve the registered resolution.
 For a **new registration only**, pixel intrinsics without dimensions use a logged,
 centered-principal-point estimate (`2*cx`, `2*cy`) rather than silently retaining the
-640x480 model default. This is an estimate, not a substitute for explicit dimensions
-with off-center calibration. Existing registrations are not retrospectively inferred.
+640x480 model default. Conversely, a create that supplies `resolution` (for example
+`[1280, 720]` from a demo stream) without `cx`/`cy` stores a principal point at the
+frame center (`width/2`, `height/2`, so `640`, `360` for 1280×720) instead of the
+legacy `320`, `240` defaults. This is an estimate, not a substitute for explicit
+dimensions with off-center calibration. Existing registrations are not retrospectively
+inferred.
 The 3D UI refreshes persisted optics on database notifications and consumes current
 optics from camera metadata and image responses without replacing the camera pose.
 
