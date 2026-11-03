@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
 
 # -------------- Controller Builder Stage --------------
 FROM intel/scenescape-common-base AS scenescape-controller-builder
