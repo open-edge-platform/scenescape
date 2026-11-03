@@ -34,6 +34,7 @@ import {
   PTZPoseExpiry,
   expiredPTZPoseContext,
   isPTZMoving,
+  isPTZPositionUnknown,
   ptzMatricesClose,
   ptzPoseToCameraMatrix,
 } from "/static/js/ptzpose.js";
@@ -211,6 +212,8 @@ export default class SceneCamera extends THREE.Object3D {
     this.ptzSceneID = params.scene;
     this.ptzPoseValid = null;
     this.ptzMoving = false;
+    // Positioning reported an invalid pose while not moving; the home pose is shown.
+    this.ptzPositionUnknown = false;
     this.ptzFrameGate = new PTZFrameGate();
     this.ptzPoseExpiry = new PTZPoseExpiry();
     this.ptzLiveMatrix = null;
@@ -944,6 +947,7 @@ export default class SceneCamera extends THREE.Object3D {
       this.ptzCalibrationVersion,
     );
     this.ptzMoving = isPTZMoving(msg);
+    this.ptzPositionUnknown = isPTZPositionUnknown(msg);
     this.ptzFrameGate.update(msg, Boolean(livePose), this.ptzMoving);
     this.ptzPoseExpiry.arm(livePose ? msg : null, () =>
       this.updatePTZPose(JSON.stringify(expiredPTZPoseContext())),
@@ -971,7 +975,7 @@ export default class SceneCamera extends THREE.Object3D {
   // Calibration and pose edits are for the home pose; block them while the PTZ is away.
   isPTZAwayFromHome() {
     if (!this.ptzCalibrationVersion) return false;
-    if (this.ptzMoving) return true;
+    if (this.ptzMoving || this.ptzPositionUnknown) return true;
     if (!this.ptzPoseValid || !this.ptzLiveMatrix || !this.ptzHomeMatrix) {
       return false;
     }

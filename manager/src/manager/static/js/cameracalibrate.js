@@ -45,6 +45,7 @@ import {
   expiredPTZPoseContext,
   isPTZAwayFromHomePose,
   isPTZMoving,
+  isPTZPositionUnknown,
   ptzMatricesClose,
   ptzPoseToCameraMatrix,
   sceneFromCameraToCameraMatrix,
@@ -66,6 +67,8 @@ export class ConvergedCameraCalibration {
     // Live PTZ pose state; null until a PoseContext is received.
     this.ptzPoseValid = null;
     this.ptzMoving = false;
+    // Positioning reported an invalid pose while not moving; the home pose is shown.
+    this.ptzPositionUnknown = false;
     this.ptzLiveMatrix = null;
     this.ptzLivePoseMatrix = null;
     // Stored home pose matrix: undefined while loading, null when unavailable.
@@ -1173,6 +1176,7 @@ export class ConvergedCameraCalibration {
   updatePTZPose(msg, sceneID, calibrationVersion, cameraUID) {
     this.loadPTZHomePose(cameraUID);
     this.ptzMoving = isPTZMoving(msg);
+    this.ptzPositionUnknown = isPTZPositionUnknown(msg);
     let matrix = ptzPoseToCameraMatrix(msg, sceneID, calibrationVersion);
     this.ptzFrameGate.update(msg, Boolean(matrix), this.ptzMoving);
     this.ptzPoseExpiry.arm(matrix ? msg : null, () =>
@@ -1306,7 +1310,7 @@ export class ConvergedCameraCalibration {
 
   // Auto calibration and Save are for the home pose, not the current frame.
   isPTZAwayFromHome() {
-    if (this.ptzMoving) return true;
+    if (this.ptzMoving || this.ptzPositionUnknown) return true;
     if (!this.ptzPoseValid || !this.ptzHomePoseMatrix) return false;
     return isPTZAwayFromHomePose(
       this.ptzHomePoseMatrix,

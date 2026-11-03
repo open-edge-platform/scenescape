@@ -187,8 +187,10 @@ visually:
 - Reload the page after you import a new `calibration_version`.
 - Without Positioning, or while the camera is not moving and Positioning has no usable
   pose for it (for example `backlash_unknown` until the camera first visits home after a
-  restart), the views use the stored home pose, as for other cameras. A pose is no
-  longer used after its `valid_until`, so the views also return to the home pose when
-  Positioning stops publishing. A retained pose that has already expired when a page
-  opens is ignored; the check allows for 2 s of difference between the browser and
-  Positioning clocks.
+  restart, a stale sample, or a missing calibration), the views use the stored home
+  pose, as for other cameras. While Positioning reports such an invalid pose, the
+  camera may still be turned away, so Auto Calibrate and Save stay blocked; move the
+  camera home so that Positioning reports a valid pose. A pose is no longer used after
+  its `valid_until`, so the views also return to the home pose when Positioning stops
+  publishing. A retained pose that has already expired when a page opens is ignored;
+  the check allows for 2 s of difference between the browser and Positioning clocks.

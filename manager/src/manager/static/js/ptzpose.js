@@ -154,6 +154,10 @@ class PTZPoseExpiry {
   }
 }
 
+// reason_detail of the UI's own expiry when Positioning stops publishing; not a
+// Positioning value, so it is never confused with a reported invalid pose.
+const PTZ_LOCAL_EXPIRY_DETAIL = "expired_in_ui";
+
 // Stands in for the PoseContext a consumer would see for an expired pose.
 function expiredPTZPoseContext() {
   return {
@@ -161,7 +165,7 @@ function expiredPTZPoseContext() {
     valid: false,
     motion_state: "unknown",
     invalid_reason: "pose_expired",
-    reason_detail: "sample_stale",
+    reason_detail: PTZ_LOCAL_EXPIRY_DETAIL,
   };
 }
 
@@ -248,6 +252,23 @@ function isPTZAwayFromHomePose(homeMatrix, liveMatrix) {
 function isPTZMoving(msg) {
   return (
     !!msg && (msg.motion_state === "slewing" || msg.motion_state === "settling")
+  );
+}
+
+/**
+ * Whether Positioning reports that it cannot tell where a stopped camera points,
+ * for example backlash_unknown after a restart, a stale sample, or a missing
+ * calibration. The views then show the stored home pose, but the camera may be
+ * turned anywhere, so it must not count as being at home.
+ * @param {Object} msg - Parsed PoseContext payload.
+ * @returns {boolean}
+ */
+function isPTZPositionUnknown(msg) {
+  return (
+    !!msg &&
+    msg.valid === false &&
+    !isPTZMoving(msg) &&
+    msg.reason_detail !== PTZ_LOCAL_EXPIRY_DETAIL
   );
 }
 
@@ -344,4 +365,5 @@ export {
   createPTZPointMapper,
   isPTZAwayFromHomePose,
   isPTZMoving,
+  isPTZPositionUnknown,
 };

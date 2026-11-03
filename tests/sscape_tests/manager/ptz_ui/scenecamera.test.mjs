@@ -21,6 +21,7 @@ import {
   movedPose,
   poseContext,
   spy,
+  UNKNOWN_POSITIONS,
 } from "./helpers.mjs";
 
 const { default: SceneCamera } =
@@ -102,9 +103,8 @@ test("a moving camera is away from home and its frame is hidden", () => {
   assert.ok(ptzMatricesClose(cameraMatrix(camera), HOME_CAMERA));
 });
 
-test("unknown position and mismatched poses fall back to the home pose", () => {
+test("mismatched poses fall back to the home pose", () => {
   for (const fallback of [
-    { motionState: "unknown" },
     { matrix: movedPose(0.3), version: "cam-v2" },
     { matrix: movedPose(0.3), frameId: "scene:other" },
   ]) {
@@ -114,6 +114,30 @@ test("unknown position and mismatched poses fall back to the home pose", () => {
     assert.ok(ptzMatricesClose(cameraMatrix(camera), HOME_CAMERA));
     assert.equal(camera.ptzPoseValid, true);
     assert.equal(camera.isPTZAwayFromHome(), false);
+  }
+});
+
+test("unknown position shows the home pose but blocks save and auto calibration", async () => {
+  for (const unknown of Object.values(UNKNOWN_POSITIONS)) {
+    const camera = makeCamera();
+    pose(camera, { matrix: movedPose(0.2) });
+    pose(camera, unknown);
+    assert.ok(ptzMatricesClose(cameraMatrix(camera), HOME_CAMERA));
+    assert.equal(camera.ptzPoseValid, true);
+    assert.equal(camera.isPTZAwayFromHome(), true, unknown.reasonDetail);
+
+    await camera.saveSettings();
+    globalThis.__ptzStubCalls = {};
+    await camera.autoCalibrate();
+    assert.equal(camera.updateExistingCamera.calls.length, 0);
+    assert.equal(
+      globalThis.__ptzStubCalls["js/calibration.js#startCameraCalibration"],
+      undefined,
+    );
+    assert.equal(camera.toast.showToast.calls.length, 2, unknown.reasonDetail);
+
+    pose(camera, { matrix: HOME });
+    assert.equal(camera.isPTZAwayFromHome(), false, "valid pose at home");
   }
 });
 

@@ -11,9 +11,11 @@ import {
   PTZFrameGate,
   PTZPoseExpiry,
   createPTZPointMapper,
+  expiredPTZPoseContext,
   isPTZAwayFromHomePose,
   isPTZMoving,
   isPTZPoseExpired,
+  isPTZPositionUnknown,
   ptzMatricesClose,
   ptzPoseToCameraMatrix,
   sceneFromCameraToCameraMatrix,
@@ -30,6 +32,7 @@ import {
   project,
   rotationXYZ,
   spy,
+  UNKNOWN_POSITIONS,
   withRotation,
 } from "./helpers.mjs";
 
@@ -312,4 +315,22 @@ test("a live pose expires unless a newer one arrives in its lifetime", (t) => {
   expiry.arm(null, onExpire);
   t.mock.timers.tick(1000);
   assert.equal(onExpire.calls.length, 1, "cancelled without a live pose");
+});
+
+test("invalid poses of a stopped camera mean its position is unknown", () => {
+  for (const [name, unknown] of Object.entries(UNKNOWN_POSITIONS)) {
+    assert.equal(isPTZPositionUnknown(poseContext(unknown)), true, name);
+  }
+  assert.equal(isPTZPositionUnknown(poseContext()), false, "valid pose");
+  assert.equal(
+    isPTZPositionUnknown(poseContext({ motionState: "slewing" })),
+    false,
+    "moving is reported separately",
+  );
+  assert.equal(
+    isPTZPositionUnknown(expiredPTZPoseContext()),
+    false,
+    "the UI's own expiry when Positioning stops",
+  );
+  assert.equal(isPTZPositionUnknown(null), false);
 });

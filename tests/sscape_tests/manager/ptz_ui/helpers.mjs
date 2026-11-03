@@ -83,6 +83,8 @@ export function poseContext({
   lifetimeMs = 500,
   version = VERSION,
   frameId = `scene:${SCENE_ID}`,
+  invalidReason,
+  reasonDetail,
 } = {}) {
   const context = {
     timestamp,
@@ -91,6 +93,10 @@ export function poseContext({
     motion_state: motionState,
     calibration_version: version,
   };
+  if (!valid && reasonDetail) {
+    context.invalid_reason = invalidReason;
+    context.reason_detail = reasonDetail;
+  }
   if (valid) {
     context.pose = {
       frame_id: frameId,
@@ -136,3 +142,28 @@ export function spy(implementation = () => undefined) {
   fn.calls = [];
   return fn;
 }
+
+// Invalid PoseContexts the Resolver publishes for a camera that is not moving.
+export const UNKNOWN_POSITIONS = {
+  backlash_unknown: {
+    motionState: "unknown",
+    invalidReason: "invalid_pose",
+    reasonDetail: "backlash_unknown",
+  },
+  sample_stale: {
+    motionState: "unknown",
+    invalidReason: "pose_expired",
+    reasonDetail: "sample_stale",
+  },
+  calibration_missing: {
+    motionState: "stationary",
+    valid: false,
+    invalidReason: "invalid_pose",
+    reasonDetail: "calibration_missing",
+  },
+  no_sample: {
+    motionState: "unknown",
+    invalidReason: "no_pose_available",
+    reasonDetail: "no_sample",
+  },
+};

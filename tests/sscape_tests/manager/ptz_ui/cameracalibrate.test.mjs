@@ -15,6 +15,7 @@ import {
   poseContext,
   rotationXYZ,
   spy,
+  UNKNOWN_POSITIONS,
   withRotation,
 } from "./helpers.mjs";
 
@@ -160,15 +161,34 @@ test("frames without a timestamp show pending points immediately", async () => {
   assert.equal(shown.state, "moved");
 });
 
-test("unknown position falls back to the stored home pose", async () => {
-  const { calibration, shown } = await loadedAtHome();
-  pose(calibration, { matrix: movedPose(0.2), timestamp: isoAt(1) });
-  pose(calibration, { motionState: "unknown", timestamp: isoAt(2) });
-  assert.equal(shown.state, "home");
-  assert.equal(calibration.ptzPoseValid, true);
-  assert.equal(calibration.isPTZAwayFromHome(), false);
-  const homePose = calibration.viewport.setCameraPose.calls.at(-1)[0];
-  assert.ok(homePose.elements.every(Number.isFinite));
+test("unknown position shows the stored home pose but is not at home", async () => {
+  for (const unknown of Object.values(UNKNOWN_POSITIONS)) {
+    const { calibration, shown } = await loadedAtHome();
+    pose(calibration, { matrix: movedPose(0.2), timestamp: isoAt(1) });
+    pose(calibration, { ...unknown, timestamp: isoAt(2) });
+    assert.equal(shown.state, "home", unknown.reasonDetail);
+    assert.equal(calibration.ptzPoseValid, true);
+    assert.equal(calibration.isPTZAwayFromHome(), true, unknown.reasonDetail);
+    const homePose = calibration.viewport.setCameraPose.calls.at(-1)[0];
+    assert.ok(homePose.elements.every(Number.isFinite));
+
+    pose(calibration, { matrix: HOME, timestamp: isoAt(3) });
+    assert.equal(calibration.isPTZAwayFromHome(), false, "valid pose at home");
+  }
+});
+
+test("Save Camera is blocked while the position is unknown", async () => {
+  const { calibration } = await loadedAtHome();
+  calibration.setupSaveCameraButton();
+  pose(calibration, {
+    ...UNKNOWN_POSITIONS.backlash_unknown,
+    timestamp: isoAt(1),
+  });
+  globalThis.alert.calls.length = 0;
+  form.submit.calls.length = 0;
+  form.handlers.submit({ preventDefault() {} });
+  assert.deepEqual(globalThis.alert.calls, [[PTZ_AWAY_MESSAGE]]);
+  assert.equal(form.submit.calls.length, 0);
 });
 
 test("a pose for another calibration version falls back to home", async () => {
@@ -192,6 +212,7 @@ test("without a stored home pose the page behaves as for other cameras", async (
   pose(calibration, { motionState: "unknown", timestamp: isoAt(1) });
   assert.equal(calibration.ptzPoseValid, null);
   assert.equal(shown.state, "home");
+  assert.equal(calibration.isPTZAwayFromHome(), true, "position unknown");
 });
 
 test("away from home covers moving and turned cameras", async () => {
@@ -338,7 +359,7 @@ test("asynchronous projection work for an earlier pose is dropped", async () => 
   assert.equal(viewport.projectImage.calls.length, before, "late undistortion");
 });
 
-test("an expired retained pose is treated as an unknown position", async () => {
+test("an expired retained pose shows home and keeps Save allowed", async () => {
   const { calibration, shown } = await loadedAtHome();
   pose(calibration, { matrix: movedPose(0.2), timestamp: isoAt(-60) });
   assert.equal(shown.state, "home");
