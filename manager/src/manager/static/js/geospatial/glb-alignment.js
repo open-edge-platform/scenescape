@@ -26,9 +26,10 @@ function pointInPolygon(pt, corners) {
   return inside;
 }
 
-function normalizeHeading(v) {
+// Capped below 360 so the heading never wraps to 0 at the slider end.
+function clampHeading(v) {
   const num = Number(v);
-  return isFinite(num) ? ((num % 360) + 360) % 360 : null;
+  return isFinite(num) ? Math.min(359.9, Math.max(0, num)) : null;
 }
 
 function dragAnchor(anchor, grab, cur) {
@@ -95,7 +96,7 @@ class GlbAlignment {
     });
 
     const updateHeading = (e) => {
-      const h = normalizeHeading(e.target.value);
+      const h = clampHeading(e.target.value);
       if (h !== null && this.anchor) {
         this.anchor.heading_deg = h;
         this.ui.headingNumber.value = h.toFixed(1);
@@ -203,6 +204,7 @@ class GlbAlignment {
 
       const corners = this._corners();
       this._strategy().setOverlay(this.staged.imageUrl, corners, this.opacity);
+      this._strategy().fitToCorners(corners);
       e.target.value = "";
     } catch (error) {
       this.ui.status.textContent = error.message;
@@ -378,7 +380,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     GlbAlignment,
     pointInPolygon,
-    normalizeHeading,
+    clampHeading,
     dragAnchor,
   };
 }

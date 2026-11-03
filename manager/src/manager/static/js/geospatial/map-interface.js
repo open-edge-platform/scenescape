@@ -68,6 +68,10 @@ class MapInterface {
     throw new Error("Method 'removeOverlay' must be implemented");
   }
 
+  fitToCorners(corners) {
+    throw new Error("Method 'fitToCorners' must be implemented");
+  }
+
   // Common utility methods
   calculateScale(lat, zoom) {
     // Earth's circumference at equator in meters

@@ -339,6 +339,18 @@ class MapboxPlugin extends MapInterface {
     }
   }
 
+  fitToCorners(corners) {
+    const lngs = corners.map((c) => c.lng);
+    const lats = corners.map((c) => c.lat);
+    this.map.fitBounds(
+      [
+        [Math.min(...lngs), Math.min(...lats)],
+        [Math.max(...lngs), Math.max(...lats)],
+      ],
+      { padding: 40, maxZoom: 20, duration: 0 },
+    );
+  }
+
   async saveSnapshotToServer(imageData) {
     try {
       console.log("Saving snapshot to server...");

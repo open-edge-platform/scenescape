@@ -170,7 +170,8 @@ def remove_stored_file(storage, name):
 def commit_glb(scene, token, anchor, acknowledged):
   """Make a staged GLB the scene map, with corners computed from the anchor.
 
-  Scene.save() re-aligns the mesh, regenerates the thumbnail and notifies the controller.
+  Scene.save() skips the thumbnail when the map name and alignment are unchanged,
+  so the thumbnail is rendered here.
   @return  saved_alignment(scene)
   """
   path = staged_glb_path(token)
@@ -195,6 +196,7 @@ def commit_glb(scene, token, anchor, acknowledged):
       scene.trs_matrix = None
       scene.osm_ways_cache = None
       scene.osm_ways_cache_bbox = None
+      scene.saveThumbnail()
       scene.save()
   except Exception:
     if scene.map.name != old_map:

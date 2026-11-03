@@ -81,6 +81,7 @@ class TestGlbAlignment:
     assert res["fetches"][1]["headers"]["X-CSRFToken"] == "tok"
     assert res["fetches"][1]["body"]["formData"][0][0] == "file"
     assert any("setOverlay" in str(c) for c in res["calls"])
+    assert any("fitToCorners" in str(c) for c in res["calls"])
 
   def test_upload_error(self):
     """Failed GLB preview upload displays error."""
@@ -259,6 +260,42 @@ class TestGlbAlignment:
     assert res["ok"]
     assert res["anchor"]["heading_deg"] == 90.0
     assert res["dirty"] is True
+
+  def test_heading_update_clamps_out_of_range(self):
+    """Heading above 359.9 or below 0 is clamped, not wrapped."""
+    preview_resp = {
+      "status": 200,
+      "body": {
+        "token": "tok1",
+        "preview_url": "/img.png",
+        "footprint_m": {"width": 100, "height": 60},
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "existing_content": {},
+      },
+    }
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [{"status": 404, "body": {}}, preview_resp],
+        "steps": [["upload"], ["heading", "360"]],
+      },
+    )
+    assert res["ok"]
+    assert res["anchor"]["heading_deg"] == 359.9
+
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [{"status": 404, "body": {}}, preview_resp],
+        "steps": [["upload"], ["heading", "-5"]],
+      },
+    )
+    assert res["ok"]
+    assert res["anchor"]["heading_deg"] == 0
 
   def test_accept_saves_and_reloads(self):
     """Accept saves anchor and triggers reload."""
@@ -488,11 +525,13 @@ class TestGlbAlignment:
     assert res["controlsDisplay"] == "none"
     assert any("removeOverlay" in str(c) for c in res["calls"])
 
-  def test_helpers_normalize_heading(self):
-    """normalizeHeading wraps angles correctly."""
-    res = run_js("helpers", {"fn": "normalizeHeading", "args": [-10]})
-    assert res["ok"]
-    assert res["result"] == 350
+  def test_helpers_clamp_heading(self):
+    """clampHeading clamps to [0, 359.9] instead of wrapping."""
+    cases = {-10: 0, 360: 359.9, 400: 359.9, 90: 90, 359.9: 359.9, "abc": None}
+    for value, expected in cases.items():
+      res = run_js("helpers", {"fn": "clampHeading", "args": [value]})
+      assert res["ok"]
+      assert res["result"] == expected
 
   def test_helpers_drag_anchor_clamp(self):
     """dragAnchor clamps latitude to [-85, 85]."""

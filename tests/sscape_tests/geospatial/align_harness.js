@@ -115,6 +115,9 @@ function load(args) {
     removeOverlay(...a) {
       this.calls.push(["removeOverlay", ...a]);
     },
+    fitToCorners(...a) {
+      this.calls.push(["fitToCorners", ...a]);
+    },
   };
 
   const ctx = vm.createContext({
@@ -150,7 +153,7 @@ function load(args) {
     fs.readFileSync(path.join(jsDir, "geo-overlay-math.js"), "utf8") + "\n";
   src += fs.readFileSync(path.join(jsDir, "glb-alignment.js"), "utf8") + "\n";
   src +=
-    ";this.__api = {GlbAlignment, pointInPolygon, normalizeHeading, dragAnchor};";
+    ";this.__api = {GlbAlignment, pointInPolygon, clampHeading, dragAnchor};";
 
   vm.runInContext(src, ctx);
 
@@ -226,13 +229,13 @@ const scenarios = {
 
   helpers(args) {
     const { ctx } = load(args);
-    const { pointInPolygon, normalizeHeading, dragAnchor } = ctx.__api;
+    const { pointInPolygon, clampHeading, dragAnchor } = ctx.__api;
     if (args.fn === "pointInPolygon") {
       const result = pointInPolygon(args.args[0], args.args[1]);
       return { ok: true, result };
     }
-    if (args.fn === "normalizeHeading") {
-      const result = normalizeHeading(args.args[0]);
+    if (args.fn === "clampHeading") {
+      const result = clampHeading(args.args[0]);
       return { ok: true, result };
     }
     if (args.fn === "dragAnchor") {

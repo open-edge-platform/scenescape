@@ -439,6 +439,13 @@ class GoogleMapsPlugin extends MapInterface {
     }
   }
 
+  fitToCorners(corners) {
+    const bounds = new google.maps.LatLngBounds();
+    corners.forEach((c) => bounds.extend({ lat: c.lat, lng: c.lng }));
+    this.map.fitBounds(bounds, 40);
+    if (this.map.getZoom() > 20) this.map.setZoom(20);
+  }
+
   async saveSnapshotToServer(imageData) {
     try {
       console.log("Saving snapshot to server...");

@@ -356,6 +356,23 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     # sendUpdateCommand scheduled
     self.mqtt_mock.assert_called_with(scene_id=self.scene.id)
 
+  def test_commit_stores_thumbnail_when_save_skips_regeneration(self):
+    """Thumbnail is stored on commit even when Scene.save() skips regenerating it."""
+    self._create_old_map()
+    token = self._stage_glb()
+    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}, 'acknowledge_frame_change': False}
+
+    with patch.object(Scene, "regenerateThumbnail", return_value=False):
+      with self.captureOnCommitCallbacks(execute=True):
+        resp = self.client.post(
+          reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+          data=json.dumps(body), content_type='application/json'
+        )
+
+    self.assertEqual(resp.status_code, 200)
+    self.scene.refresh_from_db()
+    self.assertTrue(self.scene.thumbnail)
+
   def test_commit_anchor_round_trips_with_tolerance(self):
     """GET after commit returns anchor matching posted within 1e-6 deg / 0.01 deg heading."""
     token = self._stage_glb()
@@ -730,5 +747,33 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     self.assertIsNotNone(self.scene.map_corners_lla)
     self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
     self.mqtt_mock.assert_called_with(scene_id=self.scene.id)
+
+
+class TestScenePagesMapImage(TestCase):
+  """Scene pages show a map image only when the map file is an image."""
+
+  def setUp(self):
+    self.user = User.objects.create_superuser("admin", "admin@intel.com", "pass")
+    self.client.force_login(self.user)
+
+  def _scene_with_map(self, map_name):
+    scene = Scene.objects.create(name="pages_scene", map_type="geospatial_map")
+    Scene.objects.filter(pk=scene.pk).update(map=map_name)
+    scene.refresh_from_db()
+    return scene
+
+  def test_glb_map_without_thumbnail_is_not_rendered_as_image(self):
+    scene = self._scene_with_map("pages_scene.glb")
+    for url in (reverse('sceneDetail', args=[scene.id]), reverse('index')):
+      resp = self.client.get(url)
+      self.assertEqual(resp.status_code, 200)
+      self.assertNotContains(resp, f'src="{scene.map.url}"')
+
+  def test_image_map_without_thumbnail_is_rendered(self):
+    scene = self._scene_with_map("pages_scene.png")
+    for url in (reverse('sceneDetail', args=[scene.id]), reverse('index')):
+      resp = self.client.get(url)
+      self.assertEqual(resp.status_code, 200)
+      self.assertContains(resp, f'src="{scene.map.url}"')
 
 

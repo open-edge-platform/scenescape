@@ -41,7 +41,7 @@ SPDX-License-Identifier: Apache-2.0
                 src="{{ scene.thumbnail.url }}"
                 alt="{{ scene.name }}"
               />
-            {% elif scene.map %}
+            {% elif scene.map and scene.map.name|lower|slice:"-4:" != ".glb" %}
               <img
                 class="cover"
                 src="{{ scene.map.url }}"
