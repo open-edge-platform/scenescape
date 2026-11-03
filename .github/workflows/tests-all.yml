@@ -282,18 +282,6 @@ jobs:
           dockerhub-token: ${{ secrets.DOCKERHUB_TOKEN }}
           ghcr-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # tests/sscape_tests/manager/test_ptz_ui_js.py runs the Manager PTZ UI modules
-      # with Node.js and three.js, which the Manager image build normally downloads.
-      - name: "Set up Node.js for Manager UI unit tests"
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: "22"
-
-      - name: "Download three.js for Manager UI unit tests"
-        run: |
-          mkdir -p build/intel
-          make -C manager src/manager/static/assets/three.module.js
-
       - name: "Run Unit Tests"
         run: |
           source tests/.venv/bin/activate
