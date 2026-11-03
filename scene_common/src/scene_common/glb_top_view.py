@@ -129,6 +129,16 @@ def getMeshSize(mesh):
   size = (mesh.get_axis_aligned_bounding_box().get_extent()).numpy()
   return size
 
+def thumbnailResolution(glb_size):
+  """! Largest resolution within THUMBNAIL_RESOLUTION that keeps the mesh aspect ratio.
+  The overlay stretches the image onto the footprint, so the aspect must match.
+  @param  glb_size           mesh dimensions [width, height, depth].
+
+  @return (res_x, res_y)     pixel resolution.
+  """
+  scale = min(THUMBNAIL_RESOLUTION['x'] / glb_size[0], THUMBNAIL_RESOLUTION['y'] / glb_size[1])
+  return max(1, int(round(glb_size[0] * scale))), max(1, int(round(glb_size[1] * scale)))
+
 def generateOrthoView(scene_obj, glb_file):
   """! generates the orthographic perspective of 3d glb.
   @param  scene_obj          Scene object.
@@ -141,12 +151,14 @@ def generateOrthoView(scene_obj, glb_file):
                                 scene_obj.rotation_y,
                                 scene_obj.rotation_z])
   triangle_mesh, tensor_mesh = extractMeshFromGLB(glb_file, rotation_vector)
-  triangle_mesh.translate((scene_obj.translation_x, scene_obj.translation_y, 0.0))
+  # Frame from the mesh's own min corner: the stored translation places the map in the scene and must not shift the image.
+  triangle_mesh.translate(-triangle_mesh.get_axis_aligned_bounding_box().min_bound.numpy())
 
   glb_size = getMeshSize(triangle_mesh)
+  res_x, res_y = thumbnailResolution(glb_size)
   img, pixels_per_meter = renderTopView(triangle_mesh,
                                         tensor_mesh,
                                         glb_size,
-                                        THUMBNAIL_RESOLUTION['x'],
-                                        THUMBNAIL_RESOLUTION['y'])
+                                        res_x,
+                                        res_y)
   return np.array(img), pixels_per_meter

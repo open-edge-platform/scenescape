@@ -7,6 +7,8 @@ import cv2
 import pytest
 import numpy as np
 import copy
+import shutil
+import tempfile
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -16,6 +18,8 @@ from controller.tracking import Tracking
 
 from scene_common.timestamp import get_epoch_time
 from scene_common.geometry import Point
+from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints, convertXYZToLLA, localFootprintCornersLLA
+from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY, getPosedMeshFootprint
 
 from tests.sscape_tests.scene_pytest.config import *
 
@@ -443,7 +447,7 @@ def test_trs_xyz_to_lla_is_cached_and_invalidate_resets(scene_obj, monkeypatch):
     calls['count'] += 1
     return np.array([[1.0]])
 
-  monkeypatch.setattr(scene_module, 'getMeshAxisAlignedProjectionToXY', lambda mesh: np.array([[0, 0, 0]]))
+  monkeypatch.setattr(scene_obj, 'mapFootprintCorners', lambda: np.array([[0, 0, 0]]))
   monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', _fake_calc)
   scene_obj.output_lla = True
   scene_obj.map_corners_lla = [[0, 0, 0], [1, 1, 1]]
@@ -501,3 +505,205 @@ def test_processCameraData_processes_each_detection_type(scene_obj, camera_obj, 
   assert [call[0] for call in finished] == ['person', 'vehicle']
   assert finished[0][1] == ['person']
   assert finished[1][1] == ['vehicle']
+
+
+def test_mapFootprintCorners_png_characterization():
+  """! Characterization/regression test for PNG maps: mapFootprintCorners returns
+  the raw mesh footprint (getMeshAxisAlignedProjectionToXY), and pose is ignored.
+  """
+  scene = scene_module.Scene("test", "tests/resources/maps/HazardZoneSceneLarge.png", 1000)
+  assert scene.map_triangle_mesh is not None
+
+  # Get raw footprint
+  raw_footprint = getMeshAxisAlignedProjectionToXY(scene.map_triangle_mesh)
+  assert raw_footprint.shape == (4, 3)
+
+  # Footprint should be identical to mapFootprintCorners for PNG
+  assert np.array_equal(scene.mapFootprintCorners(), raw_footprint)
+
+  # Calculate mesh footprint size
+  min_x = raw_footprint[:, 0].min()
+  min_y = raw_footprint[:, 1].min()
+  max_x = raw_footprint[:, 0].max()
+  max_y = raw_footprint[:, 1].max()
+  W = max_x - min_x
+  H = max_y - min_y
+
+  # Create LLA corners for this footprint
+  map_corners_lla = localFootprintCornersLLA(37.0, -121.0, 20, W, H)
+  assert map_corners_lla.shape == (4, 3)
+
+  # Configure scene for LLA transformation
+  scene.output_lla = True
+  scene.map_corners_lla = map_corners_lla
+
+  # Get the TRS matrix
+  trs_mat = scene.trs_xyz_to_lla
+  assert trs_mat is not None
+
+  # Verify it matches manual calculation
+  expected_trs = calculateTRSLocal2LLAFromSurfacePoints(raw_footprint, map_corners_lla)
+  assert np.array_equal(trs_mat, expected_trs)
+
+  # Verify pose is ignored for PNG: set rotation/translation and verify footprint is unchanged
+  scene._invalidate_trs_xyz_to_lla()
+  scene.mesh_rotation = [90, 0, 0]
+  scene.mesh_translation = [1, 2, 3]
+
+  # Footprint should still be the same for PNG
+  assert np.array_equal(scene.mapFootprintCorners(), raw_footprint)
+
+  # TRS matrix should be unchanged
+  new_trs = scene.trs_xyz_to_lla
+  assert np.array_equal(new_trs, expected_trs)
+
+
+def test_mapFootprintCorners_glb_posed_mesh():
+  """! Test GLB maps: mapFootprintCorners returns the posed mesh footprint when
+  mesh_rotation and mesh_translation are set.
+  """
+  # Create a temporary directory and copy the GLB file
+  with tempfile.TemporaryDirectory() as tmp_dir:
+    glb_src = "tests/sscape_tests/mesh_util/test_data/scene.glb"
+    glb_dst = f"{tmp_dir}/scene.glb"
+    shutil.copy(glb_src, glb_dst)
+
+    # Create scene from GLB
+    scene = scene_module.Scene("test", glb_dst)
+    assert scene.map_triangle_mesh is not None
+
+    # Get raw aligned footprint (unposed)
+    raw_footprint = getMeshAxisAlignedProjectionToXY(scene.map_triangle_mesh)
+    assert raw_footprint.shape == (4, 3)
+
+    # Compute default aligned pose: rotation [90,0,0]
+    rotation = [90, 0, 0]
+    posed_corners = getPosedMeshFootprint(scene.map_triangle_mesh, rotation, [0, 0, 0])
+    W = posed_corners[:, 0].max() - posed_corners[:, 0].min()
+    H = posed_corners[:, 1].max() - posed_corners[:, 1].min()
+
+    # Get min corner of posed footprint
+    min_x = posed_corners[:, 0].min()
+    min_y = posed_corners[:, 1].min()
+
+    # Set translation to move posed footprint to origin
+    scene.mesh_rotation = rotation
+    scene.mesh_translation = [-min_x, -min_y, 0]
+
+    # Verify mapFootprintCorners matches posed footprint
+    map_footprint = scene.mapFootprintCorners()
+    assert map_footprint.shape == (4, 3)
+
+    # Min corner should be at (0, 0)
+    min_corner = map_footprint[:, :2].min(axis=0)
+    assert np.allclose(min_corner, [0, 0], atol=1e-6)
+
+    # Footprint should span W x H
+    actual_W = map_footprint[:, 0].max() - map_footprint[:, 0].min()
+    actual_H = map_footprint[:, 1].max() - map_footprint[:, 1].min()
+    assert np.isclose(actual_W, W, atol=1e-6)
+    assert np.isclose(actual_H, H, atol=1e-6)
+
+    # Test LLA transformation
+    scene.output_lla = True
+    scene.map_corners_lla = localFootprintCornersLLA(37.0, -121.0, 35.0, W, H)
+
+    trs_mat = scene.trs_xyz_to_lla
+    assert trs_mat is not None
+
+    # Verify corners map to LLA corners within 1 meter
+    map_corners_lla = scene.map_corners_lla
+    for i, xyz_corner in enumerate(map_footprint):
+      lla_corner = convertXYZToLLA(trs_mat, xyz_corner)
+      lla_expected = map_corners_lla[i]
+      # Convert lat/lng difference to approximate metres (rough: 1 degree ≈ 111 km)
+      lat_err_m = np.abs(lla_corner[0] - lla_expected[0]) * 111000
+      lng_err_m = np.abs(lla_corner[1] - lla_expected[1]) * 111000 * np.cos(np.radians(lla_expected[0]))
+      max_err = max(lat_err_m, lng_err_m)
+      assert max_err <= 1.0, f"Corner {i}: {max_err}m error"
+
+    # Verify raw footprint differs from posed footprint (shows bug fix matters)
+    assert not np.array_equal(raw_footprint, map_footprint), \
+      "Raw and posed footprints should differ for GLB with non-trivial pose"
+
+    # GLB with no pose cannot be placed in the scene frame: raise instead of returning the unposed footprint
+    scene2 = scene_module.Scene("test2", glb_dst)
+    scene2.mesh_rotation = None
+    scene2.mesh_translation = None
+    with pytest.raises(ValueError, match="without mesh_rotation/mesh_translation"):
+      scene2.mapFootprintCorners()
+
+    # Test invalidation: change mesh_translation and verify matrix changes
+    scene._invalidate_trs_xyz_to_lla()
+    scene.mesh_translation = [-min_x + 1, -min_y + 1, 0]  # Shift by 1 meter
+    new_trs = scene.trs_xyz_to_lla
+    assert not np.array_equal(new_trs, trs_mat), \
+      "TRS matrix should change when mesh_translation changes"
+
+
+def test_mapFootprintCorners_honours_mesh_scale():
+  """! mapFootprintCorners applies scene.mesh_scale to the GLB footprint.
+
+  Scaling X by 2 under a 90 deg X rotation leaves X untouched by the rotation,
+  so the footprint width doubles and the height is unchanged.
+  """
+  with tempfile.TemporaryDirectory() as tmp_dir:
+    glb_dst = f"{tmp_dir}/scene.glb"
+    shutil.copy("tests/sscape_tests/mesh_util/test_data/scene.glb", glb_dst)
+    scene = scene_module.Scene("test", glb_dst)
+    scene.mesh_rotation = [90, 0, 0]
+    scene.mesh_translation = [0, 0, 0]
+
+    scene.mesh_scale = None
+    base = scene.mapFootprintCorners()
+    base_w = base[:, 0].max() - base[:, 0].min()
+    base_h = base[:, 1].max() - base[:, 1].min()
+
+    scene.mesh_scale = [2.0, 1.0, 1.0]
+    scaled = scene.mapFootprintCorners()
+    scaled_w = scaled[:, 0].max() - scaled[:, 0].min()
+    scaled_h = scaled[:, 1].max() - scaled[:, 1].min()
+
+    assert np.isclose(scaled_w, 2.0 * base_w, atol=1e-6)
+    assert np.isclose(scaled_h, base_h, atol=1e-6)
+
+
+def test_trs_xyz_to_lla_none_without_pose():
+  """! GLB map without pose: trs_xyz_to_lla returns None instead of raising, so
+  callers treat the georeference as unavailable.
+  """
+  with tempfile.TemporaryDirectory() as tmp_dir:
+    glb_dst = f"{tmp_dir}/scene.glb"
+    shutil.copy("tests/sscape_tests/mesh_util/test_data/scene.glb", glb_dst)
+    scene = scene_module.Scene("test", glb_dst)
+    scene.output_lla = True
+    scene.map_corners_lla = localFootprintCornersLLA(37.0, -121.0, 35.0, 10.0, 10.0)
+    scene.mesh_rotation = None
+    scene.mesh_translation = None
+    scene._invalidate_trs_xyz_to_lla()
+
+    assert scene.trs_xyz_to_lla is None
+
+
+def test_updateScene_refreshes_glb_mesh_pose_and_footprint():
+  """! A pose edit reaches an existing GLB scene on update, so the posed footprint follows it."""
+  with tempfile.TemporaryDirectory() as tmp_dir:
+    glb_dst = f"{tmp_dir}/scene.glb"
+    shutil.copy("tests/sscape_tests/mesh_util/test_data/scene.glb", glb_dst)
+    scene = scene_module.Scene("test", glb_dst)
+    scene.updateScene({
+      'name': 'test', 'mesh_rotation': [90, 0, 0], 'mesh_translation': [0, 0, 0], 'mesh_scale': [1, 1, 1],
+    })
+    before = scene.mapFootprintCorners()
+    before_w = before[:, 0].max() - before[:, 0].min()
+
+    scene.updateScene({
+      'name': 'test', 'mesh_rotation': [90, 0, 0], 'mesh_translation': [1, 2, 0], 'mesh_scale': [2, 1, 1],
+    })
+    after = scene.mapFootprintCorners()
+    after_w = after[:, 0].max() - after[:, 0].min()
+
+    assert scene.mesh_translation == [1, 2, 0]
+    assert scene.mesh_scale == [2, 1, 1]
+    assert np.isclose(after_w, 2.0 * before_w, atol=1e-6)
+

@@ -167,7 +167,7 @@ def prepareObjDict(scene, obj, update_visibility, include_sensors=False,
   if rotation is not None:
     obj_dict['rotation'] = rotation
 
-  if scene and scene.output_lla:
+  if scene and scene.output_lla and scene.trs_xyz_to_lla is not None:
     lat_long_alt = convertXYZToLLA(scene.trs_xyz_to_lla, scene_loc_vector)
     obj_dict['lat_long_alt'] = lat_long_alt.tolist()
     heading = calculateHeading(scene.trs_xyz_to_lla, aobj.sceneLoc.asCartesianVector, velocity.asCartesianVector)

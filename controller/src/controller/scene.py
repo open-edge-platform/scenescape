@@ -13,7 +13,6 @@ from scene_common.geometry import Point
 from scene_common.scene_model import SceneModel
 from scene_common.timestamp import get_epoch_time
 from scene_common.transform import CameraPose
-from scene_common.mesh_util import getMeshAxisAlignedProjectionToXY
 
 from scene_common.camera_registry import CameraRegistry
 from scene_common.reid_constants import REID_PROVENANCE_KEY
@@ -173,10 +172,20 @@ class Scene(SceneModel):
       self.regulated_rate = scene_data['regulated_rate']
     if 'external_update_rate' in scene_data:
       self.external_update_rate = scene_data['external_update_rate']
+    self._hydrateMeshPose(scene_data)
+    return
+
+  def _hydrateMeshPose(self, scene_data):
+    if 'mesh_translation' in scene_data:
+      self.mesh_translation = scene_data['mesh_translation']
+    if 'mesh_rotation' in scene_data:
+      self.mesh_rotation = scene_data['mesh_rotation']
+    if 'mesh_scale' in scene_data:
+      self.mesh_scale = scene_data['mesh_scale']
     self._invalidate_trs_xyz_to_lla()
     # Access the property to trigger initialization
-    _ = self.trs_xyz_to_lla
-    return
+    if self.trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
+      log.error(f"Scene {self.name}: georeference unavailable; check the GLB mesh pose")
 
   def updateScene(self, scene_data):
     self._hydrateFromSceneData(scene_data, reid_runtime_update=True)
@@ -394,8 +403,6 @@ class Scene(SceneModel):
                 reid_config_data=reid_config_data,
                 pose_adjustment_config_data=pose_adjustment_config_data)
     scene.uid = data['uid']
-    scene.mesh_translation = data.get('mesh_translation', None)
-    scene.mesh_rotation = data.get('mesh_rotation', None)
     scene._hydrateFromSceneData(data, reid_runtime_update=False)
     return scene
 
@@ -421,9 +428,13 @@ class Scene(SceneModel):
     Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
 
     The matrix is calculated lazily on first access and cached for subsequent calls.
+    Returns None when the georeference is unavailable (e.g. a GLB map without pose).
     """
     if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
-      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+      try:
+        mesh_corners_xyz = self.mapFootprintCorners()
+      except ValueError:
+        return None
       self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
     return self._trs_xyz_to_lla
 

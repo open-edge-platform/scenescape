@@ -33,11 +33,12 @@ from django.views.generic import DetailView, ListView, TemplateView
 from django.views.generic.edit import CreateView, DeleteView, UpdateView
 from django.core.files.storage import default_storage
 from django.urls import reverse
+from rest_framework.exceptions import ParseError
 from rest_framework.views import APIView
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 
 from manager.api import IsAdminOrReadOnly
-from manager import osm_query, osm_roi
+from manager import osm_query, osm_roi, glb_alignment
 from manager.ppl_generator import generate_pipeline_string_from_dict, PipelineGenerationValueError, PipelineGenerationNotImplementedError
 from manager.models import Scene, ChildScene, \
   Cam, Asset3D, \
@@ -1166,6 +1167,83 @@ class OsmRois(APIView):
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
     return JsonResponse({'created': created})
+
+
+class GeospatialGlbPreview(APIView):
+  """Stage an uploaded GLB and return a top-down preview PNG, its footprint and a default anchor.
+
+  The anchor defaults to the scene's saved map centre with heading 0. Nothing on the scene
+  is modified; the staged files are removed after the TTL or when the request fails.
+  """
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def post(self, request, scene_uid):
+    token = None
+    try:
+      scene = glb_alignment.get_geospatial_scene(scene_uid)
+      if scene.map_center_lat is None or scene.map_center_lng is None:
+        return JsonResponse({'error': 'Scene map centre is not set'}, status=400)
+      upload = request.FILES.get('file')
+      if upload is None or not upload.name.lower().endswith('.glb'):
+        return JsonResponse({'error': 'A .glb file is required in the "file" field'}, status=400)
+
+      token = glb_alignment.stage_glb(upload)
+      footprint, px_per_m = glb_alignment.build_preview(token)
+      return JsonResponse({
+        'token': token,
+        'preview_url': f'{settings.MEDIA_URL}{glb_alignment.STAGING_SUBDIR}/{token}.png',
+        'footprint_m': footprint,
+        'anchor': {'lat': scene.map_center_lat, 'lng': scene.map_center_lng, 'heading_deg': 0.0},
+        'px_per_m': px_per_m,
+        'existing_content': glb_alignment.existing_content(scene),
+      })
+    except glb_alignment.GlbAlignmentError as e:
+      return JsonResponse({'error': e.message}, status=e.status)
+    except Exception as e:
+      log.error(f"Error in geospatial GLB preview: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      if token:
+        glb_alignment.remove_staged_files(token)
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+
+class GeospatialGlb(APIView):
+  """Commit a staged GLB to a scene, or retrieve an already-committed geospatial GLB's alignment."""
+  authentication_classes = [SessionAuthentication, TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
+
+  def get(self, request, scene_uid):
+    try:
+      scene = glb_alignment.get_geospatial_scene(scene_uid)
+      return JsonResponse(glb_alignment.saved_alignment(scene))
+    except glb_alignment.GlbAlignmentError as e:
+      return JsonResponse({'error': e.message}, status=e.status)
+    except Exception as e:
+      log.error(f"Error in geospatial GLB GET: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+  def post(self, request, scene_uid):
+    try:
+      try:
+        data = request.data
+      except ParseError:
+        data = None
+      if not isinstance(data, dict):
+        return JsonResponse({'error': 'Request body must be a JSON object'}, status=400)
+      scene = glb_alignment.get_geospatial_scene(scene_uid)
+      token = data.get('token')
+      anchor = data.get('anchor')
+      acknowledged = data.get('acknowledge_frame_change', False)
+      result = glb_alignment.commit_glb(scene, token, anchor, acknowledged)
+      return JsonResponse(result)
+    except glb_alignment.GlbAlignmentError as e:
+      return JsonResponse({'error': e.message}, status=e.status)
+    except Exception as e:
+      log.error(f"Error in geospatial GLB POST: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
 
 @superuser_required
