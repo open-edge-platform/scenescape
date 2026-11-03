@@ -468,7 +468,8 @@ TEST(MotionScenarioTest, StraightLineMatchesConstantVelocityFilter)
 
 TEST(MotionScenarioTest, ConstantVelocityConvergence)
 {
-  // Same scenario and tolerance as the constant-velocity tests in tests/sscape_tests/robot_vision/tracking_test.py.
+  // Same scenario and tolerance as the constant-velocity tests in tests/sscape_tests/robot_vision/tracking_test.py,
+  // where VELOCITY_TOLERANCE explains why it is 0.05 m/s.
   constexpr double kTolerance = 0.05;
   const struct
   {
