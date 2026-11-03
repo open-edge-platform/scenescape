@@ -81,17 +81,7 @@ class ReIDService:
       vectors = validate_vectors(request["reid_vectors"], early_dimensions, early_metric)
     else:
       vectors = validate_vector_matrix(request["reid_vectors"])
-    constraints = request.get("constraints", {})
-    reserved = {"set_name", "k_neighbors", "object_type", "reid_vectors", "operation", "confidence_threshold"}
-    if not isinstance(constraints, dict) or reserved & constraints.keys():
-      raise ValueError("constraints must be an object of metadata filters")
-    options = {}
-    if "k_neighbors" in request:
-      neighbors = request["k_neighbors"]
-      if (isinstance(neighbors, bool) or not isinstance(neighbors, (int, float))
-              or not 1 <= neighbors <= 1000 or int(neighbors) != neighbors):
-        raise ValueError("k_neighbors must be an integer from 1 to 1000")
-      options["k_neighbors"] = int(neighbors)
+    constraints, options = self._queryOptions(request)
     dimensions, schema_metric = self._querySchema(set_name)
     if dimensions is None:
       if not live_query:
@@ -103,6 +93,22 @@ class ReIDService:
     matches = self._backend_call(search_adapter.findMatches, request["object_type"], vectors,
                                  set_name=request.get("set_name"), **options, **constraints)
     return {"matches": matches}
+
+  @staticmethod
+  def _queryOptions(request: dict) -> tuple[dict, dict]:
+    """Validate metadata filters and optional neighbor limits before querying the backend."""
+    constraints = request.get("constraints", {})
+    reserved = {"set_name", "k_neighbors", "object_type", "reid_vectors", "operation", "confidence_threshold"}
+    if not isinstance(constraints, dict) or reserved & constraints.keys():
+      raise ValueError("constraints must be an object of metadata filters")
+    options = {}
+    if "k_neighbors" in request:
+      neighbors = request["k_neighbors"]
+      if (isinstance(neighbors, bool) or not isinstance(neighbors, (int, float))
+              or not 1 <= neighbors <= 1000 or int(neighbors) != neighbors):
+        raise ValueError("k_neighbors must be an integer from 1 to 1000")
+      options["k_neighbors"] = int(neighbors)
+    return constraints, options
 
   def _searchAdapter(self, set_name, metric, dimensions):
     """Use a collection-scoped adapter when the query targets a non-live set."""
