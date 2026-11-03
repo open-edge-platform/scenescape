@@ -18,6 +18,7 @@ set(TEST_SOURCES
   OrientationFusionTests.cpp
   ScenarioRecorderTests.cpp
   UnscentedKalmanFilterTests.cpp
+  YawEstimationTests.cpp
 )
 
 add_executable(${EXEC_NAME} ${TEST_SOURCES})

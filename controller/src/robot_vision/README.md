@@ -55,7 +55,8 @@ step `dt` (at least 1 ms), with `q_v = max(1000 * q, 1e-3)`:
 Because of the floor in `q_v`, every `q` up to `1e-6` gives the same velocity and turn-rate noise, and `q = 0` does not
 turn the process noise off.
 
-**Measurement noise.** The measurement noise covariance is `r` times the identity on the seven measured values.
+**Measurement noise.** The measurement noise covariance is `r` times the identity on the seven measured values. A
+detection without a usable orientation does not observe yaw: its update leaves the yaw row out.
 
 **Initial covariance.** The initial covariance is diagonal: `r` for x, y, z, length, width and height, and `min(p, cap)`
 for the other states, with caps of 0.05 for velocity, 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. Every

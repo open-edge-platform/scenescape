@@ -11,6 +11,7 @@
 #include <opencv2/tracking.hpp>
 #include <opencv2/tracking/kalman_filters.hpp>
 #include <typeinfo>
+#include <vector>
 
 namespace cv {
 namespace detail {
@@ -25,6 +26,23 @@ template <> bool inline callHalCholesky<float>(float *L, size_t lstep, int lsize
 template <> bool inline callHalCholesky<double>(double *L, size_t lstep, int lsize)
 {
   return hal::Cholesky64f(L, lstep, lsize, NULL, 0, 0);
+}
+
+// Rows `rows` of `matrix`.
+inline Mat selectRows(const Mat &matrix, const std::vector<int> &rows)
+{
+  Mat selected(static_cast<int>(rows.size()), matrix.cols, matrix.type());
+  for (size_t i = 0; i < rows.size(); ++i)
+  {
+    matrix.row(rows[i]).copyTo(selected.row(static_cast<int>(i)));
+  }
+  return selected;
+}
+
+// Rows and columns `indices` of a square `matrix`.
+inline Mat selectBlock(const Mat &matrix, const std::vector<int> &indices)
+{
+  return selectRows(Mat(selectRows(matrix, indices).t()), indices).t();
 }
 
 template <typename _Tp> bool inline choleskyDecomposition(const _Tp *A, size_t astep, int asize, _Tp *L, size_t lstep)
@@ -110,6 +128,11 @@ public:
   // perform correction step
   // measurement - current measurement vector, MP x 1
   Mat correct(InputArray measurement) override;
+
+  // perform correction step with only some measurement components observed; the others are left out of the update
+  // measurement - current measurement vector, MP x 1
+  // observedRows - indices of the observed components, ascending
+  Mat correct(InputArray measurement, const std::vector<int> &observedRows);
 
   //  Get system parameters
   Mat getProcessNoiseCov() const override;

@@ -211,6 +211,26 @@ Mat UnscentedKalmanFilterMod::correct(InputArray _measurement)
   return state.clone();
 }
 
+Mat UnscentedKalmanFilterMod::correct(InputArray _measurement, const std::vector<int> &observedRows)
+{
+  if (static_cast<int>(observedRows.size()) == MP)
+  {
+    return correct(_measurement);
+  }
+
+  // Same update as correct(measurement), restricted to the observed rows of y, y* and Syy.
+  Mat measurement = _measurement.getMat();
+  Mat predictedStateSPCenter;
+  subtract(sigmaPoints, repeat(state, 1, 2 * DP + 1), predictedStateSPCenter);
+  xyCov = predictedStateSPCenter * Wc * selectRows(measurementSPFuncValsCenter, observedRows).t();
+
+  gain = xyCov * selectBlock(yyCov, observedRows).inv(DECOMP_SVD);
+  state = state + gain * (selectRows(measurement, observedRows) - selectRows(measurementEstimate, observedRows));
+  errorCov = errorCov - gain * xyCov.t();
+
+  return state.clone();
+}
+
 Mat UnscentedKalmanFilterMod::getProcessNoiseCov() const
 {
   return processNoiseCov.clone();

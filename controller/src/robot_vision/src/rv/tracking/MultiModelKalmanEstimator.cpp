@@ -9,6 +9,9 @@
 #include "rv/tracking/Classification.hpp"
 #include "rv/tracking/OrientationAttributes.hpp"
 
+#include <numeric>
+#include <vector>
+
 namespace rv {
 namespace tracking {
 
@@ -21,6 +24,18 @@ predictedMeasurement(cv::detail::tracking::UkfSystemModel &model, const cv::Mat 
   cv::Mat measurementView(measurement, false); // the model writes h(state) straight into measurement
   model.measurementFunction(state, noise, measurementView);
   return measurement;
+}
+
+// Measurement components a prepared detection observes: yaw only with a usable orientation.
+std::vector<int> observedMeasurementRows(const TrackedObject &measurement)
+{
+  std::vector<int> rows(TrackedObject::MeasurementSize);
+  std::iota(rows.begin(), rows.end(), 0);
+  if (!orientation::hasOrientation(measurement))
+  {
+    rows.pop_back(); // measurementVector() ends with yaw
+  }
+  return rows;
 }
 
 } // namespace
@@ -338,7 +353,8 @@ void MultiModelKalmanEstimator::singleModelCorrect(const TrackedObject &measurem
 {
   auto newMeasurement = measurement;
   orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
-  auto correctedState = mKalmanFilters[0]->correct(newMeasurement.measurementVector());
+  auto correctedState
+    = mKalmanFilters[0]->correct(newMeasurement.measurementVector(), observedMeasurementRows(newMeasurement));
 
   mCurrentState.errorCovariance = mKalmanFilters[0]->getErrorCov();
   mCurrentState.setStateVector(correctedState);
@@ -359,6 +375,7 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
 
   auto newMeasurement = measurement;
   orientation::prepareYawMeasurement(mCurrentState, newMeasurement);
+  const auto observedRows = observedMeasurementRows(newMeasurement);
 
   std::vector<cv::Mat> states;
   std::vector<cv::Mat> covariances;
@@ -367,19 +384,21 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
 
   for (std::size_t i = 0; i < mNumberOfModels; ++i)
   {
-    auto correctedState = mKalmanFilters[i]->correct(newMeasurement.measurementVector());
+    auto correctedState = mKalmanFilters[i]->correct(newMeasurement.measurementVector(), observedRows);
     mSystemModelStates[i].setStateVector(correctedState);
 
     states.push_back(correctedState);
     covariances.push_back(mKalmanFilters[i]->getErrorCov());
-    predictedMeasurements.push_back(cv::Mat(mSystemModelStates[i].predictedMeasurementMean));
-    measurementCovariances.push_back(mKalmanFilters[i]->getMeasurementCov());
+    predictedMeasurements.push_back(
+      cv::detail::tracking::selectRows(cv::Mat(mSystemModelStates[i].predictedMeasurementMean), observedRows));
+    measurementCovariances.push_back(
+      cv::detail::tracking::selectBlock(mKalmanFilters[i]->getMeasurementCov(), observedRows));
   }
 
   cv::Mat combinedState;
   cv::Mat combinedCovariance;
 
-  updateModelProbability(cv::Mat(newMeasurement.measurementVector()),
+  updateModelProbability(cv::detail::tracking::selectRows(cv::Mat(newMeasurement.measurementVector()), observedRows),
                          predictedMeasurements,
                          measurementCovariances,
                          mModelProbability,

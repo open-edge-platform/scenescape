@@ -226,7 +226,7 @@ TEST(MotionScenarioTest, TracksMotionCases)
      .maxFinalSpeedError = 0.01},
     {.name = "turn",
      .truth = Trajectory({.speed = 3.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).straight(2.0).sample(kFps),
-     .maxPositionError = 0.65,
+     .maxPositionError = 0.55,
      .maxFinalSpeedError = 0.05},
     {.name = "sudden stop",
      .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(3.0).accelerate(-10.0, 0.5).straight(4.5).sample(kFps),
@@ -241,19 +241,19 @@ TEST(MotionScenarioTest, TracksMotionCases)
                 .accelerate(-2.0, 2.0)
                 .straight(1.0)
                 .sample(kFps),
-     .maxPositionError = 0.6,
-     .maxFinalSpeedError = 0.25},
+     .maxPositionError = 0.45,
+     .maxFinalSpeedError = 0.2},
     {.name = "circle, car",
      .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 8.0).sample(kFps),
-     .maxPositionError = 0.65,
-     .maxFinalSpeedError = 0.2},
+     .maxPositionError = 0.6,
+     .maxFinalSpeedError = 0.25},
     {.name = "turn, person",
      .truth = Trajectory({.speed = 1.5, .box = kPerson}).straight(2.0).turn(0.4, 6.0).sample(kFps),
-     .maxPositionError = 0.5,
-     .maxFinalSpeedError = 0.1},
-    // Error peaks at 0.4-0.7 m in the seconds after a corner, while the estimated speed drops to 0.8-1.4 m/s and then
-    // overshoots to 1.8 m/s. The path ends with a corner, so the final speed is taken in that dip.
-    {.name = "rectangular path", .truth = rectangle.sample(kFps), .maxPositionError = 0.8, .maxFinalSpeedError = 0.2},
+     .maxPositionError = 0.35,
+     .maxFinalSpeedError = 0.12},
+    // Error peaks at 0.3-0.5 m in the seconds after a corner, while the estimated speed drops to 1.0-1.3 m/s and then
+    // overshoots to 1.6 m/s. The path ends with a corner, so the final speed is taken in that dip.
+    {.name = "rectangular path", .truth = rectangle.sample(kFps), .maxPositionError = 0.65, .maxFinalSpeedError = 0.3},
   };
   constexpr double kWarmUp = 2.0;
 
