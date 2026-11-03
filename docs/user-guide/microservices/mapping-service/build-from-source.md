@@ -94,6 +94,31 @@ Each build produces a container image with a single model. The API and runtime a
 - Entry points (`mapanything_service.py` or `vggt_service.py`) are set up for each model.
 - Model weights are downloaded at runtime. Volume mounts ensure that the downloaded weights are persistent and do not require repeated downloads.
 
+#### Runtime Dependency Policy
+
+The production images install the shared API requirements and the selected model's
+requirements together with its editable package in one dependency resolution.
+Upstream demo requirements are not installed: the service exposes its Flask API,
+not the standalone Gradio, Viser, or COLMAP demos. Gradio's Pillow constraint
+conflicts with the patched Pillow version required by the service.
+
+The model sources receive small, checked-in runtime dependency patches during the
+build. These align the upstream OpenCV metadata with the service's headless OpenCV
+pin, align VGGT's NumPy metadata with its runtime requirements, and remove an unused
+Gradio import from VGGT's visualization helper. Review these patches when updating
+the upstream model commits.
+
+For MapAnything, the build also verifies the SHA-256 of the UniCeption 0.1.6 source
+archive and patches out its unused TorchAudio dependency. This keeps Torch 2.13
+without installing TorchAudio for a different Torch release. The patched package
+participates in normal dependency resolution; dependency checks are not bypassed.
+Review the archive hash and patch when updating UniCeption.
+
+Dependency installation and `pip check` must succeed or the build fails. Before
+publishing, verify model imports, image preprocessing and mesh export in both
+variants, run the Mapping tests, and scan the final runtime images with Trivy.
+Standalone upstream demo applications are not supported by these production images.
+
 ## Testing
 
 See `tests/README.md` for detailed testing instructions.
