@@ -4,7 +4,6 @@
 # ---------------------------
 # Stage 1: Build RESTler and Python deps
 # ---------------------------
-# RESTler publishes net8.0 applications; keep the SDK and runtime on .NET 8.
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS builder
 
 # Install Python and pip (using the .NET SDK image's underlying Debian)
