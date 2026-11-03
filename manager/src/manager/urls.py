@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2021 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 '''
@@ -48,6 +48,10 @@ urlpatterns = [
   path('asset/create/', views.AssetCreateView.as_view(), name='asset_create'),
   path('asset/update/<int:pk>/', views.AssetUpdateView.as_view(), name='asset_update'),
   path('asset/delete/<int:pk>/', views.AssetDeleteView.as_view(), name='asset_delete'),
+  path('pipeline/list/', views.PipelineListView.as_view(), name='pipeline_list'),
+  path('pipeline/create/', views.PipelineCreateView.as_view(), name='pipeline_create'),
+  path('pipeline/update/<int:pk>/', views.PipelineUpdateView.as_view(), name='pipeline_update'),
+  path('pipeline/delete/<int:pk>/', views.PipelineDeleteView.as_view(), name='pipeline_delete'),
   path('child/create/', views.ChildCreateView.as_view(), name='child_create'),
   path('child/update/<int:pk>/', views.ChildUpdateView.as_view(), name='child_update'),
   path('child/delete/<int:pk>/', views.ChildDeleteView.as_view(), name='child_delete'),
@@ -56,6 +60,8 @@ urlpatterns = [
   path('account_locked/', views.account_locked, name="account_locked"),
   path('media/list/<str:folder_name>/', views.list_resources, name='list_resources'),
   path('api/v1/save-geospatial-snapshot/', views.SaveGeospatialSnapshot.as_view(), name='save_geospatial_snapshot'),
+  path('api/v1/scene/<uuid:scene_uid>/osm-roi-previews', views.OsmRoiPreviews.as_view(), name='osm_roi_previews'),
+  path('api/v1/scene/<uuid:scene_uid>/osm-rois', views.OsmRois.as_view(), name='osm_rois'),
   re_path(r'^%s(?P<path>.*)$' % settings.MEDIA_URL[1:],
           views.protected_media,
           {'media_root': settings.MEDIA_ROOT}),

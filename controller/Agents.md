@@ -568,6 +568,7 @@ docker stats scene
 When modifying the service, verify:
 
 - [ ] Unit tests pass: `make run_unit_tests`
+- [ ] Cognitive complexity passes: `make complexity-check SERVICE=controller`
 - [ ] Functional tests pass: `make run_functional_tests`
 - [ ] MQTT messages validated correctly against schemas
 - [ ] Object tracking maintains IDs across frames

@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Intentional exceptions for .github/scripts/check_dependabot_coverage.py.
+# Format: <package-ecosystem|compose-naming> <path-or-glob>   # reason
+#   <package-ecosystem> takes a Dependabot-style directory, e.g.:  pip /tools/experimental
+#   compose-naming takes a compose file path, e.g.:                compose-naming /tools/foo/services.yml
+# Globs `*` (one path segment) and `**` (any depth) are supported.
+# Always state why the path must not be tracked by Dependabot.
