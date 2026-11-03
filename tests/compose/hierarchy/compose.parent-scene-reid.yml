@@ -33,7 +33,7 @@ services:
       --maxlag 10
     volumes:
       - ./:/workspace
-      - ./${DBROOT}/parent/media:/workspace/media
+      - ${DBROOT}/parent/media:/workspace/media
       - ./controller/config/tracker-config.json:/home/scenescape/Scenescape/tracker-config.json
       - ${REID_CONFIG_FILE:-./controller/config/reid-config.json}:/home/scenescape/Scenescape/reid-config.json
     secrets:
