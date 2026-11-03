@@ -97,6 +97,93 @@ class TestGlbAlignment:
     assert res["status"] == "Invalid GLB"
     assert res["controlsDisplay"] == "none"
 
+  def test_upload_locks_file_input_while_in_flight(self):
+    """Upload control is disabled with a loading hint until the preview request settles."""
+    preview_resp = {
+      "status": 200,
+      "body": {
+        "token": "tok1",
+        "preview_url": "/img.png",
+        "footprint_m": {"width": 100, "height": 60},
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "existing_content": {},
+      },
+    }
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [{"status": 404, "body": {}}, preview_resp],
+        "steps": [["upload"]],
+      },
+    )
+    assert res["ok"]
+    assert res["fetches"][1]["ui"] == {
+      "fileDisabled": True,
+      "filePointerEvents": "none",
+      "fileWrapTitle": "loading glb...",
+      "acceptDisabled": True,
+      "acceptPointerEvents": "none",
+      "acceptTitle": "loading glb...",
+    }
+    assert res["fetches"][0]["ui"]["fileDisabled"] is False
+    assert res["fetches"][0]["ui"]["fileWrapTitle"] != "loading glb..."
+
+  def test_upload_unlocks_after_success(self):
+    """Upload control is re-enabled and the loading hint cleared after success."""
+    preview_resp = {
+      "status": 200,
+      "body": {
+        "token": "tok1",
+        "preview_url": "/img.png",
+        "footprint_m": {"width": 100, "height": 60},
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "existing_content": {},
+      },
+    }
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [{"status": 404, "body": {}}, preview_resp],
+        "steps": [["upload"]],
+      },
+    )
+    assert res["ok"]
+    assert res["fileDisabled"] is False
+    assert res["filePointerEvents"] == ""
+    assert res["fileTitle"] == ""
+
+  def test_upload_unlocks_after_error(self):
+    """Upload control is re-enabled and the loading hint cleared after a failed upload."""
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [{"status": 404, "body": {}}, {"status": 400, "body": {"error": "Invalid GLB"}}],
+        "steps": [["upload"]],
+      },
+    )
+    assert res["ok"]
+    assert res["status"] == "Invalid GLB"
+    assert res["fileDisabled"] is False
+    assert res["filePointerEvents"] == ""
+    assert res["fileTitle"] == ""
+
+  def test_upload_without_map_location_keeps_file_locked_off(self):
+    """Upload rejected for missing map location leaves the control disabled and unlabelled."""
+    res = run_js(
+      "align",
+      {"mapType": "geospatial_map", "center": ["", ""], "steps": [["upload"]]},
+    )
+    assert res["ok"]
+    assert "map location" in res["status"].lower()
+    assert res["fileDisabled"] is True
+    assert res["fileTitle"] == ""
+
   def test_drag_inside_prevents_pan(self):
     """Drag inside footprint prevents map pan and updates anchor."""
     preview_resp = {
@@ -231,6 +318,125 @@ class TestGlbAlignment:
     )
     assert res["ok"]
     assert len(res["fetches"]) == 2
+
+  def test_accept_locked_while_commit_in_flight(self):
+    """Accept and upload controls are disabled while the commit request is in flight."""
+    preview_resp = {
+      "status": 200,
+      "body": {
+        "token": "tok1",
+        "preview_url": "/img.png",
+        "footprint_m": {"width": 100, "height": 60},
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "existing_content": {},
+      },
+    }
+    accept_resp = {
+      "status": 200,
+      "body": {"anchor": {"lat": 37, "lng": -122, "heading_deg": 0}, "footprint_m": {"width": 100, "height": 60}},
+    }
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [{"status": 404, "body": {}}, preview_resp, accept_resp],
+        "steps": [["upload"], ["accept"]],
+      },
+    )
+    assert res["ok"]
+    assert res["fetches"][0]["ui"]["acceptDisabled"] is False
+    assert res["fetches"][2]["ui"] == {
+      "fileDisabled": True,
+      "filePointerEvents": "none",
+      "fileWrapTitle": "saving glb...",
+      "acceptDisabled": True,
+      "acceptPointerEvents": "none",
+      "acceptTitle": "saving glb...",
+    }
+
+  def test_accept_unlocks_after_error(self):
+    """Accept is re-enabled with the error shown when the commit fails, so the user can retry."""
+    preview_resp = {
+      "status": 200,
+      "body": {
+        "token": "tok1",
+        "preview_url": "/img.png",
+        "footprint_m": {"width": 100, "height": 60},
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "existing_content": {},
+      },
+    }
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [{"status": 404, "body": {}}, preview_resp, {"status": 400, "body": {"error": "Token expired"}}],
+        "steps": [["upload"], ["accept"]],
+      },
+    )
+    assert res["ok"]
+    assert res["status"] == "Token expired"
+    assert res["acceptDisabled"] is False
+    assert res["acceptPointerEvents"] == ""
+    assert res["acceptTitle"] == ""
+
+  def test_accept_stays_locked_after_success(self):
+    """Accept stays disabled after a successful commit while the page reloads."""
+    preview_resp = {
+      "status": 200,
+      "body": {
+        "token": "tok1",
+        "preview_url": "/img.png",
+        "footprint_m": {"width": 100, "height": 60},
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "existing_content": {},
+      },
+    }
+    accept_resp = {
+      "status": 200,
+      "body": {"anchor": {"lat": 37, "lng": -122, "heading_deg": 0}, "footprint_m": {"width": 100, "height": 60}},
+    }
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [{"status": 404, "body": {}}, preview_resp, accept_resp],
+        "steps": [["upload"], ["accept"]],
+      },
+    )
+    assert res["ok"]
+    assert res["acceptDisabled"] is True
+    assert res["acceptTitle"] == "saving glb..."
+
+  def test_replacement_upload_locks_accept_until_done(self):
+    """Accept is locked during a replacement upload so it cannot commit the previous token."""
+    preview_resp = {
+      "status": 200,
+      "body": {
+        "token": "tok1",
+        "preview_url": "/img.png",
+        "footprint_m": {"width": 100, "height": 60},
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "existing_content": {},
+      },
+    }
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [{"status": 404, "body": {}}, preview_resp, preview_resp],
+        "steps": [["upload"], ["upload"]],
+      },
+    )
+    assert res["ok"]
+    assert res["fetches"][2]["ui"]["acceptDisabled"] is True
+    assert res["fetches"][2]["ui"]["acceptTitle"] == "loading glb..."
+    assert res["acceptDisabled"] is False
+    assert res["acceptTitle"] == ""
 
   def test_reset_restores_original(self):
     """Reset restores anchor to original state."""

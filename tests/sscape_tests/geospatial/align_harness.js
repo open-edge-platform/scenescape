@@ -74,6 +74,14 @@ function load(args) {
       url,
       method: opts.method || "GET",
       headers: opts.headers || {},
+      ui: {
+        fileDisabled: fakeEls.glbFileInput?.disabled ?? null,
+        filePointerEvents: fakeEls.glbFileInput?.style.pointerEvents ?? null,
+        fileWrapTitle: fakeEls.glbFileWrap?.title ?? null,
+        acceptDisabled: fakeEls.glbAccept?.disabled ?? null,
+        acceptPointerEvents: fakeEls.glbAccept?.style.pointerEvents ?? null,
+        acceptTitle: fakeEls.glbAcceptWrap?.title ?? null,
+      },
     };
     if (opts.body instanceof FakeFormData) {
       record.body = { formData: opts.body.entries };
@@ -204,6 +212,11 @@ const scenarios = {
       status: fakeEls["glbAlignStatus"]?.textContent || "",
       controlsDisplay: fakeEls["glbAlignControls"]?.style?.display ?? "none",
       fileDisabled: fakeEls["glbFileInput"]?.disabled ?? false,
+      filePointerEvents: fakeEls["glbFileInput"]?.style?.pointerEvents ?? "",
+      fileTitle: fakeEls["glbFileWrap"]?.title ?? "",
+      acceptDisabled: fakeEls["glbAccept"]?.disabled ?? false,
+      acceptPointerEvents: fakeEls["glbAccept"]?.style?.pointerEvents ?? "",
+      acceptTitle: fakeEls["glbAcceptWrap"]?.title ?? "",
       rowDisplay: fakeEls["glbAlignRow"]?.style?.display ?? "",
       hint: fakeEls["glbAlignHint"]?.textContent || "",
       anchor: a.anchor,

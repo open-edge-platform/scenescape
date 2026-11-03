@@ -54,11 +54,14 @@ class GlbAlignment {
     this.savedAnchor = null;
     this.dirty = false;
     this._isMoving = false;
+    this.uploading = false;
+    this.saving = false;
 
     this.ui = {
       row,
       hint: byId("glbAlignHint"),
       file: byId("glbFileInput"),
+      fileWrap: byId("glbFileWrap"),
       controls: byId("glbAlignControls"),
       opacity: byId("glbOpacity"),
       headingNumber: byId("glbHeadingNumber"),
@@ -66,6 +69,7 @@ class GlbAlignment {
       footprint: byId("glbFootprint"),
       status: byId("glbAlignStatus"),
       accept: byId("glbAccept"),
+      acceptWrap: byId("glbAcceptWrap"),
       reset: byId("glbReset"),
       cancel: byId("glbCancel"),
       map: byId("map"),
@@ -135,8 +139,23 @@ class GlbAlignment {
     this.ui.row.style.display = isGeo ? "" : "none";
     if (!isGeo) return;
 
-    this.ui.file.disabled = this._mapEmpty();
+    this._updateLocks();
     this.ui.hint.textContent = this._mapEmpty() ? MAP_EMPTY_HINT : "";
+  }
+
+  _updateLocks() {
+    const busy = this.uploading || this.saving;
+    let hint = "";
+    if (this.saving) hint = "saving glb...";
+    else if (this.uploading) hint = "loading glb...";
+
+    this.ui.file.disabled = busy || this._mapEmpty();
+    // Disabled controls get no pointer events, so the wrapper carries the hover title
+    this.ui.file.style.pointerEvents = busy ? "none" : "";
+    this.ui.fileWrap.title = hint;
+    this.ui.accept.disabled = busy;
+    this.ui.accept.style.pointerEvents = busy ? "none" : "";
+    this.ui.acceptWrap.title = hint;
   }
 
   async _loadSavedAlignment() {
@@ -154,6 +173,8 @@ class GlbAlignment {
     if (!file) return;
 
     this.ui.status.textContent = "";
+    this.uploading = true;
+    this._updateLocks();
 
     try {
       if (this._mapEmpty()) throw new Error(MAP_EMPTY_HINT);
@@ -185,6 +206,9 @@ class GlbAlignment {
       e.target.value = "";
     } catch (error) {
       this.ui.status.textContent = error.message;
+    } finally {
+      this.uploading = false;
+      this._updateLocks();
     }
   }
 
@@ -280,6 +304,8 @@ class GlbAlignment {
       }
     }
 
+    this.saving = true;
+    this._updateLocks();
     try {
       await this._request(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
@@ -298,6 +324,8 @@ class GlbAlignment {
       this.ui.status.textContent = "3D model saved; reloading...";
       setTimeout(() => window.location.reload(), 1000);
     } catch (error) {
+      this.saving = false;
+      this._updateLocks();
       this.ui.status.textContent = error.message;
     }
   }

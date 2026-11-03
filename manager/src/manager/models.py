@@ -278,9 +278,8 @@ class Scene(models.Model):
       self.rotation_z = 0.0
       mesh, _ = extractMeshFromGLB(self.map.path, rotation=np.array([self.rotation_x, self.rotation_y, self.rotation_z]))
       width, height, depth = getMeshSize(mesh)
-      self.translation_x = width/2
-      self.translation_y = height/2
-      self.translation_z = depth/2
+      min_bound = mesh.get_axis_aligned_bounding_box().min_bound.numpy()
+      self.translation_x, self.translation_y, self.translation_z = (float(-v) for v in min_bound)
       return width, height, depth
     return None
 
