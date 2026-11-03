@@ -103,6 +103,10 @@ class CamCanvas {
   setPointMapper(mapper, visible) {
     this.pointMapper = mapper;
     this.pointsVisible = visible;
+    if (this.arePointsLocked()) {
+      this.isDragging = false;
+      this.draggingPoint = null;
+    }
     // A new frame that is still decoding would be drawn blank; its onload redraws.
     if (this.image.complete && this.image.naturalWidth > 0) {
       this.drawImage();
