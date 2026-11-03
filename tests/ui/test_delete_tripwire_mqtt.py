@@ -99,6 +99,7 @@ def test_create_and_delete_tripwire_mqtt(demo_scene, params, record_xml_attribut
   rest = RESTClient(params['resturl'], rootcert=params['rootcert'])
   assert rest.authenticate(params['user'], params['password'])
 
+  browser = None
   try:
     browser = Browser()
     client = PubSub(params['auth'], None, params['rootcert'],
@@ -155,9 +156,10 @@ def test_create_and_delete_tripwire_mqtt(demo_scene, params, record_xml_attribut
     assert client.isConnected()
     if exit_code != 0:
       print("Received unexpected message from the tripwire!")
-    browser.close()
 
   finally:
+    if browser is not None:
+      browser.quit()
     common.record_test_result(TEST_NAME, exit_code)
 
   assert exit_code == 0

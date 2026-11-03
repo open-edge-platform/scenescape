@@ -84,7 +84,13 @@ class WillOurShipGo(UserInterfaceTest):
 @pytest.mark.test_name("NEX-T10435")
 def test_telemetry_button(scenescape_env, request, record_xml_attribute):
   test = WillOurShipGo(TEST_NAME, request, record_xml_attribute)
-  test.checkForMalfunctions()
+  try:
+    test.checkForMalfunctions()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
+
   assert test.exitCode == 0
   return
 

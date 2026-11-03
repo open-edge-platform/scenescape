@@ -179,7 +179,12 @@ def test_calibrate_camera_3d_ui_2d_ui(scenescape_env, request, record_xml_attrib
   log.info("Test to calibrate camera in 3D first and calibrate again camera in 2D using April Tag.")
 
   test = Scene3dUserInterfaceTest(TEST_NAME, request, record_xml_attribute)
-  test.checkCalibration3d2dAprilTag()
+  try:
+    test.checkCalibration3d2dAprilTag()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
 
   assert test.exitCode == 0
   return test.exitCode

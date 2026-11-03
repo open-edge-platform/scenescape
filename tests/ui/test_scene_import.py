@@ -315,7 +315,13 @@ class SceneImportTest(UserInterfaceTest):
 )
 def test_scene_import(scenescape_env, request, record_xml_attribute, zipFile, expected, waitTime):
   test = SceneImportTest(TEST_NAME, request, record_xml_attribute, zipFile, expected, waitTime)
-  test.checkForMalfunctions()
+  try:
+    test.checkForMalfunctions()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
+
   assert test.exitCode == 0
   return
 

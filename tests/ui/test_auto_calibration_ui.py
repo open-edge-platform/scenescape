@@ -267,7 +267,12 @@ def test_april_tag(scenescape_env, request, record_xml_attribute):
   TEST_NAME = "NEX-T15710"
 
   test = AprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
-  test.execute_test()
+  try:
+    test.execute_test()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
 
   assert test.exitCode == 0
   return test.exitCode

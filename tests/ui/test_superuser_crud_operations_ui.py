@@ -72,6 +72,7 @@ def test_crud_operations(demo_scene, params, record_xml_attribute):
   """
   TEST_NAME = "NEX-T10418"
   exit_code = 1
+  browser = None
   try:
     print("Executing: " + TEST_NAME)
     browser = Browser()
@@ -169,7 +170,8 @@ def test_crud_operations(demo_scene, params, record_xml_attribute):
     exit_code = 0
 
   finally:
-    browser.close()
+    if browser is not None:
+      browser.quit()
     common.record_test_result(TEST_NAME, exit_code)
   assert exit_code == 0
   return exit_code

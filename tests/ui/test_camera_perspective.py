@@ -51,6 +51,7 @@ def test_cam_perspective_main(demo_scene, params, record_xml_attribute):
   verified_perspective_change = False
   perspective_reset = False
   postreset_saved_perspective = False
+  browser = None
   try:
     log.info("Executing: " + TEST_NAME)
     browser = Browser()
@@ -78,6 +79,8 @@ def test_cam_perspective_main(demo_scene, params, record_xml_attribute):
                                   (map_values_reset_temp == map_values_reset_saved)
     log.info('Validate if postreset saved perspective match inintial perspective.')
   finally:
+    if browser is not None:
+      browser.quit()
     # Split the condition into two parts to avoid having more than 5 boolean expressions in one if statement
     validation = logged_in and perspective_reset and postreset_saved_perspective
     if validation:
