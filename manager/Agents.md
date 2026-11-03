@@ -281,6 +281,20 @@ docker compose exec manager python manage.py showmigrations
 - Autocalibration endpoints live under `/api/v1/autocalibration/` when accessed through the web container
 - Stores completed calibration parameters in database
 
+### DL Streamer Pipeline Server 2.0
+
+- `manager.dlsps.DLSPSClient` (`src/manager/dlsps/`) wraps the DLSPS 2.0 REST API: `create_pipeline`
+  (`POST /pipelines` with a raw gst-launch string), `get_pipeline`, `get_pipeline_status`,
+  `list_pipeline_statuses`, and `delete_pipeline`
+- Responses are typed dataclasses (`PipelineStatus`, `PipelineSummary`); HTTP failures raise
+  `DLSPSError` subclasses and invalid arguments raise `ValueError` before any request is sent
+- Starting a pipeline is asynchronous: poll `get_pipeline_status` to detect `ERROR` after start
+- Pipeline strings are executed as-is; use trusted server-side templates only because elements can
+  access files and networks inside the DLSPS container, and restrict exposing APIs to administrators
+- `DLSPS_URL` is supported by the client when explicitly set, but is not currently wired through
+  Manager's Compose or Helm deployment configuration
+- Library only; Manager does not yet create DLSPS pipelines automatically
+
 ### PostgreSQL
 
 - All metadata persistence
