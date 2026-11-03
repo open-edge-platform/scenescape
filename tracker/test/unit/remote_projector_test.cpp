@@ -64,13 +64,15 @@ public:
     }
 };
 
-std::vector<double> diagonalR(double xy, double z) {
-    std::vector<double> r(49, 0.0);
-    const double diagonal[7] = {xy, xy, z, 0.2, 0.2, 0.2, 0.2};
-    for (int i = 0; i < 7; ++i) {
-        r[static_cast<size_t>(i * 8)] = diagonal[i];
-    }
-    return r;
+// Dense SPD R: position cross terms plus x-length, y-width, z-height and length-yaw terms.
+std::vector<double> denseR() {
+    return {0.040,  0.015,  -0.008, 0.002, 0.000, 0.000,  0.000, //
+            0.015,  0.040,  -0.006, 0.000, 0.001, 0.000,  0.000, //
+            -0.008, -0.006, 0.250,  0.000, 0.000, -0.030, 0.000, //
+            0.002,  0.000,  0.000,  0.200, 0.000, 0.000,  0.010, //
+            0.000,  0.001,  0.000,  0.000, 0.200, 0.000,  0.000, //
+            0.000,  0.000,  -0.030, 0.000, 0.000, 0.200,  0.000, //
+            0.000,  0.000,  0.000,  0.010, 0.000, 0.000,  0.200};
 }
 
 // Remote measurement k: centre (10 + k, 20 + k, height / 2), size 0.5 x 0.6 x height.
@@ -79,7 +81,7 @@ RemoteMeasurement goodMeasurement(size_t k) {
     return {std::to_string(k),
             false,
             {10.0 + offset, 20.0 + offset, kHeight / 2.0, 0.5, 0.6, kHeight, 0.0},
-            diagonalR(0.04, 0.25)};
+            denseR()};
 }
 
 ProjectionReply goodReply(const ProjectionFrame& frame) {
@@ -206,9 +208,11 @@ void expectRemote(const ProjectedDetections& geometry, size_t index, size_t k) {
     EXPECT_DOUBLE_EQ(object.height, kHeight);
     EXPECT_TRUE(object.zMeasured);
     ASSERT_TRUE(object.measurementNoiseCov.has_value());
-    EXPECT_DOUBLE_EQ((*object.measurementNoiseCov)(0, 0), 0.04);
-    EXPECT_DOUBLE_EQ((*object.measurementNoiseCov)(2, 2), 0.25);
-    EXPECT_DOUBLE_EQ((*object.measurementNoiseCov)(0, 1), 0.0);
+    const auto r = denseR();
+    for (size_t i = 0; i < r.size(); ++i) {
+        EXPECT_EQ(object.measurementNoiseCov->val[i], r[i])
+            << "R(" << i / 7 << ", " << i % 7 << ")";
+    }
 }
 
 void expectLocal(const ProjectedDetections& geometry, size_t index) {
@@ -456,6 +460,8 @@ TEST_F(RemoteProjectorTest, SymmetrizesSlightlyAsymmetricCovariance) {
     ASSERT_TRUE(r.has_value());
     EXPECT_DOUBLE_EQ((*r)(0, 1), 0.011);
     EXPECT_DOUBLE_EQ((*r)(1, 0), 0.011);
+    EXPECT_EQ((*r)(2, 5), -0.030) << "other cross terms unchanged";
+    EXPECT_EQ((*r)(6, 3), 0.010);
 }
 
 TEST_F(RemoteProjectorTest, MismatchedLocalResultIsReturnedUnchanged) {

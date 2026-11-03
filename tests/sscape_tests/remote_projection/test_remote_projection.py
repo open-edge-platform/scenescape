@@ -28,7 +28,16 @@ from scene_common.camera import Camera
 from scene_common.geometry import Point
 
 HEIGHT = 1.7
-NOISE = np.diag([0.04, 0.04, 0.25, 0.2, 0.2, 0.2, 0.2])
+# Dense SPD R: position cross terms plus x-length, y-width, z-height and length-yaw terms.
+NOISE = np.array([
+  [0.040, 0.015, -0.008, 0.002, 0.000, 0.000, 0.000],
+  [0.015, 0.040, -0.006, 0.000, 0.001, 0.000, 0.000],
+  [-0.008, -0.006, 0.250, 0.000, 0.000, -0.030, 0.000],
+  [0.002, 0.000, 0.000, 0.200, 0.000, 0.000, 0.010],
+  [0.000, 0.001, 0.000, 0.000, 0.200, 0.000, 0.000],
+  [0.000, 0.000, -0.030, 0.000, 0.000, 0.200, 0.000],
+  [0.000, 0.000, 0.000, 0.010, 0.000, 0.000, 0.200],
+])
 WHEN = 1_700_000_000.25
 LOCAL_X = -1.0
 
@@ -113,7 +122,7 @@ def assert_remote(rv_object, k):
   assert rv_object.z == pytest.approx(0.0)
   assert (rv_object.length, rv_object.width, rv_object.height) == (0.5, 0.6, HEIGHT)
   assert rv_object.zMeasured is True
-  np.testing.assert_allclose(np.array(rv_object.measurement_noise_covariance), NOISE)
+  np.testing.assert_array_equal(np.array(rv_object.measurement_noise_covariance), NOISE)
 
 
 def assert_local(rv_object):
@@ -324,6 +333,7 @@ class TestRemoteProjector:
     noise = np.array(rv_objects[0][0].measurement_noise_covariance)
     assert noise[0, 1] == pytest.approx(0.011)
     assert noise[1, 0] == pytest.approx(0.011)
+    assert (noise[2, 5], noise[6, 3]) == (NOISE[2, 5], NOISE[6, 3]), "other cross terms unchanged"
 
   def test_scene_projection_binds_scene(self):
     client = FakeClient()
@@ -354,7 +364,7 @@ class TestApplyMeasurement:
     assert (rv_object.length, rv_object.width, rv_object.height) == (0.5, 0.6, HEIGHT)
     assert rv_object.zMeasured is True
     assert rv_object.yaw == pytest.approx(0.3)
-    np.testing.assert_allclose(np.array(rv_object.measurement_noise_covariance), NOISE)
+    np.testing.assert_array_equal(np.array(rv_object.measurement_noise_covariance), NOISE)
 
   @pytest.mark.parametrize("mean, noise", [
     ([1.0, 2.0, 0.85, 0.5, 0.6, HEIGHT, 0.0], -NOISE),
@@ -546,6 +556,8 @@ class TestGrpcProjectionClient:
     assert replies[0][0].camera_id == "cam-1"
     assert replies[1][0] is None
     assert replies[2][0].measurements[0].measurement.mean[2] == pytest.approx(HEIGHT / 2.0)
+    assert list(replies[2][0].measurements[0].measurement.noise_covariance) == \
+      NOISE.flatten().tolist(), "R arrives row-major with its cross terms"
 
   def test_calls_run_concurrently_under_the_deadline(self, service):
     servicer, port = service

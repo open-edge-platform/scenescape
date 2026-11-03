@@ -71,8 +71,9 @@ public:
             for (double value : {static_cast<double>(i), camera, 0.85, 0.5, 0.5, 1.7, 0.0}) {
                 measurement->add_mean(value);
             }
+            // Distinct off-diagonal values show that all 49 entries arrive in row-major order.
             for (int k = 0; k < 49; ++k) {
-                measurement->add_noise_covariance(k % 8 == 0 ? 0.1 : 0.0);
+                measurement->add_noise_covariance(k % 8 == 0 ? 0.1 : 0.001 * k);
             }
             measurement->set_z_measured(true);
         }
@@ -149,7 +150,10 @@ TEST_F(GrpcProjectionClientTest, SendsRequestAndConvertsReply) {
     EXPECT_DOUBLE_EQ(measurement.mean[1], 3.0);
     EXPECT_DOUBLE_EQ(measurement.mean[2], 0.85);
     ASSERT_EQ(measurement.noise_covariance.size(), 49u);
-    EXPECT_DOUBLE_EQ(measurement.noise_covariance[8], 0.1);
+    for (size_t k = 0; k < 49; ++k) {
+        EXPECT_EQ(measurement.noise_covariance[k], k % 8 == 0 ? 0.1 : 0.001 * static_cast<int>(k))
+            << "R entry " << k;
+    }
     EXPECT_EQ(replies[0].measurements[1].detection_id, "1");
     EXPECT_TRUE(replies[0].measurements[1].unobservable);
     EXPECT_TRUE(replies[0].measurements[1].mean.empty());
