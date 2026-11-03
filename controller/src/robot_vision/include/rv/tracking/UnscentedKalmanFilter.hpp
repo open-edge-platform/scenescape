@@ -115,7 +115,8 @@ class UnscentedKalmanFilterMod : public UnscentedKalmanFilter
   Mat r; // zero vector of process noise for getting transitionSPFuncVals,
   Mat q; // zero vector of measurement noise for getting measurementSPFuncVals
 
-  Mat getSigmaPoints(const Mat &mean, const Mat &covMatrix, double coef);
+  // Repairs covMatrix in place if it is not positive definite.
+  Mat getSigmaPoints(const Mat &mean, Mat &covMatrix, double coef);
 
 public:
   UnscentedKalmanFilterMod(const UnscentedKalmanFilterParams &params);

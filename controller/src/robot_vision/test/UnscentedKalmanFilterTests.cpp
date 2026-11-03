@@ -118,3 +118,24 @@ TEST(UnscentedKalmanFilterTest, LinearModelMatchesExactKalmanFilter)
   }
   EXPECT_GT(state.at<double>(idx::Vx), 0.5) << "velocity must be learned for the comparison to be meaningful";
 }
+
+// Bug: a failed Cholesky factorisation was ignored, so the sigma points used a half-factorised matrix whose earlier
+// diagonal entries were stored inverted; fails on 6277c8cf5 (variance 4 comes out as 0.25).
+TEST(UnscentedKalmanFilterTest, PredictRecoversFromNonPositiveDefiniteCovariance)
+{
+  // Variance 4 everywhere except a slightly negative yaw-rate variance, which the CV model resets anyway.
+  cv::Mat errorCov = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 4.0;
+  errorCov.at<double>(idx::YawRate, idx::YawRate) = -1e-3;
+  const cv::Mat processNoise = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 1e-3;
+  auto filter = makeCvFilter(cv::Mat::zeros(kStateSize, 1, CV_64F), errorCov, processNoise, 0.2);
+
+  filter->predict(cv::Mat(1, 1, CV_64F, cv::Scalar(kDeltaT)));
+
+  const cv::Mat predicted = filter->getErrorCov();
+  ASSERT_TRUE(cv::checkRange(filter->getState()));
+  ASSERT_TRUE(cv::checkRange(predicted));
+  EXPECT_GT(rv::tracking::test::minEigenvalue(predicted), 0.0);
+  // The other states keep their variance: x gets 4 + dt^2 * 4 from the velocity, plus the process noise.
+  EXPECT_NEAR(predicted.at<double>(idx::X, idx::X), 4.0 + kDeltaT * kDeltaT * 4.0 + 1e-3, 1e-9);
+  EXPECT_NEAR(predicted.at<double>(idx::Height, idx::Height), 4.0 + 1e-3, 1e-9);
+}
