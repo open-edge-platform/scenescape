@@ -39,6 +39,7 @@ import {
 } from "/static/js/utils.js";
 import {
   PTZ_AWAY_MESSAGE,
+  PTZ_VIDEO_LATENCY_MS,
   createPTZPointMapper,
   isPTZAwayFromHomePose,
   isPTZMoving,
@@ -69,6 +70,8 @@ export class ConvergedCameraCalibration {
     this.ptzHomePoseMatrix = undefined;
     this.ptzHomeRequested = false;
     this.ptzPointMapperKey = null;
+    this.ptzPendingPoints = null;
+    this.ptzStationarySince = null;
 
     // Used for storing undistorted image for projection
     this.projectionImage = new Image();
@@ -1116,6 +1119,13 @@ export class ConvergedCameraCalibration {
     this.loadPTZHomePose(cameraUID);
     this.ptzMoving = isPTZMoving(msg);
     let matrix = ptzPoseToCameraMatrix(msg, sceneID, calibrationVersion);
+    // Acquisition time of the first stationary pose after a move.
+    if (!matrix) {
+      this.ptzStationarySince = null;
+    } else if (this.ptzStationarySince === null) {
+      const poseTime = Date.parse(msg.timestamp);
+      this.ptzStationarySince = Number.isFinite(poseTime) ? poseTime : null;
+    }
     let poseRows = matrix ? msg.pose.matrix_4x4 : null;
     if (!matrix && !this.ptzMoving) {
       // Position unknown but not moving (e.g. backlash not yet learned).
@@ -1195,20 +1205,42 @@ export class ConvergedCameraCalibration {
       distortion,
     ]);
     if (key === this.ptzPointMapperKey) return;
-    this.setPTZPointMapper(
-      key,
-      createPTZPointMapper(
-        this.ptzHomePoseMatrix,
-        this.ptzLivePoseMatrix,
-        intrinsics,
-        distortion,
-      ),
-      true,
+    if (this.ptzPendingPoints && key === this.ptzPendingPoints.key) return;
+    const mapper = createPTZPointMapper(
+      this.ptzHomePoseMatrix,
+      this.ptzLivePoseMatrix,
+      intrinsics,
+      distortion,
     );
+    if (this.ptzStationarySince === null) {
+      this.setPTZPointMapper(key, mapper, true);
+      return;
+    }
+    // The video lags the pose: show the moved points with the first frame
+    // captured after the camera stopped (see applyPendingPTZPoints).
+    this.setPTZPointMapper("pending", null, false);
+    this.ptzPendingPoints = {
+      key,
+      mapper,
+      notBefore: this.ptzStationarySince + PTZ_VIDEO_LATENCY_MS,
+    };
+  }
+
+  /**
+   * Applies reprojected points held back until the camera stopped.
+   * @param {string} frameTimestamp - Acquisition timestamp of the displayed frame.
+   */
+  applyPendingPTZPoints(frameTimestamp) {
+    const pending = this.ptzPendingPoints;
+    if (!pending) return;
+    const frameTime = Date.parse(frameTimestamp);
+    if (Number.isFinite(frameTime) && frameTime < pending.notBefore) return;
+    this.setPTZPointMapper(pending.key, pending.mapper, true);
   }
 
   // Positioning publishes several times per second; redraw only on a change.
   setPTZPointMapper(key, mapper, visible) {
+    this.ptzPendingPoints = null;
     if (key === this.ptzPointMapperKey) return;
     this.ptzPointMapperKey = key;
     this.camCanvas.setPointMapper(mapper, visible);
@@ -1246,8 +1278,9 @@ export class ConvergedCameraCalibration {
     }
   }
 
-  updateCalibrationViews(image, cameraMatrix, distCoeffs) {
+  updateCalibrationViews(image, cameraMatrix, distCoeffs, frameTimestamp) {
     this.camCanvas.updateImageSrc(image);
+    this.applyPendingPTZPoints(frameTimestamp);
     this.updateCameraOpticalCenter(this.camCanvas.getImageSize(), cameraMatrix);
     if (
       this.calibrationFitState !== "pending" &&

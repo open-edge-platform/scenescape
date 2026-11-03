@@ -81,6 +81,9 @@ function ptzMatricesClose(a, b) {
 
 // Below this pan/tilt offset from home, image points are used as stored.
 const PTZ_HOME_ANGLE_TOLERANCE_RAD = 1e-3;
+// Frame timestamps are post-decode; camera encoding and streaming latency is not in
+// them. Matches the Controller's default max_detection_pipeline_latency_s.
+const PTZ_VIDEO_LATENCY_MS = 1000;
 const UNDISTORT_ITERATIONS = 50;
 const UNDISTORT_TOLERANCE = 1e-9;
 
@@ -203,6 +206,7 @@ function createPTZPointMapper(homeMatrix, liveMatrix, intrinsics, distortion) {
 export {
   PTZ_AWAY_MESSAGE,
   PTZ_HOME_ANGLE_TOLERANCE_RAD,
+  PTZ_VIDEO_LATENCY_MS,
   ptzPoseToCameraMatrix,
   sceneFromCameraToCameraMatrix,
   ptzMatricesClose,

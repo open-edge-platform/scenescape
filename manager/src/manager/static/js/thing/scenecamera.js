@@ -50,6 +50,7 @@ const DEFAULT_CAMERA_NAME = "new-camera";
 const DEFAULT_CAMERA_UID = undefined;
 const MAX_CALIB_WAIT_TIME = 200000;
 const POINT_CLOUD_SENSOR_NAME_RE = /lidar|radar|velodyne|livox|point.?cloud/i;
+const POINT_CORRESPONDENCE = "3d-2d point correspondence";
 
 function isPointCloudSensor(name, uid) {
   return (
@@ -209,6 +210,7 @@ export default class SceneCamera extends THREE.Object3D {
     this.ptzMoving = false;
     this.ptzLiveMatrix = null;
     this.ptzHomeMatrix = null;
+    this.transformType = params.transform_type;
     if (this.cameraPosition && this.cameraRotation) {
       this.addCamera();
     } else {
@@ -1097,6 +1099,7 @@ export default class SceneCamera extends THREE.Object3D {
     }
     this.sceneCamera.updateMatrix();
     let camera = this.sceneCamera.clone();
+    const storedPose = this.ptzHomeMatrix ? this.ptzHomeMatrix.clone() : null;
     const showsLivePTZPose =
       this.ptzLiveMatrix !== null &&
       this.sceneCamera.matrix.equals(this.ptzLiveMatrix);
@@ -1110,6 +1113,12 @@ export default class SceneCamera extends THREE.Object3D {
     } else if (this.ptzHomeMatrix) {
       this.ptzHomeMatrix.copy(this.sceneCamera.matrix);
     }
+    camera.updateMatrix();
+    // Re-sending an unchanged pose as euler would replace the stored calibration points.
+    const keepCalibrationPoints =
+      this.transformType === POINT_CORRESPONDENCE &&
+      storedPose !== null &&
+      ptzMatricesClose(camera.matrix, storedPose);
     //convert to y-down before saving
     this.togglePoseYupYdown(camera);
 
@@ -1159,8 +1168,14 @@ export default class SceneCamera extends THREE.Object3D {
     let textObject = this.sceneCamera.getObjectByName(
       "textObject_" + this.previousName,
     );
-    if (this.isStoredInDB) await this.updateExistingCamera(cameraData);
-    else {
+    if (this.isStoredInDB) {
+      const { sensor_id, name, scene } = cameraData;
+      await this.updateExistingCamera(
+        keepCalibrationPoints ? { sensor_id, name, scene } : cameraData,
+      );
+      if (!keepCalibrationPoints)
+        this.transformType = cameraData.transform_type;
+    } else {
       await this.createNewCamera(cameraData, textObject);
     }
     this.updateCameras(this.previousName, this.name, textObject);
