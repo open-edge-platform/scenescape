@@ -133,6 +133,13 @@ class PipelineConfigGenerator:
                 "type": "boolean",
                 "description": "Add Analytics track GID labels to requested camera images (default off)"
               },
+              "track_topic": {
+                "element": {
+                  "name": "datapublisher",
+                  "property": "track-topic"
+                },
+                "type": "string"
+              },
               "detection_labels": {
                 "element": {
                   "name": "datapublisher",
@@ -182,6 +189,9 @@ class PipelineConfigGenerator:
 
     pipeline_cfg["payload"]["parameters"]["cameraid"] = self.camera_id
     pipeline_cfg["payload"]["parameters"]["metadatagenpolicy"] = self.metadata_policy
+    if camera_settings.get('scene_uid'):
+      pipeline_cfg["payload"]["parameters"]["track_topic"] = (
+        f"scenescape/regulated/scene/{camera_settings['scene_uid']}")
     if camera_settings.get('annotate_track_ids', False):
       pipeline_cfg["payload"]["parameters"]["annotate_track_ids"] = True
 

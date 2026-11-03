@@ -401,6 +401,10 @@ sscape_post_inference_data_publish name=datapublisher annotate-track-ids=true tr
 Keep the other elements and properties in your pipeline unchanged. Alternatively,
 the Manager pipeline config generator accepts `annotate_track_ids: true` in its
 camera settings and maps it to the publisher property through DLSPS parameters.
+Generated pipelines select the camera's scene topic when its `scene_uid` is available,
+so updates from other scenes cannot clear its labels. For manually managed pipelines,
+set `track-topic` explicitly as above when running multiple scenes; the wildcard
+default does not isolate scene caches.
 It does not add a camera form field. For a manually managed DLSPS configuration,
 add this entry to `parameters.properties`:
 

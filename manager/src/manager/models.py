@@ -793,6 +793,7 @@ class Cam(Sensor):
       'sensor_id': self.sensor_id,
       'name': self.name,
       'scene': scene_name,
+      'scene_uid': str(self.scene_id) if self.scene_id else None,
       'command': self.command,
       'camerachain': self.camerachain,
       'threshold': self.threshold,

@@ -260,9 +260,12 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     limits = {"track-wait-ms": 2000, "track-max-age-ms": 5000}
     if name in limits:
       value = max(0, min(int(value), limits[name]))
-    old_topic = self._track_options["track-topic"]
-    enabled = self._track_options["annotate-track-ids"]
-    self._track_options[name] = value
+    with self._track_sync.condition:
+      old_topic = self._track_options["track-topic"]
+      enabled = self._track_options["annotate-track-ids"]
+      self._track_options[name] = value
+      if name == "track-topic" and value != old_topic:
+        self._track_sync.snapshot = None
     if name not in ("annotate-track-ids", "track-topic") or self._client is None:
       return
     if not self._client.is_connected():
@@ -364,12 +367,13 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         self._cam_auto_calibrate_intrinsics = msg["payload_intrinsics"]
 
   def _handle_track_message(self, message) -> bool:
-    if mqtt.topic_matches_sub(self._track_options["track-topic"], message.topic):
-      snapshot = parse_track_message(message.payload, self._cameraid)
-      if snapshot is not None:
-        self._track_sync.update(snapshot)
-      return True
-    return message.topic != f"scenescape/cmd/camera/{self._cameraid}"
+    with self._track_sync.condition:
+      if mqtt.topic_matches_sub(self._track_options["track-topic"], message.topic):
+        snapshot = parse_track_message(message.payload, self._cameraid)
+        if snapshot is not None:
+          self._track_sync.update(snapshot)
+        return True
+      return message.topic != f"scenescape/cmd/camera/{self._cameraid}"
 
   # ------------------------------------------------------------------
   # Buffer processing

@@ -13,6 +13,7 @@ PyGObject/GStreamer installation and without any production code changes.
 import base64
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -81,6 +82,53 @@ class TestTrackImages:
     assert not element._publish_image
     element.do_set_property(make_prop('annotate-track-ids'), False)
     client.unsubscribe.assert_called_with('scenescape/regulated/scene/scene-1')
+
+  @pytest.mark.parametrize('change_topic', [True, False])
+  def test_topic_change_invalidates_snapshot(self, element, monkeypatch, change_topic):
+    old_topic = 'scenescape/regulated/scene/scene-a'
+    new_topic = 'scenescape/regulated/scene/scene-b' if change_topic else old_topic
+    snapshot = (1.0, [('scene-a-gid', (10, 20, 30, 40))])
+    monkeypatch.setattr(pubmod, 'parse_track_message', lambda *_args: snapshot)
+    element._set_track_option('track-topic', old_topic)
+    message = SimpleNamespace(topic=old_topic, payload=b'tracks')
+    element._handle_track_message(message)
+    element._set_track_option('track-topic', new_topic)
+    assert element._track_sync.snapshot == (None if change_topic else snapshot)
+    element._handle_track_message(message)
+    assert element._track_sync.snapshot == (None if change_topic else snapshot)
+    if change_topic:
+      element._handle_track_message(SimpleNamespace(topic=new_topic, payload=b'tracks'))
+      assert element._track_sync.snapshot == snapshot
+
+  def test_topic_change_during_callback(self, element, monkeypatch):
+    parsing = Event()
+    release = Event()
+    switching = Event()
+    old_topic = 'scenescape/regulated/scene/scene-a'
+    element._set_track_option('track-topic', old_topic)
+
+    def parse(*_args):
+      parsing.set()
+      assert release.wait(2)
+      return (1.0, [('scene-a-gid', (10, 20, 30, 40))])
+
+    def switch_topic():
+      switching.set()
+      element._set_track_option('track-topic', 'scenescape/regulated/scene/scene-b')
+
+    monkeypatch.setattr(pubmod, 'parse_track_message', parse)
+    with ThreadPoolExecutor(max_workers=2) as workers:
+      callback = workers.submit(element._handle_track_message,
+                                SimpleNamespace(topic=old_topic, payload=b'tracks'))
+      try:
+        assert parsing.wait(2)
+        switch = workers.submit(switch_topic)
+        assert switching.wait(2)
+      finally:
+        release.set()
+      callback.result(timeout=2)
+      switch.result(timeout=2)
+    assert element._track_sync.snapshot is None
 
   def test_disabled_payload_unchanged(self, connected_element, monkeypatch):
     monkeypatch.setattr(connected_element, '_build_image_data',
