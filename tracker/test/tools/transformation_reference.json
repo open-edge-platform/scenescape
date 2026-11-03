@@ -115,6 +115,40 @@
       ]
     }
   ],
+  "sensor_to_world": [
+    {
+      "name": "identity_camera_yaw_pi_over_2",
+      "extrinsics": {
+        "translation": [0.0, 0.0, 0.0],
+        "rotation": [0.0, 0.0, 0.0],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "translation": [1.0, 2.0, 3.0],
+      "size": [4.0, 5.0, 6.0],
+      "rotation": [0.0, 0.0, 0.7071067811865475, 0.7071067811865476],
+      "expected_world_position": [1.0, 2.0, 3.0],
+      "expected_world_yaw": 1.5707963267948966
+    },
+    {
+      "name": "lidar_style_rotation_on_tilted_camera_mount",
+      "extrinsics": {
+        "translation": [
+          2.985857104493509, 0.2054078898442529, 2.7150546825598902
+        ],
+        "rotation": [
+          -135.08718965001765, 12.682032394455131, 19.24508172546946
+        ],
+        "scale": [1.0, 1.0, 1.0]
+      },
+      "translation": [1.25, -2.5, 0.75],
+      "size": [4.0, 1.8, 1.6],
+      "rotation": [0.0, -0.34289780745545134, 0.0, 0.9393727128473789],
+      "expected_world_position": [
+        5.105788090962361, 1.7910990824901141, 3.884018349306872
+      ],
+      "expected_world_yaw": 0.17925653649531559
+    }
+  ],
   "cameras": [
     {
       "uid": "atag-qcam1",

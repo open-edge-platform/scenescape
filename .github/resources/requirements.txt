@@ -13,6 +13,6 @@ opencv-python == 4.13.0.92
 setuptools >= 82.0.1
 xmltodict == 1.0.4
 PyYAML == 6.0.3
-pylint [spelling] == 4.0.6
+pylint [spelling] == 4.0.9
 flake8 == 7.3.0
 complexipy == 8.1.0
