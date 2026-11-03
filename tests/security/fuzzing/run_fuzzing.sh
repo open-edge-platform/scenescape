@@ -247,8 +247,6 @@ text = text.replace(
 )
 
 
-# /calculateintrinsics requires >=4 point correspondences; inject a static
-# valid 4-point body so the API can actually process the request.
 start, end, block = get_endpoint_block(text, "# Endpoint: /calculateintrinsics, method: Post")
 if block is not None:
     import json
@@ -270,9 +268,6 @@ if block is not None:
         block = block[:bi] + replacement_line + block[ci:]
     text = text[:start] + block + text[end:]
 
-# Sensor/camera GET and DELETE use the PUT-written dependency by default, but PUT
-# may not yet have run. Redirect them to use the POST-written variable instead so
-# that GET and DELETE succeed as soon as POST does.
 def patch_path_param_dependency(marker: str, old_var: str, new_var: str):
     global text
     start, end, block = get_endpoint_block(text, marker)
@@ -289,9 +284,6 @@ patch_path_param_dependency("# Endpoint: /sensor/{sensor_id}, method: Delete", "
 patch_path_param_dependency("# Endpoint: /camera/{sensor_id}, method: Get", "_camera__sensor_id__put_name", "_camera_post_sensor_id")
 patch_path_param_dependency("# Endpoint: /camera/{sensor_id}, method: Delete", "_camera__sensor_id__put_name", "_camera_post_sensor_id")
 
-# Camera POST response has sensor_id as writeOnly so it is absent from the body.
-# Read uid so the parser sets _camera_post_sensor_id without relying on
-# compiler-generated temporary variable numbers.
 text, camera_parser_count = re.subn(
     r'(def parse_camerapost\(.*?)(?=\ndef |\n# Endpoint:|\Z)',
     lambda match: match.group(0).replace(
@@ -313,10 +305,6 @@ if scene_parser is None:
 child_scene_parser = scene_parser.group(0).replace(
     "parse_scenepost", "parse_child_scenepost"
 ).replace("_scene_post_uid", "_child_scene_post_uid")
-# Ordering-only variable: it is never given a value or rendered into a request.
-# Unlike reading _scene_post_uid, it does not make the child scene producer look
-# like a consumer of parent scenes, which would produce misleading
-# UseAfterFreeChecker findings after DELETE /scene/{uid}.
 scene_ordering_variable = "__ordering____scene_post_child_scene_post"
 text = text[:scene_parser.start()] + (
     '_child_scene_post_uid = dependencies.DynamicVariable("_child_scene_post_uid")\n\n'
@@ -365,11 +353,6 @@ for method, request_id in (("Post", "/scene"), ("Delete", "/scene/{uid}")):
         )
     text = text[:start] + original + clone + text[end:]
 
-# RESTler extends sequences request-by-request in grammar order. The child
-# operations are the deepest chain (scene -> child scene -> link -> operation),
-# so list them first; otherwise the final generation can exhaust the time budget
-# on tens of thousands of other sequences before reaching them. This changes
-# exploration order only, not requests, payloads, or enabled checkers.
 child_blocks = []
 for method in ("Get", "Put", "Delete"):
     marker = f"# Endpoint: /child/{{uid}}, method: {method}"

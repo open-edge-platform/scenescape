@@ -21,8 +21,6 @@ COPY restler ./restler
 COPY build-restler.py .
 
 # Fix upstream coverage lookup for sequences with multiple prerequisites.
-# Preserve engine rendering-ID separators instead of hiding missing-prefix errors.
-# Accept an upstream-fixed source, but fail if the expected code has changed.
 RUN python3 - <<'PY'
 from pathlib import Path
 
