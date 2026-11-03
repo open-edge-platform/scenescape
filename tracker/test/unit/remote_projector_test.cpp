@@ -559,6 +559,15 @@ TEST_F(ProjectorFactoryTest, MissingEndpointUsesLocalProjection) {
     EXPECT_EQ(connects, 0);
 }
 
+TEST_F(ProjectorFactoryTest, TimeoutAboveChunkIntervalOnlyWarns) {
+    auto config = remoteConfig();
+    config.tracking.time_chunking_rate_fps = 30; // 33.3 ms chunk interval
+    config.infrastructure.remote_projection->timeout_ms = 50;
+
+    EXPECT_TRUE(makeProjectorFactory(config, connect));
+    EXPECT_EQ(connects, 1);
+}
+
 TEST_F(ProjectorFactoryTest, ConnectFailureUsesLocalProjection) {
     const ProjectionClientFactory throwing =
         [](const RemoteProjectionConfig&) -> std::shared_ptr<ProjectionClient> {

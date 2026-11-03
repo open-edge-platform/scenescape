@@ -1738,6 +1738,8 @@ TEST(ConfigLoaderTest, RemoteProjection_SchemaRejectsInvalidValues) {
         {"{}", R"({"host": "", "port": 50051})"},
         {"{}", R"({"host": "projection", "port": 70000})"},
         {"{}", R"({"host": "projection", "port": 50051, "timeout_ms": 0})"},
+        {"{}", R"({"host": "projection", "port": 50051, "timeout_ms": 101})"},
+        {"{}", R"({"host": "projection", "port": 50051, "timeout_ms": 2147483648})"},
         {"{}", R"({"host": "projection", "port": 50051, "shape_prior": true})"},
     };
     for (const auto& [tracking, endpoint] : invalid) {
@@ -1755,7 +1757,7 @@ TEST(ConfigLoaderTest, RemoteProjection_EnvVarsOverrideAndCreateEndpoint) {
     ScopedEnv port(tracker::env::REMOTE_PROJECTION_PORT, "6000");
     ScopedEnv insecure(tracker::env::REMOTE_PROJECTION_INSECURE, "true");
     ScopedEnv ca(tracker::env::REMOTE_PROJECTION_CA_CERT, "/run/secrets/ca.pem");
-    ScopedEnv timeout(tracker::env::REMOTE_PROJECTION_TIMEOUT_MS, "120");
+    ScopedEnv timeout(tracker::env::REMOTE_PROJECTION_TIMEOUT_MS, "90");
 
     auto config = load_config(config_file.path(), get_schema_path());
 
@@ -1767,7 +1769,7 @@ TEST(ConfigLoaderTest, RemoteProjection_EnvVarsOverrideAndCreateEndpoint) {
     EXPECT_EQ(remote.port, 6000);
     EXPECT_TRUE(remote.insecure);
     EXPECT_EQ(remote.ca_cert_path, "/run/secrets/ca.pem");
-    EXPECT_EQ(remote.timeout_ms, 120);
+    EXPECT_EQ(remote.timeout_ms, 90);
 }
 
 TEST(ConfigLoaderTest, RemoteProjection_EnvVarOverridesJsonEndpointField) {
@@ -1805,6 +1807,7 @@ TEST(ConfigLoaderTest, RemoteProjection_InvalidEnvVarsThrow) {
         {tracker::env::REMOTE_PROJECTION_PORT, "port"},
         {tracker::env::REMOTE_PROJECTION_INSECURE, "sometimes"},
         {tracker::env::REMOTE_PROJECTION_TIMEOUT_MS, "0"},
+        {tracker::env::REMOTE_PROJECTION_TIMEOUT_MS, "101"},
         {tracker::env::REMOTE_PROJECTION_TIMEOUT_MS, "soon"},
         {tracker::env::REMOTE_PROJECTION_TIMEOUT_MS, "99999999999999999999"},
     };

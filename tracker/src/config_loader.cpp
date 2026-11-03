@@ -127,12 +127,13 @@ void apply_env_string(std::string& field, const char* env_name) {
     }
 }
 
-/// @throws std::runtime_error if not an integer >= 1
+/// @throws std::runtime_error if not an integer in [1, kMaxRemoteProjectionTimeoutMs]
 int parse_timeout_ms(const std::string& value, const std::string& source) {
     try {
         int timeout = std::stoi(value);
-        if (timeout < 1) {
-            throw std::runtime_error(source + " must be >= 1: " + value);
+        if (timeout < 1 || timeout > kMaxRemoteProjectionTimeoutMs) {
+            throw std::runtime_error(source + " must be in [1, " +
+                                     std::to_string(kMaxRemoteProjectionTimeoutMs) + "]: " + value);
         }
         return timeout;
     } catch (const std::invalid_argument&) {

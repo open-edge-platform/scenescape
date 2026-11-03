@@ -266,6 +266,12 @@ ProjectorFactory makeProjectorFactory(const ServiceConfig& config,
     LOG_INFO("Experimental remote projection enabled: {}:{} (mode={}, timeout={}ms, tls={})",
              endpoint->host, endpoint->port, toString(mode), endpoint->timeout_ms,
              !endpoint->insecure);
+    const double chunk_interval_ms = 1000.0 / config.tracking.time_chunking_rate_fps;
+    if (endpoint->timeout_ms > chunk_interval_ms) {
+        LOG_WARN("Remote projection timeout {}ms exceeds the chunk interval {:.1f}ms "
+                 "(time_chunking_rate_fps={}); a slow projection service delays tracking",
+                 endpoint->timeout_ms, chunk_interval_ms, config.tracking.time_chunking_rate_fps);
+    }
     return [client, mode](const TrackingScope& scope,
                           const std::unordered_map<std::string, Camera>& cameras,
                           const ObjectClassConfig& object_class) {

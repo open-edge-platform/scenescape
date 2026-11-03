@@ -421,6 +421,7 @@ class TestSettingsFromEnv:
     (remote_projection.ENV_PORT, "port"),
     (remote_projection.ENV_INSECURE, "sometimes"),
     (remote_projection.ENV_TIMEOUT_MS, "0"),
+    (remote_projection.ENV_TIMEOUT_MS, "101"),
     (remote_projection.ENV_MODE, "amodal"),
   ])
   def test_invalid_values_raise(self, name, value):
@@ -469,6 +470,19 @@ class TestProcessProjector:
     self.enable(monkeypatch, **{remote_projection.ENV_INSECURE: "true"})
     assert remote_projection.for_scene(None) is None
     assert remote_projection.for_scene("") is None
+
+  @pytest.mark.parametrize("chunking_rate_fps, warns", [(15, True), (10, False), (None, False)])
+  def test_warns_when_timeout_exceeds_chunk_interval(self, monkeypatch, chunking_rate_fps, warns):
+    warnings = []
+    monkeypatch.setattr(remote_projection.log, "warning", lambda *args: warnings.append(args))
+    self.enable(monkeypatch, **{remote_projection.ENV_INSECURE: "true",
+                                remote_projection.ENV_TIMEOUT_MS: "80"})
+
+    assert remote_projection.for_scene("scene-uid", chunking_rate_fps) is not None
+
+    assert bool(warnings) == warns
+    if warns:
+      assert "exceeds the time-chunking interval 66.7ms" in warnings[0][0]
 
   def test_reset_reads_the_environment_again(self, monkeypatch):
     assert remote_projection.get_projector() is None
@@ -658,9 +672,11 @@ class TestTrackerIntegration:
   def test_scene_binds_projection_with_its_uid(self, monkeypatch):
     bound = []
     monkeypatch.setattr(remote_projection, "for_scene",
-                        lambda scene_id: bound.append(scene_id) or f"projection:{scene_id}")
+                        lambda scene_id, chunking_rate_fps=None:
+                        bound.append((scene_id, chunking_rate_fps)) or f"projection:{scene_id}")
     scene = Scene.__new__(Scene)
     scene.tracker = SimpleNamespace()
+    scene.time_chunking_rate_fps = 15
 
     scene._bindRemoteProjection()
     assert scene.tracker.remote_projection == "projection:None"
@@ -668,4 +684,7 @@ class TestTrackerIntegration:
     scene.uid = "scene-uid"
     scene._bindRemoteProjection()
     assert scene.tracker.remote_projection == "projection:scene-uid"
-    assert bound == [None, "scene-uid"]
+
+    scene.trackerType = "time_chunked_intel_labs"
+    scene._bindRemoteProjection()
+    assert bound == [(None, None), ("scene-uid", None), ("scene-uid", 15)]

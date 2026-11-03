@@ -78,7 +78,7 @@ constexpr const char* REMOTE_PROJECTION_PORT = "TRACKER_REMOTE_PROJECTION_PORT";
 constexpr const char* REMOTE_PROJECTION_INSECURE = "TRACKER_REMOTE_PROJECTION_INSECURE";
 /// Path to PEM CA certificates for TLS
 constexpr const char* REMOTE_PROJECTION_CA_CERT = "TRACKER_REMOTE_PROJECTION_CA_CERT";
-/// milliseconds, >= 1 - deadline for the calls of one chunk
+/// milliseconds, 1-100 - deadline for the calls of one chunk
 constexpr const char* REMOTE_PROJECTION_TIMEOUT_MS = "TRACKER_REMOTE_PROJECTION_TIMEOUT_MS";
 
 // NTP overrides

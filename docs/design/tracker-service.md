@@ -249,15 +249,18 @@ only when both are set:
 
 Optional settings: `tracking.remote_projection_mode` (`auto` (default): full conditioning when the
 scene has a mesh, frustum only otherwise; `full`; `frustum_only`), and in
-`infrastructure.remote_projection`: `timeout_ms` (deadline for the calls of one chunk, default 50),
-`insecure` (plaintext, default `false`) and `ca_cert_path`. The matching environment variables are
+`infrastructure.remote_projection`: `timeout_ms` (deadline for the calls of one chunk, 1–100,
+default 50; a warning is logged when it exceeds the chunk interval), `insecure` (plaintext, default
+`false`) and `ca_cert_path`. The matching environment variables are
 `TRACKER_REMOTE_PROJECTION_MODE`, `_TIMEOUT_MS`, `_INSECURE` and `_CA_CERT`.
 
 Each camera frame of a chunk is one call; the calls of a chunk run concurrently. Valid measurements
 replace the local projection of their detections (centre z lowered to the object base); everything
 else keeps the local projection. A failed call or an invalid reply never stops the service: it is
 counted in `tracker.remote_projection.failed_calls` and logged as a rate-limited warning. The call
-time is part of `tracker.stage.transform_duration`.
+time is part of `tracker.stage.transform_duration`. There is no retry backoff beyond gRPC's own
+reconnection backoff: an unreachable service fails fast, and an unresponsive one costs at most
+`timeout_ms` per chunk.
 
 ### Observability
 

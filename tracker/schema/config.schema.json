@@ -163,9 +163,10 @@
             },
             "timeout_ms": {
               "type": "integer",
-              "description": "Deadline in milliseconds for the calls of one chunk. Frames without a response in time keep the local projection.",
+              "description": "Deadline in milliseconds for the calls of one chunk; keep it below the chunk interval (1000 / tracking.time_chunking_rate_fps). Frames without a response in time keep the local projection.",
               "default": 50,
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 100
             }
           },
           "required": ["host", "port"],

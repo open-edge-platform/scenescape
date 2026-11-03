@@ -134,7 +134,10 @@ class Scene(SceneModel):
 
   def _bindRemoteProjection(self):
     """Bind experimental remote projection to the tracker once the scene UID is known."""
-    self.tracker.remote_projection = remote_projection.for_scene(getattr(self, 'uid', None))
+    chunking_rate_fps = self.time_chunking_rate_fps \
+      if getattr(self, 'trackerType', None) == "time_chunked_intel_labs" else None
+    self.tracker.remote_projection = remote_projection.for_scene(getattr(self, 'uid', None),
+                                                                 chunking_rate_fps)
     return
 
   def applyAssociationConfig(self, association_config):

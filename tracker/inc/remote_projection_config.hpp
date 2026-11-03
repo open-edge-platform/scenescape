@@ -47,6 +47,8 @@ inline std::string_view toString(ConditioningMode mode) {
 }
 
 constexpr int kDefaultRemoteProjectionTimeoutMs = 50;
+/// Upper bound of timeout_ms; it should also stay below the chunk interval.
+constexpr int kMaxRemoteProjectionTimeoutMs = 100;
 
 /**
  * @brief Remote projection service connection (experimental).

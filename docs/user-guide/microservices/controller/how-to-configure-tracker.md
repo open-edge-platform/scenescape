@@ -302,7 +302,7 @@ are configured:
 | Host               | `CONTROLLER_REMOTE_PROJECTION_HOST`                                               | `infrastructure.remote_projection.host` / `TRACKER_REMOTE_PROJECTION_HOST`             | —            |
 | Port               | `CONTROLLER_REMOTE_PROJECTION_PORT`                                               | `infrastructure.remote_projection.port` / `TRACKER_REMOTE_PROJECTION_PORT`             | —            |
 | Conditioning mode  | `CONTROLLER_REMOTE_PROJECTION_MODE`                                               | `tracking.remote_projection_mode` / `TRACKER_REMOTE_PROJECTION_MODE`                   | `auto`       |
-| Call deadline (ms) | `CONTROLLER_REMOTE_PROJECTION_TIMEOUT_MS`                                         | `infrastructure.remote_projection.timeout_ms` / `TRACKER_REMOTE_PROJECTION_TIMEOUT_MS` | `50`         |
+| Call deadline (ms) | `CONTROLLER_REMOTE_PROJECTION_TIMEOUT_MS`                                         | `infrastructure.remote_projection.timeout_ms` / `TRACKER_REMOTE_PROJECTION_TIMEOUT_MS` | `50` (1–100) |
 | Plaintext channel  | `CONTROLLER_REMOTE_PROJECTION_INSECURE`                                           | `infrastructure.remote_projection.insecure` / `TRACKER_REMOTE_PROJECTION_INSECURE`     | `false`      |
 | CA certificates    | `CONTROLLER_REMOTE_PROJECTION_CA_CERT`                                            | `infrastructure.remote_projection.ca_cert_path` / `TRACKER_REMOTE_PROJECTION_CA_CERT`  | system roots |
 
@@ -310,6 +310,12 @@ Conditioning modes: `auto` uses full conditioning (frustum Gaussian and amodal r
 scene mesh) when the scene has a mesh and frustum-only conditioning otherwise; `full` and
 `frustum_only` force one of them. The channel uses TLS unless the plaintext option is set; use
 plaintext only for development.
+
+The call deadline blocks the tracking step, so keep it below the time-chunking interval
+(1000 / `time_chunking_rate_fps` ms); a warning is logged when it is longer (by the Scene Controller
+for scenes with time chunking).
+There is no extra retry backoff: an unreachable service fails fast while gRPC backs off its
+reconnection attempts, and a service that does not answer costs at most the deadline per step.
 
 Each camera frame is one call, and the calls for one tracking step run concurrently under the
 deadline. A detection keeps the local projection when:

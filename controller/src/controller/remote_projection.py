@@ -43,6 +43,8 @@ ENV_MODE = "CONTROLLER_REMOTE_PROJECTION_MODE"
 MODES = ("auto", "full", "frustum_only")
 DEFAULT_MODE = "auto"
 DEFAULT_TIMEOUT_MS = 50
+# Upper bound of the call deadline; it should also stay below the time-chunking interval.
+MAX_TIMEOUT_MS = 100
 WARNING_INTERVAL_S = 10.0
 MEASUREMENT_SIZE = 7
 
@@ -110,7 +112,7 @@ def settings_from_env(environ=None):
     port=port,
     insecure=_env_bool(environ, ENV_INSECURE, False),
     ca_cert=environ.get(ENV_CA_CERT, "").strip(),
-    timeout_ms=_env_int(environ, ENV_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 1, 60000),
+    timeout_ms=_env_int(environ, ENV_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, 1, MAX_TIMEOUT_MS),
     mode=mode,
   )
 
@@ -182,8 +184,9 @@ def _pixel_box(sscape_object):
 class RemoteProjector:
   """Projects camera detections with the remote projection service; shared by all scenes."""
 
-  def __init__(self, client, mode=DEFAULT_MODE):
+  def __init__(self, client, mode=DEFAULT_MODE, timeout_ms=DEFAULT_TIMEOUT_MS):
     self._client = client
+    self.timeout_ms = timeout_ms  # the client's call deadline, for configuration checks
     projection_pb2, _ = _proto_modules()
     self._pb = projection_pb2
     self._mode = {
@@ -346,7 +349,7 @@ def _create_projector():
   if settings is None:
     return None
   try:
-    projector = RemoteProjector(GrpcProjectionClient(settings), settings.mode)
+    projector = RemoteProjector(GrpcProjectionClient(settings), settings.mode, settings.timeout_ms)
   except (OSError, ImportError) as error:
     log.error(f"Experimental remote projection disabled, using local projection: {error}")
     return None
@@ -373,9 +376,19 @@ def reset():
     _configured = False
 
 
-def for_scene(scene_id):
-  """SceneProjection for a scene UID, or None when remote projection is disabled."""
+def for_scene(scene_id, chunking_rate_fps=None):
+  """SceneProjection for a scene UID, or None when remote projection is disabled.
+
+  Warns when the call deadline exceeds the time-chunking interval of the scene
+  (chunking_rate_fps; None when the scene does not use time chunking).
+  """
   if not scene_id:
     return None
   projector = get_projector()
-  return SceneProjection(projector, scene_id) if projector is not None else None
+  if projector is None:
+    return None
+  if chunking_rate_fps and projector.timeout_ms > 1000.0 / chunking_rate_fps:
+    log.warning(f"{ENV_TIMEOUT_MS}={projector.timeout_ms} exceeds the time-chunking interval "
+                f"{1000.0 / chunking_rate_fps:.1f}ms of scene {scene_id} "
+                f"({chunking_rate_fps} fps); a slow projection service delays tracking")
+  return SceneProjection(projector, scene_id)
