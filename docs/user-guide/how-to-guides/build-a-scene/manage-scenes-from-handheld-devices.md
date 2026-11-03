@@ -32,6 +32,12 @@ detection modes. When connected to the scene, their map contributions and
 camera updates flow into Scenescape, where handheld cameras can move and detect
 objects in the scene.
 
+For a handheld camera to follow live MQTT pose and optics, leave **Pose locked**
+unchecked (unlocked) on the camera create or calibrate form. When **Pose locked**
+is checked, Scenescape keeps stored calibration and ignores incoming
+camera-message extrinsics, intrinsics, distortion, and resolution. See
+[Camera Pose Lock](../../api-reference.md#camera-pose-lock).
+
 ## Using multiple handheld devices
 
 ### Devices using the same mapping method

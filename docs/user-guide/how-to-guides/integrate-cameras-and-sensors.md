@@ -239,7 +239,7 @@ Metadata for camera-based detections can be validated against the [Scenescape me
 
 Camera calibration can be performed using the following methods:
 
-1. **Manual Calibration**: Use the user interface to calibrate cameras by marking points on the camera view and matching them with corresponding points on the map view. This process determines the camera's pose. You can also optionally unlock intrinsic parameters and distortion values, which will automatically adjust based on the selected points to improve calibration accuracy.
+1. **Manual Calibration**: Use the user interface to calibrate cameras by marking points on the camera view and matching them with corresponding points on the map view. This process determines the camera's pose. You can also optionally unlock intrinsic parameters and distortion values, which will automatically adjust based on the selected points to improve calibration accuracy. Leave **Pose locked** checked for fixed cameras so MQTT messages cannot override stored calibration; uncheck it for handheld or other cameras that publish live extrinsics and optics. See [Camera Pose Lock](../api-reference.md#camera-pose-lock).
 
 2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](../microservices/auto-calibration/auto-calibration.md).
 
