@@ -289,6 +289,7 @@ export class ConvergedCameraCalibration {
   }
 
   calculateCalibrationIntrinsics() {
+    if (!this.centerManualIntrinsics()) return;
     const requestId = ++this.calibrationRequestId;
     const camPoints = this.getSensorCalibrationPoints();
     const mapPoints = this.viewport.getCalibrationPoints(true);
@@ -307,6 +308,7 @@ export class ConvergedCameraCalibration {
         const name = this.name.split("_")[2];
         fixIntrinsics[name] = this.checked;
       });
+      fixIntrinsics.cx = fixIntrinsics.cy = true;
 
       // Collect intrinsic and distortion data
       const intrinsicData = [];
@@ -363,8 +365,6 @@ export class ConvergedCameraCalibration {
             if (!$(this).prop("disabled")) {
               if (this.name === "intrinsics_fx") this.value = intrinsicMtx[FX];
               if (this.name === "intrinsics_fy") this.value = intrinsicMtx[FY];
-              if (this.name === "intrinsics_cx") this.value = intrinsicMtx[CX];
-              if (this.name === "intrinsics_cy") this.value = intrinsicMtx[CY];
             }
           });
           $('input[name^="distortion_"]').each(function () {
@@ -798,10 +798,9 @@ export class ConvergedCameraCalibration {
   setupSaveCameraButton() {
     $("#calibration_form").on("submit", (event) => {
       event.preventDefault();
-      if (this.isResolutionUpdated) {
-        document.getElementById("id_intrinsics_cx").disabled = false;
-        document.getElementById("id_intrinsics_cy").disabled = false;
-      }
+      if (!this.centerManualIntrinsics()) return;
+      document.getElementById("id_intrinsics_cx").disabled = false;
+      document.getElementById("id_intrinsics_cy").disabled = false;
 
       const camPoints = this.getSensorCalibrationPoints();
       const scenePoints = this.viewport.getCalibrationPoints();
@@ -1150,7 +1149,44 @@ export class ConvergedCameraCalibration {
     });
   }
 
+  centerManualIntrinsics(cameraMatrix) {
+    const size = this.camCanvas.getImageSize();
+    if (!size.every((value) => Number.isInteger(value) && value > 0)) {
+      console.warn(
+        "Manual calibration requires a loaded image with valid dimensions:",
+        size,
+      );
+      return false;
+    }
+    let changed = size.some(
+      (value, index) => value !== this.getSensorResolution()[index],
+    );
+    this.updateSensorResolution(size);
+    for (const [index, axis] of ["cx", "cy"].entries()) {
+      const selector = `#id_intrinsics_${axis}`;
+      const center = size[index] / 2;
+      if (Number($(selector).val()) !== center) {
+        changed = true;
+        this.isResolutionUpdated = this.resolutionNeedsRefit = true;
+      }
+      $(selector).val(center);
+      document.getElementById(`id_intrinsics_${axis}`).readOnly = true;
+      const lock = document.getElementById(`enabled_intrinsics_${axis}`);
+      if (lock) {
+        lock.checked = true;
+        lock.disabled = true;
+      }
+      if (cameraMatrix) cameraMatrix[index][2] = center;
+    }
+    if (changed && this.calibrationFitState === "pending") {
+      this.calibrationRequestId++;
+      this.calibrationFitState = "idle";
+    }
+    return true;
+  }
+
   updateLoadedCalibrationViews(image, cameraMatrix, distCoeffs) {
+    if (!this.centerManualIntrinsics(cameraMatrix)) return;
     this.flushSensorCalibrationPoints();
     const size = this.camCanvas.getImageSize();
     $("#detected_resolution").val(`${size[0]} x ${size[1]}`);

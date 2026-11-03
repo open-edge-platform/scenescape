@@ -40,6 +40,13 @@ Before You Begin, ensure the following:
 
 **Expected Result**: The projection aligns with the scene based on user-defined calibration.
 
+Manual calibration uses the displayed camera image resolution and fixes the
+principal point at its center: `cx = width / 2`, `cy = height / 2`. Save Camera
+persists that resolution and centered principal point. Use a full-resolution
+image for this first-order calibration; a thumbnail is treated as the calibration
+image, not scaled to a different sensor resolution. Other calibration methods
+and API clients can still supply an off-center principal point.
+
 ### 2. Use Advanced Calibration Features
 
 When six or more point pairs exist:

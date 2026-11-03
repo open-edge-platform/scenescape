@@ -1176,7 +1176,12 @@ async function calibrationHarness() {
     return new vm.SyntheticModule(
       names,
       function () {
-        for (const name of names) this.setExport(name, class {});
+        for (const name of names) {
+          this.setExport(
+            name,
+            name === "CALIBRATION_MIN_POINTS_FOR_FIT" ? 4 : class {},
+          );
+        }
       },
       { context },
     );
@@ -1198,29 +1203,34 @@ async function calibrationHarness() {
   calibration.projectImage = (image, matrix) =>
     calibration.projections.push(plain(matrix));
   calibration.undistortAndProjectImage = calibration.projectImage;
-  return { calibration, values, handlers, submitted };
+  calibration.isValidCalibration = (cameraPoints, mapPoints) =>
+    Object.keys(cameraPoints).length >= 4 &&
+    Object.keys(cameraPoints).length === Object.keys(mapPoints).length;
+  return { calibration, values, handlers, submitted, context };
 }
 
-test("calibration JPEGs preserve sensor dimensions and off-center intrinsics", async () => {
+test("manual calibration centers intrinsics using displayed image dimensions", async () => {
   const { calibration, values } = await calibrationHarness();
   const matrix = [
     [1200, 0, 950],
     [0, 1200, 710],
     [0, 0, 1],
   ];
+  calibration.camCanvas.getCalibrationPoints = () => ({});
+  calibration.viewport.getCalibrationPoints = () => ({});
   calibration.updateCalibrationViews("jpeg", matrix, [0, 0, 0, 0, 0]);
-  assert.equal(values["#id_width"], 1920);
-  assert.equal(values["#id_height"], 1440);
-  assert.equal(values["#id_intrinsics_cx"], 950);
-  assert.equal(values["#id_intrinsics_cy"], 710);
+  assert.equal(values["#id_width"], 320);
+  assert.equal(values["#id_height"], 240);
+  assert.equal(values["#id_intrinsics_cx"], 160);
+  assert.equal(values["#id_intrinsics_cy"], 120);
   assert.deepEqual(matrix, [
-    [1200, 0, 950],
-    [0, 1200, 710],
+    [1200, 0, 160],
+    [0, 1200, 120],
     [0, 0, 1],
   ]);
   const expected = [
-    [200, 0, 950 / 6],
-    [0, 200, 710 / 6],
+    [1200, 0, 160],
+    [0, 1200, 120],
     [0, 0, 1],
   ];
   calibration.projections[0]
@@ -1228,13 +1238,10 @@ test("calibration JPEGs preserve sensor dimensions and off-center intrinsics", a
     .forEach((value, index) =>
       assert.ok(Math.abs(value - expected.flat()[index]) < 1e-10),
     );
-  assert.deepEqual(plain(calibration.getSensorCalibrationPoints()), {
-    p0: [960, 720],
-  });
-  assert.equal(calibration.resolutionNeedsRefit, undefined);
+  assert.equal(calibration.resolutionNeedsRefit, true);
 });
 
-test("saving after a JPEG preview preserves the registered sensor fields", async () => {
+test("saving manual calibration persists displayed resolution and centered intrinsics", async () => {
   const { calibration, handlers, submitted } = await calibrationHarness();
   calibration.camCanvas.getCalibrationPoints = () => ({});
   calibration.viewport.getCalibrationPoints = () => ({});
@@ -1250,9 +1257,107 @@ test("saving after a JPEG preview preserves the registered sensor fields", async
   calibration.setupSaveCameraButton();
   handlers.submit({ preventDefault() {} });
   assert.equal(submitted.length, 1);
-  assert.equal(submitted[0]["#id_width"], 1920);
-  assert.equal(submitted[0]["#id_height"], 1440);
-  assert.equal(submitted[0]["#id_intrinsics_cx"], 950);
+  assert.equal(submitted[0]["#id_width"], 320);
+  assert.equal(submitted[0]["#id_height"], 240);
+  assert.equal(submitted[0]["#id_intrinsics_cx"], 160);
+  assert.equal(submitted[0]["#id_intrinsics_cy"], 120);
+});
+
+test("manual calibration uses 1280x720 image despite stale or differing sensor metadata", async () => {
+  for (const resolution of [undefined, [1920, 1080]]) {
+    const { calibration, values } = await calibrationHarness();
+    calibration.camCanvas.getImageSize = () => [1280, 720];
+    calibration.camCanvas.getCalibrationPoints = () => ({});
+    calibration.viewport.getCalibrationPoints = () => ({});
+    const matrix = [
+      [470, 0, 320],
+      [0, 470, 240],
+      [0, 0, 1],
+    ];
+    calibration.updateCalibrationViews(
+      "jpeg",
+      matrix,
+      [0, 0, 0, 0, 0],
+      resolution,
+    );
+    assert.equal(values["#id_width"], 1280);
+    assert.equal(values["#id_height"], 720);
+    assert.equal(values["#id_intrinsics_cx"], 640);
+    assert.equal(values["#id_intrinsics_cy"], 360);
+    assert.deepEqual(calibration.projections[0], [
+      [470, 0, 640],
+      [0, 470, 360],
+      [0, 0, 1],
+    ]);
+  }
+});
+
+test("manual fitting locks the centered principal point even when its controls are unlocked", async () => {
+  const { calibration, context } = await calibrationHarness();
+  const originalDollar = context.$;
+  const intrinsics = [
+    { name: "intrinsics_fx", value: "470" },
+    { name: "intrinsics_fy", value: "470" },
+    { name: "intrinsics_cx", value: "160" },
+    { name: "intrinsics_cy", value: "120" },
+  ];
+  context.$ = (selector) => {
+    const elements =
+      selector === 'input[name^="intrinsics_"]'
+        ? intrinsics
+        : selector === 'input[type="checkbox"][name^="enabled_"]'
+          ? [
+              { name: "enabled_intrinsics_cx", checked: false },
+              { name: "enabled_intrinsics_cy", checked: false },
+            ]
+          : [];
+    return {
+      ...originalDollar(selector),
+      each(callback) {
+        elements.forEach((element) => callback.call(element));
+      },
+    };
+  };
+  let request;
+  context.$.ajax = (options) => {
+    request = JSON.parse(options.data);
+  };
+  calibration.calibrationRequestId = 0;
+  calibration.getSensorCalibrationPoints = () =>
+    Object.fromEntries(
+      Array.from({ length: 8 }, (_, i) => [`p${i}`, [i * 10, i * 10]]),
+    );
+  calibration.viewport.getCalibrationPoints =
+    calibration.getSensorCalibrationPoints;
+  calibration.isValidCalibration = () => true;
+  calibration.setCalibrationFitStatus = () => {};
+  calibration.calculateCalibrationIntrinsics();
+  assert.equal(request.fixIntrinsics.cx, true);
+  assert.equal(request.fixIntrinsics.cy, true);
+  assert.deepEqual(request.imageSize, [320, 240]);
+  assert.equal(request.intrinsics[0][2], 160);
+  assert.equal(request.intrinsics[1][2], 120);
+});
+
+test("manual calibration does not replace saved optics before an image is loaded", async () => {
+  const { calibration, values } = await calibrationHarness();
+  calibration.camCanvas.getImageSize = () => [0, 0];
+  assert.equal(calibration.centerManualIntrinsics(), false);
+  assert.equal(values["#id_width"], 1920);
+  assert.equal(values["#id_intrinsics_cx"], 950);
+});
+
+test("changed manual image dimensions invalidate an in-flight calibration fit", async () => {
+  const { calibration } = await calibrationHarness();
+  calibration.calibrationRequestId = 7;
+  calibration.calibrationFitState = "pending";
+  calibration.centerManualIntrinsics();
+  assert.equal(calibration.calibrationRequestId, 8);
+  assert.equal(calibration.calibrationFitState, "idle");
+  calibration.calibrationFitState = "pending";
+  calibration.centerManualIntrinsics();
+  assert.equal(calibration.calibrationRequestId, 8);
+  assert.equal(calibration.calibrationFitState, "pending");
 });
 
 test("calibration accepts explicit sensor metadata but rejects invalid dimensions", async () => {
