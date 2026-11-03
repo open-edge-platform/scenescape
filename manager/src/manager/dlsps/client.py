@@ -7,6 +7,7 @@ import os
 import uuid
 from http import HTTPStatus
 from typing import Any, Dict, List, Optional, Sequence, Union
+from urllib.parse import urlparse
 
 import requests
 
@@ -53,12 +54,7 @@ class DLSPSClient:
       verify: TLS verification flag or CA bundle path (only relevant for https URLs).
       session: Optional pre-configured ``requests.Session`` (e.g. for tests).
     """
-    url = base_url or os.getenv(DLSPS_URL_ENV)
-    if not isinstance(url, str) or not url.strip():
-      raise ValueError(f"Provide base_url or set the {DLSPS_URL_ENV} environment variable")
-    self.base_url = url.strip().rstrip("/")
-    if not self.base_url:
-      raise ValueError(f"Provide a valid base_url or set the {DLSPS_URL_ENV} environment variable")
+    self.base_url = _resolve_base_url(base_url)
     self.timeout = timeout
     self.verify = verify
     self.session = session if session is not None else requests.Session()
@@ -149,6 +145,23 @@ class DLSPSClient:
     except ValueError as e:
       raise DLSPSError(f"DLSPS {method} {path} returned invalid JSON",
                        status_code=response.status_code) from e
+
+
+def _resolve_base_url(base_url: Optional[str]) -> str:
+  url = base_url or os.getenv(DLSPS_URL_ENV) or ""
+  if not isinstance(url, str) or not url.strip():
+    raise ValueError(f"Provide base_url or set the {DLSPS_URL_ENV} environment variable")
+  url = url.strip()
+  try:
+    parsed = urlparse(url)
+  except ValueError:
+    raise ValueError("DLSPS base URL must be an absolute http(s) URL") from None
+  # Avoid echoing the URL because it may contain credentials.
+  if parsed.scheme not in ("http", "https") or not parsed.netloc:
+    raise ValueError("DLSPS base URL must be an absolute http(s) URL")
+  if parsed.query or parsed.fragment:
+    raise ValueError("DLSPS base URL must not contain a query string or fragment")
+  return url.rstrip("/")
 
 
 def _normalize_instance_id(instance_id: InstanceId) -> str:

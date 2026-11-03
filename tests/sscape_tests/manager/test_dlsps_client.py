@@ -82,6 +82,10 @@ class TestDLSPSClientConfiguration:
   def test_base_url_argument_strips_trailing_slash(self, session):
     assert DLSPSClient(base_url="http://host:1234/", session=session).base_url == "http://host:1234"
 
+  def test_base_url_argument_strips_whitespace(self, session):
+    assert DLSPSClient(base_url="  https://host:1234/api/v1/  ",
+                       session=session).base_url == "https://host:1234/api/v1"
+
   def test_base_url_from_environment(self, monkeypatch, session):
     monkeypatch.setenv(DLSPS_URL_ENV, "http://from-env:8080")
     assert DLSPSClient(session=session).base_url == "http://from-env:8080"
@@ -94,6 +98,28 @@ class TestDLSPSClientConfiguration:
     monkeypatch.delenv(DLSPS_URL_ENV, raising=False)
     with pytest.raises(ValueError, match="base_url or set the DLSPS_URL"):
       DLSPSClient(session=session)
+
+  @pytest.mark.parametrize("url", [
+    "dlsps:8080/api/v1",
+    "ftp://dlsps/api/v1",
+    "file:///etc/passwd",
+    "http://",
+    "http://dlsps/api/v1?debug=1",
+    "http://dlsps/api/v1#docs",
+    "http://[::1",
+  ])
+  def test_invalid_base_url_raises(self, session, url):
+    with pytest.raises(ValueError, match="DLSPS base URL"):
+      DLSPSClient(base_url=url, session=session)
+
+  def test_invalid_base_url_error_does_not_echo_credentials(self, session):
+    with pytest.raises(ValueError) as exc_info:
+      DLSPSClient(base_url="not-a-url?token=secret", session=session)
+    assert "secret" not in str(exc_info.value)
+
+  def test_non_string_base_url_raises(self, session):
+    with pytest.raises(ValueError, match="base_url or set the DLSPS_URL"):
+      DLSPSClient(base_url=123, session=session)
 
   def test_timeout_and_verify_are_forwarded(self, session):
     session.request.return_value = _response(200, [])
