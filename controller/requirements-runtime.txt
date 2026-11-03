@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # This file is licensed under Apache 2.0 License.
 
+# gRPC runtime of the remote projection client stubs (see controller/Dockerfile)
+grpcio==1.85.0
 mapbox_earcut==1.0.3
 ntplib==0.4.0
 numpy==2.2.6

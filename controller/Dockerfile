@@ -40,7 +40,7 @@ RUN pip3 install --no-cache-dir build \
     && rm -rf /tmp/controller
 
 # Generate the remote projection gRPC stubs (package scenescape_api). This grpcio-tools emits
-# protobuf 5.29 gencode, which the runtime protobuf (same or newer) accepts.
+# protobuf 5.29 gencode, which the pinned runtime (grpcio and protobuf below) accepts.
 COPY ./api/projection /tmp/api/projection
 RUN pip3 install --no-cache-dir grpcio-tools==1.71.2 \
     && python3 -m grpc_tools.protoc -Iscenescape_api=/tmp/api \
@@ -107,8 +107,9 @@ RUN : \
 
 # WORKAROUND: Force upgrade protobuf to a secure version, even though vdms pins an older version.
 # This may break vdms if it is not compatible with newer protobuf, but is required to fix CVE-2025-4565.
-# Remove this when vdms supports a secure protobuf version.
-RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf>=4.25.8'
+# Remove this when vdms supports a secure protobuf version. Pinned: the remote projection stubs
+# are verified against this runtime.
+RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf==7.36.2'
 
 # copy installed scenescape packages from the previous stages
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry /usr/local/lib/${PY_LIB_DIR}/site-packages/fast_geometry
