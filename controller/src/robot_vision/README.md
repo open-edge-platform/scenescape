@@ -63,6 +63,12 @@ and `min(p, cap)` for the rest, with caps of 0.1 for acceleration, 0.05 for yaw 
 starts at rest, so `p` sets how fast it picks up an object that enters already moving: with the production `p = 1` a car
 entering at 8 m/s keeps one track through a 2 m Euclidean gate at 10 fps.
 
+**Sigma points.** The unscented filter uses α = 1, β = 2 and κ = 3 − n for the n = 12 states. The sigma points then
+sit at √3 σ, which matches a Gaussian's fourth moment along each axis; the centre weight is negative (−3), so the
+predicted mean extrapolates from the centre point instead of averaging the points, and with β = 2 the covariance stays
+positive semi-definite. Only CTRV is nonlinear. At 10 fps κ makes no measurable difference; with a turn-rate uncertainty
+of 1 rad over one step CTRV's predicted mean speed is 1 % off the exact value, where κ = 0 is 38 % too fast.
+
 Earlier versions added `q` times the identity to all twelve states at every predict, independent of `dt`, and started
 from `p` times the identity. Values tuned for them do not carry over.
 

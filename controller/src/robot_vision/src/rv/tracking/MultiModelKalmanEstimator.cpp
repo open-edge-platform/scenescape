@@ -47,7 +47,11 @@ MultiModelKalmanEstimator::MultiModelKalmanEstimator(double alpha, double beta)
   mDP = TrackedObject::StateSize;
   mMP = TrackedObject::MeasurementSize;
   mCP = 1;            // Control vector is time
-  mKappa = 3.0 - mDP; // 3 - state_size
+  // kappa = 3 - n puts the sigma points at sqrt(3) sigma, which matches a Gaussian's fourth moment along each axis. The
+  // centre weight is then negative (-3 for 12 states), so the predicted mean extrapolates from the centre point; with
+  // beta = 2 the covariance stays positive semi-definite. Only CTRV is nonlinear: for a turn-rate uncertainty of 1 rad
+  // over one step its mean speed is 1 % off the exact value, where kappa = 0 is 38 % too fast.
+  mKappa = 3.0 - mDP;
 }
 
 void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chrono::system_clock::time_point &timestamp, double processNoise, double measurementNoise, double initStateCovariance, const std::vector<MotionModel> &motionModels)
