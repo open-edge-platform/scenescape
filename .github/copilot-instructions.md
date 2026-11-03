@@ -27,7 +27,7 @@ Consult these based on the code you're working with:
 - **JavaScript** (`.github/skills/javascript/SKILL.md`): Frontend conventions
 - **Shell** (`.github/skills/shell/SKILL.md`): Bash scripting guidelines
 - **Makefile** (`.github/skills/makefile/SKILL.md`): Build system conventions
-- **Testing** (`.github/skills/testing/SKILL.md`): test authoring, execution, and failure diagnosis
+- **Testing** (`.github/skills/testing/SKILL.md`): Test creation frameworks
 - **External-source adapters** (`.github/skills/external-source-adapter/SKILL.md`): Converter scripts for the Scene Controller `external_source` MQTT contract (read the skill before writing publishers)
 
 ### Skills Caching Strategy
@@ -42,7 +42,8 @@ Skills are loaded on-demand based on task context to optimize token usage:
 
 **Loaded Automatically on Demand**:
 
-- `.github/skills/testing/SKILL.md` - Loaded for test authoring, execution, and failure diagnosis
+- `.github/skills/testing/SKILL.md` - Loaded when creating or modifying tests
+- `.github/skills/test-verification-gate/SKILL.md` - Loaded when running tests or diagnosing a failing test
 - `.github/skills/javascript/SKILL.md` - Loaded when `.js` files are being edited
 - `.github/skills/shell/SKILL.md` - Loaded when `.sh` files are being edited
 - `.github/skills/makefile/SKILL.md` - Loaded when Makefile or build system changes

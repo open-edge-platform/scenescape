@@ -91,15 +91,14 @@
     {
       "id": 7,
       "prompt": "The CI job running tests/functional/test_roi_mqtt.py::test_roi_create is failing with an assertion error on the expected ROI MQTT event. Diagnose why it fails and propose a fix.",
-      "expected_output": "Agent selects the testing skill for a failing-test diagnosis, classifies the test as functional from its path, loads only the functional-tests reference (plus running-tests if needed) rather than every reference, and uses the test-verification-gate for the runtime re-run: narrow pytest invocation, image freshness check before code-level debugging, per-test log inspection, and exact command plus pass/fail (or blocker) report. Note: if the harness forbids starting containers, expectations grade the proposed diagnosis steps and commands rather than a live re-run.",
-      "should_trigger": true,
+      "expected_output": "Agent treats this as a failing-test diagnosis, not test authoring: it uses the test-verification-gate (narrow pytest invocation, image freshness check before code-level debugging, exact command plus pass/fail or blocker report) and does not load the testing skill or any of its references/*.md. The testing skill is only needed if the fix ends up editing the test itself. Note: if the harness forbids starting containers, expectations grade the proposed diagnosis steps and commands rather than a live re-run.",
+      "should_trigger": false,
       "files": [],
       "expectations": [
-        "Uses the testing skill for this failing-test diagnosis rather than treating it as a generic code-debugging task",
-        "Classifies the failing test as functional (tests/functional/) and reads only the functional-tests reference, optionally with running-tests or conftest-and-zephyr",
-        "Does not load unrelated references such as unit-tests.md or ui-and-bat-tests.md",
+        "Does not load the testing skill or any of its references/*.md (unit-tests.md, functional-tests.md, ui-and-bat-tests.md, conftest-and-zephyr.md, running-tests.md) before a fix to the test itself is needed",
+        "Uses test-verification-gate for the re-run rather than treating this as a generic code-debugging task",
         "Re-runs the narrowest invocation, e.g. pytest tests/functional/test_roi_mqtt.py::test_roi_create, rather than only a broad make run_* target",
-        "Follows test-verification-gate: confirms or rebuilds impacted service images (e.g. make rebuild-controller / make rebuild-manager) before code-level debugging when service code changed",
+        "Confirms or rebuilds impacted service images (e.g. make rebuild-controller / make rebuild-manager) before code-level debugging when service code changed",
         "Inspects per-test logs under tests/.test_logs/ (including the containers log directory for failures)",
         "Reports the exact command and a concise pass/fail summary or an explicit blocker, and does not treat lint or syntax checks as verification"
       ]

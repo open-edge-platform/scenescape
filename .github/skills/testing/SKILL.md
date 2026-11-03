@@ -1,13 +1,10 @@
 ---
 name: testing
 description: >-
-  Create, run, and diagnose Scenescape pytest cases (unit, functional, integration,
-  UI, BAT) with SCENESCAPE_SPEC, Zephyr IDs, and positive/negative coverage.
-  MANDATORY before modifying any file under tests/, writing pytest, running tests, or
-  diagnosing a failing test, test-job CI failure, or test regression. Load only the
-  reference matching the test category, and use test-verification-gate when runtime
-  verification is needed. Not for formatting/lint/license-only CI failures or
-  mechanical edits with no behavioral impact (license year, comment typo).
+  Create or modify Scenescape pytest cases (unit, functional, integration, UI, BAT)
+  with SCENESCAPE_SPEC, Zephyr IDs, and positive/negative coverage. Use when adding
+  or modifying tests under tests/, or choosing unit vs functional vs UI. Not for
+  running/diagnosing tests (test-verification-gate) or lint/format/license-only edits.
 ---
 
 <!--
@@ -15,29 +12,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Testing in Scenescape
-
-## Scope
-
-Triggers are in the frontmatter `description`. Do not load this skill or its references for
-formatting, lint, indentation, or license-header CI failures where no test fails (use the
-matching language/Makefile skill, e.g. `make indent-check`, `make prettier-check`).
-
-## Load only what the task needs
-
-Read this file, then **only the one reference** that matches the test category or activity.
-Do not load every reference.
-
-| Task (author or diagnose)                        | Read                                                        |
-| ------------------------------------------------ | ----------------------------------------------------------- |
-| Unit test                                        | [unit-tests.md](references/unit-tests.md)                   |
-| Functional, integration, or non-functional test  | [functional-tests.md](references/functional-tests.md)       |
-| UI or BAT test                                   | [ui-and-bat-tests.md](references/ui-and-bat-tests.md)       |
-| Fixtures, markers, Zephyr IDs                    | [conftest-and-zephyr.md](references/conftest-and-zephyr.md) |
-| Running tests, make targets, backends, log flags | [running-tests.md](references/running-tests.md)             |
-
-Multi-controller hierarchy fixtures:
-[functional-tests.md](references/functional-tests.md#multi-controller-hierarchy-fixtures).
+# Creating Test Cases for Scenescape
 
 ## Test philosophy
 
@@ -47,18 +22,10 @@ Multi-controller hierarchy fixtures:
 
 ## Runtime verification (mandatory)
 
-When runtime verification is needed (after creating or modifying tests, or when re-running tests to
-diagnose a failure), follow
+After creating or modifying tests, follow
 [`.github/skills/test-verification-gate/SKILL.md`](../test-verification-gate/SKILL.md)
 for target selection, image freshness, execution, and pass/fail reporting.
 Do not treat lint or syntax checks as verification.
-
-## Diagnosing a failing test
-
-1. Classify the failing test by path and read only that category's reference (plus `running-tests.md` for invocation and log flags).
-2. Re-run the narrowest pytest invocation that reproduces it, following the verification gate (confirm image freshness before code-level debugging).
-3. Inspect per-test logs under `tests/.test_logs/<group>/<test_id>/` (container logs for failures are in the `...-containers/` sibling).
-4. Report the exact command, the root cause, and the pass/fail result (or the blocker).
 
 ## Import path policy (mandatory)
 
@@ -76,16 +43,19 @@ Before adding imports or path setup in a new or modified test file:
 
 ## Category routing
 
-| Category    | Location                                        | When                                         | Infrastructure                       |
-| ----------- | ----------------------------------------------- | -------------------------------------------- | ------------------------------------ |
-| Unit        | `tests/sscape_tests/` or service `*/tests/`     | Isolated functions/classes; no live services | Mocks; host pytest                   |
-| Functional  | `tests/functional/`                             | Workflows with live REST/MQTT/DB             | `SCENESCAPE_SPEC` + `scenescape_env` |
-| Integration | `tests/functional/` or `tests/system/`          | Cross-service pipelines                      | Same as functional                   |
-| UI          | `tests/ui/`                                     | Browser/Selenium flows                       | `SCENESCAPE_SPEC` + `AUTH_BROWSER`   |
-| Non-functional | `tests/non_functional/`                      | Performance, build size/time, API contract   | `scenescape_env` + `result_recorder`  |
-| BAT         | functional/UI + `@pytest.mark.basic_acceptance` | Critical-path smoke                          | Same as parent category              |
+| Category | Location | When | Infrastructure | Read |
+| --- | --- | --- | --- | --- |
+| Unit | `tests/sscape_tests/` or service `*/tests/` | Isolated functions/classes; no live services | Mocks; host pytest | [unit-tests.md](references/unit-tests.md) |
+| Functional | `tests/functional/` | Workflows with live REST/MQTT/DB | `SCENESCAPE_SPEC` + `scenescape_env` | [functional-tests.md](references/functional-tests.md) |
+| Integration | `tests/functional/` or `tests/system/` | Cross-service pipelines | Same as functional | [functional-tests.md](references/functional-tests.md) |
+| UI | `tests/ui/` | Browser/Selenium flows | `SCENESCAPE_SPEC` + `AUTH_BROWSER` | [ui-and-bat-tests.md](references/ui-and-bat-tests.md) |
+| Non-functional | `tests/non_functional/` | Performance, build size/time, API contract | `scenescape_env` + `result_recorder` | [functional-tests.md](references/functional-tests.md) |
+| BAT | functional/UI + `@pytest.mark.basic_acceptance` | Critical-path smoke | Same as parent category | [ui-and-bat-tests.md](references/ui-and-bat-tests.md) |
 
-Read only the matching reference from [Load only what the task needs](#load-only-what-the-task-needs) before writing a category.
+Read only the reference for your category; load the rest only if needed:
+[conftest-and-zephyr.md](references/conftest-and-zephyr.md) (fixtures, markers, Zephyr IDs),
+[running-tests.md](references/running-tests.md) (make targets, backends, log flags),
+[multi-controller hierarchy fixtures](references/functional-tests.md#multi-controller-hierarchy-fixtures).
 
 ## Hard requirements
 
