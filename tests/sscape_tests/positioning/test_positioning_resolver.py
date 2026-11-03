@@ -662,3 +662,151 @@ class TestPTZResolver(unittest.TestCase):
     resolver.invalidate_calibration(SOURCE_ID)
     self.assertEqual(metrics.snapshot()["positioning_calibration_version_info"], [
       {"source_id": SOURCE_ID, "calibration_version": MODEL.calibration_version}])
+
+
+def _settled_context(resolver, clock, published):
+  submit_stationary(resolver, clock, 1, 6)
+  return last_context(published)
+
+
+def _recorder(published):
+  return lambda *args, **kwargs: published.append((args, kwargs))
+
+
+class TestPTZResolverFailClosed(unittest.TestCase):
+  """Configuration, sample, and calibration errors never produce a valid pose."""
+
+  def test_invalid_configuration_is_rejected(self):
+    cases = {
+      "poll_interval_s": {"poll_interval_s": 0},
+      "boolean poll_interval_s": {"poll_interval_s": True},
+      "max_timestamp_uncertainty_s": {"max_timestamp_uncertainty_s": -0.1},
+      "non-finite uncertainty": {"max_timestamp_uncertainty_s": float("nan")},
+      "target_reprojection_rms_px": {"target_reprojection_rms_px": 0},
+      "max_pose_age_s below poll + uncertainty": {"max_pose_age_s": 0.1},
+      "non-integer ring size": {"sample_ring_buffer_size": 52.0},
+      "boolean ring size": {"sample_ring_buffer_size": True},
+    }
+    base = {
+      "poll_interval_s": 0.2,
+      "max_pose_age_s": 0.5,
+      "max_timestamp_uncertainty_s": 0.01,
+      "target_reprojection_rms_px": 3.0,
+      "sample_ring_buffer_size": RING_SIZE,
+    }
+    for name, override in cases.items():
+      with self.subTest(name), self.assertRaises(ValueError):
+        PTZResolver({SOURCE_ID: CALIBRATION}, lambda *args, **kwargs: None,
+                    **{**base, **override})
+
+  def test_update_calibration_rejects_unknown_source_and_wrong_type(self):
+    resolver = make_resolver(FakeClock(), [])
+    with self.assertRaises(KeyError):
+      resolver.update_calibration("other-camera", CALIBRATION)
+    with self.assertRaises(TypeError):
+      resolver.update_calibration(SOURCE_ID, {"model": MODEL})
+
+  def test_unreadable_home_matrix_is_never_treated_as_unchanged(self):
+    ragged = PTZSourceCalibration(MODEL, [[1.0, 0.0], [0.0]], "scene:scene-a")
+    self.assertFalse(PTZResolver._same_calibration(CALIBRATION, ragged))
+
+  def test_malformed_samples_are_rejected_without_publication(self):
+    def set_attr(name, value):
+      return lambda sample: setattr(sample, name, value)
+
+    def set_position(name, value):
+      return lambda sample: setattr(sample.position, name, value)
+
+    def set_measured_at(seconds=None, nanos=None):
+      def mutate(sample):
+        if seconds is not None:
+          sample.measured_at.seconds = seconds
+        if nanos is not None:
+          sample.measured_at.nanos = nanos
+      return mutate
+
+    cases = {
+      "empty adapter id": (set_attr("adapter_instance_id", ""), "adapter_instance_id"),
+      "long adapter id": (set_attr("adapter_instance_id", "a" * 129), "adapter_instance_id"),
+      "zero uncertainty": (set_attr("timestamp_uncertainty_ns", 0), "must be positive"),
+      "uncertainty above maximum": (
+        set_attr("timestamp_uncertainty_ns", 20_000_000), "exceeds configured maximum"),
+      "missing position": (lambda s: s.ClearField("position"), "missing measured_at"),
+      "missing measured_at": (lambda s: s.ClearField("measured_at"), "missing measured_at"),
+      "negative timestamp": (set_measured_at(seconds=-1), "supported timestamp range"),
+      "nanos out of range": (set_measured_at(nanos=1_000_000_000), "supported timestamp range"),
+      "future timestamp": (
+        lambda s: s.measured_at.FromNanoseconds(START_NS + 10_000_000),
+        "beyond timestamp uncertainty"),
+      "non-finite pan": (set_position("pan", float("nan")), "must be finite"),
+      "unordered pan range": (
+        set_position("pan_min", MODEL.position_space.pan_max), "must be ordered"),
+      "pan outside range": (
+        set_position("pan", MODEL.position_space.pan_max + 1.0), "outside advertised ranges"),
+    }
+    for name, (mutate, message) in cases.items():
+      with self.subTest(name):
+        published = []
+        resolver = make_resolver(FakeClock(), published)
+        sample = make_sample(1, START_NS)
+        mutate(sample)  # pylint: disable=not-callable  # lambdas from the case table
+        result = resolver.submit_ptz_sample(sample)
+        self.assertEqual(result.result, ptz_pb2.PTZ_SAMPLE_RESULT_INVALID)
+        self.assertIn(message, result.detail)
+        self.assertEqual(published, [])
+
+  def test_zero_sequence_is_rejected(self):
+    published = []
+    resolver = make_resolver(FakeClock(), published)
+    result = resolver.submit_ptz_sample(make_sample(0, START_NS))
+    self.assertEqual(result.result, ptz_pb2.PTZ_SAMPLE_RESULT_INVALID)
+    self.assertEqual(published, [])
+
+  def test_sample_without_required_attributes_is_rejected_as_malformed(self):
+    published = []
+    resolver = make_resolver(FakeClock(), published)
+    sample = mock.Mock(spec=["camera_id"], camera_id=SOURCE_ID)
+    result = resolver.submit_ptz_sample(sample)
+    self.assertEqual(result.result, ptz_pb2.PTZ_SAMPLE_RESULT_INVALID)
+    self.assertEqual(result.detail, "sample is malformed")
+    self.assertEqual(published, [])
+
+  def test_unusable_calibration_publishes_calibration_missing_instead_of_pose(self):
+    def with_home(matrix):
+      return PTZSourceCalibration(MODEL, matrix, "scene:scene-a")
+
+    non_finite = HOME_MATRIX.copy()
+    non_finite[0, 3] = np.inf
+    bad_last_row = HOME_MATRIX.copy()
+    bad_last_row[3] = [0.0, 0.0, 1.0, 1.0]
+    scaled = HOME_MATRIX.copy()
+    scaled[:3, :3] *= 2.0
+    reflected = HOME_MATRIX.copy()
+    reflected[:3, 0] *= -1.0
+    cases = {
+      "missing frame id": (3.0, PTZSourceCalibration(MODEL, HOME_MATRIX, "")),
+      "reprojection error above target": (MODEL.reprojection_rms_px / 2, CALIBRATION),
+      "unreadable home matrix": (3.0, with_home([[1.0, 0.0], [0.0]])),
+      "wrong home matrix shape": (3.0, with_home(np.eye(3))),
+      "non-finite home matrix": (3.0, with_home(non_finite)),
+      "invalid homogeneous row": (3.0, with_home(bad_last_row)),
+      "non-orthonormal rotation": (3.0, with_home(scaled)),
+      "reflection instead of rotation": (3.0, with_home(reflected)),
+    }
+    for name, (target_rms, calibration) in cases.items():
+      with self.subTest(name):
+        clock = FakeClock()
+        published = []
+        resolver = PTZResolver(
+          {SOURCE_ID: calibration}, _recorder(published),
+          poll_interval_s=0.2, max_pose_age_s=0.5, max_timestamp_uncertainty_s=0.01,
+          target_reprojection_rms_px=target_rms, sample_ring_buffer_size=RING_SIZE,
+          clock_ns=clock)
+        context = _settled_context(resolver, clock, published)
+        self.assertFalse(context["valid"])
+        self.assertEqual(context["motion_state"], "stationary")
+        self.assertEqual(context["reason_detail"], "calibration_missing")
+        self.assertEqual(context["invalid_reason"], "invalid_pose")
+        self.assertNotIn("pose", context)
+        validate_pose_context_payload(context)
+        self.assertTrue(POSE_SCHEMA.validateMessage("pose_context", context, check_format=True))

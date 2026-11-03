@@ -72,6 +72,7 @@ export class ConvergedCameraCalibration {
     this.ptzPointMapperKey = null;
     this.ptzPendingPoints = null;
     this.ptzStationarySince = null;
+    this.ptzMotionSeen = false;
 
     // Used for storing undistorted image for projection
     this.projectionImage = new Image();
@@ -1119,12 +1120,16 @@ export class ConvergedCameraCalibration {
     this.loadPTZHomePose(cameraUID);
     this.ptzMoving = isPTZMoving(msg);
     let matrix = ptzPoseToCameraMatrix(msg, sceneID, calibrationVersion);
-    // Acquisition time of the first stationary pose after a move.
+    // Acquisition time of the first stationary pose after an observed move;
+    // -Infinity when no move was seen (e.g. page load), so nothing is held back.
     if (!matrix) {
       this.ptzStationarySince = null;
+      this.ptzMotionSeen ||= this.ptzMoving;
     } else if (this.ptzStationarySince === null) {
       const poseTime = Date.parse(msg.timestamp);
-      this.ptzStationarySince = Number.isFinite(poseTime) ? poseTime : null;
+      this.ptzStationarySince =
+        this.ptzMotionSeen && Number.isFinite(poseTime) ? poseTime : -Infinity;
+      this.ptzMotionSeen = false;
     }
     let poseRows = matrix ? msg.pose.matrix_4x4 : null;
     if (!matrix && !this.ptzMoving) {
@@ -1212,7 +1217,7 @@ export class ConvergedCameraCalibration {
       intrinsics,
       distortion,
     );
-    if (this.ptzStationarySince === null) {
+    if (!Number.isFinite(this.ptzStationarySince)) {
       this.setPTZPointMapper(key, mapper, true);
       return;
     }

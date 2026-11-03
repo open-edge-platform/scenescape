@@ -1,0 +1,218 @@
+// SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+// SPDX-License-Identifier: Apache-2.0
+
+import assert from "node:assert/strict";
+import test from "node:test";
+
+import * as THREE from "/static/assets/three.module.js";
+import {
+  PTZ_AWAY_MESSAGE,
+  ptzMatricesClose,
+  sceneFromCameraToCameraMatrix,
+} from "/static/js/ptzpose.js";
+import {
+  HOME,
+  SCENE_ID,
+  VERSION,
+  movedPose,
+  poseContext,
+  spy,
+} from "./helpers.mjs";
+
+const { default: SceneCamera } =
+  await import("/static/js/thing/scenecamera.js");
+const { default: Scene } = await import("/static/js/thing/scene.js");
+const { default: thingTransformControls } =
+  await import("/static/js/thing/controls/thingtransformcontrols.js");
+
+const POINTS = "3d-2d point correspondence";
+const HOME_CAMERA = sceneFromCameraToCameraMatrix(HOME);
+
+// A SceneCamera as addCamera() leaves it, without the browser-only constructor.
+function makeCamera({ ptz = true, transformType = POINTS } = {}) {
+  const camera = Object.create(SceneCamera.prototype);
+  Object.assign(camera, thingTransformControls);
+  const sceneCamera = new THREE.PerspectiveCamera(60, 16 / 9, 0.1, 10);
+  HOME_CAMERA.decompose(
+    sceneCamera.position,
+    sceneCamera.quaternion,
+    sceneCamera.scale,
+  );
+  sceneCamera.updateMatrix();
+  return Object.assign(camera, {
+    sceneCamera,
+    cameraUID: "ptz-cam",
+    name: "ptz-cam",
+    previousName: "ptz-cam",
+    sceneID: SCENE_ID,
+    ptzSceneID: SCENE_ID,
+    ptzCalibrationVersion: ptz ? VERSION : null,
+    ptzPoseValid: null,
+    ptzMoving: false,
+    ptzLiveMatrix: null,
+    ptzHomeMatrix: sceneCamera.matrix.clone(),
+    transformType,
+    isStoredInDB: true,
+    mqttClient: null,
+    isVARunning: false,
+    mesh: { visible: true },
+    toast: { showToast: spy() },
+    updateExistingCamera: spy(async () => undefined),
+    updateCameras: spy(),
+    executeOnControl: spy(),
+    enableAutoCalibration: spy(),
+  });
+}
+
+function pose(camera, options) {
+  camera.updatePTZPose(JSON.stringify(poseContext(options)));
+}
+
+function cameraMatrix(camera) {
+  camera.sceneCamera.updateMatrix();
+  return camera.sceneCamera.matrix;
+}
+
+test("a valid moved pose moves the camera and hides the old frame", () => {
+  const camera = makeCamera();
+  const moved = movedPose(0.2);
+  pose(camera, { matrix: moved });
+  assert.ok(
+    ptzMatricesClose(
+      cameraMatrix(camera),
+      sceneFromCameraToCameraMatrix(moved),
+    ),
+  );
+  assert.equal(camera.mesh.visible, false);
+  assert.equal(camera.isPTZAwayFromHome(), true);
+});
+
+test("a moving camera is away from home and its frame is hidden", () => {
+  const camera = makeCamera();
+  pose(camera, { motionState: "slewing" });
+  assert.equal(camera.ptzPoseValid, false);
+  assert.equal(camera.mesh.visible, false);
+  assert.equal(camera.isPTZAwayFromHome(), true);
+  assert.ok(ptzMatricesClose(cameraMatrix(camera), HOME_CAMERA));
+});
+
+test("unknown position and mismatched poses fall back to the home pose", () => {
+  for (const fallback of [
+    { motionState: "unknown" },
+    { matrix: movedPose(0.3), version: "cam-v2" },
+    { matrix: movedPose(0.3), frameId: "scene:other" },
+  ]) {
+    const camera = makeCamera();
+    pose(camera, { matrix: movedPose(0.2) });
+    pose(camera, fallback);
+    assert.ok(ptzMatricesClose(cameraMatrix(camera), HOME_CAMERA));
+    assert.equal(camera.ptzPoseValid, true);
+    assert.equal(camera.isPTZAwayFromHome(), false);
+  }
+});
+
+test("cameras without PTZ calibration are never away from home", () => {
+  const camera = makeCamera({ ptz: false });
+  camera.ptzMoving = true;
+  assert.equal(camera.isPTZAwayFromHome(), false);
+});
+
+test("saving an unchanged point-calibrated camera keeps its points", async () => {
+  const camera = makeCamera({ ptz: false });
+  await camera.saveSettings();
+  assert.deepEqual(camera.updateExistingCamera.calls, [
+    [{ sensor_id: "ptz-cam", name: "ptz-cam", scene: SCENE_ID }],
+  ]);
+  assert.equal(camera.transformType, POINTS);
+});
+
+test("saving an edited pose stores it as an euler pose", async () => {
+  const camera = makeCamera({ ptz: false });
+  camera.sceneCamera.rotateZ(0.1);
+  await camera.saveSettings();
+  const [[payload]] = camera.updateExistingCamera.calls;
+  assert.equal(payload.transform_type, "euler");
+  assert.deepEqual(payload.scale, [1, 1, 1]);
+  payload.translation.forEach((value, i) =>
+    assert.ok(Math.abs(value - HOME[i][3]) < 1e-9),
+  );
+  assert.equal(camera.transformType, "euler");
+});
+
+test("saving an unchanged euler camera still sends its pose", async () => {
+  const camera = makeCamera({ ptz: false, transformType: "euler" });
+  await camera.saveSettings();
+  const [[payload]] = camera.updateExistingCamera.calls;
+  assert.equal(payload.transform_type, "euler");
+  assert.equal(payload.rotation.length, 3);
+});
+
+test("saving is blocked while the PTZ camera is away from home or moving", async () => {
+  for (const state of [
+    { matrix: movedPose(0.2) },
+    { motionState: "slewing" },
+  ]) {
+    const camera = makeCamera();
+    pose(camera, state);
+    await camera.saveSettings();
+    assert.equal(camera.updateExistingCamera.calls.length, 0);
+    assert.deepEqual(camera.toast.showToast.calls, [
+      [PTZ_AWAY_MESSAGE, "warning"],
+    ]);
+  }
+});
+
+test("saving at home never stores the live pose and keeps the points", async () => {
+  const camera = makeCamera();
+  pose(camera, { matrix: movedPose(0.0002) });
+  assert.equal(camera.isPTZAwayFromHome(), false);
+  assert.equal(ptzMatricesClose(cameraMatrix(camera), HOME_CAMERA), false);
+  await camera.saveSettings();
+  assert.deepEqual(camera.updateExistingCamera.calls, [
+    [{ sensor_id: "ptz-cam", name: "ptz-cam", scene: SCENE_ID }],
+  ]);
+});
+
+test("auto calibration is blocked while the PTZ camera is away from home", async () => {
+  const camera = makeCamera();
+  pose(camera, { matrix: movedPose(0.2) });
+  globalThis.__ptzStubCalls = {};
+  await camera.autoCalibrate();
+  assert.deepEqual(camera.toast.showToast.calls, [
+    [PTZ_AWAY_MESSAGE, "warning"],
+  ]);
+  assert.equal(camera.enableAutoCalibration.calls.length, 0);
+  assert.equal(
+    globalThis.__ptzStubCalls["js/calibration.js#startCameraCalibration"],
+    undefined,
+  );
+});
+
+test("saving a scene that moves cameras is blocked while a PTZ is away", async () => {
+  const makeScene = (away) => ({
+    updateCamerasOnSave: true,
+    sceneMesh: {},
+    transformObject: null,
+    name: "scene",
+    pixelsPerMeter: 100,
+    toast: { showToast: spy() },
+    updateScene: spy(),
+    executeOnControl: spy(),
+    _applyMeshDeltaToCamerasAndSave: spy(async () => undefined),
+    _getAllSceneCameraWrappers: () => [{ isPTZAwayFromHome: () => away }, {}],
+  });
+
+  const blocked = makeScene(true);
+  await Scene.prototype.saveSettings.call(blocked);
+  assert.deepEqual(blocked.toast.showToast.calls, [
+    [PTZ_AWAY_MESSAGE, "warning"],
+  ]);
+  assert.equal(blocked.updateScene.calls.length, 0);
+  assert.equal(blocked._applyMeshDeltaToCamerasAndSave.calls.length, 0);
+
+  const allowed = makeScene(false);
+  await Scene.prototype.saveSettings.call(allowed);
+  assert.equal(allowed.toast.showToast.calls.length, 0);
+  assert.equal(allowed._applyMeshDeltaToCamerasAndSave.calls.length, 1);
+  assert.equal(allowed.updateScene.calls.length, 1);
+});

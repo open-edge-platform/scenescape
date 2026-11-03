@@ -437,6 +437,35 @@ class PTZCalibrationTransformAPITest(TestCase):
     self.assertEqual(by_uid[euler_uid]["pose_matrix"], euler["pose_matrix"])
     self.assertEqual(by_uid[point_uid]["ptz_calibration"], PTZ_CALIBRATION)
 
+  def test_update_without_pose_keeps_point_correspondence_calibration(self):
+    euler_uid = self._create({"name": "PTZ Reference", "transform_type": "euler", **EULER_HOME})
+    correspondences = _ground_correspondences(
+      self._assert_complete_home(euler_uid, "euler")["pose_matrix"])
+    uid = self._create({
+      "name": "PTZ Points Kept", "transform_type": "3d-2d point correspondence",
+      "transforms": correspondences,
+    })
+    before = self._assert_complete_home(uid, "3d-2d point correspondence")
+
+    # The 3D UI sends only these fields when the camera pose was not changed.
+    renamed = self.admin.put(f"/api/v1/camera/{uid}", {
+      "sensor_id": uid, "name": "PTZ Points Renamed", "scene": str(self.scene.pk),
+    }, format="json")
+    self.assertEqual(renamed.status_code, 200, renamed.data)
+    after = self._assert_complete_home(uid, "3d-2d point correspondence")
+    self.assertEqual(after["name"], "PTZ Points Renamed")
+    self.assertEqual(after["transforms"], before["transforms"])
+    self.assertEqual(after["pose_matrix"], before["pose_matrix"])
+
+    # An explicit euler pose replaces the point correspondences.
+    moved = self.admin.put(f"/api/v1/camera/{uid}", {
+      "name": "PTZ Points Renamed", "scene": str(self.scene.pk),
+      "transform_type": "euler", **EULER_HOME,
+    }, format="json")
+    self.assertEqual(moved.status_code, 200, moved.data)
+    euler = self._assert_complete_home(uid, "euler")
+    self.assertEqual(len(euler["transforms"]), 9)
+
   def test_read_only_client_cannot_write_camera(self):
     uid = self._create({"name": "PTZ Locked", "transform_type": "euler", **EULER_HOME})
     changed = _mutated(["calibration_version"], "reader-write")
