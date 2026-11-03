@@ -30,11 +30,11 @@ pip3 install dist/robot_vision-X.X.X-cpXX-cpXXm-linux_x86_64.whl
 Controller and the Tracker service do not read them from their configuration files: both use the production values
 `kProduction*` in [TrackManager.hpp](include/rv/tracking/TrackManager.hpp) (`tracking.PRODUCTION_*` in Python).
 
-| Python / C++ setting                                     | Production | Meaning                                                     |
-| -------------------------------------------------------- | ---------- | ----------------------------------------------------------- |
-| `default_process_noise` / `mDefaultProcessNoise`         | `1e-4`     | Scale `q` of the process noise                              |
-| `default_measurement_noise` / `mDefaultMeasurementNoise` | `0.2`      | Measurement noise `r`; initial variance of position, size   |
-| `init_state_covariance` / `mInitStateCovariance`         | `1.0`      | Upper bound `p` on the initial variance of the other states |
+| Python / C++ setting                                     | Production | Meaning                                                   |
+| -------------------------------------------------------- | ---------- | --------------------------------------------------------- |
+| `default_process_noise` / `mDefaultProcessNoise`         | `1e-4`     | Scale `q` of the process noise                            |
+| `default_measurement_noise` / `mDefaultMeasurementNoise` | `0.2`      | Measurement noise `r`; initial variance of position, size |
+| `init_state_covariance` / `mInitStateCovariance`         | `1.0`      | Initial velocity variance `p`; caps the other states      |
 
 The state is x, y, vx, vy, ax, ay, z, length, width, height, yaw and yaw rate; a detection measures x, y, z, length,
 width, height and yaw. Units are m, rad and s.
@@ -58,9 +58,10 @@ turn the process noise off.
 **Measurement noise.** The measurement noise covariance is `r` times the identity on the seven measured values. A
 detection without a usable orientation does not observe yaw: its update leaves the yaw row out.
 
-**Initial covariance.** The initial covariance is diagonal: `r` for x, y, z, length, width and height, and `min(p, cap)`
-for the other states, with caps of 0.05 for velocity, 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. Every
-`p` from 0.1 up therefore gives the same filter as the production value.
+**Initial covariance.** The initial covariance is diagonal: `r` for x, y, z, length, width and height, `p` for velocity,
+and `min(p, cap)` for the rest, with caps of 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. A new track
+starts at rest, so `p` sets how fast it picks up an object that enters already moving: with the production `p = 1` a car
+entering at 8 m/s keeps one track through a 2 m Euclidean gate at 10 fps.
 
 Earlier versions added `q` times the identity to all twelve states at every predict, independent of `dt`, and started
 from `p` times the identity. Values tuned for them do not carry over.

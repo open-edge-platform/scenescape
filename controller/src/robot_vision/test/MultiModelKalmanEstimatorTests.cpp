@@ -152,7 +152,8 @@ TEST(MultiModelKalmanEstimatorTest, IsMoveOnly)
 
 TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps)
 {
-  // Measured states start at the measurement noise; init_state_covariance only caps the latent states.
+  // Measured states start at the measurement noise and velocity at init_state_covariance, which only caps acceleration,
+  // yaw and yaw rate.
   struct Case
   {
     double initStateCovariance;
@@ -163,7 +164,7 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
   };
   constexpr double kMeasurementNoise = 0.2;
 
-  for (const auto &expected : {Case{100.0, 0.05, 0.1, 0.05, 0.01}, Case{1e-3, 1e-3, 1e-3, 1e-3, 1e-3}})
+  for (const auto &expected : {Case{100.0, 100.0, 0.1, 0.05, 0.01}, Case{1e-3, 1e-3, 1e-3, 1e-3, 1e-3}})
   {
     SCOPED_TRACE("init_state_covariance " + std::to_string(expected.initStateCovariance));
     MultiModelKalmanEstimator estimator;

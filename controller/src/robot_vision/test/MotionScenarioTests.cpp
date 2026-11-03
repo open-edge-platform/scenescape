@@ -218,15 +218,15 @@ TEST(MotionScenarioTest, TracksMotionCases)
   const MotionCase cases[] = {
     {.name = "constant velocity",
      .truth = Trajectory({.speed = 1.5, .box = kPerson}).straight(8.0).sample(kFps),
-     .maxPositionError = 0.15,
+     .maxPositionError = 0.1,
      .maxFinalSpeedError = 0.03},
     {.name = "acceleration",
      .truth = Trajectory({.box = kCar}).accelerate(1.0, 5.0).straight(3.0).sample(kFps),
-     .maxPositionError = 0.45,
+     .maxPositionError = 0.35,
      .maxFinalSpeedError = 0.01},
     {.name = "turn",
      .truth = Trajectory({.speed = 3.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).straight(2.0).sample(kFps),
-     .maxPositionError = 0.55,
+     .maxPositionError = 0.45,
      .maxFinalSpeedError = 0.05},
     {.name = "sudden stop",
      .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(3.0).accelerate(-10.0, 0.5).straight(4.5).sample(kFps),
@@ -245,7 +245,7 @@ TEST(MotionScenarioTest, TracksMotionCases)
      .maxFinalSpeedError = 0.2},
     {.name = "circle, car",
      .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 8.0).sample(kFps),
-     .maxPositionError = 0.6,
+     .maxPositionError = 0.5,
      .maxFinalSpeedError = 0.25},
     {.name = "turn, person",
      .truth = Trajectory({.speed = 1.5, .box = kPerson}).straight(2.0).turn(0.4, 6.0).sample(kFps),
@@ -499,7 +499,8 @@ TEST(MotionScenarioTest, ConstantVelocityConvergence)
 
 TEST(MotionScenarioTest, TargetBornMovingAcquiresSpeed)
 {
-  // The 0.05 velocity prior cap slows speed pick-up: about half of the true 10 m/s after 1 s.
+  // A new track starts at rest with velocity variance init_state_covariance (1 (m/s)^2 in production), so a car
+  // entering at 10 m/s is at about 9 m/s after 1 s.
   Sensor camera;
   const auto truth = Trajectory({.speed = 10.0, .box = kCar}).straight(1.0).sample(10.0);
   ScenarioRecorder recorder;
@@ -507,7 +508,7 @@ TEST(MotionScenarioTest, TargetBornMovingAcquiresSpeed)
   FilterRun run(productionConfig(), &recorder);
   run.feed(observe(truth, camera));
 
-  EXPECT_GE(std::hypot(run.state().vx, run.state().vy), 4.5);
+  EXPECT_GE(std::hypot(run.state().vx, run.state().vy), 8.5);
 }
 
 TEST(MotionScenarioTest, SteadyMotionHasNoConstantTrailingOffset)

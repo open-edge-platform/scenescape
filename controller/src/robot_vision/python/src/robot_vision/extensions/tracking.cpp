@@ -213,8 +213,8 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
      "Measurement noise r (production: PRODUCTION_MEASUREMENT_NOISE): r * I on x, y, z, length, width, height and yaw, "
      "and the initial variance of position and size.")
     .def_readwrite("init_state_covariance", &rv::tracking::TrackManagerConfig::mInitStateCovariance,
-     "Upper bound on the initial variance of velocity (0.05), acceleration (0.1), yaw (0.05) and yaw rate (0.01); every "
-     "value from 0.1 up gives the same filter (production: PRODUCTION_INIT_STATE_COVARIANCE).")
+     "Initial velocity variance; also the upper bound on the initial variance of acceleration (0.1), yaw (0.05) and yaw "
+     "rate (0.01) (production: PRODUCTION_INIT_STATE_COVARIANCE).")
     .def_readwrite("motion_models", &rv::tracking::TrackManagerConfig::mMotionModels,
      "List of motion models to use. It defaults to [CV, CA, CTRV]")
      .def_readwrite("suspended_track_timeout_secs", &rv::tracking::TrackManagerConfig::mSuspendedTrackMaxAgeSecs,

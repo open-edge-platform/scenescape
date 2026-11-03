@@ -99,17 +99,16 @@ void MultiModelKalmanEstimator::initialize(TrackedObject track, const std::chron
   mTransitionProbability = cv::Mat(mNumberOfModels, mNumberOfModels, CV_64F, cv::Scalar(pxOtherModels));
   mTransitionProbability += cv::Mat::eye(mNumberOfModels, mNumberOfModels, CV_64F) * pxSameModel;
 
-  // Structured initial P: measured pose/size start near measurement noise; latent rates use initStateCovariance.
-  // Velocity starts lower than accel/yaw-rate so early coasts are not dominated by an isotropic P_v=init blob.
+  // Structured initial P: measured pose/size start near measurement noise. A new track starts at rest, so its velocity
+  // variance must cover objects that enter already moving; acceleration, yaw and yaw rate are capped.
   cv::Mat errorCovInit = cv::Mat::zeros(mDP, mDP, CV_64F);
   const int measuredIdx[] = {0, 1, 6, 7, 8, 9}; // x, y, z, length, width, height
   for (int idx : measuredIdx)
   {
     errorCovInit.at<double>(idx, idx) = measurementNoise;
   }
-  const double velocityInit = std::min(initStateCovariance, 0.05);
-  errorCovInit.at<double>(2, 2) = velocityInit; // vx
-  errorCovInit.at<double>(3, 3) = velocityInit; // vy
+  errorCovInit.at<double>(2, 2) = initStateCovariance; // vx
+  errorCovInit.at<double>(3, 3) = initStateCovariance; // vy
   errorCovInit.at<double>(4, 4) = std::min(initStateCovariance, 0.1);  // ax
   errorCovInit.at<double>(5, 5) = std::min(initStateCovariance, 0.1);  // ay
   errorCovInit.at<double>(10, 10) = std::min(initStateCovariance, 0.05); // yaw
