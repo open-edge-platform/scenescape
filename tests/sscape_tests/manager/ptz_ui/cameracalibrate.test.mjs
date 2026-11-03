@@ -48,6 +48,7 @@ const { ConvergedCameraCalibration } =
 const { Viewport } = await import("/static/js/viewport.js");
 const {
   PTZ_AWAY_MESSAGE,
+  PTZ_CLOCK_SKEW_TOLERANCE_MS,
   PTZ_VIDEO_LATENCY_MS,
   ptzMatricesClose,
   sceneFromCameraToCameraMatrix,
@@ -202,7 +203,7 @@ test("a pose for another calibration version falls back to home", async () => {
   assert.equal(calibration.isPTZAwayFromHome(), false);
 });
 
-test("without a stored home pose the page behaves as for other cameras", async () => {
+test("without a stored home pose, points stay static and unknown still blocks", async () => {
   const { calibration, shown } = makeCalibration({
     homeResponse: { statusCode: 404, content: {} },
   });
@@ -368,10 +369,13 @@ test("an expired retained pose shows home and keeps Save allowed", async () => {
 
 test("the live pose expires when Positioning stops publishing", async (t) => {
   const { calibration, shown } = await loadedAtHome();
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+  t.mock.timers.enable({
+    apis: ["setTimeout", "Date"],
+    now: Date.parse(isoAt(0.1)),
+  });
   pose(calibration, { matrix: movedPose(0.2), timestamp: isoAt(0.1) });
   assert.equal(calibration.isPTZAwayFromHome(), true);
-  t.mock.timers.tick(499);
+  t.mock.timers.tick(500 + PTZ_CLOCK_SKEW_TOLERANCE_MS - 1);
   assert.equal(calibration.isPTZAwayFromHome(), true);
   t.mock.timers.tick(1);
   assert.equal(calibration.isPTZAwayFromHome(), false);

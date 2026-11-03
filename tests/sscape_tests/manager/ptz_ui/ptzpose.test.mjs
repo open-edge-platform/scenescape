@@ -6,6 +6,7 @@ import test from "node:test";
 
 import * as THREE from "/static/assets/three.module.js";
 import {
+  PTZ_CLOCK_SKEW_TOLERANCE_MS,
   PTZ_HOME_ANGLE_TOLERANCE_RAD,
   PTZ_VIDEO_LATENCY_MS,
   PTZFrameGate,
@@ -297,24 +298,51 @@ test("frame gate rejects work started for an earlier pose", () => {
   assert.equal(gate.accepts(isoAt(0)), true);
 });
 
-test("a live pose expires unless a newer one arrives in its lifetime", (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+test("a live pose expires at valid_until unless a newer one arrives", (t) => {
+  t.mock.timers.enable({
+    apis: ["setTimeout", "Date"],
+    now: Date.parse(isoAt(0)),
+  });
+  const deadline = 500 + PTZ_CLOCK_SKEW_TOLERANCE_MS;
   const expiry = new PTZPoseExpiry();
   const onExpire = spy();
-  const live = poseContext({ lifetimeMs: 500 });
 
-  expiry.arm(live, onExpire);
+  expiry.arm(poseContext({ timestamp: isoAt(0) }), onExpire);
   t.mock.timers.tick(400);
-  expiry.arm(live, onExpire);
-  t.mock.timers.tick(400);
+  expiry.arm(poseContext({ timestamp: isoAt(0.4) }), onExpire);
+  t.mock.timers.tick(deadline - 1);
   assert.equal(onExpire.calls.length, 0, "re-armed by the newer pose");
-  t.mock.timers.tick(100);
+  t.mock.timers.tick(1);
   assert.equal(onExpire.calls.length, 1);
 
-  expiry.arm(live, onExpire);
+  expiry.arm(poseContext({ timestamp: new Date().toISOString() }), onExpire);
   expiry.arm(null, onExpire);
-  t.mock.timers.tick(1000);
+  t.mock.timers.tick(10 * deadline);
   assert.equal(onExpire.calls.length, 1, "cancelled without a live pose");
+});
+
+test("a pose received late in its lifetime expires at its valid_until", (t) => {
+  t.mock.timers.enable({
+    apis: ["setTimeout", "Date"],
+    now: Date.parse(isoAt(0)),
+  });
+  const expiry = new PTZPoseExpiry();
+  const onExpire = spy();
+  // valid_until is 1.8 s ago; with the 2 s allowance 0.2 s remain, not a lifetime.
+  const late = poseContext({ timestamp: isoAt(-2.3), lifetimeMs: 500 });
+  const remaining =
+    Date.parse(late.valid_until) + PTZ_CLOCK_SKEW_TOLERANCE_MS - Date.now();
+  assert.equal(remaining, 200);
+
+  expiry.arm(late, onExpire);
+  t.mock.timers.tick(199);
+  assert.equal(onExpire.calls.length, 0);
+  t.mock.timers.tick(1);
+  assert.equal(onExpire.calls.length, 1);
+
+  expiry.arm(poseContext({ timestamp: isoAt(-60) }), onExpire);
+  t.mock.timers.tick(0);
+  assert.equal(onExpire.calls.length, 2, "already past its deadline");
 });
 
 test("invalid poses of a stopped camera mean its position is unknown", () => {

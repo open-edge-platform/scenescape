@@ -185,12 +185,15 @@ visually:
 - The live pose is for display only and is never saved as the home pose. Saving a camera
   in the 3D view without changing its pose keeps its calibration points.
 - Reload the page after you import a new `calibration_version`.
-- Without Positioning, or while the camera is not moving and Positioning has no usable
-  pose for it (for example `backlash_unknown` until the camera first visits home after a
-  restart, a stale sample, or a missing calibration), the views use the stored home
-  pose, as for other cameras. While Positioning reports such an invalid pose, the
-  camera may still be turned away, so Auto Calibrate and Save stay blocked; move the
-  camera home so that Positioning reports a valid pose. A pose is no longer used after
-  its `valid_until`, so the views also return to the home pose when Positioning stops
-  publishing. A retained pose that has already expired when a page opens is ignored;
-  the check allows for 2 s of difference between the browser and Positioning clocks.
+- Without Positioning messages for the camera, the views use the stored home pose and
+  allow Auto Calibrate and Save, as for other cameras.
+- While the camera is not moving and Positioning reports an invalid pose for it (for
+  example `backlash_unknown` until the camera first visits home after a restart, a
+  stale sample, or a missing calibration), the views still draw the stored home pose,
+  but the camera may be turned anywhere. Auto Calibrate and Save stay blocked until
+  Positioning publishes a valid stationary pose at home; move the camera home first.
+- A pose is no longer used after its `valid_until`, both when it arrives and while it
+  is shown. When Positioning stops publishing, the views return to the home pose and
+  allow Auto Calibrate and Save, as without Positioning. A retained pose that has
+  already expired when a page opens is ignored. Both checks allow for 2 s of
+  difference between the browser and Positioning clocks.

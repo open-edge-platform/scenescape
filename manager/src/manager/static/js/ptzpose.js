@@ -136,8 +136,9 @@ class PTZFrameGate {
 }
 
 /**
- * Expires a cached live pose when no newer one arrives within its lifetime, for
- * example when Positioning stops after publishing a valid retained pose.
+ * Expires a cached live pose when no newer one arrives before its valid_until
+ * (plus the clock skew allowance), for example when Positioning stops after
+ * publishing a valid retained pose.
  */
 class PTZPoseExpiry {
   constructor() {
@@ -150,7 +151,15 @@ class PTZPoseExpiry {
    */
   arm(msg, onExpire) {
     clearTimeout(this.timer);
-    this.timer = msg ? setTimeout(onExpire, ptzPoseLifetimeMs(msg)) : null;
+    this.timer = null;
+    if (!msg) return;
+    // Same deadline as isPTZPoseExpired(): valid_until plus the clock skew allowance.
+    const delay =
+      Date.parse(msg.valid_until) + PTZ_CLOCK_SKEW_TOLERANCE_MS - Date.now();
+    this.timer = setTimeout(
+      onExpire,
+      Number.isFinite(delay) ? Math.max(0, delay) : 0,
+    );
   }
 }
 
@@ -352,6 +361,7 @@ function createPTZPointMapper(homeMatrix, liveMatrix, intrinsics, distortion) {
 
 export {
   PTZ_AWAY_MESSAGE,
+  PTZ_CLOCK_SKEW_TOLERANCE_MS,
   PTZ_HOME_ANGLE_TOLERANCE_RAD,
   PTZ_VIDEO_LATENCY_MS,
   PTZFrameGate,

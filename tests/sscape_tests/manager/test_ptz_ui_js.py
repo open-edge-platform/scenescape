@@ -5,8 +5,13 @@
 
 The modules under test load from manager/src/manager/static; browser-only
 dependencies are stubbed by ptz_ui/loader.mjs.
+
+Locally the tests are skipped when Node.js or three.module.js is missing. In CI
+(the CI environment variable is set, as in GitHub Actions) they fail instead, so
+the coverage cannot be lost silently; the unit test job provides both.
 """
 
+import os
 import re
 import shutil
 import subprocess
@@ -20,6 +25,7 @@ THREE_JS = REPO_ROOT / "manager" / "src" / "manager" / "static" / "assets" / "th
 NODE = shutil.which("node")
 MIN_NODE_VERSION = (20, 6)  # module.register() for the module loader hooks
 TEST_FILES = sorted(TEST_DIR.glob("*.test.mjs"))
+REQUIRED = os.environ.get("CI", "").strip().lower() in ("1", "true", "yes")
 
 
 def _node_version():
@@ -30,16 +36,27 @@ def _node_version():
   return (int(match.group(1)), int(match.group(2))) if match else None
 
 
-NODE_VERSION = _node_version()
+def _missing_requirement():
+  version = _node_version()
+  if version is None or version < MIN_NODE_VERSION:
+    found = "not found" if version is None else f"{version[0]}.{version[1]}"
+    return (f"Node.js >= {MIN_NODE_VERSION[0]}.{MIN_NODE_VERSION[1]} is required "
+            f"(found: {found})")
+  if not THREE_JS.is_file():
+    return (f"{THREE_JS.relative_to(REPO_ROOT)} is missing; download it with "
+            "'make -C manager src/manager/static/assets/three.module.js'")
+  return None
 
-pytestmark = [
-  pytest.mark.skipif(
-    NODE_VERSION is None or NODE_VERSION < MIN_NODE_VERSION,
-    reason=f"Node.js >= {MIN_NODE_VERSION[0]}.{MIN_NODE_VERSION[1]} is required"),
-  pytest.mark.skipif(
-    not THREE_JS.is_file(),
-    reason="three.module.js is downloaded by the Manager build (make manager)"),
-]
+
+MISSING_REQUIREMENT = _missing_requirement()
+
+
+@pytest.fixture(autouse=True)
+def _js_runtime():
+  if MISSING_REQUIREMENT:
+    if REQUIRED:
+      pytest.fail(f"Manager PTZ UI tests cannot run in CI: {MISSING_REQUIREMENT}")
+    pytest.skip(MISSING_REQUIREMENT)
 
 
 def test_ptz_ui_test_files_exist():

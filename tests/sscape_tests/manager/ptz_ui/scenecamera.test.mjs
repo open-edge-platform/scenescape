@@ -7,6 +7,7 @@ import test from "node:test";
 import * as THREE from "/static/assets/three.module.js";
 import {
   PTZ_AWAY_MESSAGE,
+  PTZ_CLOCK_SKEW_TOLERANCE_MS,
   PTZ_VIDEO_LATENCY_MS,
   PTZFrameGate,
   PTZPoseExpiry,
@@ -313,11 +314,16 @@ test("an expired retained pose shows the stored home pose in 3D", () => {
 });
 
 test("the 3D live pose expires when Positioning stops publishing", (t) => {
-  t.mock.timers.enable({ apis: ["setTimeout"] });
+  t.mock.timers.enable({
+    apis: ["setTimeout", "Date"],
+    now: Date.parse(isoAt(0)),
+  });
   const camera = makeCamera();
   pose(camera, { matrix: movedPose(0.2), timestamp: isoAt(0) });
   assert.equal(camera.isPTZAwayFromHome(), true);
-  t.mock.timers.tick(500);
+  t.mock.timers.tick(500 + PTZ_CLOCK_SKEW_TOLERANCE_MS - 1);
+  assert.equal(camera.isPTZAwayFromHome(), true);
+  t.mock.timers.tick(1);
   assert.ok(ptzMatricesClose(cameraMatrix(camera), HOME_CAMERA));
   assert.equal(camera.isPTZAwayFromHome(), false);
 });
