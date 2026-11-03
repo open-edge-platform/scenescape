@@ -263,12 +263,15 @@ class RemoteProjector:
       self._reportFailure(scene_id, category, camera_id, REASON_INVALID_RESPONSE)
       return
     ok_status = self._pb.MEASUREMENT_STATUS_OK
+    unobservable_status = self._pb.MEASUREMENT_STATUS_DEPTH_UNOBSERVABLE
     invalid = False
     for (i, j), detection_measurement in zip(indices, measurements):
-      if detection_measurement.status != ok_status or \
-         not detection_measurement.HasField('measurement'):
+      if detection_measurement.status == unobservable_status:
         continue  # depth unobservable: keep the local projection
-      if not apply_measurement(rv_objects_per_camera[i][j], detection_measurement.measurement):
+      # OK without a measurement, UNSPECIFIED and unknown statuses break the contract.
+      if detection_measurement.status != ok_status or \
+         not detection_measurement.HasField('measurement') or \
+         not apply_measurement(rv_objects_per_camera[i][j], detection_measurement.measurement):
         invalid = True
     if invalid:
       self._reportFailure(scene_id, category, camera_id, REASON_INVALID_MEASUREMENT)

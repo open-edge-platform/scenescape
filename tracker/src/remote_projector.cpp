@@ -196,7 +196,7 @@ void RemoteProjector::applyReply(const std::string& camera_id, const ProjectionR
 
     bool invalid_measurement = false;
     for (size_t k = 0; k < measurements.size(); ++k) {
-        if (!measurements[k].ok) {
+        if (measurements[k].unobservable) {
             continue; // depth unobservable: keep the local projection
         }
         const auto accepted = acceptMeasurement(measurements[k]);

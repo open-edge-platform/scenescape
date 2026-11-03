@@ -34,8 +34,13 @@ struct ProjectionFrame {
 /// One measurement of a reply as received; RemoteProjector validates it.
 struct RemoteMeasurement {
     std::string detection_id;
-    bool ok = false;          ///< MEASUREMENT_STATUS_OK with a measurement
-    std::vector<double> mean; ///< 7 values: x, y, z (centre), length, width, height, yaw
+    /// MEASUREMENT_STATUS_DEPTH_UNOBSERVABLE: no measurement; the detection keeps the local
+    /// projection without a failure. Every other entry is validated.
+    bool unobservable = false;
+    /// 7 values: x, y, z (centre), length, width, height, yaw. Empty unless the status is
+    /// MEASUREMENT_STATUS_OK with a measurement, so that malformed entries (OK without a
+    /// measurement, UNSPECIFIED or unknown statuses) fail validation.
+    std::vector<double> mean;
     std::vector<double> noise_covariance; ///< 49 values: 7x7 row-major R
 };
 

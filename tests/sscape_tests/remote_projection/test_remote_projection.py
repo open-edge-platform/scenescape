@@ -274,6 +274,23 @@ class TestRemoteProjector:
     assert not failures.metrics
 
   @pytest.mark.parametrize("corrupt", [
+    lambda m: m.ClearField("measurement"),
+    lambda m: setattr(m, "status", pb.MEASUREMENT_STATUS_UNSPECIFIED),
+    lambda m: setattr(m, "status", 7),
+  ], ids=["ok_without_measurement", "unspecified", "unknown_status"])
+  def test_malformed_status_keeps_local_projection_and_counts(self, failures, corrupt):
+    def reply(request):
+      response = good_response(request)
+      corrupt(response.measurements[0])
+      return response, ""
+    camera = make_camera()
+    rv_objects = project(RemoteProjector(FakeClient(reply)),
+                         [[make_object(camera), make_object(camera)]])
+    assert_local(rv_objects[0][0])
+    assert_remote(rv_objects[0][1], 1)
+    assert [m["reason"] for m in failures.metrics] == ["invalid_measurement"]
+
+  @pytest.mark.parametrize("corrupt", [
     lambda m: m.mean.pop(),
     lambda m: m.noise_covariance.pop(),
     lambda m: m.mean.__setitem__(0, math.nan),

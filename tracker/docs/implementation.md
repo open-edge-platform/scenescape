@@ -54,7 +54,8 @@ by half the height to the object base. Yaw and `has_orientation` stay as set
 locally. Sensor-frame translations, boxes the service would reject, cameras
 the local projector cannot project, unobservable depths and invalid
 measurements keep the local projection. A failed call, a malformed reply or
-an invalid measurement increments `tracker.remote_projection.failed_calls`
+an invalid measurement (including an `OK` entry without a measurement and an
+unspecified or unknown status) increments `tracker.remote_projection.failed_calls`
 and logs a warning at most every 10 s per worker; `project()` does not throw
 for remote failures, so the worker never stops on them.
 

@@ -320,8 +320,9 @@ Emitted only with [experimental remote projection](#experimental-remote-projecti
 
 The `reason` is the gRPC status name of a failed call (for example `UNAVAILABLE`,
 `DEADLINE_EXCEEDED`, `FAILED_PRECONDITION`), `invalid_response` (wrong measurement count or
-order), `invalid_measurement` (a measurement that breaks the contract; counted once per call) or
-`client_error`.
+order), `invalid_measurement` (a measurement that breaks the contract, including an `OK` entry
+without a measurement and an unspecified or unknown status; counted once per call) or
+`client_error`. An unobservable depth is not a failure.
 
 ##### Rejection/Drop Reasons
 

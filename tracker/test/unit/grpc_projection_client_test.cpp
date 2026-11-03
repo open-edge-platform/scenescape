@@ -57,7 +57,16 @@ public:
                 out->set_status(pb::MEASUREMENT_STATUS_DEPTH_UNOBSERVABLE);
                 continue;
             }
-            out->set_status(pb::MEASUREMENT_STATUS_OK);
+            // Malformed entries selected by the box height: 1 = OK without a measurement,
+            // 2 = UNSPECIFIED with a measurement, 3 = an unknown status with a measurement.
+            const double malformed = detection.bounding_box_px().height();
+            if (malformed == 1.0) {
+                out->set_status(pb::MEASUREMENT_STATUS_OK);
+                continue;
+            }
+            out->set_status(malformed == 2.0   ? pb::MEASUREMENT_STATUS_UNSPECIFIED
+                            : malformed == 3.0 ? static_cast<pb::MeasurementStatus>(7)
+                                               : pb::MEASUREMENT_STATUS_OK);
             auto* measurement = out->mutable_measurement();
             for (double value : {static_cast<double>(i), camera, 0.85, 0.5, 0.5, 1.7, 0.0}) {
                 measurement->add_mean(value);
@@ -134,15 +143,37 @@ TEST_F(GrpcProjectionClientTest, SendsRequestAndConvertsReply) {
     ASSERT_EQ(replies[0].measurements.size(), 2u);
     const auto& measurement = replies[0].measurements[0];
     EXPECT_EQ(measurement.detection_id, "0");
-    EXPECT_TRUE(measurement.ok);
+    EXPECT_FALSE(measurement.unobservable);
     ASSERT_EQ(measurement.mean.size(), 7u);
     EXPECT_DOUBLE_EQ(measurement.mean[1], 3.0);
     EXPECT_DOUBLE_EQ(measurement.mean[2], 0.85);
     ASSERT_EQ(measurement.noise_covariance.size(), 49u);
     EXPECT_DOUBLE_EQ(measurement.noise_covariance[8], 0.1);
     EXPECT_EQ(replies[0].measurements[1].detection_id, "1");
-    EXPECT_FALSE(replies[0].measurements[1].ok);
+    EXPECT_TRUE(replies[0].measurements[1].unobservable);
     EXPECT_TRUE(replies[0].measurements[1].mean.empty());
+}
+
+TEST_F(GrpcProjectionClientTest, MalformedStatusesAreNotUnobservableAndHaveNoValues) {
+    auto client = makeGrpcProjectionClient(channel_, std::chrono::milliseconds(2000));
+    auto malformed = frame("cam-1", 3);
+    for (size_t k = 0; k < 3; ++k) {
+        malformed.boxes[k].height = static_cast<float>(k + 1);
+    }
+
+    const std::vector<ProjectionFrame> frames = {malformed};
+    const auto replies =
+        client->projectFrames("scene-uid", "person", ConditioningMode::Auto, frames);
+
+    ASSERT_EQ(replies.size(), 1u);
+    ASSERT_TRUE(replies[0].ok());
+    ASSERT_EQ(replies[0].measurements.size(), 3u);
+    for (const auto& measurement : replies[0].measurements) {
+        SCOPED_TRACE(measurement.detection_id);
+        EXPECT_FALSE(measurement.unobservable) << "validated, so counted as invalid_measurement";
+        EXPECT_TRUE(measurement.mean.empty());
+        EXPECT_TRUE(measurement.noise_covariance.empty());
+    }
 }
 
 TEST_F(GrpcProjectionClientTest, MapsEveryConditioningMode) {

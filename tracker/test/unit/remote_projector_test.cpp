@@ -77,7 +77,7 @@ std::vector<double> diagonalR(double xy, double z) {
 RemoteMeasurement goodMeasurement(size_t k) {
     const double offset = static_cast<double>(k);
     return {std::to_string(k),
-            true,
+            false,
             {10.0 + offset, 20.0 + offset, kHeight / 2.0, 0.5, 0.6, kHeight, 0.0},
             diagonalR(0.04, 0.25)};
 }
@@ -384,7 +384,7 @@ TEST_F(RemoteProjectorTest, MalformedReplyKeepsLocalProjectionForTheFrame) {
 TEST_F(RemoteProjectorTest, UnobservableDepthKeepsLocalProjectionWithoutFailure) {
     auto client = std::make_shared<FakeClient>([](const ProjectionFrame& frame) {
         auto reply = goodReply(frame);
-        reply.measurements[0] = RemoteMeasurement{"0", false, {}, {}};
+        reply.measurements[0] = RemoteMeasurement{"0", true, {}, {}};
         return reply;
     });
     auto projector = makeProjector(client);
@@ -411,6 +411,11 @@ TEST_F(RemoteProjectorTest, InvalidMeasurementsKeepLocalProjection) {
         [](RemoteMeasurement& m) { m.noise_covariance[16] = 0.0; },
         // Off-diagonal larger than the diagonal: symmetric but indefinite.
         [](RemoteMeasurement& m) { m.noise_covariance[1] = m.noise_covariance[7] = 1.0; },
+        // No values: OK without a measurement, UNSPECIFIED or an unknown status.
+        [](RemoteMeasurement& m) {
+            m.mean.clear();
+            m.noise_covariance.clear();
+        },
     };
     const size_t n = corruptions.size();
     // Detection k gets corruption k; the last detection stays valid.

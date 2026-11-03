@@ -317,13 +317,14 @@ deadline. A detection keeps the local projection when:
 - it is not a pixel box from a calibrated scene camera (for example a 3D detection with
   `translation`, or an external source);
 - the call fails (service unavailable, deadline exceeded, error status) or the reply is invalid;
-- its depth is unobservable or its measurement is invalid.
+- its depth is unobservable or its measurement is invalid (an `OK` status without a measurement,
+  or an unspecified or unknown status, is invalid).
 
 Failed calls and invalid replies do not stop the service. They are counted in
 `scenescape_controller_remote_projection_failed_calls` (Scene Controller) or
 `tracker.remote_projection.failed_calls` (Tracker service), with the gRPC status name or the
 validation failure in the `reason` attribute, and logged as a warning at most every 10 seconds per
-scene and category. See [How to Enable Observability](../../other-topics/how-to-enable-observability.md).
+scene and category. An unobservable depth is not counted. See [How to Enable Observability](../../other-topics/how-to-enable-observability.md).
 
 The returned position is the object centre; it is lowered by half the object height to the object
 base used by the trackers. Detector yaw is kept.

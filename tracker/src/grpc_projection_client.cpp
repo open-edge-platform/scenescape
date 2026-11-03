@@ -106,8 +106,8 @@ ProjectionReply toReply(const grpc::Status& status, const pb::ProjectDetectionsR
     for (const auto& measurement : response.measurements()) {
         RemoteMeasurement out;
         out.detection_id = measurement.detection_id();
-        out.ok = measurement.status() == pb::MEASUREMENT_STATUS_OK && measurement.has_measurement();
-        if (out.ok) {
+        out.unobservable = measurement.status() == pb::MEASUREMENT_STATUS_DEPTH_UNOBSERVABLE;
+        if (measurement.status() == pb::MEASUREMENT_STATUS_OK && measurement.has_measurement()) {
             const auto& values = measurement.measurement();
             out.mean.assign(values.mean().begin(), values.mean().end());
             out.noise_covariance.assign(values.noise_covariance().begin(),
