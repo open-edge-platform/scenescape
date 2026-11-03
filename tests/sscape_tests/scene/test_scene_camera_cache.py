@@ -44,35 +44,35 @@ class SceneCameraCacheTestCase(TestCase):
     camera = self.scene.scenescapeScene.cameraWithID(self.cam.sensor_id)
     return camera.pose.translation.asNumpyCartesian.tolist()
 
-  def test_pose_policy_defaults_and_round_trips(self):
-    self.assertEqual(self.cam.pose_policy, 'observation')
-    serializer = CamSerializer(self.cam, partial=True, data={'pose_policy': 'configured'})
+  def test_pose_locked_defaults_and_round_trips(self):
+    self.assertEqual(self.cam.pose_locked, False)
+    serializer = CamSerializer(self.cam, partial=True, data={'pose_locked': True})
     self.assertTrue(serializer.is_valid(), serializer.errors)
     serializer.save()
     self.cam.refresh_from_db()
-    self.assertEqual(self.cam.pose_policy, 'configured')
-    self.assertEqual(CamSerializer(self.cam).data['pose_policy'], 'configured')
-    self.assertEqual(SceneSerializer(self.scene).data['cameras'][0]['pose_policy'], 'configured')
+    self.assertEqual(self.cam.pose_locked, True)
+    self.assertEqual(CamSerializer(self.cam).data['pose_locked'], True)
+    self.assertEqual(SceneSerializer(self.scene).data['cameras'][0]['pose_locked'], True)
     camera = self.scene.scenescapeScene.cameraWithID(self.cam.sensor_id)
-    self.assertEqual(camera.pose_policy, 'configured')
-    self.assertEqual(camera.serialize()['pose_policy'], 'configured')
+    self.assertEqual(camera.pose_locked, True)
+    self.assertEqual(camera.serialize()['pose_locked'], True)
     serializer = CamSerializer(self.cam, partial=True, data={'name': 'Renamed'})
     self.assertTrue(serializer.is_valid(), serializer.errors)
     serializer.save()
     self.cam.refresh_from_db()
-    self.assertEqual(self.cam.pose_policy, 'configured')
+    self.assertEqual(self.cam.pose_locked, True)
 
-  def test_invalid_pose_policy_does_not_change_camera(self):
-    for policy in [None, '', 'dynamic', True, 1, []]:
-      with self.subTest(policy=policy):
-        serializer = CamSerializer(self.cam, partial=True, data={'pose_policy': policy})
+  def test_invalid_pose_locked_does_not_change_camera(self):
+    for value in [None, '', 'dynamic', []]:
+      with self.subTest(value=value):
+        serializer = CamSerializer(self.cam, partial=True, data={'pose_locked': value})
         self.assertFalse(serializer.is_valid())
-        self.assertIn('pose_policy', serializer.errors)
+        self.assertIn('pose_locked', serializer.errors)
         self.cam.refresh_from_db()
-        self.assertEqual(self.cam.pose_policy, 'observation')
+        self.assertEqual(self.cam.pose_locked, False)
 
-  def test_archive_camera_policy_round_trip_and_legacy_default(self):
-    self.cam.pose_policy = 'configured'
+  def test_archive_camera_lock_round_trip_and_legacy_default(self):
+    self.cam.pose_locked = True
     self.cam.save()
     exported = dict(CamSerializer(self.cam).data)
     with patch.object(ImportScene, 'extractZip'), patch('manager.scene_import.RESTClient'):
@@ -81,33 +81,43 @@ class SceneCameraCacheTestCase(TestCase):
       with self.subTest(legacy=legacy):
         camera_data = dict(exported, uid=f'imported-{legacy}', name=f'Imported {legacy}')
         if legacy:
-          camera_data.pop('pose_policy')
+          camera_data.pop('pose_locked', None)
+          camera_data.pop('pose_policy', None)
         imported = importer.build_camera_items({'cameras': [camera_data]})[0]
         serializer = CamSerializer(data=imported)
         self.assertTrue(serializer.is_valid(), serializer.errors)
         camera = serializer.save()
-        self.assertEqual(camera.pose_policy, 'observation' if legacy else 'configured')
+        self.assertEqual(camera.pose_locked, False if legacy else True)
 
-  def test_camera_forms_preserve_omitted_policy(self):
-    self.cam.pose_policy = 'configured'
+  def test_camera_forms_expose_lock_and_defaults(self):
+    self.cam.pose_locked = True
+    self.cam.save()
     for form_class in [CamCreateForm, CamCalibrateForm]:
       with self.subTest(form=form_class.__name__):
-        form = form_class(data={'name': self.cam.name}, instance=self.cam)
-        self.assertEqual(form.data['pose_policy'], 'configured')
-        self.assertEqual(form.fields['pose_policy'].clean(form.data['pose_policy']), 'configured')
-    form = CamCreateForm(data={'sensor_id': 'new-policy', 'name': 'New policy'})
+        self.assertIn('pose_locked', form_class(instance=self.cam).fields)
+    saved = CamCalibrateForm(instance=self.cam).save(commit=False)
+    self.assertEqual(saved.pose_locked, True)
+    form = CamCreateForm(data={'sensor_id': 'new-lock', 'name': 'New lock'})
     self.assertTrue(form.is_valid(), form.errors)
-    self.assertEqual(form.save().pose_policy, 'observation')
+    self.assertEqual(form.save().pose_locked, False)
 
-  def test_calibration_page_renders_pose_policy_selector(self):
-    user = User.objects.create_superuser('pose-policy-user', 'pose@example.com', 'password')
+  def test_legacy_pose_policy_maps_to_pose_locked(self):
+    serializer = CamSerializer(
+      self.cam, partial=True, data={'pose_policy': 'configured'})
+    self.assertTrue(serializer.is_valid(), serializer.errors)
+    serializer.save()
+    self.cam.refresh_from_db()
+    self.assertEqual(self.cam.pose_locked, True)
+
+  def test_calibration_page_renders_pose_locked_checkbox(self):
+    user = User.objects.create_superuser('pose-lock-user', 'pose@example.com', 'password')
     self.client.force_login(user)
 
     response = self.client.get(reverse('cam_calibrate', args=[self.cam.pk]))
 
     self.assertEqual(response.status_code, 200)
-    self.assertContains(response, 'id="pose_policy_wrapper"')
-    self.assertContains(response, 'id="id_pose_policy"')
+    self.assertContains(response, 'id="pose_locked_wrapper"')
+    self.assertContains(response, 'id="id_pose_locked"')
 
   def test_same_scene_api_update_preserves_pose(self):
     """A 3D UI save in the current scene must persist its Euler pose."""

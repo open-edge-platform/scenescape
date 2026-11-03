@@ -454,7 +454,7 @@ class Scene(models.Model):
           continue
 
         sInfo = cam.transformation
-        sInfo['pose_policy'] = cam.pose_policy
+        sInfo['pose_locked'] = cam.pose_locked
 
         if cam.intrinsics_fx != None and cam.intrinsics_fy != None \
            and cam.intrinsics_cx != None and cam.intrinsics_cy != None:
@@ -811,8 +811,7 @@ class Cam(Sensor):
   undistort = models.BooleanField(default=False, null=False, blank=False, verbose_name="Undistort")
 
   transforms = ListField(blank=True, default=list)
-  pose_policy = models.CharField(max_length=16, choices=POSE_POLICY_CHOICES,
-                                 default=POSE_OBSERVATION, verbose_name="Pose policy")
+  pose_locked = models.BooleanField(default=False, verbose_name="Locked")
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
                                     default=POINT_CORRESPONDENCE)
   width = models.IntegerField(default=640, null=False, blank=False)
@@ -900,7 +899,7 @@ class Cam(Sensor):
       'sensor_id': self.sensor_id,
       'name': self.name,
       'scene': scene_name,
-      'pose_policy': self.pose_policy,
+      'pose_locked': self.pose_locked,
       'command': self.command,
       'camerachain': self.camerachain,
       'threshold': self.threshold,

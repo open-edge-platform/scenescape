@@ -23,10 +23,19 @@ POINT_CORRESPONDENCE = '3d-2d point correspondence'
 
 POSE_CONFIGURED = 'configured'
 POSE_OBSERVATION = 'observation'
-POSE_POLICY_CHOICES = (
-  (POSE_CONFIGURED, 'Configured'),
-  (POSE_OBSERVATION, 'Observation-driven'),
-)
+
+def pose_locked_from_info(info, default=False):
+  """Resolve pose_locked from current or legacy camera payloads."""
+  if info is None:
+    return bool(default)
+  if 'pose_locked' in info and info['pose_locked'] is not None:
+    return bool(info['pose_locked'])
+  policy = info.get('pose_policy')
+  if policy == POSE_CONFIGURED:
+    return True
+  if policy == POSE_OBSERVATION:
+    return False
+  return bool(default)
 
 ENVIRONMENTAL = 'environmental'
 ATTRIBUTE = 'attribute'

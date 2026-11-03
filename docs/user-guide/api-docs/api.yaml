@@ -2253,21 +2253,20 @@ components:
     Cam:
       type: object
       properties:
-        pose_policy:
-          type: string
-          enum: [configured, observation]
-          default: observation
+        pose_locked:
+          type: boolean
+          default: false
           description: >-
-            Camera pose authority. Configured ignores observation extrinsics and
-            reloads stored calibration on configuration refresh. Observation
-            initializes from calibration and retains the latest valid observed
-            pose across frames and refreshes, while refreshing optics. Missing or
-            invalid extrinsics do not reset that pose. Switching to configured
-            resets it to stored calibration. Omitted updates preserve the current
-            policy. The additive migration backfills existing database cameras as
-            configured; new creates default to observation. Runtime retention ends
-            on removal, scene reassignment, or process restart; observations never
-            modify stored calibration.
+            When true, live observation extrinsics are ignored and configuration
+            refreshes reload stored calibration. When false, calibration
+            initializes the runtime pose and the latest valid observed pose is
+            retained in cache across frames and refreshes while optics refresh;
+            missing or invalid extrinsics do not reset that pose. Switching to
+            locked reapplies stored calibration. Omitted updates preserve the
+            current value. Existing database cameras are backfilled as locked;
+            new creates default unlocked until calibrated (calibrate UI defaults
+            locked). Runtime retention ends on removal, scene reassignment, or
+            process restart; observations never modify stored calibration.
         uid:
           type: string
           readOnly: true

@@ -9,7 +9,7 @@ from threading import RLock
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.mesh_util import extractTriangleMesh
-from scene_common.options import POSE_CONFIGURED, POSE_OBSERVATION
+from scene_common.options import POSE_OBSERVATION
 from scene_common.transform import CameraPose, validate_camera_extrinsics
 
 
@@ -76,8 +76,9 @@ class SceneModel:
 
   @staticmethod
   def _retainObservedPose(camera, previous):
-    if (getattr(camera, 'pose_policy', POSE_OBSERVATION) == POSE_OBSERVATION
-        and getattr(previous, 'pose_policy', None) == POSE_OBSERVATION
+    if (not getattr(camera, 'pose_locked', False)
+        and previous is not None
+        and not getattr(previous, 'pose_locked', False)
         and getattr(previous, 'pose_source', None) == POSE_OBSERVATION
         and getattr(camera, 'pose', None) is not None):
       camera.pose = CameraPose(previous.pose.pose_mat.copy(), camera.pose.intrinsics)
@@ -95,13 +96,13 @@ class SceneModel:
     with self._camera_lock:
       current = self.cameras.get(camera_id)
       if (current is None or getattr(current, 'pose', None) is None
-          or getattr(current, 'pose_policy', POSE_OBSERVATION) == POSE_CONFIGURED
+          or getattr(current, 'pose_locked', False)
           or extrinsics is None):
         return
       pose = CameraPose(validate_camera_extrinsics(extrinsics), current.pose.intrinsics)
       camera = copy(current)
       camera.pose = pose
-      camera.pose_policy = POSE_OBSERVATION
+      camera.pose_locked = False
       camera.pose_source = POSE_OBSERVATION
       self.cameras[camera_id] = camera
 

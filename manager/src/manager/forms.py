@@ -25,15 +25,7 @@ from scene_common.cam_fields import (
     CAM_KUBERNETES_FIELDS, CAM_ADVANCED_FIELDS
 )
 
-class CameraPolicyForm(forms.ModelForm):
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    if self.is_bound and 'pose_policy' not in self.data:
-      self.data = self.data.copy()
-      self.data['pose_policy'] = self.instance.pose_policy
-
-
-class CamCalibrateForm(CameraPolicyForm):
+class CamCalibrateForm(ModelForm):
   class Meta:
     model = Cam
     fields = CAM_FORM_FIELDS
@@ -43,6 +35,16 @@ class CamCalibrateForm(CameraPolicyForm):
     self.unsupported_fields = CAM_FORM_ONLY_FIELDS
     self.kubernetes_fields = CAM_KUBERNETES_FIELDS + CAM_ADVANCED_FIELDS
     super().__init__(*args, **kwargs)
+
+    if 'pose_locked' in self.fields:
+      self.fields['pose_locked'].help_text = (
+        'When locked, live extrinsics are ignored and stored calibration is used.'
+      )
+      # Calibrate UI recommends locked; existing rows keep their stored value.
+      if not self.instance.pk:
+        self.fields['pose_locked'].initial = True
+      elif self.instance.transforms and not self.is_bound:
+        self.fields['pose_locked'].initial = True
 
     # Set defaults
     if 'cv_subsystem' in self.fields:
@@ -102,6 +104,11 @@ class SingletonCreateForm(forms.ModelForm):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
+    if 'pose_locked' in self.fields:
+      self.fields['pose_locked'].help_text = (
+        'When locked, live extrinsics are ignored and stored calibration is used.'
+      )
+      self.fields['pose_locked'].initial = False
 
 
 class SingletonDetailsForm(ModelForm):
@@ -178,10 +185,10 @@ class SingletonForm(forms.Form):
           raise ValidationError("The polygon vertex coordinates must be floating point numbers.")
     return cleaned_data
 
-class CamCreateForm(CameraPolicyForm):
+class CamCreateForm(ModelForm):
   class Meta:
     model = Cam
-    fields = ['sensor_id', 'name', 'scene', 'pose_policy']
+    fields = ['sensor_id', 'name', 'scene', 'pose_locked']
     labels = {
       'sensor_id': 'Camera ID',
     }
@@ -192,6 +199,11 @@ class CamCreateForm(CameraPolicyForm):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
     self.fields['scene'].required = False
+    if 'pose_locked' in self.fields:
+      self.fields['pose_locked'].help_text = (
+        'When locked, live extrinsics are ignored and stored calibration is used.'
+      )
+      self.fields['pose_locked'].initial = False
 
   def clean_camerachain(self):
     """Reject camerachain values that reference models missing from model-config."""

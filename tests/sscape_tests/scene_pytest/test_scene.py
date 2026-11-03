@@ -241,9 +241,9 @@ def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, c
   convert_mock.assert_not_called()
 
 
-@pytest.mark.parametrize('policy', ['configured', 'observation'])
-def test_processCameraData_applies_pose_policy_across_frames(scene_obj, camera_obj, monkeypatch, policy):
-  camera_obj.pose_policy = policy
+@pytest.mark.parametrize('locked', [True, False])
+def test_processCameraData_applies_pose_locked_across_frames(scene_obj, camera_obj, monkeypatch, locked):
+  camera_obj.pose_locked = locked
   initial_pose = camera_obj.pose
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
   captured = {}
@@ -268,7 +268,7 @@ def test_processCameraData_applies_pose_policy_across_frames(scene_obj, camera_o
   assert scene_obj.processCameraData(payload) is True
   effective = captured['camera']
   assert scene_obj.cameras[camera_obj.cameraID] is effective
-  if policy == 'observation':
+  if not locked:
     np.testing.assert_allclose(effective.pose.translation.asNumpyCartesian, [1.0, 2.0, 3.0])
     assert effective is not camera_obj
   else:
@@ -282,12 +282,12 @@ def test_processCameraData_applies_pose_policy_across_frames(scene_obj, camera_o
   assert captured['camera'] is effective
 
 
-def test_camera_policy_refresh_preserves_observed_pose_until_policy_switch(scene_obj):
+def test_camera_lock_refresh_preserves_observed_pose_until_locked(scene_obj):
   configuration = {
     'uid': 'mobile', 'resolution': [640, 480],
     'intrinsics': {'fx': 500, 'fy': 600, 'cx': 320, 'cy': 240},
     'translation': [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
-    'pose_policy': 'observation',
+    'pose_locked': False,
   }
   scene_obj.updateCameras([configuration])
   snapshot = scene_obj.cameraSnapshot('mobile', {
@@ -301,7 +301,7 @@ def test_camera_policy_refresh_preserves_observed_pose_until_policy_switch(scene
   np.testing.assert_allclose(camera.pose.translation.asNumpyCartesian, [10, 20, 3])
   assert camera.pose.intrinsics.intrinsics[0, 0] == 900
   assert snapshot.cameras['mobile'].pose.intrinsics.intrinsics[0, 0] == 500
-  scene_obj.updateCameras([dict(refreshed, pose_policy='configured')])
+  scene_obj.updateCameras([dict(refreshed, pose_locked=True)])
   camera = scene_obj.cameras['mobile']
   np.testing.assert_allclose(camera.pose.translation.asNumpyCartesian, [7, 8, 9])
   assert camera.pose_source == 'configured'

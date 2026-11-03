@@ -1,38 +1,39 @@
 # API Reference
 
-## Camera Pose Policy
+## Camera Pose Lock
 
 Camera create/update requests and camera responses, including cameras nested in
-scene responses, expose `pose_policy`:
+scene responses, expose `pose_locked`:
 
-- `observation` (default): configured calibration initializes the runtime pose.
-  Valid observation extrinsics replace it; missing or invalid extrinsics retain
-  the last valid pose. Configuration refreshes preserve observed transforms
-  while updating optics.
-- `configured`: only stored calibration controls the runtime pose. Observation
-  extrinsics cannot override it.
+- `false` (default for new cameras): stored calibration initializes the runtime
+  pose. Valid observation extrinsics replace it in cache only; missing or invalid
+  extrinsics retain the last valid pose. Configuration refreshes preserve
+  observed transforms while updating optics.
+- `true` (default for calibrated cameras in the UI, and for existing cameras
+  after migration): only stored calibration controls the runtime pose.
+  Observation extrinsics cannot override it.
 
-Choose **Pose policy** on the camera creation or calibration/settings form, or
-send a policy-only update such as `{"pose_policy": "configured"}` to
-`/api/v1/camera/{id}`. Omitted fields on updates preserve the current policy;
-explicit null, blank, or unknown values are rejected. The additive migration
-backfills existing database cameras as `configured`; new creates and older
-registrations or archives that omit the field default to `observation`. Scene
-archives preserve the field when present.
+Use the **Locked** checkbox on the camera creation or calibration form, or send
+a lock-only update such as `{"pose_locked": true}` to `/api/v1/camera/{id}`.
+Omitted fields on updates preserve the current value; non-boolean values are
+rejected. Legacy payloads that still send `pose_policy` (`configured` /
+`observation`) are accepted on input and mapped to `pose_locked`. The additive
+migration backfills existing database cameras as locked; new creates default
+unlocked. Scene archives preserve the field when present.
 
-Controller and Analytics use the same rules. Switching to `configured` reloads
-stored calibration when each consumer refreshes configuration. Switching back
-to `observation` starts from that calibration until another valid observation.
-Saving calibration alone does not reset an already observed pose. Observations
-never overwrite durable calibration. Live poses have no expiry and are discarded
-on camera removal, scene reassignment, or process restart. Retention is local to
-each running scene instance; policy changes are not an instantaneous distributed
-cutover for queued messages.
+Controller and Analytics use the same rules. Switching to locked reloads stored
+calibration when each consumer refreshes configuration. Unlocking starts from
+that calibration until another valid observation. Saving calibration alone does
+not reset an already observed pose. Observations never overwrite durable
+calibration. Live poses have no expiry and are discarded on camera removal,
+scene reassignment, or process restart. Retention is local to each running scene
+instance; lock changes are not an instantaneous distributed cutover for queued
+messages.
 
 Upgrade Manager, the shared library, Controller, and Analytics together before
-relying on configured-only enforcement. Apply the additive camera-policy migration
-to existing databases; it backfills existing cameras as `configured` and does not
-migrate calibration values. Older workers ignore the policy.
+relying on lock enforcement. Apply the additive camera lock migration to
+existing databases; it backfills existing cameras as locked and does not migrate
+calibration values. Older workers ignore the lock.
 
 ## Source Map Errors
 

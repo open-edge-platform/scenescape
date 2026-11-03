@@ -133,7 +133,7 @@ export default class SceneCamera extends THREE.Object3D {
     Object.assign(this, thingTransformControls);
     Object.assign(this, validateInputControls);
     this.cameraUID = params.uid;
-    this.posePolicy = params.pose_policy ?? "observation";
+    this.poseLocked = Boolean(params.pose_locked);
     this.name = params.name;
     this.fovEnabled = false;
     this.isStoredInDB = params.isStoredInDB;
@@ -486,11 +486,11 @@ export default class SceneCamera extends THREE.Object3D {
     return true;
   }
 
-  syncPosePolicy(data) {
-    const policy = data.pose_policy ?? "observation";
-    if (!["configured", "observation"].includes(policy)) return;
-    if (policy === this.posePolicy) return;
-    if (policy === "configured") {
+  syncPoseLocked(data) {
+    if (!("pose_locked" in data)) return;
+    const locked = Boolean(data.pose_locked);
+    if (locked === this.poseLocked) return;
+    if (locked) {
       if (
         !Array.isArray(data.rotation) ||
         data.rotation.length !== 3 ||
@@ -502,7 +502,7 @@ export default class SceneCamera extends THREE.Object3D {
       );
       if (!this.updatePose({ ...data, rotation: rotation.toArray() })) return;
     }
-    this.posePolicy = policy;
+    this.poseLocked = locked;
   }
 
   addControlPanel(camerasFolder) {

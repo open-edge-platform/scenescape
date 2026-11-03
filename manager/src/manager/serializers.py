@@ -291,6 +291,25 @@ class CamSerializer(NonNullSerializer):
   scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
   transform_type = serializers.SerializerMethodField('get_transform_type')
 
+  def to_internal_value(self, data):
+    if hasattr(data, 'copy'):
+      data = data.copy()
+    else:
+      data = dict(data)
+    if 'pose_locked' not in data and 'pose_policy' in data:
+      policy = data.pop('pose_policy')
+      if policy == 'configured':
+        data['pose_locked'] = True
+      elif policy == 'observation':
+        data['pose_locked'] = False
+      else:
+        raise serializers.ValidationError({
+          'pose_policy': ['Must be "configured" or "observation".']
+        })
+    else:
+      data.pop('pose_policy', None)
+    return super().to_internal_value(data)
+
   def validate_name(self, value):
     if not self.instance:
       qs = Cam.objects.filter(name=value)
@@ -530,8 +549,12 @@ class CamSerializer(NonNullSerializer):
 
   def validate(self, data):
     fields = set(self.initial_data)
+    normalized = set(fields)
+    if 'pose_policy' in normalized:
+      normalized.discard('pose_policy')
+      normalized.add('pose_locked')
     is_metadata_only = self.partial and (
-      fields <= {'scene', 'pose_policy'} or fields <= {'intrinsics', 'distortion', 'resolution'})
+      normalized <= {'scene', 'pose_locked'} or fields <= {'intrinsics', 'distortion', 'resolution'})
     if not is_metadata_only and 'name' not in data:
       raise serializers.ValidationError({'name': ['This field is required.']})
     _validate_scene_exists(data)

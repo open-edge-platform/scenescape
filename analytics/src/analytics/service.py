@@ -100,8 +100,8 @@ class AnalyticsService:
       'translation': pose.translation.asNumpyCartesian.tolist(),
       'rotation': pose.quaternion_rotation.tolist(),
       'scale': list(scale),
-      'pose_policy': getattr(camera, 'pose_policy', POSE_OBSERVATION),
-      'dynamic_pose': (getattr(camera, 'pose_policy', POSE_OBSERVATION) == POSE_OBSERVATION
+      'pose_locked': bool(getattr(camera, 'pose_locked', False)),
+      'dynamic_pose': (not getattr(camera, 'pose_locked', False)
                and getattr(camera, 'pose_source', None) == POSE_OBSERVATION),
     }
 

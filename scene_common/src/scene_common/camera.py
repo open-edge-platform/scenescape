@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from scene_common.geometry import Point
-from scene_common.options import POSE_CONFIGURED, POSE_OBSERVATION
+from scene_common.options import POSE_CONFIGURED, pose_locked_from_info
 from scene_common.transform import CameraIntrinsics, CameraPose
 import numpy as np
 
@@ -26,9 +26,13 @@ def keysNotEmpty(info, keys):
 class Camera:
   def __init__(self, anID, info, resolution=None):
     self.cameraID = anID
-    self.pose_policy = info.get('pose_policy', POSE_OBSERVATION)
-    if self.pose_policy not in (POSE_CONFIGURED, POSE_OBSERVATION):
-      raise ValueError('pose_policy must be configured or observation')
+    if 'pose_locked' in info:
+      value = info['pose_locked']
+      if not isinstance(value, bool) and value not in (0, 1):
+        raise ValueError('pose_locked must be a boolean')
+      self.pose_locked = bool(value)
+    else:
+      self.pose_locked = pose_locked_from_info(info, default=False)
     self.pose_source = POSE_CONFIGURED
 
     if resolution is None and 'width' in info and 'height' in info:
@@ -59,7 +63,7 @@ class Camera:
     data = {
       'uid': self.cameraID,
       'name': self.cameraID,
-      'pose_policy': self.pose_policy,
+      'pose_locked': self.pose_locked,
     }
 
     # resolution

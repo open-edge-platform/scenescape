@@ -132,13 +132,13 @@ def test_configured_camera_state_publishes_quaternion():
   state = AnalyticsService._camera_state(_mobile_scene().cameras['mobile'])
   assert state['rotation'] == pytest.approx([1, 0, 0, 0])
   assert state['translation'] == [0, 0, 3]
-  assert state['pose_policy'] == 'observation'
+  assert state['pose_locked'] is False
   assert state['dynamic_pose'] is False
 
 
 def test_configured_policy_ignores_observation_and_publishes_static_provenance():
   scene = _mobile_scene()
-  scene.cameras['mobile'].pose_policy = 'configured'
+  scene.cameras['mobile'].pose_locked = True
   original = scene.cameras['mobile']
   observation = _service()._prepare_observation_scene(scene, {
     'camera_id': 'mobile',
@@ -146,7 +146,7 @@ def test_configured_policy_ignores_observation_and_publishes_static_provenance()
   }, None)
   assert observation.cameras['mobile'] is original
   state = AnalyticsService._camera_state(original)
-  assert state['pose_policy'] == 'configured'
+  assert state['pose_locked'] is True
   assert state['dynamic_pose'] is False
   assert state['translation'] == [0, 0, 3]
 

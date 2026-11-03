@@ -221,7 +221,7 @@ SPDX-License-Identifier: Apache-2.0
           </div>
 
           {% for field in form %}
-            {% if field.name in "name sensor_id scene command camerachain pose_policy" %}
+            {% if field.name in "name sensor_id scene command camerachain pose_locked" %}
               <div class="form-group row" id="{{ field.name }}_wrapper">
                 <label
                   class="col-form-label form-label"

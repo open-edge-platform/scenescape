@@ -74,7 +74,7 @@ async function harness(dbCameras) {
     constructor(thing) {
       Object.assign(this, thing);
       this.cameraUID = thing.uid;
-      this.posePolicy = thing.pose_policy ?? "observation";
+      this.poseLocked = Boolean(thing.pose_locked);
       calls.push(["construct", thing.uid]);
     }
     addObject(params) {
@@ -95,8 +95,8 @@ async function harness(dbCameras) {
     syncOptics(data) {
       this.optics = data;
     }
-    syncPosePolicy(data) {
-      this.posePolicy = data.pose_policy ?? "observation";
+    syncPoseLocked(data) {
+      this.poseLocked = Boolean(data.pose_locked);
     }
   }
   class FakeREST {
@@ -400,31 +400,23 @@ test("a failed latest listing does not allow an older snapshot to apply", async 
   assert.deepEqual(calls, []);
 });
 
-test("known configured authority blocks queued live poses", async () => {
-  let cameras = [{ uid: "a", pose_policy: "observation" }];
+test("known locked authority blocks queued live poses", async () => {
+  let cameras = [{ uid: "a", pose_locked: false }];
   const { manager, calls } = await harness(() => cameras);
   await manager.load(params);
   calls.length = 0;
-  manager.updatePoses([
-    { id: "a", pose_policy: "observation", dynamic_pose: false },
-  ]);
+  manager.updatePoses([{ id: "a", pose_locked: false, dynamic_pose: false }]);
   assert.equal(calls.length, 0);
-  manager.updatePoses([
-    { id: "a", pose_policy: "observation", dynamic_pose: true },
-  ]);
+  manager.updatePoses([{ id: "a", pose_locked: false, dynamic_pose: true }]);
   assert.equal(calls.length, 1);
-  cameras = [{ uid: "a", pose_policy: "configured" }];
+  cameras = [{ uid: "a", pose_locked: true }];
   await manager.syncWithDatabase(params, {}, "app", true);
-  manager.updatePoses([
-    { id: "a", pose_policy: "observation", dynamic_pose: true },
-  ]);
+  manager.updatePoses([{ id: "a", pose_locked: false, dynamic_pose: true }]);
   manager.updatePoses([{ id: "a", dynamic_pose: true }]);
   assert.equal(calls.length, 1);
-  cameras = [{ uid: "a", pose_policy: "observation" }];
+  cameras = [{ uid: "a", pose_locked: false }];
   await manager.syncWithDatabase(params, {}, "app", true);
-  manager.updatePoses([
-    { id: "a", pose_policy: "configured", dynamic_pose: true },
-  ]);
+  manager.updatePoses([{ id: "a", pose_locked: true, dynamic_pose: true }]);
   assert.equal(calls.length, 1);
   manager.updatePoses([{ id: "a", dynamic_pose: true }]);
   assert.equal(calls.length, 2);
@@ -546,49 +538,49 @@ async function sceneCameraHarness() {
   return camera;
 }
 
-test("switching to configured policy applies stored calibration only once", async () => {
+test("locking applies stored calibration only once", async () => {
   const camera = await sceneCameraHarness();
-  camera.posePolicy = "observation";
+  camera.poseLocked = false;
   const poses = [];
   camera.updatePose = (pose) => {
     poses.push(plain(pose));
     return true;
   };
   const configuration = {
-    pose_policy: "configured",
+    pose_locked: true,
     translation: [1, 2, 3],
     rotation: [0, 0, 90],
     scale: [1, 1, 1],
   };
-  camera.syncPosePolicy(configuration);
-  assert.equal(camera.posePolicy, "configured");
+  camera.syncPoseLocked(configuration);
+  assert.equal(camera.poseLocked, true);
   assert.deepEqual(poses[0].translation, [1, 2, 3]);
   const expected = new Quaternion().setFromEuler(new Euler(0, 0, Math.PI / 2));
   assert.deepEqual(poses[0].rotation, expected.toArray());
-  camera.syncPosePolicy(configuration);
-  camera.syncPosePolicy({ ...configuration, pose_policy: "observation" });
+  camera.syncPoseLocked(configuration);
+  camera.syncPoseLocked({ ...configuration, pose_locked: false });
   assert.equal(poses.length, 1);
-  assert.equal(camera.posePolicy, "observation");
+  assert.equal(camera.poseLocked, false);
 });
 
-test("configured policy is not locked when stored pose cannot be applied", async () => {
+test("lock is not applied when stored pose cannot be applied", async () => {
   const camera = await sceneCameraHarness();
-  camera.posePolicy = "observation";
+  camera.poseLocked = false;
   camera.updatePose = () => false;
-  camera.syncPosePolicy({
-    pose_policy: "configured",
+  camera.syncPoseLocked({
+    pose_locked: true,
     translation: [1, 2, 3],
     rotation: [0, 0, 90],
     scale: [1, 1, 1],
   });
-  assert.equal(camera.posePolicy, "observation");
-  camera.syncPosePolicy({
-    pose_policy: "configured",
+  assert.equal(camera.poseLocked, false);
+  camera.syncPoseLocked({
+    pose_locked: true,
     translation: [1, 2, 3],
     rotation: [0, 0],
     scale: [1, 1, 1],
   });
-  assert.equal(camera.posePolicy, "observation");
+  assert.equal(camera.poseLocked, false);
 });
 
 test("live poses refresh translate and rotate controllers", async () => {

@@ -143,22 +143,22 @@ class TestUpdateCameras:
     assert scene.cameras['static'].pose_source == 'configured'
     assert snapshot.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
 
-  @pytest.mark.parametrize('policy', ['configured', 'observation'])
-  def test_shared_pose_policy_transitions(self, policy):
+  @pytest.mark.parametrize('locked', [True, False])
+  def test_shared_pose_locked_transitions(self, locked):
     scene = SceneModel('policy', None)
     data = self._camera_data()
-    data['pose_policy'] = policy
+    data['pose_locked'] = locked
     scene.updateCameras([data])
     initial = scene.cameraSnapshot()
     observed = scene.cameraSnapshot('cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]})
-    expected = [10, 20, 3] if policy == 'observation' else [0, 0, 3]
+    expected = [0, 0, 3] if locked else [10, 20, 3]
     assert observed.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx(expected)
     assert initial.cameras['cam1'].pose_source == 'configured'
     refreshed = self._camera_data(translation=[5, 6, 7], focal_length=900)
-    refreshed['pose_policy'] = policy
+    refreshed['pose_locked'] = locked
     scene.updateCameras([refreshed])
     camera = scene.cameras['cam1']
-    expected = [10, 20, 3] if policy == 'observation' else [5, 6, 7]
+    expected = [5, 6, 7] if locked else [10, 20, 3]
     assert camera.pose.translation.asNumpyCartesian == pytest.approx(expected)
     assert camera.pose.intrinsics.intrinsics[0, 0] == 900
     assert not hasattr(camera, 'configured_pose')
@@ -166,22 +166,22 @@ class TestUpdateCameras:
     invalid = {'translation': [1, 2, 3], 'rotation': [0, 0, 0, 0]}
     assert scene.cameraSnapshot('cam1', invalid).cameras['cam1'] is camera
     assert scene.cameraSnapshot('cam1').cameras['cam1'] is camera
-    refreshed['pose_policy'] = 'configured'
+    refreshed['pose_locked'] = True
     scene.updateCameras([refreshed])
     assert scene.cameras['cam1'].pose_source == 'configured'
     assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
-    refreshed['pose_policy'] = 'observation'
+    refreshed['pose_locked'] = False
     scene.updateCameras([refreshed])
     assert scene.cameras['cam1'].pose_source == 'configured'
     assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
 
-  @pytest.mark.parametrize('policy', [None, '', 'unknown', True, 1, []])
-  def test_shared_pose_policy_rejects_invalid_configuration_atomically(self, policy):
+  @pytest.mark.parametrize('locked', [None, '', 'unknown', []])
+  def test_shared_pose_locked_rejects_invalid_configuration_atomically(self, locked):
     scene = SceneModel('policy', None)
     scene.updateCameras([self._camera_data()])
     previous = scene.cameras
-    with pytest.raises(ValueError, match='pose_policy'):
-      scene.updateCameras([self._camera_data('new'), {**self._camera_data(), 'pose_policy': policy}])
+    with pytest.raises(ValueError, match='pose_locked'):
+      scene.updateCameras([self._camera_data('new'), {**self._camera_data(), 'pose_locked': locked}])
     assert scene.cameras is previous
 
   def test_snapshot_retains_pose_when_next_observation_arrives(self):

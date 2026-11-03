@@ -618,7 +618,7 @@
         },
         "extrinsics": {
           "$ref": "#/definitions/camera_extrinsics",
-          "description": "Optional per-frame camera pose. Used when the camera pose_policy is observation; ignored when configured. Invalid poses that pass structural checks are soft-ignored at runtime."
+          "description": "Optional per-frame camera pose. Used when the camera is unlocked (pose_locked is false); ignored when locked. Invalid poses that pass structural checks are soft-ignored at runtime."
         }
       },
       "required": ["timestamp", "id", "objects"]

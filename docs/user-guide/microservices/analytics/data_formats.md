@@ -103,25 +103,25 @@ poses before events are evaluated; nonempty producer visibility is preserved.
 Each regulated publication reprojects camera bounds for all cached categories
 against the same observation poses, including categories absent from that input frame.
 
-Each runtime camera retains one effective pose, its `pose_policy`, and pose
+Each runtime camera retains one effective pose, its `pose_locked` flag, and pose
 provenance. Durable calibration belongs to Manager, not a second runtime pose.
-The default `observation` policy accepts valid observation extrinsics and retains
-them across configuration refreshes while updating optics. Before the first
-observation it uses configured calibration. The `configured` policy ignores
-observation extrinsics and reloads stored calibration on refresh.
+When unlocked, Analytics accepts valid observation extrinsics and retains them
+across configuration refreshes while updating optics. Before the first
+observation it uses stored calibration. When locked, observation extrinsics are
+ignored and stored calibration reloads on refresh.
 
-Switching to `configured` resets the effective pose when configuration refreshes;
-switching back starts from calibration until the next valid observation. Saving
-calibration alone under observation policy does not reset a live pose. Visibility,
-projected bounds, and published camera poses use one atomic observation snapshot.
-Live poses do not expire on missing or invalid input. Removing a camera, moving
-it to another scene, or restarting the process discards its live pose.
-See [Camera Pose Policy](../../api-reference.md#camera-pose-policy) for configuration
+Locking resets the effective pose when configuration refreshes; unlocking starts
+from calibration until the next valid observation. Saving calibration alone while
+unlocked does not reset a live pose. Visibility, projected bounds, and published
+camera poses use one atomic observation snapshot. Live poses do not expire on
+missing or invalid input. Removing a camera, moving it to another scene, or
+restarting the process discards its live pose.
+See [Camera Pose Lock](../../api-reference.md#camera-pose-lock) for configuration
 and upgrade requirements.
 
 Each camera entry contains `id`, `translation`, `rotation`, `scale`, and
-`pose_policy`, plus the backward-compatible `dynamic_pose` flag. That flag is
-derived from accepted observation provenance, not simply from observation policy:
+`pose_locked`, plus the backward-compatible `dynamic_pose` flag. That flag is
+derived from accepted observation provenance, not simply from the lock flag:
 it remains false until the first valid observed pose. Published `rotation` is
 always a normalized quaternion in
 `[x, y, z, w]` order, mapping camera-local axes into the scene coordinate system.

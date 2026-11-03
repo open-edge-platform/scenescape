@@ -83,7 +83,7 @@ export default class CameraManager extends ThingManager {
     for (const [uid, thing] of inDB) {
       if (uid in this.sceneCameras) {
         this.sceneCameras[uid].syncOptics(thing);
-        this.sceneCameras[uid].syncPosePolicy(thing);
+        this.sceneCameras[uid].syncPoseLocked(thing);
         continue;
       }
       thing.isStoredInDB = true;
@@ -105,11 +105,7 @@ export default class CameraManager extends ThingManager {
     for (const camera of cameras) {
       if (camera.dynamic_pose !== true) continue;
       const sceneCamera = this.sceneCameras[camera.id];
-      if (
-        sceneCamera &&
-        sceneCamera.posePolicy !== "configured" &&
-        camera.pose_policy !== "configured"
-      )
+      if (sceneCamera && !sceneCamera.poseLocked && !camera.pose_locked)
         sceneCamera.updatePose(camera);
     }
   }

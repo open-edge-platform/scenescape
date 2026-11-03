@@ -473,7 +473,7 @@ class TestCacheManagerSensorRestoration:
       'uid': 'camera-1', 'resolution': [640, 480],
       'intrinsics': {'fx': 500, 'fy': 500, 'cx': 320, 'cy': 240},
       'translation': [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
-      'pose_policy': 'observation',
+      'pose_locked': False,
     }
     previous = SceneModel('scene-name', None)
     previous.uid = 'scene-uid'
@@ -507,7 +507,7 @@ class TestCacheManagerSensorRestoration:
     assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
     assert camera.pose.intrinsics.intrinsics[0, 0] == 900
 
-    replacement.updateCameras([dict(camera_data, pose_policy='configured')])
+    replacement.updateCameras([dict(camera_data, pose_locked=True)])
     replacement.retainObservedCameraPoses(previous)
     configured = replacement.cameras['camera-1']
     assert configured.pose_source == 'configured'
