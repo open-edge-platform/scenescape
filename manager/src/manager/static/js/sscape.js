@@ -22,6 +22,7 @@ import {
 } from "/static/js/utils.js";
 import { plot } from "/static/js/marks.js";
 import { setupChildScene } from "/static/js/childscene.js";
+import { addSceneMaps } from "/static/js/scene-archive.js";
 import {
   initializeCalibration,
   initializeCalibrationSettings,
@@ -2335,10 +2336,21 @@ $(document).ready(function () {
               let messageText = "";
               let message = msg[0];
 
-              if (message && (message["name"] || message["sensor_id"])) {
-                messageText = message["name"]
-                  ? message["name"][0]
-                  : message["sensor_id"][0];
+              if (message && typeof message === "object") {
+                const fields = ["name", "sensor_id", "error"];
+                const field =
+                  fields.find((f) => message[f]) ||
+                  Object.keys(message).find((f) => message[f]);
+                if (field) {
+                  const value = message[field];
+                  messageText = String(Array.isArray(value) ? value[0] : value);
+                  if (field !== "name" && field !== "sensor_id") {
+                    const label = msg[1]?.name ? `${msg[1].name}: ` : "";
+                    const text = document.createElement("span");
+                    text.textContent = label + messageText;
+                    messageText = text.innerHTML;
+                  }
+                }
               }
               if (
                 messageText.includes("orphaned camera") ||
@@ -2418,7 +2430,38 @@ $(document).ready(function () {
         });
 
         importSpinner.style.display = "none";
-        const result = await response.json();
+        let result;
+        try {
+          result = await response.json();
+        } catch {
+          showError({
+            error: [`Import failed (${response.status})`],
+          });
+          return;
+        }
+
+        if (!response.ok) {
+          if (result.scene) {
+            showError(result.scene);
+            return;
+          }
+          if (
+            result.cameras ||
+            result.calibration_markers ||
+            result.tripwires ||
+            result.regions ||
+            result.sensors
+          ) {
+            await showWarnings(result, restclient);
+            return;
+          }
+          const message = result.error || `Import failed (${response.status})`;
+          showError(
+            typeof message === "string" ? { error: [message] } : message,
+          );
+          return;
+        }
+
         if (result.scene) {
           showError(result.scene);
           return;
@@ -2449,33 +2492,15 @@ $(document).ready(function () {
       const authToken = `Token ${tokenElement.value}`;
       const restclient = new RESTClient(REST_URL, authToken);
       try {
-        const response = await restclient.getScene(scene_id);
+        const response = await restclient.exportScene(scene_id);
         if (response.statusCode !== 200)
           throw new Error("Failed to fetch scenes");
 
         const scene = response.content;
         const zip = new JSZip();
 
-        zip.file(scene.name + ".json", JSON.stringify(scene, null, 2));
-        const sceneName = scene.name.replace(/\s+/g, "_");
-
-        if (scene.map) {
-          try {
-            const mapBlob = await fetchFileAsBlob(scene.map);
-            const mapExt = scene.map.split(".").pop();
-            zip.file(`${sceneName}.${mapExt}`, mapBlob);
-
-            if (Array.isArray(scene.children)) {
-              for (const child of scene.children) {
-                const mapBlob = await fetchFileAsBlob(child.map);
-                const mapExt = child.map.split(".").pop();
-                zip.file(`${child.name}.${mapExt}`, mapBlob);
-              }
-            }
-          } catch (err) {
-            console.warn(`Skipping map for ${sceneName}:`, err);
-          }
-        }
+        await addSceneMaps(zip, scene);
+        zip.file(scene.uid + ".json", JSON.stringify(scene, null, 2));
 
         // Download the zip
         const zipBlob = await zip.generateAsync({ type: "blob" });
@@ -2486,15 +2511,10 @@ $(document).ready(function () {
         URL.revokeObjectURL(link.href);
       } catch (error) {
         console.error("Error exporting scene:", error);
+        window.alert(`Scene export failed: ${error.message}`);
       }
     };
   }
-  async function fetchFileAsBlob(url) {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch: ${url}`);
-    return await response.blob();
-  }
-
   if ($("#scale").val() !== "") {
     scale = $("#scale").val();
   }

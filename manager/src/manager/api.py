@@ -17,6 +17,7 @@ from django.contrib.auth.models import User
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, OperationalError, connection, transaction
 from django.http import FileResponse, HttpResponse
+from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from rest_framework.views import APIView
 from rest_framework import authentication, permissions
@@ -34,6 +35,7 @@ from manager.mapping_store import (
   delete_source_map, download_digest, isoformat_z, source_map_for_method,
   store_artifact, validate_slug, MAX_ARTIFACT_BYTES,
 )
+from manager.scene_archive import SceneArchiveSerializer
 from scene_common.timestamp import get_epoch_time, get_iso_time
 from scene_common.mqtt import PubSub
 from scene_common.options import *
@@ -116,15 +118,27 @@ class ListThings(generics.ListAPIView):
     _, thing_serializer, _ = get_class_and_serializer(self.args[0])
     return thing_serializer
 
-class SceneImportAPIView(APIView):
+class SceneExportAPIView(APIView):
   authentication_classes = [authentication.TokenAuthentication]
   permission_classes = [permissions.IsAuthenticated]
+
+  def get(self, request, uid):
+    scene = get_object_or_404(Scene, pk=uid)
+    return Response(SceneArchiveSerializer(scene).data)
+
+
+class SceneImportAPIView(APIView):
+  authentication_classes = [authentication.TokenAuthentication]
+  permission_classes = [IsAdminOrReadOnly]
 
   def post(self, request, *args, **kwargs):
     if "zipFile" not in request.FILES:
       return Response({"error": "zipFile is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    zip_file = request.FILES["zipFile"]
+    options = SceneImportSerializer(data=request.data)
+    if not options.is_valid():
+      return Response({"scene": options.errors}, status=status.HTTP_400_BAD_REQUEST)
+    zip_file = options.validated_data["zipFile"]
     scene_import_instance = SceneImport.objects.create(zipFile=zip_file)
 
     zip_path = scene_import_instance.zipFile.path
@@ -133,10 +147,19 @@ class SceneImportAPIView(APIView):
       return Response({"error": f"Uploaded file not found at {zip_path}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     user_token = request.auth.key if hasattr(request.auth, "key") else str(request.auth)
-    scene = ImportScene(zip_path, user_token)
-    coroutine = scene.loadScene()
-    errors = asyncio.run(coroutine)
-    return Response(errors, status=status.HTTP_201_CREATED)
+    scene = ImportScene(
+      zip_path, user_token,
+      restore_ids=options.validated_data.get("restore_ids", False),
+      remote_credentials=options.validated_data.get("remote_credentials", {}),
+      reuse_existing=options.validated_data.get("reuse_existing", False),
+    )
+    summary = asyncio.run(scene.loadScene())
+    error_fields = ("scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")
+    failed = any(summary.get(key) for key in error_fields)
+    return Response(
+      summary,
+      status=status.HTTP_400_BAD_REQUEST if failed else status.HTTP_201_CREATED,
+    )
 
 
 @method_decorator(transaction.non_atomic_requests, name="dispatch")
