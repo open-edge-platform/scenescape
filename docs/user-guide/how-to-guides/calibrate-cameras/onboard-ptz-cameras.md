@@ -156,3 +156,44 @@ travel of the axis.
 Manager publishes a camera configuration invalidation after the import commits, and
 Positioning reloads the calibration. Keep the dataset, the fit output, and the
 held-out residuals together with the `calibration_version` for shadow validation.
+
+## 8. Check the Live Pose in the UI
+
+For a camera with a `ptz_calibration` block, the 3D scene view and the camera
+calibration page follow the live pose that Positioning publishes on
+`scenescape/positioning/pose/<camera_uid>`. Use them to check the calibration
+visually:
+
+- After the camera stops and the pose is valid again, the camera frustum and the
+  projected frame show the new orientation. Turn on **project frame** in the 3D view.
+- While the camera is moving or settling, the projected frame is hidden. After a move,
+  frames are projected again from the first frame captured at least 0.5 s after the
+  camera stopped, so that a delayed frame from the move is never shown at the new
+  orientation. A pose for another scene or `calibration_version` is ignored.
+- On the calibration page, the stored calibration points are drawn where they appear in
+  the moved camera frame, using the camera intrinsics and lens distortion. They are
+  display-only and cannot be edited until the camera returns home; the stored points
+  and the saved calibration do not change. The points follow the same timing as the
+  projected frame.
+- On the calibration page, the projection previews the calibration you are fitting.
+  When the camera is away from home, the live pan and tilt are applied to that preview.
+- While the camera is away from home or moving, Auto Calibrate and Save are blocked in
+  the 3D view and on the calibration page, and so is saving the scene with **update
+  cameras on save**. Auto Calibrate detects points in the current frame, and saving
+  away from home would store the moved orientation as the home pose. Move the camera
+  home and wait until it stops first.
+- The live pose is for display only and is never saved as the home pose. Saving a camera
+  in the 3D view without changing its pose keeps its calibration points.
+- Reload the page after you import a new `calibration_version`.
+- Without Positioning messages for the camera, the views use the stored home pose and
+  allow Auto Calibrate and Save, as for other cameras.
+- While the camera is not moving and Positioning reports an invalid pose for it (for
+  example `backlash_unknown` until the camera first visits home after a restart, a
+  stale sample, or a missing calibration), the views still draw the stored home pose,
+  but the camera may be turned anywhere. Auto Calibrate and Save stay blocked until
+  Positioning publishes a valid stationary pose at home; move the camera home first.
+- A pose is no longer used after its `valid_until`, both when it arrives and while it
+  is shown. When Positioning stops publishing, the views return to the home pose and
+  allow Auto Calibrate and Save, as without Positioning. A retained pose that has
+  already expired when a page opens is ignored. Both checks allow for 2 s of
+  difference between the browser and Positioning clocks.
