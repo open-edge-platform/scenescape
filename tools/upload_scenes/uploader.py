@@ -33,15 +33,15 @@ log = logging.getLogger("upload-scenes")
 class SceneScapeClient:
   """The handful of REST calls needed to import a scene and its dependencies."""
 
-  def __init__(self, url, verify):
+  def __init__(self, url, verify, import_timeout=REQUEST_TIMEOUT_SECONDS):
     self.url = url.rstrip("/")
+    self.import_timeout = import_timeout
     self.session = requests.Session()
     self.session.verify = verify
     return
 
-  def _request(self, method, path, **kwargs):
-    reply = self.session.request(method, f"{self.url}{path}",
-                                 timeout=REQUEST_TIMEOUT_SECONDS, **kwargs)
+  def _request(self, method, path, timeout=REQUEST_TIMEOUT_SECONDS, **kwargs):
+    reply = self.session.request(method, f"{self.url}{path}", timeout=timeout, **kwargs)
     reply.raise_for_status()
     return reply.json()
 
@@ -77,7 +77,7 @@ class SceneScapeClient:
     """Posts a scene archive and returns the server's import summary."""
     with open(zip_path, "rb") as archive:
       files = {"zipFile": (os.path.basename(zip_path), archive, "application/zip")}
-      return self._request("POST", "/import-scene/", files=files)
+      return self._request("POST", "/import-scene/", files=files, timeout=self.import_timeout)
 
 
 def parse_auth(auth):

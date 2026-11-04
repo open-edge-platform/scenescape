@@ -23,15 +23,25 @@ in uploader.py, shared with the test suite's baseline-scene setup.
 import logging
 import os
 import sys
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 
 import requests
 
 sys.path.insert(0, os.path.dirname(os.path.realpath(__file__)))
 from uploader import (  # noqa: E402
-  DEFAULT_WAIT_SECONDS, SceneScapeClient, log, parse_auth, read_object_library, upload_all,
-  upload_object_library, is_application_ready
+  REQUEST_TIMEOUT_SECONDS, DEFAULT_WAIT_SECONDS, SceneScapeClient, log, parse_auth,
+  read_object_library, upload_all, upload_object_library, is_application_ready
 )
+
+
+def to_positive_int(value):
+  try:
+    number = int(value)
+  except ValueError:
+    raise ArgumentTypeError(f"invalid positive integer: {value!r}") from None
+  if number <= 0:
+    raise ArgumentTypeError(f"must be greater than 0: {value!r}")
+  return number
 
 
 def build_argparser():
@@ -45,6 +55,11 @@ def build_argparser():
                       help="do not verify the server certificate")
   parser.add_argument("--wait", type=int, default=DEFAULT_WAIT_SECONDS, metavar="SECONDS",
                       help="how long to wait for the database to become ready (0 disables waiting)")
+  parser.add_argument("--import-timeout", type=to_positive_int,
+                      default=REQUEST_TIMEOUT_SECONDS, metavar="SECONDS",
+                      help="how long to wait for the server to import each scene archive "
+                           f"(default: {REQUEST_TIMEOUT_SECONDS}); raise it for scenes "
+                           "with large maps")
   return parser
 
 
@@ -74,7 +89,8 @@ def main():
   if args.insecure:
     log.warning("Server certificate verification is disabled")
     requests.packages.urllib3.disable_warnings()
-  client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True))
+  client = SceneScapeClient(args.url, False if args.insecure else (args.rootcert or True),
+                            import_timeout=args.import_timeout)
 
   if args.wait and not is_application_ready(client, args.wait, user, password):
     log.error(f"{args.url} was not ready after {args.wait} seconds")

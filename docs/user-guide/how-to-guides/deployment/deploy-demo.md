@@ -110,6 +110,8 @@ tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \
 
 `--restauth` also accepts a `user:password` string, and `--insecure` skips certificate verification when the deployment is reached under a name the certificate was not issued for, such as `https://localhost`.
 
+The server imports each scene synchronously before it replies, which can take minutes for scenes with large maps. `upload-scenes` waits up to 60 seconds for each import by default; if uploads fail with `Read timed out`, raise the limit with `--import-timeout <seconds>` (for example, `--import-timeout 600`). If the deployment is reached through a reverse proxy or a Kubernetes ingress, make sure its read timeout (for example, the NGINX Ingress `nginx.ingress.kubernetes.io/proxy-read-timeout` annotation, which defaults to 60 seconds) is at least as long.
+
 Scenes can also be imported through the Web UI: sign in, navigate to **Import Scene**, then select and upload the scene ZIP.
 
 ### Stopping the Demo
