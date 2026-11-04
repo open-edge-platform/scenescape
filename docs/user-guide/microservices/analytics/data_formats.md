@@ -148,7 +148,10 @@ applications.
 | `name`       | string                | Scene name                                                                                                  |
 | `scene_rate` | number                | Regulated publication rate in Hz                                                                            |
 | `rate`       | object                | Map of camera IDs to their current framerates (e.g. `{"cam1": 10.0}`)                                       |
+| `cameras`    | array                 | Effective poses with `pose_locked` and `pose_provenance` (see schema below)                                 |
 | `objects`    | array                 | Tracked objects; see [Common Output Track Fields](../controller/data_formats.md#common-output-track-fields) |
+
+Machine-readable contract: [`analytics/schema/regulated-scene.schema.json`](../../../../analytics/schema/regulated-scene.schema.json).
 
 ### Example Regulated Scene Message
 
@@ -168,6 +171,20 @@ decisions without querying the descriptor store or matching embeddings.
     "atag-qcam1": 9.998,
     "atag-qcam2": 10.018
   },
+  "cameras": [
+    {
+      "id": "atag-qcam1",
+      "translation": [1.2, 3.4, 2.5],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0],
+      "pose_locked": true,
+      "pose_provenance": {
+        "class": "calibration",
+        "origin": "manager.rest"
+      },
+      "dynamic_pose": false
+    }
+  ],
   "objects": [
     {
       "id": "0c373dbf-2a1d-49b7-ba2d-48711d189971",
