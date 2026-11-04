@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
@@ -327,6 +327,11 @@ SPDX-License-Identifier: Apache-2.0
     value="scenescape/image/calibration/camera/{{ caminst.sensor_id }}"
   />
   <input type="hidden" id="sensor_id" value="{{ caminst.sensor_id }}" />
+  <input
+    type="hidden"
+    id="ptz_calibration_version"
+    value="{{ caminst.ptz_calibration.calibration_version|default:'' }}"
+  />
   <input
     type="hidden"
     id="generate-pipeline-url"
