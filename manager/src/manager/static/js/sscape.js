@@ -2345,10 +2345,19 @@ $(document).ready(function () {
               let messageText = "";
               let message = msg[0];
 
-              if (message && (message["name"] || message["sensor_id"])) {
-                messageText = message["name"]
-                  ? message["name"][0]
-                  : message["sensor_id"][0];
+              if (message && typeof message === "object") {
+                const fields = ["name", "sensor_id", "error"];
+                const field =
+                  fields.find((f) => message[f]) ||
+                  Object.keys(message).find((f) => message[f]);
+                if (field) {
+                  const value = message[field];
+                  messageText = String(Array.isArray(value) ? value[0] : value);
+                  if (field !== "name" && field !== "sensor_id") {
+                    const label = msg[1]?.name ? `${msg[1].name}: ` : "";
+                    messageText = label + messageText;
+                  }
+                }
               }
               if (
                 messageText.includes("orphaned camera") ||
