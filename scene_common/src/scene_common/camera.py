@@ -26,16 +26,16 @@ def keysNotEmpty(info, keys):
       return False
   return True
 
+def parsePoseLocked(info):
+  value = info.get('pose_locked', False)
+  if not isinstance(value, bool) and value not in (0, 1):
+    raise ValueError('pose_locked must be a boolean')
+  return bool(value)
+
 class Camera:
   def __init__(self, anID, info, resolution=None):
     self.cameraID = anID
-    if 'pose_locked' in info:
-      value = info['pose_locked']
-      if not isinstance(value, bool) and value not in (0, 1):
-        raise ValueError('pose_locked must be a boolean')
-      self.pose_locked = bool(value)
-    else:
-      self.pose_locked = False
+    self.pose_locked = parsePoseLocked(info)
     # Untagged payloads stay unknown; Manager stamps origin on authored config.
     self.pose_provenance = provenance_from_camera_info(info)
     sync_legacy_pose_source(self)
