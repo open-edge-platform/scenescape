@@ -44,7 +44,7 @@ from visualization.scenario_data import (  # noqa: E402
   TRACKS_FILE,
   Scenario,
   align_track_to_truth,
-  frame_rate,
+  ground_truth_frame_rate,
   load_scenario,
   match_tracks_to_truth,
 )
@@ -147,7 +147,7 @@ def plot_position_error(scenario: Scenario, pairs: Pairs) -> Optional[plt.Figure
   matched = {track_id: object_id for track_id, object_id in pairs.items() if object_id}
   if not matched:
     return None
-  tolerance = 0.5 / (frame_rate(scenario.ground_truth) or 1.0)
+  tolerance = 0.5 / (ground_truth_frame_rate(scenario) or 1.0)
   fig, axes = plt.subplots(3, 1, figsize=(10, 9), sharex=True)
   for track_id, object_id in matched.items():
     color = track_color(pairs, track_id)
