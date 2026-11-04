@@ -71,6 +71,14 @@ def resolve_compose_files(compose_files, dri_path="/dev/dri"):
   device node exists so CPU-only hosts can still start video profiles.
   """
   files = list(compose_files)
+  includes_tracking_service = any(
+    os.path.basename(path).startswith("compose.scene")
+    or os.path.basename(path) == "compose.tracker.yml"
+    for path in files
+  )
+  positioning_compose = f"{COMPOSE}/compose.positioning.yml"
+  if includes_tracking_service and positioning_compose not in files:
+    files.append(positioning_compose)
   if not _host_has_dri(dri_path):
     return tuple(files)
   for marker, override in _GPU_DRI_OVERRIDES:
@@ -494,6 +502,46 @@ SCENE_NO_DB = ServiceProfile(
   },
 )
 
+PTZ_ENFORCE = ServiceProfile(
+  name="ptz_enforce",
+  compose_files=(
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.scene-ptz.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "analytics": _ANALYTICS,
+  },
+)
+
+PTZ_SHADOW = ServiceProfile(
+  name="ptz_shadow",
+  compose_files=(
+    f"{DLS}/compose.broker.yml",
+    f"{COMPOSE}/compose.ntp.yml",
+    f"{COMPOSE}/compose.pgserver.yml",
+    f"{COMPOSE}/compose.scene.yml",
+    f"{COMPOSE}/compose.scene-ptz-shadow.yml",
+    f"{COMPOSE}/compose.web.yml",
+    f"{COMPOSE}/compose.analytics.yml",
+  ),
+  wait_for={
+    "pgserver": _PGSERVER,
+    "web": _WEB,
+    "scene": _SCENE,
+    "broker": _BROKER,
+    "analytics": _ANALYTICS,
+  },
+)
+
 MARKERLESS = ServiceProfile(
   name="markerless",
   compose_files=(
@@ -618,6 +666,8 @@ PROFILE_REGISTRY: dict = {
     FULL_STACK_AUTOCALIBRATION,
     FULL_STACK_AUTOCALIBRATION_NO_APRILTAGS,
     SCENE_NO_DB,
+    PTZ_ENFORCE,
+    PTZ_SHADOW,
     MARKERLESS,
     INFERENCE_PERF,
     STABILITY,

@@ -1,0 +1,149 @@
+{
+  "meta:license": [
+    "SPDX-FileCopyrightText: (C) 2026 Intel Corporation",
+    "SPDX-License-Identifier: Apache-2.0"
+  ],
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PTZ calibration (parameterization v1)",
+  "description": "Versioned per-camera model converting raw ONVIF pan/tilt readings into an orientation relative to the camera's static home pose. The home pose itself stays in the Manager camera record.",
+  "type": "object",
+  "definitions": {
+    "unit_vector": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": { "type": "number", "minimum": -1, "maximum": 1 }
+    },
+    "backlash": {
+      "description": "Total gear slack in degrees: one value, or [[position, degrees], ...] interpolated linearly and held constant beyond the end nodes.",
+      "oneOf": [
+        { "type": "number", "minimum": 0 },
+        {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 64,
+          "items": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "items": [{ "type": "number" }, { "type": "number", "minimum": 0 }]
+          }
+        }
+      ]
+    },
+    "axis": {
+      "type": "object",
+      "properties": {
+        "axis": {
+          "$ref": "#/definitions/unit_vector",
+          "description": "Rotation axis, normalized, expressed in `frame`."
+        },
+        "frame": {
+          "type": "string",
+          "enum": ["world_home", "camera_local"],
+          "description": "world_home: scene frame with the head at home (axis composes left of `home`). camera_local: home camera optical frame (axis composes right of `home`)."
+        },
+        "curve": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": { "type": "number" },
+          "description": "Polynomial in increasing power mapping ONVIF position to degrees; encodes scale and sign. Axis inversion is expressed only by the sign of the coefficients. Constant term cancels."
+        },
+        "home_position": {
+          "type": "number",
+          "description": "Raw ONVIF position at the calibrated home pose."
+        },
+        "approach_direction": {
+          "type": "string",
+          "enum": ["increasing", "decreasing"],
+          "description": "Direction of travel used to reach home during calibration."
+        },
+        "backlash": { "$ref": "#/definitions/backlash" },
+        "backlash_home_tolerance_deg": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Must not exceed the axis's calibrated angular travel (curve span over the position range)."
+        },
+        "backlash_history_s": { "type": "number", "exclusiveMinimum": 0 }
+      },
+      "required": [
+        "axis",
+        "frame",
+        "curve",
+        "home_position",
+        "approach_direction",
+        "backlash",
+        "backlash_home_tolerance_deg",
+        "backlash_history_s"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "properties": {
+    "parameterization_version": { "type": "string", "enum": ["v1"] },
+    "calibration_version": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "position_space": {
+      "type": "object",
+      "properties": {
+        "uri": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "pan_min": { "type": "number" },
+        "pan_max": { "type": "number" },
+        "tilt_min": { "type": "number" },
+        "tilt_max": { "type": "number" }
+      },
+      "required": ["uri", "pan_min", "pan_max", "tilt_min", "tilt_max"],
+      "additionalProperties": false
+    },
+    "settle_angular_threshold_deg": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Must not exceed the calibrated angular travel of either axis."
+    },
+    "settle_interval_s": { "type": "number", "exclusiveMinimum": 0 },
+    "composition_order": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": { "type": "string", "enum": ["pan", "home", "tilt"] },
+      "description": "Left-to-right rotation product, e.g. [\"pan\", \"home\", \"tilt\"] = R_pan @ R_home @ R_tilt."
+    },
+    "axes": {
+      "type": "object",
+      "properties": {
+        "pan": { "$ref": "#/definitions/axis" },
+        "tilt": { "$ref": "#/definitions/axis" }
+      },
+      "required": ["pan", "tilt"],
+      "additionalProperties": false
+    },
+    "quality": {
+      "type": "object",
+      "properties": {
+        "reprojection_rms_px": { "type": "number", "minimum": 0 }
+      },
+      "required": ["reprojection_rms_px"],
+      "additionalProperties": false
+    },
+    "provenance": {
+      "type": "object",
+      "description": "Measurement provenance (instrument/version, camera model/firmware, date, operator, fitting script revision)."
+    }
+  },
+  "required": [
+    "parameterization_version",
+    "calibration_version",
+    "position_space",
+    "settle_angular_threshold_deg",
+    "settle_interval_s",
+    "composition_order",
+    "axes",
+    "quality"
+  ],
+  "additionalProperties": false
+}

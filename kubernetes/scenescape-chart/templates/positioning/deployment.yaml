@@ -1,0 +1,125 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+{{- if .Values.positioning.enabled }}
+{{- if not (has .Values.positioning.logLevel (list "INFO" "DEBUG")) }}
+{{- fail "positioning.logLevel must be INFO or DEBUG" }}
+{{- end }}
+{{- if and .Values.positioning.config.sources (not .Values.positioning.networkPolicy.cameraCIDRs) }}
+{{- fail "positioning.networkPolicy.cameraCIDRs must allowlist the configured camera networks" }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-positioning
+  labels:
+    app: {{ .Release.Name }}-positioning
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 2
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}-positioning
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}-positioning
+        {{ include "releaseLabels" . | indent 8 }}
+      annotations:
+        checksum/positioning-config: {{ printf "%s\n%s" (include "positioning.configJson" .) (.Values.positioning.assignments | default dict | toJson) | sha256sum }}
+        positioning.scenescape.intel.com/onvif-credentials-revision: {{ .Values.positioning.onvifCredentials.rolloutRevision | default "" | quote }}
+    spec:
+      securityContext:
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+      containers:
+        - name: positioning
+          image: {{ .Values.repository }}/{{ .Values.positioning.image }}:{{ .Chart.AppVersion }}
+          imagePullPolicy: {{ .Values.positioning.pullPolicy }}
+          args:
+            - "--log-level"
+            - {{ .Values.positioning.logLevel | quote }}
+            - "--broker"
+            - "broker.{{ .Release.Namespace }}.svc.cluster.local"
+            - "--brokerauth"
+            - "/run/secrets/positioning.auth"
+            - "--rootcert"
+            - "/run/secrets/certs/scenescape-ca.pem"
+            - "--manager-url"
+            - "https://web.{{ .Release.Namespace }}.svc.cluster.local/api/v1"
+            - "--config"
+            - "/app/config/positioning.json"
+          env:
+            - name: POSITIONING_NTP_SERVER
+              value: "ntpserv.{{ .Release.Namespace }}.svc.cluster.local"
+          securityContext:
+            {{ include "defaultContainerSecurityContext" . | indent 12 }}
+            runAsUser: 1001
+            runAsGroup: 1001
+          readinessProbe:
+            exec:
+              command:
+                - python3
+                - -c
+                - "import os,sys; sys.exit(0 if os.path.exists('/tmp/positioning-ready') else 1)"
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 6
+          volumeMounts:
+            - name: positioning-config
+              mountPath: /app/config/positioning.json
+              subPath: positioning.json
+              readOnly: true
+            - name: positioning-config
+              mountPath: /app/deployment/positioning-assignments.json
+              subPath: positioning-assignments.json
+              readOnly: true
+            - name: positioning-auth
+              mountPath: /run/secrets/positioning.auth
+              subPath: positioning.auth
+              readOnly: true
+            - name: certs
+              mountPath: /run/secrets/certs/scenescape-ca.pem
+              subPath: scenescape-ca.pem
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+            {{- if include "positioning.onvifCredentialsSecretName" . }}
+            - name: onvif-credentials
+              mountPath: {{ include "positioning.onvifCredentialsDir" . }}
+              readOnly: true
+            {{- end }}
+            {{- with .Values.positioning.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        - name: positioning-config
+          configMap:
+            name: {{ .Release.Name }}-positioning
+        - name: positioning-auth
+          secret:
+            secretName: {{ .Release.Name }}-positioning.auth
+            defaultMode: 0440
+        - name: tmp
+          emptyDir: {}
+        - name: certs
+          projected:
+            sources:
+              - secret:
+                  name: {{ .Release.Name }}-scenescape-ca.pem
+                  items:
+                    - key: tls.crt
+                      path: scenescape-ca.pem
+        {{- if include "positioning.onvifCredentialsSecretName" . }}
+        - name: onvif-credentials
+          secret:
+            secretName: {{ include "positioning.onvifCredentialsSecretName" . }}
+            defaultMode: 0440
+        {{- end }}
+        {{- with .Values.positioning.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}

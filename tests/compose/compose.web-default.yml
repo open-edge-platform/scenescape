@@ -19,6 +19,8 @@ secrets:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
+  positioning.auth:
+    file: ${SECRETSDIR}/positioning.auth
 
 services:
   web:
@@ -50,6 +52,7 @@ services:
       - "DBROOT"
       - "SCENESCAPE_ALLOWED_HOSTS"
       - "SUPASS"
+      - "PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX"
       - "http_proxy=${http_proxy}"
       - "https_proxy=${https_proxy}"
       - "no_proxy=127.0.0.1,localhost,${no_proxy},.scenescape.intel.com"
@@ -71,6 +74,7 @@ services:
       - controller.auth
       - browser.auth
       - calibration.auth
+      - positioning.auth
     restart: on-failure
 
 volumes:
