@@ -51,7 +51,16 @@ class SceneImportCalibration(FunctionalTest):
 
   def importArchive(self, zipPath=None):
     res = self.rest.importScene(zipPath or self.zipPath)
-    assert not res.errors, f"Import request failed: {res.errors}"
+    # Resource conflicts return HTTP 400 with the import summary in
+    # res.errors (scene may still have been created). Promote that summary
+    # onto res so callers can inspect cameras/etc. Reject only scene failures.
+    summary_keys = ("scene", "cameras", "tripwires", "regions", "sensors",
+                    "calibration_markers")
+    if res.errors is not None:
+      summary = res.errors
+      assert isinstance(summary, dict) and any(k in summary for k in summary_keys), \
+        f"Import request failed: {res.errors}"
+      res.update(summary)
     assert not res.get("scene"), f"Scene import rejected: {res.get('scene')}"
     scenes = self.rest.getScenes({"name": self.sceneData["name"]}).get("results", [])
     assert len(scenes) == 1, f"Imported scene '{self.sceneData['name']}' not found"
