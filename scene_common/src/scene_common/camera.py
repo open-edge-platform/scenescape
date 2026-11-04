@@ -26,16 +26,30 @@ def keysNotEmpty(info, keys):
       return False
   return True
 
+
+def _pose_locked_from_info(info):
+  if 'pose_locked' not in info:
+    return False
+  value = info['pose_locked']
+  if not isinstance(value, bool) and value not in (0, 1):
+    raise ValueError('pose_locked must be a boolean')
+  return bool(value)
+
+
+def _camera_pose_from_info(info, cam_intrins):
+  pose_formats = [
+    ('translation', 'rotation', 'scale'),
+    ('camera points', 'map points')
+  ]
+  if any(keysNotEmpty(info, pose_format) for pose_format in pose_formats):
+    return CameraPose(info, cam_intrins)
+  return CameraPose(DEFAULT_TRANSFORM, cam_intrins)
+
+
 class Camera:
   def __init__(self, anID, info, resolution=None):
     self.cameraID = anID
-    if 'pose_locked' in info:
-      value = info['pose_locked']
-      if not isinstance(value, bool) and value not in (0, 1):
-        raise ValueError('pose_locked must be a boolean')
-      self.pose_locked = bool(value)
-    else:
-      self.pose_locked = False
+    self.pose_locked = _pose_locked_from_info(info)
     # Untagged payloads stay unknown; Manager stamps origin on authored config.
     self.pose_provenance = provenance_from_camera_info(info)
     sync_legacy_pose_source(self)
@@ -48,16 +62,8 @@ class Camera:
       cam_intrins = CameraIntrinsics(intrinsics,
                                      info.get('distortion', None),
                                      resolution)
-
       info['resolution'] = resolution
-      pose_formats = [
-        ('translation', 'rotation', 'scale'),
-        ('camera points', 'map points')
-      ]
-      if any(keysNotEmpty(info, pose_format) for pose_format in pose_formats):
-        self.pose = CameraPose(info, cam_intrins)
-      else:
-        self.pose = CameraPose(DEFAULT_TRANSFORM, cam_intrins)
+      self.pose = _camera_pose_from_info(info, cam_intrins)
     return
 
   def groundOrigin(self, z=None):

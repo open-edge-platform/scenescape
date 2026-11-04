@@ -608,6 +608,34 @@ class MeshGenerator:
     except Exception as e:
       log.error(f"Failed to update scene cameras: {e}")
 
+  @staticmethod
+  def _scaled_mapping_intrinsics(camera, intrinsics_data):
+    """Scale mapping K into the registered Cam resolution when frames differ."""
+    intrinsics_array = np.array(intrinsics_data['K'], dtype=float)
+    fx, fy = float(intrinsics_array[0, 0]), float(intrinsics_array[1, 1])
+    cx, cy = float(intrinsics_array[0, 2]), float(intrinsics_array[1, 2])
+
+    dst_w = int(camera.cam.width) if camera.cam.width else None
+    dst_h = int(camera.cam.height) if camera.cam.height else None
+    src_w = intrinsics_data.get('width')
+    src_h = intrinsics_data.get('height')
+    if src_w is None or src_h is None:
+      # Fallback when older mapping builds omit frame size: principal point
+      # is near the image center for these reconstructions.
+      src_w = max(1, int(round(2.0 * cx)))
+      src_h = max(1, int(round(2.0 * cy)))
+    else:
+      src_w, src_h = int(src_w), int(src_h)
+
+    if dst_w and dst_h and src_w > 0 and src_h > 0 and (src_w != dst_w or src_h != dst_h):
+      sx = float(dst_w) / float(src_w)
+      sy = float(dst_h) / float(src_h)
+      log.info(
+        f"Scaling mapping intrinsics for {camera.sensor_id} from "
+        f"{src_w}x{src_h} into Cam resolution {dst_w}x{dst_h}")
+      fx, fy, cx, cy = fx * sx, fy * sy, cx * sx, cy * sy
+    return fx, fy, cx, cy
+
   def _updateCameraParameters(self, camera, pose_data, intrinsics_data):
     """Write mapping-service pose (and optional intrinsics) onto a camera.
 
@@ -620,35 +648,11 @@ class MeshGenerator:
       translation = pose_data['translation']  # [x, y, z]
 
       if intrinsics_data is not None:
-        intrinsics_array = np.array(intrinsics_data['K'], dtype=float)
-        fx, fy = float(intrinsics_array[0, 0]), float(intrinsics_array[1, 1])
-        cx, cy = float(intrinsics_array[0, 2]), float(intrinsics_array[1, 2])
-
-        dst_w = int(camera.cam.width) if camera.cam.width else None
-        dst_h = int(camera.cam.height) if camera.cam.height else None
-        src_w = intrinsics_data.get('width')
-        src_h = intrinsics_data.get('height')
-        if src_w is None or src_h is None:
-          # Fallback when older mapping builds omit frame size: principal point
-          # is near the image center for these reconstructions.
-          src_w = max(1, int(round(2.0 * cx)))
-          src_h = max(1, int(round(2.0 * cy)))
-        else:
-          src_w, src_h = int(src_w), int(src_h)
-
-        if dst_w and dst_h and src_w > 0 and src_h > 0 and (src_w != dst_w or src_h != dst_h):
-          sx = float(dst_w) / float(src_w)
-          sy = float(dst_h) / float(src_h)
-          log.info(
-            f"Scaling mapping intrinsics for {camera.sensor_id} from "
-            f"{src_w}x{src_h} into Cam resolution {dst_w}x{dst_h}")
-          fx, fy, cx, cy = fx * sx, fy * sy, cx * sx, cy * sy
-
+        fx, fy, cx, cy = self._scaled_mapping_intrinsics(camera, intrinsics_data)
         camera.cam.intrinsics_fx = fx
         camera.cam.intrinsics_fy = fy
         camera.cam.intrinsics_cx = cx
         camera.cam.intrinsics_cy = cy
-
         log.info(
           f"Updated intrinsics for {camera.sensor_id}: "
           f"fx={fx:.2f} fy={fy:.2f} cx={cx:.2f} cy={cy:.2f} "

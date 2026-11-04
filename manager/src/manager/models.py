@@ -444,6 +444,38 @@ class Scene(models.Model):
         traceback.print_exc()
     return mScene
 
+  @staticmethod
+  def _cameraRuntimeInfo(cam, mScene):
+    """Build runtime camera payload for ScenescapeCamera construction."""
+    sInfo = cam.transformation
+    sInfo['pose_locked'] = cam.pose_locked
+    origin = getattr(cam, 'calibration_origin', None) or 'manager.rest'
+    sInfo['pose_provenance'] = {
+      'class': 'calibration',
+      'origin': origin,
+    }
+
+    if cam.intrinsics_fx != None and cam.intrinsics_fy != None \
+       and cam.intrinsics_cx != None and cam.intrinsics_cy != None:
+      sInfo['intrinsics'] = [cam.intrinsics_fx, cam.intrinsics_fy,
+                             cam.intrinsics_cx, cam.intrinsics_cy]
+    elif cam.intrinsics_fx != None:
+      sInfo['intrinsics'] = [cam.intrinsics_fx]
+      if cam.intrinsics_fy != None:
+        sInfo['intrinsics'].append(cam.intrinsics_fy)
+
+    if cam.distortion_k1 != None and cam.distortion_k2 != None \
+       and cam.distortion_p1 != None and cam.distortion_p2 != None \
+       and cam.distortion_k3 != None:
+      sInfo['distortion'] = [cam.distortion_k1, cam.distortion_k2,
+                             cam.distortion_p1, cam.distortion_p2, cam.distortion_k3]
+
+    # Propagate scene map scale for the RANSAC map-ppm heuristic (see
+    # scaled_reprojection_threshold_px); not camera-resolution scaling.
+    if getattr(mScene, 'scale', None) is not None and 'pixels per meter' not in sInfo:
+      sInfo['pixels per meter'] = mScene.scale
+    return sInfo
+
   def scenescapeSceneUpdateSensors(self, mScene, force=False):
     # print("Updating sensors")
     for sensor in self.sensor_set.all():
@@ -453,34 +485,7 @@ class Scene(models.Model):
         if cam.transforms is None:
           continue
 
-        sInfo = cam.transformation
-        sInfo['pose_locked'] = cam.pose_locked
-        origin = getattr(cam, 'calibration_origin', None) or 'manager.rest'
-        sInfo['pose_provenance'] = {
-          'class': 'calibration',
-          'origin': origin,
-        }
-
-        if cam.intrinsics_fx != None and cam.intrinsics_fy != None \
-           and cam.intrinsics_cx != None and cam.intrinsics_cy != None:
-          sInfo['intrinsics'] = [cam.intrinsics_fx, cam.intrinsics_fy,
-                                 cam.intrinsics_cx, cam.intrinsics_cy]
-        elif cam.intrinsics_fx != None:
-          sInfo['intrinsics'] = [cam.intrinsics_fx]
-          if cam.intrinsics_fy != None:
-            sInfo['intrinsics'].append(cam.intrinsics_fy)
-
-        if cam.distortion_k1 != None and cam.distortion_k2 != None \
-           and cam.distortion_p1 != None and cam.distortion_p2 != None \
-           and cam.distortion_k3 != None:
-          sInfo['distortion'] = [cam.distortion_k1, cam.distortion_k2,
-                                 cam.distortion_p1, cam.distortion_p2, cam.distortion_k3]
-
-        # Propagate scene map scale for the RANSAC map-ppm heuristic (see
-        # scaled_reprojection_threshold_px); not camera-resolution scaling.
-        if getattr(mScene, 'scale', None) is not None and 'pixels per meter' not in sInfo:
-          sInfo['pixels per meter'] = mScene.scale
-
+        sInfo = self._cameraRuntimeInfo(cam, mScene)
         mScene.cameras[sensor.sensor_id] = ScenescapeCamera(
             sensor.sensor_id, sInfo, resolution=(cam.width, cam.height))
     return
@@ -961,37 +966,29 @@ class Cam(Sensor):
     }
     return camera_data
 
-  def save(self, *args, **kwargs):
-    # Normalize positional save() args so update_fields is only read and modified via kwargs
-    for name, value in zip(("force_insert", "force_update", "using", "update_fields"), args):
-      kwargs.setdefault(name, value)
-    args = ()
-
-    # Reset camera pose when reassigned to a different scene
-    original_scene = None
-    scene_changed = False
-    update_fields = kwargs.get("update_fields")
+  def _clearPoseOnSceneChange(self, update_fields):
+    """Clear pose fields when the camera moves to another scene."""
     scene_update_requested = update_fields is None or bool(
       {"scene", "scene_id"} & set(update_fields)
     )
-    if self.pk is not None and scene_update_requested:
-      # This is an update, check if scene has changed
-      try:
-        original = Cam.objects.get(pk=self.pk)
-        scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
-        if original.scene_id != scene_id:
-          original_scene = original.scene
-          # Scene has changed, clear pose-related fields
-          self.transforms = []
-          self.scene_x = None
-          self.scene_y = None
-          self.scene_z = None
-          scene_changed = True
-      except Cam.DoesNotExist:
-        pass
+    if self.pk is None or not scene_update_requested:
+      return None, False
+    try:
+      original = Cam.objects.get(pk=self.pk)
+      scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
+      if original.scene_id == scene_id:
+        return None, False
+      self.transforms = []
+      self.scene_x = None
+      self.scene_y = None
+      self.scene_z = None
+      return original.scene, True
+    except Cam.DoesNotExist:
+      return None, False
 
-    # Prefer a principal point centered on the registered sensor frame so a
-    # create with resolution 1280x720 (and no explicit cx/cy) stores 640,360
+  def _applyDefaultIntrinsics(self):
+    """Prefer a principal point centered on the registered sensor frame."""
+    # Create with resolution 1280x720 (and no explicit cx/cy) stores 640,360
     # instead of the 640x480-era defaults 320,240.
     if self.intrinsics_cx is None:
       self.intrinsics_cx = (
@@ -1005,6 +1002,16 @@ class Cam(Sensor):
       self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
     if self.cv_subsystem is None:
       self.cv_subsystem = 'AUTO'
+
+  def save(self, *args, **kwargs):
+    # Normalize positional save() args so update_fields is only read and modified via kwargs
+    for name, value in zip(("force_insert", "force_update", "using", "update_fields"), args):
+      kwargs.setdefault(name, value)
+    args = ()
+
+    update_fields = kwargs.get("update_fields")
+    original_scene, scene_changed = self._clearPoseOnSceneChange(update_fields)
+    self._applyDefaultIntrinsics()
 
     if scene_changed and update_fields is not None:
       kwargs["update_fields"] = set(update_fields) | {
