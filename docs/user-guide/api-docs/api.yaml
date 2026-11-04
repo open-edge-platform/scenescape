@@ -2862,6 +2862,8 @@ components:
           description: >
             Scene name. Letters, digits, spaces, dashes, underscores, and dots
             only; must not start with a dot or contain '..'.
+          # Must match manager.validators.SCENE_NAME_PATTERN (enforced by
+          # tests/sscape_tests/scene/test_scene_name_validation.py).
           pattern: ^(?!.*\.\.)(?!\.)[\w \-.]+$
           maxLength: 150
         map_type:

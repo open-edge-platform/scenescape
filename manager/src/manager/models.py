@@ -32,7 +32,7 @@ from scene_common.scene_model import SceneModel as ScenescapeScene
 from scene_common.scenescape import SceneLoader
 from scene_common.timestamp import get_epoch_time
 from manager.validators import (
-  SCENE_NAME_PATTERN, validate_map_file, validate_glb, validate_map_corners_lla, validate_scene_name)
+  SCENE_NAME_DB_PATTERN, validate_map_file, validate_glb, validate_map_corners_lla, validate_scene_name)
 from manager.fields import ListField
 
 from scene_common import log
@@ -216,7 +216,7 @@ class Scene(models.Model):
     constraints = [
       models.CheckConstraint(
         check=(
-          models.Q(name__regex=SCENE_NAME_PATTERN)
+          models.Q(name__regex=SCENE_NAME_DB_PATTERN)
           & ~models.Q(name__startswith='.')
           & ~models.Q(name__contains='..')
         ),

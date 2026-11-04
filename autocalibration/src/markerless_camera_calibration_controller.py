@@ -208,7 +208,7 @@ class MarkerlessCameraCalibrationController(CameraCalibrationController):
       raise FileNotFoundError("Polycam zip file not found")
     base_dataset_path = Path(os.getcwd()) / "datasets" / scene_obj.name
     if not self._is_within_datasets_root(base_dataset_path):
-      raise ValueError(f"Invalid scene name: {scene_obj.name!r}")
+      raise ValueError("No dataset available for this scene.")
     with zipfile.ZipFile(scene_obj.polycam_data) as zf:
       extracted_files = zf.namelist()
       for member in extracted_files:

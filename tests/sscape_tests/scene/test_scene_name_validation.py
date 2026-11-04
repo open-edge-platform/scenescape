@@ -1,22 +1,25 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-import importlib
-import re
+from pathlib import Path
 
+import yaml
 from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from manager.models import Scene
 from manager.serializers import SceneSerializer
-from manager.validators import validate_scene_name
+from manager.validators import (
+  SCENE_NAME_PATTERN, SCENE_NAME_RE, is_valid_scene_name, sanitize_scene_name,
+  validate_scene_name)
 
-_migration_0006 = importlib.import_module('manager.migrations.0006_scene_name_validator')
-_is_valid_scene_name = _migration_0006._is_valid_scene_name
-_sanitize_scene_name = _migration_0006._sanitize_scene_name
+_API_YAML = Path(__file__).resolve().parents[3] / "docs" / "user-guide" / "api-docs" / "api.yaml"
 
-# Keep in sync with docs/user-guide/api-docs/api.yaml Scene.name.pattern.
-API_SCENE_NAME_PATTERN = re.compile(r'^(?!.*\.\.)(?!\.)[\w \-.]+$')
+
+def _scene_name_pattern_from_api_yaml():
+  with _API_YAML.open(encoding="utf-8") as handle:
+    spec = yaml.safe_load(handle)
+  return spec["components"]["schemas"]["Scene"]["properties"]["name"]["pattern"]
 
 
 class SceneNameValidationTestCase(TestCase):
@@ -58,13 +61,15 @@ class SceneNameValidationTestCase(TestCase):
     """Regression: ' .hidden' must not hang the 0006 migration sanitizer."""
     for name in [" .hidden", ".hidden", " ..hidden", " . .foo"]:
       with self.subTest(name=name):
-        sanitized = _sanitize_scene_name(name, set())
-        self.assertTrue(_is_valid_scene_name(sanitized), sanitized)
+        sanitized = sanitize_scene_name(name, set())
+        self.assertTrue(is_valid_scene_name(sanitized), sanitized)
         self.assertFalse(sanitized.startswith('.'))
         self.assertNotIn('..', sanitized)
 
-  def test_api_schema_pattern_rejects_leading_dot_and_double_dot(self):
-    self.assertIsNone(API_SCENE_NAME_PATTERN.fullmatch('.hidden'))
-    self.assertIsNone(API_SCENE_NAME_PATTERN.fullmatch('foo..bar'))
-    self.assertIsNotNone(API_SCENE_NAME_PATTERN.fullmatch('scene-2026.1'))
-    self.assertIsNotNone(API_SCENE_NAME_PATTERN.fullmatch('foo.bar'))
+  def test_scene_name_pattern_matches_api_schema(self):
+    """OpenAPI Scene.name.pattern must stay identical to SCENE_NAME_PATTERN."""
+    self.assertEqual(_scene_name_pattern_from_api_yaml(), SCENE_NAME_PATTERN)
+    self.assertIsNone(SCENE_NAME_RE.fullmatch('.hidden'))
+    self.assertIsNone(SCENE_NAME_RE.fullmatch('foo..bar'))
+    self.assertIsNotNone(SCENE_NAME_RE.fullmatch('scene-2026.1'))
+    self.assertIsNotNone(SCENE_NAME_RE.fullmatch('foo.bar'))

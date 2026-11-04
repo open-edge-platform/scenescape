@@ -101,7 +101,7 @@ def test_process_scene_for_calibration_returns_error_on_invalid_name(
   response = controller.process_scene_for_calibration(scene)
 
   assert response["status"] != "success"
-  assert "Invalid scene name" in response["status"]
+  assert "No dataset available for this scene." in response["status"]
 
 
 def test_reset_scene_skips_rmtree_for_escaping_output_dir(controller, tmp_path, monkeypatch):
