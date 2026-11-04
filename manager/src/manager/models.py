@@ -875,6 +875,31 @@ class Cam(Sensor):
     }
     return camera_data
 
+  def _reset_pose_if_scene_changed(self, update_fields):
+    """Clears the scene-relative pose when an existing camera moves to another scene.
+
+    Returns (scene_changed, original_scene).
+    """
+    if self.pk is None:
+      return False, None
+    if update_fields is not None and not {"scene", "scene_id"} & set(update_fields):
+      return False, None
+    try:
+      original = Cam.objects.get(pk=self.pk)
+    except Cam.DoesNotExist:
+      return False, None
+    scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
+    if original.scene_id == scene_id:
+      return False, None
+    # Keep the pose if this save explicitly supplies a new one (e.g. scene
+    # import re-linking a camera); otherwise drop the previous scene's pose.
+    if not getattr(self, "_pose_supplied", False):
+      self.transforms = []
+    self.scene_x = None
+    self.scene_y = None
+    self.scene_z = None
+    return True, original.scene
+
   def save(self, *args, **kwargs):
     # Normalize positional save() args so update_fields is only read and modified via kwargs
     for name, value in zip(("force_insert", "force_update", "using", "update_fields"), args):
@@ -882,27 +907,8 @@ class Cam(Sensor):
     args = ()
 
     # Reset camera pose when reassigned to a different scene
-    original_scene = None
-    scene_changed = False
     update_fields = kwargs.get("update_fields")
-    scene_update_requested = update_fields is None or bool(
-      {"scene", "scene_id"} & set(update_fields)
-    )
-    if self.pk is not None and scene_update_requested:
-      # This is an update, check if scene has changed
-      try:
-        original = Cam.objects.get(pk=self.pk)
-        scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
-        if original.scene_id != scene_id:
-          original_scene = original.scene
-          # Scene has changed, clear pose-related fields
-          self.transforms = []
-          self.scene_x = None
-          self.scene_y = None
-          self.scene_z = None
-          scene_changed = True
-      except Cam.DoesNotExist:
-        pass
+    scene_changed, original_scene = self._reset_pose_if_scene_changed(update_fields)
 
     for key in ('cx', 'cy', 'fx', 'fy'):
       field = f'intrinsics_{key}'
