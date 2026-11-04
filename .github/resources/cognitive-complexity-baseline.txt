@@ -58,9 +58,9 @@ manager/src/manager/forms.py	SingletonForm::clean	13
 manager/src/manager/kubeclient.py	KubeClient::save	16
 manager/src/manager/management/commands/createuser.py	Command::handle	15
 manager/src/manager/management/commands/db2config.py	Command::handle	23
-manager/src/manager/mesh_generator.py	MappingServiceClient::startReconstructMesh	20
-manager/src/manager/mesh_generator.py	MeshGenerator::_updateSceneCamerasWithMappingResult	25
-manager/src/manager/mesh_generator.py	MeshGenerator::startMeshGeneration	18
+manager/src/manager/mesh_generator.py	MappingServiceClient::startReconstructMesh	19
+manager/src/manager/mesh_generator.py	MeshGenerator::_updateSceneCamerasWithMappingResult	22
+manager/src/manager/mesh_generator.py	MeshGenerator::startMeshGeneration	14
 manager/src/manager/model_directory_view.py	ModelDirectory::loadDirectory	27
 manager/src/manager/models.py	BoundingBox::boundingBox	14
 manager/src/manager/models.py	Cam::save	18
