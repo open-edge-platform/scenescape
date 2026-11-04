@@ -15,9 +15,9 @@ from scene_common import log
 from scene_common.mqtt import PubSub
 from scene_common.options import (
   POSE_CLASS_CALIBRATION,
+  POSE_CLASS_LIVE,
   POSE_ORIGIN_UNKNOWN,
   make_pose_provenance,
-  pose_is_live,
 )
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import get_epoch_time, get_iso_time
@@ -104,16 +104,18 @@ class AnalyticsService:
     provenance = getattr(camera, 'pose_provenance', None)
     if not isinstance(provenance, dict) or 'class' not in provenance:
       provenance = make_pose_provenance(POSE_CLASS_CALIBRATION, POSE_ORIGIN_UNKNOWN)
-    live = (not pose_locked) and pose_is_live(camera)
+    pose_class = provenance.get('class', POSE_CLASS_CALIBRATION)
+    # ADR 18: dynamic_pose is a deprecated alias of pose_provenance.class === "live".
+    # UI still gates on pose_locked separately; do not fold lock into this alias.
+    live = pose_class == POSE_CLASS_LIVE
     return {
       'id': camera.cameraID,
       'translation': pose.translation.asNumpyCartesian.tolist(),
       'rotation': pose.quaternion_rotation.tolist(),
       'scale': list(scale),
       'pose_locked': pose_locked,
-      # ADR 18: preferred UI follow signal; dynamic_pose is a deprecated alias.
       'pose_provenance': {
-        'class': provenance.get('class', POSE_CLASS_CALIBRATION),
+        'class': pose_class,
         'origin': provenance.get('origin', POSE_ORIGIN_UNKNOWN),
         **({'updated_at': provenance['updated_at']}
            if provenance.get('updated_at') is not None else {}),

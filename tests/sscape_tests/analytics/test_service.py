@@ -156,6 +156,19 @@ def test_configured_policy_ignores_observation_and_publishes_static_provenance()
   assert state['translation'] == [0, 0, 3]
 
 
+def test_dynamic_pose_alias_matches_provenance_class_even_when_locked():
+  scene = _mobile_scene()
+  camera = scene.cameras['mobile']
+  camera.pose_locked = True
+  camera.pose_provenance = {
+    'class': 'live', 'origin': 'detector.extrinsics',
+  }
+  state = AnalyticsService._camera_state(camera)
+  assert state['pose_locked'] is True
+  assert state['pose_provenance']['class'] == 'live'
+  assert state['dynamic_pose'] is True
+
+
 def test_projection_scene_uses_dynamic_pose_without_mutating_configured_camera():
   from scene_common.camera import Camera
   configured = Camera('mobile', {
