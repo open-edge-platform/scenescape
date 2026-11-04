@@ -4,7 +4,6 @@
 """Tests for rendering robot-vision scenario recordings as videos."""
 
 import math
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -12,10 +11,7 @@ import pytest
 from matplotlib import animation
 from PIL import Image
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-# pylint: disable-next=wrong-import-position
-from visualization.render_video import (  # noqa: E402
+from visualization.render_video import (
   RenderError,
   association_gate,
   box_corners,
