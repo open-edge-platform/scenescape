@@ -316,7 +316,6 @@ def test_camera_lock_refresh_preserves_observed_pose_until_locked(scene_obj):
   {'translation': [0, 0], 'rotation': [0, 0, 0]},
   {'translation': [0, 0, 0], 'rotation': [0, 0, 0, 0]},
   {'translation': [0, float('nan'), 0], 'rotation': [0, 0, 0]},
-  {'translation': [0, 0, 0], 'rotation': [0, 0, 0], 'scale': [1, 0, 1]},
 ])
 def test_processCameraData_rejects_invalid_extrinsics(
     scene_obj, camera_obj, monkeypatch, extrinsics):

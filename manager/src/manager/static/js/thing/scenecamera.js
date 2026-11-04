@@ -488,11 +488,18 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   updatePose(pose) {
+    // Live extrinsics are rigid (translation + rotation). Scale is not part of
+    // camera extrinsics; keep the camera axes at identity.
+    const rotationLength = Array.isArray(pose?.rotation)
+      ? pose.rotation.length
+      : 0;
     const vectors = [
       [pose?.translation, 3],
-      [pose?.rotation, 4],
+      [
+        pose?.rotation,
+        rotationLength === 3 || rotationLength === 4 ? rotationLength : 4,
+      ],
     ];
-    if (pose?.scale !== undefined) vectors.push([pose.scale, 3]);
     if (
       !this.sceneCamera ||
       vectors.some(
@@ -500,8 +507,7 @@ export default class SceneCamera extends THREE.Object3D {
           !Array.isArray(values) ||
           values.length !== length ||
           !values.every(Number.isFinite),
-      ) ||
-      pose.scale?.some((value) => value <= 0)
+      )
     )
       return false;
     const norm = Math.hypot(...pose.rotation);
@@ -513,7 +519,7 @@ export default class SceneCamera extends THREE.Object3D {
       pose.rotation.map((value) => value / norm),
     );
     this.cameraRotation.setFromQuaternion(this.sceneCamera.quaternion, "XYZ");
-    if (pose.scale) this.sceneCamera.scale.fromArray(pose.scale);
+    this.sceneCamera.scale.set(1, 1, 1);
     this.togglePoseYupYdown(this.sceneCamera);
     this.sceneCamera.updateMatrixWorld(true);
     if (this.transformControl) this.resetTransformObject();

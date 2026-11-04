@@ -19,10 +19,12 @@ from scene_common.transform import validate_camera_extrinsics
 
 
 @pytest.mark.parametrize("rotation", [[10, 20, 30], [0, 0, 0, 2]])
-def test_validate_camera_extrinsics_defaults_scale_and_normalizes_quaternion(rotation):
-  pose = validate_camera_extrinsics({'translation': [1, 2, 3], 'rotation': rotation})
+def test_validate_camera_extrinsics_forces_identity_scale_and_normalizes_quaternion(rotation):
+  pose = validate_camera_extrinsics({
+    'translation': [1, 2, 3], 'rotation': rotation, 'scale': [2, 3, 4],
+  })
   assert pose['translation'] == [1, 2, 3]
-  assert pose['scale'] == [1, 1, 1]
+  assert pose['scale'] == [1.0, 1.0, 1.0]
   assert pose['rotation'] == (rotation if len(rotation) == 3 else [0, 0, 0, 1])
 
 
@@ -30,8 +32,7 @@ def test_validate_camera_extrinsics_defaults_scale_and_normalizes_quaternion(rot
   ('translation', [True, 0, 0]), ('translation', ['1', 0, 0]),
   ('translation', [float('nan'), 0, 0]), ('translation', [0, 0]),
   ('rotation', [0, 0, 0, 0]), ('rotation', [0, 0]),
-  ('rotation', [float('inf'), 0, 0]), ('scale', [1, 0, 1]),
-  ('scale', [1, -1, 1]), ('scale', None),
+  ('rotation', [float('inf'), 0, 0]),
 ])
 def test_validate_camera_extrinsics_rejects_malformed_vectors(key, value):
   pose = {'translation': [1, 2, 3], 'rotation': [0, 0, 0]}

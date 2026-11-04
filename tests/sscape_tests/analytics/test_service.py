@@ -85,7 +85,6 @@ def test_controller_reid_state_and_count_reach_regulated_output(state, gid):
   {'translation': [1, 2, 3], 'rotation': [0, 0, 0, 0]},
   {'translation': [1, float('inf'), 3], 'rotation': [0, 0, 0]},
   {'translation': [1, 2, 3], 'rotation': [0, 0]},
-  {'translation': [1, 2, 3], 'rotation': [0, 0, 0], 'scale': [1, 0, 1]},
   "invalid",
 ])
 def test_regulated_output_uses_latest_dynamic_camera_pose(invalid, rotation):

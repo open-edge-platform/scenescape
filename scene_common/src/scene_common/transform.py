@@ -29,20 +29,23 @@ MIN_POINTS_FOR_RANSAC = 4
 
 
 def validate_camera_extrinsics(extrinsics):
-  """Validate per-message TRS metadata without changing configured calibration."""
+  """Validate per-message rigid camera pose without changing configured calibration.
+
+  Camera extrinsics are translation and rotation only. Identity scale is attached
+  so the shared CameraPose TRS builder can consume the result; any caller-supplied
+  scale is ignored.
+  """
   if not isinstance(extrinsics, dict):
     raise ValueError("extrinsics must be an object")
   result = {}
-  for key, lengths, default in (
-      ('translation', (3,), None), ('rotation', (3, 4), None), ('scale', (3,), [1, 1, 1])):
-    result[key] = _extrinsics_vector(extrinsics.get(key, default), key, lengths)
+  for key, lengths in (('translation', (3,)), ('rotation', (3, 4))):
+    result[key] = _extrinsics_vector(extrinsics.get(key), key, lengths)
   if len(result['rotation']) == 4:
     norm = math.hypot(*result['rotation'])
     if not math.isfinite(norm) or norm == 0:
       raise ValueError("extrinsics quaternion must have finite nonzero norm")
     result['rotation'] = [v / norm for v in result['rotation']]
-  if any(v <= 0 for v in result['scale']):
-    raise ValueError("extrinsics scale must be positive")
+  result['scale'] = [1.0, 1.0, 1.0]
   return result
 
 
