@@ -157,7 +157,9 @@ async function harness() {
         ? { GLTFLoader: Loader }
         : specifier.includes("constants")
           ? { REST_URL: "", SUCCESS: 200 }
-          : { default: class {} };
+          : specifier.includes("ptzpose")
+            ? { PTZ_AWAY_MESSAGE: "Move the PTZ camera to its home position." }
+            : { default: class {} };
     return new vm.SyntheticModule(
       Object.keys(exports),
       function () {
