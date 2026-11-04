@@ -2355,7 +2355,9 @@ $(document).ready(function () {
                   messageText = String(Array.isArray(value) ? value[0] : value);
                   if (field !== "name" && field !== "sensor_id") {
                     const label = msg[1]?.name ? `${msg[1].name}: ` : "";
-                    messageText = label + messageText;
+                    const text = document.createElement("span");
+                    text.textContent = label + messageText;
+                    messageText = text.innerHTML;
                   }
                 }
               }
