@@ -1,0 +1,16 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+#
+# The visual model does not use TorchAudio; its available CPU release targets
+# an older Torch version than the service.
+diff --git a/pyproject.toml b/pyproject.toml
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -28,7 +28,6 @@ dependencies = [
+     "numpy",
+     "torch",
+     "torchvision",
+-    "torchaudio",
+     "jaxtyping",
+     "matplotlib",
+     "Pillow",

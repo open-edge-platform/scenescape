@@ -38,6 +38,16 @@ The test suite covers:
 
 **Note**: API tests use multipart/form-data format to match the production API which accepts file uploads for both images and videos.
 
+### Runtime Dependency Regression Tests
+
+`test_runtime_dependencies.py` verifies installed security versions, `pip check`,
+real model imports, Pillow preprocessing, mesh/point-cloud export, and invalid
+visualization input. Run it in both model test images; it does not download weights.
+
+```bash
+pytest tests/test_runtime_dependencies.py -v
+```
+
 ## Prerequisites
 
 These tests are designed to run **inside a running mapping container** because:
