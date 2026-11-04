@@ -39,7 +39,7 @@ from scene_common import log
 
 # FIXME - when entire app has transitioned to using APIs
 # move this definition to views.py
-def sendUpdateCommand(scene_id=None, camera_data=None):
+def sendUpdateCommand(scene_id=None, camera_data=None, camera_config_update=None):
   broker = os.environ.get("BROKER")
   auth = os.environ.get("BROKERAUTH")
   rootcert = os.environ.get("BROKERROOTCERT")
@@ -47,37 +47,53 @@ def sendUpdateCommand(scene_id=None, camera_data=None):
   if rootcert is None:
     rootcert = "/run/secrets/certs/scenescape-ca.pem"
   cert = os.environ.get("BROKERCERT")
-  if broker is not None:
-    try:
-      client = PubSub(auth, cert, rootcert, broker)
-      client.connect()
-    except (socket.gaierror, ConnectionRefusedError) as e:
-      log.error("Unable to connect: %s", e)
-    else:
-      if scene_id:
-        client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
-        url = f"https://{autocalibration}/v1/scenes/{scene_id}/registration"
-        headers = {
-          "Content-Type": "application/json"
-        }
-        try:
-          response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
-          log.info("Status code: %s", response.status_code)
-          try:
-            log.info("Response: %s", response.json())
-          except ValueError:
-            log.info("Non-JSON response: %s", response.text)
-        except requests.exceptions.RequestException as e:
-          log.warning("Failed to send update command to autocalibration service: %s", e)
+  if broker is None:
+    return
+  try:
+    client = PubSub(auth, cert, rootcert, broker)
+    client.connect()
+  except (socket.gaierror, ConnectionRefusedError) as e:
+    log.error("Unable to connect: %s", e)
+    return
 
-      if camera_data:
-        client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
-      msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
-      if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
-        client.loopStart()
-        msg.wait_for_publish()
-        client.loopStop()
+  if scene_id:
+    client.publish(PubSub.formatTopic(PubSub.CMD_SCENE_UPDATE, scene_id = scene_id), "update")
+    url = f"https://{autocalibration}/v1/scenes/{scene_id}/registration"
+    headers = {
+      "Content-Type": "application/json"
+    }
+    try:
+      response = requests.patch(url, headers=headers, verify=rootcert, timeout=10)
+      log.info("Status code: %s", response.status_code)
+      try:
+        log.info("Response: %s", response.json())
+      except ValueError:
+        log.info("Non-JSON response: %s", response.text)
+    except requests.exceptions.RequestException as e:
+      log.warning("Failed to send update command to autocalibration service: %s", e)
+
+  if camera_data:
+    client.publish(PubSub.formatTopic(PubSub.CMD_KUBECLIENT), json.dumps(camera_data), qos=2)
+  if camera_config_update:
+    publishCameraConfigUpdate(client, camera_config_update)
+  msg = client.publish(PubSub.formatTopic(PubSub.CMD_DATABASE), "update", qos=1)
+  if not msg.is_published() and msg.rc == mqtt.MQTT_ERR_SUCCESS:
+    client.loopStart()
+    msg.wait_for_publish()
+    client.loopStop()
   return
+
+def publishCameraConfigUpdate(client, camera_config_update):
+  """Publish calibration invalidation only for a topic-safe camera identity."""
+  try:
+    topic = PubSub.formatTopic(
+      PubSub.CMD_CAMERA_CONFIG, camera_id=camera_config_update['camera_id'])
+  except (TypeError, ValueError) as e:
+    log.warning(f"Skipping camera configuration invalidation: {e}")
+  else:
+    client.publish(topic, json.dumps({
+      'calibration_version': camera_config_update['calibration_version']
+    }), qos=1)
 
 def invalidate_scene_cache(current_scene, old_scene=None):
   """Invalidate SceneLoader cache for given scenes."""
@@ -769,6 +785,7 @@ class Cam(Sensor):
                                             help_text="Enable to directly apply the Camera Pipeline string in the camera VA pipeline instead of generating it automatically from camera settings.")
   camera_pipeline = models.TextField(max_length=5000, null=True, blank=True,
                                      help_text="The camera pipeline string in gst-launch-1.0 syntax which will be applied in camera VA pipeline once 'Use Camera Pipeline' is enabled and 'Save Camera' button is clicked. Please review and/or adjust it before applying.")
+  ptz_calibration = models.JSONField(default=None, null=True, blank=True)
   detection_labels = models.TextField(max_length=2000, null=True, blank=True,
                                    verbose_name="Detection Labels",
                                    help_text="Detection labels to use, one per line")
@@ -887,14 +904,10 @@ class Cam(Sensor):
       except Cam.DoesNotExist:
         pass
 
-    if self.intrinsics_cx is None:
-      self.intrinsics_cx = self.DEFAULT_INTRINSICS['cx']
-    if self.intrinsics_cy is None:
-      self.intrinsics_cy = self.DEFAULT_INTRINSICS['cy']
-    if self.intrinsics_fx is None:
-      self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
-    if self.intrinsics_fy is None:
-      self.intrinsics_fy = self.DEFAULT_INTRINSICS['fy']
+    for key in ('cx', 'cy', 'fx', 'fy'):
+      field = f'intrinsics_{key}'
+      if getattr(self, field) is None:
+        setattr(self, field, self.DEFAULT_INTRINSICS[key])
     if self.cv_subsystem is None:
       self.cv_subsystem = 'AUTO'
 
@@ -910,7 +923,13 @@ class Cam(Sensor):
 
     # Clear cache again after transaction commits to prevent concurrent requests from
     # repopulating with pre-commit DB state (handles ATOMIC_REQUESTS race condition)
-    transaction.on_commit(lambda: sendUpdateCommand(camera_data=self.cameraData('save')))
+    calibration = self.ptz_calibration or {}
+    camera_config_update = {
+      'camera_id': self.sensor_id,
+      'calibration_version': calibration.get('calibration_version'),
+    }
+    transaction.on_commit(lambda: sendUpdateCommand(
+      camera_data=self.cameraData('save'), camera_config_update=camera_config_update))
     transaction.on_commit(lambda: invalidate_scene_cache(self.scene, original_scene if scene_changed else None))
     return
 
