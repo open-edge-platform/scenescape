@@ -16,8 +16,7 @@ ARG GROUP_ID=1001
 ENV WSUSER=scenescape
 ENV PYTHONPATH=/app
 
-RUN apt-get update \
-    && apt-get upgrade -y \
+RUN apt update && apt upgrade -y \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER
