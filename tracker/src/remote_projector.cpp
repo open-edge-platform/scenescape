@@ -121,6 +121,8 @@ RemoteProjector::RemoteProjector(TrackingScope scope, std::unique_ptr<DetectionP
 
 std::vector<std::optional<ProjectedDetections>>
 RemoteProjector::project(std::span<const DetectionBatch> batches) {
+    // Always project locally first; valid remote measurements overwrite it. See "Why local
+    // projection runs on every frame" in tracker/docs/implementation.md.
     auto projected = local_->project(batches);
     if (projected.size() != batches.size()) {
         return projected;

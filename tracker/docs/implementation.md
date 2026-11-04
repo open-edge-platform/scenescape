@@ -62,6 +62,19 @@ for remote failures, so the worker never stops on them.
 The gRPC C++ code is generated at build time from `api/projection` into the
 `tracker_projection_proto` library (protobuf and `grpc_cpp_plugin` from Conan).
 
+#### Why local projection runs on every frame
+
+`RemoteProjector` projects every frame locally first and replaces a detection's
+geometry only with a validated remote measurement. Every failure path therefore
+keeps the local result with nothing to undo, and the camera check, detector yaw
+and sensor-frame translations still come from the local projector. In a Release
+micro-benchmark with one camera, local projection took about 1 µs for 1
+detection and 0.22–0.37 ms for 1,000. That is under 0.6% of the 66.7 ms chunk
+budget at 15 fps, and 1–10% of the remote path even against an instantly
+replying mock service (0.1–4.0 ms round trip). Projecting locally only after a
+failure would save at most about 0.4 ms per frame, comparable to the call's own
+run-to-run variation, which does not justify the extra complexity.
+
 ---
 
 ## Time-Chunk Processing Pipeline
