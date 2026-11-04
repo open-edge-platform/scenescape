@@ -202,7 +202,7 @@ def validate_scene_node(node, directory, restore_ids, seen_ids, seen_names, reus
   validate_local_link(node.get("link", {}))
   existing = matching_scene(node, restore_ids) if reuse_existing else None
   if not reuse_existing and Scene.objects.filter(name=name).exists():
-    raise ValueError(f"A scene named '{name}' already exists")
+    raise ValueError(f"A scene with the name '{name}' already exists.")
   if restore_ids:
     uid = UUID(str(node.get("uid", "")))
     if uid in seen_ids or (existing is None and Scene.objects.filter(pk=uid).exists()):

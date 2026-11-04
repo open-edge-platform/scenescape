@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Scene Controller observing PTZ PoseContexts in shadow mode. Layer after compose.scene.yml.
+services:
+  scene:
+    environment:
+      CONTROLLER_PTZ_SHADOW_MODE: "true"
+    volumes:
+      - ./tests/compose/ptz/ptz-consumer-config-shadow.json:/home/scenescape/Scenescape/ptz-consumer-config.json:ro
+      - ./tests/compose/positioning-assignments.json:/home/scenescape/Scenescape/positioning-assignments.json:ro
