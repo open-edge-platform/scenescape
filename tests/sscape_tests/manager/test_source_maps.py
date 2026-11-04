@@ -91,7 +91,7 @@ def test_non_serializer_map_replacement_clears_stale_default(scene, writer):
     form.save()
   else:
     generator = MeshGenerator.__new__(MeshGenerator)
-    generator._saveMeshToScene(scene, trimesh.creation.box(extents=(2, 2, 2)), align=False)
+    generator._saveMeshToScene(scene, trimesh.creation.box(extents=(2, 2, 2)))
   scene.refresh_from_db()
   assert scene.map.name != source.file.name
   assert scene.default_source_map_id is None
