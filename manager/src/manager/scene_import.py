@@ -5,25 +5,40 @@ import os
 import zipfile
 import json
 import asyncio
-import aiofiles
+from uuid import UUID
 from typing import Any, Callable
 
-from scene_common.rest_client import RESTClient
+import aiofiles
+import requests
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
+from rest_framework.exceptions import ValidationError
+
+from manager.models import ChildScene
+from manager.scene_archive import (
+  LINK_FIELDS, remote_link_data, scene_map_path, validate_archive, validate_existing_link,
+)
+from manager.serializers import SceneSerializer
+from scene_common.rest_client import RESTClient, RESTResult
 from scene_common.options import POINT_CORRESPONDENCE, EULER
 from scene_common.cam_fields import CAM_COMMON_FIELDS
 from scene_common import log
 
 
 class ImportScene:
-  def __init__(self, zip_path, token):
+  def __init__(self, zip_path, token, restore_ids=False, remote_credentials=None, reuse_existing=False):
     self.zip_path = zip_path
+    self.badZipfile = False
+    self.restore_ids = restore_ids
+    self.reuse_existing = reuse_existing
+    self.existing_scenes = {}
+    self.remote_credentials = remote_credentials or {}
     self.extractZip()
     self.rootcert = '/run/secrets/certs/scenescape-ca.pem'
     self.baseUrl = os.getenv("WEBSERVER_URL", "https://web.scenescape.intel.com")
     self.restUrl = self.baseUrl + '/api/v1'
     self.rest = RESTClient(self.restUrl, rootcert=self.rootcert)
     self.rest.token = token
-    self.badZipfile = False
     return
 
   def build_camera_items(self, json_data):
@@ -77,10 +92,77 @@ class ImportScene:
 
   def createSceneMap(self, json_data, resource_path):
     with open(resource_path, "rb") as f:
-      map_data = f.read()
-      return self.rest.createScene({"name": json_data["name"],
-                                  "scale": json_data['scale'],
-                                  "map": (resource_path, map_data)})
+      scene_data = {"name": json_data["name"], "scale": json_data.get("scale"),
+                    "map": SimpleUploadedFile(os.path.basename(resource_path), f.read())}
+    serializer = SceneSerializer(data=scene_data)
+    if not serializer.is_valid():
+      return RESTResult(400, errors=serializer.errors)
+    extra = {"id": UUID(str(json_data["uid"]))} if self.restore_ids else {}
+    try:
+      scene = serializer.save(**extra)
+    except (IntegrityError, ValidationError):
+      return RESTResult(400, errors={"scene": ["Scene creation failed; check name and UUID collisions"]})
+    result = RESTResult(201)
+    result["uid"] = str(scene.pk)
+    return result
+
+  def preflight(self, json_data):
+    try:
+      self.existing_scenes = validate_archive(
+        json_data, self.extract_dir, self.restore_ids, self.remote_credentials, self.reuse_existing)
+    except (ValueError, TypeError, KeyError) as error:
+      return {"scene": [str(error)]}
+    return None
+
+  def restore_local_link(self, child, scene_id, parent):
+    data = {key: child.get("link", {})[key] for key in LINK_FIELDS if key in child.get("link", {})}
+    data.update({"child_type": "local", "child": scene_id, "parent": parent})
+    return self.restore_link(data)
+
+  def restore_link(self, data):
+    try:
+      if self.reuse_existing:
+        lookup = {"child_id": data["child"]} if data["child_type"] == "local" else {
+          "remote_child_id": data["remote_child_id"]}
+        existing = ChildScene.objects.filter(**lookup).first()
+        if existing is not None:
+          validate_existing_link(existing, data, data["parent"])
+          return RESTResult(200)
+      return self.rest.createChildScene(data)
+    except (ValueError, requests.RequestException) as error:
+      log.error(f"Scene link restoration failed ({type(error).__name__})")
+      message = str(error) if isinstance(error, ValueError) else "Cannot contact child-link API"
+      return RESTResult(400, errors={"scene": [message]})
+
+  async def restore_remote_links(self, json_data, scene_id):
+    for link in json_data.get("remote_children", []):
+      data = remote_link_data(link, self.remote_credentials)
+      data["parent"] = scene_id
+      response = await asyncio.to_thread(self.restore_link, data)
+      if response.errors:
+        return {"scene": [f"Failed to restore remote child {link['remote_child_id']}"]}
+    return None
+
+  async def prepare_scene(self, json_data, summary):
+    """Create scene resources only for missing scenes; reused scenes remain untouched."""
+    existing_id = self.existing_scenes.get(json_data["name"])
+    if existing_id is not None:
+      log.info(f"Reusing scene '{json_data['name']}' without changing its resources")
+      return existing_id
+    resource_path = scene_map_path(json_data, self.extract_dir)
+    response = await asyncio.to_thread(self.createSceneMap, json_data, resource_path)
+    if response.errors:
+      summary["scene"] = response.errors
+      return None
+    scene_id = response.get("uid")
+    await self.populate_scene(json_data, scene_id, summary)
+    return scene_id
+
+  async def update_scene_settings(self, scene_id, data):
+    if data:
+      response = await asyncio.to_thread(self.rest.updateScene, scene_id, data)
+      return response.errors
+    return None
 
   async def loadScene(self, child=None, parent=None):
     import_summary = {
@@ -127,31 +209,32 @@ class ImportScene:
         import_summary["scene"] = {"scene": ["Failed to parse JSON"]}
         return import_summary
 
-    # find resource (non-json) files
-    resource_files = [
-      f for f in os.listdir(self.extract_dir)
-      if os.path.isfile(os.path.join(self.extract_dir, f)) and not f.lower().endswith(".json")
-    ]
-    if not resource_files:
-      import_summary["scene"] = {"scene": ["No resource files found"]}
+    if not child:
+      import_summary["scene"] = await asyncio.to_thread(self.preflight, json_data)
+      if import_summary["scene"]:
+        return import_summary
+    scene_id = await self.prepare_scene(json_data, import_summary)
+    if import_summary["scene"]:
       return import_summary
 
-    # match resource with scene name
-    matched = next((f for f in resource_files if json_data["name"] in f), None)
-    if not matched:
-      import_summary["scene"] = {"scene": ["No matching resource file"]}
+    if child:
+      link_response = await asyncio.to_thread(self.restore_local_link, child, scene_id, parent)
+      if link_response.errors:
+        import_summary["scene"] = link_response.errors
+        return import_summary
+    import_summary["scene"] = await self.restore_remote_links(json_data, scene_id)
+    if import_summary["scene"]:
       return import_summary
 
-    resource_path = os.path.join(self.extract_dir, matched)
+    error_fields = ("scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")
+    for child_data in json_data.get("children", []):
+      child_summary = await self.loadScene(child=child_data, parent=scene_id)
+      if any(child_summary[key] for key in error_fields):
+        return child_summary
 
-    # Upload scene (wrap sync REST call)
-    resp = await asyncio.to_thread(self.createSceneMap, json_data, resource_path)
-    if resp.errors:
-      import_summary["scene"] = resp.errors
-      return import_summary
+    return import_summary
 
-    scene_id = resp.get("uid")
-
+  async def populate_scene(self, json_data, scene_id, import_summary):
     # Scene update. Omit keys absent from the export: several of these model
     # fields are non-nullable, so sending an explicit null for one missing key
     # would reject the whole partial update (including camera_calibration).
@@ -164,25 +247,9 @@ class ImportScene:
       "geospatial_provider", "map_zoom", "map_center_lat", "map_center_lng", "map_bearing",
       "mesh_translation", "mesh_rotation", "mesh_scale"
     ] if json_data.get(k) is not None}
-    if child:
-      scene_data["parent"] = parent
-
-    update_response = await asyncio.to_thread(self.rest.updateScene, scene_id, scene_data)
-    if update_response.errors:
-      import_summary["scene"] = update_response.errors
+    import_summary["scene"] = await self.update_scene_settings(scene_id, scene_data)
+    if import_summary["scene"]:
       return import_summary
-
-    # Child link handling
-    if child and "link" in child:
-      link = child["link"]
-      link.pop("uid", None)
-      link.pop("transform", None)
-      child_uid = update_response.content["uid"]
-      parent_uid = update_response.content["parent"]
-      link["child"] = child_uid
-      link["parent"] = parent_uid
-      update_response = await asyncio.to_thread(self.rest.updateChildScene, child_uid, link)
-      log.info("Child link updated:", update_response)
 
     # Bulk create cameras with transform handling
     cam_items = self.build_camera_items(json_data)
@@ -215,22 +282,12 @@ class ImportScene:
     import_summary["calibration_markers"] = marker_errors
     import_summary["calibration_markers_created"] = markers_created
 
-    # children recursion
-    for child_data in json_data.get("children", []):
-      child_summary = await self.loadScene(child=child_data, parent=scene_id)
-      if any(child_summary[key] for key in (
-          "scene", "cameras", "tripwires", "regions", "sensors", "calibration_markers")):
-        return child_summary
-
-    return import_summary
-
   async def bulk_create(
       self,
       items: list[dict[str, Any]] | None,
       scene_id: str,
-      create_fn: Callable[[dict[str, Any]], Any]) -> tuple[
-        list[dict[str, Any]] | None,
-        list[tuple[Any, dict[str, Any]]] | None]:
+      create_fn: Callable[[dict[str, Any]], Any],
+  ) -> tuple[list[dict[str, Any]] | None, list[tuple[Any, dict[str, Any]]] | None]:
     """Creates many scene resources and returns (created_items, errors)."""
     errors = []
     created = []
@@ -243,5 +300,6 @@ class ImportScene:
         else:
           created.append(dict(resp))
       except Exception as e:
-        errors.append((e, item))
+        log.error(f"Scene resource creation failed ({type(e).__name__})")
+        errors.append(({"error": [f"Resource creation failed ({type(e).__name__})"]}, item))
     return created or None, errors or None

@@ -3,9 +3,8 @@
 
 """Unit tests for tools/upload_scenes/uploader.py."""
 
-import importlib.machinery
-import importlib.util
 import json
+import runpy
 import os
 import subprocess
 import sys
@@ -18,40 +17,30 @@ import requests
 
 import uploader
 from uploader import (
-  REQUEST_TIMEOUT_SECONDS, RESOURCE_KEYS, SceneScapeClient,
-  parse_auth, read_object_library, read_scene_from_zip, upload_all, upload_calibration_markers,
-  is_application_ready, upload_object_library, upload_one, upload_scene
+  RESOURCE_KEYS, SceneScapeClient, parse_auth,
+  read_object_library, read_scene_from_zip, upload_all, upload_calibration_markers,
+  upload_scene, is_application_ready,
+  upload_object_library, upload_one, upload_scene
 )
-
-
-@pytest.fixture
-def cli_module():
-  """The extensionless upload-scenes script loaded as a module, so main() runs in-process."""
-  path = str(Path(uploader.__file__).with_name("upload-scenes"))
-  loader = importlib.machinery.SourceFileLoader("upload_scenes_cli", path)
-  module = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
-  loader.exec_module(module)
-  return module
 
 
 class TestUploadScenesCLI:
   @pytest.mark.parametrize(
     "arguments, expected_code, expected_output",
     [
+      (["--help"], 0, "--restauth"),
       (["--help"], 0, "--import-timeout"),
+      (["--import-timeout", "0", "--restauth", "unused", "https://localhost", "."], 2,
+       "--import-timeout must be a positive integer"),
+      (["--import-timeout", "-1", "--restauth", "unused", "https://localhost", "."], 2,
+       "--import-timeout must be a positive integer"),
+      (["--import-timeout", "abc", "--restauth", "unused", "https://localhost", "."], 2,
+       "invalid int value"),
       ([], 2, "the following arguments are required"),
       (["--restauth", "unused.auth", "https://localhost/api/v1", "missing"], 1,
        "Not a directory: missing"),
       (["--restauth", "unused.auth", "https://localhost/api/v1", "."], 1,
        "No scene archives found"),
-      (["--restauth", "unused.auth", "--import-timeout", "900",
-        "https://localhost/api/v1", "missing"], 1, "Not a directory: missing"),
-      (["--restauth", "unused.auth", "--import-timeout", "0",
-        "https://localhost/api/v1", "missing"], 2, "must be greater than 0"),
-      (["--restauth", "unused.auth", "--import-timeout", "-5",
-        "https://localhost/api/v1", "missing"], 2, "must be greater than 0"),
-      (["--restauth", "unused.auth", "--import-timeout", "soon",
-        "https://localhost/api/v1", "missing"], 2, "invalid positive integer"),
     ],
   )
   def test_symlinked_command(self, tmp_path, arguments, expected_code, expected_output):
@@ -69,30 +58,22 @@ class TestUploadScenesCLI:
     assert result.returncode == expected_code
     assert expected_output in result.stdout + result.stderr
 
-  @pytest.mark.parametrize(
-    "arguments, expected_timeout",
-    [
-      ([], REQUEST_TIMEOUT_SECONDS),
-      (["--import-timeout", "900"], 900),
-    ],
-  )
-  def test_import_timeout_passed_to_client(self, cli_module, monkeypatch, tmp_path,
-                                           arguments, expected_timeout):
-    """--import-timeout (or its default) reaches the client that posts the archives."""
-    scene_dir = tmp_path / "Demo"
-    scene_dir.mkdir()
-    (scene_dir / "Demo.zip").write_bytes(b"unused")
-    client_class = MagicMock()
-    monkeypatch.setattr(cli_module, "SceneScapeClient", client_class)
-    monkeypatch.setattr(cli_module, "upload_all", MagicMock(return_value=0))
+  def test_import_timeout_forwarded_to_client(self, tmp_path, monkeypatch):
+    """CLI forwards the configured timeout without contacting a deployment."""
+    namespace = runpy.run_path(str(Path(uploader.__file__).with_name("upload-scenes")))
+    main = namespace["main"]
+    client = MagicMock()
+    monkeypatch.setitem(main.__globals__, "SceneScapeClient", client)
+    monkeypatch.setitem(main.__globals__, "upload_all", MagicMock(return_value=0))
+    folder = tmp_path / "Demo"
+    folder.mkdir()
+    (folder / "Demo.zip").write_bytes(b"zip")
     monkeypatch.setattr(sys, "argv", [
-      "upload-scenes", "--restauth", "user:pw", "--wait", "0", *arguments,
-      "https://localhost/api/v1", str(tmp_path),
+      "upload-scenes", "--restauth", "user:password", "--wait", "0",
+      "--import-timeout", "600", "https://localhost/api/v1", str(tmp_path),
     ])
-
-    assert cli_module.main() == 0
-    _, kwargs = client_class.call_args
-    assert kwargs["import_timeout"] == expected_timeout
+    assert main() == 0
+    assert client.call_args.kwargs["import_timeout"] == 600
 
 
 class TestParseAuth:
@@ -171,13 +152,6 @@ class TestSceneScapeClientRequest:
     with pytest.raises(requests.HTTPError):
       client._request("GET", "/scenes")
 
-  def test_request_uses_default_timeout(self):
-    client = SceneScapeClient("http://host", True)
-    client.session = MagicMock()
-    client._request("GET", "/scenes")
-    _, kwargs = client.session.request.call_args
-    assert kwargs["timeout"] == REQUEST_TIMEOUT_SECONDS
-
 
 class TestSceneScapeClientAuthenticate:
   def test_authenticate_sets_token_header(self):
@@ -239,16 +213,46 @@ class TestCalibrationMarkerExists:
 
 
 class TestImportScene:
-  @pytest.fixture
-  def zip_path(self, tmp_path):
-    path = tmp_path / "scene.zip"
-    path.write_bytes(b"fake zip contents")
-    return path
+  @staticmethod
+  def _reply(payload, status_code=201):
+    reply = MagicMock()
+    reply.status_code = status_code
+    reply.json.return_value = payload
+    return reply
 
-  def test_posts_multipart_zip(self, zip_path):
+  @pytest.mark.parametrize("timeout", [60, 600])
+  def test_import_timeout_does_not_change_other_requests(self, tmp_path, timeout):
+    zip_path = tmp_path / "scene.zip"
+    zip_path.write_bytes(b"zip")
+    client = SceneScapeClient("http://host", True, import_timeout=timeout)
+    client.session = MagicMock()
+    client.session.request.return_value = self._reply({"scene": None})
+    client.import_scene(str(zip_path))
+    assert client.session.request.call_args.kwargs["timeout"] == timeout
+    client.scene_uid("Demo")
+    assert client.session.request.call_args.kwargs["timeout"] == 60
+
+  @pytest.mark.parametrize("timeout", [0, -1, True, 1.5, None])
+  def test_invalid_import_timeout_rejected(self, timeout):
+    with pytest.raises(ValueError, match="positive integer"):
+      SceneScapeClient("http://host", True, import_timeout=timeout)
+
+  def test_timeout_warns_about_server_processing(self, tmp_path, caplog):
+    zip_path = tmp_path / "scene.zip"
+    zip_path.write_bytes(b"zip")
     client = SceneScapeClient("http://host", True)
     client.session = MagicMock()
-    client.session.request.return_value.json.return_value = {"scene": None}
+    client.session.request.side_effect = requests.ReadTimeout()
+    with pytest.raises(requests.ReadTimeout):
+      client.import_scene(str(zip_path))
+    assert "server may still be processing" in caplog.text
+
+  def test_posts_multipart_zip(self, tmp_path):
+    zip_path = tmp_path / "scene.zip"
+    zip_path.write_bytes(b"fake zip contents")
+    client = SceneScapeClient("http://host", True)
+    client.session = MagicMock()
+    client.session.request.return_value = self._reply({"scene": None})
     result = client.import_scene(str(zip_path))
     assert result == {"scene": None}
     _, kwargs = client.session.request.call_args
@@ -256,32 +260,39 @@ class TestImportScene:
     assert name == "scene.zip"
     assert content_type == "application/zip"
 
-  @pytest.mark.parametrize(
-    "client_kwargs, expected_timeout",
-    [
-      ({}, REQUEST_TIMEOUT_SECONDS),
-      ({"import_timeout": 900}, 900),
-    ],
-  )
-  def test_uses_import_timeout(self, zip_path, client_kwargs, expected_timeout):
-    client = SceneScapeClient("http://host", True, **client_kwargs)
+  def test_restore_options_and_credentials_are_uploaded_separately(self, tmp_path):
+    zip_path = tmp_path / "scene.zip"
+    zip_path.write_bytes(b"zip")
+    credentials = tmp_path / "credentials.json"
+    credentials.write_text("{}")
+    client = SceneScapeClient("https://localhost", True, restore_ids=True,
+                              remote_credentials=str(credentials), reuse_existing=True)
     client.session = MagicMock()
+    client.session.request.return_value = self._reply({})
     client.import_scene(str(zip_path))
-    _, kwargs = client.session.request.call_args
-    assert kwargs["timeout"] == expected_timeout
+    kwargs = client.session.request.call_args.kwargs
+    assert kwargs["data"] == {"restore_ids": "true", "reuse_existing": "true"}
+    assert set(kwargs["files"]) == {"zipFile", "remote_credentials"}
 
-  def test_import_timeout_does_not_affect_other_requests(self):
-    client = SceneScapeClient("http://host", True, import_timeout=900)
-    client.session = MagicMock()
-    client.scene_uid("Demo")
-    _, kwargs = client.session.request.call_args
-    assert kwargs["timeout"] == REQUEST_TIMEOUT_SECONDS
-
-  def test_read_timeout_propagates(self, zip_path):
+  def test_import_summary_errors_are_returned_on_http_400(self, tmp_path):
+    zip_path = tmp_path / "scene.zip"
+    zip_path.write_bytes(b"zip")
+    summary = {"scene": {"scene": ["Missing MQTT credentials"]}}
     client = SceneScapeClient("http://host", True)
     client.session = MagicMock()
-    client.session.request.side_effect = requests.ReadTimeout("read timed out")
-    with pytest.raises(requests.ReadTimeout):
+    client.session.request.return_value = self._reply(summary, status_code=400)
+    assert client.import_scene(str(zip_path)) == summary
+    client.session.request.return_value.raise_for_status.assert_not_called()
+
+  def test_non_summary_http_400_still_raises(self, tmp_path):
+    zip_path = tmp_path / "scene.zip"
+    zip_path.write_bytes(b"zip")
+    client = SceneScapeClient("http://host", True)
+    client.session = MagicMock()
+    reply = self._reply({"error": "zipFile is required"}, status_code=400)
+    reply.raise_for_status.side_effect = requests.HTTPError("400")
+    client.session.request.return_value = reply
+    with pytest.raises(requests.HTTPError):
       client.import_scene(str(zip_path))
 
 
@@ -393,6 +404,28 @@ class TestUploadScene:
 
 
 class TestUploadOne:
+  def test_reuse_sends_existing_parent_to_server_for_link_reconciliation(self, fake_client, scene_zip):
+    fake_client.reuse_existing = True
+    fake_client.restore_ids = True
+    fake_client.scene_uid.return_value = "existing"
+    archive = scene_zip({
+      "name": "Parent", "children": [{"name": "Child"}],
+      "calibration_markers": [{"apriltag_id": 1, "dims": 0.2}],
+    })
+    assert upload_one(fake_client, str(archive)) == "existing"
+    fake_client.import_scene.assert_called_once_with(str(archive))
+    fake_client.create_calibration_marker.assert_not_called()
+
+  @pytest.mark.parametrize("restore_ids, hierarchy", [(True, False), (False, True)])
+  def test_existing_hierarchy_or_restore_fails(self, fake_client, scene_zip, restore_ids, hierarchy):
+    fake_client.restore_ids = restore_ids
+    fake_client.scene_uid.return_value = "existing"
+    scene = {"name": "Demo"}
+    if hierarchy:
+      scene["remote_children"] = [{"remote_child_id": "remote"}]
+    assert upload_one(fake_client, str(scene_zip(scene))) is None
+    fake_client.import_scene.assert_not_called()
+
   def test_new_scene_uploads_and_returns_uid(self, fake_client, scene_zip):
     zip_path = scene_zip({"name": "Demo"})
     fake_client.scene_uid.side_effect = [None, "new-uid"]
@@ -445,11 +478,3 @@ class TestUploadAll:
     ]
     result = upload_all(fake_client, [str(zip1), str(zip2)])
     assert result == 1
-
-  def test_import_timeout_counted_and_continues(self, fake_client, scene_zip):
-    zip1 = scene_zip({"name": "Demo1"}, filename="a.zip")
-    zip2 = scene_zip({"name": "Demo2"}, filename="b.zip")
-    fake_client.scene_uid.side_effect = [None, None, "uid-b"]
-    fake_client.import_scene.side_effect = [requests.ReadTimeout("read timed out"), {}]
-    assert upload_all(fake_client, [str(zip1), str(zip2)]) == 1
-    assert fake_client.import_scene.call_count == 2
