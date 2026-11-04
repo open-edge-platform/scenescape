@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2021 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:d29f48a31a8b408ed19272ca1e7b10ebae13b240a27e862d3d4217c528e2e0c3
+ARG RUNTIME_OS_IMAGE=python:3.11-slim-bookworm@sha256:94a8fee35252d06ab75856f15f12c7bae67b10e8a6da93c7fded82b2610926cd
 
 # -------------- Controller Builder Stage --------------
 FROM intel/scenescape-common-base AS scenescape-controller-builder
@@ -112,6 +112,8 @@ COPY --chown=$WSUSER:$WSUSER ./tracker/schema/scene-data.schema.json $SCENESCAPE
 COPY --chown=$WSUSER:$WSUSER ./controller/config/tracker-config.json $SCENESCAPE_HOME/tracker-config.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/reid-config.json $SCENESCAPE_HOME/reid-config.json
 COPY --chown=$WSUSER:$WSUSER ./controller/config/pose-adjustment-route.json $SCENESCAPE_HOME/pose-adjustment-route.json
+COPY --chown=$WSUSER:$WSUSER ./controller/config/ptz-consumer-config.json $SCENESCAPE_HOME/ptz-consumer-config.json
+COPY --chown=$WSUSER:$WSUSER ./deployment/positioning-assignments.json $SCENESCAPE_HOME/positioning-assignments.json
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-controller-builder /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./controller/src/controller-cmd $SCENESCAPE_HOME/controller-cmd
 

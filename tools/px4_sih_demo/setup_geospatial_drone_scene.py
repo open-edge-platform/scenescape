@@ -83,7 +83,7 @@ def _pixel_to_lat_lng(x, y, zoom):
 
 
 def map_view_corners(lat, lng, zoom, width_px, height_px, alt_m):
-  """Return map_corners_lla: SW, NW, NE, SE (counterclockwise from bottom-left)."""
+  """Return map_corners_lla: SW, NW, NE, SE (clockwise from bottom-left)."""
   cx, cy = _lat_lng_to_pixel(lat, lng, zoom)
   sw = _pixel_to_lat_lng(cx - width_px / 2.0, cy + height_px / 2.0, zoom)
   nw = _pixel_to_lat_lng(cx - width_px / 2.0, cy - height_px / 2.0, zoom)

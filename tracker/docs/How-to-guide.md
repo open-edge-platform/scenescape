@@ -7,6 +7,40 @@ The Tracker publishes tracked objects on `scenescape/data/scene/...`. The
 Analytics service consumes that topic and publishes regulated detections,
 region/tripwire events, and sensor-correlated output.
 
+## Supported detection inputs
+
+Tracker subscribes to `scenescape/data/camera/{sensor_id}` for sensor IDs
+registered in the scene. Each detection must use exactly one of these forms:
+
+- `bounding_box_px`: pixel-space box projected using the sensor's configured
+  camera calibration.
+- `translation` and `size`: sensor-frame position and dimensions in metres.
+  Tracker transforms the position with the pose configured for that sensor ID.
+
+Either form may include an optional `rotation` quaternion in `[x, y, z, w]`
+order. Tracker composes it with the sensor pose and tracks the resulting world
+Z-yaw; pitch and roll are not retained. A zero-norm quaternion is treated as no
+orientation. The complete input contract is in
+[`camera-data.schema.json`](../schema/camera-data.schema.json).
+
+For example, a 3D vehicle detection can be sent as:
+
+```json
+{
+  "id": "atag-qcam1",
+  "timestamp": "2026-01-20T10:05:01.482Z",
+  "objects": {
+    "vehicle": [
+      {
+        "translation": [1.25, -2.5, 0.75],
+        "size": [4.0, 1.8, 1.6],
+        "rotation": [0.0, -0.3429, 0.0, 0.9394]
+      }
+    ]
+  }
+}
+```
+
 ## Build and start Tracker + Analytics
 
 1. Export the super-user password (required by the web service):

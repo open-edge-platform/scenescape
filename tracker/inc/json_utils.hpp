@@ -9,8 +9,17 @@
 
 #include <rapidjson/pointer.h>
 #include <rapidjson/rapidjson.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 namespace tracker::detail {
+
+inline std::string to_json_string(const rapidjson::Value& value) {
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    value.Accept(writer);
+    return {buffer.GetString(), buffer.GetSize()};
+}
 
 /**
  * @brief Get optional value from JSON using pointer path.

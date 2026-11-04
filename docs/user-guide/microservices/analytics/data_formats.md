@@ -112,6 +112,12 @@ applications.
 
 ### Example Regulated Scene Message
 
+This example shows Scene Controller input, including its legacy `metadata.reid`
+embedding pass-through. With Tracker input, embeddings are published only in
+`reid_sighting` for reid-service; Analytics does not copy sightings into regulated
+output or events. Analytics combines Tracker positions with reid-service identity
+decisions without querying the descriptor store or matching embeddings.
+
 ```json
 {
   "id": "302cf49a-97ec-402d-a324-c5077b280b7b",

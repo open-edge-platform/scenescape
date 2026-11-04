@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -330,9 +330,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const action = button.getAttribute("data-action");
     button.addEventListener("click", function () {
       if (window.mapManager && typeof mapManager[action] === "function") {
-        // Save current settings before generating bounds/snapshot
+        // Save settings after generating bounds, which may reset the bearing to north-up
         if (action === "generateBounds") {
+          mapManager[action]();
           saveCurrentGeospatialSettings();
+          return;
         }
         mapManager[action]();
       }
