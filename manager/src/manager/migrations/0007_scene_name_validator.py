@@ -23,7 +23,7 @@ def sanitize_legacy_scene_names(apps, schema_editor):
 class Migration(migrations.Migration):
 
   dependencies = [
-    ('manager', '0005_default_asset3d_objects'),
+    ('manager', '0006_osm_roi_support'),
   ]
 
   operations = [
