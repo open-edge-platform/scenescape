@@ -32,6 +32,7 @@ from manager.scene_archive import (
 from manager.scene_import import ImportScene
 from manager.serializers import SceneImportSerializer
 from scene_common.rest_client import RESTResult
+from scene_common.scenescape import SceneLoader
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
@@ -363,7 +364,10 @@ def hierarchy_import(tmp_path, transactional_db, settings, archive):
     importer.rest.updateScene.side_effect = lambda uid, data: rest_call("scene", data, uid)
     importer.rest.createChildScene.side_effect = lambda data: rest_call("child", data)
     return importer
-  return scene, make_importer
+  yield scene, make_importer
+  # Scene creation caches SceneModels (with Open3D map meshes) in this process-wide
+  # cache; drop them so they do not outlive the flushed test database.
+  SceneLoader.scenes.clear()
 
 
 def assert_import_success(importer):
