@@ -52,13 +52,13 @@ The repository includes a [Node-RED sample application](https://github.com/open-
 - `scenescape/event/region/+/#` for ROI occupancy.
 - `scenescape/event/tripwire/+/#` for tripwire crossing events.
 
-The flows aggregate these messages into a dashboard. This demonstrates consuming Scenescape output without modifying its services.
+The flows aggregate these messages into a dashboard. This demonstrates how to consume Scenescape output without modifying its services.
 
 ### 1. Prepare Scenescape
 
 Complete the [Docker deployment](./deployment/deploy-docker.md) and configure active inputs, or follow [Deploy the Demo](./deployment/deploy-demo.md) for ready-made scenes and video sources.
 
-The sample's Compose file joins the existing Docker network `scenescape_scenescape`, created by a Scenescape deployment using the default Compose project name `scenescape`. If you use another project name, update the sample's [Compose network configuration](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/sample_app/compose.app.yml) to match your deployment before starting it. The bundled sample deployment does not target Kubernetes.
+The sample's Compose file joins the existing Docker network `scenescape_scenescape`. A Scenescape deployment creates this network using the default Compose project name `scenescape`. If you use another project name, update the sample's [Compose network configuration](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/sample_app/compose.app.yml) to match your deployment before starting it. The bundled sample deployment does not target Kubernetes.
 
 Port `1880` on the host must be available.
 
@@ -86,7 +86,8 @@ docker compose -f sample_data/sample_app/compose.app.yml logs --tail=100 nodered
 
 Replace `<HOST-IP>` with the Docker host's address, or use `localhost` when browsing on that host.
 
-> **Security:** The sample publishes the Node-RED HTTP port on all host interfaces and does not configure editor authentication. Restrict access to a trusted development environment. The bundled MQTT TLS configuration also disables server-certificate verification; it is not a production-ready security configuration.
+> [!WARNING]
+> The sample publishes the Node-RED HTTP port on all host interfaces and does not configure editor authentication. Restrict access to a trusted development environment. The bundled MQTT TLS configuration also disables server-certificate verification; it is not a production-ready security configuration.
 
 In the editor, open a **Scenes**, **ROIs**, or **Tripwire** MQTT input node and edit its shared **Scenescape-broker** connection:
 
