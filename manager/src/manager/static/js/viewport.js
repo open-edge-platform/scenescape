@@ -359,9 +359,10 @@ class Viewport extends THREE.Scene {
     // Re-enable the projection if it has been disabled by clearing calibration points
   }
 
-  projectImage(image, cameraMtx) {
+  projectImage(image, cameraMtx, canProject = () => true) {
     if (this.sceneMesh !== null) {
       this.textureLoader.load(image, (texture) => {
+        if (!canProject()) return;
         const { width, height } = texture.image;
         this.projectionCamera.setViewOffset(
           width,

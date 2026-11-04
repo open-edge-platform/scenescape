@@ -35,7 +35,7 @@ controller/src/controller/pose_adjustment/strategies/person/named_keypoints.py	p
 controller/src/controller/scene.py	Scene::convertPixelBoundingBoxesToMeters	23
 controller/src/controller/scene.py	Scene::createMovingObjectsForSceneData	14
 controller/src/controller/scene_controller.py	SceneController::_handleChildSceneObject	13
-controller/src/controller/scene_controller.py	SceneController::_processMovingObjectMessage	55
+controller/src/controller/scene_controller.py	SceneController::_processMovingObjectMessage	50
 controller/src/controller/scene_controller.py	SceneController::_scenesForExternalPublisher	19
 controller/src/controller/scene_controller.py	SceneController::updateSubscriptions	45
 controller/src/controller/time_chunking.py	TimeChunkProcessor::run	20

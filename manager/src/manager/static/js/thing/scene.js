@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -9,6 +9,7 @@ import thingTransformControls from "/static/js/thing/controls/thingtransformcont
 import validateInputControls from "/static/js/thing/controls/validateinputcontrols.js";
 import RESTClient from "/static/js/restclient.js";
 import { REST_URL, SUCCESS } from "/static/js/constants.js";
+import { PTZ_AWAY_MESSAGE } from "/static/js/ptzpose.js";
 
 const DEFAULT_FLOOR_WIDTH = 1280;
 const DEFAULT_FLOOR_HEIGHT = 720;
@@ -700,6 +701,17 @@ export default class Scene {
         "Return to the default map before editing scene settings",
         "warning",
       );
+      return;
+    }
+    // Moving cameras with the mesh rewrites their home pose; PTZ must be at home.
+    if (
+      this.updateCamerasOnSave &&
+      this.sceneMesh &&
+      this._getAllSceneCameraWrappers().some(
+        (cam) => cam.isPTZAwayFromHome && cam.isPTZAwayFromHome(),
+      )
+    ) {
+      this.toast.showToast(PTZ_AWAY_MESSAGE, "warning");
       return;
     }
     let sceneData = {

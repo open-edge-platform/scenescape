@@ -20,6 +20,7 @@ from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
                                         POSE_CACHE_TTL_MULTIPLIER)
 from controller.ilabs_tracking import IntelLabsTracking
+from controller.ptz import provider as ptz_provider
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
@@ -217,7 +218,13 @@ class Scene(SceneModel):
       objects.append(mobj)
     return objects
 
-  def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
+  def processCameraData(self, jdata, when=None, ignoreTimeFlag=False, pose_context=None):
+    """Process one camera message.
+
+    @param pose_context  optional PTZProjectionContext; projection uses its per-frame
+                         camera (static intrinsics, PoseContext transform) instead of
+                         the stored camera pose, which is never modified
+    """
     camera_id = jdata['id']
     camera = None
 
@@ -238,7 +245,8 @@ class Scene(SceneModel):
       log.info("DISCARDING: camera has no pose")
       return True
 
-    message_camera = camera
+    # PTZ per-frame pose takes precedence over the live-extrinsics snapshot.
+    message_camera = pose_context.camera if pose_context is not None else camera
 
     for detection_type, detections in jdata['objects'].items():
       stripReidProvenance(detections)
@@ -380,20 +388,37 @@ class Scene(SceneModel):
                               self.use_tracker)
     return
 
+  def _visibilityCameras(self):
+    """Cameras with a view region, using the current per-frame pose for PTZ cameras."""
+    cameras = []
+    for static_camera in self.cameras.values():
+      if not hasattr(static_camera, 'pose'):
+        continue
+      camera = ptz_provider.visibility_camera(static_camera)
+      if camera is not None and hasattr(camera.pose, 'regionOfView'):
+        cameras.append(camera)
+    return cameras
+
+  def visibilityCameraWithID(self, anID):
+    """Camera used to project bounds into an image; None when a PTZ camera sees nothing."""
+    camera = self.cameraWithID(anID)
+    if camera is None or not hasattr(camera, 'pose'):
+      return camera
+    return ptz_provider.visibility_camera(camera)
+
   def _updateVisible(self, curObjects):
     """! Update the visibility of objects from cameras in the scene."""
+    cameras = self._visibilityCameras()
     for obj in curObjects:
       vis = []
-
-      for sname in self.cameras:
-        camera = self.cameras[sname]
-        observation_camera = getattr(obj, 'camera', None)
+      observation_camera = getattr(obj, 'camera', None)
+      for camera in cameras:
+        view_camera = camera
         if getattr(observation_camera, 'cameraID', None) == camera.cameraID:
-          camera = observation_camera
-        if hasattr(camera, 'pose') and hasattr(camera.pose, 'regionOfView') \
-           and camera.pose.regionOfView.isPointWithin(obj.sceneLoc):
+          view_camera = observation_camera
+        if hasattr(view_camera, 'pose') and hasattr(view_camera.pose, 'regionOfView') \
+           and view_camera.pose.regionOfView.isPointWithin(obj.sceneLoc):
           vis.append(camera.cameraID)
-
       obj.visibility = vis
     return
 

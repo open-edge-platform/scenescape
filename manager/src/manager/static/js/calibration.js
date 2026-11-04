@@ -266,8 +266,18 @@ function updateCalibrationView(msg) {
     cameraMatrix,
     distCoeffs,
     msg.resolution,
+    msg.timestamp,
   );
   $("#snapshot").trigger("click");
+}
+
+function updateCalibrationPTZPose(msg) {
+  camera_calibration.updatePTZPose(
+    msg,
+    $("#scene").val(),
+    $("#ptz_calibration_version").val(),
+    $("#sensor_id").val(),
+  );
 }
 
 function handleAutoCalibrationPose(msg) {
@@ -299,6 +309,7 @@ export {
   manageCalibrationState,
   initializeCalibrationSettings,
   updateCalibrationView,
+  updateCalibrationPTZPose,
   handleAutoCalibrationPose,
   setMqttForCalibration,
   getCalibrationServiceStatus,

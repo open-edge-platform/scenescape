@@ -16,6 +16,7 @@ CAM_COMMON_FIELDS = (
     "undistort",
     "modelconfig",
     "use_camera_pipeline",
+    "ptz_calibration",
 )
 
 # Additional fields only needed by the Django form (UI/legacy)
@@ -46,6 +47,6 @@ CAM_FORM_FIELDS = [
 CAM_SERIALIZER_FIELDS = [
     'uid', 'name', 'sensor_id', 'pose_locked', 'calibration_origin', 'pose_provenance',
     'intrinsics', 'transform_type', 'transforms',
-    'distortion', 'translation', 'rotation', 'scale', 'resolution', 'scene',
+    'distortion', 'translation', 'rotation', 'pose_matrix', 'scale', 'resolution', 'scene',
     'threshold', 'aspect',
-] + CAM_ADVANCED_FIELDS + CAM_KUBERNETES_FIELDS
+] + CAM_ADVANCED_FIELDS + CAM_KUBERNETES_FIELDS + ['ptz_calibration']

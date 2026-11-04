@@ -53,6 +53,9 @@ class Camera:
     # Untagged payloads stay unknown; Manager stamps origin on authored config.
     self.pose_provenance = provenance_from_camera_info(info)
     sync_legacy_pose_source(self)
+    # PTZ cameras carry a Manager-owned calibration block; its presence marks the camera as PTZ
+    ptz_calibration = info.get('ptz_calibration')
+    self.ptz_calibration = ptz_calibration if isinstance(ptz_calibration, dict) else None
 
     if resolution is None and 'width' in info and 'height' in info:
       resolution = (info['width'], info['height'])
