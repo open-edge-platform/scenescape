@@ -6,7 +6,6 @@
 import json
 import math
 import shutil
-import sys
 import warnings
 from pathlib import Path
 
@@ -14,10 +13,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-# pylint: disable=wrong-import-position
-from visualization.plot_scenario import (  # noqa: E402
+from visualization.plot_scenario import (
   PLOTS,
   TRACKEVAL_ALPHAS,
   TrackEvalEvaluator,
@@ -32,12 +28,11 @@ from visualization.plot_scenario import (  # noqa: E402
   position_errors,
   trackeval_distances,
 )
-from visualization.scenario_data import (  # noqa: E402
+from visualization.scenario_data import (
   PIPELINE_RUN_FILES,
   SCENARIO_FILES,
   load_scenario,
 )
-# pylint: enable=wrong-import-position
 import matplotlib.pyplot as plt  # noqa: E402 (after plot_scenario, which selects the Agg backend)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"

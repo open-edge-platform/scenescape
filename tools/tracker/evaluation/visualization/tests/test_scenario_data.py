@@ -15,7 +15,6 @@ controller/src/robot_vision/README.md#test-scenario-recordings, from controller/
 import json
 import math
 import shutil
-import sys
 from pathlib import Path
 
 import jsonschema
@@ -23,10 +22,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from visualization import scenario_data  # noqa: E402 pylint: disable=wrong-import-position
-from visualization.scenario_data import (  # noqa: E402 pylint: disable=wrong-import-position
+from visualization import scenario_data
+from visualization.scenario_data import (
   PIPELINE_RUN_FILES,
   align_track_to_truth,
   frame_rate,
