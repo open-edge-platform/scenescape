@@ -835,8 +835,12 @@ export class ConvergedCameraCalibration {
         return;
       }
       if (!this.centerManualIntrinsics()) return;
-      document.getElementById("id_intrinsics_cx").disabled = false;
-      document.getElementById("id_intrinsics_cy").disabled = false;
+      if (typeof document !== "undefined") {
+        const cxField = document.getElementById("id_intrinsics_cx");
+        const cyField = document.getElementById("id_intrinsics_cy");
+        if (cxField) cxField.disabled = false;
+        if (cyField) cyField.disabled = false;
+      }
 
       const camPoints = this.getSensorCalibrationPoints();
       const scenePoints = this.viewport.getCalibrationPoints();
@@ -1392,6 +1396,14 @@ export class ConvergedCameraCalibration {
     resolution,
     frameTimestamp,
   ) {
+    // PTZ callers pass only a frame timestamp as the 4th argument.
+    if (
+      frameTimestamp === undefined &&
+      (typeof resolution === "string" || resolution === undefined)
+    ) {
+      frameTimestamp = resolution;
+      resolution = undefined;
+    }
     const generation = this.ptzFrameGate.generation;
     this.updateSensorResolution(resolution);
     this.camCanvas.updateImageSrc(image, () => {
@@ -1427,13 +1439,18 @@ export class ConvergedCameraCalibration {
         this.isResolutionUpdated = this.resolutionNeedsRefit = true;
       }
       $(selector).val(center);
-      document.getElementById(`id_intrinsics_${axis}`).readOnly = true;
-      const lock = document.getElementById(`enabled_intrinsics_${axis}`);
-      if (lock) {
-        lock.checked = true;
-        lock.disabled = true;
+      if (typeof document !== "undefined") {
+        const field = document.getElementById(`id_intrinsics_${axis}`);
+        if (field) field.readOnly = true;
+        const lock = document.getElementById(`enabled_intrinsics_${axis}`);
+        if (lock) {
+          lock.checked = true;
+          lock.disabled = true;
+        }
       }
-      if (cameraMatrix) cameraMatrix[index][2] = center;
+      if (Array.isArray(cameraMatrix?.[index])) {
+        cameraMatrix[index][2] = center;
+      }
     }
     if (changed && this.calibrationFitState === "pending") {
       this.calibrationRequestId++;

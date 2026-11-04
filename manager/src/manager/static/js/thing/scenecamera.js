@@ -1552,7 +1552,7 @@ export default class SceneCamera extends THREE.Object3D {
         image,
         (texture) => {
           if (this.detached) {
-            texture.dispose();
+            texture.dispose?.();
             return;
           }
           // Drop frames from before the PTZ stopped or for an earlier pose.
@@ -1560,7 +1560,7 @@ export default class SceneCamera extends THREE.Object3D {
             this.ptzPoseValid === false ||
             !this.ptzFrameGate.accepts(frameTimestamp, generation)
           ) {
-            texture.dispose();
+            texture.dispose?.();
             return;
           }
           this.applyOpticalProjection();

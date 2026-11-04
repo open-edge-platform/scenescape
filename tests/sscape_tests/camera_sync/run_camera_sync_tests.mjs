@@ -553,6 +553,7 @@ async function sceneCameraHarness() {
       exports = {
         CMD_CAMERA: "cmd/camera/",
         IMAGE_CAMERA: "image/camera/",
+        POSITIONING_POSE: "positioning/pose/",
         MAX_INTRINSICS_UPDATE_WAIT_TIME: 0,
         DEFAULT_CAMERA_UID: undefined,
         FX: 0,
@@ -568,13 +569,19 @@ async function sceneCameraHarness() {
         POINT_CORRESPONDENCE: 0,
         EULER: 0,
       };
-    } else if (specifier.endsWith("/utils.js")) {
-      const utils = new vm.SourceTextModule(
-        await readFile(new URL("utils.js", STATIC), "utf8"),
+    } else if (
+      specifier.endsWith("/utils.js") ||
+      specifier.endsWith("/ptzpose.js")
+    ) {
+      const real = new vm.SourceTextModule(
+        await readFile(
+          new URL(specifier.replace("/static/js/", ""), STATIC),
+          "utf8",
+        ),
         { context },
       );
-      await utils.link(link);
-      return utils;
+      await real.link(link);
+      return real;
     } else if (specifier.endsWith("/calibration.js")) {
       exports = { startCameraCalibration: () => {} };
     } else {
@@ -591,26 +598,73 @@ async function sceneCameraHarness() {
   });
   await entry.evaluate();
   const camera = Object.create(entry.namespace.default.prototype);
+  const sceneCamera = {
+    position: { x: 0, y: 0, z: 0 },
+    rotation: { x: 0, y: 0, z: 0 },
+    quaternion: { x: 0, y: 0, z: 0, w: 1 },
+    scale: { x: 1, y: 1, z: 1 },
+    matrix: {
+      equals() {
+        return false;
+      },
+      clone() {
+        return this;
+      },
+      copy() {
+        return this;
+      },
+      decompose() {},
+    },
+    setViewOffset(w, h, x, y) {
+      this.aspect = w / h;
+      this.offset = { x, y };
+    },
+    updateProjectionMatrix() {},
+    updateMatrix() {},
+    clone() {
+      const cloned = {
+        position: { ...this.position },
+        rotation: { ...this.rotation },
+        quaternion: { ...this.quaternion },
+        scale: { ...this.scale },
+        matrix: this.matrix,
+        updateMatrix() {},
+      };
+      return cloned;
+    },
+    getObjectByName() {},
+  };
   Object.assign(camera, {
     pendingTextures,
     cameraUID: "mobile",
     name: "mobile",
+    sceneID: "scene-1",
     resolution: { w: 640, h: 480 },
     hasAuthoritativeResolution: false,
     databaseOptics: {},
     intrinsics: { fx: 900, fy: 1000, cx: 800, cy: 500 },
+    distortion: { k1: 0, k2: 0, p1: 0, p2: 0, k3: 0 },
     cameraMatrix: {
       data64F: [900, 0, 800, 0, 1000, 500, 0, 0, 1],
       delete() {},
     },
-    sceneCamera: {
-      setViewOffset(w, h, x, y) {
-        this.aspect = w / h;
-        this.offset = { x, y };
+    sceneCamera,
+    ptzCalibrationVersion: null,
+    ptzPoseValid: null,
+    ptzLiveMatrix: null,
+    ptzHomeMatrix: null,
+    ptzFrameGate: {
+      generation: 0,
+      accepts() {
+        return true;
       },
-      updateProjectionMatrix() {},
-      getObjectByName() {},
+      update() {},
+      invalidate() {},
     },
+    isPTZAwayFromHome() {
+      return false;
+    },
+    togglePoseYupYdown() {},
     executeOnControl() {},
     showCameraOnline() {},
   });
@@ -1073,6 +1127,12 @@ test("save persists sensor dimensions or inferred fallback, never the default", 
     camera.sceneCamera.clone = () => ({
       position: [1, 2, 3],
       rotation: { x: 0, y: 0, z: 0 },
+      matrix: {
+        equals() {
+          return false;
+        },
+      },
+      updateMatrix() {},
     });
     camera.togglePoseYupYdown = () => {};
     camera.updateCameras = () => {};
@@ -1332,22 +1392,48 @@ async function calibrationHarness() {
           "K3",
           "REST_URL",
         ]
-      : specifier.includes("utils")
-        ? ["compareIntrinsics", "resizeRendererToDisplaySize", "waitUntil"]
-        : specifier.includes("camcanvas")
-          ? ["CamCanvas"]
-          : specifier.includes("viewport")
-            ? ["Viewport"]
-            : specifier.includes("GLTFLoader")
-              ? ["GLTFLoader"]
-              : [];
+      : specifier.includes("ptzpose")
+        ? [
+            "PTZ_AWAY_MESSAGE",
+            "PTZFrameGate",
+            "PTZPoseExpiry",
+            "createPTZPointMapper",
+            "expiredPTZPoseContext",
+            "isPTZAwayFromHomePose",
+            "isPTZMoving",
+            "isPTZPositionUnknown",
+            "ptzMatricesClose",
+            "ptzPoseToCameraMatrix",
+            "sceneFromCameraToCameraMatrix",
+          ]
+        : specifier.includes("utils")
+          ? ["compareIntrinsics", "resizeRendererToDisplaySize", "waitUntil"]
+          : specifier.includes("camcanvas")
+            ? ["CamCanvas"]
+            : specifier.includes("viewport")
+              ? ["Viewport"]
+              : specifier.includes("GLTFLoader")
+                ? ["GLTFLoader"]
+                : [];
     return new vm.SyntheticModule(
       names,
       function () {
         for (const name of names) {
           this.setExport(
             name,
-            name === "CALIBRATION_MIN_POINTS_FOR_FIT" ? 4 : class {},
+            name === "CALIBRATION_MIN_POINTS_FOR_FIT"
+              ? 4
+              : name === "PTZ_AWAY_MESSAGE"
+                ? "away"
+                : class {
+                    generation = 0;
+                    update() {}
+                    invalidate() {}
+                    accepts() {
+                      return true;
+                    }
+                    arm() {}
+                  },
           );
         }
       },
@@ -1367,6 +1453,12 @@ async function calibrationHarness() {
   };
   calibration.viewport = { calibrationUpdated: false };
   calibration.calibrationFitState = "idle";
+  calibration.ptzFrameGate = {
+    generation: 0,
+    accepts: () => true,
+    notBefore: Number.NaN,
+  };
+  calibration.ptzPoseValid = null;
   calibration.projections = [];
   calibration.projectImage = (image, matrix) =>
     calibration.projections.push(plain(matrix));
