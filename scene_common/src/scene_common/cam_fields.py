@@ -5,6 +5,7 @@
 CAM_COMMON_FIELDS = (
     "name",
     "pose_locked",
+    "calibration_origin",
     "scale",
     "intrinsics",
     "distortion",
@@ -43,7 +44,8 @@ CAM_FORM_FIELDS = [
 
 # Serializer API fields
 CAM_SERIALIZER_FIELDS = [
-    'uid', 'name', 'sensor_id', 'pose_locked', 'intrinsics', 'transform_type', 'transforms',
+    'uid', 'name', 'sensor_id', 'pose_locked', 'calibration_origin', 'pose_provenance',
+    'intrinsics', 'transform_type', 'transforms',
     'distortion', 'translation', 'rotation', 'scale', 'resolution', 'scene',
     'threshold', 'aspect',
 ] + CAM_ADVANCED_FIELDS + CAM_KUBERNETES_FIELDS

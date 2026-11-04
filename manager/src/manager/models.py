@@ -455,6 +455,11 @@ class Scene(models.Model):
 
         sInfo = cam.transformation
         sInfo['pose_locked'] = cam.pose_locked
+        origin = getattr(cam, 'calibration_origin', None) or 'manager.rest'
+        sInfo['pose_provenance'] = {
+          'class': 'calibration',
+          'origin': origin,
+        }
 
         if cam.intrinsics_fx != None and cam.intrinsics_fy != None \
            and cam.intrinsics_cx != None and cam.intrinsics_cy != None:
@@ -812,6 +817,10 @@ class Cam(Sensor):
 
   transforms = ListField(blank=True, default=list)
   pose_locked = models.BooleanField(default=False, verbose_name="Pose locked")
+  # ADR 18: durable calibration writer identity for runtime pose_provenance.origin.
+  calibration_origin = models.CharField(
+    max_length=64, default='manager.rest', blank=True,
+    verbose_name="Calibration origin")
   transform_type = models.CharField(max_length=26, choices=CAM_TRANSFORM_CHOICES,
                                     default=POINT_CORRESPONDENCE)
   width = models.IntegerField(default=640, null=False, blank=False)

@@ -9,7 +9,7 @@ import aiofiles
 from typing import Any, Callable
 
 from scene_common.rest_client import RESTClient
-from scene_common.options import POINT_CORRESPONDENCE, EULER
+from scene_common.options import POINT_CORRESPONDENCE, EULER, POSE_ORIGIN_MANAGER_IMPORT
 from scene_common.cam_fields import CAM_COMMON_FIELDS
 from scene_common import log
 
@@ -33,6 +33,7 @@ class ImportScene:
       cam_data = {
         "sensor_id": cam.get("uid"),
         **{field: cam.get(field) for field in CAM_COMMON_FIELDS if field in cam},
+        "calibration_origin": POSE_ORIGIN_MANAGER_IMPORT,
       }
 
       transform_type = cam.get("transform_type")

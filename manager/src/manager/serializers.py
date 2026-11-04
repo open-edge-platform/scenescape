@@ -281,6 +281,8 @@ class CamSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
   sensor_id = serializers.CharField(write_only=True, required=False)
   uid = serializers.CharField(source="sensor_id", read_only=True)
+  calibration_origin = serializers.CharField(required=False, allow_blank=True)
+  pose_provenance = serializers.SerializerMethodField('get_pose_provenance')
   intrinsics = serializers.SerializerMethodField('get_intrinsics')
   distortion = serializers.SerializerMethodField('get_distortion')
   translation = serializers.SerializerMethodField('get_translation')
@@ -329,6 +331,12 @@ class CamSerializer(NonNullSerializer):
     self.map_distortion_fields(validated_data)
     self.map_transform_fields(validated_data)
     self.map_resolution_fields(validated_data)
+    # REST / 3D save authors durable calibration unless a caller set origin
+    # (e.g. scene import uses manager.import).
+    if 'calibration_origin' not in validated_data and (
+        'transforms' in validated_data or 'transform_type' in validated_data
+        or not is_update):
+      validated_data['calibration_origin'] = POSE_ORIGIN_MANAGER_REST
 
     if not is_update:
       sensor_id = validated_data.get('sensor_id', None)
@@ -502,6 +510,10 @@ class CamSerializer(NonNullSerializer):
     if cam.width is None or cam.height is None:
       return None
     return [cam.width, cam.height]
+
+  def get_pose_provenance(self, obj):
+    origin = getattr(obj.cam, 'calibration_origin', None) or POSE_ORIGIN_MANAGER_REST
+    return {'class': POSE_CLASS_CALIBRATION, 'origin': origin}
 
   def get_translation(self, obj):
     if not obj.scene:

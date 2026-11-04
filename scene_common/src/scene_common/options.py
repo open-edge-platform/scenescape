@@ -49,6 +49,21 @@ def make_pose_provenance(pose_class, origin, updated_at=None):
   return provenance
 
 
+def provenance_from_camera_info(info):
+  """Resolve calibration provenance from Manager/camera payload fields."""
+  if not isinstance(info, dict):
+    return make_pose_provenance(POSE_CLASS_CALIBRATION, POSE_ORIGIN_UNKNOWN)
+  provenance = info.get('pose_provenance')
+  if isinstance(provenance, dict) and provenance.get('class'):
+    origin = provenance.get('origin') or POSE_ORIGIN_UNKNOWN
+    return make_pose_provenance(
+      provenance['class'], origin, provenance.get('updated_at'))
+  origin = info.get('calibration_origin') or info.get('pose_origin')
+  if origin:
+    return make_pose_provenance(POSE_CLASS_CALIBRATION, origin)
+  return make_pose_provenance(POSE_CLASS_CALIBRATION, POSE_ORIGIN_UNKNOWN)
+
+
 def sync_legacy_pose_source(camera):
   """Keep camera.pose_source aligned with pose_provenance.class during migration."""
   provenance = getattr(camera, 'pose_provenance', None) or {}

@@ -24,7 +24,7 @@ import trimesh
 from scene_common.mqtt import PubSub
 from scene_common.timestamp import get_iso_time
 from scene_common.mesh_util import mergeMesh, checkMeshConnectivity
-from scene_common.options import QUATERNION
+from scene_common.options import POSE_ORIGIN_MANAGER_MESH, QUATERNION
 from scene_common import log
 
 ALLOWED_VIDEO_MIME_TYPES = {
@@ -661,6 +661,7 @@ class MeshGenerator:
         1.0, 1.0, 1.0,
       ]
       camera.cam.transform_type = QUATERNION
+      camera.cam.calibration_origin = POSE_ORIGIN_MANAGER_MESH
       camera.cam.save()
     except Exception as e:
       log.error(f"Error updating camera {camera.sensor_id}: {e}")

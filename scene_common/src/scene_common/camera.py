@@ -3,9 +3,7 @@
 
 from scene_common.geometry import Point
 from scene_common.options import (
-  POSE_CLASS_CALIBRATION,
-  POSE_ORIGIN_MANAGER_REST,
-  make_pose_provenance,
+  provenance_from_camera_info,
   sync_legacy_pose_source,
 )
 from scene_common.transform import CameraIntrinsics, CameraPose
@@ -38,9 +36,8 @@ class Camera:
       self.pose_locked = bool(value)
     else:
       self.pose_locked = False
-    # Durable Manager config is the starting provenance until a live write.
-    self.pose_provenance = make_pose_provenance(
-      POSE_CLASS_CALIBRATION, POSE_ORIGIN_MANAGER_REST)
+    # Untagged payloads stay unknown; Manager stamps origin on authored config.
+    self.pose_provenance = provenance_from_camera_info(info)
     sync_legacy_pose_source(self)
 
     if resolution is None and 'width' in info and 'height' in info:

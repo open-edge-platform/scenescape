@@ -133,6 +133,8 @@ class TestUpdateCameras:
     ])
     camera = scene.cameras['cam1']
     assert camera.pose_source == 'observation'
+    assert camera.pose_provenance['class'] == 'live'
+    assert camera.pose_provenance['origin'] == 'detector.extrinsics'
     assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
     assert camera.pose.scale == pytest.approx([2, 3, 4])
     assert camera.pose.quaternion_rotation == pytest.approx([1, 0, 0, 0])
@@ -214,7 +216,23 @@ class TestUpdateCameras:
     assert scene.cameras == {}
     scene.updateCameras([self._camera_data()])
     assert scene.cameras['cam1'].pose_source == 'configured'
+    assert scene.cameras['cam1'].pose_provenance['origin'] == 'unknown'
     assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
+  def test_update_camera_pose_accepts_origin_and_info_provenance(self):
+    scene = _scene()
+    stamped = self._camera_data()
+    stamped['pose_provenance'] = {
+      'class': 'calibration', 'origin': 'manager.mesh',
+    }
+    scene.updateCameras([stamped])
+    assert scene.cameras['cam1'].pose_provenance['origin'] == 'manager.mesh'
+    scene.updateCameraPose(
+      'cam1', {'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0]},
+      origin='external_source')
+    assert scene.cameras['cam1'].pose_provenance == {
+      'class': 'live', 'origin': 'external_source',
+    }
 
   def test_adds_new_camera(self):
     scene = _scene()

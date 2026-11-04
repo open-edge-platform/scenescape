@@ -103,7 +103,8 @@ class SceneModel:
       for camera_id, camera in self.cameras.items():
         self._retainObservedPose(camera, previous_cameras.get(camera_id))
 
-  def updateCameraPose(self, camera_id, extrinsics):
+  def updateCameraPose(self, camera_id, extrinsics,
+                       origin=POSE_ORIGIN_DETECTOR_EXTRINSICS):
     """Replace an observation-authorized pose without changing durable calibration."""
     with self._camera_lock:
       current = self.cameras.get(camera_id)
@@ -115,17 +116,17 @@ class SceneModel:
       camera = copy(current)
       camera.pose = pose
       camera.pose_locked = False
-      camera.pose_provenance = make_pose_provenance(
-        POSE_CLASS_LIVE, POSE_ORIGIN_DETECTOR_EXTRINSICS)
+      camera.pose_provenance = make_pose_provenance(POSE_CLASS_LIVE, origin)
       sync_legacy_pose_source(camera)
       self.cameras[camera_id] = camera
 
-  def cameraSnapshot(self, camera_id=None, extrinsics=None):
+  def cameraSnapshot(self, camera_id=None, extrinsics=None,
+                     origin=POSE_ORIGIN_DETECTOR_EXTRINSICS):
     """Apply an observation and capture stable camera entries under one lock."""
     with self._camera_lock:
       if camera_id is not None:
         try:
-          self.updateCameraPose(camera_id, extrinsics)
+          self.updateCameraPose(camera_id, extrinsics, origin=origin)
         except (TypeError, ValueError) as exc:
           log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
       observation = copy(self)

@@ -136,7 +136,7 @@ def test_configured_camera_state_publishes_quaternion():
   assert state['translation'] == [0, 0, 3]
   assert state['pose_locked'] is False
   assert state['pose_provenance']['class'] == 'calibration'
-  assert state['pose_provenance']['origin'] == 'manager.rest'
+  assert state['pose_provenance']['origin'] == 'unknown'
   assert state['dynamic_pose'] is False
 
 
