@@ -826,10 +826,46 @@ test("resolution-only MQTT refreshes 3D panel cx/cy after recentering defaults",
   camera.hasAuthoritativeResolution = true;
   camera.intrinsicsFolder = {
     children: [
-      { $input: { set value(v) { panel.fx = v; }, get value() { return panel.fx; } } },
-      { $input: { set value(v) { panel.fy = v; }, get value() { return panel.fy; } } },
-      { $input: { set value(v) { panel.cx = v; }, get value() { return panel.cx; } } },
-      { $input: { set value(v) { panel.cy = v; }, get value() { return panel.cy; } } },
+      {
+        $input: {
+          set value(v) {
+            panel.fx = v;
+          },
+          get value() {
+            return panel.fx;
+          },
+        },
+      },
+      {
+        $input: {
+          set value(v) {
+            panel.fy = v;
+          },
+          get value() {
+            return panel.fy;
+          },
+        },
+      },
+      {
+        $input: {
+          set value(v) {
+            panel.cx = v;
+          },
+          get value() {
+            return panel.cx;
+          },
+        },
+      },
+      {
+        $input: {
+          set value(v) {
+            panel.cy = v;
+          },
+          get value() {
+            return panel.cy;
+          },
+        },
+      },
     ],
   };
   camera.updateOptics({ resolution: [1280, 720] });

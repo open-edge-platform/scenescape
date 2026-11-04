@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from scene_common.geometry import Point
-from scene_common.options import POSE_CONFIGURED, pose_locked_from_info
+from scene_common.options import POSE_CONFIGURED
 from scene_common.transform import CameraIntrinsics, CameraPose
 import numpy as np
 
@@ -32,7 +32,7 @@ class Camera:
         raise ValueError('pose_locked must be a boolean')
       self.pose_locked = bool(value)
     else:
-      self.pose_locked = pose_locked_from_info(info, default=False)
+      self.pose_locked = False
     self.pose_source = POSE_CONFIGURED
 
     if resolution is None and 'width' in info and 'height' in info:

@@ -82,7 +82,6 @@ class SceneCameraCacheTestCase(TestCase):
         camera_data = dict(exported, uid=f'imported-{legacy}', name=f'Imported {legacy}')
         if legacy:
           camera_data.pop('pose_locked', None)
-          camera_data.pop('pose_policy', None)
         imported = importer.build_camera_items({'cameras': [camera_data]})[0]
         serializer = CamSerializer(data=imported)
         self.assertTrue(serializer.is_valid(), serializer.errors)
@@ -101,13 +100,15 @@ class SceneCameraCacheTestCase(TestCase):
     self.assertTrue(form.is_valid(), form.errors)
     self.assertEqual(form.save().pose_locked, False)
 
-  def test_legacy_pose_policy_maps_to_pose_locked(self):
+  def test_pose_policy_is_rejected(self):
+    self.cam.pose_locked = False
+    self.cam.save()
     serializer = CamSerializer(
       self.cam, partial=True, data={'pose_policy': 'configured'})
-    self.assertTrue(serializer.is_valid(), serializer.errors)
-    serializer.save()
+    self.assertFalse(serializer.is_valid())
+    self.assertIn('pose_policy', serializer.errors)
     self.cam.refresh_from_db()
-    self.assertEqual(self.cam.pose_locked, True)
+    self.assertEqual(self.cam.pose_locked, False)
 
   def test_calibration_page_renders_pose_locked_checkbox(self):
     user = User.objects.create_superuser('pose-lock-user', 'pose@example.com', 'password')

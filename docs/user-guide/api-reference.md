@@ -17,10 +17,8 @@ scene responses, expose `pose_locked`:
 Use the **Pose locked** checkbox on the camera creation or calibration form, or
 send a lock-only update such as `{"pose_locked": true}` to `/api/v1/camera/{id}`.
 Omitted fields on updates preserve the current value; non-boolean values are
-rejected. Legacy payloads that still send `pose_policy` (`configured` /
-`observation`) are accepted on input and mapped to `pose_locked`. The additive
-migration backfills existing database cameras as locked; new creates default
-unlocked. Scene archives preserve the field when present.
+rejected. The additive migration backfills existing database cameras as locked;
+new creates default unlocked. Scene archives preserve the field when present.
 
 Controller and Analytics use the same rules. Switching to locked reloads stored
 calibration when each consumer refreshes configuration. Unlocking starts from
