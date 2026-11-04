@@ -27,6 +27,7 @@ from controller.reid import ReidNoValidVectorsError, ReidPartialWriteError, Reid
 from controller.moving_object import MovingObject, ReidState, Chronoloc
 from scene_common.geometry import Point, Rectangle
 from scene_common.timestamp import get_epoch_time
+from scene_common.tracking_object_registry import TrackedObjectRegistry
 import time
 
 # Short stale-feature tick so purge takeover happens within a test.
@@ -1119,6 +1120,97 @@ class TestShutdownFlush:
 
     flush.assert_not_called()
 
+  @staticmethod
+  def _submit_running_query(manager, query):
+    """Submit query to the pool and register it the way assignID() does."""
+    future = manager.pool.submit(query)
+    with manager._pending_queries_lock:
+      manager._pending_queries.add(future)
+    future.add_done_callback(manager._onQuerySimilarityComplete)
+    return future
+
+  def test_shutdown_waits_for_a_running_query_and_flushes_what_it_stages(self, mock_vdms_db):
+    manager = UUIDManager()
+    started, release = threading.Event(), threading.Event()
+
+    def query():
+      started.set()
+      release.wait(5)
+      self._stage(manager, "late-track")
+
+    self._submit_running_query(manager, query)
+    assert started.wait(5)
+    shutdown = threading.Thread(target=manager.shutdown, daemon=True)
+    shutdown.start()
+
+    time.sleep(0.2)
+    assert shutdown.is_alive(), "shutdown() must wait for the running query"
+    mock_vdms_db.addEntry.assert_not_called()
+
+    release.set()
+    shutdown.join(5)
+    assert not shutdown.is_alive()
+    manager.pool.shutdown(wait=True)
+
+    mock_vdms_db.addEntry.assert_called_once()
+    assert mock_vdms_db.addEntry.call_args.args[:3] == ('gid-1', 'late-track', 'person')
+    assert manager._pending_queries == set()
+
+  def test_shutdown_stops_waiting_for_a_query_that_never_finishes(self, mock_vdms_db):
+    manager = UUIDManager()
+    started, release = threading.Event(), threading.Event()
+
+    def query():
+      started.set()
+      release.wait(5)
+
+    self._submit_running_query(manager, query)
+    assert started.wait(5)
+
+    try:
+      with patch.object(uuid_manager_mod, 'SHUTDOWN_QUERY_WAIT_SECS', 0.1), \
+           patch('controller.uuid_manager.log.warning') as log_warning:
+        began = time.monotonic()
+        manager.shutdown()
+        elapsed = time.monotonic() - began
+
+      assert elapsed < 2
+      assert manager._shutdown_complete is True
+      assert any('still running' in call.args[0] for call in log_warning.call_args_list)
+    finally:
+      release.set()
+
+  def test_finished_queries_are_not_kept_for_shutdown(self, mock_vdms_db):
+    manager = UUIDManager()
+
+    future = self._submit_running_query(manager, lambda: None)
+    future.result(5)
+    _wait_until(lambda: not manager._pending_queries)
+
+    manager.shutdown()
+
+  def test_destructor_does_not_wait_for_queries(self, mock_vdms_db):
+    manager = UUIDManager()
+
+    with patch.object(manager, '_waitForPendingQueries') as wait_for_queries:
+      manager.__del__()
+
+    wait_for_queries.assert_not_called()
+
+  def test_no_query_is_submitted_after_shutdown(self, mock_vdms_db):
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    manager.shutdown(flush_pending=False)
+    manager.pool.reset_mock()
+    obj = _make_reid_object("late-track")
+    manager.quality_observation_counts["late-track"] = 15
+    manager.quality_features["late-track"] = [np.arange(64, dtype=np.float32).tolist()]
+
+    manager.assignID(obj)
+
+    manager.pool.submit.assert_not_called()
+    assert "late-track" not in manager.active_query
+
 
 class TestStaleFeatureTimerAfterShutdown:
   """The stale-feature timer must not re-arm itself once the manager is shut down."""
@@ -1149,6 +1241,30 @@ class TestStaleFeatureTimerAfterShutdown:
     manager.shutdown()
 
     assert manager.stale_feature_timer is None
+
+  def test_shutdown_between_rescheduling_and_the_check_does_not_raise(self, mock_vdms_db):
+    """shutdown() clears stale_feature_timer; the callback must cancel the timer it
+    just created instead of dereferencing the cleared attribute."""
+    manager = UUIDManager()
+    manager.stale_feature_timer.cancel()
+    callbacks, timers = [], []
+
+    def schedule(callback):
+      callbacks.append(callback)
+      timer = MagicMock()
+      timers.append(timer)
+      manager.stale_feature_timer = timer
+      if len(callbacks) == 2:
+        manager.shutdown()
+      return timer
+
+    with patch.object(manager, '_scheduleTimer', side_effect=schedule):
+      manager._startStaleFeatureTimer()
+      callbacks[0]()
+
+    assert manager._shutdown_complete is True
+    assert manager.stale_feature_timer is None
+    timers[1].cancel.assert_called()
 
 
 def _make_reid_object(rv_id, *, bbox_area=None, provenance=None, embedding=None):
@@ -1842,7 +1958,8 @@ class TestPruneInactiveTracksMetrics:
     tracked = [MagicMock(id="t1"), MagicMock(id="t2")]
     manager.pruneInactiveTracks(tracked)
 
-    mock_registry_instance.updateCategoryCount.assert_called_once_with("scene_1", "person", 2)
+    mock_registry_instance.updateCategoryCount.assert_called_once_with(
+      "scene_1", "person", 2, generation=manager.registry_generation)
     mock_registry_instance.getTotalCount.assert_called_once_with("scene_1")
     mock_metrics.record_reid_total_tracked_object_count.assert_called_once_with(7)
 
@@ -1881,7 +1998,8 @@ class TestShutdownRegistryCleanup:
 
     manager.shutdown()
 
-    mock_registry_instance.removeCategory.assert_called_once_with("scene_1", "person")
+    mock_registry_instance.removeCategory.assert_called_once_with(
+      "scene_1", "person", generation=manager.registry_generation)
 
   @patch('controller.uuid_manager.TrackedObjectRegistry')
   def test_shutdown_skips_registry_call_when_category_never_set(self, mock_registry_class, mock_vdms_db):
@@ -1896,6 +2014,49 @@ class TestShutdownRegistryCleanup:
     manager.shutdown()
 
     mock_registry_instance.removeCategory.assert_not_called()
+
+  @patch('controller.uuid_manager.metrics')
+  def test_retired_manager_leaves_the_replacements_count_alone(self, mock_metrics, mock_vdms_db):
+    """Verify an old tracker draining and shutting down under the same scene id
+    neither overwrites nor removes the count of the tracker that replaced it."""
+
+    registry = TrackedObjectRegistry()
+    with patch.object(TrackedObjectRegistry, 'getInstance', return_value=registry):
+      retired = UUIDManager()
+      replacement = UUIDManager()
+      for manager in (retired, replacement):
+        manager.scene_id = "scene_1"
+        manager._category = "person"
+        manager._category_has_embeddings = True
+      assert replacement.registry_generation > retired.registry_generation
+
+      replacement.pruneInactiveTracks([MagicMock(id="a"), MagicMock(id="b")])
+      retired.pruneInactiveTracks([MagicMock(id="x")])
+      assert registry.getTotalCount("scene_1") == 2
+
+      retired.shutdown()
+      assert registry.getTotalCount("scene_1") == 2
+
+      replacement.shutdown()
+      assert registry.getTotalCount("scene_1") == 0
+      assert "scene_1" not in registry._category_counts
+
+  @patch('controller.uuid_manager.metrics')
+  def test_manager_removes_its_own_count_when_nothing_replaced_it(self, mock_metrics, mock_vdms_db):
+    """Verify the scene total drops to zero when the only tracker shuts down."""
+
+    registry = TrackedObjectRegistry()
+    with patch.object(TrackedObjectRegistry, 'getInstance', return_value=registry):
+      manager = UUIDManager()
+      manager.scene_id = "scene_1"
+      manager._category = "person"
+      manager._category_has_embeddings = True
+      manager.pruneInactiveTracks([MagicMock(id="a")])
+      assert registry.getTotalCount("scene_1") == 1
+
+      manager.shutdown()
+
+      assert registry.getTotalCount("scene_1") == 0
 
 
 class TestRecordMatchLatencyCallSites:

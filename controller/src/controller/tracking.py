@@ -77,24 +77,30 @@ class Tracking(Thread):
       categories = list(self.trackers.keys())
     for category in categories:
       new_objects = [obj for obj in objects if obj.category == category]
-      if not use_tracker:
-        for obj in new_objects:
-          obj.oid = str(uuid.uuid4())
-          obj.setGID(obj.oid)
-        # No threading when tracker is not used. Thus creating a copy is not required.
-        self.trackers[category].all_tracker_objects = self.trackers[category].curObjects = new_objects
-      else:
-        queue = self.trackers[category].queue
-        if not queue.empty():
-          # Tracker specific to this category is still processing. Skip tracking objects for this category.
-          log.info("Tracker work queue is not empty", category, queue.qsize())
-          metrics_attributes = {
-            "category": category,
-            "reason": "tracker_busy"
-          }
-          metrics.inc_dropped(metrics_attributes)
-          continue
-        queue.put((new_objects, when, already_tracked_objects, STREAMING_MODE))
+      self._dispatchCategory(
+        category, new_objects, when, already_tracked_objects, use_tracker)
+    return
+
+  def _dispatchCategory(self, category, new_objects, when, already_tracked_objects, use_tracker):
+    """Hand one category's objects to its tracker thread, or label them when tracking is off."""
+    if not use_tracker:
+      for obj in new_objects:
+        obj.oid = str(uuid.uuid4())
+        obj.setGID(obj.oid)
+      # No threading when tracker is not used. Thus creating a copy is not required.
+      self.trackers[category].all_tracker_objects = self.trackers[category].curObjects = new_objects
+      return
+    queue = self.trackers[category].queue
+    if not queue.empty():
+      # Tracker specific to this category is still processing. Skip tracking objects for this category.
+      log.info("Tracker work queue is not empty", category, queue.qsize())
+      metrics_attributes = {
+        "category": category,
+        "reason": "tracker_busy"
+      }
+      metrics.inc_dropped(metrics_attributes)
+      return
+    queue.put((new_objects, when, already_tracked_objects, STREAMING_MODE))
     return
 
   def _updateRefCameraFrameRate(self, ref_camera_frame_rate, category):
@@ -173,45 +179,62 @@ class Tracking(Thread):
 
   def run(self):
     self.uuid_manager.connectDatabase()
+    try:
+      self._processQueue()
+    finally:
+      # join() leaves this to the thread when it outlives the join deadline.
+      self.uuid_manager.shutdown()
+    return
+
+  def _processQueue(self):
     while True:
       queue_item = self.queue.get()
       try:
-        # Queue items always have 4 elements: (objects, when, already_tracked_objects, mode)
-        if len(queue_item) != 4:
-          # Invalid queue item format
-          continue
-
-        objects, when, already_tracked_objects, mode = queue_item
-
-        if objects is None:
-          log.debug("tracking.Tracking: Received shutdown signal, exiting thread")
+        if not self._processItem(queue_item):
           break
-
-        # Determine category for metrics
-        if mode == BATCHED_MODE and len(objects) > 0 and len(objects[0]) > 0:
-          category = objects[0][0].category  # First object in first camera list
-        elif mode == STREAMING_MODE and len(objects) > 0:
-          category = objects[0].category
-        else:
-          category = "unknown"
-
-        metrics_attributes = {
-          "category": category,
-        }
-        with metrics.time_tracking(metrics_attributes):
-          if mode == BATCHED_MODE:
-            self.trackCategoryBatched(objects, when, already_tracked_objects)
-          else:
-            self.trackCategory(objects, when, already_tracked_objects)
-          # curObjects are the results while all_tracker_objects
-          # is used as a working collection inside the thread
-          self.curObjects = (self.all_tracker_objects).copy()
       except Exception as err:
         log.error(f"Tracker {self} failed to process a frame: {err}\n{traceback.format_exc()}")
       finally:
         self.queue.task_done()
 
     return
+
+  def _processItem(self, queue_item):
+    """Track one queue item.
+
+    @return  False for the shutdown signal, True otherwise
+    """
+    # Queue items always have 4 elements: (objects, when, already_tracked_objects, mode)
+    if len(queue_item) != 4:
+      # Invalid queue item format
+      return True
+
+    objects, when, already_tracked_objects, mode = queue_item
+
+    if objects is None:
+      log.debug("tracking.Tracking: Received shutdown signal, exiting thread")
+      return False
+
+    metrics_attributes = {
+      "category": self._metricsCategory(objects, mode),
+    }
+    with metrics.time_tracking(metrics_attributes):
+      if mode == BATCHED_MODE:
+        self.trackCategoryBatched(objects, when, already_tracked_objects)
+      else:
+        self.trackCategory(objects, when, already_tracked_objects)
+      # curObjects are the results while all_tracker_objects
+      # is used as a working collection inside the thread
+      self.curObjects = (self.all_tracker_objects).copy()
+    return True
+
+  @staticmethod
+  def _metricsCategory(objects, mode):
+    if mode == BATCHED_MODE and len(objects) > 0 and len(objects[0]) > 0:
+      return objects[0][0].category  # First object in first camera list
+    if mode == STREAMING_MODE and len(objects) > 0:
+      return objects[0].category
+    return "unknown"
 
   def waitForComplete(self):
     if hasattr(self, 'queue'):
@@ -228,7 +251,8 @@ class Tracking(Thread):
 
     Safe to call more than once. Queued frames are drained first, but the
     whole call is bounded by timeout seconds so a stuck thread cannot block
-    the caller.
+    the caller. A thread still running at the deadline keeps its UUID manager
+    until it exits, then shuts it down itself.
     """
     with self._lifecycle_lock:
       if self._joined:
@@ -250,7 +274,8 @@ class Tracking(Thread):
           log.warning(f"Tracker thread category {category} did not stop within {timeout}s")
     finally:
       for category, tracker in trackers:
-        tracker.uuid_manager.shutdown()
+        if not tracker.is_alive():
+          tracker.uuid_manager.shutdown()
       self.uuid_manager.shutdown()
     return
 

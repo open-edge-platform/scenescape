@@ -602,6 +602,29 @@ class TestCacheManagerSceneRetirement:
 
     assert retired == []
 
+  def test_sensor_values_of_a_trackerless_scene_survive_a_rebuild(self):
+    """Sensors live in the Analytics scene, which is reused (it has no tracker), so
+    their readings are carried over. The Controller Scene holds no sensors at all."""
+    from analytics.adapters.scene_model import AnalyticsScene
+    data = {'uid': 'a', 'name': 'A', 'cameras': [], 'sensors': [
+      {'uid': 'temp', 'name': 'Temp',
+       'points': [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0]]}]}
+    cache_mgr, _ = _bare_manager()
+    cache_mgr._scene_cls = AnalyticsScene
+    cache_mgr._applySceneResults([data])
+    scene = cache_mgr.cached_scenes_by_uid['a']
+    scene.sensors['temp'].value = 21.5
+    scene.sensors['temp'].lastValue = 20.0
+    scene.sensors['temp'].lastWhen = 5.0
+
+    retired = _rebuild(cache_mgr, [data])
+
+    assert retired == []
+    assert cache_mgr.cached_scenes_by_uid['a'] is scene
+    sensor = scene.sensors['temp']
+    assert (sensor.value, sensor.lastValue, sensor.lastWhen) == (21.5, 20.0, 5.0)
+    assert cache_mgr.sceneWithSensorID('temp') is scene
+
 
 def _wait(event, timeout=5):
   assert event.wait(timeout), "timed out waiting for background teardown"
@@ -612,6 +635,17 @@ def _wait_for_calls(mock, count, timeout=5):
   while mock.call_count < count and time.monotonic() < deadline:
     time.sleep(0.01)
   assert mock.call_count >= count, "timed out waiting for background teardown"
+
+
+def _wait_until(predicate, timeout=5):
+  deadline = time.monotonic() + timeout
+  while not predicate() and time.monotonic() < deadline:
+    time.sleep(0.01)
+  assert predicate(), "timed out waiting for condition"
+
+
+def _teardown_threads():
+  return [t for t in threading.enumerate() if t.name == 'scene-teardown']
 
 
 class TestCacheManagerTeardown:
@@ -836,6 +870,79 @@ class TestCacheManagerRefreshTeardown:
       cache_mgr.refreshScenes()
 
     teardown.assert_not_called()
+
+  def test_queued_scenes_are_torn_down_one_at_a_time_in_order(self, registries):
+    cache_mgr, _ = _bare_manager()
+    scenes = [_tracker_scene(f'uid-{i}', f'S{i}') for i in range(3)]
+    guard = threading.Lock()
+    state = {'active': 0, 'peak': 0, 'order': [], 'threads': set()}
+    last_done = threading.Event()
+
+    def make_join(scene):
+      def join(*args):
+        with guard:
+          state['active'] += 1
+          state['peak'] = max(state['peak'], state['active'])
+          state['order'].append(scene.uid)
+          state['threads'].add(threading.get_ident())
+        time.sleep(0.05)
+        with guard:
+          state['active'] -= 1
+        if scene is scenes[-1]:
+          last_done.set()
+      return join
+
+    for scene in scenes:
+      scene.tracker.join.side_effect = make_join(scene)
+
+    cache_mgr._scheduleTeardown(scenes)
+
+    _wait(last_done)
+    assert state['order'] == ['uid-0', 'uid-1', 'uid-2']
+    assert state['peak'] == 1
+    assert len(state['threads']) == 1
+
+  def test_bursts_of_retired_scenes_never_run_two_teardown_threads(self, registries):
+    cache_mgr, _ = _bare_manager()
+    blocked, release = threading.Event(), threading.Event()
+    first = _tracker_scene('uid-1', 'S1')
+    first.tracker.join.side_effect = lambda *args: (blocked.set(), release.wait(5))
+    others = [_tracker_scene(f'uid-{i}', f'S{i}') for i in range(2, 6)]
+
+    try:
+      cache_mgr._scheduleTeardown([first])
+      _wait(blocked)
+      for scene in others:
+        cache_mgr._scheduleTeardown([scene])
+      assert len(_teardown_threads()) == 1
+      for scene in others:
+        scene.tracker.join.assert_not_called()
+    finally:
+      release.set()
+    for scene in others:
+      _wait_for_calls(scene.tracker.join, 1)
+
+  def test_worker_exits_when_idle_and_is_restarted_by_later_teardowns(self, registries):
+    cache_mgr, _ = _bare_manager()
+    first, second = _tracker_scene('uid-1', 'S1'), _tracker_scene('uid-2', 'S2')
+
+    cache_mgr._scheduleTeardown([first])
+    _wait_for_calls(first.tracker.join, 1)
+    _wait_until(lambda: cache_mgr._teardown_worker is None)
+    _wait_until(lambda: not _teardown_threads())
+
+    cache_mgr._scheduleTeardown([second])
+
+    _wait_for_calls(second.tracker.join, 1)
+    _wait_until(lambda: cache_mgr._teardown_worker is None)
+
+  def test_nothing_to_tear_down_starts_no_worker(self, registries):
+    cache_mgr, _ = _bare_manager()
+
+    cache_mgr._scheduleTeardown([])
+
+    assert cache_mgr._teardown_worker is None
+    assert not _teardown_threads()
 
 
 class TestCacheManagerRefreshCameras:

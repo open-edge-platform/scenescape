@@ -146,11 +146,55 @@ class TestTrackingJoin:
       assert elapsed < 2
       log.warning.assert_called_once()
       assert 'person' in log.warning.call_args.args[0]
-      assert category.uuid_manager._shutdown_complete
+      # The stuck thread still owns its manager; it shuts it down when it exits.
+      assert not category.uuid_manager._shutdown_complete
       assert tracker.uuid_manager._shutdown_complete
     finally:
       release.set()
     _wait_until(lambda: not category.is_alive())
+    assert category.uuid_manager._shutdown_complete
+
+  def test_frame_resuming_after_the_deadline_still_has_a_working_manager(self):
+    started, release = threading.Event(), threading.Event()
+    outcome = {}
+    tracker_holder = []
+
+    def slow_frame(objects):
+      started.set()
+      release.wait(GUARD_SECS)
+      manager = tracker_holder[0].trackers['person'].uuid_manager
+      try:
+        manager.pool.submit(lambda: None).result(GUARD_SECS)
+        outcome['pool'] = 'open'
+      except RuntimeError as err:
+        outcome['pool'] = f'closed: {err}'
+      outcome['shutdown_during_frame'] = manager._shutdown_complete
+
+    tracker = _tracking_class(slow_frame)()
+    tracker_holder.append(tracker)
+    _track(tracker)
+    category = tracker.trackers['person']
+    assert started.wait(GUARD_SECS)
+
+    with patch('controller.tracking.log'):
+      _join_within(tracker, timeout=0.2)
+    release.set()
+    _wait_until(lambda: not category.is_alive())
+
+    assert outcome == {'pool': 'open', 'shutdown_during_frame': False}
+    assert category.uuid_manager._shutdown_complete
+
+  def test_join_shuts_down_the_manager_of_a_thread_that_already_exited(self):
+    tracker = _tracking_class(lambda objects: None)()
+    _track(tracker)
+    category = tracker.trackers['person']
+    category.queue.put((None, None, None, STREAMING_MODE))
+    _wait_until(lambda: not category.is_alive())
+
+    with patch.object(category.uuid_manager, 'shutdown') as shutdown:
+      _join_within(tracker)
+
+    shutdown.assert_called_once()
 
 
 class TestTrackingAfterJoin:

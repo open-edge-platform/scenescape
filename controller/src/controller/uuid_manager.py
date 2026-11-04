@@ -3,6 +3,7 @@
 
 import collections
 import concurrent.futures
+import itertools
 import threading
 import math
 
@@ -47,6 +48,8 @@ DEFAULT_MAX_QUERY_TIME = 4
 DEFAULT_MAX_SIMILARITY_QUERIES_TRACKED = 10
 DEFAULT_STALE_FEATURE_TIMEOUT_SECS = 5.0
 DEFAULT_STALE_FEATURE_CHECK_INTERVAL_SECS = 1.0
+# Upper bound for shutdown() to wait for similarity queries still running
+SHUTDOWN_QUERY_WAIT_SECS = DEFAULT_MAX_QUERY_TIME
 DEFAULT_SIMILARITY_METRIC = DEFAULT_CONFIG_SIMILARITY_METRIC
 SUPPORTED_SIMILARITY_METRICS = SUPPORTED_CONFIG_SIMILARITY_METRICS
 
@@ -56,6 +59,10 @@ SUPPORTED_SIMILARITY_METRICS = SUPPORTED_CONFIG_SIMILARITY_METRICS
 # on a thread that already holds the lock.
 _PURGE_OWNER_LOCK = threading.RLock()
 _PURGE_OWNER = None
+
+# Orders UUIDManagers by creation so TrackedObjectRegistry can tell a retired
+# tracker from the one that replaced it under the same scene id.
+_REGISTRY_GENERATIONS = itertools.count(1)
 
 
 class UUIDManager:
@@ -129,6 +136,11 @@ class UUIDManager:
     self._database_connected = False
     self.scene_id = None
     self._shutdown_complete = False
+    self.registry_generation = next(_REGISTRY_GENERATIONS)
+    # Similarity queries running in the pool; shutdown() waits for them before
+    # its final flush because they stage features for enrollment.
+    self._pending_queries = set()
+    self._pending_queries_lock = threading.Lock()
 
     self.unique_id_count_lock = threading.Lock()
     # ReID embedding dimensions are inferred from the first observed embedding.
@@ -272,6 +284,7 @@ class UUIDManager:
       self.stale_feature_timer = None
     self._releasePurgeOwnership()
     if flush_pending:
+      self._waitForPendingQueries()
       try:
         self._flushStaleFeatures(force=True)
       except Exception as err:
@@ -283,7 +296,21 @@ class UUIDManager:
     # Stop contributing this category to the scene-wide tracked-object
     # total immediately, rather than lingering at its last-reported count.
     if getattr(self, '_category', None) is not None:
-      TrackedObjectRegistry.getInstance().removeCategory(self.scene_id, self._category)
+      TrackedObjectRegistry.getInstance().removeCategory(
+        self.scene_id, self._category, generation=self.registry_generation)
+
+  def _waitForPendingQueries(self):
+    """Wait, bounded, for running similarity queries so the final flush sees the
+    features they stage. The pool stays open for the writes that follow."""
+    with self._pending_queries_lock:
+      pending = list(self._pending_queries)
+    if not pending:
+      return
+    _, not_done = concurrent.futures.wait(pending, timeout=SHUTDOWN_QUERY_WAIT_SECS)
+    if not_done:
+      log.warning(
+        f"shutdown: {len(not_done)} similarity query(ies) still running after "
+        f"{SHUTDOWN_QUERY_WAIT_SECS}s; their features may not be persisted")
 
   def _startStaleFeatureTimer(self):
     """Start a background timer to periodically check for and flush stale features"""
@@ -296,18 +323,20 @@ class UUIDManager:
       if self._database_connected:
         self._tryStartPurge()
       # Reschedule the timer
-      self._scheduleTimer(check_stale_features)
+      timer = self._scheduleTimer(check_stale_features)
       if self._shutdown_complete:
         # shutdown() ran while this callback was executing
-        self.stale_feature_timer.cancel()
+        timer.cancel()
 
     self._scheduleTimer(check_stale_features)
 
   def _scheduleTimer(self, callback):
     """Create and start a daemon timer with the configured check interval"""
-    self.stale_feature_timer = threading.Timer(self.stale_feature_check_interval_secs, callback)
-    self.stale_feature_timer.daemon = True
-    self.stale_feature_timer.start()
+    timer = threading.Timer(self.stale_feature_check_interval_secs, callback)
+    timer.daemon = True
+    self.stale_feature_timer = timer
+    timer.start()
+    return timer
 
   def _tryAcquirePurgeOwnership(self):
     """Return True if this manager became the process-wide purge owner."""
@@ -538,7 +567,8 @@ class UUIDManager:
     # always reflects the latest count from all of them, not just this one.
     if self._category is not None:
       TrackedObjectRegistry.getInstance().updateCategoryCount(
-        self.scene_id, self._category, category_count)
+        self.scene_id, self._category, category_count,
+        generation=self.registry_generation)
       metrics.record_reid_total_tracked_object_count(
         TrackedObjectRegistry.getInstance().getTotalCount(self.scene_id))
 
@@ -1392,6 +1422,8 @@ class UUIDManager:
   def _onQuerySimilarityComplete(self, future):
     """Log unhandled exceptions from querySimilarity so a background failure
     doesn't silently leave a track stuck in PENDING_COLLECTION forever."""
+    with self._pending_queries_lock:
+      self._pending_queries.discard(future)
     if future.cancelled():
       return
 
@@ -1444,10 +1476,12 @@ class UUIDManager:
         f"{len(self.quality_features.get(sscape_object.rv_id, []))}")
 
       # Submit query once we have enough features
-      if sufficient_features:
+      if sufficient_features and not self._shutdown_complete:
         log.debug(f"assignID: Submitting similarity query for rv_id={sscape_object.rv_id}")
         self.active_query[sscape_object.rv_id] = True
         future = self.pool.submit(self.querySimilarity, sscape_object)
+        with self._pending_queries_lock:
+          self._pending_queries.add(future)
         future.add_done_callback(self._onQuerySimilarityComplete)
     # Always pick best ID for the current frame
     self.pickBestID(sscape_object)
