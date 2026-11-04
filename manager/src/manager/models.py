@@ -455,11 +455,7 @@ class Scene(models.Model):
 
         sInfo = cam.transformation
         sInfo['pose_locked'] = cam.pose_locked
-        origin = getattr(cam, 'calibration_origin', None) or 'manager.rest'
-        sInfo['pose_provenance'] = {
-          'class': 'calibration',
-          'origin': origin,
-        }
+        sInfo['pose_provenance'] = cam.poseProvenance
 
         if cam.intrinsics_fx != None and cam.intrinsics_fy != None \
            and cam.intrinsics_cx != None and cam.intrinsics_cy != None:
@@ -879,6 +875,11 @@ class Cam(Sensor):
   def transformation(self):
     return ScenescapeCameraPose.arrayToDictionary(self.transforms, self.transform_type)
 
+  @property
+  def poseProvenance(self):
+    origin = self.calibration_origin or POSE_ORIGIN_MANAGER_REST
+    return {'class': POSE_CLASS_CALIBRATION, 'origin': origin}
+
   def logData(self, sensor_type, jdata):
     timestamp = get_epoch_time(jdata['timestamp'])
     for obj in jdata['objects']:
@@ -961,6 +962,9 @@ class Cam(Sensor):
     }
     return camera_data
 
+  def _defaultPrincipalPoint(self, size, key):
+    return float(size) / 2.0 if size else self.DEFAULT_INTRINSICS[key]
+
   def save(self, *args, **kwargs):
     # Normalize positional save() args so update_fields is only read and modified via kwargs
     for name, value in zip(("force_insert", "force_update", "using", "update_fields"), args):
@@ -994,11 +998,9 @@ class Cam(Sensor):
     # create with resolution 1280x720 (and no explicit cx/cy) stores 640,360
     # instead of the 640x480-era defaults 320,240.
     if self.intrinsics_cx is None:
-      self.intrinsics_cx = (
-        float(self.width) / 2.0 if self.width else self.DEFAULT_INTRINSICS['cx'])
+      self.intrinsics_cx = self._defaultPrincipalPoint(self.width, 'cx')
     if self.intrinsics_cy is None:
-      self.intrinsics_cy = (
-        float(self.height) / 2.0 if self.height else self.DEFAULT_INTRINSICS['cy'])
+      self.intrinsics_cy = self._defaultPrincipalPoint(self.height, 'cy')
     if self.intrinsics_fx is None:
       self.intrinsics_fx = self.DEFAULT_INTRINSICS['fx']
     if self.intrinsics_fy is None:

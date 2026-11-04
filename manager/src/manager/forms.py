@@ -35,18 +35,7 @@ class CamCalibrateForm(ModelForm):
     self.unsupported_fields = CAM_FORM_ONLY_FIELDS
     self.kubernetes_fields = CAM_KUBERNETES_FIELDS + CAM_ADVANCED_FIELDS
     super().__init__(*args, **kwargs)
-
-    if 'pose_locked' in self.fields:
-      self.fields['pose_locked'].label = 'Pose locked'
-      self.fields['pose_locked'].help_text = (
-        'When locked, live MQTT extrinsics and optics are ignored and stored '
-        'calibration is used.'
-      )
-      # Calibrate UI recommends locked; existing rows keep their stored value.
-      if not self.instance.pk:
-        self.fields['pose_locked'].initial = True
-      elif self.instance.transforms and not self.is_bound:
-        self.fields['pose_locked'].initial = True
+    self._configurePoseLocked()
 
     # Set defaults
     if 'cv_subsystem' in self.fields:
@@ -90,6 +79,20 @@ class CamCalibrateForm(ModelForm):
           'cols': 50,
           'placeholder': 'car\npedestrian\ntrolley'
       })
+
+  def _configurePoseLocked(self):
+    if 'pose_locked' not in self.fields:
+      return
+    self.fields['pose_locked'].label = 'Pose locked'
+    self.fields['pose_locked'].help_text = (
+      'When locked, live MQTT extrinsics and optics are ignored and stored '
+      'calibration is used.'
+    )
+    # Calibrate UI recommends locked; existing rows keep their stored value.
+    if not self.instance.pk:
+      self.fields['pose_locked'].initial = True
+    elif self.instance.transforms and not self.is_bound:
+      self.fields['pose_locked'].initial = True
 
 class ROIForm(forms.Form):
   rois = forms.CharField()
