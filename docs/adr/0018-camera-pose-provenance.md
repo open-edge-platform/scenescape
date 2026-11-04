@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - **Author(s)**: Sarat Poluri
 - **Date**: 2026-11-03
-- **Status**: `Proposed`
+- **Status**: `Accepted`
 - **Related**: [Camera Pose Lock](../user-guide/api-reference.md#camera-pose-lock),
   [Analytics regulated cameras](../user-guide/microservices/analytics/data_formats.md),
   [ADR 16 — Unified External-Source Ingestion](./0016-unified-external-source-ingestion.md)
@@ -176,14 +176,19 @@ Phase 2 is out of scope for the first landing of this ADR’s code changes.
 
 ## References
 
-- Current UI gate:
+- UI follow gate:
   `manager/src/manager/static/js/thing/managers/cameramanager.js`
-  (`updatePoses` skips unless `dynamic_pose === true`)
-- Current derivation:
-  `analytics/src/analytics/service.py` (`_camera_state`)
+  (`updatePoses` follows `pose_provenance.class === "live"`, with
+  deprecated `dynamic_pose` alias)
+- Regulated serialization:
+  `analytics/src/analytics/service.py` (`_camera_state` publishes
+  `pose_provenance`; `dynamic_pose` aliases `class === "live"`)
 - Runtime stamp sites:
   `scene_common/src/scene_common/scene_model.py`
-  (`updateCameraPose`, `_retainObservedPose`)
+  (`updateCameraPose`, `_retainObservedPose`) and
+  `scene_common/src/scene_common/camera.py`
+- Durable origin persistence: `Cam.calibration_origin` (Manager REST /
+  mesh / import)
 - `docs/user-guide/api-reference.md` — Camera Pose Lock
 - `docs/user-guide/microservices/analytics/data_formats.md` — regulated
   `cameras` list

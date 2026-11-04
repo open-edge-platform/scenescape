@@ -29,10 +29,19 @@ scene reassignment, or process restart. Retention is local to each running scene
 instance; lock changes are not an instantaneous distributed cutover for queued
 messages.
 
+Regulated scene camera entries publish `pose_provenance` (`class` + `origin`)
+describing the effective runtime pose. The 3D UI follows poses when
+`pose_provenance.class` is `live` (and the camera is unlocked). The deprecated
+`dynamic_pose` flag remains as an alias of `class === "live"` during migration.
+See [ADR 18](../adr/0018-camera-pose-provenance.md) and
+[Analytics data formats](microservices/analytics/data_formats.md).
+
 Upgrade Manager, the shared library, Controller, and Analytics together before
 relying on lock enforcement. Apply the additive camera lock migration to
 existing databases; it backfills existing cameras as locked and does not migrate
-calibration values. Older workers ignore the lock.
+calibration values. Older workers ignore the lock. Apply the
+`calibration_origin` migration so Manager can stamp durable provenance origins
+(`manager.rest`, `manager.mesh`, `manager.import`).
 
 ## Source Map Errors
 
