@@ -3,14 +3,7 @@
 
 """Unit tests for the shared track helpers."""
 
-import sys
-from pathlib import Path
-
-# Add evaluation root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-# pylint: disable-next=wrong-import-position
-from utils.tracks import MIN_OVERLAP_FRAMES, match_tracks  # noqa: E402
+from utils.tracks import MIN_OVERLAP_FRAMES, match_tracks
 
 
 def _track(x, y, frames=range(MIN_OVERLAP_FRAMES)):

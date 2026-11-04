@@ -97,6 +97,8 @@ class Scenario:
   # True when detections are in scene coordinates and their ids are ground-truth ids (a recording);
   # False for pipeline runs, so detections must not be compared with tracks or ground truth.
   detections_in_scene: bool = True
+  # Times of all ground-truth frames, including frames without objects, which ground_truth omits.
+  ground_truth_times: np.ndarray = field(default_factory=lambda: np.empty(0))
 
   @property
   def object_ids(self) -> List[str]:
@@ -149,15 +151,29 @@ def load_scenario(directory) -> Scenario:
     estimator=_estimator(raw[ESTIMATOR_FILE], seconds),
     files={name: path for name, path in paths.items() if path.is_file()},
     detections_in_scene=not pipeline_run,
+    ground_truth_times=np.array(sorted({seconds(stamp) for stamp, _ in raw[GROUND_TRUTH_FILE]
+                                        if stamp is not None})),
   )
+
+
+def _frame_rate(times: np.ndarray) -> Optional[float]:
+  times = np.unique(times)
+  if len(times) < 2:
+    return None
+  return 1.0 / float(np.median(np.diff(times)))
 
 
 def frame_rate(table: pd.DataFrame) -> Optional[float]:
   """Frame rate from the median interval between distinct times; None for fewer than two."""
-  times = np.unique(table["t"].to_numpy())
-  if len(times) < 2:
-    return None
-  return 1.0 / float(np.median(np.diff(times)))
+  return _frame_rate(table["t"].to_numpy())
+
+
+def ground_truth_frame_rate(scenario: Scenario) -> Optional[float]:
+  """Ground-truth frame rate from all its frames, as TrackEval sees them; None for fewer than two.
+
+  Unlike frame_rate(scenario.ground_truth), frames without objects count.
+  """
+  return _frame_rate(scenario.ground_truth_times)
 
 
 def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None) -> List[Tuple[str, str]]:
@@ -168,7 +184,7 @@ def match_tracks_to_truth(scenario: Scenario, fps: Optional[float] = None) -> Li
   (utils.timeline.reference_timestamp); an earlier detection must not shift the grid.
   Pairs need utils.tracks.MIN_OVERLAP_FRAMES shared frames.
   """
-  fps = fps or frame_rate(scenario.ground_truth)
+  fps = fps or ground_truth_frame_rate(scenario)
   if fps is None or scenario.tracks.empty:
     return []
   origin = min(table["t"].min() for table in (scenario.tracks, scenario.ground_truth)
