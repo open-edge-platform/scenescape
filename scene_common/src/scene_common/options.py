@@ -74,10 +74,15 @@ def sync_legacy_pose_source(camera):
 
 
 def pose_is_live(camera):
-  """True when runtime pose class is live (or legacy pose_source is observation)."""
+  """True when runtime pose class is live.
+
+  Provenance.class is authoritative when present so callers cannot disagree
+  with published pose_provenance. Fall back to legacy pose_source only for
+  in-memory objects that predate provenance stamps.
+  """
   provenance = getattr(camera, 'pose_provenance', None) or {}
-  if provenance.get('class') == POSE_CLASS_LIVE:
-    return True
+  if isinstance(provenance, dict) and 'class' in provenance:
+    return provenance['class'] == POSE_CLASS_LIVE
   return getattr(camera, 'pose_source', None) == POSE_OBSERVATION
 
 
