@@ -171,3 +171,13 @@ TEST(UnscentedKalmanFilterTest, SelectRowsAndBlockShareContiguousData)
     }
   }
 }
+
+// The covariance repair needs double precision: float32 rounding loses its eigenvalue floor. robot_vision only creates
+// double-precision filters, so single precision is rejected.
+TEST(UnscentedKalmanFilterTest, RejectsSinglePrecision)
+{
+  const cv::detail::tracking::UnscentedKalmanFilterParams params(
+    kStateSize, kMeasurementSize, 1, 1e-3, 0.2, cv::makePtr<rv::tracking::CVModel>(), CV_32F);
+
+  EXPECT_THROW(cv::detail::tracking::createUnscentedKalmanFilterMod(params), cv::Exception);
+}

@@ -18,15 +18,15 @@ namespace tracking {
 
 namespace {
 
+// Smallest eigenvalue a repaired covariance keeps; far above double rounding and the Cholesky pivot threshold.
+constexpr double kMinEigenvalue = 1e-9;
+
 // Lower Cholesky factor of covMatrix; false if it is not positive definite.
 bool choleskyFactor(const Mat &covMatrix, Mat &covMatrixL)
 {
   covMatrixL = covMatrix.clone();
-  if (covMatrix.type() == CV_64F)
-    return choleskyDecomposition<double>(
-      covMatrix.ptr<double>(), covMatrix.step, covMatrix.rows, covMatrixL.ptr<double>(), covMatrixL.step);
-  return choleskyDecomposition<float>(
-    covMatrix.ptr<float>(), covMatrix.step, covMatrix.rows, covMatrixL.ptr<float>(), covMatrixL.step);
+  return choleskyDecomposition<double>(
+    covMatrix.ptr<double>(), covMatrix.step, covMatrix.rows, covMatrixL.ptr<double>(), covMatrixL.step);
 }
 
 // Nearest symmetric positive definite matrix: symmetrize and raise the eigenvalues to a small floor.
@@ -38,7 +38,7 @@ Mat repairCovariance(const Mat &covMatrix)
   eigen(symmetric, eigenvalues, eigenvectors);
   double largest = 0.0;
   minMaxLoc(eigenvalues, nullptr, &largest);
-  const Mat raised = max(eigenvalues, std::max(1e-9, largest * 1e-12));
+  const Mat raised = max(eigenvalues, std::max(kMinEigenvalue, largest * 1e-12));
   return eigenvectors.t() * Mat::diag(raised) * eigenvectors;
 }
 
@@ -51,7 +51,8 @@ UnscentedKalmanFilterMod::UnscentedKalmanFilterMod(const UnscentedKalmanFilterPa
   k = params.k;
 
   CV_Assert(params.DP > 0 && params.MP > 0);
-  CV_Assert(params.dataType == CV_32F || params.dataType == CV_64F);
+  // Double precision only: float32 rounding would lose the eigenvalue floor of the covariance repair.
+  CV_Assert(params.dataType == CV_64F);
   DP = params.DP;
   MP = params.MP;
   CP = std::max(params.CP, 0);
@@ -90,16 +91,8 @@ UnscentedKalmanFilterMod::UnscentedKalmanFilterMod(const UnscentedKalmanFilterPa
   Wm = tmp2Lambda * Mat::ones(2 * DP + 1, 1, dataType);
   Wc = tmp2Lambda * Mat::eye(2 * DP + 1, 2 * DP + 1, dataType);
 
-  if (dataType == CV_64F)
-  {
-    Wm.at<double>(0, 0) = lambda / tmpLambda;
-    Wc.at<double>(0, 0) = lambda / tmpLambda + 1.0 - alpha * alpha + beta;
-  }
-  else
-  {
-    Wm.at<float>(0, 0) = (float)(lambda / tmpLambda);
-    Wc.at<float>(0, 0) = (float)(lambda / tmpLambda + 1.0 - alpha * alpha + beta);
-  }
+  Wm.at<double>(0, 0) = lambda / tmpLambda;
+  Wc.at<double>(0, 0) = lambda / tmpLambda + 1.0 - alpha * alpha + beta;
 }
 
 UnscentedKalmanFilterMod::~UnscentedKalmanFilterMod()
@@ -150,7 +143,13 @@ Mat UnscentedKalmanFilterMod::getSigmaPoints(const Mat &mean, Mat &covMatrix, do
       std::cerr << "UnscentedKalmanFilterMod: covariance not positive definite, repaired before drawing sigma points\n";
     });
     covMatrix = repairCovariance(covMatrix);
-    choleskyFactor(covMatrix, covMatrixL);
+    if (!choleskyFactor(covMatrix, covMatrixL))
+    {
+      // Not reached for a finite repaired covariance; never draw from a half-factorised matrix.
+      Mat deviations;
+      sqrt(max(covMatrix.diag(), kMinEigenvalue), deviations);
+      covMatrixL = Mat::diag(deviations);
+    }
   }
 
   covMatrixL = coef * covMatrixL;
