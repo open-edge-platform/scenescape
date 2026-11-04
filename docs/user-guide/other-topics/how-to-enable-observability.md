@@ -124,7 +124,7 @@ The Scene Controller emits the following OpenTelemetry instruments under the
 - `scenescape_controller_mqtt_messages` (counter) — MQTT messages received
   and processed.
 - `scenescape_controller_mqtt_messages_dropped` (counter) — MQTT messages
-  dropped.
+  dropped, one per camera message, also when a time chunk is skipped.
 - `scenescape_controller_mqtt_handler_duration` (histogram, ms) — MQTT
   handler processing time.
 - `scenescape_controller_tracking_duration` (histogram, ms) — Tracking
