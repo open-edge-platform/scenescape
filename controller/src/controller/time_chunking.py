@@ -111,7 +111,7 @@ class TimeChunkProcessor(threading.Thread):
                 "category": category,
                 "reason": "tracker_busy"
             }
-            metrics.inc_dropped(metrics_attributes)
+            metrics.inc_dropped(metrics_attributes, len(camera_dict))
             continue
 
           # Create aggregated lists: list of lists where each inner list contains objects from one camera

@@ -7,6 +7,13 @@ import unittest
 from datetime import datetime, timedelta
 import cv2
 
+# The velocity process noise grows with speed and has a floor (see "Kalman filter settings" in
+# controller/src/robot_vision/README.md), so a constant-velocity track follows the detection noise more
+# closely than with the former isotropic process noise: 3 to 6 times the velocity error. The noise is
+# seeded so the checks are deterministic; the worst of these tests is at about a third of the tolerance.
+VELOCITY_TOLERANCE = 0.05  # m/s
+NOISE_SEED = 1
+
 def create_object_at_location(x : float = 0., y: float= 0., z : float= 0., yaw : float = 0., classification=np.full((1,), 1.0)):
   object_ = tracking.TrackedObject()
   object_.x = x
@@ -87,11 +94,12 @@ class TestTracking(unittest.TestCase):
 
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
 
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -103,8 +111,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
   def test_constant_velocity_single_object_with_noise_use_track_distance_overload(self):
     """
@@ -133,11 +141,12 @@ class TestTracking(unittest.TestCase):
 
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
 
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -149,8 +158,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
 class TestMultiModelKalmanEstimator(unittest.TestCase):
   def test_constant_velocity_single_object_with_noise(self):
@@ -169,10 +178,11 @@ class TestMultiModelKalmanEstimator(unittest.TestCase):
     estimator.initialize(initial_estimate, initial_timestamp, motion_models=[tracking.MotionModel.CV]) # initialize tracker with zero objects
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -180,8 +190,8 @@ class TestMultiModelKalmanEstimator(unittest.TestCase):
       object_ = create_object_at_location(x=x, y=y, classification=classification_data.classification('Car', 1.0))
       estimator.track(object_, timestamp)
     tracked_object = estimator.current_state()
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
   def testPredictFunctionDoubleAndTimestamp(self):
     estimator_a = tracking.MultiModelKalmanEstimator()
@@ -224,11 +234,12 @@ class TestTrackManager(unittest.TestCase):
 
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
 
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -242,8 +253,8 @@ class TestTrackManager(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.05)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.05)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
     # set track as suspended, reliable tracks should be empty now
     track_manager.suspend_track(tracked_object.id)

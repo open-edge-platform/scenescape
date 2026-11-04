@@ -198,7 +198,7 @@ The in-process entry point mirrors the RPC contract as
 `submit_ptz_sample(PTZSample) -> PTZSampleAck`, preserving the same validation and
 acknowledgement semantics without serialization, a channel, or a network boundary.
 
-The `.proto` is a shared, published contract stored at `api/positioning/v1/`, not
+The `.proto` is a shared, published contract stored at `docs/user-guide/api-docs/positioning/v1/`, not
 privately in a module. Generate the Python message types from this single source and use
 those types at the in-process poller-to-Resolver boundary. Publish the versioned `.proto`
 for future Sensor Manager integrations. The protobuf package namespace
@@ -555,6 +555,31 @@ results are not supplied by the PoC.
 `ptz_calibration` never contains device credentials. Local config files are limited to
 the isolated lab, offline tools, and tests, not production service configuration.
 
+#### Manager implementation details
+
+Manager stores nullable `ptz_calibration` on `Cam` and exposes it through
+`GET`, `POST`, and `PUT /api/v1/camera/{uid}`; collection reads remain available at
+`GET /api/v1/cameras`. `CamSerializer` delegates to the reusable
+`manager.ptz_calibration.validate_ptz_calibration` helper for REST writes and
+calibration imports, including finite-value, compatibility, positive motion/backlash
+parameters within calibrated travel, and configured residual threshold checks; errors
+are stable `<path>: <code>` strings. The read-only `pose_matrix` field exposes the
+computed home pose for both Euler and point-correspondence cameras. Saving a camera
+publishes a versioned configuration invalidation only after the transaction commits;
+the Resolver then reloads the calibration through its read-only Manager client.
+
+Manager does not apply Positioning-specific MQTT topic authorization. Positioning
+connects to the standard broker TLS listener with its `positioning.auth` identity and
+publishes only its own status on the configured
+`scenescape/positioning/status/{resolver_id}` topic and poses on the registered
+`scenescape/positioning/pose/{source_id}` topics of its assigned sources. Source
+ownership is validated by Positioning at startup against the deployment assignment
+manifest, which remains the only `source_id -> resolver_id` mapping; consumers use
+the same manifest to select the owning Resolver's status topic.
+
+The per-camera procedure is in
+[Onboard PTZ Cameras](../user-guide/how-to-guides/calibrate-cameras/onboard-ptz-cameras.md).
+
 ### 5.6 What changes for projection
 
 v1 deliberately uses a side-channel: detections continue through the existing paths and
@@ -680,7 +705,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 8. Rollout / Migration Plan
 
-1. **Contracts and math** — add the versioned `.proto` to `api/positioning/v1/`, generate
+1. **Contracts and math** — add the versioned `.proto` to `docs/user-guide/api-docs/positioning/v1/`, generate
    message types for the in-process poller-to-Resolver boundary, and publish the contract
    plus compatibility policy for future Sensor Manager consumers. Define the source-keyed
    `positioning/pose/{source_id}` contract, status/LWT topic, `valid_until`, canonical
@@ -783,10 +808,11 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   [Testing & Monitoring](#9-testing--monitoring), but each deployment owner must supply
   numerical ground-plane error and camera-to-tracker latency limits before enabling a
   camera. Missing limits mean the feature remains disabled.
-- **UI live-pose visualization.** The PoC's Manager redraw depended on writing live
-  rotation to the camera record. v1 does not do that. The recommended follow-up is for
-  the UI to subscribe to the resolved pose/status topics for display only; this UI
-  consumer is not on the projection critical path.
+- **UI live-pose visualization.** Implemented as a display-only consumer: the Manager 3D
+  view and camera calibration page subscribe to the resolved pose topic of each PTZ
+  camera, show valid stationary poses, and hide the projected frame otherwise. They do
+  not write the live pose to the camera record. Showing the pose during slewing remains
+  out of scope.
 - **Fast-slew synchronization.** v1 fails closed while slewing and settling. If product
   requirements later require tracking during motion, evaluate ONVIF Timed Metadata/RTP
   association or a higher-rate timestamped pose source; do not weaken the v1 gate without
@@ -825,6 +851,7 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
 
 ## 11. References
 
+- [Positioning PTZ v1: Contracts Reference](./positioning-ptz-contracts.md) (normative topic, schema, dwell, reason, and configuration contracts)
 - [ADR 13 — Controller Breakdown into Functionality-Aligned Microservices](../adr/0013-controller-breakdown-microservices.md)
 - [ADR 16 — Unified External-Source Ingestion Contract](../adr/0016-unified-external-source-ingestion.md) (publisher-centric contract precedent; `external_source` is not reused for pixel-space camera detections)
 - PoC: `ptz_pose_service/` (`src/pose_math.py`, `src/ptz_pose_context.py`, `src/ptz_pose_service.py`, `README.md`, `tools/`)

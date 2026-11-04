@@ -10,6 +10,7 @@ import {
   DATA_REGULATED,
   IMAGE_CALIBRATE,
   IMAGE_CAMERA,
+  POSITIONING_POSE,
   SYS_CHILDSCENE_STATUS,
   REST_URL,
 } from "/static/js/constants.js";
@@ -26,6 +27,7 @@ import {
   initializeCalibrationSettings,
   startCameraCalibration,
   updateCalibrationView,
+  updateCalibrationPTZPose,
   handleAutoCalibrationPose,
   registerAutoCameraCalibration,
 } from "/static/js/calibration.js";
@@ -48,6 +50,7 @@ import {
   selectionMouseMove,
   selectionMouseUp,
 } from "/static/js/regions/area-select.js";
+import { PTZ_AWAY_MESSAGE } from "/static/js/ptzpose.js";
 
 var svgCanvas = Snap("#svgout");
 import RESTClient from "/static/js/restclient.js";
@@ -161,6 +164,11 @@ async function checkBrokerConnections() {
       if ($("#topic").val() !== undefined) {
         client.subscribe($("#topic").val());
         console.log("Subscribed to " + $("#topic").val());
+      }
+
+      // PTZ cameras: follow the live pose on the calibration page.
+      if ($("#ptz_calibration_version").val()) {
+        client.subscribe(APP_NAME + POSITIONING_POSE + $("#sensor_id").val());
       }
 
       client.subscribe(APP_NAME + "/event/" + "+/" + scene_id + "/+/+");
@@ -290,6 +298,8 @@ async function checkBrokerConnections() {
         plotSingleton(msg);
       } else if (topic.includes(IMAGE_CALIBRATE)) {
         updateCalibrationView(msg);
+      } else if (topic.includes(POSITIONING_POSE)) {
+        updateCalibrationPTZPose(msg);
       } else if (topic.includes(IMAGE_CAMERA)) {
         // Skip processing regular camera images on calibration page
         if (window.location.href.includes("/cam/calibrate/")) {
@@ -364,6 +374,10 @@ $("#auto-autocalibration").on("click", async function () {
   }
 
   const camera_id = $("#sensor_id").val();
+  if (camera_calibration.isPTZAwayFromHome()) {
+    alert(PTZ_AWAY_MESSAGE);
+    return;
+  }
   if (btn) {
     btn.disabled = true;
   }
