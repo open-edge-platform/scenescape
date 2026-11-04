@@ -266,7 +266,9 @@ The denominator is the total of the `scenescape_controller_mqtt_messages` and
 `tracker.mqtt.messages` counters, plus the messages the Tracker rejected before accepting them
 (`tracker.mqtt.dropped` with a `rejected_*` reason), which `tracker.mqtt.messages` does not count.
 A run that dropped messages but received none is reported as 100%. Dropped messages are counted
-per camera, so the ratio does not depend on the number of cameras in the dataset.
+per camera, so the ratio does not depend on the number of cameras in the dataset. Drops after the
+split by category (busy tracker, full queue) count once per category, so with several categories
+the ratio errs high and can exceed 100%.
 The aggregated values are also available programmatically via
 `metrics_recorder.collect_metric_values()` and `metrics_recorder.check_dropped_frames()`.
 

@@ -116,8 +116,9 @@ graph LR
 
 Received messages are `tracker.mqtt.messages`, which counts accepted messages only, plus the messages
 rejected on arrival (`tracker.mqtt.dropped` with a `rejected_*` reason, e.g. lag or schema). Messages
-dropped later (`dropped_*`, e.g. queue full) were already accepted. A run in which the tracker
-received no messages fails the dropped-message gate. The computation is in [sli.py](sli.py).
+dropped later (`dropped_*`, e.g. queue full) were already accepted, and count once per active
+category, so with several categories the ratio errs high and can exceed 100%. A run in which the
+tracker received no messages fails the dropped-message gate. The computation is in [sli.py](sli.py).
 Messages from cameras that are not in `config/scenes.json` never reach the tracker (it subscribes
 only to registered cameras), so they show only as a throughput warning.
 
