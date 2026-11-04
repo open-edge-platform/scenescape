@@ -405,31 +405,72 @@ test("known locked authority blocks queued live poses", async () => {
   const { manager, calls } = await harness(() => cameras);
   await manager.load(params);
   calls.length = 0;
-  manager.updatePoses([{ id: "a", pose_locked: false, dynamic_pose: false }]);
+  manager.updatePoses([
+    {
+      id: "a",
+      pose_locked: false,
+      pose_provenance: { class: "calibration", origin: "manager.rest" },
+    },
+  ]);
   assert.equal(calls.length, 0);
-  manager.updatePoses([{ id: "a", pose_locked: false, dynamic_pose: true }]);
+  manager.updatePoses([
+    {
+      id: "a",
+      pose_locked: false,
+      pose_provenance: { class: "live", origin: "detector.extrinsics" },
+    },
+  ]);
   assert.equal(calls.length, 1);
   cameras = [{ uid: "a", pose_locked: true }];
   await manager.syncWithDatabase(params, {}, "app", true);
-  manager.updatePoses([{ id: "a", pose_locked: false, dynamic_pose: true }]);
-  manager.updatePoses([{ id: "a", dynamic_pose: true }]);
+  manager.updatePoses([
+    {
+      id: "a",
+      pose_locked: false,
+      pose_provenance: { class: "live", origin: "detector.extrinsics" },
+    },
+  ]);
+  manager.updatePoses([
+    {
+      id: "a",
+      pose_provenance: { class: "live", origin: "detector.extrinsics" },
+    },
+  ]);
   assert.equal(calls.length, 1);
   cameras = [{ uid: "a", pose_locked: false }];
   await manager.syncWithDatabase(params, {}, "app", true);
-  manager.updatePoses([{ id: "a", pose_locked: true, dynamic_pose: true }]);
+  manager.updatePoses([
+    {
+      id: "a",
+      pose_locked: true,
+      pose_provenance: { class: "live", origin: "detector.extrinsics" },
+    },
+  ]);
   assert.equal(calls.length, 1);
-  manager.updatePoses([{ id: "a", dynamic_pose: true }]);
+  manager.updatePoses([
+    {
+      id: "a",
+      pose_provenance: { class: "live", origin: "detector.extrinsics" },
+    },
+  ]);
   assert.equal(calls.length, 2);
 });
 
-test("only explicitly dynamic poses overwrite camera edits", async () => {
+test("only live provenance poses overwrite camera edits", async () => {
   const { manager, calls } = await harness(() => [{ uid: "a", name: "A" }]);
   await manager.load(params);
   calls.length = 0;
   manager.updatePoses([
-    { id: "a", dynamic_pose: false },
+    {
+      id: "a",
+      pose_provenance: { class: "calibration", origin: "manager.rest" },
+    },
     { id: "a" },
-    { id: "missing", dynamic_pose: true },
+    {
+      id: "missing",
+      pose_provenance: { class: "live", origin: "detector.extrinsics" },
+    },
+    // Deprecated alias still accepted during migration.
     { id: "a", dynamic_pose: true, translation: [1, 2, 3] },
   ]);
   assert.equal(calls.length, 1);

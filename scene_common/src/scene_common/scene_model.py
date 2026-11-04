@@ -9,7 +9,13 @@ from threading import RLock
 from scene_common import log
 from scene_common.camera import Camera
 from scene_common.mesh_util import extractTriangleMesh
-from scene_common.options import POSE_OBSERVATION
+from scene_common.options import (
+  POSE_CLASS_LIVE,
+  POSE_ORIGIN_DETECTOR_EXTRINSICS,
+  make_pose_provenance,
+  pose_is_live,
+  sync_legacy_pose_source,
+)
 from scene_common.transform import CameraPose, validate_camera_extrinsics
 
 
@@ -79,10 +85,16 @@ class SceneModel:
     if (not getattr(camera, 'pose_locked', False)
         and previous is not None
         and not getattr(previous, 'pose_locked', False)
-        and getattr(previous, 'pose_source', None) == POSE_OBSERVATION
+        and pose_is_live(previous)
         and getattr(camera, 'pose', None) is not None):
       camera.pose = CameraPose(previous.pose.pose_mat.copy(), camera.pose.intrinsics)
-      camera.pose_source = POSE_OBSERVATION
+      previous_provenance = getattr(previous, 'pose_provenance', None)
+      if isinstance(previous_provenance, dict):
+        camera.pose_provenance = dict(previous_provenance)
+      else:
+        camera.pose_provenance = make_pose_provenance(
+          POSE_CLASS_LIVE, POSE_ORIGIN_DETECTOR_EXTRINSICS)
+      sync_legacy_pose_source(camera)
 
   def retainObservedCameraPoses(self, previous_scene):
     """Transfer eligible observed poses from a replaced scene instance."""
@@ -103,7 +115,9 @@ class SceneModel:
       camera = copy(current)
       camera.pose = pose
       camera.pose_locked = False
-      camera.pose_source = POSE_OBSERVATION
+      camera.pose_provenance = make_pose_provenance(
+        POSE_CLASS_LIVE, POSE_ORIGIN_DETECTOR_EXTRINSICS)
+      sync_legacy_pose_source(camera)
       self.cameras[camera_id] = camera
 
   def cameraSnapshot(self, camera_id=None, extrinsics=None):

@@ -13,7 +13,12 @@ from scene_common.cache_manager import CacheManager
 from scene_common.detections_builder import buildDetectionsList, computeCameraBounds
 from scene_common import log
 from scene_common.mqtt import PubSub
-from scene_common.options import POSE_OBSERVATION
+from scene_common.options import (
+  POSE_CLASS_CALIBRATION,
+  POSE_ORIGIN_UNKNOWN,
+  make_pose_provenance,
+  pose_is_live,
+)
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import get_epoch_time, get_iso_time
 
@@ -95,14 +100,25 @@ class AnalyticsService:
     scale = pose.scale
     if hasattr(scale, "tolist"):
       scale = scale.tolist()
+    pose_locked = bool(getattr(camera, 'pose_locked', False))
+    provenance = getattr(camera, 'pose_provenance', None)
+    if not isinstance(provenance, dict) or 'class' not in provenance:
+      provenance = make_pose_provenance(POSE_CLASS_CALIBRATION, POSE_ORIGIN_UNKNOWN)
+    live = (not pose_locked) and pose_is_live(camera)
     return {
       'id': camera.cameraID,
       'translation': pose.translation.asNumpyCartesian.tolist(),
       'rotation': pose.quaternion_rotation.tolist(),
       'scale': list(scale),
-      'pose_locked': bool(getattr(camera, 'pose_locked', False)),
-      'dynamic_pose': (not getattr(camera, 'pose_locked', False)
-               and getattr(camera, 'pose_source', None) == POSE_OBSERVATION),
+      'pose_locked': pose_locked,
+      # ADR 18: preferred UI follow signal; dynamic_pose is a deprecated alias.
+      'pose_provenance': {
+        'class': provenance.get('class', POSE_CLASS_CALIBRATION),
+        'origin': provenance.get('origin', POSE_ORIGIN_UNKNOWN),
+        **({'updated_at': provenance['updated_at']}
+           if provenance.get('updated_at') is not None else {}),
+      },
+      'dynamic_pose': live,
     }
 
   @staticmethod

@@ -2,7 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from scene_common.geometry import Point
-from scene_common.options import POSE_CONFIGURED
+from scene_common.options import (
+  POSE_CLASS_CALIBRATION,
+  POSE_ORIGIN_MANAGER_REST,
+  make_pose_provenance,
+  sync_legacy_pose_source,
+)
 from scene_common.transform import CameraIntrinsics, CameraPose
 import numpy as np
 
@@ -33,7 +38,10 @@ class Camera:
       self.pose_locked = bool(value)
     else:
       self.pose_locked = False
-    self.pose_source = POSE_CONFIGURED
+    # Durable Manager config is the starting provenance until a live write.
+    self.pose_provenance = make_pose_provenance(
+      POSE_CLASS_CALIBRATION, POSE_ORIGIN_MANAGER_REST)
+    sync_legacy_pose_source(self)
 
     if resolution is None and 'width' in info and 'height' in info:
       resolution = (info['width'], info['height'])

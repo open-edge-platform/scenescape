@@ -94,22 +94,23 @@ in the integration guide.
 ## Regulated Scene Output Message Format
 
 The `cameras` list includes configured cameras and their latest valid per-message
-poses. Entries with `dynamic_pose: true` drive live camera movement in the 3D UI;
-static entries do not overwrite unsaved camera edits. Invalid extrinsics are
-logged and leave the last valid pose (or configured pose) intact. Dynamic poses
-also apply to projected camera bounds without changing stored calibration.
-Missing or empty object visibility is filled using the latest valid observation
-poses before events are evaluated; nonempty producer visibility is preserved.
-Each regulated publication reprojects camera bounds for all cached categories
-against the same observation poses, including categories absent from that input frame.
+poses. Entries with `pose_provenance.class` of `live` drive live camera movement
+in the 3D UI; `calibration` entries do not overwrite unsaved camera edits.
+Invalid extrinsics are logged and leave the last valid pose (or configured pose)
+intact. Live poses also apply to projected camera bounds without changing stored
+calibration. Missing or empty object visibility is filled using the latest valid
+observation poses before events are evaluated; nonempty producer visibility is
+preserved. Each regulated publication reprojects camera bounds for all cached
+categories against the same observation poses, including categories absent from
+that input frame.
 
-Each runtime camera retains one effective pose, its `pose_locked` flag, and pose
-provenance. Durable calibration belongs to Manager, not a second runtime pose.
-When unlocked, Analytics accepts valid observation extrinsics and retains them
-across configuration refreshes while updating optics. Before the first
-observation it uses stored calibration. When locked, observation extrinsics and
-incoming camera-message optics are ignored and stored calibration reloads on
-refresh.
+Each runtime camera retains one effective pose, its `pose_locked` flag, and
+`pose_provenance` (`class` + `origin`). Durable calibration belongs to Manager,
+not a second runtime pose. When unlocked, Analytics accepts valid observation
+extrinsics and retains them across configuration refreshes while updating optics.
+Before the first observation it uses stored calibration (`class: calibration`).
+When locked, observation extrinsics and incoming camera-message optics are
+ignored and stored calibration reloads on refresh.
 
 Locking resets the effective pose when configuration refreshes; unlocking starts
 from calibration until the next valid observation. Saving calibration alone while
@@ -117,20 +118,20 @@ unlocked does not reset a live pose. Visibility, projected bounds, and published
 camera poses use one atomic observation snapshot. Live poses do not expire on
 missing or invalid input. Removing a camera, moving it to another scene, or
 restarting the process discards its live pose.
-See [Camera Pose Lock](../../api-reference.md#camera-pose-lock) for configuration
-and upgrade requirements.
+See [Camera Pose Lock](../../api-reference.md#camera-pose-lock) and
+[ADR 18](../../../adr/0018-camera-pose-provenance.md) for configuration and
+provenance details.
 
-Each camera entry contains `id`, `translation`, `rotation`, `scale`, and
-`pose_locked`, plus the backward-compatible `dynamic_pose` flag. That flag is
-derived from accepted observation provenance, not simply from the lock flag:
-it remains false until the first valid observed pose. Published `rotation` is
-always a normalized quaternion in
-`[x, y, z, w]` order, mapping camera-local axes into the scene coordinate system.
-Configured and incoming intrinsic XYZ Euler rotations (degrees) remain supported
-as inputs and are converted to quaternions for publication. Consumers must not
-interpret the published rotation as Euler angles; display-specific conversion
-belongs in the client. Translation and scale retain their existing scene units
-and per-axis conventions.
+Each camera entry contains `id`, `translation`, `rotation`, `scale`,
+`pose_locked`, and `pose_provenance`. The deprecated `dynamic_pose` flag remains
+as an alias of `pose_provenance.class === "live"` during migration; new consumers
+must use `pose_provenance`. Published `rotation` is always a normalized
+quaternion in `[x, y, z, w]` order, mapping camera-local axes into the scene
+coordinate system. Configured and incoming intrinsic XYZ Euler rotations
+(degrees) remain supported as inputs and are converted to quaternions for
+publication. Consumers must not interpret the published rotation as Euler
+angles; display-specific conversion belongs in the client. Translation and scale
+retain their existing scene units and per-axis conventions.
 
 Published on MQTT topic: `scenescape/regulated/scene/{scene_id}`
 

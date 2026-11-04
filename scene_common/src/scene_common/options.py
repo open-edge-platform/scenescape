@@ -21,8 +21,50 @@ EULER = 'euler'
 QUATERNION = 'quaternion'
 POINT_CORRESPONDENCE = '3d-2d point correspondence'
 
+# Pose provenance class (ADR 18). Behavioral bucket for UI follow and consumers.
+POSE_CLASS_CALIBRATION = 'calibration'
+POSE_CLASS_LIVE = 'live'
+
+# Pose provenance origins (ADR 18). Extensible writer identity; phase-2 write ACL.
+POSE_ORIGIN_MANAGER_REST = 'manager.rest'
+POSE_ORIGIN_MANAGER_MESH = 'manager.mesh'
+POSE_ORIGIN_MANAGER_IMPORT = 'manager.import'
+POSE_ORIGIN_DETECTOR_EXTRINSICS = 'detector.extrinsics'
+POSE_ORIGIN_EXTERNAL_SOURCE = 'external_source'
+POSE_ORIGIN_UNKNOWN = 'unknown'
+
+# Deprecated legacy pose_source strings; kept synced from provenance.class.
 POSE_CONFIGURED = 'configured'
 POSE_OBSERVATION = 'observation'
+
+
+def make_pose_provenance(pose_class, origin, updated_at=None):
+  """Build a pose_provenance dict for runtime camera state."""
+  provenance = {
+    'class': pose_class,
+    'origin': origin,
+  }
+  if updated_at is not None:
+    provenance['updated_at'] = updated_at
+  return provenance
+
+
+def sync_legacy_pose_source(camera):
+  """Keep camera.pose_source aligned with pose_provenance.class during migration."""
+  provenance = getattr(camera, 'pose_provenance', None) or {}
+  if provenance.get('class') == POSE_CLASS_LIVE:
+    camera.pose_source = POSE_OBSERVATION
+  else:
+    camera.pose_source = POSE_CONFIGURED
+
+
+def pose_is_live(camera):
+  """True when runtime pose class is live (or legacy pose_source is observation)."""
+  provenance = getattr(camera, 'pose_provenance', None) or {}
+  if provenance.get('class') == POSE_CLASS_LIVE:
+    return True
+  return getattr(camera, 'pose_source', None) == POSE_OBSERVATION
+
 
 ENVIRONMENTAL = 'environmental'
 ATTRIBUTE = 'attribute'

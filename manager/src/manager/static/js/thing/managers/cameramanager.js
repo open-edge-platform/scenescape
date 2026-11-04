@@ -103,7 +103,11 @@ export default class CameraManager extends ThingManager {
   updatePoses(cameras) {
     if (!Array.isArray(cameras)) return;
     for (const camera of cameras) {
-      if (camera.dynamic_pose !== true) continue;
+      // ADR 18: follow live provenance; dynamic_pose remains a deprecated alias.
+      const live =
+        camera.pose_provenance?.class === "live" ||
+        camera.dynamic_pose === true;
+      if (!live) continue;
       const sceneCamera = this.sceneCameras[camera.id];
       if (sceneCamera && !sceneCamera.poseLocked && !camera.pose_locked)
         sceneCamera.updatePose(camera);

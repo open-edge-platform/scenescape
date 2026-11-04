@@ -118,6 +118,8 @@ def test_regulated_output_uses_latest_dynamic_camera_pose(invalid, rotation):
 
   payload = orjson.loads(service.pubsub.publish.call_args.args[1])
   assert payload['cameras'][0]['id'] == 'handheld-01'
+  assert payload['cameras'][0]['pose_provenance']['class'] == 'live'
+  assert payload['cameras'][0]['pose_provenance']['origin'] == 'detector.extrinsics'
   assert payload['cameras'][0]['dynamic_pose'] is True
   assert payload['cameras'][0]['translation'] == [4.0, 5.0, 6.0]
   assert payload['cameras'][0]['rotation'] == pytest.approx([0, 0, 0.5 ** 0.5, 0.5 ** 0.5])
@@ -133,6 +135,8 @@ def test_configured_camera_state_publishes_quaternion():
   assert state['rotation'] == pytest.approx([1, 0, 0, 0])
   assert state['translation'] == [0, 0, 3]
   assert state['pose_locked'] is False
+  assert state['pose_provenance']['class'] == 'calibration'
+  assert state['pose_provenance']['origin'] == 'manager.rest'
   assert state['dynamic_pose'] is False
 
 
@@ -147,6 +151,7 @@ def test_configured_policy_ignores_observation_and_publishes_static_provenance()
   assert observation.cameras['mobile'] is original
   state = AnalyticsService._camera_state(original)
   assert state['pose_locked'] is True
+  assert state['pose_provenance']['class'] == 'calibration'
   assert state['dynamic_pose'] is False
   assert state['translation'] == [0, 0, 3]
 
@@ -285,6 +290,8 @@ def test_camera_publication_uses_projection_snapshot_during_configuration_refres
     service.publishRegulatedDetections(scene, [], 'person', message, None)
   payload = orjson.loads(service.pubsub.publish.call_args.args[1])
   assert payload['cameras'][0]['translation'] == [10, 20, 3]
+  assert payload['cameras'][0]['pose_provenance']['class'] == 'live'
+  assert payload['cameras'][0]['pose_provenance']['origin'] == 'detector.extrinsics'
   assert payload['cameras'][0]['dynamic_pose'] is True
   message.pop('extrinsics')
   service.publishRegulatedDetections(scene, [], 'person', message, None)
