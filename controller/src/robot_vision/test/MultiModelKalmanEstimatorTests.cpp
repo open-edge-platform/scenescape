@@ -141,6 +141,33 @@ TEST(MultiModelKalmanEstimatorTest, ReinitializeDoesNotDuplicateFilters)
   EXPECT_EQ(estimator.mSystemModelStates.size(), 3U);
 }
 
+// Pins the sigma-point weights (kappa = 3 - n): they reproduce a Gaussian's fourth moment, which keeps CTRV's predicted
+// mean exact enough under a large turn-rate uncertainty. kappa = 0 gives 2.51 m/s here instead of 1.82.
+TEST(MultiModelKalmanEstimatorTest, CtrvPredictionKeepsGaussianMeanUnderTurnRateUncertainty)
+{
+  constexpr double kSpeed = 3.0;
+  const auto config = productionConfig();
+  auto detection = makeDetection(0.0, 0.0, 0.0, kCar.length, kCar.width, kCar.height);
+  detection.vx = kSpeed;
+  MultiModelKalmanEstimator estimator;
+  estimator.initialize(detection,
+                       atSeconds(0.0),
+                       config.mDefaultProcessNoise,
+                       config.mDefaultMeasurementNoise,
+                       config.mInitStateCovariance,
+                       {MotionModel::CTRV});
+  auto &filter = estimator.mKalmanFilters[0];
+  cv::Mat errorCov = filter->getErrorCov();
+  errorCov.at<double>(idx::YawRate, idx::YawRate) = 1.0;
+  filter->setStateAndCovariance(filter->getState(), errorCov);
+
+  estimator.predict(1.0);
+
+  // The turn rate is independent of the velocity, so the mean velocity is the velocity turned by E[cos(w dt)].
+  const double expected = kSpeed * std::exp(-0.5);
+  EXPECT_NEAR(std::hypot(estimator.currentState().vx, estimator.currentState().vy), expected, 0.05);
+}
+
 TEST(MultiModelKalmanEstimatorTest, IsMoveOnly)
 {
   // A copy would share the per-model filters and probability matrices with the original.
@@ -152,7 +179,8 @@ TEST(MultiModelKalmanEstimatorTest, IsMoveOnly)
 
 TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps)
 {
-  // Measured states start at the measurement noise; init_state_covariance only caps the latent states.
+  // Measured states start at the measurement noise and velocity at init_state_covariance, which only caps acceleration,
+  // yaw and yaw rate.
   struct Case
   {
     double initStateCovariance;
@@ -163,7 +191,7 @@ TEST(MultiModelKalmanEstimatorTest, InitialCovarianceUsesMeasurementNoiseAndCaps
   };
   constexpr double kMeasurementNoise = 0.2;
 
-  for (const auto &expected : {Case{100.0, 0.05, 0.1, 0.05, 0.01}, Case{1e-3, 1e-3, 1e-3, 1e-3, 1e-3}})
+  for (const auto &expected : {Case{100.0, 100.0, 0.1, 0.05, 0.01}, Case{1e-3, 1e-3, 1e-3, 1e-3, 1e-3}})
   {
     SCOPED_TRACE("init_state_covariance " + std::to_string(expected.initStateCovariance));
     MultiModelKalmanEstimator estimator;

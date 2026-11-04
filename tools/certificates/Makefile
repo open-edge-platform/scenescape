@@ -19,6 +19,7 @@ default: deploy-certificates
 .SECONDARY:
 
 deploy-certificates: ca broker-cert web-cert reid-cert reid-s-cert autocalibration-cert mapping-cert
+	@chmod 0600 $(CASECRETSDIR)/ca/scenescape-ca.key
 
 deploy-csr: broker-csr web-csr reid-csr reid-s-csr autocalibration-csr mapping-csr
 
@@ -112,7 +113,7 @@ $(CASECRETSDIR)/ca/scenescape-ca.key:
 	@mkdir -p $(CASECRETSDIR)/ca
 	@if [ -n "$(CERTPASS)" ] ; then PASSFLAGS="-passout pass:$(CERTPASS)" ; fi ; \
 	openssl ecparam -name secp384r1 -genkey | openssl ec -aes256 $${PASSFLAGS} -out $@
-	@chmod 0644 $@
+	@chmod 0600 $@
 
 $(CASECRETSDIR)/certs/scenescape-ca.pem: $(CASECRETSDIR)/ca/scenescape-ca.key
 	@echo Generating root CA certificate

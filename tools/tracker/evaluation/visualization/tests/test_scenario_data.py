@@ -4,9 +4,12 @@
 """Tests for loading robot-vision scenario recordings.
 
 fixtures/target_born_moving is recorder output of MotionScenarioTest.TargetBornMovingAcquiresSpeed
-(controller/src/robot_vision/test). Regenerate with:
-  RV_SCENARIO_DIR=<dir> RobotVisionTests \
+(controller/src/robot_vision/test). Regenerate it after a filter change, with RobotVisionTests built as in
+controller/src/robot_vision/README.md#test-scenario-recordings, from controller/src/robot_vision:
+  RV_SCENARIO_DIR=/tmp/rv-scenarios ./build/test/RobotVisionTests \
     --gtest_filter=MotionScenarioTest.TargetBornMovingAcquiresSpeed
+  cp /tmp/rv-scenarios/MotionScenarioTest.TargetBornMovingAcquiresSpeed/*.jsonl \
+    ../../../tools/tracker/evaluation/visualization/tests/fixtures/target_born_moving/
 """
 
 import json

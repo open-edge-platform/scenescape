@@ -116,6 +116,8 @@ pytest visualization -v
 ```
 
 - [tests/fixtures/target_born_moving](tests/fixtures/target_born_moving): a recording, regenerated as in
-  [Test scenario recordings](../../../../controller/src/robot_vision/README.md#test-scenario-recordings) with `--gtest_filter=MotionScenarioTest.TargetBornMovingAcquiresSpeed`.
+  [Test scenario recordings](../../../../controller/src/robot_vision/README.md#test-scenario-recordings) with `--gtest_filter=MotionScenarioTest.TargetBornMovingAcquiresSpeed`,
+  then all four files copied from `$RV_SCENARIO_DIR/MotionScenarioTest.TargetBornMovingAcquiresSpeed/` (full commands in
+  [tests/test_scenario_data.py](tests/test_scenario_data.py)).
   Its `detections.jsonl` and `tracks.jsonl` are validated against `tracker/schema/camera-data.schema.json` and
   `tracker/schema/scene-data.schema.json`.

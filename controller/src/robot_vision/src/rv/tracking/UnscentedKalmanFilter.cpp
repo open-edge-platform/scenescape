@@ -5,12 +5,44 @@
 
 #include "rv/tracking/UnscentedKalmanFilter.hpp"
 
+#include <algorithm>
+#include <iostream>
+#include <mutex>
+
 #include <opencv2/core.hpp>
 #include <opencv2/tracking/kalman_filters.hpp>
 
 namespace cv {
 namespace detail {
 namespace tracking {
+
+namespace {
+
+// Smallest eigenvalue a repaired covariance keeps; far above double rounding and the Cholesky pivot threshold.
+constexpr double kMinEigenvalue = 1e-9;
+
+// Lower Cholesky factor of covMatrix; false if it is not positive definite.
+bool choleskyFactor(const Mat &covMatrix, Mat &covMatrixL)
+{
+  covMatrixL = covMatrix.clone();
+  return choleskyDecomposition<double>(
+    covMatrix.ptr<double>(), covMatrix.step, covMatrix.rows, covMatrixL.ptr<double>(), covMatrixL.step);
+}
+
+// Nearest symmetric positive definite matrix: symmetrize and raise the eigenvalues to a small floor.
+Mat repairCovariance(const Mat &covMatrix)
+{
+  const Mat symmetric = 0.5 * (covMatrix + covMatrix.t());
+  Mat eigenvalues;
+  Mat eigenvectors; // one eigenvector per row
+  eigen(symmetric, eigenvalues, eigenvectors);
+  double largest = 0.0;
+  minMaxLoc(eigenvalues, nullptr, &largest);
+  const Mat raised = max(eigenvalues, std::max(kMinEigenvalue, largest * 1e-12));
+  return eigenvectors.t() * Mat::diag(raised) * eigenvectors;
+}
+
+} // namespace
 
 UnscentedKalmanFilterMod::UnscentedKalmanFilterMod(const UnscentedKalmanFilterParams &params)
 {
@@ -19,7 +51,8 @@ UnscentedKalmanFilterMod::UnscentedKalmanFilterMod(const UnscentedKalmanFilterPa
   k = params.k;
 
   CV_Assert(params.DP > 0 && params.MP > 0);
-  CV_Assert(params.dataType == CV_32F || params.dataType == CV_64F);
+  // Double precision only: float32 rounding would lose the eigenvalue floor of the covariance repair.
+  CV_Assert(params.dataType == CV_64F);
   DP = params.DP;
   MP = params.MP;
   CP = std::max(params.CP, 0);
@@ -58,16 +91,8 @@ UnscentedKalmanFilterMod::UnscentedKalmanFilterMod(const UnscentedKalmanFilterPa
   Wm = tmp2Lambda * Mat::ones(2 * DP + 1, 1, dataType);
   Wc = tmp2Lambda * Mat::eye(2 * DP + 1, 2 * DP + 1, dataType);
 
-  if (dataType == CV_64F)
-  {
-    Wm.at<double>(0, 0) = lambda / tmpLambda;
-    Wc.at<double>(0, 0) = lambda / tmpLambda + 1.0 - alpha * alpha + beta;
-  }
-  else
-  {
-    Wm.at<float>(0, 0) = (float)(lambda / tmpLambda);
-    Wc.at<float>(0, 0) = (float)(lambda / tmpLambda + 1.0 - alpha * alpha + beta);
-  }
+  Wm.at<double>(0, 0) = lambda / tmpLambda;
+  Wc.at<double>(0, 0) = lambda / tmpLambda + 1.0 - alpha * alpha + beta;
 }
 
 UnscentedKalmanFilterMod::~UnscentedKalmanFilterMod()
@@ -99,7 +124,7 @@ UnscentedKalmanFilterMod::~UnscentedKalmanFilterMod()
   q.release();
 }
 
-Mat UnscentedKalmanFilterMod::getSigmaPoints(const Mat &mean, const Mat &covMatrix, double coef)
+Mat UnscentedKalmanFilterMod::getSigmaPoints(const Mat &mean, Mat &covMatrix, double coef)
 {
   // x_0 = mean
   // x_i = mean + coef * cholesky( covMatrix ), i = 1..n
@@ -108,15 +133,24 @@ Mat UnscentedKalmanFilterMod::getSigmaPoints(const Mat &mean, const Mat &covMatr
   int n = mean.rows;
   Mat points = repeat(mean, 1, 2 * n + 1);
 
-  Mat covMatrixL = covMatrix.clone();
-
-  // covMatrixL = cholesky( covMatrix )
-  if (dataType == CV_64F)
-    choleskyDecomposition<double>(
-      covMatrix.ptr<double>(), covMatrix.step, covMatrix.rows, covMatrixL.ptr<double>(), covMatrixL.step);
-  else if (dataType == CV_32F)
-    choleskyDecomposition<float>(
-      covMatrix.ptr<float>(), covMatrix.step, covMatrix.rows, covMatrixL.ptr<float>(), covMatrixL.step);
+  // covMatrixL = cholesky( covMatrix ). A failed factorisation leaves a half-factorised matrix, so a finite covariance
+  // that lost positive definiteness is repaired in place first.
+  Mat covMatrixL;
+  if (!choleskyFactor(covMatrix, covMatrixL) && checkRange(covMatrix))
+  {
+    static std::once_flag warned;
+    std::call_once(warned, [] {
+      std::cerr << "UnscentedKalmanFilterMod: covariance not positive definite, repaired before drawing sigma points\n";
+    });
+    covMatrix = repairCovariance(covMatrix);
+    if (!choleskyFactor(covMatrix, covMatrixL))
+    {
+      // Not reached for a finite repaired covariance; never draw from a half-factorised matrix.
+      Mat deviations;
+      sqrt(max(covMatrix.diag(), kMinEigenvalue), deviations);
+      covMatrixL = Mat::diag(deviations);
+    }
+  }
 
   covMatrixL = coef * covMatrixL;
 
@@ -206,6 +240,26 @@ Mat UnscentedKalmanFilterMod::correct(InputArray _measurement)
 
   // compute the corrected estimate of the state cross-covariance matrix
   // P = P - K*Sxy.t
+  errorCov = errorCov - gain * xyCov.t();
+
+  return state.clone();
+}
+
+Mat UnscentedKalmanFilterMod::correct(InputArray _measurement, const std::vector<int> &observedRows)
+{
+  if (static_cast<int>(observedRows.size()) == MP)
+  {
+    return correct(_measurement);
+  }
+
+  // Same update as correct(measurement), restricted to the observed rows of y, y* and Syy.
+  Mat measurement = _measurement.getMat();
+  Mat predictedStateSPCenter;
+  subtract(sigmaPoints, repeat(state, 1, 2 * DP + 1), predictedStateSPCenter);
+  xyCov = predictedStateSPCenter * Wc * selectRows(measurementSPFuncValsCenter, observedRows).t();
+
+  gain = xyCov * selectBlock(yyCov, observedRows).inv(DECOMP_SVD);
+  state = state + gain * (selectRows(measurement, observedRows) - selectRows(measurementEstimate, observedRows));
   errorCov = errorCov - gain * xyCov.t();
 
   return state.clone();

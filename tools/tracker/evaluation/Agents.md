@@ -14,7 +14,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - Phase 1 constraints:
   - only batch mode is supported (read/process/write all data at once), although class interfaces and I/O utilities may use streaming API underneath
-  - the only supported dataset is Unity dataset
+  - supported datasets: Unity (default) and Wildtrack
 
 ## Quick Links
 
@@ -50,6 +50,9 @@ SPDX-License-Identifier: Apache-2.0
     - scene configuration in non-canonical format (however accepted by SceneControllerHarness implementation)
     - JSONL files with camera detections for 1, 10 and 30 FPS in canonical format
     - input camera videos (currently unused)
+- **WildtrackDataset**: `datasets/wildtrack_dataset.py`
+  - dataset location in the repository: `../../../tests/system/metric/wildtrack_dataset/` (preprocessed with `datasets/wildtrack/preprocess.py`)
+  - single scene, seven cameras (`cam0`–`cam6`), 2 FPS, 400 annotated frames, explicit camera calibration in the scene configuration
 
 Check `datasets/README.md` for more details
 
