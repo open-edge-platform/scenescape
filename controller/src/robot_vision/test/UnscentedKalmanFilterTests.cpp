@@ -139,3 +139,35 @@ TEST(UnscentedKalmanFilterTest, PredictRecoversFromNonPositiveDefiniteCovariance
   EXPECT_NEAR(predicted.at<double>(idx::X, idx::X), 4.0 + kDeltaT * kDeltaT * 4.0 + 1e-3, 1e-9);
   EXPECT_NEAR(predicted.at<double>(idx::Height, idx::Height), 4.0 + 1e-3, 1e-9);
 }
+
+// The reduced update selects the observed rows of small matrices for every model and detection. All rows but yaw are
+// contiguous, so they must be views of the matrix rather than copies; rows with gaps are still copied.
+TEST(UnscentedKalmanFilterTest, SelectRowsAndBlockShareContiguousData)
+{
+  cv::Mat matrix(kMeasurementSize, kMeasurementSize, CV_64F);
+  for (int i = 0; i < kMeasurementSize; ++i)
+  {
+    for (int j = 0; j < kMeasurementSize; ++j)
+    {
+      matrix.at<double>(i, j) = 10.0 * i + j;
+    }
+  }
+  const std::vector<int> leading{0, 1, 2, 3, 4, 5};
+
+  const cv::Mat rows = cv::detail::tracking::selectRows(matrix, leading);
+  const cv::Mat block = cv::detail::tracking::selectBlock(matrix, leading);
+  EXPECT_EQ(rows.data, matrix.data) << "contiguous rows must share the matrix data";
+  EXPECT_EQ(block.data, matrix.data) << "a contiguous block must share the matrix data";
+  EXPECT_DOUBLE_EQ(cv::norm(rows, matrix.rowRange(0, 6), cv::NORM_INF), 0.0);
+  EXPECT_DOUBLE_EQ(cv::norm(block, matrix(cv::Range(0, 6), cv::Range(0, 6)), cv::NORM_INF), 0.0);
+
+  const std::vector<int> gapped{0, 2, 6};
+  const cv::Mat gappedBlock = cv::detail::tracking::selectBlock(matrix, gapped);
+  for (int i = 0; i < 3; ++i)
+  {
+    for (int j = 0; j < 3; ++j)
+    {
+      EXPECT_DOUBLE_EQ(gappedBlock.at<double>(i, j), matrix.at<double>(gapped[i], gapped[j]));
+    }
+  }
+}

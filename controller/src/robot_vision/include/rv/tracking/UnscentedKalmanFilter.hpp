@@ -28,9 +28,13 @@ template <> bool inline callHalCholesky<double>(double *L, size_t lstep, int lsi
   return hal::Cholesky64f(L, lstep, lsize, NULL, 0, 0);
 }
 
-// Rows `rows` of `matrix`.
+// Rows `rows` of `matrix`. Contiguous rows are returned as a view of `matrix` (no copy), so do not modify the result.
 inline Mat selectRows(const Mat &matrix, const std::vector<int> &rows)
 {
+  if (!rows.empty() && rows.back() - rows.front() + 1 == static_cast<int>(rows.size()))
+  {
+    return matrix.rowRange(rows.front(), rows.back() + 1);
+  }
   Mat selected(static_cast<int>(rows.size()), matrix.cols, matrix.type());
   for (size_t i = 0; i < rows.size(); ++i)
   {
@@ -39,9 +43,14 @@ inline Mat selectRows(const Mat &matrix, const std::vector<int> &rows)
   return selected;
 }
 
-// Rows and columns `indices` of a square `matrix`.
+// Rows and columns `indices` of a square `matrix`. Contiguous indices give a view of `matrix`, as in selectRows.
 inline Mat selectBlock(const Mat &matrix, const std::vector<int> &indices)
 {
+  if (!indices.empty() && indices.back() - indices.front() + 1 == static_cast<int>(indices.size()))
+  {
+    const Range range(indices.front(), indices.back() + 1);
+    return matrix(range, range);
+  }
   return selectRows(Mat(selectRows(matrix, indices).t()), indices).t();
 }
 
