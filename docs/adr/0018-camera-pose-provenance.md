@@ -62,10 +62,12 @@ pose; it does not create a parallel pose channel.
 Runtime camera state (and regulated `cameras[]` entries) carry:
 
 ```json
-"pose_provenance": {
-  "class": "calibration" | "live",
-  "origin": "<string>",
-  "updated_at": "<iso8601 optional>"
+{
+  "pose_provenance": {
+    "class": "calibration | live",
+    "origin": "<string>",
+    "updated_at": "<iso8601 optional>"
+  }
 }
 ```
 
