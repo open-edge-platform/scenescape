@@ -464,18 +464,45 @@ test("only live provenance poses overwrite camera edits", async () => {
     {
       id: "a",
       pose_provenance: { class: "calibration", origin: "manager.rest" },
+      translation: [9, 9, 9],
     },
     { id: "a" },
     {
       id: "missing",
       pose_provenance: { class: "live", origin: "detector.extrinsics" },
+      translation: [8, 8, 8],
     },
-    // Deprecated alias still accepted during migration.
-    { id: "a", dynamic_pose: true, translation: [1, 2, 3] },
+  ]);
+  assert.equal(calls.length, 0);
+  // Preferred ADR 18 contract: live class alone drives follow (no dynamic_pose).
+  manager.updatePoses([
+    {
+      id: "a",
+      pose_provenance: { class: "live", origin: "detector.extrinsics" },
+      translation: [4, 5, 6],
+    },
   ]);
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0].slice(0, 2), ["pose", "a"]);
-  assert.deepEqual(calls[0][2].translation, [1, 2, 3]);
+  assert.deepEqual(calls[0][2].translation, [4, 5, 6]);
+  // Conflicting fields: live class wins even when deprecated alias is false.
+  manager.updatePoses([
+    {
+      id: "a",
+      pose_provenance: { class: "live", origin: "detector.extrinsics" },
+      dynamic_pose: false,
+      translation: [7, 7, 7],
+    },
+  ]);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(calls[1][2].translation, [7, 7, 7]);
+  // Deprecated alias still accepted during migration when class is absent.
+  manager.updatePoses([
+    { id: "a", dynamic_pose: true, translation: [1, 2, 3] },
+  ]);
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls[2].slice(0, 2), ["pose", "a"]);
+  assert.deepEqual(calls[2][2].translation, [1, 2, 3]);
 });
 
 async function sceneCameraHarness() {
