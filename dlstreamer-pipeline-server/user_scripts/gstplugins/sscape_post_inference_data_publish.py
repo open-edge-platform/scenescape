@@ -439,12 +439,13 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     else:
       self._frame_level_data.pop("initial_intrinsics", None)
 
+    # Publish sensor-frame size on the camera data topic so Scene Controller can
+    # persist Cam.width/height from incoming detections (not only image replies).
+    framewidth, frameheight = self._publish_resolution(gvadata.get("resolution"))
+
     objects = defaultdict(list)
     raw_objects = gvadata.get("objects") or []
     if raw_objects:
-      resolution = gvadata.get("resolution", {})
-      framewidth = resolution.get("width")
-      frameheight = resolution.get("height")
       has_parent_ids = any("parent_id" in det for det in raw_objects)
       if has_parent_ids:
         region_id_map: dict = {}
@@ -491,6 +492,21 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
 
     self._process_sub_detections(objects)
     self._frame_level_data["objects"] = objects
+
+  def _publish_resolution(self, resolution):
+    """Copy GVA frame size into the MQTT payload; return (width, height) or (None, None)."""
+    width = height = None
+    if isinstance(resolution, dict):
+      width, height = resolution.get("width"), resolution.get("height")
+    elif isinstance(resolution, (list, tuple)) and len(resolution) == 2:
+      width, height = resolution[0], resolution[1]
+
+    if type(width) is int and type(height) is int and width > 0 and height > 0:
+      self._frame_level_data["resolution"] = {"width": width, "height": height}
+      return width, height
+
+    self._frame_level_data.pop("resolution", None)
+    return None, None
 
   @staticmethod
   def _resolve_object_id(det: dict, existing_objects: list):

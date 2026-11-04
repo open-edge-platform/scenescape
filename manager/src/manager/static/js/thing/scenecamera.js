@@ -373,7 +373,11 @@ export default class SceneCamera extends THREE.Object3D {
     return;
   }
 
-  updateIntrinsics(intrinsics, resolutionChanged = false) {
+  updateIntrinsics(
+    intrinsics,
+    resolutionChanged = false,
+    previousIntrinsics = null,
+  ) {
     if (!intrinsics) return;
     let newIntrinsics = intrinsics;
     if (Array.isArray(intrinsics) && Array.isArray(intrinsics[0])) {
@@ -384,8 +388,12 @@ export default class SceneCamera extends THREE.Object3D {
         cy: intrinsics[1][2],
       };
     }
+    // Compare against the pre-update snapshot when resolution handling already
+    // mutated this.intrinsics (e.g. recentering 320/240 → 640/360). Without
+    // that baseline the panel/matrix would keep the stale principal point.
+    const baseline = previousIntrinsics ?? this.intrinsics;
     if (
-      JSON.stringify(newIntrinsics) !== JSON.stringify(this.intrinsics) ||
+      JSON.stringify(newIntrinsics) !== JSON.stringify(baseline) ||
       (resolutionChanged && newIntrinsics.fov !== undefined)
     ) {
       this.intrinsics = newIntrinsics;
@@ -439,10 +447,13 @@ export default class SceneCamera extends THREE.Object3D {
     this.updateDistortion(data.distortion);
     if (this.fovEnabled || (!data.intrinsics && !data.resolution)) return;
     const previousResolution = JSON.stringify(this.resolution);
+    // Snapshot before resolution may recenter a centered principal point.
+    const previousIntrinsics = { ...this.intrinsics };
     this.updateCameraResolutionUsingInputFrame(data);
     this.updateIntrinsics(
       data.intrinsics || this.intrinsics,
       previousResolution !== JSON.stringify(this.resolution),
+      previousIntrinsics,
     );
     this.applyOpticalProjection();
   }

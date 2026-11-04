@@ -634,10 +634,14 @@ class VGGTModel(ReconstructionModel):
         "translation": camera_to_world[:3, 3].tolist()
       })
 
-      intrinsics_list.append({
+      entry = {
         "camera_id": cam_id,
         "K": K.tolist()
-      })
+      }
+      if original_sizes is not None and i < len(original_sizes):
+        entry["width"] = int(original_sizes[i][0])
+        entry["height"] = int(original_sizes[i][1])
+      intrinsics_list.append(entry)
 
     return {
       "predictions": predictions,

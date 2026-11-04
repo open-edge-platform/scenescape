@@ -811,6 +811,36 @@ test("1280x720 stream recenters default principal point before first save", asyn
   assert.equal(payload.intrinsics.cy, 360);
 });
 
+test("resolution-only MQTT refreshes 3D panel cx/cy after recentering defaults", async () => {
+  // Regression: updateCameraResolutionUsingInputFrame mutated this.intrinsics
+  // before updateIntrinsics compared, so cameraMatrix/panel stayed at 320/240
+  // while the 2D calibrate page (which centers from image size) looked correct.
+  const camera = await sceneCameraHarness();
+  const panel = { fx: null, fy: null, cx: null, cy: null };
+  camera.resolution = { w: 640, h: 480 };
+  camera.intrinsics = { fx: 570, fy: 570, cx: 320, cy: 240 };
+  camera.cameraMatrix = {
+    data64F: [570, 0, 320, 0, 570, 240, 0, 0, 1],
+    delete() {},
+  };
+  camera.hasAuthoritativeResolution = true;
+  camera.intrinsicsFolder = {
+    children: [
+      { $input: { set value(v) { panel.fx = v; }, get value() { return panel.fx; } } },
+      { $input: { set value(v) { panel.fy = v; }, get value() { return panel.fy; } } },
+      { $input: { set value(v) { panel.cx = v; }, get value() { return panel.cx; } } },
+      { $input: { set value(v) { panel.cy = v; }, get value() { return panel.cy; } } },
+    ],
+  };
+  camera.updateOptics({ resolution: [1280, 720] });
+  assert.equal(camera.intrinsics.cx, 640);
+  assert.equal(camera.intrinsics.cy, 360);
+  assert.equal(camera.cameraMatrix.data64F[2], 640);
+  assert.equal(camera.cameraMatrix.data64F[5], 360);
+  assert.equal(panel.cx, 640);
+  assert.equal(panel.cy, 360);
+});
+
 test("off-center principal point is not recentered when resolution updates", async () => {
   const camera = await sceneCameraHarness();
   camera.resolution = { w: 640, h: 480 };
