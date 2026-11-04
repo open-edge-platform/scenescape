@@ -28,7 +28,7 @@ class Migration(migrations.Migration):
       name='pipeline',
       field=models.ForeignKey(
         blank=True,
-        help_text='Stored association only. Selecting a pipeline does not change video processing.',
+        help_text='Selecting a pipeline starts it on DL Streamer Pipeline Server for this camera; changing or clearing it stops the running instance.',
         null=True,
         on_delete=django.db.models.deletion.SET_NULL,
         related_name='cameras',

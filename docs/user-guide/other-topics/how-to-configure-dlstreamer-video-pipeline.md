@@ -1,25 +1,83 @@
 # How to Configure Deep Learning Streamer Video Pipeline
 
-## Stored Pipeline Identifiers
+## Stored Pipelines, ViPPET Sync and DL Streamer Pipeline Server 2.0
 
-Stored definitions also have an optional internal `vippet_pipeline_id` string
-field for the VIPPET pipelines API's `id` (for example, `pipeline-a3f5d9e1`).
-It is displayed read-only in the Pipelines table,
-excluded from user forms, and populated programmatically. Storing either
-identifier does not change video processing.
+The **Pipelines** page stores named GStreamer pipeline strings. Superusers can
+create them by hand or import them from ViPPET (Visual Pipeline and Platform
+Evaluation Tool). Selecting a stored pipeline on a camera runs it on DL
+Streamer Pipeline Server 2.0 (DLSPS).
 
-Each camera has an optional internal
-`dlsps_instance_id` UUID field for the `instance_id` returned by DLSPS2.
-This UUID is displayed read-only beneath the **Pipeline** selector on camera
-create, management, and calibration forms. It is not editable and remains unset until
-populated programmatically; storing it does not start a pipeline or change video
-processing.
+### Configuration
 
-Each stored definition can be assigned to at most one camera. Camera forms offer
-only unassigned definitions, plus the current camera's selected definition when
-editing. Clearing the selection or deleting the camera makes its definition
-available again. Deleting a definition clears its camera association without
-deleting the camera.
+Set these variables for the `web` (Manager) service. Leaving a variable empty
+disables the matching feature, and the UI reports that it is not configured.
+
+| Variable     | Example                     | Purpose                                   |
+| ------------ | --------------------------- | ----------------------------------------- |
+| `VIPPET_URL` | `http://vippet:7860/api/v1` | ViPPET REST API root, including `/api/v1` |
+| `DLSPS_URL`  | `http://dlsps:8080`         | DLSPS 2.0 REST API root                   |
+
+With Docker Compose, export the variables before `make deploy`; they are passed
+to the `web` service. With Helm, set `web.vippetUrl` and `web.dlspsUrl`.
+
+### Sync with ViPPET
+
+Click **Sync with ViPPET** on the **Pipelines** page to import every ViPPET
+vision pipeline. Each hardware variant becomes its own stored pipeline:
+
+- **Name**: `<pipeline name> (<variant name>)`, for example `People (CPU)`.
+- **Pipeline string**: the variant's GStreamer launch string from ViPPET.
+- **ViPPET pipeline / variant ID**: `<pipeline id>/<variant id>`, shown
+  read-only and used to match the pipeline on later syncs.
+
+A sync updates the name and string of previously imported pipelines, so local
+edits to them are overwritten. Pipelines removed from ViPPET are kept. A variant
+whose name is already used by another stored pipeline is skipped and listed in
+the sync summary. When the string of a pipeline assigned to a camera changes,
+that camera's DLSPS instance is restarted.
+
+The imported strings still reference ViPPET-side model and video paths, which
+must also be reachable from the DLSPS container.
+
+### Running a Pipeline for a Camera
+
+The **Pipeline** selector is available on the camera create, management and
+calibration pages. Each stored pipeline can be assigned to at most one camera,
+so the selector offers only unassigned pipelines plus the camera's current one.
+When the camera is saved:
+
+| Change                                   | DLSPS action                                        |
+| ---------------------------------------- | --------------------------------------------------- |
+| Pipeline selected                        | Start an instance                                   |
+| Pipeline changed                         | Stop the old instance, start a new one              |
+| Pipeline cleared                         | Stop the instance                                   |
+| Pipeline unchanged, no instance recorded | Start an instance (retries an earlier failed start) |
+| Pipeline unchanged, instance recorded    | No action                                           |
+
+Instances are started with automatic restarts enabled (up to 5 attempts, 30
+seconds apart) on pipeline error or end of stream. The UUID of the running
+instance is shown read-only beneath the **Pipeline** selector.
+
+Related events:
+
+- Editing the string of an assigned pipeline restarts that camera's instance.
+- Deleting a camera stops its instance.
+- Deleting a pipeline clears the camera's selection only; the running instance
+  is stopped the next time the camera is saved.
+
+If DLSPS is unreachable or rejects the pipeline, the camera is still saved and
+a warning is shown; save the camera again to retry. If stopping the old instance
+fails, it is kept recorded and no new instance is started, to avoid running two
+instances for one camera.
+
+Limitations:
+
+- Instances are not recreated automatically if DLSPS restarts; save the camera
+  with its pipeline cleared and then selected again.
+- Sync and DLSPS calls run while the page request is processed, so they can
+  take several seconds when ViPPET has many pipelines or a service is slow.
+- This mechanism is independent of the camera-settings based pipelines of a
+  Kubernetes deployment described below.
 
 ## Video Pipeline Configuration in UI Camera Calibration Page (in Kubernetes Deployment)
 

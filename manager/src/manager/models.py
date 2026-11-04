@@ -16,6 +16,8 @@ from PIL import Image
 from django.core.files.base import ContentFile
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.db import models, transaction
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
 from django.conf import settings
 from django.contrib.sessions.models import Session
 from django.contrib.auth.models import User
@@ -712,7 +714,7 @@ class Cam(Sensor):
   dlsps_instance_id = models.UUIDField(null=True, blank=True, editable=False)
   pipeline = models.ForeignKey(Pipeline, null=True, blank=True, on_delete=models.SET_NULL,
                                related_name="cameras",
-                               help_text="Stored association only. Selecting a pipeline does not change video processing.")
+                               help_text="Selecting a pipeline starts it on DL Streamer Pipeline Server for this camera; changing or clearing it stops the running instance.")
   command = models.CharField(default=None, max_length=512, null=True,
                              verbose_name="Camera (Video Source)")
   camerachain = models.CharField(default=None, max_length=64, null=True, verbose_name="Camera Chain")
@@ -935,6 +937,17 @@ class Cam(Sensor):
     transaction.on_commit(lambda: sendUpdateCommand(camera_data=self.cameraData('delete')))
     transaction.on_commit(lambda: invalidate_scene_cache(scene))
     return
+
+
+@receiver(post_delete, sender=Cam)
+def stop_deleted_camera_pipeline(sender, instance, **kwargs):
+  """Stop the DLSPS instance of a deleted camera once the deletion is committed."""
+  instance_id = instance.dlsps_instance_id
+  if instance_id is None:
+    return
+  # Deferred import: pipeline_runtime imports this module.
+  from manager.pipeline_runtime import stop_dlsps_instance
+  transaction.on_commit(lambda: stop_dlsps_instance(instance_id))
 
 
 class SingletonSensor(Sensor):

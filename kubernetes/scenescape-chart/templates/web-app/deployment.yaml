@@ -112,6 +112,14 @@ spec:
           - name: SCENESCAPE_ALLOWED_HOSTS
             value: "{{ .Values.web.allowedHosts }}"
           {{- end }}
+          {{- if .Values.web.vippetUrl }}
+          - name: VIPPET_URL
+            value: {{ .Values.web.vippetUrl | quote }}
+          {{- end }}
+          {{- if .Values.web.dlspsUrl }}
+          - name: DLSPS_URL
+            value: {{ .Values.web.dlspsUrl | quote }}
+          {{- end }}
           - name: SUPASS
             valueFrom:
               secretKeyRef:
