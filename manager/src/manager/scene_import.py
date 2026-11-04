@@ -34,6 +34,9 @@ class ImportScene:
         "sensor_id": cam.get("uid"),
         **{field: cam.get(field) for field in CAM_COMMON_FIELDS if field in cam},
       }
+      # Required by CamSerializer.validate() when use_camera_pipeline is true.
+      if "camera_pipeline" in cam:
+        cam_data["camera_pipeline"] = cam["camera_pipeline"]
 
       transform_type = cam.get("transform_type")
       if transform_type == POINT_CORRESPONDENCE:
@@ -185,17 +188,8 @@ class ImportScene:
       update_response = await asyncio.to_thread(self.rest.updateChildScene, child_uid, link)
       log.info("Child link updated:", update_response)
 
-    # Bulk create cameras with transform handling. Scene-less cameras with the
-    # same name (e.g. left behind by a deleted scene) are re-linked instead of
-    # rejected so their exported calibration is not lost.
-    cam_items = self.build_camera_items(json_data)
-    cam_items, cameras_relinked, relink_errors = await self.relink_orphaned_cameras(
-      cam_items, scene_id)
-    cameras_created, camera_errors = await self.bulk_create(
-      cam_items, scene_id, self.rest.createCamera)
-    import_summary["cameras"] = ((camera_errors or []) + relink_errors) or None
-    import_summary["cameras_created"] = cameras_created
-    import_summary["cameras_relinked"] = cameras_relinked or None
+    # Bulk create cameras with transform handling.
+    await self.import_cameras(json_data, scene_id, import_summary)
     # Bulk create other resources
     regions_created, region_errors = await self.bulk_create(
       json_data.get("regions", []), scene_id, self.rest.createRegion)
@@ -230,6 +224,25 @@ class ImportScene:
 
     return import_summary
 
+  async def import_cameras(
+      self,
+      json_data: dict[str, Any],
+      scene_id: str,
+      import_summary: dict[str, Any]) -> None:
+    """Imports the exported cameras into `scene_id` and records the results.
+
+    Scene-less cameras with the same name (e.g. left behind by a deleted scene)
+    are re-linked instead of rejected so their exported calibration is not lost.
+    """
+    cam_items = self.build_camera_items(json_data)
+    cam_items, cameras_relinked, relink_errors = await self.relink_orphaned_cameras(
+      cam_items, scene_id)
+    cameras_created, camera_errors = await self.bulk_create(
+      cam_items, scene_id, self.rest.createCamera)
+    import_summary["cameras"] = ((camera_errors or []) + relink_errors) or None
+    import_summary["cameras_created"] = cameras_created
+    import_summary["cameras_relinked"] = cameras_relinked or None
+
   def find_orphaned_camera(self, name: str | None) -> dict[str, Any] | None:
     """Returns the existing camera named `name` if it is not attached to any scene."""
     if not name:
@@ -258,12 +271,13 @@ class ImportScene:
     to_create, relinked, errors = [], [], []
     for item in cam_items:
       item["scene"] = scene_id
-      existing = await asyncio.to_thread(self.find_orphaned_camera, item.get("name"))
-      if existing is None:
-        to_create.append(item)
-        continue
-      update = {k: v for k, v in item.items() if k != "sensor_id"}
+      # Lookup failures are reported per camera so the rest of the import continues.
       try:
+        existing = await asyncio.to_thread(self.find_orphaned_camera, item.get("name"))
+        if existing is None:
+          to_create.append(item)
+          continue
+        update = {k: v for k, v in item.items() if k != "sensor_id"}
         resp = await asyncio.to_thread(self.rest.updateCamera, existing["uid"], update)
       except Exception as e:
         errors.append((e, item))

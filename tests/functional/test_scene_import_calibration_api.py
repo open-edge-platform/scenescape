@@ -7,9 +7,11 @@
 
 Covers the possible states of the target machine before the import:
 a fresh install, a same-name camera left without a scene (orphaned), and a
-same-name camera already attached to another scene.
+same-name camera already attached to another scene. Also checks that a
+camera exported with use_camera_pipeline enabled keeps its pipeline.
 """
 
+import copy
 import json
 import os
 import zipfile
@@ -47,13 +49,23 @@ class SceneImportCalibration(FunctionalTest):
     self.archiveCams = {cam["name"]: cam for cam in self.sceneData["cameras"]}
     return
 
-  def importArchive(self):
-    res = self.rest.importScene(self.zipPath)
+  def importArchive(self, zipPath=None):
+    res = self.rest.importScene(zipPath or self.zipPath)
     assert not res.errors, f"Import request failed: {res.errors}"
     assert not res.get("scene"), f"Scene import rejected: {res.get('scene')}"
     scenes = self.rest.getScenes({"name": self.sceneData["name"]}).get("results", [])
     assert len(scenes) == 1, f"Imported scene '{self.sceneData['name']}' not found"
     return res, scenes[0]["uid"]
+
+  def writeArchive(self, path, sceneData):
+    """Writes a copy of the source archive with its scene JSON replaced."""
+    with zipfile.ZipFile(self.zipPath, "r") as src, zipfile.ZipFile(path, "w") as dst:
+      for member in src.namelist():
+        if member.endswith(".json"):
+          dst.writestr(member, json.dumps(sceneData))
+        else:
+          dst.writestr(member, src.read(member))
+    return str(path)
 
   def getCameraByName(self, name):
     results = self.rest.getCameras({"name": name}).get("results", [])
@@ -81,9 +93,28 @@ class SceneImportCalibration(FunctionalTest):
     return
 
 
-@pytest.mark.test_name("NEX-T99901")
+@pytest.mark.test_name("NEX-T31112")
 def test_import_preserves_calibration_points(scenescape_env, request, repo_root, result_recorder):
-  """Fresh target: imported cameras carry the exported calibration points."""
+  """
+  ## Name
+  Scene Import Preserves Calibration Points
+
+  ## Objective
+  Verify that importing a scene onto a fresh system creates its cameras with
+  the exported calibration points, intrinsics and resolution.
+
+  ## Labels
+  - Functional
+  - API
+
+  ## Steps
+  1. Verify no camera with an exported camera name exists
+  2. Import the scene archive via the REST API
+  3. Assert the import reports no camera errors
+  4. Assert each camera is attached to the imported scene
+  5. Assert each camera's transform type, calibration points, intrinsics and
+     resolution match the exported values
+  """
   test = SceneImportCalibration(request, repo_root)
   for name in test.archiveCams:
     assert not test.rest.getCameras({"name": name}).get("results"), \
@@ -101,11 +132,30 @@ def test_import_preserves_calibration_points(scenescape_env, request, repo_root,
   return
 
 
-@pytest.mark.test_name("NEX-T99902")
+@pytest.mark.test_name("NEX-T31113")
 def test_import_relinks_orphaned_camera_with_calibration(
     scenescape_env, request, repo_root, result_recorder):
-  """Orphaned same-name cameras are attached to the imported scene and receive
-  the exported calibration instead of being left uncalibrated."""
+  """
+  ## Name
+  Scene Import Re-links Orphaned Cameras With Calibration
+
+  ## Objective
+  Verify that importing a scene attaches existing same-name cameras that have
+  no scene to the imported scene and applies the exported calibration.
+
+  ## Labels
+  - Functional
+  - API
+
+  ## Steps
+  1. Create an uncalibrated camera without a scene for each exported camera
+     name, reusing the exported sensor ID for one and a different ID for others
+  2. Import the scene archive via the REST API
+  3. Assert the import reports no camera errors
+  4. Assert each camera keeps its existing sensor ID
+  5. Assert each camera is attached to the imported scene
+  6. Assert each camera's calibration matches the exported values
+  """
   test = SceneImportCalibration(request, repo_root)
   # One orphan reuses the exported sensor_id, the other has a different one,
   # as when the target machine was set up independently.
@@ -132,11 +182,32 @@ def test_import_relinks_orphaned_camera_with_calibration(
   return
 
 
-@pytest.mark.test_name("NEX-T99903")
+@pytest.mark.test_name("NEX-T31114")
 def test_import_does_not_hijack_camera_in_other_scene(
     scenescape_env, demo_scene, request, repo_root, result_recorder):
-  """A same-name camera owned by another scene is reported and left untouched;
-  the remaining cameras still import with their calibration."""
+  """
+  ## Name
+  Scene Import Does Not Take Over Camera From Another Scene
+
+  ## Objective
+  Verify that importing a scene reports an error for a same-name camera that
+  belongs to another scene, leaves that camera unchanged, and still imports
+  the remaining cameras with their calibration.
+
+  ## Labels
+  - Functional
+  - API
+
+  ## Steps
+  1. Create a placeholder camera with the first exported camera name in the
+     demo scene
+  2. Import the scene archive via the REST API
+  3. Assert the import reports an error for the placeholder camera
+  4. Assert the placeholder camera keeps its sensor ID, scene, transform type
+     and calibration
+  5. Assert the remaining cameras are attached to the imported scene with the
+     exported calibration
+  """
   test = SceneImportCalibration(request, repo_root)
   names = list(test.archiveCams)
   ownedName = names[0]
@@ -171,6 +242,65 @@ def test_import_does_not_hijack_camera_in_other_scene(
     cam = test.getCameraByName(name)
     assert cam.get("scene") == sceneUID, f"{name}: not attached to imported scene"
     test.assertCalibrationMatchesArchive(cam, test.archiveCams[name])
+
+  result_recorder.success()
+  return
+
+
+@pytest.mark.test_name("NEX-T31115")
+def test_import_preserves_camera_pipeline(
+    scenescape_env, request, repo_root, tmp_path, result_recorder):
+  """
+  ## Name
+  Scene Import Preserves Camera Pipeline
+
+  ## Objective
+  Verify that cameras exported with use_camera_pipeline enabled keep their
+  pipeline and calibration after import, both when an orphaned camera is
+  re-linked and when a camera is created.
+
+  ## Labels
+  - Functional
+  - API
+
+  ## Steps
+  1. Build a copy of the archive with use_camera_pipeline enabled and a
+     camera_pipeline set on every camera
+  2. Create an orphaned camera with the first exported camera name
+  3. Verify no camera with the remaining exported names exists
+  4. Import the modified archive via the REST API
+  5. Assert the import reports no camera errors and lists the orphaned camera
+     as re-linked
+  6. Assert each camera is attached to the imported scene with
+     use_camera_pipeline, camera_pipeline and calibration preserved
+  """
+  test = SceneImportCalibration(request, repo_root)
+  pipeline = "videotestsrc ! fakesink"
+  sceneData = copy.deepcopy(test.sceneData)
+  for cam in sceneData["cameras"]:
+    cam["use_camera_pipeline"] = True
+    cam["camera_pipeline"] = pipeline
+  zipPath = test.writeArchive(tmp_path / os.path.basename(ARCHIVE), sceneData)
+
+  names = list(test.archiveCams)
+  orphanName = names[0]
+  created = test.rest.createCamera({"name": orphanName, "sensor_id": "local-cam0"})
+  assert not created.errors, f"Failed to create orphaned camera: {created.errors}"
+  for name in names[1:]:
+    assert not test.rest.getCameras({"name": name}).get("results"), \
+      f"Precondition: camera '{name}' must not exist"
+
+  res, sceneUID = test.importArchive(zipPath)
+  assert not res.get("cameras"), f"Unexpected camera import errors: {res.get('cameras')}"
+  assert orphanName in {cam.get("name") for cam in res.get("cameras_relinked") or []}, \
+    f"'{orphanName}' was not re-linked"
+
+  for name, expected in test.archiveCams.items():
+    cam = test.getCameraByName(name)
+    assert cam.get("scene") == sceneUID, f"{name}: not attached to imported scene"
+    assert cam.get("use_camera_pipeline") is True, f"{name}: use_camera_pipeline lost"
+    assert cam.get("camera_pipeline") == pipeline, f"{name}: camera_pipeline lost"
+    test.assertCalibrationMatchesArchive(cam, expected)
 
   result_recorder.success()
   return
