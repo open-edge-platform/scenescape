@@ -48,6 +48,8 @@ camera frame in one `ProjectDetections` call
 ([`projection.proto`](../../api/projection/v1/projection.proto)); the
 `detection_id` of a box is its index in the request. The calls of one chunk
 run concurrently on a completion queue under one deadline (`timeout_ms`).
+The channel starts connecting at startup, so the first chunk does not spend
+its deadline on name resolution and the handshake.
 Each valid measurement replaces the local position and size, sets
 `zMeasured` and `measurementNoiseCov` (R), and lowers the returned centre z
 by half the height to the object base. Yaw and `has_orientation` stay as set

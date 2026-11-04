@@ -32,7 +32,8 @@ std::shared_ptr<ProjectionClient> makeGrpcProjectionClient(std::shared_ptr<grpc:
  */
 std::shared_ptr<grpc::Channel> makeProjectionChannel(const RemoteProjectionConfig& config);
 
-/// makeGrpcProjectionClient() over makeProjectionChannel(), with the configured timeout.
+/// makeGrpcProjectionClient() over makeProjectionChannel(), with the configured timeout. The
+/// channel starts connecting in the background, so the first call does not wait for it.
 std::shared_ptr<ProjectionClient> connectProjectionService(const RemoteProjectionConfig& config);
 
 } // namespace tracker

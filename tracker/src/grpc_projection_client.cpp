@@ -205,7 +205,11 @@ std::shared_ptr<grpc::Channel> makeProjectionChannel(const RemoteProjectionConfi
 }
 
 std::shared_ptr<ProjectionClient> connectProjectionService(const RemoteProjectionConfig& config) {
-    return makeGrpcProjectionClient(makeProjectionChannel(config),
+    auto channel = makeProjectionChannel(config);
+    // Start connecting now, without blocking, so that the first chunk does not spend its
+    // deadline on name resolution and the handshake.
+    channel->GetState(true);
+    return makeGrpcProjectionClient(std::move(channel),
                                     std::chrono::milliseconds(config.timeout_ms));
 }
 

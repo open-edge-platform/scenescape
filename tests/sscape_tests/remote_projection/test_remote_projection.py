@@ -576,6 +576,17 @@ class TestGrpcProjectionClient:
                                                            insecure=True, timeout_ms=2000))
     assert client.project([self.request("cam-1")]) == [(None, "UNAVAILABLE")]
 
+  def test_starts_connecting_its_own_channel(self, monkeypatch):
+    started = []
+    monkeypatch.setattr(grpc, "channel_ready_future", started.append)
+    settings = RemoteProjectionSettings(host="127.0.0.1", port=1, insecure=True)
+
+    GrpcProjectionClient(settings)
+    assert len(started) == 1 and isinstance(started[0], grpc.Channel)
+
+    GrpcProjectionClient(settings, channel=grpc.insecure_channel("127.0.0.1:1"))
+    assert len(started) == 1, "an injected channel is left as it is"
+
   def test_creates_tls_channels(self, tmp_path):
     ca_cert = tmp_path / "ca.pem"
     ca_cert.write_bytes(b"-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n")

@@ -15,6 +15,12 @@
 #include <utility>
 #include <vector>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 #include <grpcpp/grpcpp.h>
 #include <gtest/gtest.h>
 
@@ -284,6 +290,26 @@ TEST_F(GrpcProjectionClientTest, EmptyFrameListMakesNoCalls) {
     auto client = makeGrpcProjectionClient(channel_, std::chrono::milliseconds(50));
     EXPECT_TRUE(client->projectFrames("scene-uid", "person", ConditioningMode::Auto, {}).empty());
     EXPECT_TRUE(service_.requests.empty());
+}
+
+TEST(ProjectionChannelTest, ConnectsBeforeTheFirstCall) {
+    // A plain TCP listener sees the connection although the client makes no call.
+    const int listener = ::socket(AF_INET, SOCK_STREAM, 0);
+    ASSERT_GE(listener, 0);
+    sockaddr_in address{};
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    socklen_t length = sizeof(address);
+    ASSERT_EQ(::bind(listener, reinterpret_cast<sockaddr*>(&address), length), 0);
+    ASSERT_EQ(::listen(listener, 1), 0);
+    ASSERT_EQ(::getsockname(listener, reinterpret_cast<sockaddr*>(&address), &length), 0);
+
+    const auto client = connectProjectionService(
+        {.host = "127.0.0.1", .port = ntohs(address.sin_port), .insecure = true, .timeout_ms = 50});
+
+    pollfd pending{listener, POLLIN, 0};
+    EXPECT_EQ(::poll(&pending, 1, 5000), 1) << "no connection before the first call";
+    ::close(listener);
 }
 
 TEST(ProjectionChannelTest, BuildsTlsAndPlaintextChannels) {

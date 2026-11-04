@@ -123,7 +123,11 @@ def _proto_modules():
 
 
 class GrpcProjectionClient:
-  """Sends ProjectDetections requests concurrently; each call has the configured deadline."""
+  """Sends ProjectDetections requests concurrently; each call has the configured deadline.
+
+  A channel it creates starts connecting in the background, so the first call does not spend its
+  deadline on name resolution and the handshake.
+  """
 
   def __init__(self, settings, channel=None):
     import grpc
@@ -131,6 +135,7 @@ class GrpcProjectionClient:
     _, projection_pb2_grpc = _proto_modules()
     if channel is None:
       channel = self.createChannel(settings)
+      grpc.channel_ready_future(channel)  # start connecting; never waited on
     self._stub = projection_pb2_grpc.ProjectionServiceStub(channel)
     self._timeout_s = settings.timeout_ms / 1000.0
 
