@@ -23,7 +23,7 @@ def sanitize_legacy_scene_names(apps, schema_editor):
 class Migration(migrations.Migration):
 
   dependencies = [
-    ('manager', '0006_osm_roi_support'),
+    ('manager', '0008_add_ptz_calibration_to_cam'),
   ]
 
   operations = [
