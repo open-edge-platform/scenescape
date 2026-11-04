@@ -36,12 +36,20 @@ _KIND_HISTOGRAM = "histogram"
 _KIND_SUM = "sum"
 _KIND_GAUGE = "gauge"
 
-# Counter metrics whose cumulative total reports messages/frames the service
+# Counter metrics whose cumulative total reports messages the service
 # dropped (e.g. due to lag, queue overflow, or worker saturation).  Both the
 # legacy controller and the tracker service expose an equivalent counter.
 DROPPED_FRAME_METRICS = (
     "scenescape_controller_mqtt_messages_dropped",
     "tracker.mqtt.dropped",
+)
+
+# Counter metrics with the total number of messages received by the service.
+# Dropped counters are per message (per camera), so they are compared against
+# these totals rather than against the number of tracker output frames.
+RECEIVED_MESSAGE_METRICS = (
+    "scenescape_controller_mqtt_messages",
+    "tracker.mqtt.messages",
 )
 
 # Default warning threshold for the dropped-frame ratio (1%).
@@ -269,36 +277,42 @@ def collect_metric_values(metrics_file: Path) -> Dict[str, Dict[str, Any]]:
   return values
 
 
-def check_dropped_frames(
-    metric_values: Dict[str, Dict[str, Any]],
-    output_frame_count: int,
-    threshold: float = DEFAULT_DROPPED_FRAME_THRESHOLD,
-) -> Dict[str, Any]:
-  """Verify how many frames the tracker/controller dropped during the run.
-
-  Sums the cumulative totals of the known dropped-frame counters and compares
-  the dropped count against the number of tracker output frames.
-
-  Args:
-      metric_values:      Output of :func:`collect_metric_values`.
-      output_frame_count: Number of tracker output frames collected.
-      threshold:          Ratio above which the run is flagged (default 1%).
-
-  Returns:
-      Mapping with ``dropped`` (int), ``output_frames`` (int), ``ratio``
-      (float; 0.0 when no output frames), ``threshold`` (float) and
-      ``exceeded`` (bool).
-  """
-  dropped = 0
-  for name in DROPPED_FRAME_METRICS:
+def _counter_total(metric_values: Dict[str, Dict[str, Any]], names: Tuple[str, ...]) -> int:
+  """Sum the cumulative totals of the given counter metrics (missing -> 0)."""
+  total = 0
+  for name in names:
     entry = metric_values.get(name)
     if entry and entry.get("stats"):
-      dropped += int(entry["stats"].get("total", 0) or 0)
+      total += int(entry["stats"].get("total", 0) or 0)
+  return total
 
-  ratio = dropped / output_frame_count if output_frame_count > 0 else 0.0
+
+def check_dropped_frames(
+    metric_values: Dict[str, Dict[str, Any]],
+    threshold: float = DEFAULT_DROPPED_FRAME_THRESHOLD,
+) -> Dict[str, Any]:
+  """Verify how many messages the tracker/controller dropped during the run.
+
+  Sums the cumulative totals of the known dropped-message counters and compares
+  them with the total number of messages the service received.  Both counters
+  count per-camera messages, so the ratio is independent of the camera count.
+
+  Args:
+      metric_values: Output of :func:`collect_metric_values`.
+      threshold:     Ratio above which the run is flagged (default 1%).
+
+  Returns:
+      Mapping with ``dropped`` (int), ``messages`` (int), ``ratio``
+      (float; 0.0 when no messages were received), ``threshold`` (float) and
+      ``exceeded`` (bool).
+  """
+  dropped = _counter_total(metric_values, DROPPED_FRAME_METRICS)
+  messages = _counter_total(metric_values, RECEIVED_MESSAGE_METRICS)
+
+  ratio = dropped / messages if messages > 0 else 0.0
   return {
       "dropped": dropped,
-      "output_frames": int(output_frame_count),
+      "messages": messages,
       "ratio": ratio,
       "threshold": threshold,
       "exceeded": ratio > threshold,

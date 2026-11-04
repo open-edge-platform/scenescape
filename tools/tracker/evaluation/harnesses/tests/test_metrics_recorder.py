@@ -206,54 +206,60 @@ class TestCollectMetricValues:
 
 
 class TestCheckDroppedFrames:
-  def _values_with_dropped(self, total):
+  def _values(self, dropped, messages=1000):
     return {
         "scenescape_controller_mqtt_messages_dropped": {
             "kind": "sum",
             "unit": "1",
-            "stats": {"total": total, "delta": {}},
-        }
+            "stats": {"total": dropped, "delta": {}},
+        },
+        "scenescape_controller_mqtt_messages": {
+            "kind": "sum",
+            "unit": "1",
+            "stats": {"total": messages, "delta": {}},
+        },
     }
 
   def test_counts_dropped_and_ratio(self):
-    result = metrics_recorder.check_dropped_frames(
-        self._values_with_dropped(5), output_frame_count=1000
-    )
+    result = metrics_recorder.check_dropped_frames(self._values(5))
     assert result["dropped"] == 5
-    assert result["output_frames"] == 1000
+    assert result["messages"] == 1000
     assert result["ratio"] == pytest.approx(0.005)
     assert result["exceeded"] is False
 
   def test_exceeds_threshold(self):
-    result = metrics_recorder.check_dropped_frames(
-        self._values_with_dropped(50), output_frame_count=1000
-    )
+    result = metrics_recorder.check_dropped_frames(self._values(50))
     assert result["ratio"] == pytest.approx(0.05)
     assert result["exceeded"] is True
 
   def test_sums_controller_and_tracker_metrics(self):
-    values = self._values_with_dropped(3)
+    values = self._values(3, messages=600)
     values["tracker.mqtt.dropped"] = {
         "kind": "sum", "unit": "1", "stats": {"total": 7, "delta": {}},
     }
-    result = metrics_recorder.check_dropped_frames(values, output_frame_count=1000)
+    values["tracker.mqtt.messages"] = {
+        "kind": "sum", "unit": "1", "stats": {"total": 400, "delta": {}},
+    }
+    result = metrics_recorder.check_dropped_frames(values)
     assert result["dropped"] == 10
+    assert result["messages"] == 1000
 
-  def test_zero_output_frames_yields_zero_ratio(self):
-    result = metrics_recorder.check_dropped_frames(
-        self._values_with_dropped(5), output_frame_count=0
-    )
+  def test_ratio_is_per_message_not_per_frame(self):
+    # 2 cameras x 800 frames = 1600 messages; 64 drops is 4%, not 8% of 800 frames.
+    result = metrics_recorder.check_dropped_frames(self._values(64, messages=1600))
+    assert result["ratio"] == pytest.approx(0.04)
+
+  def test_zero_messages_yields_zero_ratio(self):
+    result = metrics_recorder.check_dropped_frames(self._values(5, messages=0))
     assert result["ratio"] == 0.0
     assert result["exceeded"] is False
 
   def test_no_dropped_metric_reports_zero(self):
-    result = metrics_recorder.check_dropped_frames({}, output_frame_count=1000)
+    result = metrics_recorder.check_dropped_frames({})
     assert result["dropped"] == 0
     assert result["exceeded"] is False
 
   def test_custom_threshold(self):
-    result = metrics_recorder.check_dropped_frames(
-        self._values_with_dropped(5), output_frame_count=1000, threshold=0.001
-    )
+    result = metrics_recorder.check_dropped_frames(self._values(5), threshold=0.001)
     assert result["exceeded"] is True
 
