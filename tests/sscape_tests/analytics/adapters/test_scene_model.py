@@ -143,6 +143,7 @@ class TestUpdateCameras:
     assert camera.pose.intrinsics is not snapshot.cameras['cam1'].pose.intrinsics
     assert scene.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([8, 9, 10])
     assert scene.cameras['static'].pose_source == 'configured'
+    assert scene.cameras['static'].pose_provenance['class'] == 'calibration'
     assert snapshot.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
 
   @pytest.mark.parametrize('locked', [True, False])
@@ -156,8 +157,17 @@ class TestUpdateCameras:
     expected = [0, 0, 3] if locked else [10, 20, 3]
     assert observed.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx(expected)
     assert initial.cameras['cam1'].pose_source == 'configured'
+    assert initial.cameras['cam1'].pose_provenance['class'] == 'calibration'
+    if not locked:
+      assert observed.cameras['cam1'].pose_provenance['class'] == 'live'
+      assert observed.cameras['cam1'].pose_provenance['origin'] == 'detector.extrinsics'
+    else:
+      assert observed.cameras['cam1'].pose_provenance['class'] == 'calibration'
     refreshed = self._camera_data(translation=[5, 6, 7], focal_length=900)
     refreshed['pose_locked'] = locked
+    refreshed['pose_provenance'] = {
+      'class': 'calibration', 'origin': 'manager.rest',
+    }
     scene.updateCameras([refreshed])
     camera = scene.cameras['cam1']
     expected = [5, 6, 7] if locked else [10, 20, 3]
@@ -165,16 +175,24 @@ class TestUpdateCameras:
     assert camera.pose.intrinsics.intrinsics[0, 0] == 900
     assert not hasattr(camera, 'configured_pose')
     assert not hasattr(camera, 'dynamic_pose')
+    if locked:
+      assert camera.pose_provenance['class'] == 'calibration'
+      assert camera.pose_provenance['origin'] == 'manager.rest'
+    else:
+      assert camera.pose_provenance['class'] == 'live'
+      assert camera.pose_provenance['origin'] == 'detector.extrinsics'
     invalid = {'translation': [1, 2, 3], 'rotation': [0, 0, 0, 0]}
     assert scene.cameraSnapshot('cam1', invalid).cameras['cam1'] is camera
     assert scene.cameraSnapshot('cam1').cameras['cam1'] is camera
     refreshed['pose_locked'] = True
     scene.updateCameras([refreshed])
     assert scene.cameras['cam1'].pose_source == 'configured'
+    assert scene.cameras['cam1'].pose_provenance['class'] == 'calibration'
     assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
     refreshed['pose_locked'] = False
     scene.updateCameras([refreshed])
     assert scene.cameras['cam1'].pose_source == 'configured'
+    assert scene.cameras['cam1'].pose_provenance['class'] == 'calibration'
     assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx([5, 6, 7])
 
   @pytest.mark.parametrize('locked', [None, '', 'unknown', []])
@@ -233,6 +251,12 @@ class TestUpdateCameras:
     assert scene.cameras['cam1'].pose_provenance == {
       'class': 'live', 'origin': 'external_source',
     }
+    scene.updateCameras([self._camera_data(translation=[5, 6, 7])])
+    assert scene.cameras['cam1'].pose_provenance == {
+      'class': 'live', 'origin': 'external_source',
+    }
+    assert scene.cameras['cam1'].pose.translation.asNumpyCartesian == pytest.approx(
+      [10, 20, 3])
 
   def test_adds_new_camera(self):
     scene = _scene()

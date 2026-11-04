@@ -2268,6 +2268,31 @@ components:
             new creates default unlocked until calibrated (calibrate UI defaults
             locked). Runtime retention ends on removal, scene reassignment, or
             process restart; observations never modify stored calibration.
+        calibration_origin:
+          type: string
+          maxLength: 64
+          default: manager.rest
+          description: >-
+            Durable calibration writer identity used as pose_provenance.origin
+            when Analytics/Controller load Manager config (manager.rest,
+            manager.mesh, manager.import). Scene import and Generate Mesh set
+            this automatically; REST/3D pose saves default to manager.rest.
+        pose_provenance:
+          type: object
+          readOnly: true
+          description: >-
+            Effective durable calibration provenance for scene payloads
+            ({class: calibration, origin: <calibration_origin>}). Regulated
+            MQTT cameras may instead report class live after an accepted
+            observation; see ADR 18.
+          properties:
+            class:
+              type: string
+              enum: [calibration, live]
+            origin:
+              type: string
+            updated_at:
+              type: string
         uid:
           type: string
           readOnly: true

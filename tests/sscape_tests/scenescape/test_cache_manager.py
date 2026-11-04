@@ -504,6 +504,8 @@ class TestCacheManagerSensorRestoration:
     camera = cache_mgr.cached_scenes_by_uid['scene-uid'].cameras['camera-1']
     assert previous.tracker.join.call_count == 1
     assert camera.pose_source == 'observation'
+    assert camera.pose_provenance['class'] == 'live'
+    assert camera.pose_provenance['origin'] == 'detector.extrinsics'
     assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
     assert camera.pose.intrinsics.intrinsics[0, 0] == 900
 
@@ -511,6 +513,7 @@ class TestCacheManagerSensorRestoration:
     replacement.retainObservedCameraPoses(previous)
     configured = replacement.cameras['camera-1']
     assert configured.pose_source == 'configured'
+    assert configured.pose_provenance['class'] == 'calibration'
     assert configured.pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
 
   @pytest.mark.parametrize("has_tracker,sensor_value,replace", [

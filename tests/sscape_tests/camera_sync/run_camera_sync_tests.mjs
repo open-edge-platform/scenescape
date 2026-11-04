@@ -496,13 +496,24 @@ test("only live provenance poses overwrite camera edits", async () => {
   ]);
   assert.equal(calls.length, 2);
   assert.deepEqual(calls[1][2].translation, [7, 7, 7]);
+  // Deprecated alias still applies when class is calibration (migration OR).
+  manager.updatePoses([
+    {
+      id: "a",
+      pose_provenance: { class: "calibration", origin: "manager.rest" },
+      dynamic_pose: true,
+      translation: [2, 2, 2],
+    },
+  ]);
+  assert.equal(calls.length, 3);
+  assert.deepEqual(calls[2][2].translation, [2, 2, 2]);
   // Deprecated alias still accepted during migration when class is absent.
   manager.updatePoses([
     { id: "a", dynamic_pose: true, translation: [1, 2, 3] },
   ]);
-  assert.equal(calls.length, 3);
-  assert.deepEqual(calls[2].slice(0, 2), ["pose", "a"]);
-  assert.deepEqual(calls[2][2].translation, [1, 2, 3]);
+  assert.equal(calls.length, 4);
+  assert.deepEqual(calls[3].slice(0, 2), ["pose", "a"]);
+  assert.deepEqual(calls[3][2].translation, [1, 2, 3]);
 });
 
 async function sceneCameraHarness() {

@@ -31,11 +31,11 @@ Runtime camera pose already has two concerns that share vocabulary poorly:
    durable calibration or from an accepted live message, and whether the 3D UI
    should apply that pose this frame.
 
-Analytics publishes `dynamic_pose` as a derived bit
-(`!pose_locked && pose_source == observation`) so the Manager 3D UI can skip
+Previously, Analytics published `dynamic_pose` as a derived bit
+(`!pose_locked && pose_source == observation`) so the Manager 3D UI could skip
 static cameras and avoid overwriting unsaved gizmo edits until a live
-observation has actually taken the runtime pose. Internally,
-`pose_source` is only the coarse pair `configured` | `observation`.
+observation had actually taken the runtime pose. Internally,
+`pose_source` was only the coarse pair `configured` | `observation`.
 
 Problems:
 
@@ -95,8 +95,9 @@ Runtime camera state (and regulated `cameras[]` entries) carry:
 
 Stamp provenance on every accepted runtime pose write. Config refresh that
 reloads calibration resets `class` to `calibration` with an appropriate
-`manager.*` origin unless phase-1 retention rules keep a prior live pose
-(same retention behavior as today for unlocked observed poses).
+`manager.*` origin (from persisted `Cam.calibration_origin`, or `unknown` when
+untagged) unless phase-1 retention rules keep a prior live pose (same retention
+behavior as today for unlocked observed poses).
 
 ### Replace `dynamic_pose`
 

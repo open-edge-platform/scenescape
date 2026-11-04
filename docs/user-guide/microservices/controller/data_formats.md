@@ -69,7 +69,11 @@ Locking the pose resets the runtime pose on configuration refresh.
 Changing back does not resurrect an earlier observed pose. There is no expiry;
 camera removal, scene reassignment, or process restart discards runtime retention.
 See [Camera Pose Lock](../../api-reference.md#camera-pose-lock) for settings,
-archive compatibility, and coordinated upgrade requirements.
+archive compatibility, and coordinated upgrade requirements. Accepted live
+poses are stamped with `pose_provenance.class` of `live` (typically
+`origin: detector.extrinsics`) for Analytics regulated camera entries; see
+[ADR 18](../../../adr/0018-camera-pose-provenance.md) and
+[Analytics data formats](../analytics/data_formats.md).
 
 Publish pose updates even when object detection is disabled; the server cannot move
 a handheld frustum from localization performed only on the device. Pose-only frames

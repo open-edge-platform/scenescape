@@ -29,8 +29,11 @@ scene reassignment, or process restart. Retention is local to each running scene
 instance; lock changes are not an instantaneous distributed cutover for queued
 messages.
 
-Regulated scene camera entries publish `pose_provenance` (`class` + `origin`)
-describing the effective runtime pose. The 3D UI follows poses when
+Cam create/update and nested scene camera payloads also expose
+`calibration_origin` (durable writer identity; default `manager.rest`) and a
+read-only `pose_provenance` object derived from it for Manager config.
+Regulated MQTT camera entries publish runtime `pose_provenance` (`class` +
+`origin`) for the effective pose. The 3D UI follows poses when
 `pose_provenance.class` is `live` (and the camera is unlocked). The deprecated
 `dynamic_pose` flag remains as an alias of `class === "live"` during migration.
 See [ADR 18](../adr/0018-camera-pose-provenance.md) and

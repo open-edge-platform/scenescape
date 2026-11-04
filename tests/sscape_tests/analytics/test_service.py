@@ -169,6 +169,30 @@ def test_dynamic_pose_alias_matches_provenance_class_even_when_locked():
   assert state['dynamic_pose'] is True
 
 
+@pytest.mark.parametrize('bad_provenance', [None, 'live', {}, {'origin': 'manager.rest'}])
+def test_camera_state_falls_back_when_pose_provenance_missing(bad_provenance):
+  scene = _mobile_scene()
+  camera = scene.cameras['mobile']
+  camera.pose_provenance = bad_provenance
+  state = AnalyticsService._camera_state(camera)
+  assert state['pose_provenance'] == {
+    'class': 'calibration', 'origin': 'unknown',
+  }
+  assert state['dynamic_pose'] is False
+
+
+def test_camera_state_ignores_stale_pose_source_when_publishing_provenance():
+  scene = _mobile_scene()
+  camera = scene.cameras['mobile']
+  camera.pose_source = 'observation'
+  camera.pose_provenance = {
+    'class': 'calibration', 'origin': 'manager.rest',
+  }
+  state = AnalyticsService._camera_state(camera)
+  assert state['pose_provenance']['class'] == 'calibration'
+  assert state['dynamic_pose'] is False
+
+
 def test_projection_scene_uses_dynamic_pose_without_mutating_configured_camera():
   from scene_common.camera import Camera
   configured = Camera('mobile', {
