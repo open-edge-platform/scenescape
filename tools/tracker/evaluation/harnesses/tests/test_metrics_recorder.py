@@ -28,6 +28,19 @@ def _export_record(metrics):
   }
 
 
+def _dropped_record(totals_by_reason):
+  """One export of tracker.mqtt.dropped with one cumulative series per reason."""
+  return _export_record([{
+      "name": "tracker.mqtt.dropped",
+      "unit": "{message}",
+      "sum": {"dataPoints": [
+          {"attributes": [_attr("scene", "Test_Scene"), _attr("reason", reason)],
+           "timeUnixNano": "1000", "asInt": str(total)}
+          for reason, total in totals_by_reason.items()
+      ]},
+  }])
+
+
 @pytest.fixture
 def metrics_file(tmp_path):
   """A two-export collector output with histogram, counter, and gauge metrics."""
@@ -204,6 +217,23 @@ class TestCollectMetricValues:
   def test_missing_file_returns_empty(self, tmp_path):
     assert metrics_recorder.collect_metric_values(tmp_path / "absent.json") == {}
 
+  def test_counter_totals_per_reason(self, tmp_path):
+    path = tmp_path / "metrics.json"
+    path.write_text(json.dumps(_dropped_record({"rejected_schema": 4, "dropped_queue_full": 2})) + "\n")
+    stats = metrics_recorder.collect_metric_values(path)["tracker.mqtt.dropped"]["stats"]
+    assert stats["total"] == 6
+    assert stats["by_reason"] == {"rejected_schema": 4, "dropped_queue_full": 2}
+
+  def test_all_rejected_tracker_run_is_flagged(self, tmp_path):
+    # Every message failed validation: tracker.mqtt.messages never increments.
+    path = tmp_path / "metrics.json"
+    path.write_text(json.dumps(_dropped_record({"rejected_schema": 500})) + "\n")
+    result = metrics_recorder.check_dropped_frames(metrics_recorder.collect_metric_values(path))
+    assert result["dropped"] == 500
+    assert result["received"] == 500
+    assert result["ratio"] == 1.0
+    assert result["exceeded"] is True
+
 
 class TestCheckDroppedFrames:
   def _values(self, dropped, messages=1000):
@@ -223,7 +253,7 @@ class TestCheckDroppedFrames:
   def test_counts_dropped_and_ratio(self):
     result = metrics_recorder.check_dropped_frames(self._values(5))
     assert result["dropped"] == 5
-    assert result["messages"] == 1000
+    assert result["received"] == 1000
     assert result["ratio"] == pytest.approx(0.005)
     assert result["exceeded"] is False
 
@@ -242,17 +272,38 @@ class TestCheckDroppedFrames:
     }
     result = metrics_recorder.check_dropped_frames(values)
     assert result["dropped"] == 10
-    assert result["messages"] == 1000
+    assert result["received"] == 1000
 
   def test_ratio_is_per_message_not_per_frame(self):
     # 2 cameras x 800 frames = 1600 messages; 64 drops is 4%, not 8% of 800 frames.
     result = metrics_recorder.check_dropped_frames(self._values(64, messages=1600))
     assert result["ratio"] == pytest.approx(0.04)
 
-  def test_zero_messages_yields_zero_ratio(self):
+  def test_dropped_without_received_messages_is_flagged(self):
     result = metrics_recorder.check_dropped_frames(self._values(5, messages=0))
+    assert result["ratio"] == 1.0
+    assert result["exceeded"] is True
+
+  def test_nothing_received_or_dropped_yields_zero_ratio(self):
+    result = metrics_recorder.check_dropped_frames(self._values(0, messages=0))
     assert result["ratio"] == 0.0
     assert result["exceeded"] is False
+
+  def test_tracker_rejections_count_as_received(self):
+    # tracker.mqtt.messages counts accepted messages only; rejected ones are only in tracker.mqtt.dropped.
+    values = {
+        "tracker.mqtt.messages": {
+            "kind": "sum", "unit": "1", "stats": {"total": 900, "delta": {}},
+        },
+        "tracker.mqtt.dropped": {
+            "kind": "sum", "unit": "1",
+            "stats": {"total": 150, "delta": {},
+                      "by_reason": {"rejected_lag": 100, "dropped_queue_full": 50}},
+        },
+    }
+    result = metrics_recorder.check_dropped_frames(values)
+    assert result["received"] == 1000
+    assert result["ratio"] == pytest.approx(0.15)
 
   def test_no_dropped_metric_reports_zero(self):
     result = metrics_recorder.check_dropped_frames({})

@@ -263,8 +263,10 @@ After writing the summary, the harness verifies how many messages were dropped (
 `scenescape_controller_mqtt_messages_dropped` and `tracker.mqtt.dropped` counters), prints the
 count and ratio, and emits a `WARNING` when the dropped-to-received-message ratio exceeds 1%.
 The denominator is the total of the `scenescape_controller_mqtt_messages` and
-`tracker.mqtt.messages` counters. Messages are per camera, so the ratio does not depend on the
-number of cameras in the dataset.
+`tracker.mqtt.messages` counters, plus the messages the Tracker rejected before accepting them
+(`tracker.mqtt.dropped` with a `rejected_*` reason), which `tracker.mqtt.messages` does not count.
+A run that dropped messages but received none is reported as 100%. Dropped messages are counted
+per camera, so the ratio does not depend on the number of cameras in the dataset.
 The aggregated values are also available programmatically via
 `metrics_recorder.collect_metric_values()` and `metrics_recorder.check_dropped_frames()`.
 

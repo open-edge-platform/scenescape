@@ -44,13 +44,17 @@ DROPPED_FRAME_METRICS = (
     "tracker.mqtt.dropped",
 )
 
-# Counter metrics with the total number of messages received by the service.
-# Dropped counters are per message (per camera), so they are compared against
-# these totals rather than against the number of tracker output frames.
+# Counter metrics with the number of messages the service counted as received.
+# tracker.mqtt.messages counts accepted messages only; see REJECTED_REASON_PREFIX.
 RECEIVED_MESSAGE_METRICS = (
     "scenescape_controller_mqtt_messages",
     "tracker.mqtt.messages",
 )
+
+# Dropped-counter reason of messages rejected before acceptance (parse, schema,
+# unknown camera, lag). They are not in tracker.mqtt.messages, so they are added
+# to the received total; later drops (e.g. queue full) were already counted.
+REJECTED_REASON_PREFIX = "rejected_"
 
 # Default warning threshold for the dropped-frame ratio (1%).
 DEFAULT_DROPPED_FRAME_THRESHOLD = 0.01
@@ -203,15 +207,16 @@ def _summarise_histogram(points: List[Dict[str, Any]]) -> Optional[Dict[str, flo
 
 
 def _summarise_counter(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
-  """Aggregate cumulative counter series into a total plus per-export deltas."""
+  """Aggregate cumulative counter series into a total, per-reason totals and per-export deltas."""
   # Group points by series so deltas are computed within a single time series.
   by_series: Dict[Tuple, List[Dict[str, Any]]] = {}
   for point in points:
     by_series.setdefault(_series_key(point), []).append(point)
 
   total = 0.0
+  by_reason: Dict[str, float] = {}
   deltas: List[float] = []
-  for series_points in by_series.values():
+  for key, series_points in by_series.items():
     series_points.sort(key=_point_time)
     previous = 0.0
     for point in series_points:
@@ -225,9 +230,11 @@ def _summarise_counter(points: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
         deltas.append(value - previous)
       previous = value
     total += previous
+    reason = dict(key).get("reason", "")
+    by_reason[reason] = by_reason.get(reason, 0.0) + previous
   if not deltas:
     return None
-  return {"total": total, "delta": _stats(deltas)}
+  return {"total": total, "by_reason": by_reason, "delta": _stats(deltas)}
 
 
 def _summarise_gauge(points: List[Dict[str, Any]]) -> Optional[Dict[str, float]]:
@@ -287,6 +294,17 @@ def _counter_total(metric_values: Dict[str, Dict[str, Any]], names: Tuple[str, .
   return total
 
 
+def _rejected_total(metric_values: Dict[str, Dict[str, Any]]) -> int:
+  """Sum the dropped messages that were rejected before acceptance."""
+  total = 0
+  for name in DROPPED_FRAME_METRICS:
+    stats = (metric_values.get(name) or {}).get("stats") or {}
+    for reason, value in (stats.get("by_reason") or {}).items():
+      if reason.startswith(REJECTED_REASON_PREFIX):
+        total += int(value or 0)
+  return total
+
+
 def check_dropped_frames(
     metric_values: Dict[str, Dict[str, Any]],
     threshold: float = DEFAULT_DROPPED_FRAME_THRESHOLD,
@@ -294,25 +312,30 @@ def check_dropped_frames(
   """Verify how many messages the tracker/controller dropped during the run.
 
   Sums the cumulative totals of the known dropped-message counters and compares
-  them with the total number of messages the service received.  Both counters
-  count per-camera messages, so the ratio is independent of the camera count.
+  them with the number of messages the service received: its message counter
+  plus the messages rejected before acceptance, which the Tracker counts only as
+  dropped.  Both services count dropped messages per camera, so the ratio is
+  independent of the camera count.
 
   Args:
       metric_values: Output of :func:`collect_metric_values`.
       threshold:     Ratio above which the run is flagged (default 1%).
 
   Returns:
-      Mapping with ``dropped`` (int), ``messages`` (int), ``ratio``
-      (float; 0.0 when no messages were received), ``threshold`` (float) and
-      ``exceeded`` (bool).
+      Mapping with ``dropped`` (int), ``received`` (int), ``ratio`` (float;
+      1.0 when messages were dropped but none received, 0.0 when neither),
+      ``threshold`` (float) and ``exceeded`` (bool).
   """
   dropped = _counter_total(metric_values, DROPPED_FRAME_METRICS)
-  messages = _counter_total(metric_values, RECEIVED_MESSAGE_METRICS)
+  received = _counter_total(metric_values, RECEIVED_MESSAGE_METRICS) + _rejected_total(metric_values)
 
-  ratio = dropped / messages if messages > 0 else 0.0
+  if received > 0:
+    ratio = dropped / received
+  else:
+    ratio = 1.0 if dropped > 0 else 0.0
   return {
       "dropped": dropped,
-      "messages": messages,
+      "received": received,
       "ratio": ratio,
       "threshold": threshold,
       "exceeded": ratio > threshold,

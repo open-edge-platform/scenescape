@@ -244,10 +244,12 @@ scope with the following instruments (see
 
 - `tracker.mqtt.latency` (histogram, ms) — end-to-end processing latency,
   attributed by `scene` and `category`.
-- `tracker.mqtt.messages` (counter) — messages received, attributed by
-  `scene`, `camera_id`, and `reason` (accepted / rejected).
-- `tracker.mqtt.dropped` (counter) — messages dropped, attributed by
-  `scene`, `camera_id`, and `reason`.
+- `tracker.mqtt.messages` (counter) — messages accepted, attributed by
+  `scene`, `camera_id`, and `reason` (`accepted`). Rejected messages are
+  counted in `tracker.mqtt.dropped`.
+- `tracker.mqtt.dropped` (counter) — messages rejected on arrival (`reason`
+  `rejected_*`, with `camera_id`) or dropped later (`dropped_*`, with
+  `category`), attributed by `scene` and `reason`.
 - `tracker.tracks.active` (gauge) — currently active tracks, attributed by
   `scene` and `category`.
 

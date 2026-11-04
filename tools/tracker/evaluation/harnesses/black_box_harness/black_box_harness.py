@@ -974,7 +974,7 @@ class BlackBoxHarness(TrackerHarness):
 
     print(
         f"[BlackBoxHarness] Dropped messages: {result['dropped']} "
-        f"({result['ratio'] * 100:.2f}% of {result['messages']} "
+        f"({result['ratio'] * 100:.2f}% of {result['received']} "
         "received messages)"
     )
     if result["exceeded"]:
