@@ -808,10 +808,11 @@ explicit camera ownership/partitioning and is not achieved by increasing replica
   [Testing & Monitoring](#9-testing--monitoring), but each deployment owner must supply
   numerical ground-plane error and camera-to-tracker latency limits before enabling a
   camera. Missing limits mean the feature remains disabled.
-- **UI live-pose visualization.** The PoC's Manager redraw depended on writing live
-  rotation to the camera record. v1 does not do that. The recommended follow-up is for
-  the UI to subscribe to the resolved pose/status topics for display only; this UI
-  consumer is not on the projection critical path.
+- **UI live-pose visualization.** Implemented as a display-only consumer: the Manager 3D
+  view and camera calibration page subscribe to the resolved pose topic of each PTZ
+  camera, show valid stationary poses, and hide the projected frame otherwise. They do
+  not write the live pose to the camera record. Showing the pose during slewing remains
+  out of scope.
 - **Fast-slew synchronization.** v1 fails closed while slewing and settling. If product
   requirements later require tracking during motion, evaluate ONVIF Timed Metadata/RTP
   association or a higher-rate timestamped pose source; do not weaken the v1 gate without

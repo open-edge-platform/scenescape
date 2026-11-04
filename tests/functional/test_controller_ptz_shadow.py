@@ -57,10 +57,28 @@ def wait_for_record(scenescape_env, harness, predicate, timeout=RECORD_TIMEOUT_S
   raise AssertionError(f"No matching shadow record within {timeout}s: {shadow_records(scenescape_env)[-3:]}")
 
 
-@pytest.mark.test_name("NEX-T#####")
+@pytest.mark.test_name("NEX-T30952")
 def test_shadow_mode_keeps_the_static_projection_and_records_the_candidate(
     scenescape_env, ptz_harness, tmp_path, result_recorder):
-  """Tracking stays on the static pose while the candidate projection is recorded."""
+  """
+  ## Name
+  PTZ Shadow Mode Keeps Static Projection And Records Candidate
+
+  ## Objective
+  Verify that in shadow mode tracking keeps using the static home pose while every PTZ decision, with the candidate projection and its residual, is written as a JSONL record to the Controller logs.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Create a PTZ camera, publish stationary poses for an off-home pose and start sending detections
+  2. Wait until detections are admitted and verify they project with the static home pose
+  3. Read the shadow records of the run from the Controller container logs until an admitted record with detections appears
+  4. Verify every record has all required fields, the controller profile, the shadow mode and the scene id
+  5. Verify the detections sent before the dwell completed are recorded as rejected with reason `no_sample` or `dwell_incomplete`
+  6. Verify the admitted record carries the calibration version, dwell and pose age, and that its static and candidate projections match the home and off-home poses with a residual above the tolerance
+  7. Write the shadow artifact and verify it is a non-empty JSONL file named after the run
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   off_home = harness.off_home_matrix_for(camera)
@@ -100,10 +118,25 @@ def test_shadow_mode_keeps_the_static_projection_and_records_the_candidate(
   result_recorder.success()
 
 
-@pytest.mark.test_name("NEX-T#####")
+@pytest.mark.test_name("NEX-T30953")
 def test_shadow_mode_does_not_gate_detections_of_a_moving_camera(
     scenescape_env, ptz_harness, result_recorder):
-  """A moving PTZ camera is recorded as rejected but its detections still reach tracking."""
+  """
+  ## Name
+  PTZ Shadow Mode Does Not Gate Moving Camera Detections
+
+  ## Objective
+  Verify that in shadow mode a moving PTZ camera is recorded as rejected while its detections still reach tracking.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Create a PTZ camera and publish an invalid pose with the slewing motion state and reason detail `moving`
+  2. Send detections and wait until the Scene Controller outputs a scene message containing objects
+  3. Read the shadow records of the run from the Controller container logs until one has reason detail `moving`
+  4. Verify every `moving` record is rejected with invalid reason `invalid_pose`
+  """
   harness = ptz_harness
   camera = harness.create_ptz_camera()
   publisher = harness.start_poses(camera)
