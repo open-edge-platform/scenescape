@@ -513,6 +513,12 @@ class VGGTModel(ReconstructionModel):
       log.exception(f"Failed to compute baseline from camera_locations: {e}")
       return 0.0
 
+  @staticmethod
+  def _size_fields(original_sizes, i):
+    if original_sizes is None or i >= len(original_sizes):
+      return {}
+    return {"width": int(original_sizes[i][0]), "height": int(original_sizes[i][1])}
+
   def _process_outputs(self, predictions: Dict[str, Any], original_sizes: List[tuple],
             model_size: tuple, camera_ids: List[Any] = None, camera_locations: List[Any] = None) -> Dict[str, Any]:
     """
@@ -633,25 +639,14 @@ class VGGTModel(ReconstructionModel):
         "rotation": quaternion.tolist(), # [x, y, z, w]
         "translation": camera_to_world[:3, 3].tolist()
       })
-      intrinsics_list.append(
-        self._intrinsics_entry(cam_id, K, original_sizes, i))
+      intrinsics_list.append({
+        "camera_id": cam_id,
+        "K": K.tolist(),
+        **self._size_fields(original_sizes, i)
+      })
 
     return {
       "predictions": predictions,
       "camera_poses": camera_poses,
       "intrinsics": intrinsics_list
     }
-
-  @staticmethod
-  def _intrinsics_entry(cam_id, K, original_sizes, index):
-    """Build an intrinsics payload, optionally including source frame size."""
-    entry = {
-      "camera_id": cam_id,
-      "K": K.tolist()
-    }
-    if original_sizes is None or index >= len(original_sizes):
-      return entry
-    frame_size = original_sizes[index]
-    entry["width"] = int(frame_size[0])
-    entry["height"] = int(frame_size[1])
-    return entry

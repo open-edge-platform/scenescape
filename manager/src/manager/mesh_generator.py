@@ -608,8 +608,7 @@ class MeshGenerator:
     except Exception as e:
       log.error(f"Failed to update scene cameras: {e}")
 
-  @staticmethod
-  def _scaled_mapping_intrinsics(camera, intrinsics_data):
+  def _updateCameraIntrinsics(self, camera, intrinsics_data):
     """Scale mapping K into the registered Cam resolution when frames differ."""
     intrinsics_array = np.array(intrinsics_data['K'], dtype=float)
     fx, fy = float(intrinsics_array[0, 0]), float(intrinsics_array[1, 1])
@@ -634,7 +633,16 @@ class MeshGenerator:
         f"Scaling mapping intrinsics for {camera.sensor_id} from "
         f"{src_w}x{src_h} into Cam resolution {dst_w}x{dst_h}")
       fx, fy, cx, cy = fx * sx, fy * sy, cx * sx, cy * sy
-    return fx, fy, cx, cy
+
+    camera.cam.intrinsics_fx = fx
+    camera.cam.intrinsics_fy = fy
+    camera.cam.intrinsics_cx = cx
+    camera.cam.intrinsics_cy = cy
+
+    log.info(
+      f"Updated intrinsics for {camera.sensor_id}: "
+      f"fx={fx:.2f} fy={fy:.2f} cx={cx:.2f} cy={cy:.2f} "
+      f"(Cam res {camera.cam.width}x{camera.cam.height})")
 
   def _updateCameraParameters(self, camera, pose_data, intrinsics_data):
     """Write mapping-service pose (and optional intrinsics) onto a camera.
@@ -648,15 +656,7 @@ class MeshGenerator:
       translation = pose_data['translation']  # [x, y, z]
 
       if intrinsics_data is not None:
-        fx, fy, cx, cy = self._scaled_mapping_intrinsics(camera, intrinsics_data)
-        camera.cam.intrinsics_fx = fx
-        camera.cam.intrinsics_fy = fy
-        camera.cam.intrinsics_cx = cx
-        camera.cam.intrinsics_cy = cy
-        log.info(
-          f"Updated intrinsics for {camera.sensor_id}: "
-          f"fx={fx:.2f} fy={fy:.2f} cx={cx:.2f} cy={cy:.2f} "
-          f"(Cam res {camera.cam.width}x{camera.cam.height})")
+        self._updateCameraIntrinsics(camera, intrinsics_data)
 
       camera.cam.transforms = [
         float(translation[0]), float(translation[1]), float(translation[2]),
