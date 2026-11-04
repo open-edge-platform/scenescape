@@ -12,6 +12,7 @@ from uuid import UUID
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.conf import settings
 from django.core.files import File
 from django.db import transaction
@@ -20,6 +21,7 @@ from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 from scipy.spatial.transform import Rotation
 
+from manager.validators import validate_scene_name
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
@@ -740,6 +742,11 @@ class SceneSerializer(NonNullSerializer):
     return super().validate(attrs)
 
   def validate_name(self, value):
+    try:
+      validate_scene_name(value)
+    except DjangoValidationError as e:
+      raise serializers.ValidationError(e.message)
+
     qs = Scene.objects.filter(name=value)
 
     if self.instance:
