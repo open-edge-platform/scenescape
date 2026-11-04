@@ -3,9 +3,9 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Integrate External Applications
+# Build Applications with Scenescape
 
-This guide explains how to connect an application to Scenescape, subscribe to scene data and spatial events over MQTT, and deploy the bundled sample application.
+This guide explains how to build an application on Scenescape data: subscribe to scene updates and spatial events over MQTT, discover identifiers over the REST API, and deploy the bundled sample application.
 
 ## Prerequisites
 
@@ -25,8 +25,6 @@ MQTT is the shared transport for camera and sensor inputs, tracked-object data, 
 | Spatial analytics      | Analytics publishes rate-controlled scene updates and events for regions of interest (ROIs) and tripwires. ROIs describe areas; tripwires detect boundary crossings. | [Configure Spatial Analytics](./build-a-scene/configure-spatial-analytics.md), [Work with Spatial Analytics Data](./work-with-spatial-analytics-data.md) |
 | REST API               | Discover scene, region, and tripwire identifiers and manage configuration over HTTPS. REST is not the live object-data stream.                                       | [API Reference](../api-reference.md), [REST Discovery Examples](./work-with-spatial-analytics-data.md#discovering-existing-rois-and-tripwires-via-api)   |
 
-If your application supplies detections rather than consuming results, see [Publish an External Source Adapter](./publish-external-source-adapter.md).
-
 ## Connect Your Application
 
 1. Use the REST API or web UI to identify the scenes, regions, and tripwires your application needs. See [REST API Authentication](./work-with-spatial-analytics-data.md#rest-api-authentication).
@@ -37,10 +35,13 @@ If your application supplies detections rather than consuming results, see [Publ
    | ----------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
    | Rate-controlled scene state               | `scenescape/regulated/scene/{scene_id}`                           | [Regulated Scene Output](../microservices/analytics/data_formats.md#regulated-scene-output-message-format) |
    | ROI events, such as occupancy updates     | `scenescape/event/region/{scene_id}/{region_id}/{event_type}`     | [Region Event Output](../microservices/analytics/data_formats.md#region-event-output-message-format)       |
+   | Objects currently inside an ROI           | `scenescape/data/region/{scene_id}/{region_id}/{thing_type}`      | [Region Data Topics](./work-with-spatial-analytics-data.md#region-data-topics)                             |
    | Tripwire crossing events                  | `scenescape/event/tripwire/{scene_id}/{tripwire_id}/{event_type}` | [Tripwire Event Output](../microservices/analytics/data_formats.md#tripwire-event-output-message-format)   |
    | Unregulated, per-category tracked objects | `scenescape/data/scene/{scene_id}/{thing_type}`                   | [Data Scene Output](../microservices/controller/data_formats.md#data-scene-output-message-format)          |
 
-   Replace the placeholders with identifiers from your deployment. MQTT `+` matches one topic level and `#` matches the remaining levels. The sample uses wildcards to monitor multiple scenes; production applications should narrow subscriptions to their intended scope.
+   Tripwires are event-only: there is no `scenescape/data/tripwire/...` topic. Use the tripwire event topic above for crossing notifications.
+
+   Replace `{scene_id}`, `{region_id}`, `{tripwire_id}`, and `{thing_type}` with values from your deployment. Find scene, region, and tripwire identifiers in the Scenescape web UI (open a scene and use the Regions and Tripwires tabs) or through the REST API; see [Discovering Existing ROIs and Tripwires via API](./work-with-spatial-analytics-data.md#discovering-existing-rois-and-tripwires-via-api). MQTT `+` matches one topic level and `#` matches the remaining levels. The sample uses wildcards to monitor multiple scenes; production applications should narrow subscriptions to their intended scope.
 
 4. Handle incoming messages in your application and implement your business logic. For discovery requests, event payloads, and Python and JavaScript examples, see [Work with Spatial Analytics Data](./work-with-spatial-analytics-data.md).
 
@@ -80,6 +81,8 @@ docker compose -f sample_data/sample_app/compose.app.yml logs --tail=100 nodered
 ```
 
 ### 3. Open and Configure Node-RED
+
+Open these URLs in a web browser:
 
 - Editor: `http://<HOST-IP>:1880`
 - Dashboard: `http://<HOST-IP>:1880/dashboard`

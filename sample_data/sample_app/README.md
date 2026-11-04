@@ -4,7 +4,7 @@
 
 This is a Node-RED based sample application that runs on top of the Scenescape platform. It demonstrates how to integrate and interact with Scenescape services using Node-RED flows that are connected to Scenescape's published MQTT topics.
 
-For deployment prerequisites, MQTT topics, connection security, and a step-by-step walkthrough, see [Integrate External Applications](../../docs/user-guide/how-to-guides/integrate-external-applications.md).
+For deployment prerequisites, MQTT topics, connection security, and a step-by-step walkthrough, see [Build Applications with Scenescape](../../docs/user-guide/how-to-guides/build-applications-with-scenescape.md).
 
 ## Usage
 
