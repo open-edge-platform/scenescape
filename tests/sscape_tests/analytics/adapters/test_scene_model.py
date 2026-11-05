@@ -4,6 +4,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 from analytics.adapters.scene_model import AnalyticsScene
@@ -107,6 +108,119 @@ class TestHydrateFromSceneData:
     scene._updateTripwires.assert_called_once_with(tripwires)
     assert scene._updateRegions.call_args_list[0].args == (scene.regions, regions)
     assert scene._updateRegions.call_args_list[1].args == (scene.sensors, sensors)
+
+
+MODULE = 'analytics.adapters.scene_model'
+CORNERS_LLA = [[0, 0, 0], [1, 1, 1]]
+
+
+def _lla_scene():
+  scene = _scene()
+  scene.output_lla = True
+  scene.map_corners_lla = CORNERS_LLA
+  return scene
+
+
+class TestTrsXyzToLla:
+
+  def test_fresh_scene_returns_none(self):
+    assert _scene().trs_xyz_to_lla is None
+
+  @pytest.mark.parametrize('output_lla, corners', [
+    (False, CORNERS_LLA),
+    (True, None),
+  ])
+  def test_incomplete_inputs_return_none_without_computing(self, output_lla, corners):
+    scene = _scene()
+    scene.output_lla = output_lla
+    scene.map_corners_lla = corners
+
+    with patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints') as mock_calc:
+      assert scene.trs_xyz_to_lla is None
+
+    mock_calc.assert_not_called()
+
+  def test_result_is_cached_and_invalidate_recomputes(self):
+    scene = _lla_scene()
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
+               return_value=np.eye(4)) as mock_calc:
+      first = scene.trs_xyz_to_lla
+      second = scene.trs_xyz_to_lla
+      assert mock_calc.call_count == 1
+      assert np.array_equal(first, second)
+
+      scene._invalidate_trs_xyz_to_lla()
+      _ = scene.trs_xyz_to_lla
+      assert mock_calc.call_count == 2
+
+  @pytest.mark.parametrize('exc', [ValueError('boom'), TypeError('boom'), IndexError('boom')])
+  def test_expected_failure_is_cached_and_logged_once(self, exc):
+    scene = _lla_scene()
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints', side_effect=exc) as mock_calc, \
+         patch(f'{MODULE}.log') as mock_log:
+      assert scene.trs_xyz_to_lla is None
+      assert scene.trs_xyz_to_lla is None
+      assert scene.trs_xyz_to_lla is None
+
+    assert mock_calc.call_count == 1
+    mock_log.error.assert_called_once()
+
+  def test_missing_map_mesh_is_handled_as_failure(self):
+    scene = _lla_scene()
+    assert scene.map_triangle_mesh is None
+
+    with patch(f'{MODULE}.log') as mock_log:
+      assert scene.trs_xyz_to_lla is None
+
+    mock_log.error.assert_called_once()
+
+  def test_invalidate_clears_cached_failure(self):
+    scene = _lla_scene()
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
+               side_effect=ValueError('boom')) as mock_calc, \
+         patch(f'{MODULE}.log'):
+      assert scene.trs_xyz_to_lla is None
+      scene._invalidate_trs_xyz_to_lla()
+      assert scene.trs_xyz_to_lla is None
+
+    assert mock_calc.call_count == 2
+
+  def test_unexpected_error_is_not_swallowed(self):
+    scene = _lla_scene()
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
+               side_effect=RuntimeError('unexpected')), \
+         pytest.raises(RuntimeError):
+      _ = scene.trs_xyz_to_lla
+
+  def test_hydration_recovers_after_failed_hydration(self):
+    scene = _scene()
+    data = {'name': 's', 'output_lla': True, 'map_corners_lla': CORNERS_LLA}
+
+    with patch(f'{MODULE}.getMeshAxisAlignedProjectionToXY', return_value=np.zeros((4, 3))), \
+         patch(f'{MODULE}.log'):
+      with patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints',
+                 side_effect=ValueError('boom')):
+        scene._hydrateFromSceneData(data)
+        assert scene.trs_xyz_to_lla is None
+
+      with patch(f'{MODULE}.calculateTRSLocal2LLAFromSurfacePoints', return_value=np.eye(4)):
+        scene._hydrateFromSceneData(data)
+        assert np.array_equal(scene.trs_xyz_to_lla, np.eye(4))
+
+  def test_hydration_with_lla_disabled_leaves_transform_none(self):
+    scene = _scene()
+
+    scene._hydrateFromSceneData({'name': 's', 'output_lla': False})
+
+    assert scene.trs_xyz_to_lla is None
 
 
 class TestUpdateCameras:
