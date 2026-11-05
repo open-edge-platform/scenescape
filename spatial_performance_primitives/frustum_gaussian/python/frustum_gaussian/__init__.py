@@ -85,14 +85,24 @@ def project_frustum_batch(
   intrinsics = np.asarray(intrinsics, dtype=np.float32)
   img_size = np.asarray(img_size, dtype=np.float32)
   clipped = None if clipped is None else np.asarray(clipped, dtype=np.uint8)
+  ranges = detections_or_dict.get("ranges") if isinstance(detections_or_dict, dict) else None
+  sensor = kwargs.get("sensor")
+  if _cpp is None and (ranges is not None or sensor is not None):
+    raise NotImplementedError("range fusion requires the native frustum kernel")
   if _cpp is not None:
     obs: dict[str, np.ndarray] = {"boxes": boxes, "priors": priors}
+    if ranges is not None:
+      ranges = np.asarray(ranges, dtype=np.float32)
+      if ranges.shape != (boxes.shape[0],):
+        raise ValueError("ranges must have shape (N,)")
+      obs["ranges"] = ranges
     if clipped is not None:
       obs["clipped"] = clipped
     if not (isinstance(axis_aware, (bool, np.bool_)) and bool(axis_aware)):
       obs["axis_aware"] = np.broadcast_to(
         np.asarray(axis_aware, dtype=np.uint8), (boxes.shape[0],)).copy()
-    return _cpp.project_frustum_batch(obs, intrinsics, img_size, sigma_px=float(sigma_px))
+    return _cpp.project_frustum_batch(
+      obs, intrinsics, img_size, sigma_px=float(sigma_px), sensor=sensor)
   return project_frustum_batch_numpy(
     boxes=boxes,
     intrinsics=intrinsics,
