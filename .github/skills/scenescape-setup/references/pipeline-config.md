@@ -11,11 +11,12 @@ upstream SceneScape repo into `<deploy_dir>/dlstreamer-pipeline-server/`.
 `user_scripts/gstplugins/` holds the native GStreamer Python plugins that replace the former
 `gvapython` + `sscape_adapter.py` path:
 
-| Plugin file                                      | Element name                         | Role                                      |
-| ------------------------------------------------ | ------------------------------------ | ----------------------------------------- |
-| `sscape_post_decode_timestamp_capture.py`        | `sscape_timestamp_capture`           | NTP / frame timestamp capture (`timesync`) |
-| `sscape_post_inference_data_publish.py`          | `sscape_post_inference_data_publish` | MQTT metadata publish (`datapublisher`)    |
-| `sscape_policies.py` / `sscape_3d_detector.py`   | (imported by datapublisher)          | Metadata generation policies               |
+| Plugin file                                    | Element name                         | Role                                        |
+| ---------------------------------------------- | ------------------------------------ | ------------------------------------------- |
+| `sscape_post_decode_timestamp_capture.py`      | `sscape_timestamp_capture`           | NTP / frame timestamp capture (`timesync`)  |
+| `sscape_post_inference_data_publish.py`        | `sscape_post_inference_data_publish` | MQTT metadata publish (`datapublisher`)     |
+| `sscape_track_annotation.py`                   | (imported by datapublisher)          | GID label parsing, synchronization, drawing |
+| `sscape_policies.py` / `sscape_3d_detector.py` | (imported by datapublisher)          | Metadata generation policies                |
 
 Compose mounts those files into
 `/opt/intel/dlstreamer/gstreamer/lib/gstreamer-1.0/python/` so GStreamer can load them as
@@ -81,14 +82,14 @@ Parameters map directly to native GST element properties (no nested `kwarg` JSON
 }
 ```
 
-| Payload key          | Element        | GST property                 | Notes                                      |
-| -------------------- | -------------- | ---------------------------- | ------------------------------------------ |
-| `ntp_config`         | `timesync`     | `ntp-server`                 | string; matches `ntpserv` compose service  |
-| `frame_ntp_config`   | `timesync`     | `use-frame-ntp-timestamp`    | boolean                                    |
-| `cameraid`           | `datapublisher`| `cameraid`                   | string                                     |
-| `metadatagenpolicy`  | `datapublisher`| `metadatagenpolicy`          | string                                     |
-| `publish_image`      | `datapublisher`| `publish-image`              | boolean (optional; default false)          |
-| `detection_labels`   | `datapublisher`| `detection-labels`           | comma-separated string, not a JSON array   |
+| Payload key         | Element         | GST property              | Notes                                     |
+| ------------------- | --------------- | ------------------------- | ----------------------------------------- |
+| `ntp_config`        | `timesync`      | `ntp-server`              | string; matches `ntpserv` compose service |
+| `frame_ntp_config`  | `timesync`      | `use-frame-ntp-timestamp` | boolean                                   |
+| `cameraid`          | `datapublisher` | `cameraid`                | string                                    |
+| `metadatagenpolicy` | `datapublisher` | `metadatagenpolicy`       | string                                    |
+| `publish_image`     | `datapublisher` | `publish-image`           | boolean (optional; default false)         |
+| `detection_labels`  | `datapublisher` | `detection-labels`        | comma-separated string, not a JSON array  |
 
 ## Manual re-run
 
