@@ -921,6 +921,7 @@
     },
     "source_state": {
       "$ref": "#/definitions/source_state"
+    },
     "pose_context": {
       "$ref": "#/definitions/pose_context"
     },
