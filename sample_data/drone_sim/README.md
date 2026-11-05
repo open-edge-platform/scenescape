@@ -117,11 +117,11 @@ docker compose --project-directory . -f sample_data/drone_sim/compose.drone-vide
 
 - **Web UI**: open the new scene. Tracked people appear on the map, localized
   from the drone's moving view. The drone platform appears as a scene object
-  (`id` matching `source_id`); object-metadata frustums are follow-on work.
-  Open the `sim-drone-view` camera (scene page camera panel or camera detail
-  page) and enable live view to watch the warped, annotated drone frames —
-  with `show_hud` enabled the current yaw/pitch/roll/zoom is drawn on each
-  frame.
+  (`id` matching `source_id`) with child frustums from its object `cameras`
+  metadata (toggle "show platform frustums" in the 3D panel). Open the
+  `sim-drone-view` camera (scene page camera panel or camera detail page) and
+  enable live view to watch the warped, annotated drone frames — with
+  `show_hud` enabled the current yaw/pitch/roll/zoom is drawn on each frame.
 
 Stop the demo:
 

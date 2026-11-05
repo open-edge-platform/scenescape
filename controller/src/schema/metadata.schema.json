@@ -543,6 +543,30 @@
       },
       "required": ["id", "mount", "intrinsics", "objects"]
     },
+    "platform_camera": {
+      "title": "Platform Camera State",
+      "description": "Camera mount and calibration carried on a platform scene object (id matching source_id) for object-graph frustum rendering. Observations are omitted; ingest cameras[] remain on the external_source wire contract.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Camera ID",
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable camera identifier unique within the platform."
+        },
+        "mount": {
+          "$ref": "#/definitions/external_camera_mount"
+        },
+        "intrinsics": {
+          "$ref": "#/definitions/camera_intrinsics"
+        },
+        "distortion": {
+          "$ref": "#/definitions/camera_distortion"
+        }
+      },
+      "required": ["id", "mount", "intrinsics"]
+    },
     "external_source": {
       "title": "External Source Metadata",
       "description": "Unified contract for object observations published by external sources (physical agents such as drones or vehicles, and the Scenescape positioning service) under scenescape/external/{publisher_id}/{thing_type}, where publisher_id matches source_id. Scene membership is via consumer-side binding.",

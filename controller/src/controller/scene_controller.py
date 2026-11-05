@@ -846,12 +846,15 @@ class SceneController:
     objects = jdata['objects']
     pixel_objects, _ = self._partitionExternalObjects(objects)
 
-    camera_pose, _, reason = self.external_source_pose_cache.resolveMessage(
+    camera_pose, pose_state, reason = self.external_source_pose_cache.resolveMessage(
       scene, source_id, jdata, msg_when, trusted_scene_pose=trusted)
     if camera_pose is None:
       log.warning(f"External source pose unavailable for source={source_id} "
                 f"scene={scene.uid}: {reason}")
       return True
+
+    jdata['objects'] = self._attachPlatformCameras(
+      jdata['objects'], source_id, pose_state)
 
     accepted, synthetic_intrinsics = self._externalPixelIntrinsics(
       scene, source_id, jdata, pixel_objects, msg_when)
@@ -890,6 +893,46 @@ class SceneController:
       'translation': [0.0, 0.0, 0.0],
     })
     return body_objects
+
+  @staticmethod
+  def _platformCamerasFromState(pose_state):
+    """Project cached camera config onto the platform object (no observations)."""
+    if pose_state is None:
+      return None
+    cameras = getattr(pose_state, 'cameras', None)
+    if cameras is not None:
+      return deepcopy(cameras)
+    intrinsics = getattr(pose_state, 'intrinsics', None)
+    if intrinsics is None:
+      return None
+    camera = {
+      'id': 'default',
+      'mount': {
+        'translation': [0.0, 0.0, 0.0],
+        'rotation': [0.0, 0.0, 0.0, 1.0],
+      },
+      'intrinsics': deepcopy(intrinsics),
+    }
+    distortion = getattr(pose_state, 'distortion', None)
+    if distortion is not None:
+      camera['distortion'] = deepcopy(distortion)
+    return [camera]
+
+  @classmethod
+  def _attachPlatformCameras(cls, objects, source_id, pose_state):
+    """Attach mount/intrinsics to the platform object for Bar A frustum viz."""
+    cameras = cls._platformCamerasFromState(pose_state)
+    if cameras is None:
+      return objects
+    attached = []
+    for obj in objects:
+      if obj.get('id') != source_id:
+        attached.append(obj)
+        continue
+      platform = dict(obj)
+      platform['cameras'] = cameras
+      attached.append(platform)
+    return attached
 
   @staticmethod
   def _partitionExternalObjects(objects, start_index=0):

@@ -269,9 +269,9 @@ publishes over authenticated MQTT, see
 
 Each entry in `cameras` describes one camera and owns the observations captured by it.
 The controller caches each camera's configuration with the source pose for transform
-reuse (internal TTL cache, not a consumer MQTT topic). UI frustums derived from
-object-graph metadata are follow-on work (Bar A). Mounted-camera pixel detections
-are localized with a dual transform (platform pose composed with each camera mount)
+reuse (internal TTL cache) and projects that configuration onto the platform scene
+object's `cameras` field for UI frustums. Mounted-camera pixel detections are
+localized with a dual transform (platform pose composed with each camera mount)
 and, when `track` is true or omitted, enter Scenescape multi-camera fusion like
 ordinary camera input. With `track=false`, pixel detections are discarded (same as
 camera input while tracking is off); use Cartesian `translation` observations when
@@ -297,9 +297,10 @@ For a drone using this contract:
   forward-facing camera.
 - `cameras[*].objects[*].translation` is in the camera optical frame, in metres.
   `cameras[*].objects[*].bounding_box_px` is in that camera's image coordinates.
-- Intrinsics specify angular geometry for pixel localization. Distortion-aware boundaries,
-  ground footprints, video projection, and UI frustums derived from object-graph metadata
-  are follow-on work (see `.github/plans/external-platform-object-citizenship.md`).
+- Intrinsics specify angular geometry for pixel localization and for ideal-pinhole
+  UI frustums rendered from the platform object's projected `cameras` field.
+  Distortion-aware boundaries, ground footprints, and video projection remain
+  follow-on work (see `.github/plans/external-platform-object-citizenship.md`).
 
 Let `T_scene_body` be the resolved source pose, and `T_body_camera` the camera's fixed mount.
 Using homogeneous column vectors:
@@ -353,9 +354,14 @@ a consumer MQTT contract.
   message-level `track` is true or omitted for detections.
 - Pose-only updates (`objects: []`) still emit/update the platform object and
   advance the tracker so departed detections age out.
-- Nested `cameras[]` remain an ingest encoding for mounts and camera-local
-  observations. UI frustums derived from object-graph metadata are planned
-  separately (Bar A in `.github/plans/external-platform-object-citizenship.md`).
+- When camera configuration is known (message `cameras[]` or cached config,
+  including legacy top-level `intrinsics`), the platform object carries a
+  `cameras` array of `{ id, mount, intrinsics, optional distortion }` with
+  observations stripped. The 3D view renders child frustums from that
+  object-graph state (Bar A); there is no `scenescape/data/source/...` topic.
+- Nested ingest `cameras[]` remain the wire encoding for mounts and
+  camera-local observations. Frustum lifetime follows platform object presence
+  on regulated output (age-out / absence), not retained MQTT tombstones.
 - Registered perceptual sensors that should behave as Cams (for example
   handheld devices) use `scenescape/data/camera/{id}` and pose lock /
   provenance — not the external-source topic family.
@@ -758,10 +764,12 @@ category per scene publication cycle. Each message contains the current state of
 objects of that category.
 
 This is a scene-level snapshot, not a copy of the input publisher envelope. The top-level
-`source_id`, `pose`, `track`, `intrinsics`, `distortion`, and `cameras` fields are omitted.
-The platform appears here as a normal scene object (`id` matching `source_id`).
-Per-object contributing publishers are represented by `source_ids`. Nested camera
-mount/intrinsics for UI frustums are follow-on work (Bar A).
+`source_id`, `pose`, `track`, `intrinsics`, `distortion`, and message `cameras` fields
+are omitted. The platform appears here as a normal scene object (`id` matching
+`source_id`). When camera configuration is known, that platform object includes a
+`cameras` array (`id`, `mount`, `intrinsics`, optional `distortion`) used for
+object-graph frustum rendering. Per-object contributing publishers are represented
+by `source_ids`.
 
 ### Data Scene Top-Level Fields
 

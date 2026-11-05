@@ -80,7 +80,9 @@ guidance, rejection reasons, and full JSON examples are defined only in
    `[0, 0, 0]` with `id == source_id`). The controller always materializes the
    platform as a trusted scene object on accepted messages — see Platform
    citizenship in `data_formats.md`. Do not mint a second identity for "the
-   vehicle."
+   vehicle." Include `cameras[]` (mount + intrinsics) when frustums should
+   appear; the controller projects that config onto the platform object's
+   `cameras` field for the 3D view.
 8. Publish over authenticated MQTT with the Scenescape CA cert (see the how-to
    skeleton using `scene_common.mqtt.PubSub` and `PubSub.DATA_EXTERNAL`).
 9. Keep credentials in environment variables or secret files — never hard-code

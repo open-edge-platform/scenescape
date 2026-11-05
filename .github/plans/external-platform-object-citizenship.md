@@ -7,13 +7,14 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Status
 
-In progress. PR2 (`data/source` removal) landed on the 97980 line; PR3
-(platform as scene object) is the active reshape. Coordinates two in-flight
-branches before merge:
+In progress. PR2 (`data/source` removal) and PR3 (platform as scene object)
+landed on `ITEP-97980_handling_moving_external_objects`; PR4 (Bar A frustums)
+is being folded into that same PR line. Coordinates remaining work with
+handheld Cam provenance on `main`:
 
 - `ITEP-97980_handling_moving_external_objects` — ADR 16 moving agents /
-  nested cameras (currently also introduces `scenescape/data/source`)
-- `handheld-app-support-features` — unlocked Cams, ephemeral pose/optics,
+  nested cameras, platform object citizenship, Bar A object-graph frustums
+- `main` (via handheld) — unlocked Cams, ephemeral pose/optics,
   `pose_provenance` (ADR 18)
 
 North star: **everything as an object** in one scene graph (static + dynamic),

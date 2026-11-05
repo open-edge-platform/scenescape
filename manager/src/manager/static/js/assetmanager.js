@@ -12,10 +12,16 @@ import {
   updateLabelFields,
 } from "/static/js/draw.js";
 import { SetupMarkHover } from "/static/js/interactions.js";
+import {
+  clearPlatformFrustums,
+  setPlatformFrustumsVisible,
+  syncPlatformFrustums,
+} from "/static/js/platformfrustums.js";
 
 // Detection source ("lidar"/"camera") is untrusted MQTT data; only these
 // values are ever shown in the label.
 const KNOWN_SOURCES = ["lidar", "camera"];
+const PLATFORM_FRUSTUM_COLOR = 0x4fc3f7;
 
 export default function AssetManager(
   scene,
@@ -28,6 +34,7 @@ export default function AssetManager(
   let activeCamera = camera;
   let objectCache = {};
   let marks = {};
+  let showPlatformFrustums = true;
 
   const labelRenderer = createLabelRenderer(domElement);
   const { setLabelVisible, setLabelMode, getLabelMode } = SetupMarkHover(
@@ -93,6 +100,14 @@ export default function AssetManager(
     }
   }
 
+  function setFrustumsVisible(shouldShow) {
+    showPlatformFrustums = shouldShow;
+    for (const mark of Object.values(marks)) {
+      const obj = scene.getObjectById(mark.id);
+      if (obj) setPlatformFrustumsVisible(obj, shouldShow);
+    }
+  }
+
   // Plot marks on the scene
   function plot(msg) {
     // Scenescape sends only current marks, so we need to determine
@@ -117,6 +132,7 @@ export default function AssetManager(
       // Delete from the marks object
       // Remove from the scene
       if (del) {
+        clearPlatformFrustums(del);
         const labelObj = del.getObjectByName("css2dLabel");
         if (labelObj && labelObj.element && labelObj.element.parentNode) {
           labelObj.element.parentNode.removeChild(labelObj.element);
@@ -166,6 +182,14 @@ export default function AssetManager(
       }
       thisMark.translateZ(translate);
       thisMark.scale.copy(scale);
+      if (Array.isArray(obj.cameras)) {
+        syncPlatformFrustums(thisMark, obj.cameras, {
+          color: PLATFORM_FRUSTUM_COLOR,
+          visible: showPlatformFrustums,
+        });
+      } else {
+        clearPlatformFrustums(thisMark);
+      }
       const model = thisMark.getObjectByName("model");
       const indicator = thisMark.getObjectByName("indicator");
       const labelObj = thisMark.getObjectByName("css2dLabel");
@@ -303,6 +327,7 @@ export default function AssetManager(
     loadAssets,
     plot,
     setMarksVisibility,
+    setFrustumsVisible,
     renderLabels,
     setLabelMode,
     setCamera,

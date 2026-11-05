@@ -913,6 +913,53 @@ class TestSceneControllerHandleExternalSourceObject:
     assert objects[0]['id'] == 'drone-1'
     assert objects[0]['size'] == [1.2, 0.8, 0.4]
 
+  def test_cached_cameras_attach_to_platform_object(self):
+    """Known camera config is projected onto the platform for object-graph frustums."""
+    scene_controller = self._build_controller()
+    cameras = [{
+      'id': 'front',
+      'mount': {'translation': [0.1, 0.0, 0.0], 'rotation': [0.0, 0.0, 0.0, 1.0]},
+      'intrinsics': {'fx': 900.0, 'fy': 900.0, 'cx': 640.0, 'cy': 360.0},
+    }]
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=cameras, intrinsics=None, distortion=None), None)
+    scene = self._build_scene()
+    jdata = {'source_id': 'drone-1', 'objects': []}
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
+
+    platform = scene.createMovingObjectsForSceneData.call_args.args[0]['objects'][0]
+    assert platform['id'] == 'drone-1'
+    assert platform['cameras'] == cameras
+    assert 'objects' not in platform['cameras'][0]
+
+  def test_legacy_intrinsics_become_default_platform_camera(self):
+    """Single-view cached intrinsics map to an identity-mount platform camera."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(),
+      SimpleNamespace(
+        cameras=None,
+        intrinsics={'fx': 800.0, 'fy': 810.0, 'cx': 600.0, 'cy': 350.0},
+        distortion={'k1': -0.1},
+      ),
+      None)
+    scene = self._build_scene()
+
+    scene_controller._handleExternalSourceObject(
+      scene, {'source_id': 'drone-1', 'objects': []}, 'vehicle', 42.0)
+
+    platform = scene.createMovingObjectsForSceneData.call_args.args[0]['objects'][0]
+    assert platform['cameras'] == [{
+      'id': 'default',
+      'mount': {
+        'translation': [0.0, 0.0, 0.0],
+        'rotation': [0.0, 0.0, 0.0, 1.0],
+      },
+      'intrinsics': {'fx': 800.0, 'fy': 810.0, 'cx': 600.0, 'cy': 350.0},
+      'distortion': {'k1': -0.1},
+    }]
+
   def test_skips_ingestion_without_crashing_when_pose_unavailable(self):
     """When no transform can be resolved, ingestion is skipped but not treated as failure."""
     scene_controller = self._build_controller()
