@@ -30,6 +30,8 @@ from scene_common.timestamp import get_epoch_time
 from scene_common.tracking_object_registry import TrackedObjectRegistry
 import time
 
+pytestmark = pytest.mark.usefixtures("shutdown_uuid_managers")
+
 # Short stale-feature tick so purge takeover happens within a test.
 FAST_TICK = {'stale_feature_check_interval_secs': 0.02}
 
