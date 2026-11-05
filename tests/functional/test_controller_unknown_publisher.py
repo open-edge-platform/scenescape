@@ -94,16 +94,27 @@ def mqtt_tester(params):
     h.disconnect()
 
 
-# TODO: replace the placeholder Zephyr ID with the registered one.
-@pytest.mark.test_name("NEX-T00000")
+@pytest.mark.test_name("NEX-T31118")
 def test_controller_keeps_tracker_while_unknown_publisher_streams(
     result_recorder, scene_uid, mqtt_tester):
-  """! Verify that a live scene keeps its tracked object IDs while an unknown
-  publisher streams hierarchy messages (DATA_EXTERNAL without 'source_id').
+  """
+  ## Name
+  Controller Keeps Tracker While Unknown Publisher Streams
 
-  @param    result_recorder    Pytest fixture recording test pass/fail.
-  @param    scene_uid          UID of the test scene.
-  @param    mqtt_tester        Connected ServiceMqttTest fixture.
+  ## Objective
+  Verify that a running scene keeps the IDs of the objects it is tracking while an unknown publisher (neither a known scene nor a child scene) sends scene-hierarchy MQTT messages to the Controller. The Controller must drop these messages without rebuilding the scene tracker, which would reset the tracked object IDs.
+
+  ## Labels
+  - Functional
+
+  ## Steps
+  1. Start the full stack with a scene that has the camera `camera1`, and connect an MQTT client to the broker as the Controller user
+  2. Subscribe to the scene's regulated data topic (`scenescape/regulated/scene/<scene_uid>`)
+  3. Publish a person detection for `camera1` on its camera data topic (`scenescape/data/camera/camera1`) every 0.1 s until the regulated topic reports a tracked object
+  4. Note the IDs of the tracked objects and discard the messages received so far
+  5. For 15 s (longer than the Controller's 10 s failure rate limit window), publish every 0.1 s both the same camera detection and a hierarchy message from the unknown publisher `unknown-hierarchy-publisher` on `scenescape/external/unknown-hierarchy-publisher/person`; the hierarchy message has no `source_id` field and an empty `objects` list
+  6. Verify the regulated topic still reports tracked objects during this period
+  7. Verify the tracked object IDs seen in step 6 are all among those noted in step 4, i.e. no new IDs were assigned because the scene tracker was not rebuilt
   """
   cam_topic = PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=CAMERA_ID)
   reg_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
