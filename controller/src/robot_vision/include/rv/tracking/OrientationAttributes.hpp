@@ -102,11 +102,12 @@ inline double chooseYawTowardReference(double yaw, double reference)
 /**
  * @brief Prepare measurement yaw for Kalman correct.
  *
- * Non-orienting sensors: zero yaw innovation (keep predicted yaw).
- * Orienting sensors while moving: π-disambiguate toward velocity heading;
- * if still inconsistent with motion, drop the yaw observation for this frame
- * (position/size still correct). While slow/stopped: unwrap vs previousYaw
- * with box-symmetric ``deltaTheta`` as before.
+ * Non-orienting sensors: yaw is not observed; the estimator leaves it out of the
+ * update, so yaw only predicts. Orienting sensors while moving: π-disambiguate
+ * toward velocity heading; if still inconsistent with motion, drop the yaw
+ * observation for this frame (position/size still correct). While slow/stopped:
+ * unwrap vs previousYaw with box-symmetric ``deltaTheta`` as before. A dropped
+ * yaw clears ``has_orientation`` on the measurement and keeps the predicted yaw.
  */
 inline void prepareYawMeasurement(const TrackedObject &state, TrackedObject &measurement)
 {
