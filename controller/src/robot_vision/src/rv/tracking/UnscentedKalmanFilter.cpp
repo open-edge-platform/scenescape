@@ -6,6 +6,7 @@
 #include "rv/tracking/UnscentedKalmanFilter.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <mutex>
 
@@ -40,6 +41,23 @@ Mat repairCovariance(const Mat &covMatrix)
   minMaxLoc(eigenvalues, nullptr, &largest);
   const Mat raised = max(eigenvalues, std::max(kMinEigenvalue, largest * 1e-12));
   return eigenvectors.t() * Mat::diag(raised) * eigenvectors;
+}
+
+// Diagonal Cholesky factor from the covariance diagonal; non-finite or tiny entries use kMinEigenvalue.
+// Rewrites covMatrix to that finite diagonal so the caller's P is not left half-factorised or non-finite.
+Mat diagonalFactor(Mat &covMatrix)
+{
+  Mat deviations(covMatrix.rows, 1, CV_64F);
+  for (int i = 0; i < covMatrix.rows; ++i)
+  {
+    const double entry = covMatrix.at<double>(i, i);
+    const double variance = (std::isfinite(entry) && entry > kMinEigenvalue) ? entry : kMinEigenvalue;
+    deviations.at<double>(i) = std::sqrt(variance);
+  }
+  Mat variances;
+  multiply(deviations, deviations, variances);
+  covMatrix = Mat::diag(variances);
+  return Mat::diag(deviations);
 }
 
 } // namespace
@@ -133,22 +151,28 @@ Mat UnscentedKalmanFilterMod::getSigmaPoints(const Mat &mean, Mat &covMatrix, do
   int n = mean.rows;
   Mat points = repeat(mean, 1, 2 * n + 1);
 
-  // covMatrixL = cholesky( covMatrix ). A failed factorisation leaves a half-factorised matrix, so a finite covariance
-  // that lost positive definiteness is repaired in place first.
+  // covMatrixL = cholesky( covMatrix ). A failed factorisation leaves a half-factorised matrix; non-finite P can
+  // also make Cholesky look successful with NaN entries. Repair finite indefinite P, else fall back to a diagonal
+  // factor — never draw sigma points from a bad factor.
   Mat covMatrixL;
-  if (!choleskyFactor(covMatrix, covMatrixL) && checkRange(covMatrix))
+  const bool finite = checkRange(covMatrix);
+  if (!finite || !choleskyFactor(covMatrix, covMatrixL))
   {
     static std::once_flag warned;
     std::call_once(warned, [] {
       std::cerr << "UnscentedKalmanFilterMod: covariance not positive definite, repaired before drawing sigma points\n";
     });
-    covMatrix = repairCovariance(covMatrix);
-    if (!choleskyFactor(covMatrix, covMatrixL))
+    if (finite)
     {
-      // Not reached for a finite repaired covariance; never draw from a half-factorised matrix.
-      Mat deviations;
-      sqrt(max(covMatrix.diag(), kMinEigenvalue), deviations);
-      covMatrixL = Mat::diag(deviations);
+      covMatrix = repairCovariance(covMatrix);
+      if (!choleskyFactor(covMatrix, covMatrixL))
+      {
+        covMatrixL = diagonalFactor(covMatrix);
+      }
+    }
+    else
+    {
+      covMatrixL = diagonalFactor(covMatrix);
     }
   }
 

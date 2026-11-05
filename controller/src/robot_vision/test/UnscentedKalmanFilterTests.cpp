@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -138,6 +139,23 @@ TEST(UnscentedKalmanFilterTest, PredictRecoversFromNonPositiveDefiniteCovariance
   // The other states keep their variance: x gets 4 + dt^2 * 4 from the velocity, plus the process noise.
   EXPECT_NEAR(predicted.at<double>(idx::X, idx::X), 4.0 + kDeltaT * kDeltaT * 4.0 + 1e-3, 1e-9);
   EXPECT_NEAR(predicted.at<double>(idx::Height, idx::Height), 4.0 + 1e-3, 1e-9);
+}
+
+// Bug: Cholesky failure on non-finite P skipped repair (checkRange false) and still used the half-factor; sigma
+// points and later P stayed NaN.
+TEST(UnscentedKalmanFilterTest, PredictRecoversFromNonFiniteCovariance)
+{
+  cv::Mat errorCov = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 4.0;
+  errorCov.at<double>(idx::X, idx::X) = std::numeric_limits<double>::quiet_NaN();
+  const cv::Mat processNoise = cv::Mat::eye(kStateSize, kStateSize, CV_64F) * 1e-3;
+  auto filter = makeCvFilter(cv::Mat::zeros(kStateSize, 1, CV_64F), errorCov, processNoise, 0.2);
+
+  filter->predict(cv::Mat(1, 1, CV_64F, cv::Scalar(kDeltaT)));
+
+  ASSERT_TRUE(cv::checkRange(filter->getState()));
+  const cv::Mat predicted = filter->getErrorCov();
+  ASSERT_TRUE(cv::checkRange(predicted));
+  EXPECT_GT(rv::tracking::test::minEigenvalue(predicted), 0.0);
 }
 
 // The reduced update selects the observed rows of small matrices for every model and detection. All rows but yaw are
