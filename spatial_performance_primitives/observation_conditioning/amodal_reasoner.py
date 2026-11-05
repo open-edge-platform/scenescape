@@ -25,7 +25,7 @@ class AmodalReasoner:
     self.debug = False   # when True, generate() records intermediate rays/points into self.trace
     self.trace: dict = {}
 
-  def _get_centroid_points(self, gaus_rays: dict[str, np.ndarray]): 
+  def _get_centroid_points(self, gaus_rays: dict[str, np.ndarray]):
     # Result in (N,3) matrix
     p_cs = gaus_rays['ray'] * gaus_rays['depth_est'][:, None] + gaus_rays['mu']
     return p_cs
@@ -65,13 +65,13 @@ class AmodalReasoner:
     p_v_po = centroid_points + (devs * sig_v) * e_v
     p_v_no = centroid_points - (devs * sig_v) * e_v
     # Block layout (5N, 3): [h_po, h_no, v_po(top), v_no(lower), centroid]; probe k = [k*N:(k+1)*N].
-    return np.vstack((p_h_po, p_h_no, p_v_po, p_v_no, centroid_points)) 
+    return np.vstack((p_h_po, p_h_no, p_v_po, p_v_no, centroid_points))
 
   def _get_free_3d_mask(self, at_prem_depths: np.ndarray, over_prem_depths: np.ndarray, depth_hi: np.ndarray):
     """Uses probe intersect #4
-      Doe this work? 
+      Does this work?
       OR will the angular extend put the item so far back that a ray shot at its bottom will intersect near d_Est
-        ---- *Verify* the size of a ray is agnostic to where it is on the ground ( I believe ) - meaning the elongated gaussian does 
+        ---- *Verify* the size of a ray is agnostic to where it is on the ground ( I believe ) - meaning the elongated gaussian does
             not have any understanding of the surface it exists on, only the size of the bb.
             Meaning it places teh gaussian in an affine space.
     """
@@ -115,7 +115,7 @@ class AmodalReasoner:
     denom = np.linalg.norm(n_one, axis=1) * np.linalg.norm(n_two, axis=1)
     return np.arccos(np.clip(dot / np.maximum(denom, 1e-12), -1.0, 1.0))
 
-  def _calculate_height_from_depth(self, origin_points: np.ndarray, depths: np.ndarray, dir_rays: np.ndarray): 
+  def _calculate_height_from_depth(self, origin_points: np.ndarray, depths: np.ndarray, dir_rays: np.ndarray):
     # World-up height of the ray hit (o3d: hit = origin + t_hit * dir).
     z = self.rwc_z_up / np.linalg.norm(self.rwc_z_up)
     hits = origin_points + depths[:, None] * dir_rays
@@ -188,17 +188,17 @@ class AmodalReasoner:
                                       "finite": finite, "vertical": v, "support_sum": rising}
     return v.any(axis=1) | (support_sum > 0), spectrum_depth
 
-  def _get_occlusion_depth(self, ray_var: np.ndarray, 
-                             lo_vert_at_prem_depths: np.ndarray, 
-                             lo_vert_over_prem_depths: np.ndarray, 
-                             prior_depth_est: np.ndarray, 
-                             free_3d_mask: np.ndarray, 
+  def _get_occlusion_depth(self, ray_var: np.ndarray,
+                             lo_vert_at_prem_depths: np.ndarray,
+                             lo_vert_over_prem_depths: np.ndarray,
+                             prior_depth_est: np.ndarray,
+                             free_3d_mask: np.ndarray,
                              origins: np.ndarray | None = None,
-                             frame: np.ndarray | None = None, 
+                             frame: np.ndarray | None = None,
                              over_prem_probe_points: np.ndarray | None = None,
                              num_pins: int = 4,
                              non_naive: bool = True, eps:float=.1):
-    
+
     """If no occlusion, depth is set to np.nan (masked at use-time)"""
     # Base Naive checks (thresholds in std units: sqrt(ray_var) is sigma_d).
     sigma_d = np.sqrt(ray_var)
@@ -207,7 +207,7 @@ class AmodalReasoner:
     # Nearest applicable occluder; nan (no occlusion) where neither side fired. fmin skips nan.
     occlusion_depth = np.where(free_3d_mask, np.nan, np.fmin(at_edge_closer_than_exp, hits_dist_too_far))
     if non_naive and frame is not None and origins is not None and over_prem_probe_points is not None:
-      # TODO: Further Research: We can put start depth as .1sigma before and end_depth as .1sigma after 
+      # TODO: Further Research: We can put start depth as .1sigma before and end_depth as .1sigma after
       # TODO: Use the above naive checks as masks that pass onto here
       z = self.rwc_z_up / np.linalg.norm(self.rwc_z_up)
       average_normals, average_points = self._get_avg_local_ground_plane(origins, frame, prior_depth_est - sigma_d*eps, prior_depth_est + sigma_d*eps, num_pins)
@@ -294,7 +294,7 @@ class AmodalReasoner:
     # f1 = (cand_points @ z) > h_v
     # f2 = (top_points @ z) > h_v
     # Pin-dropped averaged ground plane (point + normal): signed distance of a query point.
-    n_g = avg_ground_normals / np.maximum(np.linalg.norm(avg_ground_normals, axis=1, keepdims=True), 1e-12)  
+    n_g = avg_ground_normals / np.maximum(np.linalg.norm(avg_ground_normals, axis=1, keepdims=True), 1e-12)
     s_pc = np.einsum('ij,ij->i', centroid_points - avg_ground_points, n_g)
     s_pt = np.einsum('ij,ij->i', top_points - avg_ground_points, n_g)
     ground = (s_pc <= 0) & (s_pt <= 0) # If both heights are less than a small error we indicate ground
@@ -406,7 +406,7 @@ class AmodalReasoner:
     over_prem_probe_points = self._create_probe_points(decons_cov, frame, centroid_points, 2.1)
     at_prem_depths, at_prem_normals = self.depth_map.query(at_prem_probe_points)
     over_prem_depths, over_prem_normals = self.depth_map.query(over_prem_probe_points)
-    free3d_mask = self._get_free_3d_mask(at_prem_depths, over_prem_depths, gaus_rays['depth_hi']) 
+    free3d_mask = self._get_free_3d_mask(at_prem_depths, over_prem_depths, gaus_rays['depth_hi'])
     # Lower-vertical (v_no) block, front layer, for the naive occlusion checks.
     lo_at = at_prem_depths[3*n:4*n]
     lo_over = over_prem_depths[3*n:4*n]

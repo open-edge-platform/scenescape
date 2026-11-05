@@ -98,7 +98,7 @@ x-controller-base: &controller-base
 # - cluster-analytics: Core services + cluster-analytics only
 # - controller: Scene Controller (tracking) + Analytics service + Positioning
 # - tracker: Tracker service + Analytics service (no Scene Controller)
-# - observation-processor: Observation Processor service 
+# - observation-processor: Observation Processor service
 
 services:
   ntpserv:

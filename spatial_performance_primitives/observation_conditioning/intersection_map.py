@@ -17,7 +17,7 @@ import numpy as np
 
 
 
-class DepthMap: 
+class DepthMap:
   def __init__(self, camera_intrinsics: np.ndarray, camera_extrinsics: np.ndarray, mesh: o3d.t.geometry.TriangleMesh, width: int, height: int, num_layers: int = 1):
     """
     camera_intrinsics: 3x3 (or 3x4) pinhole matrix K = [[fx,0,cx],[0,fy,cy],[0,0,1]].
@@ -50,12 +50,12 @@ class DepthMap:
     return np.stack((xs, ys, ones), axis=-1)
 
   def _convert_pixel_to_camera_space(self) -> np.ndarray:
-    """ 
-      Here we convert a set of pixel coordinates to there coordinates in image space given the camera intrinsics 
+    """
+      Here we convert a set of pixel coordinates to there coordinates in image space given the camera intrinsics
       x = (n - c_x) / a
       y = (m - c_y) / b
       z = 1
-      Or in matrix form: K^-1 [n m 1]^T, where K is the camera intrinsics. 
+      Or in matrix form: K^-1 [n m 1]^T, where K is the camera intrinsics.
 
       Returns: camera_space_points in the shape of (H, W, 3).
     """
@@ -68,12 +68,12 @@ class DepthMap:
   def _convert_camera_coords_to_world_space(self, camera_space_points: np.ndarray) -> np.ndarray:
     """
     Assuming that our camera extrinsics matrix is a camera-to-world translation/rotation
-    we convert the image coordinates for each original pixel (and now coordinate in image space)        
+    we convert the image coordinates for each original pixel (and now coordinate in image space)
     to be defined in the world coordinate system.
-    
-    *Note: If the expected camera extrinsic matrix is defined as world-to-camera we can still use this method, 
-               but will need to invert the camera-extrinsic matrix first. 
-    
+
+    *Note: If the expected camera extrinsic matrix is defined as world-to-camera we can still use this method,
+               but will need to invert the camera-extrinsic matrix first.
+
     """
     homogenous_camera_extrinsics = self.camera_extrinsics
     if self.camera_extrinsics.shape != (4,4):
@@ -95,7 +95,7 @@ class DepthMap:
 
   def get_scene(self):
     return self.scene
-  
+
   def cast_np(self, dir_vecs: np.ndarray, origin: np.ndarray | None = None):
     """Cast rays (origin, unit dirs) and return (primitive_normals, t_hit) as numpy."""
     dir_vecs = dir_vecs.astype(np.float32)
@@ -163,9 +163,9 @@ class DepthMap:
   def query(self, world_points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """
     This is the backwards conversion from ray to pixel now.
-    
+
     To do this we simply multiply the camera intrinsics by each ray which gives us provides us back a pixelthat we can use to look up the values in our depth map
-    
+
     World-Points is an array that will be in the shape: [n, 3], which we will need to append 1 onto to make the coversion work
 
     Returns (t_hit, normals). Single layer: t_hit (n,), normals (n, 3). Peeled
@@ -200,5 +200,3 @@ class DepthMap:
     t_hit[valid] = self.t_hit_map[ys[valid], xs[valid]]
     normals[valid] = self.normal_map[ys[valid], xs[valid]]
     return t_hit, normals
-  
-
