@@ -55,7 +55,7 @@ Build and run the same CLI in two worktrees (or commits). Compare JSON with `com
 
 - `build_benchmark.sh` — Release build with `-DBUILD_BENCHMARKS=ON` and Python bindings disabled (pybind11 is not required)
 - `run_benchmark.sh` — Runs harness; `--json` writes `out/rv_benchmark_<git>_<tag>.json`
-- `compare_benchmarks.sh` — Google Benchmark `compare.py`
+- `compare_benchmarks.sh` — Google Benchmark `compare.py`, with its Python dependencies hash-pinned in `requirements-compare.txt` (Linux x86_64 / aarch64 wheels, CPython 3.11–3.14)
 
 ## Prerequisites
 
