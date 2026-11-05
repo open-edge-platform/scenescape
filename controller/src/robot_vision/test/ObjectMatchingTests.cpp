@@ -43,12 +43,14 @@ TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
   auto timestamp = std::chrono::system_clock::now();
   auto trackId = trackManager.createTrack(seed, timestamp);
 
-  for (int i = 0; i < 10; ++i)
+  // predict() drops pending measurements, so measure after it. 2 s of measurements let the isotropic initial velocity
+  // variance settle below the along-track process noise.
+  for (int i = 0; i < 20; ++i)
   {
     timestamp += std::chrono::milliseconds(100);
+    trackManager.predict(timestamp);
     seed.x += 0.5;
     trackManager.setMeasurement(trackId, seed);
-    trackManager.predict(timestamp);
     trackManager.correct();
     seed = trackManager.getTracks().front();
   }

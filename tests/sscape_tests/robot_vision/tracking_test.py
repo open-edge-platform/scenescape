@@ -334,11 +334,13 @@ class TestMatchFunction(unittest.TestCase):
     timestamp = datetime.now()
     track_id = manager.create_track(seed, timestamp)
 
-    for _ in range(10):
+    # predict() drops pending measurements, so measure after it. 2 s of measurements let the
+    # isotropic initial velocity variance settle below the along-track process noise.
+    for _ in range(20):
       timestamp += timedelta(milliseconds=100)
+      manager.predict(timestamp)
       seed.x += 0.5
       manager.set_measurement(track_id, seed)
-      manager.predict(timestamp)
       manager.correct()
       seed = manager.get_tracks()[0]
 
