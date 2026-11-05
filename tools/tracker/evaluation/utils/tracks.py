@@ -31,15 +31,23 @@ def space_axes(space: str) -> Tuple[int, ...]:
   return SPACE_AXES[space]
 
 
+def present_axes(space: str, size: int) -> List[int]:
+  """Axes of `space` that positions with `size` coordinates have.
+
+  Planar (x, y) positions skip z, so "xyz" is the planar measure; "z" needs a z (ValueError).
+  """
+  axes = [axis for axis in space_axes(space) if axis < size]
+  if not axes:
+    raise ValueError(f"space {space!r} needs positions with a z")
+  return axes
+
+
 def position_distance(first, second, space: str = "xyz") -> float:
   """Euclidean distance of two positions over the axes of `space`.
 
-  Positions are (x, y) or (x, y, z); axes that one of them lacks are skipped, so with
-  planar data "xyz" is the planar distance. "z" needs a z on both sides (ValueError).
+  Positions are (x, y) or (x, y, z); axes that one of them lacks are skipped, see `present_axes`.
   """
-  axes = [axis for axis in space_axes(space) if axis < min(len(first), len(second))]
-  if not axes:
-    raise ValueError(f"space {space!r} needs positions with a z")
+  axes = present_axes(space, min(len(first), len(second)))
   return math.sqrt(sum((first[axis] - second[axis]) ** 2 for axis in axes))
 
 
