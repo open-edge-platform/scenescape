@@ -82,8 +82,8 @@ def normalize_association_config(association_config=None):
     log.error("Invalid association max_radius_m %r; using %s",
               config.get("max_radius_m"), default_max_radius_m)
     max_radius_m = default_max_radius_m
-  if max_radius_m < 0.0:
-    log.error("Association max_radius_m %s must be >= 0; using %s",
+  if not math.isfinite(max_radius_m) or max_radius_m < 0.0:
+    log.error("Association max_radius_m %s must be finite and >= 0; using %s",
               max_radius_m, default_max_radius_m)
     max_radius_m = default_max_radius_m
   config["max_radius_m"] = max_radius_m
