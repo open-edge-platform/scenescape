@@ -210,7 +210,7 @@ services:
       - OSM_MAX_ROI_FEATURES=${OSM_MAX_ROI_FEATURES:-200}
       # Per-request timeout (seconds) for the Manager's internal REST calls while
       # importing a scene. Raise if imports of scenes with large .glb maps time out.
-      - SCENE_IMPORT_REST_TIMEOUT=${SCENE_IMPORT_REST_TIMEOUT:-300}
+      - SCENE_IMPORT_REST_TIMEOUT_S=${SCENE_IMPORT_REST_TIMEOUT_S:-300}
       # Max upload size for scene map files (blueprints, .glb meshes). Default
       # 132MB. Raise if uploading large 3D scans or high-res floor plans;
       # lower to reduce per-request memory pressure in constrained deployments.

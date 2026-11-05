@@ -11,7 +11,7 @@ import requests
 
 from manager import scene_import
 from manager.scene_import import (
-  DEFAULT_IMPORT_REST_TIMEOUT, IMPORT_REST_TIMEOUT_ENV_VAR, ImportScene, get_import_rest_timeout,
+  DEFAULT_IMPORT_REST_TIMEOUT_S, IMPORT_REST_TIMEOUT_ENV_VAR, ImportScene, get_import_rest_timeout,
 )
 from scene_common.rest_client import RESTResult
 
@@ -110,14 +110,14 @@ def test_relink_skips_camera_owned_by_another_scene():
 
 
 @pytest.mark.parametrize("raw, expected", [
-  (None, DEFAULT_IMPORT_REST_TIMEOUT),
-  ("", DEFAULT_IMPORT_REST_TIMEOUT),
+  (None, DEFAULT_IMPORT_REST_TIMEOUT_S),
+  ("", DEFAULT_IMPORT_REST_TIMEOUT_S),
   ("900", 900),
   (" 45 ", 45),
-  ("0", DEFAULT_IMPORT_REST_TIMEOUT),
-  ("-5", DEFAULT_IMPORT_REST_TIMEOUT),
-  ("soon", DEFAULT_IMPORT_REST_TIMEOUT),
-  ("1.5", DEFAULT_IMPORT_REST_TIMEOUT),
+  ("0", DEFAULT_IMPORT_REST_TIMEOUT_S),
+  ("-5", DEFAULT_IMPORT_REST_TIMEOUT_S),
+  ("soon", DEFAULT_IMPORT_REST_TIMEOUT_S),
+  ("1.5", DEFAULT_IMPORT_REST_TIMEOUT_S),
 ])
 def test_get_import_rest_timeout(monkeypatch, raw, expected):
   if raw is None:

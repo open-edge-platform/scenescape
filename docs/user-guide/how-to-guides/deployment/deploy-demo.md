@@ -78,7 +78,7 @@ While importing, the Manager calls its own REST API to apply scene settings and
 create cameras, regions, and other resources. Applying the settings of a scene
 with a `.glb` map re-renders its thumbnail, which can take minutes for large
 meshes. Each of these internal requests may take up to 300 seconds by default;
-on Docker Compose deployments, set the `SCENE_IMPORT_REST_TIMEOUT` environment
+on Docker Compose deployments, set the `SCENE_IMPORT_REST_TIMEOUT_S` environment
 variable (positive integer seconds) on the `web` service to change it. The
 Kubernetes Helm chart does not expose this setting and uses the default. If it
 is exceeded, the import stops before the cameras and other resources are

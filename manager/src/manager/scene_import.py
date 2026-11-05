@@ -26,15 +26,15 @@ from scene_common import log
 
 # Updating a scene with a GLB map re-renders its thumbnail synchronously, which
 # can take far longer than RESTClient's default timeout for large meshes.
-IMPORT_REST_TIMEOUT_ENV_VAR = "SCENE_IMPORT_REST_TIMEOUT"
-DEFAULT_IMPORT_REST_TIMEOUT = 300
+IMPORT_REST_TIMEOUT_ENV_VAR = "SCENE_IMPORT_REST_TIMEOUT_S"
+DEFAULT_IMPORT_REST_TIMEOUT_S = 300
 
 
 def get_import_rest_timeout() -> int:
   """Read the import REST timeout in seconds, falling back to the default if unset or invalid."""
   raw = os.environ.get(IMPORT_REST_TIMEOUT_ENV_VAR, "").strip()
   if not raw:
-    return DEFAULT_IMPORT_REST_TIMEOUT
+    return DEFAULT_IMPORT_REST_TIMEOUT_S
   try:
     value = int(raw)
   except ValueError:
@@ -42,8 +42,8 @@ def get_import_rest_timeout() -> int:
   if value <= 0:
     log.warning(
       f"Ignoring invalid {IMPORT_REST_TIMEOUT_ENV_VAR}={raw!r}; expected a positive integer. "
-      f"Using {DEFAULT_IMPORT_REST_TIMEOUT}.")
-    return DEFAULT_IMPORT_REST_TIMEOUT
+      f"Using {DEFAULT_IMPORT_REST_TIMEOUT_S}.")
+    return DEFAULT_IMPORT_REST_TIMEOUT_S
   return value
 
 
