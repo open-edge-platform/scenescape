@@ -37,7 +37,7 @@ from controller.reid_env import (
 from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
                                       MAXIMAL_CHUNKING_RATE_FPS)
-from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_suspended_track_timeout_s
+from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
 # Ingest-failure errors are logged at most once per window for each publisher.
@@ -217,7 +217,7 @@ class SceneController:
       self.tracker_config_data["effective_object_update_rate"] = self._extractTrackerRate(tracker_config, "effective_object_update_rate", EFFECTIVE_OBJECT_UPDATE_RATE)
       self._extractTimeChunkingEnabled(tracker_config)
       self.tracker_config_data["time_chunking_rate_fps"] = self._extractTrackerRate(tracker_config, "time_chunking_rate_fps", DEFAULT_CHUNKING_RATE_FPS, MINIMAL_CHUNKING_RATE_FPS, MAXIMAL_CHUNKING_RATE_FPS)
-      self.tracker_config_data["suspended_track_timeout_s"] = tracker_config.get("suspended_track_timeout_s", DEFAULT_suspended_track_timeout_s)
+      self.tracker_config_data["suspended_track_timeout_secs"] = tracker_config.get("suspended_track_timeout_secs", DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
 
       if "persist_attributes" in tracker_config:
         if isinstance(tracker_config["persist_attributes"], dict):
