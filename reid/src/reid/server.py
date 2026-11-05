@@ -6,6 +6,7 @@
 import json
 import hmac
 import os
+import threading
 from concurrent import futures
 
 import grpc
@@ -17,6 +18,43 @@ from reid.api import CollectionSchemaConflictError, PoiNotFoundError, ReIDServic
 from reid.client import SERVICE_NAME
 from reid.ingest import build_from_env
 from reid.reid_registry import create_reid_database
+from reid.reid_env import get_reid_purge_interval_secs
+from reid import observability
+
+
+class PurgeScheduler:
+  """Run backend TTL reclaim on a service-owned daemon thread."""
+
+  def __init__(self, service, interval_secs=None):
+    self.service = service
+    self.interval_secs = interval_secs
+    self._stop = threading.Event()
+    self._thread = None
+
+  def start(self):
+    """Start periodic reclaim only when descriptor retention is enabled."""
+    retention_enabled = getattr(self.service.adapter, "retentionEnabled", lambda: False)
+    if not retention_enabled():
+      return False
+    if self.interval_secs is None:
+      self.interval_secs = get_reid_purge_interval_secs()
+    self._thread = threading.Thread(target=self._run, name="reid-purge", daemon=True)
+    self._thread.start()
+    log.info(f"ReID expired-descriptor purge scheduled every {self.interval_secs}s")
+    return True
+
+  def _run(self):
+    while not self._stop.wait(self.interval_secs):
+      try:
+        self.service.purge_expired()
+      except Exception as error:
+        log.error(f"ReID expired-descriptor purge failed: {error}")
+
+  def stop(self):
+    """Stop the scheduler and wait for an in-flight purge to finish."""
+    self._stop.set()
+    if self._thread is not None:
+      self._thread.join()
 
 
 def _decode(request):
@@ -125,6 +163,9 @@ def main():
   # Controller UUIDManager does today.
   ingest = build_from_env(lambda: create_reid_database(None, dimensions=None))
   service = ReIDService(ingest=ingest)
+  metrics_provider = observability.init()
+  purge_scheduler = PurgeScheduler(service)
+  purge_scheduler.start()
   log.info(f"ReID backend {service.adapter.__class__.__name__}: {service.health()}")
   server = create_server(service)
   server.add_insecure_port(f"[::]:{port}")
@@ -133,8 +174,11 @@ def main():
   try:
     server.wait_for_termination()
   finally:
+    purge_scheduler.stop()
     if ingest is not None:
       ingest.stop()
+    if metrics_provider is not None:
+      metrics_provider.shutdown()
 
 
 if __name__ == "__main__":
