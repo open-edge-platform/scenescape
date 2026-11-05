@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #include <functional>
@@ -33,18 +33,34 @@ double calculateEuclideanDistance(const TrackedObject &measurement, const Tracke
 
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  cv::Mat innovation = measurement.measurementVector() - (track.predictedMeasurementMean);
+  const TrackedObject::MeasurementVector innovation
+    = measurement.measurementVector() - track.predictedMeasurementMean;
 
   // Use yaw in the gate only when both sides have orientation. Camera detections
-  // and tracks that have never seen an orienting sensor leave yaw out.
-  if (!(orientation::hasOrientation(measurement) && orientation::orientationObserved(track)))
+  // and tracks that have never seen an orienting sensor leave yaw out — same
+  // observed-row subset as the partial UKF update (inv of S without yaw), not
+  // zeroing ν_yaw inside ν' S^-1 ν which still couples through off-diagonal S^-1.
+  if (orientation::hasOrientation(measurement) && orientation::orientationObserved(track))
   {
-    innovation.at<double>(6, 0) = 0.;
+    const double squaredDistance = innovation.dot(track.predictedMeasurementCovInv * innovation);
+    return 0.5 * std::sqrt(squaredDistance);
   }
 
-  cv::Mat mahalanobisDistance = innovation.t() * (track.predictedMeasurementCovInv) * innovation;
-
-  return 0.5 * std::sqrt(mahalanobisDistance.at<double>(0, 0));
+  constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
+  cv::Matx<double, kWithoutYaw, 1> reducedInnovation;
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovariance;
+  for (int i = 0; i < kWithoutYaw; ++i)
+  {
+    reducedInnovation(i) = innovation(i);
+    for (int j = 0; j < kWithoutYaw; ++j)
+    {
+      reducedCovariance(i, j) = track.predictedMeasurementCov(i, j);
+    }
+  }
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovarianceInv;
+  cv::invert(reducedCovariance, reducedCovarianceInv, cv::DECOMP_SVD);
+  const double squaredDistance = reducedInnovation.dot(reducedCovarianceInv * reducedInnovation);
+  return 0.5 * std::sqrt(squaredDistance);
 }
 
 double calculateCompundDistance(const TrackedObject &measurement, const TrackedObject &track)

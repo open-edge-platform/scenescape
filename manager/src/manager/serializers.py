@@ -3,7 +3,9 @@
 
 from collections import OrderedDict
 import math
+import json
 import os
+from uuid import UUID
 
 import cv2
 from django.contrib.auth import authenticate
@@ -18,6 +20,7 @@ from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 from scipy.spatial.transform import Rotation
 
+from manager.validators import validate_scene_name
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
@@ -392,7 +395,11 @@ class CamSerializer(NonNullSerializer):
           validated_data['sensor_id'] = sensor_id
         instance = super().create(validated_data)
       else:
-        super().update(instance, validated_data)
+        instance._pose_supplied = 'transforms' in validated_data
+        try:
+          super().update(instance, validated_data)
+        finally:
+          instance._pose_supplied = False
 
       try:
         self.create_camera_instance(instance)
@@ -756,6 +763,11 @@ class SceneSerializer(NonNullSerializer):
         })
 
   def validate_name(self, value):
+    try:
+      validate_scene_name(value)
+    except DjangoValidationError as e:
+      raise serializers.ValidationError(e.message)
+
     qs = Scene.objects.filter(name=value)
 
     if self.instance:
@@ -1292,6 +1304,20 @@ class CalibrationMarkerSerializer(NonNullSerializer):
 
 class SceneImportSerializer(serializers.Serializer):
   zipFile = serializers.FileField()
+  restore_ids = serializers.BooleanField(default=False)
+  reuse_existing = serializers.BooleanField(default=False)
+  remote_credentials = serializers.FileField(required=False, write_only=True)
+
+  def validate_remote_credentials(self, value):
+    if value.size > 1024 * 1024:
+      raise serializers.ValidationError("Credentials file exceeds 1 MiB")
+    try:
+      data = json.load(value)
+      if not isinstance(data, dict):
+        raise ValueError
+      return {str(UUID(key)): credentials for key, credentials in data.items()}
+    except (ValueError, TypeError, UnicodeDecodeError):
+      raise serializers.ValidationError("Expected a JSON object keyed by remote scene UUID")
 
   def validate_zipFile(self, value):
     if not value.name.endswith(".zip"):
