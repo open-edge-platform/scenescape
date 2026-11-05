@@ -6,6 +6,7 @@
 # controller.* imports lazy to allow CacheManager (and therefore
 # AnalyticsService) to be imported there.
 import collections
+import copy
 import threading
 
 # Scene (and robot_vision, imported by controller.scene at module level)
@@ -48,6 +49,7 @@ class CacheManager:
     self.cached_scenes_by_uid = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
+    self._scene_signatures = {}
 
     if rest_url and rest_auth:
       self.data_source = RestSceneDataSource(rest_url, rest_auth, root_cert)
@@ -135,12 +137,17 @@ class CacheManager:
     """
     if not hasattr(self, 'cached_scenes_by_uid') or self.cached_scenes_by_uid is None:
       self.cached_scenes_by_uid = {}
+    if not hasattr(self, '_scene_signatures'):
+      self._scene_signatures = {}
     self._cached_scenes_by_cameraID = {}
     self._cached_scenes_by_sensorID = {}
 
     candidates = self._popDeletedScenes({x['uid'] for x in found})
     for scene_data in found:
-      scene = self._sceneForData(self._withRuntimeConfig(scene_data))
+      # Taken before runtime config is injected, so it only reflects the scene's own data.
+      signature = self._sceneSignature(scene_data)
+      scene = self._sceneForData(self._withRuntimeConfig(scene_data), signature)
+      self._scene_signatures[scene_data['uid']] = signature
       self._indexScene(scene)
     candidates.extend((getattr(self, '_old_scene_cache', None) or {}).values())
     retired = self._notCached(candidates)
@@ -155,6 +162,8 @@ class CacheManager:
   def _popDeletedScenes(self, current_uids):
     """Remove and return the cached scenes whose uid is not in current_uids."""
     deleted = set(self.cached_scenes_by_uid) - current_uids
+    for uid in set(self._scene_signatures) - current_uids:
+      del self._scene_signatures[uid]
     return [self.cached_scenes_by_uid.pop(uid) for uid in deleted]
 
   def _withRuntimeConfig(self, scene_data):
@@ -176,7 +185,7 @@ class CacheManager:
       scene_data["pose_adjustment_config_data"] = self.pose_adjustment_config_data
     return scene_data
 
-  def _sceneForData(self, scene_data):
+  def _sceneForData(self, scene_data, signature):
     """Pick the Scene to use for scene_data: update, reuse or build one."""
     uid = scene_data['uid']
     live_scene = self.cached_scenes_by_uid.get(uid)
@@ -187,10 +196,14 @@ class CacheManager:
     old_scene = self._sceneNeedsFullReuse(uid)
     if old_scene is not None:
       # Only scenes without a tracker are reused, to keep their ingestion
-      # state across DB-triggered refreshes. A scene with a tracker is
-      # rebuilt and the old one is retired.
+      # state across DB-triggered refreshes.
       old_scene.updateScene(scene_data)
       return old_scene
+
+    # Only a scene whose own data changed gets a new tracker; the old one is retired.
+    unchanged_scene = self._unchangedScene(uid, signature)
+    if unchanged_scene is not None:
+      return unchanged_scene
 
     scene_cls = getattr(self, '_scene_cls', None)
     if scene_cls is None:
@@ -289,16 +302,40 @@ class CacheManager:
     # no tracked-object identity of its own (that comes from the Controller
     # via MQTT) and instead needs its ingestion cache (chain_data history,
     # region/tripwire/dwell state) preserved across the frequent invalidate()
-    # calls REST config changes trigger. Otherwise return None so callers
-    # deserialize a fresh Scene (and tracker) for uid -- e.g. after an
-    # explicit REST-triggered scene config update on the Controller, where a
-    # blanket reuse would silently keep stale tracked-object identities.
+    # calls REST config changes trigger. Otherwise return None; the caller
+    # then reuses the scene only if its own data is unchanged
+    # (_unchangedScene) and else deserializes a fresh Scene (and tracker) for
+    # uid -- e.g. after an explicit REST-triggered scene config update on the
+    # Controller, where a blanket reuse would silently keep stale
+    # tracked-object identities.
     if not hasattr(self, '_old_scene_cache') or not self._old_scene_cache:
       return None
     old_scene = self._old_scene_cache.get(uid)
     if old_scene is None:
       return None
     if not hasattr(old_scene, 'tracker'):
+      return old_scene
+    return None
+
+  def _sceneSignature(self, scene_data):
+    # Taken before tracker/reid config is injected into scene_data.
+    ignored = getattr(getattr(self, '_scene_cls', None), 'UNUSED_SCENE_KEYS', ())
+    return self._withoutKeys(scene_data, ignored)
+
+  @staticmethod
+  def _withoutKeys(scene_data, ignored):
+    signature = {key: copy.deepcopy(value) for key, value in scene_data.items()
+                 if key not in ignored and key != 'children'}
+    if 'children' in scene_data:
+      # SceneSerializer embeds each whole child scene (itself with children).
+      signature['children'] = [CacheManager._withoutKeys(child, ignored)
+                               for child in scene_data['children']]
+    return signature
+
+  def _unchangedScene(self, uid, signature):
+    """Return the previous Scene for uid if its data is identical to signature."""
+    old_scene = (getattr(self, '_old_scene_cache', None) or {}).get(uid)
+    if old_scene is not None and getattr(self, '_scene_signatures', {}).get(uid) == signature:
       return old_scene
     return None
 

@@ -63,6 +63,8 @@ class Scene(SceneModel):
     'intel_labs': IntelLabsTracking,
     'time_chunked_intel_labs': TimeChunkedIntelLabsTracking,
   }
+  # Remove a key here as soon as the Controller starts reading it.
+  UNUSED_SCENE_KEYS = ('regions', 'tripwires', 'sensors')
 
   def __init__(self, name, map_file, scale=None,
                max_unreliable_time = MAX_UNRELIABLE_TIME,
