@@ -16,7 +16,9 @@ ARG GROUP_ID=1001
 ENV WSUSER=scenescape
 ENV PYTHONPATH=/app
 
-RUN groupadd -g ${GROUP_ID} $WSUSER \
+RUN apt update && apt upgrade -y \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd -g ${GROUP_ID} $WSUSER \
     && useradd -r -m -u ${USER_ID} -g ${GROUP_ID} -s /bin/bash $WSUSER
 
 COPY positioning/requirements-runtime.txt /tmp/requirements-runtime.txt

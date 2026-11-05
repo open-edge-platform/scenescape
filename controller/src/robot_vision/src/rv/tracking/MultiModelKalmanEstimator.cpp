@@ -395,6 +395,10 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
   std::vector<cv::Mat> covariances;
   std::vector<cv::Mat> predictedMeasurements;
   std::vector<cv::Mat> measurementCovariances;
+  states.reserve(mNumberOfModels);
+  covariances.reserve(mNumberOfModels);
+  predictedMeasurements.reserve(mNumberOfModels);
+  measurementCovariances.reserve(mNumberOfModels);
 
   for (std::size_t i = 0; i < mNumberOfModels; ++i)
   {
@@ -403,18 +407,19 @@ void MultiModelKalmanEstimator::correct(const TrackedObject &measurement)
 
     states.push_back(correctedState);
     covariances.push_back(mKalmanFilters[i]->getErrorCov());
-    predictedMeasurements.push_back(
-      cv::detail::tracking::selectRows(cv::Mat(mSystemModelStates[i].predictedMeasurementMean), observedRows));
-    measurementCovariances.push_back(
-      cv::detail::tracking::selectBlock(mKalmanFilters[i]->getMeasurementCov(), observedRows));
+    // Full owning mats: updateModelProbability takes contiguous views of these for observedRows.
+    predictedMeasurements.push_back(cv::Mat(mSystemModelStates[i].predictedMeasurementMean));
+    measurementCovariances.push_back(mKalmanFilters[i]->getMeasurementCov());
   }
 
   cv::Mat combinedState;
   cv::Mat combinedCovariance;
 
-  updateModelProbability(cv::detail::tracking::selectRows(cv::Mat(newMeasurement.measurementVector()), observedRows),
+  const cv::Mat measurementMat(newMeasurement.measurementVector());
+  updateModelProbability(measurementMat,
                          predictedMeasurements,
                          measurementCovariances,
+                         observedRows,
                          mModelProbability,
                          mMaxProbability,
                          mMinProbability);
@@ -520,12 +525,15 @@ double inline reescale(double value, double maxValue, double minValue)
 void MultiModelKalmanEstimator::updateModelProbability(cv::Mat const &measurement,
                                                        std::vector<cv::Mat> const &predictedMeasurements,
                                                        std::vector<cv::Mat> const &measurementNoiseCovariance,
+                                                       const std::vector<int> &observedRows,
                                                        cv::Mat &modelProbability,
                                                        double maxProbability,
                                                        double minProbability)
 {
   auto nModels = modelProbability.size[0];
-  auto measurementSize = measurement.size[0];
+  // Views into the caller's owning full mats; valid for this function only.
+  const cv::Mat observedMeasurement = cv::detail::tracking::selectRows(measurement, observedRows);
+  auto measurementSize = observedMeasurement.rows;
   std::vector<double> lambda;
   std::vector<double> likelihood;
   std::vector<cv::Mat> measurementDifference;
@@ -541,21 +549,13 @@ void MultiModelKalmanEstimator::updateModelProbability(cv::Mat const &measuremen
 
   for (std::size_t j = 0; j < nModels; ++j)
   {
-    measurementDifference[j] = measurement - predictedMeasurements[j];
-  }
-
-  for (std::size_t j = 0; j < nModels; ++j)
-  {
+    const cv::Mat predicted = cv::detail::tracking::selectRows(predictedMeasurements[j], observedRows);
+    const cv::Mat covariance = cv::detail::tracking::selectBlock(measurementNoiseCovariance[j], observedRows);
+    measurementDifference[j] = observedMeasurement - predicted;
     intermediateCalculation[j]
-      = measurementDifference[j].t() * measurementNoiseCovariance[j].inv(cv::DECOMP_SVD) * measurementDifference[j];
-  }
-  // Calculate log likelihood per model
-  for (std::size_t j = 0; j < nModels; ++j)
-  {
-    double det = determinant(2.0 * M_PI * measurementNoiseCovariance[j]);
-    double logLikelihood = -0.5 * std::log(det) - 0.5 * intermediateCalculation[j].at<double>(0, 0);
-
-    likelihood.push_back(logLikelihood);
+      = measurementDifference[j].t() * covariance.inv(cv::DECOMP_SVD) * measurementDifference[j];
+    const double det = determinant(2.0 * M_PI * covariance);
+    likelihood.push_back(-0.5 * std::log(det) - 0.5 * intermediateCalculation[j].at<double>(0, 0));
   }
 
   // Normalize using exponential normalization and store it as lambda
