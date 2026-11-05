@@ -48,11 +48,23 @@ class SensorMqttRoi(SceneObjectMqtt):
     self.exitedDetected = True
     self.exitedTimestamp = None
     self.enteredTimestamp = None
+    self.sensor_uid = None
     return
 
   def createSensor(self, sensorData):
     res = self.rest.createSensor(sensorData)
     assert res.statusCode == HTTPStatus.CREATED, (res.statusCode, res.errors)
+    self.sensor_uid = res['uid']
+    return
+
+  def runSceneObjMqttFinally(self):
+    if self.sensor_uid is not None:
+      res = self.rest.deleteSensor(self.sensor_uid)
+      if res.statusCode != HTTPStatus.OK:
+        log.warning(f"Failed to delete sensor {self.sensor_uid}: "
+                    f"{res.statusCode} {res.errors}")
+      self.sensor_uid = None
+    super().runSceneObjMqttFinally()
     return
 
   def runSceneObjMqttPrepareExtra(self):
@@ -123,6 +135,25 @@ class SensorMqttRoi(SceneObjectMqtt):
         self.sensorValue += 1
         assert self.pushSensorValue(self.roiName, self.sensorValue)
         time.sleep(SENSOR_PROC_DELAY)
+    return
+
+  def settleRegionExit(self, finalLocation, timeout=5):
+    """Keep publishing the final (outside) location until the exit is seen.
+
+    This class tracks region state through self.entered rather than the
+    base class's expectedExit list, so the base settle loop never runs and
+    the last frames can still be in the tracker when verification starts.
+    """
+    jdata = self.objData()
+    camera_id = jdata['id']
+    jdata['objects'][PERSON][0]['bounding_box']['y'] = finalLocation
+    deadline = get_epoch_time() + timeout
+    while self.entered and get_epoch_time() < deadline:
+      jdata['timestamp'] = get_iso_time()
+      self.pubsub.publish(
+        PubSub.formatTopic(PubSub.DATA_CAMERA, camera_id=camera_id),
+        json.dumps(jdata))
+      time.sleep(1 / self.frameRate)
     return
 
   def eventReceived(self, pahoClient, userdata, message):
@@ -339,5 +370,6 @@ class SensorMqttRoi(SceneObjectMqtt):
 @pytest.mark.test_name("NEX-T10460")
 def test_sensor_roi_mqtt(scenescape_env, demo_scene, request, record_xml_attribute):
   test = SensorMqttRoi(TEST_NAME, request, SENSOR_DELAY, record_xml_attribute)
+  test.sceneUID = demo_scene
   test.runROIMqtt()
   assert test.exitCode == 0
