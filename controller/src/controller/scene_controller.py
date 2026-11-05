@@ -18,7 +18,6 @@ from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
 from controller.scene import Scene, stripReidProvenance
-from controller.source_state import SourceStatePublisher
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mqtt import PubSub
@@ -178,11 +177,9 @@ class SceneController:
     self.visibility_topic = visibility_topic
     log.info(f"Publishing camera visibility info on {self.visibility_topic} topic.")
 
-    self.source_state_publisher = SourceStatePublisher(self.pubsub)
     self.external_source_pose_cache = ExternalSourcePoseCache(
       sweep_grace_seconds=self.max_lag,
-      sweep_time_provider=self._getExternalSourceSweepTime,
-      on_remove=self.source_state_publisher.remove)
+      sweep_time_provider=self._getExternalSourceSweepTime)
     self.identity_claim_registry = IdentityClaimRegistry(
       sweep_grace_seconds=self.max_lag,
       sweep_time_provider=self._getExternalSourceSweepTime)
@@ -846,7 +843,7 @@ class SceneController:
     objects = jdata.get('objects', [])
     pixel_objects, _ = self._partitionExternalObjects(objects)
 
-    camera_pose, source_state, reason = self.external_source_pose_cache.resolveMessage(
+    camera_pose, _, reason = self.external_source_pose_cache.resolveMessage(
       scene, source_id, jdata, msg_when, trusted_scene_pose=trusted)
     if camera_pose is None:
       log.warning(f"External source pose unavailable for source={source_id} "
@@ -857,9 +854,6 @@ class SceneController:
       scene, source_id, jdata, pixel_objects, msg_when)
     if not accepted:
       return True
-
-    self.source_state_publisher.publish(
-      scene.uid, source_id, source_state)
 
     source_track = jdata.get('track')
     observation_groups = self._externalObservationGroups(

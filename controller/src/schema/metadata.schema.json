@@ -518,26 +518,6 @@
       },
       "required": ["id", "mount", "intrinsics", "objects"]
     },
-    "external_camera_state": {
-      "title": "Resolved External Camera State",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "id": {
-          "$ref": "#/definitions/external_camera/properties/id"
-        },
-        "mount": {
-          "$ref": "#/definitions/external_camera/properties/mount"
-        },
-        "intrinsics": {
-          "$ref": "#/definitions/external_camera/properties/intrinsics"
-        },
-        "distortion": {
-          "$ref": "#/definitions/external_camera/properties/distortion"
-        }
-      },
-      "required": ["id", "mount", "intrinsics"]
-    },
     "external_source": {
       "title": "External Source Metadata",
       "description": "Unified contract for object observations published by external sources (physical agents such as drones or vehicles, and the Scenescape positioning service) under scenescape/external/{publisher_id}/{thing_type}, where publisher_id matches source_id. Scene membership is via consumer-side binding.",
@@ -655,52 +635,6 @@
             }
           }
         }
-      ]
-    },
-    "source_state": {
-      "title": "Resolved External Source State",
-      "description": "Retained scene-scoped source pose and optional camera calibration. Consumers must ignore expired states and remove a source at expires_at or on an empty MQTT payload.",
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "scene_id": {
-          "type": "string"
-        },
-        "source_id": {
-          "type": "string"
-        },
-        "timestamp": {
-          "$ref": "#/definitions/timestamp"
-        },
-        "expires_at": {
-          "$ref": "#/definitions/timestamp"
-        },
-        "translation": {
-          "$ref": "#/definitions/external_pose/properties/translation"
-        },
-        "rotation": {
-          "$ref": "#/definitions/external_pose/properties/rotation"
-        },
-        "intrinsics": {
-          "$ref": "#/definitions/camera_intrinsics"
-        },
-        "distortion": {
-          "$ref": "#/definitions/camera_distortion"
-        },
-        "cameras": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/external_camera_state"
-          }
-        }
-      },
-      "required": [
-        "scene_id",
-        "source_id",
-        "timestamp",
-        "expires_at",
-        "translation",
-        "rotation"
       ]
     },
     "pose_context": {
@@ -918,9 +852,6 @@
     },
     "external_source": {
       "$ref": "#/definitions/external_source"
-    },
-    "source_state": {
-      "$ref": "#/definitions/source_state"
     },
     "pose_context": {
       "$ref": "#/definitions/pose_context"

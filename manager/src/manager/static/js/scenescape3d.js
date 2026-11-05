@@ -9,7 +9,6 @@ import { GLTFLoader } from "/static/examples/jsm/loaders/GLTFLoader.js";
 import { GUI } from "/static/examples/jsm/libs/lil-gui.module.min.js";
 import Stats from "/static/examples/jsm/libs/stats.module.js";
 import AssetManager from "/static/js/assetmanager.js";
-import DynamicSources from "/static/js/dynamicsources.js";
 import CameraManager from "/static/js/thing/managers/cameramanager.js";
 import RegionManager from "/static/js/thing/managers/regionmanager.js";
 import SensorManager from "/static/js/thing/managers/sensormanager.js";
@@ -73,11 +72,6 @@ function main() {
   const drawObj = new Draw();
 
   const scene = new THREE.Scene();
-  const dynamicSources = new DynamicSources(scene, sceneID, (sourceID) => {
-    assetManager?.selectSource(sourceID);
-  });
-  const sourceTopicPrefix = appName + CONSTANTS.DATA_SOURCE + sceneID + "/";
-  window.addEventListener("pagehide", () => dynamicSources.clear());
   scene.add(invisibleObject);
   const axesHelper = new THREE.AxesHelper(10);
   scene.add(axesHelper);
@@ -109,8 +103,6 @@ function main() {
   const panel = new GUI({ width: 310 });
   const panelSettings = {
     "show tracked objects": showTrackedObjects,
-    "show dynamic sources": true,
-    "show source frustums": true,
     "light intensity": lightIntensity,
   };
   panel.domElement.id = "panel-3d-controls";
@@ -120,13 +112,6 @@ function main() {
       showTrackedObjects = visibility;
       assetManager.setMarksVisibility(visibility);
     }).$widget.id = "tracked-objects-button";
-
-  panel.add(panelSettings, "show dynamic sources").onChange((visible) => {
-    dynamicSources.setVisible(visible);
-  });
-  panel.add(panelSettings, "show source frustums").onChange((visible) => {
-    dynamicSources.setFrustumsVisible(visible);
-  });
 
   // Add light intensity control
   panel
@@ -158,7 +143,6 @@ function main() {
     raycaster,
     orbitControls,
     () => sceneViewCamera,
-    dynamicSources,
   );
 
   const camerasFolder = panel.addFolder("Camera Settings");
@@ -404,19 +388,6 @@ function main() {
 
       client.on("connect", () => {
         console.log("Connected to " + $("#broker").val());
-        dynamicSources.clear();
-        client.subscribe(
-          sourceTopicPrefix + "+",
-          { qos: 1 },
-          (error, granted) => {
-            if (error || granted?.some((grant) => grant.qos === 128)) {
-              console.error(
-                "Dynamic source subscription failed:",
-                error || granted,
-              );
-            }
-          },
-        );
         client.subscribe(appName + CONSTANTS.IMAGE_CAMERA + "+");
         console.log(
           "Subscribed to " + (appName + CONSTANTS.IMAGE_CAMERA + "+"),
@@ -471,8 +442,6 @@ function main() {
     client.on("error", (e) => {
       console.log("MQTT error: " + e);
     });
-    client.on("close", () => dynamicSources.clear());
-
     assetManager = AssetManager(
       scene,
       subscribeToTracking,
@@ -586,10 +555,6 @@ function main() {
   }
 
   function handleMQTTMessage(topic, data) {
-    if (topic.startsWith(sourceTopicPrefix)) {
-      dynamicSources.handleMessage(topic.slice(sourceTopicPrefix.length), data);
-      return;
-    }
     let msg = {};
     try {
       msg = JSON.parse(data);
@@ -728,7 +693,6 @@ function main() {
   document.body.appendChild(stats.dom);
 
   function render() {
-    dynamicSources.expire();
     if (resizeRendererToDisplaySize(renderer)) {
       const canvas = renderer.domElement;
       sceneViewCamera.aspect = canvas.clientWidth / canvas.clientHeight;

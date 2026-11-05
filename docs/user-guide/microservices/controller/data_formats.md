@@ -12,7 +12,6 @@ SPDX-License-Identifier: Apache-2.0
 | [Camera Input Message Format](#camera-input-message-format)                   | Subscribe | `scenescape/data/camera/{camera_id}`              |
 | [External Source Input Message Format](#external-source-input-message-format) | Subscribe | `scenescape/external/{publisher_id}/{thing_type}` |
 | [Data Scene Output Message Format](#data-scene-output-message-format)         | Publish   | `scenescape/data/scene/{scene_id}/{thing_type}`   |
-| [Resolved External Source State](#resolved-external-source-state-output)      | Publish   | `scenescape/data/source/{scene_id}/{source_id}`   |
 | Point cloud preview (Manager 3D UI)                                           | Publish   | `scenescape/pointcloud/camera/{camera_id}`        |
 
 > **Point cloud preview:** the Manager 3D UI requests a live sensor point cloud with
@@ -217,8 +216,8 @@ For a drone using this contract:
   frames (for example MAVLink forward/right/down) before publishing.
 - Top-level `objects[*].translation` is a point in the body frame, in metres. If supplied,
   `objects[*].rotation` describes object-local-to-body orientation.
-- A `cameras[*].id` is a stable identifier unique within the source. It identifies that
-  camera in retained source-state snapshots.
+- A `cameras[*].id` is a stable identifier unique within the source (for example
+  `front`). Controllers attribute pixel detections using `source_id:camera_id`.
 - `cameras[*].mount` is a rigid transform from the **camera optical frame into the body frame**.
   Optical axes are **x right, y down, z forward**. Its required `translation` is the camera
   optical origin expressed in body metres; its required `rotation` is an active
@@ -227,12 +226,9 @@ For a drone using this contract:
   forward-facing camera.
 - `cameras[*].objects[*].translation` is in the camera optical frame, in metres.
   `cameras[*].objects[*].bounding_box_px` is in that camera's image coordinates.
-- The browser derives a symmetric ideal-pinhole frustum from `fx`, `fy`, `cx`, and `cy`,
-  treating the principal point as the image center. The displayed field of view is approximate
-  when the principal point is off-center; this assumption does not affect pixel-box localization.
-- Intrinsics specify angular geometry, not detection range. The frustum uses a separately
-  chosen display distance; distortion-aware boundaries, ground footprints, and video projection
-  are deferred.
+- Intrinsics specify angular geometry for pixel localization. Distortion-aware boundaries,
+  ground footprints, video projection, and UI frustums derived from object-graph metadata
+  are follow-on work (see `.github/plans/external-platform-object-citizenship.md`).
 
 Let `T_scene_body` be the resolved source pose, and `T_body_camera` the camera's fixed mount.
 Using homogeneous column vectors:
@@ -271,53 +267,23 @@ distortion, then composes the resolved source pose with that camera's mount. Cam
 Cartesian translations use the same composed transform; top-level Cartesian translations
 remain body-relative.
 
-### Resolved External Source State Output
+### Platform citizenship (no `data/source` topic)
 
-The Scene Controller publishes accepted external-source state on
-`scenescape/data/source/{scene_id}/{source_id}` (`PubSub.DATA_SOURCE`), separately from
-observed-object output. It is scene-scoped: positions and rotations are already resolved
-into the target scene coordinates. Pose trust and scene-binding rules still apply.
-The default account configuration grants controller write access and browser read access
-to `DATA_SOURCE`. Existing non-superuser deployments must add those ACL entries to their
-provisioned accounts; changing the configuration does not migrate existing account records.
+Dynamic agents remain first-class through the **scene object** pipeline
+(`scenescape/data/scene/...` / regulated output), not a parallel retained
+`scenescape/data/source/...` product surface. The controller may keep an
+**internal** pose/intrinsics TTL cache for transform reuse; that cache is not
+a consumer MQTT contract.
 
-Publication happens after pose and intrinsics resolution, even for `objects: []`.
-Observed objects continue through the existing scene/regulated pipeline and are not
-duplicated in this output. An invalid supplied calibration rejects the message with a log;
-missing calibration on a Cartesian source is allowed and results in pose-only state.
-Focal lengths must be positive and intrinsic values finite.
-
-| Field         | Type                | Required | Description                                                                            |
-| ------------- | ------------------- | -------- | -------------------------------------------------------------------------------------- |
-| `scene_id`    | string              | Yes      | Bound target scene uid                                                                 |
-| `source_id`   | string              | Yes      | External publisher identity                                                            |
-| `timestamp`   | ISO 8601 UTC string | Yes      | Acquisition time of the **resolved pose**, not the latest object's message time        |
-| `expires_at`  | ISO 8601 UTC string | Yes      | Pose expiry time; consumers must hide/remove the source at this time                   |
-| `translation` | array[3]            | Yes      | Source origin in scene metres                                                          |
-| `rotation`    | array[4]            | Yes      | Source-to-scene quaternion `(x, y, z, w)`                                              |
-| `intrinsics`  | object              | No       | Cached legacy single-camera calibration                                                |
-| `distortion`  | object              | No       | Cached legacy distortion paired with intrinsics, when supplied                         |
-| `cameras`     | array               | No       | Cached camera configurations, each with id, mount, intrinsics, and optional distortion |
-
-Messages use QoS 1 and MQTT retain, so subscribing to
-`scenescape/data/source/{scene_id}/+` receives the latest snapshot for each source.
-Consumers must tolerate duplicates, ignore expired snapshots (including retained messages
-after controller downtime), and use `expires_at` to remove a source even when the controller
-is offline. These are runtime snapshots, not database records.
-
-Cache eviction or invalidation publishes a **zero-length retained payload** on the same
-topic to clear broker state and notify connected subscribers of removal. Background eviction
-can occur after expiry because it allows the controller's accepted message-lag grace period;
-the expiry timestamp, not arrival of that tombstone, is the authoritative display deadline.
-
-Cached-pose messages do not extend pose acquisition time or expiry. Delayed pose updates
-reuse the newer snapshot without overwriting camera configurations. A pose update replaces
-the camera list as a whole; omitted cameras are removed, and omitted distortion clears that
-camera's prior distortion. Legacy sources retain independent top-level calibration updates.
-A fresh legacy pose after expiration starts without the previous camera calibration.
-WGS84 orientation remains subject to the scene-alignment limitation documented below.
-The browser consumes these snapshots for live source markers and mounted camera frustums. It
-estimates frustum field of view from the camera intrinsics assuming a centered principal point.
+- Prefer publishing the platform itself as an object with a stable `id`
+  matching `source_id` (typically `track=false`) so UI and analytics see the
+  body on the same feed as other objects.
+- Nested `cameras[]` remain an ingest encoding for mounts and camera-local
+  observations. UI frustums derived from object-graph metadata are planned
+  separately (Bar A in `.github/plans/external-platform-object-citizenship.md`).
+- Registered perceptual sensors that should behave as Cams (for example
+  handheld devices) use `scenescape/data/camera/{id}` and pose lock /
+  provenance — not the external-source topic family.
 
 ### External Source Pose Fields (`pose`)
 

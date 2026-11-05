@@ -136,7 +136,6 @@ function SetupInteractions(
   raycaster,
   orbitControls,
   getCamera,
-  dynamicSources,
 ) {
   // Define camera matrix and distortion coefficients
   let selectedCamera = null;
@@ -185,13 +184,6 @@ function SetupInteractions(
         // calculate objects intersecting the picking ray
         if (scene) {
           const intersects = raycaster.intersectObjects(scene.children);
-          if (dynamicSources.selectFromIntersections(intersects)) {
-            if (selectedCamera) {
-              selectedCamera.unselect();
-              selectedCamera = null;
-            }
-            return;
-          }
           for (const intersect of intersects) {
             if (intersect.object.type === "CameraHelper") {
               let obj = intersect.object.parent;

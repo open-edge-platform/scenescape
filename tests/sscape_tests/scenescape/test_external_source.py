@@ -646,7 +646,6 @@ class TestExternalSourceTrackRouting:
 
   def _makeController(self):
     controller = SceneController.__new__(SceneController)
-    controller.source_state_publisher = MagicMock()
     controller.external_source_pose_cache = MagicMock()
     controller.external_source_pose_cache.resolveMessage.side_effect = (
       lambda *args, **kwargs: (controller.external_source_pose_cache.resolve(*args, **kwargs)[0],

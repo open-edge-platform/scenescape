@@ -38,7 +38,6 @@ def _controller():
   controller.external_source_pose_cache = ExternalSourcePoseCache()
   controller.identity_claim_registry = IdentityClaimRegistry()
   controller.trusted_positioning_sources = {'drone-1', 'drone-2'}
-  controller.source_state_publisher = MagicMock()
   return controller
 
 

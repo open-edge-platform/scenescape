@@ -36,7 +36,6 @@ class TestSceneControllerInitialization:
       patch('controller.scene_controller.PubSub') as pubsub_class,
       patch('controller.scene_controller.SchemaValidation'),
       patch('controller.scene_controller.CacheManager'),
-      patch('controller.scene_controller.SourceStatePublisher'),
       patch('controller.scene_controller.ExternalSourcePoseCache'),
       patch('controller.scene_controller.IdentityClaimRegistry'),
       patch('controller.scene_controller.threading.Thread'),
@@ -758,7 +757,6 @@ class TestSceneControllerHandleExternalSourceObject:
   def _build_controller(self):
     controller = SceneController.__new__(SceneController)
     controller.external_source_pose_cache = MagicMock()
-    controller.source_state_publisher = MagicMock()
     controller.identity_claim_registry = IdentityClaimRegistry()
     controller.trusted_positioning_sources = frozenset({'positioning-svc-1'})
     return controller
@@ -1079,7 +1077,6 @@ class TestTrustedScenePoseWithManualBinding:
     controller.external_source_pose_cache = MagicMock()
     controller.external_source_pose_cache.resolveMessage.return_value = (
       fake_pose, SimpleNamespace(cameras=None), None)
-    controller.source_state_publisher = MagicMock()
     scene = SimpleNamespace(uid='scene-a', processSceneData=MagicMock(return_value=True))
     controller.cache_manager = MagicMock()
     controller.cache_manager.sceneWithID.return_value = scene

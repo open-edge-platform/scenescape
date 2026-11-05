@@ -319,6 +319,27 @@ gap. Documented here as a known, intentional scoping decision, not an oversight.
 - **Let the source-supplied `id` drive global track continuity by always retracking** (historical
   first revision). Superseded by default trusted identity plus collision detection.
 
+## Citizenship and related work (Cameras vs agents)
+
+Scenescape’s north star is a single scene-graph citizenship model (everything as
+an object / sub-scene). Until that output graph and materialized store exist:
+
+- **Registered perceptual sensors** that should behave as Cams (for example
+  handheld devices) use `scenescape/data/camera/{id}` with pose lock and
+  provenance — see ADR 18 on the handheld line of work.
+- **Dynamic agents** use this ADR’s `external/{publisher_id}/{thing_type}`
+  contract. The platform should appear as a **scene object** (stable `id`
+  matching `source_id`), not via a parallel retained
+  `scenescape/data/source/...` product topic. Nested `cameras[]` are an ingest
+  encoding for mounts and camera-local observations.
+- An **internal** pose/intrinsics TTL cache may remain for transform reuse; it
+  is not a consumer MQTT API.
+- Plan: `.github/plans/external-platform-object-citizenship.md`.
+
+Same-platform multi-camera observations in one external message share one
+ingest/tracker update. **Camera path ↔ external path** fusion of the same
+physical object remains Future Work below.
+
 ## Consequences
 
 ### Positive
