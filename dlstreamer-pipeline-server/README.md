@@ -6,6 +6,7 @@
 - [Enable Re-ID](#enable-reidentification)
 - [Enable Pose Estimation](#enable-pose-estimation)
 - [Enable Frame NTP Timestamp Extraction](#enable-frame-ntp-timestamp-extraction)
+- [Enable Track GID Labels](../docs/user-guide/other-topics/how-to-configure-dlstreamer-video-pipeline.md#track-gid-labels-on-camera-images)
 - [Creating a New Pipeline](#creating-a-new-pipeline)
 - [Using Authenticated MQTT Broker](#using-authenticated-mqtt-broker)
 - [Additional Resources](#additional-resources)

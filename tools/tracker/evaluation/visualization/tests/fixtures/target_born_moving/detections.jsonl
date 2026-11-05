@@ -1,0 +1,11 @@
+{"id":"camera","timestamp":"1970-01-01T00:00:00.000000Z","objects":{"vehicle":[{"id":1,"translation":[0,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:00.100000Z","objects":{"vehicle":[{"id":1,"translation":[1.0000000000000007,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:00.200000Z","objects":{"vehicle":[{"id":1,"translation":[2.0000000000000013,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:00.300000Z","objects":{"vehicle":[{"id":1,"translation":[2.99999999999998,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:00.400000Z","objects":{"vehicle":[{"id":1,"translation":[3.9999999999999587,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:00.500000Z","objects":{"vehicle":[{"id":1,"translation":[4.999999999999938,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:00.600000Z","objects":{"vehicle":[{"id":1,"translation":[5.9999999999999165,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:00.700000Z","objects":{"vehicle":[{"id":1,"translation":[6.999999999999895,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:00.800000Z","objects":{"vehicle":[{"id":1,"translation":[7.999999999999874,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:00.900000Z","objects":{"vehicle":[{"id":1,"translation":[8.999999999999853,0,0],"size":[4.5,1.8,1.5]}]}}
+{"id":"camera","timestamp":"1970-01-01T00:00:01.000000Z","objects":{"vehicle":[{"id":1,"translation":[9.999999999999831,0,0],"size":[4.5,1.8,1.5]}]}}

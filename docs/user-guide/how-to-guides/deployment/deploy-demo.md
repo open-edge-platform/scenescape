@@ -56,9 +56,23 @@ Connect and sign in as described in [Deploy on Docker](./deploy-docker.md#verify
 
 ### Uploading Your Own Scenes
 
-The Manager image includes the `upload-scenes` CLI for batch imports and automation; no host-side Python setup is needed. It runs only when explicitly invoked and does not change Manager startup. Scenes that already exist are skipped, so re-running the uploader or `make demo-scenes` is safe.
+For scene hierarchies, UUID restoration, and supplying remote MQTT credentials,
+see [Exporting and Restoring a Hierarchy](../build-a-scene/configure-hierarchy-of-scenes.md#exporting-and-restoring-a-hierarchy).
+
+The Manager image includes the `upload-scenes` CLI for batch imports and automation; no host-side Python setup is needed. It runs only when explicitly invoked and does not change Manager startup.
+
+Existing standalone scenes are not re-imported by default; their calibration markers are reconciled, so re-running the uploader or `make demo-scenes` is safe. Use `--reuse-existing` when importing overlapping hierarchies or retrying an import. Existing scenes are kept unchanged while missing scenes and hierarchy links are restored; conflicting identities or links are rejected. Without this option, existing hierarchies or imports using `--restore-ids` are rejected.
 
 Prepare a directory of per-scene subdirectories, each containing its own `<scene>.zip` as produced by the **Export Scene** button of the Web UI.
+
+For a local hierarchy, the parent ZIP includes its local descendants, so importing only that ZIP creates the scenes and their links in one invocation.
+
+For large maps or hierarchies, pass `--import-timeout 600` to allow a longer
+response wait for each scene import. The default is 60 seconds; the value must
+be a positive integer. This is a read timeout, not a total import deadline.
+Other API requests retain their 60-second timeout. `--wait` controls startup
+readiness only. A timeout does not cancel or roll back the server-side import:
+check Manager logs and the imported resources before retrying.
 
 #### Using the Manager Image
 
@@ -70,6 +84,8 @@ docker compose run --rm --no-deps --entrypoint upload-scenes \
   web \
   --restauth /run/secrets/controller.auth \
   --rootcert /run/secrets/certs/scenescape-ca.pem \
+  --reuse-existing \
+  --import-timeout 600 \
   https://web.scenescape.intel.com/api/v1 /scenes
 ```
 
@@ -85,6 +101,7 @@ docker run --rm --entrypoint upload-scenes \
   "$MANAGER_IMAGE" \
   --restauth /run/secrets/controller.auth \
   --rootcert /run/secrets/scenescape-ca.pem \
+  --reuse-existing \
   "$SCENESCAPE_API_URL" /scenes
 ```
 
@@ -109,6 +126,8 @@ tools/upload_scenes/.venv/bin/python3 tools/upload_scenes/upload-scenes \
 ```
 
 `--restauth` also accepts a `user:password` string, and `--insecure` skips certificate verification when the deployment is reached under a name the certificate was not issued for, such as `https://localhost`.
+
+The server imports each scene synchronously before it replies, which can take minutes for scenes with large maps. `upload-scenes` waits up to 60 seconds for each import by default; if uploads fail with `Read timed out`, raise the limit with `--import-timeout <seconds>` (for example, `--import-timeout 600`). If the deployment is reached through a reverse proxy or a Kubernetes ingress, make sure its read timeout (for example, the NGINX Ingress `nginx.ingress.kubernetes.io/proxy-read-timeout` annotation, which defaults to 60 seconds) is at least as long.
 
 Scenes can also be imported through the Web UI: sign in, navigate to **Import Scene**, then select and upload the scene ZIP.
 
