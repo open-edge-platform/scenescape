@@ -65,6 +65,7 @@ and available on `PATH`:
 | `helm`    | Deploys the Scenescape chart   |
 
 The Python dependencies are installed automatically by `make setup-pytest`.
+These include the Kubernetes Python client used by Manager startup unit tests.
 
 The Kubernetes backend creates a fully self-contained KinD cluster, deploys
 Scenescape via the Helm chart, and tears the cluster down at the end of the
