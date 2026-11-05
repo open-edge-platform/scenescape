@@ -12,6 +12,7 @@ import numpy as np
 from controller.external_source import (
   ExternalSourcePoseCache,
   IdentityClaimRegistry,
+  REASON_CAMERAS_REQUIRED,
   REASON_IDENTITY_COLLISION,
   REASON_INVALID_INTRINSICS,
   REASON_INVALID_POSE,
@@ -243,6 +244,48 @@ class TestExternalSourcePoseCacheReuse:
     pose, reason = cache.resolve(scene, 'drone-1', None, 100.0)
     assert pose is None
     assert reason == REASON_NO_POSE_AVAILABLE
+
+  def test_pose_update_without_cameras_is_rejected_for_multi_camera_source(self):
+    cache = ExternalSourcePoseCache()
+    scene = _makeScene()
+    camera = {
+      'id': 'front',
+      'mount': {'translation': [0.0, 0.0, 0.0], 'rotation': IDENTITY_ROTATION},
+      'intrinsics': {'fx': 900.0, 'fy': 900.0, 'cx': 640.0, 'cy': 360.0},
+      'objects': [],
+    }
+    initial = {
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 0.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'cameras': [camera],
+    }
+    pose_only = {
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [9.0, 8.0, 0.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'objects': [{'id': 'obj-1', 'category': 'person', 'translation': [0, 0, 0]}],
+    }
+
+    _, state, reason = cache.resolveMessage(
+      scene, 'drone-1', initial, 100.0, trusted_scene_pose=True)
+    assert reason is None
+    assert state.cameras is not None
+
+    pose, updated, reason = cache.resolveMessage(
+      scene, 'drone-1', pose_only, 110.0, trusted_scene_pose=True)
+    assert pose is None
+    assert updated is None
+    assert reason == REASON_CAMERAS_REQUIRED
+    reused, reused_state, reused_reason = cache.resolveMessage(
+      scene, 'drone-1', {}, 110.0)
+    assert reused_reason is None
+    np.testing.assert_allclose(reused.pose_mat[:3, 3], [1.0, 2.0, 0.0])
+    assert reused_state.when == 100.0
 
   def test_intrinsics_are_cached_and_reused(self):
     cache = ExternalSourcePoseCache(ttl_seconds=30.0)

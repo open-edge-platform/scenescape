@@ -406,6 +406,7 @@ Rejection reasons (logged, not published) include:
 | `pose_expired`                   | No `pose` supplied and the cached transform is older than the cache TTL                     |
 | `no_intrinsics_available`        | Pixel detections present, no `intrinsics` supplied, and none cached on the live pose entry  |
 | `invalid_intrinsics`             | `intrinsics` failed construction                                                            |
+| `cameras_required`               | Pose update for a multi-camera source omitted the complete `cameras` list                   |
 | `scene_georeference_unavailable` | `reference_frame: wgs84` but the target scene has no valid geospatial calibration           |
 | `untrusted_scene_pose`           | `reference_frame: scene` from a `source_id` not in `CONTROLLER_TRUSTED_POSITIONING_SOURCES` |
 | `unsupported_reference_frame`    | `reference_frame` is not `wgs84` or `scene`                                                 |

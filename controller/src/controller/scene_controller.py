@@ -1103,41 +1103,6 @@ class SceneController:
       already_tracked_objects.append(pixel_object)
     return [], already_tracked_objects
 
-  def _ingestExternalTranslationObjects(
-      self, scene, jdata, routed_translation_objects, camera_pose, source_id,
-      detection_type, source_track, msg_when, pixel_moving_objects,
-      already_tracked_objects):
-    """Ingest routed translation objects.
-
-    Returns True when processing is complete (translation-only fast path).
-    Otherwise extends *pixel_moving_objects* / *already_tracked_objects* and
-    returns False so the caller can finishProcessing.
-    """
-    if not routed_translation_objects:
-      return False
-
-    routed_jdata = dict(jdata)
-    routed_jdata['objects'] = routed_translation_objects
-    routed_jdata.pop('track', None)
-    routed_source = SimpleNamespace(
-      name=source_id,
-      uid=source_id,
-      retrack=(source_track is not False),
-    )
-    if not pixel_moving_objects and not already_tracked_objects:
-      scene.processSceneData(routed_jdata, routed_source, camera_pose,
-                             detection_type, when=msg_when)
-      return True
-
-    translation_moving_objects, translation_already_tracked_objects = (
-      scene.createMovingObjectsForSceneData(
-        routed_jdata, routed_source, camera_pose, detection_type, when=msg_when))
-    # (None, None) => rejected input; skip merge into pixel path.
-    if translation_moving_objects is not None:
-      pixel_moving_objects.extend(translation_moving_objects)
-      already_tracked_objects.extend(translation_already_tracked_objects)
-    return False
-
   @staticmethod
   def _withRemoteChildParent(info, parent_uid):
     """Copy remote-child REST *info* and ensure ``parent`` is set to *parent_uid*."""

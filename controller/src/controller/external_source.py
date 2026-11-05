@@ -62,6 +62,8 @@ REASON_UNSUPPORTED_REFERENCE_FRAME = "unsupported_reference_frame"
 REASON_INVALID_POSE = "invalid_pose"
 REASON_NO_INTRINSICS_AVAILABLE = "no_intrinsics_available"
 REASON_INVALID_INTRINSICS = "invalid_intrinsics"
+# Pose refresh for a multi-camera source must resend the full cameras list.
+REASON_CAMERAS_REQUIRED = "cameras_required"
 
 # Reason returned by IdentityClaimRegistry.claim() when a different source
 # currently holds a live claim on the requested id.
@@ -165,7 +167,7 @@ class ExternalSourcePoseCache:
       return None
     if existing is not None and existing.cameras is not None and message.get('pose') is not None:
       log.error(f"Camera pose update for {key} is missing the complete cameras list")
-      return REASON_INVALID_INTRINSICS
+      return REASON_CAMERAS_REQUIRED
     return None
 
   @staticmethod
