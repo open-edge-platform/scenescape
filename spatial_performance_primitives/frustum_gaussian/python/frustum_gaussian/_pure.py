@@ -147,13 +147,14 @@ def project_frustum_batch_numpy(
     sin_h   = np.sin(half_a)
     d       = mu_phys / (2.0 * tan_h)
     sd_size = sig_phys / (2.0 * tan_h)
+    safe_sin_h = np.maximum(sin_h, 1e-7)
     dd_da   = np.where(sin_h > 1e-7,
-                       mu_phys / (4.0 * sin_h * sin_h), INF_DEPTH)
+                       mu_phys / (4.0 * safe_sin_h * safe_sin_h), INF_DEPTH)
     sd_ang  = dd_da * sigma_ang
     return d, np.sqrt(sd_size**2 + sd_ang**2)
 
-  valid_x = alpha_x > 1e-5
-  valid_y = alpha_y > 1e-5
+  valid_x = lr_valid & (alpha_x >= 1e-5)
+  valid_y = tb_valid & (alpha_y >= 1e-5)
 
   dx_aa, sdx_aa = _depth_sigma(mu_x, sx, alpha_x, sigma_angular_x)
   dy_aa, sdy_aa = _depth_sigma(mu_z, sz, alpha_y, sigma_angular_y)
@@ -173,25 +174,35 @@ def project_frustum_batch_numpy(
   # ---- 7. Fuse depths (information-form) ----------------------------------
   ok_x = sdx < 1e8
   ok_y = sdy < 1e8
-  lam_x = np.where(ok_x, 1.0 / (sdx * sdx), 0.0)
-  lam_y = np.where(ok_y, 1.0 / (sdy * sdy), 0.0)
+  safe_sdx = np.maximum(sdx, 1e-12)
+  safe_sdy = np.maximum(sdy, 1e-12)
+  lam_x = np.where(ok_x, 1.0 / (safe_sdx * safe_sdx), 0.0)
+  lam_y = np.where(ok_y, 1.0 / (safe_sdy * safe_sdy), 0.0)
   lam   = lam_x + lam_y
+  weighted_x = np.zeros_like(dx)
+  weighted_y = np.zeros_like(dy)
+  np.multiply(lam_x, dx, out=weighted_x, where=ok_x)
+  np.multiply(lam_y, dy, out=weighted_y, where=ok_y)
+  fallback_depth = np.where(ok_x, dx, np.where(ok_y, dy, 10.0))
+  safe_lam = np.maximum(lam, 1e-30)
   d_est   = np.where(lam > 0,
-                     (lam_x * dx + lam_y * dy) / lam,
-                     np.where(ok_x, dx, np.where(ok_y, dy, 10.0)))
+                     (weighted_x + weighted_y) / safe_lam,
+                     fallback_depth)
   s_depth = np.where(lam > 0,
-                     1.0 / np.sqrt(np.maximum(lam, 1e-30)),
+                     1.0 / np.sqrt(safe_lam),
                      np.where(ok_x, sdx, np.where(ok_y, sdy, INF_DEPTH)))
 
   # ---- 8a. Depth bounds ---------------------------------------------------
-  hi_x_aa = np.where(tan_x > 1e-7, dim_x_hi / (2.0 * tan_x), INF_DEPTH)
-  hi_y_aa = np.where(tan_y > 1e-7, dim_z_hi / (2.0 * tan_y), INF_DEPTH)
-  lo_x_aa = np.where(lr_valid & (tan_x > 1e-7), dim_x_lo / (2.0 * tan_x), 0.0)
-  lo_y_aa = np.where(tb_valid & (tan_y > 1e-7), dim_z_lo / (2.0 * tan_y), 0.0)
-  hi_x_avg = np.where(tan_x > 1e-7, dim_hi / (2.0 * tan_x), INF_DEPTH)
-  hi_y_avg = np.where(tan_y > 1e-7, dim_hi / (2.0 * tan_y), INF_DEPTH)
-  lo_x_avg = np.where(lr_valid & (tan_x > 1e-7), dim_lo / (2.0 * tan_x), 0.0)
-  lo_y_avg = np.where(tb_valid & (tan_y > 1e-7), dim_lo / (2.0 * tan_y), 0.0)
+  safe_tan_x = np.maximum(tan_x, 1e-7)
+  safe_tan_y = np.maximum(tan_y, 1e-7)
+  hi_x_aa = np.where(tan_x > 1e-7, dim_x_hi / (2.0 * safe_tan_x), INF_DEPTH)
+  hi_y_aa = np.where(tan_y > 1e-7, dim_z_hi / (2.0 * safe_tan_y), INF_DEPTH)
+  lo_x_aa = np.where(lr_valid & (tan_x > 1e-7), dim_x_lo / (2.0 * safe_tan_x), 0.0)
+  lo_y_aa = np.where(tb_valid & (tan_y > 1e-7), dim_z_lo / (2.0 * safe_tan_y), 0.0)
+  hi_x_avg = np.where(tan_x > 1e-7, dim_hi / (2.0 * safe_tan_x), INF_DEPTH)
+  hi_y_avg = np.where(tan_y > 1e-7, dim_hi / (2.0 * safe_tan_y), INF_DEPTH)
+  lo_x_avg = np.where(lr_valid & (tan_x > 1e-7), dim_lo / (2.0 * safe_tan_x), 0.0)
+  lo_y_avg = np.where(tb_valid & (tan_y > 1e-7), dim_lo / (2.0 * safe_tan_y), 0.0)
   hi_x = np.where(aa, hi_x_aa, hi_x_avg)
   hi_y = np.where(aa, hi_y_aa, hi_y_avg)
   lo_x = np.where(aa, lo_x_aa, lo_x_avg)
@@ -199,6 +210,14 @@ def project_frustum_batch_numpy(
   depth_hi = np.minimum(hi_x, hi_y)
   depth_lo = np.maximum(lo_x, lo_y)
   depth_hi = np.where(depth_hi < depth_lo, depth_lo * 2.0, depth_hi)
+
+  # Match the native bounded-uniform fallback when neither complete image axis
+  # supplies a finite angular depth estimate.
+  bounded_unobservable = (s_depth >= 1e8) & (depth_hi < INF_DEPTH)
+  fallback_depth = np.maximum(0.5 * (depth_lo + depth_hi), 0.1)
+  fallback_sigma = (depth_hi - depth_lo) * (1.0 / np.sqrt(12.0))
+  d_est = np.where(bounded_unobservable, fallback_depth, d_est)
+  s_depth = np.where(bounded_unobservable, fallback_sigma, s_depth)
 
   # ---- 8b. Score ----------------------------------------------------------
   score = (SIGMA_CHAR_M**2) / (SIGMA_CHAR_M**2 + s_depth**2)

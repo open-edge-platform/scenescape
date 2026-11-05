@@ -142,8 +142,10 @@ FrustumObservation project_frustum_3d(
 // World-frame transform utility.
 //
 // Applies the 4×4 camera-to-world pose matrix (row-major, homogeneous) to
-// rotate mu and Sigma from camera frame to world frame.  ray is also rotated.
-// depth_est, depth_sigma, score and edge_valid are preserved unchanged.
+// transform mu and Sigma from camera frame to world frame. The ray is rotated
+// and normalized; depth_est / depth_lo / depth_hi are scaled by the transformed
+// ray length, and depth_sigma is recomputed from the transformed covariance.
+// score and edge_valid are preserved unchanged.
 //
 // `pose_mat` layout (row-major):  [ R | t ]  where R is 3×3 rotation and
 //                                  [ 0 | 1 ]  t is 3×1 translation (meters).

@@ -241,7 +241,8 @@ static py::dict batch_numpy(
 // ray      : (N, 3) float32 — camera-frame rays
 // pose_mat : (4, 4) float32 — camera-to-world pose matrix (row-major)
 //
-// Returns dict with same keys as above (mu, Sigma, ray updated; rest copied).
+// Returns dict with mu, Sigma, ray, and depth quantities in the world frame;
+// score and edge_valid are copied unchanged.
 // ---------------------------------------------------------------------------
 static py::dict transform_world_batch(
     const py::dict& obs_dict,
@@ -255,6 +256,10 @@ static py::dict transform_world_batch(
     F32Array mu_in    = obs_dict["mu"].cast<F32Array>();
     F32Array Sigma_in = obs_dict["Sigma"].cast<F32Array>();
     F32Array ray_in   = obs_dict["ray"].cast<F32Array>();
+    F32Array depth_est_in = obs_dict["depth_est"].cast<F32Array>();
+    F32Array depth_sigma_in = obs_dict["depth_sigma"].cast<F32Array>();
+    F32Array depth_lo_in = obs_dict["depth_lo"].cast<F32Array>();
+    F32Array depth_hi_in = obs_dict["depth_hi"].cast<F32Array>();
 
     auto mui = mu_in.request();
     const ssize_t N = mui.shape[0];
@@ -262,14 +267,26 @@ static py::dict transform_world_batch(
     const float* mu_p  = static_cast<const float*>(mui.ptr);
     const float* Sg_p  = static_cast<const float*>(Sigma_in.request().ptr);
     const float* ray_p = static_cast<const float*>(ray_in.request().ptr);
+    const float* depth_est_p = static_cast<const float*>(depth_est_in.request().ptr);
+    const float* depth_sigma_p = static_cast<const float*>(depth_sigma_in.request().ptr);
+    const float* depth_lo_p = static_cast<const float*>(depth_lo_in.request().ptr);
+    const float* depth_hi_p = static_cast<const float*>(depth_hi_in.request().ptr);
 
     auto mu_out    = py::array_t<float>({N, (ssize_t)3});
     auto Sigma_out = py::array_t<float>({N, (ssize_t)3, (ssize_t)3});
     auto ray_out   = py::array_t<float>({N, (ssize_t)3});
+    auto depth_est_out = py::array_t<float>(N);
+    auto depth_sigma_out = py::array_t<float>(N);
+    auto depth_lo_out = py::array_t<float>(N);
+    auto depth_hi_out = py::array_t<float>(N);
 
     float* mu_op  = mu_out.mutable_data();
     float* Sg_op  = Sigma_out.mutable_data();
     float* ray_op = ray_out.mutable_data();
+    float* depth_est_op = depth_est_out.mutable_data();
+    float* depth_sigma_op = depth_sigma_out.mutable_data();
+    float* depth_lo_op = depth_lo_out.mutable_data();
+    float* depth_hi_op = depth_hi_out.mutable_data();
 
     {
         py::gil_scoped_release release;
@@ -278,12 +295,20 @@ static py::dict transform_world_batch(
             obs.mu[0] = mu_p[i*3+0]; obs.mu[1] = mu_p[i*3+1]; obs.mu[2] = mu_p[i*3+2];
             for (int k = 0; k < 9; ++k) obs.Sigma[k] = Sg_p[i*9+k];
             obs.ray[0] = ray_p[i*3+0]; obs.ray[1] = ray_p[i*3+1]; obs.ray[2] = ray_p[i*3+2];
+            obs.depth_est = depth_est_p[i];
+            obs.depth_sigma = depth_sigma_p[i];
+            obs.depth_lo = depth_lo_p[i];
+            obs.depth_hi = depth_hi_p[i];
 
             const FrustumObservation out_obs = transform_to_world(obs, pose_ptr);
 
             mu_op[i*3+0] = out_obs.mu[0]; mu_op[i*3+1] = out_obs.mu[1]; mu_op[i*3+2] = out_obs.mu[2];
             for (int k = 0; k < 9; ++k) Sg_op[i*9+k] = out_obs.Sigma[k];
             ray_op[i*3+0] = out_obs.ray[0]; ray_op[i*3+1] = out_obs.ray[1]; ray_op[i*3+2] = out_obs.ray[2];
+            depth_est_op[i] = out_obs.depth_est;
+            depth_sigma_op[i] = out_obs.depth_sigma;
+            depth_lo_op[i] = out_obs.depth_lo;
+            depth_hi_op[i] = out_obs.depth_hi;
         }
     }
 
@@ -294,6 +319,10 @@ static py::dict transform_world_batch(
     result["mu"]    = mu_out;
     result["Sigma"] = Sigma_out;
     result["ray"]   = ray_out;
+    result["depth_est"] = depth_est_out;
+    result["depth_sigma"] = depth_sigma_out;
+    result["depth_lo"] = depth_lo_out;
+    result["depth_hi"] = depth_hi_out;
     return result;
 }
 

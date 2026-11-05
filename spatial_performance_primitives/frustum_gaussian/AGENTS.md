@@ -116,8 +116,10 @@ struct FrustumObservation {
 };
 ```
 
-After `transform_to_world()`: `mu`, `Sigma`, `ray` are in world frame; `depth_*`,
-`score`, `edge_valid` are frame-invariant.
+After `transform_to_world()`: `mu`, `Sigma`, `ray`, and `depth_*` are in world
+frame. Depth estimates and bounds follow the transformed ray length;
+`depth_sigma` is the standard deviation projected along the normalized world ray.
+`score` and `edge_valid` are frame-invariant.
 
 ---
 

@@ -543,30 +543,6 @@ run_unit_tests_coverage: init-secrets setup-pytest
 
 .PHONY: run_sscape_unit_suite
 run_sscape_unit_suite:
-	# target generates gRPC code for observation_processor test 
-	@set -euo pipefail; \
-	generated_dir="$(CURDIR)/observation_processor/src/observation_processor/grpc_api"; \
-	backup_dir=$$(mktemp -d); \
-	pb2="$$generated_dir/observation_processor_pb2.py"; \
-	pb2_grpc="$$generated_dir/observation_processor_pb2_grpc.py"; \
-	had_pb2=0; had_pb2_grpc=0; \
-	cleanup() { \
-		if [[ $$had_pb2 -eq 1 ]]; then cp -p "$$backup_dir/observation_processor_pb2.py" "$$pb2"; else rm -f "$$pb2"; fi; \
-		if [[ $$had_pb2_grpc -eq 1 ]]; then cp -p "$$backup_dir/observation_processor_pb2_grpc.py" "$$pb2_grpc"; else rm -f "$$pb2_grpc"; fi; \
-		rm -f "$$generated_dir"/__pycache__/observation_processor_pb2.*.pyc \
-			"$$generated_dir"/__pycache__/observation_processor_pb2_grpc.*.pyc; \
-		rm -rf "$$backup_dir"; \
-	}; \
-	trap cleanup EXIT; \
-	if [[ -f "$$pb2" ]]; then had_pb2=1; cp -p "$$pb2" "$$backup_dir/observation_processor_pb2.py"; fi; \
-	if [[ -f "$$pb2_grpc" ]]; then had_pb2_grpc=1; cp -p "$$pb2_grpc" "$$backup_dir/observation_processor_pb2_grpc.py"; fi; \
-	$(TESTS_DIR)/.venv/bin/python -m grpc_tools.protoc \
-		-I"$(CURDIR)/observation_processor/proto" \
-		--python_out="$$generated_dir" --grpc_python_out="$$generated_dir" \
-		"$(CURDIR)/observation_processor/proto/observation_processor.proto"; \
-	sed -i 's/^import observation_processor_pb2 as/from . import observation_processor_pb2 as/' "$$pb2_grpc"; \
-	rm -f "$$generated_dir"/__pycache__/observation_processor_pb2.*.pyc \
-		"$$generated_dir"/__pycache__/observation_processor_pb2_grpc.*.pyc; \
 	PYTHONDONTWRITEBYTECODE=1 $(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) $(UNIT_TEST_EXTRA_ARGS) \
 		|| { echo "Unit tests failed"; exit 1; }
 

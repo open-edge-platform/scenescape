@@ -557,7 +557,7 @@ FrustumObservation transform_to_world(const FrustumObservation& obs_cam,
     const Eigen::Map<const RM>    Sigma_c(obs_cam.Sigma);
     const Eigen::Map<const Vec3f> ray_c(obs_cam.ray);
 
-    FrustumObservation out = obs_cam;  // copy scalars (depth, score, edge_valid)
+    FrustumObservation out = obs_cam;  // copy score and edge_valid
 
     // mu_world = R * mu_cam + t
     const Vec3f mu_w = R * mu_c + tvec;
@@ -571,9 +571,16 @@ FrustumObservation transform_to_world(const FrustumObservation& obs_cam,
 
     // ray_world = R * ray_cam   (direction vector, no translation)
     const Vec3f ray_w = R * ray_c;
-    out.ray[0] = ray_w.x();
-    out.ray[1] = ray_w.y();
-    out.ray[2] = ray_w.z();
+    const float ray_scale = ray_w.norm();
+    const Vec3f ray_unit = ray_w / std::max(ray_scale, 1.0e-12f);
+    out.ray[0] = ray_unit.x();
+    out.ray[1] = ray_unit.y();
+    out.ray[2] = ray_unit.z();
+
+    out.depth_est *= ray_scale;
+    out.depth_lo *= ray_scale;
+    out.depth_hi *= ray_scale;
+    out.depth_sigma = std::sqrt(std::max(ray_unit.dot(Sigma_w * ray_unit), 0.0f));
 
     return out;
 }

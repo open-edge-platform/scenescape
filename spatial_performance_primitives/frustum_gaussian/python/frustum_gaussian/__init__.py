@@ -135,13 +135,21 @@ def transform_to_world_batch(
   mu_w = (mu @ rot.T) + translation
   sigma_w = np.einsum("ij,njk,lk->nil", rot, sigma, rot)
   ray_w = ray @ rot.T
-  ray_norm = np.linalg.norm(ray_w, axis=1, keepdims=True)
-  ray_w = ray_w / np.maximum(ray_norm, 1e-12)
+  ray_scale = np.linalg.norm(ray_w, axis=1)
+  ray_w = ray_w / np.maximum(ray_scale[:, None], 1e-12)
+  depth_variance_w = np.einsum("ni,nij,nj->n", ray_w, sigma_w, ray_w)
 
   out = dict(obs_dict)
   out["mu"] = mu_w.astype(np.float32)
   out["Sigma"] = sigma_w.astype(np.float32)
   out["ray"] = ray_w.astype(np.float32)
+  out["depth_est"] = (np.asarray(obs_dict["depth_est"], dtype=np.float32)
+                      * ray_scale).astype(np.float32)
+  out["depth_sigma"] = np.sqrt(np.maximum(depth_variance_w, 0.0)).astype(np.float32)
+  out["depth_lo"] = (np.asarray(obs_dict["depth_lo"], dtype=np.float32)
+                     * ray_scale).astype(np.float32)
+  out["depth_hi"] = (np.asarray(obs_dict["depth_hi"], dtype=np.float32)
+                     * ray_scale).astype(np.float32)
   return out
 
 
