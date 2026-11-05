@@ -540,7 +540,7 @@ class BlackBoxHarness(TrackerHarness):
       self._persist_outputs(outputs, tmp_dir)
       self._persist_config()
       if self._enable_metrics:
-        self._record_metrics(output_frame_count=len(outputs))
+        self._record_metrics()
       return iter(outputs)
 
     finally:
@@ -939,11 +939,11 @@ class BlackBoxHarness(TrackerHarness):
     finally:
       self._collector_ctr = None
 
-  def _record_metrics(self, output_frame_count: int = 0) -> None:
+  def _record_metrics(self) -> None:
     """Parse the collector output and write metrics_summary.txt.
 
-    After writing the summary, verifies the number of dropped frames and warns
-    if the dropped-to-output ratio exceeds the configured threshold.
+    After writing the summary, verifies the number of dropped messages and warns
+    if the dropped-to-received ratio exceeds the configured threshold.
     """
     if not self._output_folder or self._metrics_out_dir is None:
       return
@@ -961,27 +961,25 @@ class BlackBoxHarness(TrackerHarness):
       print(f"[BlackBoxHarness] Warning: metrics summary failed: {exc}")
       return
 
-    self._verify_dropped_frames(metrics_file, output_frame_count)
+    self._verify_dropped_frames(metrics_file)
 
-  def _verify_dropped_frames(
-      self, metrics_file: Path, output_frame_count: int
-  ) -> None:
-    """Report dropped frames and warn when the drop ratio is too high."""
+  def _verify_dropped_frames(self, metrics_file: Path) -> None:
+    """Report dropped messages and warn when the drop ratio is too high."""
     try:
       values = metrics_recorder.collect_metric_values(metrics_file)
-      result = metrics_recorder.check_dropped_frames(values, output_frame_count)
+      result = metrics_recorder.check_dropped_frames(values)
     except Exception as exc:
-      print(f"[BlackBoxHarness] Warning: dropped-frame check failed: {exc}")
+      print(f"[BlackBoxHarness] Warning: dropped-message check failed: {exc}")
       return
 
     print(
-        f"[BlackBoxHarness] Dropped frames: {result['dropped']} "
-        f"({result['ratio'] * 100:.2f}% of {result['output_frames']} "
-        "output frames)"
+        f"[BlackBoxHarness] Dropped messages: {result['dropped']} "
+        f"({result['ratio'] * 100:.2f}% of {result['received']} "
+        "received messages)"
     )
     if result["exceeded"]:
       print(
-          "[BlackBoxHarness] WARNING: results are unreliable! Dropped-frame ratio "
+          "[BlackBoxHarness] WARNING: results are unreliable! Dropped-message ratio "
           f"{result['ratio'] * 100:.2f}% exceeds threshold "
           f"{result['threshold'] * 100:.2f}%"
       )

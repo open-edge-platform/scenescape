@@ -5,6 +5,7 @@ from collections import defaultdict
 import os
 import queue
 import threading
+import time
 from types import SimpleNamespace
 
 import ntplib
@@ -19,10 +20,15 @@ from controller.scene import Scene, stripReidProvenance
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mqtt import PubSub
+from scene_common.positioning_dwell import seconds_to_ns
 from scene_common.schema import SchemaValidation
 from scene_common.timestamp import adjust_time, get_epoch_time, get_iso_time
 from scene_common.transform import applyChildTransform
 from controller.observability import metrics
+from controller.ptz import provider as ptz_provider
+from controller.ptz.ingress import PTZIngress
+from controller.ptz.registry import PTZPoseRegistry
+from controller.ptz.shadow import ShadowRecorder, SummaryRecorder
 from controller.reid_env import (
   get_reid_client_cert,
   get_reid_client_key,
@@ -34,6 +40,40 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
+# Ingest-failure errors are logged at most once per window for each publisher.
+FAILURE_RATE_LIMIT_WINDOW_S = 10
+
+
+class RateLimiter:
+  """Allows an action at most once per window for each key."""
+
+  def __init__(self, window_s, max_keys=1024):
+    self._window_s = window_s
+    self._max_keys = max_keys
+    # key -> [last allowed time, calls suppressed since then]
+    self._entries = {}
+
+  def allow(self, key=None):
+    """Return (allowed, suppressed), where suppressed is the number of calls
+    blocked for this key since it was last allowed."""
+    now = time.monotonic()
+    entry = self._entries.get(key)
+    if entry is not None:
+      if now - entry[0] < self._window_s:
+        entry[1] += 1
+        return False, 0
+      suppressed = entry[1]
+      entry[0], entry[1] = now, 0
+      return True, suppressed
+    if len(self._entries) >= self._max_keys:
+      # Keys come from untrusted topics: bound the table by dropping expired
+      # entries only, and reject new keys while every cooldown is still active.
+      self._entries = {k: e for k, e in self._entries.items()
+                       if now - e[0] < self._window_s}
+      if len(self._entries) >= self._max_keys:
+        return False, 0
+    self._entries[key] = [now, 0]
+    return True, 0
 
 
 def _parseTrustedSources(value):
@@ -78,7 +118,7 @@ class SceneController:
   def __init__(self, rewrite_bad_time, rewrite_all_time, max_lag, mqtt_broker,
                mqtt_auth, rest_url, rest_auth, client_cert, root_cert, ntp_server,
                tracker_config_file, schema_file, visibility_topic, data_source,
-               reid_config_file=None, pose_adjustment_config_file=None):
+               reid_config_file=None, pose_adjustment_config_file=None, ptz_settings=None):
     self.cert = client_cert
     self.root_cert = root_cert
     self.rewrite_bad_time = rewrite_bad_time
@@ -108,6 +148,16 @@ class SceneController:
     self.time_offset = 0
 
     self.schema_val = SchemaValidation(schema_file, is_multi_message=True)
+
+    self.ptz_settings = ptz_settings
+    self.ptz_registry = None
+    self.ptz_ingress = None
+    if ptz_settings is not None:
+      self.ptz_registry = PTZPoseRegistry(ptz_settings, self.schema_val, self._ptzClock)
+      self.ptz_ingress = PTZIngress(ptz_settings, self.ptz_registry,
+                                    self._ptzRecorder(ptz_settings))
+      ptz_provider.set_active_registry(self.ptz_registry)
+      log.info(f"PTZ pose consumption: {ptz_settings.mode.upper()} mode")
 
     self.pubsub = PubSub(mqtt_auth, client_cert, root_cert, mqtt_broker, keepalive=60)
     self.pubsub.onConnect = self.onConnect
@@ -144,6 +194,7 @@ class SceneController:
     if self.external_source_bindings:
       log.info("Loaded %s manual external-source bindings for %s publishers",
                EXTERNAL_SOURCE_BINDINGS_ENV_VAR, len(self.external_source_bindings))
+    self._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_S)
     self._moving_object_queue = queue.Queue(maxsize=1000)
     self._moving_object_stop = threading.Event()
     self._moving_object_worker = threading.Thread(
@@ -242,6 +293,57 @@ class SceneController:
     """Return the NTP-corrected time used to accept external-source events."""
     return get_epoch_time() + self.time_offset
 
+  @staticmethod
+  def _ptzRecorder(ptz_settings):
+    if ptz_settings.shadow_per_decision:
+      return ShadowRecorder(ptz_settings.run_id, ptz_settings.shadow_sample_every_n)
+    return SummaryRecorder()
+
+  def _ptzClock(self):
+    """Synchronized local time in ns and whether the clock is within the configured bound."""
+    synchronized = (self.last_time_sync is not None
+                    and abs(self.time_offset) <= self.ptz_settings.consumer.max_clock_offset_s)
+    return seconds_to_ns(get_epoch_time() + self.time_offset), synchronized
+
+  def _ptzFilter(self, scene, camera_id, jdata, msg_when):
+    """Apply the PTZ dwell gate; returns (process, pose_context)."""
+    if getattr(self, 'ptz_ingress', None) is None:
+      return True, None
+    return self.ptz_ingress.filter(scene, camera_id, jdata, msg_when)
+
+  def handlePoseMessage(self, client, userdata, message):
+    """PoseContext callback; runs on the MQTT thread and never blocks."""
+    try:
+      self.ptz_registry.on_pose_message(message.topic, message.payload)
+    except Exception as e:
+      log.error(f"Failed to process PoseContext on {message.topic}: {e}")
+    return
+
+  def handlePositioningStatusMessage(self, client, userdata, message):
+    """Resolver status/LWT callback; runs on the MQTT thread and never blocks."""
+    try:
+      self.ptz_registry.on_status_message(message.topic, message.payload)
+    except Exception as e:
+      log.error(f"Failed to process positioning status on {message.topic}: {e}")
+    return
+
+  def _addPTZSubscriptions(self, need_subscribe):
+    """Subscribe only to poses of this Controller's assigned PTZ cameras and their resolvers."""
+    if getattr(self, 'ptz_registry', None) is None:
+      return
+    self.ptz_registry.reconcile(self.scenes)
+    for source_id in self.ptz_registry.pose_source_ids():
+      need_subscribe.add((
+        PubSub.formatTopic(PubSub.POSITIONING_POSE, source_id=source_id),
+        self.handlePoseMessage,
+      ))
+    for resolver_id in self.ptz_registry.resolver_ids():
+      need_subscribe.add((
+        PubSub.formatTopic(PubSub.POSITIONING_STATUS, resolver_id=resolver_id),
+        self.handlePositioningStatusMessage,
+      ))
+    return
+
   def shutdown(self):
     """Stop background maintenance threads owned by this controller.
 
@@ -266,6 +368,9 @@ class SceneController:
 
     self.external_source_pose_cache.stopBackgroundSweep()
     self.identity_claim_registry.stopBackgroundSweep()
+    if getattr(self, 'ptz_registry', None) is not None \
+        and ptz_provider.active_registry() is self.ptz_registry:
+      ptz_provider.set_active_registry(None)
     return
 
   def publishDetections(self, scene, objects, ts, otype, jdata, camera_id):
@@ -559,8 +664,9 @@ class SceneController:
             success = self._handleExternalSourceObject(
               scene, jdata_scene, detection_types[0], msg_when)
             if not success:
-              log.error("Camera fail publisher_id=%s scene=%s", publisher_id, getattr(scene, 'name', None))
-              self.cache_manager.invalidate()
+              self._logFailure(
+                publisher_id,
+                f"Camera fail publisher_id={publisher_id} scene={getattr(scene, 'name', None)}")
               return
             jdata_scene['id'] = scene.uid
             jdata_scene['name'] = scene.name
@@ -574,31 +680,20 @@ class SceneController:
 
         success, scene = self._handleChildSceneObject(
           publisher_id, jdata, detection_types[0], msg_when)
-        # (None, None) => orphan hierarchy echo from a root scene; ignore.
+        # (None, None) => dropped: root-scene echo or unresolved sender/parent.
         if success is None:
           return
         sender_id = publisher_id
       else:
-        detection_types = jdata['objects'].keys()
         camera_id = sender_id = topic['camera_id']
-        sender = self.cache_manager.sceneWithCameraID(sender_id)
-        if sender is None:
-          log.error(f"UNKNOWN SENDER: {sender_id}")
+        outcome = self._processCameraMessage(camera_id, jdata, msg_when, metric_attributes)
+        if outcome is None:
           return
-        scene = sender
-
-        # If no detection types in the message, add empty arrays for all tracked types
-        # This must be done BEFORE processCameraData so the tracker processes them
-        if not detection_types:
-          detection_types = list(scene.tracker.trackers.keys())
-          for dtype in detection_types:
-            jdata['objects'][dtype] = []
-
-        success = scene.processCameraData(jdata, when=msg_when)
+        scene, detection_types, success = outcome
 
       if not success:
-        log.error("Camera fail", sender_id, scene.name if scene is not None else "unknown")
-        self.cache_manager.invalidate()
+        scene_name = scene.name if scene is not None else "unknown"
+        self._logFailure(sender_id, f"Camera fail {sender_id} {scene_name}")
         return
 
       jdata['id'] = scene.uid
@@ -609,14 +704,58 @@ class SceneController:
                               msg_when, detection_type, jdata, camera_id)
       return
 
+  def _logFailure(self, publisher_id, message):
+    """Log an ingest failure at most once per window for each publisher."""
+    allowed, suppressed = self._failure_log_limiter.allow(publisher_id)
+    if allowed:
+      if suppressed:
+        message = f"{message} (+{suppressed} suppressed)"
+      log.error(message)
+    return
+
+  def _processCameraMessage(self, camera_id, jdata, msg_when, metric_attributes):
+    """Resolve the camera's scene, apply the PTZ gate and feed the detections to tracking.
+
+    @return (scene, detection_types, success), or None when the message was dropped
+    """
+    detection_types = jdata['objects'].keys()
+    scene = self.cache_manager.sceneWithCameraID(camera_id)
+    if scene is None:
+      log.error(f"UNKNOWN SENDER: {camera_id}")
+      return None
+
+    process, pose_context = self._ptzFilter(scene, camera_id, jdata, msg_when)
+    if not process:
+      metric_attributes["reason"] = "ptz_dwell"
+      metrics.inc_dropped(metric_attributes)
+      return None
+
+    # If no detection types in the message, add empty arrays for all tracked types
+    # This must be done BEFORE processCameraData so the tracker processes them
+    if not detection_types:
+      detection_types = list(scene.tracker.trackers.keys())
+      for dtype in detection_types:
+        jdata['objects'][dtype] = []
+
+    if pose_context is None:
+      success = scene.processCameraData(jdata, when=msg_when)
+    else:
+      success = scene.processCameraData(jdata, when=msg_when, pose_context=pose_context)
+    return scene, detection_types, success
+
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
+    """Forward a child scene's objects into its parent scene.
+
+    Unresolved senders/parents return (None, None) without invalidating the
+    cache: only a DB change can resolve them, and CMD_DATABASE invalidates then.
+    """
     is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error(f"UNKNOWN SENDER: {sender_id}")
-        return False, None
+        self._logFailure(sender_id, f"UNKNOWN SENDER: {sender_id}")
+        return None, None
       sender = remote_sender
       is_remote = True
 
@@ -627,8 +766,8 @@ class SceneController:
           sender.parent = recovered
           log.info(f"Recovered parent={recovered} for remote child {sender_id}")
         else:
-          log.error("UNKNOWN PARENT", sender_id)
-          return False, sender
+          self._logFailure(sender_id, f"UNKNOWN PARENT: {sender_id}")
+          return None, None
       else:
         # Hierarchy publishes (no source_id) from a root scene are not destined
         # for a parent — ignore them rather than failing closed and invalidating
@@ -639,8 +778,9 @@ class SceneController:
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
-      log.error("PARENT SCENE NOT FOUND", sender.parent, "for sender", sender.name)
-      return False, None
+      self._logFailure(
+        sender_id, f"PARENT SCENE NOT FOUND: {sender.parent} for sender {sender.name}")
+      return None, None
 
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
@@ -1065,6 +1205,7 @@ class SceneController:
     need_subscribe = set()
 
     self.scenes = self.cache_manager.allScenes()
+    self._addPTZSubscriptions(need_subscribe)
 
     # One wildcard covers configured children and dynamic agents on:
     # scenescape/external/{publisher_id}/{thing_type}

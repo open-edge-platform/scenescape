@@ -37,7 +37,7 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 - Mark measurements with attribute `has_orientation=true` when the SceneScape detection carried detector `rotation` (`MovingObject.has_detection_rotation`).
 - On Kalman **correct**:
   - If `has_orientation`: unwrap and correct yaw as today (`deltaTheta`).
-  - Else: set measurement yaw to the **predicted** yaw (zero yaw innovation) so position/size still update.
+  - Else: leave yaw out of the update (reduced update without the yaw row) so position/size still update and yaw only predicts.
 
 ### Multi-sensor fuse in one time chunk
 
@@ -65,7 +65,7 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 Detector yaw from **any** orienting modality can be π-ambiguous or temporarily frozen while XY motion is correct. At Kalman **correct**, when track speed ≥ 1 m/s:
 
 1. Choose `yaw` or `yaw+π` closest to velocity heading (front/back disambiguation).
-2. If the residual to velocity still exceeds ~0.6 rad, **drop the yaw observation for that frame** (same as a non-orienting sensor: zero yaw innovation). Position/size still update.
+2. If the residual to velocity still exceeds ~0.6 rad, **drop the yaw observation for that frame** (same as a non-orienting sensor: yaw left out of the update). Position/size still update.
 3. Do **not** re-fold with box-symmetric `deltaTheta` against a stale `previousYaw` after step 1 — that would undo velocity-aligned π flips.
 
 This lives in RobotVision (`prepareYawMeasurement`), not in modality-specific publishers. Publishers should forward detector rotation as-is.
@@ -102,6 +102,7 @@ flowchart LR
 - Tracks that never see an orienting sensor still rely on velocity heading (and hysteresis thresholds).
 - Pitch/roll remain display/default constants until a future ADR if 6-DOF measurements appear.
 - Sticky `orientation_observed` does not currently expire; a long camera-only gap after an orienting sensor still prefers Kalman yaw unless velocity heading disagrees while moving (publish fallback).
+- Without orienting detections the yaw variance keeps growing (fastest for standing objects, whose CTRV turn rate is unobserved), so the first orienting detection sets yaw almost directly.
 - Kinematic gate needs usable track velocity (≥ ~1 m/s); slow or stationary objects still accept detector yaw (including π ambiguity via `deltaTheta`).
 
 ## Implementation notes

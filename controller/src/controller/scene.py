@@ -21,6 +21,7 @@ from controller.pose_adjustment import (PoseAdjustment,
                                         MIN_POSE_CACHE_TTL,
                                         POSE_CACHE_TTL_MULTIPLIER)
 from controller.ilabs_tracking import IntelLabsTracking
+from controller.ptz import provider as ptz_provider
 from controller.time_chunking import TimeChunkedIntelLabsTracking, DEFAULT_CHUNKING_RATE_FPS
 from controller.tracking import (MAX_UNRELIABLE_TIME,
                                  NON_MEASUREMENT_TIME_DYNAMIC,
@@ -94,6 +95,7 @@ class Scene(SceneModel):
     self._setTracker("time_chunked_intel_labs" if time_chunking_enabled else self.DEFAULT_TRACKER)
 
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     self.use_tracker = True
 
     self.pose_adjustment = PoseAdjustment.from_env(
@@ -213,7 +215,13 @@ class Scene(SceneModel):
       objects.append(mobj)
     return objects
 
-  def processCameraData(self, jdata, when=None, ignoreTimeFlag=False):
+  def processCameraData(self, jdata, when=None, ignoreTimeFlag=False, pose_context=None):
+    """Process one camera message.
+
+    @param pose_context  optional PTZProjectionContext; projection uses its per-frame
+                         camera (static intrinsics, PoseContext transform) instead of
+                         the stored camera pose, which is never modified
+    """
     camera_id = jdata['id']
     camera = None
 
@@ -232,6 +240,9 @@ class Scene(SceneModel):
     if not hasattr(camera, 'pose'):
       log.info("DISCARDING: camera has no pose")
       return True
+
+    if pose_context is not None:
+      camera = pose_context.camera
 
     for detection_type, detections in jdata['objects'].items():
       stripReidProvenance(detections)
@@ -369,18 +380,30 @@ class Scene(SceneModel):
                               self.use_tracker)
     return
 
+  def _visibilityCameras(self):
+    """Cameras with a view region, using the current per-frame pose for PTZ cameras."""
+    cameras = []
+    for static_camera in self.cameras.values():
+      if not hasattr(static_camera, 'pose'):
+        continue
+      camera = ptz_provider.visibility_camera(static_camera)
+      if camera is not None and hasattr(camera.pose, 'regionOfView'):
+        cameras.append(camera)
+    return cameras
+
+  def visibilityCameraWithID(self, anID):
+    """Camera used to project bounds into an image; None when a PTZ camera sees nothing."""
+    camera = self.cameraWithID(anID)
+    if camera is None or not hasattr(camera, 'pose'):
+      return camera
+    return ptz_provider.visibility_camera(camera)
+
   def _updateVisible(self, curObjects):
     """! Update the visibility of objects from cameras in the scene."""
+    cameras = self._visibilityCameras()
     for obj in curObjects:
-      vis = []
-
-      for sname in self.cameras:
-        camera = self.cameras[sname]
-        if hasattr(camera, 'pose') and hasattr(camera.pose, 'regionOfView') \
-           and camera.pose.regionOfView.isPointWithin(obj.sceneLoc):
-          vis.append(camera.cameraID)
-
-      obj.visibility = vis
+      obj.visibility = [camera.cameraID for camera in cameras
+                        if camera.pose.regionOfView.isPointWithin(obj.sceneLoc)]
     return
 
   @classmethod
@@ -421,10 +444,18 @@ class Scene(SceneModel):
     Get the transformation matrix from TRS (Translation, Rotation, Scale) coordinates to LLA (Latitude, Longitude, Altitude) coordinates.
 
     The matrix is calculated lazily on first access and cached for subsequent calls.
+    Returns None when the geospatial inputs are incomplete or invalid. A computation
+    failure is logged once and remembered until the cache is invalidated.
     """
-    if self._trs_xyz_to_lla is None and self.output_lla and self.map_corners_lla is not None:
-      mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
-      self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+    if (self._trs_xyz_to_lla is None and not self._trs_xyz_to_lla_failed
+        and self.output_lla and self.map_corners_lla is not None):
+      try:
+        mesh_corners_xyz = getMeshAxisAlignedProjectionToXY(self.map_triangle_mesh)
+        self._trs_xyz_to_lla = calculateTRSLocal2LLAFromSurfacePoints(mesh_corners_xyz, self.map_corners_lla)
+      except (TypeError, ValueError, IndexError) as exc:
+        self._trs_xyz_to_lla_failed = True
+        log.error("Scene", self.name, "failed to compute LLA transform, map_file:",
+                  self.map_file, "error:", exc)
     return self._trs_xyz_to_lla
 
   def _invalidate_trs_xyz_to_lla(self):
@@ -433,4 +464,5 @@ class Scene(SceneModel):
     This method should be called when the scene geospatial mapping parameters change.
     """
     self._trs_xyz_to_lla = None
+    self._trs_xyz_to_lla_failed = False
     return

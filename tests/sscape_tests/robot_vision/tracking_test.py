@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2022 - 2025 Intel Corporation
+# SPDX-FileCopyrightText: 2022 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 from robot_vision import tracking
@@ -6,6 +6,13 @@ import numpy as np
 import unittest
 from datetime import datetime, timedelta
 import cv2
+
+# The velocity process noise grows with speed and has a floor (see "Kalman filter settings" in
+# controller/src/robot_vision/README.md), so a constant-velocity track follows the detection noise more
+# closely than with the former isotropic process noise: 3 to 6 times the velocity error. The noise is
+# seeded so the checks are deterministic; the worst of these tests is at about a third of the tolerance.
+VELOCITY_TOLERANCE = 0.05  # m/s
+NOISE_SEED = 1
 
 def create_object_at_location(x : float = 0., y: float= 0., z : float= 0., yaw : float = 0., classification=np.full((1,), 1.0)):
   object_ = tracking.TrackedObject()
@@ -87,11 +94,12 @@ class TestTracking(unittest.TestCase):
 
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
 
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -103,8 +111,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.01)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.01)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
   def test_constant_velocity_single_object_with_noise_use_track_distance_overload(self):
     """
@@ -133,11 +141,12 @@ class TestTracking(unittest.TestCase):
 
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
 
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -149,8 +158,8 @@ class TestTracking(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, delta=0.01)
-    self.assertAlmostEqual(tracked_object.vy, vy, delta=0.01)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
 class TestMultiModelKalmanEstimator(unittest.TestCase):
   def test_constant_velocity_single_object_with_noise(self):
@@ -169,10 +178,11 @@ class TestMultiModelKalmanEstimator(unittest.TestCase):
     estimator.initialize(initial_estimate, initial_timestamp, motion_models=[tracking.MotionModel.CV]) # initialize tracker with zero objects
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -180,8 +190,8 @@ class TestMultiModelKalmanEstimator(unittest.TestCase):
       object_ = create_object_at_location(x=x, y=y, classification=classification_data.classification('Car', 1.0))
       estimator.track(object_, timestamp)
     tracked_object = estimator.current_state()
-    self.assertAlmostEqual(tracked_object.vx, vx, places=2)
-    self.assertAlmostEqual(tracked_object.vy, vy, places=2)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
   def testPredictFunctionDoubleAndTimestamp(self):
     estimator_a = tracking.MultiModelKalmanEstimator()
@@ -224,11 +234,12 @@ class TestTrackManager(unittest.TestCase):
 
     mean = 0
     std_dev = 0.01
+    rng = np.random.default_rng(NOISE_SEED)
 
     for t in np.arange(step, total_time, step): # initial time is step
       timestamp = initial_timestamp + timedelta(seconds = t)
 
-      noise_x, noise_y = np.random.normal(mean, std_dev, 2)
+      noise_x, noise_y = rng.normal(mean, std_dev, 2)
 
       x = x0 + vx * t + noise_x
       y = y0 + vy * t + noise_y
@@ -242,48 +253,35 @@ class TestTrackManager(unittest.TestCase):
 
     self.assertEqual(len(tracked_objects), 1)
     tracked_object = tracked_objects[0]
-    self.assertAlmostEqual(tracked_object.vx, vx, places=2)
-    self.assertAlmostEqual(tracked_object.vy, vy, places=2)
-
-    ## Test access methods
-    current_track = track_manager.get_track(tracked_object.id)
-
-    self.assertEqual(current_track.id, tracked_object.id)
-    self.assertAlmostEqual(current_track.x, tracked_object.x, places=5)
-    self.assertAlmostEqual(current_track.y, tracked_object.y, places=5)
-    self.assertAlmostEqual(current_track.vx, tracked_object.vx, places=5)
-    self.assertAlmostEqual(current_track.vy, tracked_object.vy, places=5)
-    self.assertAlmostEqual(current_track.ax, tracked_object.ax, places=5)
-    self.assertAlmostEqual(current_track.ay, tracked_object.ay, places=5)
-    self.assertAlmostEqual(current_track.yaw, tracked_object.yaw, places=5)
-    self.assertAlmostEqual(current_track.width, tracked_object.width, places=5)
-    self.assertAlmostEqual(current_track.height, tracked_object.height, places=5)
-    self.assertAlmostEqual(current_track.length, tracked_object.length, places=5)
+    self.assertAlmostEqual(tracked_object.vx, vx, delta=VELOCITY_TOLERANCE)
+    self.assertAlmostEqual(tracked_object.vy, vy, delta=VELOCITY_TOLERANCE)
 
     # set track as suspended, reliable tracks should be empty now
     track_manager.suspend_track(tracked_object.id)
     self.assertEqual(len(track_manager.get_reliable_tracks()), 0)
 
-    # access function can retrieve the kalman estimator
-    kalman_estimator = track_manager.get_kalman_estimator(tracked_object.id)
+    # the suspended track keeps its state
+    suspended_tracks = track_manager.get_suspended_tracks()
+    self.assertEqual(len(suspended_tracks), 1)
+    suspended_track = suspended_tracks[0]
 
-    self.assertEqual(kalman_estimator.current_state().id, tracked_object.id)
-    self.assertAlmostEqual(kalman_estimator.current_state().x, tracked_object.x, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().y, tracked_object.y, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().vx, tracked_object.vx, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().vy, tracked_object.vy, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().ax, tracked_object.ax, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().ay, tracked_object.ay, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().yaw, tracked_object.yaw, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().width, tracked_object.width, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().height, tracked_object.height, places=5)
-    self.assertAlmostEqual(kalman_estimator.current_state().length, tracked_object.length, places=5)
+    self.assertEqual(suspended_track.id, tracked_object.id)
+    self.assertAlmostEqual(suspended_track.x, tracked_object.x, places=5)
+    self.assertAlmostEqual(suspended_track.y, tracked_object.y, places=5)
+    self.assertAlmostEqual(suspended_track.vx, tracked_object.vx, places=5)
+    self.assertAlmostEqual(suspended_track.vy, tracked_object.vy, places=5)
+    self.assertAlmostEqual(suspended_track.ax, tracked_object.ax, places=5)
+    self.assertAlmostEqual(suspended_track.ay, tracked_object.ay, places=5)
+    self.assertAlmostEqual(suspended_track.yaw, tracked_object.yaw, places=5)
+    self.assertAlmostEqual(suspended_track.width, tracked_object.width, places=5)
+    self.assertAlmostEqual(suspended_track.height, tracked_object.height, places=5)
+    self.assertAlmostEqual(suspended_track.length, tracked_object.length, places=5)
 
     track_manager.delete_track(tracked_object.id)
 
     # track is no longer part of the TrackManager
-    with self.assertRaises(RuntimeError):
-      track_manager.get_kalman_estimator(tracked_object.id)
+    self.assertFalse(track_manager.has_id(tracked_object.id))
+    self.assertEqual(len(track_manager.get_tracks()), 0)
 
 class TestMatchFunction(unittest.TestCase):
   def test_match_single_objects(self):
