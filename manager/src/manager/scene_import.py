@@ -24,6 +24,28 @@ from scene_common.options import POINT_CORRESPONDENCE, EULER, POSE_ORIGIN_MANAGE
 from scene_common.cam_fields import CAM_COMMON_FIELDS
 from scene_common import log
 
+# Updating a scene with a GLB map re-renders its thumbnail synchronously, which
+# can take far longer than RESTClient's default timeout for large meshes.
+IMPORT_REST_TIMEOUT_ENV_VAR = "SCENE_IMPORT_REST_TIMEOUT_S"
+DEFAULT_IMPORT_REST_TIMEOUT_S = 300
+
+
+def get_import_rest_timeout() -> int:
+  """Read the import REST timeout in seconds, falling back to the default if unset or invalid."""
+  raw = os.environ.get(IMPORT_REST_TIMEOUT_ENV_VAR, "").strip()
+  if not raw:
+    return DEFAULT_IMPORT_REST_TIMEOUT_S
+  try:
+    value = int(raw)
+  except ValueError:
+    value = 0
+  if value <= 0:
+    log.warning(
+      f"Ignoring invalid {IMPORT_REST_TIMEOUT_ENV_VAR}={raw!r}; expected a positive integer. "
+      f"Using {DEFAULT_IMPORT_REST_TIMEOUT_S}.")
+    return DEFAULT_IMPORT_REST_TIMEOUT_S
+  return value
+
 
 class ImportScene:
   def __init__(self, zip_path, token, restore_ids=False, remote_credentials=None, reuse_existing=False):
@@ -37,7 +59,7 @@ class ImportScene:
     self.rootcert = '/run/secrets/certs/scenescape-ca.pem'
     self.baseUrl = os.getenv("WEBSERVER_URL", "https://web.scenescape.intel.com")
     self.restUrl = self.baseUrl + '/api/v1'
-    self.rest = RESTClient(self.restUrl, rootcert=self.rootcert)
+    self.rest = RESTClient(self.restUrl, rootcert=self.rootcert, timeout=get_import_rest_timeout())
     self.rest.token = token
     return
 
@@ -50,6 +72,9 @@ class ImportScene:
         **{field: cam.get(field) for field in CAM_COMMON_FIELDS if field in cam},
         "calibration_origin": POSE_ORIGIN_MANAGER_IMPORT,
       }
+      # Required by CamSerializer.validate() when use_camera_pipeline is true.
+      if "camera_pipeline" in cam:
+        cam_data["camera_pipeline"] = cam["camera_pipeline"]
 
       transform_type = cam.get("transform_type")
       if transform_type == POINT_CORRESPONDENCE:
@@ -160,10 +185,15 @@ class ImportScene:
     return scene_id
 
   async def update_scene_settings(self, scene_id, data):
-    if data:
+    if not data:
+      return None
+    try:
       response = await asyncio.to_thread(self.rest.updateScene, scene_id, data)
-      return response.errors
-    return None
+    except requests.RequestException as error:
+      log.error(f"Scene settings update failed ({type(error).__name__}); "
+                f"raise {IMPORT_REST_TIMEOUT_ENV_VAR} if large maps time out")
+      return {"scene": [f"Scene settings update failed ({type(error).__name__})"]}
+    return response.errors
 
   async def loadScene(self, child=None, parent=None):
     import_summary = {
@@ -174,6 +204,7 @@ class ImportScene:
       "sensors": None,
       "calibration_markers": None,
       "cameras_created": None,
+      "cameras_relinked": None,
       "tripwires_created": None,
       "regions_created": None,
       "sensors_created": None,
@@ -252,12 +283,8 @@ class ImportScene:
     if import_summary["scene"]:
       return import_summary
 
-    # Bulk create cameras with transform handling
-    cam_items = self.build_camera_items(json_data)
-    cameras_created, camera_errors = await self.bulk_create(
-      cam_items, scene_id, self.rest.createCamera)
-    import_summary["cameras"] = camera_errors
-    import_summary["cameras_created"] = cameras_created
+    # Bulk create cameras with transform handling.
+    await self.import_cameras(json_data, scene_id, import_summary)
     # Bulk create other resources
     regions_created, region_errors = await self.bulk_create(
       json_data.get("regions", []), scene_id, self.rest.createRegion)
@@ -282,6 +309,71 @@ class ImportScene:
       markers, scene_id, self.rest.createCalibrationMarker)
     import_summary["calibration_markers"] = marker_errors
     import_summary["calibration_markers_created"] = markers_created
+
+  async def import_cameras(
+      self,
+      json_data: dict[str, Any],
+      scene_id: str,
+      import_summary: dict[str, Any]) -> None:
+    """Imports the exported cameras into `scene_id` and records the results.
+
+    Scene-less cameras with the same name (e.g. left behind by a deleted scene)
+    are re-linked instead of rejected so their exported calibration is not lost.
+    """
+    cam_items = self.build_camera_items(json_data)
+    cam_items, cameras_relinked, relink_errors = await self.relink_orphaned_cameras(
+      cam_items, scene_id)
+    cameras_created, camera_errors = await self.bulk_create(
+      cam_items, scene_id, self.rest.createCamera)
+    import_summary["cameras"] = ((camera_errors or []) + relink_errors) or None
+    import_summary["cameras_created"] = cameras_created
+    import_summary["cameras_relinked"] = cameras_relinked or None
+
+  def find_orphaned_camera(self, name: str | None) -> dict[str, Any] | None:
+    """Returns the existing camera named `name` if it is not attached to any scene."""
+    if not name:
+      return None
+    resp = self.rest.getCameras({"name": name})
+    if getattr(resp, "errors", None):
+      return None
+    results = resp.get("results", [])
+    if len(results) == 1 and not results[0].get("scene"):
+      return results[0]
+    return None
+
+  async def relink_orphaned_cameras(
+      self,
+      cam_items: list[dict[str, Any]],
+      scene_id: str) -> tuple[
+        list[dict[str, Any]],
+        list[dict[str, Any]],
+        list[tuple[Any, dict[str, Any]]]]:
+    """Attaches orphaned same-name cameras to `scene_id` with the exported calibration.
+
+    Returns (items still to create, relinked cameras, errors). The existing
+    camera keeps its sensor_id; cameras owned by another scene are left for
+    creation, which reports the name conflict.
+    """
+    to_create, relinked, errors = [], [], []
+    for item in cam_items:
+      item["scene"] = scene_id
+      # Lookup failures are reported per camera so the rest of the import continues.
+      try:
+        existing = await asyncio.to_thread(self.find_orphaned_camera, item.get("name"))
+        if existing is None:
+          to_create.append(item)
+          continue
+        update = {k: v for k, v in item.items() if k != "sensor_id"}
+        resp = await asyncio.to_thread(self.rest.updateCamera, existing["uid"], update)
+      except Exception as e:
+        errors.append((e, item))
+        continue
+      if getattr(resp, "errors", None):
+        errors.append((resp.errors, item))
+      else:
+        log.info(f"Re-linked orphaned camera '{existing['uid']}' to scene {scene_id}")
+        relinked.append(dict(resp))
+    return to_create, relinked, errors
 
   async def bulk_create(
       self,

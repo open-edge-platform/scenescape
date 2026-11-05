@@ -174,7 +174,7 @@ Upload the appropriate zip file.
 
 Click import to begin the upload.
 
-> **Note:** If your ZIP includes a .gltf map file, the upload process may take longer depending on the file size.
+> **Note:** If your ZIP includes a .gltf map file, the upload process may take longer depending on the file size. Large `.glb` maps can take minutes to process; if the import reports `Scene settings update failed (ReadTimeout)`, raise the Manager's `SCENE_IMPORT_REST_TIMEOUT_S` as described in [Uploading Your Own Scenes](../deployment/deploy-demo.md#uploading-your-own-scenes).
 
 ## Additional Resources
 

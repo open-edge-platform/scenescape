@@ -105,6 +105,76 @@ class TestRemoveCategory:
     """Verify removing from a scene that was never registered is a safe no-op."""
     registry.removeCategory("never_seen_scene", "person")  # should not raise
 
+  def test_removing_the_last_category_forgets_the_scene(self, registry):
+    """Verify a scene left with no categories does not linger in the registry."""
+    registry.updateCategoryCount("scene_1", "person", 5)
+
+    registry.removeCategory("scene_1", "person")
+
+    assert "scene_1" not in registry._category_counts
+
+
+class TestGenerations:
+  """Test that a retired tracker cannot clobber the one that replaced it."""
+
+  def test_older_generation_cannot_overwrite_a_newer_count(self, registry):
+    """Verify a draining old tracker's report is dropped once the new one reported."""
+    registry.updateCategoryCount("scene_1", "person", 2, generation=2)
+
+    registry.updateCategoryCount("scene_1", "person", 9, generation=1)
+
+    assert registry.getTotalCount("scene_1") == 2
+
+  def test_newer_generation_replaces_an_older_count(self, registry):
+    """Verify the replacement tracker takes over the entry."""
+    registry.updateCategoryCount("scene_1", "person", 9, generation=1)
+
+    registry.updateCategoryCount("scene_1", "person", 2, generation=2)
+
+    assert registry.getTotalCount("scene_1") == 2
+
+  def test_same_generation_updates_its_own_count(self, registry):
+    """Verify a tracker keeps updating its own entry every cycle."""
+    registry.updateCategoryCount("scene_1", "person", 2, generation=3)
+
+    registry.updateCategoryCount("scene_1", "person", 4, generation=3)
+
+    assert registry.getTotalCount("scene_1") == 4
+
+  def test_older_generation_cannot_remove_a_newer_count(self, registry):
+    """Verify the old tracker's shutdown leaves the replacement's count alone."""
+    registry.updateCategoryCount("scene_1", "person", 2, generation=2)
+
+    registry.removeCategory("scene_1", "person", generation=1)
+
+    assert registry.getTotalCount("scene_1") == 2
+
+  def test_owner_removes_its_own_count(self, registry):
+    """Verify a tracker still removes the entry it reported."""
+    registry.updateCategoryCount("scene_1", "person", 2, generation=2)
+
+    registry.removeCategory("scene_1", "person", generation=2)
+
+    assert registry.getTotalCount("scene_1") == 0
+
+  def test_categories_are_ordered_independently(self, registry):
+    """Verify a newer generation in one category does not shield another."""
+    registry.updateCategoryCount("scene_1", "car", 1, generation=5)
+
+    registry.updateCategoryCount("scene_1", "person", 3, generation=1)
+
+    assert registry.getTotalCount("scene_1") == 4
+
+  def test_unversioned_calls_still_overwrite_and_remove(self, registry):
+    """Verify callers that pass no generation keep the unconditional behavior."""
+    registry.updateCategoryCount("scene_1", "person", 2, generation=2)
+
+    registry.updateCategoryCount("scene_1", "person", 7)
+    assert registry.getTotalCount("scene_1") == 7
+
+    registry.removeCategory("scene_1", "person")
+    assert registry.getTotalCount("scene_1") == 0
+
 
 class TestRemoveScene:
   """Test removing an entire scene from the registry."""

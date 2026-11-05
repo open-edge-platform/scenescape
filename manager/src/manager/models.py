@@ -945,6 +945,7 @@ class Cam(Sensor):
       'name': self.name,
       'scene': scene_name,
       'pose_locked': self.pose_locked,
+      'scene_uid': str(self.scene_id) if self.scene_id else None,
       'command': self.command,
       'camerachain': self.camerachain,
       'threshold': self.threshold,
@@ -1000,25 +1001,30 @@ class Cam(Sensor):
   def _defaultPrincipalPoint(self, size, key):
     return float(size) / 2.0 if size else self.DEFAULT_INTRINSICS[key]
 
-  def _clearPoseOnSceneChange(self, update_fields):
-    """Clear pose fields when the camera moves to another scene."""
-    scene_update_requested = update_fields is None or bool(
-      {"scene", "scene_id"} & set(update_fields)
-    )
-    if self.pk is None or not scene_update_requested:
-      return None, False
+  def _reset_pose_if_scene_changed(self, update_fields):
+    """Clears the scene-relative pose when an existing camera moves to another scene.
+
+    Returns (scene_changed, original_scene).
+    """
+    if self.pk is None:
+      return False, None
+    if update_fields is not None and not {"scene", "scene_id"} & set(update_fields):
+      return False, None
     try:
       original = Cam.objects.get(pk=self.pk)
-      scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
-      if original.scene_id == scene_id:
-        return None, False
-      self.transforms = []
-      self.scene_x = None
-      self.scene_y = None
-      self.scene_z = None
-      return original.scene, True
     except Cam.DoesNotExist:
-      return None, False
+      return False, None
+    scene_id = self._meta.get_field("scene").target_field.to_python(self.scene_id)
+    if original.scene_id == scene_id:
+      return False, None
+    # Keep the pose if this save explicitly supplies a new one (e.g. scene
+    # import re-linking a camera); otherwise drop the previous scene's pose.
+    if not getattr(self, "_pose_supplied", False):
+      self.transforms = []
+    self.scene_x = None
+    self.scene_y = None
+    self.scene_z = None
+    return True, original.scene
 
   def _applyDefaultIntrinsics(self):
     """Prefer a principal point centered on the registered sensor frame."""
@@ -1041,8 +1047,9 @@ class Cam(Sensor):
       kwargs.setdefault(name, value)
     args = ()
 
+    # Reset camera pose when reassigned to a different scene
     update_fields = kwargs.get("update_fields")
-    original_scene, scene_changed = self._clearPoseOnSceneChange(update_fields)
+    scene_changed, original_scene = self._reset_pose_if_scene_changed(update_fields)
     self._applyDefaultIntrinsics()
 
     if scene_changed and update_fields is not None:

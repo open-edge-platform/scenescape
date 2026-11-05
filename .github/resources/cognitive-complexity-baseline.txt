@@ -43,8 +43,6 @@ controller/src/controller/tools/analytics/library/metrics.py	associateTracks	22
 controller/src/controller/tools/analytics/library/metrics.py	fuseTracks	21
 controller/src/controller/tools/analytics/library/metrics.py	getMeanIdChangeErrors	35
 controller/src/controller/tools/analytics/library/metrics.py	groupDataByTime	18
-controller/src/controller/tracking.py	Tracking::run	14
-controller/src/controller/tracking.py	Tracking::trackObjects	14
 controller/src/controller/uuid_manager.py	UUIDManager::_bestScoreForUuid	14
 controller/src/controller/uuid_manager.py	UUIDManager::_enrollmentVectorsForMatch	16
 controller/src/controller/uuid_manager.py	UUIDManager::_findBestMetricCandidate	19
@@ -100,9 +98,10 @@ reid/src/reid/reid.py	ReIDDatabase::ensureSchemaInner	13
 reid/src/reid/reid_constraints.py	build_query_constraints	26
 reid/src/reid/vdms_adapter.py	VDMSDatabase::_extractSchemaDimensions	18
 reid/src/reid/vdms_adapter.py	VDMSDatabase::_extractSchemaMetric	15
-scene_common/src/scene_common/cache_manager.py	CacheManager::_restoreSensorCache	17
+scene_common/src/scene_common/cache_manager.py	CacheManager::_refreshCameras	18
 scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenes	16
-scene_common/src/scene_common/detections_builder.py	computeCameraBounds	22
+scene_common/src/scene_common/cache_manager.py	CacheManager::refreshScenesForCamParams	27
+scene_common/src/scene_common/detections_builder.py	computeCameraBounds	23
 scene_common/src/scene_common/detections_builder.py	prepareObjDict	92
 scene_common/src/scene_common/geometry.py	Region::isPointWithin	14
 scene_common/src/scene_common/geometry.py	Region::updatePoints	33
