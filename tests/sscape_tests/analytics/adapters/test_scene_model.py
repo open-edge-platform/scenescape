@@ -120,12 +120,14 @@ class TestUpdateCameras:
       'translation': translation or [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
     }
 
-  def test_refresh_preserves_live_pose_and_updates_optics(self):
+  def test_refresh_preserves_live_pose_and_mqtt_optics(self):
     scene = _scene()
     scene.updateCameras([self._camera_data(), self._camera_data('static')])
     scene.updateCameraPose('cam1', {
-      'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0], 'scale': [2, 3, 4],
+      'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0],
     })
+    scene.cameraSnapshot(
+      'cam1', intrinsics={'fx': 550, 'fy': 560, 'cx': 320, 'cy': 240})
     snapshot = scene.cameraSnapshot()
     scene.updateCameras([
       self._camera_data(translation=[5, 6, 7], focal_length=900),
@@ -136,15 +138,68 @@ class TestUpdateCameras:
     assert camera.pose_provenance['class'] == 'live'
     assert camera.pose_provenance['origin'] == 'detector.extrinsics'
     assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
-    assert camera.pose.scale == pytest.approx([2, 3, 4])
+    assert camera.pose.scale == pytest.approx([1.0, 1.0, 1.0])
     assert camera.pose.quaternion_rotation == pytest.approx([1, 0, 0, 0])
     assert not hasattr(camera, 'configured_pose')
-    assert camera.pose.intrinsics.intrinsics[0, 0] == 900
-    assert camera.pose.intrinsics is not snapshot.cameras['cam1'].pose.intrinsics
+    # Live MQTT optics are retained; config fx=900 must not replace them.
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 550
+    assert camera.pose.intrinsics.intrinsics[1, 1] == 560
     assert scene.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([8, 9, 10])
     assert scene.cameras['static'].pose_source == 'configured'
     assert scene.cameras['static'].pose_provenance['class'] == 'calibration'
     assert snapshot.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
+  def test_resolution_without_intrinsics_centers_principal_point(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.cameraSnapshot('cam1', resolution=[1280, 720])
+    camera = scene.cameras['cam1']
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 500
+    assert camera.pose.intrinsics.intrinsics[0, 2] == 640
+    assert camera.pose.intrinsics.intrinsics[1, 2] == 360
+    assert camera.pose_provenance['class'] == 'calibration'
+
+  def test_optics_only_applies_when_unlocked(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.cameraSnapshot(
+      'cam1', intrinsics={'fx': 700, 'fy': 710, 'cx': 321, 'cy': 241},
+      distortion={'k1': 0.01})
+    camera = scene.cameras['cam1']
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 700
+    assert camera.pose.intrinsics.intrinsics[1, 1] == 710
+    assert camera.pose.intrinsics.distortion[0] == pytest.approx(0.01)
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+    assert camera.pose_provenance['class'] == 'calibration'
+
+  def test_extrinsics_and_optics_apply_together(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.cameraSnapshot(
+      'cam1',
+      extrinsics={'translation': [4, 5, 6], 'rotation': [1, 0, 0, 0]},
+      intrinsics={'fx': 600, 'fy': 610, 'cx': 300, 'cy': 200})
+    camera = scene.cameras['cam1']
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx([4, 5, 6])
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 600
+    assert camera.pose_provenance['class'] == 'live'
+
+  def test_invalid_optics_are_ignored(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.cameraSnapshot('cam1', resolution=[0, 720])
+    assert scene.cameras['cam1'].pose.intrinsics.intrinsics[0, 2] == 320
+    scene.cameraSnapshot('cam1', intrinsics={'fx': 1})
+    assert scene.cameras['cam1'].pose.intrinsics.intrinsics[0, 0] == 500
+
+  def test_optics_only_ignored_when_pose_locked(self):
+    scene = SceneModel('policy', None)
+    data = self._camera_data()
+    data['pose_locked'] = True
+    scene.updateCameras([data])
+    scene.cameraSnapshot(
+      'cam1', intrinsics={'fx': 900, 'fy': 900, 'cx': 320, 'cy': 240})
+    assert scene.cameras['cam1'].pose.intrinsics.intrinsics[0, 0] == 500
 
   @pytest.mark.parametrize('locked', [True, False])
   def test_shared_pose_locked_transitions(self, locked):
@@ -172,7 +227,8 @@ class TestUpdateCameras:
     camera = scene.cameras['cam1']
     expected = [5, 6, 7] if locked else [10, 20, 3]
     assert camera.pose.translation.asNumpyCartesian == pytest.approx(expected)
-    assert camera.pose.intrinsics.intrinsics[0, 0] == 900
+    # Unlocked live observation retains MQTT/runtime optics; locked takes config.
+    assert camera.pose.intrinsics.intrinsics[0, 0] == (900 if locked else 500)
     assert not hasattr(camera, 'configured_pose')
     assert not hasattr(camera, 'dynamic_pose')
     if locked:

@@ -104,14 +104,23 @@ preserved. Each regulated publication reprojects camera bounds for all cached
 categories against the same observation poses, including categories absent from
 that input frame.
 
-Each runtime camera retains one effective pose, its `pose_locked` flag, and
-`pose_provenance` (`class` + `origin`). Durable calibration belongs to Manager,
-not a second runtime pose. When unlocked, Analytics accepts valid observation
-extrinsics and retains them across configuration refreshes while updating optics.
-Before the first observation it uses stored calibration (`class: calibration`,
-with `origin` from Manager `calibration_origin`, or `unknown` when untagged).
-When locked, observation extrinsics and incoming camera-message optics are
-ignored and stored calibration reloads on refresh.
+Each runtime `Cam` retains one effective pose, its `pose_locked` flag, and
+`pose_provenance` (`class` + `origin`), for every perceptual modality registered
+as a camera (RGB, depth, LiDAR/radar detectors, and similar). Durable
+calibration belongs to Manager, not a second runtime pose. When unlocked,
+Analytics accepts MQTT observation extrinsics and optics (`intrinsics` /
+`distortion` / `resolution`) on the same ephemeral path as Controller and retains
+an accepted live observation (pose and its MQTT optics) across configuration
+refreshes. Optics-only MQTT updates do not stamp `pose_provenance`; extrinsics
+do (`class: live`). Intrinsics provenance is not covered —
+`pose_provenance` must not be read as authorship of MQTT or Manager optics (see
+[ADR 18](../../../adr/0018-camera-pose-provenance.md)). Before the first
+observation it uses stored calibration (`class: calibration`, with `origin` from
+Manager `calibration_origin`, or `unknown` when untagged). When locked,
+observation extrinsics and optics are ignored and stored calibration reloads on
+refresh. External-source publishers keep a separate ephemeral TTL pose/intrinsics
+cache (ADR 16) and are not covered by `pose_locked` / regulated
+`pose_provenance` today.
 
 Locking resets the effective pose when configuration refreshes; unlocking starts
 from calibration until the next valid observation. Saving calibration alone while

@@ -148,7 +148,13 @@ class AnalyticsService:
         'objects': {}, 'rate': {}, 'last': None,
       }
     message_camera_id = jdata.get('camera_id') or camera_id
-    return scene_obj.cameraSnapshot(message_camera_id, jdata.get('extrinsics'))
+    return scene_obj.cameraSnapshot(
+      message_camera_id,
+      extrinsics=jdata.get('extrinsics'),
+      intrinsics=jdata.get('intrinsics'),
+      distortion=jdata.get('distortion'),
+      resolution=jdata.get('resolution'),
+    )
 
   def publishRegulatedDetections(self, scene_obj, msg_objects, otype, jdata, camera_id,
                                 observation_scene=None):

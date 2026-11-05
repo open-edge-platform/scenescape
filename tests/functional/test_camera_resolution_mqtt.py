@@ -3,12 +3,10 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""End-to-end: MQTT detector resolution updates Cam width/height via controller.
+"""MQTT detector resolution must not persist Cam width/height via Manager.
 
-Regression coverage for the path DLS → scenescape/data/camera/{id} →
-cache_manager.refreshScenesForCamParams → REST updateCamera → DB. Without
-resolution on the MQTT payload, Cam stays at the create default (often
-640x480) while detections/intrinsics are for a larger frame.
+MQTT optics are ephemeral with extrinsics. These tests assert the Cam REST
+record is unchanged after detector frames that carry resolution.
 """
 
 import json
@@ -32,8 +30,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
 
 INITIAL_RESOLUTION = [640, 480]
 UPDATED_RESOLUTION = [1280, 720]
-POLL_TIMEOUT_S = 20
-POLL_INTERVAL_S = 0.5
 PUBLISH_REPEATS = 5
 SETTLE_S = 3
 
@@ -82,7 +78,6 @@ def _create_camera(rest, scene_uid, resolution=None, pose_locked=False):
   assert cam, (cam.statusCode, cam.errors)
   assert cam.get("resolution") == resolution, (
     f"Create left unexpected resolution: {cam.get('resolution')}")
-  # Give controller time to ingest CMD_DATABASE / refresh camera cache.
   time.sleep(2)
   return uid, sensor_id
 
@@ -101,19 +96,6 @@ def _publish_frames(pubsub, sensor_id, resolution=None, repeats=PUBLISH_REPEATS)
   for _ in range(repeats):
     pubsub.publish(topic, json.dumps(_detector_frame(sensor_id, resolution)))
     time.sleep(0.1)
-
-
-def _wait_for_resolution(rest, camera_uid, expected, timeout_s=POLL_TIMEOUT_S):
-  deadline = time.time() + timeout_s
-  last = None
-  while time.time() < deadline:
-    cam = rest.getCamera(camera_uid)
-    assert cam, (cam.statusCode, cam.errors)
-    last = cam.get("resolution")
-    if last == expected:
-      return last
-    time.sleep(POLL_INTERVAL_S)
-  return last
 
 
 def _assert_resolution_unchanged(rest, camera_uid, expected, settle_s=SETTLE_S):
@@ -139,18 +121,15 @@ def mqtt_pubsub(params):
 
 
 @pytest.mark.test_name("NEX-T30100")
-def test_mqtt_resolution_updates_camera_via_rest(
+def test_mqtt_resolution_does_not_persist_to_camera(
     rest, scene_uid, mqtt_pubsub, result_recorder, demo_scene):
-  """Positive: detector MQTT resolution persists to Cam via controller REST."""
+  """Positive ephemeral contract: detector MQTT resolution must not PATCH Cam."""
   camera_uid = None
   try:
     camera_uid, sensor_id = _create_camera(rest, scene_uid)
     _publish_frames(mqtt_pubsub, sensor_id, UPDATED_RESOLUTION)
-    actual = _wait_for_resolution(rest, camera_uid, UPDATED_RESOLUTION)
-    assert actual == UPDATED_RESOLUTION, (
-      f"Cam resolution did not update from MQTT: got {actual}, "
-      f"expected {UPDATED_RESOLUTION}")
-    log.info(f"PASS: MQTT resolution updated Cam to {UPDATED_RESOLUTION}")
+    _assert_resolution_unchanged(rest, camera_uid, INITIAL_RESOLUTION)
+    log.info("PASS: MQTT resolution left durable Cam resolution unchanged")
     result_recorder.success()
   finally:
     _delete_camera(rest, camera_uid)

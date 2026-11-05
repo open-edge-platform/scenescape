@@ -299,7 +299,8 @@ def test_camera_lock_refresh_preserves_observed_pose_until_locked(scene_obj):
   scene_obj.updateCameras([refreshed])
   camera = scene_obj.cameras['mobile']
   np.testing.assert_allclose(camera.pose.translation.asNumpyCartesian, [10, 20, 3])
-  assert camera.pose.intrinsics.intrinsics[0, 0] == 900
+  # Live observation retains prior optics across unlocked config refresh.
+  assert camera.pose.intrinsics.intrinsics[0, 0] == 500
   assert snapshot.cameras['mobile'].pose.intrinsics.intrinsics[0, 0] == 500
   scene_obj.updateCameras([dict(refreshed, pose_locked=True)])
   camera = scene_obj.cameras['mobile']

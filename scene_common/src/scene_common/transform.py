@@ -29,11 +29,13 @@ MIN_POINTS_FOR_RANSAC = 4
 
 
 def validate_camera_extrinsics(extrinsics):
-  """Validate per-message rigid camera pose without changing configured calibration.
+  """Validate per-message rigid Cam pose without changing configured calibration.
 
-  Camera extrinsics are translation and rotation only. Identity scale is attached
-  so the shared CameraPose TRS builder can consume the result; any caller-supplied
-  scale is ignored.
+  Used for any perceptual modality registered as a Manager Cam (RGB, LiDAR
+  detectors, and similar) as well as shared CameraPose builders. Extrinsics are
+  translation and rotation only. Identity scale is attached so the shared
+  CameraPose TRS builder can consume the result; any caller-supplied scale is
+  ignored.
   """
   if not isinstance(extrinsics, dict):
     raise ValueError("extrinsics must be an object")

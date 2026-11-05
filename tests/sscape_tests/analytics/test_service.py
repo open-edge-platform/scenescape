@@ -317,7 +317,9 @@ def test_camera_publication_uses_projection_snapshot_during_configuration_refres
       'translation': [5, 6, 7], 'rotation': [0, 0, 0], 'scale': [1, 1, 1],
     }])
     assert scene.cameras['mobile'].pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
-    assert snapshot.cameras['mobile'].pose.intrinsics is not scene.cameras['mobile'].pose.intrinsics
+    # Unlocked live observation keeps prior optics (not config fx=900).
+    assert scene.cameras['mobile'].pose.intrinsics.intrinsics[0, 0] == pytest.approx(500)
+    assert snapshot.cameras['mobile'].pose.intrinsics.intrinsics[0, 0] == pytest.approx(500)
     scene.updateCameraPose('mobile', {'translation': [30, 40, 3], 'rotation': [180, 0, 0]})
     assert snapshot.cameras['mobile'].pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
     return []

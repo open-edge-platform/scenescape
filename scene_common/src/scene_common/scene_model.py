@@ -16,7 +16,50 @@ from scene_common.options import (
   pose_is_live,
   sync_legacy_pose_source,
 )
-from scene_common.transform import CameraPose, validate_camera_extrinsics
+from scene_common.transform import (
+  CameraIntrinsics, CameraPose, validate_camera_extrinsics,
+)
+
+
+def _normalize_observation_resolution(resolution):
+  """Return [width, height] integers or raise ValueError."""
+  if isinstance(resolution, dict):
+    resolution = [resolution.get('width'), resolution.get('height')]
+  if (not isinstance(resolution, (list, tuple)) or len(resolution) != 2
+      or not all(type(value) is int and value > 0 for value in resolution)):
+    raise ValueError(f"Invalid sensor resolution: {resolution!r}")
+  return list(resolution)
+
+
+def _observation_intrinsics_values(intrinsics):
+  """Return fx,fy,cx,cy from an MQTT intrinsics dict or 4-list."""
+  if isinstance(intrinsics, dict):
+    values = CameraIntrinsics.intrinsicsDictToList(intrinsics)
+  elif isinstance(intrinsics, (list, tuple)) and len(intrinsics) == 4:
+    values = list(intrinsics)
+  else:
+    raise ValueError(f"Invalid observation intrinsics: {intrinsics!r}")
+  if len(values) != 4:
+    # FoV forms need resolution; reject here rather than inventing policy.
+    raise ValueError(f"Observation intrinsics must provide fx,fy,cx,cy: {intrinsics!r}")
+  return tuple(float(value) for value in values)
+
+
+def _merge_observation_optics(current, intrinsics=None, distortion=None, resolution=None):
+  """Build CameraIntrinsics for an MQTT observation, or None if optics omitted."""
+  if intrinsics is None and distortion is None and resolution is None:
+    return None
+  matrix = current.intrinsics
+  fx, fy = float(matrix[0, 0]), float(matrix[1, 1])
+  cx, cy = float(matrix[0, 2]), float(matrix[1, 2])
+  if resolution is not None:
+    resolution = _normalize_observation_resolution(resolution)
+  if intrinsics is not None:
+    fx, fy, cx, cy = _observation_intrinsics_values(intrinsics)
+  elif resolution is not None:
+    cx, cy = resolution[0] / 2.0, resolution[1] / 2.0
+  dist = current.distortion if distortion is None else distortion
+  return CameraIntrinsics({'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy}, dist, resolution)
 
 
 class SceneModel:
@@ -86,8 +129,11 @@ class SceneModel:
         and previous is not None
         and not getattr(previous, 'pose_locked', False)
         and pose_is_live(previous)
-        and getattr(camera, 'pose', None) is not None):
-      camera.pose = CameraPose(previous.pose.pose_mat.copy(), camera.pose.intrinsics)
+        and getattr(camera, 'pose', None) is not None
+        and getattr(previous, 'pose', None) is not None):
+      # Keep live pose and MQTT optics; do not take refreshed config optics.
+      camera.pose = CameraPose(
+        previous.pose.pose_mat.copy(), previous.pose.intrinsics)
       previous_provenance = getattr(previous, 'pose_provenance', None)
       if isinstance(previous_provenance, dict):
         camera.pose_provenance = dict(previous_provenance)
@@ -106,27 +152,48 @@ class SceneModel:
   def updateCameraPose(self, camera_id, extrinsics,
                        origin=POSE_ORIGIN_DETECTOR_EXTRINSICS):
     """Replace an observation-authorized pose without changing durable calibration."""
+    self.updateCameraObservation(
+      camera_id, extrinsics=extrinsics, origin=origin)
+
+  def updateCameraObservation(
+      self, camera_id, extrinsics=None, intrinsics=None, distortion=None,
+      resolution=None, origin=POSE_ORIGIN_DETECTOR_EXTRINSICS):
+    """Apply unlocked MQTT extrinsics and/or optics without durable writes."""
     with self._camera_lock:
       current = self.cameras.get(camera_id)
       if (current is None or getattr(current, 'pose', None) is None
-          or getattr(current, 'pose_locked', False)
-          or extrinsics is None):
+          or getattr(current, 'pose_locked', False)):
         return
-      pose = CameraPose(validate_camera_extrinsics(extrinsics), current.pose.intrinsics)
+      optics = _merge_observation_optics(
+        current.pose.intrinsics, intrinsics, distortion, resolution)
+      if extrinsics is None and optics is None:
+        return
+      if extrinsics is not None:
+        pose = CameraPose(
+          validate_camera_extrinsics(extrinsics),
+          optics if optics is not None else current.pose.intrinsics)
+        provenance = make_pose_provenance(POSE_CLASS_LIVE, origin)
+      else:
+        pose = CameraPose(current.pose.pose_mat.copy(), optics)
+        provenance = getattr(current, 'pose_provenance', None)
       camera = copy(current)
       camera.pose = pose
       camera.pose_locked = False
-      camera.pose_provenance = make_pose_provenance(POSE_CLASS_LIVE, origin)
+      if isinstance(provenance, dict):
+        camera.pose_provenance = dict(provenance)
       sync_legacy_pose_source(camera)
       self.cameras[camera_id] = camera
 
-  def cameraSnapshot(self, camera_id=None, extrinsics=None,
-                     origin=POSE_ORIGIN_DETECTOR_EXTRINSICS):
-    """Apply an observation and capture stable camera entries under one lock."""
+  def cameraSnapshot(
+      self, camera_id=None, extrinsics=None, intrinsics=None, distortion=None,
+      resolution=None, origin=POSE_ORIGIN_DETECTOR_EXTRINSICS):
+    """Apply an MQTT observation and capture stable camera entries under one lock."""
     with self._camera_lock:
       if camera_id is not None:
         try:
-          self.updateCameraPose(camera_id, extrinsics, origin=origin)
+          self.updateCameraObservation(
+            camera_id, extrinsics=extrinsics, intrinsics=intrinsics,
+            distortion=distortion, resolution=resolution, origin=origin)
         except (TypeError, ValueError) as exc:
           log.warning(f"Ignoring invalid camera metadata for {camera_id}: {exc}")
       observation = copy(self)

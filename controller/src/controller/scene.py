@@ -234,7 +234,13 @@ class Scene(SceneModel):
       else:
         when = get_epoch_time(jdata['timestamp'])
 
-    observation = self.cameraSnapshot(camera_id, jdata.get('extrinsics'))
+    observation = self.cameraSnapshot(
+      camera_id,
+      extrinsics=jdata.get('extrinsics'),
+      intrinsics=jdata.get('intrinsics'),
+      distortion=jdata.get('distortion'),
+      resolution=jdata.get('resolution'),
+    )
     if camera_id in observation.cameras:
       camera = observation.cameras[camera_id]
     else:

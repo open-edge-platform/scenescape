@@ -21,6 +21,21 @@ consumers. Replace regulated `dynamic_pose` with UI follow derived from
 **Phase 2** (later): express write authority as a policy over provenance
 `origin` values, with `pose_locked` as a preset.
 
+**Out of scope:** intrinsics / distortion / resolution provenance. This ADR
+covers only the sensor **pose** (extrinsics). MQTT optics may share the
+unlocked ephemeral apply path with extrinsics, but they do **not** get a
+separate provenance object, do **not** stamp `pose_provenance` on optics-only
+updates, and `pose_provenance` must not be read as “who last wrote
+intrinsics.”
+
+**Modalities:** Manager models posed perceptual sensors as `Cam` (topic
+`scenescape/data/camera/{id}`). The same lock, ephemeral pose/optics, and
+pose-only provenance rules apply whether the physical device is an RGB camera,
+depth camera, or a LiDAR/radar (or similar) detector registered as a `Cam`.
+Dynamic agents and other sources that publish via ADR 16 use a separate TTL
+pose/intrinsics cache that is also ephemeral and also lacks optics provenance;
+they are not yet stamped with regulated `pose_provenance`.
+
 ## Context
 
 Runtime camera pose already has two concerns that share vocabulary poorly:
@@ -125,9 +140,22 @@ Keep unary `pose_locked`:
 - `true` — ignore live extrinsics/optics overrides; durable calibration wins
   on refresh.
 - `false` — valid live extrinsics may update the runtime pose and set
-  `class: "live"` with the writer’s `origin`.
+  `class: "live"` with the writer’s `origin`. Unlocked MQTT optics
+  (`intrinsics` / `distortion` / `resolution`) may update the runtime
+  observation on the same ephemeral path, but optics-only acceptance does
+  **not** change `pose_provenance`.
 
 Do **not** implement origin allow/deny lists in phase 1.
+
+### Non-goal: intrinsics provenance
+
+`pose_provenance` describes the effective **pose** only. There is no
+`intrinsics_provenance`, `optics_provenance`, or equivalent field in this
+ADR. Durable Manager saves still persist calibration optics without a
+parallel provenance channel for who last wrote `fx`/`fy`/`cx`/`cy`,
+distortion, or resolution. A future ADR may introduce optics provenance if
+forensics or UI follow need it; until then, consumers must not infer optics
+authorship from `pose_provenance`.
 
 ### Phase 2 (later): write authority as policy over origins
 
@@ -179,6 +207,9 @@ Phase 2 is out of scope for the first landing of this ADR’s code changes.
   early `unknown` origins reduce forensic value.
 - Phase-2 ACL design (channel vs principal, presets, defaults) remains
   unresolved until that work starts.
+- Intrinsics / optics writers remain untracked: MQTT and Manager optics
+  updates are not attributable via `pose_provenance`, so pose follow and
+  pose forensics do not answer “whose intrinsics are these?”
 
 ## References
 

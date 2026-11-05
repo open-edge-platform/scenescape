@@ -3,12 +3,16 @@
 ## Camera Pose Lock
 
 Camera create/update requests and camera responses, including cameras nested in
-scene responses, expose `pose_locked`:
+scene responses, expose `pose_locked`. Manager stores posed perceptual sensors as
+`Cam` entities; the same lock and ephemeral MQTT pose/optics rules apply to RGB,
+depth, LiDAR/radar detectors, and similar modalities registered as cameras and
+publishing on `scenescape/data/camera/{id}`. External-source publishers (ADR 16)
+use a separate ephemeral TTL pose/intrinsics cache and do not use `pose_locked`.
 
 - `false` (default for new cameras): stored calibration initializes the runtime
   pose. Valid observation extrinsics replace it in cache only; missing or invalid
   extrinsics retain the last valid pose. Configuration refreshes preserve
-  observed transforms while updating optics.
+  observed transforms and MQTT optics while unlocked.
 - `true` (default for calibrated cameras in the UI, and for existing cameras
   after migration): only stored calibration controls the runtime pose and
   optics. Incoming camera-message extrinsics and optics (`intrinsics`,
@@ -33,10 +37,12 @@ Cam create/update and nested scene camera payloads also expose
 `calibration_origin` (durable writer identity; default `manager.rest`) and a
 read-only `pose_provenance` object derived from it for Manager config.
 Regulated MQTT camera entries publish runtime `pose_provenance` (`class` +
-`origin`) for the effective pose. The 3D UI follows poses when
-`pose_provenance.class` is `live` (and the camera is unlocked). The deprecated
-`dynamic_pose` flag remains as an alias of `class === "live"` during migration.
-See [ADR 18](../adr/0018-camera-pose-provenance.md) and
+`origin`) for the effective **pose** only. Intrinsics / distortion / resolution
+have no provenance field; optics-only MQTT updates do not stamp
+`pose_provenance`. The 3D UI follows poses when `pose_provenance.class` is
+`live` (and the camera is unlocked). The deprecated `dynamic_pose` flag remains
+as an alias of `class === "live"` during migration. See
+[ADR 18](../adr/0018-camera-pose-provenance.md) and
 [Analytics data formats](microservices/analytics/data_formats.md).
 
 Upgrade Manager, the shared library, Controller, and Analytics together before

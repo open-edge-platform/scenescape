@@ -260,35 +260,11 @@ class CacheManager:
     return
 
   def refreshScenesForCamParams(self, jdata):
-    self.checkRefresh()
-    parameters = dict(jdata)
-    if 'resolution' in parameters:
-      parameters['resolution'] = self._cameraResolution(parameters['resolution'])
-    cameras_to_update = []
-    payload = None
-    with self._lock:
-      if self.cached_scenes_by_uid is None:
-        log.warning("refreshScenesForCamParams: cache still None after refresh attempt, skipping")
-        return
-      # Locked cameras ignore MQTT optics the same way they ignore extrinsics.
-      if self._cameraPoseLocked(jdata.get('id')):
-        return
-      changed = [self.cameraParametersChanged(parameters, key)
-                 for key in ('intrinsics', 'distortion', 'resolution')]
-      if not any(changed):
-        return
-      payload = self._cameraUpdatePayload(
-        copy.deepcopy(self.camera_parameters[parameters['id']]))
-      for scene in self.cached_scenes_by_uid.values():
-        camera = scene.cameras.get(jdata['id'])
-        if camera is not None:
-          cameras_to_update.append(camera)
+    """No-op: MQTT optics are ephemeral with extrinsics (SceneModel.cameraSnapshot).
 
-    # updateCamera does REST; keep it outside the lock so lookups aren't blocked.
-    for cam in cameras_to_update:
-      self.updateCamera(cam, payload)
-
-    self.refreshScenes(force=True)
+    Kept as a stub so older call sites and ADR references do not break. Unlocked
+    MQTT intrinsics/distortion/resolution must not PATCH Manager.
+    """
     return
 
   def _cameraPoseLocked(self, camera_id):

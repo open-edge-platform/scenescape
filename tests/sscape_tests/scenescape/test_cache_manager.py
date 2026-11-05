@@ -507,7 +507,8 @@ class TestCacheManagerSensorRestoration:
     assert camera.pose_provenance['class'] == 'live'
     assert camera.pose_provenance['origin'] == 'detector.extrinsics'
     assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
-    assert camera.pose.intrinsics.intrinsics[0, 0] == 900
+    # Live observation retains prior optics across unlocked scene rebuild.
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 500
 
     replacement.updateCameras([dict(camera_data, pose_locked=True)])
     replacement.retainObservedCameraPoses(previous)
@@ -666,63 +667,26 @@ class TestCacheManagerSensorRestoration:
 class TestCacheManagerRefreshCameras:
   """Test camera refresh functionality."""
 
-  @pytest.mark.parametrize("metadata", [
-    {'intrinsics': {'cx': 320, 'cy': 240, 'fx': 700, 'fy': 710}},
-    {'distortion': {'k1': 0.1}},
-    {'resolution': [1920, 1080]},
-    {'resolution': {'width': 1920, 'height': 1080}},
-  ])
-  def test_optics_are_persisted_independently_of_frame_size(self, metadata):
-    """Same-size focal changes and resolution-only messages must reach REST."""
+  def test_mqtt_optics_refresh_is_noop_and_does_not_persist(self):
+    """MQTT optics no longer PATCH Manager; refreshScenesForCamParams is a stub."""
     cache_mgr = CacheManager.__new__(CacheManager)
-    camera = SimpleNamespace(cameraID='cam-1')
-    cache_mgr.cached_scenes_by_uid = {
-      'scene-1': SimpleNamespace(cameras={'cam-1': camera}),
-    }
     cache_mgr._lock = threading.RLock()
+    cache_mgr.cached_scenes_by_uid = {
+      'scene-1': SimpleNamespace(cameras={'cam-1': SimpleNamespace(cameraID='cam-1')}),
+    }
     cache_mgr.camera_parameters = {'cam-1': {'resolution': [640, 480]}}
     cache_mgr.data_source = Mock()
     cache_mgr.checkRefresh = Mock()
     cache_mgr.refreshScenes = Mock()
-    cache_mgr.refreshScenesForCamParams({'id': 'cam-1', **metadata})
-    payload = dict(metadata)
-    resolution = payload.pop('resolution', [640, 480])
-    if isinstance(resolution, list):
-      resolution = dict(zip(('width', 'height'), resolution))
-    payload['resolution'] = resolution
-    if 'distortion' in payload:
-      payload['distortion'] = {'k1': 0.1, 'k2': 0, 'p1': 0, 'p2': 0, 'k3': 0}
-    cache_mgr.data_source.updateCamera.assert_called_once_with('cam-1', payload)
-    cache_mgr.refreshScenes.assert_called_once_with(force=True)
-
-  @pytest.mark.parametrize("distortion", [
-    {'k1': 0.1},
-    [0.1, 0, 0, 0],
-    [0.1, 0, 0, 0, 0, 0.4, 0.5, 0.6],
-    {'k1': 0.1, 'k2': 0, 'p1': 0, 'p2': 0, 'k3': 0,
-     'k4': 0.4, 'k5': 0.5, 'k6': 0.6, 's1': 1, 's2': 2,
-     's3': 3, 's4': 4, 'taux': 0.2, 'tauy': 0.3},
-  ])
-  def test_distortion_roundtrip_does_not_repeat_writes_or_refreshes(self, distortion):
-    cache_mgr = CacheManager.__new__(CacheManager)
-    cache_mgr._lock = threading.RLock()
-    cache_mgr.camera_parameters = {}
-    cache_mgr.cached_scenes_by_uid = {
-      'scene': SimpleNamespace(cameras={'cam-1': SimpleNamespace(cameraID='cam-1')})}
-    cache_mgr.data_source = Mock()
-    cache_mgr.checkRefresh = Mock()
-    canonical = {'k1': 0.1, 'k2': 0, 'p1': 0, 'p2': 0, 'k3': 0}
-    cache_mgr.refreshScenes = Mock(side_effect=lambda **kw: cache_mgr._refreshCameras({
-      'cameras': [{'uid': 'cam-1', 'distortion': canonical}]}))
-    message = {'id': 'cam-1', 'distortion': distortion.copy()}
-    for _ in range(10):
-      cache_mgr.refreshScenesForCamParams(message)
-    cache_mgr.data_source.updateCamera.assert_called_once_with(
-      'cam-1', {'distortion': canonical})
-    cache_mgr.refreshScenes.assert_called_once_with(force=True)
-    assert message['distortion'] == distortion
-    cache_mgr.refreshScenesForCamParams({'id': 'cam-1'})
-    assert cache_mgr.data_source.updateCamera.call_count == 1
+    cache_mgr.refreshScenesForCamParams({
+      'id': 'cam-1',
+      'intrinsics': {'cx': 320, 'cy': 240, 'fx': 700, 'fy': 710},
+      'resolution': [1920, 1080],
+    })
+    assert cache_mgr.camera_parameters['cam-1']['resolution'] == [640, 480]
+    cache_mgr.data_source.updateCamera.assert_not_called()
+    cache_mgr.refreshScenes.assert_not_called()
+    cache_mgr.checkRefresh.assert_not_called()
 
   def test_partial_distortion_clears_omitted_coefficients_like_manager(self):
     cache_mgr = CacheManager.__new__(CacheManager)
@@ -732,19 +696,6 @@ class TestCacheManagerRefreshCameras:
     assert cache_mgr.camera_parameters['cam-1']['distortion']['k2'] == 0
     assert not cache_mgr.cameraParametersChanged({'id': 'cam-1'}, 'distortion')
 
-
-  @pytest.mark.parametrize("resolution", [[0, 480], [True, 480], [640], None, "640x480"])
-  def test_invalid_sensor_resolution_does_not_replace_registered_size(self, resolution):
-    cache_mgr = CacheManager.__new__(CacheManager)
-    cache_mgr._lock = threading.RLock()
-    cache_mgr.cached_scenes_by_uid = {}
-    cache_mgr.camera_parameters = {'cam-1': {'resolution': [640, 480]}}
-    cache_mgr.data_source = Mock()
-    cache_mgr.checkRefresh = Mock()
-    cache_mgr.refreshScenesForCamParams({'id': 'cam-1', 'resolution': resolution})
-    assert cache_mgr.camera_parameters['cam-1']['resolution'] == [640, 480]
-    cache_mgr.data_source.updateCamera.assert_not_called()
-
   def test_rest_refresh_does_not_replay_stale_mqtt_optics(self):
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr.data_source = Mock()
@@ -753,37 +704,6 @@ class TestCacheManagerRefreshCameras:
     cache_mgr._refreshCameras({'cameras': [latest]})
     assert cache_mgr.camera_parameters['cam-1']['intrinsics'] == {'fx': 900}
     cache_mgr.data_source.updateCamera.assert_not_called()
-
-  def test_refresh_before_comparing_and_writing_camera_parameters(self):
-    cache_mgr = CacheManager.__new__(CacheManager)
-    camera = SimpleNamespace(cameraID='cam-1')
-    cache_mgr._lock = threading.RLock()
-    cache_mgr.cached_scenes_by_uid = {
-      'scene-1': SimpleNamespace(cameras={'cam-1': camera}),
-    }
-    cache_mgr.camera_parameters = {'cam-1': {'intrinsics': {'fx': 100}}}
-    cache_mgr.data_source = Mock()
-    cache_mgr.refreshScenes = Mock()
-
-    def refresh_cache():
-      cache_mgr.camera_parameters['cam-1'] = {'intrinsics': {'fx': 400}}
-
-    cache_mgr.checkRefresh = Mock(side_effect=refresh_cache)
-    update_camera = cache_mgr.updateCamera
-
-    def update_with_stale_cache(cam, payload=None):
-      cache_mgr.camera_parameters['cam-1'] = {'intrinsics': {'fx': 400}}
-      return update_camera(cam, payload)
-
-    cache_mgr.updateCamera = update_with_stale_cache
-    cache_mgr.refreshScenesForCamParams({
-      'id': 'cam-1', 'intrinsics': {'fx': 900},
-    })
-
-    cache_mgr.data_source.updateCamera.assert_called_once_with(
-      'cam-1', {'intrinsics': {'fx': 900}})
-    cache_mgr.checkRefresh.assert_called_once_with()
-    cache_mgr.refreshScenes.assert_called_once_with(force=True)
 
   def test_refresh_cameras_processes_all_cameras(self):
     """Test that _refreshCameras processes camera data."""
@@ -817,61 +737,8 @@ class TestCacheManagerRefreshCameras:
 
     # Should not raise any errors
 
-  def test_refresh_scenes_for_cam_params(self):
-    """Test refreshScenesForCamParams updates camera parameters."""
-    cache_mgr = CacheManager.__new__(CacheManager)
-    cache_mgr._lock = threading.RLock()
-
-    mock_scene = Mock(spec=Scene)
-    mock_camera = SimpleNamespace(
-      cameraID='cam-1', pose_locked=False, pose=SimpleNamespace(resolution=[640, 480]))
-
-    mock_scene.cameras = {'cam-1': mock_camera}
-    cache_mgr.cached_scenes_by_uid = {'scene-1': mock_scene}
-    mock_scene.tracker = None
-    mock_scene.name = 'scene-1'
-    cache_mgr.camera_parameters = {}
-    cache_mgr.data_source = Mock()
-    cache_mgr.data_source.getScenes.return_value = {'results': []}
-    cache_mgr._cached_scenes_by_cameraID = {}
-    cache_mgr._cached_scenes_by_sensorID = {}
-    cache_mgr.tracker_config_data = {}
-    cache_mgr._cache_refreshed = 0
-
-    jdata = {
-      'id': 'cam-1',
-      'intrinsics': {'cx': 320, 'cy': 240, 'fx': 500, 'fy': 500}
-    }
-
-    cache_mgr.refreshScenesForCamParams(jdata)
-
-    # Should not raise any errors
-
-  def test_locked_camera_ignores_mqtt_optics_updates(self):
-    cache_mgr = CacheManager.__new__(CacheManager)
-    cache_mgr._lock = threading.RLock()
-    locked = SimpleNamespace(cameraID='cam-1', pose_locked=True)
-    cache_mgr.cached_scenes_by_uid = {
-      'scene-1': SimpleNamespace(cameras={'cam-1': locked}),
-    }
-    cache_mgr.camera_parameters = {
-      'cam-1': {'intrinsics': {'fx': 500, 'fy': 500, 'cx': 320, 'cy': 240}},
-    }
-    cache_mgr.data_source = Mock()
-    cache_mgr.checkRefresh = Mock()
-    cache_mgr.refreshScenes = Mock()
-
-    cache_mgr.refreshScenesForCamParams({
-      'id': 'cam-1',
-      'intrinsics': {'fx': 900, 'fy': 900, 'cx': 320, 'cy': 240},
-    })
-
-    assert cache_mgr.camera_parameters['cam-1']['intrinsics']['fx'] == 500
-    cache_mgr.data_source.updateCamera.assert_not_called()
-    cache_mgr.refreshScenes.assert_not_called()
-
   def test_refresh_scenes_for_cam_params_tolerates_invalidated_cache(self):
-    """After invalidate(), refreshScenesForCamParams must not touch None.values()."""
+    """Stub remains safe when cache is None."""
     cache_mgr = CacheManager.__new__(CacheManager)
     cache_mgr._lock = threading.RLock()
     cache_mgr.cached_scenes_by_uid = None
