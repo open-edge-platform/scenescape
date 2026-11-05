@@ -55,8 +55,10 @@ def test_validate3DDetectionMessage(schemaObject, data, expected, format, reques
 
 @pytest.mark.parametrize("extrinsics, expected", [
   ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 90.0]}, True),
+  ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0, 1.0]}, True),
+  # Scale is not part of camera extrinsics (rigid TR only).
   ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0, 1.0],
-    "scale": [1.0, 1.0, 1.0]}, True),
+    "scale": [1.0, 1.0, 1.0]}, False),
   ({"translation": [1.0, 2.0], "rotation": [0.0, 0.0, 0.0]}, False),
   ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0]}, False),
   ({"translation": [1.0, 2.0, 3.0], "rotation": [0.0, 0.0, 0.0, 1.0],

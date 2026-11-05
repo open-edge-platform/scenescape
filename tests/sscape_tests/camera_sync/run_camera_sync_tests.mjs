@@ -723,7 +723,7 @@ test("live poses refresh translate and rotate controllers", async () => {
   camera.cameraRotation = { setFromQuaternion() {} };
   camera.sceneCamera.position = { copy() {} };
   camera.sceneCamera.quaternion = { fromArray() {} };
-  camera.sceneCamera.scale = { fromArray() {} };
+  camera.sceneCamera.scale = { set() {} };
   camera.sceneCamera.updateMatrixWorld = () => {};
   camera.togglePoseYupYdown = () => {};
   camera.transformControl = null;
@@ -732,7 +732,6 @@ test("live poses refresh translate and rotate controllers", async () => {
     camera.updatePose({
       translation: [1, 2, 3],
       rotation: [0, 0, 0, 1],
-      scale: [1, 1, 1],
     }),
     true,
   );
@@ -760,7 +759,7 @@ test("live poses apply XYZW quaternions and keep Euler conversion in the viewer"
     },
   };
   camera.sceneCamera.scale = {
-    fromArray: (value) => {
+    set: (...value) => {
       applied.scale = value;
     },
   };
@@ -774,6 +773,7 @@ test("live poses apply XYZW quaternions and keep Euler conversion in the viewer"
     camera.updatePose({
       translation: [1, 2, 3],
       rotation: [1, 1, 1, 1],
+      // Scale on live MQTT extrinsics is ignored; axes stay identity.
       scale: [2, 3, 4],
     }),
     true,
@@ -781,17 +781,16 @@ test("live poses apply XYZW quaternions and keep Euler conversion in the viewer"
   assert.deepEqual(plain(applied), {
     translation: [1, 2, 3],
     rotation: [0.5, 0.5, 0.5, 0.5],
-    scale: [2, 3, 4],
+    scale: [1, 1, 1],
     order: "XYZ",
     updated: true,
   });
+  // Euler length-3 rotations are accepted; reject only malformed vectors.
   for (const invalid of [
     null,
-    { translation: [1, 2, 3], rotation: [0, 0, 90] },
     { translation: [1, 2, 3], rotation: [0, 0, 0, 0] },
     { translation: [1, Infinity, 3], rotation: [0, 0, 0, 1] },
     { translation: [1, 2, 3], rotation: [0, 0, NaN, 1] },
-    { translation: [1, 2, 3], rotation: [0, 0, 0, 1], scale: [1, 0, 1] },
   ]) {
     camera.cameraPosition.fromArray = () =>
       assert.fail("Invalid pose must not mutate the camera");
