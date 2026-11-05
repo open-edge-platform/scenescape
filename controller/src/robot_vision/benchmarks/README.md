@@ -43,7 +43,7 @@ Harness flags (parsed before Google Benchmark flags):
 | `--overlap 0\|1[,...]`           | `0,1`   | Camera layouts to sweep (see above)                                                                                                                                                             |
 | `--association-config path.json` | unset   | JSON: `method`, `gate_probability`, `max_radius_m`, with the service defaults for missing keys (`max_radius_m` 2 for `euclidean`, 10 for `position_mahalanobis`). Unset: production association |
 
-Presets: `configs/association_production.json` (the default) and `configs/association_euclidean.json` (legacy 2 m gate; use it for a `robot_vision` tree without `PositionMahalanobis`).
+Presets: `configs/association_production.json` (the default) and `configs/association_euclidean.json` (legacy 2 m gate).
 
 Use `--benchmark_filter=BM_Immediate` (or `BM_TimeChunking`) to run one mode.
 
