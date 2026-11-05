@@ -76,6 +76,30 @@ class TestUUIDManagerInitialization:
     assert manager is not None
     assert manager.reid_database is not None
 
+  def test_controller_reid_can_be_disabled_for_service_ownership(self, mock_vdms_db):
+    manager = UUIDManager(reid_config_data={'controller_reid_enabled': False})
+
+    assert manager.reid_enabled is False
+    assert manager.stale_feature_timer is None
+    assert manager.reid_database is None
+    manager.connectDatabase()
+    mock_vdms_db.connect.assert_not_called()
+    manager.shutdown()
+
+  def test_service_mode_assigns_stable_provisional_id(self, mock_vdms_db):
+    manager = UUIDManager(reid_config_data={'controller_reid_enabled': False})
+    obj = SimpleNamespace(
+      gid=None, rv_id='track-1', category='person', reid=None,
+      reid_state=ReidState.PENDING_COLLECTION)
+
+    manager.assignID(obj)
+
+    assert obj.gid == 'track-1'
+    assert obj.reid_state == ReidState.PENDING_COLLECTION
+    assert manager.unique_id_count == 0
+    assert manager.reid_database is None
+    manager.shutdown()
+
   def test_has_thread_pool_for_async_operations(self, mock_vdms_db):
     """Verify UUIDManager has thread pool for asynchronous database operations."""
 

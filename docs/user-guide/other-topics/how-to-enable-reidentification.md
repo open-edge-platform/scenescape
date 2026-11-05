@@ -294,7 +294,7 @@ are physically purged.
 Shared contract:
 
 - **`REID_DESCRIPTOR_TTL_SECS`** (default `86400`) — lifetime hint stamped when a descriptor is written. `0` disables retention.
-- **`REID_PURGE_INTERVAL_SECS`** (default `300`) — how often one process-wide controller worker asks the active backend to reclaim expired descriptors via `purgeExpired()`. Effective residency is roughly `TTL` to `TTL + purge interval`.
+- **`REID_PURGE_INTERVAL_SECS`** (default `300`) — how often the active ReID owner asks the backend to reclaim expired descriptors via `purgeExpired()`. The owner is the Controller in legacy mode or `reid-service` when `CONTROLLER_REID_MODE=service`. Effective residency is roughly `TTL` to `TTL + purge interval`.
 
 Backend details (private to the adapter):
 
@@ -303,7 +303,8 @@ Backend details (private to the adapter):
 
 Both deployment models expose the same knobs:
 
-- **Compose** — set `REID_DESCRIPTOR_TTL_SECS` and `REID_PURGE_INTERVAL_SECS` on the `scene` service.
+- **Compose, legacy mode** — set `REID_DESCRIPTOR_TTL_SECS` and `REID_PURGE_INTERVAL_SECS` on the `scene` service.
+- **Compose, service-owned mode** — set `CONTROLLER_REID_MODE=service`; the Compose definition passes the same `REID_DESCRIPTOR_TTL_SECS` and `REID_PURGE_INTERVAL_SECS` values to `reid-service`.
 - **Helm** — set `reid.descriptorTtlSecs` and `reid.purgeIntervalSecs`. The chart renders these into the same environment variables:
 
 ```bash
@@ -324,7 +325,7 @@ helm upgrade scenescape-release-1 --install kubernetes/scenescape-chart/ \
 | `DEFAULT_MINIMUM_FEATURE_COUNT`                                           | Minimum features needed before querying DB.                                                                                                          | Integer (e.g., 5–20)                                                                                                                                    |
 | `DEFAULT_MAX_FEATURE_SLICE_SIZE`                                          | Proportion of features stored to improve DB performance.                                                                                             | Float (e.g., 0.1–1.0)                                                                                                                                   |
 | `REID_DESCRIPTOR_TTL_SECS`                                                | Coarse descriptor retention lifetime (`0` disables reclaim). Descriptors stay matchable until purged.                                                | Integer seconds (e.g., `86400` for 24 hours)                                                                                                            |
-| `REID_PURGE_INTERVAL_SECS`                                                | How often the controller triggers backend physical reclaim via `purgeExpired()`.                                                                     | Integer seconds (e.g., `300`)                                                                                                                           |
+| `REID_PURGE_INTERVAL_SECS`                                                | How often the active ReID owner triggers backend physical reclaim via `purgeExpired()`.                                                              | Integer seconds (e.g., `300`)                                                                                                                           |
 
 To apply changes, use the same backend override you selected when starting the stack:
 

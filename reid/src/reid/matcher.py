@@ -152,6 +152,7 @@ class _TrackState:
   last_embedding: Optional[np.ndarray] = None
   distinct_embeddings: int = 0
   reid_state: str = "pending_collection"
+  upstream_enrollment_claim: bool = False
 
 
 class _InlineExecutor:
@@ -191,6 +192,7 @@ class TrackMatcher:
   def __init__(self, adapter, config: MatcherConfig, scene_id=None, category=None,
                write_enabled=False, executor=None,
                on_decision: Optional[Callable[[dict], None]] = None,
+               on_ownership: Optional[Callable[[dict], None]] = None,
                clock: Callable[[], float] = time.time,
                on_state: Optional[Callable[[dict], None]] = None):
     self.adapter = adapter
@@ -200,6 +202,7 @@ class TrackMatcher:
     self.write_enabled = write_enabled
     self.executor = executor or _InlineExecutor()
     self.on_decision = on_decision
+    self.on_ownership = on_ownership
     self.on_state = on_state
     self.clock = clock
     self.reid_enabled = True
@@ -222,6 +225,7 @@ class TrackMatcher:
     # Write-health (non-hierarchy subset of UUIDManager's state machine).
     self.write_healthy = True
     self.write_confirmed = False
+    self.empty_batch_before_confirm = False
     self.write_epoch = 0
     self._write_lock = threading.Lock()
 
@@ -237,6 +241,54 @@ class TrackMatcher:
       self.observe(obs)
     self.prune(present)
     self.flush_stale()
+    self._publishOwnershipSnapshot()
+
+  def ownership_snapshot(self):
+    """Describe hierarchy write authority and enrolled active tracks."""
+    if not self.write_enabled:
+      write_mode = "passthrough"
+    elif self.write_confirmed:
+      write_mode = "will_enroll"
+    elif (not self.reid_enabled or not self.write_healthy
+          or self.empty_batch_before_confirm):
+      write_mode = "passthrough"
+    else:
+      write_mode = "withhold"
+
+    with self._lock:
+      tracks = {
+        track_id: {
+          "gid": state.gid,
+          "reid_state": state.reid_state,
+          "similarity": state.similarity,
+          "enrolled": self._trackHasEnrollment(track_id, state),
+        }
+        for track_id, state in self._tracks.items()
+      }
+    return {
+      "scene_id": self.scene_id,
+      "category": self.category,
+      "timestamp": self.clock(),
+      "unique_id_count": self.unique_id_count,
+      "write_mode": write_mode,
+      "tracks": tracks,
+    }
+
+  def _trackHasEnrollment(self, track_id, state):
+    if state.upstream_enrollment_claim or state.quality or state.enrollment:
+      return True
+    if state.local_enrollment or (state.reid_state == "matched" and state.gid):
+      return True
+    pending = self._pending.get(track_id)
+    return bool(pending and pending["reid_vectors"])
+
+  def _publishOwnershipSnapshot(self):
+    if self.on_ownership is None:
+      return
+    try:
+      self.on_ownership(self.ownership_snapshot())
+    except Exception as error:
+      log.error(f"[reid-ingest] ownership callback failed: {error}")
 
   def observe(self, obs: TrackObservation):
     with self._lock:
@@ -247,6 +299,7 @@ class TrackMatcher:
       state = self._stateFor(obs)
       state.upstream_id = obs.track_id
       state.upstream_reid_state = obs.upstream_reid_state
+      state.upstream_enrollment_claim = is_upstream_enrollment_claim(obs.provenance)
       if is_new and (not self.reid_enabled or obs.embedding is None):
         self._incrementUniqueIdCount()
       if not self.reid_enabled:
@@ -419,7 +472,7 @@ class TrackMatcher:
     return self.config.accept_unvetted_embeddings
 
   def _mayContributeEnrollment(self, obs):
-    if not self.write_healthy:
+    if not self.write_healthy or self.empty_batch_before_confirm:
       return False
     if not self._isQueryable(obs):
       return False
@@ -477,6 +530,7 @@ class TrackMatcher:
         self.on_decision(decision)
       except Exception as err:
         log.error(f"[reid-ingest] decision callback failed: {err}")
+    self._publishOwnershipSnapshot()
     return decision
 
   def _decide(self, track_id, state, obs, gid, similarity, per_vector):
@@ -677,22 +731,32 @@ class TrackMatcher:
       future.result()
     except ReidWriteSupersededError:
       self.stats["writes_superseded"] += 1
+      self._publishOwnershipSnapshot()
       return
     except ReidNoValidVectorsError as err:
       self.stats["writes_no_valid_vectors"] += 1
       log.warning(f"[reid-ingest] write skipped (no valid vectors): {err}")
+      if not self.write_confirmed:
+        with self._write_lock:
+          self.empty_batch_before_confirm = True
+          self.write_epoch += 1
+      self._publishOwnershipSnapshot()
       return
     except ReidPartialWriteError as err:
       self._markUnhealthy(f"partial write: {err}", confirmed=True)
       self.stats["writes_partial"] += 1
+      self._publishOwnershipSnapshot()
       return
     except Exception as err:
       self._markUnhealthy(f"write failed: {err}")
       self.stats["write_errors"] += 1
+      self._publishOwnershipSnapshot()
       return
     with self._write_lock:
       self.write_confirmed = True
+      self.empty_batch_before_confirm = False
     self.stats["writes"] += 1
+    self._publishOwnershipSnapshot()
 
   def _markUnhealthy(self, reason, confirmed=False):
     with self._write_lock:

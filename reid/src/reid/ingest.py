@@ -238,7 +238,7 @@ class TrackIngest:
           adapter, self.config, scene_id=scene_id, category=category,
           write_enabled=self.write_enabled, executor=self.executor,
           on_decision=self._onDecision, clock=self.clock,
-          on_state=self._publishDecision)
+          on_state=self._publishDecision, on_ownership=self._publishOwnership)
         self._matchers[key] = matcher
         self._announce(f"[reid-ingest] started matcher for scene={scene_id} "
                   f"category={category} (writes {'on' if self.write_enabled else 'off'})")
@@ -281,6 +281,20 @@ class TrackIngest:
     except Exception as err:
       self.stats["decision_publish_errors"] += 1
       log.error(f"[reid-ingest] failed to publish decision on {topic}: {err}")
+
+  def _publishOwnership(self, snapshot):
+    if self.pubsub is None:
+      return
+    topic = PubSub.formatTopic(
+      PubSub.DATA_REID_OWNERSHIP,
+      scene_id=snapshot["scene_id"],
+      thing_type=snapshot["category"])
+    try:
+      self.pubsub.publish(topic, json.dumps(snapshot), qos=1, retain=True)
+      self.stats["ownership_snapshots_published"] += 1
+    except Exception as err:
+      self.stats["ownership_publish_errors"] += 1
+      log.error(f"[reid-ingest] failed to publish ownership on {topic}: {err}")
 
   def snapshot(self):
     """Aggregate ingest + matcher counters (for the IngestStats RPC and logs)."""

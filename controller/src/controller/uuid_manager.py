@@ -131,9 +131,15 @@ class UUIDManager:
     # ReID embedding dimensions are inferred from the first observed embedding.
     if reid_config_data is None:
       reid_config_data = {}
+    self.controller_reid_enabled = reid_config_data.get("controller_reid_enabled", True)
+    if not isinstance(self.controller_reid_enabled, bool):
+      raise ValueError("controller_reid_enabled must be a boolean")
+    self.service_reid_enabled = not self.controller_reid_enabled
+    self.reid_enabled = self.controller_reid_enabled
     self._inferred_dimensions = None
     self._dimensions_lock = threading.Lock()
-    self.reid_database = create_reid_database(database, dimensions=None)
+    self.reid_database = (
+      create_reid_database(database, dimensions=None) if self.reid_enabled else None)
 
     self.pool = concurrent.futures.ThreadPoolExecutor()
     self.similarity_query_times = collections.deque(
@@ -143,7 +149,6 @@ class UUIDManager:
     # match/no-match decision. See MatchLatencyTracker for details.
     self.match_latency_tracker = MatchLatencyTracker()
 
-    self.reid_enabled = True
     # When False, hierarchy publish drops will_enroll (unless already confirmed)
     # and local enrollment stops so a parent may sole-enroll without a dual-writer race.
     self.reid_write_healthy = True
@@ -168,7 +173,8 @@ class UUIDManager:
     self._category_has_embeddings = False
     self._category = None
     self._applyReidConfig(reid_config_data)
-    self._rescheduleStaleFeatureTimer()
+    if self.reid_enabled:
+      self._rescheduleStaleFeatureTimer()
     return
 
   def _localEnrollmentAllowed(self):
@@ -201,7 +207,7 @@ class UUIDManager:
     self._applyReidConfig(reid_config_data)
 
     # Timer cadence changes require rescheduling the stale feature timer.
-    if old_interval != self.stale_feature_check_interval_secs:
+    if old_interval != self.stale_feature_check_interval_secs and self.reid_enabled:
       self._rescheduleStaleFeatureTimer()
 
   def _applyReidConfig(self, reid_config_data=None):
@@ -367,6 +373,8 @@ class UUIDManager:
         self._addNewFeaturesToDatabase(track_id)
 
   def connectDatabase(self):
+    if not self.reid_enabled:
+      return
     self.pool.submit(self.reid_database.connect)
     # Start the process-wide reclaim timer only after a manager intends to use
     # the store. Category trackers call this from run(); the idle root manager
@@ -1379,6 +1387,8 @@ class UUIDManager:
     self._category = sscape_object.category
 
     reid_embedding = self._extractReidEmbedding(sscape_object)
+    if self.service_reid_enabled and sscape_object.gid is None:
+      sscape_object.gid = sscape_object.rv_id
     if reid_embedding is not None:
       self._category_has_embeddings = True
       CameraRegistry.getInstance().recordEmbeddingObserved(
@@ -1391,7 +1401,8 @@ class UUIDManager:
       # Case for incrementing the counter when there is no re-id vector
       # When reid is disabled, or there is no usable embedding vector,
       # this track will not be matched and should contribute to unique_id_count.
-      if not self.reid_enabled or not has_reid_embedding:
+      if (not self.service_reid_enabled
+          and (not self.reid_enabled or not has_reid_embedding)):
         self._incrementUniqueIdCount()
       with self.active_ids_lock:
         self.active_ids.setdefault(sscape_object.rv_id, [None, None])
@@ -1399,7 +1410,7 @@ class UUIDManager:
       self.match_latency_tracker.markTrackStart(sscape_object.rv_id)
 
     # If reid is disabled, mark object state immediately (no query will be made)
-    if not self.reid_enabled:
+    if not self.reid_enabled and not self.service_reid_enabled:
       sscape_object.reid_state = ReidState.REID_DISABLED
 
     # Continue gathering features until we have enough or query is already submitted

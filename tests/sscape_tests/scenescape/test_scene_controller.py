@@ -11,6 +11,7 @@ import threading
 import orjson
 import pytest
 import tempfile
+import time
 from collections import defaultdict
 from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
@@ -398,6 +399,99 @@ class TestSceneControllerPublishers:
 
     scene_controller.pubsub.publish.assert_called_once()
     scene_controller.shouldPublish.assert_called_once()
+
+  def test_service_ownership_snapshot_controls_hierarchy_provenance(self):
+    scene_controller = self._build_controller('unregulated')
+    scene_controller.reid_ownership_mode = 'service'
+    scene_controller._reid_ownership_lock = threading.Lock()
+    scene_controller._reid_ownership_snapshots = {
+      ('scene-1', 'person'): {
+        'scene_id': 'scene-1',
+        'category': 'person',
+        'timestamp': time.time(),
+        'unique_id_count': 2,
+        'write_mode': 'will_enroll',
+        'tracks': {'gid-1': {
+          'gid': 'service-gid', 'reid_state': 'matched',
+          'similarity': 0.95, 'enrolled': True,
+        }},
+      },
+    }
+    scene_controller.shouldPublish = MagicMock(return_value=True)
+    scene = SimpleNamespace(
+      uid='scene-1', parent='parent-1', external_update_rate=2,
+      last_published_detection=defaultdict(lambda: None),
+      reid_config_data={'minimum_bbox_area': 5000})
+    obj = SimpleNamespace(gid='gid-1')
+
+    with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
+         patch('controller.scene_controller.buildDetectionsList',
+               return_value=[{'id': 'gid-1'}]) as build_detections:
+      scene_controller.publishExternalDetections(
+        scene, 'person', [obj], {'timestamp': '2026-01-01T00:00:01Z'})
+
+    kwargs = build_detections.call_args.kwargs
+    assert kwargs['will_enroll_reid'] is True
+    assert kwargs['withhold_reid'] is False
+    assert kwargs['reid_enrolled_fn'](obj) is True
+    published = orjson.loads(scene_controller.pubsub.publish.call_args.args[1])
+    assert published['objects'][0]['id'] == 'service-gid'
+    assert published['objects'][0]['reid_state'] == 'matched'
+    assert published['objects'][0]['previous_ids_chain'][0]['id'] == 'gid-1'
+    assert published['unique_detection_count'] == 2
+
+  def test_service_mode_withholds_until_fresh_ownership_snapshot(self):
+    scene_controller = self._build_controller('unregulated')
+    scene_controller.reid_ownership_mode = 'service'
+    scene_controller._reid_ownership_lock = threading.Lock()
+    scene_controller._reid_ownership_snapshots = {}
+    scene_controller.shouldPublish = MagicMock(return_value=True)
+    scene = SimpleNamespace(
+      uid='scene-1', parent='parent-1', external_update_rate=2,
+      last_published_detection=defaultdict(lambda: None),
+      reid_config_data={'minimum_bbox_area': 5000})
+
+    with patch('controller.scene_controller.get_epoch_time', side_effect=[100.0, 101.0]), \
+         patch('controller.scene_controller.buildDetectionsList',
+               return_value=[]) as build_detections:
+      scene_controller.publishExternalDetections(
+        scene, 'person', [], {'timestamp': '2026-01-01T00:00:01Z'})
+
+    kwargs = build_detections.call_args.kwargs
+    assert kwargs['will_enroll_reid'] is False
+    assert kwargs['withhold_reid'] is True
+    assert kwargs['reid_enrolled_fn'] is None
+
+  def test_reid_ownership_handler_ignores_stale_snapshot(self):
+    scene_controller = self._build_controller()
+    scene_controller._reid_ownership_lock = threading.Lock()
+    scene_controller._reid_ownership_snapshots = {}
+    message = SimpleNamespace(payload=orjson.dumps({
+      'scene_id': 'scene-1', 'category': 'person', 'timestamp': 0,
+      'write_mode': 'will_enroll', 'tracks': {},
+    }))
+
+    scene_controller.handleReidOwnershipMessage(None, None, message)
+
+    assert scene_controller._reid_ownership_snapshots == {}
+
+  def test_reid_ownership_handler_caches_valid_snapshot(self):
+    scene_controller = self._build_controller()
+    scene_controller._reid_ownership_lock = threading.Lock()
+    scene_controller._reid_ownership_snapshots = {}
+    snapshot = {
+      'scene_id': 'scene-1', 'category': 'person', 'timestamp': time.time(),
+      'unique_id_count': 3, 'write_mode': 'will_enroll',
+      'tracks': {'gid-1': {
+        'gid': 'global-1', 'reid_state': 'matched',
+        'similarity': 0.95, 'enrolled': True,
+      }},
+    }
+    message = SimpleNamespace(payload=orjson.dumps(snapshot))
+
+    scene_controller.handleReidOwnershipMessage(None, None, message)
+
+    assert scene_controller._serviceReidOwnershipSnapshot('scene-1', 'person') == snapshot
 
   def _publish_external_with_reid_manager(self, uuid_manager, write_intent=True, category='person'):
     """Publish external detections for a scene whose CATEGORY SUBTRACKER owns uuid_manager.
@@ -1339,6 +1433,23 @@ class TestUpdateSubscriptionsExternalWildcard:
     assert PubSub.formatTopic(
       PubSub.DATA_EXTERNAL, scene_id='scene-1', thing_type='+') not in topics
 
+  def test_service_mode_subscribes_to_ownership_wildcard(self):
+    controller = SceneController.__new__(SceneController)
+    controller.cache_manager = MagicMock()
+    controller.cache_manager.allScenes.return_value = [
+      SimpleNamespace(uid='scene-1', cameras={}, sensors={})]
+    controller.pubsub = MagicMock()
+    controller.subscribed = set()
+    controller.subscribed_children = {}
+    controller.root_cert = None
+    controller.reid_ownership_mode = 'service'
+
+    controller.updateSubscriptions()
+
+    expected = PubSub.formatTopic(
+      PubSub.DATA_REID_OWNERSHIP, scene_id='+', thing_type='+')
+    assert expected in {topic for topic, _callback in controller.subscribed}
+
 
 class TestSceneControllerRemoteChildParent:
   """Unit tests for remote-child parent injection and recovery (NEX-T21933)."""
@@ -1438,6 +1549,8 @@ class TestChildSceneControllerCatalogs:
     child.child_link_uid = 'child-link-1'
     child.child_event_topic = 'event-topic'
     child.child_scene_topic = 'scene-topic'
+    child.child_ownership_topic = PubSub.formatTopic(
+      PubSub.DATA_REID_OWNERSHIP, scene_id=child.child_id, thing_type='+')
     child.client = MagicMock()
     child.parent_controller = MagicMock()
     child.parent_controller.cache_manager.data_source.updateChildScene.return_value = (
@@ -1488,12 +1601,25 @@ class TestChildSceneControllerCatalogs:
       PubSub.formatTopic(PubSub.DATA_CHILD_SENSORS, scene_id=child.child_id): 'sensors',
     }
 
-    assert callbacks.keys() == expected_topics.keys()
+    assert expected_topics.keys() <= callbacks.keys()
     for topic, catalog_type in expected_topics.items():
       child.parent_controller.enqueueRemoteCallback.reset_mock()
       callbacks[topic](None, None, MagicMock())
       callback = child.parent_controller.enqueueRemoteCallback.call_args.args[0]
       assert callback.keywords == {'catalog_type': catalog_type}
+
+  def test_remote_ownership_snapshot_is_subscribed_and_relayed(self):
+    child = self._build_child()
+
+    child.onChildConnect(None, None, None, 0)
+    child.client.addCallback.assert_any_call(
+      child.child_ownership_topic, child.enqueueRemoteOwnershipSnapshot, qos=1)
+
+    message = SimpleNamespace(topic=child.child_ownership_topic, payload=b'{}')
+    child.enqueueRemoteOwnershipSnapshot(None, None, message)
+
+    child.parent_controller.enqueueRemoteCallback.assert_called_once_with(
+      child.parent_controller.handleReidOwnershipMessage, message)
 
   def test_invalid_catalog_payload_is_not_persisted(self):
     """Invalid catalog JSON is rejected without writing stale child data."""

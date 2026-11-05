@@ -30,6 +30,7 @@ class _Topic(Enum):
   DATA_EXTERNAL = auto()
   DATA_REGION = auto()
   DATA_REID = auto()
+  DATA_REID_OWNERSHIP = auto()
   DATA_REGULATED = auto()
   DATA_SCENE = auto()
   DATA_SENSOR = auto()
@@ -62,6 +63,8 @@ class PubSub(_PubSubTopicBase):
     _Topic.DATA_EXTERNAL: Template(TOPIC_BASE + "/external/${scene_id}/${thing_type}"),
     _Topic.DATA_REGION: Template(TOPIC_BASE + "/data/region/${scene_id}/${region_id}/${thing_type}"),
     _Topic.DATA_REID: Template(TOPIC_BASE + "/data/reid/${scene_id}/${thing_type}"),
+    _Topic.DATA_REID_OWNERSHIP: Template(
+      TOPIC_BASE + "/data/reid/ownership/${scene_id}/${thing_type}"),
     _Topic.DATA_REGULATED: Template(TOPIC_BASE + "/regulated/scene/${scene_id}"),
     _Topic.DATA_SCENE: Template(TOPIC_BASE + "/data/scene/${scene_id}/${thing_type}"),
     _Topic.DATA_SENSOR: Template(TOPIC_BASE + "/data/sensor/${sensor_id}"),

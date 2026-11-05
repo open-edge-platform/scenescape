@@ -248,6 +248,26 @@ selects the gRPC port and defaults to `50051`.
 The backend remains the Compose service `reid`; the extracted application is
 `reid-service` so existing backend overrides continue to work.
 
+For Controller hierarchy publishing with service-owned ReID, set
+`CONTROLLER_REID_MODE=service` and run both the `controller` and `reid-service`
+Compose profiles. The Controller continues publishing scene and hierarchy
+messages but does not connect its local ReID adapter; it uses fresh ReID service
+identity and ownership snapshots to annotate hierarchy output. The default
+`controller` mode preserves the legacy in-process behavior.
+
+For example, after building the service and generating `docker-compose.yml`:
+
+```bash
+CONTROLLER_REID_MODE=service docker compose \
+	--profile controller --profile reid-service \
+	-f docker-compose.yml \
+	-f sample_data/compose/compose.vdms-override.yml \
+	up -d
+```
+
+Use `sample_data/compose/compose.qdrant-override.yml` instead for Qdrant. This
+mode delegates ReID only; it does not remove the Controller's hierarchy role.
+
 <!--hide_directive
 :::{toctree}
 :hidden:

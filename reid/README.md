@@ -6,8 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 # Re-ID Service
 
 The Re-ID service is the standalone home for the existing VDMS and Qdrant
-adapters. The service exposes a backend-neutral gRPC boundary while the
-Scene Controller continues to use the compatibility import paths in-process.
+adapters. The service exposes a backend-neutral gRPC boundary. The default
+Controller profile retains its legacy in-process path; set
+`CONTROLLER_REID_MODE=service` to delegate ReID matching and enrollment to the
+service while keeping Controller hierarchy-message publishing.
 
 VDMS queries use a five-second socket timeout. A query exception or incomplete
 response disconnects the client before releasing the query lock, discarding
@@ -37,7 +39,7 @@ make reid
 
 docker compose \
   -f docker-compose.yml \
-  -f sample_data/compose/docker-compose.vdms-override.yml \
+  -f sample_data/compose/compose.vdms-override.yml \
   up -d reid reid-service
 ```
 
@@ -53,6 +55,7 @@ See the
 [wire contract and Python client example](../docs/user-guide/microservices/reid-service/reid-service.md#baseline-grpc-contract)
 for request/response shapes, validation, and status codes.
 
-Tracker scene streams are currently ingested over MQTT, not gRPC. Controller
-migration, POI metadata management, gallery statistics, and trajectory
-APIs are follow-on work.
+Tracker or Controller scene streams are ingested over MQTT, not gRPC. The
+Controller's hierarchy publisher consumes retained ownership snapshots in
+service mode. POI metadata management, gallery statistics, and trajectory APIs
+are follow-on work.
