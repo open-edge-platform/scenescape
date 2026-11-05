@@ -46,10 +46,10 @@ The **Scene Controller** is the central runtime state management service for Sce
    - Object metadata (attributes, ReID features)
    - Coordinate transformations
 
-5. **`cache_manager.py`**: State caching and optimization
-   - LRU caching for frequently accessed data
-   - Scene state snapshots
-   - Performance optimization for queries
+5. **`cache_manager.py`** (shared, in `scene_common/src/scene_common/`): Scene cache
+   - Builds `Scene` objects from REST (or JSON files) and indexes them by scene, camera, sensor and remote-child ID
+   - `invalidate()` on `CMD_DATABASE`; the next lookup refreshes the cache
+   - Also used by Analytics (`scene_cls` selects the scene implementation)
 
 6. **`child_scene_controller.py`**: Hierarchical scene support
    - Parent-child scene relationships
@@ -463,7 +463,6 @@ controller/
 │   │   ├── scene.py                   # Scene state
 │   │   ├── tracking.py                # Tracking engine
 │   │   ├── moving_object.py           # Object representation
-│   │   ├── cache_manager.py           # State caching
 │   │   ├── child_scene_controller.py  # Hierarchical scenes
 │   │   ├── reid.py                    # ReIDDatabase ABC + embedding helpers
 │   │   ├── reid_constants.py          # Shared ReID constants
