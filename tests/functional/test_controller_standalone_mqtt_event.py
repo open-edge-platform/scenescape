@@ -264,16 +264,17 @@ def test_controller_keeps_unrelated_scene_tracker_after_scene_update(
     res = rest.updateScene(scene_b_uid, {'name': SCENE_B_NAME + "-modified"})
     assert res.statusCode == 200, f"Failed to update scene B: {res.errors}"
     log.info(f"Updated scene B uid={scene_b_uid} via REST")
-    mqtt_tester.clear_messages()
 
-    # The Controller handles the update asynchronously, so output of scene B's old
-    # tracker can still arrive. Wait for an ID it did not produce, then collect again
-    # so only the new tracker's output is compared.
+    # The Controller handles the update asynchronously, so output of the old trackers
+    # can still arrive. Once scene B shows an ID its old tracker did not produce, the
+    # refresh is done; clear both buffers and collect again so only post-refresh
+    # output is compared.
     b_reset = _publish_until(
       mqtt_tester, camera_ids, lambda: tester_b.get_tracked_ids() - ids_b_before)
     assert b_reset, (
       f"Scene B published no tracked object with a fresh ID within "
       f"{mqtt_tester.MAX_WAIT_S}s after its REST update")
+    mqtt_tester.clear_messages()
     tester_b.clear_messages()
     both_resumed = _publish_until(
       mqtt_tester, camera_ids, lambda: mqtt_tester.has_objects() and tester_b.has_objects())
