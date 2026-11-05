@@ -840,7 +840,10 @@ class SceneController:
     'source_id' in the payload."""
     source_id = jdata['source_id']
     trusted = source_id in self.trusted_positioning_sources
-    objects = jdata.get('objects', [])
+    jdata = dict(jdata)
+    jdata['objects'] = self._ensurePlatformObject(
+      jdata.get('objects'), source_id, detection_type)
+    objects = jdata['objects']
     pixel_objects, _ = self._partitionExternalObjects(objects)
 
     camera_pose, _, reason = self.external_source_pose_cache.resolveMessage(
@@ -862,6 +865,31 @@ class SceneController:
       scene, jdata, observation_groups, source_id, detection_type,
       source_track, msg_when)
     return True
+
+  @staticmethod
+  def _ensurePlatformObject(objects, source_id, detection_type):
+    """Ensure body observations include the platform at the body origin.
+
+    The platform is a scene object with ``id == source_id`` (trusted identity).
+    Adapters may already publish it; otherwise one is synthesized so pose-only
+    updates still materialize the platform on the object output path.
+    """
+    body_objects = [dict(obj) for obj in (objects or [])]
+    for obj in body_objects:
+      if obj.get('id') != source_id:
+        continue
+      if ('bounding_box_px' not in obj and 'translation' not in obj
+          and 'lat_long_alt' not in obj):
+        obj['translation'] = [0.0, 0.0, 0.0]
+      if 'category' not in obj:
+        obj['category'] = detection_type
+      return body_objects
+    body_objects.append({
+      'id': source_id,
+      'category': detection_type,
+      'translation': [0.0, 0.0, 0.0],
+    })
+    return body_objects
 
   @staticmethod
   def _partitionExternalObjects(objects, start_index=0):
@@ -929,23 +957,26 @@ class SceneController:
       if not routed_translations:
         continue
 
-      routed_jdata = dict(jdata)
-      routed_jdata['objects'] = routed_translations
-      routed_jdata.pop('track', None)
-      routed_source = SimpleNamespace(
-        name=source_id,
-        uid=source_id,
-        retrack=(source_track is not False),
-      )
-      if ('cameras' not in jdata
-          and not pixel_moving_objects
-          and not already_tracked_objects):
-        scene.processSceneData(
-          routed_jdata, routed_source, camera_pose, detection_type, when=msg_when)
-        return
+      platform_translations = [
+        obj for obj in routed_translations if obj.get('id') == source_id]
+      other_translations = [
+        obj for obj in routed_translations if obj.get('id') != source_id]
 
-      moving, already_tracked = scene.createMovingObjectsForSceneData(
-        routed_jdata, routed_source, camera_pose, detection_type, when=msg_when)
+      # Platform self-object always merges as trusted identity (retrack=False).
+      if platform_translations:
+        moving, already_tracked = self._ingestExternalTranslations(
+          scene, jdata, platform_translations, camera_pose, source_id,
+          detection_type, retrack=False, msg_when=msg_when)
+        if moving is not None:
+          pixel_moving_objects.extend(moving)
+          already_tracked_objects.extend(already_tracked)
+
+      if not other_translations:
+        continue
+
+      moving, already_tracked = self._ingestExternalTranslations(
+        scene, jdata, other_translations, camera_pose, source_id,
+        detection_type, retrack=(source_track is not False), msg_when=msg_when)
       if moving is not None:
         pixel_moving_objects.extend(moving)
         already_tracked_objects.extend(already_tracked)
@@ -954,9 +985,24 @@ class SceneController:
     # with no detections is an empty measurement (mirroring how empty camera
     # frames are processed), so departed objects age out and the published
     # current-objects state clears instead of freezing until the next
-    # detection arrives.
+    # detection arrives. Pose-only updates still carry the platform object.
     scene.finishProcessing(
       detection_type, msg_when, pixel_moving_objects, already_tracked_objects)
+
+  @staticmethod
+  def _ingestExternalTranslations(scene, jdata, routed_translations, camera_pose,
+                                  source_id, detection_type, *, retrack, msg_when):
+    """Create moving objects for routed body/camera-frame translations."""
+    routed_jdata = dict(jdata)
+    routed_jdata['objects'] = routed_translations
+    routed_jdata.pop('track', None)
+    routed_source = SimpleNamespace(
+      name=source_id,
+      uid=source_id,
+      retrack=retrack,
+    )
+    return scene.createMovingObjectsForSceneData(
+      routed_jdata, routed_source, camera_pose, detection_type, when=msg_when)
 
   @staticmethod
   def _countExternalObjectIds(objects):
@@ -1020,7 +1066,8 @@ class SceneController:
     routed_obj = deepcopy(obj)
     routed_obj['source_id'] = source_id
     routed_obj.pop('track', None)
-    if source_track is False:
+    # Platform self-object always uses trusted identity (id == source_id).
+    if source_track is False or routed_obj.get('id') == source_id:
       return self._routeUntrackedExternalObject(
         routed_obj, source_id=source_id, scene_uid=scene_uid,
         detection_type=detection_type, msg_when=msg_when)

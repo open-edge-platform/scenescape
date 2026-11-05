@@ -761,14 +761,35 @@ class TestSceneControllerHandleExternalSourceObject:
     controller.trusted_positioning_sources = frozenset({'positioning-svc-1'})
     return controller
 
+  @staticmethod
+  def _build_scene(camera_pose=None):
+    """Scene stub that records createMovingObjectsForSceneData / finishProcessing."""
+    def create_moving(jdata, source, pose, detection_type, when=None):
+      objects = list(jdata.get('objects', []))
+      if source.retrack:
+        return objects, []
+      return [], objects
+
+    return SimpleNamespace(
+      uid='scene-1',
+      createMovingObjectsForSceneData=MagicMock(side_effect=create_moving),
+      finishProcessing=MagicMock(),
+      processSceneData=MagicMock(),
+      _camera_pose=camera_pose,
+    )
+
+  @staticmethod
+  def _resolved_jdata(call_args):
+    return call_args.args[2]
+
   def test_ingests_objects_when_pose_resolves(self):
-    """Omitted track uses tracking and source ids as internal hints."""
+    """Omitted track tracks detections; platform still merges as trusted id."""
     scene_controller = self._build_controller()
     fake_camera_pose = MagicMock()
     source_state = SimpleNamespace(cameras=None)
     scene_controller.external_source_pose_cache.resolveMessage.return_value = (
       fake_camera_pose, source_state, None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    scene = self._build_scene(fake_camera_pose)
     jdata = {
       'source_id': 'drone-1',
       'objects': [{'id': 'agent-track-1', 'category': 'vehicle', 'translation': [1.0, 2.0, 0.0]}],
@@ -777,86 +798,140 @@ class TestSceneControllerHandleExternalSourceObject:
     result = scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
 
     assert result is True
-    scene_controller.external_source_pose_cache.resolveMessage.assert_called_once_with(
-      scene, 'drone-1', jdata, 42.0, trusted_scene_pose=False)
-    scene.processSceneData.assert_called_once()
-    args, kwargs = scene.processSceneData.call_args
-    assert args[0] is not jdata
-    assert args[0]['objects'] == [
-      {
-        'id': 'tracked:drone-1:vehicle:agent-track-1',
-        'category': 'vehicle',
-        'translation': [1.0, 2.0, 0.0],
-        'source_id': 'drone-1',
-      },
-    ]
+    resolve_args = scene_controller.external_source_pose_cache.resolveMessage.call_args
+    assert resolve_args.args[:2] == (scene, 'drone-1')
+    assert resolve_args.kwargs == {'trusted_scene_pose': False}
+    resolved = self._resolved_jdata(resolve_args)
+    assert resolved['source_id'] == 'drone-1'
+    assert any(obj['id'] == 'drone-1' for obj in resolved['objects'])
     assert jdata['objects'][0]['id'] == 'agent-track-1'
-    assert args[1].name == 'drone-1'
-    assert args[1].retrack is True
-    assert args[2] is fake_camera_pose
-    assert args[3] == 'vehicle'
-    assert kwargs == {'when': 42.0}
+
+    create_calls = scene.createMovingObjectsForSceneData.call_args_list
+    assert len(create_calls) == 2
+    platform_jdata, platform_source, pose, dtype = create_calls[0].args[:4]
+    assert platform_source.retrack is False
+    assert platform_jdata['objects'] == [{
+      'id': 'drone-1',
+      'category': 'vehicle',
+      'translation': [0.0, 0.0, 0.0],
+      'source_id': 'drone-1',
+    }]
+    assert pose is fake_camera_pose
+    assert dtype == 'vehicle'
+    assert create_calls[0].kwargs == {'when': 42.0}
+
+    tracked_jdata, tracked_source, _, _ = create_calls[1].args[:4]
+    assert tracked_source.retrack is True
+    assert tracked_jdata['objects'] == [{
+      'id': 'tracked:drone-1:vehicle:agent-track-1',
+      'category': 'vehicle',
+      'translation': [1.0, 2.0, 0.0],
+      'source_id': 'drone-1',
+    }]
+
+    moving, already = scene.finishProcessing.call_args.args[2:]
+    assert [obj['id'] for obj in moving] == ['tracked:drone-1:vehicle:agent-track-1']
+    assert [obj['id'] for obj in already] == ['drone-1']
+    scene.processSceneData.assert_not_called()
 
   def test_trusted_scene_pose_flag_is_passed_through(self):
     """Only allowlisted source_ids are marked trusted for scene-frame poses."""
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolveMessage.return_value = (
       MagicMock(), SimpleNamespace(cameras=None), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True),
-                            finishProcessing=MagicMock())
+    scene = self._build_scene()
     jdata = {'source_id': 'positioning-svc-1', 'objects': []}
 
     scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
 
-    scene_controller.external_source_pose_cache.resolveMessage.assert_called_once_with(
-      scene, 'positioning-svc-1', jdata, 42.0, trusted_scene_pose=True)
+    resolve_args = scene_controller.external_source_pose_cache.resolveMessage.call_args
+    assert resolve_args.args[:2] == (scene, 'positioning-svc-1')
+    assert resolve_args.kwargs == {'trusted_scene_pose': True}
 
-  def test_empty_message_still_ticks_tracker(self):
-    """A resolved message with zero observations is an empty measurement: the
-    tracker still runs so departed objects age out of the published state."""
+  def test_pose_only_message_emits_platform_object(self):
+    """Pose-only (empty objects) still materializes the platform on object output."""
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolveMessage.return_value = (
       MagicMock(), SimpleNamespace(cameras=None), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True),
-                            finishProcessing=MagicMock())
+    scene = self._build_scene()
     jdata = {'source_id': 'drone-1', 'objects': []}
 
     scene_controller._handleExternalSourceObject(scene, jdata, 'person', 42.0)
 
-    scene.processSceneData.assert_not_called()
-    scene.finishProcessing.assert_called_once_with('person', 42.0, [], [])
+    scene.createMovingObjectsForSceneData.assert_called_once()
+    platform_jdata, platform_source, _, _ = scene.createMovingObjectsForSceneData.call_args.args[:4]
+    assert platform_source.retrack is False
+    assert platform_jdata['objects'] == [{
+      'id': 'drone-1',
+      'category': 'person',
+      'translation': [0.0, 0.0, 0.0],
+      'source_id': 'drone-1',
+    }]
+    moving, already = scene.finishProcessing.call_args.args[2:]
+    assert moving == []
+    assert [obj['id'] for obj in already] == ['drone-1']
+
+  def test_adapter_provided_platform_is_not_duplicated(self):
+    """Adapters that already publish id==source_id do not get a second platform."""
+    scene_controller = self._build_controller()
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), SimpleNamespace(cameras=None), None)
+    scene = self._build_scene()
+    jdata = {
+      'source_id': 'drone-1',
+      'track': False,
+      'objects': [{
+        'id': 'drone-1',
+        'category': 'vehicle',
+        'translation': [0.0, 0.0, 0.0],
+        'size': [1.2, 0.8, 0.4],
+      }],
+    }
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
+
+    scene.createMovingObjectsForSceneData.assert_called_once()
+    objects = scene.createMovingObjectsForSceneData.call_args.args[0]['objects']
+    assert len(objects) == 1
+    assert objects[0]['id'] == 'drone-1'
+    assert objects[0]['size'] == [1.2, 0.8, 0.4]
 
   def test_skips_ingestion_without_crashing_when_pose_unavailable(self):
     """When no transform can be resolved, ingestion is skipped but not treated as failure."""
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolveMessage.return_value = (
       None, None, 'no_pose_available')
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock())
+    scene = self._build_scene()
     jdata = {'source_id': 'drone-1', 'objects': []}
 
     result = scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
 
     assert result is True
-    scene.processSceneData.assert_not_called()
+    scene.createMovingObjectsForSceneData.assert_not_called()
+    scene.finishProcessing.assert_not_called()
 
-  def test_omitted_track_uses_tracking_without_identity_claim(self):
-    """Tracking is the default and does not claim source ids as global ids."""
+  def test_omitted_track_uses_tracking_without_identity_claim_on_detections(self):
+    """Tracking is the default for detections; only the platform claims its id."""
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolveMessage.return_value = (
       MagicMock(), SimpleNamespace(cameras=None), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    scene = self._build_scene()
     jdata = {'source_id': 'never-before-seen-source', 'objects': [
       {'id': 'tag-1', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
     ]}
 
     scene_controller._handleExternalSourceObject(scene, jdata, 'person', 42.0)
 
-    args, _ = scene.processSceneData.call_args
-    assert args[1].retrack is True
-    assert args[0]['objects'][0]['id'] == (
+    create_calls = scene.createMovingObjectsForSceneData.call_args_list
+    assert create_calls[0].args[1].retrack is False
+    assert create_calls[1].args[1].retrack is True
+    assert create_calls[1].args[0]['objects'][0]['id'] == (
       'tracked:never-before-seen-source:person:tag-1')
-    assert len(args[0]['objects']) == 1
-    assert len(scene_controller.identity_claim_registry._claims) == 0
+    claimed_ids = {
+      claim_id
+      for (_, _, claim_id) in scene_controller.identity_claim_registry._claims
+    }
+    assert claimed_ids == {'never-before-seen-source'}
 
   def test_colliding_id_from_different_source_is_dropped(self):
     """If a different source_id is already using the same id in the same scene and
@@ -865,7 +940,7 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolveMessage.return_value = (
       MagicMock(), SimpleNamespace(cameras=None), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    scene = self._build_scene()
 
     first_jdata = {'source_id': 'source-a', 'track': False, 'objects': [
       {'id': 'tag-1', 'category': 'person', 'translation': [0.0, 0.0, 0.0]},
@@ -878,9 +953,10 @@ class TestSceneControllerHandleExternalSourceObject:
     ]}
     scene_controller._handleExternalSourceObject(scene, second_jdata, 'person', 11.0)
 
-    args, _ = scene.processSceneData.call_args
-    accepted_ids = [obj['id'] for obj in args[0]['objects']]
-    assert accepted_ids == ['tag-2']
+    # Last message: platform source-b + non-colliding tag-2 (tag-1 dropped).
+    last_finish = scene.finishProcessing.call_args_list[-1]
+    _, already = last_finish.args[2:]
+    assert sorted(obj['id'] for obj in already) == ['source-b', 'tag-2']
 
   def test_same_source_reclaiming_its_own_id_is_not_a_collision(self):
     """A source repeatedly reporting the same id for the same object is not a
@@ -888,7 +964,7 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller = self._build_controller()
     scene_controller.external_source_pose_cache.resolveMessage.return_value = (
       MagicMock(), SimpleNamespace(cameras=None), None)
-    scene = SimpleNamespace(uid='scene-1', processSceneData=MagicMock(return_value=True))
+    scene = self._build_scene()
     jdata_1 = {'source_id': 'uwb-hub-1', 'track': False, 'objects': [
       {'id': 'tag-aa:bb:cc', 'category': 'person', 'translation': [1.0, 2.0, 0.0]},
     ]}
@@ -899,10 +975,10 @@ class TestSceneControllerHandleExternalSourceObject:
     scene_controller._handleExternalSourceObject(scene, jdata_1, 'person', 10.0)
     scene_controller._handleExternalSourceObject(scene, jdata_2, 'person', 11.0)
 
-    args, _ = scene.processSceneData.call_args
-    assert len(args[0]['objects']) == 1
-    assert args[0]['objects'][0]['id'] == 'tag-aa:bb:cc'
-    assert args[1].uid == 'uwb-hub-1'
+    _, already = scene.finishProcessing.call_args.args[2:]
+    assert sorted(obj['id'] for obj in already) == ['tag-aa:bb:cc', 'uwb-hub-1']
+    last_create = scene.createMovingObjectsForSceneData.call_args_list[-1]
+    assert last_create.args[1].uid == 'uwb-hub-1'
 
 
 class TestParseExternalSourceBindings:
@@ -1068,7 +1144,7 @@ class TestScenesForExternalPublisherAdditional:
 class TestTrustedScenePoseWithManualBinding:
   """Manual binding + trusted positioning source enables scene-frame ingest."""
 
-  def test_bound_trusted_source_reaches_process_scene_data(self):
+  def test_bound_trusted_source_reaches_object_ingest(self):
     controller = SceneController.__new__(SceneController)
     controller.external_source_bindings = {'pos-1': frozenset({'scene-a'})}
     controller.trusted_positioning_sources = frozenset({'pos-1'})
@@ -1077,7 +1153,18 @@ class TestTrustedScenePoseWithManualBinding:
     controller.external_source_pose_cache = MagicMock()
     controller.external_source_pose_cache.resolveMessage.return_value = (
       fake_pose, SimpleNamespace(cameras=None), None)
-    scene = SimpleNamespace(uid='scene-a', processSceneData=MagicMock(return_value=True))
+
+    def create_moving(jdata, source, pose, detection_type, when=None):
+      objects = list(jdata.get('objects', []))
+      if source.retrack:
+        return objects, []
+      return [], objects
+
+    scene = SimpleNamespace(
+      uid='scene-a',
+      createMovingObjectsForSceneData=MagicMock(side_effect=create_moving),
+      finishProcessing=MagicMock(),
+    )
     controller.cache_manager = MagicMock()
     controller.cache_manager.sceneWithID.return_value = scene
 
@@ -1094,9 +1181,11 @@ class TestTrustedScenePoseWithManualBinding:
     assert scenes == [scene]
 
     assert controller._handleExternalSourceObject(scene, jdata, 'person', 5.0) is True
-    controller.external_source_pose_cache.resolveMessage.assert_called_once_with(
-      scene, 'pos-1', jdata, 5.0, trusted_scene_pose=True)
-    scene.processSceneData.assert_called_once()
+    resolve_args = controller.external_source_pose_cache.resolveMessage.call_args
+    assert resolve_args.args[:2] == (scene, 'pos-1')
+    assert resolve_args.kwargs == {'trusted_scene_pose': True}
+    assert scene.createMovingObjectsForSceneData.call_count == 2
+    scene.finishProcessing.assert_called_once()
 
 
 class TestHandleMovingObjectExternal:

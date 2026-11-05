@@ -71,11 +71,12 @@ guidance, rejection reasons, and full JSON examples are defined only in
    contract's quaternion `(x, y, z, w)`. Do not invent alternate rotation
    field shapes.
 6. Use ISO 8601 UTC timestamps (`scene_common.timestamp.get_iso_time` is fine).
-7. **Pose-only sources** (GNSS/attitude with no separate detections): either
-   publish `pose` with an empty `objects` array (cache refresh), or report the
-   platform itself as one object at `[0, 0, 0]` using the same persistent id as
-   `source_id` — see Choosing a `source_id` in `data_formats.md`. Do not mint a
-   second identity for "the vehicle."
+7. **Pose-only sources** (GNSS/attitude with no separate detections): publish
+   `pose` with an empty `objects` array (or an explicit platform object at
+   `[0, 0, 0]` with `id == source_id`). The controller always materializes the
+   platform as a trusted scene object on accepted messages — see Platform
+   citizenship in `data_formats.md`. Do not mint a second identity for "the
+   vehicle."
 8. Publish over authenticated MQTT with the Scenescape CA cert (see the how-to
    skeleton using `scene_common.mqtt.PubSub` and `PubSub.DATA_EXTERNAL`).
 9. Keep credentials in environment variables or secret files — never hard-code

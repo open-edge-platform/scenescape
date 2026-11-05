@@ -57,9 +57,13 @@ def _message():
   }
 
 
-def _object(scene):
-  assert scene.finishProcessing.call_args.args[2] == []
-  return scene.finishProcessing.call_args.args[3][0]
+def _detection(scene, platform_id='drone-1'):
+  """Return the non-platform detection from the latest finishProcessing call."""
+  moving, already = scene.finishProcessing.call_args.args[2:]
+  for obj in list(moving) + list(already):
+    if getattr(obj, 'oid', None) != platform_id:
+      return obj
+  raise AssertionError('non-platform detection not found in finishProcessing output')
 
 
 @pytest.mark.parametrize('track', [False, True])
@@ -68,7 +72,7 @@ def test_body_transform_applied_once_and_mount_does_not_move_objects(track):
   message['track'] = track
   original = deepcopy(message)
   controller._handleExternalSourceObject(scene, message, 'unknown', 100)
-  obj = scene.finishProcessing.call_args.args[2 if track else 3][0]
+  obj = _detection(scene)
   np.testing.assert_allclose(obj.sceneLoc.asNumpyCartesian, [10, 22, 6], atol=1e-10)
   expected = Rotation.from_quat(message['pose']['rotation']) * Rotation.from_quat(
     message['objects'][0]['rotation'])
@@ -119,7 +123,7 @@ def test_source_identity_and_provenance_survive_merge_and_analytics_output():
   tracker.already_tracked_objects = []
   for when in (100, 101):
     controller._handleExternalSourceObject(scene, message, 'unknown', when)
-    tracker.already_tracked_objects = tracker.mergeAlreadyTrackedObjects([_object(scene)])
+    tracker.already_tracked_objects = tracker.mergeAlreadyTrackedObjects([_detection(scene)])
   obj = tracker.already_tracked_objects[0]
   assert obj.gid == 'tag-1'
   assert obj.frameCount == 2
@@ -152,9 +156,12 @@ def test_collision_still_drops_second_sources_observation():
   scene.finishProcessing.reset_mock()
   message['source_id'] = 'drone-2'
   controller._handleExternalSourceObject(scene, message, 'unknown', 101)
-  # The colliding observation is dropped, but the accepted message still ticks
-  # the tracker as an empty measurement so unobserved objects age out.
-  scene.finishProcessing.assert_called_once_with('unknown', 101, [], [])
+  # Colliding tag-1 is dropped; platform drone-2 still materializes and the
+  # tracker ticks so unobserved detections age out.
+  moving, already = scene.finishProcessing.call_args.args[2:]
+  assert moving == []
+  assert len(already) == 1
+  assert already[0].oid == 'drone-2' or already[0].info.get('id') == 'drone-2'
 
 
 @pytest.mark.parametrize('track', [False, True])
@@ -163,7 +170,7 @@ def test_missing_object_rotation_is_not_invented_from_drone_attitude(track):
   message['track'] = track
   del message['objects'][0]['rotation']
   controller._handleExternalSourceObject(scene, message, 'unknown', 100)
-  obj = scene.finishProcessing.call_args.args[2 if track else 3][0]
+  obj = _detection(scene)
   assert obj.has_detection_rotation is False
   assert obj.rotation == [0, 0, 0, 1]
   assert obj.info['source_id'] == 'drone-1'

@@ -199,11 +199,11 @@ publishes over authenticated MQTT, see
 ### Drone Coordinate and Camera Contract
 
 Each entry in `cameras` describes one camera and owns the observations captured by it.
-The controller caches each camera's configuration with the source pose and publishes it in
-[resolved source state](#resolved-external-source-state-output). The 3D view renders one
-frustum per camera. Multiple cameras may report the same object; use a consistent object
-`id` across those entries when `track=false`, or let Scenescape associate the observations
-when `track=true`.
+The controller caches each camera's configuration with the source pose for transform
+reuse (internal TTL cache, not a consumer MQTT topic). UI frustums derived from
+object-graph metadata are follow-on work (Bar A). Multiple cameras may report the
+same object; use a consistent object `id` across those entries when `track=false`,
+or let Scenescape associate the observations when `track=true`.
 
 With `track=false`, reusing the same `id` from different publishers is an identity
 collision and the later observation is rejected. Use `track=true` or omit `track`
@@ -275,9 +275,13 @@ Dynamic agents remain first-class through the **scene object** pipeline
 **internal** pose/intrinsics TTL cache for transform reuse; that cache is not
 a consumer MQTT contract.
 
-- Prefer publishing the platform itself as an object with a stable `id`
-  matching `source_id` (typically `track=false`) so UI and analytics see the
-  body on the same feed as other objects.
+- On every accepted message the controller ensures a platform scene object with
+  `id == source_id` at the body origin (`translation: [0,0,0]` if synthesized).
+  Adapters may publish that object explicitly; otherwise the controller adds it.
+  The platform always merges as a trusted identity (`retrack=false`), even when
+  message-level `track` is true or omitted for detections.
+- Pose-only updates (`objects: []`) still emit/update the platform object and
+  advance the tracker so departed detections age out.
 - Nested `cameras[]` remain an ingest encoding for mounts and camera-local
   observations. UI frustums derived from object-graph metadata are planned
   separately (Bar A in `.github/plans/external-platform-object-citizenship.md`).
@@ -331,11 +335,14 @@ extent may report a point observation. Point objects (no `size`) remain eligible
 position-based ROI, tripwire, and sensor-tagging analytics, but are excluded from
 volume/occupancy/collision analytics.
 
-The top-level source `track` field determines the tracking mode for every object in the message.
-When that value is `false`, the object bypasses the kinematic tracker/ReID path and the
-published object identity is the source-provided `id`. When `track` is true or omitted, the object follows
-the normal Scenescape tracking path and the controller assigns the published object `id`, so the
-source message may omit `objects[*].id`.
+The top-level source `track` field determines the tracking mode for detection
+objects in the message. When that value is `false`, each detection bypasses the
+kinematic tracker/ReID path and the published object identity is the
+source-provided `id`. When `track` is true or omitted, detections follow the
+normal Scenescape tracking path and the controller assigns the published object
+`id`, so the source message may omit detection `objects[*].id`. The platform
+self-object (`id == source_id`) is always treated as a trusted identity
+regardless of `track`.
 
 When an object includes `bounding_box_px`, it is treated as a camera-style pixel detection rather
 than as a source-local Cartesian observation. Do not send both `translation` and `bounding_box_px`
@@ -356,10 +363,12 @@ A resolved pose is cached per `(scene_id, source_id)` for `30` seconds. Camera `
 (and optional `distortion`) for pixel detections are stored on the same cache entry and preserved
 across pose refreshes until replaced or the entry expires. Subsequent messages from the same
 source may omit `pose` and/or `intrinsics` to reuse the cached values; a message with a `pose`
-and an empty `objects` array updates the cache without ingesting any observations. Every
-successfully resolved message, including one with zero observations, still advances the bound
-scene's tracker for that object category: an accepted empty update is an empty measurement, so
-objects that are no longer observed age out of the published scene state. Messages with
+and an empty `objects` array updates the cache and still materializes the
+platform scene object at the body origin. Every successfully resolved message,
+including one with zero detections, still advances the bound scene's tracker for
+that object category: an accepted empty update is an empty measurement for
+detections (so they age out of the published scene state) while the platform
+remains present. Messages with
 a `timestamp` older than the currently cached pose are treated as out-of-order and ignored in
 favor of the newer cached transform. If no usable transform can be resolved (no pose supplied and
 nothing cached, or the cached pose has expired), the message is dropped without ingesting
@@ -542,7 +551,8 @@ Requires `source_id` (e.g. `"positioning-service-1"`) to be listed in
 
 ### Example: Pose-Only Update and Point-Object Observation
 
-A pose-only update refreshes the cached transform without ingesting observations:
+A pose-only update refreshes the cached transform and still materializes the
+platform scene object (`id` matching `source_id`) at the body origin:
 
 ```json
 {
@@ -663,8 +673,9 @@ objects of that category.
 
 This is a scene-level snapshot, not a copy of the input publisher envelope. The top-level
 `source_id`, `pose`, `track`, `intrinsics`, `distortion`, and `cameras` fields are omitted.
-Camera configurations remain available on the retained [resolved source state](#resolved-external-source-state-output)
-topic; per-object contributing publishers are represented by `source_ids`.
+The platform appears here as a normal scene object (`id` matching `source_id`).
+Per-object contributing publishers are represented by `source_ids`. Nested camera
+mount/intrinsics for UI frustums are follow-on work (Bar A).
 
 ### Data Scene Top-Level Fields
 

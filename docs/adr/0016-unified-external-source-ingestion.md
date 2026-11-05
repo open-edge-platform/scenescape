@@ -328,10 +328,11 @@ an object / sub-scene). Until that output graph and materialized store exist:
   handheld devices) use `scenescape/data/camera/{id}` with pose lock and
   provenance — see ADR 18 on the handheld line of work.
 - **Dynamic agents** use this ADR’s `external/{publisher_id}/{thing_type}`
-  contract. The platform should appear as a **scene object** (stable `id`
-  matching `source_id`), not via a parallel retained
-  `scenescape/data/source/...` product topic. Nested `cameras[]` are an ingest
-  encoding for mounts and camera-local observations.
+  contract. The platform appears as a **scene object** (stable `id`
+  matching `source_id`, trusted identity even when detections use
+  `track=true` / omitted `track`), including on pose-only ticks — not via a
+  parallel retained `scenescape/data/source/...` product topic. Nested
+  `cameras[]` are an ingest encoding for mounts and camera-local observations.
 - An **internal** pose/intrinsics TTL cache may remain for transform reuse; it
   is not a consumer MQTT API.
 - Plan: `.github/plans/external-platform-object-citizenship.md`.

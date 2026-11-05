@@ -667,7 +667,22 @@ class TestExternalSourceTrackRouting:
   def _makeScene():
     scene = MagicMock()
     scene.uid = 'scene-1'
+
+    def create_moving(jdata, source, pose, detection_type, when=None):
+      objects = list(jdata.get('objects', []))
+      if source.retrack:
+        return objects, []
+      return [], objects
+
+    scene.createMovingObjectsForSceneData.side_effect = create_moving
     return scene
+
+  @staticmethod
+  def _create_calls(scene, *, retrack):
+    return [
+      call for call in scene.createMovingObjectsForSceneData.call_args_list
+      if call.args[1].retrack is retrack
+    ]
 
   def test_source_track_false_applies_to_all_objects_and_preserves_ids(self):
     controller = self._makeController()
@@ -683,14 +698,23 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    assert scene.processSceneData.call_count == 1
-    routed_jdata, source_ns = scene.processSceneData.call_args[0][0], scene.processSceneData.call_args[0][1]
-    assert [obj['id'] for obj in routed_jdata['objects']] == ['obj-1', 'obj-2']
-    assert all('track' not in obj for obj in routed_jdata['objects'])
-    assert source_ns.retrack is False
+    platform_calls = self._create_calls(scene, retrack=False)
+    assert len(platform_calls) == 2  # platform batch + detections batch
+    detection_ids = [
+      obj['id']
+      for call in platform_calls
+      for obj in call.args[0]['objects']
+      if obj['id'] != 'drone-1'
+    ]
+    assert detection_ids == ['obj-1', 'obj-2']
+    assert all(
+      'track' not in obj
+      for call in platform_calls
+      for obj in call.args[0]['objects'])
     assert [claim.args for claim in controller.identity_claim_registry.claim.call_args_list] == [
       ('scene-1', 'person', 'drone-1', 'obj-1', 10.0),
       ('scene-1', 'person', 'drone-1', 'obj-2', 10.0),
+      ('scene-1', 'person', 'drone-1', 'drone-1', 10.0),
     ]
 
   def test_source_track_false_uses_passthrough(self):
@@ -706,9 +730,12 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    routed_jdata, source_ns = scene.processSceneData.call_args[0][0], scene.processSceneData.call_args[0][1]
-    assert routed_jdata['objects'][0]['id'] == 'obj-1'
-    assert source_ns.retrack is False
+    detection_call = [
+      call for call in self._create_calls(scene, retrack=False)
+      if any(obj['id'] == 'obj-1' for obj in call.args[0]['objects'])
+    ][0]
+    assert detection_call.args[0]['objects'][0]['id'] == 'obj-1'
+    assert detection_call.args[1].retrack is False
 
   def test_tracked_object_without_id_gets_controller_local_placeholder(self):
     controller = self._makeController()
@@ -722,13 +749,17 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    routed_jdata, source_ns = scene.processSceneData.call_args[0][0], scene.processSceneData.call_args[0][1]
+    tracked_calls = self._create_calls(scene, retrack=True)
+    assert len(tracked_calls) == 1
+    routed_jdata, source_ns = tracked_calls[0].args[0], tracked_calls[0].args[1]
     assert routed_jdata['objects'][0]['id'] == 'tracked:drone-1:person:0'
     assert source_ns.retrack is True
-    controller.identity_claim_registry.claim.assert_not_called()
+    assert [c.args for c in controller.identity_claim_registry.claim.call_args_list] == [
+      ('scene-1', 'person', 'drone-1', 'drone-1', 10.0),
+    ]
     assert 'track' not in routed_jdata
 
-  def test_source_track_true_uses_tracked_path_for_all_objects(self):
+  def test_source_track_true_uses_tracked_path_for_detections(self):
     controller = self._makeController()
     scene = self._makeScene()
     jdata = {
@@ -741,11 +772,17 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    assert scene.processSceneData.call_count == 1
-    routed_jdata, source_ns = scene.processSceneData.call_args[0][0], scene.processSceneData.call_args[0][1]
+    platform_calls = self._create_calls(scene, retrack=False)
+    tracked_calls = self._create_calls(scene, retrack=True)
+    assert len(platform_calls) == 1
+    assert platform_calls[0].args[0]['objects'][0]['id'] == 'drone-1'
+    assert len(tracked_calls) == 1
+    routed_jdata, source_ns = tracked_calls[0].args[0], tracked_calls[0].args[1]
     assert source_ns.retrack is True
     assert routed_jdata['objects'][0]['id'] == 'tracked:drone-1:person:obj-1'
-    controller.identity_claim_registry.claim.assert_not_called()
+    assert [c.args for c in controller.identity_claim_registry.claim.call_args_list] == [
+      ('scene-1', 'person', 'drone-1', 'drone-1', 10.0),
+    ]
 
   def test_tracked_objects_with_source_ids_use_stable_tracking_hints(self):
     controller = self._makeController()
@@ -760,8 +797,8 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    routed_jdata = scene.processSceneData.call_args[0][0]
-    assert [obj['id'] for obj in routed_jdata['objects']] == [
+    tracked_calls = self._create_calls(scene, retrack=True)
+    assert [obj['id'] for obj in tracked_calls[0].args[0]['objects']] == [
       'tracked:drone-1:person:obj-1',
       'tracked:drone-1:person:obj-2',
     ]
@@ -779,8 +816,8 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    routed_jdata = scene.processSceneData.call_args[0][0]
-    assert [obj['id'] for obj in routed_jdata['objects']] == [
+    tracked_calls = self._create_calls(scene, retrack=True)
+    assert [obj['id'] for obj in tracked_calls[0].args[0]['objects']] == [
       'tracked:drone-1:person:0',
       'tracked:drone-1:person:1',
     ]
@@ -824,8 +861,12 @@ class TestExternalSourceTrackRouting:
     assert 'translation' not in routed_objects[0]
     assert when == 10.0
     assert pixel_camera.pose.intrinsics is not None
-    scene.finishProcessing.assert_called_once_with('person', 10.0, [pixel_moving_object], [])
-    controller.identity_claim_registry.claim.assert_not_called()
+    moving, already = scene.finishProcessing.call_args.args[2:]
+    assert moving == [pixel_moving_object]
+    assert [obj['id'] for obj in already] == ['drone-1']
+    assert [c.args for c in controller.identity_claim_registry.claim.call_args_list] == [
+      ('scene-1', 'person', 'drone-1', 'drone-1', 10.0),
+    ]
 
   def test_camera_pixel_detection_composes_mount_with_source_pose(self):
     controller = self._makeController()
@@ -989,9 +1030,11 @@ class TestExternalSourceTrackRouting:
       pixel_calls[0].args[3].pose.pose_mat[:3, 3], [11.0, 0.0, 0.0])
     np.testing.assert_allclose(
       pixel_calls[1].args[3].pose.pose_mat[:3, 3], [9.0, 0.0, 0.0])
-    scene.finishProcessing.assert_called_once_with(
-      'person', 10.0, [], [first_object, second_object])
-    assert controller.identity_claim_registry.claim.call_count == 2
+    moving, already = scene.finishProcessing.call_args.args[2:]
+    assert moving == []
+    assert already[0]['id'] == 'drone-1'
+    assert already[1:] == [first_object, second_object]
+    assert controller.identity_claim_registry.claim.call_count == 3
 
   def test_pixel_detection_strips_reid_provenance(self):
     controller = self._makeController()
@@ -1052,9 +1095,14 @@ class TestExternalSourceTrackRouting:
     scene.processSceneData.assert_not_called()
     routed_objects = scene.createMovingObjectsForDetection.call_args[0][1]
     assert routed_objects[0]['id'] == 'obj-1'
-    scene.finishProcessing.assert_called_once_with('person', 10.0, [], [pixel_moving_object])
-    controller.identity_claim_registry.claim.assert_called_once_with(
-      'scene-1', 'person', 'drone-1', 'obj-1', 10.0)
+    moving, already = scene.finishProcessing.call_args.args[2:]
+    assert moving == []
+    assert pixel_moving_object in already
+    assert any(isinstance(obj, dict) and obj.get('id') == 'drone-1' for obj in already)
+    assert [c.args for c in controller.identity_claim_registry.claim.call_args_list] == [
+      ('scene-1', 'person', 'drone-1', 'obj-1', 10.0),
+      ('scene-1', 'person', 'drone-1', 'drone-1', 10.0),
+    ]
 
   def test_untracked_pixel_location_is_ready_for_identity_merge(self):
     controller = self._makeController()
@@ -1085,10 +1133,12 @@ class TestExternalSourceTrackRouting:
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
     tracked_objects = scene.finishProcessing.call_args[0][3]
-    assert len(tracked_objects) == 1
-    tracked_objects[0].setGID(tracked_objects[0].oid)
-    assert tracked_objects[0].gid == 'obj-1'
-    assert tracked_objects[0].when == 10.0
+    # Platform is also already-tracked; pixel object is the MovingObject.
+    pixel_obj = [obj for obj in tracked_objects if not isinstance(obj, dict)][0]
+    assert pixel_obj.oid == 'obj-1'
+    pixel_obj.setGID(pixel_obj.oid)
+    assert pixel_obj.gid == 'obj-1'
+    assert pixel_obj.when == 10.0
 
   def test_pixel_detection_missing_intrinsics_is_discarded(self):
     """Without cached intrinsics, pixel messages that omit intrinsics are dropped."""
@@ -1166,8 +1216,10 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    controller.external_source_pose_cache.resolveMessage.assert_called_once_with(
-      scene, 'drone-1', jdata, 10.0, trusted_scene_pose=False)
+    resolve_args = controller.external_source_pose_cache.resolveMessage.call_args
+    assert resolve_args.args[:2] == (scene, 'drone-1')
+    assert resolve_args.kwargs == {'trusted_scene_pose': False}
+    assert any(obj['id'] == 'drone-1' for obj in resolve_args.args[2]['objects'])
     controller.external_source_pose_cache.resolveIntrinsics.assert_called_once_with(
       'scene-1', 'drone-1', None, None, 10.0)
     scene.createMovingObjectsForDetection.assert_called_once()
@@ -1180,10 +1232,16 @@ class TestExternalSourceTrackRouting:
     pixel_moving_object = MagicMock()
     translation_moving_object = object()
     scene.createMovingObjectsForDetection.return_value = [pixel_moving_object]
-    scene.createMovingObjectsForSceneData.return_value = (
-      [],
-      [translation_moving_object],
-    )
+
+    def create_moving(jdata, source, pose, detection_type, when=None):
+      objects = list(jdata.get('objects', []))
+      if any(obj.get('id') == 'obj-translation' for obj in objects):
+        return [], [translation_moving_object]
+      if source.retrack:
+        return objects, []
+      return [], objects
+
+    scene.createMovingObjectsForSceneData.side_effect = create_moving
     pixel_pose = CameraPose({'translation': [1.0, 2.0, 3.0],
                              'rotation': [0.0, 0.0, 0.0, 1.0],
                              'scale': [1.0, 1.0, 1.0]}, None)
@@ -1210,8 +1268,11 @@ class TestExternalSourceTrackRouting:
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
     scene.processSceneData.assert_not_called()
-    routed_jdata, source_ns, camera_pose = \
-      scene.createMovingObjectsForSceneData.call_args[0][:3]
+    translation_call = [
+      call for call in scene.createMovingObjectsForSceneData.call_args_list
+      if any(obj.get('id') == 'obj-translation' for obj in call.args[0]['objects'])
+    ][0]
+    routed_jdata, source_ns, camera_pose = translation_call.args[:3]
     assert [obj['id'] for obj in routed_jdata['objects']] == ['obj-translation']
     assert source_ns.retrack is False
     assert camera_pose.intrinsics is None
@@ -1221,12 +1282,11 @@ class TestExternalSourceTrackRouting:
     assert pixel_objects[0]['id'] == 'obj-pixel'
     assert 'translation' not in pixel_objects[0]
     assert pixel_camera.pose.intrinsics is not None
-    scene.finishProcessing.assert_called_once_with(
-      'person',
-      10.0,
-      [],
-      [pixel_moving_object, translation_moving_object],
-    )
+    moving, already = scene.finishProcessing.call_args.args[2:]
+    assert moving == []
+    assert pixel_moving_object in already
+    assert translation_moving_object in already
+    assert any(isinstance(obj, dict) and obj.get('id') == 'drone-1' for obj in already)
 
   def test_mixed_tracked_objects_share_tracker_input(self):
     controller = self._makeController()
@@ -1234,7 +1294,14 @@ class TestExternalSourceTrackRouting:
     pixel_moving_object = object()
     translation_moving_object = object()
     scene.createMovingObjectsForDetection.return_value = [pixel_moving_object]
-    scene.createMovingObjectsForSceneData.return_value = ([translation_moving_object], [])
+
+    def create_moving(jdata, source, pose, detection_type, when=None):
+      objects = list(jdata.get('objects', []))
+      if source.retrack:
+        return [translation_moving_object], []
+      return [], objects
+
+    scene.createMovingObjectsForSceneData.side_effect = create_moving
     jdata = {
       'source_id': 'drone-1',
       'track': True,
@@ -1253,7 +1320,11 @@ class TestExternalSourceTrackRouting:
 
     controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
 
-    assert scene.createMovingObjectsForSceneData.call_args[0][1].retrack is True
-    scene.finishProcessing.assert_called_once_with(
-      'person', 10.0, [pixel_moving_object, translation_moving_object], [])
-    controller.identity_claim_registry.claim.assert_not_called()
+    tracked_calls = self._create_calls(scene, retrack=True)
+    assert tracked_calls[0].args[1].retrack is True
+    moving, already = scene.finishProcessing.call_args.args[2:]
+    assert moving == [pixel_moving_object, translation_moving_object]
+    assert [obj['id'] for obj in already] == ['drone-1']
+    assert [c.args for c in controller.identity_claim_registry.claim.call_args_list] == [
+      ('scene-1', 'person', 'drone-1', 'drone-1', 10.0),
+    ]

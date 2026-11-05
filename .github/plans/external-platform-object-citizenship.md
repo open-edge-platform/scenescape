@@ -7,7 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Status
 
-Planned. Coordinates two in-flight branches before merge:
+In progress. PR2 (`data/source` removal) landed on the 97980 line; PR3
+(platform as scene object) is the active reshape. Coordinates two in-flight
+branches before merge:
 
 - `ITEP-97980_handling_moving_external_objects` — ADR 16 moving agents /
   nested cameras (currently also introduces `scenescape/data/source`)
