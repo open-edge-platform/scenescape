@@ -15,6 +15,35 @@ from sscape_policies import (
   ocrPolicy,
 )
 
+@pytest.fixture
+def apriltag_detection_item():
+  """Simulates gvametaconvert auto-expanding extra_params_json to top level."""
+  return {
+    'detection': {
+      'confidence': 0.95,
+      'label': 'apriltag',
+      'label_id': 1,
+    },
+    'x': 10, 'y': 20, 'w': 30, 'h': 30,
+    'extra_params': {'tag_id': 101, 'tag_family': 'tag36h11'},
+    'tensors': [],
+  }
+
+@pytest.fixture
+def apriltag_detection_item_raw_tensor():
+  """Simulates extra_params_json surviving only as a raw detection tensor field."""
+  return {
+    'detection': {
+      'confidence': 0.95,
+      'label': 'apriltag',
+      'label_id': 1,
+    },
+    'x': 10, 'y': 20, 'w': 30, 'h': 30,
+    'tensors': [
+      {'name': 'detection', 'extra_params_json': json.dumps({'tag_id': 102, 'tag_family': 'tag36h11'})},
+    ],
+  }
+
 DATA_DIR = Path(__file__).resolve().parent / 'data'
 
 @pytest.fixture
@@ -79,6 +108,28 @@ class TestDetectionPolicyGuard:
     pobj = {}
     detectionPolicy(pobj, non_detection_item, 1280, 720)
     assert pobj == {}
+
+class TestDetectionPolicyAprilTagAttributes:
+
+  def test_top_level_extra_params_adds_tag_id_and_family(self, apriltag_detection_item):
+    pobj = {}
+    detectionPolicy(pobj, apriltag_detection_item, 1280, 720)
+    assert pobj['category'] == 'apriltag'
+    assert pobj['tag_id'] == 101
+    assert pobj['tag_family'] == 'tag36h11'
+
+  def test_raw_tensor_extra_params_json_adds_tag_id_and_family(self, apriltag_detection_item_raw_tensor):
+    pobj = {}
+    detectionPolicy(pobj, apriltag_detection_item_raw_tensor, 1280, 720)
+    assert pobj['category'] == 'apriltag'
+    assert pobj['tag_id'] == 102
+    assert pobj['tag_family'] == 'tag36h11'
+
+  def test_non_apriltag_detection_has_no_tag_fields(self, valid_detection_item):
+    pobj = {}
+    detectionPolicy(pobj, valid_detection_item, 1280, 720)
+    assert 'tag_id' not in pobj
+    assert 'tag_family' not in pobj
 
 class TestDetection3DPolicyGuard:
 
