@@ -37,18 +37,18 @@ from controller.reid_env import (
 from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
                                       MINIMAL_CHUNKING_RATE_FPS,
                                       MAXIMAL_CHUNKING_RATE_FPS)
-from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
+from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_suspended_track_timeout_s
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
 # Ingest-failure errors are logged at most once per window for each publisher.
-FAILURE_RATE_LIMIT_WINDOW_SECS = 10
+FAILURE_RATE_LIMIT_WINDOW_S = 10
 
 
 class RateLimiter:
   """Allows an action at most once per window for each key."""
 
-  def __init__(self, window_secs, max_keys=1024):
-    self._window_secs = window_secs
+  def __init__(self, window_s, max_keys=1024):
+    self._window_s = window_s
     self._max_keys = max_keys
     # key -> [last allowed time, calls suppressed since then]
     self._entries = {}
@@ -59,7 +59,7 @@ class RateLimiter:
     now = time.monotonic()
     entry = self._entries.get(key)
     if entry is not None:
-      if now - entry[0] < self._window_secs:
+      if now - entry[0] < self._window_s:
         entry[1] += 1
         return False, 0
       suppressed = entry[1]
@@ -69,7 +69,7 @@ class RateLimiter:
       # Keys come from untrusted topics: bound the table by dropping expired
       # entries only, and reject new keys while every cooldown is still active.
       self._entries = {k: e for k, e in self._entries.items()
-                       if now - e[0] < self._window_secs}
+                       if now - e[0] < self._window_s}
       if len(self._entries) >= self._max_keys:
         return False, 0
     self._entries[key] = [now, 0]
@@ -194,7 +194,7 @@ class SceneController:
     if self.external_source_bindings:
       log.info("Loaded %s manual external-source bindings for %s publishers",
                EXTERNAL_SOURCE_BINDINGS_ENV_VAR, len(self.external_source_bindings))
-    self._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_SECS)
+    self._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_S)
     self._moving_object_queue = queue.Queue(maxsize=1000)
     self._moving_object_stop = threading.Event()
     self._moving_object_worker = threading.Thread(
@@ -217,7 +217,7 @@ class SceneController:
       self.tracker_config_data["effective_object_update_rate"] = self._extractTrackerRate(tracker_config, "effective_object_update_rate", EFFECTIVE_OBJECT_UPDATE_RATE)
       self._extractTimeChunkingEnabled(tracker_config)
       self.tracker_config_data["time_chunking_rate_fps"] = self._extractTrackerRate(tracker_config, "time_chunking_rate_fps", DEFAULT_CHUNKING_RATE_FPS, MINIMAL_CHUNKING_RATE_FPS, MAXIMAL_CHUNKING_RATE_FPS)
-      self.tracker_config_data["suspended_track_timeout_secs"] = tracker_config.get("suspended_track_timeout_secs", DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS)
+      self.tracker_config_data["suspended_track_timeout_s"] = tracker_config.get("suspended_track_timeout_s", DEFAULT_suspended_track_timeout_s)
 
       if "persist_attributes" in tracker_config:
         if isinstance(tracker_config["persist_attributes"], dict):

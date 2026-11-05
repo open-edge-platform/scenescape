@@ -17,14 +17,14 @@ from unittest.mock import patch, MagicMock
 
 from controller.child_scene_controller import ChildSceneController
 from controller.external_source import IdentityClaimRegistry
-from controller.scene_controller import (FAILURE_RATE_LIMIT_WINDOW_SECS, RateLimiter,
+from controller.scene_controller import (FAILURE_RATE_LIMIT_WINDOW_S, RateLimiter,
                                          SceneController)
 from scene_common.mqtt import PubSub
 
 
 def _set_failure_log_limiter(controller):
   """SceneController.__new__ skips __init__, so install the failure log limiter."""
-  controller._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_SECS)
+  controller._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_S)
   return controller
 
 
@@ -176,8 +176,8 @@ class TestSceneControllerExtractReidConfigData:
       'feature_accumulation_threshold': 8,
       'similarity_metric': 'L2',
       'similarity_threshold': 55,
-      'stale_feature_timeout_secs': 7.5,
-      'stale_feature_check_interval_secs': 2.0,
+      'stale_feature_timeout_s': 7.5,
+      'stale_feature_check_interval_s': 2.0,
       'minimum_bbox_area': 5000,
       'feature_slice_size': 10,
     }
@@ -1240,7 +1240,7 @@ class TestHandleMovingObjectExternal:
     controller = self._unknown_hierarchy_publisher()
 
     for window in range(3):
-      mock_time.monotonic.return_value = 1000.0 + window * FAILURE_RATE_LIMIT_WINDOW_SECS
+      mock_time.monotonic.return_value = 1000.0 + window * FAILURE_RATE_LIMIT_WINDOW_S
       self._send_hierarchy_messages(controller, 'does-not-exist', 20)
 
     controller.cache_manager.invalidate.assert_not_called()
@@ -1259,7 +1259,7 @@ class TestHandleMovingObjectExternal:
 
     mock_time.monotonic.return_value = 1000.0
     self._send_hierarchy_messages(controller, 'does-not-exist', 20)
-    mock_time.monotonic.return_value = 1000.0 + FAILURE_RATE_LIMIT_WINDOW_SECS
+    mock_time.monotonic.return_value = 1000.0 + FAILURE_RATE_LIMIT_WINDOW_S
     self._send_hierarchy_messages(controller, 'does-not-exist', 1)
 
     messages = [c.args[0] for c in mock_log.error.call_args_list]
@@ -1283,13 +1283,13 @@ class TestHandleMovingObjectExternal:
 
     mock_time.monotonic.return_value = 1000.0
     self._send_hierarchy_messages(controller, 'child-1', 20)
-    mock_time.monotonic.return_value = 1000.0 + FAILURE_RATE_LIMIT_WINDOW_SECS - 0.1
+    mock_time.monotonic.return_value = 1000.0 + FAILURE_RATE_LIMIT_WINDOW_S - 0.1
     self._send_hierarchy_messages(controller, 'child-1', 20)
 
     assert mock_log.error.call_count == 1
     controller.publishDetections.assert_not_called()
 
-    mock_time.monotonic.return_value = 1000.0 + FAILURE_RATE_LIMIT_WINDOW_SECS
+    mock_time.monotonic.return_value = 1000.0 + FAILURE_RATE_LIMIT_WINDOW_S
     self._send_hierarchy_messages(controller, 'child-1', 1)
 
     assert mock_log.error.call_count == 2

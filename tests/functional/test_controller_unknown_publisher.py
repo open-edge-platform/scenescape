@@ -37,7 +37,7 @@ FRAME_RATE = 10
 CAMERA_ID = "camera1"
 UNKNOWN_PUBLISHER_ID = "unknown-hierarchy-publisher"
 THING_TYPE = "person"
-# Longer than the Controller's FAILURE_RATE_LIMIT_WINDOW_SECS (10 s), so a
+# Longer than the Controller's FAILURE_RATE_LIMIT_WINDOW_S (10 s), so a
 # throttled (rather than skipped) invalidation would also show up.
 STREAM_S = 15
 
