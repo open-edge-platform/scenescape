@@ -21,7 +21,6 @@ Not ported (see design doc §5.1 / follow-up stories):
   - hierarchy will_enroll / empty-batch handoff (ADR 15)
   - persisted-attribute merge (``getPersistedAttributes``) and chain_data
   - the query-latency circuit breaker (``DEFAULT_MAX_QUERY_TIME``)
-  - purge scheduling and Controller metrics
 
 Writes are off unless ``write_enabled`` is True (shadow mode). In shadow mode
 the matcher queries and reports decisions but never calls ``addEntry``, so it
@@ -59,6 +58,7 @@ from reid.reid import (
   ReidPartialWriteError,
   ReidWriteSupersededError,
 )
+from reid import observability
 
 # Same defaults as controller.uuid_manager.
 DEFAULT_SIMILARITY_THRESHOLD_L2 = 40.0
@@ -138,6 +138,7 @@ class TrackObservation:
 
 @dataclass
 class _TrackState:
+  first_seen: Optional[float] = None
   quality: List[np.ndarray] = field(default_factory=list)
   observation_count: int = 0
   enrollment: List[np.ndarray] = field(default_factory=list)
@@ -377,7 +378,7 @@ class TrackMatcher:
           self._pending_since[obs.track_id] = self._pending_since.pop(previous)
         self.stats["tracks_renamed"] += 1
         return state
-    state = _TrackState()
+    state = _TrackState(first_seen=time.perf_counter())
     self._tracks[obs.track_id] = state
     self.stats["tracks_seen"] += 1
     return state
@@ -437,7 +438,7 @@ class TrackMatcher:
       _append_unique(entry["reid_vectors"], obs.embedding)
 
   def _runQuery(self, obs, state, vectors, metadata):
-    started = self.clock()
+    started = time.perf_counter()
     try:
       scores = self.adapter.findMatches(
         obs.category, vectors, k_neighbors=QUERY_K_NEIGHBORS, **metadata)
@@ -445,7 +446,9 @@ class TrackMatcher:
       log.error(f"[reid-ingest] findMatches failed for track {obs.track_id}: {err}")
       self.stats["query_errors"] += 1
       scores = []
-    query_secs = self.clock() - started
+    query_secs = time.perf_counter() - started
+    observability.record_backend_query_duration(
+      query_secs, self.adapter.__class__.__name__)
     self.stats["queries"] += 1
 
     gid, similarity, per_vector = self.parseQueryResults(scores)
@@ -466,6 +469,9 @@ class TrackMatcher:
     # majority vote: shows how close a no-match was.
     decision["best_score"], decision["best_gid"] = self._bestOverall(scores)
     decision["threshold"] = self.config.similarity_threshold
+    if state.first_seen is not None:
+      observability.record_decision_latency(
+        time.perf_counter() - state.first_seen, obs.category)
     if self.on_decision is not None:
       try:
         self.on_decision(decision)
@@ -657,7 +663,12 @@ class TrackMatcher:
     with self._write_lock:
       if epoch != self.write_epoch or not self.write_healthy:
         raise ReidWriteSupersededError(f"superseded ReID write for track {track_id}")
-      self.adapter.addEntry(gid, track_id, category, vectors, persist={}, **metadata)
+      started = time.perf_counter()
+      try:
+        self.adapter.addEntry(gid, track_id, category, vectors, persist={}, **metadata)
+      finally:
+        observability.record_backend_write_duration(
+          time.perf_counter() - started, self.adapter.__class__.__name__)
 
   def _onWriteComplete(self, future):
     if future.cancelled():
