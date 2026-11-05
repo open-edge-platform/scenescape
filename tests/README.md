@@ -166,6 +166,13 @@ make run_unit_tests
 
 ```
 
+Observation Processor cache and projection tests are part of the unit suite.
+They mock the frustum projection kernel so its behavior is covered by the
+library's own tests. `make run_unit_tests` generates the Observation Processor
+protobuf bindings with the test virtualenv for the duration of the pytest run.
+Existing generated bindings are restored, and newly generated files are removed
+afterward.
+
 ### Running tests via pytest directly
 
 Run from the **repository root**:

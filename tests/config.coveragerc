@@ -10,6 +10,7 @@ source =
     reid/src/reid
     cluster_analytics/src
     positioning/src
+    observation_processor/src
 omit =
     */.venv/*
     */site-packages/*
@@ -18,6 +19,7 @@ omit =
 # below are the units with main functions of services - no point to cover 
     reid/src/reid/server.py
     cluster_analytics/src/cluster_analytics.py
+    observation_processor/src/observation_processor/grpc_api/*
 
 [report]
 ignore_errors = True
