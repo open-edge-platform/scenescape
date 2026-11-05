@@ -19,6 +19,8 @@ secrets:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
+  positioning.auth:
+    file: ${SECRETSDIR}/positioning.auth
 
 services:
   web:
@@ -50,6 +52,7 @@ services:
       - "DBROOT=/workspace"
       - "SCENESCAPE_ALLOWED_HOSTS"
       - "SUPASS"
+      - "PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX"
       # Docker daemon may inject corporate proxies; import-scene calls the web
       # service over HTTPS and must bypass them for *.scenescape.intel.com.
       - "http_proxy=${http_proxy}"
@@ -73,6 +76,7 @@ services:
       - controller.auth
       - browser.auth
       - calibration.auth
+      - positioning.auth
     restart: on-failure
 
 volumes:

@@ -191,13 +191,14 @@ def _gateReidEmbedding(scene, aobj, minimum_bbox_area, will_enroll_reid, withhol
 
 def _reidVector(reid_embedding):
   if isinstance(reid_embedding, str):
-    # Tracker passes the detector's base64 float32 payload through unchanged.
+    # Legacy publishers may pass base64 float32 embeddings through unchanged.
     return np.frombuffer(base64.b64decode(reid_embedding), dtype=np.float32)
   return np.asarray(reid_embedding, dtype=np.float32).reshape(-1)
 
 def _addReid(obj_dict, scene, aobj, attach_reid_provenance, minimum_bbox_area,
              will_enroll_reid, withhold_reid, reid_enrolled_fn):
-  # Output reid in metadata structure.
+  # Scene Controller compatibility: carry embeddings into regulated/hierarchy output.
+  # Tracker supplies only reid_sighting to reid-service, leaving aobj.reid empty in Analytics.
   # embedding_vector is always a (1, N) ndarray after decodeReIDEmbeddingVector.
   if not (aobj.reid and 'embedding_vector' in aobj.reid):
     return
@@ -340,7 +341,8 @@ def computeCameraBounds(scene, aobj, obj_dict):
     # For non-source cameras (or source camera without pixel bbox), project
     # 3D/metric object state into each visible camera image plane.
     if bounds is None and scene:
-      camera = scene.cameraWithID(cameraID)
+      camera_lookup = getattr(scene, 'visibilityCameraWithID', scene.cameraWithID)
+      camera = camera_lookup(cameraID)
       if camera is None:
         log.debug(
           f"computeCameraBounds: camera {cameraID} not found in scene; cannot project bounds."

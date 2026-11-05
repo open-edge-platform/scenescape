@@ -37,7 +37,7 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 - Mark measurements with attribute `has_orientation=true` when the SceneScape detection carried detector `rotation` (`MovingObject.has_detection_rotation`).
 - On Kalman **correct**:
   - If `has_orientation`: unwrap and correct yaw as today (`deltaTheta`).
-  - Else: set measurement yaw to the **predicted** yaw (zero yaw innovation) so position/size still update.
+  - Else: leave yaw out of the update (reduced update without the yaw row) so position/size still update and yaw only predicts.
 
 ### Multi-sensor fuse in one time chunk
 
@@ -65,7 +65,7 @@ We need camera↔LiDAR co-observation without orientation flicker, without expan
 Detector yaw from **any** orienting modality can be π-ambiguous or temporarily frozen while XY motion is correct. At Kalman **correct**, when track speed ≥ 1 m/s:
 
 1. Choose `yaw` or `yaw+π` closest to velocity heading (front/back disambiguation).
-2. If the residual to velocity still exceeds ~0.6 rad, **drop the yaw observation for that frame** (same as a non-orienting sensor: zero yaw innovation). Position/size still update.
+2. If the residual to velocity still exceeds ~0.6 rad, **drop the yaw observation for that frame** (same as a non-orienting sensor: yaw left out of the update). Position/size still update.
 3. Do **not** re-fold with box-symmetric `deltaTheta` against a stale `previousYaw` after step 1 — that would undo velocity-aligned π flips.
 
 This lives in RobotVision (`prepareYawMeasurement`), not in modality-specific publishers. Publishers should forward detector rotation as-is.
@@ -102,13 +102,32 @@ flowchart LR
 - Tracks that never see an orienting sensor still rely on velocity heading (and hysteresis thresholds).
 - Pitch/roll remain display/default constants until a future ADR if 6-DOF measurements appear.
 - Sticky `orientation_observed` does not currently expire; a long camera-only gap after an orienting sensor still prefers Kalman yaw unless velocity heading disagrees while moving (publish fallback).
+- Without orienting detections the yaw variance keeps growing (fastest for standing objects, whose CTRV turn rate is unobserved), so the first orienting detection sets yaw almost directly.
 - Kinematic gate needs usable track velocity (≥ ~1 m/s); slow or stationary objects still accept detector yaw (including π ambiguity via `deltaTheta`).
 
 ## Implementation notes
 
-- C++: `OrientationAttributes.hpp` (`prepareYawMeasurement` kinematic gate), selective correct in `MultiModelKalmanEstimator`, `fuseGeometry` (position/size only) and `applyOrientingYaw` in `MultipleObjectTracker`, conditional Mahalanobis yaw in `ObjectMatching`.
+- C++:
+  - `OrientationAttributes.hpp` (`prepareYawMeasurement` kinematic gate), selective correct
+    in `MultiModelKalmanEstimator`, `fuseGeometry` (position/size only) and `applyOrientingYaw` in `MultipleObjectTracker`,
+    conditional Mahalanobis yaw in `ObjectMatching`.
+  - `tracker/src/message_handler.cpp::MessageHandler::parseCameraMessage`
+    enforces one geometry form per detection (`bounding_box_px` or
+    `translation` + `size`) and parses optional `[x, y, z, w]` rotation. A
+    zero-norm quaternion leaves rotation unset but keeps the detection.
+  - `tracker/src/coordinate_transformer.cpp::CoordinateTransformer::transformDetections`
+    projects pixel boxes or transforms sensor-frame XYZ with `pose_matrix_`,
+    and copies 3D `size` into the RobotVision measurement. Its
+    `applyDetectionRotation` helper normalizes the quaternion, composes
+    `camera_rotation_ * detection_rotation`, extracts world Z-yaw, and sets
+    `has_orientation`; zero norm does not discard the measurement.
+  - `tracker/src/tracking_worker.cpp::select_track_rotation`, called by
+    `convert_tracks`, publishes velocity heading when speed ≥ `rv::tracking::orientation::MIN_SPEED_FOR_YAW_GATE` and
+    the wrapped residual > `rv::tracking::orientation::MAX_YAW_VELOCITY_RESIDUAL`; otherwise Kalman yaw. Tracks without observed
+    orientation use the asset-controlled `rotation_from_velocity` fallback
+    (with hysteresis), or identity when disabled.
 - Python: `IntelLabsTracking.to_rv_object` / `from_tracked_object` in `controller/ilabs_tracking.py` (unified ~0.6 rad publish disagreement for all linked sensors).
-- Tests: `OrientationFusionTests.cpp`, `tests/sscape_tests/scenescape/test_ilabs_tracking.py`.
+- Tests: `OrientationFusionTests.cpp`, `test_mqtt.py`, `tracking_worker_test.cpp`, `coordinate_transformer_test.cpp`, `tests/sscape_tests/scenescape/test_ilabs_tracking.py`.
 - Publishers (LiDAR demo, external sources, etc.) forward detector rotation without modality-specific yaw smoothing.
 
 ## References

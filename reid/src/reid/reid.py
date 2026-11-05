@@ -64,7 +64,13 @@ class ReIDDatabase(ABC):
     self._schema_lock = threading.Lock()
     self._schema_ready = False
     self._schema_metric = None
+    self.raise_on_backend_error = False
     return
+
+  def _backendFailure(self):
+    """Report failures to network callers without changing legacy adapter behavior."""
+    if self.raise_on_backend_error:
+      raise ConnectionError("ReID backend operation failed")
 
   def _resolveSetName(self, set_name=None):
     """Resolve an optional set_name override to the adapter's configured set."""
@@ -190,11 +196,7 @@ class ReIDDatabase(ABC):
 
   def _buildEntryProperties(self, uuid_value, rvid, object_type, persist=None, **metadata):
     """Build shared entry properties with reserved-key protection and retention."""
-    properties = {
-      "uuid": f"{uuid_value}",
-      "rvid": f"{rvid}",
-      "type": f"{object_type}",
-    }
+    properties = self._baseEntryProperties(uuid_value, rvid, object_type)
     self._applyRetentionProperties(properties)
 
     if persist:
@@ -225,6 +227,17 @@ class ReIDDatabase(ABC):
       else:
         properties[key] = str(value)
 
+    return properties
+
+  @staticmethod
+  def _baseEntryProperties(uuid_value, rvid, object_type):
+    """Build identity fields while allowing non-Tracker records to omit rvid."""
+    properties = {
+      "uuid": f"{uuid_value}",
+      "type": f"{object_type}",
+    }
+    if rvid is not None:
+      properties["rvid"] = f"{rvid}"
     return properties
 
   def _applyRetentionProperties(self, properties):

@@ -14,7 +14,11 @@ include(GNUInstallDirs)
 include(cmake/security_options.cmake)  # Create security hardening target
 include(cmake/opencv.cmake)            # Find and normalize OpenCV target
 
-set(RV_CXX_STANDARD 17 CACHE STRING "C++ standard for RobotVision targets")
+set(RV_CXX_STANDARD 20 CACHE STRING "C++ standard for RobotVision targets")
+# Directory scope: applies to the library, Python bindings, tests and benchmarks.
+set(CMAKE_CXX_STANDARD ${RV_CXX_STANDARD})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 option(BUILD_PYTHON_BINDINGS "Build Python bindings with pybind11" ON)
 option(BUILD_TESTING "Build tests" OFF)
@@ -49,6 +53,7 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/TrackManager.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/Classification.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/MultipleObjectTracker.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/MetadataFusion.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/TrackTracker.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/tracking/CameraUtils.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/rv/apollo/connected_component_analysis.cpp
@@ -70,9 +75,6 @@ target_link_libraries(${PROJECT_NAME}
   PRIVATE
     scenescape::security_options
 )
-
-set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD ${RV_CXX_STANDARD})
-set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
 
 #####################################################################
 # Python bindings
