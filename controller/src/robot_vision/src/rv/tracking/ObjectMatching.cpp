@@ -35,18 +35,33 @@ double calculateEuclideanDistance(const TrackedObject &measurement, const Tracke
 
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  TrackedObject::MeasurementVector innovation = measurement.measurementVector() - track.predictedMeasurementMean;
+  const TrackedObject::MeasurementVector innovation
+    = measurement.measurementVector() - track.predictedMeasurementMean;
 
   // Use yaw in the gate only when both sides have orientation. Camera detections
-  // and tracks that have never seen an orienting sensor leave yaw out.
-  if (!(orientation::hasOrientation(measurement) && orientation::orientationObserved(track)))
+  // and tracks that have never seen an orienting sensor leave yaw out — same
+  // observed-row subset as the partial UKF update (inv of S without yaw), not
+  // zeroing ν_yaw inside ν' S^-1 ν which still couples through off-diagonal S^-1.
+  if (orientation::hasOrientation(measurement) && orientation::orientationObserved(track))
   {
-    innovation(6) = 0.;
+    const double squaredDistance = innovation.dot(track.predictedMeasurementCovInv * innovation);
+    return 0.5 * std::sqrt(squaredDistance);
   }
 
-  // innovation' * S^-1 * innovation
-  const double squaredDistance = innovation.dot(track.predictedMeasurementCovInv * innovation);
-
+  constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
+  cv::Matx<double, kWithoutYaw, 1> reducedInnovation;
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovariance;
+  for (int i = 0; i < kWithoutYaw; ++i)
+  {
+    reducedInnovation(i) = innovation(i);
+    for (int j = 0; j < kWithoutYaw; ++j)
+    {
+      reducedCovariance(i, j) = track.predictedMeasurementCov(i, j);
+    }
+  }
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovarianceInv;
+  cv::invert(reducedCovariance, reducedCovarianceInv, cv::DECOMP_SVD);
+  const double squaredDistance = reducedInnovation.dot(reducedCovarianceInv * reducedInnovation);
   return 0.5 * std::sqrt(squaredDistance);
 }
 

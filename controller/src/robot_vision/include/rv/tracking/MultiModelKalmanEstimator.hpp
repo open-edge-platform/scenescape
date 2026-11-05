@@ -143,11 +143,15 @@ private:
                           std::vector<cv::Mat> &stateEstimates);
 
   /**
-   * @brief Updates the Model Probability to be used in the correction step
+   * @brief Updates the Model Probability to be used in the correction step.
+   *
+   * measurement / predictedMeasurements / measurementNoiseCovariance are full-size owning mats;
+   * observedRows selects the components used in the likelihood (views only for this call).
    */
   static void updateModelProbability(cv::Mat const &measurement,
                                      std::vector<cv::Mat> const &predictedMeasurements,
                                      std::vector<cv::Mat> const &measurementNoiseCovariance,
+                                     const std::vector<int> &observedRows,
                                      cv::Mat &modelProbability,
                                      double maxProbability,
                                      double minProbability);
