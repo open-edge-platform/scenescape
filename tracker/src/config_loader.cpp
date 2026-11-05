@@ -6,6 +6,7 @@
 #include "env_vars.hpp"
 #include "json_utils.hpp"
 
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <optional>
@@ -430,7 +431,7 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               [](const std::string& v, const std::string& s) {
                   try {
                       double probability = std::stod(v);
-                      if (probability <= 0.0 || probability > 1.0) {
+                      if (!std::isfinite(probability) || probability <= 0.0 || probability > 1.0) {
                           throw std::runtime_error(s + " must be in (0, 1]: " + v);
                       }
                       return probability;
@@ -441,7 +442,13 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                   }
               });
     apply_env(association_max_radius_m, tracker::env::ASSOCIATION_MAX_RADIUS_M,
-              parse_positive_double);
+              [&parse_positive_double](const std::string& v, const std::string& s) {
+                  double radius = parse_positive_double(v, s);
+                  if (!std::isfinite(radius)) {
+                      throw std::runtime_error(s + " must be finite: " + v);
+                  }
+                  return radius;
+              });
     config.tracking.association.max_radius_m =
         association_max_radius_m.value_or(defaultMaxRadiusM(config.tracking.association.method));
 
