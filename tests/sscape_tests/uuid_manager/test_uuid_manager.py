@@ -27,6 +27,8 @@ from controller.moving_object import MovingObject, ReidState, Chronoloc
 from scene_common.geometry import Point, Rectangle
 import time
 
+pytestmark = pytest.mark.usefixtures("shutdown_uuid_managers")
+
 def call_update_active_dict_locked(manager, sscape_object, database_id, similarity,
                                    query_timestamp=None, query_vector_scores=None):
   """Call updateActiveDict while holding active_ids_lock, matching production call pattern."""
