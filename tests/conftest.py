@@ -60,9 +60,25 @@ _reid_src = _REPO_ROOT / "reid" / "src"
 if str(_reid_src) not in sys.path:
   sys.path.insert(0, str(_reid_src))
 
+_positioning_src = _REPO_ROOT / "positioning" / "src"
+if str(_positioning_src) not in sys.path:
+  sys.path.insert(0, str(_positioning_src))
+
+_scene_common_src = _REPO_ROOT / "scene_common" / "src"
+if str(_scene_common_src) not in sys.path:
+  sys.path.insert(0, str(_scene_common_src))
+
 _analytics_src = _REPO_ROOT / "analytics" / "src"
 if str(_analytics_src) not in sys.path:
   sys.path.insert(0, str(_analytics_src))
+
+_autocalibration_src = _REPO_ROOT / "autocalibration" / "src"
+if str(_autocalibration_src) not in sys.path:
+  sys.path.insert(0, str(_autocalibration_src))
+
+_autocalibration_hloc = _REPO_ROOT / "autocalibration" / ".vendor" / "reloc"
+if str(_autocalibration_hloc) not in sys.path:
+  sys.path.insert(0, str(_autocalibration_hloc))
 
 # ---------------------------------------------------------------------------
 # Environmental dependencies (host-only)
@@ -680,6 +696,7 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
     f"VISIBILITY={visibility_topic}\n"
     f"VISIBILITY_TOPIC={visibility_topic}\n"
     f"EXPOSE_TEST_HOOKS=true\n"
+    f"PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX={os.environ.get('PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX', '10')}\n"
   )
   # Only set DLSTREAMER_VERSION when detected; omitting lets compose defaults apply.
   if dlstreamer_version:
