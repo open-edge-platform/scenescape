@@ -93,9 +93,18 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
                   &rv::tracking::TrackedObject::getVectorXf,
                   &rv::tracking::TrackedObject::setVectorXf,
                   py::return_value_policy::take_ownership, "Returns this object's state vector as numpy array.")
-    .def_readwrite("measurement_mean", &rv::tracking::TrackedObject::predictedMeasurementMean, "Returns this object's measurement vector as numpy array.")
-    .def_readwrite("measurement_covariance", &rv::tracking::TrackedObject::predictedMeasurementCov, "Measurement covariance matrix, convert to numpy using np.array(tracked_object.measurement_covariance).")
-    .def_readwrite("error_covariance", &rv::tracking::TrackedObject::errorCovariance, "Error covariance matrix, convert to numpy using np.array(tracked_object.error_covariance).")
+    .def_property("measurement_mean",
+                  [](const rv::tracking::TrackedObject &object) { return cv::Mat(object.predictedMeasurementMean); },
+                  [](rv::tracking::TrackedObject &object, const cv::Mat &mean) { object.predictedMeasurementMean = mean; },
+                  "Copy of this object's predicted measurement vector, convert to numpy using np.array(tracked_object.measurement_mean).")
+    .def_property("measurement_covariance",
+                  [](const rv::tracking::TrackedObject &object) { return cv::Mat(object.predictedMeasurementCov); },
+                  [](rv::tracking::TrackedObject &object, const cv::Mat &covariance) { object.predictedMeasurementCov = covariance; },
+                  "Copy of the measurement covariance matrix, convert to numpy using np.array(tracked_object.measurement_covariance).")
+    .def_property("error_covariance",
+                  [](const rv::tracking::TrackedObject &object) { return cv::Mat(object.errorCovariance); },
+                  [](rv::tracking::TrackedObject &object, const cv::Mat &covariance) { object.errorCovariance = covariance; },
+                  "Copy of the error covariance matrix, convert to numpy using np.array(tracked_object.error_covariance).")
     .def("__repr__", &rv::tracking::TrackedObject::toString, "String representation.");
 
 
@@ -107,7 +116,9 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     py::arg("beta") = 1.0)
     .def("initialize",
         &rv::tracking::MultiModelKalmanEstimator::initialize,
-         "Initialize the MultiModelKalmanEstimator with the given tracked object.",
+         "Initialize the MultiModelKalmanEstimator with the given tracked object. process_noise, measurement_noise and "
+         "init_state_covariance mean the same as default_process_noise, default_measurement_noise and "
+         "init_state_covariance of TrackManagerConfig.",
          py::arg("tracked_object"),
          py::arg("timestamp"),
          py::arg("process_noise") = 1e-6,
@@ -161,6 +172,11 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .value("CTRV", rv::tracking::MotionModel::CTRV, "Constant Turn-Rate and Velocity.")
     .export_values();
 
+  tracking.attr("PRODUCTION_PROCESS_NOISE") = rv::tracking::kProductionProcessNoise;
+  tracking.attr("PRODUCTION_MEASUREMENT_NOISE") = rv::tracking::kProductionMeasurementNoise;
+  tracking.attr("PRODUCTION_INIT_STATE_COVARIANCE") = rv::tracking::kProductionInitStateCovariance;
+  tracking.attr("PRODUCTION_MOTION_MODELS") = py::tuple(py::cast(rv::tracking::kProductionMotionModels));
+
   py::enum_<rv::tracking::DistanceType>(tracking, "DistanceType", "DistanceType enum class.")
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
      "Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
@@ -189,11 +205,16 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def_readwrite("max_unreliable_time", &rv::tracking::TrackManagerConfig::mMaxUnreliableTime,
      "Amount of time (seconds) to measure an object before considering it a reliable object.")
     .def_readwrite("default_process_noise", &rv::tracking::TrackManagerConfig::mDefaultProcessNoise,
-     "Default process noise passed to the KalmanEstimator init function.")
+     "Process noise scale q (production: PRODUCTION_PROCESS_NOISE). Sets the velocity noise along and across the motion, "
+     "the CA acceleration and CTRV turn-rate noise, scaled by the time step; no direct position or size noise. Every q up "
+     "to 1e-6 gives the same velocity and turn-rate noise, and 0 does not turn it off. See 'Kalman filter settings' in the "
+     "robot_vision README.")
     .def_readwrite("default_measurement_noise", &rv::tracking::TrackManagerConfig::mDefaultMeasurementNoise,
-     "Default measurement noise passed to the KalmanEstimator init function.")
+     "Measurement noise r (production: PRODUCTION_MEASUREMENT_NOISE): r * I on x, y, z, length, width, height and yaw, "
+     "and the initial variance of position and size.")
     .def_readwrite("init_state_covariance", &rv::tracking::TrackManagerConfig::mInitStateCovariance,
-     "Default init state covariance passed to the KalmanEstimator init function.")
+     "Initial velocity variance; also the upper bound on the initial variance of acceleration (0.1), yaw (0.05) and yaw "
+     "rate (0.01) (production: PRODUCTION_INIT_STATE_COVARIANCE).")
     .def_readwrite("motion_models", &rv::tracking::TrackManagerConfig::mMotionModels,
      "List of motion models to use. It defaults to [CV, CA, CTRV]")
      .def_readwrite("suspended_track_timeout_secs", &rv::tracking::TrackManagerConfig::mSuspendedTrackMaxAgeSecs,
@@ -243,14 +264,6 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
      .def("get_drifting_tracks",
           &rv::tracking::TrackManager::getDriftingTracks,
           "Returns a list of tracks in risk of being deleted. Objects that have not been visible for config.non_measurement_frames_dynamic / 2.")
-     .def("get_track",
-          &rv::tracking::TrackManager::getTrack,
-          "Returns the TrackedObject stored for the given id.",
-          py::arg("id"))
-     .def("get_kalman_estimator",
-          &rv::tracking::TrackManager::getKalmanEstimator,
-          "Returns the MultiModelKalmanEstimator  stored for the given id.",
-          py::arg("id"))
      .def("has_id",
          &rv::tracking::TrackManager::hasId,
          "Check wether the given Id is registered in the track manager.",
