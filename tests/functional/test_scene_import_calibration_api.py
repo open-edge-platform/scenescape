@@ -32,12 +32,15 @@ SCENESCAPE_SPEC = FuncTestSpec(
 TEST_NAME = "scene-import-calibration"
 ARCHIVE = "tests/ui/test_media/Retail-import.zip"
 TOLERANCE = 1e-6
+# Default timeout is 10s
+IMPORT_TIMEOUT = 30
 
 
 class SceneImportCalibration(FunctionalTest):
   def __init__(self, request, repo_root):
     super().__init__(TEST_NAME, request, None)
-    self.rest = RESTClient(self.params["resturl"], rootcert=self.params["rootcert"])
+    self.rest = RESTClient(self.params["resturl"], rootcert=self.params["rootcert"],
+                           timeout=IMPORT_TIMEOUT)
     assert self.rest.authenticate(self.params["user"], self.params["password"])
     self.zipPath = os.path.join(repo_root, ARCHIVE)
     with zipfile.ZipFile(self.zipPath, "r") as archive:
@@ -95,6 +98,30 @@ class SceneImportCalibration(FunctionalTest):
         f"{name}: intrinsics[{key}] differs from export"
     assert camera.get("resolution") == expected["resolution"], \
       f"{name}: resolution differs"
+
+  def removeImportedObjects(self):
+    """Delete the archive's scene, cameras and sensors and confirm they are gone."""
+    lookups = [(self.rest.getScenes, self.rest.deleteScene, self.sceneData["name"])]
+    lookups += [(self.rest.getCameras, self.rest.deleteCamera, name)
+                for name in self.archiveCams]
+    lookups += [(self.rest.getSensors, self.rest.deleteSensor, sensor["name"])
+                for sensor in self.sceneData.get("sensors", [])]
+    for getter, deleter, name in lookups:
+      for obj in getter({"name": name}).get("results", []):
+        deleter(obj["uid"])
+    leftovers = [name for getter, _, name in lookups
+                 if getter({"name": name}).get("results")]
+    assert not leftovers, f"Could not remove imported objects: {leftovers}"
+    return
+
+
+@pytest.fixture(autouse=True)
+def imported_objects_removed(scenescape_env, request, repo_root):
+  """Remove the archive's scene, cameras and sensors before and after each test."""
+  test = SceneImportCalibration(request, repo_root)
+  test.removeImportedObjects()
+  yield
+  test.removeImportedObjects()
 
 
 @pytest.mark.test_name("NEX-T31112")

@@ -18,7 +18,7 @@ SCENESCAPE_SPEC = FuncTestSpec(
 )
 
 @pytest.mark.test_name("NEX-T10401")
-def test_sensor_area_main(params, result_recorder):
+def test_sensor_area_main(demo_scene, params, result_recorder):
   """! Checks that a sensor covering the entire scene, a circular area, and a
   triangular area can each be calibrated.
   @param    params                  Dict of test parameters.
