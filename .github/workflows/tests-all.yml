@@ -106,7 +106,7 @@ jobs:
     name: "Non-Functional Tests"
     permissions:
       packages: write # For using GHCR as cache registry
-    timeout-minutes: 80
+    timeout-minutes: 60
     steps:
       - name: "Pre-clean workspace"
         run: |

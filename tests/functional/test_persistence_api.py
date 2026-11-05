@@ -104,35 +104,36 @@ def test_persistence_on_page_navigate_api(params, rest, result_recorder):
   # Clean up any existing artifacts so the test is deterministic
   _cleanup_test_artifacts(rest)
 
-  scene_uid = _create_scene_with_camera(rest)
+  try:
+    scene_uid = _create_scene_with_camera(rest)
 
-  # Validate scene persistence
-  scenes = rest.getScenes({"name": sceneName}).get("results", [])
-  assert scenes, f"Scene '{sceneName}' not found after camera creation"
-  scene = scenes[0]
-  assert scene["name"] == sceneName
-  assert scene["scale"] == 1000
-  assert "map" in scene
+    # Validate scene persistence
+    scenes = rest.getScenes({"name": sceneName}).get("results", [])
+    assert scenes, f"Scene '{sceneName}' not found after camera creation"
+    scene = scenes[0]
+    assert scene["name"] == sceneName
+    assert scene["scale"] == 1000
+    assert "map" in scene
 
-  # Validate camera persistence
-  cameras = rest.getCameras({"name": CAMERA_NAME}).get("results", [])
-  assert cameras, (
-    f"Expected at least one camera named '{CAMERA_NAME}' "
-    f"for scene '{sceneName}', but none were found"
-  )
-  cam = cameras[0]
-  assert cam.get("name") == CAMERA_NAME, \
-    f"Camera name mismatch: expected '{CAMERA_NAME}', got '{cam.get('name')}'"
-  if "scene" in cam:
-    assert cam["scene"] == scene_uid, \
-      f"Camera '{CAMERA_NAME}' is not linked to scene '{sceneName}'"
+    # Validate camera persistence
+    cameras = rest.getCameras({"name": CAMERA_NAME}).get("results", [])
+    assert cameras, (
+      f"Expected at least one camera named '{CAMERA_NAME}' "
+      f"for scene '{sceneName}', but none were found"
+    )
+    cam = cameras[0]
+    assert cam.get("name") == CAMERA_NAME, \
+      f"Camera name mismatch: expected '{CAMERA_NAME}', got '{cam.get('name')}'"
+    if "scene" in cam:
+      assert cam["scene"] == scene_uid, \
+        f"Camera '{CAMERA_NAME}' is not linked to scene '{sceneName}'"
 
-  log.info(
-    "Scene and camera persist on page navigation: "
-    f"scene='{sceneName}', camera name='{CAMERA_NAME}'"
-  )
-
-  _cleanup_test_artifacts(rest)
+    log.info(
+      "Scene and camera persist on page navigation: "
+      f"scene='{sceneName}', camera name='{CAMERA_NAME}'"
+    )
+  finally:
+    _cleanup_test_artifacts(rest)
 
   result_recorder.success()
 
@@ -145,9 +146,17 @@ def test_persistence_on_restart_api(params, rest, scenescape_env, result_recorde
 
   @param    params                  Dict of test parameters.
   """
-  sceneName = SCENE_NAME
-
   _cleanup_test_artifacts(rest)
+  try:
+    _verify_persistence_on_restart(params, rest, scenescape_env)
+  finally:
+    _cleanup_test_artifacts(rest)
+
+  result_recorder.success()
+
+
+def _verify_persistence_on_restart(params, rest, scenescape_env):
+  sceneName = SCENE_NAME
   expected_scene_uid = _create_scene_with_camera(rest)
 
   log.info("Restarting manager (web) service to verify database persistence...")
@@ -199,8 +208,3 @@ def test_persistence_on_restart_api(params, rest, scenescape_env, result_recorde
     "Scene and camera persist after restart: "
     f"scene='{sceneName}', camera name='{CAMERA_NAME}'"
   )
-
-  # Cleanup so subsequent runs start clean
-  _cleanup_test_artifacts(rest)
-
-  result_recorder.success()

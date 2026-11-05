@@ -228,3 +228,4 @@ def wait_for_tracker_ready(params, scene_uid, camera_id="camera1",
       pubsub.removeCallback(wait_topic)
     finally:
       pubsub.loopStop()
+      pubsub.disconnect()

@@ -23,6 +23,19 @@ CAMERA_NAME = "camtest1"
 SCALE = 1000
 
 
+def _cleanup_test_artifacts(browser):
+  """Remove leftover scene/camera so the test is deterministic."""
+  try:
+    common.navigate_to_scene(browser, SCENE_NAME)
+    common.delete_scene(browser, SCENE_NAME)
+  except Exception:
+    pass
+  try:
+    common.delete_camera(browser, CAMERA_NAME)
+  except Exception:
+    pass
+
+
 @pytest.mark.test_name("NEX-T29234")
 def test_persistence_on_page_navigate(demo_scene, params, result_recorder):
   """! Checks that a scene can be created and a camera added.
@@ -33,19 +46,7 @@ def test_persistence_on_page_navigate(demo_scene, params, result_recorder):
     assert common.check_page_login(browser, params)
     assert common.check_db_status(browser)
 
-    def _cleanup_test_artifacts():
-      """Remove leftover scene/camera so the test is deterministic."""
-      try:
-        common.navigate_to_scene(browser, SCENE_NAME)
-        common.delete_scene(browser, SCENE_NAME)
-      except Exception:
-        pass
-      try:
-        common.delete_camera(browser, CAMERA_NAME)
-      except Exception:
-        pass
-
-    _cleanup_test_artifacts()
+    _cleanup_test_artifacts(browser)
 
     sensor_count_loc = "[name='" + SCENE_NAME + "'] .sensor-count"
     log.info("Creating Scene " + SCENE_NAME)
@@ -64,11 +65,12 @@ def test_persistence_on_page_navigate(demo_scene, params, result_recorder):
     assert common.validate_scene_data(browser, SCENE_NAME, SCALE, map_image)
     log.info("Scene data persist on page navigation")
 
-    _cleanup_test_artifacts()
-
     result_recorder.success()
   finally:
-    browser.close()
+    try:
+      _cleanup_test_artifacts(browser)
+    finally:
+      browser.close()
 
 
 _RESTART_LOGIN_TIMEOUT = 120
@@ -88,19 +90,7 @@ def test_persistence_on_restart(demo_scene, params, scenescape_env, result_recor
     assert common.check_page_login(browser, params)
     assert common.check_db_status(browser)
 
-    def _cleanup_test_artifacts():
-      """Remove leftover scene/camera so the test is deterministic."""
-      try:
-        common.navigate_to_scene(browser, SCENE_NAME)
-        common.delete_scene(browser, SCENE_NAME)
-      except Exception:
-        pass
-      try:
-        common.delete_camera(browser, CAMERA_NAME)
-      except Exception:
-        pass
-
-    _cleanup_test_artifacts()
+    _cleanup_test_artifacts(browser)
 
     sensor_count_loc = "[name='" + SCENE_NAME + "'] .sensor-count"
     map_image = os.path.join(common.TEST_MEDIA_PATH, "HazardZoneScene.png")
@@ -144,9 +134,14 @@ def test_persistence_on_restart(demo_scene, params, scenescape_env, result_recor
     assert common.validate_scene_data(browser, SCENE_NAME, SCALE, map_image)
     log.info("Scene data persist on manager restart")
 
-    _cleanup_test_artifacts()
-
     result_recorder.success()
   finally:
-    if browser is not None:
-      browser.close()
+    try:
+      if browser is None:
+        # The browser was closed for the restart; log in again to clean up.
+        browser = Browser()
+        common.check_page_login(browser, params)
+      _cleanup_test_artifacts(browser)
+    finally:
+      if browser is not None:
+        browser.close()

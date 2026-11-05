@@ -27,6 +27,7 @@ import threading
 import time
 import uuid
 from dataclasses import dataclass
+from http import HTTPStatus
 from pathlib import Path
 
 import pytest
@@ -1272,6 +1273,11 @@ def _rest_results(getter, filter_params):
   return _try_rest_results(getter, filter_params)[1]
 
 
+def _deleted(result):
+  """True when a REST delete succeeded or the test already deleted the object."""
+  return bool(result) or getattr(result, 'statusCode', None) == HTTPStatus.NOT_FOUND
+
+
 def _wait_for_scene(rest, uid, timeout=_SCENE_READY_TIMEOUT):
   """Block until scene *uid* is readable over REST.
 
@@ -1573,7 +1579,7 @@ def scene_factory(params):
         relinked = _await_database(
           watcher,
           lambda uid=uid: rest.updateCamera(
-            uid, {'scene': previous['scene']}),
+            uid, {'scene': previous.get('scene')}),
           f"returning camera '{camera}'")
         if not relinked:
           teardown_failures.append(f"Failed to relink camera '{camera}' ({uid})")
@@ -1602,7 +1608,7 @@ def scene_factory(params):
           watcher,
           lambda uid=uid: rest.deleteCamera(uid),
           f"deleting camera {uid}")
-        if not deleted_cameras:
+        if not _deleted(deleted_cameras):
           teardown_failures.append(f"Failed to delete camera {uid}")
       except Exception as exc:
         teardown_failures.append(f"Exception deleting camera {uid}: {exc}")
@@ -1620,7 +1626,7 @@ def scene_factory(params):
             lambda sensor_uid=sensor_uid: rest.deleteSensor(sensor_uid),
             f"deleting sensor {sensor_uid}")
 
-          if not deleted:
+          if not _deleted(deleted):
             teardown_failures.append(f"Failed to delete sensor {sensor_uid}")
       except Exception as exc:
         teardown_failures.append(f"Exception deleting sensors for scene {uid}: {exc}")
@@ -1630,7 +1636,7 @@ def scene_factory(params):
           watcher,
           lambda uid=uid: rest.deleteScene(uid),
           f"deleting scene {uid}")
-        if not deleted_scenes:
+        if not _deleted(deleted_scenes):
           teardown_failures.append(f"Failed to delete scene {uid}")
       except Exception as exc:
         teardown_failures.append(f"Exception deleting scene {uid}: {exc}")
@@ -1685,10 +1691,9 @@ def demo_scene(request, scene_factory, params, monkeypatch):
 
   if not wait_for_tracker_ready(
     params, uid, camera_id=DEMO_SCENE_CAMERAS[0]):
-    logger.error(
-      "Tracker for scene '%s' (%s) did not confirm readiness.",
-      uid,
-      params['scene_name'])
+    pytest.fail(
+      f"Tracker for scene '{params['scene_name']}' ({uid}) did not confirm "
+      "readiness")
 
   monkeypatch.setattr(request.config.option, "scene_id", uid)
 
