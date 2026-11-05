@@ -2,11 +2,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
+import json
 import os
+from uuid import UUID
 
 from django.contrib.auth import authenticate
 from django.contrib.auth.hashers import make_password
 from django.contrib.auth.models import User
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.conf import settings
 from django.core.files import File
 from django.db import transaction
 
@@ -14,9 +18,11 @@ from rest_framework import serializers
 from rest_framework.authtoken.models import Token
 from scipy.spatial.transform import Rotation
 
+from manager.validators import validate_scene_name
 from manager.models import Asset3D, Cam, ChildScene, Region, RegionPoint, Scene, \
   SingletonAreaPoint, SingletonSensor, Tripwire, TripwirePoint, PubSubACL, \
   RegionOccupancyThreshold, SingletonScalarThreshold, CalibrationMarker, SceneImport
+from manager.ptz_calibration import PTZCalibrationError, validate_ptz_calibration
 from scene_common.options import *
 from scene_common.timestamp import DATETIME_FORMAT
 from scene_common.transform import CameraPose, CameraIntrinsics
@@ -271,32 +277,62 @@ class SingletonSerializer(NonNullSerializer):
 
 class CamSerializer(NonNullSerializer):
   name = serializers.CharField(max_length=150)
-  sensor_id = serializers.CharField(write_only=True, required=False)
+  sensor_id = serializers.CharField(write_only=True, required=False, max_length=20)
   uid = serializers.CharField(source="sensor_id", read_only=True)
   intrinsics = serializers.SerializerMethodField('get_intrinsics')
   distortion = serializers.SerializerMethodField('get_distortion')
   translation = serializers.SerializerMethodField('get_translation')
   rotation = serializers.SerializerMethodField('get_rotation')
+  pose_matrix = serializers.SerializerMethodField('get_pose_matrix')
   scale = serializers.SerializerMethodField('get_scale')
   resolution = serializers.SerializerMethodField('get_resolution')
   transforms = serializers.SerializerMethodField('get_transform')
   scene = serializers.CharField(source="scene.pk", allow_null=True, required=False)
   transform_type = serializers.SerializerMethodField('get_transform_type')
+  ptz_calibration = serializers.JSONField(required=False, allow_null=True)
+
+  @staticmethod
+  def camera_id_topic_error(value):
+    if not isinstance(value, str) or not value:
+      return "must be a non-empty MQTT topic segment."
+    if len(value) > 20:
+      return "must contain no more than 20 characters."
+    if any(character in value for character in ('/', '+', '#', '\x00')):
+      return "must be a single MQTT topic segment without '/', '+', '#', or NUL."
+    return None
+
+  def validate_sensor_id(self, value):
+    error = self.camera_id_topic_error(value)
+    if error:
+      raise serializers.ValidationError(error)
+    return value
+
+  def validate_ptz_calibration(self, value):
+    if value is None:
+      return None
+    try:
+      return validate_ptz_calibration(
+        value, getattr(settings, 'PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX', None))
+    except PTZCalibrationError as error:
+      raise serializers.ValidationError(f"{error.path}: {error.code}", code=error.code)
 
   def validate_name(self, value):
-    if not self.instance:
-      qs = Cam.objects.filter(name=value)
+    if self.instance is None and 'sensor_id' not in self.initial_data:
+      error = self.camera_id_topic_error(value.replace(" ", "_"))
+      if error:
+        raise serializers.ValidationError(error)
 
-      if self.instance:
-        qs = qs.exclude(pk=self.instance.pk)
+    if self.instance:
+      return value
 
-      if qs.exists():
-        cam = qs.first()
-        if hasattr(cam, 'scene') and cam.scene is not None:
-          raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
-        else:
-          raise serializers.ValidationError(f"orphaned camera with the name '{value}' already exists.")
-    return value
+    qs = Cam.objects.filter(name=value)
+    if not qs.exists():
+      return value
+
+    cam = qs.first()
+    if hasattr(cam, 'scene') and cam.scene is not None:
+      raise serializers.ValidationError(f"A camera with the name '{value}' already exists.")
+    raise serializers.ValidationError(f"orphaned camera with the name '{value}' already exists.")
 
   def create_update(self, validated_data, instance=None):
     is_update = instance is not None
@@ -495,6 +531,17 @@ class CamSerializer(NonNullSerializer):
     return getattr(camera.pose, 'euler_rotation', None) \
       if camera and hasattr(camera, 'pose') else None
 
+  def get_pose_matrix(self, obj):
+    if not obj.scene:
+      return None
+
+    self.create_camera_instance(obj)
+
+    camera = obj.scene.scenescapeScene.cameraWithID(obj.sensor_id)
+    pose_mat = getattr(camera.pose, 'pose_mat', None) \
+      if camera and hasattr(camera, 'pose') else None
+    return pose_mat.tolist() if pose_mat is not None else None
+
   def get_transform(self, obj):
     if not obj.scene:
       return None
@@ -650,6 +697,11 @@ class SceneSerializer(NonNullSerializer):
     return super().validate(attrs)
 
   def validate_name(self, value):
+    try:
+      validate_scene_name(value)
+    except DjangoValidationError as e:
+      raise serializers.ValidationError(e.message)
+
     qs = Scene.objects.filter(name=value)
 
     if self.instance:
@@ -1153,6 +1205,20 @@ class CalibrationMarkerSerializer(NonNullSerializer):
 
 class SceneImportSerializer(serializers.Serializer):
   zipFile = serializers.FileField()
+  restore_ids = serializers.BooleanField(default=False)
+  reuse_existing = serializers.BooleanField(default=False)
+  remote_credentials = serializers.FileField(required=False, write_only=True)
+
+  def validate_remote_credentials(self, value):
+    if value.size > 1024 * 1024:
+      raise serializers.ValidationError("Credentials file exceeds 1 MiB")
+    try:
+      data = json.load(value)
+      if not isinstance(data, dict):
+        raise ValueError
+      return {str(UUID(key)): credentials for key, credentials in data.items()}
+    except (ValueError, TypeError, UnicodeDecodeError):
+      raise serializers.ValidationError("Expected a JSON object keyed by remote scene UUID")
 
   def validate_zipFile(self, value):
     if not value.name.endswith(".zip"):

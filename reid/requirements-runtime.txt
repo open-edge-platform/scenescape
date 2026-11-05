@@ -7,7 +7,9 @@ grpcio==1.76.0
 protobuf==5.29.6
 paho-mqtt==2.1.0
 qdrant-client==1.18.0
+setuptools==84.1.0
 vdms==0.0.23
 opentelemetry-api==1.45.1
 opentelemetry-exporter-otlp-proto-grpc==1.45.1
 opentelemetry-sdk==1.45.1
+wheel==0.47.0

@@ -12,6 +12,7 @@ import Toast from "/static/js/toast.js";
 import {
   CMD_CAMERA,
   IMAGE_CAMERA,
+  POSITIONING_POSE,
   MAX_INTRINSICS_UPDATE_WAIT_TIME,
   FX,
   FY,
@@ -26,6 +27,17 @@ import {
 import { compareIntrinsics } from "/static/js/utils.js";
 import { startCameraCalibration } from "/static/js/calibration.js";
 import PointCloudVisualizer from "/static/js/pointcloud.js";
+import {
+  PTZ_AWAY_MESSAGE,
+  PTZ_HOME_ANGLE_TOLERANCE_RAD,
+  PTZFrameGate,
+  PTZPoseExpiry,
+  expiredPTZPoseContext,
+  isPTZMoving,
+  isPTZPositionUnknown,
+  ptzMatricesClose,
+  ptzPoseToCameraMatrix,
+} from "/static/js/ptzpose.js";
 
 const DEFAULT_DIAGONAL_FOV = 70;
 const DEFAULT_RESOLUTION = { w: 640, h: 480 };
@@ -36,12 +48,13 @@ const DEFAULT_INTRINSICS = {
   cy: DEFAULT_RESOLUTION.h / 2,
 };
 
-const DEFAULT_DISTORTION = [0, 0, 0, 0, 0];
+const DEFAULT_DISTORTION = { k1: 0, k2: 0, p1: 0, p2: 0, k3: 0 };
 const MAX_CALIB_POINTS = 4;
 const DEFAULT_CAMERA_NAME = "new-camera";
 const DEFAULT_CAMERA_UID = undefined;
 const MAX_CALIB_WAIT_TIME = 200000;
 const POINT_CLOUD_SENSOR_NAME_RE = /lidar|radar|velodyne|livox|point.?cloud/i;
+const POINT_CORRESPONDENCE = "3d-2d point correspondence";
 
 function isPointCloudSensor(name, uid) {
   return (
@@ -117,13 +130,12 @@ function constructIntrinsicsMatrix(intrinsics, resolution) {
 }
 
 function constructDistortionArray(distortion) {
-  return [
-    distortion["k1"],
-    distortion["k2"],
-    distortion["p1"],
-    distortion["p2"],
-    distortion["k3"],
-  ];
+  if (Array.isArray(distortion)) {
+    return [0, 1, 2, 3, 4].map((i) => Number(distortion[i]) || 0);
+  }
+  return ["k1", "k2", "p1", "p2", "k3"].map(
+    (key) => Number(distortion?.[key]) || 0,
+  );
 }
 
 //we need multiple instances of scenecamera and hence need a class
@@ -148,8 +160,7 @@ export default class SceneCamera extends THREE.Object3D {
 
     this.intrinsics =
       "intrinsics" in params ? params.intrinsics : DEFAULT_INTRINSICS;
-    this.distortion =
-      "distortion" in params ? params.distortion : DEFAULT_DISTORTION;
+    this.distortion = params.distortion ?? DEFAULT_DISTORTION;
     this.resolution =
       "resolution" in params
         ? { w: params.resolution[0], h: params.resolution[1] }
@@ -192,6 +203,20 @@ export default class SceneCamera extends THREE.Object3D {
     this.pausePointCloud = false;
     this.pointCloudViz = null;
     this.isPointCloudSensor = isPointCloudSensor(this.name, this.cameraUID);
+    // Live PTZ pose is display-only; null state means no PoseContext received yet.
+    this.ptzCalibrationVersion = params.ptz_calibration
+      ? params.ptz_calibration.calibration_version
+      : null;
+    this.ptzSceneID = params.scene;
+    this.ptzPoseValid = null;
+    this.ptzMoving = false;
+    // Positioning reported an invalid pose while not moving; the home pose is shown.
+    this.ptzPositionUnknown = false;
+    this.ptzFrameGate = new PTZFrameGate();
+    this.ptzPoseExpiry = new PTZPoseExpiry();
+    this.ptzLiveMatrix = null;
+    this.ptzHomeMatrix = null;
+    this.transformType = params.transform_type;
     if (this.cameraPosition && this.cameraRotation) {
       this.addCamera();
     } else {
@@ -223,6 +248,8 @@ export default class SceneCamera extends THREE.Object3D {
     this.add(this.sceneCamera);
     //pose from scenescape is y-down. threejs is y-up.
     this.togglePoseYupYdown(this.sceneCamera);
+    this.sceneCamera.updateMatrix();
+    this.ptzHomeMatrix = this.sceneCamera.matrix.clone();
     this.sceneCameraHelper = new CustomCameraHelper(this.sceneCamera, 1);
     this.add(this.sceneCameraHelper);
   }
@@ -880,10 +907,16 @@ export default class SceneCamera extends THREE.Object3D {
   setMQTTClient(client, appName) {
     this.mqttClient = client;
     this.appName = appName;
+    const ptzPoseTopic = this.appName + POSITIONING_POSE + this.cameraUID;
+    if (this.ptzCalibrationVersion) {
+      this.mqttClient.subscribe(ptzPoseTopic);
+    }
 
     // Subscribe to camera image topic to check if intrinsics have been updated
     this.mqttClient.on("message", (topic, message) => {
-      if (topic === this.appName + IMAGE_CAMERA + this.name) {
+      if (this.ptzCalibrationVersion && topic === ptzPoseTopic) {
+        this.updatePTZPose(message);
+      } else if (topic === this.appName + IMAGE_CAMERA + this.name) {
         let msg = JSON.parse(message);
 
         // Check if intrinsics and distortion are present in the message
@@ -897,6 +930,60 @@ export default class SceneCamera extends THREE.Object3D {
         }
       }
     });
+  }
+
+  updatePTZPose(message) {
+    let msg;
+    try {
+      msg = JSON.parse(message);
+    } catch (error) {
+      return;
+    }
+    const livePose = ptzPoseToCameraMatrix(
+      msg,
+      this.ptzSceneID,
+      this.ptzCalibrationVersion,
+    );
+    this.ptzMoving = isPTZMoving(msg);
+    this.ptzPositionUnknown = isPTZPositionUnknown(msg);
+    this.ptzFrameGate.update(msg, Boolean(livePose), this.ptzMoving);
+    this.ptzPoseExpiry.arm(livePose ? msg : null, () =>
+      this.updatePTZPose(JSON.stringify(expiredPTZPoseContext())),
+    );
+    // Position unknown but not moving (e.g. backlash not yet learned): show the home pose.
+    const matrix =
+      livePose || (this.ptzMoving ? null : this.ptzHomeMatrix?.clone() || null);
+    this.ptzPoseValid = matrix !== null;
+    if (!this.sceneCamera || ptzMatricesClose(matrix, this.ptzLiveMatrix)) {
+      return;
+    }
+    // The projected frame belongs to the previous pose; hide it until a new frame arrives.
+    this.ptzFrameGate.invalidate();
+    if (this.mesh) this.mesh.visible = false;
+    if (matrix === null) return;
+    matrix.decompose(
+      this.sceneCamera.position,
+      this.sceneCamera.quaternion,
+      this.sceneCamera.scale,
+    );
+    this.sceneCamera.updateMatrix();
+    this.ptzLiveMatrix = this.sceneCamera.matrix.clone();
+  }
+
+  // Calibration and pose edits are for the home pose; block them while the PTZ is away.
+  isPTZAwayFromHome() {
+    if (!this.ptzCalibrationVersion) return false;
+    if (this.ptzMoving || this.ptzPositionUnknown) return true;
+    if (!this.ptzPoseValid || !this.ptzLiveMatrix || !this.ptzHomeMatrix) {
+      return false;
+    }
+    const home = new THREE.Quaternion().setFromRotationMatrix(
+      this.ptzHomeMatrix,
+    );
+    const live = new THREE.Quaternion().setFromRotationMatrix(
+      this.ptzLiveMatrix,
+    );
+    return home.angleTo(live) > PTZ_HOME_ANGLE_TOLERANCE_RAD;
   }
 
   requestPointCloud() {
@@ -936,6 +1023,10 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   async autoCalibrate() {
+    if (this.isPTZAwayFromHome()) {
+      this.toast.showToast(PTZ_AWAY_MESSAGE, "warning");
+      return;
+    }
     this.enableAutoCalibration(false);
     this.toast.showToast(
       "Performing auto camera calibration for " + this.name + "...",
@@ -1014,7 +1105,32 @@ export default class SceneCamera extends THREE.Object3D {
   }
 
   async saveSettings() {
+    if (this.isPTZAwayFromHome()) {
+      this.toast.showToast(PTZ_AWAY_MESSAGE, "warning");
+      return;
+    }
+    this.sceneCamera.updateMatrix();
     let camera = this.sceneCamera.clone();
+    const storedPose = this.ptzHomeMatrix ? this.ptzHomeMatrix.clone() : null;
+    const showsLivePTZPose =
+      this.ptzLiveMatrix !== null &&
+      this.sceneCamera.matrix.equals(this.ptzLiveMatrix);
+    if (showsLivePTZPose) {
+      // Persist the stored home pose, not the display-only live PTZ pose.
+      this.ptzHomeMatrix.decompose(
+        camera.position,
+        camera.quaternion,
+        camera.scale,
+      );
+    } else if (this.ptzHomeMatrix) {
+      this.ptzHomeMatrix.copy(this.sceneCamera.matrix);
+    }
+    camera.updateMatrix();
+    // Re-sending an unchanged pose as euler would replace the stored calibration points.
+    const keepCalibrationPoints =
+      this.transformType === POINT_CORRESPONDENCE &&
+      storedPose !== null &&
+      ptzMatricesClose(camera.matrix, storedPose);
     //convert to y-down before saving
     this.togglePoseYupYdown(camera);
 
@@ -1064,8 +1180,14 @@ export default class SceneCamera extends THREE.Object3D {
     let textObject = this.sceneCamera.getObjectByName(
       "textObject_" + this.previousName,
     );
-    if (this.isStoredInDB) await this.updateExistingCamera(cameraData);
-    else {
+    if (this.isStoredInDB) {
+      const { sensor_id, name, scene } = cameraData;
+      await this.updateExistingCamera(
+        keepCalibrationPoints ? { sensor_id, name, scene } : cameraData,
+      );
+      if (!keepCalibrationPoints)
+        this.transformType = cameraData.transform_type;
+    } else {
       await this.createNewCamera(cameraData, textObject);
     }
     this.updateCameras(this.previousName, this.name, textObject);
@@ -1192,9 +1314,18 @@ export default class SceneCamera extends THREE.Object3D {
 
     if (this.sceneCamera && this.projectFrame && !this.pauseVideo) {
       const loader = new THREE.TextureLoader();
+      const generation = this.ptzFrameGate.generation;
+      const frameTimestamp = data && data.timestamp;
       loader.load(
         image,
         (texture) => {
+          // Drop frames from before the PTZ stopped or for an earlier pose.
+          if (
+            this.ptzPoseValid === false ||
+            !this.ptzFrameGate.accepts(frameTimestamp, generation)
+          ) {
+            return;
+          }
           this.resolution = { w: texture.image.width, h: texture.image.height };
           this.sceneCamera.aspect = texture.image.width / texture.image.height;
           this.sceneCamera.fov = computeVerticalFOVFromFy(
@@ -1220,6 +1351,7 @@ export default class SceneCamera extends THREE.Object3D {
             this.cameraCapture.texture = texture;
             this.cameraCapture.project(this.mesh);
           }
+          this.mesh.visible = true;
         },
         undefined,
         function (err) {

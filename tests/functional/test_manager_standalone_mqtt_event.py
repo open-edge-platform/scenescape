@@ -29,8 +29,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 TEST_SCENE_NAME = "manager-scene"
 
 

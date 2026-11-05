@@ -10,6 +10,7 @@ These tests run inside the controller container where all dependencies are avail
 
 import numpy as np
 import concurrent.futures
+import threading
 from types import SimpleNamespace
 from unittest.mock import Mock, MagicMock, patch
 
@@ -25,7 +26,20 @@ import controller.uuid_manager as uuid_manager_mod
 from controller.reid import ReidNoValidVectorsError, ReidPartialWriteError, ReidWriteSupersededError
 from controller.moving_object import MovingObject, ReidState, Chronoloc
 from scene_common.geometry import Point, Rectangle
+from scene_common.timestamp import get_epoch_time
+from scene_common.tracking_object_registry import TrackedObjectRegistry
 import time
+
+pytestmark = pytest.mark.usefixtures("shutdown_uuid_managers")
+
+# Short stale-feature tick so purge takeover happens within a test.
+FAST_TICK = {'stale_feature_check_interval_secs': 0.02}
+
+def _wait_until(predicate, timeout=3.0):
+  deadline = time.monotonic() + timeout
+  while not predicate() and time.monotonic() < deadline:
+    time.sleep(0.01)
+  assert predicate(), "timed out waiting for condition"
 
 def call_update_active_dict_locked(manager, sscape_object, database_id, similarity,
                                    query_timestamp=None, query_vector_scores=None):
@@ -980,6 +994,305 @@ class TestDescriptorPurgeTimer:
     manager._purgeExpiredDescriptors()
     mock_vdms_db.purgeExpired.assert_called_once()
     manager.shutdown()
+
+  def test_connected_manager_takes_over_when_the_owner_shuts_down(self, mock_vdms_db):
+    mock_vdms_db.retentionEnabled.return_value = True
+    owner = UUIDManager(reid_config_data=FAST_TICK)
+    successor = UUIDManager(reid_config_data=FAST_TICK)
+    owner.connectDatabase()
+    successor.connectDatabase()
+    assert successor._owns_purge_timer is False
+
+    owner.shutdown()
+    _wait_until(lambda: successor._owns_purge_timer)
+
+    assert uuid_manager_mod._PURGE_OWNER is successor
+    assert successor.purge_timer is not None
+    successor.shutdown()
+    assert uuid_manager_mod._PURGE_OWNER is None
+
+  def test_owner_keeps_its_timer_across_ticks(self, mock_vdms_db):
+    mock_vdms_db.retentionEnabled.return_value = True
+    owner = UUIDManager(reid_config_data=FAST_TICK)
+    owner.connectDatabase()
+    timer = owner.purge_timer
+
+    time.sleep(0.2)
+
+    assert owner._owns_purge_timer is True
+    assert owner.purge_timer is timer
+    owner.shutdown()
+
+  def test_manager_that_never_connected_does_not_take_over(self, mock_vdms_db):
+    mock_vdms_db.retentionEnabled.return_value = True
+    owner = UUIDManager(reid_config_data=FAST_TICK)
+    root = UUIDManager(reid_config_data=FAST_TICK)
+    owner.connectDatabase()
+    owner.shutdown()
+
+    time.sleep(0.2)
+
+    assert root._owns_purge_timer is False
+    assert root.purge_timer is None
+    assert uuid_manager_mod._PURGE_OWNER is None
+    root.shutdown()
+
+  def test_connected_manager_does_not_take_over_when_retention_is_disabled(self, mock_vdms_db):
+    manager = UUIDManager(reid_config_data=FAST_TICK)
+    manager.connectDatabase()
+
+    time.sleep(0.2)
+
+    assert manager._owns_purge_timer is False
+    assert manager.purge_timer is None
+    assert uuid_manager_mod._PURGE_OWNER is None
+    manager.shutdown()
+
+  def test_shut_down_manager_cannot_acquire_ownership(self, mock_vdms_db):
+    mock_vdms_db.retentionEnabled.return_value = True
+    manager = UUIDManager()
+    manager.shutdown()
+
+    assert manager._tryAcquirePurgeOwnership() is False
+    assert uuid_manager_mod._PURGE_OWNER is None
+    assert manager._owns_purge_timer is False
+
+
+class TestShutdownFlush:
+  """Explicit shutdown() writes features that have not gone stale yet."""
+
+  @staticmethod
+  def _stage(manager, track_id):
+    manager.features_for_database[track_id] = {
+      'gid': 'gid-1',
+      'category': 'person',
+      'reid_vectors': [np.arange(8, dtype=np.float32)],
+      'persist': {},
+      'metadata': {},
+    }
+    # Just added, so well inside stale_feature_timeout_secs.
+    manager.features_for_database_timestamps[track_id] = get_epoch_time()
+
+  def test_shutdown_flushes_pending_features(self, mock_vdms_db):
+    manager = UUIDManager()
+    self._stage(manager, "pending-track")
+
+    manager.shutdown()
+    manager.pool.shutdown(wait=True)
+
+    mock_vdms_db.addEntry.assert_called_once()
+    assert mock_vdms_db.addEntry.call_args.args[:3] == ('gid-1', 'pending-track', 'person')
+    assert manager.features_for_database == {}
+    assert manager.features_for_database_timestamps == {}
+
+  def test_stale_check_leaves_fresh_features_alone(self, mock_vdms_db):
+    manager = UUIDManager()
+    self._stage(manager, "pending-track")
+
+    manager._flushStaleFeatures()
+    manager.pool.shutdown(wait=True)
+
+    mock_vdms_db.addEntry.assert_not_called()
+    assert "pending-track" in manager.features_for_database
+    manager.shutdown(flush_pending=False)
+
+  def test_shutdown_without_pending_features_writes_nothing(self, mock_vdms_db):
+    manager = UUIDManager()
+
+    manager.shutdown()
+    manager.pool.shutdown(wait=True)
+
+    mock_vdms_db.addEntry.assert_not_called()
+
+  def test_shutdown_does_not_flush_when_local_enrollment_is_not_allowed(self, mock_vdms_db):
+    manager = UUIDManager()
+    manager.reid_write_healthy = False
+    self._stage(manager, "pending-track")
+
+    manager.shutdown()
+    manager.pool.shutdown(wait=True)
+
+    mock_vdms_db.addEntry.assert_not_called()
+
+  def test_destructor_does_not_flush(self, mock_vdms_db):
+    manager = UUIDManager()
+    self._stage(manager, "pending-track")
+
+    with patch.object(manager, '_flushStaleFeatures') as flush:
+      manager.__del__()
+
+    flush.assert_not_called()
+    assert manager._shutdown_complete is True
+
+  def test_failed_flush_does_not_block_the_rest_of_shutdown(self, mock_vdms_db):
+    manager = UUIDManager()
+
+    with patch.object(manager, '_flushStaleFeatures', side_effect=RuntimeError("boom")), \
+         patch('controller.uuid_manager.log.warning') as log_warning:
+      manager.shutdown()
+
+    log_warning.assert_called_once()
+    assert 'boom' in log_warning.call_args.args[0]
+    assert manager._shutdown_complete is True
+    with pytest.raises(RuntimeError):
+      manager.pool.submit(lambda: None)
+
+  def test_second_shutdown_does_not_flush_again(self, mock_vdms_db):
+    manager = UUIDManager()
+    manager.shutdown()
+
+    with patch.object(manager, '_flushStaleFeatures') as flush:
+      manager.shutdown()
+
+    flush.assert_not_called()
+
+  @staticmethod
+  def _submit_running_query(manager, query):
+    """Submit query to the pool and register it the way assignID() does."""
+    future = manager.pool.submit(query)
+    with manager._pending_queries_lock:
+      manager._pending_queries.add(future)
+    future.add_done_callback(manager._onQuerySimilarityComplete)
+    return future
+
+  def test_shutdown_waits_for_a_running_query_and_flushes_what_it_stages(self, mock_vdms_db):
+    manager = UUIDManager()
+    started, release = threading.Event(), threading.Event()
+
+    def query():
+      started.set()
+      release.wait(5)
+      self._stage(manager, "late-track")
+
+    self._submit_running_query(manager, query)
+    assert started.wait(5)
+    shutdown = threading.Thread(target=manager.shutdown, daemon=True)
+    shutdown.start()
+
+    time.sleep(0.2)
+    assert shutdown.is_alive(), "shutdown() must wait for the running query"
+    mock_vdms_db.addEntry.assert_not_called()
+
+    release.set()
+    shutdown.join(5)
+    assert not shutdown.is_alive()
+    manager.pool.shutdown(wait=True)
+
+    mock_vdms_db.addEntry.assert_called_once()
+    assert mock_vdms_db.addEntry.call_args.args[:3] == ('gid-1', 'late-track', 'person')
+    assert manager._pending_queries == set()
+
+  def test_shutdown_stops_waiting_for_a_query_that_never_finishes(self, mock_vdms_db):
+    manager = UUIDManager()
+    started, release = threading.Event(), threading.Event()
+
+    def query():
+      started.set()
+      release.wait(5)
+
+    self._submit_running_query(manager, query)
+    assert started.wait(5)
+
+    try:
+      with patch.object(uuid_manager_mod, 'SHUTDOWN_QUERY_WAIT_SECS', 0.1), \
+           patch('controller.uuid_manager.log.warning') as log_warning:
+        began = time.monotonic()
+        manager.shutdown()
+        elapsed = time.monotonic() - began
+
+      assert elapsed < 2
+      assert manager._shutdown_complete is True
+      assert any('still running' in call.args[0] for call in log_warning.call_args_list)
+    finally:
+      release.set()
+
+  def test_finished_queries_are_not_kept_for_shutdown(self, mock_vdms_db):
+    manager = UUIDManager()
+
+    future = self._submit_running_query(manager, lambda: None)
+    future.result(5)
+    _wait_until(lambda: not manager._pending_queries)
+
+    manager.shutdown()
+
+  def test_destructor_does_not_wait_for_queries(self, mock_vdms_db):
+    manager = UUIDManager()
+
+    with patch.object(manager, '_waitForPendingQueries') as wait_for_queries:
+      manager.__del__()
+
+    wait_for_queries.assert_not_called()
+
+  def test_no_query_is_submitted_after_shutdown(self, mock_vdms_db):
+    manager = UUIDManager()
+    manager.pool = MagicMock()
+    manager.shutdown(flush_pending=False)
+    manager.pool.reset_mock()
+    obj = _make_reid_object("late-track")
+    manager.quality_observation_counts["late-track"] = 15
+    manager.quality_features["late-track"] = [np.arange(64, dtype=np.float32).tolist()]
+
+    manager.assignID(obj)
+
+    manager.pool.submit.assert_not_called()
+    assert "late-track" not in manager.active_query
+
+
+class TestStaleFeatureTimerAfterShutdown:
+  """The stale-feature timer must not re-arm itself once the manager is shut down."""
+
+  def test_timer_is_not_rearmed_when_shutdown_runs_during_the_callback(self, mock_vdms_db):
+    manager = UUIDManager(reid_config_data={'stale_feature_check_interval_secs': 0.05})
+    ticks = []
+    ran = threading.Event()
+
+    def flush_then_shutdown(force=False):
+      if force:
+        return
+      ticks.append(1)
+      manager.shutdown()
+      ran.set()
+
+    with patch.object(manager, '_flushStaleFeatures', side_effect=flush_then_shutdown):
+      assert ran.wait(2)
+      time.sleep(0.3)
+
+    assert len(ticks) == 1
+    timer = manager.stale_feature_timer
+    assert timer is None or timer.finished.is_set()
+
+  def test_timer_stops_after_shutdown(self, mock_vdms_db):
+    manager = UUIDManager(reid_config_data={'stale_feature_check_interval_secs': 0.02})
+
+    manager.shutdown()
+
+    assert manager.stale_feature_timer is None
+
+  def test_shutdown_between_rescheduling_and_the_check_does_not_raise(self, mock_vdms_db):
+    """shutdown() clears stale_feature_timer; the callback must cancel the timer it
+    just created instead of dereferencing the cleared attribute."""
+    manager = UUIDManager()
+    manager.stale_feature_timer.cancel()
+    callbacks, timers = [], []
+
+    def schedule(callback):
+      callbacks.append(callback)
+      timer = MagicMock()
+      timers.append(timer)
+      manager.stale_feature_timer = timer
+      if len(callbacks) == 2:
+        manager.shutdown()
+      return timer
+
+    with patch.object(manager, '_scheduleTimer', side_effect=schedule):
+      manager._startStaleFeatureTimer()
+      callbacks[0]()
+
+    assert manager._shutdown_complete is True
+    assert manager.stale_feature_timer is None
+    timers[1].cancel.assert_called()
+
+
 def _make_reid_object(rv_id, *, bbox_area=None, provenance=None, embedding=None):
   """Build a detection whose embedding is either locally observed or forwarded to us."""
   obj = MagicMock()
@@ -1671,7 +1984,8 @@ class TestPruneInactiveTracksMetrics:
     tracked = [MagicMock(id="t1"), MagicMock(id="t2")]
     manager.pruneInactiveTracks(tracked)
 
-    mock_registry_instance.updateCategoryCount.assert_called_once_with("scene_1", "person", 2)
+    mock_registry_instance.updateCategoryCount.assert_called_once_with(
+      "scene_1", "person", 2, generation=manager.registry_generation)
     mock_registry_instance.getTotalCount.assert_called_once_with("scene_1")
     mock_metrics.record_reid_total_tracked_object_count.assert_called_once_with(7)
 
@@ -1710,7 +2024,8 @@ class TestShutdownRegistryCleanup:
 
     manager.shutdown()
 
-    mock_registry_instance.removeCategory.assert_called_once_with("scene_1", "person")
+    mock_registry_instance.removeCategory.assert_called_once_with(
+      "scene_1", "person", generation=manager.registry_generation)
 
   @patch('controller.uuid_manager.TrackedObjectRegistry')
   def test_shutdown_skips_registry_call_when_category_never_set(self, mock_registry_class, mock_vdms_db):
@@ -1725,6 +2040,49 @@ class TestShutdownRegistryCleanup:
     manager.shutdown()
 
     mock_registry_instance.removeCategory.assert_not_called()
+
+  @patch('controller.uuid_manager.metrics')
+  def test_retired_manager_leaves_the_replacements_count_alone(self, mock_metrics, mock_vdms_db):
+    """Verify an old tracker draining and shutting down under the same scene id
+    neither overwrites nor removes the count of the tracker that replaced it."""
+
+    registry = TrackedObjectRegistry()
+    with patch.object(TrackedObjectRegistry, 'getInstance', return_value=registry):
+      retired = UUIDManager()
+      replacement = UUIDManager()
+      for manager in (retired, replacement):
+        manager.scene_id = "scene_1"
+        manager._category = "person"
+        manager._category_has_embeddings = True
+      assert replacement.registry_generation > retired.registry_generation
+
+      replacement.pruneInactiveTracks([MagicMock(id="a"), MagicMock(id="b")])
+      retired.pruneInactiveTracks([MagicMock(id="x")])
+      assert registry.getTotalCount("scene_1") == 2
+
+      retired.shutdown()
+      assert registry.getTotalCount("scene_1") == 2
+
+      replacement.shutdown()
+      assert registry.getTotalCount("scene_1") == 0
+      assert "scene_1" not in registry._category_counts
+
+  @patch('controller.uuid_manager.metrics')
+  def test_manager_removes_its_own_count_when_nothing_replaced_it(self, mock_metrics, mock_vdms_db):
+    """Verify the scene total drops to zero when the only tracker shuts down."""
+
+    registry = TrackedObjectRegistry()
+    with patch.object(TrackedObjectRegistry, 'getInstance', return_value=registry):
+      manager = UUIDManager()
+      manager.scene_id = "scene_1"
+      manager._category = "person"
+      manager._category_has_embeddings = True
+      manager.pruneInactiveTracks([MagicMock(id="a")])
+      assert registry.getTotalCount("scene_1") == 1
+
+      manager.shutdown()
+
+      assert registry.getTotalCount("scene_1") == 0
 
 
 class TestRecordMatchLatencyCallSites:

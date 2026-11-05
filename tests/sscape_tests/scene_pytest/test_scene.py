@@ -457,6 +457,95 @@ def test_trs_xyz_to_lla_is_cached_and_invalidate_resets(scene_obj, monkeypatch):
   _ = scene_obj.trs_xyz_to_lla
   assert calls['count'] == 2
 
+def test_trs_xyz_to_lla_fresh_scene_returns_none(scene_obj):
+  assert scene_obj.trs_xyz_to_lla is None
+
+@pytest.mark.parametrize('output_lla, corners', [
+  (False, [[0, 0, 0], [1, 1, 1]]),
+  (True, None),
+])
+def test_trs_xyz_to_lla_incomplete_inputs_return_none_without_computing(scene_obj, monkeypatch, output_lla, corners):
+  calc_mock = Mock()
+  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', calc_mock)
+  scene_obj.output_lla = output_lla
+  scene_obj.map_corners_lla = corners
+
+  assert scene_obj.trs_xyz_to_lla is None
+  calc_mock.assert_not_called()
+
+def _make_failing_lla_scene(scene_obj, monkeypatch, exc):
+  calls = {'count': 0}
+
+  def _raise(mesh_corners, map_corners_lla):
+    calls['count'] += 1
+    raise exc
+
+  monkeypatch.setattr(scene_module, 'getMeshAxisAlignedProjectionToXY', lambda mesh: np.array([[0, 0, 0]]))
+  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', _raise)
+  scene_obj.output_lla = True
+  scene_obj.map_corners_lla = [[0, 0, 0], [1, 1, 1]]
+  return calls
+
+@pytest.mark.parametrize('exc', [ValueError("boom"), TypeError("boom"), IndexError("boom")])
+def test_trs_xyz_to_lla_failure_is_cached_and_logged_once(scene_obj, monkeypatch, exc):
+  calls = _make_failing_lla_scene(scene_obj, monkeypatch, exc)
+  log_error = Mock()
+  monkeypatch.setattr(scene_module.log, 'error', log_error)
+
+  assert scene_obj.trs_xyz_to_lla is None
+  assert scene_obj.trs_xyz_to_lla is None
+  assert scene_obj.trs_xyz_to_lla is None
+
+  assert calls['count'] == 1
+  log_error.assert_called_once()
+
+def test_trs_xyz_to_lla_missing_map_mesh_is_handled_as_failure(scene_obj, monkeypatch):
+  log_error = Mock()
+  monkeypatch.setattr(scene_module.log, 'error', log_error)
+  scene_obj.output_lla = True
+  scene_obj.map_corners_lla = [[0, 0, 0], [1, 1, 1]]
+  assert scene_obj.map_triangle_mesh is None
+
+  assert scene_obj.trs_xyz_to_lla is None
+  log_error.assert_called_once()
+
+def test_trs_xyz_to_lla_invalidate_clears_cached_failure(scene_obj, monkeypatch):
+  calls = _make_failing_lla_scene(scene_obj, monkeypatch, ValueError("boom"))
+
+  assert scene_obj.trs_xyz_to_lla is None
+  scene_obj._invalidate_trs_xyz_to_lla()
+  assert scene_obj.trs_xyz_to_lla is None
+
+  assert calls['count'] == 2
+
+def test_trs_xyz_to_lla_unexpected_error_is_not_swallowed(scene_obj, monkeypatch):
+  _make_failing_lla_scene(scene_obj, monkeypatch, RuntimeError("unexpected"))
+
+  with pytest.raises(RuntimeError):
+    _ = scene_obj.trs_xyz_to_lla
+
+def test_updateScene_recovers_lla_transform_after_failed_hydration(scene_obj, monkeypatch):
+  scene_data = {'name': 'test', 'output_lla': True, 'map_corners_lla': [[0, 0, 0], [1, 1, 1]]}
+  monkeypatch.setattr(scene_module.log, 'error', Mock())
+  monkeypatch.setattr(scene_module, 'getMeshAxisAlignedProjectionToXY', lambda mesh: np.zeros((4, 3)))
+
+  def _raise(mesh_corners, map_corners_lla):
+    raise ValueError("boom")
+
+  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints', _raise)
+  scene_obj.updateScene(scene_data)
+  assert scene_obj.trs_xyz_to_lla is None
+
+  monkeypatch.setattr(scene_module, 'calculateTRSLocal2LLAFromSurfacePoints',
+                      lambda mesh_corners, map_corners_lla: np.eye(4))
+  scene_obj.updateScene(scene_data)
+  assert np.array_equal(scene_obj.trs_xyz_to_lla, np.eye(4))
+
+def test_updateScene_with_lla_disabled_leaves_transform_none(scene_obj):
+  scene_obj.updateScene({'name': 'test', 'output_lla': False})
+
+  assert scene_obj.trs_xyz_to_lla is None
+
 def test_setTracker_invalid_type_keeps_existing_tracker(scene_obj):
   original_tracker = scene_obj.tracker
   original_tracker_type = scene_obj.trackerType
