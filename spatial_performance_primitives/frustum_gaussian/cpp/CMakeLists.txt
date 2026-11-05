@@ -114,7 +114,7 @@ endif()
 # C++ unit tests (Google Test)
 # ---------------------------------------------------------------------------
 option(FG_BUILD_TESTS "Build C++ unit tests" ON)
-if(FG_BUILD_TESTS)
+if(FG_BUILD_TESTS AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
   find_package(GTest QUIET)
   if(GTest_FOUND)
     add_subdirectory(tests)
