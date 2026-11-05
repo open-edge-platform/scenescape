@@ -97,9 +97,6 @@ target_compile_definitions(tracker_tests
         TRACKER_CONTROLLER_SCHEMA_FILE="${PROJECT_SOURCE_DIR}/../controller/src/schema/metadata.schema.json"
 )
 
-# Use C++20 standard (required for tracking_types.hpp)
-target_compile_features(tracker_tests PRIVATE cxx_std_20)
-
 target_link_libraries(tracker_tests
     PRIVATE
         GTest::gtest

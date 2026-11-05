@@ -212,11 +212,11 @@ def inc_messages(attributes=None):
   if instance:
     instance.counter_add(METRIC_MQTT_MESSAGES_COUNT, 1, attributes)
 
-def inc_dropped(attributes=None):
-  """Increment dropped messages counter."""
+def inc_dropped(attributes=None, count=1):
+  """Increment dropped messages counter by the number of dropped messages."""
   instance = _metrics_instance
   if instance:
-    instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED, 1, attributes)
+    instance.counter_add(METRIC_MQTT_MESSAGES_DROPPED, count, attributes)
 
 def record_object_count(count, attributes=None):
   """Record object count in message."""

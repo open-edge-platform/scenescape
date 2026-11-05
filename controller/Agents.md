@@ -187,20 +187,20 @@ User-facing switch steps: `docs/user-guide/other-topics/how-to-enable-reidentifi
    - `singleton.json`: Singleton detection schema
    - `calibration.json`: Calibration result schema
 
-2. **Tracker Configuration** (example):
+2. **Tracker Configuration** (`config/tracker-config.json`, read by `SceneController.extractTrackerConfigData`; documented in `docs/user-guide/microservices/controller/how-to-configure-tracker.md`):
 
 ```json
 {
-  "max_unreliable_time": 2.0,
-  "association_threshold": 0.5,
-  "min_confidence": 0.5,
-  "enable_reid": true,
-  "kalman_filter": {
-    "process_noise": 0.1,
-    "measurement_noise": 0.1
-  }
+  "max_unreliable_time_s": 1.0,
+  "non_measurement_time_dynamic_s": 0.8,
+  "non_measurement_time_static_s": 1.6,
+  "time_chunking_enabled": true,
+  "time_chunking_rate_fps": 10,
+  "suspended_track_timeout_secs": 60.0
 }
 ```
+
+Optional keys: `effective_object_update_rate` (Immediate mode, `config/tracker-config-immediate.json`) and `persist_attributes`. The Kalman filter noise settings are not configurable here; both the Controller and the Tracker service use `rv.tracking.PRODUCTION_*` (see "Kalman filter settings" in `src/robot_vision/README.md`).
 
 ## Extending ReID Vector Database Backends
 
