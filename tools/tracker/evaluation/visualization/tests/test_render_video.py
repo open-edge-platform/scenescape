@@ -87,6 +87,18 @@ def test_association_gate_follows_method():
   assert gate_label(None) == "99% position ellipse"
 
 
+def test_association_gate_clamps_probability_as_robot_vision():
+  """gate_probability 1.0 is valid in both services; rv::chi2Threshold clamps it to 1 - 1e-9."""
+  covariance = np.diag([4.0, 1.0])
+  threshold = -2.0 * math.log(1e-9)
+
+  width, height, _ = association_gate(
+    {"method": "position_mahalanobis", "gate_probability": 1.0}, covariance)
+
+  assert width == pytest.approx(2 * math.sqrt(threshold * 4.0))
+  assert height == pytest.approx(2 * math.sqrt(threshold * 1.0))
+
+
 def test_box_corners_follow_yaw():
   """The box length lies along the yaw direction."""
   corners = box_corners(1.0, 2.0, math.pi / 2, 4.0, 2.0)
