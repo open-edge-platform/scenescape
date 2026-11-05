@@ -103,7 +103,7 @@ if(pybind11_FOUND)
     # Place the .so next to the Python package sources for editable installs
     set_target_properties(_frustum_gaussian_cpp PROPERTIES
       LIBRARY_OUTPUT_DIRECTORY
-        ${CMAKE_CURRENT_SOURCE_DIR}/python/frustum_gaussian
+        ${CMAKE_CURRENT_SOURCE_DIR}/../python/frustum_gaussian
     )
   endif()
 else()
