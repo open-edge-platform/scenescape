@@ -50,21 +50,30 @@ class RateLimiter:
   def __init__(self, window_secs, max_keys=1024):
     self._window_secs = window_secs
     self._max_keys = max_keys
-    self._last_allowed = {}
+    # key -> [last allowed time, calls suppressed since then]
+    self._entries = {}
 
   def allow(self, key=None):
+    """Return (allowed, suppressed), where suppressed is the number of calls
+    blocked for this key since it was last allowed."""
     now = time.monotonic()
-    last = self._last_allowed.get(key)
-    if last is not None and now - last < self._window_secs:
-      return False
-    if len(self._last_allowed) >= self._max_keys:
-      # Keys come from untrusted topics; keep the table bounded.
-      self._last_allowed = {k: t for k, t in self._last_allowed.items()
-                            if now - t < self._window_secs}
-      if len(self._last_allowed) >= self._max_keys:
-        self._last_allowed.clear()
-    self._last_allowed[key] = now
-    return True
+    entry = self._entries.get(key)
+    if entry is not None:
+      if now - entry[0] < self._window_secs:
+        entry[1] += 1
+        return False, 0
+      suppressed = entry[1]
+      entry[0], entry[1] = now, 0
+      return True, suppressed
+    if len(self._entries) >= self._max_keys:
+      # Keys come from untrusted topics: bound the table by dropping expired
+      # entries only, and reject new keys while every cooldown is still active.
+      self._entries = {k: e for k, e in self._entries.items()
+                       if now - e[0] < self._window_secs}
+      if len(self._entries) >= self._max_keys:
+        return False, 0
+    self._entries[key] = [now, 0]
+    return True, 0
 
 
 def _parseTrustedSources(value):
@@ -673,7 +682,7 @@ class SceneController:
 
         success, scene = self._handleChildSceneObject(
           publisher_id, jdata, detection_types[0], msg_when)
-        # (None, None) => orphan hierarchy echo from a root scene; ignore.
+        # (None, None) => dropped: root-scene echo or unresolved sender/parent.
         if success is None:
           return
         sender_id = publisher_id
@@ -685,8 +694,8 @@ class SceneController:
         scene, detection_types, success = outcome
 
       if not success:
-        self._logFailure(sender_id, "Camera fail", sender_id,
-                         scene.name if scene is not None else "unknown")
+        scene_name = scene.name if scene is not None else "unknown"
+        self._logFailure(sender_id, f"Camera fail {sender_id} {scene_name}")
         self._invalidateAfterFailure()
         return
 
@@ -698,10 +707,13 @@ class SceneController:
                               msg_when, detection_type, jdata, camera_id)
       return
 
-  def _logFailure(self, publisher_id, *args):
+  def _logFailure(self, publisher_id, message):
     """Log an ingest failure at most once per window for each publisher."""
-    if self._failure_log_limiter.allow(publisher_id):
-      log.error(*args)
+    allowed, suppressed = self._failure_log_limiter.allow(publisher_id)
+    if allowed:
+      if suppressed:
+        message = f"{message} (+{suppressed} suppressed)"
+      log.error(message)
     return
 
   def _invalidateAfterFailure(self):
@@ -710,7 +722,8 @@ class SceneController:
     A publisher that fails every message must not force a REST fetch and a full
     scene rebuild per message. CMD_DATABASE updates invalidate immediately.
     """
-    if self._failure_invalidate_limiter.allow():
+    allowed, _ = self._failure_invalidate_limiter.allow()
+    if allowed:
       self.cache_manager.invalidate()
     return
 
@@ -745,13 +758,18 @@ class SceneController:
     return scene, detection_types, success
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
+    """Forward a child scene's objects into its parent scene.
+
+    Unresolved senders/parents return (None, None) without invalidating the
+    cache: only a DB change can resolve them, and CMD_DATABASE invalidates then.
+    """
     is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
         self._logFailure(sender_id, f"UNKNOWN SENDER: {sender_id}")
-        return False, None
+        return None, None
       sender = remote_sender
       is_remote = True
 
@@ -762,8 +780,8 @@ class SceneController:
           sender.parent = recovered
           log.info(f"Recovered parent={recovered} for remote child {sender_id}")
         else:
-          self._logFailure(sender_id, "UNKNOWN PARENT", sender_id)
-          return False, sender
+          self._logFailure(sender_id, f"UNKNOWN PARENT: {sender_id}")
+          return None, None
       else:
         # Hierarchy publishes (no source_id) from a root scene are not destined
         # for a parent — ignore them rather than failing closed and invalidating
@@ -774,9 +792,9 @@ class SceneController:
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
-      self._logFailure(sender_id, "PARENT SCENE NOT FOUND", sender.parent,
-                       "for sender", sender.name)
-      return False, None
+      self._logFailure(
+        sender_id, f"PARENT SCENE NOT FOUND: {sender.parent} for sender {sender.name}")
+      return None, None
 
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)
