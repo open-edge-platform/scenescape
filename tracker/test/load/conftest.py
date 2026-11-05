@@ -12,6 +12,8 @@ import pytimeparse2
 import requests
 from prometheus_client.parser import text_string_to_metric_families
 
+from sli import drop_summary
+
 
 # ---------------------------------------------------------------------------
 # Load configuration fixture
@@ -33,12 +35,23 @@ def load_config(request):
   """
   fps = int(os.getenv("FPS", "15"))
   num_cameras = int(os.getenv("NUM_CAMERAS", "4"))
+  load_mode = os.getenv("LOAD_MODE", "2d")
+  mixed_3d_ratio = float(os.getenv("MIXED_3D_RATIO", "0.5"))
+  if load_mode not in {"2d", "3d", "mixed"}:
+    pytest.fail(f"LOAD_MODE must be one of 2d, 3d, or mixed; got {load_mode}")
+  if not 0.0 <= mixed_3d_ratio <= 1.0:
+    pytest.fail(f"MIXED_3D_RATIO must be between 0 and 1; got {mixed_3d_ratio}")
 
   cfg = {
     "num_cameras": num_cameras,
     "fps": fps,
+    "load_mode": load_mode,
+    "mixed_3d_ratio": mixed_3d_ratio,
     "num_objects": int(os.getenv("NUM_OBJECTS", "300")),
     "duration": os.getenv("DURATION", "1m"),
+    "embedding_dimensions": int(os.getenv("REID_EMBEDDING_DIMENSIONS", "0")),
+    "embedding_encoding": os.getenv("REID_EMBEDDING_ENCODING", "float_list"),
+    "extra_metadata": os.getenv("EXTRA_METADATA", "none"),
     "latency_p50_ms": float(os.getenv("LATENCY_P50_MS", str(1000.0 / fps))),
     "latency_p99_ms": float(os.getenv("LATENCY_P99_MS", str(2000.0 / fps))),
     "throughput_min": float(os.getenv("THROUGHPUT_MIN",
@@ -178,21 +191,24 @@ class PrometheusClient:
       found = True
     return total if found else None
 
-  def wait_for_stable_counter(
-    self, name: str, timeout: int = 30, stable_readings: int = 3
+  def wait_for_stable_counters(
+    self, names: list[str], timeout: int = 30, stable_readings: int = 3
   ) -> float:
-    """Poll until a counter stops changing.
+    """Poll until the sum of several counters stops changing.
 
-    Returns the final value once ``stable_readings`` consecutive
-    scrapes return the same value, or when ``timeout`` expires
-    (returns the last observed value).
+    Missing counters count as 0, but at least one must have appeared before
+    the sum counts as stable.  Returns the last sum (0 if none appeared)
+    when ``timeout`` expires.
     """
     deadline = time.monotonic() + timeout
     last_value = None
     stable_count = 0
 
     while time.monotonic() < deadline:
-      value = self.get_counter(name)
+      values = [self.get_counter(name) for name in names]
+      value = None
+      if any(v is not None for v in values):
+        value = sum(v or 0 for v in values)
       if value is not None and value == last_value:
         stable_count += 1
         if stable_count >= stable_readings:
@@ -202,9 +218,7 @@ class PrometheusClient:
       last_value = value
       time.sleep(1)
 
-    if last_value is not None:
-      return last_value
-    raise TimeoutError(f"Counter {name} never appeared within {timeout}s")
+    return last_value or 0
 
 
 @pytest.fixture(scope="session")
@@ -294,6 +308,12 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
   w.line(f"  Load:     {load_cfg['num_cameras']} cam \u00d7 {load_cfg['fps']} FPS "
          f"\u00d7 {load_cfg['num_objects']} obj = {input_rate} msg/s "
          f"for {load_cfg['duration']} ({duration_s}s)")
+  w.line(f"  ReID:     {load_cfg['embedding_dimensions']} dimensions per 2D detection "
+         f"({load_cfg['embedding_encoding']}); extra metadata: {load_cfg['extra_metadata']}")
+  mode_description = load_cfg["load_mode"]
+  if mode_description == "mixed":
+    mode_description += f" ({load_cfg['mixed_3d_ratio']:.0%} 3D)"
+  w.line(f"  Geometry: {mode_description}")
   w.line("")
 
   # -- KPI results -----------------------------------------------------------
@@ -304,15 +324,13 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
   rows = []
 
   # Drops
-  dropped = summary.get("dropped", 0)
-  received = summary.get("received", 0)
-  drop_ratio = dropped / received if received else 0
   thr = load_cfg["drop_max_ratio"]
+  drop_actual, drop_result = drop_summary(summary, thr)
   rows.append((
     "Dropped messages",
-    f"{drop_ratio:.4%}",
+    drop_actual,
     f"< {thr:.4%}",
-    "PASS" if drop_ratio < thr else "FAIL",
+    drop_result,
   ))
 
   # Active tracks
@@ -366,18 +384,23 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
   # -- Messages line (drop reasons folded inline when single reason) ---------
   drop_reasons = summary.get("drop_reasons", {})
   non_zero_reasons = {r: int(c) for r, c in drop_reasons.items() if c}
+  dropped = summary.get("dropped", 0)
   w.line("")
-  if dropped > 0 and len(non_zero_reasons) == 1:
-    reason = next(iter(non_zero_reasons))
-    w.line(f"  Messages: {received:.0f} received, "
-           f"{dropped:.0f} dropped ({reason})")
-  elif dropped > 0:
-    w.line(f"  Messages: {received:.0f} received, "
-           f"{dropped:.0f} dropped")
-    for reason, count in sorted(non_zero_reasons.items()):
-      w.line(f"    {reason:<30} {count:>6}")
+  if "received" not in summary:
+    w.line("  Messages: n/a")
   else:
-    w.line(f"  Messages: {received:.0f} received, 0 dropped")
+    received = f"{summary['received']} received"
+    if summary.get("rejected"):
+      received += f" ({summary['accepted']} accepted, {summary['rejected']} rejected)"
+    if dropped > 0 and len(non_zero_reasons) == 1:
+      reason = next(iter(non_zero_reasons))
+      w.line(f"  Messages: {received}, {dropped} dropped ({reason})")
+    elif dropped > 0:
+      w.line(f"  Messages: {received}, {dropped} dropped")
+      for reason, count in sorted(non_zero_reasons.items()):
+        w.line(f"    {reason:<30} {count:>6}")
+    else:
+      w.line(f"  Messages: {received}, 0 dropped")
 
   # -- Stage latency breakdown -----------------------------------------------
   stages = summary.get("stages")

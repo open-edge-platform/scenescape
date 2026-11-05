@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: (C) 2025 Intel Corporation
+# SPDX-FileCopyrightText: (C) 2025 - 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
@@ -17,6 +17,40 @@ from scene_common.transform import (
 from scene_common.geometry import Point
 
 class TestPointCorrespondenceTransform:
+  def test_distorted_camera_inlier_refit_preserves_ransac_solution(self):
+    """Refitting a near-planar inlier set must not jump to a distant pose."""
+    intrinsics = CameraIntrinsics(
+      [1059.9363, 1059.9363, 640, 360], {"k1": -0.362086}, [1280, 720])
+    map_points = np.array([
+      [2.61777735, 4.24208915, -0.03628719],
+      [3.37448049, 4.71994710, -0.02743566],
+      [3.49817872, 3.68181109, -0.02463210],
+      [4.70190278, 3.87953186, -0.00904286],
+      [4.03730386, 2.92646688, -0.02610767],
+      [5.67322719, 3.28573954, -0.00307882],
+      [6.15817821, 2.46695340, -0.01420844],
+      [5.27095032, 4.96910203, -0.00833929],
+      [4.85846911, 5.69687748, 1.34161323],
+      [5.82415301, 4.87672019, 1.39952999],
+    ])
+    camera_points = np.array([
+      [59.00992815, 562.81975168], [201.74596850, 454.15973924],
+      [348.20840838, 566.34121270], [609.20497691, 436.96239686],
+      [655.05658804, 618.83533412], [896.67405195, 417.20935561],
+      [1124.98758609, 448.11283083], [562.96089821, 331.20019250],
+      [403.87011330, 42.11567445], [671.13809863, 29.38141627],
+    ])
+    transform = PointCorrespondenceTransform(
+      {'camera points': camera_points, 'map points': map_points}, intrinsics)
+
+    np.testing.assert_allclose(transform.pose_mat[:3, 3], [2.41, 1.17, 1.63], atol=0.05)
+    rvec, tvec = self._rvec_tvec(transform)
+    projected, _ = cv2.projectPoints(
+      map_points, rvec, tvec, intrinsics.intrinsics, intrinsics.distortion)
+    errors = np.linalg.norm(projected.reshape(-1, 2) - camera_points, axis=1)
+    assert np.sqrt(np.mean(errors ** 2)) < 5.0
+    assert np.all((map_points @ cv2.Rodrigues(rvec)[0].T + tvec.ravel())[:, 2] > 0)
+
   def test_init_with_correspondences(self):
     """Test initialization with point correspondences"""
     intrinsics = CameraIntrinsics([800, 800, 320, 240])
@@ -98,6 +132,7 @@ class TestPointCorrespondenceTransform:
     # RANSAC failed -> fell back to solvePnP, nothing rejected
     assert transform.rejectedIndices == []
     mock_solve_pnp.assert_called_once()
+    assert mock_solve_pnp.call_args.kwargs['useExtrinsicGuess'] is False
 
   @patch('cv2.solvePnPRansac')
   @patch('cv2.solvePnP')
@@ -125,6 +160,7 @@ class TestPointCorrespondenceTransform:
     mock_solve_pnp.assert_called_once()
     # Five inliers, non-coplanar → SQPNP refine
     assert mock_solve_pnp.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
+    assert mock_solve_pnp.call_args.kwargs['useExtrinsicGuess'] is False
     assert transform.rejectedIndices == [3]
     assert transform.pose_mat.shape == (4, 4)
     # Default (no scene scale) keeps the reference 10 px threshold.
@@ -182,6 +218,9 @@ class TestPointCorrespondenceTransform:
     assert mock_solve_pnp_ransac.call_args.kwargs['flags'] == cv2.SOLVEPNP_SQPNP
     mock_solve_pnp.assert_called_once()
     assert mock_solve_pnp.call_args.kwargs['flags'] == cv2.SOLVEPNP_ITERATIVE
+    assert mock_solve_pnp.call_args.kwargs['useExtrinsicGuess'] is True
+    np.testing.assert_array_equal(mock_solve_pnp.call_args.kwargs['rvec'], mock_rvec)
+    np.testing.assert_array_equal(mock_solve_pnp.call_args.kwargs['tvec'], mock_tvec)
     assert transform.rejectedIndices == []
 
   def test_solve_pnpransac_uses_sqpnp_for_coplanar(self):

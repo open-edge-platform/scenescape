@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# Scene Controller consuming PTZ PoseContexts in enforcing mode. Layer after compose.scene.yml.
+services:
+  scene:
+    environment:
+      CONTROLLER_PTZ_ENABLED: "true"
+    volumes:
+      - ./tests/compose/ptz/ptz-consumer-config.json:/home/scenescape/Scenescape/ptz-consumer-config.json:ro
+      - ./tests/compose/positioning-assignments.json:/home/scenescape/Scenescape/positioning-assignments.json:ro

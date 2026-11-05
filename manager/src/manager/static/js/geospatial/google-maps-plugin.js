@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2023 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2023 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 "use strict";
@@ -58,17 +58,18 @@ class GoogleMapsPlugin extends MapInterface {
     const zoom = config.zoom;
     const rotation = config.rotation;
 
+    // Rotation is disabled so map corners stay north-up and match the scene axes.
     this.map = new google.maps.Map(document.getElementById(containerId), {
       center: center,
       zoom: zoom,
       mapTypeId: "satellite",
-      rotateControl: true,
+      rotateControl: false,
       streetViewControl: false,
       fullscreenControl: true,
       mapTypeControl: true,
       zoomControl: true,
       tilt: 0,
-      heading: rotation, // Set saved rotation
+      heading: 0,
     });
 
     console.log("Google Maps initialized with settings:", {
@@ -134,6 +135,9 @@ class GoogleMapsPlugin extends MapInterface {
   }
 
   generateBounds() {
+    if (this.map.getHeading()) {
+      this.map.setHeading(0);
+    }
     const bounds = this.map.getBounds();
     if (!bounds) return;
 
@@ -151,7 +155,9 @@ class GoogleMapsPlugin extends MapInterface {
     }
 
     // Populate map_corners_lla field with corners in the expected format
-    // Expected order: starting from the bottom-left corner counterclockwise
+    // Order: starting from the bottom-left corner, clockwise (SW, NW, NE, SE).
+    // The counterclockwise order is accepted as well; the direction is detected
+    // when the geospatial transform is calculated.
     // Format: [ [lat1, lon1, alt1], [lat2, lon2, alt2], [lat3, lon3, alt3], [lat4, lon4, alt4] ]
     const mapCornersField = document.getElementById("id_map_corners_lla");
     if (mapCornersField) {

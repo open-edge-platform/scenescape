@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import socket
+import time
 
 import vdms
 
@@ -25,6 +26,8 @@ from scene_common import log
 # Retained for tests/tools that historically imported this module constant.
 DIMENSIONS = 256
 SCHEMA_MARKER_CLASS = "ReidSchemaMarker"
+RECONNECT_INTERVAL_SECS = 5.0
+BACKEND_TIMEOUT_SECS = 5.0
 
 class VDMSDatabase(ReIDDatabase):
   def __init__(self, set_name=SCHEMA_NAME,
@@ -52,10 +55,51 @@ class VDMSDatabase(ReIDDatabase):
     )
     self.hostname = get_reid_hostname()
     self.port = get_reid_port()
+    self._last_connect_attempt = float("-inf")
     return
 
   def _schemaResourceLabel(self):
     return "VDMS descriptor set"
+
+  def backendAvailable(self):
+    """Probe read-only, reconnecting at most once per retry interval."""
+    if self._probeBackend():
+      return True
+    with self.lock:
+      if not self._reconnectClient():
+        return False
+    return self._probeBackend()
+
+  def _reconnectClient(self):
+    """Reconnect under self.lock, sharing the retry budget with normal queries."""
+    now = time.monotonic()
+    if now - self._last_connect_attempt < RECONNECT_INTERVAL_SECS:
+      return False
+    self._last_connect_attempt = now
+    try:
+      self.db.disconnect()
+      self._connectClient(self.hostname)
+    except (OSError, RuntimeError) as error:
+      log.warning(f"VDMS reconnect failed: {error}")
+      return False
+    return True
+
+  def _connectClient(self, hostname):
+    try:
+      self.db.connect(hostname, port=self.port)
+      self.db.conn.settimeout(BACKEND_TIMEOUT_SECS)
+    except Exception:
+      self.db.disconnect()
+      raise
+
+  def _probeBackend(self):
+    try:
+      response, _ = self.sendQuery([{"FindEntity": {"class": SCHEMA_MARKER_CLASS,
+                                                  "results": {"list": ["set_name"]}}}])
+      return bool(response and response[0].get("status") == 0)
+    except Exception as error:
+      log.warning(f"VDMS readiness probe failed: {error}")
+      return False
 
   def sendQuery(self, query, blob=None):
     """
@@ -69,37 +113,78 @@ class VDMSDatabase(ReIDDatabase):
     @param   blob       Blobs of data to send with queries (optional)
     @return  responses  The response dict from VDMS
     """
-    responses = []
-    response_blob = []
     with self.lock:
-      if blob:
-        query_response = self.db.query(query, blob)
-      else:
-        query_response = self.db.query(query)
-    if query_response and query_response != "NOT CONNECTED":
-      response_blob = query_response[1]
-      # Check for transaction-level failure
-      if (len(query_response[0]) == 1
-          and isinstance(query_response[0][0], dict)
-          and 'FailedCommand' in query_response[0][0]):
-        log.warning(f"VDMS transaction failed: {query_response[0][0]}")
-        return responses, response_blob
-      for (item, response) in zip(query, query_response[0]):
-        query_type = next(iter(item))
-        response_data = response.get(query_type, {})
-        if not isinstance(response_data, dict):
-          log.debug(f"sendQuery: Non-dict payload for {query_type}: {response_data!r}")
-          response_data = {}
-        responses.append(response_data)
-    else:
-      log.warning(f"Failed to send query to VDMS container: {query}")
-    return responses, response_blob
+      if not self.db.connected and not self._reconnectClient():
+        log.warning("Cannot send query to VDMS: reconnect unavailable")
+        self._backendFailure()
+        return [], []
+      try:
+        if blob:
+          query_response = self.db.query(query, blob)
+        else:
+          query_response = self.db.query(query)
+      except Exception:
+        # A late or partial reply must never be consumed by the next query.
+        self.db.disconnect()
+        log.warning("VDMS query raised; disconnected to discard pending replies")
+        raise
+      if not query_response or query_response == "NOT CONNECTED":
+        self.db.disconnect()
+        log.warning("Failed to receive a complete VDMS query response")
+        self._backendFailure()
+        return [], []
+    return self._parseQueryResponses(query, query_response[0]), query_response[1]
+
+  def _parseQueryResponses(self, query, raw_responses):
+    if len(raw_responses) == 1 and 'FailedCommand' in raw_responses[0]:
+      return self._transactionResponses(query, raw_responses[0])
+    if len(raw_responses) != len(query):
+      self._backendFailure()
+      return []
+    responses = [response.get(next(iter(command)), {})
+                 for command, response in zip(query, raw_responses)]
+    responses = [item if isinstance(item, dict) else {} for item in responses]
+    self._validateQueryResponses(query, responses)
+    return responses
+
+  def _transactionResponses(self, query, failure):
+    if (query and all(item == failure["FailedCommand"] for item in query)
+        and self._isEmptyLookup(query[0], failure)):
+      return [failure.copy() for _ in query]
+    log.warning(f"VDMS transaction failed: {failure}")
+    self._backendFailure()
+    return []
+
+  def _validateQueryResponses(self, query, responses):
+    """Distinguish documented empty lookups from failed transactions."""
+    if len(responses) != len(query):
+      self._backendFailure()
+      return
+    if any(item.get("status") != 0 and next(iter(command)) != "AddDescriptorSet"
+           and not self._isEmptyLookup(command, item)
+           for command, item in zip(query, responses)):
+      self._backendFailure()
+
+  @staticmethod
+  def _isEmptyLookup(command, response):
+    name = next(iter(command))
+    absent = {
+      "FindDescriptor": {
+        "DescriptorSet Not Found!", "Set Not Found", "Not Found!",
+        "Descriptors Not Found", "Descriptor Not Found in graph!",
+      },
+      "FindDescriptorSet": {"DescriptorSet Not Found!", "Set Not Found"},
+    }
+    return response.get("status") == -1 and response.get("info") in absent.get(name, set())
 
   def connect(self, hostname=None):
     if hostname is None:
       hostname = self.hostname
+    self.hostname = hostname
+    self._last_connect_attempt = time.monotonic()
     try:
-      self.db.connect(hostname, port=self.port)
+      with self.lock:
+        self._connectClient(hostname)
       self._initializeSchemaOnConnect()
     except RuntimeError as e:
       log.error(f"Failed to initialize VDMS schema: {e}")
@@ -149,7 +234,7 @@ class VDMSDatabase(ReIDDatabase):
       raise RuntimeError(
         f"Failed to write schema marker for '{self.set_name}'. Response: {response}")
 
-  def _readSchemaMarker(self):
+  def _readSchemaMarker(self, set_name=None):
     """
     Read the schema marker entity for this descriptor set to verify
     dimensions/metric reliably, bypassing FindDescriptorSet.
@@ -159,7 +244,7 @@ class VDMSDatabase(ReIDDatabase):
     query = [{
       "FindEntity": {
         "class": SCHEMA_MARKER_CLASS,
-        "constraints": {"set_name": ["==", self.set_name]},
+        "constraints": {"set_name": ["==", self._resolveSetName(set_name)]},
         "results": {"list": ["set_name", "dimensions", "metric"]}
       }
     }]
@@ -281,10 +366,53 @@ class VDMSDatabase(ReIDDatabase):
       uuid,
       missing_sentinels=("Missing property",))
 
+  def countDescriptors(self, uuid, set_name=None):
+    """Return how many stored descriptors belong to one object UUID."""
+    set_name = self._resolveSetName(set_name)
+    response, _ = self.sendQuery([{
+      "FindDescriptor": {
+        "set": set_name,
+        "constraints": {"uuid": ["==", f"{uuid}"]},
+        "results": {"list": ["uuid"], "blob": False},
+      }
+    }])
+    if not response:
+      raise ConnectionError("VDMS descriptor count failed")
+    if self._isEmptyLookup({"FindDescriptor": {}}, response[0]):
+      return 0
+    if response[0].get("status") != 0:
+      raise ConnectionError("VDMS descriptor count failed")
+    returned = response[0].get("returned")
+    if returned is not None:
+      return int(returned)
+    return len(response[0].get("entities") or [])
+
+  def deletePoi(self, poi_id, set_name=None):
+    """Delete only the named POI's graph records and verify they are no longer searchable."""
+    set_name = self._resolveSetName(set_name)
+    if not isinstance(poi_id, str) or not poi_id:
+      raise ValueError("A POI id is required for deletion")
+    constraints = {"uuid": ["==", poi_id]}
+    results = {"list": ["uuid"], "blob": False}
+    response, _ = self.sendQuery([{"FindDescriptor": {
+      "set": set_name, "constraints": {**constraints, "_deletion": ["==", True]},
+      "results": results}}])
+    if not response or response[0].get("status") != 0:
+      raise ConnectionError("VDMS POI deletion failed")
+    remaining, _ = self.sendQuery([{"FindDescriptor": {
+      "set": set_name, "constraints": constraints, "results": results}}])
+    if (not remaining or
+        (remaining[0].get("returned") != 0 and
+         not self._isEmptyLookup({"FindDescriptor": {}}, remaining[0]))):
+      raise ConnectionError("VDMS POI deletion could not be verified")
+
   def findSchemaMetadata(self, set_name):
+    # FindDescriptorSet raises an internal JSON error for absent sets in VDMS 2.12.
     query = [{
-      "FindDescriptorSet": {
-        "set": f"{set_name}"
+      "FindEntity": {
+        "class": "VD:DESCSET",
+        "constraints": {"VD:name": ["==", set_name]},
+        "results": {"list": ["VD:name", "VD:dimensions"]}
       }
     }]
     response, _ = self.sendQuery(query)
@@ -297,6 +425,10 @@ class VDMSDatabase(ReIDDatabase):
 
     schema_dimensions = self._extractSchemaDimensions(first_response)
     schema_metric = self._extractSchemaMetric(first_response)
+    if schema_metric is None:
+      marker_exists, _, schema_metric = self._readSchemaMarker(set_name)
+      if not marker_exists:
+        schema_metric = None
     return True, schema_dimensions, schema_metric
 
   def _extractSchemaDimensions(self, find_descriptor_set_response):
@@ -371,28 +503,42 @@ class VDMSDatabase(ReIDDatabase):
       log.warning("findMatches: No valid vectors for similarity search")
       return None
 
-    query = [find_query] * len(blob)
-    response, _ = self.sendQuery(query, blob)
+    result = self._queryIdentifiedMatches(find_query, blob, k_neighbors)
+    log.debug(f"[VDMS] findMatches returned {len(result)} per-vector result lists")
+    return result
 
-    log.debug(
-      f"[VDMS] Raw VDMS response (truncated): "
-      f"status={response[0].get('status') if response else 'None'}, "
-      f"returned={response[0].get('returned') if response else 'None'}")
-    if response and len(response) > 0:
-      log.debug(f"[VDMS] Full first response: {response[0]}")
+  def _queryIdentifiedMatches(self, find_query, blob, neighbors):
+    """Backfill orphaned index hits, with a bounded 1000-candidate search budget."""
+    search_neighbors = neighbors
+    while True:
+      command = {"FindDescriptor": {**find_query["FindDescriptor"],
+                                    "k_neighbors": search_neighbors}}
+      response, _ = self.sendQuery([command] * len(blob), blob)
+      result = self._responseMatches(response, len(blob))
+      retry = any(len(matches) < neighbors and len(item.get("entities", [])) > len(matches)
+                  for item, matches in zip(response or [], result))
+      if not retry or search_neighbors >= 1000:
+        return [matches[:neighbors] for matches in result]
+      search_neighbors = 1000
 
+  def _responseMatches(self, response, count):
+    """Preserve one list per query vector while dropping unusable identities."""
     result = []
     for item in (response or []):
       if item.get('status') != 0 or item.get('returned', 0) <= 0:
         result.append([])
         continue
-      result.append(self._entitiesFromNormalizedScores(item.get('entities', [])))
+      result.append(self._identifiedMatches(item.get('entities', [])))
 
-    while len(result) < len(blob):
+    while len(result) < count:
       result.append([])
-
-    log.debug(
-      "[VDMS] findMatches returned %d per-vector result item(s) from %d valid "
-      "query vector(s); VDMS response items=%d, input vectors=%d",
-      len(result), len(blob), len(response or []), len(reid_vectors))
     return result
+
+  def _identifiedMatches(self, entities):
+    """VDMS may return score-only index hits after their graph records were deleted."""
+    identified = [entity for entity in entities
+                  if isinstance(entity.get("uuid"), str) and entity["uuid"] and
+                  entity["uuid"] != "Missing property"]
+    if len(identified) != len(entities):
+      log.debug("findMatches: Discarding VDMS index hits without a searchable identity")
+    return self._entitiesFromNormalizedScores(identified)

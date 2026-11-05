@@ -20,7 +20,9 @@ retirement step after Tracker (ADR 7 / ADR 13): ReID gets a durable home outside
 so that responsibility can leave the monolith.
 
 **Live loop:** `reid-service` consumes the Tracker MQTT track stream and matches/stores
-internally — no cross-service round trip for live tracking. **External surface:** Section 6 is an
+internally — no cross-service round trip for live tracking. Analytics consumes the same track
+stream independently and applies asynchronous ReID identity decisions before computing spatial
+analytics and publishing regulated output (Section 5.1.1). **External surface:** Section 6 is an
 HTTP/gRPC API (query, POI, gallery, trajectory). MQTT request/reply for that external surface
 remains open (Section 5.1 / Section 11); it does not reopen the live-loop model.
 
@@ -112,8 +114,14 @@ Move the library in 4.2 into `reid-service`. ADR 13: gRPC for synchronous query/
 ```mermaid
 flowchart LR
   subgraph Live["Live loop (MQTT)"]
-    TRK[Tracker] -->|tracks| MQTT[MQTT Broker]
-    MQTT -->|scene tracks| REID[reid-service]
+    TRK[Tracker] --> TRACKS["Scene-track topic<br/>scenescape/data/scene/..."]
+    TRACKS -->|tracks + available embeddings| REID[reid-service]
+    TRACKS -->|tracks: positions / motion / local IDs| AN[Analytics service]
+    REID --> IDS["Identity-update topic<br/>scenescape/data/reid/..."]
+    IDS -->|ID mapping / state / count ONLY; no scene tracks| AN
+    SEN[Sensor readings] --> SENSORS["Sensor topic<br/>scenescape/data/sensor/..."]
+    SENSORS --> AN
+    AN -->|regulated / region detections / events| OUT[Manager UI / subscribers]
   end
 
   subgraph Store["Descriptor store"]
@@ -140,9 +148,77 @@ flowchart LR
   OPS -.->|no write path| GEN
 ```
 
-**Live loop:** Tracker publishes scene tracks; `reid-service` matches and stores into the general gallery with no Controller round trip. **External API:** investigator clients query only (6.12); POI operators write only the POI gallery and enrollment audit; the correlation daemon queries like any client and publishes `poi_match` events (6.5). There is no general-gallery write endpoint.
+**Live loop:** Tracker publishes scene tracks to both `reid-service` and Analytics through MQTT.
+The topic boxes above are separate streams on the MQTT broker. **Tracker is the scene-track
+producer; `reid-service` does not republish scene tracks.** ReID matches and stores into the
+general gallery, then publishes identity updates on a different topic. Analytics combines
+Tracker's positions and motion with ReID's ID mappings and states, and owns spatial analytics
+and downstream output. Neither Tracker nor Analytics waits for a synchronous ReID response.
+**External API:** investigator clients query only (6.12); POI operators write only the POI gallery and enrollment audit; the correlation daemon queries like any client and publishes `poi_match` events (6.5). There is no general-gallery write endpoint. The POI gallery, enrollment audit, and external capabilities shown above include proposed follow-on work; see the [service guide](../user-guide/microservices/reid-service/reid-service.md#current-scope) for current scope.
 
 The Controller circuit breaker is not ported: live matching is inside `reid-service`. Degradation signaling (stop using matches; recommend purge/compaction when volume is the cause) is a follow-on and does not block extraction (Section 11).
+
+#### 5.1.1 Analytics integration and identity continuity
+
+**Analytics receives two different kinds of messages, not two copies of the scene tracks:**
+
+| Producer       | MQTT topic                                      | What Analytics receives                                                                    |
+| -------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Tracker        | `scenescape/data/scene/{scene_id}/{thing_type}` | Scene frames: tracked objects with local IDs, positions, motion, and other track fields.   |
+| `reid-service` | `scenescape/data/reid/{scene_id}/{category}`    | Identity updates: which `gid` belongs to a `track_id`, ReID state, similarity, and counts. |
+
+Tracker answers **"where is this tracked object now?"** ReID answers **"which identity does
+this track belong to?"** Analytics combines those answers; ReID updates do not supply a new
+position or trigger a replacement scene frame.
+
+The services have separate responsibilities: `reid-service` owns embedding collection,
+matching, descriptor storage, identity decisions, and cumulative unique-ID counts. Analytics
+owns camera visibility, region entry/exit and dwell, tripwire crossings, sensor correlation,
+and regulated/event publishing. Analytics does not query the descriptor store or perform
+embedding matching.
+
+The MQTT integration is asynchronous:
+
+1. **Parallel track ingestion.** Both services subscribe to
+   `scenescape/data/scene/{scene_id}/{thing_type}`. ReID uses the available embeddings and
+   sighting metadata; Analytics uses the tracked objects and scene configuration.
+2. **Identity updates.** ReID publishes on
+   `scenescape/data/reid/{scene_id}/{category}`. Analytics caches the latest decision by
+   `(scene_id, category, track_id)`, including the assigned `gid`, identity state, similarity,
+   and decision time. It also caches the matcher-owned `unique_id_count` per scene/category.
+   The [service guide](../user-guide/microservices/reid-service/reid-service.md#identity-state-and-counting)
+   defines the states and counting semantics.
+3. **Apply before spatial analytics.** For each subsequent scene message, Analytics applies
+   cached identity updates before updating tracked objects, visibility, and events. An object
+   without a decision keeps its track ID and defaults to `pending_collection` unless its
+   producer already supplied a state. Processing continues while ReID gathers features or
+   queries the store; a decision arriving after a frame affects subsequent frames, not
+   previously published output.
+4. **Preserve continuity on delayed matches.** When a decision changes an object's ID,
+   Analytics migrates the existing tracked object and its region, dwell, tripwire, and
+   location-history state to the assigned gid rather than creating a new object. A rename
+   that would overwrite another live identity is deferred and logged. Matched renames
+   include the prior track ID in `previous_ids_chain`.
+5. **Publish enriched output.** Regulated and per-region detections carry the applied
+   identities and ReID states, and spatial events use those identities. When a matcher
+   count is available, Analytics forwards it as `unique_detection_count`; it does not
+   recompute it from active tracks or terminal states. Outputs include
+   `scenescape/regulated/scene/{scene_id}`, per-region detections, and region/tripwire/sensor
+   event topics.
+
+**Example:** Tracker publishes `track-7` at position `[1, 2, 0]`. Analytics processes that
+position using `track-7` while its identity is pending. ReID later publishes a match mapping
+`track-7` to `person-42`; this message contains an identity decision, not a new position.
+When Tracker next publishes `track-7` at `[2, 2, 0]`, Analytics uses that new position but
+publishes the object as `person-42`, preserving its existing dwell and crossing history.
+Tracker continues to publish its local ID; Analytics applies the mapping to downstream output.
+
+Analytics also consumes `scenescape/data/sensor/{sensor_id}` and loads scene configuration
+from Manager REST or local JSON files. See the [Analytics overview](../user-guide/microservices/analytics/analytics.md)
+and [data formats](../user-guide/microservices/analytics/data_formats.md) for those inputs and
+the downstream output contracts. The legacy Scene Controller may also produce scene tracks
+with identities already applied; Analytics preserves producer-supplied ReID state when no
+standalone-service decision is available.
 
 ### 5.2 What doesn't change
 
@@ -160,11 +236,11 @@ Match-latency instruments (`scenescape_controller_reid_*match_latency*`, fed by 
 
 Against current Tracker code:
 
-- **Embeddings are best-effort passthrough.** If a detector sets `metadata.reid` (including `embedding_vector`), Tracker preserves it (`Detection::metadata_json` → `TrackPublisher::serialize` on `scenescape/data/scene/{scene_id}/{category}`). It is not a required `Track` field. Multi-camera metadata fusion is confidence / last-write-wins. There is no guaranteed embedding-on-track contract for live matching.
-- **`camera_id` and per-sighting timestamp are missing** on published tracks. Input batches have `DetectionBatch.camera_id`; the scene envelope has a message timestamp; objects have world `translation` / `size`. Schema allows optional `visibility` / `camera_bounds`; `TrackPublisher` does not emit them. Pixel bbox is not required for Stream Manager (6.11).
+- **Embeddings remain best-effort.** If a detection has `metadata.reid`, Tracker publishes `reid_sighting` with that detection's `camera_id`, frame `timestamp`, pixel `bounding_box_px`, and original `reid` payload. The embedding is published only in `reid_sighting.reid`; Tracker omits `metadata.reid` to avoid duplicate vectors. The sighting is omitted when no current-chunk ReID detection contributed to the track. Legacy Scene Controller messages may carry `metadata.reid` without `reid_sighting`, but the two representations must not coexist. Multi-camera fusion selects the metadata.reid winner's corresponding sighting; other metadata fields retain their fusion semantics.
+- **Per-sighting camera and timestamp are available for live ingest**, but are not yet stored with every descriptor. The scene envelope timestamp remains the track computation time. Schema allows optional `visibility` / `camera_bounds`; `TrackPublisher` does not emit them. Pixel bbox is not required for Stream Manager (6.11).
 - **Today's ReID write never stores them.** `UUIDManager` persists `_extractSemanticMetadata()` only. `self.location` (`Chronoloc`: point, timestamp, bbox) is unused on that path. `_extractCameraId()` feeds a metrics counter, not the gallery write.
 
-**Required:** the Tracker payload `reid-service` consumes includes `camera_id` and per-sighting `timestamp`, and `reid-service` stores both on each descriptor write. Closing that gap is Tracker (or detector) work (Section 11). How far back a query can see is the general-gallery TTL (6.11).
+**Remaining:** `reid-service` must store camera ID and per-sighting timestamp on each descriptor write for trajectories (Section 11). It currently consumes these fields for observation/quality gating but does not persist them. How far back a query can see is the general-gallery TTL (6.11).
 
 ---
 
@@ -181,6 +257,15 @@ Thin wrappers over today's methods. No behavior change.
 - **`purgeExpired`** — optional manual trigger. Scheduled purge is internal (5.1).
 - **Health/readiness** — new; the in-process library had none.
 
+The implemented baseline gRPC contract also declares `IngestStats` for local
+live-loop observability. `Health.ready` reflects a fresh, read-only backend
+availability probe rather than a cached connection flag. The proto, request and
+response shapes, client usage, status codes, and test scope are documented in the
+[Re-ID service contract](../user-guide/microservices/reid-service/reid-service.md#baseline-grpc-contract).
+`CreateCollection` is an authorized schema-only operation for POI collections;
+it does not enroll descriptors. This baseline does not add a general-gallery
+descriptor write RPC.
+
 ### 6.2 Design principles
 
 - **One contract per backend.** Same endpoints, shapes, and success rules. If an adapter lacks a primitive (for example count), the service implements it. Callers do not branch on VDMS vs Qdrant.
@@ -194,16 +279,16 @@ Expose `findMatches` to investigator tools, VLM-recall (Epic #120), and POI matc
 
 ### 6.4 POI enrollment (insert and update)
 
-`POST /poi` accepts precomputed embeddings plus `severity`, `notes`, and `enrolled_by`. It does not take raw images or a client `poi_id`. Internally it uses the `addEntry` write path without inventing an `rvid`. Who runs image → embedding for a one-off enrollment (ephemeral DL Streamer pipeline vs a synchronous extract API) is open (Section 11).
+`EnrollPoi` accepts a declared POI collection, object type, 1-5 precomputed embeddings, `severity`, `notes`, and `enrolled_by`. It does not take raw images or a client `poi_id`; the service generates the POI id. `AppendPoiEmbeddings` accepts a POI id, 1-5 additional reference embeddings, and `enrolled_by`. Both use `addEntry` without inventing an `rvid`, and write an audit record containing writer, timestamp, operation, and SHA-256 hashes for the vectors in that operation. They require `REID_POI_WRITE_TOKEN` and cannot target the live gallery. Who runs image → embedding for a one-off enrollment (ephemeral DL Streamer pipeline vs a synchronous extract API) is open (Section 11).
 
-`enrolled_by` is required on every enroll and embedding append. Immutable enrollment audit and write-path rate limits are specified in 6.12; mechanics here: each enroll/append appends an audit record (`enrolled_by`, timestamp, vector id or hash). Metadata PATCH and deactivate do not rewrite or remove prior records. Hard delete (6.7) removes the POI from the matchable gallery but must not erase the audit trail.
+`enrolled_by` is required on every enroll and embedding append. Each descriptor written by an operation contains that operation's immutable audit metadata; the service exposes no operation to edit or erase it. Rate limits remain a deployment requirement (6.12). Metadata PATCH and deactivate do not rewrite or remove prior records. Hard delete (6.7) removes the POI from the matchable gallery but must not erase the audit trail.
 
 Updates:
 
 - `POST /poi/{poi_id}/embeddings` — append a reference embedding (Epic #221: 1–5 per POI).
 - `PATCH /poi/{poi_id}` — metadata only, including active/inactive. Hard delete is 6.7.
 
-**Write contract.** `POST /poi` and embedding appends succeed only when every vector in the request is accepted. Otherwise the call fails and no half-enrolled `poi_id` is returned. That is stricter than general-gallery partial writes (`ReidPartialWriteError`). It is not fsync, quorum, or durability. Persistence is 6.10. Adapter confirmation (Qdrant `wait=True`, VDMS per-descriptor status) stays internal; callers see one outcome.
+**Write contract.** `EnrollPoi` and `AppendPoiEmbeddings` return success only when every vector in the request is accepted. Otherwise the RPC fails and an enrollment returns no `poi_id`. This does not promise rollback of descriptors accepted before a backend partial failure, and it is not fsync, quorum, or durability. Persistence is 6.10. Adapter confirmation (Qdrant `wait=True`, VDMS per-descriptor status) stays internal; callers see one outcome.
 
 POI embeddings use their own collection/`set_name`, not the general gallery: different retention (6.8), and queries name the POI set vs the general set instead of inferring it from `object_type`. Validate with `prepareReidDict` / `prepareReidVector`; reject with `ReidNoValidVectorsError`.
 
@@ -225,7 +310,7 @@ Neither adapter exposes count or list today. `findSchemaMetadata` does not retur
 
 - `GET /collections` — name, dimensions, metric, retention. Not which backend is deployed.
 - `GET /collections/{name}/stats` — `vector_count` and `distinct_object_count` (1–5 embeddings per POI; general gallery also stores more than one vector per UUID). `Gallery_Size_Active_Persons` is the distinct count.
-- `POST /collections` — explicit create for POI collections (name, dimensions, metric, retention). The general gallery keeps lazy `ensureSchema`.
+- **Collection and POI gRPC writes** — `CreateCollection` declares an explicit POI collection schema; `EnrollPoi` and `AppendPoiEmbeddings` write POI descriptors only after declaration. Compatible schema repeats are idempotent; mismatches fail with `FAILED_PRECONDITION`. The configured live-gallery, default live-gallery, and schema-marker names are reserved from these operations. The general gallery keeps lazy `ensureSchema` and has no external descriptor-write RPC.
 
 Whether stats accept `scene_id` / `camera_id` is open (Section 11). Export size as an OTel gauge for `GalleryExtractor`, not only as a REST body (Section 10).
 
@@ -246,7 +331,7 @@ Once POI collections exist (6.4, 6.6):
 
 ### 6.9 Schema declaration
 
-Dimensions are inferred from the first write (`_ensureReIDDimensions` → `ensureSchema`). External callers may query before any write. Add an explicit declare-dimensions-and-metric call for a collection.
+Dimensions are inferred from the first write (`_ensureReIDDimensions` → `ensureSchema`) for the lazy general gallery. External callers may query before any write. `CreateCollection` declares an explicitly named POI collection's dimensions and metric before enrollment and verifies schema markers on repeat declarations.
 
 ### 6.10 POI persistence
 
@@ -305,7 +390,7 @@ Policy for the external API (Section 6). The authN/authZ _mechanism_ (tokens, mT
 ## 8. Consequences
 
 - The Controller circuit breaker is not ported. Degradation signaling is a follow-on (Section 11) and does not keep ReID in the Controller.
-- Trajectory persistence waits on Tracker publishing `camera_id` and per-sighting timestamp (5.4).
+- Trajectory persistence still needs per-descriptor storage of the camera ID and per-sighting timestamp supplied by Tracker (5.4).
 - POI data survives container restart only via a volume. Enrollment success is the 6.4 contract. There is no export or automated backend migration.
 
 ## 9. Rollout / Migration Plan
@@ -315,9 +400,9 @@ Ship `reid-service` behind a flag, dual-run against in-Controller ReID until par
 Section 6 sequencing:
 
 - 6.1 before any other API.
-- authN/authZ mechanism (Section 11) before `POST /poi` or delete ship; policy is 6.12. Tracker-subscription trust stays a separate open.
+- `REID_COLLECTION_CREATE_TOKEN` and `REID_POI_WRITE_TOKEN` gate the baseline collection/POI write RPCs. Fine-grained operator roles, write-rate limits, and authorization for future delete APIs remain security follow-up (6.12). Tracker-subscription trust stays a separate open.
 - 6.8 after 6.4 and 6.6 (a collection must exist before it has a TTL).
-- 6.11 after Tracker publishes `camera_id` and per-sighting timestamp (5.4). Stream Manager integration follows that, not the other way around.
+- 6.11 after `reid-service` persists the Tracker's per-sighting camera ID and timestamp (5.4). Stream Manager integration follows that, not the other way around.
 
 Other Section 6 subsections can be scheduled independently against Epic #221 or Epic #120.
 
@@ -333,7 +418,7 @@ OTel, not REST-only: match latency and backend duration (5.3), `Gallery_Size_Act
 
 - **External transport.** Section 6 is specified as HTTP/gRPC, matching ADR 13. MQTT request/reply for that surface only is still open (5.1).
 - **Degradation signaling.** Detect degraded query performance so consumers stop using matches; when the cause is gallery volume, recommend purge or compaction. Signals, thresholds, and the consumer contract are not designed yet. Does not block extraction.
-- **Tracker stream gaps (5.4).** No guaranteed embedding on published tracks. `camera_id` and per-sighting timestamp are not published. Bbox is not required. Live matching and trajectory writes cannot rely on the stream until a guaranteed embedding, `camera_id`, and per-sighting timestamp are published.
+- **Tracker stream gaps (5.4).** Embeddings are best-effort; a detection without `metadata.reid` has no fresh sighting. Tracker publishes camera ID, pixel bbox and per-sighting timestamp on fresh ReID detections, but `reid-service` still needs per-descriptor persistence for trajectory queries.
 - **MQTT trust for the Tracker subscription.** Broker ACL, topic auth, network policy, or a combination. Distinct from endpoint authN/authZ below.
 
 **API**
@@ -344,7 +429,7 @@ OTel, not REST-only: match latency and backend duration (5.3), `Gallery_Size_Act
 
 **Security**
 
-- **authN/authZ mechanism.** How principals and the read-vs-write split in 6.12 are enforced (tokens, mTLS, gateway policy, etc.). Required before `POST /poi` or delete ship (Section 9). MQTT trust for the Tracker subscription is listed under Extraction above.
+- **authN/authZ mechanism.** Baseline collection creation and POI enrollment/append are gated by separate bearer tokens (`REID_COLLECTION_CREATE_TOKEN`, `REID_POI_WRITE_TOKEN`), but these are not fine-grained principals or roles. Fine-grained query-vs-operator authorization and write-path rate limits remain required before broad deployment. The listener is plaintext, so deployment still requires a trusted private network or TLS proxy. MQTT trust for the Tracker subscription is listed under Extraction above.
 
 ## 12. References
 

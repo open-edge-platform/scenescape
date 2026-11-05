@@ -18,9 +18,11 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 # Directories that require C++ extensions not available on the host.
 # Listed as paths relative to this conftest's directory.
-_NATIVE_ONLY_DIRS = {"markerless", "robot_vision"}
+_NATIVE_ONLY_DIRS = {"robot_vision"}
 
 # Import controller module
 _controller_src = Path(__file__).resolve().parent.parent.parent / "controller" / "src"
@@ -89,3 +91,27 @@ except Exception:
   # Django setup may fail if optional deps are missing; let pytest
   # report the error per-test rather than blocking all collection.
   pass
+
+
+@pytest.fixture
+def shutdown_uuid_managers(monkeypatch):
+  """Shut down every UUIDManager created during the test.
+
+  A manager reschedules a daemon timer whose callback references the manager,
+  so without shutdown() it is never collected and its thread outlives the
+  session. Objects reachable from such threads are not freed at interpreter
+  exit, which makes Open3D report leaks and force exit code 1.
+  """
+  from controller.uuid_manager import UUIDManager
+
+  managers = []
+  original_init = UUIDManager.__init__
+
+  def tracking_init(self, *args, **kwargs):
+    original_init(self, *args, **kwargs)
+    managers.append(self)
+
+  monkeypatch.setattr(UUIDManager, "__init__", tracking_init)
+  yield managers
+  for manager in managers:
+    manager.shutdown()
