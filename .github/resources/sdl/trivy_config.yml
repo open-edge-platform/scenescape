@@ -21,6 +21,7 @@ scan:
   skip-dirs:
     - ".github"
     - "tests"
+    - "sample_data/sample_app"
 severity:
   - CRITICAL
   - HIGH

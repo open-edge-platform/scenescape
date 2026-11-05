@@ -52,6 +52,19 @@ class QdrantDatabase(ReIDDatabase):
   def _schemaResourceLabel(self):
     return "Qdrant collection"
 
+  def backendAvailable(self):
+    """Probe current backend availability rather than trusting a cached flag."""
+    if self.client is None:
+      return False
+    try:
+      with self.lock:
+        self.client.get_collections()
+      self.connected = True
+      return True
+    except Exception:
+      self.connected = False
+      return False
+
   def _qdrantDistance(self, metric=None):
     """Map descriptor metric to Qdrant distance function."""
     if self._usesInnerProductMetric(metric):
@@ -112,7 +125,12 @@ class QdrantDatabase(ReIDDatabase):
     try:
       self.client.get_collection(collection_name)
       return True
-    except (UnexpectedResponse, ValueError):
+    except UnexpectedResponse as error:
+      if error.status_code != 404:
+        self._backendFailure()
+      return False
+    except ValueError:
+      self._backendFailure()
       return False
 
   def _createCollection(self, collection_name, dimensions, metric):
@@ -307,6 +325,7 @@ class QdrantDatabase(ReIDDatabase):
         log.debug(
           f"[Qdrant] getPersistedAttributes: Query failed for uuid={uuid}: "
           f"{fallback_error}")
+        self._backendFailure()
         return {}
 
     if not points:
@@ -316,6 +335,34 @@ class QdrantDatabase(ReIDDatabase):
     payloads = [
       point.payload for point in points if isinstance(point.payload, dict)]
     return self._decodeLatestPersist(payloads, uuid)
+
+  def countDescriptors(self, uuid, set_name=None):
+    """Return how many stored points belong to one object UUID."""
+    self._ensureClient()
+    set_name = self._resolveSetName(set_name)
+    query_filter = self._buildQdrantFilter({"uuid": ["==", f"{uuid}"]})
+    with self.lock:
+      result = self.client.count(
+        collection_name=set_name, count_filter=query_filter, exact=True)
+    return int(result.count)
+
+  def deletePoi(self, poi_id, set_name=None):
+    """Delete every point for one POI, wait for completion, then verify absence."""
+    self._ensureClient()
+    set_name = self._resolveSetName(set_name)
+    if not isinstance(poi_id, str) or not poi_id:
+      raise ValueError("A POI id is required for deletion")
+    query_filter = self._buildQdrantFilter({"uuid": ["==", poi_id]})
+    with self.lock:
+      result = self.client.delete(
+        collection_name=set_name, points_selector=models.FilterSelector(filter=query_filter),
+        wait=True)
+      if result.status != models.UpdateStatus.COMPLETED:
+        raise ConnectionError("Qdrant POI deletion did not complete")
+      remaining = self.client.count(
+        collection_name=set_name, count_filter=query_filter, exact=True)
+    if remaining.count != 0:
+      raise ConnectionError("Qdrant POI deletion could not be verified")
 
   def findSchemaMetadata(self, set_name):
     if not self._collectionExists(set_name):
@@ -335,6 +382,7 @@ class QdrantDatabase(ReIDDatabase):
       return True, int(schema_dimensions), schema_metric
     except Exception as e:
       log.warning(f"findSchemaMetadata: Failed to read collection '{set_name}': {e}")
+      self._backendFailure()
       return False, None, None
 
   def _buildQdrantFilter(self, query_constraints):
@@ -387,6 +435,7 @@ class QdrantDatabase(ReIDDatabase):
         )
     except Exception as e:
       log.warning(f"purgeExpired: Failed to delete expired Qdrant points: {e}")
+      self._backendFailure()
       return None
     log.debug(f"purgeExpired: Qdrant delete-by-expires_at completed set={self.set_name}")
     return None
@@ -422,6 +471,7 @@ class QdrantDatabase(ReIDDatabase):
           hits = response.points
       except Exception as e:
         log.warning(f"[Qdrant] findMatches search failed: {e}")
+        self._backendFailure()
         result.append([])
         continue
 

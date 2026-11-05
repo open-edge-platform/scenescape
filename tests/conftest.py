@@ -60,9 +60,25 @@ _reid_src = _REPO_ROOT / "reid" / "src"
 if str(_reid_src) not in sys.path:
   sys.path.insert(0, str(_reid_src))
 
+_positioning_src = _REPO_ROOT / "positioning" / "src"
+if str(_positioning_src) not in sys.path:
+  sys.path.insert(0, str(_positioning_src))
+
+_scene_common_src = _REPO_ROOT / "scene_common" / "src"
+if str(_scene_common_src) not in sys.path:
+  sys.path.insert(0, str(_scene_common_src))
+
 _analytics_src = _REPO_ROOT / "analytics" / "src"
 if str(_analytics_src) not in sys.path:
   sys.path.insert(0, str(_analytics_src))
+
+_autocalibration_src = _REPO_ROOT / "autocalibration" / "src"
+if str(_autocalibration_src) not in sys.path:
+  sys.path.insert(0, str(_autocalibration_src))
+
+_autocalibration_hloc = _REPO_ROOT / "autocalibration" / ".vendor" / "reloc"
+if str(_autocalibration_hloc) not in sys.path:
+  sys.path.insert(0, str(_autocalibration_hloc))
 
 # ---------------------------------------------------------------------------
 # Environmental dependencies (host-only)
@@ -667,18 +683,20 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   tmp_path = tmp_path_factory.mktemp(profile.name)
 
   env_file = tmp_path / ".env"
+  db_root = tmp_path / "db"
   env_lines = (
     f"SECRETSDIR={secrets_dir}\n"
     f"SUPASS={supass}\n"
     f"VERSION={image_version}\n"
     f"CONTROLLER_AUTH={controller_auth}\n"
-    f"DBROOT={tmp_path / 'db'}\n"
+    f"DBROOT={db_root}\n"
     f"DATABASE_PASSWORD={database_password}\n"
     f"UID={os.getuid()}\n"
     f"GID={os.getgid()}\n"
     f"VISIBILITY={visibility_topic}\n"
     f"VISIBILITY_TOPIC={visibility_topic}\n"
     f"EXPOSE_TEST_HOOKS=true\n"
+    f"PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX={os.environ.get('PTZ_CALIBRATION_RESIDUAL_THRESHOLD_PX', '10')}\n"
   )
   # Only set DLSTREAMER_VERSION when detected; omitting lets compose defaults apply.
   if dlstreamer_version:
@@ -701,10 +719,11 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   # pass-through (e.g. environment: [SUPASS]). Keep them in sync.
   from tests.utils.compose_env import sync_supass_for_compose
   sync_supass_for_compose(supass)
-  (tmp_path / "db").mkdir(exist_ok=True)
+  # Pre-create bind-mount sources so Docker does not create them as root.
+  (db_root / "media").mkdir(parents=True, exist_ok=True)
   if hierarchy_ports:
     for role in ("parent", "child1", "child2"):
-      (tmp_path / "db" / role / "media").mkdir(parents=True, exist_ok=True)
+      (db_root / role / "media").mkdir(parents=True, exist_ok=True)
 
   docker = DockerClient(
     compose_files=compose_file_paths,
@@ -716,6 +735,10 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
   network = f"{project_name}_scenescape-test"
 
   lifecycle_failed = False
+  # Bind mounts use ${DBROOT}; keep a shell-exported (possibly relative) DBROOT
+  # from overriding the fixture's absolute path for the lifetime of this stack.
+  from tests.utils.compose_env import override_compose_env
+  restore_dbroot = override_compose_env("DBROOT", str(db_root))
   try:
     logger.info("=" * 60)
     logger.info("Starting test environment: %s", project_name)
@@ -808,6 +831,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
       docker.compose.down(remove_orphans=True, volumes=True)
     except Exception as exc:
       logger.warning("compose down failed: %s", exc)
+    finally:
+      restore_dbroot()
 
     if hierarchy_ports:
       from tests.functional.hierarchy_ports import clear_hierarchy_port_env
@@ -836,6 +861,8 @@ def _compose_lifecycle(profile, repo_root, secrets_dir, supass, tmp_path_factory
 _PROFILE_SCENE_ARCHIVES = {
   "full_stack_autocalibration": ("calibration",),
   "full_stack_with_video_and_retail": ("retail_and_queuing",),
+  "track_annotation_controller": ("retail_and_queuing",),
+  "track_annotation_tracker": ("retail_and_queuing",),
   "reid_no_video": ("retail_and_queuing",),
   "reid": ("retail_and_queuing",),
   "reid_qdrant": ("retail_and_queuing",),

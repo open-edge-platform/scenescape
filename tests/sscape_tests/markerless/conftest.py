@@ -11,7 +11,6 @@ import numpy as np
 import pytest
 
 from auto_camera_calibration_model import CalibrationScene
-from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate
 from scene_common.options import MARKERLESS
 
 SCENE_MAP = "tests/resources/maps/atag-calib-demo-map.png"
@@ -40,6 +39,7 @@ def createSceneObject():
 def createCamCalibObject():
   """! Creates a CameraCalibrationMonocularPoseEstimate object named
        based on scene object. """
+  from markerless_camera_calibration import CameraCalibrationMonocularPoseEstimate
   sceneobj = CalibrationScene.deserialize(sceneData())
   dataset_dir = DATASET_DIR
   output_dir = OUTPUT_DIR
