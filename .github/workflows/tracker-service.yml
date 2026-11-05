@@ -40,6 +40,8 @@ jobs:
             tracker:
               - 'tracker/**'
               - 'controller/src/robot_vision/**'
+              - 'controller/src/schema/metadata.schema.json'
+              - 'tests/data/ptz/**'
               - '.github/workflows/tracker-service.yml'
             robot_vision:
               - 'controller/src/robot_vision/**'

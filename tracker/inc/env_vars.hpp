@@ -101,4 +101,38 @@ constexpr const char* METRICS_EXPORT_INTERVAL_S = "TRACKER_METRICS_EXPORT_INTERV
 /// seconds, >= 1
 constexpr const char* TRACING_EXPORT_INTERVAL_S = "TRACKER_TRACING_EXPORT_INTERVAL_S";
 
+// PTZ PoseContext consumption overrides
+
+/// true|false (mutually exclusive with PTZ_SHADOW_MODE)
+constexpr const char* PTZ_ENABLED = "TRACKER_PTZ_ENABLED";
+
+/// true|false (mutually exclusive with PTZ_ENABLED)
+constexpr const char* PTZ_SHADOW_MODE = "TRACKER_PTZ_SHADOW_MODE";
+
+/// seconds, finite, > 0
+constexpr const char* PTZ_MAX_POSE_AGE_S = "TRACKER_PTZ_MAX_POSE_AGE_S";
+
+/// seconds, finite, > 0
+constexpr const char* PTZ_MAX_CLOCK_OFFSET_S = "TRACKER_PTZ_MAX_CLOCK_OFFSET_S";
+
+/// seconds, finite, > 0
+constexpr const char* PTZ_MAX_DETECTION_PIPELINE_LATENCY_S =
+    "TRACKER_PTZ_MAX_DETECTION_PIPELINE_LATENCY_S";
+
+/// seconds, finite, >= 0
+constexpr const char* PTZ_MAX_DETECTION_TIMESTAMP_UNCERTAINTY_S =
+    "TRACKER_PTZ_MAX_DETECTION_TIMESTAMP_UNCERTAINTY_S";
+
+/// Path of the source_id -> resolver_id assignment manifest
+constexpr const char* PTZ_ASSIGNMENTS_PATH = "TRACKER_PTZ_ASSIGNMENTS_PATH";
+
+/// 1-128 characters of [A-Za-z0-9._-]
+constexpr const char* PTZ_SHADOW_RUN_ID = "TRACKER_PTZ_SHADOW_RUN_ID";
+
+/// integer >= 1
+constexpr const char* PTZ_SHADOW_SAMPLE_EVERY_N = "TRACKER_PTZ_SHADOW_SAMPLE_EVERY_N";
+
+/// true|false
+constexpr const char* PTZ_SHADOW_PER_DECISION = "TRACKER_PTZ_SHADOW_PER_DECISION";
+
 } // namespace tracker::env

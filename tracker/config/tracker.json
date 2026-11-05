@@ -50,5 +50,10 @@
   },
   "scenes": {
     "source": "api"
+  },
+  "ptz": {
+    "enabled": false,
+    "shadow_mode": false,
+    "assignments_path": "/scenescape/config/positioning-assignments.json"
   }
 }

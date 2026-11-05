@@ -274,11 +274,82 @@
         }
       },
       "if": {
-        "properties": { "source": { "const": "file" } }
+        "properties": {
+          "source": {
+            "const": "file"
+          }
+        }
       },
       "then": {
         "required": ["file_path"]
       }
+    },
+    "ptz": {
+      "type": "object",
+      "description": "PTZ PoseContext consumption (Positioning service). Both modes are off by default and mutually exclusive. The four bounds are deployment-owned, have no defaults, and are required when either mode is on.",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Gate PTZ camera detections with the dwell contract and project admitted batches with the per-frame PoseContext. Env: TRACKER_PTZ_ENABLED"
+        },
+        "shadow_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "Observe PoseContexts and record decisions without changing tracking. Env: TRACKER_PTZ_SHADOW_MODE"
+        },
+        "max_pose_age_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum local age of the admitting PoseContext in seconds (> 0). Env: TRACKER_PTZ_MAX_POSE_AGE_S"
+        },
+        "max_clock_offset_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Maximum NTP offset in seconds (> 0); PTZ detections are rejected while it is exceeded. Env: TRACKER_PTZ_MAX_CLOCK_OFFSET_S"
+        },
+        "max_detection_pipeline_latency_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Measured hard bound on detection pipeline latency in seconds (> 0); detection age and dwell limit. Env: TRACKER_PTZ_MAX_DETECTION_PIPELINE_LATENCY_S"
+        },
+        "max_detection_timestamp_uncertainty_s": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Detection acquisition timestamp uncertainty in seconds (>= 0). Env: TRACKER_PTZ_MAX_DETECTION_TIMESTAMP_UNCERTAINTY_S"
+        },
+        "assignments_path": {
+          "type": "string",
+          "minLength": 1,
+          "default": "/scenescape/config/positioning-assignments.json",
+          "description": "Deployment-owned source_id -> resolver_id manifest. Env: TRACKER_PTZ_ASSIGNMENTS_PATH"
+        },
+        "shadow": {
+          "type": "object",
+          "description": "Decision logging settings (both modes)",
+          "properties": {
+            "run_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._-]{1,128}$",
+              "default": "unspecified",
+              "description": "Run identifier joining shadow records into one artifact. Env: TRACKER_PTZ_SHADOW_RUN_ID"
+            },
+            "sample_every_n": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 10,
+              "description": "Record every Nth decision per source plus the first of each distinct decision in that window. Env: TRACKER_PTZ_SHADOW_SAMPLE_EVERY_N"
+            },
+            "per_decision": {
+              "type": "boolean",
+              "default": false,
+              "description": "Write sampled per-decision JSONL records instead of one summary log line per applied pose. Env: TRACKER_PTZ_SHADOW_PER_DECISION"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

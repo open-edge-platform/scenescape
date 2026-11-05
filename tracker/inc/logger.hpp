@@ -206,6 +206,10 @@ public:
     static void log_warn(const LogEntry& entry);
     static void log_error(const LogEntry& entry);
 
+    // Write one line verbatim (no JSON envelope), independent of the log level.
+    // Used for machine-readable records such as PTZ shadow JSONL; no-op before init().
+    static void raw_line(std::string_view line);
+
     // Check if debug logging is enabled (for conditional expensive computations)
     [[nodiscard]] static bool should_log_debug();
 
@@ -217,6 +221,7 @@ private:
 
     std::shared_ptr<BackendHandle> backend_;
     quill::Logger* logger_ = nullptr;
+    quill::Logger* raw_logger_ = nullptr;
     bool initialized_ = false;
 };
 

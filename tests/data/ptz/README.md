@@ -1,11 +1,11 @@
 # PTZ Test Data
 
-| File                         | Purpose                                                                                                                                                                                       |
-| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dwell_conformance.json`     | Shared dwell-admission vectors. The Controller and Tracker suites load this file unmodified. The Controller replays it in `tests/sscape_tests/scenescape/test_controller_ptz_conformance.py`. |
-| `provisional_pose_math.json` | Development-only pose-math fixture with early measured values and placeholders (`"provisional": true`). It is not golden data.                                                                |
-| `reprojection_golden.json`   | Held-out hardware measurement used by `test_positioning_hardware_golden.py`: calibration, ONVIF traces, published PoseContexts and AprilTag correspondences. No images.                       |
-| `acceptance_profile.json`    | Acceptance budgets per MOT profile, checked against the golden measurement.                                                                                                                   |
+| File                         | Purpose                                                                                                                                                                                                                                                        |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dwell_conformance.json`     | Shared dwell-admission vectors. The Controller and Tracker suites load this file unmodified. The Controller replays it in `tests/sscape_tests/scenescape/test_controller_ptz_conformance.py`, and the Tracker in `tracker/test/unit/ptz_conformance_test.cpp`. |
+| `provisional_pose_math.json` | Development-only pose-math fixture with early measured values and placeholders (`"provisional": true`). It is not golden data.                                                                                                                                 |
+| `reprojection_golden.json`   | Held-out hardware measurement used by `test_positioning_hardware_golden.py`: calibration, ONVIF traces, published PoseContexts and AprilTag correspondences. No images.                                                                                        |
+| `acceptance_profile.json`    | Acceptance budgets per MOT profile, checked against the golden measurement.                                                                                                                                                                                    |
 
 `source.measured` and `source.placeholders` list which provisional values were
 measured and which are placeholders. The fixture is not validated calibration data.
