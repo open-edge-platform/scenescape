@@ -57,19 +57,24 @@ def _detection(camera_id, with_objects=True):
   return payload
 
 
-def _publish_detections_until_tracked(tester, cam_topic):
+def _publish_detections_until_tracked(tester, cam_topic, exclude_ids=None):
   """! Publish camera detections until DATA_REGULATED contains
   tracked objects, or the wait timeout expires.
 
-  @param    tester      ServiceMqttTest instance (connected).
-  @param    cam_topic   DATA_CAMERA topic string.
+  @param    tester        ServiceMqttTest instance (connected).
+  @param    cam_topic     DATA_CAMERA topic string.
+  @param    exclude_ids   Optional set of IDs to ignore, so output of a previous
+                          tracker still in flight does not count.
   @return   True if tracked objects were received within MAX_WAIT_S, False on timeout.
   """
   end = time.time() + tester.MAX_WAIT_S
   while time.time() < end:
     tester.publish(cam_topic, json.dumps(_detection(CAMERA_ID)))
     time.sleep(1.0 / FRAME_RATE)
-    if tester.has_objects():
+    if exclude_ids:
+      if tester.get_tracked_ids() - exclude_ids:
+        return True
+    elif tester.has_objects():
       return True
   return False
 
@@ -141,10 +146,21 @@ def test_controller_creates_tracker_after_scene_update(
       f"Updated scene uid={scene_uid} via REST, waiting for tracking to resume")
     mqtt_tester.clear_messages()
 
-    resumed = _publish_detections_until_tracked(mqtt_tester, cam_topic)
+    # The Controller handles the CMD_DATABASE update asynchronously, so output of
+    # the old tracker can still arrive. Wait for an ID it did not produce, then
+    # collect again so only the new tracker's output is compared.
+    resumed = _publish_detections_until_tracked(
+      mqtt_tester, cam_topic, exclude_ids=ids_before)
     assert resumed, (
-      f"No DATA_REGULATED message with tracked objects received on "
+      f"No DATA_REGULATED message with fresh tracked objects received on "
       f"{reg_topic} within {mqtt_tester.MAX_WAIT_S}s after scene REST update"
+    )
+
+    mqtt_tester.clear_messages()
+    collected = _publish_detections_until_tracked(mqtt_tester, cam_topic)
+    assert collected, (
+      f"No DATA_REGULATED message with tracked objects received on "
+      f"{reg_topic} within {mqtt_tester.MAX_WAIT_S}s after tracking resumed"
     )
 
     ids_after = mqtt_tester.get_tracked_ids()
