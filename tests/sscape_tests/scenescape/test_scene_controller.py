@@ -22,9 +22,8 @@ from controller.scene_controller import (FAILURE_RATE_LIMIT_WINDOW_SECS, RateLim
 from scene_common.mqtt import PubSub
 
 
-def _set_failure_limiters(controller):
-  """SceneController.__new__ skips __init__, so install the failure rate limiters."""
-  controller._failure_invalidate_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_SECS)
+def _set_failure_log_limiter(controller):
+  """SceneController.__new__ skips __init__, so install the failure log limiter."""
   controller._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_SECS)
   return controller
 
@@ -923,7 +922,7 @@ class TestSceneControllerHandleChildSceneObject:
   def _build_controller(self):
     controller = SceneController.__new__(SceneController)
     controller.cache_manager = MagicMock()
-    return _set_failure_limiters(controller)
+    return _set_failure_log_limiter(controller)
 
   def test_root_scene_hierarchy_echo_is_ignored(self):
     """Hierarchy publishes from a root scene (no parent) return (None, None), not failure."""
@@ -1078,7 +1077,7 @@ class TestHandleMovingObjectExternal:
     controller.publishDetections = MagicMock()
     controller._moving_object_queue = queue.Queue()
     controller._moving_object_stop = threading.Event()
-    return _set_failure_limiters(controller)
+    return _set_failure_log_limiter(controller)
 
   def _external_message(self, scene_id, payload):
     message = MagicMock()
@@ -1196,7 +1195,7 @@ class TestHandleMovingObjectExternal:
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
   @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
-  def test_ingest_failure_invalidates_cache(
+  def test_ingest_failure_does_not_invalidate_cache(
     self, _mock_epoch, _mock_adjust, _mock_metrics
   ):
     controller = self._build_controller()
@@ -1212,7 +1211,7 @@ class TestHandleMovingObjectExternal:
 
     controller._processMovingObjectMessage(None, None, message)
 
-    controller.cache_manager.invalidate.assert_called_once()
+    controller.cache_manager.invalidate.assert_not_called()
     controller.publishDetections.assert_not_called()
 
   def _unknown_hierarchy_publisher(self):
@@ -1274,7 +1273,7 @@ class TestHandleMovingObjectExternal:
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
   @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
-  def test_processing_failures_invalidate_once_per_window(
+  def test_processing_failures_log_once_per_window_without_invalidating(
     self, _mock_epoch, _mock_adjust, _mock_metrics, mock_time, mock_log
   ):
     controller = self._build_controller()
@@ -1287,22 +1286,21 @@ class TestHandleMovingObjectExternal:
     mock_time.monotonic.return_value = 1000.0 + FAILURE_RATE_LIMIT_WINDOW_SECS - 0.1
     self._send_hierarchy_messages(controller, 'child-1', 20)
 
-    assert controller.cache_manager.invalidate.call_count == 1
     assert mock_log.error.call_count == 1
     controller.publishDetections.assert_not_called()
 
     mock_time.monotonic.return_value = 1000.0 + FAILURE_RATE_LIMIT_WINDOW_SECS
     self._send_hierarchy_messages(controller, 'child-1', 1)
 
-    assert controller.cache_manager.invalidate.call_count == 2
     assert mock_log.error.call_count == 2
+    controller.cache_manager.invalidate.assert_not_called()
 
   @patch('controller.scene_controller.log')
   @patch('controller.scene_controller.time')
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
   @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
-  def test_failing_publishers_share_one_invalidation_but_log_separately(
+  def test_failing_publishers_are_logged_separately(
     self, _mock_epoch, _mock_adjust, _mock_metrics, mock_time, mock_log
   ):
     controller = self._build_controller()
@@ -1314,36 +1312,8 @@ class TestHandleMovingObjectExternal:
     self._send_hierarchy_messages(controller, 'child-a', 5)
     self._send_hierarchy_messages(controller, 'child-b', 5)
 
-    assert controller.cache_manager.invalidate.call_count == 1
     assert mock_log.error.call_count == 2
-
-  @patch('controller.scene_controller.log')
-  @patch('controller.scene_controller.time')
-  @patch('controller.scene_controller.metrics')
-  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
-  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
-  def test_successful_hierarchy_messages_do_not_consume_invalidation_window(
-    self, _mock_epoch, _mock_adjust, _mock_metrics, mock_time, mock_log
-  ):
-    controller = self._build_controller()
-    parent_scene = MagicMock()
-    parent_scene.uid = 'parent-1'
-    parent_scene.name = 'Parent'
-    parent_scene.tracker.getUniqueIDCount.return_value = 0
-    parent_scene.tracker.currentObjects.return_value = []
-    controller._handleChildSceneObject = MagicMock(return_value=(True, parent_scene))
-    mock_time.monotonic.return_value = 1000.0
-
-    self._send_hierarchy_messages(controller, 'child-1', 5)
-
     controller.cache_manager.invalidate.assert_not_called()
-    mock_log.error.assert_not_called()
-    assert controller.publishDetections.call_count == 5
-
-    controller._handleChildSceneObject.return_value = (False, None)
-    self._send_hierarchy_messages(controller, 'child-1', 1)
-
-    controller.cache_manager.invalidate.assert_called_once()
 
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
@@ -1651,7 +1621,7 @@ class TestSceneControllerRemoteChildParent:
 
   def test_handle_child_scene_object_fails_when_parent_unrecoverable(self):
     """Negative: dropped (None, None) when no parent link can be recovered."""
-    scene_controller = _set_failure_limiters(SceneController.__new__(SceneController))
+    scene_controller = _set_failure_log_limiter(SceneController.__new__(SceneController))
     remote_sender = SimpleNamespace(
       parent=None, name='remote', cameraPose=object())
 

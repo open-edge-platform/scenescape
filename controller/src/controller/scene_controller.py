@@ -40,7 +40,7 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
-# Window for failure-driven cache invalidation (global) and error logs (per publisher).
+# Ingest-failure errors are logged at most once per window for each publisher.
 FAILURE_RATE_LIMIT_WINDOW_SECS = 10
 
 
@@ -194,7 +194,6 @@ class SceneController:
     if self.external_source_bindings:
       log.info("Loaded %s manual external-source bindings for %s publishers",
                EXTERNAL_SOURCE_BINDINGS_ENV_VAR, len(self.external_source_bindings))
-    self._failure_invalidate_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_SECS)
     self._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_SECS)
     self._moving_object_queue = queue.Queue(maxsize=1000)
     self._moving_object_stop = threading.Event()
@@ -668,7 +667,6 @@ class SceneController:
               self._logFailure(
                 publisher_id,
                 f"Camera fail publisher_id={publisher_id} scene={getattr(scene, 'name', None)}")
-              self._invalidateAfterFailure()
               return
             jdata_scene['id'] = scene.uid
             jdata_scene['name'] = scene.name
@@ -696,7 +694,6 @@ class SceneController:
       if not success:
         scene_name = scene.name if scene is not None else "unknown"
         self._logFailure(sender_id, f"Camera fail {sender_id} {scene_name}")
-        self._invalidateAfterFailure()
         return
 
       jdata['id'] = scene.uid
@@ -714,17 +711,6 @@ class SceneController:
       if suppressed:
         message = f"{message} (+{suppressed} suppressed)"
       log.error(message)
-    return
-
-  def _invalidateAfterFailure(self):
-    """Invalidate the scene cache after a failed message, at most once per window.
-
-    A publisher that fails every message must not force a REST fetch and a full
-    scene rebuild per message. CMD_DATABASE updates invalidate immediately.
-    """
-    allowed, _ = self._failure_invalidate_limiter.allow()
-    if allowed:
-      self.cache_manager.invalidate()
     return
 
   def _processCameraMessage(self, camera_id, jdata, msg_when, metric_attributes):
