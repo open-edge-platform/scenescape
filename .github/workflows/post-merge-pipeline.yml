@@ -11,9 +11,10 @@ on:
       - main
       - release-*
 
-concurrency:
-  group: post-merge-${{ github.ref }}
-  cancel-in-progress: false
+# No workflow-level concurrency: it would queue auto-update behind the previous
+# (potentially hours-long) post-merge run, leaving open PRs on a stale base.
+# Each job is serialized per branch instead; auto-update uses its own
+# cancel-in-progress group so it runs right away and the newest push wins.
 
 permissions:
   contents: read
@@ -31,6 +32,9 @@ jobs:
   bandit:
     name: "Bandit"
     uses: ./.github/workflows/bandit.yml
+    concurrency:
+      group: post-merge-bandit-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
 
@@ -39,6 +43,9 @@ jobs:
     # Preserve original main-only push trigger
     if: ${{ github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/cache-update.yml
+    concurrency:
+      group: post-merge-cache-update-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
@@ -46,12 +53,18 @@ jobs:
   clamav:
     name: "ClamAV"
     uses: ./.github/workflows/clamav.yml
+    concurrency:
+      group: post-merge-clamav-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
 
   codeql:
     name: "CodeQL"
     uses: ./.github/workflows/codeql.yml
+    concurrency:
+      group: post-merge-codeql-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       security-events: write
       actions: read
@@ -61,24 +74,36 @@ jobs:
   docker-bench-security:
     name: "Docker Bench Security"
     uses: ./.github/workflows/docker-bench-security.yml
+    concurrency:
+      group: post-merge-docker-bench-security-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
 
   gitleaks:
     name: "Gitleaks"
     uses: ./.github/workflows/gitleaks.yml
+    concurrency:
+      group: post-merge-gitleaks-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
 
   license:
     name: "License"
     uses: ./.github/workflows/license.yml
+    concurrency:
+      group: post-merge-license-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
 
   scorecard:
     name: "Scorecard"
     uses: ./.github/workflows/scorecard.yml
+    concurrency:
+      group: post-merge-scorecard-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
       security-events: write
@@ -89,6 +114,9 @@ jobs:
   tests-all:
     name: "All Tests"
     uses: ./.github/workflows/tests-all.yml
+    concurrency:
+      group: post-merge-tests-all-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
       packages: write
@@ -100,18 +128,27 @@ jobs:
     # Preserve original main-only push trigger
     if: ${{ github.ref == 'refs/heads/main' }}
     uses: ./.github/workflows/tracker-service.yml
+    concurrency:
+      group: post-merge-tracker-service-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
 
   trivy:
     name: "Trivy"
     uses: ./.github/workflows/trivy.yml
+    concurrency:
+      group: post-merge-trivy-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
 
   zizmor:
     name: "Zizmor"
     uses: ./.github/workflows/zizmor.yml
+    concurrency:
+      group: post-merge-zizmor-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
       security-events: write
@@ -119,5 +156,8 @@ jobs:
   lint:
     name: "Lint"
     uses: ./.github/workflows/lint.yml
+    concurrency:
+      group: post-merge-lint-${{ github.ref }}
+      cancel-in-progress: false
     permissions:
       contents: read
