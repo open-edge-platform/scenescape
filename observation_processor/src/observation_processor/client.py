@@ -9,8 +9,8 @@ import sys
 import grpc
 from google.protobuf import text_format
 
-from observation_processor.grpc_api import projection_pb2 as pb
-from observation_processor.grpc_api import projection_pb2_grpc
+from observation_processor.grpc_api import observation_processor_pb2 as pb
+from observation_processor.grpc_api import observation_processor_pb2_grpc
 
 MODES = {
   "auto": pb.CONDITIONING_MODE_AUTO,
@@ -49,7 +49,8 @@ def main():
 
   try:
     with grpc.insecure_channel(args.target) as channel:
-      response = projection_pb2_grpc.ObservationProcessorServiceStub(channel).ProcessDetections(
+      response = observation_processor_pb2_grpc.ObservationProcessorServiceStub(
+        channel).ProcessDetections(
         request, timeout=args.timeout)
   except grpc.RpcError as exc:
     print(f"gRPC request failed: {exc.code().name}: {exc.details()}", file=sys.stderr)

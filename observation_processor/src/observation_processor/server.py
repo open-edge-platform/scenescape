@@ -19,7 +19,7 @@ from grpc_health.v1 import health, health_pb2, health_pb2_grpc
 from scene_common import log
 from scene_common.mqtt import PubSub
 from observation_processor.conditioning import InvalidRequestError, process_detections
-from observation_processor.grpc_api import projection_pb2_grpc
+from observation_processor.grpc_api import observation_processor_pb2_grpc
 from observation_processor.scene_provider import (
   CameraNotCalibratedError, CameraNotFoundError, SceneMeshMissingError,
   SceneNotFoundError, SceneProvider, StoreUnavailableError,
@@ -32,7 +32,9 @@ DEFAULT_BROKER = "broker.scenescape.intel.com"
 BROKER_RETRY_SECONDS = 5.0
 
 
-class ObservationProcessorServicer(projection_pb2_grpc.ObservationProcessorServiceServicer):
+class ObservationProcessorServicer(
+  observation_processor_pb2_grpc.ObservationProcessorServiceServicer
+):
   """Typed frame projection with whole-frame gRPC error semantics."""
 
   def __init__(self, provider=None):
@@ -65,7 +67,7 @@ def create_server(servicer=None, max_workers=4):
                          flips the SERVICE_NAME readiness status on health_servicer
   """
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
-  projection_pb2_grpc.add_ObservationProcessorServiceServicer_to_server(
+  observation_processor_pb2_grpc.add_ObservationProcessorServiceServicer_to_server(
     servicer or ObservationProcessorServicer(), server)
   health_servicer = health.HealthServicer()
   health_pb2_grpc.add_HealthServicer_to_server(health_servicer, server)

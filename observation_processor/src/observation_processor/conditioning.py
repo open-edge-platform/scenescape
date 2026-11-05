@@ -12,7 +12,7 @@ import cv2
 import frustum_gaussian as fg
 import numpy as np
 
-from observation_processor.grpc_api import projection_pb2 as pb
+from observation_processor.grpc_api import observation_processor_pb2 as pb
 from observation_processor.scene_provider import (
   CameraInfo, CameraNotCalibratedError, SceneMeshMissingError, SceneProvider,
 )

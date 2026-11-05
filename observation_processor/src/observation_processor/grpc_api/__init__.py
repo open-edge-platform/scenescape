@@ -3,7 +3,8 @@
 
 """Typed gRPC stubs for scenescape.observation_processor.v1.
 
-``projection_pb2`` and ``projection_pb2_grpc`` are generated from
-``proto/projection.proto`` at image build time (or locally via ``make proto``)
+``observation_processor_pb2`` and ``observation_processor_pb2_grpc`` are generated
+from ``proto/observation_processor.proto`` at image build time (or locally via
+``make proto``)
 and are never committed.
 """

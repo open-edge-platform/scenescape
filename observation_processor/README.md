@@ -21,7 +21,7 @@ secret.
 
 ## Layout
 
-- `proto/` — published gRPC contract (`projection.proto`); typed stubs are
+- `proto/` — published gRPC contract (`observation_processor.proto`); typed stubs are
   generated at build time, never committed
 - `src/observation_processor/` — service sources
 - `../spatial_performance_primitives/frustum_gaussian/` — frustum-gaussian library; the C++/TBB
@@ -92,7 +92,7 @@ authenticated HTTPS download as fallback.
 
 ## ProcessDetections
 
-The typed unary RPC is defined in [`proto/projection.proto`](proto/projection.proto).
+The typed unary RPC is defined in [`proto/observation_processor.proto`](proto/observation_processor.proto).
 It accepts a scene ID, camera ID, protobuf acquisition timestamp, conditioning
 mode and an ordered list of raw-pixel bounding boxes with categories.
 
@@ -141,7 +141,7 @@ Errors apply to the whole frame:
 Clients decide whether to retain their legacy projection after a frame error;
 this service never silently substitutes it.
 
-## Service configuration
+# Service configuration
 
 Service can be configured through the following environment variables if required:
 
@@ -154,4 +154,3 @@ Service can be configured through the following environment variables if require
 | `OBSERVATION_PROCESSOR_MEDIA_ROOT`             | `/workspace/media`                        | shared media volume mount            |
 | `OBSERVATION_PROCESSOR_BROKER`                 | `broker.scenescape.intel.com`             | MQTT broker (database-change events) |
 | `OBSERVATION_PROCESSOR_READY_INTERVAL_SECONDS` | `10`                                      | readiness probe interval             |
-

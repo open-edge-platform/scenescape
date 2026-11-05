@@ -36,9 +36,9 @@ COPY observation_processor/proto /tmp/proto
 RUN mkdir -p /tmp/grpc_api \
     && python3 -m grpc_tools.protoc -I/tmp/proto \
        --python_out=/tmp/grpc_api --grpc_python_out=/tmp/grpc_api \
-       /tmp/proto/projection.proto \
-    && sed -i 's/^import projection_pb2 as/from . import projection_pb2 as/' \
-       /tmp/grpc_api/projection_pb2_grpc.py
+         /tmp/proto/observation_processor.proto \
+     && sed -i 's/^import observation_processor_pb2 as/from . import observation_processor_pb2 as/' \
+         /tmp/grpc_api/observation_processor_pb2_grpc.py
 
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-observation-processor-runtime
 
