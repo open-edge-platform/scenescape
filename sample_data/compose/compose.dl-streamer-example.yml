@@ -28,6 +28,8 @@ secrets:
     file: ${SECRETSDIR}/browser.auth
   calibration.auth:
     file: ${SECRETSDIR}/calibration.auth
+  observation_processor.auth:
+    file: ${SECRETSDIR}/observation_processor.auth
   autocalibration-cert:
     file: ${SECRETSDIR}/certs/scenescape-autocalibration.crt
   autocalibration-key:
@@ -89,6 +91,7 @@ x-controller-base: &controller-base
 # - cluster-analytics: Core services + cluster-analytics only
 # - controller: Scene Controller (tracking) + Analytics service
 # - tracker: Tracker service + Analytics service (no Scene Controller)
+# - observation-processor: Observation Processor service 
 
 services:
   ntpserv:
@@ -220,6 +223,7 @@ services:
       - controller.auth
       - browser.auth
       - calibration.auth
+      - observation_processor.auth
     restart: always
     pids_limit: 1000
 
@@ -463,6 +467,39 @@ services:
       - controller.auth
     # - web-cert
     # - web-key
+    restart: always
+    pids_limit: 1000
+
+  observation-processor:
+    profiles:
+      - observation-processor
+    image: intel/scenescape-observation-processor:${VERSION:-latest}
+    init: true
+    networks:
+      scenescape:
+        aliases:
+          - observation-processor.scenescape.intel.com
+    depends_on:
+      web:
+        condition: service_healthy
+      broker:
+        condition: service_started
+    environment:
+      OBSERVATION_PROCESSOR_SERVICE_PORT: "50052"
+      OBSERVATION_PROCESSOR_REST_URL: https://web.scenescape.intel.com/api/v1
+      OBSERVATION_PROCESSOR_AUTH: /run/secrets/observation_processor.auth
+      OBSERVATION_PROCESSOR_ROOTCERT: /run/secrets/certs/scenescape-ca.pem
+      OBSERVATION_PROCESSOR_MEDIA_ROOT: /workspace/media
+      OBSERVATION_PROCESSOR_BROKER: broker.scenescape.intel.com
+      OBSERVATION_PROCESSOR_READY_INTERVAL_SECONDS: "10"
+      no_proxy: ${no_proxy},.scenescape.intel.com
+      NO_PROXY: ${NO_PROXY},.scenescape.intel.com
+    volumes:
+      - vol-media:/workspace/media:ro
+    secrets:
+      - source: root-cert
+        target: certs/scenescape-ca.pem
+      - observation_processor.auth
     restart: always
     pids_limit: 1000
 

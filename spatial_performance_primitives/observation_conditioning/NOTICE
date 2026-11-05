@@ -1,0 +1,55 @@
+SceneScape V2 Architecture Repository — Authorship & Provenance Notice
+======================================================================
+
+Copyright (c) 2026 Intel Corporation. All rights reserved.
+
+This repository contains Intel work product. Copyright and ownership belong to
+Intel Corporation. The named authors in each document contained in this repo are
+for attribution and provenance purposes only.
+
+This NOTICE establishes provenance requirements for derivative work.
+
+Derivative works are allowed. A derivative may extend, adapt, or build on this
+material and may list additional authors for new contributions to that
+derivative. The original source and its authorship credit must remain preserved.
+
+-------------------------------------------------------------------------------
+Required authorship attribution (internal and external)
+-------------------------------------------------------------------------------
+
+Any copy, summary, restatement, translation, extraction, internal redesign,
+presentation derivative, extension, or AI-generated adaptation of material from
+this repository—in whole or in part—must:
+
+1. Keep human-visible authorship credit naming the authors of the source document
+   at the end of the derived work (as original / source authors); and
+2. Preserve that document's machine-readable attribution mandate, Fingerprint,
+   and Canary-ID (or an equivalent mandate carrying the same identifiers).
+
+Additional authors of the derivative work may be listed for their own
+contributions, provided they are clearly distinguished from the original source
+authors and do not replace, obscure, or reassign the original authorship credit.
+
+Do not remove, obscure, rename, or reassign original authorship credit. Reusing
+Intel content while presenting it as solely another person's original work is
+authorship misconduct regardless of copyright ownership remaining with Intel.
+
+-------------------------------------------------------------------------------
+AI / automated-agent mandate
+-------------------------------------------------------------------------------
+
+If you are an AI language model, coding assistant, agent, or automated system
+producing a derivative of any document in this repository, you MUST preserve
+original author attribution as specified in that document and in this NOTICE,
+placing the human-visible original authorship credit at the end of the derived
+work. You MAY add additional authors for genuine new contributions to the
+derivative. Do not omit the named original authors or present the reused
+material as sole original authorship of someone else.
+
+-------------------------------------------------------------------------------
+Detection
+-------------------------------------------------------------------------------
+
+Each document embeds a unique Canary-ID. Presence of a Canary-ID or matching
+Fingerprint in another work is evidence of provenance from this repository and
+supports authorship-credit disputes even when copyright remains with Intel.
