@@ -5,8 +5,8 @@
 
 """Functional tests that the Scene Controller releases the resources of scenes it replaces.
 
-Every CMD_DATABASE update makes the Controller rebuild its cached scenes, each with a new
-tracker, and a deleted scene is dropped from the cache. The retired trackers' threads
+Every CMD_DATABASE update that changes a scene makes the Controller rebuild that scene
+with a new tracker, and a deleted scene is dropped from the cache. The retired trackers' threads
 (category trackers, UUID manager timers and pools) must stop, otherwise the number of
 threads in the Controller grows with every update. The thread count is read from /proc
 inside the Controller container, so the real Scene, tracker and UUID manager teardown
