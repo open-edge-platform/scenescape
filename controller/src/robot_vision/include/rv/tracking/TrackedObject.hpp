@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -21,8 +21,12 @@ class TrackedObject
 public:
   TrackedObject();
 
-  static const int StateSize;
-  static const int MeasurementSize;
+  static constexpr int StateSize = 12;
+  static constexpr int MeasurementSize = 7;
+
+  using MeasurementVector = cv::Matx<double, MeasurementSize, 1>;
+  using MeasurementMatrix = cv::Matx<double, MeasurementSize, MeasurementSize>;
+  using StateMatrix = cv::Matx<double, StateSize, StateSize>;
 
   Id id = InvalidObjectId;
 
@@ -55,11 +59,11 @@ public:
 
   std::string toString() const;
 
-  // tracked object parameters
-  cv::Mat predictedMeasurementMean;
-  cv::Mat predictedMeasurementCov;
-  cv::Mat predictedMeasurementCovInv;
-  cv::Mat errorCovariance;
+  // tracked object parameters; fixed-size matrices, so copies never share them
+  MeasurementVector predictedMeasurementMean;
+  MeasurementMatrix predictedMeasurementCov;
+  MeasurementMatrix predictedMeasurementCovInv;
+  StateMatrix errorCovariance;
 
   Classification classification;
 
@@ -82,9 +86,11 @@ public:
   void setStateVector(const cv::Mat &vector);
 
   /**
-   * @brief Convert to a cv::Mat vector.
+   * @brief Convert to a fixed-size measurement vector (x, y, z, length, width, height, yaw).
+   *
+   * Converts to cv::Mat and cv::InputArray where those are needed.
    */
-  cv::Mat measurementVector() const;
+  MeasurementVector measurementVector() const;
 };
 
 
