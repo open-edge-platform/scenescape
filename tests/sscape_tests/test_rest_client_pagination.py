@@ -44,8 +44,32 @@ class TestRESTClientPagination:
     first_call, next_call = self.client.session.get.call_args_list
     assert first_call.args[0] == "https://manager.example/api/v1/assets"
     assert first_call.kwargs["params"] == {"name": "crate"}
+    assert first_call.kwargs["timeout"] == self.client.timeout
     assert next_call.args[0] == next_url
     assert "params" not in next_call.kwargs
+    assert next_call.kwargs["timeout"] == self.client.timeout
+
+  def test_configured_timeout_is_used_for_each_page(self):
+    self.client.timeout = 2.5
+    self.client.session.get.side_effect = [
+      _json_response(200, {
+        "count": 2,
+        "next": "https://manager.example/api/v1/assets?page=2",
+        "previous": None,
+        "results": [],
+      }),
+      _json_response(200, {
+        "count": 2,
+        "next": None,
+        "previous": None,
+        "results": [],
+      }),
+    ]
+
+    self.client._get("assets", None)
+
+    assert [call.kwargs["timeout"] for call in self.client.session.get.call_args_list] == [
+      2.5, 2.5]
 
   def test_get_returns_later_page_http_error(self):
     next_url = "https://manager.example/api/v1/assets?page=2"
