@@ -4,7 +4,7 @@
 #pragma once
 
 #include "config_loader.hpp"
-#include "coordinate_transformer.hpp"
+#include "detection_projector.hpp"
 #include "id_map.hpp"
 #include "object_class.hpp"
 #include "reid_sighting.hpp"
@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <thread>
 #include <unordered_map>
@@ -77,6 +78,8 @@ public:
     /**
      * @brief Construct and start a worker for a specific scope.
      *
+     * Detections are projected with the camera model (CameraModelProjector).
+     *
      * @param scope Tracking scope (scene_id + category)
      * @param scene_name Human-readable scene name
      * @param queue_capacity Maximum chunks in queue (drops current on full)
@@ -90,6 +93,24 @@ public:
                    PublishCallback publish_callback, const TrackingConfig& tracking_config,
                    const std::unordered_map<std::string, Camera>& cameras,
                    ObjectClassConfig object_class = {}, ClockFn clock_fn = makeSystemClock());
+
+    /**
+     * @brief Construct and start a worker that projects detections with `projector`.
+     *
+     * @param scope Tracking scope (scene_id + category)
+     * @param scene_name Human-readable scene name
+     * @param queue_capacity Maximum chunks in queue (drops current on full)
+     * @param publish_callback Callback to publish tracking results
+     * @param tracking_config Configuration for RobotVision tracker
+     * @param projector Source of world-space geometry for the detections
+     * @param rotation_from_velocity Publish velocity heading for tracks without observed yaw
+     * @param clock_fn Wall-clock source for track timestamps
+     * @throws std::invalid_argument if `projector` is null.
+     */
+    TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
+                   PublishCallback publish_callback, const TrackingConfig& tracking_config,
+                   std::unique_ptr<DetectionProjector> projector, bool rotation_from_velocity,
+                   ClockFn clock_fn = makeSystemClock());
 
     /// Destructor joins worker thread
     ~TrackingWorker();
@@ -173,7 +194,9 @@ private:
                       const Chunk& chunk, std::chrono::system_clock::time_point timestamp);
 
     /**
-     * @brief Transform pixel detections to world coordinates per camera.
+     * @brief Project the detections of each camera batch and attach their detection data.
+     *
+     * Skips batches the projector cannot project and detections without geometry.
      *
      * @param chunk Input chunk with per-camera detection batches
      * @return Per-camera vectors of TrackedObjects in world coordinates
@@ -203,8 +226,8 @@ private:
 
     AssociationConfig association_config_;
 
-    // Camera coordinate transformers (camera_id -> transformer with intrinsics + extrinsics)
-    std::unordered_map<std::string, CoordinateTransformer> transformers_;
+    // Source of world-space geometry for the detections (camera model by default)
+    std::unique_ptr<DetectionProjector> projector_;
 
     // RobotVision int ID -> UUID v4 string mapping (single-thread access, no mutex)
     std::unordered_map<int32_t, std::string> id_map_;
