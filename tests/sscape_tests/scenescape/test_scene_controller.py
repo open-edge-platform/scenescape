@@ -56,6 +56,8 @@ class TestSceneControllerExtractTrackerConfigAssociation:
   @pytest.mark.parametrize('association', [
     {'method': 'bogus', 'gate_probability': 0.95, 'max_radius_m': 7.0},
     {'method': 'euclidian', 'max_radius_m': 3.0},
+    {'method': [], 'max_radius_m': 3.0},
+    {'method': {}},
     'euclidean',
     ['euclidean', 3.0],
   ])

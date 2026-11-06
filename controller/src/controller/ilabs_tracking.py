@@ -69,7 +69,8 @@ def normalize_association_config(association_config=None):
   config = dict(association_config or {})
 
   method = config.get("method", ASSOCIATION_METHOD_POSITION_MAHALANOBIS)
-  if method not in VALID_ASSOCIATION_METHODS:
+  # A non-string method (a JSON list or object) is unhashable: the frozenset lookup would raise TypeError.
+  if not isinstance(method, str) or method not in VALID_ASSOCIATION_METHODS:
     raise ValueError(
       "Invalid association method {!r} (expected {})".format(
         method, ", ".join(sorted(VALID_ASSOCIATION_METHODS)))

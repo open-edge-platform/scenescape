@@ -27,9 +27,10 @@ def test_normalize_association_config_defaults():
   }
 
 
-def test_normalize_association_config_rejects_unknown_method():
+@pytest.mark.parametrize('method', ['not-a-real-method', [], {}, ['euclidean'], 1])
+def test_normalize_association_config_rejects_unknown_method(method):
   with pytest.raises(ValueError, match='Invalid association method'):
-    normalize_association_config({'method': 'not-a-real-method', 'max_radius_m': 5.0})
+    normalize_association_config({'method': method, 'max_radius_m': 5.0})
 
 
 def _expected_radius(expected_max_radius_m):
