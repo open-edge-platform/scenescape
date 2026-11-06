@@ -63,8 +63,8 @@ fields and examples; do not invent alternate shapes.
    Prefer a hardware-rooted or MAC-based identifier. See
    [Choosing a `source_id`](../microservices/controller/data_formats.md#choosing-a-source_id-self-identification-for-agents).
 
-2. **Build the top-level message** with `timestamp`, `source_id`, and `objects`
-   (pose is optional once cached). See
+2. **Build the top-level message** following the canonical contract; camera-only
+   messages do not need an empty top-level `objects` array. See
    [External Source Top-Level Fields](../microservices/controller/data_formats.md#external-source-top-level-fields).
 
 3. **Decide the pose reference frame**:
@@ -75,25 +75,33 @@ fields and examples; do not invent alternate shapes.
      Details:
      [External Source Pose Fields](../microservices/controller/data_formats.md#external-source-pose-fields-pose).
 
-4. **Map each native observation** to an `objects[*]` entry with `category`
-   and exactly one location form:
+4. **Map each native observation** to an `objects[*]` entry for body-relative
+   observations or to a camera entry's `objects[*]` for camera observations,
+   with `category` and exactly one location form:
    - **Cartesian**: `translation` in the **source's local frame** (metres
-     relative to the source origin described by `pose`).
+     relative to the source origin described by `pose` for top-level objects;
+     camera-local metres for observations nested under a camera).
    - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
-     `translation`. Provide top-level `pose` and `intrinsics` at least once so
-     they can be cached; later pixel messages may omit either field and reuse
-     the live cache entry (same TTL as Cartesian pose reuse). Do not put both
-     `translation` and `bounding_box_px` on one object. Include `id` whenever
-     the top-level source `track` value is `false`; when `track` is `true` or
-     omitted, `id` is optional. Optional `size`, `rotation`, `confidence`, and
-     `metadata` follow the same contract. See
+     `translation`. For camera observations, use that camera entry's own
+     calibration and resolution. Do not put both `translation` and
+     `bounding_box_px` on one object. Prefer `track` true or omitted for
+     mounted-camera pixels so Scenescape can fuse them after the dual
+     transform; with `track=false` those pixels are discarded. For Cartesian
+     observations with `track=false`, include a persistent `id`. When `track`
+     is `true` or omitted, detection `id` is optional. Optional `size`,
+     `rotation`, `confidence`, and `metadata` follow the same contract. See
      [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
+     For a mobile source with cameras, include a complete `cameras` array;
+     each camera carries its own calibration and detections.
+     See [Drone Coordinate and Camera Contract](../microservices/controller/data_formats.md#drone-coordinate-and-camera-contract).
 
 5. **Choose whether the source message should be tracked by Scenescape**. The
-   top-level source `track` value applies to all objects in that message,
-   including pixel detections. `track=false` preserves the source `id`, so
-   keep those ids persistent and unique within your source. When `track` is
-   `true` or omitted, the controller assigns published track ids. See
+   top-level source `track` value applies to all objects in that message.
+   When `track` is `true` or omitted, mounted-camera pixel detections are
+   dual-transformed into the scene and the controller assigns published track
+   ids. `track=false` preserves source `id` for Cartesian observations (keep
+   those ids persistent and unique within your source) and **discards** pixel
+   detections, matching camera input while tracking is off. See
    [Source-Identity Trust for Untracked Objects, with Collision Detection](../microservices/controller/data_formats.md#source-identity-trust-for-untracked-objects-with-collision-detection).
 
 6. **Resolve coordinate conventions in the converter**, not in the controller:
@@ -113,9 +121,11 @@ to Manager (same policy as unlocked detector-topic `Cam` MQTT optics).
 After a successful pose is cached for `(bound_scene_uid, source_id)`, later
 messages may omit `pose` and reuse the cached transform. Sensor `intrinsics`
 (and optional `distortion`) for pixel detections are stored on the same cache
-entry, so later pixel messages may omit those fields too. A message with
-`pose` and an empty `objects` array refreshes the cache without ingesting
-observations.
+entry (top-level legacy fields or per-camera calibration), so later pixel
+messages may omit those fields too. Each camera entry includes the calibration
+needed to interpret that camera's observations. A message with `pose`, an empty
+top-level `objects` array, and cameras with empty observation arrays refreshes
+the source snapshot without ingesting observations.
 
 If no usable transform or intrinsics are available, or a pose fails trust/geo
 checks, the controller drops the message and logs a rejection reason. See
@@ -202,9 +212,10 @@ or certificates in the converter. Topic path uses `SOURCE_ID`; optional
 2. Confirm messages arrive on
    `scenescape/external/{publisher_id}/{thing_type}` (MQTT client or broker logs).
 3. Watch `scenescape/data/scene/{scene_id}/{thing_type}` (or the 3D UI) for
-   ingested objects. With `track=false`, published `id` values should match
-   the converter's source ids. With `track=true` or omitted `track`, expect
-   controller-assigned track ids instead.
+   ingested objects. With `track=false`, Cartesian published `id` values should
+   match the converter's source ids, and pixel detections should not appear.
+   With `track=true` or omitted `track`, expect controller-assigned track ids
+   for fused detections (including mounted-camera pixels).
 4. If nothing appears, check Scene Controller logs for pose/identity rejection
    reasons listed under
    [Pose Caching and Message Ordering](../microservices/controller/data_formats.md#pose-caching-and-message-ordering).

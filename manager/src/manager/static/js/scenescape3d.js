@@ -104,6 +104,7 @@ function main() {
   const panel = new GUI({ width: 310 });
   const panelSettings = {
     "show tracked objects": showTrackedObjects,
+    "show platform frustums": true,
     "light intensity": lightIntensity,
   };
   panel.domElement.id = "panel-3d-controls";
@@ -113,6 +114,11 @@ function main() {
       showTrackedObjects = visibility;
       assetManager.setMarksVisibility(visibility);
     }).$widget.id = "tracked-objects-button";
+  panel
+    .add(panelSettings, "show platform frustums")
+    .onChange(function (visibility) {
+      if (assetManager) assetManager.setFrustumsVisible(visibility);
+    }).$widget.id = "platform-frustums-button";
 
   // Add light intensity control
   panel
@@ -143,7 +149,7 @@ function main() {
     renderer,
     raycaster,
     orbitControls,
-    sceneViewCamera,
+    () => sceneViewCamera,
   );
 
   const camerasFolder = panel.addFolder("Camera Settings");
@@ -442,7 +448,6 @@ function main() {
     client.on("error", (e) => {
       console.log("MQTT error: " + e);
     });
-
     assetManager = AssetManager(
       scene,
       subscribeToTracking,
