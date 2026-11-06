@@ -8,7 +8,8 @@ Service tests for experimental remote projection.
 
 The tracker projects pixel-box detections with a mock projection service (mocks/projection)
 over gRPC and feeds the returned measurement and noise covariance to the tracker:
-- remote measurements drive the tracks, with the centre z lowered to the object base;
+- remote measurements drive the tracks; the tracker is fed centre-of-mass positions and
+  publishes the footprint base;
 - failed calls keep the local projection, are counted in tracker.remote_projection.failed_calls
   and logged, and the service keeps running;
 - the cost of remote projection is measured from tracker.stage.transform_duration and the
@@ -38,7 +39,6 @@ CAMERA_ID = "atag-qcam1"
 # Both cameras of the scene (1280 x 720)
 CAMERA_IDS = ("atag-qcam1", "atag-qcam2")
 CATEGORY = "thing"
-TOPIC_SCENE_OUTPUT = f"scenescape/data/scene/{SCENE_ID}/{CATEGORY}"
 BBOX = {"x": 100, "y": 50, "width": 80, "height": 200}
 # 50 boxes in a 10 x 5 grid inside the image
 GRID_BOXES = tuple({"x": 40 + 120 * (k % 10), "y": 40 + 130 * (k // 10), "width": 40,
@@ -47,6 +47,9 @@ GRID_BOXES = tuple({"x": 40 + 120 * (k % 10), "y": 40 + 130 * (k // 10), "width"
 REMOTE_POSITION = (BBOX["x"] / 20.0, BBOX["y"] / 20.0, 0.0)
 FAILED_CALLS_METRIC = "tracker.remote_projection.failed_calls"
 TRANSFORM_METRIC = "tracker.stage.transform_duration"
+# The same sensor-frame centre of mass sent as a 3D detection in two categories of different height.
+CENTRE_TRANSLATION = [0.5, 0.2, 3.0]
+TRANSLATION_HEIGHTS = {"tall": 1.8, "short": 0.2}
 
 
 @contextmanager
@@ -99,7 +102,7 @@ def tracker_environment(tls_certs, name, remote=True, timeout_ms=50, mock_status
 
 
 @contextmanager
-def scene_output_client(docker):
+def scene_output_client(docker, categories=(CATEGORY,)):
   """MQTT client subscribed to the scene output; yields (client, received) with receive times."""
   host, port = get_broker_host(docker, port=1883)
   received = []
@@ -118,7 +121,8 @@ def scene_output_client(docker):
   client.connect(host, port, keepalive=60)
   client.loop_start()
   try:
-    client.subscribe(TOPIC_SCENE_OUTPUT, qos=1)
+    client.subscribe([(f"scenescape/data/scene/{SCENE_ID}/{category}", 1)
+                      for category in categories])
     assert subscribed.wait(timeout=5), "Scene output subscription was not acknowledged"
     yield client, received
   finally:
@@ -126,33 +130,37 @@ def scene_output_client(docker):
     client.disconnect()
 
 
-def send_detections(client, count, interval_s, cameras=(CAMERA_ID,), boxes=(BBOX,)):
+def send_detections(client, count, interval_s, cameras=(CAMERA_ID,), boxes=(BBOX,),
+                    other_objects=None):
   """Publish `count` frames from each camera with `boxes`; return {timestamp: send time}.
 
   The cameras of one frame share its timestamp, which the scene output of the frame carries.
+  `other_objects` maps further categories to their detections.
   """
-  objects = [{"id": k + 1, "bounding_box_px": box} for k, box in enumerate(boxes)]
+  objects = {CATEGORY: [{"id": k + 1, "bounding_box_px": box} for k, box in enumerate(boxes)],
+             **(other_objects or {})}
   sent = {}
   for _ in range(count):
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
     sent[timestamp] = time.monotonic()
     for camera_id in cameras:
-      message = {"id": camera_id, "timestamp": timestamp, "objects": {CATEGORY: objects}}
+      message = {"id": camera_id, "timestamp": timestamp, "objects": objects}
       client.publish(f"scenescape/data/camera/{camera_id}", json.dumps(message),
                      qos=1).wait_for_publish()
     time.sleep(interval_s)
   return sent
 
 
-def last_objects(received):
+def last_objects(received, category=CATEGORY):
   for _, message in reversed(received):
-    if message.get("objects"):
-      return message["objects"]
+    objects = [obj for obj in message.get("objects", []) if obj["category"] == category]
+    if objects:
+      return objects
   return []
 
 
-def last_track(received):
-  objects = last_objects(received)
+def last_track(received, category=CATEGORY):
+  objects = last_objects(received, category)
   return objects[0] if objects else None
 
 
@@ -184,15 +192,28 @@ def distance(a, b):
 
 
 def test_remote_projection_measurements_drive_tracks(tls_certs):
-  """Remote measurements become track positions; the request identifies scene, camera, mode."""
+  """Remote measurements become track positions; the request identifies scene, camera, mode.
+
+  The tracker is fed centre-of-mass positions and publishes the footprint base: the mock's centre
+  z = HEIGHT_M / 2 is published at z = 0, and a 3D detection at z = centre - height / 2.
+  """
+  other_objects = {category: [{"id": 1, "translation": CENTRE_TRANSLATION,
+                               "size": [0.5, 0.5, height]}]
+                   for category, height in TRANSLATION_HEIGHTS.items()}
+  categories = (CATEGORY, *TRANSLATION_HEIGHTS)
   with tracker_environment(tls_certs, "remote-ok") as docker:
-    with scene_output_client(docker) as (client, received):
-      send_detections(client, count=30, interval_s=0.067)
-      wait(lambda: last_track(received) is not None, timeout_seconds=10, sleep_seconds=0.1)
+    with scene_output_client(docker, categories) as (client, received):
+      send_detections(client, count=30, interval_s=0.067, other_objects=other_objects)
+      wait(lambda: all(last_track(received, category) for category in categories),
+           timeout_seconds=10, sleep_seconds=0.1)
 
     track = last_track(received)
     for actual, expected in zip(track["translation"], REMOTE_POSITION):
       assert actual == pytest.approx(expected, abs=0.05), track["translation"]
+    tall, short = (last_track(received, category)["translation"] for category in TRANSLATION_HEIGHTS)
+    assert distance(tall, short) < 0.01, (tall, short)
+    assert tall[2] - short[2] == pytest.approx(
+        -(TRANSLATION_HEIGHTS["tall"] - TRANSLATION_HEIGHTS["short"]) / 2, abs=0.01), (tall, short)
 
     mock_logs = get_container_logs(docker, "mock-projection")
     assert (f"scene={SCENE_ID} camera={CAMERA_ID} mode=CONDITIONING_MODE_AUTO detections=1 "
@@ -207,7 +228,10 @@ def test_remote_projection_measurements_drive_tracks(tls_certs):
     {"mock_delay_ms": 300, "timeout_ms": 30, "reason": "DEADLINE_EXCEEDED"},
 ], ids=["unavailable", "deadline"])
 def test_remote_projection_failure_keeps_local_projection(tls_certs, failure):
-  """Failed calls keep the local projection, are counted and logged; the tracker keeps running."""
+  """Failed calls keep the local projection, are counted and logged; the tracker keeps running.
+
+  The local projection is still fed at its centre of mass and published at its base (z = 0).
+  """
   reason = failure["reason"]
   options = {key: value for key, value in failure.items() if key != "reason"}
   with tracker_environment(tls_certs, "remote-fail", **options) as docker:
@@ -218,6 +242,7 @@ def test_remote_projection_failure_keeps_local_projection(tls_certs, failure):
     track = last_track(received)
     assert distance(track["translation"], REMOTE_POSITION) > 0.5, \
         f"Expected the local projection, got the remote position {track['translation']}"
+    assert abs(track["translation"][2]) < 0.01, track["translation"]
 
     def failure_exported():
       logs = get_container_logs(docker, "otel-collector")
