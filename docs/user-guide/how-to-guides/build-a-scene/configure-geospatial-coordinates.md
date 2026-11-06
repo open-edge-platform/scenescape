@@ -85,6 +85,47 @@ To ensure reliability of converting the local coordinates to geospatial ones (ac
 
 **Expected Result**: the `.object[].lat_long_alt` field in the messages contains correct geospatial coordinates of detected objects.
 
+## Using a 3D Model as Scene Map
+
+For scenes that use a 3D model (GLB file) as the map:
+
+1. Click the **Edit** button on the scene.
+1. Scroll to the **3D model (GLB)** section.
+1. Click **Browse** and select a `.glb` file to upload.
+1. Once the preview appears, use the **Heading** slider and text input to adjust the 3D model's rotation (degrees clockwise from north).
+1. Drag the model's preview on the map to reposition it as needed.
+1. Adjust **Opacity** to see the underlying map through the model.
+1. Click **Accept** to store the 3D model and its position with the scene. Accept alone does not make the model the scene map; use the **Apply saved 3D model to scene map** checkbox for that (see below).
+
+### Managing Saved 3D Models
+
+Once a 3D model is saved to a scene:
+
+- The **Saved 3D model** block displays the model filename with **Download** and **Remove** options.
+- The model's top-down preview is always visible as an overlay on the map (at the selected opacity), whether or not it is applied to the scene.
+- The **Apply saved 3D model to scene map** checkbox controls whether the model is used as the scene's map (checked) or shown as a reference overlay only (unchecked). Changing the checkbox takes effect immediately. The checkbox does not change the model's position.
+- Position adjustments are made by dragging the overlay and/or adjusting the **Heading** slider, then clicking **Save position** to persist them. Saving a position while the model is applied also moves the scene map to the new position.
+- Click **Remove** to delete the saved 3D model (a confirmation dialog appears first). This cannot be undone.
+
+The following table describes what each action changes. Cameras, regions, sensors, and the scene's local coordinates are never changed by these actions. The geospatial reference is different: while a model is applied, the map corners and footprint come from the model. This means the latitude and longitude reported for objects change when a model is applied or unapplied, and when an applied model is moved or replaced.
+
+| Action                                 | Stored model and position                                                                                                             | Scene map                                                                                                                                                 |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Accept** (first save or replacement) | Stores the new model file and position. A replaced model and its preview are deleted only after the new model is stored successfully. | If the saved model is not applied, the scene map is unchanged. If it is applied, the scene map switches to the new model at the new position immediately. |
+| Checkbox checked (apply)               | Sets the applied state. The model is kept.                                                                                            | Saves a snapshot of the current scene map, then uses the model as the map at the saved position.                                                          |
+| Checkbox unchecked (unapply)           | Clears the applied state. The model is kept.                                                                                          | Restores the snapshot taken when the model was applied. After a replacement, this is still the original map, not the replaced model.                      |
+| **Save position**                      | Updates the saved position.                                                                                                           | If the model is applied, the scene map moves to the new position immediately. If not, only the saved position changes.                                    |
+| **Remove**                             | Deletes the model file, its preview, and its position.                                                                                | If the model is applied, the original map is restored first.                                                                                              |
+
+### Uploading a Replacement 3D Model
+
+To replace a saved 3D model:
+
+1. Upload a new file using the file picker; the staging controls appear with the new model.
+1. Adjust the heading and position as needed (the controls inherit the saved model's position).
+1. Click **Accept** to replace the saved model. If the saved model was applied, the new model is applied immediately at the new position. If it was not applied, the scene map is unchanged and you can apply the new model with the checkbox. If the save fails, the saved model is kept unchanged.
+1. Click **Cancel** to discard the staged file and return to the saved model.
+
 ## REST API Reference
 
 Geospatial output can also be configured without the UI by creating the scene first (see
