@@ -10,7 +10,7 @@ from zipfile import ZipFile
 from django.core.exceptions import ValidationError
 import open3d as o3d
 from PIL import Image
-from plyfile import PlyData
+from plyfile import PlyData, PlyParseError
 
 # Allow-list character class (letters, digits, space, dash, underscore, dot).
 # SCENE_NAME_DB_PATTERN is POSIX-safe for PostgreSQL CheckConstraint (no lookarounds).
@@ -80,10 +80,16 @@ def validate_image(value):
 
 def validate_ply(value):
   try:
-    PlyData.read(value)
+    # plyfile's ASCII TextIOWrapper closes its stream; validate a separate copy.
+    with tempfile.NamedTemporaryFile(suffix=".ply") as ply_file:
+      for chunk in value.chunks():
+        ply_file.write(chunk)
+      ply_file.flush()
+      PlyData.read(ply_file.name)
+  except (PlyParseError, ValueError) as exc:
+    raise ValidationError("Invalid PLY file") from exc
+  finally:
     value.seek(0)
-  except Exception as e:
-    raise ValidationError(f"Invalid PLY file: {str(e)}")
   return value
 
 def validate_map_file(value):

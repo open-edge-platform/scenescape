@@ -6,7 +6,6 @@
 import json
 import threading
 
-import tests.common_test_utils as common
 from scene_common.mqtt import PubSub
 from tests.utils.log import get_logger
 
@@ -82,13 +81,11 @@ class CameraBounds:
       if topic in self.unregulated_topics:
         self.unregulated_has_camera_bounds = True
 
-  def run(self, params, visibility_topic, test_name):
+  def run(self, params, visibility_topic):
     self.visibility_topic = visibility_topic.lower()
     self.scene_ids = list(params.get("scene_uids", {}).values())
     log.info(f"Test parameter visibility_topic: {self.visibility_topic}")
-    log.info(f"Executing: {test_name}")
 
-    exit_code = 1
     client = None
 
     try:
@@ -122,22 +119,6 @@ class CameraBounds:
       client.connect()
       client.loopStart()
       self.check_camera_bound_visibility()
-      exit_code = 0
     finally:
       if client:
         client.loopStop()
-
-      common.record_test_result(test_name, exit_code)
-
-    return exit_code
-
-
-def test_camera_bound_visibility(
-        params, pytestconfig, record_xml_attribute, test_name):
-  record_xml_attribute("name", test_name)
-
-  visibility_topic = pytestconfig.getoption('visibility_topic')
-  test = CameraBounds()
-  exit_code = test.run(params, visibility_topic, test_name)
-
-  assert exit_code == 0

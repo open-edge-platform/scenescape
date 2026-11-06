@@ -31,23 +31,92 @@ by the **Analytics** microservice — see
 ## Camera Input Message Format
 
 The Scene Controller subscribes to the MQTT topic `scenescape/data/camera/{camera_id}` and
-receives camera detection metadata from visual analytics pipelines. Messages are validated
-against the `detector` definition in
+receives detection metadata from perceptual pipelines. The topic and Manager `Cam` type are
+named historically for cameras, but the same contract applies to any perceptual modality
+registered as a `Cam` and publishing detections here (RGB, depth, LiDAR or radar detectors
+that emit the same object metadata, and similar sensing that uses pose plus optional
+intrinsics). Environmental / singleton sensors use a different topic and do not carry
+pose or optics. Messages are validated against the `detector` definition in
 [metadata.schema.json](https://github.com/open-edge-platform/scenescape/blob/main/controller/src/schema/metadata.schema.json).
 
 ### Top-Level Message Fields
 
-| Field            | Type                  | Required | Description                                                                                                                         |
-| ---------------- | --------------------- | :------: | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic identifier                                                |
-| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                                       |
-| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                                 |
-| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                                  |
-| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                                   |
-| `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`); used to update camera calibration and compute image resolution                |
-| `distortion`     | object                |    No    | Lens distortion coefficients keyed by name (`k1`, `k2`, `p1`, `p2`, `k3`); used alongside `intrinsics` to update camera calibration |
+| Field            | Type                  | Required | Description                                                                                                                                                                                                                                                                                                                                                     |
+| ---------------- | --------------------- | :------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`             | string                |   Yes    | Camera identifier; must match the `{camera_id}` segment in the MQTT topic identifier                                                                                                                                                                                                                                                                            |
+| `timestamp`      | string (ISO 8601 UTC) |   Yes    | Acquisition time of the frame                                                                                                                                                                                                                                                                                                                                   |
+| `objects`        | object                |   Yes    | Category-keyed map; each value is an array of detections (e.g. `{"person": [...]}`)                                                                                                                                                                                                                                                                             |
+| `rate`           | number ≥ 0            |    No    | Camera framerate (frames per second) when the message was produced                                                                                                                                                                                                                                                                                              |
+| `sub_detections` | array of string       |    No    | Sub-detection labels run on this frame (e.g. `["license_plate"]`)                                                                                                                                                                                                                                                                                               |
+| `intrinsics`     | object                |    No    | Camera intrinsic parameters (`fx`, `fy`, `cx`, `cy`) in sensor pixels. When unlocked, applied as an ephemeral runtime override with extrinsics (not written to Manager). Ignored when Pose locked.                                                                                                                                                              |
+| `resolution`     | array or object       |    No    | Sensor dimensions, `[width, height]` or `{"width": width, "height": height}`; positive integers, not thumbnail dimensions. Resolution alone does not change runtime optics; send `intrinsics` (and optional `distortion`) with unlocked frames when updating projection. Ignored when Pose locked.                                                              |
+| `distortion`     | object                |    No    | Lens distortion coefficients keyed by name (`k1`, `k2`, `p1`, `p2`, `k3`). When unlocked, applied ephemerally with other MQTT optics. Ignored when Pose locked.                                                                                                                                                                                                 |
+| `extrinsics`     | object                |    No    | Per-frame rigid camera pose for unlocked cameras (`pose_locked` is false): `translation` `[x,y,z]`, `rotation` Euler degrees (3) or quaternion `[x,y,z,w]` (4). Scale is not part of camera extrinsics. Declared in `metadata.schema.json`; semantic checks and normalization use runtime `validate_camera_extrinsics`. Ignored when the camera is Pose locked. |
+
+Mobile cameras may include per-frame `extrinsics`. Structurally invalid payloads
+fail detector schema validation. Poses that pass the schema but fail semantic
+checks (non-finite values, zero-norm quaternion) are logged and ignored. The
+observation pose and optics are used for detections, source-camera visibility,
+and projected bounds without overwriting registered camera calibration.
+
+The persisted `Cam.pose_locked` controls whether incoming detector-message
+extrinsics and optics are used for that sensor, regardless of physical modality.
+When unlocked (`pose_locked` is false, the default for new cameras), Controller
+and Analytics share one apply path: MQTT `extrinsics` and MQTT `intrinsics` /
+`distortion` / `resolution` are ephemeral runtime overrides (never PATCH
+Manager). Missing or invalid fields keep the previous observation; accepted live
+extrinsics stamp `pose_provenance.class` of `live` (optics-only updates do not).
+`pose_provenance` covers pose/extrinsics only — there is no intrinsics or optics
+provenance field (see [ADR 18](../../../adr/0018-camera-pose-provenance.md)).
+Live pose and its MQTT optics are retained across configuration refreshes while
+unlocked. Before the first valid observation, stored calibration initializes the
+pose. When locked, incoming MQTT extrinsics and optics are ignored; configuration
+refreshes reload stored calibration.
+
+Locking the pose resets the runtime pose on configuration refresh.
+Changing back does not resurrect an earlier observed pose. There is no expiry;
+camera removal, scene reassignment, or process restart discards runtime retention.
+See [Camera Pose Lock](../../api-reference.md#camera-pose-lock) for settings,
+archive compatibility, and coordinated upgrade requirements. Accepted live
+poses are stamped with `pose_provenance.class` of `live` (typically
+`origin: detector.extrinsics`) for Analytics regulated camera entries; see
+[ADR 18](../../../adr/0018-camera-pose-provenance.md) and
+[Analytics data formats](../analytics/data_formats.md).
+
+Publish pose updates even when object detection is disabled; the server cannot move
+a handheld frustum from localization performed only on the device. Pose-only frames
+can include empty arrays for the tracked categories, for example
+`"objects": {"person": [], "car": []}`.
+
+Supply full sensor `resolution` with camera **registration** and whenever durable
+calibrated frame dimensions change via Manager. MQTT resolution/intrinsics do not
+persist. For a **new registration only**, pixel intrinsics without dimensions use a
+logged, centered-principal-point estimate (`2*cx`, `2*cy`) rather than silently
+retaining the 640x480 model default. Conversely, a create that supplies
+`resolution` (for example `[1280, 720]` from a demo stream) without `cx`/`cy`
+stores a principal point at the frame center (`width/2`, `height/2`, so `640`,
+`360` for 1280×720) instead of the legacy `320`, `240` defaults. This is an
+estimate, not a substitute for explicit dimensions with off-center calibration.
+Existing registrations are not retrospectively inferred.
+The 3D UI refreshes durable optics on database notifications and consumes current
+optics from camera metadata and image responses without replacing the camera pose.
+
+The DL Streamer demo Compose stack keeps broker port **1883** internal. External
+handheld publishers use authenticated MQTT over secure WebSockets through the web
+service on port **443**; no external TCP MQTT port is required.
 
 ### Detection Object Fields (`objects.<category>[*]`)
+
+For a 2D box, `distance` is depth along the optical axis in metres, not radial
+range. A normalized `bounding_box` is already on the normalized image plane:
+its coordinates are scaled by depth, not unprojected through intrinsics again.
+Only `bounding_box_px` requires pixel unprojection. Native 3D boxes already supply
+their camera-frame geometry and pose; an accompanying `distance` is ignored for
+both bounding-box forms, without changing their placement or size.
+For depth-expanded 2D boxes, inferred cuboid dimensions include the observation
+pose's scale. The upright cuboid uses sensor X for width, optical Z for depth,
+and sensor Y for height; rotation changes edge directions, not their lengths.
+Explicit detection sizes and library size priors remain unchanged.
 
 | Field                  | Type               | Required | Description                                                                                                                                                    |
 | ---------------------- | ------------------ | :------: | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -191,9 +260,17 @@ publishes over authenticated MQTT, see
 | `source_id`  | string                |     Yes     | Publisher id; must match the topic `{publisher_id}` segment; combined with the bound scene uid to key the pose cache                                                                                                                                                                       |
 | `objects`    | array                 |     Yes     | Observed objects, in the source's local coordinate frame, or camera-style pixel detections when `bounding_box_px` is used (see [External Detection Object Fields](#external-detection-object-fields-objects)); may be empty for a pose-only update                                         |
 | `pose`       | object                | Conditional | Pose of the source's local origin, used to transform `objects` into the bound scene (see [External Source Pose Fields](#external-source-pose-fields-pose)); may be omitted to reuse the most recently cached, non-expired pose for this `source_id` (Cartesian and pixel detections alike) |
-| `intrinsics` | object                | Conditional | Camera intrinsics used to localize `bounding_box_px` detections with the same algorithm as camera-ingest payloads; may be omitted to reuse the most recently cached, non-expired intrinsics for this `source_id` (same cache entry and TTL as pose)                                        |
+| `intrinsics` | object                | Conditional | Sensor intrinsics used to localize `bounding_box_px` detections with the same algorithm as detector-topic payloads; may be omitted to reuse the most recently cached, non-expired intrinsics for this `source_id` (same cache entry and TTL as pose)                                       |
 | `distortion` | object                |     No      | Optional distortion coefficients paired with `intrinsics` for external pixel detections; cached with intrinsics when provided                                                                                                                                                              |
 | `track`      | boolean               |     No      | When present, applies to **all** `objects[*]` in the message. `false` bypasses Scenescape tracking and preserves source object ids; `true` (or lack of this attrtibute) routes all objects through the normal tracking path                                                                |
+
+External-source `pose` and optics are **ephemeral** for every perceptual modality that
+publishes on this topic (robots, UWB/RTLS, airborne platforms, LiDAR hubs, and so on):
+they live only in the Controller TTL pose cache keyed by `(scene_uid, source_id)` and
+are never written to Manager. That matches the unlocked detector-topic policy for
+`Cam` sensors — runtime override only — even though the stores differ (TTL cache vs
+`SceneModel` observation). Intrinsics provenance is not covered on either path
+([ADR 18](../../../adr/0018-camera-pose-provenance.md)).
 
 ### External Source Pose Fields (`pose`)
 

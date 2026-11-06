@@ -202,7 +202,7 @@ class TestTriangleSensorCalibration(TestSensorCalibrationBase):
     return
 
 @pytest.mark.test_name("NEX-T10457")
-def test_sensor_calibration(params, record_xml_attribute):
+def test_sensor_calibration(demo_scene, params, record_xml_attribute):
   """! Tests sensor calibration for sensors covering: (1) The entire scene, (2) A circular area, (3) A polygonal area.
   @param    params                  List of test parameters.
   @param    record_xml_attribute    Function for recording test name.
