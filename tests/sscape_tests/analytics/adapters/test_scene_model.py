@@ -263,6 +263,21 @@ class TestUpdateCameras:
     assert scene.cameras['static'].pose_provenance['class'] == 'calibration'
     assert snapshot.cameras['static'].pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
 
+  def test_retained_live_optics_are_not_aliased(self):
+    scene = _scene()
+    scene.updateCameras([self._camera_data()])
+    scene.updateCameraPose('cam1', {
+      'translation': [10, 20, 3], 'rotation': [1, 0, 0, 0],
+    })
+    scene.cameraSnapshot(
+      'cam1', intrinsics={'fx': 550, 'fy': 560, 'cx': 320, 'cy': 240})
+    previous_intrinsics = scene.cameras['cam1'].pose.intrinsics
+    scene.updateCameras([self._camera_data(focal_length=900)])
+    retained = scene.cameras['cam1'].pose.intrinsics
+    assert retained is not previous_intrinsics
+    previous_intrinsics.intrinsics[0, 0] = 1.0
+    assert retained.intrinsics[0, 0] == 550
+
   def test_resolution_without_intrinsics_centers_principal_point(self):
     scene = _scene()
     scene.updateCameras([self._camera_data()])

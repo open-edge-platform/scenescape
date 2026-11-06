@@ -45,6 +45,15 @@ def _observation_intrinsics_values(intrinsics):
   return tuple(float(value) for value in values)
 
 
+def _copy_camera_intrinsics(intrinsics):
+  """Deep-copy CameraIntrinsics so retained/observation poses do not share arrays."""
+  distortion = getattr(intrinsics, 'distortion', None)
+  return CameraIntrinsics(
+    intrinsics.intrinsics.copy(),
+    None if distortion is None else distortion.copy(),
+  )
+
+
 def _merge_observation_optics(current, intrinsics=None, distortion=None, resolution=None):
   """Build CameraIntrinsics for an MQTT observation, or None if optics omitted."""
   if intrinsics is None and distortion is None and resolution is None:
@@ -133,7 +142,8 @@ class SceneModel:
         and getattr(previous, 'pose', None) is not None):
       # Keep live pose and MQTT optics; do not take refreshed config optics.
       camera.pose = CameraPose(
-        previous.pose.pose_mat.copy(), previous.pose.intrinsics)
+        previous.pose.pose_mat.copy(),
+        _copy_camera_intrinsics(previous.pose.intrinsics))
       previous_provenance = getattr(previous, 'pose_provenance', None)
       if isinstance(previous_provenance, dict):
         camera.pose_provenance = dict(previous_provenance)
@@ -171,7 +181,8 @@ class SceneModel:
       if extrinsics is not None:
         pose = CameraPose(
           validate_camera_extrinsics(extrinsics),
-          optics if optics is not None else current.pose.intrinsics)
+          optics if optics is not None else _copy_camera_intrinsics(
+            current.pose.intrinsics))
         provenance = make_pose_provenance(POSE_CLASS_LIVE, origin)
       else:
         pose = CameraPose(current.pose.pose_mat.copy(), optics)
