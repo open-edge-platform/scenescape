@@ -46,6 +46,9 @@ You can apply positive values to expand the bounding box or negative values to s
 ### Tracking Behavior Settings
 
 - **Tracking radius (meters)**: Set the maximum distance from the object center for matching new detections with the track.
+  Only the Scene Controller uses it, with `euclidean` association and no `max_radius_m`: it gates on the average radius of the
+  frame's objects. The default `position_mahalanobis` association and the Tracker Service ignore it; see
+  [Detection-to-Track Association](../microservices/controller/how-to-configure-tracker.md#detection-to-track-association).
 - **Shift type**: Shift type is used to compute the bottom center of the object to estimate its position in world coordinates.
   - For most objects the default setting of "Type 1" will work well.
   - For wide and short objects, "Type 2" performs better.

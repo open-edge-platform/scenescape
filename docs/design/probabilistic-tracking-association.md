@@ -102,16 +102,16 @@ d² = (z_xy − ŷ_xy)ᵀ S_pred[0:2,0:2]⁻¹ (z_xy − ŷ_xy)
 valid if d² ≤ χ²(p, 2) and ||z_xy − ŷ_xy|| ≤ max_radius_m
 ```
 
-| Element                | Design choice                                                                                                          |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Distance type          | `DistanceType::PositionMahalanobis` — 2×2 on (x, y); exclude size and yaw                                              |
-| Gate                   | `chi2_inv(gate_probability, df=2)`; default `gate_probability=0.99` → χ² ≈ 9.21                                        |
-| Safety ceiling         | `max_radius_m` (production default **10**); rejects pairs regardless of Mahalanobis; **not** a multi-cam tolerance     |
-| Process noise shaping  | Velocity-aligned kinematic Q (Δt-scaled along-track ≫ cross-track); no direct position Q                               |
-| Association covariance | Top IMM model `S_pred`; correct UKF/IMM Sxy handling so coast ellipses elongate along velocity                         |
-| Birth clustering       | Detection↔detection remains Euclidean at fixed **`kDefaultBirthClusterRadiusM` ≈ 2 m** (independent of `max_radius_m`) |
-| Multi-cam geometry     | Equal-weight average of matched cameras' world geometry (stopgap until Phase 2 R)                                      |
-| Config                 | `association.method`, `gate_probability`, `max_radius_m` on tracker + controller                                       |
+| Element                | Design choice                                                                                                                                                                                                                                |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Distance type          | `DistanceType::PositionMahalanobis` — 2×2 on (x, y); exclude size and yaw                                                                                                                                                                    |
+| Gate                   | `chi2_inv(gate_probability, df=2)`; default `gate_probability=0.99` → χ² ≈ 9.21                                                                                                                                                              |
+| Safety ceiling         | `max_radius_m` (production default **10**); rejects pairs regardless of Mahalanobis; **not** a multi-cam tolerance                                                                                                                           |
+| Process noise shaping  | Velocity-aligned kinematic Q (Δt-scaled along-track ≫ cross-track); no direct position Q                                                                                                                                                     |
+| Association covariance | Top IMM model `S_pred`; correct UKF/IMM Sxy handling so coast ellipses elongate along velocity                                                                                                                                               |
+| Birth clustering       | Detection↔detection remains Euclidean at **`kDefaultBirthClusterRadiusM` ≈ 2 m** (independent of `max_radius_m`); the Controller's `euclidean` rollback without `max_radius_m` uses the frame's average `tracking_radius`, as before Phase 1 |
+| Multi-cam geometry     | Equal-weight average of matched cameras' world geometry (stopgap until Phase 2 R)                                                                                                                                                            |
+| Config                 | `association.method`, `gate_probability`, `max_radius_m` on tracker + controller                                                                                                                                                             |
 
 **Methods:**
 
