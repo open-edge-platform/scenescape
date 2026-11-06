@@ -42,6 +42,7 @@ function main() {
   const canvas = document.getElementById("scene");
   const sceneID = document.getElementById("scene-id").value;
   const isStaff = document.getElementById("is-staff");
+  const isSuperuser = document.getElementById("is-superuser");
   const sceneName = document.getElementById("scene-name").value;
   const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
@@ -312,6 +313,7 @@ function main() {
     orbitControls,
     axesHelper,
     isStaff,
+    isSuperuser,
   );
   sceneThing.loadMap(gltfLoader, loadThings, sceneBoundingBox);
 
@@ -398,10 +400,8 @@ function main() {
         );
         client.subscribe(appName + CONSTANTS.CMD_DATABASE);
         console.log("Subscribed to " + (appName + CONSTANTS.CMD_DATABASE));
-        client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+/+");
-        console.log(
-          "Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+/+"),
-        );
+        client.subscribe(appName + CONSTANTS.DATA_CAMERA + "+");
+        console.log("Subscribed to " + (appName + CONSTANTS.DATA_CAMERA + "+"));
 
         // Subscribe to singleton sensor data - only for sensors in this scene
         const sensorManager = sceneThingManagers["things"]["sensor"]["obj"];
@@ -570,13 +570,33 @@ function main() {
     }
 
     if (topic.includes(CONSTANTS.DATA_REGULATED)) {
+      cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+      if (cameraManager) {
+        cameraManager.updatePoses(msg.cameras);
+      }
       if (showTrackedObjects) {
         // Plot the marks
         assetManager.plot(msg);
       }
     } else if (topic.includes(CONSTANTS.CMD_DATABASE)) {
       assetManager.loadAssets(gltfLoader, true);
-      cameraManager.refresh(client, appName + CONSTANTS.CMD_CAMERA);
+      cameraManager = sceneThingManagers["things"]["camera"]["obj"];
+      if (cameraManager) {
+        cameraManager
+          .syncWithDatabase(
+            sceneThingManagers.things.camera,
+            client,
+            appName,
+            isVARunning,
+          )
+          .then(({ added, removed }) => {
+            if (added.length || removed.length) {
+              refreshGlobalCameraPanelControls();
+            }
+            cameraManager.refresh(client, appName + CONSTANTS.CMD_CAMERA);
+          })
+          .catch((err) => console.error("Camera sync failed:", err));
+      }
     } else if (topic.includes(CONSTANTS.IMAGE_CAMERA)) {
       const id = topic.split("camera/")[1];
       cameraManager = sceneThingManagers["things"]["camera"]["obj"];
@@ -600,13 +620,10 @@ function main() {
         cameraManager.sceneCameras[id].projectPointCloudCapture(msg);
       }
     } else if (topic.includes(CONSTANTS.DATA_CAMERA)) {
-      const id = topic.split("/")[4];
+      const id = topic.split("/data/camera/")[1];
       cameraManager = sceneThingManagers["things"]["camera"]["obj"];
       if (cameraManager && cameraManager.sceneCameras.hasOwnProperty(id)) {
-        cameraManager.sceneCameras[id].updateDistortion(msg.distortion);
-        if (cameraManager.sceneCameras[id].fovEnabled === false) {
-          cameraManager.sceneCameras[id].updateIntrinsics(msg.intrinsics);
-        }
+        cameraManager.sceneCameras[id].updateOptics(msg);
       }
     } else if (topic.includes(CONSTANTS.EVENT)) {
       let analyticsName = topic.split("/")[2];

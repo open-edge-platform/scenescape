@@ -6,7 +6,6 @@ from typing import Optional
 import numpy as np
 
 from scene_common import log
-from scene_common.camera import Camera
 from scene_common.earth_lla import calculateTRSLocal2LLAFromSurfacePoints
 from scene_common.geometry import Point, Region, Tripwire
 from scene_common.mesh_util import createObjectMesh, createRegionMesh, getMeshAxisAlignedProjectionToXY
@@ -114,17 +113,6 @@ class AnalyticsScene(SceneModel):
     self.children = [x['name'] for x in newChildren]
     return
 
-  def updateCameras(self, newCameras):
-    old = set(self.cameras.keys())
-    new = set([x['uid'] for x in newCameras])
-    for cameraData in newCameras:
-      camID = cameraData['uid']
-      self.cameras[camID] = Camera(camID, cameraData, resolution=cameraData['resolution'])
-    deleted = old - new
-    for camID in deleted:
-      self.cameras.pop(camID)
-    return
-
   def _updateRegions(self, existingRegions, newRegions):
     _NOTSET = object()
     old = set(existingRegions.keys())
@@ -187,6 +175,9 @@ class AnalyticsScene(SceneModel):
 
   def getTrackedObjects(self, detection_type):
     return self._ingestion.get_objects(detection_type)
+
+  def getAllTrackedObjects(self):
+    return self._ingestion.get_all_objects()
 
   def _deserializeTrackedObjects(self, serialized_objects):
     return self._ingestion.deserialize(serialized_objects, self.sensors)
@@ -277,7 +268,7 @@ class AnalyticsScene(SceneModel):
     """
     for obj in curObjects:
       existing = getattr(obj, 'visibility', None)
-      if existing:
+      if getattr(obj, '_visibility_from_producer', bool(existing)):
         continue
       vis = []
       for sname in self.cameras:

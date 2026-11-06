@@ -9,6 +9,33 @@ from rest_framework.test import APIRequestFactory
 from manager import api
 
 
+@pytest.mark.django_db
+@pytest.mark.parametrize("superuser", [False, True])
+def test_pairing_qr_is_rendered_only_in_3d_for_superuser(superuser, settings):
+  from django.contrib.auth.models import User
+  from django.template.loader import render_to_string
+  from django.test import RequestFactory
+  from manager.models import Scene
+
+  settings.ALLOWED_HOSTS = ["testserver"]
+  user = User.objects.create_user("qr-user", is_staff=True, is_superuser=superuser)
+  scene = Scene.objects.create(name="QR scene")
+  request = RequestFactory().get("/")
+  request.user = user
+  context = {"scene": scene, "scenes": [scene], "user": user}
+  page = render_to_string("scene/scene_detail.html", context, request=request)
+  assert ('id="scene-qr-data"' in page) is superuser
+  assert ('id="scene-qr-modal"' in page) is superuser
+  assert ('js/scene-qr.js' in page) is superuser
+  if superuser:
+    assert "<svg" in page
+    assert "s2://?" in page
+  for template in ("sscape/index.html", "sscape/sceneDetail.html"):
+    page = render_to_string(template, context, request=request)
+    assert "scene-qr-button" not in page
+    assert 'id="scene-qr-modal"' not in page
+
+
 @pytest.mark.parametrize(
   ("remote_addr", "expected"),
   [

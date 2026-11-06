@@ -441,8 +441,15 @@ class TestBuildObjectData:
     assert fld["timestamp"] == "2026-07-21T00:00:00.000Z"
     assert fld["rate"] == 15.5
     assert fld["initial_intrinsics"] == {"fx": 1000}
+    assert fld["resolution"] == {"width": 640, "height": 480}
     assert fld["debug_timestamp_end"].endswith("Z")
     assert isinstance(fld["objects"], dict) and not fld["objects"]
+
+  def test_resolution_omitted_when_gva_resolution_invalid(self, element):
+    element._cameraid = "cam-a"
+    gvadata = self._gvadata([], resolution={"width": 0, "height": 480})
+    element._build_object_data(gvadata)
+    assert "resolution" not in element._frame_level_data
 
   def test_detection_labels_filter_excludes_non_matching(self, element):
     element._detection_labels = ["person"]
@@ -557,6 +564,7 @@ class TestProcessBuffer:
     payload = json.loads(frame.added_messages[0])
     assert payload["id"] == "cam-1"
     assert "person" in payload["objects"]
+    assert payload["resolution"] == {"width": 320, "height": 240}
 
   def test_publish_image_flag_publishes_image_topic_once(self, connected_element, monkeypatch):
     connected_element._publish_image = True
