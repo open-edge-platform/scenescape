@@ -69,7 +69,7 @@ Example `pose-adjustment-route.json`:
 
 Resolution order is: exact label, then configured route labels. Routes are flattened at startup so message-time dispatch remains a direct lookup.
 
-`--experimental-remote-projection`: Experimental. Projects camera detections with the remote projection service at `CONTROLLER_REMOTE_PROJECTION_HOST` and `CONTROLLER_REMOTE_PROJECTION_PORT` and gives the tracker its measurement noise covariance. Disabled by default; can also be enabled with the `CONTROLLER_EXPERIMENTAL_REMOTE_PROJECTION` environment variable set to `true`. Detections without a valid remote measurement keep the local projection. See [Experimental Remote Projection](./how-to-configure-tracker.md#experimental-remote-projection).
+`--experimental-observation-processor`: Experimental. Processes camera detections with the observation processor service at `CONTROLLER_OBSERVATION_PROCESSOR_HOST` and `CONTROLLER_OBSERVATION_PROCESSOR_PORT` and gives the tracker its measurement noise covariance. Disabled by default; can also be enabled with the `CONTROLLER_EXPERIMENTAL_OBSERVATION_PROCESSOR` environment variable set to `true`. Detections without a valid remote measurement keep the local processing. See [Experimental Observation Processor](./how-to-configure-tracker.md#experimental-observation-processor).
 
 `CONTROLLER_TRUSTED_POSITIONING_SOURCES`: Comma-separated list of external `source_id`s (see
 [External Source Input Message Format](./data_formats.md#external-source-input-message-format))

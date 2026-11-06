@@ -12,9 +12,9 @@ derived from its pixel box: centre (x / 20, y / 20, HEIGHT_M / 2), size 0.5 x 0.
 diagonal noise covariance R.
 
 Environment:
-  MOCK_PROJECTION_STATUS    gRPC status name returned for every call (for example UNAVAILABLE);
-                            empty for successful replies.
-  MOCK_PROJECTION_DELAY_MS  Delay before each reply, in milliseconds.
+  MOCK_OBSERVATION_PROCESSOR_STATUS    gRPC status name returned for every call (for example
+                                       UNAVAILABLE); empty for successful replies.
+  MOCK_OBSERVATION_PROCESSOR_DELAY_MS  Delay before each reply, in milliseconds.
 """
 
 import os
@@ -27,16 +27,16 @@ import grpc
 sys.path.insert(0, "/protos")
 protos, services = grpc.protos_and_services("observation_processor.proto")
 
-PORT = 50051
+PORT = 50052
 HEIGHT_M = 1.7
 NOISE_DIAGONAL = [0.01, 0.01, 0.04, 0.2, 0.2, 0.2, 0.2]
 NOISE_COVARIANCE = [NOISE_DIAGONAL[i // 7] if i // 7 == i % 7 else 0.0 for i in range(49)]
 
-STATUS = os.environ.get("MOCK_PROJECTION_STATUS", "")
-DELAY_S = int(os.environ.get("MOCK_PROJECTION_DELAY_MS", "0") or 0) / 1000.0
+STATUS = os.environ.get("MOCK_OBSERVATION_PROCESSOR_STATUS", "")
+DELAY_S = int(os.environ.get("MOCK_OBSERVATION_PROCESSOR_DELAY_MS", "0") or 0) / 1000.0
 
 
-class MockProjectionService(services.ObservationProcessorServiceServicer):
+class MockObservationProcessorService(services.ObservationProcessorServiceServicer):
 
   def ProcessDetections(self, request, context):
     categories = sorted({detection.category for detection in request.detections})
@@ -46,7 +46,7 @@ class MockProjectionService(services.ObservationProcessorServiceServicer):
     if DELAY_S > 0:
       time.sleep(DELAY_S)
     if STATUS:
-      context.abort(getattr(grpc.StatusCode, STATUS), "mock projection failure")
+      context.abort(getattr(grpc.StatusCode, STATUS), "mock observation processor failure")
 
     response = protos.ProcessDetectionsResponse(
         scene_id=request.scene_id, camera_id=request.camera_id, timestamp=request.timestamp,
@@ -65,10 +65,11 @@ class MockProjectionService(services.ObservationProcessorServiceServicer):
 
 def main():
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-  services.add_ObservationProcessorServiceServicer_to_server(MockProjectionService(), server)
+  services.add_ObservationProcessorServiceServicer_to_server(
+      MockObservationProcessorService(), server)
   server.add_insecure_port(f"[::]:{PORT}")
   server.start()
-  print(f"Mock projection service listening on {PORT} (status={STATUS or 'OK'}, "
+  print(f"Mock observation processor service listening on {PORT} (status={STATUS or 'OK'}, "
         f"delay={DELAY_S * 1000:.0f}ms)", flush=True)
   server.wait_for_termination()
 

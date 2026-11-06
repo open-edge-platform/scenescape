@@ -281,30 +281,30 @@ Tracker service. Without `max_radius_m` it uses the legacy 2 m gate.
 Invalid `method` values fail startup (Controller raises; Tracker throws). Omitting the
 `association` block uses the defaults above.
 
-## Experimental Remote Projection
+## Experimental Observation Processor
 
 > **⚠️ Experimental.** Settings, behavior and metric names may change between releases.
 
 By default, the Scene Controller and the Tracker service project each pixel bounding box onto the
-ground plane with the camera calibration. With remote projection, they instead send the pixel boxes
-of each camera frame to an external projection service
+ground plane with the camera calibration. With an observation processor, they instead send the pixel boxes
+of each camera frame to an external observation processor service
 ([`observation_processor.proto`](https://github.com/open-edge-platform/scenescape/blob/main/observation_processor/proto/observation_processor.proto)).
 For each box, the service returns a world position, a size and a measurement noise covariance (R)
 that describes the uncertainty of that position, for example a long uncertainty along the camera's
 viewing ray. The tracker uses R for multi-camera fusion, association gating and the Kalman update.
 
-Remote projection is used only when the experimental flag is set **and** the service host and port
+The observation processor is used only when the experimental flag is set **and** the service host and port
 are configured:
 
-| Setting            | Scene Controller (environment)                                                    | Tracker service (`tracker.json` / environment)                                         | Default      |
-| ------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- | ------------ |
-| Experimental flag  | `CONTROLLER_EXPERIMENTAL_REMOTE_PROJECTION` or `--experimental-remote-projection` | `tracking.experimental_remote_projection` / `TRACKER_EXPERIMENTAL_REMOTE_PROJECTION`   | `false`      |
-| Host               | `CONTROLLER_REMOTE_PROJECTION_HOST`                                               | `infrastructure.remote_projection.host` / `TRACKER_REMOTE_PROJECTION_HOST`             | —            |
-| Port               | `CONTROLLER_REMOTE_PROJECTION_PORT`                                               | `infrastructure.remote_projection.port` / `TRACKER_REMOTE_PROJECTION_PORT`             | —            |
-| Conditioning mode  | `CONTROLLER_REMOTE_PROJECTION_MODE`                                               | `tracking.remote_projection_mode` / `TRACKER_REMOTE_PROJECTION_MODE`                   | `auto`       |
-| Call deadline (ms) | `CONTROLLER_REMOTE_PROJECTION_TIMEOUT_MS`                                         | `infrastructure.remote_projection.timeout_ms` / `TRACKER_REMOTE_PROJECTION_TIMEOUT_MS` | `50` (1–100) |
-| Plaintext channel  | `CONTROLLER_REMOTE_PROJECTION_INSECURE`                                           | `infrastructure.remote_projection.insecure` / `TRACKER_REMOTE_PROJECTION_INSECURE`     | `false`      |
-| CA certificates    | `CONTROLLER_REMOTE_PROJECTION_CA_CERT`                                            | `infrastructure.remote_projection.ca_cert_path` / `TRACKER_REMOTE_PROJECTION_CA_CERT`  | system roots |
+| Setting            | Scene Controller (environment)                                                            | Tracker service (`tracker.json` / environment)                                                 | Default      |
+| ------------------ | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ------------ |
+| Experimental flag  | `CONTROLLER_EXPERIMENTAL_OBSERVATION_PROCESSOR` or `--experimental-observation-processor` | `tracking.experimental_observation_processor` / `TRACKER_EXPERIMENTAL_OBSERVATION_PROCESSOR`   | `false`      |
+| Host               | `CONTROLLER_OBSERVATION_PROCESSOR_HOST`                                                   | `infrastructure.observation_processor.host` / `TRACKER_OBSERVATION_PROCESSOR_HOST`             | —            |
+| Port               | `CONTROLLER_OBSERVATION_PROCESSOR_PORT`                                                   | `infrastructure.observation_processor.port` / `TRACKER_OBSERVATION_PROCESSOR_PORT`             | —            |
+| Conditioning mode  | `CONTROLLER_OBSERVATION_PROCESSOR_MODE`                                                   | `tracking.observation_processor_mode` / `TRACKER_OBSERVATION_PROCESSOR_MODE`                   | `auto`       |
+| Call deadline (ms) | `CONTROLLER_OBSERVATION_PROCESSOR_TIMEOUT_MS`                                             | `infrastructure.observation_processor.timeout_ms` / `TRACKER_OBSERVATION_PROCESSOR_TIMEOUT_MS` | `50` (1–100) |
+| Plaintext channel  | `CONTROLLER_OBSERVATION_PROCESSOR_INSECURE`                                               | `infrastructure.observation_processor.insecure` / `TRACKER_OBSERVATION_PROCESSOR_INSECURE`     | `false`      |
+| CA certificates    | `CONTROLLER_OBSERVATION_PROCESSOR_CA_CERT`                                                | `infrastructure.observation_processor.ca_cert_path` / `TRACKER_OBSERVATION_PROCESSOR_CA_CERT`  | system roots |
 
 Conditioning modes: `auto` uses full conditioning (frustum Gaussian and amodal reasoning against the
 scene mesh) when the scene has a mesh and frustum-only conditioning otherwise; `full` and
@@ -318,7 +318,7 @@ There is no extra retry backoff: an unreachable service fails fast while gRPC ba
 reconnection attempts, and a service that does not answer costs at most the deadline per step.
 
 Each camera frame is one call, and the calls for one tracking step run concurrently under the
-deadline. A detection keeps the local projection when:
+deadline. A detection keeps the local processing when:
 
 - it is not a pixel box from a calibrated scene camera (for example a 3D detection with
   `translation`, or an external source);
@@ -327,8 +327,8 @@ deadline. A detection keeps the local projection when:
   or an unspecified or unknown status, is invalid).
 
 Failed calls and invalid replies do not stop the service. They are counted in
-`scenescape_controller_remote_projection_failed_calls` (Scene Controller) or
-`tracker.remote_projection.failed_calls` (Tracker service), with the gRPC status name or the
+`scenescape_controller_observation_processor_failed_calls` (Scene Controller) or
+`tracker.observation_processor.failed_calls` (Tracker service), with the gRPC status name or the
 validation failure in the `reason` attribute, and logged as a warning at most every 10 seconds per
 scene and category. An unobservable depth is not counted. See [How to Enable Observability](../../other-topics/how-to-enable-observability.md).
 
@@ -336,21 +336,21 @@ A remote measurement replaces the position and size of its detection; detector y
 
 ### Height Reference of Tracked Objects
 
-The returned position and its R describe the object's centre of mass, so with remote projection
+The returned position and its R describe the object's centre of mass, so with an observation processor
 both trackers track the centre of mass:
 
 - Remote measurements are used as returned.
-- Pixel boxes that keep the local projection are raised by half their height.
+- Pixel boxes that keep the local processing are raised by half their height.
 - 3D detections (`translation` from cameras or external sources) are assumed to be the object's
   centre of mass and are used unchanged. A source that reports the footprint base is published
   half its height too low.
 - Published tracks report the footprint base: `translation[2]` is the tracked z minus half the
   tracked height. x, y, velocity, size and rotation are not converted.
 
-Without remote projection nothing is converted. The mode is fixed at startup, so tracks never mix
+Without an observation processor nothing is converted. The mode is fixed at startup, so tracks never mix
 references.
 
-With remote projection, pixel-box tracks publish a z that follows the per-frame box height instead
+With an observation processor, pixel-box tracks publish a z that follows the per-frame box height instead
 of 0. In a simulation with production tracker settings at 15 fps, the published z varied by
 5.1 cm RMS (at most 11 cm) for a box-height noise of 8 cm and 6.3 cm RMS (at most 21 cm) for
 25 cm; `velocity[2]` varied by 3.5 and 5.2 cm/s RMS. x and y are unchanged.

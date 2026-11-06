@@ -7,7 +7,7 @@ FROM python:3.13-slim
 
 RUN pip install --no-cache-dir grpcio==1.76.0 grpcio-tools==1.76.0
 
-COPY mock_projection.py /app/mock_projection.py
+COPY mock_observation_processor.py /app/mock_observation_processor.py
 
 USER 10001
-CMD ["python", "/app/mock_projection.py"]
+CMD ["python", "/app/mock_observation_processor.py"]

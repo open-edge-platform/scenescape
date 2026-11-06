@@ -145,12 +145,12 @@ in the tracker configuration — see
 - `scenescape_controller_time_chunking_empty_chunks` — dispatch intervals
   with no buffered data.
 
-**Remote projection counter** (emitted only with experimental remote
-projection — see
-[How to Configure the Tracker](../microservices/controller/how-to-configure-tracker.md#experimental-remote-projection)):
+**Observation processor counter** (emitted only with the experimental observation
+processor — see
+[How to Configure the Tracker](../microservices/controller/how-to-configure-tracker.md#experimental-observation-processor)):
 
-- `scenescape_controller_remote_projection_failed_calls` — camera frames
-  whose remote projection call failed or returned an invalid response,
+- `scenescape_controller_observation_processor_failed_calls` — camera frames
+  whose observation processor call failed or returned an invalid response,
   attributed by `scene`, `category`, `camera`, and `reason`.
 
 **Tracing.** Spans are created for MQTT message handling, object tracking
@@ -276,10 +276,10 @@ pipeline:
 - `tracker.time_chunking.non_empty_chunks`
 - `tracker.time_chunking.empty_chunks`
 
-**Remote projection counter** (experimental remote projection only):
+**Observation processor counter** (experimental observation processor only):
 
-- `tracker.remote_projection.failed_calls` — camera frames whose remote
-  projection call failed or returned an invalid response, attributed by
+- `tracker.observation_processor.failed_calls` — camera frames whose observation
+  processor call failed or returned an invalid response, attributed by
   `scene`, `category`, `camera_id`, and `reason`.
 
 **Tracing.** Spans are created for MQTT message handling

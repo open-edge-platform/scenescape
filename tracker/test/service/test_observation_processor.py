@@ -6,13 +6,14 @@
 """
 Service tests for experimental observation processor.
 
-The tracker projects pixel-box detections with a mock projection service (mocks/projection)
-over gRPC and feeds the returned measurement and noise covariance to the tracker:
+The tracker sends pixel-box detections to a mock observation processor service
+(mocks/observation_processor) over gRPC and feeds the returned measurement and noise covariance
+to the tracker:
 - remote measurements drive the tracks; the tracker is fed centre-of-mass positions and
   publishes the footprint base;
 - failed calls keep the local processing, are counted in tracker.observation_processor.failed_calls
   and logged, and the service keeps running;
-- the cost of observation processor is measured from tracker.stage.transform_duration and the
+- the cost of the observation processor is measured from tracker.stage.transform_duration and the
   end-to-end MQTT latency, with and without the observation processor.
 """
 
@@ -55,7 +56,7 @@ TRANSLATION_HEIGHTS = {"tall": 1.8, "short": 0.2}
 @contextmanager
 def tracker_environment(tls_certs, name, remote=True, timeout_ms=50, mock_status="",
                         mock_delay_ms=0):
-  """Start broker, collector, tracker and, with `remote`, the mock projection service."""
+  """Start broker, collector, tracker and, with `remote`, the mock observation processor service."""
   service_dir = Path(__file__).parent
   project_name = f"tracker-{name}-{uuid.uuid4().hex[:8]}"
   env_file = tls_certs.temp_dir / f".env-{project_name}"
@@ -71,24 +72,24 @@ def tracker_environment(tls_certs, name, remote=True, timeout_ms=50, mock_status
       f"TRACKER_METRICS_ENABLED=true\n"
       f"TRACKER_METRICS_EXPORT_INTERVAL_S=1\n"
       f"TRACKER_EXPERIMENTAL_OBSERVATION_PROCESSOR={'true' if remote else 'false'}\n"
-      f"TRACKER_OBSERVATION_PROCESSOR_HOST=mock-projection\n"
-      f"TRACKER_OBSERVATION_PROCESSOR_PORT=50051\n"
+      f"TRACKER_OBSERVATION_PROCESSOR_HOST=mock-observation-processor\n"
+      f"TRACKER_OBSERVATION_PROCESSOR_PORT=50052\n"
       f"TRACKER_OBSERVATION_PROCESSOR_INSECURE=true\n"
       f"TRACKER_OBSERVATION_PROCESSOR_TIMEOUT_MS={timeout_ms}\n"
-      f"MOCK_PROJECTION_STATUS={mock_status}\n"
-      f"MOCK_PROJECTION_DELAY_MS={mock_delay_ms}\n"
+      f"MOCK_OBSERVATION_PROCESSOR_STATUS={mock_status}\n"
+      f"MOCK_OBSERVATION_PROCESSOR_DELAY_MS={mock_delay_ms}\n"
   )
   docker = DockerClient(
       compose_files=[service_dir / "compose.yml"],
       compose_project_name=project_name,
       compose_project_directory=str(service_dir),
       compose_env_files=[str(env_file)],
-      compose_profiles=["projection"] if remote else [],
+      compose_profiles=["observation-processor"] if remote else [],
   )
   try:
     print(f"\nStarting observation processor environment: {project_name}")
     if remote:
-      docker.compose.up(services=["mock-projection"], build=True, detach=True, wait=True)
+      docker.compose.up(services=["mock-observation-processor"], build=True, detach=True, wait=True)
     docker.compose.up(services=["broker", "otel-collector", "tracker"], detach=True, wait=False)
     try:
       wait_for_readiness(docker, timeout=30)
@@ -115,7 +116,7 @@ def scene_output_client(docker, categories=(CATEGORY,)):
     subscribed.set()
 
   client = mqtt.Client(callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-                       client_id=f"test-remote-projection-{uuid.uuid4().hex[:8]}")
+                       client_id=f"test-observation-processor-{uuid.uuid4().hex[:8]}")
   client.on_message = on_message
   client.on_subscribe = on_subscribe
   client.connect(host, port, keepalive=60)
@@ -215,11 +216,12 @@ def test_observation_processor_measurements_drive_tracks(tls_certs):
     assert tall[2] - short[2] == pytest.approx(
         -(TRANSLATION_HEIGHTS["tall"] - TRANSLATION_HEIGHTS["short"]) / 2, abs=0.01), (tall, short)
 
-    mock_logs = get_container_logs(docker, "mock-projection")
+    mock_logs = get_container_logs(docker, "mock-observation-processor")
     assert (f"scene={SCENE_ID} camera={CAMERA_ID} mode=CONDITIONING_MODE_AUTO detections=1 "
             f"categories={CATEGORY}") in mock_logs
     tracker_logs = get_container_logs(docker, "tracker")
-    assert "Experimental observation processor enabled: mock-projection:50051" in tracker_logs
+    assert "Experimental observation processor enabled: mock-observation-processor:50052" \
+        in tracker_logs
     assert "Observation processor call failed" not in tracker_logs
 
 
@@ -305,7 +307,8 @@ def test_observation_processor_latency_impact(tls_certs, workload):
           "e2e_median_ms": statistics.median(latencies) if latencies else math.nan,
           "e2e_p95_ms": (statistics.quantiles(latencies, n=20)[-1]
                          if len(latencies) >= 20 else math.nan),
-          "remote_failed": "Observation processor call failed" in get_container_logs(docker, "tracker"),
+          "remote_failed": "Observation processor call failed" in
+                           get_container_logs(docker, "tracker"),
       }
 
   print(f"\nObservation processor impact ({len(cameras)} camera(s) x {len(boxes)} detection(s) per "
@@ -331,4 +334,4 @@ def test_observation_processor_latency_impact(tls_certs, workload):
     assert not result["remote_failed"], "no call failed or timed out"
   assert remote["transform_mean_ms"] < 100.0, "the call deadline bounds the transform stage"
   assert 20.0 <= delayed["transform_mean_ms"] < 100.0, \
-      "the projection call is on the transform stage path"
+      "the observation processor call is on the transform stage path"

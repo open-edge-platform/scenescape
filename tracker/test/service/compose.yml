@@ -79,22 +79,22 @@ services:
         target: /etc/otelcol-contrib/config.yaml
     restart: no
 
-  mock-projection:
-    profiles: ["projection"]
-    image: scenescape-tracker-test-mock-projection:local
+  mock-observation-processor:
+    profiles: ["observation-processor"]
+    image: scenescape-tracker-test-mock-observation-processor:local
     # Forwards SIGTERM, so compose down does not wait the 10 s stop timeout
     init: true
     build:
-      context: ./mocks/projection
+      context: ./mocks/observation_processor
       args:
         - http_proxy
         - https_proxy
         - no_proxy
     environment:
-      - MOCK_PROJECTION_STATUS=${MOCK_PROJECTION_STATUS:-}
-      - MOCK_PROJECTION_DELAY_MS=${MOCK_PROJECTION_DELAY_MS:-0}
+      - MOCK_OBSERVATION_PROCESSOR_STATUS=${MOCK_OBSERVATION_PROCESSOR_STATUS:-}
+      - MOCK_OBSERVATION_PROCESSOR_DELAY_MS=${MOCK_OBSERVATION_PROCESSOR_DELAY_MS:-0}
     configs:
-      - source: projection-proto
+      - source: observation-processor-proto
         target: /protos/observation_processor.proto
     restart: no
     healthcheck:
@@ -103,7 +103,7 @@ services:
           "CMD",
           "python",
           "-c",
-          "import socket; socket.create_connection(('localhost', 50051), 1)",
+          "import socket; socket.create_connection(('localhost', 50052), 1)",
         ]
       interval: 1s
       timeout: 2s
@@ -198,5 +198,5 @@ configs:
     file: ./mocks/mock_manager.py
   mock-scenes:
     file: ./fixtures/test-scenes-api.json
-  projection-proto:
+  observation-processor-proto:
     file: ../../../observation_processor/proto/observation_processor.proto

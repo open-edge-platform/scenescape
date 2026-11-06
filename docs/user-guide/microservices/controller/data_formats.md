@@ -79,7 +79,7 @@ against the `detector` definition in
 > include `id` in every detection object.
 
 > **③ Height reference**: with
-> [experimental remote projection](how-to-configure-tracker.md#height-reference-of-tracked-objects),
+> [experimental observation processor](how-to-configure-tracker.md#height-reference-of-tracked-objects),
 > the tracker reads `translation` as the object's centre of mass and publishes tracks at their
 > footprint base (`z` minus half the height).
 
@@ -247,7 +247,7 @@ position-based ROI, tripwire, and sensor-tagging analytics, but are excluded fro
 volume/occupancy/collision analytics.
 
 Report `translation` at the object's centre of mass: with
-[experimental remote projection](how-to-configure-tracker.md#height-reference-of-tracked-objects),
+[experimental observation processor](how-to-configure-tracker.md#height-reference-of-tracked-objects),
 tracked objects are published at their footprint base (`z` minus half the height).
 
 The top-level source `track` field determines the tracking mode for every object in the message.
