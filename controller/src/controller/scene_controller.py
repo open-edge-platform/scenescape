@@ -15,7 +15,7 @@ from scene_common.transform import CameraPose
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
-from controller.ilabs_tracking import normalize_association_config
+from controller.ilabs_tracking import normalize_association_config, warn_association_config
 from controller.scene import Scene, stripReidProvenance
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -40,6 +40,26 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
+
+
+def _parseAssociationConfig(tracker_config):
+  """Normalized ``association`` block of a tracker config; the default block when it is malformed.
+
+  An unknown ``method`` or a block that is not an object drops the whole block: its other fields were meant for
+  another method.
+  """
+  association = tracker_config.get("association", {})
+  if not isinstance(association, dict):
+    log.error("Invalid association config in tracker config file: expected an object, got %r; "
+              "using the default association", association)
+    return normalize_association_config()
+  try:
+    association_config = normalize_association_config(association)
+  except ValueError as err:
+    log.error("Invalid association config in tracker config file: %s; using the default association", err)
+    return normalize_association_config()
+  warn_association_config(association_config)
+  return association_config
 
 
 def _parseTrustedSources(value):
@@ -191,16 +211,7 @@ class SceneController:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
 
-      association_input = dict(tracker_config.get("association", {}))
-      try:
-        self.tracker_config_data["association"] = normalize_association_config(
-          association_input)
-      except ValueError as err:
-        log.error("Invalid association config in tracker config file: %s", err)
-        # Keep valid numeric fields; drop the unknown method so defaults apply.
-        association_input.pop("method", None)
-        self.tracker_config_data["association"] = normalize_association_config(
-          association_input)
+      self.tracker_config_data["association"] = _parseAssociationConfig(tracker_config)
     return
 
   def extractReidConfigData(self, reid_config_file):

@@ -520,7 +520,8 @@ tracked object contains the following fields:
 > **Note on `association_window`**: Produced by the Scene Controller and Tracker service so
 > the Manager 2D/3D UI can draw association gates. Shape depends on `association.method`:
 >
-> - `euclidean` → `{method, shape: "circle", radius_m}` where `radius_m` is `max_radius_m`
+> - `euclidean` → `{method, shape: "circle", radius_m}` where `radius_m` is `max_radius_m`; without
+>   it, the Scene Controller's gate, the average `tracking_radius` of the frame's objects
 > - `position_mahalanobis` → `{method, shape: "ellipse", semi_major_m, semi_minor_m, angle_rad}`
 >   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`)
 >

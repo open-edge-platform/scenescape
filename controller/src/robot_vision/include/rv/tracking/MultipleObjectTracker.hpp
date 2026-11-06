@@ -35,16 +35,23 @@ public:
   {
   }
 
-  MultipleObjectTracker(TrackManagerConfig const &config, const DistanceType & distanceType, double distanceThreshold)
-  : mTrackManager(config), mDistanceType(distanceType),  mDistanceThreshold(distanceThreshold)
+  /// The distance type, threshold and maxRadiusM apply to the track() overloads without them.
+  MultipleObjectTracker(TrackManagerConfig const &config,
+                        const DistanceType &distanceType,
+                        double distanceThreshold,
+                        double maxRadiusM = std::numeric_limits<double>::infinity())
+    : mTrackManager(config)
+    , mDistanceType(distanceType)
+    , mDistanceThreshold(distanceThreshold)
+    , mMaxRadiusM(maxRadiusM)
   {
   }
 
   MultipleObjectTracker(const MultipleObjectTracker &) = delete;
   MultipleObjectTracker &operator=(const MultipleObjectTracker &) = delete;
   /**
-   * @brief Sets the list of measurements and triggers the tracking procedure
-   *
+   * @brief Sets the list of measurements and triggers the tracking procedure with the constructor's distance type,
+   * threshold and maxRadiusM
    */
   void track(std::vector<tracking::TrackedObject> objects,
              const std::chrono::system_clock::time_point &timestamp,
@@ -61,7 +68,8 @@ public:
              double maxRadiusM = std::numeric_limits<double>::infinity());
 
   /**
-   * @brief Sets the list of measurements from multiple cameras and triggers the tracking procedure
+   * @brief Sets the list of measurements from multiple cameras and triggers the tracking procedure with the
+   * constructor's distance type, threshold and maxRadiusM
    * @param objectsPerCamera Vector of vectors, where each inner vector contains objects from one camera
    * @param timestamp Time point for this tracking iteration
    * @param scoreThreshold Threshold for object scoring

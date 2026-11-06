@@ -352,14 +352,16 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
     .def(py::init<const rv::tracking::TrackManagerConfig &>(),
       "Use the given config parameters for the track manager.",
       py::arg("track_manager_config"))
-    .def(py::init<const rv::tracking::TrackManagerConfig &, const rv::tracking::DistanceType &, double>(),
-     "Use the given config parameters for the track manager. Initialize with the given distance type and threshold.",
+    .def(py::init<const rv::tracking::TrackManagerConfig &, const rv::tracking::DistanceType &, double, double>(),
+     "Use the given config parameters for the track manager. Initialize with the given distance type, threshold and "
+     "max_radius_m (Euclidean ceiling, m), used by the track() overloads without them.",
       py::arg("track_manager_config"),
       py::arg("distance_type"),
-      py::arg("distance_threshold"))
+      py::arg("distance_threshold"),
+      py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
     .def("track",
          py::overload_cast<std::vector<rv::tracking::TrackedObject>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
-         "Trigger the track step for the next timestamp. Use the default distance type and threshold.",
+         "Trigger the track step for the next timestamp. Use the constructor's distance type, threshold and max_radius_m.",
          py::arg("objects"),
          py::arg("timestamp"),
          py::arg("probability_threshold") = 0.5)
@@ -383,7 +385,7 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
          py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
     .def("track",
          py::overload_cast<std::vector<std::vector<rv::tracking::TrackedObject>>, const std::chrono::system_clock::time_point &, double>(&rv::tracking::MultipleObjectTracker::track),
-         "Trigger the track step for the next timestamp with objects per camera. Use the default distance type and threshold.",
+         "Trigger the track step for the next timestamp with objects per camera. Use the constructor's distance type, threshold and max_radius_m.",
          py::arg("objects_per_camera"),
          py::arg("timestamp"),
          py::arg("probability_threshold") = 0.5)

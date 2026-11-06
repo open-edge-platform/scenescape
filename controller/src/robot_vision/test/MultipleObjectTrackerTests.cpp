@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cmath>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <set>
 #include <string>
@@ -885,4 +886,37 @@ TEST(MultipleObjectTrackerTest, CoastsClimbingZWithoutMeasurements)
   ASSERT_EQ(tracks.size(), 1U);
   EXPECT_NEAR(tracks[0].z, zAtCoastStart + vzAtCoastStart * coastS, 0.25);
   EXPECT_NEAR(tracks[0].vz, vzAtCoastStart, 0.15);
+}
+
+TEST(MultipleObjectTrackerTest, ConvenienceTrackUsesTheConstructorMaxRadius)
+{
+  // A detection 1.5 m from the track, inside the wide gate: the track takes it without a ceiling; with a 1 m ceiling
+  // from the constructor it starts a second track. Both convenience overloads (one list, objects per camera).
+  using namespace rv::tracking::test;
+  const auto first = makeDetection(0.0, 0.0, 0.0, 0.5, 0.5, 1.7);
+  const auto second = makeDetection(1.5, 0.0, 0.0, 0.5, 0.5, 1.7);
+  struct Case
+  {
+    rv::tracking::DistanceType distanceType;
+    double threshold;
+  };
+  for (const auto &[distanceType, threshold] :
+       {Case{rv::tracking::DistanceType::Euclidean, 5.0}, Case{rv::tracking::DistanceType::PositionMahalanobis, 500.0}})
+  {
+    for (const auto &[maxRadiusM, expectedTracks] :
+         {std::pair{std::numeric_limits<double>::infinity(), size_t{1}}, std::pair{1.0, size_t{2}}})
+    {
+      SCOPED_TRACE(::testing::Message() << "distance type " << static_cast<int>(distanceType) << ", max radius "
+                                        << maxRadiusM);
+      rv::tracking::MultipleObjectTracker single(productionConfig(), distanceType, threshold, maxRadiusM);
+      single.track({first}, atMs(0));
+      single.track({second}, atMs(100));
+      EXPECT_EQ(single.getTracks().size(), expectedTracks);
+
+      rv::tracking::MultipleObjectTracker perCamera(productionConfig(), distanceType, threshold, maxRadiusM);
+      perCamera.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{first}}, atMs(0));
+      perCamera.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{second}}, atMs(100));
+      EXPECT_EQ(perCamera.getTracks().size(), expectedTracks);
+    }
+  }
 }
