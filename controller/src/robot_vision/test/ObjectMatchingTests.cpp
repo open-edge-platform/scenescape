@@ -194,8 +194,8 @@ TEST(ObjectMatchingTest, PositionMahalanobisSeparatesStackedFloors)
   for (int i = 0; i < 5; ++i)
   {
     timestamp += std::chrono::milliseconds(100);
+    trackManager.predict(timestamp); // predict() drops pending measurements, so measure after it
     trackManager.setMeasurement(trackId, seed);
-    trackManager.predict(timestamp);
     trackManager.correct();
   }
   timestamp += std::chrono::milliseconds(100);
