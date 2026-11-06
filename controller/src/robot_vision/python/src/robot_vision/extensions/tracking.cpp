@@ -111,6 +111,47 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
                   [](const rv::tracking::TrackedObject &object) { return cv::Mat(object.errorCovariance); },
                   [](rv::tracking::TrackedObject &object, const cv::Mat &covariance) { object.errorCovariance = covariance; },
                   "Copy of the error covariance matrix, convert to numpy using np.array(tracked_object.error_covariance).")
+    .def_property(
+      "measurement_noise_covariance",
+      [](const rv::tracking::TrackedObject &self) -> py::object {
+        if (!self.measurementNoiseCov)
+        {
+          return py::none();
+        }
+        const int n = rv::tracking::TrackedObject::MeasurementSize;
+        return py::array_t<double>({n, n}, self.measurementNoiseCov->val);
+      },
+      [](rv::tracking::TrackedObject &self, py::object value) {
+        if (value.is_none())
+        {
+          self.measurementNoiseCov.reset();
+          return;
+        }
+        const int n = rv::tracking::TrackedObject::MeasurementSize;
+        auto array = py::array_t<double, py::array::c_style | py::array::forcecast>::ensure(value);
+        if (!array || array.ndim() != 2 || array.shape(0) != n || array.shape(1) != n)
+        {
+          throw std::invalid_argument("measurement_noise_covariance must be a 7x7 float64 matrix or None");
+        }
+        const rv::tracking::TrackedObject::MeasurementMatrix covariance(array.data());
+        if (!cv::checkRange(covariance))
+        {
+          throw std::invalid_argument("measurement_noise_covariance must be finite");
+        }
+        const rv::tracking::TrackedObject::MeasurementMatrix symmetric = 0.5 * (covariance + covariance.t());
+        cv::Mat eigenvalues;
+        cv::eigen(symmetric, eigenvalues);
+        double minEigenvalue = 0.0;
+        cv::minMaxLoc(eigenvalues, &minEigenvalue);
+        if (!(minEigenvalue > 0.0))
+        {
+          throw std::invalid_argument("measurement_noise_covariance must be positive definite");
+        }
+        self.measurementNoiseCov = symmetric;
+      },
+      "Per-detection measurement noise R (7x7, [x, y, z, length, width, height, yaw]); None uses the "
+      "tracker default R. Drives multi-camera fusion weights, the association gate (S = H P H^T + R) "
+      "and the Kalman update.")
     .def("__repr__", &rv::tracking::TrackedObject::toString, "String representation.");
 
 

@@ -116,6 +116,10 @@ only skips the TrackEval plots, with a warning.
 | `tracks.jsonl`      | `harness/outputs.jsonl`      | [Tracker output](../README.md#tracker-output-format)                                                                                            |
 | `estimator.jsonl`   | –                            | Per track a `config` line (with `association` for tracker-level runs), then per step model probabilities, state, P, predicted measurement and S |
 
+Recorded detections with a per-detection R (`Sensor::positionCovariance`) add it as `measurement_noise_covariance`
+(7×7), and the steps of their tracks add `HPHt`, S without R: the association gate of such a detection is
+`HPHt + R`, not S. The tools do not draw it yet.
+
 Any file may be missing. Tracks are paired with ground-truth objects by position (x, y and z) with `match_tracks()` from
 [utils/tracks.py](../utils/tracks.py), so their ids may differ; frames count from the first track or ground-truth
 sample, as in the evaluators. Recorder timestamps start at the `system_clock` epoch; the tools show seconds since the

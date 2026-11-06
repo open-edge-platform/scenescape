@@ -57,12 +57,14 @@ Because of the floor in `q_v`, every `q` up to `1e-6` gives the same velocity an
 turn the process noise off.
 
 **Measurement noise.** The measurement noise covariance is `r` times the identity on the seven measured values. A
-detection without a usable orientation does not observe yaw: its update leaves the yaw row out.
+detection that carries its own R (`measurementNoiseCov`) uses it instead, in the update and in the association gate.
+A detection without a usable orientation does not observe yaw: its update leaves the yaw row out, also of its own R.
 
 **Initial covariance.** The initial covariance is diagonal: `r` for x, y, z, length, width and height, `p` for vx, vy
-and vz, and `min(p, cap)` for the rest, with caps of 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. A new
-track starts at rest, so `p` sets how fast it picks up an object that enters already moving: with the production
-`p = 1` a car entering at 8 m/s keeps one track through a 2 m Euclidean gate at 10 fps.
+and vz, and `min(p, cap)` for the rest, with caps of 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. A birth
+detection with its own R sets the x, y, z, length, width and height block from that R instead. A new track starts at
+rest, so `p` sets how fast it picks up an object that enters already moving: with the production `p = 1` a car
+entering at 8 m/s keeps one track through a 2 m Euclidean gate at 10 fps.
 
 **Sigma points.** The unscented filter uses α = 1, β = 2 and κ = 3 − n for the n = 13 states. The sigma points then
 sit at √3 σ, which matches a Gaussian's fourth moment along each axis; the centre weight is negative (−10/3), so the
@@ -125,6 +127,48 @@ const auto flat = runScenario(planar, camera);
 const auto climbing = runScenario(VerticalProfile().climb(0.5, 4.0).apply(planar), camera);  // 3rd argument: RunOptions
 const auto metrics = climbing.metrics();             // horizontal/vertical max and rms error, final speed and vz error
 const auto diff = maxDifference(flat, climbing);     // largest |x|, |y|, |z|, |vx|, |vy|, |vz|, |yaw|, |probability|
+```
+
+### Measurement noise R
+
+`Sensor::positionCovariance` draws each detection's position error from a covariance and attaches a per-detection R
+(`measurementNoiseCov`) to the detection. It replaces `positionNoise` and `zNoise`, which must stay 0. The covariance
+comes from one of:
+
+- `groundPlaneCamera(position, angularSigma)`: a camera at `position` (x, y, z; above the object) that projects the
+  ground point, with an angular error of `angularSigma` [rad]. The error grows with range and is longest along the
+  ground range; z is exact.
+- `depthCamera(position, angularSigma, depthFraction)`: a camera that also estimates depth, with a sigma of
+  `depthFraction` × range along the viewing ray and `angularSigma` × range across it; z is measured (`zMeasured`).
+- `fixedCovariance(covariance)`: the same covariance for every detection.
+
+The reported R has the position covariance multiplied by `reportedScale`, `sizeNoise²` for length, width and height,
+and `yawNoise²` for orienting sensors. Every axis left with zero variance, e.g. z of a ground-plane camera, gets
+`defaultNoise`, by default `kProductionMeasurementNoise` as in `productionConfig()`; set it to the config's
+`mDefaultMeasurementNoise` when a test uses another value.
+
+Two settings change only what the sensor reports, not the drawn error, so runs that differ only in them get the same
+detection positions:
+
+- `reported = false`: the detections carry no R, and the tracker uses its default R.
+- `reportedScale`: how well the reported R matches the true error; it multiplies the reported position covariance, a
+  variance. 1 is a calibrated sensor. Below 1 the sensor claims to be more precise than it is: 0.25 reports half the
+  true sigma, so its detections pull the estimate too hard and get too tight a gate. Above 1 it claims to be less
+  precise: its detections pull too weakly and get too wide a gate.
+
+`Observation::trueCovariance` is the covariance the error was drawn from, also without R. Covariances are computed at
+the true position; a production producer computes R at the noisy detection, which differs noticeably only close to the
+sensor.
+
+```cpp
+Sensor camera{.positionCovariance = groundPlaneCamera({0.0, -12.0, 4.0}, 0.01)};  // 4 m high, 0.01 rad
+auto withoutR = camera;
+withoutR.positionCovariance->reported = false;
+auto overconfident = camera;
+overconfident.positionCovariance->reportedScale = 0.25;  // reports half the true sigma
+const auto aware = runScenario(truth, camera);
+const auto legacy = runScenario(truth, withoutR);              // same positions, default R
+const auto miscalibrated = runScenario(truth, overconfident);  // same positions, R too small
 ```
 
 ### Plots and videos

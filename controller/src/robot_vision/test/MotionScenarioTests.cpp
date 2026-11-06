@@ -7,11 +7,13 @@
 #include <limits>
 #include <numbers>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <opencv2/core.hpp>
 
 #include "support/ScenarioRecorder.hpp"
 
@@ -297,6 +299,161 @@ TEST(ScenarioSupportTest, ObserveReportsTruthWithZNoise)
     EXPECT_DOUBLE_EQ(baselineObs[i].detection.length, noiseObs[i].detection.length);
     EXPECT_DOUBLE_EQ(baselineObs[i].detection.width, noiseObs[i].detection.width);
     EXPECT_DOUBLE_EQ(baselineObs[i].detection.height, noiseObs[i].detection.height);
+  }
+}
+
+TEST(ScenarioSupportTest, GroundPlaneCameraNoiseFollowsViewingGeometry)
+{
+  // Errors along and across the ground range, divided by the expected sigma, must be standard normal; z stays exact.
+  const cv::Vec3d camera(0.0, -10.0, 5.0);
+  constexpr double kAngularSigma = 0.01;
+  const auto truth = Trajectory({.x = -20.0, .speed = 0.5, .box = kPerson}).straight(80.0).sample(10.0);
+  Sensor sensor{.positionCovariance = groundPlaneCamera(camera, kAngularSigma)};
+  const auto observations = observe(truth, sensor);
+
+  double alongSquares = 0.0;
+  double acrossSquares = 0.0;
+  double alongTimesAcross = 0.0;
+  for (size_t i = 0; i < truth.size(); ++i)
+  {
+    const double dx = truth[i].x - camera[0];
+    const double dy = truth[i].y - camera[1];
+    const double range = std::hypot(dx, dy);
+    const double slantSquared = camera[2] * camera[2] + range * range;
+    const auto &detection = observations[i].detection;
+    const double ex = detection.x - truth[i].x;
+    const double ey = detection.y - truth[i].y;
+    const double along = (ex * dx + ey * dy) / range / (kAngularSigma * slantSquared / camera[2]);
+    const double across = (ey * dx - ex * dy) / range / (kAngularSigma * std::sqrt(slantSquared));
+    alongSquares += along * along;
+    acrossSquares += across * across;
+    alongTimesAcross += along * across;
+    EXPECT_DOUBLE_EQ(detection.z, truth[i].z);
+    EXPECT_FALSE(detection.zMeasured);
+  }
+  const double n = static_cast<double>(truth.size());
+  EXPECT_NEAR(std::sqrt(alongSquares / n), 1.0, 0.1);
+  EXPECT_NEAR(std::sqrt(acrossSquares / n), 1.0, 0.1);
+  EXPECT_NEAR(alongTimesAcross / n, 0.0, 0.1);
+}
+
+TEST(ScenarioSupportTest, DepthCameraNoiseIsLongAlongTheViewingRay)
+{
+  const cv::Vec3d camera(0.0, -10.0, 3.0);
+  constexpr double kAngularSigma = 0.01;
+  constexpr double kDepthFraction = 0.05;
+  const auto truth = Trajectory({.x = -20.0, .speed = 0.5, .box = kPerson}).straight(80.0).sample(10.0);
+  Sensor sensor{.positionCovariance = depthCamera(camera, kAngularSigma, kDepthFraction)};
+  const auto observations = observe(truth, sensor);
+
+  double alongSquares = 0.0;
+  double acrossSquares = 0.0; // two directions per detection
+  for (size_t i = 0; i < truth.size(); ++i)
+  {
+    const cv::Vec3d ray = cv::Vec3d(truth[i].x, truth[i].y, truth[i].z) - camera;
+    const double range = cv::norm(ray);
+    const auto &detection = observations[i].detection;
+    const cv::Vec3d error(detection.x - truth[i].x, detection.y - truth[i].y, detection.z - truth[i].z);
+    const double along = error.dot(ray) / range;
+    alongSquares += std::pow(along / (kDepthFraction * range), 2);
+    acrossSquares += (error.dot(error) - along * along) / std::pow(kAngularSigma * range, 2);
+    EXPECT_TRUE(detection.zMeasured);
+  }
+  const double n = static_cast<double>(truth.size());
+  EXPECT_NEAR(std::sqrt(alongSquares / n), 1.0, 0.1);
+  EXPECT_NEAR(std::sqrt(acrossSquares / (2.0 * n)), 1.0, 0.1);
+}
+
+TEST(ScenarioSupportTest, SensorCovarianceIsReportedAsMeasurementNoise)
+{
+  using rv::tracking::MeasurementIndex;
+  const auto truth = Trajectory({.speed = 1.0, .box = kCar}).straight(10.0).sample(10.0);
+  const cv::Matx33d covariance(0.04, 0.01, 0.0, 0.01, 0.09, 0.0, 0.0, 0.0, 0.0); // z exact
+  const auto lidar = [&](bool reported, double reportedScale = 1.0) {
+    auto model = fixedCovariance(covariance);
+    model.reported = reported;
+    model.reportedScale = reportedScale;
+    model.defaultNoise = 0.5;
+    return Sensor{.sizeNoise = 0.05, .yawNoise = 0.02, .orienting = true, .positionCovariance = model};
+  };
+
+  // R: the scaled position covariance, sizeNoise^2, yawNoise^2, and the default noise for the exact z.
+  auto scaled = lidar(true, 2.0);
+  const auto observations = observe(truth, scaled);
+  rv::tracking::TrackedObject::MeasurementMatrix expected = rv::tracking::TrackedObject::MeasurementMatrix::diag(
+    rv::tracking::TrackedObject::MeasurementVector(0.08, 0.18, 0.5, 0.0025, 0.0025, 0.0025, 0.0004));
+  expected(MeasurementIndex::X, MeasurementIndex::Y) = 0.02;
+  expected(MeasurementIndex::Y, MeasurementIndex::X) = 0.02;
+  for (const auto &observation : observations)
+  {
+    ASSERT_TRUE(observation.trueCovariance);
+    EXPECT_DOUBLE_EQ(cv::norm(cv::Mat(*observation.trueCovariance), cv::Mat(covariance), cv::NORM_INF), 0.0);
+    ASSERT_TRUE(observation.detection.measurementNoiseCov);
+    EXPECT_NEAR(
+      cv::norm(cv::Mat(*observation.detection.measurementNoiseCov), cv::Mat(expected), cv::NORM_INF), 0.0, 1e-15);
+  }
+
+  // A sensor without size noise and orientation reports the default noise there; productionConfig()'s by default.
+  Sensor camera{.positionCovariance = fixedCovariance(covariance)};
+  const auto cameraNoise = *observe(truth, camera).front().detection.measurementNoiseCov;
+  EXPECT_DOUBLE_EQ(cameraNoise(MeasurementIndex::LENGTH, MeasurementIndex::LENGTH),
+                   rv::tracking::kProductionMeasurementNoise);
+  EXPECT_DOUBLE_EQ(cameraNoise(MeasurementIndex::YAW, MeasurementIndex::YAW),
+                   rv::tracking::kProductionMeasurementNoise);
+
+  // Unreported: the same noise without R. Own generator: size and yaw noise as without positionCovariance.
+  auto reportedSensor = lidar(true);
+  auto unreportedSensor = lidar(false);
+  Sensor legacy{.sizeNoise = 0.05, .yawNoise = 0.02, .orienting = true};
+  const auto reported = observe(truth, reportedSensor);
+  const auto unreported = observe(truth, unreportedSensor);
+  const auto legacyObservations = observe(truth, legacy);
+  for (size_t i = 0; i < truth.size(); ++i)
+  {
+    EXPECT_FALSE(unreported[i].detection.measurementNoiseCov);
+    EXPECT_TRUE(unreported[i].trueCovariance);
+    EXPECT_DOUBLE_EQ(unreported[i].detection.x, reported[i].detection.x);
+    EXPECT_DOUBLE_EQ(unreported[i].detection.y, reported[i].detection.y);
+    EXPECT_DOUBLE_EQ(reported[i].detection.length, legacyObservations[i].detection.length);
+    EXPECT_DOUBLE_EQ(reported[i].detection.height, legacyObservations[i].detection.height);
+    EXPECT_DOUBLE_EQ(reported[i].detection.yaw, legacyObservations[i].detection.yaw);
+  }
+
+  // seeded() repeats the covariance noise of a seed; seed 1 reproduces the default.
+  auto seedOne = seeded(lidar(true), 1);
+  auto seedTwo = seeded(lidar(true), 2);
+  EXPECT_DOUBLE_EQ(observe(truth, seedOne).back().detection.x, reported.back().detection.x);
+  EXPECT_NE(observe(truth, seedTwo).back().detection.x, reported.back().detection.x);
+}
+
+TEST(ScenarioSupportTest, ObserveRejectsInvalidSensorCovariance)
+{
+  const auto truth = Trajectory({.box = kPerson}).straight(0.1).sample(10.0); // at the origin
+  const auto unit = fixedCovariance(cv::Matx33d::eye() * 0.01);
+  auto scaledToZero = unit;
+  scaledToZero.reportedScale = 0.0;
+  auto withoutCovariance = unit;
+  withoutCovariance.covariance = nullptr;
+  const struct
+  {
+    const char *name;
+    Sensor sensor;
+  } cases[] = {
+    {.name = "with positionNoise", .sensor = {.positionNoise = 0.1, .positionCovariance = unit}},
+    {.name = "with zNoise", .sensor = {.zNoise = 0.1, .positionCovariance = unit}},
+    {.name = "zero reportedScale", .sensor = {.positionCovariance = scaledToZero}},
+    {.name = "no covariance", .sensor = {.positionCovariance = withoutCovariance}},
+    {.name = "not positive semi-definite", .sensor = {.positionCovariance = fixedCovariance(-cv::Matx33d::eye())}},
+    {.name = "not finite",
+     .sensor = {.positionCovariance = fixedCovariance(cv::Matx33d::all(std::numeric_limits<double>::quiet_NaN()))}},
+    {.name = "ground-plane camera not above the object",
+     .sensor = {.positionCovariance = groundPlaneCamera({5.0, 0.0, 0.0}, 0.01)}},
+    {.name = "depth camera at the object", .sensor = {.positionCovariance = depthCamera({0.0, 0.0, 0.0}, 0.01, 0.05)}},
+  };
+  for (auto testCase : cases)
+  {
+    SCOPED_TRACE(testCase.name);
+    EXPECT_THROW(observe(truth, testCase.sensor), std::invalid_argument);
   }
 }
 
