@@ -524,7 +524,8 @@ tracked object contains the following fields:
 > - `position_mahalanobis` → `{method, shape: "ellipse", semi_major_m, semi_minor_m, angle_rad}`
 >   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`)
 >
-> `angle_rad` is the major-axis orientation in the scene XY plane (radians from +X toward +Y).
+> `angle_rad` is the major-axis orientation in the scene XY plane (radians from +X toward +Y),
+> defined modulo π: the ellipse is the same after a half turn.
 > The window has no centre of its own: the UIs draw it at the object's published (corrected)
 > `translation`, while the gate is centred on the predicted position. The drawing is exact for a
 > track without a detection in that frame and off by the Kalman correction otherwise.

@@ -122,63 +122,50 @@ def association_match_params(association_config=None):
   )
 
 
+def _circle_window(method, max_radius_m):
+  return {
+    "method": method,
+    "shape": "circle",
+    "radius_m": max_radius_m,
+  }
+
+
 def build_association_window(association_config, measurement_covariance=None):
   """Build MQTT ``association_window`` geometry for UI visualization.
 
   Euclidean association is a circle of radius ``max_radius_m``. Position
-  Mahalanobis is the χ² ellipse of the 2×2 XY block of ``S_pred``.
+  Mahalanobis is the χ² ellipse of the 2×2 XY block of ``S_pred``; without a
+  usable covariance it falls back to the ``max_radius_m`` circle.
   """
   config = normalize_association_config(association_config)
   method = config["method"]
   max_radius_m = float(config["max_radius_m"])
 
-  if method == ASSOCIATION_METHOD_EUCLIDEAN:
-    return {
-      "method": method,
-      "shape": "circle",
-      "radius_m": max_radius_m,
-    }
-
-  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"]))
-  if measurement_covariance is None:
-    return {
-      "method": method,
-      "shape": "circle",
-      "radius_m": max_radius_m,
-    }
+  if method == ASSOCIATION_METHOD_EUCLIDEAN or measurement_covariance is None:
+    return _circle_window(method, max_radius_m)
 
   cov = np.asarray(measurement_covariance, dtype=float)
   if cov.ndim != 2 or cov.shape[0] < 2 or cov.shape[1] < 2:
-    return {
-      "method": method,
-      "shape": "circle",
-      "radius_m": max_radius_m,
-    }
+    return _circle_window(method, max_radius_m)
 
-  s_xy = 0.5 * (cov[:2, :2] + cov[:2, :2].T)
-  try:
-    eigenvalues, eigenvectors = np.linalg.eigh(s_xy)
-  except np.linalg.LinAlgError:
-    return {
-      "method": method,
-      "shape": "circle",
-      "radius_m": max_radius_m,
-    }
+  s00 = float(cov[0, 0])
+  s01 = 0.5 * float(cov[0, 1] + cov[1, 0])
+  s11 = float(cov[1, 1])
+  if not (math.isfinite(s00) and math.isfinite(s01) and math.isfinite(s11)):
+    return _circle_window(method, max_radius_m)
 
-  # eigh returns ascending eigenvalues; major axis uses the larger one.
-  major_idx = 1 if eigenvalues[1] >= eigenvalues[0] else 0
-  minor_idx = 1 - major_idx
-  lambda_major = max(float(eigenvalues[major_idx]), 0.0)
-  lambda_minor = max(float(eigenvalues[minor_idx]), 0.0)
-  axis = eigenvectors[:, major_idx]
-  angle_rad = float(math.atan2(axis[1], axis[0]))
+  # Closed-form eigendecomposition of the symmetric 2×2 S_xy, run for every
+  # published object every frame; numpy.linalg.eigh made this call 5x slower.
+  mean = 0.5 * (s00 + s11)
+  spread = math.hypot(0.5 * (s00 - s11), s01)
+  chi2 = float(rv.tracking.chi2_threshold(config["gate_probability"]))
 
   return {
     "method": method,
     "shape": "ellipse",
-    "semi_major_m": math.sqrt(chi2 * lambda_major),
-    "semi_minor_m": math.sqrt(chi2 * lambda_minor),
-    "angle_rad": angle_rad,
+    "semi_major_m": math.sqrt(chi2 * max(mean + spread, 0.0)),
+    "semi_minor_m": math.sqrt(chi2 * max(mean - spread, 0.0)),
+    "angle_rad": 0.5 * math.atan2(2.0 * s01, s00 - s11),
   }
 
 

@@ -212,7 +212,7 @@
             },
             "angle_rad": {
               "type": "number",
-              "description": "Ellipse major-axis angle in radians in the scene XY plane (from +X toward +Y)"
+              "description": "Ellipse major-axis angle in radians in the scene XY plane (from +X toward +Y), defined modulo pi"
             }
           },
           "required": ["method", "shape"],

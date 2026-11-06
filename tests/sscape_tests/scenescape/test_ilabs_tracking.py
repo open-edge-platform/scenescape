@@ -368,6 +368,12 @@ def test_build_association_window_clamps_negative_eigenvalues():
   assert _angle_difference_modulo_pi(window['angle_rad'], math.pi / 4) == pytest.approx(0.0, abs=1e-9)
 
 
+@pytest.mark.parametrize('s00', [math.nan, math.inf])
+def test_build_association_window_falls_back_to_circle_for_nonfinite_covariance(s00):
+  window = _mahalanobis_window(s00, 0.1, 0.3)
+  assert window == {'method': 'position_mahalanobis', 'shape': 'circle', 'radius_m': 10.0}
+
+
 def test_from_tracked_object_overwrites_rotation_when_detection_rotation_present():
   yaw = math.pi / 2.0
   tracked_object = _make_tracked_object("uuid-1", yaw=yaw)
