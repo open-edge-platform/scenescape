@@ -147,8 +147,29 @@ def index(request):
   context = {'scenes': scenes}
   return render(request, 'sscape/index.html', context)
 
+def _media_request_authenticated(request):
+  """!True for a logged-in browser session or a valid API token.
+
+  Scene map files live under /media/. The handheld downloads them with the
+  same Token header as the REST API. This view used to accept only a Django
+  session, so that download returned 401 even after a successful API login.
+  """
+  user = getattr(request, "user", None)
+  if user is not None and user.is_authenticated:
+    return True
+  header = request.META.get("HTTP_AUTHORIZATION", "")
+  scheme, _, key = header.partition(" ")
+  if scheme.lower() != "token" or not key.strip():
+    return False
+  try:
+    token = Token.objects.select_related("user").get(key=key.strip())
+  except Token.DoesNotExist:
+    return False
+  return bool(token.user.is_active)
+
+
 def protected_media(request, path, media_root):
-  if request.user.is_authenticated:
+  if _media_request_authenticated(request):
     if path != "":
       media_root_real = os.path.realpath(media_root)
       file = os.path.realpath(os.path.join(media_root, path))
@@ -1244,9 +1265,6 @@ def generate_mesh_status(request, pk):
         scene.save(update_fields=["mesh_state"])
 
     status_data["finalized"] = True
-    # Include any warnings from finalization (e.g., unanchored cameras)
-    if finalize_result.get("unanchored_cameras"):
-      status_data["unanchored_cameras"] = finalize_result["unanchored_cameras"]
     return JsonResponse(status_data, status=200)
 
   except Exception as e:
