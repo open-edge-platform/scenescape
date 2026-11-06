@@ -17,6 +17,38 @@ def test_is_map_updated_true_when_map_processed_is_none():
   assert controller.is_map_updated(scene) is True
 
 
+def test_invalidated_source_rebuilds_cached_mesh_and_replaces_markers():
+  data_iface = MagicMock()
+  old_markers = {"1": [0, 0, 0], "2": [1, 0, 0]}
+  new_markers = {"9": [4, 5, 6]}
+  stored_markers = old_markers.copy()
+  data_iface.delete_calibration_markers_for_scene.side_effect = (
+    lambda scene_id: stored_markers.clear() or True)
+  data_iface.update_or_create_calibration_marker.side_effect = (
+    lambda scene_id, data: stored_markers.update({data["apriltag_id"]: data["dims"]}) or True)
+  data_iface.calibration_markers_with_scene_id.side_effect = lambda scene_id: {
+    "results": [{"apriltag_id": tag, "dims": dims} for tag, dims in stored_markers.items()]}
+  controller = ApriltagCameraCalibrationController(calibration_data_interface=data_iface)
+  controller.notify_scene_registration = MagicMock()
+  scene = MagicMock(id="scene-1", map="/media/activated.glb", map_processed=None)
+  previous = MagicMock(result_data_3d=old_markers)
+  controller.cam_calib_objs[scene.id] = previous
+  replacement = MagicMock(result_data_3d=new_markers)
+  with patch("atag_camera_calibration_controller.CameraCalibrationApriltag",
+             return_value=replacement) as factory:
+    controller.process_scene_for_calibration(scene, map_update=controller.is_map_updated(scene))
+  assert controller.cam_calib_objs[scene.id] is replacement
+  assert factory.call_args.args[0] == scene.map
+  previous.identify_apriltags_in_scene.assert_not_called()
+  replacement.identify_apriltags_in_scene.assert_called_once()
+  assert stored_markers == new_markers
+  data_iface.delete_calibration_markers_for_scene.assert_called_once_with(scene.id)
+  data_iface.update_map_processed.assert_called_once()
+  calls = [call[0] for call in data_iface.mock_calls]
+  assert calls.index("delete_calibration_markers_for_scene") < calls.index(
+    "update_or_create_calibration_marker") < calls.index("update_map_processed")
+
+
 def test_is_map_updated_true_when_map_file_is_newer():
   controller = ApriltagCameraCalibrationController(calibration_data_interface=MagicMock())
   scene = MagicMock()

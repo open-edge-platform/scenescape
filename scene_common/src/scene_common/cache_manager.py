@@ -209,7 +209,12 @@ class CacheManager:
     if scene_cls is None:
       from controller.scene import Scene
       scene_cls = Scene
-    return scene_cls.deserialize(scene_data)
+    scene = scene_cls.deserialize(scene_data)
+    previous = (getattr(self, '_old_scene_cache', None) or {}).get(uid)
+    retain_poses = getattr(scene, 'retainObservedCameraPoses', None)
+    if previous is not None and retain_poses is not None:
+      retain_poses(previous)
+    return scene
 
   def _indexScene(self, scene):
     """Make scene findable by uid, and by each of its camera and sensor IDs."""

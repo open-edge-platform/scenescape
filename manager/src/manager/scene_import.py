@@ -20,7 +20,7 @@ from manager.scene_archive import (
 )
 from manager.serializers import SceneSerializer
 from scene_common.rest_client import RESTClient, RESTResult
-from scene_common.options import POINT_CORRESPONDENCE, EULER
+from scene_common.options import POINT_CORRESPONDENCE, EULER, POSE_ORIGIN_MANAGER_IMPORT
 from scene_common.cam_fields import CAM_COMMON_FIELDS
 from scene_common import log
 
@@ -70,6 +70,7 @@ class ImportScene:
       cam_data = {
         "sensor_id": cam.get("uid"),
         **{field: cam.get(field) for field in CAM_COMMON_FIELDS if field in cam},
+        "calibration_origin": POSE_ORIGIN_MANAGER_IMPORT,
       }
       # Required by CamSerializer.validate() when use_camera_pipeline is true.
       if "camera_pipeline" in cam:

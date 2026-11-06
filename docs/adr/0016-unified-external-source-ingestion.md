@@ -245,12 +245,16 @@ always use `retrack=False`, those MovingObjects are passed in `already_tracked_o
 `objects`); time chunking therefore resolves the bucket id from `already_tracked_objects` when
 `objects` is empty, so per-publisher bucketing still applies.
 
-### Camera-parameter cache refresh only applies to camera messages
+### Detector-topic MQTT optics are ephemeral (same policy as external pose cache)
 
-`CacheManager.refreshScenesForCamParams()` assumes every inbound message is a camera detection
-carrying an `id` camera identifier used to refresh cached intrinsics/distortion. External-source
-messages carry `source_id`, not a camera `id`, and have no camera parameters to refresh, so
-`handleMovingObjectMessage()` now skips this step for `DATA_EXTERNAL` messages.
+Unlocked `Cam` sensors (any perceptual modality registered as a camera) apply MQTT
+`extrinsics` / `intrinsics` / `distortion` / `resolution` only in
+`SceneModel.cameraSnapshot` — never via Manager PATCH.
+`CacheManager.refreshScenesForCamParams()` is a no-op stub retained for older call
+sites. External-source messages never used that path: they carry `source_id` and
+resolve pose/intrinsics through the TTL `(scene_uid, source_id)` cache only. Both
+ingest paths keep pose and optics **ephemeral** for every perceptual modality they
+serve; neither persists MQTT optics to Manager.
 
 ## Relationship to ADR 13 (Controller Breakdown) and Known Deviation
 
@@ -443,14 +447,16 @@ trust-domain follow-ons:
 - **Cache interpolation/quality gating.** The pose cache currently permits reuse of any
   non-expired cached transform; pose interpolation and stricter age/quality gating beyond the TTL
   are deferred.
-- **Explore unifying camera and external calibration resolution (TODO).** Camera ingest still
-  resolves pose/intrinsics from the configured `Camera` object (DB) with optional message-driven
-  refresh via `refreshScenesForCamParams`, while external ingest uses the TTL
-  `(scene_id, source_id)` pose cache (now including intrinsics for pixel detections). Soft-drop
-  when calibration is unavailable is already aligned, but the stores and refresh paths differ.
-  Do **not** merge the paths yet; treat a shared resolution abstraction (or documenting why they
-  should stay separate) as an exploration item once external pixel/Cartesian handling has more
-  production soak.
+- **Explore unifying Cam and external calibration resolution (TODO).** Detector-topic
+  ingest resolves durable calibration from the configured `Cam` (Manager) and applies
+  unlocked MQTT pose/optics as an in-memory observation on that camera. External ingest
+  uses only the TTL `(scene_id, source_id)` pose cache (including intrinsics for pixel
+  detections) with no Manager `Cam` row. Soft-drop when calibration is unavailable and
+  the **ephemeral MQTT optics** policy are already aligned across modalities; the stores
+  still differ (`SceneModel` observation vs TTL cache, plus `pose_locked` /
+  `pose_provenance` only on the Cam path). Do **not** merge the paths yet; treat a shared
+  resolution abstraction (or documenting why they should stay separate) as an exploration
+  item once external pixel/Cartesian handling has more production soak.
 
 ## References
 

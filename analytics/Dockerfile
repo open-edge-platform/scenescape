@@ -75,6 +75,7 @@ COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /usr/local/lib/
 # Schema file consumed by the analytics service at startup
 COPY --chown=$WSUSER:$WSUSER ./controller/src/schema/metadata.schema.json $SCENESCAPE_HOME/schema/metadata.schema.json
 COPY --chown=$WSUSER:$WSUSER ./tracker/schema/scene-data.schema.json $SCENESCAPE_HOME/tracker/schema/scene-data.schema.json
+COPY --chown=$WSUSER:$WSUSER ./analytics/schema/regulated-scene.schema.json $SCENESCAPE_HOME/analytics/schema/regulated-scene.schema.json
 COPY --chown=$WSUSER:$WSUSER --from=scenescape-analytics-builder /tmp/tools/waitforbroker $SCENESCAPE_HOME/tools/waitforbroker
 COPY --chown=$WSUSER:$WSUSER ./analytics/src/analytics-cmd $SCENESCAPE_HOME/analytics-cmd
 
