@@ -22,7 +22,13 @@ Familiarity with MQTT, JSON formatting, and camera calibration is recommended. I
 
 ## Basic Data Flow
 
-All sensors, from cameras to microphones to environmental sensors like temperature or air quality, digitize something happening in the scene at a given moment in time.
+All sensors digitize something happening in the scene at a given moment in time.
+Scenescape currently supports three publish contracts: **detector** metadata on
+`scenescape/data/camera/{id}` for any Manager `Cam` (RGB, depth, LiDAR/radar
+detectors, and similar), **singleton** scalars on `scenescape/data/sensor/{id}`
+(environmental / attribute tagging), and **external source** observations on
+`scenescape/external/{publisher_id}/{thing_type}` (ADR 16). Microphone ingest is
+not a supported MQTT contract today.
 
 A sensor system must acquire data, provide a timestamp, attach a sensor ID, and then publish this data to Scenescape in a recognized format. It must also know where to publish each message. This flow is shown in the top box of Figure 1.
 
@@ -91,8 +97,11 @@ All sensor and camera messages share two properties: timestamp and ID.
 
 ## Object Detection Data
 
-1. **2D Detections from Cameras**
-   The most common method of indicating the location of an object in a camera frame is with a bounding box (a rectangle drawn around an object in an image). Here is an example of an array of bounding boxes from a person detector along with an ID and timestamp for an image frame:
+1. **2D Detections from Cameras (and other `Cam` detectors)**
+   Publish on `scenescape/data/camera/{id}` for a provisioned Manager `Cam`. The
+   most common method of indicating the location of an object in a frame is with
+   a bounding box. Here is an example of an array of bounding boxes from a person
+   detector along with an ID and timestamp for an image frame:
 
    ```json
    {
@@ -130,7 +139,14 @@ All sensor and camera messages share two properties: timestamp and ID.
    > **Note:** Bounding boxes are in normalized image space. For more information on how to transform pixel-based bounding boxes, see [how Scenescape converts Pixel-Based Bounding Boxes to Normalized Image Space](../additional-resources/convert-object-detections-to-normalized-image-space.md).
 
 2. **3D Detections from Cameras and Other Sensors**
-   Sometimes sensors and AI models provide 3D detections instead of 2D detections. 3D detections may be directly measured by sensors (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from 3D data (e.g. point clouds). In those cases a 3D bounding box (i.e. cuboid) can be provided like in the example below:
+   LiDAR, radar, and similar detectors that emit object metadata also use the
+   same `Cam` + `scenescape/data/camera/{id}` contract (see
+   [Camera Input Message Format](../microservices/controller/data_formats.md#camera-input-message-format)).
+   Sometimes sensors and AI models provide 3D detections
+   instead of 2D detections. 3D detections may be directly measured by sensors
+   (e.g. GPS), inferred from 2D data (e.g. monocular images), and/or inferred from
+   3D data (e.g. point clouds). In those cases a 3D bounding box (i.e. cuboid) can
+   be provided like in the example below:
 
    ```json
    {
@@ -239,7 +255,7 @@ Metadata for camera-based detections can be validated against the [Scenescape me
 
 Camera calibration can be performed using the following methods:
 
-1. **Manual Calibration**: Use the user interface to calibrate cameras by marking points on the camera view and matching them with corresponding points on the map view. This process determines the camera's pose. You can also optionally unlock intrinsic parameters and distortion values, which will automatically adjust based on the selected points to improve calibration accuracy.
+1. **Manual Calibration**: Use the user interface to calibrate cameras by marking points on the camera view and matching them with corresponding points on the map view. This process determines the camera's pose. You can also optionally unlock intrinsic parameters and distortion values, which will automatically adjust based on the selected points to improve calibration accuracy. Leave **Pose locked** checked for fixed sensors so MQTT messages cannot override stored calibration; uncheck it for handheld cameras, mobile depth/LiDAR detectors, or other `Cam`-registered perceptual sensors that publish live extrinsics and optics on `scenescape/data/camera/{id}`. See [Camera Pose Lock](../api-reference.md#camera-pose-lock).
 
 2. **Automatic Calibration**: For automated calibration, refer to the [Auto Camera Calibration Microservice](../microservices/auto-calibration/auto-calibration.md).
 
@@ -300,7 +316,7 @@ optional arguments:
 
 ## Singleton sensor data
 
-"Singleton" sensors publish a given value that varies in time. This could be a temperature reading, a light sensor, whatever. Currently, Scenescape tags a given object track with any singleton data received when the object is within the singleton measurement area.
+"Singleton" sensors publish a given value that varies in time. This could be a temperature reading, a light sensor, whatever. They are **not** detection publishers: they do not carry pose or optics, and they do not use `pose_locked`. Currently, Scenescape tags a given object track with any singleton data received when the object is within the singleton measurement area.
 
 > **Note:** For a complete guide on using light sensors to control 3D scene lighting in real-time, see [Controlling Scene Lighting with Physical Light Sensors](../other-topics/light-sensor-integration.md).
 

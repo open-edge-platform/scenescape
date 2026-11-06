@@ -265,6 +265,7 @@ function updateCalibrationView(msg) {
     image,
     cameraMatrix,
     distCoeffs,
+    msg.resolution,
     msg.timestamp,
   );
   $("#snapshot").trigger("click");

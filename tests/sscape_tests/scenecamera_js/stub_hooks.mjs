@@ -21,6 +21,16 @@ const STUB_SOURCE = `
   export default class {}
   export const compareIntrinsics = () => {};
   export const startCameraCalibration = () => {};
+  export const normalizeDistortion = () => {};
+  export const PTZ_AWAY_MESSAGE = "";
+  export const PTZ_HOME_ANGLE_TOLERANCE_RAD = 0;
+  export class PTZFrameGate {}
+  export class PTZPoseExpiry {}
+  export const expiredPTZPoseContext = () => {};
+  export const isPTZMoving = () => {};
+  export const isPTZPositionUnknown = () => {};
+  export const ptzMatricesClose = () => {};
+  export const ptzPoseToCameraMatrix = () => {};
 `;
 
 const THREE_SOURCE = `
@@ -29,11 +39,6 @@ const THREE_SOURCE = `
     radToDeg: (r) => (r * 180) / Math.PI,
   };
   export class Object3D {}
-  export class TextureLoader {
-    load(image, onLoad) {
-      onLoad(globalThis.loadedTexture);
-    }
-  }
 `;
 
 export async function resolve(specifier, context, nextResolve) {

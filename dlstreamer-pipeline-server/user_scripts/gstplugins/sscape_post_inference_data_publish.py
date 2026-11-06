@@ -12,6 +12,7 @@ import os
 import time
 from collections import defaultdict
 from datetime import datetime
+from threading import Thread
 from uuid import getnode as get_mac
 
 import cv2
@@ -44,6 +45,7 @@ from sscape_3d_detector import (  # noqa: E402  pylint: disable=wrong-import-pos
 from sscape_gst_log import (  # noqa: E402  pylint: disable=wrong-import-position
   GstCategoryLogger,
 )
+from sscape_track_annotation import TrackSync, draw_track_labels, parse_track_message
 
 ROOT_CA = os.environ.get("ROOT_CA", "/run/secrets/certs/scenescape-ca.pem")
 DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%S.%f"
@@ -139,6 +141,22 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       "",
       GObject.ParamFlags.READWRITE,
     ),
+    "annotate-track-ids": (
+      bool, "Annotate track IDs", "Add Analytics GID labels to requested images.",
+      False, GObject.ParamFlags.READWRITE,
+    ),
+    "track-topic": (
+      str, "Track topic", "Analytics regulated scene topic filter.",
+      "scenescape/regulated/scene/+", GObject.ParamFlags.READWRITE,
+    ),
+    "track-wait-ms": (
+      int, "Track wait", "Maximum wait for a track snapshot in milliseconds.",
+      0, 2000, 300, GObject.ParamFlags.READWRITE,
+    ),
+    "track-max-age-ms": (
+      int, "Track age", "Maximum timestamp difference in milliseconds.",
+      0, 5000, 1000, GObject.ParamFlags.READWRITE,
+    ),
     "mqtt-host": (
       str,
       "MQTT broker host",
@@ -198,6 +216,14 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     self._is_publish_calibration_image = False
     self._cam_auto_calibrate = False
     self._cam_auto_calibrate_intrinsics = None
+    self._track_options = {
+      "annotate-track-ids": False,
+      "track-topic": "scenescape/regulated/scene/+",
+      "track-wait-ms": 300,
+      "track-max-age-ms": 1000,
+    }
+    self._track_sync = TrackSync()
+    self._image_worker = None
 
   # ------------------------------------------------------------------
   # GObject property plumbing
@@ -205,6 +231,8 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
 
   def do_get_property(self, prop):  # pylint: disable=arguments-differ
     name = prop.name
+    if name in self._track_options:
+      return self._track_options[name]
     if name == "cameraid":
       return self._cameraid
     if name == "metadatagenpolicy":
@@ -225,6 +253,9 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
 
   def do_set_property(self, prop, value):  # pylint: disable=arguments-differ
     name = prop.name
+    if name in self._track_options:
+      self._set_track_option(name, value)
+      return
     if name == "cameraid":
       self._cameraid = value or ""
     elif name == "metadatagenpolicy":
@@ -238,12 +269,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     elif name == "publish-image":
       self._publish_image = bool(value)
     elif name == "detection-labels":
-      if not value:
-        self._detection_labels = []
-      else:
-        self._detection_labels = [
-          s.strip() for s in value.split(",") if s.strip()
-        ]
+      self._detection_labels = [label.strip() for label in (value or "").split(",") if label.strip()]
     elif name == "mqtt-host":
       if value:
         self._mqtt_host = value
@@ -256,6 +282,25 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     else:
       raise AttributeError(f"Unknown property {name}")
 
+  def _set_track_option(self, name: str, value) -> None:
+    limits = {"track-wait-ms": 2000, "track-max-age-ms": 5000}
+    if name in limits:
+      value = max(0, min(int(value), limits[name]))
+    with self._track_sync.condition:
+      old_topic = self._track_options["track-topic"]
+      enabled = self._track_options["annotate-track-ids"]
+      self._track_options[name] = value
+      if name == "track-topic" and value != old_topic:
+        self._track_sync.snapshot = None
+    if name not in ("annotate-track-ids", "track-topic") or self._client is None:
+      return
+    if not self._client.is_connected():
+      return
+    if enabled:
+      self._client.unsubscribe(old_topic)
+    if self._track_options["annotate-track-ids"]:
+      self._client.subscribe(self._track_options["track-topic"])
+
   # ------------------------------------------------------------------
   # BaseTransform lifecycle
   # ------------------------------------------------------------------
@@ -265,10 +310,15 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     return True
 
   def do_start(self):  # pylint: disable=arguments-differ
+    self._track_sync = TrackSync()
     self._ensure_mqtt()
     return True
 
   def do_stop(self):  # pylint: disable=arguments-differ
+    self._track_sync.stop()
+    if self._image_worker is not None:
+      self._image_worker.join()
+      self._image_worker = None
     if self._client is not None:
       try:
         self._client.loop_stop()
@@ -318,10 +368,14 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       topic = f"scenescape/cmd/camera/{self._cameraid}"
       client.subscribe(topic)
       self._log.info(f"Subscribed to topic: {topic}")
+      if self._track_options["annotate-track-ids"]:
+        client.subscribe(self._track_options["track-topic"])
     else:
       self._log.error(f"MQTT connect failed, return code {rc}")
 
   def _handle_camera_message(self, _client, _userdata, message):
+    if self._track_options["annotate-track-ids"] and self._handle_track_message(message):
+      return
     payload = message.payload.decode("utf-8", errors="replace")
     if payload == "getimage":
       self._publish_image = True
@@ -337,6 +391,15 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       self._cam_auto_calibrate = True
       if "payload_intrinsics" in msg:
         self._cam_auto_calibrate_intrinsics = msg["payload_intrinsics"]
+
+  def _handle_track_message(self, message) -> bool:
+    with self._track_sync.condition:
+      if mqtt.topic_matches_sub(self._track_options["track-topic"], message.topic):
+        snapshot = parse_track_message(message.payload, self._cameraid)
+        if snapshot is not None:
+          self._track_sync.update(snapshot)
+        return True
+      return message.topic != f"scenescape/cmd/camera/{self._cameraid}"
 
   # ------------------------------------------------------------------
   # Buffer processing
@@ -360,11 +423,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     unannotated_img: dict = {}
 
     if self._publish_image:
-      self._build_image_data(annotated_img, frame, True, original_image_base64)
-      self._client.publish(
-        f"scenescape/image/camera/{self._cameraid}",
-        json.dumps(annotated_img),
-      )
+      self._publish_requested_image(annotated_img, frame, original_image_base64)
       self._publish_image = False
 
     if self._is_publish_calibration_image:
@@ -465,12 +524,13 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     else:
       self._frame_level_data.pop("initial_intrinsics", None)
 
+    # Publish sensor-frame size on the camera data topic so Scene Controller can
+    # persist Cam.width/height from incoming detections (not only image replies).
+    framewidth, frameheight = self._publish_resolution(gvadata.get("resolution"))
+
     objects = defaultdict(list)
     raw_objects = gvadata.get("objects") or []
     if raw_objects:
-      resolution = gvadata.get("resolution", {})
-      framewidth = resolution.get("width")
-      frameheight = resolution.get("height")
       has_parent_ids = any("parent_id" in det for det in raw_objects)
       if has_parent_ids:
         region_id_map: dict = {}
@@ -518,6 +578,21 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     self._process_sub_detections(objects)
     self._frame_level_data["objects"] = objects
 
+  def _publish_resolution(self, resolution):
+    """Copy GVA frame size into the MQTT payload; return (width, height) or (None, None)."""
+    width = height = None
+    if isinstance(resolution, dict):
+      width, height = resolution.get("width"), resolution.get("height")
+    elif isinstance(resolution, (list, tuple)) and len(resolution) == 2:
+      width, height = resolution[0], resolution[1]
+
+    if type(width) is int and type(height) is int and width > 0 and height > 0:
+      self._frame_level_data["resolution"] = {"width": width, "height": height}
+      return width, height
+
+    self._frame_level_data.pop("resolution", None)
+    return None, None
+
   @staticmethod
   def _resolve_object_id(det: dict, existing_objects: list):
     """Preserve tracker ID when available; otherwise use sequential fallback."""
@@ -540,6 +615,36 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
   # Image rendering
   # ------------------------------------------------------------------
 
+  def _publish_requested_image(self, payload: dict, frame, original_image_base64) -> None:
+    if not self._track_options["annotate-track-ids"]:
+      self._build_image_data(payload, frame, True, original_image_base64)
+      self._client.publish(f"scenescape/image/camera/{self._cameraid}", json.dumps(payload))
+      return
+    if self._image_worker is None:
+      self._image_worker = Thread(target=self._publish_track_images, daemon=True)
+      self._image_worker.start()
+    image = self._image_pixels(frame, original_image_base64).copy()
+    self._annotate_objects(image)
+    self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
+    payload.update(id=self._cameraid, timestamp=self._frame_level_data.get("timestamp"))
+    self._track_sync.submit(image, payload, self._track_options["track-wait-ms"])
+
+  def _publish_track_images(self) -> None:
+    while True:
+      pending = self._track_sync.take(self._track_options["track-max-age-ms"])
+      if pending is None:
+        return
+      image, payload, entries = pending
+      try:
+        payload["track_ids"] = draw_track_labels(image, entries)
+        success, jpeg = cv2.imencode(".jpg", image)
+        if not success:
+          raise ValueError("Failed to encode annotated image")
+        payload["image"] = base64.b64encode(jpeg).decode("utf-8")
+        self._client.publish(f"scenescape/image/camera/{payload['id']}", json.dumps(payload))
+      except Exception:  # pylint: disable=broad-except
+        self._log.exception("Failed to publish GID-annotated image")
+
   @staticmethod
   def _try_convert_to_bgr(raw_frame, video_meta):
     video_format = video_meta.format.value_name
@@ -555,26 +660,7 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       "timestamp": self._frame_level_data.get("timestamp"),
       "id": self._cameraid,
     })
-    image = None
-    if original_image_base64:
-      try:
-        decoded_image = base64.b64decode(original_image_base64)
-        original_image = cv2.imdecode(
-          np.frombuffer(decoded_image, np.uint8), cv2.IMREAD_COLOR
-        )
-        if original_image is None:
-          raise ValueError("Failed to decode original image from base64")
-        image = original_image
-      except Exception as exc:  # pylint: disable=broad-except
-        self._log.warning(
-          f"Error using original image: {exc}. Falling back to current frame."
-        )
-
-    if image is None:
-      with gvaframe.data() as img:
-        video_meta = gvaframe.video_meta()
-        image = self._try_convert_to_bgr(img, video_meta)
-
+    image = self._image_pixels(gvaframe, original_image_base64)
     params = []
     # Native size lets consumers keep using calibrated pixel intrinsics even
     # when the image itself is downscaled below.
@@ -595,6 +681,28 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       params = [cv2.IMWRITE_JPEG_QUALITY, self._live_view_quality]
     _, jpeg = cv2.imencode(".jpg", image, params)
     imgdatadict["image"] = base64.b64encode(jpeg).decode("utf-8")
+
+  def _image_pixels(self, gvaframe, original_image_base64: str = None):
+    image = None
+    if original_image_base64:
+      try:
+        decoded_image = base64.b64decode(original_image_base64)
+        original_image = cv2.imdecode(
+          np.frombuffer(decoded_image, np.uint8), cv2.IMREAD_COLOR
+        )
+        if original_image is None:
+          raise ValueError("Failed to decode original image from base64")
+        image = original_image
+      except Exception as exc:  # pylint: disable=broad-except
+        self._log.warning(
+          f"Error using original image: {exc}. Falling back to current frame."
+        )
+
+    if image is None:
+      with gvaframe.data() as img:
+        video_meta = gvaframe.video_meta()
+        image = self._try_convert_to_bgr(img, video_meta)
+    return image
 
   def _annotate_objects(self, img, scale: float = 1.0) -> None:
     # `scale` maps native-resolution detection coordinates onto `img`.

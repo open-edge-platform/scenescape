@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for SceneCamera calibration-frame request and native-resolution projection (JS).
+"""Unit tests for SceneCamera calibration-frame request (JS).
 
 Runs the Node test harness against scenecamera.js with stubbed browser imports (no Docker).
 
@@ -19,8 +19,8 @@ _HARNESS = Path(__file__).resolve().parent / "run_scenecamera_tests.mjs"
 
 
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not available")
-def test_scenecamera_calibration_frame_and_native_resolution():
-  """! Calibration frame request flow and native-resolution projection, incl. fallbacks. """
+def test_scenecamera_calibration_frame():
+  """! Calibration frame request flow, incl. topic filtering and timeout. """
   result = subprocess.run(
     ["node", "--test", str(_HARNESS)],
     cwd=str(_REPO_ROOT),
