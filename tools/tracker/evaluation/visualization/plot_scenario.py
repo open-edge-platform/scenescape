@@ -47,7 +47,7 @@ from visualization.scenario_data import (  # noqa: E402
   TRACKS_FILE,
   Scenario,
   align_track_to_truth,
-  frame_rate,
+  ground_truth_frame_rate,
   load_scenario,
   match_tracks_to_truth,
 )
@@ -169,7 +169,7 @@ def plot_position_error(scenario: Scenario, pairs: Pairs,
     panels += [("along", "along-track [m]"), ("cross", "cross-track [m]")]
   if space == "z" or (space == "xyz" and scenario.has_vertical_motion):
     panels.append(("vertical", "vertical [m]"))
-  tolerance = 0.5 / (frame_rate(scenario.ground_truth) or 1.0)
+  tolerance = 0.5 / (ground_truth_frame_rate(scenario) or 1.0)
   fig, axes = plt.subplots(len(panels), 1, figsize=(10, 3 * len(panels)), sharex=True)
   axes = dict(zip((column for column, _ in panels), np.atleast_1d(axes)))
   for track_id, object_id in matched.items():

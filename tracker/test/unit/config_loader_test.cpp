@@ -814,6 +814,30 @@ TEST(ConfigLoaderTest, AssociationMahalanobisCostThresholdUsesChi2) {
     EXPECT_EQ(association.distanceType(), rv::tracking::DistanceType::PositionMahalanobis);
 }
 
+TEST(ConfigLoaderTest, AssociationGateProbabilityJson_OutOfRange) {
+    // RapidJSON validates draft-04, which ignores the schema's numeric exclusiveMinimum, so the
+    // loader checks the range itself.
+    for (const char* value : {"0", "-0.5", "1.5"}) {
+        SCOPED_TRACE(value);
+        const std::string json = R"({
+          "infrastructure": {
+            "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+          },
+          "tracking": {
+            "association": {"gate_probability": )" +
+                                 std::string(value) + R"(}
+          },
+          "scenes": {
+            "source": "file",
+            "file_path": ")" + empty_scenes_path() +
+                                 R"("
+          }
+        })";
+        TempFile config_file(json);
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
 TEST(ConfigLoaderTest, AssociationGateProbabilityEnvOverride_OutOfRange) {
     TempFile config_file(MINIMAL_CONFIG());
 
@@ -836,6 +860,22 @@ TEST(ConfigLoaderTest, AssociationGateProbabilityEnvOverride_InvalidAndDomain) {
     {
         ScopedEnv env(tracker::env::ASSOCIATION_GATE_PROBABILITY, "1.5");
         EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, AssociationEnvOverrides_RejectNonFinite) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    for (const char* value : {"nan", "inf", "-nan", "infinity"}) {
+        SCOPED_TRACE(value);
+        {
+            ScopedEnv env(tracker::env::ASSOCIATION_GATE_PROBABILITY, value);
+            EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+        }
+        {
+            ScopedEnv env(tracker::env::ASSOCIATION_MAX_RADIUS_M, value);
+            EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+        }
     }
 }
 

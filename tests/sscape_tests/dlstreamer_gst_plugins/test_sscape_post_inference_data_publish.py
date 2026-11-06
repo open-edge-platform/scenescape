@@ -10,17 +10,138 @@ gi/GstBase/gstgva (see conftest.py) and the paho MQTT client, without a real
 PyGObject/GStreamer installation and without any production code changes.
 """
 
+import base64
 import json
 import os
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import cv2
+import numpy as np
 import pytest
 
 from sscape_post_inference_data_publish import (  # noqa: E402
   SscapePostInferenceDataPublish,
 )
 import sscape_post_inference_data_publish as pubmod  # noqa: E402
+
+
+class TestTrackImages:
+  """Exercise the real worker and JPEG encoder without GStreamer or a broker."""
+
+  @pytest.mark.parametrize('with_tracks', [True, False])
+  def test_requested_image(self, connected_element, monkeypatch, with_tracks):
+    element = connected_element
+    element.do_set_property(make_prop('annotate-track-ids'), True)
+    element.do_set_property(make_prop('track-wait-ms'), 0)
+    timestamp = '2026-11-02T12:00:00.000Z'
+    gid = '12345678-abcd-1234-abcd-123456789012'
+    image = np.zeros((240, 320, 3), dtype=np.uint8)
+    monkeypatch.setattr(element, '_image_pixels', lambda *_args: image)
+    element._frame_level_data.update(timestamp=timestamp, objects={})
+    if with_tracks:
+      message = {'timestamp': timestamp, 'objects': [
+        {'id': gid, 'camera_bounds': {'cam-1': {'x': 10, 'y': 80, 'width': 60, 'height': 80}}}
+      ]}
+      element._handle_camera_message(None, None, SimpleNamespace(
+        topic='scenescape/regulated/scene/scene-1', payload=json.dumps(message).encode()))
+    published = Event()
+    element._client.publish.side_effect = lambda *_args: published.set()
+    try:
+      element._publish_requested_image({}, None, None)
+      assert published.wait(2), 'Image worker did not publish'
+      topic, encoded = element._client.publish.call_args.args
+      payload = json.loads(encoded)
+      assert topic == 'scenescape/image/camera/cam-1'
+      assert payload['timestamp'] == timestamp
+      assert payload['track_ids'] == ([gid] if with_tracks else [])
+      jpeg = np.frombuffer(base64.b64decode(payload['image']), dtype=np.uint8)
+      assert cv2.imdecode(jpeg, cv2.IMREAD_COLOR).shape == image.shape
+      assert not np.any(image), 'Capture must not modify the source image'
+    finally:
+      worker = element._image_worker
+      element.do_stop()
+      assert not worker.is_alive()
+
+  def test_subscriptions_and_commands(self, connected_element):
+    element = connected_element
+    element.do_set_property(make_prop('annotate-track-ids'), True)
+    client = element._client
+    client.subscribe.assert_called_with('scenescape/regulated/scene/+')
+    element.do_set_property(make_prop('track-topic'), 'scenescape/regulated/scene/scene-1')
+    client.unsubscribe.assert_called_with('scenescape/regulated/scene/+')
+    client.subscribe.assert_called_with('scenescape/regulated/scene/scene-1')
+    element._handle_camera_message(None, None, SimpleNamespace(
+      topic='scenescape/cmd/camera/cam-1', payload=b'getimage'))
+    assert element._publish_image
+    element._publish_image = False
+    element._handle_camera_message(None, None, SimpleNamespace(
+      topic='scenescape/regulated/scene/scene-1', payload=b'getimage'))
+    assert not element._publish_image
+    element.do_set_property(make_prop('annotate-track-ids'), False)
+    client.unsubscribe.assert_called_with('scenescape/regulated/scene/scene-1')
+
+  @pytest.mark.parametrize('change_topic', [True, False])
+  def test_topic_change_invalidates_snapshot(self, element, monkeypatch, change_topic):
+    old_topic = 'scenescape/regulated/scene/scene-a'
+    new_topic = 'scenescape/regulated/scene/scene-b' if change_topic else old_topic
+    snapshot = (1.0, [('scene-a-gid', (10, 20, 30, 40))])
+    monkeypatch.setattr(pubmod, 'parse_track_message', lambda *_args: snapshot)
+    element._set_track_option('track-topic', old_topic)
+    message = SimpleNamespace(topic=old_topic, payload=b'tracks')
+    element._handle_track_message(message)
+    element._set_track_option('track-topic', new_topic)
+    assert element._track_sync.snapshot == (None if change_topic else snapshot)
+    element._handle_track_message(message)
+    assert element._track_sync.snapshot == (None if change_topic else snapshot)
+    if change_topic:
+      element._handle_track_message(SimpleNamespace(topic=new_topic, payload=b'tracks'))
+      assert element._track_sync.snapshot == snapshot
+
+  def test_topic_change_during_callback(self, element, monkeypatch):
+    parsing = Event()
+    release = Event()
+    switching = Event()
+    old_topic = 'scenescape/regulated/scene/scene-a'
+    element._set_track_option('track-topic', old_topic)
+
+    def parse(*_args):
+      parsing.set()
+      assert release.wait(2)
+      return (1.0, [('scene-a-gid', (10, 20, 30, 40))])
+
+    def switch_topic():
+      switching.set()
+      element._set_track_option('track-topic', 'scenescape/regulated/scene/scene-b')
+
+    monkeypatch.setattr(pubmod, 'parse_track_message', parse)
+    with ThreadPoolExecutor(max_workers=2) as workers:
+      callback = workers.submit(element._handle_track_message,
+                                SimpleNamespace(topic=old_topic, payload=b'tracks'))
+      try:
+        assert parsing.wait(2)
+        switch = workers.submit(switch_topic)
+        assert switching.wait(2)
+      finally:
+        release.set()
+      callback.result(timeout=2)
+      switch.result(timeout=2)
+    assert element._track_sync.snapshot is None
+
+  def test_disabled_payload_unchanged(self, connected_element, monkeypatch):
+    monkeypatch.setattr(connected_element, '_build_image_data',
+                        lambda payload, *_args: payload.update(image='original'))
+    connected_element._publish_requested_image({}, None, None)
+    assert json.loads(connected_element._client.publish.call_args.args[1]) == {'image': 'original'}
+    assert connected_element._image_worker is None
+
+  def test_wait_limits(self, element):
+    element.do_set_property(make_prop('track-wait-ms'), 9999)
+    element.do_set_property(make_prop('track-max-age-ms'), -1)
+    assert element.do_get_property(make_prop('track-wait-ms')) == 2000
+    assert element.do_get_property(make_prop('track-max-age-ms')) == 0
 
 def make_prop(name):
   return SimpleNamespace(name=name)
@@ -320,8 +441,15 @@ class TestBuildObjectData:
     assert fld["timestamp"] == "2026-07-21T00:00:00.000Z"
     assert fld["rate"] == 15.5
     assert fld["initial_intrinsics"] == {"fx": 1000}
+    assert fld["resolution"] == {"width": 640, "height": 480}
     assert fld["debug_timestamp_end"].endswith("Z")
     assert isinstance(fld["objects"], dict) and not fld["objects"]
+
+  def test_resolution_omitted_when_gva_resolution_invalid(self, element):
+    element._cameraid = "cam-a"
+    gvadata = self._gvadata([], resolution={"width": 0, "height": 480})
+    element._build_object_data(gvadata)
+    assert "resolution" not in element._frame_level_data
 
   def test_detection_labels_filter_excludes_non_matching(self, element):
     element._detection_labels = ["person"]
@@ -436,6 +564,7 @@ class TestProcessBuffer:
     payload = json.loads(frame.added_messages[0])
     assert payload["id"] == "cam-1"
     assert "person" in payload["objects"]
+    assert payload["resolution"] == {"width": 320, "height": 240}
 
   def test_publish_image_flag_publishes_image_topic_once(self, connected_element, monkeypatch):
     connected_element._publish_image = True

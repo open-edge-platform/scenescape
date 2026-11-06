@@ -11,6 +11,7 @@
 #include <opencv2/tracking.hpp>
 #include <opencv2/tracking/kalman_filters.hpp>
 #include <typeinfo>
+#include <vector>
 
 namespace cv {
 namespace detail {
@@ -25,6 +26,32 @@ template <> bool inline callHalCholesky<float>(float *L, size_t lstep, int lsize
 template <> bool inline callHalCholesky<double>(double *L, size_t lstep, int lsize)
 {
   return hal::Cholesky64f(L, lstep, lsize, NULL, 0, 0);
+}
+
+// Rows `rows` of `matrix`. Contiguous rows are returned as a view of `matrix` (no copy), so do not modify the result.
+inline Mat selectRows(const Mat &matrix, const std::vector<int> &rows)
+{
+  if (!rows.empty() && rows.back() - rows.front() + 1 == static_cast<int>(rows.size()))
+  {
+    return matrix.rowRange(rows.front(), rows.back() + 1);
+  }
+  Mat selected(static_cast<int>(rows.size()), matrix.cols, matrix.type());
+  for (size_t i = 0; i < rows.size(); ++i)
+  {
+    matrix.row(rows[i]).copyTo(selected.row(static_cast<int>(i)));
+  }
+  return selected;
+}
+
+// Rows and columns `indices` of a square `matrix`. Contiguous indices give a view of `matrix`, as in selectRows.
+inline Mat selectBlock(const Mat &matrix, const std::vector<int> &indices)
+{
+  if (!indices.empty() && indices.back() - indices.front() + 1 == static_cast<int>(indices.size()))
+  {
+    const Range range(indices.front(), indices.back() + 1);
+    return matrix(range, range);
+  }
+  return selectRows(Mat(selectRows(matrix, indices).t()), indices).t();
 }
 
 template <typename _Tp> bool inline choleskyDecomposition(const _Tp *A, size_t astep, int asize, _Tp *L, size_t lstep)
@@ -98,7 +125,14 @@ class UnscentedKalmanFilterMod : public UnscentedKalmanFilter
   Mat r; // zero vector of process noise for getting transitionSPFuncVals,
   Mat q; // zero vector of measurement noise for getting measurementSPFuncVals
 
-  Mat getSigmaPoints(const Mat &mean, const Mat &covMatrix, double coef);
+  // Repairs covMatrix in place if it is not positive definite.
+  Mat getSigmaPoints(const Mat &mean, Mat &covMatrix, double coef);
+
+  // Restores Syy with the default R if an earlier correct since the last predict used its own R.
+  void useDefaultMeasurementNoise();
+  // Kalman update with the current Syy, on all or on the observed measurement rows.
+  Mat updateAllRows(InputArray measurement);
+  Mat updateObservedRows(InputArray measurement, const std::vector<int> &observedRows);
 
 public:
   UnscentedKalmanFilterMod(const UnscentedKalmanFilterParams &params);
@@ -112,9 +146,14 @@ public:
   // measurement - current measurement vector, MP x 1
   Mat correct(InputArray measurement) override;
 
-  // perform correction step with a per-measurement noise R (MP x MP). Syy is rebuilt as
-  // Pyy + R for this update only; an empty R falls back to the default measurementNoiseCov.
-  Mat correct(InputArray measurement, InputArray measurementNoise);
+  // perform correction step with only some measurement components observed; the others are left out of the update
+  // measurement - current measurement vector, MP x 1
+  // observedRows - indices of the observed components, ascending
+  Mat correct(InputArray measurement, const std::vector<int> &observedRows);
+
+  // as above, with a per-measurement noise R (MP x MP): Syy is rebuilt as Pyy + R for this update only;
+  // an empty R, like the overloads above, uses the default measurementNoiseCov
+  Mat correct(InputArray measurement, const std::vector<int> &observedRows, InputArray measurementNoise);
 
   //  Get system parameters
   Mat getProcessNoiseCov() const override;

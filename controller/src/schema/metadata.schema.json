@@ -110,6 +110,31 @@
       },
       "required": ["fx", "fy", "cx", "cy"]
     },
+    "camera_extrinsics": {
+      "title": "Camera Extrinsics",
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-frame rigid camera pose for unlocked cameras (pose_locked is false). Translation is scene meters; rotation is intrinsic XYZ Euler degrees (length 3) or a quaternion [x, y, z, w] (length 4). Scale is not part of camera extrinsics. Semantic checks (finite values, nonzero quaternion norm) and normalization remain in runtime validate_camera_extrinsics.",
+      "properties": {
+        "translation": {
+          "title": "Translation",
+          "type": "array",
+          "description": "Camera position in scene coordinates (x, y, z).",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "title": "Rotation",
+          "type": "array",
+          "description": "Camera orientation as intrinsic XYZ Euler degrees (3) or quaternion [x, y, z, w] (4).",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 4
+        }
+      },
+      "required": ["translation", "rotation"]
+    },
     "camera_distortion": {
       "title": "Camera Distortion",
       "type": "object",
@@ -524,6 +549,152 @@
         }
       ]
     },
+    "pose_context": {
+      "title": "PTZ PoseContext",
+      "description": "Resolved, timestamped pose published by the Positioning service on scenescape/positioning/pose/{source_id}. Draft-04 compatible and self-contained (no $ref) so the Tracker can reuse it unchanged.",
+      "type": "object",
+      "properties": {
+        "schema_version": { "type": "integer", "enum": [1] },
+        "source_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64
+        },
+        "valid_until": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64
+        },
+        "sequence": { "type": "integer", "minimum": 0 },
+        "valid": { "type": "boolean" },
+        "pose": {
+          "type": "object",
+          "properties": {
+            "frame_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+            "transform_direction": {
+              "type": "string",
+              "enum": ["scene_from_camera"]
+            },
+            "matrix_layout": { "type": "string", "enum": ["row_major"] },
+            "matrix_4x4": {
+              "type": "array",
+              "minItems": 4,
+              "maxItems": 4,
+              "items": {
+                "type": "array",
+                "minItems": 4,
+                "maxItems": 4,
+                "items": { "type": "number" }
+              }
+            },
+            "translation_unit": { "type": "string", "enum": ["m"] }
+          },
+          "required": [
+            "frame_id",
+            "transform_direction",
+            "matrix_layout",
+            "matrix_4x4",
+            "translation_unit"
+          ],
+          "additionalProperties": false
+        },
+        "motion_state": {
+          "type": "string",
+          "enum": ["stationary", "slewing", "settling", "unknown"]
+        },
+        "sample_age_s": { "type": "number", "minimum": 0 },
+        "timestamp_uncertainty_s": { "type": "number", "minimum": 0 },
+        "calibration_version": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "quality": {
+          "type": "object",
+          "properties": {
+            "score": { "type": "number", "minimum": 0, "maximum": 1 },
+            "temporal_score": { "type": "number", "minimum": 0, "maximum": 1 },
+            "calibration_score": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "reprojection_rms_px": { "type": "number", "minimum": 0 }
+          },
+          "required": [
+            "score",
+            "temporal_score",
+            "calibration_score",
+            "reprojection_rms_px"
+          ],
+          "additionalProperties": false
+        },
+        "invalid_reason": {
+          "type": "string",
+          "enum": ["no_pose_available", "pose_expired", "invalid_pose"]
+        },
+        "reason_detail": {
+          "type": "string",
+          "enum": [
+            "no_sample",
+            "sample_stale",
+            "moving",
+            "settling",
+            "calibration_missing",
+            "calibration_changed",
+            "invalid_sample",
+            "backlash_unknown"
+          ]
+        }
+      },
+      "required": [
+        "schema_version",
+        "source_id",
+        "timestamp",
+        "valid_until",
+        "sequence",
+        "valid",
+        "motion_state",
+        "sample_age_s",
+        "timestamp_uncertainty_s",
+        "calibration_version"
+      ],
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "properties": { "valid": { "enum": [true] } },
+          "required": ["pose", "quality"],
+          "not": {
+            "anyOf": [
+              { "required": ["invalid_reason"] },
+              { "required": ["reason_detail"] }
+            ]
+          }
+        },
+        {
+          "properties": { "valid": { "enum": [false] } },
+          "required": ["invalid_reason"],
+          "not": { "required": ["pose"] }
+        }
+      ]
+    },
+    "positioning_status": {
+      "title": "Positioning resolver status",
+      "description": "Retained status/LWT published on scenescape/positioning/status/{resolver_id}. timestamp is the session start time. Draft-04 compatible and self-contained (no $ref).",
+      "type": "object",
+      "properties": {
+        "resolver_id": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "status": { "type": "string", "enum": ["online", "offline"] },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "maxLength": 64
+        }
+      },
+      "required": ["resolver_id", "status", "timestamp"],
+      "additionalProperties": false
+    },
     "singleton": {
       "title": "Sensor Metadata",
       "description": "Many types of sensors exist for generating data from the physical world. This schema defines the composition of metadata for publishing sensor data into Scenescape.",
@@ -552,7 +723,7 @@
     },
     "detector": {
       "title": "Detector Metadata",
-      "description": "Many types of detectors exist for generating bounding boxes around objects from image-like sources. This schema defines the composition of metadata for publishing object detection results into Scenescape.",
+      "description": "Detection metadata for perceptual sensors registered as Manager Cam entities (RGB, depth, LiDAR/radar detectors, and similar) publishing on scenescape/data/camera/{id}. Bounding boxes and related fields may come from image-like or other projection frames; unlocked MQTT pose and optics are ephemeral runtime overrides for every such modality.",
       "type": "object",
       "properties": {
         "timestamp": {
@@ -579,6 +750,38 @@
             "type": "string"
           },
           "examples": [["license_plate"], ["person", "vest", "apriltag"]]
+        },
+        "extrinsics": {
+          "$ref": "#/definitions/camera_extrinsics",
+          "description": "Optional per-frame sensor pose for any unlocked Cam modality (pose_locked is false); ignored when locked. Applied as an ephemeral runtime observation (not written to Manager). Invalid poses that pass structural checks are soft-ignored at runtime."
+        },
+        "intrinsics": {
+          "$ref": "#/definitions/camera_intrinsics",
+          "description": "Optional per-frame intrinsics for unlocked Cam modalities. Applied ephemerally with extrinsics on the same MQTT observation path; ignored when pose_locked. Not persisted to Manager. Intrinsics provenance is not tracked."
+        },
+        "distortion": {
+          "$ref": "#/definitions/camera_distortion",
+          "description": "Optional per-frame distortion for unlocked Cam modalities. Applied ephemerally with other MQTT optics; ignored when pose_locked. Not persisted to Manager."
+        },
+        "resolution": {
+          "description": "Optional sensor resolution for unlocked Cam modalities ([width, height] or {width, height}). Resolution alone does not change runtime optics; send intrinsics (and optional distortion) when updating projection. Applied ephemerally with other MQTT optics; ignored when pose_locked. Not persisted to Manager.",
+          "oneOf": [
+            {
+              "type": "array",
+              "items": { "type": "integer", "exclusiveMinimum": 0 },
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "type": "object",
+              "properties": {
+                "width": { "type": "integer", "exclusiveMinimum": 0 },
+                "height": { "type": "integer", "exclusiveMinimum": 0 }
+              },
+              "required": ["width", "height"],
+              "additionalProperties": false
+            }
+          ]
         }
       },
       "required": ["timestamp", "id", "objects"]
@@ -593,6 +796,12 @@
     },
     "external_source": {
       "$ref": "#/definitions/external_source"
+    },
+    "pose_context": {
+      "$ref": "#/definitions/pose_context"
+    },
+    "positioning_status": {
+      "$ref": "#/definitions/positioning_status"
     }
   },
   "additionalProperties": true,

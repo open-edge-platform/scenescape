@@ -6,6 +6,7 @@
 #include "env_vars.hpp"
 #include "json_utils.hpp"
 
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <optional>
@@ -323,6 +324,12 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         GetValueByPointerWithDefault(config_doc, json::TRACKING_ASSOCIATION_GATE_PROBABILITY,
                                      kDefaultAssociationGateProbability)
             .GetDouble();
+    // RapidJSON validates draft-04, which ignores the schema's numeric exclusiveMinimum.
+    if (!(config.tracking.association.gate_probability > 0.0 &&
+          config.tracking.association.gate_probability <= 1.0)) {
+        throw std::runtime_error("tracking.association.gate_probability must be in (0, 1]: " +
+                                 std::to_string(config.tracking.association.gate_probability));
+    }
     // Without max_radius_m the default depends on the method, so it is resolved after the env
     // overrides below.
     std::optional<double> association_max_radius_m;
@@ -430,7 +437,7 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               [](const std::string& v, const std::string& s) {
                   try {
                       double probability = std::stod(v);
-                      if (probability <= 0.0 || probability > 1.0) {
+                      if (!std::isfinite(probability) || probability <= 0.0 || probability > 1.0) {
                           throw std::runtime_error(s + " must be in (0, 1]: " + v);
                       }
                       return probability;
@@ -441,7 +448,13 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                   }
               });
     apply_env(association_max_radius_m, tracker::env::ASSOCIATION_MAX_RADIUS_M,
-              parse_positive_double);
+              [&parse_positive_double](const std::string& v, const std::string& s) {
+                  double radius = parse_positive_double(v, s);
+                  if (!std::isfinite(radius)) {
+                      throw std::runtime_error(s + " must be finite: " + v);
+                  }
+                  return radius;
+              });
     config.tracking.association.max_radius_m =
         association_max_radius_m.value_or(defaultMaxRadiusM(config.tracking.association.method));
 

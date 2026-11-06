@@ -37,6 +37,7 @@ set(TRACKER_LIB_SOURCES
 
 add_executable(tracker_tests
     logger_test.cpp
+    association_window_test.cpp
     cli_test.cpp
     config_loader_test.cpp
     coordinate_transformer_test.cpp

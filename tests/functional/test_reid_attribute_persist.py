@@ -19,7 +19,6 @@ import numpy as np
 import pytest
 
 from scene_common.mqtt import PubSub
-from scene_common.rest_client import RESTClient
 from scene_common.timestamp import get_iso_time
 
 from tests.functional.reid_backend import (
@@ -110,26 +109,6 @@ def publish_empty(pubsub, camera_id, num_frames=10, interval=0.1):
     pubsub.publish(topic, json.dumps(make_frame(camera_id, [])))
     time.sleep(interval)
 
-
-def get_scene_and_camera(params):
-  """Authenticate and return (scene_uid, camera_id) for the first scene with a camera."""
-  rest = RESTClient(params["resturl"], rootcert=params["rootcert"])
-  assert rest.authenticate(params["user"], params["password"]), "Auth failed"
-
-  scenes = rest.getScenes({})
-  results = scenes.get("results", []) if isinstance(scenes, dict) else []
-  assert results, "No scenes available"
-
-  for scene in results:
-    scene_uid = scene["uid"]
-    cameras = rest.getCameras({"scene": scene_uid})
-    cam_results = cameras.get("results", []) if isinstance(cameras, dict) else []
-    if cam_results:
-      camera_id = cam_results[0]["uid"]
-      log.info(f"Using scene={scene['name']} ({scene_uid}) camera={camera_id}")
-      return scene_uid, camera_id
-
-  raise AssertionError("No scene with a configured camera found")
 
 def connect_mqtt(params):
   """Return a connected, looping PubSub client."""
@@ -248,9 +227,12 @@ def wait_for_tracker_ready(pubsub, scene_uid, camera_id, timeout=45.0):
 
 
 @pytest.fixture
-def warmed_scene(params, mqtt_client):
-  """(scene_uid, camera_id) after confirming the tracker pipeline is live."""
-  scene_uid, camera_id = get_scene_and_camera(params)
+def warmed_scene(scene_factory, mqtt_client):
+  """(scene_uid, camera_id) for a scene created fresh for this test, after
+  confirming the tracker pipeline is live."""
+  camera_id = "reid-persist-cam1"
+  scene = scene_factory("ReidAttributePersist", cameras=[camera_id], replace=True)
+  scene_uid = scene["uid"]
   wait_for_tracker_ready(mqtt_client, scene_uid, camera_id)
   return scene_uid, camera_id
 
@@ -294,9 +276,10 @@ def test_bbox_below_minimum_area_gathers_no_features(mqtt_client, warmed_scene,
 
   with SceneOutputCollector(mqtt_client, scene_uid) as collector:
     publish_frames(mqtt_client, camera_id, [det], num_frames=FEATURE_THRESHOLD * 2)
-    assert collector.wait_for(lambda o: o.get("id") is not None, timeout=20), \
-      "small-bbox detections never produced scene output"
-    tracked_objs = collector.objects()
+    obj = collector.wait_for(lambda o: gender_label(o) == "Male", timeout=20)
+    assert obj is not None, "small-bbox detections never produced scene output"
+    gid = obj["id"]
+    tracked_objs = [o for o in collector.objects() if o.get("id") == gid]
     publish_empty(mqtt_client, camera_id, num_frames=10)
 
   states = {o.get("reid_state") for o in tracked_objs}

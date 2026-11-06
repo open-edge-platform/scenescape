@@ -101,7 +101,6 @@ public:
   // fixed-size matrices, so copies never share them
   MeasurementVector predictedMeasurementMean;
   MeasurementMatrix predictedMeasurementCov; ///< S = H P H^T + R_default (association / UI window)
-  MeasurementMatrix predictedMeasurementCovInv;
   MeasurementMatrix predictedStateMeasurementCov; ///< H P H^T: track uncertainty in measurement space, without R
   StateMatrix errorCovariance;                    ///< P
 

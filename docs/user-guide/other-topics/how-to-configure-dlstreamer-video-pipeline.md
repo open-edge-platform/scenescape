@@ -385,6 +385,71 @@ The payload section is the actual values for the specific pipeline being configu
 }
 ```
 
+#### Track GID labels on camera images
+
+The `sscape_post_inference_data_publish` element can add scene track GID labels
+to the annotated JPEG returned for `getimage`. This is disabled by default and
+works with Scene Controller + Analytics or C++ Tracker + Analytics, using
+Analytics with `visibility_topic=regulated`.
+
+Enable it on the existing publisher element in a custom camera pipeline:
+
+```text
+sscape_post_inference_data_publish name=datapublisher annotate-track-ids=true track-topic=scenescape/regulated/scene/<scene_uid>
+```
+
+Keep the other elements and properties in your pipeline unchanged. Alternatively,
+the Manager pipeline config generator accepts `annotate_track_ids: true` in its
+camera settings and maps it to the publisher property through DLSPS parameters.
+Generated pipelines select the camera's scene topic when its `scene_uid` is available,
+so updates from other scenes cannot clear its labels. For manually managed pipelines,
+set `track-topic` explicitly as above when running multiple scenes; the wildcard
+default does not isolate scene caches.
+It does not add a camera form field. For a manually managed DLSPS configuration,
+add this entry to `parameters.properties`:
+
+```json
+{
+  "annotate_track_ids": {
+    "element": { "name": "datapublisher", "property": "annotate-track-ids" },
+    "type": "boolean"
+  }
+}
+```
+
+Then set `"annotate_track_ids": true` in `payload.parameters`.
+
+| Element property   | Default                      | Description                                        |
+| ------------------ | ---------------------------- | -------------------------------------------------- |
+| annotate-track-ids | false                        | Enable GID labels on requested images              |
+| track-topic        | scenescape/regulated/scene/+ | Analytics topic filter; select one scene if needed |
+| track-wait-ms      | 300                          | Maximum wait for tracks, from 0 to 2000 ms         |
+| track-max-age-ms   | 1000                         | Allowed timestamp difference, from 0 to 5000 ms    |
+
+The publisher caches the latest track snapshot and waits at most `track-wait-ms`
+for one at or after the captured frame's timestamp, within `track-max-age-ms`.
+At timeout it also accepts an older snapshot within that same tolerance.
+Newer empty snapshots clear previous labels. If no usable snapshot exists, the
+image retains its normal detector annotation without GID labels.
+
+Enabled image messages on `scenescape/image/camera/<camera_id>` include
+`track_ids`, the full GIDs drawn on the JPEG, or `[]` when none were drawn. Visible
+labels show the first eight characters with a black outline and white fill.
+Disabled image messages remain unchanged and omit `track_ids`.
+
+Labels use Analytics' `camera_bounds`, which requires calibrated cameras and
+track sizes. Positions are projected and can differ from detector boxes; track
+and image timestamps are matched approximately. Publication adds up to the
+configured wait plus image processing time. Only requested images are affected;
+calibration/localization images and continuous video output are unchanged.
+
+Use a concrete scene topic when multiple scenes publish bounds for the same
+camera. The default wildcard assumes a single relevant scene. The initial
+implementation supports only `visibility_topic=regulated`. With custom broker
+ACLs, grant the DLSPS client read access to the selected track topic in addition
+to its existing camera command access. The bundled Compose and Kubernetes broker
+configurations do not impose topic ACL restrictions.
+
 #### Cross stream batching
 
 DL Streamer Pipeline Server supports grouping multiple frames into a single batch submission during model processing. This can improve throughput when processing multiple video streams with the same pipeline configuration.
