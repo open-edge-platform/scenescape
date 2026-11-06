@@ -110,11 +110,18 @@ fields and examples; do not invent alternate shapes.
 
 ## Pose and Intrinsics Reuse
 
+Pose and optics on this path are ephemeral for every perceptual modality that
+publishes here: they live only in the Controller TTL cache and are never written
+to Manager (same policy as unlocked detector-topic `Cam` MQTT optics).
+
 After a successful pose is cached for `(bound_scene_uid, source_id)`, later
-messages may omit `pose` and reuse the cached transform. Each camera entry
-includes the calibration needed to interpret that camera's observations. A
-message with `pose`, an empty top-level `objects` array, and cameras with empty
-observation arrays refreshes the source snapshot without ingesting observations.
+messages may omit `pose` and reuse the cached transform. Sensor `intrinsics`
+(and optional `distortion`) for pixel detections are stored on the same cache
+entry (top-level legacy fields or per-camera calibration), so later pixel
+messages may omit those fields too. Each camera entry includes the calibration
+needed to interpret that camera's observations. A message with `pose`, an empty
+top-level `objects` array, and cameras with empty observation arrays refreshes
+the source snapshot without ingesting observations.
 
 If no usable transform or intrinsics are available, or a pose fails trust/geo
 checks, the controller drops the message and logs a rejection reason. See

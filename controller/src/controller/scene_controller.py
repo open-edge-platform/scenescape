@@ -384,6 +384,9 @@ class SceneController:
     }
     metrics.record_object_count(len(objects), metric_attributes)
 
+    if camera_id is not None:
+      jdata['camera_id'] = camera_id
+
     self.publishSceneDetections(scene, objects, otype, jdata)
     return
 
@@ -620,13 +623,10 @@ class SceneController:
         return
 
       jdata['debug_hmo_start_time'] = now
-      # Camera intrinsics/distortion refresh only applies to camera-originated
-      # messages (keyed by 'id'); external-source messages are keyed by
-      # 'source_id' and resolve pose/intrinsics via ExternalSourcePoseCache.
-      # TODO(explore): whether camera-originated and external-source calibration
-      # handling should share an abstraction — see ADR 0016 Future Work. Do not unify yet.
-      if topic['_topic_id'] != PubSub.DATA_EXTERNAL:
-        self.cache_manager.refreshScenesForCamParams(jdata)
+      # MQTT optics (intrinsics/distortion/resolution) are applied ephemerally with
+      # extrinsics in processCameraData → cameraSnapshot when unlocked. They are not
+      # persisted to Manager. External-source messages still resolve via
+      # ExternalSourcePoseCache (ADR 0016).
 
       if self.rewrite_all_time:
         msg_when = now

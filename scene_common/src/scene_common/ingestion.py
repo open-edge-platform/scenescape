@@ -115,6 +115,10 @@ class SceneDataIngestion:
     """Return all live objects for *detection_type*."""
     return [o for o in self._objects.values() if o.category == detection_type]
 
+  def get_all_objects(self) -> List[SimpleNamespace]:
+    """Return all live objects across detection types."""
+    return list(self._objects.values())
+
   def deserialize(
     self,
     serialized_objects,
@@ -193,6 +197,7 @@ class SceneDataIngestion:
     # None when omitted so Analytics can FOV-fill. Explicit [] is preserved here
     # but Analytics _updateVisible also treats empty as fill-eligible.
     obj.visibility = obj_data.get('visibility')
+    obj._visibility_from_producer = bool(obj.visibility)
     self._set_observation_info(obj, obj_data)
 
     # Reconstruct bbMeters from size when available

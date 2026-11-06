@@ -96,6 +96,56 @@ in the integration guide.
 
 ## Regulated Scene Output Message Format
 
+The `cameras` list includes configured cameras and their latest valid per-message
+poses. Entries with `pose_provenance.class` of `live` drive live camera movement
+in the 3D UI; `calibration` entries do not overwrite unsaved camera edits.
+Invalid extrinsics are logged and leave the last valid pose (or configured pose)
+intact. Live poses also apply to projected camera bounds without changing stored
+calibration. Missing or empty object visibility is filled using the latest valid
+observation poses before events are evaluated; nonempty producer visibility is
+preserved. Each regulated publication reprojects camera bounds for all cached
+categories against the same observation poses, including categories absent from
+that input frame.
+
+Each runtime `Cam` retains one effective pose, its `pose_locked` flag, and
+`pose_provenance` (`class` + `origin`), for every perceptual modality registered
+as a camera (RGB, depth, LiDAR/radar detectors, and similar). Durable
+calibration belongs to Manager, not a second runtime pose. When unlocked,
+Analytics accepts MQTT observation extrinsics and optics (`intrinsics` /
+`distortion` / `resolution`) on the same ephemeral path as Controller and retains
+an accepted live observation (pose and its MQTT optics) across configuration
+refreshes. Optics-only MQTT updates do not stamp `pose_provenance`; extrinsics
+do (`class: live`). Intrinsics provenance is not covered —
+`pose_provenance` must not be read as authorship of MQTT or Manager optics (see
+[ADR 18](../../../adr/0018-camera-pose-provenance.md)). Before the first
+observation it uses stored calibration (`class: calibration`, with `origin` from
+Manager `calibration_origin`, or `unknown` when untagged). When locked,
+observation extrinsics and optics are ignored and stored calibration reloads on
+refresh. External-source publishers keep a separate ephemeral TTL pose/intrinsics
+cache (ADR 16) and are not covered by `pose_locked` / regulated
+`pose_provenance` today.
+
+Locking resets the effective pose when configuration refreshes; unlocking starts
+from calibration until the next valid observation. Saving calibration alone while
+unlocked does not reset a live pose. Visibility, projected bounds, and published
+camera poses use one atomic observation snapshot. Live poses do not expire on
+missing or invalid input. Removing a camera, moving it to another scene, or
+restarting the process discards its live pose.
+See [Camera Pose Lock](../../api-reference.md#camera-pose-lock) and
+[ADR 18](../../../adr/0018-camera-pose-provenance.md) for configuration and
+provenance details.
+
+Each camera entry contains `id`, `translation`, `rotation`, `scale`,
+`pose_locked`, and `pose_provenance`. The deprecated `dynamic_pose` flag remains
+as an alias of `pose_provenance.class === "live"` during migration; new consumers
+must use `pose_provenance`. Published `rotation` is always a normalized
+quaternion in `[x, y, z, w]` order, mapping camera-local axes into the scene
+coordinate system. Configured and incoming intrinsic XYZ Euler rotations
+(degrees) remain supported as inputs and are converted to quaternions for
+publication. Consumers must not interpret the published rotation as Euler
+angles; display-specific conversion belongs in the client. Translation and scale
+retain their existing scene units and per-axis conventions.
+
 Published on MQTT topic: `scenescape/regulated/scene/{scene_id}`
 
 The Analytics service publishes regulated (rate-controlled) tracking results aggregating all
@@ -111,7 +161,10 @@ applications.
 | `name`       | string                | Scene name                                                                                                  |
 | `scene_rate` | number                | Regulated publication rate in Hz                                                                            |
 | `rate`       | object                | Map of camera IDs to their current framerates (e.g. `{"cam1": 10.0}`)                                       |
+| `cameras`    | array                 | Effective poses with `pose_locked` and `pose_provenance` (see schema below)                                 |
 | `objects`    | array                 | Tracked objects; see [Common Output Track Fields](../controller/data_formats.md#common-output-track-fields) |
+
+Machine-readable contract: [`analytics/schema/regulated-scene.schema.json`](../../../../analytics/schema/regulated-scene.schema.json).
 
 ### Example Regulated Scene Message
 
@@ -131,6 +184,20 @@ decisions without querying the descriptor store or matching embeddings.
     "atag-qcam1": 9.998,
     "atag-qcam2": 10.018
   },
+  "cameras": [
+    {
+      "id": "atag-qcam1",
+      "translation": [1.2, 3.4, 2.5],
+      "rotation": [0.0, 0.0, 0.0, 1.0],
+      "scale": [1.0, 1.0, 1.0],
+      "pose_locked": true,
+      "pose_provenance": {
+        "class": "calibration",
+        "origin": "manager.rest"
+      },
+      "dynamic_pose": false
+    }
+  ],
   "objects": [
     {
       "id": "0c373dbf-2a1d-49b7-ba2d-48711d189971",

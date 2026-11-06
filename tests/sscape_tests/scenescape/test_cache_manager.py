@@ -442,6 +442,58 @@ class TestCacheManagerInvalidation:
 class TestCacheManagerSceneReuse:
   """Test which scenes survive an invalidate() by being reused."""
 
+  def test_replacement_scene_retains_observed_camera_pose_only(self):
+    """Unlocked live extrinsics survive a scene rebuild that replaces the Scene."""
+    from scene_common.scene_model import SceneModel
+
+    camera_data = {
+      'uid': 'camera-1', 'resolution': [640, 480],
+      'intrinsics': {'fx': 500, 'fy': 500, 'cx': 320, 'cy': 240},
+      'translation': [0, 0, 3], 'rotation': [180, 0, 0], 'scale': [1, 1, 1],
+      'pose_locked': False,
+    }
+    previous = SceneModel('scene-name', None)
+    previous.uid = 'scene-uid'
+    previous.sensors = {}
+    previous.tracker = Mock()
+    previous.updateCameras([camera_data])
+    previous.updateCameraPose('camera-1', {
+      'translation': [10, 20, 3], 'rotation': [180, 0, 0],
+    })
+
+    replacement = SceneModel('scene-name', None)
+    replacement.uid = 'scene-uid'
+    replacement.sensors = {}
+    replacement.updateCameras([dict(camera_data, intrinsics={
+      'fx': 900, 'fy': 900, 'cx': 320, 'cy': 240,
+    })])
+    cache_mgr = CacheManager.__new__(CacheManager)
+    cache_mgr._old_scene_cache = {'scene-uid': previous}
+    cache_mgr.cached_scenes_by_uid = {}
+    cache_mgr._scene_signatures = {}
+    cache_mgr.tracker_config_data = {}
+    cache_mgr.reid_config_data = {}
+    cache_mgr.pose_adjustment_config_data = {}
+    cache_mgr._scene_cls = SimpleNamespace(deserialize=Mock(return_value=replacement))
+
+    retired = cache_mgr._applySceneResults([{'uid': 'scene-uid', 'name': 'scene-name'}])
+
+    camera = cache_mgr.cached_scenes_by_uid['scene-uid'].cameras['camera-1']
+    assert previous in retired
+    assert camera.pose_source == 'observation'
+    assert camera.pose_provenance['class'] == 'live'
+    assert camera.pose_provenance['origin'] == 'detector.extrinsics'
+    assert camera.pose.translation.asNumpyCartesian == pytest.approx([10, 20, 3])
+    # Live observation retains prior optics across unlocked scene rebuild.
+    assert camera.pose.intrinsics.intrinsics[0, 0] == 500
+
+    replacement.updateCameras([dict(camera_data, pose_locked=True)])
+    replacement.retainObservedCameraPoses(previous)
+    configured = replacement.cameras['camera-1']
+    assert configured.pose_source == 'configured'
+    assert configured.pose_provenance['class'] == 'calibration'
+    assert configured.pose.translation.asNumpyCartesian == pytest.approx([0, 0, 3])
+
   def test_scene_needs_full_reuse_returns_none_when_no_cache(self):
     """No old cache means nothing to reuse."""
     cache_mgr = CacheManager.__new__(CacheManager)
