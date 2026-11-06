@@ -161,6 +161,34 @@ def test_create_trackers_propagates_association_config(monkeypatch):
   assert 'person' in parent.trackers
 
 
+@pytest.mark.parametrize('association_config, expected', [
+  ({'method': 'euclidean', 'max_radius_m': 3.0},
+   (rv.tracking.DistanceType.Euclidean, 3.0, 3.0)),
+  ({'method': 'position_mahalanobis', 'gate_probability': 0.95, 'max_radius_m': 7.0},
+   (rv.tracking.DistanceType.PositionMahalanobis, rv.tracking.chi2_threshold(0.95), 7.0)),
+])
+def test_update_tracks_forwards_association_params(monkeypatch, association_config, expected):
+  calls = []
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.association_config = normalize_association_config(association_config)
+  tracker.tracker = SimpleNamespace(track=lambda objects, timestamp, **kwargs: calls.append(
+    (objects, timestamp, kwargs)))
+  monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: sscape_object.name)
+  person = SimpleNamespace(name='person')
+  car = SimpleNamespace(name='car')
+
+  tracker.update_tracks([person], 1.0)
+  tracker.update_tracks_batched([[person], [car]], 2.0)
+
+  assert [(objects, timestamp) for objects, timestamp, _ in calls] == [
+    (['person'], 1.0), ([['person'], ['car']], 2.0)]
+  distance_type, distance_threshold, max_radius_m = expected
+  for _, _, kwargs in calls:
+    assert kwargs['distance_type'] == distance_type
+    assert kwargs['distance_threshold'] == pytest.approx(distance_threshold)
+    assert kwargs['max_radius_m'] == pytest.approx(max_radius_m)
+
+
 @pytest.mark.parametrize("yaw", [
   -math.pi,
   -math.pi / 2.0,
