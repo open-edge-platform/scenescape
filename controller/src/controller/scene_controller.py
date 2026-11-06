@@ -944,7 +944,14 @@ class SceneController:
         'tracked_id_counts': tracked_id_counts,
         'msg_when': msg_when,
       }
-      routed_pixels = self._routeExternalObjects(pixel_objects, **route_kwargs)
+      # Pixel detections with track=false match camera input while tracking is
+      # off: discard them (no identity claims, no tracker input). Cartesian
+      # track=false observations and the platform self-object still use the
+      # trusted-identity path below.
+      if source_track is False:
+        routed_pixels = []
+      else:
+        routed_pixels = self._routeExternalObjects(pixel_objects, **route_kwargs)
       routed_translations = self._routeExternalObjects(
         translation_objects, **route_kwargs)
 
@@ -1129,20 +1136,14 @@ class SceneController:
       cameraID=source_id if camera_id is None else f'{source_id}:{camera_id}',
       pose=CameraPose(camera_pose.pose_mat, synthetic_intrinsics),
     )
+    if source_track is False:
+      # Caller should already have skipped routing; keep this guard so pixel
+      # detections never enter the trusted-identity merge path.
+      return [], []
+
     created_pixel_objects = scene.createMovingObjectsForDetection(
       detection_type, routed_pixel_objects, msg_when, pixel_camera)
-
-    if source_track is not False:
-      return list(created_pixel_objects), []
-
-    already_tracked_objects = []
-    for pixel_object in created_pixel_objects:
-      if pixel_object.sceneLoc is None:
-        log.warning(f"Discarding external pixel detection without scene location: "
-                    f"source={source_id} scene={scene.uid}")
-        continue
-      already_tracked_objects.append(pixel_object)
-    return [], already_tracked_objects
+    return list(created_pixel_objects), []
 
   @staticmethod
   def _withRemoteChildParent(info, parent_uid):

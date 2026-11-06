@@ -263,20 +263,22 @@ publishes over authenticated MQTT, see
 | `intrinsics` | object                | Conditional | Legacy single-view calibration for pixel detections in top-level `objects`; newer multi-camera sources put calibration in each camera entry                                                                                                                                   |
 | `distortion` | object                |     No      | Optional distortion coefficients paired with top-level `intrinsics` for legacy external pixel detections                                                                                                                                                                      |
 | `cameras`    | array                 |     No      | Camera configurations and the observations captured by each camera. Each entry has a stable `id`, body-relative mount, calibration, and its own `objects` array. See [Drone Coordinate and Camera Contract](#drone-coordinate-and-camera-contract)                            |
-| `track`      | boolean               |     No      | Applies to source-level and all camera-level objects. `false` uses the source-provided `id` as an exclusive identity claim; `true` (or omitted) routes observations through Scenescape tracking                                                                               |
+| `track`      | boolean               |     No      | Applies to source-level and all camera-level objects. `true` (or omitted) routes observations through Scenescape tracking after dual transform; `false` uses source-provided `id` as an exclusive identity claim for Cartesian observations and discards pixel detections     |
 
 ### Drone Coordinate and Camera Contract
 
 Each entry in `cameras` describes one camera and owns the observations captured by it.
 The controller caches each camera's configuration with the source pose for transform
 reuse (internal TTL cache, not a consumer MQTT topic). UI frustums derived from
-object-graph metadata are follow-on work (Bar A). Multiple cameras may report the
-same object; use a consistent object `id` across those entries when `track=false`,
-or let Scenescape associate the observations when `track=true`.
+object-graph metadata are follow-on work (Bar A). Mounted-camera pixel detections
+are localized with a dual transform (platform pose composed with each camera mount)
+and, when `track` is true or omitted, enter Scenescape multi-camera fusion like
+ordinary camera input. With `track=false`, pixel detections are discarded (same as
+camera input while tracking is off); use Cartesian `translation` observations when
+the publisher asserts trusted object identity.
 
-With `track=false`, reusing the same `id` from different publishers is an identity
-collision and the later observation is rejected. Use `track=true` or omit `track`
-to let Scenescape associate observations through its normal tracking path.
+With `track=false`, reusing the same Cartesian object `id` from different publishers
+is an identity collision and the later observation is rejected.
 
 For a drone using this contract:
 
@@ -413,13 +415,14 @@ position-based ROI, tripwire, and sensor-tagging analytics, but are excluded fro
 volume/occupancy/collision analytics.
 
 The top-level source `track` field determines the tracking mode for detection
-objects in the message. When that value is `false`, each detection bypasses the
-kinematic tracker/ReID path and the published object identity is the
-source-provided `id`. When `track` is true or omitted, detections follow the
+objects in the message. When `track` is true or omitted, detections follow the
 normal Scenescape tracking path and the controller assigns the published object
-`id`, so the source message may omit detection `objects[*].id`. The platform
-self-object (`id == source_id`) is always treated as a trusted identity
-regardless of `track`.
+`id`, so the source message may omit detection `objects[*].id`. When
+`track=false`, Cartesian detections bypass the kinematic tracker/ReID path and
+the published object identity is the source-provided `id`; pixel
+(`bounding_box_px`) detections are discarded, matching camera input while
+tracking is off. The platform self-object (`id == source_id`) is always treated
+as a trusted identity regardless of `track`.
 
 When an object includes `bounding_box_px`, it is treated as a camera-style pixel detection rather
 than as a source-local Cartesian observation. Do not send both `translation` and `bounding_box_px`
@@ -431,8 +434,8 @@ on the same object. In that case:
 - Scenescape computes the object location with the same pixel-to-location algorithm used for camera
   detections.
 - With `track=true` or when `track` is omitted, the localized detection enters normal Scenescape
-  tracking. With `track=false`, it bypasses tracking and keeps its source-provided `id`, just like
-  a source-local Cartesian observation.
+  tracking after the platform/mount dual transform. With `track=false`, pixel detections are
+  discarded; they do not become trusted-identity tracks.
 
 ### Pose Caching and Message Ordering
 

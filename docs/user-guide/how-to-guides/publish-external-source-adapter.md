@@ -94,10 +94,12 @@ fields and examples; do not invent alternate shapes.
      See [Drone Coordinate and Camera Contract](../microservices/controller/data_formats.md#drone-coordinate-and-camera-contract).
 
 5. **Choose whether the source message should be tracked by Scenescape**. The
-   top-level source `track` value applies to all objects in that message,
-   including pixel detections. `track=false` preserves the source `id`, so
-   keep those ids persistent and unique within your source. When `track` is
-   `true` or omitted, the controller assigns published track ids. See
+   top-level source `track` value applies to all objects in that message.
+   When `track` is `true` or omitted, mounted-camera pixel detections are
+   dual-transformed into the scene and the controller assigns published track
+   ids. `track=false` preserves source `id` for Cartesian observations (keep
+   those ids persistent and unique within your source) and **discards** pixel
+   detections, matching camera input while tracking is off. See
    [Source-Identity Trust for Untracked Objects, with Collision Detection](../microservices/controller/data_formats.md#source-identity-trust-for-untracked-objects-with-collision-detection).
 
 6. **Resolve coordinate conventions in the converter**, not in the controller:
