@@ -867,6 +867,46 @@ class TestExternalSourceTrackRouting:
       ('scene-1', 'person', 'drone-1', 'drone-1', 10.0),
     ]
 
+  @pytest.mark.parametrize('track', [True, False])
+  def test_drone_topic_updates_person_category_separately(self, track):
+    controller = self._makeController()
+    scene = self._makeScene()
+    for when, translation in [(10.0, [1.0, 0.0, 0.0]),
+                              (11.0, [2.0, 0.0, 0.0])]:
+      jdata = {
+        'source_id': 'drone-1',
+        'track': track,
+        'objects': [],
+        'cameras': [{
+          'id': 'front',
+          'mount': {
+            'translation': [0.0, 0.0, 0.0],
+            'rotation': IDENTITY_ROTATION,
+          },
+          'intrinsics': {'fx': 900, 'fy': 900, 'cx': 640, 'cy': 360},
+          'objects': [{
+            'id': 'person-1',
+            'category': 'person',
+            'translation': translation,
+          }],
+        }],
+      }
+
+      controller._handleExternalSourceObject(scene, jdata, 'drone', when)
+
+    person_calls = [call for call in scene.finishProcessing.call_args_list
+                    if call.args[0] == 'person']
+    assert len(person_calls) == 2
+    assert [call.args[1] for call in person_calls] == [10.0, 11.0]
+    observations = [call.args[2] + call.args[3] for call in person_calls]
+    assert [objects[0]['translation'] for objects in observations] == [
+      [1.0, 0.0, 0.0], [2.0, 0.0, 0.0]]
+    drone_calls = [call for call in scene.finishProcessing.call_args_list
+                   if call.args[0] == 'drone']
+    assert len(drone_calls) == 2
+    assert all([obj['id'] for obj in call.args[3]] == ['drone-1']
+               for call in drone_calls)
+
   def test_camera_pixel_detection_composes_mount_with_source_pose(self):
     controller = self._makeController()
     scene = self._makeScene()
@@ -904,8 +944,11 @@ class TestExternalSourceTrackRouting:
       }],
     }
 
-    controller._handleExternalSourceObject(scene, jdata, 'person', 10.0)
+    controller._handleExternalSourceObject(scene, jdata, 'drone', 10.0)
 
+    assert scene.createMovingObjectsForDetection.call_args.args[0] == 'person'
+    assert [call.args[0] for call in scene.finishProcessing.call_args_list] == [
+      'drone', 'person']
     pixel_camera = scene.createMovingObjectsForDetection.call_args[0][3]
     mount_pose = CameraPose({
       'translation': mount['translation'],

@@ -1328,6 +1328,35 @@ class TestHandleMovingObjectExternal:
     controller.publishDetections.assert_called_once()
     controller.cache_manager.invalidate.assert_not_called()
 
+  @pytest.mark.parametrize('camera_observation', [False, True])
+  @patch('controller.scene_controller.metrics')
+  @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
+  @patch('controller.scene_controller.get_epoch_time', return_value=100.0)
+  def test_drone_topic_publishes_person_observations(
+    self, _mock_epoch, _mock_adjust, _mock_metrics, camera_observation
+  ):
+    controller = self._build_controller()
+    scene = controller._scenesForExternalPublisher.return_value[0]
+    scene.tracker.currentObjects.side_effect = lambda category: [category]
+    observation = {'id': 'person-1', 'category': 'person', 'translation': [1, 2, 0]}
+    payload = {
+      'timestamp': '2026-01-01T00:00:00Z',
+      'source_id': 'drone-1',
+      'objects': [] if camera_observation else [observation],
+    }
+    if camera_observation:
+      payload['cameras'] = [{'id': 'front', 'objects': [observation]}]
+    message = self._external_message('drone-1', payload)
+    message.topic = PubSub.formatTopic(
+      PubSub.DATA_EXTERNAL, scene_id='drone-1', thing_type='drone')
+
+    controller._processMovingObjectMessage(None, None, message)
+
+    assert [call.args[3] for call in controller.publishDetections.call_args_list] == [
+      'drone', 'person']
+    assert [call.args[1] for call in controller.publishDetections.call_args_list] == [
+      ['drone'], ['person']]
+
   @patch('controller.scene_controller.metrics')
   @patch('controller.scene_controller.adjust_time', return_value=(0.0, None))
   @patch('controller.scene_controller.get_epoch_time', return_value=100.0)

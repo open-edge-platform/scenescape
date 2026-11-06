@@ -659,6 +659,7 @@ class SceneController:
           if not scenes:
             log.warning("No scene binding for external publisher %s", publisher_id)
             return
+          detection_types = self._externalDetectionTypes(jdata, topic['thing_type'])
           for scene in scenes:
             jdata_scene = dict(jdata)
             jdata_scene['objects'] = [dict(obj) for obj in jdata.get('objects', [])]
@@ -864,10 +865,37 @@ class SceneController:
     source_track = jdata.get('track')
     observation_groups = self._externalObservationGroups(
       jdata, camera_pose, synthetic_intrinsics)
-    self._ingestExternalObservationGroups(
-      scene, jdata, observation_groups, source_id, detection_type,
-      source_track, msg_when)
+    category_groups = self._externalObservationGroupsByCategory(
+      observation_groups, detection_type)
+    for category, groups in category_groups.items():
+      self._ingestExternalObservationGroups(
+        scene, jdata, groups, source_id, category, source_track, msg_when)
     return True
+
+  @staticmethod
+  def _externalDetectionTypes(jdata, detection_type):
+    """Include observed categories as well as the external platform category."""
+    categories = {detection_type: None}
+    observations = list(jdata.get('objects', []))
+    for camera in jdata.get('cameras', []):
+      observations.extend(camera['objects'])
+    for observation in observations:
+      categories[observation.get('category', detection_type)] = None
+    return list(categories)
+
+  @staticmethod
+  def _externalObservationGroupsByCategory(observation_groups, detection_type):
+    """Keep each observation's category and camera frame on its tracker path."""
+    category_groups = {detection_type: []}
+    for observations, camera_pose, intrinsics, camera_id in observation_groups:
+      grouped = {}
+      for observation in observations:
+        category = observation.get('category', detection_type)
+        grouped.setdefault(category, []).append(observation)
+      for category, objects in grouped.items():
+        category_groups.setdefault(category, []).append(
+          (objects, camera_pose, intrinsics, camera_id))
+    return category_groups
 
   @staticmethod
   def _ensurePlatformObject(objects, source_id, detection_type):
@@ -972,64 +1000,16 @@ class SceneController:
       for observation in observations
     ]
     tracked_id_counts = self._countExternalObjectIds(all_objects)
-    pixel_moving_objects = []
+    moving_objects = []
     already_tracked_objects = []
     next_index = 0
-    for observations, camera_pose, intrinsics, camera_id in observation_groups:
-      pixel_objects, translation_objects = self._partitionExternalObjects(
-        observations, next_index)
-      next_index += len(observations)
-      route_kwargs = {
-        'source_id': source_id,
-        'scene_uid': scene.uid,
-        'detection_type': detection_type,
-        'source_track': source_track,
-        'tracked_id_counts': tracked_id_counts,
-        'msg_when': msg_when,
-      }
-      # Pixel detections with track=false match camera input while tracking is
-      # off: discard them (no identity claims, no tracker input). Cartesian
-      # track=false observations and the platform self-object still use the
-      # trusted-identity path below.
-      if source_track is False:
-        routed_pixels = []
-      else:
-        routed_pixels = self._routeExternalObjects(pixel_objects, **route_kwargs)
-      routed_translations = self._routeExternalObjects(
-        translation_objects, **route_kwargs)
-
-      moving, already_tracked = self._ingestExternalPixelObjects(
-        scene, routed_pixels, intrinsics, camera_pose, source_id,
-        detection_type, source_track, msg_when, camera_id=camera_id)
-      pixel_moving_objects.extend(moving)
+    for observation_group in observation_groups:
+      moving, already_tracked = self._ingestExternalObservationGroup(
+        scene, jdata, observation_group, source_id, detection_type,
+        source_track, tracked_id_counts, next_index, msg_when)
+      moving_objects.extend(moving)
       already_tracked_objects.extend(already_tracked)
-
-      if not routed_translations:
-        continue
-
-      platform_translations = [
-        obj for obj in routed_translations if obj.get('id') == source_id]
-      other_translations = [
-        obj for obj in routed_translations if obj.get('id') != source_id]
-
-      # Platform self-object always merges as trusted identity (retrack=False).
-      if platform_translations:
-        moving, already_tracked = self._ingestExternalTranslations(
-          scene, jdata, platform_translations, camera_pose, source_id,
-          detection_type, retrack=False, msg_when=msg_when)
-        if moving is not None:
-          pixel_moving_objects.extend(moving)
-          already_tracked_objects.extend(already_tracked)
-
-      if not other_translations:
-        continue
-
-      moving, already_tracked = self._ingestExternalTranslations(
-        scene, jdata, other_translations, camera_pose, source_id,
-        detection_type, retrack=(source_track is not False), msg_when=msg_when)
-      if moving is not None:
-        pixel_moving_objects.extend(moving)
-        already_tracked_objects.extend(already_tracked)
+      next_index += len(observation_group[0])
 
     # Always run the tracker, even with zero observations: an accepted message
     # with no detections is an empty measurement (mirroring how empty camera
@@ -1037,7 +1017,63 @@ class SceneController:
     # current-objects state clears instead of freezing until the next
     # detection arrives. Pose-only updates still carry the platform object.
     scene.finishProcessing(
-      detection_type, msg_when, pixel_moving_objects, already_tracked_objects)
+      detection_type, msg_when, moving_objects, already_tracked_objects)
+
+  def _ingestExternalObservationGroup(self, scene, jdata, observation_group,
+                                     source_id, detection_type, source_track,
+                                     tracked_id_counts, start_index, msg_when):
+    """Route and ingest observations belonging to one coordinate frame."""
+    observations, camera_pose, intrinsics, camera_id = observation_group
+    pixel_objects, translation_objects = self._partitionExternalObjects(
+      observations, start_index)
+    route_kwargs = {
+      'source_id': source_id,
+      'scene_uid': scene.uid,
+      'detection_type': detection_type,
+      'source_track': source_track,
+      'tracked_id_counts': tracked_id_counts,
+      'msg_when': msg_when,
+    }
+    routed_pixels = self._routeExternalPixelObjects(pixel_objects, **route_kwargs)
+    routed_translations = self._routeExternalObjects(
+      translation_objects, **route_kwargs)
+
+    moving, already_tracked = self._ingestExternalPixelObjects(
+      scene, routed_pixels, intrinsics, camera_pose, source_id,
+      detection_type, source_track, msg_when, camera_id=camera_id)
+    translated, trusted = self._ingestExternalTranslationCategories(
+      scene, jdata, routed_translations, camera_pose, source_id,
+      detection_type, source_track, msg_when)
+    moving.extend(translated)
+    already_tracked.extend(trusted)
+    return moving, already_tracked
+
+  def _routeExternalPixelObjects(self, pixel_objects, **route_kwargs):
+    """Discard untracked pixel observations; route the remaining pixel objects."""
+    if route_kwargs['source_track'] is False:
+      return []
+    return self._routeExternalObjects(pixel_objects, **route_kwargs)
+
+  def _ingestExternalTranslationCategories(self, scene, jdata,
+                                           routed_translations, camera_pose,
+                                           source_id, detection_type,
+                                           source_track, msg_when):
+    """Ingest platform and observed translations with their respective identity policies."""
+    platform = [obj for obj in routed_translations if obj.get('id') == source_id]
+    other_objects = [obj for obj in routed_translations if obj.get('id') != source_id]
+    moving_objects = []
+    already_tracked_objects = []
+    for observations, retrack in (
+        (platform, False), (other_objects, source_track is not False)):
+      if not observations:
+        continue
+      moving, already_tracked = self._ingestExternalTranslations(
+        scene, jdata, observations, camera_pose, source_id,
+        detection_type, retrack=retrack, msg_when=msg_when)
+      if moving is not None:
+        moving_objects.extend(moving)
+        already_tracked_objects.extend(already_tracked)
+    return moving_objects, already_tracked_objects
 
   @staticmethod
   def _ingestExternalTranslations(scene, jdata, routed_translations, camera_pose,
