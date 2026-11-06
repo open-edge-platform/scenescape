@@ -51,8 +51,10 @@ run concurrently on a completion queue under one deadline (`timeout_ms`).
 The channel starts connecting at startup, so the first chunk does not spend
 its deadline on name resolution and the handshake.
 Each valid measurement replaces the local position and size, sets
-`zMeasured` and `measurementNoiseCov` (R), and lowers the returned centre z
-by half the height to the object base. Yaw and `has_orientation` stay as set
+`zMeasured` and `measurementNoiseCov` (R), and keeps the returned z, the
+object's centre of mass (see
+[z reference in experimental mode](#z-reference-in-experimental-mode)). Yaw
+and `has_orientation` stay as set
 locally. Sensor-frame translations, boxes the service would reject, cameras
 the local projector cannot project, unobservable depths and invalid
 measurements keep the local projection. A failed call, a malformed reply or
@@ -63,6 +65,29 @@ for remote failures, so the worker never stops on them.
 
 The gRPC C++ code is generated at build time from `api/projection` into the
 `tracker_projection_proto` library (protobuf and `grpc_cpp_plugin` from Conan).
+
+#### z reference in experimental mode
+
+The returned position and its R describe the object's centre of mass, so the
+workers that use a `RemoteProjector` track the centre of mass
+([`z_reference.hpp`](../inc/z_reference.hpp)):
+
+- After projection, every input without measured z (a pixel box that keeps the
+  local projection) is raised by half its height (`toCentreOfMass`). Remote
+  measurements and sensor-frame translations carry measured z and are used
+  unchanged; translations are assumed to be the centre of mass.
+- Published tracks report the footprint base: `translation[2]` is the track's
+  z minus half its height (`footprintBaseZ`). x, y, velocity, size and rotation
+  are not converted.
+
+The scheduler passes `ZReference::CentreOfMass` only to workers built by the
+`ProjectorFactory`. Workers built with the camera-model constructor use
+`ZReference::FootprintBase` and convert nothing, so the output without remote
+projection is unchanged. The factory is fixed at startup, so tracks never mix
+references. A 3D source that reports its footprint base instead of its centre
+is published half its height too low. Pixel-box tracks publish a z that follows
+the per-frame box height instead of 0: in a simulation with production tracker
+settings at 15 fps, about 5–6 cm RMS in z and 3–5 cm/s RMS in `velocity[2]`.
 
 #### Why local projection runs on every frame
 
@@ -418,7 +443,9 @@ block with 2 degrees of freedom. Birth clustering across cameras uses XY distanc
 unless both detections have measured z, so stacked 3D detections stay separate
 while a pixel box and a 3D detection of the same object still fuse. Pixel boxes
 report the ground point and 3D detectors usually report the box centre, so a
-track fed by both sources mixes the two z references.
+track fed by both sources mixes the two z references. With remote projection,
+the workers convert pixel boxes to the centre of mass, so the references agree
+(see [z reference in experimental mode](#z-reference-in-experimental-mode)).
 
 ### Rotation publishing
 

@@ -332,8 +332,28 @@ Failed calls and invalid replies do not stop the service. They are counted in
 validation failure in the `reason` attribute, and logged as a warning at most every 10 seconds per
 scene and category. An unobservable depth is not counted. See [How to Enable Observability](../../other-topics/how-to-enable-observability.md).
 
-The returned position is the object centre; it is lowered by half the object height to the object
-base used by the trackers. Detector yaw is kept.
+A remote measurement replaces the position and size of its detection; detector yaw is kept.
+
+### Height Reference of Tracked Objects
+
+The returned position and its R describe the object's centre of mass, so with remote projection
+both trackers track the centre of mass:
+
+- Remote measurements are used as returned.
+- Pixel boxes that keep the local projection are raised by half their height.
+- 3D detections (`translation` from cameras or external sources) are assumed to be the object's
+  centre of mass and are used unchanged. A source that reports the footprint base is published
+  half its height too low.
+- Published tracks report the footprint base: `translation[2]` is the tracked z minus half the
+  tracked height. x, y, velocity, size and rotation are not converted.
+
+Without remote projection nothing is converted. The mode is fixed at startup, so tracks never mix
+references.
+
+With remote projection, pixel-box tracks publish a z that follows the per-frame box height instead
+of 0. In a simulation with production tracker settings at 15 fps, the published z varied by
+5.1 cm RMS (at most 11 cm) for a box-height noise of 8 cm and 6.3 cm RMS (at most 21 cm) for
+25 cm; `velocity[2]` varied by 3.5 and 5.2 cm/s RMS. x and y are unchanged.
 
 ## Persisting Object Attributes Across Detection Gaps
 

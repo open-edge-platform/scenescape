@@ -64,7 +64,8 @@ guidance, rejection reasons, and full JSON examples are defined only in
 2. Choose a persistent `source_id` and per-object `id` (see Choosing a
    `source_id` in `data_formats.md`); never mint fresh UUIDs on each restart.
 3. Map native observations into source-local `translation` (metres) relative to
-   the source origin described by `pose`.
+   the source origin described by `pose`, at the object's centre of mass (see
+   `translation` in External Detection Object Fields, `data_formats.md`).
 4. Choose `reference_frame` (`wgs84` vs `scene`) correctly; honor
    `CONTROLLER_TRUSTED_POSITIONING_SOURCES` for `scene` poses.
 5. Convert the source's native orientation (euler, DCM, etc.) into the

@@ -255,12 +255,20 @@ default 50; a warning is logged when it exceeds the chunk interval), `insecure` 
 `TRACKER_REMOTE_PROJECTION_MODE`, `_TIMEOUT_MS`, `_INSECURE` and `_CA_CERT`.
 
 Each camera frame of a chunk is one call; the calls of a chunk run concurrently. Valid measurements
-replace the local projection of their detections (centre z lowered to the object base); everything
+replace the local projection of their detections; everything
 else keeps the local projection. A failed call or an invalid reply never stops the service: it is
 counted in `tracker.remote_projection.failed_calls` and logged as a rate-limited warning. The call
 time is part of `tracker.stage.transform_duration`. There is no retry backoff beyond gRPC's own
 reconnection backoff: an unreachable service fails fast, and an unresponsive one costs at most
 `timeout_ms` per chunk.
+
+The returned position and its R describe the object's centre of mass, so with remote projection the
+workers track the centre of mass: remote measurements are used as returned, pixel boxes that keep
+the local projection are raised by half their height, and 3D `translation` detections are assumed
+to be the centre of mass. Published tracks report the footprint base (`translation[2]` is the
+tracked z minus half the tracked height). Without remote projection nothing is converted. With it,
+pixel-box tracks publish a z that follows the per-frame box height instead of 0 (about 5–6 cm RMS
+in z and 3–5 cm/s RMS in `velocity[2]` in simulation).
 
 ### Observability
 
