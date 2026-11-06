@@ -1390,12 +1390,6 @@ export default class SceneCamera extends THREE.Object3D {
       loader.load(
         image,
         (texture) => {
-<<<<<<< HEAD
-          this.resolution = nativeResolution || {
-            w: texture.image.width,
-            h: texture.image.height,
-          };
-=======
           // Drop frames from before the PTZ stopped or for an earlier pose.
           if (
             this.ptzPoseValid === false ||
@@ -1403,8 +1397,10 @@ export default class SceneCamera extends THREE.Object3D {
           ) {
             return;
           }
-          this.resolution = { w: texture.image.width, h: texture.image.height };
->>>>>>> main
+          this.resolution = nativeResolution || {
+            w: texture.image.width,
+            h: texture.image.height,
+          };
           this.sceneCamera.aspect = texture.image.width / texture.image.height;
           this.sceneCamera.fov = computeVerticalFOVFromFy(
             this.cameraMatrix.data64F[FY],
