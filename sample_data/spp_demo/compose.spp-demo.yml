@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# SPP demo overlay on docker-compose.yml (used by `make demo-spp` with the
+# "tracker" and "observation-processor" profiles): the Tracker service sends
+# each camera frame to the observation processor service and tracks its
+# mesh-conditioned measurements and their noise covariance.
+
+services:
+  tracker:
+    environment:
+      - TRACKER_EXPERIMENTAL_OBSERVATION_PROCESSOR=true
+      - TRACKER_OBSERVATION_PROCESSOR_HOST=observation-processor.scenescape.intel.com
+      - TRACKER_OBSERVATION_PROCESSOR_PORT=50052
+      # The observation processor serves plaintext gRPC only.
+      - TRACKER_OBSERVATION_PROCESSOR_INSECURE=true
+    depends_on:
+      observation-processor:
+        condition: service_healthy

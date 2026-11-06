@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+requires = ["scikit-build-core>=0.8", "pybind11>=2.12"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "frustum-gaussian"
+version = "0.1.0"
+description = "Gaussian frustum projection for multi-camera 3D object tracking (C++/TBB)"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24"]
+
+[tool.scikit-build]
+cmake.source-dir = "cpp"
+cmake.build-type = "Release"
+build.verbose = false
+wheel.packages = ["python/frustum_gaussian"]
+
+[tool.scikit-build.cmake.define]
+FG_BUILD_TESTS = "OFF"
+FG_BUILD_BENCHMARKS = "OFF"
+# Portable container binaries: never bake the build host's ISA into the wheel.
+FG_NATIVE_ARCH = "OFF"
