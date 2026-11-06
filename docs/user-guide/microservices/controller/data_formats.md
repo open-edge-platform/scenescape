@@ -525,6 +525,9 @@ tracked object contains the following fields:
 >   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`)
 >
 > `angle_rad` is the major-axis orientation in the scene XY plane (radians from +X toward +Y).
+> The window has no centre of its own: the UIs draw it at the object's published (corrected)
+> `translation`, while the gate is centred on the predicted position. The drawing is exact for a
+> track without a detection in that frame and off by the Kalman correction otherwise.
 > Analytics passes the field through on regulated scene output when present.
 
 ## Data Scene Output Message Format

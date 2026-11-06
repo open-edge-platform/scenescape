@@ -127,6 +127,8 @@ def video_timing(start: float, end: float, data_fps: float,
 def confidence_ellipse(covariance: np.ndarray,
                        probability: float = CONFIDENCE_PROBABILITY) -> Tuple[float, float, float]:
   """Width, height and angle [deg] of the χ² confidence ellipse of a 2x2 covariance (2 DOF)."""
+  # Clamped as rv::chi2Threshold does, so a gate probability of 1.0 draws the gate the tracker uses.
+  probability = min(max(probability, 1e-9), 1.0 - 1e-9)
   threshold = -2.0 * math.log(1.0 - probability)
   eigenvalues, eigenvectors = np.linalg.eigh(covariance)
   eigenvalues = np.clip(eigenvalues, 0.0, None)

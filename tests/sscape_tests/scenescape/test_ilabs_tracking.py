@@ -45,6 +45,17 @@ def test_normalize_association_config_invalid_max_radius_uses_method_default():
   assert euclid['max_radius_m'] == pytest.approx(2.0)
 
 
+@pytest.mark.parametrize('max_radius_m', ['nan', 'inf', float('nan'), float('inf')])
+@pytest.mark.parametrize('method, expected_max_radius_m', [
+  ('euclidean', 2.0),
+  ('position_mahalanobis', 10.0),
+])
+def test_normalize_association_config_nonfinite_max_radius_uses_method_default(
+    method, expected_max_radius_m, max_radius_m):
+  config = normalize_association_config({'method': method, 'max_radius_m': max_radius_m})
+  assert config['max_radius_m'] == pytest.approx(expected_max_radius_m)
+
+
 @pytest.mark.parametrize('method, expected_max_radius_m', [
   ('euclidean', 2.0),
   ('position_mahalanobis', 10.0),
