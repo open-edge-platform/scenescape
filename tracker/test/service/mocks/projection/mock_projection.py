@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Mock remote projection service for tracker service tests.
+Mock observation processor service for tracker service tests.
 
 Implements scenescape.observation_processor.v1.ObservationProcessorService from the contract
 mounted at /protos/observation_processor.proto. Each detection gets a deterministic measurement

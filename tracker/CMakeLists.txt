@@ -114,9 +114,9 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/manager_rest_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/object_class.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_transformer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/detection_projector.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/remote_projector.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc_projection_client.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/observation_processor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/remote_observation_processor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc_observation_processor_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/reid_sighting.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp

@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include "remote_projector.hpp"
+#include "remote_observation_processor.hpp"
 
 #include "config_loader.hpp"
 #include "logger.hpp"
@@ -111,33 +111,35 @@ void applyMeasurement(const AcceptedMeasurement& measurement, rv::tracking::Trac
 
 } // namespace
 
-RemoteProjector::RemoteProjector(TrackingScope scope, std::unique_ptr<DetectionProjector> local,
-                                 std::shared_ptr<ProjectionClient> client, ConditioningMode mode)
+RemoteObservationProcessor::RemoteObservationProcessor(
+    TrackingScope scope, std::unique_ptr<ObservationProcessor> local,
+    std::shared_ptr<ObservationProcessorClient> client, ConditioningMode mode)
     : scope_(std::move(scope)), local_(std::move(local)), client_(std::move(client)), mode_(mode) {
     if (!local_ || !client_) {
-        throw std::invalid_argument("RemoteProjector requires a local projector and a client");
+        throw std::invalid_argument(
+            "RemoteObservationProcessor requires a local processor and a client");
     }
 }
 
-std::vector<std::optional<ProjectedDetections>>
-RemoteProjector::project(std::span<const DetectionBatch> batches) {
-    // Always project locally first; valid remote measurements overwrite it. See "Why local
-    // projection runs on every frame" in tracker/docs/implementation.md.
-    auto projected = local_->project(batches);
-    if (projected.size() != batches.size()) {
-        return projected;
+std::vector<std::optional<ProcessedObservations>>
+RemoteObservationProcessor::process(std::span<const DetectionBatch> batches) {
+    // Always process locally first; valid remote measurements overwrite it. See "Why local
+    // processing runs on every frame" in tracker/docs/implementation.md.
+    auto processed = local_->process(batches);
+    if (processed.size() != batches.size()) {
+        return processed;
     }
 
-    std::vector<ProjectionFrame> frames;
+    std::vector<ObservationProcessorFrame> frames;
     std::vector<size_t> frame_batches;
     std::vector<std::vector<size_t>> frame_detections;
     for (size_t b = 0; b < batches.size(); ++b) {
         const auto& batch = batches[b];
-        // Cameras the local projector cannot project are skipped by the worker.
-        if (!projected[b] || !projected[b]->covers(batch.detections.size())) {
+        // Cameras the local processor cannot process are skipped by the worker.
+        if (!processed[b] || !processed[b]->covers(batch.detections.size())) {
             continue;
         }
-        ProjectionFrame frame{batch.camera_id, batch.timestamp, {}};
+        ObservationProcessorFrame frame{batch.camera_id, batch.timestamp, {}};
         std::vector<size_t> indices;
         for (size_t d = 0; d < batch.detections.size(); ++d) {
             const auto& detection = batch.detections[d];
@@ -155,31 +157,32 @@ RemoteProjector::project(std::span<const DetectionBatch> batches) {
         frame_detections.push_back(std::move(indices));
     }
     if (frames.empty()) {
-        return projected;
+        return processed;
     }
 
-    std::vector<ProjectionReply> replies;
+    std::vector<ObservationProcessorReply> replies;
     try {
-        replies = client_->projectFrames(scope_.scene_id, scope_.category, mode_, frames);
+        replies = client_->processFrames(scope_.scene_id, scope_.category, mode_, frames);
     } catch (const std::exception& e) {
-        LOG_DEBUG("Remote projection client error for scope {}/{}: {}", scope_.scene_id,
+        LOG_DEBUG("Observation processor client error for scope {}/{}: {}", scope_.scene_id,
                   scope_.category, e.what());
-        replies.assign(frames.size(), ProjectionReply{kReasonClientError, {}});
+        replies.assign(frames.size(), ObservationProcessorReply{kReasonClientError, {}});
     }
     if (replies.size() != frames.size()) {
-        replies.assign(frames.size(), ProjectionReply{kReasonInvalidResponse, {}});
+        replies.assign(frames.size(), ObservationProcessorReply{kReasonInvalidResponse, {}});
     }
 
     for (size_t f = 0; f < frames.size(); ++f) {
         applyReply(frames[f].camera_id, replies[f], frame_detections[f],
-                   *projected[frame_batches[f]]);
+                   *processed[frame_batches[f]]);
     }
-    return projected;
+    return processed;
 }
 
-void RemoteProjector::applyReply(const std::string& camera_id, const ProjectionReply& reply,
-                                 std::span<const size_t> detection_indices,
-                                 ProjectedDetections& geometry) {
+void RemoteObservationProcessor::applyReply(const std::string& camera_id,
+                                            const ObservationProcessorReply& reply,
+                                            std::span<const size_t> detection_indices,
+                                            ProcessedObservations& geometry) {
     if (!reply.ok()) {
         reportFailure(camera_id, reply.error);
         return;
@@ -199,7 +202,7 @@ void RemoteProjector::applyReply(const std::string& camera_id, const ProjectionR
     bool invalid_measurement = false;
     for (size_t k = 0; k < measurements.size(); ++k) {
         if (measurements[k].unobservable) {
-            continue; // depth unobservable: keep the local projection
+            continue; // depth unobservable: keep the local processing
         }
         const auto accepted = acceptMeasurement(measurements[k]);
         if (!accepted) {
@@ -215,11 +218,12 @@ void RemoteProjector::applyReply(const std::string& camera_id, const ProjectionR
     }
 }
 
-void RemoteProjector::reportFailure(const std::string& camera_id, const std::string& reason) {
-    Metrics::inc_remote_projection_failed_calls({{kAttrScene, scope_.scene_id.c_str()},
-                                                 {kAttrCategory, scope_.category.c_str()},
-                                                 {kAttrCameraId, camera_id.c_str()},
-                                                 {kAttrReason, reason.c_str()}});
+void RemoteObservationProcessor::reportFailure(const std::string& camera_id,
+                                               const std::string& reason) {
+    Metrics::inc_observation_processor_failed_calls({{kAttrScene, scope_.scene_id.c_str()},
+                                                     {kAttrCategory, scope_.category.c_str()},
+                                                     {kAttrCameraId, camera_id.c_str()},
+                                                     {kAttrReason, reason.c_str()}});
 
     const auto now = std::chrono::steady_clock::now();
     if (last_warning_ != std::chrono::steady_clock::time_point{} &&
@@ -228,57 +232,61 @@ void RemoteProjector::reportFailure(const std::string& camera_id, const std::str
         return;
     }
     if (suppressed_warnings_ > 0) {
-        LOG_WARN("Remote projection failed for scope {}/{}, camera '{}' ({}); using local "
-                 "projection ({} more failures since the previous warning)",
+        LOG_WARN("Observation processor call failed for scope {}/{}, camera '{}' ({}); using local "
+                 "processing ({} more failures since the previous warning)",
                  scope_.scene_id, scope_.category, camera_id, reason, suppressed_warnings_);
     } else {
-        LOG_WARN("Remote projection failed for scope {}/{}, camera '{}' ({}); using local "
-                 "projection",
+        LOG_WARN("Observation processor call failed for scope {}/{}, camera '{}' ({}); using local "
+                 "processing",
                  scope_.scene_id, scope_.category, camera_id, reason);
     }
     last_warning_ = now;
     suppressed_warnings_ = 0;
 }
 
-ProjectorFactory makeProjectorFactory(const ServiceConfig& config,
-                                      const ProjectionClientFactory& connect) {
-    if (!config.tracking.experimental_remote_projection) {
+ObservationProcessorFactory
+makeObservationProcessorFactory(const ServiceConfig& config,
+                                const ObservationProcessorClientFactory& connect) {
+    if (!config.tracking.experimental_observation_processor) {
         return {};
     }
-    const auto& endpoint = config.infrastructure.remote_projection;
+    const auto& endpoint = config.infrastructure.observation_processor;
     if (!endpoint || !endpoint->hasEndpoint()) {
-        LOG_WARN("Experimental remote projection is enabled, but its host and port are not set; "
-                 "using local projection");
+        LOG_WARN(
+            "Experimental observation processor is enabled, but its host and port are not set; "
+            "using local processing");
         return {};
     }
 
-    std::shared_ptr<ProjectionClient> client;
+    std::shared_ptr<ObservationProcessorClient> client;
     try {
         client = connect(*endpoint);
     } catch (const std::exception& e) {
-        LOG_ERROR("Experimental remote projection disabled, using local projection: {}", e.what());
+        LOG_ERROR("Experimental observation processor disabled, using local processing: {}",
+                  e.what());
         return {};
     }
     if (!client) {
-        LOG_ERROR("Experimental remote projection disabled, using local projection: no client");
+        LOG_ERROR("Experimental observation processor disabled, using local processing: no client");
         return {};
     }
 
-    const auto mode = config.tracking.remote_projection_mode;
-    LOG_INFO("Experimental remote projection enabled: {}:{} (mode={}, timeout={}ms, tls={})",
+    const auto mode = config.tracking.observation_processor_mode;
+    LOG_INFO("Experimental observation processor enabled: {}:{} (mode={}, timeout={}ms, tls={})",
              endpoint->host, endpoint->port, toString(mode), endpoint->timeout_ms,
              !endpoint->insecure);
     const double chunk_interval_ms = 1000.0 / config.tracking.time_chunking_rate_fps;
     if (endpoint->timeout_ms > chunk_interval_ms) {
-        LOG_WARN("Remote projection timeout {}ms exceeds the chunk interval {:.1f}ms "
-                 "(time_chunking_rate_fps={}); a slow projection service delays tracking",
-                 endpoint->timeout_ms, chunk_interval_ms, config.tracking.time_chunking_rate_fps);
+        LOG_WARN(
+            "Observation processor timeout {}ms exceeds the chunk interval {:.1f}ms "
+            "(time_chunking_rate_fps={}); a slow observation processor service delays tracking",
+            endpoint->timeout_ms, chunk_interval_ms, config.tracking.time_chunking_rate_fps);
     }
     return [client, mode](const TrackingScope& scope,
                           const std::unordered_map<std::string, Camera>& cameras,
                           const ObjectClassConfig& object_class) {
-        return std::make_unique<RemoteProjector>(
-            scope, std::make_unique<CameraModelProjector>(cameras, object_class), client, mode);
+        return std::make_unique<RemoteObservationProcessor>(
+            scope, std::make_unique<CameraModelProcessor>(cameras, object_class), client, mode);
     };
 }
 

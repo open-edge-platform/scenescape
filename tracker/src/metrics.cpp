@@ -28,7 +28,8 @@ opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_unique_camer
 opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_non_empty_chunks_counter;
 opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> tc_empty_chunks_counter;
 
-opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>> remote_projection_failed_counter;
+opentelemetry::nostd::unique_ptr<metrics_api::Counter<uint64_t>>
+    observation_processor_failed_counter;
 
 // Per-stage latency histograms
 opentelemetry::nostd::unique_ptr<metrics_api::Histogram<double>> stage_parse_histogram;
@@ -98,9 +99,9 @@ void Metrics::ensure_initialized() {
             kMetricTimeChunkingEmptyChunks,
             "Time-chunking dispatch intervals with no buffered data", "{chunk}");
 
-        remote_projection_failed_counter = meter->CreateUInt64Counter(
-            kMetricRemoteProjectionFailedCalls,
-            "Remote projection calls that failed or returned an invalid response", "{call}");
+        observation_processor_failed_counter = meter->CreateUInt64Counter(
+            kMetricObservationProcessorFailedCalls,
+            "Observation processor calls that failed or returned an invalid response", "{call}");
 
         active_tracks_gauge = meter->CreateInt64ObservableGauge(
             kMetricTracksActive, "Currently active tracks", "{track}");
@@ -232,10 +233,10 @@ void Metrics::inc_time_chunking_empty_chunks(MetricAttributes attrs) {
     }
 }
 
-void Metrics::inc_remote_projection_failed_calls(MetricAttributes attrs) {
+void Metrics::inc_observation_processor_failed_calls(MetricAttributes attrs) {
     ensure_initialized();
-    if (remote_projection_failed_counter) {
-        remote_projection_failed_counter->Add(
+    if (observation_processor_failed_counter) {
+        observation_processor_failed_counter->Add(
             1, opentelemetry::common::KeyValueIterableView<MetricAttributes>(attrs),
             opentelemetry::context::Context{});
     }
@@ -263,7 +264,7 @@ void Metrics::reset() {
     tc_unique_cameras_counter = nullptr;
     tc_non_empty_chunks_counter = nullptr;
     tc_empty_chunks_counter = nullptr;
-    remote_projection_failed_counter = nullptr;
+    observation_processor_failed_counter = nullptr;
     stage_parse_histogram = nullptr;
     stage_buffer_histogram = nullptr;
     stage_queue_histogram = nullptr;

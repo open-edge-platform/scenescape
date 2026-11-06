@@ -4,16 +4,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Service tests for experimental remote projection.
+Service tests for experimental observation processor.
 
 The tracker projects pixel-box detections with a mock projection service (mocks/projection)
 over gRPC and feeds the returned measurement and noise covariance to the tracker:
 - remote measurements drive the tracks; the tracker is fed centre-of-mass positions and
   publishes the footprint base;
-- failed calls keep the local projection, are counted in tracker.remote_projection.failed_calls
+- failed calls keep the local processing, are counted in tracker.observation_processor.failed_calls
   and logged, and the service keeps running;
-- the cost of remote projection is measured from tracker.stage.transform_duration and the
-  end-to-end MQTT latency, with and without remote projection.
+- the cost of observation processor is measured from tracker.stage.transform_duration and the
+  end-to-end MQTT latency, with and without the observation processor.
 """
 
 import json
@@ -45,7 +45,7 @@ GRID_BOXES = tuple({"x": 40 + 120 * (k % 10), "y": 40 + 130 * (k // 10), "width"
                     "height": 120} for k in range(50))
 # Mock measurement for BBOX: centre (x / 20, y / 20, height / 2); tracks are at the base, z = 0.
 REMOTE_POSITION = (BBOX["x"] / 20.0, BBOX["y"] / 20.0, 0.0)
-FAILED_CALLS_METRIC = "tracker.remote_projection.failed_calls"
+FAILED_CALLS_METRIC = "tracker.observation_processor.failed_calls"
 TRANSFORM_METRIC = "tracker.stage.transform_duration"
 # The same sensor-frame centre of mass sent as a 3D detection in two categories of different height.
 CENTRE_TRANSLATION = [0.5, 0.2, 3.0]
@@ -70,11 +70,11 @@ def tracker_environment(tls_certs, name, remote=True, timeout_ms=50, mock_status
       f"TRACKER_SCENES_SOURCE=file\n"
       f"TRACKER_METRICS_ENABLED=true\n"
       f"TRACKER_METRICS_EXPORT_INTERVAL_S=1\n"
-      f"TRACKER_EXPERIMENTAL_REMOTE_PROJECTION={'true' if remote else 'false'}\n"
-      f"TRACKER_REMOTE_PROJECTION_HOST=mock-projection\n"
-      f"TRACKER_REMOTE_PROJECTION_PORT=50051\n"
-      f"TRACKER_REMOTE_PROJECTION_INSECURE=true\n"
-      f"TRACKER_REMOTE_PROJECTION_TIMEOUT_MS={timeout_ms}\n"
+      f"TRACKER_EXPERIMENTAL_OBSERVATION_PROCESSOR={'true' if remote else 'false'}\n"
+      f"TRACKER_OBSERVATION_PROCESSOR_HOST=mock-projection\n"
+      f"TRACKER_OBSERVATION_PROCESSOR_PORT=50051\n"
+      f"TRACKER_OBSERVATION_PROCESSOR_INSECURE=true\n"
+      f"TRACKER_OBSERVATION_PROCESSOR_TIMEOUT_MS={timeout_ms}\n"
       f"MOCK_PROJECTION_STATUS={mock_status}\n"
       f"MOCK_PROJECTION_DELAY_MS={mock_delay_ms}\n"
   )
@@ -86,7 +86,7 @@ def tracker_environment(tls_certs, name, remote=True, timeout_ms=50, mock_status
       compose_profiles=["projection"] if remote else [],
   )
   try:
-    print(f"\nStarting remote projection environment: {project_name}")
+    print(f"\nStarting observation processor environment: {project_name}")
     if remote:
       docker.compose.up(services=["mock-projection"], build=True, detach=True, wait=True)
     docker.compose.up(services=["broker", "otel-collector", "tracker"], detach=True, wait=False)
@@ -191,7 +191,7 @@ def distance(a, b):
   return math.dist(a[:2], b[:2])
 
 
-def test_remote_projection_measurements_drive_tracks(tls_certs):
+def test_observation_processor_measurements_drive_tracks(tls_certs):
   """Remote measurements become track positions; the request identifies scene, camera, mode.
 
   The tracker is fed centre-of-mass positions and publishes the footprint base: the mock's centre
@@ -219,18 +219,18 @@ def test_remote_projection_measurements_drive_tracks(tls_certs):
     assert (f"scene={SCENE_ID} camera={CAMERA_ID} mode=CONDITIONING_MODE_AUTO detections=1 "
             f"categories={CATEGORY}") in mock_logs
     tracker_logs = get_container_logs(docker, "tracker")
-    assert "Experimental remote projection enabled: mock-projection:50051" in tracker_logs
-    assert "Remote projection failed" not in tracker_logs
+    assert "Experimental observation processor enabled: mock-projection:50051" in tracker_logs
+    assert "Observation processor call failed" not in tracker_logs
 
 
 @pytest.mark.parametrize("failure", [
     {"mock_status": "UNAVAILABLE", "reason": "UNAVAILABLE"},
     {"mock_delay_ms": 300, "timeout_ms": 30, "reason": "DEADLINE_EXCEEDED"},
 ], ids=["unavailable", "deadline"])
-def test_remote_projection_failure_keeps_local_projection(tls_certs, failure):
-  """Failed calls keep the local projection, are counted and logged; the tracker keeps running.
+def test_observation_processor_failure_keeps_local_processing(tls_certs, failure):
+  """Failed calls keep the local processing, are counted and logged; the tracker keeps running.
 
-  The local projection is still fed at its centre of mass and published at its base (z = 0).
+  The local processing is still fed at its centre of mass and published at its base (z = 0).
   """
   reason = failure["reason"]
   options = {key: value for key, value in failure.items() if key != "reason"}
@@ -241,7 +241,7 @@ def test_remote_projection_failure_keeps_local_projection(tls_certs, failure):
 
     track = last_track(received)
     assert distance(track["translation"], REMOTE_POSITION) > 0.5, \
-        f"Expected the local projection, got the remote position {track['translation']}"
+        f"Expected the local processing, got the remote position {track['translation']}"
     assert abs(track["translation"][2]) < 0.01, track["translation"]
 
     def failure_exported():
@@ -250,7 +250,7 @@ def test_remote_projection_failure_keeps_local_projection(tls_certs, failure):
 
     wait(failure_exported, timeout_seconds=15, sleep_seconds=0.5)
     tracker_logs = get_container_logs(docker, "tracker")
-    assert f"Remote projection failed for scope {SCENE_ID}/{CATEGORY}, camera '{CAMERA_ID}' " \
+    assert f"Observation processor call failed for scope {SCENE_ID}/{CATEGORY}, camera '{CAMERA_ID}' " \
         f"({reason})" in tracker_logs
     assert docker.compose.ps(services=["tracker"])[0].state.running
 
@@ -270,14 +270,14 @@ def remote_fraction(objects, boxes):
 
 
 @pytest.mark.parametrize("workload", list(WORKLOADS))
-def test_remote_projection_latency_impact(tls_certs, workload):
-  """Measure the transform stage and end-to-end latency with and without remote projection.
+def test_observation_processor_latency_impact(tls_certs, workload):
+  """Measure the transform stage and end-to-end latency with and without the observation processor.
 
   Workloads: one camera with one detection per frame, and two cameras with 50 detections each.
   """
   cameras, boxes = WORKLOADS[workload]
   configurations = [
-      ("local projection", {"remote": False}),
+      ("local processing", {"remote": False}),
       ("remote, mock 0 ms", {"remote": True, "timeout_ms": 100}),
       ("remote, mock 20 ms", {"remote": True, "timeout_ms": 100, "mock_delay_ms": 20}),
   ]
@@ -305,10 +305,10 @@ def test_remote_projection_latency_impact(tls_certs, workload):
           "e2e_median_ms": statistics.median(latencies) if latencies else math.nan,
           "e2e_p95_ms": (statistics.quantiles(latencies, n=20)[-1]
                          if len(latencies) >= 20 else math.nan),
-          "remote_failed": "Remote projection failed" in get_container_logs(docker, "tracker"),
+          "remote_failed": "Observation processor call failed" in get_container_logs(docker, "tracker"),
       }
 
-  print(f"\nRemote projection impact ({len(cameras)} camera(s) x {len(boxes)} detection(s) per "
+  print(f"\nObservation processor impact ({len(cameras)} camera(s) x {len(boxes)} detection(s) per "
         f"frame, {frames} frames at {1 / interval_s:.1f} fps):")
   print(f"{'configuration':<22}{'frames out':>11}{'tracks':>8}{'transform mean ms':>19}"
         f"{'e2e median ms':>15}{'e2e p95 ms':>12}")
@@ -321,7 +321,7 @@ def test_remote_projection_latency_impact(tls_certs, workload):
     assert result["objects"], f"{label}: no tracks"
     assert result["frames_out"] >= frames * 0.8, f"{label}: too few frames out"
     assert result["transform_count"] > 0, f"{label}: no transform stage samples"
-  local = results["local projection"]
+  local = results["local processing"]
   remote = results["remote, mock 0 ms"]
   delayed = results["remote, mock 20 ms"]
   assert remote_fraction(local["objects"], boxes) < 0.5, "local tracks are not at mock positions"

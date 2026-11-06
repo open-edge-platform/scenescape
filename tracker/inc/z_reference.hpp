@@ -13,9 +13,9 @@ namespace tracker {
 /**
  * @brief Vertical reference of the z fed to RobotVision.
  *
- * FootprintBase (legacy): inputs and published tracks use z as projected.
- * CentreOfMass (with the remote projection service): inputs are converted to the object's centre of
- * mass and published tracks report the footprint base.
+ * FootprintBase (legacy): inputs and published tracks use z as processed.
+ * CentreOfMass (with the observation processor service): inputs are converted to the object's
+ * centre of mass and published tracks report the footprint base.
  */
 enum class ZReference {
     FootprintBase,

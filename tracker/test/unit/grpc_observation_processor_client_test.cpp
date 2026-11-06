@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include "grpc_projection_client.hpp"
+#include "grpc_observation_processor_client.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -32,7 +32,7 @@ namespace {
 namespace pb = scenescape::observation_processor::v1;
 
 // Measurement x is the detection index, y is the request's camera index ("cam-<y>").
-class FakeProjectionService final : public pb::ObservationProcessorService::Service {
+class FakeObservationProcessorService final : public pb::ObservationProcessorService::Service {
 public:
     grpc::Status ProcessDetections(grpc::ServerContext*,
                                    const pb::ProcessDetectionsRequest* request,
@@ -91,7 +91,7 @@ public:
     std::chrono::milliseconds delay{0};
 };
 
-class GrpcProjectionClientTest : public ::testing::Test {
+class GrpcObservationProcessorClientTest : public ::testing::Test {
 protected:
     void SetUp() override {
         grpc::ServerBuilder builder;
@@ -103,8 +103,8 @@ protected:
 
     void TearDown() override { server_->Shutdown(); }
 
-    static ProjectionFrame frame(const std::string& camera_id, size_t boxes) {
-        ProjectionFrame result{
+    static ObservationProcessorFrame frame(const std::string& camera_id, size_t boxes) {
+        ObservationProcessorFrame result{
             camera_id,
             std::chrono::system_clock::time_point(std::chrono::seconds(1'700'000'000) +
                                                   std::chrono::nanoseconds(250'000'000)),
@@ -115,19 +115,19 @@ protected:
         return result;
     }
 
-    FakeProjectionService service_;
+    FakeObservationProcessorService service_;
     std::unique_ptr<grpc::Server> server_;
     std::shared_ptr<grpc::Channel> channel_;
 };
 
-TEST_F(GrpcProjectionClientTest, SendsRequestAndConvertsReply) {
-    auto client = makeGrpcProjectionClient(channel_, std::chrono::milliseconds(2000));
+TEST_F(GrpcObservationProcessorClientTest, SendsRequestAndConvertsReply) {
+    auto client = makeGrpcObservationProcessorClient(channel_, std::chrono::milliseconds(2000));
     auto unobservable = frame("cam-3", 2);
     unobservable.boxes[1].width = 0.0f;
 
-    const std::vector<ProjectionFrame> frames = {unobservable};
+    const std::vector<ObservationProcessorFrame> frames = {unobservable};
     const auto replies =
-        client->projectFrames("scene-uid", "person", ConditioningMode::Full, frames);
+        client->processFrames("scene-uid", "person", ConditioningMode::Full, frames);
 
     ASSERT_EQ(service_.requests.size(), 1u);
     const auto& request = service_.requests[0];
@@ -165,16 +165,16 @@ TEST_F(GrpcProjectionClientTest, SendsRequestAndConvertsReply) {
     EXPECT_TRUE(replies[0].measurements[1].mean.empty());
 }
 
-TEST_F(GrpcProjectionClientTest, MalformedStatusesAreNotUnobservableAndHaveNoValues) {
-    auto client = makeGrpcProjectionClient(channel_, std::chrono::milliseconds(2000));
+TEST_F(GrpcObservationProcessorClientTest, MalformedStatusesAreNotUnobservableAndHaveNoValues) {
+    auto client = makeGrpcObservationProcessorClient(channel_, std::chrono::milliseconds(2000));
     auto malformed = frame("cam-1", 3);
     for (size_t k = 0; k < 3; ++k) {
         malformed.boxes[k].height = static_cast<float>(k + 1);
     }
 
-    const std::vector<ProjectionFrame> frames = {malformed};
+    const std::vector<ObservationProcessorFrame> frames = {malformed};
     const auto replies =
-        client->projectFrames("scene-uid", "person", ConditioningMode::Auto, frames);
+        client->processFrames("scene-uid", "person", ConditioningMode::Auto, frames);
 
     ASSERT_EQ(replies.size(), 1u);
     ASSERT_TRUE(replies[0].ok());
@@ -187,12 +187,12 @@ TEST_F(GrpcProjectionClientTest, MalformedStatusesAreNotUnobservableAndHaveNoVal
     }
 }
 
-TEST_F(GrpcProjectionClientTest, MapsEveryConditioningMode) {
-    auto client = makeGrpcProjectionClient(channel_, std::chrono::milliseconds(2000));
-    const std::vector<ProjectionFrame> frames = {frame("cam-1", 1)};
+TEST_F(GrpcObservationProcessorClientTest, MapsEveryConditioningMode) {
+    auto client = makeGrpcObservationProcessorClient(channel_, std::chrono::milliseconds(2000));
+    const std::vector<ObservationProcessorFrame> frames = {frame("cam-1", 1)};
     for (auto mode :
          {ConditioningMode::Auto, ConditioningMode::Full, ConditioningMode::FrustumOnly}) {
-        client->projectFrames("scene-uid", "person", mode, frames);
+        client->processFrames("scene-uid", "person", mode, frames);
     }
     ASSERT_EQ(service_.requests.size(), 3u);
     EXPECT_EQ(service_.requests[0].mode(), pb::CONDITIONING_MODE_AUTO);
@@ -200,13 +200,13 @@ TEST_F(GrpcProjectionClientTest, MapsEveryConditioningMode) {
     EXPECT_EQ(service_.requests[2].mode(), pb::CONDITIONING_MODE_FRUSTUM_ONLY);
 }
 
-TEST_F(GrpcProjectionClientTest, RepliesFollowFrameOrderAndCarryPerFrameErrors) {
-    auto client = makeGrpcProjectionClient(channel_, std::chrono::milliseconds(2000));
-    const std::vector<ProjectionFrame> frames = {frame("cam-1", 1), frame("uncalibrated", 1),
-                                                 frame("cam-2", 3)};
+TEST_F(GrpcObservationProcessorClientTest, RepliesFollowFrameOrderAndCarryPerFrameErrors) {
+    auto client = makeGrpcObservationProcessorClient(channel_, std::chrono::milliseconds(2000));
+    const std::vector<ObservationProcessorFrame> frames = {
+        frame("cam-1", 1), frame("uncalibrated", 1), frame("cam-2", 3)};
 
     const auto replies =
-        client->projectFrames("scene-uid", "person", ConditioningMode::Auto, frames);
+        client->processFrames("scene-uid", "person", ConditioningMode::Auto, frames);
 
     ASSERT_EQ(replies.size(), 3u);
     ASSERT_TRUE(replies[0].ok());
@@ -219,7 +219,7 @@ TEST_F(GrpcProjectionClientTest, RepliesFollowFrameOrderAndCarryPerFrameErrors) 
     EXPECT_DOUBLE_EQ(replies[2].measurements[2].mean[1], 2.0);
 }
 
-TEST_F(GrpcProjectionClientTest, ReportsGrpcStatusNames) {
+TEST_F(GrpcObservationProcessorClientTest, ReportsGrpcStatusNames) {
     const std::vector<std::pair<grpc::StatusCode, std::string>> codes = {
         {grpc::StatusCode::CANCELLED, "CANCELLED"},
         {grpc::StatusCode::UNKNOWN, "UNKNOWN"},
@@ -238,14 +238,14 @@ TEST_F(GrpcProjectionClientTest, ReportsGrpcStatusNames) {
         {grpc::StatusCode::DATA_LOSS, "DATA_LOSS"},
         {grpc::StatusCode::UNAUTHENTICATED, "UNAUTHENTICATED"},
     };
-    std::vector<ProjectionFrame> frames;
+    std::vector<ObservationProcessorFrame> frames;
     for (const auto& [code, name] : codes) {
         frames.push_back(frame("status-" + std::to_string(static_cast<int>(code)), 1));
     }
-    auto client = makeGrpcProjectionClient(channel_, std::chrono::milliseconds(2000));
+    auto client = makeGrpcObservationProcessorClient(channel_, std::chrono::milliseconds(2000));
 
     const auto replies =
-        client->projectFrames("scene-uid", "person", ConditioningMode::Auto, frames);
+        client->processFrames("scene-uid", "person", ConditioningMode::Auto, frames);
 
     ASSERT_EQ(replies.size(), codes.size());
     for (size_t i = 0; i < codes.size(); ++i) {
@@ -254,15 +254,15 @@ TEST_F(GrpcProjectionClientTest, ReportsGrpcStatusNames) {
     }
 }
 
-TEST_F(GrpcProjectionClientTest, FramesShareOneDeadline) {
+TEST_F(GrpcObservationProcessorClientTest, FramesShareOneDeadline) {
     service_.delay = std::chrono::milliseconds(300);
-    auto client = makeGrpcProjectionClient(channel_, std::chrono::milliseconds(50));
-    const std::vector<ProjectionFrame> frames = {frame("cam-1", 1), frame("cam-2", 1),
-                                                 frame("cam-3", 1)};
+    auto client = makeGrpcObservationProcessorClient(channel_, std::chrono::milliseconds(50));
+    const std::vector<ObservationProcessorFrame> frames = {frame("cam-1", 1), frame("cam-2", 1),
+                                                           frame("cam-3", 1)};
 
     const auto start = std::chrono::steady_clock::now();
     const auto replies =
-        client->projectFrames("scene-uid", "person", ConditioningMode::Auto, frames);
+        client->processFrames("scene-uid", "person", ConditioningMode::Auto, frames);
     const auto elapsed = std::chrono::steady_clock::now() - start;
 
     ASSERT_EQ(replies.size(), 3u);
@@ -272,27 +272,27 @@ TEST_F(GrpcProjectionClientTest, FramesShareOneDeadline) {
     EXPECT_LT(elapsed, std::chrono::milliseconds(250)) << "calls run concurrently";
 }
 
-TEST_F(GrpcProjectionClientTest, UnreachableServiceIsUnavailable) {
+TEST_F(GrpcObservationProcessorClientTest, UnreachableServiceIsUnavailable) {
     // Plaintext to a closed local port: the connection is refused.
-    RemoteProjectionConfig config{
+    RemoteObservationProcessorConfig config{
         .host = "127.0.0.1", .port = 1, .insecure = true, .timeout_ms = 1000};
-    auto client = connectProjectionService(config);
-    const std::vector<ProjectionFrame> frames = {frame("cam-1", 1)};
+    auto client = connectObservationProcessorService(config);
+    const std::vector<ObservationProcessorFrame> frames = {frame("cam-1", 1)};
 
     const auto replies =
-        client->projectFrames("scene-uid", "person", ConditioningMode::Auto, frames);
+        client->processFrames("scene-uid", "person", ConditioningMode::Auto, frames);
 
     ASSERT_EQ(replies.size(), 1u);
     EXPECT_EQ(replies[0].error, "UNAVAILABLE");
 }
 
-TEST_F(GrpcProjectionClientTest, EmptyFrameListMakesNoCalls) {
-    auto client = makeGrpcProjectionClient(channel_, std::chrono::milliseconds(50));
-    EXPECT_TRUE(client->projectFrames("scene-uid", "person", ConditioningMode::Auto, {}).empty());
+TEST_F(GrpcObservationProcessorClientTest, EmptyFrameListMakesNoCalls) {
+    auto client = makeGrpcObservationProcessorClient(channel_, std::chrono::milliseconds(50));
+    EXPECT_TRUE(client->processFrames("scene-uid", "person", ConditioningMode::Auto, {}).empty());
     EXPECT_TRUE(service_.requests.empty());
 }
 
-TEST(ProjectionChannelTest, ConnectsBeforeTheFirstCall) {
+TEST(ObservationProcessorChannelTest, ConnectsBeforeTheFirstCall) {
     // A plain TCP listener sees the connection although the client makes no call.
     const int listener = ::socket(AF_INET, SOCK_STREAM, 0);
     ASSERT_GE(listener, 0);
@@ -304,7 +304,7 @@ TEST(ProjectionChannelTest, ConnectsBeforeTheFirstCall) {
     ASSERT_EQ(::listen(listener, 1), 0);
     ASSERT_EQ(::getsockname(listener, reinterpret_cast<sockaddr*>(&address), &length), 0);
 
-    const auto client = connectProjectionService(
+    const auto client = connectObservationProcessorService(
         {.host = "127.0.0.1", .port = ntohs(address.sin_port), .insecure = true, .timeout_ms = 50});
 
     pollfd pending{listener, POLLIN, 0};
@@ -312,28 +312,29 @@ TEST(ProjectionChannelTest, ConnectsBeforeTheFirstCall) {
     ::close(listener);
 }
 
-TEST(ProjectionChannelTest, BuildsTlsAndPlaintextChannels) {
-    const auto ca_path = std::filesystem::temp_directory_path() / "tracker_projection_ca_test.pem";
+TEST(ObservationProcessorChannelTest, BuildsTlsAndPlaintextChannels) {
+    const auto ca_path =
+        std::filesystem::temp_directory_path() / "tracker_observation_processor_ca_test.pem";
     { std::ofstream(ca_path) << "-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n"; }
-    RemoteProjectionConfig config{.host = "projection", .port = 50051};
-    EXPECT_NE(makeProjectionChannel(config), nullptr) << "TLS with the system roots";
+    RemoteObservationProcessorConfig config{.host = "observation-processor", .port = 50051};
+    EXPECT_NE(makeObservationProcessorChannel(config), nullptr) << "TLS with the system roots";
     config.ca_cert_path = ca_path.string();
-    EXPECT_NE(makeProjectionChannel(config), nullptr) << "TLS with a CA file";
+    EXPECT_NE(makeObservationProcessorChannel(config), nullptr) << "TLS with a CA file";
     config.insecure = true;
     config.ca_cert_path = "/nonexistent/ca.pem";
-    EXPECT_NE(makeProjectionChannel(config), nullptr) << "plaintext ignores the CA path";
+    EXPECT_NE(makeObservationProcessorChannel(config), nullptr) << "plaintext ignores the CA path";
     std::filesystem::remove(ca_path);
 }
 
-TEST(ProjectionChannelTest, UnreadableCaCertificateThrows) {
-    RemoteProjectionConfig config{
-        .host = "projection", .port = 50051, .ca_cert_path = "/nonexistent/ca.pem"};
-    EXPECT_THROW(makeProjectionChannel(config), std::runtime_error);
-    EXPECT_THROW(connectProjectionService(config), std::runtime_error);
+TEST(ObservationProcessorChannelTest, UnreadableCaCertificateThrows) {
+    RemoteObservationProcessorConfig config{
+        .host = "observation-processor", .port = 50051, .ca_cert_path = "/nonexistent/ca.pem"};
+    EXPECT_THROW(makeObservationProcessorChannel(config), std::runtime_error);
+    EXPECT_THROW(connectObservationProcessorService(config), std::runtime_error);
 }
 
-TEST(ProjectionChannelTest, ClientRequiresChannel) {
-    EXPECT_THROW(makeGrpcProjectionClient(nullptr, std::chrono::milliseconds(50)),
+TEST(ObservationProcessorChannelTest, ClientRequiresChannel) {
+    EXPECT_THROW(makeGrpcObservationProcessorClient(nullptr, std::chrono::milliseconds(50)),
                  std::invalid_argument);
 }
 

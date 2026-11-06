@@ -924,7 +924,7 @@ TEST_F(TrackingWorkerTest, Tracking_ObjectClassShiftTypeChangesPublishedPosition
         first_track_position(ObjectClassConfig{.shift_type = ObjectClassConfig::kShiftType2});
 
     EXPECT_GT(std::hypot(type2[0] - type1[0], type2[1] - type1[1]), 0.1)
-        << "TYPE_2 object class should change the projected track position";
+        << "TYPE_2 object class should change the processed track position";
 }
 
 // Pixel detections carry no orientation, so a turning track must not publish the Kalman yaw
@@ -1801,21 +1801,21 @@ TEST_F(TrackingWorkerTest, AssociationConfigDefaultsToPositionMahalanobis) {
     EXPECT_DOUBLE_EQ(worker.associationConfig().max_radius_m, 10.0);
 }
 
-// Projector whose geometry comes from a callback, standing in for any DetectionProjector.
-class CallbackProjector final : public DetectionProjector {
+// Processor whose geometry comes from a callback, standing in for any ObservationProcessor.
+class CallbackProcessor final : public ObservationProcessor {
 public:
-    using ProjectFn = std::function<std::vector<std::optional<ProjectedDetections>>(
+    using ProcessFn = std::function<std::vector<std::optional<ProcessedObservations>>(
         std::span<const DetectionBatch>)>;
 
-    explicit CallbackProjector(ProjectFn project_fn) : project_fn_(std::move(project_fn)) {}
+    explicit CallbackProcessor(ProcessFn process_fn) : process_fn_(std::move(process_fn)) {}
 
-    std::vector<std::optional<ProjectedDetections>>
-    project(std::span<const DetectionBatch> batches) override {
-        return project_fn_(batches);
+    std::vector<std::optional<ProcessedObservations>>
+    process(std::span<const DetectionBatch> batches) override {
+        return process_fn_(batches);
     }
 
 private:
-    ProjectFn project_fn_;
+    ProcessFn process_fn_;
 };
 
 // Publishes every chunk's tracks; waits until `count` chunks have been published.
@@ -1867,17 +1867,17 @@ DetectionBatch make_batch(const std::string& camera_id, std::vector<std::string>
     return batch;
 }
 
-TEST_F(TrackingWorkerTest, InjectedProjector_TracksOnlyDetectionsWithGeometry) {
+TEST_F(TrackingWorkerTest, InjectedProcessor_TracksOnlyDetectionsWithGeometry) {
     TrackingConfig config = make_test_tracking_config();
     config.max_unreliable_time_s = 0.0;
     PublishedFrames published;
-    // cam-1: the first detection has no geometry; cam-2 cannot be projected at all.
-    auto projector =
-        std::make_unique<CallbackProjector>([](std::span<const DetectionBatch> batches) {
-            std::vector<std::optional<ProjectedDetections>> projected;
+    // cam-1: the first detection has no geometry; cam-2 cannot be processed at all.
+    auto processor =
+        std::make_unique<CallbackProcessor>([](std::span<const DetectionBatch> batches) {
+            std::vector<std::optional<ProcessedObservations>> processed;
             for (const auto& batch : batches) {
                 if (batch.camera_id != "cam-1") {
-                    projected.emplace_back();
+                    processed.emplace_back();
                     continue;
                 }
                 rv::tracking::TrackedObject geometry;
@@ -1885,13 +1885,13 @@ TEST_F(TrackingWorkerTest, InjectedProjector_TracksOnlyDetectionsWithGeometry) {
                 geometry.y = 6.0;
                 geometry.length = geometry.width = 0.5;
                 geometry.height = 1.7;
-                projected.emplace_back(
-                    ProjectedDetections{{rv::tracking::TrackedObject{}, geometry}, {0, 1}});
+                processed.emplace_back(
+                    ProcessedObservations{{rv::tracking::TrackedObject{}, geometry}, {0, 1}});
             }
-            return projected;
+            return processed;
         });
     TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
-                          std::move(projector), false, ZReference::FootprintBase);
+                          std::move(processor), false, ZReference::FootprintBase);
 
     constexpr int kChunks = 3;
     for (int i = 0; i < kChunks; ++i) {
@@ -1909,22 +1909,22 @@ TEST_F(TrackingWorkerTest, InjectedProjector_TracksOnlyDetectionsWithGeometry) {
     }
 }
 
-TEST_F(TrackingWorkerTest, InjectedProjector_MismatchedResultsAreSkipped) {
+TEST_F(TrackingWorkerTest, InjectedProcessor_MismatchedResultsAreSkipped) {
     TrackingConfig config = make_test_tracking_config();
     config.max_unreliable_time_s = 0.0;
     PublishedFrames published;
     int call = 0;
     // First chunk: no result per batch; second chunk: no result per detection.
-    auto projector =
-        std::make_unique<CallbackProjector>([&call](std::span<const DetectionBatch> batches) {
-            std::vector<std::optional<ProjectedDetections>> projected;
+    auto processor =
+        std::make_unique<CallbackProcessor>([&call](std::span<const DetectionBatch> batches) {
+            std::vector<std::optional<ProcessedObservations>> processed;
             if (call++ > 0) {
-                projected.resize(batches.size(), ProjectedDetections{});
+                processed.resize(batches.size(), ProcessedObservations{});
             }
-            return projected;
+            return processed;
         });
     TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
-                          std::move(projector), false, ZReference::FootprintBase);
+                          std::move(processor), false, ZReference::FootprintBase);
 
     ASSERT_TRUE(worker.try_enqueue(make_chunk(0, {make_batch("cam-1", {"a"})})));
     ASSERT_TRUE(worker.try_enqueue(make_chunk(1, {make_batch("cam-1", {"a"})})));
@@ -1936,11 +1936,11 @@ TEST_F(TrackingWorkerTest, InjectedProjector_MismatchedResultsAreSkipped) {
     EXPECT_EQ(get_processed_count_wait(worker, 2), 2);
 }
 
-TEST_F(TrackingWorkerTest, InjectedProjector_NullIsRejected) {
+TEST_F(TrackingWorkerTest, InjectedProcessor_NullIsRejected) {
     PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
                                   const std::string&, const std::vector<Track>&) {};
     EXPECT_THROW(TrackingWorker({"scene-1", "person"}, "Test Scene", 2, callback, tracking_config_,
-                                std::unique_ptr<DetectionProjector>{}, false,
+                                std::unique_ptr<ObservationProcessor>{}, false,
                                 ZReference::FootprintBase),
                  std::invalid_argument);
 }
@@ -1975,12 +1975,12 @@ std::unordered_map<std::string, Camera> make_identity_pose_cameras() {
 }
 
 // Remote-style measurement: centre z 0.85 of a 1.7 m tall object moving along x.
-std::unique_ptr<DetectionProjector> make_centre_measurement_projector() {
-    return std::make_unique<CallbackProjector>(
+std::unique_ptr<ObservationProcessor> make_centre_measurement_processor() {
+    return std::make_unique<CallbackProcessor>(
         [step = 0](std::span<const DetectionBatch> batches) mutable {
-            std::vector<std::optional<ProjectedDetections>> projected;
+            std::vector<std::optional<ProcessedObservations>> processed;
             for (const auto& batch : batches) {
-                ProjectedDetections geometry{
+                ProcessedObservations geometry{
                     std::vector<rv::tracking::TrackedObject>(batch.detections.size()),
                     std::vector<uint8_t>(batch.detections.size(), 1)};
                 for (auto& object : geometry.objects) {
@@ -1991,10 +1991,10 @@ std::unique_ptr<DetectionProjector> make_centre_measurement_projector() {
                     object.height = 1.7;
                     object.zMeasured = true;
                 }
-                projected.emplace_back(std::move(geometry));
+                processed.emplace_back(std::move(geometry));
             }
             ++step;
-            return projected;
+            return processed;
         });
 }
 
@@ -2039,7 +2039,7 @@ TEST_F(TrackingWorkerTest, CentreOfMass_PixelBoxPublishedAtBase) {
     PublishedFrames published;
     TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
                           published.callback(), config,
-                          std::make_unique<CameraModelProjector>(cameras_, ObjectClassConfig{}),
+                          std::make_unique<CameraModelProcessor>(cameras_, ObjectClassConfig{}),
                           false, ZReference::CentreOfMass);
 
     const auto tracks = track_last_frame(worker, published, groundBoxDetection());
@@ -2054,7 +2054,7 @@ TEST_F(TrackingWorkerTest, CentreOfMass_TranslationTreatedAsCentre) {
     PublishedFrames published;
     TrackingWorker worker(
         {"scene-1", "person"}, "Test Scene", kZReferenceChunks, published.callback(), config,
-        std::make_unique<CameraModelProjector>(make_identity_pose_cameras(), ObjectClassConfig{}),
+        std::make_unique<CameraModelProcessor>(make_identity_pose_cameras(), ObjectClassConfig{}),
         false, ZReference::CentreOfMass);
 
     const auto tracks = track_last_frame(worker, published, centreTranslationDetection());
@@ -2069,7 +2069,7 @@ TEST_F(TrackingWorkerTest, CentreOfMass_RemoteMeasurementAtCentre) {
     auto run = [&](ZReference z_reference) {
         PublishedFrames published;
         TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
-                              published.callback(), config, make_centre_measurement_projector(),
+                              published.callback(), config, make_centre_measurement_processor(),
                               false, z_reference);
         return track_last_frame(worker, published, groundBoxDetection());
     };

@@ -137,9 +137,9 @@
           },
           "required": ["endpoint"]
         },
-        "remote_projection": {
+        "observation_processor": {
           "type": "object",
-          "description": "Experimental remote projection service (gRPC, observation_processor/proto/observation_processor.proto). Used only when tracking.experimental_remote_projection is true.",
+          "description": "Experimental observation processor service (gRPC, observation_processor/proto/observation_processor.proto). Used only when tracking.experimental_observation_processor is true.",
           "properties": {
             "host": {
               "type": "string",
@@ -163,7 +163,7 @@
             },
             "timeout_ms": {
               "type": "integer",
-              "description": "Deadline in milliseconds for the calls of one chunk; keep it below the chunk interval (1000 / tracking.time_chunking_rate_fps). Frames without a response in time keep the local projection.",
+              "description": "Deadline in milliseconds for the calls of one chunk; keep it below the chunk interval (1000 / tracking.time_chunking_rate_fps). Frames without a response in time keep the local processing.",
               "default": 50,
               "minimum": 1,
               "maximum": 100
@@ -316,14 +316,14 @@
           },
           "additionalProperties": false
         },
-        "experimental_remote_projection": {
+        "experimental_observation_processor": {
           "type": "boolean",
-          "description": "Experimental: project camera detections with the remote projection service (infrastructure.remote_projection) and feed its measurement and noise covariance to the tracker. Detections without a valid remote measurement keep the local projection.",
+          "description": "Experimental: process camera detections with the observation processor service (infrastructure.observation_processor) and feed its measurement and noise covariance to the tracker. Detections without a valid remote measurement keep the local processing.",
           "default": false
         },
-        "remote_projection_mode": {
+        "observation_processor_mode": {
           "type": "string",
-          "description": "Conditioning requested from the remote projection service: auto (full when the scene has a mesh, frustum only otherwise), full or frustum_only.",
+          "description": "Conditioning requested from the observation processor service: auto (full when the scene has a mesh, frustum only otherwise), full or frustum_only.",
           "enum": ["auto", "full", "frustum_only"],
           "default": "auto"
         }

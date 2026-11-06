@@ -4,7 +4,7 @@
 #pragma once
 
 #include "association_config.hpp"
-#include "remote_projection_config.hpp"
+#include "remote_observation_processor_config.hpp"
 #include "scenes_config.hpp"
 
 #include <filesystem>
@@ -85,7 +85,8 @@ struct InfrastructureConfig {
     std::optional<NtpConfig> ntp;         ///< Optional NTP clock synchronisation
     std::optional<ManagerConfig> manager; ///< Required when scenes.source='api'
     std::optional<OtlpConfig> otlp;       ///< Required when metrics or tracing enabled
-    std::optional<RemoteProjectionConfig> remote_projection; ///< Experimental remote projection
+    std::optional<RemoteObservationProcessorConfig>
+        observation_processor; ///< Experimental observation processor
 };
 
 /**
@@ -147,10 +148,10 @@ struct TrackingConfig {
 
     AssociationConfig association; ///< Data association method and gating (ADR-0017)
 
-    /// Experimental: project detections with the remote projection service when its endpoint is
-    /// configured (infrastructure.remote_projection).
-    bool experimental_remote_projection = false;
-    ConditioningMode remote_projection_mode = ConditioningMode::Auto;
+    /// Experimental: process detections with the observation processor service when its endpoint is
+    /// configured (infrastructure.observation_processor).
+    bool experimental_observation_processor = false;
+    ConditioningMode observation_processor_mode = ConditioningMode::Auto;
 };
 
 /**
@@ -194,20 +195,22 @@ constexpr char TRACKING_NON_MEASUREMENT_TIME_STATIC_S[] = "/tracking/non_measure
 constexpr char TRACKING_ASSOCIATION_METHOD[] = "/tracking/association/method";
 constexpr char TRACKING_ASSOCIATION_GATE_PROBABILITY[] = "/tracking/association/gate_probability";
 constexpr char TRACKING_ASSOCIATION_MAX_RADIUS_M[] = "/tracking/association/max_radius_m";
-constexpr char TRACKING_EXPERIMENTAL_REMOTE_PROJECTION[] =
-    "/tracking/experimental_remote_projection";
-constexpr char TRACKING_REMOTE_PROJECTION_MODE[] = "/tracking/remote_projection_mode";
+constexpr char TRACKING_EXPERIMENTAL_OBSERVATION_PROCESSOR[] =
+    "/tracking/experimental_observation_processor";
+constexpr char TRACKING_OBSERVATION_PROCESSOR_MODE[] = "/tracking/observation_processor_mode";
 
-// Remote projection
-constexpr char INFRASTRUCTURE_REMOTE_PROJECTION[] = "/infrastructure/remote_projection";
-constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_HOST[] = "/infrastructure/remote_projection/host";
-constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_PORT[] = "/infrastructure/remote_projection/port";
-constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_INSECURE[] =
-    "/infrastructure/remote_projection/insecure";
-constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_CA_CERT_PATH[] =
-    "/infrastructure/remote_projection/ca_cert_path";
-constexpr char INFRASTRUCTURE_REMOTE_PROJECTION_TIMEOUT_MS[] =
-    "/infrastructure/remote_projection/timeout_ms";
+// Observation processor
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR[] = "/infrastructure/observation_processor";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_HOST[] =
+    "/infrastructure/observation_processor/host";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_PORT[] =
+    "/infrastructure/observation_processor/port";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_INSECURE[] =
+    "/infrastructure/observation_processor/insecure";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_CA_CERT_PATH[] =
+    "/infrastructure/observation_processor/ca_cert_path";
+constexpr char INFRASTRUCTURE_OBSERVATION_PROCESSOR_TIMEOUT_MS[] =
+    "/infrastructure/observation_processor/timeout_ms";
 
 // NTP
 constexpr char INFRASTRUCTURE_NTP[] = "/infrastructure/ntp";

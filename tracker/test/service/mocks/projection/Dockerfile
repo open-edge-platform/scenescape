@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# Mock remote projection service for tracker service tests. The contract is mounted at runtime
+# Mock observation processor service for tracker service tests. The contract is mounted at runtime
 # (/protos/observation_processor.proto) and loaded with grpc.protos_and_services().
 FROM python:3.13-slim
 

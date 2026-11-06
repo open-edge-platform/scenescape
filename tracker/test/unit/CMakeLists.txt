@@ -16,9 +16,9 @@ set(TRACKER_LIB_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/manager_rest_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/object_class.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/coordinate_transformer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/detection_projector.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/remote_projector.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/grpc_projection_client.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/observation_processor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/remote_observation_processor.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/../../src/grpc_observation_processor_client.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/reid_sighting.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_server.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/../../src/healthcheck_command.cpp
@@ -42,9 +42,9 @@ add_executable(tracker_tests
     cli_test.cpp
     config_loader_test.cpp
     coordinate_transformer_test.cpp
-    detection_projector_test.cpp
-    remote_projector_test.cpp
-    grpc_projection_client_test.cpp
+    observation_processor_test.cpp
+    remote_observation_processor_test.cpp
+    grpc_observation_processor_client_test.cpp
     reid_sighting_test.cpp
     healthcheck_server_test.cpp
     healthcheck_command_test.cpp

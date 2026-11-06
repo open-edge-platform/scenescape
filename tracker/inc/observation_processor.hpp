@@ -22,62 +22,62 @@ namespace tracker {
 /**
  * @brief Source of world-space geometry for camera detections.
  *
- * A projector sets geometry only: position, size, zMeasured, measurement noise when known and,
+ * A processor sets geometry only: position, size, zMeasured, measurement noise when known and,
  * from a supplied rotation, world yaw with attributes["has_orientation"]. The detection's own
  * data (id, metadata, confidence, ReID) is attached afterwards by toTrackerInputs(), the same
- * way for every projector.
+ * way for every processor.
  */
-class DetectionProjector {
+class ObservationProcessor {
 public:
-    virtual ~DetectionProjector() = default;
+    virtual ~ObservationProcessor() = default;
 
     /**
-     * @brief Project the detections of the camera frames of one chunk.
+     * @brief Process the detections of the camera frames of one chunk.
      *
      * @param batches Camera frames, each with its detections
-     * @return One entry per batch, in input order; std::nullopt for a camera the projector
-     *         cannot project, whose batch is then skipped.
+     * @return One entry per batch, in input order; std::nullopt for a camera the processor
+     *         cannot process, whose batch is then skipped.
      */
-    virtual std::vector<std::optional<ProjectedDetections>>
-    project(std::span<const DetectionBatch> batches) = 0;
+    virtual std::vector<std::optional<ProcessedObservations>>
+    process(std::span<const DetectionBatch> batches) = 0;
 };
 
 /**
- * @brief Projects detections with the calibrated model of their camera (CoordinateTransformer):
+ * @brief Processes detections with the calibrated model of their camera (CoordinateTransformer):
  *        pixel boxes onto the ground plane, sensor-frame translations through the camera pose.
  */
-class CameraModelProjector final : public DetectionProjector {
+class CameraModelProcessor final : public ObservationProcessor {
 public:
     /**
      * @param cameras Calibrated cameras by camera_id; batches from other cameras are skipped
      * @param object_class Per-category projection settings (shift_type, footprint_half)
      */
-    CameraModelProjector(const std::unordered_map<std::string, Camera>& cameras,
+    CameraModelProcessor(const std::unordered_map<std::string, Camera>& cameras,
                          const ObjectClassConfig& object_class);
 
-    std::vector<std::optional<ProjectedDetections>>
-    project(std::span<const DetectionBatch> batches) override;
+    std::vector<std::optional<ProcessedObservations>>
+    process(std::span<const DetectionBatch> batches) override;
 
 private:
     std::unordered_map<std::string, CoordinateTransformer> transformers_;
 };
 
 /**
- * @brief Attach the detections' own data to their projected geometry.
+ * @brief Attach the detections' own data to their processed geometry.
  *
  * Sets id (InvalidObjectId when absent), the metadata.* attributes with their confidences,
  * attributes["confidence"] and, for pixel-box detections, the current-chunk ReID sighting token.
  * Detections without geometry are dropped.
  *
  * @param detections Detections of one camera frame
- * @param projected Geometry of `detections`, with one entry per detection
+ * @param processed Geometry of `detections`, with one entry per detection
  * @param sightings Optional chunk-local context for tagging ReID observations
- * @throws std::invalid_argument if `projected` does not cover `detections`, or the context does
+ * @throws std::invalid_argument if `processed` does not cover `detections`, or the context does
  *         not reference the exact detection span.
  * @return Tracker inputs in detection order.
  */
 std::vector<rv::tracking::TrackedObject>
-toTrackerInputs(std::span<const Detection> detections, ProjectedDetections projected,
+toTrackerInputs(std::span<const Detection> detections, ProcessedObservations processed,
                 const std::optional<ReidSightingContext>& sightings = std::nullopt);
 
 } // namespace tracker

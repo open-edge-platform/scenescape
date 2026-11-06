@@ -166,7 +166,7 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                ObjectClassConfig object_class, ClockFn clock_fn)
     : TrackingWorker(
           std::move(scope), std::move(scene_name), queue_capacity, std::move(publish_callback),
-          tracking_config, std::make_unique<CameraModelProjector>(cameras, object_class),
+          tracking_config, std::make_unique<CameraModelProcessor>(cameras, object_class),
           object_class.rotation_from_velocity, ZReference::FootprintBase, std::move(clock_fn)) {
     LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{} (shift_type={}, "
              "footprint_half={}, rotation_from_velocity={})",
@@ -177,17 +177,17 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
 TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
                                PublishCallback publish_callback,
                                const TrackingConfig& tracking_config,
-                               std::unique_ptr<DetectionProjector> projector,
+                               std::unique_ptr<ObservationProcessor> processor,
                                bool rotation_from_velocity, ZReference z_reference,
                                ClockFn clock_fn)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
       rotation_from_velocity_(rotation_from_velocity), z_reference_(z_reference),
       tracker_(build_tracker_config(tracking_config)),
-      association_config_(tracking_config.association), projector_(std::move(projector)),
+      association_config_(tracking_config.association), processor_(std::move(processor)),
       clock_fn_(std::move(clock_fn)) {
-    if (!projector_) {
-        throw std::invalid_argument("TrackingWorker requires a detection projector");
+    if (!processor_) {
+        throw std::invalid_argument("TrackingWorker requires an observation processor");
     }
 
     // Adapt frame-rate-dependent timing parameters
@@ -318,10 +318,10 @@ void TrackingWorker::process_chunk(Chunk chunk) {
 std::vector<std::vector<rv::tracking::TrackedObject>>
 TrackingWorker::transform_detections(const Chunk& chunk) {
     const auto& batches = chunk.camera_batches;
-    auto projected = projector_->project(batches);
-    if (projected.size() != batches.size()) {
-        LOG_ERROR("Projector returned {} results for {} camera batches, skipping all",
-                  projected.size(), batches.size());
+    auto processed = processor_->process(batches);
+    if (processed.size() != batches.size()) {
+        LOG_ERROR("Processor returned {} results for {} camera batches, skipping all",
+                  processed.size(), batches.size());
         return {};
     }
 
@@ -330,13 +330,13 @@ TrackingWorker::transform_detections(const Chunk& chunk) {
 
     for (size_t i = 0; i < batches.size(); ++i) {
         const auto& batch = batches[i];
-        auto& geometry = projected[i];
+        auto& geometry = processed[i];
         if (!geometry) {
             LOG_WARN("Unknown camera '{}' in detection batch, skipping", batch.camera_id);
             continue;
         }
         if (!geometry->covers(batch.detections.size())) {
-            LOG_ERROR("Projector returned {} objects and {} geometry flags for {} detections of "
+            LOG_ERROR("Processor returned {} objects and {} geometry flags for {} detections of "
                       "camera '{}', skipping",
                       geometry->objects.size(), geometry->has_geometry.size(),
                       batch.detections.size(), batch.camera_id);

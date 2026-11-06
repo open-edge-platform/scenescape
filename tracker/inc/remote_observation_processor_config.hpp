@@ -10,7 +10,7 @@
 namespace tracker {
 
 /**
- * @brief Conditioning requested from the remote projection service
+ * @brief Conditioning requested from the observation processor service
  *        (scenescape.observation_processor.v1.ConditioningMode).
  */
 enum class ConditioningMode {
@@ -30,7 +30,7 @@ inline ConditioningMode parseConditioningMode(std::string_view value) {
     if (value == "frustum_only") {
         return ConditioningMode::FrustumOnly;
     }
-    throw std::runtime_error("Invalid remote projection mode: " + std::string(value) +
+    throw std::runtime_error("Invalid observation processor mode: " + std::string(value) +
                              " (must be auto|full|frustum_only)");
 }
 
@@ -46,21 +46,21 @@ inline std::string_view toString(ConditioningMode mode) {
     return "auto";
 }
 
-constexpr int kDefaultRemoteProjectionTimeoutMs = 50;
+constexpr int kDefaultObservationProcessorTimeoutMs = 50;
 /// Upper bound of timeout_ms; it should also stay below the chunk interval.
-constexpr int kMaxRemoteProjectionTimeoutMs = 100;
+constexpr int kMaxObservationProcessorTimeoutMs = 100;
 
 /**
- * @brief Remote projection service connection (experimental).
+ * @brief Observation processor service connection (experimental).
  *
- * Used only when tracking.experimental_remote_projection is set and the endpoint is defined.
+ * Used only when tracking.experimental_observation_processor is set and the endpoint is defined.
  */
-struct RemoteProjectionConfig {
+struct RemoteObservationProcessorConfig {
     std::string host;
     int port = 0;
     bool insecure = false;    ///< Plaintext channel instead of TLS (development only)
     std::string ca_cert_path; ///< PEM CA certificates for TLS; empty uses the system roots
-    int timeout_ms = kDefaultRemoteProjectionTimeoutMs; ///< Deadline for the calls of one chunk
+    int timeout_ms = kDefaultObservationProcessorTimeoutMs; ///< Deadline for the calls of one chunk
 
     /// True when host and port are set.
     [[nodiscard]] bool hasEndpoint() const { return !host.empty() && port > 0; }

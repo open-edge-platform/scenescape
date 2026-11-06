@@ -52,8 +52,8 @@
       "gate_probability": 0.99,
       "max_radius_m": 10.0
     },
-    "experimental_remote_projection": false,
-    "remote_projection_mode": "auto"
+    "experimental_observation_processor": false,
+    "observation_processor_mode": "auto"
   },
   "scenes": {
     "source": "api"

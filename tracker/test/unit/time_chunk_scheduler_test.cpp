@@ -390,8 +390,8 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_AppliesObjectClassPerCategory) {
         << "TYPE_2 'plane' should project differently from TYPE_1 'person'";
 }
 
-// A projector factory supplies the projector of each new worker.
-TEST_F(TimeChunkSchedulerTest, Dispatch_UsesProjectorFactoryForNewWorkers) {
+// A processor factory supplies the processor of each new worker.
+TEST_F(TimeChunkSchedulerTest, Dispatch_UsesObservationProcessorFactoryForNewWorkers) {
     TimeChunkBuffer buffer;
     SceneRegistry registry;
     registerScenes(registry);
@@ -399,14 +399,14 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_UsesProjectorFactoryForNewWorkers) {
     TrackingConfig config = createConfig(100, 10);
     config.max_unreliable_time_s = 0.0;
 
-    // The factory's projector puts every detection at (7, 8) with a measured centre z.
-    class FixedProjector final : public DetectionProjector {
+    // The factory's processor puts every detection at (7, 8) with a measured centre z.
+    class FixedProcessor final : public ObservationProcessor {
     public:
-        std::vector<std::optional<ProjectedDetections>>
-        project(std::span<const DetectionBatch> batches) override {
-            std::vector<std::optional<ProjectedDetections>> projected;
+        std::vector<std::optional<ProcessedObservations>>
+        process(std::span<const DetectionBatch> batches) override {
+            std::vector<std::optional<ProcessedObservations>> processed;
             for (const auto& batch : batches) {
-                ProjectedDetections geometry{
+                ProcessedObservations geometry{
                     std::vector<rv::tracking::TrackedObject>(batch.detections.size()),
                     std::vector<uint8_t>(batch.detections.size(), 1)};
                 for (auto& object : geometry.objects) {
@@ -417,9 +417,9 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_UsesProjectorFactoryForNewWorkers) {
                     object.height = 1.7;
                     object.zMeasured = true;
                 }
-                projected.emplace_back(std::move(geometry));
+                processed.emplace_back(std::move(geometry));
             }
-            return projected;
+            return processed;
         }
     };
 
@@ -427,13 +427,13 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_UsesProjectorFactoryForNewWorkers) {
     std::condition_variable cv;
     std::vector<std::pair<TrackingScope, size_t>> factory_calls;
     std::optional<std::array<double, 3>> position;
-    ProjectorFactory factory = [&](const TrackingScope& scope,
-                                   const std::unordered_map<std::string, Camera>& cameras,
-                                   const ObjectClassConfig&) {
-        std::lock_guard lock(mtx);
-        factory_calls.emplace_back(scope, cameras.size());
-        return std::make_unique<FixedProjector>();
-    };
+    ObservationProcessorFactory factory =
+        [&](const TrackingScope& scope, const std::unordered_map<std::string, Camera>& cameras,
+            const ObjectClassConfig&) {
+            std::lock_guard lock(mtx);
+            factory_calls.emplace_back(scope, cameras.size());
+            return std::make_unique<FixedProcessor>();
+        };
     PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
                                    const std::string&, const std::vector<Track>& tracks) {
         std::lock_guard lock(mtx);
@@ -462,12 +462,12 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_UsesProjectorFactoryForNewWorkers) {
     EXPECT_NEAR((*position)[0], 7.0, 1e-6);
     EXPECT_NEAR((*position)[1], 8.0, 1e-6);
     EXPECT_NEAR((*position)[2], 0.0, 1e-9) << "centre of mass published at the footprint base";
-    ASSERT_EQ(factory_calls.size(), 1u) << "one projector per worker";
+    ASSERT_EQ(factory_calls.size(), 1u) << "one processor per worker";
     EXPECT_EQ(factory_calls[0].first, (TrackingScope{"scene-1", "person"}));
     EXPECT_EQ(factory_calls[0].second, 1u) << "the scene's cameras";
 }
 
-// Without a factory, workers project locally and publish robot_vision z unchanged.
+// Without a factory, workers process locally and publish robot_vision z unchanged.
 TEST_F(TimeChunkSchedulerTest, Dispatch_WithoutFactoryUsesFootprintBase) {
     TimeChunkBuffer buffer;
     SceneRegistry registry;

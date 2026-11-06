@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include "grpc_projection_client.hpp"
+#include "grpc_observation_processor_client.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -71,7 +71,8 @@ pb::ConditioningMode toProto(ConditioningMode mode) {
 }
 
 void fillRequest(pb::ProcessDetectionsRequest& request, const std::string& scene_id,
-                 const std::string& category, ConditioningMode mode, const ProjectionFrame& frame) {
+                 const std::string& category, ConditioningMode mode,
+                 const ObservationProcessorFrame& frame) {
     request.set_scene_id(scene_id);
     request.set_camera_id(frame.camera_id);
     const auto since_epoch = frame.timestamp.time_since_epoch();
@@ -96,8 +97,9 @@ void fillRequest(pb::ProcessDetectionsRequest& request, const std::string& scene
     }
 }
 
-ProjectionReply toReply(const grpc::Status& status, const pb::ProcessDetectionsResponse& response) {
-    ProjectionReply reply;
+ObservationProcessorReply toReply(const grpc::Status& status,
+                                  const pb::ProcessDetectionsResponse& response) {
+    ObservationProcessorReply reply;
     if (!status.ok()) {
         reply.error = statusName(status.error_code());
         return reply;
@@ -118,15 +120,15 @@ ProjectionReply toReply(const grpc::Status& status, const pb::ProcessDetectionsR
     return reply;
 }
 
-class GrpcProjectionClient final : public ProjectionClient {
+class GrpcObservationProcessorClient final : public ObservationProcessorClient {
 public:
-    GrpcProjectionClient(const std::shared_ptr<grpc::Channel>& channel,
-                         std::chrono::milliseconds timeout)
+    GrpcObservationProcessorClient(const std::shared_ptr<grpc::Channel>& channel,
+                                   std::chrono::milliseconds timeout)
         : stub_(pb::ObservationProcessorService::NewStub(channel)), timeout_(timeout) {}
 
-    std::vector<ProjectionReply> projectFrames(const std::string& scene_id,
-                                               const std::string& category, ConditioningMode mode,
-                                               std::span<const ProjectionFrame> frames) override {
+    std::vector<ObservationProcessorReply>
+    processFrames(const std::string& scene_id, const std::string& category, ConditioningMode mode,
+                  std::span<const ObservationProcessorFrame> frames) override {
         struct Call {
             grpc::ClientContext context;
             pb::ProcessDetectionsRequest request;
@@ -154,7 +156,7 @@ public:
         queue.Shutdown();
         while (queue.Next(&tag, &ok)) {}
 
-        std::vector<ProjectionReply> replies;
+        std::vector<ObservationProcessorReply> replies;
         replies.reserve(calls.size());
         for (const auto& call : calls) {
             replies.push_back(toReply(call->status, call->response));
@@ -170,7 +172,7 @@ private:
 std::string readFile(const std::string& path) {
     std::ifstream file(path, std::ios::binary);
     if (!file) {
-        throw std::runtime_error("Cannot read remote projection CA certificate: " + path);
+        throw std::runtime_error("Cannot read observation processor CA certificate: " + path);
     }
     std::ostringstream content;
     content << file.rdbuf();
@@ -179,15 +181,17 @@ std::string readFile(const std::string& path) {
 
 } // namespace
 
-std::shared_ptr<ProjectionClient> makeGrpcProjectionClient(std::shared_ptr<grpc::Channel> channel,
-                                                           std::chrono::milliseconds timeout) {
+std::shared_ptr<ObservationProcessorClient>
+makeGrpcObservationProcessorClient(std::shared_ptr<grpc::Channel> channel,
+                                   std::chrono::milliseconds timeout) {
     if (!channel) {
-        throw std::invalid_argument("Remote projection client requires a channel");
+        throw std::invalid_argument("Observation processor client requires a channel");
     }
-    return std::make_shared<GrpcProjectionClient>(channel, timeout);
+    return std::make_shared<GrpcObservationProcessorClient>(channel, timeout);
 }
 
-std::shared_ptr<grpc::Channel> makeProjectionChannel(const RemoteProjectionConfig& config) {
+std::shared_ptr<grpc::Channel>
+makeObservationProcessorChannel(const RemoteObservationProcessorConfig& config) {
     std::shared_ptr<grpc::ChannelCredentials> credentials;
     if (config.insecure) {
         credentials = grpc::InsecureChannelCredentials();
@@ -204,13 +208,14 @@ std::shared_ptr<grpc::Channel> makeProjectionChannel(const RemoteProjectionConfi
                                      arguments);
 }
 
-std::shared_ptr<ProjectionClient> connectProjectionService(const RemoteProjectionConfig& config) {
-    auto channel = makeProjectionChannel(config);
+std::shared_ptr<ObservationProcessorClient>
+connectObservationProcessorService(const RemoteObservationProcessorConfig& config) {
+    auto channel = makeObservationProcessorChannel(config);
     // Start connecting now, without blocking, so that the first chunk does not spend its
     // deadline on name resolution and the handshake.
     channel->GetState(true);
-    return makeGrpcProjectionClient(std::move(channel),
-                                    std::chrono::milliseconds(config.timeout_ms));
+    return makeGrpcObservationProcessorClient(std::move(channel),
+                                              std::chrono::milliseconds(config.timeout_ms));
 }
 
 } // namespace tracker
