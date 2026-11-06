@@ -49,7 +49,9 @@ Skills are loaded on-demand based on task context to optimize token usage:
 
 Skills are detected and loaded based on file type, task keywords, and context signals. Explicitly request a skill if the auto-detection doesn't load it.
 
-For GitHub PR reviews adding a service, flag missing `.github/workflows/build-and-publish.yml` integration with an actionable inline comment on the new service files. Use the Makefile skill for the detailed checklist and comment example.
+When adding a service, ask the user before adding build-and-publish workflow integration; follow the Makefile skill for the publishing decision and implementation steps.
+
+For GitHub PR reviews adding a service, always signal missing `.github/workflows/build-and-publish.yml` integration with an inline comment, including experimental services and intentional exclusions. Ask for the publishing decision when undocumented; treat documented exclusions as informational, not a requirement to publish. Use the Makefile skill for the detailed checklist and comment example.
 
 ### Instruction Placement Policy (Critical)
 
