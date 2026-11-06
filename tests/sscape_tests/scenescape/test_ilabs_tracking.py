@@ -521,6 +521,19 @@ def test_build_association_window_falls_back_to_circle_for_nonfinite_covariance(
   assert window == {'method': 'position_mahalanobis', 'shape': 'circle', 'radius_m': 10.0}
 
 
+def test_build_association_window_clips_semi_axes_to_max_radius():
+  # Unclipped χ²(0.99) radius for S=100·I is ~30 m; the hard gate is 10 m.
+  cov = np.diag([100.0, 100.0, 1.0, 1.0, 1.0, 1.0, 1.0])
+  window = build_association_window({
+    'method': 'position_mahalanobis',
+    'gate_probability': 0.99,
+    'max_radius_m': 10.0,
+  }, cov)
+  assert window['shape'] == 'ellipse'
+  assert window['semi_major_m'] == pytest.approx(10.0)
+  assert window['semi_minor_m'] == pytest.approx(10.0)
+
+
 def test_from_tracked_object_overwrites_rotation_when_detection_rotation_present():
   yaw = math.pi / 2.0
   tracked_object = _make_tracked_object("uuid-1", yaw=yaw)

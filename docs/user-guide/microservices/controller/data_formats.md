@@ -600,7 +600,8 @@ tracked object contains the following fields:
 > - `euclidean` → `{method, shape: "circle", radius_m}` where `radius_m` is `max_radius_m`; without
 >   it, the Scene Controller's gate, the average `tracking_radius` of the frame's objects
 > - `position_mahalanobis` → `{method, shape: "ellipse", semi_major_m, semi_minor_m, angle_rad}`
->   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`)
+>   from the χ² contour of the track's predicted XY measurement covariance (`S_pred`), with each
+>   semi-axis clipped to `max_radius_m` so the drawn region stays inside the hard association ceiling
 >
 > `angle_rad` is the major-axis orientation in the scene XY plane (radians from +X toward +Y),
 > defined modulo π: the ellipse is the same after a half turn.

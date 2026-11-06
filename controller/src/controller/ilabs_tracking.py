@@ -165,8 +165,10 @@ def build_association_window(association_config, measurement_covariance=None,
 
   Euclidean association is a circle of radius ``max_radius_m``, or
   ``tracking_radius_m`` without it. Position Mahalanobis is the χ² ellipse of
-  the 2×2 XY block of ``S_pred``; without a usable covariance it falls back to
-  the ``max_radius_m`` circle.
+  the 2×2 XY block of ``S_pred``, with each semi-axis clipped to
+  ``max_radius_m`` so the drawn region stays inside the hard association
+  ceiling; without a usable covariance it falls back to the ``max_radius_m``
+  circle.
   """
   config = normalize_association_config(association_config)
   method = config["method"]
@@ -195,8 +197,9 @@ def build_association_window(association_config, measurement_covariance=None,
   return {
     "method": method,
     "shape": "ellipse",
-    "semi_major_m": math.sqrt(chi2 * max(mean + spread, 0.0)),
-    "semi_minor_m": math.sqrt(chi2 * max(mean - spread, 0.0)),
+    # An ellipse with both semi-axes ≤ R lies inside the disk of radius R used as the hard gate.
+    "semi_major_m": min(math.sqrt(chi2 * max(mean + spread, 0.0)), max_radius_m),
+    "semi_minor_m": min(math.sqrt(chi2 * max(mean - spread, 0.0)), max_radius_m),
     "angle_rad": 0.5 * math.atan2(2.0 * s01, s00 - s11),
   }
 
