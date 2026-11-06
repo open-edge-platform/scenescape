@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager analytics
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid observation_processor
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -84,8 +84,8 @@ DEPLOYMENT_TEST ?= 0
 # First-party application trees; this list is the complexity scope of record.
 COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analytics/src \
 	controller/src/controller controller/src/robot_vision/python/src/robot_vision \
-	manager/src/manager mapping/src reid/src/reid scene_common/src/scene_common \
-	model_download/src
+	manager/src/manager mapping/src observation_processor/src/observation_processor  reid/src/reid \
+	scene_common/src/scene_common model_download/src
 COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
 COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
 COMPLEXITY_TOP ?= 20
@@ -236,7 +236,8 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid: build-common
+autocalibration controller manager analytics mapping cluster_analytics reid \
+	observation_processor: build-common
 
 # Helper function to build images in parallel
 define parallel-build
