@@ -109,6 +109,7 @@ TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
 // Defined in ObjectMatching.cpp, not declared in its header.
 namespace rv::tracking {
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track);
+double calculateMulticlassScaledDistance(const TrackedObject &measurement, const TrackedObject &track);
 } // namespace rv::tracking
 
 namespace {
@@ -278,18 +279,68 @@ TrackedObject makePerson(double x, double y)
   return makeDetection(x, y, 0.0, 0.5, 0.5, 1.8);
 }
 
+std::vector<std::pair<size_t, size_t>> matchedPairs(const std::vector<TrackedObject> &tracks,
+                                                    const std::vector<TrackedObject> &measurements,
+                                                    DistanceType distanceType,
+                                                    double threshold,
+                                                    double maxRadiusM = std::numeric_limits<double>::infinity())
+{
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+  match(tracks, measurements, assignments, unassignedTracks, unassignedMeasurements, distanceType, threshold, maxRadiusM);
+  return assignments;
+}
+
 size_t assignedCount(const TrackedObject &track,
                      const TrackedObject &measurement,
                      DistanceType distanceType,
                      double threshold,
                      double maxRadiusM = std::numeric_limits<double>::infinity())
 {
-  std::vector<std::pair<size_t, size_t>> assignments;
-  std::vector<size_t> unassignedTracks;
-  std::vector<size_t> unassignedMeasurements;
-  match(
-    {track}, {measurement}, assignments, unassignedTracks, unassignedMeasurements, distanceType, threshold, maxRadiusM);
-  return assignments.size();
+  return matchedPairs({track}, {measurement}, distanceType, threshold, maxRadiusM).size();
+}
+
+TEST(ObjectMatchingTest, MahalanobisMatchUsesTheDistanceCost)
+{
+  // match() costs each pair with calculateMahalanobisDistance (MCEMahalanobis: its average with the multi-class
+  // Euclidean distance), with the track's own S: a farther track with another S comes first, so mixing up tracks
+  // changes the cost.
+  auto farTrack = makePositionTrack(4.0, 0.5, 2.0);
+  farTrack.predictedMeasurementMean(0) = 20.0;
+
+  auto orientingTrack = makeTrack();
+  orientation::markOrientationObserved(orientingTrack);
+  auto orientedMeasurement = makeMeasurement();
+  orientation::setHasOrientation(orientedMeasurement, true);
+
+  const struct
+  {
+    const char *name;
+    TrackedObject track;
+    TrackedObject measurement;
+  } cases[] = {
+    {.name = "without yaw", .track = makeTrack(), .measurement = makeMeasurement()},
+    {.name = "with yaw", .track = orientingTrack, .measurement = orientedMeasurement},
+  };
+  for (const auto &scenario : cases)
+  {
+    SCOPED_TRACE(scenario.name);
+    const double mahalanobis = calculateMahalanobisDistance(scenario.measurement, scenario.track);
+    const double compound
+      = 0.5 * calculateMulticlassScaledDistance(scenario.measurement, scenario.track) + 0.5 * mahalanobis;
+    ASSERT_LT(mahalanobis, calculateMahalanobisDistance(scenario.measurement, farTrack));
+
+    for (const auto &[distanceType, cost] :
+         {std::pair{DistanceType::Mahalanobis, mahalanobis}, std::pair{DistanceType::MCEMahalanobis, compound}})
+    {
+      SCOPED_TRACE(distanceType == DistanceType::Mahalanobis ? "Mahalanobis" : "MCEMahalanobis");
+      const std::vector<TrackedObject> tracks = {farTrack, scenario.track};
+      using Pairs = std::vector<std::pair<size_t, size_t>>;
+      EXPECT_EQ(matchedPairs(tracks, {scenario.measurement}, distanceType, cost * (1.0 + 1e-12)), (Pairs{{1, 0}}));
+      EXPECT_EQ(matchedPairs(tracks, {scenario.measurement}, distanceType, cost * (1.0 - 1e-12)), Pairs{});
+    }
+  }
 }
 
 TEST(ObjectMatchingTest, PositionMahalanobisRejectsPairsBeyondMaxRadius)
