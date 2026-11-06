@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 - **Author(s)**: [Sarat Poluri](https://github.com/spoluri)
 - **Date**: 2026-06-06
-- **Status**: Phase 1 complete; Phases 2–3 open
+- **Status**: Phase 1 implemented, opt-in (shipped configs use `euclidean`); default flip pending the Wildtrack regression; Phases 2–3 open
 - **ADR**: [ADR-0019](../../docs/adr/0019-probabilistic-tracking-association.md)
 - **Design**: [Probabilistic Tracking Association](../../docs/design/probabilistic-tracking-association.md)
 - **Evaluation**: [ADR-0009](../../docs/adr/0009-tracking-evaluation.md), [Tracker Evaluation Pipeline](../../docs/design/tracker-evaluation-pipeline.md)
@@ -18,7 +18,7 @@ This plan tracks **tasks, validation, and exit criteria**. Architecture and desi
 
 ## Phase 1 — Track-side position Mahalanobis
 
-**Status:** Complete (production default `position_mahalanobis`, `max_radius_m: 10`).
+**Status:** Implemented and validated as an alternative. The services default to `position_mahalanobis` (0.99, `max_radius_m: 10`) without an `association` block, but the shipped configs select `euclidean` until the Wildtrack regression below is resolved; `controller/config/tracker-config-mahalanobis.json` and `tracker/config/tracker-mahalanobis.json` select Phase 1.
 
 ### 1.1 robot_vision
 
@@ -37,7 +37,7 @@ This plan tracks **tasks, validation, and exit criteria**. Architecture and desi
 | Task | Location |
 |------|----------|
 | `AssociationConfig` on `TrackingConfig` | `inc/config_loader.hpp` |
-| Schema + defaults | `schema/config.schema.json`, `config/tracker.json` |
+| Schema + defaults | `schema/config.schema.json`, `config/tracker.json` (`euclidean`), `config/tracker-mahalanobis.json` |
 | Env var overrides | `inc/env_vars.hpp`, `src/config_loader.cpp` |
 | Wire method + gate | `src/tracking_worker.cpp` |
 | Remove hardcoded 2.0 m association threshold | `src/tracking_worker.cpp` |
@@ -49,42 +49,52 @@ Follow [Tracker Agents.md](../../tracker/Agents.md) config checklist.
 | Task | Location |
 |------|----------|
 | Read association config | `ilabs_tracking.py` |
-| Stop averaging `tracking_radius` for association | `ilabs_tracking.py` |
-| Feature-flag parity with tracker service | controller tracker config JSON |
+| Stop averaging `tracking_radius` for `position_mahalanobis` and for `euclidean` with `max_radius_m`; without it `euclidean` keeps the average, as before | `ilabs_tracking.py` |
+| Feature-flag parity with tracker service | controller tracker config JSON (`tracker-config.json` `euclidean`, `tracker-config-mahalanobis.json`) |
 | Birth clustering Euclidean ~2 m; equal-weight multi-cam geometry | `MultipleObjectTracker` / fuse path |
 
 ### 1.4 Soft deprecation
 
 | Task | Status |
 |------|--------|
-| Warn when `tracking_radius` differs and method ≠ euclidean | Done / follow-up as needed |
-| Document deprecation in object library / user guide | Follow-up PR |
+| Warn once per tracker when `tracking_radius` differs and is ignored (`position_mahalanobis`, or `euclidean` with `max_radius_m`) | Done |
+| Document in object library / user guide | Done (`how-to-define-object-properties.md`, `how-to-configure-tracker.md`) |
 | Do **not** remove `tracking_radius` DB field in Phase 1 | Held |
 
 ### Phase 1 exit criteria
 
 - [x] Feature flag ships; `position_mahalanobis` validated vs Euclidean
-- [x] Evaluation metrics within thresholds on gated datasets
+- [ ] Evaluation metrics within thresholds on gated datasets: Unity yes; Wildtrack no (Controller-TC and Tracker-Service HOTA −0.02, jerk up), see the validation notes
 - [x] CI unit coverage for association wiring
 - [x] ADR-0019 → `Accepted` for Phase 1 scope
-- [x] Default flip → `position_mahalanobis` after Controller-TC + Wildtrack re-signoff
+- [ ] Default flip → `position_mahalanobis` (shipped configs; services already default to it without a block) after the Wildtrack regression is resolved and Controller-TC + Wildtrack re-signoff
 
 ### Phase 1 validation notes
 
-Artifacts under `/tmp/phase1-signoff/`, `/tmp/phase1-tc-vs-tracker/`, `/tmp/phase1-default-flip/`.
+Supersedes the earlier sign-off notes, whose artefacts (`/tmp/phase1-*`) are gone and whose Wildtrack gains the current results do not reproduce. Details are in the PR 4 description.
 
-- **Unity Controller-Immediate 10 fps** (2026-08-15): Mahalanobis matched or slightly improved AssA/LocA; lower jitter once config reached category trackers.
-- **Covariance shaping** (2026-08-16): fixed isotropic Q / broken Sxy / IMM inflation → velocity-aligned coast ellipses (unit-tested).
-- **Unity Immediate 1 fps / Tracker-Service 10 fps** (2026-08-16): essentially tied vs Euclidean.
-- **Controller-TC vs Tracker** (2026-08-16): Fix 1 birth Euclidean ~2 m; Fix 2 equal-weight geometry average — CLR HOTA 71→77, IDF1 71→99.
-- **Default-flip re-signoff** (2026-08-16):
+**Accuracy** (Tracker Evaluation black-box harness; `feature/prob-tracking-extracted-association` @ `057d04cf7` vs `main` @ `5ac534ed1`; 3 runs per dataset and side; Controller-Immediate, Controller-Time-Chunking, Tracker-Service). A delta counts only when |Δ| exceeds the min-to-max range of the runs (noise); Wildtrack Tracker-Service is deterministic, so its deltas are exact.
 
-| Suite | HOTA Δ | AssA Δ | LocA Δ | IDSW Δ | Gate |
-|-------|--------|--------|--------|--------|------|
-| Unity Controller-TC 10 fps | −0.03 | −0.04 | −0.01 | 0 | **PASS** |
-| Wildtrack Tracker-Service 2 fps | **+0.69** | **+0.92** | **+0.51** | +23 | **PASS** primary; IDSW over +5% budget |
+- **Euclidean** (branch, 2 m) matches `main` everywhere: no delta above noise on Unity or Wildtrack, Wildtrack Tracker-Service bit-identical.
+- **Unity**: Mahalanobis matches `main` on HOTA, MOTA, IDF1 and location errors; marginal Controller-TC jitter (`rms_jerk` +10–15 %, `acceleration_variance_ratio` +18 %).
+- **Wildtrack with Mahalanobis is worse than `main`** on Controller-TC and Tracker-Service, and the regression comes entirely from `position_mahalanobis`:
 
-Residual: Controller-TC `rms_jerk_ratio` +17% vs +10% budget; Wildtrack IDSW. Accepted for Phase 1; revisit with Phase 2 R.
+| Wildtrack | `main` | Mahalanobis | Euclidean |
+|-----------|--------|-------------|-----------|
+| HOTA, Controller-TC | 0.6473 | **0.6271** | 0.6474 |
+| HOTA, Tracker-Service | 0.7643 | **0.7431** | 0.7643 |
+| `rms_jerk`, Controller-TC | 2.456 | **2.828** | 2.398 |
+| `rms_jerk`, Tracker-Service | 1.814 | **2.671** | 1.814 |
+
+  IDF1 −0.024 / −0.021, Tracker-Service MOTA −0.026, location errors +0.03–0.09 m.
+- Controller-Immediate drops 3–7 % of messages on Unity and 35–48 % on Wildtrack on every side; Controller-TC and Tracker-Service drop none.
+
+**Performance** (`main` @ `9aa829b12` vs PR 4 @ `51506dc51`; Euclidean / Mahalanobis):
+
+- robot_vision benchmark (one pinned core, median of 7, 2 passes): Euclidean −0.7 to −1.7 % in all 12 cases with 50 / 200 people; Mahalanobis −0.7 to +2.9 %, and +8.1 % (single-threaded) / +13.0 % (8 cores) with 300 people and 4 overlapping cameras.
+- Tracker Service `make test-load` (4 cameras × 15 fps × 300 objects, 1 min): 0 % dropped and 300 tracks on every side; Tracker CPU per run 133.7 s on `main`, −0.3 % Euclidean, +1.3 % Mahalanobis; Track-stage p50 / p99 25.7 / 35.6 ms on `main`, unchanged Euclidean, +4.5 % / +7.4 % Mahalanobis; end-to-end latency within noise. A 10 m Euclidean gate costs +3 % CPU and +12 % Track p50.
+
+**Kept from the earlier notes** (implemented and covered by unit tests, not re-measured): covariance shaping (velocity-aligned coast ellipses) and the cross-camera fixes (Euclidean ~2 m birth clustering, equal-weight geometry average).
 
 ---
 
@@ -153,7 +163,7 @@ cd tracker && make test-unit-coverage
 
 ## Rollout checklist
 
-1. [x] Phase 1 default flip (`position_mahalanobis`); `euclidean` rollback retained
+1. [ ] Phase 1 default flip (`position_mahalanobis`): shipped configs stay `euclidean`, with Mahalanobis alternative configs, until the Wildtrack regression is resolved
 2. [ ] Phase 2 opt-in combined; default stays Phase 1 until sign-off
 3. [ ] Phase 3 default flip to combined
 
@@ -183,10 +193,12 @@ gantt
 |-----------|---------|---------|---------|
 | `robot_vision/ObjectMatching.*` | ✓ | ✓ | |
 | `robot_vision/TrackedObject.*` | | ✓ | ✓ |
-| `robot_vision/MultiModelKalmanEstimator.*` | | | ✓ |
+| `robot_vision/MultiModelKalmanEstimator.*` | ✓ | | ✓ |
 | `tracker/coordinate_transformer.*` | | ✓ | |
 | `tracker/config_loader.*`, schema | ✓ | ✓ | ✓ |
 | `tracker/tracking_worker.cpp` | ✓ | ✓ | ✓ |
 | `controller/ilabs_tracking.py` | ✓ | ✓ | ✓ |
+| `controller/config/`, `tracker/config/` (shipped and Mahalanobis configs) | ✓ | | |
+| `scene_common/association.py` | ✓ | | |
 | `manager/models.py` (deprecation) | | | ✓ |
 | `tools/tracker/evaluation/` | ✓ | ✓ | ✓ |
