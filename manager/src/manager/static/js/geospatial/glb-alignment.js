@@ -40,6 +40,16 @@ function dragAnchor(anchor, grab, cur) {
   };
 }
 
+function buildOverlayCorners(anchor, footprint) {
+  return GeoOverlayMath.footprintCornersLLA(
+    anchor.lat,
+    anchor.lng,
+    anchor.heading_deg,
+    footprint.width,
+    footprint.height,
+  );
+}
+
 const byId = (id) => document.getElementById(id);
 const on = (el, type, fn, cap) => el.addEventListener(type, fn, cap === true);
 
@@ -50,9 +60,9 @@ class GlbAlignment {
 
     this.sceneId = row.dataset.sceneId;
     this.staged = null;
+    this.saved = null;
     this.anchor = null;
     this.opacity = DEFAULT_OPACITY;
-    this.savedAnchor = null;
     this.dirty = false;
     this._isMoving = false;
     this.uploading = false;
@@ -78,6 +88,13 @@ class GlbAlignment {
       mapCenterLat: byId("id_map_center_lat"),
       mapCenterLng: byId("id_map_center_lng"),
       mapProvider: byId("mapProvider"),
+      savedBlock: byId("glbSavedBlock"),
+      savedFilename: byId("glbSavedFilename"),
+      downloadLink: byId("glbDownloadLink"),
+      removeBtn: byId("glbRemoveBtn"),
+      useCheckbox: byId("glbUse"),
+      savePosBtn: byId("glbSavePosition"),
+      savePosWrap: byId("glbSavePositionWrap"),
     };
 
     this._loadSavedAlignment();
@@ -113,6 +130,12 @@ class GlbAlignment {
     on(this.ui.accept, "click", () => this._accept());
     on(this.ui.reset, "click", () => this._reset());
     on(this.ui.cancel, "click", () => this._cancel());
+
+    if (this.ui.savePosBtn)
+      on(this.ui.savePosBtn, "click", () => this._savePosition());
+    if (this.ui.removeBtn) on(this.ui.removeBtn, "click", () => this._remove());
+    if (this.ui.useCheckbox)
+      on(this.ui.useCheckbox, "change", () => this._toggleUse());
 
     for (const type of ["pointerdown", "mousedown", "touchstart"])
       on(this.ui.map, type, (e) => this._handleMapPointerDown(e), true);
@@ -151,12 +174,23 @@ class GlbAlignment {
     else if (this.uploading) hint = "loading glb...";
 
     this.ui.file.disabled = busy || this._mapEmpty();
-    // Disabled controls get no pointer events, so the wrapper carries the hover title
     this.ui.file.style.pointerEvents = busy ? "none" : "";
     this.ui.fileWrap.title = hint;
     this.ui.accept.disabled = busy;
     this.ui.accept.style.pointerEvents = busy ? "none" : "";
     this.ui.acceptWrap.title = hint;
+    if (this.ui.savePosBtn) {
+      this.ui.savePosBtn.disabled = busy;
+      this.ui.savePosBtn.style.pointerEvents = busy ? "none" : "";
+      this.ui.savePosWrap.title = hint;
+    }
+    if (this.ui.removeBtn) {
+      this.ui.removeBtn.disabled = busy;
+      this.ui.removeBtn.style.pointerEvents = busy ? "none" : "";
+    }
+    if (this.ui.useCheckbox) {
+      this.ui.useCheckbox.disabled = busy;
+    }
   }
 
   async _loadSavedAlignment() {
@@ -165,8 +199,49 @@ class GlbAlignment {
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
         { method: "GET" },
       );
-      this.savedAnchor = data.anchor;
+      if (data.exists) {
+        this.saved = data;
+        this.anchor = { ...data.anchor };
+        this._renderSavedBlock();
+        this._drawSavedOverlay();
+      }
     } catch (e) {}
+  }
+
+  _renderSavedBlock() {
+    if (!this.ui.savedBlock || !this.saved) return;
+    this.ui.savedFilename.textContent = this.saved.filename || "3D model";
+    this.ui.downloadLink.href = this.saved.download_url;
+    if (this.ui.useCheckbox) {
+      this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
+    }
+    this.ui.savedBlock.style.display = "";
+    this._updateControlsVisibility();
+  }
+
+  _updateControlsVisibility() {
+    if (this.staged) {
+      if (this.ui.savePosBtn) this.ui.savePosBtn.style.display = "none";
+    } else if (this.saved) {
+      if (this.ui.savePosBtn) this.ui.savePosBtn.style.display = "";
+    }
+  }
+
+  _drawSavedOverlay() {
+    if (!this.saved || !this.saved.anchor || !this.saved.footprint_m) return;
+    try {
+      const corners = buildOverlayCorners(
+        this.saved.anchor,
+        this.saved.footprint_m,
+      );
+      this._strategy().setOverlay(
+        this.saved.preview_url,
+        corners,
+        this.opacity,
+      );
+    } catch (e) {
+      console.error("Failed to draw saved overlay:", e);
+    }
   }
 
   async _handleFileUpload(e) {
@@ -187,22 +262,23 @@ class GlbAlignment {
         { method: "POST", body: form },
       );
 
+      const startAnchor = this.saved?.anchor || data.anchor;
       this.staged = {
         token: data.token,
         imageUrl: data.preview_url,
         footprint: data.footprint_m,
-        existing: data.existing_content,
-        startAnchor: this.savedAnchor || data.anchor,
+        anchor: { ...startAnchor },
       };
 
-      this.anchor = { ...this.staged.startAnchor };
+      this.anchor = { ...startAnchor };
       this.opacity = DEFAULT_OPACITY;
       this.dirty = false;
       this._updateInputs();
       this.ui.controls.style.display = "";
+      this._updateControlsVisibility();
       this.ui.footprint.textContent = `Footprint: ${this.staged.footprint.width.toFixed(1)} × ${this.staged.footprint.height.toFixed(1)} m`;
 
-      const corners = this._corners();
+      const corners = buildOverlayCorners(this.anchor, this.staged.footprint);
       this._strategy().setOverlay(this.staged.imageUrl, corners, this.opacity);
       this._strategy().fitToCorners(corners);
       e.target.value = "";
@@ -221,17 +297,15 @@ class GlbAlignment {
   }
 
   _corners() {
-    return GeoOverlayMath.footprintCornersLLA(
-      this.anchor.lat,
-      this.anchor.lng,
-      this.anchor.heading_deg,
-      this.staged.footprint.width,
-      this.staged.footprint.height,
-    );
+    const footprint = this.staged
+      ? this.staged.footprint
+      : this.saved?.footprint_m;
+    if (!footprint) return [];
+    return buildOverlayCorners(this.anchor, footprint);
   }
 
   _render() {
-    if (!this.staged || !this.anchor) return;
+    if (!this.anchor) return;
     try {
       const strategy = this._strategy();
       const corners = this._corners();
@@ -255,11 +329,10 @@ class GlbAlignment {
   }
 
   _handleMapPointerDown(e) {
-    if (!this.staged) return;
+    if (!this.anchor) return;
     const grab = this._pointerLatLng(e);
     if (!pointInPolygon(grab, this._corners())) return;
 
-    // Inside the overlay: keep the map from panning (all three event types)
     e.preventDefault();
     e.stopPropagation();
     if (e.type !== "pointerdown") return;
@@ -295,19 +368,9 @@ class GlbAlignment {
     if (!this.staged || !this.anchor) return;
 
     this.ui.status.textContent = "";
-    let ack = false;
-
-    if (this.staged.existing) {
-      const { cameras = 0, regions = 0, sensors = 0 } = this.staged.existing;
-      if (cameras > 0 || regions > 0 || sensors > 0) {
-        const msg = `This scene has ${cameras} camera(s), ${regions} region(s) and ${sensors} sensor(s). Placing the 3D model changes the scene's local coordinate frame under them and they are NOT re-based. Continue?`;
-        ack = window.confirm(msg);
-        if (!ack) return;
-      }
-    }
-
     this.saving = true;
     this._updateLocks();
+
     try {
       await this._request(
         `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
@@ -316,7 +379,6 @@ class GlbAlignment {
           body: {
             token: this.staged.token,
             anchor: this.anchor,
-            acknowledge_frame_change: ack,
           },
         },
       );
@@ -333,8 +395,12 @@ class GlbAlignment {
   }
 
   _reset() {
-    if (!this.staged) return;
-    this.anchor = { ...this.staged.startAnchor };
+    if (!this.staged && !this.saved) return;
+    if (this.staged) {
+      this.anchor = { ...this.staged.anchor };
+    } else if (this.saved) {
+      this.anchor = { ...this.saved.anchor };
+    }
     this.opacity = DEFAULT_OPACITY;
     this.dirty = false;
     this._updateInputs();
@@ -347,9 +413,100 @@ class GlbAlignment {
     } catch (e) {}
     this.ui.controls.style.display = "none";
     this.staged = null;
-    this.anchor = null;
+    if (this.saved) {
+      this.anchor = { ...this.saved.anchor };
+      this._drawSavedOverlay();
+    } else {
+      this.anchor = null;
+    }
     this.dirty = false;
+    this._updateControlsVisibility();
     this.ui.status.textContent = status;
+  }
+
+  async _savePosition() {
+    if (!this.saved || !this.anchor) return;
+
+    this.ui.status.textContent = "";
+    this.saving = true;
+    this._updateLocks();
+
+    try {
+      await this._request(
+        `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
+        {
+          method: "PATCH",
+          body: { anchor: this.anchor },
+        },
+      );
+
+      this.saved.anchor = { ...this.anchor };
+      this.dirty = false;
+      this.ui.status.textContent = "Position saved";
+    } catch (error) {
+      this.ui.status.textContent = error.message;
+    } finally {
+      this.saving = false;
+      this._updateLocks();
+    }
+  }
+
+  async _toggleUse() {
+    if (!this.saved || !this.ui.useCheckbox) return;
+
+    this.ui.status.textContent = "";
+    this.saving = true;
+    this._updateLocks();
+
+    try {
+      const response = await this._request(
+        `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
+        {
+          method: "PATCH",
+          body: { use_glb_map: this.ui.useCheckbox.checked },
+        },
+      );
+
+      this.saved.use_glb_map = response.use_glb_map;
+      this.ui.status.textContent = this.saved.use_glb_map
+        ? "3D model applied to scene map"
+        : "3D model overlay only";
+    } catch (error) {
+      this.ui.useCheckbox.checked = this.saved.use_glb_map || false;
+      this.ui.status.textContent = error.message;
+    } finally {
+      this.saving = false;
+      this._updateLocks();
+    }
+  }
+
+  async _remove() {
+    if (!this.saved) return;
+
+    const msg = `Remove the saved 3D model "${this.saved.filename || "3D model"}"? This cannot be undone.`;
+    if (!window.confirm(msg)) return;
+
+    this.ui.status.textContent = "";
+    this.saving = true;
+    this._updateLocks();
+
+    try {
+      await this._request(
+        `/api/v1/scene/${encodeURIComponent(this.sceneId)}/geospatial-glb`,
+        { method: "DELETE" },
+      );
+
+      this.saved = null;
+      this.anchor = null;
+      if (this.ui.savedBlock) this.ui.savedBlock.style.display = "none";
+      this._strategy().removeOverlay();
+      this.ui.status.textContent = "3D model removed";
+    } catch (error) {
+      this.ui.status.textContent = error.message;
+    } finally {
+      this.saving = false;
+      this._updateLocks();
+    }
   }
 
   async _request(url, { method = "GET", body } = {}) {
@@ -361,6 +518,7 @@ class GlbAlignment {
       body = JSON.stringify(body);
     }
     const response = await fetch(url, { method, headers, body });
+    if (response.status === 204) return {};
     const data = await response.json();
     if (!response.ok)
       throw new Error(data.error || `Request failed (${response.status})`);
@@ -382,5 +540,6 @@ if (typeof module !== "undefined" && module.exports) {
     pointInPolygon,
     clampHeading,
     dragAnchor,
+    buildOverlayCorners,
   };
 }

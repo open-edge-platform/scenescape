@@ -2106,6 +2106,7 @@ function setupGenerateMesh() {
 
     try {
       const startResult = await generateMeshFromCameras(sceneId, form);
+      if (!startResult) return;
 
       const requestId = startResult.request_id;
       if (!requestId) {
@@ -2180,10 +2181,11 @@ async function pollMeshStatus(sceneId, requestId) {
   }
 }
 
-async function generateMeshFromCameras(sceneId, form) {
+async function generateMeshFromCameras(sceneId, form, overrideGlb = false) {
   const url = `/scene/generate-mesh/${sceneId}/`;
 
   const formData = new FormData(form);
+  if (overrideGlb) formData.append("override_glb", "true");
 
   // Make sure CSRF is sent (Django)
   const csrfToken =
@@ -2200,6 +2202,16 @@ async function generateMeshFromCameras(sceneId, form) {
   });
 
   const data = await resp.json().catch(() => ({}));
+
+  if (resp.status === 409 && data.glb_applied && !overrideGlb) {
+    const confirmed = confirm(
+      "A GLB map is applied to this scene. Generating a mesh replaces it " +
+        "with the generated mesh. The uploaded GLB stays stored and can be " +
+        "applied again later. Continue?",
+    );
+    if (!confirmed) return null;
+    return generateMeshFromCameras(sceneId, form, true);
+  }
 
   if (!resp.ok || data.success === false) {
     throw new Error(

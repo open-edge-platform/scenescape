@@ -331,8 +331,8 @@ class TestGlbAlignment:
     assert body["anchor"]["lat"] == 37
     assert any("removeOverlay" in str(c) for c in res["calls"])
 
-  def test_accept_with_confirm_required(self):
-    """Accept with existing content requires confirmation."""
+  def test_accept_with_existing_content_commits_without_confirm(self):
+    """Accept with existing content commits directly; no confirmation is requested."""
     preview_resp = {
       "status": 200,
       "body": {
@@ -343,18 +343,23 @@ class TestGlbAlignment:
         "existing_content": {"cameras": 2, "regions": 0, "sensors": 0},
       },
     }
+    accept_resp = {
+      "status": 200,
+      "body": {"anchor": {"lat": 37, "lng": -122, "heading_deg": 0}, "footprint_m": {"width": 100, "height": 60}},
+    }
     res = run_js(
       "align",
       {
         "mapType": "geospatial_map",
         "center": ["37", "-122"],
-        "responses": [{"status": 404, "body": {}}, preview_resp],
+        "responses": [{"status": 404, "body": {}}, preview_resp, accept_resp],
         "confirm": False,
         "steps": [["upload"], ["accept"]],
       },
     )
     assert res["ok"]
-    assert len(res["fetches"]) == 2
+    assert len(res["fetches"]) == 3
+    assert res["fetches"][2]["method"] == "POST"
 
   def test_accept_locked_while_commit_in_flight(self):
     """Accept and upload controls are disabled while the commit request is in flight."""
