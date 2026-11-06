@@ -696,24 +696,39 @@ test("locking applies stored calibration only once", async () => {
   assert.equal(camera.poseLocked, false);
 });
 
-test("lock is not applied when stored pose cannot be applied", async () => {
+test("lock is applied even when stored pose cannot be applied", async () => {
   const camera = await sceneCameraHarness();
   camera.poseLocked = false;
-  camera.updatePose = () => false;
+  let poseAttempts = 0;
+  camera.updatePose = () => {
+    poseAttempts += 1;
+    return false;
+  };
   camera.syncPoseLocked({
     pose_locked: true,
     translation: [1, 2, 3],
     rotation: [0, 0, 90],
     scale: [1, 1, 1],
   });
-  assert.equal(camera.poseLocked, false);
+  assert.equal(camera.poseLocked, true);
+  assert.equal(poseAttempts, 1);
+  camera.poseLocked = false;
   camera.syncPoseLocked({
     pose_locked: true,
     translation: [1, 2, 3],
     rotation: [0, 0],
     scale: [1, 1, 1],
   });
-  assert.equal(camera.poseLocked, false);
+  assert.equal(camera.poseLocked, true);
+  assert.equal(poseAttempts, 1);
+  camera.poseLocked = false;
+  camera.syncPoseLocked({
+    pose_locked: true,
+    translation: [1, 2, 3],
+    rotation: null,
+  });
+  assert.equal(camera.poseLocked, true);
+  assert.equal(poseAttempts, 1);
 });
 
 test("live poses refresh translate and rotate controllers", async () => {

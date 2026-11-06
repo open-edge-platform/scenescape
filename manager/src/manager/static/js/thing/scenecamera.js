@@ -535,17 +535,19 @@ export default class SceneCamera extends THREE.Object3D {
     if (!("pose_locked" in data)) return;
     const locked = Boolean(data.pose_locked);
     if (locked === this.poseLocked) return;
-    if (locked) {
-      if (
-        !Array.isArray(data.rotation) ||
-        data.rotation.length !== 3 ||
-        !data.rotation.every(Number.isFinite)
-      )
-        return;
+    // Best-effort snap back to stored Euler calibration; always honor the
+    // persisted lock bit even when rotation is missing (uncalibrated Cam) or
+    // updatePose rejects the payload, so the UI stops following live MQTT.
+    if (
+      locked &&
+      Array.isArray(data.rotation) &&
+      data.rotation.length === 3 &&
+      data.rotation.every(Number.isFinite)
+    ) {
       const rotation = new THREE.Quaternion().setFromEuler(
         new THREE.Euler(...data.rotation.map(THREE.MathUtils.degToRad), "XYZ"),
       );
-      if (!this.updatePose({ ...data, rotation: rotation.toArray() })) return;
+      this.updatePose({ ...data, rotation: rotation.toArray() });
     }
     this.poseLocked = locked;
   }
