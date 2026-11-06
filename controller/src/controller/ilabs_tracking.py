@@ -104,7 +104,7 @@ def warn_association_config(association_config):
       and max_radius_m <= DEFAULT_ASSOCIATION_EUCLIDEAN_MAX_RADIUS_M + 1e-6):
     log.warning(
       "association.method is position_mahalanobis with max_radius_m=%s; "
-      "ADR-0017 recommends raising max_radius_m (e.g. %s) so the chi-squared "
+      "ADR-0019 recommends raising max_radius_m (e.g. %s) so the chi-squared "
       "gate can widen with predicted uncertainty",
       max_radius_m,
       DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M,

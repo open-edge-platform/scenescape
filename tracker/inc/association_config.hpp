@@ -30,7 +30,7 @@ enum class AssociationMethod {
 }
 
 /**
- * @brief Data association configuration (ADR-0017 Phase 1).
+ * @brief Data association configuration (ADR-0019 Phase 1).
  */
 struct AssociationConfig {
     AssociationMethod method = AssociationMethod::PositionMahalanobis;

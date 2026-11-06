@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 - **Author(s)**: [Sarat Poluri](https://github.com/spoluri)
 - **Date**: 2026-06-06
 - **Status**: `Accepted` (Phase 1); Phases 2–3 `Proposed`
-- **Related ADRs**: [ADR-0017](../adr/0017-probabilistic-tracking-association.md), [ADR-0009](../adr/0009-tracking-evaluation.md)
+- **Related ADRs**: [ADR-0019](../adr/0019-probabilistic-tracking-association.md), [ADR-0009](../adr/0009-tracking-evaluation.md)
 - **Implementation plan**: [.github/plans/plan-probabilistic-tracking.md](../../.github/plans/plan-probabilistic-tracking.md)
 - **Evaluation baseline**: [Tracker Evaluation Pipeline](./tracker-evaluation-pipeline.md)
 
@@ -16,7 +16,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## 1. Overview
 
-This document specifies how [ADR-0017](../adr/0017-probabilistic-tracking-association.md) is realized in `robot_vision`, the tracker service, and the Scene Controller: association distance types, measurement covariance, configuration, stopgaps, and validation expectations. Task checklists and exit criteria live in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
+This document specifies how [ADR-0019](../adr/0019-probabilistic-tracking-association.md) is realized in `robot_vision`, the tracker service, and the Scene Controller: association distance types, measurement covariance, configuration, stopgaps, and validation expectations. Task checklists and exit criteria live in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
 
 ## 2. Goals
 
@@ -191,7 +191,7 @@ Default recommendation: **0.99**.
 
 ## 6. Alternatives Considered
 
-See [ADR-0017 §Alternatives](../adr/0017-probabilistic-tracking-association.md#alternatives-considered). Design-level notes:
+See [ADR-0019 §Alternatives](../adr/0019-probabilistic-tracking-association.md#alternatives-considered). Design-level notes:
 
 - Full 7D Mahalanobis rejected for association because size/yaw innovation is poorly conditioned for SceneScape projections.
 - Widening Euclidean radius to “absorb” multi-cam bias rejected; that conflates motion gating with measurement noise and belongs in Phase 2 `R`.
@@ -240,7 +240,7 @@ Phase-specific unit tests and sign-off notes are tracked in the [implementation 
 
 ## 11. References
 
-- [ADR-0017: Probabilistic Tracking Association](../adr/0017-probabilistic-tracking-association.md)
+- [ADR-0019: Probabilistic Tracking Association](../adr/0019-probabilistic-tracking-association.md)
 - [Implementation plan](../../.github/plans/plan-probabilistic-tracking.md)
 - [ADR-0009: Tracking Evaluation](../adr/0009-tracking-evaluation.md)
 - [Tracker Evaluation Pipeline](./tracker-evaluation-pipeline.md)
