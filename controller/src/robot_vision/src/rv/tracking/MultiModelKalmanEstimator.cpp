@@ -231,8 +231,6 @@ void MultiModelKalmanEstimator::singleModelPredict(double deltaT)
     mCurrentState.predictedMeasurementCov = mKalmanFilters[0]->getMeasurementCov();
   }
 
-  cv::invert(mCurrentState.predictedMeasurementCov, mCurrentState.predictedMeasurementCovInv, cv::DECOMP_SVD);
-
   if (deltaT >= 1e-3)
   {
     mCurrentState.corrected = false;
@@ -354,7 +352,6 @@ void MultiModelKalmanEstimator::predictState(const double deltaT)
   }
   mCurrentState.predictedMeasurementMean = combinedMeasurement;
   mCurrentState.predictedMeasurementCov = measurementCovariances[bestModel];
-  cv::invert(mCurrentState.predictedMeasurementCov, mCurrentState.predictedMeasurementCovInv, cv::DECOMP_SVD);
 
   if (deltaT >= 1e-3)
   {

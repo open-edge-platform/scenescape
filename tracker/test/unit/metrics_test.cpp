@@ -7,6 +7,7 @@
 
 #include "config_loader.hpp"
 #include "logger.hpp"
+#include "utils/in_memory_metrics.hpp"
 
 #include <thread>
 #include <vector>
@@ -20,7 +21,6 @@ namespace tracker {
 namespace {
 
 namespace metrics_sdk = opentelemetry::sdk::metrics;
-namespace memory = opentelemetry::exporter::memory;
 
 /**
  * @brief Helper to create metrics-enabled config for in-memory testing.
@@ -39,29 +39,18 @@ ServiceConfig make_metrics_config() {
 }
 
 /**
- * @brief Create an InMemoryMetricExporter and its backing data store.
- */
-std::pair<std::unique_ptr<metrics_sdk::PushMetricExporter>,
-          std::shared_ptr<memory::SimpleAggregateInMemoryMetricData>>
-make_in_memory_exporter() {
-    auto data = std::make_shared<memory::SimpleAggregateInMemoryMetricData>();
-    auto exporter = memory::InMemoryMetricExporterFactory::Create(data);
-    return {std::move(exporter), data};
-}
-
-/**
  * @brief Test fixture that initializes telemetry with in-memory exporter
  *        and resets Metrics state between tests.
  */
 class MetricsTest : public ::testing::Test {
 protected:
-    std::shared_ptr<memory::SimpleAggregateInMemoryMetricData> metric_data_;
+    std::shared_ptr<test::LatestInMemoryMetricData> metric_data_;
 
     void SetUp() override {
         Logger::init("warn");
         Metrics::reset();
 
-        auto [exporter, data] = make_in_memory_exporter();
+        auto [exporter, data] = test::make_in_memory_exporter();
         metric_data_ = data;
         auto config = make_metrics_config();
         Telemetry::init(config, std::move(exporter));

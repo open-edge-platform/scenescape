@@ -69,7 +69,7 @@ class TestSceneControllerExtractTrackerConfigAssociation:
     assert association['method'] == 'position_mahalanobis'
     assert association['max_radius_m'] == pytest.approx(10.0)
 
-  def test_extract_association_euclidean_without_max_radius_uses_legacy_gate(self, tmp_path):
+  def test_extract_association_euclidean_without_max_radius_gates_on_tracking_radius(self, tmp_path):
     scene_controller = SceneController.__new__(SceneController)
     scene_controller.tracker_config_data = {}
     config_path = tmp_path / 'tracker-config.json'
@@ -84,7 +84,8 @@ class TestSceneControllerExtractTrackerConfigAssociation:
 
     association = scene_controller.tracker_config_data['association']
     assert association['method'] == 'euclidean'
-    assert association['max_radius_m'] == pytest.approx(2.0)
+    # The tracker gates on the objects' tracking_radius, as before the association block.
+    assert association['max_radius_m'] is None
 
 
 class TestSceneControllerExtractTrackerRate:

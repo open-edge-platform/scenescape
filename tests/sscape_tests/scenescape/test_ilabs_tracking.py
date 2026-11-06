@@ -31,6 +31,11 @@ def test_normalize_association_config_rejects_unknown_method():
     normalize_association_config({'method': 'not-a-real-method', 'max_radius_m': 5.0})
 
 
+def _expected_radius(expected_max_radius_m):
+  return None if expected_max_radius_m is None else pytest.approx(expected_max_radius_m)
+
+
+# Without a valid max_radius_m, euclidean gates on the objects' tracking_radius (None).
 def test_normalize_association_config_invalid_max_radius_uses_method_default():
   mahal = normalize_association_config({
     'method': 'position_mahalanobis',
@@ -42,28 +47,34 @@ def test_normalize_association_config_invalid_max_radius_uses_method_default():
     'method': 'euclidean',
     'max_radius_m': -1.0,
   })
-  assert euclid['max_radius_m'] == pytest.approx(2.0)
+  assert euclid['max_radius_m'] is None
 
 
 @pytest.mark.parametrize('max_radius_m', ['nan', 'inf', float('nan'), float('inf')])
 @pytest.mark.parametrize('method, expected_max_radius_m', [
-  ('euclidean', 2.0),
+  ('euclidean', None),
   ('position_mahalanobis', 10.0),
 ])
 def test_normalize_association_config_nonfinite_max_radius_uses_method_default(
     method, expected_max_radius_m, max_radius_m):
   config = normalize_association_config({'method': method, 'max_radius_m': max_radius_m})
-  assert config['max_radius_m'] == pytest.approx(expected_max_radius_m)
+  assert config['max_radius_m'] == _expected_radius(expected_max_radius_m)
 
 
 @pytest.mark.parametrize('method, expected_max_radius_m', [
-  ('euclidean', 2.0),
+  ('euclidean', None),
   ('position_mahalanobis', 10.0),
 ])
+@pytest.mark.parametrize('missing', [{}, {'max_radius_m': None}])
 def test_normalize_association_config_missing_max_radius_uses_method_default(
-    method, expected_max_radius_m):
-  config = normalize_association_config({'method': method})
-  assert config['max_radius_m'] == pytest.approx(expected_max_radius_m)
+    method, expected_max_radius_m, missing, monkeypatch):
+  errors = []
+  monkeypatch.setattr('controller.ilabs_tracking.log.error', lambda *args: errors.append(args))
+  config = normalize_association_config({'method': method, **missing})
+  assert config['max_radius_m'] == _expected_radius(expected_max_radius_m)
+  # The normalized config is normalized again downstream (Scene, IntelLabsTracking).
+  assert normalize_association_config(config) == config
+  assert not errors
 
 
 def test_normalize_association_config_keeps_explicit_euclidean_max_radius():
@@ -95,6 +106,19 @@ def test_association_match_params_euclidean_uses_max_radius_as_threshold():
   assert distance_type == rv.tracking.DistanceType.Euclidean
   assert distance_threshold == pytest.approx(3.5)
   assert max_radius_m == pytest.approx(3.5)
+
+
+@pytest.mark.parametrize('association_config, expected_radius_m', [
+  ({'method': 'euclidean'}, 6.0),
+  ({'method': 'euclidean', 'max_radius_m': 3.5}, 3.5),
+])
+def test_association_match_params_euclidean_without_max_radius_uses_tracking_radius(
+    association_config, expected_radius_m):
+  distance_type, distance_threshold, max_radius_m = association_match_params(
+    association_config, tracking_radius_m=6.0)
+  assert distance_type == rv.tracking.DistanceType.Euclidean
+  assert distance_threshold == pytest.approx(expected_radius_m)
+  assert max_radius_m == pytest.approx(expected_radius_m)
 
 
 def test_association_match_params_mahalanobis_uses_chi2_gate():
@@ -159,6 +183,77 @@ def test_create_trackers_propagates_association_config(monkeypatch):
 
   assert captured['kwargs']['association_config']['method'] == 'position_mahalanobis'
   assert 'person' in parent.trackers
+
+
+@pytest.mark.parametrize('association_config, expected', [
+  ({'method': 'euclidean', 'max_radius_m': 3.0},
+   (rv.tracking.DistanceType.Euclidean, 3.0, 3.0)),
+  ({'method': 'position_mahalanobis', 'gate_probability': 0.95, 'max_radius_m': 7.0},
+   (rv.tracking.DistanceType.PositionMahalanobis, rv.tracking.chi2_threshold(0.95, 3), 7.0)),
+])
+def test_update_tracks_forwards_association_params(monkeypatch, association_config, expected):
+  calls = []
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.association_config = normalize_association_config(association_config)
+  tracker.tracker = SimpleNamespace(track=lambda objects, timestamp, **kwargs: calls.append(
+    (objects, timestamp, kwargs)))
+  monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: sscape_object.name)
+  person = SimpleNamespace(name='person', tracking_radius=2.0)
+  car = SimpleNamespace(name='car', tracking_radius=10.0)
+
+  tracker.update_tracks([person], 1.0)
+  tracker.update_tracks_batched([[person], [car]], 2.0)
+
+  assert [(objects, timestamp) for objects, timestamp, _ in calls] == [
+    (['person'], 1.0), ([['person'], ['car']], 2.0)]
+  distance_type, distance_threshold, max_radius_m = expected
+  for _, _, kwargs in calls:
+    assert kwargs['distance_type'] == distance_type
+    assert kwargs['distance_threshold'] == pytest.approx(distance_threshold)
+    assert kwargs['max_radius_m'] == pytest.approx(max_radius_m)
+  # With max_radius_m set, objects' tracking_radius does not change birth clustering.
+  assert calls[1][2]['birth_cluster_radius_m'] == pytest.approx(rv.tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M)
+
+
+def test_update_tracks_euclidean_without_max_radius_gates_on_average_tracking_radius(monkeypatch):
+  # As on main: the frame's average tracking_radius is the gate and the birth-clustering radius, the default
+  # tracking_radius without objects.
+  calls = []
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.association_config = normalize_association_config({'method': 'euclidean'})
+  tracker.tracker = SimpleNamespace(track=lambda objects, timestamp, **kwargs: calls.append(kwargs))
+  monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: sscape_object.name)
+  person = SimpleNamespace(name='person', tracking_radius=2.0)
+  car = SimpleNamespace(name='car', tracking_radius=10.0)
+
+  tracker.update_tracks([person, car], 1.0)
+  tracker.update_tracks_batched([[person], [car, car]], 2.0)
+  tracker.update_tracks([], 3.0)
+  tracker.update_tracks_batched([[], []], 4.0)
+
+  assert [kwargs['distance_type'] for kwargs in calls] == [rv.tracking.DistanceType.Euclidean] * 4
+  assert [kwargs['distance_threshold'] for kwargs in calls] == pytest.approx([6.0, 22.0 / 3.0, 2.0, 2.0])
+  assert [kwargs['max_radius_m'] for kwargs in calls] == pytest.approx([6.0, 22.0 / 3.0, 2.0, 2.0])
+  assert calls[1]['birth_cluster_radius_m'] == pytest.approx(22.0 / 3.0)
+  assert calls[3]['birth_cluster_radius_m'] == pytest.approx(2.0)
+
+
+@pytest.mark.parametrize('association_config, warns', [
+  ({'method': 'euclidean'}, False),
+  ({'method': 'euclidean', 'max_radius_m': 3.0}, True),
+  ({'method': 'position_mahalanobis'}, True),
+])
+def test_update_tracks_warns_when_tracking_radius_is_ignored(monkeypatch, association_config, warns):
+  warnings = []
+  monkeypatch.setattr('controller.ilabs_tracking.log.warning', lambda *args: warnings.append(args))
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.association_config = normalize_association_config(association_config)
+  tracker.tracker = SimpleNamespace(track=lambda objects, timestamp, **kwargs: None)
+  monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: sscape_object.name)
+
+  tracker.update_tracks([SimpleNamespace(name='car', tracking_radius=10.0)], 1.0)
+
+  assert bool(warnings) == warns
 
 
 @pytest.mark.parametrize("yaw", [
@@ -285,6 +380,27 @@ def test_build_association_window_euclidean_is_circle():
   }
 
 
+def test_build_association_window_euclidean_without_max_radius_draws_tracking_radius():
+  config = normalize_association_config({'method': 'euclidean'})
+  assert build_association_window(config, tracking_radius_m=6.0)['radius_m'] == pytest.approx(6.0)
+  assert build_association_window(config)['radius_m'] == pytest.approx(2.0)
+
+
+def test_from_tracked_object_draws_the_last_tracking_radius_gate(monkeypatch):
+  tracker = IntelLabsTracking.__new__(IntelLabsTracking)
+  tracker.all_tracker_objects = []
+  tracker.uuid_manager = SimpleNamespace(assignID=lambda obj: None)
+  tracker.association_config = normalize_association_config({'method': 'euclidean'})
+  tracker.tracker = SimpleNamespace(track=lambda objects, timestamp, **kwargs: None)
+  monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: None)
+  tracker.update_tracks([SimpleNamespace(tracking_radius=2.0), SimpleNamespace(tracking_radius=10.0)], 1.0)
+
+  result = tracker.from_tracked_object(
+    _make_tracked_object("uuid-1"), [_make_sscape_object("uuid-1", has_detection_rotation=False)])
+
+  assert result.association_window == {'method': 'euclidean', 'shape': 'circle', 'radius_m': pytest.approx(6.0)}
+
+
 def test_build_association_window_mahalanobis_is_ellipse():
   # Diagonal covariance → axis-aligned ellipse; χ²(0.99,2) ≈ 9.21
   cov = np.diag([1.0, 0.25, 1.0, 1.0, 1.0, 1.0, 1.0])
@@ -298,6 +414,56 @@ def test_build_association_window_mahalanobis_is_ellipse():
   assert window['semi_major_m'] == pytest.approx(math.sqrt(9.21034037198 * 1.0), rel=1e-4)
   assert window['semi_minor_m'] == pytest.approx(math.sqrt(9.21034037198 * 0.25), rel=1e-4)
   assert window['angle_rad'] == pytest.approx(0.0, abs=1e-6)
+
+
+def _mahalanobis_window(s00, s01, s11, gate_probability=0.99):
+  cov = np.eye(7)
+  cov[0, 0], cov[0, 1], cov[1, 0], cov[1, 1] = s00, s01, s01, s11
+  return build_association_window({
+    'method': 'position_mahalanobis',
+    'gate_probability': gate_probability,
+    'max_radius_m': 10.0,
+  }, cov)
+
+
+def _angle_difference_modulo_pi(a, b):
+  """An ellipse is symmetric under a half turn, so its angle is defined modulo pi."""
+  return math.remainder(a - b, math.pi)
+
+
+@pytest.mark.parametrize('degrees', [0.0, 30.0, 90.0, -60.0, 135.0])
+def test_build_association_window_follows_rotated_covariance(degrees):
+  """S_xy = R diag(4, 1) R^T: semi-axes sqrt(chi2 * 4) and sqrt(chi2 * 1), major axis at the angle."""
+  angle = math.radians(degrees)
+  c, s = math.cos(angle), math.sin(angle)
+  window = _mahalanobis_window(4 * c * c + s * s, 3 * c * s, 4 * s * s + c * c, 0.95)
+  chi2 = rv.tracking.chi2_threshold(0.95)
+  assert window['shape'] == 'ellipse'
+  assert window['semi_major_m'] == pytest.approx(math.sqrt(chi2 * 4.0))
+  assert window['semi_minor_m'] == pytest.approx(math.sqrt(chi2 * 1.0))
+  assert _angle_difference_modulo_pi(window['angle_rad'], angle) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_build_association_window_major_axis_follows_larger_variance():
+  window = _mahalanobis_window(1.0, 0.0, 9.0)
+  chi2 = rv.tracking.chi2_threshold(0.99)
+  assert window['semi_major_m'] == pytest.approx(math.sqrt(chi2 * 9.0))
+  assert window['semi_minor_m'] == pytest.approx(math.sqrt(chi2 * 1.0))
+  assert _angle_difference_modulo_pi(window['angle_rad'], math.pi / 2) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_build_association_window_clamps_negative_eigenvalues():
+  """Eigenvalues 3 and -1, major axis at 45 degrees: the minor semi-axis is 0, not NaN."""
+  window = _mahalanobis_window(1.0, 2.0, 1.0)
+  assert window['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.chi2_threshold(0.99) * 3.0))
+  assert window['semi_minor_m'] == 0.0
+  assert _angle_difference_modulo_pi(window['angle_rad'], math.pi / 4) == pytest.approx(0.0, abs=1e-9)
+
+
+@pytest.mark.parametrize('s00', [math.nan, math.inf])
+def test_build_association_window_falls_back_to_circle_for_nonfinite_covariance(s00):
+  window = _mahalanobis_window(s00, 0.1, 0.3)
+  assert window == {'method': 'position_mahalanobis', 'shape': 'circle', 'radius_m': 10.0}
 
 
 def test_from_tracked_object_overwrites_rotation_when_detection_rotation_present():

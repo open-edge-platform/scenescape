@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -79,31 +80,32 @@ TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
   const double chi2_gate = rv::chi2Threshold(0.99, 3);
   const double max_radius = 10.0;
 
-  std::vector<rv::tracking::TrackedObject> tracks = {track};
-  std::vector<std::pair<size_t, size_t>> assignments;
-  std::vector<size_t> unassignedTracks;
-  std::vector<size_t> unassignedMeasurements;
+  const std::vector<rv::tracking::TrackedObject> tracks = {track};
+  auto assignedMeasurements = [&](const std::vector<rv::tracking::TrackedObject> &measurements, double threshold) {
+    std::vector<std::pair<size_t, size_t>> assignments;
+    std::vector<size_t> unassignedTracks;
+    std::vector<size_t> unassignedMeasurements;
+    rv::tracking::match(tracks,
+                        measurements,
+                        assignments,
+                        unassignedTracks,
+                        unassignedMeasurements,
+                        rv::tracking::DistanceType::PositionMahalanobis,
+                        threshold,
+                        max_radius);
+    std::vector<size_t> assigned;
+    for (const auto &assignment : assignments)
+    {
+      assigned.push_back(assignment.second);
+    }
+    return assigned;
+  };
 
-  // Equal Euclidean distance: matcher must prefer the along-track detection.
-  rv::tracking::match(tracks, {ahead, lateral}, assignments, unassignedTracks, unassignedMeasurements,
-                      rv::tracking::DistanceType::PositionMahalanobis, chi2_gate, max_radius);
-  ASSERT_EQ(assignments.size(), 1U);
-  EXPECT_EQ(assignments[0].first, 0U);
-  EXPECT_EQ(assignments[0].second, 0U);
-
-  assignments.clear();
-  unassignedTracks.clear();
-  unassignedMeasurements.clear();
-  rv::tracking::match(tracks, {lateral}, assignments, unassignedTracks, unassignedMeasurements,
-                      rv::tracking::DistanceType::PositionMahalanobis, chi2_gate, max_radius);
-  // Lateral-only may still pass the chi2 gate; cost must still exceed along-track cost.
-  const double dx = 2.0;
-  const double dy = 2.0;
-  const double det = s00 * s11;
-  ASSERT_GT(det, 0.0);
-  const double d2_ahead = (dx * dx) * s11 / det;
-  const double d2_lateral = (dy * dy) * s00 / det;
-  EXPECT_LT(d2_ahead, d2_lateral);
+  // Equal Euclidean distance, both inside a wide gate: the matcher takes the along-track detection, the lower cost.
+  EXPECT_EQ(assignedMeasurements({lateral, ahead}, 100.0), std::vector<size_t>{1});
+  // At chi2(0.99, 3) the along-track detection is inside the gate and the lateral one outside.
+  EXPECT_EQ(assignedMeasurements({ahead}, chi2_gate), std::vector<size_t>{0});
+  EXPECT_TRUE(assignedMeasurements({lateral}, chi2_gate).empty());
 }
 
 TEST(ObjectMatchingTest, EuclideanSeparatesStackedFloors)
@@ -219,6 +221,7 @@ TEST(ObjectMatchingTest, PositionMahalanobisSeparatesStackedFloors)
 // Defined in ObjectMatching.cpp, not declared in its header.
 namespace rv::tracking {
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track);
+double calculateMulticlassScaledDistance(const TrackedObject &measurement, const TrackedObject &track);
 } // namespace rv::tracking
 
 namespace {
@@ -244,10 +247,14 @@ TrackedObject makeTrack()
   covariance(0, kYaw) = covariance(kYaw, 0) = 0.6;
   covariance(1, kYaw) = covariance(kYaw, 1) = 0.5;
   track.predictedMeasurementCov = covariance;
-  cv::Mat inverse;
-  cv::invert(cv::Mat(covariance), inverse, cv::DECOMP_SVD);
-  track.predictedMeasurementCovInv = inverse;
   return track;
+}
+
+TrackedObject::MeasurementMatrix inverseCovariance(const TrackedObject &track)
+{
+  TrackedObject::MeasurementMatrix inverse;
+  cv::invert(track.predictedMeasurementCov, inverse, cv::DECOMP_SVD);
+  return inverse;
 }
 
 TrackedObject makeMeasurement()
@@ -264,7 +271,7 @@ double expectedDistance(const TrackedObject &measurement, const TrackedObject &t
     = measurement.measurementVector() - track.predictedMeasurementMean;
   if (useYaw)
   {
-    return 0.5 * std::sqrt(innovation.dot(track.predictedMeasurementCovInv * innovation));
+    return 0.5 * std::sqrt(innovation.dot(inverseCovariance(track) * innovation));
   }
 
   cv::Matx<double, kWithoutYaw, 1> reducedInnovation;
@@ -288,9 +295,10 @@ double zeroedYawDistance(const TrackedObject &measurement, const TrackedObject &
   TrackedObject::MeasurementVector innovation
     = measurement.measurementVector() - track.predictedMeasurementMean;
   innovation(kYaw) = 0.0;
-  return 0.5 * std::sqrt(innovation.dot(track.predictedMeasurementCovInv * innovation));
+  return 0.5 * std::sqrt(innovation.dot(inverseCovariance(track) * innovation));
 }
 
+// Legacy DistanceType::Mahalanobis, not used by the services.
 TEST(ObjectMatchingTest, MahalanobisDistanceUsesInverseCovarianceOfPredictedMeasurement)
 {
   const auto track = makeTrack();
@@ -307,6 +315,7 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesInverseCovarianceOfPredictedMeas
   EXPECT_DOUBLE_EQ(calculateMahalanobisDistance(onTrack, track), 0.0);
 }
 
+// Legacy DistanceType::Mahalanobis, not used by the services.
 TEST(ObjectMatchingTest, MahalanobisDistanceUsesYawOnlyWhenBothSidesHaveOrientation)
 {
   const struct
@@ -368,6 +377,209 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesYawOnlyWhenBothSidesHaveOrientat
     EXPECT_NEAR(calculateMahalanobisDistance(measurement, track),
                 expectedDistance(measurement, track, scenario.expectYaw),
                 1e-12);
+  }
+}
+
+// A track predicted at (0, 0) with position covariance s00, s01, s11 and unit variance in the other measurement rows.
+TrackedObject makePositionTrack(double s00, double s01, double s11)
+{
+  TrackedObject track;
+  track.predictedMeasurementMean = TrackedObject::MeasurementVector::zeros();
+  TrackedObject::MeasurementMatrix covariance = TrackedObject::MeasurementMatrix::eye();
+  covariance(0, 0) = s00;
+  covariance(0, 1) = covariance(1, 0) = s01;
+  covariance(1, 1) = s11;
+  track.predictedMeasurementCov = covariance;
+  return track;
+}
+
+TrackedObject makePerson(double x, double y)
+{
+  return makeDetection(x, y, 0.0, 0.5, 0.5, 1.8);
+}
+
+std::vector<std::pair<size_t, size_t>> matchedPairs(const std::vector<TrackedObject> &tracks,
+                                                    const std::vector<TrackedObject> &measurements,
+                                                    DistanceType distanceType,
+                                                    double threshold,
+                                                    double maxRadiusM = std::numeric_limits<double>::infinity())
+{
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+  match(tracks, measurements, assignments, unassignedTracks, unassignedMeasurements, distanceType, threshold, maxRadiusM);
+  return assignments;
+}
+
+size_t assignedCount(const TrackedObject &track,
+                     const TrackedObject &measurement,
+                     DistanceType distanceType,
+                     double threshold,
+                     double maxRadiusM = std::numeric_limits<double>::infinity())
+{
+  return matchedPairs({track}, {measurement}, distanceType, threshold, maxRadiusM).size();
+}
+
+// Legacy DistanceType::Mahalanobis, not used by the services.
+TEST(ObjectMatchingTest, MahalanobisMatchUsesTheDistanceCost)
+{
+  // match() costs each pair with calculateMahalanobisDistance (MCEMahalanobis: its average with the multi-class
+  // Euclidean distance), with the track's own S: a farther track with another S comes first, so mixing up tracks
+  // changes the cost.
+  auto farTrack = makePositionTrack(4.0, 0.5, 2.0);
+  farTrack.predictedMeasurementMean(0) = 20.0;
+
+  auto orientingTrack = makeTrack();
+  orientation::markOrientationObserved(orientingTrack);
+  auto orientedMeasurement = makeMeasurement();
+  orientation::setHasOrientation(orientedMeasurement, true);
+
+  const struct
+  {
+    const char *name;
+    TrackedObject track;
+    TrackedObject measurement;
+  } cases[] = {
+    {.name = "without yaw", .track = makeTrack(), .measurement = makeMeasurement()},
+    {.name = "with yaw", .track = orientingTrack, .measurement = orientedMeasurement},
+  };
+  for (const auto &scenario : cases)
+  {
+    SCOPED_TRACE(scenario.name);
+    const double mahalanobis = calculateMahalanobisDistance(scenario.measurement, scenario.track);
+    const double compound
+      = 0.5 * calculateMulticlassScaledDistance(scenario.measurement, scenario.track) + 0.5 * mahalanobis;
+    ASSERT_LT(mahalanobis, calculateMahalanobisDistance(scenario.measurement, farTrack));
+
+    for (const auto &[distanceType, cost] :
+         {std::pair{DistanceType::Mahalanobis, mahalanobis}, std::pair{DistanceType::MCEMahalanobis, compound}})
+    {
+      SCOPED_TRACE(distanceType == DistanceType::Mahalanobis ? "Mahalanobis" : "MCEMahalanobis");
+      const std::vector<TrackedObject> tracks = {farTrack, scenario.track};
+      using Pairs = std::vector<std::pair<size_t, size_t>>;
+      EXPECT_EQ(matchedPairs(tracks, {scenario.measurement}, distanceType, cost * (1.0 + 1e-12)), (Pairs{{1, 0}}));
+      EXPECT_EQ(matchedPairs(tracks, {scenario.measurement}, distanceType, cost * (1.0 - 1e-12)), Pairs{});
+    }
+  }
+}
+
+constexpr double kPi = orientation::kPi;
+
+// A car track predicted on the detection's position and size with unit S and orientation observed: with yaw in the
+// gate the cost is 0.5 * |yaw innovation|, without it 0.
+TrackedObject makeOrientedTrack(double predictedYaw, double vx = 0.0, double vy = 0.0)
+{
+  TrackedObject track;
+  track.vx = vx;
+  track.vy = vy;
+  track.yaw = predictedYaw;
+  track.predictedMeasurementMean = TrackedObject::MeasurementVector(0.0, 0.0, 0.0, 4.5, 1.8, 1.5, predictedYaw);
+  track.predictedMeasurementCov = TrackedObject::MeasurementMatrix::eye();
+  orientation::markOrientationObserved(track);
+  return track;
+}
+
+TrackedObject makeOrientedCar(double yaw)
+{
+  auto car = makeDetection(0.0, 0.0, 0.0, 4.5, 1.8, 1.5);
+  car.yaw = yaw;
+  orientation::setHasOrientation(car, true);
+  return car;
+}
+
+// Legacy DistanceType::Mahalanobis, not used by the services.
+TEST(ObjectMatchingTest, MahalanobisDistanceWrapsYaw)
+{
+  // Detection yaw is in (-pi, pi], the predicted yaw is unwrapped, and a box reads the same at yaw + pi: the innovation
+  // is the smallest of those differences, so none of them blocks the match.
+  struct Case
+  {
+    const char *name;
+    double predictedYaw;
+    double detectionYaw;
+    double innovation;
+  };
+  for (const auto &[name, predictedYaw, detectionYaw, innovation] :
+       {Case{"across +-pi", kPi - 0.05, -kPi + 0.05, 0.1},
+        Case{"unwrapped track yaw", 4.0 * kPi + 0.3, 0.2, -0.1},
+        Case{"box read backwards", 0.1, 0.15 - kPi, 0.05}})
+  {
+    SCOPED_TRACE(name);
+    const auto track = makeOrientedTrack(predictedYaw);
+    const auto car = makeOrientedCar(detectionYaw);
+    EXPECT_NEAR(calculateMahalanobisDistance(car, track), 0.5 * std::abs(innovation), 1e-9);
+    EXPECT_EQ(assignedCount(track, car, DistanceType::Mahalanobis, 1.0), 1U);
+  }
+}
+
+// Legacy DistanceType::Mahalanobis, not used by the services.
+TEST(ObjectMatchingTest, MahalanobisDistanceAppliesTheYawSpeedGate)
+{
+  // At 1 m/s or more the update turns the detection yaw by pi toward the direction of travel and drops it when it is
+  // still more than 0.6 rad off; the gate leaves out the yaw the update drops.
+  struct Case
+  {
+    const char *name;
+    double vx, vy;
+    double predictedYaw;
+    double detectionYaw;
+    double distance;
+  };
+  for (const auto &[name, vx, vy, predictedYaw, detectionYaw, distance] :
+       {Case{"read backwards, 0.3 rad off the travel", 2.0, 0.0, 0.1, -kPi + 0.3, 0.1},
+        Case{"read backwards along -y", 0.0, -2.0, -kPi / 2.0, kPi / 2.0, 0.0},
+        Case{"across the travel: dropped", 2.0, 0.0, 0.1, kPi / 2.0, 0.0},
+        Case{"across the travel at 1 m/s: dropped", 1.0, 0.0, 0.1, kPi / 2.0, 0.0},
+        Case{"across the travel below 1 m/s: kept", 0.5, 0.0, 0.1, kPi / 2.0, 0.5 * (kPi / 2.0 - 0.1)}})
+  {
+    SCOPED_TRACE(name);
+    EXPECT_NEAR(
+      calculateMahalanobisDistance(makeOrientedCar(detectionYaw), makeOrientedTrack(predictedYaw, vx, vy)), distance, 1e-9);
+  }
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisRejectsPairsBeyondMaxRadius)
+{
+  // With S_xy = 100 m^2 the chi-squared 0.99 gate reaches about 30 m: a detection 12 m away passes it (d^2 = 1.44),
+  // and only the max_radius_m ceiling rejects it.
+  const auto track = makePositionTrack(100.0, 0.0, 100.0);
+  const double gate = rv::chi2Threshold(0.99, 2);
+  EXPECT_EQ(assignedCount(track, makePerson(12.0, 0.0), DistanceType::PositionMahalanobis, gate, 10.0), 0U);
+  EXPECT_EQ(assignedCount(track, makePerson(12.0, 0.0), DistanceType::PositionMahalanobis, gate, 15.0), 1U);
+  // Without a ceiling (the default) the gate alone decides.
+  EXPECT_EQ(assignedCount(track, makePerson(12.0, 0.0), DistanceType::PositionMahalanobis, gate), 1U);
+  // A zero ceiling rejects every offset.
+  EXPECT_EQ(assignedCount(track, makePerson(0.1, 0.0), DistanceType::PositionMahalanobis, gate, 0.0), 0U);
+}
+
+TEST(ObjectMatchingTest, EuclideanRejectsPairsBeyondMaxRadius)
+{
+  // A cost threshold of 100 m leaves the rejection to max_radius_m; the services pass max_radius_m as both.
+  const auto track = makePerson(0.0, 0.0);
+  EXPECT_EQ(assignedCount(track, makePerson(3.0, 0.0), DistanceType::Euclidean, 100.0, 2.0), 0U);
+  EXPECT_EQ(assignedCount(track, makePerson(3.0, 0.0), DistanceType::Euclidean, 100.0, 5.0), 1U);
+  EXPECT_EQ(assignedCount(track, makePerson(3.0, 0.0), DistanceType::Euclidean, 100.0), 1U);
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithDegenerateCovariance)
+{
+  // |det S| < 1e-12 on the x/y/z block (S_zz = 1 here, so det S_xy) gives the bound cost (1000), so the track is
+  // not assigned below that threshold, not even a detection exactly at the prediction.
+  struct Case
+  {
+    const char *name;
+    double s00, s01, s11;
+    size_t expected;
+  };
+  for (const auto &[name, s00, s01, s11, expected] : {Case{"zero", 0.0, 0.0, 0.0, 0U},
+                                                      Case{"rank one", 1.0, 1.0, 1.0, 0U},
+                                                      Case{"det 1e-14", 1e-7, 0.0, 1e-7, 0U},
+                                                      Case{"det 1e-10", 1e-5, 0.0, 1e-5, 1U}})
+  {
+    SCOPED_TRACE(name);
+    EXPECT_EQ(
+      assignedCount(makePositionTrack(s00, s01, s11), makePerson(0.0, 0.0), DistanceType::PositionMahalanobis, 100.0),
+      expected);
   }
 }
 

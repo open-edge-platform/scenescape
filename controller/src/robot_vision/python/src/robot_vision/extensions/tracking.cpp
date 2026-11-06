@@ -182,16 +182,17 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
   tracking.attr("PRODUCTION_MEASUREMENT_NOISE") = rv::tracking::kProductionMeasurementNoise;
   tracking.attr("PRODUCTION_INIT_STATE_COVARIANCE") = rv::tracking::kProductionInitStateCovariance;
   tracking.attr("PRODUCTION_MOTION_MODELS") = py::tuple(py::cast(rv::tracking::kProductionMotionModels));
+  tracking.attr("DEFAULT_BIRTH_CLUSTER_RADIUS_M") = rv::tracking::kDefaultBirthClusterRadiusM;
 
   py::enum_<rv::tracking::DistanceType>(tracking, "DistanceType", "DistanceType enum class.")
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
-     "Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
+     "Legacy, MultipleObjectTracker's default. Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
     .value("Euclidean", rv::tracking::DistanceType::Euclidean,
      "Standard euclidean distance that considers x and y coordinates.")
     .value("Mahalanobis", rv::tracking::DistanceType::Mahalanobis,
-     "Mahalanobis distance that considers the objects measurement vector.")
+     "Legacy, not used by the services. 0.5 * sqrt(d^2) over the objects measurement vector; not chi-squared calibrated.")
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
-     "Combination of MultiClassEuclidean and Mahalanobis distances.")
+     "Legacy, not used by the services. Combination of MultiClassEuclidean and Mahalanobis distances.")
     .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
      "Squared Mahalanobis distance on the (x, y, z) position block using predicted measurement covariance.")
     .value("EuclideanBirth", rv::tracking::DistanceType::EuclideanBirth,
@@ -352,17 +353,20 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
             const rv::tracking::DistanceType &distance_type,
             double distance_threshold,
             double probability_threshold,
-            double max_radius_m) {
+            double max_radius_m,
+            double birth_cluster_radius_m) {
            self.track(std::move(objects_per_camera), timestamp, distance_type, distance_threshold,
-                      probability_threshold, max_radius_m);
+                      probability_threshold, max_radius_m, birth_cluster_radius_m);
          },
-         "Trigger the track step for the next timestamp with objects per camera. Run match() with the given distance type and threshold.",
+         "Trigger the track step for the next timestamp with objects per camera. Run match() with the given distance type and threshold; "
+         "unmatched detections of different cameras within birth_cluster_radius_m (Euclidean, m) start one track.",
          py::arg("objects_per_camera"),
          py::arg("timestamp"),
          py::arg("distance_type"),
          py::arg("distance_threshold"),
          py::arg("probability_threshold") = 0.5,
-         py::arg("max_radius_m") = std::numeric_limits<double>::infinity())
+         py::arg("max_radius_m") = std::numeric_limits<double>::infinity(),
+         py::arg("birth_cluster_radius_m") = rv::tracking::kDefaultBirthClusterRadiusM)
     .def("timestamp", &rv::tracking::MultipleObjectTracker::getTimestamp, "Read current timestamp.")
     .def("get_tracks", &rv::tracking::MultipleObjectTracker::getTracks, "Returns a list of all active tracks")
     .def("get_reliable_tracks",
