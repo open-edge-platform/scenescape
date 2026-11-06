@@ -177,10 +177,10 @@ TrackingWorker* TimeChunkScheduler::get_or_create_worker(const TrackingScope& sc
     const auto object_class = lookupObjectClass(object_classes_, scope.category);
     std::unique_ptr<TrackingWorker> worker;
     if (projector_factory_) {
-        worker = std::make_unique<TrackingWorker>(scope, scene_display_name, kWorkerQueueCapacity,
-                                                  publish_callback_, config_,
-                                                  projector_factory_(scope, cameras, object_class),
-                                                  object_class.rotation_from_velocity, clock_fn_);
+        worker = std::make_unique<TrackingWorker>(
+            scope, scene_display_name, kWorkerQueueCapacity, publish_callback_, config_,
+            projector_factory_(scope, cameras, object_class), object_class.rotation_from_velocity,
+            ZReference::CentreOfMass, clock_fn_);
     } else {
         worker = std::make_unique<TrackingWorker>(scope, scene_display_name, kWorkerQueueCapacity,
                                                   publish_callback_, config_, cameras, object_class,

@@ -67,6 +67,7 @@ add_executable(tracker_tests
     object_class_test.cpp
     telemetry_test.cpp
     metrics_test.cpp
+    z_reference_test.cpp
     ${TRACKER_LIB_SOURCES}
 )
 

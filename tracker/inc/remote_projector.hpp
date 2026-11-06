@@ -74,8 +74,9 @@ public:
  *        projector.
  *
  * A detection with a valid remote measurement gets its position, size, zMeasured and
- * measurement noise R. The centre z is lowered by half the height, to the object base used by
- * the tracker. Yaw and attributes["has_orientation"] stay as set by the local projector.
+ * measurement noise R. z is the centre of mass, as received; the worker publishes the footprint
+ * base (ZReference::CentreOfMass). Yaw and attributes["has_orientation"] stay as set by the
+ * local projector.
  * All other detections keep the local projection: sensor-frame translations, failed calls,
  * unobservable depths and invalid measurements. Failed calls and invalid replies increment
  * tracker.remote_projection.failed_calls and log a rate-limited warning; project() does not

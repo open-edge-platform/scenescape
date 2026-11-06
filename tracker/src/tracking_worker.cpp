@@ -164,10 +164,10 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                const TrackingConfig& tracking_config,
                                const std::unordered_map<std::string, Camera>& cameras,
                                ObjectClassConfig object_class, ClockFn clock_fn)
-    : TrackingWorker(std::move(scope), std::move(scene_name), queue_capacity,
-                     std::move(publish_callback), tracking_config,
-                     std::make_unique<CameraModelProjector>(cameras, object_class),
-                     object_class.rotation_from_velocity, std::move(clock_fn)) {
+    : TrackingWorker(
+          std::move(scope), std::move(scene_name), queue_capacity, std::move(publish_callback),
+          tracking_config, std::make_unique<CameraModelProjector>(cameras, object_class),
+          object_class.rotation_from_velocity, ZReference::FootprintBase, std::move(clock_fn)) {
     LOG_INFO("TrackingWorker initialized with {} cameras for scope {}/{} (shift_type={}, "
              "footprint_half={}, rotation_from_velocity={})",
              cameras.size(), scope_.scene_id, scope_.category, object_class.shift_type,
@@ -178,10 +178,11 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
                                PublishCallback publish_callback,
                                const TrackingConfig& tracking_config,
                                std::unique_ptr<DetectionProjector> projector,
-                               bool rotation_from_velocity, ClockFn clock_fn)
+                               bool rotation_from_velocity, ZReference z_reference,
+                               ClockFn clock_fn)
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
-      rotation_from_velocity_(rotation_from_velocity),
+      rotation_from_velocity_(rotation_from_velocity), z_reference_(z_reference),
       tracker_(build_tracker_config(tracking_config)),
       association_config_(tracking_config.association), projector_(std::move(projector)),
       clock_fn_(std::move(clock_fn)) {
@@ -289,6 +290,9 @@ void TrackingWorker::process_chunk(Chunk chunk) {
     // Transform pixel detections to world coordinates (camera intrinsics + extrinsics)
     reid_sightings_.reset(std::to_string(++chunk_sequence_));
     auto objects_per_camera = transform_detections(chunk);
+    if (z_reference_ == ZReference::CentreOfMass) {
+        toCentreOfMass(objects_per_camera);
+    }
     chunk.obs_ctx.captureTransformTime();
 
     // Run Hungarian matching, Kalman filter, and ID conversion
@@ -374,7 +378,9 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
         Track track;
         track.id = id_map_.at(rv_track.id);
         track.category = category;
-        track.translation = {rv_track.x, rv_track.y, rv_track.z};
+        const double z =
+            z_reference_ == ZReference::CentreOfMass ? footprintBaseZ(rv_track) : rv_track.z;
+        track.translation = {rv_track.x, rv_track.y, z};
         track.velocity = {rv_track.vx, rv_track.vy, rv_track.vz};
         track.size = {rv_track.length, rv_track.width, rv_track.height};
 

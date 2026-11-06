@@ -10,6 +10,7 @@
 #include "reid_sighting.hpp"
 #include "time_utils.hpp"
 #include "tracking_types.hpp"
+#include "z_reference.hpp"
 
 #include <rv/tracking/MultipleObjectTracker.hpp>
 
@@ -104,13 +105,14 @@ public:
      * @param tracking_config Configuration for RobotVision tracker
      * @param projector Source of world-space geometry for the detections
      * @param rotation_from_velocity Publish velocity heading for tracks without observed yaw
+     * @param z_reference Vertical reference of the tracker inputs
      * @param clock_fn Wall-clock source for track timestamps
      * @throws std::invalid_argument if `projector` is null.
      */
     TrackingWorker(TrackingScope scope, std::string scene_name, int queue_capacity,
                    PublishCallback publish_callback, const TrackingConfig& tracking_config,
                    std::unique_ptr<DetectionProjector> projector, bool rotation_from_velocity,
-                   ClockFn clock_fn = makeSystemClock());
+                   ZReference z_reference, ClockFn clock_fn = makeSystemClock());
 
     /// Destructor joins worker thread
     ~TrackingWorker();
@@ -220,6 +222,7 @@ private:
     int queue_capacity_;
     PublishCallback publish_callback_;
     bool rotation_from_velocity_;
+    ZReference z_reference_;
 
     // RobotVision tracker instance (Hungarian matching + Kalman filter)
     rv::tracking::MultipleObjectTracker tracker_;

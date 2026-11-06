@@ -1891,7 +1891,7 @@ TEST_F(TrackingWorkerTest, InjectedProjector_TracksOnlyDetectionsWithGeometry) {
             return projected;
         });
     TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
-                          std::move(projector), false);
+                          std::move(projector), false, ZReference::FootprintBase);
 
     constexpr int kChunks = 3;
     for (int i = 0; i < kChunks; ++i) {
@@ -1924,7 +1924,7 @@ TEST_F(TrackingWorkerTest, InjectedProjector_MismatchedResultsAreSkipped) {
             return projected;
         });
     TrackingWorker worker({"scene-1", "person"}, "Test Scene", 10, published.callback(), config,
-                          std::move(projector), false);
+                          std::move(projector), false, ZReference::FootprintBase);
 
     ASSERT_TRUE(worker.try_enqueue(make_chunk(0, {make_batch("cam-1", {"a"})})));
     ASSERT_TRUE(worker.try_enqueue(make_chunk(1, {make_batch("cam-1", {"a"})})));
@@ -1940,8 +1940,152 @@ TEST_F(TrackingWorkerTest, InjectedProjector_NullIsRejected) {
     PublishCallback callback = [](const std::string&, const std::string&, const std::string&,
                                   const std::string&, const std::vector<Track>&) {};
     EXPECT_THROW(TrackingWorker({"scene-1", "person"}, "Test Scene", 2, callback, tracking_config_,
-                                std::unique_ptr<DetectionProjector>{}, false),
+                                std::unique_ptr<DetectionProjector>{}, false,
+                                ZReference::FootprintBase),
                  std::invalid_argument);
+}
+
+// -----------------------------------------------------------------
+// z reference: legacy mode publishes robot_vision z as is; centre-of-mass mode feeds unmeasured
+// z raised by half the height and publishes the footprint base.
+// -----------------------------------------------------------------
+
+constexpr int kZReferenceChunks = 20;
+
+// Ends below the horizon of the test camera (cy = 360), so it projects to a nearby ground point.
+const cv::Rect2f kGroundBox(600.0f, 420.0f, 55.0f, 150.0f);
+
+Detection groundBoxDetection() {
+    return Detection{.id = 1, .bounding_box_px = kGroundBox};
+}
+
+// World z 0.9 is the centre of a 1.8 m tall object.
+Detection centreTranslationDetection() {
+    return Detection{.id = 1,
+                     .translation = std::array<double, 3>{1.0, 2.0, 0.9},
+                     .size = std::array<double, 3>{0.5, 0.5, 1.8}};
+}
+
+// Sensor translations are world positions.
+std::unordered_map<std::string, Camera> make_identity_pose_cameras() {
+    auto cameras = make_test_cameras();
+    cameras.at("cam-1").extrinsics.translation = {0.0, 0.0, 0.0};
+    cameras.at("cam-1").extrinsics.rotation = {0.0, 0.0, 0.0};
+    return cameras;
+}
+
+// Remote-style measurement: centre z 0.85 of a 1.7 m tall object moving along x.
+std::unique_ptr<DetectionProjector> make_centre_measurement_projector() {
+    return std::make_unique<CallbackProjector>(
+        [step = 0](std::span<const DetectionBatch> batches) mutable {
+            std::vector<std::optional<ProjectedDetections>> projected;
+            for (const auto& batch : batches) {
+                ProjectedDetections geometry{
+                    std::vector<rv::tracking::TrackedObject>(batch.detections.size()),
+                    std::vector<uint8_t>(batch.detections.size(), 1)};
+                for (auto& object : geometry.objects) {
+                    object.x = 5.0 + 0.1 * step;
+                    object.y = 6.0;
+                    object.z = 0.85;
+                    object.length = object.width = 0.5;
+                    object.height = 1.7;
+                    object.zMeasured = true;
+                }
+                projected.emplace_back(std::move(geometry));
+            }
+            ++step;
+            return projected;
+        });
+}
+
+// Feeds kZReferenceChunks cam-1 frames of `detection`; returns the tracks of the last frame.
+std::vector<Track> track_last_frame(TrackingWorker& worker, PublishedFrames& published,
+                                    const Detection& detection) {
+    for (int i = 0; i < kZReferenceChunks; ++i) {
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.detections.push_back(detection);
+        EXPECT_TRUE(worker.try_enqueue(make_chunk(i, {std::move(batch)})));
+    }
+    const auto frames = published.wait_for(kZReferenceChunks);
+    return frames.size() == static_cast<size_t>(kZReferenceChunks) ? frames.back()
+                                                                   : std::vector<Track>{};
+}
+
+TEST_F(TrackingWorkerTest, Legacy_PublishesTrackerZUnchanged) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+
+    PublishedFrames box_frames;
+    TrackingWorker box_worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                              box_frames.callback(), config, cameras_);
+    const auto box_tracks = track_last_frame(box_worker, box_frames, groundBoxDetection());
+    ASSERT_EQ(box_tracks.size(), 1u);
+    EXPECT_NEAR(box_tracks[0].translation[2], 0.0, 1e-9);
+
+    PublishedFrames translation_frames;
+    TrackingWorker translation_worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                                      translation_frames.callback(), config,
+                                      make_identity_pose_cameras());
+    const auto translation_tracks =
+        track_last_frame(translation_worker, translation_frames, centreTranslationDetection());
+    ASSERT_EQ(translation_tracks.size(), 1u);
+    EXPECT_NEAR(translation_tracks[0].translation[2], 0.9, 1e-9);
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_PixelBoxPublishedAtBase) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                          published.callback(), config,
+                          std::make_unique<CameraModelProjector>(cameras_, ObjectClassConfig{}),
+                          false, ZReference::CentreOfMass);
+
+    const auto tracks = track_last_frame(worker, published, groundBoxDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    EXPECT_NEAR(tracks[0].translation[2], 0.0, 1e-9);
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_TranslationTreatedAsCentre) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    PublishedFrames published;
+    TrackingWorker worker(
+        {"scene-1", "person"}, "Test Scene", kZReferenceChunks, published.callback(), config,
+        std::make_unique<CameraModelProjector>(make_identity_pose_cameras(), ObjectClassConfig{}),
+        false, ZReference::CentreOfMass);
+
+    const auto tracks = track_last_frame(worker, published, centreTranslationDetection());
+
+    ASSERT_EQ(tracks.size(), 1u);
+    EXPECT_NEAR(tracks[0].translation[2], 0.0, 1e-9);
+}
+
+TEST_F(TrackingWorkerTest, CentreOfMass_RemoteMeasurementAtCentre) {
+    TrackingConfig config = make_test_tracking_config();
+    config.max_unreliable_time_s = 0.0;
+    auto run = [&](ZReference z_reference) {
+        PublishedFrames published;
+        TrackingWorker worker({"scene-1", "person"}, "Test Scene", kZReferenceChunks,
+                              published.callback(), config, make_centre_measurement_projector(),
+                              false, z_reference);
+        return track_last_frame(worker, published, groundBoxDetection());
+    };
+
+    const auto legacy = run(ZReference::FootprintBase);
+    const auto centre = run(ZReference::CentreOfMass);
+
+    ASSERT_EQ(legacy.size(), 1u);
+    ASSERT_EQ(centre.size(), 1u);
+    EXPECT_NEAR(legacy[0].translation[2], 0.85, 1e-9);
+    EXPECT_NEAR(centre[0].translation[2], 0.0, 1e-9);
+    EXPECT_EQ(centre[0].translation[0], legacy[0].translation[0]);
+    EXPECT_EQ(centre[0].translation[1], legacy[0].translation[1]);
+    EXPECT_EQ(centre[0].velocity, legacy[0].velocity);
+    EXPECT_EQ(centre[0].size, legacy[0].size);
+    EXPECT_GT(centre[0].velocity[0], 1.0) << "the object moves along x";
 }
 
 } // namespace

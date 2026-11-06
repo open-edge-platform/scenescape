@@ -202,7 +202,7 @@ void expectRemote(const ProjectedDetections& geometry, size_t index, size_t k) {
     const auto& object = geometry.objects[index];
     EXPECT_DOUBLE_EQ(object.x, 10.0 + static_cast<double>(k));
     EXPECT_DOUBLE_EQ(object.y, 20.0 + static_cast<double>(k));
-    EXPECT_DOUBLE_EQ(object.z, 0.0) << "centre z lowered by half the height";
+    EXPECT_DOUBLE_EQ(object.z, kHeight / 2.0) << "centre of mass, as received";
     EXPECT_DOUBLE_EQ(object.length, 0.5);
     EXPECT_DOUBLE_EQ(object.width, 0.6);
     EXPECT_DOUBLE_EQ(object.height, kHeight);

@@ -101,7 +101,7 @@ void applyMeasurement(const AcceptedMeasurement& measurement, rv::tracking::Trac
     const auto& mean = measurement.mean;
     object.x = mean(0);
     object.y = mean(1);
-    object.z = mean(2) - mean(5) / 2.0;
+    object.z = mean(2);
     object.length = mean(3);
     object.width = mean(4);
     object.height = mean(5);

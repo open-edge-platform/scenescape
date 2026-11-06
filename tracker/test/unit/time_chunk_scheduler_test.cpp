@@ -399,7 +399,7 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_UsesProjectorFactoryForNewWorkers) {
     TrackingConfig config = createConfig(100, 10);
     config.max_unreliable_time_s = 0.0;
 
-    // The factory's projector puts every detection at (7, 8).
+    // The factory's projector puts every detection at (7, 8) with a measured centre z.
     class FixedProjector final : public DetectionProjector {
     public:
         std::vector<std::optional<ProjectedDetections>>
@@ -412,8 +412,10 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_UsesProjectorFactoryForNewWorkers) {
                 for (auto& object : geometry.objects) {
                     object.x = 7.0;
                     object.y = 8.0;
+                    object.z = 0.85;
                     object.length = object.width = 0.5;
                     object.height = 1.7;
+                    object.zMeasured = true;
                 }
                 projected.emplace_back(std::move(geometry));
             }
@@ -459,9 +461,55 @@ TEST_F(TimeChunkSchedulerTest, Dispatch_UsesProjectorFactoryForNewWorkers) {
     ASSERT_TRUE(position.has_value());
     EXPECT_NEAR((*position)[0], 7.0, 1e-6);
     EXPECT_NEAR((*position)[1], 8.0, 1e-6);
+    EXPECT_NEAR((*position)[2], 0.0, 1e-9) << "centre of mass published at the footprint base";
     ASSERT_EQ(factory_calls.size(), 1u) << "one projector per worker";
     EXPECT_EQ(factory_calls[0].first, (TrackingScope{"scene-1", "person"}));
     EXPECT_EQ(factory_calls[0].second, 1u) << "the scene's cameras";
+}
+
+// Without a factory, workers project locally and publish robot_vision z unchanged.
+TEST_F(TimeChunkSchedulerTest, Dispatch_WithoutFactoryUsesFootprintBase) {
+    TimeChunkBuffer buffer;
+    SceneRegistry registry;
+    registerScenes(registry); // identity camera pose: sensor translations are world positions
+
+    TrackingConfig config = createConfig(100, 10);
+    config.max_unreliable_time_s = 0.0;
+
+    std::mutex mtx;
+    std::condition_variable cv;
+    std::optional<std::array<double, 3>> position;
+    PublishCallback callback = [&](const std::string&, const std::string&, const std::string&,
+                                   const std::string&, const std::vector<Track>& tracks) {
+        std::lock_guard lock(mtx);
+        if (!tracks.empty() && !position) {
+            position = tracks.front().translation;
+            cv.notify_one();
+        }
+    };
+
+    TimeChunkScheduler scheduler(buffer, registry, config, callback);
+    scheduler.start();
+
+    std::unique_lock lock(mtx);
+    for (int i = 0; i < 20 && !position; ++i) {
+        lock.unlock();
+        DetectionBatch batch;
+        batch.camera_id = "cam-1";
+        batch.timestamp_iso = std::format("2026-01-27T12:00:{:02d}.000Z", i);
+        batch.receive_time = std::chrono::steady_clock::now();
+        batch.detections.push_back(Detection{.id = 1,
+                                             .translation = std::array<double, 3>{1.0, 2.0, 0.9},
+                                             .size = std::array<double, 3>{0.5, 0.5, 1.8}});
+        buffer.add({"scene-1", "person"}, "cam-1", std::move(batch));
+        lock.lock();
+        cv.wait_for(lock, std::chrono::milliseconds(100), [&] { return position.has_value(); });
+    }
+    lock.unlock();
+    scheduler.stop();
+
+    ASSERT_TRUE(position.has_value());
+    EXPECT_NEAR((*position)[2], 0.9, 1e-9);
 }
 
 // Scheduler reads rotation_from_velocity per category: true, false, and no asset entry.
