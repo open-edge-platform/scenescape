@@ -29,8 +29,10 @@ and [Common Output Track Fields](../controller/data_formats.md#common-output-tra
 for the full field reference; the Analytics service adds `regions` and `sensors` to each
 object before republishing. External observation `source_id` is preserved in regulated
 and event output; it is provenance,
-not a geometric camera-visibility claim. See the
-linked common output fields for its semantics.
+not a geometric camera-visibility claim. Platform `cameras` (mounts and
+intrinsics used for 3D frustum rendering) are likewise preserved across
+regulated republish. See the linked common output fields for `source_id`
+semantics.
 
 ## Sensor Input Message Format
 

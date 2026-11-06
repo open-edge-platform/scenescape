@@ -158,9 +158,17 @@ class SceneDataIngestion:
 
   @staticmethod
   def _set_observation_info(obj: SimpleNamespace, obj_data: dict) -> None:
+    previous = getattr(obj, 'info', None) or {}
     obj.info = {'category': obj.category, 'confidence': obj.confidence}
     if 'source_id' in obj_data:
       obj.info['source_id'] = obj_data['source_id']
+    # Platform camera mounts/intrinsics must survive regulated republish so
+    # the 3D view can keep rendering frustums. Carry forward the last known
+    # cameras list when a later snapshot omits the field.
+    if 'cameras' in obj_data:
+      obj.info['cameras'] = obj_data['cameras']
+    elif 'cameras' in previous:
+      obj.info['cameras'] = previous['cameras']
     # Sensor modality is distinct from an external publisher's identity.
     obj.source = obj_data.get('source')
 

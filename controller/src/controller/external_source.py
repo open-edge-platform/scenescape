@@ -81,6 +81,9 @@ class _CachedPose:
   intrinsics: Optional[dict] = None
   distortion: Optional[dict] = None
   cameras: Optional[list[dict]] = None
+  # Camera snapshots can arrive without a pose refresh; order them independently
+  # of ``when`` so a delayed camera update cannot replace a newer calibration.
+  cameras_when: Optional[float] = None
 
 
 class ExternalSourcePoseCache:
@@ -174,16 +177,17 @@ class ExternalSourcePoseCache:
   def _cacheCameraConfiguration(message, state, when):
     if 'cameras' not in message:
       return
-    if when < state.when:
+    if state.cameras_when is not None and when < state.cameras_when:
       log.warning(
         f"Ignoring stale external camera configuration: incoming_time={when} "
-        f"cached_time={state.when} cached_camera_ids="
+        f"cached_camera_time={state.cameras_when} cached_camera_ids="
         f"{[camera['id'] for camera in state.cameras or []]}")
       return
     cameras = deepcopy(message['cameras'])
     for camera in cameras:
       camera.pop('objects', None)
     state.cameras = cameras
+    state.cameras_when = when
     state.intrinsics = None
     state.distortion = None
 

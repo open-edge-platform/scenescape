@@ -831,6 +831,7 @@ class TestSceneControllerHandleExternalSourceObject:
       'id': 'drone-1',
       'category': 'vehicle',
       'translation': [0.0, 0.0, 0.0],
+      'rotation': [0.0, 0.0, 0.0, 1.0],
       'source_id': 'drone-1',
     }]
     assert pose is fake_camera_pose
@@ -882,6 +883,7 @@ class TestSceneControllerHandleExternalSourceObject:
       'id': 'drone-1',
       'category': 'person',
       'translation': [0.0, 0.0, 0.0],
+      'rotation': [0.0, 0.0, 0.0, 1.0],
       'source_id': 'drone-1',
     }]
     moving, already = scene.finishProcessing.call_args.args[2:]
@@ -958,6 +960,39 @@ class TestSceneControllerHandleExternalSourceObject:
       },
       'intrinsics': {'fx': 800.0, 'fy': 810.0, 'cx': 600.0, 'cy': 350.0},
       'distortion': {'k1': -0.1},
+    }]
+
+  def test_legacy_intrinsics_attach_after_resolution_on_same_message(self):
+    """First legacy top-level intrinsics appear on this message's platform."""
+    scene_controller = self._build_controller()
+    pose_state = SimpleNamespace(cameras=None, intrinsics=None, distortion=None)
+    scene_controller.external_source_pose_cache.resolveMessage.return_value = (
+      MagicMock(), pose_state, None)
+
+    def resolve_intrinsics(_scene_uid, _source_id, intrinsics, distortion, _when):
+      pose_state.intrinsics = dict(intrinsics)
+      pose_state.distortion = None if distortion is None else dict(distortion)
+      return MagicMock(), None
+
+    scene_controller.external_source_pose_cache.resolveIntrinsics.side_effect = (
+      resolve_intrinsics)
+    scene = self._build_scene()
+    jdata = {
+      'source_id': 'drone-1',
+      'intrinsics': {'fx': 800.0, 'fy': 810.0, 'cx': 600.0, 'cy': 350.0},
+      'objects': [],
+    }
+
+    scene_controller._handleExternalSourceObject(scene, jdata, 'vehicle', 42.0)
+
+    platform = scene.createMovingObjectsForSceneData.call_args.args[0]['objects'][0]
+    assert platform['cameras'] == [{
+      'id': 'default',
+      'mount': {
+        'translation': [0.0, 0.0, 0.0],
+        'rotation': [0.0, 0.0, 0.0, 1.0],
+      },
+      'intrinsics': {'fx': 800.0, 'fy': 810.0, 'cx': 600.0, 'cy': 350.0},
     }]
 
   def test_skips_ingestion_without_crashing_when_pose_unavailable(self):

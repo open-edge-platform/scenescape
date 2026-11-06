@@ -286,6 +286,49 @@ class TestExternalSourcePoseCacheReuse:
     np.testing.assert_allclose(reused.pose_mat[:3, 3], [1.0, 2.0, 0.0])
     assert reused_state.when == 100.0
 
+  def test_camera_configuration_ordered_independently_of_pose_time(self):
+    """Pose-less camera updates use cameras_when, not the last pose timestamp."""
+    cache = ExternalSourcePoseCache()
+    scene = _makeScene()
+    camera = {
+      'id': 'front',
+      'mount': {'translation': [0.0, 0.0, 0.0], 'rotation': IDENTITY_ROTATION},
+      'intrinsics': {'fx': 900.0, 'fy': 900.0, 'cx': 640.0, 'cy': 360.0},
+      'objects': [],
+    }
+    newer_camera = {
+      **camera,
+      'intrinsics': {'fx': 1000.0, 'fy': 1000.0, 'cx': 640.0, 'cy': 360.0},
+    }
+    initial = {
+      'pose': {
+        'reference_frame': 'scene',
+        'translation': [1.0, 2.0, 0.0],
+        'rotation': IDENTITY_ROTATION,
+      },
+      'cameras': [camera],
+    }
+
+    _, state, reason = cache.resolveMessage(
+      scene, 'drone-1', initial, 100.0, trusted_scene_pose=True)
+    assert reason is None
+    assert state.when == 100.0
+    assert state.cameras_when == 100.0
+    assert state.cameras[0]['intrinsics']['fx'] == 900.0
+
+    _, state, reason = cache.resolveMessage(
+      scene, 'drone-1', {'cameras': [newer_camera]}, 120.0)
+    assert reason is None
+    assert state.when == 100.0
+    assert state.cameras_when == 120.0
+    assert state.cameras[0]['intrinsics']['fx'] == 1000.0
+
+    _, state, reason = cache.resolveMessage(
+      scene, 'drone-1', {'cameras': [camera]}, 110.0)
+    assert reason is None
+    assert state.cameras_when == 120.0
+    assert state.cameras[0]['intrinsics']['fx'] == 1000.0
+
   def test_intrinsics_are_cached_and_reused(self):
     cache = ExternalSourcePoseCache(ttl_seconds=30.0)
     scene = _makeScene()

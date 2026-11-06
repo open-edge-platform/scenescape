@@ -49,7 +49,9 @@ services:
     image: linuxserver/ffmpeg:version-9.0-cli
     command: -nostdin -re -stream_loop -1 -i /workspace/media/qcam1.ts -map 0:v -c copy -f rtsp -rtsp_transport tcp rtsp://mediaserver:8554/drone-cam1
     volumes:
-      - ./sample_data/videos:/workspace/media:ro
+      # Same Queuing recording path as compose.queuing-video.yml; prepare
+      # qcam1.ts with `make convert-dls-videos` before starting this stack.
+      - ./sample_data/demo_scenes/Queuing/video:/workspace/media:ro
     networks:
       scenescape:
     depends_on:

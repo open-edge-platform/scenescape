@@ -854,13 +854,16 @@ class SceneController:
                 f"scene={scene.uid}: {reason}")
       return True
 
-    jdata['objects'] = self._attachPlatformCameras(
-      jdata['objects'], source_id, pose_state)
-
     accepted, synthetic_intrinsics = self._externalPixelIntrinsics(
       scene, source_id, jdata, pixel_objects, msg_when)
     if not accepted:
       return True
+
+    # Attach after intrinsics resolution so legacy top-level calibration
+    # cached by ``_externalPixelIntrinsics`` is visible on this message's
+    # platform/frustum snapshot.
+    jdata['objects'] = self._attachPlatformCameras(
+      jdata['objects'], source_id, pose_state)
 
     source_track = jdata.get('track')
     observation_groups = self._externalObservationGroups(
@@ -914,11 +917,15 @@ class SceneController:
         obj['translation'] = [0.0, 0.0, 0.0]
       if 'category' not in obj:
         obj['category'] = detection_type
+      # Identity local attitude so world rotation follows the source pose.
+      if 'rotation' not in obj:
+        obj['rotation'] = [0.0, 0.0, 0.0, 1.0]
       return body_objects
     body_objects.append({
       'id': source_id,
       'category': detection_type,
       'translation': [0.0, 0.0, 0.0],
+      'rotation': [0.0, 0.0, 0.0, 1.0],
     })
     return body_objects
 

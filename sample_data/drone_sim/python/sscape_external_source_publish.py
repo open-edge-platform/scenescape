@@ -230,15 +230,19 @@ class ExternalSourcePublish(GstBase.BaseTransform):
   def _ensure_mqtt(self) -> None:
     if self._client is not None:
       return
+    if not ROOT_CA or not os.path.exists(ROOT_CA):
+      self._log.error(
+        f"MQTT TLS CA not available at {ROOT_CA!r}; refusing plaintext MQTT"
+      )
+      return
     client = mqtt.Client()
     client.on_connect = self._on_connect
-    if ROOT_CA and os.path.exists(ROOT_CA):
-      client.tls_set(ca_certs=ROOT_CA)
     try:
+      client.tls_set(ca_certs=ROOT_CA)
       client.connect(self._mqtt_host, self._mqtt_port, 120)
     except Exception:  # pylint: disable=broad-except
       self._log.exception(
-        f"Failed to connect to MQTT broker "
+        f"Failed to configure TLS or connect to MQTT broker "
         f"{self._mqtt_host}:{self._mqtt_port}"
       )
       return
@@ -355,7 +359,9 @@ class ExternalSourcePublish(GstBase.BaseTransform):
         "id": drone_meta["camera_id"],
         "mount": drone_meta["mount"],
         "intrinsics": drone_meta["intrinsics"],
-        "objects": self._map_detections(gvadata),
+        # track=false discards pixels in the Controller and the schema
+        # requires ids on camera observations, so publish none here.
+        "objects": self._map_detections(gvadata) if self._track else [],
       }],
     }
 

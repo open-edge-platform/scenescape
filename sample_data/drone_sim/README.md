@@ -123,9 +123,12 @@ docker compose --profile controller up -d scene
 
 ### 5. Start the video source and pipeline
 
-Shares the running stack's network and models volume:
+Prepare the Queuing `.ts` recording (same path the Queuing compose mounts),
+then start the drone stack so it shares the running Scenescape network and
+models volume:
 
 ```sh
+make convert-dls-videos
 docker compose --project-directory . -f sample_data/drone_sim/compose.drone-video.yml up -d
 ```
 
