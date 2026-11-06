@@ -8,7 +8,6 @@ namespace tracking {
 
 TrackedObject::TrackedObject()
   : predictedMeasurementCov(1e-4 * MeasurementMatrix::eye())
-  , predictedMeasurementCovInv(1e4 * MeasurementMatrix::eye())
   , errorCovariance(1e-4 * StateMatrix::eye())
 {
   classification = Classification::Constant(1,1.0);

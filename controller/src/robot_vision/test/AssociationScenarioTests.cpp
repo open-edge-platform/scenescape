@@ -325,6 +325,15 @@ TEST(AssociationScenarioTest, CarPassingPersonKeepsBothTracks)
   }
 }
 
+TEST(AssociationScenarioTest, RunnerEnteringGetsOneTrack)
+{
+  // A person-sized object enters at 4 m/s, 0.4 m per frame. A new track starts at rest with velocity variance
+  // init_state_covariance (1 m^2/s^2), enough for the corrections to bring its velocity up before the object leaves
+  // either gate. Mahalanobis keeps such an entry up to about 6 m/s at 10 fps.
+  expectIdentitiesKeptByBoth(
+    {{.id = 1, .truth = Trajectory(startAt(0.0, 0.0, 0.0, 4.0, kPerson)).straight(4.0).sample(kFps)}});
+}
+
 // Differentiating
 
 TEST(AssociationScenarioTest, CarBrakingWhileOccludedIsReacquired)
@@ -357,25 +366,13 @@ TEST(AssociationScenarioTest, PersonAppearingBesideOccludedPersonGetsOwnTrack)
 
 // Known issues
 
-TEST(AssociationScenarioTest, RunnerEnteringGetsOneTrack)
-{
-  // A person-sized object enters at 4 m/s, 0.4 m per frame. A new track starts at rest with a small velocity
-  // uncertainty, so it lags behind the object for the first frames. Euclidean keeps the object within 2 m. The
-  // Mahalanobis gate of a new track is about 1.6 m (S about 0.27 m^2), and the object is dropped and restarted.
-  // Known issue: reported as skipped while it fails, passes once it is fixed.
-  const Scene scene{{.id = 1, .truth = Trajectory(startAt(0.0, 0.0, 0.0, 4.0, kPerson)).straight(4.0).sample(kFps)}};
-  expectIdentitiesKept(scene, euclideanAssociation());
-  if (const auto failures = knownIssues(scene, {positionMahalanobisAssociation()}); !failures.empty())
-  {
-    GTEST_SKIP() << "Known issue, the object gets more than one track:" << failures;
-  }
-}
-
 TEST(AssociationScenarioTest, CarPullingAwayKeepsOneTrack)
 {
-  // A car stands for 1 s, then accelerates at 5 m/s^2. The velocity of the standing track follows slowly (0.6 m/s
-  // at a true 4 m/s), and the lag exceeds the Mahalanobis gate of about 1.6 m before the 2 m Euclidean one. The new
-  // track then starts at speed, as in RunnerEnteringGetsOneTrack.
+  // A car stands for 1 s, then accelerates at 5 m/s^2. At rest the along-track velocity noise points in the noisy
+  // direction of the estimated velocity, so the velocity follows slowly (0.6 m/s at a true 4 m/s), and the lag
+  // exceeds the Mahalanobis gate of about 1.6 m before the 2 m Euclidean one. Each new track starts at rest and lags
+  // again. Velocity noise of the same size in every direction below 1 m/s fixes it; a 2 m gate floor would too, but
+  // also widens the gate across the track.
   // Known issue: reported as skipped while it fails, passes once it is fixed.
   const Scene scene{
     {.id = 1,
@@ -390,9 +387,10 @@ TEST(AssociationScenarioTest, CarPullingAwayKeepsOneTrack)
 
 TEST(AssociationScenarioTest, CarEnteringAtSpeedGetsOneTrack)
 {
-  // A car enters at 10 m/s, 1 m per frame. A new track starts at rest with a small velocity uncertainty, so the
-  // correction moves its position instead of its velocity; after 3-4 frames the car is more than 2 m ahead of the
-  // prediction and gets a new track, with either method. The car never gets a reliable track.
+  // A car enters at 10 m/s, 1 m per frame. A new track starts at rest with velocity variance init_state_covariance
+  // (1 m^2/s^2), 10 standard deviations below the true speed, so the correction moves its position more than its
+  // velocity; after 3-4 frames the car is more than 2 m ahead of the prediction and gets a new track, with either
+  // method. Passes with both methods from an initial velocity variance of 16 m^2/s^2.
   // Known issue: reported as skipped while it fails, passes once it is fixed.
   const Scene scene{{.id = 1, .truth = Trajectory(startAt(0.0, 0.0, 0.0, 10.0, kCar)).straight(3.0).sample(kFps)}};
   if (const auto failures = knownIssues(scene, {euclideanAssociation(), positionMahalanobisAssociation()});

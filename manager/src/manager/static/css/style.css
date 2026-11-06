@@ -286,6 +286,7 @@ polygon {
 
 .association-window {
   fill: none;
+  stroke: #33cc66;
   stroke-width: 2px;
   stroke-dasharray: 6 4;
   opacity: 0.75;

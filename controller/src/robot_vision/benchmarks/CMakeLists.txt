@@ -22,9 +22,6 @@ endif()
 
 message(STATUS "Building Robot Vision benchmarks.")
 
-file(READ "${PROJECT_SOURCE_DIR}/include/rv/tracking/ObjectMatching.hpp" RV_OBJECT_MATCHING_HPP)
-string(FIND "${RV_OBJECT_MATCHING_HPP}" "PositionMahalanobis" RV_POSITION_MAHALANOBIS_POS)
-
 set(BENCHMARK_EXEC_NAME RobotVisionBenchmarks)
 
 set(BENCHMARK_SOURCES
@@ -38,16 +35,6 @@ target_compile_options(${BENCHMARK_EXEC_NAME} PRIVATE
     -O3
     -DNDEBUG
 )
-
-if(NOT RV_POSITION_MAHALANOBIS_POS EQUAL -1)
-    target_compile_definitions(${BENCHMARK_EXEC_NAME} PRIVATE
-        RV_HAS_POSITION_MAHALANOBIS=1
-        RV_HAS_ASSOCIATION_MAX_RADIUS=1
-    )
-    message(STATUS "Benchmarks: PositionMahalanobis + max_radius track API enabled")
-else()
-    message(STATUS "Benchmarks: building without PositionMahalanobis (legacy tree)")
-endif()
 
 target_include_directories(${BENCHMARK_EXEC_NAME}
     PRIVATE

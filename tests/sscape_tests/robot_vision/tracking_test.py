@@ -336,11 +336,13 @@ class TestMatchFunction(unittest.TestCase):
     timestamp = datetime.now()
     track_id = manager.create_track(seed, timestamp)
 
-    for _ in range(10):
+    # predict() drops pending measurements, so measure after it. 2 s of measurements let the
+    # isotropic initial velocity variance settle below the along-track process noise.
+    for _ in range(20):
       timestamp += timedelta(milliseconds=100)
+      manager.predict(timestamp)
       seed.x += 0.5
       manager.set_measurement(track_id, seed)
-      manager.predict(timestamp)
       manager.correct()
       seed = manager.get_tracks()[0]
 
@@ -361,20 +363,17 @@ class TestMatchFunction(unittest.TestCase):
     ahead = create_object_at_location(x=pred_x + 2.0, y=pred_y)
     lateral = create_object_at_location(x=pred_x, y=pred_y + 2.0)
 
-    # Equal Euclidean distance: Hungarian must pick the along-track detection.
-    assignments, _, _ = tracking.match(
-      [track],
-      [ahead, lateral],
-      tracking.DistanceType.PositionMahalanobis,
-      chi2_gate,
-      10.0,
-    )
-    self.assertEqual(len(assignments), 1)
-    self.assertEqual(assignments[0], (0, 0))
+    def assigned_measurements(measurements, threshold):
+      assignments, _, _ = tracking.match(
+        [track], measurements, tracking.DistanceType.PositionMahalanobis, threshold, 10.0)
+      return [measurement for _, measurement in assignments]
 
-    d2_ahead = (2.0 ** 2) * s11 / (s00 * s11)
-    d2_lateral = (2.0 ** 2) * s00 / (s00 * s11)
-    self.assertLess(d2_ahead, d2_lateral)
+    # Equal Euclidean distance, both inside a wide gate: the matcher takes the along-track
+    # detection, the lower cost.
+    self.assertEqual(assigned_measurements([lateral, ahead], 100.0), [1])
+    # At chi2(0.99, 2) the along-track detection is inside the gate and the lateral one outside.
+    self.assertEqual(assigned_measurements([ahead], chi2_gate), [0])
+    self.assertEqual(assigned_measurements([lateral], chi2_gate), [])
 
   def test_position_mahalanobis_fuses_multi_camera_detections(self):
     """Cross-camera birth clustering must fuse in meters under PositionMahalanobis.
@@ -440,6 +439,22 @@ class TestMatchFunction(unittest.TestCase):
       2,
       'birth clustering must stay at ~2 m, not follow max_radius_m=10',
     )
+    self.assertEqual(tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M, 2.0)
+
+    # A wider birth_cluster_radius_m fuses them.
+    tracker3 = tracking.MultipleObjectTracker(
+      tracker_config, tracking.DistanceType.PositionMahalanobis, chi2_gate)
+    tracker3.update_tracker_params(10)
+    tracker3.track(
+      [[cam0], [beyond_birth]],
+      datetime.now(),
+      tracking.DistanceType.PositionMahalanobis,
+      chi2_gate,
+      0.5,
+      10.0,
+      birth_cluster_radius_m=3.5,
+    )
+    self.assertEqual(len(tracker3.get_tracks()), 1)
 
   def test_multi_camera_detections_fuse_into_one_track(self):
     """Cross-camera birth clustering must fuse one object into a single track with averaged geometry."""

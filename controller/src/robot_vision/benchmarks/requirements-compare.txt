@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+# compare.py dependencies: tools/requirements.txt of the google/benchmark tag cloned by
+# compare_benchmarks.sh. Hashes of the CPython manylinux x86_64 / aarch64 wheels from PyPI;
+# update them together with the tag.
+numpy==2.4.1 \
+    --hash=sha256:a92f227dbcdc9e4c3e193add1a189a9909947d4f8504c576f4a732fd0b54240a \
+    --hash=sha256:538bf4ec353709c765ff75ae616c34d3c3dca1a68312727e8f2676ea644f8509 \
+    --hash=sha256:0093e85df2960d7e4049664b26afc58b03236e967fb942354deef3208857a04c \
+    --hash=sha256:7ad270f438cbdd402c364980317fb6b117d9ec5e226fff5b4148dd9aa9fc6e02 \
+    --hash=sha256:c0faba4a331195bfa96f93dd9dfaa10b2c7aa8cda3a02b7fd635e588fe821bf5 \
+    --hash=sha256:d3e3087f53e2b4428766b54932644d148613c5a595150533ae7f00dab2f319a8 \
+    --hash=sha256:941c2a93313d030f219f3a71fd3d91a728b82979a5e8034eb2e60d394a2b83f9 \
+    --hash=sha256:529050522e983e00a6c1c6b67411083630de8b57f65e853d7b03d9281b8694d2 \
+    --hash=sha256:5d558123217a83b2d1ba316b986e9248a1ed1971ad495963d555ccd75dcb1556 \
+    --hash=sha256:2f44de05659b67d20499cbc96d49f2650769afcb398b79b324bb6e297bfe3844 \
+    --hash=sha256:423797bdab2eeefbe608d7c1ec7b2b4fd3c58d51460f1ee26c7500a1d9c9ee93 \
+    --hash=sha256:52b5f61bdb323b566b528899cc7db2ba5d1015bda7ea811a8bcf3c89c331fa42
+scipy==1.17.0 \
+    --hash=sha256:fc02c37a5639ee67d8fb646ffded6d793c06c5622d36b35cfa8fe5ececb8f042 \
+    --hash=sha256:dac97a27520d66c12a34fd90a4fe65f43766c18c0d6e1c0a80f114d2260080e4 \
+    --hash=sha256:5194c445d0a1c7a6c1a4a4681b6b7c71baad98ff66d96b949097e7513c9d6742 \
+    --hash=sha256:9eeb9b5f5997f75507814ed9d298ab23f62cf79f5a3ef90031b1ee2506abdb5b \
+    --hash=sha256:fe508b5690e9eaaa9467fc047f833af58f1152ae51a0d0aed67aa5801f4dd7d6 \
+    --hash=sha256:6680f2dfd4f6182e7d6db161344537da644d1cf85cf293f015c60a17ecf08752 \
+    --hash=sha256:130d12926ae34399d157de777472bf82e9061c60cc081372b3118edacafe1d00 \
+    --hash=sha256:6e886000eb4919eae3a44f035e63f0fd8b651234117e8f6f29bad1cd26e7bc45 \
+    --hash=sha256:a38c3337e00be6fd8a95b4ed66b5d988bac4ec888fd922c2ea9fe5fb1603dd67 \
+    --hash=sha256:00fb5f8ec8398ad90215008d8b6009c9db9fa924fd4c7d6be307c6f945f9cd73 \
+    --hash=sha256:5fb10d17e649e1446410895639f3385fd2bf4c3c7dfc9bea937bddcbc3d7b9ba \
+    --hash=sha256:8547e7c57f932e7354a2319fab613981cde910631979f74c9b542bb167a8b9db

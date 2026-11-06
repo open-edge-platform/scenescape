@@ -839,6 +839,22 @@ TEST(ConfigLoaderTest, AssociationGateProbabilityEnvOverride_InvalidAndDomain) {
     }
 }
 
+TEST(ConfigLoaderTest, AssociationEnvOverrides_RejectNonFinite) {
+    TempFile config_file(MINIMAL_CONFIG());
+
+    for (const char* value : {"nan", "inf", "-nan", "infinity"}) {
+        SCOPED_TRACE(value);
+        {
+            ScopedEnv env(tracker::env::ASSOCIATION_GATE_PROBABILITY, value);
+            EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+        }
+        {
+            ScopedEnv env(tracker::env::ASSOCIATION_MAX_RADIUS_M, value);
+            EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+        }
+    }
+}
+
 TEST(ConfigLoaderTest, AssociationEuclideanWithoutMaxRadiusUsesLegacyGate) {
     const std::string json = R"({
       "infrastructure": {
