@@ -3,6 +3,7 @@
 
 #include <chrono>
 #include <cmath>
+#include <limits>
 #include <utility>
 #include <vector>
 
@@ -257,6 +258,61 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesYawOnlyWhenBothSidesHaveOrientat
                 expectedDistance(measurement, track, scenario.expectYaw),
                 1e-12);
   }
+}
+
+// A track predicted at (0, 0) with position covariance s00, s01, s11 and unit variance in the other measurement rows.
+TrackedObject makePositionTrack(double s00, double s01, double s11)
+{
+  TrackedObject track;
+  track.predictedMeasurementMean = TrackedObject::MeasurementVector::zeros();
+  TrackedObject::MeasurementMatrix covariance = TrackedObject::MeasurementMatrix::eye();
+  covariance(0, 0) = s00;
+  covariance(0, 1) = covariance(1, 0) = s01;
+  covariance(1, 1) = s11;
+  track.predictedMeasurementCov = covariance;
+  return track;
+}
+
+TrackedObject makePerson(double x, double y)
+{
+  return makeDetection(x, y, 0.0, 0.5, 0.5, 1.8);
+}
+
+size_t assignedCount(const TrackedObject &track,
+                     const TrackedObject &measurement,
+                     DistanceType distanceType,
+                     double threshold,
+                     double maxRadiusM = std::numeric_limits<double>::infinity())
+{
+  std::vector<std::pair<size_t, size_t>> assignments;
+  std::vector<size_t> unassignedTracks;
+  std::vector<size_t> unassignedMeasurements;
+  match(
+    {track}, {measurement}, assignments, unassignedTracks, unassignedMeasurements, distanceType, threshold, maxRadiusM);
+  return assignments.size();
+}
+
+TEST(ObjectMatchingTest, PositionMahalanobisRejectsPairsBeyondMaxRadius)
+{
+  // With S_xy = 100 m^2 the chi-squared 0.99 gate reaches about 30 m: a detection 12 m away passes it (d^2 = 1.44),
+  // and only the max_radius_m ceiling rejects it.
+  const auto track = makePositionTrack(100.0, 0.0, 100.0);
+  const double gate = rv::chi2Threshold(0.99, 2);
+  EXPECT_EQ(assignedCount(track, makePerson(12.0, 0.0), DistanceType::PositionMahalanobis, gate, 10.0), 0U);
+  EXPECT_EQ(assignedCount(track, makePerson(12.0, 0.0), DistanceType::PositionMahalanobis, gate, 15.0), 1U);
+  // Without a ceiling (the default) the gate alone decides.
+  EXPECT_EQ(assignedCount(track, makePerson(12.0, 0.0), DistanceType::PositionMahalanobis, gate), 1U);
+  // A zero ceiling rejects every offset.
+  EXPECT_EQ(assignedCount(track, makePerson(0.1, 0.0), DistanceType::PositionMahalanobis, gate, 0.0), 0U);
+}
+
+TEST(ObjectMatchingTest, EuclideanRejectsPairsBeyondMaxRadius)
+{
+  // A cost threshold of 100 m leaves the rejection to max_radius_m; the services pass max_radius_m as both.
+  const auto track = makePerson(0.0, 0.0);
+  EXPECT_EQ(assignedCount(track, makePerson(3.0, 0.0), DistanceType::Euclidean, 100.0, 2.0), 0U);
+  EXPECT_EQ(assignedCount(track, makePerson(3.0, 0.0), DistanceType::Euclidean, 100.0, 5.0), 1U);
+  EXPECT_EQ(assignedCount(track, makePerson(3.0, 0.0), DistanceType::Euclidean, 100.0), 1U);
 }
 
 } // namespace
