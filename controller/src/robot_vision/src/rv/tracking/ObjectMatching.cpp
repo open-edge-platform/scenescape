@@ -33,7 +33,36 @@ double calculateEuclideanDistance(const TrackedObject &measurement, const Tracke
   return sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2));
 }
 
-double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
+namespace {
+
+constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
+
+/// Per-track inverses for the Mahalanobis cost (S is fixed for the frame): S^-1, and the inverse of S without the yaw
+/// row and column for pairs without yaw.
+struct MahalanobisTrackCache
+{
+  TrackedObject::MeasurementMatrix covarianceInv;
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> covarianceWithoutYawInv;
+  bool orientationObserved = false;
+};
+
+MahalanobisTrackCache buildMahalanobisTrackCache(const TrackedObject &track)
+{
+  MahalanobisTrackCache cache;
+  cache.orientationObserved = orientation::orientationObserved(track);
+  if (cache.orientationObserved)
+  {
+    cv::invert(track.predictedMeasurementCov, cache.covarianceInv, cv::DECOMP_SVD);
+  }
+  cv::invert(track.predictedMeasurementCov.get_minor<kWithoutYaw, kWithoutYaw>(0, 0),
+             cache.covarianceWithoutYawInv,
+             cv::DECOMP_SVD);
+  return cache;
+}
+
+double mahalanobisCostFromCache(const TrackedObject &measurement,
+                                const TrackedObject &track,
+                                const MahalanobisTrackCache &cache)
 {
   const TrackedObject::MeasurementVector innovation
     = measurement.measurementVector() - track.predictedMeasurementMean;
@@ -42,27 +71,21 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
   // and tracks that have never seen an orienting sensor leave yaw out — same
   // observed-row subset as the partial UKF update (inv of S without yaw), not
   // zeroing ν_yaw inside ν' S^-1 ν which still couples through off-diagonal S^-1.
-  if (orientation::hasOrientation(measurement) && orientation::orientationObserved(track))
+  if (cache.orientationObserved && orientation::hasOrientation(measurement))
   {
-    const double squaredDistance = innovation.dot(track.predictedMeasurementCovInv * innovation);
-    return 0.5 * std::sqrt(squaredDistance);
+    return 0.5 * std::sqrt(innovation.dot(cache.covarianceInv * innovation));
   }
 
-  constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
-  cv::Matx<double, kWithoutYaw, 1> reducedInnovation;
-  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovariance;
-  for (int i = 0; i < kWithoutYaw; ++i)
-  {
-    reducedInnovation(i) = innovation(i);
-    for (int j = 0; j < kWithoutYaw; ++j)
-    {
-      reducedCovariance(i, j) = track.predictedMeasurementCov(i, j);
-    }
-  }
-  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovarianceInv;
-  cv::invert(reducedCovariance, reducedCovarianceInv, cv::DECOMP_SVD);
-  const double squaredDistance = reducedInnovation.dot(reducedCovarianceInv * reducedInnovation);
-  return 0.5 * std::sqrt(squaredDistance);
+  const auto reducedInnovation = innovation.get_minor<kWithoutYaw, 1>(0, 0);
+  return 0.5 * std::sqrt(reducedInnovation.dot(cache.covarianceWithoutYawInv * reducedInnovation));
+}
+
+} // namespace
+
+// One pair, for tests; match() builds the cache once per track.
+double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
+{
+  return mahalanobisCostFromCache(measurement, track, buildMahalanobisTrackCache(track));
 }
 
 double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
@@ -141,14 +164,6 @@ double positionMahalanobisCostFromCache(double measurement_x, double measurement
 
 } // namespace
 
-double calculateCompundDistance(const TrackedObject &measurement, const TrackedObject &track)
-{
-  double euclideanDist = calculateMulticlassScaledDistance(measurement, track);
-  double mahalanobisDist = calculateMahalanobisDistance(measurement, track);
-
-  return 0.5 * euclideanDist + 0.5 * mahalanobisDist;
-}
-
 void match(const std::vector<TrackedObject> &tracks,
                           const std::vector<TrackedObject> &measurements,
                           std::vector<std::pair<size_t, size_t>> &assignments,
@@ -199,17 +214,32 @@ void match(const std::vector<TrackedObject> &tracks,
       }
     }
   }
+  else if (distanceType == DistanceType::Mahalanobis || distanceType == DistanceType::MCEMahalanobis)
+  {
+    std::vector<MahalanobisTrackCache> track_caches(tracks.size());
+    for (size_t i = 0; i < tracks.size(); ++i)
+    {
+      track_caches[i] = buildMahalanobisTrackCache(tracks[i]);
+    }
+
+    const bool compound = distanceType == DistanceType::MCEMahalanobis;
+    #pragma omp parallel for collapse(2)
+    for (size_t i = 0; i < tracks.size(); ++i)
+    {
+      for (size_t j = 0; j < measurements.size(); ++j)
+      {
+        const double mahalanobis = mahalanobisCostFromCache(measurements[j], tracks[i], track_caches[i]);
+        (*costMatrix)(i, j) = compound
+          ? 0.5 * calculateMulticlassScaledDistance(measurements[j], tracks[i]) + 0.5 * mahalanobis
+          : mahalanobis;
+      }
+    }
+  }
   else
   {
     std::function<double(const TrackedObject &, const TrackedObject &)> distanceFunction;
     switch (distanceType)
     {
-      case DistanceType::MCEMahalanobis:
-        distanceFunction = std::bind(&calculateCompundDistance, std::placeholders::_1, std::placeholders::_2);
-        break;
-      case DistanceType::Mahalanobis:
-        distanceFunction = std::bind(&calculateMahalanobisDistance, std::placeholders::_1, std::placeholders::_2);
-        break;
       case DistanceType::MultiClassEuclidean:
         distanceFunction = std::bind(&calculateMulticlassScaledDistance, std::placeholders::_1, std::placeholders::_2);
         break;

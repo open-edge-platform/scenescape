@@ -134,10 +134,14 @@ TrackedObject makeTrack()
   covariance(0, kYaw) = covariance(kYaw, 0) = 0.6;
   covariance(1, kYaw) = covariance(kYaw, 1) = 0.5;
   track.predictedMeasurementCov = covariance;
-  cv::Mat inverse;
-  cv::invert(cv::Mat(covariance), inverse, cv::DECOMP_SVD);
-  track.predictedMeasurementCovInv = inverse;
   return track;
+}
+
+TrackedObject::MeasurementMatrix inverseCovariance(const TrackedObject &track)
+{
+  TrackedObject::MeasurementMatrix inverse;
+  cv::invert(track.predictedMeasurementCov, inverse, cv::DECOMP_SVD);
+  return inverse;
 }
 
 TrackedObject makeMeasurement()
@@ -154,7 +158,7 @@ double expectedDistance(const TrackedObject &measurement, const TrackedObject &t
     = measurement.measurementVector() - track.predictedMeasurementMean;
   if (useYaw)
   {
-    return 0.5 * std::sqrt(innovation.dot(track.predictedMeasurementCovInv * innovation));
+    return 0.5 * std::sqrt(innovation.dot(inverseCovariance(track) * innovation));
   }
 
   cv::Matx<double, kWithoutYaw, 1> reducedInnovation;
@@ -178,7 +182,7 @@ double zeroedYawDistance(const TrackedObject &measurement, const TrackedObject &
   TrackedObject::MeasurementVector innovation
     = measurement.measurementVector() - track.predictedMeasurementMean;
   innovation(kYaw) = 0.0;
-  return 0.5 * std::sqrt(innovation.dot(track.predictedMeasurementCovInv * innovation));
+  return 0.5 * std::sqrt(innovation.dot(inverseCovariance(track) * innovation));
 }
 
 TEST(ObjectMatchingTest, MahalanobisDistanceUsesInverseCovarianceOfPredictedMeasurement)
