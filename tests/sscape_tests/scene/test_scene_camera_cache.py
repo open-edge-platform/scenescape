@@ -5,12 +5,17 @@ from django.test import TestCase
 
 from manager.models import Cam, Scene
 from manager.serializers import CamSerializer
-from scene_common.options import EULER, QUATERNION
+from scene_common.options import EULER, QUATERNION, POINT_CORRESPONDENCE
 from scene_common.scenescape import SceneLoader
 
 # [tx, ty, tz, qx, qy, qz, qw, sx, sy, sz]
 INITIAL_TRANSFORMS = [1.0, 2.0, 3.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]
 UPDATED_EULER_TRANSFORMS = [1.0000001, 2.0, 3.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0]
+# Four 2D camera points followed by four 3D map points.
+POINT_CORRESPONDENCE_TRANSFORMS = [
+  278.0, 61.0, 621.0, 132.0, 559.0, 460.0, 66.0, 289.0,
+  0.1, 5.38, 0.0, 3.04, 5.35, 0.0, 3.05, 2.42, 0.0, 0.1, 2.45, 0.0,
+]
 TRANSLATION_DELTA = 5.0
 TEST_NAME = "NEX-T28217"
 
@@ -104,4 +109,42 @@ class SceneCameraCacheTestCase(TestCase):
     self.assertNotEqual(persisted.name, original_name)
     self.assertEqual(persisted.scene, self.scene)
     self.assertEqual(persisted.transforms, INITIAL_TRANSFORMS)
+    return
+
+  def test_scene_reassignment_with_pose_keeps_supplied_pose(self):
+    """Re-linking a camera with calibration in the same update (scene import)
+    must persist the supplied calibration points instead of clearing them."""
+    new_scene = Scene.objects.create(name="import_scene", scale=100.0)
+    serializer = CamSerializer(
+      self.cam,
+      data={
+        "name": self.cam.name,
+        "scene": str(new_scene.pk),
+        "transform_type": POINT_CORRESPONDENCE,
+        "transforms": POINT_CORRESPONDENCE_TRANSFORMS,
+      },
+      partial=True,
+    )
+
+    self.assertTrue(serializer.is_valid(), serializer.errors)
+    serializer.save()
+
+    persisted = Cam.objects.get(pk=self.cam.pk)
+    self.assertEqual(persisted.scene, new_scene)
+    self.assertEqual(persisted.transform_type, POINT_CORRESPONDENCE)
+    self.assertEqual(persisted.transforms, POINT_CORRESPONDENCE_TRANSFORMS)
+    self.assertFalse(getattr(self.cam, "_pose_supplied", False))
+    return
+
+  def test_scene_only_api_relink_clears_previous_pose(self):
+    """A scene-only API update must still drop the previous scene's pose."""
+    new_scene = Scene.objects.create(name="relink_scene", scale=100.0)
+    serializer = CamSerializer(self.cam, data={"scene": str(new_scene.pk)}, partial=True)
+
+    self.assertTrue(serializer.is_valid(), serializer.errors)
+    serializer.save()
+
+    persisted = Cam.objects.get(pk=self.cam.pk)
+    self.assertEqual(persisted.scene, new_scene)
+    self.assertEqual(persisted.transforms, [])
     return

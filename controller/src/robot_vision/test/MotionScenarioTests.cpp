@@ -580,15 +580,15 @@ TEST(MotionScenarioTest, TracksMotionCases)
   const MotionCase cases[] = {
     {.name = "constant velocity",
      .truth = Trajectory({.speed = 1.5, .box = kPerson}).straight(8.0).sample(kFps),
-     .maxPositionError = 0.15,
+     .maxPositionError = 0.1,
      .maxFinalSpeedError = 0.03},
     {.name = "acceleration",
      .truth = Trajectory({.box = kCar}).accelerate(1.0, 5.0).straight(3.0).sample(kFps),
-     .maxPositionError = 0.45,
+     .maxPositionError = 0.35,
      .maxFinalSpeedError = 0.01},
     {.name = "turn",
      .truth = Trajectory({.speed = 3.0, .box = kCar}).straight(2.0).turn(0.5, 4.0).straight(2.0).sample(kFps),
-     .maxPositionError = 0.65,
+     .maxPositionError = 0.45,
      .maxFinalSpeedError = 0.05},
     {.name = "sudden stop",
      .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(3.0).accelerate(-10.0, 0.5).straight(4.5).sample(kFps),
@@ -603,19 +603,19 @@ TEST(MotionScenarioTest, TracksMotionCases)
                 .accelerate(-2.0, 2.0)
                 .straight(1.0)
                 .sample(kFps),
-     .maxPositionError = 0.6,
-     .maxFinalSpeedError = 0.25},
+     .maxPositionError = 0.45,
+     .maxFinalSpeedError = 0.2},
     {.name = "circle, car",
      .truth = Trajectory({.speed = 5.0, .box = kCar}).straight(2.0).turn(0.5, 8.0).sample(kFps),
-     .maxPositionError = 0.65,
-     .maxFinalSpeedError = 0.2},
+     .maxPositionError = 0.5,
+     .maxFinalSpeedError = 0.25},
     {.name = "turn, person",
      .truth = Trajectory({.speed = 1.5, .box = kPerson}).straight(2.0).turn(0.4, 6.0).sample(kFps),
-     .maxPositionError = 0.5,
-     .maxFinalSpeedError = 0.1},
-    // Error peaks at 0.4-0.7 m in the seconds after a corner, while the estimated speed drops to 0.8-1.4 m/s and then
-    // overshoots to 1.8 m/s. The path ends with a corner, so the final speed is taken in that dip.
-    {.name = "rectangular path", .truth = rectangle.sample(kFps), .maxPositionError = 0.8, .maxFinalSpeedError = 0.2},
+     .maxPositionError = 0.35,
+     .maxFinalSpeedError = 0.12},
+    // Error peaks at 0.3-0.5 m in the seconds after a corner, while the estimated speed drops to 1.0-1.3 m/s and then
+    // overshoots to 1.6 m/s. The path ends with a corner, so the final speed is taken in that dip.
+    {.name = "rectangular path", .truth = rectangle.sample(kFps), .maxPositionError = 0.65, .maxFinalSpeedError = 0.3},
   };
   constexpr double kWarmUp = 2.0;
 
@@ -830,7 +830,8 @@ TEST(MotionScenarioTest, StraightLineMatchesConstantVelocityFilter)
 
 TEST(MotionScenarioTest, ConstantVelocityConvergence)
 {
-  // Same scenario and tolerance as the constant-velocity tests in tests/sscape_tests/robot_vision/tracking_test.py.
+  // Same scenario and tolerance as the constant-velocity tests in tests/sscape_tests/robot_vision/tracking_test.py,
+  // where VELOCITY_TOLERANCE explains why it is 0.05 m/s.
   constexpr double kTolerance = 0.05;
   const struct
   {
@@ -860,7 +861,8 @@ TEST(MotionScenarioTest, ConstantVelocityConvergence)
 
 TEST(MotionScenarioTest, TargetBornMovingAcquiresSpeed)
 {
-  // The 0.05 velocity prior cap slows speed pick-up: about half of the true 10 m/s after 1 s.
+  // A new track starts at rest with velocity variance init_state_covariance (1 (m/s)^2 in production), so a car
+  // entering at 10 m/s is at about 9 m/s after 1 s.
   Sensor camera;
   const auto truth = Trajectory({.speed = 10.0, .box = kCar}).straight(1.0).sample(10.0);
   ScenarioRecorder recorder;
@@ -868,7 +870,7 @@ TEST(MotionScenarioTest, TargetBornMovingAcquiresSpeed)
   FilterRun run(productionConfig(), &recorder);
   run.feed(observe(truth, camera));
 
-  EXPECT_GE(std::hypot(run.state().vx, run.state().vy), 4.5);
+  EXPECT_GE(std::hypot(run.state().vx, run.state().vy), 8.5);
 }
 
 TEST(MotionScenarioTest, SteadyMotionHasNoConstantTrailingOffset)
@@ -1232,7 +1234,7 @@ TEST(MotionScenarioTest, VerticalOnlyMotion)
 TEST(MotionScenarioTest, TargetBornClimbing)
 {
   // Stationary in x/y, vz = 0.5 from t = 0: record vz estimate after 1 s and 3 s; assert measured behaviour;
-  // z error converges. Note: vz picks up slowly (initial variance capped at 0.05).
+  // z error converges. A new track starts at rest with velocity variance init_state_covariance, vz included.
   constexpr double kFps = 10.0;
 
   const auto climbingFromBirth = Trajectory({.box = kCar}).climb(0.5, 8.0).sample(kFps);
@@ -1260,7 +1262,6 @@ TEST(MotionScenarioTest, TargetBornClimbing)
   ASSERT_NE(state1s, nullptr);
   ASSERT_NE(state3s, nullptr);
 
-  // After 1 s, vz should be < 0.5 but noticeable (capped initial variance slows convergence)
   EXPECT_GT(state1s->z, 0.2);
   EXPECT_LT(state1s->z, 0.7);
 
@@ -1271,10 +1272,9 @@ TEST(MotionScenarioTest, TargetBornClimbing)
   // Final z error should be bounded
   EXPECT_LT(std::fabs(states.back().z - climbingFromBirth.back().z), 0.3);
 
-  // Known slow start: the initial vz variance is capped (0.05), so after 1 s vz is still far from the true 0.5
-  // m/s (measured 0.22); after 3 s it has caught up (measured 0.535).
-  EXPECT_LT(state1s->vz, 0.35);
-  EXPECT_GT(state1s->vz, 0.1);
+  // With the production init_state_covariance (1 (m/s)^2) vz is picked up within 1 s (measured 0.52 after 1 s, 0.51
+  // after 3 s); a 0.05 cap kept it at 0.22 after 1 s.
+  EXPECT_NEAR(state1s->vz, 0.5, 0.1);
   EXPECT_NEAR(state3s->vz, 0.5, 0.1);
 
   RecordProperty("born_vz_estimate_1s", std::to_string(state1s->vz));

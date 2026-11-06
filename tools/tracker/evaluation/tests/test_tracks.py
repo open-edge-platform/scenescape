@@ -4,16 +4,10 @@
 """Unit tests for the shared track helpers."""
 
 import argparse
-import sys
-from pathlib import Path
 
 import pytest
 
-# Add evaluation root to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-# pylint: disable-next=wrong-import-position
-from utils.tracks import (  # noqa: E402
+from utils.tracks import (
   MIN_OVERLAP_FRAMES,
   add_space_arguments,
   match_tracks,

@@ -4,15 +4,17 @@
 """Tests for loading robot-vision scenario recordings.
 
 fixtures/target_born_moving is recorder output of MotionScenarioTest.TargetBornMovingAcquiresSpeed
-(controller/src/robot_vision/test). Regenerate with:
-  RV_SCENARIO_DIR=<dir> RobotVisionTests \
+(controller/src/robot_vision/test). Regenerate it after a filter change, with RobotVisionTests built as in
+controller/src/robot_vision/README.md#test-scenario-recordings, from controller/src/robot_vision:
+  RV_SCENARIO_DIR=/tmp/rv-scenarios ./build/test/RobotVisionTests \
     --gtest_filter=MotionScenarioTest.TargetBornMovingAcquiresSpeed
+  cp /tmp/rv-scenarios/MotionScenarioTest.TargetBornMovingAcquiresSpeed/*.jsonl \
+    ../../../tools/tracker/evaluation/visualization/tests/fixtures/target_born_moving/
 """
 
 import json
 import math
 import shutil
-import sys
 from pathlib import Path
 
 import jsonschema
@@ -20,12 +22,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-
-from visualization.scenario_data import (  # noqa: E402 pylint: disable=wrong-import-position
+from visualization import scenario_data
+from visualization.scenario_data import (
   PIPELINE_RUN_FILES,
   align_track_to_truth,
   frame_rate,
+  ground_truth_frame_rate,
   load_scenario,
   match_tracks_to_truth,
   yaw_from_quaternion,
@@ -164,6 +166,27 @@ def test_matches_tracks_to_truth(tmp_path):
 
   (tmp_path / "groundtruth.jsonl").unlink()
   assert not match_tracks_to_truth(load_scenario(tmp_path))
+
+
+def test_ground_truth_frames_without_objects_keep_the_frame_rate(tmp_path, monkeypatch):
+  """A 10 FPS ground truth whose object is only in every other frame stays at 10 FPS."""
+  shutil.copy(FIXTURE / "tracks.jsonl", tmp_path)
+  frames = [json.loads(line) for line in (FIXTURE / "groundtruth.jsonl").read_text(encoding="utf-8").splitlines()]
+  for frame in frames[1::2]:
+    frame["objects"] = []
+  write_jsonl(tmp_path / "groundtruth.jsonl", frames)
+
+  scenario = load_scenario(tmp_path)
+  assert frame_rate(scenario.ground_truth) == pytest.approx(5.0)  # rows with objects only
+  assert ground_truth_frame_rate(scenario) == pytest.approx(10.0)
+
+  # Track matching quantizes times at the ground-truth frame rate: one frame per 10 FPS track sample.
+  # At 5 FPS the 11 samples would fall into 6 frames, pairing positions from different times.
+  frames_per_track = {}
+  monkeypatch.setattr(scenario_data, "match_tracks",
+                      lambda tracks, truth, space="xyz": frames_per_track.update(tracks) or [])
+  match_tracks_to_truth(scenario)
+  assert sorted(frames_per_track["1"]) == list(range(11))
 
 
 @pytest.mark.parametrize("fps", [None, 10.0])

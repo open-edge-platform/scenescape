@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+
+configs:
+  queuing-config:
+    file: ${TRACK_ANNOTATION_CONFIG:-./sample_data/demo_scenes/Queuing/queuing-config.json}

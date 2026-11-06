@@ -688,3 +688,33 @@ class TestSpace:
       evaluator.set_space('xz')
     assert evaluator.set_space('z')._space == 'z'
     assert evaluator.reset()._space == 'xyz'
+
+  @staticmethod
+  def _planar_outputs():
+    """(x, y) translations of a track that zigzags in y."""
+    return [
+      {"timestamp": f"2024-01-01T00:00:00.{100 * i:03d}Z", "objects": [
+        {"id": "track-A", "translation": [float(i), 0.5 * (i % 2)], "category": "person"}]}
+      for i in range(8)
+    ]
+
+  def test_planar_positions_measure_the_plane(self, evaluator):
+    """Without z the default measures x and y, as --xy-only does."""
+    evaluator.configure_metrics(['rms_jerk'])
+    evaluator.process_tracker_outputs(self._planar_outputs(), ground_truth=None)
+    planar = evaluator.evaluate_metrics()['rms_jerk']
+
+    xy_only = JitterEvaluator().set_space('xy')
+    xy_only.configure_metrics(['rms_jerk'])
+    xy_only.process_tracker_outputs(self._planar_outputs(), ground_truth=None)
+
+    assert planar > 0.0
+    assert xy_only.evaluate_metrics()['rms_jerk'] == pytest.approx(planar)
+
+  def test_height_only_needs_z(self, evaluator):
+    """--z-only on (x, y) positions fails instead of measuring nothing."""
+    evaluator.set_space('z').configure_metrics(['rms_jerk'])
+    evaluator.process_tracker_outputs(self._planar_outputs(), ground_truth=None)
+
+    with pytest.raises(ValueError, match="needs positions with a z"):
+      evaluator.evaluate_metrics()

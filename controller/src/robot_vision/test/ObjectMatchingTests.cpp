@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include <array>
 #include <chrono>
 #include <cmath>
 #include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
+#include <opencv2/core.hpp>
 
 #include <rv/Utils.hpp>
 #include <rv/tracking/ObjectMatching.hpp>
@@ -224,22 +224,28 @@ namespace {
 
 using namespace rv::tracking;
 using test::makeDetection;
-using Vector = std::array<double, TrackedObject::MeasurementSize>;
 
 constexpr int kYaw = MeasurementIndex::YAW;
+constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
+static_assert(kYaw == kWithoutYaw, "yaw must be the last measurement");
 
-// Symmetric positive definite, with every measurement coupled to every other, yaw included.
+// Symmetric positive definite S with strong yaw↔position coupling so zeroing ν_yaw ≠ marginalizing yaw.
 TrackedObject makeTrack()
 {
   TrackedObject track;
   track.predictedMeasurementMean = TrackedObject::MeasurementVector(2.5, -1.0, 0.4, 4.5, 1.8, 1.5, 0.2);
+  TrackedObject::MeasurementMatrix covariance = TrackedObject::MeasurementMatrix::zeros();
   for (int i = 0; i < TrackedObject::MeasurementSize; ++i)
   {
-    for (int j = 0; j < TrackedObject::MeasurementSize; ++j)
-    {
-      track.predictedMeasurementCovInv(i, j) = i == j ? 4.0 + i : 0.3 / (1.0 + std::abs(i - j));
-    }
+    covariance(i, i) = 1.0;
   }
+  // Correlate yaw with x and y; diagonally dominant so S stays SPD.
+  covariance(0, kYaw) = covariance(kYaw, 0) = 0.6;
+  covariance(1, kYaw) = covariance(kYaw, 1) = 0.5;
+  track.predictedMeasurementCov = covariance;
+  cv::Mat inverse;
+  cv::invert(cv::Mat(covariance), inverse, cv::DECOMP_SVD);
+  track.predictedMeasurementCovInv = inverse;
   return track;
 }
 
@@ -250,34 +256,38 @@ TrackedObject makeMeasurement()
   return measurement;
 }
 
-// 0.5 * sqrt(d' * S^-1 * d), written with plain loops.
+// 0.5 * sqrt(d' * W * d): full S^-1 when useYaw, else inv of the leading 6x6 of S (UKF marginalization).
 double expectedDistance(const TrackedObject &measurement, const TrackedObject &track, bool useYaw)
 {
-  const Vector observed{measurement.x,
-                        measurement.y,
-                        measurement.z,
-                        measurement.length,
-                        measurement.width,
-                        measurement.height,
-                        measurement.yaw};
-  Vector innovation{};
-  for (int i = 0; i < TrackedObject::MeasurementSize; ++i)
+  TrackedObject::MeasurementVector innovation
+    = measurement.measurementVector() - track.predictedMeasurementMean;
+  if (useYaw)
   {
-    innovation[i] = observed[i] - track.predictedMeasurementMean(i);
+    return 0.5 * std::sqrt(innovation.dot(track.predictedMeasurementCovInv * innovation));
   }
-  if (!useYaw)
+
+  cv::Matx<double, kWithoutYaw, 1> reducedInnovation;
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovariance;
+  for (int i = 0; i < kWithoutYaw; ++i)
   {
-    innovation[kYaw] = 0.0;
-  }
-  double squared = 0.0;
-  for (int i = 0; i < TrackedObject::MeasurementSize; ++i)
-  {
-    for (int j = 0; j < TrackedObject::MeasurementSize; ++j)
+    reducedInnovation(i) = innovation(i);
+    for (int j = 0; j < kWithoutYaw; ++j)
     {
-      squared += innovation[i] * track.predictedMeasurementCovInv(i, j) * innovation[j];
+      reducedCovariance(i, j) = track.predictedMeasurementCov(i, j);
     }
   }
-  return 0.5 * std::sqrt(squared);
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovarianceInv;
+  cv::invert(reducedCovariance, reducedCovarianceInv, cv::DECOMP_SVD);
+  return 0.5 * std::sqrt(reducedInnovation.dot(reducedCovarianceInv * reducedInnovation));
+}
+
+// Old gate: zero ν_yaw then use full S^-1 (wrong when yaw is correlated).
+double zeroedYawDistance(const TrackedObject &measurement, const TrackedObject &track)
+{
+  TrackedObject::MeasurementVector innovation
+    = measurement.measurementVector() - track.predictedMeasurementMean;
+  innovation(kYaw) = 0.0;
+  return 0.5 * std::sqrt(innovation.dot(track.predictedMeasurementCovInv * innovation));
 }
 
 TEST(ObjectMatchingTest, MahalanobisDistanceUsesInverseCovarianceOfPredictedMeasurement)
@@ -289,6 +299,8 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesInverseCovarianceOfPredictedMeas
 
   EXPECT_NEAR(distance, expectedDistance(measurement, track, false), 1e-12);
   EXPECT_GT(distance, 0.5);
+  // Zeroing ν_yaw is not the same as marginalizing yaw when S couples yaw to position/size.
+  EXPECT_GT(std::abs(distance - zeroedYawDistance(measurement, track)), 1e-3);
 
   const auto onTrack = makeDetection(2.5, -1.0, 0.4, 4.5, 1.8, 1.5);
   EXPECT_DOUBLE_EQ(calculateMahalanobisDistance(onTrack, track), 0.0);
@@ -366,7 +378,7 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesMeasurementNoise)
   auto measurement = makeMeasurement();
   measurement.measurementNoiseCov
     = TrackedObject::MeasurementMatrix::diag(TrackedObject::MeasurementVector(0.5, 1.5, 3.5, 0.5, 0.5, 0.5, 0.5));
-  const Vector variance{1.0, 2.0, 4.0, 1.0, 1.0, 1.0, 1.0};
+  const TrackedObject::MeasurementVector variance(1.0, 2.0, 4.0, 1.0, 1.0, 1.0, 1.0);
 
   const auto innovation = measurement.measurementVector() - track.predictedMeasurementMean;
   double squared = 0.0;
@@ -374,10 +386,18 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesMeasurementNoise)
   {
     if (i != kYaw) // neither side has orientation
     {
-      squared += innovation(i) * innovation(i) / variance[i];
+      squared += innovation(i) * innovation(i) / variance(i);
     }
   }
   EXPECT_NEAR(calculateMahalanobisDistance(measurement, track), 0.5 * std::sqrt(squared), 1e-12);
+
+  // Both sides oriented: the yaw row is used, also with S = H P H^T + R.
+  orientation::setHasOrientation(measurement, true);
+  track.attributes[orientation::ORIENTATION_OBSERVED] = orientation::TRUE_VALUE;
+  const double withYaw = squared + innovation(kYaw) * innovation(kYaw) / variance(kYaw);
+  EXPECT_NEAR(calculateMahalanobisDistance(measurement, track), 0.5 * std::sqrt(withYaw), 1e-12);
+  measurement.attributes.clear();
+  track.attributes.clear();
 
   measurement.measurementNoiseCov.reset();
   EXPECT_NEAR(calculateMahalanobisDistance(measurement, track), expectedDistance(measurement, track, false), 1e-12);

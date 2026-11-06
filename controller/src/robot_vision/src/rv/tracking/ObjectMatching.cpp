@@ -50,21 +50,41 @@ double calculateEuclideanBirthDistance(const TrackedObject &measurement, const T
 
 double calculateMahalanobisDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
-  TrackedObject::MeasurementVector innovation = measurement.measurementVector() - track.predictedMeasurementMean;
+  const TrackedObject::MeasurementVector innovation
+    = measurement.measurementVector() - track.predictedMeasurementMean;
 
   // Use yaw in the gate only when both sides have orientation. Camera detections
-  // and tracks that have never seen an orienting sensor leave yaw out.
-  if (!(orientation::hasOrientation(measurement) && orientation::orientationObserved(track)))
+  // and tracks that have never seen an orienting sensor leave yaw out — same
+  // observed-row subset as the partial UKF update (inv of S without yaw), not
+  // zeroing ν_yaw inside ν' S^-1 ν which still couples through off-diagonal S^-1.
+  // S = H P H^T + R when the detection carries its own R.
+  const TrackedObject::MeasurementMatrix covariance = measurement.measurementNoiseCov
+    ? track.predictedStateMeasurementCov + *measurement.measurementNoiseCov
+    : track.predictedMeasurementCov;
+  if (orientation::hasOrientation(measurement) && orientation::orientationObserved(track))
   {
-    innovation(MeasurementIndex::YAW) = 0.;
+    const TrackedObject::MeasurementMatrix covarianceInv
+      = measurement.measurementNoiseCov ? covariance.inv(cv::DECOMP_SVD) : track.predictedMeasurementCovInv;
+    const double squaredDistance = innovation.dot(covarianceInv * innovation);
+    return 0.5 * std::sqrt(squaredDistance);
   }
 
-  // innovation' * S^-1 * innovation; S = H P H^T + R when the detection carries its own R
-  const TrackedObject::MeasurementMatrix covarianceInv = measurement.measurementNoiseCov
-    ? (track.predictedStateMeasurementCov + *measurement.measurementNoiseCov).inv(cv::DECOMP_SVD)
-    : track.predictedMeasurementCovInv;
-  const double squaredDistance = innovation.dot(covarianceInv * innovation);
-
+  static_assert(MeasurementIndex::YAW == TrackedObject::MeasurementSize - 1,
+                "the reduced gate drops the last measurement row, which must be yaw");
+  constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
+  cv::Matx<double, kWithoutYaw, 1> reducedInnovation;
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovariance;
+  for (int i = 0; i < kWithoutYaw; ++i)
+  {
+    reducedInnovation(i) = innovation(i);
+    for (int j = 0; j < kWithoutYaw; ++j)
+    {
+      reducedCovariance(i, j) = covariance(i, j);
+    }
+  }
+  cv::Matx<double, kWithoutYaw, kWithoutYaw> reducedCovarianceInv;
+  cv::invert(reducedCovariance, reducedCovarianceInv, cv::DECOMP_SVD);
+  const double squaredDistance = reducedInnovation.dot(reducedCovarianceInv * reducedInnovation);
   return 0.5 * std::sqrt(squaredDistance);
 }
 

@@ -24,6 +24,58 @@ python3 -m build --wheel
 pip3 install dist/robot_vision-X.X.X-cpXX-cpXXm-linux_x86_64.whl
 ```
 
+## Kalman filter settings
+
+`TrackManagerConfig` passes three settings to `MultiModelKalmanEstimator.initialize()` for every new track. The Scene
+Controller and the Tracker service do not read them from their configuration files: both use the production values
+`kProduction*` in [TrackManager.hpp](include/rv/tracking/TrackManager.hpp) (`tracking.PRODUCTION_*` in Python).
+
+| Python / C++ setting                                     | Production | Meaning                                                   |
+| -------------------------------------------------------- | ---------- | --------------------------------------------------------- |
+| `default_process_noise` / `mDefaultProcessNoise`         | `1e-4`     | Scale `q` of the process noise                            |
+| `default_measurement_noise` / `mDefaultMeasurementNoise` | `0.2`      | Measurement noise `r`; initial variance of position, size |
+| `init_state_covariance` / `mInitStateCovariance`         | `1.0`      | Initial velocity variance `p`; caps the other states      |
+
+The state is x, y, vx, vy, ax, ay, z, vz, length, width, height, yaw and yaw rate; a detection measures x, y, z,
+length, width, height and yaw. Units are m, rad and s.
+
+**Process noise.** Before every predict, each motion model gets its own process noise from its velocity and the time
+step `dt` (at least 1 ms), with `q_v = max(1000 * q, 1e-3)`:
+
+- Position, z and size get no direct noise: the position uncertainty grows only through the velocity.
+- Velocity: `q_v * (1 + speed) * dt` along the direction of motion, `q_v / 100 * dt` across it. Below 1 mm/s the
+  along-track direction is world x.
+- Vertical velocity: `q_v * dt` in every model, independent of the direction of motion.
+- Acceleration: CA gets the same 2×2 block as the velocity.
+- Turn rate: CTRV gets `q_v * dt`.
+- Yaw: `q / 100 * dt`.
+- A state the model resets to 0 (acceleration in CV and CTRV, turn rate in CV and CA) gets `1e-6 * dt`, which keeps the
+  covariance positive definite. CP, which is not a production model, gets the velocity block on the acceleration and
+  `q * dt` on the turn rate.
+
+Because of the floor in `q_v`, every `q` up to `1e-6` gives the same velocity and turn-rate noise, and `q = 0` does not
+turn the process noise off.
+
+**Measurement noise.** The measurement noise covariance is `r` times the identity on the seven measured values. A
+detection that carries its own R (`measurementNoiseCov`) uses it instead, in the update and in the association gate.
+A detection without a usable orientation does not observe yaw: its update leaves the yaw row out, also of its own R.
+
+**Initial covariance.** The initial covariance is diagonal: `r` for x, y, z, length, width and height, `p` for vx, vy
+and vz, and `min(p, cap)` for the rest, with caps of 0.1 for acceleration, 0.05 for yaw and 0.01 for yaw rate. A birth
+detection with its own R sets the x, y, z, length, width and height block from that R instead. A new track starts at
+rest, so `p` sets how fast it picks up an object that enters already moving: with the production `p = 1` a car
+entering at 8 m/s keeps one track through a 2 m Euclidean gate at 10 fps.
+
+**Sigma points.** The unscented filter uses α = 1, β = 2 and κ = 3 − n for the n = 13 states. The sigma points then
+sit at √3 σ, which matches a Gaussian's fourth moment along each axis; the centre weight is negative (−10/3), so the
+predicted mean extrapolates from the centre point instead of averaging the points, and with β = 2 the covariance stays
+positive semi-definite. Only CTRV is nonlinear. At 10 fps κ makes no measurable difference; with a turn-rate
+uncertainty of 1 rad over one step CTRV's predicted mean speed is 1 % off the exact value, where κ = 0 is 41 % too
+fast.
+
+Earlier versions added `q` times the identity to all twelve states at every predict, independent of `dt`, and started
+from `p` times the identity. Values tuned for them do not carry over.
+
 ## Test scenario recordings
 
 Tests that use `ScenarioRecorder` ([test/support/ScenarioRecorder.hpp](test/support/ScenarioRecorder.hpp)) write the
