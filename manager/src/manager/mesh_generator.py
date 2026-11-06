@@ -26,6 +26,7 @@ from scene_common.timestamp import get_iso_time
 from scene_common.mesh_util import mergeMesh, checkMeshConnectivity
 from scene_common import log
 from manager.serializers import CamSerializer
+from manager import glb_alignment
 
 ALLOWED_VIDEO_MIME_TYPES = {
     "video/mp4",
@@ -836,6 +837,9 @@ class MeshGenerator:
       glb_exported_bytes = aligned_mesh.export(file_type='glb')
 
       log.info(f"Saving aligned mesh to scene {scene.name} as {glb_filename}")
+      if scene.use_glb_map:
+        # Restores the pre-GLB base map and clears use_glb_map before the mesh overwrites scene.map
+        glb_alignment.unapply_glb_map(scene)
       # Save to scene's map field without triggering save yet
       scene.map.save(glb_filename, ContentFile(glb_exported_bytes), save=False)
 

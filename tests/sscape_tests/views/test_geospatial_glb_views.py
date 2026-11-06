@@ -22,6 +22,7 @@ import numpy as np
 
 from manager import glb_alignment
 from manager.models import Scene, Region, RegionPoint, SingletonSensor
+from scene_common.earth_lla import localFootprintCornersLLA
 from scene_common.glb_top_view import getMeshSize
 from scene_common.mesh_util import extractMeshFromGLB
 
@@ -90,7 +91,7 @@ class TestGeospatialGlbPreview(TestCase):
     self.assertTrue(os.path.exists(glb_path))
     self.assertTrue(os.path.exists(png_path))
     rendered_scene = self.render_mock.call_args[0][0]
-    self.assertEqual(rendered_scene.rotation_x, 0.0)
+    self.assertEqual(rendered_scene.rotation_x, glb_alignment.ALIGN_ROTATION_X)
 
   def test_uploaded_filename_is_server_token_not_client_name(self):
     """Uploaded file with malicious name saved as <uuid>.glb only."""
@@ -304,22 +305,31 @@ class CommitBaseSetup(TestCase):
     self.scene.refresh_from_db()
     return fn
 
+  def _set_frame(self):
+    """Give the scene a 100 m frame so GLB apply can compute its pose."""
+    frame = localFootprintCornersLLA(
+      center_lat=37.38689, center_lng=-121.96411, heading_deg=0.0,
+      width_m=100.0, height_m=100.0,
+    ).tolist()
+    Scene.objects.filter(pk=self.scene.pk).update(map_corners_lla=frame)
+    self.scene.refresh_from_db()
+
+  def _apply_glb(self):
+    return self.client.patch(
+      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+      data=json.dumps({'use_glb_map': True}), content_type='application/json'
+    )
+
 
 class TestGeospatialGlbCommit(CommitBaseSetup):
   """Tests for POST/GET geospatial-glb endpoint: commit and read-back."""
 
-  def test_commit_success_replaces_map_sets_corners_clears_cache(self):
-    """POST with valid token, anchor -> 200; map is .glb, corners set, cache cleared."""
+  def test_commit_stores_glb_then_patch_applies_it(self):
+    """POST stores the GLB and leaves the map alone; PATCH use_glb_map applies it."""
     old_map_fn = self._create_old_map()
+    self._set_frame()
     token = self._stage_glb()
-    anchor = {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}
-    body = {'token': token, 'anchor': anchor, 'acknowledge_frame_change': False}
-
-    # Scene should have no content (cameras/regions/sensors)
-    self.scene.trs_matrix = 'dummy'  # Set to non-None to verify it's cleared
-    self.scene.osm_ways_cache = {'x': 1}
-    self.scene.osm_ways_cache_bbox = [0, 1, 2, 3]
-    self.scene.save()
+    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}}
 
     with self.captureOnCommitCallbacks(execute=True):
       resp = self.client.post(
@@ -334,40 +344,45 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     self.assertIn('preview_url', result)
 
     self.scene.refresh_from_db()
-    self.assertTrue(self.scene.map.name.endswith('.glb'))
-    self.assertTrue(os.path.exists(self.scene.map.path))
-    self.assertIsNotNone(self.scene.map_corners_lla)
-    self.assertEqual(len(self.scene.map_corners_lla), 4)
-    self.assertIsNone(self.scene.trs_matrix)
-    self.assertIsNone(self.scene.osm_ways_cache)
-    self.assertIsNone(self.scene.osm_ways_cache_bbox)
-    self.assertEqual(self.scene.rotation_x, 0.0)
+    self.assertTrue(self.scene.glb_map.name.endswith('.glb'))
+    self.assertFalse(self.scene.use_glb_map)
+    self.assertTrue(self.scene.map.name.endswith('.png'))
+    self.assertTrue(os.path.exists(os.path.join(self.media_root, old_map_fn)))
+    self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
 
-    # Footprint follows the unrotated X/Y extents of the committed GLB
-    mesh, _ = extractMeshFromGLB(self.scene.map.path, rotation=np.zeros(3))
+    # Footprint follows the X/Y extents after the ALIGN_ROTATION_X axis conversion
+    mesh, _ = extractMeshFromGLB(self.scene.glb_map.path, rotation=[glb_alignment.ALIGN_ROTATION_X, 0.0, 0.0])
     extent_w, extent_h, _ = getMeshSize(mesh)
     self.assertAlmostEqual(result['footprint_m']['width'], extent_w, places=2)
     self.assertAlmostEqual(result['footprint_m']['height'], extent_h, places=2)
 
-    # Staged file removed, old map deleted
-    self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
-    self.assertFalse(os.path.exists(os.path.join(self.media_root, old_map_fn)))
+    with self.captureOnCommitCallbacks(execute=True):
+      resp = self._apply_glb()
+    self.assertEqual(resp.status_code, 200)
 
-    # sendUpdateCommand scheduled
+    self.scene.refresh_from_db()
+    self.assertTrue(self.scene.use_glb_map)
+    self.assertTrue(self.scene.map.name.endswith('.glb'))
+    self.assertTrue(os.path.exists(self.scene.map.path))
+    self.assertEqual(len(self.scene.map_corners_lla), 4)
+    self.assertTrue(self.scene.base_map.name.endswith('.png'))
     self.mqtt_mock.assert_called_with(scene_id=self.scene.id)
 
   def test_commit_stores_thumbnail_when_save_skips_regeneration(self):
-    """Thumbnail is stored on commit even when Scene.save() skips regenerating it."""
+    """Thumbnail is stored on apply even when Scene.save() skips regenerating it."""
     self._create_old_map()
+    self._set_frame()
     token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}, 'acknowledge_frame_change': False}
+    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}}
 
+    with self.captureOnCommitCallbacks(execute=True):
+      self.client.post(
+        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        data=json.dumps(body), content_type='application/json'
+      )
     with patch.object(Scene, "regenerateThumbnail", return_value=False):
       with self.captureOnCommitCallbacks(execute=True):
-        resp = self.client.post(
-          reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-          data=json.dumps(body), content_type='application/json'
-        )
+        resp = self._apply_glb()
 
     self.assertEqual(resp.status_code, 200)
     self.scene.refresh_from_db()
@@ -401,13 +416,14 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     # heading normalized: 370 % 360 = 10
     self.assertAlmostEqual(result['anchor']['heading_deg'], 10.0, places=2)
 
-  def test_get_on_png_map_returns_404(self):
-    """GET on scene with PNG map returns 404."""
+  def test_get_on_png_map_reports_no_glb(self):
+    """GET on a scene with only a PNG map returns 200 with exists=false."""
     self._create_old_map()
     resp = self.client.get(
       reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
     )
-    self.assertEqual(resp.status_code, 404)
+    self.assertEqual(resp.status_code, 200)
+    self.assertFalse(json.loads(resp.content)['exists'])
 
   def test_get_unknown_uuid_returns_404(self):
     """GET for non-existent scene returns 404."""
@@ -480,33 +496,16 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     )
     self.assertEqual(resp.status_code, 403)
 
-  def test_commit_with_region_ack_missing_returns_409(self):
-    """POST with region but acknowledge_frame_change missing/false returns 409; scene unchanged."""
-    self._create_old_map()
+  def test_commit_with_sensor_and_region_stores_without_map_change(self):
+    """POST succeeds with existing sensors/regions and does not change the applied map."""
+    old_map_fn = self._create_old_map()
     region = Region.objects.create(scene=self.scene, name='test', roi_type='test')
     RegionPoint.objects.create(region=region, x=0, y=0, sequence=0)
     RegionPoint.objects.create(region=region, x=1, y=0, sequence=1)
     RegionPoint.objects.create(region=region, x=1, y=1, sequence=2)
-
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}, 'acknowledge_frame_change': False}
-
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 409)
-
-    self.scene.refresh_from_db()
-    self.assertTrue(self.scene.map.name.endswith('.png'))
-    self.assertTrue(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
-    self.mqtt_mock.assert_not_called()
-
-  def test_commit_with_sensor_ack_true_succeeds(self):
-    """POST with sensor but acknowledge_frame_change=true succeeds; sensor present but frame updated."""
     SingletonSensor.objects.create(scene=self.scene, name='s1', sensor_id='s1')
     token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}, 'acknowledge_frame_change': True}
+    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
 
     with self.captureOnCommitCallbacks(execute=True):
       resp = self.client.post(
@@ -515,19 +514,9 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
       )
     self.assertEqual(resp.status_code, 200)
     self.scene.refresh_from_db()
-    self.assertTrue(self.scene.map.name.endswith('.glb'))
-
-  def test_ack_non_bool_returns_400(self):
-    """POST with acknowledge_frame_change as string/int/null returns 400."""
-    token = self._stage_glb()
-
-    for bad_ack in ['yes', 1, None]:
-      body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}, 'acknowledge_frame_change': bad_ack}
-      resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-        data=json.dumps(body), content_type='application/json'
-      )
-      self.assertEqual(resp.status_code, 400, f"Expected 400 for ack={bad_ack}")
+    self.assertTrue(self.scene.map.name.endswith('.png'))
+    self.assertEqual(self.scene.map.name, old_map_fn)
+    self.assertTrue(self.scene.glb_map.name.endswith('.glb'))
 
   def test_token_path_traversal_returns_400(self):
     """POST with token='../../etc/passwd' returns 400."""
@@ -681,13 +670,13 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     self.assertEqual(resp.status_code, 400)
 
   def test_atomicity_failure_leaves_no_new_file_original_intact(self):
-    """POST where localFootprintCornersLLA fails: 500, new map removed, old map kept."""
+    """POST where mesh footprint fails: 500, new map removed, old map kept."""
     old_map_fn = self._create_old_map()
     token = self._stage_glb()
     body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
 
     with patch.object(
-      glb_alignment, 'localFootprintCornersLLA',
+      glb_alignment, '_get_mesh_footprint_corners_from_glb',
       side_effect=RuntimeError('Alignment failed')
     ):
       resp = self.client.post(
@@ -715,7 +704,7 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
 
     with patch.object(
-      glb_alignment, 'localFootprintCornersLLA',
+      glb_alignment, '_get_mesh_footprint_corners_from_glb',
       side_effect=RuntimeError('Alignment failed')
     ):
       resp = self.client.post(
@@ -725,13 +714,12 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
 
     self.assertEqual(resp.status_code, 500)
 
-    # Only glb_staging should exist; no loose .glb files
-    media_files = os.listdir(self.media_root)
-    self.assertEqual(media_files, ['glb_staging'])
-    self.assertTrue(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
+    # Only the staged GLB may remain as a .glb; the failed commit must not leak one
+    stored = [os.path.join(d, f) for d, _, files in os.walk(self.media_root) for f in files if f.endswith('.glb')]
+    self.assertEqual(stored, [os.path.join(self.staging_dir, f'{token}.glb')])
 
   def test_commit_success_no_previous_map(self):
-    """POST on scene with no previous map -> 200; new map set, corners set, staged file removed."""
+    """POST on scene with no previous map -> 200; GLB stored, map stays empty, staged file removed."""
     token = self._stage_glb()
     body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
 
@@ -743,10 +731,60 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
 
     self.assertEqual(resp.status_code, 200)
     self.scene.refresh_from_db()
-    self.assertTrue(self.scene.map.name.endswith('.glb'))
-    self.assertIsNotNone(self.scene.map_corners_lla)
+    self.assertTrue(self.scene.glb_map.name.endswith('.glb'))
+    self.assertFalse(self.scene.map)
+    self.assertFalse(self.scene.use_glb_map)
     self.assertFalse(os.path.exists(os.path.join(self.staging_dir, f'{token}.glb')))
     self.mqtt_mock.assert_called_with(scene_id=self.scene.id)
+
+
+class TestGenerateMeshGlbOverride(CommitBaseSetup):
+  """Generate Mesh asks before replacing an applied GLB map."""
+
+  def _apply_glb_scene(self):
+    self._create_old_map()
+    self._set_frame()
+    token = self._stage_glb()
+    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 45.0}}
+    with self.captureOnCommitCallbacks(execute=True):
+      self.client.post(
+        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+        data=json.dumps(body), content_type='application/json'
+      )
+    with self.captureOnCommitCallbacks(execute=True):
+      self._apply_glb()
+    self.scene.refresh_from_db()
+    self.assertTrue(self.scene.use_glb_map)
+
+  def _generate_mesh(self, data=None):
+    return self.client.post(reverse('generate_mesh', kwargs={'pk': self.scene.id}), data or {})
+
+  @patch('manager.mesh_generator.MeshGenerator.startMeshGeneration')
+  def test_generate_mesh_without_override_returns_409_and_does_not_start(self, start_mock):
+    self._apply_glb_scene()
+    resp = self._generate_mesh()
+    self.assertEqual(resp.status_code, 409)
+    self.assertTrue(json.loads(resp.content)['glb_applied'])
+    start_mock.assert_not_called()
+    self.scene.refresh_from_db()
+    self.assertTrue(self.scene.use_glb_map)
+
+  @patch('manager.mesh_generator.MeshGenerator.startMeshGeneration')
+  def test_generate_mesh_with_override_starts_and_keeps_glb_until_finalize(self, start_mock):
+    start_mock.return_value = {'success': True, 'request_id': 'req-1'}
+    self._apply_glb_scene()
+    resp = self._generate_mesh({'override_glb': 'true'})
+    self.assertEqual(resp.status_code, 200)
+    start_mock.assert_called_once()
+    self.scene.refresh_from_db()
+    self.assertTrue(self.scene.use_glb_map)
+
+  @patch('manager.mesh_generator.MeshGenerator.startMeshGeneration')
+  def test_generate_mesh_without_applied_glb_is_not_guarded(self, start_mock):
+    start_mock.return_value = {'success': True, 'request_id': 'req-2'}
+    resp = self._generate_mesh()
+    self.assertEqual(resp.status_code, 200)
+    start_mock.assert_called_once()
 
 
 class TestScenePagesMapImage(TestCase):

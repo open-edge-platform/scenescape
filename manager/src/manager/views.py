@@ -984,12 +984,13 @@ def _invalid_bounds(bounds):
 def _bearing_pivot(scene):
   """Scene-local (x, y) pivot for the bearing rotation, in the same frame as ROI points.
 
-  Prefers the scene's saved map center; falls back to the map_corners_lla bbox midpoint.
+  Prefers the scene's saved map center; falls back to the frame_corners_lla bbox midpoint.
   """
   if scene.map_center_lat is not None and scene.map_center_lng is not None:
     center_lat, center_lng = scene.map_center_lat, scene.map_center_lng
   else:
-    south, west, north, east = osm_roi.bbox_from_map_corners(scene.map_corners_lla)
+    frame_corners = scene.frame_corners_lla()
+    south, west, north, east = osm_roi.bbox_from_map_corners(frame_corners)
     center_lat, center_lng = (south + north) / 2.0, (west + east) / 2.0
   return osm_roi.lla_to_local_xy(scene.trs_matrix, center_lat, center_lng)
 
@@ -997,7 +998,7 @@ def _bearing_pivot(scene):
 class OsmRoiPreviews(APIView):
   """Preview OSM-derived polygon ROIs before creation.
 
-  Derives the query bounding box from the scene's saved map_corners_lla.
+  Derives the query bounding box from the scene's frame_corners_lla (invariant frame).
   Fetches line geometries from OSM (cached on the scene after first fetch),
   converts to scene-local coordinates, buffers to polygons, and returns a
   preview list with temporary UUIDs without persisting to DB.
@@ -1025,7 +1026,8 @@ class OsmRoiPreviews(APIView):
       except (Scene.DoesNotExist, ValueError):
         return JsonResponse({'error': 'Scene not found or invalid UUID'}, status=404)
 
-      if not scene.map_corners_lla:
+      frame_corners = scene.frame_corners_lla()
+      if not frame_corners:
         return JsonResponse({
           'error': 'Scene map corners not set. '
                    'Click "Generate Geospatial Bounds & Snapshot" in scene editor first.'
@@ -1209,7 +1211,13 @@ class GeospatialGlbPreview(APIView):
 
 
 class GeospatialGlb(APIView):
-  """Commit a staged GLB to a scene, or retrieve an already-committed geospatial GLB's alignment."""
+  """Get, POST, PATCH, or DELETE a geospatial GLB.
+
+  GET: returns {exists, filename, download_url, anchor, footprint_m, use_glb_map, preview_url}
+  POST {token, anchor}: store the staged GLB; applies if use_glb_map already True
+  PATCH {anchor?, use_glb_map?}: MOVE anchor and/or APPLY/UNAPPLY
+  DELETE: remove the GLB
+  """
   authentication_classes = [SessionAuthentication, TokenAuthentication]
   permission_classes = [IsAdminOrReadOnly]
 
@@ -1225,6 +1233,7 @@ class GeospatialGlb(APIView):
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
   def post(self, request, scene_uid):
+    """POST {token, anchor}: store staged GLB."""
     try:
       try:
         data = request.data
@@ -1235,8 +1244,9 @@ class GeospatialGlb(APIView):
       scene = glb_alignment.get_geospatial_scene(scene_uid)
       token = data.get('token')
       anchor = data.get('anchor')
-      acknowledged = data.get('acknowledge_frame_change', False)
-      result = glb_alignment.commit_glb(scene, token, anchor, acknowledged)
+      if not token or not anchor:
+        return JsonResponse({'error': 'token and anchor are required'}, status=400)
+      result = glb_alignment.commit_glb(scene, token, anchor)
       return JsonResponse(result)
     except glb_alignment.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
@@ -1244,6 +1254,84 @@ class GeospatialGlb(APIView):
       log.error(f"Error in geospatial GLB POST: {e}")
       log.error(f"Traceback: {traceback.format_exc()}")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+  def patch(self, request, scene_uid):
+    """PATCH {anchor?, use_glb_map?}: MOVE and/or APPLY/UNAPPLY."""
+    try:
+      try:
+        data = request.data
+      except ParseError:
+        data = None
+      if not isinstance(data, dict):
+        return JsonResponse({'error': 'Request body must be a JSON object'}, status=400)
+
+      scene = glb_alignment.get_geospatial_scene(scene_uid)
+      if not scene.glb_map:
+        return JsonResponse({'error': 'No stored GLB'}, status=404)
+
+      new_anchor = data.get('anchor')
+      new_use_glb = data.get('use_glb_map')
+
+      # Validate use_glb_map if provided
+      if new_use_glb is not None and not isinstance(new_use_glb, bool):
+        return JsonResponse({'error': 'use_glb_map must be a boolean'}, status=400)
+
+      # Apply MOVE if anchor provided
+      if new_anchor:
+        glb_alignment.move_glb_anchor(scene, new_anchor)
+        scene.refresh_from_db()
+
+      # Apply APPLY/UNAPPLY if use_glb_map changed
+      if new_use_glb is not None:
+        glb_alignment.set_glb_applied(scene, new_use_glb)
+        scene.refresh_from_db()
+
+      return JsonResponse(glb_alignment.saved_alignment(scene))
+    except glb_alignment.GlbAlignmentError as e:
+      return JsonResponse({'error': e.message}, status=e.status)
+    except Exception as e:
+      log.error(f"Error in geospatial GLB PATCH: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+  def delete(self, request, scene_uid):
+    """DELETE: remove the stored GLB."""
+    try:
+      scene = glb_alignment.get_geospatial_scene(scene_uid)
+      if not scene.glb_map:
+        return JsonResponse({'error': 'No stored GLB'}, status=404)
+      glb_alignment.remove_glb_map(scene)
+      return JsonResponse({'success': True})
+    except glb_alignment.GlbAlignmentError as e:
+      return JsonResponse({'error': e.message}, status=e.status)
+    except Exception as e:
+      log.error(f"Error in geospatial GLB DELETE: {e}")
+      log.error(f"Traceback: {traceback.format_exc()}")
+      return JsonResponse({'error': 'An internal error has occurred'}, status=500)
+
+
+@login_required
+def geospatial_glb_download(request, scene_uid):
+  """Download the stored GLB file."""
+  try:
+    try:
+      scene = glb_alignment.get_geospatial_scene(scene_uid)
+    except glb_alignment.GlbAlignmentError as e:
+      return HttpResponse(e.message, status=e.status)
+    if not scene.glb_map:
+      return HttpResponse('Not found', status=404)
+
+    # Validate filename to prevent path traversal
+    filename = os.path.basename(scene.glb_map.name)
+    if not filename.lower().endswith('.glb'):
+      return HttpResponse('Invalid file', status=400)
+
+    response = FileResponse(scene.glb_map.open('rb'), content_type='model/gltf-binary')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+  except Exception as e:
+    log.error(f"Error downloading GLB: {e}")
+    return HttpResponse('An error occurred', status=500)
 
 
 @superuser_required
@@ -1346,6 +1434,14 @@ def generate_mesh(request, pk):
 
     # Get scene object
     scene = get_object_or_404(Scene, pk=pk)
+
+    # Generating a mesh replaces an applied GLB, so require explicit confirmation
+    if scene.use_glb_map and request.POST.get("override_glb") != "true":
+      return JsonResponse({
+        "success": False,
+        "error": "A GLB map is applied to this scene. Confirm to replace it with the generated mesh.",
+        "glb_applied": True,
+      }, status=409)
 
     # Initialize mesh generator
     mesh_type = request.POST.get("mesh_type", "mesh")

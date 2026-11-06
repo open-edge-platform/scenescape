@@ -182,6 +182,31 @@ class Scene(models.Model):
     help_text="Bounding box [south, west, north, east] used to fetch osm_ways_cache; "
               "stale once it no longer matches the scene's map corners"
   )
+  # GLB alignment fields for geospatial scenes
+  glb_map = models.FileField(
+    null=True, blank=True, editable=False, upload_to='glb_maps/',
+    help_text='Stored GLB file for geospatial alignment (unposed)'
+  )
+  glb_anchor = models.JSONField(
+    null=True, blank=True, default=None, editable=False,
+    help_text='Geographic centre and heading of the GLB footprint: {lat, lng, heading_deg, footprint_m}'
+  )
+  use_glb_map = models.BooleanField(
+    default=False, editable=False,
+    help_text='Whether the GLB is currently applied (True) or the snapshot is active (False)'
+  )
+  base_map = models.FileField(
+    null=True, blank=True, editable=False, upload_to='base_maps/',
+    help_text='Snapshot image saved when GLB is applied'
+  )
+  base_scale = models.FloatField(
+    null=True, blank=True, editable=False,
+    help_text='Snapshot scale (px/m) saved when GLB is applied'
+  )
+  base_map_corners_lla = models.JSONField(
+    null=True, blank=True, default=None, editable=False,
+    help_text='Snapshot map corners (invariant frame) saved when GLB is applied'
+  )
   camera_calibration = models.CharField("Calibration Type", max_length=20, choices=CALIBRATION_CHOICES, default=MANUAL)
   polycam_data = models.FileField(blank=True, null=True, validators=[FileExtensionValidator(["zip"])])
   dataset_dir = models.CharField(blank=True, max_length=200, editable=False)
@@ -233,6 +258,7 @@ class Scene(models.Model):
     self._original_min_num_of_matches = self.minimum_number_of_matches
     self._original_apriltag_size = self.apriltag_size
     self._original_inlier_threshold = self.inlier_threshold
+    self._original_use_glb_map = self.use_glb_map
     # Flag to indicate if mesh is from generateMesh flow (already aligned by mapping service)
     self._from_generate_mesh = False
     return
@@ -295,6 +321,18 @@ class Scene(models.Model):
     self.translation_z = 0.0
     return
 
+  def frame_corners_lla(self):
+    """Return the invariant (non-GLB) map frame corners.
+
+    For geospatial scenes, returns base_map_corners_lla if set
+    (the snapshot frame, preserved when GLB is applied/unapplied),
+    otherwise falls back to map_corners_lla.
+    For non-geospatial scenes, returns map_corners_lla.
+    """
+    if self.map_type == 'geospatial_map' and self.base_map_corners_lla:
+      return self.base_map_corners_lla
+    return self.map_corners_lla
+
   def saveThumbnail(self):
     img_data, pixels_per_meter = generateOrthoView(self, self.map.path)
     self.scale = pixels_per_meter
@@ -332,6 +370,26 @@ class Scene(models.Model):
       self.resetRotation()
       self.resetTranslation()
 
+  def _sync_glb_snapshot_on_map_change(self):
+    """Keep GLB snapshot state consistent when a geospatial scene's map changes."""
+    if self.map_type != 'geospatial_map' or self._original_map == self.map:
+      return
+    map_ext = os.path.splitext(self.map.name)[1].lower() if self.map else ''
+    if self.use_glb_map and map_ext != '.glb':
+      # New non-GLB map uploaded while GLB is applied: swap out the GLB
+      from manager import glb_alignment
+      if self.base_map and self.base_map.name:
+        glb_alignment.remove_stored_file(self.base_map.storage, self.base_map.name)
+      self.use_glb_map = False
+      self.base_map = None
+      self.base_scale = None
+      self.base_map_corners_lla = self.map_corners_lla
+      self.resetRotation()
+      self.resetTranslation()
+    elif not self.use_glb_map and self.map_corners_lla:
+      # New non-GLB snapshot saved: update base frame
+      self.base_map_corners_lla = self.map_corners_lla
+
   def save(self, *args, **kwargs):
     updated_scene = self.id
     send_update_command = kwargs.pop("send_update_command", True)
@@ -355,6 +413,8 @@ class Scene(models.Model):
       map_reuploaded = bool(self.map) and getattr(self.map, '_committed', True) is False
       if self.changedCalibrationParams() or (self._original_map != self.map) or map_reuploaded:
         self.map_processed = None
+
+      self._sync_glb_snapshot_on_map_change()
 
       super().save(*args, **kwargs)
 
