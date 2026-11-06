@@ -55,18 +55,23 @@ def _copy_camera_intrinsics(intrinsics):
 
 
 def _merge_observation_optics(current, intrinsics=None, distortion=None, resolution=None):
-  """Build CameraIntrinsics for an MQTT observation, or None if optics omitted."""
+  """Build CameraIntrinsics for an MQTT observation, or None if optics omitted.
+
+  Resolution alone does not invent a principal point from width/height; send
+  explicit ``intrinsics`` (or ``distortion``) when changing runtime optics.
+  Invalid resolution still raises so callers can ignore the whole optics update.
+  """
   if intrinsics is None and distortion is None and resolution is None:
+    return None
+  if resolution is not None:
+    resolution = _normalize_observation_resolution(resolution)
+  if intrinsics is None and distortion is None:
     return None
   matrix = current.intrinsics
   fx, fy = float(matrix[0, 0]), float(matrix[1, 1])
   cx, cy = float(matrix[0, 2]), float(matrix[1, 2])
-  if resolution is not None:
-    resolution = _normalize_observation_resolution(resolution)
   if intrinsics is not None:
     fx, fy, cx, cy = _observation_intrinsics_values(intrinsics)
-  elif resolution is not None:
-    cx, cy = resolution[0] / 2.0, resolution[1] / 2.0
   dist = current.distortion if distortion is None else distortion
   return CameraIntrinsics({'fx': fx, 'fy': fy, 'cx': cx, 'cy': cy}, dist, resolution)
 

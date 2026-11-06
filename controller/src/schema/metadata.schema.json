@@ -764,7 +764,7 @@
           "description": "Optional per-frame distortion for unlocked Cam modalities. Applied ephemerally with other MQTT optics; ignored when pose_locked. Not persisted to Manager."
         },
         "resolution": {
-          "description": "Optional sensor resolution for unlocked Cam modalities ([width, height] or {width, height}). When present without intrinsics, runtime cx/cy become width/2 and height/2 while fx/fy are kept. Applied ephemerally; ignored when pose_locked. Not persisted to Manager.",
+          "description": "Optional sensor resolution for unlocked Cam modalities ([width, height] or {width, height}). Resolution alone does not change runtime optics; send intrinsics (and optional distortion) when updating projection. Applied ephemerally with other MQTT optics; ignored when pose_locked. Not persisted to Manager.",
           "oneOf": [
             {
               "type": "array",

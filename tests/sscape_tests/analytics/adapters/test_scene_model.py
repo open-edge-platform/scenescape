@@ -278,14 +278,16 @@ class TestUpdateCameras:
     previous_intrinsics.intrinsics[0, 0] = 1.0
     assert retained.intrinsics[0, 0] == 550
 
-  def test_resolution_without_intrinsics_centers_principal_point(self):
+  def test_resolution_without_intrinsics_keeps_principal_point(self):
     scene = _scene()
     scene.updateCameras([self._camera_data()])
+    previous = scene.cameras['cam1']
     scene.cameraSnapshot('cam1', resolution=[1280, 720])
     camera = scene.cameras['cam1']
+    assert camera is previous
     assert camera.pose.intrinsics.intrinsics[0, 0] == 500
-    assert camera.pose.intrinsics.intrinsics[0, 2] == 640
-    assert camera.pose.intrinsics.intrinsics[1, 2] == 360
+    assert camera.pose.intrinsics.intrinsics[0, 2] == 320
+    assert camera.pose.intrinsics.intrinsics[1, 2] == 240
     assert camera.pose_provenance['class'] == 'calibration'
 
   def test_optics_only_applies_when_unlocked(self):
