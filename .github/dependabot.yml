@@ -138,7 +138,6 @@ updates:
       - "/cluster_analytics/tools/webui"
       - "/controller"
       - "/controller/src/robot_vision"
-      - "/controller/src/robot_vision/benchmarks"
       - "/manager"
       - "/manager/test"
       - "/mapping"
