@@ -97,7 +97,8 @@ TEST(AssociationWindowTest, MahalanobisClipsSemiAxesToMaxRadius) {
     AssociationConfig config = mahalanobisConfig(0.99);
     config.max_radius_m = 10.0;
 
-    const auto window = buildAssociationWindow(config, trackWithPositionCovariance(100.0, 0.0, 100.0));
+    const auto window =
+        buildAssociationWindow(config, trackWithPositionCovariance(100.0, 0.0, 100.0));
 
     EXPECT_EQ(window.shape, "ellipse");
     EXPECT_DOUBLE_EQ(window.semi_major_m.value(), 10.0);
