@@ -345,7 +345,6 @@ an object / sub-scene). Until that output graph and materialized store exist:
   state (Bar A).
 - An **internal** pose/intrinsics TTL cache may remain for transform reuse; it
   is not a consumer MQTT API.
-- Plan: `.github/plans/external-platform-object-citizenship.md`.
 
 Same-platform multi-camera observations in one external message share one
 ingest/tracker update when tracking is enabled. **Camera path ↔ external path**

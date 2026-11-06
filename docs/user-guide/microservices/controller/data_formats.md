@@ -300,7 +300,7 @@ For a drone using this contract:
 - Intrinsics specify angular geometry for pixel localization and for ideal-pinhole
   UI frustums rendered from the platform object's projected `cameras` field.
   Distortion-aware boundaries, ground footprints, and video projection remain
-  follow-on work (see `.github/plans/external-platform-object-citizenship.md`).
+  follow-on work.
 
 Let `T_scene_body` be the resolved source pose, and `T_body_camera` the camera's fixed mount.
 Using homogeneous column vectors:
