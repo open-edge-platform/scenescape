@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -16,7 +16,8 @@ namespace tracking {
 
 /// Default Euclidean radius (m) for cross-camera detection↔detection birth clustering.
 /// Kept at the legacy tracking scale so Mahalanobis ``max_radius_m`` (ceiling)
-/// does not widen birth merges in dense scenes. Track↔detection association
+/// does not widen birth merges in dense scenes. Uses ``DistanceType::EuclideanBirth``
+/// (XY unless both detections have ``zMeasured``). Track↔detection association
 /// still uses the caller-supplied ``maxRadiusM``.
 constexpr double kDefaultBirthClusterRadiusM = 2.0;
 
