@@ -19,11 +19,13 @@ from scenescape_api.projection.v1 import projection_pb2_grpc as pb_grpc
 
 from controller import remote_projection
 from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
+from controller.moving_object import MovingObject
 from controller.remote_projection import (GrpcProjectionClient, RemoteProjectionSettings,
                                           RemoteProjector, SceneProjection, apply_measurement,
                                           settings_from_env)
 from controller.scene import Scene
-from controller.tracking import Tracking
+from controller.tracking import (MAX_UNRELIABLE_TIME, NON_MEASUREMENT_TIME_DYNAMIC,
+                                 NON_MEASUREMENT_TIME_STATIC, Tracking)
 from scene_common.camera import Camera
 from scene_common.geometry import Point
 
@@ -117,9 +119,9 @@ def project(projector, objects_per_camera):
 
 
 def assert_remote(rv_object, k):
-  """Measurement k of good_response(), with the centre z lowered to the object base."""
+  """Measurement k of good_response(), with the centre-of-mass z as received."""
   assert (rv_object.x, rv_object.y) == (10.0 + k, 20.0 + k)
-  assert rv_object.z == pytest.approx(0.0)
+  assert rv_object.z == HEIGHT / 2.0
   assert (rv_object.length, rv_object.width, rv_object.height) == (0.5, 0.6, HEIGHT)
   assert rv_object.zMeasured is True
   np.testing.assert_array_equal(np.array(rv_object.measurement_noise_covariance), NOISE)
@@ -352,7 +354,7 @@ def measurement_message(mean, noise):
 
 class TestApplyMeasurement:
 
-  def test_sets_base_position_size_and_noise(self):
+  def test_sets_centre_position_size_and_noise(self):
     rv_object = rv.tracking.TrackedObject()
     rv_object.yaw = 0.3
     mean = [1.0, 2.0, HEIGHT / 2.0, 0.5, 0.6, HEIGHT, 0.0]
@@ -360,7 +362,7 @@ class TestApplyMeasurement:
     assert apply_measurement(rv_object, measurement_message(mean, NOISE))
 
     assert (rv_object.x, rv_object.y) == (1.0, 2.0)
-    assert rv_object.z == pytest.approx(0.0)
+    assert rv_object.z == HEIGHT / 2.0
     assert (rv_object.length, rv_object.width, rv_object.height) == (0.5, 0.6, HEIGHT)
     assert rv_object.zMeasured is True
     assert rv_object.yaw == pytest.approx(0.3)
@@ -609,10 +611,13 @@ def tracker_with_projection(projection):
   return tracker
 
 
-def detected_object(camera):
-  sscape_object = make_object(camera)
-  sscape_object.sceneLoc = Point(4.0, 5.0, 0.0)
-  sscape_object.size = [0.4, 0.4, 1.5]
+DETECTED_HEIGHT = 1.5
+MEASURED_Z = 0.9
+
+def detected_object(camera, z=0.0, measured_z=False):
+  sscape_object = make_object(camera, measured_z=measured_z)
+  sscape_object.sceneLoc = Point(4.0, 5.0, z)
+  sscape_object.size = [0.4, 0.4, DETECTED_HEIGHT]
   sscape_object.rotation = [0.0, 0.0, 0.0, 1.0]
   sscape_object.confidence = 0.9
   sscape_object.metadata = {}
@@ -635,46 +640,80 @@ class TestTrackerIntegration:
 
   def test_update_tracks_uses_remote_measurements(self):
     camera = make_camera()
-    objects = [detected_object(camera), detected_object(camera)]
+    objects = [detected_object(camera), detected_object(camera),
+               detected_object(camera, z=MEASURED_Z, measured_z=True)]
     tracker = tracker_with_projection(self.projection(unobservable_camera="cam-1"))
 
     tracker.update_tracks(objects, WHEN)
 
     rv_objects = tracker.tracker.track.call_args.args[0]
-    assert (rv_objects[0].x, rv_objects[0].y, rv_objects[0].z) == (10.0, 20.0, pytest.approx(0.0))
+    assert (rv_objects[0].x, rv_objects[0].y, rv_objects[0].z) == (10.0, 20.0, HEIGHT / 2.0)
     assert rv_objects[0].zMeasured is True
     assert rv_objects[0].measurement_noise_covariance is not None
     assert (rv_objects[1].x, rv_objects[1].y) == (4.0, 5.0)
+    assert rv_objects[1].z == DETECTED_HEIGHT / 2.0, "local base raised to the centre"
     assert rv_objects[1].zMeasured is False
     assert rv_objects[1].measurement_noise_covariance is None
+    assert rv_objects[2].z == MEASURED_Z, "measured z is already the centre"
 
   def test_update_tracks_batched_uses_remote_measurements(self):
-    objects_per_camera = [[detected_object(make_camera("cam-1"))],
-                          [detected_object(make_camera("cam-2"))]]
+    cam1, cam2 = make_camera("cam-1"), make_camera("cam-2")
+    objects_per_camera = [
+      [detected_object(cam1), detected_object(cam1, z=MEASURED_Z, measured_z=True)],
+      [detected_object(cam2)],
+    ]
     tracker = tracker_with_projection(self.projection(unobservable_camera="cam-1"))
 
     tracker.update_tracks_batched(objects_per_camera, WHEN)
 
     rv_objects_per_camera = tracker.tracker.track.call_args.args[0]
     assert rv_objects_per_camera[0][0].x == 4.0
+    assert rv_objects_per_camera[0][0].z == DETECTED_HEIGHT / 2.0
     assert rv_objects_per_camera[0][0].measurement_noise_covariance is None
+    assert rv_objects_per_camera[0][1].z == MEASURED_Z
     assert rv_objects_per_camera[1][0].x == 10.0
+    assert rv_objects_per_camera[1][0].z == HEIGHT / 2.0
     assert rv_objects_per_camera[1][0].measurement_noise_covariance is not None
 
   @pytest.mark.parametrize("batched", [False, True])
   def test_without_remote_projection_uses_local_projection(self, batched):
-    objects = [detected_object(make_camera())]
+    camera = make_camera()
+    objects = [detected_object(camera), detected_object(camera, z=0.3),
+               detected_object(camera, z=MEASURED_Z, measured_z=True)]
     tracker = tracker_with_projection(None)
 
     if batched:
       tracker.update_tracks_batched([objects], WHEN)
-      rv_object = tracker.tracker.track.call_args.args[0][0][0]
+      rv_objects = tracker.tracker.track.call_args.args[0][0]
     else:
       tracker.update_tracks(objects, WHEN)
-      rv_object = tracker.tracker.track.call_args.args[0][0]
+      rv_objects = tracker.tracker.track.call_args.args[0]
 
-    assert (rv_object.x, rv_object.y, rv_object.z) == (4.0, 5.0, 0.0)
-    assert rv_object.measurement_noise_covariance is None
+    assert (rv_objects[0].x, rv_objects[0].y) == (4.0, 5.0)
+    assert [rv_object.z for rv_object in rv_objects] == [0.0, 0.3, MEASURED_Z]
+    assert all(rv_object.measurement_noise_covariance is None for rv_object in rv_objects)
+
+  @pytest.mark.parametrize("projection", [None, Mock()], ids=["legacy", "experimental"])
+  def test_from_tracked_object_publishes_footprint_base_only_with_projection(self, projection):
+    tracker = tracker_with_projection(projection)
+    tracker.all_tracker_objects = []
+    tracker.uuid_manager = Mock()
+    sscape_object = detected_object(make_camera())
+    sscape_object.uuid = "detection-uuid"
+    sscape_object.location = [SimpleNamespace(point=None)]
+    sscape_object.setGID = Mock()
+    sscape_object.inferRotationFromVelocity = Mock()
+    tracked = rv.tracking.TrackedObject()
+    tracked.x, tracked.y, tracked.z, tracked.vz = 1.0, 2.0, 1.2, 0.3
+    tracked.height = 1.8
+    tracked.attributes = {"info": "detection-uuid"}
+
+    published = tracker.from_tracked_object(tracked, [sscape_object])
+
+    point = published.location[0].point
+    assert (point.x, point.y) == (1.0, 2.0)
+    assert point.z == (tracked.z if projection is None else tracked.z - tracked.height / 2)
+    assert published.velocity.z == 0.3
 
   def test_category_trackers_inherit_scene_projection(self, monkeypatch):
     parent = IntelLabsTracking.__new__(IntelLabsTracking)
@@ -712,3 +751,111 @@ class TestTrackerIntegration:
     scene.trackerType = "time_chunked_intel_labs"
     scene._bindRemoteProjection()
     assert bound == [(None, None), ("scene-uid", None), ("scene-uid", 15)]
+
+  def test_scene_binds_projection_before_tracking_and_rebinds_new_tracker(self, monkeypatch):
+    monkeypatch.setattr(remote_projection, "for_scene",
+                        lambda scene_id, chunking_rate_fps=None:
+                        f"projection:{scene_id}" if scene_id else None)
+
+    scene = Scene.deserialize({"uid": "scene-uid", "name": "scene", "map": None,
+                               "tracker_config": [1.0, 2.0, 3.0]})
+    first_tracker = scene.tracker
+
+    assert first_tracker.remote_projection == "projection:scene-uid"
+    assert first_tracker.trackers == {}, "category trackers are created later and inherit it"
+
+    scene._setTracker(scene.trackerType)
+
+    assert scene.tracker is not first_tracker
+    assert scene.tracker.remote_projection == "projection:scene-uid"
+
+
+FPS = 15
+FRAMES = 30 * FPS
+
+
+def scene_camera(translation, rotation):
+  return Camera("cam-1", {
+    "intrinsics": {"fx": 905.0, "fy": 905.0, "cx": 640.0, "cy": 360.0},
+    "translation": translation, "rotation": rotation, "scale": [1.0, 1.0, 1.0],
+    "width": 1280, "height": 720,
+  })
+
+
+def planar_objects(heights):
+  """Two pixel boxes moving along x, ending below the horizon; heights[n][k] is object k's."""
+  camera = scene_camera([0.0, 0.0, 3.0], [-90.0, 0.0, 0.0])
+
+  def make(n, when):
+    return [MovingObject({"id": k + 1, "category": "person", "confidence": 0.9,
+                          "bounding_box_px": {"x": 100.0 + 300.0 * k + 1.5 * n, "y": 400.0,
+                                              "width": 55.0, "height": 150.0},
+                          "size": [0.5, 0.5, heights[n][k]]}, when, camera)
+            for k in range(2)]
+  return make
+
+
+def translation_objects(n, when):
+  """World z 0.9 is the centre of a 1.8 m tall object (identity camera pose)."""
+  camera = scene_camera([0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+  return [MovingObject({"id": 1, "category": "person", "confidence": 0.9,
+                        "translation": [1.0, 2.0, 0.9], "size": [0.5, 0.5, 1.8]}, when, camera)]
+
+
+def run_tracker(make_objects, experimental):
+  """Track FRAMES frames with production robot_vision; return (rv_id, x, y, z, vz) per frame."""
+  tracker = IntelLabsTracking(MAX_UNRELIABLE_TIME, NON_MEASUREMENT_TIME_DYNAMIC,
+                              NON_MEASUREMENT_TIME_STATIC, FPS)
+  tracker.uuid_manager.scene_id = "scene"
+  # Experimental mode where every remote call falls back to the local projection.
+  tracker.remote_projection = SimpleNamespace(project=lambda *args: None) if experimental else None
+  published = []
+  for n in range(FRAMES):
+    when = WHEN + n / FPS
+    tracker.trackCategory(make_objects(n, when), when, [])
+    published.append([(obj.rv_id, obj.location[0].point.x, obj.location[0].point.y,
+                       obj.location[0].point.z, obj.velocity.z)
+                      for obj in tracker.all_tracker_objects])
+  tracker.uuid_manager.shutdown()
+  return published
+
+
+def published_values(published, index):
+  return np.array([track[index] for frame in published for track in frame])
+
+
+class TestZReferenceWithRobotVision:
+
+  @pytest.mark.parametrize("experimental", [False, True], ids=["legacy", "experimental"])
+  def test_planar_constant_height_publishes_ground_z(self, experimental):
+    published = run_tracker(planar_objects(np.full((FRAMES, 2), 1.7)), experimental)
+
+    assert published[-1], "no reliable tracks"
+    assert np.abs(published_values(published, 3)).max() < 1e-9
+    assert np.abs(published_values(published, 4)).max() < 1e-9
+
+  @pytest.mark.parametrize("experimental, expected_z", [(False, 0.9), (True, 0.0)],
+                           ids=["legacy", "experimental"])
+  def test_translation_is_centre_of_mass_only_in_experimental_mode(self, experimental,
+                                                                  expected_z):
+    published = run_tracker(translation_objects, experimental)
+
+    assert published[-1], "no reliable tracks"
+    np.testing.assert_allclose(published_values(published, 3), expected_z, rtol=0, atol=1e-9)
+
+  def test_planar_noisy_height_characterization(self):
+    rng = np.random.default_rng(2149)
+    t = np.arange(FRAMES)[:, None] / FPS
+    heights = 1.7 + 0.12 * np.sin(2 * np.pi * t / 8) + rng.normal(0.0, 0.08, (FRAMES, 2))
+
+    legacy = run_tracker(planar_objects(heights), experimental=False)
+    experimental = run_tracker(planar_objects(heights), experimental=True)
+
+    assert np.abs(published_values(experimental, 3)).max() < 0.25
+    assert np.abs(published_values(experimental, 4)).max() < 0.3
+    assert [[track[0] for track in frame] for frame in experimental] \
+      == [[track[0] for track in frame] for frame in legacy]
+    for index in (1, 2):
+      np.testing.assert_allclose(published_values(experimental, index),
+                                 published_values(legacy, index), rtol=0, atol=1e-9)
+    assert len(set(published_values(experimental, 0))) == 2, "one track per object"

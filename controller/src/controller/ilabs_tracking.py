@@ -354,13 +354,28 @@ class IntelLabsTracking(Tracking):
     rv_object.attributes = attributes
     return rv_object
 
-  def _applyRemoteProjection(self, objects_per_camera, rv_objects_per_camera):
-    """Experimental remote projection: replace the local position, size and zMeasured of the
-    rv objects with valid remote measurements and their noise covariance; yaw stays as detected.
+  def _toTrackerReference(self, objects_per_camera, rv_objects_per_camera):
+    """Experimental remote projection: apply valid remote measurements (position, size, zMeasured
+    and noise covariance; yaw stays as detected), then raise every input without measured z from
+    its footprint base to its centre of mass. Without remote projection the inputs are unchanged.
     """
     projection = getattr(self, 'remote_projection', None)
-    if projection is not None:
-      projection.project(objects_per_camera, rv_objects_per_camera)
+    if projection is None:
+      return
+    projection.project(objects_per_camera, rv_objects_per_camera)
+    for rv_objects in rv_objects_per_camera:
+      for rv_object in rv_objects:
+        if not rv_object.zMeasured:
+          rv_object.z += rv_object.height / 2.0
+
+  def _publishedPoint(self, tracked_object):
+    """Track location to publish: the footprint base of the centre-of-mass track with remote
+    projection, the tracked point otherwise.
+    """
+    z = tracked_object.z
+    if getattr(self, 'remote_projection', None) is not None:
+      z -= tracked_object.height / 2.0
+    return Point(tracked_object.x, tracked_object.y, z)
 
   def _warn_deprecated_tracking_radius(self, objects):
     if self.association_config.get("method", ASSOCIATION_METHOD_POSITION_MAHALANOBIS) == ASSOCIATION_METHOD_EUCLIDEAN:
@@ -377,7 +392,7 @@ class IntelLabsTracking(Tracking):
 
   def update_tracks(self, objects, timestamp):
     rv_objects = [self.to_rv_object(sscape_object) for sscape_object in objects]
-    self._applyRemoteProjection([objects], [rv_objects])
+    self._toTrackerReference([objects], [rv_objects])
     self._warn_deprecated_tracking_radius(objects)
 
     distance_type, distance_threshold, max_radius_m = association_match_params(self.association_config)
@@ -409,8 +424,7 @@ class IntelLabsTracking(Tracking):
 
     sscape_object.metadata = self.metadata_from_attributes(tracked_object.attributes)
 
-    sscape_object.location[0].point = Point(tracked_object.x, tracked_object.y,
-                                            tracked_object.z)
+    sscape_object.location[0].point = self._publishedPoint(tracked_object)
     sscape_object.velocity = Point((tracked_object.vx, tracked_object.vy, tracked_object.vz))
 
     # Prefer Kalman yaw whenever the track has received an orienting sensor
@@ -535,7 +549,7 @@ class IntelLabsTracking(Tracking):
       rv_objects_per_camera.append(rv_camera_objects)
       flat_objects.extend(camera_objects)
 
-    self._applyRemoteProjection(objects_per_camera, rv_objects_per_camera)
+    self._toTrackerReference(objects_per_camera, rv_objects_per_camera)
     self._warn_deprecated_tracking_radius(flat_objects)
 
     distance_type, distance_threshold, max_radius_m = association_match_params(self.association_config)

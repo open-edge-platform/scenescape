@@ -9,6 +9,10 @@ detections to the remote projection service (api/projection/v1/projection.proto)
 local projection of their robot_vision inputs with its world measurement and measurement noise
 covariance R.
 
+With remote projection, robot_vision tracks the centre of mass: measurements keep their z, other
+inputs without measured z are raised by half their height, and published tracks report the
+footprint base (controller.ilabs_tracking). Without it, z is fed and published unchanged.
+
 A detection keeps the local projection when it is not a pixel box from a calibrated scene camera,
 when the call fails, or when its measurement is unobservable or invalid. R is validated by the
 robot_vision measurement_noise_covariance setter (finite, symmetrized, positive definite). Failed
@@ -316,7 +320,7 @@ def apply_measurement(rv_object, measurement):
 
   Requires a finite 7-value mean with a positive size and 49 R values; the tracker's
   measurement_noise_covariance setter symmetrizes R and rejects it unless finite and positive
-  definite. The centre z is lowered by half the height, to the object base used by the tracker.
+  definite. z is the centre of mass, as received; the tracker publishes the footprint base.
   @return False, leaving the object unchanged, for an invalid measurement
   """
   mean = tuple(measurement.mean)
@@ -332,7 +336,7 @@ def apply_measurement(rv_object, measurement):
     return False
   rv_object.x = mean[0]
   rv_object.y = mean[1]
-  rv_object.z = mean[2] - mean[5] / 2.0
+  rv_object.z = mean[2]
   rv_object.length = mean[3]
   rv_object.width = mean[4]
   rv_object.height = mean[5]
