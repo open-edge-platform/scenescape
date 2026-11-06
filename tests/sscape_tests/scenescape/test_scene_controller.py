@@ -24,7 +24,15 @@ from scene_common.mqtt import PubSub
 class TestSceneControllerExtractTrackerConfigAssociation:
   """Association block parsing from tracker-config.json."""
 
-  def test_extract_association_defaults_and_validates_method(self, tmp_path):
+  @pytest.mark.parametrize('association', [
+    {'method': 'bogus', 'gate_probability': 0.95, 'max_radius_m': 7.0},
+    {'method': 'euclidian', 'max_radius_m': 3.0},
+    'euclidean',
+    ['euclidean', 3.0],
+  ])
+  def test_extract_association_malformed_block_uses_default_block(self, tmp_path, association):
+    # A malformed block (unknown method, not an object) is dropped as a whole: its other fields were meant for
+    # another method, and keeping them mixes two configs.
     scene_controller = SceneController.__new__(SceneController)
     scene_controller.tracker_config_data = {}
     config_path = tmp_path / 'tracker-config.json'
@@ -34,19 +42,18 @@ class TestSceneControllerExtractTrackerConfigAssociation:
       'non_measurement_time_static_s': 1.6,
       'time_chunking_enabled': True,
       'time_chunking_rate_fps': 10,
-      'association': {
-        'method': 'bogus',
-        'gate_probability': 0.95,
-        'max_radius_m': 7.0,
-      },
+      'association': association,
     }))
 
-    scene_controller.extractTrackerConfigData(str(config_path))
+    with patch('controller.scene_controller.log') as log:
+      scene_controller.extractTrackerConfigData(str(config_path))
 
-    association = scene_controller.tracker_config_data['association']
-    assert association['method'] == 'position_mahalanobis'
-    assert association['gate_probability'] == pytest.approx(0.95)
-    assert association['max_radius_m'] == pytest.approx(7.0)
+    assert scene_controller.tracker_config_data['association'] == {
+      'method': 'position_mahalanobis',
+      'gate_probability': 0.99,
+      'max_radius_m': 10.0,
+    }
+    log.error.assert_called_once()
 
   def test_extract_association_position_mahalanobis(self, tmp_path):
     scene_controller = SceneController.__new__(SceneController)
