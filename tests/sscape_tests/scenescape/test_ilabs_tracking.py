@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+import threading
 from types import SimpleNamespace
 
 import numpy as np
@@ -173,6 +174,8 @@ def test_create_trackers_propagates_association_config(monkeypatch):
   })
   parent.trackers = {}
   parent.uuid_manager = SimpleNamespace(scene_id='scene')
+  parent._lifecycle_lock = threading.Lock()
+  parent._joined = False
 
   captured = {}
 

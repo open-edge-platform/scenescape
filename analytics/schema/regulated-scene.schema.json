@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://scenescape.intel.com/analytics/schema/regulated-scene.schema.json",
+  "title": "Regulated Scene Message",
+  "description": "Analytics regulated output on MQTT topic scenescape/regulated/scene/{scene_id}. Camera entries carry pose_provenance (ADR 18); dynamic_pose remains a deprecated alias of pose_provenance.class === live.",
+  "type": "object",
+  "required": ["id", "name", "timestamp", "objects", "cameras"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Scene identifier"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable scene name"
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC publication timestamp"
+    },
+    "scene_rate": {
+      "type": "number",
+      "description": "Regulated publication rate in Hz"
+    },
+    "rate": {
+      "type": "object",
+      "description": "Map of camera IDs to current framerates",
+      "additionalProperties": { "type": "number" }
+    },
+    "unique_detection_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "objects": {
+      "type": "array",
+      "description": "Tracked objects aggregated across categories"
+    },
+    "cameras": {
+      "type": "array",
+      "description": "Configured cameras with effective runtime pose and provenance",
+      "items": { "$ref": "#/$defs/regulated_camera" }
+    }
+  },
+  "additionalProperties": true,
+  "$defs": {
+    "pose_provenance": {
+      "type": "object",
+      "required": ["class", "origin"],
+      "additionalProperties": false,
+      "properties": {
+        "class": {
+          "type": "string",
+          "enum": ["calibration", "live"],
+          "description": "Behavioral bucket for UI follow and consumers"
+        },
+        "origin": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Writer identity (e.g. manager.rest, detector.extrinsics)"
+        },
+        "updated_at": {
+          "type": "string",
+          "description": "Optional ISO 8601 time of last accepted runtime pose write"
+        }
+      }
+    },
+    "regulated_camera": {
+      "type": "object",
+      "required": [
+        "id",
+        "translation",
+        "rotation",
+        "scale",
+        "pose_locked",
+        "pose_provenance"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "translation": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "rotation": {
+          "type": "array",
+          "description": "Normalized quaternion [x, y, z, w]",
+          "items": { "type": "number" },
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "scale": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "pose_locked": { "type": "boolean" },
+        "pose_provenance": { "$ref": "#/$defs/pose_provenance" },
+        "dynamic_pose": {
+          "type": "boolean",
+          "description": "Deprecated alias of pose_provenance.class === live"
+        }
+      },
+      "additionalProperties": true
+    }
+  }
+}

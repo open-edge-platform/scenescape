@@ -29,8 +29,6 @@ SCENESCAPE_SPEC = FuncTestSpec(
   auth=AUTH_CONTROLLER,
 )
 
-pytestmark = pytest.mark.preserve_db
-
 DEMO_SCENE_NAME = "Demo"
 WAIT_TIMEOUT_S = 30
 MEASURE_WINDOW_S = 5   # seconds of continuous publishing per rate phase
@@ -107,7 +105,7 @@ class UpdateSceneTest(RetrackTest):
 
 
 @pytest.fixture
-def demo_scene(params):
+def demo_scene(params, demo_scene):
   """Provide (helper, rest, scene) for Demo scene tests and restore scene
   properties on teardown."""
   helper = UpdateSceneTest(params)
@@ -128,9 +126,13 @@ def demo_scene(params):
 
 
 @pytest.fixture
-def child_scene(params):
+def child_scene(params, demo_scene):
   """Provide (helper, rest) with a child scene set up via helper.setup_scenes,
-  and tear it down on fixture teardown."""
+  and tear it down on fixture teardown.
+
+  ``setup_scenes`` links the Demo scene as the child, so ``demo_scene`` must
+  have created it first.
+  """
   helper = UpdateSceneTest(params)
   rest = helper.make_rest_client()
   helper.setup_scenes(rest)
@@ -224,6 +226,11 @@ def test_scene_regulated_rate_update_changes_message_frequency(
   client = None
 
   try:
+    from tests.utils.scene_ready import wait_for_tracker_ready
+    assert wait_for_tracker_ready(helper.params, scene_uid, camera_id="camera1"), (
+      f"Tracker for scene {scene_uid} never came up; no DATA_SCENE observed "
+      "within the readiness timeout")
+
     reg_topic = PubSub.formatTopic(PubSub.DATA_REGULATED, scene_id=scene_uid)
     reg_msgs = []
     msg_lock = threading.Lock()
