@@ -361,20 +361,17 @@ class TestMatchFunction(unittest.TestCase):
     ahead = create_object_at_location(x=pred_x + 2.0, y=pred_y)
     lateral = create_object_at_location(x=pred_x, y=pred_y + 2.0)
 
-    # Equal Euclidean distance: Hungarian must pick the along-track detection.
-    assignments, _, _ = tracking.match(
-      [track],
-      [ahead, lateral],
-      tracking.DistanceType.PositionMahalanobis,
-      chi2_gate,
-      10.0,
-    )
-    self.assertEqual(len(assignments), 1)
-    self.assertEqual(assignments[0], (0, 0))
+    def assigned_measurements(measurements, threshold):
+      assignments, _, _ = tracking.match(
+        [track], measurements, tracking.DistanceType.PositionMahalanobis, threshold, 10.0)
+      return [measurement for _, measurement in assignments]
 
-    d2_ahead = (2.0 ** 2) * s11 / (s00 * s11)
-    d2_lateral = (2.0 ** 2) * s00 / (s00 * s11)
-    self.assertLess(d2_ahead, d2_lateral)
+    # Equal Euclidean distance, both inside a wide gate: the matcher takes the along-track
+    # detection, the lower cost.
+    self.assertEqual(assigned_measurements([lateral, ahead], 100.0), [1])
+    # At chi2(0.99, 2) the along-track detection is inside the gate and the lateral one outside.
+    self.assertEqual(assigned_measurements([ahead], chi2_gate), [0])
+    self.assertEqual(assigned_measurements([lateral], chi2_gate), [])
 
   def test_position_mahalanobis_fuses_multi_camera_detections(self):
     """Cross-camera birth clustering must fuse in meters under PositionMahalanobis.

@@ -77,31 +77,32 @@ TEST(ObjectMatchingTest, PositionMahalanobisPrefersAlongTrackAxis)
   const double chi2_gate = rv::chi2Threshold(0.99, 2);
   const double max_radius = 10.0;
 
-  std::vector<rv::tracking::TrackedObject> tracks = {track};
-  std::vector<std::pair<size_t, size_t>> assignments;
-  std::vector<size_t> unassignedTracks;
-  std::vector<size_t> unassignedMeasurements;
+  const std::vector<rv::tracking::TrackedObject> tracks = {track};
+  auto assignedMeasurements = [&](const std::vector<rv::tracking::TrackedObject> &measurements, double threshold) {
+    std::vector<std::pair<size_t, size_t>> assignments;
+    std::vector<size_t> unassignedTracks;
+    std::vector<size_t> unassignedMeasurements;
+    rv::tracking::match(tracks,
+                        measurements,
+                        assignments,
+                        unassignedTracks,
+                        unassignedMeasurements,
+                        rv::tracking::DistanceType::PositionMahalanobis,
+                        threshold,
+                        max_radius);
+    std::vector<size_t> assigned;
+    for (const auto &assignment : assignments)
+    {
+      assigned.push_back(assignment.second);
+    }
+    return assigned;
+  };
 
-  // Equal Euclidean distance: matcher must prefer the along-track detection.
-  rv::tracking::match(tracks, {ahead, lateral}, assignments, unassignedTracks, unassignedMeasurements,
-                      rv::tracking::DistanceType::PositionMahalanobis, chi2_gate, max_radius);
-  ASSERT_EQ(assignments.size(), 1U);
-  EXPECT_EQ(assignments[0].first, 0U);
-  EXPECT_EQ(assignments[0].second, 0U);
-
-  assignments.clear();
-  unassignedTracks.clear();
-  unassignedMeasurements.clear();
-  rv::tracking::match(tracks, {lateral}, assignments, unassignedTracks, unassignedMeasurements,
-                      rv::tracking::DistanceType::PositionMahalanobis, chi2_gate, max_radius);
-  // Lateral-only may still pass the chi2 gate; cost must still exceed along-track cost.
-  const double dx = 2.0;
-  const double dy = 2.0;
-  const double det = s00 * s11;
-  ASSERT_GT(det, 0.0);
-  const double d2_ahead = (dx * dx) * s11 / det;
-  const double d2_lateral = (dy * dy) * s00 / det;
-  EXPECT_LT(d2_ahead, d2_lateral);
+  // Equal Euclidean distance, both inside a wide gate: the matcher takes the along-track detection, the lower cost.
+  EXPECT_EQ(assignedMeasurements({lateral, ahead}, 100.0), std::vector<size_t>{1});
+  // At chi2(0.99, 2) the along-track detection is inside the gate and the lateral one outside.
+  EXPECT_EQ(assignedMeasurements({ahead}, chi2_gate), std::vector<size_t>{0});
+  EXPECT_TRUE(assignedMeasurements({lateral}, chi2_gate).empty());
 }
 
 // Defined in ObjectMatching.cpp, not declared in its header.
