@@ -32,6 +32,7 @@ Additional decisions locked with this ADR:
 - Prefer geometry-derived `R` over TYPE_2 / ad-hoc multi-cam pose heuristics for disagreement.
 - Deprecate `tracking_radius` as an association knob (retain in object library metadata during transition).
 - Keep controller and tracker service behaviorally aligned via shared config / shared `robot_vision`.
+- Publish each track's gate as `association_window` (circle or χ² ellipse) so the Manager 2D/3D views can show it; the views draw it at the corrected position, not the predicted one the gate uses.
 - Until Phase 2: equal-weight multi-cam geometry averaging and Euclidean ~2 m detection↔detection birth clustering are accepted stopgaps (raw detections lack track `S_pred`).
 
 Phase 1 is accepted and is the production default (`position_mahalanobis`). Phases 2–3 remain proposed. Engineering detail lives in the [design document](../design/probabilistic-tracking-association.md); task tracking in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
