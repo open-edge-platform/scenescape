@@ -132,7 +132,7 @@ docker compose --project-directory . -f sample_data/drone_sim/compose.drone-vide
 ### 6. Watch it work
 
 - **Web UI**: open the new scene. Tracked people appear on the map, localized
-  from the drone's moving view. If the `.glb` asset has been defined - the drone platform 
+  from the drone's moving view. If the `.glb` asset has been defined - the drone platform
   appears as it. Open the `sim-drone-view` camera (scene page camera panel or camera detail page) and
   enable live view to watch the warped, annotated drone frames — with
   `show_hud` enabled the current yaw/pitch/roll/zoom is drawn on each frame.
