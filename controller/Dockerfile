@@ -39,15 +39,16 @@ RUN pip3 install --no-cache-dir build \
     && cd \
     && rm -rf /tmp/controller
 
-# Generate the remote projection gRPC stubs (package scenescape_api). This grpcio-tools emits
+# Generate the observation processor gRPC stubs (package scenescape_api). This grpcio-tools emits
 # protobuf 5.29 gencode, which the pinned runtime (grpcio and protobuf below) accepts.
-COPY ./api/projection /tmp/api/projection
+COPY ./observation_processor/proto /tmp/observation_processor/proto
 RUN pip3 install --no-cache-dir grpcio-tools==1.71.2 \
-    && python3 -m grpc_tools.protoc -Iscenescape_api=/tmp/api \
+    && python3 -m grpc_tools.protoc \
+        -Iscenescape_api/observation_processor/v1=/tmp/observation_processor/proto \
         --python_out=/usr/local/lib/python3.11/site-packages \
         --grpc_python_out=/usr/local/lib/python3.11/site-packages \
-        scenescape_api/projection/v1/projection.proto \
-    && rm -rf /tmp/api
+        scenescape_api/observation_processor/v1/observation_processor.proto \
+    && rm -rf /tmp/observation_processor
 
 # -------------- Controller Runtime Stage --------------
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-controller-runtime

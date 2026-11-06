@@ -53,7 +53,8 @@ struct ProjectionReply {
 };
 
 /**
- * @brief Transport to the remote projection service (api/projection/v1/projection.proto).
+ * @brief Transport to the remote projection service
+ *        (observation_processor/proto/observation_processor.proto).
  */
 class ProjectionClient {
 public:

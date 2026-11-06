@@ -104,7 +104,7 @@ target_link_libraries(tracker_tests
         opentelemetry-cpp::opentelemetry-cpp
         opentelemetry-cpp::opentelemetry_exporter_in_memory
         grpc::grpc
-        tracker_projection_proto
+        tracker_observation_processor_proto
 )
 
 # In-memory metric exporter static libs for testing.

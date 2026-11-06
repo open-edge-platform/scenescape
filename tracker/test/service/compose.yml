@@ -95,7 +95,7 @@ services:
       - MOCK_PROJECTION_DELAY_MS=${MOCK_PROJECTION_DELAY_MS:-0}
     configs:
       - source: projection-proto
-        target: /protos/projection/v1/projection.proto
+        target: /protos/observation_processor.proto
     restart: no
     healthcheck:
       test:
@@ -199,4 +199,4 @@ configs:
   mock-scenes:
     file: ./fixtures/test-scenes-api.json
   projection-proto:
-    file: ../../../api/projection/v1/projection.proto
+    file: ../../../observation_processor/proto/observation_processor.proto

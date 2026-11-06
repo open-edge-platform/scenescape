@@ -12,13 +12,13 @@
 
 #include <grpcpp/grpcpp.h>
 
-#include "projection/v1/projection.grpc.pb.h"
+#include "observation_processor.grpc.pb.h"
 
 namespace tracker {
 
 namespace {
 
-namespace pb = scenescape::projection::v1;
+namespace pb = scenescape::observation_processor::v1;
 
 /// Name of a failed call's status code.
 std::string statusName(grpc::StatusCode code) {
@@ -70,7 +70,7 @@ pb::ConditioningMode toProto(ConditioningMode mode) {
     return pb::CONDITIONING_MODE_AUTO;
 }
 
-void fillRequest(pb::ProjectDetectionsRequest& request, const std::string& scene_id,
+void fillRequest(pb::ProcessDetectionsRequest& request, const std::string& scene_id,
                  const std::string& category, ConditioningMode mode, const ProjectionFrame& frame) {
     request.set_scene_id(scene_id);
     request.set_camera_id(frame.camera_id);
@@ -96,7 +96,7 @@ void fillRequest(pb::ProjectDetectionsRequest& request, const std::string& scene
     }
 }
 
-ProjectionReply toReply(const grpc::Status& status, const pb::ProjectDetectionsResponse& response) {
+ProjectionReply toReply(const grpc::Status& status, const pb::ProcessDetectionsResponse& response) {
     ProjectionReply reply;
     if (!status.ok()) {
         reply.error = statusName(status.error_code());
@@ -122,17 +122,17 @@ class GrpcProjectionClient final : public ProjectionClient {
 public:
     GrpcProjectionClient(const std::shared_ptr<grpc::Channel>& channel,
                          std::chrono::milliseconds timeout)
-        : stub_(pb::ProjectionService::NewStub(channel)), timeout_(timeout) {}
+        : stub_(pb::ObservationProcessorService::NewStub(channel)), timeout_(timeout) {}
 
     std::vector<ProjectionReply> projectFrames(const std::string& scene_id,
                                                const std::string& category, ConditioningMode mode,
                                                std::span<const ProjectionFrame> frames) override {
         struct Call {
             grpc::ClientContext context;
-            pb::ProjectDetectionsRequest request;
-            pb::ProjectDetectionsResponse response;
+            pb::ProcessDetectionsRequest request;
+            pb::ProcessDetectionsResponse response;
             grpc::Status status;
-            std::unique_ptr<grpc::ClientAsyncResponseReader<pb::ProjectDetectionsResponse>> reader;
+            std::unique_ptr<grpc::ClientAsyncResponseReader<pb::ProcessDetectionsResponse>> reader;
         };
 
         const auto deadline = std::chrono::system_clock::now() + timeout_;
@@ -143,7 +143,7 @@ public:
             auto& call = *calls.emplace_back(std::make_unique<Call>());
             call.context.set_deadline(deadline);
             fillRequest(call.request, scene_id, category, mode, frame);
-            call.reader = stub_->AsyncProjectDetections(&call.context, call.request, &queue);
+            call.reader = stub_->AsyncProcessDetections(&call.context, call.request, &queue);
             call.reader->Finish(&call.response, &call.status, &call);
         }
 
@@ -163,7 +163,7 @@ public:
     }
 
 private:
-    std::unique_ptr<pb::ProjectionService::Stub> stub_;
+    std::unique_ptr<pb::ObservationProcessorService::Stub> stub_;
     std::chrono::milliseconds timeout_;
 };
 

@@ -39,7 +39,7 @@ jobs:
           filters: |
             tracker:
               - 'tracker/**'
-              - 'api/projection/**'
+              - 'observation_processor/proto/**'
               - 'controller/src/robot_vision/**'
               - '.github/workflows/tracker-service.yml'
             robot_vision:

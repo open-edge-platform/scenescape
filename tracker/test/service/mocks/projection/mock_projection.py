@@ -6,9 +6,9 @@
 """
 Mock remote projection service for tracker service tests.
 
-Implements scenescape.projection.v1.ProjectionService from the contract mounted at
-/protos/projection/v1/projection.proto. Each detection gets a deterministic measurement derived
-from its pixel box: centre (x / 20, y / 20, HEIGHT_M / 2), size 0.5 x 0.5 x HEIGHT_M and a
+Implements scenescape.observation_processor.v1.ObservationProcessorService from the contract
+mounted at /protos/observation_processor.proto. Each detection gets a deterministic measurement
+derived from its pixel box: centre (x / 20, y / 20, HEIGHT_M / 2), size 0.5 x 0.5 x HEIGHT_M and a
 diagonal noise covariance R.
 
 Environment:
@@ -25,7 +25,7 @@ from concurrent import futures
 import grpc
 
 sys.path.insert(0, "/protos")
-protos, services = grpc.protos_and_services("projection/v1/projection.proto")
+protos, services = grpc.protos_and_services("observation_processor.proto")
 
 PORT = 50051
 HEIGHT_M = 1.7
@@ -36,9 +36,9 @@ STATUS = os.environ.get("MOCK_PROJECTION_STATUS", "")
 DELAY_S = int(os.environ.get("MOCK_PROJECTION_DELAY_MS", "0") or 0) / 1000.0
 
 
-class MockProjectionService(services.ProjectionServiceServicer):
+class MockProjectionService(services.ObservationProcessorServiceServicer):
 
-  def ProjectDetections(self, request, context):
+  def ProcessDetections(self, request, context):
     categories = sorted({detection.category for detection in request.detections})
     print(f"request scene={request.scene_id} camera={request.camera_id} "
           f"mode={protos.ConditioningMode.Name(request.mode)} "
@@ -48,7 +48,7 @@ class MockProjectionService(services.ProjectionServiceServicer):
     if STATUS:
       context.abort(getattr(grpc.StatusCode, STATUS), "mock projection failure")
 
-    response = protos.ProjectDetectionsResponse(
+    response = protos.ProcessDetectionsResponse(
         scene_id=request.scene_id, camera_id=request.camera_id, timestamp=request.timestamp,
         mode=protos.CONDITIONING_MODE_FRUSTUM_ONLY)
     for detection in request.detections:
@@ -65,7 +65,7 @@ class MockProjectionService(services.ProjectionServiceServicer):
 
 def main():
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=8))
-  services.add_ProjectionServiceServicer_to_server(MockProjectionService(), server)
+  services.add_ObservationProcessorServiceServicer_to_server(MockProjectionService(), server)
   server.add_insecure_port(f"[::]:{PORT}")
   server.start()
   print(f"Mock projection service listening on {PORT} (status={STATUS or 'OK'}, "

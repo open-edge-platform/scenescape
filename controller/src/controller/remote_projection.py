@@ -5,7 +5,8 @@
 
 When CONTROLLER_EXPERIMENTAL_REMOTE_PROJECTION is true and CONTROLLER_REMOTE_PROJECTION_HOST and
 CONTROLLER_REMOTE_PROJECTION_PORT are set, the tracker threads send the pixel boxes of camera
-detections to the remote projection service (api/projection/v1/projection.proto) and replace the
+detections to the remote projection service
+(observation_processor/proto/observation_processor.proto) and replace the
 local projection of their robot_vision inputs with its world measurement and measurement noise
 covariance R.
 
@@ -122,12 +123,13 @@ def settings_from_env(environ=None):
 
 
 def _proto_modules():
-  from scenescape_api.projection.v1 import projection_pb2, projection_pb2_grpc
-  return projection_pb2, projection_pb2_grpc
+  from scenescape_api.observation_processor.v1 import (observation_processor_pb2,
+                                                       observation_processor_pb2_grpc)
+  return observation_processor_pb2, observation_processor_pb2_grpc
 
 
 class GrpcProjectionClient:
-  """Sends ProjectDetections requests concurrently; each call has the configured deadline.
+  """Sends ProcessDetections requests concurrently; each call has the configured deadline.
 
   A channel it creates starts connecting in the background, so the first call does not spend its
   deadline on name resolution and the handshake.
@@ -136,11 +138,11 @@ class GrpcProjectionClient:
   def __init__(self, settings, channel=None):
     import grpc
     self._grpc = grpc
-    _, projection_pb2_grpc = _proto_modules()
+    _, pb_grpc = _proto_modules()
     if channel is None:
       channel = self.createChannel(settings)
       grpc.channel_ready_future(channel)  # start connecting; never waited on
-    self._stub = projection_pb2_grpc.ProjectionServiceStub(channel)
+    self._stub = pb_grpc.ObservationProcessorServiceStub(channel)
     self._timeout_s = settings.timeout_ms / 1000.0
 
   @staticmethod
@@ -164,7 +166,7 @@ class GrpcProjectionClient:
 
   def project(self, requests):
     """Return one (response, error) per request; error is the gRPC status name or ''."""
-    futures = [self._stub.ProjectDetections.future(request, timeout=self._timeout_s)
+    futures = [self._stub.ProcessDetections.future(request, timeout=self._timeout_s)
                for request in requests]
     replies = []
     for future in futures:
@@ -196,12 +198,12 @@ class RemoteProjector:
   def __init__(self, client, mode=DEFAULT_MODE, timeout_ms=DEFAULT_TIMEOUT_MS):
     self._client = client
     self.timeout_ms = timeout_ms  # the client's call deadline, for configuration checks
-    projection_pb2, _ = _proto_modules()
-    self._pb = projection_pb2
+    pb, _ = _proto_modules()
+    self._pb = pb
     self._mode = {
-      "auto": projection_pb2.CONDITIONING_MODE_AUTO,
-      "full": projection_pb2.CONDITIONING_MODE_FULL,
-      "frustum_only": projection_pb2.CONDITIONING_MODE_FRUSTUM_ONLY,
+      "auto": pb.CONDITIONING_MODE_AUTO,
+      "full": pb.CONDITIONING_MODE_FULL,
+      "frustum_only": pb.CONDITIONING_MODE_FRUSTUM_ONLY,
     }[mode]
     self._warning_lock = threading.Lock()
     self._warnings = {}
@@ -253,7 +255,7 @@ class RemoteProjector:
     return replies
 
   def _newRequest(self, scene_id, camera_id, when):
-    request = self._pb.ProjectDetectionsRequest(scene_id=scene_id, camera_id=camera_id,
+    request = self._pb.ProcessDetectionsRequest(scene_id=scene_id, camera_id=camera_id,
                                                 mode=self._mode)
     # Split before scaling: epoch seconds * 1e9 exceeds the float64 integer precision.
     seconds = math.floor(when)
@@ -316,7 +318,7 @@ class SceneProjection:
 
 
 def apply_measurement(rv_object, measurement):
-  """Set a remote measurement (projection.v1 Measurement) on a robot_vision TrackedObject.
+  """Set a remote measurement (observation_processor.v1 Measurement) on a robot_vision TrackedObject.
 
   Requires a finite 7-value mean with a positive size and 49 R values; the tracker's
   measurement_noise_covariance setter symmetrizes R and rejects it unless finite and positive

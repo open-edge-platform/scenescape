@@ -11,7 +11,7 @@ namespace tracker {
 
 /**
  * @brief Conditioning requested from the remote projection service
- *        (scenescape.projection.v1.ConditioningMode).
+ *        (scenescape.observation_processor.v1.ConditioningMode).
  */
 enum class ConditioningMode {
     Auto,        ///< Full when the scene has a mesh, frustum only otherwise

@@ -24,19 +24,19 @@
 #include <grpcpp/grpcpp.h>
 #include <gtest/gtest.h>
 
-#include "projection/v1/projection.grpc.pb.h"
+#include "observation_processor.grpc.pb.h"
 
 namespace tracker {
 namespace {
 
-namespace pb = scenescape::projection::v1;
+namespace pb = scenescape::observation_processor::v1;
 
 // Measurement x is the detection index, y is the request's camera index ("cam-<y>").
-class FakeProjectionService final : public pb::ProjectionService::Service {
+class FakeProjectionService final : public pb::ObservationProcessorService::Service {
 public:
-    grpc::Status ProjectDetections(grpc::ServerContext*,
-                                   const pb::ProjectDetectionsRequest* request,
-                                   pb::ProjectDetectionsResponse* response) override {
+    grpc::Status ProcessDetections(grpc::ServerContext*,
+                                   const pb::ProcessDetectionsRequest* request,
+                                   pb::ProcessDetectionsResponse* response) override {
         {
             std::lock_guard lock(mutex);
             requests.push_back(*request);
@@ -87,7 +87,7 @@ public:
     }
 
     std::mutex mutex;
-    std::vector<pb::ProjectDetectionsRequest> requests;
+    std::vector<pb::ProcessDetectionsRequest> requests;
     std::chrono::milliseconds delay{0};
 };
 

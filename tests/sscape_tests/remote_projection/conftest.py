@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Generate the remote projection gRPC stubs (package scenescape_api) for these tests.
+"""Generate the observation processor gRPC stubs (package scenescape_api) for these tests.
 
 The controller image generates the same package at build time (controller/Dockerfile).
 """
@@ -15,7 +15,8 @@ from pathlib import Path
 import grpc_tools
 from grpc_tools import protoc
 
-_API_DIR = Path(__file__).resolve().parents[3] / "api"
+_PROTO = Path(__file__).resolve().parents[3] / "observation_processor" / "proto" \
+  / "observation_processor.proto"
 
 
 def _generate_stubs():
@@ -24,14 +25,14 @@ def _generate_stubs():
   well_known_protos = Path(grpc_tools.__file__).parent / "_proto"
   result = protoc.main([
     "grpc_tools.protoc",
-    f"-Iscenescape_api={_API_DIR}",
+    f"-Iscenescape_api/observation_processor/v1={_PROTO.parent}",
     f"-I{well_known_protos}",
     f"--python_out={out_dir}",
     f"--grpc_python_out={out_dir}",
-    "scenescape_api/projection/v1/projection.proto",
+    "scenescape_api/observation_processor/v1/observation_processor.proto",
   ])
   if result != 0:
-    raise RuntimeError(f"protoc failed for {_API_DIR / 'projection/v1/projection.proto'}")
+    raise RuntimeError(f"protoc failed for {_PROTO}")
   return out_dir
 
 

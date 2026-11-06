@@ -139,7 +139,7 @@
         },
         "remote_projection": {
           "type": "object",
-          "description": "Experimental remote projection service (gRPC, api/projection/v1/projection.proto). Used only when tracking.experimental_remote_projection is true.",
+          "description": "Experimental remote projection service (gRPC, observation_processor/proto/observation_processor.proto). Used only when tracking.experimental_remote_projection is true.",
           "properties": {
             "host": {
               "type": "string",

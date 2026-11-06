@@ -14,8 +14,8 @@ import numpy as np
 import pytest
 
 import robot_vision as rv
-from scenescape_api.projection.v1 import projection_pb2 as pb
-from scenescape_api.projection.v1 import projection_pb2_grpc as pb_grpc
+from scenescape_api.observation_processor.v1 import observation_processor_pb2 as pb
+from scenescape_api.observation_processor.v1 import observation_processor_pb2_grpc as pb_grpc
 
 from controller import remote_projection
 from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
@@ -62,7 +62,7 @@ def make_object(camera, box=(10.0, 20.0, 30.0, 60.0), category="person", measure
 
 def good_response(request):
   """Measurement k: centre (10 + k, 20 + k, HEIGHT / 2), size 0.5 x 0.6 x HEIGHT, R = NOISE."""
-  response = pb.ProjectDetectionsResponse(scene_id=request.scene_id, camera_id=request.camera_id,
+  response = pb.ProcessDetectionsResponse(scene_id=request.scene_id, camera_id=request.camera_id,
                                           mode=pb.CONDITIONING_MODE_FRUSTUM_ONLY)
   for k, detection in enumerate(request.detections):
     out = response.measurements.add(detection_id=detection.detection_id,
@@ -516,11 +516,11 @@ class TestProcessProjector:
     assert errors
 
 
-class FakeProjectionService(pb_grpc.ProjectionServiceServicer):
+class FakeProjectionService(pb_grpc.ObservationProcessorServiceServicer):
   def __init__(self):
     self.delay_s = 0.0
 
-  def ProjectDetections(self, request, context):
+  def ProcessDetections(self, request, context):
     if self.delay_s:
       time.sleep(self.delay_s)
     if request.camera_id == "uncalibrated":
@@ -534,7 +534,7 @@ class TestGrpcProjectionClient:
   def service(self):
     servicer = FakeProjectionService()
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
-    pb_grpc.add_ProjectionServiceServicer_to_server(servicer, server)
+    pb_grpc.add_ObservationProcessorServiceServicer_to_server(servicer, server)
     port = server.add_insecure_port("127.0.0.1:0")
     server.start()
     yield servicer, port
@@ -542,7 +542,7 @@ class TestGrpcProjectionClient:
 
   @staticmethod
   def request(camera_id):
-    request = pb.ProjectDetectionsRequest(scene_id="scene-uid", camera_id=camera_id)
+    request = pb.ProcessDetectionsRequest(scene_id="scene-uid", camera_id=camera_id)
     request.detections.add(detection_id="0", category="person").bounding_box_px.width = 10.0
     return request
 

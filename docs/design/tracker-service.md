@@ -239,7 +239,7 @@ Scenes and object-class assets fetched from Manager API at startup:
 #### Experimental Remote Projection
 
 Camera detections can be projected by an external projection service
-([`api/projection/v1/projection.proto`](../../api/projection/v1/projection.proto)) that returns a
+([`observation_processor.proto`](../../observation_processor/proto/observation_processor.proto)) that returns a
 world measurement with its measurement noise covariance R for each pixel box. The service is called
 only when both are set:
 

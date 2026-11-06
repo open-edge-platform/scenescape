@@ -16,7 +16,7 @@ class Channel;
 namespace tracker {
 
 /**
- * @brief gRPC ProjectionClient: one ProjectDetections call per frame, all frames of a
+ * @brief gRPC ProjectionClient: one ProcessDetections call per frame, all frames of a
  *        projectFrames() call in flight together under a deadline of `timeout`.
  *
  * Failed calls are reported with their gRPC status name, for example DEADLINE_EXCEEDED or

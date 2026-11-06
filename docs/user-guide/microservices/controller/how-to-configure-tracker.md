@@ -288,7 +288,7 @@ Invalid `method` values fail startup (Controller raises; Tracker throws). Omitti
 By default, the Scene Controller and the Tracker service project each pixel bounding box onto the
 ground plane with the camera calibration. With remote projection, they instead send the pixel boxes
 of each camera frame to an external projection service
-([`api/projection/v1/projection.proto`](https://github.com/open-edge-platform/scenescape/blob/main/api/projection/v1/projection.proto)).
+([`observation_processor.proto`](https://github.com/open-edge-platform/scenescape/blob/main/observation_processor/proto/observation_processor.proto)).
 For each box, the service returns a world position, a size and a measurement noise covariance (R)
 that describes the uncertainty of that position, for example a long uncertainty along the camera's
 viewing ray. The tracker uses R for multi-camera fusion, association gating and the Kalman update.

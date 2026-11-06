@@ -44,8 +44,8 @@ around the worker's `CameraModelProjector`. All workers share one
 ([`grpc_projection_client.hpp`](../inc/grpc_projection_client.hpp)).
 
 `RemoteProjector` first projects locally, then sends the pixel boxes of each
-camera frame in one `ProjectDetections` call
-([`projection.proto`](../../api/projection/v1/projection.proto)); the
+camera frame in one `ProcessDetections` call
+([`observation_processor.proto`](../../observation_processor/proto/observation_processor.proto)); the
 `detection_id` of a box is its index in the request. The calls of one chunk
 run concurrently on a completion queue under one deadline (`timeout_ms`).
 The channel starts connecting at startup, so the first chunk does not spend
@@ -63,8 +63,9 @@ unspecified or unknown status) increments `tracker.remote_projection.failed_call
 and logs a warning at most every 10 s per worker; `project()` does not throw
 for remote failures, so the worker never stops on them.
 
-The gRPC C++ code is generated at build time from `api/projection` into the
-`tracker_projection_proto` library (protobuf and `grpc_cpp_plugin` from Conan).
+The gRPC C++ code is generated at build time from `observation_processor/proto`
+into the `tracker_observation_processor_proto` library (protobuf and
+`grpc_cpp_plugin` from Conan).
 
 #### z reference in experimental mode
 
