@@ -166,6 +166,10 @@
           "description": "Optional per-camera pixel bounding boxes when the producer supplies them",
           "additionalProperties": true
         },
+        "source_id": {
+          "type": "string",
+          "description": "Identifier of the external source that produced this observation; matches the external contract's source_id"
+        },
         "prev_translation": {
           "type": "array",
           "description": "Previous world position [x, y, z] in meters when available",
