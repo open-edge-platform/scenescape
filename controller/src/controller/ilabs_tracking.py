@@ -29,10 +29,6 @@ from scene_common.association import (
 from scene_common.geometry import Point
 from scene_common.timestamp import get_epoch_time
 
-# Backward-compatible aliases (historical names used by tests/callers).
-DEFAULT_ASSOCIATION_MAX_RADIUS_M = DEFAULT_ASSOCIATION_EUCLIDEAN_MAX_RADIUS_M
-RECOMMENDED_MAHALANOBIS_MAX_RADIUS_M = DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M
-
 
 def _default_max_radius_for_method(method):
   """Fallback max_radius_m when the configured value is missing or invalid.
