@@ -14,8 +14,10 @@ DIRNAME=${PWD}
 FFMPEG_DIR="/app/data"
 FFMPEG_IMAGE="intel/intel-optimized-ffmpeg:avx3"
 EXTENSION=${1:-mp4}
+# Parent of the scene folders (<scene>/video/*.mp4), relative to the repo root
+SCENES_DIR=${2:-sample_data/demo_scenes}
 
-for mfile in "$DIRNAME"/sample_data/demo_scenes/*/video/*."${EXTENSION}" "$DIRNAME"/tools/pipeline_runner/video/*."${EXTENSION}"; do
+for mfile in "$DIRNAME"/"$SCENES_DIR"/*/video/*."${EXTENSION}" "$DIRNAME"/tools/pipeline_runner/video/*."${EXTENSION}"; do
   [ -f "$mfile" ] || continue
   # relative dir under the repo root, so the ts file lands next to its source mp4
   reldir=$(dirname "${mfile#"$DIRNAME"/}")

@@ -30,16 +30,17 @@ SUPASS='<choose-a-strong-admin-password>' DEMO_REBUILD_IMAGES=false make demo
 
 The Docker demo targets start the common sample video sources and upload the standard demo scenes, then select these services or overlays:
 
-| Target                   | Services / behavior                                                                                                                                                                                             |
-| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `demo`                   | Controller + Analytics; no ReID.                                                                                                                                                                                |
-| `demo-reid`              | `demo` plus the selected ReID backend and ReID pipeline override.                                                                                                                                               |
-| `demo-all`               | `demo-reid` plus Mapping and Cluster Analytics.                                                                                                                                                                 |
-| `demo-cluster-analytics` | `demo` plus Cluster Analytics; no Mapping or ReID override.                                                                                                                                                     |
-| `demo-tracker`           | Tracker + Analytics instead of the Scene Controller.                                                                                                                                                            |
-| `demo-lidar`             | `demo` plus the LiDAR/camera intersection fusion overlay. It requires a manually downloaded dataset and first-run model setup; see [Run the LiDAR-Intersection Fusion Demo](../run-lidar-intersection-demo.md). |
+| Target                   | Services / behavior                                                                                                                                                                                                                          |
+| ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `demo`                   | Controller + Analytics; no ReID.                                                                                                                                                                                                             |
+| `demo-reid`              | `demo` plus the selected ReID backend and ReID pipeline override.                                                                                                                                                                            |
+| `demo-all`               | `demo-reid` plus Mapping and Cluster Analytics.                                                                                                                                                                                              |
+| `demo-cluster-analytics` | `demo` plus Cluster Analytics; no Mapping or ReID override.                                                                                                                                                                                  |
+| `demo-tracker`           | Tracker + Analytics instead of the Scene Controller.                                                                                                                                                                                         |
+| `demo-lidar`             | `demo` plus the LiDAR/camera intersection fusion overlay. It requires a manually downloaded dataset and first-run model setup; see [Run the LiDAR-Intersection Fusion Demo](../run-lidar-intersection-demo.md).                              |
+| `demo-spp`               | Tracker + Analytics with the experimental Observation Processor, on the Stairs scene and its own video source only; see [`sample_data/spp_demo`](https://github.com/open-edge-platform/scenescape/blob/main/sample_data/spp_demo/README.md). |
 
-The `demo-all`, `demo-cluster-analytics`, and `demo-tracker` targets build all service images by default. `demo-lidar` builds the dedicated LiDAR variant. Set `DEMO_REBUILD_IMAGES=false` to skip building when the required images already exist.
+The `demo-all`, `demo-cluster-analytics`, and `demo-tracker` targets build all service images by default; `demo-spp` builds the core, Tracker, ReID and Observation Processor images. `demo-lidar` builds the dedicated LiDAR variant. Set `DEMO_REBUILD_IMAGES=false` to skip building when the required images already exist.
 
 The ReID targets use VDMS by default. Set `REID_BACKEND=qdrant` to use Qdrant:
 

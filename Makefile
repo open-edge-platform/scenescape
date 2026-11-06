@@ -48,6 +48,11 @@ DLSTREAMER_SAMPLE_VIDEOS := $(addprefix $(VIDEO_SOURCE_DIR)/Retail/video/,aprilt
 	$(addprefix $(VIDEO_SOURCE_DIR)/Queuing/video/,qcam1.ts qcam2.ts) \
 	tools/pipeline_runner/video/car-detection.ts
 DLSTREAMER_DOCKER_COMPOSE_FILE := ./$(SAMPLE_COMPOSE_DIR)/compose.dl-streamer-example.yml
+VIDEO_SOURCE_VIDEOS = $(DLSTREAMER_SAMPLE_VIDEOS)
+# SPP demo: Stairs scene, Tracker service with the experimental observation processor
+SPP_DEMO_DIR := sample_data/spp_demo
+SPP_DEMO_VIDEOS := $(addprefix $(SPP_DEMO_DIR)/Stairs/video/,cam1.ts cam2.ts)
+SPP_DEMO_COMPOSE_ARGS = -f docker-compose.yml -f $(SPP_DEMO_DIR)/compose.spp-demo.yml
 DEMO_WAIT_SECONDS ?= "0"
 DEPLOY_WAIT_SECONDS ?= $(DEMO_WAIT_SECONDS)
 DEPLOY_PROFILES ?= controller
@@ -138,6 +143,7 @@ help:
 	@echo "  deploy                      Start Scenescape with Docker Compose (DEPLOY_PROFILES defaults to controller)"
 	@echo "  deploy-close                Stop a deployment without removing its volumes"
 	@echo "  demo-lidar                  Start the basic Scenescape demo plus the LiDAR-intersection (LiDAR/Camera) fusion demo"
+	@echo "  demo-spp                    Start the Stairs demo with the Tracker service and the experimental observation processor"
 	@echo "  demo-scenes                 Upload the demo scenes in DEMO_SCENES_DIR to a running deployment via the REST API"
 	@echo "  demo-close                  Stop the running Scenescape demo and remove all volumes"
 	@echo "  demo-k8s                    Start the Scenescape demo using Kubernetes (DEPLOY_PROFILES selects controller|tracker|mapping|cluster-analytics|reid, default: controller)"
@@ -303,7 +309,7 @@ clean-all: clean-images clean-secrets clean-volumes clean-models clean-tests
 
 define clean-artifacts
 	@echo "==> Cleaning build artifacts..."
-	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS)
+	@-rm -f $(DLSTREAMER_SAMPLE_VIDEOS) $(SPP_DEMO_VIDEOS)
 	@-rm -f docker-compose.yml .env
 	@echo "DONE ==> Cleaning build artifacts"
 endef
@@ -792,9 +798,10 @@ init-pipeline-runner-videos: convert-dls-videos
 # $(3): extra `docker compose` args for the video-source stack (e.g. ReID pipeline override)
 define start_demo
 	@$(MAKE) deploy DEPLOY_PROFILES="$(1)" DEPLOY_COMPOSE_ARGS="$(2)" DEPLOY_FROM_DEMO=true
-	@touch .scenescape-demo
-	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)"
-	@$(MAKE) demo-scenes
+	@echo "$(VIDEO_SOURCE_COMPOSE_FILES)" > .scenescape-demo
+	@$(MAKE) video-source-up VIDEO_SOURCE_ARGS="$(3)" VIDEO_SOURCE_COMPOSE_FILES="$(VIDEO_SOURCE_COMPOSE_FILES)" \
+		VIDEO_SOURCE_VIDEOS="$(VIDEO_SOURCE_VIDEOS)"
+	@$(MAKE) demo-scenes DEMO_SCENES_DIR="$(DEMO_SCENES_DIR)"
 	@echo ""
 	@echo "To stop the demo, run: make demo-close"
 endef
@@ -889,6 +896,13 @@ demo-tracker: $(DEMO_BUILD:build=build-all)
 demo-lidar: $(DEMO_BUILD:build=build-core-lidar)
 	$(call start_demo,controller,$(LIDAR_COMPOSE_ARGS))
 
+.PHONY: demo-spp
+demo-spp: VIDEO_SOURCE_COMPOSE_FILES := -f $(SPP_DEMO_DIR)/compose.stairs-video.yml
+demo-spp: VIDEO_SOURCE_VIDEOS := $(SPP_DEMO_VIDEOS)
+demo-spp: DEMO_SCENES_DIR := $(SPP_DEMO_DIR)
+demo-spp: $(DEMO_BUILD:build=build-core tracker reid observation_processor)
+	$(call start_demo,tracker observation-processor,$(SPP_DEMO_COMPOSE_ARGS))
+
 .PHONY: demo-close
 demo-close:
 	@if [ ! -f .scenescape-demo ]; then \
@@ -897,7 +911,8 @@ demo-close:
 		echo "    docker compose \$$(cat .scenescape-profile 2>/dev/null) down"; \
 		exit 1; \
 	fi
-	@$(MAKE) video-source-down
+	@files="$$(cat .scenescape-demo)"; \
+	$(MAKE) video-source-down $${files:+VIDEO_SOURCE_COMPOSE_FILES="$$files"}
 	docker compose $(shell cat .scenescape-profile 2>/dev/null) down -v
 	@rm -f .scenescape-profile .scenescape-demo
 
@@ -914,11 +929,14 @@ $(DLSTREAMER_SAMPLE_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@$(VIDEO_SOURCE_DIR)/convert_videos.sh
 	@echo "DONE ==> Converting sample videos for DLStreamer..."
 
+$(SPP_DEMO_VIDEOS): $(VIDEO_SOURCE_DIR)/convert_videos.sh
+	@$(VIDEO_SOURCE_DIR)/convert_videos.sh mp4 $(SPP_DEMO_DIR)
+
 # Demo video sources are not a part of the core Scenescape stack; it joins the same "scenescape" Docker network so it
 # can reach the broker/ntpserv aliases and dlsps pipelines can be reached at
 # rtsp://mediaserver:8554/<camera-id>.
 .PHONY: video-source-up
-video-source-up: convert-dls-videos
+video-source-up: $(VIDEO_SOURCE_VIDEOS)
 	SCENESCAPE_NETWORK=$(COMPOSE_PROJECT_NAME)_scenescape docker compose --project-directory . $(VIDEO_SOURCE_COMPOSE_FILES) $(VIDEO_SOURCE_ARGS) up -d
 
 .PHONY: video-source-down
