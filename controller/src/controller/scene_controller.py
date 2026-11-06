@@ -42,6 +42,24 @@ TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
 
 
+def _parseAssociationConfig(tracker_config):
+  """Normalized ``association`` block of a tracker config; the default block when it is malformed.
+
+  An unknown ``method`` or a block that is not an object drops the whole block: its other fields were meant for
+  another method.
+  """
+  association = tracker_config.get("association", {})
+  if not isinstance(association, dict):
+    log.error("Invalid association config in tracker config file: expected an object, got %r; "
+              "using the default association", association)
+    return normalize_association_config()
+  try:
+    return normalize_association_config(association)
+  except ValueError as err:
+    log.error("Invalid association config in tracker config file: %s; using the default association", err)
+    return normalize_association_config()
+
+
 def _parseTrustedSources(value):
   """Parse a comma-separated list of source IDs authorized to publish poses
   already expressed in scene-local coordinates. Fails closed: an unset or
@@ -191,16 +209,7 @@ class SceneController:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
 
-      association_input = dict(tracker_config.get("association", {}))
-      try:
-        self.tracker_config_data["association"] = normalize_association_config(
-          association_input)
-      except ValueError as err:
-        log.error("Invalid association config in tracker config file: %s", err)
-        # Keep valid numeric fields; drop the unknown method so defaults apply.
-        association_input.pop("method", None)
-        self.tracker_config_data["association"] = normalize_association_config(
-          association_input)
+      self.tracker_config_data["association"] = _parseAssociationConfig(tracker_config)
     return
 
   def extractReidConfigData(self, reid_config_file):

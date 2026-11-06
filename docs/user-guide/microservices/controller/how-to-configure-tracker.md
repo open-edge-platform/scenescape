@@ -285,8 +285,9 @@ and the Scene Controller logs a warning for objects whose `tracking_radius` it i
 A `gate_probability` outside (0, 1] or a negative or non-finite (`nan`, `inf`) `max_radius_m`
 fails Tracker service startup; the Controller logs an error and uses the default.
 
-Invalid `method` values fail startup (Controller raises; Tracker throws). Omitting the
-`association` block uses the defaults above.
+An invalid `method` fails Tracker service startup. The Scene Controller logs an error and uses
+the default `association` block, ignoring the block's other fields, as it does for a block that
+is not a JSON object. Omitting the `association` block uses the defaults above.
 
 ## Persisting Object Attributes Across Detection Gaps
 
