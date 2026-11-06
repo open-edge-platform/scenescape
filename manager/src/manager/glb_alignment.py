@@ -297,17 +297,16 @@ def remove_stored_file(storage, name):
 def _apply_pose_and_map(scene, glb_path=None):
   """Internal helper: copy glb_map into scene.map and set pose/corners/thumbnail.
 
-  Does NOT change use_glb_map. Used by apply and move_glb_anchor.
+  Does NOT change use_glb_map. Used by apply and _reapply_applied_glb.
   If glb_path is provided, it's used for map_corners_lla computation;
   otherwise the rectangle is used.
   """
   if not scene.glb_map or not scene.glb_anchor:
     raise GlbAlignmentError(400, 'No stored GLB or anchor')
 
-  # Copy glb_map to scene.map if not already GLB
-  if not scene.map or not scene.map.name.lower().endswith('.glb'):
-    with scene.glb_map.storage.open(scene.glb_map.name, 'rb') as f:
-      scene.map.save(f'{scene.name}.glb', File(f), save=False)
+  # Always copy: the map may be a GLB (e.g. a generated mesh) that is not the stored GLB
+  with scene.glb_map.storage.open(scene.glb_map.name, 'rb') as f:
+    scene.map.save(f'{scene.name}.glb', File(f), save=False)
 
   # Compute pose from glb_anchor and frame_corners_lla
   frame_corners = scene.base_map_corners_lla or scene.map_corners_lla
@@ -353,11 +352,12 @@ def apply_glb_map(scene):
   try:
     with transaction.atomic():
       # Save current snapshot as base if not already saved
-      if scene.map and not scene.map.name.lower().endswith('.glb'):
+      if scene.map:
+        base_ext = os.path.splitext(scene.map.name)[1].lower()
         if scene.base_map and scene.base_map.storage.exists(scene.base_map.name):
           remove_stored_file(scene.base_map.storage, scene.base_map.name)
         with scene.map.storage.open(scene.map.name, 'rb') as f:
-          scene.base_map.save(f'base_{scene.name}.png', File(f), save=False)
+          scene.base_map.save(f'base_{scene.name}{base_ext}', File(f), save=False)
         scene.base_scale = scene.scale
         if not scene.base_map_corners_lla:
           scene.base_map_corners_lla = scene.map_corners_lla
@@ -388,10 +388,11 @@ def unapply_glb_map(scene):
   try:
     with transaction.atomic():
       if scene.base_map and scene.base_map.storage.exists(scene.base_map.name):
+        base_ext = os.path.splitext(scene.base_map.name)[1]
         with scene.base_map.storage.open(scene.base_map.name, 'rb') as f:
-          scene.map.save(f'{scene.name}.png', File(f), save=False)
+          scene.map.save(f'{scene.name}{base_ext}', File(f), save=False)
       else:
-        scene.map = None
+        scene.map = ''  # None crashes Scene.save() on the map-name check
 
       scene.scale = scene.base_scale
       scene.map_corners_lla = scene.base_map_corners_lla
@@ -492,22 +493,7 @@ def remove_glb_map(scene):
 
       # If applied, unapply first
       if scene.use_glb_map:
-        if scene.base_map and scene.base_map.storage.exists(scene.base_map.name):
-          with scene.base_map.storage.open(scene.base_map.name, 'rb') as f:
-            scene.map.save(f'{scene.name}.png', File(f), save=False)
-        else:
-          scene.map = None
-        scene.scale = scene.base_scale
-        scene.map_corners_lla = scene.base_map_corners_lla
-        scene.resetRotation()
-        scene.resetTranslation()
-        scene.thumbnail = None
-        scene.use_glb_map = False
-
-        if scene.base_map and scene.base_map.storage.exists(scene.base_map.name):
-          remove_stored_file(scene.base_map.storage, scene.base_map.name)
-        scene.base_map = None
-        scene.base_scale = None
+        unapply_glb_map(scene)
 
       # Remove glb_map file
       if scene.glb_map and scene.glb_map.storage.exists(scene.glb_map.name):
@@ -539,7 +525,7 @@ def commit_glb(scene, token, anchor):
   This is the POST endpoint: stages the GLB as glb_map with the anchor.
   Computes footprint from the real mesh file (not touching scene.map/pose).
   If use_glb_map was already True, re-applies the new GLB to the scene map.
-  Otherwise, applying is a separate PATCH with use_glb_map=true.
+  Otherwise, applying is a separate PUT with use_glb_map=true.
   Returns saved_alignment dict.
   """
   path = staged_glb_path(token)

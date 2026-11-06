@@ -28,6 +28,46 @@ def run_js(scenario, args):
   return json.loads(proc.stdout.strip())
 
 
+def _saved_model_get():
+  """Saved GLB response at the default test anchor."""
+  return {
+    "status": 200,
+    "body": {
+      "exists": True,
+      "filename": "model.glb",
+      "download_url": "/media/model.glb",
+      "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+      "footprint_m": {"width": 100, "height": 60},
+      "use_glb_map": False,
+      "preview_url": "/saved.png",
+    },
+  }
+
+
+def _accept_args(steps):
+  """Harness args for an upload-then-accept flow, plus any trailing steps."""
+  preview_resp = {
+    "status": 200,
+    "body": {
+      "token": "tok1",
+      "preview_url": "/img.png",
+      "footprint_m": {"width": 100, "height": 60},
+      "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+      "existing_content": {},
+    },
+  }
+  accept_resp = {
+    "status": 200,
+    "body": {"anchor": {"lat": 37, "lng": -122, "heading_deg": 0}, "footprint_m": {"width": 100, "height": 60}},
+  }
+  return {
+    "mapType": "geospatial_map",
+    "center": ["37", "-122"],
+    "responses": [{"status": 404, "body": {}}, preview_resp, accept_resp],
+    "steps": steps,
+  }
+
+
 @pytest.mark.skipif(shutil.which("node") is None, reason="node not on PATH")
 class TestGlbAlignment:
   """Test GLB alignment UI and helpers."""
@@ -82,6 +122,7 @@ class TestGlbAlignment:
     assert res["fetches"][1]["body"]["formData"][0][0] == "file"
     assert any("setOverlay" in str(c) for c in res["calls"])
     assert any("fitToCorners" in str(c) for c in res["calls"])
+    assert [c[3] for c in res["calls"] if c[0] == "setOverlay"] == [0.6]
 
   def test_upload_error(self):
     """Failed GLB preview upload displays error."""
@@ -331,6 +372,45 @@ class TestGlbAlignment:
     assert body["anchor"]["lat"] == 37
     assert any("removeOverlay" in str(c) for c in res["calls"])
 
+  def test_accept_stashes_live_view_before_reload(self):
+    """Accept stores the live map view so the reload keeps it instead of the DB view."""
+    res = run_js("align", _accept_args([["upload"], ["accept"]]))
+    assert res["ok"]
+    assert res["mapCalls"] == ["save", "load"]
+    assert res["stored"] == {
+      "path": "/scene/s1/update/",
+      "provider": "google",
+      "settings": {"lat": 37.5, "lng": -121.5, "zoom": 17.5, "rotation": 12},
+    }
+
+  def test_take_restores_stashed_view_once(self):
+    """The stashed view is returned for the same page and provider, then consumed."""
+    res = run_js(
+      "align",
+      _accept_args([["upload"], ["accept"], ["take", "google"], ["take", "google"]]),
+    )
+    assert res["ok"]
+    assert res["takes"][0] == {"lat": 37.5, "lng": -121.5, "zoom": 17.5, "rotation": 12}
+    assert res["takes"][1] == {}
+    assert res["stored"] is None
+
+  def test_take_ignores_stash_from_other_provider(self):
+    """A view captured on one map provider is not restored on another (zoom scales differ)."""
+    res = run_js("align", _accept_args([["upload"], ["accept"], ["take", "mapbox"]]))
+    assert res["ok"]
+    assert res["takes"] == [{}]
+    assert res["stored"] is None
+
+  def test_take_ignores_stash_from_other_page(self):
+    """A view captured on one scene page is not restored on a different page."""
+    res = run_js(
+      "align",
+      _accept_args([["upload"], ["accept"], ["take", "google", "/scene/s2/update/"]]),
+    )
+    assert res["ok"]
+    assert res["takes"] == [{}]
+    assert res["stored"] is None
+
   def test_accept_with_existing_content_commits_without_confirm(self):
     """Accept with existing content commits directly; no confirmation is requested."""
     preview_resp = {
@@ -529,6 +609,212 @@ class TestGlbAlignment:
     assert res["ok"]
     assert res["controlsDisplay"] == "none"
     assert any("removeOverlay" in str(c) for c in res["calls"])
+
+  @pytest.mark.parametrize("order", ["mapFirst", "fetchFirst"])
+  def test_saved_overlay_drawn_at_full_opacity_once_map_ready(self, order):
+    """Accepted model draws after both map ready and saved fetch, in either order."""
+    saved = {
+      "status": 200,
+      "body": {
+        "exists": True,
+        "filename": "model.glb",
+        "download_url": "/media/model.glb",
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "footprint_m": {"width": 100, "height": 60},
+        "use_glb_map": False,
+        "preview_url": "/saved.png",
+      },
+    }
+    res = run_js(
+      "savedOverlay",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "order": order,
+        "responses": [saved],
+      },
+    )
+    assert res["ok"]
+    overlays = [c for c in res["calls"] if c[0] == "setOverlay"]
+    assert len(overlays) == 1
+    assert overlays[0][1] == "/saved.png"
+    assert overlays[0][3] == 1
+    assert res["calls"][-1] == ["setOverlayOpacity", 1]
+
+  def test_save_position_shown_after_shift_and_hidden_after_save(self):
+    """Save position appears once a saved model is shifted and hides after saving."""
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [_saved_model_get(), {"status": 200, "body": {}}],
+        "steps": [["drag", [0, 0], [100, 100]], ["save"]],
+      },
+    )
+    assert res["ok"]
+    assert res["savePosTrail"] == ["none", "", "none"]
+    put = res["fetches"][-1]
+    assert put["method"] == "PUT"
+    assert put["body"] == {"anchor": res["anchor"]}
+    assert res["status"] == "Position saved"
+    assert res["dirty"] is False
+
+  def test_save_position_failure_keeps_button_visible(self):
+    """A failed save keeps the shift unsaved and the button available to retry."""
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [_saved_model_get(), {"status": 500, "body": {"error": "boom"}}],
+        "steps": [["drag", [0, 0], [100, 100]], ["save"]],
+      },
+    )
+    assert res["ok"]
+    assert res["savePosTrail"] == ["none", "", ""]
+    assert res["status"] == "boom"
+    assert res["dirty"] is True
+
+  def test_drag_during_save_stays_unsaved(self):
+    """A shift made while a save is in flight is not recorded as saved."""
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [_saved_model_get(), {"status": 200, "body": {}}],
+        "steps": [["saveAndDrag", [0, 0], [100, 100]]],
+      },
+    )
+    assert res["ok"]
+    sent = res["fetches"][-1]["body"]["anchor"]
+    assert res["savedAnchor"] == sent
+    assert res["anchor"] != sent
+    assert res["dirty"] is True
+    assert res["savePosTrail"][-1] == ""
+
+  def test_save_position_hidden_while_staging_replacement(self):
+    """Staging a replacement hides Save position even after a shift."""
+    preview_resp = {
+      "status": 200,
+      "body": {
+        "token": "tok1",
+        "preview_url": "/img.png",
+        "footprint_m": {"width": 100, "height": 60},
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "existing_content": {},
+      },
+    }
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [_saved_model_get(), preview_resp],
+        "steps": [["drag", [0, 0], [100, 100]], ["upload"]],
+      },
+    )
+    assert res["ok"]
+    assert res["savePosTrail"] == ["none", "", "none"]
+    assert res["controlsDisplay"] == ""
+
+  def test_remove_after_shift_clears_unsaved_state(self):
+    """Removing a shifted model hides Save position and clears the unsaved flag."""
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [_saved_model_get(), {"status": 204, "body": {}}],
+        "steps": [["drag", [0, 0], [100, 100]], ["remove"]],
+      },
+    )
+    assert res["ok"]
+    assert res["savePosTrail"] == ["none", "", "none"]
+    assert res["dirty"] is False
+
+  def test_save_scene_posts_shifted_anchor(self):
+    """Save Scene Updates carries a shifted saved anchor and clears the unsaved prompt."""
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [_saved_model_get()],
+        "steps": [["drag", [0, 0], [100, 100]], ["submit"]],
+      },
+    )
+    assert res["ok"]
+    (glb_anchor,) = res["formInputs"]
+    assert glb_anchor["name"] == "glb_anchor"
+    assert glb_anchor["type"] == "hidden"
+    assert json.loads(glb_anchor["value"]) == res["anchor"]
+    assert res["dirty"] is False
+
+  def test_save_scene_without_shift_posts_no_anchor(self):
+    """An unshifted saved model adds nothing to Save Scene Updates."""
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [_saved_model_get()],
+        "steps": [["submit"]],
+      },
+    )
+    assert res["ok"]
+    assert res["formInputs"] == []
+
+  def test_save_scene_ignores_staged_replacement(self):
+    """A drag on a staged replacement is not posted as the saved model's anchor."""
+    preview_resp = {
+      "status": 200,
+      "body": {
+        "token": "tok1",
+        "preview_url": "/img.png",
+        "footprint_m": {"width": 100, "height": 60},
+        "anchor": {"lat": 37, "lng": -122, "heading_deg": 0},
+        "existing_content": {},
+      },
+    }
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [_saved_model_get(), preview_resp],
+        "steps": [
+          ["drag", [0, 0], [100, 100]],
+          ["upload"],
+          ["drag", [0, 0], [100, 100]],
+          ["submit"],
+        ],
+      },
+    )
+    assert res["ok"]
+    assert res["dirty"] is True  # the staged drag did register
+    assert res["formInputs"] == []
+
+  def test_save_scene_replaces_stale_anchor_input(self):
+    """A second submit replaces the earlier anchor instead of posting two."""
+    res = run_js(
+      "align",
+      {
+        "mapType": "geospatial_map",
+        "center": ["37", "-122"],
+        "responses": [_saved_model_get()],
+        "steps": [
+          ["drag", [0, 0], [100, 100]],
+          ["submit"],
+          ["drag", [100, 100], [200, 200]],
+          ["submit"],
+        ],
+      },
+    )
+    assert res["ok"]
+    (glb_anchor,) = res["formInputs"]
+    assert json.loads(glb_anchor["value"]) == res["anchor"]
 
   def test_helpers_clamp_heading(self):
     """clampHeading clamps to [0, 359.9] instead of wrapping."""

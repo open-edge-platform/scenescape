@@ -96,6 +96,10 @@ class MapboxPlugin extends MapInterface {
       }
     });
 
+    // addSource/addLayer throw until the style has loaded
+    this.map.once("style.load", () =>
+      window.dispatchEvent(new Event("geomap-ready")),
+    );
     document.body.className = "mapbox-active";
   }
 

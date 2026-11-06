@@ -33,17 +33,48 @@ class FakeEl {
       for (const fn of this.listeners[type]) fn.call(this, ev);
   }
 
+  remove() {
+    if (this.parent)
+      this.parent.children = this.parent.children.filter((c) => c !== this);
+  }
+
   getBoundingClientRect() {
     return { left: 0, top: 0 };
   }
 }
 
+class FakeForm extends FakeEl {
+  constructor() {
+    super();
+    this.children = [];
+  }
+
+  appendChild(el) {
+    el.parent = this;
+    this.children.push(el);
+    return el;
+  }
+
+  querySelector(sel) {
+    const name = sel.match(/name="([^"]+)"/)?.[1];
+    return this.children.find((c) => c.name === name) ?? null;
+  }
+}
+
 function load(args) {
   const fakeEls = {};
+  const fakeForm = new FakeForm();
+  const sessionStore = new Map();
+  const mapCalls = [];
   const docGetElementById = (id) => {
     if (!fakeEls[id]) {
       fakeEls[id] = new FakeEl();
-      if (id === "glbAlignRow") fakeEls[id].dataset.sceneId = "scene-1";
+      if (id === "glbAlignRow") {
+        fakeEls[id].dataset.sceneId = "scene-1";
+        fakeEls[id].closest = () => fakeForm;
+      }
+      if (id === "glbSavePosition") fakeEls[id].style.display = "none";
+      if (id === "mapProvider") fakeEls[id].value = args.provider ?? "google";
       if (id === "id_map_type")
         fakeEls[id].value = args.mapType ?? "geospatial_map";
       if (id === "id_map_center_lat")
@@ -125,6 +156,7 @@ function load(args) {
     document: {
       getElementById: docGetElementById,
       querySelector: () => ({ value: "tok" }),
+      createElement: () => new FakeEl(),
       addEventListener: () => {},
     },
     window: {
@@ -139,8 +171,21 @@ function load(args) {
         (this.listeners[t] || []).forEach((fn) => fn(ev));
       },
       confirm: () => args.confirm ?? true,
-      location: { reload() {} },
-      mapManager: { getMapStrategy: () => strategy },
+      location: { reload() {}, pathname: "/scene/s1/update/" },
+      sessionStorage: {
+        getItem: (k) => sessionStore.get(k) ?? null,
+        setItem: (k, v) => sessionStore.set(k, String(v)),
+        removeItem: (k) => sessionStore.delete(k),
+      },
+      saveCurrentMapSettings: () => mapCalls.push("save"),
+      loadSavedGeospatialSettings: () => {
+        mapCalls.push("load");
+        return { lat: 37.5, lng: -121.5, zoom: 17.5, rotation: 12 };
+      },
+      mapManager:
+        args.mapReady === false
+          ? undefined
+          : { getMapStrategy: () => strategy },
     },
     setTimeout: () => {},
     FormData: FakeFormData,
@@ -157,16 +202,47 @@ function load(args) {
 
   vm.runInContext(src, ctx);
 
-  return { ctx, fakeEls, fetches, strategy };
+  return { ctx, fakeEls, fakeForm, fetches, strategy, sessionStore, mapCalls };
 }
 
 const scenarios = {
   async align(args) {
-    const { ctx, fakeEls, fetches, strategy } = load(args);
+    const {
+      ctx,
+      fakeEls,
+      fakeForm,
+      fetches,
+      strategy,
+      sessionStore,
+      mapCalls,
+    } = load(args);
     const a = new ctx.__api.GlbAlignment();
     const events = [];
+    const takes = [];
+
+    const savePosShown = () =>
+      fakeEls["glbSavePosition"]?.style?.display ?? null;
+    const savePosTrail = [];
+    const drag = (from, to) => {
+      const ev0 = {
+        type: "pointerdown",
+        clientX: from[0],
+        clientY: from[1],
+        preventDefault() {
+          this.prevented = true;
+        },
+        stopPropagation() {},
+      };
+      fakeEls["map"].fire("pointerdown", ev0);
+      events.push({ prevented: !!ev0.prevented });
+      if (ev0.prevented) {
+        ctx.window.fire("pointermove", { clientX: to[0], clientY: to[1] });
+        ctx.window.fire("pointerup", {});
+      }
+    };
 
     await new Promise((r) => setImmediate(r));
+    savePosTrail.push(savePosShown());
     {
       for (const step of args.steps || []) {
         if (step[0] === "upload") {
@@ -174,24 +250,15 @@ const scenarios = {
           fileEl.files = [{ name: "a.glb" }];
           fileEl.fire("change", { target: fileEl });
         } else if (step[0] === "drag") {
-          const [x0, y0] = step[1];
-          const [x1, y1] = step[2];
-          const ev0 = {
-            type: "pointerdown",
-            clientX: x0,
-            clientY: y0,
-            preventDefault() {
-              this.prevented = true;
-            },
-            stopPropagation() {},
-          };
-          const mapEl = fakeEls["map"];
-          mapEl.fire("pointerdown", ev0);
-          events.push({ prevented: !!ev0.prevented });
-          if (ev0.prevented) {
-            ctx.window.fire("pointermove", { clientX: x1, clientY: y1 });
-            ctx.window.fire("pointerup", {});
-          }
+          drag(step[1], step[2]);
+        } else if (step[0] === "save") {
+          await a._savePosition?.();
+        } else if (step[0] === "saveAndDrag") {
+          const inflight = a._savePosition?.();
+          drag(step[1], step[2]);
+          await inflight;
+        } else if (step[0] === "remove") {
+          await a._remove?.();
         } else if (step[0] === "heading") {
           const headEl = fakeEls["glbHeadingNumber"];
           headEl.value = step[1];
@@ -202,8 +269,14 @@ const scenarios = {
           a._reset?.();
         } else if (step[0] === "cancel") {
           a._cancel?.();
+        } else if (step[0] === "take") {
+          if (step[2]) ctx.window.location.pathname = step[2];
+          takes.push(ctx.window.takeGlbAcceptedView(step[1]));
+        } else if (step[0] === "submit") {
+          fakeForm.fire("submit", {});
         }
         await new Promise((r) => setImmediate(r));
+        savePosTrail.push(savePosShown());
       }
     }
 
@@ -212,6 +285,13 @@ const scenarios = {
       fetches,
       calls: strategy.calls,
       events,
+      takes,
+      mapCalls,
+      stored: sessionStore.has("glbAcceptedView")
+        ? JSON.parse(sessionStore.get("glbAcceptedView"))
+        : null,
+      savePosTrail,
+      savedAnchor: a.saved?.anchor ?? null,
       status: fakeEls["glbAlignStatus"]?.textContent || "",
       controlsDisplay: fakeEls["glbAlignControls"]?.style?.display ?? "none",
       fileDisabled: fakeEls["glbFileInput"]?.disabled ?? false,
@@ -224,7 +304,31 @@ const scenarios = {
       hint: fakeEls["glbAlignHint"]?.textContent || "",
       anchor: a.anchor,
       dirty: a.dirty,
+      formInputs: fakeForm.children.map((c) => ({
+        name: c.name,
+        type: c.type,
+        value: c.value,
+      })),
     };
+  },
+
+  async savedOverlay(args) {
+    const { ctx, strategy } = load({ ...args, mapReady: false });
+    const a = new ctx.__api.GlbAlignment();
+    const flush = () => new Promise((r) => setImmediate(r));
+    const becomeReady = () => {
+      ctx.window.mapManager = { getMapStrategy: () => strategy };
+      ctx.window.fire("geomap-ready", {});
+    };
+    if (args.order === "mapFirst") {
+      becomeReady();
+      await flush();
+    } else {
+      await flush();
+      becomeReady();
+    }
+    a._render();
+    return { ok: true, calls: strategy.calls };
   },
 
   helpers(args) {

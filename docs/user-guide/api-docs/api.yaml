@@ -1141,7 +1141,7 @@ paths:
       description: >-
         Store a previously staged GLB file with its geospatial anchor. The GLB is stored but not
         applied; if use_glb_map is already true, the new GLB is re-applied immediately at the new
-        anchor, otherwise apply it with PATCH use_glb_map: true. The anchor specifies the footprint
+        anchor, otherwise apply it with PUT use_glb_map: true. The anchor specifies the footprint
         centre latitude and longitude, and heading_deg is the clockwise rotation of the GLB's +Y axis
         from true north. Server-side, the footprint is measured from the GLB mesh. The previously
         stored GLB and its preview are deleted after a successful commit. Cameras, regions, and
@@ -1236,10 +1236,10 @@ paths:
           description: Scene not found or staged GLB not found/expired
         "500":
           description: Internal server error
-    patch:
+    put:
       tags:
         - scene
-      operationId: scene_geospatial_glb_partial_update
+      operationId: scene_geospatial_glb_update
       summary: Update geospatial alignment of a committed GLB
       description: >-
         Partially update a committed GLB's position and/or applied state. Both anchor and use_glb_map

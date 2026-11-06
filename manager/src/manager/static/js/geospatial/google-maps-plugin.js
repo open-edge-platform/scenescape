@@ -96,6 +96,7 @@ class GoogleMapsPlugin extends MapInterface {
       }
     });
 
+    window.dispatchEvent(new Event("geomap-ready"));
     document.body.className = "google-maps-active";
   }
 

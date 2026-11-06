@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for GLB API endpoints: GET, POST, PATCH, DELETE, download.
+"""Unit tests for GLB API endpoints: GET, POST, PUT, DELETE, download.
 
 Tests the DRF/Django view layer for GeospatialGlb* endpoints covering:
   - Authentication and permission checks
@@ -13,7 +13,7 @@ Coverage:
   D1: GET /scene/{id}/geospatial-glb happy path (exists:true/false)
   D2: GET response format: filename, download_url, anchor, footprint_m, use_glb_map, preview_url
   D3: POST /scene/{id}/geospatial-glb with valid token and anchor (201/200)
-  D4: PATCH /scene/{id}/geospatial-glb to update anchor and use_glb_map
+  D4: PUT /scene/{id}/geospatial-glb to update anchor and use_glb_map
   D5: DELETE /scene/{id}/geospatial-glb
   D6: Error cases: invalid anchor (400), non-bool use_glb_map (400), non-geospatial (400)
   D7: Auth: unauthenticated (403), non-admin (403)
@@ -222,8 +222,8 @@ class TestGeospatialGlbApiPostEndpoint(TransactionTestCase):
     self.assertEqual(response.status_code, 403)
 
 
-class TestGeospatialGlbApiPatchEndpoint(TransactionTestCase):
-  """Tests for PATCH /scene/{id}/geospatial-glb endpoint."""
+class TestGeospatialGlbApiPutEndpoint(TransactionTestCase):
+  """Tests for PUT /scene/{id}/geospatial-glb endpoint."""
 
   def setUp(self):
     """Create superuser and scene with stored GLB."""
@@ -260,13 +260,13 @@ class TestGeospatialGlbApiPatchEndpoint(TransactionTestCase):
     self.scene.save()
     self.client.force_login(self.user)
 
-  def test_patch_glb_updates_anchor(self):
-    """D4: PATCH with new anchor updates glb_anchor."""
+  def test_put_glb_updates_anchor(self):
+    """D4: PUT with new anchor updates glb_anchor."""
     new_anchor = {'lat': 37.40, 'lng': -121.95, 'heading_deg': 45.0}
 
     with patch.object(Scene, 'saveThumbnail'), \
          patch('manager.models.sendUpdateCommand'):
-      response = self.client.patch(
+      response = self.client.put(
         reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
         data=json.dumps({'anchor': new_anchor}),
         content_type='application/json'
@@ -276,9 +276,9 @@ class TestGeospatialGlbApiPatchEndpoint(TransactionTestCase):
     self.scene.refresh_from_db()
     self.assertAlmostEqual(self.scene.glb_anchor['lat'], 37.40, places=5)
 
-  def test_patch_glb_invalid_use_glb_map_returns_400(self):
-    """D6: PATCH with non-bool use_glb_map returns 400."""
-    response = self.client.patch(
+  def test_put_glb_invalid_use_glb_map_returns_400(self):
+    """D6: PUT with non-bool use_glb_map returns 400."""
+    response = self.client.put(
       reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
       data=json.dumps({'use_glb_map': 'yes'}),
       content_type='application/json'

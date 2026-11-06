@@ -465,6 +465,20 @@ class SceneUpdateView(SuperUserCheck, UpdateView):
     if generated_filename:
       # Set the map field to the generated file
       form.instance.map = generated_filename
+    # A shifted saved GLB is posted by glb-alignment.js; persist it like the Save position button does
+    glb_anchor = self.request.POST.get('glb_anchor')
+    if glb_anchor:
+      if not form.instance.glb_map:
+        form.add_error(None, 'No stored GLB to move')
+        return self.form_invalid(form)
+      try:
+        glb_alignment.move_glb_anchor(form.instance, json.loads(glb_anchor))
+      except json.JSONDecodeError:
+        form.add_error(None, 'Invalid GLB anchor')
+        return self.form_invalid(form)
+      except glb_alignment.GlbAlignmentError as e:
+        form.add_error(None, e.message)
+        return self.form_invalid(form)
     return super().form_valid(form)
 
 class SceneImportView(SuperUserCheck, CreateView):
@@ -1211,11 +1225,11 @@ class GeospatialGlbPreview(APIView):
 
 
 class GeospatialGlb(APIView):
-  """Get, POST, PATCH, or DELETE a geospatial GLB.
+  """Get, POST, PUT, or DELETE a geospatial GLB.
 
   GET: returns {exists, filename, download_url, anchor, footprint_m, use_glb_map, preview_url}
   POST {token, anchor}: store the staged GLB; applies if use_glb_map already True
-  PATCH {anchor?, use_glb_map?}: MOVE anchor and/or APPLY/UNAPPLY
+  PUT {anchor?, use_glb_map?}: MOVE anchor and/or APPLY/UNAPPLY
   DELETE: remove the GLB
   """
   authentication_classes = [SessionAuthentication, TokenAuthentication]
@@ -1255,8 +1269,8 @@ class GeospatialGlb(APIView):
       log.error(f"Traceback: {traceback.format_exc()}")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
-  def patch(self, request, scene_uid):
-    """PATCH {anchor?, use_glb_map?}: MOVE and/or APPLY/UNAPPLY."""
+  def put(self, request, scene_uid):
+    """PUT {anchor?, use_glb_map?}: MOVE and/or APPLY/UNAPPLY."""
     try:
       try:
         data = request.data
@@ -1290,7 +1304,7 @@ class GeospatialGlb(APIView):
     except glb_alignment.GlbAlignmentError as e:
       return JsonResponse({'error': e.message}, status=e.status)
     except Exception as e:
-      log.error(f"Error in geospatial GLB PATCH: {e}")
+      log.error(f"Error in geospatial GLB PUT: {e}")
       log.error(f"Traceback: {traceback.format_exc()}")
       return JsonResponse({'error': 'An internal error has occurred'}, status=500)
 
