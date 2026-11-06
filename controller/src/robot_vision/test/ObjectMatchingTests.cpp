@@ -479,4 +479,36 @@ TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithDegenerateCovar
   }
 }
 
+TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithNonSpdCovariance)
+{
+  // Indefinite / negative-definite S_xy used to invert and yield negative d^2 (always under any chi^2 gate, preferred
+  // by Hungarian). Reject them the same way as a singular covariance.
+  const double chi2 = rv::chi2Threshold(0.99, 2);
+  struct Case
+  {
+    const char *name;
+    double s00, s01, s11;
+  };
+  for (const auto &[name, s00, s01, s11] : {Case{"negative definite", -1.0, 0.0, -1.0},
+                                            Case{"indefinite", 1.0, 2.0, 1.0},
+                                            Case{"s00 negative", -0.2, 0.0, 0.2},
+                                            Case{"non-finite", std::numeric_limits<double>::quiet_NaN(), 0.0, 1.0}})
+  {
+    SCOPED_TRACE(name);
+    EXPECT_EQ(assignedCount(makePositionTrack(s00, s01, s11), makePerson(0.0, 0.0), DistanceType::PositionMahalanobis,
+                            chi2),
+              0U);
+  }
+
+  // ND track must not steal a far detection from a PSD track: before the fix, d^2 = -25 beat the PSD near cost.
+  auto badTrack = makePositionTrack(-1.0, 0.0, -1.0);
+  auto goodTrack = makePositionTrack(0.2, 0.0, 0.2);
+  const auto assignments =
+    matchedPairs({badTrack, goodTrack}, {makePerson(0.1, 0.0), makePerson(5.0, 0.0)}, DistanceType::PositionMahalanobis,
+                 chi2, 10.0);
+  EXPECT_EQ(assignments.size(), 1U);
+  EXPECT_EQ(assignments.front().first, 1U);  // PSD track
+  EXPECT_EQ(assignments.front().second, 0U); // near detection
+}
+
 } // namespace

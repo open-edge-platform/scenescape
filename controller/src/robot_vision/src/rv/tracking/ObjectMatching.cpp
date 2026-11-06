@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <algorithm>
+#include <cmath>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -95,6 +96,31 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
   return mahalanobisCostFromCache(measurement, track, buildMahalanobisTrackCache(track));
 }
 
+namespace {
+
+/// Invert the 2x2 position block of S when it is symmetric positive definite.
+/// Rejects singular, indefinite, and negative-definite matrices: inverting those can yield a
+/// negative d^2 that always passes any chi-squared gate and is preferred by Hungarian.
+bool invertPositionCovariance(double s00, double s01, double s11, double &inv00, double &inv01, double &inv11)
+{
+  if (!std::isfinite(s00) || !std::isfinite(s01) || !std::isfinite(s11))
+  {
+    return false;
+  }
+  // Sylvester: SPD iff s00 > 0 and det > 0. Keep the same near-singular floor as before.
+  const double det = s00 * s11 - s01 * s01;
+  if (s00 <= 0.0 || det <= 1e-12)
+  {
+    return false;
+  }
+  inv00 = s11 / det;
+  inv01 = -s01 / det;
+  inv11 = s00 / det;
+  return true;
+}
+
+} // namespace
+
 // Unused: match() costs PositionMahalanobis with the per-track cache below.
 double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
@@ -103,19 +129,14 @@ double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurem
   const double dx = measurement.x - pred_x;
   const double dy = measurement.y - pred_y;
 
-  const double s00 = track.predictedMeasurementCov(0, 0);
-  const double s01 = track.predictedMeasurementCov(0, 1);
-  const double s11 = track.predictedMeasurementCov(1, 1);
-
-  const double det = s00 * s11 - s01 * s01;
-  if (std::abs(det) < 1e-12)
+  double inv00 = 0.0;
+  double inv01 = 0.0;
+  double inv11 = 0.0;
+  if (!invertPositionCovariance(track.predictedMeasurementCov(0, 0), track.predictedMeasurementCov(0, 1),
+                                track.predictedMeasurementCov(1, 1), inv00, inv01, inv11))
   {
     return kDefaultClassBoundValue;
   }
-
-  const double inv00 = s11 / det;
-  const double inv01 = -s01 / det;
-  const double inv11 = s00 / det;
 
   return dx * (inv00 * dx + inv01 * dy) + dy * (inv01 * dx + inv11 * dy);
 }
@@ -138,19 +159,8 @@ PositionMahalanobisTrackCache buildPositionMahalanobisTrackCache(const TrackedOb
   PositionMahalanobisTrackCache cache;
   cache.pred_x = track.predictedMeasurementMean(0);
   cache.pred_y = track.predictedMeasurementMean(1);
-
-  const double s00 = track.predictedMeasurementCov(0, 0);
-  const double s01 = track.predictedMeasurementCov(0, 1);
-  const double s11 = track.predictedMeasurementCov(1, 1);
-  const double det = s00 * s11 - s01 * s01;
-  if (std::abs(det) < 1e-12)
-  {
-    return cache;
-  }
-  cache.inv00 = s11 / det;
-  cache.inv01 = -s01 / det;
-  cache.inv11 = s00 / det;
-  cache.valid = true;
+  cache.valid = invertPositionCovariance(track.predictedMeasurementCov(0, 0), track.predictedMeasurementCov(0, 1),
+                                         track.predictedMeasurementCov(1, 1), cache.inv00, cache.inv01, cache.inv11);
   return cache;
 }
 
