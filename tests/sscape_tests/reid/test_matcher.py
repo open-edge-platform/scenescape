@@ -5,9 +5,11 @@
 
 import concurrent.futures
 import unittest
+from unittest import mock
 
 import numpy as np
 
+from reid import observability
 from reid.matcher import MatcherConfig, TrackMatcher, TrackObservation
 from reid.reid import ReidNoValidVectorsError, ReidPartialWriteError
 
@@ -122,6 +124,22 @@ class TestControllerStateParity(unittest.TestCase):
     self.assertEqual(states[0]["reid_state"], "reid_disabled")
     self.assertEqual(matcher.adapter.queries, [])
     self.assertEqual(decisions, [])
+
+  def test_backend_and_decision_durations_are_recorded_separately(self):
+    matcher, _ = make(write_enabled=True)
+    with mock.patch.object(observability, "record_backend_query_duration") as query_metric, \
+         mock.patch.object(observability, "record_backend_write_duration") as write_metric, \
+         mock.patch.object(observability, "record_decision_latency") as decision_metric:
+      feed(matcher, "t1", [vec(1, 0), vec(0, 1), vec(1, 1)])
+      matcher.process_frame([])
+
+    query_metric.assert_called_once()
+    self.assertEqual(query_metric.call_args.args[1], "FakeAdapter")
+    write_metric.assert_called_once()
+    self.assertEqual(write_metric.call_args.args[1], "FakeAdapter")
+    decision_metric.assert_called_once()
+    self.assertGreaterEqual(decision_metric.call_args.args[0], 0.0)
+    self.assertEqual(decision_metric.call_args.args[1], "person")
 
   def test_inflight_query_stays_pending_then_no_match_counts(self):
     executor = DeferredExecutor()

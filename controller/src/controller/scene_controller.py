@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import defaultdict
+import math
 import os
 import queue
 import threading
@@ -40,6 +41,8 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
+CONTROLLER_REID_MODE_ENV_VAR = 'CONTROLLER_REID_MODE'
+REID_OWNERSHIP_SNAPSHOT_MAX_AGE_SECS = 30.0
 # Ingest-failure errors are logged at most once per window for each publisher.
 FAILURE_RATE_LIMIT_WINDOW_S = 10
 
@@ -138,6 +141,15 @@ class SceneController:
 
     if reid_config_file is not None:
       self.extractReidConfigData(reid_config_file)
+
+    self.reid_ownership_mode = os.getenv(CONTROLLER_REID_MODE_ENV_VAR, 'controller').strip().lower()
+    if self.reid_ownership_mode not in ('controller', 'service'):
+      raise ValueError(f"{CONTROLLER_REID_MODE_ENV_VAR} must be 'controller' or 'service'")
+    self._reid_ownership_lock = threading.Lock()
+    self._reid_ownership_snapshots = {}
+    if self.reid_ownership_mode == 'service':
+      self.reid_config_data['controller_reid_enabled'] = False
+      log.info("ReID decisions and enrollment are owned by reid-service")
 
     if pose_adjustment_config_file is not None:
       self.extractPoseAdjustmentConfigData(pose_adjustment_config_file)
@@ -417,7 +429,13 @@ class SceneController:
       scene.last_published_detection[otype] = get_epoch_time()
 
       # Rebuild detections list with sensor data included
-      reid_policy = self._hierarchyReidPublishPolicy(scene, otype)
+      ownership_snapshot = None
+      if getattr(self, 'reid_ownership_mode', 'controller') == 'service':
+        ownership_snapshot = self._serviceReidOwnershipSnapshot(scene.uid, otype)
+        reid_policy = (ownership_snapshot['write_mode'] if ownership_snapshot is not None
+                       else 'withhold')
+      else:
+        reid_policy = self._hierarchyReidPublishPolicy(scene, otype)
       will_enroll = reid_policy == 'will_enroll'
       jdata = jdata_base.copy()
 
@@ -428,21 +446,111 @@ class SceneController:
       jdata.pop('pose', None)
       jdata.pop('track', None)
 
+      reid_enrolled_fn = None
+      if will_enroll:
+        if ownership_snapshot is not None:
+          reid_enrolled_fn = lambda aobj, _snapshot=ownership_snapshot: (
+            self._serviceTrackHasReidEnrollment(_snapshot, aobj))
+        else:
+          reid_enrolled_fn = lambda aobj, _scene=scene: (
+            self._trackHasReidEnrollment(_scene, aobj))
+
       jdata['objects'] = buildDetectionsList(
         objects, scene, self.visibility_topic == 'unregulated', include_sensors=True,
         attach_reid_provenance=True,
         minimum_bbox_area=scene.reid_config_data.get('minimum_bbox_area'),
         will_enroll_reid=will_enroll,
         withhold_reid=(reid_policy == 'withhold'),
-        reid_enrolled_fn=(
-          (lambda aobj, _scene=scene: self._trackHasReidEnrollment(_scene, aobj))
-          if will_enroll else None))
+        reid_enrolled_fn=reid_enrolled_fn)
+      if ownership_snapshot is not None:
+        self._applyServiceIdentitySnapshot(jdata['objects'], ownership_snapshot)
+        jdata['unique_detection_count'] = ownership_snapshot.get(
+          'unique_id_count', jdata.get('unique_detection_count', 0))
       jstr = orjson.dumps(jdata, option=orjson.OPT_SERIALIZE_NUMPY)
 
       scene_hierarchy_topic = PubSub.formatTopic(PubSub.DATA_EXTERNAL, scene_id=scene.uid,
                                                  thing_type=otype)
       self.pubsub.publish(scene_hierarchy_topic, jstr)
     return
+
+  def handleReidOwnershipMessage(self, client, userdata, message):
+    """Cache a validated, fresh service ownership snapshot by scene/category."""
+    try:
+      snapshot = orjson.loads(message.payload)
+      scene_id = str(snapshot['scene_id'])
+      category = str(snapshot['category'])
+      timestamp = float(snapshot['timestamp'])
+      write_mode = snapshot['write_mode']
+      tracks = snapshot['tracks']
+      unique_id_count = snapshot.get('unique_id_count')
+      if (not scene_id or not category or not math.isfinite(timestamp) or write_mode not in
+          ('passthrough', 'withhold', 'will_enroll') or not isinstance(tracks, dict)):
+        raise ValueError("invalid ownership snapshot fields")
+      if unique_id_count is not None and (
+          isinstance(unique_id_count, bool) or not isinstance(unique_id_count, int)
+          or unique_id_count < 0):
+        raise ValueError("invalid ownership unique_id_count")
+      if abs(time.time() - timestamp) > REID_OWNERSHIP_SNAPSHOT_MAX_AGE_SECS:
+        return
+      for track_id, track in tracks.items():
+        if not isinstance(track_id, str) or not isinstance(track, dict) \
+            or not isinstance(track.get('enrolled'), bool) \
+            or track.get('gid') is not None and not isinstance(track.get('gid'), str) \
+            or track.get('reid_state') not in (
+              'pending_collection', 'matched', 'query_no_match', 'reid_disabled'):
+          raise ValueError("invalid ownership track entry")
+        similarity = track.get('similarity')
+        if similarity is not None and (
+            isinstance(similarity, bool) or not isinstance(similarity, (int, float))
+            or not math.isfinite(similarity)):
+          raise ValueError("invalid ownership similarity")
+    except (KeyError, TypeError, ValueError, orjson.JSONDecodeError) as error:
+      log.warning(f"Ignoring invalid ReID ownership snapshot: {error}")
+      return
+    with self._reid_ownership_lock:
+      self._reid_ownership_snapshots[(scene_id, category)] = snapshot
+
+  def _serviceReidOwnershipSnapshot(self, scene_id, category):
+    with self._reid_ownership_lock:
+      snapshot = self._reid_ownership_snapshots.get((str(scene_id), str(category)))
+    if snapshot is None:
+      return None
+    if abs(time.time() - float(snapshot['timestamp'])) > REID_OWNERSHIP_SNAPSHOT_MAX_AGE_SECS:
+      return None
+    return snapshot
+
+  @staticmethod
+  def _serviceTrackHasReidEnrollment(snapshot, aobj):
+    track_id = str(getattr(aobj, 'gid', ''))
+    return bool(snapshot.get('tracks', {}).get(track_id, {}).get('enrolled', False))
+
+  @staticmethod
+  def _applyServiceIdentitySnapshot(objects, snapshot):
+    """Apply service-owned identity state to serialized hierarchy detections."""
+    tracks = snapshot.get('tracks', {})
+    for detection in objects:
+      track_id = str(detection.get('id', ''))
+      track = tracks.get(track_id)
+      if track is None:
+        continue
+      reid_state = track.get('reid_state')
+      if reid_state is not None:
+        detection['reid_state'] = reid_state
+      if 'similarity' in track:
+        detection['similarity'] = track['similarity']
+      service_gid = track.get('gid')
+      if service_gid is None or str(service_gid) == track_id:
+        continue
+
+      previous_ids = list(detection.get('previous_ids_chain') or [])
+      if not any(str(entry.get('id')) == track_id for entry in previous_ids):
+        previous_ids.append({
+          'id': track_id,
+          'timestamp': get_iso_time(float(snapshot['timestamp'])),
+          'similarity_score': track.get('similarity'),
+        })
+      detection['previous_ids_chain'] = previous_ids
+      detection['id'] = str(service_gid)
 
   def _sceneHasReidWriteIntent(self):
     """
@@ -1217,6 +1325,15 @@ class SceneController:
       ),
       self.handleMovingObjectMessage,
     ))
+    if getattr(self, 'reid_ownership_mode', 'controller') == 'service':
+      need_subscribe.add((
+        PubSub.formatTopic(
+          PubSub.DATA_REID_OWNERSHIP,
+          scene_id="+",
+          thing_type="+",
+        ),
+        self.handleReidOwnershipMessage,
+      ))
 
     def connectionConfig(info):
       """Return fields that require replacing a remote MQTT connection."""
