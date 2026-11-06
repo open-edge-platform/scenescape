@@ -9,7 +9,7 @@ SHELL := /bin/bash
 # Build folders
 COMMON_FOLDER := scene_common
 CORE_IMAGE_FOLDERS := autocalibration controller manager analytics positioning
-IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid
+IMAGE_FOLDERS := $(CORE_IMAGE_FOLDERS) mapping cluster_analytics tracker reid observation_processor
 
 # Image variables
 IMAGE_PREFIX := scenescape
@@ -84,8 +84,8 @@ DEPLOYMENT_TEST ?= 0
 # First-party application trees; this list is the complexity scope of record.
 COMPLEXITY_SOURCES := analytics/src/analytics autocalibration/src cluster_analytics/src \
 	controller/src/controller controller/src/robot_vision/python/src/robot_vision \
-	manager/src/manager mapping/src reid/src/reid scene_common/src/scene_common \
-	model_download/src
+	manager/src/manager mapping/src observation_processor/src/observation_processor  reid/src/reid \
+	scene_common/src/scene_common model_download/src
 COMPLEXITY_SERVICES := $(sort $(foreach tree,$(COMPLEXITY_SOURCES),$(firstword $(subst /, ,$(tree)))))
 COMPLEXITY_REPORT_DIR ?= $(BUILD_DIR)/complexity
 COMPLEXITY_TOP ?= 20
@@ -238,7 +238,8 @@ $(IMAGE_FOLDERS):
 	@echo "DONE ====> Building folder $@"
 
 # Dependency on the common base image
-autocalibration controller manager analytics mapping cluster_analytics reid positioning: build-common
+autocalibration controller manager analytics mapping cluster_analytics reid positioning \
+	observation_processor: build-common
 
 # Helper function to build images in parallel
 define parallel-build
@@ -414,6 +415,7 @@ UNIT_COV_CONFIG := $(TESTS_DIR)/config.coveragerc
 UNIT_COV_FAIL_UNDER ?= 70
 UNIT_COV_SOURCES_CMD := $(CURDIR)/tests/.venv/bin/python -c 'import configparser, sys; \
 	c = configparser.ConfigParser(); c.read(sys.argv[1]); print(c["run"]["source"])' $(UNIT_COV_CONFIG)
+UNIT_TEST_EXTRA_ARGS ?=
 
 .PHONY: setup-tests
 setup-tests: init-secrets .env setup-pytest build-common
@@ -528,18 +530,21 @@ run_ui_tests: setup-tests
 run_unit_tests: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests..."
-	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) || (echo "Unit tests failed" && exit 1)
+	$(MAKE) run_sscape_unit_suite
 	@echo "DONE ==> Running unit tests"
 
 .PHONY: run_unit_tests_coverage
 run_unit_tests_coverage: init-secrets setup-pytest
 	$(MAKE) $(DLSTREAMER_SAMPLE_VIDEOS);
 	@echo "Running unit tests with coverage..."
-	$(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) \
-		--cov --cov-config=$(UNIT_COV_CONFIG) --cov-report= \
-		|| (echo "Unit tests failed" && exit 1)
+	$(MAKE) run_sscape_unit_suite UNIT_TEST_EXTRA_ARGS="--cov --cov-config=$(UNIT_COV_CONFIG) --cov-report="
 	$(MAKE) check-unit-coverage
 	@echo "DONE ==> Running unit tests with coverage"
+
+.PHONY: run_sscape_unit_suite
+run_sscape_unit_suite:
+	PYTHONDONTWRITEBYTECODE=1 $(PYTEST) $(TESTS_DIR)/sscape_tests/ $(PYTEST_FLAGS) $(UNIT_TEST_EXTRA_ARGS) \
+		|| { echo "Unit tests failed"; exit 1; }
 
 .PHONY: check-unit-coverage
 check-unit-coverage:

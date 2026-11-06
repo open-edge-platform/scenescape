@@ -15,6 +15,7 @@ Compose stack runs at a time.  Tests are sorted by profile so the
 stack is only restarted when the required profile changes.
 """
 
+import atexit
 import contextlib
 import copy
 import logging
@@ -38,6 +39,99 @@ if str(_TESTS_DIR) not in sys.path:
   sys.path.insert(0, str(_TESTS_DIR))
 if str(_REPO_ROOT) not in sys.path:
   sys.path.insert(0, str(_REPO_ROOT))
+
+_OBSERVATION_PROCESSOR_TESTS = _TESTS_DIR / "sscape_tests" / "observation_processor"
+_OBSERVATION_PROCESSOR_PROTO = (
+  _REPO_ROOT / "observation_processor" / "proto" / "observation_processor.proto")
+_OBSERVATION_PROCESSOR_GENERATED_DIR = (
+  _REPO_ROOT / "observation_processor" / "src" / "observation_processor" / "grpc_api")
+_OBSERVATION_PROCESSOR_GENERATED_FILES = (
+  _OBSERVATION_PROCESSOR_GENERATED_DIR / "observation_processor_pb2.py",
+  _OBSERVATION_PROCESSOR_GENERATED_DIR / "observation_processor_pb2_grpc.py",
+)
+_OBSERVATION_PROCESSOR_PROTO_BACKUPS = None
+
+
+def _pytest_selects_observation_processor():
+  """Return whether the pytest command may collect Observation Processor tests."""
+  selected_paths = []
+  for argument in sys.argv[1:]:
+    if argument.startswith("-"):
+      continue
+    path = Path(argument.split("::", 1)[0])
+    if not path.is_absolute():
+      path = Path.cwd() / path
+    try:
+      path = path.resolve(strict=True)
+    except OSError:
+      continue
+    selected_paths.append(path)
+
+  if not selected_paths:
+    return True
+  target = _OBSERVATION_PROCESSOR_TESTS.resolve()
+  return any(path == target or path in target.parents or target in path.parents
+             for path in selected_paths)
+
+
+def _restore_observation_processor_protos():
+  """Restore ignored generated protobufs to their pre-pytest state."""
+  global _OBSERVATION_PROCESSOR_PROTO_BACKUPS
+  if _OBSERVATION_PROCESSOR_PROTO_BACKUPS is None:
+    return
+  for path, backup in _OBSERVATION_PROCESSOR_PROTO_BACKUPS.items():
+    if backup is None:
+      path.unlink(missing_ok=True)
+    else:
+      contents, mode = backup
+      path.write_bytes(contents)
+      path.chmod(mode)
+  pycache = _OBSERVATION_PROCESSOR_GENERATED_DIR / "__pycache__"
+  for name in ("observation_processor_pb2.*.pyc", "observation_processor_pb2_grpc.*.pyc"):
+    for cached_file in pycache.glob(name):
+      cached_file.unlink(missing_ok=True)
+  _OBSERVATION_PROCESSOR_PROTO_BACKUPS = None
+
+
+def _prepare_observation_processor_protos():
+  """Generate ignored gRPC modules before test conftests import them."""
+  global _OBSERVATION_PROCESSOR_PROTO_BACKUPS
+  if not _pytest_selects_observation_processor():
+    return
+
+  _OBSERVATION_PROCESSOR_GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+  _OBSERVATION_PROCESSOR_PROTO_BACKUPS = {
+    path: (path.read_bytes(), path.stat().st_mode & 0o777) if path.exists() else None
+    for path in _OBSERVATION_PROCESSOR_GENERATED_FILES
+  }
+  atexit.register(_restore_observation_processor_protos)
+  try:
+    subprocess.run(
+      [
+        sys.executable,
+        "-m", "grpc_tools.protoc",
+        f"-I{_OBSERVATION_PROCESSOR_PROTO.parent}",
+        f"--python_out={_OBSERVATION_PROCESSOR_GENERATED_DIR}",
+        f"--grpc_python_out={_OBSERVATION_PROCESSOR_GENERATED_DIR}",
+        str(_OBSERVATION_PROCESSOR_PROTO),
+      ],
+      cwd=_REPO_ROOT,
+      check=True,
+    )
+    grpc_module = _OBSERVATION_PROCESSOR_GENERATED_FILES[1]
+    generated = grpc_module.read_text()
+    generated_import = "import observation_processor_pb2 as"
+    if generated_import in generated:
+      grpc_module.write_text(generated.replace(
+        generated_import, "from . import observation_processor_pb2 as", 1))
+    elif "from . import observation_processor_pb2 as" not in generated:
+      raise RuntimeError("Unexpected generated import in observation_processor_pb2_grpc.py")
+  except Exception:
+    _restore_observation_processor_protos()
+    raise
+
+
+_prepare_observation_processor_protos()
 
 _PERF_TESTS_DIR = _TESTS_DIR / "perf_tests"
 if str(_PERF_TESTS_DIR) not in sys.path:
@@ -1176,6 +1270,11 @@ def pytest_configure(config):
   config.addinivalue_line("markers", "test_name(name): sets the XML test name attribute")
   config.addinivalue_line("markers", "kubernetes_only: test only runs with --backend=kubernetes or --backend=all")
   config.addinivalue_line("markers", "fresh_stack: start a brand-new compose stack for this test instead of reusing the shared one")
+
+
+def pytest_unconfigure(config):
+  """Restore generated protobuf files after pytest has finished collecting/running."""
+  _restore_observation_processor_protos()
 
 
 # ---------------------------------------------------------------------------

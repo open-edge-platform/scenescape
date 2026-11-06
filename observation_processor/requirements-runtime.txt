@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: (C) 2026 Intel Corporation
+# SPDX-License-Identifier: Apache-2.0
+# This file is licensed under Apache 2.0 License.
+
+numpy==2.2.6
+opencv-python-headless==4.13.0.92
+scipy==1.17.1
+open3d-cpu==0.19.0
+grpcio==1.76.0
+grpcio-health-checking==1.76.0
+paho-mqtt==2.1.0
+protobuf==6.33.6
+requests==2.33.0
