@@ -82,20 +82,26 @@ def test_normalize_association_config_keeps_explicit_euclidean_max_radius():
   assert config['max_radius_m'] == pytest.approx(3.0)
 
 
-def test_normalize_association_config_warns_on_tight_mahalanobis_ceiling(monkeypatch):
+def test_tight_mahalanobis_ceiling_warns_only_when_the_config_is_loaded(monkeypatch):
+  # normalize_association_config runs per frame and per object (association window), so it must not warn.
+  from controller.ilabs_tracking import warn_association_config
   warnings = []
-
-  def capture_warning(*args):
-    warnings.append(args)
-
-  monkeypatch.setattr('controller.ilabs_tracking.log.warning', capture_warning)
+  monkeypatch.setattr('controller.ilabs_tracking.log.warning', lambda *args: warnings.append(args))
   config = normalize_association_config({
     'method': 'position_mahalanobis',
     'max_radius_m': 2.0,
   })
+  association_match_params(config)
+  build_association_window(config, np.eye(7))
   assert config['max_radius_m'] == pytest.approx(2.0)
-  assert warnings
+  assert not warnings
+
+  warn_association_config(config)
+  assert len(warnings) == 1
   assert 'position_mahalanobis with max_radius_m' in warnings[0][0]
+
+  warn_association_config(normalize_association_config())
+  assert len(warnings) == 1
 
 
 def test_association_match_params_euclidean_uses_max_radius_as_threshold():
@@ -244,16 +250,26 @@ def test_update_tracks_euclidean_without_max_radius_gates_on_average_tracking_ra
   ({'method': 'position_mahalanobis'}, True),
 ])
 def test_update_tracks_warns_when_tracking_radius_is_ignored(monkeypatch, association_config, warns):
+  # Once per tracker, not every frame: the default config with the default vehicle asset (10 m) hits it.
   warnings = []
   monkeypatch.setattr('controller.ilabs_tracking.log.warning', lambda *args: warnings.append(args))
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)
   tracker.association_config = normalize_association_config(association_config)
   tracker.tracker = SimpleNamespace(track=lambda objects, timestamp, **kwargs: None)
   monkeypatch.setattr(IntelLabsTracking, 'to_rv_object', lambda self, sscape_object: sscape_object.name)
+  car = SimpleNamespace(name='car', tracking_radius=10.0)
 
-  tracker.update_tracks([SimpleNamespace(name='car', tracking_radius=10.0)], 1.0)
+  for timestamp in (1.0, 2.0, 3.0):
+    tracker.update_tracks([car], timestamp)
+  tracker.update_tracks_batched([[car], [car]], 4.0)
 
-  assert bool(warnings) == warns
+  assert len(warnings) == (1 if warns else 0)
+  # Another tracker warns again.
+  other = IntelLabsTracking.__new__(IntelLabsTracking)
+  other.association_config = tracker.association_config
+  other.tracker = tracker.tracker
+  other.update_tracks([car], 5.0)
+  assert len(warnings) == (2 if warns else 0)
 
 
 @pytest.mark.parametrize("yaw", [

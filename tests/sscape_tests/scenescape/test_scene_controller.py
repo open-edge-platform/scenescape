@@ -76,6 +76,23 @@ class TestSceneControllerExtractTrackerConfigAssociation:
     assert association['method'] == 'position_mahalanobis'
     assert association['max_radius_m'] == pytest.approx(10.0)
 
+  @pytest.mark.parametrize('max_radius_m, warnings', [(2.0, 1), (10.0, 0)])
+  def test_extract_association_warns_once_on_tight_mahalanobis_ceiling(self, tmp_path, max_radius_m, warnings):
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+    config_path = tmp_path / 'tracker-config.json'
+    config_path.write_text(json.dumps({
+      'max_unreliable_time_s': 1.0,
+      'non_measurement_time_dynamic_s': 0.8,
+      'non_measurement_time_static_s': 1.6,
+      'association': {'method': 'position_mahalanobis', 'max_radius_m': max_radius_m},
+    }))
+
+    with patch('controller.ilabs_tracking.log') as log:
+      scene_controller.extractTrackerConfigData(str(config_path))
+
+    assert log.warning.call_count == warnings
+
   def test_extract_association_euclidean_without_max_radius_gates_on_tracking_radius(self, tmp_path):
     scene_controller = SceneController.__new__(SceneController)
     scene_controller.tracker_config_data = {}
