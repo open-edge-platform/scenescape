@@ -185,6 +185,7 @@ double zeroedYawDistance(const TrackedObject &measurement, const TrackedObject &
   return 0.5 * std::sqrt(innovation.dot(inverseCovariance(track) * innovation));
 }
 
+// Legacy DistanceType::Mahalanobis, not used by the services.
 TEST(ObjectMatchingTest, MahalanobisDistanceUsesInverseCovarianceOfPredictedMeasurement)
 {
   const auto track = makeTrack();
@@ -201,6 +202,7 @@ TEST(ObjectMatchingTest, MahalanobisDistanceUsesInverseCovarianceOfPredictedMeas
   EXPECT_DOUBLE_EQ(calculateMahalanobisDistance(onTrack, track), 0.0);
 }
 
+// Legacy DistanceType::Mahalanobis, not used by the services.
 TEST(ObjectMatchingTest, MahalanobisDistanceUsesYawOnlyWhenBothSidesHaveOrientation)
 {
   const struct
@@ -305,6 +307,7 @@ size_t assignedCount(const TrackedObject &track,
   return matchedPairs({track}, {measurement}, distanceType, threshold, maxRadiusM).size();
 }
 
+// Legacy DistanceType::Mahalanobis, not used by the services.
 TEST(ObjectMatchingTest, MahalanobisMatchUsesTheDistanceCost)
 {
   // match() costs each pair with calculateMahalanobisDistance (MCEMahalanobis: its average with the multi-class
@@ -371,6 +374,7 @@ TrackedObject makeOrientedCar(double yaw)
   return car;
 }
 
+// Legacy DistanceType::Mahalanobis, not used by the services.
 TEST(ObjectMatchingTest, MahalanobisDistanceWrapsYaw)
 {
   // Detection yaw is in (-pi, pi], the predicted yaw is unwrapped, and a box reads the same at yaw + pi: the innovation
@@ -395,6 +399,7 @@ TEST(ObjectMatchingTest, MahalanobisDistanceWrapsYaw)
   }
 }
 
+// Legacy DistanceType::Mahalanobis, not used by the services.
 TEST(ObjectMatchingTest, MahalanobisDistanceAppliesTheYawSpeedGate)
 {
   // At 1 m/s or more the update turns the detection yaw by pi toward the direction of travel and drops it when it is

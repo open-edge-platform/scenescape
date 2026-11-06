@@ -19,6 +19,7 @@ namespace tracking {
 
 constexpr double kDefaultClassBoundValue = 1000.;
 
+// Legacy (DistanceType::MultiClassEuclidean, MCEMahalanobis); the services do not use it.
 double calculateMulticlassScaledDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
   auto conflict = rv::tracking::classification::distance(measurement.classification, track.classification);
@@ -33,13 +34,15 @@ double calculateEuclideanDistance(const TrackedObject &measurement, const Tracke
   return sqrt(pow(measurement.x - track.x, 2) + pow(measurement.y - track.y, 2));
 }
 
+// Legacy Mahalanobis cost (DistanceType::Mahalanobis, MCEMahalanobis); the services do not use it. It returns
+// 0.5 * sqrt(d^2), so its threshold is no chi-squared confidence.
 namespace {
 
 constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
 constexpr int kYaw = TrackedObject::MeasurementSize - 1;
 
-/// Per-track inverses for the Mahalanobis cost (S is fixed for the frame): S^-1, and the inverse of S without the yaw
-/// row and column for pairs without yaw.
+/// Per-track inverses (S is fixed for the frame): S^-1, and the inverse of S without the yaw row and column for pairs
+/// without yaw.
 struct MahalanobisTrackCache
 {
   TrackedObject::MeasurementMatrix covarianceInv;
@@ -91,6 +94,7 @@ double calculateMahalanobisDistance(const TrackedObject &measurement, const Trac
   return mahalanobisCostFromCache(measurement, track, buildMahalanobisTrackCache(track));
 }
 
+// Unused: match() costs PositionMahalanobis with the per-track cache below.
 double calculatePositionMahalanobisSquaredDistance(const TrackedObject &measurement, const TrackedObject &track)
 {
   const double pred_x = track.predictedMeasurementMean(0);

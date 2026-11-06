@@ -23,6 +23,7 @@ constexpr double kDefaultBirthClusterRadiusM = 2.0;
 class MultipleObjectTracker
 {
 public:
+  // The default distance type (MultiClassEuclidean, 5.0) is legacy; the services pass theirs to every track() call.
   MultipleObjectTracker()
   : mDistanceType(DistanceType::MultiClassEuclidean), mDistanceThreshold(5.0)
   {

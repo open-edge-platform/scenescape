@@ -181,13 +181,13 @@ py::class_<rv::tracking::Classification>(tracking, "Classification", "Classifica
 
   py::enum_<rv::tracking::DistanceType>(tracking, "DistanceType", "DistanceType enum class.")
     .value("MultiClassEuclidean", rv::tracking::DistanceType::MultiClassEuclidean,
-     "Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
+     "Legacy, MultipleObjectTracker's default. Scaled euclidean metric distance. It is scaled by the conflict between class probabilities.")
     .value("Euclidean", rv::tracking::DistanceType::Euclidean,
      "Standard euclidean distance that considers x and y coordinates.")
     .value("Mahalanobis", rv::tracking::DistanceType::Mahalanobis,
-     "Mahalanobis distance that considers the objects measurement vector.")
+     "Legacy, not used by the services. 0.5 * sqrt(d^2) over the objects measurement vector; not chi-squared calibrated.")
     .value("MCEMahalanobis", rv::tracking::DistanceType::MCEMahalanobis,
-     "Combination of MultiClassEuclidean and Mahalanobis distances.")
+     "Legacy, not used by the services. Combination of MultiClassEuclidean and Mahalanobis distances.")
     .value("PositionMahalanobis", rv::tracking::DistanceType::PositionMahalanobis,
      "Squared Mahalanobis distance on the (x, y) position block using predicted measurement covariance.")
     .export_values();

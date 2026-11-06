@@ -263,6 +263,7 @@ TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingEuclideanDistance)
   }
 }
 
+// Legacy DistanceType::MultiClassEuclidean, not used by the services.
 TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMultiClassEuclideanDistance)
 {
   auto classificationData = rv::tracking::ClassificationData({"Car", "Bike", "Pedestrian"});
@@ -363,6 +364,7 @@ TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMultiClassEuclideanDist
   }
 }
 
+// Legacy DistanceType::Mahalanobis, not used by the services.
 TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMahalanobisDistance)
 {
   auto classificationData = rv::tracking::ClassificationData({"Car", "Bike", "Pedestrian"});
@@ -464,6 +466,7 @@ TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMahalanobisDistance)
 }
 
 
+// Legacy DistanceType::MCEMahalanobis, not used by the services.
 TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMCEMahalanobisDistance)
 {
   auto classificationData = rv::tracking::ClassificationData({"Car", "Bike", "Pedestrian"});
@@ -578,6 +581,7 @@ rv::tracking::TrackedObject createObjectAtLocation(double x, double y, const rv:
   return object;
 }
 
+// Legacy DistanceType::MCEMahalanobis, not used by the services.
 TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingStressTest)
 {
   auto classificationData = rv::tracking::ClassificationData({"1","2","3","4","5","6","7","8","9","10","11"});
