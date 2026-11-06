@@ -324,6 +324,50 @@ def test_build_association_window_mahalanobis_is_ellipse():
   assert window['angle_rad'] == pytest.approx(0.0, abs=1e-6)
 
 
+def _mahalanobis_window(s00, s01, s11, gate_probability=0.99):
+  cov = np.eye(7)
+  cov[0, 0], cov[0, 1], cov[1, 0], cov[1, 1] = s00, s01, s01, s11
+  return build_association_window({
+    'method': 'position_mahalanobis',
+    'gate_probability': gate_probability,
+    'max_radius_m': 10.0,
+  }, cov)
+
+
+def _angle_difference_modulo_pi(a, b):
+  """An ellipse is symmetric under a half turn, so its angle is defined modulo pi."""
+  return math.remainder(a - b, math.pi)
+
+
+@pytest.mark.parametrize('degrees', [0.0, 30.0, 90.0, -60.0, 135.0])
+def test_build_association_window_follows_rotated_covariance(degrees):
+  """S_xy = R diag(4, 1) R^T: semi-axes sqrt(chi2 * 4) and sqrt(chi2 * 1), major axis at the angle."""
+  angle = math.radians(degrees)
+  c, s = math.cos(angle), math.sin(angle)
+  window = _mahalanobis_window(4 * c * c + s * s, 3 * c * s, 4 * s * s + c * c, 0.95)
+  chi2 = rv.tracking.chi2_threshold(0.95)
+  assert window['shape'] == 'ellipse'
+  assert window['semi_major_m'] == pytest.approx(math.sqrt(chi2 * 4.0))
+  assert window['semi_minor_m'] == pytest.approx(math.sqrt(chi2 * 1.0))
+  assert _angle_difference_modulo_pi(window['angle_rad'], angle) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_build_association_window_major_axis_follows_larger_variance():
+  window = _mahalanobis_window(1.0, 0.0, 9.0)
+  chi2 = rv.tracking.chi2_threshold(0.99)
+  assert window['semi_major_m'] == pytest.approx(math.sqrt(chi2 * 9.0))
+  assert window['semi_minor_m'] == pytest.approx(math.sqrt(chi2 * 1.0))
+  assert _angle_difference_modulo_pi(window['angle_rad'], math.pi / 2) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_build_association_window_clamps_negative_eigenvalues():
+  """Eigenvalues 3 and -1, major axis at 45 degrees: the minor semi-axis is 0, not NaN."""
+  window = _mahalanobis_window(1.0, 2.0, 1.0)
+  assert window['semi_major_m'] == pytest.approx(math.sqrt(rv.tracking.chi2_threshold(0.99) * 3.0))
+  assert window['semi_minor_m'] == 0.0
+  assert _angle_difference_modulo_pi(window['angle_rad'], math.pi / 4) == pytest.approx(0.0, abs=1e-9)
+
+
 def test_from_tracked_object_overwrites_rotation_when_detection_rotation_present():
   yaw = math.pi / 2.0
   tracked_object = _make_tracked_object("uuid-1", yaw=yaw)
