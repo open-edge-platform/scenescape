@@ -108,7 +108,7 @@ RUN : \
 
 # WORKAROUND: Force upgrade protobuf to a secure version, even though vdms pins an older version.
 # This may break vdms if it is not compatible with newer protobuf, but is required to fix CVE-2025-4565.
-# Remove this when vdms supports a secure protobuf version. Pinned: the remote projection stubs
+# Remove this when vdms supports a secure protobuf version. Pinned: the observation processor stubs
 # are verified against this runtime.
 RUN pip3 install --break-system-packages --upgrade --no-cache-dir 'protobuf==7.36.2'
 

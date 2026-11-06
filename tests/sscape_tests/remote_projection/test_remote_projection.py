@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for experimental remote projection in the scene controller."""
+"""Unit tests for experimental observation processor in the scene controller."""
 
 import math
 import time
@@ -17,12 +17,14 @@ import robot_vision as rv
 from scenescape_api.observation_processor.v1 import observation_processor_pb2 as pb
 from scenescape_api.observation_processor.v1 import observation_processor_pb2_grpc as pb_grpc
 
-from controller import remote_projection
+from controller import observation_processor
 from controller.ilabs_tracking import IntelLabsTracking, normalize_association_config
 from controller.moving_object import MovingObject
-from controller.remote_projection import (GrpcProjectionClient, RemoteProjectionSettings,
-                                          RemoteProjector, SceneProjection, apply_measurement,
-                                          settings_from_env)
+from controller.observation_processor import (GrpcObservationProcessorClient,
+                                              RemoteObservationProcessor,
+                                              RemoteObservationProcessorSettings,
+                                              SceneObservationProcessor, apply_measurement,
+                                              settings_from_env)
 from controller.scene import Scene
 from controller.tracking import (MAX_UNRELIABLE_TIME, NON_MEASUREMENT_TIME_DYNAMIC,
                                  NON_MEASUREMENT_TIME_STATIC, Tracking)
@@ -79,7 +81,7 @@ class FakeClient:
     self.error = None
     self.drop_last_reply = False
 
-  def project(self, requests):
+  def process(self, requests):
     self.requests.extend(requests)
     if self.error:
       raise self.error
@@ -91,15 +93,15 @@ class FakeClient:
 def failures(monkeypatch):
   """Captured failed-call metric attributes and warnings."""
   captured = SimpleNamespace(metrics=[], warnings=[])
-  monkeypatch.setattr(remote_projection.metrics, "inc_remote_projection_failed_calls",
+  monkeypatch.setattr(observation_processor.metrics, "inc_observation_processor_failed_calls",
                       lambda attributes=None: captured.metrics.append(attributes))
-  monkeypatch.setattr(remote_projection.log, "warning",
+  monkeypatch.setattr(observation_processor.log, "warning",
                       lambda *args: captured.warnings.append(" ".join(map(str, args))))
   return captured
 
 
 def local_rv_objects(objects_per_camera):
-  """robot_vision inputs as left by the local projection (x = LOCAL_X), in the same layout."""
+  """robot_vision inputs as left by the local processing (x = LOCAL_X), in the same layout."""
   rv_objects_per_camera = []
   for objects in objects_per_camera:
     rv_objects = []
@@ -111,10 +113,10 @@ def local_rv_objects(objects_per_camera):
   return rv_objects_per_camera
 
 
-def project(projector, objects_per_camera):
-  """Run the projector over local rv inputs; return them after remote projection."""
+def process(processor, objects_per_camera):
+  """Run the processor over local rv inputs; return them after observation processing."""
   rv_objects_per_camera = local_rv_objects(objects_per_camera)
-  projector.project("scene-uid", objects_per_camera, rv_objects_per_camera)
+  processor.process("scene-uid", objects_per_camera, rv_objects_per_camera)
   return rv_objects_per_camera
 
 
@@ -133,16 +135,16 @@ def assert_local(rv_object):
   assert rv_object.measurement_noise_covariance is None
 
 
-class TestRemoteProjector:
+class TestRemoteObservationProcessor:
 
   def test_builds_one_request_per_camera_and_applies_measurements_in_layout(self, failures):
     client = FakeClient()
-    projector = RemoteProjector(client, "auto")
+    processor = RemoteObservationProcessor(client, "auto")
     cam1, cam2 = make_camera("cam-1"), make_camera("cam-2")
     objects_per_camera = [[make_object(cam1), make_object(cam1, box=(1.5, 2.5, 3.5, 4.5))],
                           [make_object(cam2, category="person")]]
 
-    rv_objects = project(projector, objects_per_camera)
+    rv_objects = process(processor, objects_per_camera)
 
     assert len(client.requests) == 2
     request = client.requests[0]
@@ -173,7 +175,7 @@ class TestRemoteProjector:
     client = FakeClient()
     sscape_object = make_object(make_camera())
     sscape_object.first_seen = when
-    project(RemoteProjector(client), [[sscape_object]])
+    process(RemoteObservationProcessor(client), [[sscape_object]])
     assert client.requests[0].timestamp.seconds == seconds
     assert client.requests[0].timestamp.nanos == pytest.approx(nanos, abs=1)
 
@@ -184,12 +186,12 @@ class TestRemoteProjector:
   ])
   def test_requests_configured_mode(self, mode, expected):
     client = FakeClient()
-    project(RemoteProjector(client, mode), [[make_object(make_camera())]])
+    process(RemoteObservationProcessor(client, mode), [[make_object(make_camera())]])
     assert client.requests[0].mode == expected
 
   def test_sends_only_pixel_boxes_of_scene_cameras(self, failures):
     client = FakeClient()
-    projector = RemoteProjector(client)
+    processor = RemoteObservationProcessor(client)
     camera = make_camera()
     no_box = make_object(camera)
     no_box.boundingBoxPixels = None
@@ -203,7 +205,7 @@ class TestRemoteProjector:
       make_object(camera),
     ]
 
-    rv_objects = project(projector, [objects])
+    rv_objects = process(processor, [objects])
 
     assert len(client.requests) == 1
     assert len(client.requests[0].detections) == 1
@@ -213,44 +215,44 @@ class TestRemoteProjector:
 
   def test_makes_no_call_without_sendable_detections(self):
     client = FakeClient()
-    rv_objects = project(RemoteProjector(client),
+    rv_objects = process(RemoteObservationProcessor(client),
                          [[make_object(make_camera(), measured_z=True)], []])
     assert client.requests == []
     assert_local(rv_objects[0][0])
     assert rv_objects[1] == []
 
-  def test_failed_call_keeps_local_projection_counts_and_rate_limits_warnings(
+  def test_failed_call_keeps_local_processing_counts_and_rate_limits_warnings(
       self, failures, monkeypatch):
     client = FakeClient(lambda request: (None, "UNAVAILABLE"))
-    projector = RemoteProjector(client)
+    processor = RemoteObservationProcessor(client)
     objects = [[make_object(make_camera())]]
     now = [1000.0]
-    monkeypatch.setattr(remote_projection.time, "monotonic", lambda: now[0])
+    monkeypatch.setattr(observation_processor.time, "monotonic", lambda: now[0])
 
     for _ in range(3):
-      assert_local(project(projector, objects)[0][0])
-    now[0] += remote_projection.WARNING_INTERVAL_S
-    project(projector, objects)
+      assert_local(process(processor, objects)[0][0])
+    now[0] += observation_processor.WARNING_INTERVAL_S
+    process(processor, objects)
 
     assert failures.metrics == [{"scene": "scene-uid", "category": "person", "camera": "cam-1",
                                  "reason": "UNAVAILABLE"}] * 4
     assert len(failures.warnings) == 2
-    assert "camera 'cam-1' (UNAVAILABLE); using local projection" in failures.warnings[0]
+    assert "camera 'cam-1' (UNAVAILABLE); using local processing" in failures.warnings[0]
     assert "2 more failures since the previous warning" in failures.warnings[1]
 
-  def test_client_exception_keeps_local_projection(self, failures):
+  def test_client_exception_keeps_local_processing(self, failures):
     client = FakeClient()
     client.error = RuntimeError("transport broke")
-    rv_objects = project(RemoteProjector(client),
+    rv_objects = process(RemoteObservationProcessor(client),
                          [[make_object(make_camera("cam-1"))], [make_object(make_camera("cam-2"))]])
     assert_local(rv_objects[0][0])
     assert_local(rv_objects[1][0])
     assert [m["reason"] for m in failures.metrics] == ["client_error"] * 2
 
-  def test_missing_reply_keeps_local_projection(self, failures):
+  def test_missing_reply_keeps_local_processing(self, failures):
     client = FakeClient()
     client.drop_last_reply = True
-    rv_objects = project(RemoteProjector(client),
+    rv_objects = process(RemoteObservationProcessor(client),
                          [[make_object(make_camera("cam-1"))], [make_object(make_camera("cam-2"))]])
     assert_local(rv_objects[0][0])
     assert_local(rv_objects[1][0])
@@ -260,26 +262,26 @@ class TestRemoteProjector:
     lambda response: response.measurements.pop(),
     lambda response: setattr(response.measurements[0], "detection_id", "1"),
   ], ids=["count", "detection_id"])
-  def test_malformed_reply_keeps_local_projection(self, failures, corrupt):
+  def test_malformed_reply_keeps_local_processing(self, failures, corrupt):
     def reply(request):
       response = good_response(request)
       corrupt(response)
       return response, ""
     camera = make_camera()
-    rv_objects = project(RemoteProjector(FakeClient(reply)),
+    rv_objects = process(RemoteObservationProcessor(FakeClient(reply)),
                          [[make_object(camera), make_object(camera)]])
     assert_local(rv_objects[0][0])
     assert_local(rv_objects[0][1])
     assert [m["reason"] for m in failures.metrics] == ["invalid_response"]
 
-  def test_unobservable_depth_keeps_local_projection_without_failure(self, failures):
+  def test_unobservable_depth_keeps_local_processing_without_failure(self, failures):
     def reply(request):
       response = good_response(request)
       response.measurements[0].status = pb.MEASUREMENT_STATUS_DEPTH_UNOBSERVABLE
       response.measurements[0].ClearField("measurement")
       return response, ""
     camera = make_camera()
-    rv_objects = project(RemoteProjector(FakeClient(reply)),
+    rv_objects = process(RemoteObservationProcessor(FakeClient(reply)),
                          [[make_object(camera), make_object(camera)]])
     assert_local(rv_objects[0][0])
     assert_remote(rv_objects[0][1], 1)
@@ -290,13 +292,13 @@ class TestRemoteProjector:
     lambda m: setattr(m, "status", pb.MEASUREMENT_STATUS_UNSPECIFIED),
     lambda m: setattr(m, "status", 7),
   ], ids=["ok_without_measurement", "unspecified", "unknown_status"])
-  def test_malformed_status_keeps_local_projection_and_counts(self, failures, corrupt):
+  def test_malformed_status_keeps_local_processing_and_counts(self, failures, corrupt):
     def reply(request):
       response = good_response(request)
       corrupt(response.measurements[0])
       return response, ""
     camera = make_camera()
-    rv_objects = project(RemoteProjector(FakeClient(reply)),
+    rv_objects = process(RemoteObservationProcessor(FakeClient(reply)),
                          [[make_object(camera), make_object(camera)]])
     assert_local(rv_objects[0][0])
     assert_remote(rv_objects[0][1], 1)
@@ -313,13 +315,13 @@ class TestRemoteProjector:
     lambda m: (m.noise_covariance.__setitem__(1, 1.0), m.noise_covariance.__setitem__(7, 1.0)),
   ], ids=["mean_size", "noise_size", "nan_mean", "zero_height", "negative_length", "inf_noise",
           "negative_variance", "indefinite"])
-  def test_invalid_measurement_keeps_local_projection(self, failures, corrupt):
+  def test_invalid_measurement_keeps_local_processing(self, failures, corrupt):
     def reply(request):
       response = good_response(request)
       corrupt(response.measurements[0].measurement)
       return response, ""
     camera = make_camera()
-    rv_objects = project(RemoteProjector(FakeClient(reply)),
+    rv_objects = process(RemoteObservationProcessor(FakeClient(reply)),
                          [[make_object(camera), make_object(camera)]])
     assert_local(rv_objects[0][0])
     assert_remote(rv_objects[0][1], 1)
@@ -331,19 +333,20 @@ class TestRemoteProjector:
       response.measurements[0].measurement.noise_covariance[1] = 0.010
       response.measurements[0].measurement.noise_covariance[7] = 0.012
       return response, ""
-    rv_objects = project(RemoteProjector(FakeClient(reply)), [[make_object(make_camera())]])
+    rv_objects = process(RemoteObservationProcessor(FakeClient(reply)),
+                         [[make_object(make_camera())]])
     noise = np.array(rv_objects[0][0].measurement_noise_covariance)
     assert noise[0, 1] == pytest.approx(0.011)
     assert noise[1, 0] == pytest.approx(0.011)
     assert (noise[2, 5], noise[6, 3]) == (NOISE[2, 5], NOISE[6, 3]), "other cross terms unchanged"
 
-  def test_scene_projection_binds_scene(self):
+  def test_scene_processor_binds_scene(self):
     client = FakeClient()
-    scene_projection = SceneProjection(RemoteProjector(client), "scene-uid")
+    scene_processor = SceneObservationProcessor(RemoteObservationProcessor(client), "scene-uid")
     objects_per_camera = [[make_object(make_camera())]]
     rv_objects = local_rv_objects(objects_per_camera)
-    scene_projection.project(objects_per_camera, rv_objects)
-    assert scene_projection.scene_id == "scene-uid"
+    scene_processor.process(objects_per_camera, rv_objects)
+    assert scene_processor.scene_id == "scene-uid"
     assert client.requests[0].scene_id == "scene-uid"
     assert_remote(rv_objects[0][0], 0)
 
@@ -389,134 +392,135 @@ class TestSettingsFromEnv:
 
   def test_disabled_by_default(self):
     assert settings_from_env({}) is None
-    assert settings_from_env({remote_projection.ENV_ENABLED: "false",
-                              remote_projection.ENV_HOST: "projection",
-                              remote_projection.ENV_PORT: "50051"}) is None
+    assert settings_from_env({observation_processor.ENV_ENABLED: "false",
+                              observation_processor.ENV_HOST: "processor",
+                              observation_processor.ENV_PORT: "50051"}) is None
 
   @pytest.mark.parametrize("environ", [
     {},
-    {remote_projection.ENV_HOST: "projection"},
-    {remote_projection.ENV_PORT: "50051"},
+    {observation_processor.ENV_HOST: "processor"},
+    {observation_processor.ENV_PORT: "50051"},
   ])
-  def test_enabled_without_endpoint_uses_local_projection(self, environ, monkeypatch):
+  def test_enabled_without_endpoint_uses_local_processing(self, environ, monkeypatch):
     warnings = []
-    monkeypatch.setattr(remote_projection.log, "warning", lambda *args: warnings.append(args))
-    assert settings_from_env({remote_projection.ENV_ENABLED: "true", **environ}) is None
+    monkeypatch.setattr(observation_processor.log, "warning", lambda *args: warnings.append(args))
+    assert settings_from_env({observation_processor.ENV_ENABLED: "true", **environ}) is None
     assert warnings
 
   def test_reads_all_settings(self):
     settings = settings_from_env({
-      remote_projection.ENV_ENABLED: "yes",
-      remote_projection.ENV_HOST: "projection",
-      remote_projection.ENV_PORT: "6000",
-      remote_projection.ENV_INSECURE: "true",
-      remote_projection.ENV_CA_CERT: "/run/secrets/ca.pem",
-      remote_projection.ENV_TIMEOUT_MS: "80",
-      remote_projection.ENV_MODE: "FRUSTUM_ONLY",
+      observation_processor.ENV_ENABLED: "yes",
+      observation_processor.ENV_HOST: "processor",
+      observation_processor.ENV_PORT: "6000",
+      observation_processor.ENV_INSECURE: "true",
+      observation_processor.ENV_CA_CERT: "/run/secrets/ca.pem",
+      observation_processor.ENV_TIMEOUT_MS: "80",
+      observation_processor.ENV_MODE: "FRUSTUM_ONLY",
     })
-    assert settings == RemoteProjectionSettings(host="projection", port=6000, insecure=True,
-                                                ca_cert="/run/secrets/ca.pem", timeout_ms=80,
-                                                mode="frustum_only")
+    assert settings == RemoteObservationProcessorSettings(
+      host="processor", port=6000, insecure=True, ca_cert="/run/secrets/ca.pem", timeout_ms=80,
+      mode="frustum_only")
 
   def test_defaults(self):
-    settings = settings_from_env({remote_projection.ENV_ENABLED: "1",
-                                  remote_projection.ENV_HOST: "projection",
-                                  remote_projection.ENV_PORT: "50051"})
-    assert settings == RemoteProjectionSettings(host="projection", port=50051)
+    settings = settings_from_env({observation_processor.ENV_ENABLED: "1",
+                                  observation_processor.ENV_HOST: "processor",
+                                  observation_processor.ENV_PORT: "50051"})
+    assert settings == RemoteObservationProcessorSettings(host="processor", port=50051)
     assert settings.insecure is False
-    assert settings.timeout_ms == remote_projection.DEFAULT_TIMEOUT_MS
+    assert settings.timeout_ms == observation_processor.DEFAULT_TIMEOUT_MS
     assert settings.mode == "auto"
 
   @pytest.mark.parametrize("name, value", [
-    (remote_projection.ENV_ENABLED, "maybe"),
-    (remote_projection.ENV_PORT, "0"),
-    (remote_projection.ENV_PORT, "70000"),
-    (remote_projection.ENV_PORT, "port"),
-    (remote_projection.ENV_INSECURE, "sometimes"),
-    (remote_projection.ENV_TIMEOUT_MS, "0"),
-    (remote_projection.ENV_TIMEOUT_MS, "101"),
-    (remote_projection.ENV_MODE, "amodal"),
+    (observation_processor.ENV_ENABLED, "maybe"),
+    (observation_processor.ENV_PORT, "0"),
+    (observation_processor.ENV_PORT, "70000"),
+    (observation_processor.ENV_PORT, "port"),
+    (observation_processor.ENV_INSECURE, "sometimes"),
+    (observation_processor.ENV_TIMEOUT_MS, "0"),
+    (observation_processor.ENV_TIMEOUT_MS, "101"),
+    (observation_processor.ENV_MODE, "amodal"),
   ])
   def test_invalid_values_raise(self, name, value):
-    environ = {remote_projection.ENV_ENABLED: "true", remote_projection.ENV_HOST: "projection",
-               remote_projection.ENV_PORT: "50051", name: value}
+    environ = {observation_processor.ENV_ENABLED: "true",
+               observation_processor.ENV_HOST: "processor",
+               observation_processor.ENV_PORT: "50051", name: value}
     with pytest.raises(ValueError):
       settings_from_env(environ)
 
 
-class TestProcessProjector:
+class TestProcessWideObservationProcessor:
 
   @pytest.fixture(autouse=True)
   def clean_state(self, monkeypatch):
-    for name in (remote_projection.ENV_ENABLED, remote_projection.ENV_HOST,
-                 remote_projection.ENV_PORT, remote_projection.ENV_INSECURE,
-                 remote_projection.ENV_CA_CERT, remote_projection.ENV_TIMEOUT_MS,
-                 remote_projection.ENV_MODE):
+    for name in (observation_processor.ENV_ENABLED, observation_processor.ENV_HOST,
+                 observation_processor.ENV_PORT, observation_processor.ENV_INSECURE,
+                 observation_processor.ENV_CA_CERT, observation_processor.ENV_TIMEOUT_MS,
+                 observation_processor.ENV_MODE):
       monkeypatch.delenv(name, raising=False)
-    remote_projection.reset()
+    observation_processor.reset()
     yield
-    remote_projection.reset()
+    observation_processor.reset()
 
   def enable(self, monkeypatch, **extra):
-    monkeypatch.setenv(remote_projection.ENV_ENABLED, "true")
-    monkeypatch.setenv(remote_projection.ENV_HOST, "127.0.0.1")
-    monkeypatch.setenv(remote_projection.ENV_PORT, "50051")
+    monkeypatch.setenv(observation_processor.ENV_ENABLED, "true")
+    monkeypatch.setenv(observation_processor.ENV_HOST, "127.0.0.1")
+    monkeypatch.setenv(observation_processor.ENV_PORT, "50051")
     for name, value in extra.items():
       monkeypatch.setenv(name, value)
 
-  def test_disabled_gives_no_scene_projection(self):
-    assert remote_projection.get_projector() is None
-    assert remote_projection.for_scene("scene-uid") is None
+  def test_disabled_gives_no_scene_processor(self):
+    assert observation_processor.get_processor() is None
+    assert observation_processor.for_scene("scene-uid") is None
 
-  def test_enabled_shares_one_projector_across_scenes(self, monkeypatch):
-    self.enable(monkeypatch, **{remote_projection.ENV_INSECURE: "true"})
+  def test_enabled_shares_one_processor_across_scenes(self, monkeypatch):
+    self.enable(monkeypatch, **{observation_processor.ENV_INSECURE: "true"})
 
-    first = remote_projection.for_scene("scene-1")
-    second = remote_projection.for_scene("scene-2")
+    first = observation_processor.for_scene("scene-1")
+    second = observation_processor.for_scene("scene-2")
 
-    assert isinstance(first, SceneProjection)
+    assert isinstance(first, SceneObservationProcessor)
     assert first.scene_id == "scene-1"
-    assert second._projector is first._projector
-    assert remote_projection.get_projector() is first._projector
+    assert second._processor is first._processor
+    assert observation_processor.get_processor() is first._processor
 
-  def test_scene_without_uid_has_no_projection(self, monkeypatch):
-    self.enable(monkeypatch, **{remote_projection.ENV_INSECURE: "true"})
-    assert remote_projection.for_scene(None) is None
-    assert remote_projection.for_scene("") is None
+  def test_scene_without_uid_has_no_processor(self, monkeypatch):
+    self.enable(monkeypatch, **{observation_processor.ENV_INSECURE: "true"})
+    assert observation_processor.for_scene(None) is None
+    assert observation_processor.for_scene("") is None
 
   @pytest.mark.parametrize("chunking_rate_fps, warns", [(15, True), (10, False), (None, False)])
   def test_warns_when_timeout_exceeds_chunk_interval(self, monkeypatch, chunking_rate_fps, warns):
     warnings = []
-    monkeypatch.setattr(remote_projection.log, "warning", lambda *args: warnings.append(args))
-    self.enable(monkeypatch, **{remote_projection.ENV_INSECURE: "true",
-                                remote_projection.ENV_TIMEOUT_MS: "80"})
+    monkeypatch.setattr(observation_processor.log, "warning", lambda *args: warnings.append(args))
+    self.enable(monkeypatch, **{observation_processor.ENV_INSECURE: "true",
+                                observation_processor.ENV_TIMEOUT_MS: "80"})
 
-    assert remote_projection.for_scene("scene-uid", chunking_rate_fps) is not None
+    assert observation_processor.for_scene("scene-uid", chunking_rate_fps) is not None
 
     assert bool(warnings) == warns
     if warns:
       assert "exceeds the time-chunking interval 66.7ms" in warnings[0][0]
 
   def test_reset_reads_the_environment_again(self, monkeypatch):
-    assert remote_projection.get_projector() is None
-    self.enable(monkeypatch, **{remote_projection.ENV_INSECURE: "true"})
-    assert remote_projection.get_projector() is None
-    remote_projection.reset()
-    assert remote_projection.get_projector() is not None
+    assert observation_processor.get_processor() is None
+    self.enable(monkeypatch, **{observation_processor.ENV_INSECURE: "true"})
+    assert observation_processor.get_processor() is None
+    observation_processor.reset()
+    assert observation_processor.get_processor() is not None
 
   @pytest.mark.parametrize("extra", [
-    {remote_projection.ENV_PORT: "port"},
-    {remote_projection.ENV_CA_CERT: "/nonexistent/ca.pem"},
+    {observation_processor.ENV_PORT: "port"},
+    {observation_processor.ENV_CA_CERT: "/nonexistent/ca.pem"},
   ], ids=["invalid_setting", "unreadable_ca"])
-  def test_configuration_errors_disable_remote_projection(self, monkeypatch, extra):
+  def test_configuration_errors_disable_observation_processor(self, monkeypatch, extra):
     errors = []
-    monkeypatch.setattr(remote_projection.log, "error", lambda *args: errors.append(args))
+    monkeypatch.setattr(observation_processor.log, "error", lambda *args: errors.append(args))
     self.enable(monkeypatch, **extra)
-    assert remote_projection.get_projector() is None
+    assert observation_processor.get_processor() is None
     assert errors
 
 
-class FakeProjectionService(pb_grpc.ObservationProcessorServiceServicer):
+class FakeObservationProcessorService(pb_grpc.ObservationProcessorServiceServicer):
   def __init__(self):
     self.delay_s = 0.0
 
@@ -528,11 +532,11 @@ class FakeProjectionService(pb_grpc.ObservationProcessorServiceServicer):
     return good_response(request)
 
 
-class TestGrpcProjectionClient:
+class TestGrpcObservationProcessorClient:
 
   @pytest.fixture
   def service(self):
-    servicer = FakeProjectionService()
+    servicer = FakeObservationProcessorService()
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=4))
     pb_grpc.add_ObservationProcessorServiceServicer_to_server(servicer, server)
     port = server.add_insecure_port("127.0.0.1:0")
@@ -548,10 +552,10 @@ class TestGrpcProjectionClient:
 
   def test_returns_responses_and_status_names_in_request_order(self, service):
     _, port = service
-    client = GrpcProjectionClient(RemoteProjectionSettings(host="127.0.0.1", port=port,
-                                                           insecure=True, timeout_ms=5000))
+    client = GrpcObservationProcessorClient(RemoteObservationProcessorSettings(
+      host="127.0.0.1", port=port, insecure=True, timeout_ms=5000))
 
-    replies = client.project([self.request("cam-1"), self.request("uncalibrated"),
+    replies = client.process([self.request("cam-1"), self.request("uncalibrated"),
                               self.request("cam-2")])
 
     assert [error for _, error in replies] == ["", "FAILED_PRECONDITION", ""]
@@ -564,50 +568,51 @@ class TestGrpcProjectionClient:
   def test_calls_run_concurrently_under_the_deadline(self, service):
     servicer, port = service
     servicer.delay_s = 0.3
-    client = GrpcProjectionClient(RemoteProjectionSettings(host="127.0.0.1", port=port,
-                                                           insecure=True, timeout_ms=50))
+    client = GrpcObservationProcessorClient(RemoteObservationProcessorSettings(
+      host="127.0.0.1", port=port, insecure=True, timeout_ms=50))
 
     start = time.monotonic()
-    replies = client.project([self.request("cam-1"), self.request("cam-2")])
+    replies = client.process([self.request("cam-1"), self.request("cam-2")])
 
     assert [error for _, error in replies] == ["DEADLINE_EXCEEDED"] * 2
     assert time.monotonic() - start < 0.25
 
   def test_unreachable_service_is_unavailable(self):
-    client = GrpcProjectionClient(RemoteProjectionSettings(host="127.0.0.1", port=1,
-                                                           insecure=True, timeout_ms=2000))
-    assert client.project([self.request("cam-1")]) == [(None, "UNAVAILABLE")]
+    client = GrpcObservationProcessorClient(RemoteObservationProcessorSettings(
+      host="127.0.0.1", port=1, insecure=True, timeout_ms=2000))
+    assert client.process([self.request("cam-1")]) == [(None, "UNAVAILABLE")]
 
   def test_starts_connecting_its_own_channel(self, monkeypatch):
     started = []
     monkeypatch.setattr(grpc, "channel_ready_future", started.append)
-    settings = RemoteProjectionSettings(host="127.0.0.1", port=1, insecure=True)
+    settings = RemoteObservationProcessorSettings(host="127.0.0.1", port=1, insecure=True)
 
-    GrpcProjectionClient(settings)
+    GrpcObservationProcessorClient(settings)
     assert len(started) == 1 and isinstance(started[0], grpc.Channel)
 
-    GrpcProjectionClient(settings, channel=grpc.insecure_channel("127.0.0.1:1"))
+    GrpcObservationProcessorClient(settings, channel=grpc.insecure_channel("127.0.0.1:1"))
     assert len(started) == 1, "an injected channel is left as it is"
 
   def test_creates_tls_channels(self, tmp_path):
     ca_cert = tmp_path / "ca.pem"
     ca_cert.write_bytes(b"-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n")
-    settings = RemoteProjectionSettings(host="projection", port=50051)
-    assert GrpcProjectionClient.createChannel(settings) is not None
-    assert GrpcProjectionClient.createChannel(
-      RemoteProjectionSettings(host="projection", port=50051, ca_cert=str(ca_cert))) is not None
+    settings = RemoteObservationProcessorSettings(host="processor", port=50051)
+    assert GrpcObservationProcessorClient.createChannel(settings) is not None
+    assert GrpcObservationProcessorClient.createChannel(
+      RemoteObservationProcessorSettings(host="processor", port=50051,
+                                         ca_cert=str(ca_cert))) is not None
 
   def test_unreadable_ca_certificate_raises(self):
     with pytest.raises(OSError):
-      GrpcProjectionClient(RemoteProjectionSettings(host="projection", port=50051,
-                                                    ca_cert="/nonexistent/ca.pem"))
+      GrpcObservationProcessorClient(RemoteObservationProcessorSettings(
+        host="processor", port=50051, ca_cert="/nonexistent/ca.pem"))
 
 
-def tracker_with_projection(projection):
+def tracker_with_processor(processor):
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)
   tracker.association_config = normalize_association_config()
   tracker.tracker = Mock()
-  tracker.remote_projection = projection
+  tracker.observation_processor = processor
   return tracker
 
 
@@ -628,21 +633,21 @@ def detected_object(camera, z=0.0, measured_z=False):
 class TestTrackerIntegration:
 
   @staticmethod
-  def projection(unobservable_camera):
-    """Scene projection with good replies, except unobservable depth for one camera."""
+  def processor(unobservable_camera):
+    """Scene observation processor with good replies, except unobservable depth for one camera."""
     def reply(request):
       response = good_response(request)
       if request.camera_id == unobservable_camera:
         response.measurements[-1].status = pb.MEASUREMENT_STATUS_DEPTH_UNOBSERVABLE
         response.measurements[-1].ClearField("measurement")
       return response, ""
-    return SceneProjection(RemoteProjector(FakeClient(reply)), "scene-uid")
+    return SceneObservationProcessor(RemoteObservationProcessor(FakeClient(reply)), "scene-uid")
 
   def test_update_tracks_uses_remote_measurements(self):
     camera = make_camera()
     objects = [detected_object(camera), detected_object(camera),
                detected_object(camera, z=MEASURED_Z, measured_z=True)]
-    tracker = tracker_with_projection(self.projection(unobservable_camera="cam-1"))
+    tracker = tracker_with_processor(self.processor(unobservable_camera="cam-1"))
 
     tracker.update_tracks(objects, WHEN)
 
@@ -662,7 +667,7 @@ class TestTrackerIntegration:
       [detected_object(cam1), detected_object(cam1, z=MEASURED_Z, measured_z=True)],
       [detected_object(cam2)],
     ]
-    tracker = tracker_with_projection(self.projection(unobservable_camera="cam-1"))
+    tracker = tracker_with_processor(self.processor(unobservable_camera="cam-1"))
 
     tracker.update_tracks_batched(objects_per_camera, WHEN)
 
@@ -676,11 +681,11 @@ class TestTrackerIntegration:
     assert rv_objects_per_camera[1][0].measurement_noise_covariance is not None
 
   @pytest.mark.parametrize("batched", [False, True])
-  def test_without_remote_projection_uses_local_projection(self, batched):
+  def test_without_observation_processor_uses_local_processing(self, batched):
     camera = make_camera()
     objects = [detected_object(camera), detected_object(camera, z=0.3),
                detected_object(camera, z=MEASURED_Z, measured_z=True)]
-    tracker = tracker_with_projection(None)
+    tracker = tracker_with_processor(None)
 
     if batched:
       tracker.update_tracks_batched([objects], WHEN)
@@ -693,9 +698,9 @@ class TestTrackerIntegration:
     assert [rv_object.z for rv_object in rv_objects] == [0.0, 0.3, MEASURED_Z]
     assert all(rv_object.measurement_noise_covariance is None for rv_object in rv_objects)
 
-  @pytest.mark.parametrize("projection", [None, Mock()], ids=["legacy", "experimental"])
-  def test_from_tracked_object_publishes_footprint_base_only_with_projection(self, projection):
-    tracker = tracker_with_projection(projection)
+  @pytest.mark.parametrize("processor", [None, Mock()], ids=["legacy", "experimental"])
+  def test_from_tracked_object_publishes_footprint_base_only_with_processor(self, processor):
+    tracker = tracker_with_processor(processor)
     tracker.all_tracker_objects = []
     tracker.uuid_manager = Mock()
     sscape_object = detected_object(make_camera())
@@ -712,16 +717,16 @@ class TestTrackerIntegration:
 
     point = published.location[0].point
     assert (point.x, point.y) == (1.0, 2.0)
-    assert point.z == (tracked.z if projection is None else tracked.z - tracked.height / 2)
+    assert point.z == (tracked.z if processor is None else tracked.z - tracked.height / 2)
     assert published.velocity.z == 0.3
 
-  def test_category_trackers_inherit_scene_projection(self, monkeypatch):
+  def test_category_trackers_inherit_scene_processor(self, monkeypatch):
     parent = IntelLabsTracking.__new__(IntelLabsTracking)
     parent.reid_config_data = {}
     parent.association_config = normalize_association_config()
     parent.trackers = {}
     parent.uuid_manager = SimpleNamespace(scene_id="scene")
-    parent.remote_projection = SceneProjection(Mock(), "scene-uid")
+    parent.observation_processor = SceneObservationProcessor(Mock(), "scene-uid")
 
     def fake_init(self, *args, **kwargs):
       self.uuid_manager = SimpleNamespace(scene_id=None)
@@ -730,44 +735,44 @@ class TestTrackerIntegration:
     monkeypatch.setattr(IntelLabsTracking, "start", lambda self: None)
     Tracking._createTrackers(parent, ["person"], 1.0, 0.8, 1.6, 10)
 
-    assert parent.trackers["person"].remote_projection is parent.remote_projection
+    assert parent.trackers["person"].observation_processor is parent.observation_processor
 
-  def test_scene_binds_projection_with_its_uid(self, monkeypatch):
+  def test_scene_binds_processor_with_its_uid(self, monkeypatch):
     bound = []
-    monkeypatch.setattr(remote_projection, "for_scene",
+    monkeypatch.setattr(observation_processor, "for_scene",
                         lambda scene_id, chunking_rate_fps=None:
-                        bound.append((scene_id, chunking_rate_fps)) or f"projection:{scene_id}")
+                        bound.append((scene_id, chunking_rate_fps)) or f"processor:{scene_id}")
     scene = Scene.__new__(Scene)
     scene.tracker = SimpleNamespace()
     scene.time_chunking_rate_fps = 15
 
-    scene._bindRemoteProjection()
-    assert scene.tracker.remote_projection == "projection:None"
+    scene._bindObservationProcessor()
+    assert scene.tracker.observation_processor == "processor:None"
 
     scene.uid = "scene-uid"
-    scene._bindRemoteProjection()
-    assert scene.tracker.remote_projection == "projection:scene-uid"
+    scene._bindObservationProcessor()
+    assert scene.tracker.observation_processor == "processor:scene-uid"
 
     scene.trackerType = "time_chunked_intel_labs"
-    scene._bindRemoteProjection()
+    scene._bindObservationProcessor()
     assert bound == [(None, None), ("scene-uid", None), ("scene-uid", 15)]
 
-  def test_scene_binds_projection_before_tracking_and_rebinds_new_tracker(self, monkeypatch):
-    monkeypatch.setattr(remote_projection, "for_scene",
+  def test_scene_binds_processor_before_tracking_and_rebinds_new_tracker(self, monkeypatch):
+    monkeypatch.setattr(observation_processor, "for_scene",
                         lambda scene_id, chunking_rate_fps=None:
-                        f"projection:{scene_id}" if scene_id else None)
+                        f"processor:{scene_id}" if scene_id else None)
 
     scene = Scene.deserialize({"uid": "scene-uid", "name": "scene", "map": None,
                                "tracker_config": [1.0, 2.0, 3.0]})
     first_tracker = scene.tracker
 
-    assert first_tracker.remote_projection == "projection:scene-uid"
+    assert first_tracker.observation_processor == "processor:scene-uid"
     assert first_tracker.trackers == {}, "category trackers are created later and inherit it"
 
     scene._setTracker(scene.trackerType)
 
     assert scene.tracker is not first_tracker
-    assert scene.tracker.remote_projection == "projection:scene-uid"
+    assert scene.tracker.observation_processor == "processor:scene-uid"
 
 
 FPS = 15
@@ -807,8 +812,9 @@ def run_tracker(make_objects, experimental):
   tracker = IntelLabsTracking(MAX_UNRELIABLE_TIME, NON_MEASUREMENT_TIME_DYNAMIC,
                               NON_MEASUREMENT_TIME_STATIC, FPS)
   tracker.uuid_manager.scene_id = "scene"
-  # Experimental mode where every remote call falls back to the local projection.
-  tracker.remote_projection = SimpleNamespace(project=lambda *args: None) if experimental else None
+  # Experimental mode where every remote call falls back to the local processing.
+  tracker.observation_processor = \
+    SimpleNamespace(process=lambda *args: None) if experimental else None
   published = []
   for n in range(FRAMES):
     when = WHEN + n / FPS

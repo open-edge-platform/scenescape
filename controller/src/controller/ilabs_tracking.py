@@ -355,25 +355,26 @@ class IntelLabsTracking(Tracking):
     return rv_object
 
   def _toTrackerReference(self, objects_per_camera, rv_objects_per_camera):
-    """Experimental remote projection: apply valid remote measurements (position, size, zMeasured
+    """Experimental observation processor: apply valid measurements (position, size, zMeasured
     and noise covariance; yaw stays as detected), then raise every input without measured z from
-    its footprint base to its centre of mass. Without remote projection the inputs are unchanged.
+    its footprint base to its centre of mass. Without an observation processor the inputs are
+    unchanged.
     """
-    projection = getattr(self, 'remote_projection', None)
-    if projection is None:
+    processor = getattr(self, 'observation_processor', None)
+    if processor is None:
       return
-    projection.project(objects_per_camera, rv_objects_per_camera)
+    processor.process(objects_per_camera, rv_objects_per_camera)
     for rv_objects in rv_objects_per_camera:
       for rv_object in rv_objects:
         if not rv_object.zMeasured:
           rv_object.z += rv_object.height / 2.0
 
   def _publishedPoint(self, tracked_object):
-    """Track location to publish: the footprint base of the centre-of-mass track with remote
-    projection, the tracked point otherwise.
+    """Track location to publish: the footprint base of the centre-of-mass track with an
+    observation processor, the tracked point otherwise.
     """
     z = tracked_object.z
-    if getattr(self, 'remote_projection', None) is not None:
+    if getattr(self, 'observation_processor', None) is not None:
       z -= tracked_object.height / 2.0
     return Point(tracked_object.x, tracked_object.y, z)
 

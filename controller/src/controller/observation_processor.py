@@ -1,28 +1,27 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Experimental remote projection of camera detections.
+"""Experimental observation processor of camera detections.
 
-When CONTROLLER_EXPERIMENTAL_REMOTE_PROJECTION is true and CONTROLLER_REMOTE_PROJECTION_HOST and
-CONTROLLER_REMOTE_PROJECTION_PORT are set, the tracker threads send the pixel boxes of camera
-detections to the remote projection service
-(observation_processor/proto/observation_processor.proto) and replace the
-local projection of their robot_vision inputs with its world measurement and measurement noise
-covariance R.
+When CONTROLLER_EXPERIMENTAL_OBSERVATION_PROCESSOR is true and
+CONTROLLER_OBSERVATION_PROCESSOR_HOST and CONTROLLER_OBSERVATION_PROCESSOR_PORT are set, the
+tracker threads send the pixel boxes of camera detections to the observation processor service
+(observation_processor/proto/observation_processor.proto) and replace the local processing of
+their robot_vision inputs with its world measurement and measurement noise covariance R.
 
-With remote projection, robot_vision tracks the centre of mass: measurements keep their z, other
-inputs without measured z are raised by half their height, and published tracks report the
+With an observation processor, robot_vision tracks the centre of mass: measurements keep their z,
+other inputs without measured z are raised by half their height, and published tracks report the
 footprint base (controller.ilabs_tracking). Without it, z is fed and published unchanged.
 
-A detection keeps the local projection when it is not a pixel box from a calibrated scene camera,
+A detection keeps the local processing when it is not a pixel box from a calibrated scene camera,
 when the call fails, or when its measurement is unobservable or invalid. R is validated by the
 robot_vision measurement_noise_covariance setter (finite, symmetrized, positive definite). Failed
-calls and invalid
-replies are counted (scenescape_controller_remote_projection_failed_calls) and logged at most once
-per WARNING_INTERVAL_S per scene and category; they never raise into the tracker thread.
+calls and invalid replies are counted (scenescape_controller_observation_processor_failed_calls)
+and logged at most once per WARNING_INTERVAL_S per scene and category; they never raise into the
+tracker thread.
 
 The gRPC stubs are generated at build time into the scenescape_api package and imported only
-when remote projection is enabled.
+when the observation processor is enabled.
 """
 
 import math
@@ -37,13 +36,13 @@ from controller.observability import metrics
 from scene_common import log
 from scene_common.camera import Camera
 
-ENV_ENABLED = "CONTROLLER_EXPERIMENTAL_REMOTE_PROJECTION"
-ENV_HOST = "CONTROLLER_REMOTE_PROJECTION_HOST"
-ENV_PORT = "CONTROLLER_REMOTE_PROJECTION_PORT"
-ENV_INSECURE = "CONTROLLER_REMOTE_PROJECTION_INSECURE"
-ENV_CA_CERT = "CONTROLLER_REMOTE_PROJECTION_CA_CERT"
-ENV_TIMEOUT_MS = "CONTROLLER_REMOTE_PROJECTION_TIMEOUT_MS"
-ENV_MODE = "CONTROLLER_REMOTE_PROJECTION_MODE"
+ENV_ENABLED = "CONTROLLER_EXPERIMENTAL_OBSERVATION_PROCESSOR"
+ENV_HOST = "CONTROLLER_OBSERVATION_PROCESSOR_HOST"
+ENV_PORT = "CONTROLLER_OBSERVATION_PROCESSOR_PORT"
+ENV_INSECURE = "CONTROLLER_OBSERVATION_PROCESSOR_INSECURE"
+ENV_CA_CERT = "CONTROLLER_OBSERVATION_PROCESSOR_CA_CERT"
+ENV_TIMEOUT_MS = "CONTROLLER_OBSERVATION_PROCESSOR_TIMEOUT_MS"
+ENV_MODE = "CONTROLLER_OBSERVATION_PROCESSOR_MODE"
 
 MODES = ("auto", "full", "frustum_only")
 DEFAULT_MODE = "auto"
@@ -62,7 +61,7 @@ _FALSE_VALUES = ("0", "false", "no", "off")
 
 
 @dataclass(frozen=True)
-class RemoteProjectionSettings:
+class RemoteObservationProcessorSettings:
   host: str
   port: int
   insecure: bool = False
@@ -96,7 +95,7 @@ def _env_int(environ, name, default, minimum, maximum):
 
 
 def settings_from_env(environ=None):
-  """Remote projection settings when enabled and the endpoint is set, else None.
+  """Observation processor settings when enabled and the endpoint is set, else None.
 
   @raises ValueError for an invalid value
   """
@@ -107,12 +106,12 @@ def settings_from_env(environ=None):
   port = _env_int(environ, ENV_PORT, 0, 1, 65535)
   if not host or not port:
     log.warning(f"{ENV_ENABLED} is set, but {ENV_HOST} and {ENV_PORT} are not; "
-                "using local projection")
+                "using local processing")
     return None
   mode = environ.get(ENV_MODE, "").strip().lower() or DEFAULT_MODE
   if mode not in MODES:
     raise ValueError(f"{ENV_MODE} must be one of {', '.join(MODES)}, got {mode!r}")
-  return RemoteProjectionSettings(
+  return RemoteObservationProcessorSettings(
     host=host,
     port=port,
     insecure=_env_bool(environ, ENV_INSECURE, False),
@@ -128,7 +127,7 @@ def _proto_modules():
   return observation_processor_pb2, observation_processor_pb2_grpc
 
 
-class GrpcProjectionClient:
+class GrpcObservationProcessorClient:
   """Sends ProcessDetections requests concurrently; each call has the configured deadline.
 
   A channel it creates starts connecting in the background, so the first call does not spend its
@@ -164,7 +163,7 @@ class GrpcProjectionClient:
     credentials = grpc.ssl_channel_credentials(root_certificates=root_certificates)
     return grpc.secure_channel(target, credentials, options=options)
 
-  def project(self, requests):
+  def process(self, requests):
     """Return one (response, error) per request; error is the gRPC status name or ''."""
     futures = [self._stub.ProcessDetections.future(request, timeout=self._timeout_s)
                for request in requests]
@@ -178,7 +177,7 @@ class GrpcProjectionClient:
 
 
 def _pixel_box(sscape_object):
-  """Pixel box (x, y, width, height) of a camera detection the service can project, else None."""
+  """Pixel box (x, y, width, height) of a camera detection the service can process, else None."""
   if getattr(sscape_object, 'has_measured_z', False):
     return None
   if not isinstance(getattr(sscape_object, 'camera', None), Camera):
@@ -192,8 +191,8 @@ def _pixel_box(sscape_object):
   return values
 
 
-class RemoteProjector:
-  """Projects camera detections with the remote projection service; shared by all scenes."""
+class RemoteObservationProcessor:
+  """Processes camera detections with the observation processor service; shared by all scenes."""
 
   def __init__(self, client, mode=DEFAULT_MODE, timeout_ms=DEFAULT_TIMEOUT_MS):
     self._client = client
@@ -208,8 +207,8 @@ class RemoteProjector:
     self._warning_lock = threading.Lock()
     self._warnings = {}
 
-  def project(self, scene_id, objects_per_camera, rv_objects_per_camera):
-    """Replace the local projection of rv_objects_per_camera with valid remote measurements.
+  def process(self, scene_id, objects_per_camera, rv_objects_per_camera):
+    """Replace the local processing of rv_objects_per_camera with valid remote measurements.
 
     rv_objects_per_camera holds the robot_vision inputs of objects_per_camera, in the same
     layout; objects without a valid remote measurement are left unchanged.
@@ -246,9 +245,9 @@ class RemoteProjector:
   def _call(self, scene_id, requests):
     """One (response, error) per request; client errors become failed replies."""
     try:
-      replies = self._client.project(requests)
+      replies = self._client.process(requests)
     except Exception as error:  # never raise into the tracker thread
-      log.debug(f"Remote projection client error for scene {scene_id}: {error}")
+      log.debug(f"Observation processor client error for scene {scene_id}: {error}")
       return [(None, REASON_CLIENT_ERROR)] * len(requests)
     if len(replies) != len(requests):
       return [(None, REASON_INVALID_RESPONSE)] * len(requests)
@@ -281,7 +280,7 @@ class RemoteProjector:
     invalid = False
     for (i, j), detection_measurement in zip(indices, measurements):
       if detection_measurement.status == unobservable_status:
-        continue  # depth unobservable: keep the local projection
+        continue  # depth unobservable: keep the local processing
       # OK without a measurement, UNSPECIFIED and unknown statuses break the contract.
       if detection_measurement.status != ok_status or \
          not detection_measurement.HasField('measurement') or \
@@ -291,7 +290,7 @@ class RemoteProjector:
       self._reportFailure(scene_id, category, camera_id, REASON_INVALID_MEASUREMENT)
 
   def _reportFailure(self, scene_id, category, camera_id, reason):
-    metrics.inc_remote_projection_failed_calls(
+    metrics.inc_observation_processor_failed_calls(
       {"scene": scene_id, "category": category, "camera": camera_id, "reason": reason})
     key = (scene_id, category)
     now = time.monotonic()
@@ -302,19 +301,19 @@ class RemoteProjector:
         return
       self._warnings[key] = (now, 0)
     more = f" ({suppressed} more failures since the previous warning)" if suppressed else ""
-    log.warning(f"Remote projection failed for scene {scene_id}, category {category}, "
-                f"camera '{camera_id}' ({reason}); using local projection{more}")
+    log.warning(f"Observation processor call failed for scene {scene_id}, category {category}, "
+                f"camera '{camera_id}' ({reason}); using local processing{more}")
 
 
-class SceneProjection:
-  """The process-wide RemoteProjector bound to one scene."""
+class SceneObservationProcessor:
+  """The process-wide RemoteObservationProcessor bound to one scene."""
 
-  def __init__(self, projector, scene_id):
-    self._projector = projector
+  def __init__(self, processor, scene_id):
+    self._processor = processor
     self.scene_id = scene_id
 
-  def project(self, objects_per_camera, rv_objects_per_camera):
-    self._projector.project(self.scene_id, objects_per_camera, rv_objects_per_camera)
+  def process(self, objects_per_camera, rv_objects_per_camera):
+    self._processor.process(self.scene_id, objects_per_camera, rv_objects_per_camera)
 
 
 def apply_measurement(rv_object, measurement):
@@ -347,59 +346,63 @@ def apply_measurement(rv_object, measurement):
 
 
 _state_lock = threading.Lock()
-_projector = None
+_processor = None
 _configured = False
 
 
-def _create_projector():
+def _create_processor():
   try:
     settings = settings_from_env()
   except ValueError as error:
-    log.error(f"Experimental remote projection disabled, using local projection: {error}")
+    log.error(f"Experimental observation processor disabled, using local processing: {error}")
     return None
   if settings is None:
     return None
   try:
-    projector = RemoteProjector(GrpcProjectionClient(settings), settings.mode, settings.timeout_ms)
+    processor = RemoteObservationProcessor(GrpcObservationProcessorClient(settings), settings.mode,
+                                           settings.timeout_ms)
   except (OSError, ImportError) as error:
-    log.error(f"Experimental remote projection disabled, using local projection: {error}")
+    log.error(f"Experimental observation processor disabled, using local processing: {error}")
     return None
-  log.info(f"Experimental remote projection enabled: {settings.host}:{settings.port} "
+  log.info(f"Experimental observation processor enabled: {settings.host}:{settings.port} "
            f"(mode={settings.mode}, timeout={settings.timeout_ms}ms, tls={not settings.insecure})")
-  return projector
+  return processor
 
 
-def get_projector():
-  """Process-wide RemoteProjector, created from the environment on first use; None if disabled."""
-  global _projector, _configured
+def get_processor():
+  """Process-wide RemoteObservationProcessor, created from the environment on first use.
+
+  None if disabled.
+  """
+  global _processor, _configured
   with _state_lock:
     if not _configured:
-      _projector = _create_projector()
+      _processor = _create_processor()
       _configured = True
-    return _projector
+    return _processor
 
 
 def reset():
-  """Forget the process-wide projector, so that the next get_projector() reads the environment."""
-  global _projector, _configured
+  """Forget the process-wide processor, so that the next get_processor() reads the environment."""
+  global _processor, _configured
   with _state_lock:
-    _projector = None
+    _processor = None
     _configured = False
 
 
 def for_scene(scene_id, chunking_rate_fps=None):
-  """SceneProjection for a scene UID, or None when remote projection is disabled.
+  """SceneObservationProcessor for a scene UID, or None when the observation processor is disabled.
 
   Warns when the call deadline exceeds the time-chunking interval of the scene
   (chunking_rate_fps; None when the scene does not use time chunking).
   """
   if not scene_id:
     return None
-  projector = get_projector()
-  if projector is None:
+  processor = get_processor()
+  if processor is None:
     return None
-  if chunking_rate_fps and projector.timeout_ms > 1000.0 / chunking_rate_fps:
-    log.warning(f"{ENV_TIMEOUT_MS}={projector.timeout_ms} exceeds the time-chunking interval "
+  if chunking_rate_fps and processor.timeout_ms > 1000.0 / chunking_rate_fps:
+    log.warning(f"{ENV_TIMEOUT_MS}={processor.timeout_ms} exceeds the time-chunking interval "
                 f"{1000.0 / chunking_rate_fps:.1f}ms of scene {scene_id} "
-                f"({chunking_rate_fps} fps); a slow projection service delays tracking")
-  return SceneProjection(projector, scene_id)
+                f"({chunking_rate_fps} fps); a slow observation processor service delays tracking")
+  return SceneObservationProcessor(processor, scene_id)
