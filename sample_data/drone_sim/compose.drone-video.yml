@@ -4,7 +4,7 @@
 # Self-contained video source for the simulated-drone external-source demo:
 # an ffmpeg looper publishes the Queuing qcam1 recording over RTSP, and DL
 # Streamer Pipeline Server consumes it through the drone motion simulation and
-# publishes person detections as external-source messages (see README.md).
+# publishes person detections on the drone platform topic (see README.md).
 # Run alongside the main Scenescape stack (same COMPOSE_PROJECT_NAME so the
 # "scenescape" Docker network and vol-models volume are shared):
 #   docker compose --project-directory . -f sample_data/drone_sim/compose.drone-video.yml up -d

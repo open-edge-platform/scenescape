@@ -35,7 +35,7 @@
                 "property": "thing-type"
               },
               "type": "string",
-              "description": "Object category segment of scenescape/external/{source_id}/{thing_type}"
+              "description": "Platform category and external topic segment; use drone to create the drone platform object"
             },
             "detection_labels": {
               "element": {
@@ -67,7 +67,7 @@
           "parameters": {
             "detection_threshold": 0.9,
             "show_hud": false,
-            "thing_type": "person",
+            "thing_type": "drone",
             "detection_labels": "person",
             "track": true,
             "cameraid": "sim-drone-view"

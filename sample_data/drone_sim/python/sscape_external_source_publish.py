@@ -80,10 +80,12 @@ class ExternalSourcePublish(GstBase.BaseTransform):
   __gproperties__ = {
     "thing-type": (
       str,
-      "Thing type topic segment",
-      "Object category segment of the external topic "
-      "(scenescape/external/{source_id}/{thing_type}).",
-      "person",
+      "Platform type topic segment",
+      "Platform category and final segment of the external topic "
+      "(scenescape/external/{source_id}/{thing_type}). Set to 'drone' "
+      "to publish the synthesized platform as a drone object; detections "
+      "keep their own categories.",
+      "drone",
       GObject.ParamFlags.READWRITE,
     ),
     "detection-labels": (
@@ -137,7 +139,7 @@ class ExternalSourcePublish(GstBase.BaseTransform):
     self._log = _LOG
 
     # Properties (defaults)
-    self._thing_type: str = "person"
+    self._thing_type: str = "drone"
     self._detection_labels: list = ["person"]
     self._track: bool = True
     self._mqtt_host: str = os.environ.get(
@@ -175,7 +177,7 @@ class ExternalSourcePublish(GstBase.BaseTransform):
   def do_set_property(self, prop, value):  # pylint: disable=arguments-differ
     name = prop.name
     if name == "thing-type":
-      self._thing_type = value or "person"
+      self._thing_type = value or "drone"
     elif name == "detection-labels":
       self._detection_labels = [
         s.strip() for s in (value or "").split(",") if s.strip()

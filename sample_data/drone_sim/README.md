@@ -5,9 +5,12 @@ the external-source contract
 ([External Source Input Message Format](../../docs/user-guide/microservices/controller/data_formats.md#external-source-input-message-format)):
 a DL Streamer pipeline consumes a simulated drone view built from the Queuing
 sample recording, detects people, and publishes them as `external_source`
-messages enriched with the simulated drone pose and camera calibration. The
-Scene Controller localizes the pixel detections into a scene you create, so
-tracked people stay at stable positions while the camera view visibly moves.
+messages enriched with the simulated drone pose and camera calibration. It
+publishes on the `drone` thing-type topic: Scenescape uses that category for
+the drone platform object, while each camera detection retains its `person`
+category. The Scene Controller localizes the pixel detections into a scene you
+create, so tracked people stay at stable positions while the camera view
+visibly moves.
 The live (warped) drone view can be watched directly in the Scenescape web UI.
 
 ## How the simulation works
@@ -48,21 +51,23 @@ rtspsrc (drone-cam1 loop)
   → gvametaconvert
   → sscape_external_source_publish
                                  build the external_source message and publish to
-                                 scenescape/external/sim-drone-qcam1/person;
+                                 scenescape/external/sim-drone-qcam1/drone;
                                  answer web UI "getimage" commands with JPEG frames
 ```
 
 Each message carries the scene-frame `pose` of the drone body, one `cameras`
 entry (`id`, `mount`, per-frame `intrinsics`), and the person detections as
 `bounding_box_px` observations. Frames without detections still publish,
-refreshing the controller's cached pose. `track: true` routes the
-observations through Scenescape tracking.
+refreshing the controller's cached pose. The topic's final segment (`drone`)
+sets the platform category; the detections remain `person`. `track: true`
+routes the observations through Scenescape tracking.
 
 Pipeline parameters (adjustable via the DL Streamer Pipeline Server REST API
 or the `payload.parameters` block): `detection_threshold`, `show_hud` (draw
-yaw/pitch/roll/zoom onto the frames), `thing_type`, `detection_labels`,
-`track`, and `cameraid` (the web UI camera served with live frames; see
-below).
+yaw/pitch/roll/zoom onto the frames), `thing_type` (the drone platform category;
+leave it as `drone`), `detection_labels` (the detected categories; leave it as
+`person`), `track`, and `cameraid` (the web UI camera served with live frames;
+see below).
 
 ## Set up the demo
 
@@ -79,7 +84,18 @@ set the scale to **157 pixels per meter** (the drone's published poses use the
 coordinate frame of that map's calibration). Note the new scene's uid, shown
 on the scene card and in its page URL.
 
-### 2. Register a camera for the live drone view (optional)
+### 2. Define the drone object and upload your model
+
+In the Scenescape Object Library, create an object named exactly `drone`. For this object you can
+upload your own `.glb` file as its 3D model. The external topic ends in `/drone`,
+so the Scene Controller creates the platform object with this category; its
+`id` is the publisher's `source_id`. Keep the model origin at the drone body
+origin and adjust its scale, orientation, and offset in the Object Library as
+needed. See
+[How to Define Object Properties](../../docs/user-guide/other-topics/how-to-define-object-properties.md)
+for the Object Library steps. This demo does not include a drone model.
+
+### 3. Register a camera for the live drone view (optional)
 
 The web UI displays camera video by requesting JPEG frames over MQTT; the
 publisher element serves that protocol, so the warped drone view can be
@@ -89,7 +105,7 @@ Scenescape itself — the demo publisher answers its image requests. To skip
 this, set the `cameraid` payload parameter in `drone-video-config.json` to an
 empty string.
 
-### 3. Bind the publisher to the scene
+### 4. Bind the publisher to the scene
 
 The pose uses the `scene` reference frame, which requires a manual binding and
 positioning trust. Add to `.env` at the repository root:
@@ -105,7 +121,7 @@ and recreate the Scene Controller to ingest these new settings:
 docker compose --profile controller up -d scene
 ```
 
-### 4. Start the video source and pipeline
+### 5. Start the video source and pipeline
 
 Shares the running stack's network and models volume:
 
@@ -113,13 +129,11 @@ Shares the running stack's network and models volume:
 docker compose --project-directory . -f sample_data/drone_sim/compose.drone-video.yml up -d
 ```
 
-### 5. Watch it work
+### 6. Watch it work
 
 - **Web UI**: open the new scene. Tracked people appear on the map, localized
-  from the drone's moving view. The drone platform appears as a scene object
-  (`id` matching `source_id`) with child frustums from its object `cameras`
-  metadata (toggle "show platform frustums" in the 3D panel). Open the
-  `sim-drone-view` camera (scene page camera panel or camera detail page) and
+  from the drone's moving view. If the `.glb` asset has been defined - the drone platform 
+  appears as it. Open the `sim-drone-view` camera (scene page camera panel or camera detail page) and
   enable live view to watch the warped, annotated drone frames — with
   `show_hud` enabled the current yaw/pitch/roll/zoom is drawn on each frame.
 

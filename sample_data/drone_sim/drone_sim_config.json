@@ -1,6 +1,5 @@
 {
   "source_id": "sim-drone-qcam1",
-  "thing_type": "person",
   "scene": {
     "uid": "7e978692-df9f-4b62-9c03-6a1c4c33f25c",
     "name": "Queuing"
