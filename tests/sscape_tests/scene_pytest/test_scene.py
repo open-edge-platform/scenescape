@@ -225,20 +225,30 @@ def test_processCameraData_camera_without_pose_returns_true(scene_obj):
   }
   assert scene_obj.processCameraData(payload) is True
 
-def test_processCameraData_intrinsics_present_skips_bbox_conversion(scene_obj, camera_obj, monkeypatch):
+def test_processCameraData_converts_px_boxes_with_message_intrinsics(
+    scene_obj, camera_obj, monkeypatch):
   scene_obj.cameras[camera_obj.cameraID] = camera_obj
   convert_mock = Mock()
   monkeypatch.setattr(scene_obj, 'convertPixelBoundingBoxesToMeters', convert_mock)
   monkeypatch.setattr(scene_obj, 'createMovingObjectsForDetection', lambda *args, **kwargs: [])
   monkeypatch.setattr(scene_obj, 'finishProcessing', lambda *args, **kwargs: None)
+  detections = [{
+    'id': 1,
+    'category': 'person',
+    'bounding_box_px': {'x': 10, 'y': 20, 'width': 30, 'height': 40},
+  }]
   payload = {
     'id': camera_obj.cameraID,
     'timestamp': '2023-05-16T21:22:58.388Z',
-    'intrinsics': {'fx': 1.0},
-    'objects': {'person': []}
+    'intrinsics': {'fx': 700.0, 'fy': 710.0, 'cx': 320.0, 'cy': 240.0},
+    'objects': {'person': detections},
   }
   assert scene_obj.processCameraData(payload) is True
-  convert_mock.assert_not_called()
+  convert_mock.assert_called_once()
+  called_detections, called_intrinsics, _called_distortion = convert_mock.call_args.args
+  assert called_detections is detections
+  assert float(called_intrinsics[0, 0]) == 700.0
+  assert float(called_intrinsics[1, 1]) == 710.0
 
 
 @pytest.mark.parametrize('locked', [True, False])

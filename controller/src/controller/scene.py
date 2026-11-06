@@ -266,12 +266,14 @@ class Scene(SceneModel):
         message_camera,
         when,
       )
-      if "intrinsics" not in jdata:
-        self.convertPixelBoundingBoxesToMeters(
-          detections,
-          message_camera.pose.intrinsics.intrinsics,
-          message_camera.pose.intrinsics.distortion,
-        )
+      # Always unproject pixel boxes with the effective (snapshot/PTZ) optics.
+      # MQTT intrinsics update message_camera first; do not skip conversion when
+      # the frame also carries intrinsics (handheld/detector optics payloads).
+      self.convertPixelBoundingBoxesToMeters(
+        detections,
+        message_camera.pose.intrinsics.intrinsics,
+        message_camera.pose.intrinsics.distortion,
+      )
       objects = self.createMovingObjectsForDetection(detection_type, detections, when, message_camera)
       self.finishProcessing(detection_type, when, objects)
     return True
