@@ -116,11 +116,11 @@ valid if d² ≤ χ²(p, 2) and ||z_xy − ŷ_xy|| ≤ max_radius_m
 
 **Methods:**
 
-| Method                          | Meaning                                            |
-| ------------------------------- | -------------------------------------------------- |
-| `euclidean`                     | Legacy meter gate (rollback)                       |
-| `position_mahalanobis`          | Phase 1 — track-side `S_pred` (production default) |
-| `position_mahalanobis_combined` | Phase 2+ — `S_pred + R_meas`                       |
+| Method                          | Meaning                                                                |
+| ------------------------------- | ---------------------------------------------------------------------- |
+| `euclidean`                     | Legacy meter gate (rollback)                                           |
+| `position_mahalanobis`          | Phase 1 — track-side `S_pred` (default without an `association` block) |
+| `position_mahalanobis_combined` | Phase 2+ — `S_pred + R_meas`                                           |
 
 ### 5.3 Phase 2 — Geometry-derived measurement covariance
 
@@ -176,7 +176,7 @@ Calibrate **α** offline from evaluation datasets (grid search maximizing AssA s
 }
 ```
 
-Phase 1 production default: `method: position_mahalanobis`, `max_radius_m: 10.0` (no `measurement_uncertainty` block required). Environment overrides follow tracker service `TRACKER_*` conventions.
+Phase 1 default without an `association` block: `method: position_mahalanobis`, `max_radius_m: 10.0` (no `measurement_uncertainty` block required). The shipped configs keep `euclidean` until the Phase 1 evaluation; `tracker-config-mahalanobis.json` (Controller) and `tracker-mahalanobis.json` (Tracker service) select Phase 1. Environment overrides follow tracker service `TRACKER_*` conventions.
 
 ### 5.6 Chi-squared gate reference
 

@@ -9,6 +9,7 @@ import queue
 import threading
 
 import orjson
+from pathlib import Path
 import pytest
 import tempfile
 from collections import defaultdict
@@ -21,8 +22,29 @@ from controller.scene_controller import SceneController
 from scene_common.mqtt import PubSub
 
 
+CONTROLLER_CONFIG_DIR = Path(__file__).resolve().parents[3] / 'controller' / 'config'
+LEGACY_ASSOCIATION = {'method': 'euclidean', 'gate_probability': 0.99, 'max_radius_m': None}
+
+
 class TestSceneControllerExtractTrackerConfigAssociation:
   """Association block parsing from tracker-config.json."""
+
+  @pytest.mark.parametrize('config_file, expected', [
+    ('tracker-config.json', LEGACY_ASSOCIATION),
+    ('tracker-config-immediate.json', LEGACY_ASSOCIATION),
+    ('tracker-config-persist-attr.json', LEGACY_ASSOCIATION),
+    ('tracker-config-mahalanobis.json',
+     {'method': 'position_mahalanobis', 'gate_probability': 0.99, 'max_radius_m': 10.0}),
+  ])
+  def test_shipped_configs_select_the_association(self, config_file, expected):
+    # The shipped configs keep the legacy Euclidean association on the objects' tracking_radius;
+    # tracker-config-mahalanobis.json is the probabilistic alternative.
+    scene_controller = SceneController.__new__(SceneController)
+    scene_controller.tracker_config_data = {}
+
+    scene_controller.extractTrackerConfigData(str(CONTROLLER_CONFIG_DIR / config_file))
+
+    assert scene_controller.tracker_config_data['association'] == expected
 
   @pytest.mark.parametrize('association', [
     {'method': 'bogus', 'gate_probability': 0.95, 'max_radius_m': 7.0},

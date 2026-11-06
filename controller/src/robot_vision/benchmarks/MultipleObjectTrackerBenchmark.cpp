@@ -72,7 +72,7 @@ struct WorkloadConfig
   std::vector<int> people_counts{50};
   std::vector<int> camera_counts{1, 2};
   std::vector<int> overlap_modes{0, 1};
-  // Set by parseWorkloadArgs: --association-config, or the production association.
+  // Set by parseWorkloadArgs: --association-config, or position_mahalanobis (the services' default without a config).
   std::optional<AssociationParams> association;
 };
 

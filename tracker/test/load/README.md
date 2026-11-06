@@ -224,7 +224,7 @@ pixel maps to ≈ 5.5 cm on the ground plane, giving a visible area of roughly
 2 m apart at the default 300 objects, so every detection is far closer to its
 own track's prediction than to a neighbour's. The tracker's association
 (`tracking.association` in the tracker config, by default the
-`position_mahalanobis` gate) therefore matches each detection to its own track,
+`euclidean` 2 m gate) therefore matches each detection to its own track,
 and each detection produces exactly one track regardless of object count.
 
 ### Movement
