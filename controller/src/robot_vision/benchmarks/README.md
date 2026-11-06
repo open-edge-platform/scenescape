@@ -36,12 +36,12 @@ sudo apt-get install -y cmake build-essential libbenchmark-dev
 
 Harness flags (parsed before Google Benchmark flags):
 
-| Flag                             | Default | Meaning                                                                                                                                                                                         |
-| -------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--people N[,N...]`              | `50`    | Object counts to sweep                                                                                                                                                                          |
-| `--cameras N[,N...]`             | `1,2`   | Camera counts to sweep                                                                                                                                                                          |
-| `--overlap 0\|1[,...]`           | `0,1`   | Camera layouts to sweep (see above)                                                                                                                                                             |
-| `--association-config path.json` | unset   | JSON: `method`, `gate_probability`, `max_radius_m`, with the service defaults for missing keys (`max_radius_m` 2 for `euclidean`, 10 for `position_mahalanobis`). Unset: production association |
+| Flag                             | Default | Meaning                                                                                                                                                                                                                                                    |
+| -------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--people N[,N...]`              | `50`    | Object counts to sweep                                                                                                                                                                                                                                     |
+| `--cameras N[,N...]`             | `1,2`   | Camera counts to sweep                                                                                                                                                                                                                                     |
+| `--overlap 0\|1[,...]`           | `0,1`   | Camera layouts to sweep (see above)                                                                                                                                                                                                                        |
+| `--association-config path.json` | unset   | JSON object with top-level `method`, `gate_probability`, `max_radius_m`, with the service defaults for missing keys (`max_radius_m` 2 for `euclidean`, 10 for `position_mahalanobis`); malformed JSON or a wrong type fails. Unset: production association |
 
 Presets: `configs/association_production.json` (the default) and `configs/association_euclidean.json` (legacy 2 m gate).
 
