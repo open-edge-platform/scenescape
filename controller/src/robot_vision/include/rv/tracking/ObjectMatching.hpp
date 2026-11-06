@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: (C) 2019 - 2025 Intel Corporation
+// SPDX-FileCopyrightText: (C) 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
 #pragma once
@@ -31,6 +31,8 @@ enum class DistanceType
   PositionMahalanobis  ///< d^2 on the x/y block of S up to max_radius_m; ``association.method: position_mahalanobis``.
 };
 
+/// Assigns measurements to tracks on costs below threshold, which is capped at 1000, the cost of a pair beyond
+/// max_radius_m or with a degenerate covariance.
 void match(const std::vector<TrackedObject> &tracks,
             const std::vector<TrackedObject> &measurements,
             std::vector<std::pair<size_t, size_t>> &assignments,
