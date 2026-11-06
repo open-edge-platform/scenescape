@@ -295,12 +295,16 @@ class IntelLabsTracking(Tracking):
 
   def applyAssociationConfig(self, association_config):
     """Update association settings used by subsequent track()/match calls."""
-    self.association_config = normalize_association_config(association_config)
-    self._ignored_tracking_radius_warned = False
-    log.info("Association config updated: {}".format(self.association_config))
-    for tracker in getattr(self, 'trackers', {}).values():
+    config = normalize_association_config(association_config)
+    # Under the lock, so a category tracker that _createTrackers adds meanwhile reads this config or is updated below.
+    with self._lifecycle_lock:
+      self.association_config = config
+      self._ignored_tracking_radius_warned = False
+      trackers = list(getattr(self, 'trackers', {}).values())
+    log.info("Association config updated: {}".format(config))
+    for tracker in trackers:
       if hasattr(tracker, 'applyAssociationConfig'):
-        tracker.applyAssociationConfig(self.association_config)
+        tracker.applyAssociationConfig(config)
     return
 
   def check_valid_time_parameters(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):
