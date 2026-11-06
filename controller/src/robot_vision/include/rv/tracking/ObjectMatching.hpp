@@ -33,6 +33,8 @@ enum class DistanceType
   EuclideanBirth       ///< Birth clustering: x/y distance, x/y/z when both detections have ``zMeasured``.
 };
 
+/// Assigns measurements to tracks on costs below threshold, which is capped at 1000, the cost of a pair beyond
+/// max_radius_m or with a degenerate covariance.
 void match(const std::vector<TrackedObject> &tracks,
             const std::vector<TrackedObject> &measurements,
             std::vector<std::pair<size_t, size_t>> &assignments,

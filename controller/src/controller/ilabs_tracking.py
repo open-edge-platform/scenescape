@@ -69,7 +69,8 @@ def normalize_association_config(association_config=None):
   config = dict(association_config or {})
 
   method = config.get("method", ASSOCIATION_METHOD_POSITION_MAHALANOBIS)
-  if method not in VALID_ASSOCIATION_METHODS:
+  # A non-string method (a JSON list or object) is unhashable: the frozenset lookup would raise TypeError.
+  if not isinstance(method, str) or method not in VALID_ASSOCIATION_METHODS:
     raise ValueError(
       "Invalid association method {!r} (expected {})".format(
         method, ", ".join(sorted(VALID_ASSOCIATION_METHODS)))
@@ -104,7 +105,7 @@ def warn_association_config(association_config):
       and max_radius_m <= DEFAULT_ASSOCIATION_EUCLIDEAN_MAX_RADIUS_M + 1e-6):
     log.warning(
       "association.method is position_mahalanobis with max_radius_m=%s; "
-      "ADR-0017 recommends raising max_radius_m (e.g. %s) so the chi-squared "
+      "ADR-0019 recommends raising max_radius_m (e.g. %s) so the chi-squared "
       "gate can widen with predicted uncertainty",
       max_radius_m,
       DEFAULT_ASSOCIATION_MAHALANOBIS_MAX_RADIUS_M,
@@ -298,12 +299,16 @@ class IntelLabsTracking(Tracking):
 
   def applyAssociationConfig(self, association_config):
     """Update association settings used by subsequent track()/match calls."""
-    self.association_config = normalize_association_config(association_config)
-    self._ignored_tracking_radius_warned = False
-    log.info("Association config updated: {}".format(self.association_config))
-    for tracker in getattr(self, 'trackers', {}).values():
+    config = normalize_association_config(association_config)
+    # Under the lock, so a category tracker that _createTrackers adds meanwhile reads this config or is updated below.
+    with self._lifecycle_lock:
+      self.association_config = config
+      self._ignored_tracking_radius_warned = False
+      trackers = list(getattr(self, 'trackers', {}).values())
+    log.info("Association config updated: {}".format(config))
+    for tracker in trackers:
       if hasattr(tracker, 'applyAssociationConfig'):
-        tracker.applyAssociationConfig(self.association_config)
+        tracker.applyAssociationConfig(config)
     return
 
   def check_valid_time_parameters(self, max_unreliable_time, non_measurement_time_dynamic, non_measurement_time_static):

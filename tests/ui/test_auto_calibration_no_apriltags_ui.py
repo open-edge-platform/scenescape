@@ -75,7 +75,12 @@ def test_no_april_tag(request, record_xml_attribute, scenescape_env):
   TEST_NAME = "NEX-T10485"
 
   test = NoAprilTagCalibrationTest(TEST_NAME, request, record_xml_attribute)
-  test.execute_test()
+  try:
+    test.execute_test()
+  finally:
+    browser = getattr(test, "browser", None)
+    if browser is not None:
+      browser.quit()
 
   common.record_test_result(TEST_NAME, test.exitCode)
 

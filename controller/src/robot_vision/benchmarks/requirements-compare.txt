@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-# compare.py dependencies: tools/requirements.txt of the google/benchmark tag cloned by
+# compare.py dependencies: tools/requirements.txt of the google/benchmark commit (v1.9.5) cloned by
 # compare_benchmarks.sh. Hashes of the CPython manylinux x86_64 / aarch64 wheels from PyPI;
-# update them together with the tag.
+# update them together with the commit.
 numpy==2.4.1 \
     --hash=sha256:a92f227dbcdc9e4c3e193add1a189a9909947d4f8504c576f4a732fd0b54240a \
     --hash=sha256:538bf4ec353709c765ff75ae616c34d3c3dca1a68312727e8f2676ea644f8509 \

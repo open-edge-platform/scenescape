@@ -5,6 +5,7 @@ from collections import defaultdict
 import os
 import queue
 import threading
+import time
 from types import SimpleNamespace
 
 import ntplib
@@ -40,6 +41,40 @@ from controller.time_chunking import (DEFAULT_CHUNKING_RATE_FPS,
 from controller.tracking import EFFECTIVE_OBJECT_UPDATE_RATE, DEFAULT_SUSPENDED_TRACK_TIMEOUT_SECS
 TRUSTED_POSITIONING_SOURCES_ENV_VAR = 'CONTROLLER_TRUSTED_POSITIONING_SOURCES'
 EXTERNAL_SOURCE_BINDINGS_ENV_VAR = 'CONTROLLER_EXTERNAL_SOURCE_BINDINGS'
+# Ingest-failure errors are logged at most once per window for each publisher.
+FAILURE_RATE_LIMIT_WINDOW_S = 10
+
+
+class RateLimiter:
+  """Allows an action at most once per window for each key."""
+
+  def __init__(self, window_s, max_keys=1024):
+    self._window_s = window_s
+    self._max_keys = max_keys
+    # key -> [last allowed time, calls suppressed since then]
+    self._entries = {}
+
+  def allow(self, key=None):
+    """Return (allowed, suppressed), where suppressed is the number of calls
+    blocked for this key since it was last allowed."""
+    now = time.monotonic()
+    entry = self._entries.get(key)
+    if entry is not None:
+      if now - entry[0] < self._window_s:
+        entry[1] += 1
+        return False, 0
+      suppressed = entry[1]
+      entry[0], entry[1] = now, 0
+      return True, suppressed
+    if len(self._entries) >= self._max_keys:
+      # Keys come from untrusted topics: bound the table by dropping expired
+      # entries only, and reject new keys while every cooldown is still active.
+      self._entries = {k: e for k, e in self._entries.items()
+                       if now - e[0] < self._window_s}
+      if len(self._entries) >= self._max_keys:
+        return False, 0
+    self._entries[key] = [now, 0]
+    return True, 0
 
 
 def _parseAssociationConfig(tracker_config):
@@ -180,6 +215,7 @@ class SceneController:
     if self.external_source_bindings:
       log.info("Loaded %s manual external-source bindings for %s publishers",
                EXTERNAL_SOURCE_BINDINGS_ENV_VAR, len(self.external_source_bindings))
+    self._failure_log_limiter = RateLimiter(FAILURE_RATE_LIMIT_WINDOW_S)
     self._moving_object_queue = queue.Queue(maxsize=1000)
     self._moving_object_stop = threading.Event()
     self._moving_object_worker = threading.Thread(
@@ -369,6 +405,9 @@ class SceneController:
       "scene": scene.name
     }
     metrics.record_object_count(len(objects), metric_attributes)
+
+    if camera_id is not None:
+      jdata['camera_id'] = camera_id
 
     self.publishSceneDetections(scene, objects, otype, jdata)
     return
@@ -606,13 +645,10 @@ class SceneController:
         return
 
       jdata['debug_hmo_start_time'] = now
-      # Camera intrinsics/distortion refresh only applies to camera-originated
-      # messages (keyed by 'id'); external-source messages are keyed by
-      # 'source_id' and resolve pose/intrinsics via ExternalSourcePoseCache.
-      # TODO(explore): whether camera and external calibration resolution should
-      # share an abstraction — see ADR 0016 Future Work. Do not unify yet.
-      if topic['_topic_id'] != PubSub.DATA_EXTERNAL:
-        self.cache_manager.refreshScenesForCamParams(jdata)
+      # MQTT optics (intrinsics/distortion/resolution) are applied ephemerally with
+      # extrinsics in processCameraData → cameraSnapshot when unlocked. They are not
+      # persisted to Manager. External-source messages still resolve via
+      # ExternalSourcePoseCache (ADR 0016).
 
       if self.rewrite_all_time:
         msg_when = now
@@ -651,8 +687,9 @@ class SceneController:
             success = self._handleExternalSourceObject(
               scene, jdata_scene, detection_types[0], msg_when)
             if not success:
-              log.error("Camera fail publisher_id=%s scene=%s", publisher_id, getattr(scene, 'name', None))
-              self.cache_manager.invalidate()
+              self._logFailure(
+                publisher_id,
+                f"Camera fail publisher_id={publisher_id} scene={getattr(scene, 'name', None)}")
               return
             jdata_scene['id'] = scene.uid
             jdata_scene['name'] = scene.name
@@ -666,7 +703,7 @@ class SceneController:
 
         success, scene = self._handleChildSceneObject(
           publisher_id, jdata, detection_types[0], msg_when)
-        # (None, None) => orphan hierarchy echo from a root scene; ignore.
+        # (None, None) => dropped: root-scene echo or unresolved sender/parent.
         if success is None:
           return
         sender_id = publisher_id
@@ -678,8 +715,8 @@ class SceneController:
         scene, detection_types, success = outcome
 
       if not success:
-        log.error("Camera fail", sender_id, scene.name if scene is not None else "unknown")
-        self.cache_manager.invalidate()
+        scene_name = scene.name if scene is not None else "unknown"
+        self._logFailure(sender_id, f"Camera fail {sender_id} {scene_name}")
         return
 
       jdata['id'] = scene.uid
@@ -689,6 +726,15 @@ class SceneController:
         self.publishDetections(scene, scene.tracker.currentObjects(detection_type),
                               msg_when, detection_type, jdata, camera_id)
       return
+
+  def _logFailure(self, publisher_id, message):
+    """Log an ingest failure at most once per window for each publisher."""
+    allowed, suppressed = self._failure_log_limiter.allow(publisher_id)
+    if allowed:
+      if suppressed:
+        message = f"{message} (+{suppressed} suppressed)"
+      log.error(message)
+    return
 
   def _processCameraMessage(self, camera_id, jdata, msg_when, metric_attributes):
     """Resolve the camera's scene, apply the PTZ gate and feed the detections to tracking.
@@ -721,13 +767,18 @@ class SceneController:
     return scene, detection_types, success
 
   def _handleChildSceneObject(self, sender_id, jdata, detection_type, msg_when):
+    """Forward a child scene's objects into its parent scene.
+
+    Unresolved senders/parents return (None, None) without invalidating the
+    cache: only a DB change can resolve them, and CMD_DATABASE invalidates then.
+    """
     is_remote = False
     sender = self.cache_manager.sceneWithID(sender_id)
     if sender is None:
       remote_sender = self.cache_manager.sceneWithRemoteChildID(sender_id)
       if remote_sender is None:
-        log.error(f"UNKNOWN SENDER: {sender_id}")
-        return False, None
+        self._logFailure(sender_id, f"UNKNOWN SENDER: {sender_id}")
+        return None, None
       sender = remote_sender
       is_remote = True
 
@@ -738,8 +789,8 @@ class SceneController:
           sender.parent = recovered
           log.info(f"Recovered parent={recovered} for remote child {sender_id}")
         else:
-          log.error("UNKNOWN PARENT", sender_id)
-          return False, sender
+          self._logFailure(sender_id, f"UNKNOWN PARENT: {sender_id}")
+          return None, None
       else:
         # Hierarchy publishes (no source_id) from a root scene are not destined
         # for a parent — ignore them rather than failing closed and invalidating
@@ -750,8 +801,9 @@ class SceneController:
 
     scene = self.cache_manager.sceneWithID(sender.parent)
     if scene is None:
-      log.error("PARENT SCENE NOT FOUND", sender.parent, "for sender", sender.name)
-      return False, None
+      self._logFailure(
+        sender_id, f"PARENT SCENE NOT FOUND: {sender.parent} for sender {sender.name}")
+      return None, None
 
     success = scene.processSceneData(jdata, sender, sender.cameraPose,
                                      detection_type, when=msg_when)

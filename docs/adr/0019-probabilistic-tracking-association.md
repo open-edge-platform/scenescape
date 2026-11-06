@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# ADR 17: Probabilistic Tracking Association
+# ADR 19: Probabilistic Tracking Association
 
 - **Author(s)**: [Sarat Poluri](https://github.com/spoluri)
 - **Date**: 2026-06-06
@@ -35,7 +35,7 @@ Additional decisions locked with this ADR:
 - Publish each track's gate as `association_window` (circle or χ² ellipse) so the Manager 2D/3D views can show it; the views draw it at the corrected position, not the predicted one the gate uses.
 - Until Phase 2: equal-weight multi-cam geometry averaging and Euclidean ~2 m detection↔detection birth clustering are accepted stopgaps (raw detections lack track `S_pred`).
 
-Phase 1 is accepted and is the production default (`position_mahalanobis`). Phases 2–3 remain proposed. Engineering detail lives in the [design document](../design/probabilistic-tracking-association.md); task tracking in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
+Phase 1 is accepted: `position_mahalanobis` is the default without an `association` block, while the shipped configs keep `euclidean` until its evaluation, with Mahalanobis alternative configs. Phases 2–3 remain proposed. Engineering detail lives in the [design document](../design/probabilistic-tracking-association.md); task tracking in the [implementation plan](../../.github/plans/plan-probabilistic-tracking.md).
 
 ## Alternatives Considered
 

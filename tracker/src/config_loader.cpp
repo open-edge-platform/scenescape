@@ -324,6 +324,12 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
         GetValueByPointerWithDefault(config_doc, json::TRACKING_ASSOCIATION_GATE_PROBABILITY,
                                      kDefaultAssociationGateProbability)
             .GetDouble();
+    // RapidJSON validates draft-04, which ignores the schema's numeric exclusiveMinimum.
+    if (!(config.tracking.association.gate_probability > 0.0 &&
+          config.tracking.association.gate_probability <= 1.0)) {
+        throw std::runtime_error("tracking.association.gate_probability must be in (0, 1]: " +
+                                 std::to_string(config.tracking.association.gate_probability));
+    }
     // Without max_radius_m the default depends on the method, so it is resolved after the env
     // overrides below.
     std::optional<double> association_max_radius_m;

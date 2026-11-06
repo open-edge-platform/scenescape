@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2019 - 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
+#include <algorithm>
 #include <functional>
 #include <limits>
 #include <numeric>
@@ -280,7 +281,8 @@ void match(const std::vector<TrackedObject> &tracks,
   }
 
   apollo::perception::lidar::BipartiteGraphMatcherOptions matcherOptions;
-  matcherOptions.cost_thresh = threshold;
+  // Rejected pairs cost kDefaultClassBoundValue; a threshold above it would make them valid matches.
+  matcherOptions.cost_thresh = std::min(threshold, kDefaultClassBoundValue);
   matcherOptions.bound_value = kDefaultClassBoundValue;
 
   apollo::perception::common::SecureMat<double> *costMatrix = matcher.cost_matrix();

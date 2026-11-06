@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 - **Author(s)**: [Sarat Poluri](https://github.com/spoluri)
 - **Date**: 2026-06-06
 - **Status**: Phase 1 complete; Phases 2–3 open
-- **ADR**: [ADR-0017](../../docs/adr/0017-probabilistic-tracking-association.md)
+- **ADR**: [ADR-0019](../../docs/adr/0019-probabilistic-tracking-association.md)
 - **Design**: [Probabilistic Tracking Association](../../docs/design/probabilistic-tracking-association.md)
 - **Evaluation**: [ADR-0009](../../docs/adr/0009-tracking-evaluation.md), [Tracker Evaluation Pipeline](../../docs/design/tracker-evaluation-pipeline.md)
 
@@ -66,7 +66,7 @@ Follow [Tracker Agents.md](../../tracker/Agents.md) config checklist.
 - [x] Feature flag ships; `position_mahalanobis` validated vs Euclidean
 - [x] Evaluation metrics within thresholds on gated datasets
 - [x] CI unit coverage for association wiring
-- [x] ADR-0017 → `Accepted` for Phase 1 scope
+- [x] ADR-0019 → `Accepted` for Phase 1 scope
 - [x] Default flip → `position_mahalanobis` after Controller-TC + Wildtrack re-signoff
 
 ### Phase 1 validation notes

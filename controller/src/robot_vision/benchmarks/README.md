@@ -4,7 +4,7 @@ Performance benchmarks for `MultipleObjectTracker::track` (Scene Controller / Tr
 
 ## Workload
 
-People walk persistently across a 50 m x 50 m area (0.5-2.0 m/s, random heading drift). Association uses the production setting of the Scene Controller and the Tracker Service (`position_mahalanobis`, gate probability 0.99, `max_radius_m` 10) unless `--association-config` selects another one (see below). The tracker uses the production filter and track lifecycle settings of both services, with the lifecycle times converted to frames at the benchmark's 30 fps. The tracker and people are reset every 100 frames.
+People walk persistently across a 50 m x 50 m area (0.5-2.0 m/s, random heading drift). Association uses `position_mahalanobis` (gate probability 0.99, `max_radius_m` 10), the services' default without an `association` block, unless `--association-config` selects another one (see below); the shipped service configs use `euclidean` (`configs/association_euclidean.json`). The tracker uses the production filter and track lifecycle settings of both services, with the lifecycle times converted to frames at the benchmark's 30 fps. The tracker and people are reset every 100 frames.
 
 | Benchmark         | `track()` calls per frame | Matches                                   |
 | ----------------- | ------------------------- | ----------------------------------------- |
@@ -36,14 +36,14 @@ sudo apt-get install -y cmake build-essential libbenchmark-dev
 
 Harness flags (parsed before Google Benchmark flags):
 
-| Flag                             | Default | Meaning                                                                                                                                                                                         |
-| -------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--people N[,N...]`              | `50`    | Object counts to sweep                                                                                                                                                                          |
-| `--cameras N[,N...]`             | `1,2`   | Camera counts to sweep                                                                                                                                                                          |
-| `--overlap 0\|1[,...]`           | `0,1`   | Camera layouts to sweep (see above)                                                                                                                                                             |
-| `--association-config path.json` | unset   | JSON: `method`, `gate_probability`, `max_radius_m`, with the service defaults for missing keys (`max_radius_m` 2 for `euclidean`, 10 for `position_mahalanobis`). Unset: production association |
+| Flag                             | Default | Meaning                                                                                                                                                                                                                                                    |
+| -------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--people N[,N...]`              | `50`    | Object counts to sweep                                                                                                                                                                                                                                     |
+| `--cameras N[,N...]`             | `1,2`   | Camera counts to sweep                                                                                                                                                                                                                                     |
+| `--overlap 0\|1[,...]`           | `0,1`   | Camera layouts to sweep (see above)                                                                                                                                                                                                                        |
+| `--association-config path.json` | unset   | JSON object with top-level `method`, `gate_probability`, `max_radius_m`, with the service defaults for missing keys (`max_radius_m` 2 for `euclidean`, 10 for `position_mahalanobis`); malformed JSON or a wrong type fails. Unset: production association |
 
-Presets: `configs/association_production.json` (the default) and `configs/association_euclidean.json` (legacy 2 m gate).
+Presets: `configs/association_production.json` (`position_mahalanobis`, the default) and `configs/association_euclidean.json` (2 m gate, as the shipped Tracker service config).
 
 Use `--benchmark_filter=BM_Immediate` (or `BM_TimeChunking`) to run one mode.
 

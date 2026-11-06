@@ -15,7 +15,7 @@ if(NOT benchmark_FOUND)
     FetchContent_Declare(
         googlebenchmark
         GIT_REPOSITORY https://github.com/google/benchmark.git
-        GIT_TAG v1.9.5
+        GIT_TAG 192ef10025eb2c4cdd392bc502f0c852196baa48 # v1.9.5
     )
     FetchContent_MakeAvailable(googlebenchmark)
 endif()

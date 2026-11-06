@@ -814,6 +814,30 @@ TEST(ConfigLoaderTest, AssociationMahalanobisCostThresholdUsesChi2) {
     EXPECT_EQ(association.distanceType(), rv::tracking::DistanceType::PositionMahalanobis);
 }
 
+TEST(ConfigLoaderTest, AssociationGateProbabilityJson_OutOfRange) {
+    // RapidJSON validates draft-04, which ignores the schema's numeric exclusiveMinimum, so the
+    // loader checks the range itself.
+    for (const char* value : {"0", "-0.5", "1.5"}) {
+        SCOPED_TRACE(value);
+        const std::string json = R"({
+          "infrastructure": {
+            "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+          },
+          "tracking": {
+            "association": {"gate_probability": )" +
+                                 std::string(value) + R"(}
+          },
+          "scenes": {
+            "source": "file",
+            "file_path": ")" + empty_scenes_path() +
+                                 R"("
+          }
+        })";
+        TempFile config_file(json);
+        EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+    }
+}
+
 TEST(ConfigLoaderTest, AssociationGateProbabilityEnvOverride_OutOfRange) {
     TempFile config_file(MINIMAL_CONFIG());
 
