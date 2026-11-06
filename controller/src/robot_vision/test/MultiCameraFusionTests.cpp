@@ -157,6 +157,27 @@ TEST(MultipleObjectTrackerTest, MultiCameraBirthKeepsDetectionsBeyondGateSeparat
   expectSameState(tracks[1], far);
 }
 
+TEST(MultipleObjectTrackerTest, MultiCameraBirthClusteringUsesTheGivenRadius)
+{
+  // Detections 2.5 m apart give two tracks at the default 2 m birth radius and one at 3 m, whatever the track gate.
+  const auto near = makeDetection(7.0, 7.0, 0.0, 0.5, 0.5, 1.7);
+  const auto far = makeDetection(9.5, 7.0, 0.0, 0.5, 0.5, 1.7);
+  for (const auto &[radius, expectedTracks] :
+       {std::pair{rv::tracking::kDefaultBirthClusterRadiusM, size_t{2}}, std::pair{3.0, size_t{1}}})
+  {
+    SCOPED_TRACE(radius);
+    auto tracker = makeFusionTracker();
+    tracker.track(DetectionsPerCamera{{near}, {far}},
+                  atMs(10),
+                  rv::tracking::DistanceType::Euclidean,
+                  1.0,
+                  0.5,
+                  1.0,
+                  radius);
+    EXPECT_EQ(tracker.getTracks().size(), expectedTracks);
+  }
+}
+
 TEST(MultipleObjectTrackerTest, MultiCameraBirthPairsDetectionsOfSeveralObjects)
 {
   // Two objects seen by three cameras (listed in different orders): each track averages only its own detections.

@@ -14,7 +14,7 @@
 namespace rv {
 namespace tracking {
 
-/// Euclidean radius (m) for cross-camera detection↔detection birth clustering.
+/// Default Euclidean radius (m) for cross-camera detection↔detection birth clustering.
 /// Kept at the legacy tracking scale so Mahalanobis ``max_radius_m`` (ceiling)
 /// does not widen birth merges in dense scenes. Track↔detection association
 /// still uses the caller-supplied ``maxRadiusM``.
@@ -76,12 +76,16 @@ public:
    * @param distanceType Distance type for matching
    * @param distanceThreshold Distance threshold for matching
    * @param scoreThreshold Threshold for object scoring
+   * @param maxRadiusM Euclidean ceiling (m) of track association
+   * @param birthClusterRadiusM Euclidean radius (m) that groups unmatched detections of different cameras into one new
+   * track
    */
   void track(std::vector<std::vector<tracking::TrackedObject>> objectsPerCamera,
              const std::chrono::system_clock::time_point &timestamp,
              const DistanceType & distanceType, double distanceThreshold,
              double scoreThreshold = 0.50,
-             double maxRadiusM = std::numeric_limits<double>::infinity());
+             double maxRadiusM = std::numeric_limits<double>::infinity(),
+             double birthClusterRadiusM = kDefaultBirthClusterRadiusM);
 
   /**
    * @brief Returns a list of reliable tracked objects states

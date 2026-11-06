@@ -437,6 +437,22 @@ class TestMatchFunction(unittest.TestCase):
       2,
       'birth clustering must stay at ~2 m, not follow max_radius_m=10',
     )
+    self.assertEqual(tracking.DEFAULT_BIRTH_CLUSTER_RADIUS_M, 2.0)
+
+    # A wider birth_cluster_radius_m fuses them.
+    tracker3 = tracking.MultipleObjectTracker(
+      tracker_config, tracking.DistanceType.PositionMahalanobis, chi2_gate)
+    tracker3.update_tracker_params(10)
+    tracker3.track(
+      [[cam0], [beyond_birth]],
+      datetime.now(),
+      tracking.DistanceType.PositionMahalanobis,
+      chi2_gate,
+      0.5,
+      10.0,
+      birth_cluster_radius_m=3.5,
+    )
+    self.assertEqual(len(tracker3.get_tracks()), 1)
 
   def test_multi_camera_detections_fuse_into_one_track(self):
     """Cross-camera birth clustering must fuse one object into a single track with averaged geometry."""
