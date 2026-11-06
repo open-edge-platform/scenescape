@@ -82,6 +82,8 @@ services:
   mock-projection:
     profiles: ["projection"]
     image: scenescape-tracker-test-mock-projection:local
+    # Forwards SIGTERM, so compose down does not wait the 10 s stop timeout
+    init: true
     build:
       context: ./mocks/projection
       args:
