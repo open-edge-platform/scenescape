@@ -837,6 +837,42 @@ TEST(ConfigLoaderTest, AssociationGateProbabilityJson_OutOfRange) {
     }
 }
 
+TEST(ConfigLoaderTest, AssociationMaxRadiusJson_OutOfRange) {
+    // Schema minimum:0 would also reject negatives; use a permissive schema so the loader check
+    // is what fails (defense in depth when schema validation is skipped or weakened).
+    const char* permissive_schema = R"({
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object"
+    })";
+    TempFile schema_file(permissive_schema);
+
+    for (const char* value : {"-1", "-0.01"}) {
+        SCOPED_TRACE(value);
+        const std::string json = R"({
+          "infrastructure": {
+            "mqtt": {"host": "localhost", "port": 1883, "insecure": true}
+          },
+          "tracking": {
+            "association": {"max_radius_m": )" +
+                                 std::string(value) + R"(}
+          },
+          "scenes": {
+            "source": "file",
+            "file_path": ")" + empty_scenes_path() +
+                                 R"("
+          }
+        })";
+        TempFile config_file(json);
+        EXPECT_THROW(load_config(config_file.path(), schema_file.path()), std::runtime_error);
+    }
+}
+
+TEST(ConfigLoaderTest, AssociationMaxRadiusEnvOverride_Negative) {
+    TempFile config_file(MINIMAL_CONFIG());
+    ScopedEnv env(tracker::env::ASSOCIATION_MAX_RADIUS_M, "-1");
+    EXPECT_THROW(load_config(config_file.path(), get_schema_path()), std::runtime_error);
+}
+
 TEST(ConfigLoaderTest, AssociationGateProbabilityEnvOverride_OutOfRange) {
     TempFile config_file(MINIMAL_CONFIG());
 

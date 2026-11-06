@@ -331,11 +331,21 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
                                  std::to_string(config.tracking.association.gate_probability));
     }
     // Without max_radius_m the default depends on the method, so it is resolved after the env
-    // overrides below.
+    // overrides below. Validate here too: schema minimum:0 is not enough if validation is skipped
+    // or a non-finite value slips through.
     std::optional<double> association_max_radius_m;
     if (auto* max_radius_m =
             GetValueByPointer(config_doc, json::TRACKING_ASSOCIATION_MAX_RADIUS_M)) {
-        association_max_radius_m = max_radius_m->GetDouble();
+        if (!max_radius_m->IsNumber()) {
+            throw std::runtime_error("tracking.association.max_radius_m must be a number");
+        }
+        const double radius = max_radius_m->GetDouble();
+        if (!std::isfinite(radius) || radius < 0.0) {
+            throw std::runtime_error(
+                "tracking.association.max_radius_m must be a finite number >= 0: " +
+                std::to_string(radius));
+        }
+        association_max_radius_m = radius;
     }
 
     // NTP configuration (optional; server empty/missing = use OS clock)
