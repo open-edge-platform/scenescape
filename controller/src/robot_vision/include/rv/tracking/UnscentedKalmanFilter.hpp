@@ -128,6 +128,12 @@ class UnscentedKalmanFilterMod : public UnscentedKalmanFilter
   // Repairs covMatrix in place if it is not positive definite.
   Mat getSigmaPoints(const Mat &mean, Mat &covMatrix, double coef);
 
+  // Restores Syy with the default R if an earlier correct since the last predict used its own R.
+  void useDefaultMeasurementNoise();
+  // Kalman update with the current Syy, on all or on the observed measurement rows.
+  Mat updateAllRows(InputArray measurement);
+  Mat updateObservedRows(InputArray measurement, const std::vector<int> &observedRows);
+
 public:
   UnscentedKalmanFilterMod(const UnscentedKalmanFilterParams &params);
   ~UnscentedKalmanFilterMod();
@@ -146,7 +152,7 @@ public:
   Mat correct(InputArray measurement, const std::vector<int> &observedRows);
 
   // as above, with a per-measurement noise R (MP x MP): Syy is rebuilt as Pyy + R for this update only;
-  // an empty R falls back to the default measurementNoiseCov
+  // an empty R, like the overloads above, uses the default measurementNoiseCov
   Mat correct(InputArray measurement, const std::vector<int> &observedRows, InputArray measurementNoise);
 
   //  Get system parameters

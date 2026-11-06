@@ -247,6 +247,49 @@ Mat UnscentedKalmanFilterMod::predict(InputArray _control)
 
 Mat UnscentedKalmanFilterMod::correct(InputArray _measurement)
 {
+  useDefaultMeasurementNoise();
+  return updateAllRows(_measurement);
+}
+
+Mat UnscentedKalmanFilterMod::correct(InputArray _measurement, const std::vector<int> &observedRows)
+{
+  useDefaultMeasurementNoise();
+  return updateObservedRows(_measurement, observedRows);
+}
+
+Mat UnscentedKalmanFilterMod::correct(InputArray _measurement,
+                                      const std::vector<int> &observedRows,
+                                      InputArray _measurementNoise)
+{
+  if (_measurementNoise.empty())
+  {
+    return correct(_measurement, observedRows);
+  }
+
+  CV_Assert(_measurementNoise.rows() == MP && _measurementNoise.cols() == MP);
+  Mat noise;
+  _measurementNoise.getMat().convertTo(noise, dataType);
+  if (defaultYyCov.empty())
+  {
+    defaultYyCov = yyCov.clone();
+  }
+  // Syy was built in predict() with the default R; use this measurement's R instead.
+  yyCov = getPredictedMeasurementCovWithoutNoise() + noise;
+  return updateObservedRows(_measurement, observedRows);
+}
+
+void UnscentedKalmanFilterMod::useDefaultMeasurementNoise()
+{
+  if (!defaultYyCov.empty())
+  {
+    // An earlier correct since the last predict used its own R; this one uses the default.
+    yyCov = defaultYyCov;
+    defaultYyCov.release();
+  }
+}
+
+Mat UnscentedKalmanFilterMod::updateAllRows(InputArray _measurement)
+{
   Mat measurement = _measurement.getMat();
   // Cross-covariance must use the same predicted-state sigma points as Syy.
   // Using transitionSPFuncValsCenter (prior→predict) here left velocity weakly
@@ -270,14 +313,14 @@ Mat UnscentedKalmanFilterMod::correct(InputArray _measurement)
   return state.clone();
 }
 
-Mat UnscentedKalmanFilterMod::correct(InputArray _measurement, const std::vector<int> &observedRows)
+Mat UnscentedKalmanFilterMod::updateObservedRows(InputArray _measurement, const std::vector<int> &observedRows)
 {
   if (static_cast<int>(observedRows.size()) == MP)
   {
-    return correct(_measurement);
+    return updateAllRows(_measurement);
   }
 
-  // Same update as correct(measurement), restricted to the observed rows of y, y* and Syy.
+  // Same update as updateAllRows, restricted to the observed rows of y, y* and Syy.
   Mat measurement = _measurement.getMat();
   Mat predictedStateSPCenter;
   subtract(sigmaPoints, repeat(state, 1, 2 * DP + 1), predictedStateSPCenter);
@@ -288,33 +331,6 @@ Mat UnscentedKalmanFilterMod::correct(InputArray _measurement, const std::vector
   errorCov = errorCov - gain * xyCov.t();
 
   return state.clone();
-}
-
-Mat UnscentedKalmanFilterMod::correct(InputArray _measurement,
-                                      const std::vector<int> &observedRows,
-                                      InputArray _measurementNoise)
-{
-  if (_measurementNoise.empty())
-  {
-    if (!defaultYyCov.empty())
-    {
-      // An earlier correct since the last predict used its own R; this one uses the default.
-      yyCov = defaultYyCov;
-      defaultYyCov.release();
-    }
-    return correct(_measurement, observedRows);
-  }
-
-  CV_Assert(_measurementNoise.rows() == MP && _measurementNoise.cols() == MP);
-  Mat noise;
-  _measurementNoise.getMat().convertTo(noise, dataType);
-  if (defaultYyCov.empty())
-  {
-    defaultYyCov = yyCov.clone();
-  }
-  // Syy was built in predict() with the default R; use this measurement's R instead.
-  yyCov = getPredictedMeasurementCovWithoutNoise() + noise;
-  return correct(_measurement, observedRows);
 }
 
 Mat UnscentedKalmanFilterMod::getPredictedMeasurementCovWithoutNoise() const
