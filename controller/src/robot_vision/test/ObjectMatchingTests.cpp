@@ -315,4 +315,26 @@ TEST(ObjectMatchingTest, EuclideanRejectsPairsBeyondMaxRadius)
   EXPECT_EQ(assignedCount(track, makePerson(3.0, 0.0), DistanceType::Euclidean, 100.0), 1U);
 }
 
+TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithDegenerateCovariance)
+{
+  // |det S_xy| < 1e-12 gives the bound cost (1000), so the track is not assigned below that threshold, not even a
+  // detection exactly at the prediction.
+  struct Case
+  {
+    const char *name;
+    double s00, s01, s11;
+    size_t expected;
+  };
+  for (const auto &[name, s00, s01, s11, expected] : {Case{"zero", 0.0, 0.0, 0.0, 0U},
+                                                      Case{"rank one", 1.0, 1.0, 1.0, 0U},
+                                                      Case{"det 1e-14", 1e-7, 0.0, 1e-7, 0U},
+                                                      Case{"det 1e-10", 1e-5, 0.0, 1e-5, 1U}})
+  {
+    SCOPED_TRACE(name);
+    EXPECT_EQ(
+      assignedCount(makePositionTrack(s00, s01, s11), makePerson(0.0, 0.0), DistanceType::PositionMahalanobis, 100.0),
+      expected);
+  }
+}
+
 } // namespace
