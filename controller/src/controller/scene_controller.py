@@ -85,13 +85,13 @@ def _parseAssociationConfig(tracker_config):
   """
   association = tracker_config.get("association", {})
   if not isinstance(association, dict):
-    log.error("Invalid association config in tracker config file: expected an object, got %r; "
-              "using the default association", association)
+    log.error(f"Invalid association config in tracker config file: expected an object, got {association!r}; "
+              "using the default association")
     return normalize_association_config()
   try:
     association_config = normalize_association_config(association)
   except ValueError as err:
-    log.error("Invalid association config in tracker config file: %s; using the default association", err)
+    log.error(f"Invalid association config in tracker config file: {err}; using the default association")
     return normalize_association_config()
   warn_association_config(association_config)
   return association_config
