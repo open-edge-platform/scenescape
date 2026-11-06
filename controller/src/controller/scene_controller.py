@@ -15,7 +15,7 @@ from scene_common.transform import CameraPose
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
-from controller.ilabs_tracking import normalize_association_config
+from controller.ilabs_tracking import normalize_association_config, warn_association_config
 from controller.scene import Scene, stripReidProvenance
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -54,10 +54,12 @@ def _parseAssociationConfig(tracker_config):
               "using the default association", association)
     return normalize_association_config()
   try:
-    return normalize_association_config(association)
+    association_config = normalize_association_config(association)
   except ValueError as err:
     log.error("Invalid association config in tracker config file: %s; using the default association", err)
     return normalize_association_config()
+  warn_association_config(association_config)
+  return association_config
 
 
 def _parseTrustedSources(value):
