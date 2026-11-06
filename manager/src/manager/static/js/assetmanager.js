@@ -168,7 +168,9 @@ export default function AssetManager(
       thisMark.position.set(...obj.translation);
       thisMark.scale.set(1, 1, 1);
       if (obj.rotation) {
-        thisMark.quaternion.copy(new THREE.Quaternion().fromArray(obj.rotation));
+        thisMark.quaternion.copy(
+          new THREE.Quaternion().fromArray(obj.rotation),
+        );
       } else {
         thisMark.quaternion.identity();
       }
