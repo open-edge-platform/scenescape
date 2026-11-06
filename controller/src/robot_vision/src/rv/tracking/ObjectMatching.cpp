@@ -36,6 +36,7 @@ double calculateEuclideanDistance(const TrackedObject &measurement, const Tracke
 namespace {
 
 constexpr int kWithoutYaw = TrackedObject::MeasurementSize - 1;
+constexpr int kYaw = TrackedObject::MeasurementSize - 1;
 
 /// Per-track inverses for the Mahalanobis cost (S is fixed for the frame): S^-1, and the inverse of S without the yaw
 /// row and column for pairs without yaw.
@@ -64,15 +65,17 @@ double mahalanobisCostFromCache(const TrackedObject &measurement,
                                 const TrackedObject &track,
                                 const MahalanobisTrackCache &cache)
 {
-  const TrackedObject::MeasurementVector innovation
-    = measurement.measurementVector() - track.predictedMeasurementMean;
+  TrackedObject::MeasurementVector innovation = measurement.measurementVector() - track.predictedMeasurementMean;
 
-  // Use yaw in the gate only when both sides have orientation. Camera detections
+  // Use yaw only when both sides have orientation and the update keeps it (the speed gate). Camera detections
   // and tracks that have never seen an orienting sensor leave yaw out — same
   // observed-row subset as the partial UKF update (inv of S without yaw), not
   // zeroing ν_yaw inside ν' S^-1 ν which still couples through off-diagonal S^-1.
-  if (cache.orientationObserved && orientation::hasOrientation(measurement))
+  if (cache.orientationObserved && orientation::hasOrientation(measurement)
+      && orientation::yawPassesSpeedGate(track, measurement.yaw))
   {
+    // The detection yaw is in (-π, π] and the predicted yaw unwrapped; a box reads the same at yaw + π.
+    innovation(kYaw) = -rv::deltaTheta(measurement.yaw, track.predictedMeasurementMean(kYaw));
     return 0.5 * std::sqrt(innovation.dot(cache.covarianceInv * innovation));
   }
 
