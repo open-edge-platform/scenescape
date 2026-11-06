@@ -69,6 +69,8 @@ Example `pose-adjustment-route.json`:
 
 Resolution order is: exact label, then configured route labels. Routes are flattened at startup so message-time dispatch remains a direct lookup.
 
+`--experimental-observation-processor`: Experimental. Processes camera detections with the observation processor service at `CONTROLLER_OBSERVATION_PROCESSOR_HOST` and `CONTROLLER_OBSERVATION_PROCESSOR_PORT` and gives the tracker its measurement noise covariance. Disabled by default; can also be enabled with the `CONTROLLER_EXPERIMENTAL_OBSERVATION_PROCESSOR` environment variable set to `true`. Detections without a valid remote measurement keep the local processing. See [Experimental Observation Processor](./how-to-configure-tracker.md#experimental-observation-processor).
+
 `CONTROLLER_TRUSTED_POSITIONING_SOURCES`: Comma-separated list of external `source_id`s (see
 [External Source Input Message Format](./data_formats.md#external-source-input-message-format))
 authorized to publish poses already expressed in a target scene's local coordinates (the

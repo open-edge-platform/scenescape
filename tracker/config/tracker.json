@@ -51,7 +51,9 @@
       "method": "position_mahalanobis",
       "gate_probability": 0.99,
       "max_radius_m": 10.0
-    }
+    },
+    "experimental_observation_processor": false,
+    "observation_processor_mode": "auto"
   },
   "scenes": {
     "source": "api"

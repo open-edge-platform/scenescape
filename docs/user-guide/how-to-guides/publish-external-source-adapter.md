@@ -78,7 +78,9 @@ fields and examples; do not invent alternate shapes.
 4. **Map each native observation** to an `objects[*]` entry with `category`
    and exactly one location form:
    - **Cartesian**: `translation` in the **source's local frame** (metres
-     relative to the source origin described by `pose`).
+     relative to the source origin described by `pose`), at the object's
+     centre of mass (see `translation` in
+     [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects)).
    - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
      `translation`. Provide top-level `pose` and `intrinsics` at least once so
      they can be cached; later pixel messages may omit either field and reuse

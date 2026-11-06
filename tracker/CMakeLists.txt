@@ -46,6 +46,7 @@ find_package(RapidJSON REQUIRED)
 find_package(PahoMqttCpp REQUIRED)
 find_package(OpenSSL REQUIRED)
 find_package(opentelemetry-cpp REQUIRED)
+find_package(protobuf REQUIRED)
 find_package(gRPC REQUIRED)
 
 #####################################################################
@@ -70,6 +71,36 @@ add_subdirectory(
 )
 
 #####################################################################
+# Observation processor gRPC contract (observation_processor/proto/observation_processor.proto)
+#####################################################################
+
+# Generated code is a separate library: the tracker's strict warning flags do not apply to it,
+# and its headers are system includes for the targets that use it.
+set(TRACKER_PROTO_DIR ${CMAKE_CURRENT_LIST_DIR}/../observation_processor/proto)
+set(TRACKER_PROTO_OUT_DIR ${CMAKE_CURRENT_BINARY_DIR}/generated)
+file(MAKE_DIRECTORY ${TRACKER_PROTO_OUT_DIR})
+
+add_library(tracker_observation_processor_proto STATIC
+  ${TRACKER_PROTO_DIR}/observation_processor.proto)
+protobuf_generate(
+  TARGET tracker_observation_processor_proto
+  LANGUAGE cpp
+  IMPORT_DIRS ${TRACKER_PROTO_DIR}
+  PROTOC_OUT_DIR ${TRACKER_PROTO_OUT_DIR}
+)
+protobuf_generate(
+  TARGET tracker_observation_processor_proto
+  LANGUAGE grpc
+  GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
+  PLUGIN "protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+  IMPORT_DIRS ${TRACKER_PROTO_DIR}
+  PROTOC_OUT_DIR ${TRACKER_PROTO_OUT_DIR}
+)
+set_property(TARGET tracker_observation_processor_proto PROPERTY CXX_STANDARD ${TRACKER_CXX_STANDARD})
+target_include_directories(tracker_observation_processor_proto SYSTEM PUBLIC ${TRACKER_PROTO_OUT_DIR})
+target_link_libraries(tracker_observation_processor_proto PUBLIC grpc::grpc protobuf::libprotobuf)
+
+#####################################################################
 # Executable
 #####################################################################
 
@@ -83,7 +114,9 @@ set(PROJECT_SOURCE_LIST
   ${CMAKE_CURRENT_SOURCE_DIR}/src/manager_rest_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/object_class.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/coordinate_transformer.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/detection_projector.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/observation_processor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/remote_observation_processor.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc_observation_processor_client.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/reid_sighting.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_server.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/healthcheck_command.cpp
@@ -156,6 +189,7 @@ target_link_libraries(${PROJECT_NAME}
     OpenSSL::Crypto
     opentelemetry-cpp::opentelemetry-cpp
     grpc::grpc
+    tracker_observation_processor_proto
 )
 
 #####################################################################

@@ -54,7 +54,7 @@ against the `detector` definition in
 | `category`             | string             |   Yes    | Object class label (e.g. `"person"`, `"car"`)                                                                                                                  |
 | `bounding_box`         | object             | One of ① | Normalized image-space bounding box (`x`, `y`, `width`, `height`)                                                                                              |
 | `bounding_box_px`      | object             | One of ① | Pixel-space bounding box (`x`, `y`, `width`, `height`; optional `z`, `depth`)                                                                                  |
-| `translation`          | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres                                                                                                                    |
+| `translation`          | array[3] of number | One of ① | 3D world position (`x`, `y`, `z`) in metres ③                                                                                                                  |
 | `lat_long_alt`         | array[3] of number | One of ① | Geographic position (latitude, longitude, altitude); converted to ECEF internally                                                                              |
 | `size`                 | array[3] of number | One of ① | 3D object dimensions (`x`, `y`, `z`) in metres                                                                                                                 |
 | `confidence`           | number > 0         |    No    | Inference confidence score for this detection                                                                                                                  |
@@ -77,6 +77,11 @@ against the `detector` definition in
 > `category` is in the schema's `required` array). However, the controller accesses
 > `id` unconditionally at runtime and will reject detections that omit it. Always
 > include `id` in every detection object.
+
+> **③ Height reference**: with
+> [experimental observation processor](how-to-configure-tracker.md#height-reference-of-tracked-objects),
+> the tracker reads `translation` as the object's centre of mass and publishes tracks at their
+> footprint base (`z` minus half the height).
 
 ### Semantic Metadata Fields (`objects.<category>[*].metadata.<attr>`)
 
@@ -240,6 +245,10 @@ Unlike camera detections, `size` is optional here: a source that cannot estimate
 extent may report a point observation. Point objects (no `size`) remain eligible for
 position-based ROI, tripwire, and sensor-tagging analytics, but are excluded from
 volume/occupancy/collision analytics.
+
+Report `translation` at the object's centre of mass: with
+[experimental observation processor](how-to-configure-tracker.md#height-reference-of-tracked-objects),
+tracked objects are published at their footprint base (`z` minus half the height).
 
 The top-level source `track` field determines the tracking mode for every object in the message.
 When that value is `false`, the object bypasses the kinematic tracker/ReID path and the

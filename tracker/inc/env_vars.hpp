@@ -66,6 +66,21 @@ constexpr const char* ASSOCIATION_GATE_PROBABILITY = "TRACKER_ASSOCIATION_GATE_P
 
 /// meters - Euclidean threshold or Mahalanobis ceiling
 constexpr const char* ASSOCIATION_MAX_RADIUS_M = "TRACKER_ASSOCIATION_MAX_RADIUS_M";
+// Observation processor overrides (experimental)
+/// true|false - use the observation processor service when its host and port are set
+constexpr const char* EXPERIMENTAL_OBSERVATION_PROCESSOR =
+    "TRACKER_EXPERIMENTAL_OBSERVATION_PROCESSOR";
+/// auto|full|frustum_only
+constexpr const char* OBSERVATION_PROCESSOR_MODE = "TRACKER_OBSERVATION_PROCESSOR_MODE";
+constexpr const char* OBSERVATION_PROCESSOR_HOST = "TRACKER_OBSERVATION_PROCESSOR_HOST";
+/// 1-65535
+constexpr const char* OBSERVATION_PROCESSOR_PORT = "TRACKER_OBSERVATION_PROCESSOR_PORT";
+/// true|false - plaintext channel instead of TLS
+constexpr const char* OBSERVATION_PROCESSOR_INSECURE = "TRACKER_OBSERVATION_PROCESSOR_INSECURE";
+/// Path to PEM CA certificates for TLS
+constexpr const char* OBSERVATION_PROCESSOR_CA_CERT = "TRACKER_OBSERVATION_PROCESSOR_CA_CERT";
+/// milliseconds, 1-100 - deadline for the calls of one chunk
+constexpr const char* OBSERVATION_PROCESSOR_TIMEOUT_MS = "TRACKER_OBSERVATION_PROCESSOR_TIMEOUT_MS";
 
 // NTP overrides
 

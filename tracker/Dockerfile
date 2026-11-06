@@ -47,6 +47,7 @@ COPY version.txt .
 COPY tracker/CMakeLists.txt tracker/
 COPY tracker/src tracker/src
 COPY tracker/inc tracker/inc
+COPY observation_processor/proto observation_processor/proto
 COPY controller/src/robot_vision controller/src/robot_vision
 
 # Configure and build

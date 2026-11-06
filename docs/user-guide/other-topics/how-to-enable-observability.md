@@ -145,6 +145,14 @@ in the tracker configuration — see
 - `scenescape_controller_time_chunking_empty_chunks` — dispatch intervals
   with no buffered data.
 
+**Observation processor counter** (emitted only with the experimental observation
+processor — see
+[How to Configure the Tracker](../microservices/controller/how-to-configure-tracker.md#experimental-observation-processor)):
+
+- `scenescape_controller_observation_processor_failed_calls` — camera frames
+  whose observation processor call failed or returned an invalid response,
+  attributed by `scene`, `category`, `camera`, and `reason`.
+
 **Tracing.** Spans are created for MQTT message handling, object tracking
 updates, coordinate transformations, and REST API requests. Trace context
 follows the OpenTelemetry SDK defaults.
@@ -267,6 +275,12 @@ pipeline:
 - `tracker.time_chunking.unique_cameras`
 - `tracker.time_chunking.non_empty_chunks`
 - `tracker.time_chunking.empty_chunks`
+
+**Observation processor counter** (experimental observation processor only):
+
+- `tracker.observation_processor.failed_calls` — camera frames whose observation
+  processor call failed or returned an invalid response, attributed by
+  `scene`, `category`, `camera_id`, and `reason`.
 
 **Tracing.** Spans are created for MQTT message handling
 (`tracker.mqtt_handler`), tracking (`tracker.tracking`), publishing

@@ -127,6 +127,95 @@ void apply_env_string(std::string& field, const char* env_name) {
     }
 }
 
+/// @throws std::runtime_error if not an integer in [1, kMaxObservationProcessorTimeoutMs]
+int parse_timeout_ms(const std::string& value, const std::string& source) {
+    try {
+        int timeout = std::stoi(value);
+        if (timeout < 1 || timeout > kMaxObservationProcessorTimeoutMs) {
+            throw std::runtime_error(source + " must be in [1, " +
+                                     std::to_string(kMaxObservationProcessorTimeoutMs) +
+                                     "]: " + value);
+        }
+        return timeout;
+    } catch (const std::invalid_argument&) {
+        throw std::runtime_error("Invalid " + source + ": " + value);
+    } catch (const std::out_of_range&) {
+        throw std::runtime_error("Value out of range for " + source + ": " + value);
+    }
+}
+
+void load_observation_processor(rapidjson::Document& config_doc, ServiceConfig& config) {
+    using rapidjson::GetValueByPointer;
+    using rapidjson::GetValueByPointerWithDefault;
+
+    config.tracking.experimental_observation_processor =
+        GetValueByPointerWithDefault(config_doc, json::TRACKING_EXPERIMENTAL_OBSERVATION_PROCESSOR,
+                                     false)
+            .GetBool();
+    if (auto* mode = GetValueByPointer(config_doc, json::TRACKING_OBSERVATION_PROCESSOR_MODE)) {
+        config.tracking.observation_processor_mode = parseConditioningMode(mode->GetString());
+    }
+
+    if (!GetValueByPointer(config_doc, json::INFRASTRUCTURE_OBSERVATION_PROCESSOR)) {
+        return;
+    }
+    // host and port are required by the schema
+    RemoteObservationProcessorConfig remote;
+    remote.host =
+        GetValueByPointer(config_doc, json::INFRASTRUCTURE_OBSERVATION_PROCESSOR_HOST)->GetString();
+    remote.port =
+        GetValueByPointer(config_doc, json::INFRASTRUCTURE_OBSERVATION_PROCESSOR_PORT)->GetInt();
+    remote.insecure = GetValueByPointerWithDefault(
+                          config_doc, json::INFRASTRUCTURE_OBSERVATION_PROCESSOR_INSECURE, false)
+                          .GetBool();
+    if (auto* ca = GetValueByPointer(config_doc,
+                                     json::INFRASTRUCTURE_OBSERVATION_PROCESSOR_CA_CERT_PATH)) {
+        remote.ca_cert_path = ca->GetString();
+    }
+    remote.timeout_ms = GetValueByPointerWithDefault(
+                            config_doc, json::INFRASTRUCTURE_OBSERVATION_PROCESSOR_TIMEOUT_MS,
+                            kDefaultObservationProcessorTimeoutMs)
+                            .GetInt();
+    config.infrastructure.observation_processor = remote;
+}
+
+void apply_observation_processor_env(ServiceConfig& config) {
+    apply_env(config.tracking.experimental_observation_processor,
+              tracker::env::EXPERIMENTAL_OBSERVATION_PROCESSOR, parse_bool);
+    if (auto val = get_env(tracker::env::OBSERVATION_PROCESSOR_MODE); val.has_value()) {
+        config.tracking.observation_processor_mode = parseConditioningMode(val.value());
+    }
+
+    auto host = get_env(tracker::env::OBSERVATION_PROCESSOR_HOST);
+    auto port = get_env(tracker::env::OBSERVATION_PROCESSOR_PORT);
+    auto insecure = get_env(tracker::env::OBSERVATION_PROCESSOR_INSECURE);
+    auto ca_cert = get_env(tracker::env::OBSERVATION_PROCESSOR_CA_CERT);
+    auto timeout = get_env(tracker::env::OBSERVATION_PROCESSOR_TIMEOUT_MS);
+    if (!host && !port && !insecure && !ca_cert && !timeout) {
+        return;
+    }
+    if (!config.infrastructure.observation_processor.has_value()) {
+        config.infrastructure.observation_processor = RemoteObservationProcessorConfig{};
+    }
+    auto& remote = config.infrastructure.observation_processor.value();
+    if (host) {
+        remote.host = *host;
+    }
+    if (port) {
+        remote.port = parse_port(*port, tracker::env::OBSERVATION_PROCESSOR_PORT);
+    }
+    if (insecure) {
+        remote.insecure = parse_bool(*insecure, tracker::env::OBSERVATION_PROCESSOR_INSECURE);
+    }
+    if (ca_cert) {
+        remote.ca_cert_path = *ca_cert;
+    }
+    if (timeout) {
+        remote.timeout_ms =
+            parse_timeout_ms(*timeout, tracker::env::OBSERVATION_PROCESSOR_TIMEOUT_MS);
+    }
+}
+
 } // namespace
 
 ServiceConfig load_config(const std::filesystem::path& config_path,
@@ -330,6 +419,7 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
             GetValueByPointer(config_doc, json::TRACKING_ASSOCIATION_MAX_RADIUS_M)) {
         association_max_radius_m = max_radius_m->GetDouble();
     }
+    load_observation_processor(config_doc, config);
 
     // NTP configuration (optional; server empty/missing = use OS clock)
     if (GetValueByPointer(config_doc, json::INFRASTRUCTURE_NTP)) {
@@ -444,6 +534,7 @@ ServiceConfig load_config(const std::filesystem::path& config_path,
               parse_positive_double);
     config.tracking.association.max_radius_m =
         association_max_radius_m.value_or(defaultMaxRadiusM(config.tracking.association.method));
+    apply_observation_processor_env(config);
 
     // NTP overrides: env vars take precedence;
     if (auto val = get_env(tracker::env::NTP_SERVER); val.has_value()) {

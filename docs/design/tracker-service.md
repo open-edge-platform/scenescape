@@ -236,6 +236,40 @@ Scenes and object-class assets fetched from Manager API at startup:
 - Fires on any database change: scene create/update/delete, camera changes, region edits, asset edits, etc.
 - Suitable for multi-node deployments with centralized scene management
 
+#### Experimental Observation Processor
+
+Camera detections can be processed by an external observation processor service
+([`observation_processor.proto`](../../observation_processor/proto/observation_processor.proto)) that returns a
+world measurement with its measurement noise covariance R for each pixel box. The service is called
+only when both are set:
+
+- `tracking.experimental_observation_processor: true` (`TRACKER_EXPERIMENTAL_OBSERVATION_PROCESSOR`)
+- `infrastructure.observation_processor.host` and `.port` (`TRACKER_OBSERVATION_PROCESSOR_HOST`,
+  `TRACKER_OBSERVATION_PROCESSOR_PORT`)
+
+Optional settings: `tracking.observation_processor_mode` (`auto` (default): full conditioning when the
+scene has a mesh, frustum only otherwise; `full`; `frustum_only`), and in
+`infrastructure.observation_processor`: `timeout_ms` (deadline for the calls of one chunk, 1–100,
+default 50; a warning is logged when it exceeds the chunk interval), `insecure` (plaintext, default
+`false`) and `ca_cert_path`. The matching environment variables are
+`TRACKER_OBSERVATION_PROCESSOR_MODE`, `_TIMEOUT_MS`, `_INSECURE` and `_CA_CERT`.
+
+Each camera frame of a chunk is one call; the calls of a chunk run concurrently. Valid measurements
+replace the local processing of their detections; everything
+else keeps the local processing. A failed call or an invalid reply never stops the service: it is
+counted in `tracker.observation_processor.failed_calls` and logged as a rate-limited warning. The call
+time is part of `tracker.stage.transform_duration`. There is no retry backoff beyond gRPC's own
+reconnection backoff: an unreachable service fails fast, and an unresponsive one costs at most
+`timeout_ms` per chunk.
+
+The returned position and its R describe the object's centre of mass, so with an observation processor the
+workers track the centre of mass: remote measurements are used as returned, pixel boxes that keep
+the local processing are raised by half their height, and 3D `translation` detections are assumed
+to be the centre of mass. Published tracks report the footprint base (`translation[2]` is the
+tracked z minus half the tracked height). Without an observation processor nothing is converted. With it,
+pixel-box tracks publish a z that follows the per-frame box height instead of 0 (about 5–6 cm RMS
+in z and 3–5 cm/s RMS in `velocity[2]` in simulation).
+
 ### Observability
 
 All telemetry is exported via OTLP/HTTP to the OpenTelemetry Collector. Metrics, traces, and logs are correlated:
@@ -265,14 +299,14 @@ Fine-grained buckets enable accurate p95/p99 calculation for 100ms and 133ms SLI
 
 Detailed latency breakdown for bottleneck identification:
 
-| Metric                             | Type      | Attributes       | Unit | Description                               |
-| ---------------------------------- | --------- | ---------------- | ---- | ----------------------------------------- |
-| `tracker.stage.parse_duration`     | histogram | scene, camera_id | ms   | JSON parse & schema validation            |
-| `tracker.stage.buffer_duration`    | histogram | scene, camera_id | ms   | Scene lookup, lag check, buffer insertion |
-| `tracker.stage.queue_duration`     | histogram | scene, category  | ms   | Time waiting in chunk buffer              |
-| `tracker.stage.transform_duration` | histogram | scene, category  | ms   | Coordinate transformation                 |
-| `tracker.stage.track_duration`     | histogram | scene, category  | ms   | Hungarian matching & Kalman filter        |
-| `tracker.stage.publish_duration`   | histogram | scene, category  | ms   | MQTT serialize & publish                  |
+| Metric                             | Type      | Attributes       | Unit | Description                                  |
+| ---------------------------------- | --------- | ---------------- | ---- | -------------------------------------------- |
+| `tracker.stage.parse_duration`     | histogram | scene, camera_id | ms   | JSON parse & schema validation               |
+| `tracker.stage.buffer_duration`    | histogram | scene, camera_id | ms   | Scene lookup, lag check, buffer insertion    |
+| `tracker.stage.queue_duration`     | histogram | scene, category  | ms   | Time waiting in chunk buffer                 |
+| `tracker.stage.transform_duration` | histogram | scene, category  | ms   | Coordinate transform + observation processor |
+| `tracker.stage.track_duration`     | histogram | scene, category  | ms   | Hungarian matching & Kalman filter           |
+| `tracker.stage.publish_duration`   | histogram | scene, category  | ms   | MQTT serialize & publish                     |
 
 **Attribute Strategy**: Early-stage metrics (parse, buffer) use `camera_id` since category is not yet determined; late-stage metrics (queue, transform, track, publish) use `category` after detection classification.
 
@@ -286,6 +320,20 @@ Performance counters for the time-chunk buffer and scheduler:
 | `tracker.time_chunking.unique_cameras`     | counter | —               | {camera}  | Distinct cameras dispatched per non-empty chunk    |
 | `tracker.time_chunking.non_empty_chunks`   | counter | —               | {chunk}   | Dispatch intervals that had buffered data          |
 | `tracker.time_chunking.empty_chunks`       | counter | —               | {chunk}   | Dispatch intervals with no buffered data           |
+
+##### Observation Processor Metrics
+
+Emitted only with [experimental observation processor](#experimental-observation-processor):
+
+| Metric                                       | Type    | Attributes                         | Unit   | Description                                                     |
+| -------------------------------------------- | ------- | ---------------------------------- | ------ | --------------------------------------------------------------- |
+| `tracker.observation_processor.failed_calls` | counter | scene, category, camera_id, reason | {call} | Camera frames whose call failed or returned an invalid response |
+
+The `reason` is the gRPC status name of a failed call (for example `UNAVAILABLE`,
+`DEADLINE_EXCEEDED`, `FAILED_PRECONDITION`), `invalid_response` (wrong measurement count or
+order), `invalid_measurement` (a measurement that breaks the contract, including an `OK` entry
+without a measurement and an unspecified or unknown status; counted once per call) or
+`client_error`. An unobservable depth is not a failure.
 
 ##### Rejection/Drop Reasons
 
@@ -369,6 +417,10 @@ All MQTT connections require mTLS (mutual TLS):
 - **Server verification** — Validates broker certificate against CA
 - **Client authentication** — Presents client certificate to broker
 - **No plaintext** — TLS required; unencrypted connections rejected
+
+The experimental observation processor gRPC channel uses TLS by default, verified with
+`infrastructure.observation_processor.ca_cert_path` or the system roots. Plaintext requires
+`insecure: true` and is meant for development and tests. The channel bypasses HTTP proxies.
 
 ### Secrets Management
 
@@ -482,6 +534,9 @@ flowchart LR
 ```
 
 - Validate normal operation, broker outage recovery, backpressure handling, graceful shutdown
+- Validate experimental observation processor against a mock observation processor service
+  (`tracker/test/service/mocks/observation_processor`): remote measurements, failure fallback with the
+  failed-calls metric, and the latency cost of the calls
 - Multi-instance testing for scene partitioning validation
 - Doubles as load testing when configured with realistic message rates and object counts
 - Run in CI on every commit

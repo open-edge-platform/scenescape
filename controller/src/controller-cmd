@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from controller.scene_controller import SceneController
 from controller.observability import metrics, tracing
 from controller.pose_adjustment import POSE_ADJUSTMENT_ENV_VAR
+from controller.observation_processor import ENV_ENABLED as OBSERVATION_PROCESSOR_ENV_VAR
 from scene_common import log
 
 _ANALYTICS_ONLY_REMOVED = (
@@ -111,6 +112,13 @@ def build_argparser():
                       action=argparse.BooleanOptionalAction,
                       default=_pose_adjustment_default_enabled(),
                       help="Enable pose-based person bounding box adjustment before world projection.")
+  parser.add_argument("--experimental-observation-processor",
+                      dest="experimental_observation_processor",
+                      action=argparse.BooleanOptionalAction,
+                      default=_env_bool(OBSERVATION_PROCESSOR_ENV_VAR, False),
+                      help="Experimental: process camera detections with the observation processor "
+                           "service at CONTROLLER_OBSERVATION_PROCESSOR_HOST and "
+                           "CONTROLLER_OBSERVATION_PROCESSOR_PORT.")
   return parser
 
 def main():
@@ -125,6 +133,9 @@ def main():
   log.info(
     f"Controller pose adjustment: "
     f"{'ENABLED' if args.pose_adjustment else 'DISABLED'}"
+  )
+  os.environ[OBSERVATION_PROCESSOR_ENV_VAR] = (
+    "true" if args.experimental_observation_processor else "false"
   )
   metrics.init()
   tracing.init()

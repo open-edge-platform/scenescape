@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 
-#include "detection_projector.hpp"
+#include "observation_processor.hpp"
 
 #include "json_utils.hpp"
 
@@ -64,7 +64,7 @@ void addDetectionAttributes(const Detection& detection, rv::tracking::TrackedObj
 
 } // namespace
 
-CameraModelProjector::CameraModelProjector(const std::unordered_map<std::string, Camera>& cameras,
+CameraModelProcessor::CameraModelProcessor(const std::unordered_map<std::string, Camera>& cameras,
                                            const ObjectClassConfig& object_class) {
     for (const auto& [camera_id, camera] : cameras) {
         transformers_.emplace(camera_id, CoordinateTransformer(camera.intrinsics, camera.extrinsics,
@@ -73,27 +73,27 @@ CameraModelProjector::CameraModelProjector(const std::unordered_map<std::string,
     }
 }
 
-std::vector<std::optional<ProjectedDetections>>
-CameraModelProjector::project(std::span<const DetectionBatch> batches) {
-    std::vector<std::optional<ProjectedDetections>> projected;
-    projected.reserve(batches.size());
+std::vector<std::optional<ProcessedObservations>>
+CameraModelProcessor::process(std::span<const DetectionBatch> batches) {
+    std::vector<std::optional<ProcessedObservations>> processed;
+    processed.reserve(batches.size());
     for (const auto& batch : batches) {
         const auto transformer = transformers_.find(batch.camera_id);
         if (transformer == transformers_.end()) {
-            projected.emplace_back();
+            processed.emplace_back();
             continue;
         }
-        projected.emplace_back(transformer->second.transformDetections(batch.detections));
+        processed.emplace_back(transformer->second.transformDetections(batch.detections));
     }
-    return projected;
+    return processed;
 }
 
 std::vector<rv::tracking::TrackedObject>
-toTrackerInputs(std::span<const Detection> detections, ProjectedDetections projected,
+toTrackerInputs(std::span<const Detection> detections, ProcessedObservations processed,
                 const std::optional<ReidSightingContext>& sightings) {
     const auto n = detections.size();
-    if (!projected.covers(n)) {
-        throw std::invalid_argument("Projected geometry must have one entry per detection");
+    if (!processed.covers(n)) {
+        throw std::invalid_argument("Processed geometry must have one entry per detection");
     }
     if (sightings && (sightings->batch.detections.size() != n ||
                       sightings->batch.detections.data() != detections.data())) {
@@ -103,11 +103,11 @@ toTrackerInputs(std::span<const Detection> detections, ProjectedDetections proje
 #pragma omp parallel for schedule(static) if (n >= kMinIterationsForOpenMpParallelism)
     for (int i = 0; i < static_cast<int>(n); ++i) {
         const auto index = static_cast<size_t>(i);
-        if (!projected.has_geometry[index]) {
+        if (!processed.has_geometry[index]) {
             continue;
         }
         const auto& detection = detections[index];
-        auto& object = projected.objects[index];
+        auto& object = processed.objects[index];
         object.id = detection.id.value_or(rv::tracking::InvalidObjectId);
         addDetectionAttributes(detection, object);
         // A sighting records the detection's pixel box, so translation detections get none.
@@ -119,15 +119,15 @@ toTrackerInputs(std::span<const Detection> detections, ProjectedDetections proje
     // Compact in place: remove detections without geometry, preserving order.
     size_t write = 0;
     for (size_t read = 0; read < n; ++read) {
-        if (projected.has_geometry[read]) {
+        if (processed.has_geometry[read]) {
             if (write != read) {
-                projected.objects[write] = std::move(projected.objects[read]);
+                processed.objects[write] = std::move(processed.objects[read]);
             }
             ++write;
         }
     }
-    projected.objects.resize(write);
-    return std::move(projected.objects);
+    processed.objects.resize(write);
+    return std::move(processed.objects);
 }
 
 } // namespace tracker
