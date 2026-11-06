@@ -99,6 +99,13 @@ export default function AssetManager(
         obj.visible = shouldShow;
       }
     }
+    // plot() stops while marks are hidden, so their windows would freeze;
+    // the next plot() after showing the marks redraws them.
+    if (!shouldShow) {
+      for (const objectId of Object.keys(associationWindows)) {
+        removeAssociationWindow(objectId);
+      }
+    }
   }
 
   function setAssociationWindowsVisibility(shouldShow) {

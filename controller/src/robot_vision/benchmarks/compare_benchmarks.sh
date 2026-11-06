@@ -11,6 +11,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${SCRIPT_DIR}/../build"
 TOOLS_DIR="${BUILD_DIR}/benchmark-tools"
 COMPARE_PY="${TOOLS_DIR}/tools/compare.py"
+# google/benchmark v1.9.5, as in CMakeLists.txt; requirements-compare.txt pins its tools/requirements.txt.
+BENCHMARK_COMMIT=192ef10025eb2c4cdd392bc502f0c852196baa48
 
 # Clone benchmark tools if they don't exist
 if [ ! -f "$COMPARE_PY" ]; then
@@ -19,8 +21,9 @@ if [ ! -f "$COMPARE_PY" ]; then
 
     # Clone the repository with sparse checkout to get only the tools directory
     rm -rf -- "$TOOLS_DIR"
-    git clone --filter=blob:none --sparse -b v1.9.5 https://github.com/google/benchmark.git "$TOOLS_DIR"
+    git clone --filter=blob:none --sparse --no-checkout https://github.com/google/benchmark.git "$TOOLS_DIR"
     git -C "$TOOLS_DIR" sparse-checkout set tools
+    git -C "$TOOLS_DIR" checkout --quiet "$BENCHMARK_COMMIT"
 fi
 
 # Check arguments

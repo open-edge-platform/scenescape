@@ -2,12 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 #include <benchmark/benchmark.h>
+#include <opencv2/core/persistence.hpp>
 
-#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
-#include <fstream>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -73,68 +72,11 @@ struct WorkloadConfig
   std::vector<int> people_counts{50};
   std::vector<int> camera_counts{1, 2};
   std::vector<int> overlap_modes{0, 1};
-  // Set by parseWorkloadArgs: --association-config, or the production association.
+  // Set by parseWorkloadArgs: --association-config, or position_mahalanobis (the services' default without a config).
   std::optional<AssociationParams> association;
 };
 
 WorkloadConfig g_workload;
-
-std::optional<std::string> jsonStringField(const std::string &json, const std::string &key)
-{
-  const std::string pattern = "\"" + key + "\"";
-  const auto key_pos = json.find(pattern);
-  if (key_pos == std::string::npos)
-  {
-    return std::nullopt;
-  }
-  const auto colon = json.find(':', key_pos + pattern.size());
-  if (colon == std::string::npos)
-  {
-    return std::nullopt;
-  }
-  const auto first_quote = json.find('"', colon + 1);
-  if (first_quote == std::string::npos)
-  {
-    return std::nullopt;
-  }
-  const auto second_quote = json.find('"', first_quote + 1);
-  if (second_quote == std::string::npos)
-  {
-    return std::nullopt;
-  }
-  return json.substr(first_quote + 1, second_quote - first_quote - 1);
-}
-
-std::optional<double> jsonNumberField(const std::string &json, const std::string &key)
-{
-  const std::string pattern = "\"" + key + "\"";
-  const auto key_pos = json.find(pattern);
-  if (key_pos == std::string::npos)
-  {
-    return std::nullopt;
-  }
-  const auto colon = json.find(':', key_pos + pattern.size());
-  if (colon == std::string::npos)
-  {
-    return std::nullopt;
-  }
-  size_t i = colon + 1;
-  while (i < json.size() && (json[i] == ' ' || json[i] == '\t' || json[i] == '\n' || json[i] == '\r'))
-  {
-    ++i;
-  }
-  size_t j = i;
-  while (j < json.size() && (std::isdigit(static_cast<unsigned char>(json[j])) || json[j] == '.' || json[j] == '-' ||
-                             json[j] == '+' || json[j] == 'e' || json[j] == 'E'))
-  {
-    ++j;
-  }
-  if (j == i)
-  {
-    return std::nullopt;
-  }
-  return std::stod(json.substr(i, j - i));
-}
 
 // Association parameters as the Scene Controller and the Tracker Service derive them from their association config,
 // with the same defaults: method position_mahalanobis, gate_probability 0.99, max_radius_m 2 m for euclidean and
@@ -167,20 +109,61 @@ AssociationParams makeAssociationParams(const std::string &method,
   return params;
 }
 
+// A JSON object with top-level "method" (string), "gate_probability" and "max_radius_m" (numbers); a missing key gets
+// the service default, other keys are ignored. OpenCV's JSON reader does not accept null.
 AssociationParams loadAssociationConfig(const std::string &path)
 {
-  std::ifstream in(path);
-  if (!in)
+  cv::FileStorage config;
+  try
+  {
+    config.open(path, cv::FileStorage::READ | cv::FileStorage::FORMAT_JSON);
+  }
+  catch (const cv::Exception &error)
+  {
+    throw std::runtime_error("Invalid association config " + path + ": " + error.what());
+  }
+  if (!config.isOpened())
   {
     throw std::runtime_error("Failed to open association config: " + path);
   }
-  std::ostringstream ss;
-  ss << in.rdbuf();
-  const std::string json = ss.str();
+  if (!config.root().isMap())
+  {
+    throw std::runtime_error("Association config must be a JSON object: " + path);
+  }
+  const auto present = [&](const char *key) -> std::optional<cv::FileNode> {
+    const cv::FileNode node = config[key];
+    if (node.empty())
+    {
+      return std::nullopt;
+    }
+    return node;
+  };
+  const auto wrongType = [&](const char *key) {
+    return std::runtime_error("Association config " + std::string(key) + " has the wrong type: " + path);
+  };
+  const auto number = [&](const char *key) -> std::optional<double> {
+    const auto node = present(key);
+    if (!node)
+    {
+      return std::nullopt;
+    }
+    if (!node->isReal() && !node->isInt())
+    {
+      throw wrongType(key);
+    }
+    return node->real();
+  };
 
-  return makeAssociationParams(jsonStringField(json, "method").value_or("position_mahalanobis"),
-                               jsonNumberField(json, "gate_probability"),
-                               jsonNumberField(json, "max_radius_m"));
+  std::string method = "position_mahalanobis";
+  if (const auto node = present("method"))
+  {
+    if (!node->isString())
+    {
+      throw wrongType("method");
+    }
+    method = node->string();
+  }
+  return makeAssociationParams(method, number("gate_probability"), number("max_radius_m"));
 }
 
 class PeopleTrackingBenchmarkFixture

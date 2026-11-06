@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import math
+import threading
 from types import SimpleNamespace
 
 import numpy as np
@@ -26,9 +27,10 @@ def test_normalize_association_config_defaults():
   }
 
 
-def test_normalize_association_config_rejects_unknown_method():
+@pytest.mark.parametrize('method', ['not-a-real-method', [], {}, ['euclidean'], 1])
+def test_normalize_association_config_rejects_unknown_method(method):
   with pytest.raises(ValueError, match='Invalid association method'):
-    normalize_association_config({'method': 'not-a-real-method', 'max_radius_m': 5.0})
+    normalize_association_config({'method': method, 'max_radius_m': 5.0})
 
 
 def _expected_radius(expected_max_radius_m):
@@ -138,26 +140,65 @@ def test_association_match_params_mahalanobis_uses_chi2_gate():
   assert max_radius_m == pytest.approx(10.0)
 
 
-def test_apply_association_config_updates_tracker():
+def _association_parent(trackers):
   tracker = IntelLabsTracking.__new__(IntelLabsTracking)
   tracker.association_config = normalize_association_config()
+  tracker._lifecycle_lock = threading.Lock()
+  tracker.trackers = trackers
+  return tracker
+
+
+def _association_child():
   child = IntelLabsTracking.__new__(IntelLabsTracking)
   child.association_config = normalize_association_config({
     'method': 'euclidean',
     'max_radius_m': 2.0,
   })
+  child._lifecycle_lock = threading.Lock()
   child.trackers = {}
-  tracker.trackers = {'person': child}
-  tracker.applyAssociationConfig({
-    'method': 'position_mahalanobis',
-    'gate_probability': 0.95,
-    'max_radius_m': 10.0,
-  })
+  return child
+
+
+MAHALANOBIS_095 = {'method': 'position_mahalanobis', 'gate_probability': 0.95, 'max_radius_m': 10.0}
+
+
+def test_apply_association_config_updates_tracker():
+  child = _association_child()
+  tracker = _association_parent({'person': child})
+  tracker.applyAssociationConfig(MAHALANOBIS_095)
   assert tracker.association_config['method'] == 'position_mahalanobis'
   assert tracker.association_config['gate_probability'] == pytest.approx(0.95)
   assert child.association_config['method'] == 'position_mahalanobis'
   assert child.association_config['gate_probability'] == pytest.approx(0.95)
   assert child.association_config['max_radius_m'] == pytest.approx(10.0)
+
+
+def test_apply_association_config_survives_a_tracker_added_meanwhile():
+  # The MQTT thread adds category trackers while a cache refresh applies the config.
+  tracker = _association_parent({})
+  late = _association_child()
+  first = SimpleNamespace(
+    applyAssociationConfig=lambda config: tracker.trackers.setdefault('vehicle', late))
+  tracker.trackers['person'] = first
+
+  tracker.applyAssociationConfig(MAHALANOBIS_095)
+
+  assert set(tracker.trackers) == {'person', 'vehicle'}
+
+
+def test_apply_association_config_reaches_a_tracker_created_under_the_lock():
+  # _createTrackers holds the lock from reading association_config until the tracker is in trackers.
+  tracker = _association_parent({})
+  created = _association_child()
+  with tracker._lifecycle_lock:
+    applying = threading.Thread(target=tracker.applyAssociationConfig, args=(MAHALANOBIS_095,))
+    applying.start()
+    applying.join(0.2)
+    tracker.trackers['person'] = created
+  applying.join(5)
+
+  assert not applying.is_alive()
+  assert created.association_config['method'] == 'position_mahalanobis'
 
 
 def test_create_trackers_propagates_association_config(monkeypatch):
@@ -173,6 +214,8 @@ def test_create_trackers_propagates_association_config(monkeypatch):
   })
   parent.trackers = {}
   parent.uuid_manager = SimpleNamespace(scene_id='scene')
+  parent._lifecycle_lock = threading.Lock()
+  parent._joined = False
 
   captured = {}
 

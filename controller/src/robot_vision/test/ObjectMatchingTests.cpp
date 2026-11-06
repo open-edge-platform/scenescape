@@ -561,6 +561,15 @@ TEST(ObjectMatchingTest, EuclideanRejectsPairsBeyondMaxRadius)
   EXPECT_EQ(assignedCount(track, makePerson(3.0, 0.0), DistanceType::Euclidean, 100.0), 1U);
 }
 
+TEST(ObjectMatchingTest, MaxRadiusRejectsPairsAtThresholdsAboveTheBoundCost)
+{
+  // A pair beyond max_radius_m costs 1000: a threshold above that is capped, so the pair stays rejected.
+  EXPECT_EQ(assignedCount(makePerson(0.0, 0.0), makePerson(3.0, 0.0), DistanceType::Euclidean, 2000.0, 2.0), 0U);
+  EXPECT_EQ(assignedCount(makePositionTrack(100.0, 0.0, 100.0), makePerson(12.0, 0.0),
+                          DistanceType::PositionMahalanobis, 2000.0, 10.0),
+            0U);
+}
+
 TEST(ObjectMatchingTest, PositionMahalanobisNeverAssignsTrackWithDegenerateCovariance)
 {
   // |det S| < 1e-12 on the x/y/z block (S_zz = 1 here, so det S_xy) gives the bound cost (1000), so the track is
