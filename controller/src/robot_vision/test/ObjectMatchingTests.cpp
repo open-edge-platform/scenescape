@@ -347,6 +347,79 @@ TEST(ObjectMatchingTest, MahalanobisMatchUsesTheDistanceCost)
   }
 }
 
+constexpr double kPi = orientation::kPi;
+
+// A car track predicted on the detection's position and size with unit S and orientation observed: with yaw in the
+// gate the cost is 0.5 * |yaw innovation|, without it 0.
+TrackedObject makeOrientedTrack(double predictedYaw, double vx = 0.0, double vy = 0.0)
+{
+  TrackedObject track;
+  track.vx = vx;
+  track.vy = vy;
+  track.yaw = predictedYaw;
+  track.predictedMeasurementMean = TrackedObject::MeasurementVector(0.0, 0.0, 0.0, 4.5, 1.8, 1.5, predictedYaw);
+  track.predictedMeasurementCov = TrackedObject::MeasurementMatrix::eye();
+  orientation::markOrientationObserved(track);
+  return track;
+}
+
+TrackedObject makeOrientedCar(double yaw)
+{
+  auto car = makeDetection(0.0, 0.0, 0.0, 4.5, 1.8, 1.5);
+  car.yaw = yaw;
+  orientation::setHasOrientation(car, true);
+  return car;
+}
+
+TEST(ObjectMatchingTest, MahalanobisDistanceWrapsYaw)
+{
+  // Detection yaw is in (-pi, pi], the predicted yaw is unwrapped, and a box reads the same at yaw + pi: the innovation
+  // is the smallest of those differences, so none of them blocks the match.
+  struct Case
+  {
+    const char *name;
+    double predictedYaw;
+    double detectionYaw;
+    double innovation;
+  };
+  for (const auto &[name, predictedYaw, detectionYaw, innovation] :
+       {Case{"across +-pi", kPi - 0.05, -kPi + 0.05, 0.1},
+        Case{"unwrapped track yaw", 4.0 * kPi + 0.3, 0.2, -0.1},
+        Case{"box read backwards", 0.1, 0.15 - kPi, 0.05}})
+  {
+    SCOPED_TRACE(name);
+    const auto track = makeOrientedTrack(predictedYaw);
+    const auto car = makeOrientedCar(detectionYaw);
+    EXPECT_NEAR(calculateMahalanobisDistance(car, track), 0.5 * std::abs(innovation), 1e-9);
+    EXPECT_EQ(assignedCount(track, car, DistanceType::Mahalanobis, 1.0), 1U);
+  }
+}
+
+TEST(ObjectMatchingTest, MahalanobisDistanceAppliesTheYawSpeedGate)
+{
+  // At 1 m/s or more the update turns the detection yaw by pi toward the direction of travel and drops it when it is
+  // still more than 0.6 rad off; the gate leaves out the yaw the update drops.
+  struct Case
+  {
+    const char *name;
+    double vx, vy;
+    double predictedYaw;
+    double detectionYaw;
+    double distance;
+  };
+  for (const auto &[name, vx, vy, predictedYaw, detectionYaw, distance] :
+       {Case{"read backwards, 0.3 rad off the travel", 2.0, 0.0, 0.1, -kPi + 0.3, 0.1},
+        Case{"read backwards along -y", 0.0, -2.0, -kPi / 2.0, kPi / 2.0, 0.0},
+        Case{"across the travel: dropped", 2.0, 0.0, 0.1, kPi / 2.0, 0.0},
+        Case{"across the travel at 1 m/s: dropped", 1.0, 0.0, 0.1, kPi / 2.0, 0.0},
+        Case{"across the travel below 1 m/s: kept", 0.5, 0.0, 0.1, kPi / 2.0, 0.5 * (kPi / 2.0 - 0.1)}})
+  {
+    SCOPED_TRACE(name);
+    EXPECT_NEAR(
+      calculateMahalanobisDistance(makeOrientedCar(detectionYaw), makeOrientedTrack(predictedYaw, vx, vy)), distance, 1e-9);
+  }
+}
+
 TEST(ObjectMatchingTest, PositionMahalanobisRejectsPairsBeyondMaxRadius)
 {
   // With S_xy = 100 m^2 the chi-squared 0.99 gate reaches about 30 m: a detection 12 m away passes it (d^2 = 1.44),
