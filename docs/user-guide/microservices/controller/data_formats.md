@@ -402,7 +402,7 @@ are never written to Manager. That matches the unlocked detector-topic policy fo
 | ----------------- | ------------------ | :---------: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `category`        | string             |     Yes     | Category or class of the observed object (e.g. `"person"`, `"vehicle"`)                                                                                                                   |
 | `translation`     | array[3] of number | Conditional | Position of the object relative to the source's local origin (`x`, `y`, `z`); exactly one of `translation` or `bounding_box_px` is required                                               |
-| `id`              | string             | Conditional | Source-provided identifier; required for `track=false`, optional when `track` is true or omitted                                                                                          |
+| `id`              | string             | Conditional | Source-provided identifier; required for Cartesian observations when `track=false`; optional when `track` is true or omitted (pixel detections with `track=false` are discarded)          |
 | `rotation`        | array[4] of number |     No      | Rotation of the object as a quaternion (`x`, `y`, `z`, `w`)                                                                                                                               |
 | `size`            | array[3] of number |     No      | Object dimensions (`x`, `y`, `z`). Omit for a point observation with no known extent                                                                                                      |
 | `confidence`      | number > 0         |     No      | Source-reported confidence for this observation                                                                                                                                           |
@@ -469,15 +469,18 @@ Rejection reasons (logged, not published) include:
 
 ### Source-Identity Trust for Untracked Objects, with Collision Detection
 
-When an external source message sets `track` to `false`, the controller bypasses Scenescape's
-kinematic multi-object tracker/ReID association and merges the object through the already-tracked
-path used for child scenes with `retrack=false`. Its source-provided `id`
-is used as the published object identity.
+When an external source message sets `track` to `false`, Cartesian observations
+bypass Scenescape's kinematic multi-object tracker/ReID association and merge
+through the already-tracked path used for child scenes with `retrack=false`.
+The source-provided `id` is used as the published object identity. Pixel
+(`bounding_box_px`) detections in the same message are discarded — the same
+behavior as camera input while tracking is off — because there is no
+cross-camera identity authority for raw detector boxes.
 
-Two different sources publishing the same source-provided `id` could
+Two different sources publishing the same source-provided Cartesian `id` could
 silently merge distinct objects. The controller therefore allows only one source to hold a live
 claim on that `id` within a `(scene, category)` pair. A colliding object is dropped and logged;
-other objects from the same message are still ingested.
+other Cartesian objects from the same message are still ingested.
 
 Identity is trusted based on the `source_id` and `id` values in the payload, not a
 cryptographically verified per-device credential. Scenescape's current MQTT authentication does
@@ -488,21 +491,25 @@ A publisher that can reach the broker can claim either of these values.
 ### Tracked External Objects Use Controller-Assigned IDs
 
 When an external source message sets `track` to `true` or omits it, each object is processed
-as a normal Scenescape detection. The controller runs it through the kinematic tracker/ReID path
-and assigns the published track `id`. On this path, source-provided `objects[*].id` is optional
-and treated only as source metadata for the incoming observation, not as the final published
-track identity.
+as a normal Scenescape detection. Mounted-camera pixel detections are first localized with
+the dual transform (platform pose composed with each camera mount), then enter the
+kinematic tracker/ReID path. The controller assigns the published track `id`. On this path,
+source-provided `objects[*].id` is optional and treated only as source metadata for the
+incoming observation, not as the final published track identity.
 
 ### Choosing a `source_id` (Self-Identification for Agents)
 
 `source_id` is not provisioned or registered anywhere in Scenescape ahead of time — unlike a
 camera or sensor `id`, which must match a scene/sensor already configured in the database, an
 external source simply announces itself by choosing a `source_id` string and publishing with it.
-For messages using `track=false`, choose a persistent `source_id` and per-object `id`.
-The `id` becomes the published identity and must not collide with another publisher's live
-identity. For tracked messages, a stable source-provided
-object `id` can improve observation correlation even though Scenescape assigns the published
-identity. The deployer/integrator should choose values that are:
+For messages using `track=false` with Cartesian observations, choose a persistent
+`source_id` and per-object `id`. That `id` becomes the published identity and must
+not collide with another publisher's live identity. Mounted-camera pixel
+detections should use `track=true` (or omit `track`) so Scenescape can fuse them
+after the dual transform; `track=false` discards those pixels. For tracked
+messages, a stable source-provided object `id` can improve observation
+correlation even though Scenescape assigns the published identity. The
+deployer/integrator should choose values that are:
 
 - **Persistent** — stable across process restarts and reboots, so a track's identity (and any
   cached pose) is recognized as the same source/object next time it publishes, rather than
@@ -559,15 +566,16 @@ number, or device UUID — rather than a value tied to the current process/sessi
 
 ### Example: Drone with Multiple Cameras
 
-Each camera carries its own calibration and detections. Here the front and rear
-cameras both report the same persistent object id; with `track: false`, the
-controller uses that id as the object identity.
+Each camera carries its own calibration and detections. Omit `track` (or set
+`track: true`) so each camera's pixel boxes are dual-transformed into the scene
+and fused by Scenescape tracking. Detector-local `id` values are optional hints
+only; they are not cross-camera identity. With `track: false`, these pixel
+detections would be discarded.
 
 ```json
 {
   "timestamp": "2026-03-26T21:01:31.486Z",
   "source_id": "drone-1",
-  "track": false,
   "pose": {
     "reference_frame": "wgs84",
     "lat_long_alt": [37.38688947, -121.96410521, 8.07],
@@ -583,7 +591,6 @@ controller uses that id as the object identity.
       "intrinsics": { "fx": 905, "fy": 910, "cx": 600, "cy": 350 },
       "objects": [
         {
-          "id": "person-7",
           "category": "person",
           "bounding_box_px": { "x": 400, "y": 120, "width": 80, "height": 210 }
         }
@@ -598,7 +605,6 @@ controller uses that id as the object identity.
       "intrinsics": { "fx": 820, "fy": 825, "cx": 640, "cy": 360 },
       "objects": [
         {
-          "id": "person-7",
           "category": "person",
           "bounding_box_px": { "x": 700, "y": 130, "width": 76, "height": 206 }
         }

@@ -336,14 +336,18 @@ an object / sub-scene). Until that output graph and materialized store exist:
   matching `source_id`, trusted identity even when detections use
   `track=true` / omitted `track`), including on pose-only ticks — not via a
   parallel retained `scenescape/data/source/...` product topic. Nested
-  `cameras[]` are an ingest encoding for mounts and camera-local observations.
+  `cameras[]` are an ingest encoding for mounts and camera-local observations:
+  with `track=true` / omitted `track`, pixel detections are dual-transformed
+  (platform pose ∘ mount) then fused by Scenescape tracking; with
+  `track=false`, pixel detections are discarded (Cartesian trusted-identity
+  observations still apply).
 - An **internal** pose/intrinsics TTL cache may remain for transform reuse; it
   is not a consumer MQTT API.
 - Plan: `.github/plans/external-platform-object-citizenship.md`.
 
 Same-platform multi-camera observations in one external message share one
-ingest/tracker update. **Camera path ↔ external path** fusion of the same
-physical object remains Future Work below.
+ingest/tracker update when tracking is enabled. **Camera path ↔ external path**
+fusion of the same physical object remains Future Work below.
 
 ## Consequences
 

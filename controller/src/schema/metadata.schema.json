@@ -400,7 +400,7 @@
         "id": {
           "title": "Source-Local Object ID",
           "type": "string",
-          "description": "Identifier the source uses to correlate this observation across messages. Required when track=false, which treats it as an exclusive identity claim."
+          "description": "Identifier the source uses to correlate this observation across messages. Required for Cartesian observations when track=false (exclusive identity claim). Optional when track is true or omitted. Pixel detections with track=false are discarded and do not use this as published identity."
         },
         "metadata": {
           "$ref": "#/definitions/semantic_metadata",
@@ -408,7 +408,7 @@
         },
         "bounding_box_px": {
           "$ref": "#/definitions/bounding_box_px",
-          "description": "Pixel-space bounding box from a camera-like external source. Mutually exclusive with translation: when this field is used, omit translation and localize from pixels using the source pose and camera intrinsics (from this message or the live pose-cache entry)."
+          "description": "Pixel-space bounding box from a camera-like external source. Mutually exclusive with translation: when this field is used, omit translation and localize from pixels using the source pose and camera intrinsics (from this message or the live pose-cache entry). With track=true or omitted track, detections enter Scenescape tracking after dual transform; with track=false they are discarded."
         }
       },
       "required": ["category"],

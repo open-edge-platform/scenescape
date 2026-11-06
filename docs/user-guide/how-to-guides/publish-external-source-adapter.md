@@ -84,10 +84,12 @@ fields and examples; do not invent alternate shapes.
    - **Pixel**: `bounding_box_px` (`x`/`y`/`width`/`height`) instead of
      `translation`. For camera observations, use that camera entry's own
      calibration and resolution. Do not put both `translation` and
-     `bounding_box_px` on one object. Include `id` whenever the top-level
-     source `track` value is `false`; when `track` is `true` or omitted, `id`
-     is optional. Optional `size`, `rotation`, `confidence`, and `metadata`
-     follow the same contract. See
+     `bounding_box_px` on one object. Prefer `track` true or omitted for
+     mounted-camera pixels so Scenescape can fuse them after the dual
+     transform; with `track=false` those pixels are discarded. For Cartesian
+     observations with `track=false`, include a persistent `id`. When `track`
+     is `true` or omitted, detection `id` is optional. Optional `size`,
+     `rotation`, `confidence`, and `metadata` follow the same contract. See
      [External Detection Object Fields](../microservices/controller/data_formats.md#external-detection-object-fields-objects).
      For a mobile source with cameras, include a complete `cameras` array;
      each camera carries its own calibration and detections.
@@ -210,9 +212,10 @@ or certificates in the converter. Topic path uses `SOURCE_ID`; optional
 2. Confirm messages arrive on
    `scenescape/external/{publisher_id}/{thing_type}` (MQTT client or broker logs).
 3. Watch `scenescape/data/scene/{scene_id}/{thing_type}` (or the 3D UI) for
-   ingested objects. With `track=false`, published `id` values should match
-   the converter's source ids. With `track=true` or omitted `track`, expect
-   controller-assigned track ids instead.
+   ingested objects. With `track=false`, Cartesian published `id` values should
+   match the converter's source ids, and pixel detections should not appear.
+   With `track=true` or omitted `track`, expect controller-assigned track ids
+   for fused detections (including mounted-camera pixels).
 4. If nothing appears, check Scene Controller logs for pose/identity rejection
    reasons listed under
    [Pose Caching and Message Ordering](../microservices/controller/data_formats.md#pose-caching-and-message-ordering).

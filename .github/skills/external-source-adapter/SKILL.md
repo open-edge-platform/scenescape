@@ -61,10 +61,14 @@ guidance, rejection reasons, and full JSON examples are defined only in
    `source_id`. Do not put a scene uid in the topic path. Prefer `wgs84` for
    mobile agents (geospatial auto-attach); use
    `CONTROLLER_EXTERNAL_SOURCE_BINDINGS` for `scene`-frame poses.
-2. Choose a persistent `source_id` and per-object `id` (see Choosing a
-   `source_id` in `data_formats.md`); never mint fresh UUIDs on each restart.
+2. Choose a persistent `source_id` (see Choosing a `source_id` in
+   `data_formats.md`); never mint fresh UUIDs on each restart. For Cartesian
+   `track=false` observations, also choose persistent per-object `id`s. For
+   mounted-camera pixel detections, use `track=true` or omit `track` (pixels
+   with `track=false` are discarded).
 3. Map native observations into source-local `translation` (metres) relative to
-   the source origin described by `pose`.
+   the source origin described by `pose`, or into per-camera `bounding_box_px`
+   under a complete `cameras[]` array when publishing mounted-cam detections.
 4. Choose `reference_frame` (`wgs84` vs `scene`) correctly; honor
    `CONTROLLER_TRUSTED_POSITIONING_SOURCES` for `scene` poses.
 5. Convert the source's native orientation (euler, DCM, etc.) into the
