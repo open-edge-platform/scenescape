@@ -373,6 +373,21 @@ class TestMatchFunction(unittest.TestCase):
     self.assertEqual(assigned_measurements([ahead], chi2_gate), [0])
     self.assertEqual(assigned_measurements([lateral], chi2_gate), [])
 
+  def test_constructor_max_radius_applies_to_convenience_track(self):
+    """The track() overloads without a distance type use the constructor's max_radius_m."""
+    tracker_config = tracking.TrackManagerConfig()
+    tracker_config.motion_models = [tracking.MotionModel.CV]
+    first = create_object_at_location(x=0.0, y=0.0)
+    second = create_object_at_location(x=1.5, y=0.0)
+    start = datetime.now()
+    for max_radius_m, expected_tracks in [(float('inf'), 1), (1.0, 2)]:
+      with self.subTest(max_radius_m=max_radius_m):
+        tracker = tracking.MultipleObjectTracker(
+          tracker_config, tracking.DistanceType.Euclidean, 5.0, max_radius_m=max_radius_m)
+        tracker.track([first], start)
+        tracker.track([second], start + timedelta(seconds=0.1))
+        self.assertEqual(len(tracker.get_tracks()), expected_tracks)
+
   def test_position_mahalanobis_fuses_multi_camera_detections(self):
     """Cross-camera birth clustering must fuse in meters under PositionMahalanobis.
 
