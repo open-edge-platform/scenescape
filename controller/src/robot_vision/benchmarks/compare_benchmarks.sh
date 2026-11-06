@@ -40,11 +40,8 @@ fi
 # shellcheck disable=SC1091
 source "$VENV_DIR/bin/activate"
 
-# A fresh venv may lack a usable build backend; ensure it is present first
-pip3 install --upgrade pip setuptools wheel || echo "Warning: Could not upgrade pip/setuptools/wheel"
-
-# Install Python dependencies
-pip3 install -r "$TOOLS_DIR/tools/requirements.txt" || echo "Warning: Could not install some Python dependencies"
+# Install the hash-pinned compare.py dependencies; wheels only, so no build backend is needed
+pip3 install --require-hashes --only-binary :all: -r "${SCRIPT_DIR}/requirements-compare.txt"
 
 # Run comparison
 PYTHONPATH="${TOOLS_DIR}/tools:$PYTHONPATH" python3 "$COMPARE_PY" benchmarks "$1" "$2"

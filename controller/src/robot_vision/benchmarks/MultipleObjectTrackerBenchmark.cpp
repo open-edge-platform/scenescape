@@ -153,17 +153,12 @@ AssociationParams makeAssociationParams(const std::string &method,
   }
   else if (method == "position_mahalanobis")
   {
-#ifndef RV_HAS_POSITION_MAHALANOBIS
-    throw std::runtime_error(
-      "association method position_mahalanobis is not available in this robot_vision build");
-#else
     const double probability = gate_probability.value_or(0.99);
     params.distance_type = DistanceType::PositionMahalanobis;
     params.max_radius_m = max_radius_m.value_or(10.0);
     params.distance_threshold = rv::chi2Threshold(probability, 3);
     params.label = "position_mahalanobis_p" + std::to_string(probability) + "_r" +
                    std::to_string(params.max_radius_m);
-#endif
   }
   else
   {
@@ -308,13 +303,8 @@ void callTrack(MultipleObjectTracker &tracker,
                const std::chrono::system_clock::time_point &timestamp,
                const AssociationParams &association)
 {
-#ifdef RV_HAS_ASSOCIATION_MAX_RADIUS
   tracker.track(std::move(objects), timestamp, association.distance_type,
                 association.distance_threshold, kScoreThreshold, association.max_radius_m);
-#else
-  tracker.track(std::move(objects), timestamp, association.distance_type,
-                association.distance_threshold, kScoreThreshold);
-#endif
 }
 
 // immediate=false: one batched track() per frame (time-chunking, Tracker Service).

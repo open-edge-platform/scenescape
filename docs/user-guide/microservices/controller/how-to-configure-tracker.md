@@ -278,6 +278,9 @@ Tracker service. Without `max_radius_m` it uses the legacy 2 m gate.
 **Tracker service env overrides** (optional): `TRACKER_ASSOCIATION_METHOD`,
 `TRACKER_ASSOCIATION_GATE_PROBABILITY`, `TRACKER_ASSOCIATION_MAX_RADIUS_M`.
 
+A `gate_probability` outside (0, 1] or a negative or non-finite (`nan`, `inf`) `max_radius_m`
+fails Tracker service startup; the Controller logs an error and uses the default.
+
 Invalid `method` values fail startup (Controller raises; Tracker throws). Omitting the
 `association` block uses the defaults above.
 
