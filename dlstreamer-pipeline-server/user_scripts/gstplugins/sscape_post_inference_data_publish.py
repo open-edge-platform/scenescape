@@ -624,9 +624,11 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
       self._image_worker = Thread(target=self._publish_track_images, daemon=True)
       self._image_worker.start()
     image = self._image_pixels(frame, original_image_base64).copy()
-    self._annotate_objects(image)
-    self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
-    payload.update(id=self._cameraid, timestamp=self._frame_level_data.get("timestamp"))
+    payload.update(
+      id=self._cameraid, timestamp=self._frame_level_data.get("timestamp"),
+      resolution=[image.shape[1], image.shape[0]],
+    )
+    image = self._render_live_view(image)
     self._track_sync.submit(image, payload, self._track_options["track-wait-ms"])
 
   def _publish_track_images(self) -> None:
@@ -636,8 +638,13 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
         return
       image, payload, entries = pending
       try:
+        # Track boxes are in native pixels; map them onto the downscaled preview.
+        scale = image.shape[1] / payload["resolution"][0]
+        entries = [(gid, tuple(v * scale for v in box)) for gid, box in entries]
         payload["track_ids"] = draw_track_labels(image, entries)
-        success, jpeg = cv2.imencode(".jpg", image)
+        success, jpeg = cv2.imencode(
+          ".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, self._live_view_quality]
+        )
         if not success:
           raise ValueError("Failed to encode annotated image")
         payload["image"] = base64.b64encode(jpeg).decode("utf-8")
@@ -666,21 +673,25 @@ class SscapePostInferenceDataPublish(GstBase.BaseTransform):
     # when the image itself is downscaled below.
     imgdatadict["resolution"] = [image.shape[1], image.shape[0]]
     if annotate:
-      # Live View frames share the MQTT connection with detections; keep them
-      # small so they neither delay detections nor exceed broker packet limits.
-      # Downscale first so annotations are drawn once, at preview size.
-      scale = 1.0
-      width = image.shape[1]
-      if width > self._live_view_width:
-        scale = self._live_view_width / width
-        image = cv2.resize(
-          image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
-        )
-      self._annotate_objects(image, scale)
-      self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
+      image = self._render_live_view(image)
       params = [cv2.IMWRITE_JPEG_QUALITY, self._live_view_quality]
     _, jpeg = cv2.imencode(".jpg", image, params)
     imgdatadict["image"] = base64.b64encode(jpeg).decode("utf-8")
+
+  def _render_live_view(self, image):
+    # Live View frames share the MQTT connection with detections; keep them
+    # small so they neither delay detections nor exceed broker packet limits.
+    # Downscale first so annotations are drawn once, at preview size.
+    scale = 1.0
+    width = image.shape[1]
+    if width > self._live_view_width:
+      scale = self._live_view_width / width
+      image = cv2.resize(
+        image, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA
+      )
+    self._annotate_objects(image, scale)
+    self._annotate_fps(image, self._frame_level_data.get("rate", 0.0))
+    return image
 
   def _image_pixels(self, gvaframe, original_image_base64: str = None):
     image = None

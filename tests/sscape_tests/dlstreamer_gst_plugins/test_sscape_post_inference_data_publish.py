@@ -31,10 +31,12 @@ import sscape_post_inference_data_publish as pubmod  # noqa: E402
 class TestTrackImages:
   """Exercise the real worker and JPEG encoder without GStreamer or a broker."""
 
+  @pytest.mark.parametrize('live_view_width', [320, 160])
   @pytest.mark.parametrize('with_tracks', [True, False])
-  def test_requested_image(self, connected_element, monkeypatch, with_tracks):
+  def test_requested_image(self, connected_element, monkeypatch, with_tracks, live_view_width):
     element = connected_element
     element.do_set_property(make_prop('annotate-track-ids'), True)
+    element.do_set_property(make_prop('live-view-width'), live_view_width)
     element.do_set_property(make_prop('track-wait-ms'), 0)
     timestamp = '2026-11-02T12:00:00.000Z'
     gid = '12345678-abcd-1234-abcd-123456789012'
@@ -58,7 +60,10 @@ class TestTrackImages:
       assert payload['timestamp'] == timestamp
       assert payload['track_ids'] == ([gid] if with_tracks else [])
       jpeg = np.frombuffer(base64.b64decode(payload['image']), dtype=np.uint8)
-      assert cv2.imdecode(jpeg, cv2.IMREAD_COLOR).shape == image.shape
+      scale = live_view_width / image.shape[1]
+      assert payload['resolution'] == [image.shape[1], image.shape[0]]
+      assert cv2.imdecode(jpeg, cv2.IMREAD_COLOR).shape == (
+        int(image.shape[0] * scale), live_view_width, 3)
       assert not np.any(image), 'Capture must not modify the source image'
     finally:
       worker = element._image_worker

@@ -128,3 +128,19 @@ test("requestCalibrationFrame times out and cleans up", async (t) => {
   assert.deepEqual(client.unsubscribed, [FRAME_TOPIC]);
   assert.equal(client.listeners.length, 0);
 });
+
+test("requestCalibrationFrame addresses the camera by UID when it has one", async () => {
+  const camera = makeCamera({ cameraUID: "cam-uid" });
+  const client = camera.mqttClient;
+  const frameTopic = APP + IMAGE_CALIBRATE + "cam-uid";
+
+  const pending = camera.requestCalibrationFrame();
+  assert.deepEqual(client.subscribed, [frameTopic]);
+  assert.deepEqual(client.published, [
+    [APP + CMD_CAMERA + "cam-uid", "getcalibrationimage"],
+  ]);
+
+  client.receive(FRAME_TOPIC, JSON.stringify({ image: "by-name" }));
+  client.receive(frameTopic, JSON.stringify({ image: "native-frame" }));
+  assert.equal(await pending, "native-frame");
+});

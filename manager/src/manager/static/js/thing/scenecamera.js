@@ -1248,7 +1248,8 @@ export default class SceneCamera extends THREE.Object3D {
       return Promise.reject(new Error("MQTT is not connected."));
     }
     const client = this.mqttClient;
-    const topic = this.appName + IMAGE_CALIBRATE + this.name;
+    const id = this.cameraUID || this.name;
+    const topic = this.appName + IMAGE_CALIBRATE + id;
     return new Promise((resolve, reject) => {
       const onMessage = (msgTopic, message) => {
         if (msgTopic !== topic) return;
@@ -1273,7 +1274,7 @@ export default class SceneCamera extends THREE.Object3D {
       client.on("message", onMessage);
       client.subscribe(topic, () =>
         client.publish(
-          this.appName + CMD_CAMERA + this.name,
+          this.appName + CMD_CAMERA + id,
           "getcalibrationimage",
         ),
       );
