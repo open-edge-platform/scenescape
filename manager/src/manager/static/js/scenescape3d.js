@@ -105,6 +105,7 @@ function main() {
   const panelSettings = {
     "show tracked objects": showTrackedObjects,
     "show platform frustums": true,
+    "show association windows": false,
     "light intensity": lightIntensity,
   };
   panel.domElement.id = "panel-3d-controls";
@@ -119,6 +120,12 @@ function main() {
     .onChange(function (visibility) {
       if (assetManager) assetManager.setFrustumsVisible(visibility);
     }).$widget.id = "platform-frustums-button";
+
+  panel
+    .add(panelSettings, "show association windows")
+    .onChange(function (visibility) {
+      assetManager.setAssociationWindowsVisibility(visibility);
+    }).$widget.id = "association-windows-button";
 
   // Add light intensity control
   panel

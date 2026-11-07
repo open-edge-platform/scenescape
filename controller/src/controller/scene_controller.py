@@ -17,6 +17,7 @@ from scene_common.transform import CameraPose
 from controller.child_scene_controller import ChildSceneController
 from scene_common.detections_builder import buildDetectionsList
 from controller.external_source import ExternalSourcePoseCache, IdentityClaimRegistry
+from controller.ilabs_tracking import normalize_association_config, warn_association_config
 from controller.scene import Scene, stripReidProvenance
 from scene_common import log
 from scene_common.geometry import Point, Region, Tripwire
@@ -75,6 +76,26 @@ class RateLimiter:
         return False, 0
     self._entries[key] = [now, 0]
     return True, 0
+
+
+def _parseAssociationConfig(tracker_config):
+  """Normalized ``association`` block of a tracker config; the default block when it is malformed.
+
+  An unknown ``method`` or a block that is not an object drops the whole block: its other fields were meant for
+  another method.
+  """
+  association = tracker_config.get("association", {})
+  if not isinstance(association, dict):
+    log.error(f"Invalid association config in tracker config file: expected an object, got {association!r}; "
+              "using the default association")
+    return normalize_association_config()
+  try:
+    association_config = normalize_association_config(association)
+  except ValueError as err:
+    log.error(f"Invalid association config in tracker config file: {err}; using the default association")
+    return normalize_association_config()
+  warn_association_config(association_config)
+  return association_config
 
 
 def _parseTrustedSources(value):
@@ -226,6 +247,8 @@ class SceneController:
         else:
           log.error("Invalid persist_attributes format in tracker config file")
           self.tracker_config_data["persist_attributes"] = {}
+
+      self.tracker_config_data["association"] = _parseAssociationConfig(tracker_config)
     return
 
   def extractReidConfigData(self, reid_config_file):
