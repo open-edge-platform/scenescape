@@ -260,3 +260,21 @@ class TestEventSerializer:
 
     assert 'similarity' not in result
     assert 'first_seen' not in result
+
+  def test_association_window_passed_through_when_present(self):
+    obj = _make_obj()
+    obj.association_window = {'method': 'euclidean', 'shape': 'circle', 'radius_m': 2.0}
+
+    result = serialize_for_event(obj)
+
+    assert result['association_window'] == obj.association_window
+
+  @pytest.mark.parametrize("association_window", [None, {}])
+  def test_association_window_absent_when_missing_or_empty(self, association_window):
+    obj = _make_obj()
+    if association_window is not None:
+      obj.association_window = association_window
+
+    result = serialize_for_event(obj)
+
+    assert 'association_window' not in result

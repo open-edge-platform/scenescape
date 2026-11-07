@@ -400,7 +400,7 @@
         "id": {
           "title": "Source-Local Object ID",
           "type": "string",
-          "description": "Identifier the source uses to correlate this observation across messages. Not a Scenescape global ID; the controller does not map or look up this value, it is used only as the observation's local reference."
+          "description": "Identifier the source uses to correlate this observation across messages. Required for Cartesian observations when track=false (exclusive identity claim). Optional when track is true or omitted. Pixel detections with track=false are discarded and do not use this as published identity."
         },
         "metadata": {
           "$ref": "#/definitions/semantic_metadata",
@@ -408,7 +408,7 @@
         },
         "bounding_box_px": {
           "$ref": "#/definitions/bounding_box_px",
-          "description": "Pixel-space bounding box from a camera-like external source. Mutually exclusive with translation: when this field is used, omit translation and localize from pixels using the source pose and camera intrinsics (from this message or the live pose-cache entry)."
+          "description": "Pixel-space bounding box from a camera-like external source. Mutually exclusive with translation: when this field is used, omit translation and localize from pixels using the source pose and camera intrinsics (from this message or the live pose-cache entry). With track=true or omitted track, detections enter Scenescape tracking after dual transform; with track=false they are discarded."
         }
       },
       "required": ["category"],
@@ -485,6 +485,88 @@
         "required": ["translation"]
       }
     },
+    "external_camera_mount": {
+      "title": "External Source Fixed Camera Mount",
+      "description": "Rigid transform from camera optical coordinates (x right, y down, z forward) into the source body frame. Composed with the source pose to localize pixel detections; not applied to body-relative Cartesian observations.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "translation": {
+          "$ref": "#/definitions/external_pose/properties/translation",
+          "description": "Camera optical origin in source body coordinates, in meters."
+        },
+        "rotation": {
+          "description": "Camera-optical-to-body quaternion (x, y, z, w). Publish a unit quaternion; the zero quaternion is invalid.",
+          "allOf": [
+            {
+              "$ref": "#/definitions/external_pose/properties/rotation"
+            },
+            {
+              "not": {
+                "enum": [[0, 0, 0, 0]]
+              }
+            }
+          ]
+        }
+      },
+      "required": ["translation", "rotation"]
+    },
+    "external_camera": {
+      "title": "External Source Camera",
+      "description": "A camera carried by an external source, with its fixed body-relative mount, calibration, and observations captured by that camera.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Camera ID",
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable camera identifier unique within the source."
+        },
+        "mount": {
+          "$ref": "#/definitions/external_camera_mount"
+        },
+        "intrinsics": {
+          "$ref": "#/definitions/camera_intrinsics"
+        },
+        "distortion": {
+          "$ref": "#/definitions/camera_distortion"
+        },
+        "objects": {
+          "title": "Camera Observations",
+          "type": "array",
+          "description": "Objects observed by this camera. Cartesian translations are camera-local; bounding_box_px values are in this camera's image coordinates.",
+          "items": {
+            "$ref": "#/definitions/external_detection"
+          }
+        }
+      },
+      "required": ["id", "mount", "intrinsics", "objects"]
+    },
+    "platform_camera": {
+      "title": "Platform Camera State",
+      "description": "Camera mount and calibration carried on a platform scene object (id matching source_id) for object-graph frustum rendering. Observations are omitted; ingest cameras[] remain on the external_source wire contract.",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Camera ID",
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable camera identifier unique within the platform."
+        },
+        "mount": {
+          "$ref": "#/definitions/external_camera_mount"
+        },
+        "intrinsics": {
+          "$ref": "#/definitions/camera_intrinsics"
+        },
+        "distortion": {
+          "$ref": "#/definitions/camera_distortion"
+        }
+      },
+      "required": ["id", "mount", "intrinsics"]
+    },
     "external_source": {
       "title": "External Source Metadata",
       "description": "Unified contract for object observations published by external sources (physical agents such as drones or vehicles, and the Scenescape positioning service) under scenescape/external/{publisher_id}/{thing_type}, where publisher_id matches source_id. Scene membership is via consumer-side binding.",
@@ -512,10 +594,18 @@
           "$ref": "#/definitions/camera_distortion",
           "description": "Optional camera distortion coefficients paired with intrinsics for external pixel detections; cached with intrinsics when provided."
         },
+        "cameras": {
+          "title": "External Source Cameras",
+          "type": "array",
+          "description": "Cameras carried by this source. Each camera owns its calibration and observations.",
+          "items": {
+            "$ref": "#/definitions/external_camera"
+          }
+        },
         "objects": {
           "title": "Observed Objects",
           "type": "array",
-          "description": "Objects observed by this source, in its local coordinate frame. May be empty when a message only updates the source's pose.",
+          "description": "Objects observed by this source, in its local coordinate frame. May be omitted when cameras is provided, or empty when a message only updates the source's pose.",
           "items": {
             "$ref": "#/definitions/external_detection"
           }
@@ -523,11 +613,47 @@
         "track": {
           "title": "Track All Source Objects",
           "type": "boolean",
-          "description": "When present and false, all objects in this message bypass Scenescape tracking and preserve their source-provided ids. When true or omitted, all objects go through the normal tracking path and id is optional."
+          "description": "When false, all objects bypass Scenescape tracking and use the source-provided id. When true or omitted, all objects go through normal tracking."
         }
       },
-      "required": ["timestamp", "source_id", "objects"],
+      "required": ["timestamp", "source_id"],
+      "anyOf": [{ "required": ["objects"] }, { "required": ["cameras"] }],
       "allOf": [
+        {
+          "not": {
+            "anyOf": [
+              { "required": ["camera_mount"] },
+              { "required": ["resolution"] }
+            ]
+          }
+        },
+        {
+          "if": {
+            "required": ["cameras"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                { "required": ["intrinsics"] },
+                { "required": ["distortion"] }
+              ]
+            },
+            "properties": {
+              "objects": {
+                "items": {
+                  "not": {
+                    "required": ["bounding_box_px"]
+                  }
+                }
+              },
+              "cameras": {
+                "items": {
+                  "required": ["id", "mount", "intrinsics", "objects"]
+                }
+              }
+            }
+          }
+        },
         {
           "if": {
             "required": ["track"],
@@ -542,6 +668,17 @@
               "objects": {
                 "items": {
                   "required": ["id"]
+                }
+              },
+              "cameras": {
+                "items": {
+                  "properties": {
+                    "objects": {
+                      "items": {
+                        "required": ["id"]
+                      }
+                    }
+                  }
                 }
               }
             }
