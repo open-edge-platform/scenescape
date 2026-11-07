@@ -12,6 +12,7 @@ import Toast from "/static/js/toast.js";
 import {
   CMD_CAMERA,
   IMAGE_CAMERA,
+  IMAGE_CALIBRATE,
   POSITIONING_POSE,
   MAX_INTRINSICS_UPDATE_WAIT_TIME,
   FX,
@@ -53,6 +54,7 @@ const MAX_CALIB_POINTS = 4;
 const DEFAULT_CAMERA_NAME = "new-camera";
 const DEFAULT_CAMERA_UID = undefined;
 const MAX_CALIB_WAIT_TIME = 200000;
+const CALIB_FRAME_TIMEOUT = 15000;
 const POINT_CLOUD_SENSOR_NAME_RE = /lidar|radar|velodyne|livox|point.?cloud/i;
 const POINT_CORRESPONDENCE = "3d-2d point correspondence";
 
@@ -153,7 +155,6 @@ export default class SceneCamera extends THREE.Object3D {
     this.isUpdatedInVAService = false;
     this.isVARunning = false;
     this.cameraCapture = null;
-    this.currentFrame = null;
     this.socket = io({
       path: "/api/v1/autocalibration/socket.io",
       transports: ["websocket"],
@@ -1240,6 +1241,46 @@ export default class SceneCamera extends THREE.Object3D {
     this.isVARunning = isRunning;
   }
 
+  // Calibration must use the native, unannotated frame: the live-view frame is a
+  // downscaled, annotated preview that does not match the calibrated intrinsics.
+  requestCalibrationFrame() {
+    if (!this.mqttClient || !this.appName) {
+      return Promise.reject(new Error("MQTT is not connected."));
+    }
+    const client = this.mqttClient;
+    const id = this.cameraUID || this.name;
+    const topic = this.appName + IMAGE_CALIBRATE + id;
+    return new Promise((resolve, reject) => {
+      const onMessage = (msgTopic, message) => {
+        if (msgTopic !== topic) return;
+        try {
+          const msg = JSON.parse(message);
+          if (msg.image) finish(msg.image);
+        } catch (err) {
+          console.warn("Ignoring malformed calibration frame", err);
+        }
+      };
+      const finish = (image) => {
+        clearTimeout(timer);
+        client.removeListener("message", onMessage);
+        client.unsubscribe(topic);
+        if (image) {
+          resolve(image);
+        } else {
+          reject(new Error("timed out waiting for a calibration frame."));
+        }
+      };
+      const timer = setTimeout(() => finish(null), CALIB_FRAME_TIMEOUT);
+      client.on("message", onMessage);
+      client.subscribe(topic, () =>
+        client.publish(
+          this.appName + CMD_CAMERA + id,
+          "getcalibrationimage",
+        ),
+      );
+    });
+  }
+
   async autoCalibrate() {
     if (this.isPTZAwayFromHome()) {
       this.toast.showToast(PTZ_AWAY_MESSAGE, "warning");
@@ -1254,6 +1295,20 @@ export default class SceneCamera extends THREE.Object3D {
     );
     this.calibToast = document.getElementById(this.name + "-Calibrate");
     this.calibToast.children[0].children[1].disabled = true;
+
+    let calibrationFrame;
+    try {
+      calibrationFrame = await this.requestCalibrationFrame();
+    } catch (err) {
+      this.toast.updateToast(
+        `${this.name}-Calibrate`,
+        `Calibration failed: ${err.message}`,
+        "danger",
+      );
+      this.enableAutoCalibration(true);
+      return;
+    }
+
     const intrinsics_mtx = [
       [
         this.cameraMatrix.data64F[0],
@@ -1302,7 +1357,7 @@ export default class SceneCamera extends THREE.Object3D {
 
     const data = await startCameraCalibration(
       this.cameraUID,
-      this.currentFrame,
+      calibrationFrame,
       intrinsics_mtx,
     );
 
