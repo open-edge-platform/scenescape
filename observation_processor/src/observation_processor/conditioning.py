@@ -100,7 +100,7 @@ def prepare_batch(request: pb.ProcessDetectionsRequest, provider: SceneProvider,
     asset = provider.get_asset_prior(detection.category)
     priors.append([asset.prior[key] for key in PRIOR_KEYS])
     axis_aware.append(detection.axis_aware_sizing if detection.HasField("axis_aware_sizing")
-                      else asset.axis_aware_sizing)
+                      else False)
     project_to_map.append(detection.project_to_map if detection.HasField("project_to_map")
                           else asset.project_to_map)
   raw = np.asarray(boxes, dtype=np.float64)

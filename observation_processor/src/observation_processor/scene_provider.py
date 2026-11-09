@@ -33,12 +33,15 @@ from scipy.spatial.transform import Rotation
 
 from scene_common import log
 from scene_common.rest_client import RESTClient
+from scene_common.transform import CameraIntrinsics
 
 DEFAULT_REST_URL = "https://web.scenescape.intel.com/api/v1"
 DEFAULT_AUTH = "/run/secrets/observation_processor.auth"
 DEFAULT_ROOTCERT = "/run/secrets/certs/scenescape-ca.pem"
 DEFAULT_MEDIA_ROOT = "/workspace/media"
 DEFAULT_NUM_LAYERS = 4
+MAX_SCENE_MESH_BYTES = 100 * 1024 * 1024
+MESH_DOWNLOAD_CHUNK_SIZE = 64 * 1024
 DEFAULT_WORLD_UP = (0.0, 0.0, 1.0)
 DISTORTION_KEYS = ("k1", "k2", "p1", "p2", "k3", "k4", "k5", "k6",
                    "s1", "s2", "s3", "s4", "taux", "tauy")
@@ -52,6 +55,43 @@ PEDESTRIAN_PRIOR = {
 # Assets define sizes but no size uncertainty; derive sigma as this fraction
 # of each dimension.
 DEFAULT_SIGMA_FRACTION = 0.15
+
+
+def _http_origin(url):
+  try:
+    parsed = urlsplit(url)
+    scheme = parsed.scheme.lower()
+    hostname = parsed.hostname
+    port = parsed.port
+  except ValueError:
+    return None
+  if scheme not in ("http", "https") or hostname is None \
+      or parsed.username is not None or parsed.password is not None:
+    return None
+  if port is None:
+    port = 443 if scheme == "https" else 80
+  return scheme, hostname.lower(), port
+
+
+def _read_mesh_response(reply, url):
+  if reply.status_code != 200:
+    raise StoreUnavailableError(f"download {url}: HTTP {reply.status_code}")
+  content_length = reply.headers.get("Content-Length")
+  if content_length is not None:
+    try:
+      declared_size = int(content_length)
+    except ValueError as exc:
+      raise StoreUnavailableError("scene mesh has invalid Content-Length") from exc
+    if declared_size < 0 or declared_size > MAX_SCENE_MESH_BYTES:
+      raise StoreUnavailableError(
+        f"scene mesh exceeds maximum download size of {MAX_SCENE_MESH_BYTES} bytes")
+  content = bytearray()
+  for chunk in reply.iter_content(chunk_size=MESH_DOWNLOAD_CHUNK_SIZE):
+    if len(content) + len(chunk) > MAX_SCENE_MESH_BYTES:
+      raise StoreUnavailableError(
+        f"scene mesh exceeds maximum download size of {MAX_SCENE_MESH_BYTES} bytes")
+    content.extend(chunk)
+  return bytes(content)
 
 
 class StoreUnavailableError(Exception):
@@ -68,6 +108,10 @@ class CameraNotFoundError(Exception):
 
 class CameraNotCalibratedError(Exception):
   """The camera record has no usable intrinsics or pose."""
+
+
+class InvalidAssetPriorError(ValueError):
+  """An object-library asset has invalid size dimensions for projection."""
 
 
 class SceneMeshMissingError(Exception):
@@ -119,20 +163,28 @@ class CameraInfo:
     intrinsics = record.get("intrinsics") or {}
     translation = record.get("translation")
     rotation = record.get("rotation")
-    if not all(k in intrinsics for k in ("fx", "fy", "cx", "cy")) \
-       or translation is None or rotation is None:
+    if translation is None or rotation is None:
       raise CameraNotCalibratedError(record.get("name") or record.get("uid"))
     self.uid = record.get("uid")
     self.name = record.get("name")
-    self.intrinsics = {k: float(intrinsics[k]) for k in ("fx", "fy", "cx", "cy")}
-    self.distortion = record.get("distortion")
     resolution = record.get("resolution")
     if resolution:
       self.width, self.height = int(resolution[0]), int(resolution[1])
+    elif all(k in intrinsics for k in ("cx", "cy")):
+      # Pinhole calibrations imply a centered image with no explicit resolution.
+      self.width = int(float(intrinsics["cx"]) * 2)
+      self.height = int(float(intrinsics["cy"]) * 2)
     else:
-      # Convention shared with CameraIntrinsics.getResolutionFromIntrinsics.
-      self.width = int(self.intrinsics["cx"] * 2)
-      self.height = int(self.intrinsics["cy"] * 2)
+      raise CameraNotCalibratedError("camera resolution is required for FOV intrinsics")
+    try:
+      matrix = CameraIntrinsics(intrinsics, resolution=[self.width, self.height]).intrinsics
+      self.intrinsics = {
+        "fx": float(matrix[0, 0]), "fy": float(matrix[1, 1]),
+        "cx": float(matrix[0, 2]), "cy": float(matrix[1, 2]),
+      }
+    except (TypeError, ValueError, IndexError, OverflowError, ZeroDivisionError) as exc:
+      raise CameraNotCalibratedError("invalid camera intrinsics") from exc
+    self.distortion = record.get("distortion")
     self.pose_mat = pose_mat_from_pose(translation, rotation, record.get("scale"))
     self.distortion_coefficients = self._validate_calibration()
 
@@ -170,27 +222,34 @@ class CameraInfo:
 
 
 class AssetPrior:
-  """Size prior and per-object defaults derived from an object-library asset."""
+  """Size prior and map-projection default derived from an object-library asset."""
 
-  def __init__(self, prior, axis_aware_sizing=True, project_to_map=False):
+  def __init__(self, prior, project_to_map=False):
     self.prior = prior
-    self.axis_aware_sizing = axis_aware_sizing
     self.project_to_map = project_to_map
 
   @classmethod
   def from_asset(cls, asset):
-    sizes = [float(asset.get(k) or 0.0) for k in ("x_size", "y_size", "z_size")]
-    if not np.all(np.isfinite(sizes)) or any(s <= 0.0 for s in sizes):
-      raise ValueError("asset dimensions must be finite and positive")
+    category = asset.get("name") or "<unknown>"
+    size_keys = ("x_size", "y_size", "z_size")
+    try:
+      sizes = [float(asset.get(key) or 0.0) for key in size_keys]
+    except (TypeError, ValueError, OverflowError) as exc:
+      raise InvalidAssetPriorError(
+        f"asset category '{category}' has non-numeric size dimensions") from exc
+    invalid_sizes = [key for key, size in zip(size_keys, sizes)
+                     if not np.isfinite(size) or size <= 0.0]
+    if invalid_sizes:
+      raise InvalidAssetPriorError(
+        f"asset category '{category}' has invalid size dimensions: "
+        f"{', '.join(invalid_sizes)} must be finite and positive")
     prior = {
       "mu_x": sizes[0], "mu_y": sizes[1], "mu_z": sizes[2],
       "sigma_x": sizes[0] * DEFAULT_SIGMA_FRACTION,
       "sigma_y": sizes[1] * DEFAULT_SIGMA_FRACTION,
       "sigma_z": sizes[2] * DEFAULT_SIGMA_FRACTION,
     }
-    return cls(prior,
-               axis_aware_sizing=bool(asset.get("axis_aware_sizing", True)),
-               project_to_map=bool(asset.get("project_to_map", False)))
+    return cls(prior, project_to_map=bool(asset.get("project_to_map", False)))
 
 
 class SceneProvider:
@@ -479,17 +538,23 @@ class SceneProvider:
     return full
 
   def _download(self, url):
-    client = self._client()
     # Manager may return media URLs relative to the server root.
     url = urljoin(self.rest_url, url)
+    manager_origin = _http_origin(self.rest_url)
+    if manager_origin is None or _http_origin(url) != manager_origin:
+      raise StoreUnavailableError("scene mesh URL must share the Manager origin")
+    client = self._client()
+    reply = None
     try:
       reply = client.session.get(url, headers={"Authorization": f"Token {client.token}"},
-                                 verify=client.verify_ssl, timeout=client.timeout)
+                                 verify=client.verify_ssl, timeout=client.timeout,
+                                 stream=True, allow_redirects=False)
+      return _read_mesh_response(reply, url)
     except requests.exceptions.RequestException as exc:
       raise StoreUnavailableError(str(exc)) from exc
-    if reply.status_code != 200:
-      raise StoreUnavailableError(f"download {url}: HTTP {reply.status_code}")
-    return reply.content
+    finally:
+      if reply is not None:
+        reply.close()
 
   @staticmethod
   def _glb_to_tensor_mesh(data):

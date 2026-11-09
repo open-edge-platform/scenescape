@@ -60,7 +60,7 @@ def projection_configuration():
   assets = [
     {"name": "person", "x_size": 0.6, "y_size": 0.5, "z_size": 1.8},
     {"name": "car", "x_size": 2.0, "y_size": 4.5, "z_size": 1.5,
-     "axis_aware_sizing": False, "project_to_map": True},
+      "project_to_map": True},
   ]
   rest = Mock()
   rest.getScenes.side_effect = lambda *args: APIResult({"results": [scene]})

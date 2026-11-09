@@ -21,8 +21,8 @@ from scene_common.mqtt import PubSub
 from observation_processor.conditioning import InvalidRequestError, process_detections
 from observation_processor.grpc_api import observation_processor_pb2_grpc
 from observation_processor.scene_provider import (
-  CameraNotCalibratedError, CameraNotFoundError, SceneMeshMissingError,
-  SceneNotFoundError, SceneProvider, StoreUnavailableError,
+  CameraNotCalibratedError, CameraNotFoundError, InvalidAssetPriorError,
+  SceneMeshMissingError, SceneNotFoundError, SceneProvider, StoreUnavailableError,
 )
 
 SERVICE_NAME = "scenescape.observation_processor.v1.ObservationProcessorService"
@@ -49,7 +49,7 @@ class ObservationProcessorServicer(
       context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(exc))
     except (SceneNotFoundError, CameraNotFoundError):
       context.abort(grpc.StatusCode.NOT_FOUND, "scene or camera was not found in the scene")
-    except (CameraNotCalibratedError, SceneMeshMissingError) as exc:
+    except (CameraNotCalibratedError, InvalidAssetPriorError, SceneMeshMissingError) as exc:
       context.abort(grpc.StatusCode.FAILED_PRECONDITION, str(exc))
     except StoreUnavailableError:
       context.abort(grpc.StatusCode.UNAVAILABLE, "configuration store or cache is unavailable")
@@ -145,7 +145,7 @@ def start_database_watcher(provider, broker, auth, rootcert, stop_event=None):
   topic = PubSub.formatTopic(PubSub.CMD_DATABASE)
 
   def on_change(client, userdata, message):
-    if message.payload.decode("utf-8") == "update":
+    if message.payload == b"update":
       log.info("observation-processor-service: database updated; scheduling cache refresh")
       provider.invalidate()
 

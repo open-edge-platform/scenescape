@@ -101,7 +101,8 @@ publishing obsolete data. Broker reconnects also schedule a refresh to recover
 missed events. Database events wake the readiness worker immediately; periodic
 probes and failed-refresh retries use `OBSERVATION_PROCESSOR_READY_INTERVAL_SECONDS`.
 Scene meshes are read from the shared media volume when mounted, with an
-authenticated HTTPS download as fallback.
+authenticated HTTPS download as fallback. Fallback downloads are restricted
+to the Manager's origin, do not follow redirects, and are limited to 100 MiB.
 
 ## ProcessDetections
 
@@ -121,10 +122,11 @@ also accepted. Rectified corner bounds define the pinhole box. Clipping flags
 come from the original image bounds with the library's 3-pixel margin.
 The bottom-centre pixel is undistorted separately for mesh-foot projection.
 
-Size priors and default flags come from the category's object-library asset.
-Unknown categories use the contract's pedestrian prior. Optional per-detection
-booleans override asset flags, including explicit `false`. Invalid asset
-dimensions are errors, not a pedestrian fallback.
+Size priors and the default `project_to_map` flag come from the category's
+object-library asset. Unknown categories use the contract's pedestrian prior.
+`axis_aware_sizing` defaults to `false` and can be overridden per detection,
+including explicitly setting it to `false`. Invalid asset dimensions are
+errors, not a pedestrian fallback.
 
 Each detection returns an OK measurement or `DEPTH_UNOBSERVABLE` (for example a
 zero-size box). Frustum and amodal diagnostics are optional and are returned only
@@ -149,9 +151,9 @@ Errors apply to the whole frame:
 | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `INVALID_ARGUMENT`    | Missing fields, invalid timestamp/mode, nonfinite or negative box values, or values outside the native float32 range |
 | `NOT_FOUND`           | Unknown scene or camera, including a camera outside the scene                                                        |
-| `FAILED_PRECONDITION` | Invalid camera calibration or FULL mode without a mesh                                                               |
+| `FAILED_PRECONDITION` | Invalid camera calibration, invalid size dimensions for a requested category's asset, or FULL mode without a mesh    |
 | `UNAVAILABLE`         | No successfully warmed configuration snapshot available                                                              |
-| `INTERNAL`            | Projection, prior resolution or conditioning failure                                                                 |
+| `INTERNAL`            | Projection or conditioning failure                                                                                   |
 
 Clients decide whether to retain their legacy projection after a frame error;
 this service never silently substitutes it.

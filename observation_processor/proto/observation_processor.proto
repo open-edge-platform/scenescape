@@ -21,14 +21,15 @@ import "google/protobuf/timestamp.proto";
 // contract:
 //   - camera_id -> camera intrinsics, distortion, image size and pose (extrinsics);
 //   - scene_id  -> scene mesh and mesh pose (mesh_translation / mesh_rotation / mesh_scale);
-//   - category  -> object-library asset: size prior, axis_aware_sizing, project_to_map.
+//   - category  -> object-library asset: size prior and project_to_map default.
 //
 // Errors are reported with gRPC status codes and apply to the whole frame:
 //   INVALID_ARGUMENT     missing scene_id, camera_id or timestamp; a detection without category
 //                        or bounding_box_px; non-finite box values or a negative box size.
 //   NOT_FOUND            unknown scene_id or camera_id, or the camera is not in the scene.
-//   FAILED_PRECONDITION  the camera is not calibrated; or the mode is CONDITIONING_MODE_FULL
-//                        and the scene has no mesh (use CONDITIONING_MODE_AUTO).
+//   FAILED_PRECONDITION  the camera is not calibrated; a requested category's asset has
+//                        non-finite or non-positive dimensions; or the mode is
+//                        CONDITIONING_MODE_FULL and the scene has no mesh (use CONDITIONING_MODE_AUTO).
 //   UNAVAILABLE          the static data store is unreachable; retryable.
 //   INTERNAL             projection or conditioning failed.
 // On an error the client keeps its legacy projection for the frame, as the in-process
@@ -58,8 +59,9 @@ message ProcessDetectionsRequest {
 
 // One 2D camera detection: the per-detection input of the frustum Gaussian library
 // (frustum_gaussian.from_scenescape_detections) plus the per-object pipeline options.
-// The size prior always comes from the object-library asset of `category`. Optional fields
-// override the asset flags for this detection only.
+// The size prior always comes from the object-library asset of `category`. `axis_aware_sizing`
+// defaults to true; `project_to_map` defaults to the asset flag. Set either field to override
+// its default for this detection only.
 message CameraDetection {
   // Field 4 was a per-detection size prior override; the asset is the only source.
   reserved 4;
@@ -76,7 +78,7 @@ message CameraDetection {
   BoundingBoxPx bounding_box_px = 3;
   // true: box width is matched to mu_x and box height to mu_z (axis-aware sizing).
   // false: both box axes are matched to the orientation-averaged size.
-  // When unset: the asset flag, else true.
+  // When unset: false.
   optional bool axis_aware_sizing = 5;
   // true: place the object on the scene mesh under the box (DEPTH_SOURCE_MESH_FOOT) when the
   // mesh is hit. When unset: the asset flag, else false.

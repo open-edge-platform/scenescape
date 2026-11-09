@@ -4,17 +4,19 @@
 """Service-level projection and conditioning tests with a mocked projection kernel."""
 
 from concurrent.futures import ThreadPoolExecutor
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import cv2
+import grpc
 import numpy as np
 import pytest
 
 from observation_processor.conditioning import InvalidRequestError, UNOBSERVABLE_SIGMA
 from observation_processor.grpc_api import observation_processor_pb2 as pb
+from observation_processor.server import ObservationProcessorServicer
 from observation_processor.scene_provider import (
-  CameraNotCalibratedError, CameraNotFoundError, SceneMeshMissingError,
-  SceneNotFoundError, SceneProvider, StoreUnavailableError,
+  CameraInfo, CameraNotCalibratedError, CameraNotFoundError, InvalidAssetPriorError,
+  SceneMeshMissingError, SceneNotFoundError, SceneProvider, StoreUnavailableError,
 )
 
 
@@ -36,6 +38,30 @@ def _assert_measurement(entry):
 
 def _ray(entry):
   return np.array([entry.frustum.ray.x, entry.frustum.ray.y, entry.frustum.ray.z])
+
+
+@pytest.mark.parametrize(("intrinsics", "focal_lengths"), [
+  ({"hfov": 90.0, "vfov": 60.0}, (640.0, 360.0 / np.tan(np.radians(30.0)))),
+  ({"fov": 90.0}, (np.hypot(640.0, 360.0), np.hypot(640.0, 360.0))),
+])
+def test_camera_info_converts_manager_fov_intrinsics(intrinsics, focal_lengths):
+  camera = CameraInfo({
+    "uid": "camera", "intrinsics": intrinsics, "resolution": [1280, 720],
+    "translation": [0, 0, 0], "rotation": [0, 0, 0],
+  })
+  np.testing.assert_allclose(camera.k_matrix, [
+    [focal_lengths[0], 0, 640],
+    [0, focal_lengths[1], 360],
+    [0, 0, 1],
+  ])
+
+
+def test_camera_info_requires_resolution_for_fov_intrinsics():
+  with pytest.raises(CameraNotCalibratedError):
+    CameraInfo({
+      "uid": "camera", "intrinsics": {"fov": 90.0},
+      "translation": [0, 0, 0], "rotation": [0, 0, 0],
+    })
 
 
 def test_pipeline_assembles_tracker_measurement_from_kernel_output(
@@ -133,7 +159,7 @@ def test_mesh_miss_retains_frustum_depth(process_frame, frame):
   assert entry.depth_source == pb.DEPTH_SOURCE_FRUSTUM
 
 
-def test_mixed_categories_fallback_flags_and_order(
+def test_mixed_categories_axis_sizing_and_project_map_defaults_and_order(
   process_frame, frame, projection_configuration):
   for category in ("car", "unknown", "person"):
     detection = frame.detections.add()
@@ -149,7 +175,7 @@ def test_mixed_categories_fallback_flags_and_order(
   call = projection_configuration.projector.call_args.kwargs
   np.testing.assert_allclose(call["priors"][:, :3], [
     [0.6, 0.5, 1.8], [2.0, 4.5, 1.5], [0.55, 0.55, 1.7], [0.6, 0.5, 1.8]])
-  assert call["axis_aware"].tolist() == [True, False, True, False]
+  assert call["axis_aware"].tolist() == [False, False, False, False]
   frame.detections[1].project_to_map = False
   frame.detections[1].axis_aware_sizing = True
   updated = process_frame(frame).measurements[1]
@@ -358,8 +384,50 @@ def test_concurrent_full_requests_reuse_preloaded_geometry(process_frame, frame,
 def test_invalid_asset_does_not_silently_use_pedestrian_prior(process_frame, frame,
                                                             projection_configuration, value):
   projection_configuration.assets[0]["x_size"] = value
-  with pytest.raises(ValueError):
+  with pytest.raises(InvalidAssetPriorError, match="person.*x_size"):
     process_frame(frame)
+
+
+@pytest.mark.parametrize(("failure", "status", "details"), [
+  pytest.param(
+    InvalidRequestError("timestamp is required"), grpc.StatusCode.INVALID_ARGUMENT,
+    "timestamp is required", id="invalid-argument"),
+  pytest.param(
+    SceneNotFoundError("scene"), grpc.StatusCode.NOT_FOUND,
+    "scene or camera was not found in the scene", id="scene-not-found"),
+  pytest.param(
+    CameraNotFoundError("camera"), grpc.StatusCode.NOT_FOUND,
+    "scene or camera was not found in the scene", id="camera-not-found"),
+  pytest.param(
+    CameraNotCalibratedError("camera calibration is invalid"),
+    grpc.StatusCode.FAILED_PRECONDITION, "camera calibration is invalid",
+    id="camera-not-calibrated"),
+  pytest.param(
+    InvalidAssetPriorError(
+      "asset category 'person' has invalid size dimensions: x_size must be finite and positive"),
+    grpc.StatusCode.FAILED_PRECONDITION,
+    "asset category 'person' has invalid size dimensions: x_size must be finite and positive",
+    id="invalid-asset-prior"),
+  pytest.param(
+    SceneMeshMissingError("scene has no mesh"), grpc.StatusCode.FAILED_PRECONDITION,
+    "scene has no mesh", id="scene-mesh-missing"),
+  pytest.param(
+    StoreUnavailableError("Manager is unreachable"), grpc.StatusCode.UNAVAILABLE,
+    "configuration store or cache is unavailable", id="store-unavailable"),
+  pytest.param(
+    RuntimeError("projection kernel failed"), grpc.StatusCode.INTERNAL,
+    "projection or conditioning failed", id="unexpected-error"),
+])
+def test_process_detections_maps_errors_to_grpc_status(frame, failure, status, details):
+  context = Mock()
+  context.abort.side_effect = RuntimeError("rpc aborted")
+  servicer = ObservationProcessorServicer(provider=object())
+  with patch("observation_processor.server.process_detections", side_effect=failure), \
+       pytest.raises(RuntimeError, match="rpc aborted"):
+    servicer.ProcessDetections(frame, context)
+  context.abort.assert_called_once_with(
+    status, details,
+  )
 
 
 def test_epoch_timestamp_and_empty_correlation_key_are_valid(process_frame, frame):

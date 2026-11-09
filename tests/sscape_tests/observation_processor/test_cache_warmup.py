@@ -11,7 +11,9 @@ from unittest.mock import Mock, patch
 import pytest
 from grpc_health.v1 import health_pb2
 
-from observation_processor.scene_provider import SceneMeshMissingError, SceneProvider, StoreUnavailableError
+from observation_processor.scene_provider import (
+  MAX_SCENE_MESH_BYTES, SceneMeshMissingError, SceneProvider, StoreUnavailableError,
+)
 from observation_processor.server import (
   SERVICE_NAME, _probe_readiness, start_database_watcher, start_readiness_monitor,
 )
@@ -38,6 +40,63 @@ def configuration():
       patch.object(SceneProvider, "_load_world_mesh", side_effect=lambda scene, data: object()) as load, \
       patch("observation_conditioning.AmodalReasoner") as reasoner:
     yield SceneProvider(), rest, scene, camera, load, reasoner
+
+
+def _download_client(response):
+  client = Mock(token="manager-token", verify_ssl="/manager-ca.pem", timeout=7)
+  client.session.get.return_value = response
+  return client
+
+
+def test_mesh_download_uses_authenticated_same_origin_stream(configuration):
+  provider, *_ = configuration
+  response = Mock(status_code=200, headers={"Content-Length": "5"})
+  response.iter_content.return_value = iter((b"mesh", b"!"))
+  client = _download_client(response)
+  with patch.object(provider, "_client", return_value=client):
+    assert provider._download("/media/scene.glb") == b"mesh!"
+  client.session.get.assert_called_once_with(
+    "https://web.scenescape.intel.com/media/scene.glb",
+    headers={"Authorization": "Token manager-token"}, verify="/manager-ca.pem",
+    timeout=7, stream=True, allow_redirects=False,
+  )
+  response.close.assert_called_once()
+
+
+@pytest.mark.parametrize("url", [
+  "https://other.example/scene.glb", "//other.example/scene.glb",
+  "https://web.scenescape.intel.com:444/scene.glb",
+])
+def test_mesh_download_rejects_non_manager_origin_before_authentication(configuration, url):
+  provider, *_ = configuration
+  with patch.object(provider, "_client") as client:
+    with pytest.raises(StoreUnavailableError, match="share the Manager origin"):
+      provider._download(url)
+  client.assert_not_called()
+
+
+def test_mesh_download_rejects_oversized_content_length(configuration, monkeypatch):
+  provider, *_ = configuration
+  monkeypatch.setattr("observation_processor.scene_provider.MAX_SCENE_MESH_BYTES", 4)
+  response = Mock(status_code=200, headers={"Content-Length": "5"})
+  client = _download_client(response)
+  with patch.object(provider, "_client", return_value=client):
+    with pytest.raises(StoreUnavailableError, match="exceeds maximum download size"):
+      provider._download("/media/scene.glb")
+  response.iter_content.assert_not_called()
+  response.close.assert_called_once()
+
+
+def test_mesh_download_caps_stream_when_content_length_is_missing(configuration, monkeypatch):
+  provider, *_ = configuration
+  monkeypatch.setattr("observation_processor.scene_provider.MAX_SCENE_MESH_BYTES", 4)
+  response = Mock(status_code=200, headers={})
+  response.iter_content.return_value = iter((b"1234", b"5", b"not-read"))
+  client = _download_client(response)
+  with patch.object(provider, "_client", return_value=client):
+    with pytest.raises(StoreUnavailableError, match="exceeds maximum download size"):
+      provider._download("/media/scene.glb")
+  response.close.assert_called_once()
 
 
 def test_startup_preloads_geometry_and_first_access_is_cached(configuration):

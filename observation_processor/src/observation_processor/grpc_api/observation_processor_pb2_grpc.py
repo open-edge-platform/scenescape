@@ -38,14 +38,15 @@ class ObservationProcessorServiceStub(object):
   contract:
   - camera_id -> camera intrinsics, distortion, image size and pose (extrinsics);
   - scene_id  -> scene mesh and mesh pose (mesh_translation / mesh_rotation / mesh_scale);
-  - category  -> object-library asset: size prior, axis_aware_sizing, project_to_map.
+  - category  -> object-library asset: size prior and project_to_map default.
 
   Errors are reported with gRPC status codes and apply to the whole frame:
   INVALID_ARGUMENT     missing scene_id, camera_id or timestamp; a detection without category
   or bounding_box_px; non-finite box values or a negative box size.
   NOT_FOUND            unknown scene_id or camera_id, or the camera is not in the scene.
-  FAILED_PRECONDITION  the camera is not calibrated; or the mode is CONDITIONING_MODE_FULL
-  and the scene has no mesh (use CONDITIONING_MODE_AUTO).
+  FAILED_PRECONDITION  the camera is not calibrated; a requested category's asset has
+  non-finite or non-positive dimensions; or the mode is
+  CONDITIONING_MODE_FULL and the scene has no mesh (use CONDITIONING_MODE_AUTO).
   UNAVAILABLE          the static data store is unreachable; retryable.
   INTERNAL             projection or conditioning failed.
   On an error the client keeps its legacy projection for the frame, as the in-process
@@ -74,14 +75,15 @@ class ObservationProcessorServiceServicer(object):
   contract:
   - camera_id -> camera intrinsics, distortion, image size and pose (extrinsics);
   - scene_id  -> scene mesh and mesh pose (mesh_translation / mesh_rotation / mesh_scale);
-  - category  -> object-library asset: size prior, axis_aware_sizing, project_to_map.
+  - category  -> object-library asset: size prior and project_to_map default.
 
   Errors are reported with gRPC status codes and apply to the whole frame:
   INVALID_ARGUMENT     missing scene_id, camera_id or timestamp; a detection without category
   or bounding_box_px; non-finite box values or a negative box size.
   NOT_FOUND            unknown scene_id or camera_id, or the camera is not in the scene.
-  FAILED_PRECONDITION  the camera is not calibrated; or the mode is CONDITIONING_MODE_FULL
-  and the scene has no mesh (use CONDITIONING_MODE_AUTO).
+  FAILED_PRECONDITION  the camera is not calibrated; a requested category's asset has
+  non-finite or non-positive dimensions; or the mode is
+  CONDITIONING_MODE_FULL and the scene has no mesh (use CONDITIONING_MODE_AUTO).
   UNAVAILABLE          the static data store is unreachable; retryable.
   INTERNAL             projection or conditioning failed.
   On an error the client keeps its legacy projection for the frame, as the in-process
@@ -119,14 +121,15 @@ class ObservationProcessorService(object):
   contract:
   - camera_id -> camera intrinsics, distortion, image size and pose (extrinsics);
   - scene_id  -> scene mesh and mesh pose (mesh_translation / mesh_rotation / mesh_scale);
-  - category  -> object-library asset: size prior, axis_aware_sizing, project_to_map.
+  - category  -> object-library asset: size prior and project_to_map default.
 
   Errors are reported with gRPC status codes and apply to the whole frame:
   INVALID_ARGUMENT     missing scene_id, camera_id or timestamp; a detection without category
   or bounding_box_px; non-finite box values or a negative box size.
   NOT_FOUND            unknown scene_id or camera_id, or the camera is not in the scene.
-  FAILED_PRECONDITION  the camera is not calibrated; or the mode is CONDITIONING_MODE_FULL
-  and the scene has no mesh (use CONDITIONING_MODE_AUTO).
+  FAILED_PRECONDITION  the camera is not calibrated; a requested category's asset has
+  non-finite or non-positive dimensions; or the mode is
+  CONDITIONING_MODE_FULL and the scene has no mesh (use CONDITIONING_MODE_AUTO).
   UNAVAILABLE          the static data store is unreachable; retryable.
   INTERNAL             projection or conditioning failed.
   On an error the client keeps its legacy projection for the frame, as the in-process
