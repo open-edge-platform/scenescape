@@ -343,6 +343,16 @@
             },
             {
               "uid": "4",
+              "username": "positioning",
+              "is_active": true,
+              "is_staff": false,
+              "is_superuser": false,
+              "first_name": "",
+              "last_name": "",
+              "email": ""
+            },
+            {
+              "uid": "5",
               "username": "admin",
               "is_active": true,
               "is_staff": true,
