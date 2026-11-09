@@ -154,19 +154,26 @@ class TestGeospatialGlbPreview(TestCase):
     response = self._upload_glb(self.scene.id, filename="test.obj")
     self.assertEqual(response.status_code, 400)
 
-  def test_garbage_bytes_returns_400_and_no_staged_files(self):
-    """Invalid GLB data returns 400 and leaves no staged files."""
-    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
-    response = self._upload_glb(self.scene.id, file_data=b"garbage")
-    self.assertEqual(response.status_code, 400)
-    self.assertEqual(len(os.listdir(self.staging_dir)), 0)
-
-  def test_invalid_glb_returns_validation_message(self):
-    """Invalid GLB returns the same validation message the scene upload form shows."""
+  def test_garbage_bytes_returns_400_with_validation_message_and_no_staged_files(self):
+    """Invalid GLB data returns 400 with the scene upload form's message and leaves no staged files."""
     self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
     response = self._upload_glb(self.scene.id, file_data=b"garbage")
     self.assertEqual(response.status_code, 400)
     self.assertIn("(.glb)", json.loads(response.content)["error"])
+    self.assertEqual(len(os.listdir(self.staging_dir)), 0)
+
+  def test_existing_content_counts_regions_and_sensors(self):
+    """existing_content reflects the scene's regions and sensors."""
+    region = Region.objects.create(scene=self.scene, name="test", roi_type="test")
+    for seq, (x, y) in enumerate([(0, 0), (1, 0), (1, 1)]):
+      RegionPoint.objects.create(region=region, x=x, y=y, sequence=seq)
+    SingletonSensor.objects.create(scene=self.scene, name="sensor", sensor_id="s1")
+    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
+    response = self._upload_glb(self.scene.id)
+    self.assertEqual(response.status_code, 200)
+    self.assertEqual(
+      json.loads(response.content)["existing_content"], {"cameras": 0, "regions": 1, "sensors": 1}
+    )
 
   def test_oversized_file_returns_413(self):
     """GLB exceeding MAX_GLB_BYTES returns 413 Payload Too Large."""
@@ -174,27 +181,6 @@ class TestGeospatialGlbPreview(TestCase):
     with patch.object(glb_alignment, "MAX_GLB_BYTES", 10):
       response = self._upload_glb(self.scene.id)
     self.assertEqual(response.status_code, 413)
-
-  def test_existing_content_counts_with_region(self):
-    """existing_content reflects scene Regions."""
-    region = Region.objects.create(scene=self.scene, name="test", roi_type="test")
-    RegionPoint.objects.create(region=region, x=0, y=0, sequence=0)
-    RegionPoint.objects.create(region=region, x=1, y=0, sequence=1)
-    RegionPoint.objects.create(region=region, x=1, y=1, sequence=2)
-    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
-    response = self._upload_glb(self.scene.id)
-    self.assertEqual(response.status_code, 200)
-    self.assertEqual(json.loads(response.content)["existing_content"]["regions"], 1)
-
-  def test_existing_content_counts_sensors(self):
-    """existing_content includes count of Sensors."""
-    SingletonSensor.objects.create(scene=self.scene, name="sensor", sensor_id="s1")
-    self.client.post(reverse("sign_in"), data={"username": "test_user", "password": "pass"})
-    response = self._upload_glb(self.scene.id)
-    self.assertEqual(response.status_code, 200)
-    result = json.loads(response.content)
-    self.assertEqual(result["existing_content"]["sensors"], 1)
-    self.assertEqual(result["existing_content"]["cameras"], 0)
 
   def test_stale_files_are_purged_before_new_upload(self):
     """Stale files (>24h old) are removed; fresh files kept."""
@@ -433,77 +419,6 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     self.assertEqual(resp.status_code, 200)
     self.assertFalse(json.loads(resp.content)['exists'])
 
-  def test_get_unknown_uuid_returns_404(self):
-    """GET for non-existent scene returns 404."""
-    resp = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': '00000000-0000-0000-0000-000000000000'})
-    )
-    self.assertEqual(resp.status_code, 404)
-
-  def test_get_non_geospatial_scene_returns_400(self):
-    """GET on non-geospatial scene returns 400."""
-    non_geo = Scene.objects.create(name='non_geo', map_type='other')
-    resp = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': non_geo.id})
-    )
-    self.assertEqual(resp.status_code, 400)
-
-  def test_get_anonymous_returns_403(self):
-    """GET by anonymous user returns 403."""
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}, 'acknowledge_frame_change': False}
-    with self.captureOnCommitCallbacks(execute=True):
-      self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-        data=json.dumps(body), content_type='application/json'
-      )
-
-    self.client.logout()
-    resp = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
-    )
-    self.assertEqual(resp.status_code, 403)
-
-  def test_get_non_superuser_allowed_read_only(self):
-    """GET by logged-in non-superuser returns 200 (IsAdminOrReadOnly permits read)."""
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}, 'acknowledge_frame_change': False}
-    with self.captureOnCommitCallbacks(execute=True):
-      self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-        data=json.dumps(body), content_type='application/json'
-      )
-
-    regular_user = User.objects.create_user('regular', 'reg@intel.com', 'pass')
-    self.client.force_login(regular_user)
-    resp = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
-    )
-    self.assertEqual(resp.status_code, 200)
-
-  def test_post_anonymous_returns_403(self):
-    """POST by anonymous user returns 403."""
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
-    self.client.logout()
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 403)
-
-  def test_post_non_superuser_returns_403(self):
-    """POST by non-superuser returns 403."""
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
-    regular_user = User.objects.create_user('regular', 'reg@intel.com', 'pass')
-    self.client.force_login(regular_user)
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 403)
-
   def test_commit_with_sensor_and_region_stores_without_map_change(self):
     """POST succeeds with existing sensors/regions and does not change the applied map."""
     old_map_fn = self._create_old_map()
@@ -526,148 +441,76 @@ class TestGeospatialGlbCommit(CommitBaseSetup):
     self.assertEqual(self.scene.map.name, old_map_fn)
     self.assertTrue(self.scene.glb_map.name.endswith('.glb'))
 
-  def test_token_path_traversal_returns_400(self):
-    """POST with token='../../etc/passwd' returns 400."""
-    body = {'token': '../../etc/passwd', 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
+  def _post_commit(self, scene_uid=None, **body):
+    return self.client.post(
+      reverse('geospatial_glb', kwargs={'scene_uid': scene_uid or self.scene.id}),
       data=json.dumps(body), content_type='application/json'
     )
-    self.assertEqual(resp.status_code, 400)
 
-  def test_token_absolute_path_returns_400(self):
-    """POST with token='/etc/passwd' returns 400."""
-    body = {'token': '/etc/passwd', 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 400)
-
-  def test_token_not_uuid_returns_400(self):
-    """POST with token='not-a-uuid' returns 400."""
-    body = {'token': 'not-a-uuid', 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 400)
-
-  def test_token_non_string_returns_400(self):
-    """POST with token=123/null/[]/dict returns 400."""
+  def test_unknown_or_non_geospatial_scene_is_rejected(self):
+    """GET and POST return 404 for an unknown scene and 400 for a non-geospatial one."""
+    non_geo = Scene.objects.create(name='non_geo', map_type='other')
+    unknown = '00000000-0000-0000-0000-000000000000'
     anchor = {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}
-    for bad_token in [123, None, [], {}]:
-      body = {'token': bad_token, 'anchor': anchor}
-      resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-        data=json.dumps(body), content_type='application/json'
-      )
-      self.assertEqual(resp.status_code, 400, f"Expected 400 for token={bad_token}")
+    for scene_uid, status in ((unknown, 404), (non_geo.id, 400)):
+      with self.subTest(scene_uid=scene_uid, method='GET'):
+        resp = self.client.get(reverse('geospatial_glb', kwargs={'scene_uid': scene_uid}))
+        self.assertEqual(resp.status_code, status)
+      with self.subTest(scene_uid=scene_uid, method='POST'):
+        resp = self._post_commit(scene_uid, token=self._stage_glb(), anchor=anchor)
+        self.assertEqual(resp.status_code, status)
 
-  def test_token_valid_uuid_no_file_returns_404(self):
-    """POST with valid UUID but no staged file returns 404."""
-    body = {
-      'token': str(uuid.uuid4()),
-      'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}
-    }
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
+  def test_get_is_read_only_for_regular_users_and_closed_to_anonymous(self):
+    """GET is allowed for a logged-in non-superuser (IsAdminOrReadOnly) and refused when anonymous."""
+    self.client.force_login(User.objects.create_user('regular', 'reg@intel.com', 'pass'))
+    url = reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
+    self.assertEqual(self.client.get(url).status_code, 200)
+    self.client.logout()
+    self.assertEqual(self.client.get(url).status_code, 403)
+
+  def test_post_requires_superuser(self):
+    """POST is refused for anonymous and non-superuser users and stores nothing."""
+    anchor = {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}
+    token = self._stage_glb()
+    self.client.logout()
+    resp = self._post_commit(token=token, anchor=anchor)
+    self.assertEqual(resp.status_code, 403)
+    self.client.force_login(User.objects.create_user('regular', 'reg@intel.com', 'pass'))
+    resp = self._post_commit(token=token, anchor=anchor)
+    self.assertEqual(resp.status_code, 403)
+    self.scene.refresh_from_db()
+    self.assertFalse(self.scene.glb_map)
+
+  def test_malformed_token_is_rejected(self):
+    """Path-like, non-UUID and non-string tokens return 400; an unknown UUID returns 404."""
+    anchor = {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}
+    for bad_token in ['../../etc/passwd', '/etc/passwd', 'not-a-uuid', 123, None, [], {}]:
+      with self.subTest(token=bad_token):
+        self.assertEqual(self._post_commit(token=bad_token, anchor=anchor).status_code, 400)
+    resp = self._post_commit(token=str(uuid.uuid4()), anchor=anchor)
     self.assertEqual(resp.status_code, 404)
 
-  def test_anchor_missing_returns_400(self):
-    """POST without anchor key returns 400."""
+  def test_invalid_anchor_is_rejected(self):
+    """Missing, mistyped, out-of-range and NaN anchors return 400."""
     token = self._stage_glb()
-    body = {'token': token}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 400)
-
-  def test_anchor_not_dict_returns_400(self):
-    """POST with anchor=[] / string / null returns 400."""
-    token = self._stage_glb()
-    for bad_anchor in [[], 'point', None, 123]:
-      body = {'token': token, 'anchor': bad_anchor}
-      resp = self.client.post(
-        reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-        data=json.dumps(body), content_type='application/json'
-      )
-      self.assertEqual(resp.status_code, 400, f"Expected 400 for anchor={bad_anchor}")
-
-  def test_anchor_lat_91_returns_400(self):
-    """POST with anchor.lat=91 returns 400."""
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 91, 'lng': 0, 'heading_deg': 0}}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 400)
-
-  def test_anchor_lat_minus_91_returns_400(self):
-    """POST with anchor.lat=-91 returns 400."""
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': -91, 'lng': 0, 'heading_deg': 0}}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 400)
-
-  def test_anchor_lng_181_returns_400(self):
-    """POST with anchor.lng=181 returns 400."""
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37, 'lng': 181, 'heading_deg': 0}}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 400)
-
-  def test_anchor_values_as_strings_returns_400(self):
-    """POST with anchor.lat/lng/heading_deg as strings returns 400."""
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': '37', 'lng': '-121', 'heading_deg': '0'}}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 400)
-
-  def test_anchor_with_nan_returns_400(self):
-    """POST with anchor containing NaN returns 400 (DRF JSON parser rejects it)."""
-    token = self._stage_glb()
-    # Python's json.dumps(float('nan')) emits NaN; DRF may reject it
+    good = {'lat': 37, 'lng': -121, 'heading_deg': 0}
+    bad_anchors = [
+      [], 'point', None, 123,
+      {**good, 'lat': 91}, {**good, 'lat': -91}, {**good, 'lng': 181},
+      {'lat': '37', 'lng': '-121', 'heading_deg': '0'},
+    ]
+    resp = self._post_commit(token=token)
+    self.assertEqual(resp.status_code, 400, 'missing anchor')
+    for bad_anchor in bad_anchors:
+      with self.subTest(anchor=bad_anchor):
+        self.assertEqual(self._post_commit(token=token, anchor=bad_anchor).status_code, 400)
+    # NaN is not valid JSON; the DRF parser rejects it
     resp = self.client.post(
       reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
       data=f'{{"token": "{token}", "anchor": {{"lat": NaN, "lng": -121, "heading_deg": 0}}}}',
       content_type='application/json'
     )
     self.assertEqual(resp.status_code, 400)
-
-  def test_post_non_geospatial_scene_returns_400(self):
-    """POST to non-geospatial scene returns 400."""
-    non_geo = Scene.objects.create(name='non_geo', map_type='other')
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': non_geo.id}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 400)
-
-  def test_post_unknown_scene_returns_404(self):
-    """POST to non-existent scene returns 404."""
-    token = self._stage_glb()
-    body = {'token': token, 'anchor': {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0}}
-    resp = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': '00000000-0000-0000-0000-000000000000'}),
-      data=json.dumps(body), content_type='application/json'
-    )
-    self.assertEqual(resp.status_code, 404)
 
   def test_post_body_not_json_object_returns_400(self):
     """POST with body as JSON list returns 400."""

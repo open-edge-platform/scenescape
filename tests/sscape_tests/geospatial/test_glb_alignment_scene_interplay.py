@@ -129,80 +129,25 @@ class TestSceneSaveGlbInterplay(TransactionTestCase):
 
 
 class TestSerializerRotationTranslation(TestCase):
-  """Tests SceneSerializer get_rotation/get_translation methods."""
+  """SceneSerializer exposes mesh_rotation / mesh_translation as [x, y, z], zero components included."""
 
-  def setUp(self):
-    """Create a scene with various rotation/translation values."""
-    self.scene = Scene.objects.create(
-      name="test_scene",
-      map_type="geospatial_map"
-    )
-
-  def test_get_rotation_returns_zero_vector_when_all_components_zero(self):
-    """Test: get_rotation returns [0,0,0] when all rotation components are 0."""
-    self.scene.rotation_x = 0.0
-    self.scene.rotation_y = 0.0
-    self.scene.rotation_z = 0.0
-    self.scene.save()
-
-    serializer = SceneSerializer(self.scene)
-    rotation = serializer.data.get('mesh_rotation')
-    assert rotation == [0, 0, 0], f"Expected [0,0,0], got {rotation}"
-
-  def test_get_rotation_preserves_nonzero_when_only_one_component(self):
-    """Test: get_rotation returns vector even if only rotation_z != 0."""
-    self.scene.rotation_x = 0.0
-    self.scene.rotation_y = 0.0
-    self.scene.rotation_z = 45.0
-    self.scene.save()
-
-    serializer = SceneSerializer(self.scene)
-    rotation = serializer.data.get('mesh_rotation')
-    assert rotation == [0.0, 0.0, 45.0], f"Expected [0,0,45], got {rotation}"
-
-  def test_get_rotation_preserves_mixed_zero_nonzero(self):
-    """Test: get_rotation returns vector with mixed zero/nonzero components."""
-    self.scene.rotation_x = 0.0
-    self.scene.rotation_y = 30.0
-    self.scene.rotation_z = 0.0
-    self.scene.save()
-
-    serializer = SceneSerializer(self.scene)
-    rotation = serializer.data.get('mesh_rotation')
-    assert rotation == [0.0, 30.0, 0.0], f"Expected [0,30,0], got {rotation}"
-
-  def test_get_translation_returns_zero_vector_when_all_components_zero(self):
-    """Test: get_translation returns [0,0,0] when all components are 0."""
-    self.scene.translation_x = 0.0
-    self.scene.translation_y = 0.0
-    self.scene.translation_z = 0.0
-    self.scene.save()
-
-    serializer = SceneSerializer(self.scene)
-    translation = serializer.data.get('mesh_translation')
-    assert translation == [0, 0, 0], f"Expected [0,0,0], got {translation}"
-
-  def test_get_translation_preserves_nonzero_when_only_one_component(self):
-    """Test: get_translation returns vector even if only translation_x != 0."""
-    self.scene.translation_x = 5.5
-    self.scene.translation_y = 0.0
-    self.scene.translation_z = 0.0
-    self.scene.save()
-
-    serializer = SceneSerializer(self.scene)
-    translation = serializer.data.get('mesh_translation')
-    assert translation == [5.5, 0.0, 0.0], f"Expected [5.5,0,0], got {translation}"
-
-  def test_get_translation_preserves_mixed_zero_nonzero(self):
-    """Test: get_translation returns vector with mixed zero/nonzero components."""
-    self.scene.translation_x = 0.0
-    self.scene.translation_y = 10.25
-    self.scene.translation_z = 0.0
-    self.scene.save()
-
-    serializer = SceneSerializer(self.scene)
-    translation = serializer.data.get('mesh_translation')
-    assert translation == [0.0, 10.25, 0.0], f"Expected [0,10.25,0], got {translation}"
+  def test_mesh_rotation_and_translation_are_vectors(self):
+    """All-zero, single-component and mixed values round-trip as full three-element vectors."""
+    scene = Scene.objects.create(name="test_scene", map_type="geospatial_map")
+    cases = [
+      ("rotation", "mesh_rotation", [0.0, 0.0, 0.0]),
+      ("rotation", "mesh_rotation", [0.0, 0.0, 45.0]),
+      ("rotation", "mesh_rotation", [0.0, 30.0, 0.0]),
+      ("translation", "mesh_translation", [0.0, 0.0, 0.0]),
+      ("translation", "mesh_translation", [5.5, 0.0, 0.0]),
+      ("translation", "mesh_translation", [0.0, 10.25, 0.0]),
+    ]
+    for prefix, key, values in cases:
+      with self.subTest(key=key, values=values):
+        for axis, value in zip("xyz", values):
+          setattr(scene, f"{prefix}_{axis}", value)
+        scene.save()
+        assert SceneSerializer(scene).data.get(key) == values
 
 
 class TestFrameCornersLlaFallback(TestCase):

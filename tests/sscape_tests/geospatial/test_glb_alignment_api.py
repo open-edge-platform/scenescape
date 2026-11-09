@@ -92,38 +92,6 @@ class TestGeospatialGlbApiGetEndpoint(TestCase):
       self.assertIn('footprint_m', data)
       self.assertIn('use_glb_map', data)
 
-  def test_get_glb_unknown_scene_returns_404(self):
-    """D6: GET with unknown scene returns 404."""
-    response = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': '00000000-0000-0000-0000-000000000000'})
-    )
-    self.assertEqual(response.status_code, 404)
-
-  def test_get_glb_non_geospatial_scene_returns_400(self):
-    """D6: GET on non-geospatial scene returns 400."""
-    non_geo = Scene.objects.create(name="non_geo", map_type="other")
-    response = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': non_geo.id})
-    )
-    self.assertEqual(response.status_code, 400)
-
-  def test_get_glb_unauthenticated_returns_403(self):
-    """D7: GET without authentication returns 403."""
-    self.client.logout()
-    response = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
-    )
-    self.assertEqual(response.status_code, 403)
-
-  def test_get_glb_non_admin_is_allowed_read_only(self):
-    """D7: GET as non-admin user is allowed (read-only); writes stay admin-only."""
-    User.objects.create_user("user", "user@intel.com", "pass")
-    self.client.force_login(User.objects.get(username="user"))
-    response = self.client.get(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id})
-    )
-    self.assertEqual(response.status_code, 200)
-
 
 class TestGeospatialGlbApiPostEndpoint(TransactionTestCase):
   """Tests for POST /scene/{id}/geospatial-glb endpoint."""
@@ -180,46 +148,6 @@ class TestGeospatialGlbApiPostEndpoint(TransactionTestCase):
     self.assertEqual(response.status_code, 200)
     data = json.loads(response.content)
     self.assertTrue(data['exists'])
-
-  def test_post_glb_invalid_anchor_returns_400(self):
-    """D6: POST with invalid anchor returns 400."""
-    token = self._stage_glb()
-    anchor = {'lat': float('nan'), 'lng': -121.97, 'heading_deg': 0.0}
-
-    response = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps({'token': token, 'anchor': anchor}),
-      content_type='application/json'
-    )
-
-    self.assertEqual(response.status_code, 400)
-    self.assertIn('error', json.loads(response.content))
-
-  def test_post_glb_missing_anchor_returns_400(self):
-    """D6: POST without anchor returns 400."""
-    token = self._stage_glb()
-
-    response = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps({'token': token}),
-      content_type='application/json'
-    )
-
-    self.assertEqual(response.status_code, 400)
-
-  def test_post_glb_unauthenticated_returns_403(self):
-    """D7: POST without authentication returns 403."""
-    self.client.logout()
-    token = self._stage_glb()
-    anchor = {'lat': 37.39, 'lng': -121.97, 'heading_deg': 0.0}
-
-    response = self.client.post(
-      reverse('geospatial_glb', kwargs={'scene_uid': self.scene.id}),
-      data=json.dumps({'token': token, 'anchor': anchor}),
-      content_type='application/json'
-    )
-
-    self.assertEqual(response.status_code, 403)
 
 
 class TestGeospatialGlbApiPutEndpoint(TransactionTestCase):
