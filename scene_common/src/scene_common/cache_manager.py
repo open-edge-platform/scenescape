@@ -19,6 +19,7 @@ from scene_common.camera_registry import CameraRegistry
 from scene_common.tracking_object_registry import TrackedObjectRegistry
 
 from scene_common import log
+from scene_common.association import DEFAULT_ASSOCIATION_CONFIG
 from scene_common.timestamp import get_epoch_time
 
 REFRESH_TIME = 60
@@ -179,6 +180,7 @@ class CacheManager:
                                       tracker["time_chunking_rate_fps"],
                                       tracker["suspended_track_timeout_secs"]]
       scene_data["persist_attributes"] = tracker.get("persist_attributes", {})
+      scene_data["association_config"] = tracker.get("association", DEFAULT_ASSOCIATION_CONFIG.copy())
     if self.reid_config_data:
       scene_data["reid_config_data"] = self.reid_config_data
     if getattr(self, 'pose_adjustment_config_data', {}):

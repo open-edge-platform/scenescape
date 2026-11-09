@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 #include <chrono>
 #include <iostream>
+#include <limits>
 #include <optional>
 #include <set>
 #include <string>
@@ -263,6 +264,7 @@ TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingEuclideanDistance)
   }
 }
 
+// Legacy DistanceType::MultiClassEuclidean, not used by the services.
 TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMultiClassEuclideanDistance)
 {
   auto classificationData = rv::tracking::ClassificationData({"Car", "Bike", "Pedestrian"});
@@ -363,6 +365,7 @@ TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMultiClassEuclideanDist
   }
 }
 
+// Legacy DistanceType::Mahalanobis, not used by the services.
 TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMahalanobisDistance)
 {
   auto classificationData = rv::tracking::ClassificationData({"Car", "Bike", "Pedestrian"});
@@ -464,6 +467,7 @@ TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMahalanobisDistance)
 }
 
 
+// Legacy DistanceType::MCEMahalanobis, not used by the services.
 TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingMCEMahalanobisDistance)
 {
   auto classificationData = rv::tracking::ClassificationData({"Car", "Bike", "Pedestrian"});
@@ -578,6 +582,7 @@ rv::tracking::TrackedObject createObjectAtLocation(double x, double y, const rv:
   return object;
 }
 
+// Legacy DistanceType::MCEMahalanobis, not used by the services.
 TEST(MultipleObjectTrackerTest, MultipleDetectionTrackingStressTest)
 {
   auto classificationData = rv::tracking::ClassificationData({"1","2","3","4","5","6","7","8","9","10","11"});
@@ -752,4 +757,37 @@ TEST(MultipleObjectTrackerTest, CarEnteringAtSpeedGetsOneReliableTrack)
 
   EXPECT_EQ(trackIds.size(), 1U);
   EXPECT_GE(reliableFrames, observations.size() - 11) << "reliable from the 11th frame on";
+}
+
+TEST(MultipleObjectTrackerTest, ConvenienceTrackUsesTheConstructorMaxRadius)
+{
+  // A detection 1.5 m from the track, inside the wide gate: the track takes it without a ceiling; with a 1 m ceiling
+  // from the constructor it starts a second track. Both convenience overloads (one list, objects per camera).
+  using namespace rv::tracking::test;
+  const auto first = makeDetection(0.0, 0.0, 0.0, 0.5, 0.5, 1.7);
+  const auto second = makeDetection(1.5, 0.0, 0.0, 0.5, 0.5, 1.7);
+  struct Case
+  {
+    rv::tracking::DistanceType distanceType;
+    double threshold;
+  };
+  for (const auto &[distanceType, threshold] :
+       {Case{rv::tracking::DistanceType::Euclidean, 5.0}, Case{rv::tracking::DistanceType::PositionMahalanobis, 500.0}})
+  {
+    for (const auto &[maxRadiusM, expectedTracks] :
+         {std::pair{std::numeric_limits<double>::infinity(), size_t{1}}, std::pair{1.0, size_t{2}}})
+    {
+      SCOPED_TRACE(::testing::Message() << "distance type " << static_cast<int>(distanceType) << ", max radius "
+                                        << maxRadiusM);
+      rv::tracking::MultipleObjectTracker single(productionConfig(), distanceType, threshold, maxRadiusM);
+      single.track({first}, atMs(0));
+      single.track({second}, atMs(100));
+      EXPECT_EQ(single.getTracks().size(), expectedTracks);
+
+      rv::tracking::MultipleObjectTracker perCamera(productionConfig(), distanceType, threshold, maxRadiusM);
+      perCamera.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{first}}, atMs(0));
+      perCamera.track(std::vector<std::vector<rv::tracking::TrackedObject>>{{second}}, atMs(100));
+      EXPECT_EQ(perCamera.getTracks().size(), expectedTracks);
+    }
+  }
 }
