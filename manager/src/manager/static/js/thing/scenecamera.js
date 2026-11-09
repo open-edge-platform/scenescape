@@ -1273,10 +1273,7 @@ export default class SceneCamera extends THREE.Object3D {
       const timer = setTimeout(() => finish(null), CALIB_FRAME_TIMEOUT);
       client.on("message", onMessage);
       client.subscribe(topic, () =>
-        client.publish(
-          this.appName + CMD_CAMERA + id,
-          "getcalibrationimage",
-        ),
+        client.publish(this.appName + CMD_CAMERA + id, "getcalibrationimage"),
       );
     });
   }
