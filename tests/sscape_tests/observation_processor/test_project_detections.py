@@ -276,11 +276,13 @@ def test_full_requires_mesh(process_frame, frame, projection_configuration):
     process_frame(frame)
 
 
-def test_pending_refresh_rejects_requests_without_cold_loading(process_frame, frame,
-                                                              projection_configuration):
+def test_pending_refresh_serves_requests_without_cold_loading(process_frame, frame,
+                                                            projection_configuration):
   projection_configuration.provider.invalidate()
-  with pytest.raises(StoreUnavailableError):
-    process_frame(frame)
+  frame.mode = pb.CONDITIONING_MODE_FULL
+  with patch.object(SceneProvider, "_load_world_mesh", side_effect=AssertionError("cold load")), \
+       patch("observation_conditioning.AmodalReasoner", side_effect=AssertionError("cold bake")):
+    assert len(process_frame(frame).measurements) == 1
 
 
 def test_store_unavailable_mapping(process_frame, frame, projection_configuration):

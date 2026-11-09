@@ -6,7 +6,7 @@
 Exposes scenescape.observation_processor.v1.ObservationProcessorService and the standard
 grpc.health.v1.Health service. The server liveness status ("") is SERVING once
 the process is up; the ObservationProcessorService readiness status follows the
-reachability of the static data store (Manager REST API).
+availability of a successfully warmed configuration snapshot.
 """
 
 import os
@@ -77,26 +77,26 @@ def create_server(servicer=None, max_workers=4):
 
 
 def _probe_readiness(provider, was_ready, health_servicer=None):
-  """Keep readiness false until the latest configuration and geometry are loaded."""
+  """Refresh configuration without withdrawing an already usable snapshot."""
   current = provider.is_ready()
-  if current and (not was_ready or provider.needs_refresh):
-    if health_servicer is not None:
+  if current and provider.needs_refresh:
+    if health_servicer is not None and not provider.has_snapshot:
       health_servicer.set(SERVICE_NAME, health_pb2.HealthCheckResponse.NOT_SERVING)
     try:
       provider.warm()
     except (StoreUnavailableError, SceneMeshMissingError, OSError, ValueError,
             RuntimeError) as exc:
       log.warning(f"observation-processor-service: cache warm failed: {exc}")
-      return False
-  return current and not provider.needs_refresh
+  return provider.has_snapshot
 
 
 def start_readiness_monitor(provider, health_servicer,
                             interval=DEFAULT_READY_INTERVAL_SECONDS, stop_event=None):
   """Poll the static data store and keep the readiness status in sync.
 
-  Startup, recovery and database events load configuration, meshes and reasoners
-  before reporting readiness. Expensive loading runs here, not on the MQTT loop.
+  Startup loads configuration, meshes and reasoners before reporting readiness.
+  Database events wake this worker; refreshes retain the last usable snapshot.
+  Expensive loading runs here, not on the MQTT loop.
 
   @param   provider         SceneProvider probed with is_ready()
   @param   health_servicer  health.HealthServicer owning the per-service status
@@ -116,7 +116,8 @@ def start_readiness_monitor(provider, health_servicer,
       if current != ready:
         ready = current
         log.info(f"observation-processor-service readiness: {'SERVING' if ready else 'NOT_SERVING'}")
-      stop_event.wait(interval)
+      if not stop_event.is_set():
+        provider.wait_for_refresh(interval)
 
   thread = threading.Thread(target=monitor, name="readiness-monitor", daemon=True)
   thread.stop_event = stop_event

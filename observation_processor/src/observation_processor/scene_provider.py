@@ -14,11 +14,14 @@ Builds and caches one observation_conditioning.AmodalReasoner per
 camera calibration changes. Caches are loaded eagerly with warm() and have no
 expiry: configuration changes always go through the Manager, which publishes
 "update" on scenescape/cmd/database — the server subscribes to that topic and
-calls invalidate(), scheduling a complete refresh by the readiness worker.
+calls invalidate(), waking the readiness worker for a configuration refresh.
 Meshes and calibrated-camera reasoners are loaded before publishing the new
-snapshot, including when a mesh is overwritten at the same URL.
+snapshot. Unchanged meshes and reasoners are reused after checking mesh content,
+mesh pose and calibration; same-URL mesh replacements are detected. Requests
+retain the last successfully warmed snapshot throughout refreshes and failures.
 """
 
+import hashlib
 import os
 import tempfile
 import threading
@@ -203,12 +206,15 @@ class SceneProvider:
     self.num_layers = int(num_layers)
     self._rest = None
     self._lock = threading.Lock()
+    self._refresh_event = threading.Event()
     self._generation = 0
     self._loaded_generation = -1
     self._pinned = False
     self._cache = {}        # (kind, key) -> value
     self._world_meshes = {} # scene_id -> (mesh_key, tensor_mesh)
     self._reasoners = {}    # (scene_id, camera_name) -> (key, reasoner)
+    self._previous_world_meshes = {}
+    self._previous_reasoners = {}
 
   @classmethod
   def from_env(cls):
@@ -224,8 +230,8 @@ class SceneProvider:
   def snapshot(self):
     """Pin one fully warmed configuration for the duration of a request."""
     with self._lock:
-      if self._loaded_generation != self._generation:
-        raise StoreUnavailableError("configuration refresh is pending")
+      if self._loaded_generation < 0:
+        raise StoreUnavailableError("configuration is not initialized")
       snapshot = SceneProvider(self.rest_url, self.auth, self.rootcert,
                                self.media_root, self.num_layers)
       snapshot._cache = self._cache
@@ -233,9 +239,15 @@ class SceneProvider:
       snapshot._reasoners = self._reasoners
       snapshot._rest = self._rest
       snapshot._loaded_generation = self._loaded_generation
-      snapshot._generation = self._generation
+      snapshot._generation = self._loaded_generation
       snapshot._pinned = True
     return snapshot
+
+  @property
+  def has_snapshot(self) -> bool:
+    """Whether a fully warmed configuration is available for requests."""
+    with self._lock:
+      return self._loaded_generation >= 0
 
   @property
   def needs_refresh(self) -> bool:
@@ -250,8 +262,10 @@ class SceneProvider:
     """
     with self._lock:
       generation = self._generation
-    snapshot = SceneProvider(self.rest_url, self.auth, self.rootcert,
-                             self.media_root, self.num_layers)
+      snapshot = SceneProvider(self.rest_url, self.auth, self.rootcert,
+                               self.media_root, self.num_layers)
+      snapshot._previous_world_meshes = self._world_meshes.copy()
+      snapshot._previous_reasoners = self._reasoners.copy()
     snapshot._load_configuration()
     with self._lock:
       if generation != self._generation:
@@ -294,6 +308,12 @@ class SceneProvider:
     """Schedule a full refresh, retaining the previous snapshot until it succeeds."""
     with self._lock:
       self._generation += 1
+      self._refresh_event.set()
+
+  def wait_for_refresh(self, timeout: float) -> None:
+    """Wait for a database event or the next periodic readiness probe."""
+    self._refresh_event.wait(timeout)
+    self._refresh_event.clear()
 
   # ---- REST plumbing -----------------------------------------------------
 
@@ -414,15 +434,22 @@ class SceneProvider:
       scene_mesh_pose_mat(scene).reshape(-1), 6).tolist()))
     with self._lock:
       entry = meshes.get(scene_id)
-      if entry is not None and entry[0] == mesh_key:
+      if entry is not None and entry[0][:2] == mesh_key:
         return entry[1]
-    mesh = self._load_world_mesh(scene)
+    data = self._mesh_bytes(scene["map"])
+    mesh_key += (hashlib.sha256(data).digest(),)
+    previous = self._previous_world_meshes.get(scene_id)
+    if previous is not None and previous[0] == mesh_key:
+      mesh = previous[1]
+    else:
+      mesh = self._load_world_mesh(scene, data)
     with self._lock:
       meshes[scene_id] = (mesh_key, mesh)
     return mesh
 
-  def _load_world_mesh(self, scene):
-    data = self._mesh_bytes(scene["map"])
+  def _load_world_mesh(self, scene, data=None):
+    if data is None:
+      data = self._mesh_bytes(scene["map"])
     mesh = self._glb_to_tensor_mesh(data)
     mesh.transform(scene_mesh_pose_mat(scene))
     log.info("SceneProvider: loaded scene mesh", scene.get("name"),
@@ -491,23 +518,27 @@ class SceneProvider:
       reasoners = self._reasoners
     camera = self.get_camera(scene_id, camera_id)
     mesh = self.get_world_mesh(scene_id)
-    key = (camera.cache_key(), id(mesh))
+    key = (camera.cache_key(), id(mesh), self.num_layers)
     cache_id = (scene_id, camera_id)
     with self._lock:
       entry = reasoners.get(cache_id)
       if entry is not None and entry[0] == key:
         return entry[1]
-    reasoner = AmodalReasoner(
-      mesh=mesh,
-      rwc_z_up=np.asarray(DEFAULT_WORLD_UP, dtype=np.float64),
-      camera_intrinsics=camera.k_matrix,
-      camera_extrinsics=camera.pose_mat,
-      width=camera.width,
-      height=camera.height,
-      num_layers=self.num_layers,
-    )
+    previous = self._previous_reasoners.get(cache_id)
+    if previous is not None and previous[0] == key:
+      reasoner = previous[1]
+    else:
+      reasoner = AmodalReasoner(
+        mesh=mesh,
+        rwc_z_up=np.asarray(DEFAULT_WORLD_UP, dtype=np.float64),
+        camera_intrinsics=camera.k_matrix,
+        camera_extrinsics=camera.pose_mat,
+        width=camera.width,
+        height=camera.height,
+        num_layers=self.num_layers,
+      )
+      log.info("SceneProvider: built AmodalReasoner", scene_id, camera_id,
+               f"{camera.width}x{camera.height}")
     with self._lock:
       reasoners[cache_id] = (key, reasoner)
-    log.info("SceneProvider: built AmodalReasoner", scene_id, camera_id,
-             f"{camera.width}x{camera.height}")
     return reasoner

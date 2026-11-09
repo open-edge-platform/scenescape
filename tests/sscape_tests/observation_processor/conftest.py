@@ -75,6 +75,7 @@ def projection_configuration():
                    _fake_frustum_observations(kwargs["boxes"]))
   transformer = Mock(side_effect=lambda observations, pose: observations)
   with patch("observation_processor.scene_provider.RESTClient", return_value=rest), \
+       patch.object(SceneProvider, "_mesh_bytes", return_value=b"floor mesh"), \
        patch.object(SceneProvider, "_load_world_mesh", return_value=tensor_mesh) as load, \
        patch("observation_processor.conditioning.fg.project_frustum_batch", projector), \
        patch("observation_processor.conditioning.fg.transform_to_world_batch", transformer):
