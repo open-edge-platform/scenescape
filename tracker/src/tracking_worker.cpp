@@ -22,18 +22,15 @@
 #include <numeric>
 #include <rapidjson/document.h>
 #include <string_view>
+#include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace tracker {
 
 namespace {
 
-// Maximum Euclidean distance (meters) for matching a detection to an existing
-// track.  Pairs farther apart than this are never associated by the Hungarian
-// matcher.  The controller used a per-category value defaulting to 2.0 m
-// (DEFAULT_TRACKING_RADIUS); we keep the same default here so the tracker
-// service produces identical results.
-constexpr double kTrackingDistanceThreshold = 2.0;
 constexpr size_t kMinDetectionsForMultiThreadedTracking = 32;
 constexpr std::string_view kMetadataPrefix = rv::tracking::metadata_fusion::ValuePrefix;
 
@@ -169,7 +166,8 @@ TrackingWorker::TrackingWorker(TrackingScope scope, std::string scene_name, int 
     : scope_(std::move(scope)), scene_name_(std::move(scene_name)), queue_capacity_(queue_capacity),
       publish_callback_(std::move(publish_callback)),
       rotation_from_velocity_(object_class.rotation_from_velocity),
-      tracker_(build_tracker_config(tracking_config)), clock_fn_(std::move(clock_fn)) {
+      tracker_(build_tracker_config(tracking_config)),
+      association_config_(tracking_config.association), clock_fn_(std::move(clock_fn)) {
     // Adapt frame-rate-dependent timing parameters
     tracker_.updateTrackerParams(tracking_config.time_chunking_rate_fps);
 
@@ -376,6 +374,8 @@ TrackingWorker::convert_tracks(std::vector<rv::tracking::TrackedObject>&& rv_tra
             }
         }
 
+        track.association_window = buildAssociationWindow(association_config_, rv_track);
+
         tracks.push_back(std::move(track));
     }
 
@@ -398,8 +398,9 @@ std::vector<Track> TrackingWorker::match_and_convert(
                                       ? 1
                                       : omp_get_max_threads();
         ScopedOpenMpThreadLimit openmp_thread_limit(thread_limit);
-        tracker_.track(std::move(objects_per_camera), timestamp,
-                       rv::tracking::DistanceType::Euclidean, kTrackingDistanceThreshold);
+        tracker_.track(std::move(objects_per_camera), timestamp, association_config_.distanceType(),
+                       association_config_.costThreshold(), 0.5, association_config_.max_radius_m);
+
         // Get reliable tracks and map RobotVision int IDs to UUID strings
         rv_tracks = tracker_.getReliableTracks();
     }

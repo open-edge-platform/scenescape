@@ -220,10 +220,12 @@ seeding (`SeededRandom(personId)`) ensures reproducible layouts across runs.
 The scene cameras in [config/scenes.json](config/scenes.json) are positioned at
 50 m height with `fx = fy = 905` and resolution 1280×720. At that height each
 pixel maps to ≈ 5.5 cm on the ground plane, giving a visible area of roughly
-70 m × 40 m. With the grid layout the minimum object separation is well above
-the tracker's 2.0 m matching threshold (`kTrackingDistanceThreshold` in
-`tracking_worker.cpp`), so each detection produces exactly one track regardless
-of object count.
+70 m × 40 m. Each object stays inside its own grid cell, whose centres are about
+2 m apart at the default 300 objects, so every detection is far closer to its
+own track's prediction than to a neighbour's. The tracker's association
+(`tracking.association` in the tracker config, by default the
+`euclidean` 2 m gate) therefore matches each detection to its own track,
+and each detection produces exactly one track regardless of object count.
 
 ### Movement
 
