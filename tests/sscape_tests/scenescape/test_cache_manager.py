@@ -1208,6 +1208,7 @@ class TestCacheManagerUnchangedSceneReuse:
       'non_measurement_time_static': 10.0, 'effective_object_update_rate': 30,
       'time_chunking_enabled': False, 'time_chunking_rate_fps': 30,
       'suspended_track_timeout_secs': 60,
+      'association': {'method': 'position_mahalanobis', 'gate_probability': 0.99, 'max_radius_m': 10.0},
     }
     cache_mgr, scene_cls = self._bare_manager(tracker_config)
     cache_mgr.reid_config_data = {'threshold': 0.5}
@@ -1221,8 +1222,9 @@ class TestCacheManagerUnchangedSceneReuse:
       cache_mgr.refreshScenes()
 
     assert scene_cls.deserialize.call_count == 1
+    assert scene_cls.deserialize.call_args.args[0]['association_config'] == tracker_config['association']
     assert cache_mgr.cached_scenes_by_uid['a'] is first
-    injected = {'tracker_config', 'persist_attributes', 'reid_config_data',
+    injected = {'tracker_config', 'persist_attributes', 'association_config', 'reid_config_data',
                 'pose_adjustment_config_data'}
     assert injected.isdisjoint(cache_mgr.data_source.scenes[0])
 
