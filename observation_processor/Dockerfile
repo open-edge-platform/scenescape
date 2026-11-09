@@ -27,19 +27,6 @@ RUN /opt/venv/bin/pip install --no-cache-dir /tmp/frustum_gaussian \
 RUN cp -r /usr/local/lib/python3.11/site-packages/scene_common \
     /opt/venv/lib/python3.11/site-packages/scene_common
 
-# Generate the typed gRPC stubs from the published contract; never committed.
-# grpcio-tools is installed into the system interpreter to keep the venv lean.
-COPY observation_processor/requirements-build.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements-build.txt \
-    && rm -f /tmp/requirements-build.txt
-COPY observation_processor/proto /tmp/proto
-RUN mkdir -p /tmp/grpc_api \
-    && python3 -m grpc_tools.protoc -I/tmp/proto \
-       --python_out=/tmp/grpc_api --grpc_python_out=/tmp/grpc_api \
-         /tmp/proto/observation_processor.proto \
-     && sed -i 's/^import observation_processor_pb2 as/from . import observation_processor_pb2 as/' \
-         /tmp/grpc_api/observation_processor_pb2_grpc.py
-
 FROM ${RUNTIME_OS_IMAGE} AS scenescape-observation-processor-runtime
 
 LABEL org.opencontainers.image.description="Scenescape Observation Processor Service"
@@ -71,8 +58,6 @@ RUN apt-get update \
 COPY --from=scenescape-observation-processor-builder /opt/venv /opt/venv
 COPY --chown=${USER_ID}:${GROUP_ID} observation_processor/src /app
 COPY --chown=${USER_ID}:${GROUP_ID} spatial_performance_primitives/observation_conditioning /app/observation_conditioning
-COPY --from=scenescape-observation-processor-builder --chown=${USER_ID}:${GROUP_ID} \
-    /tmp/grpc_api/ /app/observation_processor/grpc_api/
 
 USER ${USER_ID}:${GROUP_ID}
 WORKDIR /app

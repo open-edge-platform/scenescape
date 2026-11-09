@@ -21,8 +21,8 @@ secret.
 
 ## Layout
 
-- `proto/` — published gRPC contract (`observation_processor.proto`); typed stubs are
-  generated at build time, never committed
+- `proto/` — published gRPC contract (`observation_processor.proto`); generated typed stubs
+  are committed under `src/observation_processor/grpc_api/`
 - `src/observation_processor/` — service sources
 - `../spatial_performance_primitives/frustum_gaussian/` — frustum-gaussian library; the C++/TBB
   kernel is built as a wheel (scikit-build-core) in the image builder stage
@@ -36,6 +36,13 @@ image only copies the finished venv.
 
 ```bash
 make -C observation_processor
+```
+
+To regenerate the committed gRPC stubs after changing the contract, use an
+environment with `grpcio-tools==1.71.2` (pinned in `tests/requirements.txt`) and run:
+
+```bash
+make -C observation_processor proto
 ```
 
 The root build also exposes the optional `observation_processor` image target.

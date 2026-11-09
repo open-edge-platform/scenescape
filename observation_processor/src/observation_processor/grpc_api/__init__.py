@@ -1,10 +1,8 @@
 # SPDX-FileCopyrightText: (C) 2026 Intel Corporation
 # SPDX-License-Identifier: Apache-2.0
 
-"""Typed gRPC stubs for scenescape.observation_processor.v1.
+"""Committed typed gRPC stubs for scenescape.observation_processor.v1.
 
-``observation_processor_pb2`` and ``observation_processor_pb2_grpc`` are generated
-from ``proto/observation_processor.proto`` at image build time (or locally via
-``make proto``)
-and are never committed.
+Regenerate them from ``proto/observation_processor.proto`` with
+``make -C observation_processor proto``.
 """
