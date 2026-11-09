@@ -28,7 +28,7 @@ to check model initialization.
 ## Key variables
 
 - `COMPOSE_PROJECT_NAME` (default: `scenescape`)
-- `MODEL_DOWNLOADER_IMAGE` (default: `intel/model-download:latest`)
+- `MODEL_DOWNLOADER_IMAGE` (default: `intel/model-download:2026.3.0-rc1`)
 - `MODEL_DOWNLOADER_URL` (default: `http://127.0.0.1:8200`)
 - `MODEL_CONFIG_FILE` (default: `models.json`; shared model download and Scenescape config metadata)
 - `MODEL_DOWNLOADER_CMD` (model_downloader startup arguments; default: `--plugins omz`)
