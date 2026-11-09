@@ -8,6 +8,7 @@ import unittest
 from unittest import mock
 
 import numpy as np
+from opentelemetry.sdk.metrics.export import InMemoryMetricReader
 
 from reid import observability
 from reid.matcher import MatcherConfig, TrackMatcher, TrackObservation
@@ -98,6 +99,41 @@ def feed(matcher, track_id, vectors, **kw):
 
 
 class TestControllerStateParity(unittest.TestCase):
+
+  def test_duration_histograms_use_seconds_scaled_buckets(self):
+    reader = InMemoryMetricReader()
+    with mock.patch.dict("os.environ", {"REID_ENABLE_METRICS": "true",
+                                        "REID_METRICS_ENDPOINT": "http://localhost:4317"}), \
+         mock.patch.object(observability, "OTLPMetricExporter"), \
+         mock.patch.object(observability, "PeriodicExportingMetricReader", return_value=reader), \
+         mock.patch.multiple(observability, _provider=None, _decision_latency=None,
+                             _backend_query_duration=None, _backend_write_duration=None):
+      provider = observability.init()
+      self.assertIsNotNone(provider)
+      try:
+        for duration in (0.002, 0.2, 2.0, 12.0):
+          observability.record_backend_query_duration(duration, "FakeAdapter")
+          observability.record_backend_write_duration(duration, "FakeAdapter")
+        for duration in (0.2, 0.7, 2.0, 12.0):
+          observability.record_decision_latency(duration, "person")
+        metrics = reader.get_metrics_data().resource_metrics[0].scope_metrics[0].metrics
+        expected_bounds = {
+          "scenescape_reid_backend_query_duration": (
+            0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30),
+          "scenescape_reid_backend_write_duration": (
+            0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30),
+          "scenescape_reid_decision_latency": (
+            0.1, 0.25, 0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 7.5, 10, 15, 20, 30),
+        }
+        self.assertEqual({metric.name for metric in metrics}, set(expected_bounds))
+        for metric in metrics:
+          with self.subTest(metric=metric.name):
+            point, = metric.data.data_points
+            self.assertEqual(point.explicit_bounds, expected_bounds[metric.name])
+            self.assertEqual(point.count, 4)
+            self.assertEqual(sum(count > 0 for count in point.bucket_counts), 4)
+      finally:
+        provider.shutdown()
 
   def test_missing_embedding_counts_once_and_remains_pending(self):
     matcher, decisions = make()
@@ -329,13 +365,23 @@ class TestDecisions(unittest.TestCase):
     self.assertEqual(matcher.stats["query_errors"], 1)
 
   def test_track_left_before_query_finished(self):
-    executor = DeferredExecutor()
-    matcher, decisions = make(executor=executor)
-    feed(matcher, "t1", [vec(i, 1, 0, 0) for i in range(3)])
-    matcher.process_frame([])  # track leaves
-    executor.run()
-    self.assertEqual(decisions, [])
-    self.assertEqual(matcher.stats["tracks_left_before_decision"], 1)
+    for results in (None, all_match("gid-A")):
+      with self.subTest(matched=results is not None):
+        executor = DeferredExecutor()
+        matcher, decisions = make(FakeAdapter(results), executor=executor)
+        states = []
+        matcher.on_state = states.append
+        with mock.patch("reid.matcher.time.perf_counter", side_effect=[10.0, 20.0, 21.0, 30.0]), \
+             mock.patch.object(observability, "record_decision_latency") as decision_metric:
+          feed(matcher, "t1", [vec(i, 1, 0, 0) for i in range(3)])
+          matcher.process_frame([])
+          decision_metric.assert_not_called()
+          executor.run()
+          decision_metric.assert_called_once_with(20.0, "person")
+        self.assertEqual(decisions, [])
+        self.assertEqual(matcher.stats["tracks_left_before_decision"], 1)
+        if results is None:
+          self.assertEqual(states[-1]["reid_state"], "query_no_match")
 
   def test_rename_via_previous_ids_keeps_track_state(self):
     matcher, decisions = make()

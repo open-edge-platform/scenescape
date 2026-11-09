@@ -233,6 +233,13 @@ Optional OpenTelemetry metrics are enabled with `REID_ENABLE_METRICS=true` and
 `scenescape_reid_backend_query_duration`, and
 `scenescape_reid_backend_write_duration`.
 
+All three histograms record seconds. Backend query and write durations use
+explicit bucket boundaries at `0.001`, `0.005`, `0.01`, `0.025`, `0.05`, `0.1`,
+`0.25`, `0.5`, `1`, `2.5`, `5`, `10`, and `30` seconds. Decision latency uses
+`0.1`, `0.25`, `0.5`, `1`, `1.5`, `2`, `2.5`, `3`, `4`, `5`, `7.5`, `10`,
+`15`, `20`, and `30` seconds, matching the Controller's ReID latency buckets.
+Values above the highest boundary fall into the overflow bucket.
+
 The legacy Controller path still contains its own ReID matcher, direct backend
 access, purge timer, and Controller-named ReID metrics in
 `controller/src/controller/uuid_manager.py` and
