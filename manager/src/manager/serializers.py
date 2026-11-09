@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from collections import OrderedDict
+from collections.abc import Mapping
 import math
 import json
 import logging
@@ -359,6 +360,9 @@ class CamSerializer(NonNullSerializer):
       raise serializers.ValidationError(f"{error.path}: {error.code}", code=error.code)
 
   def to_internal_value(self, data):
+    if not isinstance(data, Mapping):
+      message = self.error_messages['invalid'].format(datatype=type(data).__name__)
+      raise serializers.ValidationError({'non_field_errors': [message]})
     if hasattr(data, 'copy'):
       data = data.copy()
     else:
